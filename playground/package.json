@@ -1,0 +1,21 @@
+{
+  "name": "ginko-cms-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --dotenv .env.local",
+    "build": "nuxt build"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.12.2",
+    "@lupinum/ginko-cms": "workspace:*",
+    "@lupinum/ginko-cms-convex": "workspace:*",
+    "@nuxtjs/sitemap": "^8.0.15",
+    "@tailwindcss/vite": "^4.3.0",
+    "better-auth": "1.6.11",
+    "convex": "1.38.0",
+    "h3": "1.15.11",
+    "nuxt": "^4.4.6",
+    "tailwindcss": "^4.3.0"
+  }
+}

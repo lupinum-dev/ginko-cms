@@ -1,0 +1,152 @@
+{
+  "name": "@lupinum/ginko-cms",
+  "version": "0.1.0",
+  "description": "Self-hosted CMS for Nuxt teams building structured websites with Ginko",
+  "homepage": "https://github.com/lupinum-dev/ginko-cms#readme",
+  "bugs": {
+    "url": "https://github.com/lupinum-dev/ginko-cms/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lupinum-dev/ginko-cms.git",
+    "directory": "packages/cms"
+  },
+  "bin": {
+    "ginko-cms": "./dist/cli/ginko-cms.js"
+  },
+  "files": [
+    "compatibility.json",
+    "convex/manifest.d.ts",
+    "convex/manifest.js",
+    "dist",
+    "LICENSE",
+    "README.md",
+    "templates"
+  ],
+  "type": "module",
+  "main": "./dist/module.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./convex/manifest": {
+      "types": "./convex/manifest.d.ts",
+      "import": "./convex/manifest.js"
+    },
+    "./convex/auth": {
+      "types": "./dist/convex/auth.d.ts",
+      "import": "./dist/convex/auth.js"
+    },
+    "./convex/auth-config": {
+      "types": "./dist/convex/auth-config.d.ts",
+      "import": "./dist/convex/auth-config.js"
+    },
+    "./config": {
+      "types": "./dist/config/index.d.ts",
+      "import": "./dist/config/index.js"
+    },
+    "./migration": {
+      "types": "./dist/migration/index.d.ts",
+      "import": "./dist/migration/index.js"
+    },
+    "./bridge": {
+      "types": "./dist/bridge/index.d.ts",
+      "import": "./dist/bridge/index.js"
+    },
+    "./public": {
+      "types": "./dist/public/index.d.ts",
+      "import": "./dist/public/index.js"
+    },
+    "./nuxt-provider": {
+      "types": "./dist/nuxt-provider.d.ts",
+      "import": "./dist/nuxt-provider.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "pnpm --filter @lupinum/ginko-cms-contract build && pnpm --filter @lupinum/ginko-cms-convex build && pnpm run prepare:bridge-manifest && pnpm exec nuxt-module-build build . && pnpm run build:extras && pnpm run studio:build",
+    "build:extras": "node scripts/build-extras.mjs",
+    "prepack": "pnpm run build",
+    "prepare:bridge-manifest": "node scripts/prepare-bridge-manifest.mjs",
+    "studio:dev": "vite --config studio-app/vite.config.ts",
+    "studio:build": "rm -rf dist/studio-app && vite build --config studio-app/vite.config.ts",
+    "studio:typecheck": "vue-tsc -p studio-app/tsconfig.json --noEmit",
+    "typecheck": "pnpm run build && pnpm exec vue-tsc -p tsconfig.runtime.json --noEmit && pnpm run studio:typecheck"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.12.2",
+    "@lupinum/ginko-cms-contract": "workspace:^",
+    "@lupinum/ginko-cms-convex": "workspace:^",
+    "@lupinum/trellis": "^0.1.0",
+    "@lupinum/trellis-bridge": "^0.1.0",
+    "@nuxt/kit": "^4.4.6",
+    "@nuxtjs/color-mode": "^4.0.0",
+    "@tailwindcss/vite": "^4.3.0",
+    "convex": "1.38.0",
+    "defu": "^6.1.4",
+    "jiti": "^2.7.0",
+    "lucide-vue-next": "^1.0.0",
+    "magic-string": "^0.30.21",
+    "nitropack": "^2.13.4",
+    "nuxt-i18n-micro": "^3.17.5",
+    "tailwindcss": "^4.3.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tiptap/core": "^3.23.4",
+    "@tiptap/extension-blockquote": "^3.23.4",
+    "@tiptap/extension-bold": "^3.23.4",
+    "@tiptap/extension-bullet-list": "^3.23.4",
+    "@tiptap/extension-code": "^3.23.4",
+    "@tiptap/extension-code-block": "^3.23.4",
+    "@tiptap/extension-document": "^3.23.4",
+    "@tiptap/extension-dropcursor": "^3.23.4",
+    "@tiptap/extension-gapcursor": "^3.23.4",
+    "@tiptap/extension-hard-break": "^3.23.4",
+    "@tiptap/extension-heading": "^3.23.4",
+    "@tiptap/extension-history": "^3.23.4",
+    "@tiptap/extension-horizontal-rule": "^3.23.4",
+    "@tiptap/extension-italic": "^3.23.4",
+    "@tiptap/extension-link": "^3.23.4",
+    "@tiptap/extension-list-item": "^3.23.4",
+    "@tiptap/extension-ordered-list": "^3.23.4",
+    "@tiptap/extension-paragraph": "^3.23.4",
+    "@tiptap/extension-placeholder": "^3.23.4",
+    "@tiptap/extension-strike": "^3.23.4",
+    "@tiptap/extension-table": "^3.23.4",
+    "@tiptap/extension-table-cell": "^3.23.4",
+    "@tiptap/extension-table-header": "^3.23.4",
+    "@tiptap/extension-table-row": "^3.23.4",
+    "@tiptap/extension-task-item": "^3.23.4",
+    "@tiptap/extension-task-list": "^3.23.4",
+    "@tiptap/extension-text": "^3.23.4",
+    "@tiptap/extension-typography": "^3.23.4",
+    "@tiptap/extension-underline": "^3.23.4",
+    "@tiptap/pm": "^3.23.4",
+    "@tiptap/starter-kit": "^3.23.4",
+    "@tiptap/suggestion": "^3.23.4",
+    "@tiptap/vue-3": "^3.23.4",
+    "@vitejs/plugin-vue": "^6.0.5",
+    "@vueuse/core": "^14.3.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "comark": "^0.3.2",
+    "github-slugger": "^2.0.0",
+    "mkdist": "^2.4.1",
+    "reka-ui": "^2.9.7",
+    "shiki": "^4.0.2",
+    "tailwind-merge": "^3.6.0",
+    "unplugin-vue-components": "^32.0.0",
+    "vite": "^7.3.2",
+    "vue-router": "^5.0.7"
+  },
+  "peerDependencies": {
+    "@lupinum/ginko-content": "^0.1.0",
+    "nuxt": "^4.4.6",
+    "vue": "^3.5.0"
+  }
+}

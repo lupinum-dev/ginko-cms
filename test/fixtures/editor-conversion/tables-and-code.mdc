@@ -1,0 +1,13 @@
+# Table and Code
+
+| Name | Value |
+| --- | --- |
+| scope | item |
+| fallback | global |
+
+```ts
+const policy = {
+  mode: 'replace',
+  scope: 'item',
+}
+```

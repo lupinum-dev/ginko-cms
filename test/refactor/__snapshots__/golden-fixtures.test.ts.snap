@@ -1,0 +1,874 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 01-plain-paragraph.md 1`] = `
+{
+  "body": {
+    "children": [
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "This is a ",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "bold",
+              },
+            ],
+            "props": {},
+            "tag": "strong",
+            "type": "element",
+          },
+          {
+            "type": "text",
+            "value": " word and ",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "italic",
+              },
+            ],
+            "props": {},
+            "tag": "em",
+            "type": "element",
+          },
+          {
+            "type": "text",
+            "value": " phrase. Plain text follows.",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+    ],
+    "type": "root",
+  },
+  "searchText": "This is a bold word and italic phrase. Plain text follows.",
+  "toc": null,
+}
+`;
+
+exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 02-headings-and-toc.md 1`] = `
+{
+  "body": {
+    "children": [
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Top heading",
+          },
+        ],
+        "props": {
+          "id": "top-heading",
+        },
+        "tag": "h1",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Intro paragraph after the H1.",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "First section",
+          },
+        ],
+        "props": {
+          "id": "first-section",
+        },
+        "tag": "h2",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Content under section one.",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Subsection A",
+          },
+        ],
+        "props": {
+          "id": "first-section-subsection-a",
+        },
+        "tag": "h3",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Detail under subsection A.",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Subsection B",
+          },
+        ],
+        "props": {
+          "id": "first-section-subsection-b",
+        },
+        "tag": "h3",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Detail under subsection B.",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Second section",
+          },
+        ],
+        "props": {
+          "id": "second-section",
+        },
+        "tag": "h2",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Content under section two.",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+    ],
+    "toc": {
+      "depth": 2,
+      "links": [
+        {
+          "depth": 2,
+          "id": "first-section",
+          "text": "First section",
+        },
+        {
+          "depth": 3,
+          "id": "first-section-subsection-a",
+          "text": "Subsection A",
+        },
+        {
+          "depth": 3,
+          "id": "first-section-subsection-b",
+          "text": "Subsection B",
+        },
+        {
+          "depth": 2,
+          "id": "second-section",
+          "text": "Second section",
+        },
+      ],
+      "searchDepth": 3,
+      "title": "",
+    },
+    "type": "root",
+  },
+  "searchText": "Top heading Intro paragraph after the H1. First section Content under section one. Subsection A Detail under subsection A. Subsection B Detail under subsection B. Second section Content under section two.",
+  "toc": {
+    "depth": 2,
+    "links": [
+      {
+        "depth": 2,
+        "id": "first-section",
+        "text": "First section",
+      },
+      {
+        "depth": 3,
+        "id": "first-section-subsection-a",
+        "text": "Subsection A",
+      },
+      {
+        "depth": 3,
+        "id": "first-section-subsection-b",
+        "text": "Subsection B",
+      },
+      {
+        "depth": 2,
+        "id": "second-section",
+        "text": "Second section",
+      },
+    ],
+    "searchDepth": 3,
+    "title": "",
+  },
+}
+`;
+
+exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 03-lists-and-links.md 1`] = `
+{
+  "body": {
+    "children": [
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Ordered list",
+          },
+        ],
+        "props": {
+          "id": "ordered-list",
+        },
+        "tag": "h2",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "First item with ",
+              },
+              {
+                "children": [
+                  {
+                    "type": "text",
+                    "value": "an internal link",
+                  },
+                ],
+                "props": {
+                  "href": "/docs/intro",
+                },
+                "tag": "a",
+                "type": "element",
+              },
+              {
+                "type": "text",
+                "value": ".",
+              },
+            ],
+            "props": {},
+            "tag": "li",
+            "type": "element",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "Second item with ",
+              },
+              {
+                "children": [
+                  {
+                    "type": "text",
+                    "value": "an external link",
+                  },
+                ],
+                "props": {
+                  "href": "https://example.com",
+                },
+                "tag": "a",
+                "type": "element",
+              },
+              {
+                "type": "text",
+                "value": ".",
+              },
+            ],
+            "props": {},
+            "tag": "li",
+            "type": "element",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "Third item — plain text.",
+              },
+            ],
+            "props": {},
+            "tag": "li",
+            "type": "element",
+          },
+        ],
+        "props": {},
+        "tag": "ol",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Unordered list",
+          },
+        ],
+        "props": {
+          "id": "unordered-list",
+        },
+        "tag": "h2",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "Bullet one",
+              },
+            ],
+            "props": {},
+            "tag": "li",
+            "type": "element",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "Bullet two with ",
+              },
+              {
+                "children": [
+                  {
+                    "type": "text",
+                    "value": "inline code",
+                  },
+                ],
+                "props": {},
+                "tag": "code",
+                "type": "element",
+              },
+            ],
+            "props": {},
+            "tag": "li",
+            "type": "element",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "Bullet three with ",
+              },
+              {
+                "children": [
+                  {
+                    "type": "text",
+                    "value": "bold",
+                  },
+                ],
+                "props": {},
+                "tag": "strong",
+                "type": "element",
+              },
+              {
+                "type": "text",
+                "value": " and ",
+              },
+              {
+                "children": [
+                  {
+                    "type": "text",
+                    "value": "italic",
+                  },
+                ],
+                "props": {},
+                "tag": "em",
+                "type": "element",
+              },
+            ],
+            "props": {},
+            "tag": "li",
+            "type": "element",
+          },
+        ],
+        "props": {},
+        "tag": "ul",
+        "type": "element",
+      },
+    ],
+    "toc": {
+      "depth": 2,
+      "links": [
+        {
+          "depth": 2,
+          "id": "ordered-list",
+          "text": "Ordered list",
+        },
+        {
+          "depth": 2,
+          "id": "unordered-list",
+          "text": "Unordered list",
+        },
+      ],
+      "searchDepth": 3,
+      "title": "",
+    },
+    "type": "root",
+  },
+  "searchText": "Ordered list First item with an internal link . Second item with an external link . Third item — plain text. Unordered list Bullet one Bullet two with inline code Bullet three with bold and italic",
+  "toc": {
+    "depth": 2,
+    "links": [
+      {
+        "depth": 2,
+        "id": "ordered-list",
+        "text": "Ordered list",
+      },
+      {
+        "depth": 2,
+        "id": "unordered-list",
+        "text": "Unordered list",
+      },
+    ],
+    "searchDepth": 3,
+    "title": "",
+  },
+}
+`;
+
+exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 04-image-and-figure.md 1`] = `
+{
+  "body": {
+    "children": [
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Standard markdown image:",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "children": [],
+            "props": {
+              "alt": "alt text",
+              "src": "https://example.com/image.png",
+            },
+            "tag": "img",
+            "type": "element",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Image with title:",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "children": [],
+            "props": {
+              "alt": "grapes",
+              "src": "https://picsum.photos/id/75/400/400",
+              "title": "Bunch of grapes",
+            },
+            "tag": "img",
+            "type": "element",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+    ],
+    "type": "root",
+  },
+  "searchText": "Standard markdown image: Image with title:",
+  "toc": null,
+}
+`;
+
+exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 05-mdc-component.md 1`] = `
+{
+  "body": {
+    "children": [
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Migration status",
+          },
+        ],
+        "props": {
+          "variant": "info",
+        },
+        "tag": "badge",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "This is a card body with ",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "bold",
+              },
+            ],
+            "props": {},
+            "tag": "strong",
+            "type": "element",
+          },
+          {
+            "type": "text",
+            "value": " content.",
+          },
+        ],
+        "props": {},
+        "tag": "card",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Plain paragraph after the components.",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+    ],
+    "type": "root",
+  },
+  "searchText": "Migration status This is a card body with bold content. Plain paragraph after the components.",
+  "toc": null,
+}
+`;
+
+exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 06-table-and-code.md 1`] = `
+{
+  "body": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "type": "text",
+                        "value": "Column A",
+                      },
+                    ],
+                    "props": {},
+                    "tag": "th",
+                    "type": "element",
+                  },
+                  {
+                    "children": [
+                      {
+                        "type": "text",
+                        "value": "Column B",
+                      },
+                    ],
+                    "props": {},
+                    "tag": "th",
+                    "type": "element",
+                  },
+                ],
+                "props": {},
+                "tag": "tr",
+                "type": "element",
+              },
+            ],
+            "props": {},
+            "tag": "thead",
+            "type": "element",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "type": "text",
+                        "value": "Row 1A",
+                      },
+                    ],
+                    "props": {},
+                    "tag": "td",
+                    "type": "element",
+                  },
+                  {
+                    "children": [
+                      {
+                        "type": "text",
+                        "value": "Row 1B",
+                      },
+                    ],
+                    "props": {},
+                    "tag": "td",
+                    "type": "element",
+                  },
+                ],
+                "props": {},
+                "tag": "tr",
+                "type": "element",
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "type": "text",
+                        "value": "Row 2A",
+                      },
+                    ],
+                    "props": {},
+                    "tag": "td",
+                    "type": "element",
+                  },
+                  {
+                    "children": [
+                      {
+                        "type": "text",
+                        "value": "Row 2B",
+                      },
+                    ],
+                    "props": {},
+                    "tag": "td",
+                    "type": "element",
+                  },
+                ],
+                "props": {},
+                "tag": "tr",
+                "type": "element",
+              },
+            ],
+            "props": {},
+            "tag": "tbody",
+            "type": "element",
+          },
+        ],
+        "props": {},
+        "tag": "table",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "function greet(name: string): string {
+  return \`hello, \${name}\`
+}",
+              },
+            ],
+            "props": {
+              "class": "language-ts",
+            },
+            "tag": "code",
+            "type": "element",
+          },
+        ],
+        "props": {
+          "language": "ts",
+        },
+        "tag": "pre",
+        "type": "element",
+      },
+    ],
+    "type": "root",
+  },
+  "searchText": "Column A Column B Row 1A Row 1B Row 2A Row 2B function greet(name: string): string { return \`hello, \${name}\` }",
+  "toc": null,
+}
+`;
+
+exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 07-localized-fr.md 1`] = `
+{
+  "body": {
+    "children": [
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Introduction",
+          },
+        ],
+        "props": {
+          "id": "introduction",
+        },
+        "tag": "h2",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "type": "text",
+            "value": "Découvrez la richesse de la cuisine asiatique. Les ",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "épices",
+              },
+            ],
+            "props": {},
+            "tag": "strong",
+            "type": "element",
+          },
+          {
+            "type": "text",
+            "value": " et les ",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "herbes",
+              },
+            ],
+            "props": {},
+            "tag": "em",
+            "type": "element",
+          },
+          {
+            "type": "text",
+            "value": " sont au cœur de chaque plat.",
+          },
+        ],
+        "props": {},
+        "tag": "p",
+        "type": "element",
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "Cuisine chinoise",
+              },
+            ],
+            "props": {},
+            "tag": "li",
+            "type": "element",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "Cuisine japonaise",
+              },
+            ],
+            "props": {},
+            "tag": "li",
+            "type": "element",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "Cuisine thaïlandaise",
+              },
+            ],
+            "props": {},
+            "tag": "li",
+            "type": "element",
+          },
+        ],
+        "props": {},
+        "tag": "ul",
+        "type": "element",
+      },
+    ],
+    "toc": {
+      "depth": 2,
+      "links": [
+        {
+          "depth": 2,
+          "id": "introduction",
+          "text": "Introduction",
+        },
+      ],
+      "searchDepth": 3,
+      "title": "",
+    },
+    "type": "root",
+  },
+  "searchText": "Introduction Découvrez la richesse de la cuisine asiatique. Les épices et les herbes sont au cœur de chaque plat. Cuisine chinoise Cuisine japonaise Cuisine thaïlandaise",
+  "toc": {
+    "depth": 2,
+    "links": [
+      {
+        "depth": 2,
+        "id": "introduction",
+        "text": "Introduction",
+      },
+    ],
+    "searchDepth": 3,
+    "title": "",
+  },
+}
+`;
+
+exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 08-empty-body.md 1`] = `
+{
+  "body": {
+    "children": [],
+    "type": "root",
+  },
+  "searchText": "",
+  "toc": null,
+}
+`;

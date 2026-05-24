@@ -1,0 +1,69 @@
+{
+  "name": "@lupinum/ginko-cms-convex",
+  "version": "0.1.0",
+  "description": "Convex component for ginko-cms",
+  "homepage": "https://github.com/lupinum-dev/ginko-cms#readme",
+  "bugs": {
+    "url": "https://github.com/lupinum-dev/ginko-cms/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lupinum-dev/ginko-cms.git",
+    "directory": "packages/convex"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    "./convex.config": {
+      "types": "./dist/component/convex.config.d.ts",
+      "import": "./dist/component/convex.config.js"
+    },
+    "./convex.auth": {
+      "types": "./dist/convex.auth.d.ts",
+      "import": "./dist/convex.auth.js"
+    },
+    "./component": {
+      "types": "./dist/_generated/component.d.ts",
+      "import": "./dist/_generated/component.js"
+    },
+    "./_generated/component.js": {
+      "types": "./dist/_generated/component.d.ts",
+      "import": "./dist/_generated/component.js"
+    },
+    "./component-bridge": {
+      "types": "./dist/componentBridge.d.ts",
+      "import": "./dist/componentBridge.js"
+    },
+    "./operations": {
+      "types": "./dist/operations.d.ts",
+      "import": "./dist/operations.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json && node scripts/build-component-entrypoints.mjs",
+    "codegen": "pnpm --dir ../.. exec convex codegen --component-dir packages/convex/src",
+    "prepack": "pnpm run build",
+    "prepare:component": "pnpm run codegen",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@lupinum/ginko-cms-contract": "workspace:^",
+    "@lupinum/trellis": "^0.1.0",
+    "@lupinum/trellis-bridge": "^0.1.0",
+    "comark": "^0.3.2",
+    "convex": "1.38.0",
+    "scule": "^1.3.0",
+    "ufo": "^1.6.4"
+  },
+  "peerDependencies": {
+    "@convex-dev/better-auth": "^0.12.2"
+  }
+}

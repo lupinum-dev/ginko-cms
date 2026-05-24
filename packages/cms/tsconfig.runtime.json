@@ -1,0 +1,16 @@
+{
+  "extends": "../../playground/.nuxt/tsconfig.app.json",
+  "include": [
+    "../../playground/.nuxt/nuxt.d.ts",
+    "../../playground/.nuxt/types/ginko-cms-public-contract.d.ts",
+    "./src/runtime/**/*.ts",
+    "./src/runtime/**/*.vue",
+    "./src/public/**/*.ts",
+    "./src/public/**/*.vue",
+    "./src/auth/**/*.ts",
+    "./src/auth/**/*.vue",
+    "./type-tests/**/*.ts",
+    "../contract/src/**/*.ts"
+  ],
+  "exclude": ["./dist", "./node_modules", "./playground", "./src/server", "./src/server/**/*"]
+}

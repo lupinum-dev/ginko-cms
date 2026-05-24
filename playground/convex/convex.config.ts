@@ -1,0 +1,10 @@
+import betterAuth from '@convex-dev/better-auth/convex.config'
+import ginkoCms from '@lupinum/ginko-cms-convex/convex.config'
+import { defineApp } from 'convex/server'
+
+const app = defineApp()
+
+app.use(betterAuth, { name: 'betterAuth' })
+app.use(ginkoCms)
+
+export default app

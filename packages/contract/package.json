@@ -1,0 +1,98 @@
+{
+  "name": "@lupinum/ginko-cms-contract",
+  "version": "0.1.0",
+  "description": "Shared domain contract for ginko-cms",
+  "homepage": "https://github.com/lupinum-dev/ginko-cms#readme",
+  "bugs": {
+    "url": "https://github.com/lupinum-dev/ginko-cms/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lupinum-dev/ginko-cms.git",
+    "directory": "packages/contract"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    "./shared/fields": {
+      "types": "./dist/fields/index.d.ts",
+      "import": "./dist/fields/index.js"
+    },
+    "./shared/fields/*.js": {
+      "types": "./dist/fields/*.d.ts",
+      "import": "./dist/fields/*.js"
+    },
+    "./shared/publicContent.js": {
+      "types": "./dist/publicContent.d.ts",
+      "import": "./dist/publicContent.js"
+    },
+    "./shared/contentTags.js": {
+      "types": "./dist/contentTags.d.ts",
+      "import": "./dist/contentTags.js"
+    },
+    "./shared/assetPolicy.js": {
+      "types": "./dist/assetPolicy.d.ts",
+      "import": "./dist/assetPolicy.js"
+    },
+    "./shared/types.js": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./shared/order.js": {
+      "types": "./dist/order.d.ts",
+      "import": "./dist/order.js"
+    },
+    "./shared/permissions.js": {
+      "types": "./dist/permissions.d.ts",
+      "import": "./dist/permissions.js"
+    },
+    "./shared/caller.js": {
+      "types": "./dist/caller.d.ts",
+      "import": "./dist/caller.js"
+    },
+    "./shared/routeDiagnostics.js": {
+      "types": "./dist/routeDiagnostics.d.ts",
+      "import": "./dist/routeDiagnostics.js"
+    },
+    "./shared/utils.js": {
+      "types": "./dist/utils.d.ts",
+      "import": "./dist/utils.js"
+    },
+    "./convex/validators.js": {
+      "types": "./dist/validators.d.ts",
+      "import": "./dist/validators.js"
+    },
+    "./convex/caller.js": {
+      "types": "./dist/convex/caller.d.ts",
+      "import": "./dist/convex/caller.js"
+    },
+    "./convex/schemas/*.js": {
+      "types": "./dist/schemas/*.d.ts",
+      "import": "./dist/schemas/*.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "prepack": "pnpm run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json"
+  },
+  "devDependencies": {
+    "convex": "1.38.0"
+  },
+  "peerDependencies": {
+    "convex": "^1.38.0"
+  },
+  "peerDependenciesMeta": {
+    "convex": {
+      "optional": true
+    }
+  }
+}

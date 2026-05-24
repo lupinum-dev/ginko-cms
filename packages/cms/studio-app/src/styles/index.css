@@ -1,0 +1,580 @@
+@import 'tailwindcss' prefix(ginko);
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-body);
+  --font-serif: var(--font-heading);
+  --font-mono: var(--font-mono);
+  --font-body: var(--font-body);
+  --font-heading: var(--font-heading);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-fg: var(--success-fg);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-fg: var(--warning-fg);
+  --color-destructive-fg: var(--destructive-fg);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --animate-collapsible-down: collapsible-down 0.2s ease-out;
+  --animate-collapsible-up: collapsible-up 0.2s ease-out;
+
+  @keyframes collapsible-down {
+    from {
+      height: 0;
+    }
+
+    to {
+      height: var(--reka-collapsible-content-height);
+    }
+  }
+
+  @keyframes collapsible-up {
+    from {
+      height: var(--reka-collapsible-content-height);
+    }
+
+    to {
+      height: 0;
+    }
+  }
+}
+
+:root {
+  /* Docs layout (Fumadocs-style shell) */
+  --docs-header-row-1: 3.5rem;
+  --docs-sidebar-width-expanded: 268px;
+  --docs-sidebar-width-collapsed: 4.5rem;
+  --docs-sidebar-width: var(--docs-sidebar-width-expanded);
+
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+
+@layer base {
+  .ginko-cms,
+  .ginko-cms *,
+  .ginko-cms *::before,
+  .ginko-cms *::after {
+    @apply ginko:border-border ginko:outline-ring/50;
+  }
+
+  .ginko-cms {
+    @apply ginko:bg-background ginko:text-foreground;
+    font-family: var(--font-body);
+  }
+
+  .ginko-cms h1,
+  .ginko-cms h2,
+  .ginko-cms h3,
+  .ginko-cms h4,
+  .ginko-cms h5,
+  .ginko-cms h6 {
+    font-family: var(--font-heading);
+  }
+
+  .ginko-cms code,
+  .ginko-cms kbd,
+  .ginko-cms pre,
+  .ginko-cms samp {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Page chrome: warm-neutral wash behind the sidebar + main column.
+ * Sidebar/header/cards keep their own surface colors and float on top. */
+.ginko-cms.studio-shell,
+.ginko-cms .studio-shell {
+  background: var(--studio-shell-bg);
+}
+
+.ginko-cms .studio-page-content {
+  width: min(100%, 80rem);
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.ginko-cms .studio-page-content--bleed {
+  width: 100%;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Studio type ladder
+ *
+ * Five steps. Every textual element in the studio shell picks one — never
+ * a free-form size. Apply via class (`studio-text-*`) or compose Tailwind
+ * (`text-[13px] font-semibold` is allowed; `text-[14.5px]` is not).
+ *
+ *   display   18px / 600 / -0.01em   → page hero, only used in empty home
+ *   title     13px / 600 /  0        → section headers, card titles, breadcrumb leaf
+ *   body      13px / 400 /  0        → form fields, button labels, default text
+ *   label     12px / 500 /  0        → field labels, secondary controls
+ *   caption   11px / 500 /  0.02em   → helpers, timestamps, locale codes
+ *   eyebrow   10px / 600 /  0.10em   → section group labels (CONTENT, MANAGE)
+ * ──────────────────────────────────────────────────────────────────────── */
+.ginko-cms .studio-text-display {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.ginko-cms .studio-text-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.ginko-cms .studio-text-body {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.ginko-cms .studio-text-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.ginko-cms .studio-text-caption {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+.ginko-cms .studio-text-eyebrow {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Studio motion utilities
+ *
+ * Three durations, two curves. Components compose:
+ *   .studio-motion-fast → 120ms ease-out — hover, focus
+ *   .studio-motion-base → 180ms ease-out — state transitions (status flips)
+ *   .studio-motion-slow → 280ms ease-out — layout-adjacent motion (sheets)
+ *
+ * These animate only color/border-color/box-shadow/background-color by default.
+ * Components that need more (e.g. transform) opt in explicitly.
+ * ──────────────────────────────────────────────────────────────────────── */
+.ginko-cms .studio-motion-fast {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease);
+}
+.ginko-cms .studio-motion-base {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease);
+}
+.ginko-cms .studio-motion-slow {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--motion-slow);
+  transition-timing-function: var(--motion-ease-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ginko-cms .studio-motion-fast,
+  .ginko-cms .studio-motion-base,
+  .ginko-cms .studio-motion-slow {
+    transition-duration: 1ms;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Restrained reveal — section cards fade in on first paint, never on re-render.
+ * Uses @starting-style which only fires on initial commit. Skipped under
+ * prefers-reduced-motion. The 4-px translate is sub-perceptual; it's the
+ * fade that makes the page feel composed instead of slammed.
+ * ──────────────────────────────────────────────────────────────────────── */
+@supports (animation-timeline: scroll()) and (transition-behavior: allow-discrete) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ginko-cms .studio-reveal {
+      opacity: 1;
+      transform: translateY(0);
+      transition:
+        opacity var(--motion-base) var(--motion-ease),
+        transform var(--motion-base) var(--motion-ease);
+    }
+    @starting-style {
+      .ginko-cms .studio-reveal {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+    }
+  }
+}
+
+.AccordionContent {
+  overflow: hidden;
+}
+
+.AccordionContent[data-state='open'] {
+  animation: accordion-slide-down 300ms cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+.AccordionContent[data-state='closed'] {
+  animation: accordion-slide-up 300ms cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+@keyframes accordion-slide-down {
+  from {
+    height: 0;
+  }
+
+  to {
+    height: var(--reka-accordion-content-height);
+  }
+}
+
+@keyframes accordion-slide-up {
+  from {
+    height: var(--reka-accordion-content-height);
+  }
+
+  to {
+    height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .AccordionContent[data-state='open'],
+  .AccordionContent[data-state='closed'] {
+    animation: none;
+  }
+}
+
+/*
+ * Ginko CMS Studio shell scoping
+ * The .ginko-cms class scopes color-scheme so native form controls render
+ * with the correct theme. Studio keeps its own action palette inside this
+ * scope so host app shadcn tokens cannot bleed into CMS controls.
+ */
+
+.ginko-cms {
+  color-scheme: light;
+  --radius: var(--ginko-cms-radius, 0.625rem);
+  --studio-action: var(--ginko-cms-studio-action, oklch(0.205 0 0));
+  --studio-action-foreground: var(--ginko-cms-studio-action-foreground, oklch(0.985 0 0));
+
+  --background: var(--ginko-cms-background, oklch(1 0 0));
+  --foreground: var(--ginko-cms-foreground, oklch(0.145 0 0));
+  --card: var(--ginko-cms-card, oklch(1 0 0));
+  --card-foreground: var(--ginko-cms-card-foreground, oklch(0.145 0 0));
+  --popover: var(--ginko-cms-popover, oklch(1 0 0));
+  --popover-foreground: var(--ginko-cms-popover-foreground, oklch(0.145 0 0));
+  --primary: var(--studio-action);
+  --primary-foreground: var(--studio-action-foreground);
+  --secondary: var(--ginko-cms-secondary, oklch(0.97 0 0));
+  --secondary-foreground: var(--ginko-cms-secondary-foreground, oklch(0.205 0 0));
+  --muted: var(--ginko-cms-muted, oklch(0.97 0 0));
+  --muted-foreground: var(--ginko-cms-muted-foreground, oklch(0.556 0 0));
+  --accent: var(--ginko-cms-accent, oklch(0.97 0 0));
+  --accent-foreground: var(--ginko-cms-accent-foreground, oklch(0.205 0 0));
+  --destructive: var(--ginko-cms-destructive, oklch(0.577 0.245 27.325));
+  --destructive-foreground: var(--ginko-cms-destructive-foreground, oklch(0.985 0 0));
+  --destructive-fg: var(--ginko-cms-destructive-fg, oklch(0.45 0.2 27));
+  --success: var(--ginko-cms-studio-success, oklch(0.63 0.09 160));
+  --success-foreground: var(--ginko-cms-studio-success-foreground, oklch(0.985 0 0));
+  --success-fg: var(--ginko-cms-studio-success-fg, oklch(0.42 0.08 160));
+  --warning: var(--ginko-cms-warning, oklch(0.769 0.188 70.08));
+  --warning-foreground: var(--ginko-cms-warning-foreground, oklch(0.205 0 0));
+  --warning-fg: var(--ginko-cms-warning-fg, oklch(0.48 0.13 70));
+  --border: var(--ginko-cms-border, oklch(0.922 0 0));
+  --input: var(--ginko-cms-input, oklch(0.922 0 0));
+  --ring: var(--ginko-cms-ring, var(--studio-action));
+  --chart-1: var(--ginko-cms-chart-1, oklch(0.87 0 0));
+  --chart-2: var(--ginko-cms-chart-2, oklch(0.556 0 0));
+  --chart-3: var(--ginko-cms-chart-3, oklch(0.439 0 0));
+  --chart-4: var(--ginko-cms-chart-4, oklch(0.371 0 0));
+  --chart-5: var(--ginko-cms-chart-5, oklch(0.269 0 0));
+  --sidebar: var(--ginko-cms-sidebar, oklch(0.985 0 0));
+  --sidebar-foreground: var(--ginko-cms-sidebar-foreground, oklch(0.145 0 0));
+  --sidebar-primary: var(--ginko-cms-studio-sidebar-primary, var(--studio-action));
+  --sidebar-primary-foreground: var(
+    --ginko-cms-studio-sidebar-primary-foreground,
+    var(--studio-action-foreground)
+  );
+  --sidebar-accent: var(--ginko-cms-sidebar-accent, oklch(0.97 0 0));
+  --sidebar-accent-foreground: var(--ginko-cms-sidebar-accent-foreground, oklch(0.205 0 0));
+  --sidebar-border: var(--ginko-cms-sidebar-border, oklch(0.922 0 0));
+  --sidebar-ring: var(--ginko-cms-sidebar-ring, oklch(0.708 0 0));
+
+  /* Tailwind v4 utilities such as bg-primary resolve through --color-* theme
+   * variables. Define those aliases inside the CMS scope so host app theme
+   * variables cannot bleed into Studio utility classes. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-fg: var(--destructive-fg);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-fg: var(--success-fg);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-fg: var(--warning-fg);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Page canvas: pure neutral grey. Cards float; sidebar reads as a
+   * separate tower. Three tiers: page (0.97) → sidebar (0.985) → card (1.0). */
+  --studio-shell-bg: var(--ginko-cms-studio-shell-bg, oklch(0.97 0 0));
+
+  --studio-surface: var(--ginko-cms-studio-surface, var(--card));
+  --studio-panel: var(--ginko-cms-studio-panel, oklch(0.985 0 0));
+  --studio-muted: var(--ginko-cms-studio-muted, oklch(0.97 0 0));
+  --studio-divider: var(--ginko-cms-studio-divider, oklch(0.922 0 0 / 0.6));
+  --studio-shadow: none;
+  --studio-shadow-sm: none;
+
+  /* Spacing rhythm — every spacing decision in the studio resolves to one of these. */
+  --space-xs: 0.25rem; /* 4px  — chip↔chip, label↔input fine gap */
+  --space-sm: 0.5rem; /* 8px  — icon↔text, intra-row */
+  --space-md: 0.75rem; /* 12px — between related fields */
+  --space-lg: 1rem; /* 16px — card inner padding (compact) */
+  --space-xl: 1.25rem; /* 20px — card inner padding (default) */
+  --space-2xl: 1.5rem; /* 24px — canvas L/R padding */
+  --space-3xl: 2rem; /* 32px — canvas bottom padding, between sections */
+
+  /* Border weight rhythm — every border decision picks one of three opacities. */
+  --border-strong: var(--border); /* clear separation, headers, primary card edges */
+  --border-soft: oklch(0.922 0 0 / 0.6); /* default card edges, inner dividers */
+  --border-faint: oklch(0.922 0 0 / 0.4); /* sub-row dividers, ghosts */
+
+  /* Motion rhythm — every component animates with these. */
+  --motion-fast: 120ms; /* hover, focus, color flips */
+  --motion-base: 180ms; /* state transitions (status pills, dialog enter) */
+  --motion-slow: 280ms; /* layout-adjacent (sheet slide, accordion) */
+  --motion-ease: cubic-bezier(0.32, 0.72, 0, 1); /* ease-out-quart, exponential settle */
+  --motion-ease-soft: cubic-bezier(0.4, 0, 0.2, 1); /* ease-in-out, sub-perceptual moves */
+  --studio-accent-bg: var(--ginko-cms-studio-accent-bg, oklch(0.96 0 0));
+  --studio-accent-fg: var(--ginko-cms-studio-accent-fg, oklch(0.37 0 0));
+  --studio-accent-border: var(--ginko-cms-studio-accent-border, oklch(0.82 0 0 / 0.55));
+  --studio-success-bg: var(--ginko-cms-studio-success-bg, oklch(0.96 0.025 160));
+  --studio-success-fg: var(--ginko-cms-studio-success-fg, oklch(0.42 0.08 160));
+  --studio-success-border: var(--ginko-cms-studio-success-border, oklch(0.75 0.07 160 / 0.45));
+  --studio-warning-bg: var(--ginko-cms-studio-warning-bg, oklch(0.96 0.05 78));
+  --studio-warning-fg: var(--ginko-cms-studio-warning-fg, oklch(0.5 0.12 70));
+  --studio-warning-border: var(--ginko-cms-studio-warning-border, oklch(0.82 0.13 78 / 0.55));
+  --studio-danger-bg: var(--ginko-cms-studio-danger-bg, oklch(0.96 0.04 25));
+  --studio-danger-fg: var(--ginko-cms-studio-danger-fg, oklch(0.55 0.18 25));
+  --studio-danger-border: var(--ginko-cms-studio-danger-border, oklch(0.82 0.13 25 / 0.55));
+}
+
+.dark .ginko-cms {
+  color-scheme: dark;
+  --studio-action: var(--ginko-cms-dark-studio-action, oklch(0.985 0 0));
+  --studio-action-foreground: var(--ginko-cms-dark-studio-action-foreground, oklch(0.145 0 0));
+
+  --background: var(--ginko-cms-dark-background, oklch(0.145 0 0));
+  --foreground: var(--ginko-cms-dark-foreground, oklch(0.985 0 0));
+  --card: var(--ginko-cms-dark-card, oklch(0.205 0 0));
+  --card-foreground: var(--ginko-cms-dark-card-foreground, oklch(0.985 0 0));
+  --popover: var(--ginko-cms-dark-popover, oklch(0.205 0 0));
+  --popover-foreground: var(--ginko-cms-dark-popover-foreground, oklch(0.985 0 0));
+  --primary: var(--studio-action);
+  --primary-foreground: var(--studio-action-foreground);
+  --secondary: var(--ginko-cms-dark-secondary, oklch(0.269 0 0));
+  --secondary-foreground: var(--ginko-cms-dark-secondary-foreground, oklch(0.985 0 0));
+  --muted: var(--ginko-cms-dark-muted, oklch(0.269 0 0));
+  --muted-foreground: var(--ginko-cms-dark-muted-foreground, oklch(0.708 0 0));
+  --accent: var(--ginko-cms-dark-accent, oklch(0.269 0 0));
+  --accent-foreground: var(--ginko-cms-dark-accent-foreground, oklch(0.985 0 0));
+  --destructive: var(--ginko-cms-dark-destructive, oklch(0.396 0.141 25.723));
+  --destructive-foreground: var(--ginko-cms-dark-destructive-foreground, oklch(0.985 0 0));
+  --destructive-fg: var(--ginko-cms-dark-destructive-fg, oklch(0.78 0.16 25));
+  --success: var(--ginko-cms-dark-studio-success, oklch(0.58 0.08 160));
+  --success-foreground: var(--ginko-cms-dark-studio-success-foreground, oklch(0.145 0 0));
+  --success-fg: var(--ginko-cms-dark-studio-success-fg, oklch(0.78 0.08 160));
+  --warning: var(--ginko-cms-dark-warning, oklch(0.769 0.188 70.08));
+  --warning-foreground: var(--ginko-cms-dark-warning-foreground, oklch(0.205 0 0));
+  --warning-fg: var(--ginko-cms-dark-warning-fg, oklch(0.84 0.14 78));
+  --border: var(--ginko-cms-dark-border, oklch(1 0 0 / 0.1));
+  --input: var(--ginko-cms-dark-input, oklch(1 0 0 / 0.15));
+  --ring: var(--ginko-cms-dark-ring, var(--studio-action));
+  --chart-1: var(--ginko-cms-dark-chart-1, oklch(0.87 0 0));
+  --chart-2: var(--ginko-cms-dark-chart-2, oklch(0.556 0 0));
+  --chart-3: var(--ginko-cms-dark-chart-3, oklch(0.439 0 0));
+  --chart-4: var(--ginko-cms-dark-chart-4, oklch(0.371 0 0));
+  --chart-5: var(--ginko-cms-dark-chart-5, oklch(0.269 0 0));
+  --sidebar: var(--ginko-cms-dark-sidebar, oklch(0.205 0 0));
+  --sidebar-foreground: var(--ginko-cms-dark-sidebar-foreground, oklch(0.985 0 0));
+  --sidebar-primary: var(--ginko-cms-dark-studio-sidebar-primary, var(--studio-action));
+  --sidebar-primary-foreground: var(
+    --ginko-cms-dark-studio-sidebar-primary-foreground,
+    var(--studio-action-foreground)
+  );
+  --sidebar-accent: var(--ginko-cms-dark-sidebar-accent, oklch(0.269 0 0));
+  --sidebar-accent-foreground: var(--ginko-cms-dark-sidebar-accent-foreground, oklch(0.985 0 0));
+  --sidebar-border: var(--ginko-cms-dark-sidebar-border, oklch(1 0 0 / 0.1));
+  --sidebar-ring: var(--ginko-cms-dark-sidebar-ring, oklch(0.556 0 0));
+
+  /* Dark page canvas: matches body background; sidebar/cards elevate
+   * from it. Hierarchy in dark = page (0.145) → sidebar/card (0.205). */
+  --studio-shell-bg: var(--ginko-cms-dark-studio-shell-bg, oklch(0.145 0 0));
+
+  --studio-surface: var(--ginko-cms-dark-studio-surface, var(--card));
+  --studio-panel: var(--ginko-cms-dark-studio-panel, oklch(0.205 0 0));
+  --studio-muted: var(--ginko-cms-dark-studio-muted, oklch(0.269 0 0));
+  --studio-divider: var(--ginko-cms-dark-studio-divider, oklch(0.94 0 0 / 0.14));
+
+  /* Border rhythm in dark mode — opaque-on-dark is hairline-on-light's analog. */
+  --border-soft: oklch(0.94 0 0 / 0.12);
+  --border-faint: oklch(0.94 0 0 / 0.07);
+  --studio-accent-bg: var(--ginko-cms-dark-studio-accent-bg, oklch(0.27 0 0));
+  --studio-accent-fg: var(--ginko-cms-dark-studio-accent-fg, oklch(0.82 0 0));
+  --studio-accent-border: var(--ginko-cms-dark-studio-accent-border, oklch(0.7 0 0 / 0.28));
+  --studio-success-bg: var(--ginko-cms-dark-studio-success-bg, oklch(0.25 0.04 160));
+  --studio-success-fg: var(--ginko-cms-dark-studio-success-fg, oklch(0.78 0.08 160));
+  --studio-success-border: var(--ginko-cms-dark-studio-success-border, oklch(0.5 0.07 160 / 0.55));
+  --studio-warning-bg: var(--ginko-cms-dark-studio-warning-bg, oklch(0.27 0.045 78));
+  --studio-warning-fg: var(--ginko-cms-dark-studio-warning-fg, oklch(0.84 0.13 78));
+  --studio-warning-border: var(--ginko-cms-dark-studio-warning-border, oklch(0.58 0.13 78 / 0.6));
+  --studio-danger-bg: var(--ginko-cms-dark-studio-danger-bg, oklch(0.26 0.045 25));
+  --studio-danger-fg: var(--ginko-cms-dark-studio-danger-fg, oklch(0.78 0.14 25));
+  --studio-danger-border: var(--ginko-cms-dark-studio-danger-border, oklch(0.56 0.14 25 / 0.6));
+}
+
+.ginko-cms--sidebar-dark {
+  --sidebar: var(--ginko-cms-sidebar-dark-background, var(--ginko-cms-sidebar, oklch(0.985 0 0)));
+  --sidebar-foreground: var(
+    --ginko-cms-sidebar-dark-foreground,
+    var(--ginko-cms-sidebar-foreground, oklch(0.145 0 0))
+  );
+  --sidebar-primary: var(--ginko-cms-studio-sidebar-dark-primary, var(--primary));
+  --sidebar-primary-foreground: var(
+    --ginko-cms-studio-sidebar-dark-primary-foreground,
+    var(--primary-foreground)
+  );
+  --sidebar-accent: var(--ginko-cms-sidebar-dark-accent, var(--accent));
+  --sidebar-accent-foreground: var(
+    --ginko-cms-sidebar-dark-accent-foreground,
+    var(--accent-foreground)
+  );
+  --sidebar-border: var(--ginko-cms-sidebar-dark-border, var(--border));
+  --sidebar-ring: var(--ginko-cms-sidebar-dark-ring, var(--ring));
+}
+
+.dark .ginko-cms--sidebar-dark {
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+.ginko-cms.border:not([class*='border-']),
+.ginko-cms .border:not([class*='border-']) {
+  border-color: var(--border);
+}
+
+.ginko-cms.border-t:not([class*='border-border']):not([class*='border-destructive']):not(
+    [class*='border-warning']
+  ):not([class*='border-amber']):not([class*='border-transparent']),
+.ginko-cms
+  .border-t:not([class*='border-border']):not([class*='border-destructive']):not(
+    [class*='border-warning']
+  ):not([class*='border-amber']):not([class*='border-transparent']) {
+  border-top-color: var(--border);
+}
+
+.ginko-cms.border-r:not([class*='border-border']):not([class*='border-destructive']):not(
+    [class*='border-warning']
+  ):not([class*='border-amber']):not([class*='border-transparent']),
+.ginko-cms
+  .border-r:not([class*='border-border']):not([class*='border-destructive']):not(
+    [class*='border-warning']
+  ):not([class*='border-amber']):not([class*='border-transparent']) {
+  border-right-color: var(--border);
+}
+
+.ginko-cms.border-b:not([class*='border-border']):not([class*='border-destructive']):not(
+    [class*='border-warning']
+  ):not([class*='border-amber']):not([class*='border-transparent']),
+.ginko-cms
+  .border-b:not([class*='border-border']):not([class*='border-destructive']):not(
+    [class*='border-warning']
+  ):not([class*='border-amber']):not([class*='border-transparent']) {
+  border-bottom-color: var(--border);
+}
+
+.ginko-cms.border-l:not([class*='border-border']):not([class*='border-destructive']):not(
+    [class*='border-warning']
+  ):not([class*='border-amber']):not([class*='border-transparent']),
+.ginko-cms
+  .border-l:not([class*='border-border']):not([class*='border-destructive']):not(
+    [class*='border-warning']
+  ):not([class*='border-amber']):not([class*='border-transparent']) {
+  border-left-color: var(--border);
+}

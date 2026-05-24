@@ -1,0 +1,94 @@
+<script setup lang="ts">
+import { Trash2 } from 'lucide-vue-next'
+import { computed } from 'vue'
+
+import { useCmsI18n } from '../../../composables/useCmsI18n'
+import type { FieldContext, FieldDefinition } from './useFieldCommon'
+
+const props = defineProps<{
+  field: FieldDefinition
+  modelValue: unknown
+  assetContext?: FieldContext
+  label: string
+  fieldError: string | null
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: unknown]
+}>()
+
+const { t } = useCmsI18n()
+const value = computed<string[]>({
+  get: () =>
+    Array.isArray(props.modelValue)
+      ? props.modelValue.filter((item): item is string => typeof item === 'string')
+      : [],
+  set: (v) => emit('update:modelValue', v),
+})
+
+function addMediaItem() {
+  const items = [...value.value]
+  items.push('')
+  value.value = items
+}
+
+function updateMediaItem(index: number, nextValue: string) {
+  const items = [...value.value]
+  items[index] = nextValue
+  value.value = items
+}
+
+function removeMediaItem(index: number) {
+  const items = [...value.value]
+  items.splice(index, 1)
+  value.value = items
+}
+
+function updateImages(nextValue: string | string[]) {
+  value.value = Array.isArray(nextValue) ? nextValue : [nextValue]
+}
+</script>
+
+<template>
+  <div class="ginko:space-y-2">
+    <div class="ginko:flex ginko:items-center ginko:justify-between">
+      <Label class="ginko:text-sm">
+        {{ label }}
+        <span v-if="field.required" class="ginko:text-destructive">*</span>
+      </Label>
+      <Button v-if="!assetContext" variant="outline" size="sm" @click="addMediaItem">
+        {{ t('ginkoCms.studio.fieldRenderer.addImage') }}
+      </Button>
+    </div>
+    <StudioAssetPicker
+      v-if="assetContext"
+      :model-value="value"
+      multiple
+      kind="image"
+      :accept="field.media?.accept"
+      :aspect-ratio="field.media?.aspectRatio"
+      :label="label"
+      :asset-context="assetContext"
+      @update:model-value="updateImages"
+    />
+    <div v-else-if="Array.isArray(value)" class="ginko:space-y-2">
+      <div
+        v-for="(item, index) in value"
+        :key="index"
+        class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3 ginko:space-y-2"
+      >
+        <div class="ginko:flex ginko:gap-2">
+          <Input
+            :model-value="item"
+            class="ginko:font-mono ginko:text-sm"
+            :placeholder="t('ginkoCms.studio.fieldRenderer.assetImagePlaceholder')"
+            @update:model-value="updateMediaItem(index, $event)"
+          />
+          <Button variant="ghost" size="sm" @click="removeMediaItem(index)">
+            <Trash2 class="ginko:size-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

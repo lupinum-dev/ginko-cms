@@ -1,0 +1,7 @@
+# Components and Lists
+
+:badge{ --variant="info" } Migration Status
+
+- First checklist entry
+- Second entry with :badge{ --variant="secondary" } inline state
+- Third entry with [external docs](https://nuxt.com)

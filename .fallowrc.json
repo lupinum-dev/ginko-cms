@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "packages/contract/type-tests/*.ts",
+    "packages/cms/type-tests/*.ts",
+    "packages/cms/src/server/mcp/_shared/*.ts",
+    "packages/cms/src/server/mcp/tools/**/*.ts"
+  ],
+  "ignoreDependencies": [
+    "@convex-dev/better-auth",
+    "@lupinum/ginko-cms-contract",
+    "@lupinum/ginko-cms-convex",
+    "better-auth"
+  ]
+}

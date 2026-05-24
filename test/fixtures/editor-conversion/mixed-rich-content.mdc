@@ -1,0 +1,11 @@
+# Mixed Rich Content
+
+> Keep content conversions deterministic and schema-safe.
+
+This paragraph contains **bold text**, _emphasis_, and a [link](https://api.ginko-cms.com).
+
+- Open asset vault
+- Pick replacement image
+- Save without paragraph schema errors
+
+![Sample Banner](https://api.ginko-cms.com/api/storage/26cbdaac-415e-48d7-a72d-90a47ed43e97)

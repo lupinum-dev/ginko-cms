@@ -1,0 +1,113 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ginko-cms
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ginko-cms
+
+      - uses: actions/checkout@v6
+        with:
+          repository: lupinum-dev/trellis
+          path: trellis
+          ref: ${{ vars.TRELLIS_CI_REF || 'main' }}
+          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
+
+      - uses: actions/checkout@v6
+        with:
+          repository: lupinum-dev/ginko-content
+          path: ginko-content
+          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'main' }}
+          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - run: npm i -g --force corepack@latest && corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format
+        run: pnpm run format:check
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Publish specifier check
+        run: pnpm run check:publish-specifiers
+
+      - name: Tests
+        run: pnpm test
+
+      - name: Package build
+        run: pnpm run build
+
+      - name: Packed package E2E
+        run: pnpm run package:e2e
+
+  live-release-smoke:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    defaults:
+      run:
+        working-directory: ginko-cms
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ginko-cms
+
+      - uses: actions/checkout@v6
+        with:
+          repository: lupinum-dev/trellis
+          path: trellis
+          ref: ${{ vars.TRELLIS_CI_REF || 'main' }}
+          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
+
+      - uses: actions/checkout@v6
+        with:
+          repository: lupinum-dev/ginko-content
+          path: ginko-content
+          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'main' }}
+          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - run: npm i -g --force corepack@latest && corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Live packed Convex package E2E
+        run: |
+          if [ -z "$CONVEX_DEPLOYMENT" ] || [ -z "$CONVEX_URL" ]; then
+            echo "Live package E2E requires CONVEX_DEPLOYMENT and CONVEX_URL secrets."
+            exit 1
+          fi
+          pnpm run package:e2e:live
+        env:
+          CONVEX_DEPLOYMENT: ${{ secrets.CONVEX_DEPLOYMENT }}
+          CONVEX_URL: ${{ secrets.CONVEX_URL }}
+          CONVEX_SITE_URL: ${{ secrets.CONVEX_SITE_URL }}

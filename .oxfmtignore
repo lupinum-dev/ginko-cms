@@ -1,0 +1,10 @@
+dist
+node_modules
+playground
+.nuxt
+_generated
+*.d.ts
+src/runtime/server/mcp/tools
+templates/convex/ginkoCmsMcp.ts
+test/fixtures/basic/convex/ginkoCmsMcp.ts
+shared/**/*.js

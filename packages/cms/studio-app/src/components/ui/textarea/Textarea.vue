@@ -1,0 +1,37 @@
+<script setup lang="ts">
+import type { HTMLAttributes } from 'vue'
+import { computed } from 'vue'
+
+import { cn } from '../utils'
+
+const props = defineProps<{
+  class?: HTMLAttributes['class']
+  defaultValue?: string | number
+  modelValue?: string | number
+}>()
+
+const emits = defineEmits<{
+  (e: 'update:modelValue', payload: string | number): void
+}>()
+
+const modelValue = computed<string | number | undefined>({
+  get: () => props.modelValue ?? props.defaultValue,
+  set: (value) => {
+    emits('update:modelValue', value ?? '')
+  },
+})
+</script>
+
+<template>
+  <textarea
+    :value="modelValue ?? ''"
+    data-slot="textarea"
+    :class="
+      cn(
+        'ginko:border-input ginko:placeholder:text-muted-foreground ginko:focus-visible:border-ring ginko:focus-visible:ring-ring/50 ginko:aria-invalid:ring-destructive/20 ginko:dark:aria-invalid:ring-destructive/40 ginko:aria-invalid:border-destructive ginko:dark:bg-input/30 ginko:flex ginko:field-sizing-content ginko:min-h-16 ginko:w-full ginko:rounded-lg ginko:border ginko:bg-background/50 ginko:px-2.5 ginko:py-2 ginko:text-sm ginko:transition-[color,box-shadow] ginko:outline-none ginko:focus-visible:ring-[3px] ginko:disabled:cursor-not-allowed ginko:disabled:opacity-50',
+        props.class,
+      )
+    "
+    @input="modelValue = ($event.target as HTMLTextAreaElement).value"
+  />
+</template>

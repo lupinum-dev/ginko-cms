@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "jsx": "preserve",
+    "types": ["node"],
+    "paths": {
+      "#ginko-cms": ["./src/runtime"],
+      "#ginko-cms/*": ["./src/runtime/*"],
+      "#ginko-cms-public-contract": ["./src/public/generated-contract"],
+      "#ginko-cms-public": ["./src/public"],
+      "#ginko-cms-public/*": ["./src/public/*"],
+      "#runtime/*": ["./src/runtime/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue"],
+  "exclude": ["dist", "node_modules"]
+}
