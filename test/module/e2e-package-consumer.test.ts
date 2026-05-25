@@ -13,16 +13,26 @@ import {
   packPackage,
   projectRoot,
   readPackageJson,
-  trellisBridgeRoot,
-  trellisRoot,
 } from './package-fixture'
+
+type CompatibilityMatrix = {
+  releaseStack?: Record<string, string>
+}
 
 const workspacePackageJson = readPackageJson(projectRoot)
 const cmsPackageJson = readPackageJson(cmsPackageRoot)
 const contentDependency = cmsPackageJson.peerDependencies?.['@lupinum/ginko-content']
+const compatibilityMatrix = JSON.parse(
+  readFileSync(join(projectRoot, 'packages/cms/compatibility.json'), 'utf8'),
+) as CompatibilityMatrix
+const trellisDependency = compatibilityMatrix.releaseStack?.['@lupinum/trellis']
+const trellisBridgeDependency = compatibilityMatrix.releaseStack?.['@lupinum/trellis-bridge']
 
 if (!contentDependency) {
   throw new Error('Missing @lupinum/ginko-content peer dependency in @lupinum/ginko-cms.')
+}
+if (!trellisDependency || !trellisBridgeDependency) {
+  throw new Error('Missing Trellis release stack dependencies in packages/cms/compatibility.json.')
 }
 
 describe('ginko-cms package-first consumer fixture', () => {
@@ -71,8 +81,6 @@ describe('ginko-cms package-first consumer fixture', () => {
     const contractTarball = packPackage(contractPackageRoot, tempDir)
     const convexTarball = packPackage(convexPackageRoot, tempDir)
     const cmsTarball = packPackage(cmsPackageRoot, tempDir)
-    const trellisTarball = packPackage(trellisRoot, tempDir)
-    const trellisBridgeTarball = packPackage(trellisBridgeRoot, tempDir)
 
     writeFileSync(
       join(tempDir, 'package.json'),
@@ -86,16 +94,16 @@ describe('ginko-cms package-first consumer fixture', () => {
           '@lupinum/ginko-content': contentDependency,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-          '@lupinum/trellis': `file:${trellisTarball}`,
-          '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
+          '@lupinum/trellis': trellisDependency,
+          '@lupinum/trellis-bridge': trellisBridgeDependency,
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
         },
         pnpm: {
           overrides: {
             '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
             '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-            '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
-            '@lupinum/trellis': `file:${trellisTarball}`,
+            '@lupinum/trellis-bridge': trellisBridgeDependency,
+            '@lupinum/trellis': trellisDependency,
           },
         },
       }),

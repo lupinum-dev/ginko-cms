@@ -22,16 +22,20 @@ const packDir = resolve(repoRoot, '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
 const trellisRoot = process.env.TRELLIS_PACKAGE_ROOT
   ? resolve(process.env.TRELLIS_PACKAGE_ROOT)
-  : resolve(repoRoot, '..', 'trellis')
+  : undefined
 const trellisBridgeRoot = process.env.TRELLIS_BRIDGE_PACKAGE_ROOT
   ? resolve(process.env.TRELLIS_BRIDGE_PACKAGE_ROOT)
-  : resolve(trellisRoot, 'packages/trellis-bridge')
+  : trellisRoot
+    ? resolve(trellisRoot, 'packages/trellis-bridge')
+    : undefined
 const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
   ? resolve(process.env.GINKO_CONTENT_PACKAGE_ROOT)
   : undefined
 const liveConvex = process.argv.includes('--live')
 const registryDependencies = process.argv.includes('--registry-deps')
 const registryContent = registryDependencies || !contentRoot
+const registryTrellis = registryDependencies || !trellisRoot
+const registryTrellisBridge = registryDependencies || !trellisBridgeRoot
 const trellisRegistryVersion =
   process.env.TRELLIS_PACKAGE_VERSION || compatibilityMatrix.releaseStack['@lupinum/trellis']
 const trellisBridgeRegistryVersion =
@@ -105,8 +109,10 @@ function buildPackedPackages() {
   if (!registryContent) {
     buildPackage(contentRoot)
   }
-  if (!registryDependencies) {
+  if (!registryTrellis) {
     buildPackage(trellisRoot)
+  }
+  if (!registryTrellisBridge) {
     buildPackage(trellisBridgeRoot)
   }
 }
@@ -131,11 +137,11 @@ function fileDependency(path) {
 }
 
 function trellisDependency(trellisTarball) {
-  return registryDependencies ? trellisRegistryVersion : fileDependency(trellisTarball)
+  return registryTrellis ? trellisRegistryVersion : fileDependency(trellisTarball)
 }
 
 function trellisBridgeDependency(trellisBridgeTarball) {
-  return registryDependencies ? trellisBridgeRegistryVersion : fileDependency(trellisBridgeTarball)
+  return registryTrellisBridge ? trellisBridgeRegistryVersion : fileDependency(trellisBridgeTarball)
 }
 
 function contentDependency(contentTarball) {
@@ -184,8 +190,10 @@ try {
   if (!registryContent) {
     packPackage(contentRoot)
   }
-  if (!registryDependencies) {
+  if (!registryTrellis) {
     packPackage(trellisRoot)
+  }
+  if (!registryTrellisBridge) {
     packPackage(trellisBridgeRoot)
   }
 
@@ -193,8 +201,8 @@ try {
   const convexTarball = findTarball('lupinum/ginko-cms-convex')
   const cmsTarball = findTarball('lupinum/ginko-cms')
   const contentTarball = registryContent ? undefined : findTarball('lupinum/ginko-content')
-  const trellisTarball = registryDependencies ? undefined : findTarball('lupinum/trellis')
-  const trellisBridgeTarball = registryDependencies
+  const trellisTarball = registryTrellis ? undefined : findTarball('lupinum/trellis')
+  const trellisBridgeTarball = registryTrellisBridge
     ? undefined
     : findTarball('lupinum/trellis-bridge')
 
@@ -409,7 +417,7 @@ try {
       `content=${registryContent ? contentRegistryVersion : basename(contentTarball)}`,
       `convex=${basename(convexTarball)}`,
       `contract=${basename(contractTarball)}`,
-      `trellis=${registryDependencies ? trellisRegistryVersion : basename(trellisTarball)}`,
+      `trellis=${registryTrellis ? trellisRegistryVersion : basename(trellisTarball)}`,
     ].join('\n'),
   )
 } finally {
