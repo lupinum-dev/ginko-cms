@@ -15,6 +15,7 @@ import {
 } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
+import type { Doc } from '../_generated/dataModel.js'
 import { canCreateEntries, canDeleteEntries, canEditEntries } from '../auth/checks.js'
 import { assertBackupArtifactCoversPurge } from '../backup.js'
 import { throwCmsError } from '../errors.js'
@@ -153,10 +154,19 @@ async function assertNoDraftPathConflictForMove(
     candidatePaths.set(localeView.locale, candidatePath)
   }
 
-  const entries = await ctx.db
-    .query('entries')
-    .filter((q) => q.eq(q.field('collectionId'), args.entry.collectionId))
-    .collect()
+  const statuses: Array<Doc<'entries'>['status']> = ['draft', 'published', 'archived']
+  const entries = (
+    await Promise.all(
+      statuses.map((status) =>
+        ctx.db
+          .query('entries')
+          .withIndex('by_collection_status', (q) =>
+            q.eq('collectionId', args.entry.collectionId).eq('status', status),
+          )
+          .collect(),
+      ),
+    )
+  ).flat()
 
   for (const other of entries) {
     if (other._id === args.entry._id) continue

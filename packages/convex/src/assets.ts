@@ -445,13 +445,17 @@ async function canResolvePublicAssetUrl(
 }
 
 async function deleteAssetReferenceRows(ctx: MutationCtx, assetId: string) {
-  const rows = await ctx.db
-    .query('contentAssetRefs')
-    .filter((q) => q.eq(q.field('assetId'), assetId))
-    .collect()
-  for (const row of rows) {
-    await ctx.db.delete(row._id)
-  }
+  let deleted = 0
+  do {
+    const rows = await ctx.db
+      .query('contentAssetRefs')
+      .withIndex('by_asset_source', (q) => q.eq('assetId', assetId))
+      .take(100)
+    deleted = rows.length
+    for (const row of rows) {
+      await ctx.db.delete(row._id)
+    }
+  } while (deleted === 100)
 }
 
 async function loadAssetRelationships(

@@ -49,7 +49,7 @@ export async function clearEntryProjectionRows(ctx: MutationCtx, entryId: Id<'en
     do {
       const rows = await ctx.db
         .query(table)
-        .filter((q) => q.eq(q.field('entryId'), entryId))
+        .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId))
         .take(100)
       deleted = rows.length
       for (const row of rows) {
