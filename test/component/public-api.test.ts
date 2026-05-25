@@ -456,6 +456,25 @@ describe('public API: list pagination', () => {
     expect(result.pageInfo.hasNextPage).toBe(false)
   })
 
+  it('rejects path as an explicit public list sort field', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    await seedPublishedEntries(ctx, 1)
+
+    await expect(() =>
+      ctx.raw.query(api.public.list, {
+        collection: 'articles',
+        locale: 'en',
+        limit: 10,
+        cursor: null,
+        sort: 'path:asc',
+      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return getCmsErrorData(error)?.code === 'INVALID_SORT'
+    })
+  })
+
   it('serves route-backed published entries through route public surfaces', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

@@ -488,7 +488,7 @@ export async function runMigrateCommand(
     )
     write(
       io.stdout,
-      'Next: run `pnpm exec ginko-cms push --check`, then `pnpm exec ginko-cms push`.\n',
+      'Next: run `pnpm exec ginko-cms push --check`; push only after the check reports safe drift.\n',
     )
     return 0
   }

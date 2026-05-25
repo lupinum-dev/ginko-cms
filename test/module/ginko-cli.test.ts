@@ -86,7 +86,8 @@ describe('ginko-cms CLI', () => {
     expect(init.code).toBe(0)
     expect(init.stdout).toContain('Ginko CMS initialized')
     expect(init.stdout).toContain('Next: run `pnpm exec ginko-cms doctor`')
-    expect(init.stdout).toContain('then `pnpm exec convex dev --once')
+    expect(init.stdout).toContain('configure the required environment')
+    expect(init.stdout).toContain('run `pnpm exec convex dev --once')
     expect(init.stdout).toContain(
       'Host apps must depend directly on `@convex-dev/better-auth`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
     )
@@ -95,7 +96,7 @@ describe('ginko-cms CLI', () => {
       'pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com',
     )
     expect(init.stdout).toContain(
-      'Set `CONVEX_IDENTITY_FORWARDING_KEY` or `GINKO_CMS_COMPONENT_FORWARDING_KEY`',
+      'Set the same `CONVEX_IDENTITY_FORWARDING_KEY` or `GINKO_CMS_COMPONENT_FORWARDING_KEY`',
     )
     expect(readFileSync(resolve(rootDir, 'convex/ginkoCms/members.ts'), 'utf8')).toContain(
       'createMembersBridge',

@@ -21,6 +21,9 @@ const oldSchemaMutationNames = [
   'reorderFields',
   'previewFieldRemoval',
 ] as const
+type BridgeVisibility = { visibility: 'public' | 'internal' }
+type CollectionListItem = { slug: string }
+type FieldListItem = { key: string }
 
 async function syncCollections(
   ctx: ReturnType<typeof createCtx>,
@@ -39,16 +42,21 @@ describe('code-defined collection contracts', () => {
         mutation: (definition: unknown) => ({ visibility: 'public', definition }),
         internalQuery: (definition: unknown) => ({ visibility: 'internal', definition }),
         internalMutation: (definition: unknown) => ({ visibility: 'internal', definition }),
-      } as any,
+      },
       components: {
-        listCollections: {} as any,
-        getCollection: {} as any,
+        listCollections: {} as unknown,
+        getCollection: {} as unknown,
         sync: {
-          checkCollectionContractsInternal: {} as any,
-          installCollectionContractsInternal: {} as any,
+          checkCollectionContractsInternal: {} as unknown,
+          installCollectionContractsInternal: {} as unknown,
         },
       },
-    }) as any
+    } as unknown as Parameters<typeof createCollectionContractsBridge>[0]) as {
+      checkCollectionContracts: BridgeVisibility
+      installCollectionContracts: BridgeVisibility
+      checkCollectionContractsAuthed?: unknown
+      installCollectionContractsAuthed?: unknown
+    }
 
     expect(bridge.checkCollectionContracts.visibility).toBe('internal')
     expect(bridge.installCollectionContracts.visibility).toBe('internal')
@@ -107,7 +115,7 @@ describe('code-defined collection contracts', () => {
     expect(secondBlog?.contract).toEqual(firstBlog?.contract)
 
     const list = await owner.query(api.collections.listCollections, {})
-    expect(list.map((collection: any) => collection.slug).sort()).toEqual(['blog'])
+    expect(list.map((collection: CollectionListItem) => collection.slug).sort()).toEqual(['blog'])
   })
 
   it('rejects invalid field definitions during collection sync', async () => {
@@ -271,7 +279,7 @@ describe('code-defined collection contracts', () => {
         details: {
           slug: 'posts',
           changes: ['type', 'routing', 'fields'],
-          docs: 'docs/changing-collections.md#when-a-migration-is-required',
+          docs: 'docs/guides/changing-collections.md#when-a-migration-is-required',
         },
       })
       expect(data?.message).toContain('Run `pnpm exec ginko-cms push --check`')
@@ -415,7 +423,7 @@ describe('code-defined collection contracts', () => {
     expect(result).toEqual({ created: 0, updated: 1, skipped: 0, missingFromConfig: [] })
 
     const updated = await owner.query(api.collections.getCollection, { slug: 'posts' })
-    expect(updated.fields.map((field: any) => field.key)).toEqual([
+    expect(updated.fields.map((field: FieldListItem) => field.key)).toEqual([
       'title',
       'hero',
       'description',

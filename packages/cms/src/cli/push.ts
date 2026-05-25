@@ -267,11 +267,13 @@ function formatDriftReport(result: CheckCollectionContractsResult) {
       lines.push('  2. Treat this drift as migration-required until the check says otherwise.')
       lines.push('  3. Create or choose an explicit content migration.')
       lines.push('  4. Run a backup before applying changes.')
-      lines.push('  5. Apply the content migration, then run `pnpm exec ginko-cms push`.')
+      lines.push('  5. Apply the content migration, then rerun `pnpm exec ginko-cms push --check`.')
+      lines.push('  6. Push only after the check reports safe drift.')
     } else {
       lines.push('  1. Create or choose an explicit content migration.')
       lines.push('  2. Run a backup before applying changes.')
-      lines.push('  3. Apply the content migration, then run `pnpm exec ginko-cms push`.')
+      lines.push('  3. Apply the content migration, then rerun `pnpm exec ginko-cms push --check`.')
+      lines.push('  4. Push only after the check reports safe drift.')
     }
     lines.push('')
     lines.push('Starter command:')
@@ -282,7 +284,7 @@ function formatDriftReport(result: CheckCollectionContractsResult) {
   }
 
   lines.push('')
-  lines.push('Docs: docs/changing-collections.md')
+  lines.push('Docs: docs/guides/changing-collections.md')
 
   return `${lines.join('\n')}\n`
 }

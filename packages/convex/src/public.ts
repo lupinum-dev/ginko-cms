@@ -77,17 +77,15 @@ const PUBLIC_QUERY_MAX_LENGTH = 256
 const PUBLIC_STRING_MAX_LENGTH = 512
 const PUBLIC_LOCALE_MAX_LENGTH = 32
 const PUBLIC_COLLECTION_MAX_LENGTH = 80
-const PUBLIC_SORT_INDEXES = {
-  orderKey: 'by_collection_locale_orderKey_entry',
-  path: 'by_collection_locale_path_entry',
-  entryCreatedAt: 'by_collection_locale_entryCreatedAt_entry',
-  firstPublishedAt: 'by_collection_locale_firstPublishedAt_entry',
-  lastPublishedAt: 'by_collection_locale_lastPublishedAt_entry',
-} as const
 
 type PublicEntryRow = Doc<'publicEntries'>
 type CollectionDoc = NonNullable<Awaited<ReturnType<typeof getCollection>>>
-type PublicSortField = keyof typeof PUBLIC_SORT_INDEXES
+type PublicExplicitSortField =
+  | 'orderKey'
+  | 'entryCreatedAt'
+  | 'firstPublishedAt'
+  | 'lastPublishedAt'
+type PublicSortField = PublicExplicitSortField | 'path'
 type PublicEntryCursor = {
   v: 1
   kind: 'publicEntries'
@@ -156,20 +154,27 @@ function validatePublicTextArgs(args: {
   validateLength(args.pathPrefix, 'pathPrefix', PUBLIC_STRING_MAX_LENGTH)
 }
 
-function validatePublicListSort(args: { sort?: string }) {
-  if (!args.sort) return
-  const [field, direction] = args.sort.split(':')
-  if (
-    !field ||
-    !direction ||
-    !(field in PUBLIC_SORT_INDEXES) ||
-    (direction !== 'asc' && direction !== 'desc')
-  ) {
+function isPublicExplicitSortField(field: string | undefined): field is PublicExplicitSortField {
+  return (
+    field === 'orderKey' ||
+    field === 'entryCreatedAt' ||
+    field === 'firstPublishedAt' ||
+    field === 'lastPublishedAt'
+  )
+}
+
+function parsePublicListSort(args: { sort?: string }): {
+  sortField: PublicExplicitSortField
+  sortDirection: 'asc' | 'desc'
+} {
+  const [field, direction] = (args.sort ?? 'orderKey:asc').split(':')
+  if (!isPublicExplicitSortField(field) || (direction !== 'asc' && direction !== 'desc')) {
     throwCmsError(
       'INVALID_SORT',
       'Public sort supports only orderKey, entryCreatedAt, firstPublishedAt, and lastPublishedAt.',
     )
   }
+  return { sortField: field, sortDirection: direction === 'desc' ? 'desc' : 'asc' }
 }
 
 function validatePublicPathPrefix(args: { pathPrefix?: string | null; sort?: string }) {
@@ -804,7 +809,7 @@ export const list = callerQuery.protected({
   returns: ginkoListResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
-    validatePublicListSort(args)
+    const { sortField, sortDirection } = parsePublicListSort(args)
     validatePublicPathPrefix(args)
 
     const collection = await getCollection(ctx, args.collection)
@@ -818,9 +823,6 @@ export const list = callerQuery.protected({
     assertCollectionSupportsLocale(collection, args.locale)
 
     const limit = validatePublicLimit(args.limit, LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT)
-    const [sortField = 'orderKey', sortDirection = 'asc'] = (args.sort ?? 'orderKey:asc').split(
-      ':',
-    ) as [keyof typeof PUBLIC_SORT_INDEXES, 'asc' | 'desc']
     const result = await paginatePublicEntriesForCollection(ctx, {
       collectionId: collection._id,
       locale: args.locale,

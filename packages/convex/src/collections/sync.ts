@@ -333,15 +333,15 @@ async function syncCodeDefinedCollectionContracts(
         if (incompatibleChanges.length > 0) {
           throwCmsError(
             'COLLECTION_CONTRACT_CHANGE_REQUIRES_MIGRATION',
-            `Collection "${incoming.slug}" has entries and cannot accept code-defined contract changes to ${incompatibleChanges.join(', ')} without an explicit migration. Run \`pnpm exec ginko-cms push --check\` to inspect drift, then follow docs/changing-collections.md#when-a-migration-is-required. Development-only table resets are not a production migration path.`,
+            `Collection "${incoming.slug}" has entries and cannot accept code-defined contract changes to ${incompatibleChanges.join(', ')} while drift is migration-required. Run \`pnpm exec ginko-cms push --check\` to inspect drift, then follow docs/guides/changing-collections.md#when-a-migration-is-required. Development-only table resets are not a production migration path.`,
             {
               slug: incoming.slug,
               changes: incompatibleChanges,
               reason:
                 'Existing entries may no longer validate or project correctly under the new collection contract.',
               safeNextStep:
-                'Run pnpm exec ginko-cms push --check and plan a content migration before pushing this contract to production.',
-              docs: 'docs/changing-collections.md#when-a-migration-is-required',
+                'Run pnpm exec ginko-cms push --check, plan the content change, and push only after the check reports safe drift.',
+              docs: 'docs/guides/changing-collections.md#when-a-migration-is-required',
               devResetWarning:
                 'Clearing CMS tables is only acceptable for disposable development deployments.',
             },
