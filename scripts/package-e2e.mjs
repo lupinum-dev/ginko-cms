@@ -28,9 +28,10 @@ const trellisBridgeRoot = process.env.TRELLIS_BRIDGE_PACKAGE_ROOT
   : resolve(trellisRoot, 'packages/trellis-bridge')
 const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
   ? resolve(process.env.GINKO_CONTENT_PACKAGE_ROOT)
-  : resolve(repoRoot, '..', 'ginko-content/packages/content')
+  : undefined
 const liveConvex = process.argv.includes('--live')
 const registryDependencies = process.argv.includes('--registry-deps')
+const registryContent = registryDependencies || !contentRoot
 const trellisRegistryVersion =
   process.env.TRELLIS_PACKAGE_VERSION || compatibilityMatrix.releaseStack['@lupinum/trellis']
 const trellisBridgeRegistryVersion =
@@ -101,8 +102,10 @@ function buildPackage(packageDir) {
 
 function buildPackedPackages() {
   run('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'])
-  if (!registryDependencies) {
+  if (!registryContent) {
     buildPackage(contentRoot)
+  }
+  if (!registryDependencies) {
     buildPackage(trellisRoot)
     buildPackage(trellisBridgeRoot)
   }
@@ -136,7 +139,7 @@ function trellisBridgeDependency(trellisBridgeTarball) {
 }
 
 function contentDependency(contentTarball) {
-  return registryDependencies ? contentRegistryVersion : fileDependency(contentTarball)
+  return registryContent ? contentRegistryVersion : fileDependency(contentTarball)
 }
 
 function addOfflineComponentsStub(cwd) {
@@ -178,8 +181,10 @@ try {
   packPackage('packages/contract')
   packPackage('packages/convex')
   packPackage('packages/cms')
-  if (!registryDependencies) {
+  if (!registryContent) {
     packPackage(contentRoot)
+  }
+  if (!registryDependencies) {
     packPackage(trellisRoot)
     packPackage(trellisBridgeRoot)
   }
@@ -187,7 +192,7 @@ try {
   const contractTarball = findTarball('lupinum/ginko-cms-contract')
   const convexTarball = findTarball('lupinum/ginko-cms-convex')
   const cmsTarball = findTarball('lupinum/ginko-cms')
-  const contentTarball = registryDependencies ? undefined : findTarball('lupinum/ginko-content')
+  const contentTarball = registryContent ? undefined : findTarball('lupinum/ginko-content')
   const trellisTarball = registryDependencies ? undefined : findTarball('lupinum/trellis')
   const trellisBridgeTarball = registryDependencies
     ? undefined
@@ -401,7 +406,7 @@ try {
       'package e2e ok',
       `consumer=${tempDir}`,
       `cms=${basename(cmsTarball)}`,
-      `content=${registryDependencies ? contentRegistryVersion : basename(contentTarball)}`,
+      `content=${registryContent ? contentRegistryVersion : basename(contentTarball)}`,
       `convex=${basename(convexTarball)}`,
       `contract=${basename(contractTarball)}`,
       `trellis=${registryDependencies ? trellisRegistryVersion : basename(trellisTarball)}`,

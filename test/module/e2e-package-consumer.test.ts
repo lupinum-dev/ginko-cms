@@ -8,7 +8,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
   cmsPackageRoot,
-  contentPackageRoot,
   contractPackageRoot,
   convexPackageRoot,
   packPackage,
@@ -20,6 +19,11 @@ import {
 
 const workspacePackageJson = readPackageJson(projectRoot)
 const cmsPackageJson = readPackageJson(cmsPackageRoot)
+const contentDependency = cmsPackageJson.peerDependencies?.['@lupinum/ginko-content']
+
+if (!contentDependency) {
+  throw new Error('Missing @lupinum/ginko-content peer dependency in @lupinum/ginko-cms.')
+}
 
 describe('ginko-cms package-first consumer fixture', () => {
   let nuxt: any
@@ -64,7 +68,6 @@ describe('ginko-cms package-first consumer fixture', () => {
       '<template><div>package-consumer</div></template>',
       'utf8',
     )
-    const contentTarball = packPackage(contentPackageRoot, tempDir)
     const contractTarball = packPackage(contractPackageRoot, tempDir)
     const convexTarball = packPackage(convexPackageRoot, tempDir)
     const cmsTarball = packPackage(cmsPackageRoot, tempDir)
@@ -80,7 +83,7 @@ describe('ginko-cms package-first consumer fixture', () => {
         dependencies: {
           nuxt: workspacePackageJson.devDependencies.nuxt,
           '@convex-dev/better-auth': cmsPackageJson.dependencies['@convex-dev/better-auth'],
-          '@lupinum/ginko-content': `file:${contentTarball}`,
+          '@lupinum/ginko-content': contentDependency,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
           '@lupinum/trellis': `file:${trellisTarball}`,
