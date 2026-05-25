@@ -424,6 +424,154 @@ describe('ginko-cms CLI', () => {
     }
   })
 
+  it('deploys Convex functions before pushing collection contracts', async () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    delete process.env.CONVEX_DEPLOY_KEY
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-deploy-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+    writeFileSync(
+      resolve(rootDir, 'nuxt.config.ts'),
+      [
+        'export default {',
+        '  ginkoCms: {',
+        "    defaultLocale: 'en',",
+        "    locales: [{ code: 'en', isDefault: true }],",
+        "    collections: { blog: { type: 'flat', routing: { pathPrefix: '/blog' } } },",
+        '  },',
+        '}',
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+    const calls: Array<{ kind: string; args?: string[]; token?: string }> = []
+    const stdout = createOutput()
+    const stderr = createOutput()
+
+    try {
+      const code = await runGinkoCmsCli(['deploy'], {
+        cwd: rootDir,
+        io: {
+          stdout: stdout.stream,
+          stderr: stderr.stream,
+        },
+        runner: async (_command, args) => {
+          calls.push({ kind: 'convex', args })
+          return 0
+        },
+        convexClientFactory: () =>
+          ({
+            setAdminAuth: (token: string) => calls.push({ kind: 'auth', token }),
+            mutation: async () => {
+              calls.push({ kind: 'mutation' })
+              return { created: 1, updated: 0, skipped: 0, missingFromConfig: [] }
+            },
+            query: async () => {
+              throw new Error('deploy should not check contracts without --check')
+            },
+            action: async () => {
+              throw new Error('deploy should not use public action')
+            },
+          }) as never,
+      })
+
+      expect(code).toBe(0)
+      expect(stderr.read()).toBe('')
+      expect(stdout.read()).toContain('Ginko CMS collection contracts pushed')
+      expect(calls).toEqual([
+        { kind: 'convex', args: ['dev', '--once', '--tail-logs', 'disable'] },
+        { kind: 'auth', token: 'deploy-key-test' },
+        { kind: 'mutation' },
+      ])
+    } finally {
+      if (previousDeployKey === undefined) {
+        delete process.env.CONVEX_DEPLOY_KEY
+      } else {
+        process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      }
+    }
+  })
+
+  it('checks collection contracts without deploying Convex when deploy --check is set', async () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    delete process.env.CONVEX_DEPLOY_KEY
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-deploy-check-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+    writeFileSync(
+      resolve(rootDir, 'nuxt.config.ts'),
+      [
+        'export default {',
+        '  ginkoCms: {',
+        "    defaultLocale: 'en',",
+        "    locales: [{ code: 'en', isDefault: true }],",
+        "    collections: { blog: { type: 'flat', routing: { pathPrefix: '/blog' } } },",
+        '  },',
+        '}',
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+    const calls: Array<{ kind: string; token?: string }> = []
+    const stdout = createOutput()
+    const stderr = createOutput()
+
+    try {
+      const code = await runGinkoCmsCli(['deploy', '--check'], {
+        cwd: rootDir,
+        io: {
+          stdout: stdout.stream,
+          stderr: stderr.stream,
+        },
+        runner: async () => {
+          throw new Error('deploy --check should not run Convex')
+        },
+        convexClientFactory: () =>
+          ({
+            setAdminAuth: (token: string) => calls.push({ kind: 'auth', token }),
+            query: async () => {
+              calls.push({ kind: 'query' })
+              return { drift: [], missingFromConfig: [] }
+            },
+            mutation: async () => {
+              throw new Error('deploy --check should not mutate contracts')
+            },
+            action: async () => {
+              throw new Error('deploy --check should not use public action')
+            },
+          }) as never,
+      })
+
+      expect(code).toBe(0)
+      expect(stderr.read()).toBe('')
+      expect(stdout.read()).toContain('Ginko CMS collection contracts are installed')
+      expect(stdout.read()).toContain(
+        'Ginko CMS deploy check passed; Convex deploy skipped because --check was set.',
+      )
+      expect(calls).toEqual([{ kind: 'auth', token: 'deploy-key-test' }, { kind: 'query' }])
+    } finally {
+      if (previousDeployKey === undefined) {
+        delete process.env.CONVEX_DEPLOY_KEY
+      } else {
+        process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      }
+    }
+  })
+
   it('prints actionable collection drift when push check fails', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-check-'))
     tempDirs.push(rootDir)
