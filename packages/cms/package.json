@@ -75,7 +75,7 @@
     "studio:dev": "vite --config studio-app/vite.config.ts",
     "studio:build": "rm -rf dist/studio-app && vite build --config studio-app/vite.config.ts",
     "studio:typecheck": "vue-tsc -p studio-app/tsconfig.json --noEmit",
-    "typecheck": "pnpm run build && pnpm exec vue-tsc -p tsconfig.runtime.json --noEmit && pnpm run studio:typecheck"
+    "typecheck": "pnpm run build && pnpm --dir ../.. run prepare:playground && pnpm exec vue-tsc -p tsconfig.runtime.json --noEmit && pnpm run studio:typecheck"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.2",
