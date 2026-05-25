@@ -87,6 +87,7 @@ describe('ginko-cms package-first consumer fixture', () => {
       JSON.stringify({
         private: true,
         name: 'ginko-cms-package-consumer-fixture',
+        packageManager: workspacePackageJson.packageManager,
         type: 'module',
         dependencies: {
           nuxt: workspacePackageJson.devDependencies.nuxt,

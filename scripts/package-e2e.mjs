@@ -17,6 +17,7 @@ const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const compatibilityMatrix = JSON.parse(
   readFileSync(resolve(repoRoot, 'packages/cms/compatibility.json'), 'utf8'),
 )
+const rootPackageJson = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'))
 const consumerCompatibility = compatibilityMatrix.consumer
 const packDir = resolve(repoRoot, '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
@@ -214,6 +215,7 @@ try {
       {
         private: true,
         name: 'ginko-cms-package-e2e-consumer',
+        packageManager: rootPackageJson.packageManager,
         type: 'module',
         dependencies: {
           ...consumerCompatibility.dependencies,
