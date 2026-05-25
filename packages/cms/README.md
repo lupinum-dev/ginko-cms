@@ -1,57 +1,40 @@
 # @lupinum/ginko-cms
 
-Nuxt module for Ginko CMS.
+Nuxt module and CLI for Ginko CMS.
 
-This package owns the user-facing CMS integration: Studio hosting, auth pages,
-published-read routes, filesystem migration tooling, Ginko provider integration,
-Tailwind setup, and the bridge manifest used by the Ginko CMS setup path.
+This package mounts the Studio UI, validates the CMS bridge, wires the public
+content provider, handles Tailwind v4 source registration, and exposes the
+`ginko-cms` command used to initialize and validate a host app.
 
-Ginko CMS is Convex-backed for v1. Trellis powers internal bridge/runtime
-mechanics, but the public install/setup story is framed as Ginko CMS. Trellis
-is an internal dependency of this package — consumers should not need to
-understand `caller`, `appIdentity`, or identity-forwarding envelopes to install or
-operate Ginko CMS.
+## Install
 
-## Compatibility
-
-`@lupinum/ginko-cms@0.1.1` is released with
-`@lupinum/ginko-cms-convex@0.1.1`, `@lupinum/ginko-cms-contract@0.1.1`,
-`@lupinum/ginko-content@0.1.0`, `@lupinum/trellis@0.1.1`, and
-`@lupinum/trellis-bridge@0.1.1`.
-
-Install the CMS-facing packages together. `@lupinum/trellis-bridge` remains a
-package-author dependency behind the CMS bridge workflow, not an app-facing
-setup step.
-
-## Consumer Setup
-
-Convex components are discovered from the host app's
-`convex/convex.config.ts`, so the host owns those package dependencies
-directly. Install Ginko CMS, its CMS Convex component, Better Auth, and
-Ginko Content together:
+Install the CMS-facing packages in the Nuxt host app:
 
 ```bash
 pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex @convex-dev/better-auth better-auth
 pnpm add -D convex
 ```
 
-Then generate the host-owned bridge files and the managed registration block:
+Register the modules:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['@lupinum/ginko-content', '@lupinum/ginko-cms'],
+})
+```
+
+## Setup
+
+Generate the host-owned Convex bridge files and check them:
 
 ```bash
 pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
 
-The CLI sets up `convex/auth.ts`, `convex/http.ts`, `convex/ginkoCmsMcp.ts`,
-and `convex/ginkoCms/*`, plus the managed `@lupinum/ginko-cms` registration
-block inside `convex/convex.config.ts`. Generated host files import only
-public bridge factories from `@lupinum/ginko-cms/*`; the host owns the direct
-Convex component dependencies above.
-
-`pnpm exec ginko-cms doctor` is the canonical local and CI validation command.
-`pnpm exec ginko-cms bridge check` and `pnpm exec ginko-cms bridge inspect` are
-advanced diagnostics for maintainers who need to inspect generated files and
-managed edits directly.
+The CLI manages `convex/auth.ts`, `convex/http.ts`, `convex/ginkoCmsMcp.ts`,
+`convex/ginkoCms/*`, and the managed `@lupinum/ginko-cms` registration block in
+`convex/convex.config.ts`.
 
 Deploy the generated Convex functions, then install collection contracts:
 
@@ -61,14 +44,30 @@ pnpm exec ginko-cms push
 pnpm exec ginko-cms push --check
 ```
 
-See the workspace root README for full setup details, environment variables,
-release-candidate validation, changing collection contracts, and Tailwind notes.
+`pnpm exec ginko-cms doctor` is the canonical local and CI validation command.
+`pnpm exec ginko-cms bridge check` and `pnpm exec ginko-cms bridge inspect` are
+maintainer diagnostics for generated files and managed edits.
 
-## Credits
+## What It Owns
 
-Ginko CMS is its own implementation, but its product direction is inspired by
-[Nuxt Studio](https://nuxt.studio/) and the editing workflow around the MDC
-editor.
+- Studio routes, layout, and runtime components.
+- CMS setup CLI commands.
+- Host bridge manifest and generated-file validation.
+- Filesystem migration helpers.
+- Public Ginko provider integration.
+- Tailwind v4 integration for the CMS UI.
+
+The Convex component implementation lives in `@lupinum/ginko-cms-convex`. The
+framework-neutral contract types live in `@lupinum/ginko-cms-contract`.
+
+## Scope
+
+Generated host files should stay thin and import package-owned bridge factories
+from public `@lupinum/ginko-cms/*` subpaths. Keep app-specific Better Auth
+provider setup in `convex/auth.config.ts`.
+
+See the workspace README for environment variables, Tailwind notes, migration
+recipes, collection contract changes, and release-candidate validation.
 
 ## License
 

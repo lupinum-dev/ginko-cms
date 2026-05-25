@@ -1,20 +1,41 @@
 # @lupinum/ginko-cms-contract
 
-Shared Ginko CMS domain types, public-content contracts, schema helpers, and
-Convex validators.
+Framework-neutral contract package for Ginko CMS.
 
-This package is the neutral contract layer. It must not depend on Nuxt, Vue,
-Studio UI, generated host bridge files, or CMS runtime implementation details.
+It contains shared CMS domain types, field metadata helpers, public-content
+contracts, route diagnostics, dependency tags, permission types, and Convex
+validators used by the CMS module and Convex component.
 
-Use `@lupinum/ginko-cms-contract/shared/*` for framework-neutral types and
-helpers. Use `@lupinum/ginko-cms-contract/convex/*` only in Convex component
-code.
+## Use It For
 
-## Compatibility
+- Defining CMS-aware field metadata.
+- Sharing public content shapes across package boundaries.
+- Reusing content tag and route diagnostic helpers.
+- Importing Convex validators inside the CMS Convex component.
 
-`@lupinum/ginko-cms-contract@0.1.1` is released with
-`@lupinum/ginko-cms@0.1.1`, `@lupinum/ginko-cms-convex@0.1.1`, and
-`@lupinum/ginko-content@0.1.0`.
+## Public Subpaths
 
-This package is the contract boundary. It must stay free of Nuxt, Vue, Studio
-UI, generated host bridge files, and CMS runtime implementation details.
+- `@lupinum/ginko-cms-contract/shared/fields`
+- `@lupinum/ginko-cms-contract/shared/publicContent.js`
+- `@lupinum/ginko-cms-contract/shared/contentTags.js`
+- `@lupinum/ginko-cms-contract/shared/assetPolicy.js`
+- `@lupinum/ginko-cms-contract/shared/types.js`
+- `@lupinum/ginko-cms-contract/shared/order.js`
+- `@lupinum/ginko-cms-contract/shared/permissions.js`
+- `@lupinum/ginko-cms-contract/shared/caller.js`
+- `@lupinum/ginko-cms-contract/shared/routeDiagnostics.js`
+- `@lupinum/ginko-cms-contract/shared/utils.js`
+- `@lupinum/ginko-cms-contract/convex/validators.js`
+- `@lupinum/ginko-cms-contract/convex/caller.js`
+- `@lupinum/ginko-cms-contract/convex/schemas/*.js`
+
+## Scope
+
+This package must stay free of Nuxt, Vue, Studio UI, generated host bridge
+files, and CMS runtime implementation details. App teams normally install it
+through `@lupinum/ginko-cms`; package and component code import it directly
+only when they need the neutral contract surface.
+
+## License
+
+[MIT](./LICENSE)
