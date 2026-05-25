@@ -10,7 +10,14 @@ import { defineConfig } from 'vitest/config'
 // tsconfig resolution (which fails without .nuxt/tsconfig.json).
 const baseConfig = convexTestConfig({
   test: {
-    include: ['test/**/*.test.ts'],
+    include:
+      process.env.GINKO_CMS_PACKAGE_CONSUMER_TEST === '1'
+        ? ['test/module/e2e-package-consumer.test.ts']
+        : ['test/**/*.test.ts'],
+    exclude:
+      process.env.GINKO_CMS_PACKAGE_CONSUMER_TEST === '1'
+        ? []
+        : ['test/module/e2e-package-consumer.test.ts'],
     fileParallelism: false,
     name: 'ginko-cms',
   },

@@ -30,6 +30,7 @@
     "format:check": "oxfmt --check . --ignore-path .oxfmtignore",
     "typecheck": "pnpm --filter @lupinum/ginko-cms-contract typecheck && pnpm --filter @lupinum/ginko-cms-contract build && pnpm --filter @lupinum/ginko-cms-convex typecheck && pnpm --filter @lupinum/ginko-cms typecheck",
     "test": "vitest run",
+    "test:package-consumer": "GINKO_CMS_PACKAGE_CONSUMER_TEST=1 vitest run",
     "test:public-content": "vitest run test/shared/contracts.test.ts test/shared/mcp-tools.test.ts test/shared/studio-workflow.test.ts test/runtime/studio-workflow-components.test.ts test/component/diagnostics.test.ts test/component/import.test.ts",
     "test:watch": "vitest watch",
     "test:types": "pnpm run typecheck",

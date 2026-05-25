@@ -35,14 +35,33 @@ if (!trellisDependency || !trellisBridgeDependency) {
   throw new Error('Missing Trellis release stack dependencies in packages/cms/compatibility.json.')
 }
 
+function yamlQuote(value: string) {
+  return `'${value.replaceAll("'", "''")}'`
+}
+
+function writeConsumerWorkspaceConfig(cwd: string, overrides: Record<string, string>) {
+  const lines = [
+    'packages:',
+    '  - .',
+    'minimumReleaseAge: 1440',
+    'minimumReleaseAgeExclude:',
+    "  - '@lupinum/*'",
+    'overrides:',
+  ]
+
+  for (const [name, specifier] of Object.entries(overrides)) {
+    lines.push(`  ${yamlQuote(name)}: ${yamlQuote(specifier)}`)
+  }
+
+  writeFileSync(join(cwd, 'pnpm-workspace.yaml'), `${lines.join('\n')}\n`, 'utf8')
+}
+
 describe('ginko-cms package-first consumer fixture', () => {
   let nuxt: any
   let tempDir: string
 
   beforeAll(async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-consumer-'))
-
-    writeFileSync(join(tempDir, '.npmrc'), 'min-release-age=0\n', 'utf8')
 
     writeFileSync(
       join(tempDir, 'nuxt.config.ts'),
@@ -96,22 +115,24 @@ describe('ginko-cms package-first consumer fixture', () => {
           '@convex-dev/better-auth': cmsPackageJson.dependencies['@convex-dev/better-auth'],
           '@lupinum/ginko-content': contentDependency,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
+          '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
           '@lupinum/trellis': trellisDependency,
           '@lupinum/trellis-bridge': trellisBridgeDependency,
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
         },
-        pnpm: {
-          overrides: {
-            '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
-            '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-            '@lupinum/trellis-bridge': trellisBridgeDependency,
-            '@lupinum/trellis': trellisDependency,
-          },
-        },
       }),
       'utf8',
     )
+
+    writeConsumerWorkspaceConfig(tempDir, {
+      '@lupinum/ginko-cms': `file:${cmsTarball}`,
+      '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
+      '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
+      '@lupinum/ginko-content': contentDependency,
+      '@lupinum/trellis': trellisDependency,
+      '@lupinum/trellis-bridge': trellisBridgeDependency,
+    })
 
     execFileSync('pnpm', ['install'], { cwd: tempDir, stdio: 'inherit' })
     execFileSync('pnpm', ['exec', 'ginko-cms', 'init'], {

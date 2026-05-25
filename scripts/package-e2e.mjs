@@ -77,14 +77,12 @@ function packageE2eEnv() {
     )
     return {
       ...env,
-      npm_config_min_release_age: '0',
       npm_config_verify_deps_before_run: 'false',
     }
   }
 
   const env = {
     ...process.env,
-    npm_config_min_release_age: '0',
     npm_config_verify_deps_before_run: 'false',
   }
 
@@ -149,6 +147,27 @@ function trellisBridgeDependency(trellisBridgeTarball) {
 
 function contentDependency(contentTarball) {
   return registryContent ? contentRegistryVersion : fileDependency(contentTarball)
+}
+
+function yamlQuote(value) {
+  return `'${value.replaceAll("'", "''")}'`
+}
+
+function writeConsumerWorkspaceConfig(cwd, overrides) {
+  const lines = [
+    'packages:',
+    '  - .',
+    'minimumReleaseAge: 1440',
+    'minimumReleaseAgeExclude:',
+    "  - '@lupinum/*'",
+    'overrides:',
+  ]
+
+  for (const [name, specifier] of Object.entries(overrides)) {
+    lines.push(`  ${yamlQuote(name)}: ${yamlQuote(specifier)}`)
+  }
+
+  writeFileSync(join(cwd, 'pnpm-workspace.yaml'), `${lines.join('\n')}\n`, 'utf8')
 }
 
 function addOfflineComponentsStub(cwd) {
@@ -229,17 +248,6 @@ try {
           '@lupinum/trellis-bridge': trellisBridgeDependency(trellisBridgeTarball),
         },
         devDependencies: consumerCompatibility.devDependencies,
-        pnpm: {
-          overrides: {
-            '@lupinum/ginko-cms': fileDependency(cmsTarball),
-            '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
-            '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
-            '@lupinum/ginko-content': contentDependency(contentTarball),
-            '@lupinum/trellis': trellisDependency(trellisTarball),
-            '@lupinum/trellis-bridge': trellisBridgeDependency(trellisBridgeTarball),
-            convex: consumerCompatibility.dependencies.convex,
-          },
-        },
       },
       null,
       2,
@@ -247,7 +255,15 @@ try {
     'utf8',
   )
 
-  writeFileSync(join(tempDir, '.npmrc'), 'min-release-age=0\n', 'utf8')
+  writeConsumerWorkspaceConfig(tempDir, {
+    '@lupinum/ginko-cms': fileDependency(cmsTarball),
+    '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
+    '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
+    '@lupinum/ginko-content': contentDependency(contentTarball),
+    '@lupinum/trellis': trellisDependency(trellisTarball),
+    '@lupinum/trellis-bridge': trellisBridgeDependency(trellisBridgeTarball),
+    convex: consumerCompatibility.dependencies.convex,
+  })
 
   writeFileSync(
     join(tempDir, 'nuxt.config.ts'),
@@ -424,6 +440,9 @@ try {
       `convex=${basename(convexTarball)}`,
       `contract=${basename(contractTarball)}`,
       `trellis=${registryTrellis ? trellisRegistryVersion : basename(trellisTarball)}`,
+      `trellisBridge=${
+        registryTrellisBridge ? trellisBridgeRegistryVersion : basename(trellisBridgeTarball)
+      }`,
     ].join('\n'),
   )
 } finally {
