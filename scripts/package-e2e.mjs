@@ -339,6 +339,7 @@ try {
   )
   run('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir })
   run('pnpm', ['exec', 'ginko-cms', 'bridge', 'check'], { cwd: tempDir })
+  run('pnpm', ['exec', 'trellis', 'doctor'], { cwd: tempDir })
   run('pnpm', ['exec', 'convex', 'codegen', '--system-udfs', '--typecheck', 'disable'], {
     cwd: tempDir,
   })

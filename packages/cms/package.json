@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-cms",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Self-hosted CMS for Nuxt teams building structured websites with Ginko",
   "homepage": "https://github.com/lupinum-dev/ginko-cms#readme",
   "bugs": {
@@ -148,5 +148,12 @@
     "@lupinum/ginko-content": "^0.1.0",
     "nuxt": "^4.4.6",
     "vue": "^3.5.0"
+  },
+  "trellis": {
+    "integration": {
+      "ownsRuntime": true,
+      "label": "Ginko CMS",
+      "doctorCommand": "pnpm exec ginko-cms doctor"
+    }
   }
 }

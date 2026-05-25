@@ -1,12 +1,12 @@
 {
   "name": "Ginko CMS release compatibility",
   "releaseStack": {
-    "@lupinum/ginko-cms": "0.1.0",
-    "@lupinum/ginko-cms-convex": "0.1.0",
-    "@lupinum/ginko-cms-contract": "0.1.0",
+    "@lupinum/ginko-cms": "0.1.1",
+    "@lupinum/ginko-cms-convex": "0.1.1",
+    "@lupinum/ginko-cms-contract": "0.1.1",
     "@lupinum/ginko-content": "0.1.0",
-    "@lupinum/trellis": "0.1.0",
-    "@lupinum/trellis-bridge": "0.1.0"
+    "@lupinum/trellis": "0.1.1",
+    "@lupinum/trellis-bridge": "0.1.1"
   },
   "tracked": {
     "@convex-dev/better-auth": ["^0.12.2", "0.12.2"],

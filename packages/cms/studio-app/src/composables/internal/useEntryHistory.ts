@@ -142,11 +142,14 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     }
     let preview: DestructivePreview | null = null
     try {
-      preview = (await convexClient().mutation(api.ginkoCms.editor.previewRollbackVersionOperation, {
-        entryId: entryId.value,
-        versionId,
-        ...(publish ? { publish: true } : {}),
-      })) as DestructivePreview
+      preview = (await convexClient().mutation(
+        api.ginkoCms.editor.previewRollbackVersionOperation,
+        {
+          entryId: entryId.value,
+          versionId,
+          ...(publish ? { publish: true } : {}),
+        },
+      )) as DestructivePreview
       if (destructivePreviewBlocked(preview)) {
         error.value = destructivePreviewMessage(preview)
         return

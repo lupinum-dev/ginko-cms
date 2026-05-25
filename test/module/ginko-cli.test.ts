@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
+import cmsPackageJson from '../../packages/cms/package.json' with { type: 'json' }
 import { runGinkoCmsCli } from '../../packages/cms/src/cli/ginko-cms.js'
 
 function createOutput() {
@@ -65,6 +66,16 @@ describe('ginko-cms CLI', () => {
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { force: true, recursive: true })
     }
+  })
+
+  it('declares Ginko CMS as the Trellis integration owner', () => {
+    expect(cmsPackageJson.trellis).toEqual({
+      integration: {
+        ownsRuntime: true,
+        label: 'Ginko CMS',
+        doctorCommand: 'pnpm exec ginko-cms doctor',
+      },
+    })
   })
 
   it('runs init and checks the Ginko CMS bridge without package arguments', async () => {
