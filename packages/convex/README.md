@@ -12,9 +12,9 @@ from packed `dist` output.
 
 ## Compatibility
 
-`@lupinum/ginko-cms-convex@0.1.0` is released with
-`@lupinum/ginko-cms@0.1.0`, `@lupinum/ginko-cms-contract@0.1.0`,
-`@lupinum/trellis@0.1.0`, and `@lupinum/trellis-bridge@0.1.0`.
+`@lupinum/ginko-cms-convex@0.1.1` is released with
+`@lupinum/ginko-cms@0.1.1`, `@lupinum/ginko-cms-contract@0.1.1`,
+`@lupinum/trellis@0.1.1`, and `@lupinum/trellis-bridge@0.1.1`.
 
 Host apps mount this component through
 `@lupinum/ginko-cms-convex/convex.config`; they should not import component

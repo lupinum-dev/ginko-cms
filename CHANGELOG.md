@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## v0.1.1
+
+Align Ginko CMS with the Trellis `0.1.1` release line.
+
+### Release Stack
+
+| Package                       |  Version |
+| ----------------------------- | -------: |
+| `@lupinum/ginko-cms`          |  `0.1.1` |
+| `@lupinum/ginko-cms-convex`   |  `0.1.1` |
+| `@lupinum/ginko-cms-contract` |  `0.1.1` |
+| `@lupinum/ginko-content`      |  `0.1.0` |
+| `@lupinum/trellis`            |  `0.1.1` |
+| `@lupinum/trellis-bridge`     |  `0.1.1` |
+
+### Changed
+
+- Updated Ginko CMS and Convex package dependencies to require the published
+  Trellis `0.1.1` runtime and bridge packages.
+- Added Trellis package ranges to the Ginko CMS compatibility matrix so stale
+  runtime or bridge ranges fail the release gate.
+
 ## v0.1.0
 
 First public Ginko CMS release.

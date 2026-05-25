@@ -8,12 +8,12 @@ path from local packages to a clean consumer app.
 
 | Package                       | Version |
 | ----------------------------- | ------: |
-| `@lupinum/ginko-cms`          | `0.1.0` |
-| `@lupinum/ginko-cms-convex`   | `0.1.0` |
-| `@lupinum/ginko-cms-contract` | `0.1.0` |
+| `@lupinum/ginko-cms`          | `0.1.1` |
+| `@lupinum/ginko-cms-convex`   | `0.1.1` |
+| `@lupinum/ginko-cms-contract` | `0.1.1` |
 | `@lupinum/ginko-content`      | `0.1.0` |
-| `@lupinum/trellis`            | `0.1.0` |
-| `@lupinum/trellis-bridge`     | `0.1.0` |
+| `@lupinum/trellis`            | `0.1.1` |
+| `@lupinum/trellis-bridge`     | `0.1.1` |
 
 Publish order is fixed: Content, Trellis, Trellis Bridge, CMS Contract, CMS
 Convex, then CMS. Do not use recursive workspace publishing from this repo; the
