@@ -8,14 +8,14 @@ Align Ginko CMS with the Trellis `0.1.1` release line.
 
 ### Release Stack
 
-| Package                       |  Version |
-| ----------------------------- | -------: |
-| `@lupinum/ginko-cms`          |  `0.1.1` |
-| `@lupinum/ginko-cms-convex`   |  `0.1.1` |
-| `@lupinum/ginko-cms-contract` |  `0.1.1` |
-| `@lupinum/ginko-content`      |  `0.1.0` |
-| `@lupinum/trellis`            |  `0.1.1` |
-| `@lupinum/trellis-bridge`     |  `0.1.1` |
+| Package                       | Version |
+| ----------------------------- | ------: |
+| `@lupinum/ginko-cms`          | `0.1.1` |
+| `@lupinum/ginko-cms-convex`   | `0.1.1` |
+| `@lupinum/ginko-cms-contract` | `0.1.1` |
+| `@lupinum/ginko-content`      | `0.1.0` |
+| `@lupinum/trellis`            | `0.1.1` |
+| `@lupinum/trellis-bridge`     | `0.1.1` |
 
 ### Changed
 
