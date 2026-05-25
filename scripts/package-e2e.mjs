@@ -77,12 +77,14 @@ function packageE2eEnv() {
     )
     return {
       ...env,
+      npm_config_min_release_age: '0',
       npm_config_verify_deps_before_run: 'false',
     }
   }
 
   const env = {
     ...process.env,
+    npm_config_min_release_age: '0',
     npm_config_verify_deps_before_run: 'false',
   }
 
@@ -244,6 +246,8 @@ try {
     ),
     'utf8',
   )
+
+  writeFileSync(join(tempDir, '.npmrc'), 'min-release-age=0\n', 'utf8')
 
   writeFileSync(
     join(tempDir, 'nuxt.config.ts'),

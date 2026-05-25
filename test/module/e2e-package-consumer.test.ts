@@ -42,6 +42,8 @@ describe('ginko-cms package-first consumer fixture', () => {
   beforeAll(async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-consumer-'))
 
+    writeFileSync(join(tempDir, '.npmrc'), 'min-release-age=0\n', 'utf8')
+
     writeFileSync(
       join(tempDir, 'nuxt.config.ts'),
       [
