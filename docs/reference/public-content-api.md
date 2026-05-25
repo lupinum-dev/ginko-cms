@@ -1,7 +1,7 @@
 # Public Content API
 
-This document describes the production public content surface for
-Ginko CMS. Older experimental knobs such as `include`, `depth`, `fields.omit`,
+This reference describes the production public content surface for Ginko CMS.
+Older experimental knobs such as `include`, `depth`, `fields.omit`,
 `collection()`, public schema/admin reads, and public stable-id resolution are
 intentionally not part of the runtime API.
 
@@ -44,9 +44,9 @@ Collections have an explicit public mode:
 - `none`: data-only; published rows are usable through `list` and relations,
   but route-only public methods reject the collection.
 
-Route-backed capability is enforced at runtime and exposed in generated types so
-route-only methods reject data-only collections at type level when the generated
-contract is available.
+Route-backed capability is enforced at runtime. Generated types constrain the
+currently generated page and nav inputs when the generated contract is
+available.
 
 ## Provider Shape
 
@@ -98,6 +98,14 @@ export default defineNuxtConfig({
 - `/api/ginko/v1/singleton?name=siteSettings&locale=en`
 - `/api/ginko/v1/site-data?key=banner&locale=de`
 
+The HTTP facade validates input before calling Convex:
+
+- `collection`, `name`, and `key` are at most 80 characters.
+- `locale` is at most 32 characters.
+- `query` is at most 256 characters.
+- other string query values are at most 512 characters.
+- numeric query values must be integers.
+
 Route metadata is a provider/bridge operation for Nuxt content rendering, not an
 HTTP facade endpoint. The HTTP facade intentionally exposes page and list-style
 published reads only; route metadata stays inside the content provider contract
@@ -122,9 +130,32 @@ projection language, or admin surface.
 
 ```ts
 type PageResult<Entry> =
-  | { status: 'found'; page: Entry; seo: SeoResult; redirectTo: null }
-  | { status: 'redirect'; page: null; seo: null; redirectTo: GinkoRoute }
-  | { status: 'not-found'; page: null; seo: null; redirectTo: null }
+  | {
+      status: 'found'
+      page: Entry
+      collection: string
+      locale: GinkoLocaleResolution
+      breadcrumbs: Array<{ title: string; route: GinkoRoute; routable: boolean }>
+      seo: SeoResult
+    }
+  | {
+      status: 'redirect'
+      page: null
+      collection: string
+      locale: GinkoLocaleResolution
+      breadcrumbs: []
+      seo: null
+      redirectTo: GinkoRoute
+      redirectedFrom: string
+    }
+  | {
+      status: 'not-found'
+      page: null
+      collection: string
+      locale: GinkoLocaleResolution
+      breadcrumbs: []
+      seo: null
+    }
 ```
 
 The provider-neutral Nuxt page helper handles redirects and not-found states.
@@ -146,6 +177,18 @@ The provider-neutral Nuxt page helper handles redirects and not-found states.
 Search returns `results` instead of `entries` and uses the same `pageInfo`
 shape. Raw empty search is invalid; callers should avoid submitting empty
 queries.
+
+Public limits and failure behavior:
+
+- `list`: default `20`, maximum `100`.
+- `search`: default `10`, maximum `50`; each request scans at most `500` rows.
+- `sitemap`: default `500`, maximum `1000`.
+- `nav`: scans at most `1000` rows before returning `PUBLIC_NAV_TOO_LARGE`.
+- `surround`: `previous` and `next` default to `1` and max out at `10`.
+
+Public list sorting supports `orderKey`, `entryCreatedAt`, `firstPublishedAt`,
+and `lastPublishedAt` with `:asc` or `:desc`. Path-prefix list queries use path
+index order and cannot be combined with explicit sort.
 
 ### Nav
 
@@ -177,11 +220,49 @@ Fallback-only and unroutable locale rows are excluded.
 
 The caller may request more than one previous or next item.
 
+### Singleton
+
+`singleton()` returns one published entry for a collection configured with
+`routing.singleton: true`:
+
+```ts
+{
+  name: string,
+  singleton: Entry | null,
+  locale: GinkoLocaleResolution,
+  failure:
+    | null
+    | 'missing_locale'
+    | 'unknown_collection'
+    | 'not_singleton'
+    | 'mode_mismatch'
+    | 'no_published_entry',
+}
+```
+
+A missing or unpublished singleton returns `singleton: null` with a `failure`
+value instead of throwing.
+
+### Site Data
+
+`siteData()` returns public site data blocks:
+
+```ts
+{
+  key: string,
+  data: unknown | null,
+  locale: GinkoLocaleResolution,
+}
+```
+
+Missing, private, or locale-missing blocks return `data: null`. Localized blocks
+walk the configured locale fallback chain and report fallback fields in the
+locale metadata.
+
 ### Sitemap And SEO
 
-Sitemap entries include canonical route data, alternates, `xDefault`, `lastmod`,
-and cache tags where available. SEO alternates only include routable/indexable
-locales.
+Sitemap entries include canonical route data, alternates, `xDefault`, and
+`lastmod`. SEO alternates only include published route variants.
 
 Nuxt integrates this through the CMS sitemap source and prerender route
 generation; route lists should not be hardcoded in app config.
@@ -240,3 +321,9 @@ pnpm -C playground build
 pnpm run format:check
 git diff --check
 ```
+
+## Related Pages
+
+- [Nuxt content provider](./nuxt-content-provider.md)
+- [Content model](./content-model.md)
+- [Relations](../concepts/relations.md)

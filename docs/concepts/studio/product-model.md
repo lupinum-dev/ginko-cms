@@ -1,6 +1,7 @@
 # Studio Product Model
 
-Ginko Studio is a content operations UI for code-defined websites. It is not a schema builder.
+Ginko Studio is a content operations UI for code-defined websites. It is not a
+schema builder.
 
 The UI is editor-first. It should frame work around drafts, translations,
 readiness, website changes, publishing, affected pages, and public output. Raw
@@ -66,3 +67,8 @@ open work queue
 If content is not public, Studio must explain why with actionable diagnostics.
 
 If content is public, Studio must make clear which public output currently feeds the website.
+
+## Related Pages
+
+- [Studio UX model](./ux-model.md)
+- [Studio workflows](./workflows.md)

@@ -1,0 +1,8 @@
+{
+  "label": "Guides",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "description": "Task-focused guides for operating Ginko CMS in a Nuxt app."
+  }
+}

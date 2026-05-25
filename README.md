@@ -32,6 +32,23 @@ pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
 
+For local development, `ginko-cms push` needs Convex admin auth through
+`CONVEX_DEPLOY_KEY`. Create one before pushing contracts:
+
+```bash
+pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.local
+```
+
+The generated bridge also needs one shared forwarding secret in both `.env.local`
+and the Convex deployment:
+
+```bash
+FORWARDING_KEY="$(openssl rand -base64 32)"
+printf "\nCONVEX_IDENTITY_FORWARDING_KEY=%s\n" "$FORWARDING_KEY" >> .env.local
+pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
+pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
+```
+
 Deploy the generated Convex functions, then push the collection contracts:
 
 ```bash
@@ -40,12 +57,8 @@ pnpm exec ginko-cms push
 pnpm exec ginko-cms push --check
 ```
 
-For local development, `ginko-cms push` needs Convex admin auth through
-`CONVEX_DEPLOY_KEY`. Create one with:
-
-```bash
-pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.local
-```
+For the full setup path, see [Quickstart](./docs/getting-started/quickstart.md)
+and [Environment](./docs/getting-started/environment.md).
 
 ## What You Get
 
@@ -62,14 +75,17 @@ pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.l
 `ginko-cms init` writes the host bridge files in:
 
 - `convex/auth.ts`
+- `convex/auth.config.ts`
 - `convex/http.ts`
+- `convex/schema.ts`
 - `convex/ginkoCmsMcp.ts`
 - `convex/ginkoCms/*`
-- the managed `@lupinum/ginko-cms` block in `convex/convex.config.ts`
+- the Ginko CMS component registration in `convex/convex.config.ts`
 
-Keep `convex/convex.config.ts` app-owned outside the managed block. Keep
-`convex/auth.config.ts` app-owned too; that is where the app configures Better
-Auth providers and auth policy.
+Keep `convex/convex.config.ts`, `convex/auth.config.ts`, and
+`convex/schema.ts` app-owned after the generated baseline is present. Those
+files are where the app registers Convex components, configures Better Auth
+providers, and defines app tables.
 
 Generated Convex files should stay thin. They import package-owned bridge
 factories from public `@lupinum/ginko-cms/*` subpaths and export Convex
@@ -98,6 +114,16 @@ Tailwind entry CSS for dev and build.
 
 The host app installs the CMS-facing packages directly because Convex discovers
 mounted components from the host app's `convex/convex.config.ts`.
+
+## Documentation
+
+- [Docs index](./docs/index.md)
+- [Codex skill for agents](./skills/ginko-cms/SKILL.md)
+- [Changing collections](./docs/guides/changing-collections.md)
+- [Public content API](./docs/reference/public-content-api.md)
+- [Nuxt content provider](./docs/reference/nuxt-content-provider.md)
+- [Studio theming](./docs/guides/theming-the-studio.md)
+- [Release candidate checklist](./docs/maintenance/release-candidate.md)
 
 ## Scope
 

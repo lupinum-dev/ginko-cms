@@ -19,8 +19,8 @@ Consumer apps should only need their normal Tailwind entry CSS, for example:
 They should not need package-specific `@import` or `@source` lines for
 `@lupinum/ginko-cms`, and they should not need to supply legacy
 `hsl(var(--token))` channel values to make module pages render correctly.
-They also should not need to add `@nuxtjs/color-mode` just to make studio dark
-mode work or avoid a hard-refresh flash of light mode.
+They also should not need to add `@nuxtjs/color-mode` for Studio dark mode or
+to avoid a hard-refresh flash of light mode.
 
 ## What Failed
 
@@ -69,8 +69,8 @@ What worked was targeting the path as seen from the consumer app:
 @source "../../../node_modules/@lupinum/ginko-cms/dist/runtime";
 ```
 
-This is also the correct shape for actual installed consumers, not just linked
-local development.
+This is also the correct shape for installed consumers and linked local
+development.
 
 ### 4. Appending the Vite transform too late
 
@@ -82,7 +82,7 @@ The fix was to place the CMS source-injection plugin at the front of
 
 ## Final Approach
 
-The module now:
+The module:
 
 1. Detects the consumer-visible installed runtime directory:
 
@@ -157,7 +157,7 @@ The dark-mode hard-refresh flash was fixed by using the official
 `@nuxtjs/color-mode` SSR path instead of a client-only fallback that toggled the
 `.dark` class after hydration.
 
-## Next Revision Ideas
+## Constraints For Future Changes
 
 If this area changes again, keep these constraints:
 
@@ -170,3 +170,7 @@ If this area changes again, keep these constraints:
 - Keep at least one regression test around source path selection and plugin order
 - Add a higher-level integration test later if we want stronger coverage against
   Nuxt + Tailwind dev behavior
+
+## Related Pages
+
+- [Theming the Studio](../guides/theming-the-studio.md)

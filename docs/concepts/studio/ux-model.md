@@ -59,3 +59,8 @@ workflows. It must not create, update, delete, import, or reorder schema.
 The Nuxt app owns presentation. Studio owns content operations: drafts,
 localized content, routes, SEO, navigation placement, assets, imports, versions,
 public-output readiness, publishing, revalidation visibility, and activity.
+
+## Related Pages
+
+- [Studio product model](./product-model.md)
+- [Studio workflows](./workflows.md)

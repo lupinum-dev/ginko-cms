@@ -1,4 +1,9 @@
-# Convex Component Discovery Diagnostics Issue Draft
+# Convex Component Discovery Diagnostics
+
+This maintainer note records a Convex component discovery failure that affected
+Ginko CMS package development. Use it when debugging component install shape,
+dashboard module listing failures, or `convex dev` push failures after a bad
+component mount.
 
 ## Summary
 
@@ -100,7 +105,7 @@ surface resolves too broadly.
 
 5. If deploy-key admin auth supports acting identities, clarify the expected
    `ConvexHttpClient.setAdminAuth(token, actingAsIdentity)` behavior for deploy
-   keys. We saw malformed auth headers with deploy keys and now use
+   keys. We saw malformed auth headers with deploy keys and use
    `setAdminAuth(deployKey)` plus an explicit application-level caller in
    function args.
 
@@ -116,3 +121,28 @@ We changed Ginko CMS to:
   package surface,
 - use `CONVEX_DEPLOY_KEY` for contract sync through generated internal bridge
   functions, with no separate Ginko install secret.
+
+## If This Happens
+
+Use this recovery path when a deployment shows dashboard module-listing failures
+or `deploy2/start_push` failures after a component import mistake:
+
+1. Stop repeated pushes against the affected deployment.
+2. Run `pnpm exec ginko-cms doctor` in the host app and inspect
+   `convex/convex.config.ts`.
+3. Replace facade imports with direct component imports:
+   `@convex-dev/better-auth/convex.config` and
+   `@lupinum/ginko-cms-convex/convex.config`.
+4. If `convex dev` still cannot start a push, create a fresh Convex deployment
+   for recovery instead of editing CMS tables directly.
+5. Move or rotate the required environment values for the fresh deployment:
+   `CONVEX_DEPLOY_KEY`, `CONVEX_IDENTITY_FORWARDING_KEY`, and
+   `GINKO_FIRST_OWNER_EMAIL`.
+6. Re-run `pnpm exec ginko-cms init`, `pnpm exec ginko-cms doctor`,
+   `pnpm exec convex dev --once --tail-logs disable --typecheck disable`, and
+   `pnpm exec ginko-cms push --check`.
+
+## Related Pages
+
+- [Release candidate checklist](./release-candidate.md)
+- [Quickstart](../getting-started/quickstart.md)

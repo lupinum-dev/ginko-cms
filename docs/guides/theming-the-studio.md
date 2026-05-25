@@ -76,6 +76,11 @@ consistency with Tailwind CSS v4.
 | `--ginko-cms-border`                    | Default border color           |
 | `--ginko-cms-input`                     | Input field borders            |
 | `--ginko-cms-ring`                      | Focus ring color               |
+| `--ginko-cms-chart-1`                   | First chart/accent series      |
+| `--ginko-cms-chart-2`                   | Second chart/accent series     |
+| `--ginko-cms-chart-3`                   | Third chart/accent series      |
+| `--ginko-cms-chart-4`                   | Fourth chart/accent series     |
+| `--ginko-cms-chart-5`                   | Fifth chart/accent series      |
 
 Dark-mode equivalents use the `--ginko-cms-dark-*` prefix, for example
 `--ginko-cms-dark-background` and `--ginko-cms-dark-studio-action`.
@@ -93,18 +98,47 @@ Dark-mode equivalents use the `--ginko-cms-dark-*` prefix, for example
 | `--ginko-cms-sidebar-border`                    | Sidebar border              |
 | `--ginko-cms-sidebar-ring`                      | Sidebar focus ring          |
 
-### Layout and Fonts
+When `ginkoCms.sidebar.dark` is enabled, the light-mode sidebar reads from these
+separate dark-sidebar variables:
 
-| Variable                      | Purpose                                                 |
-| ----------------------------- | ------------------------------------------------------- |
-| `--ginko-cms-radius`          | Base border radius (other radii are computed from this) |
-| `--font-body`                 | Body text font family                                   |
-| `--font-heading`              | Heading font family                                     |
-| `--font-mono`                 | Monospace / code font family                            |
-| `--ginko-cms-studio-shell-bg` | Studio shell background                                 |
-| `--ginko-cms-studio-surface`  | Neutral content surface                                 |
-| `--ginko-cms-studio-panel`    | Raised panel surface                                    |
-| `--ginko-cms-studio-divider`  | Soft dividers                                           |
+| Variable                                             | Purpose                          |
+| ---------------------------------------------------- | -------------------------------- |
+| `--ginko-cms-sidebar-dark-background`                | Dark sidebar background          |
+| `--ginko-cms-sidebar-dark-foreground`                | Dark sidebar text                |
+| `--ginko-cms-studio-sidebar-dark-primary`            | Dark sidebar active item         |
+| `--ginko-cms-studio-sidebar-dark-primary-foreground` | Text on dark sidebar active item |
+| `--ginko-cms-sidebar-dark-accent`                    | Dark sidebar hover highlight     |
+| `--ginko-cms-sidebar-dark-accent-foreground`         | Text on dark sidebar hover       |
+| `--ginko-cms-sidebar-dark-border`                    | Dark sidebar border              |
+| `--ginko-cms-sidebar-dark-ring`                      | Dark sidebar focus ring          |
+
+In dark mode, the sidebar uses the dark card/action variables so it stays
+aligned with the rest of Studio.
+
+### Layout, Fonts, And Studio Surfaces
+
+| Variable                            | Purpose                                                 |
+| ----------------------------------- | ------------------------------------------------------- |
+| `--ginko-cms-radius`                | Base border radius (other radii are computed from this) |
+| `--font-body`                       | Body text font family                                   |
+| `--font-heading`                    | Heading font family                                     |
+| `--font-mono`                       | Monospace / code font family                            |
+| `--ginko-cms-studio-shell-bg`       | Studio shell background                                 |
+| `--ginko-cms-studio-surface`        | Neutral content surface                                 |
+| `--ginko-cms-studio-panel`          | Raised panel surface                                    |
+| `--ginko-cms-studio-muted`          | Muted Studio-specific surface                           |
+| `--ginko-cms-studio-divider`        | Soft dividers                                           |
+| `--ginko-cms-studio-accent-bg`      | Studio accent background                                |
+| `--ginko-cms-studio-accent-fg`      | Studio accent text                                      |
+| `--ginko-cms-studio-accent-border`  | Studio accent border                                    |
+| `--ginko-cms-studio-success-bg`     | Studio success background                               |
+| `--ginko-cms-studio-success-border` | Studio success border                                   |
+| `--ginko-cms-studio-warning-bg`     | Studio warning background                               |
+| `--ginko-cms-studio-warning-fg`     | Studio warning text                                     |
+| `--ginko-cms-studio-warning-border` | Studio warning border                                   |
+| `--ginko-cms-studio-danger-bg`      | Studio destructive background                           |
+| `--ginko-cms-studio-danger-fg`      | Studio destructive text                                 |
+| `--ginko-cms-studio-danger-border`  | Studio destructive border                               |
 
 ## Example
 
@@ -166,8 +200,7 @@ primary:
 ## Dark Sidebar
 
 By default, the sidebar follows your light/dark theme like any other surface.
-To force a dark sidebar even in light mode (common for admin panels), set the
-module option:
+To give the sidebar its own palette in light mode, set the module option:
 
 ```typescript
 // nuxt.config.ts
@@ -180,15 +213,17 @@ export default defineNuxtConfig({
 
 When `sidebar.dark` is enabled:
 
-- **Light mode**: The sidebar uses hardcoded dark values (near-black background,
-  light text). Your `--sidebar-*` light-mode variables are overridden.
+- **Light mode**: The sidebar uses `--ginko-cms-sidebar-dark-*` variables when
+  they are defined, falling back to the regular sidebar variables.
 - **Dark mode**: The sidebar inherits from your dark theme's `--card`,
   `--primary`, `--accent`, etc. -- it blends naturally with the rest of the UI.
 
 When `sidebar.dark` is disabled (the default):
 
-- The sidebar uses your `--sidebar-*` variables in both modes, matching the
-  rest of the app.
+- The sidebar uses `--ginko-cms-sidebar-*` variables in light mode and
+  `--ginko-cms-dark-sidebar-*` variables in dark mode. Host `--sidebar-*` tokens
+  affect Studio only if you explicitly map them into the Ginko CMS namespaced
+  variables.
 
 ## Dark Mode
 
@@ -196,13 +231,18 @@ The studio uses `@nuxtjs/color-mode` with `classSuffix: ""`. This means the
 `.dark` class is toggled on the `<html>` element. Your `.dark { ... }` variable
 block applies automatically.
 
-The `@custom-variant dark (&:is(.dark *));` directive in your Tailwind CSS
+The `@custom-variant dark (&:where(.dark, .dark *));` directive in your Tailwind CSS
 entry file ensures Tailwind's `dark:` utilities work with this class-based
 approach.
 
 ## Generating a Color Palette
 
-The easiest way to generate a compatible set of oklch variables is to use
-[shadcn/ui themes](https://ui.shadcn.com/themes). Pick a theme, copy the CSS
-variables, and paste them into your `:root` and `.dark` blocks. The variable
-names are the same ones the studio expects.
+Use [shadcn/ui themes](https://ui.shadcn.com/themes) as a starting point for a
+compatible set of oklch variables. Pick a theme, copy the CSS variables, and
+map the values into your `:root` and `.dark` blocks. The studio-facing variable
+names stay under the `--ginko-cms-*` namespace.
+
+## Related Pages
+
+- [Tailwind v4 integration notes](../concepts/tailwind-v4-integration.md)
+- [Environment variables](../getting-started/environment.md)

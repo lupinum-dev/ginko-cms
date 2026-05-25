@@ -1,14 +1,13 @@
 # Relations
 
-This document describes how relations work in `@lupinum/ginko-cms` after the
-stable-ID cutover and the locked public-read contract.
+This page explains how relation fields are stored, edited, validated, and
+returned through public reads in `@lupinum/ginko-cms`.
 
 It covers:
 
 - what is stored in the database
 - what Studio writes when you select a relation
 - what the public API returns to the frontend
-- what the migration does for older content
 - what is intentionally out of scope in v1
 
 ## Mental Model
@@ -24,7 +23,7 @@ Current flow:
 2. You point it at another collection via `relation.collectionId`
 3. Studio saves the target entry's `stableId`
 4. Public reads return that stable ID as the relation value
-5. A future profile can deliberately expose an expanded relation shape if the
+5. A later schema-owned profile can expose an expanded relation shape only if
    generated types also own that shape
 
 That means the editor and public contract stay normalized. Relation expansion is
@@ -77,8 +76,8 @@ Multiple relations:
 Important details:
 
 - Raw Convex entry `_id` values are no longer the canonical relation value
-- Every entry now gets a `stableId`, even when the collection does not use
-  stable slugs in URLs
+- New entries get a `stableId`, even when the collection does not use stable
+  slugs in URLs
 - `needsStableId()` is still only about routing behavior, not relation storage
 
 ## Studio Behavior
@@ -189,35 +188,16 @@ await api.public.page({ collection: 'blog', locale: 'de', path: '/blog/x' })
 returns the stored stable reference. It does not resolve a locale-specific
 target entry inline.
 
-## Migration From Legacy `_id` Relations
+## Invalid Stored Values
 
-Older content may still contain raw entry `_id` values in relation fields.
+When drafts are saved, relation values are normalized against the target
+collection's stable IDs. A single relation that does not point at an existing
+stable ID becomes `null`. A multiple relation keeps only stable IDs that still
+exist in the target collection.
 
-The one-off migration does two things:
-
-1. Backfills missing `stableId`s on entries
-2. Rewrites legacy relation values from `_id` to `stableId`
-
-In the current model it rewrites relation data in:
-
-- `entryDrafts`
-- `entryRevisions`
-- current entry draft/publish pointers where the helper needs to preserve
-  active state
-
-After rewriting, rebuild derived public rows, search text, relation cache tags,
-and asset references from current source docs.
-
-### Migration Trigger
-
-The mutation added for this cutover is:
-
-```ts
-collections / sync.migrateLegacyRelationsToStableIds
-```
-
-Run it once after deploy in an environment that still contains old relation
-values.
+Public reads return stored stable IDs. They do not expand a target entry, and
+they do not rewrite an already published relation because the target later
+becomes unpublished.
 
 ## Why This Approach
 
@@ -242,7 +222,7 @@ Not included in v1:
   helpers
 - GraphQL-style `include` or query-shape configuration
 
-If those become necessary later, they should be added deliberately. The current
+If those become necessary later, they should be added deliberately. The
 implementation is intentionally narrow and predictable.
 
 ## Practical Example
@@ -276,3 +256,8 @@ Frontend access:
 ```ts
 post.data.author
 ```
+
+## Related Pages
+
+- [Public content API](../reference/public-content-api.md)
+- [Content model](../reference/content-model.md)

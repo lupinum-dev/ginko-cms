@@ -6,14 +6,9 @@ path from local packages to a clean consumer app.
 
 ## Release Stack
 
-| Package                       | Version |
-| ----------------------------- | ------: |
-| `@lupinum/ginko-cms`          | `0.1.1` |
-| `@lupinum/ginko-cms-convex`   | `0.1.1` |
-| `@lupinum/ginko-cms-contract` | `0.1.1` |
-| `@lupinum/ginko-content`      | `0.1.0` |
-| `@lupinum/trellis`            | `0.1.1` |
-| `@lupinum/trellis-bridge`     | `0.1.1` |
+The release stack is recorded in `packages/cms/compatibility.json`. Treat that
+file as the canonical package tuple; do not copy version tables by hand into
+release notes.
 
 Publish order is fixed: Content, Trellis, Trellis Bridge, CMS Contract, CMS
 Convex, then CMS. Do not use recursive workspace publishing from this repo; the
@@ -21,19 +16,28 @@ workspace includes sibling checkouts for local development.
 
 ## Maintainer Release Gate
 
-Run the full foundation gate from the Ginko CMS workspace:
+Run the package release gates from the Ginko CMS workspace:
 
 ```bash
+pnpm run release:notes
+pnpm run release:verify
+```
+
+After Trellis and Ginko Content release candidates are available from the
+registry, also run:
+
+```bash
+pnpm run release:verify:registry
+```
+
+For a private consumer app drill, run the foundation gate with the consumer app
+root and browser smoke credentials in the same command:
+
+```bash
+GINKO_CMS_CONSUMER_ROOT=/path/to/app \
 GINKO_CMS_TEST_EMAIL=owner@example.com \
 GINKO_CMS_TEST_PASSWORD=replace-me \
 pnpm run foundation:verify -- --release
-```
-
-Choose a private consumer app explicitly when running the foundation gate. The
-OSS repo does not name or require any private app:
-
-```bash
-GINKO_CMS_CONSUMER_ROOT=/path/to/app pnpm run foundation:verify -- --release
 ```
 
 Release mode requires the browser smoke credentials and fails on known bad
@@ -49,6 +53,11 @@ For a clean staging app, run these commands in order:
 pnpm install
 pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
+pnpm exec convex deployment token create ginko-cms-staging-admin --save-env .env.local
+FORWARDING_KEY="$(openssl rand -base64 32)"
+printf "\nCONVEX_IDENTITY_FORWARDING_KEY=%s\n" "$FORWARDING_KEY" >> .env.local
+pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
+pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
 pnpm exec convex dev --once --typecheck disable --tail-logs disable
 pnpm exec ginko-cms push
 pnpm exec ginko-cms push --check
@@ -61,10 +70,9 @@ Then open Studio and verify:
 - `/studio` loads without a server error.
 - The configured test user can register or sign in.
 - The Studio shell shows configured collections.
-- An author can be created.
-- A post can be created with image metadata, author relation, date, title,
-  description, body, and badge.
-- Reopening the post shows the saved values.
+- Test entries can be created for the configured collections, including at
+  least one relation field and one rich body field when the app defines them.
+- Reopening the entries shows the saved values.
 - Publish or destructive preview flows work when the deployment exposes MCP
   destructive operations.
 
@@ -100,14 +108,18 @@ Use this command to inspect drift:
 pnpm exec ginko-cms push --check
 ```
 
-For production or shared staging data, plan an explicit content migration before
-pushing the new contract. Do not clear CMS tables to force the push through.
+For production or shared staging data, preserve a verified backup through an
+owner-authenticated operator workflow and plan an explicit content migration
+before pushing the new contract. Push only after `ginko-cms push --check` reports
+safe drift. Do not clear CMS tables to force the push through.
 
 For disposable local development only, a full CMS content reset is acceptable
 after confirming the data can be discarded. Keep auth/member state separate
 unless the test requires a completely fresh deployment.
 
 For the user-facing workflow, safe/unsafe change matrix, migration recipes, and
-recovery notes, see [`changing-collections.md`](./changing-collections.md),
-[`migration-recipes.md`](./migration-recipes.md), and
-[`migration-recovery.md`](./migration-recovery.md).
+recovery notes, see
+[Changing collections](../guides/changing-collections.md),
+[Migration recipes](../guides/migrations/recipes.md), and
+[Migration recovery](../guides/migrations/recovery.md). For backup semantics,
+see [Backup and recovery](./backup-and-recovery.md).

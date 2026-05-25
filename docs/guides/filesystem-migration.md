@@ -1,10 +1,34 @@
 # Filesystem Migration
 
 `@lupinum/ginko-cms/migration` provides the filesystem-to-Ginko CMS migration
-boundary. It is deliberately split into plan and apply stages.
+boundary. Use it when moving existing Markdown, MDC, JSON, or YAML content into
+existing code-defined CMS collections. The workflow is deliberately split into
+plan and apply stages.
 
 Migration imports content into existing code-defined collection contracts. It is
 not a schema generator and must not mutate collection definitions.
+
+## Before You Start
+
+Use this workflow after the target collections have been defined in app code and
+pushed into Ginko CMS. Preview and apply call the CMS import operations, which
+require an owner or another caller with collection-management permission.
+
+Expected source layout:
+
+```text
+collections/
+  posts.json
+content/
+  posts/
+    hello-world.md
+```
+
+The collection JSON files describe the incoming source shape. The active
+code-defined CMS contract remains the authority that accepts or blocks the
+import.
+
+## Plan, Preview, Upload, Apply
 
 ```ts
 import {
@@ -15,7 +39,7 @@ import {
   rewriteFilesystemMigrationAssetReferences,
 } from '@lupinum/ginko-cms/migration'
 
-const plan = createFilesystemMigrationPlan({
+const plan = await createFilesystemMigrationPlan({
   rootDir: process.cwd(),
   collectionsDir: 'collections',
   contentDir: 'content',
@@ -33,10 +57,6 @@ const { plan: uploadedPlan } = await uploadFilesystemMigrationAssets(plan, async
   return await uploadAssetAndReturnUrl(asset.sourcePath)
 })
 
-const rewrittenPlan = rewriteFilesystemMigrationAssetReferences(plan, [
-  { sourcePath: '/assets/guide.png', replacement: 'https://assets.example/guide.png' },
-])
-
 await applyFilesystemMigration(uploadedPlan, {
   applyImport: async (payload) => {
     // call Ginko applyImport with { collections, entries }
@@ -46,6 +66,17 @@ await applyFilesystemMigration(uploadedPlan, {
   },
 })
 ```
+
+If assets are already uploaded, use explicit replacements instead of
+`uploadFilesystemMigrationAssets`:
+
+```ts
+const rewrittenPlan = rewriteFilesystemMigrationAssetReferences(plan, [
+  { sourcePath: '/assets/guide.png', replacement: 'https://assets.example/guide.png' },
+])
+```
+
+Then pass `rewrittenPlan` to `applyFilesystemMigration(...)`.
 
 The planner reports:
 
@@ -89,9 +120,11 @@ Successful preview/apply runs are also persisted as collection import reports.
 Admin tooling can query recent runs with `listImportRuns` instead of relying on
 the original mutation response as the only audit trail.
 
-Current limits:
+## Current Limits
 
-- YAML parsing is intentionally small and supports scalar frontmatter only.
+- Markdown/MDC frontmatter can contain structured YAML values such as arrays,
+  nested objects, and inline objects. JSON/YAML content files are also accepted
+  for data-only collections.
 - JSON/YAML content files are accepted only for `routing.mode: "none"` collections;
   route-backed content must use Markdown/MDC so body and route semantics stay
   explicit.
@@ -103,7 +136,13 @@ Current limits:
 - Failed import report persistence is still a separate concern because Convex
   rolls back writes when the mutation fails.
 - Site-wide public-row rebuild tooling is still a separate scaling concern.
-  Route-backed import publishing currently writes the active public rows needed
-  by navigation directly during publish.
+  Route-backed import publishing writes the active public rows needed by
+  navigation directly during publish.
 - Sites without a `content/` directory can still use the planner to import
   collection configs and receive an explicit `content_dir_missing` warning.
+
+## Related Pages
+
+- [Changing collections](./changing-collections.md)
+- [Migration recipes](./migrations/recipes.md)
+- [Migration recovery](./migrations/recovery.md)

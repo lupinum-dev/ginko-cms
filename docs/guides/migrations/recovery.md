@@ -1,15 +1,14 @@
 # Migration Recovery
 
-Collection changes should be recoverable because the risky part is explicit:
-stored content is transformed separately from contract sync.
+Use this page when a collection drift check, content migration, or contract push
+fails during a model change. Collection changes should be recoverable because
+the risky part is explicit: stored content is transformed separately from
+contract sync.
 
 ## Before Applying A Migration
 
-Export a full backup:
-
-```bash
-pnpm exec ginko-cms backup export --scope full --out ./ginko-backup.json
-```
+Export or preserve a verified full backup through an owner-authenticated
+operator workflow.
 
 Keep the backup with the deploy or release notes for the change. Do not rely on
 local development resets for shared staging or production data.
@@ -49,24 +48,32 @@ Treat the migration as application code:
 
 1. Stop the rollout.
 2. Inspect which entries were changed.
-3. Restore from the backup if the migration partially applied.
+3. Use the backup as the recovery source if the migration partially applied.
 4. Fix the migration.
 5. Re-run against a disposable deployment before retrying shared data.
 
 There is no migration history table. The migration file, CLI output, backup,
 and release notes are the audit trail.
 
-## Restore From Backup
+## Use The Backup For Recovery
 
-Backup import is intentionally gated:
+The CLI can export, download, and verify backups. It does not expose a backup
+import command. Treat the backup file as the recovery source for an operator-led
+restore or manual repair, not as a command you can apply over live data.
 
-```bash
-pnpm exec ginko-cms backup import --file ./ginko-backup.json --empty-only
-```
+For production recovery:
 
-The import command requires `--empty-only` because restoring over live data can
-destroy current CMS state. For production recovery, prefer restoring into a
-fresh deployment first, verify, then promote or manually repair.
+1. Stop writes to the affected CMS deployment.
+2. Preserve the failed migration output and the backup artifact/checksum.
+3. Restore or inspect the backup in an isolated deployment or operator
+   environment.
+4. Repair live data only after comparing the backup with the partially migrated
+   state.
+5. Re-run the fixed migration against disposable data before retrying shared
+   data.
+
+Do not overwrite live CMS tables directly to force a recovery. That can destroy
+entries written after the backup was created.
 
 ## Final Verification
 
@@ -87,3 +94,9 @@ Then verify the public pages affected by the change, especially:
 - search
 - relation displays
 - localized fallback behavior
+
+## Related Pages
+
+- [Changing collections](../changing-collections.md)
+- [Migration recipes](./recipes.md)
+- [Backup and recovery](../../maintenance/backup-and-recovery.md)

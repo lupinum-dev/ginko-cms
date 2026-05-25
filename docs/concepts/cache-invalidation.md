@@ -66,7 +66,7 @@ The non-locale entry tag remains the safe default.
 
 ## Publish Flow
 
-MVP publish behavior:
+Publish behavior:
 
 ```txt
 publish mutation
@@ -93,3 +93,8 @@ additional content during render, but they are not the only source of truth.
 
 Revalidation secrets live in environment or secret storage. Studio may display
 connection status or a fingerprint, but it must not expose raw secret values.
+
+## Related Pages
+
+- [Content model](../reference/content-model.md)
+- [Environment](../getting-started/environment.md)

@@ -1,8 +1,9 @@
-# Current Content Model
+# Content Model
 
-This document describes the current Convex-backed content model. It replaces
-older projection-run and Nuxt Content mapping sketches; those documents named
-tables that are not part of the active schema.
+This reference describes the Convex-backed content model implemented in
+`packages/convex/src/schema.ts`. It is the source of truth for table names in
+docs; older projection-run and Nuxt Content mapping sketches named tables that
+are not part of the active schema.
 
 ## Ownership
 
@@ -16,20 +17,27 @@ tables that are not part of the active schema.
 
 ## Tables
 
-Canonical editable content:
+Collection and contract state:
 
 - `collections`: synced code-defined collection contracts.
+- `collectionReindexJobs`: internal reindex work for collection refreshes.
+
+Canonical editable content:
+
 - `entries`: entry identity, tree/order state, draft metadata, publish pointers,
   dirty locales, stable IDs, and collection ownership.
 - `entryDrafts`: draft shared/localized values, body content, route data, and
   public flags.
-- `entryRevisions`: immutable published snapshots.
+- `entryRevisions`: append-only editorial events: publish, unpublish, rollback,
+  archive, and checkpoint.
+- `redirects`: explicit public redirects.
+- `siteData`: reusable data blocks.
+
+Assets and derived references:
+
 - `assets`: uploaded media and file metadata.
 - `contentAssetRefs`: derived asset references found in drafts/public content;
   rebuildable from entry content and asset fields.
-- `redirects`: explicit public redirects.
-- `siteDataBlocks`: reusable data blocks.
-- `activity`: audit/event feed.
 
 Public serving state:
 
@@ -37,15 +45,25 @@ Public serving state:
   singleton, and data-only reads.
 - `publicRoutes`: route lookup rows for route-backed page and route metadata
   reads. Data-only collections do not create route rows.
-- `outboxEvents`: revalidation delivery events with already-expanded old and
-  new affected paths/tags.
-- `revalidationTargets` and `revalidationJobs`: delivery configuration and job
-  status for cache invalidation.
+- `outboxEvents`: operational revalidation delivery events with expanded previous
+  and next affected paths/tags, delivery attempts, retry state, and retention.
+- `revalidationTargets`: delivery configuration for cache invalidation.
 
-Import state:
+Imports and backups:
 
 - `collectionImportRuns`: persisted import preview/apply reports for Studio and
   operator inspection.
+- `backupArtifacts`: completed backup exports and their checksums/storage refs.
+
+Access, operations, and audit:
+
+- `cmsSettings`: site-level CMS settings such as locale configuration and
+  webhook definitions.
+- `members`: Studio members and roles.
+- `mcpKeys`: issued MCP API keys and status.
+- `destructiveConfirmations`: gated destructive-operation confirmation tokens.
+- `destructiveAuditLog`: executed destructive-operation audit records.
+- `activity`: audit/event feed.
 
 ## Publish Shape
 
@@ -55,11 +73,11 @@ draft state
   -> create immutable entry revision
   -> upsert publicEntries
   -> upsert publicRoutes only for route-backed collections
-  -> emit revalidation outbox event with old and new paths/tags
+  -> emit revalidation outbox event with previous and next paths/tags
 ```
 
 Publishing is direct-row activation. There is no active projection-run table or
-batch activation concept in the current model.
+batch activation concept in the active model.
 
 ## Public Capability Rule
 
@@ -79,8 +97,12 @@ created, updated, no-op, skipped, blocked, and published rows.
 ## Rebuild Rule
 
 Any derived row must have a named canonical source and a rebuild path. Current
-derived surfaces are public rows, route rows, content asset refs, search text on
-public rows, and revalidation events.
+rebuildable derived surfaces are public rows, route rows, content asset refs, and
+search text on public rows.
+
+Revalidation outbox rows are operational delivery state, not a rebuildable read
+model. They are created from publish/site-data events, retried, and eventually
+cleaned up according to retention rules.
 
 ## Asset Metadata Policy
 
@@ -89,3 +111,8 @@ caption, filename, or tags updates the asset manager record, but it does not
 rewrite already published entry snapshots or enqueue public revalidation by
 itself. Public pages that embedded asset metadata pick up those edits after the
 affected entries are republished or after a deliberate projection rebuild.
+
+## Related Pages
+
+- [Public content API](./public-content-api.md)
+- [Cache invalidation](../concepts/cache-invalidation.md)

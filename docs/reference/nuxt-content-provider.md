@@ -23,20 +23,31 @@ Required environment:
 
 ```bash
 NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
+```
+
+`CONVEX_URL` can be used as the server-side fallback when
+`NUXT_PUBLIC_CONVEX_URL` is not set. Missing Convex URL configuration fails with
+`provider_config_missing`; the provider does not silently fall back to
+filesystem or non-CMS data.
+
+Optional environment:
+
+```bash
 GINKO_CONTENT_PROVIDER_SITE=your-site-key
 ```
 
-Missing required environment fails with `provider_config_missing`; the provider
-does not silently fall back to filesystem or non-CMS data.
+`GINKO_CONTENT_PROVIDER_SITE` defaults to `default`. The provider reads it during
+queries, but current public Convex queries are not partitioned by this value.
+Treat it as reserved until multi-site routing is implemented.
 
-The Convex public function prefix is fixed at `ginkoCms/public:`. Locale
-defaults come from the published Ginko CMS collection data, not from provider
-environment variables.
+The Convex public function prefix is fixed at `ginkoCms/public:`. If a call does
+not pass a locale, the provider uses `en`.
 
 ## Behavior
 
-- `page`, `query`, `navigation`, `surroundings`, `searchResults`, and
-  `sitemapEntries` read from Ginko public Convex queries.
+- `page`, `query`, `navigation`, `navigationQuery`, `surroundings`, `search`,
+  `siteData`, `routeMeta`, and `sitemapEntries` read from Ginko public Convex
+  queries.
 - `routeMeta` is implemented for the Nuxt content provider so route-backed page
   rendering can load localized route metadata without loading rendered body
   content. It is not part of the optional HTTP facade.
@@ -50,9 +61,19 @@ environment variables.
 
 ## Current Limits
 
-- `query` is intentionally limited to public list reads and simple operator
-  validation. Broad filesystem-only query shapes are not made portable by
-  pretending they work.
+- `query` is intentionally limited to public list reads. Supported public where
+  clauses are `_draft: false`, `_partial: false`, `_locale`, and `_path` or
+  `path` prefix filters.
+- Public sort supports `orderKey`, `entryCreatedAt`, `firstPublishedAt`, and
+  `lastPublishedAt`. The provider drops `_stem` sort hints because they are
+  filesystem ordering hints, not a CMS public index.
+- Cursor pagination is supported. Positive numeric `skip`, `count`, and `without`
+  projections are rejected.
 - `searchSections` is intentionally not exposed by the CMS provider. Host apps
   must use the CMS search engine for published search instead of rebuilding a
   frontend-owned section index from public rows.
+
+## Related Pages
+
+- [Public content API](./public-content-api.md)
+- [Environment](../getting-started/environment.md)

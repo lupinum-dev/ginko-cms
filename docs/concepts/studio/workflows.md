@@ -3,8 +3,8 @@
 Ginko Studio is the authenticated human editing surface for Ginko CMS. It is a
 content operations UI for code-defined websites, not a schema builder.
 
-For the product boundary, see `docs/studio-product-model.md`.
-For the editor-facing UI model and vocabulary, see `docs/studio-ux-model.md`.
+For the product boundary, see [Studio product model](./product-model.md). For
+the editor-facing UI model and vocabulary, see [Studio UX model](./ux-model.md).
 
 ## Workflow Principles
 
@@ -23,7 +23,7 @@ For the editor-facing UI model and vocabulary, see `docs/studio-ux-model.md`.
 An entry workflow should make these states obvious:
 
 - collection and route mode;
-- current locale and translation availability;
+- active locale and translation availability;
 - required shared/localized fields;
 - draft versus published values;
 - route and slug state;
@@ -32,7 +32,7 @@ An entry workflow should make these states obvious:
 - relation references;
 - public visibility blockers.
 
-Saving a draft does not change public output. Publishing validates the current
+Saving a draft does not change public output. Publishing validates the active
 content model and refreshes public output only when the operation succeeds.
 
 ## Publishing

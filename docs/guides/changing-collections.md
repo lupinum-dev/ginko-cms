@@ -1,13 +1,15 @@
 # Changing Collections During A Project
 
-Ginko CMS keeps one source of truth for content models: the host app's code.
-For Ginko Content apps, that is usually `content.config.ts`.
+Use this guide when you change a collection, field, route, locale, or collection
+type after content already exists. Ginko CMS keeps one source of truth for
+content models: the host app's code. For Ginko Content apps, that is usually
+`content.config.ts`.
 
 Studio, MCP, imports, and public reads inspect the synced collection contract,
 but they do not edit schema. Contract changes move in one direction:
 
 ```text
-content.config.ts -> ginko-cms push -> synced CMS contract
+content.config.ts / ginkoCms.collections -> ginko-cms push -> synced CMS contract
 ```
 
 Stored content is separate. If a contract change can invalidate existing
@@ -27,15 +29,14 @@ If the check reports only safe drift, run:
 pnpm exec ginko-cms push
 ```
 
-If the check reports that a migration is required:
+If the check reports that a migration is required, stop before pushing the new
+contract:
 
 ```bash
 pnpm exec ginko-cms migrate create <change-name>
-pnpm exec ginko-cms backup export --scope full --out ./ginko-backup.json
 pnpm exec ginko-cms migrate plan ginko/migrations/<file>.ts
 pnpm exec ginko-cms migrate apply ginko/migrations/<file>.ts --yes
 pnpm exec ginko-cms push --check
-pnpm exec ginko-cms push
 ```
 
 `migrate plan` reads live draft snapshots and shows counts plus sample changed
@@ -43,6 +44,13 @@ paths. It writes nothing. `migrate apply` refuses to run without `--yes`, applie
 only changed entries, and uses `draftVersion` so entries edited after planning
 are not overwritten. It does not create an automatic backup or a migration
 history table.
+
+The migration commands transform stored draft content under the active contract.
+They do not by themselves approve an incompatible code-defined contract change.
+After applying a migration, rerun `push --check` and push only when the check
+reports safe drift. If the guard still reports migration-required drift, the
+current product does not have a headless confirmation path for that hard cutover;
+plan an operator-owned rollout instead of forcing the contract through.
 
 ## Safe Changes
 
@@ -59,7 +67,7 @@ These changes are safe to push because they do not invalidate stored entry data:
 | Add a locale without removing existing locales | Safe push        |
 
 Safe does not mean no work happened. Ginko CMS may still refresh derived state
-so Studio lists, public projections, search, and navigation reflect the latest
+so Studio lists, public projections, search, and navigation reflect the active
 contract.
 
 ## When A Migration Is Required
@@ -94,11 +102,8 @@ change", not "clear tables until it works".
    pnpm exec ginko-cms migrate create <change-name>
    ```
 
-4. Export a full backup:
-
-   ```bash
-   pnpm exec ginko-cms backup export --scope full --out ./ginko-backup.json
-   ```
+4. Export or otherwise preserve a verified backup through an owner-authenticated
+   operator workflow before changing shared data.
 
 5. Review the migration transform and plan it:
 
@@ -113,10 +118,13 @@ change", not "clear tables until it works".
    ```
 
 7. Run `pnpm exec ginko-cms push --check`.
-8. Run `pnpm exec ginko-cms push`.
-9. Run `pnpm exec ginko-cms doctor`.
-10. Run the host app's typecheck and build.
-11. Verify the changed public routes in the site.
+8. If the check still reports migration-required drift, stop and plan the
+   operator cutover. Do not force a production contract update through table
+   edits.
+9. Run `pnpm exec ginko-cms push` only after the check reports safe drift.
+10. Run `pnpm exec ginko-cms doctor`.
+11. Run the host app's typecheck and build.
+12. Verify the changed public routes in the site.
 
 ## Migration File Shape
 
@@ -168,3 +176,9 @@ team confirms the data can be discarded.
 
 For shared staging or production data, reset is not a migration path. Export a
 backup and transform the content explicitly.
+
+## Related Pages
+
+- [Migration recipes](./migrations/recipes.md)
+- [Migration recovery](./migrations/recovery.md)
+- [Filesystem migration](./filesystem-migration.md)

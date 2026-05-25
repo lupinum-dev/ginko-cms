@@ -1,7 +1,8 @@
 # Migration Recipes
 
-These recipes assume the collection contract remains code-owned and the
-migration only transforms stored content.
+Use these recipes when `ginko-cms push --check` reports drift that needs an
+explicit content migration. The collection contract remains code-owned; the
+migration transforms stored content so the next contract push can succeed.
 
 Run a drift check first:
 
@@ -15,11 +16,9 @@ Create a scaffold:
 pnpm exec ginko-cms migrate create <change-name>
 ```
 
-Export a backup before applying any transform to shared data:
-
-```bash
-pnpm exec ginko-cms backup export --scope full --out ./ginko-backup.json
-```
+Preserve a verified backup through an owner-authenticated operator workflow
+before applying any transform to shared data. The migration command does not
+create a backup or a migration history row.
 
 Plan and apply the migration:
 
@@ -182,17 +181,34 @@ For production:
 
 1. Export backup.
 2. Record old path to new path mapping.
-3. Apply the content or redirect migration.
-4. Push the new contract.
-5. Verify public page, navigation, sitemap, and search output.
+3. Apply the content migration.
+4. Rerun `pnpm exec ginko-cms push --check`.
+5. Push the new contract only if the check reports safe drift.
+6. Verify public page, navigation, sitemap, and search output.
+
+Stable-slug collections can return old-route redirects after a slug change and
+republish. Otherwise, handle redirects in the host app or add a documented CMS
+redirect operation before relying on CMS-managed redirects.
 
 ## Rename A Collection
 
-Treat collection rename as create new collection plus move entries. Keep stable
-entry IDs if published URLs, relations, or imports depend on them.
+`ginko-cms migrate` cannot change an entry's collection. Treat a collection
+rename as an app-owned content move:
+
+1. Add the target collection in code.
+2. Move or recreate entries through an explicit import/editor workflow that
+   preserves the stable IDs you still need.
+3. Verify routes, relations, and public reads.
+4. Empty the old collection before removing it from code.
 
 ## Split Or Merge Collections
 
-Write this as a project migration with explicit entry mapping. Do not try to
-hide it with compatibility collection names. The migration should state where
-each old entry goes and how routes and relations are handled.
+`ginko-cms migrate` is still useful for reshaping fields before or after the
+move, but it is not the move operation. Write a project plan with explicit
+entry mapping. The plan should state where each old entry goes and how routes
+and relations are handled.
+
+## Related Pages
+
+- [Changing collections](../changing-collections.md)
+- [Migration recovery](./recovery.md)

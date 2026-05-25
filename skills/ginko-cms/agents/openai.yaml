@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Ginko CMS'
+  short_description: 'Use and operate Ginko CMS correctly'
+  default_prompt: 'Use $ginko-cms to set up, debug, or operate a Nuxt app with Ginko CMS.'

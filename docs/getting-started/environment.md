@@ -1,16 +1,42 @@
 # Environment Contract
 
-Ginko CMS keeps environment variables explicit, but each variable should belong
-to one owner. Do not add a new variable when an existing owner already exposes
-the value.
+This page lists the environment variables used by a Ginko CMS host app, the CMS
+server/MCP surface, and maintainer smoke tests. Each variable should have one
+owner; do not add a CMS-specific name when Convex, Better Auth, or Ginko Content
+already owns the value.
 
-## Required By Surface
+## Values Ginko CMS Reads
 
-### Consumer Nuxt App
+Ginko CMS reads these values directly from the host app, CLI process, server
+runtime, or Convex environment:
 
 ```bash
 NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 CONVEX_URL=https://your-deployment.convex.cloud
+CONVEX_DEPLOY_KEY=prod:...
+CONVEX_IDENTITY_FORWARDING_KEY=long-random-secret
+GINKO_FIRST_OWNER_EMAIL=owner@example.com
+```
+
+- `NUXT_PUBLIC_CONVEX_URL`: public browser URL used by Nuxt and the Ginko
+  content provider.
+- `CONVEX_URL`: server-side Convex URL used by CLI/server routes. It may match
+  `NUXT_PUBLIC_CONVEX_URL`.
+- `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for server-to-Convex
+  admin calls, collection contract sync, and MCP operations.
+- `CONVEX_IDENTITY_FORWARDING_KEY`: preferred signing key for Ginko CMS component
+  bridge envelopes. The CLI/server environment and Convex deployment must use the
+  same value.
+- `GINKO_FIRST_OWNER_EMAIL`: required until the first CMS owner has claimed
+  ownership in Studio.
+
+## Host, Auth, And Convex Values
+
+These values may be required by the host Nuxt app, Convex, Better Auth, or site
+integrations. Ginko CMS does not own all of them, but a complete host deployment
+often needs them:
+
+```bash
 CONVEX_SITE_URL=https://your-deployment.convex.site
 NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 CONVEX_DEPLOYMENT=dev:your-deployment-name
@@ -19,10 +45,6 @@ SITE_URL=https://your-site.example
 NUXT_PUBLIC_SITE_URL=https://your-site.example
 ```
 
-- `NUXT_PUBLIC_CONVEX_URL`: public browser URL used by Nuxt and the Ginko
-  content provider.
-- `CONVEX_URL`: server-side Convex URL used by CLI/server routes. It may match
-  `NUXT_PUBLIC_CONVEX_URL`.
 - `CONVEX_SITE_URL`: Convex HTTP action site URL.
 - `NUXT_PUBLIC_CONVEX_SITE_URL`: public Convex HTTP action site URL when the
   browser needs to call Convex HTTP actions.
@@ -33,28 +55,24 @@ NUXT_PUBLIC_SITE_URL=https://your-site.example
 - `NUXT_PUBLIC_SITE_URL`: browser-visible canonical site origin when public
   runtime config needs it.
 
-### Ginko CMS Server/MCP
+## CMS Server And MCP Runtime
+
+MCP and CLI operations that cross the generated bridge also accept a
+CMS-specific fallback forwarding key. Prefer `CONVEX_IDENTITY_FORWARDING_KEY`
+unless the deployment needs a separate CMS-only secret.
 
 ```bash
-CONVEX_DEPLOY_KEY=prod:...
-GINKO_FIRST_OWNER_EMAIL=owner@example.com
-GINKO_CONTENT_PROVIDER_SITE=default
-CONVEX_IDENTITY_FORWARDING_KEY=long-random-secret
-# or:
 GINKO_CMS_COMPONENT_FORWARDING_KEY=long-random-secret
 ```
 
-- `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for server-to-Convex
-  admin calls, collection contract sync, and MCP operations.
-- `GINKO_FIRST_OWNER_EMAIL`: optional bootstrap owner email read by Convex.
-- `GINKO_CONTENT_PROVIDER_SITE`: optional site partition for the Ginko Content
-  provider. Defaults to `default`.
-- `CONVEX_IDENTITY_FORWARDING_KEY`: preferred signing key for Ginko CMS
-  component bridge envelopes.
 - `GINKO_CMS_COMPONENT_FORWARDING_KEY`: CMS-specific fallback signing key when
   the Convex-wide identity-forwarding key is not used.
 
-### Maintainer Smoke Tests
+`GINKO_CONTENT_PROVIDER_SITE` is reserved for a future provider site partition.
+The provider reads it and defaults to `default`, but current public Convex
+queries are not partitioned by this value.
+
+## Maintainer Smoke Tests
 
 ```bash
 GINKO_CMS_TEST_EMAIL=owner@example.com
@@ -80,6 +98,12 @@ pnpm exec convex deployment token create ginko-cms-production --prod
 Store the printed value as `CONVEX_DEPLOY_KEY` in the server or CI secret store.
 Do not expose it through `NUXT_PUBLIC_*`.
 
+The bridge forwarding key must also exist in Convex:
+
+```bash
+pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY long-random-secret
+```
+
 Ginko uses `CONVEX_DEPLOY_KEY` only as Convex admin auth. The CMS caller is
 passed as explicit function input to the generated internal bridge functions,
 so deploy-key auth and product audit identity are not mixed.
@@ -92,17 +116,23 @@ After `pnpm exec ginko-cms init`, the safe local order is:
 pnpm exec convex dev --once --tail-logs disable --typecheck disable
 pnpm exec ginko-cms push
 pnpm exec ginko-cms push --check
+```
+
+`ginko-cms push` reads `.env.local` as well as the process environment.
+
+For MCP installations, also run:
+
+```bash
 pnpm exec ginko-cms mcp-doctor
 ```
 
-`ginko-cms push` and `ginko-cms mcp-doctor` read `.env.local` as well as the
-process environment. The MCP runtime itself still needs the same keys in the
-actual server environment.
+`ginko-cms mcp-doctor` expects the MCP runtime prerequisites, including
+`secure-exec`, and reads `.env.local` as well as the process environment. The
+MCP runtime itself still needs the same keys in the actual server environment.
 
-## Network Egress Allowlists
+## Revalidation Egress
 
-MCP does not fetch remote assets. Public cache revalidation targets require an
-exact hostname allowlist:
+Public cache revalidation targets require an exact hostname allowlist:
 
 ```bash
 GINKO_CMS_REVALIDATION_ALLOWED_HOSTS=www.example.com
@@ -111,13 +141,18 @@ GINKO_CMS_REVALIDATION_ALLOWED_HOSTS=www.example.com
 Local revalidation targets remain development-only and require
 `GINKO_CMS_ALLOW_LOCAL_REVALIDATION=1`.
 
+Each revalidation target stores the name of its signing-token environment
+variable as `secretEnv`. Set that target-specific secret in the Convex
+environment. Ginko CMS does not require one fixed revalidation token variable
+name.
+
 ## Removed Names
 
 - `GINKO_CMS_INSTALL_SECRET`: removed. Collection contract sync uses
   `CONVEX_DEPLOY_KEY` admin auth and generated internal bridge functions.
 - `GINKO_CONVEX_URL`: removed. Use `NUXT_PUBLIC_CONVEX_URL` or `CONVEX_URL`.
-- `GINKO_REVALIDATE_TOKEN`: removed. Use
-  `GINKO_CONTENT_REVALIDATE_TOKEN`.
+- `GINKO_REVALIDATE_TOKEN`: removed as a fixed global name. Revalidation
+  targets store their own `secretEnv` names.
 - `GINKO_PROVIDER_*`: removed. Provider-owned names use
   `GINKO_CONTENT_PROVIDER_*`; function prefix and default locale are not env
   variables.
@@ -131,3 +166,8 @@ Local revalidation targets remain development-only and require
 - Keep Trellis-owned names under `TRELLIS_*`.
 - Keep Convex-owned names as `CONVEX_*`.
 - Do not expose server secrets with `NUXT_PUBLIC_*`.
+
+## Related Pages
+
+- [Quickstart](./quickstart.md)
+- [Nuxt content provider](../reference/nuxt-content-provider.md)
