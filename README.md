@@ -105,7 +105,6 @@ Ginko CMS owns the CMS product layer. Ginko Content owns CMS-neutral content
 querying and provider contracts. Trellis owns generic Nuxt, Convex, Better Auth,
 and MCP app primitives.
 
-
 ## Local Development
 
 ```bash
