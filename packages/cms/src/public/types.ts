@@ -47,6 +47,7 @@ export interface GinkoCmsStudioHostApi {
       listColocatedAssets: StudioQueryRef
       moveAsset: StudioMutationRef
       previewDeleteAssetOperation: StudioMutationRef
+      previewPurgeAssetOperation: StudioMutationRef
       purgeAsset: StudioMutationRef
       registerAsset: StudioMutationRef
       resolveAssetUrls: StudioQueryRef

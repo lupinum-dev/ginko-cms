@@ -73,6 +73,12 @@ const MAX_RESOLVED_ASSET_URLS = 200
 const MAX_COLOCATED_GROUP_ASSETS = 200
 const ASSET_MANAGER_SCAN_BATCH_SIZE = 50
 
+const purgeAssetArgs = {
+  assetId: v.string(),
+  force: v.optional(v.boolean()),
+  exportArtifactId: v.string(),
+}
+
 type AssetCreatedAtCursor = {
   v: 1
   kind: 'assetsByCreatedAt'
@@ -145,6 +151,31 @@ function parseCreatedAtCursor(
     throwCmsError('INVALID_CURSOR', message, { cursor })
   }
   return parsed as CreatedAtCursor
+}
+
+function readCmsErrorData(error: unknown): { code: string; message: string } | null {
+  const data =
+    typeof error === 'object' && error !== null && 'data' in error
+      ? (error as { data?: unknown }).data
+      : null
+  if (
+    data &&
+    typeof data === 'object' &&
+    typeof (data as { code?: unknown }).code === 'string' &&
+    typeof (data as { message?: unknown }).message === 'string'
+  ) {
+    return data as { code: string; message: string }
+  }
+  return null
+}
+
+function cmsErrorOperationIssue(error: unknown) {
+  const data = readCmsErrorData(error)
+  if (!data) throw error
+  return operationIssue({
+    code: data.code.toLowerCase().replaceAll('_', '-'),
+    message: data.message,
+  })
 }
 
 async function readAssetsByCreatedAt(
@@ -1136,18 +1167,127 @@ export const restoreAsset = callerMutation.protected({
   },
 })
 
-export const purgeAsset = callerMutation.protected({
+export const purgeAssetOperation = defineOperation({
+  id: 'ginko-cms.purge-asset',
+  name: 'purge-asset',
+  kind: 'destructive',
   identityForwardingFunctionRef: 'assets:purgeAsset',
-  args: {
-    assetId: v.string(),
-    force: v.optional(v.boolean()),
-    exportArtifactId: v.string(),
-  },
+  args: purgeAssetArgs,
   guard: canManageAssets,
   returns: v.null(),
-  handler: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
+  previewReturns: operationPreviewValidator(),
+  load: async (ctx, args) => {
     const asset = await ctx.db.get(args.assetId as Id<'assets'>)
+    return { asset }
+  },
+  preview: async (ctx, args, { asset }) => {
+    if (!asset) {
+      return blockedOperationPreview({
+        summary: 'Asset not found.',
+        blockers: [operationIssue({ code: 'asset-not-found', message: 'Asset not found.' })],
+        confirm: { operationId: 'ginko-cms.purge-asset', args },
+      })
+    }
+
+    try {
+      await assertBackupArtifactCoversPurge(ctx, args.exportArtifactId, {
+        scope: 'asset',
+        assetId: args.assetId,
+      })
+    } catch (error) {
+      return blockedOperationPreview({
+        summary: `Cannot permanently delete asset "${asset.filename}" until the backup requirement passes.`,
+        blockers: [cmsErrorOperationIssue(error)],
+        details: { assetId: args.assetId, filename: asset.filename },
+        confirm: { operationId: 'ginko-cms.purge-asset', args },
+        version: {
+          updatedAt: asset.updatedAt,
+          deletedAt: asset.deletedAt ?? null,
+        },
+      })
+    }
+
+    const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
+    const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
+    if (usageCount > 0 && args.force !== true) {
+      return blockedOperationPreview({
+        summary: `Asset "${asset.filename}" is still referenced.`,
+        blockers: [
+          operationIssue({
+            code: 'asset-in-use',
+            message: 'Cannot permanently delete an in-use asset without force.',
+          }),
+        ],
+        effects: [
+          operationEffect({
+            kind: 'asset-usages',
+            summary: 'Content references affected',
+            count: usageCount,
+          }),
+        ],
+        details: { assetId: args.assetId, filename: asset.filename, usageCount },
+        confirm: {
+          operationId: 'ginko-cms.purge-asset',
+          args,
+          effect: {
+            assetId: args.assetId,
+            filename: asset.filename,
+            usageCount,
+          },
+        },
+        version: {
+          updatedAt: asset.updatedAt,
+          deletedAt: asset.deletedAt ?? null,
+        },
+      })
+    }
+
+    return operationPreview({
+      summary: `Will permanently delete asset "${asset.filename}".`,
+      warnings: [
+        operationIssue({
+          code: 'permanent-delete',
+          message: 'This permanently removes the asset record and stored file.',
+        }),
+        ...(usageCount > 0
+          ? [
+              operationIssue({
+                code: 'forced-delete',
+                message: 'Forced deletion will remove existing content asset reference rows.',
+              }),
+            ]
+          : []),
+      ],
+      effects: [
+        operationEffect({
+          kind: 'assets',
+          summary: 'Assets permanently deleted',
+          count: 1,
+        }),
+        operationEffect({
+          kind: 'asset-usages',
+          summary: 'Content references deleted',
+          count: usageCount,
+        }),
+      ],
+      details: { assetId: args.assetId, filename: asset.filename, usageCount },
+      confirm: {
+        operationId: 'ginko-cms.purge-asset',
+        args,
+        effect: {
+          assetId: args.assetId,
+          filename: asset.filename,
+          usageCount,
+        },
+      },
+      version: {
+        updatedAt: asset.updatedAt,
+        deletedAt: asset.deletedAt ?? null,
+      },
+    })
+  },
+  handler: async (ctx, args, { asset }) => {
+    const appIdentity = await ctx.appIdentity()
     if (!asset) return null
     await assertBackupArtifactCoversPurge(ctx, args.exportArtifactId, {
       scope: 'asset',
@@ -1177,3 +1317,13 @@ export const purgeAsset = callerMutation.protected({
     return null
   },
 })
+
+export const purgeAsset = callerMutation.protected({
+  ...purgeAssetOperation,
+})
+
+export const previewPurgeAssetOperation = callerMutation.protected(
+  Object.assign(previewOf(purgeAssetOperation), {
+    identityForwardingFunctionRef: 'assets:previewPurgeAssetOperation',
+  }),
+)

@@ -19,5 +19,6 @@ export const moveAsset = bridge.moveAsset
 export const getAssetUrl = bridge.getAssetUrl
 export const getAssetManagerData = bridge.getAssetManagerData
 export const deleteAsset = bridge.deleteAsset
+export const previewPurgeAssetOperation = bridge.previewPurgeAssetOperation
 export const restoreAsset = bridge.restoreAsset
 export const purgeAsset = bridge.purgeAsset

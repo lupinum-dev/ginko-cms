@@ -24,3 +24,4 @@ export const deleteAsset = bridge.deleteAsset
 export const previewDeleteAssetOperation = bridge.previewDeleteAssetOperation
 export const restoreAsset = bridge.restoreAsset
 export const purgeAsset = bridge.purgeAsset
+export const previewPurgeAssetOperation = bridge.previewPurgeAssetOperation
