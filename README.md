@@ -22,12 +22,12 @@ The first clean public release line is:
 
 | Package                       | Version | Role                                           |
 | ----------------------------- | ------: | ---------------------------------------------- |
-| `@lupinum/ginko-cms`          | `0.1.0` | Nuxt module, Studio, CLI, provider integration |
-| `@lupinum/ginko-cms-convex`   | `0.1.0` | Convex component implementation                |
-| `@lupinum/ginko-cms-contract` | `0.1.0` | Runtime-neutral CMS contract                   |
+| `@lupinum/ginko-cms`          | `0.1.1` | Nuxt module, Studio, CLI, provider integration |
+| `@lupinum/ginko-cms-convex`   | `0.1.1` | Convex component implementation                |
+| `@lupinum/ginko-cms-contract` | `0.1.1` | Runtime-neutral CMS contract                   |
 | `@lupinum/ginko-content`      | `0.1.0` | Content engine and filesystem provider         |
-| `@lupinum/trellis`            | `0.1.0` | Nuxt + Convex app runtime                      |
-| `@lupinum/trellis-bridge`     | `0.1.0` | Package-author bridge utilities                |
+| `@lupinum/trellis`            | `0.1.1` | Nuxt + Convex app runtime                      |
+| `@lupinum/trellis-bridge`     | `0.1.1` | Package-author bridge utilities                |
 
 Publish in dependency order: Content, Trellis, Trellis Bridge, CMS Contract, CMS
 Convex, then CMS. Consumer apps install the CMS-facing packages together; they

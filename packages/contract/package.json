@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-cms-contract",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared domain contract for ginko-cms",
   "homepage": "https://github.com/lupinum-dev/ginko-cms#readme",
   "bugs": {

@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-cms",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Self-hosted CMS for Nuxt teams building structured websites with Ginko",
   "homepage": "https://github.com/lupinum-dev/ginko-cms#readme",
   "bugs": {
@@ -75,14 +75,14 @@
     "studio:dev": "vite --config studio-app/vite.config.ts",
     "studio:build": "rm -rf dist/studio-app && vite build --config studio-app/vite.config.ts",
     "studio:typecheck": "vue-tsc -p studio-app/tsconfig.json --noEmit",
-    "typecheck": "pnpm run build && pnpm exec vue-tsc -p tsconfig.runtime.json --noEmit && pnpm run studio:typecheck"
+    "typecheck": "pnpm run build && pnpm --dir ../.. run prepare:playground && pnpm exec vue-tsc -p tsconfig.runtime.json --noEmit && pnpm run studio:typecheck"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.2",
     "@lupinum/ginko-cms-contract": "workspace:^",
     "@lupinum/ginko-cms-convex": "workspace:^",
-    "@lupinum/trellis": "^0.1.0",
-    "@lupinum/trellis-bridge": "^0.1.0",
+    "@lupinum/trellis": "^0.1.1",
+    "@lupinum/trellis-bridge": "^0.1.1",
     "@nuxt/kit": "^4.4.6",
     "@nuxtjs/color-mode": "^4.0.0",
     "@tailwindcss/vite": "^4.3.0",
@@ -148,5 +148,12 @@
     "@lupinum/ginko-content": "^0.1.0",
     "nuxt": "^4.4.6",
     "vue": "^3.5.0"
+  },
+  "trellis": {
+    "integration": {
+      "ownsRuntime": true,
+      "label": "Ginko CMS",
+      "doctorCommand": "pnpm exec ginko-cms doctor"
+    }
   }
 }

@@ -17,20 +17,26 @@ const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const compatibilityMatrix = JSON.parse(
   readFileSync(resolve(repoRoot, 'packages/cms/compatibility.json'), 'utf8'),
 )
+const rootPackageJson = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'))
 const consumerCompatibility = compatibilityMatrix.consumer
 const packDir = resolve(repoRoot, '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
 const trellisRoot = process.env.TRELLIS_PACKAGE_ROOT
   ? resolve(process.env.TRELLIS_PACKAGE_ROOT)
-  : resolve(repoRoot, '..', 'trellis')
+  : undefined
 const trellisBridgeRoot = process.env.TRELLIS_BRIDGE_PACKAGE_ROOT
   ? resolve(process.env.TRELLIS_BRIDGE_PACKAGE_ROOT)
-  : resolve(trellisRoot, 'packages/trellis-bridge')
+  : trellisRoot
+    ? resolve(trellisRoot, 'packages/trellis-bridge')
+    : undefined
 const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
   ? resolve(process.env.GINKO_CONTENT_PACKAGE_ROOT)
-  : resolve(repoRoot, '..', 'ginko-content/packages/content')
+  : undefined
 const liveConvex = process.argv.includes('--live')
 const registryDependencies = process.argv.includes('--registry-deps')
+const registryContent = registryDependencies || !contentRoot
+const registryTrellis = registryDependencies || !trellisRoot
+const registryTrellisBridge = registryDependencies || !trellisBridgeRoot
 const trellisRegistryVersion =
   process.env.TRELLIS_PACKAGE_VERSION || compatibilityMatrix.releaseStack['@lupinum/trellis']
 const trellisBridgeRegistryVersion =
@@ -101,9 +107,13 @@ function buildPackage(packageDir) {
 
 function buildPackedPackages() {
   run('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'])
-  if (!registryDependencies) {
+  if (!registryContent) {
     buildPackage(contentRoot)
+  }
+  if (!registryTrellis) {
     buildPackage(trellisRoot)
+  }
+  if (!registryTrellisBridge) {
     buildPackage(trellisBridgeRoot)
   }
 }
@@ -128,15 +138,36 @@ function fileDependency(path) {
 }
 
 function trellisDependency(trellisTarball) {
-  return registryDependencies ? trellisRegistryVersion : fileDependency(trellisTarball)
+  return registryTrellis ? trellisRegistryVersion : fileDependency(trellisTarball)
 }
 
 function trellisBridgeDependency(trellisBridgeTarball) {
-  return registryDependencies ? trellisBridgeRegistryVersion : fileDependency(trellisBridgeTarball)
+  return registryTrellisBridge ? trellisBridgeRegistryVersion : fileDependency(trellisBridgeTarball)
 }
 
 function contentDependency(contentTarball) {
-  return registryDependencies ? contentRegistryVersion : fileDependency(contentTarball)
+  return registryContent ? contentRegistryVersion : fileDependency(contentTarball)
+}
+
+function yamlQuote(value) {
+  return `'${value.replaceAll("'", "''")}'`
+}
+
+function writeConsumerWorkspaceConfig(cwd, overrides) {
+  const lines = [
+    'packages:',
+    '  - .',
+    'minimumReleaseAge: 1440',
+    'minimumReleaseAgeExclude:',
+    "  - '@lupinum/*'",
+    'overrides:',
+  ]
+
+  for (const [name, specifier] of Object.entries(overrides)) {
+    lines.push(`  ${yamlQuote(name)}: ${yamlQuote(specifier)}`)
+  }
+
+  writeFileSync(join(cwd, 'pnpm-workspace.yaml'), `${lines.join('\n')}\n`, 'utf8')
 }
 
 function addOfflineComponentsStub(cwd) {
@@ -178,18 +209,22 @@ try {
   packPackage('packages/contract')
   packPackage('packages/convex')
   packPackage('packages/cms')
-  if (!registryDependencies) {
+  if (!registryContent) {
     packPackage(contentRoot)
+  }
+  if (!registryTrellis) {
     packPackage(trellisRoot)
+  }
+  if (!registryTrellisBridge) {
     packPackage(trellisBridgeRoot)
   }
 
   const contractTarball = findTarball('lupinum/ginko-cms-contract')
   const convexTarball = findTarball('lupinum/ginko-cms-convex')
   const cmsTarball = findTarball('lupinum/ginko-cms')
-  const contentTarball = registryDependencies ? undefined : findTarball('lupinum/ginko-content')
-  const trellisTarball = registryDependencies ? undefined : findTarball('lupinum/trellis')
-  const trellisBridgeTarball = registryDependencies
+  const contentTarball = registryContent ? undefined : findTarball('lupinum/ginko-content')
+  const trellisTarball = registryTrellis ? undefined : findTarball('lupinum/trellis')
+  const trellisBridgeTarball = registryTrellisBridge
     ? undefined
     : findTarball('lupinum/trellis-bridge')
 
@@ -201,6 +236,7 @@ try {
       {
         private: true,
         name: 'ginko-cms-package-e2e-consumer',
+        packageManager: rootPackageJson.packageManager,
         type: 'module',
         dependencies: {
           ...consumerCompatibility.dependencies,
@@ -212,23 +248,22 @@ try {
           '@lupinum/trellis-bridge': trellisBridgeDependency(trellisBridgeTarball),
         },
         devDependencies: consumerCompatibility.devDependencies,
-        pnpm: {
-          overrides: {
-            '@lupinum/ginko-cms': fileDependency(cmsTarball),
-            '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
-            '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
-            '@lupinum/ginko-content': contentDependency(contentTarball),
-            '@lupinum/trellis': trellisDependency(trellisTarball),
-            '@lupinum/trellis-bridge': trellisBridgeDependency(trellisBridgeTarball),
-            convex: consumerCompatibility.dependencies.convex,
-          },
-        },
       },
       null,
       2,
     ),
     'utf8',
   )
+
+  writeConsumerWorkspaceConfig(tempDir, {
+    '@lupinum/ginko-cms': fileDependency(cmsTarball),
+    '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
+    '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
+    '@lupinum/ginko-content': contentDependency(contentTarball),
+    '@lupinum/trellis': trellisDependency(trellisTarball),
+    '@lupinum/trellis-bridge': trellisBridgeDependency(trellisBridgeTarball),
+    convex: consumerCompatibility.dependencies.convex,
+  })
 
   writeFileSync(
     join(tempDir, 'nuxt.config.ts'),
@@ -339,6 +374,7 @@ try {
   )
   run('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir })
   run('pnpm', ['exec', 'ginko-cms', 'bridge', 'check'], { cwd: tempDir })
+  run('pnpm', ['exec', 'trellis', 'doctor'], { cwd: tempDir })
   run('pnpm', ['exec', 'convex', 'codegen', '--system-udfs', '--typecheck', 'disable'], {
     cwd: tempDir,
   })
@@ -400,10 +436,13 @@ try {
       'package e2e ok',
       `consumer=${tempDir}`,
       `cms=${basename(cmsTarball)}`,
-      `content=${registryDependencies ? contentRegistryVersion : basename(contentTarball)}`,
+      `content=${registryContent ? contentRegistryVersion : basename(contentTarball)}`,
       `convex=${basename(convexTarball)}`,
       `contract=${basename(contractTarball)}`,
-      `trellis=${registryDependencies ? trellisRegistryVersion : basename(trellisTarball)}`,
+      `trellis=${registryTrellis ? trellisRegistryVersion : basename(trellisTarball)}`,
+      `trellisBridge=${
+        registryTrellisBridge ? trellisBridgeRegistryVersion : basename(trellisBridgeTarball)
+      }`,
     ].join('\n'),
   )
 } finally {

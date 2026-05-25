@@ -25,14 +25,14 @@ jobs:
         with:
           repository: lupinum-dev/trellis
           path: trellis
-          ref: ${{ vars.TRELLIS_CI_REF || 'main' }}
+          ref: ${{ vars.TRELLIS_CI_REF || 'v0.1.1' }}
           token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
 
       - uses: actions/checkout@v6
         with:
           repository: lupinum-dev/ginko-content
           path: ginko-content
-          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'main' }}
+          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'v0.1.0' }}
           token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
 
       - uses: actions/setup-node@v6
@@ -62,6 +62,40 @@ jobs:
       - name: Package build
         run: pnpm run build
 
+  package-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ginko-cms
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ginko-cms
+
+      - uses: actions/checkout@v6
+        with:
+          repository: lupinum-dev/trellis
+          path: trellis
+          ref: ${{ vars.TRELLIS_CI_REF || 'v0.1.1' }}
+          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
+
+      - uses: actions/checkout@v6
+        with:
+          repository: lupinum-dev/ginko-content
+          path: ginko-content
+          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'v0.1.0' }}
+          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - run: npm i -g --force corepack@latest && corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Packed package E2E
         run: pnpm run package:e2e
 
@@ -81,14 +115,14 @@ jobs:
         with:
           repository: lupinum-dev/trellis
           path: trellis
-          ref: ${{ vars.TRELLIS_CI_REF || 'main' }}
+          ref: ${{ vars.TRELLIS_CI_REF || 'v0.1.1' }}
           token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
 
       - uses: actions/checkout@v6
         with:
           repository: lupinum-dev/ginko-content
           path: ginko-content
-          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'main' }}
+          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'v0.1.0' }}
           token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
 
       - uses: actions/setup-node@v6

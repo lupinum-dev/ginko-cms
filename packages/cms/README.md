@@ -14,10 +14,10 @@ operate Ginko CMS.
 
 ## Compatibility
 
-`@lupinum/ginko-cms@0.1.0` is released with
-`@lupinum/ginko-cms-convex@0.1.0`, `@lupinum/ginko-cms-contract@0.1.0`,
-`@lupinum/ginko-content@0.1.0`, `@lupinum/trellis@0.1.0`, and
-`@lupinum/trellis-bridge@0.1.0`.
+`@lupinum/ginko-cms@0.1.1` is released with
+`@lupinum/ginko-cms-convex@0.1.1`, `@lupinum/ginko-cms-contract@0.1.1`,
+`@lupinum/ginko-content@0.1.0`, `@lupinum/trellis@0.1.1`, and
+`@lupinum/trellis-bridge@0.1.1`.
 
 Install the CMS-facing packages together. `@lupinum/trellis-bridge` remains a
 package-author dependency behind the CMS bridge workflow, not an app-facing

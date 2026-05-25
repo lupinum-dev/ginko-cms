@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 export type PackageJsonDependencies = {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
+  packageManager?: string
   peerDependencies?: Record<string, string>
 }
 

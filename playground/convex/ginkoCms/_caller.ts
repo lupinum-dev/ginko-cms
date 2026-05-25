@@ -1,5 +1,5 @@
 // @trellis-bridge-package: @lupinum/ginko-cms
-// @trellis-bridge-version: 0.1.0
+// @trellis-bridge-version: 0.1.1
 import { createCmsComponentBridge, componentArgs } from '@lupinum/ginko-cms-convex/component-bridge'
 
 import {
