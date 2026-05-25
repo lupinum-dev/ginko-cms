@@ -1,3 +1,4 @@
+import type { Editor } from '@tiptap/core'
 import type { JSONContent } from '@tiptap/vue-3'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -53,7 +54,7 @@ describe('editor conversionPipeline', () => {
           }
         }),
       },
-    } as any
+    } as unknown as Editor
 
     const result = await applyMarkdownToEditor(editor, markdown)
     expect(result.ok).toBe(true)
@@ -67,7 +68,7 @@ describe('editor conversionPipeline', () => {
           throw new RangeError('Invalid content for node paragraph')
         }),
       },
-    } as any
+    } as unknown as Editor
 
     const doc: JSONContent = {
       type: 'doc',

@@ -26,6 +26,19 @@ function validatorLiteralValues(validator: unknown): string[] {
   return (record.members ?? []).flatMap(validatorLiteralValues)
 }
 
+type ValidatorShape = {
+  element?: unknown
+  fields?: Record<string, unknown>
+  isOptional?: string
+  kind?: string
+  members?: unknown[]
+  value?: unknown
+}
+
+function validatorShape(validator: unknown): ValidatorShape {
+  return validator && typeof validator === 'object' ? (validator as ValidatorShape) : {}
+}
+
 describe('shared contracts', () => {
   it('exports namespaced permission keys', () => {
     expect(cmsPermissionKeys).toEqual({
@@ -68,10 +81,11 @@ describe('shared contracts', () => {
   })
 
   it('accepts null in canonical optional field validators', () => {
-    const descriptionValidator = (fieldValidator as any).fields.description
-    const optionsValidator = (fieldValidator as any).fields.options
-    const relationValidator = (fieldValidator as any).fields.relation
-    const slugFromValidator = (fieldValidator as any).fields.slugFrom
+    const fields = validatorFields(fieldValidator)
+    const descriptionValidator = validatorShape(fields.description)
+    const optionsValidator = validatorShape(fields.options)
+    const relationValidator = validatorShape(fields.relation)
+    const slugFromValidator = validatorShape(fields.slugFrom)
 
     for (const validator of [
       descriptionValidator,
@@ -81,7 +95,7 @@ describe('shared contracts', () => {
     ]) {
       expect(validator.isOptional).toBe('optional')
       expect(validator.kind).toBe('union')
-      expect(validator.members.some((member: any) => member.kind === 'null')).toBe(true)
+      expect(validator.members?.some((member) => validatorShape(member).kind === 'null')).toBe(true)
     }
   })
 
@@ -95,22 +109,23 @@ describe('shared contracts', () => {
   })
 
   it('uses real JSON validators instead of an any-shaped boundary', () => {
-    function collectKinds(validator: any, kinds = new Set<string>()): Set<string> {
+    function collectKinds(validator: unknown, kinds = new Set<string>()): Set<string> {
       if (!validator || typeof validator !== 'object') return kinds
-      if (typeof validator.kind === 'string') kinds.add(validator.kind)
-      for (const child of validator.members ?? []) collectKinds(child, kinds)
-      if (validator.element) collectKinds(validator.element, kinds)
-      if (validator.value) collectKinds(validator.value, kinds)
+      const record = validatorShape(validator)
+      if (typeof record.kind === 'string') kinds.add(record.kind)
+      for (const child of record.members ?? []) collectKinds(child, kinds)
+      if (record.element) collectKinds(record.element, kinds)
+      if (record.value && typeof record.value === 'object') collectKinds(record.value, kinds)
       return kinds
     }
 
-    const valueKinds = collectKinds(jsonValueValidator as any)
+    const valueKinds = collectKinds(jsonValueValidator)
     expect(Array.from(valueKinds)).toEqual(
       expect.arrayContaining(['null', 'boolean', 'float64', 'string', 'array', 'record']),
     )
     expect(valueKinds).not.toContain('any')
-    expect((jsonObjectValidator as any).kind).toBe('record')
-    expect(collectKinds((jsonObjectValidator as any).value)).not.toContain('any')
+    expect(validatorShape(jsonObjectValidator).kind).toBe('record')
+    expect(collectKinds(validatorShape(jsonObjectValidator).value)).not.toContain('any')
   })
 
   it('exports stable publish impact and singleton failure result contracts', () => {

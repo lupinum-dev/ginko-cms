@@ -7,12 +7,22 @@ import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
   createCtx,
+  currentDraftVersion,
   seedOwner,
   seedSettings,
   seedEditorFixture,
   seedMultiLocaleSettings,
-  currentDraftVersion,
 } from './helpers'
+
+type EntryDraftRow = {
+  entryId: string
+  locale: string | null
+  values?: Record<string, unknown>
+}
+type EntryLocaleView = {
+  locale: string
+  publishedData?: Record<string, unknown>
+}
 
 const api = anyApi
 
@@ -345,10 +355,10 @@ describe('editor draft mutations', () => {
     )
     expect(reverted.dirtyLocales).toEqual([])
 
-    const localeRows = (await ctx.readAll('entryDrafts')).filter(
-      (row: any) => row.entryId === entryId,
+    const localeRows = ((await ctx.readAll('entryDrafts')) as EntryDraftRow[]).filter(
+      (row) => row.entryId === entryId,
     )
-    expect(new Set(localeRows.map((row: any) => row.locale))).toEqual(new Set([null, 'en']))
+    expect(new Set(localeRows.map((row) => row.locale))).toEqual(new Set([null, 'en']))
 
     const entry = await owner.query(api.editor.getEntry, {
       id: entryId,
@@ -378,8 +388,8 @@ describe('editor draft mutations', () => {
         },
       },
     })
-    const localeRow = (await ctx.readAll('entryDrafts')).find(
-      (row: any) => row.entryId === entryId && row.locale === 'en',
+    const localeRow = ((await ctx.readAll('entryDrafts')) as EntryDraftRow[]).find(
+      (row) => row.entryId === entryId && row.locale === 'en',
     )
     expect(localeRow?.values.title).toBe('Updated title')
   })
@@ -508,7 +518,9 @@ describe('studio published shared-field reconstruction', () => {
     const published = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
     expect(published).not.toBeNull()
     expect(published.published).toEqual(expect.objectContaining({ featured: true }))
-    const englishLocale = published.locales.find((row: any) => row.locale === 'en')
+    const englishLocale = (published.locales as EntryLocaleView[]).find(
+      (row) => row.locale === 'en',
+    )
     expect(englishLocale).toBeDefined()
     expect(englishLocale.publishedData).toEqual(
       expect.objectContaining({
@@ -542,7 +554,9 @@ describe('studio published shared-field reconstruction', () => {
 
     const afterUnpublish = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
     expect(afterUnpublish.published).toBeNull()
-    const englishLocale = afterUnpublish.locales.find((row: any) => row.locale === 'en')
+    const englishLocale = (afterUnpublish.locales as EntryLocaleView[]).find(
+      (row) => row.locale === 'en',
+    )
     expect(englishLocale?.publishedData).toEqual({})
   })
 
@@ -578,14 +592,14 @@ describe('studio published shared-field reconstruction', () => {
 
     const view = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
     expect(view.published).toEqual(expect.objectContaining({ featured: true }))
-    const englishLocale = view.locales.find((row: any) => row.locale === 'en')
+    const englishLocale = (view.locales as EntryLocaleView[]).find((row) => row.locale === 'en')
     expect(englishLocale?.publishedData).toEqual(
       expect.objectContaining({
         title: 'Hello world',
         featured: true,
       }),
     )
-    const germanLocale = view.locales.find((row: any) => row.locale === 'de')
+    const germanLocale = (view.locales as EntryLocaleView[]).find((row) => row.locale === 'de')
     expect(germanLocale?.publishedData).toEqual({})
   })
 })

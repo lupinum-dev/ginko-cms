@@ -5,12 +5,17 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createCtx,
+  currentDraftVersion,
   seedOwner,
   seedSettings,
   seedEditorFixture,
   seedMultiLocaleSettings,
-  currentDraftVersion,
 } from './helpers'
+
+type EntryDraftRow = {
+  entryId: string
+  locale: string | null
+}
 
 const api = anyApi
 
@@ -326,9 +331,9 @@ describe('editor version history', () => {
       publish: false,
     })
 
-    const localeRows = (await ctx.readAll('entryDrafts')).filter(
-      (row: any) => row.entryId === entryId,
+    const localeRows = ((await ctx.readAll('entryDrafts')) as EntryDraftRow[]).filter(
+      (row) => row.entryId === entryId,
     )
-    expect(new Set(localeRows.map((row: any) => row.locale))).toEqual(new Set([null, 'en']))
+    expect(new Set(localeRows.map((row) => row.locale))).toEqual(new Set([null, 'en']))
   })
 })

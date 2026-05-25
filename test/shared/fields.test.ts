@@ -52,7 +52,7 @@ describe('getFieldKey', () => {
 // ---------------------------------------------------------------------------
 describe('normalizeField', () => {
   it('throws when key is missing', () => {
-    expect(() => normalizeField({} as any)).toThrow('Field key is required')
+    expect(() => normalizeField({})).toThrow('Field key is required')
   })
 
   it('sets all defaults for a minimal field', () => {
@@ -292,7 +292,7 @@ describe('evaluateFieldCondition', () => {
 
   it('ignores non-plain-object items in and/or arrays', () => {
     // Non-object items are passed as undefined → evaluateFieldCondition(undefined, ctx) → true
-    expect(evaluateFieldCondition({ and: [null, 42, 'bad'] } as any, {})).toBe(true)
+    expect(evaluateFieldCondition({ and: [null, 42, 'bad'] }, {})).toBe(true)
   })
 })
 

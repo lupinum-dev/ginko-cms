@@ -1,3 +1,4 @@
+import type { Editor } from '@tiptap/core'
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
@@ -9,8 +10,28 @@ vi.mock('../../../packages/cms/studio-app/src/composables/internal/useStudioProm
   studioPrompt,
 }))
 
-function createChain() {
-  const chain: Record<string, any> = {
+type TestChain = {
+  addColumnAfter: ReturnType<typeof vi.fn>
+  addRowAfter: ReturnType<typeof vi.fn>
+  deleteColumn: ReturnType<typeof vi.fn>
+  deleteRow: ReturnType<typeof vi.fn>
+  extendMarkRange: ReturnType<typeof vi.fn>
+  focus: ReturnType<typeof vi.fn>
+  insertTable: ReturnType<typeof vi.fn>
+  run: ReturnType<typeof vi.fn>
+  setHorizontalRule: ReturnType<typeof vi.fn>
+  setLink: ReturnType<typeof vi.fn>
+  toggleBlockquote: ReturnType<typeof vi.fn>
+  toggleBulletList: ReturnType<typeof vi.fn>
+  toggleCodeBlock: ReturnType<typeof vi.fn>
+  toggleHeading: ReturnType<typeof vi.fn>
+  toggleMark: ReturnType<typeof vi.fn>
+  toggleOrderedList: ReturnType<typeof vi.fn>
+  unsetLink: ReturnType<typeof vi.fn>
+}
+
+function createChain(): TestChain {
+  const chain = {
     addColumnAfter: vi.fn(() => chain),
     addRowAfter: vi.fn(() => chain),
     extendMarkRange: vi.fn(() => chain),
@@ -41,7 +62,7 @@ describe('useToolbarActions', () => {
       isActive: vi.fn(() => false),
     }
 
-    const actions = useToolbarActions(ref(editor as any))
+    const actions = useToolbarActions(ref(editor as unknown as Editor))
     actions.toggleMark('bold')
     actions.toggleHeading(2)
     actions.toggleBlock('blockquote')
@@ -83,14 +104,14 @@ describe('useToolbarActions', () => {
       isActive: vi.fn((name: string) => (name === 'link' ? false : false)),
     }
 
-    const actions = useToolbarActions(ref(editor as any))
+    const actions = useToolbarActions(ref(editor as unknown as Editor))
     await actions.toggleMark('link')
 
     expect(studioPrompt).toHaveBeenCalled()
     expect(chain.extendMarkRange).toHaveBeenCalledWith('link')
     expect(chain.setLink).toHaveBeenCalledWith({ href: 'https://example.com' })
 
-    ;(editor.isActive as any).mockImplementation((name: string) => name === 'link')
+    editor.isActive.mockImplementation((name: string) => name === 'link')
     await actions.toggleMark('link')
     expect(chain.unsetLink).toHaveBeenCalled()
   })

@@ -49,12 +49,12 @@ vi.resetModules()
 
 const moduleExports = await import('../../packages/cms/src/module')
 const moduleDefinition = moduleExports.default as unknown as {
-  (options: Record<string, unknown>, nuxt: Record<string, any>): Promise<void>
-  setup: (options: Record<string, unknown>, nuxt: Record<string, any>) => Promise<void>
+  (options: Record<string, unknown>, nuxt: Record<string, unknown>): Promise<void>
+  setup: (options: Record<string, unknown>, nuxt: Record<string, unknown>) => Promise<void>
 }
 const { loadGinkoPrerenderRoutes } = moduleExports
 
-async function setupModule(options: Record<string, unknown>, nuxt: Record<string, any>) {
+async function setupModule(options: Record<string, unknown>, nuxt: Record<string, unknown>) {
   if (typeof moduleDefinition.setup === 'function') {
     return moduleDefinition.setup(options, nuxt)
   }
@@ -145,11 +145,11 @@ describe('ginko-cms bridge validation', () => {
       nuxt,
     )
 
-    expect((nuxt.options as any).trellis.permissions.query).toBe(
-      'ginkoCms/members.getAccessContext',
-    )
-    expect((nuxt.options as any).css).toEqual([])
-    expect((nuxt.options as any).colorMode).toEqual({
+    expect(
+      (nuxt.options as { trellis: { permissions: { query: string } } }).trellis.permissions.query,
+    ).toBe('ginkoCms/members.getAccessContext')
+    expect(nuxt.options.css).toEqual([])
+    expect((nuxt.options as { colorMode: { classSuffix: string } }).colorMode).toEqual({
       classSuffix: '',
     })
 
@@ -254,7 +254,7 @@ describe('ginko-cms bridge validation', () => {
 
     const routes = [
       ...addServerHandler.mock.calls.map(([handler]) => handler.route),
-      ...((nuxt.options as any).serverHandlers ?? []).map(
+      ...((nuxt.options as { serverHandlers?: Array<{ route: string }> }).serverHandlers ?? []).map(
         (handler: { route: string }) => handler.route,
       ),
     ]

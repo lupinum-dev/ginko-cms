@@ -1,3 +1,4 @@
+import type { Editor } from '@tiptap/core'
 import type { JSONContent } from '@tiptap/vue-3'
 import { describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
@@ -12,7 +13,7 @@ function createMockEditor(getJson: () => JSONContent) {
     getJSON: vi.fn(() => getJson()),
     getText: vi.fn(() => 'editor text'),
     setEditable: vi.fn(),
-  } as any
+  } as unknown as Editor
 }
 
 describe('editor useContentSync conversion guard', () => {

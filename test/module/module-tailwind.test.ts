@@ -43,13 +43,13 @@ vi.mock('@nuxt/kit', () => ({
 vi.resetModules()
 
 const moduleDefinition = (await import('../../packages/cms/src/module')).default as unknown as {
-  (options: Record<string, unknown>, nuxt: Record<string, any>): Promise<void>
-  setup: (options: Record<string, unknown>, nuxt: Record<string, any>) => Promise<void>
-  getModuleDependencies: (nuxt: Record<string, any>) => Record<string, Record<string, unknown>>
-  moduleDependencies: (nuxt: Record<string, any>) => Record<string, Record<string, unknown>>
+  (options: Record<string, unknown>, nuxt: Record<string, unknown>): Promise<void>
+  setup: (options: Record<string, unknown>, nuxt: Record<string, unknown>) => Promise<void>
+  getModuleDependencies: (nuxt: Record<string, unknown>) => Record<string, Record<string, unknown>>
+  moduleDependencies: (nuxt: Record<string, unknown>) => Record<string, Record<string, unknown>>
 }
 
-async function setupModule(options: Record<string, unknown>, nuxt: Record<string, any>) {
+async function setupModule(options: Record<string, unknown>, nuxt: Record<string, unknown>) {
   if (typeof moduleDefinition.setup === 'function') {
     return moduleDefinition.setup(options, nuxt)
   }
@@ -57,7 +57,7 @@ async function setupModule(options: Record<string, unknown>, nuxt: Record<string
   return runWithNuxtContext(nuxt, () => moduleDefinition(options, nuxt))
 }
 
-function getModuleDependencies(nuxt: Record<string, any>) {
+function getModuleDependencies(nuxt: Record<string, unknown>) {
   if (typeof moduleDefinition.moduleDependencies === 'function') {
     return moduleDefinition.moduleDependencies(nuxt)
   }

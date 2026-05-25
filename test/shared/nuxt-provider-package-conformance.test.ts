@@ -81,11 +81,36 @@ const convexMock = vi.hoisted(() => {
   return { calls, query }
 })
 
-let contentProvider: any
-let setClientFactoryForTests: any
+type ProviderWrappedValue<T> = {
+  __ginkoContentProviderResult?: boolean
+  cache?: unknown
+  data: T
+}
+type ProviderValue<T = Record<string, unknown>> = ProviderWrappedValue<T> | T
+type ContentProvider = {
+  page: (...args: unknown[]) => Promise<ProviderValue>
+  query: (...args: unknown[]) => Promise<ProviderValue>
+}
+type ProviderModule = {
+  __setGinkoNuxtProviderClientFactoryForTests: (
+    factory?: () => { query: typeof convexMock.query },
+  ) => void
+  contentProvider: ContentProvider
+}
 
-const unwrap = (value: any) => (value?.__ginkoContentProviderResult ? value.data : value)
-const cache = (value: any) => value?.cache
+let contentProvider: ContentProvider
+let setClientFactoryForTests: ProviderModule['__setGinkoNuxtProviderClientFactoryForTests']
+
+const isProviderWrappedValue = <T>(value: ProviderValue<T>): value is ProviderWrappedValue<T> =>
+  !!value &&
+  typeof value === 'object' &&
+  '__ginkoContentProviderResult' in value &&
+  !!value.__ginkoContentProviderResult
+
+const unwrap = <T = Record<string, unknown>>(value: ProviderValue<T>): T =>
+  isProviderWrappedValue(value) ? value.data : value
+const cache = (value: ProviderValue): unknown =>
+  isProviderWrappedValue(value) ? value.cache : undefined
 
 describe('built ginko-cms Nuxt provider package output', () => {
   beforeEach(async () => {
@@ -95,7 +120,7 @@ describe('built ginko-cms Nuxt provider package output', () => {
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
     process.env.GINKO_CONTENT_PROVIDER_SITE = 'cms-provider-fixture'
     ;({ contentProvider, __setGinkoNuxtProviderClientFactoryForTests: setClientFactoryForTests } =
-      await import('../../packages/cms/dist/nuxt-provider.mjs'))
+      (await import('../../packages/cms/dist/nuxt-provider.mjs')) as ProviderModule)
     setClientFactoryForTests(() => ({ query: convexMock.query }))
   })
 

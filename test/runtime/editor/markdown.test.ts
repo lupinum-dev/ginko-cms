@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { parseMdc, stringifyMdc } from '../../../packages/cms/studio-app/src/editor/lib/markdown'
-import type { MDCElement, MDCRoot } from '../../../packages/cms/studio-app/src/editor/lib/mdcTypes'
+import type {
+  MDCElement,
+  MDCNode,
+  MDCRoot,
+} from '../../../packages/cms/studio-app/src/editor/lib/mdcTypes'
 
 function findElementByTag(root: MDCRoot, tag: string): MDCElement | null {
   const queue: Array<MDCElement | MDCRoot> = [root]
@@ -32,11 +36,9 @@ describe('editor markdown conversion helpers', () => {
   })
 
   it('supports strict stringify mode while preserving non-strict fallback behavior', async () => {
-    const cyclicRoot = { children: [] as any[], type: 'root' } as unknown as MDCRoot & {
-      children: any[]
-    }
-    const selfReferencingNode = {
-      children: [] as any[],
+    const cyclicRoot: MDCRoot = { children: [], type: 'root' }
+    const selfReferencingNode: MDCElement & { children: MDCNode[] } = {
+      children: [],
       props: {},
       tag: 'p',
       type: 'element',

@@ -90,7 +90,10 @@ const docsEntry = {
   public: { sitemap: true, search: true, navigation: true },
 }
 
-async function seedCodeDefinedCollections(ctx: ReturnType<typeof createCtx>, collections: any[]) {
+async function seedCodeDefinedCollections(
+  ctx: ReturnType<typeof createCtx>,
+  collections: Array<Record<string, unknown>>,
+) {
   return await ctx.raw.mutation(api.collections.sync.installCollectionContractsInternal, {
     collections,
   })

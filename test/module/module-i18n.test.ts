@@ -123,7 +123,7 @@ describe('ginko-cms i18n setup', () => {
       autoDetectLanguage: false,
       localeCookie: null,
     })
-    expect((nuxt.options as any).colorMode).toEqual({
+    expect((nuxt.options as { colorMode: { classSuffix: string } }).colorMode).toEqual({
       classSuffix: '',
     })
     expect(nuxt.options.runtimeConfig.public.ginkoCms).toMatchObject({
@@ -177,7 +177,7 @@ describe('ginko-cms i18n setup', () => {
       autoDetectLanguage: false,
       localeCookie: null,
     })
-    expect((nuxt.options as any).colorMode).toEqual({
+    expect((nuxt.options as { colorMode: { classSuffix: string } }).colorMode).toEqual({
       classSuffix: '',
     })
   })

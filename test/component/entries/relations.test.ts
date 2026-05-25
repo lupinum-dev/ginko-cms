@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { rewriteStoredRelationData } from '#component/entries/relations'
+import type { CmsField } from '#component/lib/types'
 
 describe('entry relation helpers', () => {
   it('keeps canonical stable relation ids across nested object, array, and blocks fields', async () => {
@@ -61,7 +62,7 @@ describe('entry relation helpers', () => {
         relation: { collectionId: 'authors' },
         fields: [],
       },
-    ] as any
+    ] satisfies CmsField[]
 
     const rewritten = await rewriteStoredRelationData(
       fields,

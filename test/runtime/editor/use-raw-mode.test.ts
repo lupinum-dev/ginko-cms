@@ -1,3 +1,4 @@
+import type { Editor } from '@tiptap/core'
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
@@ -11,7 +12,7 @@ describe('editor useRawMode conversion guard', () => {
 
     const editor = ref({
       commands: { setContent },
-    } as any)
+    } as unknown as Editor)
 
     const onConversionError = vi.fn()
 
@@ -46,7 +47,7 @@ describe('editor useRawMode conversion guard', () => {
 
     const editor = ref({
       commands: { setContent },
-    } as any)
+    } as unknown as Editor)
 
     const onConversionRecovered = vi.fn()
     const onConversionError = vi.fn()

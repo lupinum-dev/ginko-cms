@@ -35,6 +35,8 @@ if (!trellisDependency || !trellisBridgeDependency) {
   throw new Error('Missing Trellis release stack dependencies in packages/cms/compatibility.json.')
 }
 
+type LoadedNuxt = Awaited<ReturnType<typeof loadNuxt>>
+
 function yamlQuote(value: string) {
   return `'${value.replaceAll("'", "''")}'`
 }
@@ -57,7 +59,7 @@ function writeConsumerWorkspaceConfig(cwd: string, overrides: Record<string, str
 }
 
 describe('ginko-cms package-first consumer fixture', () => {
-  let nuxt: any
+  let nuxt: LoadedNuxt | undefined
   let tempDir: string
 
   beforeAll(async () => {
@@ -156,6 +158,7 @@ describe('ginko-cms package-first consumer fixture', () => {
 
   it('loads the published module entrypoint and validates host-owned bridge files', () => {
     expect(nuxt).toBeDefined()
+    if (!nuxt) throw new Error('Nuxt test instance was not loaded.')
     expect(nuxt.options.runtimeConfig.public.ginkoCms.route).toBe('/studio')
     expect(nuxt.options.runtimeConfig.public.content.provider).toBe('ginko')
     expect(existsSync(join(tempDir, 'convex/auth.config.ts'))).toBe(true)
