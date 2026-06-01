@@ -194,10 +194,11 @@ const canonicalFromRoute = (path = '/', locale = defaultLocale()) => {
 }
 
 const hrefFor = (route, locale) => {
-  if (typeof route?.href === 'string' && route.href) return route.href
-  const path = route?.path || '/'
-  if (locale && locale !== defaultLocale()) return `/${locale}${path === '/' ? '' : path}`
-  return path
+  const rawPath = typeof route?.href === 'string' && route.href ? route.href : route?.path || '/'
+  const path = rawPath === '/' ? '' : `/${rawPath.replace(/^\/+/, '').replace(/\/+$/, '')}`
+  const prefix = locale && locale !== defaultLocale() ? `/${locale}` : ''
+  if (prefix && (path === prefix || path.startsWith(`${prefix}/`))) return path || '/'
+  return `${prefix}${path}` || '/'
 }
 
 const publicEntryKey = (entry) => entry?.stableId || entry?.ref || entry?.revision || entry?.id

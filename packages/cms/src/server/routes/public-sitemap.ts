@@ -4,6 +4,8 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 
 import { api } from '#trellis/api'
 
+import { sitemapRouteHref } from './sitemap-url.js'
+
 type SitemapRoute = {
   locale: string
   path: string
@@ -111,11 +113,8 @@ export default defineEventHandler(async (event) => {
     const allowedLocales = collectionLocales.get(collection)
     return !allowedLocales || allowedLocales.has(route.locale)
   }
-  const hrefFor = (route: { locale: string; path: string; href?: string }) => {
-    if (route.href) return route.href
-    const prefix = route.locale && route.locale !== defaultLocale ? `/${route.locale}` : ''
-    return `${prefix}${route.path}` || '/'
-  }
+  const hrefFor = (route: { locale: string; path: string; href?: string }) =>
+    sitemapRouteHref(route, defaultLocale)
 
   return urls
     .filter((url) => isEnabledRoute(url.collection, url.route))
