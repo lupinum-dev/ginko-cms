@@ -81,7 +81,6 @@ export default defineNuxtConfig({
   ginkoCms: {
     publicContent: {
       api: true,
-      sitemap: true,
     },
   },
 })
@@ -264,8 +263,9 @@ locale metadata.
 Sitemap entries include canonical route data, alternates, `xDefault`, and
 `lastmod`. SEO alternates only include published route variants.
 
-Nuxt integrates this through the CMS sitemap source and prerender route
-generation; route lists should not be hardcoded in app config.
+Nuxt integrates this through the Ginko Content provider sitemap source. The CMS
+module only supplies published data; route lists should not be hardcoded in app
+config.
 
 ## i18n Rules
 

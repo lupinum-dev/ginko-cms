@@ -252,26 +252,96 @@ const convexMock = vi.hoisted(() => {
       }
     }
     if (operation === 'sitemap') {
+      const input = args as { collection?: string; locale?: string }
+      const isGerman = input.locale === 'de'
+      if (input.collection === 'blog') {
+        return {
+          urls: [
+            {
+              route: {
+                path: isGerman ? '/blog/start' : '/blog/launch',
+                href: isGerman ? '/blog/start' : '/blog/launch',
+                slug: isGerman ? 'start' : 'launch',
+                locale: input.locale || 'en',
+              },
+              alternates: [
+                {
+                  locale: 'en',
+                  hreflang: 'en',
+                  route: {
+                    path: '/blog/launch',
+                    href: '/blog/launch',
+                    slug: 'launch',
+                    locale: 'en',
+                  },
+                },
+                {
+                  locale: 'de',
+                  hreflang: 'de',
+                  route: {
+                    path: '/blog/start',
+                    href: '/blog/start',
+                    slug: 'start',
+                    locale: 'de',
+                  },
+                },
+              ],
+              xDefault: {
+                path: '/blog/launch',
+                href: '/blog/launch',
+                slug: 'launch',
+                locale: 'en',
+              },
+              lastmod: '2026-05-05T00:00:00.000Z',
+            },
+          ],
+          pageInfo: { hasNextPage: false, endCursor: null },
+        }
+      }
       return {
         urls: [
           {
             route: {
-              path: '/docs/workflows/content-routing',
+              path: isGerman
+                ? '/dokumentation/arbeitsablaeufe/content-routing'
+                : '/docs/workflows/content-routing',
+              href: isGerman
+                ? '/dokumentation/arbeitsablaeufe/content-routing'
+                : '/docs/workflows/content-routing',
               slug: 'content-routing',
-              locale: 'en',
+              locale: input.locale || 'en',
             },
             alternates: [
+              {
+                locale: 'en',
+                hreflang: 'en',
+                route: {
+                  path: '/docs/workflows/content-routing',
+                  href: '/docs/workflows/content-routing',
+                  slug: 'content-routing',
+                  locale: 'en',
+                },
+              },
               {
                 locale: 'de',
                 hreflang: 'de-DE',
                 route: {
                   path: '/dokumentation/arbeitsablaeufe/content-routing',
+                  href: '/dokumentation/arbeitsablaeufe/content-routing',
                   slug: 'content-routing',
+                  locale: 'de',
                 },
               },
             ],
+            xDefault: {
+              path: '/docs/workflows/content-routing',
+              href: '/docs/workflows/content-routing',
+              slug: 'content-routing',
+              locale: 'en',
+            },
           },
         ],
+        pageInfo: { hasNextPage: false, endCursor: null },
       }
     }
     if (operation === 'getAssetUrl') {
@@ -767,19 +837,102 @@ describe('Ginko Nuxt content provider', () => {
     })
   })
 
-  it('rejects sitemap exclude filters instead of silently broadening output', async () => {
-    await expect(
-      contentProvider.sitemapEntries({} as never, {
-        exclude: ['versions'],
-      }),
-    ).rejects.toMatchObject({
-      statusCode: 400,
-      statusMessage: 'unsupported_query_shape',
-      data: {
-        code: 'unsupported_query_shape',
-        field: 'exclude',
+  it('aggregates runtime sitemap collections and honors exclude filters', async () => {
+    const event = {
+      context: {
+        runtimeConfig: {
+          public: {
+            content: {
+              defaultLocale: 'en',
+              locales: ['en', 'de'],
+              sitemap: {
+                exclude: ['versions'],
+              },
+              collections: {
+                docs: { i18n: { locales: ['en', 'de'] } },
+                blog: { i18n: { locales: ['en', 'de'] } },
+                versions: { sitemap: false },
+              },
+            },
+            i18n: {
+              locales: [
+                { code: 'en', language: 'en-US' },
+                { code: 'de', language: 'de-DE' },
+              ],
+            },
+          },
+        },
       },
-    })
+    }
+
+    const allEntries = unwrap<Array<{ _sitemap: string; loc: string }>>(
+      await contentProvider.sitemapEntries(event as never),
+    )
+
+    expect(allEntries).toEqual([
+      expect.objectContaining({
+        _sitemap: 'en-US',
+        loc: '/docs/workflows/content-routing',
+      }),
+      expect.objectContaining({
+        _sitemap: 'de-DE',
+        loc: '/de/dokumentation/arbeitsablaeufe/content-routing',
+      }),
+      expect.objectContaining({
+        _sitemap: 'en-US',
+        loc: '/blog/launch',
+      }),
+      expect.objectContaining({
+        _sitemap: 'de-DE',
+        loc: '/de/blog/start',
+      }),
+    ])
+
+    const filteredEntries = unwrap<Array<{ loc: string }>>(
+      await contentProvider.sitemapEntries(event as never, {
+        include: ['docs', 'blog'],
+        exclude: ['blog'],
+      }),
+    )
+
+    expect(filteredEntries.map((entry) => entry.loc)).toEqual([
+      '/docs/workflows/content-routing',
+      '/de/dokumentation/arbeitsablaeufe/content-routing',
+    ])
+  })
+
+  it('reads sitemap config from the private Nitro runtime shape', async () => {
+    const event = {
+      context: {
+        nitro: {
+          runtimeConfig: {
+            content: {
+              defaultLocale: 'en',
+              locales: ['en', 'de'],
+              sitemap: {},
+              collections: {
+                docs: { i18n: { locales: ['en', 'de'] } },
+              },
+            },
+            i18n: {
+              locales: [
+                { code: 'en', language: 'en-US' },
+                { code: 'de', language: 'de-DE' },
+              ],
+            },
+          },
+        },
+      },
+    }
+
+    const entries = unwrap<Array<{ _sitemap: string; loc: string }>>(
+      await contentProvider.sitemapEntries(event as never),
+    )
+
+    expect(entries.map((entry) => [entry._sitemap, entry.loc])).toEqual([
+      ['en-US', '/docs/workflows/content-routing'],
+      ['de-DE', '/de/dokumentation/arbeitsablaeufe/content-routing'],
+    ])
   })
 
   it('maps production Convex projection reads into the neutral content provider shape', async () => {
@@ -972,8 +1125,16 @@ describe('Ginko Nuxt content provider', () => {
         lastmod: undefined,
         alternatives: [
           {
+            hreflang: 'en',
+            href: '/docs/workflows/content-routing',
+          },
+          {
             hreflang: 'de-DE',
             href: '/de/dokumentation/arbeitsablaeufe/content-routing',
+          },
+          {
+            hreflang: 'x-default',
+            href: '/docs/workflows/content-routing',
           },
         ],
       },

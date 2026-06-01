@@ -40,12 +40,6 @@ export type {
 interface NuxtOptionsExt {
   ginkoCms?: Partial<ModuleOptions> | false
   i18n?: I18nModuleOptions
-  sitemap?: {
-    sources?: string[]
-    exclude?: string[]
-    sitemaps?: boolean
-    [key: string]: unknown
-  }
   colorMode?: {
     classSuffix?: string
   }
@@ -128,13 +122,13 @@ function inferLocaleOptions(options: ModuleOptions, nuxtOptions: NuxtOptionsExt)
 
 async function assertGinkoContentSearchBoundary(rootDir: string, nuxtOptions: NuxtOptionsExt) {
   const provider = await loadGinkoContentProviderName(rootDir)
-  if (provider !== 'cms') return
+  if (provider !== 'ginko' && provider !== 'cms') return
 
   const search = nuxtOptions.content?.search
   if (search === false || search?.engine === 'cms') return
 
   throw new Error(
-    'ginko-cms detected content.config.ts provider "cms", but content.search is not using the CMS search engine. Set `content.search.engine` to "cms" or set `content.search` to false. The default minisearch engine requires provider.searchSections, which the CMS provider intentionally does not expose.',
+    `ginko-cms detected content.config.ts provider "${provider}", but content.search is not using the CMS search engine. Set \`content.search.engine\` to "cms" or set \`content.search\` to false. The default minisearch engine requires provider.searchSections, which the CMS provider intentionally does not expose.`,
   )
 }
 
@@ -175,7 +169,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     siteData: { enabled: false },
     publicContent: {
       api: false,
-      sitemap: false,
       prerender: false,
       prerenderFailure: 'error',
     },
@@ -303,20 +296,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
           route: `${publicApiBase}/${endpoint}`,
           handler: resolve(cmsServerDir, 'routes/public-api'),
         })
-      }
-    }
-
-    if (options.publicContent?.sitemap) {
-      addServerHandler({
-        route: '/api/__ginko__/sitemap',
-        handler: resolve(cmsServerDir, 'routes/public-sitemap'),
-      })
-      configureSitemapSource(moduleOptions, studioRoute)
-      if (options.publicContent?.prerender) {
-        nitroOptions.prerender ??= {}
-        nitroOptions.prerender.routes = Array.from(
-          new Set([...(nitroOptions.prerender.routes ?? []), '/sitemap.xml']),
-        )
       }
     }
 
@@ -543,16 +522,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         defaults: {},
       }
     }
-    if (userOptions.publicContent?.sitemap === true) {
-      dependencies['@nuxtjs/sitemap'] = {
-        version: '>=8.0.0',
-        defaults: {
-          sitemaps: false,
-          sources: ['/api/__ginko__/sitemap'],
-          exclude: [`${studioRoute}/**`],
-        },
-      }
-    }
     return dependencies
   },
 })
@@ -569,13 +538,6 @@ function isNuxtPrepare() {
     process.argv.some((arg) => arg === 'prepare' || arg.endsWith('/prepare')) ||
     process.env.npm_lifecycle_event === 'postinstall'
   )
-}
-
-function configureSitemapSource(options: NuxtOptionsExt, studioRoute: string) {
-  const sitemap = (options.sitemap ??= {})
-  sitemap.sources = Array.from(new Set([...(sitemap.sources ?? []), '/api/__ginko__/sitemap']))
-  sitemap.exclude = Array.from(new Set([...(sitemap.exclude ?? []), `${studioRoute}/**`]))
-  sitemap.sitemaps ??= false
 }
 
 function resolvePublicApiRoute(api: PublicContentApiOption) {

@@ -81,7 +81,7 @@ export interface ModuleOptions {
   search?: { enabled: boolean }
   /** Site data blocks (business hours, banners) */
   siteData?: { enabled: boolean }
-  /** Public content integrations for sitemap and static generation. */
+  /** Public content HTTP facade and static route generation. */
   publicContent?: {
     /**
      * Expose published reads through Nitro HTTP routes for external consumers.
@@ -90,7 +90,6 @@ export interface ModuleOptions {
      * @default false
      */
     api?: boolean | { route?: string }
-    sitemap?: boolean
     prerender?: boolean
     prerenderFailure?: 'error' | 'warn'
   }

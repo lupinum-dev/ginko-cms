@@ -109,23 +109,77 @@ const localeLanguageFromEnv = () => {
   return {}
 }
 
+const runtimeConfigFromEvent = async (event) => {
+  const eventRuntimeConfig = event?.context?.nitro?.runtimeConfig || event?.context?.runtimeConfig
+  if (eventRuntimeConfig) return eventRuntimeConfig
+
+  try {
+    const { useRuntimeConfig } = await import('nitropack/runtime')
+    const runtimeConfig = useRuntimeConfig(event)
+    if (runtimeConfig?.public || runtimeConfig?.content) return runtimeConfig
+  } catch {
+    // Fall back below for provider-contract tests that pass runtime config directly.
+  }
+  return event?.context?.runtimeConfig
+}
+
 const localeLanguageFromRuntime = async (event) => {
   const envLanguages = localeLanguageFromEnv()
   if (Object.keys(envLanguages).length > 0) return envLanguages
 
-  try {
-    const { useRuntimeConfig } = await import('nitropack/runtime')
-    const runtime = useRuntimeConfig(event)
-    const locales = runtime?.public?.i18n?.locales
-    if (!Array.isArray(locales)) return {}
+  const runtime = await runtimeConfigFromEvent(event)
+  const i18nLocales = runtime?.public?.i18n?.locales || runtime?.i18n?.locales
+  if (Array.isArray(i18nLocales)) {
     return Object.fromEntries(
-      locales
+      i18nLocales
         .filter((locale) => locale && typeof locale.code === 'string')
         .map((locale) => [locale.code, locale.language || locale.code]),
     )
-  } catch {
-    return {}
   }
+
+  const contentLocales = runtime?.public?.content?.locales || runtime?.content?.locales
+  if (!Array.isArray(contentLocales)) return {}
+  return Object.fromEntries(
+    contentLocales
+      .filter((locale) => typeof locale === 'string' && locale.length > 0)
+      .map((locale) => [locale, locale]),
+  )
+}
+
+const contentRuntimeFromEvent = async (event) => {
+  const runtime = await runtimeConfigFromEvent(event)
+  return runtime?.public?.content || runtime?.content || {}
+}
+
+const enabledSitemapCollections = (contentRuntime, options = {}) => {
+  const runtimeCollections = contentRuntime?.collections || {}
+  const requestedCollections =
+    options.include || options.collections || contentRuntime?.sitemap?.include
+  const collections = requestedCollections?.length
+    ? requestedCollections
+    : Object.keys(runtimeCollections)
+  const excluded = new Set([
+    ...(contentRuntime?.sitemap?.exclude || []),
+    ...(options.exclude || []),
+  ])
+
+  return [...new Set(collections)]
+    .filter((collection) => !excluded.has(collection))
+    .filter((collection) => runtimeCollections[collection]?.sitemap !== false)
+}
+
+const sitemapLocalesForCollection = (contentRuntime, collection, requestedLocale) => {
+  if (requestedLocale) return [requestedLocale]
+
+  const runtimeCollection = contentRuntime?.collections?.[collection]
+  if (Array.isArray(runtimeCollection?.i18n?.locales) && runtimeCollection.i18n.locales.length) {
+    return runtimeCollection.i18n.locales
+  }
+
+  const contentLocales = contentRuntime?.locales
+  if (Array.isArray(contentLocales) && contentLocales.length) return contentLocales
+
+  return [contentRuntime?.defaultLocale || defaultLocale()]
 }
 
 const normalizeRemoteError = (error, operation) => {
@@ -903,32 +957,52 @@ const contentProvider = {
     )
   },
   sitemapEntries: async (event, options = {}) => {
-    assertUnsupportedQueryShape(
-      Boolean(options.exclude?.length),
-      'exclude',
-      'Ginko sitemap entries support explicit include lists, not exclude filters.',
-    )
-    const collections = options.include || options.collections || []
-    assertUnsupportedQueryShape(
-      collections.length !== 1,
-      'collections',
-      'Ginko content-provider sitemap entries require exactly one collection. The Nuxt sitemap route aggregates configured collections.',
-    )
-    const result = await callGinko('sitemap', {
-      collection: collections[0],
-      locale: options.locale || defaultLocale(),
-    })
+    const contentRuntime = await contentRuntimeFromEvent(event)
+    const collections = enabledSitemapCollections(contentRuntime, options)
+    const urls = []
+    for (const collection of collections) {
+      for (const locale of sitemapLocalesForCollection(
+        contentRuntime,
+        collection,
+        options.locale,
+      )) {
+        let cursor = null
+        do {
+          const result = await callGinko('sitemap', {
+            collection,
+            locale,
+            cursor,
+          })
+          urls.push(...(result.urls || []))
+          cursor = result.pageInfo?.endCursor ?? null
+        } while (cursor)
+      }
+    }
     const localeLanguages = await localeLanguageFromRuntime(event)
     return withContentCache(
-      (result.urls || []).map((url) => ({
-        _sitemap: localeLanguages[url.route?.locale || ''] || url.route?.locale || defaultLocale(),
-        loc: hrefFor(url.route, url.route?.locale),
-        alternatives: (url.alternates || []).map((alternate) => ({
-          hreflang: alternate.hreflang || alternate.locale,
-          href: hrefFor(alternate.route, alternate.locale),
-        })),
-        lastmod: url.lastmod,
-      })),
+      urls.map((url) => {
+        const xDefaultAlternative = url.xDefault
+          ? [
+              {
+                hreflang: 'x-default',
+                href: hrefFor(url.xDefault, url.xDefault.locale),
+              },
+            ]
+          : []
+        return {
+          _sitemap:
+            localeLanguages[url.route?.locale || ''] || url.route?.locale || defaultLocale(),
+          loc: hrefFor(url.route, url.route?.locale),
+          alternatives: [
+            ...(url.alternates || []).map((alternate) => ({
+              hreflang: alternate.hreflang || alternate.locale,
+              href: hrefFor(alternate.route, alternate.route?.locale || alternate.locale),
+            })),
+            ...xDefaultAlternative,
+          ],
+          lastmod: url.lastmod,
+        }
+      }),
       sitemapCacheHint(),
     )
   },
