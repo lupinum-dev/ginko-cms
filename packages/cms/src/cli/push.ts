@@ -131,7 +131,6 @@ async function loadNuxtGinkoOptions(cwd: string): Promise<ModuleOptions> {
     siteData: userOptions.siteData ?? { enabled: false },
     publicContent: userOptions.publicContent ?? {
       api: false,
-      sitemap: false,
       prerender: false,
       prerenderFailure: 'error',
     },

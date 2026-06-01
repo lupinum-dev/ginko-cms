@@ -69,6 +69,9 @@ for (const filePath of collectFiles(repoRoot)) {
   const source = readFileSync(filePath, 'utf8')
   const rel = relative(repoRoot, filePath).replaceAll('\\', '/')
   if (rel === 'scripts/check-stale-surfaces.mjs') continue
+  if (/publicContent\s*:\s*\{[\s\S]*?\bsitemap\s*:/.test(source)) {
+    violations.push(`${rel}: stale ginkoCms.publicContent.sitemap option`)
+  }
   const lines = source.split(/\r?\n/)
   lines.forEach((line, index) => {
     for (const check of checks) {

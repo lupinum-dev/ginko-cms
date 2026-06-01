@@ -33,7 +33,6 @@ export default defineNuxtConfig({
     route: '/studio',
     publicContent: {
       api: true,
-      sitemap: true,
       prerender: true,
     },
     collections: {

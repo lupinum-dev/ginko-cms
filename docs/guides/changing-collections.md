@@ -9,8 +9,12 @@ Studio, MCP, imports, and public reads inspect the synced collection contract,
 but they do not edit schema. Contract changes move in one direction:
 
 ```text
-content.config.ts / ginkoCms.collections -> ginko-cms push -> synced CMS contract
+content.config.ts -> ginko-cms push -> synced CMS contract
 ```
+
+`content.config.ts` is the default source for Ginko Content apps. Use
+`ginkoCms.collections` or `collectionsDir` only for custom CMS integrations that
+intentionally do not derive contracts from Ginko Content.
 
 Stored content is separate. If a contract change can invalidate existing
 entries, update the content explicitly before pushing the new contract.

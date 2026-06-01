@@ -20,24 +20,28 @@ export async function runDeployCommand(
 ): Promise<number> {
   const separator = args.indexOf('--')
   const deployArgs =
-    separator >= 0 ? args.slice(separator + 1) : ['dev', '--once', '--tail-logs', 'disable']
+    separator >= 0
+      ? args.slice(separator + 1)
+      : ['dev', '--once', '--tail-logs', 'disable', '--typecheck', 'disable']
   const pushArgs = separator >= 0 ? args.slice(0, separator) : args
   const push = parsePushArgs(pushArgs.slice(1))
   const bridge = await runBridgeCheck(cwd, io)
   if (bridge !== 0) return bridge
-  const pushResult = await runPushCommand(
-    ['push', ...pushArgs.slice(1)],
-    cwd,
-    io,
-    convexClientFactory,
-  )
-  if (pushResult !== 0) return pushResult
   if (push.check) {
+    const pushResult = await runPushCommand(
+      ['push', ...pushArgs.slice(1)],
+      cwd,
+      io,
+      convexClientFactory,
+    )
+    if (pushResult !== 0) return pushResult
     write(
       io.stdout,
       'Ginko CMS deploy check passed; Convex deploy skipped because --check was set.\n',
     )
     return 0
   }
-  return await runner(resolveConvexCliBin(), deployArgs, { cwd })
+  const deployResult = await runner(resolveConvexCliBin(), deployArgs, { cwd })
+  if (deployResult !== 0) return deployResult
+  return await runPushCommand(['push', ...pushArgs.slice(1)], cwd, io, convexClientFactory)
 }

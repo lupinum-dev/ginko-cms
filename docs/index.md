@@ -8,6 +8,7 @@ content model in code.
 Use these docs by reader task:
 
 - New app setup: start with [Quickstart](./getting-started/quickstart.md), then
+  [Next collections](./getting-started/next-collections.md) and
   [Environment](./getting-started/environment.md).
 - Content model changes: use
   [Changing collections](./guides/changing-collections.md), then the migration
@@ -19,6 +20,9 @@ Use these docs by reader task:
 - Product model: read [Positioning](./concepts/positioning.md),
   [Content model](./reference/content-model.md), and
   [Studio workflows](./concepts/studio/workflows.md).
+- Advanced config: use
+  [CMS config helpers](./reference/cms-config-helpers.md) only when the app does
+  not derive CMS contracts from `content.config.ts`.
 - Release and recovery work: use the
   [release candidate checklist](./maintenance/release-candidate.md) and
   [backup and recovery](./maintenance/backup-and-recovery.md).
@@ -32,6 +36,7 @@ docs/
   index.md
   getting-started/
     quickstart.md
+    next-collections.md
     environment.md
   guides/
     changing-collections.md
@@ -42,6 +47,7 @@ docs/
       recovery.md
   reference/
     content-model.md
+    cms-config-helpers.md
     nuxt-content-provider.md
     public-content-api.md
   concepts/

@@ -18,6 +18,40 @@ import StudioNotice from '../../packages/cms/studio-app/src/components/studio/St
 import StudioSegmentedControl from '../../packages/cms/studio-app/src/components/studio/StudioSegmentedControl.vue'
 import { provideStudioEntryEditorContext } from '../../packages/cms/studio-app/src/composables/internal/studioEntryEditorContext'
 
+function createTestLocalStorage(): Storage {
+  const values = new Map<string, string>()
+  return {
+    get length() {
+      return values.size
+    },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => Array.from(values.keys())[index] ?? null,
+    removeItem: (key) => {
+      values.delete(key)
+    },
+    setItem: (key, value) => {
+      values.set(key, String(value))
+    },
+  }
+}
+
+function installTestLocalStorage(): () => void {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: createTestLocalStorage(),
+  })
+
+  return () => {
+    if (previous) {
+      Object.defineProperty(globalThis, 'localStorage', previous)
+      return
+    }
+    delete (globalThis as typeof globalThis & { localStorage?: Storage }).localStorage
+  }
+}
+
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () => ({
   useCmsStudioQuery: () => ({
     data: ref({ changes: [] }),
@@ -506,35 +540,39 @@ describe('Studio workflow components', () => {
   })
 
   it('renders publish impact cache tags and events in diagnostics mode', () => {
-    window.history.replaceState(null, '', '/studio/docs/entry-1?diagnostics=1')
-    localStorage.setItem('ginko-cms:studio:advanced-editor', 'true')
-    const wrapper = mount(StudioEntryPublicWorkflowPanel, {
-      global: { stubs: studioStubs() },
-      props: {
-        publicVisibility: baseVisibility,
-        publishImpact: {
-          ...idleImpact,
-          cacheTags: ['entry:entry-1', 'collection:docs'],
-          events: ['entry.published'],
-          message: 'Ready to publish',
-          state: 'ready',
-          status: 'ready',
+    const restoreLocalStorage = installTestLocalStorage()
+    try {
+      window.history.replaceState(null, '', '/studio/docs/entry-1?diagnostics=1')
+      localStorage.setItem('ginko-cms:studio:advanced-editor', 'true')
+      const wrapper = mount(StudioEntryPublicWorkflowPanel, {
+        global: { stubs: studioStubs() },
+        props: {
+          publicVisibility: baseVisibility,
+          publishImpact: {
+            ...idleImpact,
+            cacheTags: ['entry:entry-1', 'collection:docs'],
+            events: ['entry.published'],
+            message: 'Ready to publish',
+            state: 'ready',
+            status: 'ready',
+          },
+          publishImpactRequested: true,
+          publishReview,
+          previewScope: 'publish',
+          routeValidationRequested: false,
+          routeValidationState: emptyRouteValidation,
+          selectedPublishImpactLocale: null,
         },
-        publishImpactRequested: true,
-        publishReview,
-        previewScope: 'publish',
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
-        selectedPublishImpactLocale: null,
-      },
-    })
+      })
 
-    expect(wrapper.text()).toContain('Developer diagnostics')
-    expect(wrapper.text()).toContain('entry:entry-1')
-    expect(wrapper.text()).toContain('collection:docs')
-    expect(wrapper.text()).toContain('entry.published')
-    window.history.replaceState(null, '', '/')
-    localStorage.removeItem('ginko-cms:studio:advanced-editor')
+      expect(wrapper.text()).toContain('Developer diagnostics')
+      expect(wrapper.text()).toContain('entry:entry-1')
+      expect(wrapper.text()).toContain('collection:docs')
+      expect(wrapper.text()).toContain('entry.published')
+    } finally {
+      window.history.replaceState(null, '', '/')
+      restoreLocalStorage()
+    }
   })
 
   it('does not dirty rich text while disabled', async () => {

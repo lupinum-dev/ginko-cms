@@ -36,8 +36,8 @@ The CLI manages `convex/auth.ts`, `convex/auth.config.ts`, `convex/http.ts`,
 `convex/schema.ts`, `convex/ginkoCmsMcp.ts`, `convex/ginkoCms/*`, and the
 Ginko CMS component registration in `convex/convex.config.ts`.
 
-Before pushing contracts, provide Convex admin auth and the generated bridge
-forwarding secret:
+Before deploying or pushing contracts, provide Convex admin auth and the
+generated bridge forwarding secret:
 
 ```bash
 pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.local
@@ -46,13 +46,16 @@ printf "\nCONVEX_IDENTITY_FORWARDING_KEY=%s\n" "$FORWARDING_KEY" >> .env.local
 pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
 ```
 
-Deploy the generated Convex functions, then install collection contracts:
+Deploy the generated Convex functions and install collection contracts:
 
 ```bash
-pnpm exec convex dev --once --tail-logs disable --typecheck disable
-pnpm exec ginko-cms push
-pnpm exec ginko-cms push --check
+pnpm exec ginko-cms deploy
 ```
+
+`pnpm exec ginko-cms deploy` runs the bridge check, the default local Convex
+deploy command, and collection contract sync in the required order. Use
+`pnpm exec ginko-cms deploy --check` for CI validation that must not run a Convex
+deploy.
 
 `pnpm exec ginko-cms doctor` is the canonical local and CI validation command.
 `pnpm exec ginko-cms bridge check` and `pnpm exec ginko-cms bridge inspect` are
@@ -78,7 +81,9 @@ provider setup in `convex/auth.config.ts` and app tables in `convex/schema.ts`.
 
 See the workspace docs for
 [environment variables](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/getting-started/environment.md),
+[next collection steps](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/getting-started/next-collections.md),
 [collection changes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/changing-collections.md),
+[CMS config helpers](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/reference/cms-config-helpers.md),
 [migration recipes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/migrations/recipes.md),
 [Tailwind/theming notes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/theming-the-studio.md),
 and

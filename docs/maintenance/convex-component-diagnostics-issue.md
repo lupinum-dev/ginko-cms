@@ -139,8 +139,7 @@ or `deploy2/start_push` failures after a component import mistake:
    `CONVEX_DEPLOY_KEY`, `CONVEX_IDENTITY_FORWARDING_KEY`, and
    `GINKO_FIRST_OWNER_EMAIL`.
 6. Re-run `pnpm exec ginko-cms init`, `pnpm exec ginko-cms doctor`,
-   `pnpm exec convex dev --once --tail-logs disable --typecheck disable`, and
-   `pnpm exec ginko-cms push --check`.
+   `pnpm exec ginko-cms deploy`, and `pnpm exec ginko-cms deploy --check`.
 
 ## Related Pages
 

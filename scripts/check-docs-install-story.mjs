@@ -25,6 +25,17 @@ const docs = [
   { path: 'packages/cms/README.md', required: true, forbidsContradiction: true },
 ]
 
+const canonicalDeployDocs = [
+  'README.md',
+  'packages/cms/README.md',
+  'docs/getting-started/quickstart.md',
+  'docs/getting-started/environment.md',
+  'docs/maintenance/release-candidate.md',
+]
+
+const oldSetupOrderPattern =
+  /pnpm exec convex dev --once[\s\S]{0,240}?pnpm exec ginko-cms push(?! --check)/
+
 const errors = []
 
 for (const doc of docs) {
@@ -45,6 +56,16 @@ for (const doc of docs) {
         errors.push(`${doc.path}: matches forbidden contradictory wording /${pattern.source}/`)
       }
     }
+  }
+}
+
+for (const docPath of canonicalDeployDocs) {
+  const contents = readFileSync(resolve(repoRoot, docPath), 'utf8')
+  if (!contents.includes('pnpm exec ginko-cms deploy')) {
+    errors.push(`${docPath}: canonical setup path must use \`pnpm exec ginko-cms deploy\``)
+  }
+  if (oldSetupOrderPattern.test(contents)) {
+    errors.push(`${docPath}: canonical setup path must not document convex-dev-then-push`)
   }
 }
 

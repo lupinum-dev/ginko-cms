@@ -58,9 +58,8 @@ FORWARDING_KEY="$(openssl rand -base64 32)"
 printf "\nCONVEX_IDENTITY_FORWARDING_KEY=%s\n" "$FORWARDING_KEY" >> .env.local
 pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
 pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
-pnpm exec convex dev --once --typecheck disable --tail-logs disable
-pnpm exec ginko-cms push
-pnpm exec ginko-cms push --check
+pnpm exec ginko-cms deploy
+pnpm exec ginko-cms deploy --check
 pnpm run typecheck
 pnpm run build
 ```

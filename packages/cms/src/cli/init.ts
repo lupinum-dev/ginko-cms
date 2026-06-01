@@ -12,7 +12,7 @@ export async function runInitCommand(cwd: string, io: CliIo): Promise<number> {
     write(
       io.stdout,
       [
-        `Next: run \`pnpm exec ginko-cms doctor\`, configure the required environment, run \`pnpm exec convex dev --once --tail-logs disable --typecheck disable\`, then run \`pnpm exec ginko-cms push\`.`,
+        `Next: run \`pnpm exec ginko-cms doctor\`, configure the required environment, then run \`pnpm exec ginko-cms deploy\`.`,
         `Host apps must depend directly on \`@convex-dev/better-auth\`, \`better-auth\`, and \`@lupinum/ginko-cms-convex\`.`,
         `If MCP code mode is enabled, host apps must also depend directly on \`secure-exec\`.`,
         `Set \`CONVEX_URL\` or \`NUXT_PUBLIC_CONVEX_URL\` in the Nuxt app environment.`,

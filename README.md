@@ -32,8 +32,8 @@ pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
 
-For local development, `ginko-cms push` needs Convex admin auth through
-`CONVEX_DEPLOY_KEY`. Create one before pushing contracts:
+Contract sync through `ginko-cms deploy` or `ginko-cms push` needs Convex admin
+auth through `CONVEX_DEPLOY_KEY`. Create one before deploying:
 
 ```bash
 pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.local
@@ -49,13 +49,16 @@ pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
 pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
 ```
 
-Deploy the generated Convex functions, then push the collection contracts:
+Deploy the generated Convex functions and sync the collection contracts:
 
 ```bash
-pnpm exec convex dev --once --tail-logs disable --typecheck disable
-pnpm exec ginko-cms push
-pnpm exec ginko-cms push --check
+pnpm exec ginko-cms deploy
 ```
+
+`ginko-cms deploy` runs the bridge check, starts the default local Convex
+deploy command, then pushes collection contracts. For CI or read-only
+validation, run `pnpm exec ginko-cms deploy --check`; it skips the Convex deploy
+step and validates the bridge plus contract drift.
 
 For the full setup path, see [Quickstart](./docs/getting-started/quickstart.md)
 and [Environment](./docs/getting-started/environment.md).
@@ -119,8 +122,11 @@ mounted components from the host app's `convex/convex.config.ts`.
 
 - [Docs index](./docs/index.md)
 - [Codex skill for agents](./skills/ginko-cms/SKILL.md)
+- [Quickstart](./docs/getting-started/quickstart.md)
+- [Next collections](./docs/getting-started/next-collections.md)
 - [Changing collections](./docs/guides/changing-collections.md)
 - [Public content API](./docs/reference/public-content-api.md)
+- [CMS config helpers](./docs/reference/cms-config-helpers.md)
 - [Nuxt content provider](./docs/reference/nuxt-content-provider.md)
 - [Studio theming](./docs/guides/theming-the-studio.md)
 - [Release candidate checklist](./docs/maintenance/release-candidate.md)

@@ -2,7 +2,8 @@
 
 This page gets a Nuxt app to the first checked Ginko CMS setup: packages
 installed, one collection defined, generated Convex bridge files written,
-collection contracts pushed, and Studio reachable by the first owner.
+Convex deployed, collection contracts synced, and Studio reachable by the first
+owner.
 
 ## Prerequisites
 
@@ -111,19 +112,26 @@ pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
 See [Environment](./environment.md) for the full runtime and CI environment
 contract.
 
-## Deploy And Push Contracts
+## Deploy And Sync Contracts
 
-Deploy the generated Convex files, then sync the code-defined collection
-contracts:
+Deploy the generated Convex files and sync the code-defined collection
+contracts with one command:
 
 ```bash
-pnpm exec convex dev --once --tail-logs disable --typecheck disable
-pnpm exec ginko-cms push
-pnpm exec ginko-cms push --check
+pnpm exec ginko-cms deploy
 ```
 
-Successful setup prints that the collection contracts are installed. If
-`push --check` reports drift, follow
+`ginko-cms deploy` runs the bridge check, the default local Convex deploy command
+(`convex dev --once --tail-logs disable --typecheck disable`), then contract
+sync. Successful setup prints that the collection contracts are installed.
+
+For CI or read-only validation after the first deploy, run:
+
+```bash
+pnpm exec ginko-cms deploy --check
+```
+
+If `deploy --check` reports drift, follow
 [Changing collections](../guides/changing-collections.md) before changing shared
 data.
 
@@ -141,3 +149,5 @@ owner. The `pages` collection should appear in the Studio sidebar.
 
 For published website reads, use the
 [Nuxt content provider reference](../reference/nuxt-content-provider.md).
+For the next content-model steps, use
+[Next collections](./next-collections.md).

@@ -113,12 +113,26 @@ so deploy-key auth and product audit identity are not mixed.
 After `pnpm exec ginko-cms init`, the safe local order is:
 
 ```bash
-pnpm exec convex dev --once --tail-logs disable --typecheck disable
-pnpm exec ginko-cms push
-pnpm exec ginko-cms push --check
+pnpm exec ginko-cms deploy
 ```
 
-`ginko-cms push` reads `.env.local` as well as the process environment.
+`ginko-cms deploy` reads `.env.local` as well as the process environment. It
+runs the bridge check, the default local Convex deploy command
+(`convex dev --once --tail-logs disable --typecheck disable`), then collection
+contract sync.
+
+For CI validation that must not run Convex deploy, use:
+
+```bash
+pnpm exec ginko-cms deploy --check
+```
+
+If you need a different Convex command, pass the Convex CLI arguments after
+`--`. For example, this runs `convex deploy` before contract sync:
+
+```bash
+pnpm exec ginko-cms deploy -- deploy
+```
 
 For MCP installations, also run:
 
