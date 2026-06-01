@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
   cmsPackageRoot,
+  contentPackageRoot,
   contractPackageRoot,
   convexPackageRoot,
   packPackage,
@@ -86,10 +87,7 @@ describe('ginko-cms package-first consumer fixture', () => {
         `})`,
         ``,
         `export default defineContentConfig({`,
-        `  provider: 'ginko',`,
-        `  providers: {`,
-        `    ginko: '@lupinum/ginko-cms/nuxt-provider',`,
-        `  },`,
+        `  provider: 'cms',`,
         `  collections: { pages },`,
         `})`,
       ].join('\n'),
@@ -103,6 +101,7 @@ describe('ginko-cms package-first consumer fixture', () => {
     )
     const contractTarball = packPackage(contractPackageRoot, tempDir)
     const convexTarball = packPackage(convexPackageRoot, tempDir)
+    const contentTarball = packPackage(contentPackageRoot, tempDir)
     const cmsTarball = packPackage(cmsPackageRoot, tempDir)
 
     writeFileSync(
@@ -115,7 +114,7 @@ describe('ginko-cms package-first consumer fixture', () => {
         dependencies: {
           nuxt: workspacePackageJson.devDependencies.nuxt,
           '@convex-dev/better-auth': cmsPackageJson.dependencies['@convex-dev/better-auth'],
-          '@lupinum/ginko-content': contentDependency,
+          '@lupinum/ginko-content': `file:${contentTarball}`,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
@@ -131,7 +130,7 @@ describe('ginko-cms package-first consumer fixture', () => {
       '@lupinum/ginko-cms': `file:${cmsTarball}`,
       '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
       '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-      '@lupinum/ginko-content': contentDependency,
+      '@lupinum/ginko-content': `file:${contentTarball}`,
       '@lupinum/trellis': trellisDependency,
       '@lupinum/trellis-bridge': trellisBridgeDependency,
     })
@@ -160,7 +159,10 @@ describe('ginko-cms package-first consumer fixture', () => {
     expect(nuxt).toBeDefined()
     if (!nuxt) throw new Error('Nuxt test instance was not loaded.')
     expect(nuxt.options.runtimeConfig.public.ginkoCms.route).toBe('/studio')
-    expect(nuxt.options.runtimeConfig.public.content.provider).toBe('ginko')
+    expect(nuxt.options.runtimeConfig.public.content.provider).toBe('cms')
+    expect(nuxt.options.runtimeConfig.public.content.providers).toMatchObject({
+      cms: '@lupinum/ginko-cms/nuxt-provider',
+    })
     expect(existsSync(join(tempDir, 'convex/auth.config.ts'))).toBe(true)
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
     expect(convexConfig).toContain('@convex-dev/better-auth/convex.config')

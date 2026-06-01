@@ -74,7 +74,7 @@ preview, diagnostics, Studio, MCP, and build/admin tooling are separate surfaces
 
 ### Ginko Provider First
 
-Nuxt websites should read CMS content through the Ginko provider. The public HTTP
+Nuxt websites should read CMS content through the CMS provider. The public HTTP
 API is supported for published-read integrations, but it is not the main Nuxt
 happy path.
 

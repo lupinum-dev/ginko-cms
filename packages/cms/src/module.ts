@@ -9,7 +9,7 @@ import {
   addComponentsDir,
   addTypeTemplate,
 } from '@nuxt/kit'
-import type { NuxtModule } from '@nuxt/schema'
+import type { Nuxt, NuxtModule } from '@nuxt/schema'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { defu } from 'defu'
@@ -72,6 +72,9 @@ interface NitroOptionsExt {
 
 type PublicContentApiOption = NonNullable<ModuleOptions['publicContent']>['api']
 
+const CMS_CONTENT_PROVIDER_NAME = 'cms'
+const CMS_CONTENT_PROVIDER_MODULE = '@lupinum/ginko-cms/nuxt-provider'
+
 function hasNuxtI18nModule(modules: unknown[] = []): boolean {
   return modules.some((entry) => {
     if (typeof entry === 'string') {
@@ -122,7 +125,12 @@ function inferLocaleOptions(options: ModuleOptions, nuxtOptions: NuxtOptionsExt)
 
 async function assertGinkoContentSearchBoundary(rootDir: string, nuxtOptions: NuxtOptionsExt) {
   const provider = await loadGinkoContentProviderName(rootDir)
-  if (provider !== 'ginko' && provider !== 'cms') return
+  if (provider === 'ginko') {
+    throw new Error(
+      'content.config.ts provider "ginko" is no longer supported. Use provider "cms" to read website content from Ginko CMS.',
+    )
+  }
+  if (provider !== CMS_CONTENT_PROVIDER_NAME) return
 
   const search = nuxtOptions.content?.search
   if (search === false || search?.engine === 'cms') return
@@ -130,6 +138,23 @@ async function assertGinkoContentSearchBoundary(rootDir: string, nuxtOptions: Nu
   throw new Error(
     `ginko-cms detected content.config.ts provider "${provider}", but content.search is not using the CMS search engine. Set \`content.search.engine\` to "cms" or set \`content.search\` to false. The default minisearch engine requires provider.searchSections, which the CMS provider intentionally does not expose.`,
   )
+}
+
+function registerCmsContentProvider(nuxt: Nuxt) {
+  const hookContentProviders = nuxt.hook as unknown as (
+    name: 'content:providers',
+    callback: (providers: Record<string, string>) => void,
+  ) => void
+
+  hookContentProviders('content:providers', (providers) => {
+    const existing = providers[CMS_CONTENT_PROVIDER_NAME]
+    if (existing && existing !== CMS_CONTENT_PROVIDER_MODULE) {
+      throw new Error(
+        `@lupinum/ginko-cms cannot register content provider "cms" because it is already mapped to "${existing}". Remove the duplicate provider registration or use a different provider name.`,
+      )
+    }
+    providers[CMS_CONTENT_PROVIDER_NAME] = CMS_CONTENT_PROVIDER_MODULE
+  })
 }
 
 // Walk up from this module's URL to locate the @lupinum/ginko-cms package
@@ -178,6 +203,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   async setup(options, nuxt) {
     const { resolve: moduleResolve } = createResolver(import.meta.url)
     const moduleOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
+    registerCmsContentProvider(nuxt)
     options = inferLocaleOptions(options, moduleOptions)
     options.contentTranslatedSlugs = moduleOptions.content?.i18n?.translatedSlugs === true
     const localeSettings = resolveLocaleSettings(options)

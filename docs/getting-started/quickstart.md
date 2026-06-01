@@ -48,10 +48,7 @@ const pages = defineCollection('pages', {
 })
 
 export default defineContentConfig({
-  provider: 'ginko',
-  providers: {
-    ginko: '@lupinum/ginko-cms/nuxt-provider',
-  },
+  provider: 'cms',
   collections: { pages },
 })
 ```

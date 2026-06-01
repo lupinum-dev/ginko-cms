@@ -10,7 +10,7 @@ projections, and provider integration with Ginko core.
 The v1 architecture has three packages:
 
 - `@lupinum/ginko-cms`: Nuxt module, Studio host, auth pages, public API routes,
-  filesystem migration tooling, Ginko provider integration, and the bridge
+  filesystem migration tooling, CMS provider integration, and the bridge
   manifest used during setup.
 - `@lupinum/ginko-cms-contract`: framework-neutral shared domain contracts,
   public-content types, Convex validators, and schema helpers.
@@ -26,7 +26,7 @@ Keep host-generated bridge files thin.
 
 ```mermaid
 flowchart LR
-  App["Nuxt app"] --> Provider["Ginko provider"]
+  App["Nuxt app"] --> Provider["CMS provider"]
   Provider --> Projections["Published public projections"]
   Studio["Ginko Studio"] --> Ops["CMS operations"]
   MCP["MCP tools/prompts/resources"] --> Ops
@@ -78,7 +78,7 @@ public projections, not draft/editor tables.
 The primary Nuxt integration is:
 
 ```text
-Nuxt site -> Ginko provider -> published projections
+Nuxt site -> CMS provider -> published projections
 ```
 
 The public HTTP API is a supported integration surface for published reads and

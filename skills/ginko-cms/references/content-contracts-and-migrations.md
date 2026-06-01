@@ -51,10 +51,7 @@ export const articles = defineCollection('articles', {
 })
 
 export default defineContentConfig({
-  provider: 'ginko',
-  providers: {
-    ginko: '@lupinum/ginko-cms/nuxt-provider',
-  },
+  provider: 'cms',
   collections: { articles },
 })
 ```

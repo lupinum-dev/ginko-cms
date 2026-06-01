@@ -224,7 +224,7 @@ const cache = (value: unknown) =>
   typeof value === 'object' && value !== null && 'cache' in value ? value.cache : undefined
 const lastCall = () => convexMock.calls.at(-1)
 
-describe('Ginko provider contract', () => {
+describe('CMS provider contract', () => {
   beforeEach(async () => {
     vi.resetModules()
     convexMock.calls.length = 0

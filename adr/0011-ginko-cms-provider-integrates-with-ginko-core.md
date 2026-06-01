@@ -9,11 +9,11 @@ force application pages to read CMS internals directly.
 
 ## Decision
 
-The primary Nuxt website integration is the Ginko provider backed by published
+The primary Nuxt website integration is the CMS provider backed by published
 CMS projections.
 
 The public HTTP API is a supported integration surface for published reads and
-advanced consumers, but it should not replace the Ginko provider as the default
+advanced consumers, but it should not replace the CMS provider as the default
 Nuxt developer experience.
 
 ## Consequences

@@ -109,6 +109,33 @@ describe('ginko-cms tailwind registration', () => {
     }
   })
 
+  it('registers the cms content provider implementation through the content hook', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-provider-'))
+    tempDirs.push(rootDir)
+    await installBridge(rootDir)
+    const nuxt = createNuxtMock(rootDir)
+
+    await setupModule(
+      {
+        collections: {},
+        defaultLocale: 'en',
+        locales: [{ code: 'en', isDefault: true }],
+        route: '/studio',
+      },
+      nuxt,
+    )
+
+    const providerHook = nuxt.hook.mock.calls.find(([name]) => name === 'content:providers')?.[1]
+    expect(providerHook).toBeTypeOf('function')
+
+    const providers: Record<string, string> = {}
+    providerHook?.(providers)
+
+    expect(providers).toEqual({
+      cms: '@lupinum/ginko-cms/nuxt-provider',
+    })
+  })
+
   it('injects its runtime sources into the consumer Tailwind entry CSS', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-'))
     tempDirs.push(rootDir)

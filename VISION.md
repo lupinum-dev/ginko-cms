@@ -29,7 +29,7 @@ Ginko CMS should make structured website content feel predictable:
 - editors manage drafts, locales, assets, routes, SEO, versions, and publishing;
 - agents operate content workflows through MCP without touching raw tables;
 - published website reads come from active public projections;
-- Nuxt pages read content through the Ginko provider rather than CMS internals.
+- Nuxt pages read content through the CMS provider rather than CMS internals.
 
 Single-language sites should feel natural. Multilingual sites should not feel
 bolted on. Locale-aware routing, translation readiness, canonical URLs,

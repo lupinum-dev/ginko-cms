@@ -47,7 +47,7 @@ to Ginko core so app page code can stay provider-neutral.
 ## Public HTTP API
 
 A supported published-read integration surface for advanced and non-default
-consumers. It should not replace the Ginko provider as the primary Nuxt path.
+consumers. It should not replace the CMS provider as the primary Nuxt path.
 
 ## Canonical Body Source
 

@@ -9,15 +9,16 @@ content through the installed Convex public bridge.
 
 ```ts
 export default defineContentConfig({
-  provider: 'ginko',
-  providers: {
-    ginko: '@lupinum/ginko-cms/nuxt-provider',
-  },
+  provider: 'cms',
   collections: {
     // Keep collection names and schemas here so app code remains typed.
   },
 })
 ```
+
+`@lupinum/ginko-cms` registers the `cms` provider implementation with
+`@lupinum/ginko-content`; applications should not wire the provider import
+string themselves.
 
 Required environment:
 

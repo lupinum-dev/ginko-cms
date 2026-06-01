@@ -14,7 +14,7 @@ that need to stay portable.
 Use three v1 packages:
 
 - `@lupinum/ginko-cms` for the Nuxt module, Studio host, public routes,
-  migration tooling, Ginko provider integration, and setup manifest.
+  migration tooling, CMS provider integration, and setup manifest.
 - `@lupinum/ginko-cms-contract` for shared domain contracts, public-content
   types, validators, and schema helpers.
 - `@lupinum/ginko-cms-convex` for the Convex-backed CMS implementation.

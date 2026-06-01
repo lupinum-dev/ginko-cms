@@ -26,10 +26,7 @@ Configure Ginko Content to use the CMS provider:
 
 ```ts
 export default defineContentConfig({
-  provider: 'ginko',
-  providers: {
-    ginko: '@lupinum/ginko-cms/nuxt-provider',
-  },
+  provider: 'cms',
   collections: {
     // Keep typed collection definitions here.
   },

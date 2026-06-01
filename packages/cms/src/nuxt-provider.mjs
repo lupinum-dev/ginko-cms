@@ -78,7 +78,7 @@ const requiredEnv = (name) => {
   if (!value) {
     throw providerError(
       'provider_config_missing',
-      `${name} is required for the Ginko provider.`,
+      `${name} is required for the CMS content provider.`,
       500,
       {
         env: name,
@@ -199,7 +199,7 @@ const normalizeRemoteError = (error, operation) => {
     error?.statusCode || data.statusCode || (code === 'missing_locale_route' ? 404 : 500)
   return providerError(
     code,
-    error instanceof Error ? error.message : `Ginko provider query failed: ${operation}`,
+    error instanceof Error ? error.message : `CMS provider query failed: ${operation}`,
     statusCode,
     { operation, ...data },
   )
@@ -247,10 +247,15 @@ const canonicalFromRoute = (path = '/', locale = defaultLocale()) => {
   return normalized
 }
 
-const hrefFor = (route, locale) => {
-  const rawPath = typeof route?.href === 'string' && route.href ? route.href : route?.path || '/'
+const hrefFor = (route, locale, options = {}) => {
+  if (options.preferStoredHref !== false && typeof route?.href === 'string' && route.href) {
+    return routePathname(route.href)
+  }
+
+  const rawPath = route?.path || route?.href || '/'
   const path = rawPath === '/' ? '' : `/${rawPath.replace(/^\/+/, '').replace(/\/+$/, '')}`
-  const prefix = locale && locale !== defaultLocale() ? `/${locale}` : ''
+  const defaultLocaleCode = options.defaultLocale || defaultLocale()
+  const prefix = locale && locale !== defaultLocaleCode ? `/${locale}` : ''
   if (prefix && (path === prefix || path.startsWith(`${prefix}/`))) return path || '/'
   return `${prefix}${path}` || '/'
 }
@@ -724,7 +729,7 @@ const lookupFromVariantSelector = (variant = {}) => {
 }
 
 const contentProvider = {
-  name: 'ginko',
+  name: 'cms',
   capabilities: {
     routeBackedCollections: true,
     dataCollections: true,
@@ -979,24 +984,34 @@ const contentProvider = {
       }
     }
     const localeLanguages = await localeLanguageFromRuntime(event)
+    const sitemapDefaultLocale = contentRuntime?.defaultLocale || defaultLocale()
     return withContentCache(
       urls.map((url) => {
         const xDefaultAlternative = url.xDefault
           ? [
               {
                 hreflang: 'x-default',
-                href: hrefFor(url.xDefault, url.xDefault.locale),
+                href: hrefFor(url.xDefault, url.xDefault.locale, {
+                  preferStoredHref: false,
+                  defaultLocale: sitemapDefaultLocale,
+                }),
               },
             ]
           : []
         return {
           _sitemap:
             localeLanguages[url.route?.locale || ''] || url.route?.locale || defaultLocale(),
-          loc: hrefFor(url.route, url.route?.locale),
+          loc: hrefFor(url.route, url.route?.locale, {
+            preferStoredHref: false,
+            defaultLocale: sitemapDefaultLocale,
+          }),
           alternatives: [
             ...(url.alternates || []).map((alternate) => ({
               hreflang: alternate.hreflang || alternate.locale,
-              href: hrefFor(alternate.route, alternate.route?.locale || alternate.locale),
+              href: hrefFor(alternate.route, alternate.route?.locale || alternate.locale, {
+                preferStoredHref: false,
+                defaultLocale: sitemapDefaultLocale,
+              }),
             })),
             ...xDefaultAlternative,
           ],

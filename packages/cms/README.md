@@ -64,7 +64,7 @@ maintainer diagnostics for generated files and managed edits.
 - CMS setup CLI commands.
 - Host bridge manifest and generated-file validation.
 - Filesystem migration helpers.
-- Public Ginko provider integration.
+- Public CMS provider integration.
 - Tailwind v4 integration for the CMS UI.
 
 The Convex component implementation lives in `@lupinum/ginko-cms-convex`. The
