@@ -17,7 +17,7 @@ package depends on it, and the Nuxt CMS package depends on both.
 
 External packages required for the release tuple:
 
-- `@lupinum/ginko-content@0.1.0`
+- `@lupinum/ginko-content@0.1.1`
 - `@lupinum/trellis@0.1.1`
 - `@lupinum/trellis-bridge@0.1.1`
 
@@ -85,7 +85,7 @@ tar -tzf .pack/lupinum-ginko-cms-*.tgz | less
 node scripts/check-pack-workspace-refs.mjs
 npm publish .pack/lupinum-ginko-cms-contract-0.1.1.tgz --access public --otp <code>
 npm publish .pack/lupinum-ginko-cms-convex-0.1.1.tgz --access public --otp <code>
-npm publish .pack/lupinum-ginko-cms-0.1.1.tgz --access public --otp <code>
+npm publish .pack/lupinum-ginko-cms-0.1.2.tgz --access public --otp <code>
 ```
 
 9. Commit the release prep. Do not commit `.pack/` artifacts.

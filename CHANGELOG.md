@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+## v0.1.2
+
+Align Ginko CMS with the Ginko Content `0.1.1` release line.
+
+### Release Stack
+
+| Package                       | Version |
+| ----------------------------- | ------: |
+| `@lupinum/ginko-cms`          | `0.1.2` |
+| `@lupinum/ginko-cms-convex`   | `0.1.1` |
+| `@lupinum/ginko-cms-contract` | `0.1.1` |
+| `@lupinum/ginko-content`      | `0.1.1` |
+| `@lupinum/trellis`            | `0.1.1` |
+| `@lupinum/trellis-bridge`     | `0.1.1` |
+
+### Changed
+
+- Made `ginko-cms deploy` the documented first-run path for bridge checks,
+  Convex deployment, and contract push.
+- Added a progressive CMS collection ladder and a separate advanced reference
+  for CMS-native config helpers.
+- Removed the stale `ginkoCms.publicContent.sitemap` option from defaults and
+  playground configuration.
+
+### Fixed
+
+- Fixed `ginko-cms deploy --check` so it runs contract checks without starting
+  Convex deployment.
+- Stabilized Studio workflow component tests by installing deterministic test
+  `localStorage`.
+
 ## v0.1.1
 
 Align Ginko CMS with the Trellis `0.1.1` release line.
