@@ -336,7 +336,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         const routes = await loadGinkoPrerenderRoutes({
           isDev: nuxt.options.dev,
           defaultLocale: localeSettings.defaultLocale,
-          collections: Object.keys(options.collections ?? {}),
+          collections: routeBackedCollectionNames(options.collections ?? {}),
           collectionLocales: Object.fromEntries(
             Object.entries(buildPublicRuntimeCollections(options, localeSettings)).map(
               ([collection, config]) => [collection, config.locales],
@@ -571,6 +571,12 @@ function resolvePublicApiRoute(api: PublicContentApiOption) {
   const route = api === true ? '/api/ginko/v1' : (api.route ?? '/api/ginko/v1')
   const normalized = route.startsWith('/') ? route : `/${route}`
   return normalized.replace(/\/+$/, '')
+}
+
+function routeBackedCollectionNames(collections: ModuleOptions['collections']) {
+  return Object.entries(collections)
+    .filter(([, collection]) => (collection.routing?.mode ?? 'route') === 'route')
+    .map(([name]) => name)
 }
 
 export async function loadGinkoPrerenderRoutes(args: {

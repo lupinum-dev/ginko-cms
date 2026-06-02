@@ -301,6 +301,75 @@ describe('ginko-cms bridge validation', () => {
     }
   })
 
+  it('skips data-only collections when loading prerender routes from module config', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prerender-route-backed-'))
+    tempDirs.push(rootDir)
+    await installBridge(rootDir)
+
+    const previousConvexUrl = process.env.NUXT_PUBLIC_CONVEX_URL
+    process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
+    convexQuery.mockImplementation(async (_ref, args: { collection: string; locale: string }) => ({
+      urls: [
+        {
+          collection: args.collection,
+          route: { locale: args.locale, path: `/${args.collection}/hello` },
+        },
+      ],
+      pageInfo: { endCursor: null },
+    }))
+
+    try {
+      const nuxt = createNuxtMock(rootDir)
+      await setupModule(
+        {
+          collections: {
+            blog: {
+              type: 'flat',
+              routing: { pathPrefix: '/blog' },
+            },
+            authors: {
+              type: 'flat',
+              routing: { mode: 'none', pathPrefix: '/authors' },
+            },
+          },
+          defaultLocale: 'en',
+          locales: [{ code: 'en', isDefault: true }],
+          publicContent: {
+            prerender: true,
+          },
+          route: '/studio',
+        },
+        nuxt,
+      )
+
+      const nitroConfigHook = (
+        nuxt.hook.mock.calls as Array<
+          [string, (nitro: { prerender?: { routes?: string[] } }) => Promise<void>]
+        >
+      ).find(([name]) => name === 'nitro:config')?.[1]
+
+      expect(nitroConfigHook).toBeDefined()
+
+      const nitro = { prerender: { routes: [] as string[] } }
+      await nitroConfigHook?.(nitro)
+
+      expect(convexQuery).toHaveBeenCalledTimes(1)
+      expect(convexQuery.mock.calls[0]?.[1]).toMatchObject({
+        collection: 'blog',
+        locale: 'en',
+      })
+      expect(JSON.stringify(convexQuery.mock.calls)).not.toContain('authors')
+      expect(nitro.prerender.routes).toContain('/blog/hello')
+    } finally {
+      convexQuery.mockReset()
+      if (previousConvexUrl === undefined) {
+        delete process.env.NUXT_PUBLIC_CONVEX_URL
+      } else {
+        process.env.NUXT_PUBLIC_CONVEX_URL = previousConvexUrl
+      }
+    }
+  })
+
   it('does not fetch prerender routes during Nuxt prepare', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prepare-prerender-'))
     tempDirs.push(rootDir)

@@ -30,9 +30,35 @@ application page code should stay the same whether the active provider is
 filesystem or CMS.
 
 ```ts
-const page = await one(docs, { by: { route: route.path } })
-const posts = await many(blog, { sort: { publishedAt: 'desc' } })
-const navTree = await tree(docs)
+const { page, previous, next } = await useContentPage(docs, {
+  surround: { fields: ['description'] },
+})
+
+const { data: posts } = await useContentMany(blog, {
+  sort: { lastPublishedAt: 'desc' },
+})
+
+const { data: navTree } = await useContentTree(docs)
+```
+
+CMS-backed search is provider-backed. Configure the CMS search engine and use
+Ginko Content search-result helpers instead of static section-data helpers:
+
+```ts
+export default defineNuxtConfig({
+  content: {
+    search: {
+      engine: 'cms',
+      collections: ['docs'],
+    },
+  },
+})
+```
+
+```ts
+const { results, pending, error } = await useContentSearchResults(query, {
+  locale,
+})
 ```
 
 ## Route Capability
@@ -208,7 +234,8 @@ Fallback-only and unroutable locale rows are excluded.
 
 ### Surround
 
-`surround()` returns arrays:
+`surround()` returns semantic previous and next arrays. It is not a positional
+tuple:
 
 ```ts
 {

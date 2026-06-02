@@ -62,6 +62,9 @@ provider path.
 - Does not read draft/editor tables.
 - Supports `page`, `query`, `navigation`, `navigationQuery`, `surroundings`,
   `search`, `siteData`, `routeMeta`, and `sitemapEntries`.
+- The public Convex operation is `surround`; `surroundings` is only the Ginko
+  Content provider method name. The provider maps CMS `previous` / `next`
+  results into the provider contract.
 - Keeps Ginko CMS neutral: Nuxt uses content-engine APIs while the provider
   calls the installed Convex public bridge.
 - Fails unsupported query operators with `unsupported_query_operator`.
@@ -116,6 +119,9 @@ to `pathPrefix` list queries.
 - Page, navigation, surroundings, search, and sitemap reads are route-backed
   surfaces.
 - Data-only collections should not be documented as page or sitemap sources.
+- CMS-backed search is provider-backed. Host apps should configure
+  `content.search.engine = 'cms'` and use `useContentSearchResults()` or an
+  explicit Ginko headless search import, not static search-section data.
 
 ## Cache And Revalidation
 

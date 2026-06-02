@@ -10,6 +10,7 @@ overrides:
   devalue: 5.8.1
   fast-uri: 3.1.2
   fast-xml-builder: 1.1.7
+  '@lupinum/ginko-content': file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz
   h3: 1.15.11
   hono: 4.12.18
   ip-address: 10.1.1
@@ -426,8 +427,8 @@ importers:
         specifier: workspace:^
         version: link:../convex
       '@lupinum/ginko-content':
-        specifier: ^0.1.1
-        version: 0.1.1(better-sqlite3@12.10.0)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(magicast@0.5.2)(nuxt@4.4.6(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.0))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.34)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(oxc-parser@0.131.0)(rolldown@1.0.1)(srvx@0.11.15)(vitest@4.1.6)(vue@3.5.34(typescript@6.0.3))
+        specifier: file:../../../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz
+        version: file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz(better-sqlite3@12.10.0)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(magicast@0.5.2)(nuxt@4.4.6(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.0))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.34)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(oxc-parser@0.131.0)(rolldown@1.0.1)(srvx@0.11.15)(vitest@4.1.6)(vue@3.5.34(typescript@6.0.3))
       '@lupinum/trellis':
         specifier: ^0.1.1
         version: 0.1.1(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.34)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.34(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(vue@3.5.34(typescript@6.0.3))(zod@4.4.3)
@@ -1923,8 +1924,9 @@ packages:
   '@kwsites/promise-deferred@1.1.1':
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
 
-  '@lupinum/ginko-content@0.1.1':
-    resolution: {integrity: sha512-0c4ayL9E8LQrCGGKiCGGQQ4ENI7NHbVqZ3WzRZYxkC8h8l+ZhxJ+0HKNlg3cVpuAFqgbI5H016Y9WYfZM3udAA==}
+  '@lupinum/ginko-content@file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz':
+    resolution: {integrity: sha512-dRmp/WLCLoOenAOyBAEwNQRlQU6ZyAIc0Ixet5/NZsGGdHEnvXagOFnJNLT/74dJ9HipfVF/eRm4gTBXbl5UZQ==, tarball: file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz}
+    version: 0.1.2
     hasBin: true
     peerDependencies:
       nuxt: '>=4.0.0'
@@ -10077,7 +10079,7 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@lupinum/ginko-content@0.1.1(better-sqlite3@12.10.0)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(magicast@0.5.2)(nuxt@4.4.6(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.0))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.34)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(oxc-parser@0.131.0)(rolldown@1.0.1)(srvx@0.11.15)(vitest@4.1.6)(vue@3.5.34(typescript@6.0.3))':
+  '@lupinum/ginko-content@file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz(better-sqlite3@12.10.0)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(magicast@0.5.2)(nuxt@4.4.6(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.0))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.34)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(oxc-parser@0.131.0)(rolldown@1.0.1)(srvx@0.11.15)(vitest@4.1.6)(vue@3.5.34(typescript@6.0.3))':
     dependencies:
       '@comark/vue': 0.3.1(shiki@4.0.2)(vue@3.5.34(typescript@6.0.3))
       '@nuxt/kit': 4.4.6(magicast@0.5.2)
@@ -13361,7 +13363,7 @@ snapshots:
       better-sqlite3: 12.10.0
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
-      vitest: 4.1.6(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(@vitest/browser-playwright@4.1.6)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))
+      vitest: 4.1.6(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(@vitest/browser-playwright@4.1.6)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))
       vue: 3.5.34(typescript@6.0.3)
     transitivePeerDependencies:
       - '@cloudflare/workers-types'

@@ -49,6 +49,9 @@ not pass a locale, the provider uses `en`.
 - `page`, `query`, `navigation`, `navigationQuery`, `surroundings`, `search`,
   `siteData`, `routeMeta`, and `sitemapEntries` read from Ginko public Convex
   queries.
+- The public Convex operation is `surround`; `surroundings` is only the Ginko
+  Content provider method name. The provider maps CMS `previous` / `next`
+  results into the provider contract.
 - `routeMeta` is implemented for the Nuxt content provider so route-backed page
   rendering can load localized route metadata without loading rendered body
   content. It is not part of the optional HTTP facade.
@@ -71,8 +74,9 @@ not pass a locale, the provider uses `en`.
 - Cursor pagination is supported. Positive numeric `skip`, `count`, and `without`
   projections are rejected.
 - `searchSections` is intentionally not exposed by the CMS provider. Host apps
-  must use the CMS search engine for published search instead of rebuilding a
-  frontend-owned section index from public rows.
+  must use `content.search.engine = 'cms'` with `useContentSearchResults()` or
+  an explicit Ginko headless search import instead of rebuilding a frontend-owned
+  section index from public rows.
 
 ## Related Pages
 
