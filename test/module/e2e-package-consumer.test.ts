@@ -49,6 +49,8 @@ function writeConsumerWorkspaceConfig(cwd: string, overrides: Record<string, str
     'minimumReleaseAge: 1440',
     'minimumReleaseAgeExclude:',
     "  - '@lupinum/*'",
+    "  - '@nuxt/*'",
+    "  - 'nuxt'",
     'overrides:',
   ]
 
@@ -71,6 +73,9 @@ describe('ginko-cms package-first consumer fixture', () => {
       [
         `export default defineNuxtConfig({`,
         `  modules: ['@lupinum/ginko-content', '@lupinum/ginko-cms'],`,
+        `  content: {`,
+        `    search: { engine: 'cms' },`,
+        `  },`,
         `})`,
       ].join('\n'),
       'utf8',

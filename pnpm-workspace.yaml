@@ -9,6 +9,8 @@ minimumReleaseAgeExclude:
   - '@lupinum/ginko-content'
   - '@lupinum/trellis'
   - '@lupinum/trellis-bridge'
+  - '@nuxt/*'
+  - nuxt
 overrides:
   # Release audit overrides. These affect local workspace resolution only; packed
   # package manifests must not ship override policy. Remove a line when

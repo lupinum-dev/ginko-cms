@@ -160,6 +160,8 @@ function writeConsumerWorkspaceConfig(cwd, overrides) {
     'minimumReleaseAge: 1440',
     'minimumReleaseAgeExclude:',
     "  - '@lupinum/*'",
+    "  - '@nuxt/*'",
+    "  - 'nuxt'",
     'overrides:',
   ]
 
