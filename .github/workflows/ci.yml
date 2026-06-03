@@ -32,7 +32,7 @@ jobs:
         with:
           repository: lupinum-dev/ginko-content
           path: ginko-content
-          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'v0.1.0' }}
+          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'codex/release-safety-fixes' }}
           token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
 
       - uses: actions/setup-node@v6
@@ -84,7 +84,7 @@ jobs:
         with:
           repository: lupinum-dev/ginko-content
           path: ginko-content
-          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'v0.1.0' }}
+          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'codex/release-safety-fixes' }}
           token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
 
       - uses: actions/setup-node@v6
@@ -122,7 +122,7 @@ jobs:
         with:
           repository: lupinum-dev/ginko-content
           path: ginko-content
-          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'v0.1.0' }}
+          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'codex/release-safety-fixes' }}
           token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
 
       - uses: actions/setup-node@v6
