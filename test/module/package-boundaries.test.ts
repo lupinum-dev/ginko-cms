@@ -15,8 +15,16 @@ type PackageJson = {
   peerDependencies?: Record<string, string>
 }
 
+type CompatibilityMatrix = {
+  tracked?: Record<string, string[]>
+}
+
 function readPackageJson(relativePath: string): PackageJson {
   return JSON.parse(readFileSync(resolve(projectRoot, relativePath), 'utf-8'))
+}
+
+function readCompatibilityMatrix(): CompatibilityMatrix {
+  return JSON.parse(readFileSync(resolve(projectRoot, 'packages/cms/compatibility.json'), 'utf-8'))
 }
 
 function collectSourceFiles(root: string): string[] {
@@ -198,6 +206,13 @@ function expectNoForbiddenImports(label: string, root: string, forbidden: Array<
 const contractPackage = readPackageJson('packages/contract/package.json')
 const convexPackage = readPackageJson('packages/convex/package.json')
 const cmsPackage = readPackageJson('packages/cms/package.json')
+const compatibilityMatrix = readCompatibilityMatrix()
+
+function firstAllowedDependencyRange(packageName: string): string {
+  const [range] = compatibilityMatrix.tracked?.[packageName] ?? []
+  if (!range) throw new Error(`${packageName} is missing from compatibility.json tracked ranges`)
+  return range
+}
 
 describe('package boundary contracts', () => {
   it('keeps public export keys intentional and minimal', () => {
@@ -407,13 +422,21 @@ describe('package boundary contracts', () => {
       ).toBeUndefined()
     }
     expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
-    expect(convexPackage.dependencies?.['@lupinum/trellis']).toBe('^0.1.1')
-    expect(convexPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.1.1')
+    expect(convexPackage.dependencies?.['@lupinum/trellis']).toBe(
+      firstAllowedDependencyRange('@lupinum/trellis'),
+    )
+    expect(convexPackage.dependencies?.['@lupinum/trellis-bridge']).toBe(
+      firstAllowedDependencyRange('@lupinum/trellis-bridge'),
+    )
 
     expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
     expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:^')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis']).toBe('^0.1.1')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.1.1')
+    expect(cmsPackage.dependencies?.['@lupinum/trellis']).toBe(
+      firstAllowedDependencyRange('@lupinum/trellis'),
+    )
+    expect(cmsPackage.dependencies?.['@lupinum/trellis-bridge']).toBe(
+      firstAllowedDependencyRange('@lupinum/trellis-bridge'),
+    )
   })
 
   it('does not reintroduce Nuxt-package Convex host artifacts', () => {
