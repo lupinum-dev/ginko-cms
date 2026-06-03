@@ -5,13 +5,13 @@
     "@lupinum/ginko-cms-convex": "0.1.1",
     "@lupinum/ginko-cms-contract": "0.1.1",
     "@lupinum/ginko-content": "0.1.2",
-    "@lupinum/trellis": "0.1.1",
-    "@lupinum/trellis-bridge": "0.1.1"
+    "@lupinum/trellis": "0.2.0",
+    "@lupinum/trellis-bridge": "0.2.0"
   },
   "tracked": {
     "@convex-dev/better-auth": ["^0.12.2", "0.12.2"],
-    "@lupinum/trellis": ["^0.1.1", "0.1.1"],
-    "@lupinum/trellis-bridge": ["^0.1.1", "0.1.1"],
+    "@lupinum/trellis": ["^0.2.0", "0.2.0"],
+    "@lupinum/trellis-bridge": ["^0.2.0", "0.2.0"],
     "@nuxtjs/mcp-toolkit": ["^0.16.1", "0.16.1", ">=0.16.1"],
     "better-auth": ["1.6.11"],
     "convex": ["1.38.0", "^1.38.0"],

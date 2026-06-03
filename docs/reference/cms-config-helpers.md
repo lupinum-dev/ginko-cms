@@ -2,7 +2,8 @@
 
 Use these helpers only when a host app intentionally does not derive CMS
 contracts from `content.config.ts`. In normal Ginko Content apps, define
-collections with `defineCollection('name', config)` and `fields` from
+collections with `defineCollection(config)` under the desired
+`defineContentConfig({ collections: { name } })` map key, and use `fields` from
 `@lupinum/ginko-content/config`.
 
 ## When To Use This

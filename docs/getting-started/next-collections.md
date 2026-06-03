@@ -11,7 +11,7 @@ Add schema fields to the route-backed collection:
 import { z } from 'zod'
 import { defineCollection, defineContentConfig, fields } from '@lupinum/ginko-content/config'
 
-const pages = defineCollection('pages', {
+const pages = defineCollection({
   type: 'page',
   source: '**/*.md',
   schema: z.object({
@@ -52,7 +52,7 @@ controls whether a value is shared or translated.
 Use `type: 'data'` for content that should not create page routes:
 
 ```ts
-const authors = defineCollection('authors', {
+const authors = defineCollection({
   type: 'data',
   source: 'authors/*.yml',
   schema: z.object({
@@ -75,7 +75,7 @@ route rows, navigation entries, or sitemap URLs.
 Reference the data collection from a page collection:
 
 ```ts
-const pages = defineCollection('pages', {
+const pages = defineCollection({
   type: 'page',
   source: '**/*.md',
   schema: z.object({

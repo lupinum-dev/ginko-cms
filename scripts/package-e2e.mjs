@@ -22,13 +22,18 @@ const consumerCompatibility = compatibilityMatrix.consumer
 const packDir = resolve(repoRoot, '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
 const siblingContentRoot = resolve(repoRoot, '../ginko-content/packages/content')
+const siblingTrellisRoot = resolve(repoRoot, '../trellis')
 const trellisRoot = process.env.TRELLIS_PACKAGE_ROOT
   ? resolve(process.env.TRELLIS_PACKAGE_ROOT)
-  : undefined
+  : existsSync(siblingTrellisRoot)
+    ? siblingTrellisRoot
+    : undefined
 const trellisBridgeRoot = process.env.TRELLIS_BRIDGE_PACKAGE_ROOT
   ? resolve(process.env.TRELLIS_BRIDGE_PACKAGE_ROOT)
   : trellisRoot
-    ? resolve(trellisRoot, 'packages/trellis-bridge')
+    ? existsSync(resolve(trellisRoot, 'packages/trellis-bridge'))
+      ? resolve(trellisRoot, 'packages/trellis-bridge')
+      : undefined
     : undefined
 const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
   ? resolve(process.env.GINKO_CONTENT_PACKAGE_ROOT)
@@ -108,12 +113,17 @@ function buildPackage(packageDir) {
   run('pnpm', ['--dir', packageDir, 'run', 'build'])
 }
 
+function prepareTrellisPackage() {
+  run('pnpm', ['--dir', trellisRoot, 'run', 'dev:prepare'])
+}
+
 function buildPackedPackages() {
   run('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'])
   if (!registryContent) {
     buildPackage(contentRoot)
   }
   if (!registryTrellis) {
+    prepareTrellisPackage()
     buildPackage(trellisRoot)
   }
   if (!registryTrellisBridge) {
@@ -218,6 +228,7 @@ try {
     packPackage(contentRoot)
   }
   if (!registryTrellis) {
+    prepareTrellisPackage()
     packPackage(trellisRoot)
   }
   if (!registryTrellisBridge) {

@@ -14,6 +14,8 @@ import {
   packPackage,
   projectRoot,
   readPackageJson,
+  trellisBridgeRoot,
+  trellisRoot,
 } from './package-fixture'
 
 type CompatibilityMatrix = {
@@ -86,7 +88,7 @@ describe('ginko-cms package-first consumer fixture', () => {
       [
         `import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'`,
         ``,
-        `const pages = defineCollection('pages', {`,
+        `const pages = defineCollection({`,
         `  type: 'page',`,
         `  source: '**/*.md',`,
         `})`,
@@ -107,6 +109,8 @@ describe('ginko-cms package-first consumer fixture', () => {
     const contractTarball = packPackage(contractPackageRoot, tempDir)
     const convexTarball = packPackage(convexPackageRoot, tempDir)
     const contentTarball = packPackage(contentPackageRoot, tempDir)
+    const trellisTarball = packPackage(trellisRoot, tempDir)
+    const trellisBridgeTarball = packPackage(trellisBridgeRoot, tempDir)
     const cmsTarball = packPackage(cmsPackageRoot, tempDir)
 
     writeFileSync(
@@ -123,8 +127,8 @@ describe('ginko-cms package-first consumer fixture', () => {
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-          '@lupinum/trellis': trellisDependency,
-          '@lupinum/trellis-bridge': trellisBridgeDependency,
+          '@lupinum/trellis': `file:${trellisTarball}`,
+          '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
         },
       }),
@@ -136,8 +140,8 @@ describe('ginko-cms package-first consumer fixture', () => {
       '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
       '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
       '@lupinum/ginko-content': `file:${contentTarball}`,
-      '@lupinum/trellis': trellisDependency,
-      '@lupinum/trellis-bridge': trellisBridgeDependency,
+      '@lupinum/trellis': `file:${trellisTarball}`,
+      '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
     })
 
     execFileSync('pnpm', ['install'], { cwd: tempDir, stdio: 'inherit' })

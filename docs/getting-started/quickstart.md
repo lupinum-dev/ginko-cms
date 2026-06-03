@@ -43,7 +43,7 @@ this contract and turns it into the initial Studio collection.
 ```ts
 import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-const pages = defineCollection('pages', {
+const pages = defineCollection({
   type: 'page',
   source: '**/*.md',
 })

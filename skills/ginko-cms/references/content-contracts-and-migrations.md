@@ -44,7 +44,7 @@ the app's existing contract source. In Ginko Content apps, define it in
 ```ts
 import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-export const articles = defineCollection('articles', {
+export const articles = defineCollection({
   type: 'page',
   source: 'articles/**/*.{md,mdc}',
   route: '/articles',

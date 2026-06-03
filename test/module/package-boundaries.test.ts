@@ -1,10 +1,27 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { relative, resolve } from 'node:path'
 
 import * as ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 const projectRoot = resolve(import.meta.dirname, '../..')
+const requiredPackageOutputs = [
+  'packages/contract/dist/validators.js',
+  'packages/contract/dist/convex/caller.js',
+  'packages/contract/dist/fields/index.js',
+  'packages/convex/dist/component/convex.config.js',
+  'packages/convex/dist/convex.auth.js',
+  'packages/convex/dist/componentBridge.js',
+  'packages/convex/dist/_generated/component.js',
+  'packages/cms/dist/module.mjs',
+  'packages/cms/dist/types.d.mts',
+  'packages/cms/dist/bridge/create.js',
+  'packages/cms/dist/bridge/public.js',
+  'packages/cms/dist/bridge/members.js',
+  'packages/cms/convex/manifest.js',
+  'packages/cms/convex/manifest.d.ts',
+]
 
 type PackageJson = {
   name: string
@@ -17,6 +34,15 @@ type PackageJson = {
 
 function readPackageJson(relativePath: string): PackageJson {
   return JSON.parse(readFileSync(resolve(projectRoot, relativePath), 'utf-8'))
+}
+
+function ensurePackageOutputs() {
+  if (requiredPackageOutputs.every((output) => existsSync(resolve(projectRoot, output)))) return
+
+  execFileSync('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'], {
+    cwd: projectRoot,
+    stdio: 'inherit',
+  })
 }
 
 function collectSourceFiles(root: string): string[] {
@@ -200,6 +226,10 @@ const convexPackage = readPackageJson('packages/convex/package.json')
 const cmsPackage = readPackageJson('packages/cms/package.json')
 
 describe('package boundary contracts', () => {
+  beforeAll(() => {
+    ensurePackageOutputs()
+  }, 120_000)
+
   it('keeps public export keys intentional and minimal', () => {
     expect(Object.keys(contractPackage.exports ?? {}).sort()).toEqual([
       './convex/caller.js',
@@ -407,13 +437,13 @@ describe('package boundary contracts', () => {
       ).toBeUndefined()
     }
     expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
-    expect(convexPackage.dependencies?.['@lupinum/trellis']).toBe('^0.1.1')
-    expect(convexPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.1.1')
+    expect(convexPackage.dependencies?.['@lupinum/trellis']).toBe('^0.2.0')
+    expect(convexPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.2.0')
 
     expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
     expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:^')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis']).toBe('^0.1.1')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.1.1')
+    expect(cmsPackage.dependencies?.['@lupinum/trellis']).toBe('^0.2.0')
+    expect(cmsPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.2.0')
   })
 
   it('does not reintroduce Nuxt-package Convex host artifacts', () => {
@@ -443,24 +473,7 @@ describe('package boundary contracts', () => {
   })
 
   it('materializes every declared package-facing output before publish validation', () => {
-    const requiredOutputs = [
-      'packages/contract/dist/validators.js',
-      'packages/contract/dist/convex/caller.js',
-      'packages/contract/dist/fields/index.js',
-      'packages/convex/dist/component/convex.config.js',
-      'packages/convex/dist/convex.auth.js',
-      'packages/convex/dist/componentBridge.js',
-      'packages/convex/dist/_generated/component.js',
-      'packages/cms/dist/module.mjs',
-      'packages/cms/dist/types.d.mts',
-      'packages/cms/dist/bridge/create.js',
-      'packages/cms/dist/bridge/public.js',
-      'packages/cms/dist/bridge/members.js',
-      'packages/cms/convex/manifest.js',
-      'packages/cms/convex/manifest.d.ts',
-    ]
-
-    for (const output of requiredOutputs) {
+    for (const output of requiredPackageOutputs) {
       expect(existsSync(resolve(projectRoot, output)), `${output} must exist`).toBe(true)
     }
   })

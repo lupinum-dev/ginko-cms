@@ -28,7 +28,7 @@ describe('ginko-content contract derivation', () => {
         import { z } from 'zod'
         import { defineCollection, defineContentConfig, fields, reference } from '${contentConfigImport}'
 
-        export const docs = defineCollection('docs', {
+        export const docs = defineCollection({
           type: 'page',
           source: '1.docs/**/*',
           i18n: true,
@@ -36,7 +36,7 @@ describe('ginko-content contract derivation', () => {
           cms: { type: 'tree', icon: 'lucide:book-open' }
         })
 
-        export const posts = defineCollection('posts', {
+        export const posts = defineCollection({
           type: 'page',
           source: '3.blog/**/*',
           i18n: true,
@@ -55,7 +55,7 @@ describe('ginko-content contract derivation', () => {
           })
         })
 
-        export const authors = defineCollection('authors', {
+        export const authors = defineCollection({
           type: 'page',
           source: '5.authors/**/*',
           i18n: true,
@@ -72,7 +72,7 @@ describe('ginko-content contract derivation', () => {
           })
         })
 
-        export const pricing = defineCollection('pricing', {
+        export const pricing = defineCollection({
           type: 'page',
           source: '2.pricing.yml',
           i18n: true,
@@ -203,7 +203,7 @@ describe('ginko-content contract derivation', () => {
       `
         import { defineCollection, defineContentConfig } from '${contentConfigImport}'
 
-        export const docs = defineCollection('docs', {
+        export const docs = defineCollection({
           type: 'page',
           source: '1.docs/**/*',
           i18n: true,
@@ -236,7 +236,7 @@ describe('ginko-content contract derivation', () => {
       join(rootDir, 'content.config.ts'),
       `
         import { defineCollection, defineContentConfig } from '${contentConfigImport}'
-        export const pages = defineCollection('pages', {
+        export const pages = defineCollection({
           type: 'page',
           source: '*.md',
           route: '/'

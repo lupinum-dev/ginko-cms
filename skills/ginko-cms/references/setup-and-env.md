@@ -37,7 +37,7 @@ Define at least one collection in `content.config.ts`:
 ```ts
 import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-const pages = defineCollection('pages', {
+const pages = defineCollection({
   type: 'page',
   source: '**/*.md',
 })
