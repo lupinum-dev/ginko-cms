@@ -11,8 +11,6 @@ overrides:
   fast-uri: 3.1.2
   fast-xml-builder: 1.1.7
   '@lupinum/ginko-content': file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz
-  '@lupinum/trellis': file:../trellis/.pack/lupinum-trellis-0.2.0.tgz
-  '@lupinum/trellis-bridge': file:../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz
   h3: 1.15.11
   hono: 4.12.18
   ip-address: 10.1.1
@@ -32,11 +30,11 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       '@lupinum/trellis':
-        specifier: file:../trellis/.pack/lupinum-trellis-0.2.0.tgz
-        version: file:../trellis/.pack/lupinum-trellis-0.2.0.tgz(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
+        specifier: ^0.2.0
+        version: 0.2.0(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
       '@lupinum/trellis-bridge':
-        specifier: file:../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz
-        version: file:../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz(8ad198ce588d91e9f5b456d7a0ca2b3d)
+        specifier: ^0.2.0
+        version: 0.2.0(4ae889a29a564032cdb0c54680555a04)
       '@lupinum/trellis-eslint':
         specifier: workspace:*
         version: link:../trellis/packages/trellis-eslint
@@ -408,9 +406,6 @@ importers:
 
   ../trellis/packages/trellis-bridge:
     dependencies:
-      '@lupinum/trellis':
-        specifier: file:../../.pack/lupinum-trellis-0.2.0.tgz
-        version: file:../trellis/.pack/lupinum-trellis-0.2.0.tgz(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
       consola:
         specifier: ^3.4.2
         version: 3.4.2
@@ -418,6 +413,9 @@ importers:
         specifier: ^0.1.117
         version: 0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
     devDependencies:
+      '@lupinum/trellis':
+        specifier: workspace:^
+        version: link:../..
       convex:
         specifier: 1.38.0
         version: 1.38.0(react@19.2.6)
@@ -450,11 +448,11 @@ importers:
         specifier: file:../../../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz
         version: file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz(better-sqlite3@12.10.0)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.0))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(oxc-parser@0.133.0)(rolldown@1.0.1)(srvx@0.11.15)(vitest@4.1.6)(vue@3.5.35(typescript@6.0.3))
       '@lupinum/trellis':
-        specifier: file:../../../trellis/.pack/lupinum-trellis-0.2.0.tgz
-        version: file:../trellis/.pack/lupinum-trellis-0.2.0.tgz(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
+        specifier: ^0.2.0
+        version: 0.2.0(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
       '@lupinum/trellis-bridge':
-        specifier: file:../../../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz
-        version: file:../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz(8ad198ce588d91e9f5b456d7a0ca2b3d)
+        specifier: ^0.2.0
+        version: 0.2.0(4ae889a29a564032cdb0c54680555a04)
       '@nuxt/kit':
         specifier: ^4.4.7
         version: 4.4.7(magicast@0.5.2)
@@ -652,11 +650,11 @@ importers:
         specifier: workspace:^
         version: link:../contract
       '@lupinum/trellis':
-        specifier: file:../../../trellis/.pack/lupinum-trellis-0.2.0.tgz
-        version: file:../trellis/.pack/lupinum-trellis-0.2.0.tgz(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
+        specifier: ^0.2.0
+        version: 0.2.0(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
       '@lupinum/trellis-bridge':
-        specifier: file:../../../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz
-        version: file:../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz(b8ab3d6ab08f7a871aa364def5e91290)
+        specifier: ^0.2.0
+        version: 0.2.0(aff10fa7905b90f03e99d9c97d589fc0)
       comark:
         specifier: ^0.3.2
         version: 0.3.2(shiki@4.0.2)
@@ -1940,7 +1938,7 @@ packages:
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
 
   '@lupinum/ginko-content@file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz':
-    resolution: {integrity: sha512-FirGLgKFKHgmfDAXQEQxj892iNlaQvBlWbHEx0xKFElMlV0IbKeqdPxM9m2iqV96kRXe6Q5ClGfk9No3HExpDw==, tarball: file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz}
+    resolution: {integrity: sha512-s3xMr/wT8CAvddoRqgCt73A197bd7RtocgrQqcM9+k9Ez45NR67rzrUkHVo3m/badWt0NWvh4XU6eFR5ocVKLQ==, tarball: file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz}
     version: 0.1.2
     hasBin: true
     peerDependencies:
@@ -1951,18 +1949,16 @@ packages:
       vitest:
         optional: true
 
-  '@lupinum/trellis-bridge@file:../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz':
-    resolution: {integrity: sha512-FSd//Eo/E3kHGIl78IQ2tYQuDP0jfaSsJFkxPBPuQHqvRRIVJBiaDHOyUKagrVHef0cVX4aoSNkjV1dUuYKA8g==, tarball: file:../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz}
-    version: 0.2.0
+  '@lupinum/trellis-bridge@0.2.0':
+    resolution: {integrity: sha512-FSd//Eo/E3kHGIl78IQ2tYQuDP0jfaSsJFkxPBPuQHqvRRIVJBiaDHOyUKagrVHef0cVX4aoSNkjV1dUuYKA8g==}
     engines: {node: '>=18.18.0', pnpm: '>=10.33.0'}
     peerDependencies:
       '@lupinum/trellis': ^0.2.0
       convex: 1.38.0
       convex-helpers: ^0.1.117
 
-  '@lupinum/trellis@file:../trellis/.pack/lupinum-trellis-0.2.0.tgz':
-    resolution: {integrity: sha512-Wq0MPkOWRVsI22bXFap/wB/zhmhCJMr1ciKIe8l6xxZ2JpfdlvixiM4MUDAEuSJ7KagTEGRJMG9kT7svZugQTw==, tarball: file:../trellis/.pack/lupinum-trellis-0.2.0.tgz}
-    version: 0.2.0
+  '@lupinum/trellis@0.2.0':
+    resolution: {integrity: sha512-OcYFi+kJrY/mzjESRMMOz+FPzvfN8QKx//BeE+5ilkogMRD66e9adutvrOUIGOjPQgGi3aO0SEW77Rn4meb7mw==}
     engines: {node: '>=18.18.0', pnpm: '>=10.33.0'}
     hasBin: true
     peerDependencies:
@@ -10211,21 +10207,21 @@ snapshots:
       - utf-8-validate
       - xml2js
 
-  '@lupinum/trellis-bridge@file:../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz(8ad198ce588d91e9f5b456d7a0ca2b3d)':
+  '@lupinum/trellis-bridge@0.2.0(4ae889a29a564032cdb0c54680555a04)':
     dependencies:
-      '@lupinum/trellis': file:../trellis/.pack/lupinum-trellis-0.2.0.tgz(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
+      '@lupinum/trellis': 0.2.0(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
       consola: 3.4.2
       convex: 1.38.0(react@19.2.6)
       convex-helpers: 0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
 
-  '@lupinum/trellis-bridge@file:../trellis/.pack/lupinum-trellis-bridge-0.2.0.tgz(b8ab3d6ab08f7a871aa364def5e91290)':
+  '@lupinum/trellis-bridge@0.2.0(aff10fa7905b90f03e99d9c97d589fc0)':
     dependencies:
-      '@lupinum/trellis': file:../trellis/.pack/lupinum-trellis-0.2.0.tgz(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
+      '@lupinum/trellis': 0.2.0(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)
       consola: 3.4.2
       convex: 1.38.0(react@19.2.6)
       convex-helpers: 0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
 
-  '@lupinum/trellis@file:../trellis/.pack/lupinum-trellis-0.2.0.tgz(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)':
+  '@lupinum/trellis@0.2.0(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)':
     dependencies:
       '@clack/prompts': 1.4.0
       '@convex-dev/better-auth': 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.6)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
@@ -10301,7 +10297,7 @@ snapshots:
       - vite
       - vitest
 
-  '@lupinum/trellis@file:../trellis/.pack/lupinum-trellis-0.2.0.tgz(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)':
+  '@lupinum/trellis@0.2.0(@nuxtjs/mcp-toolkit@0.16.1(@vue/compiler-sfc@3.5.35)(h3@1.15.11)(magicast@0.5.2)(rollup@4.60.3)(secure-exec@0.2.1)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3))(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(convex-helpers@0.1.117(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3))(convex-test@0.0.52(convex@1.38.0(react@19.2.6)))(convex@1.38.0(react@19.2.6))(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(hono@4.12.18)(ioredis@5.10.1)(magicast@0.5.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.3(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.6)(zod@4.4.3)':
     dependencies:
       '@clack/prompts': 1.4.0
       '@convex-dev/better-auth': 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.6)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
