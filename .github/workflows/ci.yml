@@ -47,6 +47,9 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run release:pack
 
+      - name: Refresh generated package lock metadata
+        run: pnpm install --lockfile-only --no-frozen-lockfile
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -105,6 +108,9 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run release:pack
 
+      - name: Refresh generated package lock metadata
+        run: pnpm install --lockfile-only --no-frozen-lockfile
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -148,6 +154,9 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm run release:pack
+
+      - name: Refresh generated package lock metadata
+        run: pnpm install --lockfile-only --no-frozen-lockfile
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

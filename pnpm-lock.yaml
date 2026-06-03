@@ -1925,7 +1925,7 @@ packages:
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
 
   '@lupinum/ginko-content@file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz':
-    resolution: {integrity: sha512-8TO4QWiCuNCpoJJ9XCidFdxBBmJYeZ6AMzjFf6e13+u29s7+RgsUJTcaGLtLlTMHsaRq880e5lvkP36LY4dVGA==, tarball: file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz}
+    resolution: {integrity: sha512-w1YQkF4QXexjzxMTzth7Hv/1xLkEMRJUpR4MBq5J10sH5SIRWQgF1d9VrZdAX0aDoLeQIcsVT1WEkhiR8gu2Pw==, tarball: file:../ginko-content/.pack/lupinum-ginko-content-0.1.2.tgz}
     version: 0.1.2
     hasBin: true
     peerDependencies:
