@@ -21,6 +21,7 @@ const rootPackageJson = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'
 const consumerCompatibility = compatibilityMatrix.consumer
 const packDir = resolve(repoRoot, '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
+const siblingContentRoot = resolve(repoRoot, '../ginko-content/packages/content')
 const trellisRoot = process.env.TRELLIS_PACKAGE_ROOT
   ? resolve(process.env.TRELLIS_PACKAGE_ROOT)
   : undefined
@@ -31,7 +32,9 @@ const trellisBridgeRoot = process.env.TRELLIS_BRIDGE_PACKAGE_ROOT
     : undefined
 const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
   ? resolve(process.env.GINKO_CONTENT_PACKAGE_ROOT)
-  : undefined
+  : existsSync(siblingContentRoot)
+    ? siblingContentRoot
+    : undefined
 const liveConvex = process.argv.includes('--live')
 const registryDependencies = process.argv.includes('--registry-deps')
 const registryContent = registryDependencies || !contentRoot

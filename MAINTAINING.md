@@ -17,7 +17,7 @@ package depends on it, and the Nuxt CMS package depends on both.
 
 External packages required for the release tuple:
 
-- `@lupinum/ginko-content@0.1.1`
+- `@lupinum/ginko-content@0.1.2`
 - `@lupinum/trellis@0.1.1`
 - `@lupinum/trellis-bridge@0.1.1`
 
@@ -34,7 +34,9 @@ pnpm run release:verify
 
 `release:verify` runs local checks, public package e2e, and production audit.
 The package e2e packs the public package set into `.pack/` and installs it in a
-temporary consumer app.
+temporary consumer app. In a sibling workspace it uses the local
+`../ginko-content/packages/content` package by default; pass
+`GINKO_CONTENT_PACKAGE_ROOT` to use a different local checkout.
 
 For a real release candidate, also run the registry dependency lane after
 Trellis and Ginko Content are published:

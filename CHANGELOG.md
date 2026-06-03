@@ -2,9 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+
+- Made package e2e/release verification pack the sibling local
+  `@lupinum/ginko-content` package by default in coordinated release QA, so
+  verification does not depend on publishing order.
+
 ## v0.1.2
 
-Align Ginko CMS with the Ginko Content `0.1.1` release line.
+Align Ginko CMS with the Ginko Content `0.1.2` release line.
 
 ### Release Stack
 
@@ -13,7 +19,7 @@ Align Ginko CMS with the Ginko Content `0.1.1` release line.
 | `@lupinum/ginko-cms`          | `0.1.2` |
 | `@lupinum/ginko-cms-convex`   | `0.1.1` |
 | `@lupinum/ginko-cms-contract` | `0.1.1` |
-| `@lupinum/ginko-content`      | `0.1.1` |
+| `@lupinum/ginko-content`      | `0.1.2` |
 | `@lupinum/trellis`            | `0.1.1` |
 | `@lupinum/trellis-bridge`     | `0.1.1` |
 
