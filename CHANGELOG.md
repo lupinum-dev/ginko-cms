@@ -8,6 +8,33 @@
   `@lupinum/ginko-content` package by default in coordinated release QA, so
   verification does not depend on publishing order.
 
+## v0.1.3
+
+Align Ginko CMS with the Trellis `0.2.0` release line.
+
+### Release Stack
+
+| Package                       | Version |
+| ----------------------------- | ------: |
+| `@lupinum/ginko-cms`          | `0.1.3` |
+| `@lupinum/ginko-cms-convex`   | `0.1.2` |
+| `@lupinum/ginko-cms-contract` | `0.1.1` |
+| `@lupinum/ginko-content`      | `0.1.2` |
+| `@lupinum/trellis`            | `0.2.0` |
+| `@lupinum/trellis-bridge`     | `0.2.0` |
+
+### Changed
+
+- Updated the release tuple to the published Trellis `0.2.0` runtime and bridge
+  packages.
+
+### Fixed
+
+- Routed permanent asset purge through the Trellis destructive operation
+  confirmation flow.
+- Replaced cleanup full scans with existing indexes for asset references, public
+  projections, and tree move path checks.
+
 ## v0.1.2
 
 Align Ginko CMS with the Ginko Content `0.1.2` release line.

@@ -1,4 +1,9 @@
-export { deleteAssetOperation, previewDeleteAssetOperation } from './assets.js'
+export {
+  deleteAssetOperation,
+  previewDeleteAssetOperation,
+  previewPurgeAssetOperation,
+  purgeAssetOperation,
+} from './assets.js'
 export { deleteBackupArtifactOperation, previewDeleteBackupArtifactOperation } from './backup.js'
 export { removeMemberOperation, previewRemoveMemberOperation } from './members.js'
 export {

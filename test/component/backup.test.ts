@@ -159,16 +159,28 @@ describe('backup export and purge gating', () => {
         assetId: assetId as string,
         exportArtifactId: 'missing',
       }),
-    ).rejects.toThrow(/Backup artifact not found/)
+    ).rejects.toThrow(/requires confirmation/i)
+
+    const missingPreview = await owner.mutation(api.assets.previewPurgeAssetOperation, {
+      assetId: assetId as string,
+      exportArtifactId: 'missing',
+    })
+    expect(missingPreview.allowed).toBe(false)
+    expect(missingPreview.blockers[0]?.code).toBe('backup-not-found')
 
     const exported = await owner.action(api.backup.exportBackup, {
       scope: 'asset',
       assetId: assetId as string,
     })
     await expect(
-      owner.mutation(api.assets.purgeAsset, {
-        assetId: assetId as string,
-        exportArtifactId: exported.artifactId,
+      executeConfirmedOperation(owner, {
+        operationId: 'ginko-cms.purge-asset',
+        preview: api.assets.previewPurgeAssetOperation,
+        execute: api.assets.purgeAsset,
+        args: {
+          assetId: assetId as string,
+          exportArtifactId: exported.artifactId,
+        },
       }),
     ).resolves.toBeNull()
     expect(await ctx.raw.run(async (innerCtx) => await innerCtx.storage.get(storageId))).toBeNull()
@@ -213,14 +225,12 @@ describe('backup export and purge gating', () => {
       filename: 'changed.txt',
     })
 
-    await expect(
-      owner.mutation(api.assets.purgeAsset, {
-        assetId: assetId as string,
-        exportArtifactId: exported.artifactId,
-      }),
-    ).rejects.toSatisfy(
-      (error: unknown) => getCmsErrorData(error)?.code === 'BACKUP_STALE_FOR_PURGE',
-    )
+    const preview = await owner.mutation(api.assets.previewPurgeAssetOperation, {
+      assetId: assetId as string,
+      exportArtifactId: exported.artifactId,
+    })
+    expect(preview.allowed).toBe(false)
+    expect(preview.blockers[0]?.code).toBe('backup-stale-for-purge')
   })
 
   it('rejects referenced asset purge even with a matching backup artifact', async () => {
@@ -268,12 +278,111 @@ describe('backup export and purge gating', () => {
       scope: 'asset',
       assetId: assetId as string,
     })
+
+    const blockedPreview = await owner.mutation(api.assets.previewPurgeAssetOperation, {
+      assetId: assetId as string,
+      exportArtifactId: exported.artifactId,
+    })
+    expect(blockedPreview.allowed).toBe(false)
+    expect(blockedPreview.blockers[0]?.code).toBe('asset-in-use')
+
     await expect(
-      owner.mutation(api.assets.purgeAsset, {
-        assetId: assetId as string,
-        exportArtifactId: exported.artifactId,
+      executeConfirmedOperation(owner, {
+        operationId: 'ginko-cms.purge-asset',
+        preview: api.assets.previewPurgeAssetOperation,
+        execute: api.assets.purgeAsset,
+        args: {
+          assetId: assetId as string,
+          exportArtifactId: exported.artifactId,
+        },
       }),
-    ).rejects.toThrow(/in-use asset/)
+    ).rejects.toThrow(/did not return a confirmation token/)
+
+    await expect(
+      executeConfirmedOperation(owner, {
+        operationId: 'ginko-cms.purge-asset',
+        preview: api.assets.previewPurgeAssetOperation,
+        execute: api.assets.purgeAsset,
+        args: {
+          assetId: assetId as string,
+          force: true,
+          exportArtifactId: exported.artifactId,
+        },
+      }),
+    ).resolves.toBeNull()
+    expect(await ctx.raw.run(async (innerCtx) => await innerCtx.storage.get(storageId))).toBeNull()
+    expect(await ctx.readAll('contentAssetRefs')).toEqual([])
+  })
+
+  it('rejects asset purge when the backup scope does not cover the asset', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const firstStorageId = await seedStorageObject(ctx, {
+      bytes: 'first asset bytes',
+      type: 'text/plain',
+    })
+    const secondStorageId = await seedStorageObject(ctx, {
+      bytes: 'second asset bytes',
+      type: 'text/plain',
+    })
+    const now = Date.now()
+    const firstAssetId = await ctx.seed(
+      'assets' as never,
+      {
+        storageId: firstStorageId,
+        filename: 'first.txt',
+        mimeType: 'text/plain',
+        size: 17,
+        width: null,
+        height: null,
+        alt: null,
+        caption: null,
+        scope: 'global',
+        entryId: null,
+        collectionId: null,
+        createdBy: 'owner-1',
+        updatedBy: null,
+        createdAt: now,
+        updatedAt: null,
+      } as never,
+    )
+    const secondAssetId = await ctx.seed(
+      'assets' as never,
+      {
+        storageId: secondStorageId,
+        filename: 'second.txt',
+        mimeType: 'text/plain',
+        size: 18,
+        width: null,
+        height: null,
+        alt: null,
+        caption: null,
+        scope: 'global',
+        entryId: null,
+        collectionId: null,
+        createdBy: 'owner-1',
+        updatedBy: null,
+        createdAt: now,
+        updatedAt: null,
+      } as never,
+    )
+
+    const owner = ctx.asCmsUser('owner-1')
+    const exported = await owner.action(api.backup.exportBackup, {
+      scope: 'asset',
+      assetId: firstAssetId as string,
+    })
+
+    const preview = await owner.mutation(api.assets.previewPurgeAssetOperation, {
+      assetId: secondAssetId as string,
+      exportArtifactId: exported.artifactId,
+    })
+    expect(preview.allowed).toBe(false)
+    expect(preview.blockers[0]?.code).toBe('backup-scope-mismatch')
+    expect(
+      await ctx.raw.run(async (innerCtx) => (await innerCtx.storage.get(secondStorageId)) !== null),
+    ).toBe(true)
   })
 
   it('rejects permanent entry delete without a matching backup artifact', async () => {
