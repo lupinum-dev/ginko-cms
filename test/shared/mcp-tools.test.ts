@@ -334,6 +334,10 @@ describe('MCP tool safety contracts', () => {
   })
 
   it('routes app and MCP destructive bridges through backend preview and execute refs', () => {
+    const assetsBridge = readFileSync(
+      join(process.cwd(), 'packages/cms/src/bridge/assets.ts'),
+      'utf8',
+    )
     const editorBridge = readFileSync(
       join(process.cwd(), 'packages/cms/src/bridge/editor.ts'),
       'utf8',
@@ -343,6 +347,9 @@ describe('MCP tool safety contracts', () => {
     expect(mcpBridge).toContain("exportName: 'getAccessContext'")
     expect(mcpBridge).toContain("component: 'members.getAccessContext'")
 
+    expect(assetsBridge).toContain("exportName: 'purgeAsset'")
+    expect(assetsBridge).toContain('confirmedArgs(purgeAssetArgs)')
+    expect(assetsBridge).toContain("exportName: 'previewPurgeAssetOperation'")
     expect(editorBridge).toContain('confirmedArgs(publishEntryArgs.args)')
     expect(editorBridge).toContain('confirmedArgs(unpublishEntryArgs.args)')
     expect(editorBridge).toContain('confirmedArgs(archiveEntryArgs.args)')

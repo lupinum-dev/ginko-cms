@@ -27,6 +27,12 @@ function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
   }
 }
 
+const purgeAssetArgs = {
+  assetId: v.string(),
+  force: v.optional(v.boolean()),
+  exportArtifactId: v.string(),
+}
+
 export const entries = [
   {
     exportName: 'generateUploadUrl',
@@ -123,8 +129,15 @@ export const entries = [
     exportName: 'purgeAsset',
     operation: 'mutation',
     component: 'purgeAsset',
-    args: { assetId: v.string(), force: v.optional(v.boolean()), exportArtifactId: v.string() },
+    args: confirmedArgs(purgeAssetArgs),
     returns: v.null(),
+  },
+  {
+    exportName: 'previewPurgeAssetOperation',
+    operation: 'mutation',
+    component: 'previewPurgeAssetOperation',
+    args: purgeAssetArgs,
+    returns: operationPreviewValidator(),
   },
 ] as const satisfies readonly BridgeEntry[]
 
