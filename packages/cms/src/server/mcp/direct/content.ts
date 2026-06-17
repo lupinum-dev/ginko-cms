@@ -4,6 +4,11 @@ import {
   saveEntryDraft as saveEntryDraftSchema,
   unarchiveEntry as unarchiveEntrySchema,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
+import {
+  createEntryOperation,
+  saveEntryDraftOperation,
+  unarchiveEntryOperation,
+} from '@lupinum/ginko-cms-convex/operations'
 
 import { internal } from '#trellis/api'
 
@@ -16,10 +21,7 @@ export const createEntry: ProjectToolDefinition = projectTool({
   meta: {
     name: 'create-entry',
   },
-  safety: {
-    kind: 'bounded-write',
-    reason: 'Creates one CMS entry named by the provided collection and slug.',
-  },
+  operation: createEntryOperation,
   group: 'content',
   respond: ({ args, result, ok, error }) => {
     void args
@@ -51,10 +53,7 @@ export const saveEntryDraft: ProjectToolDefinition = projectTool({
   meta: {
     name: 'save-entry-draft',
   },
-  safety: {
-    kind: 'bounded-write',
-    reason: 'Updates one draft entry explicitly named by entryId.',
-  },
+  operation: saveEntryDraftOperation,
   group: 'content',
   respond: ({ result, ok }) => ok(result, 'Saved entry draft.'),
 })
@@ -67,10 +66,7 @@ export const unarchiveEntry: ProjectToolDefinition = projectTool({
     name: 'unarchive-entry',
     description: 'Restore an archived entry to draft state.',
   },
-  safety: {
-    kind: 'bounded-write',
-    reason: 'Restores one archived entry explicitly named by entryId.',
-  },
+  operation: unarchiveEntryOperation,
   group: 'content',
   respond: ({ args, result, ok }) => {
     void result

@@ -410,6 +410,28 @@ describe('MCP tool safety contracts', () => {
     }
   })
 
+  it('keeps MCP writes operation-backed instead of tool-local safety metadata', () => {
+    const runtime = readFileSync(join(mcpRoot, '_shared/project-tool-runtime.ts'), 'utf8')
+    const directSources = tsFiles(directRoot)
+      .map((path) => readFileSync(path, 'utf8'))
+      .join('\n')
+
+    expect(runtime).not.toContain('stampMcpToolSafety')
+    expect(runtime).not.toContain('TrellisMcpToolSafety')
+    expect(runtime).not.toContain('rawMcpRuntime.tool.mutation')
+    expect(runtime).toContain('must be backed by an explicit operation')
+    expect(directSources).not.toContain('safety:')
+
+    for (const operationName of [
+      'createEntryOperation',
+      'saveEntryDraftOperation',
+      'unarchiveEntryOperation',
+      'moveAssetOperation',
+    ]) {
+      expect(directSources).toContain(operationName)
+    }
+  })
+
   it('keeps MCP from uploading or fetching new assets', () => {
     const toolSources = tsFiles(toolsRoot)
       .map((path) => readFileSync(path, 'utf8'))

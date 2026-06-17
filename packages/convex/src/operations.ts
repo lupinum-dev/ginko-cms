@@ -1,5 +1,6 @@
 export {
   deleteAssetOperation,
+  moveAssetOperation,
   previewDeleteAssetOperation,
   previewPurgeAssetOperation,
   purgeAssetOperation,
@@ -12,6 +13,7 @@ export {
 } from './revalidation.js'
 export { deleteSiteDataBlockOperation, previewDeleteSiteDataBlockOperation } from './siteData.js'
 export {
+  saveEntryDraftOperation,
   revertDraftToPublishedOperation,
   previewRevertDraftToPublishedOperation,
 } from './entries/draft.js'
@@ -22,7 +24,12 @@ export {
   previewPublishEntryOperation,
   rollbackVersionOperation,
   previewRollbackVersionOperation,
+  unarchiveEntryOperation,
   unpublishEntryOperation,
   previewUnpublishEntryOperation,
 } from './entries/publish.js'
-export { deleteEntryOperation, previewDeleteEntryOperation } from './entries/tree.js'
+export {
+  createEntryOperation,
+  deleteEntryOperation,
+  previewDeleteEntryOperation,
+} from './entries/tree.js'

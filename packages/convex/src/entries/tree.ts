@@ -49,11 +49,16 @@ async function assertNoPublicRoutesForDelete(
   )
 }
 
-export const createEntry = callerMutation.protected({
+export const createEntryOperation = defineOperation({
+  id: 'ginko-cms.create-entry',
+  name: 'create-entry',
+  kind: 'safe',
+  safety: 'bounded-write',
   identityForwardingFunctionRef: 'editor:createEntry',
   args: createEntryArgs.args,
   guard: canCreateEntries,
   returns: v.string(),
+  load: async () => undefined,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     return String(
@@ -70,6 +75,10 @@ export const createEntry = callerMutation.protected({
       }),
     )
   },
+})
+
+export const createEntry = callerMutation.protected({
+  ...createEntryOperation,
 })
 
 export const reorderEntry = callerMutation.protected({

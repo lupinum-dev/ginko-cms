@@ -120,6 +120,33 @@ with automated and browser-based UX verification.
   - workspace typecheck/build
   - publish-specifier check
   - Vitest: 90 files passed, 711 tests passed, 1 skipped
+
+### MCP Operation-Backed Write Fix
+
+- `i18n-cms` packaged build surfaced a real Trellis `0.3` hard-cut issue:
+  `@lupinum/ginko-cms/dist/server/mcp/_shared/project-tool-runtime.js` still
+  imported removed `stampMcpToolSafety` from Trellis MCP.
+- Removed the direct MCP mutation lane from `projectTool(...)`; direct writes
+  now fail unless backed by an explicit operation.
+- Promoted the remaining bounded-write MCP tools to exported Convex operations:
+  - `createEntryOperation`
+  - `saveEntryDraftOperation`
+  - `unarchiveEntryOperation`
+  - `moveAssetOperation`
+- Kept the existing backend mutation names stable by registering each mutation
+  from its operation descriptor.
+- Added MCP regression coverage:
+  - direct writes are rejected unless operation-backed
+  - bounded writes route through `tool.operation(...)` execute refs
+  - CMS sources do not contain `stampMcpToolSafety`, `TrellisMcpToolSafety`,
+    `rawMcpRuntime.tool.mutation`, or direct-source tool-local `safety:`
+    metadata
+- Validation after the fix:
+  - `pnpm --filter @lupinum/ginko-cms-convex typecheck`
+  - `pnpm exec vitest run test/runtime/mcp-project-tool.test.ts test/shared/mcp-tools.test.ts`
+  - `pnpm run check` (90 files passed, 713 tests passed, 1 skipped)
+  - `pnpm run package:e2e` (local six-tarball fixture install, doctor 32
+    passed/1 expected Convex URL warning/0 failures, imports passed)
 - `pnpm run package:e2e` passes:
   - packed local tarballs for CMS, Ginko Content, Trellis, and Trellis Bridge
   - workspace-reference scan passed for all six tarballs

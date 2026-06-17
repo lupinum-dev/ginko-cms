@@ -412,11 +412,16 @@ export const previewArchiveEntryOperation = callerMutation.protected(
   }),
 )
 
-export const unarchiveEntry = callerMutation.protected({
+export const unarchiveEntryOperation = defineOperation({
+  id: 'ginko-cms.unarchive-entry',
+  name: 'unarchive-entry',
+  kind: 'safe',
+  safety: 'bounded-write',
   identityForwardingFunctionRef: 'editor:unarchiveEntry',
   args: unarchiveEntryArgs.args,
   guard: canArchiveEntries,
   returns: v.null(),
+  load: async () => undefined,
   handler: async (ctx, args) => {
     const { appIdentityId, entry, now } = await loadEntryMutationContext(ctx, args.entryId)
     await ctx.db.patch(entry._id, {
@@ -435,6 +440,10 @@ export const unarchiveEntry = callerMutation.protected({
     })
     return null
   },
+})
+
+export const unarchiveEntry = callerMutation.protected({
+  ...unarchiveEntryOperation,
 })
 
 export const rollbackVersionOperation = defineOperation({

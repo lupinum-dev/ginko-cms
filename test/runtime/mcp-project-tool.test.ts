@@ -30,7 +30,6 @@ vi.mock('@lupinum/trellis/backend', () => ({
 
 vi.mock('@lupinum/trellis/mcp', () => {
   return {
-    stampMcpToolSafety: (value: unknown) => value,
     defineMcpApp: () => ({
       tool: {
         operation: (_operation: unknown, options: Record<string, unknown>) => ({
@@ -41,11 +40,6 @@ vi.mock('@lupinum/trellis/mcp', () => {
         query: (options: Record<string, unknown>) => ({
           name: options.meta && (options.meta as { name?: string }).name,
           operation: 'query',
-          options,
-        }),
-        mutation: (options: Record<string, unknown>) => ({
-          name: options.meta && (options.meta as { name?: string }).name,
-          operation: 'mutation',
           options,
         }),
       },
@@ -99,7 +93,7 @@ describe('projectTool MCP safety', () => {
     ).toThrow('[ginko-cms] Destructive MCP tools require an explicit operation')
   })
 
-  it('rejects direct write tools unless they declare bounded-write safety', async () => {
+  it('rejects direct write tools unless they are operation-backed', async () => {
     const { projectTool } =
       await import('../../packages/cms/src/server/mcp/_shared/project-tool-runtime')
 
@@ -109,7 +103,30 @@ describe('projectTool MCP safety', () => {
         call: {},
         meta: { name: 'unsafe-write' },
       }),
-    ).toThrow('[ginko-cms] Direct MCP mutation "unsafe-write" requires bounded-write safety.')
+    ).toThrow(
+      '[ginko-cms] Direct MCP mutation "unsafe-write" must be backed by an explicit operation.',
+    )
+  })
+
+  it('routes bounded write tools through operation execute refs without previews', async () => {
+    const { projectTool } =
+      await import('../../packages/cms/src/server/mcp/_shared/project-tool-runtime')
+    const operation = { args: {}, id: 'save-entry-draft', safety: 'bounded-write' }
+    const call = {}
+
+    const tool = projectTool({
+      schema,
+      operation,
+      call,
+      meta: { name: 'save-entry-draft' },
+    }) as unknown as { operationBackedDestructive: boolean; options: Record<string, unknown> }
+
+    expect(tool.operationBackedDestructive).toBe(true)
+    expect(tool.options).toMatchObject({
+      execute: { kind: 'execute', operation, call },
+    })
+    expect(tool.options).not.toHaveProperty('preview')
+    expect(tool.options).not.toHaveProperty('confirmationMode')
   })
 
   it('routes destructive tools through operation preview and execute refs', async () => {

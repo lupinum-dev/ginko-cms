@@ -3,6 +3,7 @@ import {
   moveAsset as moveAssetSchema,
   resolveAssetUrls as resolveAssetUrlsSchema,
 } from '@lupinum/ginko-cms-contract/convex/schemas/assets.js'
+import { moveAssetOperation } from '@lupinum/ginko-cms-convex/operations'
 
 import { internal } from '#trellis/api'
 
@@ -32,10 +33,7 @@ export const moveAsset: ProjectToolDefinition = projectTool({
   meta: {
     name: 'move-asset',
   },
-  safety: {
-    kind: 'bounded-write',
-    reason: 'Moves one CMS asset explicitly named by assetId.',
-  },
+  operation: moveAssetOperation,
   group: 'assets',
   respond: ({ args, result, ok }) => {
     void result

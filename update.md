@@ -61,6 +61,23 @@ Current execution checkpoint:
 - Package e2e result: workspace-reference scan passed for all six tarballs,
   package imports passed, doctor reported 32 passed, 1 expected missing Convex
   URL env warning, and 0 failures.
+- Packaged `i18n-cms` consumer build exposed one additional Trellis `0.3`
+  hard-cut issue: the CMS server MCP bundle still imported removed
+  `stampMcpToolSafety`/`TrellisMcpToolSafety` exports.
+- CMS MCP write fix is now applied:
+  - Direct MCP mutations are rejected by `projectTool(...)`.
+  - `create-entry`, `save-entry-draft`, `unarchive-entry`, and `move-asset`
+    are now backed by exported Convex operation descriptors with
+    `safety: "bounded-write"`.
+  - Destructive MCP tools still use backend previews and confirmations.
+  - Static MCP tests now assert there is no `stampMcpToolSafety`,
+    `TrellisMcpToolSafety`, `rawMcpRuntime.tool.mutation`, or tool-local
+    direct-source `safety:` metadata.
+- Re-run after the MCP fix:
+  - `pnpm run check` passed: 90 files passed, 713 tests passed, 1 skipped.
+  - `pnpm run package:e2e` passed with regenerated local tarballs for CMS,
+    CMS Convex, CMS Contract, Ginko Content `0.1.6`, Trellis `0.3.1`, and
+    Trellis Bridge `0.3.1`.
 - Ginko Content phase is now green in `ginko-cms`:
   - CMS declares `@lupinum/ginko-content` as `^0.1.6`.
   - CMS compatibility matrix release stack records `@lupinum/ginko-content@0.1.6`.
@@ -133,21 +150,19 @@ intentional. A good test should fail on `guard: open`/`allowPublic` inside
 
 ### Removed Trellis Export Hits
 
-Current removed/unsafe API hits:
+Resolved removed/unsafe API hits:
 
-- `/Users/matthias/Git/workspace/ginko-cms/test/helpers.ts` imports
-  `createIdentityForwardingEnvelope` from `@lupinum/trellis/backend`.
-- `/Users/matthias/Git/workspace/ginko-cms/test/refactor/workflow-vertical-slice.test.ts`
-  imports `createIdentityForwardingEnvelope` from `@lupinum/trellis/backend`.
-- `/Users/matthias/Git/workspace/ginko-cms/packages/cms/src/server/mcp/_shared/project-tool-runtime.ts`
-  imports `stampMcpToolSafety` and `TrellisMcpToolSafety` from
-  `@lupinum/trellis/mcp`.
-- `/Users/matthias/Git/workspace/ginko-cms/test/runtime/mcp-project-tool.test.ts`
-  mocks `stampMcpToolSafety`.
+- Test identity forwarding now uses the verifier-produced envelope args path.
+- CMS no longer imports or mocks `stampMcpToolSafety` or
+  `TrellisMcpToolSafety`.
+- CMS does not re-export or shim removed Trellis MCP safety APIs.
+- Direct MCP writes were hard-cut to operation-backed writes. The only direct
+  MCP tools left are read-only queries.
 
-These should be hard failures during the Trellis phase. Do not add replacement
-CMS wrappers for them. Either switch to the new Trellis proof/operation API or
-fix Trellis if the new API is missing a real consumer capability.
+Keep these as hard failures during the rest of the migration. Do not add
+replacement CMS wrappers for removed Trellis APIs. Either switch to the new
+Trellis proof/operation API or fix Trellis if the new API is missing a real
+consumer capability.
 
 ### Unsafe Raw Inventory
 
@@ -192,14 +207,16 @@ internal migration tables in public reads.
 
 ### MCP Runtime Model
 
-`project-tool-runtime.ts` currently has two paths:
+`project-tool-runtime.ts` now has two valid paths:
 
 - destructive tools use `rawMcpRuntime.tool.operation(...)`
-- direct mutations use `rawMcpRuntime.tool.mutation(...)` plus stamped safety
+- bounded-write tools use `rawMcpRuntime.tool.operation(...)` with exported
+  Convex operation descriptors
+- read-only tools use direct query registration
 
-Under Trellis `0.3`, direct MCP writes should not survive as the default. Either
-convert direct write tools to operation-backed tools or prove that a direct
-mutation is read-equivalent/idempotent and covered by Trellis's new MCP API.
+Under Trellis `0.3`, direct MCP writes must not survive as the default. A new
+write tool must first get a backend operation descriptor with the real guard,
+args, return validator, operation id, and MCP safety classification.
 
 The acceptance criterion for this hotspot is simple: no
 `stampMcpToolSafety`, no tool-local write safety metadata, and no raw MCP write
@@ -498,7 +515,7 @@ Test login:
 
 ```bash
 EMAIL=matthias@me.com
-PASSWORD=see /Users/matthias/Git/workspace/i18n-cms/.env.local
+PASSWORD=oms345pb
 ```
 
 Commands:

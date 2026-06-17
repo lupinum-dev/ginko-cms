@@ -762,11 +762,16 @@ export const updateAsset = callerMutation.protected({
   },
 })
 
-export const moveAsset = callerMutation.protected({
+export const moveAssetOperation = defineOperation({
+  id: 'ginko-cms.move-asset',
+  name: 'move-asset',
+  kind: 'safe',
+  safety: 'bounded-write',
   identityForwardingFunctionRef: 'assets:moveAsset',
   args: moveAssetArgs.args,
   guard: canManageAssets,
   returns: v.null(),
+  load: async () => undefined,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const { entryId, collectionId } = await validateAssetScopeRelationships(ctx, args)
@@ -783,6 +788,10 @@ export const moveAsset = callerMutation.protected({
 
     return null
   },
+})
+
+export const moveAsset = callerMutation.protected({
+  ...moveAssetOperation,
 })
 
 // AUTH-AUDIT: intentionally unguarded — public query for resolving asset storage URLs.

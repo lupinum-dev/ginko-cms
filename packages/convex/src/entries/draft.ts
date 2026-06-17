@@ -277,11 +277,16 @@ async function assertNoCanonicalDraftPathConflict(
   }
 }
 
-export const saveEntryDraft = callerMutation.protected({
+export const saveEntryDraftOperation = defineOperation({
+  id: 'ginko-cms.save-entry-draft',
+  name: 'save-entry-draft',
+  kind: 'safe',
+  safety: 'bounded-write',
   identityForwardingFunctionRef: 'editor:saveEntryDraft',
   args: saveEntryDraftArgs.args,
   guard: canEditEntries,
   returns: draftSaveResultValidator,
+  load: async () => undefined,
   handler: async (ctx, args) => {
     const { appIdentityId, collection, entry, now } = await loadEntryMutationContext(
       ctx,
@@ -351,6 +356,10 @@ export const saveEntryDraft = callerMutation.protected({
 
     return result
   },
+})
+
+export const saveEntryDraft = callerMutation.protected({
+  ...saveEntryDraftOperation,
 })
 
 export const revertDraftToPublishedOperation = defineOperation({

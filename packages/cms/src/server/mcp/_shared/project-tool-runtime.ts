@@ -6,11 +6,9 @@ import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backe
 import type { OperationKind } from '@lupinum/trellis/backend'
 import {
   defineMcpApp,
-  stampMcpToolSafety,
   type AnyConvexSchema,
   type InferSchemaData,
   type McpConvexCaller,
-  type TrellisMcpToolSafety,
 } from '@lupinum/trellis/mcp'
 import type { McpToolDefinitionListItem } from '@nuxtjs/mcp-toolkit/server'
 import type { FunctionReference, FunctionReturnType } from 'convex/server'
@@ -196,7 +194,6 @@ type ProjectToolOptions<
   schema: S
   call: TCall
   operation?: CmsMcpOperation | ProjectToolDirectOperation
-  safety?: TrellisMcpToolSafety
   meta?: {
     name?: string
     description?: string
@@ -279,8 +276,29 @@ export function projectTool<
     }) as ProjectToolDefinition
   }
 
+  if (tool.operation && typeof tool.operation !== 'string') {
+    const operation = tool.operation
+    const {
+      call,
+      operation: _operation,
+      preview,
+      confirmationMode: _confirmationMode,
+      ...operationOptions
+    } = rest
+
+    if (preview !== undefined) {
+      throw new Error('[ginko-cms] Non-destructive MCP operations do not accept preview refs.')
+    }
+
+    return rawMcpRuntime.tool.operation(operation, {
+      ...operationOptions,
+      execute: executeOperationRef(operation, call),
+      enabled: wrappedEnabled,
+    }) as ProjectToolDefinition
+  }
+
   const directOperation = tool.operation === 'query' ? 'query' : 'mutation'
-  const { operation: _operation, safety, call, ...directOptions } = rest
+  const { operation: _operation, call, ...directOptions } = rest
 
   if (directOperation === 'query') {
     return rawMcpRuntime.tool.query({
@@ -290,16 +308,7 @@ export function projectTool<
     }) as ProjectToolDefinition
   }
 
-  if (!safety) {
-    throw new Error(
-      `[ginko-cms] Direct MCP mutation "${tool.meta?.name ?? 'project-tool'}" requires bounded-write safety.`,
-    )
-  }
-
-  return rawMcpRuntime.tool.mutation({
-    ...directOptions,
-    call: stampMcpToolSafety(call, safety),
-    safety,
-    enabled: wrappedEnabled,
-  }) as ProjectToolDefinition
+  throw new Error(
+    `[ginko-cms] Direct MCP mutation "${tool.meta?.name ?? 'project-tool'}" must be backed by an explicit operation.`,
+  )
 }
