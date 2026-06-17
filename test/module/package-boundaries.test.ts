@@ -437,13 +437,13 @@ describe('package boundary contracts', () => {
       ).toBeUndefined()
     }
     expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
-    expect(convexPackage.dependencies?.['@lupinum/trellis']).toBe('^0.2.0')
-    expect(convexPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.2.0')
+    expect(convexPackage.dependencies?.['@lupinum/trellis']).toBe('^0.3.1')
+    expect(convexPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.3.1')
 
     expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
     expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:^')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis']).toBe('^0.2.0')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.2.0')
+    expect(cmsPackage.dependencies?.['@lupinum/trellis']).toBe('^0.3.1')
+    expect(cmsPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.3.1')
   })
 
   it('does not reintroduce Nuxt-package Convex host artifacts', () => {

@@ -21,7 +21,7 @@
  */
 
 import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import { createIdentityForwardingEnvelope } from '@lupinum/trellis/backend'
+import { createIdentityForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
@@ -67,23 +67,21 @@ function workflowClient(ctx: ReturnType<typeof createCtx>, userId: string) {
     args: Record<string, unknown> | undefined,
   ) => {
     const appArgs = { ...(args ?? {}) }
-    return {
-      ...appArgs,
-      _trellisForwarding: createIdentityForwardingEnvelope({
-        key: identityForwardingKey,
-        keyId: 'default',
-        iss: 'trellis://server',
-        aud: 'trellis://convex',
-        jti: `workflow-${kind}-${caller.subject}`,
-        sub: caller.subject,
-        caller,
-        transport: 'server',
-        purpose: kind,
-        functionRef: getFunctionRef(fn),
-        args: appArgs,
-        ttlMs: kind === 'query' ? 60_000 : 30_000,
-      }),
-    }
+    return createIdentityForwardingEnvelopeArgs({
+      args: appArgs,
+      caller,
+      transport: 'server',
+      operation: kind,
+      functionRef: getFunctionRef(fn),
+      key: identityForwardingKey,
+      keyId: 'default',
+      ...(kind === 'mutation'
+        ? { replayMode: 'jti-redemption' as const }
+        : kind === 'action'
+          ? { replayMode: 'domain-idempotency' as const }
+          : {}),
+      ttlMs: kind === 'query' ? 60_000 : 30_000,
+    })
   }
   return {
     mutation: async (fn: unknown, args?: Record<string, unknown>) =>

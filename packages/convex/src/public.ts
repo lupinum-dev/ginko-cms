@@ -22,7 +22,6 @@ import {
 import type { JsonMap, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from './_generated/dataModel.js'
-import { allowPublic } from './auth/checks.js'
 import {
   getActivePublicPageByPath,
   getActivePublicPageByStableId,
@@ -38,7 +37,7 @@ import {
 } from './lib/collections.js'
 import { getCmsSettings, getLocaleChain } from './lib/locale.js'
 import { parseStableIdFromPath } from './lib/paths.js'
-import type { QueryOrMutationCtx } from './lib/types.js'
+import type { ReadCtx } from './lib/types.js'
 import {
   toGinkoEntry,
   toGinkoListResult,
@@ -201,7 +200,7 @@ function assertPageLookup(args: { path?: string; ref?: string }) {
 }
 
 async function resolvePublicLocaleChain(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   args: { locale: string; fallback?: boolean | string[] },
 ) {
   if (args.fallback === false) return [args.locale]
@@ -210,7 +209,7 @@ async function resolvePublicLocaleChain(
 }
 
 async function paginatePublicEntriesForCollection(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   args: {
     collectionId: Id<'collections'>
     locale: string
@@ -567,7 +566,7 @@ function publicFlag(row: PublicEntryRow, key: 'navigation' | 'search' | 'sitemap
 }
 
 async function getTranslationsForEntry(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   entryId: Id<'entries'>,
 ): Promise<PublicTranslationSummary[]> {
   const rows = await ctx.db
@@ -595,7 +594,7 @@ async function getTranslationsByEntryId(
 }
 
 async function resolvePublicPage(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   args: {
     collection: Awaited<ReturnType<typeof getCollection>>
     collectionSlug: string
@@ -691,10 +690,9 @@ function buildSnippet(source: string | null | undefined, queryText?: string) {
 
 // AUTH-AUDIT: all raw.query exports in this module are intentionally unguarded —
 // they serve the public-facing content API (read-only, published data only).
-export const page = callerQuery.protected({
+export const page = callerQuery.public({
   identityForwardingFunctionRef: 'public:page',
   args: pageArgs.args,
-  guard: allowPublic,
   returns: ginkoPageResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
@@ -745,10 +743,9 @@ export const page = callerQuery.protected({
   },
 })
 
-export const routeMeta = callerQuery.protected({
+export const routeMeta = callerQuery.public({
   identityForwardingFunctionRef: 'public:routeMeta',
   args: routeMetaArgs.args,
-  guard: allowPublic,
   returns: ginkoPageResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
@@ -802,10 +799,9 @@ export const routeMeta = callerQuery.protected({
   },
 })
 
-export const list = callerQuery.protected({
+export const list = callerQuery.public({
   identityForwardingFunctionRef: 'public:list',
   args: listArgs.args,
-  guard: allowPublic,
   returns: ginkoListResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
@@ -848,10 +844,9 @@ export const list = callerQuery.protected({
   },
 })
 
-export const nav = callerQuery.protected({
+export const nav = callerQuery.public({
   identityForwardingFunctionRef: 'public:nav',
   args: navArgs.args,
-  guard: allowPublic,
   returns: ginkoNavResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
@@ -921,10 +916,9 @@ export const nav = callerQuery.protected({
   },
 })
 
-export const surround = callerQuery.protected({
+export const surround = callerQuery.public({
   identityForwardingFunctionRef: 'public:surround',
   args: surroundArgs.args,
-  guard: allowPublic,
   returns: ginkoSurroundResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
@@ -1005,10 +999,9 @@ export const surround = callerQuery.protected({
   },
 })
 
-export const search = callerQuery.protected({
+export const search = callerQuery.public({
   identityForwardingFunctionRef: 'public:search',
   args: searchArgs.args,
-  guard: allowPublic,
   returns: ginkoSearchResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
@@ -1061,10 +1054,9 @@ export const search = callerQuery.protected({
   },
 })
 
-export const sitemap = callerQuery.protected({
+export const sitemap = callerQuery.public({
   identityForwardingFunctionRef: 'public:sitemap',
   args: sitemapArgs.args,
-  guard: allowPublic,
   returns: ginkoSitemapResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
@@ -1105,10 +1097,9 @@ export const sitemap = callerQuery.protected({
   },
 })
 
-export const singleton = callerQuery.protected({
+export const singleton = callerQuery.public({
   identityForwardingFunctionRef: 'public:singleton',
   args: singletonArgs.args,
-  guard: allowPublic,
   returns: ginkoSingletonResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
@@ -1165,10 +1156,9 @@ export const singleton = callerQuery.protected({
   },
 })
 
-export const siteData = callerQuery.protected({
+export const siteData = callerQuery.public({
   identityForwardingFunctionRef: 'public:siteData',
   args: siteDataArgs.args,
-  guard: allowPublic,
   returns: ginkoSiteDataResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)

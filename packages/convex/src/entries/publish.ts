@@ -40,8 +40,6 @@ import {
 } from './workflow/commands.js'
 import { readPublicRevisionIdsByLocale } from './workflow/projection.js'
 
-type CmsOperationDefinition = ReturnType<typeof defineOperation>
-
 function formatAffectedRoutes(
   routes: Array<{ locale: string; href: string; path?: string | null }>,
 ): string {
@@ -439,7 +437,7 @@ export const unarchiveEntry = callerMutation.protected({
   },
 })
 
-export const rollbackVersionOperation: CmsOperationDefinition = defineOperation({
+export const rollbackVersionOperation = defineOperation({
   id: 'ginko-cms.rollback-version',
   name: 'rollback-version',
   kind: 'destructive',
@@ -500,9 +498,11 @@ export const rollbackVersionOperation: CmsOperationDefinition = defineOperation(
 
 export const rollbackVersionOperationExecute = callerMutation.protected({
   ...rollbackVersionOperation,
+  guard: canEditEntries,
 })
 export const rollbackVersionTransportExecute = callerTransportMutation({
   ...rollbackVersionOperation,
+  guard: canEditEntries,
   identityForwardingFunctionRef: 'entries/publish:rollbackVersionTransportExecute',
 })
 export const previewRollbackVersionOperation = callerMutation.protected(

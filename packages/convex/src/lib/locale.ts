@@ -1,8 +1,8 @@
 import type { GinkoRoutingLocale } from '@lupinum/ginko-cms-contract/shared/routeDiagnostics.js'
 
-import type { QueryOrMutationCtx } from './types.js'
+import type { ReadCtx } from './types.js'
 
-export async function getCmsSettings(ctx: QueryOrMutationCtx) {
+export async function getCmsSettings(ctx: ReadCtx) {
   return await ctx.db
     .query('cmsSettings')
     .withIndex('by_key', (q) => q.eq('key', 'site'))
@@ -10,7 +10,7 @@ export async function getCmsSettings(ctx: QueryOrMutationCtx) {
 }
 
 export async function getLocaleChain(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   locale: string,
 ): Promise<{ locale: string; chain: string[]; defaultLocale: string }> {
   const settings = await getCmsSettings(ctx)
@@ -34,7 +34,7 @@ export async function getLocaleChain(
 }
 
 export async function getRoutingLocales(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   fallbackLocales: string[],
 ): Promise<GinkoRoutingLocale[]> {
   const settings = await getCmsSettings(ctx)

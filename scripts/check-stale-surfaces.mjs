@@ -20,6 +20,7 @@ const trackedIgnoredArtifactPathspecs = [
   ':(glob)**/.nuxt/**',
   ':(glob)**/.output/**',
 ]
+const ignoredFiles = new Set(['journal.md', 'update.md'])
 
 const checks = [
   {
@@ -68,6 +69,7 @@ const violations = []
 for (const filePath of collectFiles(repoRoot)) {
   const source = readFileSync(filePath, 'utf8')
   const rel = relative(repoRoot, filePath).replaceAll('\\', '/')
+  if (ignoredFiles.has(rel)) continue
   if (rel === 'scripts/check-stale-surfaces.mjs') continue
   if (/publicContent\s*:\s*\{[\s\S]*?\bsitemap\s*:/.test(source)) {
     violations.push(`${rel}: stale ginkoCms.publicContent.sitemap option`)

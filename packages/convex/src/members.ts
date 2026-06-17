@@ -169,7 +169,7 @@ const getAccessContextDefinition = defineAccessContext({
   }),
 })
 
-export const getAccessContext = callerQuery.protected({
+export const getAccessContext = callerQuery.public({
   ...getAccessContextDefinition,
   identityForwardingFunctionRef: 'members:getAccessContext',
 })

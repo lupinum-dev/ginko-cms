@@ -34,6 +34,34 @@ Current Trellis source baseline:
   Stale `0.3.0` tarballs in `/Users/matthias/Git/workspace/trellis/.pack` are
   not valid inputs for this migration.
 
+Current execution checkpoint:
+
+- Trellis consumer fix committed on `hardening`:
+  `894b6b2 fix: export operation shape from runtime barrels`.
+- Regenerated local Trellis tarballs after that fix:
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-0.3.1.tgz`
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-bridge-0.3.1.tgz`
+- `ginko-cms` Trellis phase now resolves local packages during development via
+  sibling workspace links, while package e2e installs local tarballs. We are not
+  validating against the npm registry for Trellis, Trellis Bridge, CMS, or Ginko
+  Content during this migration.
+- Trellis validation for the consumer fix passed:
+  - `pnpm run check:publish-surface`
+  - `pnpm run test:security` (26 files passed, 277 tests passed)
+- CMS Trellis phase validation passed:
+  - `pnpm run check`
+  - `pnpm run package:e2e`
+- Package e2e installed local tarballs for:
+  - `@lupinum/ginko-cms@0.1.3`
+  - `@lupinum/ginko-cms-contract@0.1.1`
+  - `@lupinum/ginko-cms-convex@0.1.2`
+  - `@lupinum/ginko-content@0.1.6`
+  - `@lupinum/trellis@0.3.1`
+  - `@lupinum/trellis-bridge@0.3.1`
+- Package e2e result: workspace-reference scan passed for all six tarballs,
+  package imports passed, doctor reported 32 passed, 1 expected missing Convex
+  URL env warning, and 0 failures.
+
 ## Non-Goals
 
 - Do not migrate Ginko Content in the same pass as Trellis.

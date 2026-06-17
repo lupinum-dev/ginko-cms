@@ -80,6 +80,18 @@ const cmsRuntime: CmsRuntime = defineTrellis<
     identityForwardingKey: () => getCmsComponentForwardingKey(),
     appIdentity: async (ctx, _args, resolvedCmsCaller) =>
       await getAppIdentity(ctx, resolvedCmsCaller),
+    public: {
+      readTables: [
+        'assets',
+        'cmsSettings',
+        'collections',
+        'contentAssetRefs',
+        'entries',
+        'publicEntries',
+        'publicRoutes',
+        'siteData',
+      ],
+    },
     destructiveOperations: {
       confirmationTable: 'destructiveConfirmations',
       auditTable: 'destructiveAuditLog',
@@ -91,6 +103,9 @@ const cmsRuntime: CmsRuntime = defineTrellis<
         },
         scopeKey: () => 'ginko-cms',
       },
+    },
+    trustedReplay: {
+      table: 'trustedReplay',
     },
   },
 )

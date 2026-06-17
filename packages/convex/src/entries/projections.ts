@@ -4,7 +4,7 @@ import type { Doc, Id } from '../_generated/dataModel.js'
 import type { getCollectionOrThrow } from '../lib/collections.js'
 import { getCollection } from '../lib/collections.js'
 import { compareOrderRank } from '../lib/ordering.js'
-import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
+import type { MutationCtx, ReadCtx } from '../lib/types.js'
 import { decodePublicBodyAst } from './bodyAstStorage.js'
 import type { EntryDoc } from './context.js'
 import {
@@ -229,7 +229,7 @@ export async function refreshEntryReadModelsById(
 }
 
 export async function getActivePublicRouteByPath(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   collectionId: Id<'collections'>,
   locale: string,
   path: string,
@@ -242,7 +242,7 @@ export async function getActivePublicRouteByPath(
 }
 
 export async function getActivePublicPageByPath(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   collectionId: Id<'collections'>,
   locale: string,
   path: string,
@@ -256,7 +256,7 @@ export async function getActivePublicPageByPath(
 }
 
 export async function getActivePublicPageByStableId(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   collectionId: Id<'collections'>,
   locale: string,
   stableId: string,

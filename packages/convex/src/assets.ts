@@ -28,7 +28,7 @@ import {
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
-import { allowPublic, canManageAssets, canRead } from './auth/checks.js'
+import { canManageAssets, canRead } from './auth/checks.js'
 import { assertBackupArtifactCoversPurge } from './backup.js'
 import { readStudioDraftView } from './entries/context.js'
 import { rebuildContentAssetRefsForEntry } from './entries/projections.js'
@@ -40,7 +40,7 @@ import { resolveEntryTitle } from './lib/fields.js'
 import { toOptionalStringId, toStringId } from './lib/ids.js'
 import { resolveLocaleText } from './lib/locale.js'
 import { sanitizeFilename, validateAssetUploadPolicy } from './lib/sanitize.js'
-import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
+import type { MutationCtx, QueryOrMutationCtx, ReadCtx } from './lib/types.js'
 
 type AssetDoc = Doc<'assets'>
 type CollectionDoc = Doc<'collections'>
@@ -427,10 +427,7 @@ function assetOwnerPathFromMeta(
   return ['Global', collectionLabel, entryMeta?.title ?? 'Unknown entry']
 }
 
-async function canResolvePublicAssetUrl(
-  ctx: QueryOrMutationCtx,
-  asset: AssetDoc,
-): Promise<boolean> {
+async function canResolvePublicAssetUrl(ctx: ReadCtx, asset: AssetDoc): Promise<boolean> {
   if (asset.deletedAt != null) return false
   if (asset.scope === 'global') return true
   if (!asset.entryId) return false
@@ -789,10 +786,9 @@ export const moveAsset = callerMutation.protected({
 })
 
 // AUTH-AUDIT: intentionally unguarded — public query for resolving asset storage URLs.
-export const getAssetUrl = callerQuery.protected({
+export const getAssetUrl = callerQuery.public({
   identityForwardingFunctionRef: 'assets:getAssetUrl',
   args: getAssetUrlArgs.args,
-  guard: allowPublic,
   returns: v.union(v.null(), v.string()),
   handler: async (ctx, args) => {
     const assetId = ctx.db.normalizeId('assets', args.assetId)

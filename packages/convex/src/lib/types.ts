@@ -15,6 +15,9 @@ import type { CmsAppIdentity } from '../auth/appIdentity.js'
 export type QueryCtx = GenericQueryCtx<DataModel>
 export type MutationCtx = GenericMutationCtx<DataModel>
 export type QueryOrMutationCtx = QueryCtx | MutationCtx
+export type ReadCtx = {
+  db: Pick<QueryCtx['db'], 'get' | 'normalizeId' | 'query'>
+}
 export type CmsField = SharedCmsField
 export type SlugMode = SharedSlugMode
 

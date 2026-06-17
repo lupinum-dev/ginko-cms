@@ -2,7 +2,7 @@ import { normalizeFields } from '@lupinum/ginko-cms-contract/shared/fields/norma
 
 import type { Id } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'
-import type { CmsCollection, CmsField, QueryOrMutationCtx, SlugMode } from './types.js'
+import type { CmsCollection, CmsField, ReadCtx, SlugMode } from './types.js'
 
 export const MAX_EXACT_COLLECTION_ENTRY_COUNT = 1000
 
@@ -45,10 +45,7 @@ export function needsStableId(collection: CmsCollection): boolean {
   return slugMode === 'stable' || slugMode === 'localizedStable'
 }
 
-export async function getCollectionOrThrow(
-  ctx: QueryOrMutationCtx,
-  slug: string,
-): Promise<CmsCollection> {
+export async function getCollectionOrThrow(ctx: ReadCtx, slug: string): Promise<CmsCollection> {
   const collection = await getCollection(ctx, slug)
 
   if (!collection) {
@@ -58,10 +55,7 @@ export async function getCollectionOrThrow(
   return collection
 }
 
-export async function getCollection(
-  ctx: QueryOrMutationCtx,
-  slug: string,
-): Promise<CmsCollection | null> {
+export async function getCollection(ctx: ReadCtx, slug: string): Promise<CmsCollection | null> {
   const collection = await ctx.db
     .query('collections')
     .withIndex('by_slug', (q) => q.eq('slug', slug))
@@ -83,7 +77,7 @@ export async function getCollection(
 }
 
 export async function collectionHasEntries(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   collectionId: Id<'collections'>,
 ): Promise<boolean> {
   const entry = await ctx.db
@@ -94,7 +88,7 @@ export async function collectionHasEntries(
 }
 
 export async function collectionEntryCountSnapshot(
-  ctx: QueryOrMutationCtx,
+  ctx: ReadCtx,
   collectionId: Id<'collections'>,
 ): Promise<CollectionEntryCountSnapshot> {
   const entries = await ctx.db

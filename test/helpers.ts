@@ -4,7 +4,7 @@ import {
   type CmsMcpCaller,
   type CmsUserCaller,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import { createIdentityForwardingEnvelope } from '@lupinum/trellis/backend'
+import { createIdentityForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 /// <reference types="vite/client" />
 import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
@@ -44,23 +44,26 @@ function createCmsCallerClient(
     const functionRef = getFunctionRef(fn)
     const purpose =
       kind === 'mutation' && functionRef.endsWith('TransportExecute') ? 'operation-execute' : kind
-    return {
-      ...appArgs,
-      _trellisForwarding: createIdentityForwardingEnvelope({
-        key: TRUSTED_FORWARDING_KEY,
-        keyId: 'default',
-        iss: 'trellis://server',
-        aud: 'trellis://convex',
-        jti: `ginko-cms-test-${kind}-${caller.subject}`,
-        sub: caller.subject,
-        caller,
-        transport: 'server',
-        purpose,
-        functionRef,
-        args: appArgs,
-        ttlMs: purpose === 'operation-execute' ? 10_000 : kind === 'query' ? 60_000 : 30_000,
-      }),
-    }
+    const replayMode =
+      purpose === 'operation-execute'
+        ? 'operation-confirmation'
+        : kind === 'mutation'
+          ? 'jti-redemption'
+          : kind === 'action'
+            ? 'domain-idempotency'
+            : undefined
+    return createIdentityForwardingEnvelopeArgs({
+      args: appArgs,
+      caller,
+      transport: 'server',
+      operation: kind,
+      purpose,
+      functionRef,
+      key: TRUSTED_FORWARDING_KEY,
+      keyId: 'default',
+      ...(replayMode ? { replayMode } : {}),
+      ttlMs: purpose === 'operation-execute' ? 10_000 : kind === 'query' ? 60_000 : 30_000,
+    })
   }
 
   return {
