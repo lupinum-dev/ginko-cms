@@ -61,6 +61,17 @@ Current execution checkpoint:
 - Package e2e result: workspace-reference scan passed for all six tarballs,
   package imports passed, doctor reported 32 passed, 1 expected missing Convex
   URL env warning, and 0 failures.
+- Ginko Content phase is now green in `ginko-cms`:
+  - CMS declares `@lupinum/ginko-content` as `^0.1.6`.
+  - CMS compatibility matrix release stack records `@lupinum/ginko-content@0.1.6`.
+  - `pnpm-lock.yaml` resolves Ginko Content to the local sibling package during
+    development: `link:../../../ginko-content/packages/content`.
+  - CMS contract vendor was synced from Ginko Content `0.1.6`.
+  - Focused content/provider tests passed: content contract, workflow paths,
+    golden fixtures, provider contract, Nuxt provider, and package conformance.
+  - `pnpm run check` passed.
+  - `pnpm run package:e2e` passed with local Ginko Content `0.1.6`, local Trellis
+    `0.3.1`, local Trellis Bridge `0.3.1`, and packed CMS tarballs.
 
 ## Non-Goals
 

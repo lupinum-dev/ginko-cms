@@ -444,8 +444,8 @@ importers:
         specifier: workspace:^
         version: link:../convex
       '@lupinum/ginko-content':
-        specifier: ^0.1.2
-        version: 0.1.2(better-sqlite3@12.10.0)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.0))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(oxc-parser@0.133.0)(rolldown@1.0.1)(srvx@0.11.15)(vitest@4.1.6)(vue@3.5.35(typescript@6.0.3))
+        specifier: ^0.1.6
+        version: link:../../../ginko-content/packages/content
       '@lupinum/trellis':
         specifier: ^0.3.1
         version: link:../../../trellis
@@ -1028,21 +1028,6 @@ packages:
 
   '@colordx/core@5.4.3':
     resolution: {integrity: sha512-kIxYSfA5T8HXjav55UaaH/o/cKivF6jCCGIb8eqtcsfI46wsvlSiT8jMDyrl779qLec3c2c2oHBZo4oAhvbjrQ==}
-
-  '@comark/vue@0.3.1':
-    resolution: {integrity: sha512-23fueUVe1tVuRV7M5PsGCcaFqL0cEZJfHRqdx5Ha5kW1F1J2O81B6LFibdh24vASqhjsHuoclrUrjeanq+gfqQ==}
-    peerDependencies:
-      beautiful-mermaid: ^1.1.3
-      katex: ^0.16.45
-      shiki: ^4.0.0
-      vue: ^3.5.0
-    peerDependenciesMeta:
-      beautiful-mermaid:
-        optional: true
-      katex:
-        optional: true
-      shiki:
-        optional: true
 
   '@comark/vue@0.4.0':
     resolution: {integrity: sha512-1o4BBBzVIcxCsPOfWUzcYqdnSSI+bCyldxzlrbATc5U+s40Hm+ls7UppYAHPyOqUQPpMZy2vbvD4ESe+PD5lgg==}
@@ -1950,17 +1935,6 @@ packages:
 
   '@kwsites/promise-deferred@1.1.1':
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
-
-  '@lupinum/ginko-content@0.1.2':
-    resolution: {integrity: sha512-OIxX08g05uK6wI+arl951+5VzIObTK3shoDIoJvBY8jBZCZgAd7IFmLQRMqpI3BFfO1ZdOHWQ83xQWL0NkvlKg==}
-    hasBin: true
-    peerDependencies:
-      nuxt: '>=4.4.7'
-      vitest: '>=4.1.6'
-      vue: ^3.5.0
-    peerDependenciesMeta:
-      vitest:
-        optional: true
 
   '@mapbox/node-pre-gyp@2.0.3':
     resolution: {integrity: sha512-uwPAhccfFJlsfCxMYTwOdVfOz3xqyj8xYL3zJj8f0pb30tLohnnFPhLuqp4/qoEz8sNxe4SESZedcBojRefIzg==}
@@ -9624,13 +9598,6 @@ snapshots:
 
   '@colordx/core@5.4.3': {}
 
-  '@comark/vue@0.3.1(shiki@4.0.2)(vue@3.5.35(typescript@6.0.3))':
-    dependencies:
-      comark: 0.3.2(shiki@4.0.2)
-      vue: 3.5.35(typescript@6.0.3)
-    optionalDependencies:
-      shiki: 4.0.2
-
   '@comark/vue@0.4.0(shiki@4.2.0)(vue@3.5.35(typescript@6.0.3))':
     dependencies:
       comark: 0.4.0(shiki@4.2.0)
@@ -10238,79 +10205,6 @@ snapshots:
       - supports-color
 
   '@kwsites/promise-deferred@1.1.1': {}
-
-  '@lupinum/ginko-content@0.1.2(better-sqlite3@12.10.0)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.0))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(oxc-parser@0.133.0)(rolldown@1.0.1)(srvx@0.11.15)(vitest@4.1.6)(vue@3.5.35(typescript@6.0.3))':
-    dependencies:
-      '@comark/vue': 0.3.1(shiki@4.0.2)(vue@3.5.35(typescript@6.0.3))
-      '@nuxt/kit': 4.4.7(magicast@0.5.2)
-      comark: 0.3.2(shiki@4.0.2)
-      consola: 3.4.2
-      defu: 6.1.7
-      destr: 2.0.5
-      globby: 16.2.0
-      h3: 1.15.11
-      jiti: 2.7.0
-      js-yaml: 4.1.1
-      json5: 2.2.3
-      knitwork: 1.3.0
-      listhen: 1.10.0(srvx@0.11.15)
-      minisearch: 7.2.0
-      nitropack: 2.13.4(better-sqlite3@12.10.0)(oxc-parser@0.133.0)(rolldown@1.0.1)(srvx@0.11.15)
-      nuxt: 4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.0))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0)
-      ohash: 2.0.11
-      pagefind: 1.5.2
-      pathe: 2.0.3
-      picomatch: 4.0.4
-      scule: 1.3.0
-      shiki: 4.0.2
-      slugify: 1.6.9
-      ufo: 1.6.4
-      unstorage: 1.17.5(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)
-      vue: 3.5.35(typescript@6.0.3)
-      ws: 8.20.1
-      zod: 4.4.3
-    optionalDependencies:
-      vitest: 4.1.6(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(@vitest/browser-playwright@4.1.6)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))
-    transitivePeerDependencies:
-      - '@azure/app-configuration'
-      - '@azure/cosmos'
-      - '@azure/data-tables'
-      - '@azure/identity'
-      - '@azure/keyvault-secrets'
-      - '@azure/storage-blob'
-      - '@capacitor/preferences'
-      - '@deno/kv'
-      - '@electric-sql/pglite'
-      - '@libsql/client'
-      - '@netlify/blobs'
-      - '@planetscale/database'
-      - '@upstash/redis'
-      - '@vercel/blob'
-      - '@vercel/functions'
-      - '@vercel/kv'
-      - aws4fetch
-      - bare-abort-controller
-      - bare-buffer
-      - beautiful-mermaid
-      - better-sqlite3
-      - bufferutil
-      - db0
-      - drizzle-orm
-      - encoding
-      - idb-keyval
-      - ioredis
-      - katex
-      - magicast
-      - mysql2
-      - oxc-parser
-      - react-native-b4a
-      - rolldown
-      - sqlite3
-      - srvx
-      - supports-color
-      - uploadthing
-      - utf-8-validate
-      - xml2js
 
   '@mapbox/node-pre-gyp@2.0.3':
     dependencies:

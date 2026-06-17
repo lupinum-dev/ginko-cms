@@ -120,6 +120,12 @@ with automated and browser-based UX verification.
   - workspace typecheck/build
   - publish-specifier check
   - Vitest: 90 files passed, 711 tests passed, 1 skipped
+- `pnpm run package:e2e` passes:
+  - packed local tarballs for CMS, Ginko Content, Trellis, and Trellis Bridge
+  - workspace-reference scan passed for all six tarballs
+  - fixture installed `@lupinum/ginko-content@0.1.6` and `@lupinum/trellis@0.3.1`
+  - fixture doctor: 32 passed, 1 Convex URL env warning, 0 failures
+  - package imports passed
 
 ### Trellis 0.3.1 Repack After Consumer Fix
 
@@ -149,3 +155,26 @@ with automated and browser-based UX verification.
 - Fixture doctor result: 32 passed, 1 warning for missing Convex URL env, 0 failures.
 - Fixture package imports passed.
 - Result: `package e2e ok`.
+
+### Ginko Content 0.1.6 Cutover
+
+- Updated CMS to consume `@lupinum/ginko-content@^0.1.6`.
+- Updated CMS compatibility matrix release stack to `@lupinum/ginko-content@0.1.6`.
+- Ran `pnpm install`; lockfile resolves Ginko Content to local sibling package:
+  `link:../../../ginko-content/packages/content`.
+- Synced CMS contract vendor from Ginko Content and passed:
+  - `pnpm run sync:cms-contract-vendor`
+  - `pnpm run check:cms-contract-vendor`
+- Focused content/provider tests passed:
+  - `test/module/content-contract.test.ts`
+  - `test/refactor/workflow-path.test.ts`
+  - `test/refactor/golden-fixtures.test.ts`
+  - `test/refactor/provider-contract.test.ts`
+  - `test/shared/nuxt-provider.test.ts`
+  - `test/shared/nuxt-provider-package-conformance.test.ts`
+- `pnpm run check` passes:
+  - format check
+  - lint and custom surface guards
+  - workspace typecheck/build
+  - publish-specifier check
+  - Vitest: 90 files passed, 711 tests passed, 1 skipped
