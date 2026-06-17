@@ -27,15 +27,38 @@ Current Trellis source baseline:
 - Commit: `edfbdc0 fix: harden identity forwarding and replay`
 - Version metadata: `@lupinum/trellis@0.3.1` and
   `@lupinum/trellis-bridge@0.3.1`
-- Important caveat: Trellis `release:verify` was interrupted before the commit.
-  Focused and broad gates had passed during implementation, but a clean
-  `release:verify` still needs to run before publishing.
-- Local tarballs must be regenerated before CMS starts consuming this stack.
-  Stale `0.3.0` tarballs in `/Users/matthias/Git/workspace/trellis/.pack` are
-  not valid inputs for this migration.
+- Trellis `release:verify` and `release:pack` now pass serially for this
+  baseline.
+- Local tarballs must be regenerated whenever Trellis changes. Stale `0.3.0`
+  tarballs in `/Users/matthias/Git/workspace/trellis/.pack` are not valid inputs
+  for this migration.
 
 Current execution checkpoint:
 
+- Trellis `0.3.1` release validation now passed serially:
+  - `pnpm run release:verify`
+  - `pnpm run release:pack`
+- Current local Trellis tarballs:
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-0.3.1.tgz`
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-bridge-0.3.1.tgz`
+- Ginko Content `0.1.6` release validation now passed serially:
+  - `pnpm run release:verify`
+  - release pack wrote
+    `/Users/matthias/Git/workspace/ginko-content/.pack/lupinum-ginko-content-0.1.6.tgz`
+- CMS release validation now passed serially:
+  - `pnpm run release:verify`
+  - package e2e installed only local tarballs for CMS, CMS Convex, CMS
+    Contract, Ginko Content `0.1.6`, Trellis `0.3.1`, and Trellis Bridge
+    `0.3.1`
+  - `pnpm audit --prod --audit-level low` passed after CMS workspace overrides
+    pinned patched production transitive dependencies.
+- `i18n-cms` final consumer validation now passed with the local tarball stack:
+  - `pnpm install --force`
+  - `pnpm run typecheck`
+  - `pnpm run build`
+  - built-server `pnpm run smoke:cms` with the configured test credentials
+  - in-app browser checks for content, locale switching, search, login,
+    settings, Studio content navigation, and sitemap/runtime probes.
 - Trellis consumer fix committed on `hardening`:
   `894b6b2 fix: export operation shape from runtime barrels`.
 - Regenerated local Trellis tarballs after that fix:
@@ -525,7 +548,7 @@ cd /Users/matthias/Git/workspace/i18n-cms
 pnpm install
 pnpm run typecheck
 pnpm run build
-GINKO_CMS_TEST_EMAIL=matthias@me.com GINKO_CMS_TEST_PASSWORD=********pnpm run smoke:cms
+GINKO_CMS_TEST_EMAIL=matthias@me.com GINKO_CMS_TEST_PASSWORD=******** pnpm run smoke:cms
 ```
 
 Use `browser:control-in-app-browser` for the manual browser verification pass.
@@ -736,6 +759,51 @@ Before publishing Ginko Content, also run its full release gate:
 pnpm --dir /Users/matthias/Git/workspace/ginko-content run release:verify
 ```
 
+Ginko Content release-gate follow-up from 2026-06-17:
+
+- The earlier missing `dist/core/markdown/tree.js` failure was reproduced only
+  in the parallel broad-gate run. A serial Ginko Content gate passed beyond that
+  point, including package build, docs build/prerender, examples build, main
+  tests, e2e tests, package-consumer, browser e2e, search matrix, and static
+  sitemap checks.
+- The serial gate then failed only at `pnpm audit --prod --audit-level low`.
+  The audit paths were production dependency graph issues, not CMS adapter
+  issues.
+- The direct Ginko Content production dependencies were moved to patched
+  releases where possible:
+  - `js-yaml` to `^4.2.0`
+  - `ws` to `^8.21.0`
+- Patched transitive production dependencies were pinned through
+  `/Users/matthias/Git/workspace/ginko-content/pnpm-workspace.yaml` overrides:
+  `@babel/core@7.29.6`, `esbuild@0.28.1`, `launch-editor@2.14.1`,
+  `tar@7.5.16`, and `vite@7.3.5`.
+- The pnpm package extension for `vue-docgen-web-types@0.1.8` was moved from
+  root `package.json` into `pnpm-workspace.yaml`, because pnpm 10 ignores the
+  root `pnpm.packageExtensions` field in this workspace.
+- Focused post-fix checks passed:
+
+```bash
+pnpm --dir /Users/matthias/Git/workspace/ginko-content run build:packages
+pnpm --dir /Users/matthias/Git/workspace/ginko-content run test:package-consumer
+pnpm --dir /Users/matthias/Git/workspace/ginko-content run test:e2e:browser
+pnpm --dir /Users/matthias/Git/workspace/ginko-content run audit:prod
+```
+
+Completed serial release gate for Ginko Content after the audit fix:
+
+```bash
+pnpm --dir /Users/matthias/Git/workspace/ginko-content run release:verify
+```
+
+Result:
+
+- Passed `dev:prepare`, lint, package build, docs build/prerender, examples
+  build, main tests, e2e tests, typecheck, quickstart typecheck/build,
+  package-consumer, browser e2e, search matrix, static sitemap, and production
+  audit.
+- `release:pack` completed inside the gate and wrote:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/lupinum-ginko-content-0.1.6.tgz`
+
 ## Final Release Verification
 
 After both phases are green:
@@ -744,8 +812,7 @@ After both phases are green:
 pnpm run release:verify
 ```
 
-Before publishing Trellis `0.3.1`, also run the interrupted Trellis gate to
-completion:
+Before publishing Trellis `0.3.1`, keep the serial Trellis gate green:
 
 ```bash
 pnpm --dir /Users/matthias/Git/workspace/trellis run release:verify
@@ -957,6 +1024,12 @@ CMS_SMOKE_BASE_URL=http://localhost:9999 \
   pnpm run smoke:cms
 ```
 
+- A plain `pnpm run smoke:cms` without `CMS_SMOKE_BASE_URL` starts the Nuxt dev
+  server and can fail in this Node 26 environment with a Nuxt Vite IPC socket
+  error while probing `/studio/auth/signin`. Treat that as an environment/dev
+  harness issue unless it reproduces against the built server. Final validation
+  uses `CMS_SMOKE_BASE_URL=http://127.0.0.1:9999` against the built server with
+  `.env.local` loaded.
 - Search endpoint passed:
 
 ```bash
@@ -971,6 +1044,9 @@ curl -s 'http://localhost:9999/api/_content/search?q=security&locale=en' \
   - palette search for `security` returning `Security Enhancements`
   - Studio login with the smoke credentials and `/studio/settings` storage
     hygiene content
+  - final visual screenshots confirmed desktop home/docs, German docs,
+    localized search results, Studio settings, Studio blog-post listing, and a
+    mobile German docs viewport without browser console errors
 
 Remaining non-blocking warnings:
 
@@ -982,44 +1058,71 @@ Remaining non-blocking warnings:
 ### Release Gate Follow-Up: 2026-06-17
 
 The migration stack is functionally green through CMS package e2e and the
-`i18n-cms` consumer, but it is not publish-ready until the release gates below
-are rerun serially and pass.
+`i18n-cms` consumer. The release gates below were rerun serially after the audit
+and dependency-isolation fixes.
 
 Do not run the Trellis, Ginko Content, and CMS release gates in parallel. CMS
 `package:e2e` rebuilds and packs sibling Trellis/Ginko Content packages, so a
 parallel release run can mutate `dist` while another repository is building.
 
-Current release-gate evidence:
+Final release-gate evidence:
 
-- `ginko-cms pnpm run release:verify` passed format, lint, typecheck, tests, and
-  package e2e. It failed at `pnpm audit --prod --audit-level low`.
-- The CMS audit currently reports production-audit findings through the local
-  linked migration stack, including Nuxt DevTools/`launch-editor`,
-  `@vitest/browser`, `vite`/`esbuild`, `ws`, `hono`, and `js-yaml` dependency
-  paths. This is a release blocker until we either update the dependency graph
-  or deliberately change the audit policy with a clear rationale.
-- `ginko-content pnpm run release:verify` failed during the parallel run because
-  its `dist` was changed while examples were building. Rerun it alone before
-  treating it as a real code failure.
-- `trellis pnpm run release:verify` failed at publish-surface typechecking while
-  resolving mixed Nuxt schema versions from the CMS workspace install. Reinstall
-  or isolate Trellis dependencies, then rerun it alone before treating it as a
-  Trellis code failure.
+- `ginko-content pnpm run release:verify` passes serially after the audit fix.
+  It also ran `release:pack` and wrote the local
+  `/Users/matthias/Git/workspace/ginko-content/.pack/lupinum-ginko-content-0.1.6.tgz`
+  tarball.
+- `trellis pnpm run release:verify` passes serially after isolating Trellis'
+  local install from the CMS workspace symlink state.
+- `trellis pnpm run release:pack` passes and regenerated:
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-0.3.1.tgz`
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-bridge-0.3.1.tgz`
+- `ginko-cms pnpm run release:verify` passes serially:
+  - format check: 778 files ok
+  - lint and custom guards ok
+  - typecheck/build ok
+  - tests: 90 files passed, 713 tests passed, 1 skipped
+  - package e2e installed local tarballs for CMS, CMS Convex, CMS Contract,
+    Ginko Content `0.1.6`, Trellis `0.3.1`, and Trellis Bridge `0.3.1`
+  - package e2e doctor: 32 passed, 1 expected missing Convex URL warning,
+    0 failures
+  - production audit: no known vulnerabilities
 
-Required serial release order:
+Final local consumer verification order:
 
 ```bash
-cd /Users/matthias/Git/workspace/ginko-content
-pnpm run release:verify
-
-cd /Users/matthias/Git/workspace/trellis
-pnpm run release:verify
-
-cd /Users/matthias/Git/workspace/ginko-cms
-pnpm run release:verify
+cd /Users/matthias/Git/workspace/i18n-cms
+pnpm install --force
+pnpm run typecheck
+pnpm run build
+zsh -c 'set -a; source .env.local; PORT=9999 HOST=127.0.0.1 node .output/server/index.mjs'
+CMS_SMOKE_BASE_URL=http://127.0.0.1:9999 \
+  GINKO_CMS_TEST_EMAIL=matthias@me.com \
+  GINKO_CMS_TEST_PASSWORD=oms345pb \
+  pnpm run smoke:cms
 ```
 
 If Trellis or Ginko Content need fixes, apply them in the source repository,
 regenerate local tarballs, reinstall `ginko-cms`/`i18n-cms` against those
 tarballs, and rerun the CMS plus consumer verification. Do not add CMS
 compatibility paths around release-gate failures from the libraries.
+
+Runtime note: starting the built server without `.env.local` causes CMS provider
+API routes to fail with missing `NUXT_PUBLIC_CONVEX_URL`. That is a bad preview
+command, not a CMS migration failure.
+
+### Current-State Rerun: 2026-06-17
+
+After the final documentation and lockfile state, the current verification pass
+was rerun against the worktree:
+
+- `ginko-cms pnpm run release:verify` passed.
+- `i18n-cms pnpm install --force` passed against the freshly regenerated local
+  tarballs.
+- `i18n-cms pnpm run typecheck` passed.
+- `i18n-cms pnpm run build` passed and prerendered 211 routes.
+- Built-server smoke passed with
+  `CMS_SMOKE_BASE_URL=http://127.0.0.1:9999`.
+- CMS-backed search endpoint and localized sitemap probes passed.
+- In-app browser visual verification passed for public content, locale
+  switching, search, Studio settings, Studio content listing, and mobile German
+  docs.

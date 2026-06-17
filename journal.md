@@ -266,9 +266,116 @@ with automated and browser-based UX verification.
 - `ginko-content pnpm run release:verify` failed during the parallel run because
   a built `dist` file disappeared while examples were building. Treat this as a
   parallel-run artifact until rerun alone.
+- Reran Ginko Content verification serially. It passed build, docs,
+  examples, main tests, e2e tests, package-consumer, browser e2e, search
+  matrix, and static sitemap checks before failing only at
+  `pnpm audit --prod --audit-level low`.
+- Fixed Ginko Content production audit by moving the ignored pnpm package
+  extension into `pnpm-workspace.yaml`, bumping direct `js-yaml`/`ws`, and
+  pinning patched transitive production dependencies with workspace overrides.
+- Focused post-fix Ginko Content checks passed:
+  - `pnpm run build:packages`
+  - `pnpm run test:package-consumer`
+  - `pnpm run test:e2e:browser`
+  - `pnpm run audit:prod`
+- Full serial Ginko Content `pnpm run release:verify` now passes. It covered
+  build, docs, examples, main tests, e2e tests, typecheck, quickstart,
+  package-consumer, browser e2e, search matrix, static sitemap, production
+  audit, and `release:pack`.
+- The release pack wrote
+  `/Users/matthias/Git/workspace/ginko-content/.pack/lupinum-ginko-content-0.1.6.tgz`.
 - `trellis pnpm run release:verify` failed at publish-surface typechecking while
   resolving mixed Nuxt schema versions from the CMS workspace install. Reinstall
   or isolate Trellis dependencies, then rerun it alone.
-- Current status:
+- Status before the final serial reruns:
   - migration functionality is verified in CMS and `i18n-cms`
-  - publish readiness is still blocked on clean serial release gates
+  - Ginko Content has a clean serial release gate and fresh local tarball
+  - publish readiness is still blocked on clean Trellis and CMS serial release
+    gates
+
+### Final Serial Gate Closure
+
+- Trellis release validation was rerun serially after isolating its install from
+  the stale CMS workspace symlink state.
+- Trellis passed:
+  - `pnpm run release:verify`
+  - `pnpm run release:pack`
+- Fresh Trellis tarballs exist at:
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-0.3.1.tgz`
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-bridge-0.3.1.tgz`
+- CMS production audit was fixed by pinning patched production transitive
+  dependencies in `/Users/matthias/Git/workspace/ginko-cms/pnpm-workspace.yaml`.
+- Full serial `ginko-cms pnpm run release:verify` now passes:
+  - format check: 778 files ok
+  - lint/custom guards ok
+  - typecheck/build ok
+  - Vitest: 90 files passed, 713 tests passed, 1 skipped
+  - package e2e installed local tarballs for CMS, CMS Convex, CMS Contract,
+    Ginko Content `0.1.6`, Trellis `0.3.1`, and Trellis Bridge `0.3.1`
+  - package e2e doctor: 32 passed, 1 expected missing Convex URL warning,
+    0 failures
+  - `pnpm audit --prod --audit-level low`: no known vulnerabilities
+
+### Final i18n-cms Consumer Pass
+
+- Reinstalled `/Users/matthias/Git/workspace/i18n-cms` with local `file:`
+  tarballs after CMS package e2e regenerated `.pack`.
+- Consumer checks passed:
+  - `pnpm install --force`
+  - `pnpm run typecheck`
+  - `pnpm run build` (211 routes prerendered)
+  - `CMS_SMOKE_BASE_URL=http://127.0.0.1:9999 pnpm run smoke:cms` with
+    `GINKO_CMS_TEST_EMAIL=matthias@me.com` and the configured test password
+- A plain smoke run without `CMS_SMOKE_BASE_URL` can start Nuxt dev and fail in
+  this environment with a Node 26/Nuxt Vite IPC socket error before reaching CMS
+  assertions. The built-server smoke passed and is the final result.
+- The built server must be started with `.env.local` loaded. Starting
+  `node .output/server/index.mjs` without that env produces missing
+  `NUXT_PUBLIC_CONVEX_URL` errors for CMS provider API routes and is not a valid
+  consumer check.
+- In-app browser verification against `http://127.0.0.1:9999` passed:
+  - English home and docs routes render from CMS-backed content.
+  - German localized docs route `/de/dokumentation/codebloecke` renders.
+  - Locale menu switches German content back to `/docs/code-blocks`.
+  - Search palette accepts `markdown` and returns CMS-backed result options.
+  - Studio login redirects to `/studio/settings`.
+  - Settings hydrates and shows storage hygiene/footprint content.
+  - Authenticated `/studio/content/posts` shows the Blog posts collection,
+    content navigation, and New entry action with no browser console errors.
+- Runtime XML checks passed:
+  - `/sitemap.xml` redirects to `/sitemap_index.xml`.
+  - sitemap index lists `en-US` and `de-DE`.
+  - localized sitemap files include docs, blog, pricing, and German translated
+    content paths.
+
+Final state: Trellis first, Ginko Content second, CMS package e2e, and the real
+`i18n-cms` consumer are green using local tarballs only for the Lupinum stack.
+
+### Final Current-State Rerun
+
+- Reran `ginko-cms pnpm run release:verify` after the final journal/update edits
+  and local audit override lockfile state.
+- Current release gate passed:
+  - format check
+  - lint/custom guards
+  - typecheck/build
+  - Vitest: 90 files passed, 713 tests passed, 1 skipped
+  - package e2e with local tarballs for CMS, CMS Convex, CMS Contract,
+    Ginko Content `0.1.6`, Trellis `0.3.1`, and Trellis Bridge `0.3.1`
+  - package e2e doctor: 32 passed, 1 expected missing Convex URL warning,
+    0 failures
+  - production audit: no known vulnerabilities
+- Reinstalled `i18n-cms` with `pnpm install --force` after package e2e
+  regenerated local tarballs.
+- Current `i18n-cms` verification passed:
+  - `pnpm run typecheck`
+  - `pnpm run build` with 211 prerendered routes
+  - `CMS_SMOKE_BASE_URL=http://127.0.0.1:9999 pnpm run smoke:cms`
+  - CMS-backed search endpoint for `security`
+  - English and German sitemap probes for docs, blog, and changelog routes
+- Current in-app browser visual pass against the env-backed built server passed:
+  - desktop home, English docs, and German docs screenshots rendered correctly
+  - German search overlay returned localized security results
+  - Studio settings rendered authenticated owner/member and storage hygiene UI
+  - Studio blog posts listing rendered locale/status chips, filters, and actions
+  - mobile German docs viewport rendered without overlap or browser errors
