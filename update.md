@@ -776,3 +776,205 @@ Do not run publish commands from an agent session.
 - Ginko Content has a clean `release:verify` before any publish.
 - No second source of truth was introduced.
 - No compatibility shim was left behind for unreleased internals.
+
+## Execution Notes: Local Stack Cutover
+
+Date: 2026-06-17
+
+Local package rule:
+
+- Do not consume npm registry builds for Lupinum packages during this migration.
+- `i18n-cms` must point direct dependencies at local tarballs from
+  `/Users/matthias/Git/workspace/ginko-cms/.pack`.
+- `i18n-cms/pnpm-workspace.yaml` must also override the same packages so
+  transitive dependencies cannot silently resolve from npm:
+  - `@lupinum/ginko-cms`
+  - `@lupinum/ginko-cms-contract`
+  - `@lupinum/ginko-cms-convex`
+  - `@lupinum/ginko-content`
+  - `@lupinum/trellis`
+  - `@lupinum/trellis-bridge`
+- Validate with:
+
+```bash
+cd /Users/matthias/Git/workspace/i18n-cms
+pnpm why @lupinum/trellis --depth 6
+pnpm why @lupinum/ginko-content --depth 6
+rg "@lupinum\\+trellis@0\\.|@lupinum\\+ginko-content@0\\." node_modules/.pnpm pnpm-lock.yaml
+```
+
+Expected:
+
+- `pnpm why @lupinum/trellis --depth 6` reports one version,
+  `@lupinum/trellis@0.3.1`.
+- `pnpm why @lupinum/ginko-content --depth 6` reports the local
+  `@lupinum/ginko-content@0.1.6` tarball.
+- No installed registry fallback for the Lupinum migration packages.
+- Note: source paths embedded in bundled stack traces can still show stale
+  package names from generated/sourcemap context. Treat the lockfile and
+  `pnpm why` result as the package-resolution source of truth.
+
+### Phase 2: Ginko Content Cutover After Trellis Is Green
+
+Once the Trellis phase is green in CMS, do the same hard-cut process for
+Ginko Content. This phase should not introduce an adapter layer between
+Ginko Content and CMS. The CMS provider boundary is the right place for
+small input normalization when Nuxt sends a real provider shape that differs
+from CMS tests.
+
+Required source checks:
+
+- Diff Ginko Content `0.1.6` public/provider surfaces against the CMS usage:
+
+```bash
+cd /Users/matthias/Git/workspace/ginko-content
+rg "export .*cms-contract|export .*cms-import|interface .*Provider|type .*Provider|search\\(" packages/content/src packages/content/dist
+```
+
+- Diff CMS usage of Ginko Content:
+
+```bash
+cd /Users/matthias/Git/workspace/ginko-cms
+rg "@lupinum/ginko-content|cms-contract|cms-import|contentProvider\\.search|useContentSearch" packages test
+```
+
+Expected decisions:
+
+- Keep Ginko Content as the canonical content contract source.
+- Keep CMS vendored contract output Convex-safe and parity-tested.
+- Keep `cms-import` out of Convex runtime; it is migration/import tooling.
+- Delete stale CMS assumptions when Ginko Content supports a broader provider
+  shape.
+
+Concrete issue found during consumer verification:
+
+- `i18n-cms` config uses CMS-backed search across `docs`, `posts`, and
+  `versions`.
+- Nuxt Content's public search endpoint accepts `q`; provider-level callers can
+  send either `term` or `query` depending on which layer invokes the provider.
+- CMS provider tests only covered the older internal `term` shape.
+- CMS provider search must normalize `request.query || request.term || ""` and
+  run every requested collection instead of rejecting multi-collection search.
+- This is not a shim: it is the public provider boundary accepting the shape
+  Nuxt actually sends.
+
+Acceptance for Phase 2:
+
+- `pnpm run check` passes in `/Users/matthias/Git/workspace/ginko-cms`.
+- `pnpm run package:e2e` passes in `/Users/matthias/Git/workspace/ginko-cms`
+  and regenerates local tarballs.
+- `i18n-cms` reinstalls after the tarball regeneration:
+
+```bash
+cd /Users/matthias/Git/workspace/i18n-cms
+pnpm install --force
+pnpm run typecheck
+pnpm run build
+```
+
+- Built-server smoke uses the configured credentials:
+
+```bash
+cd /Users/matthias/Git/workspace/i18n-cms
+zsh -c 'set -a; source .env.local; PORT=9999 node .output/server/index.mjs'
+CMS_SMOKE_BASE_URL=http://localhost:9999 \
+  GINKO_CMS_TEST_EMAIL=matthias@me.com \
+  GINKO_CMS_TEST_PASSWORD=oms345pb \
+  pnpm run smoke:cms
+```
+
+### `i18n-cms` Browser And Runtime Verification
+
+Use `browser:control-in-app-browser` against the built server on
+`http://localhost:9999`. The built server is preferred for final validation
+because the dev server can hit a Node 26 Nuxt IPC socket issue in this
+environment.
+
+Scenarios to confirm:
+
+- Login:
+  - `/studio/auth/signin?redirect=/studio/settings`
+  - Sign in with the configured smoke credentials.
+  - Confirm `/studio/settings` renders settings content such as storage hygiene.
+- Content:
+  - `/docs/code-blocks` renders `Code Blocks`.
+  - `/blog/asian-cuisine` renders `Exploring the Culinary Wonders of Asia`.
+  - `/authors/alexia` renders `Alexia Wong` and related content.
+  - `/changelog/security` renders `Security Enhancements`.
+- I18n switching:
+  - `/docs/code-blocks` switches to `/de/dokumentation/codebloecke`.
+  - `/blog/asian-cuisine` has German alternate
+    `/de/blog/asiatische-kueche`.
+  - `/changelog/security` has German alternate
+    `/de/aenderungen/security`.
+- Search:
+  - Public endpoint:
+
+```bash
+curl -s 'http://localhost:9999/api/_content/search?q=security&locale=en' \
+  | rg 'Security Enhancements|/changelog/security'
+```
+
+- Palette search opened from the visible search button returns
+  `Security Enhancements` for `security`.
+- Sitemap:
+
+```bash
+curl -s http://localhost:9999/__sitemap__/en-US.xml \
+  | rg '/docs/code-blocks|/blog/asian-cuisine|/changelog/security'
+curl -s http://localhost:9999/__sitemap__/de-DE.xml \
+  | rg '/de/dokumentation/codebloecke|/de/blog/asiatische-kueche|/de/aenderungen/security'
+```
+
+Browser note:
+
+- Direct browser navigation to XML/API URLs can be blocked by the in-app
+  browser's client-side protections. Verify XML/API surfaces with `curl` and
+  use the browser for rendered UI behavior.
+
+### Verification Results: 2026-06-17
+
+CMS package verification:
+
+- `pnpm exec vitest run test/shared/nuxt-provider.test.ts
+test/refactor/provider-contract.test.ts` passed.
+- `pnpm run check` passed.
+- `pnpm run package:e2e` passed and regenerated local tarballs in `.pack`.
+- Package e2e doctor reported 32 passed, 1 warning, 0 failures. The warning was
+  the expected missing Convex URL in the temporary app.
+
+`i18n-cms` consumer verification:
+
+- `pnpm install --force` completed against local `file:` tarballs.
+- `pnpm run typecheck` passed.
+- `pnpm run build` passed and prerendered 211 routes.
+- Built-server smoke passed:
+
+```bash
+CMS_SMOKE_BASE_URL=http://localhost:9999 \
+  GINKO_CMS_TEST_EMAIL=matthias@me.com \
+  GINKO_CMS_TEST_PASSWORD=oms345pb \
+  pnpm run smoke:cms
+```
+
+- Search endpoint passed:
+
+```bash
+curl -s 'http://localhost:9999/api/_content/search?q=security&locale=en' \
+  | rg 'Security Enhancements|/changelog/security|"collection":"versions"'
+```
+
+- EN and DE sitemap probes passed for docs, blog, and changelog routes.
+- In-app browser verification passed:
+  - rendered content pages for docs, blog, author, and changelog
+  - EN/DE canonical and alternate links
+  - palette search for `security` returning `Security Enhancements`
+  - Studio login with the smoke credentials and `/studio/settings` storage
+    hygiene content
+
+Remaining non-blocking warnings:
+
+- Nuxt site config warns that `http://localhost:9999` is a localhost URL.
+- Build still emits existing large-chunk warnings.
+- Final validation uses the built server because the dev server can hit a
+  Node 26 Nuxt IPC socket issue in this environment.

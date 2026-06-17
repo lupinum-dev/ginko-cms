@@ -463,6 +463,7 @@ describe('CMS provider contract', () => {
         excerpt: 'Route content across locales.',
         score: 1,
         locale: 'en',
+        collection: 'docs',
       },
     ])
 

@@ -859,34 +859,40 @@ const contentProvider = {
   },
   search: async (_event, request = {}) => {
     const locale = request.locale || defaultLocale()
-    const collection = request.collection || request.collections?.[0]
-    assertUnsupportedQueryShape(
-      Boolean(request.collections?.length > 1),
-      'collections',
-      'Ginko search is single-collection for the MVP.',
-    )
-    if (!collection) {
+    const query = request.query || request.term || ''
+    const collections = request.collections?.length
+      ? request.collections
+      : request.collection
+        ? [request.collection]
+        : []
+    if (!collections.length) {
       throw providerError('unknown_collection', 'A collection is required for Ginko search.', 400, {
-        collection,
+        collection: request.collection,
       })
     }
-    const result = await callGinko('search', {
-      query: request.term || '',
-      locale,
-      collection,
-    })
-    const searchEntries = await Promise.all(
-      (result.results || []).map((entry) => toContentEntry(entry, locale)),
+    const collectionResults = await Promise.all(
+      collections.map(async (collection) => {
+        const result = await callGinko('search', {
+          query,
+          locale,
+          collection,
+        })
+        const searchEntries = await Promise.all(
+          (result.results || []).map((entry) => toContentEntry(entry, locale)),
+        )
+        return searchEntries.map((content, index) => {
+          return {
+            path: content.path || content._path || '',
+            title: content.title || '',
+            excerpt: result.results?.[index]?.snippet || content.description || '',
+            score: Math.max(1, searchEntries.length - index),
+            locale: content.locale,
+            collection: content.collection || result.results?.[index]?.collection || collection,
+          }
+        })
+      }),
     )
-    const data = searchEntries.map((content, index) => {
-      return {
-        path: content.path || content._path || '',
-        title: content.title || '',
-        excerpt: result.results?.[index]?.snippet || content.description || '',
-        score: Math.max(1, searchEntries.length - index),
-        locale: content.locale,
-      }
-    })
+    const data = collectionResults.flat()
     return withContentCache(data, searchCacheHint(locale))
   },
   siteData: async (_event, request = {}) => {

@@ -211,6 +211,33 @@ const convexMock = vi.hoisted(() => {
       }
     }
     if (operation === 'search') {
+      const input = args as { collection?: string }
+      if (input.collection === 'blog') {
+        return {
+          results: [
+            {
+              id: 'entry-blog-routing',
+              collection: 'blog',
+              revision: 'blog-routing',
+              title: 'Routing Blog',
+              snippet: 'Routing across product updates.',
+              data: {
+                description: 'Routing across product updates.',
+                bodyAst: {
+                  type: 'root',
+                  props: {},
+                  children: [],
+                },
+              },
+              locale: { requested: 'en', resolved: 'en' },
+              route: { path: '/blog/routing', slug: 'routing' },
+              translations: [],
+              updatedAt: 105,
+              publishedAt: 95,
+            },
+          ],
+        }
+      }
       return {
         results: [
           {
@@ -1101,9 +1128,28 @@ describe('Ginko Nuxt content provider', () => {
       expect.objectContaining({
         path: '/docs/workflows/content-routing',
         title: 'Content Routing',
+        collection: 'docs',
       }),
     ])
     expect(cache(wrappedSearch).tags).toEqual(['search:en'])
+
+    const wrappedMultiCollectionSearch = await contentProvider.search({} as never, {
+      query: 'routing',
+      locale: 'en',
+      collections: ['docs', 'blog'],
+    })
+    expect(unwrap(wrappedMultiCollectionSearch)).toEqual([
+      expect.objectContaining({
+        path: '/docs/workflows/content-routing',
+        title: 'Content Routing',
+        collection: 'docs',
+      }),
+      expect.objectContaining({
+        path: '/blog/routing',
+        title: 'Routing Blog',
+        collection: 'blog',
+      }),
+    ])
 
     const wrappedSiteData = await contentProvider.siteData({} as never, {
       key: 'announcement',
@@ -1147,6 +1193,8 @@ describe('Ginko Nuxt content provider', () => {
       'nav',
       'nav',
       'surround',
+      'search',
+      'search',
       'search',
       'siteData',
       'sitemap',
