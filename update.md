@@ -978,3 +978,48 @@ Remaining non-blocking warnings:
 - Build still emits existing large-chunk warnings.
 - Final validation uses the built server because the dev server can hit a
   Node 26 Nuxt IPC socket issue in this environment.
+
+### Release Gate Follow-Up: 2026-06-17
+
+The migration stack is functionally green through CMS package e2e and the
+`i18n-cms` consumer, but it is not publish-ready until the release gates below
+are rerun serially and pass.
+
+Do not run the Trellis, Ginko Content, and CMS release gates in parallel. CMS
+`package:e2e` rebuilds and packs sibling Trellis/Ginko Content packages, so a
+parallel release run can mutate `dist` while another repository is building.
+
+Current release-gate evidence:
+
+- `ginko-cms pnpm run release:verify` passed format, lint, typecheck, tests, and
+  package e2e. It failed at `pnpm audit --prod --audit-level low`.
+- The CMS audit currently reports production-audit findings through the local
+  linked migration stack, including Nuxt DevTools/`launch-editor`,
+  `@vitest/browser`, `vite`/`esbuild`, `ws`, `hono`, and `js-yaml` dependency
+  paths. This is a release blocker until we either update the dependency graph
+  or deliberately change the audit policy with a clear rationale.
+- `ginko-content pnpm run release:verify` failed during the parallel run because
+  its `dist` was changed while examples were building. Rerun it alone before
+  treating it as a real code failure.
+- `trellis pnpm run release:verify` failed at publish-surface typechecking while
+  resolving mixed Nuxt schema versions from the CMS workspace install. Reinstall
+  or isolate Trellis dependencies, then rerun it alone before treating it as a
+  Trellis code failure.
+
+Required serial release order:
+
+```bash
+cd /Users/matthias/Git/workspace/ginko-content
+pnpm run release:verify
+
+cd /Users/matthias/Git/workspace/trellis
+pnpm run release:verify
+
+cd /Users/matthias/Git/workspace/ginko-cms
+pnpm run release:verify
+```
+
+If Trellis or Ginko Content need fixes, apply them in the source repository,
+regenerate local tarballs, reinstall `ginko-cms`/`i18n-cms` against those
+tarballs, and rerun the CMS plus consumer verification. Do not add CMS
+compatibility paths around release-gate failures from the libraries.

@@ -205,3 +205,70 @@ with automated and browser-based UX verification.
   - workspace typecheck/build
   - publish-specifier check
   - Vitest: 90 files passed, 711 tests passed, 1 skipped
+
+### Ginko Content Provider And Consumer Fix
+
+- `i18n-cms` exposed a real provider-boundary issue after the Ginko Content
+  cutover:
+  - CMS search tests covered the provider's internal `term` shape.
+  - Nuxt Content's public search endpoint can pass the requested text as `q`,
+    which reaches the CMS provider as `query`.
+  - `i18n-cms` also searches across `docs`, `posts`, and `versions`, while the
+    CMS provider implementation only exercised one collection.
+- Fixed the CMS provider boundary directly:
+  - normalized `request.query || request.term || ""`
+  - searched every requested collection
+  - returned the collection id on each search result
+- Focused provider tests passed:
+  - `pnpm exec vitest run test/shared/nuxt-provider.test.ts test/refactor/provider-contract.test.ts`
+- Full CMS verification passed:
+  - `pnpm run check`
+  - `pnpm run package:e2e`
+
+### i18n-cms Real Consumer Verification
+
+- Updated `/Users/matthias/Git/workspace/i18n-cms` to consume the local packed
+  migration stack through direct `file:` dependencies and matching workspace
+  overrides:
+  - `@lupinum/ginko-cms@0.1.3`
+  - `@lupinum/ginko-cms-contract@0.1.1`
+  - `@lupinum/ginko-cms-convex@0.1.2`
+  - `@lupinum/ginko-content@0.1.6`
+  - `@lupinum/trellis@0.3.1`
+  - `@lupinum/trellis-bridge@0.3.1`
+- Consumer checks passed:
+  - `pnpm install --force`
+  - `pnpm run typecheck`
+  - `pnpm run build` (211 routes prerendered)
+  - built-server `pnpm run smoke:cms` with
+    `GINKO_CMS_TEST_EMAIL=matthias@me.com`
+- Runtime probes passed against `http://localhost:9999`:
+  - CMS search endpoint returned `Security Enhancements`,
+    `/changelog/security`, and `"collection":"versions"`.
+  - English and German sitemap probes returned docs, blog, and changelog routes.
+- In-app browser verification passed:
+  - docs, blog, author, and changelog pages render from CMS content
+  - English/German route alternates resolve correctly
+  - visible search palette returns CMS-backed `security` results
+  - Studio login works with the smoke credentials
+  - `/studio/settings` renders settings/storage hygiene content after login
+
+### Release Gate Follow-Up
+
+- Attempted broad release gates after the functional migration checks.
+- Important correction: do not run these broad gates in parallel. CMS
+  `package:e2e` rebuilds and packs sibling Trellis/Ginko Content outputs, which
+  can race with release builds in those repositories.
+- `ginko-cms pnpm run release:verify` passed through format, lint, typecheck,
+  tests, and package e2e. It failed at `pnpm audit --prod --audit-level low`.
+  The audit report includes dependency paths through local linked packages and
+  currently blocks publish readiness.
+- `ginko-content pnpm run release:verify` failed during the parallel run because
+  a built `dist` file disappeared while examples were building. Treat this as a
+  parallel-run artifact until rerun alone.
+- `trellis pnpm run release:verify` failed at publish-surface typechecking while
+  resolving mixed Nuxt schema versions from the CMS workspace install. Reinstall
+  or isolate Trellis dependencies, then rerun it alone.
+- Current status:
+  - migration functionality is verified in CMS and `i18n-cms`
+  - publish readiness is still blocked on clean serial release gates
