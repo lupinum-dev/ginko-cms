@@ -3,64 +3,26 @@
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { operations } from '#component/generated/operation-handles/testing'
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
+  archiveEntry,
   createCtx,
-  seedMultiLocaleSettings,
+  previewArchiveEntry,
+  previewPublishEntryWithArgs,
+  previewUnpublishEntry,
+  publishEntry,
+  publishEntryWithArgs,
   seedOwner,
   seedSettings,
+  seedMultiLocaleSettings,
   seedEditorFixture,
   seedTreeFixture,
+  unpublishEntry,
   currentDraftVersion,
 } from './helpers'
 
 const api = anyApi
-type CmsTestCaller = ReturnType<ReturnType<typeof createCtx>['asCmsUser']>
-
-const publishEntryOperation = operations.byId['ginko-cms.publish-entry']
-const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
-const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
-
-async function publishEntryWithArgs(
-  owner: CmsTestCaller,
-  args: { entryId: string; expectedVersion: number; locales: string[] },
-) {
-  const operation = owner.operation(publishEntryOperation)
-  const preview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: preview.confirmation })
-}
-
-async function publishEntry(owner: CmsTestCaller, entryId: string, locales: string[] = ['en']) {
-  return await publishEntryWithArgs(owner, {
-    entryId,
-    expectedVersion: await currentDraftVersion(owner, entryId),
-    locales,
-  })
-}
-
-async function previewUnpublishEntry(owner: CmsTestCaller, entryId: string) {
-  return await owner.operation(unpublishEntryOperation).preview({ entryId })
-}
-
-async function unpublishEntry(owner: CmsTestCaller, entryId: string) {
-  const operation = owner.operation(unpublishEntryOperation)
-  const args = { entryId }
-  const preview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: preview.confirmation })
-}
-
-async function previewArchiveEntry(owner: CmsTestCaller, entryId: string) {
-  return await owner.operation(archiveEntryOperation).preview({ entryId })
-}
-
-async function archiveEntry(owner: CmsTestCaller, entryId: string) {
-  const operation = owner.operation(archiveEntryOperation)
-  const args = { entryId }
-  const preview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: preview.confirmation })
-}
 
 describe('editor publish operations', () => {
   it('publishes an entry and clears published state on unpublish', async () => {
@@ -538,7 +500,7 @@ describe('editor publish operations', () => {
       },
     })
 
-    const conflictPreview = await owner.operation(publishEntryOperation).preview({
+    const conflictPreview = await previewPublishEntryWithArgs(owner, {
       entryId: rightId,
       expectedVersion: await currentDraftVersion(owner, rightId),
       locales: ['de'],

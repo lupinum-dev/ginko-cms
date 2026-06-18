@@ -11,10 +11,14 @@ import type { TestCallerOptions } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 
+import { operations } from '#component/generated/operation-handles/testing'
 import schema from '#component/schema'
 import { modules } from '#component/test.setup'
 
 export const api = anyApi
+const publishEntryOperation = operations.byId['ginko-cms.publish-entry']
+const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
+const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
 const TRUSTED_FORWARDING_KEY = 'test-ginko-cms-component-forwarding-key'
 process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
@@ -148,6 +152,56 @@ export async function currentDraftVersion(
     throw new Error(`Entry ${entryId} has no current draftVersion.`)
   }
   return entry.draftVersion
+}
+
+export async function publishEntryWithArgs(
+  appIdentity: CmsCallerClient,
+  args: { entryId: string; expectedVersion: number; locales: string[] },
+) {
+  const operation = appIdentity.operation(publishEntryOperation)
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
+}
+
+export async function previewPublishEntryWithArgs(
+  appIdentity: CmsCallerClient,
+  args: { entryId: string; expectedVersion: number; locales: string[] },
+) {
+  return await appIdentity.operation(publishEntryOperation).preview(args)
+}
+
+export async function publishEntry(
+  appIdentity: CmsCallerClient,
+  entryId: string,
+  locales: string[] = ['en'],
+) {
+  return await publishEntryWithArgs(appIdentity, {
+    entryId,
+    expectedVersion: await currentDraftVersion(appIdentity, entryId),
+    locales,
+  })
+}
+
+export async function previewUnpublishEntry(appIdentity: CmsCallerClient, entryId: string) {
+  return await appIdentity.operation(unpublishEntryOperation).preview({ entryId })
+}
+
+export async function unpublishEntry(appIdentity: CmsCallerClient, entryId: string) {
+  const operation = appIdentity.operation(unpublishEntryOperation)
+  const args = { entryId }
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
+}
+
+export async function previewArchiveEntry(appIdentity: CmsCallerClient, entryId: string) {
+  return await appIdentity.operation(archiveEntryOperation).preview({ entryId })
+}
+
+export async function archiveEntry(appIdentity: CmsCallerClient, entryId: string) {
+  const operation = appIdentity.operation(archiveEntryOperation)
+  const args = { entryId }
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
 }
 
 export async function executeConfirmedOperation(

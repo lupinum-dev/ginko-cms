@@ -1,6 +1,16 @@
 /// <reference types="vite/client" />
 
-export { createCtx, currentDraftVersion } from '../../helpers'
+export {
+  archiveEntry,
+  createCtx,
+  currentDraftVersion,
+  previewArchiveEntry,
+  previewPublishEntryWithArgs,
+  previewUnpublishEntry,
+  publishEntry,
+  publishEntryWithArgs,
+  unpublishEntry,
+} from '../../helpers'
 
 export async function seedStorageObject(
   ctx: ReturnType<typeof createCtx>,

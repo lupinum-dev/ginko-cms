@@ -5,13 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
-import {
-  createCtx,
-  seedOwner,
-  seedSettings,
-  seedEditorFixture,
-  currentDraftVersion,
-} from './helpers'
+import { createCtx, publishEntry, seedOwner, seedSettings, seedEditorFixture } from './helpers'
 
 const api = anyApi
 
@@ -51,22 +45,14 @@ describe('editor read queries', () => {
     const { entryId } = await seedEditorFixture(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const firstPublish = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const firstPublish = await publishEntry(owner, entryId)
 
     const secondEntryId = await owner.mutation(api.editor.createEntry, {
       collection: 'posts',
       slug: 'second-post',
       localized: { title: 'Second post' },
     })
-    const secondPublish = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId: secondEntryId,
-      expectedVersion: await currentDraftVersion(owner, secondEntryId),
-      locales: ['en'],
-    })
+    const secondPublish = await publishEntry(owner, secondEntryId)
 
     await expect(
       owner.query(api.editor.getVersionDiff, {
