@@ -24,7 +24,7 @@ Assumptions:
 Current Trellis source baseline:
 
 - Branch: `hardening`
-- Commit: `edfbdc0 fix: harden identity forwarding and replay`
+- Commit: `f9add1a feat: harden operation handle registration`
 - Version metadata: `@lupinum/trellis@0.3.1` and
   `@lupinum/trellis-bridge@0.3.1`
 - Trellis `release:verify` and `release:pack` now pass serially for this
@@ -35,6 +35,24 @@ Current Trellis source baseline:
 
 Current execution checkpoint:
 
+- Latest Trellis RFC workpackage committed on `hardening`:
+  `f9add1a feat: harden operation handle registration`.
+- Trellis validation for that workpackage passed:
+  - `pnpm run release:verify`
+  - `pnpm run release:pack`
+- Fresh Trellis tarballs for that workpackage were written to:
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-0.3.1.tgz`
+  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-bridge-0.3.1.tgz`
+- CMS package e2e against regenerated local tarballs passed after that Trellis
+  workpackage:
+  - `pnpm run package:e2e`
+  - packed local CMS, CMS Convex, CMS Contract, Ginko Content `0.1.6`, Trellis
+    `0.3.1`, and Trellis Bridge `0.3.1`
+  - installed the temp consumer from local `file:` tarballs, ran
+    `ginko-cms init`, `ginko-cms bridge check`, `trellis doctor`, Convex
+    codegen, Nuxt prepare, Nuxt typecheck, and package import checks
+  - `trellis doctor` reported 32 passed checks, 1 expected missing Convex URL
+    warning, and 0 failures.
 - Trellis `0.3.1` release validation now passed serially:
   - `pnpm run release:verify`
   - `pnpm run release:pack`
