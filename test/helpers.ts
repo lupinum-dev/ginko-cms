@@ -34,7 +34,6 @@ const destructiveExecuteFunctionRefs = new Set([
   'siteData:deleteSiteDataBlockOperationExecute',
 ])
 const destructiveTransportExecuteFunctionRefs: Record<string, string> = {
-  'assets:deleteAssetTransportExecute': 'assets:deleteAssetOperationExecute',
   'entries/draft:revertDraftToPublishedTransportExecute':
     'entries/draft:revertDraftToPublishedOperationExecute',
   'entries/publish:publishEntryTransportExecute': 'entries/publish:publishEntryOperationExecute',
@@ -43,7 +42,6 @@ const destructiveTransportExecuteFunctionRefs: Record<string, string> = {
   'entries/publish:unpublishEntryTransportExecute':
     'entries/publish:unpublishEntryOperationExecute',
   'entries/tree:deleteEntryTransportExecute': 'entries/tree:deleteEntryOperationExecute',
-  'siteData:deleteSiteDataBlockTransportExecute': 'siteData:deleteSiteDataBlockOperationExecute',
 }
 const handlerIdByFunctionRef: Record<string, string> = {
   'assets:moveAsset': 'ginko-cms.move-asset',
