@@ -21,34 +21,33 @@
  */
 
 import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import type { OperationHandle } from '@lupinum/trellis/backend'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import { operations } from '../../packages/convex/generated/operationHandles/testing'
 import { createCtx, seedOwner } from '../component/entries/helpers'
 
 const api = anyApi
 const functionNameSymbol = Symbol.for('functionName')
 const identityForwardingKey = 'test-ginko-cms-component-forwarding-key'
+const createEntryOperation = operations.byId['ginko-cms.create-entry']
+const saveEntryDraftOperation = operations.byId['ginko-cms.save-entry-draft']
+const publishEntryOperation = operations.byId['ginko-cms.publish-entry']
+const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
+const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
+const rollbackVersionOperation = operations.byId['ginko-cms.rollback-version']
 
 process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= identityForwardingKey
 process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= identityForwardingKey
 
 function getFunctionRef(ref: unknown): string {
-  const publicSurfaceForwardingRefs: Record<string, string> = {
-    'entries/tree:createEntry': 'ginko-cms.create-entry',
-    'entries/draft:saveEntryDraft': 'ginko-cms.save-entry-draft',
-  }
   if (typeof ref === 'string') return ref
   if (typeof ref === 'object' && ref !== null) {
     const record = ref as Record<string | symbol, unknown>
-    if (typeof record[functionNameSymbol] === 'string') {
-      return publicSurfaceForwardingRefs[record[functionNameSymbol]] ?? record[functionNameSymbol]
-    }
-    if (typeof record._path === 'string')
-      return publicSurfaceForwardingRefs[record._path] ?? record._path
-    if (typeof record.functionPath === 'string') {
-      return publicSurfaceForwardingRefs[record.functionPath] ?? record.functionPath
-    }
+    if (typeof record[functionNameSymbol] === 'string') return record[functionNameSymbol]
+    if (typeof record._path === 'string') return record._path
+    if (typeof record.functionPath === 'string') return record.functionPath
   }
 
   throw new Error('Workflow test requires an exact function ref.')
@@ -78,7 +77,19 @@ function workflowClient(ctx: ReturnType<typeof createCtx>, userId: string) {
       await client('query', fn).query(fn as never, args as never),
     action: async (fn: unknown, args?: Record<string, unknown>) =>
       await client('action', fn).action(fn as never, args as never),
+    operation: <TOperation extends OperationHandle>(operation: TOperation) =>
+      ctx.asCaller(caller).operation(operation),
   }
+}
+
+type WorkflowClient = ReturnType<typeof workflowClient>
+
+async function createEntry(owner: WorkflowClient, args: Record<string, unknown>) {
+  return (await owner.operation(createEntryOperation).execute(args)) as string
+}
+
+async function saveEntryDraft(owner: WorkflowClient, args: Record<string, unknown>) {
+  return await owner.operation(saveEntryDraftOperation).execute(args)
 }
 
 async function seedFixture(ctx: ReturnType<typeof createCtx>) {
@@ -243,13 +254,13 @@ function publishDiffStatus(locale: {
 }
 
 async function previewPublish(
-  owner: ReturnType<typeof workflowClient>,
+  owner: WorkflowClient,
   ctx: ReturnType<typeof createCtx>,
   entryId: string,
   locales: string[],
 ) {
   const draftVersion = await readEntryDraftVersion(ctx, entryId)
-  const operationPreview = (await owner.mutation(api.editor.previewPublishEntryOperation, {
+  const operationPreview = (await owner.operation(publishEntryOperation).preview({
     entryId,
     locales,
     expectedVersion: draftVersion,
@@ -283,7 +294,7 @@ async function previewPublish(
 }
 
 async function publishFromPreview(
-  owner: ReturnType<typeof workflowClient>,
+  owner: WorkflowClient,
   entryId: string,
   preview: { locales: string[]; draftVersion: number; draftHash: string },
   message: string | null = null,
@@ -294,67 +305,32 @@ async function publishFromPreview(
     expectedVersion: preview.draftVersion,
     ...(message === null ? {} : { message }),
   }
-  return await executeConfirmedOperation(owner, {
-    operationId: 'ginko-cms.publish-entry',
-    execute: api.entries.publish.publishEntryOperationExecute,
-    preview: api.editor.previewPublishEntryOperation,
-    args,
-  })
+  const operation = owner.operation(publishEntryOperation)
+  const operationPreview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: operationPreview.confirmation })
 }
 
-async function unpublishConfirmed(owner: ReturnType<typeof workflowClient>, entryId: string) {
-  return await executeConfirmedOperation(owner, {
-    operationId: 'ginko-cms.unpublish-entry',
-    execute: api.entries.publish.unpublishEntryOperationExecute,
-    preview: api.editor.previewUnpublishEntryOperation,
-    args: { entryId },
-  })
+async function unpublishConfirmed(owner: WorkflowClient, entryId: string) {
+  const operation = owner.operation(unpublishEntryOperation)
+  const args = { entryId }
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
 }
 
-async function archiveConfirmed(owner: ReturnType<typeof workflowClient>, entryId: string) {
-  return await executeConfirmedOperation(owner, {
-    operationId: 'ginko-cms.archive-entry',
-    execute: api.entries.publish.archiveEntryOperationExecute,
-    preview: api.editor.previewArchiveEntryOperation,
-    args: { entryId },
-  })
+async function archiveConfirmed(owner: WorkflowClient, entryId: string) {
+  const operation = owner.operation(archiveEntryOperation)
+  const args = { entryId }
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
 }
 
 async function rollbackConfirmed(
-  owner: ReturnType<typeof workflowClient>,
+  owner: WorkflowClient,
   args: { entryId: string; versionId: string; publish?: boolean },
 ) {
-  return await executeConfirmedOperation(owner, {
-    operationId: 'ginko-cms.rollback-version',
-    execute: api.entries.publish.rollbackVersionOperationExecute,
-    preview: api.editor.previewRollbackVersionOperation,
-    args,
-  })
-}
-
-async function executeConfirmedOperation(
-  owner: ReturnType<typeof workflowClient>,
-  input: {
-    operationId: string
-    execute: unknown
-    preview: unknown
-    args: Record<string, unknown>
-  },
-) {
-  const previewResult = (await owner.mutation(input.preview, input.args)) as {
-    confirmation?: { token: string; expiresAt: number }
-  }
-  const token =
-    previewResult.confirmation && previewResult.confirmation.expiresAt > Date.now()
-      ? previewResult.confirmation.token
-      : null
-  if (!token)
-    throw new Error(`Preview for ${input.operationId} did not return a confirmation token.`)
-
-  return await owner.mutation(input.execute, {
-    ...input.args,
-    _confirmationToken: token,
-  })
+  const operation = owner.operation(rollbackVersionOperation)
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
 }
 
 function stableJson(value: unknown): string {
@@ -406,12 +382,12 @@ describe('Gate 1 — workflow backend spine', () => {
     await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    const entryId = (await owner.mutation(api.entries.tree.createEntry, {
+    const entryId = (await createEntry(owner, {
       collection: 'posts',
       slug: 'created-from-workflow',
       localized: { title: 'Created from workflow' },
     })) as string
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -453,7 +429,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    const result = await owner.mutation(api.entries.draft.saveEntryDraft, {
+    const result = await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -480,7 +456,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -491,7 +467,7 @@ describe('Gate 1 — workflow backend spine', () => {
       },
     })
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 2,
       patch: {
@@ -509,7 +485,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -520,7 +496,7 @@ describe('Gate 1 — workflow backend spine', () => {
       },
     })
 
-    const result = await owner.mutation(api.entries.draft.saveEntryDraft, {
+    const result = await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 2,
       patch: {
@@ -543,7 +519,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -593,7 +569,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -629,7 +605,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: { locales: { en: { values: { title: 'A' } } } },
@@ -637,7 +613,7 @@ describe('Gate 1 — workflow backend spine', () => {
 
     // Second caller using the stale version 1 must be rejected.
     await expect(
-      owner.mutation(api.entries.draft.saveEntryDraft, {
+      saveEntryDraft(owner, {
         entryId,
         expectedDraftVersion: 1,
         patch: { locales: { en: { values: { title: 'B' } } } },
@@ -652,14 +628,14 @@ describe('Gate 1 — workflow backend spine', () => {
     const owner = workflowClient(ctx, 'owner-1')
 
     // Save EN.
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: { locales: { en: { values: { title: 'English title' } } } },
     })
 
     // Save DE — uses the new draftVersion=2.
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 2,
       patch: { locales: { de: { values: { title: 'Deutscher Titel' } } } },
@@ -685,7 +661,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -714,7 +690,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId, collectionId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -731,14 +707,14 @@ describe('Gate 1 — workflow backend spine', () => {
     const preview = await previewPublish(owner, ctx, entryId, ['en'])
 
     // Mutate the draft after the preview. The token's draftVersion is now stale.
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 2,
       patch: { locales: { en: { values: { title: 'Hello (changed)' } } } },
     })
 
     await expect(
-      owner.mutation(api.entries.publish.publishEntryOperationExecute, {
+      owner.operation(publishEntryOperation).execute({
         entryId,
         locales: preview.locales,
         expectedVersion: preview.draftVersion,
@@ -825,7 +801,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -837,7 +813,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const preview = await previewPublish(owner, ctx, entryId, ['en'])
 
     await expect(
-      owner.mutation(api.entries.publish.publishEntryOperationExecute, {
+      owner.operation(publishEntryOperation).execute({
         entryId,
         locales: preview.locales,
         expectedVersion: preview.draftVersion,
@@ -861,7 +837,7 @@ describe('Gate 1 — workflow backend spine', () => {
       )
     })
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -874,7 +850,7 @@ describe('Gate 1 — workflow backend spine', () => {
       /ENTRY_PUBLISH_SCHEMA_INVALID|collection schema|expected at least/,
     )
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 2,
       patch: { locales: { en: { values: { title: 'Valid title' } } } },
@@ -906,7 +882,7 @@ describe('Gate 1 — workflow backend spine', () => {
         } as never,
       )
     })
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -944,7 +920,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -963,7 +939,7 @@ describe('Gate 1 — workflow backend spine', () => {
     expect(preview.operationPreview.blockers.length).toBeGreaterThan(0)
 
     await expect(publishFromPreview(owner, entryId, preview)).rejects.toThrow(
-      /did not return a confirmation token/,
+      /Destructive operation requires confirmation/,
     )
   })
 
@@ -985,7 +961,7 @@ describe('Gate 1 — workflow backend spine', () => {
       parentEntryId: parentId,
     })
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId: parentId,
       expectedDraftVersion: 1,
       patch: {
@@ -995,14 +971,14 @@ describe('Gate 1 — workflow backend spine', () => {
     })
     await publishFromPreview(owner, parentId, await previewPublish(owner, ctx, parentId, ['en']))
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId: parentId,
       expectedDraftVersion: 2,
       patch: {
         shared: { slug: 'root-a-draft' },
       },
     })
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId: childId,
       expectedDraftVersion: 1,
       patch: {
@@ -1030,7 +1006,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId, collectionId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1046,7 +1022,7 @@ describe('Gate 1 — workflow backend spine', () => {
       slug: 'second',
       orderRank: 'b0',
     })
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId: secondEntryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1057,7 +1033,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const secondPreview = await previewPublish(owner, ctx, secondEntryId, ['en'])
 
     await expect(publishFromPreview(owner, secondEntryId, secondPreview)).rejects.toThrow(
-      /did not return a confirmation token|ENTRY_PUBLISHED_PATH_CONFLICT/,
+      /Destructive operation requires confirmation|ENTRY_PUBLISHED_PATH_CONFLICT/,
     )
 
     const publicRows = await ctx.raw.run(async (db) => await db.db.query('publicEntries').collect())
@@ -1084,7 +1060,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1101,7 +1077,7 @@ describe('Gate 1 — workflow backend spine', () => {
       slug: 'hello',
       orderRank: 'a0',
     })
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId: docsEntryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1125,7 +1101,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const galleryAssetId = 'asset000000000000000002'
     const bodyAssetId = 'asset000000000000000003'
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1216,7 +1192,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const owner = workflowClient(ctx, 'owner-1')
 
     // Set up both locales.
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1272,7 +1248,7 @@ describe('Gate 1 — workflow backend spine', () => {
     })
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1305,7 +1281,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1318,7 +1294,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const r1 = await publishFromPreview(owner, entryId, p1)
 
     // Edit + republish.
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 2,
       patch: { locales: { en: { values: { title: 'v2' } } } },
@@ -1353,7 +1329,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1373,7 +1349,7 @@ describe('Gate 1 — workflow backend spine', () => {
       [],
     )
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 2,
       patch: { locales: { en: { values: { title: 'v2' }, bodyMdc: '# v2' } } },
@@ -1398,7 +1374,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1412,7 +1388,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const preview = await previewPublish(owner, ctx, entryId, ['en', 'de'])
     await publishFromPreview(owner, entryId, preview)
 
-    const unpublishPreview = (await owner.mutation(api.editor.previewUnpublishEntryOperation, {
+    const unpublishPreview = (await owner.operation(unpublishEntryOperation).preview({
       entryId,
     })) as { allowed: boolean; details?: { publicRoutes?: Array<{ locale: string }> } }
     expect(unpublishPreview.allowed).toBe(true)
@@ -1466,7 +1442,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1478,7 +1454,7 @@ describe('Gate 1 — workflow backend spine', () => {
     await publishFromPreview(owner, entryId, preview)
 
     await expect(
-      owner.mutation(api.entries.publish.unpublishEntryOperationExecute, {
+      owner.operation(unpublishEntryOperation).execute({
         entryId,
       }),
     ).rejects.toThrow(/Destructive operation requires confirmation/)
@@ -1490,7 +1466,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1504,7 +1480,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const preview = await previewPublish(owner, ctx, entryId, ['en', 'de'])
     await publishFromPreview(owner, entryId, preview)
 
-    const archivePreview = (await owner.mutation(api.editor.previewArchiveEntryOperation, {
+    const archivePreview = (await owner.operation(archiveEntryOperation).preview({
       entryId,
     })) as { allowed: boolean; details?: { publicRoutes?: Array<{ locale: string }> } }
     expect(archivePreview.allowed).toBe(true)
@@ -1556,7 +1532,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1571,7 +1547,7 @@ describe('Gate 1 — workflow backend spine', () => {
     await publishFromPreview(owner, entryId, preview)
 
     await expect(
-      owner.mutation(api.entries.publish.archiveEntryOperationExecute, {
+      owner.operation(archiveEntryOperation).execute({
         entryId,
       }),
     ).rejects.toThrow(/Destructive operation requires confirmation/)
@@ -1583,7 +1559,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1597,7 +1573,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const preview = await previewPublish(owner, ctx, entryId, ['en', 'de'])
     const publish = await publishFromPreview(owner, entryId, preview)
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 2,
       patch: {
@@ -1646,7 +1622,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const { entryId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -1660,7 +1636,7 @@ describe('Gate 1 — workflow backend spine', () => {
     const p1 = await previewPublish(owner, ctx, entryId, ['en', 'de'])
     const r1 = await publishFromPreview(owner, entryId, p1)
 
-    await owner.mutation(api.entries.draft.saveEntryDraft, {
+    await saveEntryDraft(owner, {
       entryId,
       expectedDraftVersion: 2,
       patch: { locales: { en: { values: { title: 'v2 EN' }, bodyMdc: '# v2 EN' } } },
