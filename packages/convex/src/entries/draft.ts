@@ -201,7 +201,7 @@ async function revertCanonicalDraftToPublished(
 }
 
 export const createLocaleVariant = callerMutation.protected({
-  identityForwardingFunctionRef: 'editor:createLocaleVariant',
+  id: 'editor:createLocaleVariant',
   args: createLocaleVariantArgs.args,
   guard: canCreateEntries,
   returns: v.string(),
@@ -282,7 +282,6 @@ export const saveEntryDraftOperation = defineOperation({
   name: 'save-entry-draft',
   kind: 'safe',
   safety: 'bounded-write',
-  identityForwardingFunctionRef: 'editor:saveEntryDraft',
   args: saveEntryDraftArgs.args,
   guard: canEditEntries,
   returns: draftSaveResultValidator,
@@ -366,6 +365,7 @@ export const revertDraftToPublishedOperation = defineOperation({
   id: 'ginko-cms.revert-draft-to-published',
   name: 'revert-draft-to-published',
   kind: 'destructive',
+  executeFunctionRef: 'entries/draft:revertDraftToPublishedOperationExecute',
   args: revertDraftToPublishedArgs.args,
   guard: canEditEntries,
   returns: draftSaveResultValidator,
@@ -423,14 +423,14 @@ export const revertDraftToPublishedOperation = defineOperation({
 
 export const revertDraftToPublishedOperationExecute = callerMutation.protected({
   ...revertDraftToPublishedOperation,
-  identityForwardingFunctionRef: 'entries/draft:revertDraftToPublishedOperationExecute',
+  id: 'entries/draft:revertDraftToPublishedOperationExecute',
 })
 export const revertDraftToPublishedTransportExecute = callerTransportMutation({
   ...revertDraftToPublishedOperation,
-  identityForwardingFunctionRef: 'entries/draft:revertDraftToPublishedTransportExecute',
+  id: 'entries/draft:revertDraftToPublishedTransportExecute',
 })
 export const previewRevertDraftToPublishedOperation = callerMutation.protected(
   Object.assign(previewOf(revertDraftToPublishedOperation), {
-    identityForwardingFunctionRef: 'editor:previewRevertDraftToPublishedOperation',
+    id: 'editor:previewRevertDraftToPublishedOperation',
   }),
 )

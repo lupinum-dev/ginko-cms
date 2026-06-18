@@ -142,6 +142,7 @@ export async function recomputeCollectionDerivedState(
 }
 
 export const rebuildAllReadModels = callerMutation.protected({
+  id: 'sync:rebuildAllReadModels',
   args: {},
   guard: canManageCollections,
   returns: v.null(),
@@ -447,7 +448,7 @@ async function syncCodeDefinedCollectionContracts(
 }
 
 export const checkCollectionContractsInternal = unsafeRaw.query({
-  identityForwardingFunctionRef: 'sync:checkCollectionContractsInternal',
+  id: 'sync:checkCollectionContractsInternal',
   permit: unsafePermit.permit({
     kind: 'componentContractCheck',
     reason:
@@ -514,7 +515,7 @@ export const checkCollectionContractsInternal = unsafeRaw.query({
 })
 
 export const installCollectionContractsInternal = unsafeRaw.mutation({
-  identityForwardingFunctionRef: 'sync:installCollectionContractsInternal',
+  id: 'sync:installCollectionContractsInternal',
   permit: unsafePermit.permit({
     kind: 'componentContractInstall',
     reason:

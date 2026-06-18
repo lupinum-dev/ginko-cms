@@ -28,7 +28,7 @@ import {
   mapActivePublicEntryRow,
 } from './entries/projections.js'
 import { throwCmsError } from './errors.js'
-import { callerQuery } from './functions.js'
+import { callerQuery, cmsPublicReadTables } from './functions.js'
 import {
   assertCollectionSupportsLocale,
   getCollection,
@@ -691,7 +691,8 @@ function buildSnippet(source: string | null | undefined, queryText?: string) {
 // AUTH-AUDIT: all raw.query exports in this module are intentionally unguarded —
 // they serve the public-facing content API (read-only, published data only).
 export const page = callerQuery.public({
-  identityForwardingFunctionRef: 'public:page',
+  id: 'public:page',
+  reads: cmsPublicReadTables,
   args: pageArgs.args,
   returns: ginkoPageResultValidator,
   handler: async (ctx, args) => {
@@ -744,7 +745,8 @@ export const page = callerQuery.public({
 })
 
 export const routeMeta = callerQuery.public({
-  identityForwardingFunctionRef: 'public:routeMeta',
+  id: 'public:routeMeta',
+  reads: cmsPublicReadTables,
   args: routeMetaArgs.args,
   returns: ginkoPageResultValidator,
   handler: async (ctx, args) => {
@@ -800,7 +802,8 @@ export const routeMeta = callerQuery.public({
 })
 
 export const list = callerQuery.public({
-  identityForwardingFunctionRef: 'public:list',
+  id: 'public:list',
+  reads: cmsPublicReadTables,
   args: listArgs.args,
   returns: ginkoListResultValidator,
   handler: async (ctx, args) => {
@@ -845,7 +848,8 @@ export const list = callerQuery.public({
 })
 
 export const nav = callerQuery.public({
-  identityForwardingFunctionRef: 'public:nav',
+  id: 'public:nav',
+  reads: cmsPublicReadTables,
   args: navArgs.args,
   returns: ginkoNavResultValidator,
   handler: async (ctx, args) => {
@@ -917,7 +921,8 @@ export const nav = callerQuery.public({
 })
 
 export const surround = callerQuery.public({
-  identityForwardingFunctionRef: 'public:surround',
+  id: 'public:surround',
+  reads: cmsPublicReadTables,
   args: surroundArgs.args,
   returns: ginkoSurroundResultValidator,
   handler: async (ctx, args) => {
@@ -1000,7 +1005,8 @@ export const surround = callerQuery.public({
 })
 
 export const search = callerQuery.public({
-  identityForwardingFunctionRef: 'public:search',
+  id: 'public:search',
+  reads: cmsPublicReadTables,
   args: searchArgs.args,
   returns: ginkoSearchResultValidator,
   handler: async (ctx, args) => {
@@ -1055,7 +1061,8 @@ export const search = callerQuery.public({
 })
 
 export const sitemap = callerQuery.public({
-  identityForwardingFunctionRef: 'public:sitemap',
+  id: 'public:sitemap',
+  reads: cmsPublicReadTables,
   args: sitemapArgs.args,
   returns: ginkoSitemapResultValidator,
   handler: async (ctx, args) => {
@@ -1098,7 +1105,8 @@ export const sitemap = callerQuery.public({
 })
 
 export const singleton = callerQuery.public({
-  identityForwardingFunctionRef: 'public:singleton',
+  id: 'public:singleton',
+  reads: cmsPublicReadTables,
   args: singletonArgs.args,
   returns: ginkoSingletonResultValidator,
   handler: async (ctx, args) => {
@@ -1157,7 +1165,8 @@ export const singleton = callerQuery.public({
 })
 
 export const siteData = callerQuery.public({
-  identityForwardingFunctionRef: 'public:siteData',
+  id: 'public:siteData',
+  reads: cmsPublicReadTables,
   args: siteDataArgs.args,
   returns: ginkoSiteDataResultValidator,
   handler: async (ctx, args) => {

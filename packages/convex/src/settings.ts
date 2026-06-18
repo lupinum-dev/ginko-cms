@@ -53,7 +53,7 @@ function assertWebhookUrl(url: string) {
 }
 
 export const getStudioSettings = callerQuery.protected({
-  identityForwardingFunctionRef: 'settings:getStudioSettings',
+  id: 'settings:getStudioSettings',
   args: {},
   guard: canRead,
   returns: studioSettingsValidator,
@@ -61,7 +61,7 @@ export const getStudioSettings = callerQuery.protected({
 })
 
 export const getSettings = callerQuery.protected({
-  identityForwardingFunctionRef: 'settings:getSettings',
+  id: 'settings:getSettings',
   args: {},
   guard: canManageSettings,
   returns: cmsSettingsValidator,
@@ -108,7 +108,7 @@ export const syncBootstrapSettings = unsafeRaw.mutation({
 })
 
 export const updateSettings = callerMutation.protected({
-  identityForwardingFunctionRef: 'settings:updateSettings',
+  id: 'settings:updateSettings',
   args: updateSettingsArgs.args,
   guard: canManageSettings,
   returns: v.null(),

@@ -605,7 +605,7 @@ async function buildLocaleVisibility(args: {
 }
 
 export const validatePublicRoutes = callerQuery.protected({
-  identityForwardingFunctionRef: 'diagnostics:validatePublicRoutes',
+  id: 'diagnostics:validatePublicRoutes',
   args: validatePublicRoutesArgs.args,
   guard: canRead,
   returns: v.array(ginkoRouteDiagnosticValidator),
@@ -616,7 +616,7 @@ export const validatePublicRoutes = callerQuery.protected({
 })
 
 export const explainPublicVisibility = callerQuery.protected({
-  identityForwardingFunctionRef: 'diagnostics:explainPublicVisibility',
+  id: 'diagnostics:explainPublicVisibility',
   args: explainPublicVisibilityArgs.args,
   guard: canRead,
   returns: ginkoPublicVisibilityExplanationValidator,
@@ -1152,7 +1152,7 @@ export async function previewPublishImpactForEntry(
 }
 
 export const previewPublishImpact = callerQuery.protected({
-  identityForwardingFunctionRef: 'diagnostics:previewPublishImpact',
+  id: 'diagnostics:previewPublishImpact',
   args: previewPublishImpactArgs.args,
   guard: canRead,
   returns: ginkoPublishImpactResultValidator,
@@ -1207,7 +1207,7 @@ function countByEntry(rows: Array<Doc<'entryRevisions'> | Doc<'contentAssetRefs'
 }
 
 export const storageHygieneReport = callerQuery.protected({
-  identityForwardingFunctionRef: 'diagnostics:storageHygieneReport',
+  id: 'diagnostics:storageHygieneReport',
   args: {},
   guard: hasRole('owner'),
   returns: v.object({

@@ -54,7 +54,6 @@ export const createEntryOperation = defineOperation({
   name: 'create-entry',
   kind: 'safe',
   safety: 'bounded-write',
-  identityForwardingFunctionRef: 'editor:createEntry',
   args: createEntryArgs.args,
   guard: canCreateEntries,
   returns: v.string(),
@@ -82,7 +81,7 @@ export const createEntry = callerMutation.protected({
 })
 
 export const reorderEntry = callerMutation.protected({
-  identityForwardingFunctionRef: 'editor:reorderEntry',
+  id: 'editor:reorderEntry',
   args: reorderEntryArgs.args,
   guard: canEditEntries,
   returns: v.null(),
@@ -107,7 +106,7 @@ export const reorderEntry = callerMutation.protected({
 })
 
 export const reparentEntry = callerMutation.protected({
-  identityForwardingFunctionRef: 'editor:reparentEntry',
+  id: 'editor:reparentEntry',
   args: reparentEntryArgs.args,
   guard: canEditEntries,
   returns: v.null(),
@@ -201,7 +200,7 @@ export const deleteEntryOperation = defineOperation({
   id: 'ginko-cms.delete-entry',
   name: 'delete-entry',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'entries/tree:deleteEntryOperationExecute',
+  executeFunctionRef: 'entries/tree:deleteEntryOperationExecute',
   args: deleteEntryArgs.args,
   guard: canDeleteEntries,
   returns: v.null(),
@@ -316,11 +315,11 @@ export const deleteEntryOperationExecute = callerMutation.protected({
 })
 export const deleteEntryTransportExecute = callerTransportMutation({
   ...deleteEntryOperation,
-  identityForwardingFunctionRef: 'entries/tree:deleteEntryTransportExecute',
+  id: 'entries/tree:deleteEntryTransportExecute',
 })
 export const previewDeleteEntryOperation = callerMutation.protected(
   Object.assign(previewOf(deleteEntryOperation), {
-    identityForwardingFunctionRef: 'editor:previewDeleteEntryOperation',
+    id: 'editor:previewDeleteEntryOperation',
   }),
 )
 

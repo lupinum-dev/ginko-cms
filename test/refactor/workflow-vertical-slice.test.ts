@@ -21,7 +21,6 @@
  */
 
 import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import { createIdentityForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
@@ -36,8 +35,8 @@ process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= identityForwardingKey
 
 function getFunctionRef(ref: unknown): string {
   const publicSurfaceForwardingRefs: Record<string, string> = {
-    'entries/tree:createEntry': 'editor:createEntry',
-    'entries/draft:saveEntryDraft': 'editor:saveEntryDraft',
+    'entries/tree:createEntry': 'ginko-cms.create-entry',
+    'entries/draft:saveEntryDraft': 'ginko-cms.save-entry-draft',
   }
   if (typeof ref === 'string') return ref
   if (typeof ref === 'object' && ref !== null) {
@@ -61,44 +60,24 @@ function getFunctionRef(ref: unknown): string {
  */
 function workflowClient(ctx: ReturnType<typeof createCtx>, userId: string) {
   const caller = cmsUserCaller(userId)
-  const withCmsCaller = (
-    kind: 'query' | 'mutation' | 'action',
-    fn: unknown,
-    args: Record<string, unknown> | undefined,
-  ) => {
-    const appArgs = { ...(args ?? {}) }
-    return createIdentityForwardingEnvelopeArgs({
-      args: appArgs,
-      caller,
-      transport: 'server',
-      operation: kind,
-      functionRef: getFunctionRef(fn),
-      key: identityForwardingKey,
+  const client = (kind: 'query' | 'mutation' | 'action', fn: unknown) =>
+    ctx.asCaller(caller, {
+      targetFunctionRef: getFunctionRef(fn),
       keyId: 'default',
       ...(kind === 'mutation'
         ? { replayMode: 'jti-redemption' as const }
         : kind === 'action'
           ? { replayMode: 'domain-idempotency' as const }
           : {}),
-      ttlMs: kind === 'query' ? 60_000 : 30_000,
     })
-  }
+
   return {
     mutation: async (fn: unknown, args?: Record<string, unknown>) =>
-      await (
-        ctx.raw.mutation as unknown as (
-          ref: unknown,
-          a?: Record<string, unknown>,
-        ) => Promise<unknown>
-      )(fn, withCmsCaller('mutation', fn, args)),
+      await client('mutation', fn).mutation(fn as never, args as never),
     query: async (fn: unknown, args?: Record<string, unknown>) =>
-      await (
-        ctx.raw.query as unknown as (ref: unknown, a?: Record<string, unknown>) => Promise<unknown>
-      )(fn, withCmsCaller('query', fn, args)),
+      await client('query', fn).query(fn as never, args as never),
     action: async (fn: unknown, args?: Record<string, unknown>) =>
-      await (
-        ctx.raw.action as unknown as (ref: unknown, a?: Record<string, unknown>) => Promise<unknown>
-      )(fn, withCmsCaller('action', fn, args)),
+      await client('action', fn).action(fn as never, args as never),
   }
 }
 

@@ -794,7 +794,7 @@ async function publishImportedEntries(
 }
 
 export const previewImport = callerMutation.protected({
-  identityForwardingFunctionRef: 'imports:previewImport',
+  id: 'imports:previewImport',
   args: previewImportArgs.args,
   guard: canManageCollections,
   returns: importPreviewResultValidator,
@@ -999,7 +999,7 @@ export const previewImport = callerMutation.protected({
 })
 
 export const applyImport = callerMutation.protected({
-  identityForwardingFunctionRef: 'imports:applyImport',
+  id: 'imports:applyImport',
   args: applyImportArgs.args,
   guard: canManageCollections,
   returns: importResultValidator,
@@ -1276,7 +1276,7 @@ export const applyImport = callerMutation.protected({
 })
 
 export const listImportRuns = callerQuery.protected({
-  identityForwardingFunctionRef: 'imports:listImportRuns',
+  id: 'imports:listImportRuns',
   args: listImportRunsArgs.args,
   guard: canManageCollections,
   returns: v.array(importRunValidator),

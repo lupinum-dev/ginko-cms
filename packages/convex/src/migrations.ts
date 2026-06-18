@@ -94,7 +94,7 @@ function migrationPatch(input: {
 }
 
 export const listContentMigrationEntriesInternal = unsafeRaw.query({
-  identityForwardingFunctionRef: 'migrations:listContentMigrationEntriesInternal',
+  id: 'migrations:listContentMigrationEntriesInternal',
   permit: unsafePermit.permit({
     kind: 'componentContentMigrationRead',
     reason:
@@ -145,7 +145,7 @@ export const listContentMigrationEntriesInternal = unsafeRaw.query({
 })
 
 export const applyContentMigrationEntriesInternal = unsafeRaw.mutation({
-  identityForwardingFunctionRef: 'migrations:applyContentMigrationEntriesInternal',
+  id: 'migrations:applyContentMigrationEntriesInternal',
   permit: unsafePermit.permit({
     kind: 'componentContentMigrationApply',
     reason:

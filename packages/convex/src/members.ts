@@ -35,7 +35,7 @@ import {
   isBootstrapUser,
 } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
-import { callerMutation, callerQuery } from './functions.js'
+import { callerMutation, callerQuery, cmsPublicReadTables } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx } from './lib/types.js'
@@ -161,6 +161,7 @@ function normalizeEmail(email: string | null | undefined): string | null {
 }
 
 const getAccessContextDefinition = defineAccessContext({
+  id: 'members:getAccessContext',
   resolve: async (ctx) => await ctx.appIdentity(),
   permissions: cmsPermissions,
   extend: async (_ctx, appIdentity) => ({
@@ -171,7 +172,7 @@ const getAccessContextDefinition = defineAccessContext({
 
 export const getAccessContext = callerQuery.public({
   ...getAccessContextDefinition,
-  identityForwardingFunctionRef: 'members:getAccessContext',
+  reads: cmsPublicReadTables,
 })
 
 /** Validates that the first owner claim is being made by the configured owner email. */
@@ -203,7 +204,7 @@ export function validateFirstOwnerEmail(
 }
 
 export const bootstrapCmsOwner = callerMutation.protected({
-  identityForwardingFunctionRef: 'members:bootstrapCmsOwner',
+  id: 'members:bootstrapCmsOwner',
   args: bootstrapCmsOwnerArgs.args,
   guard: isAuthenticated,
   returns: memberValidator,
@@ -221,7 +222,7 @@ export const bootstrapCmsOwner = callerMutation.protected({
 })
 
 export const listMembers = callerQuery.protected({
-  identityForwardingFunctionRef: 'members:listMembers',
+  id: 'members:listMembers',
   args: {},
   guard: canManageMembers,
   returns: v.array(memberValidator),
@@ -239,7 +240,7 @@ export const listMembers = callerQuery.protected({
 })
 
 export const getMember = callerQuery.protected({
-  identityForwardingFunctionRef: 'members:getMember',
+  id: 'members:getMember',
   args: getMemberArgs.args,
   guard: canManageMembers,
   returns: v.union(v.null(), memberValidator),
@@ -254,7 +255,7 @@ export const getMember = callerQuery.protected({
 })
 
 export const addMember = callerMutation.protected({
-  identityForwardingFunctionRef: 'members:addMember',
+  id: 'members:addMember',
   args: addMemberArgs.args,
   guard: canManageMembers,
   returns: v.string(),
@@ -292,7 +293,7 @@ export const addMember = callerMutation.protected({
 })
 
 export const updateMemberRole = callerMutation.protected({
-  identityForwardingFunctionRef: 'members:updateMemberRole',
+  id: 'members:updateMemberRole',
   args: updateMemberRoleArgs.args,
   guard: canManageMembers,
   returns: v.null(),
@@ -332,7 +333,7 @@ export const removeMemberOperation = defineOperation({
   id: 'ginko-cms.remove-member',
   name: 'remove-member',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'members:removeMemberOperationExecute',
+  executeFunctionRef: 'members:removeMemberOperationExecute',
   args: removeMemberArgs.args,
   guard: canManageMembers,
   returns: v.null(),
@@ -420,6 +421,6 @@ export const removeMemberOperationExecute = callerMutation.protected({
 })
 export const previewRemoveMemberOperation = callerMutation.protected(
   Object.assign(previewOf(removeMemberOperation), {
-    identityForwardingFunctionRef: 'members:previewRemoveMemberOperation',
+    id: 'members:previewRemoveMemberOperation',
   }),
 )

@@ -538,7 +538,7 @@ function revisionDisplayNumber(revisions: EntryRevisionDoc[], revisionId: Id<'en
 }
 
 export const listEntries = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:listEntries',
+  id: 'editor:listEntries',
   args: listEntriesArgs.args,
   guard: canRead,
   returns: v.array(entryListItemValidator),
@@ -551,7 +551,7 @@ export const listEntries = callerQuery.protected({
 })
 
 export const listEntriesForStudio = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:listEntriesForStudio',
+  id: 'editor:listEntriesForStudio',
   args: listEntriesForStudioArgs.args,
   guard: canRead,
   returns: studioEntryListResultValidator,
@@ -607,7 +607,7 @@ export const listEntriesForStudio = callerQuery.protected({
 })
 
 export const listEntrySummaries = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:listEntrySummaries',
+  id: 'editor:listEntrySummaries',
   args: listEntrySummariesArgs.args,
   guard: canRead,
   returns: v.array(entrySummaryValidator),
@@ -638,7 +638,7 @@ export const listEntrySummaries = callerQuery.protected({
 })
 
 export const getStudioOverview = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:getStudioOverview',
+  id: 'editor:getStudioOverview',
   args: getStudioOverviewArgs.args,
   guard: canRead,
   returns: studioOverviewValidator,
@@ -774,7 +774,7 @@ export const getStudioOverview = callerQuery.protected({
 })
 
 export const getEntry = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:getEntry',
+  id: 'editor:getEntry',
   args: getEntryArgs.args,
   guard: canRead,
   returns: v.union(v.null(), studioEntryValidator),
@@ -789,7 +789,7 @@ export const getEntry = callerQuery.protected({
 })
 
 export const listActivity = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:listActivity',
+  id: 'editor:listActivity',
   args: listActivityArgs.args,
   guard: canRead,
   returns: activityListResultValidator,
@@ -827,7 +827,7 @@ export const listActivity = callerQuery.protected({
 })
 
 export const listVersions = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:listVersions',
+  id: 'editor:listVersions',
   args: listVersionsArgs.args,
   guard: canRead,
   returns: v.array(versionListItemValidator),
@@ -864,7 +864,7 @@ export const listVersions = callerQuery.protected({
 })
 
 export const getVersionDiff = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:getVersionDiff',
+  id: 'editor:getVersionDiff',
   args: getVersionDiffArgs.args,
   guard: canRead,
   returns: versionDiffValidator,
@@ -899,7 +899,7 @@ export const getVersionDiff = callerQuery.protected({
 })
 
 export const getEntryActivity = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:getEntryActivity',
+  id: 'editor:getEntryActivity',
   args: getEntryActivityArgs.args,
   guard: canRead,
   returns: v.array(entryActivityItemValidator),
@@ -950,7 +950,7 @@ function extractLocaleFromSnapshot(
 }
 
 export const getVersionSnapshot = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:getVersionSnapshot',
+  id: 'editor:getVersionSnapshot',
   args: getVersionSnapshotArgs.args,
   guard: canRead,
   returns: versionSnapshotPreviewValidator,
@@ -1011,7 +1011,7 @@ export async function getDraftVsPublishedDiffPreview(
 }
 
 export const getDraftVsPublishedDiff = callerQuery.protected({
-  identityForwardingFunctionRef: 'editor:getDraftVsPublishedDiff',
+  id: 'editor:getDraftVsPublishedDiff',
   args: getDraftVsPublishedDiffArgs.args,
   guard: canRead,
   returns: draftVsPublishedDiffValidator,

@@ -118,7 +118,7 @@ export const publishEntryOperation = defineOperation({
   id: 'ginko-cms.publish-entry',
   name: 'publish-entry',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'entries/publish:publishEntryOperationExecute',
+  executeFunctionRef: 'entries/publish:publishEntryOperationExecute',
   args: publishEntryArgs.args,
   guard: canPublishEntries,
   returns: publishResultValidator,
@@ -242,11 +242,11 @@ export const publishEntryOperationExecute = callerMutation.protected({
 })
 export const publishEntryTransportExecute = callerTransportMutation({
   ...publishEntryOperation,
-  identityForwardingFunctionRef: 'entries/publish:publishEntryTransportExecute',
+  id: 'entries/publish:publishEntryTransportExecute',
 })
 export const previewPublishEntryOperation = callerMutation.protected(
   Object.assign(previewOf(publishEntryOperation), {
-    identityForwardingFunctionRef: 'editor:previewPublishEntryOperation',
+    id: 'editor:previewPublishEntryOperation',
   }),
 )
 
@@ -254,7 +254,7 @@ export const unpublishEntryOperation = defineOperation({
   id: 'ginko-cms.unpublish-entry',
   name: 'unpublish-entry',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'entries/publish:unpublishEntryOperationExecute',
+  executeFunctionRef: 'entries/publish:unpublishEntryOperationExecute',
   args: unpublishEntryArgs.args,
   guard: canPublishEntries,
   returns: v.null(),
@@ -324,11 +324,11 @@ export const unpublishEntryOperationExecute = callerMutation.protected({
 })
 export const unpublishEntryTransportExecute = callerTransportMutation({
   ...unpublishEntryOperation,
-  identityForwardingFunctionRef: 'entries/publish:unpublishEntryTransportExecute',
+  id: 'entries/publish:unpublishEntryTransportExecute',
 })
 export const previewUnpublishEntryOperation = callerMutation.protected(
   Object.assign(previewOf(unpublishEntryOperation), {
-    identityForwardingFunctionRef: 'editor:previewUnpublishEntryOperation',
+    id: 'editor:previewUnpublishEntryOperation',
   }),
 )
 
@@ -336,7 +336,7 @@ export const archiveEntryOperation = defineOperation({
   id: 'ginko-cms.archive-entry',
   name: 'archive-entry',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'entries/publish:archiveEntryOperationExecute',
+  executeFunctionRef: 'entries/publish:archiveEntryOperationExecute',
   args: archiveEntryArgs.args,
   guard: canArchiveEntries,
   returns: v.null(),
@@ -404,11 +404,11 @@ export const archiveEntryOperationExecute = callerMutation.protected({
 })
 export const archiveEntryTransportExecute = callerTransportMutation({
   ...archiveEntryOperation,
-  identityForwardingFunctionRef: 'entries/publish:archiveEntryTransportExecute',
+  id: 'entries/publish:archiveEntryTransportExecute',
 })
 export const previewArchiveEntryOperation = callerMutation.protected(
   Object.assign(previewOf(archiveEntryOperation), {
-    identityForwardingFunctionRef: 'editor:previewArchiveEntryOperation',
+    id: 'editor:previewArchiveEntryOperation',
   }),
 )
 
@@ -417,7 +417,6 @@ export const unarchiveEntryOperation = defineOperation({
   name: 'unarchive-entry',
   kind: 'safe',
   safety: 'bounded-write',
-  identityForwardingFunctionRef: 'editor:unarchiveEntry',
   args: unarchiveEntryArgs.args,
   guard: canArchiveEntries,
   returns: v.null(),
@@ -450,7 +449,7 @@ export const rollbackVersionOperation = defineOperation({
   id: 'ginko-cms.rollback-version',
   name: 'rollback-version',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'entries/publish:rollbackVersionOperationExecute',
+  executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute',
   args: rollbackVersionArgs.args,
   guard: canEditEntries,
   load: async (ctx, args) => {
@@ -507,21 +506,22 @@ export const rollbackVersionOperation = defineOperation({
 
 export const rollbackVersionOperationExecute = callerMutation.protected({
   ...rollbackVersionOperation,
+  id: 'ginko-cms.rollback-version',
   guard: canEditEntries,
 })
 export const rollbackVersionTransportExecute = callerTransportMutation({
   ...rollbackVersionOperation,
   guard: canEditEntries,
-  identityForwardingFunctionRef: 'entries/publish:rollbackVersionTransportExecute',
+  id: 'entries/publish:rollbackVersionTransportExecute',
 })
 export const previewRollbackVersionOperation = callerMutation.protected(
   Object.assign(previewOf(rollbackVersionOperation), {
-    identityForwardingFunctionRef: 'editor:previewRollbackVersionOperation',
+    id: 'editor:previewRollbackVersionOperation',
   }),
 )
 
 export const createCheckpoint = callerMutation.protected({
-  identityForwardingFunctionRef: 'editor:createCheckpoint',
+  id: 'editor:createCheckpoint',
   args: createCheckpointArgs.args,
   guard: canEditEntries,
   returns: v.string(),

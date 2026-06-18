@@ -33,7 +33,12 @@ import { assertBackupArtifactCoversPurge } from './backup.js'
 import { readStudioDraftView } from './entries/context.js'
 import { rebuildContentAssetRefsForEntry } from './entries/projections.js'
 import { throwCmsError } from './errors.js'
-import { callerMutation, callerQuery, callerTransportMutation } from './functions.js'
+import {
+  callerMutation,
+  callerQuery,
+  callerTransportMutation,
+  cmsPublicReadTables,
+} from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { getCollection } from './lib/collections.js'
 import { resolveEntryTitle } from './lib/fields.js'
@@ -637,7 +642,7 @@ async function mapAssetManagerAsset(
 }
 
 export const generateUploadUrl = callerMutation.protected({
-  identityForwardingFunctionRef: 'assets:generateUploadUrl',
+  id: 'assets:generateUploadUrl',
   args: {},
   guard: canManageAssets,
   returns: v.string(),
@@ -645,7 +650,7 @@ export const generateUploadUrl = callerMutation.protected({
 })
 
 export const registerAsset = callerMutation.protected({
-  identityForwardingFunctionRef: 'assets:registerAsset',
+  id: 'assets:registerAsset',
   args: registerAssetArgs.args,
   guard: canManageAssets,
   returns: v.string(),
@@ -697,7 +702,7 @@ export const registerAsset = callerMutation.protected({
 })
 
 export const attachAssetsToEntry = callerMutation.protected({
-  identityForwardingFunctionRef: 'assets:attachAssetsToEntry',
+  id: 'assets:attachAssetsToEntry',
   args: attachAssetsToEntryArgs.args,
   guard: canManageAssets,
   returns: v.null(),
@@ -723,7 +728,7 @@ export const attachAssetsToEntry = callerMutation.protected({
 })
 
 export const updateAsset = callerMutation.protected({
-  identityForwardingFunctionRef: 'assets:updateAsset',
+  id: 'assets:updateAsset',
   args: updateAssetArgs.args,
   guard: canManageAssets,
   returns: v.null(),
@@ -767,7 +772,6 @@ export const moveAssetOperation = defineOperation({
   name: 'move-asset',
   kind: 'safe',
   safety: 'bounded-write',
-  identityForwardingFunctionRef: 'assets:moveAsset',
   args: moveAssetArgs.args,
   guard: canManageAssets,
   returns: v.null(),
@@ -796,7 +800,8 @@ export const moveAsset = callerMutation.protected({
 
 // AUTH-AUDIT: intentionally unguarded — public query for resolving asset storage URLs.
 export const getAssetUrl = callerQuery.public({
-  identityForwardingFunctionRef: 'assets:getAssetUrl',
+  id: 'assets:getAssetUrl',
+  reads: cmsPublicReadTables,
   args: getAssetUrlArgs.args,
   returns: v.union(v.null(), v.string()),
   handler: async (ctx, args) => {
@@ -810,7 +815,7 @@ export const getAssetUrl = callerQuery.public({
 })
 
 export const getAsset = callerQuery.protected({
-  identityForwardingFunctionRef: 'assets:getAsset',
+  id: 'assets:getAsset',
   args: getAssetArgs.args,
   guard: canRead,
   returns: v.union(assetManagerAssetValidator, v.null()),
@@ -825,7 +830,7 @@ export const getAsset = callerQuery.protected({
 })
 
 export const resolveAssetUrls = callerQuery.protected({
-  identityForwardingFunctionRef: 'assets:resolveAssetUrls',
+  id: 'assets:resolveAssetUrls',
   args: resolveAssetUrlsArgs.args,
   guard: canRead,
   returns: v.record(v.string(), v.union(v.string(), v.null())),
@@ -856,7 +861,7 @@ export const resolveAssetUrls = callerQuery.protected({
 })
 
 export const listColocatedAssets = callerQuery.protected({
-  identityForwardingFunctionRef: 'assets:listColocatedAssets',
+  id: 'assets:listColocatedAssets',
   args: listColocatedAssetsArgs.args,
   guard: canRead,
   returns: assetColocationGroupsValidator,
@@ -932,7 +937,7 @@ export const listColocatedAssets = callerQuery.protected({
 })
 
 export const getAssetManagerData = callerQuery.protected({
-  identityForwardingFunctionRef: 'assets:getAssetManagerData',
+  id: 'assets:getAssetManagerData',
   args: getAssetManagerDataArgs.args,
   guard: canManageAssets,
   returns: assetManagerPageValidator,
@@ -1008,7 +1013,7 @@ export const getAssetManagerData = callerQuery.protected({
 })
 
 export const rebuildContentAssetRefsPage = callerMutation.protected({
-  identityForwardingFunctionRef: 'assets:rebuildContentAssetRefsPage',
+  id: 'assets:rebuildContentAssetRefsPage',
   args: {
     cursor: v.union(v.string(), v.null()),
     numItems: v.number(),
@@ -1051,7 +1056,7 @@ export const deleteAssetOperation = defineOperation({
   id: 'ginko-cms.delete-asset',
   name: 'delete-asset',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'assets:deleteAssetOperationExecute',
+  executeFunctionRef: 'assets:deleteAssetOperationExecute',
   args: deleteAssetArgs.args,
   guard: canManageAssets,
   returns: v.null(),
@@ -1139,16 +1144,16 @@ export const deleteAssetOperationExecute = callerMutation.protected({
 })
 export const deleteAssetTransportExecute = callerTransportMutation({
   ...deleteAssetOperation,
-  identityForwardingFunctionRef: 'assets:deleteAssetTransportExecute',
+  id: 'assets:deleteAssetTransportExecute',
 })
 export const previewDeleteAssetOperation = callerMutation.protected(
   Object.assign(previewOf(deleteAssetOperation), {
-    identityForwardingFunctionRef: 'assets:previewDeleteAssetOperation',
+    id: 'assets:previewDeleteAssetOperation',
   }),
 )
 
 export const restoreAsset = callerMutation.protected({
-  identityForwardingFunctionRef: 'assets:restoreAsset',
+  id: 'assets:restoreAsset',
   args: { assetId: v.string() },
   guard: canManageAssets,
   returns: v.null(),
@@ -1180,7 +1185,7 @@ export const purgeAssetOperation = defineOperation({
   id: 'ginko-cms.purge-asset',
   name: 'purge-asset',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'assets:purgeAsset',
+  executeFunctionRef: 'assets:purgeAsset',
   args: purgeAssetArgs,
   guard: canManageAssets,
   returns: v.null(),
@@ -1333,6 +1338,6 @@ export const purgeAsset = callerMutation.protected({
 
 export const previewPurgeAssetOperation = callerMutation.protected(
   Object.assign(previewOf(purgeAssetOperation), {
-    identityForwardingFunctionRef: 'assets:previewPurgeAssetOperation',
+    id: 'assets:previewPurgeAssetOperation',
   }),
 )

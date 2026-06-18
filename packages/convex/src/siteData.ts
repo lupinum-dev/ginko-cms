@@ -94,7 +94,7 @@ async function revalidatePublicSiteDataIfNeeded(
 }
 
 export const listSiteData = callerQuery.protected({
-  identityForwardingFunctionRef: 'siteData:listSiteData',
+  id: 'siteData:listSiteData',
   args: {},
   guard: canRead,
   returns: v.array(siteDataListItemValidator),
@@ -112,7 +112,7 @@ export const listSiteData = callerQuery.protected({
 })
 
 export const getSiteDataBlock = callerQuery.protected({
-  identityForwardingFunctionRef: 'siteData:getSiteDataBlock',
+  id: 'siteData:getSiteDataBlock',
   args: getSiteDataBlockArgs.args,
   guard: canRead,
   returns: siteDataBlockValidator,
@@ -137,7 +137,7 @@ export const getSiteDataBlock = callerQuery.protected({
 })
 
 export const createSiteDataBlock = callerMutation.protected({
-  identityForwardingFunctionRef: 'siteData:createSiteDataBlock',
+  id: 'siteData:createSiteDataBlock',
   args: createSiteDataBlockArgs.args,
   guard: canManageSettings,
   returns: v.string(),
@@ -202,7 +202,7 @@ export const createSiteDataBlock = callerMutation.protected({
 })
 
 export const saveSiteData = callerMutation.protected({
-  identityForwardingFunctionRef: 'siteData:saveSiteData',
+  id: 'siteData:saveSiteData',
   args: saveSiteDataArgs.args,
   guard: canManageSettings,
   returns: v.null(),
@@ -265,7 +265,7 @@ export const saveSiteData = callerMutation.protected({
 })
 
 export const updateSiteDataBlock = callerMutation.protected({
-  identityForwardingFunctionRef: 'siteData:updateSiteDataBlock',
+  id: 'siteData:updateSiteDataBlock',
   args: updateSiteDataBlockArgs.args,
   guard: canManageSettings,
   returns: v.null(),
@@ -323,7 +323,7 @@ export const deleteSiteDataBlockOperation = defineOperation({
   id: 'ginko-cms.delete-site-data-block',
   name: 'delete-site-data-block',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'siteData:deleteSiteDataBlockOperationExecute',
+  executeFunctionRef: 'siteData:deleteSiteDataBlockOperationExecute',
   args: deleteSiteDataBlockArgs.args,
   guard: canManageSettings,
   returns: v.null(),
@@ -394,10 +394,10 @@ export const deleteSiteDataBlockOperationExecute = callerMutation.protected({
 })
 export const deleteSiteDataBlockTransportExecute = callerTransportMutation({
   ...deleteSiteDataBlockOperation,
-  identityForwardingFunctionRef: 'siteData:deleteSiteDataBlockTransportExecute',
+  id: 'siteData:deleteSiteDataBlockTransportExecute',
 })
 export const previewDeleteSiteDataBlockOperation = callerMutation.protected(
   Object.assign(previewOf(deleteSiteDataBlockOperation), {
-    identityForwardingFunctionRef: 'siteData:previewDeleteSiteDataBlockOperation',
+    id: 'siteData:previewDeleteSiteDataBlockOperation',
   }),
 )

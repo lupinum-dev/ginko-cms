@@ -49,6 +49,17 @@ type CmsRuntime = ReturnType<
   >
 >
 
+export const cmsPublicReadTables = [
+  'assets',
+  'cmsSettings',
+  'collections',
+  'contentAssetRefs',
+  'entries',
+  'publicEntries',
+  'publicRoutes',
+  'siteData',
+] as const
+
 const caller = defineCaller({
   validator: cmsCallerValidator,
   resolve: async (ctx, args): Promise<CmsCaller> => {
@@ -80,18 +91,6 @@ const cmsRuntime: CmsRuntime = defineTrellis<
     identityForwardingKey: () => getCmsComponentForwardingKey(),
     appIdentity: async (ctx, _args, resolvedCmsCaller) =>
       await getAppIdentity(ctx, resolvedCmsCaller),
-    public: {
-      readTables: [
-        'assets',
-        'cmsSettings',
-        'collections',
-        'contentAssetRefs',
-        'entries',
-        'publicEntries',
-        'publicRoutes',
-        'siteData',
-      ],
-    },
     destructiveOperations: {
       confirmationTable: 'destructiveConfirmations',
       auditTable: 'destructiveAuditLog',

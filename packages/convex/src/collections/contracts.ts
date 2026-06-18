@@ -82,7 +82,7 @@ async function mapCollectionDoc(
 }
 
 export const listCollections = callerQuery.protected({
-  identityForwardingFunctionRef: 'collections:listCollections',
+  id: 'collections:listCollections',
   args: {},
   guard: canRead,
   returns: v.array(collectionListItemValidator),
@@ -106,7 +106,7 @@ export const listCollections = callerQuery.protected({
 })
 
 export const getCollection = callerQuery.protected({
-  identityForwardingFunctionRef: 'collections:getCollection',
+  id: 'collections:getCollection',
   args: getCollectionArgs.args,
   guard: canRead,
   returns: v.union(v.null(), collectionDocValidator),

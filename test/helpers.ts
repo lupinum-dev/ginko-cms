@@ -4,9 +4,9 @@ import {
   type CmsMcpCaller,
   type CmsUserCaller,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import { createIdentityForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 /// <reference types="vite/client" />
 import { createTestContext } from '@lupinum/trellis/testing'
+import type { TestCallerOptions } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 
@@ -18,6 +18,48 @@ const TRUSTED_FORWARDING_KEY = 'test-ginko-cms-component-forwarding-key'
 process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 const functionNameSymbol = Symbol.for('functionName')
+const destructiveExecuteFunctionRefs = new Set([
+  'assets:deleteAssetOperationExecute',
+  'assets:purgeAsset',
+  'backup:deleteBackupArtifactOperationExecute',
+  'entries/draft:revertDraftToPublishedOperationExecute',
+  'entries/publish:archiveEntryOperationExecute',
+  'entries/publish:publishEntryOperationExecute',
+  'entries/publish:rollbackVersionOperationExecute',
+  'entries/publish:unpublishEntryOperationExecute',
+  'entries/tree:deleteEntryOperationExecute',
+  'members:removeMemberOperationExecute',
+  'revalidation:retryRevalidationJobOperationExecute',
+  'siteData:deleteSiteDataBlockOperationExecute',
+])
+const destructiveTransportExecuteFunctionRefs: Record<string, string> = {
+  'assets:deleteAssetTransportExecute': 'assets:deleteAssetOperationExecute',
+  'entries/draft:revertDraftToPublishedTransportExecute':
+    'entries/draft:revertDraftToPublishedOperationExecute',
+  'entries/publish:archiveEntryTransportExecute': 'entries/publish:archiveEntryOperationExecute',
+  'entries/publish:publishEntryTransportExecute': 'entries/publish:publishEntryOperationExecute',
+  'entries/publish:rollbackVersionTransportExecute':
+    'entries/publish:rollbackVersionOperationExecute',
+  'entries/publish:unpublishEntryTransportExecute':
+    'entries/publish:unpublishEntryOperationExecute',
+  'entries/tree:deleteEntryTransportExecute': 'entries/tree:deleteEntryOperationExecute',
+  'siteData:deleteSiteDataBlockTransportExecute': 'siteData:deleteSiteDataBlockOperationExecute',
+}
+const handlerIdByFunctionRef: Record<string, string> = {
+  'assets:moveAsset': 'ginko-cms.move-asset',
+  'editor:createEntry': 'ginko-cms.create-entry',
+  'editor:saveEntryDraft': 'ginko-cms.save-entry-draft',
+  'entries/draft:saveEntryDraft': 'ginko-cms.save-entry-draft',
+  'entries/publish:unarchiveEntry': 'ginko-cms.unarchive-entry',
+  'entries/tree:createEntry': 'ginko-cms.create-entry',
+}
+
+function toHandlerId(functionRef: string): string {
+  const executeFunctionRef = destructiveTransportExecuteFunctionRefs[functionRef]
+  if (executeFunctionRef) return executeFunctionRef
+  if (destructiveExecuteFunctionRefs.has(functionRef)) return functionRef
+  return handlerIdByFunctionRef[functionRef] ?? functionRef
+}
 
 function getFunctionRef(ref: unknown): string {
   if (typeof ref === 'string') return ref
@@ -32,15 +74,13 @@ function getFunctionRef(ref: unknown): string {
 }
 
 function createCmsCallerClient(
-  raw: ReturnType<typeof createTestContext<typeof schema>>['raw'],
+  ctx: ReturnType<typeof createTestContext<typeof schema>>,
   caller: CmsUserCaller | CmsMcpCaller,
 ) {
-  function withCmsCaller<TKind extends 'query' | 'mutation' | 'action'>(
+  function cmsCallerOptions<TKind extends 'query' | 'mutation' | 'action'>(
     kind: TKind,
     fn: FunctionReference<TKind>,
-    args: Record<string, unknown> | undefined,
-  ) {
-    const appArgs = { ...(args ?? {}) }
+  ): TestCallerOptions {
     const functionRef = getFunctionRef(fn)
     const purpose =
       kind === 'mutation' && functionRef.endsWith('TransportExecute') ? 'operation-execute' : kind
@@ -52,18 +92,13 @@ function createCmsCallerClient(
           : kind === 'action'
             ? 'domain-idempotency'
             : undefined
-    return createIdentityForwardingEnvelopeArgs({
-      args: appArgs,
-      caller,
-      transport: 'server',
-      operation: kind,
+
+    return {
       purpose,
-      functionRef,
-      key: TRUSTED_FORWARDING_KEY,
+      targetFunctionRef: toHandlerId(functionRef),
       keyId: 'default',
       ...(replayMode ? { replayMode } : {}),
-      ttlMs: purpose === 'operation-execute' ? 10_000 : kind === 'query' ? 60_000 : 30_000,
-    })
+    }
   }
 
   return {
@@ -71,52 +106,22 @@ function createCmsCallerClient(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
-      const query = raw.query as unknown as (
-        ref: Query,
-        args?: OptionalRestArgs<Query>[0],
-      ) => Promise<FunctionReturnType<Query>>
-      return await query(
-        fn,
-        withCmsCaller(
-          'query',
-          fn,
-          args[0] as Record<string, unknown> | undefined,
-        ) as OptionalRestArgs<Query>[0],
-      )
+      const client = ctx.asCaller(caller, cmsCallerOptions('query', fn))
+      return await client.query(fn, ...args)
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
-      const mutation = raw.mutation as unknown as (
-        ref: Mutation,
-        args?: OptionalRestArgs<Mutation>[0],
-      ) => Promise<FunctionReturnType<Mutation>>
-      return await mutation(
-        fn,
-        withCmsCaller(
-          'mutation',
-          fn,
-          args[0] as Record<string, unknown> | undefined,
-        ) as OptionalRestArgs<Mutation>[0],
-      )
+      const client = ctx.asCaller(caller, cmsCallerOptions('mutation', fn))
+      return await client.mutation(fn, ...args)
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
-      const action = raw.action as unknown as (
-        ref: Action,
-        args?: OptionalRestArgs<Action>[0],
-      ) => Promise<FunctionReturnType<Action>>
-      return await action(
-        fn,
-        withCmsCaller(
-          'action',
-          fn,
-          args[0] as Record<string, unknown> | undefined,
-        ) as OptionalRestArgs<Action>[0],
-      )
+      const client = ctx.asCaller(caller, cmsCallerOptions('action', fn))
+      return await client.action(fn, ...args)
     },
   }
 }
@@ -124,8 +129,8 @@ function createCmsCallerClient(
 export function createCtx() {
   const ctx = createTestContext({ schema, modules, identityForwardingKey: TRUSTED_FORWARDING_KEY })
   return Object.assign(ctx, {
-    asCmsUser: (userId: string) => createCmsCallerClient(ctx.raw, cmsUserCaller(userId)),
-    asMcpKey: (mcpKeyId: string) => createCmsCallerClient(ctx.raw, cmsMcpCaller(mcpKeyId)),
+    asCmsUser: (userId: string) => createCmsCallerClient(ctx, cmsUserCaller(userId)),
+    asMcpKey: (mcpKeyId: string) => createCmsCallerClient(ctx, cmsMcpCaller(mcpKeyId)),
   })
 }
 

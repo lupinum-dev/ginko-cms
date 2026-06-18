@@ -218,7 +218,7 @@ export async function scheduleRevalidationOutboxDelivery(ctx: MutationCtx) {
 }
 
 export const upsertRevalidationTarget = callerMutation.protected({
-  identityForwardingFunctionRef: 'revalidation:upsertRevalidationTarget',
+  id: 'revalidation:upsertRevalidationTarget',
   args: {
     targetId: v.optional(v.string()),
     name: v.string(),
@@ -263,7 +263,7 @@ export const upsertRevalidationTarget = callerMutation.protected({
 })
 
 export const listRevalidationTargets = callerQuery.protected({
-  identityForwardingFunctionRef: 'revalidation:listRevalidationTargets',
+  id: 'revalidation:listRevalidationTargets',
   args: {},
   guard: canManageSettings,
   returns: v.array(
@@ -294,7 +294,7 @@ export const listRevalidationTargets = callerQuery.protected({
 })
 
 export const listRevalidationJobs = callerQuery.protected({
-  identityForwardingFunctionRef: 'revalidation:listRevalidationJobs',
+  id: 'revalidation:listRevalidationJobs',
   args: {
     status: v.optional(
       v.union(
@@ -356,7 +356,7 @@ export const retryRevalidationJobOperation = defineOperation({
   id: 'ginko-cms.retry-revalidation-job',
   name: 'retry-revalidation-job',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'revalidation:retryRevalidationJobOperationExecute',
+  executeFunctionRef: 'revalidation:retryRevalidationJobOperationExecute',
   args: retryRevalidationJobArgs.args,
   guard: canManageSettings,
   returns: v.null(),
@@ -436,7 +436,7 @@ export const retryRevalidationJobOperationExecute = callerMutation.protected({
 })
 export const previewRetryRevalidationJobOperation = callerMutation.protected(
   Object.assign(previewOf(retryRevalidationJobOperation), {
-    identityForwardingFunctionRef: 'revalidation:previewRetryRevalidationJobOperation',
+    id: 'revalidation:previewRetryRevalidationJobOperation',
   }),
 )
 

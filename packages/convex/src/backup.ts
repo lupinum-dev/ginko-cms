@@ -419,7 +419,7 @@ export const recordBackupArtifact = internalMutation({
 })
 
 export const exportBackup = callerAction.protected({
-  identityForwardingFunctionRef: 'backup:exportBackup',
+  id: 'backup:exportBackup',
   args: backupScopeArgs,
   guard: hasRole('owner'),
   returns: v.object({
@@ -463,7 +463,7 @@ export const exportBackup = callerAction.protected({
 })
 
 export const verifyBackup = callerAction.protected({
-  identityForwardingFunctionRef: 'backup:verifyBackup',
+  id: 'backup:verifyBackup',
   args: { artifactId: v.string() },
   guard: hasRole('owner'),
   returns: v.object({
@@ -515,7 +515,7 @@ export const verifyBackup = callerAction.protected({
 })
 
 export const downloadBackup = callerAction.protected({
-  identityForwardingFunctionRef: 'backup:downloadBackup',
+  id: 'backup:downloadBackup',
   args: { artifactId: v.string() },
   guard: hasRole('owner'),
   returns: v.object({
@@ -559,7 +559,7 @@ export const deleteBackupArtifactOperation = defineOperation({
   id: 'ginko-cms.delete-backup-artifact',
   name: 'delete-backup-artifact',
   kind: 'destructive',
-  identityForwardingFunctionRef: 'backup:deleteBackupArtifactOperationExecute',
+  executeFunctionRef: 'backup:deleteBackupArtifactOperationExecute',
   args: deleteBackupArtifactArgs,
   guard: hasRole('owner'),
   returns: v.null(),
@@ -644,7 +644,7 @@ export const deleteBackupArtifactOperationExecute = callerMutation.protected({
 
 export const previewDeleteBackupArtifactOperation = callerMutation.protected(
   Object.assign(previewOf(deleteBackupArtifactOperation), {
-    identityForwardingFunctionRef: 'backup:previewDeleteBackupArtifactOperation',
+    id: 'backup:previewDeleteBackupArtifactOperation',
   }),
 )
 

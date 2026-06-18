@@ -13,7 +13,7 @@ const MCP_KEY_DEFAULT_TTL_MS = 90 * 24 * 60 * 60 * 1000
 const CONFIRMATION_CLEANUP_BATCH_SIZE = 100
 
 export const list = callerQuery.protected({
-  identityForwardingFunctionRef: 'mcpKeys:list',
+  id: 'mcpKeys:list',
   guard: canManageSettings,
   args: {},
   returns: v.array(mcpKeyValidator),
@@ -54,7 +54,7 @@ export const list = callerQuery.protected({
 })
 
 export const create = callerMutation.protected({
-  identityForwardingFunctionRef: 'mcpKeys:create',
+  id: 'mcpKeys:create',
   guard: canManageSettings,
   args: createMcpKey.args,
   returns: v.string(),
@@ -94,7 +94,7 @@ export const create = callerMutation.protected({
 })
 
 export const revoke = callerMutation.protected({
-  identityForwardingFunctionRef: 'mcpKeys:revoke',
+  id: 'mcpKeys:revoke',
   guard: canManageSettings,
   args: revokeMcpKey.args,
   returns: v.null(),
