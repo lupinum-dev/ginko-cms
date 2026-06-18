@@ -7,11 +7,11 @@ import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
   createCtx,
+  publishEntry,
   seedOwner,
   seedSettings,
   seedTreeFixture,
   seedMultiLocaleSettings,
-  currentDraftVersion,
   seedStorageObject,
 } from './entries/helpers'
 
@@ -77,11 +77,7 @@ async function seedPublishedEntries(
 
   // Publish all
   for (const entryId of entryIds) {
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
   }
 
   return { entryIds }
@@ -174,11 +170,7 @@ describe('public API: asset metadata fallbacks', () => {
       localized: { title: 'Asset alt' },
       shared: { image: { src: assetId, alt: '', caption: '' } },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     const page = await ctx.raw.query(api.public.page, {
       collection: 'posts',
@@ -269,11 +261,7 @@ describe('public API: asset metadata fallbacks', () => {
         },
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     const page = await ctx.raw.query(api.public.page, {
       collection: 'posts',
@@ -578,11 +566,7 @@ describe('public API: list pagination', () => {
         },
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en', 'de'],
-    })
+    await publishEntry(owner, entryId, ['en', 'de'])
 
     const publicEntries = await ctx.readAll('publicEntries')
     const publicRoutes = await ctx.readAll('publicRoutes')
@@ -739,11 +723,7 @@ describe('public API: search pagination', () => {
         title: 'Private Search',
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
     await ctx.raw.run(async (innerCtx) => {
       const row = await innerCtx.db
         .query('publicEntries')
@@ -1028,21 +1008,9 @@ describe('public API: list projection', () => {
       },
     })
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId: managerId,
-      expectedVersion: await currentDraftVersion(owner, managerId),
-      locales: ['en'],
-    })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId: authorId,
-      expectedVersion: await currentDraftVersion(owner, authorId),
-      locales: ['en'],
-    })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId: postId,
-      expectedVersion: await currentDraftVersion(owner, postId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, managerId)
+    await publishEntry(owner, authorId)
+    await publishEntry(owner, postId)
 
     const page = await ctx.raw.query(api.public.page, {
       collection: 'blog',
@@ -1163,11 +1131,7 @@ describe('public API: list projection', () => {
       },
     })
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     const publicEntries = await ctx.readAll('publicEntries')
     const publicEntry = publicEntries.find((entry) => String(entry.entryId) === entryId)
@@ -1240,11 +1204,7 @@ describe('public API: list projection', () => {
       },
     })
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     const page = await ctx.raw.query(api.public.page, {
       collection: 'secure-posts',
@@ -1315,11 +1275,7 @@ describe('public API: list projection', () => {
       fixture.siblingId,
       fixture.grandchildId,
     ]) {
-      await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-        entryId: id,
-        expectedVersion: await currentDraftVersion(owner, id),
-        locales: ['en'],
-      })
+      await publishEntry(owner, id)
     }
 
     const topLevel = await ctx.raw.query(api.public.nav, {
@@ -1399,11 +1355,7 @@ describe('public API: list projection', () => {
       slug: 'hello-world',
       localized: { title: 'Hello world' },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     const page = await ctx.raw.query(api.public.page, {
       collection: 'articles',
@@ -1516,11 +1468,7 @@ describe('public API: stableId redirect', () => {
       localized: { title: 'Original Title' },
     })
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     // Get the published path (includes stableId)
     // Get entry to find its stableId and published path
@@ -1553,11 +1501,7 @@ describe('public API: stableId redirect', () => {
         },
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     // Get new path
     const updatedEntry = await owner.query(api.editor.getEntry, {
@@ -1647,11 +1591,7 @@ describe('public API: SEO and sitemap locale defaults', () => {
         },
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en', 'de'],
-    })
+    await publishEntry(owner, entryId, ['en', 'de'])
 
     const page = await ctx.raw.query(api.public.page, {
       collection: 'blog',
@@ -1733,11 +1673,7 @@ describe('public API: surround', () => {
       fixture.siblingId,
       fixture.grandchildId,
     ]) {
-      await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-        entryId: id,
-        expectedVersion: await currentDraftVersion(owner, id),
-        locales: ['en'],
-      })
+      await publishEntry(owner, id)
     }
 
     // Child and Sibling share a parent (rootA)

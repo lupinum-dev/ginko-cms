@@ -40,11 +40,6 @@ const destructiveExecuteFunctionRefs = new Set([
   'revalidation:retryRevalidationJobOperationExecute',
   'siteData:deleteSiteDataBlockOperationExecute',
 ])
-const destructiveTransportExecuteFunctionRefs: Record<string, string> = {
-  'entries/publish:publishEntryTransportExecute': 'entries/publish:publishEntryOperationExecute',
-  'entries/publish:unpublishEntryTransportExecute':
-    'entries/publish:unpublishEntryOperationExecute',
-}
 const handlerIdByFunctionRef: Record<string, string> = {
   'assets:moveAsset': 'ginko-cms.move-asset',
   'editor:createEntry': 'ginko-cms.create-entry',
@@ -55,8 +50,6 @@ const handlerIdByFunctionRef: Record<string, string> = {
 }
 
 function toHandlerId(functionRef: string): string {
-  const executeFunctionRef = destructiveTransportExecuteFunctionRefs[functionRef]
-  if (executeFunctionRef) return executeFunctionRef
   if (destructiveExecuteFunctionRefs.has(functionRef)) return functionRef
   return handlerIdByFunctionRef[functionRef] ?? functionRef
 }
@@ -82,19 +75,11 @@ function createCmsCallerClient(
     fn: FunctionReference<TKind>,
   ): TestCallerOptions {
     const functionRef = getFunctionRef(fn)
-    const purpose =
-      kind === 'mutation' && functionRef.endsWith('TransportExecute') ? 'operation-execute' : kind
     const replayMode =
-      purpose === 'operation-execute'
-        ? 'operation-confirmation'
-        : kind === 'mutation'
-          ? 'jti-redemption'
-          : kind === 'action'
-            ? 'domain-idempotency'
-            : undefined
+      kind === 'mutation' ? 'jti-redemption' : kind === 'action' ? 'domain-idempotency' : undefined
 
     return {
-      purpose,
+      purpose: kind,
       targetFunctionRef: toHandlerId(functionRef),
       keyId: 'default',
       ...(replayMode ? { replayMode } : {}),
