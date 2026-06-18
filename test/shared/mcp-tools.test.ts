@@ -393,7 +393,6 @@ describe('MCP tool safety contracts', () => {
     expect(runtime).not.toContain('confirmationStore:')
     expect(runtime).not.toContain('redeemTransportConfirmation')
     expect(runtime).toContain('executeOperationRef(operation, call)')
-    expect(runtime).not.toContain('transportExecuteOperationRef(operation, call)')
     expect(runtime).toContain('previewOperationRef(operation, preview)')
     expect(runtime).toContain("previewOperation: 'mutation'")
     expect(runtime).not.toContain('forwardConfirmationToken: false')

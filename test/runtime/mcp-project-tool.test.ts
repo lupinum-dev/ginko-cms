@@ -21,11 +21,6 @@ vi.mock('@lupinum/trellis/backend', () => ({
     operation,
     preview,
   }),
-  transportExecuteOperationRef: (operation: unknown, call: unknown) => ({
-    kind: 'transport-execute',
-    call,
-    operation,
-  }),
 }))
 
 vi.mock('@lupinum/trellis/mcp', () => {
