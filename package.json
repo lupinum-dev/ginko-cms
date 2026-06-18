@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm --filter @lupinum/ginko-cms build",
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:publish-specifiers && pnpm run test",
+    "check": "pnpm run format:check && pnpm run operations:check && pnpm run lint && pnpm run typecheck && pnpm run check:publish-specifiers && pnpm run test",
     "prepare:component": "pnpm --filter @lupinum/ginko-cms-convex prepare:component",
     "prepare:module": "pnpm --filter @lupinum/ginko-cms build",
     "dev": "pnpm run dev:prepare && nuxi dev --cwd playground --dotenv ../.env.local",
@@ -25,6 +25,8 @@
     "check:compatibility-matrix": "node scripts/check-compatibility-matrix.mjs",
     "check:current-content-model": "node scripts/check-current-content-model.mjs",
     "check:stale-surfaces": "node scripts/check-stale-surfaces.mjs",
+    "operations:generate": "trellis operations generate --cwd packages/convex --operation-include 'src/**/*.ts' --operation-exclude 'src/generated/**,src/operations.ts' --projection-root 'callerQuery:query,callerMutation:mutation:preview,callerAction:action' --ignored-projection-root callerTransportMutation --convex-source-root src --operation-refs src/generated/operation-refs.ts --operation-handles src/generated/operation-handles/testing.ts --api-import ../_generated/api.js --relative-import-extension .js --define-operation-handle-import @lupinum/trellis/backend --project-operation-ref-import @lupinum/trellis/backend --operation-descriptor-type-import @lupinum/trellis/backend --descriptor-mode generated-metadata --runtime testing",
+    "operations:check": "pnpm run operations:generate --check --json",
     "lint": "pnpm --filter @lupinum/trellis-eslint build && pnpm run check:component-auth-boundaries && pnpm run check:convex-surface && pnpm run check:installer-bridge-boundary && pnpm run check:live-mcp-tokens && pnpm run check:cms-contract-vendor && pnpm run check:docs:install-story && pnpm run check:public-vocabulary && pnpm run check:compatibility-matrix && pnpm run check:current-content-model && pnpm run check:stale-surfaces && eslint packages test",
     "format": "oxfmt . --ignore-path .oxfmtignore",
     "format:check": "oxfmt --check . --ignore-path .oxfmtignore",

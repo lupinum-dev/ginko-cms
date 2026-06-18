@@ -86,13 +86,16 @@ const __deleteBackupArtifactHandleDescriptor = {
   args: {},
 } as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.delete-backup-artifact'>
 
-export const deleteBackupArtifactHandle = defineOperationHandle(__deleteBackupArtifactHandleDescriptor, {
-  executeRef: ginkoCmsDeleteBackupArtifactExecuteRef,
-  previewRef: ginkoCmsDeleteBackupArtifactPreviewRef,
-  executeOperation: 'mutation',
-  previewOperation: 'mutation',
-  runtimes: ['testing'],
-})
+export const deleteBackupArtifactHandle = defineOperationHandle(
+  __deleteBackupArtifactHandleDescriptor,
+  {
+    executeRef: ginkoCmsDeleteBackupArtifactExecuteRef,
+    previewRef: ginkoCmsDeleteBackupArtifactPreviewRef,
+    executeOperation: 'mutation',
+    previewOperation: 'mutation',
+    runtimes: ['testing'],
+  },
+)
 
 const __deleteEntryHandleDescriptor = {
   _type: 'operation-descriptor',
@@ -118,13 +121,16 @@ const __deleteSiteDataBlockHandleDescriptor = {
   args: {},
 } as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.delete-site-data-block'>
 
-export const deleteSiteDataBlockHandle = defineOperationHandle(__deleteSiteDataBlockHandleDescriptor, {
-  executeRef: ginkoCmsDeleteSiteDataBlockExecuteRef,
-  previewRef: ginkoCmsDeleteSiteDataBlockPreviewRef,
-  executeOperation: 'mutation',
-  previewOperation: 'mutation',
-  runtimes: ['testing'],
-})
+export const deleteSiteDataBlockHandle = defineOperationHandle(
+  __deleteSiteDataBlockHandleDescriptor,
+  {
+    executeRef: ginkoCmsDeleteSiteDataBlockExecuteRef,
+    previewRef: ginkoCmsDeleteSiteDataBlockPreviewRef,
+    executeOperation: 'mutation',
+    previewOperation: 'mutation',
+    runtimes: ['testing'],
+  },
+)
 
 const __moveAssetHandleDescriptor = {
   _type: 'operation-descriptor',
@@ -196,13 +202,16 @@ const __retryRevalidationJobHandleDescriptor = {
   args: {},
 } as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.retry-revalidation-job'>
 
-export const retryRevalidationJobHandle = defineOperationHandle(__retryRevalidationJobHandleDescriptor, {
-  executeRef: ginkoCmsRetryRevalidationJobExecuteRef,
-  previewRef: ginkoCmsRetryRevalidationJobPreviewRef,
-  executeOperation: 'mutation',
-  previewOperation: 'mutation',
-  runtimes: ['testing'],
-})
+export const retryRevalidationJobHandle = defineOperationHandle(
+  __retryRevalidationJobHandleDescriptor,
+  {
+    executeRef: ginkoCmsRetryRevalidationJobExecuteRef,
+    previewRef: ginkoCmsRetryRevalidationJobPreviewRef,
+    executeOperation: 'mutation',
+    previewOperation: 'mutation',
+    runtimes: ['testing'],
+  },
+)
 
 const __revertDraftToPublishedHandleDescriptor = {
   _type: 'operation-descriptor',
@@ -212,13 +221,16 @@ const __revertDraftToPublishedHandleDescriptor = {
   args: {},
 } as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.revert-draft-to-published'>
 
-export const revertDraftToPublishedHandle = defineOperationHandle(__revertDraftToPublishedHandleDescriptor, {
-  executeRef: ginkoCmsRevertDraftToPublishedExecuteRef,
-  previewRef: ginkoCmsRevertDraftToPublishedPreviewRef,
-  executeOperation: 'mutation',
-  previewOperation: 'mutation',
-  runtimes: ['testing'],
-})
+export const revertDraftToPublishedHandle = defineOperationHandle(
+  __revertDraftToPublishedHandleDescriptor,
+  {
+    executeRef: ginkoCmsRevertDraftToPublishedExecuteRef,
+    previewRef: ginkoCmsRevertDraftToPublishedPreviewRef,
+    executeOperation: 'mutation',
+    previewOperation: 'mutation',
+    runtimes: ['testing'],
+  },
+)
 
 const __rollbackVersionHandleDescriptor = {
   _type: 'operation-descriptor',
