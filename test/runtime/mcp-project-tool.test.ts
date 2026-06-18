@@ -10,17 +10,7 @@ vi.mock('@lupinum/trellis/server', () => ({
 
 vi.mock('@lupinum/trellis/backend', () => ({
   createIdentityForwardingEnvelopeArgs: () => ({ _trellisForwarding: 'signed' }),
-  executeOperationRef: (operation: unknown, call: unknown) => ({
-    kind: 'execute',
-    call,
-    operation,
-  }),
   operationPreviewValidator: () => undefined,
-  previewOperationRef: (operation: unknown, preview: unknown) => ({
-    kind: 'preview',
-    operation,
-    preview,
-  }),
 }))
 
 vi.mock('@lupinum/trellis/mcp', () => {
@@ -75,7 +65,7 @@ describe('projectTool MCP safety', () => {
         call: {},
         meta: { name: 'unsafe-delete', destructive: true },
       }),
-    ).toThrow('[ginko-cms] Destructive MCP tools require a Convex preview ref')
+    ).toThrow('[ginko-cms] Destructive MCP tools require a generated operation handle')
 
     expect(() =>
       projectTool({
@@ -85,7 +75,7 @@ describe('projectTool MCP safety', () => {
         meta: { name: 'unsafe-delete', destructive: true },
         preview: {},
       }),
-    ).toThrow('[ginko-cms] Destructive MCP tools require an explicit operation')
+    ).toThrow('[ginko-cms] Destructive MCP tools require a generated operation handle')
   })
 
   it('rejects direct write tools unless they are operation-backed', async () => {
@@ -103,7 +93,7 @@ describe('projectTool MCP safety', () => {
     )
   })
 
-  it('routes bounded write tools through operation execute refs without previews', async () => {
+  it('routes bounded write tools through generated operation handles without previews', async () => {
     const { projectTool } =
       await import('../../packages/cms/src/server/mcp/_shared/project-tool-runtime')
     const operation = { args: {}, id: 'save-entry-draft', safety: 'bounded-write' }
@@ -117,14 +107,12 @@ describe('projectTool MCP safety', () => {
     }) as unknown as { operationBackedDestructive: boolean; options: Record<string, unknown> }
 
     expect(tool.operationBackedDestructive).toBe(true)
-    expect(tool.options).toMatchObject({
-      execute: { kind: 'execute', operation, call },
-    })
+    expect(tool.options).not.toHaveProperty('execute')
     expect(tool.options).not.toHaveProperty('preview')
     expect(tool.options).not.toHaveProperty('confirmationMode')
   })
 
-  it('routes destructive tools through operation preview and execute refs', async () => {
+  it('routes destructive tools through generated operation handles', async () => {
     const { projectTool } =
       await import('../../packages/cms/src/server/mcp/_shared/project-tool-runtime')
     const operation = { args: {}, id: 'delete-entry' }
@@ -135,32 +123,36 @@ describe('projectTool MCP safety', () => {
       schema,
       operation,
       call,
-      preview,
       meta: { name: 'delete-entry', destructive: true },
     }) as unknown as { operationBackedDestructive: boolean; options: Record<string, unknown> }
 
     expect(tool.operationBackedDestructive).toBe(true)
     expect(tool.options).toMatchObject({
       confirmationMode: 'backend',
-      execute: { kind: 'execute', operation, call },
-      preview: { kind: 'preview', operation, preview },
-      previewOperation: 'mutation',
     })
+    expect(tool.options).not.toHaveProperty('execute')
+    expect(tool.options).not.toHaveProperty('preview')
+    expect(tool.options).not.toHaveProperty('previewOperation')
+
+    expect(() =>
+      projectTool({
+        schema,
+        operation,
+        call,
+        preview,
+        meta: { name: 'delete-entry', destructive: true },
+      }),
+    ).toThrow('[ginko-cms] Destructive MCP operation handles do not accept preview refs.')
 
     const backendTool = projectTool({
       schema,
       operation,
       call,
-      preview,
       confirmationMode: 'backend',
       meta: { name: 'delete-entry', destructive: true },
     }) as unknown as { options: Record<string, unknown> }
 
-    expect(backendTool.options.execute).toMatchObject({
-      kind: 'execute',
-      operation,
-      call,
-    })
-    expect(backendTool.options.previewOperation).toBe('mutation')
+    expect(backendTool.options).not.toHaveProperty('execute')
+    expect(backendTool.options).not.toHaveProperty('previewOperation')
   })
 })

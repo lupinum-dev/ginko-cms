@@ -4,11 +4,7 @@ import {
   saveEntryDraft as saveEntryDraftSchema,
   unarchiveEntry as unarchiveEntrySchema,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
-import {
-  createEntryOperation,
-  saveEntryDraftOperation,
-  unarchiveEntryOperation,
-} from '@lupinum/ginko-cms-convex/operations'
+import { operations } from '@lupinum/ginko-cms-convex/operation-handles/mcp'
 
 import { internal } from '#trellis/api'
 
@@ -16,12 +12,11 @@ import { projectTool, type ProjectToolDefinition } from '../_shared/project-tool
 
 export const createEntry: ProjectToolDefinition = projectTool({
   schema: createEntrySchema,
-  call: internal.ginkoCmsMcp.createEntry,
   capability: 'createEntries',
   meta: {
     name: 'create-entry',
   },
-  operation: createEntryOperation,
+  operation: operations.ginkoCms.createEntry,
   group: 'content',
   respond: ({ args, result, ok, error }) => {
     void args
@@ -48,25 +43,23 @@ export const listEntries: ProjectToolDefinition = projectTool({
 
 export const saveEntryDraft: ProjectToolDefinition = projectTool({
   schema: saveEntryDraftSchema,
-  call: internal.ginkoCmsMcp.saveEntryDraft,
   capability: 'editEntries',
   meta: {
     name: 'save-entry-draft',
   },
-  operation: saveEntryDraftOperation,
+  operation: operations.ginkoCms.saveEntryDraft,
   group: 'content',
   respond: ({ result, ok }) => ok(result, 'Saved entry draft.'),
 })
 
 export const unarchiveEntry: ProjectToolDefinition = projectTool({
   schema: unarchiveEntrySchema,
-  call: internal.ginkoCmsMcp.unarchiveEntry,
   capability: 'deleteEntries',
   meta: {
     name: 'unarchive-entry',
     description: 'Restore an archived entry to draft state.',
   },
-  operation: unarchiveEntryOperation,
+  operation: operations.ginkoCms.unarchiveEntry,
   group: 'content',
   respond: ({ args, result, ok }) => {
     void result

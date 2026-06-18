@@ -1,8 +1,6 @@
 import { publishEntry as publishEntryArgs } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
-import { publishEntryOperation } from '@lupinum/ginko-cms-convex/operations'
+import { operations } from '@lupinum/ginko-cms-convex/operation-handles/mcp'
 import { defineArgs } from '@lupinum/trellis/args'
-
-import { internal } from '#trellis/api'
 
 import { projectTool, type ProjectToolDefinition } from '../../_shared/project-tool-runtime'
 
@@ -18,14 +16,12 @@ const publishEntry = defineArgs({
 
 const tool: ProjectToolDefinition = projectTool({
   schema: publishEntry,
-  operation: publishEntryOperation,
-  call: internal.ginkoCmsMcp.publishEntry,
+  operation: operations.ginkoCms.publishEntry,
   capability: 'publishEntries',
   meta: {
     name: 'publish-entry',
     destructive: true,
   },
-  preview: internal.ginkoCmsMcp.previewPublishEntryOperation,
   group: 'content',
   respond: ({ args, result, ok, error }) => {
     void error

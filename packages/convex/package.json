@@ -42,6 +42,10 @@
     "./operations": {
       "types": "./dist/operations.d.ts",
       "import": "./dist/operations.js"
+    },
+    "./operation-handles/mcp": {
+      "types": "./dist/generated/operationHandles/mcp.d.ts",
+      "import": "./dist/generated/operationHandles/mcp.js"
     }
   },
   "publishConfig": {

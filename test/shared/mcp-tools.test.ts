@@ -328,7 +328,7 @@ describe('MCP tool safety contracts', () => {
 
     for (const reference of destructiveTools) {
       expect(toolDefinitionHasProperty(reference, 'operation'), reference.path).toBe(true)
-      expect(toolDefinitionHasProperty(reference, 'preview'), reference.path).toBe(true)
+      expect(toolDefinitionHasProperty(reference, 'preview'), reference.path).toBe(false)
       expect(toolDefinitionHasProperty(reference, 'previewOperation'), reference.path).toBe(false)
     }
   })
@@ -392,16 +392,17 @@ describe('MCP tool safety contracts', () => {
     expect(runtime).toContain('subject: caller.mcpKeyId')
     expect(runtime).not.toContain('confirmationStore:')
     expect(runtime).not.toContain('redeemTransportConfirmation')
-    expect(runtime).toContain('executeOperationRef(operation, call)')
-    expect(runtime).toContain('previewOperationRef(operation, preview)')
-    expect(runtime).toContain("previewOperation: 'mutation'")
+    expect(runtime).not.toContain('executeOperationRef')
+    expect(runtime).not.toContain('previewOperationRef')
     expect(runtime).not.toContain('forwardConfirmationToken: false')
     expect(existsSync(join(mcpRoot, 'operations.ts'))).toBe(false)
 
     for (const source of destructiveTools) {
-      expect(source).toContain('@lupinum/ginko-cms-convex/operations')
+      expect(source).toContain('@lupinum/ginko-cms-convex/operation-handles/mcp')
       expect(source).not.toContain('../../operations')
-      expect(source).toMatch(/operation: \w+Operation/)
+      expect(source).toMatch(/operation: operations\.ginkoCms\.\w+/)
+      expect(source).not.toContain('call: internal.ginkoCmsMcp')
+      expect(source).not.toContain('preview: internal.ginkoCmsMcp')
       expect(source).not.toContain('defineOperationMetadata')
       expect(source).not.toContain('defineOperation({')
       expect(source).not.toContain('handler: () => null')
@@ -420,14 +421,33 @@ describe('MCP tool safety contracts', () => {
     expect(runtime).not.toContain('rawMcpRuntime.tool.mutation')
     expect(runtime).toContain('must be backed by an explicit operation')
     expect(directSources).not.toContain('safety:')
+    expect(directSources).toContain('@lupinum/ginko-cms-convex/operation-handles/mcp')
 
-    for (const operationName of [
+    for (const operationHandle of [
+      'operations.ginkoCms.createEntry',
+      'operations.ginkoCms.saveEntryDraft',
+      'operations.ginkoCms.unarchiveEntry',
+      'operations.ginkoCms.moveAsset',
+    ]) {
+      expect(directSources).toContain(operationHandle)
+    }
+
+    for (const oldOperationName of [
       'createEntryOperation',
       'saveEntryDraftOperation',
       'unarchiveEntryOperation',
       'moveAssetOperation',
     ]) {
-      expect(directSources).toContain(operationName)
+      expect(directSources).not.toContain(oldOperationName)
+    }
+
+    for (const oldCallRef of [
+      'call: internal.ginkoCmsMcp.createEntry',
+      'call: internal.ginkoCmsMcp.saveEntryDraft',
+      'call: internal.ginkoCmsMcp.unarchiveEntry',
+      'call: internal.ginkoCmsMcp.moveAsset',
+    ]) {
+      expect(directSources).not.toContain(oldCallRef)
     }
   })
 

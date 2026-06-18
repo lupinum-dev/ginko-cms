@@ -2,17 +2,15 @@ import {
   cmsMcpConvexAuthIssuer,
   type CmsCaller,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
-import type { OperationKind } from '@lupinum/trellis/backend'
 import {
   defineMcpApp,
   type AnyConvexSchema,
   type InferSchemaData,
   type McpConvexCaller,
+  type OperationHandle,
 } from '@lupinum/trellis/mcp'
 import type { McpToolDefinitionListItem } from '@nuxtjs/mcp-toolkit/server'
 import type { FunctionReference, FunctionReturnType } from 'convex/server'
-import type { PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
 
 import { internal } from '#trellis/api'
@@ -27,12 +25,6 @@ export function getMcpCmsCaller(event?: H3Event): CmsCaller {
 }
 
 type PreviewResult = string | { summary?: string; [key: string]: unknown }
-type CmsMcpOperation = {
-  args: PropertyValidators
-  id?: string
-  name?: string
-  kind?: OperationKind
-}
 type ProjectToolDirectOperation = 'query' | 'mutation'
 
 export async function resolveCmsMcpCapabilities(
@@ -186,14 +178,14 @@ type ProjectToolPreviewResolverCtx<S extends AnyConvexSchema> = ProjectToolCtx &
 
 type ProjectToolOptions<
   S extends AnyConvexSchema,
-  TCall extends ConvexFunctionRef,
+  TCall extends ConvexFunctionRef = ConvexFunctionRef,
   TPreview extends ConvexFunctionRef | undefined = undefined,
 > = {
   capability?: keyof CmsMcpCapabilities
   enabled?: (ctx: ProjectToolEnabledCtx) => boolean | Promise<boolean>
   schema: S
-  call: TCall
-  operation?: CmsMcpOperation | ProjectToolDirectOperation
+  call?: TCall
+  operation?: OperationHandle | ProjectToolDirectOperation
   meta?: {
     name?: string
     description?: string
@@ -224,7 +216,7 @@ const rawMcpRuntime = defineMcpApp<CmsCaller, CmsMcpCapabilities>({
 
 export function projectTool<
   S extends AnyConvexSchema,
-  TCall extends ConvexFunctionRef,
+  TCall extends ConvexFunctionRef = ConvexFunctionRef,
   TPreview extends ConvexFunctionRef | undefined = undefined,
 >(tool: ProjectToolOptions<S, TCall, TPreview>): ProjectToolDefinition {
   const { capability, enabled, ...rest } = tool
@@ -251,27 +243,25 @@ export function projectTool<
   }
 
   if (tool.meta?.destructive) {
-    if (!tool.preview || typeof tool.preview === 'function') {
-      throw new Error('[ginko-cms] Destructive MCP tools require a Convex preview ref')
-    }
     const operation = tool.operation
     if (!operation || typeof operation === 'string') {
-      throw new Error('[ginko-cms] Destructive MCP tools require an explicit operation')
+      throw new Error('[ginko-cms] Destructive MCP tools require a generated operation handle')
     }
     const {
-      call,
+      call: _call,
       preview,
       operation: _operation,
       confirmationMode: _confirmationMode,
       ...operationOptions
     } = rest
 
+    if (preview !== undefined) {
+      throw new Error('[ginko-cms] Destructive MCP operation handles do not accept preview refs.')
+    }
+
     return rawMcpRuntime.tool.operation(operation, {
       ...operationOptions,
       confirmationMode: 'backend',
-      execute: executeOperationRef(operation, call),
-      preview: previewOperationRef(operation, preview),
-      previewOperation: 'mutation',
       enabled: wrappedEnabled,
     }) as ProjectToolDefinition
   }
@@ -279,7 +269,7 @@ export function projectTool<
   if (tool.operation && typeof tool.operation !== 'string') {
     const operation = tool.operation
     const {
-      call,
+      call: _call,
       operation: _operation,
       preview,
       confirmationMode: _confirmationMode,
@@ -292,13 +282,18 @@ export function projectTool<
 
     return rawMcpRuntime.tool.operation(operation, {
       ...operationOptions,
-      execute: executeOperationRef(operation, call),
       enabled: wrappedEnabled,
     }) as ProjectToolDefinition
   }
 
   const directOperation = tool.operation === 'query' ? 'query' : 'mutation'
   const { operation: _operation, call, ...directOptions } = rest
+
+  if (!call) {
+    throw new Error(
+      `[ginko-cms] Direct MCP tool "${tool.meta?.name ?? 'project-tool'}" needs a Convex call ref.`,
+    )
+  }
 
   if (directOperation === 'query') {
     return rawMcpRuntime.tool.query({
