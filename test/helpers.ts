@@ -21,6 +21,7 @@ const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
 const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
 const deleteEntryOperation = operations.byId['ginko-cms.delete-entry']
 const rollbackVersionOperation = operations.byId['ginko-cms.rollback-version']
+const revertDraftToPublishedOperation = operations.byId['ginko-cms.revert-draft-to-published']
 const TRUSTED_FORWARDING_KEY = 'test-ginko-cms-component-forwarding-key'
 process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
@@ -40,8 +41,6 @@ const destructiveExecuteFunctionRefs = new Set([
   'siteData:deleteSiteDataBlockOperationExecute',
 ])
 const destructiveTransportExecuteFunctionRefs: Record<string, string> = {
-  'entries/draft:revertDraftToPublishedTransportExecute':
-    'entries/draft:revertDraftToPublishedOperationExecute',
   'entries/publish:publishEntryTransportExecute': 'entries/publish:publishEntryOperationExecute',
   'entries/publish:unpublishEntryTransportExecute':
     'entries/publish:unpublishEntryOperationExecute',
@@ -224,6 +223,13 @@ export async function rollbackVersion(
   args: { entryId: string; versionId: string; publish: boolean },
 ) {
   const operation = appIdentity.operation(rollbackVersionOperation)
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
+}
+
+export async function revertDraftToPublished(appIdentity: CmsCallerClient, entryId: string) {
+  const operation = appIdentity.operation(revertDraftToPublishedOperation)
+  const args = { entryId }
   const preview = await operation.preview(args)
   return await operation.execute(args, { confirmation: preview.confirmation })
 }

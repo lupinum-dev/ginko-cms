@@ -7,11 +7,13 @@ import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
   createCtx,
-  currentDraftVersion,
+  publishEntry,
+  revertDraftToPublished,
   seedOwner,
   seedSettings,
   seedEditorFixture,
   seedMultiLocaleSettings,
+  unpublishEntry,
 } from './helpers'
 
 type EntryDraftRow = {
@@ -337,22 +339,13 @@ describe('editor draft mutations', () => {
       localized: { title: 'Hello world' },
     })
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
     await owner.mutation(api.editor.createLocaleVariant, {
       entryId,
       locale: 'de',
     })
 
-    const reverted = await owner.mutation(
-      api.entries.draft.revertDraftToPublishedTransportExecute,
-      {
-        entryId,
-      },
-    )
+    const reverted = await revertDraftToPublished(owner, entryId)
     expect(reverted.dirtyLocales).toEqual([])
 
     const localeRows = ((await ctx.readAll('entryDrafts')) as EntryDraftRow[]).filter(
@@ -508,12 +501,7 @@ describe('studio published shared-field reconstruction', () => {
       localized: { title: 'Hello world' },
     })
 
-    const created = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      locales: ['en'],
-      expectedVersion: created.draftVersion,
-    })
+    await publishEntry(owner, entryId)
 
     const published = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
     expect(published).not.toBeNull()
@@ -544,13 +532,8 @@ describe('studio published shared-field reconstruction', () => {
       localized: { title: 'Hello world' },
     })
 
-    const created = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      locales: ['en'],
-      expectedVersion: created.draftVersion,
-    })
-    await owner.mutation(api.entries.publish.unpublishEntryTransportExecute, { entryId })
+    await publishEntry(owner, entryId)
+    await unpublishEntry(owner, entryId)
 
     const afterUnpublish = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
     expect(afterUnpublish.published).toBeNull()
@@ -583,12 +566,7 @@ describe('studio published shared-field reconstruction', () => {
       },
     })
 
-    const beforePublish = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      locales: ['en'],
-      expectedVersion: beforePublish.draftVersion,
-    })
+    await publishEntry(owner, entryId)
 
     const view = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
     expect(view.published).toEqual(expect.objectContaining({ featured: true }))
