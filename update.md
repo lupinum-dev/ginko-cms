@@ -1144,3 +1144,92 @@ was rerun against the worktree:
 - In-app browser visual verification passed for public content, locale
   switching, search, Studio settings, Studio content listing, and mobile German
   docs.
+
+### Current-State Rerun: 2026-06-18
+
+The consumer proof was rerun after refreshing the local package tarball
+integrities in `/Users/matthias/Git/workspace/i18n-cms/pnpm-lock.yaml`.
+
+Package wiring:
+
+- `i18n-cms/package.json` and `i18n-cms/pnpm-workspace.yaml` resolve
+  `@lupinum/ginko-cms`, `@lupinum/ginko-cms-contract`,
+  `@lupinum/ginko-cms-convex`, `@lupinum/ginko-content`,
+  `@lupinum/trellis`, and `@lupinum/trellis-bridge` from local `file:`
+  tarballs under `../ginko-cms/.pack`.
+- No npm-registry Trellis/Ginko package was used for this validation.
+
+Command verification:
+
+- `pnpm install --force` passed and refreshed only local tarball lock
+  integrities/snapshots.
+- `pnpm run typecheck` passed.
+- `pnpm run build` passed and prerendered 211 routes, including localized
+  content routes, sitemap output, and content payload/API routes.
+- `TMPDIR=/tmp GINKO_CMS_TEST_EMAIL=... GINKO_CMS_TEST_PASSWORD=...
+  pnpm run smoke:cms` passed. `TMPDIR=/tmp` avoids the Nuxt dev-server
+  Vite IPC socket path issue seen under the default macOS temp path.
+- Built-server smoke passed:
+
+```bash
+zsh -c 'set -a; source .env.local; PORT=9999 HOST=127.0.0.1 node .output/server/index.mjs'
+CMS_SMOKE_BASE_URL=http://127.0.0.1:9999 \
+  GINKO_CMS_TEST_EMAIL=matthias@me.com \
+  GINKO_CMS_TEST_PASSWORD=oms345pb \
+  pnpm run smoke:cms
+```
+
+In-app browser verification:
+
+- Public content rendered:
+  - `/docs/code-blocks` showed `Code Blocks`.
+  - `/de/dokumentation/codebloecke` showed `Codebloecke` with
+    `lang="de-DE"`.
+  - `/blog`, `/de/blog`, `/pricing`, `/de/preise`,
+    `/changelog/security`, and `/de/aenderungen/security` rendered localized
+    headings and canonical routes.
+- Search worked from the visible docs search button:
+  - query `markdown` returned `Markdown Syntax`
+  - query `security` returned `Security Enhancements`
+- Locale switching worked from the header locale selector:
+  - `/docs/code-blocks` switched to `/de/dokumentation/codebloecke`
+  - the header selected `Deutsch`
+  - visible German docs links were prefixed with `/de/`
+- Studio auth worked:
+  - signed out from the existing session
+  - signed in with the configured smoke credentials
+  - login landed on `/studio/`, then `/studio/settings` loaded with settings,
+    member, storage hygiene, and MCP key sections
+- Studio content navigation worked for representative routes:
+  - `/studio/content/docs`
+  - `/studio/content/posts`
+  - `/studio/content/index`
+  - `/studio/assets`
+  - `/studio/activity`
+- A clean built-server in-app browser tab confirmed docs, German docs, search,
+  and Studio settings with no new timestamp-filtered browser warnings/errors.
+
+Sitemap verification:
+
+- Direct XML navigation is blocked by the in-app browser with
+  `net::ERR_BLOCKED_BY_CLIENT`, so sitemap output was verified via HTTP from
+  the running app.
+- `/sitemap.xml` returned the expected redirect document to
+  `/sitemap_index.xml`.
+- `/sitemap_index.xml` referenced both locale sitemaps:
+  - `/__sitemap__/en-US.xml`
+  - `/__sitemap__/de-DE.xml`
+- Locale sitemap probes confirmed representative routes:
+  - `/docs/code-blocks`
+  - `/de/dokumentation/codebloecke`
+  - `/blog`
+  - `/de/blog`
+
+Remaining non-blocking follow-up:
+
+- Browser/server logs still report Vue Router warnings for unprefixed translated
+  German docs paths such as `/dokumentation/codebloecke`. Rendered links are
+  correctly prefixed with `/de/...`, and direct navigation works. Track this as
+  a likely derived navigation/i18n resolution warning to clean up in
+  Ginko Content or the consumer navigation composition, not as a Trellis
+  release blocker.
