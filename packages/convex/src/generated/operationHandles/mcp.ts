@@ -331,4 +331,4 @@ export const operations = {
       unpublishEntry: unpublishEntryHandle,
     },
   },
-} as const
+}

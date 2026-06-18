@@ -254,6 +254,7 @@ describe('package boundary contracts', () => {
       './component-bridge',
       './convex.auth',
       './convex.config',
+      './operation-handles/mcp',
       './operations',
     ])
 
