@@ -37,7 +37,7 @@ describe('editor draft mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const saveResult = await owner.mutation(api.editor.saveEntryDraft, {
+    const saveResult = await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -72,7 +72,7 @@ describe('editor draft mutations', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     await expect(
-      owner.mutation(api.editor.saveEntryDraft, {
+      owner.saveEntryDraft({
         entryId,
         expectedDraftVersion: 999,
         patch: {
@@ -94,7 +94,7 @@ describe('editor draft mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const result = await owner.mutation(api.editor.saveEntryDraft, {
+    const result = await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -134,7 +134,7 @@ describe('editor draft mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -169,7 +169,7 @@ describe('editor draft mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const result = await owner.mutation(api.editor.saveEntryDraft, {
+    const result = await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -213,7 +213,7 @@ describe('editor draft mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const result = await owner.mutation(api.editor.saveEntryDraft, {
+    const result = await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -234,7 +234,7 @@ describe('editor draft mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const result = await owner.mutation(api.editor.saveEntryDraft, {
+    const result = await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -259,7 +259,7 @@ describe('editor draft mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const result = await owner.mutation(api.editor.saveEntryDraft, {
+    const result = await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -280,7 +280,7 @@ describe('editor draft mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const result = await owner.mutation(api.editor.saveEntryDraft, {
+    const result = await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -333,7 +333,7 @@ describe('editor draft mutations', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'posts',
       slug: 'hello-world',
       localized: { title: 'Hello world' },
@@ -368,7 +368,7 @@ describe('editor draft mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -416,7 +416,7 @@ describe('editor draft mutations', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    const leftId = await owner.mutation(api.editor.createEntry, {
+    const leftId = await owner.createEntry({
       collection: 'pages',
       slug: 'left',
       localized: { title: 'Left' },
@@ -429,7 +429,7 @@ describe('editor draft mutations', () => {
       id: leftId,
       locale: 'de',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId: leftId,
       expectedDraftVersion: leftEntry.draftVersion,
       patch: {
@@ -441,7 +441,7 @@ describe('editor draft mutations', () => {
       },
     })
 
-    const rightId = await owner.mutation(api.editor.createEntry, {
+    const rightId = await owner.createEntry({
       collection: 'pages',
       slug: 'gemeinsam',
       localized: { title: 'Right' },
@@ -494,7 +494,7 @@ describe('studio published shared-field reconstruction', () => {
     await seedSharedFieldCollection(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'pages',
       slug: 'hello-world',
       shared: { featured: true },
@@ -525,7 +525,7 @@ describe('studio published shared-field reconstruction', () => {
     await seedSharedFieldCollection(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'pages',
       slug: 'hello-world',
       shared: { featured: true },
@@ -550,7 +550,7 @@ describe('studio published shared-field reconstruction', () => {
     await seedSharedFieldCollection(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'pages',
       slug: 'hello-world',
       shared: { featured: true },
@@ -558,7 +558,7 @@ describe('studio published shared-field reconstruction', () => {
     })
     await owner.mutation(api.editor.createLocaleVariant, { entryId, locale: 'de' })
     const afterVariant = await owner.query(api.editor.getEntry, { id: entryId, locale: 'de' })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: afterVariant.draftVersion,
       patch: {
@@ -613,13 +613,13 @@ describe('stableId uniqueness', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const entryId1 = await owner.mutation(api.editor.createEntry, {
+    const entryId1 = await owner.createEntry({
       collection: 'blog',
       slug: 'first-post',
       localized: { title: 'First post' },
     })
 
-    const entryId2 = await owner.mutation(api.editor.createEntry, {
+    const entryId2 = await owner.createEntry({
       collection: 'blog',
       slug: 'second-post',
       localized: { title: 'Second post' },

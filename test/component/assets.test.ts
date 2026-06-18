@@ -327,7 +327,7 @@ describe('asset management', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -681,7 +681,7 @@ describe('asset management', () => {
       } as never,
     )
 
-    await owner.mutation(api.assets.moveAsset, {
+    await owner.moveAsset({
       assetId: assetId as string,
       scope: 'collection',
       collectionSlug: 'posts',
@@ -782,7 +782,7 @@ describe('asset management', () => {
     const assets = colocatedAssets.entry
     expect(assets).toHaveLength(1)
     await expect(
-      owner.mutation(api.assets.moveAsset, {
+      owner.moveAsset({
         assetId: assets[0].id,
         scope: 'entry',
         entryId,

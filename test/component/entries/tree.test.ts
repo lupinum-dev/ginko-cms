@@ -32,7 +32,7 @@ describe('editor tree mutations', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     await expect(
-      owner.mutation(api.editor.createEntry, {
+      owner.createEntry({
         collection: 'posts',
         parentEntryId: entryId,
         slug: 'child-in-flat',
@@ -60,7 +60,7 @@ describe('editor tree mutations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'docs',
       parentEntryId: rootAId,
       slug: 'new-child',
@@ -231,23 +231,23 @@ describe('editor tree mutations', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    const rootAId = await owner.mutation(api.editor.createEntry, {
+    const rootAId = await owner.createEntry({
       collection: 'docs',
       slug: 'root-a',
       localized: { title: 'Root A' },
     })
-    const rootBId = await owner.mutation(api.editor.createEntry, {
+    const rootBId = await owner.createEntry({
       collection: 'docs',
       slug: 'root-b',
       localized: { title: 'Root B' },
     })
-    const leftId = await owner.mutation(api.editor.createEntry, {
+    const leftId = await owner.createEntry({
       collection: 'docs',
       parentEntryId: rootAId,
       slug: 'left',
       localized: { title: 'Left' },
     })
-    const rightId = await owner.mutation(api.editor.createEntry, {
+    const rightId = await owner.createEntry({
       collection: 'docs',
       parentEntryId: rootBId,
       slug: 'right',
@@ -267,7 +267,7 @@ describe('editor tree mutations', () => {
       id: leftId,
       locale: 'de',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId: leftId,
       expectedDraftVersion: leftDe.draftVersion,
       patch: {
@@ -283,7 +283,7 @@ describe('editor tree mutations', () => {
       id: rightId,
       locale: 'de',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId: rightId,
       expectedDraftVersion: rightDe.draftVersion,
       patch: {
@@ -376,7 +376,7 @@ describe('tree cycle detection', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     await expect(
-      owner.mutation(api.editor.createEntry, {
+      owner.createEntry({
         collection: 'docs',
         parentEntryId: 'nonexistent_id_that_cannot_exist',
         slug: 'will-fail',

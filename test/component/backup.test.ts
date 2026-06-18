@@ -71,7 +71,7 @@ describe('backup export and purge gating', () => {
       entryId: fixture.entryId,
     })
 
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId: fixture.entryId,
       expectedDraftVersion: 1,
       patch: {

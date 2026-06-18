@@ -30,7 +30,7 @@ describe('editor version history', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     const publishResult = await publishEntry(owner, entryId)
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -79,7 +79,7 @@ describe('editor version history', () => {
 
     // Edit and publish again
     // Publish does not bump draftVersion. Save bumps to 2.
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -95,7 +95,7 @@ describe('editor version history', () => {
 
     // Edit and publish a third time
     // Save bumps to 3.
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 2,
       patch: {
@@ -133,7 +133,7 @@ describe('editor version history', () => {
     const v1 = await publishEntry(owner, entryId)
 
     // Edit and publish v2: publish does not bump draftVersion, save->2.
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -147,7 +147,7 @@ describe('editor version history', () => {
     const v2 = await publishEntry(owner, entryId)
 
     // Edit and publish v3: save->3.
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 2,
       patch: {
@@ -197,7 +197,7 @@ describe('editor version history', () => {
 
     const v1 = await publishEntry(owner, entryId)
 
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -268,7 +268,7 @@ describe('editor version history', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'posts',
       slug: 'hello-world',
       localized: { title: 'Hello world' },

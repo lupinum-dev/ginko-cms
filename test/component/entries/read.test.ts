@@ -17,7 +17,7 @@ describe('editor read queries', () => {
     await seedEditorFixture(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const createdEntryId = await owner.mutation(api.editor.createEntry, {
+    const createdEntryId = await owner.createEntry({
       collection: 'posts',
       slug: 'entry-with-stable-id',
       localized: { title: 'Entry with stableId' },
@@ -47,7 +47,7 @@ describe('editor read queries', () => {
     const owner = ctx.asCmsUser('owner-1')
     const firstPublish = await publishEntry(owner, entryId)
 
-    const secondEntryId = await owner.mutation(api.editor.createEntry, {
+    const secondEntryId = await owner.createEntry({
       collection: 'posts',
       slug: 'second-post',
       localized: { title: 'Second post' },
@@ -91,7 +91,7 @@ describe('editor read queries', () => {
 
     const owner = ctx.asCmsUser('owner-1')
     for (const slug of ['second-post', 'third-post', 'fourth-post', 'fifth-post']) {
-      await owner.mutation(api.editor.createEntry, {
+      await owner.createEntry({
         collection: 'posts',
         slug,
         localized: { title: slug },
@@ -123,7 +123,7 @@ describe('editor read queries', () => {
 
     const owner = ctx.asCmsUser('owner-1')
     for (const slug of ['alpha-report', 'alpha-notes', 'beta-report']) {
-      await owner.mutation(api.editor.createEntry, {
+      await owner.createEntry({
         collection: 'posts',
         slug,
         localized: { title: slug },

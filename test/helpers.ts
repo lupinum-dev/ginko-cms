@@ -17,43 +17,20 @@ import { modules } from '#component/test.setup'
 import { operations } from '../packages/convex/generated/operationHandles/testing'
 
 export const api = anyApi
+const createEntryOperation = operations.byId['ginko-cms.create-entry']
+const saveEntryDraftOperation = operations.byId['ginko-cms.save-entry-draft']
+const moveAssetOperation = operations.byId['ginko-cms.move-asset']
 const publishEntryOperation = operations.byId['ginko-cms.publish-entry']
 const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
 const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
 const deleteEntryOperation = operations.byId['ginko-cms.delete-entry']
 const rollbackVersionOperation = operations.byId['ginko-cms.rollback-version']
 const revertDraftToPublishedOperation = operations.byId['ginko-cms.revert-draft-to-published']
+const unarchiveEntryOperation = operations.byId['ginko-cms.unarchive-entry']
 const TRUSTED_FORWARDING_KEY = 'test-ginko-cms-component-forwarding-key'
 process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 const functionNameSymbol = Symbol.for('functionName')
-const destructiveExecuteFunctionRefs = new Set([
-  'assets:deleteAssetOperationExecute',
-  'assets:purgeAsset',
-  'backup:deleteBackupArtifactOperationExecute',
-  'entries/draft:revertDraftToPublishedOperationExecute',
-  'entries/publish:archiveEntryOperationExecute',
-  'entries/publish:publishEntryOperationExecute',
-  'entries/publish:rollbackVersionOperationExecute',
-  'entries/publish:unpublishEntryOperationExecute',
-  'entries/tree:deleteEntryOperationExecute',
-  'members:removeMemberOperationExecute',
-  'revalidation:retryRevalidationJobOperationExecute',
-  'siteData:deleteSiteDataBlockOperationExecute',
-])
-const handlerIdByFunctionRef: Record<string, string> = {
-  'assets:moveAsset': 'ginko-cms.move-asset',
-  'editor:createEntry': 'ginko-cms.create-entry',
-  'editor:saveEntryDraft': 'ginko-cms.save-entry-draft',
-  'entries/draft:saveEntryDraft': 'ginko-cms.save-entry-draft',
-  'entries/publish:unarchiveEntry': 'ginko-cms.unarchive-entry',
-  'entries/tree:createEntry': 'ginko-cms.create-entry',
-}
-
-function toHandlerId(functionRef: string): string {
-  if (destructiveExecuteFunctionRefs.has(functionRef)) return functionRef
-  return handlerIdByFunctionRef[functionRef] ?? functionRef
-}
 
 function getFunctionRef(ref: unknown): string {
   if (typeof ref === 'string') return ref
@@ -81,7 +58,7 @@ function createCmsCallerClient(
 
     return {
       purpose: kind,
-      targetFunctionRef: toHandlerId(functionRef),
+      targetFunctionRef: functionRef,
       keyId: 'default',
       ...(replayMode ? { replayMode } : {}),
     }
@@ -111,6 +88,17 @@ function createCmsCallerClient(
     },
     operation: <TOperation extends OperationHandle>(operation: TOperation) =>
       ctx.asCaller(caller).operation(operation),
+    createEntry: async (args: Record<string, unknown>): Promise<string> =>
+      (await ctx.asCaller(caller).operation(createEntryOperation).execute(args)) as string,
+    saveEntryDraft: async (args: Record<string, unknown>): Promise<DraftSaveResult> =>
+      (await ctx
+        .asCaller(caller)
+        .operation(saveEntryDraftOperation)
+        .execute(args)) as DraftSaveResult,
+    moveAsset: async (args: Record<string, unknown>): Promise<null> =>
+      (await ctx.asCaller(caller).operation(moveAssetOperation).execute(args)) as null,
+    unarchiveEntry: async (args: Record<string, unknown>): Promise<null> =>
+      (await ctx.asCaller(caller).operation(unarchiveEntryOperation).execute(args)) as null,
   }
 }
 
@@ -124,6 +112,7 @@ export function createCtx() {
 
 export type TestCtx = ReturnType<typeof createCtx>
 type CmsCallerClient = ReturnType<typeof createCmsCallerClient>
+type DraftSaveResult = { draftVersion: number; dirtyLocales: string[] }
 
 export async function currentDraftVersion(
   appIdentity: CmsCallerClient,

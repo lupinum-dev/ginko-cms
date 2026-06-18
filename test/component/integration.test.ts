@@ -56,7 +56,7 @@ describe('integration: full entry lifecycle', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     // Create entry
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'articles',
       slug: 'my-first-article',
       localized: { title: 'My First Article' },
@@ -74,7 +74,7 @@ describe('integration: full entry lifecycle', () => {
     expect(draftEntry?.path).toBe('/articles/my-first-article')
 
     // Save a shared draft change
-    const saveResult = await owner.mutation(api.editor.saveEntryDraft, {
+    const saveResult = await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 1,
       patch: {
@@ -86,7 +86,7 @@ describe('integration: full entry lifecycle', () => {
     expect(saveResult.draftVersion).toBe(2)
 
     // Save a localized draft change
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 2,
       patch: {
@@ -203,7 +203,7 @@ describe('integration: multi-locale with fallback', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     // Create entry in English
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'blog',
       slug: 'welcome',
       localized: { title: 'Welcome' },
@@ -215,7 +215,7 @@ describe('integration: multi-locale with fallback', () => {
       entryId,
       locale: 'de',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 2,
       patch: {

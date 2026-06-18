@@ -67,7 +67,7 @@ async function seedPublishedEntries(
   for (let i = 0; i < count; i++) {
     const entrySlug = `entry-${String(i + 1).padStart(2, '0')}`
     const title = `Entry ${String.fromCharCode(65 + i)}` // Entry A, Entry B, ...
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: slug,
       slug: entrySlug,
       localized: { title },
@@ -164,7 +164,7 @@ describe('public API: asset metadata fallbacks', () => {
       } as never,
     )
 
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'posts',
       slug: 'asset-alt',
       localized: { title: 'Asset alt' },
@@ -249,7 +249,7 @@ describe('public API: asset metadata fallbacks', () => {
       } as never,
     )
 
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'posts',
       slug: 'asset-override',
       localized: { title: 'Asset override' },
@@ -546,7 +546,7 @@ describe('public API: list pagination', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'docs',
       slug: 'workflows',
       localized: { title: 'Workflows' },
@@ -554,7 +554,7 @@ describe('public API: list pagination', () => {
     })
     await owner.mutation(api.editor.createLocaleVariant, { entryId, locale: 'de' })
     const deEntry = await owner.query(api.editor.getEntry, { id: entryId, locale: 'de' })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: deEntry.draftVersion,
       patch: {
@@ -716,7 +716,7 @@ describe('public API: search pagination', () => {
     await seedPublishedEntries(ctx, 0)
     const owner = ctx.asCmsUser('owner-1')
 
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'articles',
       slug: 'private-search',
       localized: {
@@ -965,7 +965,7 @@ describe('public API: list projection', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    const managerId = await owner.mutation(api.editor.createEntry, {
+    const managerId = await owner.createEntry({
       collection: 'authors',
       slug: 'grace-hopper',
       shared: {
@@ -978,7 +978,7 @@ describe('public API: list projection', () => {
       locale: 'en',
     })
 
-    const authorId = await owner.mutation(api.editor.createEntry, {
+    const authorId = await owner.createEntry({
       collection: 'authors',
       slug: 'ada-lovelace',
       shared: {
@@ -992,7 +992,7 @@ describe('public API: list projection', () => {
       locale: 'en',
     })
 
-    const postId = await owner.mutation(api.editor.createEntry, {
+    const postId = await owner.createEntry({
       collection: 'blog',
       slug: 'intro',
       localized: { title: 'Intro' },
@@ -1121,7 +1121,7 @@ describe('public API: list projection', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'gallery',
       slug: 'launch',
       localized: { title: 'Launch' },
@@ -1189,7 +1189,7 @@ describe('public API: list projection', () => {
       ],
     })
 
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'secure-posts',
       slug: 'hidden-fields',
       localized: {
@@ -1350,7 +1350,7 @@ describe('public API: list projection', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'articles',
       slug: 'hello-world',
       localized: { title: 'Hello world' },
@@ -1462,7 +1462,7 @@ describe('public API: stableId redirect', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     // Create and publish
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'wiki',
       slug: 'original-title',
       localized: { title: 'Original Title' },
@@ -1492,7 +1492,7 @@ describe('public API: stableId redirect', () => {
     expect(page.page?.title).toBe('Original Title')
 
     // Change slug and republish
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: entry.draftVersion,
       patch: {
@@ -1570,7 +1570,7 @@ describe('public API: SEO and sitemap locale defaults', () => {
     )
 
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.mutation(api.editor.createEntry, {
+    const entryId = await owner.createEntry({
       collection: 'blog',
       slug: 'default-locale-proof',
       localized: { title: 'Default Locale Proof' },
@@ -1580,7 +1580,7 @@ describe('public API: SEO and sitemap locale defaults', () => {
       entryId,
       locale: 'de',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: 2,
       patch: {

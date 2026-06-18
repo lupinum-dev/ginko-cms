@@ -136,7 +136,7 @@ describe('editor publish operations', () => {
       id: entryId,
       locale: 'en',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: entry.draftVersion,
       patch: {
@@ -192,7 +192,7 @@ describe('editor publish operations', () => {
       id: entryId,
       locale: 'en',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: entry.draftVersion,
       patch: {
@@ -254,7 +254,7 @@ describe('editor publish operations', () => {
       id: entryId,
       locale: 'en',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: entry.draftVersion,
       patch: {
@@ -375,7 +375,7 @@ describe('editor publish operations', () => {
       id: rootAId,
       locale: 'en',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId: rootAId,
       expectedDraftVersion: parent.draftVersion,
       patch: {
@@ -389,7 +389,7 @@ describe('editor publish operations', () => {
       id: childId,
       locale: 'en',
     })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId: childId,
       expectedDraftVersion: child.draftVersion,
       patch: {
@@ -439,14 +439,14 @@ describe('editor publish operations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const parentId = await owner.mutation(api.editor.createEntry, {
+    const parentId = await owner.createEntry({
       collection: 'docs',
       slug: 'parent',
       localized: { title: 'Parent' },
     })
     await owner.mutation(api.editor.createLocaleVariant, { entryId: parentId, locale: 'de' })
     const parent = await owner.query(api.editor.getEntry, { id: parentId, locale: 'de' })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId: parentId,
       expectedDraftVersion: parent.draftVersion,
       patch: {
@@ -459,7 +459,7 @@ describe('editor publish operations', () => {
     })
     await publishEntry(owner, parentId, ['de'])
 
-    const leftId = await owner.mutation(api.editor.createEntry, {
+    const leftId = await owner.createEntry({
       collection: 'docs',
       parentEntryId: parentId,
       slug: 'left',
@@ -467,7 +467,7 @@ describe('editor publish operations', () => {
     })
     await owner.mutation(api.editor.createLocaleVariant, { entryId: leftId, locale: 'de' })
     const left = await owner.query(api.editor.getEntry, { id: leftId, locale: 'de' })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId: leftId,
       expectedDraftVersion: left.draftVersion,
       patch: {
@@ -480,7 +480,7 @@ describe('editor publish operations', () => {
     })
     await publishEntry(owner, leftId, ['de'])
 
-    const rightId = await owner.mutation(api.editor.createEntry, {
+    const rightId = await owner.createEntry({
       collection: 'docs',
       parentEntryId: parentId,
       slug: 'right',
@@ -488,7 +488,7 @@ describe('editor publish operations', () => {
     })
     await owner.mutation(api.editor.createLocaleVariant, { entryId: rightId, locale: 'de' })
     const right = await owner.query(api.editor.getEntry, { id: rightId, locale: 'de' })
-    await owner.mutation(api.editor.saveEntryDraft, {
+    await owner.saveEntryDraft({
       entryId: rightId,
       expectedDraftVersion: right.draftVersion,
       patch: {
