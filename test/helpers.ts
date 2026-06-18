@@ -4,6 +4,7 @@ import {
   type CmsMcpCaller,
   type CmsUserCaller,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import type { OperationHandle } from '@lupinum/trellis/backend'
 /// <reference types="vite/client" />
 import { createTestContext } from '@lupinum/trellis/testing'
 import type { TestCallerOptions } from '@lupinum/trellis/testing'
@@ -36,7 +37,6 @@ const destructiveTransportExecuteFunctionRefs: Record<string, string> = {
   'assets:deleteAssetTransportExecute': 'assets:deleteAssetOperationExecute',
   'entries/draft:revertDraftToPublishedTransportExecute':
     'entries/draft:revertDraftToPublishedOperationExecute',
-  'entries/publish:archiveEntryTransportExecute': 'entries/publish:archiveEntryOperationExecute',
   'entries/publish:publishEntryTransportExecute': 'entries/publish:publishEntryOperationExecute',
   'entries/publish:rollbackVersionTransportExecute':
     'entries/publish:rollbackVersionOperationExecute',
@@ -123,6 +123,8 @@ function createCmsCallerClient(
       const client = ctx.asCaller(caller, cmsCallerOptions('action', fn))
       return await client.action(fn, ...args)
     },
+    operation: <TOperation extends OperationHandle>(operation: TOperation) =>
+      ctx.asCaller(caller).operation(operation),
   }
 }
 

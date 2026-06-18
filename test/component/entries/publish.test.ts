@@ -3,6 +3,7 @@
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import { operations } from '#component/generated/operation-handles/testing'
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
@@ -16,6 +17,50 @@ import {
 } from './helpers'
 
 const api = anyApi
+type CmsTestCaller = ReturnType<ReturnType<typeof createCtx>['asCmsUser']>
+
+const publishEntryOperation = operations.byId['ginko-cms.publish-entry']
+const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
+const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
+
+async function publishEntryWithArgs(
+  owner: CmsTestCaller,
+  args: { entryId: string; expectedVersion: number; locales: string[] },
+) {
+  const operation = owner.operation(publishEntryOperation)
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
+}
+
+async function publishEntry(owner: CmsTestCaller, entryId: string, locales: string[] = ['en']) {
+  return await publishEntryWithArgs(owner, {
+    entryId,
+    expectedVersion: await currentDraftVersion(owner, entryId),
+    locales,
+  })
+}
+
+async function previewUnpublishEntry(owner: CmsTestCaller, entryId: string) {
+  return await owner.operation(unpublishEntryOperation).preview({ entryId })
+}
+
+async function unpublishEntry(owner: CmsTestCaller, entryId: string) {
+  const operation = owner.operation(unpublishEntryOperation)
+  const args = { entryId }
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
+}
+
+async function previewArchiveEntry(owner: CmsTestCaller, entryId: string) {
+  return await owner.operation(archiveEntryOperation).preview({ entryId })
+}
+
+async function archiveEntry(owner: CmsTestCaller, entryId: string) {
+  const operation = owner.operation(archiveEntryOperation)
+  const args = { entryId }
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
+}
 
 describe('editor publish operations', () => {
   it('publishes an entry and clears published state on unpublish', async () => {
@@ -26,11 +71,7 @@ describe('editor publish operations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const publishResult = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const publishResult = await publishEntry(owner, entryId)
 
     expect(publishResult).toMatchObject({
       draftVersion: 1,
@@ -79,14 +120,12 @@ describe('editor publish operations', () => {
       publishedLocales: ['en'],
     })
 
-    const unpublishPreview = await owner.mutation(api.editor.previewUnpublishEntryOperation, {
-      entryId,
-    })
+    const unpublishPreview = await previewUnpublishEntry(owner, entryId)
     expect(unpublishPreview.allowed).toBe(true)
     expect(unpublishPreview.summary).toContain('Hello world')
     expect(unpublishPreview.warnings[0]?.message).toContain('en:')
 
-    await owner.mutation(api.entries.publish.unpublishEntryTransportExecute, { entryId })
+    await unpublishEntry(owner, entryId)
 
     const unpublishedEntry = await owner.query(api.editor.getEntry, {
       id: entryId,
@@ -130,11 +169,7 @@ describe('editor publish operations', () => {
     const { entryId } = await seedEditorFixture(ctx)
     const owner = ctx.asCmsUser('owner-1')
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
     const entry = await owner.query(api.editor.getEntry, {
       id: entryId,
       locale: 'en',
@@ -149,11 +184,7 @@ describe('editor publish operations', () => {
       },
     })
 
-    const republishResult = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const republishResult = await publishEntry(owner, entryId)
 
     const outbox = (await ctx.readAll('outboxEvents')).find(
       (row: { versionId?: string | null }) => row.versionId === republishResult.versionId,
@@ -171,11 +202,7 @@ describe('editor publish operations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     const activeEntries = (await ctx.readAll('publicEntries')).filter(
       (row: { entryId: string }) => row.entryId === entryId,
@@ -216,11 +243,7 @@ describe('editor publish operations', () => {
       },
     })
 
-    const publishResult = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const publishResult = await publishEntry(owner, entryId)
 
     const publicRow = (await ctx.readAll('publicEntries')).find(
       (row: { entryId: string }) => row.entryId === entryId,
@@ -254,11 +277,7 @@ describe('editor publish operations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     const beforeEntry = (await ctx.readAll('publicEntries')).find(
       (row: { entryId: string }) => row.entryId === entryId,
@@ -306,7 +325,7 @@ describe('editor publish operations', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     await expect(
-      owner.mutation(api.entries.publish.publishEntryTransportExecute, {
+      publishEntryWithArgs(owner, {
         entryId,
         locales: ['en'],
         expectedVersion: 0,
@@ -331,13 +350,13 @@ describe('editor publish operations', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     await expect(
-      owner.mutation(api.entries.publish.publishEntryTransportExecute, {
+      publishEntryWithArgs(owner, {
         entryId,
         expectedVersion: await currentDraftVersion(owner, entryId),
         locales: ['de'],
       }),
     ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_PUBLISH_LOCALE_NOT_FOUND'
+      return getCmsErrorData(error)?.code === 'UNSUPPORTED_LOCALE'
     })
   })
 
@@ -349,18 +368,12 @@ describe('editor publish operations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
-    const archivePreview = await owner.mutation(api.editor.previewArchiveEntryOperation, {
-      entryId,
-    })
+    await publishEntry(owner, entryId)
+    const archivePreview = await previewArchiveEntry(owner, entryId)
     expect(archivePreview.allowed).toBe(true)
     expect(archivePreview.warnings[0]?.message).toContain('en:')
 
-    await owner.mutation(api.entries.publish.archiveEntryTransportExecute, { entryId })
+    await archiveEntry(owner, entryId)
 
     const archivedEntry = await owner.query(api.editor.getEntry, {
       id: entryId,
@@ -393,16 +406,8 @@ describe('editor publish operations', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId: rootAId,
-      expectedVersion: await currentDraftVersion(owner, rootAId),
-      locales: ['en'],
-    })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId: childId,
-      expectedVersion: await currentDraftVersion(owner, childId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, rootAId)
+    await publishEntry(owner, childId)
 
     const parent = await owner.query(api.editor.getEntry, {
       id: rootAId,
@@ -433,11 +438,7 @@ describe('editor publish operations', () => {
         },
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId: childId,
-      expectedVersion: await currentDraftVersion(owner, childId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, childId)
 
     const childLocale = (await ctx.readAll('publicEntries')).find(
       (row: { entryId: string; locale: string; path?: string | null }) =>
@@ -494,11 +495,7 @@ describe('editor publish operations', () => {
         },
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId: parentId,
-      expectedVersion: await currentDraftVersion(owner, parentId),
-      locales: ['de'],
-    })
+    await publishEntry(owner, parentId, ['de'])
 
     const leftId = await owner.mutation(api.editor.createEntry, {
       collection: 'docs',
@@ -519,11 +516,7 @@ describe('editor publish operations', () => {
         },
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId: leftId,
-      expectedVersion: await currentDraftVersion(owner, leftId),
-      locales: ['de'],
-    })
+    await publishEntry(owner, leftId, ['de'])
 
     const rightId = await owner.mutation(api.editor.createEntry, {
       collection: 'docs',
@@ -545,14 +538,19 @@ describe('editor publish operations', () => {
       },
     })
 
-    await expect(
-      owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-        entryId: rightId,
-        expectedVersion: await currentDraftVersion(owner, rightId),
-        locales: ['de'],
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_PUBLISHED_PATH_CONFLICT'
+    const conflictPreview = await owner.operation(publishEntryOperation).preview({
+      entryId: rightId,
+      expectedVersion: await currentDraftVersion(owner, rightId),
+      locales: ['de'],
     })
+
+    expect(conflictPreview.allowed).toBe(false)
+    expect(conflictPreview.blockers).toContainEqual(
+      expect.objectContaining({
+        code: 'publish-blocker',
+        message: expect.stringContaining('claimed by 2 public routes'),
+      }),
+    )
+    expect(conflictPreview.details.locales[0]?.blockingDiagnostics[0]?.code).toBe('route_collision')
   })
 })
