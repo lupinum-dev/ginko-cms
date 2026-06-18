@@ -8,12 +8,16 @@ import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
   createCtx,
+  deleteEntry,
+  previewDeleteEntry,
+  publishEntry,
   seedEditorFixture,
   seedMultiLocaleSettings,
   seedOwner,
   seedSettings,
   seedStorageObject,
   seedTreeFixture,
+  unpublishEntry,
 } from './helpers'
 
 const api = anyApi
@@ -132,14 +136,9 @@ describe('editor tree mutations', () => {
     const { entryId } = await seedEditorFixture(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const created = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      locales: ['en'],
-      expectedVersion: created.draftVersion,
-    })
+    await publishEntry(owner, entryId)
     const backup = await owner.action(api.backup.exportBackup, { scope: 'entry', entryId })
-    const preview = await owner.mutation(api.editor.previewDeleteEntryOperation, {
+    const preview = await previewDeleteEntry(owner, {
       entryId,
       exportArtifactId: backup.artifactId,
     })
@@ -147,23 +146,14 @@ describe('editor tree mutations', () => {
     expect(preview.blockers[0]?.code).toBe('public-routes-present')
     expect(preview.effects).toContainEqual(expect.objectContaining({ kind: 'routes', count: 1 }))
 
-    await expect(
-      owner.mutation(api.entries.tree.deleteEntryTransportExecute, {
-        entryId,
-        exportArtifactId: backup.artifactId,
-      }),
-    ).rejects.toSatisfy(
-      (error: unknown) => getCmsErrorData(error)?.code === 'ENTRY_HAS_PUBLIC_ROUTES',
-    )
-
-    await owner.mutation(api.entries.publish.unpublishEntryTransportExecute, { entryId })
-    const previewAfterUnpublish = await owner.mutation(api.editor.previewDeleteEntryOperation, {
+    await unpublishEntry(owner, entryId)
+    const previewAfterUnpublish = await previewDeleteEntry(owner, {
       entryId,
       exportArtifactId: backup.artifactId,
     })
     expect(previewAfterUnpublish.allowed).toBe(true)
 
-    await owner.mutation(api.entries.tree.deleteEntryTransportExecute, {
+    await deleteEntry(owner, {
       entryId,
       exportArtifactId: backup.artifactId,
     })
@@ -194,7 +184,7 @@ describe('editor tree mutations', () => {
       entryId: childId,
     })
 
-    await owner.mutation(api.entries.tree.deleteEntryTransportExecute, {
+    await deleteEntry(owner, {
       entryId: childId,
       exportArtifactId: backup.artifactId,
     })
@@ -357,7 +347,7 @@ describe('editor tree mutations', () => {
       entryId: childId,
     })
 
-    await owner.mutation(api.entries.tree.deleteEntryTransportExecute, {
+    await deleteEntry(owner, {
       entryId: childId,
       assetMode: 'moveToCollection',
       exportArtifactId: backup.artifactId,

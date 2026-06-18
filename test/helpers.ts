@@ -19,6 +19,7 @@ export const api = anyApi
 const publishEntryOperation = operations.byId['ginko-cms.publish-entry']
 const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
 const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
+const deleteEntryOperation = operations.byId['ginko-cms.delete-entry']
 const TRUSTED_FORWARDING_KEY = 'test-ginko-cms-component-forwarding-key'
 process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
@@ -200,6 +201,22 @@ export async function previewArchiveEntry(appIdentity: CmsCallerClient, entryId:
 export async function archiveEntry(appIdentity: CmsCallerClient, entryId: string) {
   const operation = appIdentity.operation(archiveEntryOperation)
   const args = { entryId }
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
+}
+
+export async function previewDeleteEntry(
+  appIdentity: CmsCallerClient,
+  args: { entryId: string; exportArtifactId: string; assetMode?: 'delete' | 'moveToCollection' },
+) {
+  return await appIdentity.operation(deleteEntryOperation).preview(args)
+}
+
+export async function deleteEntry(
+  appIdentity: CmsCallerClient,
+  args: { entryId: string; exportArtifactId: string; assetMode?: 'delete' | 'moveToCollection' },
+) {
+  const operation = appIdentity.operation(deleteEntryOperation)
   const preview = await operation.preview(args)
   return await operation.execute(args, { confirmation: preview.confirmation })
 }
