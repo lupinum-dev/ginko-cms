@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { api, createCtx, currentDraftVersion, seedOwner } from '../helpers'
+import { api, createCtx, publishEntry, seedOwner, unpublishEntry } from '../helpers'
 
 describe('integration: full entry lifecycle', () => {
   it('synced collection contract -> create entry -> save draft -> publish -> read via public API -> unpublish', async () => {
@@ -110,11 +110,7 @@ describe('integration: full entry lifecycle', () => {
     expect(prePublishResult.status).toBe('not-found')
 
     // Publish
-    const publishResult = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const publishResult = await publishEntry(owner, entryId)
     expect(publishResult.dirtyLocales).toEqual([])
     expect(typeof publishResult.versionId).toBe('string')
 
@@ -141,7 +137,7 @@ describe('integration: full entry lifecycle', () => {
     expect(listResult.entries[0]?.title).toBe('My First Article')
 
     // Unpublish
-    await owner.mutation(api.entries.publish.unpublishEntryTransportExecute, { entryId })
+    await unpublishEntry(owner, entryId)
 
     // Verify no longer visible via public API
     const postUnpublishResult = await ctx.raw.query(api.public.page, {
@@ -232,11 +228,7 @@ describe('integration: multi-locale with fallback', () => {
     })
 
     // Publish both locales
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en', 'de'],
-    })
+    await publishEntry(owner, entryId, ['en', 'de'])
 
     // Read English (direct match)
     const enResult = await ctx.raw.query(api.public.page, {
