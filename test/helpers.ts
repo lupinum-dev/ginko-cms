@@ -46,7 +46,6 @@ const destructiveTransportExecuteFunctionRefs: Record<string, string> = {
     'entries/publish:rollbackVersionOperationExecute',
   'entries/publish:unpublishEntryTransportExecute':
     'entries/publish:unpublishEntryOperationExecute',
-  'entries/tree:deleteEntryTransportExecute': 'entries/tree:deleteEntryOperationExecute',
 }
 const handlerIdByFunctionRef: Record<string, string> = {
   'assets:moveAsset': 'ginko-cms.move-asset',
@@ -207,7 +206,7 @@ export async function archiveEntry(appIdentity: CmsCallerClient, entryId: string
 
 export async function previewDeleteEntry(
   appIdentity: CmsCallerClient,
-  args: { entryId: string; exportArtifactId: string; assetMode?: 'delete' | 'moveToCollection' },
+  args: { entryId: string; exportArtifactId?: string; assetMode?: 'delete' | 'moveToCollection' },
 ) {
   return await appIdentity.operation(deleteEntryOperation).preview(args)
 }

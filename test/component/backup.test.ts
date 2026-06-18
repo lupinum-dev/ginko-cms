@@ -6,7 +6,14 @@ import { describe, expect, it } from 'vitest'
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import { executeConfirmedOperation } from '../helpers'
-import { createCtx, seedEditorFixture, seedOwner, seedSettings } from './entries/helpers'
+import {
+  createCtx,
+  deleteEntry,
+  previewDeleteEntry,
+  seedEditorFixture,
+  seedOwner,
+  seedSettings,
+} from './entries/helpers'
 
 const api = anyApi
 
@@ -392,22 +399,22 @@ describe('backup export and purge gating', () => {
     const fixture = await seedEditorFixture(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    await expect(
-      owner.mutation(api.entries.tree.deleteEntryTransportExecute, { entryId: fixture.entryId }),
-    ).rejects.toSatisfy((error: unknown) => {
-      const data = getCmsErrorData(error)
-      return (
-        data?.code === 'BACKUP_REQUIRED' &&
-        (data.details as { suggestedAction?: string } | null)?.suggestedAction === 'export-backup'
-      )
-    })
+    await expect(previewDeleteEntry(owner, { entryId: fixture.entryId })).rejects.toSatisfy(
+      (error: unknown) => {
+        const data = getCmsErrorData(error)
+        return (
+          data?.code === 'BACKUP_REQUIRED' &&
+          (data.details as { suggestedAction?: string } | null)?.suggestedAction === 'export-backup'
+        )
+      },
+    )
 
     const exported = await owner.action(api.backup.exportBackup, {
       scope: 'entry',
       entryId: fixture.entryId,
     })
     await expect(
-      owner.mutation(api.entries.tree.deleteEntryTransportExecute, {
+      deleteEntry(owner, {
         entryId: fixture.entryId,
         exportArtifactId: exported.artifactId,
       }),
