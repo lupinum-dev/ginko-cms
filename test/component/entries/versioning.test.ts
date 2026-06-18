@@ -5,9 +5,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createCtx,
-  currentDraftVersion,
   seedOwner,
   seedSettings,
+  publishEntry,
+  rollbackVersion,
   seedEditorFixture,
   seedMultiLocaleSettings,
 } from './helpers'
@@ -28,11 +29,7 @@ describe('editor version history', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const publishResult = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const publishResult = await publishEntry(owner, entryId)
     await owner.mutation(api.editor.saveEntryDraft, {
       entryId,
       expectedDraftVersion: 1,
@@ -47,14 +44,11 @@ describe('editor version history', () => {
       },
     })
 
-    const rollbackResult = await owner.mutation(
-      api.entries.publish.rollbackVersionTransportExecute,
-      {
-        entryId,
-        versionId: publishResult.versionId,
-        publish: false,
-      },
-    )
+    const rollbackResult = await rollbackVersion(owner, {
+      entryId,
+      versionId: publishResult.versionId,
+      publish: false,
+    })
     expect(typeof rollbackResult.versionId).toBe('string')
 
     const rolledBackEntry = await owner.query(api.editor.getEntry, {
@@ -81,11 +75,7 @@ describe('editor version history', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     // First publish
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     // Edit and publish again
     // Publish does not bump draftVersion. Save bumps to 2.
@@ -101,11 +91,7 @@ describe('editor version history', () => {
       },
     })
     // Publish does not bump draftVersion.
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     // Edit and publish a third time
     // Save bumps to 3.
@@ -121,11 +107,7 @@ describe('editor version history', () => {
       },
     })
     // After save: draftVersion=5. Publish bumps to 6.
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     const versions = await owner.query(api.editor.listVersions, { entryId })
 
@@ -148,11 +130,7 @@ describe('editor version history', () => {
     const owner = ctx.asCmsUser('owner-1')
 
     // Publish v1 with original title
-    const v1 = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const v1 = await publishEntry(owner, entryId)
 
     // Edit and publish v2: publish does not bump draftVersion, save->2.
     await owner.mutation(api.editor.saveEntryDraft, {
@@ -166,11 +144,7 @@ describe('editor version history', () => {
         },
       },
     })
-    const v2 = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const v2 = await publishEntry(owner, entryId)
 
     // Edit and publish v3: save->3.
     await owner.mutation(api.editor.saveEntryDraft, {
@@ -184,14 +158,10 @@ describe('editor version history', () => {
         },
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
     // Rollback to v1 (original "Hello world")
-    await owner.mutation(api.entries.publish.rollbackVersionTransportExecute, {
+    await rollbackVersion(owner, {
       entryId,
       versionId: v1.versionId,
       publish: false,
@@ -204,7 +174,7 @@ describe('editor version history', () => {
     expect(entry?.localeData?.draft.values.title).toBe('Hello world')
 
     // Rollback to v2
-    await owner.mutation(api.entries.publish.rollbackVersionTransportExecute, {
+    await rollbackVersion(owner, {
       entryId,
       versionId: v2.versionId,
       publish: false,
@@ -225,11 +195,7 @@ describe('editor version history', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    const v1 = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const v1 = await publishEntry(owner, entryId)
 
     await owner.mutation(api.editor.saveEntryDraft, {
       entryId,
@@ -242,20 +208,13 @@ describe('editor version history', () => {
         },
       },
     })
-    await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    await publishEntry(owner, entryId)
 
-    const rollbackResult = await owner.mutation(
-      api.entries.publish.rollbackVersionTransportExecute,
-      {
-        entryId,
-        versionId: v1.versionId,
-        publish: true,
-      },
-    )
+    const rollbackResult = await rollbackVersion(owner, {
+      entryId,
+      versionId: v1.versionId,
+      publish: true,
+    })
 
     const entry = await owner.query(api.editor.getEntry, {
       id: entryId,
@@ -315,17 +274,13 @@ describe('editor version history', () => {
       localized: { title: 'Hello world' },
     })
 
-    const published = await owner.mutation(api.entries.publish.publishEntryTransportExecute, {
-      entryId,
-      expectedVersion: await currentDraftVersion(owner, entryId),
-      locales: ['en'],
-    })
+    const published = await publishEntry(owner, entryId)
     await owner.mutation(api.editor.createLocaleVariant, {
       entryId,
       locale: 'de',
     })
 
-    await owner.mutation(api.entries.publish.rollbackVersionTransportExecute, {
+    await rollbackVersion(owner, {
       entryId,
       versionId: published.versionId,
       publish: false,

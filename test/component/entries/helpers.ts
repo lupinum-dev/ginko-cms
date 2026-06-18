@@ -11,6 +11,7 @@ export {
   previewUnpublishEntry,
   publishEntry,
   publishEntryWithArgs,
+  rollbackVersion,
   unpublishEntry,
 } from '../../helpers'
 

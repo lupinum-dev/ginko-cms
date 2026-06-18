@@ -20,6 +20,7 @@ const publishEntryOperation = operations.byId['ginko-cms.publish-entry']
 const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
 const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
 const deleteEntryOperation = operations.byId['ginko-cms.delete-entry']
+const rollbackVersionOperation = operations.byId['ginko-cms.rollback-version']
 const TRUSTED_FORWARDING_KEY = 'test-ginko-cms-component-forwarding-key'
 process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
@@ -42,8 +43,6 @@ const destructiveTransportExecuteFunctionRefs: Record<string, string> = {
   'entries/draft:revertDraftToPublishedTransportExecute':
     'entries/draft:revertDraftToPublishedOperationExecute',
   'entries/publish:publishEntryTransportExecute': 'entries/publish:publishEntryOperationExecute',
-  'entries/publish:rollbackVersionTransportExecute':
-    'entries/publish:rollbackVersionOperationExecute',
   'entries/publish:unpublishEntryTransportExecute':
     'entries/publish:unpublishEntryOperationExecute',
 }
@@ -216,6 +215,15 @@ export async function deleteEntry(
   args: { entryId: string; exportArtifactId: string; assetMode?: 'delete' | 'moveToCollection' },
 ) {
   const operation = appIdentity.operation(deleteEntryOperation)
+  const preview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: preview.confirmation })
+}
+
+export async function rollbackVersion(
+  appIdentity: CmsCallerClient,
+  args: { entryId: string; versionId: string; publish: boolean },
+) {
+  const operation = appIdentity.operation(rollbackVersionOperation)
   const preview = await operation.preview(args)
   return await operation.execute(args, { confirmation: preview.confirmation })
 }

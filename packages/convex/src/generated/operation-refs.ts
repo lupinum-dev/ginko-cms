@@ -319,7 +319,7 @@ export const ginkoCmsRollbackVersionExecuteRef = projectOperationRef(
   __rollbackVersionOperationDescriptor,
   'execute',
   api.entries.publish.rollbackVersionOperationExecute,
-  { functionRef: 'ginko-cms.rollback-version' },
+  { functionRef: 'entries/publish:rollbackVersionOperationExecute' },
 )
 
 export const ginkoCmsRollbackVersionPreviewRef = projectOperationRef(
@@ -328,7 +328,7 @@ export const ginkoCmsRollbackVersionPreviewRef = projectOperationRef(
   api.entries.publish.previewRollbackVersionOperation,
   {
     functionRef: 'editor:previewRollbackVersionOperation',
-    executeFunctionRef: 'ginko-cms.rollback-version',
+    executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute',
   },
 )
 
