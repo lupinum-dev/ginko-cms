@@ -29,7 +29,6 @@ import { operations } from '../../packages/convex/generated/operationHandles/tes
 import { createCtx, seedOwner } from '../component/entries/helpers'
 
 const api = anyApi
-const functionNameSymbol = Symbol.for('functionName')
 const identityForwardingKey = 'test-ginko-cms-component-forwarding-key'
 const createEntryOperation = operations.byId['ginko-cms.create-entry']
 const saveEntryDraftOperation = operations.byId['ginko-cms.save-entry-draft']
@@ -41,42 +40,21 @@ const rollbackVersionOperation = operations.byId['ginko-cms.rollback-version']
 process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= identityForwardingKey
 process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= identityForwardingKey
 
-function getFunctionRef(ref: unknown): string {
-  if (typeof ref === 'string') return ref
-  if (typeof ref === 'object' && ref !== null) {
-    const record = ref as Record<string | symbol, unknown>
-    if (typeof record[functionNameSymbol] === 'string') return record[functionNameSymbol]
-    if (typeof record._path === 'string') return record._path
-    if (typeof record.functionPath === 'string') return record.functionPath
-  }
-
-  throw new Error('Workflow test requires an exact function ref.')
-}
-
 /**
  * Trellis-aware test client that only injects caller forwarding. Workflow
  * commands must pass their own version guards explicitly.
  */
 function workflowClient(ctx: ReturnType<typeof createCtx>, userId: string) {
   const caller = cmsUserCaller(userId)
-  const client = (kind: 'query' | 'mutation' | 'action', fn: unknown) =>
-    ctx.asCaller(caller, {
-      targetFunctionRef: getFunctionRef(fn),
-      keyId: 'default',
-      ...(kind === 'mutation'
-        ? { replayMode: 'jti-redemption' as const }
-        : kind === 'action'
-          ? { replayMode: 'domain-idempotency' as const }
-          : {}),
-    })
+  const client = () => ctx.asCaller(caller)
 
   return {
     mutation: async (fn: unknown, args?: Record<string, unknown>) =>
-      await client('mutation', fn).mutation(fn as never, args as never),
+      await client().mutation(fn as never, args as never),
     query: async (fn: unknown, args?: Record<string, unknown>) =>
-      await client('query', fn).query(fn as never, args as never),
+      await client().query(fn as never, args as never),
     action: async (fn: unknown, args?: Record<string, unknown>) =>
-      await client('action', fn).action(fn as never, args as never),
+      await client().action(fn as never, args as never),
     operation: <TOperation extends OperationHandle>(operation: TOperation) =>
       ctx.asCaller(caller).operation(operation),
   }

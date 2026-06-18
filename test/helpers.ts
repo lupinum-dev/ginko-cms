@@ -7,7 +7,6 @@ import {
 import type { OperationHandle } from '@lupinum/trellis/backend'
 /// <reference types="vite/client" />
 import { createTestContext } from '@lupinum/trellis/testing'
-import type { TestCallerOptions } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 
@@ -30,60 +29,31 @@ const unarchiveEntryOperation = operations.byId['ginko-cms.unarchive-entry']
 const TRUSTED_FORWARDING_KEY = 'test-ginko-cms-component-forwarding-key'
 process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
-const functionNameSymbol = Symbol.for('functionName')
-
-function getFunctionRef(ref: unknown): string {
-  if (typeof ref === 'string') return ref
-  if (typeof ref === 'object' && ref !== null) {
-    const record = ref as Record<string | symbol, unknown>
-    if (typeof record[functionNameSymbol] === 'string') return record[functionNameSymbol]
-    if (typeof record._path === 'string') return record._path
-    if (typeof record.functionPath === 'string') return record.functionPath
-  }
-
-  throw new Error('Ginko CMS test helper requires an exact function ref.')
-}
 
 function createCmsCallerClient(
   ctx: ReturnType<typeof createTestContext<typeof schema>>,
   caller: CmsUserCaller | CmsMcpCaller,
 ) {
-  function cmsCallerOptions<TKind extends 'query' | 'mutation' | 'action'>(
-    kind: TKind,
-    fn: FunctionReference<TKind>,
-  ): TestCallerOptions {
-    const functionRef = getFunctionRef(fn)
-    const replayMode =
-      kind === 'mutation' ? 'jti-redemption' : kind === 'action' ? 'domain-idempotency' : undefined
-
-    return {
-      purpose: kind,
-      targetFunctionRef: functionRef,
-      keyId: 'default',
-      ...(replayMode ? { replayMode } : {}),
-    }
-  }
-
   return {
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
-      const client = ctx.asCaller(caller, cmsCallerOptions('query', fn))
+      const client = ctx.asCaller(caller)
       return await client.query(fn, ...args)
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
-      const client = ctx.asCaller(caller, cmsCallerOptions('mutation', fn))
+      const client = ctx.asCaller(caller)
       return await client.mutation(fn, ...args)
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
-      const client = ctx.asCaller(caller, cmsCallerOptions('action', fn))
+      const client = ctx.asCaller(caller)
       return await client.action(fn, ...args)
     },
     operation: <TOperation extends OperationHandle>(operation: TOperation) =>
