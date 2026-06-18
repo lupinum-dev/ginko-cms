@@ -11,9 +11,10 @@ import type { TestCallerOptions } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 
-import { operations } from '#component/generated/operation-handles/testing'
 import schema from '#component/schema'
 import { modules } from '#component/test.setup'
+
+import { operations } from '../packages/convex/generated/operationHandles/testing'
 
 export const api = anyApi
 const publishEntryOperation = operations.byId['ginko-cms.publish-entry']

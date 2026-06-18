@@ -113,9 +113,6 @@ export const unsafeRaw: CmsRuntime['unsafe'] = cmsRuntime.unsafe
 export const unsafePermit = unsafe
 export const callerQuery: CmsRuntime['query'] = cmsRuntime.query
 export const callerMutation: CmsRuntime['mutation'] = cmsRuntime.mutation
-export const callerTransportMutation: CmsRuntime['transportMutation'] = cmsRuntime.transportMutation
-export const callerInternalTransportMutation: NonNullable<CmsRuntime['internalTransportMutation']> =
-  cmsRuntime.internalTransportMutation!
 export const callerAction: NonNullable<CmsRuntime['action']> = cmsRuntime.action!
 
 export { action, query, mutation }

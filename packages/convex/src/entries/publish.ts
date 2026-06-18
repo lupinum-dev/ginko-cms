@@ -24,7 +24,7 @@ import type { Id } from '../_generated/dataModel.js'
 import { canArchiveEntries, canEditEntries, canPublishEntries } from '../auth/checks.js'
 import { previewPublishImpactForEntry } from '../diagnostics.js'
 import { throwCmsError } from '../errors.js'
-import { callerMutation, callerTransportMutation } from '../functions.js'
+import { callerMutation } from '../functions.js'
 import { logActivity } from '../lib/activity.js'
 import { asEntryId } from '../lib/ids.js'
 import type { QueryOrMutationCtx } from '../lib/types.js'
@@ -240,10 +240,6 @@ export const publishEntryOperation = defineOperation({
 export const publishEntryOperationExecute = callerMutation.protected({
   ...publishEntryOperation,
 })
-export const publishEntryTransportExecute = callerTransportMutation({
-  ...publishEntryOperation,
-  id: 'entries/publish:publishEntryTransportExecute',
-})
 export const previewPublishEntryOperation = callerMutation.protected(
   Object.assign(previewOf(publishEntryOperation), {
     id: 'editor:previewPublishEntryOperation',
@@ -322,10 +318,6 @@ export const unpublishEntryOperation = defineOperation({
 export const unpublishEntryOperationExecute = callerMutation.protected({
   ...unpublishEntryOperation,
 })
-export const unpublishEntryTransportExecute = callerTransportMutation({
-  ...unpublishEntryOperation,
-  id: 'entries/publish:unpublishEntryTransportExecute',
-})
 export const previewUnpublishEntryOperation = callerMutation.protected(
   Object.assign(previewOf(unpublishEntryOperation), {
     id: 'editor:previewUnpublishEntryOperation',
@@ -401,10 +393,6 @@ export const archiveEntryOperation = defineOperation({
 
 export const archiveEntryOperationExecute = callerMutation.protected({
   ...archiveEntryOperation,
-})
-export const archiveEntryTransportExecute = callerTransportMutation({
-  ...archiveEntryOperation,
-  id: 'entries/publish:archiveEntryTransportExecute',
 })
 export const previewArchiveEntryOperation = callerMutation.protected(
   Object.assign(previewOf(archiveEntryOperation), {
@@ -508,11 +496,6 @@ export const rollbackVersionOperationExecute = callerMutation.protected({
   ...rollbackVersionOperation,
   id: 'ginko-cms.rollback-version',
   guard: canEditEntries,
-})
-export const rollbackVersionTransportExecute = callerTransportMutation({
-  ...rollbackVersionOperation,
-  guard: canEditEntries,
-  id: 'entries/publish:rollbackVersionTransportExecute',
 })
 export const previewRollbackVersionOperation = callerMutation.protected(
   Object.assign(previewOf(rollbackVersionOperation), {

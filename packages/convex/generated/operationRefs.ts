@@ -1,7 +1,7 @@
 // AUTO-GENERATED. Do not edit.
 import { projectOperationRef } from '@lupinum/trellis/backend'
 
-import { api } from '../_generated/api.js'
+import { api } from '../src/_generated/api.js'
 
 const __archiveEntryOperationDescriptor = {
   _type: 'operation-descriptor',

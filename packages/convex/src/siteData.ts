@@ -24,7 +24,7 @@ import { v } from 'convex/values'
 import type { Doc } from './_generated/dataModel.js'
 import { canManageSettings, canRead } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
-import { callerMutation, callerQuery, callerTransportMutation } from './functions.js'
+import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx } from './lib/types.js'
@@ -391,10 +391,6 @@ export const deleteSiteDataBlockOperation = defineOperation({
 
 export const deleteSiteDataBlockOperationExecute = callerMutation.protected({
   ...deleteSiteDataBlockOperation,
-})
-export const deleteSiteDataBlockTransportExecute = callerTransportMutation({
-  ...deleteSiteDataBlockOperation,
-  id: 'siteData:deleteSiteDataBlockTransportExecute',
 })
 export const previewDeleteSiteDataBlockOperation = callerMutation.protected(
   Object.assign(previewOf(deleteSiteDataBlockOperation), {

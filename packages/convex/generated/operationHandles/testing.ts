@@ -30,7 +30,7 @@ import {
   ginkoCmsUnarchiveEntryExecuteRef,
   ginkoCmsUnpublishEntryExecuteRef,
   ginkoCmsUnpublishEntryPreviewRef,
-} from '../operation-refs.js'
+} from '../operationRefs.js'
 
 const __archiveEntryHandleDescriptor = {
   _type: 'operation-descriptor',

@@ -19,7 +19,7 @@ import type { Doc } from '../_generated/dataModel.js'
 import { canCreateEntries, canDeleteEntries, canEditEntries } from '../auth/checks.js'
 import { assertBackupArtifactCoversPurge } from '../backup.js'
 import { throwCmsError } from '../errors.js'
-import { callerMutation, callerTransportMutation } from '../functions.js'
+import { callerMutation } from '../functions.js'
 import { logActivity } from '../lib/activity.js'
 import {
   deleteEntryRecords,
@@ -312,10 +312,6 @@ export const deleteEntryOperation = defineOperation({
 
 export const deleteEntryOperationExecute = callerMutation.protected({
   ...deleteEntryOperation,
-})
-export const deleteEntryTransportExecute = callerTransportMutation({
-  ...deleteEntryOperation,
-  id: 'entries/tree:deleteEntryTransportExecute',
 })
 export const previewDeleteEntryOperation = callerMutation.protected(
   Object.assign(previewOf(deleteEntryOperation), {

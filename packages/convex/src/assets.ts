@@ -33,12 +33,7 @@ import { assertBackupArtifactCoversPurge } from './backup.js'
 import { readStudioDraftView } from './entries/context.js'
 import { rebuildContentAssetRefsForEntry } from './entries/projections.js'
 import { throwCmsError } from './errors.js'
-import {
-  callerMutation,
-  callerQuery,
-  callerTransportMutation,
-  cmsPublicReadTables,
-} from './functions.js'
+import { callerMutation, callerQuery, cmsPublicReadTables } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { getCollection } from './lib/collections.js'
 import { resolveEntryTitle } from './lib/fields.js'
@@ -1141,10 +1136,6 @@ export const deleteAssetOperation = defineOperation({
 
 export const deleteAssetOperationExecute = callerMutation.protected({
   ...deleteAssetOperation,
-})
-export const deleteAssetTransportExecute = callerTransportMutation({
-  ...deleteAssetOperation,
-  id: 'assets:deleteAssetTransportExecute',
 })
 export const previewDeleteAssetOperation = callerMutation.protected(
   Object.assign(previewOf(deleteAssetOperation), {

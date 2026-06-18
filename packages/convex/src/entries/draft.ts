@@ -17,7 +17,7 @@ import { v } from 'convex/values'
 
 import { canCreateEntries, canEditEntries } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
-import { callerMutation, callerTransportMutation } from '../functions.js'
+import { callerMutation } from '../functions.js'
 import { isLocalizedSlugMode } from '../lib/collections.js'
 import { asEntryId } from '../lib/ids.js'
 import type { MutationCtx } from '../lib/types.js'
@@ -424,10 +424,6 @@ export const revertDraftToPublishedOperation = defineOperation({
 export const revertDraftToPublishedOperationExecute = callerMutation.protected({
   ...revertDraftToPublishedOperation,
   id: 'entries/draft:revertDraftToPublishedOperationExecute',
-})
-export const revertDraftToPublishedTransportExecute = callerTransportMutation({
-  ...revertDraftToPublishedOperation,
-  id: 'entries/draft:revertDraftToPublishedTransportExecute',
 })
 export const previewRevertDraftToPublishedOperation = callerMutation.protected(
   Object.assign(previewOf(revertDraftToPublishedOperation), {
