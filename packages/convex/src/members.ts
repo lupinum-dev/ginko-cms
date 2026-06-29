@@ -416,9 +416,7 @@ export const removeMemberOperation = defineOperation({
   },
 })
 
-export const removeMemberOperationExecute = callerMutation.protected({
-  ...removeMemberOperation,
-})
+export const removeMemberOperationExecute = callerMutation.protected(removeMemberOperation)
 export const previewRemoveMemberOperation = callerMutation.protected(
   Object.assign(previewOf(removeMemberOperation), {
     id: 'members:previewRemoveMemberOperation',

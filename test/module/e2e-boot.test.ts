@@ -117,6 +117,10 @@ describe('ginko-cms module e2e boot', () => {
     const publicConfig = getNuxt(nuxt).options.runtimeConfig.public
     expect(publicConfig.ginkoCms).toBeDefined()
     expect(publicConfig.ginkoCms.route).toBe('/studio')
+    expect(publicConfig.ginkoCms.studio).toMatchObject({
+      assetBase: expect.stringMatching(/^\/_ginko-cms-studio\/[a-f0-9]{12}$/),
+      devServer: null,
+    })
   })
 
   it('registers the shared module theme stylesheet once', () => {

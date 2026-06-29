@@ -389,9 +389,9 @@ export const deleteSiteDataBlockOperation = defineOperation({
   },
 })
 
-export const deleteSiteDataBlockOperationExecute = callerMutation.protected({
-  ...deleteSiteDataBlockOperation,
-})
+export const deleteSiteDataBlockOperationExecute = callerMutation.protected(
+  deleteSiteDataBlockOperation,
+)
 export const previewDeleteSiteDataBlockOperation = callerMutation.protected(
   Object.assign(previewOf(deleteSiteDataBlockOperation), {
     id: 'siteData:previewDeleteSiteDataBlockOperation',

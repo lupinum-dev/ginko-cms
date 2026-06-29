@@ -85,13 +85,5 @@
     "vue-tsc": "^3.2.9",
     "yaml": "^2.9.0"
   },
-  "packageManager": "pnpm@10.33.0",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@lupinum/trellis",
-      "esbuild",
-      "@parcel/watcher",
-      "unrs-resolver"
-    ]
-  }
+  "packageManager": "pnpm@10.33.0"
 }

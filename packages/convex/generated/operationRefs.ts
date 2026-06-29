@@ -143,7 +143,7 @@ export const ginkoCmsArchiveEntryPreviewRef = projectOperationRef(
   'preview',
   api.entries.publish.previewArchiveEntryOperation,
   {
-    functionRef: 'editor:previewArchiveEntryOperation',
+    functionRef: 'entries/publish:previewArchiveEntryOperation',
     executeFunctionRef: 'entries/publish:archiveEntryOperationExecute',
   },
 )
@@ -152,7 +152,7 @@ export const ginkoCmsCreateEntryExecuteRef = projectOperationRef(
   __createEntryOperationDescriptor,
   'execute',
   api.entries.tree.createEntry,
-  { functionRef: 'ginko-cms.create-entry' },
+  { functionRef: 'entries/tree:createEntry' },
 )
 
 export const ginkoCmsDeleteAssetExecuteRef = projectOperationRef(
@@ -201,7 +201,7 @@ export const ginkoCmsDeleteEntryPreviewRef = projectOperationRef(
   'preview',
   api.entries.tree.previewDeleteEntryOperation,
   {
-    functionRef: 'editor:previewDeleteEntryOperation',
+    functionRef: 'entries/tree:previewDeleteEntryOperation',
     executeFunctionRef: 'entries/tree:deleteEntryOperationExecute',
   },
 )
@@ -227,7 +227,7 @@ export const ginkoCmsMoveAssetExecuteRef = projectOperationRef(
   __moveAssetOperationDescriptor,
   'execute',
   api.assets.moveAsset,
-  { functionRef: 'ginko-cms.move-asset' },
+  { functionRef: 'assets:moveAsset' },
 )
 
 export const ginkoCmsPublishEntryExecuteRef = projectOperationRef(
@@ -242,7 +242,7 @@ export const ginkoCmsPublishEntryPreviewRef = projectOperationRef(
   'preview',
   api.entries.publish.previewPublishEntryOperation,
   {
-    functionRef: 'editor:previewPublishEntryOperation',
+    functionRef: 'entries/publish:previewPublishEntryOperation',
     executeFunctionRef: 'entries/publish:publishEntryOperationExecute',
   },
 )
@@ -310,7 +310,7 @@ export const ginkoCmsRevertDraftToPublishedPreviewRef = projectOperationRef(
   'preview',
   api.entries.draft.previewRevertDraftToPublishedOperation,
   {
-    functionRef: 'editor:previewRevertDraftToPublishedOperation',
+    functionRef: 'entries/draft:previewRevertDraftToPublishedOperation',
     executeFunctionRef: 'entries/draft:revertDraftToPublishedOperationExecute',
   },
 )
@@ -327,7 +327,7 @@ export const ginkoCmsRollbackVersionPreviewRef = projectOperationRef(
   'preview',
   api.entries.publish.previewRollbackVersionOperation,
   {
-    functionRef: 'editor:previewRollbackVersionOperation',
+    functionRef: 'entries/publish:previewRollbackVersionOperation',
     executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute',
   },
 )
@@ -336,14 +336,14 @@ export const ginkoCmsSaveEntryDraftExecuteRef = projectOperationRef(
   __saveEntryDraftOperationDescriptor,
   'execute',
   api.entries.draft.saveEntryDraft,
-  { functionRef: 'ginko-cms.save-entry-draft' },
+  { functionRef: 'entries/draft:saveEntryDraft' },
 )
 
 export const ginkoCmsUnarchiveEntryExecuteRef = projectOperationRef(
   __unarchiveEntryOperationDescriptor,
   'execute',
   api.entries.publish.unarchiveEntry,
-  { functionRef: 'ginko-cms.unarchive-entry' },
+  { functionRef: 'entries/publish:unarchiveEntry' },
 )
 
 export const ginkoCmsUnpublishEntryExecuteRef = projectOperationRef(
@@ -358,7 +358,7 @@ export const ginkoCmsUnpublishEntryPreviewRef = projectOperationRef(
   'preview',
   api.entries.publish.previewUnpublishEntryOperation,
   {
-    functionRef: 'editor:previewUnpublishEntryOperation',
+    functionRef: 'entries/publish:previewUnpublishEntryOperation',
     executeFunctionRef: 'entries/publish:unpublishEntryOperationExecute',
   },
 )

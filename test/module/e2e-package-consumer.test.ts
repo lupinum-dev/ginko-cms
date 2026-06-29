@@ -168,6 +168,10 @@ describe('ginko-cms package-first consumer fixture', () => {
     expect(nuxt).toBeDefined()
     if (!nuxt) throw new Error('Nuxt test instance was not loaded.')
     expect(nuxt.options.runtimeConfig.public.ginkoCms.route).toBe('/studio')
+    expect(nuxt.options.runtimeConfig.public.ginkoCms.studio).toMatchObject({
+      assetBase: expect.stringMatching(/^\/_ginko-cms-studio\/[a-f0-9]{12}$/),
+      devServer: null,
+    })
     expect(nuxt.options.runtimeConfig.public.content.provider).toBe('cms')
     expect(nuxt.options.runtimeConfig.public.content.providers).toMatchObject({
       cms: '@lupinum/ginko-cms/nuxt-provider',

@@ -54,6 +54,7 @@ export const createEntryOperation = defineOperation({
   name: 'create-entry',
   kind: 'safe',
   safety: 'bounded-write',
+  executeFunctionRef: 'entries/tree:createEntry',
   args: createEntryArgs.args,
   guard: canCreateEntries,
   returns: v.string(),
@@ -76,9 +77,7 @@ export const createEntryOperation = defineOperation({
   },
 })
 
-export const createEntry = callerMutation.protected({
-  ...createEntryOperation,
-})
+export const createEntry = callerMutation.protected(createEntryOperation)
 
 export const reorderEntry = callerMutation.protected({
   id: 'editor:reorderEntry',
@@ -310,12 +309,10 @@ export const deleteEntryOperation = defineOperation({
   },
 })
 
-export const deleteEntryOperationExecute = callerMutation.protected({
-  ...deleteEntryOperation,
-})
+export const deleteEntryOperationExecute = callerMutation.protected(deleteEntryOperation)
 export const previewDeleteEntryOperation = callerMutation.protected(
   Object.assign(previewOf(deleteEntryOperation), {
-    id: 'editor:previewDeleteEntryOperation',
+    id: 'entries/tree:previewDeleteEntryOperation',
   }),
 )
 

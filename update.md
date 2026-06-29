@@ -6,11 +6,11 @@ Move `ginko-cms` onto the new local Trellis security foundation first, then move
 to the latest local Ginko Content package only after the Trellis migration is
 working and verified.
 
-Target local stack for the first phase:
+Validated local stack:
 
 - `@lupinum/trellis`: local `0.3.1` tarball from `/Users/matthias/Git/workspace/trellis`
 - `@lupinum/trellis-bridge`: local `0.3.1` tarball from `/Users/matthias/Git/workspace/trellis`
-- `@lupinum/ginko-content`: keep current CMS-compatible version until Trellis is green
+- `@lupinum/ginko-content`: local `0.1.6` tarball from `/Users/matthias/Git/workspace/ginko-content`
 
 Assumptions:
 
@@ -24,7 +24,7 @@ Assumptions:
 Current Trellis source baseline:
 
 - Branch: `hardening`
-- Commit: `f9add1a feat: harden operation handle registration`
+- Commit: `eca631c docs: record final release verification`
 - Version metadata: `@lupinum/trellis@0.3.1` and
   `@lupinum/trellis-bridge@0.3.1`
 - Trellis `release:verify` and `release:pack` now pass serially for this
@@ -35,63 +35,30 @@ Current Trellis source baseline:
 
 Current execution checkpoint:
 
-- Latest Trellis RFC workpackage committed on `hardening`:
-  `f9add1a feat: harden operation handle registration`.
-- Trellis validation for that workpackage passed:
-  - `pnpm run release:verify`
-  - `pnpm run release:pack`
-- Fresh Trellis tarballs for that workpackage were written to:
-  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-0.3.1.tgz`
-  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-bridge-0.3.1.tgz`
-- CMS package e2e against regenerated local tarballs passed after that Trellis
-  workpackage:
-  - `pnpm run package:e2e`
-  - packed local CMS, CMS Convex, CMS Contract, Ginko Content `0.1.6`, Trellis
-    `0.3.1`, and Trellis Bridge `0.3.1`
-  - installed the temp consumer from local `file:` tarballs, ran
-    `ginko-cms init`, `ginko-cms bridge check`, `trellis doctor`, Convex
-    codegen, Nuxt prepare, Nuxt typecheck, and package import checks
-  - `trellis doctor` reported 32 passed checks, 1 expected missing Convex URL
-    warning, and 0 failures.
-- Trellis `0.3.1` release validation now passed serially:
+- Latest Trellis checkpoint on `hardening`:
+  `eca631c docs: record final release verification`.
+- Trellis `0.3.1` release validation passed serially at this checkpoint:
   - `pnpm run release:verify`
   - `pnpm run release:pack`
 - Current local Trellis tarballs:
   - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-0.3.1.tgz`
   - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-bridge-0.3.1.tgz`
-- Ginko Content `0.1.6` release validation now passed serially:
+- `ginko-cms` package e2e also copied the current Trellis tarballs into the CMS
+  package proof directory:
+  - `/Users/matthias/Git/workspace/ginko-cms/.pack/lupinum-trellis-0.3.1.tgz`
+  - `/Users/matthias/Git/workspace/ginko-cms/.pack/lupinum-trellis-bridge-0.3.1.tgz`
+- Ginko Content `0.1.6` release validation passed serially:
   - `pnpm run release:verify`
   - release pack wrote
     `/Users/matthias/Git/workspace/ginko-content/.pack/lupinum-ginko-content-0.1.6.tgz`
-- CMS release validation now passed serially:
-  - `pnpm run release:verify`
-  - package e2e installed only local tarballs for CMS, CMS Convex, CMS
-    Contract, Ginko Content `0.1.6`, Trellis `0.3.1`, and Trellis Bridge
-    `0.3.1`
-  - `pnpm audit --prod --audit-level low` passed after CMS workspace overrides
-    pinned patched production transitive dependencies.
-- `i18n-cms` final consumer validation now passed with the local tarball stack:
-  - `pnpm install --force`
-  - `pnpm run typecheck`
-  - `pnpm run build`
-  - built-server `pnpm run smoke:cms` with the configured test credentials
-  - in-app browser checks for content, locale switching, search, login,
-    settings, Studio content navigation, and sitemap/runtime probes.
-- Trellis consumer fix committed on `hardening`:
-  `894b6b2 fix: export operation shape from runtime barrels`.
-- Regenerated local Trellis tarballs after that fix:
-  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-0.3.1.tgz`
-  - `/Users/matthias/Git/workspace/trellis/.pack/lupinum-trellis-bridge-0.3.1.tgz`
 - `ginko-cms` Trellis phase now resolves local packages during development via
   sibling workspace links, while package e2e installs local tarballs. We are not
   validating against the npm registry for Trellis, Trellis Bridge, CMS, or Ginko
   Content during this migration.
-- Trellis validation for the consumer fix passed:
-  - `pnpm run check:publish-surface`
-  - `pnpm run test:security` (26 files passed, 277 tests passed)
-- CMS Trellis phase validation passed:
-  - `pnpm run check`
-  - `pnpm run package:e2e`
+- CMS validation passed after the final Trellis/Ginko Content cutover:
+  - `pnpm run check`: 90 test files passed, 713 tests passed, 1 skipped.
+  - `pnpm run package:e2e`: package imports passed; `trellis doctor` reported
+    33 passed checks, 1 expected missing Convex URL env warning, and 0 failures.
 - Package e2e installed local tarballs for:
   - `@lupinum/ginko-cms@0.1.3`
   - `@lupinum/ginko-cms-contract@0.1.1`
@@ -99,9 +66,6 @@ Current execution checkpoint:
   - `@lupinum/ginko-content@0.1.6`
   - `@lupinum/trellis@0.3.1`
   - `@lupinum/trellis-bridge@0.3.1`
-- Package e2e result: workspace-reference scan passed for all six tarballs,
-  package imports passed, doctor reported 32 passed, 1 expected missing Convex
-  URL env warning, and 0 failures.
 - Packaged `i18n-cms` consumer build exposed one additional Trellis `0.3`
   hard-cut issue: the CMS server MCP bundle still imported removed
   `stampMcpToolSafety`/`TrellisMcpToolSafety` exports.
@@ -130,10 +94,53 @@ Current execution checkpoint:
   - `pnpm run check` passed.
   - `pnpm run package:e2e` passed with local Ginko Content `0.1.6`, local Trellis
     `0.3.1`, local Trellis Bridge `0.3.1`, and packed CMS tarballs.
+- Final `i18n-cms` consumer validation passed with only local `file:` tarballs:
+  - `pnpm install --force`
+  - `pnpm run typecheck`
+  - `pnpm run build`
+  - built-server smoke against `http://127.0.0.1:9999`:
+    `CMS_SMOKE_BASE_URL=http://127.0.0.1:9999 GINKO_CMS_TEST_EMAIL=matthias@me.com GINKO_CMS_TEST_PASSWORD=oms345pb pnpm run smoke:cms`
+  - direct probes confirmed CMS search and sitemap output:
+    - `/api/_content/search?q=security&locale=en` returned
+      `/changelog/security` and `Security Enhancements`.
+    - `/sitemap_index.xml` listed `__sitemap__/en-US.xml` and
+      `__sitemap__/de-DE.xml`.
+    - English sitemap included `/docs/code-blocks`, `/blog`, and
+      `/changelog/security`.
+    - German sitemap included `/de/dokumentation/codebloecke`, `/de/blog`, and
+      `/de/aenderungen/security`.
+  - in-app browser verification confirmed:
+    - `/docs/code-blocks` rendered `Code Blocks` with `lang="en-US"`.
+    - `/de/dokumentation/codebloecke` rendered `Codebloecke` with
+      `lang="de-DE"`.
+    - the visible language switcher moved from the English docs route to the
+      German translated route.
+    - the search dialog returned the localized security result.
+    - `/studio/settings` loaded for `Matthias <matthias@me.com>` and showed
+      settings, members, and MCP keys.
+    - Studio loaded from a content-hashed base path like
+      `/_ginko-cms-studio/f2af70255ebe/assets/main.js`, with no query-string
+      versioning and no current browser console errors.
+- CMS Studio asset loading finding:
+  - Query-string versioning on `main.js?v=...` was rejected because Vite lazy
+    chunks import `./main.js` without the query, splitting module identity and
+    causing runtime failures.
+  - The final fix is a content-hashed Studio asset base path, relative Vite
+    production asset URLs, and no separate `assetVersion` runtime field.
+  - The Studio mount-root wrapper is required. Without it, the clean consumer
+    smoke timed out waiting for `Storage hygiene`.
+- Current Trellis judgement:
+  - No open Trellis-core design blocker is known after the current consumer
+    proof.
+  - Remaining risks are CMS/consumer hygiene items, not Trellis foundation
+    blockers: keep the remaining protected-handler inventory intentional, keep
+    `unsafeRaw` allowlisted, and keep package/browser proof fresh whenever
+    Trellis changes.
 
 ## Non-Goals
 
-- Do not migrate Ginko Content in the same pass as Trellis.
+- Do not migrate Ginko Content in the same pass as Trellis until the Trellis
+  phase is green.
 - Do not keep Trellis `0.2` and `0.3` paths side by side.
 - Do not re-export removed Trellis unsafe APIs to make old CMS code compile.
 - Do not add feature flags, adapters, or compatibility wrappers for unreleased
@@ -156,22 +163,23 @@ while executing the phases instead of treating them as theoretical risks.
 
 ### Backend Lane Inventory
 
-Current scan:
+Current post-cutover scan:
 
 ```bash
 rg -n "caller(Query|Mutation|Action)\\.protected\\(" packages/convex/src -g '!**/_generated/**' | wc -l
 ```
 
-Result: `96` protected handlers.
+Result: `85` protected handlers.
 
-This is too many for a blind rename. Classify them by intent before editing:
+The obvious public-read migration is complete, but this is still enough surface
+to keep inventory pressure on future changes. Classify remaining `protected`
+usage by intent instead of treating it as the default lane:
 
 - Public content/provider reads in
   `/Users/matthias/Git/workspace/ginko-cms/packages/convex/src/public.ts` and
   public asset URL reads in
-  `/Users/matthias/Git/workspace/ginko-cms/packages/convex/src/assets.ts` use
-  `guard: allowPublic`. These should move to the `public` lane and must not keep
-  `guard`.
+  `/Users/matthias/Git/workspace/ginko-cms/packages/convex/src/assets.ts` now use
+  the `public` lane rather than `protected({ guard: allowPublic })`.
 - Bootstrap-only signed-in flows, especially
   `/Users/matthias/Git/workspace/ginko-cms/packages/convex/src/members.ts`, may
   belong on `authenticated` or stay `protected` only if the bootstrap predicate
@@ -184,10 +192,9 @@ This is too many for a blind rename. Classify them by intent before editing:
 - Operation preview/execute handlers need special review. Keep the operation
   metadata and destructive confirmation binding intact while changing lanes.
 
-Add or update an inventory test during the migration so new `protected` usage is
-intentional. A good test should fail on `guard: open`/`allowPublic` inside
-`protected`, and should require a short allowlist or rationale for any remaining
-`protected({ guard })` handler.
+Keep or add inventory tests so new `protected` usage is intentional. The test
+should fail on `guard: open`/`allowPublic` inside `protected`, and should require
+a short allowlist or rationale for any remaining `protected({ guard })` handler.
 
 ### Removed Trellis Export Hits
 
@@ -1166,8 +1173,8 @@ Command verification:
 - `pnpm run typecheck` passed.
 - `pnpm run build` passed and prerendered 211 routes, including localized
   content routes, sitemap output, and content payload/API routes.
-- `TMPDIR=/tmp GINKO_CMS_TEST_EMAIL=... GINKO_CMS_TEST_PASSWORD=...
-  pnpm run smoke:cms` passed. `TMPDIR=/tmp` avoids the Nuxt dev-server
+- `TMPDIR=/tmp GINKO_CMS_TEST_EMAIL=... GINKO_CMS_TEST_PASSWORD=... pnpm run smoke:cms`
+  passed. `TMPDIR=/tmp` avoids the Nuxt dev-server
   Vite IPC socket path issue seen under the default macOS temp path.
 - Built-server smoke passed:
 

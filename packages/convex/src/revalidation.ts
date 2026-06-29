@@ -431,9 +431,9 @@ export const retryRevalidationJobOperation = defineOperation({
   },
 })
 
-export const retryRevalidationJobOperationExecute = callerMutation.protected({
-  ...retryRevalidationJobOperation,
-})
+export const retryRevalidationJobOperationExecute = callerMutation.protected(
+  retryRevalidationJobOperation,
+)
 export const previewRetryRevalidationJobOperation = callerMutation.protected(
   Object.assign(previewOf(retryRevalidationJobOperation), {
     id: 'revalidation:previewRetryRevalidationJobOperation',

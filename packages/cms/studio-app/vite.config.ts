@@ -9,14 +9,12 @@ import { defineConfig } from 'vite'
 // dependency graph (TipTap, reka-ui, etc.) doesn't bleed into the consumer
 // site's bundle. The Nuxt module mounts this app via a single host page.
 //
-// The `base` path matches the production server route the Nuxt module exposes
-// (`/_ginko-cms-studio/*`); in dev the studio runs on its own Vite server and
-// the host page loads from `${GINKO_STUDIO_DEV_SERVER}` instead.
+// Production uses relative chunk/preload URLs so the Nuxt module can serve the
+// same bundle from a versioned asset base. In dev the studio runs on its own
+// Vite server and the host page loads from `${GINKO_STUDIO_DEV_SERVER}`.
 export default defineConfig(({ command }) => ({
   root: fileURLToPath(new URL('.', import.meta.url)),
-  // Production assets live under the consumer's `/_ginko-cms-studio/*` server
-  // route; the dev server runs standalone on :5252/ so its base is plain `/`.
-  base: command === 'build' ? '/_ginko-cms-studio/' : '/',
+  base: command === 'build' ? './' : '/',
   plugins: [
     vue(),
     tailwindcss(),

@@ -767,6 +767,7 @@ export const moveAssetOperation = defineOperation({
   name: 'move-asset',
   kind: 'safe',
   safety: 'bounded-write',
+  executeFunctionRef: 'assets:moveAsset',
   args: moveAssetArgs.args,
   guard: canManageAssets,
   returns: v.null(),
@@ -789,9 +790,7 @@ export const moveAssetOperation = defineOperation({
   },
 })
 
-export const moveAsset = callerMutation.protected({
-  ...moveAssetOperation,
-})
+export const moveAsset = callerMutation.protected(moveAssetOperation)
 
 // AUTH-AUDIT: intentionally unguarded — public query for resolving asset storage URLs.
 export const getAssetUrl = callerQuery.public({
@@ -1134,9 +1133,7 @@ export const deleteAssetOperation = defineOperation({
   },
 })
 
-export const deleteAssetOperationExecute = callerMutation.protected({
-  ...deleteAssetOperation,
-})
+export const deleteAssetOperationExecute = callerMutation.protected(deleteAssetOperation)
 export const previewDeleteAssetOperation = callerMutation.protected(
   Object.assign(previewOf(deleteAssetOperation), {
     id: 'assets:previewDeleteAssetOperation',
@@ -1323,9 +1320,7 @@ export const purgeAssetOperation = defineOperation({
   },
 })
 
-export const purgeAsset = callerMutation.protected({
-  ...purgeAssetOperation,
-})
+export const purgeAsset = callerMutation.protected(purgeAssetOperation)
 
 export const previewPurgeAssetOperation = callerMutation.protected(
   Object.assign(previewOf(purgeAssetOperation), {

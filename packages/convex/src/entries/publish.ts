@@ -237,12 +237,10 @@ export const publishEntryOperation = defineOperation({
   },
 })
 
-export const publishEntryOperationExecute = callerMutation.protected({
-  ...publishEntryOperation,
-})
+export const publishEntryOperationExecute = callerMutation.protected(publishEntryOperation)
 export const previewPublishEntryOperation = callerMutation.protected(
   Object.assign(previewOf(publishEntryOperation), {
-    id: 'editor:previewPublishEntryOperation',
+    id: 'entries/publish:previewPublishEntryOperation',
   }),
 )
 
@@ -315,12 +313,10 @@ export const unpublishEntryOperation = defineOperation({
   },
 })
 
-export const unpublishEntryOperationExecute = callerMutation.protected({
-  ...unpublishEntryOperation,
-})
+export const unpublishEntryOperationExecute = callerMutation.protected(unpublishEntryOperation)
 export const previewUnpublishEntryOperation = callerMutation.protected(
   Object.assign(previewOf(unpublishEntryOperation), {
-    id: 'editor:previewUnpublishEntryOperation',
+    id: 'entries/publish:previewUnpublishEntryOperation',
   }),
 )
 
@@ -391,12 +387,10 @@ export const archiveEntryOperation = defineOperation({
   },
 })
 
-export const archiveEntryOperationExecute = callerMutation.protected({
-  ...archiveEntryOperation,
-})
+export const archiveEntryOperationExecute = callerMutation.protected(archiveEntryOperation)
 export const previewArchiveEntryOperation = callerMutation.protected(
   Object.assign(previewOf(archiveEntryOperation), {
-    id: 'editor:previewArchiveEntryOperation',
+    id: 'entries/publish:previewArchiveEntryOperation',
   }),
 )
 
@@ -405,6 +399,7 @@ export const unarchiveEntryOperation = defineOperation({
   name: 'unarchive-entry',
   kind: 'safe',
   safety: 'bounded-write',
+  executeFunctionRef: 'entries/publish:unarchiveEntry',
   args: unarchiveEntryArgs.args,
   guard: canArchiveEntries,
   returns: v.null(),
@@ -429,9 +424,7 @@ export const unarchiveEntryOperation = defineOperation({
   },
 })
 
-export const unarchiveEntry = callerMutation.protected({
-  ...unarchiveEntryOperation,
-})
+export const unarchiveEntry = callerMutation.protected(unarchiveEntryOperation)
 
 export const rollbackVersionOperation = defineOperation({
   id: 'ginko-cms.rollback-version',
@@ -492,14 +485,15 @@ export const rollbackVersionOperation = defineOperation({
   },
 })
 
-export const rollbackVersionOperationExecute = callerMutation.protected({
-  ...rollbackVersionOperation,
-  id: 'ginko-cms.rollback-version',
-  guard: canEditEntries,
-})
+export const rollbackVersionOperationExecute = callerMutation.protected(
+  Object.assign(rollbackVersionOperation, {
+    id: 'ginko-cms.rollback-version',
+    guard: canEditEntries,
+  }),
+)
 export const previewRollbackVersionOperation = callerMutation.protected(
   Object.assign(previewOf(rollbackVersionOperation), {
-    id: 'editor:previewRollbackVersionOperation',
+    id: 'entries/publish:previewRollbackVersionOperation',
   }),
 )
 

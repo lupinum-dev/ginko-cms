@@ -65,6 +65,13 @@ function waitForHostBridge(): Promise<void> {
   })
 }
 
+function prepareMountRoot(target: Element): Element {
+  const root = document.createElement('div')
+  root.dataset.ginkoCmsStudioRoot = 'true'
+  target.replaceChildren(root)
+  return root
+}
+
 void Promise.all([waitForMountTarget(), waitForHostBridge()])
   .then(async ([target]) => {
     debugStudioMount('creating app', {
@@ -72,6 +79,7 @@ void Promise.all([waitForMountTarget(), waitForHostBridge()])
       hasHostBridge: hasHostBridge(),
       location: window.location.href,
     })
+    const mountRoot = prepareMountRoot(target)
     const app = createApp(App)
     const router = createStudioRouter()
     app.provide(studioHostContextKey, createStudioHostContext())
@@ -81,9 +89,9 @@ void Promise.all([waitForMountTarget(), waitForHostBridge()])
     app.component('NuxtTime', NuxtTime)
     app.use(router as unknown as Parameters<typeof app.use>[0])
     await router.isReady()
-    app.mount(target)
+    app.mount(mountRoot)
     debugStudioMount('mounted', {
-      childCount: target.childNodes.length,
+      childCount: mountRoot.childNodes.length,
     })
   })
   .catch((error: unknown) => {

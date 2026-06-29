@@ -638,9 +638,9 @@ export const deleteBackupArtifactOperation = defineOperation({
   },
 })
 
-export const deleteBackupArtifactOperationExecute = callerMutation.protected({
-  ...deleteBackupArtifactOperation,
-})
+export const deleteBackupArtifactOperationExecute = callerMutation.protected(
+  deleteBackupArtifactOperation,
+)
 
 export const previewDeleteBackupArtifactOperation = callerMutation.protected(
   Object.assign(previewOf(deleteBackupArtifactOperation), {

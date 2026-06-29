@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -179,6 +180,22 @@ function locatePackageRoot(): string {
   }
 }
 
+function readStudioAssetVersion(studioBundleDir: string): string {
+  const mainJsPath = resolve(studioBundleDir, 'assets', 'main.js')
+  let mainJs: Buffer
+  try {
+    mainJs = readFileSync(mainJsPath)
+  } catch (error) {
+    throw new Error(
+      `[ginko-cms] Studio bundle entry "${mainJsPath}" is missing. Run \`pnpm --filter @lupinum/ginko-cms build\` before using the CMS module.${
+        error instanceof Error ? ` ${error.message}` : ''
+      }`,
+    )
+  }
+
+  return createHash('sha256').update(mainJs).digest('hex').slice(0, 12)
+}
+
 const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   meta: {
     name: '@lupinum/ginko-cms',
@@ -267,8 +284,13 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     colorModeOptions.classSuffix = ''
 
     // Runtime config injection
-    const studioAssetBase = '/_ginko-cms-studio'
     const studioDevServer = process.env.GINKO_STUDIO_DEV_SERVER ?? null
+    const packageRoot = locatePackageRoot()
+    const studioBundleDir = resolve(packageRoot, 'dist', 'studio-app')
+    const studioAssetVersion = studioDevServer ? null : readStudioAssetVersion(studioBundleDir)
+    const studioAssetBase = studioAssetVersion
+      ? `/_ginko-cms-studio/${studioAssetVersion}`
+      : '/_ginko-cms-studio'
     nuxt.options.runtimeConfig.public.ginkoCms = defu(moduleOptions.runtimeConfig.public.ginkoCms, {
       route: options.route,
       debugStudio: options.debugStudio,
@@ -282,8 +304,9 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       },
       collections: buildPublicRuntimeCollections(options, localeSettings),
       // Where the host page (src/runtime/pages/studio-host.vue) loads the
-      // SPA bundle from. assetBase is served by Nitro out of dist/studio-app/
-      // (publicAssets entry below). devServer overrides it when an external
+      // SPA bundle from. Production uses a content-hashed asset base so the
+      // entry and lazy chunks share one module URL graph while still breaking
+      // stale browser caches. devServer overrides it when an external
       // `pnpm studio:dev` process is running for HMR.
       studio: {
         assetBase: studioAssetBase,
@@ -292,10 +315,8 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     }) as typeof nuxt.options.runtimeConfig.public.ginkoCms
 
     // Serve the SPA bundle (built by `pnpm studio:build`) as a Nitro public
-    // asset under /_ginko-cms-studio/*. The host page references
-    // /_ginko-cms-studio/assets/main.js + main.css from there.
-    const packageRoot = locatePackageRoot()
-    const studioBundleDir = resolve(packageRoot, 'dist', 'studio-app')
+    // asset under a versioned /_ginko-cms-studio/<hash> base. The host page
+    // references <assetBase>/assets/main.js + main.css from there.
     const nitroOptions = ((nuxt.options as { nitro?: NitroOptionsExt }).nitro ??= {})
     const publicAssets = (nitroOptions.publicAssets ??= [])
     if (!publicAssets.some((entry) => entry.baseURL === studioAssetBase)) {

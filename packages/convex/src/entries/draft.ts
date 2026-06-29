@@ -282,6 +282,7 @@ export const saveEntryDraftOperation = defineOperation({
   name: 'save-entry-draft',
   kind: 'safe',
   safety: 'bounded-write',
+  executeFunctionRef: 'entries/draft:saveEntryDraft',
   args: saveEntryDraftArgs.args,
   guard: canEditEntries,
   returns: draftSaveResultValidator,
@@ -357,9 +358,7 @@ export const saveEntryDraftOperation = defineOperation({
   },
 })
 
-export const saveEntryDraft = callerMutation.protected({
-  ...saveEntryDraftOperation,
-})
+export const saveEntryDraft = callerMutation.protected(saveEntryDraftOperation)
 
 export const revertDraftToPublishedOperation = defineOperation({
   id: 'ginko-cms.revert-draft-to-published',
@@ -421,12 +420,11 @@ export const revertDraftToPublishedOperation = defineOperation({
   },
 })
 
-export const revertDraftToPublishedOperationExecute = callerMutation.protected({
-  ...revertDraftToPublishedOperation,
-  id: 'entries/draft:revertDraftToPublishedOperationExecute',
-})
+export const revertDraftToPublishedOperationExecute = callerMutation.protected(
+  revertDraftToPublishedOperation,
+)
 export const previewRevertDraftToPublishedOperation = callerMutation.protected(
   Object.assign(previewOf(revertDraftToPublishedOperation), {
-    id: 'editor:previewRevertDraftToPublishedOperation',
+    id: 'entries/draft:previewRevertDraftToPublishedOperation',
   }),
 )

@@ -62,7 +62,6 @@ const studioDevServer = computed(() => {
 const assetBase = computed(() =>
   (studioConfig.value.assetBase ?? '/_ginko-cms-studio').replace(/\/$/, ''),
 )
-
 const mainJs = computed(() =>
   studioDevServer.value
     ? `${studioDevServer.value}/src/main.ts`
