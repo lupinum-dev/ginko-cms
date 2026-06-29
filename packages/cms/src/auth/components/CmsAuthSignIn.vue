@@ -87,8 +87,8 @@ async function onSubmit(event: Event) {
       {
         email: email.value,
         password: password.value,
+        callbackURL: getRedirectTarget(),
       },
-      { redirectTo: getRedirectTarget() },
     )
     error.value = authError.value?.message || null
   } catch {

@@ -9,6 +9,10 @@ export type ConvexBridgeWriteResult = {
   managed: string[]
 }
 
+export type ConvexBridgeAssertOptions = {
+  repair?: boolean
+}
+
 export function checkConvexComponentInstall(_rootDir: string): ConvexSetupIssue[] {
   return [
     {
@@ -19,7 +23,14 @@ export function checkConvexComponentInstall(_rootDir: string): ConvexSetupIssue[
   ]
 }
 
+export async function assertConvexBridgeInstalled(
+  _rootDir: string,
+  _options: ConvexBridgeAssertOptions = {},
+): Promise<void> {
+  // TODO(trellis-cutover): Phase 7 restores direct-template install checks.
+  // Phase 2 must not let the disabled bridge installer block Nuxt prepare.
+}
+
 export async function writeConvexBridgeFiles(_rootDir: string): Promise<ConvexBridgeWriteResult> {
   throw new Error('TODO(trellis-cutover): restore direct-template component install in Phase 7')
 }
-

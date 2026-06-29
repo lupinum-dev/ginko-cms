@@ -184,7 +184,7 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
       ? {
           token: engine.token,
           user: engine.user,
-          pending: engine.pending ?? engine.isPending,
+          pending: engine.pending,
           isAuthenticated: engine.isAuthenticated,
           isAnonymous: engine.isAnonymous ?? computed(() => !engine.isAuthenticated.value),
         }

@@ -710,6 +710,8 @@ Required tracker columns:
 
 Goal: Nuxt prepare or basic type resolution starts again without Trellis.
 
+Status: completed on 2026-06-29. The CMS module now resolves `better-convex-nuxt` from the local foundation checkout, playground Nuxt prepare passes, and playground Nuxt typecheck passes without restoring bridge, MCP, Convex component, or operation runtime surfaces.
+
 Allowed:
 
 - Temporarily disabled advanced surfaces.
@@ -734,11 +736,11 @@ Likely files to touch:
 
 Acceptance criteria:
 
-- [ ] Nuxt type alias resolution recognizes `#convex/api`.
-- [ ] `better-convex-nuxt` module is installed by CMS module setup.
-- [ ] No Nuxt module setup path references Trellis.
-- [ ] Disabled advanced surfaces are isolated and do not block Nuxt prepare.
-- [ ] First diagnostic command has a clear next error if it still fails.
+- [x] Nuxt type alias resolution recognizes `#convex/api`.
+- [x] `better-convex-nuxt` module is installed by CMS module setup.
+- [x] No Nuxt module setup path references Trellis.
+- [x] Disabled advanced surfaces are isolated and do not block Nuxt prepare.
+- [x] First diagnostic command has a clear next error if it still fails.
 
 Suggested diagnostic command for this phase:
 

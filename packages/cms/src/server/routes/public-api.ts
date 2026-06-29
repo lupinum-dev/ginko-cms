@@ -1,6 +1,6 @@
 import { ConvexHttpClient } from 'convex/browser'
 import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
-import { useRuntimeConfig } from 'nitropack/runtime'
+import { useRuntimeConfig } from '#imports'
 
 import { api } from '#convex/api'
 
@@ -170,7 +170,7 @@ function convexUrlFor(runtimeConfig: RuntimeConfig) {
 }
 
 export default defineEventHandler(async (event) => {
-  const runtimeConfig = useRuntimeConfig(event) as RuntimeConfig
+  const runtimeConfig = useRuntimeConfig() as RuntimeConfig
   const client = new ConvexHttpClient(convexUrlFor(runtimeConfig))
   const query = getQuery(event) as Record<string, QueryValue>
   const endpoint = getRequestURL(event).pathname.split('/').filter(Boolean).at(-1)

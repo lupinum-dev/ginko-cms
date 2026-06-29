@@ -90,7 +90,7 @@ function collectionFromContract(collection: CmsCollectionContract): CollectionCo
   const settings = mergeSettings(routingSettings(collection), {
     ...(collection.settings ?? {}),
     ...(collection.schema ? { cmsSchema: collection.schema } : {}),
-  })
+  } as CollectionConfig['settings'])
   return {
     label: collection.label,
     type: collection.type,
@@ -137,7 +137,7 @@ function fieldFromContract(field: CmsFieldContract): FieldConfig {
     ...(field.step !== undefined ? { step: field.step } : {}),
     ...(field.slugFrom !== undefined ? { slugFrom: field.slugFrom } : {}),
     ...(field.language !== undefined ? { language: field.language } : {}),
-  }
+  } as FieldConfig
 }
 
 function applyCollectionOverride(

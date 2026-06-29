@@ -128,3 +128,45 @@ deleted generated-file check: operation handles/refs and old test stub are absen
 Next best step:
 
 - Start Phase 2 with Nuxt prepare/type-resolution repair. Keep disabled surfaces disabled until the slice that owns them.
+
+
+## 2026-06-29 - Phase 2 First Bootable Repo Slice
+
+Objective: get Nuxt prepare/basic type resolution working again after the hard cutover, without restoring advanced bridge, MCP, Convex component, or operation surfaces.
+
+What changed:
+
+- Linked `better-convex-nuxt` as a local workspace package from `/Users/matthias/Git/convex/better-convex-nuxt`.
+- Changed `packages/cms/package.json` to consume `better-convex-nuxt` through `workspace:^`.
+- Ran `pnpm install --ignore-scripts` to link the local foundation and prune stale old-foundation install state.
+- Added a deliberately inert `assertConvexBridgeInstalled` in `packages/cms/src/module/convex.ts` so the disabled Phase 7 bridge installer does not block Nuxt prepare.
+- Fixed CMS auth forms to pass Better Auth `callbackURL` in the email sign-in/sign-up payload instead of using the invalid `redirectTo` request option.
+- Tightened CMS module option writes for `convex` and `colorMode` so Nuxt type resolution accepts the module setup.
+- Pinned `@types/node` in workspace overrides to avoid duplicate Vite type universes from the linked foundation workspace.
+- Fixed public API/server runtime config import and narrow generated API casts.
+- Kept bridge, MCP, Convex component, and operation runtime surfaces disabled.
+
+Diagnostics:
+
+```txt
+pnpm exec nuxi prepare packages/cms: passed
+pnpm run prepare:playground: initially failed because better-convex-nuxt was not linked, then passed after workspace link/install
+pnpm --dir playground exec nuxi typecheck: initially failed on cutover type mismatches, then passed
+rg exact removed package/import/handle patterns outside docs/plans: no matches
+rg broad stale naming outside docs/plans and TODO(trellis-cutover): no matches
+playground/.nuxt/tsconfig.json maps better-convex-nuxt to ../../../../convex/better-convex-nuxt
+playground/.nuxt/tsconfig.json maps #convex/api
+```
+
+Remaining intentional gaps:
+
+- Convex component/codegen is still Phase 3.
+- Studio auth bridge shape cleanup is still Phase 5.
+- Operation registry/destructive confirmation is still Phase 6.
+- Direct-template bridge installer is still Phase 7.
+- MCP restore is still Phase 8.
+- Full lint/test/build/package/browser validation is still Phase 9.
+
+Next best step:
+
+- Start Phase 3 with Convex component discovery/codegen. Do not restore operation semantics in Phase 3 except where required to make Convex functions discoverable.

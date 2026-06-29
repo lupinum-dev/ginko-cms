@@ -93,7 +93,7 @@
     "nuxt-i18n-micro": "^3.17.5",
     "tailwindcss": "^4.3.0",
     "zod": "^4.4.3",
-    "better-convex-nuxt": "^0.4.0"
+    "better-convex-nuxt": "workspace:^"
   },
   "devDependencies": {
     "@tiptap/core": "^3.23.4",

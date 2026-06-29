@@ -14,6 +14,7 @@ import type { Nuxt, NuxtModule } from '@nuxt/schema'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { defu } from 'defu'
+import type { PluginOption } from 'vite'
 
 import { resolveConfiguredCollections } from './module/collections.js'
 import { loadGinkoContentProviderName } from './module/content-contract.js'
@@ -59,6 +60,8 @@ interface NuxtOptionsExt {
     ginkoCms?: Record<string, unknown>
   }
 }
+
+type GinkoCmsUserOptions = Partial<ModuleOptions>
 
 interface NitroOptionsExt {
   scanDirs?: string[]
@@ -219,7 +222,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   },
   async setup(options, nuxt) {
     const { resolve: moduleResolve } = createResolver(import.meta.url)
-    const moduleOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
+    const moduleOptions = nuxt.options as unknown as NuxtOptionsExt
     registerCmsContentProvider(nuxt)
     options = inferLocaleOptions(options, moduleOptions)
     options.contentTranslatedSlugs = moduleOptions.content?.i18n?.translatedSlugs === true
@@ -254,15 +257,15 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     // i18n integration
     const i18nOptions = (moduleOptions.i18n ??= {})
     const appHasConfiguredLocales = hasConfiguredI18nLocales(i18nOptions)
-    const convexOptions = defu((moduleOptions as Record<string, unknown>).convex ?? {}, {
+    const convexOptions = defu(moduleOptions.convex ?? {}, {
       auth: {
         enabled: true,
         routeProtection: {
           redirectTo: `${studioRoute}/auth/signin`,
         },
       },
-    })
-    ;(moduleOptions as Record<string, unknown>).convex = convexOptions
+    }) as Record<string, unknown>
+    moduleOptions.convex = convexOptions
 
     if (appHasConfiguredLocales) {
       assertI18nCompatibility(i18nOptions, localeSettings)
@@ -272,7 +275,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     // Convex backend wiring
     await assertConvexBridgeInstalled(nuxt.options.rootDir, { repair: isNuxtPrepare() })
 
-    const colorModeOptions = (moduleOptions.colorMode ??= {})
+    const colorModeOptions = (moduleOptions.colorMode ??= {}) as { classSuffix?: string }
     if (typeof colorModeOptions.classSuffix === 'string' && colorModeOptions.classSuffix !== '') {
       throw new Error(
         'ginko-cms requires colorMode.classSuffix to be "" so Tailwind dark utilities target the ".dark" class.',
@@ -387,7 +390,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       )
     ) {
       nuxt.options.vite.plugins.unshift(
-        createTailwindPlugin([cmsRuntimeDir, cmsAuthDir, cmsStudioUiDir]),
+        createTailwindPlugin([cmsRuntimeDir, cmsAuthDir, cmsStudioUiDir]) as PluginOption,
       )
     }
 
@@ -515,18 +518,18 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     }
   },
   moduleDependencies(nuxt) {
-    const nuxtOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
-    const userOptions =
+    const nuxtOptions = nuxt.options as unknown as NuxtOptionsExt
+    const userOptions: GinkoCmsUserOptions =
       nuxtOptions.ginkoCms && typeof nuxtOptions.ginkoCms === 'object' ? nuxtOptions.ginkoCms : {}
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
-    const convexOptions = defu((nuxtOptions as Record<string, unknown>).convex ?? {}, {
+    const convexOptions = defu(nuxtOptions.convex ?? {}, {
       auth: {
         enabled: true,
         routeProtection: {
           redirectTo: `${studioRoute}/auth/signin`,
         },
       },
-    })
+    }) as Record<string, unknown>
 
     const dependencies: Record<
       string,
@@ -614,7 +617,9 @@ export async function loadGinkoPrerenderRoutes(args: {
     for (const locale of args.collectionLocales[collection] ?? [args.defaultLocale]) {
       let cursor: string | null = null
       do {
-        const sitemap = (await client.query(anyApi.ginkoCms.public.sitemap, {
+        const sitemapRef = (anyApi as unknown as { ginkoCms: { public: { sitemap: unknown } } })
+          .ginkoCms.public.sitemap
+        const sitemap = (await client.query(sitemapRef as Parameters<ConvexHttpClient['query']>[0], {
           collection,
           locale,
           cursor,
