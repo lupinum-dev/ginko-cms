@@ -1,4 +1,4 @@
-import { useConvexAuth } from '@lupinum/trellis/composables'
+import { useConvexAuth } from '@lupinumbetter-convex-nuxt/composables'
 import type { ComputedRef } from 'vue'
 
 import { computed, useRuntimeConfig } from '#imports'
@@ -27,7 +27,7 @@ export function useCmsAuthState(): CmsAuthState {
   const authEnabled = publicConfig.convex?.auth?.enabled !== false
 
   if (authEnabled) {
-    const { sessionUser, signOut } = useConvexAuth()
+    const { user: sessionUser, signOut } = useConvexAuth()
     return {
       authEnabled: computed(() => true),
       user: computed(() => {
@@ -36,9 +36,9 @@ export function useCmsAuthState(): CmsAuthState {
           return null
         }
         return {
-          name: current.displayName ?? null,
+          name: current.name ?? null,
           email: current.email ?? null,
-          image: current.avatarUrl ?? null,
+          image: current.image ?? null,
         }
       }),
       signOut,

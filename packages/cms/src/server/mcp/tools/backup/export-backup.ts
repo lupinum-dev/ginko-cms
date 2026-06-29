@@ -1,42 +1,5 @@
-import { z } from 'zod'
+// TODO(trellis-cutover): restore packages/cms/src/server/mcp/tools/backup/export-backup.ts in Phase 8.
 
-import { internal } from '#trellis/api'
-import { defineMcpTool } from '#trellis/mcp/advanced'
+export const disabledMcpSurface_export_backup_ts = true
 
-import { failFromError, loadAgentContext, ok } from '../../_shared/agent-tools'
-
-export default defineMcpTool({
-  name: 'export-backup',
-  description:
-    'Export a backup artifact for one CMS entry before permanent deletion. Archive remains the preferred cleanup path.',
-  inputSchema: {
-    scope: z.literal('entry').describe('Only entry-scoped backup exports are exposed through MCP.'),
-    entryId: z.string().describe('Entry id the backup artifact must cover.'),
-  },
-  handler: async (args, ctx) => {
-    try {
-      const context = await loadAgentContext(ctx.event, 'deleteEntries')
-      const exported = await context.convex.action(internal.ginkoCmsMcp.exportBackup, {
-        scope: 'entry',
-        entryId: args.entryId,
-      })
-      return ok(
-        {
-          ...exported,
-          scope: 'entry',
-          entryId: args.entryId,
-          nextAction: {
-            tool: 'delete-entry',
-            args: {
-              entryId: args.entryId,
-              exportArtifactId: exported.artifactId,
-            },
-          },
-        },
-        `Exported entry backup "${exported.artifactId}" for "${args.entryId}".`,
-      )
-    } catch (error) {
-      return failFromError(error, 'Failed to export entry backup.')
-    }
-  },
-})
+export default disabledMcpSurface_export_backup_ts

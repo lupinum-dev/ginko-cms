@@ -6,7 +6,7 @@ import { useStudioHostContext } from '../boundary/studio-host-context'
 // (StudioSidebarUser, Layout's bootstrap branch, etc.) destructures `user`,
 // `signOut`, etc. without touching the call sites.
 //
-// Reads the Trellis auth engine refs that the host page puts on the typed
+// Reads the public auth refs that the host page puts on the typed
 // host bridge. Refs are shared
 // across the host/SPA boundary because both run in the same JS context;
 // `auth.user.value`, `auth.token.value`, etc. update reactively as
@@ -65,7 +65,7 @@ export function useCmsAuthState(): UseCmsAuthStateReturn {
   const readBridgeAuth = () =>
     (studioHost.getBridge().auth as BridgeAuth | null | undefined) ?? null
 
-  // Read on every getter call — refs from the consumer-side trellis auth
+  // Read on every getter call — refs from the consumer-side auth
   // engine survive across the boundary, but `bridge.auth` itself can be
   // null until the host page's onBeforeMount hook runs. Lazy access keeps
   // the SPA tolerant of host-bridge timing variations.

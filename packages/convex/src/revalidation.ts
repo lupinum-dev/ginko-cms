@@ -3,13 +3,13 @@ import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validato
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   blockedOperationPreview,
-  defineOperation,
+  cmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
+  cmsOperationPreview,
+  cmsOperationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from './operations/runtime'
 import { v } from 'convex/values'
 
 import { internal } from './_generated/api.js'
@@ -352,7 +352,7 @@ export const listRevalidationJobs = callerQuery.protected({
   },
 })
 
-export const retryRevalidationJobOperation = defineOperation({
+export const retryRevalidationJobOperation = cmsOperation({
   id: 'ginko-cms.retry-revalidation-job',
   name: 'retry-revalidation-job',
   kind: 'destructive',
@@ -360,7 +360,7 @@ export const retryRevalidationJobOperation = defineOperation({
   args: retryRevalidationJobArgs.args,
   guard: canManageSettings,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     const eventId = asOutboxEventId(args.eventId)
     const event = await ctx.db.get(eventId)
@@ -379,7 +379,7 @@ export const retryRevalidationJobOperation = defineOperation({
         confirm: { operationId: 'ginko-cms.retry-revalidation-job', args },
       })
     }
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will retry revalidation job "${args.eventId}" with status "${event.status}".`,
       warnings: [
         operationIssue({

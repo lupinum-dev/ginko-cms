@@ -40,7 +40,7 @@ import {
   publishResultValidator,
   studioEntryValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { operationPreviewValidator } from '@lupinum/trellis/backend'
+import { cmsOperationPreviewValidator } from './operation-runtime'
 import type { AnyDataModel, MutationBuilder, RegisteredMutation } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -125,7 +125,7 @@ export const entries = [
     operation: 'internalMutation',
     component: 'assets.previewDeleteAssetOperation',
     args: deleteAssetArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'listCollections',
@@ -202,21 +202,21 @@ export const entries = [
     operation: 'internalMutation',
     component: 'editor.previewArchiveEntryOperation',
     args: archiveEntryArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'previewDeleteEntryOperation',
     operation: 'internalMutation',
     component: 'editor.previewDeleteEntryOperation',
     args: deleteEntryArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'previewUnpublishEntryOperation',
     operation: 'internalMutation',
     component: 'editor.previewUnpublishEntryOperation',
     args: unpublishEntryArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'createEntry',
@@ -244,7 +244,7 @@ export const entries = [
     operation: 'internalMutation',
     component: 'editor.previewPublishEntryOperation',
     args: publishEntryArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'unpublishEntry',

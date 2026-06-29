@@ -44,7 +44,7 @@ interface NuxtOptionsExt {
   colorMode?: {
     classSuffix?: string
   }
-  trellis?: Record<string, unknown>
+  convex?: Record<string, unknown>
   content?: {
     i18n?: {
       defaultLocale?: string
@@ -254,18 +254,15 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     // i18n integration
     const i18nOptions = (moduleOptions.i18n ??= {})
     const appHasConfiguredLocales = hasConfiguredI18nLocales(i18nOptions)
-    const trellisOptions = defu(moduleOptions.trellis ?? {}, {
+    const convexOptions = defu((moduleOptions as Record<string, unknown>).convex ?? {}, {
       auth: {
         enabled: true,
         routeProtection: {
           redirectTo: `${studioRoute}/auth/signin`,
         },
       },
-      permissions: {
-        query: 'ginkoCms/members.getAccessContext',
-      },
     })
-    moduleOptions.trellis = trellisOptions
+    ;(moduleOptions as Record<string, unknown>).convex = convexOptions
 
     if (appHasConfiguredLocales) {
       assertI18nCompatibility(i18nOptions, localeSettings)
@@ -522,15 +519,12 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const userOptions =
       nuxtOptions.ginkoCms && typeof nuxtOptions.ginkoCms === 'object' ? nuxtOptions.ginkoCms : {}
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
-    const trellisOptions = defu(nuxtOptions.trellis ?? {}, {
+    const convexOptions = defu((nuxtOptions as Record<string, unknown>).convex ?? {}, {
       auth: {
         enabled: true,
         routeProtection: {
           redirectTo: `${studioRoute}/auth/signin`,
         },
-      },
-      permissions: {
-        query: 'ginkoCms/members.getAccessContext',
       },
     })
 
@@ -541,8 +535,8 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         defaults?: Record<string, unknown>
       }
     > = {
-      '@lupinum/trellis': {
-        defaults: trellisOptions,
+      'better-convex-nuxt': {
+        defaults: convexOptions,
       },
       '@nuxtjs/color-mode': {
         version: '>=4.0.0',

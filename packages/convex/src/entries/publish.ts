@@ -11,13 +11,13 @@ import {
   rollbackResultValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import {
-  defineOperation,
+  cmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
+  cmsOperationPreview,
+  cmsOperationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from '../operations/runtime'
 import { v } from 'convex/values'
 
 import type { Id } from '../_generated/dataModel.js'
@@ -114,7 +114,7 @@ async function runCanonicalRollbackVersion(
   return { versionId: String(result.revisionId) }
 }
 
-export const publishEntryOperation = defineOperation({
+export const publishEntryOperation = cmsOperation({
   id: 'ginko-cms.publish-entry',
   name: 'publish-entry',
   kind: 'destructive',
@@ -122,7 +122,7 @@ export const publishEntryOperation = defineOperation({
   args: publishEntryArgs.args,
   guard: canPublishEntries,
   returns: publishResultValidator,
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     const entry = await ctx.db.get(asEntryId(args.entryId))
     if (!entry) {
@@ -162,7 +162,7 @@ export const publishEntryOperation = defineOperation({
     const dirtyLocaleCount = (entry.dirtyLocales as string[]).filter((locale) =>
       args.locales.includes(locale),
     ).length
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Publish impact for entry ${args.entryId} (${args.locales.join(', ') || 'all requested locales'}): ${result.status}${localeStatuses.length ? ` - ${localeStatuses.join(', ')}` : ''}.`,
       allowed: !blocked,
       blockers: blockingMessages.map((message) =>
@@ -244,7 +244,7 @@ export const previewPublishEntryOperation = callerMutation.protected(
   }),
 )
 
-export const unpublishEntryOperation = defineOperation({
+export const unpublishEntryOperation = cmsOperation({
   id: 'ginko-cms.unpublish-entry',
   name: 'unpublish-entry',
   kind: 'destructive',
@@ -252,7 +252,7 @@ export const unpublishEntryOperation = defineOperation({
   args: unpublishEntryArgs.args,
   guard: canPublishEntries,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     const entry = await ctx.db.get(asEntryId(args.entryId))
     if (!entry) {
@@ -265,7 +265,7 @@ export const unpublishEntryOperation = defineOperation({
   },
   preview: async (ctx, args, { entry }) => {
     const result = await previewDestructiveEntryOperation(ctx, args.entryId)
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will unpublish "${result.displayLabel ?? result.baseSlug}" and remove ${result.publicRoutes.length} public route${result.publicRoutes.length === 1 ? '' : 's'}.`,
       allowed: result.publicRoutes.length > 0,
       blockers:
@@ -320,7 +320,7 @@ export const previewUnpublishEntryOperation = callerMutation.protected(
   }),
 )
 
-export const archiveEntryOperation = defineOperation({
+export const archiveEntryOperation = cmsOperation({
   id: 'ginko-cms.archive-entry',
   name: 'archive-entry',
   kind: 'destructive',
@@ -328,7 +328,7 @@ export const archiveEntryOperation = defineOperation({
   args: archiveEntryArgs.args,
   guard: canArchiveEntries,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     const entry = await ctx.db.get(asEntryId(args.entryId))
     if (!entry) {
@@ -341,7 +341,7 @@ export const archiveEntryOperation = defineOperation({
   },
   preview: async (ctx, args, { entry }) => {
     const result = await previewDestructiveEntryOperation(ctx, args.entryId)
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will archive "${result.displayLabel ?? result.baseSlug}" and remove ${result.publicRoutes.length} public route${result.publicRoutes.length === 1 ? '' : 's'}.`,
       allowed: result.status !== 'archived',
       blockers:
@@ -394,7 +394,7 @@ export const previewArchiveEntryOperation = callerMutation.protected(
   }),
 )
 
-export const unarchiveEntryOperation = defineOperation({
+export const unarchiveEntryOperation = cmsOperation({
   id: 'ginko-cms.unarchive-entry',
   name: 'unarchive-entry',
   kind: 'safe',
@@ -426,7 +426,7 @@ export const unarchiveEntryOperation = defineOperation({
 
 export const unarchiveEntry = callerMutation.protected(unarchiveEntryOperation)
 
-export const rollbackVersionOperation = defineOperation({
+export const rollbackVersionOperation = cmsOperation({
   id: 'ginko-cms.rollback-version',
   name: 'rollback-version',
   kind: 'destructive',
@@ -442,9 +442,9 @@ export const rollbackVersionOperation = defineOperation({
     check: (_appIdentity, _loaded, args) => (args.publish ? canPublishEntries : canEditEntries),
   },
   returns: rollbackResultValidator,
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   preview: async (_ctx, args, { entry, revision, revisionNumber }) =>
-    operationPreview({
+    cmsOperationPreview({
       summary: `Will roll back "${revision.snapshot.slug ?? entry.baseSlug}" to version ${revisionNumber}${args.publish ? ' and publish it' : ''}.`,
       warnings: [
         operationIssue({

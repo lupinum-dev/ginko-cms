@@ -12,13 +12,13 @@ import {
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   blockedOperationPreview,
-  defineOperation,
+  cmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
+  cmsOperationPreview,
+  cmsOperationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from './operations/runtime'
 import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
@@ -319,7 +319,7 @@ export const updateSiteDataBlock = callerMutation.protected({
   },
 })
 
-export const deleteSiteDataBlockOperation = defineOperation({
+export const deleteSiteDataBlockOperation = cmsOperation({
   id: 'ginko-cms.delete-site-data-block',
   name: 'delete-site-data-block',
   kind: 'destructive',
@@ -327,7 +327,7 @@ export const deleteSiteDataBlockOperation = defineOperation({
   args: deleteSiteDataBlockArgs.args,
   guard: canManageSettings,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     assertValidSiteDataKey(args.key)
     const row =
@@ -349,7 +349,7 @@ export const deleteSiteDataBlockOperation = defineOperation({
         confirm: { operationId: 'ginko-cms.delete-site-data-block', args },
       })
     }
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will delete site data block "${args.key}".`,
       warnings: [
         operationIssue({

@@ -177,7 +177,7 @@ name.
 
 - Keep provider-owned names under `GINKO_CONTENT_*`.
 - Keep CMS-owned names under `GINKO_CMS_*`.
-- Keep Trellis-owned names under `TRELLIS_*`.
+- Do not introduce new `TRELLIS_*` environment names; use `CONVEX_*`, `BETTER_AUTH_*`, or `GINKO_CMS_*` based on ownership.
 - Keep Convex-owned names as `CONVEX_*`.
 - Do not expose server secrets with `NUXT_PUBLIC_*`.
 

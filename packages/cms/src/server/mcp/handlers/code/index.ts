@@ -1,11 +1,5 @@
-import { defineMcpHandler } from '#trellis/mcp'
+// TODO(trellis-cutover): restore packages/cms/src/server/mcp/handlers/code/index.ts in Phase 8.
 
-import { mcpTools } from '../../_shared/handler-tools'
+export const disabledMcpSurface_index_ts = true
 
-export default defineMcpHandler({
-  name: 'code',
-  route: '/mcp/code',
-  browserRedirect: '/',
-  experimental_codeMode: true,
-  tools: mcpTools,
-})
+export default disabledMcpSurface_index_ts

@@ -15,8 +15,6 @@ export const cmsPackageRoot = resolve(projectRoot, 'packages/cms')
 export const contractPackageRoot = resolve(projectRoot, 'packages/contract')
 export const convexPackageRoot = resolve(projectRoot, 'packages/convex')
 export const contentPackageRoot = resolve(projectRoot, '..', 'ginko-content/packages/content')
-export const trellisRoot = resolve(projectRoot, '..', 'trellis')
-export const trellisBridgeRoot = resolve(projectRoot, '..', 'trellis/packages/trellis-bridge')
 
 export function readPackageJson(packageRoot: string): PackageJsonDependencies {
   return JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'))

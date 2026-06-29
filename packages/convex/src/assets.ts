@@ -15,16 +15,16 @@ import {
   assetManagerAssetValidator,
   assetManagerPageValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { requireRecord } from '@lupinum/trellis/auth'
+import { requireRecord } from './auth/runtime'
 import {
   blockedOperationPreview,
-  defineOperation,
+  cmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
+  cmsOperationPreview,
+  cmsOperationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from './operations/runtime'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
@@ -762,7 +762,7 @@ export const updateAsset = callerMutation.protected({
   },
 })
 
-export const moveAssetOperation = defineOperation({
+export const moveAssetOperation = cmsOperation({
   id: 'ginko-cms.move-asset',
   name: 'move-asset',
   kind: 'safe',
@@ -1046,7 +1046,7 @@ export const rebuildContentAssetRefsPage = callerMutation.protected({
   },
 })
 
-export const deleteAssetOperation = defineOperation({
+export const deleteAssetOperation = cmsOperation({
   id: 'ginko-cms.delete-asset',
   name: 'delete-asset',
   kind: 'destructive',
@@ -1054,7 +1054,7 @@ export const deleteAssetOperation = defineOperation({
   args: deleteAssetArgs.args,
   guard: canManageAssets,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     const asset = await ctx.db.get(args.assetId as Id<'assets'>)
     return { asset: asset && asset.deletedAt == null ? asset : null }
@@ -1069,7 +1069,7 @@ export const deleteAssetOperation = defineOperation({
     }
     const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
     const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will move asset "${asset.filename}" to trash.`,
       warnings: args.force
         ? [
@@ -1169,7 +1169,7 @@ export const restoreAsset = callerMutation.protected({
   },
 })
 
-export const purgeAssetOperation = defineOperation({
+export const purgeAssetOperation = cmsOperation({
   id: 'ginko-cms.purge-asset',
   name: 'purge-asset',
   kind: 'destructive',
@@ -1177,7 +1177,7 @@ export const purgeAssetOperation = defineOperation({
   args: purgeAssetArgs,
   guard: canManageAssets,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     const asset = await ctx.db.get(args.assetId as Id<'assets'>)
     return { asset }
@@ -1244,7 +1244,7 @@ export const purgeAssetOperation = defineOperation({
       })
     }
 
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will permanently delete asset "${asset.filename}".`,
       warnings: [
         operationIssue({

@@ -3,7 +3,7 @@ import type {
   UseConvexMutationReturn,
   UseConvexQueryReturn,
   UseConvexUploadOptions,
-} from '@lupinum/trellis/composables'
+} from '@lupinumbetter-convex-nuxt/composables'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, ref, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 

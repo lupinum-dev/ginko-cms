@@ -134,8 +134,8 @@ mounted components from the host app's `convex/convex.config.ts`.
 ## Scope
 
 Ginko CMS owns the CMS product layer. Ginko Content owns CMS-neutral content
-querying and provider contracts. Trellis owns generic Nuxt, Convex, Better Auth,
-and MCP app primitives.
+querying and provider contracts. better-convex-nuxt owns generic Nuxt, Convex,
+and Better Auth primitives. MCP policy remains Ginko-owned product behavior.
 
 ## Local Development
 

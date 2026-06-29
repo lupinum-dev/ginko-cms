@@ -1,8 +1,8 @@
 # Maintaining Ginko CMS
 
 Ginko CMS is the integration package. It owns CMS domain rules, Studio, the
-Convex component, generated host bridges, MCP tools, package e2e, and release
-compatibility with Trellis and Ginko Content.
+Convex component, generated host integration files, MCP tools, package e2e, and
+release compatibility with better-convex-nuxt and Ginko Content.
 
 ## Package Surface
 
@@ -18,8 +18,7 @@ package depends on it, and the Nuxt CMS package depends on both.
 External packages required for the release tuple:
 
 - `@lupinum/ginko-content@0.1.2`
-- `@lupinum/trellis@0.2.0`
-- `@lupinum/trellis-bridge@0.2.0`
+- `better-convex-nuxt`
 
 Those packages must already be published before the CMS packages are published.
 
@@ -39,14 +38,14 @@ temporary consumer app. In a sibling workspace it uses the local
 `GINKO_CONTENT_PACKAGE_ROOT` to use a different local checkout.
 
 For a real release candidate, also run the registry dependency lane after
-Trellis and Ginko Content are published:
+better-convex-nuxt and Ginko Content are published:
 
 ```bash
 pnpm run release:verify:registry
 ```
 
-That proves the CMS packages can consume the already-published Trellis, Trellis
-Bridge, and Ginko Content versions from `packages/cms/compatibility.json`
+That proves the CMS packages can consume the already-published
+better-convex-nuxt and Ginko Content versions from `packages/cms/compatibility.json`
 instead of accidentally relying on sibling workspaces.
 
 ## Release Runbook
@@ -55,7 +54,7 @@ Publishing is intentionally manual. The `release:publish` script exits with a
 failure message so nobody, human or agent, can accidentally push packages to
 npm.
 
-1. Confirm Trellis, Trellis Bridge, and Ginko Content are released at the
+1. Confirm better-convex-nuxt and Ginko Content are released at the
    versions in `packages/cms/compatibility.json`.
 2. Start from a clean working tree on the release branch.
 3. Update package versions and compatibility docs intentionally.
@@ -108,7 +107,7 @@ For later releases, prefer npm trusted publishing plus staged publishing:
 - Stage the tarballs in package order with `npm stage publish .pack/<name>.tgz`,
   download and inspect each staged package with `npm stage download <stage-id>`,
   then approve with `npm stage approve <stage-id>` and 2FA.
-- CI sibling checkouts require `LUPINUM_CI_REPO_READ_TOKEN` when Trellis or
+- CI sibling checkouts require `LUPINUM_CI_REPO_READ_TOKEN` when better-convex-nuxt or
   Ginko Content are private. Set `TRELLIS_CI_REF` and `GINKO_CONTENT_CI_REF`
   repository variables when CI must test a release branch or tag instead of
   `main`.
@@ -131,9 +130,9 @@ Current temporary overrides are for audit and ecosystem compatibility:
   `ip-address`, `kysely`, `mermaid`, `nitropack`, `postcss`, `simple-git`, and
   `ws` keep transitive production audit clean.
 - `qs` is held at the patched `6.15.2` line for the transitive Express parser
-  chain currently pulled in by Trellis MCP tooling.
+  chain currently pulled in by CMS MCP tooling.
 - `auditConfig.ignoreGhsas` contains the current unfixable `elliptic` advisory
-  from the Trellis MCP tooling chain. Remove it as soon as upstream stops
+  from the CMS MCP tooling chain. Remove it as soon as upstream stops
   resolving `elliptic` or npm publishes a patched range.
 - `convex@1.38.0` is the release tuple pin.
 - `h3@1.15.11` is held until h3 2 is stable and Nuxt ecosystem peers accept it.

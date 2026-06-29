@@ -9,8 +9,8 @@ import {
   memberValidator,
   accessContextValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { getAuth } from '@lupinum/trellis/auth'
-import { operationPreviewValidator } from '@lupinum/trellis/backend'
+import { getCmsAuth } from './auth-runtime'
+import { cmsOperationPreviewValidator } from './operation-runtime'
 import type { AnyDataModel, MutationBuilder, RegisteredMutation } from 'convex/server'
 import { v, type Infer, type ObjectType } from 'convex/values'
 
@@ -80,7 +80,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewRemoveMemberOperation',
     args: removeMemberArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
 ] as const satisfies readonly BridgeEntry[]
 
@@ -106,7 +106,7 @@ export function createMembersBridge(options: {
       args: bootstrapCmsOwnerArgs.args,
       returns: memberValidator,
       handler: async (ctx, args) => {
-        const auth = await getAuth(ctx as never)
+        const auth = await getCmsAuth(ctx as never)
         const payload = componentArgs({
           ...args,
           displayName: auth?.displayName,

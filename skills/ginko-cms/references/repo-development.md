@@ -25,12 +25,12 @@ Ginko CMS owns:
 - Studio UI and Nuxt module integration
 - CMS domain contracts and field definitions
 - Convex component implementation
-- generated Trellis host bridges
+- generated host integration files
 - member/access workflows
 - content publishing, assets, backups, migrations, projections
 - MCP tools that operate on CMS operations
 
-Do not move CMS policy into Trellis or Ginko Content.
+Do not move CMS policy into better-convex-nuxt or Ginko Content.
 
 ## Commands
 
@@ -41,7 +41,7 @@ corepack pnpm run check
 corepack pnpm run release:verify
 ```
 
-For registry release candidates after Trellis and Ginko Content are published:
+For registry release candidates after better-convex-nuxt and Ginko Content are published:
 
 ```bash
 corepack pnpm run release:verify:registry

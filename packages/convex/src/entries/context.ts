@@ -1,6 +1,6 @@
 import { materializeFieldData } from '@lupinum/ginko-cms-contract/shared/fields/materialize.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { requireRecord } from '@lupinum/trellis/auth'
+import { requireRecord } from '../auth/runtime'
 
 import type { Doc, Id } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'

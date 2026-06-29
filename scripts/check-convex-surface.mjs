@@ -7,7 +7,7 @@ const targetDirectories = ['packages/convex/src']
 const targetFiles = []
 const forbiddenPatterns = [
   { pattern: /#imports\b/, message: 'Nuxt #imports alias' },
-  { pattern: /#trellis\//, message: 'Trellis app alias' },
+  { pattern: /#convex\/server\b/, message: 'Nuxt Convex server alias' },
   { pattern: /src\/runtime\/server\//, message: 'Nitro server runtime import' },
   { pattern: /runtime\/server\//, message: 'server runtime import' },
   { pattern: /server\/mcp\//, message: 'MCP server runtime import' },

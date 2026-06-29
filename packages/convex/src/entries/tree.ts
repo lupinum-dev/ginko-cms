@@ -6,13 +6,13 @@ import {
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
-  defineOperation,
+  cmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
+  cmsOperationPreview,
+  cmsOperationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from '../operations/runtime'
 import { v } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel.js'
@@ -49,7 +49,7 @@ async function assertNoPublicRoutesForDelete(
   )
 }
 
-export const createEntryOperation = defineOperation({
+export const createEntryOperation = cmsOperation({
   id: 'ginko-cms.create-entry',
   name: 'create-entry',
   kind: 'safe',
@@ -195,7 +195,7 @@ async function assertNoDraftPathConflictForMove(
   }
 }
 
-export const deleteEntryOperation = defineOperation({
+export const deleteEntryOperation = cmsOperation({
   id: 'ginko-cms.delete-entry',
   name: 'delete-entry',
   kind: 'destructive',
@@ -203,7 +203,7 @@ export const deleteEntryOperation = defineOperation({
   args: deleteEntryArgs.args,
   guard: canDeleteEntries,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     const entry = await getEntryOrThrow(ctx, args.entryId)
     return {
@@ -230,7 +230,7 @@ export const deleteEntryOperation = defineOperation({
       )
     }
     const result = await previewDestructiveEntryOperation(ctx, args.entryId)
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will permanently delete "${result.displayLabel ?? result.baseSlug}" and ${result.publicRoutes.length} public route${result.publicRoutes.length === 1 ? '' : 's'}.`,
       allowed: result.publicRoutes.length === 0,
       blockers: result.publicRoutes.length

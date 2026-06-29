@@ -10,7 +10,7 @@
 
 ## v0.1.3
 
-Align Ginko CMS with the Trellis `0.2.0` release line.
+Align Ginko CMS with the removed foundation `0.2.0` release line.
 
 ### Release Stack
 
@@ -20,17 +20,17 @@ Align Ginko CMS with the Trellis `0.2.0` release line.
 | `@lupinum/ginko-cms-convex`   | `0.1.2` |
 | `@lupinum/ginko-cms-contract` | `0.1.1` |
 | `@lupinum/ginko-content`      | `0.1.2` |
-| `@lupinum/trellis`            | `0.2.0` |
-| `@lupinum/trellis-bridge`     | `0.2.0` |
+| `removed foundation package`            | `0.2.0` |
+| `removed bridge package`     | `0.2.0` |
 
 ### Changed
 
-- Updated the release tuple to the published Trellis `0.2.0` runtime and bridge
+- Updated the release tuple to the published removed foundation `0.2.0` runtime and bridge
   packages.
 
 ### Fixed
 
-- Routed permanent asset purge through the Trellis destructive operation
+- Routed permanent asset purge through the removed foundation destructive operation
   confirmation flow.
 - Replaced cleanup full scans with existing indexes for asset references, public
   projections, and tree move path checks.
@@ -47,8 +47,8 @@ Align Ginko CMS with the Ginko Content `0.1.2` release line.
 | `@lupinum/ginko-cms-convex`   | `0.1.1` |
 | `@lupinum/ginko-cms-contract` | `0.1.1` |
 | `@lupinum/ginko-content`      | `0.1.2` |
-| `@lupinum/trellis`            | `0.1.1` |
-| `@lupinum/trellis-bridge`     | `0.1.1` |
+| `removed foundation package`            | `0.1.1` |
+| `removed bridge package`     | `0.1.1` |
 
 ### Changed
 
@@ -68,7 +68,7 @@ Align Ginko CMS with the Ginko Content `0.1.2` release line.
 
 ## v0.1.1
 
-Align Ginko CMS with the Trellis `0.1.1` release line.
+Align Ginko CMS with the removed foundation `0.1.1` release line.
 
 ### Release Stack
 
@@ -78,14 +78,14 @@ Align Ginko CMS with the Trellis `0.1.1` release line.
 | `@lupinum/ginko-cms-convex`   | `0.1.1` |
 | `@lupinum/ginko-cms-contract` | `0.1.1` |
 | `@lupinum/ginko-content`      | `0.1.0` |
-| `@lupinum/trellis`            | `0.1.1` |
-| `@lupinum/trellis-bridge`     | `0.1.1` |
+| `removed foundation package`            | `0.1.1` |
+| `removed bridge package`     | `0.1.1` |
 
 ### Changed
 
 - Updated Ginko CMS and Convex package dependencies to require the published
-  Trellis `0.1.1` runtime and bridge packages.
-- Added Trellis package ranges to the Ginko CMS compatibility matrix so stale
+  removed foundation `0.1.1` runtime and bridge packages.
+- Added removed foundation package ranges to the Ginko CMS compatibility matrix so stale
   runtime or bridge ranges fail the release gate.
 
 ## v0.1.0
@@ -100,8 +100,8 @@ First public Ginko CMS release.
 | `@lupinum/ginko-cms-convex`   |  `0.1.0` |
 | `@lupinum/ginko-cms-contract` |  `0.1.0` |
 | `@lupinum/ginko-content`      | `2.13.4` |
-| `@lupinum/trellis`            |  `0.4.0` |
-| `@lupinum/trellis-bridge`     |  `0.1.0` |
+| `removed foundation package`            |  `0.4.0` |
+| `removed bridge package`     |  `0.1.0` |
 
 ### Added
 
@@ -112,4 +112,4 @@ First public Ginko CMS release.
 - Shared contract package for runtime-neutral content types, validators, route
   diagnostics, permissions, caller shape, and CMS field definitions.
 - Package E2E release gate proving packed packages install into a clean Nuxt
-  consumer with Trellis and Ginko Content.
+  consumer with removed foundation and Ginko Content.

@@ -43,15 +43,14 @@ publish content, but they do not mutate schema.
 
 ## Setup Boundary
 
-Trellis powers internal bridge generation, route protection, permissions, and
-Convex integration mechanics. Public setup should still feel like Ginko CMS.
-Users install and validate Ginko CMS; they should not need to understand Trellis
-concepts to build a Ginko CMS site.
+better-convex-nuxt powers generic Nuxt, Convex, and Better Auth integration
+mechanics. Ginko CMS owns host setup glue, route protection policy, permissions,
+and CMS operation behavior. Public setup should still feel like Ginko CMS.
 
 The durable rule is:
 
-> Trellis may power internals, but Ginko CMS owns the user-facing installation,
-> setup, and validation experience.
+> better-convex-nuxt may power generic app plumbing, but Ginko CMS owns the
+> user-facing installation, setup, and validation experience.
 
 ## Studio Boundary
 

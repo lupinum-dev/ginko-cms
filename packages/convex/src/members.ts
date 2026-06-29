@@ -7,16 +7,16 @@ import {
 } from '@lupinum/ginko-cms-contract/convex/schemas/members.js'
 import { memberValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
-import { definePermission, defineAccessContext } from '@lupinum/trellis/auth'
+import { cmsPermission, cmsAccessContext } from './auth/runtime'
 import {
   blockedOperationPreview,
-  defineOperation,
+  cmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
+  cmsOperationPreview,
+  cmsOperationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from './operations/runtime'
 import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
@@ -102,53 +102,53 @@ export async function bootstrapCmsOwnerRecord(
 }
 
 const cmsPermissions = [
-  definePermission({ key: cmsPermissionKeys.read, label: 'Read CMS', check: canRead }),
-  definePermission({
+  cmsPermission({ key: cmsPermissionKeys.read, label: 'Read CMS', check: canRead }),
+  cmsPermission({
     key: cmsPermissionKeys.bootstrap,
     label: 'Bootstrap CMS',
     check: isBootstrapUser,
   }),
-  definePermission({
+  cmsPermission({
     key: cmsPermissionKeys.createEntries,
     label: 'Create entries',
     check: canCreateEntries,
   }),
-  definePermission({
+  cmsPermission({
     key: cmsPermissionKeys.editEntries,
     label: 'Edit entries',
     check: canEditEntries,
   }),
-  definePermission({
+  cmsPermission({
     key: cmsPermissionKeys.publishEntries,
     label: 'Publish entries',
     check: canPublishEntries,
   }),
-  definePermission({
+  cmsPermission({
     key: cmsPermissionKeys.archiveEntries,
     label: 'Archive entries',
     check: canArchiveEntries,
   }),
-  definePermission({
+  cmsPermission({
     key: cmsPermissionKeys.deleteEntries,
     label: 'Delete entries',
     check: canDeleteEntries,
   }),
-  definePermission({
+  cmsPermission({
     key: cmsPermissionKeys.manageCollections,
     label: 'Manage collections',
     check: canManageCollections,
   }),
-  definePermission({
+  cmsPermission({
     key: cmsPermissionKeys.manageSettings,
     label: 'Manage settings',
     check: canManageSettings,
   }),
-  definePermission({
+  cmsPermission({
     key: cmsPermissionKeys.manageMembers,
     label: 'Manage members',
     check: canManageMembers,
   }),
-  definePermission({
+  cmsPermission({
     key: cmsPermissionKeys.manageAssets,
     label: 'Manage assets',
     check: canManageAssets,
@@ -160,7 +160,7 @@ function normalizeEmail(email: string | null | undefined): string | null {
   return normalized && normalized.length > 0 ? normalized : null
 }
 
-const getAccessContextDefinition = defineAccessContext({
+const getAccessContextDefinition = cmsAccessContext({
   id: 'members:getAccessContext',
   resolve: async (ctx) => await ctx.appIdentity(),
   permissions: cmsPermissions,
@@ -329,7 +329,7 @@ export const updateMemberRole = callerMutation.protected({
   },
 })
 
-export const removeMemberOperation = defineOperation({
+export const removeMemberOperation = cmsOperation({
   id: 'ginko-cms.remove-member',
   name: 'remove-member',
   kind: 'destructive',
@@ -337,7 +337,7 @@ export const removeMemberOperation = defineOperation({
   args: removeMemberArgs.args,
   guard: canManageMembers,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     const member =
       (await ctx.db
@@ -356,7 +356,7 @@ export const removeMemberOperation = defineOperation({
         confirm: { operationId: 'ginko-cms.remove-member', args },
       })
     }
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will remove member "${member.displayName || args.userId}".`,
       warnings: [
         operationIssue({

@@ -336,6 +336,8 @@ The following stay in Convex/Ginko:
 
 Goal: answer the risky architecture questions before agents begin deleting Trellis from production Ginko code.
 
+Status: completed on 2026-06-29. Evidence is recorded in `/Users/matthias/Git/workspace/ginko-cms/docs/plans/trellis-cutover-spike-results.md`; working notes are recorded in `/Users/matthias/Git/workspace/ginko-cms/docs/plans/journal.md`.
+
 Phase 0 is not a cautious migration. It is also not the start of the Ginko cutover. It is a small set of isolated, disposable experiments that prove the new foundation shape is viable.
 
 Rules for Phase 0:
@@ -380,6 +382,8 @@ Required better-convex-nuxt Change:
 
 ### Spike 0A: Nuxt + Convex + Better Auth Foundation
 
+Status: completed. Result: yes, with browser signed-in server-route smoke deferred to later validation.
+
 Question: can a Nuxt app use `better-convex-nuxt` as the full foundation for client and server Convex access with Better Auth session sync?
 
 Recommended location:
@@ -421,6 +425,8 @@ Likely `better-convex-nuxt` improvements if the spike exposes gaps:
 
 ### Spike 0B: Better Auth Organization And Member Fit
 
+Status: completed. Result: partial. Better Auth Organization is proven for generic org/member/team workflows; first Ginko cutover should keep CMS membership canonical unless Phase 4 proves a full hard replacement.
+
 Question: should Ginko use Better Auth Organization as canonical membership, or keep CMS-owned membership canonical?
 
 Build the smallest auth-domain scenario:
@@ -457,6 +463,8 @@ Acceptance criteria:
 
 ### Spike 0C: Better Auth API Keys For MCP / Service Access
 
+Status: completed. Result: partial. Better Auth API keys are viable auth-domain credentials, but Ginko MCP product authorization should remain Ginko-owned.
+
 Question: can Better Auth API keys own MCP/service authentication while Ginko keeps product authorization?
 
 Build the smallest service access scenario:
@@ -485,6 +493,8 @@ Acceptance criteria:
 - [ ] No product write is allowed based on API-key authentication alone.
 
 ### Spike 0D: Convex Component / Starter Shape
+
+Status: completed. Result: yes. Direct starters/templates are viable; no generic bridge replacement is needed.
 
 Question: can Ginko avoid a Trellis-style bridge framework by using direct templates or a simple component package shape?
 
@@ -518,6 +528,8 @@ Recommended outcome:
 - Keep CMS install semantics in Ginko.
 
 ### Spike 0E: Ginko-Owned Operation Runtime Shape
+
+Status: completed. Result: yes. Use explicit Ginko operation ids plus preview/confirmation/execute/audit maps; do not recreate generated Trellis handles.
 
 Question: can Ginko replace Trellis operations with an explicit product operation registry without recreating a framework?
 
@@ -567,17 +579,33 @@ Not allowed:
 
 Phase 0 exit criteria:
 
-- [ ] `trellis-cutover-spike-results.md` exists.
-- [ ] Each spike has a yes/no/partial result.
-- [ ] Required `better-convex-nuxt` changes are either implemented and validated or explicitly deferred as non-blocking.
-- [ ] The membership source-of-truth decision is made or narrowed to a concrete Phase 4 decision.
-- [ ] The component/bridge direction is chosen for Phase 7.
-- [ ] The operation runtime shape is clear enough for Phase 6.
-- [ ] No production Ginko migration code has been started.
+- [x] `trellis-cutover-spike-results.md` exists.
+- [x] Each spike has a yes/no/partial result.
+- [x] Required `better-convex-nuxt` changes are either implemented and validated or explicitly deferred as non-blocking.
+- [x] The membership source-of-truth decision is made or narrowed to a concrete Phase 4 decision.
+- [x] The component/bridge direction is chosen for Phase 7.
+- [x] The operation runtime shape is clear enough for Phase 6.
+- [x] No production Ginko migration code has been started.
+
+### Phase 0 Learnings Applied
+
+These are now defaults for the implementation phases:
+
+- `better-convex-nuxt` is sufficient for the foundation cutover. Use it directly for Nuxt module setup, `#convex/api`, `#convex/server`, client composables, `useConvexAuth`, and server callers.
+- No blocking `better-convex-nuxt` core API is missing for Phase 1. Do not delay the hard cutover for more foundation work.
+- Keep the first Ginko migration focused on removing Trellis. Do not combine it with a Better Auth Organization membership replacement.
+- Default Phase 4 path is Decision B: keep Ginko `members` canonical during the Trellis cutover. Better Auth Organization can become a later hard replacement only if CMS member semantics map cleanly and the old source is deleted.
+- Better Auth API keys are not the default MCP/service credential model for this cutover. They are useful auth-domain credentials, but product routes must still re-check CMS state and authorization.
+- Default Phase 8 path is Ginko-owned service actors/credentials or the existing CMS equivalent, with MCP as transport only.
+- Default Phase 7 path is direct templates. Add Ginko-owned generated glue only if direct templates cannot express installation.
+- Default Phase 6 path is an explicit Ginko operation registry with string operation ids, preview, confirmation, execute, and audit. Start without codegen.
+- Starter validation needs `nuxi prepare` before tests when a starter extends `.nuxt/tsconfig.json`.
 
 ## Phase 1: Hard Migration Pass, No Validation
 
 Goal: remove Trellis completely and replace obvious references with direct better-convex-nuxt/Ginko-owned concepts using the decisions from Phase 0. The repo may not build at the end of this phase.
+
+Status: completed on 2026-06-29. The hard cutover removed package dependencies, generated handles, old virtual imports, bridge/MCP package usage, and old tests/scripts that depended on the removed foundation. Disabled surfaces are tracked in `/Users/matthias/Git/workspace/ginko-cms/docs/plans/trellis-cutover-disabled-surfaces.md`.
 
 Rules for Phase 1:
 
@@ -592,53 +620,53 @@ Rules for Phase 1:
 
 ### Package And Workspace Changes
 
-- [ ] Remove Trellis packages from root `package.json`.
-- [ ] Remove Trellis packages from `packages/cms/package.json`.
-- [ ] Remove Trellis packages from `packages/convex/package.json`.
-- [ ] Remove Trellis workspace paths from `pnpm-workspace.yaml`.
-- [ ] Add/confirm `better-convex-nuxt` dependency where CMS consumes the module, using the package shape proven in Phase 0.
-- [ ] Remove operation generation scripts that call `trellis operations generate`.
-- [ ] Remove `trellis:build`.
-- [ ] Remove `@lupinum/trellis-eslint` from eslint config.
+- [x] Remove Trellis packages from root `package.json`.
+- [x] Remove Trellis packages from `packages/cms/package.json`.
+- [x] Remove Trellis packages from `packages/convex/package.json`.
+- [x] Remove Trellis workspace paths from `pnpm-workspace.yaml`.
+- [x] Add/confirm `better-convex-nuxt` dependency where CMS consumes the module, using the package shape proven in Phase 0.
+- [x] Remove operation generation scripts that call `trellis operations generate`.
+- [x] Remove `trellis:build`.
+- [x] Remove `@lupinum/trellis-eslint` from eslint config.
 
 ### Module Cutover
 
-- [ ] In `packages/cms/src/module.ts`, replace Nuxt module dependency from `@lupinum/trellis` to `better-convex-nuxt`.
-- [ ] Convert config mapping to `convex` module options only, based on the Phase 0 foundation spike.
-- [ ] Delete Trellis-specific module setup instead of adapting it.
-- [ ] Ensure aliases point to `#convex/api`, not `#trellis/api`.
+- [x] In `packages/cms/src/module.ts`, replace Nuxt module dependency from `@lupinum/trellis` to `better-convex-nuxt`.
+- [x] Convert config mapping to `convex` module options only, based on the Phase 0 foundation spike.
+- [x] Delete Trellis-specific module setup instead of adapting it.
+- [x] Ensure aliases point to `#convex/api`, not `#trellis/api`.
 
 ### Import Cutover
 
-- [ ] Replace `#trellis/api` imports with `#convex/api`.
-- [ ] Replace Trellis composables with `better-convex-nuxt` composables.
-- [ ] Replace Studio host auth usage with public `useConvexAuth`, following the Phase 0 auth contract.
-- [ ] Remove all direct `@lupinum/trellis/backend` imports.
-- [ ] Remove all direct `@lupinum/trellis-bridge` imports.
-- [ ] Remove all `#trellis/mcp` and `#trellis/mcp/advanced` imports.
+- [x] Replace `#trellis/api` imports with `#convex/api`.
+- [x] Replace Trellis composables with `better-convex-nuxt` composables.
+- [x] Replace Studio host auth usage with public `useConvexAuth`, following the Phase 0 auth contract.
+- [x] Remove all direct `@lupinum/trellis/backend` imports.
+- [x] Remove all direct `@lupinum/trellis-bridge` imports.
+- [x] Remove all `#trellis/mcp` and `#trellis/mcp/advanced` imports.
 
 ### Generated Operation Files
 
-- [ ] Delete generated operation handle files.
-- [ ] Delete generated operation ref files.
-- [ ] Remove package exports that expose generated operation handles.
-- [ ] Remove generated imports from MCP, tests, and runtime code.
+- [x] Delete generated operation handle files.
+- [x] Delete generated operation ref files.
+- [x] Remove package exports that expose generated operation handles.
+- [x] Remove generated imports from MCP, tests, and runtime code.
 
 ### Minimal Ginko-Owned Skeletons
 
 Add only minimal skeletons required to name the new ownership boundary:
 
-- [ ] `packages/convex/src/operations/registry.ts`
+- [x] `packages/convex/src/operations/registry.ts`
   - explicit operation id list
   - explicit preview/execute function map
   - no generic DSL
-- [ ] `packages/convex/src/operations/types.ts`
+- [x] `packages/convex/src/operations/types.ts`
   - minimal operation descriptor types
   - no compatibility with Trellis types
-- [ ] `packages/convex/src/callers.ts` or `packages/convex/src/callers/index.ts`
+- [x] `packages/convex/src/callers.ts` or `packages/convex/src/callers/index.ts`
   - explicit public/protected/admin wrappers only if needed
   - no `defineCaller` clone
-- [ ] `packages/cms/src/server/mcp/_shared/operation-runtime.ts`
+- [x] `packages/cms/src/server/mcp/_shared/operation-runtime.ts`
   - Ginko MCP transport adapter to operation registry
   - no Trellis handle imports
 
@@ -670,12 +698,13 @@ Required tracker columns:
 
 ### Phase 1 Acceptance Criteria
 
-- [ ] `rg "@lupinum/trellis|@lupinum/trellis-bridge|@lupinum/trellis-eslint|#trellis|defineTrellis|defineCaller|defineOperation|defineMcpApp|OperationHandle|trellis operations generate|__trellis_auth_engine__" /Users/matthias/Git/workspace/ginko-cms` returns no live source references except this plan and explicit disabled-surface notes.
-- [ ] Package metadata no longer depends on Trellis.
-- [ ] No Trellis generated operation handles remain.
-- [ ] Any commented surfaces have `TODO(trellis-cutover)` and are listed in the disabled-surface tracker.
-- [ ] The repo may still fail typecheck/build.
-- [ ] Phase 0 decisions are referenced in comments or tracker notes where they affect disabled surfaces.
+- [x] `rg "@lupinum/trellis|@lupinum/trellis-bridge|@lupinum/trellis-eslint|#trellis|defineTrellis|defineCaller|defineOperation|operationPreview|operationPreviewValidator|defineMcpApp|OperationHandle|trellis operations generate|__trellis_auth_engine__" /Users/matthias/Git/workspace/ginko-cms` returns no live source references except this plan and explicit disabled-surface notes.
+- [x] Broad stale-name audit outside plan docs and explicit `TODO(trellis-cutover)` markers returns no matches.
+- [x] Package metadata no longer depends on Trellis.
+- [x] No Trellis generated operation handles remain.
+- [x] Any commented surfaces have `TODO(trellis-cutover)` and are listed in the disabled-surface tracker.
+- [x] The repo may still fail typecheck/build.
+- [x] Phase 0 decisions are referenced in comments or tracker notes where they affect disabled surfaces.
 
 ## Phase 2: First Bootable Repo Slice
 
@@ -820,7 +849,9 @@ Tradeoff:
 
 Recommendation:
 
-Start with Decision B unless existing CMS member management is generic organization membership. Then schedule Decision A as a separate hard cutover. Avoid half-mirroring Better Auth org members and Ginko members. That creates two sources of truth and will be harder to debug than either clean choice.
+Start with Decision B for the Trellis hard cutover. Keep Ginko `members` canonical while Trellis is removed, because Phase 0 proved Better Auth Organization is viable for generic org/member/team workflows but did not prove a full mapping for Ginko's CMS/project/site/collection semantics.
+
+Only choose Decision A if the Phase 4 agent can prove all current CMS member behavior maps cleanly to Better Auth Organization and is ready to delete the Ginko member source in the same hard cutover. Do not half-mirror Better Auth org members and Ginko members. That creates two sources of truth and will be harder to debug than either clean choice.
 
 Acceptance criteria:
 
@@ -828,6 +859,7 @@ Acceptance criteria:
 - [ ] Product authorization reads from that source only.
 - [ ] Better Auth is not mirrored into a second canonical member table.
 - [ ] Convex still enforces CMS product invariants.
+- [ ] If Better Auth Organization is deferred, the deferral is explicit and does not block the Trellis cutover.
 
 ## Phase 5: Studio Slice
 
@@ -953,7 +985,7 @@ Tasks:
 
 Recommendation:
 
-Start with Decision A. Bridge frameworks are expensive and easy to turn into a second platform. Use generated glue only when direct templates cannot express the install path.
+Start with Decision A. Phase 0 proved direct starters/templates can work without bridge manifests, generated operation handles, forwarded caller frameworks, or Trellis concepts. Bridge frameworks are expensive and easy to turn into a second platform. Use generated glue only when direct templates cannot express the install path.
 
 Acceptance criteria:
 
@@ -961,6 +993,7 @@ Acceptance criteria:
 - [ ] Installed component shape is documented in Ginko.
 - [ ] No generic bridge package exists unless justified by a concrete install requirement.
 - [ ] Installer path uses `better-convex-nuxt` only for general Convex/Nuxt integration.
+- [ ] If generated glue remains, the plan names the exact install requirement that direct templates cannot satisfy.
 
 ## Phase 8: MCP Slice
 
@@ -984,9 +1017,11 @@ Tasks:
 
 Auth direction:
 
-- Prefer Better Auth API keys or service auth if they fit the service access model.
+- For this Trellis cutover, prefer Ginko-owned service actors/credentials or the existing CMS equivalent over Better Auth API keys for MCP writes.
+- Treat Better Auth API keys as a future auth-domain option, not the default migration path.
 - Keep service authorization separate from product authorization.
 - Convex/Ginko still checks whether the authenticated service/user may perform the product action.
+- Product routes must re-check CMS organization/project/site existence and authorization even if a Better Auth API key verifies successfully.
 
 Acceptance criteria:
 
@@ -995,6 +1030,7 @@ Acceptance criteria:
 - [ ] Destructive MCP tools return preview before execute.
 - [ ] Confirmation and audit behavior matches Studio path.
 - [ ] Service/API-key auth source is documented.
+- [ ] API-key verification, if used, is not treated as product authorization.
 - [ ] Disabled MCP tools are tracked and have restore criteria.
 
 ## Phase 9: Final Validation
@@ -1028,6 +1064,12 @@ pnpm test
 ```
 
 Adjust package filters to the final package names after Phase 1. Do not run e2e or browser checks until a dev server slice is intentionally being verified.
+
+Starter/package validation note from Phase 0:
+
+- If a package or starter extends `.nuxt/tsconfig.json`, run `nuxi prepare` before tests/typecheck.
+- A missing `.nuxt/tsconfig.json` can look like unrelated product test failures. Treat it as a setup-order issue first.
+- Keep local auth-site warnings separate from failures. Warnings about missing `convex.siteUrl` are expected in non-dev-server local checks unless the check needs signed-in browser auth.
 
 Browser verification checklist:
 
@@ -1246,30 +1288,30 @@ Depends on: all implementation slices.
 
 ## Completion Checklist
 
-- [ ] Phase 0 spike results are recorded.
-- [ ] Any required `better-convex-nuxt` foundation changes are implemented or explicitly deferred.
-- [ ] Better Auth membership direction is decided.
-- [ ] Better Auth API-key/service auth direction is decided.
-- [ ] Component/bridge direction is decided.
-- [ ] Ginko operation runtime shape is decided.
-- [ ] No `@lupinum/trellis` imports.
-- [ ] No `@lupinum/trellis-bridge` imports.
-- [ ] No `@lupinum/trellis-eslint` imports.
-- [ ] No Trellis package dependencies.
-- [ ] No Trellis workspace paths.
-- [ ] No `#trellis` imports or aliases.
-- [ ] No `defineTrellis`.
-- [ ] No `defineCaller`.
-- [ ] No `defineOperation`.
-- [ ] No `defineMcpApp`.
-- [ ] No `OperationHandle`.
-- [ ] No `trellis operations generate` scripts.
-- [ ] No `__trellis_auth_engine__`.
-- [ ] No Trellis generated operation handles.
-- [ ] No old bridge package dependency.
-- [ ] `better-convex-nuxt` is used directly for Nuxt/Convex/Auth integration.
-- [ ] `#convex/api` is the generated API import path.
-- [ ] Ginko-owned operation runtime is documented.
+- [x] Phase 0 spike results are recorded.
+- [x] Any required `better-convex-nuxt` foundation changes are implemented or explicitly deferred.
+- [x] Better Auth membership direction is decided.
+- [x] Better Auth API-key/service auth direction is decided.
+- [x] Component/bridge direction is decided.
+- [x] Ginko operation runtime shape is decided.
+- [x] No `@lupinum/trellis` imports.
+- [x] No `@lupinum/trellis-bridge` imports.
+- [x] No `@lupinum/trellis-eslint` imports.
+- [x] No Trellis package dependencies.
+- [x] No Trellis workspace paths.
+- [x] No `#trellis` imports or aliases.
+- [x] No `defineTrellis`.
+- [x] No `defineCaller`.
+- [x] No `defineOperation`.
+- [x] No `defineMcpApp`.
+- [x] No `OperationHandle`.
+- [x] No `trellis operations generate` scripts.
+- [x] No `__trellis_auth_engine__`.
+- [x] No Trellis generated operation handles.
+- [x] No old bridge package dependency.
+- [x] `better-convex-nuxt` is used directly for Nuxt/Convex/Auth integration.
+- [x] `#convex/api` is the generated API import path.
+- [x] Ginko-owned operation runtime is documented.
 - [ ] Membership source of truth is documented.
 - [ ] MCP is transport only and routes writes through product policy.
 - [ ] Destructive confirmation path works without Trellis.

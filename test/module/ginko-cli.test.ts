@@ -4,7 +4,6 @@ import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import cmsPackageJson from '../../packages/cms/package.json' with { type: 'json' }
 import { runGinkoCmsCli } from '../../packages/cms/src/cli/ginko-cms.js'
 
 function createOutput() {
@@ -66,16 +65,6 @@ describe('ginko-cms CLI', () => {
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { force: true, recursive: true })
     }
-  })
-
-  it('declares Ginko CMS as the Trellis integration owner', () => {
-    expect(cmsPackageJson.trellis).toEqual({
-      integration: {
-        ownsRuntime: true,
-        label: 'Ginko CMS',
-        doctorCommand: 'pnpm exec ginko-cms doctor',
-      },
-    })
   })
 
   it('runs init and checks the Ginko CMS bridge without package arguments', async () => {
@@ -368,9 +357,9 @@ describe('ginko-cms CLI', () => {
       readFileSync(configPath, 'utf8').replace(
         'app.use(ginkoCms)',
         [
-          '// @trellis-managed-start: @lupinum/ginko-cms convex-component',
+          '// @ginko-cms-managed-start: @lupinum/ginko-cms convex-component',
           'app.use(ginkoCms)',
-          '// @trellis-managed-end: @lupinum/ginko-cms convex-component',
+          '// @ginko-cms-managed-end: @lupinum/ginko-cms convex-component',
         ].join('\n'),
       ),
       'utf8',
@@ -566,7 +555,7 @@ describe('ginko-cms CLI', () => {
       expect(calls[1]?.kind).toBe('mutation')
       expect(calls[1]?.args).toMatchObject({
         collections: [expect.objectContaining({ slug: 'blog' })],
-        _trellisForwarding: expect.any(String),
+        _cmsForwarding: expect.any(String),
       })
       expect(calls[1]?.args).not.toHaveProperty('caller')
       expect(JSON.stringify(calls)).not.toContain('GINKO_CMS_INSTALL_SECRET')
@@ -818,7 +807,7 @@ describe('ginko-cms CLI', () => {
         collection: 'posts',
         cursor: null,
         limit: 100,
-        _trellisForwarding: expect.any(String),
+        _cmsForwarding: expect.any(String),
       })
     } finally {
       if (previousDeployKey === undefined) {
@@ -922,7 +911,7 @@ describe('ginko-cms CLI', () => {
           shared: { badge: 'new' },
         }),
       ],
-      _trellisForwarding: expect.any(String),
+      _cmsForwarding: expect.any(String),
     })
   })
 

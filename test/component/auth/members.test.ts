@@ -1,5 +1,5 @@
 import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import { can } from '@lupinum/trellis/auth'
+import { can } from '../../packages/convex/src/auth/runtime'
 import { describe, expect, it } from 'vitest'
 
 import type { CmsAppIdentity, CmsMemberAppIdentity } from '#component/auth/appIdentity.js'

@@ -1,12 +1,12 @@
 import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
-  defineOperation,
+  cmsOperation,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
+  cmsOperationPreview,
+  cmsOperationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from './operations/runtime'
 import { anyApi } from 'convex/server'
 import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
@@ -555,7 +555,7 @@ const deleteBackupArtifactArgs = {
   artifactId: v.string(),
 }
 
-export const deleteBackupArtifactOperation = defineOperation({
+export const deleteBackupArtifactOperation = cmsOperation({
   id: 'ginko-cms.delete-backup-artifact',
   name: 'delete-backup-artifact',
   kind: 'destructive',
@@ -563,14 +563,14 @@ export const deleteBackupArtifactOperation = defineOperation({
   args: deleteBackupArtifactArgs,
   guard: hasRole('owner'),
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async (ctx, args) => {
     const artifact = await getBackupArtifactByArtifactId(ctx, args.artifactId)
     return { artifact }
   },
   preview: async (_ctx, args, { artifact }) => {
     if (!artifact) {
-      return operationPreview({
+      return cmsOperationPreview({
         allowed: false,
         summary: `Backup artifact "${args.artifactId}" was not found.`,
         blockers: [
@@ -583,7 +583,7 @@ export const deleteBackupArtifactOperation = defineOperation({
       })
     }
 
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will delete backup artifact "${artifact.artifactId}".`,
       warnings: [
         operationIssue({

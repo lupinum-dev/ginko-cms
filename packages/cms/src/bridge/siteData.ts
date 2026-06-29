@@ -9,7 +9,7 @@ import {
   siteDataBlockValidator,
   siteDataListItemValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { operationPreviewValidator } from '@lupinum/trellis/backend'
+import { cmsOperationPreviewValidator } from './operation-runtime'
 import { v } from 'convex/values'
 
 import { createBridgeModule, type BridgeEntry } from './create.js'
@@ -69,7 +69,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewDeleteSiteDataBlockOperation',
     args: deleteSiteDataBlockArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
 ] as const satisfies readonly BridgeEntry[]
 

@@ -2,7 +2,7 @@ import type {
   UseConvexQueryData,
   UseConvexQueryOptions,
   UseConvexQueryReturn,
-} from '@lupinum/trellis/composables'
+} from '@lupinumbetter-convex-nuxt/composables'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, onScopeDispose, ref, type MaybeRefOrGetter, toValue, watch } from 'vue'
 

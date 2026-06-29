@@ -22,11 +22,8 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
   },
 
-  trellis: {
+  convex: {
     url: process.env.CONVEX_URL,
-    permissions: {
-      query: 'ginkoCms/members.getAccessContext',
-    },
   },
 
   ginkoCms: {

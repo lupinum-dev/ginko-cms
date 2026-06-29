@@ -145,9 +145,6 @@ describe('ginko-cms bridge validation', () => {
       nuxt,
     )
 
-    expect(
-      (nuxt.options as { trellis: { permissions: { query: string } } }).trellis.permissions.query,
-    ).toBe('ginkoCms/members.getAccessContext')
     expect(nuxt.options.css).toEqual([])
     expect((nuxt.options as { colorMode: { classSuffix: string } }).colorMode).toEqual({
       classSuffix: '',
@@ -453,9 +450,9 @@ describe('ginko-cms bridge validation', () => {
       readFileSync(target, 'utf8').replace(
         'app.use(ginkoCms)',
         [
-          '// @trellis-managed-start: @lupinum/ginko-cms convex-component',
+          '// @ginko-cms-managed-start: @lupinum/ginko-cms convex-component',
           'app.use(ginkoCms)',
-          '// @trellis-managed-end: @lupinum/ginko-cms convex-component',
+          '// @ginko-cms-managed-end: @lupinum/ginko-cms convex-component',
         ].join('\n'),
       ),
       'utf8',

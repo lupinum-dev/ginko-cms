@@ -1,7 +1,7 @@
 # Release Candidate Checklist
 
 Use this checklist before publishing Ginko CMS packages that include runtime,
-bridge, contract, or Trellis integration changes. The goal is one repeatable
+bridge, contract, or better-convex-nuxt integration changes. The goal is one repeatable
 path from local packages to a clean consumer app.
 
 ## Release Stack
@@ -10,7 +10,7 @@ The release stack is recorded in `packages/cms/compatibility.json`. Treat that
 file as the canonical package tuple; do not copy version tables by hand into
 release notes.
 
-Publish order is fixed: Content, Trellis, Trellis Bridge, CMS Contract, CMS
+Publish order is fixed: Content, better-convex-nuxt, CMS Contract, CMS
 Convex, then CMS. Do not use recursive workspace publishing from this repo; the
 workspace includes sibling checkouts for local development.
 
@@ -23,7 +23,7 @@ pnpm run release:notes
 pnpm run release:verify
 ```
 
-After Trellis and Ginko Content release candidates are available from the
+After better-convex-nuxt and Ginko Content release candidates are available from the
 registry, also run:
 
 ```bash

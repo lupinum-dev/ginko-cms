@@ -6,7 +6,7 @@ import {
   upsertRevalidationTarget as upsertRevalidationTargetArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/revalidation.js'
 import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { operationPreviewValidator } from '@lupinum/trellis/backend'
+import { cmsOperationPreviewValidator } from './operation-runtime'
 import { v } from 'convex/values'
 
 import { createBridgeModule, type BridgeEntry } from './create.js'
@@ -77,7 +77,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewRetryRevalidationJobOperation',
     args: retryRevalidationJobArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
 ] as const satisfies readonly BridgeEntry[]
 

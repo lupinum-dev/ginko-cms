@@ -2,7 +2,7 @@ import { ConvexHttpClient } from 'convex/browser'
 import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
 
-import { api } from '#trellis/api'
+import { api } from '#convex/api'
 
 type QueryValue = string | string[] | undefined
 

@@ -2,13 +2,13 @@ import {
   defineBetterAuth,
   type DefineBetterAuthDeps,
   type DefineBetterAuthOptions,
-} from '@lupinum/trellis/auth'
+} from './auth/runtime'
 
 export type {
   DefineBetterAuthDeps as GinkoAuthDeps,
   DefineBetterAuthOptions as GinkoAuthOptions,
-} from '@lupinum/trellis/auth'
-export { getAuth, requireAuth, deny } from '@lupinum/trellis/auth'
+} from './auth/runtime'
+export { getCmsAuth, requireCmsAuth, deny } from './auth/runtime'
 
 /**
  * Ginko-owned auth bootstrap for Convex apps.

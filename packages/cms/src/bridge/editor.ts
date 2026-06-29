@@ -40,7 +40,7 @@ import {
   versionListItemValidator,
   versionSnapshotPreviewValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { operationPreviewValidator } from '@lupinum/trellis/backend'
+import { cmsOperationPreviewValidator } from './operation-runtime'
 import { v } from 'convex/values'
 
 import { createBridgeModule, type BridgeEntry } from './create.js'
@@ -163,7 +163,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewPublishEntryOperation',
     args: publishEntryArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'unpublishEntry',
@@ -177,7 +177,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewUnpublishEntryOperation',
     args: unpublishEntryArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'archiveEntry',
@@ -191,7 +191,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewArchiveEntryOperation',
     args: archiveEntryArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'unarchiveEntry',
@@ -219,7 +219,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewRollbackVersionOperation',
     args: rollbackVersionArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'createCheckpoint',
@@ -254,7 +254,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewDeleteEntryOperation',
     args: deleteEntryArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
 ] as const satisfies readonly BridgeEntry[]
 

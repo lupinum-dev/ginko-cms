@@ -1,14 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { convexTestConfig } from '@lupinum/trellis/testing'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 
-// Build the base config from convexTestConfig, then override
-// esbuild.tsconfigRaw with a string so Vite 7 skips file-based
-// tsconfig resolution (which fails without .nuxt/tsconfig.json).
-const baseConfig = convexTestConfig({
+const tsconfigRaw = readFileSync('tsconfig.json', 'utf-8')
+
+export default defineConfig({
+  plugins: [vue()],
   test: {
     include:
       process.env.GINKO_CMS_PACKAGE_CONSUMER_TEST === '1'
@@ -21,18 +20,9 @@ const baseConfig = convexTestConfig({
     fileParallelism: false,
     name: 'ginko-cms',
   },
-})
-
-const tsconfigRaw = readFileSync('tsconfig.json', 'utf-8')
-const esbuildConfig = typeof baseConfig.esbuild === 'object' ? baseConfig.esbuild : {}
-
-export default defineConfig({
-  ...baseConfig,
-  plugins: [vue()],
   resolve: {
     alias: {
-      '#trellis/api': resolve(__dirname, 'test/stubs/trellis-api.ts'),
-      '#trellis': resolve(__dirname, '.nuxt/trellis'),
+      '#convex/api': resolve(__dirname, 'test/stubs/convex-api.ts'),
       '#component': resolve(__dirname, 'packages/convex/src'),
       '#runtime': resolve(__dirname, 'packages/cms/src/runtime'),
       '#ginko-cms-public': resolve(__dirname, 'packages/cms/src/public'),
@@ -74,7 +64,7 @@ export default defineConfig({
     },
   },
   esbuild: {
-    ...esbuildConfig,
     tsconfigRaw,
   },
 })
+

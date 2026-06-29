@@ -13,10 +13,9 @@ const requiredInstallTokens = [
 ]
 
 const forbiddenPhrases = [
-  // The package README used to claim host apps should not install Convex,
-  // Trellis, Better Auth, or the CMS internal packages. The 1.0 install story
-  // is explicit: host apps own those dependencies.
-  /Consumers should not install\s+`?convex`?,\s+Trellis,\s+Better Auth/i,
+  // The package README used to claim host apps should avoid direct foundation
+  // dependencies. The 1.0 install story is explicit: host apps own them.
+  /Consumers should not install\s+`?convex`?,\s+better-convex-nuxt,\s+Better Auth/i,
   /should not install[^.]*\bconvex\b[^.]*\bBetter Auth\b/i,
 ]
 

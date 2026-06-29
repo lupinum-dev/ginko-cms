@@ -1,11 +1,11 @@
-import { can } from '@lupinum/trellis/auth'
-import { defineRecordAccess } from '@lupinum/trellis/workspace'
+import { can } from './runtime'
+import { cmsRecordAccess } from './runtime'
 
 import type { Doc } from '../_generated/dataModel.js'
 import type { CmsAppIdentity } from './appIdentity.js'
 import { canArchiveEntries, canDeleteEntries, canEditEntries, canPublishEntries } from './checks.js'
 
-export const entryRecordAccess = defineRecordAccess<Doc<'entries'>>()({
+export const entryRecordAccess = cmsRecordAccess<Doc<'entries'>>()({
   edit: (appIdentity: CmsAppIdentity) => can(appIdentity, canEditEntries),
   publish: (appIdentity: CmsAppIdentity) => can(appIdentity, canPublishEntries),
   archive: (appIdentity: CmsAppIdentity) => can(appIdentity, canArchiveEntries),

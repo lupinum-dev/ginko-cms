@@ -5,7 +5,7 @@ import type {
   UseConvexPaginatedQueryOptions,
   UseConvexPaginatedQueryData,
   UseConvexPaginatedQueryReturn,
-} from '@lupinum/trellis/composables'
+} from '@lupinumbetter-convex-nuxt/composables'
 import {
   computed,
   onScopeDispose,

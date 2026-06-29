@@ -658,7 +658,7 @@ describe('public visibility diagnostics', () => {
     )
   })
 
-  it('rejects publish execution without a Trellis confirmation token', async () => {
+  it('rejects publish execution without a CMS confirmation token', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)

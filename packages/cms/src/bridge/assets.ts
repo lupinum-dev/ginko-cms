@@ -15,7 +15,7 @@ import {
   assetManagerAssetValidator,
   assetManagerPageValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { operationPreviewValidator } from '@lupinum/trellis/backend'
+import { cmsOperationPreviewValidator } from './operation-runtime'
 import { v } from 'convex/values'
 
 import { createBridgeModule, type BridgeEntry } from './create.js'
@@ -116,7 +116,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewDeleteAssetOperation',
     args: deleteAssetArgs.args,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
   {
     exportName: 'restoreAsset',
@@ -137,7 +137,7 @@ export const entries = [
     operation: 'mutation',
     component: 'previewPurgeAssetOperation',
     args: purgeAssetArgs,
-    returns: operationPreviewValidator(),
+    returns: cmsOperationPreviewValidator(),
   },
 ] as const satisfies readonly BridgeEntry[]
 

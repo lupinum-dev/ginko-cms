@@ -6,13 +6,13 @@ import {
 import { draftSaveResultValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
-  defineOperation,
+  cmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
+  cmsOperationPreview,
+  cmsOperationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from '../operations/runtime'
 import { v } from 'convex/values'
 
 import { canCreateEntries, canEditEntries } from '../auth/checks.js'
@@ -277,7 +277,7 @@ async function assertNoCanonicalDraftPathConflict(
   }
 }
 
-export const saveEntryDraftOperation = defineOperation({
+export const saveEntryDraftOperation = cmsOperation({
   id: 'ginko-cms.save-entry-draft',
   name: 'save-entry-draft',
   kind: 'safe',
@@ -360,7 +360,7 @@ export const saveEntryDraftOperation = defineOperation({
 
 export const saveEntryDraft = callerMutation.protected(saveEntryDraftOperation)
 
-export const revertDraftToPublishedOperation = defineOperation({
+export const revertDraftToPublishedOperation = cmsOperation({
   id: 'ginko-cms.revert-draft-to-published',
   name: 'revert-draft-to-published',
   kind: 'destructive',
@@ -368,11 +368,11 @@ export const revertDraftToPublishedOperation = defineOperation({
   args: revertDraftToPublishedArgs.args,
   guard: canEditEntries,
   returns: draftSaveResultValidator,
-  previewReturns: operationPreviewValidator(),
+  previewReturns: cmsOperationPreviewValidator(),
   load: async () => undefined,
   preview: async (ctx, args) => {
     const result = await getDraftVsPublishedDiffPreview(ctx as never, args)
-    return operationPreview({
+    return cmsOperationPreview({
       summary: `Will reset the draft to published state and replace ${result.changes.length} changed field${result.changes.length === 1 ? '' : 's'}.`,
       allowed: result.changes.length > 0,
       blockers:

@@ -5,8 +5,8 @@ const app = defineApp()
 
 app.use(betterAuth, { name: 'betterAuth' })
 
-// @trellis-managed-start: @lupinum/ginko-cms convex-component
+// @ginko-cms-managed-start: @lupinum/ginko-cms convex-component
 app.use(ginkoCms)
-// @trellis-managed-end: @lupinum/ginko-cms convex-component
+// @ginko-cms-managed-end: @lupinum/ginko-cms convex-component
 
 export default app

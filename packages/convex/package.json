@@ -42,10 +42,6 @@
     "./operations": {
       "types": "./dist/operations.d.ts",
       "import": "./dist/operations.js"
-    },
-    "./operation-handles/mcp": {
-      "types": "./dist/generated/operationHandles/mcp.d.ts",
-      "import": "./dist/generated/operationHandles/mcp.js"
     }
   },
   "publishConfig": {
@@ -60,8 +56,6 @@
   },
   "dependencies": {
     "@lupinum/ginko-cms-contract": "workspace:^",
-    "@lupinum/trellis": "^0.3.1",
-    "@lupinum/trellis-bridge": "^0.3.1",
     "comark": "^0.3.2",
     "convex": "1.38.0",
     "scule": "^1.3.0",

@@ -14,9 +14,8 @@ import type {
 //   2. Render <div id="ginko-cms-studio"> as the SPA mount point.
 //   3. Populate window.__GINKO_CMS__ with everything the SPA boundary
 //      needs to fetch real data: cms config, the consumer's Nuxt app
-//      instance (so trellis composables in the SPA find $convex via
-//      useNuxtApp()), the generated trellis api object, and the
-//      auth-engine refs the SPA reads to mirror sign-in / sign-out state.
+//      instance, the generated Convex api object, and the public auth refs the
+//      SPA reads to mirror sign-in / sign-out state.
 //   4. Inject the SPA bundle's main.js + main.css via useHead() so they
 //      land in the document head.
 //
@@ -35,8 +34,9 @@ import {
   useRequestURL,
   useRoute,
   useRuntimeConfig,
+  useConvexAuth,
 } from '#imports'
-import { api } from '#trellis/api'
+import { api } from '#convex/api'
 
 const runtimeConfig = useRuntimeConfig()
 const requestUrl = useRequestURL()
@@ -50,6 +50,7 @@ const authEnabled = computed(() => {
   }
   return publicConfig.convex?.auth?.enabled !== false
 })
+const convexAuth = authEnabled.value ? useConvexAuth() : null
 const studioRoute = computed(() =>
   ((cmsConfig.value.route as string | undefined) ?? '/studio').replace(/\/$/, ''),
 )
@@ -77,9 +78,7 @@ useHead(() => ({
 }))
 
 function readAuthEngine(): GinkoCmsHostAuthEngine | null {
-  return (
-    ((nuxtApp as Record<string, unknown>).__trellis_auth_engine__ as GinkoCmsHostAuthEngine) ?? null
-  )
+  return (convexAuth as unknown as GinkoCmsHostAuthEngine | null) ?? null
 }
 
 function debugStudioHost(message: string, details: Record<string, unknown> = {}): void {
@@ -126,7 +125,7 @@ function loadStudioScript(src: string): void {
 // Auth guard and SPA loader. We intentionally append the Studio script only
 // after the host bridge is populated. A static head script can execute before
 // this component hydrates, causing the SPA to bind to inert fallback API
-// proxies instead of the consumer's generated Trellis API.
+// proxies instead of the consumer's generated Convex API.
 onMounted(async () => {
   if (typeof window === 'undefined') return
   const engine = readAuthEngine()
@@ -170,11 +169,11 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
   const bridge: GinkoCmsStudioHostBridge = {
     convexUrl: String((runtimeConfig.public as Record<string, unknown>).convexUrl ?? ''),
     config: cmsConfig.value,
-    // The SPA's trellis composables call useNuxtApp().$convex; passing the
+    // The SPA's Convex composables call useNuxtApp().$convex; passing the
     // consumer's Nuxt app reference shares the already-configured Convex
     // client (and its better-auth token attachment) into the SPA context.
     nuxtApp,
-    // Trellis api is generated per-consumer; inject it so the SPA's
+    // Convex api is generated per-consumer; inject it so the SPA's
     // boundary/api proxy delegates to the real function references.
     api: assertStudioHostApi(api),
     // Auth state passthrough so the SPA's useCmsAuthState mirrors what the
@@ -185,9 +184,9 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
       ? {
           token: engine.token,
           user: engine.user,
-          pending: engine.pending,
+          pending: engine.pending ?? engine.isPending,
           isAuthenticated: engine.isAuthenticated,
-          isAnonymous: engine.isAnonymous,
+          isAnonymous: engine.isAnonymous ?? computed(() => !engine.isAuthenticated.value),
         }
       : null,
     getAuthToken: async (): Promise<string | null> => {

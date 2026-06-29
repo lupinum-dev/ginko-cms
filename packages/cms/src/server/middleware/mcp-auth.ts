@@ -1,47 +1,5 @@
-import { createError, defineEventHandler, getRequestHeader, getRequestIP, type H3Event } from 'h3'
+// TODO(trellis-cutover): restore packages/cms/src/server/middleware/mcp-auth.ts in Phase 8.
 
-import { internal } from '#trellis/api'
+export const disabledMcpSurface_mcp_auth_ts = true
 
-import { createAdminConvexCaller } from '../mcp/_shared/convex-caller'
-import {
-  authenticateMcpRequestContext,
-  getMcpAuthStorageNamespace,
-} from '../mcp/_shared/request-auth'
-
-export default defineEventHandler(async (event) => {
-  await authenticateMcpRequest(event)
-})
-
-export async function authenticateMcpRequest(event: H3Event) {
-  await authenticateMcpRequestContext(
-    {
-      path: event.path,
-      authorizationHeader: getRequestHeader(event, 'authorization'),
-      clientIp: resolveMcpClientIp(event),
-      context: event.context as Record<string, unknown>,
-    },
-    {
-      createError: (input) =>
-        Object.assign(createError(input), {
-          statusCode: input.statusCode,
-          statusMessage: input.statusMessage,
-        }),
-      getStorage: async () => {
-        const { useStorage } = await import('nitropack/runtime')
-        return useStorage(getMcpAuthStorageNamespace())
-      },
-      consumeToken: async ({ hash, seenAt, clientIp }) => {
-        const convex = createAdminConvexCaller(event)
-        return await convex.mutation(internal.ginkoCmsMcp.consumeToken, {
-          hash,
-          seenAt,
-          clientIp,
-        })
-      },
-    },
-  )
-}
-
-export function resolveMcpClientIp(event: H3Event): string | null {
-  return getRequestIP(event) ?? null
-}
+export default disabledMcpSurface_mcp_auth_ts
