@@ -366,21 +366,64 @@ export default defineSchema({
     .index('by_userId', ['userId'])
     .index('by_role', ['role']),
 
-  mcpKeys: defineTable({
-    name: v.string(),
-    prefix: v.string(),
-    hash: v.string(),
-    boundUserId: v.string(),
-    issuedBy: v.string(),
+  mcpCredentialSettings: defineTable({
+    apiKeyId: v.string(),
+    ownerUserId: v.string(),
+    label: v.optional(v.union(v.string(), v.null())),
+    scopes: v.array(v.string()),
     status: v.union(v.literal('active'), v.literal('revoked')),
+    createdBy: v.string(),
     createdAt: v.number(),
-    expiresAt: v.optional(v.number()),
-    lastUsedAt: v.optional(v.union(v.number(), v.null())),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
     revokedAt: v.optional(v.union(v.number(), v.null())),
   })
-    .index('by_hash', ['hash'])
-    .index('by_bound_user', ['boundUserId'])
+    .index('by_api_key_id', ['apiKeyId'])
+    .index('by_owner_user', ['ownerUserId'])
     .index('by_status', ['status']),
+
+  agentRuns: defineTable({
+    credentialApiKeyId: v.optional(v.union(v.string(), v.null())),
+    delegatedUserId: v.string(),
+    taskName: v.string(),
+    status: v.union(
+      v.literal('active'),
+      v.literal('completed'),
+      v.literal('revoked'),
+      v.literal('failed'),
+    ),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.optional(v.union(v.number(), v.null())),
+    endedAt: v.optional(v.union(v.number(), v.null())),
+    lastWriteAt: v.optional(v.union(v.number(), v.null())),
+    lastError: v.optional(v.union(v.string(), v.null())),
+  })
+    .index('by_credential', ['credentialApiKeyId'])
+    .index('by_delegated_user', ['delegatedUserId'])
+    .index('by_status', ['status']),
+
+  reviewRequests: defineTable({
+    agentRunId: v.id('agentRuns'),
+    entryId: v.string(),
+    locales: v.array(v.string()),
+    expectedVersion: v.number(),
+    message: v.optional(v.union(v.string(), v.null())),
+    title: v.string(),
+    summary: v.string(),
+    status: v.union(v.literal('pending'), v.literal('approved'), v.literal('rejected')),
+    preview: jsonObjectValidator,
+    requestedBy: v.string(),
+    reviewedBy: v.optional(v.union(v.string(), v.null())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    reviewedAt: v.optional(v.union(v.number(), v.null())),
+    versionHash: v.optional(v.union(v.string(), v.null())),
+  })
+    .index('by_agent_run', ['agentRunId'])
+    .index('by_status', ['status'])
+    .index('by_entry', ['entryId']),
 
   destructiveConfirmations: defineTable({
     tokenHash: v.string(),

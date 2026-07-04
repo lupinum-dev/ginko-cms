@@ -32,6 +32,9 @@ Studio owns editor-facing workflows:
 - inspect public visibility diagnostics
 - preview website changes
 - publish, unpublish, archive, restore drafts, and roll back published versions with explicit confirmation
+- inspect delegated agent runs and review requests
+- approve or reject review-gated agent public-output changes when the current
+  role allows it
 - inspect import runs and apply content imports under existing contracts
 - inspect active public-output state
 

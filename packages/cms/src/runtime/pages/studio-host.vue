@@ -5,6 +5,8 @@ import { api, components } from '#convex/api'
 import type {
   GinkoCmsHostAuthEngine,
   GinkoCmsPublicConfig,
+  GinkoCmsStudioMcpApiKeyCreateInput,
+  GinkoCmsStudioMcpApiKeyCreateResult,
   GinkoCmsStudioHostApi,
   GinkoCmsStudioHostBridge,
 } from '#ginko-cms-public/types.js'
@@ -98,6 +100,90 @@ function debugStudioHost(message: string, details: Record<string, unknown> = {})
     .map(([key, value]) => `${key}=${String(value)}`)
     .join(' ')
   console.debug(`[ginko-cms] Studio host ${message}${summary ? ` ${summary}` : ''}.`, details)
+}
+
+function getAuthRoute(): string {
+  const publicConfig = runtimeConfig.public as {
+    convex?: { authRoute?: string }
+  }
+  const raw = publicConfig.convex?.authRoute
+  if (typeof raw !== 'string' || raw.length === 0) return '/api/auth'
+  return raw.startsWith('/') ? raw.replace(/\/$/, '') : `/${raw.replace(/\/$/, '')}`
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
+}
+
+function readAuthApiKeyPayload(body: unknown): Record<string, unknown> {
+  const record = readRecord(body)
+  const data = readRecord(record.data)
+  return Object.keys(data).length > 0 ? data : record
+}
+
+async function postAuthApiKey(path: 'create' | 'delete', input: Record<string, unknown>) {
+  const response = await fetch(`${getAuthRoute()}/api-key/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(input),
+  })
+  const contentType = response.headers.get('content-type') ?? ''
+  const body = contentType.includes('application/json')
+    ? await response.json()
+    : await response.text()
+  if (!response.ok) {
+    const errorBody = readRecord(body)
+    const message =
+      typeof errorBody.message === 'string'
+        ? errorBody.message
+        : typeof errorBody.error === 'string'
+          ? errorBody.error
+          : `Better Auth API-key ${path} failed with ${response.status}.`
+    throw new Error(message)
+  }
+  const errorBody = readRecord(body).error
+  if (errorBody) {
+    const errorRecord = readRecord(errorBody)
+    const message =
+      typeof errorRecord.message === 'string'
+        ? errorRecord.message
+        : typeof errorBody === 'string'
+          ? errorBody
+          : `Better Auth API-key ${path} failed.`
+    throw new Error(message)
+  }
+  return body
+}
+
+async function createMcpApiKey(
+  input: GinkoCmsStudioMcpApiKeyCreateInput,
+): Promise<GinkoCmsStudioMcpApiKeyCreateResult> {
+  const payload = readAuthApiKeyPayload(
+    await postAuthApiKey('create', {
+      name: input.name,
+      ...(typeof input.expiresIn === 'number' ? { expiresIn: input.expiresIn } : {}),
+      ...(input.metadata ? { metadata: input.metadata } : {}),
+    }),
+  )
+  if (typeof payload.id !== 'string' || typeof payload.key !== 'string') {
+    throw new TypeError('Better Auth API-key create response did not include an id and raw key.')
+  }
+  return {
+    id: payload.id,
+    key: payload.key,
+    name: typeof payload.name === 'string' ? payload.name : null,
+    expiresAt:
+      typeof payload.expiresAt === 'string' || typeof payload.expiresAt === 'number'
+        ? payload.expiresAt
+        : payload.expiresAt instanceof Date
+          ? payload.expiresAt
+          : null,
+  }
+}
+
+async function deleteMcpApiKey(input: { keyId: string }): Promise<void> {
+  await postAuthApiKey('delete', { keyId: input.keyId })
 }
 
 // Populate the host bridge synchronously during client setup. The Studio SPA
@@ -202,6 +288,10 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
       const e = readAuthEngine()
       return e?.token?.value ?? null
     },
+    mcpApiKeys: {
+      create: createMcpApiKey,
+      delete: deleteMcpApiKey,
+    },
     onSignOut: async () => {
       const e = readAuthEngine()
       try {
@@ -224,13 +314,15 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
 
 function buildStudioHostApi(value: unknown, componentApi: unknown): GinkoCmsStudioHostApi {
   const requiredGroups = [
+    'agentRuns',
     'assets',
     'collections',
     'editor',
     'imports',
-    'mcpKeys',
+    'mcpCredentials',
     'members',
     'public',
+    'reviewRequests',
     'settings',
     'siteData',
   ] as const

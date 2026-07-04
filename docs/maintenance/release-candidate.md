@@ -10,9 +10,10 @@ The release stack is recorded in `packages/cms/compatibility.json`. Treat that
 file as the canonical package tuple; do not copy version tables by hand into
 release notes.
 
-Publish order is fixed: Content, CMS Contract, CMS Convex, CMS
-Convex, then CMS. Do not use recursive workspace publishing from this repo; the
-workspace includes sibling checkouts for local development.
+Publish order is fixed: Content, CMS Contract, CMS Convex, then CMS.
+`better-convex-nuxt` must already be available at the compatibility-matrix
+version. Do not use recursive workspace publishing from this repo; the workspace
+includes sibling checkouts for local development.
 
 ## Maintainer Release Gate
 
@@ -83,8 +84,8 @@ CONVEX_DEPLOY_KEY=prod:...
 GINKO_FIRST_OWNER_EMAIL=owner@example.com
 ```
 
-`CONVEX_DEPLOY_KEY` is the Convex admin key used by setup and server operations.
-Do not expose it through `NUXT_PUBLIC_*`.
+`CONVEX_DEPLOY_KEY` is the Convex admin key used by setup and collection
+contract sync. Do not expose it through `NUXT_PUBLIC_*`.
 
 ## Collection Contract Drift
 

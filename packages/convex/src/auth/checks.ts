@@ -1,16 +1,24 @@
+import type { CmsPermissionKey } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import type { CmsRole } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { CmsAppIdentity } from './appIdentity.js'
 
 export type CmsGuard = {
   label: string
+  permission?: CmsPermissionKey
   check: (appIdentity: CmsAppIdentity) => boolean
   or: (other: CmsGuard) => CmsGuard
 }
 
-function defineCmsGuard(label: string, check: (appIdentity: CmsAppIdentity) => boolean): CmsGuard {
+function defineCmsGuard(
+  label: string,
+  check: (appIdentity: CmsAppIdentity) => boolean,
+  permission?: CmsPermissionKey,
+): CmsGuard {
   return {
     label,
+    ...(permission ? { permission } : {}),
     check,
     or: (other) =>
       defineCmsGuard(
@@ -21,7 +29,11 @@ function defineCmsGuard(label: string, check: (appIdentity: CmsAppIdentity) => b
 }
 
 export function can(appIdentity: CmsAppIdentity, guard: CmsGuard): boolean {
-  return guard.check(appIdentity)
+  if (!guard.check(appIdentity)) return false
+  if (!guard.permission || appIdentity?.kind !== 'member' || appIdentity.audit.origin !== 'mcp') {
+    return true
+  }
+  return appIdentity.mcpEffectivePermissions?.[guard.permission] === true
 }
 
 export function requireRecord<T>(value: T | null | undefined, label: string): asserts value is T {
@@ -51,34 +63,72 @@ export const hasRole = (...roles: CmsRole[]) =>
 export const canRead = defineCmsGuard(
   'Read CMS',
   hasRole('owner', 'publisher', 'editor', 'viewer').or(isBootstrapUser).check,
+  cmsPermissionKeys.read,
 )
 
 export const canCreateEntries = defineCmsGuard(
   'Create entries',
   hasRole('owner', 'publisher', 'editor').check,
+  cmsPermissionKeys.createEntries,
 )
 
 export const canEditEntries = defineCmsGuard(
   'Edit entries',
   hasRole('owner', 'publisher', 'editor').check,
+  cmsPermissionKeys.editEntries,
 )
 
 export const canPublishEntries = defineCmsGuard(
   'Publish entries',
   hasRole('owner', 'publisher').check,
+  cmsPermissionKeys.publishEntries,
 )
 
-export const canArchiveEntries = defineCmsGuard('Archive entries', hasRole('owner').check)
+export const canArchiveEntries = defineCmsGuard(
+  'Archive entries',
+  hasRole('owner').check,
+  cmsPermissionKeys.archiveEntries,
+)
 
-export const canDeleteEntries = defineCmsGuard('Delete entries', hasRole('owner').check)
+export const canDeleteEntries = defineCmsGuard(
+  'Delete entries',
+  hasRole('owner').check,
+  cmsPermissionKeys.deleteEntries,
+)
 
-export const canManageCollections = defineCmsGuard('Manage collections', hasRole('owner').check)
+export const canManageCollections = defineCmsGuard(
+  'Manage collections',
+  hasRole('owner').check,
+  cmsPermissionKeys.manageCollections,
+)
 
-export const canManageSettings = defineCmsGuard('Manage settings', hasRole('owner').check)
+export const canManageSettings = defineCmsGuard(
+  'Manage settings',
+  hasRole('owner').check,
+  cmsPermissionKeys.manageSettings,
+)
 
-export const canManageMembers = defineCmsGuard('Manage members', hasRole('owner').check)
+export const canManageMembers = defineCmsGuard(
+  'Manage members',
+  hasRole('owner').check,
+  cmsPermissionKeys.manageMembers,
+)
 
 export const canManageAssets = defineCmsGuard(
   'Manage assets',
   hasRole('owner', 'publisher', 'editor').check,
+  cmsPermissionKeys.manageAssets,
 )
+
+export const cmsPermissionGuards = [
+  { key: cmsPermissionKeys.read, guard: canRead },
+  { key: cmsPermissionKeys.createEntries, guard: canCreateEntries },
+  { key: cmsPermissionKeys.editEntries, guard: canEditEntries },
+  { key: cmsPermissionKeys.publishEntries, guard: canPublishEntries },
+  { key: cmsPermissionKeys.archiveEntries, guard: canArchiveEntries },
+  { key: cmsPermissionKeys.deleteEntries, guard: canDeleteEntries },
+  { key: cmsPermissionKeys.manageCollections, guard: canManageCollections },
+  { key: cmsPermissionKeys.manageSettings, guard: canManageSettings },
+  { key: cmsPermissionKeys.manageMembers, guard: canManageMembers },
+  { key: cmsPermissionKeys.manageAssets, guard: canManageAssets },
+] satisfies Array<{ key: CmsPermissionKey; guard: CmsGuard }>

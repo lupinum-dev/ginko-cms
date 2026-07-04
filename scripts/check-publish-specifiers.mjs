@@ -16,6 +16,18 @@ const allowedExplicitExtensions = ['.js', '.mjs', '.cjs', '.json', '.vue']
 const internalAliasPrefixes = ['#component/', '#runtime/']
 const ignoredPaths = ['/packages/convex/src/_generated/', '/packages/convex/src/test.setup.ts']
 const ignoredFiles = []
+const dependencyFields = [
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies',
+]
+const localManifestPrefixes = ['file:', 'link:']
+const forbiddenDependencyNames = [
+  '@lupinum/trellis',
+  '@lupinum/trellis-bridge',
+  '@lupinum/trellis-eslint',
+]
 
 function walk(directory) {
   const entries = []
@@ -84,6 +96,50 @@ function assertNoImpossibleDeclarationSpecifiers() {
   }
 }
 
+function collectPackageJsonFiles(directory) {
+  const entries = []
+  for (const entry of readdirSync(directory)) {
+    const fullPath = join(directory, entry)
+    const stats = statSync(fullPath)
+    if (stats.isDirectory()) {
+      if (['.git', '.nuxt', '.output', '.pack', 'dist', 'node_modules'].includes(entry)) {
+        continue
+      }
+      entries.push(...collectPackageJsonFiles(fullPath))
+      continue
+    }
+    if (entry === 'package.json') entries.push(fullPath)
+  }
+  return entries
+}
+
+function assertNoReleaseBlockingManifestSpecifiers() {
+  for (const filePath of collectPackageJsonFiles(rootPath)) {
+    const manifest = JSON.parse(readFileSync(filePath, 'utf8'))
+    const packageName = manifest.name ?? relative(rootPath, filePath).replaceAll('\\', '/')
+    const rel = relative(rootPath, filePath).replaceAll('\\', '/')
+
+    for (const field of dependencyFields) {
+      const section = manifest[field]
+      if (!section) continue
+
+      for (const [name, range] of Object.entries(section)) {
+        if (forbiddenDependencyNames.includes(name)) {
+          errors.push(`${packageName} (${rel}) ${field}.${name} reintroduces Trellis`)
+        }
+        if (
+          typeof range === 'string' &&
+          localManifestPrefixes.some((prefix) => range.startsWith(prefix))
+        ) {
+          errors.push(
+            `${packageName} (${rel}) ${field}.${name} uses local dependency specifier ${JSON.stringify(range)}`,
+          )
+        }
+      }
+    }
+  }
+}
+
 for (const filePath of collectFiles()) {
   const source = readFileSync(filePath, 'utf8')
   const sourceFile = ts.createSourceFile(
@@ -124,6 +180,7 @@ for (const filePath of collectFiles()) {
 }
 
 assertNoImpossibleDeclarationSpecifiers()
+assertNoReleaseBlockingManifestSpecifiers()
 
 if (errors.length > 0) {
   console.error(errors.join('\n'))

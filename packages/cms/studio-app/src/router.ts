@@ -44,6 +44,16 @@ export function createStudioRouter() {
         component: () => import('./pages/activity.vue'),
       },
       {
+        path: '/agents',
+        name: 'studio-agents',
+        component: () => import('./pages/agents.vue'),
+      },
+      {
+        path: '/reviews',
+        name: 'studio-reviews',
+        component: () => import('./pages/reviews.vue'),
+      },
+      {
         path: '/imports',
         name: 'studio-imports',
         component: () => import('./pages/imports.vue'),

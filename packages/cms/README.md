@@ -74,8 +74,11 @@ and Better Auth config directly. Keep app-specific Better Auth provider setup in
 
 See the workspace docs for
 [environment variables](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/getting-started/environment.md),
+[auth and roles](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/reference/auth-and-roles.md),
+[MCP agent workflows](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/mcp-agent-workflows.md),
 [next collection steps](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/getting-started/next-collections.md),
 [collection changes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/changing-collections.md),
+[Trellis-era migration](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/migrations/trellis-era-migration.md),
 [CMS config helpers](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/reference/cms-config-helpers.md),
 [migration recipes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/migrations/recipes.md),
 [Tailwind/theming notes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/theming-the-studio.md),

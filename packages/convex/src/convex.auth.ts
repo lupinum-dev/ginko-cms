@@ -1,3 +1,4 @@
+import { apiKey } from '@better-auth/api-key'
 import { createClient, type AuthFunctions, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth, type BetterAuthOptions } from 'better-auth'
@@ -35,6 +36,14 @@ export async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<
   return identity
 }
 
+function parseBearerApiKey(authorizationHeader?: string | null): string | null {
+  const prefix = 'Bearer '
+  if (!authorizationHeader?.startsWith(prefix)) return null
+
+  const token = authorizationHeader.slice(prefix.length).trim()
+  return token.length > 0 ? token : null
+}
+
 /**
  * Ginko-owned auth bootstrap for Convex apps.
  *
@@ -48,17 +57,26 @@ export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOpt
 
   const createAuthOptions = (ctx: GenericCtx<any>) =>
     ({
+      ...options,
       secret: process.env.BETTER_AUTH_SECRET ?? 'ginko-cms-dev-secret',
       database: authComponent.adapter(ctx),
       emailAndPassword: {
         enabled: options.emailPassword ?? true,
       },
       plugins: [
+        apiKey({
+          customAPIKeyGetter: (ctx) => parseBearerApiKey(ctx.headers?.get('authorization')),
+          enableMetadata: true,
+          enableSessionForAPIKeys: true,
+          rateLimit: {
+            enabled: false,
+          },
+        }),
         convex({
           authConfig: deps.authConfig as never,
         }),
+        ...(options.plugins ?? []),
       ],
-      ...options,
     }) satisfies BetterAuthOptions
 
   const createAuth = (ctx: GenericCtx<any>) => betterAuth(createAuthOptions(ctx))

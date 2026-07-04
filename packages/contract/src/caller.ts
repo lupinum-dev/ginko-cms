@@ -5,8 +5,6 @@ const subject = {
   anonymous: (): 'system:anonymous' => 'system:anonymous',
 } as const
 
-export const cmsMcpConvexAuthIssuer = 'ginko-cms-mcp'
-
 export type CmsAnonymousCaller = {
   kind: 'anonymous'
   subject: 'system:anonymous'
@@ -21,7 +19,7 @@ export type CmsUserCaller = {
 
 export type CmsMcpCaller = {
   kind: 'mcp'
-  mcpKeyId: string
+  apiKeyId: string
   subject: `agent:${string}`
 }
 
@@ -40,7 +38,7 @@ export function getExpectedCmsCallerSubject(caller: CmsCaller): CmsCaller['subje
     case 'user':
       return subject.user(caller.userId)
     case 'mcp':
-      return subject.agent(caller.mcpKeyId)
+      return subject.agent(caller.apiKeyId)
     case 'deploy':
       return subject.deploy(caller.deployId)
   }
@@ -55,7 +53,7 @@ export function assertCmsCallerConsistency(caller: CmsCaller): CmsCaller {
       case 'user':
         throw new Error('CMS user caller subject must match the userId.')
       case 'mcp':
-        throw new Error('CMS MCP caller subject must match the mcpKeyId.')
+        throw new Error('CMS MCP caller subject must match the apiKeyId.')
       case 'deploy':
         throw new Error('CMS deploy caller subject must match the deployId.')
     }
@@ -85,23 +83,18 @@ export function cmsUserCaller(
   }
 }
 
-export function cmsMcpCaller(mcpKeyId: string): CmsMcpCaller {
+export function cmsMcpCaller(apiKeyId: string): CmsMcpCaller {
   return {
     kind: 'mcp',
-    mcpKeyId,
-    subject: subject.agent(mcpKeyId),
+    apiKeyId,
+    subject: subject.agent(apiKeyId),
   }
 }
 
 export function cmsCallerFromConvexAuthIdentity(identity: {
   subject?: string | null
-  issuer?: string | null
   email?: string | null
-}): CmsUserCaller | CmsMcpCaller {
-  if (identity.issuer === cmsMcpConvexAuthIssuer) {
-    return cmsMcpCaller(identity.subject ?? '')
-  }
-
+}): CmsUserCaller {
   return cmsUserCaller(identity.subject ?? '', { email: identity.email })
 }
 

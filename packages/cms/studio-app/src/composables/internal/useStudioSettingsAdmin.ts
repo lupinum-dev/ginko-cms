@@ -6,6 +6,7 @@ import { api } from '../../boundary/api'
 import { useStudioHostContext } from '../../boundary/studio-host-context'
 import { codeDefinedCollectionList } from '../../lib/codeDefinedCollections'
 import { cmsPermissionKeys } from '../permissions'
+import { useCmsAuthState } from '../useCmsAuthState'
 import { useCmsConfig } from '../useCmsConfig'
 import { useCmsI18n } from '../useCmsI18n'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
@@ -17,20 +18,6 @@ type SettingsMember = {
   displayName?: string | null
   email?: string | null
   role: CmsRole
-}
-
-type McpKeyListItem = {
-  _id: string
-  name: string
-  prefix: string
-  boundUserId: string
-  issuedBy: string
-  status: 'active' | 'revoked'
-  createdAt: number
-  expiresAt: number
-  lastUsedAt?: number | null
-  revokedAt?: number | null
-  boundMember?: SettingsMember | null
 }
 
 type RevalidationTarget = {
@@ -84,21 +71,33 @@ type StorageHygieneReport = {
   truncatedTables: string[]
 }
 
-async function hashToken(token: string): Promise<string> {
-  const encoded = new TextEncoder().encode(token)
-  const hash = await crypto.subtle.digest('SHA-256', encoded)
-  return Array.from(new Uint8Array(hash))
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('')
+type McpCredentialSettings = {
+  _id: string
+  apiKeyId: string
+  ownerUserId: string
+  label: string | null
+  scopes: string[]
+  status: 'active' | 'revoked'
+  createdBy: string
+  createdAt: number
+  updatedBy: string
+  updatedAt: number
+  revokedAt: number | null
 }
 
-function generateMcpToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(24))
-  const body = Array.from(bytes)
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('')
-  return `mcp_${body}`
-}
+const mcpScopeOptions = [
+  { key: cmsPermissionKeys.read, label: 'Read content' },
+  { key: cmsPermissionKeys.createEntries, label: 'Create entries' },
+  { key: cmsPermissionKeys.editEntries, label: 'Edit entries' },
+  { key: cmsPermissionKeys.publishEntries, label: 'Request publish review' },
+  { key: cmsPermissionKeys.manageAssets, label: 'Manage assets' },
+] as const
+
+const mcpExpiryOptions = [
+  { value: '86400', label: '1 day' },
+  { value: '604800', label: '7 days' },
+  { value: '2592000', label: '30 days' },
+] as const
 
 export function useStudioSettingsAdmin() {
   const { can } = useCmsStudioAccess()
@@ -106,7 +105,7 @@ export function useStudioSettingsAdmin() {
   const canManageSettings = can(cmsPermissionKeys.manageSettings)
   const config = useCmsConfig()
   const studioHost = useStudioHostContext()
-  const requestUrl = new URL(window.location.href)
+  const authState = useCmsAuthState()
   const settingsQuery = useCmsStudioQuery(
     api.ginkoCms.settings.getSettings,
     {},
@@ -129,14 +128,6 @@ export function useStudioSettingsAdmin() {
     },
   )
   const members = computed<SettingsMember[]>(() => membersQuery.data?.value ?? [])
-  const mcpKeysQuery = useCmsStudioQuery(
-    api.ginkoCms.mcpKeys.list,
-    {},
-    {
-      requiredCapability: cmsPermissionKeys.manageSettings,
-    },
-  )
-  const mcpKeys = computed<McpKeyListItem[]>(() => mcpKeysQuery.data?.value ?? [])
   const revalidationTargetsQuery = useCmsStudioQuery(
     api.ginkoCms.revalidation.listRevalidationTargets,
     {},
@@ -171,6 +162,13 @@ export function useStudioSettingsAdmin() {
       requiredCapability: cmsPermissionKeys.manageSettings,
     },
   )
+  const mcpCredentialsQuery = useCmsStudioQuery(
+    api.ginkoCms.mcpCredentials.listOwnSettings,
+    {},
+    {
+      requiredCapability: cmsPermissionKeys.manageSettings,
+    },
+  )
   const collectionCount = computed(() => {
     const hostCollections = codeDefinedCollectionList(config.collections, defaultLocale.value)
     return hostCollections.length || (collectionsQuery.data?.value ?? []).length
@@ -178,90 +176,51 @@ export function useStudioSettingsAdmin() {
   const storageHygiene = computed<StorageHygieneReport | null>(
     () => (storageHygieneQuery.data?.value as StorageHygieneReport | null | undefined) ?? null,
   )
-  const mcpEnabled = computed(() => config.mcp?.enabled === true)
+  const mcpConnections = computed<McpCredentialSettings[]>(
+    () => (mcpCredentialsQuery.data?.value as McpCredentialSettings[] | null | undefined) ?? [],
+  )
   const addMemberMutation = useConvexMutation(api.ginkoCms.members.addMember)
   const updateRoleMutation = useConvexMutation(api.ginkoCms.members.updateMemberRole)
   const removeMemberMutation = useConvexMutation(api.ginkoCms.members.removeMember)
-  const createMcpKeyMutation = useConvexMutation(api.ginkoCms.mcpKeys.create)
-  const revokeMcpKeyMutation = useConvexMutation(api.ginkoCms.mcpKeys.revoke)
   const updateSettingsMutation = useConvexMutation(api.ginkoCms.settings.updateSettings)
+  const upsertMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.upsertSettings)
+  const revokeMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.revokeSettings)
   const retryRevalidationJobMutation = useConvexMutation(
     api.ginkoCms.revalidation.retryRevalidationJob,
   )
   const error = ref('')
   const localeError = ref('')
-  const mcpError = ref('')
-  const mcpInfo = ref('')
-  const mcpCreating = ref(false)
   const revalidationError = ref('')
   const revalidationInfo = ref('')
+  const mcpConnectionError = ref('')
+  const mcpConnectionInfo = ref('')
+  const mcpCreatedToken = ref<{ id: string; key: string; name: string } | null>(null)
   const retryingRevalidationJobId = ref('')
-  const mcpTokenCopied = ref(false)
+  const revokingMcpApiKeyId = ref('')
+  const mcpConnectionSaving = ref(false)
   const showAddMember = ref(false)
-  const showCreateMcpKey = ref(false)
   const localeSaving = ref(false)
+  const mcpConnectionForm = reactive<{
+    name: string
+    expiresIn: string
+    scopes: string[]
+  }>({
+    name: 'Codex MCP',
+    expiresIn: '604800',
+    scopes: [
+      cmsPermissionKeys.read,
+      cmsPermissionKeys.createEntries,
+      cmsPermissionKeys.editEntries,
+    ],
+  })
   const newMember = reactive<{
     userId: string
     role: CmsRole
     displayName: string
     email: string
   }>({ userId: '', role: 'editor', displayName: '', email: '' })
-  const newMcpKey = reactive<{ name: string; boundUserId: string }>({
-    name: '',
-    boundUserId: '',
-  })
-  const createdMcpToken = ref('')
   const { t, studioLocales, currentLocale, setStudioLocale } = useCmsI18n()
-  const mcpBaseUrl = computed(() => requestUrl.origin)
-  const mcpEndpoint = computed(() => `${mcpBaseUrl.value.replace(/\/$/, '')}/mcp`)
-  const mcpTokenExample = computed(() => createdMcpToken.value || 'mcp_your_token_here')
-  const activeMcpKeys = computed(() => mcpKeys.value.filter((key) => key.status === 'active'))
-  const mcpHealthRows = computed(() => [
-    {
-      label: t('ginkoCms.studio.settingsPage.mcpHealthRoute'),
-      ok: mcpEnabled.value,
-      detail: mcpEnabled.value
-        ? t('ginkoCms.studio.settingsPage.mcpHealthRouteEnabled')
-        : t('ginkoCms.studio.settingsPage.mcpHealthRouteDisabled'),
-    },
-    {
-      label: t('ginkoCms.studio.settingsPage.mcpHealthEndpoint'),
-      ok: mcpEnabled.value,
-      detail: mcpEndpoint.value,
-    },
-    {
-      label: t('ginkoCms.studio.settingsPage.mcpHealthToken'),
-      ok: activeMcpKeys.value.length > 0,
-      detail:
-        activeMcpKeys.value.length > 0
-          ? t('ginkoCms.studio.settingsPage.mcpHealthTokenReady', {
-              count: String(activeMcpKeys.value.length),
-            })
-          : t('ginkoCms.studio.settingsPage.mcpHealthTokenMissing'),
-    },
-    {
-      label: t('ginkoCms.studio.settingsPage.mcpHealthServerEnv'),
-      ok: null,
-      detail: 'CONVEX_DEPLOY_KEY',
-    },
-  ])
-  const mcpCurlExample = computed(() =>
-    [
-      `curl ${mcpEndpoint.value} \\`,
-      `  -H 'Authorization: Bearer ${mcpTokenExample.value}' \\`,
-      `  -H 'Accept: application/json, text/event-stream' \\`,
-      `  -H 'Content-Type: application/json' \\`,
-      `  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'`,
-    ].join('\n'),
-  )
 
-  const sortedMembers = computed(() =>
-    [...members.value].sort((a, b) => {
-      const left = (a.displayName ?? a.email ?? a.userId).toLowerCase()
-      const right = (b.displayName ?? b.email ?? b.userId).toLowerCase()
-      return left.localeCompare(right)
-    }),
-  )
   const numberFormatter = new Intl.NumberFormat()
   const decimalFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 })
   const storageHygieneRows = computed(() => {
@@ -472,86 +431,7 @@ export function useStudioSettingsAdmin() {
     }
   }
 
-  function formatMemberLabel(member: SettingsMember) {
-    return member.displayName?.trim() || member.email?.trim() || member.userId
-  }
-
-  function formatRoleLabel(role: CmsRole) {
-    if (role === 'owner') return t('ginkoCms.studio.settingsPage.roleOwner')
-    if (role === 'publisher') return t('ginkoCms.studio.settingsPage.rolePublisher')
-    if (role === 'editor') return t('ginkoCms.studio.settingsPage.roleEditor')
-    return t('ginkoCms.studio.settingsPage.roleViewer')
-  }
-
-  function resetMcpFeedback() {
-    mcpError.value = ''
-    mcpInfo.value = ''
-    mcpTokenCopied.value = false
-  }
-
-  async function handleCreateMcpKey() {
-    resetMcpFeedback()
-    const boundUserId = newMcpKey.boundUserId.trim()
-    if (!boundUserId) {
-      mcpError.value = t('ginkoCms.studio.settingsPage.mcpUserRequired')
-      return
-    }
-
-    const member = members.value.find((item) => item.userId === boundUserId)
-    if (!member) {
-      mcpError.value = t('ginkoCms.studio.settingsPage.mcpUserInvalid')
-      return
-    }
-
-    mcpCreating.value = true
-    try {
-      const token = generateMcpToken()
-      const hash = await hashToken(token)
-      const prefix = `${token.slice(0, 14)}...`
-      const name = newMcpKey.name.trim() || `Studio key for ${formatMemberLabel(member)}`
-
-      await createMcpKeyMutation({
-        name,
-        boundUserId,
-        prefix,
-        hash,
-      })
-
-      createdMcpToken.value = token
-      newMcpKey.name = ''
-      newMcpKey.boundUserId = ''
-      showCreateMcpKey.value = false
-      mcpInfo.value = t('ginkoCms.studio.settingsPage.mcpCreated')
-    } catch (e) {
-      mcpError.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.mcpCreateError'))
-    } finally {
-      mcpCreating.value = false
-    }
-  }
-
-  async function handleCopyMcpToken() {
-    if (!createdMcpToken.value) return
-    await navigator.clipboard.writeText(createdMcpToken.value)
-    mcpTokenCopied.value = true
-    setTimeout(() => {
-      mcpTokenCopied.value = false
-    }, 2e3)
-  }
-
-  async function handleRevokeMcpKey(id: string) {
-    resetMcpFeedback()
-    try {
-      await revokeMcpKeyMutation({ id })
-      mcpInfo.value = t('ginkoCms.studio.settingsPage.mcpRevoked')
-      if (createdMcpToken.value) {
-        createdMcpToken.value = ''
-      }
-    } catch (e) {
-      mcpError.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.mcpRevokeError'))
-    }
-  }
-
-  function formatMcpTimestamp(value: number | null | undefined) {
+  function formatTimestamp(value: number | null | undefined) {
     if (typeof value !== 'number') return t('ginkoCms.common.never')
     return new Intl.DateTimeFormat(undefined, {
       dateStyle: 'medium',
@@ -566,6 +446,97 @@ export function useStudioSettingsAdmin() {
 
   async function refreshStorageHygiene() {
     await storageHygieneQuery.refresh()
+  }
+
+  function toggleMcpScope(scope: string, checked: boolean) {
+    const next = new Set(mcpConnectionForm.scopes)
+    if (checked) next.add(scope)
+    else next.delete(scope)
+    mcpConnectionForm.scopes = Array.from(next)
+  }
+
+  async function handleCreateMcpConnection() {
+    mcpConnectionError.value = ''
+    mcpConnectionInfo.value = ''
+    mcpCreatedToken.value = null
+    const bridgeApi = studioHost.getBridge().mcpApiKeys
+    const userId = authState.user.value?.id
+    const name = mcpConnectionForm.name.trim()
+    const expiresIn = Number(mcpConnectionForm.expiresIn)
+    const scopes = Array.from(new Set(mcpConnectionForm.scopes))
+    if (!bridgeApi) {
+      mcpConnectionError.value = 'Better Auth API-key management is unavailable in this host.'
+      return
+    }
+    if (!userId) {
+      mcpConnectionError.value = 'Sign in before creating an MCP connection.'
+      return
+    }
+    if (!name) {
+      mcpConnectionError.value = 'Name the MCP connection before creating it.'
+      return
+    }
+    if (scopes.length === 0) {
+      mcpConnectionError.value = 'Select at least one MCP scope.'
+      return
+    }
+    mcpConnectionSaving.value = true
+    let created: { id: string; key: string; name?: string | null } | null = null
+    try {
+      created = await bridgeApi.create({
+        name,
+        expiresIn: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : undefined,
+        metadata: { purpose: 'mcp' },
+      })
+      await upsertMcpCredentialMutation({
+        apiKeyId: created.id,
+        ownerUserId: userId,
+        label: name,
+        scopes,
+      })
+      mcpCreatedToken.value = { id: created.id, key: created.key, name: created.name ?? name }
+      mcpConnectionInfo.value = 'MCP connection created.'
+      await mcpCredentialsQuery.refresh()
+    } catch (e) {
+      if (created) {
+        try {
+          await bridgeApi.delete({ keyId: created.id })
+        } catch {
+          // The Convex settings write failed. The UI reports the original error,
+          // and the Better Auth key cleanup is best-effort because the raw key
+          // has not been handed to the user yet.
+        }
+      }
+      mcpConnectionError.value = getCmsErrorMessage(e, 'Failed to create MCP connection.')
+    } finally {
+      mcpConnectionSaving.value = false
+    }
+  }
+
+  async function handleRevokeMcpConnection(connection: McpCredentialSettings) {
+    mcpConnectionError.value = ''
+    mcpConnectionInfo.value = ''
+    revokingMcpApiKeyId.value = connection.apiKeyId
+    try {
+      await revokeMcpCredentialMutation({ apiKeyId: connection.apiKeyId })
+      const bridgeApi = studioHost.getBridge().mcpApiKeys
+      if (bridgeApi) {
+        await bridgeApi.delete({ keyId: connection.apiKeyId })
+      }
+      mcpConnectionInfo.value = 'MCP connection revoked.'
+      await mcpCredentialsQuery.refresh()
+    } catch (e) {
+      mcpConnectionError.value = getCmsErrorMessage(e, 'Failed to revoke MCP connection.')
+    } finally {
+      revokingMcpApiKeyId.value = ''
+    }
+  }
+
+  async function copyMcpToken() {
+    const token = mcpCreatedToken.value?.key
+    if (!token) return
+    await navigator.clipboard.writeText(token)
+    mcpConnectionInfo.value = 'MCP token copied.'
   }
 
   async function handleRetryRevalidationJob(eventId: string) {
@@ -616,14 +587,10 @@ export function useStudioSettingsAdmin() {
     canManageMembers,
     canManageSettings,
     collectionCount,
-    createdMcpToken,
     currentLocale,
     defaultLocale,
     error,
     handleAddMember,
-    handleCopyMcpToken,
-    handleCreateMcpKey,
-    handleRevokeMcpKey,
     handleRemoveMember,
     handleRetryRevalidationJob,
     handleSaveLocales,
@@ -633,21 +600,23 @@ export function useStudioSettingsAdmin() {
     localeError,
     localeSaving,
     locales,
-    formatMcpTimestamp,
+    formatTimestamp,
     members,
     membersQuery,
-    mcpCreating,
-    mcpEnabled,
-    mcpHealthRows,
-    mcpCurlExample,
-    mcpEndpoint,
-    mcpError,
-    mcpInfo,
-    mcpKeys,
-    mcpKeysQuery,
-    mcpTokenCopied,
+    mcpConnectionError,
+    mcpConnectionForm,
+    mcpConnectionInfo,
+    mcpConnectionSaving,
+    mcpConnections,
+    mcpCredentialsQuery,
+    mcpCreatedToken,
+    mcpEndpoint:
+      typeof window === 'undefined' ? '/mcp' : new URL('/mcp', window.location.origin).toString(),
+    mcpExpiryOptions,
+    mcpScopeOptions,
     newMember,
-    newMcpKey,
+    handleCreateMcpConnection,
+    handleRevokeMcpConnection,
     refreshRevalidationJobs,
     revalidationError,
     revalidationInfo,
@@ -656,22 +625,22 @@ export function useStudioSettingsAdmin() {
     revalidationTargets,
     revalidationTargetsQuery,
     refreshStorageHygiene,
+    revokingMcpApiKeyId,
     retryingRevalidationJobId,
+    copyMcpToken,
     formatRevalidationReason,
-    formatRoleLabel,
     persistedSettings,
     removeLocale,
     setStudioLocale,
     settingsQuery,
     setDefaultLocale,
     showAddMember,
-    showCreateMcpKey,
-    sortedMembers,
     studioLocales,
     storageHygiene,
     storageHygieneQuery,
     storageHygieneRows,
     storageRiskRows,
+    toggleMcpScope,
     t,
   }
 }

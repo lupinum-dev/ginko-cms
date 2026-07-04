@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as agentRuns from "../agentRuns.js";
 import type * as assets from "../assets.js";
 import type * as auth_appIdentity from "../auth/appIdentity.js";
 import type * as auth_checks from "../auth/checks.js";
@@ -65,7 +66,7 @@ import type * as lib_search from "../lib/search.js";
 import type * as lib_types from "../lib/types.js";
 import type * as lib_utils from "../lib/utils.js";
 import type * as lib_validation from "../lib/validation.js";
-import type * as mcpKeys from "../mcpKeys.js";
+import type * as mcpCredentials from "../mcpCredentials.js";
 import type * as members from "../members.js";
 import type * as migrations from "../migrations.js";
 import type * as operationHelpers from "../operationHelpers.js";
@@ -73,6 +74,7 @@ import type * as operations from "../operations.js";
 import type * as public_ from "../public.js";
 import type * as publicReadAdapter from "../publicReadAdapter.js";
 import type * as revalidation from "../revalidation.js";
+import type * as reviewRequests from "../reviewRequests.js";
 import type * as settings from "../settings.js";
 import type * as siteData from "../siteData.js";
 import type * as storageMaintenance from "../storageMaintenance.js";
@@ -85,6 +87,7 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
+  agentRuns: typeof agentRuns;
   assets: typeof assets;
   "auth/appIdentity": typeof auth_appIdentity;
   "auth/checks": typeof auth_checks;
@@ -142,7 +145,7 @@ const fullApi: ApiFromModules<{
   "lib/types": typeof lib_types;
   "lib/utils": typeof lib_utils;
   "lib/validation": typeof lib_validation;
-  mcpKeys: typeof mcpKeys;
+  mcpCredentials: typeof mcpCredentials;
   members: typeof members;
   migrations: typeof migrations;
   operationHelpers: typeof operationHelpers;
@@ -150,6 +153,7 @@ const fullApi: ApiFromModules<{
   public: typeof public_;
   publicReadAdapter: typeof publicReadAdapter;
   revalidation: typeof revalidation;
+  reviewRequests: typeof reviewRequests;
   settings: typeof settings;
   siteData: typeof siteData;
   storageMaintenance: typeof storageMaintenance;

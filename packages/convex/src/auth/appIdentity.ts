@@ -1,6 +1,9 @@
 import { cmsCallerValidator } from '@lupinum/ginko-cms-contract/convex/caller.js'
 import { cmsRoleValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { assertCmsCallerConsistency } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import {
+  assertCmsCallerConsistency,
+  cmsUserCaller,
+} from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { CmsCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { CmsRole } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
@@ -9,11 +12,12 @@ import { v } from 'convex/values'
 import { internal } from '../_generated/api.js'
 import type { DataModel, Doc } from '../_generated/dataModel.js'
 import { internalQuery } from '../_generated/server.js'
-import { asMcpKeyId } from '../lib/ids.js'
+import { can, cmsPermissionGuards } from './checks.js'
 
 type CmsCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 type AnyCmsCtx = CmsCtx | GenericActionCtx<DataModel>
 type MemberDoc = Doc<'members'>
+type McpCredentialSettingsDoc = Doc<'mcpCredentialSettings'>
 
 const appIdentityMemberValidator = v.object({
   _id: v.string(),
@@ -46,13 +50,14 @@ export type CmsMemberAppIdentity = {
   member: MemberDoc
   canBootstrap: false
   caller: CmsCaller
+  mcpEffectivePermissions?: Record<string, boolean>
   audit:
     | {
         origin: 'user'
       }
     | {
         origin: 'mcp'
-        mcpKeyId: string
+        apiKeyId: string
       }
 }
 
@@ -77,13 +82,14 @@ const cmsAppIdentityValidator = v.union(
     member: appIdentityMemberValidator,
     canBootstrap: v.literal(false),
     caller: cmsCallerValidator,
+    mcpEffectivePermissions: v.optional(v.record(v.string(), v.boolean())),
     audit: v.union(
       v.object({
         origin: v.literal('user'),
       }),
       v.object({
         origin: v.literal('mcp'),
-        mcpKeyId: v.string(),
+        apiKeyId: v.string(),
       }),
     ),
   }),
@@ -95,6 +101,32 @@ async function getCmsMember(ctx: CmsCtx, userId: string): Promise<MemberDoc | nu
     .query('members')
     .withIndex('by_userId', (q) => q.eq('userId', userId))
     .first()
+}
+
+async function getMcpCredentialSettings(ctx: CmsCtx, apiKeyId: string) {
+  return await ctx.db
+    .query('mcpCredentialSettings')
+    .withIndex('by_api_key_id', (q) => q.eq('apiKeyId', apiKeyId))
+    .first()
+}
+
+function effectiveMcpPermissions(
+  member: MemberDoc,
+  settings: McpCredentialSettingsDoc,
+): Record<string, boolean> {
+  const scopes = new Set(settings.scopes)
+  const identity: CmsMemberAppIdentity = {
+    kind: 'member',
+    userId: member.userId,
+    role: member.role,
+    member,
+    canBootstrap: false,
+    caller: cmsUserCaller(member.userId),
+    audit: { origin: 'user' },
+  }
+  return Object.fromEntries(
+    cmsPermissionGuards.map(({ key, guard }) => [key, scopes.has(key) && can(identity, guard)]),
+  )
 }
 
 async function getBootstrapState(ctx: CmsCtx): Promise<boolean> {
@@ -140,10 +172,10 @@ async function resolveMcpAppIdentity(
   ctx: CmsCtx,
   caller: Extract<CmsCaller, { kind: 'mcp' }>,
 ): Promise<CmsAppIdentity> {
-  const key = await ctx.db.get(asMcpKeyId(caller.mcpKeyId))
-  if (!key || key.status !== 'active') return null
+  const settings = await getMcpCredentialSettings(ctx, caller.apiKeyId)
+  if (!settings || settings.status !== 'active') return null
 
-  const member = await getCmsMember(ctx, key.boundUserId)
+  const member = await getCmsMember(ctx, settings.ownerUserId)
   if (!member) return null
 
   return {
@@ -153,9 +185,10 @@ async function resolveMcpAppIdentity(
     member,
     canBootstrap: false,
     caller,
+    mcpEffectivePermissions: effectiveMcpPermissions(member, settings),
     audit: {
       origin: 'mcp',
-      mcpKeyId: caller.mcpKeyId,
+      apiKeyId: caller.apiKeyId,
     },
   }
 }

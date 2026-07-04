@@ -18,6 +18,7 @@ import {
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
+import { recordOwnedAgentRunWrite } from './agentRuns.js'
 import { canManageAssets, canRead, requireRecord } from './auth/checks.js'
 import { assertBackupArtifactCoversPurge } from './backup.js'
 import { readStudioDraftView } from './entries/context.js'
@@ -790,6 +791,21 @@ export const moveAssetOperation = defineCmsOperation({
 })
 
 export const moveAsset = callerMutation.protected(moveAssetOperation)
+
+export const mcpMoveAsset = callerMutation.protected({
+  id: 'assets:mcpMoveAsset',
+  args: {
+    agentRunId: v.string(),
+    ...moveAssetArgs.args,
+  },
+  guard: canManageAssets,
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { agentRunId, ...input } = args
+    await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.move-asset')
+    return await moveAssetOperation.handler(ctx, input)
+  },
+})
 
 // AUTH-AUDIT: intentionally unguarded — public query for resolving asset storage URLs.
 export const getAssetUrl = callerQuery.public({

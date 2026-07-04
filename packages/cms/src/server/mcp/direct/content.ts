@@ -1,73 +1,118 @@
-import {
-  createEntry as createEntrySchema,
-  listEntries as listEntriesSchema,
-  saveEntryDraft as saveEntryDraftSchema,
-  unarchiveEntry as unarchiveEntrySchema,
-} from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
+import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
+import { z } from 'zod'
 
 import { components } from '#convex/api'
 
-import { projectTool, type ProjectToolDefinition } from '../_shared/project-tool-runtime'
+import { failFromError, loadAgentContext, ok } from '../_shared/agent-tools'
 
-export const createEntry: ProjectToolDefinition = projectTool({
-  schema: createEntrySchema,
-  capability: 'createEntries',
-  meta: {
-    name: 'create-entry',
-  },
-  operation: {
-    execute: components.ginkoCms.editor.createEntry,
+const jsonRecord = z.record(z.string(), z.unknown())
+const nodeKind = z.enum(['page', 'folder', 'group', 'section'])
+
+export const createEntry = defineMcpTool({
+  name: 'create-entry',
+  description: 'Create a new CMS entry in a collection.',
+  inputSchema: {
+    agentRunId: z.string().describe('Active agent run id for this write.'),
+    collection: z.string().describe('Collection slug.'),
+    locale: z.string().optional(),
+    slug: z.string().describe('Draft slug for the new entry.'),
+    shared: jsonRecord.optional(),
+    localized: jsonRecord.optional(),
+    parentEntryId: z.string().optional(),
+    orderRank: z.string().optional(),
+    nodeKind: nodeKind.optional(),
   },
   group: 'content',
-  respond: ({ args, result, ok, error }) => {
-    void args
-    void error
-    return ok(result, 'Created entry.')
+  handler: async (args, ctx) => {
+    try {
+      const context = await loadAgentContext(ctx.event, 'createEntries')
+      const result = await context.convex.mutation(components.ginkoCms.editor.mcpCreateEntry, args)
+      return ok(result, 'Created entry.')
+    } catch (error) {
+      return failFromError(error, 'Failed to create entry.')
+    }
   },
 })
 
-export const listEntries: ProjectToolDefinition = projectTool({
-  schema: listEntriesSchema,
-  call: components.ginkoCms.editor.listEntries,
-  capability: 'readCms',
-  meta: {
-    name: 'list-entries',
+export const listEntries = defineMcpTool({
+  name: 'list-entries',
+  description: 'List CMS entries for a collection and locale.',
+  inputSchema: {
+    collection: z.string(),
+    locale: z.string(),
   },
   group: 'content',
-  respond: ({ args, result, ok, error }) => {
-    void error
-    const entries = result
-    return ok({ entries }, `Listed ${entries.length} entries in "${args.collection}".`)
+  handler: async (args, ctx) => {
+    try {
+      const context = await loadAgentContext(ctx.event, 'readCms')
+      const entries = await context.convex.query(components.ginkoCms.editor.listEntries, args)
+      const count = Array.isArray(entries) ? entries.length : 0
+      return ok({ entries }, `Listed ${count} entries in "${args.collection}".`)
+    } catch (error) {
+      return failFromError(error, 'Failed to list entries.')
+    }
   },
-  operation: 'query',
 })
 
-export const saveEntryDraft: ProjectToolDefinition = projectTool({
-  schema: saveEntryDraftSchema,
-  capability: 'editEntries',
-  meta: {
-    name: 'save-entry-draft',
-  },
-  operation: {
-    execute: components.ginkoCms.editor.saveEntryDraft,
+export const saveEntryDraft = defineMcpTool({
+  name: 'save-entry-draft',
+  description: 'Save shared, placement, slug, and localized draft fields for an entry.',
+  inputSchema: {
+    agentRunId: z.string().describe('Active agent run id for this write.'),
+    entryId: z.string().describe('The entry to update.'),
+    expectedDraftVersion: z.number().describe('Current draft version observed before saving.'),
+    patch: z.object({
+      shared: z
+        .object({
+          parentEntryId: z.union([z.string(), z.null()]).optional(),
+          orderRank: z.union([z.string(), z.null()]).optional(),
+          slug: z.union([z.string(), z.null()]).optional(),
+          shared: jsonRecord.optional(),
+          nodeKind: nodeKind.optional(),
+        })
+        .optional(),
+      locales: z
+        .record(
+          z.string(),
+          z.object({
+            slug: z.union([z.string(), z.null()]).optional(),
+            values: jsonRecord.optional(),
+            bodyMdc: z.union([z.string(), z.null()]).optional(),
+          }),
+        )
+        .optional(),
+    }),
   },
   group: 'content',
-  respond: ({ result, ok }) => ok(result, 'Saved entry draft.'),
+  handler: async (args, ctx) => {
+    try {
+      const context = await loadAgentContext(ctx.event, 'editEntries')
+      const result = await context.convex.mutation(
+        components.ginkoCms.editor.mcpSaveEntryDraft,
+        args,
+      )
+      return ok(result, 'Saved entry draft.')
+    } catch (error) {
+      return failFromError(error, 'Failed to save entry draft.')
+    }
+  },
 })
 
-export const unarchiveEntry: ProjectToolDefinition = projectTool({
-  schema: unarchiveEntrySchema,
-  capability: 'deleteEntries',
-  meta: {
-    name: 'unarchive-entry',
-    description: 'Restore an archived entry to draft state.',
-  },
-  operation: {
-    execute: components.ginkoCms.editor.unarchiveEntry,
+export const unarchiveEntry = defineMcpTool({
+  name: 'unarchive-entry',
+  description: 'Restore an archived entry to draft state.',
+  inputSchema: {
+    agentRunId: z.string().describe('Active agent run id for this write.'),
+    entryId: z.string(),
   },
   group: 'content',
-  respond: ({ args, result, ok }) => {
-    void result
-    return ok({ unarchived: true, entryId: args.entryId }, `Unarchived entry "${args.entryId}".`)
+  handler: async (args, ctx) => {
+    try {
+      const context = await loadAgentContext(ctx.event, 'editEntries')
+      await context.convex.mutation(components.ginkoCms.editor.mcpUnarchiveEntry, args)
+      return ok({ unarchived: true, entryId: args.entryId }, `Unarchived entry "${args.entryId}".`)
+    } catch (error) {
+      return failFromError(error, 'Failed to unarchive entry.')
+    }
   },
 })

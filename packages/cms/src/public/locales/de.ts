@@ -300,27 +300,6 @@ const de = {
           'Sprachen und Fallback-Ketten für die Inhalts-Lokalisierung konfigurieren.',
         members: 'Mitglieder',
         membersDescription: 'Steuere, wer auf das CMS zugreifen und Inhalte bearbeiten kann.',
-        mcpKeys: 'MCP-Keys',
-        mcpKeysDescription:
-          'Bearer-Tokens für MCP-Clients ausstellen und an ein CMS-Mitglied binden.',
-        mcpKeyName: 'Key-Name',
-        mcpKeyNamePlaceholder: 'Claude Code - lokale Entwicklung',
-        mcpKeyUser: 'Handelt als Benutzer',
-        mcpKeyUserPlaceholder: 'Mitglied auswählen',
-        mcpKeyHelp:
-          'Das ausgewählte Mitglied bestimmt, welche Berechtigungen dieses MCP-Token im CMS erhält.',
-        newMcpKey: 'Neuer MCP-Key',
-        createMcpKey: 'MCP-Key erstellen',
-        revokeMcpKey: 'Widerrufen',
-        noMcpKeys: 'Noch keine MCP-Keys erstellt.',
-        noMcpKeysDescription:
-          'Erstelle einen Key, damit ein MCP-Client als eines deiner CMS-Mitglieder handeln kann.',
-        mcpUserRequired: 'Wähle vor dem Erstellen eines MCP-Keys ein Mitglied aus.',
-        mcpUserInvalid: 'Das ausgewählte Mitglied ist nicht mehr gültig.',
-        mcpCreateError: 'MCP-Key konnte nicht erstellt werden.',
-        mcpRevokeError: 'MCP-Key konnte nicht widerrufen werden.',
-        mcpCreated: 'MCP-Key erstellt. Kopiere das Token jetzt.',
-        mcpRevoked: 'MCP-Key widerrufen.',
         mcpTokenReady: 'Dein MCP-Token ist bereit',
         mcpTokenReadyDescription:
           'Das vollständige Token wird nur jetzt angezeigt. Kopiere es jetzt.',
@@ -332,14 +311,14 @@ const de = {
         mcpEndpointLabel: 'MCP-Endpoint',
         mcpCurlLabel: 'Smoke-Test',
         mcpConnectionHelp:
-          'Lege MCP-Tokens nur in externer Client-Konfiguration ab. Auf dem Server muss außerdem CONVEX_DEPLOY_KEY konfiguriert sein.',
+          'Verwende Better-Auth-API-Keys mit CMS-Zugangseinstellungen. Lege Tokens nur in externer Client-Konfiguration ab. Auf dem Server müssen Convex- und Better-Auth-URLs konfiguriert sein.',
         mcpHealthRoute: 'MCP-Route',
         mcpHealthRouteEnabled: 'Für diese Nuxt-App aktiviert.',
         mcpHealthRouteDisabled: 'In der öffentlichen Studio-Konfiguration deaktiviert.',
         mcpHealthEndpoint: 'Endpoint',
         mcpHealthToken: 'Nutzbarer Token',
         mcpHealthTokenReady: '{count} aktive MCP-Token verfügbar.',
-        mcpHealthTokenMissing: 'Erstelle einen MCP-Key für ein CMS-Mitglied.',
+        mcpHealthTokenMissing: 'Erstelle einen Better-Auth-API-Key mit CMS-Zugangseinstellungen.',
         mcpHealthServerEnv: 'Erforderliche Server-Env',
         mcpDisabledTitle: 'MCP-Route deaktiviert',
         mcpDisabledDescription:
@@ -613,6 +592,21 @@ const de = {
         emptyDescription:
           'Aktionen wie Veröffentlichen, Bearbeiten und Hochladen werden hier angezeigt.',
         loadError: 'Aktivität konnte nicht geladen werden.',
+      },
+      agentsPage: {
+        title: 'Agenten',
+        empty: 'Noch keine Agentenläufe',
+        emptyDescription: 'Agenten-Sitzungen erscheinen hier, nachdem MCP-Clients Arbeit starten.',
+        loadError: 'Agentenläufe konnten nicht geladen werden.',
+      },
+      reviewsPage: {
+        title: 'Reviews',
+        empty: 'Keine offenen Reviews',
+        emptyDescription:
+          'Agenten-Anfragen zum Veröffentlichen erscheinen hier zur Freigabe oder Ablehnung.',
+        loadError: 'Review-Anfragen konnten nicht geladen werden.',
+        approveError: 'Review-Anfrage konnte nicht freigegeben werden.',
+        rejectError: 'Review-Anfrage konnte nicht abgelehnt werden.',
       },
       userMenu: {
         darkMode: 'Dunkel',

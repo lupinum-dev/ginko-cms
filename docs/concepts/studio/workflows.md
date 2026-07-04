@@ -80,3 +80,17 @@ Studio and MCP should expose the same truth:
 
 MCP is opt-in as an external server, but its operation model is part of the CMS
 architecture.
+
+## Agent Review
+
+Agent work is visible as CMS workflow state, not as unexplained side effects.
+Studio exposes:
+
+- the current member's agent runs;
+- pending review requests for publishers and owners;
+- publish-impact previews and stale-request state;
+- approve/reject controls that call canonical backend operations.
+
+Agents can prepare drafts and request review. Public-output changes still need a
+publisher or owner approval unless a later trusted-direct mode is explicitly
+designed, tested, and documented.

@@ -114,21 +114,22 @@ describe('component: members CRUD', () => {
     })
   })
 
-  it('revokes MCP keys when removing a member', async () => {
+  it('revokes MCP credential settings when removing a member', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
-    const activeKeyId = await ctx.seed(
-      'mcpKeys' as never,
+    const settingsId = await ctx.seed(
+      'mcpCredentialSettings' as never,
       {
-        name: 'editor key',
-        prefix: 'mcp_editor...',
-        hash: 'hash_editor',
-        boundUserId: 'editor-1',
-        issuedBy: 'owner-1',
+        apiKeyId: 'ba_key_editor',
+        ownerUserId: 'editor-1',
+        label: 'Editor key',
+        scopes: ['cms.entries.edit'],
         status: 'active',
+        createdBy: 'owner-1',
         createdAt: Date.now(),
-        expiresAt: Date.now() + 60_000,
+        updatedBy: 'owner-1',
+        updatedAt: Date.now(),
       } as never,
     )
 
@@ -140,19 +141,13 @@ describe('component: members CRUD', () => {
       args: { userId: 'editor-1' },
     })
 
-    const key = await ctx.raw.run(async (innerCtx) => await innerCtx.db.get(activeKeyId as never))
-    expect(key).toMatchObject({
+    const settings = await ctx.raw.run(
+      async (innerCtx) => await innerCtx.db.get(settingsId as never),
+    )
+    expect(settings).toMatchObject({
       status: 'revoked',
       revokedAt: expect.any(Number),
+      updatedBy: 'owner-1',
     })
-
-    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
-    await expect(
-      ctx.raw.mutation(api.mcpKeys.consumeToken, {
-        hash: 'hash_editor',
-        seenAt: Date.now(),
-        clientIp: null,
-      }),
-    ).resolves.toBeNull()
   })
 })

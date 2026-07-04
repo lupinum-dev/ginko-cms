@@ -54,13 +54,20 @@ Imports and backups:
 - `collectionImportRuns`: persisted import preview/apply reports for Studio and
   operator inspection.
 - `backupArtifacts`: completed backup exports and their checksums/storage refs.
+  Restore preview reads these artifacts; restore apply is limited to missing
+  asset-scoped artifacts and writes a fresh asset row/storage object.
 
 Access, operations, and audit:
 
 - `cmsSettings`: site-level CMS settings such as locale configuration and
   webhook definitions.
 - `members`: Studio members and roles.
-- `mcpKeys`: issued MCP API keys and status.
+- `mcpCredentialSettings`: CMS-owned scopes, collection limits, safety mode, and
+  owner mapping for Better Auth API-key credentials. Raw API keys are not stored
+  here.
+- `agentRuns`: bounded delegated agent work sessions.
+- `reviewRequests`: agent-created requests for human review before public or
+  destructive operations.
 - `destructiveConfirmations`: gated destructive-operation confirmation tokens.
 - `destructiveAuditLog`: executed destructive-operation audit records.
 - `activity`: audit/event feed.

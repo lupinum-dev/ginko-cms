@@ -13,7 +13,7 @@
     "@nuxtjs/sitemap": "^8.0.15",
     "@tailwindcss/vite": "^4.3.0",
     "better-auth": "1.6.11",
-    "better-convex-nuxt": "file:../../../convex/better-convex-nuxt",
+    "better-convex-nuxt": "0.4.0",
     "convex": "1.38.0",
     "h3": "1.15.11",
     "nuxt": "^4.4.7",

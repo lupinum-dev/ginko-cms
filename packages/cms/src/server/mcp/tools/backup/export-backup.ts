@@ -10,13 +10,15 @@ export default defineMcpTool({
   description:
     'Export a backup artifact for one CMS entry before permanent deletion. Archive remains the preferred cleanup path.',
   inputSchema: {
+    agentRunId: z.string().describe('Active agent run id for this write.'),
     scope: z.literal('entry').describe('Only entry-scoped backup exports are exposed through MCP.'),
     entryId: z.string().describe('Entry id the backup artifact must cover.'),
   },
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event, 'deleteEntries')
-      const exported = await context.convex.action(components.ginkoCms.backup.exportBackup, {
+      const exported = await context.convex.action(components.ginkoCms.backup.mcpExportBackup, {
+        agentRunId: args.agentRunId,
         scope: 'entry',
         entryId: args.entryId,
       })

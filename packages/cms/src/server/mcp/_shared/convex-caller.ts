@@ -1,24 +1,13 @@
 import { ConvexHttpClient } from 'convex/browser'
-import type {
-  FunctionArgs,
-  FunctionReference,
-  FunctionReturnType,
-  UserIdentityAttributes,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 
-type AdminConvexHttpClient = ConvexHttpClient & {
-  setAdminAuth: (token: string, actingAsIdentity?: unknown) => void
-}
-
-type AdminClientConfig = {
+type ConvexClientConfig = {
   event: H3Event
   convexUrl: string
-  deployKey: string
+  authToken: string
 }
-
-const adminClientCache = new Map<string, AdminConvexHttpClient>()
 
 type AnyQueryRef = FunctionReference<'query', 'public' | 'internal'>
 type AnyMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
@@ -27,12 +16,15 @@ type AnyActionRef = FunctionReference<'action', 'public' | 'internal'>
 function resolveEvent(event?: H3Event) {
   const currentEvent = event ?? useEvent()
   if (!currentEvent) {
-    throw new Error('No Nitro request context available for MCP Convex admin call.')
+    throw new Error('No Nitro request context available for MCP Convex call.')
   }
   return currentEvent
 }
 
-function resolveAdminClientConfig(event?: H3Event): AdminClientConfig {
+function resolveConvexClientConfig(
+  event: H3Event | undefined,
+  authToken: string,
+): ConvexClientConfig {
   const currentEvent = resolveEvent(event)
   const runtimeConfig = useRuntimeConfig(currentEvent)
   const convexUrl =
@@ -40,49 +32,25 @@ function resolveAdminClientConfig(event?: H3Event): AdminClientConfig {
     process.env.NUXT_PUBLIC_CONVEX_URL ??
     process.env.CONVEX_URL
   if (!convexUrl) {
-    throw new Error('Convex URL is not configured for MCP admin calls.')
-  }
-
-  const deployKey = process.env.CONVEX_DEPLOY_KEY?.trim()
-  if (!deployKey) {
-    throw new Error('CONVEX_DEPLOY_KEY is required for MCP admin calls.')
+    throw new Error('Convex URL is not configured for MCP calls.')
   }
 
   return {
     event: currentEvent,
     convexUrl,
-    deployKey,
+    authToken,
   }
 }
 
-function getAdminClient(
-  config: Pick<AdminClientConfig, 'convexUrl' | 'deployKey'> & {
-    actingAsIdentity?: UserIdentityAttributes
-  },
-): AdminConvexHttpClient {
-  const cacheKey = `${config.convexUrl}::${config.deployKey}::${JSON.stringify(config.actingAsIdentity ?? null)}`
-  let client = adminClientCache.get(cacheKey)
-  if (!client) {
-    client = new ConvexHttpClient(config.convexUrl) as AdminConvexHttpClient
-    client.setAdminAuth(config.deployKey, config.actingAsIdentity)
-    adminClientCache.set(cacheKey, client)
-  }
+function getConvexClient(config: Pick<ConvexClientConfig, 'convexUrl' | 'authToken'>) {
+  const client = new ConvexHttpClient(config.convexUrl)
+  client.setAuth(config.authToken)
   return client
 }
 
-export function getAdminConvexClient(event?: H3Event, actingAsIdentity?: UserIdentityAttributes) {
-  const config = resolveAdminClientConfig(event)
-  return {
-    event: config.event,
-    client: getAdminClient({ ...config, actingAsIdentity }),
-  }
-}
-
-export function createAdminConvexCaller(
-  event?: H3Event,
-  actingAsIdentity?: UserIdentityAttributes,
-) {
-  const { client } = getAdminConvexClient(event, actingAsIdentity)
+export function createConvexAuthCaller(event: H3Event | undefined, authToken: string) {
+  const config = resolveConvexClientConfig(event, authToken)
+  const client = getConvexClient(config)
 
   return {
     query: async <Query extends AnyQueryRef>(

@@ -18,7 +18,7 @@
     "sync:cms-contract-vendor": "node scripts/sync-cms-contract-vendor.mjs",
     "check:cms-contract-vendor": "node scripts/sync-cms-contract-vendor.mjs --check && vitest run test/refactor/cms-contract-vendor-parity.test.ts",
     "check:publish-specifiers": "node scripts/check-publish-specifiers.mjs",
-    "check:packs:no-workspace-refs": "node scripts/check-pack-workspace-refs.mjs",
+    "check:packs:no-local-specifiers": "node scripts/check-pack-workspace-refs.mjs",
     "check:docs:install-story": "node scripts/check-docs-install-story.mjs",
     "check:public-vocabulary": "node scripts/check-public-vocabulary.mjs",
     "check:compatibility-matrix": "node scripts/check-compatibility-matrix.mjs",
@@ -47,6 +47,9 @@
     "audit:prod": "pnpm audit --prod --audit-level low"
   },
   "devDependencies": {
+    "@better-auth/api-key": "1.6.11",
+    "@better-auth/core": "1.6.11",
+    "@better-auth/utils": "0.4.0",
     "@edge-runtime/vm": "^5.0.0",
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/eslint-config": "^1.15.2",
@@ -61,7 +64,7 @@
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/test-utils": "^2.4.10",
     "better-auth": "1.6.11",
-    "better-convex-nuxt": "file:../../convex/better-convex-nuxt",
+    "better-convex-nuxt": "0.4.0",
     "changelogen": "^0.6.2",
     "convex": "1.38.0",
     "convex-test": "^0.0.52",

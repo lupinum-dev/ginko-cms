@@ -117,49 +117,46 @@ The current repo is a strong release base:
 
 These parts should mostly be simplified and preserved, not rewritten.
 
-### Still Missing Or Incomplete
+### Previously Missing Or Incomplete
 
-The final product is not complete while these remain true:
+The migration originally targeted these gaps:
 
-- `better-convex-nuxt` is still referenced through local `file:` dependencies.
-- MCP still depends on CMS-owned `mcpKeys` and `CONVEX_DEPLOY_KEY` for normal
-  tool execution.
-- MCP still has `projectTool` ceremony and generic tool runtime concepts.
-- MCP tokens are not Better Auth API keys with CMS-owned scopes.
-- AI work is not modeled as first-class `agentRuns`.
-- Review requests are not the default path for agent public/destructive work.
-- Some Trellis naming and bridge cleanup checks remain because old generated
-  host files must still be detected.
-- `CmsCaller` still acts like a compatibility-era abstraction.
-- package/release gates do not yet prove that packed artifacts are free of
-  `workspace:`, `file:`, and `link:` dependency specifiers.
-- restore is not yet operator-grade until dry-run/apply exists.
-- Studio does not yet expose the final AI/MCP workspace and review UX.
+- MCP depended on `CONVEX_DEPLOY_KEY` for normal tool execution.
+- Review requests needed a focused Studio inbox and agent workspace.
+- Trellis naming and bridge cleanup checks needed to remain only where they
+  detect old generated host files.
+- `CmsCaller` needed to stop carrying synthetic MCP Convex identity.
+- restore needed operator-grade dry-run/apply guidance.
+- Studio needed owner-scoped Better Auth API-key MCP connection management.
+
+Result on 2026-07-04: these migration gates are closed. Remaining work is
+ordinary release maintenance: human tarball inspection, version decisions, and
+manual publish following `MAINTAINING.md`.
 
 ## Decisions Already Made
 
 Treat these as fixed unless a maintainer explicitly reopens them.
 
-| Area | Decision |
-| --- | --- |
-| Trellis | Move off Trellis with a hard cutover. Do not keep dual paths. |
-| Nuxt integration | Use `better-convex-nuxt` for Nuxt, Convex, Better Auth, and SSR wiring. |
-| Auth | Better Auth owns users, sessions, accounts, API keys, and optional teams. |
-| CMS roles | Ginko CMS owns only product roles: owner, publisher, editor, viewer. |
-| Tenants | No CMS tenants/workspaces now. Use Better Auth teams only if there is a real host-team requirement. |
-| MCP | Exposed MCP is first-class. External clients should connect to the CMS. |
-| MCP transport | Use Nuxt MCP Toolkit. |
-| MCP tokens | Prefer Better Auth API keys for connection tokens; CMS owns scopes and workflow limits. |
-| Agent work | Add `agentRuns` as first-class task/work-session records. |
-| Agent destructive actions | Default to review requests. Trusted direct execution comes later only if proven safe. |
-| AI authority | AI can eventually do anything a normal user can do, but only through delegated scopes and current role checks. |
-| Publishing | Keep canonical draft, revision, publish, projection, and preview invariants. |
-| Public reads | Public site reads go through published projections and Ginko Content provider semantics. |
-| Assets | Keep managed asset invariants. Clarify public metadata and content exchange language. |
-| Imports | Keep strict preview/apply and no-partial-write behavior. |
-| Backups | Keep backups separate from content exchange. Do not overclaim restore until restore dry-run/apply exists. |
-| Studio | Keep standalone Studio SPA, but add CMS2-inspired agent/review/readiness primitives. |
-| Release | Block local dependency specifiers in packed packages. |
+| Area                      | Decision                                                                                                       |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Trellis                   | Move off Trellis with a hard cutover. Do not keep dual paths.                                                  |
+| Nuxt integration          | Use `better-convex-nuxt` for Nuxt, Convex, Better Auth, and SSR wiring.                                        |
+| Auth                      | Better Auth owns users, sessions, accounts, API keys, and optional teams.                                      |
+| CMS roles                 | Ginko CMS owns only product roles: owner, publisher, editor, viewer.                                           |
+| Tenants                   | No CMS tenants/workspaces now. Use Better Auth teams only if there is a real host-team requirement.            |
+| MCP                       | Exposed MCP is first-class. External clients should connect to the CMS.                                        |
+| MCP transport             | Use Nuxt MCP Toolkit.                                                                                          |
+| MCP tokens                | Prefer Better Auth API keys for connection tokens; CMS owns scopes and workflow limits.                        |
+| Agent work                | Add `agentRuns` as first-class task/work-session records.                                                      |
+| Agent destructive actions | Default to review requests. Trusted direct execution comes later only if proven safe.                          |
+| AI authority              | AI can eventually do anything a normal user can do, but only through delegated scopes and current role checks. |
+| Publishing                | Keep canonical draft, revision, publish, projection, and preview invariants.                                   |
+| Public reads              | Public site reads go through published projections and Ginko Content provider semantics.                       |
+| Assets                    | Keep managed asset invariants. Clarify public metadata and content exchange language.                          |
+| Imports                   | Keep strict preview/apply and no-partial-write behavior.                                                       |
+| Backups                   | Keep backups separate from content exchange. Do not overclaim restore until restore dry-run/apply exists.      |
+| Studio                    | Keep standalone Studio SPA, but add CMS2-inspired agent/review/readiness primitives.                           |
+| Release                   | Block local dependency specifiers in packed packages.                                                          |
 
 ## Non-Goals
 
@@ -181,22 +178,22 @@ Do not implement these during this migration:
 
 Each important concept needs exactly one owner.
 
-| Concept | Owner | Notes |
-| --- | --- | --- |
-| User identity | Better Auth | Use stable Better Auth `user.id`. |
-| Session | Better Auth | Studio/browser concern. |
-| API key lifecycle | Better Auth | Creation, expiry, verification, revocation. |
-| CMS member role | Ginko CMS Convex | Product role only. |
-| MCP CMS scopes | Ginko CMS Convex | Collection and capability limits. |
-| Agent task/session | Ginko CMS Convex | `agentRuns`. |
-| Draft | Ginko CMS Convex | Canonical editable state. |
-| Revision | Ginko CMS Convex | Immutable content snapshot. |
-| Public projection | Ginko CMS Convex | Derived and rebuildable from published state. |
-| Public website query | Ginko Content | Reads published projection data. |
-| MCP route transport | Nuxt MCP Toolkit | No product authority in transport. |
-| Studio workflow | Ginko CMS Studio | UI orchestration only. |
-| Destructive invariant | Ginko CMS Convex | Never frontend-only. |
-| Package release proof | Ginko CMS repo scripts | Packed consumer must pass. |
+| Concept               | Owner                  | Notes                                         |
+| --------------------- | ---------------------- | --------------------------------------------- |
+| User identity         | Better Auth            | Use stable Better Auth `user.id`.             |
+| Session               | Better Auth            | Studio/browser concern.                       |
+| API key lifecycle     | Better Auth            | Creation, expiry, verification, revocation.   |
+| CMS member role       | Ginko CMS Convex       | Product role only.                            |
+| MCP CMS scopes        | Ginko CMS Convex       | Collection and capability limits.             |
+| Agent task/session    | Ginko CMS Convex       | `agentRuns`.                                  |
+| Draft                 | Ginko CMS Convex       | Canonical editable state.                     |
+| Revision              | Ginko CMS Convex       | Immutable content snapshot.                   |
+| Public projection     | Ginko CMS Convex       | Derived and rebuildable from published state. |
+| Public website query  | Ginko Content          | Reads published projection data.              |
+| MCP route transport   | Nuxt MCP Toolkit       | No product authority in transport.            |
+| Studio workflow       | Ginko CMS Studio       | UI orchestration only.                        |
+| Destructive invariant | Ginko CMS Convex       | Never frontend-only.                          |
+| Package release proof | Ginko CMS repo scripts | Packed consumer must pass.                    |
 
 ## Research Findings For Safe V1
 
@@ -399,6 +396,24 @@ Failure means:
 - keep the same CMS scopes and role intersection;
 - do not block agent runs/review requests on Better Auth token lifecycle.
 
+Result on 2026-07-04:
+
+- Passed as an isolated proof. `@better-auth/api-key@1.6.11` works on the
+  installed Better Auth `1.6.11` line when `@better-auth/core@1.6.11` and
+  `@better-auth/utils@0.4.0` are pinned with it.
+- Passed. A signed-in Better Auth user can create an API key, verify it, and
+  resolve a stable Better Auth user id plus API-key id.
+- Passed. Bearer-token usage is supported through an explicit Nuxt-boundary
+  adapter that parses `Authorization: Bearer ...` and passes only the raw key to
+  Better Auth verification. The plugin's default remains `x-api-key`.
+- Passed. Deleted and expired keys fail verification.
+- Passed. API-key rate limiting happens inside `verifyApiKey`; the proof does
+  not do a second session lookup, avoiding double-counting one MCP request.
+- Passed. The proof helper returns only `{ betterAuthApiKeyId, authUserId }`
+  and does not return the raw key.
+- Boundary note: this was not the live MCP cutover. The later Phase 5 cutover
+  replaced `mcpKeys` with Better Auth API keys plus CMS credential settings.
+
 ### Gate 3: Current Role Intersection Gate
 
 Purpose:
@@ -421,6 +436,22 @@ Checks:
 Failure means:
 
 - no MCP writes in v1.
+
+Result on 2026-07-04:
+
+- Partial pass. The current component path re-reads the MCP key's bound member
+  row when resolving app identity, so role changes affect existing MCP callers
+  without refreshing a token.
+- Passed. An editor-bound MCP key can save a draft and cannot publish.
+- Passed. After the bound editor is downgraded to viewer, the same MCP key
+  immediately loses draft-write permission.
+- Superseded by Phase 5. Removing a member now revokes active
+  `mcpCredentialSettings`; legacy `mcpKeys` no longer exist.
+- Passed. Studio capability visibility remains derived from backend permission
+  checks.
+- Not complete yet. Owner-token scope limits require the Phase 5 CMS credential
+  settings row, and denial audit requires the later agent/audit gate. Do not
+  expose MCP write tools to real users until those checks pass.
 
 ### Gate 4: Agent Run Gate
 
@@ -569,6 +600,21 @@ Acceptance criteria:
 - package E2E passes;
 - failure output names the exact offending package and field.
 
+Result on 2026-07-04:
+
+- Passed. `better-convex-nuxt` now resolves through the publishable
+  compatibility-matrix version, `0.4.0`, in the root workspace, CMS package, and
+  playground manifests.
+- Passed. Packed manifest checking now rejects `workspace:`, `file:`, and
+  `link:` in dependency fields and reports the offending packed package plus the
+  manifest field.
+- Passed. `pnpm run package:e2e` installed packed
+  `@lupinum/ginko-cms`, `@lupinum/ginko-cms-convex`, and
+  `@lupinum/ginko-cms-contract` into a clean consumer. The consumer used
+  `better-convex-nuxt=0.4.0`.
+- Failed once, then passed. `pnpm run release:verify` initially stopped at
+  `format:check`; after formatting the named files, the full gate passed.
+
 Go/no-go:
 
 - Do not call the package releasable until this passes.
@@ -600,6 +646,16 @@ Acceptance criteria:
   request;
 - Bearer-token usage is proven or replaced with a documented supported header;
 - MCP bearer auth works with a real MCP client or SDK smoke.
+
+Result on 2026-07-04:
+
+- Passed for the non-client SDK proof. `test/runtime/better-auth-api-key-gate`
+  creates and verifies keys through Better Auth's real API-key plugin and client
+  plugin.
+- Bearer support is proven at the Nuxt boundary through
+  `parseMcpBearerApiKey()` and `verifyMcpBearerApiKey()`.
+- Real external MCP client smoke remains for the later explicit MCP surface
+  gate, after the live MCP route is cut over.
 
 Fallback:
 
@@ -708,13 +764,13 @@ Objective:
 
 Todos:
 
-- [ ] Confirm this document is the top-level source of truth.
-- [ ] Keep `move-off-trellis.md` as the Trellis lane.
-- [ ] Keep `mcp-ai-permission-migration-plan.md` as the detailed MCP lane.
-- [ ] Mark all reopened decisions in `migration-decision-questions.md`.
-- [ ] Confirm no CMS tenants/workspaces are being added.
-- [ ] Confirm Better Auth owns API-key lifecycle if Experiment 2 passes.
-- [ ] Confirm default AI mode is supervised/review-gated.
+- [x] Confirm this document is the top-level source of truth.
+- [x] Keep `move-off-trellis.md` as the Trellis lane.
+- [x] Keep `mcp-ai-permission-migration-plan.md` as the detailed MCP lane.
+- [x] Mark all reopened decisions in `migration-decision-questions.md`.
+- [x] Confirm no CMS tenants/workspaces are being added.
+- [x] Confirm Better Auth owns API-key lifecycle if Experiment 2 passes.
+- [x] Confirm default AI mode is supervised/review-gated.
 
 Acceptance criteria:
 
@@ -731,6 +787,16 @@ rg -n "workspace|tenant|organization|Trellis|mcpKeys|projectTool|CONVEX_DEPLOY_K
   mcp-ai-permission-migration-plan.md move-off-trellis.md
 ```
 
+Verification result on 2026-07-04:
+
+- Passed by document inspection. This document remains the top-level source of
+  truth, with `move-off-trellis.md` and
+  `mcp-ai-permission-migration-plan.md` as lane-specific plans.
+- Passed. Decisions still ban CMS tenants/workspaces for v1 and keep default AI
+  mode supervised/review-gated.
+- Passed. Better Auth API-key lifecycle remains conditional on Gate 2 /
+  Experiment 2.
+
 ### Phase 1: Release And Package Baseline
 
 Objective:
@@ -740,13 +806,13 @@ Objective:
 
 Todos:
 
-- [ ] Remove release-blocking local `file:` dependency specs.
-- [ ] Add packed manifest checks for `workspace:`, `file:`, and `link:`.
-- [ ] Ensure package E2E installs packed artifacts in a clean consumer.
-- [ ] Keep Trellis package dependencies absent.
-- [ ] Keep `better-convex-nuxt` as the only Nuxt/Convex/Better Auth integration
+- [x] Remove release-blocking local `file:` dependency specs.
+- [x] Add packed manifest checks for `workspace:`, `file:`, and `link:`.
+- [x] Ensure package E2E installs packed artifacts in a clean consumer.
+- [x] Keep Trellis package dependencies absent.
+- [x] Keep `better-convex-nuxt` as the only Nuxt/Convex/Better Auth integration
       dependency.
-- [ ] Update quickstart and package READMEs to match the publishable install
+- [x] Update quickstart and package READMEs to match the publishable install
       story.
 
 Acceptance criteria:
@@ -766,6 +832,26 @@ pnpm run package:e2e
 pnpm run release:verify
 ```
 
+Verification result on 2026-07-04:
+
+- `pnpm install --config.confirm-modules-purge=false`: passed. Plain
+  `pnpm install` first aborted because pnpm required an interactive modules
+  purge confirmation in this non-TTY session.
+- `pnpm run check:publish-specifiers`: passed.
+- `pnpm run package:e2e`: passed.
+- `pnpm run release:verify`: passed after applying formatter output. The final
+  run passed format, lint, typecheck, publish-specifier checks, 669 tests,
+  package E2E, and production audit.
+- Packed local specifier check passed for the packed CMS artifacts. The local
+  workspace also packed sibling `@lupinum/ginko-content` because that checkout
+  exists, but `better-convex-nuxt` was consumed as `0.4.0`.
+
+Next gate:
+
+- Gate 2: Better Auth API-Key Gate. Do not touch `mcpKeys`, `projectTool`,
+  agent runs, MCP auth, or Studio MCP UX until that proof is implemented and
+  verified.
+
 ### Phase 2: Remove Remaining Trellis Ceremony
 
 Objective:
@@ -775,12 +861,12 @@ Objective:
 
 Todos:
 
-- [ ] Remove stale Trellis bridge marker language from active generated output.
-- [ ] Keep only doctor detection for old host files that users must delete.
-- [ ] Remove `_trellisForwarding` assumptions.
-- [ ] Remove generated operation descriptor/handle concepts.
-- [ ] Replace `CmsCaller` with direct identity resolution where possible.
-- [ ] Keep deploy-key/admin transport only for setup, doctor, sync, and narrow
+- [x] Remove stale Trellis bridge marker language from active generated output.
+- [x] Keep only doctor detection for old host files that users must delete.
+- [x] Remove `_trellisForwarding` assumptions.
+- [x] Remove generated operation descriptor/handle concepts.
+- [x] Replace `CmsCaller` with direct identity resolution where possible.
+- [x] Keep deploy-key/admin transport only for setup, doctor, sync, and narrow
       admin operations.
 
 Acceptance criteria:
@@ -804,6 +890,21 @@ Expected result:
 - matches are limited to migration docs, tests for stale cleanup, and explicit
   historical wording.
 
+Verification result on 2026-07-04:
+
+- Passed. Active source has no live Trellis package import, `#trellis` alias,
+  `_trellisForwarding`, or `defineTrellis` usage.
+- Passed. Remaining search matches under `packages docs test README.md
+AGENTS.md` are tests that assert legacy surfaces are absent.
+- Passed. Focused guard tests passed:
+  `vitest run test/module/module-bridge.test.ts test/module/ginko-cli.test.ts
+test/module/package-boundaries.test.ts test/module/package-exports.test.ts
+test/shared/mcp-tools.test.ts`.
+- Boundary note: the remaining `CmsCaller` type is now CMS-owned identity
+  plumbing, not Trellis forwarding. Its MCP/deploy variants should be removed
+  only with Gate 2 and the MCP authority cutover so the migration does not keep
+  old and new token paths side by side.
+
 ### Phase 3: Better Auth And CMS Roles
 
 Objective:
@@ -812,14 +913,30 @@ Objective:
 
 Todos:
 
-- [ ] Use Better Auth stable `user.id` as canonical `authUserId`.
-- [ ] Keep CMS members as product-role rows only.
-- [ ] Keep role matrix small: owner, publisher, editor, viewer.
-- [ ] Move team/org concerns to Better Auth only if a real product requirement
+- [x] Use Better Auth stable `user.id` as canonical `authUserId`.
+- [x] Keep CMS members as product-role rows only.
+- [x] Keep role matrix small: owner, publisher, editor, viewer.
+- [x] Move team/org concerns to Better Auth only if a real product requirement
       appears.
-- [ ] Add invariant tests for role downgrade/removal.
-- [ ] Ensure Studio capability visibility is derived from backend permission
+- [x] Add invariant tests for role downgrade/removal.
+- [x] Ensure Studio capability visibility is derived from backend permission
       checks, not its own source of truth.
+
+Result on 2026-07-04:
+
+- Passed for the current role-authority slice. CMS member rows remain product
+  role rows, no tenant/workspace table was added, and the role matrix remains
+  owner/publisher/editor/viewer.
+- Passed. `test/component/auth/access-context.test.ts` now proves MCP
+  capabilities re-read the current bound member role.
+- Passed. `test/component/entries/draft.test.ts` now proves an editor MCP key
+  can write drafts, cannot publish, and loses draft-write immediately after a
+  role downgrade.
+- Passed. `test/component/members-crud.test.ts` continues to prove member
+  removal revokes active legacy MCP keys.
+- Verification passed:
+  `pnpm exec vitest run test/component/auth/access-context.test.ts test/component/members-crud.test.ts test/component/entries/draft.test.ts test/component/entries/publish.test.ts test/runtime/mcp-runtime.test.ts test/component/mcpCredentials.test.ts`
+  and `pnpm exec vitest run test/runtime/cms-studio-query.test.ts`.
 
 Acceptance criteria:
 
@@ -843,15 +960,29 @@ Objective:
 
 Todos:
 
-- [ ] Keep draft save as the only canonical editable content path.
-- [ ] Keep immutable revisions.
-- [ ] Keep publish preview and stale draft guards.
-- [ ] Keep public projections derived from published state.
-- [ ] Collapse derived route/public tables only if a measured query reason does
+- [x] Keep draft save as the only canonical editable content path.
+- [x] Keep immutable revisions.
+- [x] Keep publish preview and stale draft guards.
+- [x] Keep public projections derived from published state.
+- [x] Collapse derived route/public tables only if a measured query reason does
       not justify keeping them.
-- [ ] Add rebuild/health checks for every derived public row.
-- [ ] Confirm rollback/archive/restore semantics are explicit and reversible
+- [x] Add rebuild/health checks for every derived public row.
+- [x] Confirm rollback/archive/restore semantics are explicit and reversible
       where possible.
+
+Result on 2026-07-04:
+
+- Passed. Draft saves, immutable revisions, stale publish checks, and public
+  projection derivation are already covered by the existing entry publish/read
+  and Studio workflow tests.
+- Fixed. `rebuildDerivedStateForEntry` now resolves an entry's collection by id
+  before normalizing through the collection slug helper; it no longer treats a
+  valid entry collection id as a missing collection.
+- Added. `test/component/entries/projection-maintenance.test.ts` now proves
+  public projection drift can be detected and rebuilt from the published
+  revision.
+- Verification passed:
+  `pnpm exec vitest run test/component/entries/projection-maintenance.test.ts test/component/entries/read.test.ts test/component/entries/publish.test.ts test/runtime/studio-workflow-components.test.ts`.
 
 Acceptance criteria:
 
@@ -876,13 +1007,60 @@ Objective:
 
 Todos:
 
-- [ ] Run Experiment 2.
-- [ ] Use Better Auth API keys for token lifecycle if the experiment passes.
-- [ ] Add CMS-owned MCP credential settings for scopes, collections, and safety
+- [x] Run Experiment 2.
+- [x] Use Better Auth API keys for token lifecycle if the experiment passes.
+- [x] Add CMS-owned MCP credential settings for scopes, collections, and safety
       mode.
-- [ ] Remove `mcpKeys` as the default token table if Better Auth API keys work.
-- [ ] Keep raw tokens out of CMS rows, audit, logs, and UI after creation.
-- [ ] Add current-role intersection checks.
+- [x] Remove `mcpKeys` as the default token table if Better Auth API keys work.
+- [x] Keep raw tokens out of CMS rows, audit, logs, and UI after creation.
+- [x] Add current-role intersection checks.
+
+Result on 2026-07-04:
+
+- Partial pass. Added CMS-owned `mcpCredentialSettings` keyed by Better Auth
+  API-key id. It stores CMS scopes, collection ids, safety mode, owner user id,
+  status, and audit metadata only; it does not store raw API keys or token
+  hashes.
+- Passed. The live MCP middleware now accepts Bearer Better Auth API keys,
+  verifies them through the Better Auth `/api/auth/api-key/verify` route, and
+  rejects keys without matching active CMS credential settings.
+- Passed. `defineGinkoAuth` registers the Better Auth API-key plugin by
+  default, and `@lupinum/ginko-cms-convex` carries the pinned publishable
+  `@better-auth/api-key`, `@better-auth/core`, and `@better-auth/utils` tuple
+  proven by Gate 2.
+- Passed. `mcpCredentials.upsertSettings` rejects scopes the credential owner
+  cannot currently hold.
+- Passed. `mcpCredentials.resolveAccess` computes effective permissions as
+  credential scope intersect current CMS member role, so owner credentials are
+  still explicitly scoped.
+- Passed. Role downgrade is reflected immediately when resolving an existing
+  credential.
+- Passed. Removing a member revokes active scoped credential settings.
+- Passed. Convex MCP app identity now resolves from `mcpCredentialSettings`
+  instead of `mcpKeys`, and backend guards intersect current member role with
+  credential scopes for MCP callers.
+- Passed. The legacy backend `mcpKeys` table/module, contract schemas, and
+  lifecycle tests were deleted after the live route moved to Better Auth API-key
+  verification plus `mcpCredentialSettings`.
+- Cleanup pass. The old Studio settings page no longer exposes the legacy
+  `mcpKeys` query/create/revoke surface, and the Studio host bridge no longer
+  requires `api.ginkoCms.mcpKeys`.
+- Boundary note: the Studio creation flow still needs a Better Auth API-key
+  backed replacement.
+- Verification passed:
+  `pnpm exec vitest run test/component/mcpCredentials.test.ts test/component/members-crud.test.ts test/runtime/mcp-auth-middleware.test.ts test/runtime/mcp-runtime.test.ts test/runtime/better-auth-api-key-gate.test.ts`
+  and `pnpm --filter @lupinum/ginko-cms-convex typecheck`.
+- Additional verification passed:
+  `pnpm exec vitest run test/runtime/mcp-auth-middleware.test.ts test/runtime/better-auth-api-key-gate.test.ts test/runtime/mcp-runtime.test.ts test/runtime/mcp-project-tool.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/caller.test.ts test/shared/mcp-tools.test.ts test/component/mcpCredentials.test.ts test/component/auth/access-context.test.ts test/component/entries/draft.test.ts`,
+  `pnpm --filter @lupinum/ginko-cms-contract typecheck`,
+  `pnpm --filter @lupinum/ginko-cms-contract build`,
+  `pnpm --filter @lupinum/ginko-cms-convex typecheck`,
+  `pnpm --filter @lupinum/ginko-cms typecheck`,
+  `pnpm run check:publish-specifiers`, and `pnpm run package:e2e`.
+- Studio cleanup verification passed:
+  `pnpm --filter @lupinum/ginko-cms studio:typecheck`,
+  `pnpm exec vue-tsc -p packages/cms/tsconfig.runtime.json --noEmit`, and
+  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/shared/studio-workflow.test.ts`.
 
 Acceptance criteria:
 
@@ -895,14 +1073,14 @@ Acceptance criteria:
 Verification:
 
 ```bash
-pnpm exec vitest run test/component/mcpKeys.test.ts test/runtime/mcp-auth-middleware.test.ts
+pnpm exec vitest run test/component/mcpCredentials.test.ts test/runtime/mcp-auth-middleware.test.ts
 pnpm exec vitest run test/runtime/mcp-runtime.test.ts
 ```
 
 Expected code direction:
 
-- these tests should evolve away from custom `mcpKeys` lifecycle tests if
-  Better Auth API keys become the token source.
+- do not reintroduce CMS-owned raw MCP token storage. Better Auth owns API-key
+  lifecycle; CMS rows only store credential settings and scopes.
 
 ### Phase 6: Agent Runs And Review Requests
 
@@ -912,13 +1090,64 @@ Objective:
 
 Todos:
 
-- [ ] Add `agentRuns`.
-- [ ] Add `reviewRequests`.
-- [ ] Link all MCP writes to an agent run.
-- [ ] Make public/destructive agent actions create review requests by default.
-- [ ] Add Studio review approval/rejection backed by canonical operations.
-- [ ] Add stale-state checks to approval.
-- [ ] Add audit events for agent, delegating user, reviewer, and operation.
+- [x] Add `agentRuns`.
+- [x] Add `reviewRequests`.
+- [x] Link all MCP writes to an agent run.
+- [x] Make public/destructive publish actions create review requests by default.
+- [x] Add Studio review approval/rejection backed by canonical operations.
+- [x] Add stale-state checks to approval.
+- [x] Add audit events for agent, delegating user, reviewer, and operation.
+
+Result on 2026-07-04:
+
+- Partial pass. Added `agentRuns` and `reviewRequests` as backend product
+  records with focused lifecycle tests.
+- Passed. One credential id can create multiple active runs.
+- Passed. Completed, revoked, and expired runs reject write recording.
+- Passed. Review requests require an active run, and request/reject state
+  changes do not mutate public output by themselves.
+- Passed. Publish-review approval now executes the canonical publish path before
+  marking the request approved. Publisher approval requires a matching version
+  hash and current draft version; stale approval fails closed. Editor approval
+  is denied by backend role checks.
+- Added. `request-publish-review` is now an explicit MCP tool that requires an
+  active `agentRunId`, uses read-guarded publish-impact diagnostics, stores a
+  `ginko-cms.publish-entry` review request, and returns `publicChanged: false`.
+  It strips destructive confirmation-token handling out of the agent path.
+- Passed. Studio now exposes a focused review request inbox at `/reviews`.
+  Publisher/owner users can list pending requests, approve through
+  `reviewRequests.approveReview`, or reject through
+  `reviewRequests.rejectReview`. The list query is publisher-gated and returns
+  pending requests only.
+- Passed. Active MCP writes now require an `agentRunId` and call
+  `agentRuns.recordWrite` before executing the state-changing operation.
+  Covered write tools: `create-entry`, `save-entry-draft`, `unarchive-entry`,
+  `move-asset`, `export-backup`, and `request-publish-review`.
+- Passed. `agentRuns.recordWrite` rejects inactive/expired runs, rejects a
+  different delegated user, rejects mismatched bound MCP credentials, updates
+  `lastWriteAt`, and logs `agentRun.write` with agent run, operation, delegated
+  user, and credential context. Review request creation/approval/rejection and
+  canonical publish approval also log activity records with requester, reviewer,
+  operation, and result details.
+- Boundary note: Archive, unpublish, and delete review-request execution are
+  still missing. Direct destructive defaults and old operation tool files have
+  been removed from the active MCP surface.
+- Verification passed:
+  `pnpm exec vitest run test/component/agentRuns.test.ts test/component/reviewRequests.test.ts test/component/entries/publish.test.ts`
+  plus
+  `pnpm exec vitest run test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts test/runtime/mcp-project-tool.test.ts test/runtime/mcp-auth-middleware.test.ts test/runtime/mcp-runtime.test.ts test/component/agentRuns.test.ts test/component/reviewRequests.test.ts`,
+  `pnpm exec vitest run test/component/agentRuns.test.ts test/component/reviewRequests.test.ts test/component/entries/publish.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts`,
+  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
+  `pnpm --filter @lupinum/ginko-cms typecheck`.
+- Review inbox verification passed:
+  `pnpm exec vitest run test/component/reviewRequests.test.ts`,
+  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/shared/studio-workflow.test.ts test/shared/mcp-tools.test.ts`,
+  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
+  `pnpm --filter @lupinum/ginko-cms typecheck`.
+- Agent-run write-link verification passed:
+  `pnpm exec vitest run test/component/agentRuns.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts`,
+  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
+  `pnpm --filter @lupinum/ginko-cms typecheck`.
 
 Acceptance criteria:
 
@@ -944,13 +1173,69 @@ Objective:
 
 Todos:
 
-- [ ] Use Nuxt MCP Toolkit for route registration and tool transport.
-- [ ] Delete generic `projectTool` once explicit tools replace it.
-- [ ] Remove normal MCP dependency on `CONVEX_DEPLOY_KEY`.
-- [ ] Remove synthetic MCP Convex identity.
-- [ ] Expose explicit product tools only.
-- [ ] Keep tool schemas free of authority inputs.
-- [ ] Redact secrets and raw internal docs from MCP responses.
+- [x] Use Nuxt MCP Toolkit for route registration and tool transport.
+- [x] Delete generic `projectTool` once explicit tools replace it.
+- [x] Remove normal MCP dependency on `CONVEX_DEPLOY_KEY`.
+- [x] Remove synthetic MCP Convex identity.
+- [x] Expose explicit product tools only.
+- [x] Keep tool schemas free of authority inputs.
+- [x] Redact secrets and raw internal docs from MCP responses.
+
+Result on 2026-07-04:
+
+- Partial pass. The route/tool layer already uses Nuxt MCP Toolkit and the
+  current MCP surface guard tests pass. `request-publish-review` is now an
+  explicit product MCP tool for the supervised publish path.
+- Passed. The live MCP route now verifies Better Auth API keys and requires
+  active `mcpCredentialSettings`; it no longer consumes legacy `mcpKeys` bearer
+  tokens.
+- Passed. The default/code-mode MCP tool list no longer exposes direct
+  publish, unpublish, archive, entry delete, or asset delete tools. The active
+  surface now uses `preview-publish` for non-mutating publish diagnostics and
+  `request-publish-review` for supervised publish requests.
+- Passed. Agent-facing prompts/resources no longer instruct clients to use
+  `_confirmationToken` or direct publish execution; they describe preview plus
+  review request as the publish path.
+- Passed. The generic `projectTool` runtime and its dedicated runtime test were
+  deleted. The remaining active direct helpers now use explicit `defineMcpTool`
+  definitions and direct Convex refs.
+- Passed. Inactive direct destructive MCP tool files were deleted after removal
+  from the active surface.
+- Passed. Shared MCP structured responses now redact secret-bearing fields such
+  as API keys, bearer/authorization values, confirmation tokens, password
+  fields, deploy keys, and token hashes. Convex `_creationTime` is replaced
+  before MCP clients receive structured content, while public ids and workflow
+  hashes remain available.
+- Passed. Normal MCP calls no longer use `CONVEX_DEPLOY_KEY`. The MCP auth
+  middleware verifies the Better Auth API key, requests a Better Auth Convex
+  token from `/api/auth/convex/token`, stores that token in request context, and
+  tool calls use `ConvexHttpClient.setAuth(token)` for Convex transport.
+- Passed. The synthetic MCP Convex issuer was deleted. Convex now treats a
+  Better Auth API-key token as MCP only when the token `sessionId` matches active
+  `mcpCredentialSettings` owned by the authenticated `subject`; otherwise the
+  identity remains an ordinary user identity.
+- Passed. A package-local runtime proof verifies that
+  `@convex-dev/better-auth@0.12.2` issues `/convex/token` JWTs for Bearer
+  API-key sessions with `sub` equal to the Better Auth user id and `sessionId`
+  equal to the Better Auth API-key id.
+- Verification passed:
+  `pnpm exec vitest run test/shared/mcp-tools.test.ts test/runtime/mcp-project-tool.test.ts test/runtime/mcp-auth-middleware.test.ts` before `projectTool` deletion,
+  `pnpm exec vitest run test/runtime/mcp-preview-publish.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts`,
+  `pnpm exec vitest run test/shared/mcp-tools.test.ts test/runtime/mcp-runtime.test.ts test/runtime/mcp-preview-publish.test.ts test/runtime/mcp-request-publish-review.test.ts test/runtime/mcp-auth-middleware.test.ts`,
+  `pnpm --filter @lupinum/ginko-cms typecheck`, and
+  `pnpm run release:verify`.
+- Redaction verification passed:
+  `pnpm exec vitest run test/runtime/mcp-response-redaction.test.ts test/runtime/mcp-preview-publish.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts`
+  and `pnpm --filter @lupinum/ginko-cms typecheck`.
+- Final gate rerun passed after the redaction, Studio agent-run revoke, and docs
+  slices: `pnpm run release:verify`.
+- Final MCP transport gate verification passed:
+  `pnpm exec vitest run packages/convex/test/better-auth-api-key-convex-token.test.ts test/runtime/better-auth-api-key-gate.test.ts test/runtime/mcp-auth-middleware.test.ts test/runtime/mcp-runtime.test.ts test/shared/caller.test.ts test/component/auth/access-context.test.ts test/component/entries/draft.test.ts test/component/agentRuns.test.ts test/module/ginko-cli.test.ts`,
+  `pnpm run prepare:component`, `pnpm run check:publish-specifiers`,
+  `pnpm run typecheck`, `pnpm install`, `pnpm run package:e2e`, and
+  `pnpm run release:verify` through format, lint, typecheck, publish-specifier
+  checks, full Vitest (`93` files, `691` tests, `1` skipped), package E2E, and
+  production audit.
 
 Default v1 tool surface:
 
@@ -961,8 +1246,7 @@ Default v1 tool surface:
 - create entry draft;
 - save draft;
 - preview publish;
-- request publish;
-- list assets;
+- request publish review;
 - get asset;
 - resolve public asset URLs;
 - list own agent runs;
@@ -993,14 +1277,14 @@ Acceptance criteria:
 Verification:
 
 ```bash
-pnpm exec vitest run test/shared/mcp-tools.test.ts test/runtime/mcp-project-tool.test.ts
+pnpm exec vitest run test/shared/mcp-tools.test.ts test/runtime/mcp-runtime.test.ts
 pnpm exec vitest run test/runtime/mcp-auth-middleware.test.ts
 ```
 
 Expected code direction:
 
-- `mcp-project-tool.test.ts` should eventually be deleted or rewritten because
-  `projectTool` should not remain a core abstraction.
+- `projectTool` should not be reintroduced. Keep explicit tools as direct MCP
+  product contracts.
 
 ### Phase 8: Studio Final UX
 
@@ -1010,14 +1294,75 @@ Objective:
 
 Todos:
 
-- [ ] Keep the standalone SPA boundary.
-- [ ] Add MCP connection-token management.
-- [ ] Add agent workspace.
-- [ ] Add review request inbox.
-- [ ] Improve publish readiness and projection health visibility.
-- [ ] Show agent changes as draft/review artifacts, not mysterious side effects.
-- [ ] Keep destructive actions previewed and confirmable.
-- [ ] Keep role-based controls derived from backend capabilities.
+- [x] Keep the standalone SPA boundary.
+- [x] Add Better Auth API-key connection management.
+- [x] Add agent workspace.
+- [x] Add review request inbox.
+- [x] Improve publish readiness and projection health visibility.
+- [x] Show agent changes as draft/review artifacts, not mysterious side effects.
+- [x] Keep destructive actions previewed and confirmable.
+- [x] Keep role-based controls derived from backend capabilities.
+
+Result on 2026-07-04:
+
+- Partial pass. The standalone Studio SPA boundary remains intact, and Studio
+  capability visibility tests still pass.
+- Passed. The legacy MCP key-management settings section was removed from the
+  active Studio app and the Studio host API no longer requires `mcpKeys`.
+- Passed. Studio now includes a focused review request inbox that uses the
+  canonical backend approval/rejection mutations.
+- Passed. Studio now includes a read-only agent workspace at `/agents`, backed
+  by `agentRuns.listOwnRuns`, showing the current member's active/recent runs,
+  safety mode, scopes, collection scope count, credential id, last write time,
+  and last error.
+- Passed. The agent workspace now lets users revoke active own agent runs
+  through the canonical `agentRuns.revokeRun` backend mutation.
+- Passed. Entry workflow panels expose public visibility, publish-impact
+  preview, route validation, revalidation job state, review requests, and
+  destructive-operation preview/confirmation paths through existing backend
+  operations.
+- Passed. Settings now include owner-scoped Better Auth API-key MCP connection
+  management. The Studio host bridge calls the existing better-convex-nuxt
+  `/api/auth/**` proxy for Better Auth API-key `create`/`delete`, shows the raw
+  key once, stores only the Better Auth key id plus CMS scopes in
+  `mcpCredentialSettings`, lets the user choose expiry and scopes, lists current
+  owner credentials, and revokes both CMS credential settings and the Better
+  Auth key.
+- Boundary note: this intentionally did not add a parallel CMS token creator and
+  did not broaden MCP credential self-service to non-owners. The existing
+  `mcpCredentials` mutations remain guarded by `manageSettings`; changing that
+  is a separate product-role decision.
+- Not complete. Studio does not yet include run start controls or trusted
+  automation controls.
+- Verification passed:
+  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/runtime/cms-studio-query.test.ts`,
+  `pnpm --filter @lupinum/ginko-cms studio:typecheck`,
+  `pnpm exec vue-tsc -p packages/cms/tsconfig.runtime.json --noEmit`, and
+  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/shared/studio-workflow.test.ts`.
+- Review inbox verification passed:
+  `pnpm exec vitest run test/component/reviewRequests.test.ts`,
+  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/shared/studio-workflow.test.ts test/shared/mcp-tools.test.ts`,
+  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
+  `pnpm --filter @lupinum/ginko-cms typecheck`.
+- Agent workspace verification passed:
+  `pnpm exec vitest run test/component/agentRuns.test.ts`,
+  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
+  `pnpm --filter @lupinum/ginko-cms typecheck`.
+- Better Auth MCP connection-management verification passed:
+  `pnpm exec vitest run test/component/mcpCredentials.test.ts`,
+  `pnpm --filter @lupinum/ginko-cms studio:typecheck`,
+  `pnpm --filter @lupinum/ginko-cms typecheck`,
+  `pnpm install`,
+  `pnpm run check:publish-specifiers`,
+  `pnpm run package:e2e`, and
+  `pnpm run release:verify`.
+- Agent revoke UI verification passed:
+  `pnpm --filter @lupinum/ginko-cms studio:typecheck` and
+  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/runtime/cms-studio-query.test.ts`.
+- Final gate rerun passed after the Studio agent-run revoke and docs slices:
+  `pnpm run release:verify`.
+- Note: `test/runtime/editor-workflows.test.ts` is listed in the plan but does
+  not currently exist in this repo.
 
 Acceptance criteria:
 
@@ -1045,13 +1390,28 @@ Objective:
 
 Todos:
 
-- [ ] Keep managed asset metadata and public URL gating.
-- [ ] Keep content asset refs.
-- [ ] Keep import preview/apply and no-partial-write behavior.
-- [ ] Separate content exchange from operator backup/restore.
-- [ ] Add restore dry-run/apply before claiming operator-grade restore.
-- [ ] Keep purge gated and audited.
-- [ ] Add smoke for export/import roundtrip if not already covered in this repo.
+- [x] Keep managed asset metadata and public URL gating.
+- [x] Keep content asset refs.
+- [x] Keep import preview/apply and no-partial-write behavior.
+- [x] Separate content exchange from operator backup/restore.
+- [x] Add restore dry-run/apply before claiming operator-grade restore.
+- [x] Keep purge gated and audited.
+- [x] Add smoke for export/import roundtrip if not already covered in this repo.
+
+Result on 2026-07-04:
+
+- Passed for the existing operational baseline. Asset metadata/public URL
+  gating, content asset refs, import preview/apply behavior, backup separation,
+  purge gates, and rich-text asset mapping tests pass.
+- Added. `backup.previewRestoreBackup` dry-runs restore impact from a backup
+  artifact without writing. `backup.restoreBackup` applies the safe v1 restore
+  case only: missing asset-scoped artifacts with a caller-confirmed checksum.
+  Full, collection, and entry artifacts remain comparison sources for
+  operator-led repair; they are not automatically applied over live tables.
+- Verification passed:
+  `pnpm exec vitest run test/component/assets.test.ts test/component/import.test.ts test/component/backup.test.ts test/component/storage-maintenance.test.ts test/runtime/editor/richtext-asset-mapping.test.ts`
+  and
+  `pnpm --filter @lupinum/ginko-cms-convex typecheck`.
 
 Acceptance criteria:
 
@@ -1077,12 +1437,21 @@ Objective:
 
 Todos:
 
-- [ ] Keep public provider surface.
-- [ ] Ensure provider reads only public projections.
-- [ ] Preserve old site DSL ergonomics through Ginko Content provider semantics,
+- [x] Keep public provider surface.
+- [x] Ensure provider reads only public projections.
+- [x] Preserve old site DSL ergonomics through Ginko Content provider semantics,
       not by reviving old CMS API surfaces.
-- [ ] Keep route diagnostics honest.
-- [ ] Keep revalidation outbox behavior clear.
+- [x] Keep route diagnostics honest.
+- [x] Keep revalidation outbox behavior clear.
+
+Result on 2026-07-04:
+
+- Passed. Public API, Nuxt provider, publish, and revalidation checks pass
+  against published projections.
+- Passed. Route/path changes and revalidation behavior remain covered by the
+  existing component tests.
+- Verification passed:
+  `pnpm exec vitest run test/component/entries/publish.test.ts test/component/public-api.test.ts test/shared/nuxt-provider.test.ts test/component/revalidation.test.ts test/module/e2e-package-consumer.test.ts`.
 
 Acceptance criteria:
 
@@ -1107,11 +1476,37 @@ Objective:
 
 Todos:
 
-- [ ] Run Experiment 6 only after supervised/review mode works.
-- [ ] Add direct publish only if the model is easy to explain and test.
-- [ ] Keep direct archive/delete/purge out unless explicitly designed.
-- [ ] Require explicit trusted scope and current publisher/owner role.
-- [ ] Add audit and rollback guidance.
+- [x] Run Experiment 6 only after supervised/review mode works.
+- [x] Add direct publish only if the model is easy to explain and test.
+- [x] Keep direct archive/delete/purge out unless explicitly designed.
+- [x] Require explicit trusted scope and current publisher/owner role.
+- [x] Add audit and rollback guidance.
+
+Result on 2026-07-04:
+
+- Decision: do not add trusted direct publish in this slice. Supervised/review
+  mode is not fully wired through MCP and Studio yet, so trusted automation
+  would weaken the mental model.
+- Decision updated after the supervised/review slices: do not run trusted direct
+  publish Experiment 6 for v1. The review path is the default product model, and
+  trusted direct publish remains deferred until it has its own small proof and
+  release gate.
+- Passed. Existing publish, credential-scope, MCP runtime, and MCP surface tests
+  still pass. The new credential `safetyMode: "trusted"` is metadata only and
+  does not grant direct execution.
+- Passed. `mcpCredentials.upsertSettings` now rejects `safetyMode: "trusted"`
+  unless the delegated member is currently an owner or publisher and the
+  credential explicitly includes `cms.entries.publish`.
+- Verification passed:
+  `pnpm exec vitest run test/component/entries/publish.test.ts test/component/mcpCredentials.test.ts test/runtime/mcp-runtime.test.ts test/shared/mcp-tools.test.ts`.
+- Trusted-scope invariant verification passed again in
+  `pnpm exec vitest run test/component/mcpCredentials.test.ts` and in the final
+  `pnpm run release:verify`.
+- Passed. Audit and rollback guidance was added to
+  `docs/guides/migrations/trellis-era-migration.md`: audit MCP-assisted work
+  through `agentRuns` and `reviewRequests`; preserve current state before any
+  restore; rerun `ginko-cms deploy --check` and inspect Studio before resuming
+  writes.
 
 Acceptance criteria:
 
@@ -1142,15 +1537,41 @@ Objective:
 
 Todos:
 
-- [ ] Update README install story.
-- [ ] Update quickstart.
-- [ ] Update environment docs.
-- [ ] Update MCP docs.
-- [ ] Update auth/role docs.
-- [ ] Update Studio workflow docs.
-- [ ] Update backup/import/restore docs.
-- [ ] Write breaking migration guide from Trellis-era Ginko CMS.
-- [ ] Add cleanup checklist for old host generated files.
+- [x] Update README install story.
+- [x] Update quickstart.
+- [x] Update environment docs.
+- [x] Update MCP docs.
+- [x] Update auth/role docs.
+- [x] Update Studio workflow docs.
+- [x] Update backup/import/restore docs.
+- [x] Write breaking migration guide from Trellis-era Ginko CMS.
+- [x] Add cleanup checklist for old host generated files.
+
+Result on 2026-07-04:
+
+- Partial pass. Existing install-story and public-vocabulary doc checks pass.
+- Updated `docs/getting-started/environment.md` and Studio MCP connection help
+  to describe Better Auth API keys, `CONVEX_SITE_URL`, optional
+  `GINKO_CMS_BETTER_AUTH_BASE_URL`, and Better Auth Convex token transport for
+  normal MCP calls.
+- Updated `docs/reference/content-model.md` to include
+  `mcpCredentialSettings`, `agentRuns`, and `reviewRequests`; the legacy
+  `mcpKeys` table is no longer documented because it was deleted.
+- Updated README/package README links, `docs/reference/auth-and-roles.md`,
+  `docs/guides/mcp-agent-workflows.md`, Studio workflow docs, and
+  `docs/guides/migrations/trellis-era-migration.md` to describe the current
+  Better Auth API-key, CMS role, agent-run, review-request, and Trellis cleanup
+  story.
+- Passed. Documentation now reflects the final MCP transport decision:
+  `CONVEX_DEPLOY_KEY` remains setup/contract-sync admin transport, not normal
+  MCP runtime transport.
+- Verification passed:
+  `pnpm run check:docs:install-story && pnpm run check:public-vocabulary`.
+- Documentation slice verification passed again after the auth/role, Studio,
+  MCP agent workflow, and Trellis migration docs update:
+  `pnpm run check:docs:install-story && pnpm run check:public-vocabulary`.
+- Final gate rerun passed after the documentation updates:
+  `pnpm run release:verify`.
 
 Acceptance criteria:
 
@@ -1177,14 +1598,74 @@ Objective:
 
 Todos:
 
-- [ ] Delete old MCP key UI/runtime if replaced.
-- [ ] Delete `projectTool` after explicit MCP tools exist.
-- [ ] Delete unused compatibility wrappers.
-- [ ] Remove generated `dist/` churn from commits.
-- [ ] Run no-zombie searches.
-- [ ] Run full verification.
-- [ ] Pack and inspect artifacts.
-- [ ] Prepare release notes and migration notes.
+- [x] Delete old MCP key UI if replaced.
+- [x] Delete `projectTool` after explicit MCP tools exist.
+- [x] Delete unused compatibility wrappers.
+- [x] Remove generated `dist/` churn from commits.
+- [x] Run no-zombie searches.
+- [x] Run full verification.
+- [x] Pack and inspect artifacts.
+- [x] Prepare release notes and migration notes.
+
+Result on 2026-07-04:
+
+- Passed. `pnpm run release:verify` completed end to end after the migration
+  slices.
+- Passed. Packed artifact local specifier checks found no `workspace:`, `file:`,
+  or `link:` specs in packed manifests. Clean package E2E installed packed
+  `@lupinum/ginko-cms`, `@lupinum/ginko-cms-convex`, and
+  `@lupinum/ginko-cms-contract`; the consumer used `better-convex-nuxt=0.4.0`.
+- Passed. Production audit reported no known vulnerabilities.
+- Passed. Active Trellis runtime search returned no `@lupinum/trellis`,
+  `#trellis`, `_trellisForwarding`, or `defineTrellis` matches outside ignored
+  generated/dependency output.
+- Generated `.pack/`, package `dist/`, and `playground/.nuxt/` output exists
+  from verification but remains ignored and must not be committed.
+- Passed. Old operation MCP tool files and `projectTool` were deleted after the
+  explicit MCP surface covered the active workflows.
+- Passed. Backend legacy `mcpKeys` table/module/schema/tests were deleted and
+  component entrypoint boundaries were updated.
+- Passed. `pnpm run check:stale-surfaces` passed. The remaining compatibility
+  matches are intentional: package compatibility metadata, the required Convex
+  CLI package-json shim, migration docs/tests, or current caller/auth transport
+  code awaiting the MCP auth-token cutover.
+- Passed. `pnpm run release:verify` completed end to end after this cleanup:
+  format, lint, typecheck, publish-specifier checks, full tests, clean-consumer
+  package E2E, and production audit all passed.
+- Passed again after the Studio review inbox, agent workspace, and MCP
+  agent-run write-link slices. `pnpm run release:verify` completed format,
+  lint, typecheck, publish-specifier checks, full Vitest
+  (`92` files, `687` tests, `1` skipped), clean-consumer package E2E, packed
+  local-specifier checks for four tarballs, and production audit.
+- Passed again after the redaction, Studio agent-run revoke, and docs slices.
+  `pnpm run release:verify` completed format, lint with existing warnings only,
+  typecheck, publish-specifier checks, full Vitest (`93` files, `688` tests,
+  `1` skipped), clean-consumer package E2E, packed local-specifier checks for
+  four tarballs, and production audit.
+- Passed again after the Studio Better Auth MCP connection-management and
+  trusted-scope invariant slices. `pnpm run release:verify` completed format,
+  lint with existing warnings only, typecheck/build, publish-specifier checks,
+  full Vitest (`93` files, `690` tests, `1` skipped), clean-consumer package
+  E2E, packed local-specifier checks for four tarballs, and production audit.
+- Passed again after the Phase 7 MCP token-transport cutover and release-note
+  updates. `pnpm run release:verify` completed format, lint with existing
+  warnings only, typecheck/build, publish-specifier checks, full Vitest
+  (`93` files, `691` tests, `1` skipped), clean-consumer package E2E, packed
+  local-specifier checks for four tarballs, and production audit. A separate
+  `pnpm audit --prod --audit-level low` rerun also reported no known
+  vulnerabilities.
+- Passed. `CHANGELOG.md` now has unreleased release and migration notes for the
+  direct package install story, Trellis cleanup, Better Auth MCP credentials,
+  token-based MCP Convex transport, and review-first agent workflow.
+- Passed. `docs/guides/migrations/trellis-era-migration.md` now covers the
+  host cleanup checklist, Better Auth MCP token transport, audit points, and
+  rollback guidance.
+
+Next gate:
+
+- No remaining migration phase gate is open. Before publishing, a human
+  maintainer still needs to inspect `.pack/*.tgz`, confirm package versions and
+  npm settings, and follow `MAINTAINING.md`.
 
 Acceptance criteria:
 

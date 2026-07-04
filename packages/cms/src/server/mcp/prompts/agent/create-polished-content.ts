@@ -19,7 +19,7 @@ export default defineMcpPrompt({
       '2. Create the entry with `create-entry`, then write draft content with `save-entry-draft`.',
       '3. Reuse known existing assets with `get-asset` and `resolve-asset-urls`; place asset ids with `save-entry-draft`.',
       '4. Inspect `get-entry` and use `page`, `list`, `search`, `nav`, `sitemap`, and `explain-public-visibility` for readiness checks.',
-      '5. To preview publish impact, call `publish-entry` without `_confirmationToken`; do not execute until the user confirms the returned preview.confirmation.token.',
+      '5. To prepare publishing, call `request-publish-review` with the active `agentRunId`, observed draft version, collection, entry, and target locales. Do not execute publish directly.',
       '6. After publishing, verify public output with `page`, `list`, `search`, `nav`, and `sitemap`.',
     ].join('\n'),
 })

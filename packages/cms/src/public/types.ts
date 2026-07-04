@@ -38,6 +38,11 @@ type StudioMutationRef = FunctionReference<'mutation'>
 
 export interface GinkoCmsStudioHostApi {
   ginkoCms: {
+    agentRuns: {
+      completeRun: StudioMutationRef
+      listOwnRuns: StudioQueryRef
+      revokeRun: StudioMutationRef
+    }
     assets: {
       attachAssetsToEntry: StudioMutationRef
       deleteAsset: StudioMutationRef
@@ -60,6 +65,11 @@ export interface GinkoCmsStudioHostApi {
     }
     imports: {
       listImportRuns: StudioQueryRef
+    }
+    mcpCredentials: {
+      listOwnSettings: StudioQueryRef
+      revokeSettings: StudioMutationRef
+      upsertSettings: StudioMutationRef
     }
     diagnostics: {
       validatePublicRoutes: StudioQueryRef
@@ -96,11 +106,6 @@ export interface GinkoCmsStudioHostApi {
       saveEntryDraft: StudioMutationRef
       unpublishEntry: StudioMutationRef
     }
-    mcpKeys: {
-      create: StudioMutationRef
-      list: StudioQueryRef
-      revoke: StudioMutationRef
-    }
     members: {
       addMember: StudioMutationRef
       bootstrapCmsOwner: StudioMutationRef
@@ -127,6 +132,11 @@ export interface GinkoCmsStudioHostApi {
       retryRevalidationJob: StudioMutationRef
       upsertRevalidationTarget: StudioMutationRef
     }
+    reviewRequests: {
+      approveReview: StudioMutationRef
+      listPendingReviews: StudioQueryRef
+      rejectReview: StudioMutationRef
+    }
     settings: {
       getSettings: StudioQueryRef
       getStudioSettings: StudioQueryRef
@@ -144,11 +154,32 @@ export interface GinkoCmsStudioHostApi {
   }
 }
 
+export interface GinkoCmsStudioMcpApiKeyCreateInput {
+  name: string
+  expiresIn?: number
+  metadata?: Record<string, unknown>
+}
+
+export interface GinkoCmsStudioMcpApiKeyCreateResult {
+  id: string
+  key: string
+  name?: string | null
+  expiresAt?: string | number | Date | null
+}
+
+export interface GinkoCmsStudioMcpApiKeys {
+  create: (
+    input: GinkoCmsStudioMcpApiKeyCreateInput,
+  ) => Promise<GinkoCmsStudioMcpApiKeyCreateResult>
+  delete: (input: { keyId: string }) => Promise<void>
+}
+
 export interface GinkoCmsStudioHostBridge {
   convexUrl: string
   config: GinkoCmsPublicConfig
   getAuthToken: () => string | null | Promise<string | null>
   onSignOut: () => void | Promise<void>
+  mcpApiKeys?: GinkoCmsStudioMcpApiKeys
   nuxtApp?: Record<string, unknown>
   api?: GinkoCmsStudioHostApi
   auth?: Pick<

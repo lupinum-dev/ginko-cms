@@ -55,7 +55,7 @@ export default defineContentConfig({
 })
 ```
 
-## Generate Bridge Files
+## Generate Convex Setup Files
 
 Run the init command from the Nuxt app root:
 

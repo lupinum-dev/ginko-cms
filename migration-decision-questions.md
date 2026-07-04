@@ -61,36 +61,36 @@ Important findings:
 
 ## Recommended Decision Summary
 
-| # | Decision | Recommended answer |
-| --- | --- | --- |
-| 1 | Exposed MCP | Yes. MCP is first-class and uses Nuxt MCP Toolkit. |
-| 2 | MCP tokens | Use Better Auth API keys for connection tokens, with CMS-owned scopes and agent runs. |
-| 3 | Direct MCP publish/archive/delete | No by default. MCP requests publish/archive review; add direct publish only later as explicit trusted automation. |
-| 4 | `agentRuns` and `reviewRequests` | Yes. Add both as core CMS concepts. |
-| 5 | Role matrix | Owner controls destructive/admin; publisher publishes and approves; editor drafts; viewer reads; agents follow delegated scopes. |
-| 6 | Canonical user id | Use Better Auth stable `user.id` as CMS `authUserId`. Do not use email. |
-| 7 | `publicRoutes` | Collapse into `publicEntries` unless a measured index/query reason proves it must stay. |
-| 8 | Released-surface migration | Hard cut unreleased internals; semver-visible migration/deprecation for released APIs/data. |
-| 9 | Contract package | Keep short-term; move neutral semantics toward Ginko Content long-term. |
-| 10 | Standalone Studio SPA | Keep. |
-| 11 | Host Convex setup files | Keep tiny: five or fewer files, no generated bridge sprawl. |
-| 12 | `better-convex-nuxt` | Use as official Nuxt/Convex/Better Auth host integration. |
-| 13 | Deploy key actor | No. Deploy key is setup/admin transport only. |
-| 14 | Session-backed MCP | External MCP should use API keys. Sessions are for Studio/bootstrap only. |
-| 15 | Derived tables | Keep only with canonical source, rebuild, health, and invariant tests. |
-| 16 | Backup vs content exchange | Keep separate. |
-| 17 | Restore claim | Do not claim operator-grade restore until dry-run/apply exists. |
-| 18 | Import behavior | Keep strict preview/apply and no-partial-write behavior. |
-| 19 | Assets | Keep current asset invariants; adopt clearer exchange language. |
-| 20 | Tenants/sites/workspaces | No CMS tenants now. Use Better Auth teams only if host/team auth is truly needed. |
-| 21 | AI authority | AI can act like a delegated user within explicit permissions; default mode proposes/drafts, trusted mode can execute. |
-| 22 | Agent destructive actions | Default to review requests; allow explicit trusted/autonomous mode later with narrow scopes and audit. |
-| 23 | Editor workflow | Optimize Studio for attention, visibility, preview impact, rollback/archive/restore confidence. |
-| 24 | CMS2 Studio primitives | Import concepts: agent workspace, review panel, readiness, projection health, AI cards. |
-| 25 | Old site DSL ergonomics | Preserve through Ginko Content provider, not old DSL revival. |
-| 26 | Packed local dependency specs | Block `workspace:`, `file:`, and `link:` in packed manifests. |
-| 27 | Observability | Keep opt-in. |
-| 28 | Old CMS concepts | Keep ban list; do not re-add platform/SaaS/admin-shell concepts. |
+| #   | Decision                          | Recommended answer                                                                                                               |
+| --- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Exposed MCP                       | Yes. MCP is first-class and uses Nuxt MCP Toolkit.                                                                               |
+| 2   | MCP tokens                        | Use Better Auth API keys for connection tokens, with CMS-owned scopes and agent runs.                                            |
+| 3   | Direct MCP publish/archive/delete | No by default. MCP requests publish/archive review; add direct publish only later as explicit trusted automation.                |
+| 4   | `agentRuns` and `reviewRequests`  | Yes. Add both as core CMS concepts.                                                                                              |
+| 5   | Role matrix                       | Owner controls destructive/admin; publisher publishes and approves; editor drafts; viewer reads; agents follow delegated scopes. |
+| 6   | Canonical user id                 | Use Better Auth stable `user.id` as CMS `authUserId`. Do not use email.                                                          |
+| 7   | `publicRoutes`                    | Collapse into `publicEntries` unless a measured index/query reason proves it must stay.                                          |
+| 8   | Released-surface migration        | Hard cut unreleased internals; semver-visible migration/deprecation for released APIs/data.                                      |
+| 9   | Contract package                  | Keep short-term; move neutral semantics toward Ginko Content long-term.                                                          |
+| 10  | Standalone Studio SPA             | Keep.                                                                                                                            |
+| 11  | Host Convex setup files           | Keep tiny: five or fewer files, no generated bridge sprawl.                                                                      |
+| 12  | `better-convex-nuxt`              | Use as official Nuxt/Convex/Better Auth host integration.                                                                        |
+| 13  | Deploy key actor                  | No. Deploy key is setup/admin transport only.                                                                                    |
+| 14  | Session-backed MCP                | External MCP should use API keys. Sessions are for Studio/bootstrap only.                                                        |
+| 15  | Derived tables                    | Keep only with canonical source, rebuild, health, and invariant tests.                                                           |
+| 16  | Backup vs content exchange        | Keep separate.                                                                                                                   |
+| 17  | Restore claim                     | Do not claim operator-grade restore until dry-run/apply exists.                                                                  |
+| 18  | Import behavior                   | Keep strict preview/apply and no-partial-write behavior.                                                                         |
+| 19  | Assets                            | Keep current asset invariants; adopt clearer exchange language.                                                                  |
+| 20  | Tenants/sites/workspaces          | No CMS tenants now. Use Better Auth teams only if host/team auth is truly needed.                                                |
+| 21  | AI authority                      | AI can act like a delegated user within explicit permissions; default mode proposes/drafts, trusted mode can execute.            |
+| 22  | Agent destructive actions         | Default to review requests; allow explicit trusted/autonomous mode later with narrow scopes and audit.                           |
+| 23  | Editor workflow                   | Optimize Studio for attention, visibility, preview impact, rollback/archive/restore confidence.                                  |
+| 24  | CMS2 Studio primitives            | Import concepts: agent workspace, review panel, readiness, projection health, AI cards.                                          |
+| 25  | Old site DSL ergonomics           | Preserve through Ginko Content provider, not old DSL revival.                                                                    |
+| 26  | Packed local dependency specs     | Block `workspace:`, `file:`, and `link:` in packed manifests.                                                                    |
+| 27  | Observability                     | Keep opt-in.                                                                                                                     |
+| 28  | Old CMS concepts                  | Keep ban list; do not re-add platform/SaaS/admin-shell concepts.                                                                 |
 
 ## Short Glossary
 
@@ -839,16 +839,16 @@ Current roles are:
 
 ### Actions To Decide
 
-| Action | Needs decision |
-| --- | --- |
-| Read Studio content | Usually all members |
-| Save drafts | Owner/publisher/editor |
-| Publish/unpublish | Owner/publisher |
-| Archive/restore | Owner only, or publisher too? |
-| Purge/delete | Owner only |
-| Approve/reject agent reviews | Owner/publisher |
-| Manage members/settings | Owner only |
-| Start agent runs | Which roles and which capabilities? |
+| Action                       | Needs decision                      |
+| ---------------------------- | ----------------------------------- |
+| Read Studio content          | Usually all members                 |
+| Save drafts                  | Owner/publisher/editor              |
+| Publish/unpublish            | Owner/publisher                     |
+| Archive/restore              | Owner only, or publisher too?       |
+| Purge/delete                 | Owner only                          |
+| Approve/reject agent reviews | Owner/publisher                     |
+| Manage members/settings      | Owner only                          |
+| Start agent runs             | Which roles and which capabilities? |
 
 ### Recommended Default
 

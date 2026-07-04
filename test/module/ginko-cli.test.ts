@@ -390,13 +390,18 @@ describe('ginko-cms CLI', () => {
     )
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      ['CONVEX_DEPLOY_KEY=deploy-key-test', ''].join('\n'),
+      [
+        'CONVEX_URL=https://example.convex.cloud',
+        'CONVEX_SITE_URL=https://example.convex.site',
+        '',
+      ].join('\n'),
       'utf8',
     )
 
     const doctor = await runCli(['mcp-doctor'], rootDir)
     expect(doctor.code).toBe(0)
-    expect(doctor.stdout).toContain('ok - CONVEX_DEPLOY_KEY')
+    expect(doctor.stdout).toContain('ok - Convex URL')
+    expect(doctor.stdout).toContain('ok - Better Auth base URL')
     expect(doctor.stdout).toContain('ok - secure-exec host dependency')
   })
 
@@ -421,7 +426,11 @@ describe('ginko-cms CLI', () => {
     )
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      ['CONVEX_DEPLOY_KEY=deploy-key-test', ''].join('\n'),
+      [
+        'CONVEX_URL=https://example.convex.cloud',
+        'CONVEX_SITE_URL=https://example.convex.site',
+        '',
+      ].join('\n'),
       'utf8',
     )
 

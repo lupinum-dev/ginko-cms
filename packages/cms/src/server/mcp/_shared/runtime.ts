@@ -10,12 +10,12 @@ import {
 
 type AccessContextQuery = () => Promise<CmsAccessContext | null>
 
-export function getMcpCmsCallerFromAuth(auth?: { mcpKeyId: string } | null): CmsCaller {
+export function getMcpCmsCallerFromAuth(auth?: { apiKeyId: string } | null): CmsCaller {
   if (!auth) {
     return cmsAnonymousCaller()
   }
 
-  return cmsMcpCaller(auth.mcpKeyId)
+  return cmsMcpCaller(auth.apiKeyId)
 }
 
 export async function resolveCmsMcpCapabilitiesForCmsCaller(

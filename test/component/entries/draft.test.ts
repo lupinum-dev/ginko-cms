@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
@@ -9,6 +10,7 @@ import {
   createCtx,
   publishEntry,
   revertDraftToPublished,
+  seedMember,
   seedOwner,
   seedSettings,
   seedEditorFixture,
@@ -124,6 +126,70 @@ describe('editor draft mutations', () => {
     expect(entry?.draftVersion).toBe(2)
 
     expect(await ctx.readAll('entryRevisions')).toEqual([])
+  })
+
+  it('rechecks MCP API-key settings and member role for draft writes and publish attempts', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    await ctx.seed(
+      'mcpCredentialSettings' as never,
+      {
+        apiKeyId: 'ba_key_editor',
+        ownerUserId: 'editor-1',
+        label: 'editor agent',
+        scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+        status: 'active',
+        createdBy: 'owner-1',
+        createdAt: Date.now(),
+        updatedBy: 'owner-1',
+        updatedAt: Date.now(),
+        revokedAt: null,
+      } as never,
+    )
+
+    const owner = ctx.asCmsUser('owner-1')
+    const editorAgent = ctx.asMcpApiKey('ba_key_editor', 'editor-1')
+
+    await expect(
+      editorAgent.saveEntryDraft({
+        entryId,
+        expectedDraftVersion: 1,
+        patch: {
+          locales: {
+            en: {
+              values: { title: 'Edited by agent' },
+            },
+          },
+        },
+      }),
+    ).resolves.toEqual({
+      draftVersion: 2,
+      dirtyLocales: ['en'],
+    })
+
+    await expect(publishEntry(editorAgent, entryId)).rejects.toThrow('Forbidden: Publish entries')
+
+    await owner.mutation(api.members.updateMemberRole, {
+      userId: 'editor-1',
+      role: 'viewer',
+    })
+
+    await expect(
+      editorAgent.saveEntryDraft({
+        entryId,
+        expectedDraftVersion: 2,
+        patch: {
+          locales: {
+            en: {
+              values: { title: 'Blocked after downgrade' },
+            },
+          },
+        },
+      }),
+    ).rejects.toThrow('Forbidden: Edit entries')
   })
 
   it('returns rich text draft state separately from localized values', async () => {

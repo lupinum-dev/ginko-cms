@@ -17,12 +17,21 @@ export async function runMcpDoctor(cwd: string, io: CliIo): Promise<number> {
   let issues = 0
   const env = readLocalEnv(cwd)
   const hasEnv = (key: string) => Boolean((process.env[key] ?? env[key])?.trim())
+  const hasBetterAuthBaseUrl =
+    hasEnv('GINKO_CMS_BETTER_AUTH_BASE_URL') ||
+    hasEnv('CONVEX_SITE_URL') ||
+    hasEnv('BETTER_AUTH_URL')
   const convexSetupIssues = checkConvexComponentInstall(cwd)
   const checks = [
     {
-      name: 'CONVEX_DEPLOY_KEY',
-      ok: hasEnv('CONVEX_DEPLOY_KEY'),
-      fix: 'Set CONVEX_DEPLOY_KEY in .env.local or the server environment.',
+      name: 'Convex URL',
+      ok: hasEnv('NUXT_PUBLIC_CONVEX_URL') || hasEnv('CONVEX_URL'),
+      fix: 'Set NUXT_PUBLIC_CONVEX_URL or CONVEX_URL in .env.local or the server environment.',
+    },
+    {
+      name: 'Better Auth base URL',
+      ok: hasBetterAuthBaseUrl,
+      fix: 'Set GINKO_CMS_BETTER_AUTH_BASE_URL, CONVEX_SITE_URL, or BETTER_AUTH_URL in .env.local or the server environment.',
     },
     {
       name: 'secure-exec host dependency',

@@ -1,9 +1,17 @@
+import type { CmsCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { McpToolCallbackResult } from '@nuxtjs/mcp-toolkit/server'
 import type { H3Event } from 'h3'
 
-import { getMcpToolContext } from './project-tool-runtime'
+import { components } from '#convex/api'
+
+import { getMcpAuth } from './auth.js'
+import type { CmsMcpCapabilities } from './capabilities.js'
+import { createConvexAuthCaller } from './convex-caller.js'
+import { redactMcpResponse } from './response-redaction.js'
+import { getMcpCmsCallerFromAuth, resolveCmsMcpCapabilitiesForCmsCaller } from './runtime.js'
 
 type JsonRecord = Record<string, unknown>
+type McpConvexCaller = ReturnType<typeof createConvexAuthCaller>
 export type AgentMcpContext = Awaited<ReturnType<typeof getMcpToolContext>>
 
 type McpErrorCategory =
@@ -40,6 +48,48 @@ export class AgentToolError extends Error {
   }
 }
 
+function getMcpCmsCaller(event?: H3Event): CmsCaller {
+  return getMcpCmsCallerFromAuth(getMcpAuth(event))
+}
+
+function getMcpConvexCaller(event: H3Event, caller: CmsCaller): McpConvexCaller {
+  const auth = getMcpAuth(event)
+  if (caller.kind !== 'mcp') {
+    throw new Error('MCP Convex calls require MCP authentication.')
+  }
+  if (!auth || auth.apiKeyId !== caller.apiKeyId) {
+    throw new Error('MCP Convex calls require matching MCP authentication.')
+  }
+  return createConvexAuthCaller(event, auth.convexAuthToken)
+}
+
+async function resolveCmsMcpCapabilities(
+  caller: CmsCaller,
+  convex: McpConvexCaller,
+): Promise<CmsMcpCapabilities> {
+  return await resolveCmsMcpCapabilitiesForCmsCaller(
+    caller,
+    async () => await convex.query(components.ginkoCms.members.getAccessContext, {}),
+  )
+}
+
+export async function getMcpToolContext(event: H3Event): Promise<{
+  capabilities: CmsMcpCapabilities
+  convex: McpConvexCaller
+  caller: CmsCaller
+  runtime: Record<string, never>
+}> {
+  const caller = getMcpCmsCaller(event)
+  const convex = getMcpConvexCaller(event, caller)
+  const capabilities = await resolveCmsMcpCapabilities(caller, convex)
+  return {
+    capabilities,
+    convex,
+    caller,
+    runtime: {},
+  }
+}
+
 export function throwAgentToolError(
   code: string,
   message: string,
@@ -51,7 +101,7 @@ export function throwAgentToolError(
 export function ok(data: unknown, summary: string): McpToolCallbackResult {
   return {
     content: [{ type: 'text', text: summary }],
-    structuredContent: data as Record<string, unknown>,
+    structuredContent: redactMcpResponse(data) as Record<string, unknown>,
   }
 }
 
@@ -159,7 +209,7 @@ export function fail(
         retryable: ['network', 'server', 'rate_limit', 'conflict'].includes(
           options.category ?? 'validation',
         ),
-        ...(details === undefined ? {} : { details }),
+        ...(details === undefined ? {} : { details: redactMcpResponse(details) }),
         ...(options.suggestedAction ? { suggestedAction: options.suggestedAction } : {}),
       },
     },

@@ -17,7 +17,6 @@ const componentModules = [
   'entries/read',
   'entries/tree',
   'imports',
-  'mcpKeys',
   'members',
   'migrations',
   'operations',

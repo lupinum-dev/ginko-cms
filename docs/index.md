@@ -23,6 +23,10 @@ Use these docs by reader task:
 - Advanced config: use
   [CMS config helpers](./reference/cms-config-helpers.md) only when the app does
   not derive CMS contracts from `content.config.ts`.
+- Auth and roles: use [Auth and roles](./reference/auth-and-roles.md) for the
+  Better Auth, CMS member, MCP credential, agent-run, and review-request model.
+- Agent workflows: use [MCP agent workflows](./guides/mcp-agent-workflows.md)
+  for the current supervised MCP tool surface.
 - Release and recovery work: use the
   [release candidate checklist](./maintenance/release-candidate.md) and
   [backup and recovery](./maintenance/backup-and-recovery.md).
@@ -41,11 +45,14 @@ docs/
   guides/
     changing-collections.md
     filesystem-migration.md
+    mcp-agent-workflows.md
     theming-the-studio.md
     migrations/
       recipes.md
       recovery.md
+      trellis-era-migration.md
   reference/
+    auth-and-roles.md
     content-model.md
     cms-config-helpers.md
     nuxt-content-provider.md

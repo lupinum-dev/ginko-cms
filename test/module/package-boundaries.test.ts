@@ -390,7 +390,6 @@ describe('package boundary contracts', () => {
       'entries/read.js',
       'entries/tree.js',
       'imports.js',
-      'mcpKeys.js',
       'members.js',
       'migrations.js',
       'operations.js',

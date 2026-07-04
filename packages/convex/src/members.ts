@@ -11,6 +11,7 @@ import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
 import {
+  can,
   canArchiveEntries,
   canCreateEntries,
   canDeleteEntries,
@@ -41,7 +42,7 @@ import {
 } from './operationHelpers.js'
 
 type MemberDoc = Doc<'members'>
-type McpKeyDoc = Doc<'mcpKeys'>
+type McpCredentialSettingsDoc = Doc<'mcpCredentialSettings'>
 const MEMBER_LIST_MAX = 500
 
 function definePermission(input: { key: string; label: string; check: CmsGuard }) {
@@ -171,10 +172,10 @@ const getAccessContextDefinition = {
   handler: async (ctx: { appIdentity: () => Promise<unknown> }) => {
     const appIdentity = await ctx.appIdentity()
     if (!appIdentity) return null
-    const can = Object.fromEntries(
+    const effectivePermissions = Object.fromEntries(
       cmsPermissions.map((permission) => [
         permission.key,
-        appIdentity ? permission.check.check(appIdentity as never) : false,
+        appIdentity ? can(appIdentity as never, permission.check) : false,
       ]),
     )
     return {
@@ -186,8 +187,8 @@ const getAccessContextDefinition = {
         appIdentity && typeof appIdentity === 'object' && 'role' in appIdentity
           ? appIdentity.role
           : null,
-      can,
-      permissions: can,
+      can: effectivePermissions,
+      permissions: effectivePermissions,
       member:
         appIdentity &&
         typeof appIdentity === 'object' &&
@@ -419,17 +420,19 @@ export const removeMemberOperation = defineCmsOperation({
     }
 
     const now = Date.now()
-    const boundMcpKeys: McpKeyDoc[] = await ctx.db
-      .query('mcpKeys')
-      .withIndex('by_bound_user', (q: { eq: (field: 'boundUserId', value: string) => unknown }) =>
-        q.eq('boundUserId', member.userId),
+    const credentialSettings: McpCredentialSettingsDoc[] = await ctx.db
+      .query('mcpCredentialSettings')
+      .withIndex('by_owner_user', (q: { eq: (field: 'ownerUserId', value: string) => unknown }) =>
+        q.eq('ownerUserId', member.userId),
       )
       .collect()
-    for (const key of boundMcpKeys) {
-      if (key.status !== 'active') continue
-      await ctx.db.patch(key._id, {
+    for (const settings of credentialSettings) {
+      if (settings.status !== 'active') continue
+      await ctx.db.patch(settings._id, {
         status: 'revoked',
         revokedAt: now,
+        updatedAt: now,
+        updatedBy: appIdentity.userId,
       })
     }
 
@@ -441,7 +444,8 @@ export const removeMemberOperation = defineCmsOperation({
       appIdentityId: appIdentity.userId,
       detail: {
         userId: args.userId,
-        revokedMcpKeys: boundMcpKeys.filter((key) => key.status === 'active').length,
+        revokedMcpCredentials: credentialSettings.filter((settings) => settings.status === 'active')
+          .length,
       },
     })
 

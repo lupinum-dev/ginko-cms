@@ -6,7 +6,6 @@ import type { Id, TableNames } from '../_generated/dataModel.js'
 export const asEntryId = (id: string) => id as Id<'entries'>
 export const asCollectionId = (id: string) => id as Id<'collections'>
 export const asAssetId = (id: string) => id as Id<'assets'>
-export const asMcpKeyId = (id: string) => id as Id<'mcpKeys'>
 export const asStorageId = (id: string) => id as Id<'_storage'>
 
 // Outbound: typed Id → string for API boundary

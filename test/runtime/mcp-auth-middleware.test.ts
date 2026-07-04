@@ -12,8 +12,14 @@ type StorageValue = number[]
 
 const storageData = new Map<string, StorageValue>()
 let storageFailure = false
-let consumeResult: { mcpKeyId: string } | null = null
-const mutationSpy = vi.fn(async () => consumeResult)
+let verifyResult: { valid: boolean; key: { id: string; referenceId: string } | null } = {
+  valid: false,
+  key: null,
+}
+let accessResult: { apiKeyId: string; ownerUserId: string } | null = null
+const verifySpy = vi.fn(async () => verifyResult)
+const tokenSpy = vi.fn(async () => 'convex-token-valid')
+const accessSpy = vi.fn(async () => accessResult)
 
 function createEvent(token: string) {
   return {
@@ -33,18 +39,43 @@ function createEvent(token: string) {
   } as never
 }
 
+function authDeps() {
+  return {
+    createError: (input: { statusCode: number; statusMessage: string }) =>
+      Object.assign(new Error(input.statusMessage), input),
+    getStorage: async () => ({
+      async getItem(key: string) {
+        if (storageFailure) throw new Error('storage unavailable')
+        return storageData.get(key) ?? null
+      },
+      async setItem(key: string, value: StorageValue) {
+        if (storageFailure) throw new Error('storage unavailable')
+        storageData.set(key, value)
+      },
+    }),
+    verifyApiKey: async (input: { key: string }) => verifySpy(input),
+    getConvexAuthToken: async (apiKey: string) => tokenSpy(apiKey),
+    resolveCredentialAccess: async (apiKeyId: string, convexAuthToken: string) =>
+      accessSpy(apiKeyId, convexAuthToken),
+  }
+}
+
 describe('ginko mcp auth middleware', () => {
   beforeEach(() => {
     storageData.clear()
     storageFailure = false
-    consumeResult = null
-    mutationSpy.mockClear()
+    verifyResult = { valid: false, key: null }
+    accessResult = null
+    verifySpy.mockClear()
+    tokenSpy.mockClear()
+    accessSpy.mockClear()
     resetMcpAuthState()
   })
 
-  it('stores authenticated MCP context for a valid token', async () => {
-    consumeResult = { mcpKeyId: 'key_valid' }
-    const event = createEvent('mcp_valid')
+  it('stores authenticated MCP context for a valid Better Auth API key', async () => {
+    verifyResult = { valid: true, key: { id: 'ba_key_valid', referenceId: 'user-1' } }
+    accessResult = { apiKeyId: 'ba_key_valid', ownerUserId: 'user-1' }
+    const event = createEvent('ba_raw_valid')
 
     await authenticateMcpRequestContext(
       {
@@ -53,30 +84,17 @@ describe('ginko mcp auth middleware', () => {
         clientIp: event.node.req.headers['x-forwarded-for'],
         context: event.context,
       },
-      {
-        createError: (input) => Object.assign(new Error(input.statusMessage), input),
-        getStorage: async () => ({
-          async getItem(key: string) {
-            if (storageFailure) throw new Error('storage unavailable')
-            return storageData.get(key) ?? null
-          },
-          async setItem(key: string, value: StorageValue) {
-            if (storageFailure) throw new Error('storage unavailable')
-            storageData.set(key, value)
-          },
-        }),
-        consumeToken: async (input) => {
-          expect(input.clientIp).toBe('127.0.0.1')
-          mutationSpy(input)
-          return consumeResult
-        },
-      },
+      authDeps(),
     )
 
     expect(event.context.mcpAuth).toEqual({
-      mcpKeyId: 'key_valid',
+      apiKeyId: 'ba_key_valid',
+      authUserId: 'user-1',
+      convexAuthToken: 'convex-token-valid',
     })
-    expect(mutationSpy).toHaveBeenCalledTimes(1)
+    expect(verifySpy).toHaveBeenCalledWith({ key: 'ba_raw_valid' })
+    expect(tokenSpy).toHaveBeenCalledWith('ba_raw_valid')
+    expect(accessSpy).toHaveBeenCalledWith('ba_key_valid', 'convex-token-valid')
   })
 
   it('does not enable spoofable forwarded IP parsing in the Nitro middleware', async () => {
@@ -89,9 +107,9 @@ describe('ginko mcp auth middleware', () => {
     expect(source).not.toContain('xForwardedFor: true')
   })
 
-  it('rejects invalid tokens and rate-limits repeated failures', async () => {
+  it('rejects invalid API keys and rate-limits repeated failures', async () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const event = createEvent('mcp_invalid')
+      const event = createEvent('ba_raw_invalid')
       await expect(
         authenticateMcpRequestContext(
           {
@@ -100,23 +118,7 @@ describe('ginko mcp auth middleware', () => {
             clientIp: event.node.req.headers['x-forwarded-for'],
             context: event.context,
           },
-          {
-            createError: (input) => Object.assign(new Error(input.statusMessage), input),
-            getStorage: async () => ({
-              async getItem(key: string) {
-                if (storageFailure) throw new Error('storage unavailable')
-                return storageData.get(key) ?? null
-              },
-              async setItem(key: string, value: StorageValue) {
-                if (storageFailure) throw new Error('storage unavailable')
-                storageData.set(key, value)
-              },
-            }),
-            consumeToken: async (input) => {
-              mutationSpy(input)
-              return consumeResult
-            },
-          },
+          authDeps(),
         ),
       ).rejects.toMatchObject({ statusCode: 401 })
       expect(event.context.mcpAuth).toBeUndefined()
@@ -126,86 +128,57 @@ describe('ginko mcp auth middleware', () => {
       authenticateMcpRequestContext(
         {
           path: '/mcp',
-          authorizationHeader: 'Bearer mcp_invalid',
+          authorizationHeader: 'Bearer ba_raw_invalid',
           clientIp: '127.0.0.1',
           context: {},
         },
-        {
-          createError: (input) => Object.assign(new Error(input.statusMessage), input),
-          getStorage: async () => ({
-            async getItem(key: string) {
-              if (storageFailure) throw new Error('storage unavailable')
-              return storageData.get(key) ?? null
-            },
-            async setItem(key: string, value: StorageValue) {
-              if (storageFailure) throw new Error('storage unavailable')
-              storageData.set(key, value)
-            },
-          }),
-          consumeToken: async (input) => {
-            mutationSpy(input)
-            return consumeResult
-          },
-        },
+        authDeps(),
       ),
     ).rejects.toMatchObject({ statusCode: 429 })
   })
 
+  it('rejects verified API keys without matching active CMS credential settings', async () => {
+    verifyResult = { valid: true, key: { id: 'ba_key_valid', referenceId: 'user-1' } }
+    accessResult = { apiKeyId: 'ba_key_valid', ownerUserId: 'other-user' }
+
+    await expect(
+      authenticateMcpRequestContext(
+        {
+          path: '/mcp',
+          authorizationHeader: 'Bearer ba_raw_valid',
+          clientIp: '127.0.0.1',
+          context: {},
+        },
+        authDeps(),
+      ),
+    ).rejects.toMatchObject({ statusCode: 401 })
+  })
+
   it('uses the grace path when storage fails after a healthy storage read', async () => {
-    consumeResult = { mcpKeyId: 'key_prime' }
+    verifyResult = { valid: true, key: { id: 'ba_key_prime', referenceId: 'user-1' } }
+    accessResult = { apiKeyId: 'ba_key_prime', ownerUserId: 'user-1' }
     await authenticateMcpRequestContext(
       {
         path: '/mcp',
-        authorizationHeader: 'Bearer mcp_prime',
+        authorizationHeader: 'Bearer ba_raw_prime',
         clientIp: '127.0.0.1',
         context: {},
       },
-      {
-        createError: (input) => Object.assign(new Error(input.statusMessage), input),
-        getStorage: async () => ({
-          async getItem(key: string) {
-            if (storageFailure) throw new Error('storage unavailable')
-            return storageData.get(key) ?? null
-          },
-          async setItem(key: string, value: StorageValue) {
-            if (storageFailure) throw new Error('storage unavailable')
-            storageData.set(key, value)
-          },
-        }),
-        consumeToken: async (input) => {
-          mutationSpy(input)
-          return consumeResult
-        },
-      },
+      authDeps(),
     )
-    consumeResult = null
+    verifyResult = { valid: false, key: null }
+    accessResult = null
     storageFailure = true
 
     await expect(
       authenticateMcpRequestContext(
         {
           path: '/mcp',
-          authorizationHeader: 'Bearer mcp_grace',
+          authorizationHeader: 'Bearer ba_raw_grace',
           clientIp: '127.0.0.1',
           context: {},
         },
-        {
-          createError: (input) => Object.assign(new Error(input.statusMessage), input),
-          getStorage: async () => ({
-            async getItem(key: string) {
-              if (storageFailure) throw new Error('storage unavailable')
-              return storageData.get(key) ?? null
-            },
-            async setItem(key: string, value: StorageValue) {
-              if (storageFailure) throw new Error('storage unavailable')
-              storageData.set(key, value)
-            },
-          }),
-          consumeToken: async (input) => {
-            mutationSpy(input)
-            return consumeResult
-          },
-        },
+        authDeps(),
       ),
     ).rejects.toMatchObject({ statusCode: 401 })
   })
@@ -224,8 +197,14 @@ describe('ginko mcp auth middleware', () => {
           getStorage: async () => {
             throw new Error('storage should not be read')
           },
-          consumeToken: async () => {
-            throw new Error('token should not be consumed')
+          verifyApiKey: async () => {
+            throw new Error('token should not be verified')
+          },
+          getConvexAuthToken: async () => {
+            throw new Error('Convex token should not be requested')
+          },
+          resolveCredentialAccess: async () => {
+            throw new Error('credential access should not be resolved')
           },
         },
       ),

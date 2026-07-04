@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+### Changed
+
+- Migrated the v1 package story to direct publishable CMS packages:
+  `@lupinum/ginko-cms`, `@lupinum/ginko-cms-convex`, and
+  `@lupinum/ginko-cms-contract` install without local `workspace:`, `file:`, or
+  `link:` dependency specs in packed artifacts.
+- Replaced Trellis-era host bridge/runtime assumptions with direct Convex,
+  Better Auth, and CMS component ownership. Host apps should regenerate the
+  setup baseline with `pnpm exec ginko-cms init` and remove old Trellis
+  generated files.
+- Moved MCP credentials to Better Auth API keys plus CMS
+  `mcpCredentialSettings`. Normal MCP tool calls now use Better Auth Convex
+  tokens instead of `CONVEX_DEPLOY_KEY` or a synthetic MCP Convex identity.
+- Kept agent public-output changes review-gated by default. Direct trusted
+  publish remains out of the v1 default surface until it has a separately
+  reviewed model.
+
+### Removed
+
+- Removed legacy CMS-owned `mcpKeys`, generic `projectTool`, and inactive direct
+  destructive MCP tools from the active v1 surface.
+- Removed Trellis package metadata/runtime dependencies from the CMS release
+  path.
+
+### Migration Notes
+
+- Install the publishable package tuple directly:
+  `@lupinum/ginko-content`, `@lupinum/ginko-cms`,
+  `@lupinum/ginko-cms-convex`, `better-convex-nuxt`,
+  `@convex-dev/better-auth`, `better-auth`, and `convex`.
+- Delete old Trellis aliases, `#trellis` imports, `_trellisForwarding`, legacy
+  generated operation bridge files, and custom MCP-key UI or docs.
+- Keep `CONVEX_DEPLOY_KEY` server-only for setup and contract sync. MCP runtime
+  needs Convex URL plus Better Auth base URL configuration, not deploy-key
+  transport.
+- See `docs/guides/migrations/trellis-era-migration.md` for the host cleanup
+  checklist.
+
 ### Fixed
 
 - Made package e2e/release verification pack the sibling local

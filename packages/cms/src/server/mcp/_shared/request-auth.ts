@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto'
 
+import { parseMcpBearerApiKey, type BetterAuthApiKeyVerifier } from './better-auth-api-key.js'
+
 const STORAGE_NAMESPACE = 'cache:ginko:mcp-auth'
 const GRACE_WINDOW_MS = 30_000
 const IP_LIMIT = { key: 'ip', max: 30, windowMs: 60_000, ttlSeconds: 60 }
@@ -24,12 +26,18 @@ type FailureBudgetDeps = {
   createError: McpAuthErrorFactory
 }
 
+type ResolvedMcpCredentialAccess = {
+  apiKeyId: string
+  ownerUserId: string
+}
+
 type AuthenticateDeps = FailureBudgetDeps & {
-  consumeToken: (input: {
-    hash: string
-    seenAt: number
-    clientIp: string | null
-  }) => Promise<{ mcpKeyId: string } | null>
+  verifyApiKey: BetterAuthApiKeyVerifier
+  getConvexAuthToken: (apiKey: string) => Promise<string>
+  resolveCredentialAccess: (
+    apiKeyId: string,
+    convexAuthToken: string,
+  ) => Promise<ResolvedMcpCredentialAccess | null>
   now?: () => number
 }
 
@@ -158,16 +166,8 @@ export async function authenticateMcpRequestContext(
 ) {
   if (!input.path?.startsWith('/mcp')) return
 
-  const header = input.authorizationHeader
-  if (!header?.startsWith('Bearer ')) {
-    throw deps.createError({
-      statusCode: 401,
-      statusMessage: 'MCP authentication required',
-    })
-  }
-
-  const token = header.slice('Bearer '.length).trim()
-  if (!token.startsWith('mcp_')) {
+  const token = parseMcpBearerApiKey(input.authorizationHeader)
+  if (!token) {
     throw deps.createError({
       statusCode: 401,
       statusMessage: 'MCP authentication required',
@@ -179,13 +179,9 @@ export async function authenticateMcpRequestContext(
   const clientIp = input.clientIp ?? null
   const limiter = await enforceFailureBudget({ ip: clientIp, hash, now }, deps)
 
-  let consumed: { mcpKeyId: string } | null
+  let verified: Awaited<ReturnType<BetterAuthApiKeyVerifier>>
   try {
-    consumed = await deps.consumeToken({
-      hash,
-      seenAt: now,
-      clientIp,
-    })
+    verified = await deps.verifyApiKey({ key: token })
   } catch {
     throw deps.createError({
       statusCode: 503,
@@ -193,7 +189,7 @@ export async function authenticateMcpRequestContext(
     })
   }
 
-  if (!consumed) {
+  if (!verified.valid || !verified.key) {
     await limiter.recordFailure()
     throw deps.createError({
       statusCode: 401,
@@ -201,8 +197,38 @@ export async function authenticateMcpRequestContext(
     })
   }
 
+  let convexAuthToken: string
+  try {
+    convexAuthToken = await deps.getConvexAuthToken(token)
+  } catch {
+    throw deps.createError({
+      statusCode: 503,
+      statusMessage: 'MCP authentication temporarily unavailable',
+    })
+  }
+
+  let access: ResolvedMcpCredentialAccess | null
+  try {
+    access = await deps.resolveCredentialAccess(verified.key.id, convexAuthToken)
+  } catch {
+    throw deps.createError({
+      statusCode: 503,
+      statusMessage: 'MCP authentication temporarily unavailable',
+    })
+  }
+
+  if (!access || access.ownerUserId !== verified.key.referenceId) {
+    await limiter.recordFailure()
+    throw deps.createError({
+      statusCode: 401,
+      statusMessage: 'Invalid MCP credential settings',
+    })
+  }
+
   input.context.mcpAuth = {
-    mcpKeyId: consumed.mcpKeyId,
+    apiKeyId: verified.key.id,
+    authUserId: verified.key.referenceId,
+    convexAuthToken,
   }
 }
 

@@ -16,14 +16,13 @@ Ginko CMS owns the CMS product layer:
 - Studio UI and Nuxt module integration.
 - CMS domain contracts and field definitions.
 - Convex component implementation.
-- generated Trellis host bridges.
+- host-owned Convex setup files.
 - member/access workflows.
 - content publishing, assets, backups, migrations, and projections.
 - MCP tools that operate on CMS operations.
 
-Do not move CMS policy into Trellis or Ginko Content. Trellis owns generic app
-primitives. Ginko Content owns CMS-neutral content querying and provider
-contracts.
+Do not move CMS policy into Ginko Content or host-app setup glue. Ginko Content
+owns CMS-neutral content querying and provider contracts.
 
 ## Commands
 
@@ -34,14 +33,15 @@ pnpm run check
 pnpm run release:verify
 ```
 
-For release candidates after Trellis and Ginko Content are published:
+For release candidates after Ginko Content and `better-convex-nuxt` are
+published:
 
 ```bash
 pnpm run release:verify:registry
 ```
 
 Run focused tests while working, then run the broader gate before handoff when
-the change touches package metadata, bridge generation, Convex auth, Studio
+the change touches package metadata, host setup generation, Convex auth, Studio
 workflow, MCP, or release scripts.
 
 ## Release Safety

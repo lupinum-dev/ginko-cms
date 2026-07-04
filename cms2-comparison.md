@@ -100,20 +100,20 @@ the shape to copy.
 
 ## High-Level Verdict
 
-| Area | Current `ginko-cms` | `ginko-cms2` | Sweet spot |
-| --- | --- | --- | --- |
-| Package/release readiness | Strongest, but local dependency specifier must be fixed | Still MVP/package proof | Keep current package/release machinery |
-| Product simplicity | Medium | Strongest | Move current repo toward CMS2 boundaries |
-| Better Auth boundary | Improved but still has local caller abstraction | Strongest | Better Auth owns identity/session; CMS owns roles |
-| MCP architecture | Powerful but too generic | Stronger workflow shape | Use CMS2's delegated model and explicit tools |
-| Destructive safety | Strongest invariants | Safer MCP policy, less generic machinery | Keep current Studio safety; restrict MCP direct execute |
-| Content lifecycle | Rich and mature | Clearer but slightly simpler | Keep current lifecycle, simplify wrappers |
-| Public reads | Mature provider/API shape | Clear projection-only principle | Keep current public provider, consider CMS2 single projection simplification |
-| Assets | Current is deeper | CMS2 has simpler external/managed policy | Keep current asset manager but simplify public metadata story |
-| Backups/imports | Stronger export/artifact/import discipline | Better restore workflow shape and content exchange language | Keep current gates, add restore dry-run/apply |
-| AI/agents | Current MCP-centric, less native | Strongest product model | Adopt agent runs and proposal-first AI |
-| Studio UI | Packaged SPA with strong editorial workflow | Better agent/review workspace primitives | Merge CMS2 primitives into current SPA architecture |
-| Old Nuxt site DSL | Separate package had useful consumer API | CMS2 uses Ginko Content provider | Keep Ginko Content provider as the official site read path |
+| Area                      | Current `ginko-cms`                                     | `ginko-cms2`                                                | Sweet spot                                                                   |
+| ------------------------- | ------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Package/release readiness | Strongest, but local dependency specifier must be fixed | Still MVP/package proof                                     | Keep current package/release machinery                                       |
+| Product simplicity        | Medium                                                  | Strongest                                                   | Move current repo toward CMS2 boundaries                                     |
+| Better Auth boundary      | Improved but still has local caller abstraction         | Strongest                                                   | Better Auth owns identity/session; CMS owns roles                            |
+| MCP architecture          | Powerful but too generic                                | Stronger workflow shape                                     | Use CMS2's delegated model and explicit tools                                |
+| Destructive safety        | Strongest invariants                                    | Safer MCP policy, less generic machinery                    | Keep current Studio safety; restrict MCP direct execute                      |
+| Content lifecycle         | Rich and mature                                         | Clearer but slightly simpler                                | Keep current lifecycle, simplify wrappers                                    |
+| Public reads              | Mature provider/API shape                               | Clear projection-only principle                             | Keep current public provider, consider CMS2 single projection simplification |
+| Assets                    | Current is deeper                                       | CMS2 has simpler external/managed policy                    | Keep current asset manager but simplify public metadata story                |
+| Backups/imports           | Stronger export/artifact/import discipline              | Better restore workflow shape and content exchange language | Keep current gates, add restore dry-run/apply                                |
+| AI/agents                 | Current MCP-centric, less native                        | Strongest product model                                     | Adopt agent runs and proposal-first AI                                       |
+| Studio UI                 | Packaged SPA with strong editorial workflow             | Better agent/review workspace primitives                    | Merge CMS2 primitives into current SPA architecture                          |
+| Old Nuxt site DSL         | Separate package had useful consumer API                | CMS2 uses Ginko Content provider                            | Keep Ginko Content provider as the official site read path                   |
 
 ## What Current `ginko-cms` Does Better
 
@@ -1036,15 +1036,15 @@ End-state:
 
 Final role matrix to decide before implementation:
 
-| Action | Owner | Publisher | Editor | Viewer | Agent |
-| --- | --- | --- | --- | --- | --- |
-| Read Studio content | yes | yes | yes | yes | delegated read only |
-| Save drafts | yes | yes | yes | no | delegated draft write only |
-| Publish/unpublish | yes | yes | no | no | request only |
-| Archive/restore | decide | decide | no | no | request only |
-| Purge/delete | yes | no | no | no | no |
-| Approve/reject reviews | yes | yes | no | no | no |
-| Manage members/settings | yes | no | no | no | no |
+| Action                  | Owner  | Publisher | Editor | Viewer | Agent                      |
+| ----------------------- | ------ | --------- | ------ | ------ | -------------------------- |
+| Read Studio content     | yes    | yes       | yes    | yes    | delegated read only        |
+| Save drafts             | yes    | yes       | yes    | no     | delegated draft write only |
+| Publish/unpublish       | yes    | yes       | no     | no     | request only               |
+| Archive/restore         | decide | decide    | no     | no     | request only               |
+| Purge/delete            | yes    | no        | no     | no     | no                         |
+| Approve/reject reviews  | yes    | yes       | no     | no     | no                         |
+| Manage members/settings | yes    | no        | no     | no     | no                         |
 
 Do not silently import CMS2's publisher archive semantics. Current
 `ginko-cms` treats some destructive operations as owner-only. The final matrix
@@ -1559,12 +1559,12 @@ AI writing assistant flow:
 
 Workflow policy:
 
-| Surface | May draft | May preview | May publish/archive | May approve reviews |
-| --- | --- | --- | --- | --- |
-| Human Studio | yes | yes | role-gated direct action | owner/publisher |
-| Bearer-token MCP agent | delegated only | yes | request only | no |
-| AI assistant | proposal only | yes | no | no |
-| Public website/API | no | no | no | no |
+| Surface                | May draft      | May preview | May publish/archive      | May approve reviews |
+| ---------------------- | -------------- | ----------- | ------------------------ | ------------------- |
+| Human Studio           | yes            | yes         | role-gated direct action | owner/publisher     |
+| Bearer-token MCP agent | delegated only | yes         | request only             | no                  |
+| AI assistant           | proposal only  | yes         | no                       | no                  |
+| Public website/API     | no             | no          | no                       | no                  |
 
 Primary editor vocabulary:
 

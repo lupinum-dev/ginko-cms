@@ -4,7 +4,7 @@ import { internal } from './_generated/api.js'
 
 const crons = cronJobs()
 const internalApi = internal as typeof internal & {
-  mcpKeys: {
+  operations: {
     cleanupExpiredConfirmations: unknown
   }
   revalidation: {
@@ -25,7 +25,7 @@ crons.interval(
 crons.interval(
   'cleanup expired MCP confirmations',
   { minutes: 10 },
-  internalApi.mcpKeys.cleanupExpiredConfirmations as never,
+  internalApi.operations.cleanupExpiredConfirmations as never,
   {},
 )
 

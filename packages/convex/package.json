@@ -51,6 +51,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@better-auth/api-key": "1.6.11",
+    "@better-auth/core": "1.6.11",
+    "@better-auth/utils": "0.4.0",
     "@lupinum/ginko-cms-contract": "workspace:^",
     "comark": "^0.3.2",
     "convex": "1.38.0",

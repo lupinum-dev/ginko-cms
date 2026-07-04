@@ -13,6 +13,7 @@ runtime, or Convex environment:
 ```bash
 NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 CONVEX_URL=https://your-deployment.convex.cloud
+CONVEX_SITE_URL=https://your-deployment.convex.site
 CONVEX_DEPLOY_KEY=prod:...
 GINKO_FIRST_OWNER_EMAIL=owner@example.com
 ```
@@ -21,8 +22,11 @@ GINKO_FIRST_OWNER_EMAIL=owner@example.com
   content provider.
 - `CONVEX_URL`: server-side Convex URL used by CLI/server routes. It may match
   `NUXT_PUBLIC_CONVEX_URL`.
-- `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for server-to-Convex
-  admin calls, collection contract sync, and MCP operations.
+- `CONVEX_SITE_URL`: Convex HTTP action site URL. MCP uses this to verify
+  Better Auth API keys through the host auth route unless
+  `GINKO_CMS_BETTER_AUTH_BASE_URL` is set.
+- `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for setup and
+  collection contract sync admin transport.
 - `GINKO_FIRST_OWNER_EMAIL`: required until the first CMS owner has claimed
   ownership in Studio.
 
@@ -33,17 +37,19 @@ integrations. Ginko CMS does not own all of them, but a complete host deployment
 often needs them:
 
 ```bash
-CONVEX_SITE_URL=https://your-deployment.convex.site
 NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
+GINKO_CMS_BETTER_AUTH_BASE_URL=https://your-deployment.convex.site/api/auth
 CONVEX_DEPLOYMENT=dev:your-deployment-name
 BETTER_AUTH_SECRET=long-random-secret
 SITE_URL=https://your-site.example
 NUXT_PUBLIC_SITE_URL=https://your-site.example
 ```
 
-- `CONVEX_SITE_URL`: Convex HTTP action site URL.
 - `NUXT_PUBLIC_CONVEX_SITE_URL`: public Convex HTTP action site URL when the
   browser needs to call Convex HTTP actions.
+- `GINKO_CMS_BETTER_AUTH_BASE_URL`: optional override for the Better Auth base
+  route used by MCP API-key verification. Omit it when Better Auth is served at
+  `${CONVEX_SITE_URL}/api/auth`.
 - `CONVEX_DEPLOYMENT`: Convex CLI deployment name. Convex owns and writes this
   during project setup.
 - `BETTER_AUTH_SECRET`: Better Auth session/signing secret.
@@ -53,9 +59,12 @@ NUXT_PUBLIC_SITE_URL=https://your-site.example
 
 ## CMS Server And MCP Runtime
 
-Server-side CMS routes, MCP tools, and CLI commands use `CONVEX_DEPLOY_KEY` for
-Convex admin transport. Product authorization still happens inside the Ginko CMS
-Convex component using the authenticated member or MCP key identity.
+Server-side MCP tools use Better Auth API-key sessions to request Convex auth
+tokens from `/api/auth/convex/token`; they do not require `CONVEX_DEPLOY_KEY` for
+normal tool execution. MCP bearer tokens are Better Auth API keys verified
+through `/api/auth/api-key/verify`; product authorization happens inside the
+Ginko CMS Convex component using `mcpCredentialSettings` plus the current member
+role.
 
 `GINKO_CONTENT_PROVIDER_SITE` is reserved for a future provider site partition.
 The provider reads it and defaults to `default`, but current public Convex
@@ -88,8 +97,8 @@ Store the printed value as `CONVEX_DEPLOY_KEY` in the server or CI secret store.
 Do not expose it through `NUXT_PUBLIC_*`.
 
 Ginko uses `CONVEX_DEPLOY_KEY` only as Convex admin transport. Product audit
-identity is resolved by the CMS component from member auth or MCP key auth, so
-deploy-key auth and product authorization are not mixed.
+identity is resolved by the CMS component from member auth or Better Auth API-key
+credential settings, so deploy-key auth and product authorization are not mixed.
 
 ## Workflow Checks
 
@@ -124,8 +133,9 @@ pnpm exec ginko-cms mcp-doctor
 ```
 
 `ginko-cms mcp-doctor` expects the MCP runtime prerequisites, including
-`secure-exec`, and reads `.env.local` as well as the process environment. The
-MCP runtime itself still needs the same keys in the actual server environment.
+`secure-exec`, a Convex URL, and a Better Auth base URL source. It reads
+`.env.local` as well as the process environment. The MCP runtime itself needs
+the same values in the actual server environment.
 
 ## Revalidation Egress
 

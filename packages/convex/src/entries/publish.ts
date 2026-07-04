@@ -13,6 +13,7 @@ import {
 import { v } from 'convex/values'
 
 import type { Id } from '../_generated/dataModel.js'
+import { recordOwnedAgentRunWrite } from '../agentRuns.js'
 import { canArchiveEntries, canEditEntries, canPublishEntries } from '../auth/checks.js'
 import { previewPublishImpactForEntry } from '../diagnostics.js'
 import { throwCmsError } from '../errors.js'
@@ -425,6 +426,21 @@ export const unarchiveEntryOperation = defineCmsOperation({
 })
 
 export const unarchiveEntry = callerMutation.protected(unarchiveEntryOperation)
+
+export const mcpUnarchiveEntry = callerMutation.protected({
+  id: 'editor:mcpUnarchiveEntry',
+  args: {
+    agentRunId: v.string(),
+    ...unarchiveEntryArgs.args,
+  },
+  guard: canEditEntries,
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { agentRunId, ...input } = args
+    await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.unarchive-entry')
+    return await unarchiveEntryOperation.handler(ctx, input)
+  },
+})
 
 export const rollbackVersionOperation = defineCmsOperation({
   id: 'ginko-cms.rollback-version',

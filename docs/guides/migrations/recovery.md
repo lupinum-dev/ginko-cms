@@ -59,7 +59,12 @@ and release notes are the audit trail.
 
 The CLI can export, download, and verify backups. It does not expose a backup
 import command. Treat the backup file as the recovery source for an operator-led
-restore or manual repair, not as a command you can apply over live data.
+restore or manual repair, not as a broad command you can apply over live data.
+
+The component-level restore actions can dry-run any backup artifact and apply
+only missing asset-scoped artifacts after the caller confirms the exact archive
+checksum. Full, collection, and entry artifacts remain comparison sources for an
+operator-led repair flow.
 
 For production recovery:
 

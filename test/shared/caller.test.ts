@@ -1,7 +1,6 @@
 import {
   assertCmsCallerConsistency,
   cmsCallerFromConvexAuthIdentity,
-  cmsMcpConvexAuthIssuer,
   cmsAnonymousCaller,
   cmsMcpCaller,
   cmsUserCaller,
@@ -22,7 +21,7 @@ describe('cms caller helpers', () => {
     })
     expect(cmsMcpCaller('key_123')).toEqual({
       kind: 'mcp',
-      mcpKeyId: 'key_123',
+      apiKeyId: 'key_123',
       subject: 'agent:key_123',
     })
   })
@@ -39,7 +38,7 @@ describe('cms caller helpers', () => {
     expect(
       getExpectedCmsCallerSubject({
         kind: 'mcp',
-        mcpKeyId: 'key_123',
+        apiKeyId: 'key_123',
         subject: 'agent:key_123',
       }),
     ).toBe('agent:key_123')
@@ -57,23 +56,16 @@ describe('cms caller helpers', () => {
     expect(() =>
       assertCmsCallerConsistency({
         kind: 'mcp',
-        mcpKeyId: 'key_123',
+        apiKeyId: 'key_123',
         subject: 'agent:other_key',
       }),
-    ).toThrow('CMS MCP caller subject must match the mcpKeyId.')
+    ).toThrow('CMS MCP caller subject must match the apiKeyId.')
   })
 
-  it('maps Convex admin MCP identities back to MCP callers', () => {
-    expect(
-      cmsCallerFromConvexAuthIdentity({
-        subject: 'key_123',
-        issuer: cmsMcpConvexAuthIssuer,
-      }),
-    ).toEqual(cmsMcpCaller('key_123'))
+  it('maps Convex auth identities to user callers', () => {
     expect(
       cmsCallerFromConvexAuthIdentity({
         subject: 'user_123',
-        issuer: 'https://auth.example.test',
         email: 'editor@example.test',
       }),
     ).toEqual(cmsUserCaller('user_123', { email: 'editor@example.test' }))

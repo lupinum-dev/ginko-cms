@@ -1,9 +1,4 @@
-import {
-  cmsMcpCaller,
-  cmsUserCaller,
-  type CmsMcpCaller,
-  type CmsUserCaller,
-} from '@lupinum/ginko-cms-contract/shared/caller.js'
+import { cmsUserCaller, type CmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { convexTest, type TestConvex } from 'convex-test'
 /// <reference types="vite/client" />
 import { anyApi } from 'convex/server'
@@ -68,16 +63,11 @@ const unarchiveEntryOperation: CmsOperationRef = {
 
 function createCmsCallerClient(
   ctx: TestConvex<typeof schema>,
-  caller: CmsUserCaller | CmsMcpCaller,
+  caller: CmsUserCaller | { kind: 'mcp'; apiKeyId: string; ownerUserId: string },
 ) {
   const identity = {
-    subject:
-      caller.kind === 'user'
-        ? caller.userId
-        : caller.kind === 'mcp'
-          ? caller.mcpKeyId
-          : caller.subject,
-    issuer: caller.kind === 'mcp' ? 'ginko-cms-mcp' : undefined,
+    subject: caller.kind === 'user' ? caller.userId : caller.ownerUserId,
+    ...(caller.kind === 'mcp' ? { sessionId: caller.apiKeyId } : {}),
   }
   const authed = () => ctx.withIdentity(identity)
   return {
@@ -147,7 +137,8 @@ export function createCtx() {
     readAll: async (table: string) =>
       await ctx.run(async (mutationCtx) => await mutationCtx.db.query(table as never).collect()),
     asCmsUser: (userId: string) => createCmsCallerClient(ctx, cmsUserCaller(userId)),
-    asMcpKey: (mcpKeyId: string) => createCmsCallerClient(ctx, cmsMcpCaller(mcpKeyId)),
+    asMcpApiKey: (apiKeyId: string, ownerUserId: string) =>
+      createCmsCallerClient(ctx, { kind: 'mcp', apiKeyId, ownerUserId }),
   })
 }
 

@@ -215,12 +215,22 @@ tokens in this Nuxt + Convex setup.
 
 Missing:
 
-- API-key plugin wiring in the host auth setup;
 - Studio API-key creation flow;
-- MCP route verification through Better Auth;
-- CMS scope mapping from API key id to CMS settings;
-- revocation behavior;
-- role-downgrade behavior.
+
+Status on 2026-07-04:
+
+- Passed. `defineGinkoAuth` registers the Better Auth API-key plugin, and the
+  live MCP middleware verifies Bearer tokens through Better Auth
+  `/api/auth/api-key/verify`.
+- Passed. MCP route access also requires active CMS `mcpCredentialSettings`.
+- Passed. Backend guards intersect credential scopes with the current CMS member
+  role, so role downgrade/removal affects existing API keys.
+- Remaining. Studio still needs a Better Auth API-key creation/revocation flow.
+- Passed. The backend `mcpKeys` table/module was deleted after the live route
+  moved to Better Auth API-key verification plus CMS credential settings.
+- Cleanup pass. The active Studio settings page no longer exposes legacy
+  `mcpKeys` list/create/revoke UI, and the Studio host bridge no longer requires
+  `api.ginkoCms.mcpKeys`.
 
 ### 2. CMS-Owned MCP Credential Settings
 
@@ -298,19 +308,19 @@ Missing:
 
 Baseline matrix:
 
-| Action | Viewer | Editor | Publisher | Owner |
-| --- | --- | --- | --- | --- |
-| Read content | yes | yes | yes | yes |
-| Create/update drafts | no | yes | yes | yes |
-| Translate drafts | no | yes | yes | yes |
-| Preview publish | yes | yes | yes | yes |
-| Request publish | no | maybe | yes | yes |
-| Direct publish | no | no | trusted only | trusted only |
-| Request archive | no | no | yes | yes |
-| Direct archive | no | no | trusted only | trusted only |
-| Delete/purge | no | no | no | trusted owner only |
-| Approve reviews | no | no | yes | yes |
-| Manage members/settings | no | no | no | no by MCP default |
+| Action                  | Viewer | Editor | Publisher    | Owner              |
+| ----------------------- | ------ | ------ | ------------ | ------------------ |
+| Read content            | yes    | yes    | yes          | yes                |
+| Create/update drafts    | no     | yes    | yes          | yes                |
+| Translate drafts        | no     | yes    | yes          | yes                |
+| Preview publish         | yes    | yes    | yes          | yes                |
+| Request publish         | no     | maybe  | yes          | yes                |
+| Direct publish          | no     | no     | trusted only | trusted only       |
+| Request archive         | no     | no     | yes          | yes                |
+| Direct archive          | no     | no     | trusted only | trusted only       |
+| Delete/purge            | no     | no     | no           | trusted owner only |
+| Approve reviews         | no     | no     | yes          | yes                |
+| Manage members/settings | no     | no     | no           | no by MCP default  |
 
 Open product detail:
 
@@ -685,9 +695,9 @@ Decision after phase:
 
 Actions:
 
-- remove old `mcpKeys` default path;
+- remove old `mcpKeys` table/UI path; (passed)
 - remove synthetic MCP Convex identity;
-- remove `projectTool`;
+- remove `projectTool`; (passed)
 - remove deploy-key MCP runtime;
 - update docs and tests;
 - add stale-surface checks.

@@ -22,6 +22,7 @@ const { can } = useCmsStudioAccess()
 const canManageAssets = can(cmsPermissionKeys.manageAssets)
 const canManageCollections = can(cmsPermissionKeys.manageCollections)
 const canManageSettings = can(cmsPermissionKeys.manageSettings)
+const canPublishEntries = can(cmsPermissionKeys.publishEntries)
 const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
 const hostCollections = computed(() =>
   codeDefinedCollectionList(cmsConfig.collections, cmsConfig.defaultLocale),
@@ -72,6 +73,18 @@ const manageLinks = computed(() =>
       icon: 'lucide:activity',
       label: t('ginkoCms.studio.activityPage.title'),
       visible: true,
+    },
+    {
+      to: `${studioRoute}/agents`,
+      icon: 'lucide:bot',
+      label: t('ginkoCms.studio.agentsPage.title'),
+      visible: true,
+    },
+    {
+      to: `${studioRoute}/reviews`,
+      icon: 'lucide:inbox',
+      label: t('ginkoCms.studio.reviewsPage.title'),
+      visible: canPublishEntries.value,
     },
     {
       to: `${studioRoute}/imports`,

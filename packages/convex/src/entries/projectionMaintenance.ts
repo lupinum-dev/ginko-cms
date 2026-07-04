@@ -43,7 +43,22 @@ export const rebuildDerivedStateForEntry = internalMutation({
         ],
       }
     }
-    const collection = await getCollection(ctx, entry.collectionId)
+    const collectionRow = await ctx.db.get(entry.collectionId)
+    if (!collectionRow) {
+      return {
+        publicEntries: 0,
+        publicRoutes: 0,
+        contentAssetRefs: 0,
+        issues: [
+          {
+            code: 'collection-not-found',
+            entryId: args.entryId,
+            message: 'Collection not found.',
+          },
+        ],
+      }
+    }
+    const collection = await getCollection(ctx, collectionRow.slug)
     if (!collection) {
       return {
         publicEntries: 0,

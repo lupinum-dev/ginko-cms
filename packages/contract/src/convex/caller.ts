@@ -14,7 +14,7 @@ export const cmsUserCallerValidator = v.object({
 
 export const cmsMcpCallerValidator = v.object({
   kind: v.literal('mcp'),
-  mcpKeyId: v.string(),
+  apiKeyId: v.string(),
   subject: v.string(),
 })
 

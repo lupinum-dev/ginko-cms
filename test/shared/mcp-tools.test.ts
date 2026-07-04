@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, normalize, resolve } from 'node:path'
 
 import ts from 'typescript'
@@ -7,11 +7,8 @@ import { describe, expect, it } from 'vitest'
 const mcpRoot = join(process.cwd(), 'packages/cms/src/server/mcp')
 const toolsRoot = join(mcpRoot, 'tools')
 const directRoot = join(mcpRoot, 'direct')
-const forbiddenTrellisMcpRuntime = ['define', 'Mcp', 'App'].join('')
-const forbiddenGeneratedOpType = ['Operation', 'Handle'].join('')
 const forbiddenGeneratedOpPath = ['operation', 'handles'].join('-')
 const forbiddenMcpBridgeRef = ['internal', ['ginkoCms', 'Mcp'].join('')].join('.')
-const forbiddenGeneratedOperationsRef = ['operations', 'ginkoCms'].join('.')
 
 type ToolReference = {
   path: string
@@ -133,12 +130,6 @@ function toolDefinitionIsDestructive(reference: ToolReference): boolean {
   )
 }
 
-function toolDefinitionHasProperty(reference: ToolReference, name: string): boolean {
-  return (
-    objectProperty(firstToolDefinition(reference.path, reference.exportName), name) !== undefined
-  )
-}
-
 function codeModeTools(): ToolReference[] {
   const toolsPath = join(mcpRoot, '_shared/handler-tools.ts')
   const sourceFile = parse(toolsPath)
@@ -217,10 +208,7 @@ function codeModeToolNames(): string[] {
 describe('MCP tool safety contracts', () => {
   it('exposes the curated code-mode tool names, not file layout conventions', () => {
     expect(codeModeToolNames()).toEqual([
-      'archive-entry',
       'create-entry',
-      'delete-asset',
-      'delete-entry',
       'explain-public-visibility',
       'export-backup',
       'get-asset',
@@ -232,13 +220,13 @@ describe('MCP tool safety contracts', () => {
       'move-asset',
       'nav',
       'page',
-      'publish-entry',
+      'preview-publish',
+      'request-publish-review',
       'resolve-asset-urls',
       'save-entry-draft',
       'search',
       'sitemap',
       'unarchive-entry',
-      'unpublish-entry',
     ])
   })
 
@@ -320,82 +308,37 @@ describe('MCP tool safety contracts', () => {
     expect(mcpDoctor).toContain('Nuxt MCP code mode resolves it from the host app root')
   })
 
-  it('keeps destructive tools behind CMS operation previews', () => {
+  it('keeps destructive operation tools out of the default MCP surface', () => {
     const destructiveTools = codeModeTools().filter(toolDefinitionIsDestructive)
 
-    expect(destructiveTools.map(toolDefinitionName).sort()).toEqual([
-      'archive-entry',
-      'delete-asset',
-      'delete-entry',
-      'publish-entry',
-      'unpublish-entry',
-    ])
-
-    for (const reference of destructiveTools) {
-      expect(toolDefinitionHasProperty(reference, 'operation'), reference.path).toBe(true)
-      expect(toolDefinitionHasProperty(reference, 'preview'), reference.path).toBe(false)
-      expect(toolDefinitionHasProperty(reference, 'previewOperation'), reference.path).toBe(false)
-    }
+    expect(destructiveTools.map(toolDefinitionName).sort()).toEqual([])
   })
 
-  it('routes destructive MCP tools through explicit backend preview and execute refs', () => {
-    const runtime = readFileSync(join(mcpRoot, '_shared/project-tool-runtime.ts'), 'utf8')
-    const destructiveTools = [
-      join(toolsRoot, 'assets/delete-asset.ts'),
-      join(toolsRoot, 'content/delete-entry.ts'),
-      join(toolsRoot, 'content/archive-entry.ts'),
-      join(toolsRoot, 'content/publish-entry.ts'),
-      join(toolsRoot, 'content/unpublish-entry.ts'),
-    ].map((path) => readFileSync(path, 'utf8'))
-
-    expect(runtime).toContain('components.ginkoCms.members.getAccessContext')
-    expect(runtime).toContain('cmsMcpConvexAuthIssuer')
-    expect(runtime).toContain('subject: mcpKeyId')
-    expect(runtime).toContain('createMcpConvexCaller(event, caller.mcpKeyId)')
-    expect(runtime).toContain('CMS operation preview requires confirmation before execution.')
-    expect(runtime).toContain('_confirmationToken')
-    expect(runtime).toContain('createMcpConvexCaller')
-    expect(runtime).not.toContain(forbiddenTrellisMcpRuntime)
-    expect(runtime).not.toContain('rawMcpRuntime')
-    expect(runtime).not.toContain(forbiddenGeneratedOpType)
-    expect(runtime).not.toContain(forbiddenGeneratedOpPath)
-    expect(runtime).not.toContain(forbiddenMcpBridgeRef)
-
-    for (const source of destructiveTools) {
-      expect(source).toContain('components.ginkoCms.')
-      expect(source).toMatch(/execute: components\.ginkoCms\.\w+\.\w+OperationExecute/)
-      expect(source).toMatch(/preview: components\.ginkoCms\.\w+\.preview\w+Operation/)
-      expect(source).not.toContain(forbiddenGeneratedOpPath)
-      expect(source).not.toContain(forbiddenGeneratedOperationsRef)
-      expect(source).not.toContain(forbiddenMcpBridgeRef)
-      expect(source).not.toContain('defineOperationMetadata')
-      expect(source).not.toContain('defineOperation({')
-      expect(source).not.toContain('handler: () => null')
-    }
-  })
-
-  it('keeps MCP writes operation-backed instead of direct mutation calls', () => {
-    const runtime = readFileSync(join(mcpRoot, '_shared/project-tool-runtime.ts'), 'utf8')
+  it('keeps active MCP tools explicit and removes the generic projectTool runtime', () => {
+    const allToolSources = tsFiles(mcpRoot)
+      .map((path) => readFileSync(path, 'utf8'))
+      .join('\n')
     const directSources = tsFiles(directRoot)
       .map((path) => readFileSync(path, 'utf8'))
       .join('\n')
 
-    expect(runtime).not.toContain('stampMcpToolSafety')
-    expect(runtime).not.toContain('TrellisMcpToolSafety')
-    expect(runtime).not.toContain('rawMcpRuntime.tool.mutation')
-    expect(runtime).toContain('must be backed by an explicit operation')
-    expect(runtime).toContain('Direct MCP mutation')
+    expect(existsSync(join(mcpRoot, '_shared/project-tool-runtime.ts'))).toBe(false)
+    expect(allToolSources).not.toContain('projectTool')
+    expect(allToolSources).not.toContain('ProjectToolDefinition')
+    expect(allToolSources).not.toContain('stampMcpToolSafety')
+    expect(allToolSources).not.toContain('TrellisMcpToolSafety')
+    expect(allToolSources).not.toContain('rawMcpRuntime')
     expect(directSources).not.toContain('safety:')
     expect(directSources).not.toContain(forbiddenGeneratedOpPath)
     expect(directSources).not.toContain(['operation', 'Refs'].join(''))
 
-    for (const operationRef of [
-      'execute: components.ginkoCms.editor.createEntry',
-      'execute: components.ginkoCms.editor.saveEntryDraft',
-      'execute: components.ginkoCms.editor.unarchiveEntry',
-      'execute: components.ginkoCms.assets.moveAsset',
+    for (const explicitToolName of [
+      "name: 'create-entry'",
+      "name: 'save-entry-draft'",
+      "name: 'unarchive-entry'",
+      "name: 'move-asset'",
     ]) {
-      expect(directSources).toContain(operationRef)
+      expect(directSources).toContain(explicitToolName)
     }
 
     for (const oldOperationName of [
@@ -416,6 +359,38 @@ describe('MCP tool safety contracts', () => {
     ]) {
       expect(directSources).not.toContain(oldCallRef)
     }
+  })
+
+  it('requires active agent runs for every MCP write tool', () => {
+    const writeToolSources = [
+      join(directRoot, 'content.ts'),
+      join(directRoot, 'assets.ts'),
+      join(toolsRoot, 'backup/export-backup.ts'),
+      join(toolsRoot, 'content/request-publish-review.ts'),
+    ].map((path) => readFileSync(path, 'utf8'))
+
+    for (const source of writeToolSources) {
+      for (const toolName of [
+        'create-entry',
+        'save-entry-draft',
+        'unarchive-entry',
+        'move-asset',
+        'export-backup',
+        'request-publish-review',
+      ]) {
+        if (!source.includes(`name: '${toolName}'`)) continue
+        expect(source).toContain('agentRunId: z.string()')
+        expect(source).not.toContain('recordAgentWrite(context,')
+      }
+    }
+
+    const combinedSource = writeToolSources.join('\n')
+    expect(combinedSource).toContain('components.ginkoCms.editor.mcpCreateEntry')
+    expect(combinedSource).toContain('components.ginkoCms.editor.mcpSaveEntryDraft')
+    expect(combinedSource).toContain('components.ginkoCms.editor.mcpUnarchiveEntry')
+    expect(combinedSource).toContain('components.ginkoCms.assets.mcpMoveAsset')
+    expect(combinedSource).toContain('components.ginkoCms.backup.mcpExportBackup')
+    expect(combinedSource).toContain('components.ginkoCms.reviewRequests.requestPublishReview')
   })
 
   it('keeps MCP from uploading or fetching new assets', () => {
@@ -452,9 +427,11 @@ describe('MCP tool safety contracts', () => {
     expect(promptsAndResources).not.toContain('upload-asset')
     expect(promptsAndResources).not.toContain('list-assets')
     expect(promptsAndResources).toContain('resolve-asset-urls')
-    expect(promptsAndResources).toContain('publish-entry')
+    expect(promptsAndResources).toContain('preview-publish')
+    expect(promptsAndResources).toContain('request-publish-review')
     expect(promptsAndResources).toContain('page')
     expect(promptsAndResources).toContain('sitemap')
+    expect(promptsAndResources).not.toContain('_confirmationToken')
 
     for (const forbidden of [
       'create-content-piece',

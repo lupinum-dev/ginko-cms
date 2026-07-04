@@ -8,6 +8,7 @@ import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { v } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel.js'
+import { recordOwnedAgentRunWrite } from '../agentRuns.js'
 import { canCreateEntries, canDeleteEntries, canEditEntries } from '../auth/checks.js'
 import { assertBackupArtifactCoversPurge } from '../backup.js'
 import { throwCmsError } from '../errors.js'
@@ -78,6 +79,21 @@ export const createEntryOperation = defineCmsOperation({
 })
 
 export const createEntry = callerMutation.protected(createEntryOperation)
+
+export const mcpCreateEntry = callerMutation.protected({
+  id: 'editor:mcpCreateEntry',
+  args: {
+    agentRunId: v.string(),
+    ...createEntryArgs.args,
+  },
+  guard: canCreateEntries,
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const { agentRunId, ...input } = args
+    await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.create-entry')
+    return await createEntryOperation.handler(ctx, input)
+  },
+})
 
 export const reorderEntry = callerMutation.protected({
   id: 'editor:reorderEntry',

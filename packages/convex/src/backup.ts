@@ -29,12 +29,22 @@ type AnyInternalMutation = FunctionReference<
   Record<string, unknown>,
   unknown
 >
+type AnyMutation = FunctionReference<
+  'mutation',
+  'public' | 'internal',
+  Record<string, unknown>,
+  unknown
+>
 
 const backupApi = anyApi as unknown as {
+  agentRuns: {
+    recordWrite: AnyMutation
+  }
   backup: {
     collectBackupData: AnyInternalQuery
     getBackupArtifact: AnyInternalQuery
     recordBackupArtifact: AnyInternalMutation
+    restoreBackupAsset: AnyInternalMutation
   }
 }
 
@@ -91,10 +101,12 @@ type BackupScopeInput = {
 
 type JsonRecord = Record<string, JsonValue>
 type BackupActionCtx = {
-  runQuery: (ref: AnyInternalQuery, args: BackupScopeInput) => Promise<unknown>
+  runQuery: (ref: AnyInternalQuery, args: Record<string, unknown>) => Promise<unknown>
+  runMutation: (ref: AnyMutation, args: Record<string, unknown>) => Promise<unknown>
   storage: {
     get: (id: Id<'_storage'>) => Promise<Blob | null>
     store: (blob: Blob) => Promise<Id<'_storage'>>
+    delete: (id: Id<'_storage'>) => Promise<void>
   }
 }
 
@@ -111,6 +123,44 @@ type BackupArchive = {
   }
   data: Record<string, JsonRecord[]>
   assetBytes: Record<string, number[]>
+}
+
+type BackupArtifactRecord = {
+  artifactId: string
+  checksum: string
+  storageRef: string
+  scope: BackupScope
+  collectionId?: string | null
+  entryId?: string | null
+  assetId?: string | null
+}
+
+const restoreChangeValidator = v.object({
+  table: v.string(),
+  archiveRows: v.number(),
+  existingRows: v.number(),
+  missingRows: v.number(),
+  conflictingRows: v.number(),
+})
+
+const restoreIssueValidator = v.object({
+  code: v.string(),
+  message: v.string(),
+})
+
+const restorePreviewValidator = v.object({
+  artifactId: v.string(),
+  checksum: v.string(),
+  scope: backupScopeValidator,
+  applySupported: v.boolean(),
+  counts: backupCountsValidator,
+  changes: v.array(restoreChangeValidator),
+  blockers: v.array(restoreIssueValidator),
+  warnings: v.array(restoreIssueValidator),
+})
+
+function restoreIssue(code: string, message: string) {
+  return { code, message }
 }
 
 function normalizeScope(args: BackupScopeInput): BackupScopeInput {
@@ -197,6 +247,186 @@ async function buildArchive(ctx: BackupActionCtx, scope: BackupScopeInput) {
     data,
     assetBytes,
   } satisfies BackupArchive
+}
+
+function assertBackupArchive(value: BackupArchive, artifactId: string) {
+  if (value.version !== BACKUP_ARCHIVE_VERSION) {
+    throwCmsError('BACKUP_RESTORE_VERSION_UNSUPPORTED', 'Backup archive version is unsupported.', {
+      artifactId,
+      version: value.version,
+      supportedVersion: BACKUP_ARCHIVE_VERSION,
+    })
+  }
+}
+
+async function loadArchiveForArtifact(
+  ctx: BackupActionCtx,
+  artifactId: string,
+): Promise<{
+  artifact: BackupArtifactRecord
+  archive: BackupArchive
+  archiveJson: string
+  checksum: string
+}> {
+  const artifact = (await ctx.runQuery(backupApi.backup.getBackupArtifact, {
+    artifactId,
+  })) as BackupArtifactRecord | null
+  if (!artifact) {
+    throwCmsError('BACKUP_NOT_FOUND', 'Backup artifact not found.', { artifactId })
+  }
+
+  const blob = await ctx.storage.get(artifact.storageRef as Id<'_storage'>)
+  if (!blob) {
+    throwCmsError('BACKUP_STORAGE_MISSING', 'Backup archive bytes are missing.', { artifactId })
+  }
+
+  const archiveJson = await blob.text()
+  const checksum = await sha256Hex(archiveJson)
+  if (checksum !== artifact.checksum) {
+    throwCmsError('BACKUP_CHECKSUM_MISMATCH', 'Backup archive checksum does not match artifact.', {
+      artifactId,
+    })
+  }
+
+  const archive = JSON.parse(archiveJson) as BackupArchive
+  assertBackupArchive(archive, artifactId)
+
+  return { artifact, archive, archiveJson, checksum }
+}
+
+function rowId(row: JsonRecord) {
+  return typeof row._id === 'string' ? row._id : null
+}
+
+function rowWithoutConvexMetadata(row: JsonRecord): JsonRecord {
+  const { _id: _id, _creationTime: _creationTime, ...rest } = row
+  return rest
+}
+
+function restoreChanges(args: {
+  archiveData: Record<string, JsonRecord[]>
+  currentData: Record<string, JsonRecord[]>
+}) {
+  const tableNames = Array.from(
+    new Set([...Object.keys(args.archiveData), ...Object.keys(args.currentData)]),
+  ).sort()
+
+  return tableNames.map((table) => {
+    const archiveRows = args.archiveData[table] ?? []
+    const currentRows = args.currentData[table] ?? []
+    const currentById = new Map(currentRows.map((row) => [rowId(row), row]))
+    let missingRows = 0
+    let conflictingRows = 0
+
+    for (const row of archiveRows) {
+      const id = rowId(row)
+      const current = id ? currentById.get(id) : null
+      if (!current) {
+        missingRows += 1
+        continue
+      }
+      if (
+        canonicalJson(rowWithoutConvexMetadata(current)) !==
+        canonicalJson(rowWithoutConvexMetadata(row))
+      ) {
+        conflictingRows += 1
+      }
+    }
+
+    return {
+      table,
+      archiveRows: archiveRows.length,
+      existingRows: archiveRows.length - missingRows,
+      missingRows,
+      conflictingRows,
+    }
+  })
+}
+
+async function buildRestorePreview(
+  ctx: BackupActionCtx,
+  artifact: BackupArtifactRecord,
+  archive: BackupArchive,
+  checksum: string,
+) {
+  const current = (await ctx.runQuery(backupApi.backup.collectBackupData, {
+    scope: artifact.scope,
+    collectionId: artifact.collectionId ?? undefined,
+    entryId: artifact.entryId ?? undefined,
+    assetId: artifact.assetId ?? undefined,
+  })) as Record<string, JsonRecord[]>
+  const changes = restoreChanges({ archiveData: archive.data, currentData: current })
+  const blockers: ReturnType<typeof restoreIssue>[] = []
+  const warnings: ReturnType<typeof restoreIssue>[] = []
+
+  if (artifact.scope !== 'asset') {
+    blockers.push(
+      restoreIssue(
+        'restore-scope-unsupported',
+        'Only asset-scoped backup artifacts can be applied automatically in this release.',
+      ),
+    )
+  }
+
+  if (artifact.scope === 'asset') {
+    const archiveAssets = archive.data.assets ?? []
+    const missingAssets = changes.find((change) => change.table === 'assets')?.missingRows ?? 0
+    const conflictingAssets =
+      changes.find((change) => change.table === 'assets')?.conflictingRows ?? 0
+    if (archiveAssets.length !== 1) {
+      blockers.push(
+        restoreIssue(
+          'restore-asset-count-invalid',
+          'Asset restore expects exactly one asset row in the backup artifact.',
+        ),
+      )
+    }
+    if (missingAssets === 0) {
+      blockers.push(
+        restoreIssue(
+          'restore-target-exists',
+          'The backed-up asset still exists; automatic restore only inserts missing assets.',
+        ),
+      )
+    }
+    if (conflictingAssets > 0) {
+      blockers.push(
+        restoreIssue(
+          'restore-target-conflict',
+          'The backed-up asset id exists with different data; automatic restore will not overwrite it.',
+        ),
+      )
+    }
+    const assetId = rowId(archiveAssets[0] ?? {})
+    if (assetId && !archive.assetBytes[assetId]) {
+      blockers.push(
+        restoreIssue(
+          'restore-asset-bytes-missing',
+          'The backup artifact does not contain the asset bytes needed for restore.',
+        ),
+      )
+    }
+  }
+
+  if (changes.some((change) => change.conflictingRows > 0)) {
+    warnings.push(
+      restoreIssue(
+        'restore-current-data-differs',
+        'Some current rows differ from the backup. Restore apply does not overwrite existing rows.',
+      ),
+    )
+  }
+
+  return {
+    artifactId: artifact.artifactId,
+    checksum,
+    scope: artifact.scope,
+    applySupported: artifact.scope === 'asset' && blockers.length === 0,
+    counts: archive.counts,
+    changes,
+    blockers,
+    warnings,
+  }
 }
 
 function assertArtifactScopeCovers(
@@ -418,6 +648,120 @@ export const recordBackupArtifact = internalMutation({
   },
 })
 
+export const restoreBackupAsset = internalMutation({
+  args: {
+    artifactId: v.string(),
+    originalAssetId: v.string(),
+    asset: jsonObjectValidator,
+    restoredStorageRef: v.string(),
+    appIdentityId: v.string(),
+    now: v.number(),
+  },
+  returns: v.object({
+    assetId: v.string(),
+    originalAssetId: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.originalAssetId as Id<'assets'>)
+    if (existing) {
+      throwCmsError('BACKUP_RESTORE_TARGET_EXISTS', 'Backed-up asset already exists.', {
+        artifactId: args.artifactId,
+        assetId: args.originalAssetId,
+      })
+    }
+
+    const asset = rowWithoutConvexMetadata(args.asset)
+    if (asset.scope === 'entry' && typeof asset.entryId === 'string') {
+      const entry = await ctx.db.get(asset.entryId as Id<'entries'>)
+      if (!entry) {
+        throwCmsError(
+          'BACKUP_RESTORE_DANGLING_ENTRY_ASSET',
+          'Cannot restore an entry-scoped asset when the entry is missing.',
+          {
+            artifactId: args.artifactId,
+            assetId: args.originalAssetId,
+            entryId: asset.entryId,
+          },
+        )
+      }
+    }
+    if (
+      (asset.scope === 'entry' || asset.scope === 'collection') &&
+      typeof asset.collectionId === 'string'
+    ) {
+      const collection = await ctx.db.get(asset.collectionId as Id<'collections'>)
+      if (!collection) {
+        throwCmsError(
+          'BACKUP_RESTORE_DANGLING_COLLECTION_ASSET',
+          'Cannot restore a scoped asset when the collection is missing.',
+          {
+            artifactId: args.artifactId,
+            assetId: args.originalAssetId,
+            collectionId: asset.collectionId,
+          },
+        )
+      }
+    }
+
+    const assetId = await ctx.db.insert('assets', {
+      ...asset,
+      storageId: args.restoredStorageRef as Id<'_storage'>,
+      updatedBy: args.appIdentityId,
+      updatedAt: args.now,
+    } as never)
+
+    await logActivity(ctx, {
+      kind: 'backup.restored',
+      summary: 'Restored asset from backup artifact',
+      appIdentityId: args.appIdentityId,
+      collectionId:
+        typeof asset.collectionId === 'string' ? (asset.collectionId as Id<'collections'>) : null,
+      entryId: typeof asset.entryId === 'string' ? (asset.entryId as Id<'entries'>) : null,
+      detail: {
+        artifactId: args.artifactId,
+        originalAssetId: args.originalAssetId,
+        restoredAssetId: String(assetId),
+      },
+    })
+
+    return {
+      assetId: String(assetId),
+      originalAssetId: args.originalAssetId,
+    }
+  },
+})
+
+async function exportBackupForScope(
+  ctx: BackupActionCtx & { appIdentity: () => Promise<{ userId: string }> },
+  rawArgs: BackupScopeInput,
+) {
+  const appIdentity = await ctx.appIdentity()
+  const now = Date.now()
+  const scope = normalizeScope(rawArgs)
+  const archive = await buildArchive(ctx, scope)
+  const archiveJson = canonicalJson(archive)
+  const checksum = await sha256Hex(archiveJson)
+  const storageRef = await ctx.storage.store(
+    new Blob([archiveJson], { type: 'application/vnd.ginko-cms.backup+json' }),
+  )
+  const artifactId = artifactIdFor(now)
+  await ctx.runMutation(backupApi.backup.recordBackupArtifact, {
+    ...scope,
+    artifactId,
+    checksum,
+    storageRef,
+    counts: archive.counts,
+    appIdentityId: appIdentity.userId,
+    now,
+  })
+  return {
+    artifactId,
+    checksum,
+    storageRef,
+    counts: archive.counts,
+  }
+}
+
 export const exportBackup = callerAction.protected({
   id: 'backup:exportBackup',
   args: backupScopeArgs,
@@ -434,31 +778,45 @@ export const exportBackup = callerAction.protected({
     }),
   }),
   handler: async (ctx, rawArgs) => {
-    const appIdentity = await ctx.appIdentity()
-    const now = Date.now()
-    const scope = normalizeScope(rawArgs)
-    const archive = await buildArchive(ctx as unknown as BackupActionCtx, scope)
-    const archiveJson = canonicalJson(archive)
-    const checksum = await sha256Hex(archiveJson)
-    const storageRef = await ctx.storage.store(
-      new Blob([archiveJson], { type: 'application/vnd.ginko-cms.backup+json' }),
+    return await exportBackupForScope(
+      ctx as unknown as BackupActionCtx & {
+        appIdentity: () => Promise<{ userId: string }>
+      },
+      rawArgs,
     )
-    const artifactId = artifactIdFor(now)
-    await ctx.runMutation(backupApi.backup.recordBackupArtifact, {
-      ...scope,
-      artifactId,
-      checksum,
-      storageRef,
-      counts: archive.counts,
-      appIdentityId: appIdentity.userId,
-      now,
+  },
+})
+
+export const mcpExportBackup = callerAction.protected({
+  id: 'backup:mcpExportBackup',
+  args: {
+    agentRunId: v.string(),
+    ...backupScopeArgs,
+  },
+  guard: hasRole('owner'),
+  returns: v.object({
+    artifactId: v.string(),
+    checksum: v.string(),
+    storageRef: v.string(),
+    counts: v.object({
+      entries: v.number(),
+      revisions: v.number(),
+      assets: v.number(),
+      members: v.number(),
+    }),
+  }),
+  handler: async (ctx, rawArgs) => {
+    const { agentRunId, ...scopeArgs } = rawArgs
+    await ctx.runMutation(backupApi.agentRuns.recordWrite, {
+      agentRunId,
+      operationId: 'ginko-cms.export-backup',
     })
-    return {
-      artifactId,
-      checksum,
-      storageRef,
-      counts: archive.counts,
-    }
+    return await exportBackupForScope(
+      ctx as unknown as BackupActionCtx & {
+        appIdentity: () => Promise<{ userId: string }>
+      },
+      scopeArgs,
+    )
   },
 })
 
@@ -547,6 +905,116 @@ export const downloadBackup = callerAction.protected({
       artifactId: artifact.artifactId,
       checksum,
       archiveJson,
+    }
+  },
+})
+
+export const previewRestoreBackup = callerAction.protected({
+  id: 'backup:previewRestoreBackup',
+  args: { artifactId: v.string() },
+  guard: hasRole('owner'),
+  returns: restorePreviewValidator,
+  handler: async (ctx, args) => {
+    const { artifact, archive, checksum } = await loadArchiveForArtifact(
+      ctx as unknown as BackupActionCtx,
+      args.artifactId,
+    )
+    return await buildRestorePreview(ctx as unknown as BackupActionCtx, artifact, archive, checksum)
+  },
+})
+
+export const restoreBackup = callerAction.protected({
+  id: 'backup:restoreBackup',
+  args: {
+    artifactId: v.string(),
+    expectedChecksum: v.string(),
+  },
+  guard: hasRole('owner'),
+  returns: v.object({
+    artifactId: v.string(),
+    scope: backupScopeValidator,
+    restored: v.object({
+      assets: v.number(),
+    }),
+    restoredAssetId: v.string(),
+    originalAssetId: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const appIdentity = await ctx.appIdentity()
+    const { artifact, archive, checksum } = await loadArchiveForArtifact(
+      ctx as unknown as BackupActionCtx,
+      args.artifactId,
+    )
+    if (checksum !== args.expectedChecksum) {
+      throwCmsError(
+        'BACKUP_RESTORE_CHECKSUM_CONFIRMATION_MISMATCH',
+        'Restore expectedChecksum does not match the backup artifact checksum.',
+        {
+          artifactId: args.artifactId,
+        },
+      )
+    }
+
+    const preview = await buildRestorePreview(
+      ctx as unknown as BackupActionCtx,
+      artifact,
+      archive,
+      checksum,
+    )
+    if (!preview.applySupported) {
+      throwCmsError('BACKUP_RESTORE_BLOCKED', 'Backup restore is blocked by the dry-run result.', {
+        artifactId: args.artifactId,
+        blockers: preview.blockers,
+      })
+    }
+
+    const asset = archive.data.assets?.[0]
+    const originalAssetId = asset ? rowId(asset) : null
+    if (!asset || !originalAssetId) {
+      throwCmsError(
+        'BACKUP_RESTORE_ASSET_INVALID',
+        'Backup artifact has no restorable asset row.',
+        {
+          artifactId: args.artifactId,
+        },
+      )
+    }
+
+    const bytes = archive.assetBytes[originalAssetId]
+    if (!bytes) {
+      throwCmsError(
+        'BACKUP_RESTORE_ASSET_BYTES_MISSING',
+        'Backup artifact has no restorable asset bytes.',
+        { artifactId: args.artifactId, assetId: originalAssetId },
+      )
+    }
+
+    const restoredStorageRef = await ctx.storage.store(
+      new Blob([Uint8Array.from(bytes)], {
+        type: typeof asset.mimeType === 'string' ? asset.mimeType : undefined,
+      }),
+    )
+    let restored: { assetId: string; originalAssetId: string }
+    try {
+      restored = (await ctx.runMutation(backupApi.backup.restoreBackupAsset, {
+        artifactId: artifact.artifactId,
+        originalAssetId,
+        asset,
+        restoredStorageRef,
+        appIdentityId: appIdentity.userId,
+        now: Date.now(),
+      })) as { assetId: string; originalAssetId: string }
+    } catch (error) {
+      await ctx.storage.delete(restoredStorageRef)
+      throw error
+    }
+
+    return {
+      artifactId: artifact.artifactId,
+      scope: artifact.scope,
+      restored: { assets: 1 },
+      restoredAssetId: restored.assetId,
+      originalAssetId: restored.originalAssetId,
     }
   },
 })

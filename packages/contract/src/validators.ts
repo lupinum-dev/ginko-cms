@@ -268,29 +268,6 @@ export const memberValidator = v.object({
   updatedBy: v.union(v.string(), v.null()),
 })
 
-export const mcpKeyValidator = v.object({
-  _id: v.string(),
-  _creationTime: v.number(),
-  name: v.string(),
-  prefix: v.string(),
-  boundUserId: v.string(),
-  issuedBy: v.string(),
-  status: v.union(v.literal('active'), v.literal('revoked')),
-  createdAt: v.number(),
-  expiresAt: v.number(),
-  lastUsedAt: v.union(v.number(), v.null()),
-  revokedAt: v.union(v.number(), v.null()),
-  boundMember: v.union(
-    v.object({
-      userId: v.string(),
-      displayName: v.union(v.string(), v.null()),
-      email: v.union(v.string(), v.null()),
-      role: cmsRoleValidator,
-    }),
-    v.null(),
-  ),
-})
-
 export const permissionMapValidator = v.record(v.string(), v.boolean())
 
 export const accessContextValidator = v.union(

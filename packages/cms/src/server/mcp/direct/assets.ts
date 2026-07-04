@@ -1,57 +1,78 @@
-import {
-  getAsset as getAssetSchema,
-  moveAsset as moveAssetSchema,
-  resolveAssetUrls as resolveAssetUrlsSchema,
-} from '@lupinum/ginko-cms-contract/convex/schemas/assets.js'
+import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
+import { z } from 'zod'
 
 import { components } from '#convex/api'
 
-import { projectTool, type ProjectToolDefinition } from '../_shared/project-tool-runtime'
+import { fail, failFromError, loadAgentContext, ok } from '../_shared/agent-tools'
 
-export const getAsset: ProjectToolDefinition = projectTool({
-  schema: getAssetSchema,
-  call: components.ginkoCms.assets.getAsset,
-  capability: 'readCms',
-  meta: {
-    name: 'get-asset',
+const assetScope = z.enum(['global', 'collection', 'entry'])
+
+export const getAsset = defineMcpTool({
+  name: 'get-asset',
+  description: 'Load one CMS asset with ownership and usage metadata.',
+  inputSchema: {
+    assetId: z.string(),
   },
   group: 'assets',
-  operation: 'query',
-  respond: ({ args, result, ok, error }) => {
-    if (!result) {
-      return error('not_found', `Asset "${args.assetId}" not found.`)
+  handler: async (args, ctx) => {
+    try {
+      const context = await loadAgentContext(ctx.event, 'readCms')
+      const result = await context.convex.query(components.ginkoCms.assets.getAsset, args)
+      if (!result) {
+        return fail(
+          `Asset "${args.assetId}" not found.`,
+          { assetId: args.assetId },
+          {
+            category: 'not_found',
+            code: 'ASSET_NOT_FOUND',
+          },
+        )
+      }
+      return ok(result, `Loaded asset "${args.assetId}".`)
+    } catch (error) {
+      return failFromError(error, 'Failed to load asset.')
     }
-    return ok(result, `Loaded asset "${args.assetId}".`)
   },
 })
 
-export const moveAsset: ProjectToolDefinition = projectTool({
-  schema: moveAssetSchema,
-  capability: 'manageAssets',
-  meta: {
-    name: 'move-asset',
-  },
-  operation: {
-    execute: components.ginkoCms.assets.moveAsset,
+export const moveAsset = defineMcpTool({
+  name: 'move-asset',
+  description: 'Move an asset to a different CMS scope.',
+  inputSchema: {
+    agentRunId: z.string().describe('Active agent run id for this write.'),
+    assetId: z.string(),
+    scope: assetScope,
+    entryId: z.string().optional(),
+    collectionId: z.string().optional(),
+    collectionSlug: z.string().optional(),
   },
   group: 'assets',
-  respond: ({ args, result, ok }) => {
-    void result
-    return ok({ moved: true, assetId: args.assetId, scope: args.scope }, 'Moved asset.')
+  handler: async (args, ctx) => {
+    try {
+      const context = await loadAgentContext(ctx.event, 'manageAssets')
+      await context.convex.mutation(components.ginkoCms.assets.mcpMoveAsset, args)
+      return ok({ moved: true, assetId: args.assetId, scope: args.scope }, 'Moved asset.')
+    } catch (error) {
+      return failFromError(error, 'Failed to move asset.')
+    }
   },
 })
 
-export const resolveAssetUrls: ProjectToolDefinition = projectTool({
-  schema: resolveAssetUrlsSchema,
-  call: components.ginkoCms.assets.resolveAssetUrls,
-  capability: 'readCms',
-  meta: {
-    name: 'resolve-asset-urls',
+export const resolveAssetUrls = defineMcpTool({
+  name: 'resolve-asset-urls',
+  description: 'Resolve CMS asset ids to storage URLs.',
+  inputSchema: {
+    assetIds: z.array(z.string()),
   },
   group: 'assets',
-  operation: 'query',
-  respond: ({ result, ok }) => {
-    const count = Object.keys(result).length
-    return ok(result, `Resolved ${count} asset URL${count === 1 ? '' : 's'}.`)
+  handler: async (args, ctx) => {
+    try {
+      const context = await loadAgentContext(ctx.event, 'readCms')
+      const result = await context.convex.query(components.ginkoCms.assets.resolveAssetUrls, args)
+      const count = Object.keys(result).length
+      return ok(result, `Resolved ${count} asset URL${count === 1 ? '' : 's'}.`)
+    } catch (error) {
+      return failFromError(error, 'Failed to resolve asset URLs.')
+    }
   },
 })

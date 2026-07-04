@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Settings,
   ShieldCheck,
+  Copy,
   Trash2,
   User,
   UserPlus,
@@ -27,39 +28,36 @@ const {
   canManageMembers,
   canManageSettings,
   collectionCount,
-  createdMcpToken,
   currentLocale,
   defaultLocale,
   error,
   handleAddMember,
-  handleCopyMcpToken,
-  handleCreateMcpKey,
-  handleRevokeMcpKey,
   handleRemoveMember,
   handleRetryRevalidationJob,
   handleSaveLocales,
   handleUpdateRole,
+  handleCreateMcpConnection,
+  handleRevokeMcpConnection,
   isLoading,
   config,
-  formatMcpTimestamp,
-  formatRoleLabel,
+  formatTimestamp,
   localeError,
   localeSaving,
   locales,
   members,
-  mcpCreating,
-  mcpEnabled,
-  mcpCurlExample,
+  mcpConnectionError,
+  mcpConnectionForm,
+  mcpConnectionInfo,
+  mcpConnectionSaving,
+  mcpConnections,
+  mcpCreatedToken,
   mcpEndpoint,
-  mcpError,
-  mcpHealthRows,
-  mcpInfo,
-  mcpKeys,
-  mcpTokenCopied,
+  mcpExpiryOptions,
+  mcpScopeOptions,
   newMember,
-  newMcpKey,
   refreshRevalidationJobs,
   refreshStorageHygiene,
+  revokingMcpApiKeyId,
   revalidationError,
   revalidationInfo,
   revalidationJobs,
@@ -71,14 +69,14 @@ const {
   settingsQuery,
   setDefaultLocale,
   showAddMember,
-  showCreateMcpKey,
   formatRevalidationReason,
-  sortedMembers,
   studioLocales,
   storageHygiene,
   storageHygieneQuery,
   storageHygieneRows,
   storageRiskRows,
+  toggleMcpScope,
+  copyMcpToken,
   t,
 } = useStudioSettingsAdmin()
 </script>
@@ -495,7 +493,7 @@ const {
             </div>
           </section>
 
-          <!-- ─── MCP Keys ─── -->
+          <!-- ─── MCP Connections ─── -->
           <section
             v-if="canManageSettings"
             class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
@@ -505,275 +503,171 @@ const {
                 class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
               >
                 <KeyRound class="ginko:size-4 ginko:text-muted-foreground" />
-                {{ t('ginkoCms.studio.settingsPage.mcpKeys') }}
+                MCP connections
                 <Badge variant="outline" class="ginko:text-xs">
-                  {{ mcpKeys.length }}
+                  {{ mcpConnections.filter((connection) => connection.status === 'active').length }}
                 </Badge>
               </h2>
               <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
-                {{ t('ginkoCms.studio.settingsPage.mcpKeysDescription') }}
+                Better Auth API keys mapped to CMS scopes for external MCP clients.
               </p>
             </div>
 
             <div class="ginko:flex-1 ginko:min-w-0 ginko:space-y-4">
               <div
-                v-if="mcpError"
+                v-if="mcpConnectionError"
                 class="ginko:p-3 ginko:rounded-lg ginko:bg-destructive/10 ginko:text-destructive-fg ginko:text-sm ginko:flex ginko:items-center ginko:gap-2"
               >
                 <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-                {{ mcpError }}
+                {{ mcpConnectionError }}
               </div>
 
               <div
-                v-if="mcpInfo"
+                v-if="mcpConnectionInfo"
                 class="ginko:p-3 ginko:rounded-lg ginko:bg-success/15 ginko:text-success-fg ginko:dark:bg-success/20 ginko:text-sm ginko:flex ginko:items-center ginko:gap-2"
               >
                 <BadgeCheck class="ginko:size-4 ginko:shrink-0" />
-                {{ mcpInfo }}
+                {{ mcpConnectionInfo }}
               </div>
 
               <div
-                v-if="createdMcpToken"
-                class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-4 ginko:space-y-3"
+                v-if="mcpCreatedToken"
+                class="ginko:rounded-lg ginko:border ginko:border-warning/30 ginko:bg-warning/10 ginko:p-4 ginko:space-y-3"
               >
-                <div class="ginko:space-y-1">
-                  <h3 class="ginko:text-sm ginko:font-medium">
-                    {{ t('ginkoCms.studio.settingsPage.mcpTokenReady') }}
-                  </h3>
-                  <p class="ginko:text-xs ginko:text-muted-foreground">
-                    {{ t('ginkoCms.studio.settingsPage.mcpTokenReadyDescription') }}
-                  </p>
-                </div>
-                <div
-                  class="ginko:rounded-md ginko:border ginko:bg-background ginko:px-3 ginko:py-2 ginko:font-mono ginko:text-xs ginko:break-all"
-                >
-                  {{ createdMcpToken }}
-                </div>
-                <div class="ginko:flex ginko:items-center ginko:gap-2">
-                  <Button size="sm" @click="handleCopyMcpToken">
-                    <Icon
-                      :name="mcpTokenCopied ? 'lucide:check' : 'lucide:copy'"
-                      class="ginko:size-3.5"
-                    />
-                    {{
-                      mcpTokenCopied
-                        ? t('ginkoCms.studio.settingsPage.mcpCopied')
-                        : t('ginkoCms.studio.settingsPage.mcpCopy')
-                    }}
+                <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
+                  <div class="ginko:min-w-0">
+                    <div class="ginko:text-sm ginko:font-medium">
+                      {{ t('ginkoCms.studio.settingsPage.mcpTokenReady') }}
+                    </div>
+                    <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+                      {{ t('ginkoCms.studio.settingsPage.mcpTokenReadyDescription') }}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" @click="copyMcpToken">
+                    <Copy class="ginko:size-3.5" />
+                    Copy
                   </Button>
                 </div>
-              </div>
-
-              <div
-                v-if="mcpEnabled"
-                class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-4 ginko:space-y-3"
-              >
-                <div class="ginko:space-y-1">
-                  <h3 class="ginko:text-sm ginko:font-medium">
-                    {{ t('ginkoCms.studio.settingsPage.mcpConnectionTitle') }}
-                  </h3>
-                  <p class="ginko:text-xs ginko:text-muted-foreground">
-                    {{ t('ginkoCms.studio.settingsPage.mcpConnectionDescription') }}
-                  </p>
-                </div>
-                <div
-                  class="ginko:grid ginko:gap-2 ginko:rounded-md ginko:border ginko:bg-background/60 ginko:p-3"
+                <code
+                  class="ginko:block ginko:break-all ginko:rounded-md ginko:bg-background ginko:px-3 ginko:py-2 ginko:text-xs"
+                  >{{ mcpCreatedToken.key }}</code
                 >
-                  <div
-                    v-for="row in mcpHealthRows"
-                    :key="row.label"
-                    class="ginko:flex ginko:items-start ginko:gap-2 ginko:text-xs"
-                  >
-                    <BadgeCheck
-                      v-if="row.ok === true"
-                      class="ginko:mt-0.5 ginko:size-3.5 ginko:shrink-0 ginko:text-success-fg"
-                    />
-                    <AlertCircle
-                      v-else-if="row.ok === false"
-                      class="ginko:mt-0.5 ginko:size-3.5 ginko:shrink-0 ginko:text-warning-fg"
-                    />
-                    <Info
-                      v-else
-                      class="ginko:mt-0.5 ginko:size-3.5 ginko:shrink-0 ginko:text-muted-foreground"
-                    />
-                    <div class="ginko:min-w-0">
-                      <div class="ginko:font-medium ginko:text-foreground">{{ row.label }}</div>
-                      <div class="ginko:break-all ginko:text-muted-foreground">
-                        {{ row.detail }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="ginko:space-y-1.5">
-                  <Label class="ginko:text-xs ginko:text-muted-foreground">{{
-                    t('ginkoCms.studio.settingsPage.mcpEndpointLabel')
-                  }}</Label>
-                  <div
-                    class="ginko:rounded-md ginko:border ginko:bg-background ginko:px-3 ginko:py-2 ginko:font-mono ginko:text-xs ginko:break-all"
-                  >
-                    {{ mcpEndpoint }}
-                  </div>
-                </div>
-                <div class="ginko:space-y-1.5">
-                  <Label class="ginko:text-xs ginko:text-muted-foreground">{{
-                    t('ginkoCms.studio.settingsPage.mcpCurlLabel')
-                  }}</Label>
-                  <pre
-                    class="ginko:rounded-md ginko:border ginko:bg-background ginko:px-3 ginko:py-2 ginko:font-mono ginko:text-xs ginko:whitespace-pre-wrap ginko:break-all"
-                    >{{ mcpCurlExample }}</pre
-                  >
-                </div>
-                <p class="ginko:text-xs ginko:text-muted-foreground">
-                  {{ t('ginkoCms.studio.settingsPage.mcpConnectionHelp') }}
-                </p>
               </div>
 
-              <div
-                v-else
-                class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-4 ginko:space-y-2"
-              >
-                <h3 class="ginko:text-sm ginko:font-medium">
-                  {{ t('ginkoCms.studio.settingsPage.mcpDisabledTitle') }}
-                </h3>
-                <p class="ginko:text-xs ginko:text-muted-foreground">
-                  {{ t('ginkoCms.studio.settingsPage.mcpDisabledDescription') }}
-                </p>
-              </div>
-
-              <div
-                v-if="showCreateMcpKey"
-                class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-4 ginko:space-y-3"
-              >
+              <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-4">
                 <div
-                  class="ginko:grid ginko:grid-cols-1 ginko:md:grid-cols-[1fr_16rem] ginko:gap-3"
+                  class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-[1fr_10rem]"
                 >
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs ginko:text-muted-foreground">{{
-                      t('ginkoCms.studio.settingsPage.mcpKeyName')
-                    }}</Label>
+                    <Label class="ginko:text-xs ginko:text-muted-foreground">Name</Label>
                     <Input
-                      v-model="newMcpKey.name"
+                      v-model="mcpConnectionForm.name"
                       class="ginko:h-8 ginko:text-sm"
-                      :placeholder="t('ginkoCms.studio.settingsPage.mcpKeyNamePlaceholder')"
+                      :placeholder="t('ginkoCms.studio.settingsPage.apiKeyNamePlaceholder')"
                     />
                   </div>
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs ginko:text-muted-foreground"
-                      >{{ t('ginkoCms.studio.settingsPage.mcpKeyUser') }}
-                      <span class="ginko:text-destructive">*</span></Label
-                    >
-                    <Select
-                      :model-value="newMcpKey.boundUserId || '__none__'"
-                      @update:model-value="
-                        newMcpKey.boundUserId = $event === '__none__' ? '' : $event
-                      "
-                    >
+                    <Label class="ginko:text-xs ginko:text-muted-foreground">Expiry</Label>
+                    <Select v-model="mcpConnectionForm.expiresIn">
                       <SelectTrigger class="ginko:h-8 ginko:text-xs">
-                        <SelectValue
-                          :placeholder="t('ginkoCms.studio.settingsPage.mcpKeyUserPlaceholder')"
-                        />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">
-                          {{ t('ginkoCms.common.none') }}
-                        </SelectItem>
                         <SelectItem
-                          v-for="member in sortedMembers"
-                          :key="member.userId"
-                          :value="member.userId"
-                          :text-value="member.displayName || member.email || member.userId"
+                          v-for="option in mcpExpiryOptions"
+                          :key="option.value"
+                          :value="option.value"
                         >
-                          {{ member.displayName || member.email || member.userId }}
-                          · {{ formatRoleLabel(member.role) }}
+                          {{ option.label }}
                         </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                <p class="ginko:text-xs ginko:text-muted-foreground">
-                  {{ t('ginkoCms.studio.settingsPage.mcpKeyHelp') }}
-                </p>
-                <div class="ginko:flex ginko:justify-end ginko:gap-2">
-                  <Button variant="ghost" size="sm" @click="showCreateMcpKey = false">
-                    {{ t('ginkoCms.common.cancel') }}
-                  </Button>
-                  <Button size="sm" :disabled="mcpCreating" @click="handleCreateMcpKey">
-                    <Loader2 v-if="mcpCreating" class="ginko:size-3.5 ginko:animate-spin" />
-                    {{ t('ginkoCms.studio.settingsPage.createMcpKey') }}
+
+                <div class="ginko:mt-4 ginko:space-y-2">
+                  <Label class="ginko:text-xs ginko:text-muted-foreground">Scopes</Label>
+                  <div class="ginko:grid ginko:grid-cols-1 ginko:gap-2 ginko:sm:grid-cols-2">
+                    <label
+                      v-for="scope in mcpScopeOptions"
+                      :key="scope.key"
+                      class="ginko:flex ginko:items-center ginko:gap-2 ginko:rounded-md ginko:border ginko:border-border/40 ginko:px-3 ginko:py-2 ginko:text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        class="ginko:size-3.5 ginko:accent-primary"
+                        :checked="mcpConnectionForm.scopes.includes(scope.key)"
+                        @change="
+                          toggleMcpScope(scope.key, ($event.target as HTMLInputElement).checked)
+                        "
+                      />
+                      <span>{{ scope.label }}</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div
+                  class="ginko:mt-4 ginko:flex ginko:flex-col ginko:gap-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
+                >
+                  <code
+                    class="ginko:min-w-0 ginko:break-all ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1 ginko:text-xs"
+                    >{{ mcpEndpoint }}</code
+                  >
+                  <Button
+                    size="sm"
+                    :disabled="mcpConnectionSaving"
+                    @click="handleCreateMcpConnection"
+                  >
+                    <Loader2 v-if="mcpConnectionSaving" class="ginko:size-3.5 ginko:animate-spin" />
+                    <Plus v-else class="ginko:size-3.5" />
+                    Create
                   </Button>
                 </div>
               </div>
 
-              <StudioEmptyState
-                v-if="mcpKeys.length === 0 && !showCreateMcpKey"
-                :title="t('ginkoCms.studio.settingsPage.noMcpKeys')"
-                :description="t('ginkoCms.studio.settingsPage.noMcpKeysDescription')"
-              >
-                <template #icon>
-                  <KeyRound class="ginko:size-5" aria-hidden="true" />
-                </template>
-              </StudioEmptyState>
-
-              <div
-                v-else
-                class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:divide-y"
-              >
+              <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:divide-y">
                 <div
-                  v-for="key in mcpKeys"
-                  :key="key._id"
-                  class="ginko:flex ginko:flex-col ginko:gap-3 ginko:px-4 ginko:py-3 ginko:md:flex-row ginko:md:items-center ginko:md:justify-between"
+                  v-if="mcpConnections.length === 0"
+                  class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
                 >
-                  <div class="ginko:min-w-0 ginko:space-y-1">
-                    <div class="ginko:flex ginko:items-center ginko:gap-2 ginko:min-w-0">
-                      <span class="ginko:text-sm ginko:font-medium ginko:truncate">{{
-                        key.name
+                  No MCP connections have been created yet.
+                </div>
+                <div
+                  v-for="connection in mcpConnections"
+                  :key="connection.apiKeyId"
+                  class="ginko:flex ginko:flex-col ginko:gap-3 ginko:px-4 ginko:py-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
+                >
+                  <div class="ginko:min-w-0">
+                    <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
+                      <span class="ginko:text-sm ginko:font-medium">{{
+                        connection.label || connection.apiKeyId
                       }}</span>
-                      <Badge
-                        :variant="key.status === 'active' ? 'default' : 'secondary'"
-                        class="ginko:text-[10px]"
-                      >
-                        {{
-                          key.status === 'active'
-                            ? t('ginkoCms.studio.settingsPage.mcpStatusActive')
-                            : t('ginkoCms.studio.settingsPage.mcpStatusRevoked')
-                        }}
+                      <Badge :variant="connection.status === 'active' ? 'default' : 'secondary'">
+                        {{ connection.status }}
                       </Badge>
                     </div>
-                    <div class="ginko:text-xs ginko:text-muted-foreground ginko:break-all">
-                      {{ key.prefix }}
-                    </div>
-                    <div class="ginko:text-xs ginko:text-muted-foreground">
-                      {{ t('ginkoCms.studio.settingsPage.mcpActsAs') }}:
-                      {{
-                        key.boundMember?.displayName || key.boundMember?.email || key.boundUserId
-                      }}
-                      ·
-                      {{ t('ginkoCms.studio.settingsPage.mcpExpires') }}:
-                      {{ formatMcpTimestamp(key.expiresAt) }}
-                      ·
-                      {{ t('ginkoCms.studio.settingsPage.mcpLastUsed') }}:
-                      {{ formatMcpTimestamp(key.lastUsedAt) }}
+                    <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+                      {{ connection.scopes.length }} scopes · Updated
+                      {{ formatTimestamp(connection.updatedAt) }}
                     </div>
                   </div>
-                  <div class="ginko:flex ginko:items-center ginko:gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      class="ginko:h-7 ginko:px-2 ginko:text-muted-foreground ginko:hover:text-destructive"
-                      :disabled="key.status !== 'active'"
-                      @click="handleRevokeMcpKey(key._id)"
-                    >
-                      <Trash2 class="ginko:size-3.5" />
-                      {{ t('ginkoCms.studio.settingsPage.revokeMcpKey') }}
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    :disabled="
+                      connection.status !== 'active' || revokingMcpApiKeyId === connection.apiKeyId
+                    "
+                    @click="handleRevokeMcpConnection(connection)"
+                  >
+                    <Loader2
+                      v-if="revokingMcpApiKeyId === connection.apiKeyId"
+                      class="ginko:size-3.5 ginko:animate-spin"
+                    />
+                    <Trash2 v-else class="ginko:size-3.5" />
+                    Revoke
+                  </Button>
                 </div>
               </div>
-
-              <Button size="sm" variant="outline" @click="showCreateMcpKey = !showCreateMcpKey">
-                <KeyRound class="ginko:size-3.5" />
-                {{ t('ginkoCms.studio.settingsPage.newMcpKey') }}
-              </Button>
             </div>
           </section>
 
@@ -857,7 +751,7 @@ const {
                       class="ginko:font-mono ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded"
                       >{{ target.secretEnv }}</code
                     >
-                    · Updated {{ formatMcpTimestamp(target.updatedAt) }}
+                    · Updated {{ formatTimestamp(target.updatedAt) }}
                   </div>
                 </div>
               </div>
@@ -910,7 +804,7 @@ const {
                         {{ formatRevalidationReason(job) }} · {{ job.attempts }} attempt{{
                           job.attempts === 1 ? '' : 's'
                         }}
-                        · Next {{ formatMcpTimestamp(job.nextAttemptAt) }}
+                        · Next {{ formatTimestamp(job.nextAttemptAt) }}
                       </div>
                     </div>
                     <Button

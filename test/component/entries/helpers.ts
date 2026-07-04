@@ -12,6 +12,7 @@ export {
   publishEntry,
   publishEntryWithArgs,
   revertDraftToPublished,
+  seedMember,
   rollbackVersion,
   unpublishEntry,
 } from '../../helpers'

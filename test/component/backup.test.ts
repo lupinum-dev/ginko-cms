@@ -392,6 +392,151 @@ describe('backup export and purge gating', () => {
     ).toBe(true)
   })
 
+  it('dry-runs and applies an asset restore from a verified backup artifact', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const storageId = await seedStorageObject(ctx, {
+      bytes: 'restorable asset bytes',
+      type: 'text/plain',
+    })
+    const assetId = await ctx.seed(
+      'assets' as never,
+      {
+        storageId,
+        filename: 'restore-me.txt',
+        mimeType: 'text/plain',
+        size: 22,
+        width: null,
+        height: null,
+        alt: null,
+        caption: null,
+        tags: [],
+        scope: 'global',
+        entryId: null,
+        collectionId: null,
+        deletedAt: null,
+        deletedBy: null,
+        createdBy: 'owner-1',
+        updatedBy: null,
+        createdAt: Date.now(),
+        updatedAt: null,
+      } as never,
+    )
+
+    const owner = ctx.asCmsUser('owner-1')
+    const exported = await owner.action(api.backup.exportBackup, {
+      scope: 'asset',
+      assetId: assetId as string,
+    })
+    await executeConfirmedOperation(owner, {
+      operationId: 'ginko-cms.purge-asset',
+      preview: api.assets.previewPurgeAssetOperation,
+      execute: api.assets.purgeAsset,
+      args: {
+        assetId: assetId as string,
+        exportArtifactId: exported.artifactId,
+      },
+    })
+    expect(await ctx.readAll('assets')).toEqual([])
+
+    const preview = await owner.action(api.backup.previewRestoreBackup, {
+      artifactId: exported.artifactId,
+    })
+    expect(preview).toMatchObject({
+      artifactId: exported.artifactId,
+      checksum: exported.checksum,
+      scope: 'asset',
+      applySupported: true,
+      blockers: [],
+    })
+    expect(preview.changes).toContainEqual(
+      expect.objectContaining({
+        table: 'assets',
+        archiveRows: 1,
+        existingRows: 0,
+        missingRows: 1,
+      }),
+    )
+    expect(await ctx.readAll('assets')).toEqual([])
+
+    await expect(
+      owner.action(api.backup.restoreBackup, {
+        artifactId: exported.artifactId,
+        expectedChecksum: 'wrong-checksum',
+      }),
+    ).rejects.toSatisfy(
+      (error: unknown) =>
+        getCmsErrorData(error)?.code === 'BACKUP_RESTORE_CHECKSUM_CONFIRMATION_MISMATCH',
+    )
+
+    const restored = await owner.action(api.backup.restoreBackup, {
+      artifactId: exported.artifactId,
+      expectedChecksum: exported.checksum,
+    })
+    expect(restored).toMatchObject({
+      artifactId: exported.artifactId,
+      scope: 'asset',
+      restored: { assets: 1 },
+      originalAssetId: assetId,
+    })
+    expect(restored.restoredAssetId).not.toBe(assetId)
+
+    const [asset] = await ctx.readAll('assets')
+    expect(asset).toMatchObject({
+      _id: restored.restoredAssetId,
+      filename: 'restore-me.txt',
+      mimeType: 'text/plain',
+      storageId: expect.any(String),
+    })
+    expect(asset.storageId).not.toBe(storageId)
+    expect(
+      await ctx.raw.run(async (innerCtx) => {
+        const blob = await innerCtx.storage.get(asset.storageId)
+        return blob ? await blob.text() : null
+      }),
+    ).toBe('restorable asset bytes')
+    expect(await ctx.readAll('activity')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'backup.restored',
+          appIdentityId: 'owner-1',
+          detail: expect.objectContaining({
+            artifactId: exported.artifactId,
+            originalAssetId: assetId,
+            restoredAssetId: restored.restoredAssetId,
+          }),
+        }),
+      ]),
+    )
+  })
+
+  it('keeps full backup restore apply blocked after dry-run', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    await seedEditorFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    const exported = await owner.action(api.backup.exportBackup, { scope: 'full' })
+    const preview = await owner.action(api.backup.previewRestoreBackup, {
+      artifactId: exported.artifactId,
+    })
+
+    expect(preview.applySupported).toBe(false)
+    expect(preview.blockers).toContainEqual(
+      expect.objectContaining({ code: 'restore-scope-unsupported' }),
+    )
+    await expect(
+      owner.action(api.backup.restoreBackup, {
+        artifactId: exported.artifactId,
+        expectedChecksum: exported.checksum,
+      }),
+    ).rejects.toSatisfy(
+      (error: unknown) => getCmsErrorData(error)?.code === 'BACKUP_RESTORE_BLOCKED',
+    )
+  })
+
   it('rejects permanent entry delete without a matching backup artifact', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

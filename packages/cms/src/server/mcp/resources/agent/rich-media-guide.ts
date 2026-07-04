@@ -17,7 +17,7 @@ export default defineMcpResource({
           '',
           'Asset ownership is explicit. Article-specific media should be entry-owned. Reusable media for one collection should be collection-owned. Site-wide media should be global. When `entryId` is present, uploads default to entry ownership; otherwise they default to collection ownership when `collection` is present, then global ownership.',
           '',
-          'Default sequence: inspect `get-entry`, inspect known media with `get-asset`, place asset ids with `save-entry-draft`, then preview publish with `publish-entry` without `_confirmationToken`.',
+          'Default sequence: inspect `get-entry`, inspect known media with `get-asset`, place asset ids with `save-entry-draft`, then preview publish with `preview-publish`.',
           '',
           'Use `get-asset` and `resolve-asset-urls` when existing asset ids are known. Use `move-asset` to change ownership later. Moving an asset does not rewrite content because asset ids stay stable.',
           '',

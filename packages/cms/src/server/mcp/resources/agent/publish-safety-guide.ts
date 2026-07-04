@@ -3,7 +3,7 @@ import { defineMcpResource } from '@nuxtjs/mcp-toolkit/server'
 export default defineMcpResource({
   name: 'ginko-publish-safety-guide',
   title: 'Ginko Publish Safety Guide',
-  description: 'Confirmation-token rules for publishing and destructive actions.',
+  description: 'Safe publishing and destructive-action boundaries for MCP agents.',
   uri: 'app://ginko-cms/publish-safety-guide',
   handler: async (uri: URL) => ({
     contents: [
@@ -13,15 +13,15 @@ export default defineMcpResource({
         text: [
           '# Ginko Publish Safety',
           '',
-          'Publishing, unpublishing, deleting, archiving, and other destructive actions are CMS operation-backed MCP tools. First call the tool without `_confirmationToken` to receive a preview. Read `allowed`, `blockers`, `warnings`, and `effects`; execute only after explicit user approval by repeating the same arguments with `preview.confirmation.token`. That confirmation token is the execution contract.',
+          'MCP agents do not execute publishing, unpublishing, deleting, or archiving directly from the default tool surface. Use `preview-publish` to inspect blockers and public-impact changes, then `request-publish-review` to create a human review request without changing public output.',
           '',
-          'Rerun the preview if arguments, draft state, or target state changed before execution.',
+          'Rerun the preview if arguments, draft state, or target state changed before requesting review.',
           '',
-          'Tokens bind operation id, execute path, preview path, caller, scope, args, preview state, and version. Changed args, changed draft state, stale version, changed caller, blocked preview, and replay are rejected.',
+          'Review requests bind operation id, caller, target entry, args, preview state, and draft version. Changed draft state or blocked publish diagnostics require a new request.',
           '',
-          'Ginko stores destructive confirmation state in Convex. The token returned by preview is an opaque lookup key; the trusted operation, caller, args, preview hash, and version data live in the backend row.',
+          'Ginko stores publish review requests in Convex. A publisher or owner approves them through the CMS operation layer.',
           '',
-          'Production needs `CONVEX_DEPLOY_KEY` for MCP server-to-Convex calls. MCP tools use explicit CMS Convex component refs for preview and execute functions.',
+          'Production MCP calls use Better Auth API-key sessions for Convex transport. MCP tools use explicit CMS Convex component refs for diagnostics and review requests.',
         ].join('\n'),
       },
     ],

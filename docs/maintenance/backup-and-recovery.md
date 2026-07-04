@@ -40,12 +40,23 @@ An old backup can still have `checksumMatches: true` while
 `currentDataMatches: false`. That means the archive is intact, but live data has
 changed since the backup was created.
 
-## No Import Command
+## Restore Semantics
 
 The CLI can export, download, and verify backup artifacts. It does not expose an
-import or restore command for backup artifacts. Treat a backup as a recovery
-source for an operator-led restore, comparison, or manual repair in an isolated
-environment.
+import or restore command for backup artifacts.
+
+The Convex component exposes owner-authenticated restore actions for the narrow
+safe v1 case:
+
+- `backup.previewRestoreBackup` dry-runs a restore from an artifact and reports
+  the affected tables without writing.
+- `backup.restoreBackup` applies only asset-scoped artifacts whose backed-up
+  asset row is missing and whose archive checksum matches the caller-provided
+  `expectedChecksum`.
+
+Restore apply stores fresh asset bytes in Convex storage and creates a new asset
+row. It does not overwrite existing rows, preserve the old Convex document id,
+or apply `full`, `collection`, or `entry` artifacts over live data.
 
 Do not overwrite live CMS tables directly from a backup. That can destroy content
 written after the backup was created.

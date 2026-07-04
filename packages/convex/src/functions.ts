@@ -2,6 +2,7 @@ import {
   assertCmsCallerConsistency,
   cmsAnonymousCaller,
   cmsCallerFromConvexAuthIdentity,
+  cmsMcpCaller,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { CmsCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type {
@@ -33,6 +34,12 @@ type RootCtx =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
+
+type BetterAuthConvexIdentity = {
+  subject?: string | null
+  email?: string | null
+  sessionId?: unknown
+}
 
 type HandlerCtx<TCtx> = TCtx & {
   appIdentity: () => Promise<any>
@@ -69,8 +76,16 @@ export const cmsPublicReadTables = [
 ] as const
 
 export async function resolveCmsCaller(ctx: RootCtx): Promise<CmsCaller> {
-  const auth = await ctx.auth.getUserIdentity()
+  const auth = (await ctx.auth.getUserIdentity()) as BetterAuthConvexIdentity | null
   if (auth?.subject) {
+    const apiKeyId = typeof auth.sessionId === 'string' ? auth.sessionId : null
+    if (apiKeyId) {
+      const mcpCaller = cmsMcpCaller(apiKeyId)
+      const mcpIdentity = await getAppIdentity(ctx, mcpCaller)
+      if (mcpIdentity?.kind === 'member' && mcpIdentity.userId === auth.subject) {
+        return assertCmsCallerConsistency(mcpCaller)
+      }
+    }
     return assertCmsCallerConsistency(cmsCallerFromConvexAuthIdentity(auth))
   }
 

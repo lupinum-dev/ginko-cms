@@ -138,7 +138,7 @@ function checkStaleBridgeMarkers(rootDir: string): ConvexSetupIssue[] {
     issues.push({
       name: `stale bridge marker ${relativePath}`,
       message: `${relativePath} still contains legacy generated markers.`,
-      fix: `Remove the Trellis bridge comments from ${relativePath} or recreate the file with pnpm exec ginko-cms init.`,
+      fix: `Remove the legacy bridge comments from ${relativePath} or recreate the file with pnpm exec ginko-cms init.`,
     })
   }
   return issues

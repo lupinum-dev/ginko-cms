@@ -2,7 +2,9 @@ import { createError, type H3Event } from 'h3'
 import { useEvent } from 'nitropack/runtime'
 
 type McpAuthContext = {
-  mcpKeyId: string
+  apiKeyId: string
+  authUserId: string
+  convexAuthToken: string
 }
 
 function resolveEvent(event?: H3Event) {
@@ -12,11 +14,20 @@ function resolveEvent(event?: H3Event) {
 export function getMcpAuth(event?: H3Event): McpAuthContext | null {
   const currentEvent = resolveEvent(event)
   const auth = currentEvent.context.mcpAuth as Partial<McpAuthContext> | undefined
-  if (!auth?.mcpKeyId || typeof auth.mcpKeyId !== 'string') {
+  if (
+    !auth?.apiKeyId ||
+    typeof auth.apiKeyId !== 'string' ||
+    !auth.authUserId ||
+    typeof auth.authUserId !== 'string' ||
+    !auth.convexAuthToken ||
+    typeof auth.convexAuthToken !== 'string'
+  ) {
     return null
   }
   return {
-    mcpKeyId: auth.mcpKeyId,
+    apiKeyId: auth.apiKeyId,
+    authUserId: auth.authUserId,
+    convexAuthToken: auth.convexAuthToken,
   }
 }
 

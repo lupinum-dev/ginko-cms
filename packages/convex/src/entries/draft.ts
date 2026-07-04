@@ -7,6 +7,7 @@ import { draftSaveResultValidator } from '@lupinum/ginko-cms-contract/convex/val
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { v } from 'convex/values'
 
+import { recordOwnedAgentRunWrite } from '../agentRuns.js'
 import { canCreateEntries, canEditEntries } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
@@ -359,6 +360,21 @@ export const saveEntryDraftOperation = defineCmsOperation({
 })
 
 export const saveEntryDraft = callerMutation.protected(saveEntryDraftOperation)
+
+export const mcpSaveEntryDraft = callerMutation.protected({
+  id: 'editor:mcpSaveEntryDraft',
+  args: {
+    agentRunId: v.string(),
+    ...saveEntryDraftArgs.args,
+  },
+  guard: canEditEntries,
+  returns: draftSaveResultValidator,
+  handler: async (ctx, args) => {
+    const { agentRunId, ...input } = args
+    await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.save-entry-draft')
+    return await saveEntryDraftOperation.handler(ctx, input)
+  },
+})
 
 export const revertDraftToPublishedOperation = defineCmsOperation({
   id: 'ginko-cms.revert-draft-to-published',
