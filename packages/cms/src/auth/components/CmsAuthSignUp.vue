@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useBetterAuthSignUp, useConvexAuth } from '@lupinum/trellis/composables'
+import { useConvexAuth } from 'better-convex-nuxt/composables'
 import { Loader2 } from 'lucide-vue-next'
 
 import { useCmsI18n } from '#ginko-cms-public/composables/useCmsI18n.js'
@@ -17,12 +17,12 @@ const authEnabled =
   (runtimeConfig.public as { convex?: { auth?: { enabled?: boolean } } }).convex?.auth?.enabled !==
   false
 const auth = authEnabled ? useConvexAuth() : null
-const signUpRuntime = authEnabled ? useBetterAuthSignUp() : null
 const isAuthenticated = auth?.isAuthenticated ?? ref(false)
 const isPending = auth?.isPending ?? ref(false)
-const signUp = signUpRuntime?.signUp ?? null
-const isSubmitting = signUpRuntime?.pending ?? ref(false)
-const authError = signUpRuntime?.error ?? ref<Error | null>(null)
+const signUp = auth?.signUp ?? null
+const refreshAuth = auth?.refreshAuth ?? null
+const isSubmitting = ref(false)
+const authError = ref<Error | null>(null)
 const route = useRoute()
 const { t } = useCmsI18n()
 const name = ref('')
@@ -92,18 +92,36 @@ async function onSubmit(event: Event) {
     return
   }
   error.value = null
+  authError.value = null
+  isSubmitting.value = true
   try {
-    await signUp(
-      {
-        email: email.value,
-        password: password.value,
-        name: name.value,
-      },
-      { redirectTo: getRedirectTarget() },
-    )
-    error.value = authError.value?.message || null
-  } catch {
-    error.value = t('ginkoCms.auth.signUp.errorFallback')
+    const result = await signUp.email({
+      email: email.value,
+      password: password.value,
+      name: name.value,
+    })
+    const resultError = result && 'error' in result ? result.error : null
+    if (resultError) {
+      const message =
+        typeof resultError === 'object' &&
+        resultError !== null &&
+        'message' in resultError &&
+        typeof resultError.message === 'string'
+          ? resultError.message
+          : t('ginkoCms.auth.signUp.errorFallback')
+      authError.value = new Error(message)
+      error.value = message
+      return
+    }
+    await refreshAuth?.()
+    await navigateTo(getRedirectTarget(), { replace: true })
+  } catch (caught) {
+    const message =
+      caught instanceof Error ? caught.message : t('ginkoCms.auth.signUp.errorFallback')
+    authError.value = caught instanceof Error ? caught : new Error(message)
+    error.value = message
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>

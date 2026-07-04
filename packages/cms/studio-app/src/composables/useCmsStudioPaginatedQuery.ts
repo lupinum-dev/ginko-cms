@@ -3,15 +3,15 @@ import type {
   PaginatedQueryItem,
   PaginatedQueryReference,
   UseConvexPaginatedQueryOptions,
-  UseConvexPaginatedQueryData,
-  UseConvexPaginatedQueryReturn,
-} from '@lupinum/trellis/composables'
+} from 'better-convex-nuxt/composables'
 import {
   computed,
   onScopeDispose,
   ref,
   shallowRef,
+  type ComputedRef,
   type MaybeRefOrGetter,
+  type Ref,
   toValue,
   watch,
 } from 'vue'
@@ -20,6 +20,30 @@ import { useStudioHostContext } from '../boundary/studio-host-context'
 import { cmsPermissionKeys, type CmsPermissionKey } from './permissions'
 import { useCmsStudioAccess } from './useCmsStudioAccess'
 import { normalizeCmsStudioQueryError } from './useCmsStudioQuery'
+
+type CmsStudioPaginatedStatus =
+  | 'skipped'
+  | 'loading-first-page'
+  | 'loading-more'
+  | 'ready'
+  | 'exhausted'
+  | 'error'
+
+type UseCmsStudioPaginatedQueryData<DataT> = {
+  results: ComputedRef<DataT[]>
+  status: ComputedRef<CmsStudioPaginatedStatus>
+  isLoading: ComputedRef<boolean>
+  isStale: ComputedRef<boolean>
+  isExhausted: ComputedRef<boolean>
+  hasNextPage: ComputedRef<boolean>
+  loadMore: (numItems: number) => void
+  error: Ref<Error | null>
+  refresh: () => Promise<void>
+  reset: () => Promise<void>
+}
+
+type UseCmsStudioPaginatedQueryReturn<DataT> = UseCmsStudioPaginatedQueryData<DataT> &
+  PromiseLike<UseCmsStudioPaginatedQueryData<DataT>>
 
 // Studio-side paginated Convex query helper. It reads the host bridge
 // explicitly so the Vite SPA stays independent from Nuxt auto-imports.
@@ -32,7 +56,7 @@ export function useCmsStudioPaginatedQuery<
   options: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, DataT> & {
     requiredCapability?: CmsPermissionKey
   },
-): UseConvexPaginatedQueryReturn<DataT> {
+): UseCmsStudioPaginatedQueryReturn<DataT> {
   const studioHost = useStudioHostContext()
   const { ready, can } = useCmsStudioAccess()
   const canRead = can(cmsPermissionKeys.read)
@@ -54,7 +78,7 @@ export function useCmsStudioPaginatedQuery<
   })
 
   const { requiredCapability: _requiredCapability, ...queryOptions } = options
-  const initialNumItems = queryOptions.initialNumItems
+  const initialNumItems = queryOptions.initialNumItems ?? 50
   const transform = (items: PaginatedQueryItem<Query>[]): DataT[] =>
     queryOptions.transform ? queryOptions.transform(items) : (items as unknown as DataT[])
 
@@ -89,7 +113,7 @@ export function useCmsStudioPaginatedQuery<
     isLoading.value = true
     unsubscribe = convex.onUpdate(
       query,
-      pageArgs(null, initialNumItems),
+      pageArgs(null, initialNumItems) as never,
       (page: {
         page: PaginatedQueryItem<Query>[]
         isDone: boolean
@@ -121,7 +145,7 @@ export function useCmsStudioPaginatedQuery<
     if (!convex || gatedArgs.value == null || !cursor) return
     isLoading.value = true
     void convex
-      .query(query, pageArgs(cursor, numItems))
+      .query(query, pageArgs(cursor, numItems) as never)
       .then(
         (page: {
           page: PaginatedQueryItem<Query>[]
@@ -144,7 +168,7 @@ export function useCmsStudioPaginatedQuery<
 
   const refresh = async () => start()
 
-  const resultData: UseConvexPaginatedQueryData<DataT> = {
+  const resultData: UseCmsStudioPaginatedQueryData<DataT> = {
     results: computed(() => transform(rawResults.value)),
     status: computed(() => {
       if (gatedArgs.value == null) return 'skipped'
@@ -164,11 +188,11 @@ export function useCmsStudioPaginatedQuery<
     reset: refresh,
   }
 
-  const result = resultData as UseConvexPaginatedQueryReturn<DataT>
+  const result = resultData as UseCmsStudioPaginatedQueryReturn<DataT>
 
-  result.then = <TResult1 = UseConvexPaginatedQueryData<DataT>, TResult2 = never>(
+  result.then = <TResult1 = UseCmsStudioPaginatedQueryData<DataT>, TResult2 = never>(
     onFulfilled?:
-      | ((value: UseConvexPaginatedQueryData<DataT>) => TResult1 | PromiseLike<TResult1>)
+      | ((value: UseCmsStudioPaginatedQueryData<DataT>) => TResult1 | PromiseLike<TResult1>)
       | null,
     onRejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ) => Promise.resolve(resultData).then(onFulfilled, onRejected)

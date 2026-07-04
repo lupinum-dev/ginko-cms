@@ -4,7 +4,7 @@ import { computed, onScopeDispose, ref, watchEffect } from 'vue'
 import { api } from '../boundary/api'
 import { useStudioHostContext } from '../boundary/studio-host-context'
 
-// Mirrors the host-side trellis-generated permissions module,
+// Mirrors the host-side CMS permission map,
 // but configured inside the
 // SPA so studio code calls the real Convex query against the host's
 // `ginkoCms/members.getAccessContext`.

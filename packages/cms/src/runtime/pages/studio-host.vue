@@ -17,8 +17,7 @@ import type {
 //   2. Render <div id="ginko-cms-studio"> as the SPA mount point.
 //   3. Populate window.__GINKO_CMS__ with everything the SPA boundary
 //      needs to fetch real data: cms config, the consumer's Nuxt app
-//      instance (so trellis composables in the SPA find $convex via
-//      useNuxtApp()), the generated trellis api object, and the
+//      instance, the generated Convex api object, and the
 //      auth-engine refs the SPA reads to mirror sign-in / sign-out state.
 //   4. Inject the SPA bundle's main.js + main.css via useHead() so they
 //      land in the document head.
@@ -137,7 +136,7 @@ function loadStudioScript(src: string): void {
 // Auth guard and SPA loader. We intentionally append the Studio script only
 // after the host bridge is populated. A static head script can execute before
 // this component hydrates, causing the SPA to bind to inert fallback API
-// proxies instead of the consumer's generated Trellis API.
+// proxies instead of the consumer's generated Convex API.
 onMounted(async () => {
   if (typeof window === 'undefined') return
   const engine = readAuthEngine()
@@ -181,12 +180,10 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
   const bridge: GinkoCmsStudioHostBridge = {
     convexUrl: String((runtimeConfig.public as Record<string, unknown>).convexUrl ?? ''),
     config: cmsConfig.value,
-    // The SPA's trellis composables call useNuxtApp().$convex; passing the
-    // consumer's Nuxt app reference shares the already-configured Convex
-    // client (and its better-auth token attachment) into the SPA context.
+    // The consumer's Nuxt app reference shares the already-configured Convex
+    // client and better-auth token attachment into the SPA context.
     nuxtApp,
-    // The generated Convex api is per-consumer. Phase 1 keeps most existing
-    // bridge refs but proves a direct component ref for the collections list.
+    // The generated Convex api is per-consumer.
     api: buildStudioHostApi(api, components),
     // Auth state passthrough so the SPA's useCmsAuthState mirrors what the
     // consumer's auth engine reports without the SPA having to subscribe

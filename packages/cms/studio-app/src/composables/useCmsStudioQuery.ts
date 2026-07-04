@@ -1,10 +1,15 @@
-import type {
-  UseConvexQueryData,
-  UseConvexQueryOptions,
-  UseConvexQueryReturn,
-} from '@lupinum/trellis/composables'
+import type { UseConvexQueryOptions } from 'better-convex-nuxt/composables'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import { computed, onScopeDispose, ref, type MaybeRefOrGetter, toValue, watch } from 'vue'
+import {
+  computed,
+  onScopeDispose,
+  ref,
+  type ComputedRef,
+  type MaybeRefOrGetter,
+  type Ref,
+  toValue,
+  watch,
+} from 'vue'
 
 import { useStudioHostContext } from '../boundary/studio-host-context'
 import { cmsPermissionKeys, type CmsPermissionKey } from './permissions'
@@ -25,6 +30,21 @@ type ErrorRecord = {
   status?: unknown
   data?: unknown
 }
+
+type CmsStudioQueryStatus = 'skipped' | 'pending' | 'success' | 'error'
+
+export type UseCmsStudioQueryData<DataT> = {
+  data: ComputedRef<DataT | null>
+  error: Ref<Error | null>
+  refresh: () => Promise<void>
+  clear: () => void
+  pending: ComputedRef<boolean>
+  status: ComputedRef<CmsStudioQueryStatus>
+  isStale: ComputedRef<boolean>
+}
+
+export type UseCmsStudioQueryReturn<DataT> = UseCmsStudioQueryData<DataT> &
+  PromiseLike<UseCmsStudioQueryData<DataT>>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -155,7 +175,7 @@ export function useCmsStudioQuery<
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT> & {
     requiredCapability?: CmsPermissionKey
   },
-): UseConvexQueryReturn<DataT> {
+): UseCmsStudioQueryReturn<DataT> {
   const studioHost = useStudioHostContext()
   const { ready, can } = useCmsStudioAccess()
   const canRead = can(cmsPermissionKeys.read)
@@ -234,7 +254,7 @@ export function useCmsStudioQuery<
     start()
   }
 
-  const resultData: UseConvexQueryData<DataT> = {
+  const resultData: UseCmsStudioQueryData<DataT> = {
     data: computed(() => data.value),
     error,
     refresh,
@@ -252,10 +272,12 @@ export function useCmsStudioQuery<
     isStale: computed(() => isStale.value),
   }
 
-  const result = resultData as UseConvexQueryReturn<DataT>
+  const result = resultData as UseCmsStudioQueryReturn<DataT>
 
-  result.then = <TResult1 = UseConvexQueryData<DataT>, TResult2 = never>(
-    onFulfilled?: ((value: UseConvexQueryData<DataT>) => TResult1 | PromiseLike<TResult1>) | null,
+  result.then = <TResult1 = UseCmsStudioQueryData<DataT>, TResult2 = never>(
+    onFulfilled?:
+      | ((value: UseCmsStudioQueryData<DataT>) => TResult1 | PromiseLike<TResult1>)
+      | null,
     onRejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ) => Promise.resolve(resultData).then(onFulfilled, onRejected)
 

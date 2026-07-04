@@ -676,20 +676,20 @@ Objective: move Studio from Trellis host bridge to direct Convex host context.
 
 Todos:
 
-- [ ] Change `packages/cms/src/runtime/pages/studio-host.vue` from
+- [x] Change `packages/cms/src/runtime/pages/studio-host.vue` from
       `#trellis/api` to `#convex/api`.
-- [ ] Replace `__trellis_auth_engine__` with direct `useConvexAuth()` state.
-- [ ] Pass `api`, `$convex`, auth refs, and CMS runtime config through
+- [x] Replace `__trellis_auth_engine__` with direct `useConvexAuth()` state.
+- [x] Pass `api`, `$convex`, auth refs, and CMS runtime config through
       `window.__GINKO_CMS__`.
-- [ ] Rename Trellis comments and types to Convex/CMS host vocabulary.
-- [ ] Update `packages/cms/studio-app/src/boundary/api.ts`.
-- [ ] Update `useCmsAuthState.ts`.
-- [ ] Update `useCmsStudioQuery.ts`.
-- [ ] Update `useCmsStudioPaginatedQuery.ts`.
-- [ ] Update `useStudioConvex.ts`.
-- [ ] Keep small Studio wrappers only when they add CMS-specific gating or error
+- [x] Rename Trellis comments and types to Convex/CMS host vocabulary.
+- [x] Update `packages/cms/studio-app/src/boundary/api.ts`.
+- [x] Update `useCmsAuthState.ts`.
+- [x] Update `useCmsStudioQuery.ts`.
+- [x] Update `useCmsStudioPaginatedQuery.ts`.
+- [x] Update `useStudioConvex.ts`.
+- [x] Keep small Studio wrappers only when they add CMS-specific gating or error
       normalization.
-- [ ] Do not wrap every Convex primitive if a direct call is clearer.
+- [x] Do not wrap every Convex primitive if a direct call is clearer.
 
 Verification:
 
@@ -713,6 +713,41 @@ Exit criteria:
 - Studio has no live Trellis imports.
 - Studio writes still fail closed for non-members and insufficient roles.
 - Studio public-preview behavior is unchanged.
+
+Implementation evidence:
+
+- Auth pages now import `useConvexAuth` from `better-convex-nuxt/composables`
+  and call direct Better Auth `signIn.email` / `signUp.email` methods.
+- Public `useCmsAuthState` now reads `useConvexAuth().user` and normalizes the
+  Better Auth user shape directly.
+- Studio host comments and bridge vocabulary no longer refer to Trellis.
+- Studio query, paginated query, mutation, and upload wrappers no longer import
+  Trellis composable types. The wrappers remain only for CMS-specific access
+  gating, host-bound Convex client lookup, upload validation, and normalized
+  Studio errors.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec oxfmt . --ignore-path .oxfmtignore
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm --filter @lupinum/ginko-cms studio:typecheck
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec vitest run test/runtime test/shared/studio-workflow.test.ts
+rg -n "@lupinum/trellis/composables|#trellis/api|__trellis_auth_engine__|Trellis|trellis" packages/cms/src/runtime packages/cms/studio-app/src packages/cms/src/auth packages/cms/src/public
+```
+
+Results:
+
+- `oxfmt` passed.
+- Studio typecheck passed.
+- Runtime and Studio workflow tests passed: 31 files, 139 tests.
+- Phase 7 Trellis search produced no matches.
+
+Known later-phase blockers:
+
+- `pnpm --filter @lupinum/ginko-cms typecheck` now fails only because
+  `packages/cms/src/server/routes/public-api.ts` still imports `#trellis/api`
+  and `playground/convex/auth.ts` still uses the old auth dependency object
+  shape. Those are Phase 8.
 
 ## Phase 8: Server Routes And Public API Cutover
 

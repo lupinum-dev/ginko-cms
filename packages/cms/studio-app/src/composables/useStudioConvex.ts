@@ -1,14 +1,28 @@
-import type {
-  UseConvexMutationOptions,
-  UseConvexMutationReturn,
-  UseConvexQueryReturn,
-  UseConvexUploadOptions,
-} from '@lupinum/trellis/composables'
+import type { UseConvexMutationOptions } from 'better-convex-nuxt/composables'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, ref, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 
 import { useStudioHostContext } from '../boundary/studio-host-context'
-import { useCmsStudioQuery } from './useCmsStudioQuery'
+import { useCmsStudioQuery, type UseCmsStudioQueryReturn } from './useCmsStudioQuery'
+
+type StudioMutationReturn<Mutation extends FunctionReference<'mutation'>> = ((
+  args: FunctionArgs<Mutation>,
+) => Promise<FunctionReturnType<Mutation>>) & {
+  data: Ref<FunctionReturnType<Mutation> | undefined>
+  status: ComputedRef<'idle' | 'pending' | 'success' | 'error'>
+  pending: ComputedRef<boolean>
+  error: Ref<Error | null>
+  reset: () => void
+}
+
+type UseConvexUploadOptions = {
+  allowedTypes?: string[]
+  maxSizeBytes?: number
+  onProgress?: (progress: { loaded: number; total: number; percent: number }, file: File) => void
+  onSuccess?: (storageId: string, file: File) => void
+  onError?: (error: Error, file: File) => void
+  onQueueIdle?: () => void
+}
 
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
@@ -69,7 +83,7 @@ async function uploadFile(postUrl: string, file: File): Promise<string> {
 export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   mutation: Mutation,
   options?: UseConvexMutationOptions<FunctionArgs<Mutation>, FunctionReturnType<Mutation>>,
-): UseConvexMutationReturn<FunctionArgs<Mutation>, FunctionReturnType<Mutation>> {
+): StudioMutationReturn<Mutation> {
   type Args = FunctionArgs<Mutation>
   type Result = FunctionReturnType<Mutation>
 
@@ -94,7 +108,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       options?.onError?.(normalized, args)
       throw normalized
     }
-  }) as UseConvexMutationReturn<Args, Result>
+  }) as StudioMutationReturn<Mutation>
 
   execute.data = data
   execute.status = computed(() => status.value)
@@ -115,7 +129,7 @@ export function useConvexQuery<
 >(
   query: Query,
   args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
-): UseConvexQueryReturn<DataT> {
+): UseCmsStudioQueryReturn<DataT> {
   return useCmsStudioQuery<Query, DataT>(query, args)
 }
 
