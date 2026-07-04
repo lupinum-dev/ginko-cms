@@ -54,6 +54,8 @@ Main files used:
 - `ginko-cms-old/docs/ginko-mental-model.md`
 - `nuxt-ginko-cms/README.md`
 - `nuxt-ginko-cms/docs/ARCHITECTURE.md`
+- `better-convex-nuxt/README.md`
+- `better-convex-nuxt/src/module.ts`
 
 ## Executive Summary
 
@@ -80,6 +82,8 @@ The sweet spot is:
 - adopt `ginko-cms2`'s auth, MCP, agent, and review-request model;
 - keep current `ginko-cms`'s mature content lifecycle, assets, backups, imports,
   provider, release verification, and docs;
+- use `better-convex-nuxt` for Nuxt/Convex/auth/SSR integration instead of
+  hand-rolled Nuxt Convex plumbing;
 - remove remaining generic framework shapes from current `ginko-cms`, especially
   `CmsCaller`, synthetic MCP Convex identity, `projectTool`, permanent MCP keys
   as the default, and ordinary MCP use of `CONVEX_DEPLOY_KEY`;
@@ -87,11 +91,18 @@ The sweet spot is:
   generic database admin, multi-tenant platform, or model-owned publishing
   system.
 
+Subagent review tightened this conclusion. Current `ginko-cms` is the best
+release base, but it is not release-clean while it depends on a local
+`file:` specifier for `better-convex-nuxt`. CMS2 has the better product boundary
+decisions, but its broad bridge generation, raw Convex `.ts` exports, default
+MCP/observability module dependencies, and stale install-doc examples are not
+the shape to copy.
+
 ## High-Level Verdict
 
 | Area | Current `ginko-cms` | `ginko-cms2` | Sweet spot |
 | --- | --- | --- | --- |
-| Package/release readiness | Strongest | Still MVP/package proof | Keep current package/release machinery |
+| Package/release readiness | Strongest, but local dependency specifier must be fixed | Still MVP/package proof | Keep current package/release machinery |
 | Product simplicity | Medium | Strongest | Move current repo toward CMS2 boundaries |
 | Better Auth boundary | Improved but still has local caller abstraction | Strongest | Better Auth owns identity/session; CMS owns roles |
 | MCP architecture | Powerful but too generic | Stronger workflow shape | Use CMS2's delegated model and explicit tools |
@@ -99,9 +110,9 @@ The sweet spot is:
 | Content lifecycle | Rich and mature | Clearer but slightly simpler | Keep current lifecycle, simplify wrappers |
 | Public reads | Mature provider/API shape | Clear projection-only principle | Keep current public provider, consider CMS2 single projection simplification |
 | Assets | Current is deeper | CMS2 has simpler external/managed policy | Keep current asset manager but simplify public metadata story |
-| Backups/imports | Current is deeper | CMS2 has good content exchange direction | Keep current operator backup and CMS2 content exchange distinction |
+| Backups/imports | Stronger export/artifact/import discipline | Better restore workflow shape and content exchange language | Keep current gates, add restore dry-run/apply |
 | AI/agents | Current MCP-centric, less native | Strongest product model | Adopt agent runs and proposal-first AI |
-| Studio UI | Current is packaged SPA, feature-complete | CMS2 has stronger product workspace concepts | Merge CMS2 workflow UX into current SPA architecture |
+| Studio UI | Packaged SPA with strong editorial workflow | Better agent/review workspace primitives | Merge CMS2 primitives into current SPA architecture |
 | Old Nuxt site DSL | Separate package had useful consumer API | CMS2 uses Ginko Content provider | Keep Ginko Content provider as the official site read path |
 
 ## What Current `ginko-cms` Does Better
@@ -126,13 +137,19 @@ Keep:
 - separate Nuxt module and Convex component packages;
 - explicit package exports;
 - package E2E;
-- publish specifier checks;
+- publish-surface import specifier checks;
+- packed manifest checks that reject `workspace:`, `file:`, and `link:`
+  dependency specifiers;
 - compatibility matrix checks;
 - docs install-story checks;
 - release verification.
 
 Challenge:
 
+- `packages/cms/package.json` currently points at local
+  `better-convex-nuxt` with a `file:` specifier. That is acceptable for local
+  refactor work, but not for a releasable package. The final release gate must
+  reject packed artifacts that still contain local dependency specifiers.
 - the separate `@lupinum/ginko-cms-contract` package should stay only if it is
   truly useful outside the Convex and Nuxt packages. CMS2's final spec argues
   that Ginko Content should own most neutral content contract semantics. That is
@@ -152,6 +169,12 @@ The CLI validates direct Convex setup, detects stale bridge files, and gives a
 repeatable path for package consumers. CMS2 still has `generate:bridges` and a
 more local-MVP install posture. The final product should use current
 `ginko-cms`'s CLI posture, but keep generated host files minimal.
+
+Current setup is already closer to the target than CMS2 here: current setup
+writes a small fixed set of host-owned Convex files, while CMS2's bridge
+generator proves too much host wrapper surface. The final install target should
+be five or fewer host-owned Convex setup files, no generated wrapper directory,
+no `convex/app/*` bridge sprawl, and doctor checks that fail on drift.
 
 Keep:
 
@@ -191,6 +214,8 @@ more mature as a releasable multi-package library.
 Sweet spot:
 
 - keep current `release:verify`;
+- fix the current local `better-convex-nuxt` package specifier before any real
+  publish;
 - selectively import CMS2's real user-story smokes:
   - short-lived MCP token smoke;
   - protected MCP smoke;
@@ -253,13 +278,22 @@ Keep:
 
 Challenge:
 
-- `publicRoutes` duplicates part of `publicEntries`. CMS2's final spec argues
-  for `publicEntries` as the only public projection and route lookup source. The
-  current split may still be justified for indexed route lookup, but it should
-  be proven by query/index needs, not habit.
+- `publicRoutes` duplicates route data already present on `publicEntries`.
+  Default to collapsing it into `publicEntries` unless a measured route
+  lookup/storage reason proves the separate table is worth keeping. If retained,
+  it must be documented as a derived route index with a named canonical source,
+  rebuild command, health report, and invariant tests.
 - `mcpKeys` should not remain the default MCP auth model.
 - `destructiveConfirmations` should remain for Studio and owner/admin actions,
   but direct MCP use should be restricted.
+
+Derived-state rule:
+
+- no derived table survives without a named canonical source;
+- every derived table needs a rebuild command, health report, and invariant
+  tests;
+- apply this to `publicEntries`, `publicRoutes`, `contentAssetRefs`, public
+  search text, cache tags, `bodyAst`, and backup-included derived rows.
 
 ### 5. Public Provider Surface
 
@@ -291,6 +325,9 @@ Consider CMS2 simplification:
 
 - make `publicEntries` the one public source if route lookups can stay fast and
   unambiguous without `publicRoutes`;
+- if `publicRoutes` stays, prove global `(locale, path)` uniqueness, prove it is
+  exactly the route-backed subset of `publicEntries`, and test publish path
+  changes, unpublish, archive, import, and rebuild for stale route rows;
 - keep public API vocabulary website-shaped, not table-shaped.
 
 ### 6. Assets
@@ -316,6 +353,10 @@ core asset manager is less mature.
 Sweet spot:
 
 - keep current managed asset support;
+- keep current scope validation, public URL gating, derived `contentAssetRefs`,
+  snapshot-until-republish behavior, and backup-gated purge;
+- do not simplify assets to CMS2's external/managed split if that weakens public
+  access invariants;
 - adopt CMS2's clear distinction:
   - content exchange is not backup;
   - external URLs are preserved, not fetched;
@@ -325,7 +366,7 @@ Sweet spot:
 
 ### 7. Backups, Imports, And Operator Recovery
 
-Current `ginko-cms` has stronger operational backup features:
+Current `ginko-cms` has stronger operational backup export features:
 
 - backup export;
 - verify backup;
@@ -339,14 +380,20 @@ CMS2 has clearer product language around:
 - content exchange versus backup;
 - import/export as Ginko Content-compatible files;
 - operator backup/restore as recovery artifacts.
+- restore dry-run/apply workflow shape.
 
 Sweet spot:
 
 - keep current backup artifact model and purge gates;
+- do not call current backup operator-grade restore until restore dry-run/apply
+  exists, or the docs explicitly say export/verify only;
 - adopt CMS2's terminology and UX split:
   - "content exchange" for portable content files;
   - "backup/restore" for operator recovery;
 - do not collapse both into one CMS-specific JSON format.
+- keep current import preview/apply contract validation and no-partial-write
+  behavior. Rename or reshape the exchange format toward CMS2/Ginko Content, but
+  do not add a second import path.
 
 ### 8. Destructive Confirmation Invariants
 
@@ -368,6 +415,15 @@ Current `ginko-cms` has the stronger generic destructive confirmation invariant:
 This is important and should not be thrown away. The problem is not the
 invariant. The problem is exposing too much of this mechanism through MCP and
 generic tool wrappers.
+
+The distinction matters:
+
+- the cryptographic confirmation invariant is good and should remain;
+- the actor/accountability model is incomplete for delegated agents when the
+  audit row mostly records hashes and caller keys instead of a rich product
+  actor;
+- review requests should replace most MCP confirmation-token usage, not the
+  confirmation system itself.
 
 Keep:
 
@@ -419,6 +475,12 @@ Sweet spot:
 - Deploy/admin is transport for narrow internal setup functions, not a CMS
   actor.
 - MCP is delegated authority, not a synthetic Convex user.
+- choose one canonical Better Auth user id format for `members`, audit, agent
+  runs, and MCP delegation before migration. If existing rows use a different
+  identifier, write an explicit migration or rebuild plan.
+- keep or deliberately replace current first-owner email gating. CMS2's
+  no-member bootstrap is simpler, but the current configured owner email gate is
+  a real security feature.
 
 ### 2. MCP As Delegated Product Workflow
 
@@ -427,7 +489,8 @@ CMS2's MCP design is materially better:
 - short-lived bearer tokens;
 - token bound to an `agentRun`;
 - capabilities and collection scope live on the run;
-- tools never accept `authUserId`, role, or delegated user id;
+- public MCP tool inputs never accept `authUserId`, role, token hash, or
+  delegated user id. App wrappers resolve authority and pass it inward;
 - Convex resolves token hash to run;
 - MCP operations call canonical CMS component operations;
 - MCP creates drafts and review requests;
@@ -438,7 +501,8 @@ shape:
 
 - permanent 90-day member-bound MCP keys;
 - MCP middleware consumes tokens via admin Convex caller;
-- normal MCP runtime requires `CONVEX_DEPLOY_KEY`;
+- normal MCP runtime requires `CONVEX_DEPLOY_KEY`, which violates the current
+  ADR boundary that deploy key is setup/admin transport only;
 - MCP tools use synthetic Convex identity;
 - `projectTool` hides too much dispatch and schema conversion;
 - destructive MCP tools directly expose `_confirmationToken` execution.
@@ -447,10 +511,17 @@ Sweet spot:
 
 - use CMS2's delegated agent-run model;
 - keep current structured MCP resources/prompts where useful;
+- keep current MCP token hardening where it is still relevant:
+  token prefix checks, hashed lookup, invalid-attempt budgets,
+  storage-failure behavior, and debounced last-use tracking;
+- audit current tool/capability mappings before porting them;
 - delete `projectTool`;
 - make each MCP tool an explicit product operation;
 - remove `CONVEX_DEPLOY_KEY` from ordinary MCP runtime;
 - keep deploy key for CLI setup/admin only.
+- decide whether session-backed MCP is a dev/Studio convenience or a supported
+  hosted MCP path. The minimal external-agent surface should be bearer-token
+  only unless session MCP has a concrete client requirement.
 
 ### 3. Agent Runs Are A Product Concept
 
@@ -507,6 +578,8 @@ CMS2 makes a product distinction that current `ginko-cms` should adopt:
 - agents/MCP should usually request publish/archive;
 - publishers approve or reject review requests;
 - public output remains unchanged until approval.
+- approval must fail closed if the reviewed draft, contract, path, or title
+  changed after the request was created.
 
 This is safer and simpler than teaching every MCP client a confirmation-token
 protocol for destructive execution.
@@ -553,13 +626,18 @@ Sweet spot:
 
 - no tenant tables;
 - no organization tables inside CMS;
+- no tenant/site/workspace ids until isolation has explicit acceptance criteria
+  and every canonical plus derived table is partitioned and tested;
+- remove reserved `site` knobs or document them loudly as non-isolation if they
+  remain;
 - if teams/account identity becomes needed, use Better Auth primitives;
 - map Better Auth account/team identity into CMS roles only after a real
   acceptance criterion exists.
 
 ### 8. Product-Facing Studio Concepts
 
-CMS2's Studio component list shows stronger product vocabulary:
+CMS2's Studio component list shows missing workspace primitives current
+`ginko-cms` should adopt:
 
 - `StudioAgentWorkspace`;
 - `StudioAgentPanel`;
@@ -577,10 +655,11 @@ CMS2's Studio component list shows stronger product vocabulary:
 - `DraftRollbackPreview`;
 - `DraftUnpublishPreview`.
 
-Current `ginko-cms` Studio is more package-ready and has a clean standalone SPA
-boundary, but CMS2 points to the better editor mental model: content operations,
-readiness, workflow impact, agents, review, projection health, and public
-visibility.
+Current `ginko-cms` Studio is more package-ready, has a clean standalone SPA
+boundary, and already has strong editorial language around work queues,
+website-facing previews, diagnostics as secondary detail, and accountable
+publishing. CMS2 points to the missing product workspace primitives: agents,
+review requests, readiness panels, projection health, and AI proposal cards.
 
 Sweet spot:
 
@@ -612,6 +691,9 @@ Sweet spot:
 
 - official site consumption goes through Ginko Content provider;
 - Nuxt app APIs stay website-shaped;
+- preserve the old DSL's developer ergonomics through Ginko Content:
+  route/locale/search/sitemap configuration and composables should feel like a
+  website API, not raw database reads;
 - no public website runtime should call admin/MCP/write APIs.
 
 ### 2. Plane Separation
@@ -628,11 +710,30 @@ endpoint-heavy.
 Sweet spot:
 
 - keep the conceptual separation;
+- reject the old multi-key/team-key implementation;
+- do not carry forward old MCP-first schema/admin operations;
 - implement it with fewer primitives:
   - Studio and MCP write through authenticated Convex operations;
   - public website reads use anonymous published projections;
   - CLI setup/admin uses deploy key on narrow internal functions;
   - Nuxt site rendering uses Ginko Content provider.
+
+### 4. What Not To Revive From The Old CMS
+
+The old app is useful as a warning label. Do not bring these back under new
+names without explicit acceptance criteria:
+
+- billing/team SaaS shell;
+- team-scoped API/admin keys;
+- public delivery keys as a CMS product surface;
+- runtime schema authoring in the database;
+- deployment webhooks as CMS core;
+- preview environment as a content status;
+- denormalized counters without rebuilds;
+- table view configs and user preferences in CMS core;
+- asset source reservations;
+- MCP tools for schema, bootstrap, team, deployment, migration, or raw status
+  mutation.
 
 ### 3. UI Component Breadth
 
@@ -669,6 +770,8 @@ Recommendation:
 - gradually replace user-facing `CmsCaller` paths with explicit `authUserId`;
 - keep deploy-key access only on narrow internal functions;
 - remove `cmsMcpConvexAuthIssuer` from normal MCP runtime.
+- remove any production path that silently falls back to a fixed Better Auth
+  secret. Missing auth secrets should fail setup/deploy checks.
 
 ### 2. MCP Runtime Recreates A Framework
 
@@ -710,6 +813,10 @@ Recommendation:
 
 - make short-lived delegated tokens the default;
 - use agent runs as the MCP authority source;
+- delete `mcpKeys` as the normal write authority after agent-run/session auth
+  exists;
+- do not keep permanent MCP keys and delegated agent runs side by side as
+  ordinary write paths;
 - keep persistent automation tokens only if a concrete external automation
   workflow requires them.
 
@@ -761,7 +868,12 @@ CMS2 is not yet the better final package by itself. It has:
 - package proof but less mature release discipline;
 - single package with many responsibilities;
 - exports for many app wrapper files;
+- raw Convex `.ts` exports that are not built into stable JS/declaration
+  package outputs;
 - `generate:bridges` still present;
+- install docs and generator output that are not fully aligned;
+- default module dependencies for MCP and observability that should be opt-in in
+  the final CMS;
 - local tarball/package-consumer workflows that are not as clean as current
   `ginko-cms`.
 
@@ -798,6 +910,7 @@ Recommendation:
 
 - keep host Convex files minimal;
 - avoid generated wrapper sprawl;
+- prefer current `ginko-cms` direct setup templates over CMS2's bridge generator;
 - use direct package exports only where Convex requires host-owned files.
 
 ### 3. Public Read Model Is Less Complete
@@ -870,6 +983,27 @@ End-state:
 - no CMS2-style broad bridge generation;
 - app-owned Convex setup files stay tiny.
 
+### better-convex-nuxt Usage
+
+`better-convex-nuxt` should be the default host integration for:
+
+- `#convex/api` and `#convex/server`;
+- SSR query hydration and realtime client upgrade;
+- Better Auth session integration;
+- Nuxt route middleware and server utilities;
+- typed Convex composables in the host app.
+
+Boundary:
+
+- the CMS Nuxt module should rely on `better-convex-nuxt` for host Nuxt/Convex
+  integration;
+- the standalone Studio SPA should keep an explicit host bridge boundary rather
+  than importing `better-convex-nuxt` composables as if it were part of the host
+  app;
+- package verification should prove packed consumers resolve
+  `better-convex-nuxt` from npm/package manager dependencies, not a local
+  `file:` link.
+
 ### Auth And Membership
 
 Current `ginko-cms`:
@@ -899,6 +1033,22 @@ End-state:
 - no local generic caller framework;
 - deploy key is not a CMS actor;
 - MCP uses delegated run tokens.
+
+Final role matrix to decide before implementation:
+
+| Action | Owner | Publisher | Editor | Viewer | Agent |
+| --- | --- | --- | --- | --- | --- |
+| Read Studio content | yes | yes | yes | yes | delegated read only |
+| Save drafts | yes | yes | yes | no | delegated draft write only |
+| Publish/unpublish | yes | yes | no | no | request only |
+| Archive/restore | decide | decide | no | no | request only |
+| Purge/delete | yes | no | no | no | no |
+| Approve/reject reviews | yes | yes | no | no | no |
+| Manage members/settings | yes | no | no | no | no |
+
+Do not silently import CMS2's publisher archive semantics. Current
+`ginko-cms` treats some destructive operations as owner-only. The final matrix
+is a product decision, not an implementation detail.
 
 ### Content Contracts
 
@@ -984,9 +1134,14 @@ Winner:
 End-state:
 
 - keep current public provider capability;
-- verify whether `publicRoutes` is required;
-- if not required, collapse route lookup into `publicEntries`;
+- default to collapsing `publicRoutes` into `publicEntries`;
+- if collapsed, add a global `(locale, path)` index to `publicEntries`;
+- keep `publicRoutes` only if a measured index/query need proves it;
+- if retained, include `publicRoutes` in projection/storage health reports;
 - public reads stay anonymous and deterministic.
+- MCP public tools may be anonymous only because they read published projection
+  data. Tests must prove they cannot reveal drafts, review requests, members,
+  audit rows, agent runs, or unpublished asset data.
 
 ### Studio
 
@@ -1132,7 +1287,7 @@ Current `ginko-cms`:
 - backup artifacts;
 - import runs;
 - filesystem migration helpers;
-- restore/purge gates.
+- backup verification and purge gates.
 
 CMS2:
 
@@ -1142,8 +1297,9 @@ CMS2:
 
 Winner:
 
-- current `ginko-cms` for operator safety;
+- current `ginko-cms` for artifact discipline, asset bytes, and purge gates;
 - CMS2 for product language and portable content exchange.
+- CMS2 for restore dry-run/apply workflow shape.
 
 End-state:
 
@@ -1174,6 +1330,8 @@ End-state:
 
 - add CMS2-style event logging and redaction policy if production operations
   need it;
+- keep observability opt-in until production support needs justify a mandatory
+  module dependency;
 - keep release verification.
 
 ## The Final CMS Should Look Like This
@@ -1305,13 +1463,34 @@ Challenge:
 
 - `mcpKeys`: delete as default; keep only as explicit automation tokens if
   required.
-- `publicRoutes`: keep only if query/index needs justify a separate table.
+- `publicRoutes`: collapse into `publicEntries` unless query/index needs justify
+  a separate derived table.
 - broad contract package ownership: move neutral semantics toward Ginko Content
   when practical.
 
+Derived-state gate:
+
+- every derived row must name its canonical source;
+- every derived table must have a rebuild command, health report, and invariant
+  tests;
+- backup artifacts may include derived rows for restore diagnostics, but the
+  system must still be able to rebuild derived state from canonical content.
+
 ### Final MCP Surface
 
-Default tools:
+First decide whether MCP should exist at all. If external agent clients are not
+a product requirement, keep Studio AI proposals and anonymous public reads, and
+delete exposed MCP routes. If MCP stays, it is an opt-in delegated agent ingress,
+not a second admin API.
+
+Session/bootstrap tools, not default external-agent tools:
+
+- `cms.start_agent_run`
+- `cms.list_review_requests`
+- `cms.approve_review_request`
+- `cms.reject_review_request`
+
+Default bearer-token agent tools:
 
 - `cms.list_collections`
 - `cms.get_collection`
@@ -1325,8 +1504,6 @@ Default tools:
 - `cms.preview_publish`
 - `cms.request_publish`
 - `cms.request_archive`
-- `cms.list_review_requests`
-- `cms.reject_review_request`
 - `cms.get_public_entry`
 - `cms.search_public`
 - `cms.explain_visibility`
@@ -1372,6 +1549,23 @@ Adopt from CMS2:
 - AI proposal cards;
 - public workflow cards.
 
+AI writing assistant flow:
+
+- propose refinement, translation, SEO, outline, or structured draft changes;
+- show a diff before applying;
+- apply accepted proposals through canonical draft save;
+- record accepted context in audit/revision messages;
+- never publish, archive, delete, or approve review requests.
+
+Workflow policy:
+
+| Surface | May draft | May preview | May publish/archive | May approve reviews |
+| --- | --- | --- | --- | --- |
+| Human Studio | yes | yes | role-gated direct action | owner/publisher |
+| Bearer-token MCP agent | delegated only | yes | request only | no |
+| AI assistant | proposal only | yes | no | no |
+| Public website/API | no | no | no | no |
+
 Primary editor vocabulary:
 
 - page;
@@ -1401,12 +1595,17 @@ Secondary/developer vocabulary:
 ### Phase A: Lock The Target
 
 - [ ] Accept this document as the comparison baseline.
+- [ ] Decide whether MCP is a real external-agent product requirement. If not,
+      keep Studio AI/public reads and delete exposed MCP route work.
 - [ ] Decide whether short-lived delegated MCP tokens replace permanent MCP
       keys by default.
 - [ ] Decide whether direct MCP destructive execution is removed from the
       default surface.
 - [ ] Decide whether `agentRuns` and `reviewRequests` are added to current
       `ginko-cms`.
+- [ ] Decide the final CMS role matrix, especially publisher archive/restore
+      authority.
+- [ ] Decide the canonical Better Auth user id format.
 
 ### Phase B: Simplify Auth Boundary
 
@@ -1485,6 +1684,7 @@ Required tests:
 - publisher can approve;
 - editor cannot approve;
 - rejected request has no public output effect;
+- approval fails if reviewed draft/contract/path/title changed after request;
 - approved archive/publish uses canonical CMS operation;
 - audit records requester, reviewer, and action.
 
@@ -1503,9 +1703,14 @@ that compensate for missing backend guarantees.
 
 ### Phase G: Revisit Public Projection Tables
 
-- [ ] Measure whether `publicRoutes` is still required.
-- [ ] If not required, collapse route lookup to `publicEntries`.
-- [ ] If required, document why and add invariant tests proving rebuildability.
+- [ ] Default to collapsing `publicRoutes` into `publicEntries`.
+- [ ] If collapsed, add/prove a global `(locale, path)` lookup index on
+      `publicEntries`.
+- [ ] If retained, document the measured query/storage reason.
+- [ ] If retained, add invariant tests proving global route uniqueness,
+      route-backed subset equality, rebuildability, and no stale rows after
+      publish path change, unpublish, archive, import, or rebuild.
+- [ ] Include retained `publicRoutes` in projection/storage health reports.
 
 Verification:
 
@@ -1519,6 +1724,8 @@ vitest run test/component/diagnostics.test.ts test/shared/contracts.test.ts
 - [ ] Preserve external asset URLs on export.
 - [ ] Add managed asset byte export modes if missing.
 - [ ] Keep backup/restore as operator recovery.
+- [ ] Keep current import preview/apply validation and no-partial-write behavior.
+- [ ] Do not add a second import path.
 
 ## Decisions To Make Explicit
 
@@ -1537,6 +1744,13 @@ Keep only if:
 - a real external automation workflow cannot use short-lived tokens;
 - owner-created automation tokens have expiry, scope, revocation, and audit;
 - they do not keep `projectTool` or synthetic MCP identity alive.
+
+Migration risk:
+
+- if `mcpKeys` has shipped to users, remove it through a semver-visible
+  deprecation/revocation/export plan, not a silent data drop;
+- do not maintain permanent keys and delegated agent runs as two normal write
+  authorities after the cutover.
 
 ### Decision 2: Direct MCP Publish
 
@@ -1557,18 +1771,30 @@ Keep only if:
 
 ### Decision 3: `publicRoutes`
 
-Recommendation: challenge, do not delete blindly.
+Recommendation: delete unless proven.
 
 Reason:
 
 - CMS2's single `publicEntries` source is simpler.
-- Current `publicRoutes` may still be useful for indexed route lookup.
+- Current `publicRoutes` may still be useful as a derived indexed route lookup,
+  but that must be proven.
 
 Keep only if:
 
 - query shape or index limitations justify it;
 - rebuild invariants are covered;
 - docs mark it as derived from canonical content.
+
+If collapsed:
+
+- add a global `(locale, path)` lookup index to `publicEntries`;
+- preserve the current route uniqueness behavior.
+
+If retained:
+
+- prove `publicRoutes` equals the route-backed subset of `publicEntries`;
+- include it in projection/storage health;
+- test path changes, unpublish, archive, import, and rebuild.
 
 ### Decision 4: `@lupinum/ginko-cms-contract`
 
@@ -1600,26 +1826,60 @@ Revisit only if:
 - package complexity clearly outweighs isolation benefits;
 - the Studio can still avoid SSR/public-site coupling.
 
+### Decision 6: Exposed MCP Route
+
+Recommendation: keep only if external agent clients are a real product
+requirement.
+
+Reason:
+
+- Studio AI proposals can cover many assistant workflows without exposing MCP;
+- public reads can stay anonymous without MCP;
+- MCP is expensive because it creates auth, audit, tool-surface, and prompt
+  compatibility obligations.
+
+If kept:
+
+- default to bearer-token delegated runs;
+- keep route exposure opt-in;
+- no deploy key in ordinary MCP runtime;
+- no schema, members, settings, raw table, direct publish/archive/delete, or
+  review approval/rejection tools in the external-agent surface.
+
 ## Final Acceptance Criteria
 
 The final CMS architecture is good enough when:
 
 - a clean Nuxt app installs with Convex, Better Auth, Ginko Content, and Ginko
   CMS through one documented path;
-- setup writes only minimal host-owned Convex files;
+- setup writes five or fewer host-owned Convex setup files;
+- packed package manifests contain no `workspace:`, `file:`, or `link:`
+  dependency specifiers;
 - Better Auth is the only user/session source of truth;
 - CMS members are the only CMS product-role source of truth;
+- one canonical Better Auth user id is used consistently in members, audit,
+  agent runs, and MCP delegation;
 - public reads are anonymous and published-only;
+- public MCP tools cannot reveal drafts, members, audit rows, review requests,
+  agent runs, or unpublished asset data;
 - Studio can create/edit/publish/rollback/archive with safe previews;
+- editors can see what needs attention, why something is not public, and which
+  pages/locales are affected before publishing;
 - assets support upload, metadata, references, deletion, restore, and purge
   gates;
-- backup/restore is operator-grade and separate from content exchange;
+- backup export/verify is clearly separated from content exchange, and
+  operator-grade restore is claimed only after restore dry-run/apply exists;
 - MCP uses short-lived delegated runs by default;
+- ordinary MCP requests do not require `CONVEX_DEPLOY_KEY`;
 - MCP cannot directly publish/archive/delete by default;
 - AI creates proposals and canonical draft saves apply them;
+- AI/agents never bypass review for destructive public-state changes;
 - review requests handle agent destructive intent;
+- review approval fails closed when reviewed content changed;
 - audit distinguishes user, agent, reviewer, deploy/admin, and scheduled
   actions;
+- agent run start, token issuance, completion/revocation, and delegated
+  mutations are audited without storing raw token material;
 - package E2E proves install/build/typecheck/smoke from packed artifacts;
 - release verification blocks stale Trellis, bridge, or generic framework
   surfaces.
@@ -1654,4 +1914,3 @@ current package maturity
 - direct destructive MCP execution as the default
 - generated bridge/wrapper sprawl
 ```
-
