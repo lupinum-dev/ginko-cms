@@ -806,9 +806,14 @@ export const previewImport = callerMutation.protected({
     const entryPreview = []
     const warnings: JsonValue[] = []
     const blockers: JsonValue[] = []
-    const incomingCollectionSlugs = new Set(args.collections.map((collection) => collection.slug))
+    const incomingCollections = args.collections as Array<{ slug: string }>
+    const incomingCollectionSlugs = new Set(
+      incomingCollections.map((collection) => collection.slug),
+    )
     const incomingEntryKeys = new Set(
-      (args.entries ?? []).map((entry) => `${entry.collection}:${entry.stableId}`),
+      ((args.entries ?? []) as Array<{ collection: string; stableId: string }>).map(
+        (entry) => `${entry.collection}:${entry.stableId}`,
+      ),
     )
 
     for (const incoming of args.collections) {
@@ -947,7 +952,12 @@ export const previewImport = callerMutation.protected({
       })
     }
 
-    const assetPreview = (args.assets ?? []).map((asset) => ({
+    const assetPreview = (
+      (args.assets ?? []) as Array<{
+        sourcePath: string
+        referencedBy: JsonValue
+      }>
+    ).map((asset) => ({
       sourcePath: asset.sourcePath,
       referencedBy: asset.referencedBy,
       status: args.allowUnresolvedAssets === true ? 'allowed_unresolved' : 'blocked',
@@ -1209,7 +1219,7 @@ export const applyImport = callerMutation.protected({
 
     if (args.allowUnresolvedAssets === true && args.assets?.length) {
       warnings.push(
-        ...args.assets.map((asset) => ({
+        ...(args.assets as Array<{ sourcePath: string; referencedBy: JsonValue }>).map((asset) => ({
           kind: 'asset_unresolved_allowed',
           sourcePath: asset.sourcePath,
           referencedBy: asset.referencedBy,

@@ -1,5 +1,4 @@
 import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import { can } from '@lupinum/trellis/auth'
 import { describe, expect, it } from 'vitest'
 
 import type { CmsAppIdentity, CmsMemberAppIdentity } from '#component/auth/appIdentity.js'
@@ -14,6 +13,7 @@ import {
   canManageSettings,
   canPublishEntries,
   canRead,
+  can,
   isBootstrapUser,
 } from '#component/auth/checks.js'
 import { bootstrapCmsOwnerRecord, validateFirstOwnerEmail } from '#component/members.js'

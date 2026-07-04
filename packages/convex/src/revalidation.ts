@@ -1,15 +1,6 @@
 import { retryRevalidationJob as retryRevalidationJobArgs } from '@lupinum/ginko-cms-contract/convex/schemas/revalidation.js'
 import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
-import {
-  blockedOperationPreview,
-  defineOperation,
-  operationEffect,
-  operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { internal } from './_generated/api.js'
@@ -20,6 +11,15 @@ import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
+import {
+  blockedOperationPreview,
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from './operationHelpers.js'
 
 declare const process: { env: Record<string, string | undefined> }
 

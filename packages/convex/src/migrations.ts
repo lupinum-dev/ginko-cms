@@ -6,7 +6,7 @@ import type { Doc, Id } from './_generated/dataModel.js'
 import { refreshDraftAssetRefsForSave } from './entries/workflow/commands.js'
 import { readDraftRows, applyDraftPatch, type SaveDraftPatch } from './entries/workflow/drafts.js'
 import { throwCmsError } from './errors.js'
-import { unsafePermit, unsafeRaw } from './functions.js'
+import { directInternalMutation, directInternalQuery } from './functions.js'
 import { getCollectionOrThrow } from './lib/collections.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
@@ -93,14 +93,8 @@ function migrationPatch(input: {
   }
 }
 
-export const listContentMigrationEntriesInternal = unsafeRaw.query({
+export const listContentMigrationEntriesInternal = directInternalQuery({
   id: 'migrations:listContentMigrationEntriesInternal',
-  permit: unsafePermit.permit({
-    kind: 'componentContentMigrationRead',
-    reason:
-      'Host app generated bridge uses Convex deploy-key admin auth to read draft snapshots for explicit project content migrations.',
-    scope: ['entries', 'entryDrafts', 'collections'],
-  }),
   args: {
     collection: v.string(),
     cursor: v.union(v.string(), v.null()),
@@ -144,14 +138,8 @@ export const listContentMigrationEntriesInternal = unsafeRaw.query({
   },
 })
 
-export const applyContentMigrationEntriesInternal = unsafeRaw.mutation({
+export const applyContentMigrationEntriesInternal = directInternalMutation({
   id: 'migrations:applyContentMigrationEntriesInternal',
-  permit: unsafePermit.permit({
-    kind: 'componentContentMigrationApply',
-    reason:
-      'Host app generated bridge uses Convex deploy-key admin auth to apply explicit project content migrations.',
-    scope: ['entries', 'entryDrafts', 'collections', 'contentAssetRefs'],
-  }),
   args: {
     migrationId: v.string(),
     entries: v.array(contentMigrationEntryValidator),

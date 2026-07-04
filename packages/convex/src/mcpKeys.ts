@@ -5,7 +5,7 @@ import { v } from 'convex/values'
 import { internal } from './_generated/api.js'
 import { internalMutation } from './_generated/server.js'
 import { canManageSettings } from './auth/checks.js'
-import { callerMutation, callerQuery, unsafePermit, unsafeRaw } from './functions.js'
+import { callerMutation, callerQuery, directInternalMutation } from './functions.js'
 import { asMcpKeyId } from './lib/ids.js'
 
 const TOUCH_DEBOUNCE_MS = 60_000
@@ -113,12 +113,8 @@ export const revoke = callerMutation.protected({
   },
 })
 
-export const consumeToken = unsafeRaw.mutation({
-  permit: unsafePermit.permit({
-    kind: 'mcpTokenLookup',
-    reason: 'Consume MCP bearer tokens before the request resolves to a CMS appIdentity.',
-    scope: ['mcpKeys'],
-  }),
+export const consumeToken = directInternalMutation({
+  id: 'mcpKeys:consumeToken',
   args: {
     hash: v.string(),
     seenAt: v.number(),

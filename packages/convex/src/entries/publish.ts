@@ -10,14 +10,6 @@ import {
   publishResultValidator,
   rollbackResultValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import {
-  defineOperation,
-  operationEffect,
-  operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import type { Id } from '../_generated/dataModel.js'
@@ -28,6 +20,14 @@ import { callerMutation } from '../functions.js'
 import { logActivity } from '../lib/activity.js'
 import { asEntryId } from '../lib/ids.js'
 import type { QueryOrMutationCtx } from '../lib/types.js'
+import {
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from '../operationHelpers.js'
 import { getCollectionForEntry, loadEntryMutationContext } from './context.js'
 import { previewDestructiveEntryOperation } from './read.js'
 import {
@@ -439,7 +439,8 @@ export const rollbackVersionOperation = defineOperation({
     return { entry, collection, revision, revisionNumber }
   },
   authorize: {
-    check: (_appIdentity, _loaded, args) => (args.publish ? canPublishEntries : canEditEntries),
+    check: (_appIdentity: unknown, _loaded: unknown, args: { publish?: boolean }) =>
+      args.publish ? canPublishEntries : canEditEntries,
   },
   returns: rollbackResultValidator,
   previewReturns: operationPreviewValidator(),

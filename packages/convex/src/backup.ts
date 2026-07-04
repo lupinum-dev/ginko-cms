@@ -1,12 +1,5 @@
 import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
-import {
-  defineOperation,
-  operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
 import { anyApi } from 'convex/server'
 import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
@@ -19,6 +12,13 @@ import { callerAction, callerMutation } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { asCollectionId, asEntryId } from './lib/ids.js'
 import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
+import {
+  defineOperation,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from './operationHelpers.js'
 
 const BACKUP_ARCHIVE_VERSION = 1
 const BACKUP_DRIVER = 'convex-storage-json'

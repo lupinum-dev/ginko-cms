@@ -1,57 +1,84 @@
 import type { CmsRole } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { defineGuard, open } from '@lupinum/trellis/auth'
 
 import type { CmsAppIdentity } from './appIdentity.js'
 
-export const isAuthenticated = defineGuard<CmsAppIdentity>(
+export type CmsGuard = {
+  label: string
+  check: (appIdentity: CmsAppIdentity) => boolean
+  or: (other: CmsGuard) => CmsGuard
+}
+
+function defineCmsGuard(label: string, check: (appIdentity: CmsAppIdentity) => boolean): CmsGuard {
+  return {
+    label,
+    check,
+    or: (other) =>
+      defineCmsGuard(
+        `${label} or ${other.label}`,
+        (appIdentity) => check(appIdentity) || other.check(appIdentity),
+      ),
+  }
+}
+
+export function can(appIdentity: CmsAppIdentity, guard: CmsGuard): boolean {
+  return guard.check(appIdentity)
+}
+
+export function requireRecord<T>(value: T | null | undefined, label: string): asserts value is T {
+  if (value === null || value === undefined) {
+    throw new Error(`${label} not found.`)
+  }
+}
+
+export const isAuthenticated = defineCmsGuard(
   'Authenticated',
   (appIdentity) => appIdentity !== null,
 )
 
-export const allowPublic = open
+export const allowPublic = defineCmsGuard('Public', () => true)
 
-export const isBootstrapUser = defineGuard<CmsAppIdentity>(
+export const isBootstrapUser = defineCmsGuard(
   'Bootstrap CMS',
   (appIdentity) => appIdentity?.canBootstrap === true,
 )
 
 export const hasRole = (...roles: CmsRole[]) =>
-  defineGuard<CmsAppIdentity>(
+  defineCmsGuard(
     `role:${roles.join('|')}`,
     (appIdentity) => !!appIdentity && appIdentity.role !== null && roles.includes(appIdentity.role),
   )
 
-export const canRead = defineGuard<CmsAppIdentity>(
+export const canRead = defineCmsGuard(
   'Read CMS',
-  hasRole('owner', 'publisher', 'editor', 'viewer').or(isBootstrapUser),
+  hasRole('owner', 'publisher', 'editor', 'viewer').or(isBootstrapUser).check,
 )
 
-export const canCreateEntries = defineGuard<CmsAppIdentity>(
+export const canCreateEntries = defineCmsGuard(
   'Create entries',
-  hasRole('owner', 'publisher', 'editor'),
+  hasRole('owner', 'publisher', 'editor').check,
 )
 
-export const canEditEntries = defineGuard<CmsAppIdentity>(
+export const canEditEntries = defineCmsGuard(
   'Edit entries',
-  hasRole('owner', 'publisher', 'editor'),
+  hasRole('owner', 'publisher', 'editor').check,
 )
 
-export const canPublishEntries = defineGuard<CmsAppIdentity>(
+export const canPublishEntries = defineCmsGuard(
   'Publish entries',
-  hasRole('owner', 'publisher'),
+  hasRole('owner', 'publisher').check,
 )
 
-export const canArchiveEntries = defineGuard<CmsAppIdentity>('Archive entries', hasRole('owner'))
+export const canArchiveEntries = defineCmsGuard('Archive entries', hasRole('owner').check)
 
-export const canDeleteEntries = defineGuard<CmsAppIdentity>('Delete entries', hasRole('owner'))
+export const canDeleteEntries = defineCmsGuard('Delete entries', hasRole('owner').check)
 
-export const canManageCollections = defineGuard<CmsAppIdentity>(
-  'Manage collections',
-  hasRole('owner'),
+export const canManageCollections = defineCmsGuard('Manage collections', hasRole('owner').check)
+
+export const canManageSettings = defineCmsGuard('Manage settings', hasRole('owner').check)
+
+export const canManageMembers = defineCmsGuard('Manage members', hasRole('owner').check)
+
+export const canManageAssets = defineCmsGuard(
+  'Manage assets',
+  hasRole('owner', 'publisher', 'editor').check,
 )
-
-export const canManageSettings = defineGuard<CmsAppIdentity>('Manage settings', hasRole('owner'))
-
-export const canManageMembers = defineGuard<CmsAppIdentity>('Manage members', hasRole('owner'))
-
-export const canManageAssets = defineGuard('Manage assets', hasRole('owner', 'publisher', 'editor'))

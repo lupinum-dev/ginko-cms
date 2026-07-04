@@ -4,9 +4,8 @@ import {
   type CmsMcpCaller,
   type CmsUserCaller,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import type { OperationHandle } from '@lupinum/trellis/backend'
+import { convexTest, type TestConvex } from 'convex-test'
 /// <reference types="vite/client" />
-import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 
@@ -14,6 +13,7 @@ import schema from '#component/schema'
 import { modules } from '#component/test.setup'
 
 import { operations } from '../packages/convex/generated/operationHandles/testing'
+import type { OperationHandle } from '../packages/convex/src/operationHelpers.js'
 
 export const api = anyApi
 const createEntryOperation = operations.byId['ginko-cms.create-entry']
@@ -26,55 +26,87 @@ const deleteEntryOperation = operations.byId['ginko-cms.delete-entry']
 const rollbackVersionOperation = operations.byId['ginko-cms.rollback-version']
 const revertDraftToPublishedOperation = operations.byId['ginko-cms.revert-draft-to-published']
 const unarchiveEntryOperation = operations.byId['ginko-cms.unarchive-entry']
-const TRUSTED_FORWARDING_KEY = 'test-ginko-cms-component-forwarding-key'
-process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
-process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= TRUSTED_FORWARDING_KEY
 
 function createCmsCallerClient(
-  ctx: ReturnType<typeof createTestContext<typeof schema>>,
+  ctx: TestConvex<typeof schema>,
   caller: CmsUserCaller | CmsMcpCaller,
 ) {
+  const identity = {
+    subject:
+      caller.kind === 'user'
+        ? caller.userId
+        : caller.kind === 'mcp'
+          ? caller.mcpKeyId
+          : caller.subject,
+    issuer: caller.kind === 'mcp' ? 'ginko-cms-mcp' : undefined,
+  }
+  const authed = () => ctx.withIdentity(identity)
   return {
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
-      const client = ctx.asCaller(caller)
-      return await client.query(fn, ...args)
+      return await authed().query(fn, ...args)
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
-      const client = ctx.asCaller(caller)
-      return await client.mutation(fn, ...args)
+      return await authed().mutation(fn, ...args)
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
-      const client = ctx.asCaller(caller)
-      return await client.action(fn, ...args)
+      return await authed().action(fn, ...args)
     },
     operation: <TOperation extends OperationHandle>(operation: TOperation) =>
-      ctx.asCaller(caller).operation(operation),
+      createOperationClient(authed(), operation),
     createEntry: async (args: Record<string, unknown>): Promise<string> =>
-      (await ctx.asCaller(caller).operation(createEntryOperation).execute(args)) as string,
+      (await createOperationClient(authed(), createEntryOperation).execute(args)) as string,
     saveEntryDraft: async (args: Record<string, unknown>): Promise<DraftSaveResult> =>
-      (await ctx
-        .asCaller(caller)
-        .operation(saveEntryDraftOperation)
-        .execute(args)) as DraftSaveResult,
+      (await createOperationClient(authed(), saveEntryDraftOperation).execute(
+        args,
+      )) as DraftSaveResult,
     moveAsset: async (args: Record<string, unknown>): Promise<null> =>
-      (await ctx.asCaller(caller).operation(moveAssetOperation).execute(args)) as null,
+      (await createOperationClient(authed(), moveAssetOperation).execute(args)) as null,
     unarchiveEntry: async (args: Record<string, unknown>): Promise<null> =>
-      (await ctx.asCaller(caller).operation(unarchiveEntryOperation).execute(args)) as null,
+      (await createOperationClient(authed(), unarchiveEntryOperation).execute(args)) as null,
+  }
+}
+
+function createOperationClient(
+  ctx: ReturnType<TestConvex<typeof schema>['withIdentity']>,
+  operation: any,
+) {
+  return {
+    preview: async (args: Record<string, unknown>) => {
+      if (!operation.previewRef) throw new Error(`Operation ${operation.id} has no preview ref.`)
+      return await ctx.mutation(operation.previewRef.ref, args as never)
+    },
+    execute: async (
+      args: Record<string, unknown>,
+      options: { confirmation?: { token?: string } | null } = {},
+    ) => {
+      const executeArgs = options.confirmation?.token
+        ? { ...args, _confirmationToken: options.confirmation.token }
+        : args
+      return await ctx.mutation(operation.executeRef.ref, executeArgs as never)
+    },
   }
 }
 
 export function createCtx() {
-  const ctx = createTestContext({ schema, modules, identityForwardingKey: TRUSTED_FORWARDING_KEY })
+  const ctx = convexTest({ schema, modules })
+  ctx.registerComponent('ginkoCms', schema as never, modules as never)
   return Object.assign(ctx, {
+    raw: ctx,
+    seed: async (table: string, value: Record<string, unknown>) =>
+      await ctx.run(
+        async (mutationCtx) => await mutationCtx.db.insert(table as never, value as never),
+      ),
+    readAll: async (table: string) =>
+      await ctx.run(async (mutationCtx) => await mutationCtx.db.query(table as never).collect()),
     asCmsUser: (userId: string) => createCmsCallerClient(ctx, cmsUserCaller(userId)),
     asMcpKey: (mcpKeyId: string) => createCmsCallerClient(ctx, cmsMcpCaller(mcpKeyId)),
   })
@@ -189,11 +221,17 @@ export async function executeConfirmedOperation(
     callerKey?: string
   },
 ) {
-  const preview = (await appIdentity.mutation(input.preview, input.args as never)) as {
-    confirmation?: { token: string; expiresAt: number }
+  let preview: { allowed?: boolean; confirmation?: { token: string; expiresAt: number } }
+  try {
+    preview = (await appIdentity.mutation(input.preview, input.args as never)) as {
+      allowed?: boolean
+      confirmation?: { token: string; expiresAt: number }
+    }
+  } catch {
+    throw new Error(`Preview for ${input.operationId} did not return a confirmation token.`)
   }
   const token =
-    preview.confirmation && preview.confirmation.expiresAt > Date.now()
+    preview.allowed !== false && preview.confirmation && preview.confirmation.expiresAt > Date.now()
       ? preview.confirmation.token
       : null
   if (!token)

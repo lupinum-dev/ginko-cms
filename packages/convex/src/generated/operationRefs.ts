@@ -1,7 +1,6 @@
-// AUTO-GENERATED. Do not edit.
-import { projectOperationRef } from '@lupinum/trellis/mcp'
-
 import { api } from '../_generated/api.js'
+// AUTO-GENERATED. Do not edit.
+import { projectOperationRef } from '../operationHelpers.js'
 
 const __archiveEntryOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -9,7 +8,7 @@ const __archiveEntryOperationDescriptor = {
   name: 'archive-entry',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.archive-entry'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.archive-entry'>
 
 const __createEntryOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -17,7 +16,7 @@ const __createEntryOperationDescriptor = {
   name: 'create-entry',
   kind: 'safe',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.create-entry'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.create-entry'>
 
 const __deleteAssetOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -25,7 +24,7 @@ const __deleteAssetOperationDescriptor = {
   name: 'delete-asset',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.delete-asset'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.delete-asset'>
 
 const __deleteBackupArtifactOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -33,7 +32,7 @@ const __deleteBackupArtifactOperationDescriptor = {
   name: 'delete-backup-artifact',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.delete-backup-artifact'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.delete-backup-artifact'>
 
 const __deleteEntryOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -41,7 +40,7 @@ const __deleteEntryOperationDescriptor = {
   name: 'delete-entry',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.delete-entry'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.delete-entry'>
 
 const __deleteSiteDataBlockOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -49,7 +48,7 @@ const __deleteSiteDataBlockOperationDescriptor = {
   name: 'delete-site-data-block',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.delete-site-data-block'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.delete-site-data-block'>
 
 const __moveAssetOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -57,7 +56,7 @@ const __moveAssetOperationDescriptor = {
   name: 'move-asset',
   kind: 'safe',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.move-asset'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.move-asset'>
 
 const __publishEntryOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -65,7 +64,7 @@ const __publishEntryOperationDescriptor = {
   name: 'publish-entry',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.publish-entry'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.publish-entry'>
 
 const __purgeAssetOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -73,7 +72,7 @@ const __purgeAssetOperationDescriptor = {
   name: 'purge-asset',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.purge-asset'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.purge-asset'>
 
 const __removeMemberOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -81,7 +80,7 @@ const __removeMemberOperationDescriptor = {
   name: 'remove-member',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.remove-member'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.remove-member'>
 
 const __retryRevalidationJobOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -89,7 +88,7 @@ const __retryRevalidationJobOperationDescriptor = {
   name: 'retry-revalidation-job',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.retry-revalidation-job'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.retry-revalidation-job'>
 
 const __revertDraftToPublishedOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -97,7 +96,7 @@ const __revertDraftToPublishedOperationDescriptor = {
   name: 'revert-draft-to-published',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.revert-draft-to-published'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.revert-draft-to-published'>
 
 const __rollbackVersionOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -105,7 +104,7 @@ const __rollbackVersionOperationDescriptor = {
   name: 'rollback-version',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.rollback-version'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.rollback-version'>
 
 const __saveEntryDraftOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -113,7 +112,7 @@ const __saveEntryDraftOperationDescriptor = {
   name: 'save-entry-draft',
   kind: 'safe',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.save-entry-draft'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.save-entry-draft'>
 
 const __unarchiveEntryOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -121,7 +120,7 @@ const __unarchiveEntryOperationDescriptor = {
   name: 'unarchive-entry',
   kind: 'safe',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.unarchive-entry'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.unarchive-entry'>
 
 const __unpublishEntryOperationDescriptor = {
   _type: 'operation-descriptor',
@@ -129,7 +128,7 @@ const __unpublishEntryOperationDescriptor = {
   name: 'unpublish-entry',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/mcp').OperationDescriptor<'ginko-cms.unpublish-entry'>
+} as unknown as import('../operationHelpers.js').OperationDescriptor<'ginko-cms.unpublish-entry'>
 
 export const ginkoCmsArchiveEntryExecuteRef = projectOperationRef(
   __archiveEntryOperationDescriptor,

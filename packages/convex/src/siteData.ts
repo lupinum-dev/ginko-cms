@@ -10,15 +10,6 @@ import {
   siteDataListItemValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
-import {
-  blockedOperationPreview,
-  defineOperation,
-  operationEffect,
-  operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
@@ -29,6 +20,15 @@ import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx } from './lib/types.js'
 import { assertValidLocaleCode, assertValidSiteDataKey } from './lib/validation.js'
+import {
+  blockedOperationPreview,
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from './operationHelpers.js'
 import { scheduleRevalidationOutboxDelivery } from './revalidation.js'
 
 type SiteDataDoc = Doc<'siteData'>
@@ -42,6 +42,33 @@ function localeDataMap(value: unknown): JsonMap {
   return Object.fromEntries(
     Object.entries(value as JsonMap).filter(([key]) => isLocaleKey(key)),
   ) as JsonMap
+}
+
+function assertJsonValue(value: unknown, path = 'data'): void {
+  if (value === null) return
+
+  const valueType = typeof value
+  if (valueType === 'string' || valueType === 'boolean') return
+  if (valueType === 'number') {
+    if (Number.isFinite(value)) return
+    throwCmsError('SITE_DATA_JSON_INVALID', 'Site data must be JSON-compatible.', { path })
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertJsonValue(item, `${path}[${index}]`))
+    return
+  }
+  if (valueType === 'object') {
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) {
+      throwCmsError('SITE_DATA_JSON_INVALID', 'Site data must be JSON-compatible.', { path })
+    }
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      assertJsonValue(item, `${path}.${key}`)
+    }
+    return
+  }
+
+  throwCmsError('SITE_DATA_JSON_INVALID', 'Site data must be JSON-compatible.', { path })
 }
 
 async function enqueuePublicSiteDataRevalidation(
@@ -174,6 +201,7 @@ export const createSiteDataBlock = callerMutation.protected({
         { key: args.key, locale: args.locale },
       )
     }
+    if (args.data !== undefined) assertJsonValue(args.data)
 
     const id = await ctx.db.insert('siteData', {
       key: args.key,
@@ -236,6 +264,7 @@ export const saveSiteData = callerMutation.protected({
         { key: args.key, locale: args.locale },
       )
     }
+    assertJsonValue(args.data)
 
     const nextData = row.localized
       ? {

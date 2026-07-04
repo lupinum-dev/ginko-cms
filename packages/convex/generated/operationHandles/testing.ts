@@ -1,6 +1,5 @@
 // AUTO-GENERATED. Do not edit.
-import { defineOperationHandle } from '@lupinum/trellis/backend'
-
+import { defineOperationHandle } from '../../src/operationHelpers.js'
 import {
   ginkoCmsArchiveEntryExecuteRef,
   ginkoCmsArchiveEntryPreviewRef,
@@ -38,7 +37,7 @@ const __archiveEntryHandleDescriptor = {
   name: 'archive-entry',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.archive-entry'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.archive-entry'>
 
 export const archiveEntryHandle = defineOperationHandle(__archiveEntryHandleDescriptor, {
   executeRef: ginkoCmsArchiveEntryExecuteRef,
@@ -54,7 +53,7 @@ const __createEntryHandleDescriptor = {
   name: 'create-entry',
   kind: 'safe',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.create-entry'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.create-entry'>
 
 export const createEntryHandle = defineOperationHandle(__createEntryHandleDescriptor, {
   executeRef: ginkoCmsCreateEntryExecuteRef,
@@ -68,7 +67,7 @@ const __deleteAssetHandleDescriptor = {
   name: 'delete-asset',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.delete-asset'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.delete-asset'>
 
 export const deleteAssetHandle = defineOperationHandle(__deleteAssetHandleDescriptor, {
   executeRef: ginkoCmsDeleteAssetExecuteRef,
@@ -84,7 +83,7 @@ const __deleteBackupArtifactHandleDescriptor = {
   name: 'delete-backup-artifact',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.delete-backup-artifact'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.delete-backup-artifact'>
 
 export const deleteBackupArtifactHandle = defineOperationHandle(
   __deleteBackupArtifactHandleDescriptor,
@@ -103,7 +102,7 @@ const __deleteEntryHandleDescriptor = {
   name: 'delete-entry',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.delete-entry'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.delete-entry'>
 
 export const deleteEntryHandle = defineOperationHandle(__deleteEntryHandleDescriptor, {
   executeRef: ginkoCmsDeleteEntryExecuteRef,
@@ -119,7 +118,7 @@ const __deleteSiteDataBlockHandleDescriptor = {
   name: 'delete-site-data-block',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.delete-site-data-block'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.delete-site-data-block'>
 
 export const deleteSiteDataBlockHandle = defineOperationHandle(
   __deleteSiteDataBlockHandleDescriptor,
@@ -138,7 +137,7 @@ const __moveAssetHandleDescriptor = {
   name: 'move-asset',
   kind: 'safe',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.move-asset'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.move-asset'>
 
 export const moveAssetHandle = defineOperationHandle(__moveAssetHandleDescriptor, {
   executeRef: ginkoCmsMoveAssetExecuteRef,
@@ -152,7 +151,7 @@ const __publishEntryHandleDescriptor = {
   name: 'publish-entry',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.publish-entry'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.publish-entry'>
 
 export const publishEntryHandle = defineOperationHandle(__publishEntryHandleDescriptor, {
   executeRef: ginkoCmsPublishEntryExecuteRef,
@@ -168,7 +167,7 @@ const __purgeAssetHandleDescriptor = {
   name: 'purge-asset',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.purge-asset'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.purge-asset'>
 
 export const purgeAssetHandle = defineOperationHandle(__purgeAssetHandleDescriptor, {
   executeRef: ginkoCmsPurgeAssetExecuteRef,
@@ -184,7 +183,7 @@ const __removeMemberHandleDescriptor = {
   name: 'remove-member',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.remove-member'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.remove-member'>
 
 export const removeMemberHandle = defineOperationHandle(__removeMemberHandleDescriptor, {
   executeRef: ginkoCmsRemoveMemberExecuteRef,
@@ -200,7 +199,7 @@ const __retryRevalidationJobHandleDescriptor = {
   name: 'retry-revalidation-job',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.retry-revalidation-job'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.retry-revalidation-job'>
 
 export const retryRevalidationJobHandle = defineOperationHandle(
   __retryRevalidationJobHandleDescriptor,
@@ -219,7 +218,7 @@ const __revertDraftToPublishedHandleDescriptor = {
   name: 'revert-draft-to-published',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.revert-draft-to-published'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.revert-draft-to-published'>
 
 export const revertDraftToPublishedHandle = defineOperationHandle(
   __revertDraftToPublishedHandleDescriptor,
@@ -238,7 +237,7 @@ const __rollbackVersionHandleDescriptor = {
   name: 'rollback-version',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.rollback-version'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.rollback-version'>
 
 export const rollbackVersionHandle = defineOperationHandle(__rollbackVersionHandleDescriptor, {
   executeRef: ginkoCmsRollbackVersionExecuteRef,
@@ -254,7 +253,7 @@ const __saveEntryDraftHandleDescriptor = {
   name: 'save-entry-draft',
   kind: 'safe',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.save-entry-draft'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.save-entry-draft'>
 
 export const saveEntryDraftHandle = defineOperationHandle(__saveEntryDraftHandleDescriptor, {
   executeRef: ginkoCmsSaveEntryDraftExecuteRef,
@@ -268,7 +267,7 @@ const __unarchiveEntryHandleDescriptor = {
   name: 'unarchive-entry',
   kind: 'safe',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.unarchive-entry'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.unarchive-entry'>
 
 export const unarchiveEntryHandle = defineOperationHandle(__unarchiveEntryHandleDescriptor, {
   executeRef: ginkoCmsUnarchiveEntryExecuteRef,
@@ -282,7 +281,7 @@ const __unpublishEntryHandleDescriptor = {
   name: 'unpublish-entry',
   kind: 'destructive',
   args: {},
-} as unknown as import('@lupinum/trellis/backend').OperationDescriptor<'ginko-cms.unpublish-entry'>
+} as unknown as import('../../src/operationHelpers.js').OperationDescriptor<'ginko-cms.unpublish-entry'>
 
 export const unpublishEntryHandle = defineOperationHandle(__unpublishEntryHandleDescriptor, {
   executeRef: ginkoCmsUnpublishEntryExecuteRef,

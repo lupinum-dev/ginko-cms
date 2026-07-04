@@ -7,16 +7,6 @@ import {
 } from '@lupinum/ginko-cms-contract/convex/schemas/members.js'
 import { memberValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
-import { definePermission, defineAccessContext } from '@lupinum/trellis/auth'
-import {
-  blockedOperationPreview,
-  defineOperation,
-  operationEffect,
-  operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
@@ -33,16 +23,30 @@ import {
   canRead,
   isAuthenticated,
   isBootstrapUser,
+  type CmsGuard,
 } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery, cmsPublicReadTables } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx } from './lib/types.js'
+import {
+  blockedOperationPreview,
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from './operationHelpers.js'
 
 type MemberDoc = Doc<'members'>
 type McpKeyDoc = Doc<'mcpKeys'>
 const MEMBER_LIST_MAX = 500
+
+function definePermission(input: { key: string; label: string; check: CmsGuard }) {
+  return input
+}
 
 async function countOwners(ctx: MutationCtx): Promise<number> {
   return (
@@ -160,15 +164,44 @@ function normalizeEmail(email: string | null | undefined): string | null {
   return normalized && normalized.length > 0 ? normalized : null
 }
 
-const getAccessContextDefinition = defineAccessContext({
+const getAccessContextDefinition = {
   id: 'members:getAccessContext',
-  resolve: async (ctx) => await ctx.appIdentity(),
-  permissions: cmsPermissions,
-  extend: async (_ctx, appIdentity) => ({
-    member: appIdentity.kind === 'member' ? serializeMember(appIdentity.member) : null,
-    canBootstrap: appIdentity.canBootstrap,
-  }),
-})
+  args: {},
+  returns: v.any(),
+  handler: async (ctx: { appIdentity: () => Promise<unknown> }) => {
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity) return null
+    const can = Object.fromEntries(
+      cmsPermissions.map((permission) => [
+        permission.key,
+        appIdentity ? permission.check.check(appIdentity as never) : false,
+      ]),
+    )
+    return {
+      userId:
+        appIdentity && typeof appIdentity === 'object' && 'userId' in appIdentity
+          ? appIdentity.userId
+          : null,
+      role:
+        appIdentity && typeof appIdentity === 'object' && 'role' in appIdentity
+          ? appIdentity.role
+          : null,
+      can,
+      permissions: can,
+      member:
+        appIdentity &&
+        typeof appIdentity === 'object' &&
+        'kind' in appIdentity &&
+        appIdentity.kind === 'member'
+          ? serializeMember((appIdentity as unknown as { member: MemberDoc }).member)
+          : null,
+      canBootstrap:
+        appIdentity && typeof appIdentity === 'object' && 'canBootstrap' in appIdentity
+          ? Boolean(appIdentity.canBootstrap)
+          : false,
+    }
+  },
+}
 
 export const getAccessContext = callerQuery.public({
   ...getAccessContextDefinition,

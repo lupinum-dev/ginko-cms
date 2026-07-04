@@ -7,7 +7,7 @@ import {
 import { v } from 'convex/values'
 
 import { canManageSettings, canRead } from './auth/checks.js'
-import { callerMutation, callerQuery, unsafePermit, unsafeRaw } from './functions.js'
+import { callerMutation, callerQuery, directInternalMutation } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { getCmsSettings } from './lib/locale.js'
 import { assertValidLocaleCode } from './lib/validation.js'
@@ -70,18 +70,16 @@ export const getSettings = callerQuery.protected({
 
 // AUTH-AUDIT: intentionally unguarded — called by the Convex component installer
 // to seed initial CMS settings before any user exists.
-export const syncBootstrapSettings = unsafeRaw.mutation({
-  permit: unsafePermit.permit({
-    kind: 'bootstrapSettingsSeed',
-    reason: 'Seed bootstrap settings before a CMS appIdentity exists.',
-    scope: ['settings'],
-  }),
+export const syncBootstrapSettings = directInternalMutation({
+  id: 'settings:syncBootstrapSettings',
   args: {
     locales: v.array(localeConfigValidator),
   },
   returns: bootstrapSettingsResultValidator,
   handler: async (ctx, args) => {
-    args.locales.forEach((locale) => assertValidLocaleCode(locale.code, 'SETTINGS_LOCALE_INVALID'))
+    ;(args.locales as Array<{ code: string }>).forEach((locale) =>
+      assertValidLocaleCode(locale.code, 'SETTINGS_LOCALE_INVALID'),
+    )
     const existing = await getCmsSettings(ctx)
     if (!existing) {
       await ctx.db.insert('cmsSettings', {
@@ -115,14 +113,16 @@ export const updateSettings = callerMutation.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const existing = await getCmsSettings(ctx)
-    args.locales?.forEach((locale) => assertValidLocaleCode(locale.code, 'SETTINGS_LOCALE_INVALID'))
+    ;(args.locales as Array<{ code: string }> | undefined)?.forEach((locale) =>
+      assertValidLocaleCode(locale.code, 'SETTINGS_LOCALE_INVALID'),
+    )
     const patch: Record<string, unknown> = {
       updatedBy: appIdentity.userId,
       updatedAt: Date.now(),
     }
     if (args.locales !== undefined) patch.locales = args.locales
     if (args.webhooks !== undefined) {
-      args.webhooks.forEach((webhook) => assertWebhookUrl(webhook.url))
+      ;(args.webhooks as Array<{ url: string }>).forEach((webhook) => assertWebhookUrl(webhook.url))
       patch.webhooks = args.webhooks
     }
 

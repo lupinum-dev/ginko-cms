@@ -15,20 +15,10 @@ import {
   assetManagerAssetValidator,
   assetManagerPageValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { requireRecord } from '@lupinum/trellis/auth'
-import {
-  blockedOperationPreview,
-  defineOperation,
-  operationEffect,
-  operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
-import { canManageAssets, canRead } from './auth/checks.js'
+import { canManageAssets, canRead, requireRecord } from './auth/checks.js'
 import { assertBackupArtifactCoversPurge } from './backup.js'
 import { readStudioDraftView } from './entries/context.js'
 import { rebuildContentAssetRefsForEntry } from './entries/projections.js'
@@ -41,6 +31,15 @@ import { toOptionalStringId, toStringId } from './lib/ids.js'
 import { resolveLocaleText } from './lib/locale.js'
 import { sanitizeFilename, validateAssetUploadPolicy } from './lib/sanitize.js'
 import type { MutationCtx, QueryOrMutationCtx, ReadCtx } from './lib/types.js'
+import {
+  blockedOperationPreview,
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from './operationHelpers.js'
 
 type AssetDoc = Doc<'assets'>
 type CollectionDoc = Doc<'collections'>
@@ -837,7 +836,7 @@ export const resolveAssetUrls = callerQuery.protected({
       )
     }
     const out: Record<string, string | null> = {}
-    for (const rawAssetId of [...new Set(args.assetIds)]) {
+    for (const rawAssetId of [...new Set(args.assetIds as string[])]) {
       const assetId = ctx.db.normalizeId('assets', rawAssetId)
       if (!assetId) {
         out[rawAssetId] = null

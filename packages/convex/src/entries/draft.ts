@@ -5,14 +5,6 @@ import {
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
 import { draftSaveResultValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
-import {
-  defineOperation,
-  operationEffect,
-  operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { canCreateEntries, canEditEntries } from '../auth/checks.js'
@@ -22,6 +14,14 @@ import { isLocalizedSlugMode } from '../lib/collections.js'
 import { asEntryId } from '../lib/ids.js'
 import type { MutationCtx } from '../lib/types.js'
 import { assertValidLocaleCode } from '../lib/validation.js'
+import {
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from '../operationHelpers.js'
 import { loadEntryMutationContext, readStudioDraftView } from './context.js'
 import { getDraftVsPublishedDiffPreview } from './read.js'
 import { rewriteStoredRelationData } from './relations.js'

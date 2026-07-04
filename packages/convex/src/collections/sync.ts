@@ -11,7 +11,7 @@ import type { Doc } from '../_generated/dataModel.js'
 import { canManageCollections } from '../auth/checks.js'
 import { refreshEntryReadModelsById } from '../entries/projections.js'
 import { throwCmsError } from '../errors.js'
-import { callerMutation, unsafePermit, unsafeRaw } from '../functions.js'
+import { callerMutation, directInternalMutation, directInternalQuery } from '../functions.js'
 import type { getCollectionOrThrow } from '../lib/collections.js'
 import { collectionEntryCountSnapshot, collectionHasEntries } from '../lib/collections.js'
 import { isEqualJsonValue } from '../lib/data.js'
@@ -447,18 +447,14 @@ async function syncCodeDefinedCollectionContracts(
   return { created, updated, skipped, missingFromConfig }
 }
 
-export const checkCollectionContractsInternal = unsafeRaw.query({
+export const checkCollectionContractsInternal = directInternalQuery({
   id: 'sync:checkCollectionContractsInternal',
-  permit: unsafePermit.permit({
-    kind: 'componentContractCheck',
-    reason:
-      'Host app generated bridge uses Convex deploy-key admin auth before checking code-defined collection contract drift.',
-    scope: ['collections'],
-  }),
   args: installCollectionContractsArgs,
   returns: checkCollectionContractsReturns,
   handler: async (ctx, args) => {
-    const incomingSlugs = new Set(args.collections.map((collection) => collection.slug))
+    const incomingSlugs = new Set(
+      (args.collections as Array<{ slug: string }>).map((collection) => collection.slug),
+    )
     const existingCollections = await ctx.db.query('collections').collect()
     const missingFromConfigDetails = await Promise.all(
       existingCollections
@@ -514,14 +510,8 @@ export const checkCollectionContractsInternal = unsafeRaw.query({
   },
 })
 
-export const installCollectionContractsInternal = unsafeRaw.mutation({
+export const installCollectionContractsInternal = directInternalMutation({
   id: 'sync:installCollectionContractsInternal',
-  permit: unsafePermit.permit({
-    kind: 'componentContractInstall',
-    reason:
-      'Host app generated bridge uses Convex deploy-key admin auth before syncing code-defined collection contracts.',
-    scope: ['collections'],
-  }),
   args: installCollectionContractsArgs,
   returns: installCollectionContractsReturns,
   handler: async (ctx, args) => {

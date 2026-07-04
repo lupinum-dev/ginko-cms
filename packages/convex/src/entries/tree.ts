@@ -5,14 +5,6 @@ import {
   reparentEntry as reparentEntryArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
-import {
-  defineOperation,
-  operationEffect,
-  operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel.js'
@@ -21,6 +13,14 @@ import { assertBackupArtifactCoversPurge } from '../backup.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
 import { logActivity } from '../lib/activity.js'
+import {
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from '../operationHelpers.js'
 import {
   deleteEntryRecords,
   getCollectionForEntry,

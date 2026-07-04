@@ -452,40 +452,40 @@ Objective: replace Trellis backend builders with small CMS-owned Convex helpers.
 
 Create or simplify helpers:
 
-- [ ] `publicQuery`
-- [ ] `protectedQuery`
-- [ ] `protectedMutation`
-- [ ] `protectedAction`
-- [ ] direct internal query/mutation/action variants where needed
-- [ ] `resolveCmsCaller(ctx)`
-- [ ] `resolveCmsAppIdentity(ctx, caller)`
-- [ ] `requireCms(identity, guard, message?)`
-- [ ] plain guard functions for member roles and capabilities
+- [x] `publicQuery`
+- [x] `protectedQuery`
+- [x] `protectedMutation`
+- [x] `protectedAction`
+- [x] direct internal query/mutation/action variants where needed
+- [x] `resolveCmsCaller(ctx)`
+- [x] `resolveCmsAppIdentity(ctx, caller)`
+- [x] `requireCms(identity, guard, message?)`
+- [x] plain guard functions for member roles and capabilities
 
 Remove:
 
-- [ ] `defineTrellis`
-- [ ] `defineCaller`
-- [ ] forwarded callers
-- [ ] `_trellisForwarding`
-- [ ] `CONVEX_IDENTITY_FORWARDING_KEY`
-- [ ] `GINKO_CMS_COMPONENT_FORWARDING_KEY`
-- [ ] `getCmsComponentForwardingKey`
-- [ ] generic Trellis guards and access-context objects
-- [ ] `unsafeRaw` and `unsafePermit`, unless replaced by narrower internal
+- [x] `defineTrellis`
+- [x] `defineCaller`
+- [x] forwarded callers
+- [x] `_trellisForwarding`
+- [x] `CONVEX_IDENTITY_FORWARDING_KEY`
+- [x] `GINKO_CMS_COMPONENT_FORWARDING_KEY`
+- [x] `getCmsComponentForwardingKey`
+- [x] generic Trellis guards and access-context objects
+- [x] `unsafeRaw` and `unsafePermit`, unless replaced by narrower internal
       functions with tests
 
 Update Convex call sites:
 
-- [ ] `auth/checks.ts`
-- [ ] `members.ts`
-- [ ] `assets.ts`
-- [ ] `backup.ts`
-- [ ] `entries/**`
-- [ ] `siteData.ts`
-- [ ] `revalidation.ts`
-- [ ] `migrations.ts`
-- [ ] any function using Trellis caller or guard helpers
+- [x] `auth/checks.ts`
+- [x] `members.ts`
+- [x] `assets.ts`
+- [x] `backup.ts`
+- [x] `entries/**`
+- [x] `siteData.ts`
+- [x] `revalidation.ts`
+- [x] `migrations.ts`
+- [x] any function using Trellis caller or guard helpers
 
 Verification:
 
@@ -502,6 +502,41 @@ Exit criteria:
   are still covered by tests.
 - Permission maps are computed from the same authorization rules used by
   protected Convex writes.
+
+Implementation evidence:
+
+- `packages/convex/src/functions.ts` now owns the direct Convex builders,
+  caller resolution, app identity resolution, guard enforcement, and narrow
+  internal query/mutation helpers.
+- `packages/convex/src/auth/checks.ts` now owns plain CMS guard functions and
+  capability checks.
+- `packages/convex/src/auth/recordAccess.ts` now computes entry record access
+  through the same CMS guards used by protected writes.
+- Convex call sites in assets, backup, entries, site data, revalidation,
+  settings, migrations, collections sync, and MCP keys now use CMS-owned
+  builders and operation helpers.
+- `packages/convex/src/convex.auth.ts` now uses direct
+  `@convex-dev/better-auth` and `better-auth` wiring; `better-auth` is declared
+  as a Convex package peer dependency.
+- Component tests now run on `convex-test` without Trellis caller forwarding.
+- Site data writes explicitly reject non-JSON values before persistence.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec oxfmt . --ignore-path .oxfmtignore
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm --filter @lupinum/ginko-cms-convex typecheck
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec vitest run test/component test/shared/contracts.test.ts
+rg -n "@lupinum/trellis/(auth|backend|workspace)|defineTrellis|defineCaller|getForwardedCaller|_trellisForwarding|unsafeRaw|unsafePermit|CONVEX_IDENTITY_FORWARDING_KEY|GINKO_CMS_COMPONENT_FORWARDING_KEY|getCmsComponentForwardingKey" packages/convex/src test/helpers.ts --glob '!packages/convex/src/_generated/**'
+rg -n "@lupinum/trellis" packages/convex/src packages/convex/generated --glob '!packages/convex/src/_generated/**'
+```
+
+Results:
+
+- `oxfmt` passed.
+- Convex package typecheck passed.
+- Component and shared contract tests passed: 30 files, 225 tests.
+- Both Trellis searches produced no matches.
 
 Failure mitigations:
 
