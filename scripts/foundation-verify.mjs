@@ -357,7 +357,7 @@ export function runFoundationVerify() {
       '--force',
       '--ignore-scripts',
     ])
-    run('Consumer generated bridge typecheck', consumerRoot, 'pnpm', ['run', 'typecheck'])
+    run('Consumer direct Convex setup typecheck', consumerRoot, 'pnpm', ['run', 'typecheck'])
     run('Consumer lint', consumerRoot, 'pnpm', ['run', 'lint'])
     runAndScan(
       'Consumer build',

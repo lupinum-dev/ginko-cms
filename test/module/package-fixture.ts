@@ -15,6 +15,7 @@ export const cmsPackageRoot = resolve(projectRoot, 'packages/cms')
 export const contractPackageRoot = resolve(projectRoot, 'packages/contract')
 export const convexPackageRoot = resolve(projectRoot, 'packages/convex')
 export const contentPackageRoot = resolve(projectRoot, '..', 'ginko-content/packages/content')
+const pnpmBin = process.env.npm_execpath ?? 'pnpm'
 
 export function readPackageJson(packageRoot: string): PackageJsonDependencies {
   return JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'))
@@ -22,7 +23,7 @@ export function readPackageJson(packageRoot: string): PackageJsonDependencies {
 
 export function packPackage(packageRoot: string, destination: string) {
   const packOutput = execFileSync(
-    'pnpm',
+    pnpmBin,
     ['--dir', packageRoot, 'pack', '--pack-destination', destination],
     {
       encoding: 'utf8',

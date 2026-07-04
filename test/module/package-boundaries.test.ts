@@ -433,12 +433,13 @@ describe('package boundary contracts', () => {
   })
 
   it('does not read legacy Trellis auth internals', () => {
+    const removedAuthEngineKey = ['__', 'trellis', '_auth_engine__'].join('')
     const files = [
       ...collectSourceFiles('packages/cms/src'),
       ...collectSourceFiles('packages/cms/studio-app/src'),
     ]
     const trellisAuthReads = files
-      .filter((file) => readFileSync(file, 'utf-8').includes('__trellis_auth_engine__'))
+      .filter((file) => readFileSync(file, 'utf-8').includes(removedAuthEngineKey))
       .map((file) => relative(projectRoot, file))
 
     expect(trellisAuthReads).toEqual([])

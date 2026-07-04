@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
 import { loadNuxt } from '@nuxt/kit'
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 
-import { installBridge } from './bridge-helpers.js'
+import { installConvexSetup } from './convex-setup-helpers.js'
 
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url))
 const modulePath = resolve(projectRoot, 'packages/cms/src/module')
@@ -69,7 +69,7 @@ describe('ginko-cms module e2e boot', () => {
       'utf-8',
     )
 
-    await installBridge(tempDir)
+    await installConvexSetup(tempDir)
 
     // Symlink node_modules from project root so loadNuxt can resolve dependencies
     symlinkSync(resolve(projectRoot, 'node_modules'), join(tempDir, 'node_modules'))

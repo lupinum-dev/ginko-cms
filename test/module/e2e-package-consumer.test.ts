@@ -23,6 +23,12 @@ type CompatibilityMatrix = {
 const workspacePackageJson = readPackageJson(projectRoot)
 const cmsPackageJson = readPackageJson(cmsPackageRoot)
 const contentDependency = cmsPackageJson.peerDependencies?.['@lupinum/ginko-content']
+const pnpmBin = process.env.npm_execpath ?? 'pnpm'
+const fixtureEnv = {
+  ...process.env,
+  npm_config_dangerously_allow_all_builds: 'true',
+  npm_config_verify_deps_before_run: 'false',
+}
 const compatibilityMatrix = JSON.parse(
   readFileSync(join(projectRoot, 'packages/cms/compatibility.json'), 'utf8'),
 ) as CompatibilityMatrix
@@ -136,11 +142,13 @@ describe('ginko-cms package-first consumer fixture', () => {
       '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
       '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
       '@lupinum/ginko-content': `file:${contentTarball}`,
+      'better-convex-nuxt': betterConvexNuxtDependency,
     })
 
-    execFileSync('pnpm', ['install'], { cwd: tempDir, stdio: 'inherit' })
-    execFileSync('pnpm', ['exec', 'ginko-cms', 'init'], {
+    execFileSync(pnpmBin, ['install'], { cwd: tempDir, env: fixtureEnv, stdio: 'inherit' })
+    execFileSync(pnpmBin, ['exec', 'ginko-cms', 'init'], {
       cwd: tempDir,
+      env: fixtureEnv,
       stdio: 'inherit',
     })
 
@@ -171,6 +179,9 @@ describe('ginko-cms package-first consumer fixture', () => {
       cms: '@lupinum/ginko-cms/nuxt-provider',
     })
     expect(existsSync(join(tempDir, 'convex/auth.config.ts'))).toBe(true)
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms'))).toBe(false)
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms.ts'))).toBe(false)
+    expect(existsSync(join(tempDir, 'convex', `ginkoCms${'Mcp.ts'}`))).toBe(false)
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
     expect(convexConfig).toContain('@convex-dev/better-auth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')

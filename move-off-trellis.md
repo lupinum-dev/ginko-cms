@@ -999,17 +999,17 @@ less.
 
 Todos:
 
-- [ ] Replace bridge fixtures with direct Convex setup fixtures.
-- [ ] Update package consumer fixture to install `better-convex-nuxt`.
-- [ ] Update package E2E to assert no `convex/ginkoCms*` files are created.
-- [ ] Update package E2E to verify `#convex/api` and `#convex/server`.
-- [ ] Remove bridge factory smoke imports from package E2E.
-- [ ] Remove `trellis doctor` from package E2E.
-- [ ] Remove Trellis tarball packing from package E2E.
-- [ ] Add package export checks for removed surfaces.
-- [ ] Run `pnpm run prepare:component` after backend source changes.
-- [ ] Regenerate playground Convex output.
-- [ ] Scan generated output for stale Trellis vocabulary.
+- [x] Replace bridge fixtures with direct Convex setup fixtures.
+- [x] Update package consumer fixture to install `better-convex-nuxt`.
+- [x] Update package E2E to assert no `convex/ginkoCms*` files are created.
+- [x] Update package E2E to verify `#convex/api` and `#convex/server`.
+- [x] Remove bridge factory smoke imports from package E2E.
+- [x] Remove `trellis doctor` from package E2E.
+- [x] Remove Trellis tarball packing from package E2E.
+- [x] Add package export checks for removed surfaces.
+- [x] Run `pnpm run prepare:component` after backend source changes.
+- [x] Regenerate playground Convex output.
+- [x] Scan generated output for stale Trellis vocabulary.
 
 Verification:
 
@@ -1027,6 +1027,46 @@ Exit criteria:
 - Fixtures fail if old generated bridge files reappear.
 - Package E2E proves the new install story.
 - Generated files contain no stale Trellis or bridge operation surfaces.
+
+Implementation evidence:
+
+- Renamed the module test helper from `installBridge` to `installConvexSetup`;
+  it now names the direct `writeConvexSetupFiles` path it actually exercises.
+- Package consumer fixtures already install `better-convex-nuxt`; the package
+  consumer test now asserts `convex/ginkoCms`, `convex/ginkoCms.ts`, and
+  `convex/ginkoCmsMcp.ts` are absent after `ginko-cms init`.
+- Package E2E writes a small server route that imports both `#convex/api` and
+  `#convex/server`, so `nuxt typecheck` proves both direct aliases resolve in a
+  packed consumer.
+- Package E2E now fails if `ginko-cms init` writes old generated bridge paths.
+- Foundation/package E2E wording now says direct Convex setup typecheck instead
+  of generated bridge typecheck.
+- Package export tests already assert removed bridge/component exports are not
+  present.
+- `pnpm-lock.yaml` was refreshed so the existing
+  `@lupinum/ginko-cms-convex` Better Auth peer dependency is represented in the
+  lockfile.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run prepare:component
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm --dir playground exec convex dev --once --typecheck disable --tail-logs disable
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec vitest run test/shared/mcp-tools.test.ts test/module/module-bridge.test.ts test/module/module-i18n.test.ts test/module/module-tailwind.test.ts test/module/e2e-boot.test.ts test/module/e2e-package-consumer.test.ts test/module/package-exports.test.ts test/module/package-boundaries.test.ts
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run test:package-consumer
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run package:e2e
+rg -n "ginkoCmsMcp|component-bridge|operationHandles|operationRefs|_trellisForwarding|__trellis|installBridge|bridge-helpers|generated bridge typecheck|Bridge install" packages/convex/src/_generated playground/convex/_generated packages test scripts --glob '!packages/cms/studio-app/src/boundary/host-bridge.ts'
+```
+
+Results:
+
+- Component codegen passed and regenerated `packages/convex/src/_generated/*`
+  without Trellis forwarding args.
+- Playground Convex generation passed.
+- Focused module/package boundary tests passed: 7 files, 64 tests.
+- Package consumer test passed: 1 file, 1 test.
+- Package E2E passed with `betterConvexNuxt=0.4.0`.
+- Stale generated/bridge vocabulary grep produced no matches.
 
 ## Phase 12: Docs, ADRs, And Release Metadata
 

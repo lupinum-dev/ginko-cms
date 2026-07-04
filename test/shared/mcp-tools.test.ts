@@ -10,7 +10,7 @@ const directRoot = join(mcpRoot, 'direct')
 const forbiddenTrellisMcpRuntime = ['define', 'Mcp', 'App'].join('')
 const forbiddenGeneratedOpType = ['Operation', 'Handle'].join('')
 const forbiddenGeneratedOpPath = ['operation', 'handles'].join('-')
-const forbiddenMcpBridgeRef = ['internal', 'ginkoCmsMcp'].join('.')
+const forbiddenMcpBridgeRef = ['internal', ['ginkoCms', 'Mcp'].join('')].join('.')
 const forbiddenGeneratedOperationsRef = ['operations', 'ginkoCms'].join('.')
 
 type ToolReference = {
@@ -387,7 +387,7 @@ describe('MCP tool safety contracts', () => {
     expect(runtime).toContain('Direct MCP mutation')
     expect(directSources).not.toContain('safety:')
     expect(directSources).not.toContain(forbiddenGeneratedOpPath)
-    expect(directSources).not.toContain('operationRefs')
+    expect(directSources).not.toContain(['operation', 'Refs'].join(''))
 
     for (const operationRef of [
       'execute: components.ginkoCms.editor.createEntry',

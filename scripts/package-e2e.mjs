@@ -21,8 +21,8 @@ const rootPackageJson = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'
 const consumerCompatibility = compatibilityMatrix.consumer
 const packDir = resolve(repoRoot, '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
+const pnpmBin = process.env.npm_execpath ?? 'pnpm'
 const siblingContentRoot = resolve(repoRoot, '../ginko-content/packages/content')
-const siblingBetterConvexNuxtRoot = resolve(repoRoot, '../../convex/better-convex-nuxt')
 const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
   ? resolve(process.env.GINKO_CONTENT_PACKAGE_ROOT)
   : existsSync(siblingContentRoot)
@@ -30,9 +30,7 @@ const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
     : undefined
 const betterConvexNuxtRoot = process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT
   ? resolve(process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT)
-  : existsSync(siblingBetterConvexNuxtRoot)
-    ? siblingBetterConvexNuxtRoot
-    : undefined
+  : undefined
 const liveConvex = process.argv.includes('--live')
 const registryDependencies = process.argv.includes('--registry-deps')
 const registryContent = registryDependencies || !contentRoot
@@ -75,12 +73,16 @@ function packageE2eEnv() {
     )
     return {
       ...env,
+      npm_config_confirm_modules_purge: 'false',
+      npm_config_dangerously_allow_all_builds: 'true',
       npm_config_verify_deps_before_run: 'false',
     }
   }
 
   const env = {
     ...process.env,
+    npm_config_confirm_modules_purge: 'false',
+    npm_config_dangerously_allow_all_builds: 'true',
     npm_config_verify_deps_before_run: 'false',
   }
 
@@ -88,7 +90,8 @@ function packageE2eEnv() {
 }
 
 function run(command, args, options = {}) {
-  execFileSync(command, args, {
+  const resolvedCommand = command === 'pnpm' ? pnpmBin : command
+  execFileSync(resolvedCommand, args, {
     cwd: options.cwd ?? repoRoot,
     env: packageE2eEnv(),
     stdio: 'inherit',
@@ -321,6 +324,25 @@ try {
     'utf8',
   )
 
+  mkdirSync(join(tempDir, 'server/api'), { recursive: true })
+  writeFileSync(
+    join(tempDir, 'server/api/convex-alias-smoke.get.ts'),
+    [
+      "import { api, components } from '#convex/api'",
+      "import { serverConvexMutation, serverConvexQuery } from '#convex/server'",
+      '',
+      'export default defineEventHandler(() => {',
+      '  void api',
+      '  void components',
+      '  void serverConvexQuery',
+      '  void serverConvexMutation',
+      '  return { ok: true }',
+      '})',
+      '',
+    ].join('\n'),
+    'utf8',
+  )
+
   run('pnpm', ['install', '--ignore-scripts'], { cwd: tempDir })
   run('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir })
   run('pnpm', ['exec', 'ginko-cms', 'doctor'], { cwd: tempDir })
@@ -337,7 +359,18 @@ try {
     'convex/schema.ts',
   ]) {
     if (!existsSync(resolve(tempDir, relativePath))) {
-      throw new Error(`Bridge install did not write ${relativePath}`)
+      throw new Error(`Direct Convex setup did not write ${relativePath}`)
+    }
+  }
+
+  const staleGeneratedBridgePaths = [
+    ['convex', 'ginkoCms'].join('/'),
+    ['convex', 'ginkoCms.ts'].join('/'),
+    ['convex', `ginkoCms${'Mcp.ts'}`].join('/'),
+  ]
+  for (const relativePath of staleGeneratedBridgePaths) {
+    if (existsSync(resolve(tempDir, relativePath))) {
+      throw new Error(`Direct Convex setup wrote stale generated bridge file ${relativePath}`)
     }
   }
 

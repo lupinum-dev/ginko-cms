@@ -1,5 +1,5 @@
 import { writeConvexSetupFiles } from '../../packages/cms/src/module/convex.js'
 
-export async function installBridge(rootDir: string) {
+export async function installConvexSetup(rootDir: string) {
   writeConvexSetupFiles(rootDir)
 }

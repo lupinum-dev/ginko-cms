@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installBridge } from './bridge-helpers.js'
+import { installConvexSetup } from './convex-setup-helpers.js'
 
 const addImportsDir = vi.fn()
 const addComponentsDir = vi.fn()
@@ -113,7 +113,7 @@ describe('ginko-cms tailwind registration', () => {
   it('registers the cms content provider implementation through the content hook', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-provider-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
 
     await setupModule(
@@ -140,7 +140,7 @@ describe('ginko-cms tailwind registration', () => {
   it('injects its runtime sources into the consumer Tailwind entry CSS', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
     const options = {
       collections: {},
@@ -221,7 +221,7 @@ describe('ginko-cms tailwind registration', () => {
   it('initializes css registration when the nuxt mock omits css', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-no-css-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
     delete nuxt.options.css
 
@@ -241,7 +241,7 @@ describe('ginko-cms tailwind registration', () => {
   it('does not duplicate the dark variant when the consumer stylesheet already defines it', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-dark-variant-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
 
     await setupModule(
@@ -272,7 +272,7 @@ describe('ginko-cms tailwind registration', () => {
   it('warns when a Tailwind stylesheet cannot receive CMS sources', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-missing-import-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -306,7 +306,7 @@ describe('ginko-cms tailwind registration', () => {
   it('rejects a non-empty color mode class suffix', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-invalid-color-mode-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
     nuxt.options.colorMode = { classSuffix: '-mode' }
 

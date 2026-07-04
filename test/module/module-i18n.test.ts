@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installBridge } from './bridge-helpers.js'
+import { installConvexSetup } from './convex-setup-helpers.js'
 
 const addImportsDir = vi.fn()
 const addComponentsDir = vi.fn()
@@ -102,7 +102,7 @@ describe('ginko-cms i18n setup', () => {
   it('does not derive host Nuxt i18n defaults when the app has no i18n locale config', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-i18n-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
 
     await setupModule(
@@ -138,7 +138,7 @@ describe('ginko-cms i18n setup', () => {
   it('only syncs defaultLocale and fallbackLocale when the app already declared i18n locales', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-i18n-configured-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir) as ReturnType<typeof createNuxtMock> & {
       options: { i18n: Record<string, unknown> }
     }
@@ -185,7 +185,7 @@ describe('ginko-cms i18n setup', () => {
   it('rejects a default locale that is not declared in ginkoCms.locales', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-i18n-invalid-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
 
     await expect(

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installBridge } from './bridge-helpers.js'
+import { installConvexSetup } from './convex-setup-helpers.js'
 
 const addImportsDir = vi.fn()
 const addComponentsDir = vi.fn()
@@ -134,7 +134,7 @@ describe('ginko-cms Convex setup validation', () => {
   it('loads once direct Convex setup files are installed', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-installed-setup-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     const nuxt = createNuxtMock(rootDir)
     await setupModule(
@@ -162,7 +162,7 @@ describe('ginko-cms Convex setup validation', () => {
   it('blocks stale generated bridge files during Nuxt prepare', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prepare-stale-bridge-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     writeFileSync(resolve(rootDir, staleMcpBridgeFile), '// stale generated output\n', 'utf8')
 
@@ -193,7 +193,7 @@ describe('ginko-cms Convex setup validation', () => {
   it('does not leak deploy admin auth into runtime config', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-deploy-key-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
     process.env.CONVEX_DEPLOY_KEY = 'super-secret-test-value'
@@ -225,7 +225,7 @@ describe('ginko-cms Convex setup validation', () => {
   it('registers the optional public HTTP API facade', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-public-api-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     const nuxt = createNuxtMock(rootDir)
     await setupModule(
@@ -295,7 +295,7 @@ describe('ginko-cms Convex setup validation', () => {
   it('skips data-only collections when loading prerender routes from module config', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prerender-route-backed-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     const previousConvexUrl = process.env.NUXT_PUBLIC_CONVEX_URL
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
@@ -364,7 +364,7 @@ describe('ginko-cms Convex setup validation', () => {
   it('does not fetch prerender routes during Nuxt prepare', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prepare-prerender-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     const previousLifecycleEvent = process.env.npm_lifecycle_event
     const previousConvexUrl = process.env.CONVEX_URL
@@ -415,7 +415,7 @@ describe('ginko-cms Convex setup validation', () => {
   it('treats stale generated bridge directories as invalid until removed', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-dirty-bridge-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     mkdirSync(resolve(rootDir, staleBridgeDir), { recursive: true })
 
@@ -435,7 +435,7 @@ describe('ginko-cms Convex setup validation', () => {
   it('treats stale managed convex config as invalid until cleaned up', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-dirty-config-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     const target = resolve(rootDir, 'convex/convex.config.ts')
     writeFileSync(

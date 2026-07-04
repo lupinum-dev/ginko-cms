@@ -68,6 +68,7 @@ import type * as lib_validation from "../lib/validation.js";
 import type * as mcpKeys from "../mcpKeys.js";
 import type * as members from "../members.js";
 import type * as migrations from "../migrations.js";
+import type * as operationHelpers from "../operationHelpers.js";
 import type * as operations from "../operations.js";
 import type * as public_ from "../public.js";
 import type * as publicReadAdapter from "../publicReadAdapter.js";
@@ -144,6 +145,7 @@ const fullApi: ApiFromModules<{
   mcpKeys: typeof mcpKeys;
   members: typeof members;
   migrations: typeof migrations;
+  operationHelpers: typeof operationHelpers;
   operations: typeof operations;
   public: typeof public_;
   publicReadAdapter: typeof publicReadAdapter;
