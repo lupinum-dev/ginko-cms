@@ -22,37 +22,27 @@ const consumerCompatibility = compatibilityMatrix.consumer
 const packDir = resolve(repoRoot, '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
 const siblingContentRoot = resolve(repoRoot, '../ginko-content/packages/content')
-const siblingTrellisRoot = resolve(repoRoot, '../trellis')
-const trellisRoot = process.env.TRELLIS_PACKAGE_ROOT
-  ? resolve(process.env.TRELLIS_PACKAGE_ROOT)
-  : existsSync(siblingTrellisRoot)
-    ? siblingTrellisRoot
-    : undefined
-const trellisBridgeRoot = process.env.TRELLIS_BRIDGE_PACKAGE_ROOT
-  ? resolve(process.env.TRELLIS_BRIDGE_PACKAGE_ROOT)
-  : trellisRoot
-    ? existsSync(resolve(trellisRoot, 'packages/trellis-bridge'))
-      ? resolve(trellisRoot, 'packages/trellis-bridge')
-      : undefined
-    : undefined
+const siblingBetterConvexNuxtRoot = resolve(repoRoot, '../../convex/better-convex-nuxt')
 const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
   ? resolve(process.env.GINKO_CONTENT_PACKAGE_ROOT)
   : existsSync(siblingContentRoot)
     ? siblingContentRoot
     : undefined
+const betterConvexNuxtRoot = process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT
+  ? resolve(process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT)
+  : existsSync(siblingBetterConvexNuxtRoot)
+    ? siblingBetterConvexNuxtRoot
+    : undefined
 const liveConvex = process.argv.includes('--live')
 const registryDependencies = process.argv.includes('--registry-deps')
 const registryContent = registryDependencies || !contentRoot
-const registryTrellis = registryDependencies || !trellisRoot
-const registryTrellisBridge = registryDependencies || !trellisBridgeRoot
-const trellisRegistryVersion =
-  process.env.TRELLIS_PACKAGE_VERSION || compatibilityMatrix.releaseStack['@lupinum/trellis']
-const trellisBridgeRegistryVersion =
-  process.env.TRELLIS_BRIDGE_PACKAGE_VERSION ||
-  compatibilityMatrix.releaseStack['@lupinum/trellis-bridge']
+const registryBetterConvexNuxt = registryDependencies || !betterConvexNuxtRoot
 const contentRegistryVersion =
   process.env.GINKO_CONTENT_PACKAGE_VERSION ||
   compatibilityMatrix.releaseStack['@lupinum/ginko-content']
+const betterConvexNuxtRegistryVersion =
+  process.env.BETTER_CONVEX_NUXT_PACKAGE_VERSION ||
+  compatibilityMatrix.releaseStack['better-convex-nuxt']
 
 function packageE2eEnv() {
   if (!liveConvex) {
@@ -113,21 +103,10 @@ function buildPackage(packageDir) {
   run('pnpm', ['--dir', packageDir, 'run', 'build'])
 }
 
-function prepareTrellisPackage() {
-  run('pnpm', ['--dir', trellisRoot, 'run', 'dev:prepare'])
-}
-
 function buildPackedPackages() {
   run('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'])
   if (!registryContent) {
     buildPackage(contentRoot)
-  }
-  if (!registryTrellis) {
-    prepareTrellisPackage()
-    buildPackage(trellisRoot)
-  }
-  if (!registryTrellisBridge) {
-    buildPackage(trellisBridgeRoot)
   }
 }
 
@@ -150,16 +129,14 @@ function fileDependency(path) {
   return `file:${path}`
 }
 
-function trellisDependency(trellisTarball) {
-  return registryTrellis ? trellisRegistryVersion : fileDependency(trellisTarball)
-}
-
-function trellisBridgeDependency(trellisBridgeTarball) {
-  return registryTrellisBridge ? trellisBridgeRegistryVersion : fileDependency(trellisBridgeTarball)
-}
-
 function contentDependency(contentTarball) {
   return registryContent ? contentRegistryVersion : fileDependency(contentTarball)
+}
+
+function betterConvexNuxtDependency(betterConvexNuxtTarball) {
+  return registryBetterConvexNuxt
+    ? betterConvexNuxtRegistryVersion
+    : fileDependency(betterConvexNuxtTarball)
 }
 
 function yamlQuote(value) {
@@ -227,22 +204,17 @@ try {
   if (!registryContent) {
     packPackage(contentRoot)
   }
-  if (!registryTrellis) {
-    prepareTrellisPackage()
-    packPackage(trellisRoot)
-  }
-  if (!registryTrellisBridge) {
-    packPackage(trellisBridgeRoot)
+  if (!registryBetterConvexNuxt) {
+    packPackage(betterConvexNuxtRoot)
   }
 
   const contractTarball = findTarball('lupinum/ginko-cms-contract')
   const convexTarball = findTarball('lupinum/ginko-cms-convex')
   const cmsTarball = findTarball('lupinum/ginko-cms')
   const contentTarball = registryContent ? undefined : findTarball('lupinum/ginko-content')
-  const trellisTarball = registryTrellis ? undefined : findTarball('lupinum/trellis')
-  const trellisBridgeTarball = registryTrellisBridge
+  const betterConvexNuxtTarball = registryBetterConvexNuxt
     ? undefined
-    : findTarball('lupinum/trellis-bridge')
+    : findTarball('better-convex-nuxt')
 
   run('node', ['scripts/check-pack-workspace-refs.mjs'])
 
@@ -260,8 +232,7 @@ try {
           '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
           '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
           '@lupinum/ginko-content': contentDependency(contentTarball),
-          '@lupinum/trellis': trellisDependency(trellisTarball),
-          '@lupinum/trellis-bridge': trellisBridgeDependency(trellisBridgeTarball),
+          'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
         },
         devDependencies: consumerCompatibility.devDependencies,
       },
@@ -276,8 +247,7 @@ try {
     '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
     '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
     '@lupinum/ginko-content': contentDependency(contentTarball),
-    '@lupinum/trellis': trellisDependency(trellisTarball),
-    '@lupinum/trellis-bridge': trellisBridgeDependency(trellisBridgeTarball),
+    'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
     convex: consumerCompatibility.dependencies.convex,
   })
 
@@ -390,7 +360,6 @@ try {
   )
   run('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir })
   run('pnpm', ['exec', 'ginko-cms', 'bridge', 'check'], { cwd: tempDir })
-  run('pnpm', ['exec', 'trellis', 'doctor'], { cwd: tempDir })
   run('pnpm', ['exec', 'convex', 'codegen', '--system-udfs', '--typecheck', 'disable'], {
     cwd: tempDir,
   })
@@ -455,9 +424,10 @@ try {
       `content=${registryContent ? contentRegistryVersion : basename(contentTarball)}`,
       `convex=${basename(convexTarball)}`,
       `contract=${basename(contractTarball)}`,
-      `trellis=${registryTrellis ? trellisRegistryVersion : basename(trellisTarball)}`,
-      `trellisBridge=${
-        registryTrellisBridge ? trellisBridgeRegistryVersion : basename(trellisBridgeTarball)
+      `betterConvexNuxt=${
+        registryBetterConvexNuxt
+          ? betterConvexNuxtRegistryVersion
+          : basename(betterConvexNuxtTarball)
       }`,
     ].join('\n'),
   )

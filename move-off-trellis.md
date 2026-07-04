@@ -193,18 +193,18 @@ Objective: remove Trellis from the dependency graph and release tooling.
 
 Todos:
 
-- [ ] Remove `@lupinum/trellis`, `@lupinum/trellis-bridge`, and
+- [x] Remove `@lupinum/trellis`, `@lupinum/trellis-bridge`, and
       `@lupinum/trellis-eslint` from root package metadata.
-- [ ] Remove Trellis dependencies from `packages/cms/package.json`.
-- [ ] Remove Trellis dependencies from `packages/convex/package.json`.
-- [ ] Add or require `better-convex-nuxt` in the Nuxt integration layer.
-- [ ] Delete `operations:generate:*` and `operations:check`.
-- [ ] Remove Trellis from `pnpm-workspace.yaml`, package extensions, CI setup,
+- [x] Remove Trellis dependencies from `packages/cms/package.json`.
+- [x] Remove Trellis dependencies from `packages/convex/package.json`.
+- [x] Add or require `better-convex-nuxt` in the Nuxt integration layer.
+- [x] Delete `operations:generate:*` and `operations:check`.
+- [x] Remove Trellis from `pnpm-workspace.yaml`, package extensions, CI setup,
       and release/foundation scripts.
-- [ ] Replace `pnpm --filter @lupinum/trellis-eslint build` in `lint`.
-- [ ] Update compatibility metadata to track `better-convex-nuxt` instead of
+- [x] Replace `pnpm --filter @lupinum/trellis-eslint build` in `lint`.
+- [x] Update compatibility metadata to track `better-convex-nuxt` instead of
       Trellis.
-- [ ] Update `pnpm-lock.yaml`.
+- [x] Update `pnpm-lock.yaml`.
 
 Verification:
 
@@ -226,6 +226,54 @@ Exit criteria:
 - The workspace can install without Trellis packages.
 - No release or CI script requires a Trellis checkout.
 - `pnpm run check` no longer includes operation generation.
+
+Implementation evidence:
+
+- Root `package.json` no longer declares `@lupinum/trellis`,
+  `@lupinum/trellis-bridge`, or `@lupinum/trellis-eslint`.
+- Root `package.json` no longer exposes `operations:generate:*` or
+  `operations:check`, and `check` no longer calls operation generation.
+- Root `lint` no longer builds `@lupinum/trellis-eslint`; `eslint.config.mjs`
+  no longer imports the Trellis ESLint package.
+- `packages/cms/package.json` and `packages/convex/package.json` no longer
+  declare Trellis runtime dependencies.
+- `pnpm-workspace.yaml` no longer includes the sibling Trellis workspace or
+  Trellis minimum-release-age exclusions.
+- `packages/cms/compatibility.json` tracks `better-convex-nuxt` and removes
+  Trellis/Trellis Bridge from the release stack.
+- `scripts/package-e2e.mjs` no longer packs, installs, or runs Trellis; the
+  package consumer fixture installs `better-convex-nuxt`.
+- `scripts/foundation-verify.mjs` no longer installs/builds a Trellis checkout
+  or pins Trellis tarballs into the consumer app.
+- `vitest.config.ts` no longer depends on `@lupinum/trellis/testing`.
+
+Verification evidence:
+
+```bash
+CI=true /Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm install --no-frozen-lockfile
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm why @lupinum/trellis --depth 0
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm why @lupinum/trellis-bridge --depth 0
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm why @lupinum/trellis-eslint --depth 0
+rg "@lupinum/trellis|@lupinum/trellis-bridge|@lupinum/trellis-eslint|trellis operations" package.json pnpm-lock.yaml pnpm-workspace.yaml scripts eslint.config.mjs vitest.config.ts packages/cms/package.json packages/convex/package.json packages/cms/compatibility.json
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run format:check
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run lint
+```
+
+Results:
+
+- `pnpm install --no-frozen-lockfile` passed and updated `pnpm-lock.yaml`.
+- The three `pnpm why` commands produced no owners for Trellis packages.
+- The targeted metadata/script `rg` produced no matches.
+- `format:check` passed.
+- `lint` passed.
+
+Known follow-up:
+
+- Live implementation imports remain in the Nuxt module, bridge, MCP, Studio
+  composables, generated operation handles, and Convex component. Those are
+  intentionally left to Phases 3 through 7; Phase 2 removed the package graph
+  and release-tooling dependency so those later phases cannot silently rely on
+  Trellis.
 
 ## Phase 3: Nuxt Module Cutover
 

@@ -1,4 +1,3 @@
-import trellis from '@lupinum/trellis-eslint'
 // @ts-check
 import { createConfigForNuxt } from '@nuxt/eslint-config/flat'
 
@@ -16,7 +15,6 @@ export default createConfigForNuxt({
     src: ['./packages'],
   },
 })
-  .append(trellis.configs.recommended)
   .append({
     ignores: [
       '**/dist/**',
