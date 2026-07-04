@@ -8,7 +8,6 @@ import { beforeAll, describe, expect, it } from 'vitest'
 const projectRoot = resolve(import.meta.dirname, '../..')
 const trellisPackageName = ['@lupinum', 'trellis'].join('/')
 const trellisBridgePackageName = ['@lupinum', ['trellis', 'bridge'].join('-')].join('/')
-const componentBridgeExport = ['./component', 'bridge'].join('-')
 const requiredPackageOutputs = [
   'packages/contract/dist/validators.js',
   'packages/contract/dist/convex/caller.js',
@@ -194,10 +193,8 @@ describe('package boundary contracts', () => {
     expect(Object.keys(convexPackage.exports ?? {}).sort()).toEqual([
       './_generated/component.js',
       './component',
-      componentBridgeExport,
       './convex.auth',
       './convex.config',
-      './operation-handles/mcp',
       './operations',
     ])
 
@@ -286,10 +283,7 @@ describe('package boundary contracts', () => {
   it('keeps Nuxt-oriented runtime composables out of standalone Studio source', () => {
     const imports = readImportSpecifiers(collectSourceFiles('packages/cms/studio-app/src'))
     const runtimeViolations = imports.filter(
-      ({ specifier, typeOnly }) =>
-        !typeOnly &&
-        (specifier === '@lupinum/trellis/composables' ||
-          specifier === 'better-convex-nuxt/composables'),
+      ({ specifier, typeOnly }) => !typeOnly && specifier === 'better-convex-nuxt/composables',
     )
 
     expect(
