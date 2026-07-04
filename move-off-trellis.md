@@ -14,6 +14,8 @@ The target is simpler:
 
 - `better-convex-nuxt` owns Nuxt runtime wiring for Convex, Better Auth token
   sync, `#convex/api`, `#convex/server`, and client/server composables.
+- Better Auth owns users, sessions, and any future account/team identity
+  primitive. Ginko CMS should not rebuild those concepts.
 - `@lupinum/ginko-cms` owns the Nuxt module, Studio host, CLI, public routes,
   MCP routes, docs, and install experience.
 - `@lupinum/ginko-cms-convex` owns CMS domain policy, Convex functions,
@@ -32,6 +34,11 @@ The target is simpler:
 - Do not add tenants, workspaces, organizations, or generic authz tables.
 - Do not move backend authorization into Nuxt, Better Auth permissions, Studio
   orchestration, MCP tool visibility, or client-side capability checks.
+- Do not build a second user/session/team system in Ginko CMS. If the product
+  needs identity, session, team, or account membership semantics, delegate that
+  to Better Auth and keep only CMS product roles in Convex.
+- Do not make permanent CMS-specific MCP keys the default if a scoped,
+  short-lived Better Auth session delegation proves sufficient.
 - Do not make `better-convex-nuxt` a CMS policy layer.
 - Keep public content reads anonymous and deterministic.
 - Keep destructive preview/confirmation/execute as a CMS-owned Convex invariant.
@@ -1240,6 +1247,130 @@ Results:
   `betterConvexNuxt=0.4.0`.
 - Production audit passed after adding the local workspace override
   `linkify-it: 5.0.1`.
+
+## Phase 14: Better Auth And MCP Simplification
+
+Objective: remove the remaining Trellis-shaped auth/MCP ceremony after the
+runtime cutover. Use `ginko-cms2` as the reference architecture: Better Auth
+owns identity and sessions, CMS members own product roles, MCP is a delegated
+product surface, and Convex enforces the content invariants.
+
+Reference findings from `/Users/matthias/Git/workspace/ginko-cms2`:
+
+- `convex/authz.ts` derives only `authUserId`, `email`, and `name` from
+  `ctx.auth.getUserIdentity()`.
+- App-level `convex/*.ts` files are thin wrappers that pass `authUserId` into
+  component functions.
+- Component functions do not read Better Auth directly; they receive the acting
+  auth user id and enforce CMS roles.
+- MCP bearer tokens are short-lived and bound to delegated agent runs.
+- MCP tools call explicit product operations through `serverConvexQuery` and
+  `serverConvexMutation`; they do not use a generic project-tool runtime.
+- MCP can preview publish and request publish/archive, but it does not directly
+  execute destructive publish/archive flows.
+
+Current ceremony to challenge in this repo:
+
+- `CmsCaller` supports `anonymous`, `user`, `mcp`, and `deploy` as a local
+  identity model even though Better Auth already owns user identity.
+- MCP creates a synthetic Convex identity with `cmsMcpConvexAuthIssuer` and
+  `subject: mcpKeyId`.
+- MCP runtime uses an admin `ConvexHttpClient` plus `CONVEX_DEPLOY_KEY` for
+  normal MCP tool calls.
+- `projectTool` converts Convex validators to Zod, resolves capabilities,
+  normalizes errors, and dispatches preview/execute operations generically.
+- Permanent 90-day `mcpKeys` behave like a second auth product instead of a
+  scoped session delegation.
+- Destructive MCP tools expose direct execute paths with `_confirmationToken`
+  instead of forcing human-owned review requests.
+
+Target shape:
+
+- Better Auth remains the only user/session source of truth.
+- CMS `members` remains the only CMS product-role source of truth.
+- App-facing Convex wrappers follow the simple shape:
+  `const principal = await requireCmsPrincipal(ctx)` then call the component
+  with `authUserId: principal.authUserId`.
+- Component functions accept explicit actor ids and enforce CMS roles. They do
+  not infer actors from Nuxt, MCP, deploy-key transport, or tool visibility.
+- MCP bearer tokens are issued from an authenticated Better Auth session and
+  are short-lived, scoped, and revocable.
+- MCP route handlers hash the bearer token and call explicit `api.mcp.*`
+  functions through `#convex/server`.
+- Convex `api.mcp.*` functions resolve the token, delegated user, scope, and
+  role before calling normal CMS component operations.
+- `CONVEX_DEPLOY_KEY` is not required for ordinary MCP calls. It remains only
+  setup/admin transport for CLI sync, deploy, migration, and backup paths.
+- MCP destructive actions default to preview or review-request tools. Direct
+  publish/archive/delete from MCP is opt-in only after a product decision and
+  dedicated tests.
+
+Todos:
+
+- [ ] Decide whether reusable 90-day MCP keys are still a real requirement.
+      Default answer: no; prefer short-lived Better Auth session delegation.
+- [ ] If reusable external automation tokens are required, document the
+      acceptance criterion and keep them as a separate explicit API-token
+      feature, not the default MCP path.
+- [ ] Add a direct `requireCmsPrincipal(ctx)` wrapper for app-facing Convex
+      functions, modeled after `ginko-cms2/convex/authz.ts`.
+- [ ] Replace ordinary user-facing `CmsCaller` usage with explicit
+      `authUserId` wrapper arguments.
+- [ ] Keep deploy/admin as narrow internal functions only; do not model deploy
+      as a CMS actor.
+- [ ] Replace synthetic MCP Convex identity with token-hash resolution inside
+      explicit `api.mcp.*` functions.
+- [ ] Remove `createMcpConvexCaller(event, mcpKeyId)` from normal MCP tool
+      execution.
+- [ ] Remove `CONVEX_DEPLOY_KEY` from MCP connection help and MCP runtime
+      requirements once normal MCP calls use `#convex/server`.
+- [ ] Delete `projectTool` and convert the remaining tools to direct
+      `defineMcpTool` handlers.
+- [ ] Replace direct MCP publish/archive/delete tools with preview and
+      request-review tools unless a maintainer explicitly keeps direct execute.
+- [ ] Keep public MCP resources/prompts aligned with the restricted tool
+      surface. Do not document direct destructive execution if it is removed.
+- [ ] Update Studio settings from "create permanent MCP key bound to member" to
+      "start delegated run / mint short-lived MCP token" if the short-lived
+      model is chosen.
+- [ ] Delete `mcpKeys` table and Studio key management if no reusable-token
+      acceptance criterion remains.
+- [ ] If `mcpKeys` stays, rename and scope it as explicit automation-token
+      state, with expiry, revocation, audit, and role/scope tests.
+
+Verification:
+
+```bash
+rg "cmsMcpConvexAuthIssuer|createMcpConvexCaller|CONVEX_DEPLOY_KEY.*MCP|projectTool|_confirmationToken" packages/cms/src/server/mcp packages/convex/src packages/contract/src
+rg "mcpKeys" packages/cms/src packages/convex/src packages/contract/src test
+pnpm --filter @lupinum/ginko-cms typecheck
+pnpm --filter @lupinum/ginko-cms-convex typecheck
+vitest run test/runtime/mcp-auth-middleware.test.ts test/shared/mcp-tools.test.ts test/component/mcpKeys.test.ts
+pnpm run release:verify
+```
+
+Expected verification result:
+
+- No ordinary MCP runtime requires `CONVEX_DEPLOY_KEY`.
+- No generic MCP project runtime remains.
+- No MCP tool can bypass Convex role checks by being manually invoked.
+- Short-lived MCP tokens fail when expired, revoked, scoped to the wrong
+  collection, or bound to an inactive delegated run.
+- Better Auth session tests prove authenticated Studio users can mint scoped
+  MCP delegation tokens.
+- CMS member-role tests still prove owners, publishers, editors, viewers,
+  non-members, and anonymous users get the correct CMS behavior.
+
+Failure mitigations:
+
+- If MCP clients need long-running automation, keep a separate automation-token
+  feature with explicit owner creation, expiry, scope, revocation, and audit.
+  Do not let it keep the generic MCP runtime alive.
+- If direct destructive MCP execution is kept, require the same confirmation
+  invariant tests as Studio and explain why review requests are insufficient.
+- If Better Auth team/organization support becomes a real product requirement,
+  use Better Auth as the account/team identity source and map it into CMS
+  product roles. Do not add tenant/workspace tables inside Ginko CMS first.
 
 ## Implementation Todos By Area
 
