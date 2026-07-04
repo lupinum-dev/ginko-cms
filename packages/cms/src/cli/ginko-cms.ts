@@ -60,11 +60,6 @@ export async function runGinkoCmsCli(
     if (command === 'migrate') {
       return await runMigrateCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
-    if (command === 'bridge') {
-      throw new Error(
-        '`ginko-cms bridge` was removed. Use `pnpm exec ginko-cms init` and `pnpm exec ginko-cms doctor`.',
-      )
-    }
     if (command === 'convex') {
       const runner = options.runner ?? runNodeScript
       return await runner(resolveConvexCliBin(), parsed.args.slice(1), { cwd: parsed.cwd })

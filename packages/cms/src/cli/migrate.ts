@@ -1,14 +1,12 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
-import { getCmsComponentForwardingKey } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { createJiti } from 'jiti'
 
 import { type CliIo, type ConvexClientFactory, hasFlag, stableJson, usage, write } from './args.js'
-import { deployKey, publicConvexUrl, readLocalEnv } from './env.js'
-import { withDeployKeyForwarding } from './forwarding.js'
+import { deployKey, publicConvexUrl } from './env.js'
 
 type ContentMigrationLocale = {
   values: Record<string, unknown>
@@ -55,11 +53,6 @@ type MigrationPlan = {
   changes: PlannedChange[]
   errors: PlannedError[]
 }
-
-const migrationFunctionRefs = {
-  listContentMigrationEntries: 'listContentMigrationEntriesInternal',
-  applyContentMigrationEntries: 'applyContentMigrationEntriesInternal',
-} as const
 
 function migrationSlug(input: string) {
   return input
@@ -219,25 +212,13 @@ function createMigrationClient(cwd: string, convexClientFactory: ConvexClientFac
   }
   client.setAdminAuth(deployKey(cwd))
 
-  const env = {
-    ...readLocalEnv(cwd),
-    ...process.env,
-  }
-  const identityForwardingKey = getCmsComponentForwardingKey({
-    CONVEX_IDENTITY_FORWARDING_KEY: env.CONVEX_IDENTITY_FORWARDING_KEY,
-    GINKO_CMS_COMPONENT_FORWARDING_KEY: env.GINKO_CMS_COMPONENT_FORWARDING_KEY,
-    VITEST: env.VITEST,
-  })
-
   return {
     client,
-    identityForwardingKey,
   }
 }
 
 async function fetchCollectionEntries(
   client: ReturnType<typeof createMigrationClient>['client'],
-  identityForwardingKey: string,
   collection: string,
 ): Promise<ContentMigrationEntry[]> {
   const entries: ContentMigrationEntry[] = []
@@ -246,13 +227,8 @@ async function fetchCollectionEntries(
   do {
     const args = { collection, cursor, limit: 100 }
     const result = (await client.query(
-      anyApi.ginkoCms.migrations.listContentMigrationEntries,
-      withDeployKeyForwarding(args, {
-        functionRef: migrationFunctionRefs.listContentMigrationEntries,
-        purpose: 'query',
-        identityForwardingKey,
-        envelopeArgs: {},
-      }),
+      anyApi.ginkoCms.migrations.listContentMigrationEntriesInternal,
+      args,
     )) as ContentMigrationEntryPage
     entries.push(...result.page)
     cursor = result.continueCursor
@@ -265,7 +241,6 @@ async function fetchCollectionEntries(
 async function buildMigrationPlan(
   migration: ContentMigration,
   client: ReturnType<typeof createMigrationClient>['client'],
-  identityForwardingKey: string,
 ): Promise<MigrationPlan> {
   const plan: MigrationPlan = {
     migration,
@@ -276,7 +251,7 @@ async function buildMigrationPlan(
   }
 
   for (const collection of migration.collections) {
-    const entries = await fetchCollectionEntries(client, identityForwardingKey, collection)
+    const entries = await fetchCollectionEntries(client, collection)
     for (const before of entries) {
       plan.scanned += 1
       try {
@@ -381,7 +356,6 @@ function formatMigrationPlan(plan: MigrationPlan) {
 async function applyMigrationPlan(
   plan: MigrationPlan,
   client: ReturnType<typeof createMigrationClient>['client'],
-  identityForwardingKey: string,
 ) {
   let changed = 0
   let unchanged = 0
@@ -390,13 +364,8 @@ async function applyMigrationPlan(
     const entries = plan.changes.slice(index, index + 50).map((change) => change.after)
     const args = { migrationId: plan.migration.id, entries }
     const result = (await client.mutation(
-      anyApi.ginkoCms.migrations.applyContentMigrationEntries,
-      withDeployKeyForwarding(args, {
-        functionRef: migrationFunctionRefs.applyContentMigrationEntries,
-        purpose: 'mutation',
-        identityForwardingKey,
-        envelopeArgs: {},
-      }),
+      anyApi.ginkoCms.migrations.applyContentMigrationEntriesInternal,
+      args,
     )) as { changed: number; unchanged: number }
     changed += result.changed
     unchanged += result.unchanged
@@ -462,8 +431,8 @@ export async function runMigrateCommand(
     }
 
     const migration = await loadContentMigration(cwd, fileArg)
-    const { client, identityForwardingKey } = createMigrationClient(cwd, convexClientFactory)
-    const plan = await buildMigrationPlan(migration, client, identityForwardingKey)
+    const { client } = createMigrationClient(cwd, convexClientFactory)
+    const plan = await buildMigrationPlan(migration, client)
     write(io.stdout, formatMigrationPlan(plan))
 
     if (plan.errors.length > 0) {
@@ -476,7 +445,7 @@ export async function runMigrateCommand(
       return 0
     }
 
-    const result = await applyMigrationPlan(plan, client, identityForwardingKey)
+    const result = await applyMigrationPlan(plan, client)
     write(
       io.stdout,
       `Applied content migration ${migration.id}: changed=${result.changed}, unchanged=${result.unchanged}.\n`,

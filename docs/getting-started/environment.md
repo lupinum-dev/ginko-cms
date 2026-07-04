@@ -14,7 +14,6 @@ runtime, or Convex environment:
 NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 CONVEX_URL=https://your-deployment.convex.cloud
 CONVEX_DEPLOY_KEY=prod:...
-CONVEX_IDENTITY_FORWARDING_KEY=long-random-secret
 GINKO_FIRST_OWNER_EMAIL=owner@example.com
 ```
 
@@ -24,9 +23,6 @@ GINKO_FIRST_OWNER_EMAIL=owner@example.com
   `NUXT_PUBLIC_CONVEX_URL`.
 - `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for server-to-Convex
   admin calls, collection contract sync, and MCP operations.
-- `CONVEX_IDENTITY_FORWARDING_KEY`: preferred signing key for Ginko CMS component
-  bridge envelopes. The CLI/server environment and Convex deployment must use the
-  same value.
 - `GINKO_FIRST_OWNER_EMAIL`: required until the first CMS owner has claimed
   ownership in Studio.
 
@@ -57,16 +53,9 @@ NUXT_PUBLIC_SITE_URL=https://your-site.example
 
 ## CMS Server And MCP Runtime
 
-MCP and CLI operations that cross the generated bridge also accept a
-CMS-specific fallback forwarding key. Prefer `CONVEX_IDENTITY_FORWARDING_KEY`
-unless the deployment needs a separate CMS-only secret.
-
-```bash
-GINKO_CMS_COMPONENT_FORWARDING_KEY=long-random-secret
-```
-
-- `GINKO_CMS_COMPONENT_FORWARDING_KEY`: CMS-specific fallback signing key when
-  the Convex-wide identity-forwarding key is not used.
+Server-side CMS routes, MCP tools, and CLI commands use `CONVEX_DEPLOY_KEY` for
+Convex admin transport. Product authorization still happens inside the Ginko CMS
+Convex component using the authenticated member or MCP key identity.
 
 `GINKO_CONTENT_PROVIDER_SITE` is reserved for a future provider site partition.
 The provider reads it and defaults to `default`, but current public Convex
@@ -98,15 +87,9 @@ pnpm exec convex deployment token create ginko-cms-production --prod
 Store the printed value as `CONVEX_DEPLOY_KEY` in the server or CI secret store.
 Do not expose it through `NUXT_PUBLIC_*`.
 
-The bridge forwarding key must also exist in Convex:
-
-```bash
-pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY long-random-secret
-```
-
-Ginko uses `CONVEX_DEPLOY_KEY` only as Convex admin auth. The CMS caller is
-passed as explicit function input to the generated internal bridge functions,
-so deploy-key auth and product audit identity are not mixed.
+Ginko uses `CONVEX_DEPLOY_KEY` only as Convex admin transport. Product audit
+identity is resolved by the CMS component from member auth or MCP key auth, so
+deploy-key auth and product authorization are not mixed.
 
 ## Workflow Checks
 
@@ -163,7 +146,7 @@ name.
 ## Removed Names
 
 - `GINKO_CMS_INSTALL_SECRET`: removed. Collection contract sync uses
-  `CONVEX_DEPLOY_KEY` admin auth and generated internal bridge functions.
+  `CONVEX_DEPLOY_KEY` admin auth and narrow internal component functions.
 - `GINKO_CONVEX_URL`: removed. Use `NUXT_PUBLIC_CONVEX_URL` or `CONVEX_URL`.
 - `GINKO_REVALIDATE_TOKEN`: removed as a fixed global name. Revalidation
   targets store their own `secretEnv` names.
@@ -177,7 +160,7 @@ name.
 
 - Keep provider-owned names under `GINKO_CONTENT_*`.
 - Keep CMS-owned names under `GINKO_CMS_*`.
-- Keep Trellis-owned names under `TRELLIS_*`.
+- Keep integration-owned names scoped to the integration that reads them.
 - Keep Convex-owned names as `CONVEX_*`.
 - Do not expose server secrets with `NUXT_PUBLIC_*`.
 

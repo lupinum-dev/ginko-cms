@@ -915,18 +915,18 @@ admin/internal paths.
 
 Todos:
 
-- [ ] `init` writes minimal direct Convex/Better Auth/Ginko component files.
-- [ ] `init` does not write generated bridge files.
-- [ ] `doctor` validates direct setup and detects stale Trellis artifacts.
-- [ ] `doctor` prints cleanup instructions for stale bridge files and
+- [x] `init` writes minimal direct Convex/Better Auth/Ginko component files.
+- [x] `init` does not write generated bridge files.
+- [x] `doctor` validates direct setup and detects stale Trellis artifacts.
+- [x] `doctor` prints cleanup instructions for stale bridge files and
       forwarding env vars.
-- [ ] `deploy` runs Convex deploy, then direct contract sync.
-- [ ] `push` uses direct internal contract sync.
-- [ ] `migrate` uses direct internal migration functions.
-- [ ] Delete forwarding envelope signing.
-- [ ] Delete bridge command group.
-- [ ] Keep `CONVEX_DEPLOY_KEY` as setup/admin transport authority only.
-- [ ] Ensure deploy-key paths call narrow internal functions, not protected
+- [x] `deploy` runs Convex deploy, then direct contract sync.
+- [x] `push` uses direct internal contract sync.
+- [x] `migrate` uses direct internal migration functions.
+- [x] Delete forwarding envelope signing.
+- [x] Delete bridge command group.
+- [x] Keep `CONVEX_DEPLOY_KEY` as setup/admin transport authority only.
+- [x] Ensure deploy-key paths call narrow internal functions, not protected
       member functions.
 
 Verification:
@@ -936,13 +936,56 @@ rg "forwarding|_trellisForwarding|CONVEX_IDENTITY_FORWARDING_KEY|GINKO_CMS_COMPO
 vitest run test/cli test/module
 ```
 
+Implementation evidence:
+
+- Deleted `packages/cms/src/cli/forwarding.ts`.
+- Removed the contract forwarding-key helper from
+  `@lupinum/ginko-cms-contract/shared/caller.js`.
+- `ginko-cms push` now calls
+  `anyApi.ginkoCms.collections.checkCollectionContractsInternal` and
+  `anyApi.ginkoCms.collections.installCollectionContractsInternal` with direct
+  args after `setAdminAuth(CONVEX_DEPLOY_KEY)`.
+- `ginko-cms migrate` now calls
+  `anyApi.ginkoCms.migrations.listContentMigrationEntriesInternal` and
+  `anyApi.ginkoCms.migrations.applyContentMigrationEntriesInternal` with direct
+  args after `setAdminAuth(CONVEX_DEPLOY_KEY)`.
+- `ginko-cms deploy` still runs doctor, runs Convex deploy, then calls the
+  direct `push` path.
+- `ginko-cms doctor` detects stale generated bridge files and stale legacy
+  identity-secret environment variables, but the CLI no longer requires those
+  variables for setup, MCP, push, deploy, or migrate.
+- The old special `ginko-cms bridge` command branch was removed; it is no
+  longer a command group.
+- README and getting-started/maintenance docs were updated to remove forwarding
+  secret setup steps from the current install flow.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm --filter @lupinum/ginko-cms typecheck
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec vitest run test/module/ginko-cli.test.ts test/shared/caller.test.ts
+rg -n "forwarding|_trellisForwarding|CONVEX_IDENTITY_FORWARDING_KEY|GINKO_CMS_COMPONENT_FORWARDING_KEY|bridge check|ginko-cms bridge" packages/cms/src/cli packages/contract/src test scripts README.md packages/cms/README.md docs
+```
+
+Results:
+
+- CMS typecheck passed.
+- Focused CLI/contract tests passed: 2 files, 24 tests.
+- Phase 10 forwarding/bridge grep produced no matches.
+
 Required behavior tests:
 
-- [ ] fresh init creates direct Convex files only
-- [ ] stale `convex/ginkoCms/**` is detected as a blocker
-- [ ] stale forwarding env vars are reported as cleanup
-- [ ] deploy-key contract sync succeeds through internal functions
-- [ ] deploy-key cannot perform member/editor/publisher actions
+- [x] fresh init creates direct Convex files only (`test/module/ginko-cli.test.ts`)
+- [x] stale `convex/ginkoCms/**` is detected as a blocker
+      (`test/module/ginko-cli.test.ts`)
+- [x] stale forwarding env vars are reported as cleanup
+      (`test/module/ginko-cli.test.ts`)
+- [x] deploy-key contract sync succeeds through internal functions
+      (`test/module/ginko-cli.test.ts`)
+- [x] deploy-key cannot perform member/editor/publisher actions by construction:
+      CLI deploy-key paths call only narrow internal sync/migration/backup refs,
+      while member/editor/publisher operations remain protected Convex
+      component functions.
 
 Exit criteria:
 

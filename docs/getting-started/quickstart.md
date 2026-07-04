@@ -1,7 +1,7 @@
 # Quickstart
 
 This page gets a Nuxt app to the first checked Ginko CMS setup: packages
-installed, one collection defined, generated Convex bridge files written,
+installed, one collection defined, direct Convex setup files written,
 Convex deployed, collection contracts synced, and Studio reachable by the first
 owner.
 
@@ -63,7 +63,7 @@ pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
 
-`ginko-cms init` writes the host-owned Convex bridge files:
+`ginko-cms init` writes the host-owned Convex setup files:
 
 - `convex/auth.ts`
 - `convex/auth.config.ts`
@@ -76,14 +76,14 @@ Keep `convex/convex.config.ts`, `convex/auth.config.ts`, and
 app-specific Better Auth providers in `convex/auth.config.ts` and app tables in
 `convex/schema.ts`.
 
-The generated baseline wires the CMS Better Auth bridge and email/password
+The generated baseline wires the CMS Better Auth setup and email/password
 Studio auth. Production OAuth, SSO, custom email delivery, or organization auth
 policy remains host-owned Better Auth configuration.
 
 ## Configure Local Environment
 
-For local setup and contract sync, the CLI needs a Convex URL, deploy key, and
-bridge forwarding secret. Create the deploy key with:
+For local setup and contract sync, the CLI needs a Convex URL and deploy key.
+Create the deploy key with:
 
 ```bash
 pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.local
@@ -91,15 +91,6 @@ pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.l
 
 Then ensure `.env.local` includes either `CONVEX_URL` or
 `NUXT_PUBLIC_CONVEX_URL`.
-
-Generate one forwarding secret and put the same value in `.env.local` and the
-Convex deployment:
-
-```bash
-FORWARDING_KEY="$(openssl rand -base64 32)"
-printf "\nCONVEX_IDENTITY_FORWARDING_KEY=%s\n" "$FORWARDING_KEY" >> .env.local
-pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
-```
 
 Set the email allowed to claim the first Studio owner:
 

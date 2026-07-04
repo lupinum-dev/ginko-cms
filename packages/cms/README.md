@@ -2,7 +2,7 @@
 
 Nuxt module and CLI for Ginko CMS.
 
-This package mounts the Studio UI, validates the CMS bridge, wires the public
+This package mounts the Studio UI, validates the CMS setup, wires the public
 content provider, handles Tailwind v4 source registration, and exposes the
 `ginko-cms` command used to initialize and validate a host app.
 
@@ -25,7 +25,7 @@ export default defineNuxtConfig({
 
 ## Setup
 
-Generate the host-owned Convex bridge files and check them:
+Generate the host-owned Convex setup files and check them:
 
 ```bash
 pnpm exec ginko-cms init
@@ -35,14 +35,10 @@ pnpm exec ginko-cms doctor
 The CLI manages `convex/auth.ts`, `convex/auth.config.ts`, `convex/http.ts`,
 `convex/schema.ts` and the Ginko CMS component registration in `convex/convex.config.ts`.
 
-Before deploying or pushing contracts, provide Convex admin auth and the
-generated bridge forwarding secret:
+Before deploying or pushing contracts, provide Convex admin auth:
 
 ```bash
 pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.local
-FORWARDING_KEY="$(openssl rand -base64 32)"
-printf "\nCONVEX_IDENTITY_FORWARDING_KEY=%s\n" "$FORWARDING_KEY" >> .env.local
-pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
 ```
 
 Deploy the generated Convex functions and install collection contracts:
@@ -72,9 +68,9 @@ framework-neutral contract types live in `@lupinum/ginko-cms-contract`.
 
 ## Scope
 
-Generated host files should stay thin and import package-owned bridge factories
-from public `@lupinum/ginko-cms/*` subpaths. Keep app-specific Better Auth
-provider setup in `convex/auth.config.ts` and app tables in `convex/schema.ts`.
+Generated host files should stay thin and import the Ginko CMS Convex component
+and Better Auth config directly. Keep app-specific Better Auth provider setup in
+`convex/auth.config.ts` and app tables in `convex/schema.ts`.
 
 See the workspace docs for
 [environment variables](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/getting-started/environment.md),

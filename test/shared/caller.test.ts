@@ -5,7 +5,6 @@ import {
   cmsAnonymousCaller,
   cmsMcpCaller,
   cmsUserCaller,
-  getCmsComponentForwardingKey,
   getExpectedCmsCallerSubject,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { describe, expect, it } from 'vitest'
@@ -78,25 +77,5 @@ describe('cms caller helpers', () => {
         email: 'editor@example.test',
       }),
     ).toEqual(cmsUserCaller('user_123', { email: 'editor@example.test' }))
-  })
-
-  it('resolves component forwarding keys from explicit env objects', () => {
-    expect(() => getCmsComponentForwardingKey({})).toThrow(
-      'Ginko CMS component forwarding requires CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY.',
-    )
-    expect(
-      getCmsComponentForwardingKey({
-        CONVEX_IDENTITY_FORWARDING_KEY: ' convex-key ',
-        GINKO_CMS_COMPONENT_FORWARDING_KEY: 'ginko-key',
-      }),
-    ).toBe('convex-key')
-    expect(
-      getCmsComponentForwardingKey({
-        GINKO_CMS_COMPONENT_FORWARDING_KEY: ' ginko-key ',
-      }),
-    ).toBe('ginko-key')
-    expect(getCmsComponentForwardingKey({ VITEST: 'true' })).toBe(
-      'test-ginko-cms-component-forwarding-key',
-    )
   })
 })

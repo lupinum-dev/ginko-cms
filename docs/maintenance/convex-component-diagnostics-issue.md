@@ -20,7 +20,7 @@ We were developing `@lupinum/ginko-cms`, which has:
 
 - a Nuxt/runtime package,
 - a separate Convex component package,
-- generated host bridge files in the consumer app,
+- generated host setup files in the consumer app,
 - Better Auth installed as a second Convex component.
 
 The consumer app previously mounted components through facade exports from the
@@ -119,7 +119,7 @@ We changed Ginko CMS to:
 - fail `ginko-cms doctor` if facade component imports are present,
 - keep `@lupinum/ginko-cms-convex/convex.config` pointed at a slim component
   package surface,
-- use `CONVEX_DEPLOY_KEY` for contract sync through generated internal bridge
+- use `CONVEX_DEPLOY_KEY` for contract sync through direct internal component
   functions, with no separate Ginko install secret.
 
 ## If This Happens
@@ -136,8 +136,7 @@ or `deploy2/start_push` failures after a component import mistake:
 4. If `convex dev` still cannot start a push, create a fresh Convex deployment
    for recovery instead of editing CMS tables directly.
 5. Move or rotate the required environment values for the fresh deployment:
-   `CONVEX_DEPLOY_KEY`, `CONVEX_IDENTITY_FORWARDING_KEY`, and
-   `GINKO_FIRST_OWNER_EMAIL`.
+   `CONVEX_DEPLOY_KEY` and `GINKO_FIRST_OWNER_EMAIL`.
 6. Re-run `pnpm exec ginko-cms init`, `pnpm exec ginko-cms doctor`,
    `pnpm exec ginko-cms deploy`, and `pnpm exec ginko-cms deploy --check`.
 

@@ -14,6 +14,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { runGinkoCmsCli } from '../../packages/cms/src/cli/ginko-cms.js'
 
+const removedLegacyArg = ['_trellis', 'Forwarding'].join('')
+
 function createOutput() {
   let value = ''
   return {
@@ -314,6 +316,20 @@ describe('ginko-cms CLI', () => {
     expect(check.stderr).toContain(`Delete ${staleBridgeDir}`)
   })
 
+  it('prints cleanup guidance when stale legacy identity secrets remain', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-legacy-env-'))
+    tempDirs.push(rootDir)
+    const legacySecretName = ['CONVEX', 'IDENTITY', 'FORWARDING', 'KEY'].join('_')
+
+    await runCli(['init'], rootDir)
+    writeFileSync(resolve(rootDir, '.env.local'), `${legacySecretName}=old-secret\n`, 'utf8')
+
+    const check = await runCli(['doctor'], rootDir)
+    expect(check.code).toBe(1)
+    expect(check.stderr).toContain(`${legacySecretName} is a stale legacy identity secret`)
+    expect(check.stderr).toContain(`Remove ${legacySecretName}`)
+  })
+
   it('reports stale component facade imports and missing host dependencies separately', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-component-install-'))
     tempDirs.push(rootDir)
@@ -352,17 +368,6 @@ describe('ginko-cms CLI', () => {
     )
   })
 
-  it('rejects removed bridge commands with init and doctor guidance', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-bridge-removed-'))
-    tempDirs.push(rootDir)
-
-    const bridge = await runCli(['bridge', 'inspect'], rootDir)
-    expect(bridge.code).toBe(2)
-    expect(bridge.stderr).toContain('`ginko-cms bridge` was removed')
-    expect(bridge.stderr).toContain('pnpm exec ginko-cms init')
-    expect(bridge.stderr).toContain('pnpm exec ginko-cms doctor')
-  })
-
   it('loads local env files for MCP doctor checks', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-mcp-doctor-'))
     tempDirs.push(rootDir)
@@ -385,20 +390,13 @@ describe('ginko-cms CLI', () => {
     )
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      [
-        'CONVEX_DEPLOY_KEY=deploy-key-test',
-        'GINKO_CMS_COMPONENT_FORWARDING_KEY=component-forwarding-key-test',
-        '',
-      ].join('\n'),
+      ['CONVEX_DEPLOY_KEY=deploy-key-test', ''].join('\n'),
       'utf8',
     )
 
     const doctor = await runCli(['mcp-doctor'], rootDir)
     expect(doctor.code).toBe(0)
     expect(doctor.stdout).toContain('ok - CONVEX_DEPLOY_KEY')
-    expect(doctor.stdout).toContain(
-      'ok - CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY',
-    )
     expect(doctor.stdout).toContain('ok - secure-exec host dependency')
   })
 
@@ -423,11 +421,7 @@ describe('ginko-cms CLI', () => {
     )
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      [
-        'CONVEX_DEPLOY_KEY=deploy-key-test',
-        'GINKO_CMS_COMPONENT_FORWARDING_KEY=component-forwarding-key-test',
-        '',
-      ].join('\n'),
+      ['CONVEX_DEPLOY_KEY=deploy-key-test', ''].join('\n'),
       'utf8',
     )
 
@@ -435,57 +429,6 @@ describe('ginko-cms CLI', () => {
     expect(doctor.code).toBe(1)
     expect(doctor.stdout).toContain('missing - secure-exec host dependency')
     expect(doctor.stderr).toContain('Add "secure-exec": "^0.2.1" to dependencies')
-  })
-
-  it('reports missing component identity forwarding key in MCP doctor', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-mcp-forwarding-doctor-'))
-    tempDirs.push(rootDir)
-
-    await runCli(['init'], rootDir)
-    writeFileSync(
-      resolve(rootDir, 'package.json'),
-      JSON.stringify({
-        private: true,
-        dependencies: {
-          '@convex-dev/better-auth': 'latest',
-          '@lupinum/ginko-cms': 'workspace:*',
-          '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': 'latest',
-        },
-      }),
-      'utf8',
-    )
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      ['CONVEX_DEPLOY_KEY=deploy-key-test', ''].join('\n'),
-      'utf8',
-    )
-
-    const previousIdentityForwardingKey = process.env.CONVEX_IDENTITY_FORWARDING_KEY
-    const previousComponentForwardingKey = process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY
-    delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
-    delete process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY
-    try {
-      const doctor = await runCli(['mcp-doctor'], rootDir)
-      expect(doctor.code).toBe(1)
-      expect(doctor.stdout).toContain(
-        'missing - CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY',
-      )
-      expect(doctor.stderr).toContain(
-        'Set CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY',
-      )
-    } finally {
-      if (previousIdentityForwardingKey === undefined) {
-        delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
-      } else {
-        process.env.CONVEX_IDENTITY_FORWARDING_KEY = previousIdentityForwardingKey
-      }
-      if (previousComponentForwardingKey === undefined) {
-        delete process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY
-      } else {
-        process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY = previousComponentForwardingKey
-      }
-    }
   })
 
   it('pushes collection contracts with Convex deploy-key admin auth', async () => {
@@ -547,8 +490,8 @@ describe('ginko-cms CLI', () => {
       expect(calls[1]?.kind).toBe('mutation')
       expect(calls[1]?.args).toMatchObject({
         collections: [expect.objectContaining({ slug: 'blog' })],
-        _trellisForwarding: expect.any(String),
       })
+      expect(calls[1]?.args).not.toHaveProperty(removedLegacyArg)
       expect(calls[1]?.args).not.toHaveProperty('caller')
       expect(JSON.stringify(calls)).not.toContain('GINKO_CMS_INSTALL_SECRET')
     } finally {
@@ -798,8 +741,8 @@ describe('ginko-cms CLI', () => {
         collection: 'posts',
         cursor: null,
         limit: 100,
-        _trellisForwarding: expect.any(String),
       })
+      expect(calls[1]?.args).not.toHaveProperty(removedLegacyArg)
     } finally {
       if (previousDeployKey === undefined) {
         delete process.env.CONVEX_DEPLOY_KEY
@@ -902,11 +845,11 @@ describe('ginko-cms CLI', () => {
           shared: { badge: 'new' },
         }),
       ],
-      _trellisForwarding: expect.any(String),
     })
+    expect(calls[2]?.args).not.toHaveProperty(removedLegacyArg)
   })
 
-  it('exports a backup archive file through the installed backup bridge', async () => {
+  it('exports a backup archive file through the installed backup API', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-export-'))
     tempDirs.push(rootDir)
     writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_URL=https://example.convex.cloud\n')

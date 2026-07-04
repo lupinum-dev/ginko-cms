@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { getCmsComponentForwardingKey } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { createJiti } from 'jiti'
@@ -11,8 +10,7 @@ import { resolveLocaleSettings } from '../module/i18n.js'
 import type { ModuleOptions } from '../module/options.js'
 import { buildPublicRuntimeCollections } from '../module/runtime-config.js'
 import { type CliIo, type ConvexClientFactory, stableJson, write } from './args.js'
-import { deployKey, publicConvexUrl, readLocalEnv } from './env.js'
-import { withDeployKeyForwarding } from './forwarding.js'
+import { deployKey, publicConvexUrl } from './env.js'
 
 type RuntimeCollection = ReturnType<typeof buildPublicRuntimeCollections>[string]
 
@@ -48,11 +46,6 @@ type CheckCollectionContractsResult = {
   missingFromConfig: string[]
   missingFromConfigDetails?: MissingFromConfigDetail[]
 }
-
-const collectionFunctionRefs = {
-  checkCollectionContracts: 'sync:checkCollectionContractsInternal',
-  installCollectionContracts: 'sync:installCollectionContractsInternal',
-} as const
 
 function parsePushArgs(args: string[]): PushArgs {
   return {
@@ -294,15 +287,6 @@ export async function runPushCommand(
   const payload = collectionPayload(buildPublicRuntimeCollections(options, localeSettings))
   const client = convexClientFactory(publicConvexUrl(cwd))
   const adminKey = deployKey(cwd)
-  const env = {
-    ...readLocalEnv(cwd),
-    ...process.env,
-  }
-  const identityForwardingKey = getCmsComponentForwardingKey({
-    CONVEX_IDENTITY_FORWARDING_KEY: env.CONVEX_IDENTITY_FORWARDING_KEY,
-    GINKO_CMS_COMPONENT_FORWARDING_KEY: env.GINKO_CMS_COMPONENT_FORWARDING_KEY,
-    VITEST: env.VITEST,
-  })
   if (!client.setAdminAuth) {
     throw new Error('ginko-cms push requires a Convex client with admin auth support.')
   }
@@ -310,18 +294,8 @@ export async function runPushCommand(
 
   if (push.check) {
     const result = (await client.query(
-      anyApi.ginkoCms.collections.checkCollectionContracts,
-      withDeployKeyForwarding(
-        {
-          collections: payload,
-        },
-        {
-          functionRef: collectionFunctionRefs.checkCollectionContracts,
-          purpose: 'query',
-          identityForwardingKey,
-          envelopeArgs: {},
-        },
-      ),
+      anyApi.ginkoCms.collections.checkCollectionContractsInternal,
+      { collections: payload },
     )) as CheckCollectionContractsResult
     if (result.drift.length > 0 || result.missingFromConfig.length > 0) {
       write(io.stderr, formatDriftReport(result))
@@ -335,18 +309,8 @@ export async function runPushCommand(
   }
 
   const result = (await client.mutation(
-    anyApi.ginkoCms.collections.installCollectionContracts,
-    withDeployKeyForwarding(
-      {
-        collections: payload,
-      },
-      {
-        functionRef: collectionFunctionRefs.installCollectionContracts,
-        purpose: 'mutation',
-        identityForwardingKey,
-        envelopeArgs: {},
-      },
-    ),
+    anyApi.ginkoCms.collections.installCollectionContractsInternal,
+    { collections: payload },
   )) as { created: number; updated: number; skipped: number; missingFromConfig: string[] }
   write(
     io.stdout,

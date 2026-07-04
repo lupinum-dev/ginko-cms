@@ -25,11 +25,6 @@ export async function runMcpDoctor(cwd: string, io: CliIo): Promise<number> {
       fix: 'Set CONVEX_DEPLOY_KEY in .env.local or the server environment.',
     },
     {
-      name: 'CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY',
-      ok: hasEnv('CONVEX_IDENTITY_FORWARDING_KEY') || hasEnv('GINKO_CMS_COMPONENT_FORWARDING_KEY'),
-      fix: 'Set CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY in .env.local or the server environment.',
-    },
-    {
       name: 'secure-exec host dependency',
       ok: hasHostDependency(cwd, 'secure-exec'),
       fix: 'Add "secure-exec": "^0.2.1" to dependencies. Nuxt MCP code mode resolves it from the host app root at runtime.',

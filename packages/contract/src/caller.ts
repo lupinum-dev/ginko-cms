@@ -7,45 +7,6 @@ const subject = {
 
 export const cmsMcpConvexAuthIssuer = 'ginko-cms-mcp'
 
-declare const process:
-  | {
-      env?: Record<string, string | undefined>
-    }
-  | undefined
-
-export const cmsComponentForwardingKeyEnvNames = [
-  'CONVEX_IDENTITY_FORWARDING_KEY',
-  'GINKO_CMS_COMPONENT_FORWARDING_KEY',
-] as const
-
-type CmsForwardingKeyEnv = Partial<
-  Record<(typeof cmsComponentForwardingKeyEnvNames)[number] | 'VITEST', string>
->
-
-function readProcessEnv(): CmsForwardingKeyEnv {
-  if (typeof process === 'undefined') return {}
-  const env = process.env ?? {}
-
-  return {
-    CONVEX_IDENTITY_FORWARDING_KEY: env.CONVEX_IDENTITY_FORWARDING_KEY,
-    GINKO_CMS_COMPONENT_FORWARDING_KEY: env.GINKO_CMS_COMPONENT_FORWARDING_KEY,
-    VITEST: env.VITEST,
-  }
-}
-
-export function getCmsComponentForwardingKey(env: CmsForwardingKeyEnv = readProcessEnv()): string {
-  for (const name of cmsComponentForwardingKeyEnvNames) {
-    const value = env[name]?.trim()
-    if (value) return value
-  }
-
-  if (env.VITEST) return 'test-ginko-cms-component-forwarding-key'
-
-  throw new Error(
-    `Ginko CMS component forwarding requires ${cmsComponentForwardingKeyEnvNames.join(' or ')}.`,
-  )
-}
-
 export type CmsAnonymousCaller = {
   kind: 'anonymous'
   subject: 'system:anonymous'

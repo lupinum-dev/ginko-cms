@@ -25,7 +25,7 @@ export default defineNuxtConfig({
 })
 ```
 
-Generate the host-owned Convex bridge files and verify the setup:
+Generate the host-owned Convex setup files and verify the setup:
 
 ```bash
 pnpm exec ginko-cms init
@@ -39,13 +39,9 @@ auth through `CONVEX_DEPLOY_KEY`. Create one before deploying:
 pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.local
 ```
 
-The generated bridge also needs one shared forwarding secret in both `.env.local`
-and the Convex deployment:
+Set the email allowed to claim the first Studio owner:
 
 ```bash
-FORWARDING_KEY="$(openssl rand -base64 32)"
-printf "\nCONVEX_IDENTITY_FORWARDING_KEY=%s\n" "$FORWARDING_KEY" >> .env.local
-pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
 pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
 ```
 
@@ -88,10 +84,9 @@ Keep `convex/convex.config.ts`, `convex/auth.config.ts`, and
 files are where the app registers Convex components, configures Better Auth
 providers, and defines app tables.
 
-Generated Convex files should stay thin. They import package-owned bridge
-factories from public `@lupinum/ginko-cms/*` subpaths and export Convex
-functions from those factories. Put business logic in the CMS package or Convex
-component, not in generated host files.
+Generated Convex files should stay thin. They import the Ginko CMS Convex
+component and Better Auth config directly. Put business logic in the CMS
+package or Convex component, not in generated host files.
 
 ## Tailwind
 
@@ -132,8 +127,8 @@ mounted components from the host app's `convex/convex.config.ts`.
 ## Scope
 
 Ginko CMS owns the CMS product layer. Ginko Content owns CMS-neutral content
-querying and provider contracts. Trellis owns generic Nuxt, Convex, Better Auth,
-and MCP app primitives.
+querying and provider contracts. Host apps own normal Nuxt, Convex, and Better
+Auth configuration.
 
 ## Local Development
 

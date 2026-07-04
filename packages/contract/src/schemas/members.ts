@@ -59,7 +59,7 @@ export const bootstrapCmsOwner = defineArgs({
 })
 
 export const bootstrapCmsOwnerComponent = defineArgs({
-  description: 'Bootstrap the first CMS owner from the host bridge.',
+  description: 'Bootstrap the first CMS owner from the host app.',
   args: {
     displayName: v.optional(v.string()),
     email: v.optional(v.string()),
