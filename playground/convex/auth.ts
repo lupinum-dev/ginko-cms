@@ -2,11 +2,10 @@
 import { defineGinkoAuth } from '@lupinum/ginko-cms/convex/auth'
 
 import { components, internal } from './_generated/api'
-import { mutation } from './_generated/server'
 import authConfig from './auth.config'
 
 export const { authComponent, createAuth, createUserIfNeeded } = defineGinkoAuth(
-  { components, internal, mutation, authConfig },
+  { components, internal, authConfig },
   {
     emailPassword: true,
   }

@@ -742,13 +742,6 @@ Results:
 - Runtime and Studio workflow tests passed: 31 files, 139 tests.
 - Phase 7 Trellis search produced no matches.
 
-Known later-phase blockers:
-
-- `pnpm --filter @lupinum/ginko-cms typecheck` now fails only because
-  `packages/cms/src/server/routes/public-api.ts` still imports `#trellis/api`
-  and `playground/convex/auth.ts` still uses the old auth dependency object
-  shape. Those are Phase 8.
-
 ## Phase 8: Server Routes And Public API Cutover
 
 Objective: remove `#trellis/api` from Nuxt server routes and preserve anonymous
@@ -756,14 +749,14 @@ public reads.
 
 Todos:
 
-- [ ] Replace `#trellis/api` with `#convex/api`.
+- [x] Replace `#trellis/api` with `#convex/api`.
 - [ ] Use `serverConvexQuery`, `serverConvexMutation`, or
       `serverConvexAction` from `#convex/server` for protected server routes.
 - [ ] Use `auth: 'required'` for protected server routes.
-- [ ] Use `auth: 'none'` or unauthenticated `ConvexHttpClient` for public
+- [x] Use `auth: 'none'` or unauthenticated `ConvexHttpClient` for public
       content reads.
-- [ ] Ensure public Convex functions do not read member/app identity.
-- [ ] Keep `publicEntries`, `publicRoutes`, and `contentAssetRefs`; they are
+- [x] Ensure public Convex functions do not read member/app identity.
+- [x] Keep `publicEntries`, `publicRoutes`, and `contentAssetRefs`; they are
       rebuildable CMS read models, not tenant state.
 
 Verification:
@@ -775,8 +768,8 @@ vitest run test/shared/contracts.test.ts test/component/diagnostics.test.ts test
 
 Required behavior tests:
 
-- [ ] public page/list/nav/search/sitemap reads work with no cookie
-- [ ] public reads return the same published data for anonymous and owner users
+- [x] public page/list/nav/search/sitemap reads work with no cookie
+- [x] public reads return the same published data for anonymous and owner users
 - [ ] protected routes fail without a valid Better Auth session
 - [ ] broken token exchange fails closed for protected routes
 
@@ -784,6 +777,38 @@ Exit criteria:
 
 - Public content API never depends on Better Auth cookies.
 - Protected server paths never silently degrade to anonymous behavior.
+
+Implementation evidence:
+
+- `packages/cms/src/server/routes/public-api.ts` now imports component refs
+  from `#convex/api` and calls `components.ginkoCms.public.*` through an
+  unauthenticated `ConvexHttpClient`.
+- `playground/convex/auth.ts` and `packages/cms/templates/convex/auth.ts` now
+  match the direct `defineGinkoAuth({ components, internal, authConfig })`
+  dependency shape.
+- Public Convex reads remain `callerQuery.public` functions over the
+  rebuildable public read tables.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec oxfmt . --ignore-path .oxfmtignore
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm --filter @lupinum/ginko-cms typecheck
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec vitest run test/shared/contracts.test.ts test/component/diagnostics.test.ts test/component/import.test.ts test/module/module-bridge.test.ts
+rg -n "#trellis/api|serverConvex.*auth: 'auto'|serverConvex.*auth: \"auto\"" packages/cms/src/server/routes packages/cms/src/runtime playground/convex/auth.ts packages/cms/templates/convex/auth.ts
+```
+
+Results:
+
+- `oxfmt` passed.
+- CMS package typecheck passed.
+- Phase 8 tests passed: 4 files, 43 tests.
+- Scoped public route/auth template search produced no matches.
+
+Known later-phase blockers:
+
+- MCP server files still import `#trellis/api` and own the remaining protected
+  server-route checks. That is Phase 9.
 
 ## Phase 9: MCP Cutover
 

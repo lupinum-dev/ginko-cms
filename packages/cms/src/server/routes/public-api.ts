@@ -2,7 +2,7 @@ import { ConvexHttpClient } from 'convex/browser'
 import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
 
-import { api } from '#trellis/api'
+import { components } from '#convex/api'
 
 type QueryValue = string | string[] | undefined
 
@@ -38,7 +38,7 @@ type GinkoPublicApiRefs = {
   siteData: PublicQueryRef
 }
 const ginkoPublicApi = (
-  api as unknown as {
+  components as unknown as {
     ginkoCms: { public: GinkoPublicApiRefs }
   }
 ).ginkoCms.public
