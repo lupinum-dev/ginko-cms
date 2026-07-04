@@ -12,20 +12,59 @@ import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'co
 import schema from '#component/schema'
 import { modules } from '#component/test.setup'
 
-import { operations } from '../packages/convex/generated/operationHandles/testing'
-import type { OperationHandle } from '../packages/convex/src/operationHelpers.js'
-
 export const api = anyApi
-const createEntryOperation = operations.byId['ginko-cms.create-entry']
-const saveEntryDraftOperation = operations.byId['ginko-cms.save-entry-draft']
-const moveAssetOperation = operations.byId['ginko-cms.move-asset']
-const publishEntryOperation = operations.byId['ginko-cms.publish-entry']
-const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
-const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
-const deleteEntryOperation = operations.byId['ginko-cms.delete-entry']
-const rollbackVersionOperation = operations.byId['ginko-cms.rollback-version']
-const revertDraftToPublishedOperation = operations.byId['ginko-cms.revert-draft-to-published']
-const unarchiveEntryOperation = operations.byId['ginko-cms.unarchive-entry']
+type CmsOperationHandle = {
+  id: string
+  executeRef: FunctionReference<'mutation'>
+  previewRef?: FunctionReference<'mutation'>
+}
+
+const createEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.create-entry',
+  executeRef: api.entries.tree.createEntry,
+}
+const saveEntryDraftOperation: CmsOperationHandle = {
+  id: 'ginko-cms.save-entry-draft',
+  executeRef: api.entries.draft.saveEntryDraft,
+}
+const moveAssetOperation: CmsOperationHandle = {
+  id: 'ginko-cms.move-asset',
+  executeRef: api.assets.moveAsset,
+}
+const publishEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.publish-entry',
+  executeRef: api.entries.publish.publishEntryOperationExecute,
+  previewRef: api.entries.publish.previewPublishEntryOperation,
+}
+const unpublishEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.unpublish-entry',
+  executeRef: api.entries.publish.unpublishEntryOperationExecute,
+  previewRef: api.entries.publish.previewUnpublishEntryOperation,
+}
+const archiveEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.archive-entry',
+  executeRef: api.entries.publish.archiveEntryOperationExecute,
+  previewRef: api.entries.publish.previewArchiveEntryOperation,
+}
+const deleteEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.delete-entry',
+  executeRef: api.entries.tree.deleteEntryOperationExecute,
+  previewRef: api.entries.tree.previewDeleteEntryOperation,
+}
+const rollbackVersionOperation: CmsOperationHandle = {
+  id: 'ginko-cms.rollback-version',
+  executeRef: api.entries.publish.rollbackVersionOperationExecute,
+  previewRef: api.entries.publish.previewRollbackVersionOperation,
+}
+const revertDraftToPublishedOperation: CmsOperationHandle = {
+  id: 'ginko-cms.revert-draft-to-published',
+  executeRef: api.entries.draft.revertDraftToPublishedOperationExecute,
+  previewRef: api.entries.draft.previewRevertDraftToPublishedOperation,
+}
+const unarchiveEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.unarchive-entry',
+  executeRef: api.entries.publish.unarchiveEntry,
+}
 
 function createCmsCallerClient(
   ctx: TestConvex<typeof schema>,
@@ -60,7 +99,7 @@ function createCmsCallerClient(
     ): Promise<FunctionReturnType<Action>> => {
       return await authed().action(fn, ...args)
     },
-    operation: <TOperation extends OperationHandle>(operation: TOperation) =>
+    operation: <TOperation extends CmsOperationHandle>(operation: TOperation) =>
       createOperationClient(authed(), operation),
     createEntry: async (args: Record<string, unknown>): Promise<string> =>
       (await createOperationClient(authed(), createEntryOperation).execute(args)) as string,
@@ -82,7 +121,7 @@ function createOperationClient(
   return {
     preview: async (args: Record<string, unknown>) => {
       if (!operation.previewRef) throw new Error(`Operation ${operation.id} has no preview ref.`)
-      return await ctx.mutation(operation.previewRef.ref, args as never)
+      return await ctx.mutation(operation.previewRef, args as never)
     },
     execute: async (
       args: Record<string, unknown>,
@@ -91,7 +130,7 @@ function createOperationClient(
       const executeArgs = options.confirmation?.token
         ? { ...args, _confirmationToken: options.confirmation.token }
         : args
-      return await ctx.mutation(operation.executeRef.ref, executeArgs as never)
+      return await ctx.mutation(operation.executeRef, executeArgs as never)
     },
   }
 }

@@ -31,13 +31,13 @@ import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx } from './lib/types.js'
 import {
-  blockedOperationPreview,
-  defineOperation,
+  blockedPreview,
+  defineCmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
+  buildPreview,
+  previewResultValidator,
+  definePreview,
 } from './operationHelpers.js'
 
 type MemberDoc = Doc<'members'>
@@ -362,7 +362,7 @@ export const updateMemberRole = callerMutation.protected({
   },
 })
 
-export const removeMemberOperation = defineOperation({
+export const removeMemberOperation = defineCmsOperation({
   id: 'ginko-cms.remove-member',
   name: 'remove-member',
   kind: 'destructive',
@@ -370,7 +370,7 @@ export const removeMemberOperation = defineOperation({
   args: removeMemberArgs.args,
   guard: canManageMembers,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
     const member =
       (await ctx.db
@@ -383,13 +383,13 @@ export const removeMemberOperation = defineOperation({
   },
   preview: async (_ctx, args, { member }) => {
     if (!member) {
-      return blockedOperationPreview({
+      return blockedPreview({
         summary: 'Member not found.',
         blockers: [operationIssue({ code: 'member-not-found', message: 'Member not found.' })],
         confirm: { operationId: 'ginko-cms.remove-member', args },
       })
     }
-    return operationPreview({
+    return buildPreview({
       summary: `Will remove member "${member.displayName || args.userId}".`,
       warnings: [
         operationIssue({
@@ -451,7 +451,7 @@ export const removeMemberOperation = defineOperation({
 
 export const removeMemberOperationExecute = callerMutation.protected(removeMemberOperation)
 export const previewRemoveMemberOperation = callerMutation.protected(
-  Object.assign(previewOf(removeMemberOperation), {
+  Object.assign(definePreview(removeMemberOperation), {
     id: 'members:previewRemoveMemberOperation',
   }),
 )

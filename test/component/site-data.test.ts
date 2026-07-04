@@ -163,4 +163,57 @@ describe('site data ownership shape', () => {
       }),
     ])
   })
+
+  it('binds destructive confirmations to one caller, args, and one redemption', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+
+    await owner.mutation(api.siteData.createSiteDataBlock, {
+      key: 'deleteMe',
+      localized: false,
+      data: { text: 'Remove' },
+    })
+    await owner.mutation(api.siteData.createSiteDataBlock, {
+      key: 'keepMe',
+      localized: false,
+      data: { text: 'Keep' },
+    })
+
+    const args = { key: 'deleteMe' }
+    const wrongArgs = { key: 'keepMe' }
+    const preview = await owner.mutation(api.siteData.previewDeleteSiteDataBlockOperation, args)
+    expect(preview.allowed).toBe(true)
+    expect(preview.confirmation?.token).toEqual(expect.any(String))
+
+    await expect(
+      owner.mutation(api.siteData.deleteSiteDataBlockOperationExecute, {
+        ...wrongArgs,
+        _confirmationToken: preview.confirmation.token,
+      }),
+    ).rejects.toThrow(/arguments mismatch/)
+
+    await owner.mutation(api.siteData.deleteSiteDataBlockOperationExecute, {
+      ...args,
+      _confirmationToken: preview.confirmation.token,
+    })
+
+    await expect(
+      owner.mutation(api.siteData.deleteSiteDataBlockOperationExecute, {
+        ...args,
+        _confirmationToken: preview.confirmation.token,
+      }),
+    ).rejects.toThrow(/already used/)
+
+    expect(await owner.query(api.siteData.getSiteDataBlock, { key: 'deleteMe' })).toBeNull()
+    expect(await owner.query(api.siteData.getSiteDataBlock, { key: 'keepMe' })).not.toBeNull()
+    expect(await ctx.readAll('destructiveAuditLog')).toEqual([
+      expect.objectContaining({
+        operationId: 'ginko-cms.delete-site-data-block',
+        callerKey: 'user:owner-1',
+        scopeKey: 'ginko-cms',
+        executePath: 'siteData:deleteSiteDataBlockOperationExecute',
+      }),
+    ])
+  })
 })

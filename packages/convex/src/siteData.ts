@@ -21,13 +21,13 @@ import { toStringId } from './lib/ids.js'
 import type { MutationCtx } from './lib/types.js'
 import { assertValidLocaleCode, assertValidSiteDataKey } from './lib/validation.js'
 import {
-  blockedOperationPreview,
-  defineOperation,
+  blockedPreview,
+  defineCmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
+  buildPreview,
+  previewResultValidator,
+  definePreview,
 } from './operationHelpers.js'
 import { scheduleRevalidationOutboxDelivery } from './revalidation.js'
 
@@ -348,7 +348,7 @@ export const updateSiteDataBlock = callerMutation.protected({
   },
 })
 
-export const deleteSiteDataBlockOperation = defineOperation({
+export const deleteSiteDataBlockOperation = defineCmsOperation({
   id: 'ginko-cms.delete-site-data-block',
   name: 'delete-site-data-block',
   kind: 'destructive',
@@ -356,7 +356,7 @@ export const deleteSiteDataBlockOperation = defineOperation({
   args: deleteSiteDataBlockArgs.args,
   guard: canManageSettings,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
     assertValidSiteDataKey(args.key)
     const row =
@@ -367,7 +367,7 @@ export const deleteSiteDataBlockOperation = defineOperation({
   },
   preview: async (_ctx, args, { row }) => {
     if (!row) {
-      return blockedOperationPreview({
+      return blockedPreview({
         summary: 'Site data block not found.',
         blockers: [
           operationIssue({
@@ -378,7 +378,7 @@ export const deleteSiteDataBlockOperation = defineOperation({
         confirm: { operationId: 'ginko-cms.delete-site-data-block', args },
       })
     }
-    return operationPreview({
+    return buildPreview({
       summary: `Will delete site data block "${args.key}".`,
       warnings: [
         operationIssue({
@@ -422,7 +422,7 @@ export const deleteSiteDataBlockOperationExecute = callerMutation.protected(
   deleteSiteDataBlockOperation,
 )
 export const previewDeleteSiteDataBlockOperation = callerMutation.protected(
-  Object.assign(previewOf(deleteSiteDataBlockOperation), {
+  Object.assign(definePreview(deleteSiteDataBlockOperation), {
     id: 'siteData:previewDeleteSiteDataBlockOperation',
   }),
 )

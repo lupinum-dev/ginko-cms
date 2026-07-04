@@ -551,48 +551,48 @@ Objective: keep destructive safety without Trellis operation metadata.
 
 Keep initially:
 
-- [ ] `destructiveConfirmations`
-- [ ] `destructiveAuditLog`
+- [x] `destructiveConfirmations`
+- [x] `destructiveAuditLog`
 
 Delete:
 
-- [ ] generated operation descriptor files
-- [ ] generated operation refs
-- [ ] generated operation handles
-- [ ] Trellis `defineOperation`
-- [ ] Trellis `previewOf`
-- [ ] Trellis `operationPreview`
-- [ ] Trellis `operationIssue`
-- [ ] Trellis `operationEffect`
-- [ ] Trellis `operationPreviewValidator`
-- [ ] `trustedReplay`, unless a non-Trellis use is proven necessary
+- [x] generated operation descriptor files
+- [x] generated operation refs
+- [x] generated operation handles
+- [x] Trellis `defineOperation`
+- [x] Trellis `previewOf`
+- [x] Trellis `operationPreview`
+- [x] Trellis `operationIssue`
+- [x] Trellis `operationEffect`
+- [x] Trellis `operationPreviewValidator`
+- [x] `trustedReplay`, unless a non-Trellis use is proven necessary
 
 Implement a small CMS-only helper:
 
-- [ ] preview result constructors
-- [ ] `blockedOperationPreview`
-- [ ] `operationIssue`
-- [ ] `operationEffect`
-- [ ] `previewDestructiveOperation`
-- [ ] `executeDestructiveOperation`
-- [ ] confirmation token hashing
-- [ ] args hash binding
-- [ ] caller/scope binding
-- [ ] optional version hash binding
-- [ ] expiry checks
-- [ ] one-time redemption
-- [ ] audit write
+- [x] preview result constructors
+- [x] `blockedPreview`
+- [x] `operationIssue`
+- [x] `operationEffect`
+- [x] preview-time confirmation creation through `definePreview`
+- [x] `executeDestructiveOperation`
+- [x] confirmation token hashing
+- [x] args hash binding
+- [x] caller/scope binding
+- [x] optional version hash binding
+- [x] expiry checks
+- [x] one-time redemption
+- [x] audit write
 
 Update operation users:
 
-- [ ] assets
-- [ ] backup
-- [ ] entries/draft
-- [ ] entries/publish
-- [ ] entries/tree
-- [ ] members
-- [ ] revalidation
-- [ ] site data
+- [x] assets
+- [x] backup
+- [x] entries/draft
+- [x] entries/publish
+- [x] entries/tree
+- [x] members
+- [x] revalidation
+- [x] site data
 - [ ] MCP destructive tools
 - [ ] Studio destructive actions
 
@@ -605,23 +605,70 @@ vitest run test/component test/shared/mcp-tools.test.ts test/shared/studio-workf
 
 Required invariant tests:
 
-- [ ] guard-blocked preview writes no confirmation
-- [ ] missing token fails
-- [ ] wrong token fails
+- [x] guard-blocked preview writes no confirmation
+- [x] missing token fails
+- [x] wrong token fails
 - [ ] wrong caller fails
-- [ ] wrong args fail
+- [x] wrong args fail
 - [ ] wrong operation fails
-- [ ] expired token fails
-- [ ] redeemed token fails
-- [ ] stale version hash fails
-- [ ] successful execute redeems once
-- [ ] successful execute writes audit
+- [x] expired token fails
+- [x] redeemed token fails
+- [x] stale version hash fails
+- [x] successful execute redeems once
+- [x] successful execute writes audit
 
 Exit criteria:
 
 - Destructive operations still require preview before execute.
 - No operation registry or generated operation metadata remains.
 - Studio and MCP use the same confirmation contract.
+
+Implementation evidence:
+
+- `packages/convex/src/operationHelpers.ts` now owns CMS-only preview result
+  helpers plus hashed, expiring, caller/scope/args/preview/version-bound
+  confirmation creation and one-time redemption.
+- `packages/convex/src/functions.ts` redeems destructive confirmations before
+  destructive handlers run.
+- Generated operation refs/handles under `packages/convex/generated/**` and
+  `packages/convex/src/generated/**` were deleted.
+- `@lupinum/ginko-cms-convex/operation-handles/mcp` was removed from package
+  exports and root TypeScript aliases.
+- `trustedReplay` was deleted from the Convex schema because no non-Trellis
+  caller remained.
+- Component tests include a real site-data destructive operation proving
+  wrong-args rejection, one-time redemption, and audit writes.
+- The workflow vertical-slice test now proves stale publish preview tokens are
+  rejected.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec oxfmt . --ignore-path .oxfmtignore
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm --filter @lupinum/ginko-cms-convex typecheck
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm --filter @lupinum/ginko-cms-convex build
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec vitest run test/component test/shared/contracts.test.ts
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec vitest run test/refactor/workflow-vertical-slice.test.ts
+rg -n "defineOperation|previewOf|operationPreview|operationRefs|operationHandles|trustedReplay|@lupinum/trellis/(backend|mcp)" packages/convex test/refactor test/component test/helpers.ts scripts --glob '!packages/convex/src/_generated/**' --glob '!node_modules/**'
+rg -n "operationRefs|operationHandles|trustedReplay|@lupinum/ginko-cms-convex/operation-handles" package.json packages/convex packages/cms/package.json tsconfig.json scripts test/component test/refactor test/helpers.ts --glob '!packages/convex/src/_generated/**' --glob '!node_modules/**'
+```
+
+Results:
+
+- `oxfmt` passed.
+- Convex package typecheck and build passed.
+- Component and shared contract tests passed: 30 files, 226 tests.
+- Workflow vertical-slice tests passed: 28 tests.
+- Scoped operation metadata and `trustedReplay` searches produced no matches.
+
+Known later-phase blockers:
+
+- Root `pnpm run typecheck` still fails in `@lupinum/ginko-cms` because runtime
+  auth components import `@lupinum/trellis/composables`, the public server route
+  imports `#trellis/api`, and playground auth config still uses the previous
+  `defineGinkoAuth` dependency shape. These are Phase 7 and Phase 8 cutovers.
+- MCP destructive tools still import the removed
+  `@lupinum/ginko-cms-convex/operation-handles/mcp` export. That is Phase 10.
 
 ## Phase 7: Studio Runtime Cutover
 

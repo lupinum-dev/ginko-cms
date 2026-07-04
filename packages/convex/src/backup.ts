@@ -13,11 +13,11 @@ import { logActivity } from './lib/activity.js'
 import { asCollectionId, asEntryId } from './lib/ids.js'
 import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
 import {
-  defineOperation,
+  defineCmsOperation,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
+  buildPreview,
+  previewResultValidator,
+  definePreview,
 } from './operationHelpers.js'
 
 const BACKUP_ARCHIVE_VERSION = 1
@@ -555,7 +555,7 @@ const deleteBackupArtifactArgs = {
   artifactId: v.string(),
 }
 
-export const deleteBackupArtifactOperation = defineOperation({
+export const deleteBackupArtifactOperation = defineCmsOperation({
   id: 'ginko-cms.delete-backup-artifact',
   name: 'delete-backup-artifact',
   kind: 'destructive',
@@ -563,14 +563,14 @@ export const deleteBackupArtifactOperation = defineOperation({
   args: deleteBackupArtifactArgs,
   guard: hasRole('owner'),
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
     const artifact = await getBackupArtifactByArtifactId(ctx, args.artifactId)
     return { artifact }
   },
   preview: async (_ctx, args, { artifact }) => {
     if (!artifact) {
-      return operationPreview({
+      return buildPreview({
         allowed: false,
         summary: `Backup artifact "${args.artifactId}" was not found.`,
         blockers: [
@@ -583,7 +583,7 @@ export const deleteBackupArtifactOperation = defineOperation({
       })
     }
 
-    return operationPreview({
+    return buildPreview({
       summary: `Will delete backup artifact "${artifact.artifactId}".`,
       warnings: [
         operationIssue({
@@ -643,7 +643,7 @@ export const deleteBackupArtifactOperationExecute = callerMutation.protected(
 )
 
 export const previewDeleteBackupArtifactOperation = callerMutation.protected(
-  Object.assign(previewOf(deleteBackupArtifactOperation), {
+  Object.assign(definePreview(deleteBackupArtifactOperation), {
     id: 'backup:previewDeleteBackupArtifactOperation',
   }),
 )

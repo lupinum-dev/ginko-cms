@@ -14,12 +14,12 @@ import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
 import { logActivity } from '../lib/activity.js'
 import {
-  defineOperation,
+  defineCmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
+  buildPreview,
+  previewResultValidator,
+  definePreview,
 } from '../operationHelpers.js'
 import {
   deleteEntryRecords,
@@ -49,7 +49,7 @@ async function assertNoPublicRoutesForDelete(
   )
 }
 
-export const createEntryOperation = defineOperation({
+export const createEntryOperation = defineCmsOperation({
   id: 'ginko-cms.create-entry',
   name: 'create-entry',
   kind: 'safe',
@@ -195,7 +195,7 @@ async function assertNoDraftPathConflictForMove(
   }
 }
 
-export const deleteEntryOperation = defineOperation({
+export const deleteEntryOperation = defineCmsOperation({
   id: 'ginko-cms.delete-entry',
   name: 'delete-entry',
   kind: 'destructive',
@@ -203,7 +203,7 @@ export const deleteEntryOperation = defineOperation({
   args: deleteEntryArgs.args,
   guard: canDeleteEntries,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
     const entry = await getEntryOrThrow(ctx, args.entryId)
     return {
@@ -230,7 +230,7 @@ export const deleteEntryOperation = defineOperation({
       )
     }
     const result = await previewDestructiveEntryOperation(ctx, args.entryId)
-    return operationPreview({
+    return buildPreview({
       summary: `Will permanently delete "${result.displayLabel ?? result.baseSlug}" and ${result.publicRoutes.length} public route${result.publicRoutes.length === 1 ? '' : 's'}.`,
       allowed: result.publicRoutes.length === 0,
       blockers: result.publicRoutes.length
@@ -311,7 +311,7 @@ export const deleteEntryOperation = defineOperation({
 
 export const deleteEntryOperationExecute = callerMutation.protected(deleteEntryOperation)
 export const previewDeleteEntryOperation = callerMutation.protected(
-  Object.assign(previewOf(deleteEntryOperation), {
+  Object.assign(definePreview(deleteEntryOperation), {
     id: 'entries/tree:previewDeleteEntryOperation',
   }),
 )

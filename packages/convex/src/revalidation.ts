@@ -12,13 +12,13 @@ import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
 import {
-  blockedOperationPreview,
-  defineOperation,
+  blockedPreview,
+  defineCmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
+  buildPreview,
+  previewResultValidator,
+  definePreview,
 } from './operationHelpers.js'
 
 declare const process: { env: Record<string, string | undefined> }
@@ -352,7 +352,7 @@ export const listRevalidationJobs = callerQuery.protected({
   },
 })
 
-export const retryRevalidationJobOperation = defineOperation({
+export const retryRevalidationJobOperation = defineCmsOperation({
   id: 'ginko-cms.retry-revalidation-job',
   name: 'retry-revalidation-job',
   kind: 'destructive',
@@ -360,7 +360,7 @@ export const retryRevalidationJobOperation = defineOperation({
   args: retryRevalidationJobArgs.args,
   guard: canManageSettings,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
     const eventId = asOutboxEventId(args.eventId)
     const event = await ctx.db.get(eventId)
@@ -368,7 +368,7 @@ export const retryRevalidationJobOperation = defineOperation({
   },
   preview: async (_ctx, args, { event }) => {
     if (!event) {
-      return blockedOperationPreview({
+      return blockedPreview({
         summary: `Revalidation job "${args.eventId}" was not found.`,
         blockers: [
           operationIssue({
@@ -379,7 +379,7 @@ export const retryRevalidationJobOperation = defineOperation({
         confirm: { operationId: 'ginko-cms.retry-revalidation-job', args },
       })
     }
-    return operationPreview({
+    return buildPreview({
       summary: `Will retry revalidation job "${args.eventId}" with status "${event.status}".`,
       warnings: [
         operationIssue({
@@ -435,7 +435,7 @@ export const retryRevalidationJobOperationExecute = callerMutation.protected(
   retryRevalidationJobOperation,
 )
 export const previewRetryRevalidationJobOperation = callerMutation.protected(
-  Object.assign(previewOf(retryRevalidationJobOperation), {
+  Object.assign(definePreview(retryRevalidationJobOperation), {
     id: 'revalidation:previewRetryRevalidationJobOperation',
   }),
 )

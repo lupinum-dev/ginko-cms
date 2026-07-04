@@ -19,6 +19,7 @@ import type { DataModel } from './_generated/dataModel.js'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server.js'
 import { getAppIdentity, type CmsAppIdentity } from './auth/appIdentity.js'
 import { can, type CmsGuard } from './auth/checks.js'
+import { executeDestructiveOperation } from './operationHelpers.js'
 
 type ExtractQueryVisibility<T> =
   T extends QueryBuilder<DataModel, infer TVisibility> ? TVisibility : FunctionVisibility
@@ -150,6 +151,15 @@ function protectedHandler<TCtx extends RootCtx>(definition: ProtectedDefinition<
         : args
     const handlerCtx = await createHandlerCtx(ctx, definition.guard)
     const loaded = definition.load ? await definition.load(handlerCtx, handlerArgs) : undefined
+    if (isDestructive) {
+      await executeDestructiveOperation(
+        handlerCtx as Parameters<typeof executeDestructiveOperation>[0],
+        definition,
+        handlerArgs,
+        loaded,
+        args._confirmationToken,
+      )
+    }
     return await definition.handler(handlerCtx, handlerArgs, loaded)
   }
 }

@@ -20,44 +20,50 @@
  *   #11 round-trip filesystem provider equality
  */
 
-import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import type { OperationHandle } from '@lupinum/trellis/backend'
 import { anyApi } from 'convex/server'
+import type { FunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { operations } from '../../packages/convex/generated/operationHandles/testing'
 import { createCtx, seedOwner } from '../component/entries/helpers'
 
 const api = anyApi
-const identityForwardingKey = 'test-ginko-cms-component-forwarding-key'
-const createEntryOperation = operations.byId['ginko-cms.create-entry']
-const saveEntryDraftOperation = operations.byId['ginko-cms.save-entry-draft']
-const publishEntryOperation = operations.byId['ginko-cms.publish-entry']
-const unpublishEntryOperation = operations.byId['ginko-cms.unpublish-entry']
-const archiveEntryOperation = operations.byId['ginko-cms.archive-entry']
-const rollbackVersionOperation = operations.byId['ginko-cms.rollback-version']
+type CmsOperationHandle = {
+  id: string
+  executeRef: FunctionReference<'mutation'>
+  previewRef?: FunctionReference<'mutation'>
+}
 
-process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY ??= identityForwardingKey
-process.env.CONVEX_IDENTITY_FORWARDING_KEY ??= identityForwardingKey
+const createEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.create-entry',
+  executeRef: api.entries.tree.createEntry,
+}
+const saveEntryDraftOperation: CmsOperationHandle = {
+  id: 'ginko-cms.save-entry-draft',
+  executeRef: api.entries.draft.saveEntryDraft,
+}
+const publishEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.publish-entry',
+  executeRef: api.entries.publish.publishEntryOperationExecute,
+  previewRef: api.entries.publish.previewPublishEntryOperation,
+}
+const unpublishEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.unpublish-entry',
+  executeRef: api.entries.publish.unpublishEntryOperationExecute,
+  previewRef: api.entries.publish.previewUnpublishEntryOperation,
+}
+const archiveEntryOperation: CmsOperationHandle = {
+  id: 'ginko-cms.archive-entry',
+  executeRef: api.entries.publish.archiveEntryOperationExecute,
+  previewRef: api.entries.publish.previewArchiveEntryOperation,
+}
+const rollbackVersionOperation: CmsOperationHandle = {
+  id: 'ginko-cms.rollback-version',
+  executeRef: api.entries.publish.rollbackVersionOperationExecute,
+  previewRef: api.entries.publish.previewRollbackVersionOperation,
+}
 
-/**
- * Trellis-aware test client that only injects caller forwarding. Workflow
- * commands must pass their own version guards explicitly.
- */
 function workflowClient(ctx: ReturnType<typeof createCtx>, userId: string) {
-  const caller = cmsUserCaller(userId)
-  const client = () => ctx.asCaller(caller)
-
-  return {
-    mutation: async (fn: unknown, args?: Record<string, unknown>) =>
-      await client().mutation(fn as never, args as never),
-    query: async (fn: unknown, args?: Record<string, unknown>) =>
-      await client().query(fn as never, args as never),
-    action: async (fn: unknown, args?: Record<string, unknown>) =>
-      await client().action(fn as never, args as never),
-    operation: <TOperation extends OperationHandle>(operation: TOperation) =>
-      ctx.asCaller(caller).operation(operation),
-  }
+  return ctx.asCmsUser(userId)
 }
 
 type WorkflowClient = ReturnType<typeof workflowClient>
@@ -238,12 +244,13 @@ async function previewPublish(
   locales: string[],
 ) {
   const draftVersion = await readEntryDraftVersion(ctx, entryId)
-  const operationPreview = (await owner.operation(publishEntryOperation).preview({
+  const buildPreview = (await owner.operation(publishEntryOperation).preview({
     entryId,
     locales,
     expectedVersion: draftVersion,
   })) as {
     confirm?: unknown
+    confirmation?: { token?: string }
     details?: {
       locales?: Array<{
         locale: string
@@ -256,10 +263,10 @@ async function previewPublish(
   }
   return {
     draftVersion,
-    draftHash: stableJson(operationPreview.confirm),
+    draftHash: stableJson(buildPreview.confirm),
     locales,
     diff: {
-      locales: (operationPreview.details?.locales ?? []).map((locale) => ({
+      locales: (buildPreview.details?.locales ?? []).map((locale) => ({
         locale: locale.locale,
         status: publishDiffStatus(locale),
         currentPath: locale.currentPath ?? null,
@@ -267,7 +274,7 @@ async function previewPublish(
         currentRevisionId: locale.currentRevisionId ?? null,
       })),
     },
-    operationPreview,
+    buildPreview,
   }
 }
 
@@ -284,8 +291,8 @@ async function publishFromPreview(
     ...(message === null ? {} : { message }),
   }
   const operation = owner.operation(publishEntryOperation)
-  const operationPreview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: operationPreview.confirmation })
+  const buildPreview = await operation.preview(args)
+  return await operation.execute(args, { confirmation: buildPreview.confirmation })
 }
 
 async function unpublishConfirmed(owner: WorkflowClient, entryId: string) {
@@ -692,12 +699,15 @@ describe('Gate 1 — workflow backend spine', () => {
     })
 
     await expect(
-      owner.operation(publishEntryOperation).execute({
-        entryId,
-        locales: preview.locales,
-        expectedVersion: preview.draftVersion,
-      }),
-    ).rejects.toThrow(/ENTRY_CONCURRENT_EDIT|This entry changed/)
+      owner.operation(publishEntryOperation).execute(
+        {
+          entryId,
+          locales: preview.locales,
+          expectedVersion: await readEntryDraftVersion(ctx, entryId),
+        },
+        { confirmation: preview.buildPreview.confirmation },
+      ),
+    ).rejects.toThrow(/arguments mismatch|preview mismatch|version mismatch/)
 
     // Re-preview with the current draft and publish successfully.
     const preview2 = await previewPublish(owner, ctx, entryId, ['en'])
@@ -914,7 +924,7 @@ describe('Gate 1 — workflow backend spine', () => {
         status: 'blocked',
       }),
     ])
-    expect(preview.operationPreview.blockers.length).toBeGreaterThan(0)
+    expect(preview.buildPreview.blockers.length).toBeGreaterThan(0)
 
     await expect(publishFromPreview(owner, entryId, preview)).rejects.toThrow(
       /Destructive operation requires confirmation/,

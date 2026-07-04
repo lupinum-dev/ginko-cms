@@ -15,12 +15,12 @@ import { asEntryId } from '../lib/ids.js'
 import type { MutationCtx } from '../lib/types.js'
 import { assertValidLocaleCode } from '../lib/validation.js'
 import {
-  defineOperation,
+  defineCmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
+  buildPreview,
+  previewResultValidator,
+  definePreview,
 } from '../operationHelpers.js'
 import { loadEntryMutationContext, readStudioDraftView } from './context.js'
 import { getDraftVsPublishedDiffPreview } from './read.js'
@@ -277,7 +277,7 @@ async function assertNoCanonicalDraftPathConflict(
   }
 }
 
-export const saveEntryDraftOperation = defineOperation({
+export const saveEntryDraftOperation = defineCmsOperation({
   id: 'ginko-cms.save-entry-draft',
   name: 'save-entry-draft',
   kind: 'safe',
@@ -360,7 +360,7 @@ export const saveEntryDraftOperation = defineOperation({
 
 export const saveEntryDraft = callerMutation.protected(saveEntryDraftOperation)
 
-export const revertDraftToPublishedOperation = defineOperation({
+export const revertDraftToPublishedOperation = defineCmsOperation({
   id: 'ginko-cms.revert-draft-to-published',
   name: 'revert-draft-to-published',
   kind: 'destructive',
@@ -368,11 +368,11 @@ export const revertDraftToPublishedOperation = defineOperation({
   args: revertDraftToPublishedArgs.args,
   guard: canEditEntries,
   returns: draftSaveResultValidator,
-  previewReturns: operationPreviewValidator(),
+  previewReturns: previewResultValidator(),
   load: async () => undefined,
   preview: async (ctx, args) => {
     const result = await getDraftVsPublishedDiffPreview(ctx as never, args)
-    return operationPreview({
+    return buildPreview({
       summary: `Will reset the draft to published state and replace ${result.changes.length} changed field${result.changes.length === 1 ? '' : 's'}.`,
       allowed: result.changes.length > 0,
       blockers:
@@ -424,7 +424,7 @@ export const revertDraftToPublishedOperationExecute = callerMutation.protected(
   revertDraftToPublishedOperation,
 )
 export const previewRevertDraftToPublishedOperation = callerMutation.protected(
-  Object.assign(previewOf(revertDraftToPublishedOperation), {
+  Object.assign(definePreview(revertDraftToPublishedOperation), {
     id: 'entries/draft:previewRevertDraftToPublishedOperation',
   }),
 )

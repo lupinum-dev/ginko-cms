@@ -32,13 +32,13 @@ import { resolveLocaleText } from './lib/locale.js'
 import { sanitizeFilename, validateAssetUploadPolicy } from './lib/sanitize.js'
 import type { MutationCtx, QueryOrMutationCtx, ReadCtx } from './lib/types.js'
 import {
-  blockedOperationPreview,
-  defineOperation,
+  blockedPreview,
+  defineCmsOperation,
   operationEffect,
   operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
+  buildPreview,
+  previewResultValidator,
+  definePreview,
 } from './operationHelpers.js'
 
 type AssetDoc = Doc<'assets'>
@@ -761,7 +761,7 @@ export const updateAsset = callerMutation.protected({
   },
 })
 
-export const moveAssetOperation = defineOperation({
+export const moveAssetOperation = defineCmsOperation({
   id: 'ginko-cms.move-asset',
   name: 'move-asset',
   kind: 'safe',
@@ -1045,7 +1045,7 @@ export const rebuildContentAssetRefsPage = callerMutation.protected({
   },
 })
 
-export const deleteAssetOperation = defineOperation({
+export const deleteAssetOperation = defineCmsOperation({
   id: 'ginko-cms.delete-asset',
   name: 'delete-asset',
   kind: 'destructive',
@@ -1053,14 +1053,14 @@ export const deleteAssetOperation = defineOperation({
   args: deleteAssetArgs.args,
   guard: canManageAssets,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
     const asset = await ctx.db.get(args.assetId as Id<'assets'>)
     return { asset: asset && asset.deletedAt == null ? asset : null }
   },
   preview: async (ctx, args, { asset }) => {
     if (!asset) {
-      return blockedOperationPreview({
+      return blockedPreview({
         summary: 'Asset not found.',
         blockers: [operationIssue({ code: 'asset-not-found', message: 'Asset not found.' })],
         confirm: { operationId: 'ginko-cms.delete-asset', args },
@@ -1068,7 +1068,7 @@ export const deleteAssetOperation = defineOperation({
     }
     const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
     const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
-    return operationPreview({
+    return buildPreview({
       summary: `Will move asset "${asset.filename}" to trash.`,
       warnings: args.force
         ? [
@@ -1134,7 +1134,7 @@ export const deleteAssetOperation = defineOperation({
 
 export const deleteAssetOperationExecute = callerMutation.protected(deleteAssetOperation)
 export const previewDeleteAssetOperation = callerMutation.protected(
-  Object.assign(previewOf(deleteAssetOperation), {
+  Object.assign(definePreview(deleteAssetOperation), {
     id: 'assets:previewDeleteAssetOperation',
   }),
 )
@@ -1168,7 +1168,7 @@ export const restoreAsset = callerMutation.protected({
   },
 })
 
-export const purgeAssetOperation = defineOperation({
+export const purgeAssetOperation = defineCmsOperation({
   id: 'ginko-cms.purge-asset',
   name: 'purge-asset',
   kind: 'destructive',
@@ -1176,14 +1176,14 @@ export const purgeAssetOperation = defineOperation({
   args: purgeAssetArgs,
   guard: canManageAssets,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
     const asset = await ctx.db.get(args.assetId as Id<'assets'>)
     return { asset }
   },
   preview: async (ctx, args, { asset }) => {
     if (!asset) {
-      return blockedOperationPreview({
+      return blockedPreview({
         summary: 'Asset not found.',
         blockers: [operationIssue({ code: 'asset-not-found', message: 'Asset not found.' })],
         confirm: { operationId: 'ginko-cms.purge-asset', args },
@@ -1196,7 +1196,7 @@ export const purgeAssetOperation = defineOperation({
         assetId: args.assetId,
       })
     } catch (error) {
-      return blockedOperationPreview({
+      return blockedPreview({
         summary: `Cannot permanently delete asset "${asset.filename}" until the backup requirement passes.`,
         blockers: [cmsErrorOperationIssue(error)],
         details: { assetId: args.assetId, filename: asset.filename },
@@ -1211,7 +1211,7 @@ export const purgeAssetOperation = defineOperation({
     const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
     const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
     if (usageCount > 0 && args.force !== true) {
-      return blockedOperationPreview({
+      return blockedPreview({
         summary: `Asset "${asset.filename}" is still referenced.`,
         blockers: [
           operationIssue({
@@ -1243,7 +1243,7 @@ export const purgeAssetOperation = defineOperation({
       })
     }
 
-    return operationPreview({
+    return buildPreview({
       summary: `Will permanently delete asset "${asset.filename}".`,
       warnings: [
         operationIssue({
@@ -1322,7 +1322,7 @@ export const purgeAssetOperation = defineOperation({
 export const purgeAsset = callerMutation.protected(purgeAssetOperation)
 
 export const previewPurgeAssetOperation = callerMutation.protected(
-  Object.assign(previewOf(purgeAssetOperation), {
+  Object.assign(definePreview(purgeAssetOperation), {
     id: 'assets:previewPurgeAssetOperation',
   }),
 )
