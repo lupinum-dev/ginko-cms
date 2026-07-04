@@ -6,8 +6,6 @@ import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { createJiti } from 'jiti'
 
-import { entries as collectionBridgeEntries } from '../bridge/collections.js'
-import { bridgeEntryFunctionRef } from '../bridge/create.js'
 import { resolveConfiguredCollections } from '../module/collections.js'
 import { resolveLocaleSettings } from '../module/i18n.js'
 import type { ModuleOptions } from '../module/options.js'
@@ -20,10 +18,6 @@ type RuntimeCollection = ReturnType<typeof buildPublicRuntimeCollections>[string
 
 type PushArgs = {
   check: boolean
-}
-
-type CollectionBridgeFunctionRefs = {
-  [Entry in (typeof collectionBridgeEntries)[number] as Entry['exportName']]: string
 }
 
 type CheckDriftChange = Record<string, unknown> & {
@@ -55,9 +49,10 @@ type CheckCollectionContractsResult = {
   missingFromConfigDetails?: MissingFromConfigDetail[]
 }
 
-const collectionBridgeFunctionRefs = Object.fromEntries(
-  collectionBridgeEntries.map((entry) => [entry.exportName, bridgeEntryFunctionRef(entry)]),
-) as CollectionBridgeFunctionRefs
+const collectionFunctionRefs = {
+  checkCollectionContracts: 'sync:checkCollectionContractsInternal',
+  installCollectionContracts: 'sync:installCollectionContractsInternal',
+} as const
 
 function parsePushArgs(args: string[]): PushArgs {
   return {
@@ -262,12 +257,11 @@ function formatDriftReport(result: CheckCollectionContractsResult) {
   if (requiresMigration) {
     lines.push('Recommended next steps:')
     if (hasUnknownMigrationState) {
-      lines.push('  1. Regenerate/deploy the CMS bridge for precise drift details.')
-      lines.push('  2. Treat this drift as migration-required until the check says otherwise.')
-      lines.push('  3. Create or choose an explicit content migration.')
-      lines.push('  4. Run a backup before applying changes.')
-      lines.push('  5. Apply the content migration, then rerun `pnpm exec ginko-cms push --check`.')
-      lines.push('  6. Push only after the check reports safe drift.')
+      lines.push('  1. Treat this drift as migration-required until the check says otherwise.')
+      lines.push('  2. Create or choose an explicit content migration.')
+      lines.push('  3. Run a backup before applying changes.')
+      lines.push('  4. Apply the content migration, then rerun `pnpm exec ginko-cms push --check`.')
+      lines.push('  5. Push only after the check reports safe drift.')
     } else {
       lines.push('  1. Create or choose an explicit content migration.')
       lines.push('  2. Run a backup before applying changes.')
@@ -322,7 +316,7 @@ export async function runPushCommand(
           collections: payload,
         },
         {
-          functionRef: collectionBridgeFunctionRefs.checkCollectionContracts,
+          functionRef: collectionFunctionRefs.checkCollectionContracts,
           purpose: 'query',
           identityForwardingKey,
           envelopeArgs: {},
@@ -347,7 +341,7 @@ export async function runPushCommand(
         collections: payload,
       },
       {
-        functionRef: collectionBridgeFunctionRefs.installCollectionContracts,
+        functionRef: collectionFunctionRefs.installCollectionContracts,
         purpose: 'mutation',
         identityForwardingKey,
         envelopeArgs: {},

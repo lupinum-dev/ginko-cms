@@ -321,45 +321,9 @@ try {
     'utf8',
   )
 
-  writeFileSync(
-    join(tempDir, 'bridge-smoke.ts'),
-    [
-      "import { createAssetsBridge } from '@lupinum/ginko-cms/bridge'",
-      "import { createEditorBridge } from '@lupinum/ginko-cms/bridge'",
-      "import { createMcpBridge } from '@lupinum/ginko-cms/bridge'",
-      '',
-      'void createAssetsBridge',
-      'void createEditorBridge',
-      'void createMcpBridge',
-      '',
-    ].join('\n'),
-    'utf8',
-  )
-
   run('pnpm', ['install', '--ignore-scripts'], { cwd: tempDir })
-  run(
-    'pnpm',
-    [
-      'exec',
-      'tsc',
-      '--ignoreConfig',
-      '--noEmit',
-      '--module',
-      'NodeNext',
-      '--moduleResolution',
-      'NodeNext',
-      '--target',
-      'ESNext',
-      '--strict',
-      '--skipLibCheck',
-      'bridge-smoke.ts',
-    ],
-    {
-      cwd: tempDir,
-    },
-  )
   run('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir })
-  run('pnpm', ['exec', 'ginko-cms', 'bridge', 'check'], { cwd: tempDir })
+  run('pnpm', ['exec', 'ginko-cms', 'doctor'], { cwd: tempDir })
   run('pnpm', ['exec', 'convex', 'codegen', '--system-udfs', '--typecheck', 'disable'], {
     cwd: tempDir,
   })
@@ -369,9 +333,8 @@ try {
     'convex/auth.ts',
     'convex/auth.config.ts',
     'convex/convex.config.ts',
-    'convex/ginkoCms/public.ts',
-    'convex/ginkoCmsMcp.ts',
     'convex/http.ts',
+    'convex/schema.ts',
   ]) {
     if (!existsSync(resolve(tempDir, relativePath))) {
       throw new Error(`Bridge install did not write ${relativePath}`)
@@ -404,13 +367,11 @@ try {
   const importCheck = [
     "await import('@lupinum/ginko-cms')",
     "await import('@lupinum/ginko-cms/nuxt-provider')",
-    "await import('@lupinum/ginko-cms/convex/manifest')",
     "await import('@lupinum/ginko-cms-contract/convex/validators.js')",
     "await import('@lupinum/ginko-cms-contract/convex/schemas/public.js')",
     "await import('@lupinum/ginko-cms-convex/convex.config')",
     "await import('@lupinum/ginko-cms-convex/convex.auth')",
     "await import('@lupinum/ginko-cms-convex/component')",
-    "await import('@lupinum/ginko-cms-convex/component-bridge')",
     "console.log('package imports ok')",
   ].join(';')
 

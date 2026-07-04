@@ -117,7 +117,7 @@ pnpm exec ginko-cms deploy
 ```
 
 `ginko-cms deploy` reads `.env.local` as well as the process environment. It
-runs the bridge check, the default local Convex deploy command
+runs `ginko-cms doctor`, the default local Convex deploy command
 (`convex dev --once --tail-logs disable --typecheck disable`), then collection
 contract sync.
 

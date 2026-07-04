@@ -354,28 +354,28 @@ wrappers.
 
 Delete or retire:
 
-- [ ] `packages/cms/src/bridge/**`
-- [ ] `packages/cms/src/module/bridge-manifest.ts`
-- [ ] bridge rendering/drift logic in `packages/cms/src/module/convex.ts`
-- [ ] `packages/cms/convex/manifest.js`
-- [ ] `packages/cms/convex/manifest.d.ts`
-- [ ] public package export `./bridge`
-- [ ] public package export `./convex/manifest`
-- [ ] `ginko-cms bridge *`
-- [ ] generated bridge fixtures under `test/fixtures/basic/convex/ginkoCms*`
-- [ ] generated bridge files under `playground/convex/ginkoCms*`
+- [x] `packages/cms/src/bridge/**`
+- [x] `packages/cms/src/module/bridge-manifest.ts`
+- [x] bridge rendering/drift logic in `packages/cms/src/module/convex.ts`
+- [x] `packages/cms/convex/manifest.js`
+- [x] `packages/cms/convex/manifest.d.ts`
+- [x] public package export `./bridge`
+- [x] public package export `./convex/manifest`
+- [x] `ginko-cms bridge *`
+- [x] generated bridge fixtures under `test/fixtures/basic/convex/ginkoCms*`
+- [x] generated bridge files under `playground/convex/ginkoCms*`
 
 Replace with direct setup validation:
 
-- [ ] `convex/convex.config.ts` mounts Better Auth and the Ginko CMS Convex
+- [x] `convex/convex.config.ts` mounts Better Auth and the Ginko CMS Convex
       component.
-- [ ] `convex/auth.ts` follows the direct `@convex-dev/better-auth` pattern.
-- [ ] `convex/auth.config.ts` configures Convex auth provider state.
-- [ ] `convex/http.ts` registers Better Auth routes.
-- [ ] `convex/schema.ts` remains app-owned.
-- [ ] `ginko-cms init` creates only normal Convex files.
-- [ ] `ginko-cms doctor` detects stale bridge files and prints cleanup steps.
-- [ ] `doctor` does not repair or regenerate old bridge files.
+- [x] `convex/auth.ts` follows the direct `@convex-dev/better-auth` pattern.
+- [x] `convex/auth.config.ts` configures Convex auth provider state.
+- [x] `convex/http.ts` registers Better Auth routes.
+- [x] `convex/schema.ts` remains app-owned.
+- [x] `ginko-cms init` creates only normal Convex files.
+- [x] `ginko-cms doctor` detects stale bridge files and prints cleanup steps.
+- [x] `doctor` does not repair or regenerate old bridge files.
 
 Verification:
 
@@ -396,6 +396,55 @@ Failure mitigations:
 - If a consumer really depends on `./bridge`, document the breaking change. Do
   not add a temporary generated bridge path unless maintainers explicitly
   reverse the hard-cutover decision.
+
+Implementation evidence:
+
+- `packages/cms/src/bridge/**`, `packages/cms/src/module/bridge-manifest.ts`,
+  `packages/cms/convex/manifest.*`, the bridge manifest build script, and the
+  generated fixture/playground `convex/ginkoCms*` files were deleted.
+- `packages/cms/src/module/convex.ts` now validates direct Convex setup files
+  and reports stale generated bridge paths or markers with manual cleanup
+  instructions. It does not render, diff, repair, or regenerate wrappers.
+- `ginko-cms init` writes only normal Convex setup files from
+  `packages/cms/templates/convex/**`, including `convex/convex.config.ts`.
+- `ginko-cms doctor` reports direct setup status and treats stale bridge files
+  as blockers. `ginko-cms bridge *` now exits with a removal message.
+- CMS and Convex package exports/files no longer publish `./bridge`,
+  `./convex/manifest`, or `./component-bridge`.
+- Package consumer and boundary tests were updated to assert direct setup files
+  and the absence of generated bridge outputs.
+- CLI deploy-key forwarding no longer imports Trellis bridge helpers. It keeps
+  the existing signed `_trellisForwarding` wire shape locally until Phase 5 and
+  Phase 9 delete the remaining forwarding path.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run format:check
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run check:publish-specifiers
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run lint
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec vitest run test/module/ginko-cli.test.ts test/module/module-bridge.test.ts
+rg "@lupinum/ginko-cms/bridge|trellis-bridge|convex/ginkoCms|ginkoCmsMcp|@trellis-bridge|bridge check|bridge inspect|bridge install|bridge generate|convex/manifest|bridge-manifest|ginkoCmsBridgeManifest|ComponentBridgeManifest|component-bridge" packages test playground README.md docs scripts --glob '!packages/convex/src/_generated/**'
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run test:package-consumer
+```
+
+Results:
+
+- `format:check` passed.
+- `check:publish-specifiers` passed.
+- `lint` passed after deleting the obsolete installer bridge boundary guard.
+- `vitest run test/module/ginko-cli.test.ts test/module/module-bridge.test.ts`
+  passed.
+- The bridge search now reports only `internal.ginkoCmsMcp.*` runtime MCP
+  references and tests. Those are not generated bridge files; they remain for
+  Phase 9 MCP cutover.
+
+Blocked broader checks:
+
+- `test:package-consumer` still fails while packing `@lupinum/ginko-cms-convex`
+  because the Convex component still imports `@lupinum/trellis/auth`,
+  `@lupinum/trellis/backend`, and `@lupinum/trellis/mcp`. That is Phase 5,
+  Phase 6, and Phase 9 work.
 
 ## Phase 5: Convex Builder And Identity Cutover
 

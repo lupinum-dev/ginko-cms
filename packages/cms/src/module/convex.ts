@@ -1,14 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-
-import { checkBridgeDrift, type BridgeDriftViolation } from '@lupinum/trellis-bridge'
-import {
-  renderComponentBridgeFile,
-  renderComponentBridgeFiles,
-  renderComponentBridgeManagedEdits,
-} from '@lupinum/trellis-bridge/manifest'
-
-import { ginkoCmsBridgeManifest } from './bridge-manifest.js'
+import { fileURLToPath } from 'node:url'
 
 export type ConvexSetupIssue = {
   name: string
@@ -16,14 +8,27 @@ export type ConvexSetupIssue = {
   fix: string
 }
 
-export type ConvexBridgeWriteResult = {
+export type ConvexSetupWriteResult = {
   written: string[]
-  managed: string[]
+  skipped: string[]
 }
 
 type CompatibilityMatrix = {
   tracked?: Record<string, string[]>
 }
+
+const setupFiles = [
+  'convex/convex.config.ts',
+  'convex/auth.ts',
+  'convex/auth.config.ts',
+  'convex/http.ts',
+  'convex/schema.ts',
+] as const
+
+const staleBridgePaths = [
+  ['convex', 'ginkoCms'].join('/'),
+  ['convex', `ginkoCms${'Mcp.ts'}`].join('/'),
+] as const
 
 const staleConvexConfigImports = [
   {
@@ -50,6 +55,30 @@ const requiredHostDependencies = [
     reason: 'convex/convex.config.ts imports the Ginko CMS Convex component directly.',
   },
 ] as const
+
+function locatePackageRoot(): string {
+  let current = dirname(fileURLToPath(import.meta.url))
+  while (true) {
+    const pkgPath = resolve(current, 'package.json')
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { name?: string }
+        if (pkg.name === '@lupinum/ginko-cms') return current
+      } catch {
+        // ignore unparseable package.json on the way up
+      }
+    }
+    const parent = dirname(current)
+    if (parent === current) {
+      throw new Error('Could not locate @lupinum/ginko-cms package root.')
+    }
+    current = parent
+  }
+}
+
+function templatePath(relativePath: string) {
+  return resolve(locatePackageRoot(), 'templates', relativePath)
+}
 
 function readCompatibilityMatrix(): CompatibilityMatrix {
   const candidates = [
@@ -86,10 +115,54 @@ function dependencyMap(packageJson: Record<string, unknown>): Record<string, str
   }
 }
 
+function staleBridgePathIssue(rootDir: string, relativePath: string): ConvexSetupIssue | null {
+  const target = resolve(rootDir, relativePath)
+  if (!existsSync(target)) return null
+  const stat = statSync(target)
+  return {
+    name: `stale bridge ${relativePath}`,
+    message: `${relativePath} is a stale generated bridge ${stat.isDirectory() ? 'directory' : 'file'}.`,
+    fix: `Delete ${relativePath}; Ginko CMS now calls the Convex component directly.`,
+  }
+}
+
+function checkStaleBridgeMarkers(rootDir: string): ConvexSetupIssue[] {
+  const issues: ConvexSetupIssue[] = []
+  for (const relativePath of ['convex/auth.ts', 'convex/http.ts', 'convex/convex.config.ts']) {
+    const source = readTextIfExists(resolve(rootDir, relativePath)) ?? ''
+    const generatedMarker = ['@trellis', 'bridge-package'].join('-')
+    const managedMarker = ['@trellis', 'managed'].join('-')
+    if (!source.includes(generatedMarker) && !source.includes(managedMarker)) {
+      continue
+    }
+    issues.push({
+      name: `stale bridge marker ${relativePath}`,
+      message: `${relativePath} still contains legacy generated markers.`,
+      fix: `Remove the Trellis bridge comments from ${relativePath} or recreate the file with pnpm exec ginko-cms init.`,
+    })
+  }
+  return issues
+}
+
 export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[] {
   const issues: ConvexSetupIssue[] = []
   const configPath = resolve(rootDir, 'convex/convex.config.ts')
   const configSource = existsSync(configPath) ? readFileSync(configPath, 'utf8') : ''
+
+  for (const relativePath of setupFiles) {
+    if (existsSync(resolve(rootDir, relativePath))) continue
+    issues.push({
+      name: `missing setup file ${relativePath}`,
+      message: `${relativePath} is missing.`,
+      fix: `Run pnpm exec ginko-cms init to create the direct Convex setup file.`,
+    })
+  }
+
+  for (const stalePath of staleBridgePaths) {
+    const issue = staleBridgePathIssue(rootDir, stalePath)
+    if (issue) issues.push(issue)
+  }
+  issues.push(...checkStaleBridgeMarkers(rootDir))
 
   for (const staleImport of staleConvexConfigImports) {
     if (!configSource.includes(staleImport.bad)) continue
@@ -128,88 +201,32 @@ export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[]
   return issues
 }
 
-export async function writeConvexBridgeFiles(rootDir: string): Promise<ConvexBridgeWriteResult> {
-  const files = await renderComponentBridgeFiles(ginkoCmsBridgeManifest)
-  const edits = await renderComponentBridgeManagedEdits(ginkoCmsBridgeManifest)
+export function writeConvexSetupFiles(rootDir: string): ConvexSetupWriteResult {
+  const written: string[] = []
+  const skipped: string[] = []
 
-  const fileWrites = files.map((file) => ({
-    relativePath: file.relativePath,
-    content: renderComponentBridgeFile(ginkoCmsBridgeManifest, file),
-  }))
-  const managedWrites = edits.map((edit) => {
-    const target = resolve(rootDir, edit.relativePath)
-    const existing = readTextIfExists(target)
-    return {
-      relativePath: edit.relativePath,
-      target,
-      existing,
-      next: edit.apply(existing),
+  for (const relativePath of setupFiles) {
+    const target = resolve(rootDir, relativePath)
+    if (existsSync(target)) {
+      skipped.push(relativePath)
+      continue
     }
-  })
-
-  for (const file of fileWrites) {
-    const target = resolve(rootDir, file.relativePath)
     mkdirSync(dirname(target), { recursive: true })
-    writeFileSync(target, file.content, 'utf8')
+    writeFileSync(target, readFileSync(templatePath(relativePath), 'utf8'), 'utf8')
+    written.push(relativePath)
   }
 
-  for (const edit of managedWrites) {
-    if (edit.next === edit.existing) continue
-    mkdirSync(dirname(edit.target), { recursive: true })
-    writeFileSync(edit.target, edit.next, 'utf8')
-  }
-
-  return {
-    written: fileWrites.map((file) => file.relativePath),
-    managed: managedWrites.map((edit) => edit.relativePath),
-  }
+  return { written, skipped }
 }
 
-async function readConvexBridgeState(rootDir: string): Promise<{
-  violations: BridgeDriftViolation[]
-  setupIssues: ConvexSetupIssue[]
-}> {
-  return {
-    violations: await checkBridgeDrift(ginkoCmsBridgeManifest, rootDir),
-    setupIssues: checkConvexComponentInstall(rootDir),
-  }
-}
-
-function throwConvexBridgeSetupError(
-  violations: BridgeDriftViolation[],
-  setupIssues: ConvexSetupIssue[],
-): never {
-  const lines = violations.map((violation) => {
-    const verb = violation.reason === 'missing' ? 'is missing' : 'is out of date'
-    return `${violation.relativePath} ${verb}.`
-  })
-  lines.push(...setupIssues.map((issue) => `${issue.message} ${issue.fix}`))
-  lines.push('Run the Ginko CMS setup step (`pnpm exec ginko-cms init`) and commit the result.')
+function throwConvexSetupError(setupIssues: ConvexSetupIssue[]): never {
+  const lines = setupIssues.map((issue) => `${issue.message} ${issue.fix}`)
+  lines.push('Run the Ginko CMS setup check (`pnpm exec ginko-cms doctor`) and commit the result.')
   throw new Error(lines.join('\n'))
 }
 
-export async function assertConvexBridgeInstalled(
-  rootDir: string,
-  options: { repair?: boolean } = {},
-) {
-  let state: Awaited<ReturnType<typeof readConvexBridgeState>>
-  try {
-    state = await readConvexBridgeState(rootDir)
-  } catch (error) {
-    if (!options.repair) throw error
-    await writeConvexBridgeFiles(rootDir)
-    state = await readConvexBridgeState(rootDir)
-  }
-
-  if (state.violations.length === 0 && state.setupIssues.length === 0) return
-
-  if (options.repair) {
-    await writeConvexBridgeFiles(rootDir)
-    state = await readConvexBridgeState(rootDir)
-  }
-
-  const { violations, setupIssues } = state
-  if (violations.length === 0 && setupIssues.length === 0) return
-
-  throwConvexBridgeSetupError(violations, setupIssues)
+export function assertConvexSetupInstalled(rootDir: string) {
+  const setupIssues = checkConvexComponentInstall(rootDir)
+  if (setupIssues.length === 0) return
+  throwConvexSetupError(setupIssues)
 }

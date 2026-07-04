@@ -5,7 +5,6 @@ import { pathToFileURL } from 'node:url'
 
 import { type CliRunner, type ConvexClientFactory, parseArgs, usage, write } from './args.js'
 import { runBackupCommand } from './backup.js'
-import { runBridgeCommand } from './bridge.js'
 import { resolveConvexCliBin, runNodeScript } from './convex.js'
 import { runDeployCommand } from './deploy.js'
 import { runDoctorCommand } from './doctor.js'
@@ -61,7 +60,11 @@ export async function runGinkoCmsCli(
     if (command === 'migrate') {
       return await runMigrateCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
-    if (command === 'bridge') return await runBridgeCommand(parsed.args, parsed.cwd, io)
+    if (command === 'bridge') {
+      throw new Error(
+        '`ginko-cms bridge` was removed. Use `pnpm exec ginko-cms init` and `pnpm exec ginko-cms doctor`.',
+      )
+    }
     if (command === 'convex') {
       const runner = options.runner ?? runNodeScript
       return await runner(resolveConvexCliBin(), parsed.args.slice(1), { cwd: parsed.cwd })

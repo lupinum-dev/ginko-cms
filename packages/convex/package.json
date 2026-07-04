@@ -35,10 +35,6 @@
       "types": "./dist/_generated/component.d.ts",
       "import": "./dist/_generated/component.js"
     },
-    "./component-bridge": {
-      "types": "./dist/componentBridge.d.ts",
-      "import": "./dist/componentBridge.js"
-    },
     "./operations": {
       "types": "./dist/operations.d.ts",
       "import": "./dist/operations.js"

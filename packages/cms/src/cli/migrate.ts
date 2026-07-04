@@ -6,8 +6,6 @@ import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { createJiti } from 'jiti'
 
-import { bridgeEntryFunctionRef } from '../bridge/create.js'
-import { entries as migrationBridgeEntries } from '../bridge/migrations.js'
 import { type CliIo, type ConvexClientFactory, hasFlag, stableJson, usage, write } from './args.js'
 import { deployKey, publicConvexUrl, readLocalEnv } from './env.js'
 import { withDeployKeyForwarding } from './forwarding.js'
@@ -38,10 +36,6 @@ type ContentMigrationEntryPage = {
   continueCursor: string | null
 }
 
-type MigrationBridgeFunctionRefs = {
-  [Entry in (typeof migrationBridgeEntries)[number] as Entry['exportName']]: string
-}
-
 type PlannedChange = {
   before: ContentMigrationEntry
   after: ContentMigrationEntry
@@ -62,9 +56,10 @@ type MigrationPlan = {
   errors: PlannedError[]
 }
 
-const migrationBridgeFunctionRefs = Object.fromEntries(
-  migrationBridgeEntries.map((entry) => [entry.exportName, bridgeEntryFunctionRef(entry)]),
-) as MigrationBridgeFunctionRefs
+const migrationFunctionRefs = {
+  listContentMigrationEntries: 'listContentMigrationEntriesInternal',
+  applyContentMigrationEntries: 'applyContentMigrationEntriesInternal',
+} as const
 
 function migrationSlug(input: string) {
   return input
@@ -253,7 +248,7 @@ async function fetchCollectionEntries(
     const result = (await client.query(
       anyApi.ginkoCms.migrations.listContentMigrationEntries,
       withDeployKeyForwarding(args, {
-        functionRef: migrationBridgeFunctionRefs.listContentMigrationEntries,
+        functionRef: migrationFunctionRefs.listContentMigrationEntries,
         purpose: 'query',
         identityForwardingKey,
         envelopeArgs: {},
@@ -397,7 +392,7 @@ async function applyMigrationPlan(
     const result = (await client.mutation(
       anyApi.ginkoCms.migrations.applyContentMigrationEntries,
       withDeployKeyForwarding(args, {
-        functionRef: migrationBridgeFunctionRefs.applyContentMigrationEntries,
+        functionRef: migrationFunctionRefs.applyContentMigrationEntries,
         purpose: 'mutation',
         identityForwardingKey,
         envelopeArgs: {},

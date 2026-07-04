@@ -17,8 +17,6 @@
   },
   "files": [
     "compatibility.json",
-    "convex/manifest.d.ts",
-    "convex/manifest.js",
     "dist",
     "LICENSE",
     "README.md",
@@ -30,10 +28,6 @@
     ".": {
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
-    },
-    "./convex/manifest": {
-      "types": "./convex/manifest.d.ts",
-      "import": "./convex/manifest.js"
     },
     "./convex/auth": {
       "types": "./dist/convex/auth.d.ts",
@@ -51,10 +45,6 @@
       "types": "./dist/migration/index.d.ts",
       "import": "./dist/migration/index.js"
     },
-    "./bridge": {
-      "types": "./dist/bridge/index.d.ts",
-      "import": "./dist/bridge/index.js"
-    },
     "./public": {
       "types": "./dist/public/index.d.ts",
       "import": "./dist/public/index.js"
@@ -68,10 +58,9 @@
     "access": "public"
   },
   "scripts": {
-    "build": "pnpm --filter @lupinum/ginko-cms-contract build && pnpm --filter @lupinum/ginko-cms-convex build && pnpm run prepare:bridge-manifest && pnpm exec nuxt-module-build build . && pnpm run build:extras && pnpm run studio:build",
+    "build": "pnpm --filter @lupinum/ginko-cms-contract build && pnpm --filter @lupinum/ginko-cms-convex build && pnpm exec nuxt-module-build build . && pnpm run build:extras && pnpm run studio:build",
     "build:extras": "node scripts/build-extras.mjs",
     "prepack": "pnpm run build",
-    "prepare:bridge-manifest": "node scripts/prepare-bridge-manifest.mjs",
     "studio:dev": "vite --config studio-app/vite.config.ts",
     "studio:build": "rm -rf dist/studio-app && vite build --config studio-app/vite.config.ts",
     "studio:typecheck": "vue-tsc -p studio-app/tsconfig.json --noEmit",
@@ -147,12 +136,5 @@
     "@lupinum/ginko-content": "^0.1.6",
     "nuxt": "^4.4.7",
     "vue": "^3.5.0"
-  },
-  "trellis": {
-    "integration": {
-      "ownsRuntime": true,
-      "label": "Ginko CMS",
-      "doctorCommand": "pnpm exec ginko-cms doctor"
-    }
   }
 }

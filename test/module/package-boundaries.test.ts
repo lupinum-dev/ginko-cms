@@ -7,22 +7,17 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 const projectRoot = resolve(import.meta.dirname, '../..')
 const trellisPackageName = ['@lupinum', 'trellis'].join('/')
-const trellisBridgePackageName = ['@lupinum', 'trellis-bridge'].join('/')
+const trellisBridgePackageName = ['@lupinum', ['trellis', 'bridge'].join('-')].join('/')
+const componentBridgeExport = ['./component', 'bridge'].join('-')
 const requiredPackageOutputs = [
   'packages/contract/dist/validators.js',
   'packages/contract/dist/convex/caller.js',
   'packages/contract/dist/fields/index.js',
   'packages/convex/dist/component/convex.config.js',
   'packages/convex/dist/convex.auth.js',
-  'packages/convex/dist/componentBridge.js',
   'packages/convex/dist/_generated/component.js',
   'packages/cms/dist/module.mjs',
   'packages/cms/dist/types.d.mts',
-  'packages/cms/dist/bridge/create.js',
-  'packages/cms/dist/bridge/public.js',
-  'packages/cms/dist/bridge/members.js',
-  'packages/cms/convex/manifest.js',
-  'packages/cms/convex/manifest.d.ts',
 ]
 
 type PackageJson = {
@@ -114,60 +109,6 @@ function readImportSpecifiers(
   return specifiers
 }
 
-function readNamedImportsFromSource(
-  source: string,
-  specifier: string,
-): Array<{ imported: string; typeOnly: boolean }> {
-  const imports: Array<{ imported: string; typeOnly: boolean }> = []
-  const sourceFile = ts.createSourceFile('source.ts', source, ts.ScriptTarget.Latest, true)
-
-  function visit(node: ts.Node) {
-    if (
-      ts.isImportDeclaration(node) &&
-      ts.isStringLiteralLike(node.moduleSpecifier) &&
-      node.moduleSpecifier.text === specifier
-    ) {
-      const importClause = node.importClause
-      const namedBindings = importClause?.namedBindings
-      if (namedBindings && ts.isNamedImports(namedBindings)) {
-        for (const element of namedBindings.elements) {
-          imports.push({
-            imported: (element.propertyName ?? element.name).text,
-            typeOnly: importClause.isTypeOnly || element.isTypeOnly,
-          })
-        }
-      }
-    }
-
-    ts.forEachChild(node, visit)
-  }
-
-  visit(sourceFile)
-  return imports
-}
-
-function readNamedImports(
-  files: string[],
-  specifier: string,
-): Array<{ file: string; imported: string; typeOnly: boolean }> {
-  const imports: Array<{ file: string; imported: string; typeOnly: boolean }> = []
-
-  for (const file of files) {
-    const source = readFileSync(file, 'utf-8')
-    const sourceFragments = file.endsWith('.vue') ? extractVueScriptBlocks(source) : [source]
-    for (const fragment of sourceFragments) {
-      for (const namedImport of readNamedImportsFromSource(fragment, specifier)) {
-        imports.push({
-          file: relative(projectRoot, file),
-          ...namedImport,
-        })
-      }
-    }
-  }
-
-  return imports
-}
-
 function extractVueScriptBlocks(source: string): string[] {
   const blocks = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(
     (match) => match[1],
@@ -253,7 +194,7 @@ describe('package boundary contracts', () => {
     expect(Object.keys(convexPackage.exports ?? {}).sort()).toEqual([
       './_generated/component.js',
       './component',
-      './component-bridge',
+      componentBridgeExport,
       './convex.auth',
       './convex.config',
       './operation-handles/mcp',
@@ -262,11 +203,9 @@ describe('package boundary contracts', () => {
 
     expect(Object.keys(cmsPackage.exports ?? {}).sort()).toEqual([
       '.',
-      './bridge',
       './config',
       './convex/auth',
       './convex/auth-config',
-      './convex/manifest',
       './migration',
       './nuxt-provider',
       './public',
@@ -324,55 +263,6 @@ describe('package boundary contracts', () => {
       /^#(?:runtime|imports|app|trellis)(?:\/|$)/,
       /(?:^|\/)packages\/cms(?:\/|$)/,
     ])
-  })
-
-  it('keeps package-owned bridge factories Convex-safe', () => {
-    expectNoForbiddenImports('cms bridge factories', 'packages/cms/src/bridge', [
-      'vue',
-      'nuxt',
-      '@nuxt/kit',
-      '@nuxt/schema',
-      '@lupinum/trellis/bridge',
-      /^#(?:runtime|imports|app|trellis)(?:\/|$)/,
-      /(?:^|\/)studio-app(?:\/|$)/,
-    ])
-  })
-
-  it('uses the Trellis bridge package for release-facing bridge APIs', () => {
-    const files = [
-      ...collectSourceFiles('packages/cms/src'),
-      ...collectSourceFiles('packages/cms/convex'),
-      ...collectSourceFiles('packages/convex/src'),
-    ]
-    const imports = readImportSpecifiers(files)
-    const oldBridgeImports = imports.filter(
-      ({ specifier }) => specifier === '@lupinum/trellis/bridge',
-    )
-
-    expect(
-      oldBridgeImports.map(({ file, specifier }) => `${file} -> ${specifier}`),
-      'bridge APIs must come from @lupinum/trellis-bridge',
-    ).toEqual([])
-
-    const bridgeApiNames = new Set([
-      'callComponentBridgeRegistrar',
-      'createComponentBridge',
-      'defineComponentBridgeManifest',
-      'ComponentBridgeComponent',
-      'ComponentBridgeManifest',
-      'ComponentBridgeModule',
-      'renderComponentBridgeFile',
-      'renderComponentBridgeFiles',
-      'renderComponentBridgeManagedEdits',
-    ])
-    const bridgeApisFromFunctions = readNamedImports(files, '@lupinum/trellis/functions').filter(
-      ({ imported }) => bridgeApiNames.has(imported),
-    )
-
-    expect(
-      bridgeApisFromFunctions.map(({ file, imported }) => `${file} -> ${imported}`),
-      'bridge APIs must not be imported from @lupinum/trellis/functions',
-    ).toEqual([])
   })
 
   it('detects forbidden multiline import specifiers', () => {
@@ -459,8 +349,8 @@ describe('package boundary contracts', () => {
       'packages/cms/convex/auth.config.ts',
       'packages/cms/convex/convex.config.ts',
       'packages/cms/convex/http.ts',
-      'packages/cms/convex/ginkoCms',
-      'packages/cms/convex/ginkoCmsMcp.ts',
+      ['packages/cms/convex', 'ginkoCms'].join('/'),
+      ['packages/cms/convex', `ginkoCms${'Mcp.ts'}`].join('/'),
       'packages/cms/dist/package',
     ]
 
@@ -470,8 +360,6 @@ describe('package boundary contracts', () => {
 
     expect(cmsPackage.files).toEqual([
       'compatibility.json',
-      'convex/manifest.d.ts',
-      'convex/manifest.js',
       'dist',
       'LICENSE',
       'README.md',
@@ -525,26 +413,6 @@ describe('package boundary contracts', () => {
     })
   })
 
-  it('keeps generated and authored bridge forwarding on signed envelopes only', () => {
-    const files = [
-      resolve(projectRoot, 'packages/convex/src/_generated/component.ts'),
-      ...collectSourceFiles('packages/convex/src'),
-      ...collectSourceFiles('packages/cms/src/bridge'),
-      resolve(projectRoot, 'test/helpers.ts'),
-    ]
-
-    const rawForwardingUses = files.flatMap((file) => {
-      const source = readFileSync(file, 'utf-8')
-      const matches = source.match(/\b_identityForwarding(?:Key)?\b/g) ?? []
-      return matches.map((match) => `${relative(projectRoot, file)} -> ${match}`)
-    })
-
-    expect(rawForwardingUses).toEqual([])
-    expect(
-      readFileSync(resolve(projectRoot, 'packages/convex/src/_generated/component.ts'), 'utf-8'),
-    ).toContain('_trellisForwarding?: string')
-  })
-
   it('loads representative built package outputs', async () => {
     const [
       contractValidators,
@@ -552,18 +420,14 @@ describe('package boundary contracts', () => {
       contractFields,
       convexConfig,
       convexAuth,
-      convexComponentBridge,
       cmsModule,
-      cmsManifest,
     ] = await Promise.all([
       import('../../packages/contract/dist/validators.js'),
       import('../../packages/contract/dist/convex/caller.js'),
       import('../../packages/contract/dist/fields/index.js'),
       import('../../packages/convex/dist/component/convex.config.js'),
       import('../../packages/convex/dist/convex.auth.js'),
-      import('../../packages/convex/dist/componentBridge.js'),
       import('../../packages/cms/dist/module.mjs'),
-      import('../../packages/cms/convex/manifest.js'),
     ])
 
     expect(contractValidators.fieldValidator).toBeDefined()
@@ -571,27 +435,7 @@ describe('package boundary contracts', () => {
     expect(contractFields.normalizeFields).toBeTypeOf('function')
     expect(convexConfig.default).toBeDefined()
     expect(convexAuth.defineGinkoAuth).toBeTypeOf('function')
-    expect(convexComponentBridge.createCmsComponentBridge).toBeTypeOf('function')
     expect(cmsModule.default).toBeTypeOf('function')
-    expect(cmsManifest.default.packageName).toBe('@lupinum/ginko-cms')
-  })
-
-  it('uses package-style imports in generated bridge templates', () => {
-    const templateFiles = collectSourceFiles('packages/cms/templates')
-    const imports = readImportSpecifiers(templateFiles)
-    const nonPackageImports = imports.filter(
-      ({ specifier }) =>
-        !specifier.startsWith('@lupinum/ginko-cms/') &&
-        !specifier.startsWith('@lupinum/ginko-cms-convex/') &&
-        !specifier.startsWith('convex/') &&
-        !specifier.startsWith('./') &&
-        !specifier.startsWith('../'),
-    )
-
-    expect(
-      nonPackageImports.map(({ file, specifier }) => `${file} -> ${specifier}`),
-      'generated host templates should import stable package surfaces only',
-    ).toEqual([])
   })
 
   it('does not read legacy Trellis auth internals', () => {

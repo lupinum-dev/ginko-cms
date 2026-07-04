@@ -55,10 +55,10 @@ Deploy the generated Convex functions and sync the collection contracts:
 pnpm exec ginko-cms deploy
 ```
 
-`ginko-cms deploy` runs the bridge check, starts the default local Convex
+`ginko-cms deploy` runs `ginko-cms doctor`, starts the default local Convex
 deploy command, then pushes collection contracts. For CI or read-only
 validation, run `pnpm exec ginko-cms deploy --check`; it skips the Convex deploy
-step and validates the bridge plus contract drift.
+step and validates setup plus contract drift.
 
 For the full setup path, see [Quickstart](./docs/getting-started/quickstart.md)
 and [Environment](./docs/getting-started/environment.md).
@@ -75,18 +75,16 @@ and [Environment](./docs/getting-started/environment.md).
 
 ## Generated Files
 
-`ginko-cms init` writes the host bridge files in:
+`ginko-cms init` writes the host-owned Convex setup files:
 
 - `convex/auth.ts`
 - `convex/auth.config.ts`
 - `convex/http.ts`
 - `convex/schema.ts`
-- `convex/ginkoCmsMcp.ts`
-- `convex/ginkoCms/*`
 - the Ginko CMS component registration in `convex/convex.config.ts`
 
 Keep `convex/convex.config.ts`, `convex/auth.config.ts`, and
-`convex/schema.ts` app-owned after the generated baseline is present. Those
+`convex/schema.ts` app-owned after the setup baseline is present. Those
 files are where the app registers Convex components, configures Better Auth
 providers, and defines app tables.
 

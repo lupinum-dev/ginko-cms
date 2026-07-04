@@ -17,7 +17,7 @@ import { defu } from 'defu'
 
 import { resolveConfiguredCollections } from './module/collections.js'
 import { loadGinkoContentProviderName } from './module/content-contract.js'
-import { assertConvexBridgeInstalled } from './module/convex.js'
+import { assertConvexSetupInstalled } from './module/convex.js'
 import {
   resolveLocaleSettings,
   assertI18nCompatibility,
@@ -260,7 +260,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     }
 
     // Convex backend wiring
-    await assertConvexBridgeInstalled(nuxt.options.rootDir, { repair: isNuxtPrepare() })
+    assertConvexSetupInstalled(nuxt.options.rootDir)
 
     const colorModeOptions =
       typeof moduleOptions.colorMode === 'object' && moduleOptions.colorMode !== null

@@ -19,7 +19,6 @@ import type * as collections_drift from "../collections/drift.js";
 import type * as collections_import from "../collections/import.js";
 import type * as collections_jobs from "../collections/jobs.js";
 import type * as collections_sync from "../collections/sync.js";
-import type * as componentBridge from "../componentBridge.js";
 import type * as crons from "../crons.js";
 import type * as diagnostics from "../diagnostics.js";
 import type * as editor from "../editor.js";
@@ -96,7 +95,6 @@ const fullApi: ApiFromModules<{
   "collections/import": typeof collections_import;
   "collections/jobs": typeof collections_jobs;
   "collections/sync": typeof collections_sync;
-  componentBridge: typeof componentBridge;
   crons: typeof crons;
   diagnostics: typeof diagnostics;
   editor: typeof editor;

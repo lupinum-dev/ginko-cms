@@ -14,8 +14,6 @@ import {
   packPackage,
   projectRoot,
   readPackageJson,
-  trellisBridgeRoot,
-  trellisRoot,
 } from './package-fixture'
 
 type CompatibilityMatrix = {
@@ -28,14 +26,15 @@ const contentDependency = cmsPackageJson.peerDependencies?.['@lupinum/ginko-cont
 const compatibilityMatrix = JSON.parse(
   readFileSync(join(projectRoot, 'packages/cms/compatibility.json'), 'utf8'),
 ) as CompatibilityMatrix
-const trellisDependency = compatibilityMatrix.releaseStack?.['@lupinum/trellis']
-const trellisBridgeDependency = compatibilityMatrix.releaseStack?.['@lupinum/trellis-bridge']
+const betterConvexNuxtDependency = compatibilityMatrix.releaseStack?.['better-convex-nuxt']
 
 if (!contentDependency) {
   throw new Error('Missing @lupinum/ginko-content peer dependency in @lupinum/ginko-cms.')
 }
-if (!trellisDependency || !trellisBridgeDependency) {
-  throw new Error('Missing Trellis release stack dependencies in packages/cms/compatibility.json.')
+if (!betterConvexNuxtDependency) {
+  throw new Error(
+    'Missing better-convex-nuxt release stack dependency in packages/cms/compatibility.json.',
+  )
 }
 
 type LoadedNuxt = Awaited<ReturnType<typeof loadNuxt>>
@@ -109,8 +108,6 @@ describe('ginko-cms package-first consumer fixture', () => {
     const contractTarball = packPackage(contractPackageRoot, tempDir)
     const convexTarball = packPackage(convexPackageRoot, tempDir)
     const contentTarball = packPackage(contentPackageRoot, tempDir)
-    const trellisTarball = packPackage(trellisRoot, tempDir)
-    const trellisBridgeTarball = packPackage(trellisBridgeRoot, tempDir)
     const cmsTarball = packPackage(cmsPackageRoot, tempDir)
 
     writeFileSync(
@@ -127,9 +124,8 @@ describe('ginko-cms package-first consumer fixture', () => {
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-          '@lupinum/trellis': `file:${trellisTarball}`,
-          '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
+          'better-convex-nuxt': betterConvexNuxtDependency,
         },
       }),
       'utf8',
@@ -140,8 +136,6 @@ describe('ginko-cms package-first consumer fixture', () => {
       '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
       '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
       '@lupinum/ginko-content': `file:${contentTarball}`,
-      '@lupinum/trellis': `file:${trellisTarball}`,
-      '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
     })
 
     execFileSync('pnpm', ['install'], { cwd: tempDir, stdio: 'inherit' })
@@ -164,7 +158,7 @@ describe('ginko-cms package-first consumer fixture', () => {
     }
   })
 
-  it('loads the published module entrypoint and validates host-owned bridge files', () => {
+  it('loads the published module entrypoint and validates host-owned setup files', () => {
     expect(nuxt).toBeDefined()
     if (!nuxt) throw new Error('Nuxt test instance was not loaded.')
     expect(nuxt.options.runtimeConfig.public.ginkoCms.route).toBe('/studio')

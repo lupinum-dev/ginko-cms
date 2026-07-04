@@ -30,13 +30,12 @@ import { defineApp } from 'convex/server'
 - `@lupinum/ginko-cms-convex/convex.config`
 - `@lupinum/ginko-cms-convex/convex.auth`
 - `@lupinum/ginko-cms-convex/component`
-- `@lupinum/ginko-cms-convex/component-bridge`
 - `@lupinum/ginko-cms-convex/operations`
 
 ## Scope
 
 The component package is not the app-facing Studio module. Use
-`@lupinum/ginko-cms` for Nuxt setup, CLI commands, generated bridge validation,
+`@lupinum/ginko-cms` for Nuxt setup, CLI commands, direct setup validation,
 and public provider integration. Do not import component internals directly from
 host app code.
 

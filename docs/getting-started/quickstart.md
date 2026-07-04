@@ -69,12 +69,10 @@ pnpm exec ginko-cms doctor
 - `convex/auth.config.ts`
 - `convex/http.ts`
 - `convex/schema.ts`
-- `convex/ginkoCmsMcp.ts`
-- `convex/ginkoCms/*`
 - the Ginko CMS component registration in `convex/convex.config.ts`
 
 Keep `convex/convex.config.ts`, `convex/auth.config.ts`, and
-`convex/schema.ts` app-owned after the generated baseline is present. Add
+`convex/schema.ts` app-owned after the setup baseline is present. Add
 app-specific Better Auth providers in `convex/auth.config.ts` and app tables in
 `convex/schema.ts`.
 
@@ -121,7 +119,7 @@ contracts with one command:
 pnpm exec ginko-cms deploy
 ```
 
-`ginko-cms deploy` runs the bridge check, the default local Convex deploy command
+`ginko-cms deploy` runs `ginko-cms doctor`, the default local Convex deploy command
 (`convex dev --once --tail-logs disable --typecheck disable`), then contract
 sync. Successful setup prints that the collection contracts are installed.
 

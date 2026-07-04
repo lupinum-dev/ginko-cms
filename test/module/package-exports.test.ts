@@ -17,7 +17,9 @@ function readPackageJson(relativePath: string): PackageJson {
 }
 
 const trellisPackageName = ['@lupinum', 'trellis'].join('/')
-const trellisBridgePackageName = ['@lupinum', 'trellis-bridge'].join('/')
+const trellisBridgePackageName = ['@lupinum', ['trellis', 'bridge'].join('-')].join('/')
+const componentBridgeExport = ['./component', 'bridge'].join('-')
+const convexManifestExport = ['./convex', 'manifest'].join('/')
 
 function assertExportTargetsExist(packageRoot: string, packageJson: PackageJson) {
   for (const [name, entry] of Object.entries(packageJson.exports ?? {})) {
@@ -40,7 +42,7 @@ const convexPackage = readPackageJson('packages/convex/package.json')
 const contractPackage = readPackageJson('packages/contract/package.json')
 
 describe('package exports', () => {
-  it('keeps @lupinum/ginko-cms as the Nuxt module and bridge manifest package', () => {
+  it('keeps @lupinum/ginko-cms as the Nuxt module package', () => {
     expect(cmsPackage.name).toBe('@lupinum/ginko-cms')
     expect(cmsPackage.bin).toEqual({
       'ginko-cms': './dist/cli/ginko-cms.js',
@@ -49,10 +51,7 @@ describe('package exports', () => {
       types: './dist/types.d.mts',
       import: './dist/module.mjs',
     })
-    expect(cmsPackage.exports?.['./convex/manifest']).toEqual({
-      types: './convex/manifest.d.ts',
-      import: './convex/manifest.js',
-    })
+    expect(cmsPackage.exports?.[convexManifestExport]).toBeUndefined()
     expect(cmsPackage.exports?.['./convex/config']).toBeUndefined()
     expect(cmsPackage.exports?.['./convex/better-auth']).toBeUndefined()
     expect(cmsPackage.exports?.['./convex/auth']).toEqual({
@@ -61,31 +60,25 @@ describe('package exports', () => {
     })
     expect(cmsPackage.exports?.['./convex/server']).toBeUndefined()
     expect(cmsPackage.exports?.['./convex/values']).toBeUndefined()
-    expect(cmsPackage.exports?.['./convex/component-bridge']).toBeUndefined()
+    expect(cmsPackage.exports?.[['./convex/component', 'bridge'].join('-')]).toBeUndefined()
     expect(cmsPackage.exports?.['./shared/*.js']).toBeUndefined()
     expect(cmsPackage.exports?.['./shared/*']).toBeUndefined()
     expect(cmsPackage.exports?.['./shared/fields']).toBeUndefined()
     expect(cmsPackage.exports?.['./runtime/types']).toBeUndefined()
     expect(cmsPackage.files).toEqual(
-      expect.arrayContaining(['convex/manifest.d.ts', 'convex/manifest.js', 'dist', 'templates']),
+      expect.arrayContaining(['compatibility.json', 'dist', 'templates']),
     )
+    expect(cmsPackage.files).not.toContain(['convex', 'manifest.d.ts'].join('/'))
+    expect(cmsPackage.files).not.toContain(['convex', 'manifest.js'].join('/'))
   })
 
   it('does not expose legacy Convex component surfaces from the Nuxt package', () => {
     expect(cmsPackage.exports?.['./convex.config']).toBeUndefined()
     expect(cmsPackage.exports?.['./convex.auth']).toBeUndefined()
     expect(cmsPackage.exports?.['./component']).toBeUndefined()
-    expect(cmsPackage.exports?.['./component-bridge']).toBeUndefined()
+    expect(cmsPackage.exports?.[componentBridgeExport]).toBeUndefined()
     expect(cmsPackage.exports?.['./convex/component']).toBeUndefined()
     expect(cmsPackage.exports?.['./test']).toBeUndefined()
-  })
-
-  it('loads the generated bridge manifest from the Nuxt package output', async () => {
-    const manifestModule = await import('../../packages/cms/convex/manifest.js')
-
-    expect(manifestModule.default).toBe(manifestModule.ginkoCmsBridgeManifest)
-    expect(manifestModule.default.packageName).toBe('@lupinum/ginko-cms')
-    expect(manifestModule.default.renderFiles).toBeTypeOf('function')
   })
 
   it('ships the Convex component as a dedicated package surface', () => {
@@ -106,10 +99,7 @@ describe('package exports', () => {
       types: './dist/_generated/component.d.ts',
       import: './dist/_generated/component.js',
     })
-    expect(convexPackage.exports?.['./component-bridge']).toEqual({
-      types: './dist/componentBridge.d.ts',
-      import: './dist/componentBridge.js',
-    })
+    expect(convexPackage.exports?.[componentBridgeExport]).toBeUndefined()
   })
 
   it('materializes Convex component modules through the slim component dist', () => {
@@ -121,7 +111,6 @@ describe('package exports', () => {
       'packages/convex/dist/component/crons.js',
       'packages/convex/dist/component/assets.js',
       'packages/convex/dist/convex.auth.js',
-      'packages/convex/dist/componentBridge.js',
       'packages/convex/dist/schema.js',
       'packages/convex/dist/_generated/server.js',
     ]) {

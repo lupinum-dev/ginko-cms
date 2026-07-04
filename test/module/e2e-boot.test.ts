@@ -5,23 +5,19 @@
  * installed, then asserts on the resulting Nuxt options, hooks, and runtime
  * config — without needing a running Convex backend.
  *
- * We create a disposable fixture in a temp directory and pre-install the
- * generated bridge files so validation-only module setup can succeed without
+ * We create a disposable fixture in a temp directory and pre-install the direct
+ * Convex setup files so validation-only module setup can succeed without
  * mutating repo fixtures.
  */
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import {
-  renderComponentBridgeFile,
-  renderComponentBridgeFiles,
-} from '@lupinum/trellis-bridge/manifest'
 import { loadNuxt } from '@nuxt/kit'
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 
-import { ginkoCmsBridgeManifest } from '../../packages/cms/src/module/bridge-manifest.js'
+import { installBridge } from './bridge-helpers.js'
 
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url))
 const modulePath = resolve(projectRoot, 'packages/cms/src/module')
@@ -73,21 +69,7 @@ describe('ginko-cms module e2e boot', () => {
       'utf-8',
     )
 
-    for (const file of await renderComponentBridgeFiles(ginkoCmsBridgeManifest)) {
-      const target = join(tempDir, file.relativePath)
-      mkdirSync(dirname(target), { recursive: true })
-      writeFileSync(target, renderComponentBridgeFile(ginkoCmsBridgeManifest, file), 'utf8')
-    }
-
-    const edits =
-      typeof ginkoCmsBridgeManifest.managedEdits === 'function'
-        ? await ginkoCmsBridgeManifest.managedEdits()
-        : (ginkoCmsBridgeManifest.managedEdits ?? [])
-    for (const edit of edits) {
-      const target = join(tempDir, edit.relativePath)
-      mkdirSync(dirname(target), { recursive: true })
-      writeFileSync(target, edit.apply(null), 'utf8')
-    }
+    await installBridge(tempDir)
 
     // Symlink node_modules from project root so loadNuxt can resolve dependencies
     symlinkSync(resolve(projectRoot, 'node_modules'), join(tempDir, 'node_modules'))

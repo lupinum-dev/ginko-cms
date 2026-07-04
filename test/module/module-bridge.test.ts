@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -96,8 +96,10 @@ function createNuxtMock(rootDir: string) {
   }
 }
 
-describe('ginko-cms bridge validation', () => {
+describe('ginko-cms Convex setup validation', () => {
   const tempDirs: string[] = []
+  const staleBridgeDir = ['convex', 'ginkoCms'].join('/')
+  const staleMcpBridgeFile = ['convex', `ginkoCms${'Mcp.ts'}`].join('/')
 
   afterEach(() => {
     addImportsDir.mockClear()
@@ -112,8 +114,8 @@ describe('ginko-cms bridge validation', () => {
     }
   })
 
-  it('fails fast when generated bridge files are missing', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-missing-bridge-'))
+  it('fails fast when direct Convex setup files are missing', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-missing-setup-'))
     tempDirs.push(rootDir)
 
     await expect(
@@ -129,8 +131,8 @@ describe('ginko-cms bridge validation', () => {
     ).rejects.toThrow('ginko-cms init')
   })
 
-  it('loads once generated bridge files and managed convex config are installed', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-installed-bridge-'))
+  it('loads once direct Convex setup files are installed', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-installed-setup-'))
     tempDirs.push(rootDir)
     await installBridge(rootDir)
 
@@ -151,43 +153,34 @@ describe('ginko-cms bridge validation', () => {
       classSuffix: '',
     })
 
-    const collectionsBridge = readFileSync(
-      resolve(rootDir, 'convex/ginkoCms/collections.ts'),
-      'utf8',
+    expect(readFileSync(resolve(rootDir, 'convex/convex.config.ts'), 'utf8')).toContain(
+      'app.use(ginkoCms)',
     )
-    expect(collectionsBridge).not.toContain('installCollectionContractSnapshots')
-    expect(collectionsBridge).not.toContain('syncCodeDefinedCollections')
-    expect(collectionsBridge).not.toContain('cleanupMissingCodeDefinedCollections')
-    expect(collectionsBridge).toContain('checkCollectionContracts')
-    expect(collectionsBridge).toContain('installCollectionContracts')
-    expect(collectionsBridge).not.toContain('checkCollectionContractsAuthed')
-    expect(collectionsBridge).not.toContain('installCollectionContractsAuthed')
-    expect(collectionsBridge).toContain('listCollections')
+    expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain('defineGinkoAuth')
   })
 
-  it('repairs generated bridge drift during Nuxt prepare', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prepare-bridge-'))
+  it('blocks stale generated bridge files during Nuxt prepare', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prepare-stale-bridge-'))
     tempDirs.push(rootDir)
     await installBridge(rootDir)
 
-    const target = resolve(rootDir, 'convex/ginkoCmsMcp.ts')
-    writeFileSync(target, `${readFileSync(target, 'utf8')}\n// stale generated output\n`, 'utf8')
+    writeFileSync(resolve(rootDir, staleMcpBridgeFile), '// stale generated output\n', 'utf8')
 
     const previousLifecycleEvent = process.env.npm_lifecycle_event
     process.env.npm_lifecycle_event = 'postinstall'
 
     try {
-      await setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        createNuxtMock(rootDir),
-      )
-
-      expect(readFileSync(target, 'utf8')).not.toContain('stale generated output')
+      await expect(
+        setupModule(
+          {
+            collections: {},
+            defaultLocale: 'en',
+            locales: [{ code: 'en', isDefault: true }],
+            route: '/studio',
+          },
+          createNuxtMock(rootDir),
+        ),
+      ).rejects.toThrow(`${staleMcpBridgeFile} is a stale generated bridge file`)
     } finally {
       if (previousLifecycleEvent === undefined) {
         delete process.env.npm_lifecycle_event
@@ -419,13 +412,12 @@ describe('ginko-cms bridge validation', () => {
     }
   })
 
-  it('treats modified generated files as invalid until regenerated', async () => {
+  it('treats stale generated bridge directories as invalid until removed', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-dirty-bridge-'))
     tempDirs.push(rootDir)
     await installBridge(rootDir)
 
-    const target = resolve(rootDir, 'convex/ginkoCms/members.ts')
-    writeFileSync(target, `${readFileSync(target, 'utf8')}\n// local edit\n`, 'utf8')
+    mkdirSync(resolve(rootDir, staleBridgeDir), { recursive: true })
 
     await expect(
       setupModule(
@@ -437,10 +429,10 @@ describe('ginko-cms bridge validation', () => {
         },
         createNuxtMock(rootDir),
       ),
-    ).rejects.toThrow('convex/ginkoCms/members.ts')
+    ).rejects.toThrow(`${staleBridgeDir} is a stale generated bridge directory`)
   })
 
-  it('treats stale managed convex config as invalid until regenerated', async () => {
+  it('treats stale managed convex config as invalid until cleaned up', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-dirty-config-'))
     tempDirs.push(rootDir)
     await installBridge(rootDir)

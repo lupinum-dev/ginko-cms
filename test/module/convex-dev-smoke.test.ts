@@ -13,8 +13,6 @@ import {
   packPackage,
   projectRoot,
   readPackageJson,
-  trellisBridgeRoot,
-  trellisRoot,
 } from './package-fixture'
 
 const shouldRun = process.env.GINKO_CMS_RUN_CONVEX_DEV_SMOKE === '1'
@@ -43,7 +41,6 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
     const contractTarball = packPackage(contractPackageRoot, tempDir)
     const convexTarball = packPackage(convexPackageRoot, tempDir)
     const cmsTarball = packPackage(cmsPackageRoot, tempDir)
-    const trellisBridgeTarball = packPackage(trellisBridgeRoot, tempDir)
 
     writeFileSync(
       join(tempDir, 'package.json'),
@@ -56,7 +53,7 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
           '@lupinum/ginko-content': `file:${contentTarball}`,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-          '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
+          'better-convex-nuxt': '0.4.0',
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
           nuxt: workspacePackageJson.devDependencies.nuxt,
         },
@@ -64,8 +61,6 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
           overrides: {
             '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
             '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-            '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
-            '@lupinum/trellis': `file:${trellisRoot}`,
           },
         },
       }),

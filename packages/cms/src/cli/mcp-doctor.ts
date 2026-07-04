@@ -17,7 +17,6 @@ export async function runMcpDoctor(cwd: string, io: CliIo): Promise<number> {
   let issues = 0
   const env = readLocalEnv(cwd)
   const hasEnv = (key: string) => Boolean((process.env[key] ?? env[key])?.trim())
-  const bridgeCode = readIfExists(resolve(cwd, 'convex/ginkoCmsMcp.ts')) ?? ''
   const convexSetupIssues = checkConvexComponentInstall(cwd)
   const checks = [
     {
@@ -34,14 +33,6 @@ export async function runMcpDoctor(cwd: string, io: CliIo): Promise<number> {
       name: 'secure-exec host dependency',
       ok: hasHostDependency(cwd, 'secure-exec'),
       fix: 'Add "secure-exec": "^0.2.1" to dependencies. Nuxt MCP code mode resolves it from the host app root at runtime.',
-    },
-    {
-      name: 'generated MCP bridge',
-      ok:
-        bridgeCode.includes('consumeToken') &&
-        bridgeCode.includes('previewPublishEntryOperation') &&
-        bridgeCode.includes('publishEntry'),
-      fix: 'Run: pnpm exec ginko-cms init',
     },
     {
       name: 'direct Convex component imports and dependencies',

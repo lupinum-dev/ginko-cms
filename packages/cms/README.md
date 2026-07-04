@@ -33,8 +33,7 @@ pnpm exec ginko-cms doctor
 ```
 
 The CLI manages `convex/auth.ts`, `convex/auth.config.ts`, `convex/http.ts`,
-`convex/schema.ts`, `convex/ginkoCmsMcp.ts`, `convex/ginkoCms/*`, and the
-Ginko CMS component registration in `convex/convex.config.ts`.
+`convex/schema.ts` and the Ginko CMS component registration in `convex/convex.config.ts`.
 
 Before deploying or pushing contracts, provide Convex admin auth and the
 generated bridge forwarding secret:
@@ -52,20 +51,18 @@ Deploy the generated Convex functions and install collection contracts:
 pnpm exec ginko-cms deploy
 ```
 
-`pnpm exec ginko-cms deploy` runs the bridge check, the default local Convex
+`pnpm exec ginko-cms deploy` runs `ginko-cms doctor`, the default local Convex
 deploy command, and collection contract sync in the required order. Use
 `pnpm exec ginko-cms deploy --check` for CI validation that must not run a Convex
 deploy.
 
 `pnpm exec ginko-cms doctor` is the canonical local and CI validation command.
-`pnpm exec ginko-cms bridge check` and `pnpm exec ginko-cms bridge inspect` are
-maintainer diagnostics for generated files and managed edits.
 
 ## What It Owns
 
 - Studio routes, layout, and runtime components.
 - CMS setup CLI commands.
-- Host bridge manifest and generated-file validation.
+- Direct Convex setup validation.
 - Filesystem migration helpers.
 - Public CMS provider integration.
 - Tailwind v4 integration for the CMS UI.

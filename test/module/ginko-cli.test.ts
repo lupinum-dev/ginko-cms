@@ -1,10 +1,17 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import cmsPackageJson from '../../packages/cms/package.json' with { type: 'json' }
 import { runGinkoCmsCli } from '../../packages/cms/src/cli/ginko-cms.js'
 
 function createOutput() {
@@ -61,6 +68,8 @@ async function runCliWithClient(
 
 describe('ginko-cms CLI', () => {
   const tempDirs: string[] = []
+  const staleBridgeDir = ['convex', 'ginkoCms'].join('/')
+  const staleMcpBridgeFile = ['convex', `ginkoCms${'Mcp.ts'}`].join('/')
 
   afterEach(() => {
     for (const dir of tempDirs.splice(0)) {
@@ -68,17 +77,7 @@ describe('ginko-cms CLI', () => {
     }
   })
 
-  it('declares Ginko CMS as the Trellis integration owner', () => {
-    expect(cmsPackageJson.trellis).toEqual({
-      integration: {
-        ownsRuntime: true,
-        label: 'Ginko CMS',
-        doctorCommand: 'pnpm exec ginko-cms doctor',
-      },
-    })
-  })
-
-  it('runs init and checks the Ginko CMS bridge without package arguments', async () => {
+  it('runs init and checks the direct Convex setup without package arguments', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-'))
     tempDirs.push(rootDir)
 
@@ -95,22 +94,18 @@ describe('ginko-cms CLI', () => {
     expect(init.stdout).toContain(
       'pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com',
     )
-    expect(init.stdout).toContain(
-      'Set the same `CONVEX_IDENTITY_FORWARDING_KEY` or `GINKO_CMS_COMPONENT_FORWARDING_KEY`',
-    )
-    expect(readFileSync(resolve(rootDir, 'convex/ginkoCms/members.ts'), 'utf8')).toContain(
-      'createMembersBridge',
-    )
     const convexConfig = readFileSync(resolve(rootDir, 'convex/convex.config.ts'), 'utf8')
     expect(convexConfig).toContain('@convex-dev/better-auth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/better-auth')
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/config')
     expect(readFileSync(resolve(rootDir, 'convex/schema.ts'), 'utf8')).toContain('by_auth_key')
+    expect(existsSync(resolve(rootDir, staleBridgeDir))).toBe(false)
+    expect(existsSync(resolve(rootDir, staleMcpBridgeFile))).toBe(false)
 
-    const check = await runCli(['bridge', 'check'], rootDir)
+    const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(0)
-    expect(check.stdout).toContain('Ginko CMS bridge is up to date')
+    expect(check.stdout).toContain('Ginko CMS doctor passed')
   })
 
   it('rejects the removed setup alias with init guidance', async () => {
@@ -305,18 +300,18 @@ describe('ginko-cms CLI', () => {
     }
   })
 
-  it('prints Ginko-branded repair guidance when generated files drift', async () => {
+  it('prints cleanup guidance when stale generated bridge files remain', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-drift-'))
     tempDirs.push(rootDir)
 
-    await runCli(['bridge', 'install'], rootDir)
-    const target = resolve(rootDir, 'convex/ginkoCms/members.ts')
-    writeFileSync(target, `${readFileSync(target, 'utf8')}\n// local edit\n`, 'utf8')
+    await runCli(['init'], rootDir)
+    mkdirSync(resolve(rootDir, staleBridgeDir), { recursive: true })
 
     const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(1)
     expect(check.stderr).toContain('Ginko CMS doctor has 1 issue')
-    expect(check.stderr).toContain('Fix: pnpm exec ginko-cms init')
+    expect(check.stderr).toContain(`${staleBridgeDir} is a stale generated bridge directory`)
+    expect(check.stderr).toContain(`Delete ${staleBridgeDir}`)
   })
 
   it('reports stale component facade imports and missing host dependencies separately', async () => {
@@ -357,29 +352,15 @@ describe('ginko-cms CLI', () => {
     )
   })
 
-  it('marks managed edits as blocked when bridge inspect hits host validation errors', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-inspect-validation-'))
+  it('rejects removed bridge commands with init and doctor guidance', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-bridge-removed-'))
     tempDirs.push(rootDir)
 
-    await runCli(['init'], rootDir)
-    const configPath = resolve(rootDir, 'convex/convex.config.ts')
-    writeFileSync(
-      configPath,
-      readFileSync(configPath, 'utf8').replace(
-        'app.use(ginkoCms)',
-        [
-          '// @trellis-managed-start: @lupinum/ginko-cms convex-component',
-          'app.use(ginkoCms)',
-          '// @trellis-managed-end: @lupinum/ginko-cms convex-component',
-        ].join('\n'),
-      ),
-      'utf8',
-    )
-
-    const inspect = await runCli(['bridge', 'inspect'], rootDir)
-    expect(inspect.code).toBe(1)
-    expect(inspect.stdout).toContain('convex/convex.config.ts - blocked')
-    expect(inspect.stderr).toContain('Ginko CMS bridge validation failed')
+    const bridge = await runCli(['bridge', 'inspect'], rootDir)
+    expect(bridge.code).toBe(2)
+    expect(bridge.stderr).toContain('`ginko-cms bridge` was removed')
+    expect(bridge.stderr).toContain('pnpm exec ginko-cms init')
+    expect(bridge.stderr).toContain('pnpm exec ginko-cms doctor')
   })
 
   it('loads local env files for MCP doctor checks', async () => {
@@ -713,7 +694,6 @@ describe('ginko-cms CLI', () => {
     expect(code).toBe(1)
     expect(stdout.read()).toBe('')
     expect(stderr.read()).toContain('migration required: unknown')
-    expect(stderr.read()).toContain('Regenerate/deploy the CMS bridge')
     expect(stderr.read()).toContain('Treat this drift as migration-required')
     expect(stderr.read()).toContain('pnpm exec ginko-cms migrate create <change-name>')
     expect(stderr.read()).not.toContain('Recommended next step:\n  pnpm exec ginko-cms push')

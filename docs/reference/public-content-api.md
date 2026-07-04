@@ -343,7 +343,7 @@ pnpm --filter @lupinum/ginko-cms-contract typecheck
 pnpm --filter @lupinum/ginko-cms-convex typecheck
 pnpm --filter @lupinum/ginko-cms typecheck
 pnpm run test:public-content -- --reporter=dot
-pnpm -C playground exec ginko-cms bridge check
+pnpm -C playground exec ginko-cms doctor
 pnpm -C playground build
 pnpm run format:check
 git diff --check

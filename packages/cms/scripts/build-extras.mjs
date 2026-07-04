@@ -11,17 +11,7 @@ import { mkdist } from 'mkdist'
 const here = dirname(fileURLToPath(import.meta.url))
 const pkgRoot = resolve(here, '..')
 
-const extras = [
-  'auth',
-  'bridge',
-  'cli',
-  'config',
-  'convex',
-  'migration',
-  'module',
-  'public',
-  'server',
-]
+const extras = ['auth', 'cli', 'config', 'convex', 'migration', 'module', 'public', 'server']
 
 function walkFiles(directory) {
   const entries = []
