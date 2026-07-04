@@ -1,6 +1,6 @@
 # ADR 0003: Ginko Owns Install Experience, Trellis Is Internal
 
-Status: Accepted
+Status: Superseded by [ADR 0016](./0016-direct-convex-better-auth-cutover.md)
 
 ## Context
 
@@ -19,3 +19,7 @@ Ginko CMS wherever possible.
 Public docs should minimize Trellis concepts. When a Trellis command is still
 the implementation path, explain it as a Ginko CMS setup/validation step rather
 than as a separate product users need to understand.
+
+Superseded note: Trellis is no longer an internal implementation dependency for
+Ginko CMS. The current architecture uses direct Convex, Better Auth, and
+`better-convex-nuxt` wiring.

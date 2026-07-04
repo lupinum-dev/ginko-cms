@@ -131,7 +131,7 @@ The HTTP facade validates input before calling Convex:
 - other string query values are at most 512 characters.
 - numeric query values must be integers.
 
-Route metadata is a provider/bridge operation for Nuxt content rendering, not an
+Route metadata is a provider-only operation for Nuxt content rendering, not an
 HTTP facade endpoint. The HTTP facade intentionally exposes page and list-style
 published reads only; route metadata stays inside the content provider contract
 unless a separate external consumer need proves otherwise.

@@ -10,7 +10,7 @@
   "tracked": {
     "@convex-dev/better-auth": ["^0.12.2", "0.12.2"],
     "@nuxtjs/mcp-toolkit": ["^0.16.1", "0.16.1", ">=0.16.1"],
-    "better-auth": ["1.6.11"],
+    "better-auth": ["1.6.11", ">=1.6.9 <1.7.0"],
     "better-convex-nuxt": ["0.4.0", "^0.4.0"],
     "convex": ["1.38.0", "^1.38.0"],
     "convex-helpers": ["^0.1.117", "0.1.117"],

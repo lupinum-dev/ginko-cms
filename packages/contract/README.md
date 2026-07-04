@@ -31,8 +31,8 @@ validators used by the CMS module and Convex component.
 
 ## Scope
 
-This package must stay free of Nuxt, Vue, Studio UI, generated host bridge
-files, and CMS runtime implementation details. App teams normally install it
+This package must stay free of Nuxt, Vue, Studio UI, generated host setup files,
+and CMS runtime implementation details. App teams normally install it
 through `@lupinum/ginko-cms`; package and component code import it directly
 only when they need the neutral contract surface.
 

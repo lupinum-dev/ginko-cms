@@ -21,7 +21,7 @@ export default defineMcpResource({
           '',
           'Ginko stores destructive confirmation state in Convex. The token returned by preview is an opaque lookup key; the trusted operation, caller, args, preview hash, and version data live in the backend row.',
           '',
-          'Production needs `CONVEX_DEPLOY_KEY` for MCP server-to-Convex calls, and the generated MCP bridge must export the preview and execute functions used by the tools.',
+          'Production needs `CONVEX_DEPLOY_KEY` for MCP server-to-Convex calls. MCP tools use explicit CMS Convex component refs for preview and execute functions.',
         ].join('\n'),
       },
     ],

@@ -1074,33 +1074,33 @@ Objective: make the public story match the new architecture.
 
 Docs to update:
 
-- [ ] `README.md`
-- [ ] `docs/getting-started/quickstart.md`
-- [ ] `docs/getting-started/environment.md`
-- [ ] `docs/reference/public-content-api.md`
-- [ ] `docs/reference/nuxt-content-provider.md`
-- [ ] `docs/maintenance/release-candidate.md`
-- [ ] package READMEs
-- [ ] compatibility metadata
-- [ ] changelog or migration notes
+- [x] `README.md`
+- [x] `docs/getting-started/quickstart.md`
+- [x] `docs/getting-started/environment.md`
+- [x] `docs/reference/public-content-api.md`
+- [x] `docs/reference/nuxt-content-provider.md`
+- [x] `docs/maintenance/release-candidate.md`
+- [x] package READMEs
+- [x] compatibility metadata
+- [x] changelog or migration notes
 
 ADRs:
 
-- [ ] Supersede `adr/0003-ginko-owns-install-experience-trellis-is-internal.md`.
-- [ ] State that Ginko CMS now uses direct Convex + Better Auth +
+- [x] Supersede `adr/0003-ginko-owns-install-experience-trellis-is-internal.md`.
+- [x] State that Ginko CMS now uses direct Convex + Better Auth +
       `better-convex-nuxt`.
-- [ ] State that CMS invariants remain in the Convex component.
-- [ ] State that generated Trellis bridges and forwarding keys are removed.
+- [x] State that CMS invariants remain in the Convex component.
+- [x] State that generated Trellis bridges and forwarding keys are removed.
 
 Docs must say:
 
-- [ ] Ginko CMS uses Convex, Better Auth, and `better-convex-nuxt`.
-- [ ] `CONVEX_DEPLOY_KEY` is setup/admin transport authority, not CMS member
+- [x] Ginko CMS uses Convex, Better Auth, and `better-convex-nuxt`.
+- [x] `CONVEX_DEPLOY_KEY` is setup/admin transport authority, not CMS member
       authority.
-- [ ] `GINKO_FIRST_OWNER_EMAIL` remains for first-owner bootstrap.
-- [ ] Forwarding keys are deleted.
-- [ ] Old `convex/ginkoCms*` files should be removed during migration.
-- [ ] No new setup step mentions Trellis.
+- [x] `GINKO_FIRST_OWNER_EMAIL` remains for first-owner bootstrap.
+- [x] Forwarding keys are deleted.
+- [x] Old `convex/ginkoCms*` files should be removed during migration.
+- [x] No new setup step mentions Trellis.
 
 Verification:
 
@@ -1122,6 +1122,37 @@ Exit criteria:
 - Docs, package metadata, compatibility metadata, and package E2E describe the
   same dependency set.
 - The migration guide explains stale-file cleanup without providing a dual path.
+
+Implementation evidence:
+
+- README, package README, and quickstart install snippets now include
+  `better-convex-nuxt` as a direct host dependency.
+- Public provider docs now describe direct Ginko CMS Convex component reads
+  instead of a Convex public bridge.
+- Backup/MCP docs now distinguish owner-authenticated operations from
+  deploy-key setup/admin transport without referencing generated MCP bridges.
+- `docs/getting-started/_category_.json` and the playground landing page now
+  describe direct Convex/Better Auth/better-convex-nuxt setup.
+- ADR 0003 is superseded and ADR 0016 records the direct Convex + Better Auth +
+  `better-convex-nuxt` cutover, CMS invariant ownership, and removed generated
+  Trellis bridge/forwarding-key surfaces.
+- Compatibility metadata now allows the existing `better-auth` peer range and
+  continues to pin `better-convex-nuxt`.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run check:docs:install-story
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run check:compatibility-matrix
+rg -n "Trellis|trellis|#trellis|@lupinum/trellis|trellis-bridge|_trellisForwarding|CONVEX_IDENTITY_FORWARDING_KEY|GINKO_CMS_COMPONENT_FORWARDING_KEY|convex/ginkoCms|ginkoCmsMcp|generated bridge|Convex bridge|provider/bridge" README.md packages/*/README.md docs adr playground/app/pages/index.vue packages/cms/src/server/mcp/resources/agent/publish-safety-guide.ts scripts/check-docs-install-story.mjs
+```
+
+Results:
+
+- Install-story consistency check passed.
+- Compatibility matrix check passed.
+- Current public docs/package READMEs/playground have no live Trellis setup
+  requirements; remaining matches are historical ADRs and checker comments.
 
 ## Phase 13: Final Verification
 

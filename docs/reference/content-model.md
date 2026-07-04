@@ -85,7 +85,7 @@ batch activation concept in the active model.
   search, sitemap, and list reads.
 - Data-only collections publish to `publicEntries`, are readable through list
   operations, and are rejected by route-only public operations.
-- `routeMeta` is a provider/bridge operation for Nuxt content rendering. It is
+- `routeMeta` is a provider-only operation for Nuxt content rendering. It is
   not exposed by the optional HTTP facade.
 
 ## Import Rule

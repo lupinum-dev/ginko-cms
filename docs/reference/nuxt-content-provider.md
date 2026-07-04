@@ -3,7 +3,7 @@
 `@lupinum/ginko-cms/nuxt-provider` is the production-facing provider module for
 Nuxt content-engine integration. It keeps Ginko CMS neutral: Nuxt applications
 continue to call the content engine APIs, while this provider reads published
-content through the installed Convex public bridge.
+content through the installed Ginko CMS Convex component.
 
 ## Configure
 

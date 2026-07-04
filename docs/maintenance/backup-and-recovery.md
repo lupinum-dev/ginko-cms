@@ -25,7 +25,7 @@ Supported export scopes are:
 | `asset`      | `--asset-id <id>`      |
 
 The backing Convex actions require a CMS owner identity. Unlike `push` and
-`migrate`, the current backup CLI path is not the deploy-key internal bridge.
+`migrate`, the current backup CLI path is not deploy-key setup/admin transport.
 Do not put these commands in a headless migration runbook unless the host has
 deliberately provided owner-authenticated execution for the backup actions.
 
