@@ -1,7 +1,7 @@
+import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
 import { z } from 'zod'
 
-import { internal } from '#trellis/api'
-import { defineMcpTool } from '#trellis/mcp/advanced'
+import { components } from '#convex/api'
 
 import { asRecord, fail, loadAgentContext, ok } from '../../_shared/agent-tools'
 
@@ -59,7 +59,7 @@ const tool = defineMcpTool({
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event, 'readCms')
-      const collection = await context.convex.query(internal.ginkoCmsMcp.getCollection, {
+      const collection = await context.convex.query(components.ginkoCms.collections.getCollection, {
         slug: args.slug,
       })
       if (!collection) return fail(`Collection "${args.slug}" not found.`)

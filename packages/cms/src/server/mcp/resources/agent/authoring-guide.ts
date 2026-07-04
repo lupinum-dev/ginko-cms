@@ -1,4 +1,4 @@
-import { defineMcpResource } from '#trellis/mcp'
+import { defineMcpResource } from '@nuxtjs/mcp-toolkit/server'
 
 export default defineMcpResource({
   name: 'ginko-agent-authoring-guide',

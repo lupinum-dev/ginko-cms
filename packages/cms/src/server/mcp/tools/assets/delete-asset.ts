@@ -1,11 +1,15 @@
 import { deleteAsset } from '@lupinum/ginko-cms-contract/convex/schemas/assets.js'
-import { operations } from '@lupinum/ginko-cms-convex/operation-handles/mcp'
+
+import { components } from '#convex/api'
 
 import { projectTool, type ProjectToolDefinition } from '../../_shared/project-tool-runtime'
 
 const tool: ProjectToolDefinition = projectTool({
   schema: deleteAsset,
-  operation: operations.ginkoCms.deleteAsset,
+  operation: {
+    execute: components.ginkoCms.assets.deleteAssetOperationExecute,
+    preview: components.ginkoCms.assets.previewDeleteAssetOperation,
+  },
   capability: 'manageAssets',
   meta: {
     name: 'delete-asset',

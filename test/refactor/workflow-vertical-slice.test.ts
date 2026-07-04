@@ -27,36 +27,36 @@ import { describe, expect, it } from 'vitest'
 import { createCtx, seedOwner } from '../component/entries/helpers'
 
 const api = anyApi
-type CmsOperationHandle = {
+type CmsOperationRef = {
   id: string
   executeRef: FunctionReference<'mutation'>
   previewRef?: FunctionReference<'mutation'>
 }
 
-const createEntryOperation: CmsOperationHandle = {
+const createEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.create-entry',
   executeRef: api.entries.tree.createEntry,
 }
-const saveEntryDraftOperation: CmsOperationHandle = {
+const saveEntryDraftOperation: CmsOperationRef = {
   id: 'ginko-cms.save-entry-draft',
   executeRef: api.entries.draft.saveEntryDraft,
 }
-const publishEntryOperation: CmsOperationHandle = {
+const publishEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.publish-entry',
   executeRef: api.entries.publish.publishEntryOperationExecute,
   previewRef: api.entries.publish.previewPublishEntryOperation,
 }
-const unpublishEntryOperation: CmsOperationHandle = {
+const unpublishEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.unpublish-entry',
   executeRef: api.entries.publish.unpublishEntryOperationExecute,
   previewRef: api.entries.publish.previewUnpublishEntryOperation,
 }
-const archiveEntryOperation: CmsOperationHandle = {
+const archiveEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.archive-entry',
   executeRef: api.entries.publish.archiveEntryOperationExecute,
   previewRef: api.entries.publish.previewArchiveEntryOperation,
 }
-const rollbackVersionOperation: CmsOperationHandle = {
+const rollbackVersionOperation: CmsOperationRef = {
   id: 'ginko-cms.rollback-version',
   executeRef: api.entries.publish.rollbackVersionOperationExecute,
   previewRef: api.entries.publish.previewRollbackVersionOperation,

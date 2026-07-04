@@ -1,4 +1,10 @@
-import { cmsAnonymousCaller, cmsMcpCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import {
+  assertCmsCallerConsistency,
+  cmsAnonymousCaller,
+  cmsCallerFromConvexAuthIdentity,
+  cmsMcpCaller,
+  cmsMcpConvexAuthIssuer,
+} from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -18,6 +24,29 @@ describe('ginko mcp runtime', () => {
   it('resolves anonymous and MCP callers from request context', async () => {
     expect(getMcpCmsCallerFromAuth(null)).toEqual(cmsAnonymousCaller())
     expect(getMcpCmsCallerFromAuth({ mcpKeyId: 'key_123' })).toEqual(cmsMcpCaller('key_123'))
+  })
+
+  it('only treats exact MCP issuer identities as MCP callers', () => {
+    expect(
+      cmsCallerFromConvexAuthIdentity({
+        issuer: cmsMcpConvexAuthIssuer,
+        subject: 'key_123',
+      }),
+    ).toEqual(cmsMcpCaller('key_123'))
+
+    expect(
+      cmsCallerFromConvexAuthIdentity({
+        issuer: 'wrong-issuer',
+        subject: 'key_123',
+      }).kind,
+    ).toBe('user')
+
+    expect(() =>
+      assertCmsCallerConsistency({
+        ...cmsMcpCaller('key_123'),
+        subject: 'agent:agent:key_123',
+      }),
+    ).toThrow('CMS MCP caller subject must match the mcpKeyId.')
   })
 
   it('derives MCP capability visibility from backend permission context', async () => {

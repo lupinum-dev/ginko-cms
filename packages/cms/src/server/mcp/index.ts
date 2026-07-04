@@ -1,4 +1,4 @@
-import { defineMcpHandler } from '#trellis/mcp'
+import { defineMcpHandler } from '@nuxtjs/mcp-toolkit/server'
 
 import { mcpTools } from './_shared/handler-tools'
 

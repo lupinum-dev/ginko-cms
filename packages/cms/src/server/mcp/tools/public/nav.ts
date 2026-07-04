@@ -1,7 +1,7 @@
+import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
 import { z } from 'zod'
 
-import { internal } from '#trellis/api'
-import { defineMcpTool } from '#trellis/mcp/advanced'
+import { components } from '#convex/api'
 
 import { asRecord, fail, loadAgentContext, ok } from '../../_shared/agent-tools'
 
@@ -57,13 +57,16 @@ export default defineMcpTool({
     try {
       const context = await loadAgentContext(ctx.event, 'readCms')
       const { compact, ...queryArgs } = args
-      const result = await context.convex.query(internal.ginkoCmsMcp.nav, queryArgs)
+      const result = await context.convex.query(components.ginkoCms.public.nav, queryArgs)
       const record = asRecord(result)
       const tree = Array.isArray(record.tree) ? record.tree : []
       if (!compact) {
         return ok(result, `Loaded nav tree for "${args.collection}" (${tree.length} root nodes).`)
       }
-      const collections = await context.convex.query(internal.ginkoCmsMcp.listCollections, {})
+      const collections = await context.convex.query(
+        components.ginkoCms.collections.listCollections,
+        {},
+      )
       const collection = (Array.isArray(collections) ? collections : []).find(
         (candidate) => candidate.slug === args.collection,
       )

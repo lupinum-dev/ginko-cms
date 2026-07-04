@@ -1,6 +1,6 @@
 import { createError, defineEventHandler, getRequestHeader, getRequestIP, type H3Event } from 'h3'
 
-import { internal } from '#trellis/api'
+import { components } from '#convex/api'
 
 import { createAdminConvexCaller } from '../mcp/_shared/convex-caller'
 import {
@@ -32,7 +32,7 @@ export async function authenticateMcpRequest(event: H3Event) {
       },
       consumeToken: async ({ hash, seenAt, clientIp }) => {
         const convex = createAdminConvexCaller(event)
-        return await convex.mutation(internal.ginkoCmsMcp.consumeToken, {
+        return await convex.mutation(components.ginkoCms.mcpKeys.consumeToken, {
           hash,
           seenAt,
           clientIp,

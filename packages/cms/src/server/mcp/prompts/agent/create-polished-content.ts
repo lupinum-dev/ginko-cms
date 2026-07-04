@@ -1,6 +1,5 @@
+import { defineMcpPrompt } from '@nuxtjs/mcp-toolkit/server'
 import { z } from 'zod'
-
-import { defineMcpPrompt } from '#trellis/mcp'
 
 export default defineMcpPrompt({
   name: 'create-polished-content',

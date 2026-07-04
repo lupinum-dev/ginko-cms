@@ -1,7 +1,7 @@
+import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
 import { z } from 'zod'
 
-import { internal } from '#trellis/api'
-import { defineMcpTool } from '#trellis/mcp/advanced'
+import { components } from '#convex/api'
 
 import { fail, failFromError, loadAgentContext, ok } from '../../_shared/agent-tools'
 
@@ -20,7 +20,7 @@ export default defineMcpTool({
     try {
       const entryId = args.entryId
       const context = await loadAgentContext(ctx.event, 'readCms')
-      const entry = await context.convex.query(internal.ginkoCmsMcp.getEntry, {
+      const entry = await context.convex.query(components.ginkoCms.editor.getEntry, {
         id: entryId,
         ...(args.locale ? { locale: args.locale } : {}),
       })

@@ -4,13 +4,13 @@ import {
   sitemap as sitemapSchema,
 } from '@lupinum/ginko-cms-contract/convex/schemas/public.js'
 
-import { internal } from '#trellis/api'
+import { components } from '#convex/api'
 
 import { projectTool, type ProjectToolDefinition } from '../_shared/project-tool-runtime'
 
 export const page: ProjectToolDefinition = projectTool({
   schema: pageSchema,
-  call: internal.ginkoCmsMcp.page,
+  call: components.ginkoCms.public.page,
   meta: {
     name: 'page',
   },
@@ -31,7 +31,7 @@ export const page: ProjectToolDefinition = projectTool({
 
 export const sitemap: ProjectToolDefinition = projectTool({
   schema: sitemapSchema,
-  call: internal.ginkoCmsMcp.sitemap,
+  call: components.ginkoCms.public.sitemap,
   meta: {
     name: 'sitemap',
   },
@@ -46,7 +46,7 @@ export const sitemap: ProjectToolDefinition = projectTool({
 
 export const explainPublicVisibility: ProjectToolDefinition = projectTool({
   schema: explainPublicVisibilitySchema,
-  call: internal.ginkoCmsMcp.explainPublicVisibility,
+  call: components.ginkoCms.diagnostics.explainPublicVisibility,
   capability: 'readCms',
   meta: {
     name: 'explain-public-visibility',

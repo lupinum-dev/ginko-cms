@@ -1,5 +1,4 @@
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
-import type { AccessContextBase } from '@lupinum/trellis/auth'
 
 export const defaultCmsMcpCapabilities = {
   readCms: false,
@@ -16,7 +15,10 @@ export const defaultCmsMcpCapabilities = {
 
 export type CmsMcpCapabilities = typeof defaultCmsMcpCapabilities
 
-export type CmsAccessContext = AccessContextBase<Record<string, boolean>> & {
+export type CmsAccessContext = {
+  can: Record<string, boolean>
+  permissions?: Record<string, boolean>
+  role?: string | null
   canBootstrap: boolean
   member: unknown
 }

@@ -1,11 +1,15 @@
 import { unpublishEntry } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
-import { operations } from '@lupinum/ginko-cms-convex/operation-handles/mcp'
+
+import { components } from '#convex/api'
 
 import { projectTool, type ProjectToolDefinition } from '../../_shared/project-tool-runtime'
 
 const tool: ProjectToolDefinition = projectTool({
   schema: unpublishEntry,
-  operation: operations.ginkoCms.unpublishEntry,
+  operation: {
+    execute: components.ginkoCms.editor.unpublishEntryOperationExecute,
+    preview: components.ginkoCms.editor.previewUnpublishEntryOperation,
+  },
   capability: 'publishEntries',
   meta: {
     name: 'unpublish-entry',

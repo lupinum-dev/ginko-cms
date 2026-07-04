@@ -1,4 +1,4 @@
-import { defineMcpResource } from '#trellis/mcp'
+import { defineMcpResource } from '@nuxtjs/mcp-toolkit/server'
 
 export default defineMcpResource({
   name: 'ginko-publish-safety-guide',
@@ -13,7 +13,7 @@ export default defineMcpResource({
         text: [
           '# Ginko Publish Safety',
           '',
-          'Publishing, unpublishing, deleting, archiving, and other destructive actions are operation-backed MCP tools. First call the tool without `_confirmationToken` to receive a preview. Read `allowed`, `blockers`, `warnings`, and `effects`; execute only after explicit user approval by repeating the same arguments with `preview.confirmation.token`. The Trellis token is the confirmation contract.',
+          'Publishing, unpublishing, deleting, archiving, and other destructive actions are CMS operation-backed MCP tools. First call the tool without `_confirmationToken` to receive a preview. Read `allowed`, `blockers`, `warnings`, and `effects`; execute only after explicit user approval by repeating the same arguments with `preview.confirmation.token`. That confirmation token is the execution contract.',
           '',
           'Rerun the preview if arguments, draft state, or target state changed before execution.',
           '',

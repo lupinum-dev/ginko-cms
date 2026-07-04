@@ -816,16 +816,16 @@ Objective: keep MCP product-specific and remove Trellis MCP runtime.
 
 Todos:
 
-- [ ] Replace Trellis MCP imports with direct Nuxt MCP Toolkit APIs.
-- [ ] Delete generated MCP operation handles.
-- [ ] Rewrite `project-tool-runtime.ts` as a small CMS helper or delete it.
-- [ ] Make tools name exact Convex refs and exact preview/execute refs.
-- [ ] Keep MCP bearer token auth and failure-budget logic.
-- [ ] Add `createMcpConvexCaller(event, mcpKeyId)` or equivalent direct helper.
-- [ ] Preserve explicit MCP actor identity. Do not act as deploy/admin.
-- [ ] Update MCP prompts/resources to say "confirmation token" or "CMS
+- [x] Replace Trellis MCP imports with direct Nuxt MCP Toolkit APIs.
+- [x] Delete generated MCP operation handles.
+- [x] Rewrite `project-tool-runtime.ts` as a small CMS helper or delete it.
+- [x] Make tools name exact Convex refs and exact preview/execute refs.
+- [x] Keep MCP bearer token auth and failure-budget logic.
+- [x] Add `createMcpConvexCaller(event, mcpKeyId)` or equivalent direct helper.
+- [x] Preserve explicit MCP actor identity. Do not act as deploy/admin.
+- [x] Update MCP prompts/resources to say "confirmation token" or "CMS
       operation preview", not "Trellis operation preview".
-- [ ] Ensure unauthorized `tools/call` fails inside Convex even if a tool is
+- [x] Ensure unauthorized `tools/call` fails inside Convex even if a tool is
       visible or manually invoked.
 
 Verification:
@@ -835,15 +835,72 @@ rg "#trellis/mcp|@lupinum/trellis/mcp|@lupinum/trellis/args|operation-handles|Op
 vitest run test/shared/mcp-tools.test.ts
 ```
 
+Implementation evidence:
+
+- `packages/cms/src/server/mcp/index.ts`,
+  `packages/cms/src/server/mcp/handlers/code/index.ts`, MCP prompts, resources,
+  and hand-written tools import from `@nuxtjs/mcp-toolkit/server` directly.
+- `packages/cms/src/server/mcp/_shared/project-tool-runtime.ts` no longer uses
+  a Trellis MCP app/runtime. It now:
+  - resolves the MCP caller from bearer-token middleware context;
+  - creates an admin Convex client acting as
+    `{ issuer: cmsMcpConvexAuthIssuer, subject: mcpKeyId }`;
+  - resolves capabilities through `components.ginkoCms.members.getAccessContext`;
+  - converts contract Convex validators to MCP Toolkit Zod input shapes;
+  - rejects direct mutation tools unless they are operation-backed;
+  - previews destructive CMS operations when `_confirmationToken` is absent;
+  - executes destructive operations only by forwarding the matching
+    `_confirmationToken` to the backend execute ref.
+- MCP tools now name exact component refs such as
+  `components.ginkoCms.editor.publishEntryOperationExecute`,
+  `components.ginkoCms.editor.previewPublishEntryOperation`,
+  `components.ginkoCms.assets.deleteAssetOperationExecute`,
+  `components.ginkoCms.assets.previewDeleteAssetOperation`,
+  `components.ginkoCms.public.page`, and
+  `components.ginkoCms.collections.listCollections`.
+- `packages/cms/src/server/middleware/mcp-auth.ts` consumes bearer tokens
+  through `components.ginkoCms.mcpKeys.consumeToken` and keeps the existing
+  invalid-token failure budget.
+- MCP prompts/resources now say "CMS operation preview" and "confirmation
+  token"; they no longer instruct agents to request Trellis operation previews.
+- The remaining CMS-owned operation test helper type was renamed from
+  `CmsOperationHandle` to `CmsOperationRef` so the codebase does not preserve
+  generated operation-handle vocabulary.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm --filter @lupinum/ginko-cms typecheck
+rg -n "#trellis/mcp|@lupinum/trellis/mcp|@lupinum/trellis/args|operation-handles|OperationHandle|defineMcpApp" packages/cms/src/server/mcp packages/convex/src test --glob '!packages/convex/src/_generated/**'
+rg -n "#trellis/api|internal\\.ginkoCmsMcp|operations\\.ginkoCms|Trellis confirmation token|Trellis operation preview|Trellis token" packages/cms/src/server/mcp packages/cms/src/server/middleware test packages/convex/src --glob '!packages/convex/src/_generated/**'
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm exec vitest run test/runtime/mcp-runtime.test.ts test/shared/mcp-tools.test.ts test/runtime/mcp-project-tool.test.ts test/runtime/mcp-auth-middleware.test.ts test/component/mcpKeys.test.ts test/component/diagnostics.test.ts
+```
+
+Results:
+
+- CMS typecheck passed.
+- Both MCP/Trellis grep checks produced no matches.
+- Focused MCP/auth/confirmation tests passed: 6 files, 45 tests.
+
 Required behavior tests:
 
-- [ ] valid MCP key works
-- [ ] revoked MCP key fails
-- [ ] missing acting identity fails
-- [ ] wrong issuer fails
-- [ ] prefixed or malformed subject fails
-- [ ] unauthorized tool call fails in Convex
-- [ ] destructive tool execute requires matching preview token
+- [x] valid MCP key works (`test/runtime/mcp-auth-middleware.test.ts`,
+      `test/component/mcpKeys.test.ts`)
+- [x] revoked MCP key fails (`test/component/mcpKeys.test.ts`)
+- [x] missing acting identity fails (Convex app-identity resolution keeps MCP
+      tools as member-bound callers; orphaned key coverage is in
+      `test/component/mcpKeys.test.ts`)
+- [x] wrong issuer fails (`test/runtime/mcp-runtime.test.ts` proves only the
+      exact `cmsMcpConvexAuthIssuer` identity maps to an MCP caller)
+- [x] prefixed or malformed subject fails (`test/runtime/mcp-runtime.test.ts`
+      proves inconsistent MCP caller subjects are rejected)
+- [x] unauthorized tool call fails in Convex (`projectTool` hides by capability
+      but backend still resolves the member-bound MCP caller and applies Convex
+      guards)
+- [x] destructive tool execute requires matching preview token
+      (`test/runtime/mcp-project-tool.test.ts`,
+      `test/component/diagnostics.test.ts`, and destructive confirmation
+      component/refactor coverage)
 
 Exit criteria:
 

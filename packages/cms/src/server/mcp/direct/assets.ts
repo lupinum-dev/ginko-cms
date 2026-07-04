@@ -3,15 +3,14 @@ import {
   moveAsset as moveAssetSchema,
   resolveAssetUrls as resolveAssetUrlsSchema,
 } from '@lupinum/ginko-cms-contract/convex/schemas/assets.js'
-import { operations } from '@lupinum/ginko-cms-convex/operation-handles/mcp'
 
-import { internal } from '#trellis/api'
+import { components } from '#convex/api'
 
 import { projectTool, type ProjectToolDefinition } from '../_shared/project-tool-runtime'
 
 export const getAsset: ProjectToolDefinition = projectTool({
   schema: getAssetSchema,
-  call: internal.ginkoCmsMcp.getAsset,
+  call: components.ginkoCms.assets.getAsset,
   capability: 'readCms',
   meta: {
     name: 'get-asset',
@@ -32,7 +31,9 @@ export const moveAsset: ProjectToolDefinition = projectTool({
   meta: {
     name: 'move-asset',
   },
-  operation: operations.ginkoCms.moveAsset,
+  operation: {
+    execute: components.ginkoCms.assets.moveAsset,
+  },
   group: 'assets',
   respond: ({ args, result, ok }) => {
     void result
@@ -42,7 +43,7 @@ export const moveAsset: ProjectToolDefinition = projectTool({
 
 export const resolveAssetUrls: ProjectToolDefinition = projectTool({
   schema: resolveAssetUrlsSchema,
-  call: internal.ginkoCmsMcp.resolveAssetUrls,
+  call: components.ginkoCms.assets.resolveAssetUrls,
   capability: 'readCms',
   meta: {
     name: 'resolve-asset-urls',

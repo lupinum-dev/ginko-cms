@@ -1,22 +1,15 @@
 import { publishEntry as publishEntryArgs } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
-import { operations } from '@lupinum/ginko-cms-convex/operation-handles/mcp'
-import { defineArgs } from '@lupinum/trellis/args'
+
+import { components } from '#convex/api'
 
 import { projectTool, type ProjectToolDefinition } from '../../_shared/project-tool-runtime'
 
-const publishEntry = defineArgs({
-  description: 'Publish one or more locales for an entry.',
-  args: publishEntryArgs.args,
-  meta: {
-    entryId: publishEntryArgs.meta.entryId,
-    expectedVersion: publishEntryArgs.meta.expectedVersion,
-    locales: publishEntryArgs.meta.locales,
-  },
-})
-
 const tool: ProjectToolDefinition = projectTool({
-  schema: publishEntry,
-  operation: operations.ginkoCms.publishEntry,
+  schema: publishEntryArgs,
+  operation: {
+    execute: components.ginkoCms.editor.publishEntryOperationExecute,
+    preview: components.ginkoCms.editor.previewPublishEntryOperation,
+  },
   capability: 'publishEntries',
   meta: {
     name: 'publish-entry',

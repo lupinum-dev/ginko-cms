@@ -1,7 +1,7 @@
+import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
 import { z } from 'zod'
 
-import { internal } from '#trellis/api'
-import { defineMcpTool } from '#trellis/mcp/advanced'
+import { components } from '#convex/api'
 
 import { failFromError, loadAgentContext, ok } from '../../_shared/agent-tools'
 
@@ -16,7 +16,7 @@ export default defineMcpTool({
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event, 'deleteEntries')
-      const exported = await context.convex.action(internal.ginkoCmsMcp.exportBackup, {
+      const exported = await context.convex.action(components.ginkoCms.backup.exportBackup, {
         scope: 'entry',
         entryId: args.entryId,
       })

@@ -48,7 +48,7 @@ type HandlerCtx = {
   appIdentity?: () => Promise<{ userId: string } | null>
 }
 
-export type CmsOperationHandle = {
+export type CmsOperationRef = {
   id: string
   executeRef: unknown
   previewRef?: unknown

@@ -1,15 +1,19 @@
 import { archiveEntry } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
-import { operations } from '@lupinum/ginko-cms-convex/operation-handles/mcp'
+
+import { components } from '#convex/api'
 
 import { projectTool, type ProjectToolDefinition } from '../../_shared/project-tool-runtime'
 
 const tool: ProjectToolDefinition = projectTool({
   schema: archiveEntry,
-  operation: operations.ginkoCms.archiveEntry,
+  operation: {
+    execute: components.ginkoCms.editor.archiveEntryOperationExecute,
+    preview: components.ginkoCms.editor.previewArchiveEntryOperation,
+  },
   capability: 'deleteEntries',
   meta: {
     name: 'archive-entry',
-    description: 'Archive an entry and remove its public output after preview-token confirmation.',
+    description: 'Archive an entry and remove its public output after confirmation-token approval.',
     destructive: true,
   },
   group: 'content',

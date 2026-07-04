@@ -13,55 +13,55 @@ import schema from '#component/schema'
 import { modules } from '#component/test.setup'
 
 export const api = anyApi
-type CmsOperationHandle = {
+type CmsOperationRef = {
   id: string
   executeRef: FunctionReference<'mutation'>
   previewRef?: FunctionReference<'mutation'>
 }
 
-const createEntryOperation: CmsOperationHandle = {
+const createEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.create-entry',
   executeRef: api.entries.tree.createEntry,
 }
-const saveEntryDraftOperation: CmsOperationHandle = {
+const saveEntryDraftOperation: CmsOperationRef = {
   id: 'ginko-cms.save-entry-draft',
   executeRef: api.entries.draft.saveEntryDraft,
 }
-const moveAssetOperation: CmsOperationHandle = {
+const moveAssetOperation: CmsOperationRef = {
   id: 'ginko-cms.move-asset',
   executeRef: api.assets.moveAsset,
 }
-const publishEntryOperation: CmsOperationHandle = {
+const publishEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.publish-entry',
   executeRef: api.entries.publish.publishEntryOperationExecute,
   previewRef: api.entries.publish.previewPublishEntryOperation,
 }
-const unpublishEntryOperation: CmsOperationHandle = {
+const unpublishEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.unpublish-entry',
   executeRef: api.entries.publish.unpublishEntryOperationExecute,
   previewRef: api.entries.publish.previewUnpublishEntryOperation,
 }
-const archiveEntryOperation: CmsOperationHandle = {
+const archiveEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.archive-entry',
   executeRef: api.entries.publish.archiveEntryOperationExecute,
   previewRef: api.entries.publish.previewArchiveEntryOperation,
 }
-const deleteEntryOperation: CmsOperationHandle = {
+const deleteEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.delete-entry',
   executeRef: api.entries.tree.deleteEntryOperationExecute,
   previewRef: api.entries.tree.previewDeleteEntryOperation,
 }
-const rollbackVersionOperation: CmsOperationHandle = {
+const rollbackVersionOperation: CmsOperationRef = {
   id: 'ginko-cms.rollback-version',
   executeRef: api.entries.publish.rollbackVersionOperationExecute,
   previewRef: api.entries.publish.previewRollbackVersionOperation,
 }
-const revertDraftToPublishedOperation: CmsOperationHandle = {
+const revertDraftToPublishedOperation: CmsOperationRef = {
   id: 'ginko-cms.revert-draft-to-published',
   executeRef: api.entries.draft.revertDraftToPublishedOperationExecute,
   previewRef: api.entries.draft.previewRevertDraftToPublishedOperation,
 }
-const unarchiveEntryOperation: CmsOperationHandle = {
+const unarchiveEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.unarchive-entry',
   executeRef: api.entries.publish.unarchiveEntry,
 }
@@ -99,7 +99,7 @@ function createCmsCallerClient(
     ): Promise<FunctionReturnType<Action>> => {
       return await authed().action(fn, ...args)
     },
-    operation: <TOperation extends CmsOperationHandle>(operation: TOperation) =>
+    operation: <TOperation extends CmsOperationRef>(operation: TOperation) =>
       createOperationClient(authed(), operation),
     createEntry: async (args: Record<string, unknown>): Promise<string> =>
       (await createOperationClient(authed(), createEntryOperation).execute(args)) as string,
