@@ -102,15 +102,15 @@ Objective: make the migration constraints explicit before code changes start.
 
 Todos:
 
-- [ ] Confirm this ships as a breaking release.
-- [ ] Confirm no Trellis compatibility shim will be added.
-- [ ] Confirm old generated bridge files are cleanup blockers, not migration
+- [x] Confirm this ships as a breaking release.
+- [x] Confirm no Trellis compatibility shim will be added.
+- [x] Confirm old generated bridge files are cleanup blockers, not migration
       inputs.
-- [ ] Confirm stale host apps get a manual cleanup checklist through `doctor`.
-- [ ] Confirm removed public exports listed above are intentional.
-- [ ] Confirm `trustedReplay` is deleted unless a concrete non-Trellis caller
+- [x] Confirm stale host apps get a manual cleanup checklist through `doctor`.
+- [x] Confirm removed public exports listed above are intentional.
+- [x] Confirm `trustedReplay` is deleted unless a concrete non-Trellis caller
       remains after CLI and MCP are cut over.
-- [ ] Confirm the migration source of truth is this file.
+- [x] Confirm the migration source of truth is this file.
 
 Verification:
 
@@ -593,8 +593,8 @@ Update operation users:
 - [x] members
 - [x] revalidation
 - [x] site data
-- [ ] MCP destructive tools
-- [ ] Studio destructive actions
+- [x] MCP destructive tools
+- [x] Studio destructive actions
 
 Verification:
 
@@ -608,9 +608,9 @@ Required invariant tests:
 - [x] guard-blocked preview writes no confirmation
 - [x] missing token fails
 - [x] wrong token fails
-- [ ] wrong caller fails
+- [x] wrong caller fails
 - [x] wrong args fail
-- [ ] wrong operation fails
+- [x] wrong operation fails
 - [x] expired token fails
 - [x] redeemed token fails
 - [x] stale version hash fails
@@ -701,12 +701,12 @@ vitest run test/runtime test/shared/studio-workflow.test.ts test/runtime/studio-
 
 Manual smoke before release:
 
-- [ ] sign in
-- [ ] list collections
-- [ ] create or edit a draft
-- [ ] preview publish
-- [ ] publish
-- [ ] run one destructive preview/execute action
+- [x] sign in
+- [x] list collections
+- [x] create or edit a draft
+- [x] preview publish
+- [x] publish
+- [x] run one destructive preview/execute action
 
 Exit criteria:
 
@@ -750,9 +750,9 @@ public reads.
 Todos:
 
 - [x] Replace `#trellis/api` with `#convex/api`.
-- [ ] Use `serverConvexQuery`, `serverConvexMutation`, or
+- [x] Use `serverConvexQuery`, `serverConvexMutation`, or
       `serverConvexAction` from `#convex/server` for protected server routes.
-- [ ] Use `auth: 'required'` for protected server routes.
+- [x] Use `auth: 'required'` for protected server routes.
 - [x] Use `auth: 'none'` or unauthenticated `ConvexHttpClient` for public
       content reads.
 - [x] Ensure public Convex functions do not read member/app identity.
@@ -770,8 +770,8 @@ Required behavior tests:
 
 - [x] public page/list/nav/search/sitemap reads work with no cookie
 - [x] public reads return the same published data for anonymous and owner users
-- [ ] protected routes fail without a valid Better Auth session
-- [ ] broken token exchange fails closed for protected routes
+- [x] protected routes fail without a valid Better Auth session
+- [x] broken token exchange fails closed for protected routes
 
 Exit criteria:
 
@@ -1247,83 +1247,83 @@ Use this as the tactical checklist while implementing phases.
 
 Package and scripts:
 
-- [ ] Root `package.json`
-- [ ] `pnpm-lock.yaml`
-- [ ] `pnpm-workspace.yaml`
-- [ ] `packages/cms/package.json`
-- [ ] `packages/convex/package.json`
-- [ ] `scripts/package-e2e.mjs`
-- [ ] `scripts/foundation-verify.mjs`
-- [ ] compatibility metadata
-- [ ] docs install-story checks
-- [ ] publish specifier checks
+- [x] Root `package.json`
+- [x] `pnpm-lock.yaml`
+- [x] `pnpm-workspace.yaml`
+- [x] `packages/cms/package.json`
+- [x] `packages/convex/package.json`
+- [x] `scripts/package-e2e.mjs`
+- [x] `scripts/foundation-verify.mjs`
+- [x] compatibility metadata
+- [x] docs install-story checks
+- [x] publish specifier checks
 
 Nuxt module and runtime:
 
-- [ ] `packages/cms/src/module.ts`
-- [ ] `packages/cms/src/module/**`
-- [ ] `packages/cms/src/runtime/pages/studio-host.vue`
-- [ ] `packages/cms/src/runtime/**`
-- [ ] `packages/cms/studio-app/src/boundary/api.ts`
-- [ ] Studio composables under `packages/cms/studio-app/src`
+- [x] `packages/cms/src/module.ts`
+- [x] `packages/cms/src/module/**`
+- [x] `packages/cms/src/runtime/pages/studio-host.vue`
+- [x] `packages/cms/src/runtime/**`
+- [x] `packages/cms/studio-app/src/boundary/api.ts`
+- [x] Studio composables under `packages/cms/studio-app/src`
 
 Convex component:
 
-- [ ] `packages/convex/src/functions.ts`
-- [ ] `packages/convex/src/componentBridge.ts`
-- [ ] `packages/convex/src/auth/checks.ts`
-- [ ] `packages/convex/src/members.ts`
-- [ ] `packages/convex/src/assets.ts`
-- [ ] `packages/convex/src/backup.ts`
-- [ ] `packages/convex/src/entries/**`
-- [ ] `packages/convex/src/siteData.ts`
-- [ ] `packages/convex/src/revalidation.ts`
-- [ ] `packages/convex/src/migrations.ts`
-- [ ] `packages/convex/src/schema.ts`
-- [ ] generated Convex output through `pnpm run prepare:component`
+- [x] `packages/convex/src/functions.ts`
+- [x] `packages/convex/src/componentBridge.ts`
+- [x] `packages/convex/src/auth/checks.ts`
+- [x] `packages/convex/src/members.ts`
+- [x] `packages/convex/src/assets.ts`
+- [x] `packages/convex/src/backup.ts`
+- [x] `packages/convex/src/entries/**`
+- [x] `packages/convex/src/siteData.ts`
+- [x] `packages/convex/src/revalidation.ts`
+- [x] `packages/convex/src/migrations.ts`
+- [x] `packages/convex/src/schema.ts`
+- [x] generated Convex output through `pnpm run prepare:component`
 
 Bridge and installer:
 
-- [ ] `packages/cms/src/bridge/**`
-- [ ] `packages/cms/src/module/bridge-manifest.ts`
-- [ ] `packages/cms/src/module/convex.ts`
-- [ ] `packages/cms/convex/manifest.*`
-- [ ] CLI bridge command files
-- [ ] CLI forwarding helpers
-- [ ] direct setup templates
-- [ ] `doctor` stale-artifact detection
+- [x] `packages/cms/src/bridge/**`
+- [x] `packages/cms/src/module/bridge-manifest.ts`
+- [x] `packages/cms/src/module/convex.ts`
+- [x] `packages/cms/convex/manifest.*`
+- [x] CLI bridge command files
+- [x] CLI forwarding helpers
+- [x] direct setup templates
+- [x] `doctor` stale-artifact detection
 
 MCP:
 
-- [ ] `packages/cms/src/server/mcp/**`
-- [ ] MCP middleware
-- [ ] MCP tool runtime
-- [ ] MCP resources
-- [ ] MCP prompts
-- [ ] MCP tests
+- [x] `packages/cms/src/server/mcp/**`
+- [x] MCP middleware
+- [x] MCP tool runtime
+- [x] MCP resources
+- [x] MCP prompts
+- [x] MCP tests
 
 CLI:
 
-- [ ] `init`
-- [ ] `doctor`
-- [ ] `deploy`
-- [ ] `push`
-- [ ] `migrate`
-- [ ] contract sync helpers
-- [ ] deploy-key admin caller
+- [x] `init`
+- [x] `doctor`
+- [x] `deploy`
+- [x] `push`
+- [x] `migrate`
+- [x] contract sync helpers
+- [x] deploy-key admin caller
 
 Docs and fixtures:
 
-- [ ] README
-- [ ] quickstart
-- [ ] environment docs
-- [ ] public content docs
-- [ ] Nuxt content provider docs
-- [ ] release-candidate docs
-- [ ] ADR superseding Trellis decision
-- [ ] playground Convex files
-- [ ] test fixtures
-- [ ] package consumer fixture
+- [x] README
+- [x] quickstart
+- [x] environment docs
+- [x] public content docs
+- [x] Nuxt content provider docs
+- [x] release-candidate docs
+- [x] ADR superseding Trellis decision
+- [x] playground Convex files
+- [x] test fixtures
+- [x] package consumer fixture
 
 ## Data Model Decisions
 
