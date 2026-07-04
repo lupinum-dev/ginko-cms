@@ -61,7 +61,7 @@ export function defineCmsOperation<const TDefinition extends CmsOperationDefinit
 }
 
 defineCmsOperation.withContext =
-  <TCtx>() =>
+  <_TCtx>() =>
   <const TDefinition extends CmsOperationDefinition>(definition: TDefinition): TDefinition =>
     definition
 

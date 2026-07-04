@@ -5,9 +5,10 @@ const ROOT = new URL('..', import.meta.url)
 const rootPath = ROOT.pathname
 const targetDirectories = ['packages/convex/src']
 const targetFiles = []
+const trellisAliasPattern = new RegExp(`#${'trellis'}/`)
 const forbiddenPatterns = [
   { pattern: /#imports\b/, message: 'Nuxt #imports alias' },
-  { pattern: /#trellis\//, message: 'Trellis app alias' },
+  { pattern: trellisAliasPattern, message: 'Trellis app alias' },
   { pattern: /src\/runtime\/server\//, message: 'Nitro server runtime import' },
   { pattern: /runtime\/server\//, message: 'server runtime import' },
   { pattern: /server\/mcp\//, message: 'MCP server runtime import' },

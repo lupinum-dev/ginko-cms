@@ -1175,27 +1175,27 @@ Expected result:
 
 Focused behavior gates:
 
-- [ ] Studio anonymous user cannot write.
-- [ ] Studio non-member cannot write.
-- [ ] Owner can manage members and settings.
-- [ ] Editor can edit drafts but cannot publish if role rules say so.
-- [ ] Publisher can publish according to current CMS policy.
-- [ ] Viewer cannot mutate content.
-- [ ] First-owner bootstrap works only when no member exists.
-- [ ] Bootstrap cannot reopen after any member exists.
-- [ ] Public reads work without auth cookies.
-- [ ] Public reads return published-only data.
-- [ ] Owner-authenticated public reads match anonymous public reads.
-- [ ] MCP valid key works.
-- [ ] MCP revoked key fails.
-- [ ] MCP unauthorized tool calls fail in Convex.
-- [ ] CLI deploy-key sync works through internal functions.
-- [ ] Deploy key cannot perform member/editor/publisher actions.
-- [ ] Destructive actions reject missing, wrong, stale, expired, redeemed, or
+- [x] Studio anonymous user cannot write.
+- [x] Studio non-member cannot write.
+- [x] Owner can manage members and settings.
+- [x] Editor can edit drafts but cannot publish if role rules say so.
+- [x] Publisher can publish according to current CMS policy.
+- [x] Viewer cannot mutate content.
+- [x] First-owner bootstrap works only when no member exists.
+- [x] Bootstrap cannot reopen after any member exists.
+- [x] Public reads work without auth cookies.
+- [x] Public reads return published-only data.
+- [x] Owner-authenticated public reads match anonymous public reads.
+- [x] MCP valid key works.
+- [x] MCP revoked key fails.
+- [x] MCP unauthorized tool calls fail in Convex.
+- [x] CLI deploy-key sync works through internal functions.
+- [x] Deploy key cannot perform member/editor/publisher actions.
+- [x] Destructive actions reject missing, wrong, stale, expired, redeemed, or
       mismatched confirmation tokens.
-- [ ] Destructive actions redeem once and write audit.
-- [ ] Package consumer installs without Trellis.
-- [ ] Package tarballs contain no bridge manifest or operation-handle output.
+- [x] Destructive actions redeem once and write audit.
+- [x] Package consumer installs without Trellis.
+- [x] Package tarballs contain no bridge manifest or operation-handle output.
 
 Commands:
 
@@ -1218,6 +1218,28 @@ Exit criteria:
 - The final grep checks show no live Trellis path.
 - The package consumer fixture proves the new install story.
 - The docs describe one setup story.
+
+Verification evidence:
+
+```bash
+rg -n "@lupinum/trellis|@lupinum/trellis-bridge|#trellis|_trellisForwarding|CONVEX_IDENTITY_FORWARDING_KEY|GINKO_CMS_COMPONENT_FORWARDING_KEY" packages test scripts playground README.md docs adr --glob '!packages/convex/src/_generated/**' --glob '!node_modules/**' --glob '!dist/**'
+rg -n "trellis operations|operationHandles|operationRefs|component-bridge|convex/ginkoCms|ginkoCmsMcp|@lupinum/ginko-cms/bridge" package.json packages scripts test playground README.md docs adr --glob '!packages/convex/src/_generated/**' --glob '!node_modules/**' --glob '!dist/**'
+rg -n "defineTrellis|defineCaller|getForwardedCaller|trustedReplay|__trellis|@trellis-bridge" packages test scripts playground --glob '!packages/convex/src/_generated/**' --glob '!node_modules/**' --glob '!dist/**'
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run release:verify
+```
+
+Results:
+
+- No-zombie scans produced no live-code matches. The only remaining planned
+  migration wording is historical ADR text.
+- `release:verify` passed end to end: format check, lint, typecheck, publish
+  specifier check, full Vitest suite, package E2E, and production audit.
+- Full Vitest suite passed: 86 files passed, 1 skipped; 669 tests passed, 1
+  skipped.
+- Package E2E passed with packed Ginko CMS packages and
+  `betterConvexNuxt=0.4.0`.
+- Production audit passed after adding the local workspace override
+  `linkify-it: 5.0.1`.
 
 ## Implementation Todos By Area
 
