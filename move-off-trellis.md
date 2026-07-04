@@ -269,8 +269,8 @@ Results:
 
 Known follow-up:
 
-- Live implementation imports remain in the Nuxt module, bridge, MCP, Studio
-  composables, generated operation handles, and Convex component. Those are
+- Live implementation imports remain in the bridge, MCP, Studio composables,
+  generated operation handles, and Convex component. Those are
   intentionally left to Phases 3 through 7; Phase 2 removed the package graph
   and release-tooling dependency so those later phases cannot silently rely on
   Trellis.
@@ -281,16 +281,16 @@ Objective: make the Ginko Nuxt module depend on direct Convex/Nuxt wiring.
 
 Todos:
 
-- [ ] Remove `trellis?: Record<string, unknown>` from module option extension
+- [x] Remove `trellis?: Record<string, unknown>` from module option extension
       types.
-- [ ] Stop writing `moduleOptions.trellis`.
-- [ ] Replace Nuxt module dependency `@lupinum/trellis` with
+- [x] Stop writing `moduleOptions.trellis`.
+- [x] Replace Nuxt module dependency `@lupinum/trellis` with
       `better-convex-nuxt`.
-- [ ] Configure Studio route protection through the direct Better Auth/Convex
+- [x] Configure Studio route protection through the direct Better Auth/Convex
       path.
-- [ ] Keep permission configuration as UI hints only, if still useful.
-- [ ] Update module tests that currently assert Trellis permission wiring.
-- [ ] Update generated Nuxt aliases from `#trellis/*` to `#convex/*` usage.
+- [x] Keep permission configuration as UI hints only, if still useful.
+- [x] Update module tests that currently assert Trellis permission wiring.
+- [x] Update generated Nuxt aliases from `#trellis/*` to `#convex/*` usage.
 
 Verification:
 
@@ -305,6 +305,47 @@ Exit criteria:
 - Ginko's Nuxt module no longer adds `@lupinum/trellis`.
 - Studio auth still redirects anonymous users to the configured sign-in path.
 - Backend authorization is not configured through Nuxt module options.
+
+Implementation evidence:
+
+- `packages/cms/src/module.ts` no longer exposes `trellis` in its local Nuxt
+  option extension, no longer writes `moduleOptions.trellis`, and no longer
+  returns `@lupinum/trellis` from `moduleDependencies`.
+- `packages/cms/src/module.ts` registers `better-convex-nuxt` defaults with
+  auth enabled, route protection redirecting to
+  `<studioRoute>/auth/signin`, and backend permissions disabled.
+- `playground/nuxt.config.ts` now uses `convex.url` instead of `trellis.url`
+  and does not configure a Nuxt-layer permissions query.
+- Module tests that asserted Trellis permission wiring now assert the direct
+  Convex module route-protection defaults or absence of `nuxt.options.trellis`.
+- Package boundary tests no longer expect CMS/Convex manifests to declare
+  Trellis dependencies.
+
+Verification evidence:
+
+```bash
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run format:check
+rg "@lupinum/trellis|#trellis|moduleOptions\\.trellis|nuxtOptions\\.trellis|trellis:" packages/cms/src/module.ts playground/nuxt.config.ts
+rg "better-convex-nuxt|convex:" packages/cms/src/module.ts playground/nuxt.config.ts test/module/module-tailwind.test.ts test/module/e2e-boot.test.ts
+/Users/matthias/Library/pnpm/.tools/pnpm/10.33.0_tmp_48378/bin/pnpm run lint
+```
+
+Results:
+
+- `format:check` passed.
+- The targeted module/config Trellis search produced no matches.
+- The direct Convex wiring search showed `better-convex-nuxt` in the module
+  dependency defaults and `convex:` in the playground config.
+- `lint` passed.
+
+Blocked broader checks:
+
+- `pnpm --filter @lupinum/ginko-cms typecheck` still fails because the Convex
+  component and generated operation handles import `@lupinum/trellis/*`.
+  That is Phase 5 and Phase 6 work.
+- `vitest run test/module/...` tests that import `test/module/bridge-helpers.ts`
+  still fail because the bridge helper imports `@lupinum/trellis-bridge`.
+  That is Phase 4 work.
 
 ## Phase 4: Delete Generated Bridge System
 

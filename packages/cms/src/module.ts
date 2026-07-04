@@ -45,7 +45,6 @@ interface NuxtOptionsExt {
   colorMode?: {
     classSuffix?: string
   }
-  trellis?: Record<string, unknown>
   content?: {
     i18n?: {
       defaultLocale?: string
@@ -255,24 +254,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     // i18n integration
     const i18nOptions = (moduleOptions.i18n ??= {})
     const appHasConfiguredLocales = hasConfiguredI18nLocales(i18nOptions)
-    const trellisOptions = defu(
-      typeof moduleOptions.trellis === 'object' && moduleOptions.trellis !== null
-        ? moduleOptions.trellis
-        : {},
-      {
-        auth: {
-          enabled: true,
-          routeProtection: {
-            redirectTo: `${studioRoute}/auth/signin`,
-          },
-        },
-        permissions: {
-          query: 'ginkoCms/members.getAccessContext',
-        },
-      },
-    ) as Record<string, unknown>
-    moduleOptions.trellis = trellisOptions
-
     if (appHasConfiguredLocales) {
       assertI18nCompatibility(i18nOptions, localeSettings)
       syncConfiguredI18nDefaults(i18nOptions, localeSettings)
@@ -532,18 +513,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const userOptions: Partial<ModuleOptions> =
       nuxtOptions.ginkoCms && typeof nuxtOptions.ginkoCms === 'object' ? nuxtOptions.ginkoCms : {}
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
-    const trellisOptions = defu(nuxtOptions.trellis ?? {}, {
-      auth: {
-        enabled: true,
-        routeProtection: {
-          redirectTo: `${studioRoute}/auth/signin`,
-        },
-      },
-      permissions: {
-        query: 'ginkoCms/members.getAccessContext',
-      },
-    })
-
     const dependencies: Record<
       string,
       {
@@ -566,9 +535,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
             permissions: false,
           },
         ) as Record<string, unknown>,
-      },
-      '@lupinum/trellis': {
-        defaults: trellisOptions,
       },
       '@nuxtjs/color-mode': {
         version: '>=4.0.0',

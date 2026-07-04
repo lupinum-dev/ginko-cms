@@ -16,6 +16,9 @@ function readPackageJson(relativePath: string): PackageJson {
   return JSON.parse(readFileSync(resolve(import.meta.dirname, '../..', relativePath), 'utf-8'))
 }
 
+const trellisPackageName = ['@lupinum', 'trellis'].join('/')
+const trellisBridgePackageName = ['@lupinum', 'trellis-bridge'].join('/')
+
 function assertExportTargetsExist(packageRoot: string, packageJson: PackageJson) {
   for (const [name, entry] of Object.entries(packageJson.exports ?? {})) {
     if (typeof entry === 'string') {
@@ -139,8 +142,8 @@ describe('package exports', () => {
       expect(dependencies[forbidden]).toBeUndefined()
     }
     expect(dependencies['@lupinum/ginko-cms-contract']).toBeDefined()
-    expect(dependencies['@lupinum/trellis']).toBeDefined()
-    expect(dependencies['@lupinum/trellis-bridge']).toBeDefined()
+    expect(dependencies[trellisPackageName]).toBeUndefined()
+    expect(dependencies[trellisBridgePackageName]).toBeUndefined()
   })
 
   it('ships the domain contract as the shared stable package', () => {

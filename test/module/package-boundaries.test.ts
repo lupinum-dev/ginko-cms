@@ -6,6 +6,8 @@ import * as ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 const projectRoot = resolve(import.meta.dirname, '../..')
+const trellisPackageName = ['@lupinum', 'trellis'].join('/')
+const trellisBridgePackageName = ['@lupinum', 'trellis-bridge'].join('/')
 const requiredPackageOutputs = [
   'packages/contract/dist/validators.js',
   'packages/contract/dist/convex/caller.js',
@@ -391,15 +393,18 @@ describe('package boundary contracts', () => {
     ).toEqual([])
   })
 
-  it('keeps Nuxt-oriented Trellis runtime composables out of standalone Studio source', () => {
+  it('keeps Nuxt-oriented runtime composables out of standalone Studio source', () => {
     const imports = readImportSpecifiers(collectSourceFiles('packages/cms/studio-app/src'))
     const runtimeViolations = imports.filter(
-      ({ specifier, typeOnly }) => !typeOnly && specifier === '@lupinum/trellis/composables',
+      ({ specifier, typeOnly }) =>
+        !typeOnly &&
+        (specifier === '@lupinum/trellis/composables' ||
+          specifier === 'better-convex-nuxt/composables'),
     )
 
     expect(
       runtimeViolations.map(({ file, specifier }) => `${file} -> ${specifier}`),
-      'Studio runtime must use its host-bridge Convex boundary instead of Nuxt Trellis composables',
+      'Studio runtime must use its host-bridge Convex boundary instead of Nuxt composables',
     ).toEqual([])
   })
 
@@ -438,13 +443,14 @@ describe('package boundary contracts', () => {
       ).toBeUndefined()
     }
     expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
-    expect(convexPackage.dependencies?.['@lupinum/trellis']).toBe('^0.3.1')
-    expect(convexPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.3.1')
+    expect(convexPackage.dependencies?.[trellisPackageName]).toBeUndefined()
+    expect(convexPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
 
     expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
     expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:^')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis']).toBe('^0.3.1')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.3.1')
+    expect(cmsPackage.dependencies?.[trellisPackageName]).toBeUndefined()
+    expect(cmsPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
+    expect(cmsPackage.dependencies?.['better-convex-nuxt']).toBeDefined()
   })
 
   it('does not reintroduce Nuxt-package Convex host artifacts', () => {
@@ -588,7 +594,7 @@ describe('package boundary contracts', () => {
     ).toEqual([])
   })
 
-  it('keeps Trellis auth internals behind the Studio host adapter', () => {
+  it('does not read legacy Trellis auth internals', () => {
     const files = [
       ...collectSourceFiles('packages/cms/src'),
       ...collectSourceFiles('packages/cms/studio-app/src'),
@@ -597,7 +603,7 @@ describe('package boundary contracts', () => {
       .filter((file) => readFileSync(file, 'utf-8').includes('__trellis_auth_engine__'))
       .map((file) => relative(projectRoot, file))
 
-    expect(trellisAuthReads).toEqual(['packages/cms/src/runtime/pages/studio-host.vue'])
+    expect(trellisAuthReads).toEqual([])
   })
 
   it('keeps Studio global host bridge reads inside boundary modules', () => {

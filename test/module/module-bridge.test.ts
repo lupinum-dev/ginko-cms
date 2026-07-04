@@ -145,9 +145,7 @@ describe('ginko-cms bridge validation', () => {
       nuxt,
     )
 
-    expect(
-      (nuxt.options as { trellis: { permissions: { query: string } } }).trellis.permissions.query,
-    ).toBe('ginkoCms/members.getAccessContext')
+    expect((nuxt.options as { trellis?: unknown }).trellis).toBeUndefined()
     expect(nuxt.options.css).toEqual([])
     expect((nuxt.options as { colorMode: { classSuffix: string } }).colorMode).toEqual({
       classSuffix: '',

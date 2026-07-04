@@ -23,6 +23,7 @@ const useLogger = vi.fn(() => ({
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const moduleDir = resolve(packageRoot, 'packages/cms/src')
+const trellisPackageName = ['@lupinum', 'trellis'].join('/')
 
 vi.mock('@nuxt/kit', () => ({
   addComponentsDir,
@@ -164,9 +165,10 @@ describe('ginko-cms tailwind registration', () => {
       classSuffix: '',
     })
     const moduleDependencies = getModuleDependencies(nuxt)
-    const trellisDependency = moduleDependencies['@lupinum/trellis']
+    const convexDependency = moduleDependencies['better-convex-nuxt']
 
-    expect(trellisDependency).toMatchObject({
+    expect(moduleDependencies[trellisPackageName]).toBeUndefined()
+    expect(convexDependency).toMatchObject({
       defaults: expect.objectContaining({
         auth: expect.objectContaining({
           enabled: true,
@@ -174,9 +176,7 @@ describe('ginko-cms tailwind registration', () => {
             redirectTo: '/studio/auth/signin',
           },
         }),
-        permissions: {
-          query: 'ginkoCms/members.getAccessContext',
-        },
+        permissions: false,
       }),
     })
 

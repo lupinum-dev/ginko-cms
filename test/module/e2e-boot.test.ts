@@ -192,12 +192,15 @@ describe('ginko-cms module e2e boot', () => {
     expect(studioPaths.length).toBe(pages.length)
   })
 
-  // --- Trellis permissions wiring ---
+  // --- Convex module wiring ---
 
-  it('wires trellis permissions query to CMS members endpoint', () => {
-    const trellisOpts = (
-      getNuxt(nuxt).options as { trellis?: { permissions?: { query?: string } } }
-    ).trellis
-    expect(trellisOpts?.permissions?.query).toBe('ginkoCms/members.getAccessContext')
+  it('wires studio route protection through better-convex-nuxt', () => {
+    const options = getNuxt(nuxt).options as {
+      convex?: { auth?: { routeProtection?: { redirectTo?: string } }; permissions?: unknown }
+      trellis?: unknown
+    }
+    expect(options.trellis).toBeUndefined()
+    expect(options.convex?.auth?.routeProtection?.redirectTo).toBe('/studio/auth/signin')
+    expect(options.convex?.permissions).toBe(false)
   })
 })
