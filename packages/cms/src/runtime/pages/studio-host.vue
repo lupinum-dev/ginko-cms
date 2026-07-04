@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useConvexAuth } from 'better-convex-nuxt/composables'
+
+import { api, components } from '#convex/api'
 import type {
   GinkoCmsHostAuthEngine,
   GinkoCmsPublicConfig,
@@ -36,12 +39,12 @@ import {
   useRoute,
   useRuntimeConfig,
 } from '#imports'
-import { api } from '#trellis/api'
 
 const runtimeConfig = useRuntimeConfig()
 const requestUrl = useRequestURL()
 const route = useRoute()
 const nuxtApp = useNuxtApp()
+const convexAuth = useConvexAuth()
 
 const cmsConfig = computed(() => runtimeConfig.public.ginkoCms as unknown as GinkoCmsPublicConfig)
 const authEnabled = computed(() => {
@@ -76,10 +79,18 @@ useHead(() => ({
   link: mainCss.value ? [{ rel: 'stylesheet', href: mainCss.value, crossorigin: 'anonymous' }] : [],
 }))
 
-function readAuthEngine(): GinkoCmsHostAuthEngine | null {
-  return (
-    ((nuxtApp as Record<string, unknown>).__trellis_auth_engine__ as GinkoCmsHostAuthEngine) ?? null
-  )
+function readAuthEngine(): GinkoCmsHostAuthEngine {
+  return {
+    token: convexAuth.token,
+    user: convexAuth.user,
+    pending: convexAuth.isPending,
+    isAuthenticated: convexAuth.isAuthenticated,
+    isAnonymous: computed(() => !convexAuth.isAuthenticated.value),
+    signOut: async () => {
+      await convexAuth.signOut()
+    },
+    awaitAuthReady: convexAuth.awaitAuthReady,
+  }
 }
 
 function debugStudioHost(message: string, details: Record<string, unknown> = {}): void {
@@ -174,9 +185,9 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
     // consumer's Nuxt app reference shares the already-configured Convex
     // client (and its better-auth token attachment) into the SPA context.
     nuxtApp,
-    // Trellis api is generated per-consumer; inject it so the SPA's
-    // boundary/api proxy delegates to the real function references.
-    api: assertStudioHostApi(api),
+    // The generated Convex api is per-consumer. Phase 1 keeps most existing
+    // bridge refs but proves a direct component ref for the collections list.
+    api: buildStudioHostApi(api, components),
     // Auth state passthrough so the SPA's useCmsAuthState mirrors what the
     // consumer's auth engine reports without the SPA having to subscribe
     // separately. Refs stay live — Vue tracking flows across the boundary
@@ -214,7 +225,7 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
 // state to authenticated clients. Contract installation is now an explicit
 // CLI/CI action (`ginko-cms push`), never Studio or Nuxt boot behavior.
 
-function assertStudioHostApi(value: unknown): GinkoCmsStudioHostApi {
+function buildStudioHostApi(value: unknown, componentApi: unknown): GinkoCmsStudioHostApi {
   const requiredGroups = [
     'assets',
     'collections',
@@ -231,7 +242,31 @@ function assertStudioHostApi(value: unknown): GinkoCmsStudioHostApi {
   for (const group of requiredGroups) {
     readObject(ginkoCms[group], `api.ginkoCms.${group}`)
   }
-  return value as GinkoCmsStudioHostApi
+  const componentsRoot = readObject(componentApi, 'components')
+  const componentGinkoCms = readObject(componentsRoot.ginkoCms, 'components.ginkoCms')
+  const componentCollections = readObject(
+    componentGinkoCms.collections,
+    'components.ginkoCms.collections',
+  )
+  const directListCollections = componentCollections.listCollections
+  if (typeof directListCollections !== 'object' || directListCollections === null) {
+    throw new TypeError(
+      '[ginko-cms] Studio host direct Convex component ref is missing components.ginkoCms.collections.listCollections.',
+    )
+  }
+
+  const hostApi = value as GinkoCmsStudioHostApi
+  return {
+    ...hostApi,
+    ginkoCms: {
+      ...hostApi.ginkoCms,
+      collections: {
+        ...hostApi.ginkoCms.collections,
+        listCollections:
+          directListCollections as GinkoCmsStudioHostApi['ginkoCms']['collections']['listCollections'],
+      },
+    },
+  }
 }
 
 function readObject(value: unknown, label: string): Record<string, unknown> {

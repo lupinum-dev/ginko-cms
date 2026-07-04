@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   buildCmsContract,
   type BuildCmsContractInput,
@@ -88,8 +89,8 @@ export async function loadGinkoContentProviderName(rootDir: string): Promise<str
 
 function collectionFromContract(collection: CmsCollectionContract): CollectionConfig {
   const settings = mergeSettings(routingSettings(collection), {
-    ...(collection.settings ?? {}),
-    ...(collection.schema ? { cmsSchema: collection.schema } : {}),
+    ...((collection.settings ?? {}) as JsonObjectLike),
+    ...(collection.schema ? { cmsSchema: collection.schema as unknown as JsonValue } : {}),
   })
   return {
     label: collection.label,
@@ -123,15 +124,19 @@ function fieldFromContract(field: CmsFieldContract): FieldConfig {
     sortable: field.sortable,
     order: field.order,
     width: field.width,
-    ...(field.defaultValue !== undefined ? { defaultValue: field.defaultValue } : {}),
+    ...(field.defaultValue !== undefined ? { defaultValue: field.defaultValue as JsonValue } : {}),
     ...(field.options !== undefined ? { options: field.options } : {}),
     ...(field.relation !== undefined ? { relation: field.relation } : {}),
     ...(field.media !== undefined ? { media: field.media } : {}),
     ...(field.fields !== undefined && field.fields !== null
       ? { fields: field.fields.map(fieldFromContract) }
       : {}),
-    ...(field.validation !== undefined ? { validation: field.validation } : {}),
-    ...(field.condition !== undefined ? { condition: field.condition } : {}),
+    ...(field.validation !== undefined
+      ? { validation: field.validation as unknown as FieldConfig['validation'] }
+      : {}),
+    ...(field.condition !== undefined
+      ? { condition: field.condition as unknown as FieldConfig['condition'] }
+      : {}),
     ...(field.min !== undefined ? { min: field.min } : {}),
     ...(field.max !== undefined ? { max: field.max } : {}),
     ...(field.step !== undefined ? { step: field.step } : {}),

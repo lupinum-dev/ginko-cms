@@ -12,7 +12,7 @@ import {
 } from '@nuxt/kit'
 import type { Nuxt, NuxtModule } from '@nuxt/schema'
 import { ConvexHttpClient } from 'convex/browser'
-import { anyApi } from 'convex/server'
+import { anyApi, type FunctionReference } from 'convex/server'
 import { defu } from 'defu'
 
 import { resolveConfiguredCollections } from './module/collections.js'
@@ -41,6 +41,7 @@ export type {
 interface NuxtOptionsExt {
   ginkoCms?: Partial<ModuleOptions> | false
   i18n?: I18nModuleOptions
+  convex?: Record<string, unknown>
   colorMode?: {
     classSuffix?: string
   }
@@ -254,17 +255,22 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     // i18n integration
     const i18nOptions = (moduleOptions.i18n ??= {})
     const appHasConfiguredLocales = hasConfiguredI18nLocales(i18nOptions)
-    const trellisOptions = defu(moduleOptions.trellis ?? {}, {
-      auth: {
-        enabled: true,
-        routeProtection: {
-          redirectTo: `${studioRoute}/auth/signin`,
+    const trellisOptions = defu(
+      typeof moduleOptions.trellis === 'object' && moduleOptions.trellis !== null
+        ? moduleOptions.trellis
+        : {},
+      {
+        auth: {
+          enabled: true,
+          routeProtection: {
+            redirectTo: `${studioRoute}/auth/signin`,
+          },
+        },
+        permissions: {
+          query: 'ginkoCms/members.getAccessContext',
         },
       },
-      permissions: {
-        query: 'ginkoCms/members.getAccessContext',
-      },
-    })
+    ) as Record<string, unknown>
     moduleOptions.trellis = trellisOptions
 
     if (appHasConfiguredLocales) {
@@ -275,7 +281,11 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     // Convex backend wiring
     await assertConvexBridgeInstalled(nuxt.options.rootDir, { repair: isNuxtPrepare() })
 
-    const colorModeOptions = (moduleOptions.colorMode ??= {})
+    const colorModeOptions =
+      typeof moduleOptions.colorMode === 'object' && moduleOptions.colorMode !== null
+        ? (moduleOptions.colorMode as { classSuffix?: string })
+        : {}
+    ;(moduleOptions as NuxtOptionsExt).colorMode = colorModeOptions
     if (typeof colorModeOptions.classSuffix === 'string' && colorModeOptions.classSuffix !== '') {
       throw new Error(
         'ginko-cms requires colorMode.classSuffix to be "" so Tailwind dark utilities target the ".dark" class.',
@@ -519,7 +529,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   },
   moduleDependencies(nuxt) {
     const nuxtOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
-    const userOptions =
+    const userOptions: Partial<ModuleOptions> =
       nuxtOptions.ginkoCms && typeof nuxtOptions.ginkoCms === 'object' ? nuxtOptions.ginkoCms : {}
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
     const trellisOptions = defu(nuxtOptions.trellis ?? {}, {
@@ -541,6 +551,22 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         defaults?: Record<string, unknown>
       }
     > = {
+      'better-convex-nuxt': {
+        defaults: defu(
+          typeof nuxtOptions.convex === 'object' && nuxtOptions.convex !== null
+            ? nuxtOptions.convex
+            : {},
+          {
+            auth: {
+              enabled: true,
+              routeProtection: {
+                redirectTo: `${studioRoute}/auth/signin`,
+              },
+            },
+            permissions: false,
+          },
+        ) as Record<string, unknown>,
+      },
       '@lupinum/trellis': {
         defaults: trellisOptions,
       },
@@ -612,6 +638,7 @@ export async function loadGinkoPrerenderRoutes(args: {
     throw new Error('Convex URL is not configured for Ginko prerender route generation.')
   }
   const client = new ConvexHttpClient(convexUrl)
+  const sitemapQuery = anyApi.ginkoCms?.public?.sitemap as FunctionReference<'query'>
   const urls: Array<{
     collection?: string
     route?: { locale?: string; path?: string }
@@ -620,7 +647,7 @@ export async function loadGinkoPrerenderRoutes(args: {
     for (const locale of args.collectionLocales[collection] ?? [args.defaultLocale]) {
       let cursor: string | null = null
       do {
-        const sitemap = (await client.query(anyApi.ginkoCms.public.sitemap, {
+        const sitemap = (await client.query(sitemapQuery, {
           collection,
           locale,
           cursor,

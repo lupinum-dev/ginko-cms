@@ -67,15 +67,15 @@ Treat this as a breaking release unless a maintainer explicitly chooses a
 deprecation release. The recommended path is semver-major with a clear migration
 note.
 
-| Package | Removed surface | Replacement |
-| --- | --- | --- |
-| `@lupinum/ginko-cms` | `./bridge` | Direct Convex setup and generated `#convex/api` refs |
-| `@lupinum/ginko-cms` | `./convex/manifest` | No manifest; `ginko-cms init` validates direct setup |
-| `@lupinum/ginko-cms-convex` | `./component-bridge` | Direct component API refs from generated Convex API |
-| `@lupinum/ginko-cms-convex` | `./operation-handles/mcp` | Explicit preview/execute refs in hand-written MCP tools |
-| CLI | `ginko-cms bridge *` | `ginko-cms init`, `doctor`, `deploy`, `push`, and `migrate` use direct Convex paths |
-| Env | `CONVEX_IDENTITY_FORWARDING_KEY` | Deleted |
-| Env | `GINKO_CMS_COMPONENT_FORWARDING_KEY` | Deleted |
+| Package                     | Removed surface                      | Replacement                                                                         |
+| --------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------- |
+| `@lupinum/ginko-cms`        | `./bridge`                           | Direct Convex setup and generated `#convex/api` refs                                |
+| `@lupinum/ginko-cms`        | `./convex/manifest`                  | No manifest; `ginko-cms init` validates direct setup                                |
+| `@lupinum/ginko-cms-convex` | `./component-bridge`                 | Direct component API refs from generated Convex API                                 |
+| `@lupinum/ginko-cms-convex` | `./operation-handles/mcp`            | Explicit preview/execute refs in hand-written MCP tools                             |
+| CLI                         | `ginko-cms bridge *`                 | `ginko-cms init`, `doctor`, `deploy`, `push`, and `migrate` use direct Convex paths |
+| Env                         | `CONVEX_IDENTITY_FORWARDING_KEY`     | Deleted                                                                             |
+| Env                         | `GINKO_CMS_COMPONENT_FORWARDING_KEY` | Deleted                                                                             |
 
 ## Work Order
 
@@ -105,11 +105,11 @@ Todos:
 - [ ] Confirm this ships as a breaking release.
 - [ ] Confirm no Trellis compatibility shim will be added.
 - [ ] Confirm old generated bridge files are cleanup blockers, not migration
-  inputs.
+      inputs.
 - [ ] Confirm stale host apps get a manual cleanup checklist through `doctor`.
 - [ ] Confirm removed public exports listed above are intentional.
 - [ ] Confirm `trustedReplay` is deleted unless a concrete non-Trellis caller
-  remains after CLI and MCP are cut over.
+      remains after CLI and MCP are cut over.
 - [ ] Confirm the migration source of truth is this file.
 
 Verification:
@@ -131,16 +131,40 @@ systems.
 
 Todos:
 
-- [ ] Add `better-convex-nuxt` to the playground Nuxt setup.
-- [ ] Generate a fresh playground Convex API with the Ginko CMS component
-  mounted and without adding new bridge files.
-- [ ] Record the actual generated refs needed by Studio, public reads, MCP, and
-  CLI/admin setup.
-- [ ] Change one Studio host path to import `api` from `#convex/api`.
-- [ ] Point one low-risk Studio read, preferably collection listing, at the
-  direct generated API ref.
-- [ ] Keep the slice small. Do not add aliases to preserve the old
-  `api.ginkoCms.*` bridge shape if the generated API differs.
+- [x] Add `better-convex-nuxt` to the playground Nuxt setup.
+- [x] Generate a fresh playground Convex API with the Ginko CMS component
+      mounted and without adding new bridge files.
+- [x] Record the actual generated refs needed by Studio, public reads, MCP, and
+      CLI/admin setup.
+- [x] Change one Studio host path to import `api` from `#convex/api`.
+- [x] Point one low-risk Studio read, preferably collection listing, at the
+      direct generated API ref.
+- [x] Keep the slice small. Do not add aliases to preserve the old
+      `api.ginkoCms.*` bridge shape if the generated API differs.
+
+Phase 1 evidence:
+
+- `better-convex-nuxt` now registers in the Ginko CMS module dependency list
+  and the playground dependency set.
+- `nuxi prepare --cwd playground` succeeds and generates `#convex/api`.
+- `convex dev --once --typecheck disable --tail-logs disable` succeeds in the
+  playground.
+- The Studio host imports `api` and `components` from `#convex/api`.
+- The Studio host reads auth through an explicit
+  `better-convex-nuxt/composables` import instead of the Trellis auth engine.
+- The generated direct component path for collection listing is
+  `components.ginkoCms.collections.listCollections`.
+- The existing bridge path remains `api.ginkoCms.collections.listCollections`.
+
+Important finding:
+
+- The direct component collection ref exists, but it is generated as an
+  internal component function and still accepts Trellis forwarding arguments
+  while the backend uses `defineTrellis`. That means browser Studio reads
+  cannot fully move to component refs until the backend builder cutover creates
+  public/protected CMS-owned Convex functions without Trellis forwarding. This
+  is not a reason to keep the bridge; it confirms Phase 5 must happen before
+  broad Studio call-site deletion.
 
 Verification:
 
@@ -170,16 +194,16 @@ Objective: remove Trellis from the dependency graph and release tooling.
 Todos:
 
 - [ ] Remove `@lupinum/trellis`, `@lupinum/trellis-bridge`, and
-  `@lupinum/trellis-eslint` from root package metadata.
+      `@lupinum/trellis-eslint` from root package metadata.
 - [ ] Remove Trellis dependencies from `packages/cms/package.json`.
 - [ ] Remove Trellis dependencies from `packages/convex/package.json`.
 - [ ] Add or require `better-convex-nuxt` in the Nuxt integration layer.
 - [ ] Delete `operations:generate:*` and `operations:check`.
 - [ ] Remove Trellis from `pnpm-workspace.yaml`, package extensions, CI setup,
-  and release/foundation scripts.
+      and release/foundation scripts.
 - [ ] Replace `pnpm --filter @lupinum/trellis-eslint build` in `lint`.
 - [ ] Update compatibility metadata to track `better-convex-nuxt` instead of
-  Trellis.
+      Trellis.
 - [ ] Update `pnpm-lock.yaml`.
 
 Verification:
@@ -210,12 +234,12 @@ Objective: make the Ginko Nuxt module depend on direct Convex/Nuxt wiring.
 Todos:
 
 - [ ] Remove `trellis?: Record<string, unknown>` from module option extension
-  types.
+      types.
 - [ ] Stop writing `moduleOptions.trellis`.
 - [ ] Replace Nuxt module dependency `@lupinum/trellis` with
-  `better-convex-nuxt`.
+      `better-convex-nuxt`.
 - [ ] Configure Studio route protection through the direct Better Auth/Convex
-  path.
+      path.
 - [ ] Keep permission configuration as UI hints only, if still useful.
 - [ ] Update module tests that currently assert Trellis permission wiring.
 - [ ] Update generated Nuxt aliases from `#trellis/*` to `#convex/*` usage.
@@ -255,7 +279,7 @@ Delete or retire:
 Replace with direct setup validation:
 
 - [ ] `convex/convex.config.ts` mounts Better Auth and the Ginko CMS Convex
-  component.
+      component.
 - [ ] `convex/auth.ts` follows the direct `@convex-dev/better-auth` pattern.
 - [ ] `convex/auth.config.ts` configures Convex auth provider state.
 - [ ] `convex/http.ts` registers Better Auth routes.
@@ -311,7 +335,7 @@ Remove:
 - [ ] `getCmsComponentForwardingKey`
 - [ ] generic Trellis guards and access-context objects
 - [ ] `unsafeRaw` and `unsafePermit`, unless replaced by narrower internal
-  functions with tests
+      functions with tests
 
 Update Convex call sites:
 
@@ -433,10 +457,10 @@ Objective: move Studio from Trellis host bridge to direct Convex host context.
 Todos:
 
 - [ ] Change `packages/cms/src/runtime/pages/studio-host.vue` from
-  `#trellis/api` to `#convex/api`.
+      `#trellis/api` to `#convex/api`.
 - [ ] Replace `__trellis_auth_engine__` with direct `useConvexAuth()` state.
 - [ ] Pass `api`, `$convex`, auth refs, and CMS runtime config through
-  `window.__GINKO_CMS__`.
+      `window.__GINKO_CMS__`.
 - [ ] Rename Trellis comments and types to Convex/CMS host vocabulary.
 - [ ] Update `packages/cms/studio-app/src/boundary/api.ts`.
 - [ ] Update `useCmsAuthState.ts`.
@@ -444,7 +468,7 @@ Todos:
 - [ ] Update `useCmsStudioPaginatedQuery.ts`.
 - [ ] Update `useStudioConvex.ts`.
 - [ ] Keep small Studio wrappers only when they add CMS-specific gating or error
-  normalization.
+      normalization.
 - [ ] Do not wrap every Convex primitive if a direct call is clearer.
 
 Verification:
@@ -479,13 +503,13 @@ Todos:
 
 - [ ] Replace `#trellis/api` with `#convex/api`.
 - [ ] Use `serverConvexQuery`, `serverConvexMutation`, or
-  `serverConvexAction` from `#convex/server` for protected server routes.
+      `serverConvexAction` from `#convex/server` for protected server routes.
 - [ ] Use `auth: 'required'` for protected server routes.
 - [ ] Use `auth: 'none'` or unauthenticated `ConvexHttpClient` for public
-  content reads.
+      content reads.
 - [ ] Ensure public Convex functions do not read member/app identity.
 - [ ] Keep `publicEntries`, `publicRoutes`, and `contentAssetRefs`; they are
-  rebuildable CMS read models, not tenant state.
+      rebuildable CMS read models, not tenant state.
 
 Verification:
 
@@ -520,9 +544,9 @@ Todos:
 - [ ] Add `createMcpConvexCaller(event, mcpKeyId)` or equivalent direct helper.
 - [ ] Preserve explicit MCP actor identity. Do not act as deploy/admin.
 - [ ] Update MCP prompts/resources to say "confirmation token" or "CMS
-  operation preview", not "Trellis operation preview".
+      operation preview", not "Trellis operation preview".
 - [ ] Ensure unauthorized `tools/call` fails inside Convex even if a tool is
-  visible or manually invoked.
+      visible or manually invoked.
 
 Verification:
 
@@ -558,7 +582,7 @@ Todos:
 - [ ] `init` does not write generated bridge files.
 - [ ] `doctor` validates direct setup and detects stale Trellis artifacts.
 - [ ] `doctor` prints cleanup instructions for stale bridge files and
-  forwarding env vars.
+      forwarding env vars.
 - [ ] `deploy` runs Convex deploy, then direct contract sync.
 - [ ] `push` uses direct internal contract sync.
 - [ ] `migrate` uses direct internal migration functions.
@@ -566,7 +590,7 @@ Todos:
 - [ ] Delete bridge command group.
 - [ ] Keep `CONVEX_DEPLOY_KEY` as setup/admin transport authority only.
 - [ ] Ensure deploy-key paths call narrow internal functions, not protected
-  member functions.
+      member functions.
 
 Verification:
 
@@ -644,7 +668,7 @@ ADRs:
 
 - [ ] Supersede `adr/0003-ginko-owns-install-experience-trellis-is-internal.md`.
 - [ ] State that Ginko CMS now uses direct Convex + Better Auth +
-  `better-convex-nuxt`.
+      `better-convex-nuxt`.
 - [ ] State that CMS invariants remain in the Convex component.
 - [ ] State that generated Trellis bridges and forwarding keys are removed.
 
@@ -652,7 +676,7 @@ Docs must say:
 
 - [ ] Ginko CMS uses Convex, Better Auth, and `better-convex-nuxt`.
 - [ ] `CONVEX_DEPLOY_KEY` is setup/admin transport authority, not CMS member
-  authority.
+      authority.
 - [ ] `GINKO_FIRST_OWNER_EMAIL` remains for first-owner bootstrap.
 - [ ] Forwarding keys are deleted.
 - [ ] Old `convex/ginkoCms*` files should be removed during migration.
@@ -717,7 +741,7 @@ Focused behavior gates:
 - [ ] CLI deploy-key sync works through internal functions.
 - [ ] Deploy key cannot perform member/editor/publisher actions.
 - [ ] Destructive actions reject missing, wrong, stale, expired, redeemed, or
-  mismatched confirmation tokens.
+      mismatched confirmation tokens.
 - [ ] Destructive actions redeem once and write audit.
 - [ ] Package consumer installs without Trellis.
 - [ ] Package tarballs contain no bridge manifest or operation-handle output.

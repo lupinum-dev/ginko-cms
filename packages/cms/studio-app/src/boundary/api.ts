@@ -2,12 +2,11 @@ import type { GinkoCmsStudioHostApi } from '@public/types'
 
 import { readHostBridge, setHostBridgeForTesting } from './host-bridge'
 
-// Trellis api proxy.
+// Studio host API proxy.
 //
-// `#trellis/api` in the Nuxt-rendered studio resolves to a per-consumer
-// generated module that exports the typed `api` object for every Convex
-// function the bridge wires up. The SPA can't generate that itself — the
-// shape is consumer-specific.
+// `#convex/api` in the Nuxt-rendered Studio resolves to the consumer's
+// generated Convex API. The SPA can't generate that itself; the shape is
+// consumer-specific.
 //
 // Strategy:
 // - At build time the SPA gets the named `GinkoCmsStudioHostApi` surface so
@@ -47,7 +46,7 @@ export function setApi(nextApi: GinkoCmsStudioHostApi): void {
   setHostBridgeForTesting({ api: nextApi })
 }
 
-// The generated Trellis API is only available in the host app. Keep the
+// The generated Convex API is only available in the host app. Keep the
 // runtime proxy cast at this single boundary instead of leaking `any` through
 // every Studio query/mutation call site.
 export const api = buildApiProxy() as GinkoCmsStudioHostApi
