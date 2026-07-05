@@ -96,7 +96,7 @@ export function deriveEntryNextAction(input: {
   }
   if (input.missingTranslationLocales.length > 0) return 'Complete translations'
   if (input.draftChangedSincePublish) return 'Preview website changes'
-  if (input.publicState === 'public') return 'Verify public output'
+  if (input.publicState === 'public') return 'Verify published website content'
   return 'Continue editing'
 }
 

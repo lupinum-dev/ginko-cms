@@ -173,4 +173,49 @@ describe('editor read queries', () => {
     expect(firstPage.isDone).toBe(false)
     expect(secondPage.page.map((row) => row.summary)).toEqual(['Activity 2', 'Activity 1'])
   })
+
+  it('returns editor-safe activity display summaries without rewriting raw summaries', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+
+    await ctx.seed(
+      'activity' as never,
+      {
+        kind: 'member.invited',
+        summary: 'Invited member "user_secret_123"',
+        appIdentityId: 'owner-1',
+        createdAt: 1,
+      } as never,
+    )
+    await ctx.seed(
+      'activity' as never,
+      {
+        kind: 'mcpCredentialSettings.revoked',
+        summary: 'MCP credential settings revoked for "ba_secret_connection"',
+        appIdentityId: 'owner-1',
+        createdAt: 2,
+      } as never,
+    )
+
+    const owner = ctx.asCmsUser('owner-1')
+    const result = await owner.query(api.editor.listActivity, {
+      paginationOpts: { numItems: 10, cursor: null },
+    })
+
+    expect(result.page).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'member.invited',
+          summary: 'Invited member "user_secret_123"',
+          displaySummary: 'Invited member "user or connection"',
+        }),
+        expect.objectContaining({
+          kind: 'mcpCredentialSettings.revoked',
+          summary: 'MCP credential settings revoked for "ba_secret_connection"',
+          displaySummary: 'AI agent connection revoked for "user or connection"',
+        }),
+      ]),
+    )
+  })
 })

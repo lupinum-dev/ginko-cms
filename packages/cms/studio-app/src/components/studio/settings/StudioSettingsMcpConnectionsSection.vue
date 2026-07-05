@@ -1,14 +1,42 @@
 <script setup lang="ts">
 import { AlertCircle, BadgeCheck, Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 
 const props = defineProps<{ admin: StudioSettingsAdminViewModel }>()
 const settings = props.admin
+const showRevokedConnections = ref(false)
+type McpConnection = StudioSettingsAdminViewModel['mcpConnections'][number]
+type PendingRevokeConnection = Pick<McpConnection, 'apiKeyId' | 'label' | 'ownerUserId' | 'scopes'>
+const pendingRevokeConnection = ref<PendingRevokeConnection | null>(null)
+const revokedConnectionCount = computed(
+  () => settings.mcpConnections.filter((connection) => connection.status !== 'active').length,
+)
+const visibleConnections = computed(() =>
+  settings.mcpConnections.filter(
+    (connection) => showRevokedConnections.value || connection.status === 'active',
+  ),
+)
+
+function requestRevokeConnection(connection: McpConnection) {
+  pendingRevokeConnection.value = {
+    apiKeyId: connection.apiKeyId,
+    label: connection.label,
+    ownerUserId: connection.ownerUserId,
+    scopes: connection.scopes,
+  }
+}
+
+async function confirmRevokeConnection() {
+  if (!pendingRevokeConnection.value) return
+  await settings.handleRevokeMcpConnection(pendingRevokeConnection.value.apiKeyId)
+  pendingRevokeConnection.value = null
+}
 </script>
 
 <template>
-  <!-- ─── MCP Connections ─── -->
+  <!-- ─── AI agent connections ─── -->
   <section
     v-if="settings.canManageSettings"
     class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
@@ -18,7 +46,7 @@ const settings = props.admin
         class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
       >
         <KeyRound class="ginko:size-4 ginko:text-muted-foreground" />
-        MCP connections
+        AI agent connections
         <Badge variant="outline" class="ginko:text-xs">
           {{
             settings.mcpConnections.filter((connection) => connection.status === 'active').length
@@ -26,7 +54,8 @@ const settings = props.admin
         </Badge>
       </h2>
       <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
-        Better Auth API keys mapped to CMS scopes for external MCP clients.
+        API access for trusted AI agents. Endpoint details stay behind
+        {{ settings.t('ginkoCms.studio.common.developerDetails') }}.
       </p>
     </div>
 
@@ -101,7 +130,7 @@ const settings = props.admin
         </div>
 
         <div class="ginko:mt-4 ginko:space-y-2">
-          <Label class="ginko:text-xs ginko:text-muted-foreground">Scopes</Label>
+          <Label class="ginko:text-xs ginko:text-muted-foreground">Permissions</Label>
           <div class="ginko:grid ginko:grid-cols-1 ginko:gap-2 ginko:sm:grid-cols-2">
             <label
               v-for="scope in settings.mcpScopeOptions"
@@ -124,10 +153,12 @@ const settings = props.admin
         <div
           class="ginko:mt-4 ginko:flex ginko:flex-col ginko:gap-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
         >
-          <code
-            class="ginko:min-w-0 ginko:break-all ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1 ginko:text-xs"
-            >{{ settings.mcpEndpoint }}</code
-          >
+          <StudioDeveloperDetails class="ginko:min-w-0 ginko:flex-1" :framed="false">
+            <code
+              class="ginko:mt-2 ginko:block ginko:min-w-0 ginko:break-all ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1 ginko:text-xs"
+              >{{ settings.mcpEndpoint }}</code
+            >
+          </StudioDeveloperDetails>
           <Button
             size="sm"
             :disabled="settings.mcpConnectionSaving"
@@ -145,27 +176,42 @@ const settings = props.admin
 
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:divide-y">
         <div
-          v-if="settings.mcpConnections.length === 0"
-          class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
+          class="ginko:flex ginko:flex-col ginko:gap-2 ginko:px-4 ginko:py-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
         >
-          No MCP connections have been created yet.
+          <div class="ginko:text-sm ginko:font-medium">Active agent connections</div>
+          <Button
+            v-if="revokedConnectionCount > 0"
+            variant="outline"
+            size="sm"
+            @click="showRevokedConnections = !showRevokedConnections"
+          >
+            {{
+              showRevokedConnections ? 'Hide revoked' : `Show revoked (${revokedConnectionCount})`
+            }}
+          </Button>
         </div>
         <div
-          v-for="connection in settings.mcpConnections"
+          v-if="visibleConnections.length === 0"
+          class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
+        >
+          No active AI agent connections.
+        </div>
+        <div
+          v-for="connection in visibleConnections"
           :key="connection.apiKeyId"
           class="ginko:flex ginko:flex-col ginko:gap-3 ginko:px-4 ginko:py-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
         >
           <div class="ginko:min-w-0">
             <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
               <span class="ginko:text-sm ginko:font-medium">{{
-                connection.label || connection.apiKeyId
+                connection.label || 'Untitled agent connection'
               }}</span>
               <Badge :variant="connection.status === 'active' ? 'default' : 'secondary'">
                 {{ connection.status }}
               </Badge>
             </div>
             <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-              {{ connection.scopes.length }} scopes · Updated
+              {{ connection.scopes.length }} permissions · Updated
               {{ settings.formatTimestamp(connection.updatedAt) }}
             </div>
           </div>
@@ -175,17 +221,49 @@ const settings = props.admin
             :disabled="
               connection.status !== 'active' || settings.revokingMcpApiKeyId === connection.apiKeyId
             "
-            @click="settings.handleRevokeMcpConnection(connection)"
+            @click="requestRevokeConnection(connection)"
           >
             <Loader2
               v-if="settings.revokingMcpApiKeyId === connection.apiKeyId"
               class="ginko:size-3.5 ginko:animate-spin"
             />
             <Trash2 v-else class="ginko:size-3.5" />
-            Revoke
+            Revoke access
           </Button>
+          <StudioDeveloperDetails class="ginko:w-full ginko:sm:basis-full" :framed="false">
+            <code
+              class="ginko:mt-2 ginko:block ginko:break-all ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1 ginko:text-xs"
+              >{{ connection.apiKeyId }}</code
+            >
+          </StudioDeveloperDetails>
         </div>
       </div>
     </div>
+
+    <StudioConfirmDialog
+      :open="!!pendingRevokeConnection"
+      title="Revoke agent access?"
+      description="This ends the selected agent connection. Existing sessions using this key will no longer be able to access CMS operations."
+      confirm-label="Revoke access"
+      confirm-variant="destructive"
+      @update:open="pendingRevokeConnection = $event ? pendingRevokeConnection : null"
+      @confirm="confirmRevokeConnection"
+    >
+      <div
+        v-if="pendingRevokeConnection"
+        class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-sm"
+      >
+        <div class="ginko:font-medium">
+          {{ pendingRevokeConnection.label || 'Untitled agent connection' }}
+        </div>
+        <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+          {{ pendingRevokeConnection.scopes.length }} permissions · owner
+          {{ pendingRevokeConnection.ownerUserId }}
+        </div>
+        <code class="ginko:mt-2 ginko:block ginko:break-all ginko:text-xs">
+          {{ pendingRevokeConnection.apiKeyId }}
+        </code>
+      </div>
+    </StudioConfirmDialog>
   </section>
 </template>

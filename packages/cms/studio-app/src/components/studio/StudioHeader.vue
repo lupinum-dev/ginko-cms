@@ -25,7 +25,7 @@ const breadcrumb = computed<BreadcrumbItem[]>(() => {
   const path = route.path.replace(studioRoute, '').replace(/^\/+/, '')
   const parts = path.split('/').filter(Boolean)
   if (parts.length === 0) {
-    return [{ icon: LayoutDashboard, label: 'Dashboard' }]
+    return [{ icon: LayoutDashboard, label: 'Home' }]
   }
   if (parts[0] === 'content' && parts[1]) {
     const collection = formatSegment(parts[1])
@@ -33,7 +33,7 @@ const breadcrumb = computed<BreadcrumbItem[]>(() => {
       { icon: Folder, label: collection, to: `${studioRoute}/content/${parts[1]}` },
     ]
     if (parts[2] === 'new') {
-      items.push({ icon: FileText, label: 'New entry' })
+      items.push({ icon: FileText, label: 'New content' })
     } else if (parts[2]) {
       items.push({ icon: FileText, label: 'Entry' })
     }

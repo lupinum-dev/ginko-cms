@@ -177,7 +177,7 @@ const ownerPathLabel = (asset: Pick<FinderAssetRecord, 'ownerPath'>) =>
   asset.ownerPath?.length ? asset.ownerPath.join(' / ') : 'Global'
 
 const ownershipLabel = (asset: Pick<FinderAssetRecord, 'scope' | 'collectionLabel'>) => {
-  if (asset.scope === 'global') return 'Global asset'
+  if (asset.scope === 'global') return 'Shared library asset'
   if (asset.scope === 'collection') return `Shared in ${asset.collectionLabel ?? 'collection'}`
   return 'Owned by this entry'
 }
@@ -239,7 +239,7 @@ const uploadDestinations = computed(() => [
   },
   {
     value: 'global',
-    label: 'Global library',
+    label: 'Shared library',
     disabled: false,
   },
 ])
@@ -618,7 +618,7 @@ defineExpose({
       class="ginko:flex ginko:min-h-12 ginko:shrink-0 ginko:items-center ginko:justify-between ginko:gap-3 ginko:border-b ginko:px-4 ginko:py-2"
     >
       <div class="ginko:min-w-0">
-        <h3 class="ginko:truncate ginko:text-sm ginko:font-semibold">{{ title ?? 'Assets' }}</h3>
+        <h3 class="ginko:truncate ginko:text-sm ginko:font-semibold">{{ title ?? 'Media' }}</h3>
         <p v-if="isPickMode" class="ginko:truncate ginko:text-xs ginko:text-muted-foreground">
           Choose or upload an asset without leaving this entry.
         </p>
@@ -705,7 +705,7 @@ defineExpose({
                 <span
                   class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                 >
-                  Full View
+                  Library views
                 </span>
               </div>
               <nav class="ginko:space-y-px ginko:px-2">
@@ -984,7 +984,7 @@ defineExpose({
             :disabled="actionPending"
             @click="moveAssetsToCollection([...selectedVisibleAssetIds])"
           >
-            Share in Collection
+            Make available to this collection
           </Button>
           <Button
             v-if="canBulkMakeGlobal"
@@ -994,7 +994,7 @@ defineExpose({
             :disabled="actionPending"
             @click="moveAssetsToGlobal([...selectedVisibleAssetIds])"
           >
-            Make Global
+            Make available everywhere
           </Button>
           <Button
             size="sm"
@@ -1440,7 +1440,7 @@ defineExpose({
           class="ginko:w-[19rem] ginko:max-w-[85vw] ginko:p-0 ginko:md:hidden"
         >
           <SheetHeader class="ginko:border-b ginko:pr-12">
-            <SheetTitle class="ginko:text-sm">Browse Assets</SheetTitle>
+            <SheetTitle class="ginko:text-sm">Browse media</SheetTitle>
             <SheetDescription>Choose an owner, tag, view, or trash.</SheetDescription>
           </SheetHeader>
           <ScrollArea class="ginko:flex-1">
@@ -1516,7 +1516,7 @@ defineExpose({
                   <span
                     class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                   >
-                    Full View
+                    Library views
                   </span>
                 </div>
                 <nav class="ginko:space-y-px ginko:px-2">
@@ -1573,7 +1573,7 @@ defineExpose({
           class="ginko:max-h-[85dvh] ginko:rounded-t-xl ginko:p-0 ginko:sm:hidden"
         >
           <SheetHeader class="ginko:border-b ginko:pr-12">
-            <SheetTitle class="ginko:text-sm">Filter Assets</SheetTitle>
+            <SheetTitle class="ginko:text-sm">Filter media</SheetTitle>
             <SheetDescription>Adjust the current asset view.</SheetDescription>
           </SheetHeader>
           <div class="ginko:grid ginko:gap-3 ginko:p-4">
@@ -1874,7 +1874,7 @@ defineExpose({
                         @click="moveSelectedAssetToCollection"
                       >
                         <ArrowUp class="ginko:mr-2 ginko:size-3.5" />
-                        Share in Collection
+                        Make available to this collection
                       </Button>
                       <Button
                         v-if="selectedAssetForDetails.scope !== 'global'"
@@ -1885,7 +1885,7 @@ defineExpose({
                         @click="moveSelectedAssetToGlobal"
                       >
                         <Globe class="ginko:mr-2 ginko:size-3.5" />
-                        Make Global
+                        Make available everywhere
                       </Button>
                       <Button
                         variant="outline"
@@ -2212,7 +2212,7 @@ defineExpose({
                       @click="moveSelectedAssetToCollection"
                     >
                       <ArrowUp class="ginko:mr-2 ginko:size-3.5" />
-                      Share in Collection
+                      Make available to this collection
                     </Button>
                     <Button
                       v-if="selectedAsset.scope !== 'global'"
@@ -2223,7 +2223,7 @@ defineExpose({
                       @click="moveSelectedAssetToGlobal"
                     >
                       <Globe class="ginko:mr-2 ginko:size-3.5" />
-                      Make Global
+                      Make available everywhere
                     </Button>
                     <Button
                       variant="outline"

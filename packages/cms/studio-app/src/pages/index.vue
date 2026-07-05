@@ -11,7 +11,7 @@ import {
 import { computed } from 'vue'
 
 import { api } from '../boundary/api'
-import { cmsPermissionKeys } from '../composables/permissions'
+import { cmsPermissionKeys, type CmsPermissionKey } from '../composables/permissions'
 import { useCmsConfig } from '../composables/useCmsConfig'
 import { useCmsI18n } from '../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
@@ -23,6 +23,11 @@ import {
   type StudioCollectionListItem,
 } from '../lib/codeDefinedCollections'
 import { deriveStudioWorkQueueSummary } from '../lib/publicWorkflow'
+import {
+  studioRouteHref,
+  studioStaticRoutes,
+  type StudioStaticRoute,
+} from '../lib/studioNavigation'
 
 type OverviewEntry = {
   entryId: string
@@ -63,6 +68,7 @@ type Overview = {
   activity?: Array<{
     _id: string
     summary: string
+    displaySummary: string
     kind: string
     locale: string | null
     createdAt: number
@@ -76,6 +82,7 @@ type WorkQueueMetric = {
   value: number | string
   icon: unknown
   tone: 'danger' | 'warning' | 'info' | 'neutral'
+  to?: string
 }
 
 const cmsConfig = useCmsConfig()
@@ -85,9 +92,9 @@ const studioSettings = useCmsStudioSettings()
 const locale = computed(() => studioSettings.defaultLocale.value)
 const { can } = useCmsStudioAccess()
 const canManageAssets = can(cmsPermissionKeys.manageAssets)
-const canManageCollections = can(cmsPermissionKeys.manageCollections)
 const canManageSettings = can(cmsPermissionKeys.manageSettings)
-const { t, dateLocale } = useCmsI18n()
+const canPublishEntries = can(cmsPermissionKeys.publishEntries)
+const { dateLocale, t } = useCmsI18n()
 
 const overviewQuery = useCmsStudioQuery(
   api.ginkoCms.editor.getStudioOverview,
@@ -127,48 +134,60 @@ const workQueue = computed(() =>
     pendingRevalidation: overview.value?.counts?.pendingRevalidation,
   }),
 )
-const workQueueMetrics = computed<WorkQueueMetric[]>(() => [
-  {
-    key: 'needsAttention',
-    label: 'Needs attention',
-    description: 'Blocked entries, failed jobs, or import blockers',
-    value: overviewReady.value ? workQueue.value.needsAttention : '...',
-    icon: AlertCircle,
-    tone: workQueue.value.needsAttention > 0 ? 'danger' : 'neutral',
-  },
-  {
-    key: 'changedDrafts',
-    label: 'Changed drafts',
-    description: 'Draft edits waiting for review',
-    value: overviewReady.value ? workQueue.value.changedDrafts : '...',
-    icon: FileText,
-    tone: workQueue.value.changedDrafts > 0 ? 'info' : 'neutral',
-  },
-  {
-    key: 'missingTranslations',
-    label: 'Translations',
-    description: 'Locales that still need content',
-    value: overviewReady.value ? workQueue.value.missingTranslations : '...',
-    icon: Languages,
-    tone: workQueue.value.missingTranslations > 0 ? 'warning' : 'neutral',
-  },
-  {
-    key: 'failedRevalidation',
-    label: 'Revalidation',
-    description: 'Public-output refresh failures',
-    value: overviewReady.value ? workQueue.value.failedRevalidation : '...',
-    icon: RefreshCw,
-    tone: workQueue.value.failedRevalidation > 0 ? 'danger' : 'neutral',
-  },
-  {
-    key: 'importBlockers',
-    label: 'Import blockers',
-    description: 'Imports that need review',
-    value: overviewReady.value ? workQueue.value.importBlockers : '...',
-    icon: FileArchive,
-    tone: workQueue.value.importBlockers > 0 ? 'danger' : 'neutral',
-  },
-])
+const workQueueRows = computed<WorkQueueMetric[]>(() => {
+  const loadingValue = overviewReady.value ? null : '...'
+  const rows: WorkQueueMetric[] = [
+    {
+      key: 'needsAttention',
+      label: 'Needs attention',
+      description: 'Start here when publishing is blocked or website updates need review.',
+      value: loadingValue ?? workQueue.value.needsAttention,
+      icon: AlertCircle,
+      tone: workQueue.value.needsAttention > 0 ? 'danger' : 'neutral',
+    },
+    {
+      key: 'changedDrafts',
+      label: 'Continue editing',
+      description: 'Draft edits waiting for preview, review, or publishing.',
+      value: loadingValue ?? workQueue.value.changedDrafts,
+      icon: FileText,
+      tone: workQueue.value.changedDrafts > 0 ? 'info' : 'neutral',
+    },
+    {
+      key: 'missingTranslations',
+      label: 'Missing translations',
+      description: 'Locales that still need content before the website is complete.',
+      value: loadingValue ?? workQueue.value.missingTranslations,
+      icon: Languages,
+      tone: workQueue.value.missingTranslations > 0 ? 'warning' : 'neutral',
+    },
+  ]
+
+  if (!overviewReady.value || workQueue.value.failedRevalidation > 0) {
+    rows.push({
+      key: 'failedRevalidation',
+      label: 'Website refresh',
+      description: 'Failed website refreshes that can affect recently published content.',
+      value: loadingValue ?? workQueue.value.failedRevalidation,
+      icon: RefreshCw,
+      tone: workQueue.value.failedRevalidation > 0 ? 'danger' : 'neutral',
+    })
+  }
+
+  if (!overviewReady.value || workQueue.value.importBlockers > 0) {
+    rows.push({
+      key: 'importBlockers',
+      label: 'Import needs review',
+      description: 'Imported content that needs a human check before it affects the website.',
+      value: loadingValue ?? workQueue.value.importBlockers,
+      icon: FileArchive,
+      tone: workQueue.value.importBlockers > 0 ? 'danger' : 'neutral',
+      to: `${studioRoute}/imports`,
+    })
+  }
+
+  return rows
+})
 const collectionRows = computed(() => {
   if (overview.value?.collections?.length) return overview.value.collections
   return collections.value.map((collection) => ({
@@ -184,33 +203,24 @@ const collectionRows = computed(() => {
   }))
 })
 const recentActivity = computed(() => overview.value?.activity ?? activityQuery.results.value)
+const capabilityAccess: Partial<Record<CmsPermissionKey, typeof canManageAssets>> = {
+  [cmsPermissionKeys.manageAssets]: canManageAssets,
+  [cmsPermissionKeys.manageSettings]: canManageSettings,
+  [cmsPermissionKeys.publishEntries]: canPublishEntries,
+}
+function canAccessRoute(route: StudioStaticRoute): boolean {
+  const requiredCapability = route.requiredCapability
+  return !requiredCapability || capabilityAccess[requiredCapability]?.value === true
+}
 const quickLinks = computed(() =>
-  [
-    {
-      to: `${studioRoute}/site-data`,
-      icon: 'lucide:database',
-      label: t('ginkoCms.common.siteData'),
-      visible: canManageSettings.value,
-    },
-    {
-      to: `${studioRoute}/assets`,
-      icon: 'lucide:image',
-      label: t('ginkoCms.common.assets'),
-      visible: canManageAssets.value,
-    },
-    {
-      to: `${studioRoute}/model`,
-      icon: 'lucide:layers',
-      label: 'Content model',
-      visible: canManageCollections.value,
-    },
-    {
-      to: `${studioRoute}/imports`,
-      icon: 'lucide:file-archive',
-      label: 'Imports',
-      visible: canManageCollections.value,
-    },
-  ].filter((link) => link.visible),
+  studioStaticRoutes
+    .filter((route) => ['siteData', 'assets', 'reviews'].includes(route.id))
+    .filter(canAccessRoute)
+    .map((route) => ({
+      to: studioRouteHref(studioRoute, route),
+      icon: route.icon,
+      label: t(route.labelKey),
+    })),
 )
 
 function entryHref(entry: OverviewEntry) {
@@ -218,7 +228,7 @@ function entryHref(entry: OverviewEntry) {
 }
 
 function routeModeLabel(mode: unknown) {
-  return mode === 'none' ? 'Data-only' : 'Route-backed'
+  return mode === 'none' ? 'Shared data' : 'Website pages'
 }
 
 function metricToneClass(tone: WorkQueueMetric['tone']) {
@@ -239,9 +249,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
   <StudioWorkspace class="ginko:h-full">
     <template #header>
       <StudioPageHeader
-        title="Content operations"
-        eyebrow="Dashboard"
-        description="Draft work, translation readiness, publishing confidence, imports, and public output."
+        :title="t('ginkoCms.studio.dashboard.title')"
+        :eyebrow="t('ginkoCms.studio.layout.home')"
+        :description="t('ginkoCms.studio.dashboard.headerDescription')"
       >
         <template #actions>
           <Button v-for="link in quickLinks" :key="link.to" as-child variant="outline" size="sm">
@@ -262,46 +272,48 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
         <StudioNotice
           v-if="overviewQuery.error.value"
           tone="danger"
-          title="Studio overview could not be loaded"
-          description="Existing collection data is still shown."
+          :title="t('ginkoCms.studio.dashboard.overviewLoadErrorTitle')"
+          :description="t('ginkoCms.studio.dashboard.overviewLoadErrorDescription')"
         />
 
         <section
-          aria-label="Work queue"
+          :aria-label="t('ginkoCms.studio.dashboard.title')"
           class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
         >
-          <div
-            class="ginko:grid ginko:divide-y ginko:divide-border/70 ginko:lg:grid-cols-5 ginko:lg:divide-x ginko:lg:divide-y-0"
-          >
-            <div
-              v-for="metric in workQueueMetrics"
-              :key="metric.key"
-              class="ginko:min-w-0 ginko:p-4"
+          <div class="ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3">
+            <h2 class="ginko:text-sm ginko:font-semibold">
+              {{ t('ginkoCms.studio.dashboard.today') }}
+            </h2>
+            <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
+              {{ t('ginkoCms.studio.dashboard.todayDescription') }}
+            </p>
+          </div>
+          <div class="ginko:divide-y ginko:divide-border/70">
+            <component
+              :is="row.to ? 'RouterLink' : 'div'"
+              v-for="row in workQueueRows"
+              :key="row.key"
+              :to="row.to"
+              class="ginko:grid ginko:gap-3 ginko:px-4 ginko:py-3 ginko:transition-colors ginko:sm:grid-cols-[2.5rem_minmax(0,1fr)_5rem] ginko:hover:bg-accent/40"
             >
-              <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
-                <div class="ginko:min-w-0">
-                  <div
-                    class="ginko:truncate ginko:text-xs ginko:font-medium ginko:text-muted-foreground"
-                  >
-                    {{ metric.label }}
-                  </div>
-                  <div class="ginko:mt-2 ginko:text-2xl ginko:font-semibold ginko:tabular-nums">
-                    {{ metric.value }}
-                  </div>
-                </div>
-                <div
-                  class="ginko:grid ginko:size-8 ginko:shrink-0 ginko:place-items-center ginko:rounded-md ginko:border"
-                  :class="metricToneClass(metric.tone)"
-                >
-                  <component :is="metric.icon" class="ginko:size-4" />
-                </div>
-              </div>
-              <p
-                class="ginko:mt-2 ginko:line-clamp-2 ginko:text-xs ginko:leading-4 ginko:text-muted-foreground"
+              <div
+                class="ginko:grid ginko:size-9 ginko:place-items-center ginko:rounded-md ginko:border"
+                :class="metricToneClass(row.tone)"
               >
-                {{ metric.description }}
-              </p>
-            </div>
+                <component :is="row.icon" class="ginko:size-4" />
+              </div>
+              <div class="ginko:min-w-0">
+                <div class="ginko:text-sm ginko:font-medium">{{ row.label }}</div>
+                <p class="ginko:mt-0.5 ginko:text-xs ginko:leading-4 ginko:text-muted-foreground">
+                  {{ row.description }}
+                </p>
+              </div>
+              <div
+                class="ginko:self-center ginko:text-2xl ginko:font-semibold ginko:tabular-nums ginko:sm:text-right"
+              >
+                {{ row.value }}
+              </div>
+            </component>
           </div>
         </section>
 
@@ -318,7 +330,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 <div>
                   <h2 class="ginko:text-sm ginko:font-semibold">Continue editing</h2>
                   <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
-                    Drafts with changes since the last public output.
+                    Drafts with changes since the last published website content.
                   </p>
                 </div>
                 <Badge variant="outline" class="ginko:text-xs">
@@ -369,7 +381,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 <div>
                   <h2 class="ginko:text-sm ginko:font-semibold">Blocked from publishing</h2>
                   <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
-                    Entries with readiness issues before public output can change.
+                    Entries with readiness issues before the website can change.
                   </p>
                 </div>
                 <Badge variant="outline" class="ginko:text-xs">
@@ -417,9 +429,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
               <div class="ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3">
-                <h2 class="ginko:text-sm ginko:font-semibold">Content inventory</h2>
+                <h2 class="ginko:text-sm ginko:font-semibold">Content overview</h2>
                 <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
-                  Collections, route behavior, changed drafts, and translation gaps.
+                  Content types, website use, drafts, and translation gaps.
                 </p>
               </div>
               <div class="ginko:overflow-x-auto">
@@ -428,7 +440,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                     class="ginko:grid ginko:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem_8rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-[11px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
                   >
                     <div>Collection</div>
-                    <div>Mode</div>
+                    <div>Website use</div>
                     <div>Entries</div>
                     <div>Drafts</div>
                     <div>Translations</div>
@@ -473,7 +485,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 class="ginko:flex ginko:items-center ginko:gap-2 ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3"
               >
                 <Workflow class="ginko:size-4 ginko:text-muted-foreground" />
-                <h2 class="ginko:text-sm ginko:font-semibold">System health</h2>
+                <h2 class="ginko:text-sm ginko:font-semibold">Operations status</h2>
               </div>
               <div class="ginko:space-y-3 ginko:p-4">
                 <div
@@ -500,7 +512,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   <div>
                     <div class="ginko:font-medium">No operational blockers</div>
                     <div class="ginko:text-xs ginko:text-muted-foreground">
-                      Imports and public-output revalidation look healthy.
+                      Imports and website refreshes look healthy.
                     </div>
                   </div>
                 </div>
@@ -509,7 +521,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   :key="`job:${job.id}`"
                   class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-sm"
                 >
-                  <div class="ginko:font-medium">Revalidation {{ job.status }}</div>
+                  <div class="ginko:font-medium">Website refresh {{ job.status }}</div>
                   <div class="ginko:mt-1 ginko:truncate ginko:text-xs ginko:text-muted-foreground">
                     {{ job.paths?.join(', ') || job.lastError || 'No affected pages recorded' }}
                   </div>
@@ -562,7 +574,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               <StudioEmptyState
                 v-else
                 title="Nothing published yet"
-                description="Published entries will appear here after public output changes."
+                description="Published entries will appear here after the website changes."
                 class="ginko:m-4"
               />
             </section>
@@ -575,7 +587,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               </div>
               <div v-if="recentActivity.length" class="ginko:divide-y ginko:divide-border/70">
                 <div v-for="item in recentActivity" :key="item._id" class="ginko:px-4 ginko:py-3">
-                  <div class="ginko:text-sm">{{ item.summary }}</div>
+                  <div class="ginko:text-sm">{{ item.displaySummary }}</div>
                   <div class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
                     <NuxtTime
                       :datetime="item.createdAt"
@@ -591,7 +603,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               <StudioEmptyState
                 v-else
                 title="No activity yet"
-                description="Editorial, import, asset, and revalidation events will appear here."
+                description="Editorial, import, asset, and website refresh events will appear here."
                 class="ginko:m-4"
               />
             </section>

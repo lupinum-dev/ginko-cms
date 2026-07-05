@@ -9,7 +9,6 @@ import {
   EyeOff,
   FileText,
   Flag,
-  Globe,
   Loader2,
   MoreHorizontal,
   PanelRightClose,
@@ -45,7 +44,7 @@ const collectionLabel = computed(() =>
 )
 
 const displayTitle = computed(() => {
-  if (props.mode === 'new') return props.title || 'New entry'
+  if (props.mode === 'new') return props.title || 'New content'
   if (!editor) return props.title || ''
   return resolveEntryTitle(
     editor.draft.dataFields as JsonMap,
@@ -55,7 +54,7 @@ const displayTitle = computed(() => {
 })
 
 const renderedTitle = computed(() => {
-  if (props.mode === 'new') return props.title || 'New entry'
+  if (props.mode === 'new') return props.title || 'New content'
   if (!mounted.value) return editor?.loader.t('ginkoCms.common.untitled') ?? 'Untitled'
   return displayTitle.value || editor?.loader.t('ginkoCms.common.untitled') || 'Untitled'
 })
@@ -147,7 +146,7 @@ function openPublishAllDialog() {
       >
         <template v-if="mode === 'new'">
           <span class="studio-text-title ginko:truncate ginko:text-foreground">
-            {{ title || 'New entry' }}
+            {{ title || 'New content' }}
           </span>
         </template>
         <template v-else>
@@ -178,11 +177,6 @@ function openPublishAllDialog() {
           <Save class="ginko:size-4" />
           <span class="studio-entry-topbar__label-full">Create draft</span>
           <span class="studio-entry-topbar__label-short">Draft</span>
-        </Button>
-        <Button v-if="canPublish" size="sm" :disabled="saving" @click="emit('createPublish')">
-          <Globe class="ginko:size-4" />
-          <span class="studio-entry-topbar__label-full">Create and publish</span>
-          <span class="studio-entry-topbar__label-short">Publish</span>
         </Button>
       </div>
 

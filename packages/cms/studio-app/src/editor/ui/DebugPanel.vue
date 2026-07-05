@@ -19,9 +19,12 @@ const emit = defineEmits<{
       <div
         class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:tracking-[0.2em] ginko:text-slate-300"
       >
-        Debug Timeline
+        Editor diagnostics
       </div>
       <div class="ginko:ml-auto ginko:text-xs ginko:text-slate-400">{{ events.length }} events</div>
+      <div class="ginko:hidden ginko:text-xs ginko:text-slate-500 ginko:md:block">
+        Diagnostics may include unpublished content and editor state.
+      </div>
       <Button
         size="sm"
         variant="outline"
@@ -36,7 +39,7 @@ const emit = defineEmits<{
         class="ginko:h-7 ginko:border-slate-700 ginko:bg-slate-900 ginko:text-slate-100"
         @click="emit('export')"
       >
-        Export
+        Export diagnostics
       </Button>
     </div>
     <div class="ginko:max-h-[320px] ginko:overflow-auto ginko:px-3 ginko:py-2">

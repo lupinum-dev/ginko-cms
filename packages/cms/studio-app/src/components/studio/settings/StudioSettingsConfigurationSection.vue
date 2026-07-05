@@ -30,17 +30,6 @@ const settings = props.admin
           class="ginko:flex ginko:items-center ginko:justify-between ginko:px-4 ginko:py-3 ginko:text-sm"
         >
           <span class="ginko:text-muted-foreground">{{
-            settings.t('ginkoCms.studio.settingsPage.studioRoute')
-          }}</span>
-          <code
-            class="ginko:font-mono ginko:text-xs ginko:bg-muted ginko:px-2 ginko:py-0.5 ginko:rounded"
-            >{{ settings.config.route }}</code
-          >
-        </div>
-        <div
-          class="ginko:flex ginko:items-center ginko:justify-between ginko:px-4 ginko:py-3 ginko:text-sm"
-        >
-          <span class="ginko:text-muted-foreground">{{
             settings.t('ginkoCms.studio.settingsPage.defaultLocale')
           }}</span>
           <code
@@ -61,6 +50,18 @@ const settings = props.admin
           }}</span>
         </div>
       </div>
+
+      <StudioDeveloperDetails>
+        <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-4 ginko:text-sm">
+          <span class="ginko:text-muted-foreground">{{
+            settings.t('ginkoCms.studio.settingsPage.studioRoute')
+          }}</span>
+          <code
+            class="ginko:font-mono ginko:text-xs ginko:bg-background ginko:px-2 ginko:py-0.5 ginko:rounded"
+            >{{ settings.config.route }}</code
+          >
+        </div>
+      </StudioDeveloperDetails>
     </div>
   </section>
 </template>

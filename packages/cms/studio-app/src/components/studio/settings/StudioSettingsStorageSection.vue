@@ -8,7 +8,7 @@ const settings = props.admin
 </script>
 
 <template>
-  <!-- ─── Storage hygiene ─── -->
+  <!-- ─── Storage diagnostics ─── -->
   <section
     v-if="settings.canManageSettings"
     class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
@@ -78,30 +78,6 @@ const settings = props.admin
         </div>
 
         <div v-else class="ginko:space-y-4 ginko:p-4">
-          <div
-            v-if="settings.storageHygiene.truncatedTables.length"
-            class="ginko:rounded-md ginko:bg-warning/15 ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-warning-fg"
-          >
-            {{
-              settings.t('ginkoCms.studio.settingsPage.storageTruncated', {
-                tables: settings.storageHygiene.truncatedTables.join(', '),
-              })
-            }}
-          </div>
-
-          <div class="ginko:grid ginko:grid-cols-1 ginko:gap-x-4 ginko:sm:grid-cols-2">
-            <div
-              v-for="row in settings.storageHygieneRows"
-              :key="row.label"
-              class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-4 ginko:border-b ginko:border-border/30 ginko:py-2 ginko:text-sm"
-            >
-              <span class="ginko:text-muted-foreground">{{ row.label }}</span>
-              <span class="ginko:font-mono ginko:text-xs ginko:text-foreground">{{
-                row.value
-              }}</span>
-            </div>
-          </div>
-
           <div class="ginko:space-y-2">
             <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
               {{ settings.t('ginkoCms.studio.settingsPage.storageGrowthRisks') }}
@@ -121,6 +97,32 @@ const settings = props.admin
               </div>
             </div>
           </div>
+
+          <div
+            v-if="settings.storageHygiene.truncatedTables.length"
+            class="ginko:rounded-md ginko:bg-warning/15 ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-warning-fg"
+          >
+            {{
+              settings.t('ginkoCms.studio.settingsPage.storageTruncated', {
+                tables: settings.storageHygiene.truncatedTables.join(', '),
+              })
+            }}
+          </div>
+
+          <StudioDeveloperDetails>
+            <div class="ginko:grid ginko:grid-cols-1 ginko:gap-x-4 ginko:sm:grid-cols-2">
+              <div
+                v-for="row in settings.storageHygieneRows"
+                :key="row.label"
+                class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-4 ginko:border-b ginko:border-border/30 ginko:py-2 ginko:text-sm"
+              >
+                <span class="ginko:text-muted-foreground">{{ row.label }}</span>
+                <span class="ginko:font-mono ginko:text-xs ginko:text-foreground">{{
+                  row.value
+                }}</span>
+              </div>
+            </div>
+          </StudioDeveloperDetails>
         </div>
       </div>
     </div>

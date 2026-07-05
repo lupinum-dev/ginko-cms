@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import StudioDeveloperDetails from '../StudioDeveloperDetails.vue'
 import StudioWorkflowDiagnosticsList from './StudioWorkflowDiagnosticsList.vue'
 import {
   statusToneClass,
@@ -79,21 +80,16 @@ defineProps<{
         Publish action.
       </div>
 
-      <details
+      <StudioDeveloperDetails
         v-if="
           showDeveloperDiagnostics &&
           (publishImpact.cacheTags.length ||
             publishImpact.events.length ||
             (previewScope === 'publish' && publishReview.previewHash))
         "
-        class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3"
+        title="Developer diagnostics"
       >
-        <summary
-          class="ginko:cursor-pointer ginko:text-[10px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
-        >
-          Developer diagnostics
-        </summary>
-        <div v-if="publishImpact.cacheTags.length" class="ginko:mt-3">
+        <div v-if="publishImpact.cacheTags.length">
           <div class="ginko:text-[10px] ginko:uppercase ginko:text-muted-foreground">
             Cache tags
           </div>
@@ -129,7 +125,7 @@ defineProps<{
             {{ publishReview.previewHash.slice(0, 32) }}
           </div>
         </div>
-      </details>
+      </StudioDeveloperDetails>
 
       <div
         v-for="localeImpact in publishImpact.locales"
@@ -165,7 +161,9 @@ defineProps<{
             </div>
           </div>
           <div>
-            <div class="ginko:text-[10px] ginko:font-medium ginko:uppercase">Public output</div>
+            <div class="ginko:text-[10px] ginko:font-medium ginko:uppercase">
+              Published website content
+            </div>
             <div class="ginko:mt-0.5 ginko:flex ginko:flex-wrap ginko:gap-1">
               <Badge variant="outline" class="ginko:text-[10px]">
                 Sitemap {{ localeImpact.sitemap.before ? 'in' : 'out' }}->{{

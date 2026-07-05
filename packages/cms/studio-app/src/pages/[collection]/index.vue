@@ -512,7 +512,7 @@ const kindColors: Record<string, string> = {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All work</SelectItem>
-              <SelectItem value="changed">Changed drafts</SelectItem>
+              <SelectItem value="changed">Drafts to continue</SelectItem>
               <SelectItem value="blocked">Needs attention</SelectItem>
               <SelectItem value="missing_translation">Missing translations</SelectItem>
             </SelectContent>
@@ -701,12 +701,12 @@ const kindColors: Record<string, string> = {
             <div
               class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-2 ginko:text-[11px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:lg:grid"
             >
-              <div>Entry</div>
+              <div>Content</div>
               <div>Locales</div>
               <div>Public state</div>
               <div>Next action</div>
               <div class="ginko:text-right">Edited</div>
-              <div class="ginko:text-right">Tools</div>
+              <div class="ginko:text-right">Edit</div>
             </div>
             <div
               v-for="row in enrichedRows"

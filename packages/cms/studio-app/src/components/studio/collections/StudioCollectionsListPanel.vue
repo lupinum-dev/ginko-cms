@@ -34,7 +34,9 @@ function selectCollection(slug: string) {
 </script>
 
 <template>
-  <div class="ginko:flex ginko:w-72 ginko:shrink-0 ginko:flex-col ginko:border-r ginko:bg-muted/10">
+  <div
+    class="ginko:flex ginko:w-full ginko:shrink-0 ginko:flex-col ginko:border-b ginko:bg-muted/10 ginko:lg:w-72 ginko:lg:border-b-0 ginko:lg:border-r"
+  >
     <ScrollArea class="ginko:flex-1">
       <div class="ginko:p-3">
         <!-- Loading skeleton -->

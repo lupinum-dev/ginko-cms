@@ -4,15 +4,16 @@ import { Activity, AlertCircle, Loader2 } from 'lucide-vue-next'
 import { computed } from 'vue'
 
 import { api } from '../boundary/api'
+import { cmsPermissionKeys } from '../composables/permissions'
 import { useCmsConfig } from '../composables/useCmsConfig'
 import { useCmsI18n } from '../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
 import { useCmsStudioPaginatedQuery } from '../composables/useCmsStudioPaginatedQuery'
 
-useCmsStudioAccess()
 type ActivityItem = {
   _id: string
   summary: string
+  displaySummary: string
   kind: string
   entryId: string | null
   collectionId: string | null
@@ -21,6 +22,8 @@ type ActivityItem = {
 }
 
 const { t, dateLocale } = useCmsI18n()
+const { ready, can } = useCmsStudioAccess()
+const canManageSettings = can(cmsPermissionKeys.manageSettings)
 const cmsConfig = useCmsConfig()
 const studioRoute = cmsConfig.route.replace(/\/$/, '')
 const contentRoute = `${studioRoute}/content`
@@ -30,6 +33,7 @@ const activityQuery = useCmsStudioPaginatedQuery(
   {},
   {
     initialNumItems: pageSize,
+    requiredCapability: cmsPermissionKeys.manageSettings,
   },
 )
 const rows = computed<ActivityItem[]>(() => activityQuery.results.value)
@@ -44,13 +48,6 @@ const pageError = computed(() =>
 function loadMore() {
   activityQuery.loadMore(pageSize)
 }
-function kindLabel(kind: string): string {
-  return kind
-    .replace(/\./g, ' ')
-    .replace('entry ', '')
-    .replace('asset ', '')
-    .replace('siteData ', 'site data ')
-}
 function entryLink(item: ActivityItem): string | null {
   if (item.entryId && item.collectionId) {
     return `${contentRoute}/${item.collectionId}/${item.entryId}`
@@ -64,8 +61,8 @@ function entryLink(item: ActivityItem): string | null {
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.activityPage.title')"
-        eyebrow="Timeline"
-        description="Editorial, publish, import, asset, and revalidation history."
+        :eyebrow="t('ginkoCms.studio.layout.operations')"
+        :description="t('ginkoCms.studio.activityPage.description')"
       >
         <template #actions>
           <Activity class="ginko:size-4 ginko:text-muted-foreground" />
@@ -83,9 +80,19 @@ function entryLink(item: ActivityItem): string | null {
           {{ pageError }}
         </div>
 
+        <StudioEmptyState
+          v-if="ready && !canManageSettings"
+          :title="t('ginkoCms.studio.activityPage.accessRequired')"
+          :description="t('ginkoCms.studio.activityPage.accessRequiredDescription')"
+        >
+          <template #icon>
+            <Activity class="ginko:size-5" aria-hidden="true" />
+          </template>
+        </StudioEmptyState>
+
         <!-- Loading skeleton -->
         <div
-          v-if="rows.length === 0 && isLoading"
+          v-else-if="rows.length === 0 && isLoading"
           class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
         >
           <div
@@ -121,23 +128,26 @@ function entryLink(item: ActivityItem): string | null {
           class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
         >
           <div
-            class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_9rem_12rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-[11px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:md:grid"
+            class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-[11px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:md:grid"
           >
             <div>Activity</div>
-            <div>Type</div>
             <div class="ginko:text-right">When</div>
           </div>
-          <component
-            :is="entryLink(item) ? 'NuxtLink' : 'div'"
+          <div
             v-for="item in rows"
             :key="item._id"
-            :to="entryLink(item) || void 0"
-            class="ginko:grid ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-4 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:md:grid-cols-[minmax(0,1fr)_9rem_12rem] ginko:md:items-center"
-            :class="entryLink(item) ? 'ginko:hover:bg-muted/50 ginko:cursor-pointer' : ''"
+            class="ginko:grid ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-4 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30 ginko:md:grid-cols-[minmax(0,1fr)_12rem] ginko:md:items-center"
           >
             <div class="ginko:min-w-0 ginko:flex-1">
-              <div class="ginko:text-sm ginko:font-medium">
-                {{ item.summary }}
+              <NuxtLink
+                v-if="entryLink(item)"
+                :to="entryLink(item) || ''"
+                class="ginko:text-sm ginko:font-medium ginko:hover:underline"
+              >
+                {{ item.displaySummary }}
+              </NuxtLink>
+              <div v-else class="ginko:text-sm ginko:font-medium">
+                {{ item.displaySummary }}
               </div>
               <div
                 class="ginko:mt-0.5 ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
@@ -145,15 +155,22 @@ function entryLink(item: ActivityItem): string | null {
                 <Badge v-if="item.collectionId" variant="outline" class="ginko:text-[10px]">
                   {{ item.collectionId }}
                 </Badge>
-                <span
-                  v-if="item.locale"
-                  class="ginko:font-mono ginko:text-[10px] ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded"
-                  >{{ item.locale }}</span
-                >
               </div>
-            </div>
-            <div class="ginko:text-xs ginko:capitalize ginko:text-muted-foreground">
-              {{ item.kind ? kindLabel(item.kind) : 'Activity' }}
+              <StudioDeveloperDetails class="ginko:mt-2" :framed="false">
+                <div class="ginko:mt-2 ginko:flex ginko:flex-wrap ginko:gap-2 ginko:text-xs">
+                  <code class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1">{{
+                    item.kind || 'activity'
+                  }}</code>
+                  <code
+                    v-if="item.locale"
+                    class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1"
+                    >{{ item.locale }}</code
+                  >
+                  <code class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1">{{
+                    item.summary
+                  }}</code>
+                </div>
+              </StudioDeveloperDetails>
             </div>
             <div
               class="ginko:text-xs ginko:tabular-nums ginko:text-muted-foreground ginko:md:text-right"
@@ -167,7 +184,7 @@ function entryLink(item: ActivityItem): string | null {
                 minute="2-digit"
               />
             </div>
-          </component>
+          </div>
         </div>
 
         <!-- Load more -->

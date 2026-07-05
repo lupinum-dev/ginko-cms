@@ -92,7 +92,7 @@ const routeCapabilities = [
   'SEO',
   'Publish impact',
 ]
-const dataOnlyCapabilities = ['Lists', 'Relations', 'Singleton-style content', 'Site data']
+const dataOnlyCapabilities = ['Lists', 'Relations', 'Single-entry content', 'Site-wide content']
 
 const localeLabelsByCode = computed(() =>
   Object.fromEntries(props.locales.map((locale) => [locale.code, locale.label ?? locale.code])),
@@ -143,15 +143,11 @@ function importToneClass(status: string) {
         class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
       >
         <Settings2 class="ginko:size-4 ginko:text-muted-foreground" />
-        {{ t('ginkoCms.studio.collectionsPage.collectionSettings') }}
+        Content type details
       </h2>
       <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
-        <code
-          class="ginko:font-mono ginko:bg-muted ginko:px-1 ginko:py-0.5 ginko:rounded ginko:text-[10px]"
-          >{{ selectedCollection }}</code
-        >
-        · {{ collectionDetail?.type ?? 'flat' }} ·
-        {{ collectionDraft.mode === 'route' ? 'route-backed' : 'data-only' }}
+        Managed by developers ·
+        {{ collectionDraft.mode === 'route' ? 'Creates website pages' : 'Shared content' }}
       </p>
     </div>
     <div class="ginko:flex-1 ginko:min-w-0 ginko:space-y-4">
@@ -159,13 +155,13 @@ function importToneClass(status: string) {
         v-if="collectionDetailPending"
         class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3 ginko:text-xs ginko:text-muted-foreground"
       >
-        Loading the selected content model...
+        Loading the selected content type...
       </div>
       <div
         v-else-if="collectionDetailError"
         class="ginko:rounded-lg ginko:border ginko:border-destructive/40 ginko:bg-destructive/10 ginko:p-3 ginko:text-xs ginko:text-destructive-fg"
       >
-        Failed to load the selected content model. {{ collectionDetailError.message }}
+        Failed to load the selected content type. {{ collectionDetailError.message }}
       </div>
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3">
         <div class="ginko:flex ginko:items-start ginko:gap-3">
@@ -175,9 +171,9 @@ function importToneClass(status: string) {
               {{ collectionDraft.label || selectedCollection }}
             </div>
             <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-              This content model is defined in application code and synced into Studio as read-only
-              metadata. Change fields, routing, locales, and public behavior in the code-defined
-              collection config, then resync the app.
+              This content type is managed by developers and synced into Studio as setup metadata.
+              Change fields, routing, locales, and website behavior in the application config, then
+              resync the app.
             </p>
           </div>
         </div>
@@ -187,7 +183,7 @@ function importToneClass(status: string) {
       >
         <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
           <div>
-            <Label class="ginko:text-xs ginko:text-muted-foreground">Collection capability</Label>
+            <Label class="ginko:text-xs ginko:text-muted-foreground">Website use</Label>
             <div
               class="ginko:mt-1 ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm ginko:font-medium"
             >
@@ -196,7 +192,7 @@ function importToneClass(status: string) {
                 class="ginko:size-4 ginko:text-muted-foreground"
               />
               <Database v-else class="ginko:size-4 ginko:text-muted-foreground" />
-              {{ collectionDraft.mode === 'route' ? 'Route-backed' : 'Data-only' }}
+              {{ collectionDraft.mode === 'route' ? 'Creates website pages' : 'Shared content' }}
             </div>
             <p
               class="ginko:mt-1 ginko:max-w-2xl ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
@@ -204,11 +200,11 @@ function importToneClass(status: string) {
               {{
                 collectionDraft.mode === 'route'
                   ? 'Creates public pages with localized routes, visibility diagnostics, sitemap/search/nav participation, SEO, and website-change checks.'
-                  : 'Stores structured content for lists, relations, singleton-style content, and site data without page routes.'
+                  : 'Stores structured content for lists, relations, single-entry content, and site-wide content without page routes.'
               }}
             </p>
           </div>
-          <Badge variant="secondary" class="ginko:text-xs">Code-owned</Badge>
+          <Badge variant="secondary" class="ginko:text-xs">Managed by developers</Badge>
         </div>
         <div class="ginko:flex ginko:flex-wrap ginko:gap-1.5">
           <Badge
@@ -227,15 +223,15 @@ function importToneClass(status: string) {
           class="ginko:space-y-2 ginko:rounded-md ginko:border ginko:border-dashed ginko:bg-background ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-muted-foreground"
         >
           <p>
-            Route-only controls are hidden for data-only collections. Sitemap, search, navigation,
-            and route-collision diagnostics do not apply until this collection becomes route-backed.
+            Page controls are hidden for shared-content types. Sitemap, search, navigation, and
+            route diagnostics do not apply until this content type creates website pages.
           </p>
           <div
             v-if="normalizedPathPrefix && normalizedPathPrefix !== '/'"
             class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2"
           >
             <span>
-              Stale route prefix:
+              Stale URL prefix:
               <code class="ginko:font-mono ginko:text-foreground">{{ normalizedPathPrefix }}</code>
             </span>
             <span>Update the code-defined collection config to clear it.</span>
@@ -243,9 +239,8 @@ function importToneClass(status: string) {
         </div>
       </div>
       <div class="ginko:grid ginko:gap-3 ginko:sm:grid-cols-2">
-        <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
-          <Label class="ginko:text-xs ginko:text-muted-foreground">Identity</Label>
-          <dl class="ginko:mt-2 ginko:space-y-1 ginko:text-xs">
+        <StudioDeveloperDetails>
+          <dl class="ginko:space-y-1 ginko:text-xs">
             <div class="ginko:flex ginko:justify-between ginko:gap-3">
               <dt class="ginko:text-muted-foreground">Slug</dt>
               <dd class="ginko:font-mono ginko:text-foreground">{{ selectedCollection }}</dd>
@@ -263,7 +258,7 @@ function importToneClass(status: string) {
             <div class="ginko:flex ginko:justify-between ginko:gap-3">
               <dt class="ginko:text-muted-foreground">Source</dt>
               <dd class="ginko:text-foreground">
-                {{ collectionDetail?.contract?.source === 'code' ? 'code-defined' : 'unknown' }}
+                {{ collectionDetail?.contract?.source === 'code' ? 'managed in code' : 'unknown' }}
               </dd>
             </div>
             <div class="ginko:flex ginko:justify-between ginko:gap-3">
@@ -273,7 +268,7 @@ function importToneClass(status: string) {
               </dd>
             </div>
           </dl>
-        </div>
+        </StudioDeveloperDetails>
         <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
           <Label class="ginko:text-xs ginko:text-muted-foreground">{{
             t('ginkoCms.studio.collectionsPage.supportedLocales')
@@ -306,32 +301,35 @@ function importToneClass(status: string) {
         v-if="collectionDraft.mode === 'route'"
         class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3"
       >
-        <Label class="ginko:text-xs ginko:text-muted-foreground">Route settings</Label>
-        <dl class="ginko:mt-2 ginko:grid ginko:gap-2 ginko:text-xs ginko:sm:grid-cols-2">
-          <div
-            v-for="[label, value] in routeFacts"
-            :key="label"
-            class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3 ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5"
-          >
-            <dt class="ginko:text-muted-foreground">{{ label }}</dt>
-            <dd class="ginko:font-mono ginko:text-foreground">{{ value }}</dd>
-          </div>
-        </dl>
-        <p class="ginko:mt-2 ginko:text-[11px] ginko:leading-relaxed ginko:text-muted-foreground">
-          Public routes, redirects, sitemap, search, and navigation diagnostics are evaluated from
-          these code-defined settings.
-        </p>
+        <StudioDeveloperDetails :framed="false">
+          <dl class="ginko:grid ginko:gap-2 ginko:text-xs ginko:sm:grid-cols-2">
+            <div
+              v-for="[label, value] in routeFacts"
+              :key="label"
+              class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3 ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5"
+            >
+              <dt class="ginko:text-muted-foreground">{{ label }}</dt>
+              <dd class="ginko:font-mono ginko:text-foreground">{{ value }}</dd>
+            </div>
+          </dl>
+          <p class="ginko:mt-2 ginko:text-[11px] ginko:leading-relaxed ginko:text-muted-foreground">
+            Public routes, redirects, sitemap, search, and navigation diagnostics are evaluated from
+            these developer-managed settings.
+          </p>
+        </StudioDeveloperDetails>
       </div>
       <div class="ginko:grid ginko:gap-3 ginko:lg:grid-cols-2">
         <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
           <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
             <div>
-              <Label class="ginko:text-xs ginko:text-muted-foreground">Public output</Label>
+              <Label class="ginko:text-xs ginko:text-muted-foreground"
+                >Published website content</Label
+              >
               <p
                 class="ginko:mt-1 ginko:text-[11px] ginko:leading-relaxed ginko:text-muted-foreground"
               >
-                Public reads use active public output only. Draft saves do not change these
-                published rows.
+                Public reads use active published website content only. Draft saves do not change
+                these published rows.
               </p>
             </div>
             <Badge
@@ -351,28 +349,32 @@ function importToneClass(status: string) {
               }}
             </Badge>
           </div>
-          <dl class="ginko:mt-3 ginko:space-y-1 ginko:text-xs">
-            <div
-              v-for="[label, value] in projectionFacts"
-              :key="label"
-              class="ginko:flex ginko:justify-between ginko:gap-3 ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5"
-            >
-              <dt class="ginko:text-muted-foreground">{{ label }}</dt>
-              <dd class="ginko:max-w-[14rem] ginko:truncate ginko:font-mono ginko:text-foreground">
-                {{ value }}
-              </dd>
-            </div>
-          </dl>
+          <StudioDeveloperDetails class="ginko:mt-3" :framed="false">
+            <dl class="ginko:space-y-1 ginko:text-xs">
+              <div
+                v-for="[label, value] in projectionFacts"
+                :key="label"
+                class="ginko:flex ginko:justify-between ginko:gap-3 ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5"
+              >
+                <dt class="ginko:text-muted-foreground">{{ label }}</dt>
+                <dd
+                  class="ginko:max-w-[14rem] ginko:truncate ginko:font-mono ginko:text-foreground"
+                >
+                  {{ value }}
+                </dd>
+              </div>
+            </dl>
+          </StudioDeveloperDetails>
         </div>
         <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
           <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
             <div>
-              <Label class="ginko:text-xs ginko:text-muted-foreground">Last import run</Label>
+              <Label class="ginko:text-xs ginko:text-muted-foreground">Last content import</Label>
               <p
                 class="ginko:mt-1 ginko:text-[11px] ginko:leading-relaxed ginko:text-muted-foreground"
               >
-                Imports apply content under this code-defined content model. Unknown fields and
-                blocked relations are reported instead of changing the content model.
+                Imports apply content under this developer-managed content setup. Unknown fields and
+                blocked relations are reported instead of changing the content setup.
               </p>
             </div>
             <Badge
@@ -404,12 +406,11 @@ function importToneClass(status: string) {
               </dd>
             </div>
           </dl>
-          <p
-            v-if="lastImport"
-            class="ginko:mt-2 ginko:truncate ginko:font-mono ginko:text-[11px] ginko:text-muted-foreground"
-          >
-            {{ lastImport.importRunId }}
-          </p>
+          <StudioDeveloperDetails v-if="lastImport" class="ginko:mt-3" :framed="false">
+            <p class="ginko:truncate ginko:font-mono ginko:text-[11px] ginko:text-muted-foreground">
+              {{ lastImport.importRunId }}
+            </p>
+          </StudioDeveloperDetails>
         </div>
       </div>
       <div

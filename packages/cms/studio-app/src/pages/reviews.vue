@@ -44,6 +44,7 @@ const approveReview = useConvexMutation(api.ginkoCms.reviewRequests.approveRevie
 const rejectReview = useConvexMutation(api.ginkoCms.reviewRequests.rejectReview)
 const decidingId = ref<string | null>(null)
 const decisionError = ref('')
+const approvalCandidate = ref<ReviewRequest | null>(null)
 
 const reviews = computed<ReviewRequest[]>(() => (reviewsQuery.data.value ?? []) as ReviewRequest[])
 const isLoading = computed(() => reviewsQuery.data.value === null && reviewsQuery.pending.value)
@@ -62,7 +63,33 @@ function formatJson(value: Record<string, unknown>): string {
   return JSON.stringify(value, null, 2)
 }
 
-async function approve(request: ReviewRequest) {
+function countArrayField(value: Record<string, unknown>, key: string): number {
+  const field = value[key]
+  return Array.isArray(field) ? field.length : 0
+}
+
+function previewSummaryCount(key: string, count: number): string {
+  return t(`ginkoCms.studio.reviewsPage.${key}${count === 1 ? 'One' : 'Other'}`, { count })
+}
+
+function previewSummary(value: Record<string, unknown>): string {
+  const parts: string[] = []
+  if (typeof value.status === 'string') parts.push(value.status)
+  const changes = countArrayField(value, 'changes')
+  const blockers =
+    countArrayField(value, 'blockingDiagnostics') || countArrayField(value, 'blockers')
+  const warnings = countArrayField(value, 'warnings')
+  const cacheTags = countArrayField(value, 'cacheTags')
+  const events = countArrayField(value, 'events')
+  if (changes) parts.push(previewSummaryCount('previewChanges', changes))
+  if (blockers) parts.push(previewSummaryCount('previewBlockers', blockers))
+  if (warnings) parts.push(previewSummaryCount('previewWarnings', warnings))
+  if (cacheTags) parts.push(previewSummaryCount('previewCacheTags', cacheTags))
+  if (events) parts.push(previewSummaryCount('previewEvents', events))
+  return parts.join(' · ') || t('ginkoCms.studio.reviewsPage.previewSummaryFallback')
+}
+
+async function approve(request: ReviewRequest): Promise<boolean> {
   decisionError.value = ''
   decidingId.value = request._id
   try {
@@ -71,11 +98,23 @@ async function approve(request: ReviewRequest) {
       expectedVersionHash: request.versionHash,
     })
     await reviewsQuery.refresh()
+    return true
   } catch (error) {
     decisionError.value = getCmsErrorMessage(error, t('ginkoCms.studio.reviewsPage.approveError'))
+    return false
   } finally {
     decidingId.value = null
   }
+}
+
+function requestApprovalConfirmation(request: ReviewRequest) {
+  approvalCandidate.value = request
+}
+
+async function confirmApproval() {
+  if (!approvalCandidate.value) return
+  const approved = await approve(approvalCandidate.value)
+  if (approved) approvalCandidate.value = null
 }
 
 async function reject(request: ReviewRequest) {
@@ -97,11 +136,13 @@ async function reject(request: ReviewRequest) {
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.reviewsPage.title')"
-        eyebrow="Agent review"
-        description="Approve or reject pending agent publish requests."
+        :eyebrow="t('ginkoCms.studio.layout.publishing')"
+        :description="t('ginkoCms.studio.reviewsPage.description')"
       >
         <template #actions>
-          <Badge variant="outline" class="ginko:text-xs"> {{ reviews.length }} pending </Badge>
+          <Badge variant="outline" class="ginko:text-xs">
+            {{ t('ginkoCms.studio.reviewsPage.pendingBadge', { count: reviews.length }) }}
+          </Badge>
         </template>
       </StudioPageHeader>
     </template>
@@ -120,7 +161,7 @@ async function reject(request: ReviewRequest) {
           v-if="!canPublishEntries && !pageError"
           class="ginko:mb-4 ginko:rounded-lg ginko:border ginko:border-dashed ginko:p-4 ginko:text-sm ginko:text-muted-foreground"
         >
-          Review requests require publish access.
+          Approvals require publish access.
         </div>
 
         <div
@@ -163,8 +204,7 @@ async function reject(request: ReviewRequest) {
               <div class="ginko:min-w-0">
                 <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
                   <Badge variant="warning">Pending</Badge>
-                  <Badge v-if="request.isStale" variant="destructive">Stale</Badge>
-                  <Badge variant="outline">{{ request.operationId }}</Badge>
+                  <Badge v-if="request.isStale" variant="destructive">Out of date</Badge>
                 </div>
                 <h2 class="ginko:mt-3 ginko:text-base ginko:font-semibold">
                   {{ request.title }}
@@ -191,7 +231,7 @@ async function reject(request: ReviewRequest) {
                 <Button
                   size="sm"
                   :disabled="decidingId === request._id || request.isStale"
-                  @click="approve(request)"
+                  @click="requestApprovalConfirmation(request)"
                 >
                   <Loader2
                     v-if="decidingId === request._id && approveReview.pending.value"
@@ -211,12 +251,8 @@ async function reject(request: ReviewRequest) {
                 <dd class="ginko:mt-1 ginko:font-mono">{{ shortId(request.requestedBy) }}</dd>
               </div>
               <div>
-                <dt class="ginko:font-medium ginko:text-foreground">Agent run</dt>
-                <dd class="ginko:mt-1 ginko:font-mono">{{ shortId(request.agentRunId) }}</dd>
-              </div>
-              <div>
-                <dt class="ginko:font-medium ginko:text-foreground">Target entry</dt>
-                <dd class="ginko:mt-1 ginko:font-mono">{{ shortId(request.entryId) }}</dd>
+                <dt class="ginko:font-medium ginko:text-foreground">Locales</dt>
+                <dd class="ginko:mt-1">{{ request.locales.join(', ') }}</dd>
               </div>
               <div>
                 <dt class="ginko:font-medium ginko:text-foreground">Requested</dt>
@@ -236,7 +272,7 @@ async function reject(request: ReviewRequest) {
             <div class="ginko:mt-4 ginko:grid ginko:gap-3 ginko:lg:grid-cols-2">
               <div>
                 <h3 class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
-                  Publish request
+                  {{ t('ginkoCms.studio.reviewsPage.publishDecision') }}
                 </h3>
                 <div
                   class="ginko:mt-2 ginko:space-y-2 ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs"
@@ -245,29 +281,216 @@ async function reject(request: ReviewRequest) {
                     {{ request.staleReason }}
                   </div>
                   <div>
-                    <span class="ginko:text-muted-foreground">Locales:</span>
+                    <span class="ginko:text-muted-foreground">
+                      {{ t('ginkoCms.studio.reviewsPage.affectedLocales') }}:
+                    </span>
                     {{ request.locales.join(', ') }}
                   </div>
                   <div>
-                    <span class="ginko:text-muted-foreground">Expected version:</span>
-                    {{ request.expectedVersion }}
+                    <span class="ginko:text-muted-foreground">
+                      {{ t('ginkoCms.studio.reviewsPage.versionState') }}:
+                    </span>
+                    {{
+                      request.isStale
+                        ? t('ginkoCms.studio.reviewsPage.outOfDateRequest')
+                        : t('ginkoCms.studio.reviewsPage.currentDraftRequest')
+                    }}
                   </div>
                   <div v-if="request.message">
-                    <span class="ginko:text-muted-foreground">Message:</span>
+                    <span class="ginko:text-muted-foreground">
+                      {{ t('ginkoCms.studio.reviewsPage.message') }}:
+                    </span>
                     {{ request.message }}
                   </div>
                 </div>
               </div>
               <div>
-                <h3 class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">Preview</h3>
-                <pre
-                  class="ginko:mt-2 ginko:max-h-48 ginko:overflow-auto ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs ginko:leading-relaxed"
-                  >{{ formatJson(request.preview) }}</pre
+                <h3 class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                  {{ t('ginkoCms.studio.reviewsPage.proposedChanges') }}
+                </h3>
+                <div
+                  class="ginko:mt-2 ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
                 >
+                  {{ t('ginkoCms.studio.reviewsPage.proposedChangesDescription') }}
+                </div>
               </div>
             </div>
+
+            <StudioDeveloperDetails class="ginko:mt-4">
+              <dl class="ginko:grid ginko:gap-2 ginko:text-xs ginko:sm:grid-cols-2">
+                <div>
+                  <dt class="ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.requestId') }}
+                  </dt>
+                  <dd class="ginko:mt-1 ginko:font-mono ginko:text-foreground">
+                    {{ request.operationId }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.agentSessionId') }}
+                  </dt>
+                  <dd class="ginko:mt-1 ginko:font-mono ginko:text-foreground">
+                    {{ request.agentRunId }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.entryId') }}
+                  </dt>
+                  <dd class="ginko:mt-1 ginko:font-mono ginko:text-foreground">
+                    {{ request.entryId }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.expectedDraftVersion') }}
+                  </dt>
+                  <dd class="ginko:mt-1 ginko:font-mono ginko:text-foreground">
+                    {{ request.expectedVersion }}
+                  </dd>
+                </div>
+              </dl>
+              <pre class="ginko:max-h-48 ginko:overflow-auto ginko:text-xs ginko:leading-relaxed">{{
+                formatJson(request.preview)
+              }}</pre>
+            </StudioDeveloperDetails>
           </article>
         </div>
+
+        <Dialog
+          :open="!!approvalCandidate"
+          @update:open="approvalCandidate = $event ? approvalCandidate : null"
+        >
+          <DialogContent class="ginko:sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{{ t('ginkoCms.studio.reviewsPage.approvalDialogTitle') }}</DialogTitle>
+              <DialogDescription>
+                {{ t('ginkoCms.studio.reviewsPage.approvalDialogDescription') }}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div v-if="approvalCandidate" class="ginko:space-y-4">
+              <div
+                class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3"
+              >
+                <div class="ginko:text-sm ginko:font-medium">
+                  {{ approvalCandidate.title }}
+                </div>
+                <p class="ginko:mt-1 ginko:text-sm ginko:text-muted-foreground">
+                  {{ approvalCandidate.summary }}
+                </p>
+              </div>
+
+              <dl class="ginko:grid ginko:gap-3 ginko:text-sm ginko:sm:grid-cols-2">
+                <div>
+                  <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.affectedLocales') }}
+                  </dt>
+                  <dd class="ginko:mt-1">{{ approvalCandidate.locales.join(', ') }}</dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.versionState') }}
+                  </dt>
+                  <dd class="ginko:mt-1">
+                    {{
+                      approvalCandidate.isStale
+                        ? t('ginkoCms.studio.reviewsPage.outOfDateRequest')
+                        : t('ginkoCms.studio.reviewsPage.currentDraftRequest')
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.expectedDraftVersion') }}
+                  </dt>
+                  <dd class="ginko:mt-1 ginko:font-mono">
+                    {{ approvalCandidate.expectedVersion }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.publishImpact') }}
+                  </dt>
+                  <dd class="ginko:mt-1">{{ previewSummary(approvalCandidate.preview) }}</dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.requestedBy') }}
+                  </dt>
+                  <dd class="ginko:mt-1 ginko:font-mono">
+                    {{ shortId(approvalCandidate.requestedBy) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.requested') }}
+                  </dt>
+                  <dd class="ginko:mt-1">
+                    <NuxtTime
+                      :datetime="approvalCandidate.createdAt"
+                      :locale="dateLocale"
+                      month="short"
+                      day="numeric"
+                      hour="2-digit"
+                      minute="2-digit"
+                    />
+                  </dd>
+                </div>
+              </dl>
+
+              <StudioDeveloperDetails>
+                <dl class="ginko:grid ginko:gap-2 ginko:text-xs">
+                  <div>
+                    <dt class="ginko:text-muted-foreground">
+                      {{ t('ginkoCms.studio.reviewsPage.requestId') }}
+                    </dt>
+                    <dd class="ginko:mt-1 ginko:font-mono">{{ approvalCandidate.operationId }}</dd>
+                  </div>
+                  <div>
+                    <dt class="ginko:text-muted-foreground">
+                      {{ t('ginkoCms.studio.reviewsPage.entryId') }}
+                    </dt>
+                    <dd class="ginko:mt-1 ginko:font-mono">{{ approvalCandidate.entryId }}</dd>
+                  </div>
+                </dl>
+              </StudioDeveloperDetails>
+
+              <div
+                v-if="approvalCandidate.staleReason"
+                class="ginko:rounded-md ginko:border ginko:border-destructive/25 ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"
+              >
+                {{ approvalCandidate.staleReason }}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" @click="approvalCandidate = null">
+                {{ t('ginkoCms.common.cancel') }}
+              </Button>
+              <Button
+                :disabled="
+                  !approvalCandidate ||
+                  approvalCandidate.isStale ||
+                  decidingId === approvalCandidate._id
+                "
+                @click="confirmApproval"
+              >
+                <Loader2
+                  v-if="
+                    approvalCandidate &&
+                    decidingId === approvalCandidate._id &&
+                    approveReview.pending.value
+                  "
+                  class="ginko:mr-2 ginko:size-3.5 ginko:animate-spin"
+                />
+                <Check v-else class="ginko:mr-2 ginko:size-3.5" />
+                {{ t('ginkoCms.studio.reviewsPage.approveButton') }}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </ScrollArea>
   </StudioWorkspace>

@@ -57,13 +57,13 @@ const usesLocalizedSlug = computed(() => {
         class="ginko:rounded-lg ginko:border ginko:border-border/50 ginko:bg-background/45 ginko:px-4 ginko:py-3.5"
       >
         <div class="ginko:text-sm ginko:font-medium">
-          {{ isRouteBackedEntry ? 'Locale-specific URLs' : 'Data-only entry' }}
+          {{ isRouteBackedEntry ? 'Locale-specific URLs' : 'Shared-content entry' }}
         </div>
         <p class="ginko:mt-1 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
           {{
             isRouteBackedEntry
               ? 'Each locale manages its URL in the locale content section below.'
-              : 'This collection does not create public routes. Public output comes from provider queries after publish.'
+              : 'This content type does not create website pages. Published website content comes from provider queries after publish.'
           }}
         </p>
       </div>

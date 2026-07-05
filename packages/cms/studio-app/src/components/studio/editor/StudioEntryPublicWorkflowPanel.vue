@@ -106,7 +106,7 @@ const advancedEditor = useStudioAdvancedEditor()
             <div
               class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase"
             >
-              Public output
+              Published website content
             </div>
             <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
               {{

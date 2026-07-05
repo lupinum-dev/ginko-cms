@@ -55,7 +55,11 @@ function formatBlockData(value: unknown): string {
 <template>
   <StudioWorkspace class="ginko:h-full">
     <template #header>
-      <StudioPageHeader :title="t('ginkoCms.studio.siteDataPage.title')" eyebrow="Site data">
+      <StudioPageHeader
+        :title="t('ginkoCms.studio.siteDataPage.title')"
+        :eyebrow="t('ginkoCms.studio.layout.editor')"
+        :description="t('ginkoCms.studio.siteDataPage.description')"
+      >
         <template #actions>
           <Badge variant="outline" class="ginko:rounded-full ginko:text-xs">
             {{
@@ -221,9 +225,6 @@ function formatBlockData(value: unknown): string {
                     <span class="ginko:text-sm ginko:font-medium">{{
                       resolveBlockLabel(block.label, block.key)
                     }}</span>
-                    <Badge variant="outline" class="ginko:text-[10px] ginko:font-mono">
-                      {{ block.key }}
-                    </Badge>
                     <Badge v-if="block.localized" variant="secondary" class="ginko:text-[10px]">
                       i18n
                     </Badge>
@@ -303,11 +304,20 @@ function formatBlockData(value: unknown): string {
                 :model-value="blockData[block.key] ?? {}"
                 @update:model-value="blockData[block.key] = $event"
               />
-              <pre
-                v-else
-                class="ginko:max-h-80 ginko:overflow-auto ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs ginko:leading-relaxed"
-                >{{ formatBlockData(blockData[block.key] ?? {}) }}</pre
-              >
+              <StudioDeveloperDetails>
+                <div class="ginko:space-y-3">
+                  <div class="ginko:text-xs">
+                    <span class="ginko:text-muted-foreground">Section key:</span>
+                    <code class="ginko:ml-2 ginko:font-mono ginko:text-foreground">{{
+                      block.key
+                    }}</code>
+                  </div>
+                  <pre
+                    class="ginko:max-h-80 ginko:overflow-auto ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-background ginko:p-3 ginko:text-xs ginko:leading-relaxed"
+                    >{{ formatBlockData(blockData[block.key] ?? {}) }}</pre
+                  >
+                </div>
+              </StudioDeveloperDetails>
               <div v-if="canManageSettings" class="ginko:flex ginko:justify-end">
                 <Button size="sm" :disabled="saving === block.key" @click="handleSave(block.key)">
                   <Loader2

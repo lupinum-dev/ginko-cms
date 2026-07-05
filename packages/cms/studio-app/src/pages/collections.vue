@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, MousePointerClick } from 'lucide-vue-next'
+import { AlertCircle, ArrowLeft, MousePointerClick } from 'lucide-vue-next'
 
 import { useStudioCollectionsAdmin } from '../composables/internal/useStudioCollectionsAdmin'
 const {
@@ -23,7 +23,11 @@ const {
 <template>
   <StudioWorkspace class="ginko:h-full">
     <template #header>
-      <StudioPageHeader :title="t('ginkoCms.studio.collectionsPage.title')" eyebrow="Manage">
+      <StudioPageHeader
+        :title="t('ginkoCms.studio.collectionsPage.title')"
+        eyebrow="Operations"
+        description="Content types available in this Studio and how they appear on the website."
+      >
         <template #actions>
           <span
             class="ginko:rounded-full ginko:bg-muted ginko:px-2 ginko:py-0.5 ginko:text-xs ginko:text-muted-foreground"
@@ -51,23 +55,29 @@ const {
     >
       <AlertCircle class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0" />
       <div>
-        <p class="ginko:font-medium">Convex has not synced this code-defined content model yet.</p>
+        <p class="ginko:font-medium">Content setup is still installing.</p>
         <p class="ginko:mt-1 ginko:leading-relaxed">
-          Studio is showing the host runtime model so the UI stays inspectable. Importing or editing
-          entries requires the content model snapshot to be installed in Convex.
+          Studio is showing the host runtime model so the setup stays inspectable. Editing will be
+          available after the content model snapshot finishes installing.
         </p>
       </div>
     </div>
 
-    <div class="studio-page-content ginko:flex ginko:min-h-0 ginko:flex-1 ginko:overflow-hidden">
+    <div
+      class="studio-page-content ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col ginko:overflow-auto ginko:lg:flex-row ginko:lg:overflow-hidden"
+    >
       <StudioCollectionsListPanel
         v-model:selected-collection="selectedCollection"
         :collections="collections"
         :is-loading="isLoading"
         :t="t"
+        :class="selectedCollection ? 'ginko:hidden ginko:lg:flex' : 'ginko:flex'"
       />
 
-      <div class="ginko:flex ginko:min-w-0 ginko:flex-1 ginko:flex-col ginko:overflow-hidden">
+      <div
+        class="ginko:min-w-0 ginko:flex-1 ginko:flex-col ginko:overflow-hidden"
+        :class="selectedCollection ? 'ginko:flex' : 'ginko:hidden ginko:lg:flex'"
+      >
         <div
           v-if="!selectedCollection"
           class="ginko:flex ginko:flex-1 ginko:items-center ginko:justify-center"
@@ -85,6 +95,16 @@ const {
         <template v-else>
           <ScrollArea class="ginko:flex-1">
             <div class="studio-page-content ginko:p-5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="ginko:mb-3 ginko:lg:hidden"
+                @click="selectedCollection = null"
+              >
+                <ArrowLeft class="ginko:mr-2 ginko:size-4" />
+                Content types
+              </Button>
               <div class="ginko:divide-y">
                 <StudioCollectionContractSection
                   v-model:collection-draft="collectionDraft"

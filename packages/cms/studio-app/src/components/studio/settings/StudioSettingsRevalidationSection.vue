@@ -16,7 +16,7 @@ const settings = props.admin
 </script>
 
 <template>
-  <!-- ─── Revalidation ─── -->
+  <!-- ─── Website refresh ─── -->
   <section
     v-if="settings.canManageSettings"
     class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
@@ -26,13 +26,13 @@ const settings = props.admin
         class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
       >
         <RadioTower class="ginko:size-4 ginko:text-muted-foreground" />
-        Revalidation
+        Website refresh
         <Badge variant="outline" class="ginko:text-xs">
           {{ settings.revalidationJobs.length }}
         </Badge>
       </h2>
       <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
-        Public cache delivery targets and recent invalidation jobs.
+        Website refresh targets and recent refresh jobs.
       </p>
     </div>
 
@@ -58,7 +58,7 @@ const settings = props.admin
           v-if="settings.revalidationTargets.length === 0"
           class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
         >
-          No revalidation target is configured. Publish events will stay queued until a target is
+          No website refresh target is configured. Publish events will stay queued until a target is
           enabled.
         </div>
         <div
@@ -82,21 +82,26 @@ const settings = props.admin
                   {{ target.environment }}
                 </Badge>
               </div>
-              <div
-                class="ginko:text-xs ginko:text-muted-foreground ginko:font-mono ginko:break-all ginko:mt-1"
-              >
-                {{ target.endpoint }}
+              <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+                Updated {{ settings.formatTimestamp(target.updatedAt) }}
               </div>
             </div>
             <ShieldCheck class="ginko:size-4 ginko:text-muted-foreground ginko:shrink-0" />
           </div>
-          <div class="ginko:text-xs ginko:text-muted-foreground">
-            Secret env:
-            <code class="ginko:font-mono ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded">{{
-              target.secretEnv
-            }}</code>
-            · Updated {{ settings.formatTimestamp(target.updatedAt) }}
-          </div>
+          <StudioDeveloperDetails>
+            <div class="ginko:space-y-2">
+              <div class="ginko:text-xs ginko:text-muted-foreground">Endpoint</div>
+              <code
+                class="ginko:block ginko:break-all ginko:rounded ginko:bg-background ginko:px-2 ginko:py-1 ginko:font-mono ginko:text-xs"
+                >{{ target.endpoint }}</code
+              >
+              <div class="ginko:text-xs ginko:text-muted-foreground">Secret env</div>
+              <code
+                class="ginko:block ginko:break-all ginko:rounded ginko:bg-background ginko:px-2 ginko:py-1 ginko:font-mono ginko:text-xs"
+                >{{ target.secretEnv }}</code
+              >
+            </div>
+          </StudioDeveloperDetails>
         </div>
       </div>
 
@@ -122,7 +127,7 @@ const settings = props.admin
           v-if="settings.revalidationJobs.length === 0"
           class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
         >
-          No revalidation jobs have been recorded yet.
+          No website refresh jobs have been recorded yet.
         </div>
         <div
           v-for="job in settings.revalidationJobs"
@@ -140,7 +145,9 @@ const settings = props.admin
                 >
                   {{ job.status }}
                 </Badge>
-                <span class="ginko:font-mono ginko:text-xs ginko:truncate">{{ job.id }}</span>
+                <span class="ginko:text-xs ginko:text-muted-foreground">
+                  {{ job.paths.length }} page{{ job.paths.length === 1 ? '' : 's' }}
+                </span>
               </div>
               <div class="ginko:text-xs ginko:text-muted-foreground">
                 {{ settings.formatRevalidationReason(job) }} · {{ job.attempts }} attempt{{
@@ -170,24 +177,28 @@ const settings = props.admin
           >
             {{ job.lastError }}
           </div>
-          <div class="ginko:grid ginko:grid-cols-1 ginko:md:grid-cols-2 ginko:gap-3 ginko:text-xs">
+          <StudioDeveloperDetails>
             <div
-              class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3 ginko:min-w-0"
+              class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:text-xs ginko:md:grid-cols-2"
             >
-              <div class="ginko:text-muted-foreground ginko:mb-1">Paths</div>
-              <div class="ginko:font-mono ginko:break-all">
-                {{ job.paths.length ? job.paths.join(', ') : 'none' }}
+              <div class="ginko:min-w-0">
+                <div class="ginko:mb-1 ginko:text-muted-foreground">Job id</div>
+                <div class="ginko:break-all ginko:font-mono">{{ job.id }}</div>
+              </div>
+              <div class="ginko:min-w-0">
+                <div class="ginko:mb-1 ginko:text-muted-foreground">Paths</div>
+                <div class="ginko:break-all ginko:font-mono">
+                  {{ job.paths.length ? job.paths.join(', ') : 'none' }}
+                </div>
+              </div>
+              <div class="ginko:min-w-0 ginko:md:col-span-2">
+                <div class="ginko:mb-1 ginko:text-muted-foreground">Tags</div>
+                <div class="ginko:break-all ginko:font-mono">
+                  {{ job.tags.length ? job.tags.join(', ') : 'none' }}
+                </div>
               </div>
             </div>
-            <div
-              class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3 ginko:min-w-0"
-            >
-              <div class="ginko:text-muted-foreground ginko:mb-1">Tags</div>
-              <div class="ginko:font-mono ginko:break-all">
-                {{ job.tags.length ? job.tags.join(', ') : 'none' }}
-              </div>
-            </div>
-          </div>
+          </StudioDeveloperDetails>
         </div>
       </div>
     </div>

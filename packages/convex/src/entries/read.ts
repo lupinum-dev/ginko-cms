@@ -70,6 +70,18 @@ function activityAppIdentityId(row: ActivityDoc): string {
   return row.appIdentityId ?? row.actorId ?? 'unknown'
 }
 
+function displayActivitySummary(row: Pick<ActivityDoc, 'kind' | 'summary'>): string {
+  if (row.kind.startsWith('member.')) {
+    return row.summary.replace(/"[^"]+"/g, '"user or connection"')
+  }
+  if (row.kind.startsWith('mcpCredentialSettings.')) {
+    return row.summary
+      .replace(/MCP credential settings/g, 'AI agent connection')
+      .replace(/"[^"]+"/g, '"user or connection"')
+  }
+  return row.summary
+}
+
 export async function previewDestructiveEntryOperation(ctx: HandlerQueryCtx, entryId: string) {
   const entry = await getEntryOrThrow(ctx, entryId)
   const collection = await getCollectionForEntry(ctx, entry)
@@ -763,6 +775,7 @@ export const getStudioOverview = callerQuery.protected({
         _id: toStringId(row._id),
         kind: row.kind,
         summary: row.summary,
+        displaySummary: displayActivitySummary(row),
         entryId: toOptionalStringId(row.entryId),
         collectionId: toOptionalStringId(row.collectionId),
         locale: row.locale ?? null,
@@ -813,6 +826,7 @@ export const listActivity = callerQuery.protected({
         _id: toStringId(row._id),
         kind: row.kind,
         summary: row.summary,
+        displaySummary: displayActivitySummary(row),
         entryId: toOptionalStringId(row.entryId),
         collectionId: toOptionalStringId(row.collectionId),
         locale: row.locale ?? null,
@@ -916,6 +930,7 @@ export const getEntryActivity = callerQuery.protected({
         _id: toStringId(row._id),
         kind: row.kind,
         summary: row.summary,
+        displaySummary: displayActivitySummary(row),
         locale: row.locale ?? null,
         detail: row.detail ?? null,
         appIdentityId: activityAppIdentityId(row),

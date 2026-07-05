@@ -318,7 +318,7 @@ export function useStudioAssetFinder(
     return [
       {
         key: 'global',
-        label: 'Global',
+        label: 'Shared library',
         icon: 'lucide:globe',
         count: activeAssets.value.filter((asset) => asset.scope === 'global').length,
       },
@@ -343,10 +343,10 @@ export function useStudioAssetFinder(
   )
 
   const sidebarFullViews = computed(() => [
-    { key: 'all', label: 'All Assets', icon: 'lucide:layers', count: activeAssets.value.length },
+    { key: 'all', label: 'All media', icon: 'lucide:layers', count: activeAssets.value.length },
     {
       key: 'global',
-      label: 'Global',
+      label: 'Shared library',
       icon: 'lucide:globe',
       count: activeAssets.value.filter((asset) => asset.scope === 'global').length,
     },
@@ -419,14 +419,14 @@ export function useStudioAssetFinder(
     }
 
     if (sidebarMode.value === 'full') {
-      if (sidebarKey.value === 'all') return [{ label: 'All Assets', drillPath: [] }]
-      if (sidebarKey.value === 'global') return [{ label: 'Global', drillPath: [] }]
+      if (sidebarKey.value === 'all') return [{ label: 'All media', drillPath: [] }]
+      if (sidebarKey.value === 'global') return [{ label: 'Shared library', drillPath: [] }]
       const collection = sidebarCollections.value.find((item) => item.key === sidebarKey.value)
       return [{ label: collection?.label ?? sidebarKey.value, drillPath: [] }]
     }
 
     if (sidebarKey.value === 'global') {
-      const segments: BreadcrumbSegment[] = [{ label: 'Global', drillPath: [] }]
+      const segments: BreadcrumbSegment[] = [{ label: 'Shared library', drillPath: [] }]
       for (let index = 0; index < drillPath.value.length; index++) {
         const segment = drillPath.value[index]!
         const path = drillPath.value.slice(0, index + 1)

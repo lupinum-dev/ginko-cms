@@ -4,6 +4,7 @@ import { AlertCircle, Ban, Bot, Clock, Loader2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
 import { api } from '../boundary/api'
+import { cmsPermissionKeys } from '../composables/permissions'
 import { useCmsI18n } from '../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../composables/useCmsStudioQuery'
@@ -27,8 +28,13 @@ type AgentRun = {
 }
 
 const { t, dateLocale } = useCmsI18n()
-useCmsStudioAccess()
-const runsQuery = useCmsStudioQuery(api.ginkoCms.agentRuns.listOwnRuns, { limit: 50 })
+const { ready, can } = useCmsStudioAccess()
+const canManageSettings = can(cmsPermissionKeys.manageSettings)
+const runsQuery = useCmsStudioQuery(
+  api.ginkoCms.agentRuns.listOwnRuns,
+  { limit: 50 },
+  { requiredCapability: cmsPermissionKeys.manageSettings },
+)
 const revokeRunMutation = useConvexMutation(api.ginkoCms.agentRuns.revokeRun)
 const runs = computed<AgentRun[]>(() => (runsQuery.data.value ?? []) as AgentRun[])
 const activeRuns = computed(() => runs.value.filter((run) => run.status === 'active').length)
@@ -84,8 +90,8 @@ async function revokeRun(run: AgentRun) {
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.agentsPage.title')"
-        eyebrow="Agent workspace"
-        description="Inspect active and recent delegated agent sessions."
+        :eyebrow="t('ginkoCms.studio.layout.operations')"
+        :description="t('ginkoCms.studio.agentsPage.description')"
       >
         <template #actions>
           <Badge variant="outline" class="ginko:text-xs"> {{ activeRuns }} active </Badge>
@@ -103,8 +109,18 @@ async function revokeRun(run: AgentRun) {
           {{ pageError || revokeError }}
         </div>
 
+        <StudioEmptyState
+          v-if="ready && !canManageSettings"
+          :title="t('ginkoCms.studio.agentsPage.accessRequired')"
+          :description="t('ginkoCms.studio.agentsPage.accessRequiredDescription')"
+        >
+          <template #icon>
+            <Bot class="ginko:size-5" aria-hidden="true" />
+          </template>
+        </StudioEmptyState>
+
         <div
-          v-if="runs.length === 0 && isLoading"
+          v-else-if="runs.length === 0 && isLoading"
           class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
         >
           <div

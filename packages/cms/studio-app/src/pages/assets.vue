@@ -11,7 +11,7 @@ const browserRef = ref<{
 <template>
   <StudioWorkspace class="ginko:h-full">
     <template #header>
-      <StudioPageHeader title="Assets" eyebrow="Manage">
+      <StudioPageHeader title="Media" eyebrow="Editor">
         <template #actions>
           <Button
             size="sm"

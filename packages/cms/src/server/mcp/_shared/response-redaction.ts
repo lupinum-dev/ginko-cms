@@ -1,41 +1,21 @@
+import {
+  isPublicSecretReferenceField,
+  redactedValue,
+  redactSecretString,
+  shouldRedactSecretField,
+} from '../../../public/utils/secretRedaction.js'
+
 type JsonRecord = Record<string, unknown>
 
-const redactedValue = '[redacted]'
 const omittedInternalField = '[internal]'
-const secretFieldNames = new Set([
-  'accesstoken',
-  'apikey',
-  'authorization',
-  'bearer',
-  'clientsecret',
-  'confirmationtoken',
-  'cookie',
-  'deploykey',
-  'password',
-  'passwordhash',
-  'rawtoken',
-  'refreshtoken',
-  'secret',
-  'secretfingerprint',
-  'setcookie',
-  'token',
-  'tokenhash',
-])
 const internalFieldNames = new Set(['_creationTime'])
-
-function normalizeFieldName(name: string): string {
-  return name.replace(/[^a-z0-9]/gi, '').toLowerCase()
-}
-
-function shouldRedactField(name: string): boolean {
-  return secretFieldNames.has(normalizeFieldName(name))
-}
 
 function shouldOmitInternalField(name: string): boolean {
   return internalFieldNames.has(name)
 }
 
 export function redactMcpResponse(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (typeof value === 'string') return redactSecretString(value)
   if (!value || typeof value !== 'object') return value
   if (seen.has(value)) return redactedValue
   seen.add(value)
@@ -48,7 +28,11 @@ export function redactMcpResponse(value: unknown, seen = new WeakSet<object>()):
       redacted[key] = omittedInternalField
       continue
     }
-    if (shouldRedactField(key)) {
+    if (isPublicSecretReferenceField(key)) {
+      redacted[key] = nested
+      continue
+    }
+    if (shouldRedactSecretField(key)) {
       redacted[key] = redactedValue
       continue
     }

@@ -16,6 +16,8 @@ describe('MCP response redaction', () => {
   it('redacts credential fields and internal metadata from successful structured output', async () => {
     const result = redactMcpResponse({
       visible: 'kept',
+      publicMarkdown:
+        'Visible copy Bearer ba_raw_secret mcp_abcdefghijklmnopqrstuvwxyz confirmation-token: abcdefghijklmnop',
       _id: 'entry-1',
       _creationTime: 123,
       apiKey: 'ba_raw_secret',
@@ -32,6 +34,7 @@ describe('MCP response redaction', () => {
 
     expect(result).toEqual({
       visible: 'kept',
+      publicMarkdown: 'Visible copy [redacted] [redacted] [redacted]',
       _id: 'entry-1',
       _creationTime: '[internal]',
       apiKey: '[redacted]',

@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { api } from '../../boundary/api'
-import { cmsPermissionKeys } from '../../composables/permissions'
+import { cmsPermissionKeys, type CmsPermissionKey } from '../../composables/permissions'
 import { useCmsConfig } from '../../composables/useCmsConfig'
 import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../../composables/useCmsStudioAccess'
@@ -12,6 +12,12 @@ import {
   codeDefinedCollectionList,
   type StudioCollectionListItem,
 } from '../../lib/codeDefinedCollections'
+import {
+  studioRouteHref,
+  studioRoutesForSection,
+  type StudioRouteSection,
+  type StudioStaticRoute,
+} from '../../lib/studioNavigation'
 import StudioCollectionIcon from './collections/StudioCollectionIcon.vue'
 
 const cmsConfig = useCmsConfig()
@@ -45,74 +51,52 @@ const isCollectionsLoading = computed(
 )
 const route = useRoute()
 const activeCollection = computed(() => route.params.collection)
+const isHomeActive = computed(() => route.name === 'studio-home')
 function isActive(path: string): boolean {
   return route.path === path || route.path.startsWith(path + '/')
 }
-const manageLinks = computed(() =>
-  [
-    {
-      to: `${studioRoute}/site-data`,
-      icon: 'lucide:database',
-      label: t('ginkoCms.common.siteData'),
-      visible: canManageSettings.value,
-    },
-    {
-      to: `${studioRoute}/assets`,
-      icon: 'lucide:image',
-      label: t('ginkoCms.common.assets'),
-      visible: canManageAssets.value,
-    },
-    {
-      to: `${studioRoute}/model`,
-      icon: 'lucide:layers',
-      label: 'Content model',
-      visible: canManageCollections.value,
-    },
-    {
-      to: `${studioRoute}/activity`,
-      icon: 'lucide:activity',
-      label: t('ginkoCms.studio.activityPage.title'),
-      visible: true,
-    },
-    {
-      to: `${studioRoute}/agents`,
-      icon: 'lucide:bot',
-      label: t('ginkoCms.studio.agentsPage.title'),
-      visible: true,
-    },
-    {
-      to: `${studioRoute}/reviews`,
-      icon: 'lucide:inbox',
-      label: t('ginkoCms.studio.reviewsPage.title'),
-      visible: canPublishEntries.value,
-    },
-    {
-      to: `${studioRoute}/imports`,
-      icon: 'lucide:file-archive',
-      label: 'Imports',
-      visible: canManageCollections.value,
-    },
-    {
-      to: `${studioRoute}/settings`,
-      icon: 'lucide:settings',
-      label: t('ginkoCms.common.settings'),
-      visible: false,
-    },
-  ].filter((link) => link.visible),
-)
-const settingsLinks = computed(() =>
-  [
-    {
-      to: `${studioRoute}/settings`,
-      icon: 'lucide:settings',
-      label: t('ginkoCms.common.settings'),
-      visible: canManageSettings.value,
-    },
-  ].filter((link) => link.visible),
-)
+const capabilityAccess: Partial<Record<CmsPermissionKey, typeof canManageAssets>> = {
+  [cmsPermissionKeys.manageAssets]: canManageAssets,
+  [cmsPermissionKeys.manageCollections]: canManageCollections,
+  [cmsPermissionKeys.manageSettings]: canManageSettings,
+  [cmsPermissionKeys.publishEntries]: canPublishEntries,
+}
+function canAccessRoute(route: StudioStaticRoute): boolean {
+  const requiredCapability = route.requiredCapability
+  return !requiredCapability || capabilityAccess[requiredCapability]?.value === true
+}
+function sectionLinks(section: StudioRouteSection) {
+  return studioRoutesForSection(section)
+    .filter(canAccessRoute)
+    .map((route) => ({
+      to: studioRouteHref(studioRoute, route),
+      icon: route.icon,
+      label: t(route.labelKey),
+    }))
+}
+const homeLink = computed(() => sectionLinks('home')[0])
+const editorLinks = computed(() => sectionLinks('editor'))
+const operationLinks = computed(() => sectionLinks('operations'))
+const settingsLinks = computed(() => sectionLinks('settings'))
 </script>
 
 <template>
+  <SidebarGroup class="studio-sidebar-nav__group">
+    <SidebarGroupLabel>Home</SidebarGroupLabel>
+    <SidebarGroupContent>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton as-child :tooltip="homeLink?.label" :is-active="isHomeActive">
+            <RouterLink :to="homeLink?.to || studioRoute">
+              <Icon :name="homeLink?.icon || 'lucide:layout-dashboard'" class="ginko:size-4" />
+              <span>{{ homeLink?.label }}</span>
+            </RouterLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
+
   <SidebarGroup class="studio-sidebar-nav__group">
     <SidebarGroupLabel>
       {{ t('ginkoCms.studio.layout.content') }}
@@ -169,12 +153,10 @@ const settingsLinks = computed(() =>
   <SidebarSeparator />
 
   <SidebarGroup class="studio-sidebar-nav__group">
-    <SidebarGroupLabel>
-      {{ t('ginkoCms.studio.layout.manage') }}
-    </SidebarGroupLabel>
+    <SidebarGroupLabel>{{ t('ginkoCms.studio.layout.editor') }}</SidebarGroupLabel>
     <SidebarGroupContent>
       <SidebarMenu>
-        <SidebarMenuItem v-for="link in manageLinks" :key="link.to">
+        <SidebarMenuItem v-for="link in editorLinks" :key="link.to">
           <SidebarMenuButton as-child :tooltip="link.label" :is-active="isActive(link.to)">
             <RouterLink :to="link.to">
               <Icon :name="link.icon" class="ginko:size-4" />
@@ -185,6 +167,26 @@ const settingsLinks = computed(() =>
       </SidebarMenu>
     </SidebarGroupContent>
   </SidebarGroup>
+
+  <template v-if="operationLinks.length">
+    <SidebarSeparator />
+
+    <SidebarGroup class="studio-sidebar-nav__group">
+      <SidebarGroupLabel>{{ t('ginkoCms.studio.layout.operations') }}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          <SidebarMenuItem v-for="link in operationLinks" :key="link.to">
+            <SidebarMenuButton as-child :tooltip="link.label" :is-active="isActive(link.to)">
+              <RouterLink :to="link.to">
+                <Icon :name="link.icon" class="ginko:size-4" />
+                <span>{{ link.label }}</span>
+              </RouterLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  </template>
 
   <template v-if="settingsLinks.length">
     <SidebarSeparator />

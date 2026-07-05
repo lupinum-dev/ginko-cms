@@ -49,7 +49,7 @@ const editor = useStudioEntryEditorContext()
         >
         <div>
           <div class="ginko:font-medium">Publish</div>
-          <div class="ginko:text-xs">Refresh public output</div>
+          <div class="ginko:text-xs">Refresh website output</div>
         </div>
       </li>
     </ol>

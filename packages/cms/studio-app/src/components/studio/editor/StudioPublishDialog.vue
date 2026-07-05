@@ -142,7 +142,7 @@ const showAdvancedDetails = computed(
           class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3"
         >
           <div class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground">
-            Public output
+            Published website content
           </div>
           <div class="ginko:mt-1 ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
             <div class="ginko:min-w-0 ginko:truncate ginko:font-mono ginko:text-sm">

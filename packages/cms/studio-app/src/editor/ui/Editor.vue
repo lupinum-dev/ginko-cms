@@ -711,7 +711,7 @@ defineExpose({
           class="ginko:h-8"
           @click="exportDebugData"
         >
-          Export Debug
+          Export diagnostics
         </Button>
       </div>
 

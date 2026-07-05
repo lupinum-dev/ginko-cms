@@ -152,6 +152,7 @@ declare module 'vue' {
     StudioCollectionIcon: typeof import('./src/components/studio/collections/StudioCollectionIcon.vue')['default']
     StudioCollectionsListPanel: typeof import('./src/components/studio/collections/StudioCollectionsListPanel.vue')['default']
     StudioConfirmDialog: typeof import('./src/components/studio/StudioConfirmDialog.vue')['default']
+    StudioDeveloperDetails: typeof import('./src/components/studio/StudioDeveloperDetails.vue')['default']
     StudioEmptyState: typeof import('./src/components/studio/StudioEmptyState.vue')['default']
     StudioEntryCompareToolbar: typeof import('./src/components/studio/editor/StudioEntryCompareToolbar.vue')['default']
     StudioEntryEditorShell: typeof import('./src/components/studio/editor/StudioEntryEditorShell.vue')['default']

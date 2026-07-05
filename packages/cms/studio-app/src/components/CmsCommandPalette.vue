@@ -3,10 +3,15 @@ import { ArrowRight, FileText, History, Loader2, Zap } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { cmsPermissionKeys } from '../composables/permissions'
+import { cmsPermissionKeys, type CmsPermissionKey } from '../composables/permissions'
 import { useCmsI18n } from '../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
 import { useStudioSearch } from '../composables/useStudioSearch'
+import {
+  studioRouteHref,
+  studioStaticRoutes,
+  type StudioStaticRoute,
+} from '../lib/studioNavigation'
 
 const router = useRouter()
 
@@ -34,6 +39,9 @@ const contentRoute = computed(() => `${props.studioRoute}/content`)
 const { t } = useCmsI18n()
 const { can } = useCmsStudioAccess()
 const canManageCollections = can(cmsPermissionKeys.manageCollections)
+const canManageAssets = can(cmsPermissionKeys.manageAssets)
+const canManageSettings = can(cmsPermissionKeys.manageSettings)
+const canPublishEntries = can(cmsPermissionKeys.publishEntries)
 const open = ref(false)
 const query = ref('')
 const recentItems = ref<PaletteItem[]>([])
@@ -54,67 +62,25 @@ const searchPending = computed(
   () => query.value !== debouncedQuery.value || cmsSearch.pending?.value,
 )
 
+const capabilityAccess: Partial<Record<CmsPermissionKey, typeof canManageAssets>> = {
+  [cmsPermissionKeys.manageAssets]: canManageAssets,
+  [cmsPermissionKeys.manageCollections]: canManageCollections,
+  [cmsPermissionKeys.manageSettings]: canManageSettings,
+  [cmsPermissionKeys.publishEntries]: canPublishEntries,
+}
+function canAccessRoute(route: StudioStaticRoute): boolean {
+  const requiredCapability = route.requiredCapability
+  return !requiredCapability || capabilityAccess[requiredCapability]?.value === true
+}
+
 const staticLinks = computed<PaletteItem[]>(() =>
-  [
-    {
-      id: 'link-dashboard',
-      title: t('ginkoCms.studio.commandPalette.dashboardTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.dashboardSubtitle'),
-      href: props.studioRoute,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-site-data',
-      title: t('ginkoCms.studio.commandPalette.siteDataTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.siteDataSubtitle'),
-      href: `${props.studioRoute}/site-data`,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-assets',
-      title: t('ginkoCms.studio.commandPalette.assetsTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.assetsSubtitle'),
-      href: `${props.studioRoute}/assets`,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-collections',
-      title: t('ginkoCms.studio.commandPalette.collectionsTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.collectionsSubtitle'),
-      href: `${props.studioRoute}/collections`,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-activity',
-      title: t('ginkoCms.studio.commandPalette.activityTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.activitySubtitle'),
-      href: `${props.studioRoute}/activity`,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-imports',
-      title: 'Imports',
-      subtitle: 'Inspect filesystem import runs and blockers',
-      href: `${props.studioRoute}/imports`,
-      group: 'links' as const,
-      visible: canManageCollections.value,
-    },
-    {
-      id: 'link-settings',
-      title: t('ginkoCms.studio.commandPalette.settingsTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.settingsSubtitle'),
-      href: `${props.studioRoute}/settings`,
-      group: 'links' as const,
-      visible: true,
-    },
-  ]
-    .filter((item) => item.visible)
-    .map(({ visible: _, ...rest }) => rest as PaletteItem),
+  studioStaticRoutes.filter(canAccessRoute).map((route) => ({
+    id: `link-${route.id}`,
+    title: t(route.labelKey),
+    subtitle: route.subtitleKey ? t(route.subtitleKey) : undefined,
+    href: studioRouteHref(props.studioRoute, route),
+    group: 'links' as const,
+  })),
 )
 
 const actionItems = computed((): PaletteItem[] => {
@@ -122,7 +88,9 @@ const actionItems = computed((): PaletteItem[] => {
   if (collection.value) {
     items.push({
       id: `action-new-${collection.value}`,
-      title: `${t('ginkoCms.studio.collectionListPage.newEntry')} ${collection.value}`,
+      title: t('ginkoCms.studio.commandPalette.newDraftTitle', {
+        collection: String(collection.value),
+      }),
       subtitle: t('ginkoCms.studio.commandPalette.newEntrySubtitle'),
       href: `${contentRoute.value}/${collection.value}/new`,
       group: 'actions',

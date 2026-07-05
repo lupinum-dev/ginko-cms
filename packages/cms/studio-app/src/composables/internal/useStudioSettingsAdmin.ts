@@ -542,15 +542,15 @@ export function useStudioSettingsAdmin() {
     }
   }
 
-  async function handleRevokeMcpConnection(connection: McpCredentialSettings) {
+  async function handleRevokeMcpConnection(apiKeyId: string) {
     mcpConnectionError.value = ''
     mcpConnectionInfo.value = ''
-    revokingMcpApiKeyId.value = connection.apiKeyId
+    revokingMcpApiKeyId.value = apiKeyId
     try {
-      await revokeMcpCredentialMutation({ apiKeyId: connection.apiKeyId })
+      await revokeMcpCredentialMutation({ apiKeyId })
       const bridgeApi = studioHost.getBridge().mcpApiKeys
       if (bridgeApi) {
-        await bridgeApi.delete({ keyId: connection.apiKeyId })
+        await bridgeApi.delete({ keyId: apiKeyId })
       }
       mcpConnectionInfo.value = 'MCP connection revoked.'
       await mcpCredentialsQuery.refresh()
@@ -594,10 +594,10 @@ export function useStudioSettingsAdmin() {
         eventId,
         _confirmationToken: preview.confirmation.token,
       })
-      revalidationInfo.value = 'Revalidation job queued for retry.'
+      revalidationInfo.value = 'Website refresh job queued for retry.'
       await revalidationJobsQuery.refresh()
     } catch (e) {
-      revalidationError.value = getCmsErrorMessage(e, 'Failed to retry revalidation job.')
+      revalidationError.value = getCmsErrorMessage(e, 'Failed to retry website refresh job.')
     } finally {
       retryingRevalidationJobId.value = ''
     }

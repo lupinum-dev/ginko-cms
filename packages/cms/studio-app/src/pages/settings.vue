@@ -53,14 +53,65 @@ const admin = proxyRefs(useStudioSettingsAdmin())
           </div>
         </div>
 
-        <div v-else class="ginko:divide-y">
-          <StudioSettingsLanguageSection :admin="admin" />
-          <StudioSettingsLocalesSection :admin="admin" />
-          <StudioSettingsMembersSection :admin="admin" />
-          <StudioSettingsMcpConnectionsSection :admin="admin" />
-          <StudioSettingsRevalidationSection :admin="admin" />
-          <StudioSettingsStorageSection :admin="admin" />
-          <StudioSettingsConfigurationSection :admin="admin" />
+        <div v-else class="ginko:space-y-10">
+          <section>
+            <div class="ginko:mb-4">
+              <h2 class="ginko:text-sm ginko:font-semibold">
+                {{ admin.t('ginkoCms.studio.settingsPage.peopleAccessTitle') }}
+              </h2>
+              <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+                {{ admin.t('ginkoCms.studio.settingsPage.peopleAccessDescription') }}
+              </p>
+            </div>
+            <div class="ginko:divide-y">
+              <StudioSettingsMembersSection :admin="admin" />
+            </div>
+          </section>
+
+          <section>
+            <div class="ginko:mb-4">
+              <h2 class="ginko:text-sm ginko:font-semibold">
+                {{ admin.t('ginkoCms.studio.settingsPage.localizationTitle') }}
+              </h2>
+              <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+                {{ admin.t('ginkoCms.studio.settingsPage.localizationDescription') }}
+              </p>
+            </div>
+            <div class="ginko:divide-y">
+              <StudioSettingsLanguageSection :admin="admin" />
+              <StudioSettingsLocalesSection :admin="admin" />
+            </div>
+          </section>
+
+          <section>
+            <div class="ginko:mb-4">
+              <h2 class="ginko:text-sm ginko:font-semibold">
+                {{ admin.t('ginkoCms.studio.settingsPage.websiteConnectionsTitle') }}
+              </h2>
+              <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+                {{ admin.t('ginkoCms.studio.settingsPage.websiteConnectionsDescription') }}
+              </p>
+            </div>
+            <div class="ginko:divide-y">
+              <StudioSettingsConfigurationSection :admin="admin" />
+            </div>
+          </section>
+
+          <section>
+            <div class="ginko:mb-4">
+              <h2 class="ginko:text-sm ginko:font-semibold">
+                {{ admin.t('ginkoCms.studio.settingsPage.advancedSystemTitle') }}
+              </h2>
+              <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+                {{ admin.t('ginkoCms.studio.settingsPage.advancedSystemDescription') }}
+              </p>
+            </div>
+            <div class="ginko:divide-y">
+              <StudioSettingsMcpConnectionsSection :admin="admin" />
+              <StudioSettingsRevalidationSection :admin="admin" />
+              <StudioSettingsStorageSection :admin="admin" />
+            </div>
+          </section>
         </div>
       </div>
     </ScrollArea>

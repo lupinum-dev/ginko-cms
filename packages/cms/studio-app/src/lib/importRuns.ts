@@ -116,6 +116,16 @@ export function importRunSourceLabel(run: ImportRun): string {
   return root ? `${provider}: ${root}${ref}` : `${provider}${ref}`
 }
 
+export function importRunSourceSummary(run: ImportRun): string {
+  const source = run.source ?? {}
+  const provider = typeof source.provider === 'string' ? source.provider : ''
+  const root = typeof source.root === 'string' ? source.root : ''
+  const ref = typeof source.ref === 'string' ? source.ref : ''
+  if (provider === 'filesystem' && root === 'content') return ref
+  if (provider === 'filesystem') return [root, ref].filter(Boolean).join(' @ ')
+  return importRunSourceLabel(run)
+}
+
 export function deriveImportRunSummary(run: ImportRun) {
   const result = deriveImportRunResult(run)
 

@@ -215,7 +215,7 @@ describe('Studio shadcn surface wrappers', () => {
 
 const t = (key: string, params?: Record<string, unknown>) => {
   const labels: Record<string, string> = {
-    'ginkoCms.studio.collectionsPage.collectionSettings': 'Collection contract',
+    'ginkoCms.studio.collectionsPage.collectionSettings': 'Content type details',
     'ginkoCms.studio.collectionsPage.supportedLocales': 'Supported locales',
     'ginkoCms.studio.collectionsPage.fieldsCount': `${params?.count ?? 0} fields`,
     'ginkoCms.studio.collectionsPage.widthHalfLabel': 'half width',
@@ -322,19 +322,19 @@ const publishReview = {
 }
 
 describe('Studio workflow components', () => {
-  it('renders route-backed collection contracts as code-owned public capability', () => {
+  it('renders page-backed content setup as developer-managed website capability', () => {
     const wrapper = mountCollectionContractSection()
 
-    expect(wrapper.text()).toContain('Collection contract')
-    expect(wrapper.text()).toContain('Code-owned')
-    expect(wrapper.text()).toContain('Route-backed')
+    expect(wrapper.text()).toContain('Content type details')
+    expect(wrapper.text()).toContain('Managed by developers')
+    expect(wrapper.text()).toContain('Creates website pages')
     expect(wrapper.text()).toContain('Page routes')
     expect(wrapper.text()).toContain('Sitemap')
     expect(wrapper.text()).toContain('contract-v1')
     expect(wrapper.text()).toContain('collection-batch-1')
   })
 
-  it('renders data-only collection contracts without route controls and with actionable drift', () => {
+  it('renders shared-content setup without page controls and with actionable drift', () => {
     const wrapper = mountCollectionContractSection({
       collectionDetail: {
         contract: { source: 'code', version: 'authors-v1' },
@@ -353,13 +353,13 @@ describe('Studio workflow components', () => {
       selectedCollection: 'authors',
     })
 
-    expect(wrapper.text()).toContain('Data-only')
+    expect(wrapper.text()).toContain('Shared content')
     expect(wrapper.text()).toContain('Lists')
     expect(wrapper.text()).toContain('Relations')
-    expect(wrapper.text()).toContain('Route-only controls are hidden')
-    expect(wrapper.text()).toContain('Stale route prefix')
+    expect(wrapper.text()).toContain('Page controls are hidden')
+    expect(wrapper.text()).toContain('Stale URL prefix')
     expect(wrapper.text()).toContain('/authors')
-    expect(wrapper.text()).not.toContain('Route settings')
+    expect(wrapper.text()).not.toContain('URL settings')
   })
 
   it('shows missing contract and projection state honestly', () => {
@@ -505,7 +505,7 @@ describe('Studio workflow components', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Public output')
+    expect(wrapper.text()).toContain('Published website content')
     expect(wrapper.text()).toContain('No page route is produced for this data-only collection.')
     expect(wrapper.text()).toContain('List-only')
     expect(wrapper.text()).toContain('Blocking rows')
