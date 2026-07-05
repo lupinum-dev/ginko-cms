@@ -192,6 +192,84 @@ describe('editor draft mutations', () => {
     ).rejects.toThrow('Forbidden: Edit entries')
   })
 
+  it('allows MCP entry draft writes only through an active agent run', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    await ctx.seed(
+      'mcpCredentialSettings' as never,
+      {
+        apiKeyId: 'ba_key_editor',
+        ownerUserId: 'editor-1',
+        label: 'editor agent',
+        scopes: [
+          cmsPermissionKeys.read,
+          cmsPermissionKeys.createEntries,
+          cmsPermissionKeys.editEntries,
+        ],
+        status: 'active',
+        createdBy: 'owner-1',
+        createdAt: Date.now(),
+        updatedBy: 'owner-1',
+        updatedAt: Date.now(),
+        revokedAt: null,
+      } as never,
+    )
+
+    const editorAgent = ctx.asMcpApiKey('ba_key_editor', 'editor-1')
+    const run = await editorAgent.mutation(api.agentRuns.startRun, {
+      taskName: 'Prepare draft',
+    })
+    const beforePublicRows = await ctx.readAll('publicEntries')
+
+    await expect(
+      editorAgent.mutation(api.editor.mcpCreateEntry, {
+        agentRunId: run._id,
+        collection: 'posts',
+        locale: 'en',
+        slug: 'agent-created',
+        localized: { title: 'Agent created' },
+      }),
+    ).resolves.toEqual(expect.any(String))
+
+    await expect(
+      editorAgent.mutation(api.editor.mcpSaveEntryDraft, {
+        agentRunId: run._id,
+        entryId,
+        expectedDraftVersion: 1,
+        patch: {
+          locales: {
+            en: {
+              values: { title: 'Edited by active agent run' },
+            },
+          },
+        },
+      }),
+    ).resolves.toEqual({
+      draftVersion: 2,
+      dirtyLocales: ['en'],
+    })
+
+    await editorAgent.mutation(api.agentRuns.completeRun, { agentRunId: run._id })
+    await expect(
+      editorAgent.mutation(api.editor.mcpSaveEntryDraft, {
+        agentRunId: run._id,
+        entryId,
+        expectedDraftVersion: 2,
+        patch: {
+          locales: {
+            en: {
+              values: { title: 'Blocked after run complete' },
+            },
+          },
+        },
+      }),
+    ).rejects.toThrow('Agent run is not active.')
+    expect(await ctx.readAll('publicEntries')).toEqual(beforePublicRows)
+  })
+
   it('returns rich text draft state separately from localized values', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

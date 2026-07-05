@@ -34,6 +34,7 @@ const usesLocalizedSlug = computed(() => {
             <Input
               id="slug"
               v-model="editor.draft.form.slug"
+              :disabled="!editor.loader.canEditEntries"
               class="ginko:font-mono ginko:text-sm"
             />
           </StudioFieldShell>
@@ -67,15 +68,16 @@ const usesLocalizedSlug = computed(() => {
         </p>
       </div>
 
-      <div
+      <fieldset
         v-if="editor.loader.isTree"
-        class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-4"
+        :disabled="!editor.loader.canEditEntries"
+        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:border-0 ginko:p-0 ginko:md:grid-cols-4"
       >
         <StudioFieldShell
           for="kind"
           :label="editor.loader.t('ginkoCms.studio.collectionEditor.kind')"
         >
-          <Select v-model="editor.draft.form.kind">
+          <Select v-model="editor.draft.form.kind" :disabled="!editor.loader.canEditEntries">
             <SelectTrigger class="ginko:h-9">
               <SelectValue />
             </SelectTrigger>
@@ -93,6 +95,7 @@ const usesLocalizedSlug = computed(() => {
         >
           <Select
             :model-value="editor.draft.form.parentEntryId || EMPTY_PARENT_VALUE"
+            :disabled="!editor.loader.canEditEntries"
             @update:model-value="
               (value: string) => {
                 editor.draft.form.parentEntryId = value === EMPTY_PARENT_VALUE ? '' : String(value)
@@ -124,6 +127,7 @@ const usesLocalizedSlug = computed(() => {
           <Input
             id="icon"
             v-model="editor.draft.form.icon"
+            :disabled="!editor.loader.canEditEntries"
             class="ginko:font-mono ginko:text-sm"
             :placeholder="editor.loader.t('ginkoCms.studio.collectionEditor.iconPlaceholder')"
           />
@@ -135,14 +139,16 @@ const usesLocalizedSlug = computed(() => {
           <Input
             id="badge"
             v-model="editor.draft.form.badge"
+            :disabled="!editor.loader.canEditEntries"
             :placeholder="editor.loader.t('ginkoCms.studio.collectionEditor.badgePlaceholder')"
           />
         </StudioFieldShell>
-      </div>
+      </fieldset>
 
-      <div
+      <fieldset
         v-if="editor.loader.sharedFields.length > 0"
-        class="ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:md:grid-cols-2 ginko:xl:grid-cols-4"
+        :disabled="!editor.loader.canEditEntries"
+        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:md:grid-cols-2 ginko:xl:grid-cols-4"
       >
         <StudioFieldRenderer
           v-for="field in editor.loader.sharedFields"
@@ -152,9 +158,10 @@ const usesLocalizedSlug = computed(() => {
           :context="editor.draft.editorContext"
           :locale="editor.loader.currentLocale"
           :asset-context="editor.draft.assetContext"
+          :disabled="!editor.loader.canEditEntries"
           @update:model-value="editor.draft.dataFields[field.key] = $event"
         />
-      </div>
+      </fieldset>
     </div>
   </StudioSection>
 </template>

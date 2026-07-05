@@ -306,9 +306,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
         </section>
 
         <div
-          class="ginko:grid ginko:gap-5 ginko:xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,0.6fr)]"
+          class="ginko:grid ginko:min-w-0 ginko:gap-5 ginko:xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,0.6fr)]"
         >
-          <div class="ginko:space-y-5">
+          <div class="ginko:min-w-0 ginko:space-y-5">
             <section
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
@@ -465,7 +465,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
             </section>
           </div>
 
-          <aside class="ginko:space-y-5">
+          <aside class="ginko:min-w-0 ginko:space-y-5">
             <section
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >

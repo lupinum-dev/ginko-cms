@@ -10,6 +10,7 @@ const props = defineProps<{
   assetContext?: FieldContext
   label: string
   fieldError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -43,12 +44,14 @@ const value = computed<string | string[] | null>({
       :aspect-ratio="field.media?.aspectRatio"
       :label="label"
       :asset-context="assetContext"
+      :disabled="disabled"
       @update:model-value="value = $event"
     />
     <Input
       v-else
       :id="field.key"
       v-model="value"
+      :disabled="disabled"
       class="ginko:font-mono ginko:text-sm"
       :placeholder="
         field.type === 'image'

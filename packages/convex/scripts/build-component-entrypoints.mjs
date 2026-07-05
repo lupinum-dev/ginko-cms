@@ -2,6 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
 const componentModules = [
+  'agentRuns',
   'assets',
   'auth/appIdentity',
   'backup',
@@ -19,9 +20,11 @@ const componentModules = [
   'imports',
   'members',
   'migrations',
+  'mcpCredentials',
   'operations',
   'public',
   'revalidation',
+  'reviewRequests',
   'settings',
   'siteData',
   'storageMaintenance',

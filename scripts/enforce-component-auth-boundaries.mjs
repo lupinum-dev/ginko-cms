@@ -7,7 +7,6 @@ const componentDir = resolve(rootDir, 'packages/convex/src')
 
 const unsafeRawAllowlist = new Set([
   'packages/convex/src/collections/sync.ts',
-  'packages/convex/src/mcpKeys.ts',
   'packages/convex/src/migrations.ts',
   'packages/convex/src/settings.ts',
 ])

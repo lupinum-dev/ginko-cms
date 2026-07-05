@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -98,7 +98,6 @@ function createNuxtMock(rootDir: string) {
 
 describe('ginko-cms Convex setup validation', () => {
   const tempDirs: string[] = []
-  const staleBridgeDir = ['convex', 'ginkoCms'].join('/')
   const staleMcpBridgeFile = ['convex', `ginkoCms${'Mcp.ts'}`].join('/')
 
   afterEach(() => {
@@ -157,6 +156,15 @@ describe('ginko-cms Convex setup validation', () => {
       'app.use(ginkoCms)',
     )
     expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain('defineGinkoAuth')
+    expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain(
+      './betterAuth/schema',
+    )
+    expect(readFileSync(resolve(rootDir, 'convex/betterAuth/schema.ts'), 'utf8')).toContain(
+      'apikey: defineTable',
+    )
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
   })
 
   it('blocks stale generated bridge files during Nuxt prepare', async () => {
@@ -410,26 +418,6 @@ describe('ginko-cms Convex setup validation', () => {
         process.env.NUXT_PUBLIC_CONVEX_URL = previousPublicConvexUrl
       }
     }
-  })
-
-  it('treats stale generated bridge directories as invalid until removed', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-dirty-bridge-'))
-    tempDirs.push(rootDir)
-    await installConvexSetup(rootDir)
-
-    mkdirSync(resolve(rootDir, staleBridgeDir), { recursive: true })
-
-    await expect(
-      setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        createNuxtMock(rootDir),
-      ),
-    ).rejects.toThrow(`${staleBridgeDir} is a stale generated bridge directory`)
   })
 
   it('treats stale managed convex config as invalid until cleaned up', async () => {

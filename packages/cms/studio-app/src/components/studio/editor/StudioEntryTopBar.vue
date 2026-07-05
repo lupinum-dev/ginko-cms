@@ -107,6 +107,14 @@ const saveIndicatorLabel = computed(() => {
   return `Saved last ${formatted}`
 })
 
+const showEntryActions = computed(
+  () =>
+    !!editor &&
+    (editor.loader.canEditEntries ||
+      editor.loader.canPublishEntries ||
+      editor.loader.canArchiveEntries),
+)
+
 onMounted(() => {
   mounted.value = true
 })
@@ -171,7 +179,7 @@ function openPublishAllDialog() {
           <span class="studio-entry-topbar__label-full">Create draft</span>
           <span class="studio-entry-topbar__label-short">Draft</span>
         </Button>
-        <Button size="sm" :disabled="saving || !canPublish" @click="emit('createPublish')">
+        <Button v-if="canPublish" size="sm" :disabled="saving" @click="emit('createPublish')">
           <Globe class="ginko:size-4" />
           <span class="studio-entry-topbar__label-full">Create and publish</span>
           <span class="studio-entry-topbar__label-short">Publish</span>
@@ -206,9 +214,10 @@ function openPublishAllDialog() {
           class="ginko:capitalize"
         />
         <Button
+          v-if="editor.loader.canEditEntries"
           variant="outline"
           size="sm"
-          :disabled="editor.draft.saving || !editor.loader.canEditEntries"
+          :disabled="editor.draft.saving"
           @click="editor.draft.handleSaveDraft()"
         >
           <span class="studio-entry-topbar__label-full">
@@ -217,6 +226,7 @@ function openPublishAllDialog() {
           <span class="studio-entry-topbar__label-short">Save</span>
         </Button>
         <div
+          v-if="editor.loader.canPublishEntries"
           class="studio-entry-topbar__publish-action ginko:inline-flex ginko:min-w-0 ginko:items-stretch ginko:overflow-hidden ginko:rounded-lg"
         >
           <Button
@@ -226,9 +236,7 @@ function openPublishAllDialog() {
               editor.publishing.publishReadiness.state === 'blocked' ? 'secondary' : 'default'
             "
             :disabled="
-              editor.draft.saving ||
-              !editor.loader.canPublishEntries ||
-              editor.publishing.publishReadiness.state === 'pending'
+              editor.draft.saving || editor.publishing.publishReadiness.state === 'pending'
             "
             @click="openPublishDialog"
           >
@@ -243,9 +251,7 @@ function openPublishAllDialog() {
                   editor.publishing.publishReadiness.state === 'blocked' ? 'secondary' : 'default'
                 "
                 :disabled="
-                  editor.draft.saving ||
-                  !editor.loader.canPublishEntries ||
-                  editor.publishing.publishReadiness.state === 'pending'
+                  editor.draft.saving || editor.publishing.publishReadiness.state === 'pending'
                 "
                 aria-label="More publish options"
               >
@@ -260,7 +266,7 @@ function openPublishAllDialog() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <DropdownMenu>
+        <DropdownMenu v-if="showEntryActions">
           <DropdownMenuTrigger as-child>
             <Button
               variant="ghost"
@@ -272,6 +278,7 @@ function openPublishAllDialog() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" class="ginko:w-52">
             <DropdownMenuItem
+              v-if="editor.loader.canEditEntries"
               :disabled="editor.draft.saving || !editor.loader.canEditEntries"
               @click="editor.history.showCheckpointDialog = true"
             >
@@ -279,7 +286,7 @@ function openPublishAllDialog() {
               {{ editor.loader.t('ginkoCms.studio.collectionEditor.createCheckpoint') }}
             </DropdownMenuItem>
             <DropdownMenuItem
-              v-if="entry?.status === 'published'"
+              v-if="entry?.status === 'published' && editor.loader.canPublishEntries"
               :disabled="editor.draft.saving || !editor.loader.canPublishEntries"
               @click="editor.publishing.handleUnpublish()"
             >
@@ -287,6 +294,7 @@ function openPublishAllDialog() {
               {{ editor.loader.t('ginkoCms.common.unpublish') }}
             </DropdownMenuItem>
             <DropdownMenuItem
+              v-if="editor.loader.canArchiveEntries"
               :disabled="editor.draft.saving || !editor.loader.canArchiveEntries"
               @click="editor.publishing.handleArchive()"
             >

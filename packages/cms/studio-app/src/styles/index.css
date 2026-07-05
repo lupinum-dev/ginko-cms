@@ -129,7 +129,8 @@
 }
 
 .ginko-cms .studio-page-content {
-  width: min(100%, 80rem);
+  width: 100%;
+  max-width: 80rem;
   min-width: 0;
   margin-inline: auto;
 }

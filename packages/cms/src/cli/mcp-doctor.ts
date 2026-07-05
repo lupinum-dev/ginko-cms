@@ -39,7 +39,7 @@ export async function runMcpDoctor(cwd: string, io: CliIo): Promise<number> {
       fix: 'Add "secure-exec": "^0.2.1" to dependencies. Nuxt MCP code mode resolves it from the host app root at runtime.',
     },
     {
-      name: 'direct Convex component imports and dependencies',
+      name: 'Convex setup, root adapters, and dependencies',
       ok: convexSetupIssues.length === 0,
       fix: convexSetupIssues.map((issue) => issue.fix).join(' '),
     },

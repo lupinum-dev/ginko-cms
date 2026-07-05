@@ -1159,7 +1159,7 @@ describe('public API: list projection', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    await ctx.raw.mutation(api.collections.sync.installCollectionContractsInternal, {
+    await ctx.raw.mutation(api.collections.installCollectionContracts, {
       collections: [
         {
           slug: 'secure-posts',

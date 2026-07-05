@@ -2,7 +2,7 @@ import { ConvexHttpClient } from 'convex/browser'
 import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
 
-import { components } from '#convex/api'
+import { api } from '#convex/api'
 
 type QueryValue = string | string[] | undefined
 
@@ -38,7 +38,7 @@ type GinkoPublicApiRefs = {
   siteData: PublicQueryRef
 }
 const ginkoPublicApi = (
-  components as unknown as {
+  api as unknown as {
     ginkoCms: { public: GinkoPublicApiRefs }
   }
 ).ginkoCms.public
@@ -152,7 +152,11 @@ function getCmsErrorData(error: unknown) {
 }
 
 function statusForCmsCode(code: string) {
-  return code.startsWith('INVALID_') || code === 'DATA_ONLY_COLLECTION' ? 400 : 500
+  return code.startsWith('INVALID_') ||
+    code.startsWith('MISSING_') ||
+    code === 'DATA_ONLY_COLLECTION'
+    ? 400
+    : 500
 }
 
 function convexUrlFor(runtimeConfig: RuntimeConfig) {

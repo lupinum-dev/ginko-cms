@@ -1,7 +1,7 @@
 import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
 import { z } from 'zod'
 
-import { components } from '#convex/api'
+import { api } from '#convex/api'
 
 import { fail, failFromError, loadAgentContext, ok } from '../_shared/agent-tools'
 
@@ -22,7 +22,7 @@ export const page = defineMcpTool({
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event)
-      const result = await context.convex.query(components.ginkoCms.public.page, args)
+      const result = await context.convex.query(api.ginkoCms.public.page, args)
       const pageResult = result as { status?: string }
       if (pageResult.status === 'not-found') {
         return fail(
@@ -55,7 +55,7 @@ export const sitemap = defineMcpTool({
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event)
-      const result = await context.convex.query(components.ginkoCms.public.sitemap, args)
+      const result = await context.convex.query(api.ginkoCms.public.sitemap, args)
       const urls = (result as { urls?: unknown[] }).urls ?? []
       return ok(result, `Loaded ${urls.length} sitemap URL${urls.length === 1 ? '' : 's'}.`)
     } catch (error) {
@@ -78,7 +78,7 @@ export const explainPublicVisibility = defineMcpTool({
     try {
       const context = await loadAgentContext(ctx.event, 'readCms')
       const result = await context.convex.query(
-        components.ginkoCms.diagnostics.explainPublicVisibility,
+        api.ginkoCms.diagnostics.explainPublicVisibility,
         args,
       )
       if (!result || !Array.isArray(result.diagnostics) || !Array.isArray(result.locales)) {

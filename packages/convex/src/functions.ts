@@ -192,6 +192,9 @@ export const publicQuery = (definition: PublicDefinition<GenericQueryCtx<DataMod
 export const protectedQuery = (definition: ProtectedDefinition<GenericQueryCtx<DataModel>>) =>
   query(convexDefinition(definition, protectedHandler(definition)) as any)
 
+export const publicMutation = (definition: PublicDefinition<GenericMutationCtx<DataModel>>) =>
+  mutation(convexDefinition(definition, publicHandler(definition)) as any)
+
 export const protectedMutation = (definition: ProtectedDefinition<GenericMutationCtx<DataModel>>) =>
   mutation(convexDefinition(definition, protectedHandler(definition)) as any)
 
@@ -211,6 +214,7 @@ export const callerQuery = {
 }
 
 export const callerMutation = {
+  public: publicMutation,
   protected: protectedMutation,
 }
 

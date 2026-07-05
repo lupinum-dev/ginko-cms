@@ -22,6 +22,7 @@ const props = defineProps<{
   showValidation?: boolean
   label: string
   fieldError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -31,7 +32,10 @@ const emit = defineEmits<{
 const { t } = useCmsI18n()
 const value = computed({
   get: () => props.modelValue,
-  set: (v) => emit('update:modelValue', v),
+  set: (v) => {
+    if (props.disabled) return
+    emit('update:modelValue', v)
+  },
 })
 
 const nestedFields = computed(() => props.field.fields ?? [])
@@ -57,6 +61,7 @@ function toggleItemCollapse(index: number) {
 }
 
 function addBlock() {
+  if (props.disabled) return
   if (!blockTypeToAdd.value) return
   const items = [...blockItems.value]
   const blockDefinition = nestedFields.value.find((field) => field.key === blockTypeToAdd.value)
@@ -70,6 +75,7 @@ function addBlock() {
 }
 
 function updateBlockField(index: number, fieldKey: string, nextValue: unknown) {
+  if (props.disabled) return
   const items = [...blockItems.value]
   const existing = items[index] ?? { type: '', data: {} }
   items[index] = {
@@ -83,6 +89,7 @@ function updateBlockField(index: number, fieldKey: string, nextValue: unknown) {
 }
 
 function removeBlock(index: number) {
+  if (props.disabled) return
   const items = [...blockItems.value]
   items.splice(index, 1)
   value.value = items
@@ -107,7 +114,10 @@ function removeBlock(index: number) {
           {{ fieldError }}
         </p>
       </div>
-      <div class="ginko:flex ginko:min-w-0 ginko:flex-wrap ginko:items-center ginko:gap-2">
+      <div
+        v-if="!disabled"
+        class="ginko:flex ginko:min-w-0 ginko:flex-wrap ginko:items-center ginko:gap-2"
+      >
         <Select v-model="blockTypeToAdd">
           <SelectTrigger class="ginko:w-40 ginko:max-w-full">
             <SelectValue :placeholder="t('ginkoCms.studio.fieldRenderer.blockType')" />
@@ -144,7 +154,7 @@ function removeBlock(index: number) {
               {{ nestedFields.find((field2) => field2.key === block.type)?.label ?? block.type }}
             </Badge>
           </Button>
-          <Button variant="ghost" size="sm" @click="removeBlock(index)">
+          <Button v-if="!disabled" variant="ghost" size="sm" @click="removeBlock(index)">
             <Trash2 class="ginko:size-4" />
           </Button>
         </div>
@@ -164,6 +174,7 @@ function removeBlock(index: number) {
             :errors="errors"
             :field-path="fieldPath ? `${fieldPath}.${nestedField.key}` : nestedField.key"
             :show-validation="showValidation"
+            :disabled="disabled"
             @update:model-value="updateBlockField(index, nestedField.key, $event)"
           />
         </div>

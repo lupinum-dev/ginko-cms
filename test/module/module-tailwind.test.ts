@@ -23,7 +23,6 @@ const useLogger = vi.fn(() => ({
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const moduleDir = resolve(packageRoot, 'packages/cms/src')
-const trellisPackageName = ['@lupinum', 'trellis'].join('/')
 
 vi.mock('@nuxt/kit', () => ({
   addComponentsDir,
@@ -167,7 +166,6 @@ describe('ginko-cms tailwind registration', () => {
     const moduleDependencies = getModuleDependencies(nuxt)
     const convexDependency = moduleDependencies['better-convex-nuxt']
 
-    expect(moduleDependencies[trellisPackageName]).toBeUndefined()
     expect(convexDependency).toMatchObject({
       defaults: expect.objectContaining({
         auth: expect.objectContaining({

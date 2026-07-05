@@ -22,8 +22,7 @@ import { v } from 'convex/values'
  *
  * Studio and MCP may inspect the collection contract, but they must not
  * create, edit, or delete schema. Contract changes happen in code and flow
- * into Convex through deploy-key authenticated generated internal bridge
- * functions.
+ * into Convex through deploy-key authenticated internal component functions.
  */
 export default defineSchema({
   collections: defineTable({

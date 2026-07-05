@@ -28,6 +28,8 @@ type ReviewRequest = {
   updatedAt: number
   reviewedAt: number | null
   versionHash: string | null
+  isStale: boolean
+  staleReason: string | null
 }
 
 const { t, dateLocale } = useCmsI18n()
@@ -161,6 +163,7 @@ async function reject(request: ReviewRequest) {
               <div class="ginko:min-w-0">
                 <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
                   <Badge variant="warning">Pending</Badge>
+                  <Badge v-if="request.isStale" variant="destructive">Stale</Badge>
                   <Badge variant="outline">{{ request.operationId }}</Badge>
                 </div>
                 <h2 class="ginko:mt-3 ginko:text-base ginko:font-semibold">
@@ -185,7 +188,11 @@ async function reject(request: ReviewRequest) {
                   <X v-else class="ginko:mr-2 ginko:size-3.5" />
                   Reject
                 </Button>
-                <Button size="sm" :disabled="decidingId === request._id" @click="approve(request)">
+                <Button
+                  size="sm"
+                  :disabled="decidingId === request._id || request.isStale"
+                  @click="approve(request)"
+                >
                   <Loader2
                     v-if="decidingId === request._id && approveReview.pending.value"
                     class="ginko:mr-2 ginko:size-3.5 ginko:animate-spin"
@@ -234,6 +241,9 @@ async function reject(request: ReviewRequest) {
                 <div
                   class="ginko:mt-2 ginko:space-y-2 ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs"
                 >
+                  <div v-if="request.staleReason" class="ginko:text-destructive">
+                    {{ request.staleReason }}
+                  </div>
                   <div>
                     <span class="ginko:text-muted-foreground">Locales:</span>
                     {{ request.locales.join(', ') }}

@@ -373,6 +373,7 @@ describe('package boundary contracts', () => {
     )
 
     expect(componentJsFiles).toEqual([
+      'agentRuns.js',
       'assets.js',
       'auth/appIdentity.js',
       'backup.js',
@@ -390,11 +391,13 @@ describe('package boundary contracts', () => {
       'entries/read.js',
       'entries/tree.js',
       'imports.js',
+      'mcpCredentials.js',
       'members.js',
       'migrations.js',
       'operations.js',
       'public.js',
       'revalidation.js',
+      'reviewRequests.js',
       'schema.js',
       'settings.js',
       'siteData.js',

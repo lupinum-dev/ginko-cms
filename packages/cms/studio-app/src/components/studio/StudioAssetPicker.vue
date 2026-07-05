@@ -17,6 +17,7 @@ const props = withDefaults(
     label?: string
     open?: boolean
     showTrigger?: boolean
+    disabled?: boolean
     assetContext: StudioAssetContext
   }>(),
   {
@@ -86,10 +87,12 @@ const assetsById = computed(() => {
 })
 
 function handleSelectAsset(asset: StudioAssetRecord) {
+  if (props.disabled) return
   emit('select-asset', asset)
 }
 
 function removeAsset(assetId: string) {
+  if (props.disabled) return
   if (props.multiple) {
     emit(
       'update:modelValue',
@@ -124,6 +127,7 @@ function removeAsset(assetId: string) {
           {{ assetsById.get(assetId)?.filename ?? assetId }}
         </span>
         <Button
+          v-if="!disabled"
           type="button"
           size="icon"
           variant="ghost"
@@ -135,7 +139,7 @@ function removeAsset(assetId: string) {
         </Button>
       </div>
       <Button
-        v-if="showTrigger"
+        v-if="showTrigger && !disabled"
         data-testid="studio-asset-picker-trigger"
         size="sm"
         variant="outline"

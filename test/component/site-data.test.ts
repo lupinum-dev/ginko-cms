@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
-import { createCtx } from '../helpers'
+import { createCtx, seedMember } from '../helpers'
 import { seedOwner } from './entries/helpers'
 
 const api = anyApi
@@ -162,6 +162,59 @@ describe('site data ownership shape', () => {
         paths: ['/'],
       }),
     ])
+  })
+
+  it('allows read-only users to inspect site data without write access', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'viewer-1', role: 'viewer' })
+    const owner = ctx.asCmsUser('owner-1')
+    const viewer = ctx.asCmsUser('viewer-1')
+
+    await owner.mutation(api.siteData.createSiteDataBlock, {
+      key: 'announcement',
+      localized: false,
+      visibility: 'public',
+      data: { text: 'Visible' },
+    })
+
+    await expect(viewer.query(api.siteData.listSiteData, {})).resolves.toEqual([
+      expect.objectContaining({
+        key: 'announcement',
+        visibility: 'public',
+      }),
+    ])
+    await expect(
+      viewer.query(api.siteData.getSiteDataBlock, { key: 'announcement' }),
+    ).resolves.toMatchObject({
+      key: 'announcement',
+      data: { text: 'Visible' },
+    })
+
+    await expect(
+      viewer.mutation(api.siteData.createSiteDataBlock, {
+        key: 'viewerCreated',
+        localized: false,
+        data: {},
+      }),
+    ).rejects.toThrow('Forbidden: Manage settings')
+    await expect(
+      viewer.mutation(api.siteData.saveSiteData, {
+        key: 'announcement',
+        data: { text: 'Edited' },
+      }),
+    ).rejects.toThrow('Forbidden: Manage settings')
+    await expect(
+      viewer.mutation(api.siteData.updateSiteDataBlock, {
+        key: 'announcement',
+        visibility: 'private',
+      }),
+    ).rejects.toThrow('Forbidden: Manage settings')
+    await expect(
+      viewer.mutation(api.siteData.previewDeleteSiteDataBlockOperation, {
+        key: 'announcement',
+      }),
+    ).rejects.toThrow('Forbidden: Manage settings')
   })
 
   it('binds destructive confirmations to one caller, args, and one redemption', async () => {

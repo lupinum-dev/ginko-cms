@@ -59,7 +59,7 @@ async function runCliWithClient(
       stdout: stdout.stream,
       stderr: stderr.stream,
     },
-    convexClientFactory: () => ({ action }) as never,
+    convexClientFactory: () => ({ action, setAdminAuth: () => {} }) as never,
   })
   return {
     code,
@@ -70,7 +70,6 @@ async function runCliWithClient(
 
 describe('ginko-cms CLI', () => {
   const tempDirs: string[] = []
-  const staleBridgeDir = ['convex', 'ginkoCms'].join('/')
   const staleMcpBridgeFile = ['convex', `ginkoCms${'Mcp.ts'}`].join('/')
 
   afterEach(() => {
@@ -97,12 +96,17 @@ describe('ginko-cms CLI', () => {
       'pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com',
     )
     const convexConfig = readFileSync(resolve(rootDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('@convex-dev/better-auth/convex.config')
+    expect(convexConfig).toContain('./betterAuth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
+    expect(readFileSync(resolve(rootDir, 'convex/betterAuth/schema.ts'), 'utf8')).toContain(
+      'apikey: defineTable',
+    )
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/better-auth')
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/config')
     expect(readFileSync(resolve(rootDir, 'convex/schema.ts'), 'utf8')).toContain('by_auth_key')
-    expect(existsSync(resolve(rootDir, staleBridgeDir))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, staleMcpBridgeFile))).toBe(false)
 
     const check = await runCli(['doctor'], rootDir)
@@ -307,13 +311,13 @@ describe('ginko-cms CLI', () => {
     tempDirs.push(rootDir)
 
     await runCli(['init'], rootDir)
-    mkdirSync(resolve(rootDir, staleBridgeDir), { recursive: true })
+    writeFileSync(resolve(rootDir, staleMcpBridgeFile), '// stale generated output\n', 'utf8')
 
     const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(1)
     expect(check.stderr).toContain('Ginko CMS doctor has 1 issue')
-    expect(check.stderr).toContain(`${staleBridgeDir} is a stale generated bridge directory`)
-    expect(check.stderr).toContain(`Delete ${staleBridgeDir}`)
+    expect(check.stderr).toContain(`${staleMcpBridgeFile} is a stale generated bridge file`)
+    expect(check.stderr).toContain(`Delete ${staleMcpBridgeFile}`)
   })
 
   it('prints cleanup guidance when stale legacy identity secrets remain', async () => {
@@ -347,7 +351,7 @@ describe('ginko-cms CLI', () => {
     )
     const configPath = resolve(rootDir, 'convex/convex.config.ts')
     const staleConfig = readFileSync(configPath, 'utf8')
-      .replace('@convex-dev/better-auth/convex.config', '@lupinum/ginko-cms/convex/better-auth')
+      .replace('./betterAuth/convex.config', '@lupinum/ginko-cms/convex/better-auth')
       .replace('@lupinum/ginko-cms-convex/convex.config', '@lupinum/ginko-cms/convex/config')
     writeFileSync(configPath, staleConfig, 'utf8')
 
@@ -357,7 +361,7 @@ describe('ginko-cms CLI', () => {
       'Replace @lupinum/ginko-cms/convex/config with @lupinum/ginko-cms-convex/convex.config.',
     )
     expect(doctor.stderr).toContain(
-      'Replace @lupinum/ginko-cms/convex/better-auth with @convex-dev/better-auth/convex.config.',
+      'Replace @lupinum/ginko-cms/convex/better-auth with ./betterAuth/convex.config.',
     )
     expect(doctor.stderr).toContain(
       'package.json is missing direct dependency "@convex-dev/better-auth"',
@@ -594,6 +598,57 @@ describe('ginko-cms CLI', () => {
     expect(stderr.read()).toContain('collection schema changed')
     expect(stderr.read()).toContain('legacy: affected entries=3')
     expect(stderr.read()).toContain('pnpm exec ginko-cms migrate create <change-name>')
+  })
+
+  it('redacts secrets from top-level CLI errors', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-redaction-'))
+    tempDirs.push(rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+    writeFileSync(
+      resolve(rootDir, 'nuxt.config.ts'),
+      [
+        'export default {',
+        '  ginkoCms: {',
+        "    defaultLocale: 'en',",
+        "    locales: [{ code: 'en', isDefault: true }],",
+        "    collections: { posts: { type: 'flat', routing: { pathPrefix: '/posts' } } },",
+        '  },',
+        '}',
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const stdout = createOutput()
+    const stderr = createOutput()
+    const code = await runGinkoCmsCli(['push', '--check'], {
+      cwd: rootDir,
+      io: {
+        stdout: stdout.stream,
+        stderr: stderr.stream,
+      },
+      convexClientFactory: () =>
+        ({
+          setAdminAuth: () => {},
+          query: async () => {
+            throw new Error(
+              'upstream failed for deploy-key-test with Authorization: Bearer mcp_abcdefghijklmnopqrstuvwxyz123456',
+            )
+          },
+        }) as never,
+    })
+
+    expect(code).toBe(2)
+    expect(stdout.read()).toBe('')
+    expect(stderr.read()).toContain('[redacted]')
+    expect(stderr.read()).not.toContain('deploy-key-test')
+    expect(stderr.read()).not.toContain('mcp_abcdefghijklmnopqrstuvwxyz123456')
   })
 
   it('treats legacy drift without migration metadata as migration-required', async () => {
@@ -861,7 +916,12 @@ describe('ginko-cms CLI', () => {
   it('exports a backup archive file through the installed backup API', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-export-'))
     tempDirs.push(rootDir)
-    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_URL=https://example.convex.cloud\n')
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+    )
 
     const calls: Array<Record<string, unknown>> = []
     const result = await runCliWithClient(
@@ -890,10 +950,125 @@ describe('ginko-cms CLI', () => {
     expect(calls).toEqual([{ scope: 'full' }, { artifactId: 'backup_123' }])
   })
 
+  it.each([
+    {
+      args: [
+        'backup',
+        'export',
+        '--scope',
+        'collection',
+        '--collection-id',
+        'posts',
+        '--out',
+        'backups/posts.json',
+      ],
+      expected: { scope: 'collection', collectionId: 'posts' },
+    },
+    {
+      args: [
+        'backup',
+        'export',
+        '--scope',
+        'entry',
+        '--entry-id',
+        'entry_123',
+        '--out',
+        'backups/entry.json',
+      ],
+      expected: { scope: 'entry', entryId: 'entry_123' },
+    },
+    {
+      args: [
+        'backup',
+        'export',
+        '--scope',
+        'asset',
+        '--asset-id',
+        'asset_123',
+        '--out',
+        'backups/asset.json',
+      ],
+      expected: { scope: 'asset', assetId: 'asset_123' },
+    },
+  ])(
+    'exports scoped backup archives through the installed backup API',
+    async ({ args, expected }) => {
+      const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-export-scoped-'))
+      tempDirs.push(rootDir)
+      writeFileSync(
+        resolve(rootDir, '.env.local'),
+        ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+          '\n',
+        ),
+      )
+
+      const calls: Array<Record<string, unknown>> = []
+      const result = await runCliWithClient(args, rootDir, async (_ref, actionArgs) => {
+        calls.push(actionArgs)
+        if ('scope' in actionArgs) {
+          return {
+            artifactId: 'backup_scoped',
+            checksum: 'abc',
+            counts: { entries: 1, assets: 1 },
+          }
+        }
+        return {
+          artifactId: 'backup_scoped',
+          checksum: 'abc',
+          archiveJson: '{"version":1,"scope":"scoped"}',
+        }
+      })
+
+      expect(result.code).toBe(0)
+      expect(result.stdout).toContain('artifactId=backup_scoped')
+      expect(readFileSync(resolve(rootDir, String(args.at(-1))), 'utf8')).toBe(
+        '{"version":1,"scope":"scoped"}',
+      )
+      expect(calls).toEqual([expected, { artifactId: 'backup_scoped' }])
+    },
+  )
+
+  it('downloads a backup archive artifact through the installed backup API', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-download-'))
+    tempDirs.push(rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+    )
+
+    const calls: Array<Record<string, unknown>> = []
+    const result = await runCliWithClient(
+      ['backup', 'download', '--artifact-id', 'backup_123', '--out', 'downloaded/backup.json'],
+      rootDir,
+      async (_ref, args) => {
+        calls.push(args)
+        return {
+          artifactId: 'backup_123',
+          checksum: 'abc',
+          archiveJson: '{"version":1,"downloaded":true}',
+        }
+      },
+    )
+
+    expect(result.code).toBe(0)
+    expect(result.stdout).toContain('artifactId=backup_123')
+    expect(readFileSync(resolve(rootDir, 'downloaded/backup.json'), 'utf8')).toBe(
+      '{"version":1,"downloaded":true}',
+    )
+    expect(calls).toEqual([{ artifactId: 'backup_123' }])
+  })
+
   it('returns a failing status when backup verification detects drift', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-verify-'))
     tempDirs.push(rootDir)
-    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_URL=https://example.convex.cloud\n')
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+    )
 
     const result = await runCliWithClient(
       ['backup', 'verify', '--artifact-id', 'backup_123'],

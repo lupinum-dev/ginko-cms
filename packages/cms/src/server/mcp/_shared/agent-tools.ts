@@ -2,7 +2,7 @@ import type { CmsCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { McpToolCallbackResult } from '@nuxtjs/mcp-toolkit/server'
 import type { H3Event } from 'h3'
 
-import { components } from '#convex/api'
+import { api } from '#convex/api'
 
 import { getMcpAuth } from './auth.js'
 import type { CmsMcpCapabilities } from './capabilities.js'
@@ -69,7 +69,7 @@ async function resolveCmsMcpCapabilities(
 ): Promise<CmsMcpCapabilities> {
   return await resolveCmsMcpCapabilitiesForCmsCaller(
     caller,
-    async () => await convex.query(components.ginkoCms.members.getAccessContext, {}),
+    async () => await convex.query(api.ginkoCms.members.getAccessContext, {}),
   )
 }
 

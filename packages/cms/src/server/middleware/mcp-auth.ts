@@ -1,7 +1,7 @@
 import { createError, defineEventHandler, getRequestHeader, getRequestIP, type H3Event } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
 
-import { components } from '#convex/api'
+import { api } from '#convex/api'
 
 import { createConvexAuthCaller } from '../mcp/_shared/convex-caller'
 import {
@@ -36,7 +36,7 @@ export async function authenticateMcpRequest(event: H3Event) {
       getConvexAuthToken: async (key) => await getBetterAuthConvexToken(authBaseUrl, key),
       resolveCredentialAccess: async (apiKeyId, convexAuthToken) => {
         const convex = createConvexAuthCaller(event, convexAuthToken)
-        const ginkoCms = components.ginkoCms as typeof components.ginkoCms & {
+        const ginkoCms = api.ginkoCms as typeof api.ginkoCms & {
           mcpCredentials: { resolveAccess: never }
         }
         return await convex.query(ginkoCms.mcpCredentials.resolveAccess, {
@@ -95,32 +95,43 @@ async function getBetterAuthConvexToken(authBaseUrl: string, key: string) {
 }
 
 async function verifyBetterAuthApiKey(authBaseUrl: string, key: string) {
-  const response = await fetch(`${authBaseUrl}/api-key/verify`, {
-    method: 'POST',
+  const response = await fetch(`${authBaseUrl}/convex/token`, {
+    method: 'GET',
     headers: {
-      'content-type': 'application/json',
+      authorization: `Bearer ${key}`,
     },
-    body: JSON.stringify({ key }),
   })
-  if (!response.ok) {
-    throw new Error(`Better Auth API-key verification failed with HTTP ${response.status}.`)
+  if (response.status === 400 || response.status === 401 || response.status === 403) {
+    return { valid: false, key: null }
   }
+  if (!response.ok)
+    throw new Error(`Better Auth Convex token request failed with HTTP ${response.status}.`)
 
   const body = (await response.json()) as {
-    valid?: unknown
-    key?: {
-      id?: unknown
-      referenceId?: unknown
-    } | null
+    token?: unknown
   }
+  if (typeof body.token !== 'string' || body.token.length === 0) {
+    throw new Error('Better Auth Convex token response did not include a token.')
+  }
+
+  const payload = decodeJwtPayload(body.token)
+  const apiKeyId = payload.sessionId
+  const authUserId = payload.sub
+
   return {
-    valid: body.valid === true,
+    valid: typeof apiKeyId === 'string' && typeof authUserId === 'string',
     key:
-      body.key && typeof body.key.id === 'string' && typeof body.key.referenceId === 'string'
+      typeof apiKeyId === 'string' && typeof authUserId === 'string'
         ? {
-            id: body.key.id,
-            referenceId: body.key.referenceId,
+            id: apiKeyId,
+            referenceId: authUserId,
           }
         : null,
   }
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  const payload = token.split('.')[1]
+  if (!payload) throw new Error('Better Auth Convex token payload is missing.')
+  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>
 }

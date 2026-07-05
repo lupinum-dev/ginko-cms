@@ -275,6 +275,75 @@ function validateImportPublishLocales(locales?: string[] | null) {
   }
 }
 
+function hasForbiddenImportedRoutePathChar(value: string): boolean {
+  for (const char of value) {
+    const code = char.charCodeAt(0)
+    if (char === '?' || char === '#' || code < 32 || code === 127) return true
+  }
+  return false
+}
+
+function isValidImportedRoutePath(path: string): boolean {
+  const trimmed = path.trim()
+  return (
+    trimmed.length > 0 &&
+    trimmed.startsWith('/') &&
+    !trimmed.startsWith('//') &&
+    !trimmed.includes('//') &&
+    !trimmed.includes('\\') &&
+    !hasForbiddenImportedRoutePathChar(trimmed)
+  )
+}
+
+function validateImportedEntryContract(args: {
+  entry: ImportedEntry
+  collection: Awaited<ReturnType<typeof getCollectionOrThrow>>
+}): JsonMap[] {
+  const blockers: JsonMap[] = []
+
+  try {
+    assertValidLocaleCode(args.entry.locale, 'ENTRY_LOCALE_INVALID')
+  } catch {
+    blockers.push({
+      kind: 'locale_invalid',
+      collection: args.entry.collection,
+      stableId: args.entry.stableId,
+      locale: args.entry.locale,
+      safe: false,
+      reason: `Imported locale "${args.entry.locale}" is not a valid CMS locale code.`,
+    })
+  }
+
+  if (!args.collection.locales.includes(args.entry.locale)) {
+    blockers.push({
+      kind: 'locale_unsupported',
+      collection: args.entry.collection,
+      stableId: args.entry.stableId,
+      locale: args.entry.locale,
+      supportedLocales: args.collection.locales,
+      safe: false,
+      reason: `Imported locale "${args.entry.locale}" is not configured for collection "${args.entry.collection}".`,
+    })
+  }
+
+  if (
+    (args.collection.routing.mode ?? 'route') !== 'none' &&
+    !isValidImportedRoutePath(args.entry.routePath)
+  ) {
+    blockers.push({
+      kind: 'route_invalid',
+      collection: args.entry.collection,
+      stableId: args.entry.stableId,
+      locale: args.entry.locale,
+      routePath: args.entry.routePath,
+      safe: false,
+      reason: `Imported route path "${args.entry.routePath}" must be a clean absolute public path.`,
+    })
+  }
+
+  return blockers
+}
+
 function normalizeLocalizedImport(entry: ImportedEntry): JsonMap {
   return {
     ...entry.localized,
@@ -920,6 +989,23 @@ export const previewImport = callerMutation.protected({
         }
       }
       const fullCollection = await getCollectionOrThrow(ctx, incoming.collection)
+      const contractBlockers = validateImportedEntryContract({
+        entry: incoming as ImportedEntry,
+        collection: fullCollection,
+      })
+      if (contractBlockers.length > 0) {
+        entryPreview.push({
+          collection: incoming.collection,
+          stableId: incoming.stableId,
+          locale: incoming.locale,
+          status: 'blocked',
+          changes: [],
+          reason: 'Entry has invalid locale or route metadata.',
+          blockers: contractBlockers,
+        })
+        blockers.push(...contractBlockers)
+        continue
+      }
       const relationBlockers = await validateImportedEntryRelations(ctx, {
         entry: incoming as ImportedEntry,
         collection: fullCollection,
@@ -1103,6 +1189,15 @@ export const applyImport = callerMutation.protected({
         continue
       }
       const collection = await getCollectionOrThrow(ctx, incoming.collection)
+      const contractBlockers = validateImportedEntryContract({
+        entry: incoming as ImportedEntry,
+        collection,
+      })
+      if (contractBlockers.length > 0) {
+        blockedChanges.push(...contractBlockers)
+        entrySkipped.push(entryKey)
+        continue
+      }
       const fieldBlockers = validateImportedEntryFields({
         entry: incoming as ImportedEntry,
         collection,

@@ -18,7 +18,7 @@ vi.mock('@nuxtjs/mcp-toolkit/server', () => ({
 }))
 
 vi.mock('#convex/api', () => ({
-  components: {
+  api: {
     ginkoCms: {
       diagnostics: {
         previewPublishImpact: mocks.refs.previewPublishImpact,

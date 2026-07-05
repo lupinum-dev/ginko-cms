@@ -32,6 +32,29 @@ const contentMigrationEntryValidator = v.object({
   locales: v.record(v.string(), contentMigrationLocaleValidator),
 })
 
+const listContentMigrationEntriesArgs = {
+  collection: v.string(),
+  cursor: v.union(v.string(), v.null()),
+  limit: v.optional(v.number()),
+}
+
+const listContentMigrationEntriesReturns = v.object({
+  page: v.array(contentMigrationEntryValidator),
+  isDone: v.boolean(),
+  continueCursor: v.union(v.string(), v.null()),
+})
+
+const applyContentMigrationEntriesArgs = {
+  migrationId: v.string(),
+  entries: v.array(contentMigrationEntryValidator),
+}
+
+const applyContentMigrationEntriesReturns = v.object({
+  migrationId: v.string(),
+  changed: v.number(),
+  unchanged: v.number(),
+})
+
 function pageSize(limit: number | undefined) {
   return Math.max(1, Math.min(limit ?? MIGRATION_PAGE_SIZE_DEFAULT, MIGRATION_PAGE_SIZE_MAX))
 }
@@ -93,130 +116,135 @@ function migrationPatch(input: {
   }
 }
 
-export const listContentMigrationEntriesInternal = directInternalQuery({
-  id: 'migrations:listContentMigrationEntriesInternal',
-  args: {
-    collection: v.string(),
-    cursor: v.union(v.string(), v.null()),
-    limit: v.optional(v.number()),
-  },
-  returns: v.object({
-    page: v.array(contentMigrationEntryValidator),
-    isDone: v.boolean(),
-    continueCursor: v.union(v.string(), v.null()),
-  }),
-  handler: async (ctx, args) => {
-    const collection = await getCollectionOrThrow(ctx, args.collection)
-    const entries = await ctx.db
-      .query('entries')
-      .withIndex('by_collection_status', (q) => q.eq('collectionId', collection._id))
-      .collect()
-    const limit = pageSize(args.limit)
-    const cursorIndex =
-      args.cursor === null
-        ? null
-        : entries.findIndex((entry) => toStringId(entry._id) === args.cursor)
-    const startIndex = cursorIndex === null ? 0 : cursorIndex + 1
+export async function listContentMigrationEntriesHandler(
+  ctx: QueryOrMutationCtx,
+  args: { collection: string; cursor: string | null; limit?: number },
+) {
+  const collection = await getCollectionOrThrow(ctx, args.collection)
+  const entries = await ctx.db
+    .query('entries')
+    .withIndex('by_collection_status', (q) => q.eq('collectionId', collection._id))
+    .collect()
+  const limit = pageSize(args.limit)
+  const cursorIndex =
+    args.cursor === null
+      ? null
+      : entries.findIndex((entry) => toStringId(entry._id) === args.cursor)
+  const startIndex = cursorIndex === null ? 0 : cursorIndex + 1
 
-    if (cursorIndex !== null && cursorIndex < 0) {
-      throwCmsError('CONTENT_MIGRATION_CURSOR_INVALID', 'Migration cursor is no longer valid.', {
-        collection: collection.slug,
-        cursor: args.cursor,
+  if (cursorIndex !== null && cursorIndex < 0) {
+    throwCmsError('CONTENT_MIGRATION_CURSOR_INVALID', 'Migration cursor is no longer valid.', {
+      collection: collection.slug,
+      cursor: args.cursor,
+    })
+  }
+
+  const slice = entries.slice(startIndex, startIndex + limit)
+  const isDone = startIndex + slice.length >= entries.length
+
+  return {
+    page: await Promise.all(
+      slice.map((entry) => contentMigrationEntrySnapshot(ctx, collection, entry)),
+    ),
+    isDone,
+    continueCursor: isDone ? null : toStringId(slice.at(-1)!._id),
+  }
+}
+
+export const listContentMigrationEntries = directInternalQuery({
+  id: 'migrations:listContentMigrationEntries',
+  args: listContentMigrationEntriesArgs,
+  returns: listContentMigrationEntriesReturns,
+  handler: async (ctx, args) => await listContentMigrationEntriesHandler(ctx, args),
+})
+
+export async function applyContentMigrationEntriesHandler(
+  ctx: MutationCtx,
+  args: {
+    migrationId: string
+    entries: Array<{
+      collection: string
+      entryId: string
+      stableId: string | null
+      draftVersion: number
+      shared: JsonObject
+      locales: Record<string, { values: JsonObject; bodyMdc?: string | null } | null>
+    }>
+  },
+) {
+  let changed = 0
+  let unchanged = 0
+  const now = Date.now()
+
+  for (const input of args.entries) {
+    const entryId = asEntryId(ctx, input.entryId)
+    const entry = await ctx.db.get(entryId)
+    if (!entry) {
+      throwCmsError('CONTENT_MIGRATION_ENTRY_NOT_FOUND', 'Migration entry no longer exists.', {
+        entryId: input.entryId,
       })
     }
 
-    const slice = entries.slice(startIndex, startIndex + limit)
-    const isDone = startIndex + slice.length >= entries.length
-
-    return {
-      page: await Promise.all(
-        slice.map((entry) => contentMigrationEntrySnapshot(ctx, collection, entry)),
-      ),
-      isDone,
-      continueCursor: isDone ? null : toStringId(slice.at(-1)!._id),
-    }
-  },
-})
-
-export const applyContentMigrationEntriesInternal = directInternalMutation({
-  id: 'migrations:applyContentMigrationEntriesInternal',
-  args: {
-    migrationId: v.string(),
-    entries: v.array(contentMigrationEntryValidator),
-  },
-  returns: v.object({
-    migrationId: v.string(),
-    changed: v.number(),
-    unchanged: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    let changed = 0
-    let unchanged = 0
-    const now = Date.now()
-
-    for (const input of args.entries) {
-      const entryId = asEntryId(ctx, input.entryId)
-      const entry = await ctx.db.get(entryId)
-      if (!entry) {
-        throwCmsError('CONTENT_MIGRATION_ENTRY_NOT_FOUND', 'Migration entry no longer exists.', {
+    const collection = await ctx.db.get(entry.collectionId)
+    if (!collection || collection.slug !== input.collection) {
+      throwCmsError(
+        'CONTENT_MIGRATION_COLLECTION_MISMATCH',
+        'Migration entry no longer belongs to the expected collection.',
+        {
           entryId: input.entryId,
-        })
-      }
+          expectedCollection: input.collection,
+          actualCollection: collection?.slug ?? null,
+        },
+      )
+    }
 
-      const collection = await ctx.db.get(entry.collectionId)
-      if (!collection || collection.slug !== input.collection) {
+    const supportedLocales = new Set(collection.locales)
+    for (const locale of Object.keys(input.locales)) {
+      if (!supportedLocales.has(locale)) {
         throwCmsError(
-          'CONTENT_MIGRATION_COLLECTION_MISMATCH',
-          'Migration entry no longer belongs to the expected collection.',
+          'CONTENT_MIGRATION_LOCALE_UNSUPPORTED',
+          'Migration locale is not supported.',
           {
             entryId: input.entryId,
-            expectedCollection: input.collection,
-            actualCollection: collection?.slug ?? null,
+            collection: input.collection,
+            locale,
           },
         )
       }
+    }
 
-      const supportedLocales = new Set(collection.locales)
-      for (const locale of Object.keys(input.locales)) {
-        if (!supportedLocales.has(locale)) {
-          throwCmsError(
-            'CONTENT_MIGRATION_LOCALE_UNSUPPORTED',
-            'Migration locale is not supported.',
-            {
-              entryId: input.entryId,
-              collection: input.collection,
-              locale,
-            },
-          )
-        }
-      }
+    const result = await applyDraftPatch(ctx, {
+      entryId,
+      expectedDraftVersion: input.draftVersion,
+      patch: migrationPatch(input),
+      appIdentity: MIGRATION_APP_IDENTITY,
+      now,
+    })
 
-      const result = await applyDraftPatch(ctx, {
+    if (result.sharedUpdated || result.affectedLocales.length > 0) {
+      changed += 1
+      await refreshDraftAssetRefsForSave(ctx, {
         entryId,
-        expectedDraftVersion: input.draftVersion,
-        patch: migrationPatch(input),
-        appIdentity: MIGRATION_APP_IDENTITY,
+        collectionId: result.entry.collectionId,
+        sharedUpdated: result.sharedUpdated,
+        affectedLocales: result.affectedLocales,
         now,
       })
-
-      if (result.sharedUpdated || result.affectedLocales.length > 0) {
-        changed += 1
-        await refreshDraftAssetRefsForSave(ctx, {
-          entryId,
-          collectionId: result.entry.collectionId,
-          sharedUpdated: result.sharedUpdated,
-          affectedLocales: result.affectedLocales,
-          now,
-        })
-      } else {
-        unchanged += 1
-      }
+    } else {
+      unchanged += 1
     }
+  }
 
-    return {
-      migrationId: args.migrationId,
-      changed,
-      unchanged,
-    }
-  },
+  return {
+    migrationId: args.migrationId,
+    changed,
+    unchanged,
+  }
+}
+
+export const applyContentMigrationEntries = directInternalMutation({
+  id: 'migrations:applyContentMigrationEntries',
+  args: applyContentMigrationEntriesArgs,
+  returns: applyContentMigrationEntriesReturns,
+  handler: async (ctx, args) => await applyContentMigrationEntriesHandler(ctx, args),
 })

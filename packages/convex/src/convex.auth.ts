@@ -8,13 +8,14 @@ declare const process: {
 }
 
 type DefineGinkoAuthDeps = {
-  components: {
+  components: Record<string, unknown> & {
     betterAuth: Parameters<typeof createClient>[0]
   }
-  internal?: {
+  internal?: Record<string, unknown> & {
     auth?: AuthFunctions
   }
   authConfig: unknown
+  authSchema?: unknown
 }
 
 export type GinkoAuthDeps = DefineGinkoAuthDeps
@@ -44,6 +45,17 @@ function parseBearerApiKey(authorizationHeader?: string | null): string | null {
   return token.length > 0 ? token : null
 }
 
+function resolveTrustedOrigins(configured: BetterAuthOptions['trustedOrigins'] = []) {
+  const origins = [
+    process.env.SITE_URL,
+    process.env.NUXT_PUBLIC_SITE_URL,
+    process.env.BETTER_AUTH_URL,
+    ...(Array.isArray(configured) ? configured : []),
+  ].filter((origin): origin is string => typeof origin === 'string' && origin.length > 0)
+
+  return Array.from(new Set(origins.map((origin) => origin.replace(/\/+$/, ''))))
+}
+
 /**
  * Ginko-owned auth bootstrap for Convex apps.
  *
@@ -52,13 +64,15 @@ function parseBearerApiKey(authorizationHeader?: string | null): string | null {
  */
 export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOptions = {}) {
   const authComponent = createClient(deps.components.betterAuth, {
+    ...(deps.authSchema ? { local: { schema: deps.authSchema } } : {}),
     ...(deps.internal?.auth ? { authFunctions: deps.internal.auth } : {}),
   } as never)
 
-  const createAuthOptions = (ctx: GenericCtx<any>) =>
+  const createAuthOptions = (ctx: GenericCtx) =>
     ({
       ...options,
       secret: process.env.BETTER_AUTH_SECRET ?? 'ginko-cms-dev-secret',
+      trustedOrigins: resolveTrustedOrigins(options.trustedOrigins),
       database: authComponent.adapter(ctx),
       emailAndPassword: {
         enabled: options.emailPassword ?? true,
@@ -79,11 +93,12 @@ export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOpt
       ],
     }) satisfies BetterAuthOptions
 
-  const createAuth = (ctx: GenericCtx<any>) => betterAuth(createAuthOptions(ctx))
+  const createAuth = (ctx: GenericCtx) => betterAuth(createAuthOptions(ctx))
 
   return {
     authComponent,
     createAuth,
+    createAuthOptions,
     createUserIfNeeded: async () => null,
   }
 }

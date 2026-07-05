@@ -15,6 +15,7 @@ const props = defineProps<{
   showValidation?: boolean
   label: string
   fieldError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -23,13 +24,17 @@ const emit = defineEmits<{
 
 const value = computed({
   get: () => props.modelValue,
-  set: (v) => emit('update:modelValue', v),
+  set: (v) => {
+    if (props.disabled) return
+    emit('update:modelValue', v)
+  },
 })
 
 const nestedFields = computed(() => props.field.fields ?? [])
 const objectValue = computed(() => asFieldContext(value.value))
 
 function updateObjectField(fieldKey: string, nextValue: unknown) {
+  if (props.disabled) return
   value.value = {
     ...objectValue.value,
     [fieldKey]: nextValue,
@@ -66,6 +71,7 @@ function updateObjectField(fieldKey: string, nextValue: unknown) {
         :errors="errors"
         :field-path="fieldPath ? `${fieldPath}.${nestedField.key}` : nestedField.key"
         :show-validation="showValidation"
+        :disabled="disabled"
         @update:model-value="updateObjectField(nestedField.key, $event)"
       />
     </div>

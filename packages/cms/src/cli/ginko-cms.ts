@@ -8,6 +8,7 @@ import { runBackupCommand } from './backup.js'
 import { resolveConvexCliBin, runNodeScript } from './convex.js'
 import { runDeployCommand } from './deploy.js'
 import { runDoctorCommand } from './doctor.js'
+import { readLocalEnv } from './env.js'
 import { runInitCommand } from './init.js'
 import { runMcpDoctor } from './mcp-doctor.js'
 import { runMigrateCommand } from './migrate.js'
@@ -31,6 +32,7 @@ export async function runGinkoCmsCli(
   }
   const parsed = parseArgs(rawArgs, options.cwd ?? process.cwd())
   const [command] = parsed.args
+  const redact = (value: string) => redactCliMessage(value, parsed.cwd)
 
   try {
     if (!command || ['--help', '-h'].includes(command)) {
@@ -70,9 +72,26 @@ export async function runGinkoCmsCli(
     throw new Error(`Unknown command "${command}".`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    write(io.stderr, `Error: ${message}\n\n${usage()}`)
+    write(io.stderr, `Error: ${redact(message)}\n\n${usage()}`)
     return 2
   }
+}
+
+function redactCliMessage(message: string, cwd: string) {
+  let redacted = message
+  const env = {
+    ...readLocalEnv(cwd),
+    ...process.env,
+  }
+  for (const [name, value] of Object.entries(env)) {
+    const secretLikeName = /KEY|TOKEN|SECRET|PASSWORD/i.test(name)
+    const secretValue = typeof value === 'string' ? value.trim() : ''
+    if (!secretLikeName || secretValue.length < 8) continue
+    redacted = redacted.split(secretValue).join('[redacted]')
+  }
+  return redacted
+    .replace(/\b(Bearer\s+)[\w.~+/=-]{8,}/gi, '$1[redacted]')
+    .replace(/\bmcp_[\w-]{8,}\b/g, '[redacted]')
 }
 
 const isDirectExecution =

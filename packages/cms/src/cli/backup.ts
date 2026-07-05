@@ -5,7 +5,7 @@ import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 
 import { type CliIo, type ConvexClientFactory, readFlag, stableJson, usage, write } from './args.js'
-import { publicConvexUrl } from './env.js'
+import { deployKey, publicConvexUrl } from './env.js'
 
 type BackupScope = 'full' | 'collection' | 'entry' | 'asset'
 
@@ -60,8 +60,15 @@ export async function runBackupCommand(
     write(io.stdout, usage())
     return 0
   }
+  if (!['export', 'download', 'verify'].includes(subcommand)) {
+    throw new Error(`Unknown backup command "${subcommand}".`)
+  }
 
   const client = convexClientFactory(publicConvexUrl(cwd))
+  if (!client.setAdminAuth) {
+    throw new Error('ginko-cms backup requires a Convex client with admin auth support.')
+  }
+  client.setAdminAuth(deployKey(cwd))
 
   if (subcommand === 'export') {
     const parsed = parseBackupExportArgs(args.slice(2), cwd)

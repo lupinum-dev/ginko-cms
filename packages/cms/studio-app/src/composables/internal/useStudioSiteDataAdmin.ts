@@ -11,20 +11,15 @@ import { useCmsStudioSettings } from '../useCmsStudioSettings'
 import { useConvexMutation } from '../useStudioConvex'
 
 export function useStudioSiteDataAdmin() {
-  useCmsStudioAccess()
+  const { can } = useCmsStudioAccess()
+  const canManageSettings = can(cmsPermissionKeys.manageSettings)
 
   const studioHost = useStudioHostContext()
   const studioSettings = useCmsStudioSettings()
   const locales = computed(() => studioSettings.locales.value)
   const defaultLocale = computed(() => studioSettings.defaultLocale.value)
   const activeLocale = ref(defaultLocale.value)
-  const siteDataQuery = useCmsStudioQuery(
-    api.ginkoCms.siteData.listSiteData,
-    {},
-    {
-      requiredCapability: cmsPermissionKeys.manageSettings,
-    },
-  )
+  const siteDataQuery = useCmsStudioQuery(api.ginkoCms.siteData.listSiteData, {})
   const blocks = computed(() => siteDataQuery.data?.value ?? [])
   const createBlockMutation = useConvexMutation(api.ginkoCms.siteData.createSiteDataBlock)
   const updateBlockMutation = useConvexMutation(api.ginkoCms.siteData.updateSiteDataBlock)
@@ -54,9 +49,6 @@ export function useStudioSiteDataAdmin() {
   const { data: expandedBlockData } = useCmsStudioQuery(
     api.ginkoCms.siteData.getSiteDataBlock,
     expandedBlockQuery,
-    {
-      requiredCapability: cmsPermissionKeys.manageSettings,
-    },
   )
 
   watch(defaultLocale, (nextLocale) => {
@@ -86,6 +78,7 @@ export function useStudioSiteDataAdmin() {
   }
 
   async function handleSave(key: string) {
+    if (!canManageSettings.value) return
     saving.value = key
     error.value = ''
     try {
@@ -104,6 +97,7 @@ export function useStudioSiteDataAdmin() {
   }
 
   async function handleCreateBlock() {
+    if (!canManageSettings.value) return
     if (!newBlock.key.trim()) return
     error.value = ''
     try {
@@ -124,6 +118,7 @@ export function useStudioSiteDataAdmin() {
   }
 
   async function handleVisibilityChange(key: string, visibility: 'private' | 'public') {
+    if (!canManageSettings.value) return
     error.value = ''
     try {
       await updateBlockMutation({ key, visibility })
@@ -133,6 +128,7 @@ export function useStudioSiteDataAdmin() {
   }
 
   async function handleDeleteBlock(key: string) {
+    if (!canManageSettings.value) return
     error.value = ''
     try {
       const preview = (await studioHost
@@ -169,6 +165,7 @@ export function useStudioSiteDataAdmin() {
     activeLocale,
     blockData,
     blocks,
+    canManageSettings,
     dateLocale,
     deleteTarget,
     error,

@@ -6,7 +6,7 @@ import { canRead } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
-import type { MutationCtx } from './lib/types.js'
+import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
 
 const agentRunStatusValidator = v.union(
   v.literal('active'),
@@ -14,10 +14,17 @@ const agentRunStatusValidator = v.union(
   v.literal('revoked'),
   v.literal('failed'),
 )
+const agentRunSafetyModeValidator = v.union(
+  v.literal('human'),
+  v.literal('review-gated'),
+  v.literal('credential-missing'),
+)
 const agentRunValidator = v.object({
   _id: v.string(),
   credentialApiKeyId: v.union(v.string(), v.null()),
   delegatedUserId: v.string(),
+  requestedScopes: v.array(v.string()),
+  safetyMode: agentRunSafetyModeValidator,
   taskName: v.string(),
   status: agentRunStatusValidator,
   createdBy: v.string(),
@@ -30,13 +37,21 @@ const agentRunValidator = v.object({
 })
 
 type AgentRunDoc = Doc<'agentRuns'>
+type CredentialSettingsDoc = Doc<'mcpCredentialSettings'>
 const MAX_AGENT_RUNS = 100
 
-function serializeRun(run: AgentRunDoc) {
+function serializeRun(run: AgentRunDoc, credentialSettings?: CredentialSettingsDoc | null) {
+  const hasCredential = run.credentialApiKeyId != null
   return {
     _id: String(run._id),
     credentialApiKeyId: run.credentialApiKeyId ?? null,
     delegatedUserId: run.delegatedUserId,
+    requestedScopes: credentialSettings?.scopes ?? [],
+    safetyMode: !hasCredential
+      ? ('human' as const)
+      : credentialSettings
+        ? ('review-gated' as const)
+        : ('credential-missing' as const),
     taskName: run.taskName,
     status: run.status,
     createdBy: run.createdBy,
@@ -47,6 +62,18 @@ function serializeRun(run: AgentRunDoc) {
     lastWriteAt: run.lastWriteAt ?? null,
     lastError: run.lastError ?? null,
   }
+}
+
+async function credentialSettingsForRun(ctx: Pick<QueryOrMutationCtx, 'db'>, run: AgentRunDoc) {
+  if (!run.credentialApiKeyId) return null
+  return await ctx.db
+    .query('mcpCredentialSettings')
+    .withIndex('by_api_key_id', (q) => q.eq('apiKeyId', run.credentialApiKeyId!))
+    .first()
+}
+
+async function serializeRunWithCredential(ctx: Pick<QueryOrMutationCtx, 'db'>, run: AgentRunDoc) {
+  return serializeRun(run, await credentialSettingsForRun(ctx, run))
 }
 
 export async function getActiveAgentRunOrThrow(
@@ -131,7 +158,7 @@ export async function recordOwnedAgentRunWrite(
     },
   })
 
-  return serializeRun(updated)
+  return await serializeRunWithCredential(ctx, updated)
 }
 
 export const startRun = callerMutation.protected({
@@ -173,7 +200,7 @@ export const startRun = callerMutation.protected({
       },
     })
 
-    return serializeRun(run)
+    return await serializeRunWithCredential(ctx, run)
   },
 })
 
@@ -192,8 +219,20 @@ export const listOwnRuns = callerQuery.protected({
       .withIndex('by_delegated_user', (q) => q.eq('delegatedUserId', appIdentity.userId))
       .order('desc')
       .take(boundedLimit)
+    const credentials = await ctx.db
+      .query('mcpCredentialSettings')
+      .withIndex('by_owner_user', (q) => q.eq('ownerUserId', appIdentity.userId))
+      .collect()
+    const credentialByApiKey = new Map(
+      credentials.map((credential) => [credential.apiKeyId, credential]),
+    )
 
-    return runs.map(serializeRun)
+    return runs.map((run) =>
+      serializeRun(
+        run,
+        run.credentialApiKeyId ? credentialByApiKey.get(run.credentialApiKeyId) : null,
+      ),
+    )
   },
 })
 
@@ -223,7 +262,7 @@ export const completeRun = callerMutation.protected({
       detail: { agentRunId: args.agentRunId },
     })
 
-    return serializeRun(updated)
+    return await serializeRunWithCredential(ctx, updated)
   },
 })
 
@@ -253,7 +292,7 @@ export const revokeRun = callerMutation.protected({
       detail: { agentRunId: args.agentRunId },
     })
 
-    return serializeRun(updated)
+    return await serializeRunWithCredential(ctx, updated)
   },
 })
 

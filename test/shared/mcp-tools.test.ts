@@ -385,12 +385,12 @@ describe('MCP tool safety contracts', () => {
     }
 
     const combinedSource = writeToolSources.join('\n')
-    expect(combinedSource).toContain('components.ginkoCms.editor.mcpCreateEntry')
-    expect(combinedSource).toContain('components.ginkoCms.editor.mcpSaveEntryDraft')
-    expect(combinedSource).toContain('components.ginkoCms.editor.mcpUnarchiveEntry')
-    expect(combinedSource).toContain('components.ginkoCms.assets.mcpMoveAsset')
-    expect(combinedSource).toContain('components.ginkoCms.backup.mcpExportBackup')
-    expect(combinedSource).toContain('components.ginkoCms.reviewRequests.requestPublishReview')
+    expect(combinedSource).toContain('api.ginkoCms.editor.mcpCreateEntry')
+    expect(combinedSource).toContain('api.ginkoCms.editor.mcpSaveEntryDraft')
+    expect(combinedSource).toContain('api.ginkoCms.editor.mcpUnarchiveEntry')
+    expect(combinedSource).toContain('api.ginkoCms.assets.mcpMoveAsset')
+    expect(combinedSource).toContain('api.ginkoCms.backup.mcpExportBackup')
+    expect(combinedSource).toContain('api.ginkoCms.reviewRequests.requestPublishReview')
   })
 
   it('keeps MCP from uploading or fetching new assets', () => {

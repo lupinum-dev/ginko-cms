@@ -293,10 +293,9 @@ export async function runPushCommand(
   client.setAdminAuth(adminKey)
 
   if (push.check) {
-    const result = (await client.query(
-      anyApi.ginkoCms.collections.checkCollectionContractsInternal,
-      { collections: payload },
-    )) as CheckCollectionContractsResult
+    const result = (await client.query(anyApi.ginkoCms.collections.checkCollectionContracts, {
+      collections: payload,
+    })) as CheckCollectionContractsResult
     if (result.drift.length > 0 || result.missingFromConfig.length > 0) {
       write(io.stderr, formatDriftReport(result))
       return 1
@@ -308,10 +307,9 @@ export async function runPushCommand(
     return 0
   }
 
-  const result = (await client.mutation(
-    anyApi.ginkoCms.collections.installCollectionContractsInternal,
-    { collections: payload },
-  )) as { created: number; updated: number; skipped: number; missingFromConfig: string[] }
+  const result = (await client.mutation(anyApi.ginkoCms.collections.installCollectionContracts, {
+    collections: payload,
+  })) as { created: number; updated: number; skipped: number; missingFromConfig: string[] }
   write(
     io.stdout,
     `Ginko CMS collection contracts pushed: created=${result.created}, updated=${result.updated}, skipped=${result.skipped}, missingFromConfig=[${result.missingFromConfig.join(', ')}].\n`,

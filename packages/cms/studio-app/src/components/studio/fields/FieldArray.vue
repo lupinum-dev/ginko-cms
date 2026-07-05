@@ -17,6 +17,7 @@ const props = defineProps<{
   showValidation?: boolean
   label: string
   fieldError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,7 +27,10 @@ const emit = defineEmits<{
 const { t } = useCmsI18n()
 const value = computed({
   get: () => props.modelValue,
-  set: (v) => emit('update:modelValue', v),
+  set: (v) => {
+    if (props.disabled) return
+    emit('update:modelValue', v)
+  },
 })
 
 const nestedFields = computed(() => props.field.fields ?? [])
@@ -47,12 +51,14 @@ function toggleItemCollapse(index: number) {
 }
 
 function addArrayItem() {
+  if (props.disabled) return
   const items = [...arrayItems.value]
   items.push(createDefaultRecord(nestedFields.value))
   value.value = items
 }
 
 function updateArrayItem(index: number, fieldKey: string, nextValue: unknown) {
+  if (props.disabled) return
   const items = [...arrayItems.value]
   items[index] = {
     ...(items[index] ?? createDefaultRecord(nestedFields.value)),
@@ -62,6 +68,7 @@ function updateArrayItem(index: number, fieldKey: string, nextValue: unknown) {
 }
 
 function removeArrayItem(index: number) {
+  if (props.disabled) return
   const items = [...arrayItems.value]
   items.splice(index, 1)
   value.value = items
@@ -91,7 +98,7 @@ function socialIconName(item: Record<string, unknown>) {
           {{ fieldError }}
         </p>
       </div>
-      <Button variant="outline" size="sm" @click="addArrayItem">
+      <Button v-if="!disabled" variant="outline" size="sm" @click="addArrayItem">
         <Plus class="ginko:mr-1.5 ginko:size-3.5" />
         {{ t('ginkoCms.studio.fieldRenderer.addItem') }}
       </Button>
@@ -113,21 +120,30 @@ function socialIconName(item: Record<string, unknown>) {
             :model-value="typeof item.label === 'string' ? item.label : ''"
             placeholder="Label"
             class="ginko:h-8"
+            :disabled="disabled"
             @update:model-value="updateArrayItem(index, 'label', $event)"
           />
           <Input
             :model-value="typeof item.to === 'string' ? item.to : ''"
             placeholder="URL"
             class="ginko:col-start-2 ginko:h-8 ginko:md:col-start-auto"
+            :disabled="disabled"
             @update:model-value="updateArrayItem(index, 'to', $event)"
           />
-          <Button variant="ghost" size="icon" class="ginko:size-8" @click="removeArrayItem(index)">
+          <Button
+            v-if="!disabled"
+            variant="ghost"
+            size="icon"
+            class="ginko:size-8"
+            @click="removeArrayItem(index)"
+          >
             <Trash2 class="ginko:size-4" />
           </Button>
           <Input
             :model-value="typeof item.icon === 'string' ? item.icon : ''"
             placeholder="icon"
             class="ginko:col-start-2 ginko:col-span-1 ginko:h-8 ginko:font-mono ginko:text-xs ginko:md:col-span-2"
+            :disabled="disabled"
             @update:model-value="updateArrayItem(index, 'icon', $event)"
           />
         </div>
@@ -154,7 +170,7 @@ function socialIconName(item: Record<string, unknown>) {
             />
             {{ t('ginkoCms.studio.fieldRenderer.itemLabel', { index: index + 1 }) }}
           </Button>
-          <Button variant="ghost" size="sm" @click="removeArrayItem(index)">
+          <Button v-if="!disabled" variant="ghost" size="sm" @click="removeArrayItem(index)">
             <Trash2 class="ginko:size-4" />
           </Button>
         </div>
@@ -173,6 +189,7 @@ function socialIconName(item: Record<string, unknown>) {
             :errors="errors"
             :field-path="fieldPath ? `${fieldPath}.${nestedField.key}` : nestedField.key"
             :show-validation="showValidation"
+            :disabled="disabled"
             @update:model-value="updateArrayItem(index, nestedField.key, $event)"
           />
         </div>

@@ -1,7 +1,7 @@
 import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
 import { z } from 'zod'
 
-import { components } from '#convex/api'
+import { api } from '#convex/api'
 
 import { asRecord, fail, loadAgentContext, ok } from '../../_shared/agent-tools'
 
@@ -57,17 +57,14 @@ export default defineMcpTool({
     try {
       const context = await loadAgentContext(ctx.event, 'readCms')
       const { compact, ...queryArgs } = args
-      const result = await context.convex.query(components.ginkoCms.public.search, queryArgs)
+      const result = await context.convex.query(api.ginkoCms.public.search, queryArgs)
       const record = asRecord(result)
       const results = Array.isArray(record.results) ? record.results : []
       if (!compact) {
         return ok(result, `Found ${results.length} result${results.length === 1 ? '' : 's'}.`)
       }
       const collectionSlug = args.collection
-      const collections = await context.convex.query(
-        components.ginkoCms.collections.listCollections,
-        {},
-      )
+      const collections = await context.convex.query(api.ginkoCms.collections.listCollections, {})
       const collection = (Array.isArray(collections) ? collections : []).find(
         (candidate) => candidate.slug === collectionSlug,
       )

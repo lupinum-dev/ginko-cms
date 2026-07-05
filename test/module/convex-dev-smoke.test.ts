@@ -84,7 +84,10 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
     )
 
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('@convex-dev/better-auth/convex.config')
+    expect(convexConfig).toContain('./betterAuth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
+    expect(readFileSync(join(tempDir, 'convex/betterAuth/schema.ts'), 'utf8')).toContain(
+      'apikey: defineTable',
+    )
   })
 })

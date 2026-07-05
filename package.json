@@ -33,6 +33,7 @@
     "test:public-content": "vitest run test/shared/contracts.test.ts test/shared/mcp-tools.test.ts test/shared/studio-workflow.test.ts test/runtime/studio-workflow-components.test.ts test/component/diagnostics.test.ts test/component/import.test.ts",
     "test:watch": "vitest watch",
     "test:types": "pnpm run typecheck",
+    "smoke:live-stories": "node scripts/cms-live-story-smoke.mjs",
     "smoke:studio-workflow": "node scripts/studio-workflow-smoke.mjs",
     "package:e2e": "node scripts/package-e2e.mjs",
     "package:e2e:registry": "node scripts/package-e2e.mjs --registry-deps",

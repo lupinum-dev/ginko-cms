@@ -278,6 +278,78 @@ describe('editor publish operations', () => {
     expect(afterRoute?._id).toBe(beforeRoute?._id)
   })
 
+  it('keeps the previous public output active when a confirmed publish becomes blocked', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+
+    await publishEntry(owner, entryId)
+
+    const beforeEntries = (await ctx.readAll('publicEntries')).filter(
+      (row: { entryId: string }) => row.entryId === entryId,
+    )
+    const beforeRoutes = (await ctx.readAll('publicRoutes')).filter(
+      (row: { entryId: string }) => row.entryId === entryId,
+    )
+    expect(beforeEntries).toHaveLength(1)
+    expect(beforeRoutes).toHaveLength(1)
+
+    const entry = await owner.query(api.editor.getEntry, {
+      id: entryId,
+      locale: 'en',
+    })
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: entry.draftVersion,
+      patch: {
+        shared: {
+          slug: 'claimed-later',
+        },
+        locales: {
+          en: {
+            values: { title: 'Claimed later' },
+          },
+        },
+      },
+    })
+
+    const publishArgs = {
+      entryId,
+      expectedVersion: await currentDraftVersion(owner, entryId),
+      locales: ['en'],
+    }
+    const publishPreview = await previewPublishEntryWithArgs(owner, publishArgs)
+    expect(publishPreview.allowed).toBe(true)
+    expect(publishPreview.confirmation?.token).toEqual(expect.any(String))
+
+    const conflictingEntryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'claimed-later',
+      localized: { title: 'Conflicting route owner' },
+    })
+    await publishEntry(owner, conflictingEntryId)
+
+    await expect(
+      owner.mutation(api.entries.publish.publishEntryOperationExecute, {
+        ...publishArgs,
+        _confirmationToken: publishPreview.confirmation?.token,
+      }),
+    ).rejects.toThrow(/no longer allowed/i)
+
+    const afterEntries = (await ctx.readAll('publicEntries')).filter(
+      (row: { entryId: string }) => row.entryId === entryId,
+    )
+    const afterRoutes = (await ctx.readAll('publicRoutes')).filter(
+      (row: { entryId: string }) => row.entryId === entryId,
+    )
+
+    expect(afterEntries).toEqual(beforeEntries)
+    expect(afterRoutes).toEqual(beforeRoutes)
+  })
+
   it('rejects publish when the observed draft version is stale', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

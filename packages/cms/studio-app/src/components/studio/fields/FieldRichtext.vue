@@ -103,6 +103,7 @@ const assetProvider: AssetProvider = {
 }
 
 function selectImageAsset(asset: StudioAssetRecord) {
+  if (props.disabled) return
   const locale =
     typeof props.assetContext?.locale === 'string' ? props.assetContext.locale : undefined
   editorRef.value?.insertImageAsset(mapStudioAssetToImageInfo(asset, locale))
@@ -111,6 +112,7 @@ function selectImageAsset(asset: StudioAssetRecord) {
 }
 
 function selectFileAsset(asset: StudioAssetRecord) {
+  if (props.disabled) return
   const locale =
     typeof props.assetContext?.locale === 'string' ? props.assetContext.locale : undefined
   editorRef.value?.insertFileAsset(mapStudioAssetToFileInfo(asset, locale))
@@ -118,11 +120,13 @@ function selectFileAsset(asset: StudioAssetRecord) {
 }
 
 function openImagePicker(assetId?: string) {
+  if (props.disabled) return
   imagePickerAssetId.value = assetId || null
   imagePickerOpen.value = true
 }
 
 function openImageMetadata(assetId: string) {
+  if (props.disabled) return
   metadataAssetId.value = assetId
   metadataDialogOpen.value = true
 }
@@ -211,7 +215,7 @@ function onConversionRecovered() {
         class="ginko:min-h-[260px] ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
       />
       <StudioAssetMetadataDialog
-        v-if="assetContext"
+        v-if="assetContext && !disabled"
         :asset-id="metadataAssetId"
         :asset-context="assetContext"
         :open="metadataDialogOpen"
@@ -225,6 +229,7 @@ function onConversionRecovered() {
         kind="image"
         :label="`${label} image`"
         :asset-context="assetContext"
+        :disabled="disabled"
         @update:open="setImagePickerOpen"
         @select-asset="selectImageAsset"
       />
@@ -236,6 +241,7 @@ function onConversionRecovered() {
         kind="file"
         :label="`${label} file`"
         :asset-context="assetContext"
+        :disabled="disabled"
         @update:open="filePickerOpen = $event"
         @select-asset="selectFileAsset"
       />

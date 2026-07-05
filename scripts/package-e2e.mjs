@@ -357,6 +357,21 @@ try {
     'convex/convex.config.ts',
     'convex/http.ts',
     'convex/schema.ts',
+    'convex/ginkoCms/agentRuns.ts',
+    'convex/ginkoCms/assets.ts',
+    'convex/ginkoCms/backup.ts',
+    'convex/ginkoCms/collections.ts',
+    'convex/ginkoCms/diagnostics.ts',
+    'convex/ginkoCms/editor.ts',
+    'convex/ginkoCms/imports.ts',
+    'convex/ginkoCms/mcpCredentials.ts',
+    'convex/ginkoCms/members.ts',
+    'convex/ginkoCms/migrations.ts',
+    'convex/ginkoCms/public.ts',
+    'convex/ginkoCms/revalidation.ts',
+    'convex/ginkoCms/reviewRequests.ts',
+    'convex/ginkoCms/settings.ts',
+    'convex/ginkoCms/siteData.ts',
   ]) {
     if (!existsSync(resolve(tempDir, relativePath))) {
       throw new Error(`Direct Convex setup did not write ${relativePath}`)
@@ -364,9 +379,9 @@ try {
   }
 
   const staleGeneratedBridgePaths = [
-    ['convex', 'ginkoCms'].join('/'),
     ['convex', 'ginkoCms.ts'].join('/'),
     ['convex', `ginkoCms${'Mcp.ts'}`].join('/'),
+    ['convex', 'ginkoCms', 'mcpKeys.ts'].join('/'),
   ]
   for (const relativePath of staleGeneratedBridgePaths) {
     if (existsSync(resolve(tempDir, relativePath))) {

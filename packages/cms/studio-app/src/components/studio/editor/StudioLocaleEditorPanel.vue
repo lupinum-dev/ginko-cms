@@ -148,16 +148,16 @@ function updateField(fieldKey: string, value: unknown) {
       </div>
       <div class="ginko:flex ginko:shrink-0 ginko:items-center ginko:gap-1.5">
         <Button
-          v-if="side === 'secondary'"
+          v-if="side === 'secondary' && editor.loader.canEditEntries"
           variant="default"
           size="sm"
-          :disabled="editor.draft.saving || !editor.loader.canEditEntries"
+          :disabled="editor.draft.saving"
           @click="editor.locales.handleSaveSecondaryDraft()"
         >
           <span class="studio-locale-panel__action-full">Save translation draft</span>
           <span class="studio-locale-panel__action-short">Save draft</span>
         </Button>
-        <DropdownMenu v-if="side === 'secondary'">
+        <DropdownMenu v-if="side === 'secondary' && editor.loader.canEditEntries">
           <DropdownMenuTrigger as-child>
             <Button
               variant="ghost"
@@ -169,7 +169,7 @@ function updateField(fieldKey: string, value: unknown) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" class="ginko:w-52">
             <DropdownMenuItem
-              :disabled="editor.draft.saving || !editor.loader.canEditEntries"
+              :disabled="editor.draft.saving"
               @click="editor.copyPrimaryToSecondary()"
             >
               <Copy class="ginko:mr-2 ginko:size-3.5" />
@@ -203,6 +203,7 @@ function updateField(fieldKey: string, value: unknown) {
             <Input
               id="localized-slug"
               v-model="editor.draft.form.slug"
+              :disabled="!editor.loader.canEditEntries"
               class="ginko:font-mono ginko:text-sm"
             />
           </StudioFieldShell>
@@ -223,9 +224,10 @@ function updateField(fieldKey: string, value: unknown) {
         </p>
       </div>
 
-      <div
+      <fieldset
         v-if="editor.loader.localizedFields.length > 0"
-        class="ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:md:grid-cols-2"
+        :disabled="!editor.loader.canEditEntries"
+        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:md:grid-cols-2"
       >
         <StudioFieldRenderer
           v-for="field in editor.loader.localizedFields"
@@ -243,9 +245,10 @@ function updateField(fieldKey: string, value: unknown) {
           :asset-context="
             side === 'primary' ? editor.draft.assetContext : editor.locales.secondaryAssetContext
           "
+          :disabled="!editor.loader.canEditEntries"
           @update:model-value="updateField(field.key, $event)"
         />
-      </div>
+      </fieldset>
     </div>
   </section>
 </template>

@@ -34,12 +34,20 @@ const reviewRequestValidator = v.object({
   updatedAt: v.number(),
   reviewedAt: v.union(v.number(), v.null()),
   versionHash: v.union(v.string(), v.null()),
+  isStale: v.boolean(),
+  staleReason: v.union(v.string(), v.null()),
 })
 
 type ReviewRequestDoc = Doc<'reviewRequests'>
 const MAX_REVIEW_REQUESTS = 100
 
-function serializeReviewRequest(request: ReviewRequestDoc) {
+function serializeReviewRequest(
+  request: ReviewRequestDoc,
+  stale: { isStale: boolean; staleReason: string | null } = {
+    isStale: false,
+    staleReason: null,
+  },
+) {
   return {
     _id: String(request._id),
     agentRunId: String(request.agentRunId),
@@ -58,7 +66,34 @@ function serializeReviewRequest(request: ReviewRequestDoc) {
     updatedAt: request.updatedAt,
     reviewedAt: request.reviewedAt ?? null,
     versionHash: request.versionHash ?? null,
+    isStale: stale.isStale,
+    staleReason: stale.staleReason,
   }
+}
+
+async function reviewStaleState(
+  ctx: { db: { get: (id: Id<'entries'>) => Promise<Doc<'entries'> | null> } },
+  request: ReviewRequestDoc,
+) {
+  if (request.status !== 'pending') return { isStale: false, staleReason: null }
+  const entry = await ctx.db.get(asEntryId(request.entryId))
+  if (!entry) {
+    return { isStale: true, staleReason: 'Entry no longer exists.' }
+  }
+  if (entry.draftVersion !== request.expectedVersion) {
+    return {
+      isStale: true,
+      staleReason: `Draft version changed from ${request.expectedVersion} to ${entry.draftVersion}.`,
+    }
+  }
+  return { isStale: false, staleReason: null }
+}
+
+async function serializeReviewRequestWithStaleState(
+  ctx: Parameters<typeof reviewStaleState>[0],
+  request: ReviewRequestDoc,
+) {
+  return serializeReviewRequest(request, await reviewStaleState(ctx, request))
 }
 
 async function getPendingReviewOrThrow(
@@ -172,7 +207,7 @@ export const requestPublishReview = callerMutation.protected({
       },
     })
 
-    return serializeReviewRequest(request)
+    return await serializeReviewRequestWithStaleState(ctx, request)
   },
 })
 
@@ -191,7 +226,9 @@ export const listPendingReviews = callerQuery.protected({
       .order('desc')
       .take(boundedLimit)
 
-    return requests.map(serializeReviewRequest)
+    return await Promise.all(
+      requests.map((request) => serializeReviewRequestWithStaleState(ctx, request)),
+    )
   },
 })
 
@@ -242,7 +279,7 @@ export const approveReview = callerMutation.protected({
       },
     })
 
-    return serializeReviewRequest(updated)
+    return await serializeReviewRequestWithStaleState(ctx, updated)
   },
 })
 
@@ -273,6 +310,6 @@ export const rejectReview = callerMutation.protected({
       detail: { reviewRequestId: args.reviewRequestId },
     })
 
-    return serializeReviewRequest(updated)
+    return await serializeReviewRequestWithStaleState(ctx, updated)
   },
 })

@@ -17,6 +17,7 @@ const props = defineProps<{
   showValidation?: boolean
   label: string
   fieldError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -27,7 +28,10 @@ const { t } = useCmsI18n()
 const nestedFields = computed(() => props.field.fields ?? [])
 const value = computed({
   get: () => props.modelValue,
-  set: (v) => emit('update:modelValue', v),
+  set: (v) => {
+    if (props.disabled) return
+    emit('update:modelValue', v)
+  },
 })
 const sectionValue = computed(() => asFieldContext(value.value))
 </script>
@@ -63,6 +67,7 @@ const sectionValue = computed(() => asFieldContext(value.value))
           :errors="errors"
           :field-path="fieldPath ? `${fieldPath}.${subField.key}` : subField.key"
           :show-validation="showValidation"
+          :disabled="disabled"
           @update:model-value="value = { ...sectionValue, [subField.key]: $event }"
         />
       </div>

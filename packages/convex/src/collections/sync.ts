@@ -11,14 +11,14 @@ import type { Doc } from '../_generated/dataModel.js'
 import { canManageCollections } from '../auth/checks.js'
 import { refreshEntryReadModelsById } from '../entries/projections.js'
 import { throwCmsError } from '../errors.js'
-import { callerMutation, directInternalMutation, directInternalQuery } from '../functions.js'
+import { callerMutation } from '../functions.js'
 import type { getCollectionOrThrow } from '../lib/collections.js'
 import { collectionEntryCountSnapshot, collectionHasEntries } from '../lib/collections.js'
 import { isEqualJsonValue } from '../lib/data.js'
 import { normalizeFields } from '../lib/fields.js'
 import { toStringId } from '../lib/ids.js'
 import { resolveLocaleText } from '../lib/locale.js'
-import type { MutationCtx } from '../lib/types.js'
+import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import {
   assertFieldDefinitionsValid,
   assertValidLocaleCode,
@@ -183,13 +183,13 @@ export function mapCollectionListItem(
   }
 }
 
-// Collection contract sync writes through generated internal bridge functions
+// Collection contract sync writes through internal component functions
 // only. The CLI reaches this path with Convex deploy-key admin auth. The
 // old public snapshot-install mutation was deleted because it allowed any
 // authenticated client that knew the deployment URL to mutate collection
 // contracts — directly contradicting the ADR that schema is code-owned and
 // must not be edited from Studio/MCP.
-const installCollectionContractsArgs = {
+export const installCollectionContractsArgs = {
   collections: v.array(
     v.object({
       slug: v.string(),
@@ -204,7 +204,7 @@ const installCollectionContractsArgs = {
   ),
 }
 
-const installCollectionContractsReturns = v.object({
+export const installCollectionContractsReturns = v.object({
   created: v.number(),
   updated: v.number(),
   skipped: v.number(),
@@ -221,7 +221,7 @@ const collectionContractDriftValidator = v.object({
   changes: v.array(jsonValueValidator),
 })
 
-const checkCollectionContractsReturns = v.object({
+export const checkCollectionContractsReturns = v.object({
   drift: v.array(collectionContractDriftValidator),
   missingFromConfigDetails: v.array(
     v.object({
@@ -447,74 +447,68 @@ async function syncCodeDefinedCollectionContracts(
   return { created, updated, skipped, missingFromConfig }
 }
 
-export const checkCollectionContractsInternal = directInternalQuery({
-  id: 'sync:checkCollectionContractsInternal',
-  args: installCollectionContractsArgs,
-  returns: checkCollectionContractsReturns,
-  handler: async (ctx, args) => {
-    const incomingSlugs = new Set(
-      (args.collections as Array<{ slug: string }>).map((collection) => collection.slug),
-    )
-    const existingCollections = await ctx.db.query('collections').collect()
-    const missingFromConfigDetails = await Promise.all(
-      existingCollections
-        .filter((collection) => !incomingSlugs.has(collection.slug))
-        .map(async (collection) => {
-          const entryCount = await collectionEntryCountSnapshot(ctx, collection._id)
-          return {
-            slug: collection.slug,
-            entryCount: entryCount.count,
-            entryCountExact: entryCount.exact,
-            migrationRequired: entryCount.count > 0,
-            safeToPush: entryCount.count === 0,
-          }
-        }),
-    )
-    missingFromConfigDetails.sort((left, right) => left.slug.localeCompare(right.slug))
-    const missingFromConfig = missingFromConfigDetails.map((collection) => collection.slug)
-    const drift: Array<{
-      slug: string
-      reason: 'missing' | 'different'
-      entryCount: number
-      entryCountExact: boolean
-      migrationRequired: boolean
-      safeToPush: boolean
-      changes: JsonValue[]
-    }> = []
+export async function checkCollectionContractsHandler(
+  ctx: QueryOrMutationCtx,
+  args: SyncConfigCollectionsArgs,
+) {
+  const incomingSlugs = new Set(args.collections.map((collection) => collection.slug))
+  const existingCollections = await ctx.db.query('collections').collect()
+  const missingFromConfigDetails = await Promise.all(
+    existingCollections
+      .filter((collection) => !incomingSlugs.has(collection.slug))
+      .map(async (collection) => {
+        const entryCount = await collectionEntryCountSnapshot(ctx, collection._id)
+        return {
+          slug: collection.slug,
+          entryCount: entryCount.count,
+          entryCountExact: entryCount.exact,
+          migrationRequired: entryCount.count > 0,
+          safeToPush: entryCount.count === 0,
+        }
+      }),
+  )
+  missingFromConfigDetails.sort((left, right) => left.slug.localeCompare(right.slug))
+  const missingFromConfig = missingFromConfigDetails.map((collection) => collection.slug)
+  const drift: Array<{
+    slug: string
+    reason: 'missing' | 'different'
+    entryCount: number
+    entryCountExact: boolean
+    migrationRequired: boolean
+    safeToPush: boolean
+    changes: JsonValue[]
+  }> = []
 
-    for (const incoming of args.collections) {
-      const normalized = normalizedIncomingContract(incoming)
-      const existing = await ctx.db
-        .query('collections')
-        .withIndex('by_slug', (q) => q.eq('slug', incoming.slug))
-        .first()
+  for (const incoming of args.collections) {
+    const normalized = normalizedIncomingContract(incoming)
+    const existing = await ctx.db
+      .query('collections')
+      .withIndex('by_slug', (q) => q.eq('slug', incoming.slug))
+      .first()
 
-      if (!existing) {
-        const missing = classifyMissingCollectionContract(incoming.slug)
-        drift.push({ ...missing, reason: 'missing', entryCountExact: true })
-        continue
-      }
-
-      const entryCount = await collectionEntryCountSnapshot(ctx, existing._id)
-      const contractDrift = classifyCollectionContractDrift({
-        existing: normalizedExistingContract(existing),
-        incoming: normalized,
-        entryCount: entryCount.count,
-      })
-      if (contractDrift.changes.length > 0) {
-        drift.push({ ...contractDrift, reason: 'different', entryCountExact: entryCount.exact })
-      }
+    if (!existing) {
+      const missing = classifyMissingCollectionContract(incoming.slug)
+      drift.push({ ...missing, reason: 'missing', entryCountExact: true })
+      continue
     }
 
-    return { drift, missingFromConfig, missingFromConfigDetails }
-  },
-})
+    const entryCount = await collectionEntryCountSnapshot(ctx, existing._id)
+    const contractDrift = classifyCollectionContractDrift({
+      existing: normalizedExistingContract(existing),
+      incoming: normalized,
+      entryCount: entryCount.count,
+    })
+    if (contractDrift.changes.length > 0) {
+      drift.push({ ...contractDrift, reason: 'different', entryCountExact: entryCount.exact })
+    }
+  }
 
-export const installCollectionContractsInternal = directInternalMutation({
-  id: 'sync:installCollectionContractsInternal',
-  args: installCollectionContractsArgs,
-  returns: installCollectionContractsReturns,
-  handler: async (ctx, args) => {
-    return await syncCodeDefinedCollectionContracts(ctx, args, 'bootstrap')
-  },
-})
+  return { drift, missingFromConfig, missingFromConfigDetails }
+}
+
+export async function installCollectionContractsHandler(
+  ctx: MutationCtx,
+  args: SyncConfigCollectionsArgs,
+) {
+  return await syncCodeDefinedCollectionContracts(ctx, args, 'bootstrap')
+}

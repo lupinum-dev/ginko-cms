@@ -650,6 +650,108 @@ describe('asset management', () => {
     ).resolves.toMatchObject({ _id: storageId })
   })
 
+  it('updates draft asset references when an entry field selects a replacement asset', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId, collectionId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const now = Date.now()
+    const firstStorageId = await seedStorageObject(ctx, { bytes: 'first', type: 'image/png' })
+    const secondStorageId = await seedStorageObject(ctx, { bytes: 'second', type: 'image/png' })
+    const firstAssetId = await ctx.seed(
+      'assets' as never,
+      {
+        storageId: firstStorageId,
+        filename: 'first.png',
+        mimeType: 'image/png',
+        size: 5,
+        width: null,
+        height: null,
+        alt: null,
+        caption: null,
+        scope: 'entry',
+        entryId,
+        collectionId,
+        tags: [],
+        createdBy: 'owner-1',
+        updatedBy: null,
+        createdAt: now,
+        updatedAt: null,
+        deletedAt: null,
+        deletedBy: null,
+      } as never,
+    )
+    const secondAssetId = await ctx.seed(
+      'assets' as never,
+      {
+        storageId: secondStorageId,
+        filename: 'second.png',
+        mimeType: 'image/png',
+        size: 6,
+        width: null,
+        height: null,
+        alt: null,
+        caption: null,
+        scope: 'entry',
+        entryId,
+        collectionId,
+        tags: [],
+        createdBy: 'owner-1',
+        updatedBy: null,
+        createdAt: now,
+        updatedAt: null,
+        deletedAt: null,
+        deletedBy: null,
+      } as never,
+    )
+
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: 1,
+      patch: {
+        shared: {
+          shared: { hero: firstAssetId },
+        },
+      },
+    })
+    await owner.mutation(api.assets.rebuildContentAssetRefsPage, {
+      cursor: null,
+      numItems: 10,
+    })
+    expect(await ctx.readAll('contentAssetRefs')).toMatchObject([
+      {
+        sourceKind: 'draft',
+        assetId: firstAssetId,
+        entryId,
+        fieldPath: 'hero',
+      },
+    ])
+
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: 2,
+      patch: {
+        shared: {
+          shared: { hero: secondAssetId },
+        },
+      },
+    })
+    await owner.mutation(api.assets.rebuildContentAssetRefsPage, {
+      cursor: null,
+      numItems: 10,
+    })
+
+    expect(await ctx.readAll('contentAssetRefs')).toMatchObject([
+      {
+        sourceKind: 'draft',
+        assetId: secondAssetId,
+        entryId,
+        fieldPath: 'hero',
+      },
+    ])
+  })
+
   it('moves and lists collection-scoped assets by collection slug', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

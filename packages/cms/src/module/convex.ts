@@ -21,30 +21,51 @@ const setupFiles = [
   'convex/convex.config.ts',
   'convex/auth.ts',
   'convex/auth.config.ts',
+  'convex/betterAuth/adapter.ts',
+  'convex/betterAuth/auth.ts',
+  'convex/betterAuth/convex.config.ts',
+  'convex/betterAuth/schema.ts',
   'convex/http.ts',
   'convex/schema.ts',
+  'convex/ginkoCms/agentRuns.ts',
+  'convex/ginkoCms/assets.ts',
+  'convex/ginkoCms/backup.ts',
+  'convex/ginkoCms/collections.ts',
+  'convex/ginkoCms/diagnostics.ts',
+  'convex/ginkoCms/editor.ts',
+  'convex/ginkoCms/imports.ts',
+  'convex/ginkoCms/mcpCredentials.ts',
+  'convex/ginkoCms/members.ts',
+  'convex/ginkoCms/migrations.ts',
+  'convex/ginkoCms/public.ts',
+  'convex/ginkoCms/revalidation.ts',
+  'convex/ginkoCms/reviewRequests.ts',
+  'convex/ginkoCms/settings.ts',
+  'convex/ginkoCms/siteData.ts',
 ] as const
 
-const staleBridgePaths = [
-  ['convex', 'ginkoCms'].join('/'),
-  ['convex', `ginkoCms${'Mcp.ts'}`].join('/'),
-] as const
+const staleBridgePaths = [['convex', `ginkoCms${'Mcp.ts'}`].join('/')] as const
 
 const staleConvexConfigImports = [
+  {
+    bad: '@convex-dev/better-auth/convex.config',
+    replacement: './betterAuth/convex.config',
+  },
   {
     bad: '@lupinum/ginko-cms/convex/config',
     replacement: '@lupinum/ginko-cms-convex/convex.config',
   },
   {
     bad: '@lupinum/ginko-cms/convex/better-auth',
-    replacement: '@convex-dev/better-auth/convex.config',
+    replacement: './betterAuth/convex.config',
   },
 ] as const
 
 const requiredHostDependencies = [
   {
     name: '@convex-dev/better-auth',
-    reason: 'convex/convex.config.ts imports Better Auth directly.',
+    reason:
+      'convex/auth.ts and convex/betterAuth/adapter.ts use the Better Auth Convex client APIs.',
   },
   {
     name: 'better-auth',
@@ -122,7 +143,7 @@ function staleBridgePathIssue(rootDir: string, relativePath: string): ConvexSetu
   return {
     name: `stale bridge ${relativePath}`,
     message: `${relativePath} is a stale generated bridge ${stat.isDirectory() ? 'directory' : 'file'}.`,
-    fix: `Delete ${relativePath}; Ginko CMS now calls the Convex component directly.`,
+    fix: `Delete ${relativePath}; current Ginko CMS setup uses convex/ginkoCms root adapters and Better Auth API-key MCP credentials.`,
   }
 }
 
@@ -154,7 +175,7 @@ export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[]
     issues.push({
       name: `missing setup file ${relativePath}`,
       message: `${relativePath} is missing.`,
-      fix: `Run pnpm exec ginko-cms init to create the direct Convex setup file.`,
+      fix: `Run pnpm exec ginko-cms init to create the Ginko CMS Convex setup file.`,
     })
   }
 

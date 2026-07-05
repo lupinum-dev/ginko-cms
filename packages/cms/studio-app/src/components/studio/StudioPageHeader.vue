@@ -49,7 +49,10 @@ const slots = useSlots()
           <slot name="description">{{ description }}</slot>
         </p>
       </div>
-      <div v-if="slots.actions" class="ginko:flex ginko:shrink-0 ginko:items-center ginko:gap-2">
+      <div
+        v-if="slots.actions"
+        class="ginko:flex ginko:max-w-full ginko:flex-wrap ginko:items-center ginko:justify-end ginko:gap-2"
+      >
         <slot name="actions" />
       </div>
     </div>

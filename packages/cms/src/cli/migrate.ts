@@ -227,7 +227,7 @@ async function fetchCollectionEntries(
   do {
     const args = { collection, cursor, limit: 100 }
     const result = (await client.query(
-      anyApi.ginkoCms.migrations.listContentMigrationEntriesInternal,
+      anyApi.ginkoCms.migrations.listContentMigrationEntries,
       args,
     )) as ContentMigrationEntryPage
     entries.push(...result.page)
@@ -364,7 +364,7 @@ async function applyMigrationPlan(
     const entries = plan.changes.slice(index, index + 50).map((change) => change.after)
     const args = { migrationId: plan.migration.id, entries }
     const result = (await client.mutation(
-      anyApi.ginkoCms.migrations.applyContentMigrationEntriesInternal,
+      anyApi.ginkoCms.migrations.applyContentMigrationEntries,
       args,
     )) as { changed: number; unchanged: number }
     changed += result.changed

@@ -77,7 +77,7 @@ export function usage(): string {
     `  ${commandName} doctor [--cwd <path>]`,
     `  ${commandName} mcp-doctor [--cwd <path>]`,
     '',
-    '`init` writes missing direct Convex setup files. `doctor` validates setup and stale generated bridge files.',
+    '`init` writes missing Convex setup files and CMS root adapters. `doctor` validates setup and stale generated bridge files.',
     'The convex command proxies the Convex CLI bundled with Ginko CMS.',
     'Backup commands call the installed CMS backup actions. Restore/import is not available until round-trip coverage exists.',
     'Migration commands scaffold, inspect, and apply explicit project content migrations.',

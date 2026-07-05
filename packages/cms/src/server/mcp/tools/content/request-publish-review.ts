@@ -1,7 +1,7 @@
 import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
 import { z } from 'zod'
 
-import { components } from '#convex/api'
+import { api } from '#convex/api'
 
 import { asRecord, fail, failFromError, loadAgentContext, ok } from '../../_shared/agent-tools'
 
@@ -65,7 +65,7 @@ export default defineMcpTool({
     try {
       const context = await loadAgentContext(ctx.event, 'editEntries')
       const entry = asRecord(
-        await context.convex.query(components.ginkoCms.editor.getEntry, {
+        await context.convex.query(api.ginkoCms.editor.getEntry, {
           id: args.entryId,
         }),
       )
@@ -91,7 +91,7 @@ export default defineMcpTool({
       const previews = await Promise.all(
         args.locales.map(async (locale) =>
           asRecord(
-            await context.convex.query(components.ginkoCms.diagnostics.previewPublishImpact, {
+            await context.convex.query(api.ginkoCms.diagnostics.previewPublishImpact, {
               collection: args.collection,
               entryId: args.entryId,
               locale,
@@ -109,7 +109,7 @@ export default defineMcpTool({
       }
 
       const review = await context.convex.mutation(
-        components.ginkoCms.reviewRequests.requestPublishReview,
+        api.ginkoCms.reviewRequests.requestPublishReview,
         {
           agentRunId: args.agentRunId,
           entryId: args.entryId,

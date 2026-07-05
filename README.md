@@ -75,6 +75,7 @@ and [Environment](./docs/getting-started/environment.md).
 
 - `convex/auth.ts`
 - `convex/auth.config.ts`
+- `convex/betterAuth/*`
 - `convex/http.ts`
 - `convex/schema.ts`
 - the Ginko CMS component registration in `convex/convex.config.ts`
@@ -84,9 +85,10 @@ Keep `convex/convex.config.ts`, `convex/auth.config.ts`, and
 files are where the app registers Convex components, configures Better Auth
 providers, and defines app tables.
 
-Generated Convex files should stay thin. They import the Ginko CMS Convex
-component and Better Auth config directly. Put business logic in the CMS
-package or Convex component, not in generated host files.
+Generated Convex files should stay thin. They mount the Ginko CMS Convex
+component and a local Better Auth component whose schema includes Ginko's MCP
+API-key table. Put business logic in the CMS package or Convex component, not
+in generated host files.
 
 ## Tailwind
 

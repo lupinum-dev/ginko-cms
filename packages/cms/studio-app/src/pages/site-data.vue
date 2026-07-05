@@ -7,6 +7,7 @@ const {
   activeLocale,
   blockData,
   blocks,
+  canManageSettings,
   dateLocale,
   deleteTarget,
   error,
@@ -45,6 +46,10 @@ function resolveBlockLabel(
 function handleDeleteDialogOpen(value: boolean) {
   if (!value) deleteTarget.value = null
 }
+
+function formatBlockData(value: unknown): string {
+  return JSON.stringify(value ?? {}, null, 2)
+}
 </script>
 
 <template>
@@ -59,7 +64,7 @@ function handleDeleteDialogOpen(value: boolean) {
               })
             }}
           </Badge>
-          <Button size="sm" @click="showNewForm = !showNewForm">
+          <Button v-if="canManageSettings" size="sm" @click="showNewForm = !showNewForm">
             <Plus class="ginko:mr-1.5 ginko:size-3.5" />
             {{ t('ginkoCms.studio.siteDataPage.newBlock') }}
           </Button>
@@ -91,7 +96,7 @@ function handleDeleteDialogOpen(value: boolean) {
 
         <!-- New block form -->
         <StudioListFrame
-          v-if="showNewForm"
+          v-if="showNewForm && canManageSettings"
           class="ginko:mb-5"
           :title="t('ginkoCms.studio.siteDataPage.createTitle')"
         >
@@ -180,7 +185,7 @@ function handleDeleteDialogOpen(value: boolean) {
             <Database class="ginko:size-5" aria-hidden="true" />
           </template>
           <template #action>
-            <Button size="sm" @click="showNewForm = true">
+            <Button v-if="canManageSettings" size="sm" @click="showNewForm = true">
               <Plus class="ginko:mr-1.5 ginko:size-3.5" />
               {{ t('ginkoCms.studio.siteDataPage.createBlock') }}
             </Button>
@@ -247,6 +252,7 @@ function handleDeleteDialogOpen(value: boolean) {
                 </div>
               </button>
               <Button
+                v-if="canManageSettings"
                 variant="ghost"
                 size="sm"
                 :title="
@@ -268,6 +274,7 @@ function handleDeleteDialogOpen(value: boolean) {
                 }}
               </Button>
               <Button
+                v-if="canManageSettings"
                 variant="ghost"
                 size="sm"
                 class="ginko:text-destructive ginko:hover:text-destructive ginko:shrink-0"
@@ -291,11 +298,17 @@ function handleDeleteDialogOpen(value: boolean) {
               class="ginko:space-y-3 ginko:border-t ginko:px-4 ginko:py-4"
             >
               <StudioSiteDataEditor
+                v-if="canManageSettings"
                 :schema="expandedBlockSchema"
                 :model-value="blockData[block.key] ?? {}"
                 @update:model-value="blockData[block.key] = $event"
               />
-              <div class="ginko:flex ginko:justify-end">
+              <pre
+                v-else
+                class="ginko:max-h-80 ginko:overflow-auto ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs ginko:leading-relaxed"
+                >{{ formatBlockData(blockData[block.key] ?? {}) }}</pre
+              >
+              <div v-if="canManageSettings" class="ginko:flex ginko:justify-end">
                 <Button size="sm" :disabled="saving === block.key" @click="handleSave(block.key)">
                   <Loader2
                     v-if="saving === block.key"

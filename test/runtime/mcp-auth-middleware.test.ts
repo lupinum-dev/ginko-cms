@@ -107,6 +107,16 @@ describe('ginko mcp auth middleware', () => {
     expect(source).not.toContain('xForwardedFor: true')
   })
 
+  it('does not call the API-key verify HTTP route that Better Auth does not expose', async () => {
+    const middlewarePath = fileURLToPath(
+      new URL('../../packages/cms/src/server/middleware/mcp-auth.ts', import.meta.url),
+    )
+    const source = await readFile(middlewarePath, 'utf8')
+
+    expect(source).toContain('/convex/token')
+    expect(source).not.toContain('/api-key/verify')
+  })
+
   it('rejects invalid API keys and rate-limits repeated failures', async () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const event = createEvent('ba_raw_invalid')
@@ -124,6 +134,10 @@ describe('ginko mcp auth middleware', () => {
       expect(event.context.mcpAuth).toBeUndefined()
     }
 
+    expect(verifySpy).toHaveBeenCalledTimes(5)
+    expect([...storageData.values()].map((values) => values.length).sort()).toEqual([5, 5])
+    expect([...storageData.keys()].join('\n')).not.toContain('ba_raw_invalid')
+
     await expect(
       authenticateMcpRequestContext(
         {
@@ -135,6 +149,29 @@ describe('ginko mcp auth middleware', () => {
         authDeps(),
       ),
     ).rejects.toMatchObject({ statusCode: 429 })
+  })
+
+  it('does not leak rejected MCP bearer tokens in auth failures or limiter storage', async () => {
+    const rawToken = 'ba_raw_expired_or_deleted_secret'
+
+    await expect(
+      authenticateMcpRequestContext(
+        {
+          path: '/mcp',
+          authorizationHeader: `Bearer ${rawToken}`,
+          clientIp: '127.0.0.1',
+          context: {},
+        },
+        authDeps(),
+      ),
+    ).rejects.toSatisfy((error: unknown) => {
+      const rendered = `${error instanceof Error ? error.message : String(error)} ${String(
+        (error as { statusMessage?: unknown }).statusMessage ?? '',
+      )}`
+      return !rendered.includes(rawToken)
+    })
+
+    expect([...storageData.keys()].join('\n')).not.toContain(rawToken)
   })
 
   it('rejects verified API keys without matching active CMS credential settings', async () => {

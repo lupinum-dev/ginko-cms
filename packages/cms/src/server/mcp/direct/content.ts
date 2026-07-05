@@ -1,7 +1,7 @@
 import { defineMcpTool } from '@nuxtjs/mcp-toolkit/server'
 import { z } from 'zod'
 
-import { components } from '#convex/api'
+import { api } from '#convex/api'
 
 import { failFromError, loadAgentContext, ok } from '../_shared/agent-tools'
 
@@ -26,7 +26,7 @@ export const createEntry = defineMcpTool({
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event, 'createEntries')
-      const result = await context.convex.mutation(components.ginkoCms.editor.mcpCreateEntry, args)
+      const result = await context.convex.mutation(api.ginkoCms.editor.mcpCreateEntry, args)
       return ok(result, 'Created entry.')
     } catch (error) {
       return failFromError(error, 'Failed to create entry.')
@@ -45,7 +45,7 @@ export const listEntries = defineMcpTool({
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event, 'readCms')
-      const entries = await context.convex.query(components.ginkoCms.editor.listEntries, args)
+      const entries = await context.convex.query(api.ginkoCms.editor.listEntries, args)
       const count = Array.isArray(entries) ? entries.length : 0
       return ok({ entries }, `Listed ${count} entries in "${args.collection}".`)
     } catch (error) {
@@ -87,10 +87,7 @@ export const saveEntryDraft = defineMcpTool({
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event, 'editEntries')
-      const result = await context.convex.mutation(
-        components.ginkoCms.editor.mcpSaveEntryDraft,
-        args,
-      )
+      const result = await context.convex.mutation(api.ginkoCms.editor.mcpSaveEntryDraft, args)
       return ok(result, 'Saved entry draft.')
     } catch (error) {
       return failFromError(error, 'Failed to save entry draft.')
@@ -109,7 +106,7 @@ export const unarchiveEntry = defineMcpTool({
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event, 'editEntries')
-      await context.convex.mutation(components.ginkoCms.editor.mcpUnarchiveEntry, args)
+      await context.convex.mutation(api.ginkoCms.editor.mcpUnarchiveEntry, args)
       return ok({ unarchived: true, entryId: args.entryId }, `Unarchived entry "${args.entryId}".`)
     } catch (error) {
       return failFromError(error, 'Failed to unarchive entry.')

@@ -22,8 +22,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '#trellis/api': resolve(__dirname, 'test/stubs/trellis-api.ts'),
-      '#trellis': resolve(__dirname, '.nuxt/trellis'),
       '#component': resolve(__dirname, 'packages/convex/src'),
       '#runtime': resolve(__dirname, 'packages/cms/src/runtime'),
       '#ginko-cms-public': resolve(__dirname, 'packages/cms/src/public'),

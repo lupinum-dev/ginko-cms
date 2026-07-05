@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useConvexAuth } from 'better-convex-nuxt/composables'
 
-import { api, components } from '#convex/api'
+import { api } from '#convex/api'
 import type {
   GinkoCmsHostAuthEngine,
   GinkoCmsPublicConfig,
@@ -270,7 +270,7 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
     // client and better-auth token attachment into the SPA context.
     nuxtApp,
     // The generated Convex api is per-consumer.
-    api: buildStudioHostApi(api, components),
+    api: buildStudioHostApi(api),
     // Auth state passthrough so the SPA's useCmsAuthState mirrors what the
     // consumer's auth engine reports without the SPA having to subscribe
     // separately. Refs stay live — Vue tracking flows across the boundary
@@ -312,16 +312,18 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
 // state to authenticated clients. Contract installation is now an explicit
 // CLI/CI action (`ginko-cms push`), never Studio or Nuxt boot behavior.
 
-function buildStudioHostApi(value: unknown, componentApi: unknown): GinkoCmsStudioHostApi {
+function buildStudioHostApi(value: unknown): GinkoCmsStudioHostApi {
   const requiredGroups = [
     'agentRuns',
     'assets',
     'collections',
+    'diagnostics',
     'editor',
     'imports',
     'mcpCredentials',
     'members',
     'public',
+    'revalidation',
     'reviewRequests',
     'settings',
     'siteData',
@@ -331,31 +333,7 @@ function buildStudioHostApi(value: unknown, componentApi: unknown): GinkoCmsStud
   for (const group of requiredGroups) {
     readObject(ginkoCms[group], `api.ginkoCms.${group}`)
   }
-  const componentsRoot = readObject(componentApi, 'components')
-  const componentGinkoCms = readObject(componentsRoot.ginkoCms, 'components.ginkoCms')
-  const componentCollections = readObject(
-    componentGinkoCms.collections,
-    'components.ginkoCms.collections',
-  )
-  const directListCollections = componentCollections.listCollections
-  if (typeof directListCollections !== 'object' || directListCollections === null) {
-    throw new TypeError(
-      '[ginko-cms] Studio host direct Convex component ref is missing components.ginkoCms.collections.listCollections.',
-    )
-  }
-
-  const hostApi = value as GinkoCmsStudioHostApi
-  return {
-    ...hostApi,
-    ginkoCms: {
-      ...hostApi.ginkoCms,
-      collections: {
-        ...hostApi.ginkoCms.collections,
-        listCollections:
-          directListCollections as GinkoCmsStudioHostApi['ginkoCms']['collections']['listCollections'],
-      },
-    },
-  }
+  return value as GinkoCmsStudioHostApi
 }
 
 function readObject(value: unknown, label: string): Record<string, unknown> {

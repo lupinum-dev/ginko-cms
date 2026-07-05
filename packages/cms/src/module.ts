@@ -604,7 +604,7 @@ export async function loadGinkoPrerenderRoutes(args: {
     throw new Error('Convex URL is not configured for Ginko prerender route generation.')
   }
   const client = new ConvexHttpClient(convexUrl)
-  const sitemapQuery = anyApi.ginkoCms?.public?.sitemap as FunctionReference<'query'>
+  const sitemapQuery = anyApi.ginkoCms.public.sitemap as FunctionReference<'query'>
   const urls: Array<{
     collection?: string
     route?: { locale?: string; path?: string }

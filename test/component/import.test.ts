@@ -94,7 +94,7 @@ async function seedCodeDefinedCollections(
   ctx: ReturnType<typeof createCtx>,
   collections: Array<Record<string, unknown>>,
 ) {
-  return await ctx.raw.mutation(api.collections.sync.installCollectionContractsInternal, {
+  return await ctx.raw.mutation(api.collections.installCollectionContracts, {
     collections,
   })
 }
@@ -604,6 +604,119 @@ describe('filesystem content import', () => {
     expect(result.entries?.created).toEqual([])
     expect(result.entries?.published).toEqual([])
     expect(result.entries?.skipped).toEqual(['docs:docs-intro:en'])
+  })
+
+  it('reports invalid route blockers during preview and apply', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    await seedCodeDefinedCollections(ctx, [docsCollection])
+
+    const owner = ctx.asCmsUser('owner-1')
+    const invalidRouteEntry = {
+      ...docsEntry,
+      stableId: 'docs-bad-route',
+      routePath: 'docs//bad',
+    }
+    const preview = await owner.mutation(api.imports.previewImport, {
+      collections: [docsCollection],
+      entries: [invalidRouteEntry],
+    })
+
+    expect(preview.status).toBe('blocked')
+    expect(preview.entries).toEqual([
+      expect.objectContaining({
+        stableId: 'docs-bad-route',
+        status: 'blocked',
+        blockers: [
+          expect.objectContaining({
+            kind: 'route_invalid',
+            routePath: 'docs//bad',
+          }),
+        ],
+      }),
+    ])
+
+    const result = await owner.mutation(api.imports.applyImport, {
+      collections: [docsCollection],
+      entries: [invalidRouteEntry],
+      publish: true,
+    })
+
+    expect(result.blockedChanges).toEqual([
+      expect.objectContaining({
+        kind: 'route_invalid',
+        routePath: 'docs//bad',
+      }),
+    ])
+    expect(result.entries?.created).toEqual([])
+    expect(result.entries?.published).toEqual([])
+    expect(result.entries?.skipped).toEqual(['docs:docs-bad-route:en'])
+  })
+
+  it('reports invalid and unsupported locale blockers during preview and apply', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    await seedCodeDefinedCollections(ctx, [docsCollection])
+
+    const owner = ctx.asCmsUser('owner-1')
+    const invalidLocaleEntry = {
+      ...docsEntry,
+      stableId: 'docs-invalid-locale',
+      locale: 'english!',
+    }
+    const unsupportedLocaleEntry = {
+      ...docsEntry,
+      stableId: 'docs-unsupported-locale',
+      locale: 'de',
+      routePath: '/docs/de',
+    }
+    const preview = await owner.mutation(api.imports.previewImport, {
+      collections: [docsCollection],
+      entries: [invalidLocaleEntry, unsupportedLocaleEntry],
+    })
+
+    expect(preview.status).toBe('blocked')
+    expect(preview.blockers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'locale_invalid',
+          locale: 'english!',
+        }),
+        expect.objectContaining({
+          kind: 'locale_unsupported',
+          locale: 'de',
+          supportedLocales: ['en'],
+        }),
+      ]),
+    )
+
+    const result = await owner.mutation(api.imports.applyImport, {
+      collections: [docsCollection],
+      entries: [invalidLocaleEntry, unsupportedLocaleEntry],
+      publish: true,
+    })
+
+    expect(result.blockedChanges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'locale_invalid',
+          locale: 'english!',
+        }),
+        expect.objectContaining({
+          kind: 'locale_unsupported',
+          locale: 'de',
+          supportedLocales: ['en'],
+        }),
+      ]),
+    )
+    expect(result.entries?.created).toEqual([])
+    expect(result.entries?.published).toEqual([])
+    expect(result.entries?.skipped).toEqual([
+      'docs:docs-invalid-locale:english!',
+      'docs:docs-unsupported-locale:de',
+    ])
   })
 
   it('allows unresolved assets only through an explicit import escape hatch', async () => {

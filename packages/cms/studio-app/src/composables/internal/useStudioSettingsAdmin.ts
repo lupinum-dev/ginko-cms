@@ -1,5 +1,6 @@
 import type { CmsRole } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
+import type { ShallowUnwrapRef } from 'vue'
 import { computed, reactive, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
@@ -12,6 +13,7 @@ import { useCmsI18n } from '../useCmsI18n'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
 import { useConvexMutation } from '../useStudioConvex'
+import { studioConfirm } from './useStudioConfirm'
 
 type SettingsMember = {
   userId: string
@@ -425,7 +427,34 @@ export function useStudioSettingsAdmin() {
   async function handleRemoveMember(userId: string) {
     error.value = ''
     try {
-      await removeMemberMutation({ userId })
+      const preview = (await studioHost
+        .requireConvexClient()
+        .mutation(api.ginkoCms.members.previewRemoveMemberOperation, { userId })) as {
+        allowed: boolean
+        blockers: Array<{ message: string }>
+        warnings: Array<{ message: string }>
+        summary: string
+        confirmation?: { token: string; expiresAt: number }
+      }
+      if (preview.allowed === false || preview.blockers.length > 0) {
+        error.value =
+          preview.blockers[0]?.message ?? preview.warnings[0]?.message ?? preview.summary
+        return
+      }
+      const member = members.value.find((item) => item.userId === userId)
+      const confirmed = await studioConfirm({
+        title: 'Remove CMS member?',
+        description: `Remove ${member?.displayName || member?.email || userId} from this CMS project?`,
+        confirmLabel: 'Remove member',
+        confirmVariant: 'destructive',
+      })
+      if (!confirmed) return
+      const token =
+        preview.confirmation && preview.confirmation.expiresAt > Date.now()
+          ? preview.confirmation.token
+          : null
+      if (!token) throw new Error('Remove-member confirmation token is missing. Preview again.')
+      await removeMemberMutation({ userId, _confirmationToken: token })
     } catch (e) {
       error.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.removeMemberError'))
     }
@@ -644,3 +673,7 @@ export function useStudioSettingsAdmin() {
     t,
   }
 }
+
+export type StudioSettingsAdminViewModel = ShallowUnwrapRef<
+  ReturnType<typeof useStudioSettingsAdmin>
+>

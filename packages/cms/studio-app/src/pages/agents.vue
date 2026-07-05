@@ -13,6 +13,8 @@ type AgentRun = {
   _id: string
   credentialApiKeyId: string | null
   delegatedUserId: string
+  requestedScopes: string[]
+  safetyMode: 'human' | 'review-gated' | 'credential-missing'
   taskName: string
   status: 'active' | 'completed' | 'revoked' | 'failed'
   createdBy: string
@@ -49,6 +51,18 @@ function statusVariant(status: AgentRun['status']) {
 function shortId(value: string | null): string {
   if (!value) return '-'
   return value.length > 12 ? `${value.slice(0, 6)}...${value.slice(-4)}` : value
+}
+
+function safetyLabel(mode: AgentRun['safetyMode']) {
+  if (mode === 'review-gated') return 'review gated'
+  if (mode === 'credential-missing') return 'credential missing'
+  return 'human'
+}
+
+function scopeSummary(scopes: string[]) {
+  if (scopes.length === 0) return 'no scopes'
+  if (scopes.length <= 2) return scopes.join(', ')
+  return `${scopes.length} scopes`
 }
 
 async function revokeRun(run: AgentRun) {
@@ -147,6 +161,24 @@ async function revokeRun(run: AgentRun) {
                 <span class="ginko:font-mono">{{ shortId(run._id) }}</span>
                 <span v-if="run.credentialApiKeyId" class="ginko:font-mono">
                   key {{ shortId(run.credentialApiKeyId) }}
+                </span>
+              </div>
+              <div
+                class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
+              >
+                <span>user {{ shortId(run.delegatedUserId) }}</span>
+                <span>{{ safetyLabel(run.safetyMode) }}</span>
+                <span>{{ scopeSummary(run.requestedScopes) }}</span>
+                <span v-if="run.expiresAt">
+                  expires
+                  <NuxtTime
+                    :datetime="run.expiresAt"
+                    :locale="dateLocale"
+                    month="short"
+                    day="numeric"
+                    hour="2-digit"
+                    minute="2-digit"
+                  />
                 </span>
               </div>
               <p v-if="run.lastError" class="ginko:mt-1 ginko:text-xs ginko:text-destructive">

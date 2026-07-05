@@ -183,8 +183,11 @@ describe('ginko-cms package-first consumer fixture', () => {
     expect(existsSync(join(tempDir, 'convex', 'ginkoCms.ts'))).toBe(false)
     expect(existsSync(join(tempDir, 'convex', `ginkoCms${'Mcp.ts'}`))).toBe(false)
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('@convex-dev/better-auth/convex.config')
+    expect(convexConfig).toContain('./betterAuth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
+    expect(readFileSync(join(tempDir, 'convex/betterAuth/schema.ts'), 'utf8')).toContain(
+      'apikey: defineTable',
+    )
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/config')
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/better-auth')
   })

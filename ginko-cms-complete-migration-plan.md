@@ -846,11 +846,41 @@ Verification result on 2026-07-04:
   workspace also packed sibling `@lupinum/ginko-content` because that checkout
   exists, but `better-convex-nuxt` was consumed as `0.4.0`.
 
+Cleanup verification on 2026-07-04:
+
+- Passed. `pnpm run release:verify` passed again after the root adapter and
+  component API cleanup. The run covered format, lint with existing warnings
+  only, typecheck/build, publish-specifier checks, full Vitest (`92` files,
+  `693` tests, `1` skipped), clean-consumer package E2E, packed local-specifier
+  checks for four tarballs, and production audit.
+- Passed. A real downstream packed-consumer migration installed the packed CMS
+  tarballs, ran `ginko-cms doctor`, `ginko-cms mcp-doctor`, `convex codegen`,
+  `ginko-cms push --check`, typecheck, lint, and production build.
+- Passed. The consumer production runtime rendered `/`, `/login`,
+  `/studio/auth/signin`, `/studio/auth/register`, and redirected `/studio` to
+  Studio sign-in. The configured CMS browser smoke signed in with the test
+  credentials and loaded Studio settings.
+- Found and fixed. Consumer `convex codegen` caught missing packed component API
+  entries for root adapter calls. The Convex component now exports
+  `agentRuns`, `mcpCredentials`, and `reviewRequests`, and the package boundary
+  tests explicitly allow those required component entrypoints.
+- Passed. A packed downstream consumer ran through the important browser and MCP
+  stories: sign-in, Studio route sweep, entry editor, settings, MCP connection
+  creation, unauthenticated `/mcp` rejection, authenticated MCP initialize, MCP
+  revoke, and revoked-key rejection.
+- Found and fixed during broader verification. `pnpm run release:verify` first
+  failed on stale private-consumer references in this plan, then on stale
+  playground Better Auth setup, then on the component boundary allowlist. The
+  final run passed format, lint with existing warnings only, typecheck/build,
+  publish-specifier checks, full Vitest (`92` files, `694` tests, `1` skipped),
+  clean-consumer package E2E, packed local-specifier checks for four tarballs,
+  and production audit.
+
 Next gate:
 
-- Gate 2: Better Auth API-Key Gate. Do not touch `mcpKeys`, `projectTool`,
-  agent runs, MCP auth, or Studio MCP UX until that proof is implemented and
-  verified.
+- No package gate remains open for migration work. Before publishing, a human
+  maintainer still needs to inspect `.pack/*.tgz`, confirm package versions and
+  npm settings, and follow `MAINTAINING.md`.
 
 ### Phase 2: Remove Remaining Trellis Ceremony
 
@@ -1654,12 +1684,52 @@ Result on 2026-07-04:
   local-specifier checks for four tarballs, and production audit. A separate
   `pnpm audit --prod --audit-level low` rerun also reported no known
   vulnerabilities.
+- Passed again after the root-adapter/package-surface cleanup. `pnpm run
+release:verify` completed format, lint with existing warnings only,
+  typecheck/build, publish-specifier checks, full Vitest (`92` files, `693`
+  tests, `1` skipped), clean-consumer package E2E, packed local-specifier
+  checks for four tarballs, and production audit. A downstream packed install
+  also passed `convex codegen`, `ginko-cms push --check`, typecheck, lint,
+  production build, route smoke, and CMS browser login smoke.
 - Passed. `CHANGELOG.md` now has unreleased release and migration notes for the
   direct package install story, Trellis cleanup, Better Auth MCP credentials,
   token-based MCP Convex transport, and review-first agent workflow.
 - Passed. `docs/guides/migrations/trellis-era-migration.md` now covers the
   host cleanup checklist, Better Auth MCP token transport, audit points, and
   rollback guidance.
+- Passed again on 2026-07-05 after the migration cleanup pass. Generated
+  Convex host setup now treats `packages/cms/templates/convex` as canonical for
+  `auth.ts`, `convex.config.ts`, `http.ts`, `betterAuth/*`, and `ginkoCms/*`,
+  with playground and basic fixtures synced and guarded by
+  `check-convex-template-sync`.
+- Passed. Component collection-contract and content-migration admin operations
+  now use the canonical internal component functions behind the unchanged host
+  root adapters; duplicate `*Internal` preservation names were removed.
+- Passed. Studio Settings was decomposed into focused section components
+  without changing backend permission checks or read/write behavior.
+- Passed. `smoke:live-stories` is now an explicit manual harness requiring
+  `CMS_STORY_BASE_URL`, `GINKO_CMS_TEST_EMAIL`, and
+  `GINKO_CMS_TEST_PASSWORD`; dated browser evidence was moved out of the stable
+  story checklist and into `docs/maintenance/cms-user-story-verification-log.md`.
+- Verification passed on 2026-07-05:
+  `pnpm install`,
+  `node scripts/check-convex-template-sync.mjs`,
+  `pnpm run check:stale-surfaces`,
+  `pnpm run check:publish-specifiers`,
+  `pnpm --filter @lupinum/ginko-cms typecheck`,
+  `pnpm exec vitest run test/module/ginko-cli.test.ts test/module/e2e-package-consumer.test.ts`,
+  `pnpm exec vitest run test/component/import.test.ts test/component/public-api.test.ts`,
+  `pnpm exec vitest run test/component/members-crud.test.ts test/component/site-data.test.ts test/component/settings.test.ts`,
+  `pnpm run package:e2e`, and `pnpm run release:verify`.
+- The full `release:verify` pass completed format, lint with existing warnings
+  only, typecheck/build, publish-specifier checks, full Vitest (`93` files,
+  `709` tests, `1` skipped), clean-consumer package E2E, packed
+  local-specifier checks for four tarballs, and production audit with no known
+  vulnerabilities.
+- Manual live browser/MCP smoke was not rerun in this cleanup pass because it
+  now requires an explicit running consumer URL and credentials. Run it only
+  with `CMS_STORY_BASE_URL`, `GINKO_CMS_TEST_EMAIL`, and
+  `GINKO_CMS_TEST_PASSWORD` set.
 
 Next gate:
 

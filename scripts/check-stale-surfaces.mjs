@@ -95,6 +95,11 @@ for (const artifact of trackedIgnoredArtifacts) {
   violations.push(`${artifact}: ignored generated/release artifact is tracked`)
 }
 
+execFileSync(process.execPath, [join(repoRoot, 'scripts/check-convex-template-sync.mjs')], {
+  cwd: repoRoot,
+  stdio: 'inherit',
+})
+
 if (violations.length > 0) {
   console.error('Stale public/debt surface check failed:')
   for (const violation of violations) console.error(`  - ${violation}`)

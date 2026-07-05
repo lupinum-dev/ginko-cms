@@ -50,11 +50,13 @@ describe('component: review requests', () => {
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
     await seedMember(ctx, { userId: 'publisher-1', role: 'publisher' })
+    await seedMember(ctx, { userId: 'viewer-1', role: 'viewer' })
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
     const editor = ctx.asCmsUser('editor-1')
     const publisher = ctx.asCmsUser('publisher-1')
+    const viewer = ctx.asCmsUser('viewer-1')
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Prepare publish',
     })
@@ -71,6 +73,12 @@ describe('component: review requests', () => {
 
     await expect(
       editor.mutation(api.reviewRequests.approveReview, {
+        reviewRequestId: review._id,
+        expectedVersionHash: 'draft-v1',
+      }),
+    ).rejects.toThrow('Forbidden: Publish entries')
+    await expect(
+      viewer.mutation(api.reviewRequests.approveReview, {
         reviewRequestId: review._id,
         expectedVersionHash: 'draft-v1',
       }),
@@ -137,6 +145,61 @@ describe('component: review requests', () => {
     expect(await ctx.readAll('publicEntries')).toEqual(publicRowsBeforeReject)
   })
 
+  it('rejects approval when the draft changed after review creation', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
+    await seedMember(ctx, { userId: 'publisher-1', role: 'publisher' })
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+
+    const editor = ctx.asCmsUser('editor-1')
+    const publisher = ctx.asCmsUser('publisher-1')
+    const run = await editor.mutation(api.agentRuns.startRun, {
+      taskName: 'Prepare publish',
+    })
+    const review = await editor.mutation(api.reviewRequests.requestPublishReview, {
+      agentRunId: run._id,
+      entryId,
+      expectedVersion: 1,
+      locales: ['en'],
+      title: 'Publish hello world',
+      summary: 'Ready for publisher review.',
+      preview: { allowed: true, effects: [] },
+      versionHash: 'draft-v1',
+    })
+
+    await editor.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: 1,
+      patch: {
+        locales: {
+          en: {
+            values: { title: 'Changed after review' },
+          },
+        },
+      },
+    })
+
+    await expect(
+      publisher.query(api.reviewRequests.listPendingReviews, { limit: 10 }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        _id: review._id,
+        isStale: true,
+        staleReason: 'Draft version changed from 1 to 2.',
+      }),
+    ])
+
+    await expect(
+      publisher.mutation(api.reviewRequests.approveReview, {
+        reviewRequestId: review._id,
+        expectedVersionHash: 'draft-v1',
+      }),
+    ).rejects.toThrow('Review request is stale.')
+    expect(await ctx.readAll('publicEntries')).toEqual([])
+  })
+
   it('lists pending reviews for publishers only', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
@@ -146,6 +209,7 @@ describe('component: review requests', () => {
     const { entryId } = await seedEditorFixture(ctx)
 
     const editor = ctx.asCmsUser('editor-1')
+    const owner = ctx.asCmsUser('owner-1')
     const publisher = ctx.asCmsUser('publisher-1')
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Prepare publish',
@@ -179,6 +243,14 @@ describe('component: review requests', () => {
     ).rejects.toThrow('Forbidden: Publish entries')
     await expect(
       publisher.query(api.reviewRequests.listPendingReviews, { limit: 10 }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        _id: second._id,
+        status: 'pending',
+      }),
+    ])
+    await expect(
+      owner.query(api.reviewRequests.listPendingReviews, { limit: 10 }),
     ).resolves.toEqual([
       expect.objectContaining({
         _id: second._id,

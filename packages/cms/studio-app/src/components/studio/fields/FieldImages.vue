@@ -11,6 +11,7 @@ const props = defineProps<{
   assetContext?: FieldContext
   label: string
   fieldError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -23,28 +24,35 @@ const value = computed<string[]>({
     Array.isArray(props.modelValue)
       ? props.modelValue.filter((item): item is string => typeof item === 'string')
       : [],
-  set: (v) => emit('update:modelValue', v),
+  set: (v) => {
+    if (props.disabled) return
+    emit('update:modelValue', v)
+  },
 })
 
 function addMediaItem() {
+  if (props.disabled) return
   const items = [...value.value]
   items.push('')
   value.value = items
 }
 
 function updateMediaItem(index: number, nextValue: string) {
+  if (props.disabled) return
   const items = [...value.value]
   items[index] = nextValue
   value.value = items
 }
 
 function removeMediaItem(index: number) {
+  if (props.disabled) return
   const items = [...value.value]
   items.splice(index, 1)
   value.value = items
 }
 
 function updateImages(nextValue: string | string[]) {
+  if (props.disabled) return
   value.value = Array.isArray(nextValue) ? nextValue : [nextValue]
 }
 </script>
@@ -56,7 +64,7 @@ function updateImages(nextValue: string | string[]) {
         {{ label }}
         <span v-if="field.required" class="ginko:text-destructive">*</span>
       </Label>
-      <Button v-if="!assetContext" variant="outline" size="sm" @click="addMediaItem">
+      <Button v-if="!assetContext && !disabled" variant="outline" size="sm" @click="addMediaItem">
         {{ t('ginkoCms.studio.fieldRenderer.addImage') }}
       </Button>
     </div>
@@ -69,6 +77,7 @@ function updateImages(nextValue: string | string[]) {
       :aspect-ratio="field.media?.aspectRatio"
       :label="label"
       :asset-context="assetContext"
+      :disabled="disabled"
       @update:model-value="updateImages"
     />
     <div v-else-if="Array.isArray(value)" class="ginko:space-y-2">
@@ -82,9 +91,10 @@ function updateImages(nextValue: string | string[]) {
             :model-value="item"
             class="ginko:font-mono ginko:text-sm"
             :placeholder="t('ginkoCms.studio.fieldRenderer.assetImagePlaceholder')"
+            :disabled="disabled"
             @update:model-value="updateMediaItem(index, $event)"
           />
-          <Button variant="ghost" size="sm" @click="removeMediaItem(index)">
+          <Button v-if="!disabled" variant="ghost" size="sm" @click="removeMediaItem(index)">
             <Trash2 class="ginko:size-4" />
           </Button>
         </div>

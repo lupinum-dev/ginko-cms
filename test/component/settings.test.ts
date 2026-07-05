@@ -93,6 +93,57 @@ describe('cms settings visibility', () => {
     ).rejects.toThrow('WEBHOOK_URL_HTTPS_REQUIRED')
   })
 
+  it('updates supported settings and records an activity entry', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    await seedSettings(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+
+    await expect(
+      owner.mutation(api.settings.updateSettings, {
+        locales: [
+          { code: 'en', label: 'English', isDefault: true },
+          { code: 'de', label: 'Deutsch' },
+        ],
+        webhooks: [
+          {
+            id: 'hook-1',
+            name: 'Publish hook',
+            url: 'https://example.test/hook',
+            enabled: true,
+            events: ['entry.published'],
+            secretFingerprint: 'sha256:abc123',
+          },
+        ],
+      }),
+    ).resolves.toBeNull()
+
+    await expect(owner.query(api.settings.getSettings, {})).resolves.toMatchObject({
+      locales: [
+        { code: 'en', label: 'English', isDefault: true },
+        { code: 'de', label: 'Deutsch' },
+      ],
+      webhooks: [
+        {
+          id: 'hook-1',
+          name: 'Publish hook',
+          url: 'https://example.test/hook',
+          enabled: true,
+          events: ['entry.published'],
+          secretFingerprint: 'sha256:abc123',
+        },
+      ],
+      updatedBy: 'owner-1',
+    })
+    expect(await ctx.readAll('activity')).toEqual([
+      expect.objectContaining({
+        kind: 'settings.updated',
+        appIdentityId: 'owner-1',
+        detail: { changes: ['locales', 'webhooks'] },
+      }),
+    ])
+  })
+
   it('rejects raw API keys and webhook secrets at the settings mutation boundary', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
