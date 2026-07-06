@@ -4,7 +4,7 @@ import { cva } from 'class-variance-authority'
 export { default as Badge } from './Badge.vue'
 
 export const badgeVariants = cva(
-  'ginko:inline-flex ginko:items-center ginko:justify-center ginko:rounded-full ginko:border ginko:px-2 ginko:py-0.5 ginko:text-xs ginko:font-medium ginko:w-fit ginko:whitespace-nowrap ginko:shrink-0 ginko:[&>svg]:size-3 ginko:gap-1 ginko:[&>svg]:pointer-events-none ginko:focus-visible:border-ring ginko:focus-visible:ring-ring/50 ginko:focus-visible:ring-[3px] ginko:aria-invalid:ring-destructive/20 ginko:dark:aria-invalid:ring-destructive/40 ginko:aria-invalid:border-destructive ginko:transition-[color,box-shadow] ginko:overflow-hidden',
+  'ginko:inline-flex ginko:w-fit ginko:shrink-0 ginko:items-center ginko:justify-center ginko:gap-1 ginko:overflow-hidden ginko:rounded-md ginko:border ginko:px-2 ginko:py-0.5 ginko:text-xs ginko:font-medium ginko:whitespace-nowrap ginko:transition-colors ginko:[&>svg]:pointer-events-none ginko:[&>svg]:size-3 ginko:focus-visible:border-ring ginko:focus-visible:ring-ring/50 ginko:focus-visible:ring-[3px] ginko:aria-invalid:border-destructive ginko:aria-invalid:ring-destructive/20 ginko:dark:aria-invalid:ring-destructive/40',
   {
     variants: {
       variant: {

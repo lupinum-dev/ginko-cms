@@ -723,7 +723,7 @@ defineExpose({
         <p class="ginko:text-xs ginko:leading-5">
           {{ conversionBanner.message }}
         </p>
-        <p class="ginko:mt-1 ginko:text-[11px] ginko:opacity-80">
+        <p class="ginko:mt-1 ginko:text-xs ginko:opacity-80">
           Trace: <code>{{ conversionBanner.traceId }}</code>
         </p>
       </div>

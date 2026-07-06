@@ -14,13 +14,13 @@ defineProps<{
   >
     <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2">
       <div class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2">
-        <Badge variant="outline" class="ginko:text-[10px] ginko:font-mono">
+        <Badge variant="outline" class="ginko:text-xs ginko:font-mono">
           {{ localeState.locale }}
         </Badge>
         <Badge variant="outline" :class="statusToneClass(localeState.label.toLowerCase())">
           {{ localeState.label }}
         </Badge>
-        <Badge v-if="localeState.current" variant="secondary" class="ginko:text-[10px]">
+        <Badge v-if="localeState.current" variant="secondary" class="ginko:text-xs">
           Current
         </Badge>
       </div>
@@ -35,39 +35,31 @@ defineProps<{
       class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-3"
     >
       <div>
-        <div
-          class="ginko:text-[10px] ginko:font-medium ginko:text-muted-foreground ginko:uppercase"
-        >
+        <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
           Draft
         </div>
         <div class="ginko:mt-0.5 ginko:text-foreground">{{ localeState.draftState }}</div>
-        <div class="ginko:truncate ginko:font-mono ginko:text-[10px]">
+        <div class="ginko:truncate ginko:font-mono ginko:text-xs">
           {{ localeState.draftPath || localeState.path || 'no route' }}
         </div>
       </div>
       <div>
-        <div
-          class="ginko:text-[10px] ginko:font-medium ginko:text-muted-foreground ginko:uppercase"
-        >
+        <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
           Published
         </div>
         <div class="ginko:mt-0.5 ginko:text-foreground">{{ localeState.publishedState }}</div>
-        <div class="ginko:truncate ginko:font-mono ginko:text-[10px]">
+        <div class="ginko:truncate ginko:font-mono ginko:text-xs">
           {{ localeState.href || localeState.publishedPath || 'no route' }}
         </div>
       </div>
       <div>
-        <div
-          class="ginko:text-[10px] ginko:font-medium ginko:text-muted-foreground ginko:uppercase"
-        >
+        <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
           Public surfaces
         </div>
         <div class="ginko:mt-0.5 ginko:flex ginko:flex-wrap ginko:gap-1">
-          <Badge variant="outline" class="ginko:text-[10px]"
-            >Sitemap {{ localeState.sitemap }}</Badge
-          >
-          <Badge variant="outline" class="ginko:text-[10px]">Search {{ localeState.search }}</Badge>
-          <Badge variant="outline" class="ginko:text-[10px]">Nav {{ localeState.nav }}</Badge>
+          <Badge variant="outline" class="ginko:text-xs">Sitemap {{ localeState.sitemap }}</Badge>
+          <Badge variant="outline" class="ginko:text-xs">Search {{ localeState.search }}</Badge>
+          <Badge variant="outline" class="ginko:text-xs">Nav {{ localeState.nav }}</Badge>
         </div>
       </div>
     </div>
@@ -100,7 +92,7 @@ defineProps<{
         v-for="reason in localeState.reasons"
         :key="`reason:${localeState.locale}:${reason}`"
         variant="outline"
-        class="ginko:text-[10px]"
+        class="ginko:text-xs"
       >
         {{ reason }}
       </Badge>
@@ -108,7 +100,7 @@ defineProps<{
 
     <p
       v-if="localeState.draftPath && localeState.href && localeState.draftPath !== localeState.href"
-      class="ginko:mt-2 ginko:text-[11px] ginko:leading-relaxed ginko:text-muted-foreground"
+      class="ginko:mt-2 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
     >
       Public URL differs from the editable slug because this collection uses stable routes.
     </p>

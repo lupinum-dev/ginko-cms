@@ -268,7 +268,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content ginko:space-y-5 ginko:p-4 ginko:sm:p-5 ginko:lg:p-6">
+      <div
+        class="studio-page-content studio-page-content--wide ginko:space-y-6 ginko:p-4 ginko:sm:p-6 ginko:lg:p-8"
+      >
         <StudioNotice
           v-if="overviewQuery.error.value"
           tone="danger"
@@ -281,7 +283,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
           class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
         >
           <div class="ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3">
-            <h2 class="ginko:text-sm ginko:font-semibold">
+            <h2 class="studio-text-title">
               {{ t('ginkoCms.studio.dashboard.today') }}
             </h2>
             <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
@@ -318,9 +320,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
         </section>
 
         <div
-          class="ginko:grid ginko:min-w-0 ginko:gap-5 ginko:xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,0.6fr)]"
+          class="ginko:grid ginko:min-w-0 ginko:gap-6 ginko:xl:grid-cols-[minmax(0,1.4fr)_minmax(24rem,0.6fr)]"
         >
-          <div class="ginko:min-w-0 ginko:space-y-5">
+          <div class="ginko:min-w-0 ginko:space-y-6">
             <section
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
@@ -328,7 +330,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 class="ginko:flex ginko:items-center ginko:justify-between ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3"
               >
                 <div>
-                  <h2 class="ginko:text-sm ginko:font-semibold">Continue editing</h2>
+                  <h2 class="studio-text-title">Continue editing</h2>
                   <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
                     Drafts with changes since the last published website content.
                   </p>
@@ -352,7 +354,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                       {{ entry.title }}
                     </div>
                     <div
-                      class="ginko:mt-0.5 ginko:truncate ginko:font-mono ginko:text-[11px] ginko:text-muted-foreground"
+                      class="ginko:mt-0.5 ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
                     >
                       {{ entry.collection }} · {{ entry.path || entry.status }}
                     </div>
@@ -379,7 +381,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 class="ginko:flex ginko:items-center ginko:justify-between ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3"
               >
                 <div>
-                  <h2 class="ginko:text-sm ginko:font-semibold">Blocked from publishing</h2>
+                  <h2 class="studio-text-title">Blocked from publishing</h2>
                   <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
                     Entries with readiness issues before the website can change.
                   </p>
@@ -429,7 +431,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
               <div class="ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3">
-                <h2 class="ginko:text-sm ginko:font-semibold">Content overview</h2>
+                <h2 class="studio-text-title">Content overview</h2>
                 <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
                   Content types, website use, drafts, and translation gaps.
                 </p>
@@ -437,7 +439,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               <div class="ginko:overflow-x-auto">
                 <div class="ginko:min-w-[46rem]">
                   <div
-                    class="ginko:grid ginko:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem_8rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-[11px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
+                    class="ginko:grid ginko:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem_8rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
                   >
                     <div>Collection</div>
                     <div>Website use</div>
@@ -477,7 +479,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
             </section>
           </div>
 
-          <aside class="ginko:min-w-0 ginko:space-y-5">
+          <aside class="ginko:min-w-0 ginko:space-y-6">
             <section
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
@@ -485,7 +487,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 class="ginko:flex ginko:items-center ginko:gap-2 ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3"
               >
                 <Workflow class="ginko:size-4 ginko:text-muted-foreground" />
-                <h2 class="ginko:text-sm ginko:font-semibold">Operations status</h2>
+                <h2 class="studio-text-title">Operations status</h2>
               </div>
               <div class="ginko:space-y-3 ginko:p-4">
                 <div
@@ -543,7 +545,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
               <div class="ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3">
-                <h2 class="ginko:text-sm ginko:font-semibold">Recently published</h2>
+                <h2 class="studio-text-title">Recently published</h2>
               </div>
               <div
                 v-if="overview?.recentPublished?.length"
@@ -583,7 +585,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
               <div class="ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3">
-                <h2 class="ginko:text-sm ginko:font-semibold">Recent activity</h2>
+                <h2 class="studio-text-title">Recent activity</h2>
               </div>
               <div v-if="recentActivity.length" class="ginko:divide-y ginko:divide-border/70">
                 <div v-for="item in recentActivity" :key="item._id" class="ginko:px-4 ginko:py-3">

@@ -72,13 +72,10 @@ const settings = props.admin
                 <span class="ginko:text-sm ginko:font-medium ginko:truncate">{{
                   target.name
                 }}</span>
-                <Badge
-                  :variant="target.enabled ? 'default' : 'secondary'"
-                  class="ginko:text-[10px]"
-                >
+                <Badge :variant="target.enabled ? 'default' : 'secondary'" class="ginko:text-xs">
                   {{ target.enabled ? 'Enabled' : 'Disabled' }}
                 </Badge>
-                <Badge variant="outline" class="ginko:text-[10px]">
+                <Badge variant="outline" class="ginko:text-xs">
                   {{ target.environment }}
                 </Badge>
               </div>
@@ -141,7 +138,7 @@ const settings = props.admin
               <div class="ginko:flex ginko:items-center ginko:gap-2 ginko:min-w-0">
                 <Badge
                   :variant="job.status === 'failed' ? 'destructive' : 'secondary'"
-                  class="ginko:text-[10px]"
+                  class="ginko:text-xs"
                 >
                   {{ job.status }}
                 </Badge>

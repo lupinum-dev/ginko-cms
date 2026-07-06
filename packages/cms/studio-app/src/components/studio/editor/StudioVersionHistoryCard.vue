@@ -21,7 +21,7 @@ const editor = useStudioEntryEditorContext()
     </template>
     <div
       v-if="editor.history.versions.length === 0"
-      class="ginko:mt-4 ginko:text-[12px] ginko:text-muted-foreground"
+      class="ginko:mt-4 ginko:text-xs ginko:text-muted-foreground"
     >
       No versions yet.
     </div>
@@ -29,29 +29,31 @@ const editor = useStudioEntryEditorContext()
       v-else
       class="ginko:mt-4 ginko:overflow-hidden ginko:rounded-md ginko:border ginko:border-border/40"
     >
-      <StudioRow
+      <Item
         v-for="(version, idx) in editor.history.versions.slice(0, 3)"
         :key="version._id"
-        density="compact"
-        :class="[Number(idx) > 0 && 'ginko:border-t ginko:border-border/30']"
+        size="xs"
+        :class="[Number(idx) > 0 && 'ginko:border-t ginko:border-border/30', 'ginko:flex-nowrap']"
       >
-        <template #title>
-          v{{ version.version }}
-          <span v-if="version.isCurrentPublished" class="ginko:ml-1 ginko:text-success-fg"
-            >Live</span
-          >
-        </template>
-        <template #description>
-          <NuxtTime
-            :datetime="version.createdAt"
-            :locale="editor.loader.dateLocale"
-            month="short"
-            day="numeric"
-            hour="2-digit"
-            minute="2-digit"
-          />
-        </template>
-        <template #actions>
+        <ItemContent>
+          <ItemTitle>
+            v{{ version.version }}
+            <span v-if="version.isCurrentPublished" class="ginko:ml-1 ginko:text-success-fg">
+              Live
+            </span>
+          </ItemTitle>
+          <ItemDescription>
+            <NuxtTime
+              :datetime="version.createdAt"
+              :locale="editor.loader.dateLocale"
+              month="short"
+              day="numeric"
+              hour="2-digit"
+              minute="2-digit"
+            />
+          </ItemDescription>
+        </ItemContent>
+        <ItemActions>
           <Button
             variant="ghost"
             size="icon"
@@ -60,8 +62,8 @@ const editor = useStudioEntryEditorContext()
           >
             <Ellipsis class="ginko:size-4" />
           </Button>
-        </template>
-      </StudioRow>
+        </ItemActions>
+      </Item>
     </div>
   </StudioInspectorSection>
 </template>

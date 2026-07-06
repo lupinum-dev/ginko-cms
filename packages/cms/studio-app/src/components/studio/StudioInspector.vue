@@ -43,7 +43,7 @@ watch(
 
     <aside
       v-if="open"
-      class="ginko:fixed ginko:inset-y-0 ginko:right-0 ginko:z-50 ginko:w-80 ginko:max-w-[88vw] ginko:border-l ginko:bg-muted/20 ginko:transition-transform ginko:lg:static ginko:lg:z-auto ginko:lg:w-72 ginko:lg:pl-3"
+      class="ginko:fixed ginko:inset-y-0 ginko:right-0 ginko:z-50 ginko:w-96 ginko:max-w-[92vw] ginko:border-l ginko:bg-muted/20 ginko:transition-transform ginko:lg:static ginko:lg:z-auto ginko:lg:w-80 ginko:lg:pl-4"
       :class="
         inspectorOpen ? 'ginko:translate-x-0' : 'ginko:translate-x-full ginko:lg:translate-x-0'
       "

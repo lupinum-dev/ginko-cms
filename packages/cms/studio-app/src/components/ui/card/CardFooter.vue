@@ -11,7 +11,12 @@ const props = defineProps<{
 <template>
   <div
     data-slot="card-footer"
-    :class="cn('ginko:flex ginko:items-center ginko:px-6 ginko:[.border-t]:pt-6', props.class)"
+    :class="
+      cn(
+        'ginko:flex ginko:items-center ginko:px-(--card-spacing) ginko:[.border-t]:pt-(--card-spacing)',
+        props.class,
+      )
+    "
   >
     <slot />
   </div>

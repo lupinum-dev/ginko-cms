@@ -13,7 +13,7 @@ const props = defineProps<{
     data-slot="card-header"
     :class="
       cn(
-        'ginko:@container/card-header ginko:grid ginko:auto-rows-min ginko:grid-rows-[auto_auto] ginko:items-start ginko:gap-1.5 ginko:px-6 ginko:has-data-[slot=card-action]:grid-cols-[1fr_auto] ginko:[.border-b]:pb-6',
+        'ginko:@container/card-header ginko:grid ginko:auto-rows-min ginko:items-start ginko:gap-1 ginko:px-(--card-spacing) ginko:has-data-[slot=card-action]:grid-cols-[1fr_auto] ginko:has-data-[slot=card-description]:grid-rows-[auto_auto] ginko:[.border-b]:pb-(--card-spacing)',
         props.class,
       )
     "

@@ -25,7 +25,7 @@ defineProps<{
       <div class="ginko:mt-0.5">{{ diagnostic.message }}</div>
       <div
         v-if="diagnostic.href || diagnostic.path"
-        class="ginko:mt-1 ginko:truncate ginko:font-mono ginko:text-[10px] ginko:opacity-75"
+        class="ginko:mt-1 ginko:truncate ginko:font-mono ginko:text-xs ginko:opacity-75"
       >
         {{ diagnostic.href || diagnostic.path }}
       </div>

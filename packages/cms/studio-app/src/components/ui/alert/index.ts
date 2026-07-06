@@ -6,7 +6,7 @@ export { default as AlertDescription } from './AlertDescription.vue'
 export { default as AlertTitle } from './AlertTitle.vue'
 
 export const alertVariants = cva(
-  'ginko:relative ginko:w-full ginko:rounded-lg ginko:border ginko:px-4 ginko:py-3 ginko:text-sm ginko:grid ginko:has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] ginko:grid-cols-[0_1fr] ginko:has-[>svg]:gap-x-3 ginko:gap-y-0.5 ginko:items-start ginko:[&>svg]:size-4 ginko:[&>svg]:translate-y-0.5 ginko:[&>svg]:text-current',
+  'ginko:relative ginko:grid ginko:w-full ginko:grid-cols-[0_1fr] ginko:items-start ginko:gap-y-0.5 ginko:rounded-lg ginko:border ginko:px-4 ginko:py-3 ginko:text-sm ginko:has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] ginko:has-[>svg]:gap-x-3 ginko:[&>svg]:size-4 ginko:[&>svg]:translate-y-0.5 ginko:[&>svg]:text-current',
   {
     variants: {
       variant: {

@@ -115,7 +115,7 @@ function updateField(fieldKey: string, value: unknown) {
         </span>
         <Badge
           :variant="side === 'primary' ? 'success' : 'soft'"
-          class="studio-locale-panel__role-badge ginko:shrink-0 ginko:rounded-md ginko:text-[10px] ginko:font-semibold"
+          class="studio-locale-panel__role-badge ginko:shrink-0 ginko:rounded-md ginko:text-xs ginko:font-semibold"
         >
           {{ side === 'primary' ? 'Source of truth' : 'Translation' }}
         </Badge>

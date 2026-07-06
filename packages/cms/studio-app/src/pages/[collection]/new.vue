@@ -481,7 +481,7 @@ if (typeof window !== 'undefined') {
         class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm ginko:text-muted-foreground"
       >
         <code
-          class="ginko:rounded ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-[11px]"
+          class="ginko:rounded ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-xs"
           >{{ defaultLocale.toUpperCase() }}</code
         >
         <span v-if="showDefaultLocaleLabel">{{ defaultLocaleLabel }}</span>
@@ -667,7 +667,7 @@ if (typeof window !== 'undefined') {
           class="ginko:flex ginko:items-center ginko:gap-3 ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-3"
         >
           <span
-            class="ginko:font-mono ginko:text-[11px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground"
+            class="ginko:font-mono ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground"
           >
             {{ defaultLocale.toUpperCase() }}
           </span>

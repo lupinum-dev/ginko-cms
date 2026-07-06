@@ -9,7 +9,10 @@ const props = defineProps<{
 </script>
 
 <template>
-  <h2 data-slot="card-title" :class="cn('ginko:leading-none ginko:font-semibold', props.class)">
+  <h2
+    data-slot="card-title"
+    :class="cn('ginko:text-base ginko:leading-none ginko:font-semibold', props.class)"
+  >
     <slot />
   </h2>
 </template>

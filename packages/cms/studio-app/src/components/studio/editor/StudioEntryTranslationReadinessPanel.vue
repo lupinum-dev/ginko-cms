@@ -43,7 +43,7 @@ const emit = defineEmits<{
           class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2"
         >
           <div class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2">
-            <Badge variant="outline" class="ginko:text-[10px] ginko:font-mono">
+            <Badge variant="outline" class="ginko:text-xs ginko:font-mono">
               {{ localeState.locale }}
             </Badge>
             <span class="ginko:text-sm ginko:font-medium">{{ localeState.label }}</span>
@@ -95,28 +95,28 @@ const emit = defineEmits<{
           <Badge
             v-if="!localeState.exists"
             variant="outline"
-            class="ginko:border-warning/40 ginko:text-warning-fg ginko:text-[10px]"
+            class="ginko:border-warning/40 ginko:text-warning-fg ginko:text-xs"
           >
             Missing locale
           </Badge>
           <Badge
             v-if="localeState.missingRoute"
             variant="outline"
-            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-[10px]"
+            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-xs"
           >
             Missing route
           </Badge>
           <Badge
             v-if="localeState.parentBlocked"
             variant="outline"
-            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-[10px]"
+            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-xs"
           >
             Parent blocked
           </Badge>
           <Badge
             v-if="localeState.missingFields.length"
             variant="outline"
-            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-[10px]"
+            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-xs"
           >
             Missing fields
           </Badge>

@@ -97,7 +97,7 @@ function selectCollection(slug: string) {
               <div class="ginko:text-sm ginko:font-medium ginko:truncate">
                 {{ collection.label }}
               </div>
-              <div class="ginko:text-[11px] ginko:text-muted-foreground ginko:truncate">
+              <div class="ginko:text-xs ginko:text-muted-foreground ginko:truncate">
                 {{
                   collection.type === 'tree'
                     ? t('ginkoCms.studio.collectionsPage.typeTree')

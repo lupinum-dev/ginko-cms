@@ -56,7 +56,7 @@ const admin = proxyRefs(useStudioSettingsAdmin())
         <div v-else class="ginko:space-y-10">
           <section>
             <div class="ginko:mb-4">
-              <h2 class="ginko:text-sm ginko:font-semibold">
+              <h2 class="studio-text-title">
                 {{ admin.t('ginkoCms.studio.settingsPage.peopleAccessTitle') }}
               </h2>
               <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
@@ -70,7 +70,7 @@ const admin = proxyRefs(useStudioSettingsAdmin())
 
           <section>
             <div class="ginko:mb-4">
-              <h2 class="ginko:text-sm ginko:font-semibold">
+              <h2 class="studio-text-title">
                 {{ admin.t('ginkoCms.studio.settingsPage.localizationTitle') }}
               </h2>
               <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
@@ -85,7 +85,7 @@ const admin = proxyRefs(useStudioSettingsAdmin())
 
           <section>
             <div class="ginko:mb-4">
-              <h2 class="ginko:text-sm ginko:font-semibold">
+              <h2 class="studio-text-title">
                 {{ admin.t('ginkoCms.studio.settingsPage.websiteConnectionsTitle') }}
               </h2>
               <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
@@ -99,7 +99,7 @@ const admin = proxyRefs(useStudioSettingsAdmin())
 
           <section>
             <div class="ginko:mb-4">
-              <h2 class="ginko:text-sm ginko:font-semibold">
+              <h2 class="studio-text-title">
                 {{ admin.t('ginkoCms.studio.settingsPage.advancedSystemTitle') }}
               </h2>
               <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">

@@ -99,9 +99,7 @@ function importRunTitle(run: ImportRun): string {
             <div
               class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
             >
-              <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
-                Imports
-              </div>
+              <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">Imports</div>
               <div class="ginko:text-lg ginko:font-semibold ginko:tabular-nums">
                 {{ overview.totalRuns }}
               </div>
@@ -109,7 +107,7 @@ function importRunTitle(run: ImportRun): string {
             <div
               class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
             >
-              <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
+              <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
                 Previewed / imported
               </div>
               <div class="ginko:text-lg ginko:font-semibold ginko:tabular-nums">
@@ -119,7 +117,7 @@ function importRunTitle(run: ImportRun): string {
             <div
               class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
             >
-              <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
+              <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
                 Blocked / failed
               </div>
               <div class="ginko:text-lg ginko:font-semibold ginko:tabular-nums">
@@ -129,9 +127,7 @@ function importRunTitle(run: ImportRun): string {
             <div
               class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
             >
-              <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
-                Warnings
-              </div>
+              <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">Warnings</div>
               <div class="ginko:text-lg ginko:font-semibold ginko:tabular-nums">
                 {{ overview.totalWarnings }}
               </div>
@@ -139,7 +135,7 @@ function importRunTitle(run: ImportRun): string {
             <div
               class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
             >
-              <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
+              <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
                 Published entries
               </div>
               <div class="ginko:text-lg ginko:font-semibold ginko:tabular-nums">
@@ -205,7 +201,7 @@ function importRunTitle(run: ImportRun): string {
                   </Badge>
                   <Badge v-if="row.run.publish" variant="outline">publish</Badge>
                 </div>
-                <h2 class="ginko:mt-2 ginko:text-sm ginko:font-semibold">
+                <h2 class="ginko:mt-2 studio-text-title">
                   {{ row.title }}
                 </h2>
                 <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
@@ -231,7 +227,7 @@ function importRunTitle(run: ImportRun): string {
               <div
                 class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
               >
-                <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
+                <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
                   Collections
                 </div>
                 <div class="ginko:text-sm ginko:font-medium">
@@ -241,23 +237,19 @@ function importRunTitle(run: ImportRun): string {
               <div
                 class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
               >
-                <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
-                  Entries
-                </div>
+                <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">Entries</div>
                 <div class="ginko:text-sm ginko:font-medium">{{ row.run.entryCount ?? 0 }}</div>
               </div>
               <div
                 class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
               >
-                <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
-                  Assets
-                </div>
+                <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">Assets</div>
                 <div class="ginko:text-sm ginko:font-medium">{{ row.run.assetCount ?? 0 }}</div>
               </div>
               <div
                 class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
               >
-                <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
+                <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
                   Blockers
                 </div>
                 <div class="ginko:text-sm ginko:font-medium">{{ row.summary.blockers }}</div>
@@ -265,7 +257,7 @@ function importRunTitle(run: ImportRun): string {
               <div
                 class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2"
               >
-                <div class="ginko:text-[11px] ginko:uppercase ginko:text-muted-foreground">
+                <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
                   Published
                 </div>
                 <div class="ginko:text-sm ginko:font-medium">{{ row.summary.published }}</div>
@@ -345,8 +337,8 @@ function importRunTitle(run: ImportRun): string {
                     class="ginko:px-3 ginko:py-2"
                   >
                     <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
-                      <code class="ginko:text-[11px]">{{ entry.key }}</code>
-                      <Badge variant="outline" class="ginko:text-[10px]">{{ entry.status }}</Badge>
+                      <code class="ginko:text-xs">{{ entry.key }}</code>
+                      <Badge variant="outline" class="ginko:text-xs">{{ entry.status }}</Badge>
                     </div>
                     <ul
                       v-if="entry.changes.length"

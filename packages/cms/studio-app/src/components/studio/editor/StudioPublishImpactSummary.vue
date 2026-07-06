@@ -90,38 +90,34 @@ defineProps<{
         title="Developer diagnostics"
       >
         <div v-if="publishImpact.cacheTags.length">
-          <div class="ginko:text-[10px] ginko:uppercase ginko:text-muted-foreground">
-            Cache tags
-          </div>
+          <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">Cache tags</div>
           <div class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-1">
             <Badge
               v-for="cacheTag in publishImpact.cacheTags"
               :key="`cache:${cacheTag}`"
               variant="outline"
-              class="ginko:font-mono ginko:text-[10px]"
+              class="ginko:font-mono ginko:text-xs"
             >
               {{ cacheTag }}
             </Badge>
           </div>
         </div>
         <div v-if="publishImpact.events.length" class="ginko:mt-2">
-          <div class="ginko:text-[10px] ginko:uppercase ginko:text-muted-foreground">Events</div>
+          <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">Events</div>
           <div class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-1">
             <Badge
               v-for="eventName in publishImpact.events"
               :key="`event:${eventName}`"
               variant="outline"
-              class="ginko:font-mono ginko:text-[10px]"
+              class="ginko:font-mono ginko:text-xs"
             >
               {{ eventName }}
             </Badge>
           </div>
         </div>
         <div v-if="previewScope === 'publish' && publishReview.previewHash" class="ginko:mt-2">
-          <div class="ginko:text-[10px] ginko:uppercase ginko:text-muted-foreground">
-            Preview hash
-          </div>
-          <div class="ginko:mt-1 ginko:font-mono ginko:text-[10px] ginko:text-muted-foreground">
+          <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">Preview hash</div>
+          <div class="ginko:mt-1 ginko:font-mono ginko:text-xs ginko:text-muted-foreground">
             {{ publishReview.previewHash.slice(0, 32) }}
           </div>
         </div>
@@ -136,7 +132,7 @@ defineProps<{
           class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2"
         >
           <div class="ginko:flex ginko:items-center ginko:gap-2">
-            <Badge variant="outline" class="ginko:text-[10px] ginko:font-mono">
+            <Badge variant="outline" class="ginko:text-xs ginko:font-mono">
               {{ localeImpact.locale }}
             </Badge>
             <Badge variant="outline" :class="statusToneClass(localeImpact.status)">
@@ -154,28 +150,28 @@ defineProps<{
           class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-2"
         >
           <div>
-            <div class="ginko:text-[10px] ginko:font-medium ginko:uppercase">Affected page</div>
+            <div class="ginko:text-xs ginko:font-medium ginko:uppercase">Affected page</div>
             <div class="ginko:mt-0.5 ginko:truncate ginko:font-mono">
               {{ localeImpact.currentHref || localeImpact.currentPath || 'none' }} ->
               {{ localeImpact.nextHref || localeImpact.nextPath || 'none' }}
             </div>
           </div>
           <div>
-            <div class="ginko:text-[10px] ginko:font-medium ginko:uppercase">
+            <div class="ginko:text-xs ginko:font-medium ginko:uppercase">
               Published website content
             </div>
             <div class="ginko:mt-0.5 ginko:flex ginko:flex-wrap ginko:gap-1">
-              <Badge variant="outline" class="ginko:text-[10px]">
+              <Badge variant="outline" class="ginko:text-xs">
                 Sitemap {{ localeImpact.sitemap.before ? 'in' : 'out' }}->{{
                   localeImpact.sitemap.after ? 'in' : 'out'
                 }}
               </Badge>
-              <Badge variant="outline" class="ginko:text-[10px]">
+              <Badge variant="outline" class="ginko:text-xs">
                 Search {{ localeImpact.search.before ? 'in' : 'out' }}->{{
                   localeImpact.search.after ? 'in' : 'out'
                 }}
               </Badge>
-              <Badge variant="outline" class="ginko:text-[10px]">
+              <Badge variant="outline" class="ginko:text-xs">
                 Nav {{ localeImpact.nav.before ? 'in' : 'out' }}->{{
                   localeImpact.nav.after ? 'in' : 'out'
                 }}

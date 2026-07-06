@@ -213,7 +213,7 @@ function importToneClass(status: string) {
               : dataOnlyCapabilities"
             :key="capability"
             variant="outline"
-            class="ginko:text-[10px]"
+            class="ginko:text-xs"
           >
             {{ capability }}
           </Badge>
@@ -281,7 +281,7 @@ function importToneClass(status: string) {
               v-for="locale in selectedLocales"
               :key="locale"
               variant="outline"
-              class="ginko:font-mono ginko:text-[10px]"
+              class="ginko:font-mono ginko:text-xs"
             >
               {{ locale }}
               <span
@@ -312,7 +312,7 @@ function importToneClass(status: string) {
               <dd class="ginko:font-mono ginko:text-foreground">{{ value }}</dd>
             </div>
           </dl>
-          <p class="ginko:mt-2 ginko:text-[11px] ginko:leading-relaxed ginko:text-muted-foreground">
+          <p class="ginko:mt-2 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
             Public routes, redirects, sitemap, search, and navigation diagnostics are evaluated from
             these developer-managed settings.
           </p>
@@ -325,9 +325,7 @@ function importToneClass(status: string) {
               <Label class="ginko:text-xs ginko:text-muted-foreground"
                 >Published website content</Label
               >
-              <p
-                class="ginko:mt-1 ginko:text-[11px] ginko:leading-relaxed ginko:text-muted-foreground"
-              >
+              <p class="ginko:mt-1 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
                 Public reads use active published website content only. Draft saves do not change
                 these published rows.
               </p>
@@ -370,9 +368,7 @@ function importToneClass(status: string) {
           <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
             <div>
               <Label class="ginko:text-xs ginko:text-muted-foreground">Last content import</Label>
-              <p
-                class="ginko:mt-1 ginko:text-[11px] ginko:leading-relaxed ginko:text-muted-foreground"
-              >
+              <p class="ginko:mt-1 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
                 Imports apply content under this developer-managed content setup. Unknown fields and
                 blocked relations are reported instead of changing the content setup.
               </p>
@@ -407,7 +403,7 @@ function importToneClass(status: string) {
             </div>
           </dl>
           <StudioDeveloperDetails v-if="lastImport" class="ginko:mt-3" :framed="false">
-            <p class="ginko:truncate ginko:font-mono ginko:text-[11px] ginko:text-muted-foreground">
+            <p class="ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground">
               {{ lastImport.importRunId }}
             </p>
           </StudioDeveloperDetails>

@@ -42,7 +42,7 @@ const sectionValue = computed(() => asFieldContext(value.value))
       class="ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:px-3 ginko:py-2 ginko:text-left"
     >
       <div>
-        <div class="ginko:text-sm ginko:font-semibold ginko:text-foreground">
+        <div class="studio-text-title ginko:text-foreground">
           {{ label }}
         </div>
         <p v-if="field.description" class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">

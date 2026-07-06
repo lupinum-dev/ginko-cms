@@ -86,8 +86,10 @@
   --docs-sidebar-width-collapsed: 4.5rem;
   --docs-sidebar-width: var(--docs-sidebar-width-expanded);
 
-  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
-  --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+  --font-body:
+    'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-heading:
+    'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
 
@@ -130,7 +132,14 @@
 
 .ginko-cms .studio-page-content {
   width: 100%;
-  max-width: 80rem;
+  max-width: 96rem;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.ginko-cms .studio-page-content--wide {
+  width: 100%;
+  max-width: 112rem;
   min-width: 0;
   margin-inline: auto;
 }
@@ -142,48 +151,58 @@
 /* ──────────────────────────────────────────────────────────────────────────
  * Studio type ladder
  *
- * Five steps. Every textual element in the studio shell picks one — never
- * a free-form size. Apply via class (`studio-text-*`) or compose Tailwind
- * (`text-[13px] font-semibold` is allowed; `text-[14.5px]` is not).
+ * Seven steps. Every textual element in the studio shell picks one — never
+ * a free-form size. Apply via class (`studio-text-*`) or the matching
+ * scoped Tailwind token.
  *
- *   display   18px / 600 / -0.01em   → page hero, only used in empty home
- *   title     13px / 600 /  0        → section headers, card titles, breadcrumb leaf
- *   body      13px / 400 /  0        → form fields, button labels, default text
- *   label     12px / 500 /  0        → field labels, secondary controls
- *   caption   11px / 500 /  0.02em   → helpers, timestamps, locale codes
- *   eyebrow   10px / 600 /  0.10em   → section group labels (CONTENT, MANAGE)
+ *   display     32px / 600 / 0 → composed empty states and dashboard hero copy
+ *   page-title  18px / 600 / 0 → page headers and editor top bar leaf titles
+ *   title       16px / 600 / 0 → section headers, card titles
+ *   body        14px / 400 / 0 → form fields, button labels, default text
+ *   label       14px / 500 / 0 → field labels, secondary controls
+ *   caption     12px / 500 / 0 → helpers, timestamps, locale codes
+ *   eyebrow     12px / 600 / 0 → section group labels (CONTENT, MANAGE)
  * ──────────────────────────────────────────────────────────────────────── */
 .ginko-cms .studio-text-display {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+.ginko-cms .studio-text-page-title {
   font-size: 1.125rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   line-height: 1.3;
 }
 .ginko-cms .studio-text-title {
-  font-size: 0.8125rem;
+  font-size: 1rem;
   font-weight: 600;
+  letter-spacing: 0;
   line-height: 1.35;
 }
 .ginko-cms .studio-text-body {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 400;
+  letter-spacing: 0;
   line-height: 1.5;
 }
 .ginko-cms .studio-text-label {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 500;
+  letter-spacing: 0;
   line-height: 1.4;
 }
 .ginko-cms .studio-text-caption {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   line-height: 1.4;
 }
 .ginko-cms .studio-text-eyebrow {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   text-transform: uppercase;
   line-height: 1.2;
 }
@@ -400,10 +419,11 @@
   --space-xs: 0.25rem; /* 4px  — chip↔chip, label↔input fine gap */
   --space-sm: 0.5rem; /* 8px  — icon↔text, intra-row */
   --space-md: 0.75rem; /* 12px — between related fields */
-  --space-lg: 1rem; /* 16px — card inner padding (compact) */
-  --space-xl: 1.25rem; /* 20px — card inner padding (default) */
-  --space-2xl: 1.5rem; /* 24px — canvas L/R padding */
-  --space-3xl: 2rem; /* 32px — canvas bottom padding, between sections */
+  --space-lg: 1rem; /* 16px — compact card inner padding */
+  --space-xl: 1.5rem; /* 24px — default card inner padding */
+  --space-2xl: 2rem; /* 32px — canvas L/R padding */
+  --space-3xl: 2.5rem; /* 40px — canvas bottom padding, between sections */
+  --space-4xl: 3rem; /* 48px — wide-screen canvas breathing room */
 
   /* Border weight rhythm — every border decision picks one of three opacities. */
   --border-strong: var(--border); /* clear separation, headers, primary card edges */

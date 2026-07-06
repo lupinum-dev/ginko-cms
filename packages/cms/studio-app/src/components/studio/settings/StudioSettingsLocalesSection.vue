@@ -126,7 +126,7 @@ const settings = props.admin
               />
               <Badge
                 v-if="locale.isDefault || locale.code === settings.defaultLocale"
-                class="ginko:text-[10px]"
+                class="ginko:text-xs"
               >
                 {{ settings.t('ginkoCms.common.default') }}
               </Badge>
@@ -157,7 +157,7 @@ const settings = props.admin
             </span>
             <Badge
               v-if="locale.isDefault || locale.code === settings.defaultLocale"
-              class="ginko:justify-self-end ginko:text-[10px]"
+              class="ginko:justify-self-end ginko:text-xs"
             >
               {{ settings.t('ginkoCms.common.default') }}
             </Badge>

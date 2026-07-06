@@ -128,7 +128,7 @@ function entryLink(item: ActivityItem): string | null {
           class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
         >
           <div
-            class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-[11px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:md:grid"
+            class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:md:grid"
           >
             <div>Activity</div>
             <div class="ginko:text-right">When</div>
@@ -152,7 +152,7 @@ function entryLink(item: ActivityItem): string | null {
               <div
                 class="ginko:mt-0.5 ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
               >
-                <Badge v-if="item.collectionId" variant="outline" class="ginko:text-[10px]">
+                <Badge v-if="item.collectionId" variant="outline" class="ginko:text-xs">
                   {{ item.collectionId }}
                 </Badge>
               </div>

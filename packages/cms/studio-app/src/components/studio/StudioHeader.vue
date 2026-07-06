@@ -67,7 +67,7 @@ function openPalette() {
       />
       <nav
         v-if="!isEntryEditor"
-        class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2 ginko:text-[13px]"
+        class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2 ginko:text-sm"
       >
         <template v-for="(item, index) in breadcrumb" :key="index">
           <ChevronRight

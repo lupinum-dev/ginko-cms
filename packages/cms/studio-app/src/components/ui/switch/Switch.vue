@@ -23,7 +23,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits) as unknown as Reco
     v-bind="forwarded"
     :class="
       cn(
-        'ginko:peer ginko:inline-flex ginko:h-5 ginko:w-9 ginko:shrink-0 ginko:cursor-pointer ginko:items-center ginko:rounded-full ginko:border ginko:border-transparent ginko:transition-colors ginko:focus-visible:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring/50 ginko:focus-visible:ring-offset-1 ginko:focus-visible:ring-offset-background ginko:disabled:cursor-not-allowed ginko:disabled:opacity-50 ginko:data-[state=checked]:bg-primary ginko:data-[state=unchecked]:bg-input',
+        'ginko:peer ginko:inline-flex ginko:h-5 ginko:w-9 ginko:shrink-0 ginko:cursor-pointer ginko:items-center ginko:rounded-full ginko:border ginko:border-transparent ginko:transition-colors ginko:focus-visible:outline-none ginko:focus-visible:ring-[3px] ginko:focus-visible:ring-ring/50 ginko:disabled:cursor-not-allowed ginko:disabled:opacity-50 ginko:data-[state=checked]:bg-primary ginko:data-[state=unchecked]:bg-input',
         props.class,
       )
     "

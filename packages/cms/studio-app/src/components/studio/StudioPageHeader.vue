@@ -18,7 +18,7 @@ const slots = useSlots()
   <header
     :class="
       cn(
-        'studio-page-header ginko:min-h-14 ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-card ginko:px-5 ginko:py-3',
+        'studio-page-header ginko:min-h-16 ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-card ginko:px-6 ginko:py-4',
         $props.class,
       )
     "
@@ -30,21 +30,19 @@ const slots = useSlots()
         <slot name="breadcrumb" />
         <div
           v-if="eyebrow || slots.eyebrow"
-          class="ginko:mb-0.5 ginko:truncate ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:tracking-[0.1em] ginko:text-muted-foreground/70"
+          class="studio-text-eyebrow ginko:mb-1 ginko:truncate ginko:text-muted-foreground/70"
         >
           <slot name="eyebrow">{{ eyebrow }}</slot>
         </div>
         <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
-          <h1
-            class="ginko:truncate ginko:text-[15px] ginko:font-semibold ginko:leading-tight ginko:text-foreground"
-          >
+          <h1 class="studio-text-page-title ginko:truncate ginko:text-foreground">
             {{ title }}
           </h1>
           <slot name="badges" />
         </div>
         <p
           v-if="description || slots.description"
-          class="ginko:mt-1 ginko:line-clamp-2 ginko:text-[12px] ginko:leading-snug ginko:text-muted-foreground/80"
+          class="ginko:mt-1 ginko:line-clamp-2 ginko:text-sm ginko:leading-snug ginko:text-muted-foreground/80"
         >
           <slot name="description">{{ description }}</slot>
         </p>

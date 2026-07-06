@@ -122,7 +122,7 @@ const advancedEditor = useStudioAdvancedEditor()
         </div>
         <div class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:sm:grid-cols-3">
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
-            <div class="ginko:text-[10px] ginko:uppercase ginko:text-muted-foreground">
+            <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
               Locales checked
             </div>
             <div class="ginko:text-sm ginko:font-medium ginko:tabular-nums">
@@ -130,7 +130,7 @@ const advancedEditor = useStudioAdvancedEditor()
             </div>
           </div>
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
-            <div class="ginko:text-[10px] ginko:uppercase ginko:text-muted-foreground">
+            <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
               Published locales
             </div>
             <div class="ginko:text-sm ginko:font-medium ginko:tabular-nums">
@@ -138,7 +138,7 @@ const advancedEditor = useStudioAdvancedEditor()
             </div>
           </div>
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
-            <div class="ginko:text-[10px] ginko:uppercase ginko:text-muted-foreground">
+            <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
               Blocking rows
             </div>
             <div class="ginko:text-sm ginko:font-medium ginko:tabular-nums">

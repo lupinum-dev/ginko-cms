@@ -172,12 +172,12 @@ const showAdvancedDetails = computed(
               <span
                 v-for="change in changedFields.slice(0, 8)"
                 :key="change.field"
-                class="ginko:text-[10px] ginko:font-mono ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded"
+                class="ginko:text-xs ginko:font-mono ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded"
                 >{{ change.field }}</span
               >
               <span
                 v-if="changedFields.length > 8"
-                class="ginko:text-[10px] ginko:text-muted-foreground ginko:px-1"
+                class="ginko:text-xs ginko:text-muted-foreground ginko:px-1"
                 >+{{ changedFields.length - 8 }}
                 {{
                   editor.loader.t('ginkoCms.studio.collectionEditor.publishDialogMoreFields')
@@ -250,11 +250,11 @@ const showAdvancedDetails = computed(
           <div class="ginko:font-medium ginko:text-foreground">Developer diagnostics</div>
           <dl class="ginko:mt-3 ginko:grid ginko:grid-cols-2 ginko:gap-2">
             <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
-              <dt class="ginko:text-[10px] ginko:uppercase ginko:text-muted-foreground">Scope</dt>
+              <dt class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">Scope</dt>
               <dd class="ginko:mt-0.5 ginko:text-foreground">{{ publishScopeLabel }}</dd>
             </div>
             <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
-              <dt class="ginko:text-[10px] ginko:uppercase ginko:text-muted-foreground">
+              <dt class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
                 Draft version
               </dt>
               <dd class="ginko:mt-0.5 ginko:font-mono ginko:text-foreground">
@@ -264,7 +264,7 @@ const showAdvancedDetails = computed(
           </dl>
           <div
             v-if="editor.publishing.publishReadiness.previewHash"
-            class="ginko:mt-2 ginko:font-mono ginko:text-[10px] ginko:text-muted-foreground"
+            class="ginko:mt-2 ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
           >
             Preview {{ editor.publishing.publishReadiness.previewHash.slice(0, 24) }}
           </div>

@@ -217,22 +217,22 @@ const settingsLinks = computed(() => sectionLinks('settings'))
 }
 
 :deep([data-sidebar='group-label']) {
-  height: 1.75rem;
+  height: 2rem;
   padding-inline: 0.5rem;
   margin-bottom: 0.25rem;
   color: color-mix(in oklch, var(--sidebar-foreground) 60%, transparent);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 :deep([data-sidebar='menu-button']) {
-  height: 1.875rem;
-  padding-inline: 0.5rem;
-  border-radius: 0.375rem;
+  height: 2.25rem;
+  padding-inline: 0.625rem;
+  border-radius: 0.5rem;
   color: color-mix(in oklch, var(--sidebar-foreground) 70%, transparent);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   gap: 0.625rem;
   transition:
     background-color 150ms ease,
@@ -278,7 +278,7 @@ const settingsLinks = computed(() => sectionLinks('settings'))
   border-radius: 0.25rem;
   background: color-mix(in oklch, var(--sidebar-foreground) 8%, transparent);
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0;
   color: color-mix(in oklch, var(--sidebar-foreground) 55%, transparent);

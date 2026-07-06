@@ -76,7 +76,7 @@ async function handleSignOut() {
             <Avatar class="ginko:size-7 ginko:rounded-full ginko:ring-1 ginko:ring-border/50">
               <AvatarImage v-if="user?.image" :src="user.image" :alt="user?.name" />
               <AvatarFallback
-                class="ginko:rounded-full ginko:bg-primary/10 ginko:text-[10px] ginko:font-semibold ginko:text-primary"
+                class="ginko:rounded-full ginko:bg-primary/10 ginko:text-xs ginko:font-semibold ginko:text-primary"
               >
                 {{ initials }}
               </AvatarFallback>
@@ -84,12 +84,10 @@ async function handleSignOut() {
             <div
               class="ginko:grid ginko:min-w-0 ginko:flex-1 ginko:text-left ginko:leading-tight ginko:group-data-[collapsible=icon]:hidden"
             >
-              <span
-                class="ginko:truncate ginko:text-[13px] ginko:font-medium ginko:text-foreground"
-              >
+              <span class="ginko:truncate ginko:text-sm ginko:font-medium ginko:text-foreground">
                 {{ user?.name ?? 'User' }}
               </span>
-              <span class="ginko:truncate ginko:text-[11px] ginko:text-muted-foreground/70">{{
+              <span class="ginko:truncate ginko:text-xs ginko:text-muted-foreground/70">{{
                 user?.email
               }}</span>
             </div>

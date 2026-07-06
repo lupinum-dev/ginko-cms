@@ -59,6 +59,8 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
 .ginko-cms--auth {
   --background: var(--ginko-cms-background, oklch(1 0 0));
   --foreground: var(--ginko-cms-foreground, oklch(0.145 0 0));
+  --card: var(--ginko-cms-card, oklch(1 0 0));
+  --card-foreground: var(--ginko-cms-card-foreground, oklch(0.145 0 0));
   --muted: var(--ginko-cms-muted, oklch(0.97 0 0));
   --muted-foreground: var(--ginko-cms-muted-foreground, oklch(0.556 0 0));
   --accent: var(--ginko-cms-accent, oklch(0.97 0 0));
@@ -75,7 +77,16 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
   min-height: 100dvh;
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(
+    --font-sans,
+    'Geist',
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif
+  );
+  font-size: 0.875rem;
 }
 
 .cms-auth-layout {
@@ -127,7 +138,7 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
 
 .cms-auth-layout__main {
   width: 100%;
-  max-width: 28rem;
+  max-width: 32rem;
 }
 
 .cms-auth-layout__content {
@@ -208,13 +219,13 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
 .cms-auth-input {
   width: 100%;
   min-width: 0;
-  height: 2.25rem;
+  height: 2rem;
   border: 1px solid var(--input);
-  border-radius: calc(var(--radius) - 2px);
+  border-radius: calc(var(--radius) * 0.8);
   background: transparent;
   padding: 0.25rem 0.75rem;
   color: var(--foreground);
-  font-size: 0.875rem;
+  font-size: 1rem;
   outline: none;
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
   transition:
@@ -236,6 +247,12 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
   opacity: 0.5;
 }
 
+@media (min-width: 768px) {
+  .cms-auth-input {
+    font-size: 0.875rem;
+  }
+}
+
 .cms-auth-password {
   position: relative;
 }
@@ -253,7 +270,7 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: calc(var(--radius) - 2px);
+  border-radius: calc(var(--radius) * 0.8);
   background: transparent;
   padding: 0.5rem;
   color: var(--muted-foreground);
@@ -277,7 +294,7 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
   justify-content: center;
   gap: 0.5rem;
   border: 0;
-  border-radius: calc(var(--radius) - 2px);
+  border-radius: calc(var(--radius) * 0.8);
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
@@ -289,10 +306,10 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
 
 .cms-auth-submit {
   width: 100%;
-  height: 2.25rem;
+  height: 2rem;
   background: var(--primary);
   color: var(--primary-foreground);
-  padding: 0.5rem 1rem;
+  padding: 0.25rem 0.75rem;
   font-size: 0.875rem;
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
 }
@@ -308,16 +325,16 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
 }
 
 .cms-auth-button {
-  height: 2.25rem;
+  height: 2rem;
   background: var(--primary);
   color: var(--primary-foreground);
-  padding: 0.5rem 1rem;
+  padding: 0.25rem 0.75rem;
   font-size: 0.875rem;
 }
 
 .cms-auth-button--sm {
-  height: 2rem;
-  padding: 0 0.75rem;
+  height: 1.75rem;
+  padding: 0 0.625rem;
   font-size: 0.75rem;
 }
 
@@ -403,7 +420,7 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
   }
 
   .cms-auth-layout__content {
-    max-width: 24rem;
+    max-width: 28rem;
     align-self: center;
   }
 }

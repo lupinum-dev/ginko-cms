@@ -24,7 +24,7 @@ defineProps<{
     >
       <div
         v-if="title"
-        class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2 ginko:text-[13px] ginko:font-semibold ginko:text-foreground"
+        class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2 studio-text-title ginko:text-foreground"
       >
         <slot name="icon" />
         <span class="ginko:truncate">{{ title }}</span>

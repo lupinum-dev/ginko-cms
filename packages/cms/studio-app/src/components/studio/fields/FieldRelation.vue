@@ -118,7 +118,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
         <span class="ginko:block ginko:truncate ginko:font-medium">{{ selectedEntry.title }}</span>
         <span
           v-if="selectedEntry.slug"
-          class="ginko:block ginko:truncate ginko:font-mono ginko:text-[11px] ginko:text-muted-foreground"
+          class="ginko:block ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
         >
           {{ selectedEntry.slug }}
         </span>
@@ -140,7 +140,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
           <Input
             v-model="relationSearch"
             :placeholder="t('ginkoCms.studio.fieldRenderer.searchEntries')"
-            class="ginko:h-8 ginko:border-border/40 ginko:bg-card ginko:pl-8 ginko:text-[13px] ginko:shadow-none"
+            class="ginko:h-8 ginko:border-border/40 ginko:bg-card ginko:pl-8 ginko:text-sm ginko:shadow-none"
             @keydown.stop
           />
         </div>
@@ -177,7 +177,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
               relatedEntry.title
             }}</span>
             <span
-              class="ginko:block ginko:truncate ginko:font-mono ginko:text-[11px] ginko:text-muted-foreground"
+              class="ginko:block ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
             >
               {{ relatedEntry.slug || relatedEntry.stableId }}
             </span>

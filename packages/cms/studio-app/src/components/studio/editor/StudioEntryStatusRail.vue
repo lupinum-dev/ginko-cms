@@ -162,11 +162,9 @@ const blockingIssues = computed(() => {
           class="ginko:capitalize"
         />
       </template>
-      <div v-if="entry?.publishedAt" class="ginko:space-y-3 ginko:text-[13px]">
+      <div v-if="entry?.publishedAt" class="ginko:space-y-3 ginko:text-sm">
         <div>
-          <div
-            class="ginko:mb-0.5 ginko:text-[11px] ginko:font-medium ginko:text-muted-foreground/70"
-          >
+          <div class="ginko:mb-0.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground/70">
             Published at
           </div>
           <div class="ginko:font-medium ginko:text-foreground">
@@ -181,13 +179,11 @@ const blockingIssues = computed(() => {
           </div>
         </div>
         <div>
-          <div
-            class="ginko:mb-1.5 ginko:text-[11px] ginko:font-medium ginko:text-muted-foreground/70"
-          >
+          <div class="ginko:mb-1.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground/70">
             Current locale
           </div>
           <div
-            class="ginko:font-mono ginko:text-[11px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
+            class="ginko:font-mono ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
           >
             {{ editor.loader.currentLocale }}
           </div>
@@ -207,7 +203,7 @@ const blockingIssues = computed(() => {
         :href="publicUrl"
         target="_blank"
         rel="noreferrer"
-        class="ginko:mb-3 ginko:inline-flex ginko:items-center ginko:gap-1 ginko:break-all ginko:text-[13px] ginko:leading-relaxed ginko:text-primary ginko:hover:underline"
+        class="ginko:mb-3 ginko:inline-flex ginko:items-center ginko:gap-1 ginko:break-all ginko:text-sm ginko:leading-relaxed ginko:text-primary ginko:hover:underline"
       >
         {{ publicUrl }}
       </a>
@@ -235,11 +231,11 @@ const blockingIssues = computed(() => {
       <div v-if="localeSummaries.length > 0">
         <div class="ginko:mb-4 ginko:flex ginko:items-center ginko:gap-2.5">
           <div
-            class="ginko:flex ginko:size-8 ginko:items-center ginko:justify-center ginko:rounded-full ginko:bg-primary/10 ginko:text-[11px] ginko:font-bold ginko:text-primary ginko:ring-2 ginko:ring-primary"
+            class="ginko:flex ginko:size-8 ginko:items-center ginko:justify-center ginko:rounded-full ginko:bg-primary/10 ginko:text-xs ginko:font-bold ginko:text-primary ginko:ring-2 ginko:ring-primary"
           >
             {{ publishedLocaleCount }}/{{ localeSummaries.length }}
           </div>
-          <span class="ginko:text-[12px] ginko:text-muted-foreground">
+          <span class="ginko:text-xs ginko:text-muted-foreground">
             {{
               publishedLocaleCount === localeSummaries.length
                 ? 'All locales up to date'
@@ -253,7 +249,7 @@ const blockingIssues = computed(() => {
           <span
             v-for="locale in localeSummaries"
             :key="locale.label"
-            class="ginko:inline-flex ginko:items-center ginko:rounded-md ginko:bg-muted/50 ginko:px-2 ginko:py-0.5 ginko:font-mono ginko:text-[11px] ginko:font-semibold ginko:text-muted-foreground"
+            class="ginko:inline-flex ginko:items-center ginko:rounded-md ginko:bg-muted/50 ginko:px-2 ginko:py-0.5 ginko:font-mono ginko:text-xs ginko:font-semibold ginko:text-muted-foreground"
           >
             {{ locale.label }}
           </span>
@@ -265,7 +261,7 @@ const blockingIssues = computed(() => {
             class="ginko:flex ginko:items-center ginko:justify-between ginko:rounded-md ginko:px-2 ginko:py-2 ginko:transition-colors ginko:hover:bg-muted/30"
           >
             <span
-              class="ginko:w-5 ginko:font-mono ginko:text-[11px] ginko:font-semibold ginko:text-muted-foreground/70"
+              class="ginko:w-5 ginko:font-mono ginko:text-xs ginko:font-semibold ginko:text-muted-foreground/70"
             >
               {{ locale.label }}
             </span>
@@ -282,9 +278,7 @@ const blockingIssues = computed(() => {
           </div>
         </div>
       </div>
-      <div v-else class="ginko:text-[13px] ginko:text-muted-foreground">
-        No translation data yet.
-      </div>
+      <div v-else class="ginko:text-sm ginko:text-muted-foreground">No translation data yet.</div>
     </StudioInspectorSection>
 
     <StudioInspectorSection title="Issues">
@@ -296,12 +290,12 @@ const blockingIssues = computed(() => {
       </template>
       <div
         v-if="blockingIssues.length === 0"
-        class="ginko:flex ginko:items-start ginko:gap-2 ginko:text-[13px]"
+        class="ginko:flex ginko:items-start ginko:gap-2 ginko:text-sm"
       >
         <CheckCircle2 class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-success-fg" />
         <div>
           <div class="ginko:font-medium">No blocking issues</div>
-          <div class="ginko:mt-0.5 ginko:text-[12px] ginko:text-muted-foreground/80">
+          <div class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground/80">
             This draft can move forward.
           </div>
         </div>
@@ -313,7 +307,7 @@ const blockingIssues = computed(() => {
           class="ginko:flex ginko:items-start ginko:gap-2.5 ginko:rounded-lg ginko:border ginko:border-warning/25 ginko:bg-warning/10 ginko:p-2.5"
         >
           <AlertCircle class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-warning-fg" />
-          <span class="ginko:text-[12px] ginko:leading-relaxed ginko:text-warning-fg">
+          <span class="ginko:text-xs ginko:leading-relaxed ginko:text-warning-fg">
             {{ issue.message }}
           </span>
         </div>
@@ -321,7 +315,7 @@ const blockingIssues = computed(() => {
           v-if="publicVisibility.isRouteBacked"
           variant="outline"
           size="sm"
-          class="ginko:mt-2 ginko:w-full ginko:border-border/60 ginko:text-[12px] ginko:font-medium ginko:hover:bg-muted/30"
+          class="ginko:mt-2 ginko:w-full ginko:border-border/60 ginko:text-xs ginko:font-medium ginko:hover:bg-muted/30"
           @click="emit('validatePublicRoutes')"
         >
           Check links
@@ -340,7 +334,7 @@ const blockingIssues = computed(() => {
           aria-label="Toggle advanced editor diagnostics"
         />
       </template>
-      <p class="ginko:text-[12px] ginko:leading-relaxed ginko:text-muted-foreground/80">
+      <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground/80">
         Routes, readiness, and version history. Hidden by default.
       </p>
     </StudioInspectorSection>

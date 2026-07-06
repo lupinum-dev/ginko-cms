@@ -122,7 +122,7 @@ function removeAsset(assetId: string) {
         />
         <File v-else class="ginko:size-4 ginko:text-muted-foreground" />
         <span
-          class="ginko:max-w-[120px] ginko:truncate ginko:font-mono ginko:text-[10px] ginko:text-muted-foreground"
+          class="ginko:max-w-[120px] ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
         >
           {{ assetsById.get(assetId)?.filename ?? assetId }}
         </span>

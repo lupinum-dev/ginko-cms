@@ -35,28 +35,21 @@ const props = withDefaults(
   >
     <header
       v-if="title || description || count !== undefined || $slots.header || $slots.actions"
-      class="ginko:flex ginko:min-w-0 ginko:items-start ginko:justify-between ginko:gap-4 ginko:border-b ginko:border-border/30 ginko:bg-muted/20 ginko:px-5 ginko:py-3"
+      class="ginko:flex ginko:min-w-0 ginko:items-start ginko:justify-between ginko:gap-4 ginko:border-b ginko:border-border/30 ginko:bg-muted/20 ginko:px-6 ginko:py-4"
     >
       <slot name="header">
         <div class="ginko:min-w-0">
           <div class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2">
-            <h2
-              v-if="title"
-              class="ginko:truncate ginko:text-[13px] ginko:font-semibold ginko:text-foreground"
-            >
+            <h2 v-if="title" class="studio-text-title ginko:truncate ginko:text-foreground">
               {{ title }}
             </h2>
-            <Badge
-              v-if="count !== undefined"
-              variant="outline"
-              class="ginko:rounded-full ginko:text-[11px]"
-            >
+            <Badge v-if="count !== undefined" variant="outline" class="ginko:rounded-full">
               {{ count }}
             </Badge>
           </div>
           <p
             v-if="description"
-            class="ginko:mt-1 ginko:text-[12px] ginko:leading-5 ginko:text-muted-foreground/80"
+            class="ginko:mt-1 ginko:text-sm ginko:leading-5 ginko:text-muted-foreground/80"
           >
             {{ description }}
           </p>

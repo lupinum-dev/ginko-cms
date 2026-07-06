@@ -98,19 +98,15 @@ const selectedFieldBadges = computed(() => {
               resolveLabel(field)
             }}</span>
             <code
-              class="ginko:text-[10px] ginko:font-mono ginko:text-muted-foreground ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded ginko:shrink-0"
+              class="ginko:text-xs ginko:font-mono ginko:text-muted-foreground ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded ginko:shrink-0"
               >{{ field.type }}</code
             >
-            <span
-              v-if="field.required"
-              class="ginko:text-[10px] ginko:text-destructive ginko:shrink-0"
+            <span v-if="field.required" class="ginko:text-xs ginko:text-destructive ginko:shrink-0"
               >*</span
             >
-            <span
-              v-if="field.width === 'half'"
-              class="ginko:text-[10px] ginko:text-muted-foreground"
-              >{{ t('ginkoCms.studio.collectionsPage.widthHalfLabel') }}</span
-            >
+            <span v-if="field.width === 'half'" class="ginko:text-xs ginko:text-muted-foreground">{{
+              t('ginkoCms.studio.collectionsPage.widthHalfLabel')
+            }}</span>
           </div>
         </div>
       </div>
@@ -133,7 +129,7 @@ const selectedFieldBadges = computed(() => {
               v-for="badge in selectedFieldBadges"
               :key="badge"
               variant="outline"
-              class="ginko:text-[10px]"
+              class="ginko:text-xs"
             >
               {{ badge }}
             </Badge>

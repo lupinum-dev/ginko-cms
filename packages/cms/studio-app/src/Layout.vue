@@ -102,8 +102,8 @@ async function claimCmsOwnership() {
     v-if="studioAccess.status === 'ready'"
     data-testid="cms-studio-ready"
     :style="{
-      '--sidebar-width': '13.75rem',
-      '--sidebar-width-icon': '3.5rem',
+      '--sidebar-width': '16rem',
+      '--sidebar-width-icon': '3rem',
     }"
     :class="[studioClass, 'studio-shell ginko:text-foreground']"
   >

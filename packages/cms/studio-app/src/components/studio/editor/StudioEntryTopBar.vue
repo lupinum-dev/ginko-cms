@@ -138,7 +138,7 @@ function openPublishAllDialog() {
     class="studio-entry-topbar ginko:shrink-0 ginko:border-b ginko:border-border ginko:bg-card"
   >
     <div
-      class="studio-page-content studio-entry-topbar__inner ginko:flex ginko:h-12 ginko:items-center ginko:gap-3 ginko:px-5"
+      class="studio-page-content studio-entry-topbar__inner ginko:flex ginko:h-14 ginko:items-center ginko:gap-3 ginko:px-6"
     >
       <nav
         class="studio-entry-topbar__breadcrumb ginko:flex ginko:min-w-0 ginko:flex-1 ginko:items-center ginko:gap-1.5"

@@ -28,7 +28,7 @@ const modelValue = computed<string | number | undefined>({
     data-slot="textarea"
     :class="
       cn(
-        'ginko:border-input ginko:placeholder:text-muted-foreground ginko:focus-visible:border-ring ginko:focus-visible:ring-ring/50 ginko:aria-invalid:ring-destructive/20 ginko:dark:aria-invalid:ring-destructive/40 ginko:aria-invalid:border-destructive ginko:dark:bg-input/30 ginko:flex ginko:field-sizing-content ginko:min-h-16 ginko:w-full ginko:rounded-lg ginko:border ginko:bg-background/50 ginko:px-2.5 ginko:py-2 ginko:text-sm ginko:transition-[color,box-shadow] ginko:outline-none ginko:focus-visible:ring-[3px] ginko:disabled:cursor-not-allowed ginko:disabled:opacity-50',
+        'ginko:border-input ginko:placeholder:text-muted-foreground ginko:focus-visible:border-ring ginko:focus-visible:ring-ring/50 ginko:aria-invalid:ring-destructive/20 ginko:dark:aria-invalid:ring-destructive/40 ginko:aria-invalid:border-destructive ginko:dark:bg-input/30 ginko:dark:disabled:bg-input/80 ginko:flex ginko:field-sizing-content ginko:min-h-16 ginko:w-full ginko:rounded-lg ginko:border ginko:bg-transparent ginko:px-2.5 ginko:py-2 ginko:text-base ginko:transition-colors ginko:outline-none ginko:focus-visible:ring-[3px] ginko:disabled:cursor-not-allowed ginko:disabled:bg-input/50 ginko:disabled:opacity-50 ginko:md:text-sm',
         props.class,
       )
     "

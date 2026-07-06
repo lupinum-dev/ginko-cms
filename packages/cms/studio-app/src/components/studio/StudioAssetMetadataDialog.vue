@@ -218,7 +218,7 @@ async function saveMetadata() {
               <span v-if="locale.label !== locale.code" class="ginko:max-w-24 ginko:truncate">{{
                 locale.label
               }}</span>
-              <span v-if="locale.isDefault" class="ginko:text-[10px] ginko:text-muted-foreground">
+              <span v-if="locale.isDefault" class="ginko:text-xs ginko:text-muted-foreground">
                 default
               </span>
             </button>

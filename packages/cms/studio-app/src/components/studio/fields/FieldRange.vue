@@ -41,7 +41,7 @@ const value = computed({
       :step="field.step ?? 1"
       class="ginko:w-full ginko:accent-primary"
     />
-    <div class="ginko:flex ginko:justify-between ginko:text-[10px] ginko:text-muted-foreground">
+    <div class="ginko:flex ginko:justify-between ginko:text-xs ginko:text-muted-foreground">
       <span>{{ field.min ?? 0 }}</span>
       <span>{{ field.max ?? 100 }}</span>
     </div>

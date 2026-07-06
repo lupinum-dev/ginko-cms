@@ -633,7 +633,7 @@ defineExpose({
       class="ginko:flex ginko:min-h-12 ginko:shrink-0 ginko:items-center ginko:justify-between ginko:gap-3 ginko:border-b ginko:px-4 ginko:py-2"
     >
       <div class="ginko:min-w-0">
-        <h3 class="ginko:truncate ginko:text-sm ginko:font-semibold">{{ title ?? 'Media' }}</h3>
+        <h3 class="ginko:truncate studio-text-title">{{ title ?? 'Media' }}</h3>
         <p v-if="isPickMode" class="ginko:truncate ginko:text-xs ginko:text-muted-foreground">
           Choose or upload an asset without leaving this entry.
         </p>
@@ -654,7 +654,7 @@ defineExpose({
             <div class="ginko:mb-2">
               <div class="ginko:px-4 ginko:py-1">
                 <span
-                  class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
+                  class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                 >
                   Collections
                 </span>
@@ -663,7 +663,7 @@ defineExpose({
                 <button
                   v-for="item in sidebarCollections"
                   :key="`coll:${item.key}`"
-                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-[13px] ginko:transition-colors"
+                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-sm ginko:transition-colors"
                   :class="
                     isSidebarActive('collections', item.key)
                       ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
@@ -676,7 +676,7 @@ defineExpose({
                     class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60"
                   />
                   <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ item.label }}</span>
-                  <span class="ginko:text-[10px] ginko:tabular-nums ginko:opacity-50">{{
+                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
                     item.count
                   }}</span>
                 </button>
@@ -686,7 +686,7 @@ defineExpose({
             <div v-if="sidebarTags.length > 0" class="ginko:mb-2">
               <div class="ginko:px-4 ginko:py-1">
                 <span
-                  class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
+                  class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                 >
                   Tags
                 </span>
@@ -695,7 +695,7 @@ defineExpose({
                 <button
                   v-for="tag in sidebarTags"
                   :key="`tag:${tag.key}`"
-                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-[13px] ginko:transition-colors"
+                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-sm ginko:transition-colors"
                   :class="
                     isSidebarActive('tags', tag.key)
                       ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
@@ -708,7 +708,7 @@ defineExpose({
                     :style="{ backgroundColor: tag.color }"
                   />
                   <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ tag.label }}</span>
-                  <span class="ginko:text-[10px] ginko:tabular-nums ginko:opacity-50">{{
+                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
                     tag.count
                   }}</span>
                 </button>
@@ -718,7 +718,7 @@ defineExpose({
             <div class="ginko:mb-2">
               <div class="ginko:px-4 ginko:py-1">
                 <span
-                  class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
+                  class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                 >
                   Library views
                 </span>
@@ -727,7 +727,7 @@ defineExpose({
                 <button
                   v-for="item in sidebarFullViews"
                   :key="`full:${item.key}`"
-                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-[13px] ginko:transition-colors"
+                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-sm ginko:transition-colors"
                   :class="
                     isSidebarActive('full', item.key)
                       ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
@@ -740,7 +740,7 @@ defineExpose({
                     class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60"
                   />
                   <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ item.label }}</span>
-                  <span class="ginko:text-[10px] ginko:tabular-nums ginko:opacity-50">{{
+                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
                     item.count
                   }}</span>
                 </button>
@@ -749,7 +749,7 @@ defineExpose({
 
             <div v-if="mode === 'manage'" class="ginko:mx-2 ginko:border-t ginko:pt-2">
               <button
-                class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-[13px] ginko:transition-colors"
+                class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-sm ginko:transition-colors"
                 :class="
                   isSidebarActive('trash', 'trash')
                     ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
@@ -759,7 +759,7 @@ defineExpose({
               >
                 <Trash2 class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60" />
                 <span class="ginko:flex-1 ginko:truncate ginko:text-left">Trash</span>
-                <span class="ginko:text-[10px] ginko:tabular-nums ginko:opacity-50">{{
+                <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
                   trashCount
                 }}</span>
               </button>
@@ -856,7 +856,7 @@ defineExpose({
           <div class="ginko:hidden ginko:items-center ginko:gap-1.5 ginko:sm:flex">
             <select
               v-model="typeFilter"
-              class="ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-[11px] ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground"
+              class="ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-xs ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground"
             >
               <option value="all">All types</option>
               <option value="image">Images</option>
@@ -864,7 +864,7 @@ defineExpose({
             </select>
             <select
               v-model="timeFilter"
-              class="ginko:hidden ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-[11px] ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground ginko:lg:block"
+              class="ginko:hidden ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-xs ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground ginko:lg:block"
             >
               <option value="any">Any time</option>
               <option value="24h">Last 24h</option>
@@ -874,7 +874,7 @@ defineExpose({
             </select>
             <select
               v-model="usageFilter"
-              class="ginko:hidden ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-[11px] ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground ginko:xl:block"
+              class="ginko:hidden ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-xs ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground ginko:xl:block"
             >
               <option value="all">All files</option>
               <option value="used">Used</option>
@@ -882,7 +882,7 @@ defineExpose({
             </select>
             <select
               v-model="sizeFilter"
-              class="ginko:hidden ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-[11px] ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground ginko:xl:block"
+              class="ginko:hidden ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-xs ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground ginko:xl:block"
             >
               <option value="any">Any size</option>
               <option value="small">&lt; 100 KB</option>
@@ -891,7 +891,7 @@ defineExpose({
             </select>
             <button
               v-if="activeFilterCount > 0"
-              class="ginko:h-6 ginko:rounded-full ginko:px-2 ginko:text-[11px] ginko:text-muted-foreground ginko:transition-colors ginko:hover:bg-muted/60 ginko:hover:text-foreground"
+              class="ginko:h-6 ginko:rounded-full ginko:px-2 ginko:text-xs ginko:text-muted-foreground ginko:transition-colors ginko:hover:bg-muted/60 ginko:hover:text-foreground"
               @click="clearFilters"
             >
               Clear
@@ -917,7 +917,7 @@ defineExpose({
             <Input
               v-model="searchQuery"
               placeholder="Search..."
-              class="ginko:h-8 ginko:w-full ginko:border-border/40 ginko:bg-card ginko:pl-8 ginko:text-[13px] ginko:shadow-none"
+              class="ginko:h-8 ginko:w-full ginko:border-border/40 ginko:bg-card ginko:pl-8 ginko:text-sm ginko:shadow-none"
             />
           </div>
 
@@ -964,7 +964,7 @@ defineExpose({
           v-if="mode === 'manage' && hasAssetSelection"
           class="ginko:flex ginko:shrink-0 ginko:items-center ginko:gap-2 ginko:border-b ginko:bg-muted/20 ginko:px-3 ginko:py-2"
         >
-          <Badge variant="outline" class="ginko:text-[10px]"
+          <Badge variant="outline" class="ginko:text-xs"
             >{{ selectedVisibleAssetIds.length }} selected</Badge
           >
           <Input
@@ -1118,7 +1118,7 @@ defineExpose({
                     />
                     <button
                       v-else
-                      class="ginko:inline-flex ginko:size-5 ginko:items-center ginko:justify-center ginko:rounded-full ginko:border ginko:text-[10px]"
+                      class="ginko:inline-flex ginko:size-5 ginko:items-center ginko:justify-center ginko:rounded-full ginko:border ginko:text-xs"
                       :class="
                         isChosen(item.asset.id)
                           ? 'ginko:border-primary ginko:bg-primary ginko:text-primary-foreground'
@@ -1163,13 +1163,13 @@ defineExpose({
                           {{ item.asset.filename }}
                         </span>
                         <span
-                          class="ginko:block ginko:truncate ginko:text-[10px] ginko:text-muted-foreground/60"
+                          class="ginko:block ginko:truncate ginko:text-xs ginko:text-muted-foreground/60"
                         >
                           {{ ownerPathLabel(item.asset) }}
                         </span>
                         <span
                           v-if="item.asset.mimeType.startsWith('image/')"
-                          class="ginko:block ginko:truncate ginko:text-[10px]"
+                          class="ginko:block ginko:truncate ginko:text-xs"
                           :class="
                             metadataCoverage(item.asset).complete
                               ? 'ginko:text-success-fg/80'
@@ -1229,7 +1229,7 @@ defineExpose({
             >
               <button
                 v-if="item.type === 'asset'"
-                class="ginko:absolute ginko:left-2 ginko:top-2 ginko:z-10 ginko:inline-flex ginko:size-5 ginko:items-center ginko:justify-center ginko:rounded-full ginko:border ginko:bg-background/90 ginko:text-[10px] ginko:transition-colors"
+                class="ginko:absolute ginko:left-2 ginko:top-2 ginko:z-10 ginko:inline-flex ginko:size-5 ginko:items-center ginko:justify-center ginko:rounded-full ginko:border ginko:bg-background/90 ginko:text-xs ginko:transition-colors"
                 :class="
                   (
                     mode === 'manage'
@@ -1261,7 +1261,7 @@ defineExpose({
                   <Folder class="ginko:size-16 ginko:text-muted-foreground" />
                 </div>
                 <span
-                  class="ginko:line-clamp-2 ginko:w-full ginko:text-center ginko:text-[12px] ginko:font-medium ginko:leading-tight"
+                  class="ginko:line-clamp-2 ginko:w-full ginko:text-center ginko:text-xs ginko:font-medium ginko:leading-tight"
                   >{{ item.label }}</span
                 >
               </template>
@@ -1283,16 +1283,16 @@ defineExpose({
                   />
                 </div>
                 <span
-                  class="ginko:line-clamp-2 ginko:w-full ginko:text-center ginko:text-[12px] ginko:leading-tight"
+                  class="ginko:line-clamp-2 ginko:w-full ginko:text-center ginko:text-xs ginko:leading-tight"
                   :class="item.asset.deletedAt ? 'line-through ginko:text-muted-foreground' : ''"
                 >
                   {{ item.asset.filename }}
                 </span>
-                <span class="ginko:mt-0.5 ginko:text-[10px] ginko:text-muted-foreground/60">{{
+                <span class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground/60">{{
                   formatFileSize(item.asset.size)
                 }}</span>
                 <span
-                  class="ginko:mt-0.5 ginko:line-clamp-1 ginko:w-full ginko:text-center ginko:text-[10px] ginko:text-muted-foreground/60"
+                  class="ginko:mt-0.5 ginko:line-clamp-1 ginko:w-full ginko:text-center ginko:text-xs ginko:text-muted-foreground/60"
                 >
                   {{ ownerPathLabel(item.asset) }}
                 </span>
@@ -1312,7 +1312,7 @@ defineExpose({
         </ScrollArea>
 
         <div
-          class="ginko:shrink-0 ginko:border-t ginko:px-4 ginko:py-1.5 ginko:text-[11px] ginko:tabular-nums ginko:text-muted-foreground/60"
+          class="ginko:shrink-0 ginko:border-t ginko:px-4 ginko:py-1.5 ginko:text-xs ginko:tabular-nums ginko:text-muted-foreground/60"
         >
           {{ statusText }}
         </div>
@@ -1369,7 +1369,7 @@ defineExpose({
                 </div>
                 <div class="ginko:flex ginko:justify-between">
                   <span class="ginko:text-muted-foreground/70">Ownership</span>
-                  <Badge variant="outline" class="ginko:text-[10px]">{{
+                  <Badge variant="outline" class="ginko:text-xs">{{
                     ownershipLabel(selectedAssetForDetails)
                   }}</Badge>
                 </div>
@@ -1466,7 +1466,7 @@ defineExpose({
               <div class="ginko:mb-2">
                 <div class="ginko:px-4 ginko:py-1">
                   <span
-                    class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
+                    class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                   >
                     Collections
                   </span>
@@ -1475,7 +1475,7 @@ defineExpose({
                   <button
                     v-for="item in sidebarCollections"
                     :key="`mobile-coll:${item.key}`"
-                    class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-[13px] ginko:transition-colors"
+                    class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-sm ginko:transition-colors"
                     :class="
                       isSidebarActive('collections', item.key)
                         ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
@@ -1490,7 +1490,7 @@ defineExpose({
                     <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{
                       item.label
                     }}</span>
-                    <span class="ginko:text-[10px] ginko:tabular-nums ginko:opacity-50">{{
+                    <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
                       item.count
                     }}</span>
                   </button>
@@ -1500,7 +1500,7 @@ defineExpose({
               <div v-if="sidebarTags.length > 0" class="ginko:mb-2">
                 <div class="ginko:px-4 ginko:py-1">
                   <span
-                    class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
+                    class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                   >
                     Tags
                   </span>
@@ -1509,7 +1509,7 @@ defineExpose({
                   <button
                     v-for="tag in sidebarTags"
                     :key="`mobile-tag:${tag.key}`"
-                    class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-[13px] ginko:transition-colors"
+                    class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-sm ginko:transition-colors"
                     :class="
                       isSidebarActive('tags', tag.key)
                         ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
@@ -1522,7 +1522,7 @@ defineExpose({
                       :style="{ backgroundColor: tag.color }"
                     />
                     <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ tag.label }}</span>
-                    <span class="ginko:text-[10px] ginko:tabular-nums ginko:opacity-50">{{
+                    <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
                       tag.count
                     }}</span>
                   </button>
@@ -1532,7 +1532,7 @@ defineExpose({
               <div class="ginko:mb-2">
                 <div class="ginko:px-4 ginko:py-1">
                   <span
-                    class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
+                    class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                   >
                     Library views
                   </span>
@@ -1541,7 +1541,7 @@ defineExpose({
                   <button
                     v-for="item in sidebarFullViews"
                     :key="`mobile-full:${item.key}`"
-                    class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-[13px] ginko:transition-colors"
+                    class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-sm ginko:transition-colors"
                     :class="
                       isSidebarActive('full', item.key)
                         ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
@@ -1556,7 +1556,7 @@ defineExpose({
                     <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{
                       item.label
                     }}</span>
-                    <span class="ginko:text-[10px] ginko:tabular-nums ginko:opacity-50">{{
+                    <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
                       item.count
                     }}</span>
                   </button>
@@ -1565,7 +1565,7 @@ defineExpose({
 
               <div v-if="mode === 'manage'" class="ginko:mx-2 ginko:border-t ginko:pt-2">
                 <button
-                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-[13px] ginko:transition-colors"
+                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-sm ginko:transition-colors"
                   :class="
                     isSidebarActive('trash', 'trash')
                       ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
@@ -1575,7 +1575,7 @@ defineExpose({
                 >
                   <Trash2 class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60" />
                   <span class="ginko:flex-1 ginko:truncate ginko:text-left">Trash</span>
-                  <span class="ginko:text-[10px] ginko:tabular-nums ginko:opacity-50">{{
+                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
                     trashCount
                   }}</span>
                 </button>
@@ -1726,7 +1726,7 @@ defineExpose({
                   </div>
                   <div class="ginko:flex ginko:justify-between ginko:gap-3">
                     <span class="ginko:text-muted-foreground/70">Ownership</span>
-                    <Badge variant="outline" class="ginko:text-[10px]">{{
+                    <Badge variant="outline" class="ginko:text-xs">{{
                       ownershipLabel(selectedAssetForDetails)
                     }}</Badge>
                   </div>
@@ -1836,7 +1836,7 @@ defineExpose({
                   <Separator />
                   <div class="ginko:space-y-2">
                     <h4
-                      class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
+                      class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                     >
                       Tags
                     </h4>
@@ -1847,7 +1847,7 @@ defineExpose({
                       <button
                         v-for="tag in selectedAssetTags"
                         :key="`mobile-detail-tag:${tag}`"
-                        class="ginko:inline-flex ginko:items-center ginko:gap-1 ginko:rounded-full ginko:bg-muted/60 ginko:px-2 ginko:py-0.5 ginko:text-[10px] ginko:transition-colors ginko:hover:bg-muted"
+                        class="ginko:inline-flex ginko:items-center ginko:gap-1 ginko:rounded-full ginko:bg-muted/60 ginko:px-2 ginko:py-0.5 ginko:text-xs ginko:transition-colors ginko:hover:bg-muted"
                         :disabled="actionPending"
                         @click="removeTagFromSelectedAsset(tag)"
                       >
@@ -1969,11 +1969,11 @@ defineExpose({
                 <div class="ginko:space-y-2">
                   <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-2">
                     <h4
-                      class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
+                      class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                     >
                       Tags
                     </h4>
-                    <span class="ginko:text-[10px] ginko:text-muted-foreground/50">
+                    <span class="ginko:text-xs ginko:text-muted-foreground/50">
                       {{ selectedAssetTags.length }} tag{{
                         selectedAssetTags.length === 1 ? '' : 's'
                       }}
@@ -1986,7 +1986,7 @@ defineExpose({
                     <button
                       v-for="tag in selectedAssetTags"
                       :key="tag"
-                      class="ginko:inline-flex ginko:items-center ginko:gap-1 ginko:rounded-full ginko:bg-muted/60 ginko:px-2 ginko:py-0.5 ginko:text-[10px] ginko:transition-colors ginko:hover:bg-muted"
+                      class="ginko:inline-flex ginko:items-center ginko:gap-1 ginko:rounded-full ginko:bg-muted/60 ginko:px-2 ginko:py-0.5 ginko:text-xs ginko:transition-colors ginko:hover:bg-muted"
                       :disabled="actionPending"
                       @click="removeTagFromSelectedAsset(tag)"
                     >
@@ -2046,7 +2046,7 @@ defineExpose({
 
                 <div class="ginko:space-y-2">
                   <h4
-                    class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
+                    class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                   >
                     Metadata
                   </h4>
@@ -2083,7 +2083,7 @@ defineExpose({
                         >
                         <span
                           v-if="locale.isDefault"
-                          class="ginko:text-[10px] ginko:text-muted-foreground"
+                          class="ginko:text-xs ginko:text-muted-foreground"
                         >
                           default
                         </span>
@@ -2135,13 +2135,13 @@ defineExpose({
 
                 <div class="ginko:space-y-2.5 ginko:text-xs">
                   <h4
-                    class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
+                    class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                   >
                     Location
                   </h4>
                   <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
                     <span class="ginko:text-muted-foreground/70">Ownership</span
-                    ><Badge variant="outline" class="ginko:text-[10px]">{{
+                    ><Badge variant="outline" class="ginko:text-xs">{{
                       ownershipLabel(selectedAsset)
                     }}</Badge>
                   </div>
@@ -2170,7 +2170,7 @@ defineExpose({
 
                 <div class="ginko:space-y-2">
                   <h4
-                    class="ginko:text-[10px] ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
+                    class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                   >
                     Usage
                   </h4>
@@ -2197,9 +2197,7 @@ defineExpose({
                       />
                       <div class="ginko:min-w-0">
                         <div class="ginko:truncate ginko:font-medium">{{ usage.entryTitle }}</div>
-                        <div
-                          class="ginko:font-mono ginko:text-[10px] ginko:text-muted-foreground/50"
-                        >
+                        <div class="ginko:font-mono ginko:text-xs ginko:text-muted-foreground/50">
                           {{ usage.fieldPath }}
                         </div>
                       </div>

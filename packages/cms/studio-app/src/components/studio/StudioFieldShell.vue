@@ -15,11 +15,11 @@ defineProps<{
 </script>
 
 <template>
-  <div :class="cn('ginko:space-y-1.5', $props.class)">
-    <div class="ginko:flex ginko:min-h-5 ginko:items-center ginko:justify-between ginko:gap-3">
-      <Label
+  <Field :invalid="Boolean(error)" :class="cn('ginko:gap-2', $props.class)">
+    <div class="ginko:flex ginko:min-h-6 ginko:items-center ginko:justify-between ginko:gap-3">
+      <FieldLabel
         :for="$props.for"
-        class="ginko:min-w-0 ginko:text-[13px] ginko:font-medium ginko:text-foreground"
+        class="ginko:min-w-0 ginko:text-sm ginko:font-medium ginko:text-foreground"
       >
         <span class="ginko:truncate">{{ label }}</span>
         <span v-if="required" class="ginko:ml-1 ginko:text-destructive">*</span>
@@ -29,18 +29,18 @@ defineProps<{
         >
           Optional
         </span>
-      </Label>
+      </FieldLabel>
       <slot name="action" />
     </div>
     <slot />
-    <p v-if="error" class="ginko:text-[12px] ginko:leading-snug ginko:text-destructive-fg">
+    <FieldError v-if="error" class="ginko:leading-snug">
       {{ error }}
-    </p>
-    <p
+    </FieldError>
+    <FieldDescription
       v-else-if="description"
-      class="ginko:text-[12px] ginko:leading-snug ginko:text-muted-foreground/80"
+      class="ginko:leading-snug ginko:text-muted-foreground/80"
     >
       {{ description }}
-    </p>
-  </div>
+    </FieldDescription>
+  </Field>
 </template>

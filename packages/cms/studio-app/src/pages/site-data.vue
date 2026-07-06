@@ -225,12 +225,12 @@ function formatBlockData(value: unknown): string {
                     <span class="ginko:text-sm ginko:font-medium">{{
                       resolveBlockLabel(block.label, block.key)
                     }}</span>
-                    <Badge v-if="block.localized" variant="secondary" class="ginko:text-[10px]">
+                    <Badge v-if="block.localized" variant="secondary" class="ginko:text-xs">
                       i18n
                     </Badge>
                     <Badge
                       :variant="block.visibility === 'public' ? 'secondary' : 'outline'"
-                      class="ginko:text-[10px]"
+                      class="ginko:text-xs"
                     >
                       {{
                         block.visibility === 'public'

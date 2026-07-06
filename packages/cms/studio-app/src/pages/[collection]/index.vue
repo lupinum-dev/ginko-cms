@@ -471,7 +471,9 @@ const kindColors: Record<string, string> = {
       <div
         class="ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-3"
       >
-        <div class="studio-page-content ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
+        <div
+          class="studio-page-content studio-page-content--wide ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2"
+        >
           <div class="ginko:relative ginko:min-w-0 ginko:flex-1 ginko:basis-full ginko:sm:basis-64">
             <Search
               class="ginko:pointer-events-none ginko:absolute ginko:left-2.5 ginko:top-1/2 ginko:size-3.5 ginko:-translate-y-1/2 ginko:text-muted-foreground/60"
@@ -479,7 +481,7 @@ const kindColors: Record<string, string> = {
             <Input
               v-model="searchQuery"
               :placeholder="t('ginkoCms.studio.collectionListPage.searchPlaceholder')"
-              class="ginko:h-8 ginko:border-border/40 ginko:bg-card ginko:pl-8 ginko:text-[13px] ginko:shadow-none"
+              class="ginko:h-8 ginko:border-border/40 ginko:bg-card ginko:pl-8 ginko:text-sm ginko:shadow-none"
             />
           </div>
 
@@ -522,7 +524,7 @@ const kindColors: Record<string, string> = {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content ginko:p-4 ginko:sm:p-5">
+      <div class="studio-page-content studio-page-content--wide ginko:p-4 ginko:sm:p-6">
         <!-- Error -->
         <div
           v-if="pageError"
@@ -629,7 +631,7 @@ const kindColors: Record<string, string> = {
                 </button>
 
                 <span
-                  class="ginko:rounded-md ginko:px-1.5 ginko:py-0.5 ginko:text-[10px] ginko:font-medium ginko:uppercase ginko:tracking-wide"
+                  class="ginko:rounded-md ginko:px-1.5 ginko:py-0.5 ginko:text-xs ginko:font-medium ginko:uppercase ginko:tracking-wide"
                   :class="kindColors[row.kind] ?? kindColors.page"
                 >
                   {{ row.kind }}
@@ -644,7 +646,7 @@ const kindColors: Record<string, string> = {
                       {{ row.title || row.slug }}
                     </div>
                     <div
-                      class="ginko:truncate ginko:font-mono ginko:text-[11px] ginko:text-muted-foreground/60"
+                      class="ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground/60"
                     >
                       {{ row.path }}
                     </div>
@@ -655,7 +657,7 @@ const kindColors: Record<string, string> = {
                   <span
                     v-for="variant in row.localeVariants"
                     :key="variant.locale"
-                    class="ginko:rounded ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-[10px]"
+                    class="ginko:rounded ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-xs"
                     :class="
                       variant.published
                         ? 'ginko:bg-success/10 ginko:text-success-fg ginko:dark:bg-success/20'
@@ -699,7 +701,7 @@ const kindColors: Record<string, string> = {
             class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
           >
             <div
-              class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-2 ginko:text-[11px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:lg:grid"
+              class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:lg:grid"
             >
               <div>Content</div>
               <div>Locales</div>
@@ -731,7 +733,7 @@ const kindColors: Record<string, string> = {
                     {{ row.title || row.slug }}
                   </div>
                   <div
-                    class="ginko:mt-0.5 ginko:truncate ginko:font-mono ginko:text-[11px] ginko:text-muted-foreground/60"
+                    class="ginko:mt-0.5 ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground/60"
                   >
                     {{ row.path || row.slug }}
                   </div>
@@ -743,7 +745,7 @@ const kindColors: Record<string, string> = {
                 <span
                   v-for="variant in row.localeSummaries"
                   :key="variant.locale"
-                  class="ginko:rounded ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-[10px]"
+                  class="ginko:rounded ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-xs"
                   :class="
                     variant.published
                       ? 'ginko:bg-success/10 ginko:text-success-fg ginko:dark:bg-success/20'

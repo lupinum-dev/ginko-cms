@@ -149,7 +149,7 @@ async function revokeRun(run: AgentRun) {
           class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
         >
           <div
-            class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-[11px] ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:md:grid"
+            class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:md:grid"
           >
             <div>Run</div>
             <div>Last write</div>

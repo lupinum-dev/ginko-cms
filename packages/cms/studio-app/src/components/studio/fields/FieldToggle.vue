@@ -8,6 +8,7 @@ const props = defineProps<{
   modelValue: unknown
   label: string
   fieldError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -21,13 +22,23 @@ const value = computed({
 </script>
 
 <template>
-  <div class="ginko:flex ginko:items-center ginko:justify-between ginko:py-1">
-    <div>
-      <Label :for="field.key" class="ginko:text-sm">{{ label }}</Label>
-      <p v-if="field.description" class="ginko:text-xs ginko:text-muted-foreground">
+  <Field
+    :invalid="Boolean(fieldError)"
+    orientation="horizontal"
+    class="ginko:justify-between ginko:py-1"
+  >
+    <FieldContent>
+      <FieldLabel :for="field.key" class="ginko:text-sm">{{ label }}</FieldLabel>
+      <FieldDescription v-if="field.description">
         {{ field.description }}
-      </p>
-    </div>
-    <Switch :id="field.key" :checked="!!value" @update:checked="value = $event" />
-  </div>
+      </FieldDescription>
+      <FieldError v-if="fieldError">{{ fieldError }}</FieldError>
+    </FieldContent>
+    <Switch
+      :id="field.key"
+      :checked="!!value"
+      :disabled="disabled"
+      @update:checked="value = $event"
+    />
+  </Field>
 </template>

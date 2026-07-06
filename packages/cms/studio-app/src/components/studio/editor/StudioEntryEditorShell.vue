@@ -55,14 +55,18 @@ function setInspectorOpen(open: boolean) {
 <style scoped>
 .studio-entry-editor-shell__canvas {
   display: grid;
-  gap: 1.25rem;
-  padding: 1.25rem 1.25rem 2rem;
+  gap: var(--space-xl);
+  padding: var(--space-xl) var(--space-xl) var(--space-3xl);
 }
 
 .studio-entry-editor-shell__canvas > * {
-  width: min(100%, 80rem);
+  width: min(100%, 96rem);
   min-width: 0;
   margin-inline: auto;
+}
+
+.studio-entry-editor-shell__canvas > .studio-page-content--wide {
+  width: min(100%, 112rem);
 }
 
 .studio-entry-editor-shell__canvas > .studio-page-content--bleed {

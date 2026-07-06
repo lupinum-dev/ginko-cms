@@ -99,10 +99,10 @@ const activeMediaType = computed<'file' | 'image' | 'video' | null>(() => {
           <Maximize2 class="ginko:size-3.5" />
         </div>
         <div class="ginko:min-w-0 ginko:leading-tight">
-          <div class="ginko:truncate ginko:text-[13px] ginko:font-semibold ginko:text-foreground">
+          <div class="ginko:truncate ginko:text-sm ginko:font-semibold ginko:text-foreground">
             Focus editor
           </div>
-          <div class="ginko:truncate ginko:text-[11px] ginko:text-muted-foreground">
+          <div class="ginko:truncate ginko:text-xs ginko:text-muted-foreground">
             Full-screen writing mode
           </div>
         </div>
