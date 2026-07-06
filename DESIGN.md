@@ -59,16 +59,17 @@ Tinted backgrounds (`bg-success/12`, `bg-warning/15`, `bg-destructive/10`) **mus
 
 ## Typography
 
-Type ladder. Five steps. Apply via `studio-text-*` class (see `styles/index.css`) or compose Tailwind so the result resolves to one of these. **No free-form font sizes.**
+Type ladder. Seven steps. Apply via `studio-text-*` class (see `styles/index.css`) or compose Tailwind so the result resolves to one of these. **No free-form font sizes.**
 
-| Step      | Size  | Weight | Letter  | Use                                           |
-| --------- | ----- | ------ | ------- | --------------------------------------------- |
-| `display` | 18 px | 600    | -0.01em | Page hero, only on empty home                 |
-| `title`   | 13 px | 600    | 0       | Section headers, card titles, breadcrumb leaf |
-| `body`    | 13 px | 400    | 0       | Form fields, button labels, default text      |
-| `label`   | 12 px | 500    | 0       | Field labels, secondary controls              |
-| `caption` | 11 px | 500    | 0.02em  | Helpers, timestamps, locale codes             |
-| `eyebrow` | 10 px | 600    | 0.10em  | Section group labels (CONTENT, MANAGE)        |
+| Step         | Size  | Weight | Letter | Use                                         |
+| ------------ | ----- | ------ | ------ | ------------------------------------------- |
+| `display`    | 32 px | 600    | 0      | Empty states and dashboard hero copy        |
+| `page-title` | 18 px | 600    | 0      | Page headers and editor top bar leaf titles |
+| `title`      | 16 px | 600    | 0      | Section headers, card titles                |
+| `body`       | 14 px | 400    | 0      | Form fields, button labels, default text    |
+| `label`      | 14 px | 500    | 0      | Field labels, secondary controls            |
+| `caption`    | 12 px | 500    | 0      | Helpers, timestamps, locale codes           |
+| `eyebrow`    | 12 px | 600    | 0      | Section group labels (CONTENT, MANAGE)      |
 
 System sans (Geist would be drift). Cap body line-length at 65–75ch where possible.
 
@@ -125,7 +126,7 @@ Resolved from `--radius: 0.625rem` (10 px) via a **multiplicative scale**, so re
 
 Compact-but-not-cramped. Editors work in this all day.
 
-- Sidebar menu height: 1.875 rem (30 px). Below WCAG AAA touch (44 px) — desktop product, intentional.
+- Sidebar menu height: 2 rem (32 px). Dense desktop product, but large enough to scan on high-DPI displays.
 - Header buttons: `h-8` (32 px). Icon buttons: `size-8`.
 - Form inputs: `h-9` (36 px) default, `h-8` for dense contexts.
 - Section card padding: `p-5` (20 px) default, `p-4` (16 px) compact.
@@ -151,18 +152,18 @@ All three transition only color/border/box-shadow/opacity by default. Components
 
 ### Sidebar
 
-- 13.75 rem (220 px) expanded; collapses to 3.5 rem (icon mode).
+- 16 rem expanded; collapses to 3.5 rem (icon mode); mobile sheet is 18 rem.
 - White surface (`bg-sidebar`), border-right `border-border/40`.
 - Logo: emerald-filled rounded-lg `h-7 w-7` square with white pyramid SVG.
-- Title: "Ginko Studio" + small inline version chip — _not_ "Ginko CMS Studio" (clipped at 13.75 rem).
-- Nav menu items: 1.875 rem height, `text-[13px]`, `border-radius: 0.375rem`. Active state = emerald solid pill (token-driven via `--sidebar-primary`).
-- Section labels: `studio-text-eyebrow` (10 px / 600 / 0.1em / uppercase), 60 % opacity.
+- Title: "Ginko Studio" + small inline version chip.
+- Nav menu items: 2 rem height, `text-sm`, `border-radius: 0.375rem`. Active state = emerald solid pill (token-driven via `--sidebar-primary`).
+- Section labels: `studio-text-eyebrow` (12 px / 600 / uppercase), 60 % opacity.
 - Footer: user button with `h-7 w-7` avatar, name + email, ChevronDown trigger.
 
 ### Header
 
 - White surface, `h-12`, `border-b border-border/60`.
-- Breadcrumb: Lucide icon → muted label → `ChevronRight h-3.5` → leaf icon → `font-medium text-foreground` label. `text-[13px]` throughout.
+- Breadcrumb: Lucide icon → muted label → `ChevronRight h-3.5` → leaf icon → `font-medium text-foreground` label. `text-sm` throughout.
 - No global search button; search lives in the sidebar (⌘K).
 
 ### Cards
@@ -179,8 +180,9 @@ Inspector content uses **`StudioInspectorSection`** — not a card, a divided bl
 
 These compose with the cards above. Use them instead of re-implementing the same shape inline.
 
-- **`StudioPageHeader`** ([StudioPageHeader.vue](packages/cms/studio-app/src/components/studio/StudioPageHeader.vue)): the title strip at the top of every page. `eyebrow` + `title` props, plus `description` / `breadcrumb` / `badges` / `actions` slots. Container: `flex min-h-14 items-start justify-between gap-4 border-b border-border/40 bg-card px-5 py-3`. Title is `text-[15px] font-semibold`; eyebrow is `studio-text-eyebrow`-equivalent (10 px / 600 / 0.1em / uppercase / muted/70).
-- **`StudioRow`** ([StudioRow.vue](packages/cms/studio-app/src/components/studio/StudioRow.vue)): the canonical list-row shape. Slots: `icon` / `title` / `description` / `meta` / `actions`. Density: `default` (h-10) or `compact` (h-8). Variant: `default` (no border, hover-highlight) or `outline` (rounded-md border). `interactive` prop adds `studio-motion-fast` + focus ring. Use anywhere a list, table, or settings row appears — never re-implement `flex items-center gap-3 px-3 py-2` inline.
+- **`StudioPageHeader`** ([StudioPageHeader.vue](packages/cms/studio-app/src/components/studio/StudioPageHeader.vue)): the title strip at the top of every page. `eyebrow` + `title` props, plus `description` / `breadcrumb` / `badges` / `actions` slots. Container: `flex min-h-14 items-start justify-between gap-4 border-b border-border/40 bg-card px-5 py-3`. Title uses the page-title step; eyebrow uses the 12 px eyebrow step.
+- **Rows and irregular lists**: use shadcn-style `Item` / `ItemGroup` primitives for composed list rows and `StudioListFrame` or native tables for table-like data. Do not restore a Studio-specific row wrapper.
+- **Canvas widths**: `--studio-canvas-max-width` is 96 rem (1536 px), `--studio-canvas-wide-max-width` is 112 rem (1792 px), and `--studio-action-rail-width` is 20 rem (320 px). Header content, toolbar controls, list frames, editor cards, and rails align through these tokens.
 
 For dialogs: use shadcn-style `<Dialog>` + `<DialogFooter>` (in `src/components/ui/dialog/`). Page actions should live in the relevant `StudioPageHeader`, `StudioSection`, or `StudioListFrame` slot instead of a separate footer wrapper.
 
@@ -188,8 +190,9 @@ For dialogs: use shadcn-style `<Dialog>` + `<DialogFooter>` (in `src/components/
 
 - Page chrome (`.studio-shell`) provides the warm-neutral wash.
 - Layout: sidebar + main column. Main column = StudioHeader + slot.
-- Entry editor: `StudioEntryTopBar` (breadcrumb + actions) + `StudioEntryCompareToolbar` (single/compare + locale picker) + canvas + `StudioEntryStatusRail` (280 px right rail, `px-5` inside).
-- Compare mode auto-collapses the inspector rail so two locale panels get full canvas. Side-by-side breakpoint: `min-[1280px]`.
+- Entry editor: `StudioEntryTopBar` (breadcrumb + save/publish/toggle actions) + `StudioEntryCompareToolbar` (single/compare + locale picker) + canvas + contextual action rail.
+- The right rail is a first-class shell region at `--studio-action-rail-width` (320 px). It owns workflow context, readiness, public URL, translations, diagnostics, and history. Rail padding and title come from `StudioEntryEditorShell`, not from each rail body.
+- Compare mode keeps the rail when the user has it open. Two-column compare starts at `min-[1600px]`; below that, locales stack so the rail does not force cramped editor columns.
 
 ### Status pill
 
@@ -221,8 +224,8 @@ These are forbidden in the studio shell. Match-and-refuse rather than re-discuss
 
 - Theme tokens & utilities: [packages/cms/studio-app/src/styles/index.css](packages/cms/studio-app/src/styles/index.css)
 - Card primitives: [`StudioSection`](packages/cms/studio-app/src/components/studio/StudioSection.vue), [`StudioListFrame`](packages/cms/studio-app/src/components/studio/StudioListFrame.vue), [`StudioEmptyState`](packages/cms/studio-app/src/components/studio/StudioEmptyState.vue), [`StudioInspectorSection`](packages/cms/studio-app/src/components/studio/StudioInspectorSection.vue)
-- Layout primitives: [`StudioPageHeader`](packages/cms/studio-app/src/components/studio/StudioPageHeader.vue), [`StudioRow`](packages/cms/studio-app/src/components/studio/StudioRow.vue), [`StudioWorkspace`](packages/cms/studio-app/src/components/studio/StudioWorkspace.vue)
-- Field rhythm: [`StudioFieldShell`](packages/cms/studio-app/src/components/studio/StudioFieldShell.vue) (shared label / input / description / error pattern)
+- Layout primitives: [`StudioPageHeader`](packages/cms/studio-app/src/components/studio/StudioPageHeader.vue), [`StudioWorkspace`](packages/cms/studio-app/src/components/studio/StudioWorkspace.vue)
+- Field rhythm: [`StudioFieldShell`](packages/cms/studio-app/src/components/studio/StudioFieldShell.vue) plus `components/ui/field` primitives (shared label / input / description / error pattern)
 - Status: [`StudioStatusPill`](packages/cms/studio-app/src/components/studio/StudioStatusPill.vue), [`Badge`](packages/cms/studio-app/src/components/ui/badge/index.ts)
 - Editor shell: [`StudioEntryEditorShell`](packages/cms/studio-app/src/components/studio/editor/StudioEntryEditorShell.vue), [`StudioEntryTopBar`](packages/cms/studio-app/src/components/studio/editor/StudioEntryTopBar.vue), [`StudioEntryStatusRail`](packages/cms/studio-app/src/components/studio/editor/StudioEntryStatusRail.vue)
 - Sidebar: [`StudioSidebar`](packages/cms/studio-app/src/components/studio/StudioSidebar.vue), [`StudioSidebarNav`](packages/cms/studio-app/src/components/studio/StudioSidebarNav.vue)

@@ -203,7 +203,7 @@ function onConversionRecovered() {
         :enable-files="!!assetContext"
         :enable-video="true"
         :disabled="props.disabled === true"
-        :class="[fieldError ? 'ginko:border-destructive' : '']"
+        :aria-invalid="fieldError ? true : undefined"
         @conversion-error="onConversionError"
         @conversion-recovered="onConversionRecovered"
         @request-image="assetContext ? openImagePicker() : void 0"

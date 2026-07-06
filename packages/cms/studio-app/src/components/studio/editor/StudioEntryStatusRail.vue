@@ -150,7 +150,7 @@ const blockingIssues = computed(() => {
 </script>
 
 <template>
-  <div class="ginko:min-w-0 ginko:px-5">
+  <div class="ginko:min-w-0">
     <StudioInspectorSection title="Status">
       <template #icon>
         <Clock class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />

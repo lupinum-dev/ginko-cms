@@ -38,6 +38,7 @@ const value = computed({
       :id="field.key"
       :checked="!!value"
       :disabled="disabled"
+      :aria-invalid="fieldError ? true : undefined"
       @update:checked="value = $event"
     />
   </Field>

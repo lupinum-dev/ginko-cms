@@ -22,8 +22,8 @@ const props = withDefaults(
 <template>
   <Primitive
     data-slot="item"
-    :data-size="size"
-    :data-variant="variant"
+    :data-size="size ?? 'default'"
+    :data-variant="variant ?? 'default'"
     :as="as"
     :as-child="asChild"
     :class="cn(itemVariants({ variant, size }), props.class)"

@@ -97,22 +97,23 @@ function removeBlock(index: number) {
 </script>
 
 <template>
-  <div
-    class="ginko:col-span-full ginko:space-y-3 ginko:rounded-lg ginko:border ginko:p-4"
-    :class="fieldError ? 'ginko:border-destructive' : 'ginko:border-border/40'"
+  <FieldSet
+    class="ginko:col-span-full ginko:space-y-3 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-4 ginko:aria-invalid:border-destructive"
+    :aria-invalid="fieldError ? true : undefined"
+    :data-invalid="fieldError ? true : undefined"
   >
     <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
       <div class="ginko:min-w-0">
-        <Label class="ginko:text-sm">
+        <FieldLegend variant="label">
           {{ label }}
           <span v-if="field.required" class="ginko:text-destructive">*</span>
-        </Label>
-        <p v-if="field.description" class="ginko:text-xs ginko:text-muted-foreground">
+        </FieldLegend>
+        <FieldDescription v-if="field.description">
           {{ field.description }}
-        </p>
-        <p v-if="fieldError" class="ginko:text-xs ginko:text-destructive">
+        </FieldDescription>
+        <FieldError v-if="fieldError">
           {{ fieldError }}
-        </p>
+        </FieldError>
       </div>
       <div
         v-if="!disabled"
@@ -180,5 +181,5 @@ function removeBlock(index: number) {
         </div>
       </div>
     </div>
-  </div>
+  </FieldSet>
 </template>

@@ -58,12 +58,20 @@ function updateImages(nextValue: string | string[]) {
 </script>
 
 <template>
-  <div class="ginko:space-y-2">
+  <FieldSet class="ginko:space-y-2" :data-invalid="fieldError ? true : undefined">
     <div class="ginko:flex ginko:items-center ginko:justify-between">
-      <Label class="ginko:text-sm">
-        {{ label }}
-        <span v-if="field.required" class="ginko:text-destructive">*</span>
-      </Label>
+      <div>
+        <FieldLegend variant="label">
+          {{ label }}
+          <span v-if="field.required" class="ginko:text-destructive">*</span>
+        </FieldLegend>
+        <FieldDescription v-if="field.description">
+          {{ field.description }}
+        </FieldDescription>
+        <FieldError v-if="fieldError">
+          {{ fieldError }}
+        </FieldError>
+      </div>
       <Button v-if="!assetContext && !disabled" variant="outline" size="sm" @click="addMediaItem">
         {{ t('ginkoCms.studio.fieldRenderer.addImage') }}
       </Button>
@@ -100,5 +108,5 @@ function updateImages(nextValue: string | string[]) {
         </div>
       </div>
     </div>
-  </div>
+  </FieldSet>
 </template>

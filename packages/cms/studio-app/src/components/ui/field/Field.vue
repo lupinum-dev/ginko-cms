@@ -11,7 +11,7 @@ const props = withDefaults(
       class?: HTMLAttributes['class']
       disabled?: boolean
       invalid?: boolean
-      orientation?: 'vertical' | 'horizontal'
+      orientation?: 'vertical' | 'horizontal' | 'responsive'
     }
   >(),
   {
@@ -26,6 +26,7 @@ const props = withDefaults(
 <template>
   <Primitive
     data-slot="field"
+    role="group"
     :data-disabled="disabled ? true : undefined"
     :data-invalid="invalid ? true : undefined"
     :data-orientation="orientation"
@@ -36,7 +37,9 @@ const props = withDefaults(
         'ginko:data-[invalid=true]:text-destructive ginko:group/field ginko:flex ginko:w-full',
         orientation === 'horizontal'
           ? 'ginko:flex-row ginko:items-center ginko:gap-2'
-          : 'ginko:flex-col ginko:gap-2',
+          : orientation === 'responsive'
+            ? 'ginko:flex-col ginko:gap-2 ginko:@md/field-group:flex-row ginko:@md/field-group:items-center'
+            : 'ginko:flex-col ginko:gap-2',
         props.class,
       )
     "

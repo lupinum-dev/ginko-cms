@@ -62,7 +62,7 @@ defineProps<{
 @media (min-width: 1280px) {
   .studio-workspace__body--rail {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 20rem;
+    grid-template-columns: minmax(0, 1fr) var(--studio-action-rail-width);
   }
 
   .studio-workspace__rail {

@@ -180,51 +180,66 @@ function updateCustomJson(nextValue: string) {
         <Switch :checked="!!value.enabled" @update:checked="updateField('enabled', $event)" />
         {{ t('ginkoCms.common.enabled') }}
       </label>
-      <div class="ginko:space-y-1.5">
-        <Label class="ginko:text-xs">{{ t('ginkoCms.studio.siteDataEditor.message') }}</Label>
+      <StudioFieldShell
+        for="site-data-banner-message"
+        :label="t('ginkoCms.studio.siteDataEditor.message')"
+      >
         <Textarea
+          id="site-data-banner-message"
           :model-value="value.text ?? ''"
           class="ginko:min-h-[120px]"
           @update:model-value="updateField('text', $event)"
         />
-      </div>
+      </StudioFieldShell>
       <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-2">
-        <div class="ginko:space-y-1.5">
-          <Label class="ginko:text-xs">{{ t('ginkoCms.studio.siteDataEditor.ctaLabel') }}</Label>
+        <StudioFieldShell
+          for="site-data-banner-cta-label"
+          :label="t('ginkoCms.studio.siteDataEditor.ctaLabel')"
+        >
           <Input
+            id="site-data-banner-cta-label"
             :model-value="value.ctaLabel ?? ''"
             class="ginko:h-8 ginko:text-xs"
             @update:model-value="updateField('ctaLabel', $event)"
           />
-        </div>
-        <div class="ginko:space-y-1.5">
-          <Label class="ginko:text-xs">{{ t('ginkoCms.studio.siteDataEditor.ctaUrl') }}</Label>
+        </StudioFieldShell>
+        <StudioFieldShell
+          for="site-data-banner-cta-url"
+          :label="t('ginkoCms.studio.siteDataEditor.ctaUrl')"
+        >
           <Input
+            id="site-data-banner-cta-url"
             :model-value="value.ctaUrl ?? ''"
             class="ginko:h-8 ginko:text-xs"
             @update:model-value="updateField('ctaUrl', $event)"
           />
-        </div>
+        </StudioFieldShell>
       </div>
       <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-2">
-        <div class="ginko:space-y-1.5">
-          <Label class="ginko:text-xs">{{ t('ginkoCms.studio.siteDataEditor.startsAt') }}</Label>
+        <StudioFieldShell
+          for="site-data-banner-starts-at"
+          :label="t('ginkoCms.studio.siteDataEditor.startsAt')"
+        >
           <Input
+            id="site-data-banner-starts-at"
             :model-value="value.startsAt ?? ''"
             type="datetime-local"
             class="ginko:h-8 ginko:text-xs"
             @update:model-value="updateField('startsAt', $event)"
           />
-        </div>
-        <div class="ginko:space-y-1.5">
-          <Label class="ginko:text-xs">{{ t('ginkoCms.studio.siteDataEditor.endsAt') }}</Label>
+        </StudioFieldShell>
+        <StudioFieldShell
+          for="site-data-banner-ends-at"
+          :label="t('ginkoCms.studio.siteDataEditor.endsAt')"
+        >
           <Input
+            id="site-data-banner-ends-at"
             :model-value="value.endsAt ?? ''"
             type="datetime-local"
             class="ginko:h-8 ginko:text-xs"
             @update:model-value="updateField('endsAt', $event)"
           />
-        </div>
+        </StudioFieldShell>
       </div>
     </div>
 
@@ -241,34 +256,40 @@ function updateCustomJson(nextValue: string) {
         class="ginko:rounded ginko:border ginko:border-border/40 ginko:p-3 ginko:space-y-3"
       >
         <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-2">
-          <div class="ginko:space-y-1.5">
-            <Label class="ginko:text-xs">{{
+          <StudioFieldShell
+            :for="`site-data-item-${index}-name`"
+            :label="
               blockType === 'text'
                 ? t('ginkoCms.studio.siteDataEditor.key')
                 : t('ginkoCms.common.label')
-            }}</Label>
+            "
+          >
             <Input
+              :id="`site-data-item-${index}-name`"
               :model-value="blockType === 'text' ? item.key : item.label"
               class="ginko:h-8 ginko:text-xs"
               @update:model-value="
                 updateListItem(index, blockType === 'text' ? { key: $event } : { label: $event })
               "
             />
-          </div>
-          <div class="ginko:space-y-1.5">
-            <Label class="ginko:text-xs">{{
+          </StudioFieldShell>
+          <StudioFieldShell
+            :for="`site-data-item-${index}-value`"
+            :label="
               blockType === 'text'
                 ? t('ginkoCms.studio.siteDataEditor.value')
                 : t('ginkoCms.studio.siteDataEditor.url')
-            }}</Label>
+            "
+          >
             <Input
+              :id="`site-data-item-${index}-value`"
               :model-value="blockType === 'text' ? item.value : item.url"
               class="ginko:h-8 ginko:text-xs"
               @update:model-value="
                 updateListItem(index, blockType === 'text' ? { value: $event } : { url: $event })
               "
             />
-          </div>
+          </StudioFieldShell>
         </div>
         <div class="ginko:flex ginko:justify-end">
           <Button variant="ghost" size="sm" @click="removeListItem(index)">
@@ -279,19 +300,19 @@ function updateCustomJson(nextValue: string) {
       </div>
     </div>
 
-    <div v-else class="ginko:space-y-1.5">
-      <Label class="ginko:text-xs">{{ t('ginkoCms.studio.siteDataEditor.customJson') }}</Label>
+    <StudioFieldShell
+      v-else
+      for="site-data-custom-json"
+      :label="t('ginkoCms.studio.siteDataEditor.customJson')"
+      :error="customJsonError"
+    >
       <Textarea
+        id="site-data-custom-json"
         :model-value="rawCustomJson"
-        :class="[
-          'ginko:min-h-[220px] ginko:font-mono ginko:text-sm',
-          customJsonError ? 'ginko:border-destructive' : '',
-        ]"
+        :aria-invalid="customJsonError ? true : undefined"
+        class="ginko:min-h-[220px] ginko:font-mono ginko:text-sm"
         @update:model-value="updateCustomJson"
       />
-      <p v-if="customJsonError" class="ginko:text-xs ginko:text-destructive">
-        {{ customJsonError }}
-      </p>
-    </div>
+    </StudioFieldShell>
   </div>
 </template>

@@ -31,6 +31,7 @@ const value = computed({
       :id="field.key"
       :model-value="Boolean(value)"
       :disabled="disabled"
+      :aria-invalid="fieldError ? true : undefined"
       class="ginko:mt-0.5"
       @update:model-value="value = $event === true"
     />

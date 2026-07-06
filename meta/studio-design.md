@@ -58,7 +58,7 @@ Pages do NOT wrap their content in a top-level `Card`. The workspace is the page
 | `StudioPageHeader`            | layout                                                                               | Standard page header with eyebrow / title / description / actions / breadcrumb slot |
 | `StudioSection`               | `Card`-like layout + `Badge`                                                         | Bordered content section with header                                                |
 | `StudioListFrame`             | layout + `Skeleton`, `Badge`                                                         | Bordered table or list frame (compact / comfortable density)                        |
-| `StudioFieldShell`            | `Label`                                                                              | Form field shell (label, optional / required, description, error)                   |
+| `StudioFieldShell`            | `Field`, `FieldLabel`, `FieldDescription`, `FieldError`                              | Simple CMS form field shell                                                         |
 | `StudioStatusPill`            | `Badge` (with `success` / `warning` / `destructive` / `secondary` / `soft` variants) | Inline status badge, single tone language                                           |
 | `StudioNotice`                | `Alert`                                                                              | Inline page-level info / success / warning / danger / neutral notice                |
 | `StudioSegmentedControl`      | `ToggleGroup`                                                                        | Compact view-mode switches (e.g. grid / list, raw / preview)                        |
@@ -69,7 +69,7 @@ These wrappers are the only Studio-specific abstractions. Everything else is `co
 
 ## Available shadcn-vue primitives
 
-`components/ui/` holds: `alert`, `avatar`, `badge`, `button`, `card`, `collapsible`, `command`, `dialog`, `dropdown-menu`, `input`, `label`, `scroll-area`, `select`, `separator`, `sheet`, `sidebar`, `skeleton`, `switch`, `textarea`, `toggle`, `toggle-group`, `tooltip`. All compose `reka-ui` primitives, use `cn()` from `components/ui/utils`, and use `cva` for variants.
+`components/ui/` holds: `alert`, `avatar`, `badge`, `button`, `card`, `checkbox`, `collapsible`, `command`, `dialog`, `dropdown-menu`, `field`, `input`, `item`, `label`, `scroll-area`, `select`, `separator`, `sheet`, `sidebar`, `skeleton`, `switch`, `textarea`, `toggle`, `toggle-group`, `tooltip`. All compose `reka-ui` primitives, use `cn()` from `components/ui/utils`, and use `cva` for variants where variants exist.
 
 When a new primitive is needed, follow the same pattern: a folder under `components/ui/`, an `index.ts` re-export, one `.vue` file per part, `reactiveOmit` + `useForwardPropsEmits` for forwarding, `cva` for variants. Do not introduce a Studio wrapper before a primitive — wrappers exist only for repeated **CMS-specific** patterns.
 
@@ -120,6 +120,7 @@ Developer operations (MCP, revalidation, cache tags, event IDs, raw IDs) live in
 - No `--studio-*` tokens. No Caveat / accent fonts.
 - No raw `<button type="button">` outside of `components/ui/*` primitives.
 - No hardcoded hex / rgb / hsl colors. No literal Tailwind palette colors (`bg-emerald-*`, `dark:bg-amber-*`, etc.) — use semantic classes.
+- No duplicated form chrome. Simple editable fields use `StudioFieldShell`; compound fields use `FieldSet` / `FieldGroup` / `Item` parts.
 - No schema editing controls in Studio.
 - No feature flags, v2 routes, compatibility shells, or duplicate workflows.
 - No decorative gradients, hero surfaces, or marketing-style layouts.

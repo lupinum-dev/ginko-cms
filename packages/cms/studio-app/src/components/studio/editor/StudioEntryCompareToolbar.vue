@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import { ArrowLeftRight, Brackets, FileText, Settings } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
-import { useStudioInspectorVisible } from '../../../composables/useStudioInspectorVisible'
 
 const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
-const inspectorVisible = useStudioInspectorVisible()
 const { studioLocales } = useCmsI18n()
-const inspectorAutoCollapsed = ref(false)
 
 const canCompare = computed(() => editor.loader.locales.length > 1)
 const secondaryLocale = computed(
@@ -41,17 +38,6 @@ function toggleMode(compare: boolean) {
   editor.locales.setTranslationMode(compare)
   if (compare && !editor.locales.secondaryLocale && secondaryLocale.value) {
     editor.locales.handleSelectSecondaryLocale(secondaryLocale.value)
-  }
-  // Compare mode wants the full canvas. Auto-collapse the inspector rail
-  // so two locale panels get room; users can re-open via the topbar toggle.
-  if (compare && inspectorVisible.value) {
-    inspectorVisible.value = false
-    inspectorAutoCollapsed.value = true
-    return
-  }
-  if (!compare && inspectorAutoCollapsed.value) {
-    inspectorVisible.value = true
-    inspectorAutoCollapsed.value = false
   }
 }
 

@@ -8,6 +8,7 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const authDir = resolve(packageRoot, 'packages/cms/src/auth')
 const runtimeDir = resolve(packageRoot, 'packages/cms/src/runtime')
 const studioDir = resolve(packageRoot, 'packages/cms/studio-app/src')
+const studioFieldsDir = resolve(studioDir, 'components/studio/fields')
 const studioUiDir = resolve(studioDir, 'components/ui')
 
 function listFiles(dir: string): string[] {
@@ -149,6 +150,33 @@ describe('ginko-cms theme contract', () => {
         const matches = content.matchAll(/(?:ginko:)?text-\[(?:10|11|12|13)px\]/g)
         return Array.from(matches).map((match) => `${file}: ${match[0]}`)
       })
+
+    expect(offenders).toEqual([])
+  })
+
+  it('keeps standard field renderers on canonical field primitives', () => {
+    const offenders = listFiles(studioFieldsDir)
+      .filter((file) => /\.vue$/.test(file))
+      .flatMap((file) => {
+        const content = readFileSync(file, 'utf-8')
+        const patterns = [
+          /<Label\b/g,
+          /<p\s+v-if=["']fieldError["']/g,
+          /fieldError\s*\?\s*['"`]ginko:border-destructive/g,
+        ]
+        return patterns.flatMap((pattern) =>
+          Array.from(content.matchAll(pattern)).map((match) => `${file}: ${match[0]}`),
+        )
+      })
+
+    expect(offenders).toEqual([])
+  })
+
+  it('does not reintroduce the deleted StudioRow path', () => {
+    const offenders = [studioDir, resolve(packageRoot, 'meta'), resolve(packageRoot, 'DESIGN.md')]
+      .flatMap((target) => (target.endsWith('.md') ? [target] : listFiles(target)))
+      .filter((file) => /\.(?:vue|ts|md)$/.test(file))
+      .filter((file) => readFileSync(file, 'utf-8').includes('StudioRow'))
 
     expect(offenders).toEqual([])
   })

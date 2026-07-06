@@ -82,7 +82,7 @@
 :root {
   /* Docs layout (Fumadocs-style shell) */
   --docs-header-row-1: 3.5rem;
-  --docs-sidebar-width-expanded: 268px;
+  --docs-sidebar-width-expanded: 16rem;
   --docs-sidebar-width-collapsed: 4.5rem;
   --docs-sidebar-width: var(--docs-sidebar-width-expanded);
 
@@ -132,14 +132,14 @@
 
 .ginko-cms .studio-page-content {
   width: 100%;
-  max-width: 96rem;
+  max-width: var(--studio-canvas-max-width);
   min-width: 0;
   margin-inline: auto;
 }
 
 .ginko-cms .studio-page-content--wide {
   width: 100%;
-  max-width: 112rem;
+  max-width: var(--studio-canvas-wide-max-width);
   min-width: 0;
   margin-inline: auto;
 }
@@ -407,6 +407,10 @@
   /* Page canvas: pure neutral grey. Cards float; sidebar reads as a
    * separate tower. Three tiers: page (0.97) → sidebar (0.985) → card (1.0). */
   --studio-shell-bg: var(--ginko-cms-studio-shell-bg, oklch(0.97 0 0));
+  --studio-canvas-max-width: var(--ginko-cms-studio-canvas-max-width, 96rem);
+  --studio-canvas-wide-max-width: var(--ginko-cms-studio-canvas-wide-max-width, 112rem);
+  --studio-editor-canvas-max-width: var(--ginko-cms-studio-editor-canvas-max-width, 96rem);
+  --studio-action-rail-width: var(--ginko-cms-studio-action-rail-width, 20rem);
 
   --studio-surface: var(--ginko-cms-studio-surface, var(--card));
   --studio-panel: var(--ginko-cms-studio-panel, oklch(0.985 0 0));

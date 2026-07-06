@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const defaultConsumerDir = '/Users/matthias/Git/workspace/i18n-cms'
+const defaultConsumerDir = resolve(repoRoot, '../i18n-cms')
 const args = process.argv.slice(2)
 const openBrowser = args.includes('--open')
 const studioOnly = args.includes('--studio-only')
@@ -42,25 +42,6 @@ Environment:
 if (!existsSync(resolve(consumerDir, 'package.json'))) {
   console.error(`[dev:consumer] Consumer package.json not found: ${consumerDir}`)
   process.exit(1)
-}
-
-function readNuxtLock() {
-  const lockPath = resolve(consumerDir, '.nuxt/nuxt.lock')
-  if (!existsSync(lockPath)) return null
-  try {
-    return JSON.parse(readFileSync(lockPath, 'utf-8'))
-  } catch {
-    return { path: lockPath }
-  }
-}
-
-function isProcessRunning(pid) {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
 }
 
 function isPortFree(port, host = studioHost) {
@@ -119,20 +100,6 @@ const children = []
 let shuttingDown = false
 
 if (!studioOnly) {
-  const nuxtLock = readNuxtLock()
-  const nuxtLockPid = typeof nuxtLock?.pid === 'number' ? nuxtLock.pid : null
-  if (nuxtLock && (!nuxtLockPid || isProcessRunning(nuxtLockPid))) {
-    const pid = nuxtLockPid ? ` PID ${nuxtLockPid}` : ''
-    console.error(`[dev:consumer] Existing Nuxt dev lock found for ${consumerDir}.${pid}`)
-    console.error(
-      '[dev:consumer] Stop the existing consumer dev server and rerun this command so Nuxt starts with GINKO_STUDIO_DEV_SERVER.',
-    )
-    console.error(
-      `[dev:consumer] If that server was already started with GINKO_STUDIO_DEV_SERVER=${studioDevServer}, run: pnpm dev:consumer --studio-only`,
-    )
-    process.exit(1)
-  }
-
   const consumerUrlParts = new URL(consumerUrl)
   if (!(await isConsumerPortFree(consumerUrlParts))) {
     console.error(`[dev:consumer] ${consumerUrl} is already in use.`)

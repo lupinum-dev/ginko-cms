@@ -38,7 +38,8 @@ const value = computed({
           label: label.toLowerCase(),
         })
       "
-      :class="['ginko:min-h-[120px]', fieldError ? 'ginko:border-destructive' : '']"
+      :aria-invalid="fieldError ? true : undefined"
+      class="ginko:min-h-[120px]"
     />
   </StudioFieldShell>
 </template>

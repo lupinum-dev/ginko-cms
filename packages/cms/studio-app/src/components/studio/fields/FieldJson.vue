@@ -64,22 +64,20 @@ function updateJsonValue(nextValue: string) {
 </script>
 
 <template>
-  <div class="ginko:col-span-2 ginko:space-y-1.5">
-    <Label :for="field.key" class="ginko:text-sm">{{ label }}</Label>
+  <StudioFieldShell
+    class="ginko:col-span-2"
+    :for="field.key"
+    :label="label"
+    :required="field.required"
+    :description="field.description"
+    :error="jsonError || fieldError"
+  >
     <Textarea
       :id="field.key"
       :model-value="rawValue"
-      :class="[
-        'ginko:min-h-[200px] ginko:font-mono ginko:text-sm',
-        jsonError ? 'ginko:border-destructive' : '',
-      ]"
+      :aria-invalid="jsonError || fieldError ? true : undefined"
+      class="ginko:min-h-[200px] ginko:font-mono ginko:text-sm"
       @update:model-value="updateJsonValue"
     />
-    <p v-if="field.description" class="ginko:text-xs ginko:text-muted-foreground">
-      {{ field.description }}
-    </p>
-    <p v-if="jsonError" class="ginko:text-xs ginko:text-destructive">
-      {{ jsonError }}
-    </p>
-  </div>
+  </StudioFieldShell>
 </template>

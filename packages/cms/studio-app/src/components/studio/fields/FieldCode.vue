@@ -23,14 +23,18 @@ const value = computed({
 </script>
 
 <template>
-  <div class="ginko:col-span-2 ginko:space-y-1.5">
-    <Label :for="field.key" class="ginko:text-sm">
-      {{ label }}
-      <span v-if="field.required" class="ginko:text-destructive">*</span>
-    </Label>
+  <StudioFieldShell
+    class="ginko:col-span-2"
+    :for="field.key"
+    :label="label"
+    :required="field.required"
+    :description="field.description"
+    :error="fieldError"
+  >
     <Textarea
       :id="field.key"
       v-model="value"
+      :aria-invalid="fieldError ? true : undefined"
       class="ginko:min-h-[200px] ginko:font-mono ginko:text-sm"
       :placeholder="
         field.language
@@ -40,5 +44,5 @@ const value = computed({
           : t('ginkoCms.studio.fieldRenderer.codePlaceholder')
       "
     />
-  </div>
+  </StudioFieldShell>
 </template>

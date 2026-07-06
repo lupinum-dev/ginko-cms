@@ -14,7 +14,8 @@ const props = defineProps<{
 <template>
   <div
     data-slot="card"
-    :data-size="props.size"
+    :data-size="props.size ?? 'default'"
+    :data-variant="props.variant ?? 'default'"
     :class="cn(cardVariants({ variant: props.variant, size: props.size }), props.class)"
   >
     <slot />

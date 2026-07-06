@@ -199,14 +199,16 @@ async function saveMetadata() {
           Asset metadata is not available.
         </div>
 
-        <div class="ginko:space-y-1.5">
-          <Label class="ginko:text-xs">Locale</Label>
+        <FieldSet class="ginko:gap-2">
+          <FieldLegend variant="label">Locale</FieldLegend>
           <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
-            <button
+            <Button
               v-for="locale in localeOptions"
               :key="locale.code"
               type="button"
-              class="ginko:inline-flex ginko:h-7 ginko:items-center ginko:gap-1 ginko:rounded-md ginko:px-2 ginko:text-xs ginko:transition-colors"
+              variant="ghost"
+              size="xs"
+              class="ginko:gap-1"
               :class="
                 activeLocale === locale.code
                   ? 'ginko:bg-accent ginko:font-medium ginko:text-foreground'
@@ -221,9 +223,9 @@ async function saveMetadata() {
               <span v-if="locale.isDefault" class="ginko:text-xs ginko:text-muted-foreground">
                 default
               </span>
-            </button>
+            </Button>
           </div>
-        </div>
+        </FieldSet>
 
         <div
           v-if="error"
@@ -233,22 +235,22 @@ async function saveMetadata() {
         </div>
 
         <div class="ginko:space-y-3">
-          <div class="ginko:space-y-1.5">
-            <Label class="ginko:text-xs">Alt Text</Label>
+          <StudioFieldShell for="asset-alt-text" label="Alt Text">
             <Input
+              id="asset-alt-text"
               v-model="altText"
               class="ginko:h-9 ginko:text-sm"
               :disabled="!selectedAsset || saving"
             />
-          </div>
-          <div class="ginko:space-y-1.5">
-            <Label class="ginko:text-xs">Caption</Label>
+          </StudioFieldShell>
+          <StudioFieldShell for="asset-caption" label="Caption">
             <Input
+              id="asset-caption"
               v-model="captionText"
               class="ginko:h-9 ginko:text-sm"
               :disabled="!selectedAsset || saving"
             />
-          </div>
+          </StudioFieldShell>
         </div>
       </div>
 
