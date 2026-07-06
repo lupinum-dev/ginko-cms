@@ -101,16 +101,12 @@ async function claimCmsOwnership() {
   <SidebarProvider
     v-if="studioAccess.status === 'ready'"
     data-testid="cms-studio-ready"
-    :style="{
-      '--sidebar-width': '16rem',
-      '--sidebar-width-icon': '3rem',
-    }"
     :class="[studioClass, 'studio-shell ginko:text-foreground']"
   >
     <CmsCommandPalette :studio-route="studioRoute" />
     <StudioSidebar />
 
-    <div
+    <SidebarInset
       class="ginko:relative ginko:flex ginko:min-h-svh ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:flex-col ginko:overflow-hidden ginko:bg-transparent"
     >
       <StudioHeader />
@@ -119,7 +115,7 @@ async function claimCmsOwnership() {
       >
         <slot />
       </div>
-    </div>
+    </SidebarInset>
   </SidebarProvider>
   <div
     v-else

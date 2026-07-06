@@ -15,7 +15,6 @@ import {
 import {
   studioRouteHref,
   studioRoutesForSection,
-  type StudioRouteSection,
   type StudioStaticRoute,
 } from '../../lib/studioNavigation'
 import StudioCollectionIcon from './collections/StudioCollectionIcon.vue'
@@ -51,7 +50,6 @@ const isCollectionsLoading = computed(
 )
 const route = useRoute()
 const activeCollection = computed(() => route.params.collection)
-const isHomeActive = computed(() => route.name === 'studio-home')
 function isActive(path: string): boolean {
   return route.path === path || route.path.startsWith(path + '/')
 }
@@ -65,7 +63,7 @@ function canAccessRoute(route: StudioStaticRoute): boolean {
   const requiredCapability = route.requiredCapability
   return !requiredCapability || capabilityAccess[requiredCapability]?.value === true
 }
-function sectionLinks(section: StudioRouteSection) {
+function sectionLinks(section: 'editor' | 'operations' | 'settings') {
   return studioRoutesForSection(section)
     .filter(canAccessRoute)
     .map((route) => ({
@@ -74,30 +72,13 @@ function sectionLinks(section: StudioRouteSection) {
       label: t(route.labelKey),
     }))
 }
-const homeLink = computed(() => sectionLinks('home')[0])
 const editorLinks = computed(() => sectionLinks('editor'))
 const operationLinks = computed(() => sectionLinks('operations'))
 const settingsLinks = computed(() => sectionLinks('settings'))
 </script>
 
 <template>
-  <SidebarGroup class="studio-sidebar-nav__group">
-    <SidebarGroupLabel>Home</SidebarGroupLabel>
-    <SidebarGroupContent>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton as-child :tooltip="homeLink?.label" :is-active="isHomeActive">
-            <RouterLink :to="homeLink?.to || studioRoute">
-              <Icon :name="homeLink?.icon || 'lucide:layout-dashboard'" class="ginko:size-4" />
-              <span>{{ homeLink?.label }}</span>
-            </RouterLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarGroupContent>
-  </SidebarGroup>
-
-  <SidebarGroup class="studio-sidebar-nav__group">
+  <SidebarGroup class="ginko:mb-3">
     <SidebarGroupLabel>
       {{ t('ginkoCms.studio.layout.content') }}
     </SidebarGroupLabel>
@@ -136,23 +117,13 @@ const settingsLinks = computed(() => sectionLinks('settings'))
                 <span>{{ collection.label }}</span>
               </RouterLink>
             </SidebarMenuButton>
-            <SidebarMenuBadge
-              v-if="collection.singleton"
-              class="studio-singleton-chip"
-              :title="t('ginkoCms.studio.layout.singletonBadge')"
-              :aria-label="t('ginkoCms.studio.layout.singletonBadge')"
-            >
-              1
-            </SidebarMenuBadge>
           </SidebarMenuItem>
         </template>
       </SidebarMenu>
     </SidebarGroupContent>
   </SidebarGroup>
 
-  <SidebarSeparator />
-
-  <SidebarGroup class="studio-sidebar-nav__group">
+  <SidebarGroup class="ginko:mb-3">
     <SidebarGroupLabel>{{ t('ginkoCms.studio.layout.editor') }}</SidebarGroupLabel>
     <SidebarGroupContent>
       <SidebarMenu>
@@ -169,9 +140,7 @@ const settingsLinks = computed(() => sectionLinks('settings'))
   </SidebarGroup>
 
   <template v-if="operationLinks.length">
-    <SidebarSeparator />
-
-    <SidebarGroup class="studio-sidebar-nav__group">
+    <SidebarGroup class="ginko:mb-3">
       <SidebarGroupLabel>{{ t('ginkoCms.studio.layout.operations') }}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
@@ -189,9 +158,7 @@ const settingsLinks = computed(() => sectionLinks('settings'))
   </template>
 
   <template v-if="settingsLinks.length">
-    <SidebarSeparator />
-
-    <SidebarGroup class="studio-sidebar-nav__group">
+    <SidebarGroup class="ginko:mb-3">
       <SidebarGroupLabel>
         {{ t('ginkoCms.common.settings') }}
       </SidebarGroupLabel>
@@ -210,84 +177,3 @@ const settingsLinks = computed(() => sectionLinks('settings'))
     </SidebarGroup>
   </template>
 </template>
-
-<style scoped>
-.studio-sidebar-nav__group {
-  margin-bottom: 0.75rem;
-}
-
-:deep([data-sidebar='group-label']) {
-  height: 2rem;
-  padding-inline: 0.5rem;
-  margin-bottom: 0.25rem;
-  color: color-mix(in oklch, var(--sidebar-foreground) 60%, transparent);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-:deep([data-sidebar='menu-button']) {
-  height: 2.25rem;
-  padding-inline: 0.625rem;
-  border-radius: 0.5rem;
-  color: color-mix(in oklch, var(--sidebar-foreground) 70%, transparent);
-  font-size: 0.875rem;
-  gap: 0.625rem;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
-}
-
-:deep([data-sidebar='menu-button'] svg) {
-  color: color-mix(in oklch, var(--sidebar-foreground) 60%, transparent);
-}
-
-:deep([data-sidebar='menu-button']:hover) {
-  background: color-mix(in oklch, var(--sidebar-accent) 50%, transparent);
-  color: var(--sidebar-foreground);
-}
-
-:deep([data-sidebar='menu-button'][data-active='true']),
-:deep([data-sidebar='menu-button'][data-active='']) {
-  background: color-mix(in oklch, var(--sidebar-foreground) 10%, transparent);
-  color: var(--sidebar-foreground);
-  font-weight: 500;
-  box-shadow: none;
-}
-
-:deep([data-sidebar='menu-button'][data-active='true'] svg),
-:deep([data-sidebar='menu-button'][data-active=''] svg),
-:deep([data-sidebar='menu-button']:hover svg) {
-  color: currentColor;
-}
-
-:deep([data-sidebar='separator']) {
-  display: none;
-}
-
-/* Singleton "1" chip — quiet metadata next to one-of-a-kind collections.
- * Numeric, monospace, tinted. Reads as "this collection has exactly one
- * entry" without the awkward "single" word floating in the row. */
-:deep(.studio-singleton-chip) {
-  top: 0.3125rem;
-  right: 0.375rem;
-  height: 1rem;
-  min-width: 1rem;
-  padding-inline: 0.25rem;
-  border-radius: 0.25rem;
-  background: color-mix(in oklch, var(--sidebar-foreground) 8%, transparent);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: color-mix(in oklch, var(--sidebar-foreground) 55%, transparent);
-}
-
-:deep([data-sidebar='menu-button']:hover) ~ .studio-singleton-chip,
-:deep([data-sidebar='menu-button'][data-active='true']) ~ .studio-singleton-chip,
-:deep([data-sidebar='menu-button'][data-active='']) ~ .studio-singleton-chip {
-  background: color-mix(in oklch, var(--sidebar-foreground) 12%, transparent);
-  color: color-mix(in oklch, var(--sidebar-foreground) 70%, transparent);
-}
-</style>

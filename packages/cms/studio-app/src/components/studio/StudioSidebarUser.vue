@@ -69,9 +69,9 @@ async function handleSignOut() {
     <SidebarMenuItem>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <button
-            type="button"
-            class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2.5 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-left ginko:transition-colors ginko:hover:bg-muted/50 ginko:data-[state=open]:bg-muted/60 ginko:focus-visible:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-sidebar-ring/40"
+          <SidebarMenuButton
+            size="lg"
+            class="ginko:gap-2.5 ginko:data-[state=open]:bg-sidebar-accent ginko:data-[state=open]:text-sidebar-accent-foreground"
           >
             <Avatar class="ginko:size-7 ginko:rounded-full ginko:ring-1 ginko:ring-border/50">
               <AvatarImage v-if="user?.image" :src="user.image" :alt="user?.name" />
@@ -94,7 +94,7 @@ async function handleSignOut() {
             <ChevronDown
               class="ginko:ml-auto ginko:size-3.5 ginko:shrink-0 ginko:text-muted-foreground/50 ginko:group-data-[collapsible=icon]:hidden"
             />
-          </button>
+          </SidebarMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           class="ginko:w-[--reka-popper-anchor-width] ginko:min-w-56 ginko:rounded-lg"
