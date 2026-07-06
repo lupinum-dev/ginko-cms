@@ -67,6 +67,13 @@ const entry = computed<EntryMetadata | null>(() => {
 const lastUpdatedAt = computed(() => entry.value?.updatedAt ?? entry.value?.publishedAt ?? null)
 
 const primaryLocaleLabel = computed(() => editor.loader.currentLocale.toUpperCase())
+const localizedSlugInputId = computed(() => `localized-slug-${props.side}`)
+const localizedPathInputId = computed(() => `localized-computed-path-${props.side}`)
+const localizedUrlHelp = computed(() =>
+  props.side === 'primary'
+    ? `This URL slug belongs to ${localeCodeLabel.value} only.`
+    : `URL managed in ${primaryLocaleLabel.value}.`,
+)
 
 function updateField(fieldKey: string, value: unknown) {
   if (props.side === 'primary') {
@@ -193,26 +200,34 @@ function updateField(fieldKey: string, value: unknown) {
       </div>
 
       <div
-        v-if="side === 'primary' && isRouteBackedEntry && usesLocalizedSlug"
-        class="ginko:rounded-md ginko:bg-muted/30 ginko:px-3.5 ginko:py-3"
+        v-if="isRouteBackedEntry && usesLocalizedSlug"
+        class="studio-locale-panel__localized-url ginko:min-h-[9.75rem] ginko:rounded-md ginko:bg-muted/30 ginko:px-3.5 ginko:py-3"
       >
         <div
           class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-[minmax(0,1fr)_16rem]"
         >
-          <StudioFieldShell for="localized-slug" label="Public URL">
+          <StudioFieldShell :for="localizedSlugInputId" label="Public URL">
             <Input
-              id="localized-slug"
+              v-if="side === 'primary'"
+              :id="localizedSlugInputId"
               v-model="editor.draft.form.slug"
               :disabled="!editor.loader.canEditEntries"
               class="ginko:font-mono ginko:text-sm"
             />
+            <Input
+              v-else
+              :id="localizedSlugInputId"
+              :model-value="`Managed in ${primaryLocaleLabel}`"
+              disabled
+              class="ginko:font-mono ginko:text-sm"
+            />
           </StudioFieldShell>
           <StudioFieldShell
-            for="localized-computed-path"
+            :for="localizedPathInputId"
             :label="editor.loader.t('ginkoCms.common.path')"
           >
             <Input
-              id="localized-computed-path"
+              :id="localizedPathInputId"
               :model-value="editor.draft.computedPath"
               disabled
               class="ginko:font-mono ginko:text-sm ginko:text-muted-foreground"
@@ -220,7 +235,7 @@ function updateField(fieldKey: string, value: unknown) {
           </StudioFieldShell>
         </div>
         <p class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground">
-          This URL slug belongs to {{ localeCodeLabel }} only.
+          {{ localizedUrlHelp }}
         </p>
       </div>
 

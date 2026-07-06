@@ -1,73 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 
 const EMPTY_PARENT_VALUE = '__ginko_root__'
 const editor = useStudioEntryEditorContext()
-
-const isRouteBackedEntry = computed(
-  () =>
-    editor.loader.collectionConfig?.mode !== 'none' &&
-    editor.loader.collectionConfig?.routing?.mode !== 'none',
-)
-const usesLocalizedSlug = computed(() => {
-  const mode =
-    editor.loader.collectionConfig?.slugMode ??
-    editor.loader.collectionConfig?.routing?.slugMode ??
-    'shared'
-  return mode === 'localized' || mode === 'localizedStable'
-})
 </script>
 
 <template>
-  <StudioSection
-    title="Publishing details"
-    :badge="isRouteBackedEntry ? 'Public page' : 'Data-only'"
-  >
+  <StudioSection title="Shared properties" badge="Applies to all locales">
     <div class="ginko:space-y-4">
-      <div v-if="isRouteBackedEntry && !usesLocalizedSlug" class="ginko:px-0 ginko:py-0">
-        <div
-          class="ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:md:grid-cols-2 ginko:xl:grid-cols-4"
-        >
-          <StudioFieldShell for="slug" label="Public URL">
-            <Input
-              id="slug"
-              v-model="editor.draft.form.slug"
-              :disabled="!editor.loader.canEditEntries"
-              class="ginko:font-mono ginko:text-sm"
-            />
-          </StudioFieldShell>
-          <StudioFieldShell for="computed-path" :label="editor.loader.t('ginkoCms.common.path')">
-            <Input
-              id="computed-path"
-              :model-value="editor.draft.computedPath"
-              disabled
-              class="ginko:font-mono ginko:text-sm ginko:text-muted-foreground"
-            />
-          </StudioFieldShell>
-        </div>
-        <p class="ginko:mt-1.5 ginko:text-[11px] ginko:leading-5 ginko:text-muted-foreground/70">
-          This URL slug is shared by every locale.
-        </p>
-      </div>
-
-      <div
-        v-else
-        class="ginko:rounded-lg ginko:border ginko:border-border/50 ginko:bg-background/45 ginko:px-4 ginko:py-3.5"
-      >
-        <div class="ginko:text-sm ginko:font-medium">
-          {{ isRouteBackedEntry ? 'Locale-specific URLs' : 'Shared-content entry' }}
-        </div>
-        <p class="ginko:mt-1 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-          {{
-            isRouteBackedEntry
-              ? 'Each locale manages its URL in the locale content section below.'
-              : 'This content type does not create website pages. Published website content comes from provider queries after publish.'
-          }}
-        </p>
-      </div>
-
       <fieldset
         v-if="editor.loader.isTree"
         :disabled="!editor.loader.canEditEntries"

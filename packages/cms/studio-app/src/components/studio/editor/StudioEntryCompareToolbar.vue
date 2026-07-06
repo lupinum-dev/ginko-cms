@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowLeftRight, Brackets, FileText, Settings } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
@@ -11,6 +11,7 @@ const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
 const inspectorVisible = useStudioInspectorVisible()
 const { studioLocales } = useCmsI18n()
+const inspectorAutoCollapsed = ref(false)
 
 const canCompare = computed(() => editor.loader.locales.length > 1)
 const secondaryLocale = computed(
@@ -45,6 +46,12 @@ function toggleMode(compare: boolean) {
   // so two locale panels get room; users can re-open via the topbar toggle.
   if (compare && inspectorVisible.value) {
     inspectorVisible.value = false
+    inspectorAutoCollapsed.value = true
+    return
+  }
+  if (!compare && inspectorAutoCollapsed.value) {
+    inspectorVisible.value = true
+    inspectorAutoCollapsed.value = false
   }
 }
 

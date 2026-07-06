@@ -2,12 +2,15 @@
 
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, reactive, ref } from 'vue'
 
 import StudioCollectionContractSection from '../../packages/cms/studio-app/src/components/studio/collections/StudioCollectionContractSection.vue'
+import StudioEntryCompareToolbar from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryCompareToolbar.vue'
 import StudioEntryPublicWorkflowPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryPublicWorkflowPanel.vue'
 import StudioEntryTranslationReadinessPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryTranslationReadinessPanel.vue'
+import StudioLocaleEditorPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioLocaleEditorPanel.vue'
 import StudioPublishDialog from '../../packages/cms/studio-app/src/components/studio/editor/StudioPublishDialog.vue'
+import StudioSharedFieldsPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioSharedFieldsPanel.vue'
 import FieldArray from '../../packages/cms/studio-app/src/components/studio/fields/FieldArray.vue'
 import FieldBlocks from '../../packages/cms/studio-app/src/components/studio/fields/FieldBlocks.vue'
 import FieldObject from '../../packages/cms/studio-app/src/components/studio/fields/FieldObject.vue'
@@ -17,6 +20,7 @@ import StudioListFrame from '../../packages/cms/studio-app/src/components/studio
 import StudioNotice from '../../packages/cms/studio-app/src/components/studio/StudioNotice.vue'
 import StudioSegmentedControl from '../../packages/cms/studio-app/src/components/studio/StudioSegmentedControl.vue'
 import { provideStudioEntryEditorContext } from '../../packages/cms/studio-app/src/composables/internal/studioEntryEditorContext'
+import { useStudioInspectorVisible } from '../../packages/cms/studio-app/src/composables/useStudioInspectorVisible'
 
 function createTestLocalStorage(): Storage {
   const values = new Map<string, string>()
@@ -98,10 +102,51 @@ function studioStubs() {
     DialogFooter: { template: '<footer><slot /></footer>' },
     DialogHeader: { template: '<header><slot /></header>' },
     DialogTitle: { template: '<h2><slot /></h2>' },
+    DropdownMenu: { template: '<div><slot /></div>' },
+    DropdownMenuContent: { template: '<div><slot /></div>' },
+    DropdownMenuItem: { template: '<button type="button"><slot /></button>' },
+    DropdownMenuTrigger: { template: '<span><slot /></span>' },
     Globe: { template: '<span />' },
     Label: { template: '<label><slot /></label>' },
     Loader2: { template: '<span />' },
+    NuxtTime: {
+      props: { datetime: [Number, String] },
+      template: '<time>{{ datetime }}</time>',
+    },
+    Icon: { template: '<span />' },
+    Input: defineComponent({
+      props: { disabled: Boolean, id: String, modelValue: [String, Number] },
+      emits: ['update:modelValue'],
+      template:
+        '<input :id="id" :disabled="disabled" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+    }),
+    RouterLink: {
+      props: { to: String },
+      template: '<a :href="to"><slot /></a>',
+    },
+    Select: { template: '<div><slot /></div>' },
+    SelectContent: { template: '<div><slot /></div>' },
+    SelectItem: { template: '<div><slot /></div>' },
+    SelectTrigger: { template: '<button type="button"><slot /></button>' },
+    Separator: { template: '<span />' },
     Skeleton: { template: '<div />' },
+    StudioFieldRenderer: {
+      props: { field: Object, modelValue: null },
+      template: '<div>{{ field?.label || field?.key }}</div>',
+    },
+    StudioFieldShell: {
+      props: { for: String, label: String },
+      template: '<div><label :for="$props.for">{{ label }}</label><slot /></div>',
+    },
+    StudioSection: {
+      props: { badge: String, title: String },
+      template:
+        '<section><h2>{{ title }}</h2><span v-if="badge">{{ badge }}</span><slot /></section>',
+    },
+    StudioStatusPill: {
+      props: { label: String },
+      template: '<span>{{ label }}</span>',
+    },
     StudioConfirmDialog: defineComponent({
       props: {
         confirmLabel: String,
@@ -259,6 +304,138 @@ function mountCollectionContractSection(overrides: Record<string, unknown> = {})
   })
 }
 
+function createCompareToolbarEditor() {
+  const translationMode = ref(false)
+  const secondaryLocale = ref('')
+
+  return reactive({
+    loader: {
+      canEditEntries: true,
+      currentLocale: 'en',
+      locales: [
+        { code: 'en', label: 'English' },
+        { code: 'de', label: 'Deutsch' },
+      ],
+    },
+    draft: {
+      saving: false,
+    },
+    locales: {
+      translationMode,
+      secondaryLocale,
+      handleSelectSecondaryLocale: (locale: string) => {
+        secondaryLocale.value = locale
+      },
+      handleSwitchLocale: vi.fn(),
+      setTranslationMode: (enabled: boolean) => {
+        translationMode.value = enabled
+      },
+    },
+  })
+}
+
+function createLocalePanelEditor() {
+  return reactive({
+    loader: {
+      canEditEntries: true,
+      collectionConfig: {
+        mode: 'route',
+        pathPrefix: '/changelog',
+        routing: { mode: 'path', slugMode: 'localized' },
+        slugMode: 'localized',
+      },
+      currentLocale: 'en',
+      dateLocale: 'en',
+      entry: { publishedAt: '2026-05-21T12:52:50.899Z' },
+      localizedFields: [{ key: 'title', label: 'Title', type: 'text' }],
+      t: (key: string) => (key === 'ginkoCms.common.path' ? 'Path' : key),
+    },
+    draft: {
+      assetContext: {},
+      computedPath: '/changelog/security',
+      dataFields: { title: 'Security Enhancements' },
+      editorContext: {},
+      form: { slug: 'security' },
+      saving: false,
+    },
+    locales: {
+      handleSaveSecondaryDraft: vi.fn(),
+      secondaryAssetContext: {},
+      secondaryDataFields: { title: 'Sicherheitsverbesserungen' },
+      secondaryEditorContext: {},
+      secondaryLocale: 'de',
+    },
+    copyPrimaryToSecondary: vi.fn(),
+  })
+}
+
+function mountLocalePanelComparison() {
+  const editor = createLocalePanelEditor()
+  const Host = defineComponent({
+    setup() {
+      provideStudioEntryEditorContext(editor as never)
+      return () =>
+        h('div', [
+          h(StudioLocaleEditorPanel, { side: 'primary' }),
+          h(StudioLocaleEditorPanel, { side: 'secondary', status: 'Public' }),
+        ])
+    },
+  })
+
+  return mount(Host, {
+    global: {
+      stubs: studioStubs(),
+    },
+  })
+}
+
+function createSharedFieldsPanelEditor() {
+  return reactive({
+    loader: {
+      canEditEntries: true,
+      currentLocale: 'en',
+      isTree: false,
+      parentOptions: [],
+      sharedFields: [
+        { key: 'date', label: 'Date', localized: false, type: 'date' },
+        { key: 'image', label: 'Image', localized: false, type: 'asset' },
+      ],
+      t: (key: string) => key,
+    },
+    draft: {
+      assetContext: {},
+      dataFields: {
+        date: '2024-12-11',
+        image: 'asset-id',
+      },
+      editorContext: {},
+      form: {
+        badge: '',
+        icon: '',
+        kind: 'page',
+        parentEntryId: '',
+        slug: 'security',
+      },
+    },
+  })
+}
+
+function mountSharedFieldsPanel() {
+  const editor = createSharedFieldsPanelEditor()
+  const Host = defineComponent({
+    setup() {
+      provideStudioEntryEditorContext(editor as never)
+      return () => h(StudioSharedFieldsPanel)
+    },
+  })
+
+  return mount(Host, {
+    global: {
+      stubs: studioStubs(),
+    },
+  })
+}
+
 const baseVisibility = {
   error: null,
   errorMessage: '',
@@ -322,6 +499,87 @@ const publishReview = {
 }
 
 describe('Studio workflow components', () => {
+  it('renders shared properties without URL ownership copy', () => {
+    const wrapper = mountSharedFieldsPanel()
+
+    expect(wrapper.text()).toContain('Shared properties')
+    expect(wrapper.text()).toContain('Applies to all locales')
+    expect(wrapper.text()).toContain('Date')
+    expect(wrapper.text()).toContain('Image')
+    expect(wrapper.text()).not.toContain('Publishing details')
+    expect(wrapper.text()).not.toContain('Locale-specific URLs')
+    expect(wrapper.text()).not.toContain('Each locale manages its URL')
+    expect(wrapper.text()).not.toContain('Public URL')
+  })
+
+  it('keeps localized URL rows present in both compare columns', () => {
+    const wrapper = mountLocalePanelComparison()
+    const urlRows = wrapper.findAll('.studio-locale-panel__localized-url')
+
+    expect(urlRows).toHaveLength(2)
+    expect(urlRows[0]?.text()).toContain('This URL slug belongs to EN only.')
+    expect((urlRows[1]?.find('input').element as HTMLInputElement).value).toBe('Managed in EN')
+    expect(urlRows[1]?.text()).toContain('URL managed in EN.')
+    expect(wrapper.text()).toContain('Title')
+  })
+
+  it('restores the inspector after Compare auto-collapses it and Single is selected', async () => {
+    const restoreLocalStorage = installTestLocalStorage()
+    try {
+      const inspectorVisible = useStudioInspectorVisible()
+      inspectorVisible.value = true
+      const wrapper = mountWithStudioContext(
+        StudioEntryCompareToolbar,
+        createCompareToolbarEditor(),
+      )
+      const compareButton = wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Compare'))
+      const singleButton = wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Single'))
+
+      expect(compareButton).toBeTruthy()
+      expect(singleButton).toBeTruthy()
+
+      await compareButton?.trigger('click')
+      expect(inspectorVisible.value).toBe(false)
+
+      await singleButton?.trigger('click')
+      expect(inspectorVisible.value).toBe(true)
+    } finally {
+      restoreLocalStorage()
+    }
+  })
+
+  it('does not reopen the inspector when it was already hidden before Compare', async () => {
+    const restoreLocalStorage = installTestLocalStorage()
+    try {
+      const inspectorVisible = useStudioInspectorVisible()
+      inspectorVisible.value = false
+      const wrapper = mountWithStudioContext(
+        StudioEntryCompareToolbar,
+        createCompareToolbarEditor(),
+      )
+      const compareButton = wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Compare'))
+      const singleButton = wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Single'))
+
+      expect(compareButton).toBeTruthy()
+      expect(singleButton).toBeTruthy()
+
+      await compareButton?.trigger('click')
+      await singleButton?.trigger('click')
+
+      expect(inspectorVisible.value).toBe(false)
+    } finally {
+      restoreLocalStorage()
+    }
+  })
+
   it('renders page-backed content setup as developer-managed website capability', () => {
     const wrapper = mountCollectionContractSection()
 
