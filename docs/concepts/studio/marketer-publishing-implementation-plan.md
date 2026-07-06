@@ -10,10 +10,17 @@ re-deciding the architecture.
 Related document:
 
 - `docs/concepts/studio/marketer-publishing-pipeline.md`
+- `docs/concepts/studio/marketer-publishing-agent-success-protocol.md`
+- `docs/concepts/studio/marketer-publishing-agent-experiments.md`
+- `docs/concepts/studio/marketer-publishing-agent-task-packets.md`
+- `docs/concepts/studio/marketer-publishing-full-implementation-goal-prompt.md`
 
 ## Document Rules
 
 - [ ] Keep this file focused on implementation, not product positioning.
+- [ ] Use the agent success protocol when assigning work to coding agents.
+- [ ] Use the experiment log when calibrating prompts or comparing agent runs.
+- [ ] Use the task packet file for copyable implementer and reviewer prompts.
 - [ ] Update checklist items as work is completed.
 - [ ] Add file-level notes only when they change implementation behavior.
 - [ ] Do not add new architectural options without marking one as accepted.
@@ -174,26 +181,26 @@ readiness detail. Public provider reads active projections only.
 
 ## Canonical Source Of Truth Map
 
-| Concept | Canonical Owner | Derived Consumers | Notes |
-| --- | --- | --- | --- |
-| Collection schema | Host app code and contract definitions | Studio, Convex, MCP | Studio and MCP inspect only. |
-| Draft content | Convex `entries` plus draft rows | Studio editor, readiness detail | Draft saves can be incomplete. |
-| Canonical body | Raw MDC | AST/search/TOC projections | Raw MDC remains editable source. |
-| Editor state | Studio local state | None | Unsaved UI state is not backend truth. |
-| Localized fields | Draft locale rows | Readiness, publish | Per-locale publishability. |
-| Published content | Active public projections | Public provider, sitemap/search/nav | Public reads use this only. |
-| Public routes | `publicRoutes` | Provider, diagnostics, readiness | Unique by `locale/path`. |
-| Relations | Stable references in canonical content | Diagnostics, publish preview | No broad runtime expansion v1. |
-| Assets | Asset records and asset refs | Readiness, public projections | Freshness model must be explicit. |
-| Members/auth | Better Auth plus Convex members | Studio, MCP guards | Same actor model for human and agent. |
-| MCP authority | Scoped MCP credentials and app identity | MCP tools | Tools call operations. |
-| Publish state | Revisions and active projections | Readiness, history | No stored workflow state. |
-| Revalidation state | Convex revalidation events | Track UI, diagnostics | Durable delivery owned by CMS. |
-| Cache dependencies | CMS dependency resolution plus provider hints | Revalidation | Host owns concrete cache adapters. |
-| Site data | Convex site data records | Provider, Studio | Same publish/readiness rules where relevant. |
-| Review requests | Convex review request records | Review UI, MCP | Preview computed in Convex. |
-| Agent runs | Convex agent run records | MCP, review UI | Operation audit remains authoritative. |
-| Locale config | Convex/site runtime config decision | Readiness, provider, Studio | Must be settled before UI expansion. |
+| Concept            | Canonical Owner                               | Derived Consumers                   | Notes                                        |
+| ------------------ | --------------------------------------------- | ----------------------------------- | -------------------------------------------- |
+| Collection schema  | Host app code and contract definitions        | Studio, Convex, MCP                 | Studio and MCP inspect only.                 |
+| Draft content      | Convex `entries` plus draft rows              | Studio editor, readiness detail     | Draft saves can be incomplete.               |
+| Canonical body     | Raw MDC                                       | AST/search/TOC projections          | Raw MDC remains editable source.             |
+| Editor state       | Studio local state                            | None                                | Unsaved UI state is not backend truth.       |
+| Localized fields   | Draft locale rows                             | Readiness, publish                  | Per-locale publishability.                   |
+| Published content  | Active public projections                     | Public provider, sitemap/search/nav | Public reads use this only.                  |
+| Public routes      | `publicRoutes`                                | Provider, diagnostics, readiness    | Unique by `locale/path`.                     |
+| Relations          | Stable references in canonical content        | Diagnostics, publish preview        | No broad runtime expansion v1.               |
+| Assets             | Asset records and asset refs                  | Readiness, public projections       | Freshness model must be explicit.            |
+| Members/auth       | Better Auth plus Convex members               | Studio, MCP guards                  | Same actor model for human and agent.        |
+| MCP authority      | Scoped MCP credentials and app identity       | MCP tools                           | Tools call operations.                       |
+| Publish state      | Revisions and active projections              | Readiness, history                  | No stored workflow state.                    |
+| Revalidation state | Convex revalidation events                    | Track UI, diagnostics               | Durable delivery owned by CMS.               |
+| Cache dependencies | CMS dependency resolution plus provider hints | Revalidation                        | Host owns concrete cache adapters.           |
+| Site data          | Convex site data records                      | Provider, Studio                    | Same publish/readiness rules where relevant. |
+| Review requests    | Convex review request records                 | Review UI, MCP                      | Preview computed in Convex.                  |
+| Agent runs         | Convex agent run records                      | MCP, review UI                      | Operation audit remains authoritative.       |
+| Locale config      | Convex/site runtime config decision           | Readiness, provider, Studio         | Must be settled before UI expansion.         |
 
 ## Canonical Readiness States
 

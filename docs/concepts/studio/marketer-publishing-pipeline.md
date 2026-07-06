@@ -6,6 +6,14 @@ focused CMS for Ginko/Nuxt marketing and content sites. It is not a generic
 admin platform, schema builder, backend abstraction layer, or visual page
 builder.
 
+Execution documents:
+
+- `docs/concepts/studio/marketer-publishing-implementation-plan.md`
+- `docs/concepts/studio/marketer-publishing-agent-success-protocol.md`
+- `docs/concepts/studio/marketer-publishing-agent-experiments.md`
+- `docs/concepts/studio/marketer-publishing-agent-task-packets.md`
+- `docs/concepts/studio/marketer-publishing-full-implementation-goal-prompt.md`
+
 The goal is not to expose more workflow machinery. The goal is to make
 publishing website content feel obvious, trustworthy, and easy to explain
 because the backend truth is unified.
@@ -655,11 +663,11 @@ truth and one shared workflow model.
 
 Estimated effort for one senior full-stack engineer:
 
-| Scope                        |               Estimate | Notes                                                                                                                      |
-| ---------------------------- | ---------------------: | -------------------------------------------------------------------------------------------------------------------------- |
-| Thin UI language polish only |               4-7 days | Rename checkpoint, simplify labels, move diagnostics deeper. Useful, but not enough.                                       |
-| Core readiness refactor      | 25-35 engineering days | Canonical readiness vocabulary/detail, strict i18n rules, canonical human/agent publish path, initial vertical slice.      |
-| Marketer-ready Studio v1     | 35-50 engineering days | Adds full entry rail, dashboard, review page, locale actions, AI review UX, and focused tests.                             |
+| Scope                        |               Estimate | Notes                                                                                                                              |
+| ---------------------------- | ---------------------: | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Thin UI language polish only |               4-7 days | Rename checkpoint, simplify labels, move diagnostics deeper. Useful, but not enough.                                               |
+| Core readiness refactor      | 25-35 engineering days | Canonical readiness vocabulary/detail, strict i18n rules, canonical human/agent publish path, initial vertical slice.              |
+| Marketer-ready Studio v1     | 35-50 engineering days | Adds full entry rail, dashboard, review page, locale actions, AI review UX, and focused tests.                                     |
 | Production-complete pipeline | 60-85 engineering days | Adds automatic subtree route rebuild, asset freshness, MCP lifecycle hardening, imports alignment, and broader invariant coverage. |
 
 Calendar estimate:
