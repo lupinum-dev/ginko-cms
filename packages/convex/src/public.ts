@@ -36,7 +36,9 @@ import {
   needsStableId,
 } from './lib/collections.js'
 import { getCmsSettings, getLocaleChain } from './lib/locale.js'
+import { compareOrderRank } from './lib/ordering.js'
 import { parseStableIdFromPath } from './lib/paths.js'
+import { orderTreeRows } from './lib/treeOrder.js'
 import type { ReadCtx } from './lib/types.js'
 import {
   toGinkoEntry,
@@ -898,7 +900,17 @@ export const nav = callerQuery.public({
       nodes.set(String(row.entryId), { entry, children: [] })
     }
 
-    for (const row of rows) {
+    const orderedRows = orderTreeRows(rows, {
+      getId: (row) => String(row.entryId),
+      getParentId: (row) => (row.parentEntryId ? String(row.parentEntryId) : null),
+      compareSiblings: (left, right) => {
+        const rank = compareOrderRank(left.orderKey, right.orderKey)
+        if (rank !== 0) return rank
+        return left.path.localeCompare(right.path)
+      },
+    }).map(({ row }) => row)
+
+    for (const row of orderedRows) {
       const node = nodes.get(String(row.entryId))
       if (!node) continue
       const parentId = row.parentEntryId ? String(row.parentEntryId) : null

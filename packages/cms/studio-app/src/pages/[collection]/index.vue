@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { EntryStatus } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { compareOrderRank } from '@public/utils/cmsFields'
 import {
   AlertCircle,
   FileText,
@@ -27,6 +26,7 @@ import { useConvexMutation } from '../../composables/useStudioConvex'
 import { useStudioDebug } from '../../composables/useStudioDebug'
 import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
 import { deriveEntryNextAction, publicStateLabel, publicStateTone } from '../../lib/publicWorkflow'
+import { orderStudioTreeRows } from '../../lib/studioTree'
 
 const { can } = useCmsStudioAccess()
 const canCreateEntries = can(cmsPermissionKeys.createEntries)
@@ -227,28 +227,21 @@ const summaryRows = computed<StudioEntryRow[]>(() =>
   })),
 )
 const treeRows = computed<TreeRow[]>(() =>
-  [...rows.value]
-    .map((row, index) => ({
+  orderStudioTreeRows(
+    rows.value.map((row) => ({
       ...row,
-      depth: row.path.split('/').filter(Boolean).length - 1,
       kind: row.nodeKind,
       order: row.orderRank,
       localeVariants: row.localeSummaries,
-      sortIndex: index,
-    }))
-    .sort((left, right) => {
-      if (left.depth !== right.depth && left.parentEntryId === right.parentEntryId) {
-        return left.depth - right.depth
-      }
-      const rankCompare = compareOrderRank(left.order, right.order)
-      if (rankCompare !== 0) return rankCompare
-      return left.path.localeCompare(right.path)
-    })
-    .map(({ sortIndex: _sortIndex, ...row }) => row),
+    })),
+  ),
+)
+const showTreeView = computed(
+  () => isTree.value && workStateFilter.value === 'all' && !searchQuery.value.trim(),
 )
 const visibleRows = computed(() => {
   if (workStateFilter.value !== 'all') return summaryRows.value
-  return isTree.value ? treeRows.value : flatRows.value
+  return showTreeView.value ? treeRows.value : flatRows.value
 })
 const enrichedRows = computed<EnrichedRow[]>(() =>
   visibleRows.value.map((row) => {
@@ -586,7 +579,7 @@ const kindColors: Record<string, string> = {
         <div v-else>
           <!-- Tree: drop-to-root zone -->
           <div
-            v-if="isTree && draggingId"
+            v-if="showTreeView && draggingId"
             class="ginko:mb-4 ginko:rounded-lg ginko:border ginko:border-dashed ginko:px-4 ginko:py-3 ginko:text-center ginko:text-sm ginko:text-muted-foreground"
             @dragover.prevent
             @drop.prevent="dropToRoot"
@@ -596,7 +589,7 @@ const kindColors: Record<string, string> = {
 
           <!-- Tree view -->
           <div
-            v-if="isTree"
+            v-if="showTreeView"
             class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
           >
             <div
@@ -609,7 +602,9 @@ const kindColors: Record<string, string> = {
                 dropHint && dropHint.targetId === row._id
                   ? dropHint.mode === 'inside'
                     ? 'ginko:ring-2 ginko:ring-primary ginko:bg-primary/5'
-                    : 'ginko:border-t-2 ginko:border-primary'
+                    : dropHint.mode === 'before'
+                      ? 'ginko:border-t-2 ginko:border-primary'
+                      : 'ginko:border-b-2 ginko:border-primary'
                   : '',
               ]"
               @dragstart="startDrag(row._id)"
@@ -713,7 +708,7 @@ const kindColors: Record<string, string> = {
             <div
               v-for="row in enrichedRows"
               :key="row._id"
-              :draggable="canEditRow(row)"
+              :draggable="!isTree && canEditRow(row)"
               data-testid="cms-entry-row"
               :data-entry-slug="row.slug"
               class="ginko:group ginko:grid ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-5 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30 ginko:lg:grid-cols-[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem] ginko:lg:items-center"

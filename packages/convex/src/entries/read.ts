@@ -37,7 +37,9 @@ import { getCollectionOrThrow, isRouteBackedCollection } from '../lib/collection
 import { isEqualJsonValue } from '../lib/data.js'
 import { toOptionalStringId, toStringId } from '../lib/ids.js'
 import { getLocaleChain } from '../lib/locale.js'
+import { compareOrderRank } from '../lib/ordering.js'
 import { buildSearchText } from '../lib/search.js'
+import { orderTreeRows } from '../lib/treeOrder.js'
 import type { ActivityDoc, HandlerQueryCtx } from '../lib/types.js'
 import type { EntryDoc, EntryRevisionDoc } from './context.js'
 import {
@@ -58,6 +60,8 @@ const STUDIO_LIST_MAX_LIMIT = 100
 const STUDIO_LIST_SCAN_MAX = 500
 /** Multiplier for finding a full page through local text filters. */
 const STUDIO_LIST_SCAN_MULTIPLIER = 6
+/** Maximum number of rows loaded to derive a complete Studio tree. */
+const STUDIO_TREE_LIST_MAX = 1000
 /** Default page size for the activity list. */
 const ACTIVITY_DEFAULT_LIMIT = 20
 /** Maximum page size for the activity list. */
@@ -527,6 +531,75 @@ function isStudioListCursor(cursor: string): boolean {
   return parts.length === 3 && /^\d{16}$/.test(parts[1] ?? '') && Boolean(parts[2])
 }
 
+function treeCursorOffset(cursor: string | null | undefined): number {
+  if (!cursor) return 0
+  const match = /^tree:(\d+)$/.exec(cursor)
+  if (!match) {
+    throwCmsError('INVALID_CURSOR', 'Invalid tree pagination cursor.', { cursor })
+  }
+  return Number(match[1])
+}
+
+function treeListStatuses(status?: EntryDoc['status']) {
+  return status ? [status] : (['draft', 'published'] as const)
+}
+
+async function queryStudioTreeEntryCandidates(
+  ctx: HandlerQueryCtx,
+  collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
+  status: EntryDoc['status'] | undefined,
+) {
+  const entries = (
+    await Promise.all(
+      treeListStatuses(status).map((entryStatus) =>
+        ctx.db
+          .query('entries')
+          .withIndex('by_collection_status', (q) =>
+            q.eq('collectionId', collection._id).eq('status', entryStatus),
+          )
+          .take(STUDIO_TREE_LIST_MAX + 1),
+      ),
+    )
+  ).flat()
+
+  if (entries.length > STUDIO_TREE_LIST_MAX) {
+    throwCmsError(
+      'STUDIO_TREE_TOO_LARGE',
+      `Studio tree for "${collection.slug}" exceeds ${STUDIO_TREE_LIST_MAX} entries. Filter the collection or split the tree before browsing hierarchy.`,
+      { collection: collection.slug, maxRows: STUDIO_TREE_LIST_MAX },
+    )
+  }
+
+  return entries
+}
+
+async function listStudioTreeRows(
+  ctx: HandlerQueryCtx,
+  collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
+  args: { locale: string; status?: EntryDoc['status']; cursor?: string | null; limit: number },
+) {
+  const offset = treeCursorOffset(args.cursor)
+  const candidates = await queryStudioTreeEntryCandidates(ctx, collection, args.status)
+  const rows = await buildStudioRowsForEntries(ctx, collection, candidates, args.locale)
+  const ordered = orderTreeRows(rows, {
+    getId: (row) => String(row.entryId),
+    getParentId: (row) => (row.parentEntryId ? String(row.parentEntryId) : null),
+    compareSiblings: (left, right) => {
+      const rank = compareOrderRank(left.orderRank ?? null, right.orderRank ?? null)
+      if (rank !== 0) return rank
+      return left.path.localeCompare(right.path)
+    },
+  }).map(({ row }) => row)
+  const pageRows = ordered.slice(offset, offset + args.limit)
+  const nextOffset = offset + pageRows.length
+
+  return {
+    pageRows,
+    hasNextPage: nextOffset < ordered.length,
+    continueCursor: nextOffset < ordered.length ? `tree:${nextOffset}` : null,
+  }
+}
+
 function mapVersionDisplayAction(action: string) {
   switch (action) {
     case 'archive':
@@ -576,6 +649,24 @@ export const listEntriesForStudio = callerQuery.protected({
     )
     const q = args.query?.trim().toLowerCase() ?? ''
     const cursor = args.paginationOpts.cursor
+
+    if (collection.type === 'tree' && !q) {
+      const result = await listStudioTreeRows(ctx, collection, {
+        locale: args.locale,
+        status: args.status,
+        cursor,
+        limit,
+      })
+      return {
+        page: attachEntryRecordAccess(
+          appIdentity,
+          result.pageRows.map((row) => mapStudioSourceRow(row, collection)),
+        ),
+        isDone: !result.hasNextPage,
+        continueCursor: result.continueCursor,
+      }
+    }
+
     if (cursor && !isStudioListCursor(cursor)) {
       throwCmsError('INVALID_CURSOR', 'Invalid pagination cursor.')
     }

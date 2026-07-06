@@ -1283,11 +1283,11 @@ describe('public API: list projection', () => {
       locale: 'en',
     })
 
-    expect(topLevel.tree.map((node) => node.entry.route.slug).sort()).toEqual(['root-a', 'root-b'])
+    expect(topLevel.tree.map((node) => node.entry.route.slug)).toEqual(['root-a', 'root-b'])
     const rootA = topLevel.tree.find((node) => node.entry.route.slug === 'root-a')
-    expect(rootA?.children.map((node) => node.entry.route.slug).sort()).toEqual([
-      'child',
-      'sibling',
+    expect(rootA?.children.map((node) => node.entry.route.slug)).toEqual(['child', 'sibling'])
+    expect(rootA?.children[0]?.children.map((node) => node.entry.route.slug)).toEqual([
+      'grandchild',
     ])
   })
 

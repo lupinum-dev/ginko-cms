@@ -5,7 +5,15 @@ import { describe, expect, it } from 'vitest'
 
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
-import { createCtx, publishEntry, seedOwner, seedSettings, seedEditorFixture } from './helpers'
+import {
+  createCtx,
+  currentDraftVersion,
+  publishEntry,
+  seedOwner,
+  seedSettings,
+  seedEditorFixture,
+  seedTreeFixture,
+} from './helpers'
 
 const api = anyApi
 
@@ -142,6 +150,87 @@ describe('editor read queries', () => {
       'alpha-report',
     ])
     expect(result.isDone).toBe(true)
+  })
+
+  it('orders tree studio lists by parent-first sibling order', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    await seedTreeFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    const result = await owner.query(api.editor.listEntriesForStudio, {
+      collection: 'docs',
+      locale: 'en',
+      paginationOpts: { numItems: 10, cursor: null },
+    })
+
+    expect(result.page.map((entry) => entry.baseSlug)).toEqual([
+      'root-a',
+      'child',
+      'grandchild',
+      'sibling',
+      'root-b',
+    ])
+    expect(result.isDone).toBe(true)
+  })
+
+  it('orders tree studio lists from draft placement state', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { rootBId, childId } = await seedTreeFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    await owner.saveEntryDraft({
+      entryId: rootBId,
+      expectedDraftVersion: await currentDraftVersion(owner, rootBId),
+      patch: {
+        shared: {
+          parentEntryId: childId,
+          orderRank: 'b0',
+        },
+      },
+    })
+
+    const result = await owner.query(api.editor.listEntriesForStudio, {
+      collection: 'docs',
+      locale: 'en',
+      paginationOpts: { numItems: 10, cursor: null },
+    })
+
+    expect(result.page.map((entry) => entry.baseSlug)).toEqual([
+      'root-a',
+      'child',
+      'grandchild',
+      'root-b',
+      'sibling',
+    ])
+  })
+
+  it('keeps tree studio lists coherent when filtered parents are absent', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { rootAId } = await seedTreeFixture(ctx)
+
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(rootAId as never, { status: 'archived' })
+    })
+
+    const owner = ctx.asCmsUser('owner-1')
+    const result = await owner.query(api.editor.listEntriesForStudio, {
+      collection: 'docs',
+      locale: 'en',
+      paginationOpts: { numItems: 10, cursor: null },
+    })
+
+    expect(result.page.map((entry) => entry.baseSlug)).toEqual([
+      'child',
+      'grandchild',
+      'sibling',
+      'root-b',
+    ])
   })
 
   it('paginates activity with native Convex cursors', async () => {
