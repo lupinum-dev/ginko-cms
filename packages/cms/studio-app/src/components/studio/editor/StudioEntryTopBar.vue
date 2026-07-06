@@ -9,16 +9,14 @@ import {
   EyeOff,
   FileText,
   Flag,
+  Globe,
   Loader2,
   MoreHorizontal,
-  PanelRightClose,
-  PanelRightOpen,
   Save,
 } from 'lucide-vue-next'
 import { computed, onMounted, ref, unref } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
-import { useStudioInspectorVisible } from '../../../composables/useStudioInspectorVisible'
 
 const props = defineProps<{
   mode?: 'edit' | 'new'
@@ -34,7 +32,6 @@ const emit = defineEmits<{
 }>()
 
 const editor = props.mode === 'new' ? null : useStudioEntryEditorContext()
-const inspectorVisible = useStudioInspectorVisible()
 const mounted = ref(false)
 
 const collectionLabel = computed(() =>
@@ -298,16 +295,7 @@ function openPublishAllDialog() {
           </DropdownMenuContent>
         </DropdownMenu>
         <Separator orientation="vertical" class="ginko:mx-1 ginko:h-4" />
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          :aria-label="inspectorVisible ? 'Hide inspector' : 'Show inspector'"
-          :title="inspectorVisible ? 'Hide inspector' : 'Show inspector'"
-          @click="inspectorVisible = !inspectorVisible"
-        >
-          <PanelRightClose v-if="inspectorVisible" class="ginko:size-4" />
-          <PanelRightOpen v-else class="ginko:size-4" />
-        </Button>
+        <StudioActionRailToggle />
       </div>
     </div>
   </header>

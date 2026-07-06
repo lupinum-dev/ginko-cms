@@ -148,6 +148,14 @@
   width: 100%;
 }
 
+.ginko-cms .studio-page-body {
+  padding: var(--space-xl);
+}
+
+.ginko-cms .studio-toolbar-row {
+  min-height: var(--studio-shell-toolbar-height);
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  * Studio type ladder
  *
@@ -407,10 +415,13 @@
   /* Page canvas: pure neutral grey. Cards float; sidebar reads as a
    * separate tower. Three tiers: page (0.97) → sidebar (0.985) → card (1.0). */
   --studio-shell-bg: var(--ginko-cms-studio-shell-bg, oklch(0.97 0 0));
-  --studio-canvas-max-width: var(--ginko-cms-studio-canvas-max-width, 96rem);
-  --studio-canvas-wide-max-width: var(--ginko-cms-studio-canvas-wide-max-width, 112rem);
-  --studio-editor-canvas-max-width: var(--ginko-cms-studio-editor-canvas-max-width, 96rem);
+  --studio-shell-header-height: var(--ginko-cms-studio-shell-header-height, 3.5rem);
+  --studio-shell-toolbar-height: var(--ginko-cms-studio-shell-toolbar-height, 2.75rem);
+  --studio-canvas-max-width: var(--ginko-cms-studio-canvas-max-width, 80rem);
+  --studio-canvas-wide-max-width: var(--ginko-cms-studio-canvas-wide-max-width, 96rem);
+  --studio-editor-canvas-max-width: var(--ginko-cms-studio-editor-canvas-max-width, 80rem);
   --studio-action-rail-width: var(--ginko-cms-studio-action-rail-width, 20rem);
+  --studio-action-rail-collapsed-width: var(--ginko-cms-studio-action-rail-collapsed-width, 3.5rem);
 
   --studio-surface: var(--ginko-cms-studio-surface, var(--card));
   --studio-panel: var(--ginko-cms-studio-panel, oklch(0.985 0 0));

@@ -22,6 +22,7 @@ import { useCmsStudioAccess } from '../../composables/useCmsStudioAccess'
 import { useCmsStudioPaginatedQuery } from '../../composables/useCmsStudioPaginatedQuery'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
 import { useCmsStudioSettings } from '../../composables/useCmsStudioSettings'
+import { useStudioActionRailController } from '../../composables/useStudioActionRailController'
 import { useConvexMutation } from '../../composables/useStudioConvex'
 import { useStudioDebug } from '../../composables/useStudioDebug'
 import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
@@ -68,6 +69,7 @@ const collectionExists = computed(() => collectionConfig.value !== null)
 const searchQuery = ref('')
 const statusFilter = ref<'all' | EntryStatus>('all')
 const workStateFilter = ref<'all' | 'changed' | 'blocked' | 'missing_translation'>('all')
+const { collapsed } = useStudioActionRailController()
 
 type LocaleSummary = {
   locale: string
@@ -292,6 +294,28 @@ const enrichedRows = computed<EnrichedRow[]>(() =>
     }
   }),
 )
+const collectionRailStats = computed(() => ({
+  totalVisibleEntries: enrichedRows.value.length,
+  publicEntryCount: enrichedRows.value.filter((row) => row.publicState === 'public').length,
+  draftOnlyEntryCount: enrichedRows.value.filter((row) => row.publicState === 'draft_only').length,
+  blockedEntryCount: enrichedRows.value.filter((row) => row.blockingIssueCount > 0).length,
+  missingTranslationEntryCount: enrichedRows.value.filter(
+    (row) => row.missingTranslationLocales.length > 0,
+  ).length,
+}))
+const hasActiveFilters = computed(
+  () =>
+    searchQuery.value.trim().length > 0 ||
+    statusFilter.value !== 'all' ||
+    workStateFilter.value !== 'all',
+)
+const activeFilterLabel = computed(() => {
+  const filters: string[] = []
+  if (searchQuery.value.trim()) filters.push('Search')
+  if (statusFilter.value !== 'all') filters.push(statusFilter.value)
+  if (workStateFilter.value !== 'all') filters.push(workStateFilter.value.replace(/_/g, ' '))
+  return filters.length > 0 ? filters.join(' · ') : 'All content'
+})
 const actionError = ref('')
 const { t, dateLocale } = useCmsI18n()
 const queryError = computed(() => collectionQuery.error.value ?? listQuery.error.value)
@@ -337,6 +361,14 @@ function canEditRow(row: StudioEntryRow | undefined): boolean {
 }
 function loadMore() {
   listQuery.loadMore(pageSize.value)
+}
+function clearFilters() {
+  searchQuery.value = ''
+  statusFilter.value = 'all'
+  workStateFilter.value = 'all'
+}
+function setWorkStateFilter(state: 'missing_translation' | 'blocked') {
+  workStateFilter.value = state
 }
 function startDrag(id: string): void {
   const row = rows.value.find((candidate) => candidate._id === id)
@@ -436,7 +468,7 @@ const kindColors: Record<string, string> = {
 </script>
 
 <template>
-  <StudioWorkspace class="ginko:h-full">
+  <StudioWorkspace :rail="true" :rail-collapsed="collapsed" class="ginko:h-full">
     <template #header>
       <StudioPageHeader :title="collectionLabel" eyebrow="Content">
         <template #actions>
@@ -449,6 +481,7 @@ const kindColors: Record<string, string> = {
                 : t('ginkoCms.studio.collectionsPage.typeFlat')
             }}
           </span>
+          <StudioActionRailToggle />
           <Button v-if="collectionExists && canCreateEntries && !isSingleton" as-child size="sm">
             <RouterLink :to="`${contentRoute}/${collection}/new`">
               <Plus class="ginko:mr-1.5 ginko:size-3.5" />
@@ -462,10 +495,10 @@ const kindColors: Record<string, string> = {
     <!-- Search & filter bar -->
     <template #toolbar>
       <div
-        class="ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-3"
+        class="ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5"
       >
         <div
-          class="studio-page-content studio-page-content--wide ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2"
+          class="studio-page-content studio-page-content--wide studio-toolbar-row ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2 ginko:py-1.5"
         >
           <div class="ginko:relative ginko:min-w-0 ginko:flex-1 ginko:basis-full ginko:sm:basis-64">
             <Search
@@ -517,7 +550,7 @@ const kindColors: Record<string, string> = {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content studio-page-content--wide ginko:p-4 ginko:sm:p-6">
+      <div class="studio-page-content studio-page-content--wide studio-page-body">
         <!-- Error -->
         <div
           v-if="pageError"
@@ -813,5 +846,20 @@ const kindColors: Record<string, string> = {
         </div>
       </div>
     </ScrollArea>
+
+    <template #rail>
+      <StudioCollectionActionRail
+        :active-filter-label="activeFilterLabel"
+        :can-create-entries="canCreateEntries"
+        :collection-exists="collectionExists"
+        :collection-type="collectionType"
+        :has-active-filters="hasActiveFilters"
+        :is-singleton="isSingleton"
+        :new-entry-to="`${contentRoute}/${collection}/new`"
+        :stats="collectionRailStats"
+        @clear-filters="clearFilters"
+        @set-work-state="setWorkStateFilter"
+      />
+    </template>
   </StudioWorkspace>
 </template>

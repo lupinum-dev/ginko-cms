@@ -77,17 +77,17 @@ System sans (Geist would be drift). Cap body line-length at 65–75ch where poss
 
 Seven steps. Same logic as type — components pick one, never a free-form value.
 
-| Token         | px  | Use                                     |
-| ------------- | --- | --------------------------------------- |
-| `--space-xs`  | 4   | Chip↔chip, label↔input                  |
-| `--space-sm`  | 8   | Icon↔text, intra-row                    |
-| `--space-md`  | 12  | Between related fields                  |
-| `--space-lg`  | 16  | Card inner padding (compact)            |
-| `--space-xl`  | 20  | Card inner padding (default)            |
-| `--space-2xl` | 24  | Canvas L/R padding                      |
-| `--space-3xl` | 32  | Canvas bottom padding, between sections |
+| Token         | px  | Use                                       |
+| ------------- | --- | ----------------------------------------- |
+| `--space-xs`  | 4   | Chip↔chip, label↔input                    |
+| `--space-sm`  | 8   | Icon↔text, intra-row                      |
+| `--space-md`  | 12  | Between related fields                    |
+| `--space-lg`  | 16  | Card inner padding (compact)              |
+| `--space-xl`  | 24  | Card inner padding and canvas L/R padding |
+| `--space-2xl` | 32  | Wider canvas padding                      |
+| `--space-3xl` | 40  | Canvas bottom padding, between sections   |
 
-Tailwind's default scale is acceptable as long as the resulting spacing maps onto these — `gap-3` (12 px) maps to `--space-md`, `p-5` (20 px) to `--space-xl`, etc.
+Tailwind's default scale is acceptable as long as the resulting spacing maps onto these — `gap-3` (12 px) maps to `--space-md`, `p-6` (24 px) to `--space-xl`, etc.
 
 ## Borders
 
@@ -127,6 +127,7 @@ Resolved from `--radius: 0.625rem` (10 px) via a **multiplicative scale**, so re
 Compact-but-not-cramped. Editors work in this all day.
 
 - Sidebar menu height: 2 rem (32 px). Dense desktop product, but large enough to scan on high-DPI displays.
+- Shell header: `--studio-shell-header-height` = 3.5 rem (56 px). Toolbar: `--studio-shell-toolbar-height` = 2.75 rem (44 px).
 - Header buttons: `h-8` (32 px). Icon buttons: `size-8`.
 - Form inputs: `h-9` (36 px) default, `h-8` for dense contexts.
 - Section card padding: `p-5` (20 px) default, `p-4` (16 px) compact.
@@ -162,7 +163,7 @@ All three transition only color/border/box-shadow/opacity by default. Components
 
 ### Header
 
-- White surface, `h-12`, `border-b border-border/60`.
+- White surface, `h-14`, `border-b border-border/60`.
 - Breadcrumb: Lucide icon → muted label → `ChevronRight h-3.5` → leaf icon → `font-medium text-foreground` label. `text-sm` throughout.
 - No global search button; search lives in the sidebar (⌘K).
 
@@ -182,7 +183,12 @@ These compose with the cards above. Use them instead of re-implementing the same
 
 - **`StudioPageHeader`** ([StudioPageHeader.vue](packages/cms/studio-app/src/components/studio/StudioPageHeader.vue)): the title strip at the top of every page. `eyebrow` + `title` props, plus `description` / `breadcrumb` / `badges` / `actions` slots. Container: `flex min-h-14 items-start justify-between gap-4 border-b border-border/40 bg-card px-5 py-3`. Title uses the page-title step; eyebrow uses the 12 px eyebrow step.
 - **Rows and irregular lists**: use shadcn-style `Item` / `ItemGroup` primitives for composed list rows and `StudioListFrame` or native tables for table-like data. Do not restore a Studio-specific row wrapper.
-- **Canvas widths**: `--studio-canvas-max-width` is 96 rem (1536 px), `--studio-canvas-wide-max-width` is 112 rem (1792 px), and `--studio-action-rail-width` is 20 rem (320 px). Header content, toolbar controls, list frames, editor cards, and rails align through these tokens.
+- **Canvas widths**: `--studio-canvas-max-width` is 80 rem (1280 px), `--studio-canvas-wide-max-width` is 96 rem (1536 px), `--studio-action-rail-width` is 20 rem (320 px), and `--studio-action-rail-collapsed-width` is 3.5 rem (56 px). Header content, toolbar controls, list frames, editor cards, and rails align through these tokens.
+- **Page body rhythm**: `.studio-page-body` is the default inner padding for normal Studio pages. Pair it with `.studio-page-content` or `.studio-page-content--wide`; do not reintroduce page-specific `p-4 sm:p-5 lg:p-6` drift.
+- **`StudioWorkspace`** owns the shell regions: header, toolbar, content, and optional rail. Pages provide content; they do not redefine shell geometry.
+- **`useStudioActionRailController`** owns rail state, persistence, breakpoint policy, sheet state, and toggle labels. Page headers use `StudioActionRailToggle`; they do not compute rail labels, icons, or breakpoint behavior locally.
+- **`StudioActionRail`** owns the right rail frame. Desktop renders a 320 px rail or 56 px collapsed icon rail; tablet/mobile render a right-side shadcn `Sheet`. Rail content scrolls independently and the actions slot is pinned at the bottom.
+- **Rail copy**: `Action rail` is an internal implementation name only. User-facing panel headings, sheet titles, tooltips, and aria labels use `Details`, `Entry details`, `Collection details`, `Show details`, or `Hide details`.
 
 For dialogs: use shadcn-style `<Dialog>` + `<DialogFooter>` (in `src/components/ui/dialog/`). Page actions should live in the relevant `StudioPageHeader`, `StudioSection`, or `StudioListFrame` slot instead of a separate footer wrapper.
 
@@ -190,9 +196,10 @@ For dialogs: use shadcn-style `<Dialog>` + `<DialogFooter>` (in `src/components/
 
 - Page chrome (`.studio-shell`) provides the warm-neutral wash.
 - Layout: sidebar + main column. Main column = StudioHeader + slot.
-- Entry editor: `StudioEntryTopBar` (breadcrumb + save/publish/toggle actions) + `StudioEntryCompareToolbar` (single/compare + locale picker) + canvas + contextual action rail.
-- The right rail is a first-class shell region at `--studio-action-rail-width` (320 px). It owns workflow context, readiness, public URL, translations, diagnostics, and history. Rail padding and title come from `StudioEntryEditorShell`, not from each rail body.
+- Entry editor: `StudioEntryTopBar` (breadcrumb + save/publish/toggle actions) + `StudioEntryCompareToolbar` (single/compare + locale picker) + canvas + `StudioActionRail`.
+- The right rail is a first-class shell region at `--studio-action-rail-width` (320 px). It owns workflow context, readiness, public URL, translations, diagnostics, and history. Rail padding, title, sheet behavior, collapsed state, and sticky actions come from `StudioActionRail`, not from each rail body.
 - Compare mode keeps the rail when the user has it open. Two-column compare starts at `min-[1600px]`; below that, locales stack so the rail does not force cramped editor columns.
+- Collection list pages use `StudioCollectionActionRail` for work queue state, filters, translation blockers, and primary collection actions. Non-content pages keep the same workspace/header/canvas alignment without forcing an empty rail.
 
 ### Status pill
 

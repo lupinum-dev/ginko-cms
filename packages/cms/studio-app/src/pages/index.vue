@@ -268,9 +268,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div
-        class="studio-page-content studio-page-content--wide ginko:space-y-6 ginko:p-4 ginko:sm:p-6 ginko:lg:p-8"
-      >
+      <div class="studio-page-content studio-page-content--wide studio-page-body ginko:space-y-6">
         <StudioNotice
           v-if="overviewQuery.error.value"
           tone="danger"

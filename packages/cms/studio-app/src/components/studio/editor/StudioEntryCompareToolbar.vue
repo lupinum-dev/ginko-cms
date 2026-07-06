@@ -56,7 +56,7 @@ function swapLocales() {
     class="studio-entry-compare-toolbar ginko:border-b ginko:border-border/60 ginko:bg-background"
   >
     <div
-      class="studio-page-content studio-entry-compare-toolbar__inner ginko:flex ginko:h-10 ginko:items-center ginko:gap-3 ginko:px-5"
+      class="studio-page-content studio-entry-compare-toolbar__inner ginko:flex ginko:items-center ginko:gap-3 ginko:px-5"
     >
       <div
         class="ginko:inline-flex ginko:min-w-0 ginko:rounded-lg ginko:border ginko:border-border/60 ginko:bg-muted/50 ginko:p-0.5"
@@ -247,6 +247,10 @@ function swapLocales() {
   min-width: 0;
   align-items: center;
   gap: 0.5rem;
+}
+
+.studio-entry-compare-toolbar__inner {
+  height: var(--studio-shell-toolbar-height);
 }
 
 .studio-entry-compare-toolbar__locale-trigger {

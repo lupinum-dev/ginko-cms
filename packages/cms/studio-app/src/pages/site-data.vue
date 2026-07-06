@@ -94,7 +94,7 @@ function formatBlockData(value: unknown): string {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content ginko:p-4 ginko:sm:p-5">
+      <div class="studio-page-content studio-page-body">
         <!-- Error -->
         <StudioNotice v-if="error" tone="danger" class="ginko:mb-4" :description="error" />
 

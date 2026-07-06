@@ -71,7 +71,7 @@ function entryLink(item: ActivityItem): string | null {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content ginko:p-4 ginko:sm:p-5 ginko:lg:p-6">
+      <div class="studio-page-content studio-page-body">
         <div
           v-if="pageError"
           class="ginko:mb-4 ginko:flex ginko:items-center ginko:gap-2 ginko:rounded-md ginko:border ginko:border-destructive/25 ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"

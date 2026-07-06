@@ -25,7 +25,7 @@ const admin = proxyRefs(useStudioSettingsAdmin())
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content ginko:p-6 ginko:sm:p-8">
+      <div class="studio-page-content studio-page-body">
         <!-- Global error -->
         <div
           v-if="admin.error"

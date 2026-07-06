@@ -801,6 +801,25 @@ async function reviewTranslationReadiness(locale: string) {
         @review-translation-readiness="reviewTranslationReadiness"
       />
     </template>
+    <template #rail-actions>
+      <Button
+        variant="outline"
+        size="sm"
+        :disabled="editor.loader.pending || editor.draft.saving"
+        @click="previewPublishImpact(editor.loader.currentLocale)"
+      >
+        Preview impact
+      </Button>
+      <Button
+        v-if="publicVisibility.isRouteBacked"
+        variant="outline"
+        size="sm"
+        :disabled="editor.loader.pending"
+        @click="validatePublicRoutes"
+      >
+        Validate routes
+      </Button>
+    </template>
   </StudioEntryEditorShell>
 
   <StudioCheckpointDialog />

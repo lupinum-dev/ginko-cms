@@ -18,7 +18,7 @@ const slots = useSlots()
   <header
     :class="
       cn(
-        'studio-page-header ginko:min-h-16 ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-card ginko:px-6 ginko:py-4',
+        'studio-page-header ginko:min-h-14 ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-card ginko:px-6 ginko:py-3',
         $props.class,
       )
     "

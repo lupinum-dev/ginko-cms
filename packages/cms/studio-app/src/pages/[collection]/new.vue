@@ -774,5 +774,17 @@ if (typeof window !== 'undefined') {
         </StudioInspectorSection>
       </div>
     </template>
+    <template #rail-actions>
+      <Button size="sm" :disabled="saving" @click="handleCreate(false)">Create draft</Button>
+      <Button
+        v-if="canPublishEntries"
+        variant="outline"
+        size="sm"
+        :disabled="saving"
+        @click="handleCreate(true)"
+      >
+        Create and publish
+      </Button>
+    </template>
   </StudioEntryEditorShell>
 </template>
