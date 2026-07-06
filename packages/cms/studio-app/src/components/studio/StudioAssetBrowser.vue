@@ -76,6 +76,7 @@ const selectedTagInput = ref('')
 const bulkTagInput = ref('')
 const altDrafts = ref<Record<string, string>>({})
 const captionDrafts = ref<Record<string, string>>({})
+const failedPreviewKeys = ref<Set<string>>(new Set())
 const savingMeta = ref(false)
 const localError = ref('')
 const pendingUploadedAssetId = ref<string | null>(null)
@@ -207,6 +208,20 @@ function metadataCoverageLabel(asset: Pick<FinderAssetRecord, 'alt' | 'caption'>
   if (coverage.complete) return 'Metadata complete'
   const missing = new Set([...coverage.missingAlt, ...coverage.missingCaption])
   return `Missing metadata: ${Array.from(missing).join(', ').toUpperCase()}`
+}
+
+function previewKey(asset: Pick<FinderAssetRecord, 'id' | 'thumbnailUrl'>) {
+  return `${asset.id}:${asset.thumbnailUrl ?? ''}`
+}
+
+function canShowPreview(asset: Pick<FinderAssetRecord, 'id' | 'thumbnailUrl'>) {
+  return Boolean(asset.thumbnailUrl) && !failedPreviewKeys.value.has(previewKey(asset))
+}
+
+function markPreviewFailed(asset: Pick<FinderAssetRecord, 'id' | 'thumbnailUrl'>) {
+  const key = previewKey(asset)
+  if (failedPreviewKeys.value.has(key)) return
+  failedPreviewKeys.value = new Set([...failedPreviewKeys.value, key])
 }
 
 const canCopyDefaultMetadata = computed(() => {
@@ -1123,18 +1138,19 @@ defineExpose({
                     </template>
                     <template v-else>
                       <div
-                        class="ginko:flex ginko:size-7 ginko:shrink-0 ginko:items-center ginko:justify-center ginko:overflow-hidden ginko:rounded-md ginko:bg-muted/60"
+                        class="ginko:flex ginko:size-10 ginko:shrink-0 ginko:items-center ginko:justify-center ginko:overflow-hidden ginko:rounded-lg ginko:border ginko:border-border/50 ginko:bg-muted/60"
                       >
                         <img
-                          v-if="item.asset.thumbnailUrl"
-                          :src="item.asset.thumbnailUrl"
-                          :alt="item.asset.filename"
-                          class="ginko:size-7 ginko:object-cover"
+                          v-if="canShowPreview(item.asset)"
+                          :src="item.asset.thumbnailUrl ?? undefined"
+                          alt=""
+                          class="ginko:size-full ginko:object-cover"
+                          @error="markPreviewFailed(item.asset)"
                         />
                         <Icon
                           v-else
                           :name="mimeIcon(item.asset.mimeType)"
-                          class="ginko:size-3.5 ginko:text-muted-foreground"
+                          class="ginko:size-4 ginko:text-muted-foreground"
                         />
                       </div>
                       <span class="ginko:min-w-0">
@@ -1254,10 +1270,11 @@ defineExpose({
                   class="ginko:mb-2 ginko:flex ginko:aspect-square ginko:w-full ginko:items-center ginko:justify-center ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/50 ginko:bg-muted/40"
                 >
                   <img
-                    v-if="item.asset.thumbnailUrl"
-                    :src="item.asset.thumbnailUrl"
+                    v-if="canShowPreview(item.asset)"
+                    :src="item.asset.thumbnailUrl ?? undefined"
                     :alt="item.asset.filename"
                     class="ginko:h-full ginko:w-full ginko:object-cover"
+                    @error="markPreviewFailed(item.asset)"
                   />
                   <Icon
                     v-else
@@ -1312,10 +1329,11 @@ defineExpose({
                 class="ginko:overflow-hidden ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/40"
               >
                 <img
-                  v-if="selectedAssetForDetails.thumbnailUrl"
-                  :src="selectedAssetForDetails.thumbnailUrl"
+                  v-if="canShowPreview(selectedAssetForDetails)"
+                  :src="selectedAssetForDetails.thumbnailUrl ?? undefined"
                   :alt="selectedAssetForDetails.filename"
                   class="ginko:max-h-52 ginko:w-full ginko:object-contain"
+                  @error="markPreviewFailed(selectedAssetForDetails)"
                 />
                 <div v-else class="ginko:flex ginko:items-center ginko:justify-center ginko:py-12">
                   <Icon
@@ -1664,10 +1682,11 @@ defineExpose({
                   class="ginko:overflow-hidden ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/40"
                 >
                   <img
-                    v-if="selectedAssetForDetails.thumbnailUrl"
-                    :src="selectedAssetForDetails.thumbnailUrl"
+                    v-if="canShowPreview(selectedAssetForDetails)"
+                    :src="selectedAssetForDetails.thumbnailUrl ?? undefined"
                     :alt="selectedAssetForDetails.filename"
                     class="ginko:max-h-64 ginko:w-full ginko:object-contain"
+                    @error="markPreviewFailed(selectedAssetForDetails)"
                   />
                   <div
                     v-else
@@ -1930,10 +1949,11 @@ defineExpose({
                   class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/50 ginko:bg-muted/40"
                 >
                   <img
-                    v-if="selectedAsset.thumbnailUrl"
-                    :src="selectedAsset.thumbnailUrl"
+                    v-if="canShowPreview(selectedAsset)"
+                    :src="selectedAsset.thumbnailUrl ?? undefined"
                     :alt="selectedAsset.filename"
                     class="ginko:max-h-56 ginko:w-full ginko:object-contain"
+                    @error="markPreviewFailed(selectedAsset)"
                   />
                   <div
                     v-else
