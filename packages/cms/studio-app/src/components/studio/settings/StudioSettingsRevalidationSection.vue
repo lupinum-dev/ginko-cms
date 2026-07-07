@@ -10,6 +10,7 @@ import {
 } from 'lucide-vue-next'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
+import { websiteRefreshStatusLabel } from '../../../lib/publicWorkflow'
 
 const props = defineProps<{ admin: StudioSettingsAdminViewModel }>()
 const settings = props.admin
@@ -32,7 +33,7 @@ const settings = props.admin
         </Badge>
       </h2>
       <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
-        Website refresh targets and recent refresh jobs.
+        Where published changes are sent and whether the website refreshed successfully.
       </p>
     </div>
 
@@ -58,7 +59,7 @@ const settings = props.admin
           v-if="settings.revalidationTargets.length === 0"
           class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
         >
-          No website refresh target is configured. Publish events will stay queued until a target is
+          No website refresh target is configured. Published changes will wait until a target is
           enabled.
         </div>
         <div
@@ -106,7 +107,7 @@ const settings = props.admin
         <div
           class="ginko:px-4 ginko:py-3 ginko:flex ginko:items-center ginko:justify-between ginko:gap-3"
         >
-          <div class="ginko:text-sm ginko:font-medium">Recent jobs</div>
+          <div class="ginko:text-sm ginko:font-medium">Recent refreshes</div>
           <Button
             variant="outline"
             size="sm"
@@ -124,7 +125,7 @@ const settings = props.admin
           v-if="settings.revalidationJobs.length === 0"
           class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
         >
-          No website refresh jobs have been recorded yet.
+          No website refreshes have been recorded yet.
         </div>
         <div
           v-for="job in settings.revalidationJobs"
@@ -140,7 +141,7 @@ const settings = props.admin
                   :variant="job.status === 'failed' ? 'destructive' : 'secondary'"
                   class="ginko:text-xs"
                 >
-                  {{ job.status }}
+                  {{ websiteRefreshStatusLabel(settings.t, job.status) }}
                 </Badge>
                 <span class="ginko:text-xs ginko:text-muted-foreground">
                   {{ job.paths.length }} page{{ job.paths.length === 1 ? '' : 's' }}

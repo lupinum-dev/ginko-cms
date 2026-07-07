@@ -5,54 +5,12 @@ import { api } from '#convex/api'
 
 import { asRecord, fail, failFromError, loadAgentContext, ok } from '../../_shared/agent-tools'
 
-type JsonRecord = Record<string, unknown>
-
-function versionHash(input: { entryId: string; expectedVersion: number; locales: string[] }) {
-  return JSON.stringify({
-    entryId: input.entryId,
-    expectedVersion: input.expectedVersion,
-    locales: [...input.locales].sort(),
-  })
-}
-
-function compactPreview(previews: JsonRecord[]) {
-  return {
-    kind: 'publish-impact',
-    status: previews.some((preview) =>
-      ['blocked', 'not_publishable'].includes(String(preview.status ?? '')),
-    )
-      ? 'blocked'
-      : 'ready',
-    locales: previews.flatMap((preview) => {
-      const locales = preview.locales
-      return Array.isArray(locales) ? locales : []
-    }),
-    blockingDiagnostics: previews.flatMap((preview) => {
-      const diagnostics = preview.blockingDiagnostics
-      return Array.isArray(diagnostics) ? diagnostics : []
-    }),
-    warnings: previews.flatMap((preview) => {
-      const warnings = preview.warnings
-      return Array.isArray(warnings) ? warnings : []
-    }),
-    changes: previews.flatMap((preview) => {
-      const changes = preview.changes
-      return Array.isArray(changes) ? changes : []
-    }),
-    events: previews.flatMap((preview) => {
-      const events = preview.events
-      return Array.isArray(events) ? events : []
-    }),
-  }
-}
-
 export default defineMcpTool({
   name: 'request-publish-review',
   description:
     'Create a human review request for publishing an entry without changing public output.',
   inputSchema: {
     agentRunId: z.string().describe('Active agent run id that is requesting review.'),
-    collection: z.string().describe('Collection slug for publish-impact diagnostics.'),
     entryId: z.string().describe('Entry id to publish after approval.'),
     locales: z.array(z.string()).min(1).describe('Locales proposed for publish.'),
     expectedVersion: z.number().describe('Draft version observed before requesting review.'),
@@ -88,26 +46,6 @@ export default defineMcpTool({
         )
       }
 
-      const previews = await Promise.all(
-        args.locales.map(async (locale) =>
-          asRecord(
-            await context.convex.query(api.ginkoCms.diagnostics.previewPublishImpact, {
-              collection: args.collection,
-              entryId: args.entryId,
-              locale,
-            }),
-          ),
-        ),
-      )
-      const preview = compactPreview(previews)
-      if (preview.status !== 'ready') {
-        return fail(
-          'Publish review was not created because the requested publish is currently blocked.',
-          { preview },
-          { category: 'conflict', code: 'PUBLISH_REVIEW_BLOCKED' },
-        )
-      }
-
       const review = await context.convex.mutation(
         api.ginkoCms.reviewRequests.requestPublishReview,
         {
@@ -120,12 +58,6 @@ export default defineMcpTool({
           summary:
             args.summary ??
             `Publish ${args.locales.join(', ')} for entry "${args.entryId}" after human review.`,
-          preview,
-          versionHash: versionHash({
-            entryId: args.entryId,
-            expectedVersion: args.expectedVersion,
-            locales: args.locales,
-          }),
         },
       )
 

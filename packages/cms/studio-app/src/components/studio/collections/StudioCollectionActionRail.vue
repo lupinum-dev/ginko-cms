@@ -49,11 +49,11 @@ const { t } = useCmsI18n()
         </template>
         <div class="ginko:space-y-2 ginko:text-sm">
           <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
-            <span class="ginko:text-muted-foreground">Visible entries</span>
+            <span class="ginko:text-muted-foreground">Visible content</span>
             <strong>{{ stats.totalVisibleEntries }}</strong>
           </div>
           <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
-            <span class="ginko:text-muted-foreground">Public</span>
+            <span class="ginko:text-muted-foreground">Live</span>
             <strong>{{ stats.publicEntryCount }}</strong>
           </div>
           <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
@@ -70,7 +70,7 @@ const { t } = useCmsI18n()
             class="ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-3 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-left ginko:hover:bg-muted/30"
             @click="emit('setWorkState', 'missing_translation')"
           >
-            <span class="ginko:text-muted-foreground">Missing translations</span>
+            <span class="ginko:text-muted-foreground">Missing languages</span>
             <StudioStatusPill
               :label="String(stats.missingTranslationEntryCount)"
               :tone="stats.missingTranslationEntryCount > 0 ? 'warning' : 'success'"
@@ -130,7 +130,7 @@ const { t } = useCmsI18n()
         size="sm"
         @click="emit('setWorkState', 'missing_translation')"
       >
-        Review translation queue
+        Review language queue
       </Button>
     </template>
   </StudioActionRail>

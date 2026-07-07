@@ -193,7 +193,7 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
       requestHydrate()
       studioDebug.debug(`version:${target}:requestingHydrateBefore`, { entryId: entryId.value })
       const token = previewToken(preview)
-      if (!token) throw new Error('Rollback confirmation token is missing. Preview again.')
+      if (!token) throw new Error('Preview this saved version again before restoring it.')
       const result = await rollbackVersionMutation({
         entryId: entryId.value,
         versionId,

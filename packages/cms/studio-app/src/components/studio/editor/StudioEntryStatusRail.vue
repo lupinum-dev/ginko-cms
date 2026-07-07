@@ -13,29 +13,30 @@ import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
+import {
+  mapEntryReadinessDetail,
+  readinessActionLabel,
+  readinessIssueMessage,
+  readinessStateLabel,
+} from '../../../lib/publicWorkflow'
 import type {
+  StudioEntryReadinessDetail,
   StudioPublicVisibilityState,
-  StudioPublishImpactState,
-  StudioPublishReviewState,
   StudioRouteValidationState,
   StudioTranslationReadinessRow,
 } from './studioWorkflowTypes'
 import { diagnosticLabel } from './studioWorkflowTypes'
 
 const props = defineProps<{
-  publicVisibility: StudioPublicVisibilityState
-  publishImpact: StudioPublishImpactState
-  publishImpactRequested: boolean
-  publishReview: StudioPublishReviewState
-  previewScope: 'publish' | 'workflow' | null
+  readinessDetail?: StudioEntryReadinessDetail | null
+  readinessPending?: boolean
+  publicVisibility?: StudioPublicVisibilityState
   routeValidationRequested: boolean
   routeValidationState: StudioRouteValidationState
-  selectedPublishImpactLocale: string | null
-  translationReadiness: StudioTranslationReadinessRow[]
+  translationReadiness?: StudioTranslationReadinessRow[]
 }>()
 
 const emit = defineEmits<{
-  previewPublishImpact: []
   validatePublicRoutes: []
   reviewTranslationReadiness: [locale: string]
 }>()
@@ -51,29 +52,37 @@ const entry = computed(() => {
   return value
 })
 
-const currentRoute = computed(
-  () =>
-    props.publicVisibility.localeRows.find((row) => row.current) ??
-    props.publicVisibility.localeRows.find((row) => row.locale === editor.loader.currentLocale) ??
-    null,
+const readinessView = computed(() =>
+  mapEntryReadinessDetail({
+    readinessDetail: props.readinessDetail,
+    currentLocale: editor.loader.currentLocale,
+    t: editor.loader.t,
+    publishMode: 'single',
+  }),
 )
 
 const publicUrl = computed(
   () =>
-    currentRoute.value?.href ||
-    currentRoute.value?.publishedPath ||
-    currentRoute.value?.path ||
+    readinessView.value.publicUrl ||
+    readinessView.value.draftUrl ||
     editor.draft.computedPath ||
     '',
 )
 
+const isRouteBacked = computed(
+  () =>
+    props.publicVisibility?.isRouteBacked ??
+    (editor.loader.collectionConfig?.mode !== 'none' &&
+      editor.loader.collectionConfig?.routing?.mode !== 'none'),
+)
+
+const translationRows = computed(() => props.translationReadiness ?? [])
+
 const localeSummaries = computed(() =>
-  props.publicVisibility.localeRows.map((row) => ({
-    label: row.locale.toUpperCase(),
-    status: row.label || (row.publishedState === 'published' ? 'Published' : 'Draft'),
-    blocked:
-      row.missingRequiredFields.length > 0 ||
-      row.visibleDiagnostics.some((diagnostic) => diagnostic.severity === 'error'),
+  readinessView.value.languageRows.map((row) => ({
+    label: row.label,
+    status: row.status,
+    blocked: row.blocked,
   })),
 )
 
@@ -85,35 +94,18 @@ const localesAllUniform = computed(() => {
 })
 
 const publishedLocaleCount = computed(
-  () => localeSummaries.value.filter((row) => !row.blocked && row.status !== 'Draft').length,
+  () => readinessView.value.languageRows.filter((row) => row.published && !row.blocked).length,
 )
 
 const blockingIssues = computed(() => {
   const issues: Array<{ key: string; message: string }> = []
 
-  for (const diagnostic of props.publicVisibility.globalDiagnostics) {
-    if (diagnostic.severity === 'error') {
+  for (const row of props.readinessDetail?.locales ?? []) {
+    for (const issue of row.blockers) {
       issues.push({
-        key: `global-${diagnostic.code}-${diagnostic.path ?? ''}`,
-        message: diagnostic.message || diagnosticLabel(diagnostic.code),
+        key: `${row.locale}:${issue.code}:${issue.fieldPath ?? ''}`,
+        message: `${row.locale.toUpperCase()}: ${readinessIssueMessage(editor.loader.t, issue)}`,
       })
-    }
-  }
-
-  for (const row of props.publicVisibility.localeRows) {
-    for (const field of row.missingRequiredFields) {
-      issues.push({
-        key: `${row.locale}-missing-${field}`,
-        message: `${row.locale.toUpperCase()} is missing ${field}.`,
-      })
-    }
-    for (const diagnostic of row.visibleDiagnostics) {
-      if (diagnostic.severity === 'error') {
-        issues.push({
-          key: `${row.locale}-${diagnostic.code}-${diagnostic.path ?? ''}`,
-          message: `${row.locale.toUpperCase()}: ${diagnostic.message || diagnosticLabel(diagnostic.code)}`,
-        })
-      }
     }
   }
 
@@ -125,23 +117,6 @@ const blockingIssues = computed(() => {
           message: diagnostic.message || diagnosticLabel(diagnostic.code),
         })
       }
-    }
-  }
-
-  for (const row of props.translationReadiness) {
-    if (row.parentBlocked || row.missingRoute) {
-      issues.push({
-        key: `readiness-${row.locale}-route`,
-        message: `${row.label} needs a public route before publishing.`,
-      })
-    }
-    if (row.missingFields.length > 0) {
-      issues.push({
-        key: `readiness-${row.locale}-fields`,
-        message: `${row.label} is missing ${row.missingFields.length} required field${
-          row.missingFields.length === 1 ? '' : 's'
-        }.`,
-      })
     }
   }
 
@@ -157,15 +132,30 @@ const blockingIssues = computed(() => {
       </template>
       <template #action>
         <StudioStatusPill
-          :label="entry?.status ?? 'draft'"
-          :tone="entry?.status === 'published' ? 'success' : 'warning'"
+          :label="
+            readinessPending
+              ? 'Checking'
+              : readinessView.currentLocale
+                ? readinessStateLabel(editor.loader.t, readinessView.currentLocale.state)
+                : 'Unknown'
+          "
+          :tone="
+            readinessView.blockers.length
+              ? 'warning'
+              : readinessView.currentLocale?.state === 'live' ||
+                  readinessView.currentLocale?.state === 'ready'
+                ? 'success'
+                : entry?.status === 'published'
+                  ? 'success'
+                  : 'warning'
+          "
           class="ginko:capitalize"
         />
       </template>
       <div v-if="entry?.publishedAt" class="ginko:space-y-3 ginko:text-sm">
         <div>
           <div class="ginko:mb-0.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground/70">
-            Published at
+            Live since
           </div>
           <div class="ginko:font-medium ginko:text-foreground">
             <NuxtTime
@@ -180,7 +170,7 @@ const blockingIssues = computed(() => {
         </div>
         <div>
           <div class="ginko:mb-1.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground/70">
-            Current locale
+            Current language
           </div>
           <div
             class="ginko:font-mono ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
@@ -189,12 +179,22 @@ const blockingIssues = computed(() => {
           </div>
         </div>
       </div>
+      <div
+        v-else-if="readinessPending"
+        class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground"
+      >
+        Checking what can publish...
+      </div>
       <div v-else class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground">
-        Not published yet.
+        {{
+          readinessView.nextAction
+            ? readinessActionLabel(editor.loader.t, readinessView.nextAction.kind)
+            : 'We could not check the publish status yet.'
+        }}
       </div>
     </StudioInspectorSection>
 
-    <StudioInspectorSection title="Public URL">
+    <StudioInspectorSection title="Live URL">
       <template #icon>
         <Link2 class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
       </template>
@@ -208,7 +208,7 @@ const blockingIssues = computed(() => {
         {{ publicUrl }}
       </a>
       <div v-else class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-muted-foreground">
-        No public URL yet
+        No live URL yet
       </div>
       <Button
         v-if="publicUrl"
@@ -238,8 +238,8 @@ const blockingIssues = computed(() => {
           <span class="ginko:text-xs ginko:text-muted-foreground">
             {{
               publishedLocaleCount === localeSummaries.length
-                ? 'All locales up to date'
-                : 'Some locales need attention'
+                ? 'All languages are up to date'
+                : 'Some languages need work'
             }}
           </span>
         </div>
@@ -270,7 +270,9 @@ const blockingIssues = computed(() => {
               :tone="
                 locale.blocked
                   ? 'warning'
-                  : locale.status === 'Published' || locale.status === 'Public'
+                  : locale.status === 'Published' ||
+                      locale.status === 'Public' ||
+                      locale.status === 'Live'
                     ? 'success'
                     : 'neutral'
               "
@@ -296,7 +298,13 @@ const blockingIssues = computed(() => {
         <div>
           <div class="ginko:font-medium">No blocking issues</div>
           <div class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground/80">
-            This draft can move forward.
+            {{
+              readinessView.nextAction
+                ? readinessActionLabel(editor.loader.t, readinessView.nextAction.kind)
+                : readinessPending
+                  ? 'Checking what can publish...'
+                  : 'We could not check the publish status yet.'
+            }}
           </div>
         </div>
       </div>
@@ -312,7 +320,7 @@ const blockingIssues = computed(() => {
           </span>
         </div>
         <Button
-          v-if="publicVisibility.isRouteBacked"
+          v-if="isRouteBacked"
           variant="outline"
           size="sm"
           class="ginko:mt-2 ginko:w-full ginko:border-border/60 ginko:text-xs ginko:font-medium ginko:hover:bg-muted/30"
@@ -323,7 +331,7 @@ const blockingIssues = computed(() => {
       </div>
     </StudioInspectorSection>
 
-    <StudioInspectorSection title="Advanced diagnostics">
+    <StudioInspectorSection title="Technical details">
       <template #icon>
         <Sparkles class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
       </template>
@@ -331,23 +339,24 @@ const blockingIssues = computed(() => {
         <Switch
           v-model:checked="advancedEditor"
           class="ginko:scale-90"
-          aria-label="Toggle advanced editor diagnostics"
+          aria-label="Toggle technical editor details"
         />
       </template>
       <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground/80">
-        Routes, readiness, and version history. Hidden by default.
+        URLs, publish checks, and version history. Usually only needed for troubleshooting.
       </p>
     </StudioInspectorSection>
 
     <template v-if="advancedEditor">
       <StudioRouteStatusCard
+        v-if="publicVisibility"
         :public-visibility="publicVisibility"
         :route-validation-requested="routeValidationRequested"
         :route-validation-state="routeValidationState"
         @validate-public-routes="emit('validatePublicRoutes')"
       />
       <StudioTranslationReadinessCard
-        :items="translationReadiness"
+        :items="translationRows"
         @review="emit('reviewTranslationReadiness', $event)"
       />
       <StudioWorkflowCard />

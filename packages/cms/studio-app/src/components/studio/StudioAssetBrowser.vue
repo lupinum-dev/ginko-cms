@@ -205,9 +205,9 @@ function metadataCoverage(asset: Pick<FinderAssetRecord, 'alt' | 'caption'>) {
 
 function metadataCoverageLabel(asset: Pick<FinderAssetRecord, 'alt' | 'caption'>) {
   const coverage = metadataCoverage(asset)
-  if (coverage.complete) return 'Metadata complete'
+  if (coverage.complete) return 'Details complete'
   const missing = new Set([...coverage.missingAlt, ...coverage.missingCaption])
-  return `Missing metadata: ${Array.from(missing).join(', ').toUpperCase()}`
+  return `Missing details: ${Array.from(missing).join(', ').toUpperCase()}`
 }
 
 function previewKey(asset: Pick<FinderAssetRecord, 'id' | 'thumbnailUrl'>) {
@@ -1403,7 +1403,7 @@ defineExpose({
               <Separator />
               <div class="ginko:space-y-2">
                 <div class="ginko:space-y-1.5">
-                  <Label class="ginko:text-xs">Locale</Label>
+                  <Label class="ginko:text-xs">Language</Label>
                   <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
                     <button
                       v-for="locale in localeOptions"
@@ -1441,7 +1441,7 @@ defineExpose({
                   :disabled="savingMeta"
                   @click="saveMetadata"
                 >
-                  Save Metadata
+                  Save details
                 </Button>
               </div>
             </template>
@@ -1768,7 +1768,7 @@ defineExpose({
                     {{ metadataCoverageLabel(selectedAssetForDetails) }}
                   </div>
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs">Locale</Label>
+                    <Label class="ginko:text-xs">Language</Label>
                     <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
                       <button
                         v-for="locale in localeOptions"
@@ -1818,7 +1818,7 @@ defineExpose({
                       v-if="savingMeta"
                       class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin"
                     />
-                    Save Metadata
+                    Save details
                   </Button>
                   <Button
                     v-if="canCopyDefaultMetadata"
@@ -1828,7 +1828,7 @@ defineExpose({
                     :disabled="savingMeta"
                     @click="copyDefaultMetadataToMissingLocales"
                   >
-                    Copy default metadata to missing locales
+                    Copy default details to missing languages
                   </Button>
                 </div>
 
@@ -2048,7 +2048,7 @@ defineExpose({
                   <h4
                     class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                   >
-                    Metadata
+                    Details
                   </h4>
                   <div
                     class="ginko:rounded-md ginko:border ginko:px-2.5 ginko:py-2 ginko:text-xs"
@@ -2061,7 +2061,7 @@ defineExpose({
                     {{ metadataCoverageLabel(selectedAsset) }}
                   </div>
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs">Locale</Label>
+                    <Label class="ginko:text-xs">Language</Label>
                     <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
                       <button
                         v-for="locale in localeOptions"
@@ -2117,7 +2117,7 @@ defineExpose({
                       v-if="savingMeta"
                       class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin"
                     />
-                    Save Metadata
+                    Save details
                   </Button>
                   <Button
                     v-if="canCopyDefaultMetadata"
@@ -2127,7 +2127,7 @@ defineExpose({
                     :disabled="savingMeta"
                     @click="copyDefaultMetadataToMissingLocales"
                   >
-                    Copy default metadata to missing locales
+                    Copy default details to missing languages
                   </Button>
                 </div>
 

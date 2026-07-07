@@ -16,8 +16,8 @@ export default defineMcpPrompt({
       '1. Inspect `get-entry` with `entryId` and `get-collection`.',
       '2. Check title, description, slug/path, required fields, media alt text, body presence, sitemap/search/nav inclusion, and route collisions.',
       '3. Run `explain-public-visibility` for each target locale.',
-      '4. Call `request-publish-review` with the active `agentRunId`, observed draft version, collection, entry, and target locales. Treat blockers from the returned publish diagnostics as authoritative.',
-      '5. Do not execute publish from this prompt. A publisher or owner reviews and approves the request separately.',
-      '6. After approval, verify with `page`, `list`, `search`, `nav`, and `sitemap`.',
+      '4. Call `get-readiness-detail` for exact readiness. If the credential has publish permission, call `preview-publish` with the active `agentRunId`, observed draft version, entry, and target locales. Treat blockers from the operation preview as authoritative.',
+      '5. If direct publish was explicitly requested and the credential has publish permission, call `publish-entry`; otherwise call `request-publish-review` with the active `agentRunId`.',
+      '6. After publish or approval, verify with `page`, `list`, `search`, `nav`, and `sitemap`.',
     ].join('\n'),
 })

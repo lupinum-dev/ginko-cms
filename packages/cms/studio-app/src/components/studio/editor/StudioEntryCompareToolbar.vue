@@ -181,7 +181,7 @@ function swapLocales() {
             variant="ghost"
             size="icon-sm"
             class="ginko:shrink-0"
-            aria-label="Swap locales"
+            aria-label="Swap languages"
             @click="swapLocales"
           >
             <ArrowLeftRight class="ginko:size-3.5" />
@@ -234,7 +234,7 @@ function swapLocales() {
       <Button v-if="advancedEditor" variant="ghost" size="sm" class="ginko:ml-auto" as-child>
         <RouterLink to="/settings" class="ginko:gap-2">
           <Settings class="ginko:size-3.5" />
-          <span class="studio-entry-compare-toolbar__settings-label">Manage locales</span>
+          <span class="studio-entry-compare-toolbar__settings-label">Manage languages</span>
         </RouterLink>
       </Button>
     </div>

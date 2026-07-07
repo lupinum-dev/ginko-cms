@@ -99,7 +99,12 @@ const convexFunctionPrefix = () => 'ginkoCms/public:'
 
 const convexAssetsFunctionPrefix = () => 'ginkoCms/assets:'
 
-const defaultLocale = () => 'en'
+const defaultLocale = (runtime = {}) =>
+  runtime?.defaultLocale ||
+  runtime?.i18n?.defaultLocale ||
+  process.env.GINKO_CONTENT_DEFAULT_LOCALE ||
+  process.env.NUXT_PUBLIC_GINKO_CONTENT_DEFAULT_LOCALE ||
+  'en'
 
 const providerSite = () => optionalEnv('GINKO_CONTENT_PROVIDER_SITE', 'default')
 
@@ -148,7 +153,34 @@ const localeLanguageFromRuntime = async (event) => {
 
 const contentRuntimeFromEvent = async (event) => {
   const runtime = await runtimeConfigFromEvent(event)
-  return runtime?.public?.content || runtime?.content || {}
+  const publicRuntime = runtime?.public || {}
+  const contentRuntime = publicRuntime.content || runtime?.content || {}
+  const cmsRuntime = publicRuntime.ginkoCms || runtime?.ginkoCms || {}
+  const i18nRuntime = publicRuntime.i18n || runtime?.i18n || {}
+  const contentI18n = contentRuntime.i18n || {}
+  const defaultLocaleCode =
+    cmsRuntime.defaultLocale ||
+    contentRuntime.defaultLocale ||
+    contentI18n.defaultLocale ||
+    i18nRuntime.defaultLocale
+
+  return {
+    ...contentRuntime,
+    collections: {
+      ...(contentRuntime.collections || {}),
+      ...(cmsRuntime.collections || {}),
+    },
+    ...(defaultLocaleCode ? { defaultLocale: defaultLocaleCode } : {}),
+    locales:
+      contentRuntime.locales ||
+      cmsRuntime.locales?.map?.((locale) => (typeof locale === 'string' ? locale : locale.code)) ||
+      i18nRuntime.locales?.map?.((locale) => (typeof locale === 'string' ? locale : locale.code)),
+    i18n: {
+      ...contentI18n,
+      ...(i18nRuntime || {}),
+      ...(defaultLocaleCode ? { defaultLocale: defaultLocaleCode } : {}),
+    },
+  }
 }
 
 const enabledSitemapCollections = (contentRuntime, options = {}) => {
@@ -179,7 +211,7 @@ const sitemapLocalesForCollection = (contentRuntime, collection, requestedLocale
   const contentLocales = contentRuntime?.locales
   if (Array.isArray(contentLocales) && contentLocales.length) return contentLocales
 
-  return [contentRuntime?.defaultLocale || defaultLocale()]
+  return [defaultLocale(contentRuntime)]
 }
 
 const normalizeRemoteError = (error, operation) => {
@@ -357,6 +389,7 @@ const resolvePublicAssetIds = async (values = []) => {
 }
 
 const toContentEntry = async (entry, requestedLocale = defaultLocale(), options = {}) => {
+  const defaultLocaleCode = options.defaultLocale || defaultLocale()
   const data = entry?.data && typeof entry.data === 'object' ? entry.data : {}
   const assetUrls = await resolvePublicAssetIds([data, entry?.bodyAst, data.bodyAst])
   const publicData = replaceAssetIds(data, assetUrls)
@@ -366,7 +399,9 @@ const toContentEntry = async (entry, requestedLocale = defaultLocale(), options 
   const locale =
     entry?.locale?.resolved || entry?.locale?.requested || route.locale || requestedLocale
   const canonicalPath = route.path || data.path || '/'
-  const path = options.canonical ? canonicalPath : hrefFor(route, locale)
+  const path = options.canonical
+    ? canonicalPath
+    : hrefFor(route, locale, { defaultLocale: defaultLocaleCode })
   const translations = publishedTranslations(entry)
   const currentVariant = { locale, route }
   const variants = [currentVariant, ...translations]
@@ -376,7 +411,7 @@ const toContentEntry = async (entry, requestedLocale = defaultLocale(), options 
     )
     .map((variant) => ({
       locale: variant.locale,
-      path: hrefFor(variant.route, variant.locale),
+      path: hrefFor(variant.route, variant.locale, { defaultLocale: defaultLocaleCode }),
       canonicalPath: variant.route.path,
     }))
   const variantPaths = Object.fromEntries(
@@ -426,7 +461,7 @@ const toContentEntry = async (entry, requestedLocale = defaultLocale(), options 
     path,
     canonicalPath,
     locale,
-    defaultLocale: defaultLocale(),
+    defaultLocale: defaultLocaleCode,
     variants,
     localePaths,
     resolved: {
@@ -506,17 +541,17 @@ const sitemapCacheHint = () => normalizeCacheHint({ tags: [contentTags.sitemap()
 const pickNavFields = (entry = {}, fields = []) =>
   Object.fromEntries(fields.filter((field) => field in entry).map((field) => [field, entry[field]]))
 
-const toNavItem = (node, fields = []) => {
+const toNavItem = (node, fields = [], options = {}) => {
   const entry = node?.entry || {}
   return {
     ...pickNavFields(entry, fields),
     title: entry.title || node?.title || '',
     _path: entry.route?.path || node?.path || '',
-    path: entry.route ? hrefFor(entry.route, entry.route.locale) : node?.path || '',
+    path: entry.route ? hrefFor(entry.route, entry.route.locale, options) : node?.path || '',
     _locale: entry.route?.locale,
     stableId: entry.stableId ?? entry.revision ?? entry.id,
     ref: entry.ref ?? entry.stableId ?? entry.revision ?? entry.id,
-    children: (node?.children || []).map((child) => toNavItem(child, fields)),
+    children: (node?.children || []).map((child) => toNavItem(child, fields, options)),
   }
 }
 
@@ -705,11 +740,11 @@ const hasExplicitPublicSort = (sort = []) =>
     return Object.keys(item).some((field) => field !== '_stem' && !field.startsWith('$'))
   })
 
-const localeFromOptions = (options = {}) =>
+const localeFromOptions = (options = {}, contentRuntime = {}) =>
   options.locale ||
   options.resolveLocale?.locale ||
   localeFromWhere(options.where) ||
-  defaultLocale()
+  defaultLocale(contentRuntime)
 
 const fallbackFromOptions = (options = {}) => {
   if ('fallback' in (options.resolveLocale || {})) return options.resolveLocale.fallback
@@ -746,7 +781,8 @@ const contentProvider = {
       count: false,
     },
   },
-  query: async (_event, input = {}) => {
+  query: async (event, input = {}) => {
+    const contentRuntime = await contentRuntimeFromEvent(event)
     if (input.resolveVariant) {
       if (!input.collection) {
         throw providerError(
@@ -759,7 +795,7 @@ const contentProvider = {
         )
       }
       const variant = input.resolveVariant
-      const locale = variant.locale || localeFromOptions(input)
+      const locale = variant.locale || localeFromOptions(input, contentRuntime)
       const lookup = lookupFromVariantSelector(variant)
       const fallback = fallbackFromOptions({ ...input, ...variant })
       const result = await callGinko('page', {
@@ -770,7 +806,10 @@ const contentProvider = {
       })
       const entry =
         result.status === 'found' && result.page
-          ? await toContentEntry(result.page, locale, { requestedRoute: lookup.ref || lookup.path })
+          ? await toContentEntry(result.page, locale, {
+              requestedRoute: lookup.ref || lookup.path,
+              defaultLocale: defaultLocale(contentRuntime),
+            })
           : null
       const data = { result: entry ? applyOnlyProjection(entry, input.only) : null }
       return withContentCache(
@@ -780,7 +819,7 @@ const contentProvider = {
     }
 
     assertPortableListQuery(input)
-    const locale = localeFromOptions(input)
+    const locale = localeFromOptions(input, contentRuntime)
     const pathPrefix = pathPrefixFromWhere(input.where)
     assertUnsupportedQueryShape(
       Boolean(pathPrefix && hasExplicitPublicSort(input.sort)),
@@ -798,7 +837,11 @@ const contentProvider = {
     })
     const rawEntries = result.entries || []
     const entries = (
-      await Promise.all(rawEntries.map((entry) => toContentEntry(entry, locale)))
+      await Promise.all(
+        rawEntries.map((entry) =>
+          toContentEntry(entry, locale, { defaultLocale: defaultLocale(contentRuntime) }),
+        ),
+      )
     ).map((entry) => applyOnlyProjection(entry, input.only))
     const data = input.first
       ? { result: entries[0] || null }
@@ -816,22 +859,27 @@ const contentProvider = {
     )
   },
   navigationQuery: async (event, input = {}) => {
-    const locale = localeFromOptions(input)
+    const contentRuntime = await contentRuntimeFromEvent(event)
+    const locale = localeFromOptions(input, contentRuntime)
     return input.collection
       ? await contentProvider.navigation(event, input.collection, { locale })
       : []
   },
-  navigation: async (_event, collection, fieldsOrOptions = []) => {
+  navigation: async (event, collection, fieldsOrOptions = []) => {
+    const contentRuntime = await contentRuntimeFromEvent(event)
     const options = Array.isArray(fieldsOrOptions) ? { fields: fieldsOrOptions } : fieldsOrOptions
-    const locale = localeFromOptions(options)
+    const locale = localeFromOptions(options, contentRuntime)
     const result = await callGinko('nav', { collection, locale })
     return withContentCache(
-      (result.tree || []).map((node) => toNavItem(node, options.fields || [])),
+      (result.tree || []).map((node) =>
+        toNavItem(node, options.fields || [], { defaultLocale: defaultLocale(contentRuntime) }),
+      ),
       navigationCacheHint(collection, locale),
     )
   },
-  surroundings: async (_event, collection, path, options = {}) => {
-    const locale = localeFromOptions(options)
+  surroundings: async (event, collection, path, options = {}) => {
+    const contentRuntime = await contentRuntimeFromEvent(event)
+    const locale = localeFromOptions(options, contentRuntime)
     const result = await callGinko('surround', {
       collection,
       locale,
@@ -846,19 +894,26 @@ const contentProvider = {
         previous
           ? {
               title: previous.title,
-              path: hrefFor(previous.route, locale),
+              path: hrefFor(previous.route, locale, {
+                defaultLocale: defaultLocale(contentRuntime),
+              }),
               _path: previous.route?.path,
             }
           : null,
         next
-          ? { title: next.title, path: hrefFor(next.route, locale), _path: next.route?.path }
+          ? {
+              title: next.title,
+              path: hrefFor(next.route, locale, { defaultLocale: defaultLocale(contentRuntime) }),
+              _path: next.route?.path,
+            }
           : null,
       ],
       collectionCacheHint(collection),
     )
   },
-  search: async (_event, request = {}) => {
-    const locale = request.locale || defaultLocale()
+  search: async (event, request = {}) => {
+    const contentRuntime = await contentRuntimeFromEvent(event)
+    const locale = request.locale || defaultLocale(contentRuntime)
     const query = request.query || request.term || ''
     const collections = request.collections?.length
       ? request.collections
@@ -878,7 +933,9 @@ const contentProvider = {
           collection,
         })
         const searchEntries = await Promise.all(
-          (result.results || []).map((entry) => toContentEntry(entry, locale)),
+          (result.results || []).map((entry) =>
+            toContentEntry(entry, locale, { defaultLocale: defaultLocale(contentRuntime) }),
+          ),
         )
         return searchEntries.map((content, index) => {
           return {
@@ -895,8 +952,9 @@ const contentProvider = {
     const data = collectionResults.flat()
     return withContentCache(data, searchCacheHint(locale))
   },
-  siteData: async (_event, request = {}) => {
-    const locale = request.locale || defaultLocale()
+  siteData: async (event, request = {}) => {
+    const contentRuntime = await contentRuntimeFromEvent(event)
+    const locale = request.locale || defaultLocale(contentRuntime)
     const result = await callGinko('siteData', {
       key: request.key,
       locale,
@@ -911,8 +969,9 @@ const contentProvider = {
       siteDataCacheHint(result.key || request.key || '*', locale),
     )
   },
-  page: async (_event, collection, routeOrPath = '/', options = {}) => {
-    const locale = localeFromOptions(options)
+  page: async (event, collection, routeOrPath = '/', options = {}) => {
+    const contentRuntime = await contentRuntimeFromEvent(event)
+    const locale = localeFromOptions(options, contentRuntime)
     const result = await callGinko('page', {
       collection,
       locale,
@@ -926,6 +985,7 @@ const contentProvider = {
         ? await toContentEntry(result.page, locale, {
             canonical: options.canonical,
             requestedRoute: routeOrPath || options.fallbackRoute || '/',
+            defaultLocale: defaultLocale(contentRuntime),
           })
         : null
     return withContentCache(
@@ -934,7 +994,8 @@ const contentProvider = {
     )
   },
   routeMeta: async (event, collection, routeOrPath = '/', options = {}) => {
-    const locale = localeFromOptions(options)
+    const contentRuntime = await contentRuntimeFromEvent(event)
+    const locale = localeFromOptions(options, contentRuntime)
     const result = await callGinko('routeMeta', {
       collection,
       locale,
@@ -949,6 +1010,7 @@ const contentProvider = {
             canonical: options.canonical,
             includeBody: false,
             requestedRoute: routeOrPath || options.fallbackRoute || '/',
+            defaultLocale: defaultLocale(contentRuntime),
           })
         : null
     if (!page) return null
@@ -990,7 +1052,7 @@ const contentProvider = {
       }
     }
     const localeLanguages = await localeLanguageFromRuntime(event)
-    const sitemapDefaultLocale = contentRuntime?.defaultLocale || defaultLocale()
+    const sitemapDefaultLocale = defaultLocale(contentRuntime)
     return withContentCache(
       urls.map((url) => {
         const xDefaultAlternative = url.xDefault
@@ -1006,7 +1068,7 @@ const contentProvider = {
           : []
         return {
           _sitemap:
-            localeLanguages[url.route?.locale || ''] || url.route?.locale || defaultLocale(),
+            localeLanguages[url.route?.locale || ''] || url.route?.locale || sitemapDefaultLocale,
           loc: hrefFor(url.route, url.route?.locale, {
             preferStoredHref: false,
             defaultLocale: sitemapDefaultLocale,

@@ -122,20 +122,39 @@ const convexMock = vi.hoisted(() => {
     }
 
     if (operation === 'nav') {
+      const input = args as { locale?: string }
+      const locale = input.locale ?? 'en'
       return {
         tree: [
           {
             entry: {
               id: 'entry-docs-routing',
               stableId: 'docs-routing',
-              title: 'Content Routing',
+              title: locale === 'fr' ? 'Routage de contenu' : 'Content Routing',
               route: {
-                locale: 'en',
+                locale,
                 path: '/docs/workflows/content-routing',
                 slug: 'content-routing',
               },
             },
-            children: [],
+            children:
+              locale === 'fr'
+                ? [
+                    {
+                      entry: {
+                        id: 'entry-docs-child',
+                        stableId: 'docs-child',
+                        title: 'Enfant',
+                        route: {
+                          locale,
+                          path: '/docs/workflows/content-routing/child',
+                          slug: 'child',
+                        },
+                      },
+                      children: [],
+                    },
+                  ]
+                : [],
           },
         ],
       }
@@ -193,6 +212,12 @@ type ProviderResult<T> = T | { __ginkoContentProviderResult: true; data: T; cach
 type ContentProvider = {
   capabilities: unknown
   page: (
+    event: never,
+    collection: string,
+    path: string,
+    options?: Record<string, unknown>,
+  ) => Promise<unknown>
+  routeMeta: (
     event: never,
     collection: string,
     path: string,
@@ -337,6 +362,186 @@ describe('CMS provider contract', () => {
         limit: 10,
         cursor: 'cursor-1',
         sort: 'lastPublishedAt:desc',
+      },
+    })
+  })
+
+  it('uses runtime content default locale instead of hardcoding en', async () => {
+    await contentProvider.query(
+      {
+        context: {
+          runtimeConfig: {
+            public: {
+              content: {
+                defaultLocale: 'fr',
+                locales: ['fr', 'en'],
+              },
+            },
+          },
+        },
+      } as never,
+      {
+        collection: 'docs',
+        limit: 3,
+      },
+    )
+
+    expect(lastCall()).toEqual({
+      operation: 'list',
+      args: {
+        collection: 'docs',
+        locale: 'fr',
+        limit: 3,
+        cursor: undefined,
+      },
+    })
+  })
+
+  it('uses runtime default locale across public provider surfaces without explicit locale', async () => {
+    const event = {
+      context: {
+        runtimeConfig: {
+          public: {
+            ginkoCms: {
+              defaultLocale: 'fr',
+            },
+          },
+        },
+      },
+    } as never
+
+    await contentProvider.page(event, 'docs', '/docs/workflows/content-routing')
+    expect(lastCall()).toMatchObject({
+      operation: 'page',
+      args: { collection: 'docs', locale: 'fr' },
+    })
+
+    await contentProvider.routeMeta(event, 'docs', '/docs/workflows/content-routing')
+    expect(lastCall()).toMatchObject({
+      operation: 'routeMeta',
+      args: { collection: 'docs', locale: 'fr' },
+    })
+
+    await contentProvider.search(event, { term: 'routing', collection: 'docs' })
+    expect(lastCall()).toMatchObject({
+      operation: 'search',
+      args: { collection: 'docs', locale: 'fr' },
+    })
+
+    await contentProvider.siteData(event, { key: 'announcement' })
+    expect(lastCall()).toMatchObject({
+      operation: 'siteData',
+      args: { key: 'announcement', locale: 'fr' },
+    })
+
+    await contentProvider.sitemapEntries(event, { include: ['docs'] })
+    expect(lastCall()).toMatchObject({
+      operation: 'sitemap',
+      args: { collection: 'docs', locale: 'fr' },
+    })
+  })
+
+  it('uses runtime ginkoCms default locale before content and i18n defaults', async () => {
+    await contentProvider.query(
+      {
+        context: {
+          runtimeConfig: {
+            public: {
+              ginkoCms: {
+                defaultLocale: 'fr',
+              },
+              content: {
+                defaultLocale: 'en',
+              },
+              i18n: {
+                defaultLocale: 'de',
+              },
+            },
+          },
+        },
+      } as never,
+      {
+        collection: 'docs',
+        limit: 3,
+      },
+    )
+
+    expect(lastCall()).toEqual({
+      operation: 'list',
+      args: {
+        collection: 'docs',
+        locale: 'fr',
+        limit: 3,
+        cursor: undefined,
+      },
+    })
+  })
+
+  it('falls back to runtime i18n default locale when CMS/content defaults are absent', async () => {
+    await contentProvider.query(
+      {
+        context: {
+          runtimeConfig: {
+            public: {
+              i18n: {
+                defaultLocale: 'de',
+              },
+            },
+          },
+        },
+      } as never,
+      {
+        collection: 'docs',
+        limit: 3,
+      },
+    )
+
+    expect(lastCall()).toEqual({
+      operation: 'list',
+      args: {
+        collection: 'docs',
+        locale: 'de',
+        limit: 3,
+        cursor: undefined,
+      },
+    })
+  })
+
+  it('uses runtime content default locale when rendering navigation hrefs', async () => {
+    const wrapped = await contentProvider.navigation(
+      {
+        context: {
+          runtimeConfig: {
+            public: {
+              content: {
+                defaultLocale: 'fr',
+                locales: ['fr', 'en'],
+              },
+            },
+          },
+        },
+      } as never,
+      'docs',
+      { locale: 'fr' },
+    )
+
+    expect(unwrap(wrapped)).toMatchObject([
+      {
+        title: 'Routage de contenu',
+        path: '/docs/workflows/content-routing',
+        children: [
+          {
+            title: 'Enfant',
+            path: '/docs/workflows/content-routing/child',
+          },
+        ],
+      },
+    ])
+    expect(lastCall()).toEqual({
+      operation: 'nav',
+      args: {
+        collection: 'docs',
+        locale: 'fr',
       },
     })
   })

@@ -94,22 +94,3 @@ export const saveEntryDraft = defineMcpTool({
     }
   },
 })
-
-export const unarchiveEntry = defineMcpTool({
-  name: 'unarchive-entry',
-  description: 'Restore an archived entry to draft state.',
-  inputSchema: {
-    agentRunId: z.string().describe('Active agent run id for this write.'),
-    entryId: z.string(),
-  },
-  group: 'content',
-  handler: async (args, ctx) => {
-    try {
-      const context = await loadAgentContext(ctx.event, 'editEntries')
-      await context.convex.mutation(api.ginkoCms.editor.mcpUnarchiveEntry, args)
-      return ok({ unarchived: true, entryId: args.entryId }, `Unarchived entry "${args.entryId}".`)
-    } catch (error) {
-      return failFromError(error, 'Failed to unarchive entry.')
-    }
-  },
-})

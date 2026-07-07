@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type {
+  PublishReviewPreview,
+  ReviewSummary,
+} from '@lupinum/ginko-cms-contract/shared/readiness.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { AlertCircle, Check, Inbox, Loader2, X } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
@@ -9,10 +13,12 @@ import { useCmsI18n } from '../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../composables/useCmsStudioQuery'
 import { useConvexMutation } from '../composables/useStudioConvex'
+import { readinessIssueLabel } from '../lib/publicWorkflow'
 
 type ReviewRequest = {
   _id: string
-  agentRunId: string
+  agentRunId: string | null
+  requestSource: 'human' | 'agent'
   operationId: string
   entryId: string
   locales: string[]
@@ -21,7 +27,7 @@ type ReviewRequest = {
   title: string
   summary: string
   status: 'pending' | 'approved' | 'rejected'
-  preview: Record<string, unknown>
+  preview: PublishReviewPreview
   requestedBy: string
   reviewedBy: string | null
   createdAt: number
@@ -30,6 +36,7 @@ type ReviewRequest = {
   versionHash: string | null
   isStale: boolean
   staleReason: string | null
+  reviewSummary: ReviewSummary
 }
 
 const { t, dateLocale } = useCmsI18n()
@@ -54,39 +61,31 @@ const pageError = computed(() =>
     : '',
 )
 
-function shortId(value: string | null): string {
-  if (!value) return '-'
-  return value.length > 12 ? `${value.slice(0, 6)}...${value.slice(-4)}` : value
-}
-
-function formatJson(value: Record<string, unknown>): string {
+function formatJson(value: PublishReviewPreview): string {
   return JSON.stringify(value, null, 2)
 }
 
-function countArrayField(value: Record<string, unknown>, key: string): number {
-  const field = value[key]
-  return Array.isArray(field) ? field.length : 0
+function statusLabel(status: string) {
+  if (status === 'ready') return 'Ready to publish'
+  if (status === 'no_changes') return 'No website changes'
+  if (status === 'blocked') return 'Needs work'
+  if (status === 'not_publishable') return 'Cannot publish'
+  return status.replaceAll('_', ' ')
 }
 
-function previewSummaryCount(key: string, count: number): string {
-  return t(`ginkoCms.studio.reviewsPage.${key}${count === 1 ? 'One' : 'Other'}`, { count })
+function reviewSummaryText(summary: ReviewSummary): string {
+  const parts = [statusLabel(summary.status)]
+  if (summary.changeCount)
+    parts.push(`${summary.changeCount} change${summary.changeCount === 1 ? '' : 's'}`)
+  if (summary.blockerCount)
+    parts.push(`${summary.blockerCount} blocker${summary.blockerCount === 1 ? '' : 's'}`)
+  if (summary.warningCount)
+    parts.push(`${summary.warningCount} warning${summary.warningCount === 1 ? '' : 's'}`)
+  return parts.join(' · ')
 }
 
-function previewSummary(value: Record<string, unknown>): string {
-  const parts: string[] = []
-  if (typeof value.status === 'string') parts.push(value.status)
-  const changes = countArrayField(value, 'changes')
-  const blockers =
-    countArrayField(value, 'blockingDiagnostics') || countArrayField(value, 'blockers')
-  const warnings = countArrayField(value, 'warnings')
-  const cacheTags = countArrayField(value, 'cacheTags')
-  const events = countArrayField(value, 'events')
-  if (changes) parts.push(previewSummaryCount('previewChanges', changes))
-  if (blockers) parts.push(previewSummaryCount('previewBlockers', blockers))
-  if (warnings) parts.push(previewSummaryCount('previewWarnings', warnings))
-  if (cacheTags) parts.push(previewSummaryCount('previewCacheTags', cacheTags))
-  if (events) parts.push(previewSummaryCount('previewEvents', events))
-  return parts.join(' · ') || t('ginkoCms.studio.reviewsPage.previewSummaryFallback')
+function requestSourceLabel(request: ReviewRequest): string {
+  return request.requestSource === 'agent' ? 'Prepared by AI' : 'Requested by a person'
 }
 
 async function approve(request: ReviewRequest): Promise<boolean> {
@@ -161,7 +160,7 @@ async function reject(request: ReviewRequest) {
           v-if="!canPublishEntries && !pageError"
           class="ginko:mb-4 ginko:rounded-lg ginko:border ginko:border-dashed ginko:p-4 ginko:text-sm ginko:text-muted-foreground"
         >
-          Approvals require publish access.
+          You need publish access to approve and publish website changes.
         </div>
 
         <div
@@ -205,6 +204,8 @@ async function reject(request: ReviewRequest) {
                 <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
                   <Badge variant="warning">Pending</Badge>
                   <Badge v-if="request.isStale" variant="destructive">Out of date</Badge>
+                  <Badge variant="outline">{{ statusLabel(request.reviewSummary.status) }}</Badge>
+                  <Badge variant="outline">{{ requestSourceLabel(request) }}</Badge>
                 </div>
                 <h2 class="ginko:mt-3 ginko:text-base ginko:font-semibold">
                   {{ request.title }}
@@ -238,7 +239,7 @@ async function reject(request: ReviewRequest) {
                     class="ginko:mr-2 ginko:size-3.5 ginko:animate-spin"
                   />
                   <Check v-else class="ginko:mr-2 ginko:size-3.5" />
-                  Approve
+                  Approve and publish
                 </Button>
               </div>
             </div>
@@ -248,10 +249,12 @@ async function reject(request: ReviewRequest) {
             >
               <div>
                 <dt class="ginko:font-medium ginko:text-foreground">Requested by</dt>
-                <dd class="ginko:mt-1 ginko:font-mono">{{ shortId(request.requestedBy) }}</dd>
+                <dd class="ginko:mt-1">
+                  {{ requestSourceLabel(request) }}
+                </dd>
               </div>
               <div>
-                <dt class="ginko:font-medium ginko:text-foreground">Locales</dt>
+                <dt class="ginko:font-medium ginko:text-foreground">Languages</dt>
                 <dd class="ginko:mt-1">{{ request.locales.join(', ') }}</dd>
               </div>
               <div>
@@ -302,6 +305,10 @@ async function reject(request: ReviewRequest) {
                     </span>
                     {{ request.message }}
                   </div>
+                  <div>
+                    <span class="ginko:text-muted-foreground">Publish status:</span>
+                    {{ reviewSummaryText(request.reviewSummary) }}
+                  </div>
                 </div>
               </div>
               <div>
@@ -309,9 +316,54 @@ async function reject(request: ReviewRequest) {
                   {{ t('ginkoCms.studio.reviewsPage.proposedChanges') }}
                 </h3>
                 <div
-                  class="ginko:mt-2 ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
+                  class="ginko:mt-2 ginko:space-y-2 ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
                 >
-                  {{ t('ginkoCms.studio.reviewsPage.proposedChangesDescription') }}
+                  <div
+                    v-for="localeState in request.reviewSummary.localeStatuses"
+                    :key="`${request._id}:locale:${localeState.locale}`"
+                    class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2"
+                  >
+                    <Badge variant="outline" class="ginko:font-mono">
+                      {{ localeState.locale }}
+                    </Badge>
+                    <span>{{ statusLabel(localeState.status) }}</span>
+                    <span
+                      v-if="localeState.currentHref || localeState.nextHref"
+                      class="ginko:font-mono"
+                    >
+                      {{ localeState.currentHref || 'new' }} -> {{ localeState.nextHref || 'none' }}
+                    </span>
+                  </div>
+                  <div v-if="request.reviewSummary.affectedPublicUrls.length">
+                    <div class="ginko:font-medium ginko:text-foreground">
+                      Pages that will change
+                    </div>
+                    <div
+                      v-for="url in request.reviewSummary.affectedPublicUrls"
+                      :key="`${request._id}:url:${url.locale}:${url.beforeHref}:${url.afterHref}`"
+                      class="ginko:font-mono"
+                    >
+                      {{ url.beforeHref || 'new' }} -> {{ url.afterHref || 'none' }}
+                    </div>
+                  </div>
+                  <div v-if="request.reviewSummary.blockingIssueCodes.length">
+                    <div class="ginko:font-medium ginko:text-destructive-fg">Blockers</div>
+                    <div
+                      v-for="code in request.reviewSummary.blockingIssueCodes"
+                      :key="`${request._id}:blocker:${code}`"
+                    >
+                      {{ readinessIssueLabel(t, code) }}
+                    </div>
+                  </div>
+                  <div v-if="request.reviewSummary.warningIssueCodes.length">
+                    <div class="ginko:font-medium ginko:text-warning-fg">Warnings</div>
+                    <div
+                      v-for="code in request.reviewSummary.warningIssueCodes"
+                      :key="`${request._id}:warning:${code}`"
+                    >
+                      {{ readinessIssueLabel(t, code) }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -326,7 +378,7 @@ async function reject(request: ReviewRequest) {
                     {{ request.operationId }}
                   </dd>
                 </div>
-                <div>
+                <div v-if="request.agentRunId">
                   <dt class="ginko:text-muted-foreground">
                     {{ t('ginkoCms.studio.reviewsPage.agentSessionId') }}
                   </dt>
@@ -403,25 +455,17 @@ async function reject(request: ReviewRequest) {
                 </div>
                 <div>
                   <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
-                    {{ t('ginkoCms.studio.reviewsPage.expectedDraftVersion') }}
-                  </dt>
-                  <dd class="ginko:mt-1 ginko:font-mono">
-                    {{ approvalCandidate.expectedVersion }}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
                     {{ t('ginkoCms.studio.reviewsPage.publishImpact') }}
                   </dt>
-                  <dd class="ginko:mt-1">{{ previewSummary(approvalCandidate.preview) }}</dd>
+                  <dd class="ginko:mt-1">
+                    {{ reviewSummaryText(approvalCandidate.reviewSummary) }}
+                  </dd>
                 </div>
                 <div>
                   <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
                     {{ t('ginkoCms.studio.reviewsPage.requestedBy') }}
                   </dt>
-                  <dd class="ginko:mt-1 ginko:font-mono">
-                    {{ shortId(approvalCandidate.requestedBy) }}
-                  </dd>
+                  <dd class="ginko:mt-1">{{ requestSourceLabel(approvalCandidate) }}</dd>
                 </div>
                 <div>
                   <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">

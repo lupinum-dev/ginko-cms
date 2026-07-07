@@ -118,7 +118,7 @@ function defaultWarning(kind: DestructiveActionKind): string | null {
     case 'revert-draft':
       return 'All unpublished draft changes will be lost.'
     case 'publish':
-      return 'Preview publish impact before publishing public content.'
+      return 'Preview website changes before publishing public content.'
     default:
       return null
   }

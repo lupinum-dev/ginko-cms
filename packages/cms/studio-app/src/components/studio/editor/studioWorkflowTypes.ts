@@ -1,3 +1,11 @@
+import type {
+  AffectedPublicUrl,
+  EntryReadinessDetail,
+  EntryReadinessLocale,
+  ReadinessAction,
+  ReadinessIssue,
+} from '@lupinum/ginko-cms-contract/shared/readiness.js'
+
 export interface StudioWorkflowDiagnostic {
   code: string
   href?: string | null
@@ -93,6 +101,12 @@ export interface StudioPublishReviewState {
   state: string
 }
 
+export type StudioReadinessIssue = ReadinessIssue
+export type StudioReadinessAction = ReadinessAction
+export type StudioAffectedPublicUrl = AffectedPublicUrl
+export type StudioReadinessLocale = EntryReadinessLocale
+export type StudioEntryReadinessDetail = EntryReadinessDetail
+
 export interface StudioTranslationReadinessRow {
   draftPath: string | null
   exists: boolean
@@ -109,14 +123,14 @@ export interface StudioTranslationReadinessRow {
 
 const DIAGNOSTIC_LABELS: Record<string, string> = {
   invalid_entry_id: 'Invalid entry',
-  data_only_collection: 'Data-only collection',
+  data_only_collection: 'Shared data collection',
   entry_collection_mismatch: 'Entry collection mismatch',
-  unpublished_entry: 'Unpublished locale',
-  missing_locale_route: 'Missing locale route',
+  unpublished_entry: 'Unpublished language',
+  missing_locale_route: 'Missing language URL',
   missing_required_localized_field: 'Missing required field',
   missing_parent_route: 'Parent not public',
-  route_collision: 'Route collision',
-  route_redirect_collision: 'Route/redirect collision',
+  route_collision: 'URL conflict',
+  route_redirect_collision: 'URL/redirect conflict',
   redirect_collision: 'Redirect collision',
   redirect_target_missing: 'Redirect target missing',
   excluded_from_sitemap: 'Excluded from sitemap',
@@ -125,7 +139,7 @@ const DIAGNOSTIC_LABELS: Record<string, string> = {
 }
 
 export function diagnosticLabel(code: string) {
-  return DIAGNOSTIC_LABELS[code] ?? code.replaceAll('_', ' ')
+  return DIAGNOSTIC_LABELS[code] ?? 'Website issue'
 }
 
 export function statusToneClass(status: string | null | undefined) {

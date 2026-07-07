@@ -6,7 +6,7 @@ const editor = useStudioEntryEditorContext()
 </script>
 
 <template>
-  <StudioSection title="Shared properties" badge="Applies to all locales">
+  <StudioSection title="Shared properties" badge="Applies to all languages">
     <div class="ginko:space-y-4">
       <fieldset
         v-if="editor.loader.isTree"

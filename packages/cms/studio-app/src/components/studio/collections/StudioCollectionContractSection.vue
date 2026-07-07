@@ -80,6 +80,7 @@ const capabilityWarnings = computed(() =>
     mode: collectionDraft.value.mode,
     pathPrefix: collectionDraft.value.pathPrefix,
     locales: selectedLocales.value,
+    t: props.t,
   }),
 )
 
@@ -90,7 +91,7 @@ const routeCapabilities = [
   'Search',
   'Sitemap',
   'SEO',
-  'Publish impact',
+  'Website changes preview',
 ]
 const dataOnlyCapabilities = ['Lists', 'Relations', 'Single-entry content', 'Site-wide content']
 
@@ -171,7 +172,7 @@ function importToneClass(status: string) {
               {{ collectionDraft.label || selectedCollection }}
             </div>
             <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-              This content type is managed by developers and synced into Studio as setup metadata.
+              This content type is managed by developers and synced into Studio as setup details.
               Change fields, routing, locales, and website behavior in the application config, then
               resync the app.
             </p>
@@ -322,12 +323,9 @@ function importToneClass(status: string) {
         <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
           <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
             <div>
-              <Label class="ginko:text-xs ginko:text-muted-foreground"
-                >Published website content</Label
-              >
+              <Label class="ginko:text-xs ginko:text-muted-foreground">Live website content</Label>
               <p class="ginko:mt-1 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-                Public reads use active published website content only. Draft saves do not change
-                these published rows.
+                Website reads use active live content only. Draft saves do not change these rows.
               </p>
             </div>
             <Badge

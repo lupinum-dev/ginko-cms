@@ -21,7 +21,7 @@ defineProps<{
     <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2">
       <div>
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-          {{ previewScope === 'workflow' ? 'Read-only readiness preview' : 'Website changes' }}
+          {{ previewScope === 'workflow' ? 'Read-only publish check' : 'Website changes' }}
         </div>
         <div
           class="ginko:mt-1 ginko:text-sm ginko:font-medium"
@@ -76,7 +76,7 @@ defineProps<{
     <div v-else class="ginko:mt-3 ginko:space-y-3">
       <div v-if="previewScope === 'workflow'" class="ginko:text-xs ginko:text-muted-foreground">
         This is a read-only saved-draft preview for
-        {{ selectedPublishImpactLocale || 'the selected locale' }}. It does not confirm the header
+        {{ selectedPublishImpactLocale || 'the selected language' }}. It does not confirm the header
         Publish action.
       </div>
 
@@ -142,7 +142,7 @@ defineProps<{
           <span
             class="ginko:max-w-full ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
           >
-            {{ localeImpact.nextHref || localeImpact.nextPath || 'No public route' }}
+            {{ localeImpact.nextHref || localeImpact.nextPath || 'No page URL' }}
           </span>
         </div>
 
@@ -157,9 +157,7 @@ defineProps<{
             </div>
           </div>
           <div>
-            <div class="ginko:text-xs ginko:font-medium ginko:uppercase">
-              Published website content
-            </div>
+            <div class="ginko:text-xs ginko:font-medium ginko:uppercase">Live website content</div>
             <div class="ginko:mt-0.5 ginko:flex ginko:flex-wrap ginko:gap-1">
               <Badge variant="outline" class="ginko:text-xs">
                 Sitemap {{ localeImpact.sitemap.before ? 'in' : 'out' }}->{{

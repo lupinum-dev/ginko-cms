@@ -8,7 +8,7 @@ const settings = props.admin
 </script>
 
 <template>
-  <!-- ─── Locales ─── -->
+  <!-- ─── Languages ─── -->
   <section
     class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8 ginko:first:pt-0"
   >

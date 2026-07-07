@@ -15,10 +15,10 @@ export default defineMcpPrompt({
       '',
       '1. Inspect the collection capability and entry snapshot; first determine whether the collection is route-backed or data-only.',
       '2. Run `explain-public-visibility` for the target locale.',
-      '3. Call `request-publish-review` with the active `agentRunId`, observed draft version, collection, entry, and target locale; treat blockers as authoritative.',
-      '4. Summarize route, SEO, sitemap, search, nav, redirects, cache tags, webhook events, and blocking diagnostics from the review preview.',
-      '5. Ask the user to review the specific request; if the draft changes, rerun the request first.',
-      '6. Do not execute publish from this prompt. Previewing and requesting review never publish.',
+      '3. Call `get-readiness-detail` for exact readiness. If the credential has publish permission, call `preview-publish` with the active `agentRunId`, observed draft version, entry, and target locale; treat blockers as authoritative.',
+      '4. Summarize route, SEO, sitemap, search, nav, redirects, cache tags, webhook events, and blocking diagnostics from readiness and, when available, the operation preview.',
+      '5. If direct publish was explicitly requested and the credential has publish permission, call `publish-entry`; otherwise call `request-publish-review` with the active `agentRunId`.',
+      '6. If the draft changes, rerun readiness and any publish preview before publishing or requesting review.',
     ].join('\n')
   },
 })

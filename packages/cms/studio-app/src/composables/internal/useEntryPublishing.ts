@@ -1,5 +1,4 @@
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { getClientValidationErrors } from '@public/utils/cmsFields'
 import type { Ref } from 'vue'
 import { nextTick, ref } from 'vue'
 import type { useRouter } from 'vue-router'
@@ -7,23 +6,14 @@ import type { useRouter } from 'vue-router'
 import { api } from '../../boundary/api'
 import { useStudioHostContext } from '../../boundary/studio-host-context'
 import { formatDestructiveConfirmationPrompt } from '../../lib/destructiveWorkflow'
-import { derivePublishConfirmationState } from '../../lib/publicWorkflow'
+import { derivePublishConfirmationState, type PublishPreviewState } from '../../lib/publicWorkflow'
 import { useConvexMutation } from '../useStudioConvex'
 import type { useStudioDebug } from '../useStudioDebug'
 import type { StudioEntry, StudioField, StudioLocaleVariant } from './types'
 import { studioConfirm } from './useStudioConfirm'
 
-type PublishReadinessState =
-  | 'not_previewed'
-  | 'pending'
-  | 'ready'
-  | 'blocked'
-  | 'failed'
-  | 'stale'
-  | 'expired'
-
-interface PublishReadiness {
-  state: PublishReadinessState
+interface PublishOperationPreviewState {
+  state: PublishPreviewState
   message: string
   previewHash: string | null
   confirmationToken: string | null
@@ -82,7 +72,6 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     collection,
     contentRoute,
     router,
-    fields,
     localeVariants,
     currentLocale,
     canPublishEntries,
@@ -92,9 +81,6 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     isDirty,
     form,
     handleSaveDraft,
-    buildSharedData,
-    buildLocalizedData,
-    dataFields,
     studioDebug,
     t,
   } = deps
@@ -103,9 +89,9 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
   const showPublishDialog = ref(false)
   const publishMessage = ref('')
   const publishMode = ref<'single' | 'all'>('single')
-  const publishReadiness = ref<PublishReadiness>({
+  const publishReadiness = ref<PublishOperationPreviewState>({
     state: 'not_previewed',
-    message: 'Preview publish impact before publishing.',
+    message: 'Preview website changes before publishing.',
     previewHash: null,
     confirmationToken: null,
     confirmationExpiresAt: null,
@@ -121,8 +107,8 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
   }
 
   function setPublishReadiness(
-    next: Omit<PublishReadiness, 'confirmationToken' | 'confirmationExpiresAt'> &
-      Partial<Pick<PublishReadiness, 'confirmationToken' | 'confirmationExpiresAt'>>,
+    next: Omit<PublishOperationPreviewState, 'confirmationToken' | 'confirmationExpiresAt'> &
+      Partial<Pick<PublishOperationPreviewState, 'confirmationToken' | 'confirmationExpiresAt'>>,
   ) {
     publishReadiness.value = {
       ...next,
@@ -131,7 +117,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     }
   }
 
-  function resetPublishReadiness(message = 'Preview publish impact before publishing.') {
+  function resetPublishReadiness(message = 'Preview website changes before publishing.') {
     publishReadiness.value = {
       state: 'not_previewed',
       message,
@@ -163,18 +149,6 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
 
   function handlePublish() {
     if (!canPublishEntries.value) return false
-    const validationErrors = getClientValidationErrors(
-      fields.value,
-      {
-        ...(buildSharedData() ?? {}),
-        ...(buildLocalizedData(dataFields) ?? {}),
-      },
-      t,
-    )
-    if (validationErrors.length > 0) {
-      error.value = validationErrors.map((item) => item.message).join('; ')
-      return false
-    }
     publishMode.value = 'single'
     showPublishDialog.value = true
     return true
@@ -191,19 +165,22 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     if (!canPublishEntries.value) return
     const publishConfirmation = derivePublishConfirmationState({
       readinessState: publishReadiness.value.state,
+      t: deps.t,
       confirmationToken: publishReadiness.value.confirmationToken,
       confirmationExpiresAt: publishReadiness.value.confirmationExpiresAt,
     })
     if (!publishConfirmation.canConfirm) {
       error.value =
-        publishConfirmation.disabledReason ?? 'Preview publish impact before publishing.'
+        publishConfirmation.disabledReason ?? 'Preview website changes before publishing.'
       return
     }
     saving.value = true
     error.value = ''
     const locales =
       publishMode.value === 'all'
-        ? localeVariants.value.map((variant) => variant.locale)
+        ? publishReadiness.value.locales.length > 0
+          ? publishReadiness.value.locales
+          : localeVariants.value.map((variant) => variant.locale)
         : [currentLocale.value]
     const message = publishMessage.value.trim() || undefined
     studioDebug.debug('publish:start', {
@@ -215,7 +192,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     try {
       if (isDirty.value) {
         const saved = await handleSaveDraft(true)
-        resetPublishReadiness('Draft was saved. Preview publish impact again before publishing.')
+        resetPublishReadiness('Draft was saved. Preview website changes again before publishing.')
         if (!saved) {
           if (!error.value) error.value = 'Draft could not be saved before publishing.'
         }
@@ -223,11 +200,11 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       }
       const token = publishConfirmation.token
       if (!token) {
-        throw new Error('Publish confirmation token is missing. Preview again.')
+        throw new Error('Preview website changes again before publishing.')
       }
       const expectedVersion = _entry.value?.draftVersion
       if (typeof expectedVersion !== 'number') {
-        throw new TypeError('Cannot publish before the current draft version is loaded.')
+        throw new TypeError('The saved draft is not loaded. Reload before publishing.')
       }
       await publishMutation({
         entryId: entryId.value,
@@ -299,10 +276,10 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     studioDebug.debug('unpublish:start', { collection: collection.value, entryId: entryId.value })
     try {
       const token = previewToken(preview)
-      if (!token) throw new Error('Unpublish confirmation token is missing. Preview again.')
+      if (!token) throw new Error('Preview website changes again before unpublishing.')
       await unpublishMutation({ entryId: entryId.value, _confirmationToken: token })
       resetPublishReadiness(
-        'Entry was unpublished. Preview publish impact before publishing again.',
+        'Entry was unpublished. Preview website changes before publishing again.',
       )
       studioDebug.debug('unpublish:success', {
         collection: collection.value,
@@ -361,7 +338,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     studioDebug.debug('archive:start', { collection: collection.value, entryId: entryId.value })
     try {
       const token = previewToken(preview)
-      if (!token) throw new Error('Archive confirmation token is missing. Preview again.')
+      if (!token) throw new Error('Preview website changes again before archiving.')
       await archiveMutation({ entryId: entryId.value, _confirmationToken: token })
       resetPublishReadiness('Entry was archived. Restore it before publishing again.')
       studioDebug.debug('archive:success', { collection: collection.value, entryId: entryId.value })

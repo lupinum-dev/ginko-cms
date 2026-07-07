@@ -95,7 +95,7 @@ function updateField(fieldKey: string, value: unknown) {
       <div class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2">
         <button
           type="button"
-          aria-label="Reorder locale"
+          aria-label="Reorder language"
           class="ginko:hidden ginko:cursor-grab ginko:items-center ginko:justify-center ginko:rounded ginko:text-muted-foreground/60 ginko:transition-colors ginko:hover:text-foreground ginko:focus-visible:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring/50 ginko:active:cursor-grabbing ginko:sm:inline-flex"
         >
           <GripVertical class="ginko:size-4" />
@@ -123,7 +123,7 @@ function updateField(fieldKey: string, value: unknown) {
           v-if="showStatusPill"
           :label="status"
           :tone="
-            status === 'Public' || status === 'Published'
+            status === 'Public' || status === 'Published' || status === 'Live'
               ? 'success'
               : isMissing
                 ? 'warning'
@@ -192,7 +192,7 @@ function updateField(fieldKey: string, value: unknown) {
         v-if="isMissing"
         class="ginko:rounded-md ginko:border ginko:border-warning/40 ginko:bg-warning/10 ginko:px-3.5 ginko:py-3 ginko:text-sm ginko:text-warning-fg"
       >
-        <div class="ginko:font-medium">This locale is missing key content.</div>
+        <div class="ginko:font-medium">This language is missing key content.</div>
         <div class="ginko:mt-1 ginko:text-xs">
           {{ missingFields?.length }} field{{ missingFields?.length === 1 ? '' : 's' }} still need
           content.
@@ -206,7 +206,7 @@ function updateField(fieldKey: string, value: unknown) {
         <div
           class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-[minmax(0,1fr)_16rem]"
         >
-          <StudioFieldShell :for="localizedSlugInputId" label="Public URL">
+          <StudioFieldShell :for="localizedSlugInputId" label="Live URL">
             <Input
               v-if="side === 'primary'"
               :id="localizedSlugInputId"

@@ -42,6 +42,10 @@ function mountField() {
     global: {
       stubs: {
         Label: { template: '<label><slot /></label>' },
+        StudioFieldShell: {
+          props: ['error'],
+          template: '<label><slot /><span v-if="error">{{ error }}</span></label>',
+        },
         Textarea: defineComponent({
           props: { modelValue: String },
           emits: ['update:modelValue'],

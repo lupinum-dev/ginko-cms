@@ -52,12 +52,12 @@ const advancedEditor = useStudioAdvancedEditor()
     <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
       <div class="ginko:min-w-0">
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-          Publishing diagnostics
+          Technical publishing checks
         </div>
         <div class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
           <span class="ginko:text-sm ginko:font-medium">{{ publicVisibility.status }}</span>
           <Badge :variant="publicVisibility.isRouteBacked ? 'secondary' : 'outline'">
-            {{ publicVisibility.isRouteBacked ? 'Route-backed' : 'Data-only' }}
+            {{ publicVisibility.isRouteBacked ? 'Website pages' : 'Shared data' }}
           </Badge>
           <Badge
             v-if="publishImpactRequested && previewScope === 'publish'"
@@ -94,7 +94,7 @@ const advancedEditor = useStudioAdvancedEditor()
       v-if="publicVisibility.pending"
       class="ginko:mt-3 ginko:text-xs ginko:text-muted-foreground"
     >
-      Checking public visibility...
+      Checking live website content...
     </div>
     <div v-else-if="publicVisibility.error" class="ginko:mt-3 ginko:text-xs ginko:text-destructive">
       {{ publicVisibility.errorMessage }}
@@ -106,24 +106,24 @@ const advancedEditor = useStudioAdvancedEditor()
             <div
               class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase"
             >
-              Published website content
+              Live website content
             </div>
             <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
               {{
                 publicVisibility.isRouteBacked
-                  ? 'Advanced view for generated public routes and surfaces.'
-                  : 'No page route is produced for this data-only collection.'
+                  ? 'URLs, links, and live website content for this entry.'
+                  : 'No page URL is produced for this shared data collection.'
               }}
             </p>
           </div>
           <Badge variant="outline" class="ginko:text-xs">
-            {{ publicVisibility.isRouteBacked ? 'Route-backed' : 'List-only' }}
+            {{ publicVisibility.isRouteBacked ? 'Website pages' : 'Shared data' }}
           </Badge>
         </div>
         <div class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:sm:grid-cols-3">
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
             <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
-              Locales checked
+              Languages checked
             </div>
             <div class="ginko:text-sm ginko:font-medium ginko:tabular-nums">
               {{ publicOutputSummary.localeCount }}
@@ -131,7 +131,7 @@ const advancedEditor = useStudioAdvancedEditor()
           </div>
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
             <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
-              Published locales
+              Live languages
             </div>
             <div class="ginko:text-sm ginko:font-medium ginko:tabular-nums">
               {{ publicOutputSummary.publishedCount }}
@@ -139,7 +139,7 @@ const advancedEditor = useStudioAdvancedEditor()
           </div>
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
             <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
-              Blocking rows
+              Issues blocking publish
             </div>
             <div class="ginko:text-sm ginko:font-medium ginko:tabular-nums">
               {{ publicOutputSummary.blockedCount }}
@@ -162,7 +162,7 @@ const advancedEditor = useStudioAdvancedEditor()
         v-if="publicVisibility.localeRows.length === 0"
         class="ginko:rounded-md ginko:border ginko:bg-background ginko:p-3 ginko:text-xs ginko:text-muted-foreground"
       >
-        No locale visibility rows were returned.
+        No language visibility rows were returned.
       </div>
     </div>
 
@@ -185,7 +185,7 @@ const advancedEditor = useStudioAdvancedEditor()
             {{
               routeValidationRequested
                 ? routeValidationState.message
-                : 'Run validation to check site-wide route and redirect conflicts.'
+                : 'Run validation to check site-wide URL and redirect conflicts.'
             }}
           </div>
         </div>
@@ -202,7 +202,7 @@ const advancedEditor = useStudioAdvancedEditor()
         :diagnostics="routeValidationState.diagnostics"
         :hidden-count="routeValidationState.hiddenDiagnosticCount"
         item-key-prefix="route-validation"
-        more-label="route diagnostic"
+        more-label="URL issue"
       />
     </div>
 

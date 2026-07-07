@@ -221,7 +221,7 @@ export function useStudioAssetFinder(
       )
     }
     if (!preview.confirmation?.token || preview.confirmation.expiresAt <= Date.now()) {
-      throw new Error('Asset deletion confirmation token is missing. Preview again.')
+      throw new Error('Preview this deletion again before removing the file.')
     }
     return preview.confirmation.token
   }

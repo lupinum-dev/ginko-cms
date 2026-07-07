@@ -60,15 +60,15 @@ function shortId(value: string | null): string {
 }
 
 function safetyLabel(mode: AgentRun['safetyMode']) {
-  if (mode === 'review-gated') return 'review gated'
-  if (mode === 'credential-missing') return 'credential missing'
-  return 'human'
+  if (mode === 'review-gated') return 'review required'
+  if (mode === 'credential-missing') return 'missing access key'
+  return 'human-controlled'
 }
 
 function scopeSummary(scopes: string[]) {
-  if (scopes.length === 0) return 'no scopes'
+  if (scopes.length === 0) return 'no permissions'
   if (scopes.length <= 2) return scopes.join(', ')
-  return `${scopes.length} scopes`
+  return `${scopes.length} permissions`
 }
 
 async function revokeRun(run: AgentRun) {
@@ -151,8 +151,8 @@ async function revokeRun(run: AgentRun) {
           <div
             class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:md:grid"
           >
-            <div>Run</div>
-            <div>Last write</div>
+            <div>AI work</div>
+            <div>Last CMS change</div>
             <div class="ginko:text-right">Started</div>
             <div class="ginko:text-right">Action</div>
           </div>
@@ -174,15 +174,6 @@ async function revokeRun(run: AgentRun) {
               <div
                 class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
               >
-                <span class="ginko:font-mono">{{ shortId(run._id) }}</span>
-                <span v-if="run.credentialApiKeyId" class="ginko:font-mono">
-                  key {{ shortId(run.credentialApiKeyId) }}
-                </span>
-              </div>
-              <div
-                class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
-              >
-                <span>user {{ shortId(run.delegatedUserId) }}</span>
                 <span>{{ safetyLabel(run.safetyMode) }}</span>
                 <span>{{ scopeSummary(run.requestedScopes) }}</span>
                 <span v-if="run.expiresAt">
@@ -200,6 +191,22 @@ async function revokeRun(run: AgentRun) {
               <p v-if="run.lastError" class="ginko:mt-1 ginko:text-xs ginko:text-destructive">
                 {{ run.lastError }}
               </p>
+              <StudioDeveloperDetails class="ginko:mt-2" :framed="false">
+                <div class="ginko:mt-2 ginko:flex ginko:flex-wrap ginko:gap-2 ginko:text-xs">
+                  <code class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1">{{
+                    shortId(run._id)
+                  }}</code>
+                  <code
+                    v-if="run.credentialApiKeyId"
+                    class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1"
+                  >
+                    key {{ shortId(run.credentialApiKeyId) }}
+                  </code>
+                  <code class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1">
+                    user {{ shortId(run.delegatedUserId) }}
+                  </code>
+                </div>
+              </StudioDeveloperDetails>
             </div>
 
             <div

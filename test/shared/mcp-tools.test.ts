@@ -54,11 +54,6 @@ function objectPropertyString(
   return value && ts.isStringLiteral(value) ? value.text : undefined
 }
 
-function objectPropertyIsTrue(object: ts.ObjectLiteralExpression, name: string): boolean {
-  const value = objectProperty(object, name)
-  return value?.kind === ts.SyntaxKind.TrueKeyword
-}
-
 function objectPropertyObject(
   object: ts.ObjectLiteralExpression,
   name: string,
@@ -120,14 +115,6 @@ function toolDefinitionName(reference: ToolReference): string {
     objectPropertyString(objectPropertyObject(definition, 'meta') ?? definition, 'name')
   if (!name) throw new Error(`MCP tool definition in ${reference.path} has no explicit name.`)
   return name
-}
-
-function toolDefinitionIsDestructive(reference: ToolReference): boolean {
-  const definition = firstToolDefinition(reference.path, reference.exportName)
-  return (
-    objectPropertyIsTrue(definition, 'destructive') ||
-    objectPropertyIsTrue(objectPropertyObject(definition, 'meta') ?? definition, 'destructive')
-  )
 }
 
 function codeModeTools(): ToolReference[] {
@@ -208,12 +195,14 @@ function codeModeToolNames(): string[] {
 describe('MCP tool safety contracts', () => {
   it('exposes the curated code-mode tool names, not file layout conventions', () => {
     expect(codeModeToolNames()).toEqual([
+      'archive-entry',
       'create-entry',
       'explain-public-visibility',
       'export-backup',
       'get-asset',
       'get-collection',
       'get-entry',
+      'get-readiness-detail',
       'list',
       'list-collections',
       'list-entries',
@@ -221,12 +210,13 @@ describe('MCP tool safety contracts', () => {
       'nav',
       'page',
       'preview-publish',
+      'publish-entry',
       'request-publish-review',
       'resolve-asset-urls',
+      'restore-entry',
       'save-entry-draft',
       'search',
       'sitemap',
-      'unarchive-entry',
     ])
   })
 
@@ -308,10 +298,21 @@ describe('MCP tool safety contracts', () => {
     expect(mcpDoctor).toContain('Nuxt MCP code mode resolves it from the host app root')
   })
 
-  it('keeps destructive operation tools out of the default MCP surface', () => {
-    const destructiveTools = codeModeTools().filter(toolDefinitionIsDestructive)
+  it('keeps sensitive MCP tools explicit on the shared powerful MCP surface', () => {
+    const sensitiveTools = [
+      'archive-entry',
+      'export-backup',
+      'preview-publish',
+      'publish-entry',
+      'request-publish-review',
+      'restore-entry',
+    ]
 
-    expect(destructiveTools.map(toolDefinitionName).sort()).toEqual([])
+    expect(
+      codeModeToolNames()
+        .filter((name) => sensitiveTools.includes(name))
+        .sort(),
+    ).toEqual(sensitiveTools)
   })
 
   it('keeps active MCP tools explicit and removes the generic projectTool runtime', () => {
@@ -335,16 +336,15 @@ describe('MCP tool safety contracts', () => {
     for (const explicitToolName of [
       "name: 'create-entry'",
       "name: 'save-entry-draft'",
-      "name: 'unarchive-entry'",
       "name: 'move-asset'",
     ]) {
       expect(directSources).toContain(explicitToolName)
     }
+    expect(allToolSources).toContain("name: 'restore-entry'")
 
     for (const oldOperationName of [
       'createEntryOperation',
       'saveEntryDraftOperation',
-      'unarchiveEntryOperation',
       'moveAssetOperation',
     ]) {
       expect(directSources).not.toContain(oldOperationName)
@@ -353,7 +353,6 @@ describe('MCP tool safety contracts', () => {
     for (const oldCallRef of [
       'call: components.ginkoCms.editor.createEntry',
       'call: components.ginkoCms.editor.saveEntryDraft',
-      'call: components.ginkoCms.editor.unarchiveEntry',
       'call: components.ginkoCms.assets.moveAsset',
       forbiddenMcpBridgeRef,
     ]) {
@@ -366,17 +365,24 @@ describe('MCP tool safety contracts', () => {
       join(directRoot, 'content.ts'),
       join(directRoot, 'assets.ts'),
       join(toolsRoot, 'backup/export-backup.ts'),
+      join(toolsRoot, 'content/preview-publish.ts'),
+      join(toolsRoot, 'content/publish-entry.ts'),
       join(toolsRoot, 'content/request-publish-review.ts'),
+      join(toolsRoot, 'content/archive-entry.ts'),
+      join(toolsRoot, 'content/restore-entry.ts'),
     ].map((path) => readFileSync(path, 'utf8'))
 
     for (const source of writeToolSources) {
       for (const toolName of [
         'create-entry',
         'save-entry-draft',
-        'unarchive-entry',
         'move-asset',
         'export-backup',
+        'preview-publish',
+        'publish-entry',
         'request-publish-review',
+        'archive-entry',
+        'restore-entry',
       ]) {
         if (!source.includes(`name: '${toolName}'`)) continue
         expect(source).toContain('agentRunId: z.string()')
@@ -387,9 +393,15 @@ describe('MCP tool safety contracts', () => {
     const combinedSource = writeToolSources.join('\n')
     expect(combinedSource).toContain('api.ginkoCms.editor.mcpCreateEntry')
     expect(combinedSource).toContain('api.ginkoCms.editor.mcpSaveEntryDraft')
-    expect(combinedSource).toContain('api.ginkoCms.editor.mcpUnarchiveEntry')
+    expect(combinedSource).toContain('api.ginkoCms.editor.mcpRestoreEntry')
     expect(combinedSource).toContain('api.ginkoCms.assets.mcpMoveAsset')
     expect(combinedSource).toContain('api.ginkoCms.backup.mcpExportBackup')
+    expect(combinedSource).toContain('api.ginkoCms.editor.mcpPreviewPublishEntryOperation')
+    expect(combinedSource).toContain('api.ginkoCms.editor.mcpPublishEntry')
+    expect(combinedSource).toContain('api.ginkoCms.editor.mcpPreviewArchiveEntryOperation')
+    expect(combinedSource).toContain('api.ginkoCms.editor.mcpArchiveEntry')
+    expect(combinedSource).not.toContain('mcpRecordPublishEntry')
+    expect(combinedSource).not.toContain('mcpRecordArchiveEntry')
     expect(combinedSource).toContain('api.ginkoCms.reviewRequests.requestPublishReview')
   })
 
@@ -428,6 +440,7 @@ describe('MCP tool safety contracts', () => {
     expect(promptsAndResources).not.toContain('list-assets')
     expect(promptsAndResources).toContain('resolve-asset-urls')
     expect(promptsAndResources).toContain('preview-publish')
+    expect(promptsAndResources).toContain('publish-entry')
     expect(promptsAndResources).toContain('request-publish-review')
     expect(promptsAndResources).toContain('page')
     expect(promptsAndResources).toContain('sitemap')
@@ -475,10 +488,10 @@ describe('MCP tool safety contracts', () => {
 
     expect(entryPage).toContain('StudioEntryPublicWorkflowPanel')
     expect(entryPage).toContain('StudioEntryTranslationReadinessPanel')
-    expect(publicWorkflowPanel).toContain('Published website content')
+    expect(publicWorkflowPanel).toContain('Live website content')
     expect(publicWorkflowPanel).toContain('What will change?')
-    expect(translationReadinessPanel).toContain('Translation readiness')
-    expect(translationReadinessPanel).toContain('Review translation readiness')
+    expect(translationReadinessPanel).toContain('Language status')
+    expect(translationReadinessPanel).toContain('Review language')
     expect(collectionContract).toContain('Website use')
     expect(collectionContract).toContain('Creates website pages')
     expect(collectionContract).toContain('Shared content')

@@ -20,14 +20,11 @@ const emit = defineEmits<{
     <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
       <div>
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-          Translation readiness
+          Language status
         </div>
-        <div class="ginko:mt-1 ginko:text-sm ginko:font-medium">
-          Read-only review for non-current locales
-        </div>
+        <div class="ginko:mt-1 ginko:text-sm ginko:font-medium">Other language versions</div>
         <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-          This checks saved draft readiness only. It does not save, publish, or confirm the header
-          Publish action.
+          Check saved language drafts before previewing or publishing them.
         </div>
       </div>
       <Badge variant="outline">{{ currentLocale }} current</Badge>
@@ -59,11 +56,11 @@ const emit = defineEmits<{
             <span>{{ localeState.exists ? 'Exists' : 'Missing' }}</span>
           </div>
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">Published</span>
-            <span>{{ localeState.published ? 'Published' : 'Not published' }}</span>
+            <span class="ginko:font-medium ginko:text-foreground">Live status</span>
+            <span>{{ localeState.published ? 'Live' : 'Not live' }}</span>
           </div>
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">Route</span>
+            <span class="ginko:font-medium ginko:text-foreground">URL</span>
             <span class="ginko:truncate ginko:font-mono">
               {{ localeState.draftPath || (localeState.missingRoute ? 'missing' : 'none') }}
             </span>
@@ -80,7 +77,7 @@ const emit = defineEmits<{
           v-if="localeState.parentBlocked"
           class="ginko:mt-2 ginko:text-xs ginko:text-destructive"
         >
-          Parent route is blocking this locale.
+          The parent page is blocking this language.
         </div>
 
         <div
@@ -97,14 +94,14 @@ const emit = defineEmits<{
             variant="outline"
             class="ginko:border-warning/40 ginko:text-warning-fg ginko:text-xs"
           >
-            Missing locale
+            Missing language
           </Badge>
           <Badge
             v-if="localeState.missingRoute"
             variant="outline"
             class="ginko:border-destructive/40 ginko:text-destructive ginko:text-xs"
           >
-            Missing route
+            Missing URL
           </Badge>
           <Badge
             v-if="localeState.parentBlocked"
@@ -138,7 +135,7 @@ const emit = defineEmits<{
           :disabled="saving"
           @click="emit('review', localeState.locale)"
         >
-          Review translation readiness
+          Review language
         </Button>
       </div>
     </div>

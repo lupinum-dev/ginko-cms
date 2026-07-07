@@ -149,7 +149,7 @@ export function useStudioSiteDataAdmin() {
         preview.confirmation && preview.confirmation.expiresAt > Date.now()
           ? preview.confirmation.token
           : null
-      if (!token) throw new Error('Delete confirmation token is missing. Preview again.')
+      if (!token) throw new Error('Preview this deletion again before removing the data.')
       await deleteBlockMutation({ key, _confirmationToken: token })
       if (expandedBlock.value === key) expandedBlock.value = null
     } catch (e) {

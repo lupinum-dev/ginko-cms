@@ -4,6 +4,43 @@ import { Ellipsis, Flag } from 'lucide-vue-next'
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 
 const editor = useStudioEntryEditorContext()
+
+type VersionListItem = {
+  _id: string
+  action?: string
+  createdBy?: string
+  displayAction?: string
+  publishedLocales?: string[]
+  version?: number
+}
+
+function localeLabel(code: string) {
+  const match = editor.loader.locales?.find((locale: { code: string; label?: string }) => {
+    return locale.code === code
+  })
+  return match?.label ?? code.toUpperCase()
+}
+
+function formatVersionAction(version: VersionListItem) {
+  if (version.action === 'checkpoint' || version.displayAction === 'checkpoint') {
+    return editor.loader.t('ginkoCms.studio.collectionEditor.versionCheckpoint')
+  }
+  if (version.action === 'rollback' || version.displayAction === 'restoredPublished') {
+    return editor.loader.t('ginkoCms.studio.collectionEditor.versionRestoredPublished')
+  }
+  if (version.action === 'archive' || version.displayAction === 'archived') {
+    return editor.loader.t('ginkoCms.studio.collectionEditor.versionArchived')
+  }
+  if (version.action === 'unpublish' || version.displayAction === 'unpublished') {
+    return editor.loader.t('ginkoCms.studio.collectionEditor.versionUnpublished')
+  }
+  if (version.action === 'route_rebuild' || version.displayAction === 'routeUpdated') {
+    return editor.loader.t('ginkoCms.studio.collectionEditor.versionRouteUpdated')
+  }
+  const locales = version.publishedLocales ?? []
+  const language = locales.length === 1 ? ` ${localeLabel(locales[0])}` : ''
+  return `${editor.loader.t('ginkoCms.studio.collectionEditor.versionPublished')}${language}`
+}
 </script>
 
 <template>
@@ -16,7 +53,7 @@ const editor = useStudioEntryEditorContext()
         @click="editor.history.showCheckpointDialog = true"
       >
         <Flag class="ginko:size-3.5" />
-        Checkpoint
+        {{ editor.loader.t('ginkoCms.studio.collectionEditor.createCheckpoint') }}
       </Button>
     </template>
     <div
@@ -43,6 +80,11 @@ const editor = useStudioEntryEditorContext()
             </span>
           </ItemTitle>
           <ItemDescription>
+            <span class="ginko:font-medium ginko:text-foreground">
+              {{ formatVersionAction(version) }}
+            </span>
+            <span v-if="version.message"> · {{ version.message }}</span>
+            <span> · </span>
             <NuxtTime
               :datetime="version.createdAt"
               :locale="editor.loader.dateLocale"
@@ -52,6 +94,26 @@ const editor = useStudioEntryEditorContext()
               minute="2-digit"
             />
           </ItemDescription>
+          <StudioDeveloperDetails
+            v-if="editor.history.previewVersionId === version._id"
+            class="ginko:mt-3"
+            :framed="false"
+          >
+            <dl class="ginko:grid ginko:gap-2 ginko:text-xs">
+              <div class="ginko:grid ginko:gap-1">
+                <dt class="ginko:font-medium ginko:text-muted-foreground">Revision ID</dt>
+                <dd class="ginko:break-all ginko:font-mono">{{ version._id }}</dd>
+              </div>
+              <div class="ginko:grid ginko:gap-1">
+                <dt class="ginko:font-medium ginko:text-muted-foreground">Version number</dt>
+                <dd class="ginko:font-mono">{{ version.version }}</dd>
+              </div>
+              <div v-if="version.createdBy" class="ginko:grid ginko:gap-1">
+                <dt class="ginko:font-medium ginko:text-muted-foreground">Created by</dt>
+                <dd class="ginko:break-all ginko:font-mono">{{ version.createdBy }}</dd>
+              </div>
+            </dl>
+          </StudioDeveloperDetails>
         </ItemContent>
         <ItemActions>
           <Button

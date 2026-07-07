@@ -23,7 +23,7 @@ const percent = computed(() =>
 </script>
 
 <template>
-  <StudioInspectorSection v-if="primaryItem" title="Translation readiness">
+  <StudioInspectorSection v-if="primaryItem" title="Language status">
     <div class="ginko:flex ginko:items-center ginko:gap-4">
       <div
         class="ginko:grid ginko:size-14 ginko:place-items-center ginko:rounded-full ginko:border-4 ginko:border-muted ginko:text-sm ginko:font-semibold"
@@ -44,7 +44,7 @@ const percent = computed(() =>
               : 'ginko:border-success/40 ginko:text-success-fg'
           "
         >
-          {{ primaryItem.missingFields.length ? 'Needs translation' : 'Ready' }}
+          {{ primaryItem.missingFields.length ? 'Needs work' : 'Ready' }}
         </Badge>
       </div>
     </div>
@@ -54,7 +54,7 @@ const percent = computed(() =>
       class="ginko:mt-4 ginko:w-full ginko:justify-between"
       @click="emit('review', primaryItem.locale)"
     >
-      View readiness details
+      Review language
       <span>›</span>
     </Button>
   </StudioInspectorSection>

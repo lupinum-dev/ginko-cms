@@ -7,7 +7,7 @@ const editor = useStudioEntryEditorContext()
 </script>
 
 <template>
-  <StudioInspectorSection title="Validation summary">
+  <StudioInspectorSection title="Publish checklist">
     <ol class="ginko:space-y-3 ginko:text-sm">
       <li class="ginko:flex ginko:items-start ginko:gap-3">
         <span
@@ -19,7 +19,7 @@ const editor = useStudioEntryEditorContext()
           <div class="ginko:font-medium">
             {{ editor.draft.isDirty ? 'Draft changed' : 'Draft saved' }}
           </div>
-          <div class="ginko:text-xs ginko:text-muted-foreground">Current editable state</div>
+          <div class="ginko:text-xs ginko:text-muted-foreground">Your edits are saved here</div>
         </div>
       </li>
       <li class="ginko:flex ginko:items-start ginko:gap-3">
@@ -28,8 +28,10 @@ const editor = useStudioEntryEditorContext()
           >2</span
         >
         <div>
-          <div class="ginko:font-medium">In translation</div>
-          <div class="ginko:text-xs ginko:text-muted-foreground">Compare and complete locales</div>
+          <div class="ginko:font-medium">Languages</div>
+          <div class="ginko:text-xs ginko:text-muted-foreground">
+            Complete the languages you want to publish
+          </div>
         </div>
       </li>
       <li class="ginko:flex ginko:items-start ginko:gap-3 ginko:text-muted-foreground">
@@ -39,7 +41,7 @@ const editor = useStudioEntryEditorContext()
         >
         <div>
           <div class="ginko:font-medium">Review</div>
-          <div class="ginko:text-xs">Validate routes and content</div>
+          <div class="ginko:text-xs">Check links and content</div>
         </div>
       </li>
       <li class="ginko:flex ginko:items-start ginko:gap-3 ginko:text-muted-foreground">
@@ -49,7 +51,7 @@ const editor = useStudioEntryEditorContext()
         >
         <div>
           <div class="ginko:font-medium">Publish</div>
-          <div class="ginko:text-xs">Refresh website output</div>
+          <div class="ginko:text-xs">Refresh the website</div>
         </div>
       </li>
     </ol>

@@ -21,7 +21,7 @@ const { collapsed } = useStudioActionRailController()
     </div>
     <template #rail>
       <StudioActionRail
-        sheet-description="Status, public URL, translations, and available actions."
+        sheet-description="Status, live URL, translations, and available actions."
         sheet-title="Entry details"
         title="Details"
       >

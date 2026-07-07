@@ -40,21 +40,21 @@ defineProps<{
         </div>
         <div class="ginko:mt-0.5 ginko:text-foreground">{{ localeState.draftState }}</div>
         <div class="ginko:truncate ginko:font-mono ginko:text-xs">
-          {{ localeState.draftPath || localeState.path || 'no route' }}
+          {{ localeState.draftPath || localeState.path || 'no URL' }}
         </div>
       </div>
       <div>
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-          Published
+          Live
         </div>
         <div class="ginko:mt-0.5 ginko:text-foreground">{{ localeState.publishedState }}</div>
         <div class="ginko:truncate ginko:font-mono ginko:text-xs">
-          {{ localeState.href || localeState.publishedPath || 'no route' }}
+          {{ localeState.href || localeState.publishedPath || 'no URL' }}
         </div>
       </div>
       <div>
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-          Public surfaces
+          Website surfaces
         </div>
         <div class="ginko:mt-0.5 ginko:flex ginko:flex-wrap ginko:gap-1">
           <Badge variant="outline" class="ginko:text-xs">Sitemap {{ localeState.sitemap }}</Badge>
@@ -102,7 +102,7 @@ defineProps<{
       v-if="localeState.draftPath && localeState.href && localeState.draftPath !== localeState.href"
       class="ginko:mt-2 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
     >
-      Public URL differs from the editable slug because this collection uses stable routes.
+      Live URL differs from the editable slug because this collection uses stable URLs.
     </p>
 
     <StudioWorkflowDiagnosticsList

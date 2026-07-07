@@ -3,13 +3,12 @@ import { describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => {
   const refs = {
     getEntry: { _type: 'query', name: 'editor.getEntry' },
-    previewPublishImpact: { _type: 'query', name: 'diagnostics.previewPublishImpact' },
     requestPublishReview: { _type: 'mutation', name: 'reviewRequests.requestPublishReview' },
   }
   return {
     refs,
     calls: [] as Array<{ kind: 'query' | 'mutation'; fn: unknown; args: unknown }>,
-    publishStatus: 'ready',
+    reviewMutationError: null as Error | null,
   }
 })
 
@@ -20,9 +19,6 @@ vi.mock('@nuxtjs/mcp-toolkit/server', () => ({
 vi.mock('#convex/api', () => ({
   api: {
     ginkoCms: {
-      diagnostics: {
-        previewPublishImpact: mocks.refs.previewPublishImpact,
-      },
       editor: {
         getEntry: mocks.refs.getEntry,
       },
@@ -84,23 +80,11 @@ vi.mock('../../packages/cms/src/server/mcp/_shared/agent-tools.js', () => {
               draftVersion: 7,
             }
           }
-          if (fn === mocks.refs.previewPublishImpact) {
-            return {
-              status: mocks.publishStatus,
-              locales: [{ locale: 'en', status: mocks.publishStatus }],
-              blockingDiagnostics:
-                mocks.publishStatus === 'ready'
-                  ? []
-                  : [{ code: 'missing_required_field', message: 'Title is required.' }],
-              warnings: [],
-              changes: [{ kind: 'data', locale: 'en' }],
-              events: [{ type: 'content.publish' }],
-            }
-          }
           return null
         },
         mutation: async (fn: unknown, args: unknown) => {
           mocks.calls.push({ kind: 'mutation', fn, args })
+          if (mocks.reviewMutationError) throw mocks.reviewMutationError
           if (fn === mocks.refs.requestPublishReview) {
             return {
               _id: 'review-1',
@@ -119,7 +103,7 @@ vi.mock('../../packages/cms/src/server/mcp/_shared/agent-tools.js', () => {
 describe('request-publish-review MCP tool', () => {
   it('creates a review request from publish diagnostics without changing public output', async () => {
     mocks.calls.length = 0
-    mocks.publishStatus = 'ready'
+    mocks.reviewMutationError = null
     const tool = (
       await import('../../packages/cms/src/server/mcp/tools/content/request-publish-review')
     ).default as {
@@ -134,7 +118,6 @@ describe('request-publish-review MCP tool', () => {
     const result = await tool.handler(
       {
         agentRunId: 'run-1',
-        collection: 'pages',
         entryId: 'entry-1',
         locales: ['en'],
         expectedVersion: 7,
@@ -156,11 +139,6 @@ describe('request-publish-review MCP tool', () => {
         fn: mocks.refs.getEntry,
         args: { id: 'entry-1' },
       },
-      {
-        kind: 'query',
-        fn: mocks.refs.previewPublishImpact,
-        args: { collection: 'pages', entryId: 'entry-1', locale: 'en' },
-      },
       expect.objectContaining({
         kind: 'mutation',
         fn: mocks.refs.requestPublishReview,
@@ -169,23 +147,19 @@ describe('request-publish-review MCP tool', () => {
           entryId: 'entry-1',
           locales: ['en'],
           expectedVersion: 7,
-          preview: expect.objectContaining({
-            kind: 'publish-impact',
-            status: 'ready',
-          }),
-          versionHash: JSON.stringify({
-            entryId: 'entry-1',
-            expectedVersion: 7,
-            locales: ['en'],
-          }),
         }),
       }),
     ])
+    const mutation = mocks.calls.find((call) => call.kind === 'mutation')
+    expect(mutation?.args).not.toHaveProperty('preview')
+    expect(mutation?.args).not.toHaveProperty('versionHash')
   })
 
-  it('does not create a review request when publish diagnostics are blocked', async () => {
+  it('surfaces server-side review preview blockers without trusting local diagnostics', async () => {
     mocks.calls.length = 0
-    mocks.publishStatus = 'blocked'
+    mocks.reviewMutationError = new Error(
+      'Publish review was not created because the requested publish is currently blocked.',
+    )
     const tool = (
       await import('../../packages/cms/src/server/mcp/tools/content/request-publish-review')
     ).default as {
@@ -201,7 +175,6 @@ describe('request-publish-review MCP tool', () => {
     const result = await tool.handler(
       {
         agentRunId: 'run-1',
-        collection: 'pages',
         entryId: 'entry-1',
         locales: ['en'],
         expectedVersion: 7,
@@ -210,10 +183,10 @@ describe('request-publish-review MCP tool', () => {
     )
 
     expect(result.isError).toBe(true)
-    expect(result.structuredContent?.error?.code).toBe('PUBLISH_REVIEW_BLOCKED')
+    expect(result.structuredContent?.error?.message).toContain('currently blocked')
     expect(mocks.calls.map((call) => call.fn)).toEqual([
       mocks.refs.getEntry,
-      mocks.refs.previewPublishImpact,
+      mocks.refs.requestPublishReview,
     ])
   })
 })

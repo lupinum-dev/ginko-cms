@@ -25,15 +25,15 @@ const routePath = computed(
 )
 const routeLabel = computed(
   () =>
-    currentRoute.value?.label || (props.publicVisibility.isRouteBacked ? 'Unknown' : 'Data-only'),
+    currentRoute.value?.label || (props.publicVisibility.isRouteBacked ? 'Unknown' : 'Shared data'),
 )
 </script>
 
 <template>
-  <StudioInspectorSection title="Route diagnostics">
+  <StudioInspectorSection title="URL diagnostics">
     <div class="ginko:min-w-0">
       <div class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-muted-foreground">
-        {{ routePath || 'No public route' }}
+        {{ routePath || 'No page URL' }}
       </div>
       <Badge
         variant="outline"

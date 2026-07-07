@@ -453,7 +453,7 @@ export function useStudioSettingsAdmin() {
         preview.confirmation && preview.confirmation.expiresAt > Date.now()
           ? preview.confirmation.token
           : null
-      if (!token) throw new Error('Remove-member confirmation token is missing. Preview again.')
+      if (!token) throw new Error('Preview this member change again before removing access.')
       await removeMemberMutation({ userId, _confirmationToken: token })
     } catch (e) {
       error.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.removeMemberError'))
@@ -565,7 +565,7 @@ export function useStudioSettingsAdmin() {
     const token = mcpCreatedToken.value?.key
     if (!token) return
     await navigator.clipboard.writeText(token)
-    mcpConnectionInfo.value = 'MCP token copied.'
+    mcpConnectionInfo.value = 'MCP access key copied.'
   }
 
   async function handleRetryRevalidationJob(eventId: string) {
@@ -588,7 +588,7 @@ export function useStudioSettingsAdmin() {
         return
       }
       if (!preview.confirmation?.token || preview.confirmation.expiresAt <= Date.now()) {
-        throw new Error('Retry confirmation token is missing. Preview again.')
+        throw new Error('Preview this website refresh again before retrying.')
       }
       await retryRevalidationJobMutation({
         eventId,

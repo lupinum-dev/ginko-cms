@@ -22,7 +22,12 @@ import {
   codeDefinedCollectionList,
   type StudioCollectionListItem,
 } from '../lib/codeDefinedCollections'
-import { deriveStudioWorkQueueSummary } from '../lib/publicWorkflow'
+import {
+  deriveStudioWorkQueueSummary,
+  readinessActionLabel,
+  websiteRefreshStatusLabel,
+  websiteRefreshStatusMessage,
+} from '../lib/publicWorkflow'
 import {
   studioRouteHref,
   studioStaticRoutes,
@@ -42,6 +47,21 @@ type OverviewEntry = {
   blockingIssueCount?: number
   missingTranslationLocales?: string[]
   nextAction?: string
+  workflowSummary?: {
+    workStatesByLocale: Record<string, string>
+    issueCounts: {
+      blocker: number
+      warning: number
+      info: number
+    }
+    missingLocales: string[]
+    nextAction: {
+      kind: string
+      locale: string | null
+      target: string
+      params: Record<string, unknown>
+    }
+  }
 }
 
 type OverviewRun = {
@@ -144,6 +164,7 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
       value: loadingValue ?? workQueue.value.needsAttention,
       icon: AlertCircle,
       tone: workQueue.value.needsAttention > 0 ? 'danger' : 'neutral',
+      to: contentRoute,
     },
     {
       key: 'changedDrafts',
@@ -152,14 +173,16 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
       value: loadingValue ?? workQueue.value.changedDrafts,
       icon: FileText,
       tone: workQueue.value.changedDrafts > 0 ? 'info' : 'neutral',
+      to: contentRoute,
     },
     {
       key: 'missingTranslations',
-      label: 'Missing translations',
-      description: 'Locales that still need content before the website is complete.',
+      label: 'Missing languages',
+      description: 'Language versions that still need content before the website is complete.',
       value: loadingValue ?? workQueue.value.missingTranslations,
       icon: Languages,
       tone: workQueue.value.missingTranslations > 0 ? 'warning' : 'neutral',
+      to: contentRoute,
     },
   ]
 
@@ -225,6 +248,16 @@ const quickLinks = computed(() =>
 
 function entryHref(entry: OverviewEntry) {
   return `${contentRoute}/${entry.collection}/${entry.entryId}`
+}
+
+function entryActionLabel(entry: OverviewEntry, fallback: string) {
+  return entry.workflowSummary?.nextAction.kind
+    ? readinessActionLabel(t, entry.workflowSummary.nextAction.kind)
+    : (entry.nextAction ?? fallback)
+}
+
+function blockerCount(entry: OverviewEntry) {
+  return entry.workflowSummary?.issueCounts.blocker ?? entry.blockingIssueCount ?? 0
 }
 
 function routeModeLabel(mode: unknown) {
@@ -360,7 +393,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   <span
                     class="ginko:self-center ginko:text-xs ginko:text-muted-foreground ginko:sm:text-right"
                   >
-                    {{ entry.nextAction || 'Preview website changes' }}
+                    {{ entryActionLabel(entry, 'Preview website changes') }}
                   </span>
                 </RouterLink>
               </div>
@@ -381,7 +414,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 <div>
                   <h2 class="studio-text-title">Blocked from publishing</h2>
                   <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
-                    Entries with readiness issues before the website can change.
+                    Content with issues to fix before the website can change.
                   </p>
                 </div>
                 <Badge variant="outline" class="ginko:text-xs">
@@ -408,8 +441,8 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   <div
                     class="ginko:self-center ginko:text-xs ginko:text-muted-foreground ginko:sm:text-right"
                   >
-                    {{ entry.blockingIssueCount }} readiness issue{{
-                      entry.blockingIssueCount === 1 ? '' : 's'
+                    {{ blockerCount(entry) }} publish issue{{
+                      blockerCount(entry) === 1 ? '' : 's'
                     }}
                   </div>
                   <AlertCircle
@@ -420,7 +453,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               <StudioEmptyState
                 v-else
                 title="No publish blockers"
-                description="The current work queue has no readiness blockers."
+                description="The current work queue has no publish blockers."
                 class="ginko:m-4"
               />
             </section>
@@ -485,7 +518,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 class="ginko:flex ginko:items-center ginko:gap-2 ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3"
               >
                 <Workflow class="ginko:size-4 ginko:text-muted-foreground" />
-                <h2 class="studio-text-title">Operations status</h2>
+                <h2 class="studio-text-title">Website publishing status</h2>
               </div>
               <div class="ginko:space-y-3 ginko:p-4">
                 <div
@@ -496,9 +529,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                     class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground"
                   />
                   <div>
-                    <div class="ginko:font-medium">Work queue unavailable</div>
+                    <div class="ginko:font-medium">Publishing status unavailable</div>
                     <div class="ginko:text-xs ginko:text-muted-foreground">
-                      Studio is still loading operational state or the overview query failed.
+                      Studio is still loading website refresh and import status.
                     </div>
                   </div>
                 </div>
@@ -510,9 +543,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                     class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-success"
                   />
                   <div>
-                    <div class="ginko:font-medium">No operational blockers</div>
+                    <div class="ginko:font-medium">No publishing blockers</div>
                     <div class="ginko:text-xs ginko:text-muted-foreground">
-                      Imports and website refreshes look healthy.
+                      Imports and website refreshes are healthy.
                     </div>
                   </div>
                 </div>
@@ -521,9 +554,11 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   :key="`job:${job.id}`"
                   class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-sm"
                 >
-                  <div class="ginko:font-medium">Website refresh {{ job.status }}</div>
+                  <div class="ginko:font-medium">
+                    {{ websiteRefreshStatusLabel(t, job.status) }}
+                  </div>
                   <div class="ginko:mt-1 ginko:truncate ginko:text-xs ginko:text-muted-foreground">
-                    {{ job.paths?.join(', ') || job.lastError || 'No affected pages recorded' }}
+                    {{ websiteRefreshStatusMessage(t, job) }}
                   </div>
                 </div>
                 <div

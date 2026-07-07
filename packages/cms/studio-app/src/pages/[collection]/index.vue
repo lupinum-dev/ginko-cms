@@ -26,7 +26,7 @@ import { useStudioActionRailController } from '../../composables/useStudioAction
 import { useConvexMutation } from '../../composables/useStudioConvex'
 import { useStudioDebug } from '../../composables/useStudioDebug'
 import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
-import { deriveEntryNextAction, publicStateLabel, publicStateTone } from '../../lib/publicWorkflow'
+import { publicStateLabel, publicStateTone, readinessActionLabel } from '../../lib/publicWorkflow'
 import { orderStudioTreeRows } from '../../lib/studioTree'
 
 const { can } = useCmsStudioAccess()
@@ -94,6 +94,11 @@ type StudioEntryRow = {
   blockingIssueCount?: number
   missingTranslationLocales?: string[]
   nextAction?: string
+  workflowSummary?: {
+    nextAction?: {
+      kind: string
+    } | null
+  }
   _can?: Record<string, boolean>
 }
 
@@ -273,10 +278,13 @@ const enrichedRows = computed<EnrichedRow[]>(() =>
             : row.status === 'published'
               ? 'public'
               : 'draft_only')
+    const workflowNextAction = row.workflowSummary?.nextAction?.kind
+      ? readinessActionLabel(t, row.workflowSummary.nextAction.kind)
+      : null
     return {
       ...treeRow,
       publicState,
-      publicStateLabel: row.status === 'archived' ? 'Archived' : publicStateLabel(publicState),
+      publicStateLabel: row.status === 'archived' ? 'Archived' : publicStateLabel(t, publicState),
       publicStateTone: row.status === 'archived' ? 'neutral' : publicStateTone(publicState),
       draftChangedSincePublish,
       blockingIssueCount,
@@ -284,13 +292,7 @@ const enrichedRows = computed<EnrichedRow[]>(() =>
       nextAction:
         row.status === 'archived'
           ? 'Archived'
-          : (row.nextAction ??
-            deriveEntryNextAction({
-              publicState,
-              draftChangedSincePublish,
-              blockingIssueCount,
-              missingTranslationLocales,
-            })),
+          : (row.nextAction ?? workflowNextAction ?? 'Open entry'),
     }
   }),
 )
@@ -535,14 +537,14 @@ const kindColors: Record<string, string> = {
           </Select>
 
           <Select v-model="workStateFilter">
-            <SelectTrigger class="ginko:h-8 ginko:w-44 ginko:text-xs" aria-label="Work state">
-              <SelectValue placeholder="Work state" />
+            <SelectTrigger class="ginko:h-8 ginko:w-44 ginko:text-xs" aria-label="Publishing work">
+              <SelectValue placeholder="Publishing work" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All work</SelectItem>
               <SelectItem value="changed">Drafts to continue</SelectItem>
               <SelectItem value="blocked">Needs attention</SelectItem>
-              <SelectItem value="missing_translation">Missing translations</SelectItem>
+              <SelectItem value="missing_translation">Missing languages</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -693,7 +695,7 @@ const kindColors: Record<string, string> = {
                     "
                   >
                     {{ variant.locale.toUpperCase() }} ·
-                    {{ variant.published ? 'Public' : 'Draft' }}
+                    {{ variant.published ? 'Live' : 'Draft' }}
                   </span>
                 </div>
 
@@ -732,8 +734,8 @@ const kindColors: Record<string, string> = {
               class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:lg:grid"
             >
               <div>Content</div>
-              <div>Locales</div>
-              <div>Public state</div>
+              <div>Languages</div>
+              <div>Live status</div>
               <div>Next action</div>
               <div class="ginko:text-right">Edited</div>
               <div class="ginko:text-right">Edit</div>
@@ -768,7 +770,7 @@ const kindColors: Record<string, string> = {
                 </RouterLink>
               </div>
 
-              <!-- Locales -->
+              <!-- Languages -->
               <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-1">
                 <span
                   v-for="variant in row.localeSummaries"
@@ -780,7 +782,7 @@ const kindColors: Record<string, string> = {
                       : 'ginko:bg-warning/10 ginko:text-warning-fg ginko:dark:bg-warning/20'
                   "
                 >
-                  {{ variant.locale.toUpperCase() }} · {{ variant.published ? 'Public' : 'Draft' }}
+                  {{ variant.locale.toUpperCase() }} · {{ variant.published ? 'Live' : 'Draft' }}
                 </span>
               </div>
 

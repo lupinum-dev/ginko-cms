@@ -165,7 +165,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     })) as StudioEntry | null
     const draftVersion = latest?.draftVersion ?? entry.value?.draftVersion
     if (typeof draftVersion !== 'number') {
-      throw new TypeError('Cannot save translation before the current draft version is loaded.')
+      throw new TypeError('The saved draft is not loaded. Reload before saving this language.')
     }
     return draftVersion
   }

@@ -159,10 +159,10 @@ async function saveMetadata() {
   <Dialog :open="open" @update:open="open = $event">
     <DialogContent size="sm" class="ginko:gap-0 ginko:overflow-hidden ginko:p-0">
       <DialogHeader class="ginko:border-b ginko:px-5 ginko:py-4 ginko:pr-12">
-        <DialogTitle>Edit image metadata</DialogTitle>
+        <DialogTitle>Edit image details</DialogTitle>
         <DialogDescription>
-          Update asset-library metadata. Published entries keep their current snapshot until they
-          are republished.
+          Update image text used by editors. Live pages keep their current image details until they
+          are published again.
         </DialogDescription>
       </DialogHeader>
 
@@ -196,11 +196,11 @@ async function saveMetadata() {
           v-else
           class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-3 ginko:py-2 ginko:text-sm ginko:text-muted-foreground"
         >
-          Asset metadata is not available.
+          Image details are not available.
         </div>
 
         <FieldSet class="ginko:gap-2">
-          <FieldLegend variant="label">Locale</FieldLegend>
+          <FieldLegend variant="label">Language</FieldLegend>
           <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
             <Button
               v-for="locale in localeOptions"
@@ -260,7 +260,7 @@ async function saveMetadata() {
         </Button>
         <Button size="sm" :disabled="!selectedAsset || saving" @click="saveMetadata">
           <Loader2 v-if="saving" class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin" />
-          Save
+          Save details
         </Button>
       </DialogFooter>
     </DialogContent>

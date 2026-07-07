@@ -36,7 +36,7 @@ async function confirmRevokeConnection() {
 </script>
 
 <template>
-  <!-- ─── AI agent connections ─── -->
+  <!-- ─── MCP connections ─── -->
   <section
     v-if="settings.canManageSettings"
     class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
@@ -46,7 +46,7 @@ async function confirmRevokeConnection() {
         class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
       >
         <KeyRound class="ginko:size-4 ginko:text-muted-foreground" />
-        AI agent connections
+        MCP connections for AI tools
         <Badge variant="outline" class="ginko:text-xs">
           {{
             settings.mcpConnections.filter((connection) => connection.status === 'active').length
@@ -54,7 +54,7 @@ async function confirmRevokeConnection() {
         </Badge>
       </h2>
       <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
-        API access for trusted AI agents. Endpoint details stay behind
+        Use MCP connections to let trusted AI tools work with your CMS. Endpoint details stay behind
         {{ settings.t('ginkoCms.studio.common.developerDetails') }}.
       </p>
     </div>
@@ -91,7 +91,7 @@ async function confirmRevokeConnection() {
           </div>
           <Button variant="outline" size="sm" @click="settings.copyMcpToken">
             <Copy class="ginko:size-3.5" />
-            Copy
+            Copy access key
           </Button>
         </div>
         <code
@@ -169,7 +169,7 @@ async function confirmRevokeConnection() {
               class="ginko:size-3.5 ginko:animate-spin"
             />
             <Plus v-else class="ginko:size-3.5" />
-            Create
+            Create MCP connection
           </Button>
         </div>
       </div>
@@ -178,7 +178,7 @@ async function confirmRevokeConnection() {
         <div
           class="ginko:flex ginko:flex-col ginko:gap-2 ginko:px-4 ginko:py-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
         >
-          <div class="ginko:text-sm ginko:font-medium">Active agent connections</div>
+          <div class="ginko:text-sm ginko:font-medium">Active MCP connections</div>
           <Button
             v-if="revokedConnectionCount > 0"
             variant="outline"
@@ -194,7 +194,7 @@ async function confirmRevokeConnection() {
           v-if="visibleConnections.length === 0"
           class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
         >
-          No active AI agent connections.
+          No active MCP connections.
         </div>
         <div
           v-for="connection in visibleConnections"
@@ -204,7 +204,7 @@ async function confirmRevokeConnection() {
           <div class="ginko:min-w-0">
             <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
               <span class="ginko:text-sm ginko:font-medium">{{
-                connection.label || 'Untitled agent connection'
+                connection.label || 'Untitled MCP connection'
               }}</span>
               <Badge :variant="connection.status === 'active' ? 'default' : 'secondary'">
                 {{ connection.status }}
@@ -242,8 +242,8 @@ async function confirmRevokeConnection() {
 
     <StudioConfirmDialog
       :open="!!pendingRevokeConnection"
-      title="Revoke agent access?"
-      description="This ends the selected agent connection. Existing sessions using this key will no longer be able to access CMS operations."
+      title="Revoke MCP access?"
+      description="This ends the selected MCP connection. Existing AI work sessions using this key will no longer be able to access CMS operations."
       confirm-label="Revoke access"
       confirm-variant="destructive"
       @update:open="pendingRevokeConnection = $event ? pendingRevokeConnection : null"
@@ -254,15 +254,21 @@ async function confirmRevokeConnection() {
         class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-sm"
       >
         <div class="ginko:font-medium">
-          {{ pendingRevokeConnection.label || 'Untitled agent connection' }}
+          {{ pendingRevokeConnection.label || 'Untitled MCP connection' }}
         </div>
         <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-          {{ pendingRevokeConnection.scopes.length }} permissions · owner
-          {{ pendingRevokeConnection.ownerUserId }}
+          {{ pendingRevokeConnection.scopes.length }} permissions
         </div>
-        <code class="ginko:mt-2 ginko:block ginko:break-all ginko:text-xs">
-          {{ pendingRevokeConnection.apiKeyId }}
-        </code>
+        <StudioDeveloperDetails class="ginko:mt-2" :framed="false">
+          <div class="ginko:mt-2 ginko:grid ginko:gap-2 ginko:text-xs">
+            <code class="ginko:block ginko:break-all">
+              {{ pendingRevokeConnection.apiKeyId }}
+            </code>
+            <code class="ginko:block ginko:break-all">
+              owner {{ pendingRevokeConnection.ownerUserId }}
+            </code>
+          </div>
+        </StudioDeveloperDetails>
       </div>
     </StudioConfirmDialog>
   </section>

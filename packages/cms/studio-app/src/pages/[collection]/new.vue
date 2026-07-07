@@ -515,8 +515,8 @@ if (typeof window !== 'undefined') {
 
       <StudioSection
         title="Publishing details"
-        description="Entry metadata shared by every locale."
-        :badge="isRouteBackedCollection ? 'Public page' : 'Data-only'"
+        description="Entry details shared by every language."
+        :badge="isRouteBackedCollection ? 'Website page' : 'Shared data'"
       >
         <div class="ginko:space-y-5">
           <div
@@ -530,7 +530,7 @@ if (typeof window !== 'undefined') {
                 <div
                   class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
                 >
-                  Public URL
+                  Live URL
                 </div>
                 <div class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-foreground">
                   {{ computedPath || 'Add a title to generate the URL' }}
@@ -538,8 +538,8 @@ if (typeof window !== 'undefined') {
                 <div class="ginko:text-xs ginko:text-muted-foreground">
                   {{
                     sharedSlugManuallyEdited
-                      ? 'Slug edited manually.'
-                      : 'Slug is generated from the title.'
+                      ? 'URL slug edited manually.'
+                      : 'URL slug is generated from the title.'
                   }}
                 </div>
               </div>
@@ -688,7 +688,7 @@ if (typeof window !== 'undefined') {
                 <div
                   class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
                 >
-                  Public URL
+                  Live URL
                 </div>
                 <div class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-foreground">
                   {{ computedPath || 'Add a title to generate the URL' }}
@@ -696,8 +696,8 @@ if (typeof window !== 'undefined') {
                 <div class="ginko:text-xs ginko:text-muted-foreground">
                   {{
                     defaultLocalizedSlugState.manuallyEdited
-                      ? 'Slug edited manually for this locale.'
-                      : 'Slug is generated from this locale title.'
+                      ? 'URL slug edited manually for this language.'
+                      : 'URL slug is generated from this language title.'
                   }}
                 </div>
               </div>

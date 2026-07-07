@@ -85,6 +85,8 @@ export interface GinkoCmsStudioHostApi {
       deleteEntry: StudioMutationRef
       getDraftVsPublishedDiff: StudioQueryRef
       getEntry: StudioQueryRef
+      getEntryReadinessDetail: StudioQueryRef
+      getEntryReadinessSummary: StudioQueryRef
       getEntryActivity: StudioQueryRef
       getStudioOverview: StudioQueryRef
       getVersionDiff: StudioQueryRef
@@ -136,6 +138,7 @@ export interface GinkoCmsStudioHostApi {
       approveReview: StudioMutationRef
       listPendingReviews: StudioQueryRef
       rejectReview: StudioMutationRef
+      requestPublishReview: StudioMutationRef
     }
     settings: {
       getSettings: StudioQueryRef

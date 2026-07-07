@@ -6,13 +6,17 @@ import { api } from '../../../boundary/api'
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import { useCmsStudioQuery } from '../../../composables/useCmsStudioQuery'
 import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
-import { derivePublishConfirmationState } from '../../../lib/publicWorkflow'
-import type { StudioPublicVisibilityState, StudioPublishReviewState } from './studioWorkflowTypes'
+import {
+  derivePublishConfirmationState,
+  mapEntryReadinessDetail,
+  readinessActionLabel,
+  readinessIssueMessage,
+} from '../../../lib/publicWorkflow'
+import type { StudioEntryReadinessDetail } from './studioWorkflowTypes'
 
 const props = defineProps<{
-  publicVisibility?: StudioPublicVisibilityState
+  readinessDetail?: StudioEntryReadinessDetail | null
   publishImpactRequested?: boolean
-  publishReview?: StudioPublishReviewState
 }>()
 
 const editor = useStudioEntryEditorContext()
@@ -47,6 +51,7 @@ const publishLabel = computed(() => {
 const publishConfirmation = computed(() =>
   derivePublishConfirmationState({
     readinessState: editor.publishing.publishReadiness.state,
+    t: editor.loader.t,
     confirmationToken: editor.publishing.publishReadiness.confirmationToken,
     confirmationExpiresAt: editor.publishing.publishReadiness.confirmationExpiresAt,
   }),
@@ -54,73 +59,37 @@ const publishConfirmation = computed(() =>
 
 const publishScopeLabel = computed(() =>
   editor.publishing.publishMode === 'all'
-    ? `All locales (${editor.loader.localeVariants.map((variant: { locale: string }) => variant.locale.toUpperCase()).join(', ')})`
-    : `Current locale (${editor.loader.currentLocale.toUpperCase()})`,
+    ? `All languages (${editor.loader.localeVariants.map((variant: { locale: string }) => variant.locale.toUpperCase()).join(', ')})`
+    : `Current language (${editor.loader.currentLocale.toUpperCase()})`,
 )
 
-const safePublicVisibility = computed<StudioPublicVisibilityState>(
-  () =>
-    props.publicVisibility ?? {
-      error: null,
-      errorMessage: '',
-      globalDiagnostics: [],
-      hiddenGlobalDiagnosticCount: 0,
-      isRouteBacked: false,
-      localeRows: [],
-      pending: false,
-      publishedLocales: [],
-      status: '',
-    },
-)
-
-const safePublishReview = computed<StudioPublishReviewState>(
-  () =>
-    props.publishReview ?? {
-      blocked: false,
-      failed: false,
-      label: '',
-      locales: [],
-      message: '',
-      previewHash: null,
-      stale: false,
-      state: '',
-    },
-)
-
-const currentRoute = computed(
-  () =>
-    safePublicVisibility.value.localeRows.find((row) => row.current) ??
-    safePublicVisibility.value.localeRows.find(
-      (row) => row.locale === editor.loader.currentLocale,
-    ) ??
-    null,
+const readinessView = computed(() =>
+  mapEntryReadinessDetail({
+    readinessDetail: props.readinessDetail,
+    currentLocale: editor.loader.currentLocale,
+    t: editor.loader.t,
+    publishMode: editor.publishing.publishMode,
+  }),
 )
 
 const publicUrl = computed(
-  () =>
-    currentRoute.value?.href ||
-    currentRoute.value?.publishedPath ||
-    currentRoute.value?.path ||
-    editor.draft?.computedPath ||
-    '',
+  () => readinessView.value.publicUrl || readinessView.value.draftUrl || '',
 )
 
 const issueLabel = computed(() => {
+  const blocker = readinessView.value.blockers[0]
+  if (blocker) return readinessIssueMessage(editor.loader.t, blocker)
   if (editor.publishing.publishReadiness.state === 'blocked') {
     return editor.publishing.publishReadiness.message || 'Publishing is blocked.'
   }
-  if (safePublishReview.value.blocked) return safePublishReview.value.message
-  return 'No blocking issues'
+  if (readinessView.value.canPublish) return 'No blocking issues'
+  return readinessView.value.nextAction
+    ? readinessActionLabel(editor.loader.t, readinessView.value.nextAction.kind)
+    : 'No blocking issues'
 })
 
 const changedFields = computed(() => diff.value?.changes ?? [])
-const showAdvancedDetails = computed(
-  () =>
-    advancedEditor.value ||
-    editor.publishing.publishReadiness.state === 'blocked' ||
-    editor.publishing.publishReadiness.state === 'stale' ||
-    editor.publishing.publishReadiness.state === 'failed',
-)
+const showAdvancedDetails = computed(() => advancedEditor.value)
 </script>
 
 <template>
@@ -132,8 +101,7 @@ const showAdvancedDetails = computed(
       <DialogHeader>
         <DialogTitle> {{ publishLabel }}? </DialogTitle>
         <DialogDescription>
-          Review readiness, website changes, affected locales, and public-output refresh before this
-          goes live.
+          Review what will change on the website before this goes live.
         </DialogDescription>
       </DialogHeader>
 
@@ -142,21 +110,33 @@ const showAdvancedDetails = computed(
           class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3"
         >
           <div class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground">
-            Published website content
+            Live page
           </div>
           <div class="ginko:mt-1 ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
             <div class="ginko:min-w-0 ginko:truncate ginko:font-mono ginko:text-sm">
-              {{ publicUrl || 'No public URL yet' }}
+              {{ publicUrl || 'No live URL yet' }}
             </div>
             <Button v-if="publicUrl" variant="ghost" size="icon-sm" as-child>
-              <a :href="publicUrl" target="_blank" rel="noreferrer" aria-label="Open public URL">
+              <a :href="publicUrl" target="_blank" rel="noreferrer" aria-label="Open live URL">
                 <ExternalLink class="ginko:size-4" />
               </a>
             </Button>
           </div>
         </div>
 
+        <div
+          class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3"
+        >
+          <div class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground">
+            Languages
+          </div>
+          <div class="ginko:mt-1 ginko:text-sm">{{ publishScopeLabel }}</div>
+        </div>
+
         <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3 ginko:space-y-2">
+          <div class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground">
+            Website changes
+          </div>
           <div v-if="isFirstPublish" class="ginko:text-xs ginko:text-muted-foreground">
             {{ editor.loader.t('ginkoCms.studio.collectionEditor.publishDialogFirstPublish') }}
           </div>
@@ -203,22 +183,48 @@ const showAdvancedDetails = computed(
         <div
           class="ginko:flex ginko:items-start ginko:gap-2 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3 ginko:text-sm"
           :class="
+            readinessView.blockers.length ||
+            !readinessView.canPublish ||
             editor.publishing.publishReadiness.state === 'blocked'
               ? 'ginko:border-destructive/40 ginko:text-destructive-fg'
               : 'ginko:border-success/40 ginko:text-success-fg'
           "
         >
           <AlertCircle
-            v-if="editor.publishing.publishReadiness.state === 'blocked'"
+            v-if="
+              readinessView.blockers.length ||
+              !readinessView.canPublish ||
+              editor.publishing.publishReadiness.state === 'blocked'
+            "
             class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0"
           />
           <CheckCircle2 v-else class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0" />
           <div>
+            <div
+              class="ginko:mb-1 ginko:text-xs ginko:font-medium ginko:uppercase"
+              :class="
+                readinessView.blockers.length ||
+                !readinessView.canPublish ||
+                editor.publishing.publishReadiness.state === 'blocked'
+                  ? 'ginko:text-destructive'
+                  : 'ginko:text-success-fg'
+              "
+            >
+              {{
+                readinessView.blockers.length ||
+                !readinessView.canPublish ||
+                editor.publishing.publishReadiness.state === 'blocked'
+                  ? 'Issues blocking publish'
+                  : 'Ready to publish'
+              }}
+            </div>
             <div class="ginko:font-medium">{{ issueLabel }}</div>
             <div
               v-if="publishConfirmation.disabledReason"
               class="ginko:mt-1 ginko:text-xs"
               :class="
+                readinessView.blockers.length ||
+                !readinessView.canPublish ||
                 editor.publishing.publishReadiness.state === 'blocked'
                   ? 'ginko:text-destructive'
                   : 'ginko:text-muted-foreground'
@@ -226,6 +232,16 @@ const showAdvancedDetails = computed(
             >
               {{ publishConfirmation.disabledReason }}
             </div>
+          </div>
+        </div>
+
+        <div
+          v-if="readinessView.warnings.length"
+          class="ginko:rounded-lg ginko:border ginko:border-warning/30 ginko:bg-warning/10 ginko:p-3 ginko:text-sm ginko:text-warning-fg"
+        >
+          <div class="ginko:text-xs ginko:font-medium ginko:uppercase">Warnings</div>
+          <div class="ginko:mt-1">
+            {{ readinessIssueMessage(editor.loader.t, readinessView.warnings[0]) }}
           </div>
         </div>
 
@@ -267,9 +283,6 @@ const showAdvancedDetails = computed(
             class="ginko:mt-2 ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
           >
             Preview {{ editor.publishing.publishReadiness.previewHash.slice(0, 24) }}
-          </div>
-          <div v-if="publishImpactRequested" class="ginko:mt-2 ginko:text-muted-foreground">
-            {{ safePublishReview.message }}
           </div>
         </div>
       </div>

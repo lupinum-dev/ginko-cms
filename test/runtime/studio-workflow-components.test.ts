@@ -4,13 +4,17 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, reactive, ref } from 'vue'
 
+import de from '../../packages/cms/src/public/locales/de'
+import en from '../../packages/cms/src/public/locales/en'
 import StudioCollectionContractSection from '../../packages/cms/studio-app/src/components/studio/collections/StudioCollectionContractSection.vue'
-import StudioEntryCompareToolbar from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryCompareToolbar.vue'
+import StudioCheckpointDialog from '../../packages/cms/studio-app/src/components/studio/editor/StudioCheckpointDialog.vue'
 import StudioEntryPublicWorkflowPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryPublicWorkflowPanel.vue'
+import StudioEntryStatusRail from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryStatusRail.vue'
 import StudioEntryTranslationReadinessPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryTranslationReadinessPanel.vue'
 import StudioLocaleEditorPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioLocaleEditorPanel.vue'
 import StudioPublishDialog from '../../packages/cms/studio-app/src/components/studio/editor/StudioPublishDialog.vue'
 import StudioSharedFieldsPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioSharedFieldsPanel.vue'
+import StudioVersionHistoryCard from '../../packages/cms/studio-app/src/components/studio/editor/StudioVersionHistoryCard.vue'
 import FieldArray from '../../packages/cms/studio-app/src/components/studio/fields/FieldArray.vue'
 import FieldBlocks from '../../packages/cms/studio-app/src/components/studio/fields/FieldBlocks.vue'
 import FieldObject from '../../packages/cms/studio-app/src/components/studio/fields/FieldObject.vue'
@@ -20,7 +24,6 @@ import StudioListFrame from '../../packages/cms/studio-app/src/components/studio
 import StudioNotice from '../../packages/cms/studio-app/src/components/studio/StudioNotice.vue'
 import StudioSegmentedControl from '../../packages/cms/studio-app/src/components/studio/StudioSegmentedControl.vue'
 import { provideStudioEntryEditorContext } from '../../packages/cms/studio-app/src/composables/internal/studioEntryEditorContext'
-import { useStudioInspectorVisible } from '../../packages/cms/studio-app/src/composables/useStudioInspectorVisible'
 
 function createTestLocalStorage(): Storage {
   const values = new Map<string, string>()
@@ -65,11 +68,15 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () =>
   }),
 }))
 
-function mountWithStudioContext(component: unknown, editor: Record<string, unknown>) {
+function mountWithStudioContext(
+  component: unknown,
+  editor: Record<string, unknown>,
+  props?: Record<string, unknown>,
+) {
   const Host = defineComponent({
     setup() {
       provideStudioEntryEditorContext(editor as never)
-      return () => h(component as never)
+      return () => h(component as never, props)
     },
   })
 
@@ -120,6 +127,11 @@ function studioStubs() {
       template:
         '<input :id="id" :disabled="disabled" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
     }),
+    Item: { template: '<div><slot /></div>' },
+    ItemActions: { template: '<div><slot /></div>' },
+    ItemContent: { template: '<div><slot /></div>' },
+    ItemDescription: { template: '<div><slot /></div>' },
+    ItemTitle: { template: '<div><slot /></div>' },
     RouterLink: {
       props: { to: String },
       template: '<a :href="to"><slot /></a>',
@@ -137,6 +149,14 @@ function studioStubs() {
     StudioFieldShell: {
       props: { for: String, label: String },
       template: '<div><label :for="$props.for">{{ label }}</label><slot /></div>',
+    },
+    StudioDeveloperDetails: {
+      props: { framed: Boolean, title: String },
+      template: '<details><summary>{{ title || "Developer details" }}</summary><slot /></details>',
+    },
+    StudioInspectorSection: {
+      props: { title: String },
+      template: '<section><h2>{{ title }}</h2><slot name="action" /><slot /></section>',
     },
     StudioSection: {
       props: { badge: String, title: String },
@@ -269,6 +289,21 @@ const t = (key: string, params?: Record<string, unknown>) => {
   return labels[key] ?? key
 }
 
+function dictionaryT(messages: unknown) {
+  return (key: string, params?: Record<string, unknown>, defaultValue?: string) => {
+    let value: unknown = messages
+    for (const segment of key.split('.')) {
+      value =
+        value && typeof value === 'object' ? (value as Record<string, unknown>)[segment] : undefined
+    }
+    if (typeof value !== 'string') return defaultValue ?? key
+    return Object.entries(params ?? {}).reduce(
+      (message, [paramKey, paramValue]) => message.replaceAll(`{${paramKey}}`, String(paramValue)),
+      value,
+    )
+  }
+}
+
 function mountCollectionContractSection(overrides: Record<string, unknown> = {}) {
   return mount(StudioCollectionContractSection, {
     global: { stubs: studioStubs() },
@@ -300,36 +335,6 @@ function mountCollectionContractSection(overrides: Record<string, unknown> = {})
       selectedCollection: 'docs',
       t,
       ...overrides,
-    },
-  })
-}
-
-function createCompareToolbarEditor() {
-  const translationMode = ref(false)
-  const secondaryLocale = ref('')
-
-  return reactive({
-    loader: {
-      canEditEntries: true,
-      currentLocale: 'en',
-      locales: [
-        { code: 'en', label: 'English' },
-        { code: 'de', label: 'Deutsch' },
-      ],
-    },
-    draft: {
-      saving: false,
-    },
-    locales: {
-      translationMode,
-      secondaryLocale,
-      handleSelectSecondaryLocale: (locale: string) => {
-        secondaryLocale.value = locale
-      },
-      handleSwitchLocale: vi.fn(),
-      setTranslationMode: (enabled: boolean) => {
-        translationMode.value = enabled
-      },
     },
   })
 }
@@ -498,12 +503,73 @@ const publishReview = {
   state: 'ready',
 }
 
+const baseReadinessDetail = {
+  collection: 'docs',
+  entryId: 'entry-1',
+  primaryLocale: 'en',
+  updatedAt: 1,
+  locales: [
+    {
+      affectedPublicUrls: [
+        {
+          afterHref: '/hello',
+          afterPath: '/hello',
+          beforeHref: null,
+          beforePath: null,
+          entryId: 'entry-1',
+          kind: 'current_entry',
+          locale: 'en',
+          reason: 'publish',
+        },
+      ],
+      blockers: [],
+      canArchive: true,
+      canPreview: true,
+      canPublish: true,
+      canRequestReview: true,
+      currentDraftVersion: 7,
+      currentPublishedRevisionId: null,
+      draftExists: true,
+      draftUrl: '/hello',
+      hasUnpublishedChanges: true,
+      infos: [],
+      locale: 'en',
+      nextAction: {
+        kind: 'publish_locale',
+        locale: 'en',
+        params: {},
+        target: 'publish',
+      },
+      publicUrl: null,
+      published: false,
+      reviewRequestId: null,
+      state: 'ready',
+      warnings: [],
+    },
+  ],
+}
+
+function railEditor(translate = dictionaryT(en)) {
+  return {
+    draft: { computedPath: '/hello' },
+    history: {},
+    loader: {
+      currentLocale: 'en',
+      dateLocale: 'en',
+      entry: { draftVersion: 7, publishedAt: null, status: 'draft' },
+      entryId: 'entry-1',
+      t: translate,
+    },
+    locales: {},
+  }
+}
+
 describe('Studio workflow components', () => {
   it('renders shared properties without URL ownership copy', () => {
     const wrapper = mountSharedFieldsPanel()
 
     expect(wrapper.text()).toContain('Shared properties')
-    expect(wrapper.text()).toContain('Applies to all locales')
+    expect(wrapper.text()).toContain('Applies to all languages')
     expect(wrapper.text()).toContain('Date')
     expect(wrapper.text()).toContain('Image')
     expect(wrapper.text()).not.toContain('Publishing details')
@@ -521,63 +587,6 @@ describe('Studio workflow components', () => {
     expect((urlRows[1]?.find('input').element as HTMLInputElement).value).toBe('Managed in EN')
     expect(urlRows[1]?.text()).toContain('URL managed in EN.')
     expect(wrapper.text()).toContain('Title')
-  })
-
-  it('restores the inspector after Compare auto-collapses it and Single is selected', async () => {
-    const restoreLocalStorage = installTestLocalStorage()
-    try {
-      const inspectorVisible = useStudioInspectorVisible()
-      inspectorVisible.value = true
-      const wrapper = mountWithStudioContext(
-        StudioEntryCompareToolbar,
-        createCompareToolbarEditor(),
-      )
-      const compareButton = wrapper
-        .findAll('button')
-        .find((button) => button.text().includes('Compare'))
-      const singleButton = wrapper
-        .findAll('button')
-        .find((button) => button.text().includes('Single'))
-
-      expect(compareButton).toBeTruthy()
-      expect(singleButton).toBeTruthy()
-
-      await compareButton?.trigger('click')
-      expect(inspectorVisible.value).toBe(false)
-
-      await singleButton?.trigger('click')
-      expect(inspectorVisible.value).toBe(true)
-    } finally {
-      restoreLocalStorage()
-    }
-  })
-
-  it('does not reopen the inspector when it was already hidden before Compare', async () => {
-    const restoreLocalStorage = installTestLocalStorage()
-    try {
-      const inspectorVisible = useStudioInspectorVisible()
-      inspectorVisible.value = false
-      const wrapper = mountWithStudioContext(
-        StudioEntryCompareToolbar,
-        createCompareToolbarEditor(),
-      )
-      const compareButton = wrapper
-        .findAll('button')
-        .find((button) => button.text().includes('Compare'))
-      const singleButton = wrapper
-        .findAll('button')
-        .find((button) => button.text().includes('Single'))
-
-      expect(compareButton).toBeTruthy()
-      expect(singleButton).toBeTruthy()
-
-      await compareButton?.trigger('click')
-      await singleButton?.trigger('click')
-
-      expect(inspectorVisible.value).toBe(false)
-    } finally {
-      restoreLocalStorage()
-    }
   })
 
   it('renders page-backed content setup as developer-managed website capability', () => {
@@ -637,7 +646,7 @@ describe('Studio workflow components', () => {
         publicVisibility: baseVisibility,
         publishImpact: {
           ...idleImpact,
-          message: 'Publish impact preview is stale. Preview again before publishing.',
+          message: 'Website changes preview is stale. Preview again before publishing.',
           state: 'stale',
         },
         publishImpactRequested: true,
@@ -649,8 +658,105 @@ describe('Studio workflow components', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Publish impact preview is stale')
+    expect(wrapper.text()).toContain('Website changes preview is stale')
     expect(wrapper.text()).not.toContain('Preview preview-hash')
+  })
+
+  it('renders backend readiness state and blockers in the status rail', () => {
+    const readinessDetail = {
+      ...baseReadinessDetail,
+      locales: [
+        {
+          ...baseReadinessDetail.locales[0],
+          blockers: [
+            {
+              code: 'required_localized_field_missing',
+              diagnosticId: null,
+              fieldPath: 'title',
+              locale: 'en',
+              messageParams: {},
+              severity: 'blocker',
+            },
+          ],
+          canPublish: false,
+          nextAction: {
+            kind: 'fill_required_localized_field',
+            locale: 'en',
+            params: { fieldPath: 'title' },
+            target: 'field',
+          },
+          state: 'needs_work',
+        },
+      ],
+    }
+    const Host = defineComponent({
+      setup() {
+        provideStudioEntryEditorContext(railEditor() as never)
+        return () =>
+          h(StudioEntryStatusRail, {
+            publicVisibility: baseVisibility,
+            readinessDetail,
+            publishImpact: idleImpact,
+            publishImpactRequested: false,
+            publishReview,
+            previewScope: null,
+            routeValidationRequested: false,
+            routeValidationState: emptyRouteValidation,
+            selectedPublishImpactLocale: null,
+            translationReadiness: [],
+          })
+      },
+    })
+    const wrapper = mount(Host, { global: { stubs: studioStubs() } })
+
+    expect(wrapper.text()).toContain('Needs work')
+    expect(wrapper.text()).toContain('EN: Required translation field is missing: title')
+    expect(wrapper.text()).not.toContain('No blocking issues')
+  })
+
+  it('renders status rail workflow copy through English and German dictionaries', () => {
+    const readinessDetail = {
+      ...baseReadinessDetail,
+      locales: [
+        {
+          ...baseReadinessDetail.locales[0],
+          blockers: [
+            {
+              code: 'required_localized_field_missing',
+              diagnosticId: null,
+              fieldPath: 'title',
+              locale: 'en',
+              messageParams: {},
+              severity: 'blocker',
+            },
+          ],
+          canPublish: false,
+          nextAction: {
+            kind: 'fill_required_localized_field',
+            locale: 'en',
+            params: { fieldPath: 'title' },
+            target: 'field',
+          },
+          state: 'needs_work',
+        },
+      ],
+    }
+    const mountRail = (messages: unknown) =>
+      mountWithStudioContext(StudioEntryStatusRail, railEditor(dictionaryT(messages)), {
+        publicVisibility: baseVisibility,
+        readinessDetail,
+        publishImpact: idleImpact,
+        publishImpactRequested: false,
+        publishReview,
+        previewScope: null,
+        routeValidationRequested: false,
+        routeValidationState: emptyRouteValidation,
+        selectedPublishImpactLocale: null,
+        translationReadiness: [],
+      })
+
+    expect(mountRail(en).text()).toContain('Required translation field is missing: title')
+    expect(mountRail(de).text()).toContain('Pflichtfeld der Übersetzung fehlt: title')
   })
 
   it('labels translation readiness previews as read-only', () => {
@@ -693,7 +799,7 @@ describe('Studio workflow components', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Read-only readiness preview')
+    expect(wrapper.text()).toContain('Read-only publish check')
     expect(wrapper.text()).toContain('It does not confirm the header Publish action.')
     expect(wrapper.text()).not.toContain('Preview preview-hash')
   })
@@ -763,10 +869,10 @@ describe('Studio workflow components', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Published website content')
-    expect(wrapper.text()).toContain('No page route is produced for this data-only collection.')
-    expect(wrapper.text()).toContain('List-only')
-    expect(wrapper.text()).toContain('Blocking rows')
+    expect(wrapper.text()).toContain('Live website content')
+    expect(wrapper.text()).toContain('No page URL is produced for this shared data collection.')
+    expect(wrapper.text()).toContain('Shared data')
+    expect(wrapper.text()).toContain('Issues blocking publish')
   })
 
   it('hides publish impact developer diagnostics unless diagnostics mode is enabled', () => {
@@ -915,7 +1021,7 @@ describe('Studio workflow components', () => {
       'idle',
       false,
       { ...emptyRouteValidation, state: 'idle', message: '' },
-      'Run validation to check site-wide route and redirect conflicts.',
+      'Run validation to check site-wide URL and redirect conflicts.',
     ],
     [
       'pending',
@@ -1038,8 +1144,8 @@ describe('Studio workflow components', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Missing locale')
-    expect(wrapper.text()).toContain('Missing route')
+    expect(wrapper.text()).toContain('Missing language')
+    expect(wrapper.text()).toContain('Missing URL')
     expect(wrapper.text()).toContain('Parent blocked')
     expect(wrapper.text()).toContain('Missing fields')
   })
@@ -1055,8 +1161,7 @@ describe('Studio destructive dialogs', () => {
         entryId: 'entry-1',
         localeVariants: [{ locale: 'en' }],
         locales: [{ code: 'en' }],
-        t: (key: string, params?: Record<string, unknown>) =>
-          params?.count ? `${key} ${params.count}` : key,
+        t: dictionaryT(en),
       },
       publishing: {
         confirmPublish: vi.fn(),
@@ -1091,17 +1196,158 @@ describe('Studio destructive dialogs', () => {
     const buttons = wrapper.findAll('button')
     const confirm = buttons[buttons.length - 1]
 
-    expect(wrapper.text()).toContain('Publish confirmation token is missing. Preview again.')
+    expect(wrapper.text()).toContain('Preview website changes again before publishing.')
     expect(confirm.attributes('disabled')).toBeDefined()
   })
 
+  it('renders backend readiness blockers as the primary publish dialog issue', () => {
+    const readinessDetail = {
+      ...baseReadinessDetail,
+      locales: [
+        {
+          ...baseReadinessDetail.locales[0],
+          blockers: [
+            {
+              code: 'route_parent_not_public',
+              diagnosticId: null,
+              fieldPath: null,
+              locale: 'en',
+              messageParams: {},
+              severity: 'blocker',
+            },
+          ],
+          canPublish: false,
+          state: 'needs_work',
+        },
+      ],
+    }
+    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('blocked'), {
+      readinessDetail,
+      publishImpactRequested: true,
+      publishReview,
+      publicVisibility: baseVisibility,
+    })
+
+    expect(wrapper.text()).toContain('Parent page is not live in this language')
+    expect(wrapper.text()).not.toContain('blocked message')
+  })
+
   it.each(['ready'])('allows publish confirmation for %s readiness', (state) => {
-    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor(state, 'hash'))
+    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor(state, 'hash'), {
+      readinessDetail: baseReadinessDetail,
+    })
     const buttons = wrapper.findAll('button')
     const confirm = buttons[buttons.length - 1]
 
     expect(wrapper.text()).toContain('No blocking issues')
-    expect(wrapper.text()).toContain('Review readiness, website changes')
+    expect(wrapper.text()).toContain(
+      'Review what will change on the website before this goes live.',
+    )
     expect(confirm.attributes('disabled')).toBeUndefined()
+  })
+})
+
+describe('Studio version history copy', () => {
+  function historyEditor(previewVersionId: string | null = null) {
+    return {
+      history: {
+        checkpointMessage: '',
+        entryAssets: [],
+        handleCreateCheckpoint: vi.fn(),
+        previewVersionId,
+        showCheckpointDialog: true,
+        toggleVersionPreview: vi.fn(),
+        versions: [
+          {
+            _id: 'version-1',
+            action: 'checkpoint',
+            createdAt: 1,
+            createdBy: 'owner-1',
+            displayAction: 'checkpoint',
+            isCurrentPublished: false,
+            message: 'Before campaign launch',
+            publishedLocales: [],
+            version: 3,
+          },
+        ],
+      },
+      loader: {
+        dateLocale: 'en',
+        t: (key: string) =>
+          ({
+            'ginkoCms.studio.collectionEditor.checkpointDialogDescription':
+              'Save a named version of the current draft. You can restore it later.',
+            'ginkoCms.studio.collectionEditor.checkpointDialogTitle': 'Save version',
+            'ginkoCms.studio.collectionEditor.checkpointMessageLabel': 'Version note',
+            'ginkoCms.studio.collectionEditor.checkpointMessagePlaceholder':
+              'What should this version remember?',
+            'ginkoCms.studio.collectionEditor.checkpointMessageRequired':
+              'A version note is required.',
+            'ginkoCms.studio.collectionEditor.confirmCheckpoint': 'Save version',
+            'ginkoCms.studio.collectionEditor.createCheckpoint': 'Save version',
+            'ginkoCms.studio.collectionEditor.versionArchived': 'Archived',
+            'ginkoCms.studio.collectionEditor.versionCheckpoint': 'Saved version',
+            'ginkoCms.studio.collectionEditor.versionPublished': 'Published',
+            'ginkoCms.studio.collectionEditor.versionRestoredPublished': 'Restored version',
+            'ginkoCms.studio.collectionEditor.versionUnpublished': 'Unpublished',
+            'ginkoCms.studio.collectionEditor.versionRouteUpdated': 'URL updated',
+          })[key] ?? key,
+      },
+    }
+  }
+
+  function routeUpdatedHistoryEditor() {
+    const editor = historyEditor()
+    editor.history.versions = [
+      {
+        _id: 'version-route',
+        action: 'route_rebuild',
+        createdAt: 2,
+        createdBy: 'owner-1',
+        displayAction: 'routeUpdated',
+        isCurrentPublished: true,
+        message: 'Updated public route after parent publish',
+        publishedLocales: ['en'],
+        version: 4,
+      },
+    ]
+    return editor
+  }
+
+  it('uses save-version language as the primary history action', () => {
+    const wrapper = mountWithStudioContext(StudioVersionHistoryCard, historyEditor())
+
+    expect(wrapper.text()).toContain('Save version')
+    expect(wrapper.text()).toContain('v3')
+    expect(wrapper.text()).not.toContain('Checkpoint')
+  })
+
+  it('keeps raw revision ids in developer details only', () => {
+    const collapsed = mountWithStudioContext(StudioVersionHistoryCard, historyEditor())
+
+    expect(collapsed.text()).not.toContain('version-1')
+    expect(collapsed.text()).not.toContain('Revision ID')
+
+    const expanded = mountWithStudioContext(StudioVersionHistoryCard, historyEditor('version-1'))
+
+    expect(expanded.text()).toContain('Developer details')
+    expect(expanded.text()).toContain('Revision ID')
+    expect(expanded.text()).toContain('version-1')
+  })
+
+  it('lets users save a version without learning checkpoint terminology', () => {
+    const wrapper = mountWithStudioContext(StudioCheckpointDialog, historyEditor())
+
+    expect(wrapper.text()).toContain('Save version')
+    expect(wrapper.text()).toContain('Version note')
+    expect(wrapper.text()).not.toContain('checkpoint')
+    expect(wrapper.text()).not.toContain('Checkpoint')
+  })
+
+  it('labels automatic descendant route rebuilds without calling them publishes', () => {
+    const wrapper = mountWithStudioContext(StudioVersionHistoryCard, routeUpdatedHistoryEditor())
+
+    expect(wrapper.text()).toContain('URL updated')
+    expect(wrapper.text()).not.toContain('Published EN')
   })
 })

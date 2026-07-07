@@ -17,18 +17,23 @@ import {
 import { computed, onMounted, ref, unref } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
+import { mapEntryReadinessDetail } from '../../../lib/publicWorkflow'
+import type { StudioEntryReadinessDetail } from './studioWorkflowTypes'
 
 const props = defineProps<{
   mode?: 'edit' | 'new'
   title?: string
   saving?: boolean
   canPublish?: boolean
+  readinessDetail?: StudioEntryReadinessDetail | null
+  requestReviewPending?: boolean
 }>()
 
 const emit = defineEmits<{
   createDraft: []
   createPublish: []
   previewPublishImpact: [locale?: string]
+  requestPublishReview: [locale?: string]
 }>()
 
 const editor = props.mode === 'new' ? null : useStudioEntryEditorContext()
@@ -64,14 +69,62 @@ const entry = computed(() => {
   return value
 })
 
+const currentReadinessView = computed(() =>
+  editor
+    ? mapEntryReadinessDetail({
+        readinessDetail: props.readinessDetail,
+        currentLocale: editor.loader.currentLocale,
+        t: editor.loader.t,
+        publishMode: 'single',
+      })
+    : null,
+)
+
+const publishAllReadinessView = computed(() =>
+  editor
+    ? mapEntryReadinessDetail({
+        readinessDetail: props.readinessDetail,
+        currentLocale: editor.loader.currentLocale,
+        t: editor.loader.t,
+        publishMode: 'all',
+      })
+    : null,
+)
+
 const publishLabel = computed(() => {
   if (!editor) return 'Publish'
   const locale = editor.loader.currentLocale.toUpperCase()
-  const state = editor.publishing.publishReadiness.state
-  if (state === 'stale') return 'Preview stale'
-  if (state === 'blocked') return 'Blocked'
+  if (editor.publishing.publishReadiness.state === 'pending') return 'Previewing...'
+  if (!currentReadinessView.value?.currentLocale) return 'Loading...'
+  if (!currentReadinessView.value.canPublish) {
+    return currentReadinessView.value.blockers.length ? 'Needs work' : 'Not ready'
+  }
   return `${editor.loader.t('ginkoCms.common.publish')} ${locale}`
 })
+
+const publishDisabled = computed(
+  () =>
+    !editor ||
+    editor.draft.saving ||
+    editor.publishing.publishReadiness.state === 'pending' ||
+    !currentReadinessView.value?.canPublish,
+)
+
+const publishAllDisabled = computed(
+  () =>
+    !editor ||
+    editor.draft.saving ||
+    editor.publishing.publishReadiness.state === 'pending' ||
+    !publishAllReadinessView.value?.canPublish,
+)
+
+const canRequestReview = computed(
+  () =>
+    !!editor &&
+    editor.loader.canEditEntries &&
+    !editor.loader.canPublishEntries &&
+    Boolean(currentReadinessView.value?.canRequestReview),
+)
 
 const statusTone = computed<'success' | 'warning' | 'danger' | 'neutral'>(() => {
   if (entry.value?.status === 'published') return 'success'
@@ -127,6 +180,11 @@ function openPublishAllDialog() {
   if (editor.publishing.handlePublishAll()) {
     emit('previewPublishImpact')
   }
+}
+
+function requestReview() {
+  if (!editor || !canRequestReview.value) return
+  emit('requestPublishReview', editor.loader.currentLocale)
 }
 </script>
 
@@ -226,9 +284,7 @@ function openPublishAllDialog() {
             :variant="
               editor.publishing.publishReadiness.state === 'blocked' ? 'secondary' : 'default'
             "
-            :disabled="
-              editor.draft.saving || editor.publishing.publishReadiness.state === 'pending'
-            "
+            :disabled="publishDisabled"
             @click="openPublishDialog"
           >
             <span class="ginko:truncate">{{ publishLabel }}</span>
@@ -241,9 +297,7 @@ function openPublishAllDialog() {
                 :variant="
                   editor.publishing.publishReadiness.state === 'blocked' ? 'secondary' : 'default'
                 "
-                :disabled="
-                  editor.draft.saving || editor.publishing.publishReadiness.state === 'pending'
-                "
+                :disabled="publishAllDisabled"
                 aria-label="More publish options"
               >
                 <ChevronDown class="ginko:size-3.5 ginko:opacity-70" />
@@ -257,6 +311,17 @@ function openPublishAllDialog() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        <Button
+          v-else-if="canRequestReview"
+          variant="outline"
+          size="sm"
+          :disabled="editor.draft.saving || requestReviewPending"
+          @click="requestReview"
+        >
+          <Loader2 v-if="requestReviewPending" class="ginko:size-4 ginko:animate-spin" />
+          <span class="studio-entry-topbar__label-full">Request review</span>
+          <span class="studio-entry-topbar__label-short">Review</span>
+        </Button>
         <DropdownMenu v-if="showEntryActions">
           <DropdownMenuTrigger as-child>
             <Button

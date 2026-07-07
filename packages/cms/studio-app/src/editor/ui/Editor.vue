@@ -786,8 +786,8 @@ defineExpose({
               type="button"
               class="ginko-richtext-editor__asset-overlay-button"
               :disabled="!selectedImageOverlay.assetId"
-              title="Edit asset metadata"
-              aria-label="Edit asset metadata"
+              title="Edit image details"
+              aria-label="Edit image details"
               @click.stop="requestSelectedImageMetadata"
             >
               <Pencil class="ginko:size-3.5" />
