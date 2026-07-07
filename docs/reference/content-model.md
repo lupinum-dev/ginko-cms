@@ -42,9 +42,11 @@ Assets and derived references:
 Public serving state:
 
 - `publicEntries`: active published rows for page, list, search, nav, sitemap,
-  singleton, and data-only reads.
+  singleton, and data-only reads. Public rows are the canonical active published
+  projection used by website reads.
 - `publicRoutes`: route lookup rows for route-backed page and route metadata
-  reads. Data-only collections do not create route rows.
+  reads. Route rows are derived from public rows and can be repaired from them.
+  Data-only collections do not create route rows.
 - `outboxEvents`: operational revalidation delivery events with expanded previous
   and next affected paths/tags, delivery attempts, retry state, and retention.
 - `revalidationTargets`: delivery configuration for cache invalidation.
@@ -104,8 +106,9 @@ created, updated, no-op, skipped, blocked, and published rows.
 ## Rebuild Rule
 
 Any derived row must have a named canonical source and a rebuild path. Current
-rebuildable derived surfaces are public rows, route rows, content asset refs, and
-search text on public rows.
+repairable derived surfaces are route rows and content asset refs. Public rows
+are active published projection truth; rebuilding them requires storing the
+publish-time projection inputs separately.
 
 Revalidation outbox rows are operational delivery state, not a rebuildable read
 model. They are created from publish/site-data events, retried, and eventually

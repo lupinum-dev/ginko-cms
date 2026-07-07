@@ -93,6 +93,12 @@ draft rows, revision snapshots, public projections, asset records, review
 requests, members, and settings. The readiness detail is the exact workflow
 contract that human and agent surfaces consume.
 
+Important boundary: readiness is the marketer/product projection of the
+canonical publishability core. The enforcement core remains the backend publish
+preview, diagnostics, review stale checks, and publish execution. Readiness must
+call into or be derived from that same core; it must not become a parallel
+definition of what can publish.
+
 Dashboard/list views may use a cheaper `EntryWorkflowSummary`, but it must use
 the same state and issue vocabulary. It can be conservative; it must not invent
 different readiness rules.
@@ -200,7 +206,7 @@ AI can:
 - archive/restore content when the agent identity has the right permission and
   the operation is reversible or explicitly gated.
 
-The core rule is actor parity:
+The core rule is caller parity:
 
 ```txt
 same identity model + same permissions + same operation guards
@@ -215,7 +221,7 @@ boundaries.
 Default product flows can still be conservative:
 
 ```txt
-AI prepares draft -> review when required -> authorized actor publishes
+AI prepares draft -> review when required -> authorized caller publishes
 ```
 
 But direct AI publishing is a supported v1 product goal when the site owner gives
@@ -701,7 +707,7 @@ Tasks:
   which descendants are affected, how route collisions block publish, how
   public projections/routes/cache tags are rebuilt, and how the publish preview
   reports affected descendant URLs.
-- Define actor parity:
+- Define caller parity:
   humans and agents use the same permissions and guarded operations; direct AI
   publish is allowed when the agent has publish permission.
 - Decide required-field publish behavior:
@@ -1061,7 +1067,7 @@ Backend/component tests:
 - authorized agent publish and human publish use the same operation path and
   audit semantics;
 - unauthorized agent publish requests review or fails closed;
-- archive/restore is operation-based and reversible for human and agent actors;
+- archive/restore is operation-based and reversible for human and agent callers;
 - parent route change with published descendants rebuilds descendant public
   projections/routes in the same locale;
 - subtree rebuild preserves descendant published content and does not publish

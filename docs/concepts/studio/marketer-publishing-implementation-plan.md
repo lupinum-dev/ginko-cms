@@ -15,6 +15,84 @@ Related document:
 - `docs/concepts/studio/marketer-publishing-agent-task-packets.md`
 - `docs/concepts/studio/marketer-publishing-full-implementation-goal-prompt.md`
 
+## Current Tracker
+
+Snapshot on 2026-07-07 after the targeted cleanup pass.
+
+### Blocking Before Frontend Expansion
+
+- [x] Collapse Studio primary workflow state to backend `EntryReadinessDetail`.
+- [x] Keep publish operation preview limited to confirmation token, preview hash,
+      expiration, and website-change details.
+- [x] Add first-class human review-request creation without an agent run.
+- [x] Keep MCP review requests agent-run-bound.
+- [x] Make MCP `preview-publish` use the run-bound MCP publish preview operation.
+- [x] Reuse one backend required-field collector for readiness and publish
+      impact.
+- [ ] Finish large-file cleanup or get explicit reviewer acceptance for the
+      remaining large files before broad frontend expansion.
+
+### Fixed In This Branch
+
+- [x] Review requests serialize `agentRunId: string | null` and expose a source
+      label for human-created versus agent-created requests.
+- [x] Convex computes and stores review preview data; callers cannot submit
+      preview JSON as truth.
+- [x] Studio entry top bar, status rail, publish dialog, and language readiness
+      panels use backend readiness as their primary workflow source.
+- [x] Public visibility diagnostics load only for advanced diagnostics or
+      explicit link checks.
+- [x] Client-side required-field validation no longer blocks publish before the
+      backend readiness/operation preview path.
+- [x] Operation preview state was renamed away from “readiness” ownership.
+- [x] Restore remains the accepted bounded-write MCP exception with active
+      agent-run guarding.
+- [x] Focused verification passed:
+      `test/component/diagnostics.test.ts`,
+      `test/component/entries/publish.test.ts`,
+      `test/component/entries/read.test.ts`,
+      `test/component/reviewRequests.test.ts`,
+      `test/component/entries/mcp-operations.test.ts`,
+      `test/runtime/mcp-preview-publish.test.ts`,
+      `test/runtime/mcp-request-publish-review.test.ts`,
+      `test/runtime/studio-workflow-components.test.ts`,
+      `test/shared/studio-workflow.test.ts`, and
+      `test/shared/mcp-tools.test.ts`.
+
+### Accepted Debt
+
+- [ ] `packages/convex/src/diagnostics.ts`,
+      `packages/convex/src/entries/workflow/commands.ts`,
+      `packages/convex/src/entries/read.ts`, and
+      `packages/contract/src/validators.ts` remain above the rough 1,000-line
+      target. Split them only along real ownership boundaries; do not create a
+      generic service layer.
+- [ ] `packages/cms/src/nuxt-provider.mjs` remains intentionally unsplit in this
+      pass.
+- [ ] Advanced diagnostics still have developer-facing detail surfaces. They are
+      secondary and must not become primary marketer workflow state again.
+
+### Do Not Fix
+
+- Do not add stored workflow/readiness state.
+- Do not add a readiness table or projection.
+- Do not wrap restore in destructive confirmation; keep it as guarded
+  `bounded-write`.
+- Do not remove deprecated public aliases unless release status confirms a hard
+  cutover is safe.
+- Do not chase build-warning noise unless it reproduces after a clean
+  `pnpm run check`.
+
+### Final Acceptance Gate
+
+- [ ] A reviewer confirms no primary Studio workflow component derives
+      publishability from public visibility diagnostics.
+- [ ] A reviewer confirms readiness can never say `ready` when publish execution
+      rejects the same locale/version.
+- [ ] A reviewer confirms Studio and MCP use the same operation path for review
+      and publish flows.
+- [ ] `pnpm run check` passes after formatting, generated files, and typecheck.
+
 ## Document Rules
 
 - [ ] Keep this file focused on implementation, not product positioning.
@@ -35,63 +113,64 @@ Related document:
 
 ## Fixed Product Decisions
 
-- [ ] Ginko CMS is a focused CMS for Ginko/Nuxt marketing and content sites.
-- [ ] Ginko CMS is not a generic admin platform.
-- [ ] Ginko CMS is not a visual page builder.
-- [ ] Ginko CMS is not a schema builder.
-- [ ] Ginko CMS is not a backend abstraction framework.
-- [ ] Host app code defines collections and presentation.
-- [ ] Studio and MCP inspect collection contracts but do not mutate schema.
-- [ ] Raw MDC is the canonical editable body source.
-- [ ] Public website reads use active published projections only.
-- [ ] Convex is the hard v1 backend foundation.
-- [ ] Better Auth is the hard v1 auth foundation.
-- [ ] Missing translations are incomplete work, not global publish blockers.
-- [ ] Each locale can be previewed independently.
-- [ ] Each locale can be published independently.
-- [ ] Required fields may be empty in saved drafts.
-- [ ] Required fields block publish in every collection mode.
-- [ ] Data-only collections obey the same required-field publish rules.
-- [ ] Humans and agents use the same permission model.
-- [ ] Humans and agents use the same guarded operation paths.
-- [ ] An agent with publish permission can publish directly.
-- [ ] An agent without publish permission requests review or fails closed.
-- [ ] Direct AI publishing is a v1 product goal.
-- [ ] Delete is not a normal v1 content operation.
-- [ ] Archive and restore are the normal reversible content operations.
-- [ ] MCP is opt-in, authenticated, scoped, and operation-based.
-- [ ] MCP tools must not bypass Convex operations for sensitive writes.
-- [ ] Public provider is not a readiness consumer.
-- [ ] Public provider output must match active projections after publish.
-- [ ] Parent route changes automatically rebuild published descendants in the same locale.
-- [ ] Descendant draft content is not published as a side effect of route rebuild.
-- [ ] Descendant route collisions block publish before projections change.
-- [ ] Asset metadata must have one explicit freshness model.
-- [ ] Developer diagnostics remain available but secondary.
-- [ ] Primary marketer UI avoids backend vocabulary.
+- Ginko CMS is a focused CMS for Ginko/Nuxt marketing and content sites.
+- Ginko CMS is not a generic admin platform.
+- Ginko CMS is not a visual page builder.
+- Ginko CMS is not a schema builder.
+- Ginko CMS is not a backend abstraction framework.
+- Host app code defines collections and presentation.
+- Studio and MCP inspect collection contracts but do not mutate schema.
+- Raw MDC is the canonical editable body source.
+- Public website reads use active published projections only.
+- Convex is the hard v1 backend foundation.
+- Better Auth is the hard v1 auth foundation.
+- Missing translations are incomplete work, not global publish blockers.
+- Each locale can be previewed independently.
+- Each locale can be published independently.
+- Required fields may be empty in saved drafts.
+- Required fields block publish in every collection mode.
+- Data-only collections obey the same required-field publish rules.
+- Humans and agents use the same permission model.
+- Humans and agents use the same guarded operation paths.
+- An agent with publish permission can publish directly.
+- An agent without publish permission requests review or fails closed.
+- Direct AI publishing is a v1 product goal.
+- Delete is not a normal v1 content operation.
+- Archive and restore are the normal reversible content operations.
+- MCP is opt-in, authenticated, scoped, and operation-based.
+- MCP tools must not bypass Convex operations for sensitive writes.
+- Public provider is not a readiness consumer.
+- Public provider output must match active projections after publish.
+- Parent route changes automatically rebuild published descendants in the same locale.
+- Descendant draft content is not published as a side effect of route rebuild.
+- Descendant route collisions block publish before projections change.
+- Asset metadata must have one explicit freshness model.
+- Developer diagnostics remain available but secondary.
+- Primary marketer UI avoids backend vocabulary.
 
 ## Hard Non-Goals
 
-- [ ] Do not introduce a stored workflow state table.
-- [ ] Do not store `ready`, `needs_work`, or `live_with_changes` as canonical state.
-- [ ] Do not create a second source of truth for publishability.
-- [ ] Do not make public provider queries read draft/editor readiness.
-- [ ] Do not add generic runtime relation expansion.
-- [ ] Do not promise broad include/depth APIs for v1.
-- [ ] Do not add a visual page builder.
-- [ ] Do not move CMS policy into `ginko-content`.
-- [ ] Do not put CMS domain logic in Nuxt bridge transport code.
-- [ ] Do not put publish invariants in Vue components.
-- [ ] Do not let MCP store caller-provided review preview JSON as truth.
-- [ ] Do not let AI tools use raw Convex table writes for editorial operations.
-- [ ] Do not add compatibility shims for unreleased internal paths.
-- [ ] Do not keep old readiness helpers alive beside the new readiness model.
-- [ ] Do not add a route-tree state machine.
-- [ ] Do not silently publish descendant draft content during subtree route rebuild.
-- [ ] Do not create route redirects automatically unless a dedicated redirect decision is made.
-- [ ] Do not change public package exports before the shape is stable.
-- [ ] Do not add stored projections without a rebuild story and tests.
-- [ ] Do not hide publish warnings behind a simple `Ready` state.
+- Do not introduce a stored workflow state table.
+- Do not store `ready`, `needs_work`, or `live_with_changes` as canonical state.
+- Do not create a second source of truth for publishability.
+- Do not make public provider queries read draft/editor readiness.
+- Do not add generic runtime relation expansion.
+- Do not promise broad include/depth APIs for v1.
+- Do not add a visual page builder.
+- Do not move CMS policy into `ginko-content`.
+- Do not put CMS domain logic in Nuxt bridge transport code.
+- Do not put publish invariants in Vue components.
+- Do not let MCP store caller-provided review preview JSON as truth.
+- Do not let AI tools use raw Convex table writes for editorial operations.
+- Do not add compatibility shims for unreleased internal paths.
+- Do not keep old readiness helpers alive beside the new readiness model.
+- Do not add a route-tree state machine.
+- Do not silently publish descendant draft content during subtree route rebuild.
+- Do not create route redirects automatically unless a dedicated redirect
+  decision is made.
+- Do not change public package exports before the shape is stable.
+- Do not add stored projections without a rebuild story and tests.
+- Do not hide publish warnings behind a simple `Ready` state.
 
 ## Implementation North Star
 
@@ -108,6 +187,12 @@ Studio, MCP, review approval, publish preview, and publish execution derive
 their workflow decisions from the same backend readiness vocabulary and exact
 readiness detail. Public provider reads active projections only.
 ```
+
+Boundary: readiness is not the enforcement source by itself. The enforcement
+source is the backend publishability core: publish preview, diagnostics, review
+stale checks, and publish execution. Exact readiness detail is the product
+projection that Studio, reviews, and MCP consume. It may call that core, but it
+must not fork publishability rules.
 
 ## Implementation Summary
 
@@ -192,7 +277,7 @@ readiness detail. Public provider reads active projections only.
 | Public routes      | `publicRoutes`                                | Provider, diagnostics, readiness    | Unique by `locale/path`.                     |
 | Relations          | Stable references in canonical content        | Diagnostics, publish preview        | No broad runtime expansion v1.               |
 | Assets             | Asset records and asset refs                  | Readiness, public projections       | Freshness model must be explicit.            |
-| Members/auth       | Better Auth plus Convex members               | Studio, MCP guards                  | Same actor model for human and agent.        |
+| Members/auth       | Better Auth plus Convex members               | Studio, MCP guards                  | Same caller model for human and agent.       |
 | MCP authority      | Scoped MCP credentials and app identity       | MCP tools                           | Tools call operations.                       |
 | Publish state      | Revisions and active projections              | Readiness, history                  | No stored workflow state.                    |
 | Revalidation state | Convex revalidation events                    | Track UI, diagnostics               | Durable delivery owned by CMS.               |
@@ -434,7 +519,7 @@ export type EntryWorkflowSummary = {
 - [ ] `review_request_stale`: review request no longer matches current draft version.
 - [ ] `review_preview_stale`: review preview no longer matches current backend preview.
 - [ ] `review_preview_missing`: review request has no Convex-computed preview.
-- [ ] `review_not_authorized`: actor cannot approve or reject this review.
+- [ ] `review_not_authorized`: caller cannot approve or reject this review.
 - [ ] `review_already_closed`: review request is already approved, rejected, or canceled.
 - [ ] `review_publish_blocked`: approval cannot publish because current preview is blocked.
 - [ ] `review_locale_mismatch`: review locales do not match current operation locales.
@@ -442,10 +527,10 @@ export type EntryWorkflowSummary = {
 
 ### Permission Issues
 
-- [ ] `permission_publish_missing`: actor cannot publish this entry/locale.
-- [ ] `permission_review_missing`: actor cannot request review.
-- [ ] `permission_archive_missing`: actor cannot archive this entry.
-- [ ] `permission_restore_missing`: actor cannot restore this entry.
+- [ ] `permission_publish_missing`: caller cannot publish this entry/locale.
+- [ ] `permission_review_missing`: caller cannot request review.
+- [ ] `permission_archive_missing`: caller cannot archive this entry.
+- [ ] `permission_restore_missing`: caller cannot restore this entry.
 - [ ] `permission_agent_scope_missing`: agent credential lacks required scope.
 - [ ] `permission_member_inactive`: member identity is inactive.
 - [ ] `permission_api_key_revoked`: API key is revoked.
@@ -454,7 +539,7 @@ export type EntryWorkflowSummary = {
 ### Agent Issues
 
 - [ ] `agent_run_missing`: requested agent run does not exist.
-- [ ] `agent_run_not_owned`: actor cannot use this agent run.
+- [ ] `agent_run_not_owned`: caller cannot use this agent run.
 - [ ] `agent_run_closed`: agent run is already completed or canceled.
 - [ ] `agent_publish_requires_permission`: direct agent publish requires publish permission.
 - [ ] `agent_archive_requires_permission`: direct agent archive requires archive permission.
@@ -564,7 +649,7 @@ export type EntryWorkflowSummary = {
 - [ ] `preview_publish`: run publish preview.
 - [ ] `refresh_publish_preview`: refresh stale publish preview.
 - [ ] `confirm_publish`: confirm publish operation.
-- [ ] `publish_direct`: direct publish by authorized actor.
+- [ ] `publish_direct`: direct publish by authorized caller.
 - [ ] `track_website_refresh`: open website refresh status.
 - [ ] `view_public_page`: open public URL.
 
@@ -635,7 +720,7 @@ export type EntryWorkflowSummary = {
 - [ ] Replace raw preview JSON as primary review content.
 - [ ] Keep raw preview JSON in developer details only.
 - [ ] Display Convex-computed review summary.
-- [ ] Display actor type: human or agent.
+- [ ] Display caller type: human or agent.
 - [ ] Display permission-aware actions.
 - [ ] Display stale state from backend.
 - [ ] Display affected public URLs.
@@ -719,27 +804,27 @@ implementation starts.
 - [ ] Confirm action code registry exactly matches this document or update both.
 - [ ] Decide which vocabulary exports are public contract exports.
 - [ ] Decide which detail shapes remain internal during first implementation.
-- [ ] Create fixture for one route-backed collection.
-- [ ] Create fixture for one data-only collection.
-- [ ] Create fixture for locales `en`, `de`, and `fr`.
+- [x] Create fixture for one route-backed collection.
+- [x] Create fixture for one data-only collection.
+- [x] Create fixture for locales `en`, `de`, and `fr`.
 - [ ] Create fixture with primary locale published.
-- [ ] Create fixture with secondary locale missing.
+- [x] Create fixture with secondary locale missing.
 - [ ] Create fixture with secondary locale draft missing required SEO.
 - [ ] Create fixture with secondary locale ready.
 - [ ] Create fixture with parent page and child page.
 - [ ] Create fixture with published child page.
 - [ ] Create fixture with route collision candidate.
-- [ ] Create fixture with non-`en` default locale.
+- [x] Create fixture with non-`en` default locale.
 - [ ] Create fixture with agent identity that can edit only.
 - [ ] Create fixture with agent identity that can publish.
 - [ ] Create fixture with human editor that cannot publish.
 - [ ] Create fixture with human publisher.
 - [ ] Create fixture with asset requiring alt text.
 - [ ] Create fixture with relation target not public.
-- [ ] Add failing test for exact readiness detail states.
+- [x] Add failing test for exact readiness detail states.
 - [ ] Add failing test for cheap workflow summary states.
-- [ ] Add failing test for required fields blocking publish.
-- [ ] Add failing test for data-only required fields blocking publish.
+- [x] Add failing test for required fields blocking publish.
+- [x] Add failing test for data-only required fields blocking publish.
 - [ ] Add failing test for Convex-computed review preview.
 - [ ] Add failing test for authorized agent publish parity.
 - [ ] Add failing test for unauthorized agent publish fail-closed behavior.
@@ -748,13 +833,13 @@ implementation starts.
 - [ ] Add failing test for subtree collision blocking.
 - [ ] Add failing test for provider reads after subtree rebuild.
 - [ ] Add failing test for public provider default locale.
-- [ ] Add failing test for missing configured locales in readiness detail.
+- [x] Add failing test for missing configured locales in readiness detail.
 - [ ] Add failing test for missing configured locales not leaking as public content.
 
 ### Phase 0 Review Gate
 
 - [ ] A reviewer can explain every readiness state without reading Vue code.
-- [ ] A reviewer can explain actor parity for humans and agents.
+- [ ] A reviewer can explain caller parity for humans and agents.
 - [ ] A reviewer can explain why public provider is not a readiness consumer.
 - [ ] A reviewer can explain automatic subtree rebuild.
 - [ ] A reviewer can point to failing tests for each core invariant.
@@ -785,35 +870,35 @@ experimental shapes as public API too early.
 
 ### Phase 1 Checklist
 
-- [ ] Add `ReadinessState` type.
-- [ ] Add `ReadinessSeverity` type.
-- [ ] Add `ReadinessIssueCode` type.
-- [ ] Add `ReadinessActionKind` type.
-- [ ] Add `ReadinessActionTarget` type.
-- [ ] Add runtime validator for readiness state.
-- [ ] Add runtime validator for readiness severity.
-- [ ] Add runtime validator for readiness issue code.
-- [ ] Add runtime validator for readiness action kind.
-- [ ] Add runtime validator for readiness action target.
+- [x] Add `ReadinessState` type.
+- [x] Add `ReadinessSeverity` type.
+- [x] Add `ReadinessIssueCode` type.
+- [x] Add `ReadinessActionKind` type.
+- [x] Add `ReadinessActionTarget` type.
+- [x] Add runtime validator for readiness state.
+- [x] Add runtime validator for readiness severity.
+- [x] Add runtime validator for readiness issue code.
+- [x] Add runtime validator for readiness action kind.
+- [x] Add runtime validator for readiness action target.
 - [ ] Add shared issue-code metadata if needed for grouping.
 - [ ] Add shared action-code metadata if needed for grouping.
-- [ ] Avoid marketer-facing final copy in contract metadata.
+- [x] Avoid marketer-facing final copy in contract metadata.
 - [ ] Keep copy mapping in Studio.
 - [ ] Keep MCP response text generated from codes and params.
-- [ ] Add type tests for state vocabulary.
-- [ ] Add type tests for issue-code vocabulary.
-- [ ] Add type tests for action-code vocabulary.
-- [ ] Add internal `EntryReadinessDetail` type in Convex or internal CMS path.
+- [x] Add type tests for state vocabulary.
+- [x] Add type tests for issue-code vocabulary.
+- [x] Add type tests for action-code vocabulary.
+- [x] Add internal `EntryReadinessDetail` type in Convex or internal CMS path.
 - [ ] Add internal `EntryWorkflowSummary` type in Convex or internal CMS path.
-- [ ] Do not expose full detail shape from public contract package unless explicitly approved.
+- [x] Do not expose full detail shape from public contract package unless explicitly approved.
 - [ ] Add serializer helpers for Convex return values.
-- [ ] Add issue builder helper.
-- [ ] Add action builder helper.
-- [ ] Add test ensuring unknown issue code fails validation.
-- [ ] Add test ensuring unknown action code fails validation.
-- [ ] Add test ensuring unknown state fails validation.
-- [ ] Add test ensuring issue message params are JSON-safe.
-- [ ] Add test ensuring action params are JSON-safe.
+- [x] Add issue builder helper.
+- [x] Add action builder helper.
+- [x] Add test ensuring unknown issue code fails validation.
+- [x] Add test ensuring unknown action code fails validation.
+- [x] Add test ensuring unknown state fails validation.
+- [x] Add test ensuring issue message params are JSON-safe.
+- [x] Add test ensuring action params are JSON-safe.
 
 ### Phase 1 Deletion Checklist
 
@@ -824,10 +909,10 @@ experimental shapes as public API too early.
 
 ### Phase 1 Review Gate
 
-- [ ] Public exports are intentionally minimal.
-- [ ] Type names match this document.
-- [ ] Validators reject invalid states.
-- [ ] No UI copy moved into backend contract.
+- [x] Public exports are intentionally minimal.
+- [x] Type names match this document.
+- [x] Validators reject invalid states.
+- [x] No UI copy moved into backend contract.
 - [ ] No stored workflow state was added.
 
 ## Phase 2: Exact Readiness Detail Engine
@@ -839,81 +924,82 @@ Compute exact per-entry/per-locale readiness in Convex from canonical state.
 ### Files Likely Touched
 
 - [ ] `packages/convex/src/diagnostics.ts`
-- [ ] `packages/convex/src/entries/read.ts`
+- [x] `packages/convex/src/entries/read.ts`
+- [x] `packages/convex/src/entries/readiness.ts`
 - [ ] `packages/convex/src/entries/workflow/commands.ts`
 - [ ] `packages/convex/src/reviewRequests.ts`
 - [ ] `packages/convex/src/settings.ts`
 - [ ] `packages/convex/src/lib/locale.ts`
-- [ ] `test/component/diagnostics.test.ts`
-- [ ] `test/shared/studio-workflow.test.ts`
+- [x] `test/component/diagnostics.test.ts`
+- [x] `test/shared/studio-workflow.test.ts`
 
 ### Exact Readiness Algorithm
 
-- [ ] Load entry by id.
-- [ ] Load collection for entry.
-- [ ] Load CMS settings.
-- [ ] Resolve configured locales.
-- [ ] Resolve primary locale.
-- [ ] Resolve runtime default locale.
-- [ ] Load draft rows.
-- [ ] Load active public projections for entry.
-- [ ] Load active public routes for entry.
-- [ ] Load non-stale review requests for entry.
-- [ ] Load current revision metadata.
-- [ ] For each configured locale, create one readiness locale record.
-- [ ] If locale has no draft row, set `draftExists` false.
-- [ ] If locale has no draft row and no public projection, set state `missing`.
-- [ ] If locale has no draft row but has public projection, set state `live`.
-- [ ] If locale has draft row, validate required fields.
-- [ ] If locale has draft row, validate localized required fields.
-- [ ] If locale has draft row, validate shared required fields.
-- [ ] If collection is data-only, still validate publish-required fields.
-- [ ] If collection is route-backed, validate route data.
-- [ ] If collection is route-backed, validate parent route in same locale.
-- [ ] If collection is route-backed, validate route collision.
-- [ ] If parent route changes, compute descendant rebuild preview.
-- [ ] If descendant rebuild preview has collision, add blocker.
+- [x] Load entry by id.
+- [x] Load collection for entry.
+- [x] Load CMS settings.
+- [x] Resolve configured locales.
+- [x] Resolve primary locale.
+- [x] Resolve runtime default locale.
+- [x] Load draft rows.
+- [x] Load active public projections for entry.
+- [x] Load active public routes for entry.
+- [x] Load non-stale review requests for entry.
+- [x] Load current revision metadata.
+- [x] For each configured locale, create one readiness locale record.
+- [x] If locale has no draft row, set `draftExists` false.
+- [x] If locale has no draft row and no public projection, set state `missing`.
+- [x] If locale has no draft row but has public projection, set state `live`.
+- [x] If locale has draft row, validate required fields.
+- [x] If locale has draft row, validate localized required fields.
+- [x] If locale has draft row, validate shared required fields.
+- [x] If collection is data-only, still validate publish-required fields.
+- [x] If collection is route-backed, validate route data.
+- [x] If collection is route-backed, validate parent route in same locale.
+- [x] If collection is route-backed, validate route collision.
+- [x] If parent route changes, compute descendant rebuild preview.
+- [x] If descendant rebuild preview has collision, add blocker.
 - [ ] Validate relation diagnostics.
 - [ ] Validate asset diagnostics.
-- [ ] Attach review state if matching non-stale review exists.
-- [ ] Compute published boolean from active projection.
-- [ ] Compute `hasUnpublishedChanges` per locale.
-- [ ] Compute public URL from active projection.
-- [ ] Compute draft URL from draft route preview.
-- [ ] Compute affected public URLs.
-- [ ] Compute permissions for current actor.
-- [ ] Compute `canPreview`.
-- [ ] Compute `canRequestReview`.
-- [ ] Compute `canPublish`.
-- [ ] Compute `canArchive`.
-- [ ] Choose next action from issues and permissions.
-- [ ] Return sorted locales in configured locale order.
-- [ ] Include updated timestamp.
+- [x] Attach review state if matching non-stale review exists.
+- [x] Compute published boolean from active projection.
+- [x] Compute `hasUnpublishedChanges` per locale.
+- [x] Compute public URL from active projection.
+- [x] Compute draft URL from draft route preview.
+- [x] Compute affected public URLs.
+- [x] Compute permissions for current caller.
+- [x] Compute `canPreview`.
+- [x] Compute `canRequestReview`.
+- [x] Compute `canPublish`.
+- [x] Compute `canArchive`.
+- [x] Choose next action from issues and permissions.
+- [x] Return sorted locales in configured locale order.
+- [x] Include updated timestamp.
 
 ### State Derivation Order
 
-- [ ] If entry missing, throw typed CMS error.
-- [ ] If collection missing, throw typed CMS error.
-- [ ] If entry archived, return states that block publish.
+- [x] If entry missing, throw typed CMS error.
+- [x] If collection missing, throw typed CMS error.
+- [x] If entry archived, return states that block publish.
 - [ ] If locale not configured, return blocker for requested locale.
-- [ ] If configured locale missing draft and missing public projection, use `missing`.
-- [ ] If non-stale review exists and no blockers, use `in_review`.
-- [ ] If blockers exist, use `needs_work`.
-- [ ] If published and no unpublished changes, use `live`.
-- [ ] If published and unpublished changes exist and preview is ready, use `live_with_changes`.
-- [ ] If unpublished and preview is ready, use `ready`.
-- [ ] If draft exists and readiness has not been previewed exactly, use `draft`.
+- [x] If configured locale missing draft and missing public projection, use `missing`.
+- [x] If non-stale review exists and no blockers, use `in_review`.
+- [x] If blockers exist, use `needs_work`.
+- [x] If published and no unpublished changes, use `live`.
+- [x] If published and unpublished changes exist and preview is ready, use `live_with_changes`.
+- [x] If unpublished and preview is ready, use `ready`.
+- [x] If draft exists and readiness has not been previewed exactly, use `draft`.
 - [ ] If exact preview is stale, return issue and action to refresh preview.
 
 ### Required Field Rules
 
-- [ ] Saved drafts can omit required fields.
+- [x] Saved drafts can omit required fields.
 - [ ] Publish preview cannot allow required missing fields.
 - [ ] Publish execute cannot allow required missing fields.
-- [ ] Data-only collections cannot publish required missing fields.
-- [ ] Route-backed collections cannot publish required missing fields.
-- [ ] Missing localized required field blocks only that locale.
-- [ ] Missing shared required field blocks every locale included in publish.
+- [x] Data-only collections cannot publish required missing fields.
+- [x] Route-backed collections cannot publish required missing fields.
+- [x] Missing localized required field blocks only that locale.
+- [x] Missing shared required field blocks every locale included in publish.
 - [ ] Missing body blocks locale only when body is locale-specific.
 - [ ] Missing body blocks all requested locales when body is shared.
 - [ ] Required asset metadata blocks the locale using that asset.
@@ -921,54 +1007,54 @@ Compute exact per-entry/per-locale readiness in Convex from canonical state.
 
 ### Review State Rules
 
-- [ ] Review request belongs to entry.
-- [ ] Review request includes locale.
-- [ ] Review request status is pending.
-- [ ] Review expected version equals current draft version.
+- [x] Review request belongs to entry.
+- [x] Review request includes locale.
+- [x] Review request status is pending.
+- [x] Review expected version equals current draft version.
 - [ ] Review preview hash equals current backend preview hash.
 - [ ] Review version hash equals current version hash when supplied.
 - [ ] Stale review produces warning or blocker according to action context.
-- [ ] Non-stale review sets `reviewRequestId`.
-- [ ] Non-stale review can set state `in_review` when no publish blockers exist.
+- [x] Non-stale review sets `reviewRequestId`.
+- [x] Non-stale review can set state `in_review` when no publish blockers exist.
 
 ### Permission Rules
 
-- [ ] Current actor can edit entry if edit guard passes.
-- [ ] Current actor can request review if review guard passes.
-- [ ] Current actor can publish if publish guard passes.
-- [ ] Current actor can archive if archive guard passes.
-- [ ] Human and agent actors use same guard path.
+- [x] Current caller can edit entry if edit guard passes.
+- [x] Current caller can request review if review guard passes.
+- [x] Current caller can publish if publish guard passes.
+- [x] Current caller can archive if archive guard passes.
+- [x] Human and agent callers use same guard path.
 - [ ] Agent scopes restrict operations before role permissions allow them.
 - [ ] Missing permission sets action to request review or explain blocker.
 - [ ] Missing permission never changes backend publishability.
 
 ### Phase 2 Tests
 
-- [ ] Test `missing` state for configured locale without draft.
-- [ ] Test `draft` state for incomplete saved draft.
-- [ ] Test `needs_work` for missing required localized field.
-- [ ] Test `needs_work` for missing required shared field.
-- [ ] Test `needs_work` for data-only missing required field.
-- [ ] Test `ready` for valid unpublished locale.
-- [ ] Test `in_review` for non-stale pending review.
+- [x] Test `missing` state for configured locale without draft.
+- [x] Test `draft` state for incomplete saved draft.
+- [x] Test `needs_work` for missing required localized field.
+- [x] Test `needs_work` for missing required shared field.
+- [x] Test `needs_work` for data-only missing required field.
+- [x] Test `ready` for valid unpublished locale.
+- [x] Test `in_review` for non-stale pending review.
 - [ ] Test stale review does not produce valid `in_review`.
-- [ ] Test `live` for published locale with no changes.
-- [ ] Test `live_with_changes` for published locale with draft changes.
-- [ ] Test primary locale can be ready while secondary locale is missing.
-- [ ] Test missing secondary locale does not block primary publish.
-- [ ] Test configured locale order is preserved.
-- [ ] Test non-`en` default locale appears correctly.
+- [x] Test `live` for published locale with no changes.
+- [x] Test `live_with_changes` for published locale with draft changes.
+- [x] Test primary locale can be ready while secondary locale is missing.
+- [x] Test missing secondary locale does not block primary publish.
+- [x] Test configured locale order is preserved.
+- [x] Test non-`en` default locale appears correctly.
 - [ ] Test public provider is not called by readiness detail.
-- [ ] Test exact detail includes issue codes, not final UI copy.
+- [x] Test exact detail includes issue codes, not final UI copy.
 
 ### Phase 2 Review Gate
 
-- [ ] Exact readiness detail is computed in Convex.
-- [ ] Vue components do not own new readiness rules.
-- [ ] Tests cover every state.
-- [ ] Tests cover data-only required-field behavior.
-- [ ] Tests cover locale-specific behavior.
-- [ ] No stored workflow state was added.
+- [x] Exact readiness detail is computed in Convex.
+- [x] Vue components do not own new readiness rules.
+- [x] Tests cover every state.
+- [x] Tests cover data-only required-field behavior.
+- [x] Tests cover locale-specific behavior.
+- [x] No stored workflow state was added.
 
 ## Phase 3: Cheap Workflow Summary Engine
 
@@ -979,28 +1065,28 @@ the full heavy publish preview for every row.
 
 ### Files Likely Touched
 
-- [ ] `packages/convex/src/entries/read.ts`
+- [x] `packages/convex/src/entries/read.ts`
 - [ ] `packages/convex/src/diagnostics.ts`
 - [ ] `packages/cms/studio-app/src/pages/index.vue`
-- [ ] `test/shared/studio-workflow.test.ts`
+- [x] `test/shared/studio-workflow.test.ts`
 
 ### Summary Rules
 
-- [ ] Use same `ReadinessState` values as exact detail.
-- [ ] Use same issue code values as exact detail.
-- [ ] Use same action kind values as exact detail.
-- [ ] Summary may be conservative.
-- [ ] Summary must not claim exact `ready` if exact readiness would need expensive checks.
-- [ ] Summary may say `draft` or `needs_work` with `check_required` action when uncertain.
-- [ ] Summary must include configured missing locales when cheap to know.
-- [ ] Summary must include published locale list.
-- [ ] Summary must include ready locale list only when confidently known.
+- [x] Use same `ReadinessState` values as exact detail.
+- [x] Use same issue code values as exact detail.
+- [x] Use same action kind values as exact detail.
+- [x] Summary may be conservative.
+- [x] Summary must not claim exact `ready` if exact readiness would need expensive checks.
+- [x] Summary may say `draft` or `needs_work` with `check_required` action when uncertain.
+- [x] Summary must include configured missing locales when cheap to know.
+- [x] Summary must include published locale list.
+- [x] Summary must include ready locale list only when confidently known.
 - [ ] Summary must include review locale list.
-- [ ] Summary must include issue counts.
-- [ ] Summary must not include full diagnostic payload.
-- [ ] Summary must not include confirmation tokens.
-- [ ] Summary must not include raw review preview JSON.
-- [ ] Summary must not call public provider.
+- [x] Summary must include issue counts.
+- [x] Summary must not include full diagnostic payload.
+- [x] Summary must not include confirmation tokens.
+- [x] Summary must not include raw review preview JSON.
+- [x] Summary must not call public provider.
 
 ### Dashboard Lanes
 
@@ -1013,21 +1099,21 @@ the full heavy publish preview for every row.
 
 ### Phase 3 Tests
 
-- [ ] Test summary uses same state enum as exact detail.
-- [ ] Test summary uses same issue code enum as exact detail.
-- [ ] Test summary includes missing configured locales.
-- [ ] Test summary does not claim ready when required fields are missing.
+- [x] Test summary uses same state enum as exact detail.
+- [x] Test summary uses same issue code enum as exact detail.
+- [x] Test summary includes missing configured locales.
+- [x] Test summary does not claim ready when required fields are missing.
 - [ ] Test summary groups review requests.
 - [ ] Test summary groups agent-prepared drafts.
-- [ ] Test summary remains cheap by avoiding full route-tree rebuild preview.
+- [x] Test summary remains cheap by avoiding full route-tree rebuild preview.
 - [ ] Test dashboard rendering maps lane names correctly.
 
 ### Phase 3 Review Gate
 
-- [ ] Dashboard can render from summary.
-- [ ] Summary does not become a second truth.
-- [ ] Exact surfaces still use exact detail.
-- [ ] No heavy per-row publish impact query is introduced.
+- [x] Dashboard can render from summary.
+- [x] Summary does not become a second truth.
+- [x] Exact surfaces still use exact detail.
+- [x] No heavy per-row publish impact query is introduced.
 
 ## Phase 4: Locale And Public Provider Foundation
 
@@ -1039,62 +1125,62 @@ Make i18n reliable before Studio expands on top of it.
 
 - [ ] `packages/convex/src/settings.ts`
 - [ ] `packages/convex/src/lib/locale.ts`
-- [ ] `packages/cms/src/nuxt-provider.mjs`
+- [x] `packages/cms/src/nuxt-provider.mjs`
 - [ ] `packages/cms/src/module/i18n.ts`
 - [ ] `packages/cms/src/module/content-contract.ts`
 - [ ] `packages/convex/src/public.ts`
-- [ ] `test/component/public-api.test.ts`
-- [ ] `test/module/module-i18n.test.ts`
-- [ ] `test/refactor/provider-contract.test.ts`
+- [x] `test/component/public-api.test.ts`
+- [x] `test/module/module-i18n.test.ts`
+- [x] `test/refactor/provider-contract.test.ts`
 
 ### Locale Ownership Rules
 
-- [ ] Define one source for configured locales.
-- [ ] Define one source for primary locale.
-- [ ] Define one source for runtime default locale.
+- [x] Define one source for configured locales.
+- [x] Define one source for primary locale.
+- [x] Define one source for runtime default locale.
 - [ ] Define how bootstrap settings seed locales.
 - [ ] Define how Studio settings update locales.
-- [ ] Define how provider reads locale config.
-- [ ] Remove hardcoded provider default locale.
-- [ ] Ensure non-`en` default locale works in tests.
-- [ ] Ensure missing configured locales appear in Studio readiness.
-- [ ] Ensure missing configured locales do not appear as published content.
-- [ ] Ensure language switch data is based on active public projections.
+- [x] Define how provider reads locale config.
+- [x] Remove hardcoded provider default locale.
+- [x] Ensure non-`en` default locale works in tests.
+- [x] Ensure missing configured locales appear in Studio readiness.
+- [x] Ensure missing configured locales do not appear as published content.
+- [x] Ensure language switch data is based on active public projections.
 - [ ] Ensure language switch UI can show missing work in Studio.
 - [ ] Ensure fallback behavior is explicit.
 - [ ] Ensure fallback behavior is not inferred by Vue components.
 
 ### Public Provider Rules
 
-- [ ] Public provider reads `publicEntries`.
-- [ ] Public provider reads `publicRoutes`.
+- [x] Public provider reads `publicEntries`.
+- [x] Public provider reads `publicRoutes`.
 - [ ] Public provider may read assets needed for published output.
 - [ ] Public provider may read site data needed for published output.
-- [ ] Public provider does not read draft rows.
-- [ ] Public provider does not read exact readiness detail.
-- [ ] Public provider does not read workflow summaries.
-- [ ] Public provider does not infer missing translations as content.
-- [ ] Public provider output matches active projection after publish.
+- [x] Public provider does not read draft rows.
+- [x] Public provider does not read exact readiness detail.
+- [x] Public provider does not read workflow summaries.
+- [x] Public provider does not infer missing translations as content.
+- [x] Public provider output matches active projection after publish.
 - [ ] Public provider output updates after subtree rebuild.
 
 ### Phase 4 Tests
 
-- [ ] Test provider default locale is configurable.
-- [ ] Test provider does not hardcode `en`.
-- [ ] Test public translations include only published locales.
-- [ ] Test Studio readiness includes configured missing locales.
-- [ ] Test missing configured locale does not create public content.
-- [ ] Test language switching after per-locale publish.
+- [x] Test provider default locale is configurable.
+- [x] Test provider does not hardcode `en`.
+- [x] Test public translations include only published locales.
+- [x] Test Studio readiness includes configured missing locales.
+- [x] Test missing configured locale does not create public content.
+- [x] Test language switching after per-locale publish.
 - [ ] Test language switching after automatic subtree rebuild.
 - [ ] Test sitemap/search/nav after per-locale publish.
 - [ ] Test sitemap/search/nav after automatic subtree rebuild.
 
 ### Phase 4 Review Gate
 
-- [ ] i18n source of truth is clear.
-- [ ] Public provider remains published-only.
-- [ ] Studio readiness can show missing locales.
-- [ ] Non-`en` default locale passes provider tests.
+- [x] i18n source of truth is clear.
+- [x] Public provider remains published-only.
+- [x] Studio readiness can show missing locales.
+- [x] Non-`en` default locale passes provider tests.
 
 ## Phase 5: Canonical Publish, Review, And Agent Operations
 
@@ -1119,7 +1205,7 @@ backend operation path.
 
 ### Publish Path Rules
 
-- [ ] Preview loads entry, collection, draft, and actor.
+- [ ] Preview loads entry, collection, draft, and caller.
 - [ ] Preview computes exact readiness detail.
 - [ ] Preview blocks if readiness has blockers.
 - [ ] Preview includes affected public URLs.
@@ -1141,55 +1227,55 @@ backend operation path.
 
 ### Review Request Rules
 
-- [ ] Request review requires edit or review permission.
-- [ ] Request review validates agent run when agent-created.
-- [ ] Request review computes preview in Convex.
-- [ ] Request review stores Convex-computed preview summary.
-- [ ] Request review stores version/hash data.
-- [ ] Request review stores affected locales.
-- [ ] Request review stores affected public URLs.
-- [ ] Request review does not store caller-provided preview JSON as truth.
-- [ ] Request review records actor identity.
-- [ ] Request review records human or agent actor kind.
-- [ ] Approval requires publish permission.
-- [ ] Approval re-runs current preview.
-- [ ] Approval fails if current preview is blocked.
-- [ ] Approval fails if review is stale.
-- [ ] Approval publishes through canonical publish path.
-- [ ] Approval updates review status.
-- [ ] Rejection updates review status.
+- [x] Request review requires edit or review permission.
+- [x] Request review validates agent run when agent-created.
+- [x] Request review computes preview in Convex.
+- [x] Request review stores Convex-computed preview summary.
+- [x] Request review stores version/hash data.
+- [x] Request review stores affected locales.
+- [x] Request review stores affected public URLs.
+- [x] Request review does not store caller-provided preview JSON as truth.
+- [x] Request review records caller identity.
+- [ ] Request review records human or agent caller kind.
+- [x] Approval requires publish permission.
+- [x] Approval re-runs current preview.
+- [x] Approval fails if current preview is blocked.
+- [x] Approval fails if review is stale.
+- [x] Approval publishes through canonical publish path.
+- [x] Approval updates review status.
+- [x] Rejection updates review status.
 - [ ] Request changes updates review status or creates change request state.
 
 ### Agent Operation Rules
 
-- [ ] Agent identity resolves through same app identity system as human.
-- [ ] Agent operation checks credential scope.
-- [ ] Agent operation checks member role permissions.
-- [ ] Agent operation checks collection/entry/locale permission context.
-- [ ] Agent direct publish calls canonical publish operation.
-- [ ] Agent direct publish uses same preview and confirmation semantics.
-- [ ] Agent direct publish writes same audit semantics.
-- [ ] Agent direct publish writes same revalidation semantics.
+- [x] Agent identity resolves through same app identity system as human.
+- [x] Agent operation checks credential scope.
+- [x] Agent operation checks member role permissions.
+- [x] Agent operation checks collection/entry/locale permission context.
+- [x] Agent direct publish calls canonical publish operation.
+- [x] Agent direct publish uses same preview and confirmation semantics.
+- [x] Agent direct publish writes same audit semantics.
+- [x] Agent direct publish writes same revalidation semantics.
 - [ ] Agent archive calls canonical archive operation.
 - [ ] Agent restore calls canonical restore operation.
-- [ ] Unauthorized agent publish fails closed or creates review according to tool contract.
+- [x] Unauthorized agent publish fails closed or creates review according to tool contract.
 - [ ] Agent diagnostics redact sensitive data.
-- [ ] Agent tools never write raw tables for editorial state.
+- [x] Agent tools never write raw tables for editorial state.
 
 ### Phase 5 Tests
 
-- [ ] Test manual publish uses canonical path.
-- [ ] Test review approval uses canonical path.
-- [ ] Test authorized agent publish uses canonical path.
-- [ ] Test manual publish and agent publish produce same revision shape.
-- [ ] Test manual publish and agent publish produce same projection shape.
-- [ ] Test manual publish and agent publish produce same audit shape.
-- [ ] Test manual publish and agent publish produce same revalidation shape.
-- [ ] Test review request computes preview in Convex.
-- [ ] Test spoofed review preview is ignored or rejected.
-- [ ] Test review approval re-checks current preview.
-- [ ] Test stale review approval fails.
-- [ ] Test unauthorized agent publish fails closed.
+- [x] Test manual publish uses canonical path.
+- [x] Test review approval uses canonical path.
+- [x] Test authorized agent publish uses canonical path.
+- [x] Test manual publish and agent publish produce same revision shape.
+- [x] Test manual publish and agent publish produce same projection shape.
+- [x] Test manual publish and agent publish produce same audit shape.
+- [x] Test manual publish and agent publish produce same revalidation shape.
+- [x] Test review request computes preview in Convex.
+- [x] Test spoofed review preview is ignored or rejected.
+- [x] Test review approval re-checks current preview.
+- [x] Test stale review approval fails.
+- [x] Test unauthorized agent publish fails closed.
 - [ ] Test unauthorized agent can request review when allowed.
 - [ ] Test agent archive is guarded.
 - [ ] Test agent restore is guarded.
@@ -1197,10 +1283,10 @@ backend operation path.
 ### Phase 5 Review Gate
 
 - [ ] There is one publish execution path.
-- [ ] Review request preview is server-computed.
+- [x] Review request preview is server-computed.
 - [ ] Agent publish has parity with human publish.
 - [ ] Unauthorized agent operations fail closed.
-- [ ] MCP tools are operation-based.
+- [x] MCP tools are operation-based.
 
 ## Phase 6: Automatic Subtree Route Rebuild
 
@@ -1239,53 +1325,53 @@ draft changes.
 
 ### Subtree Preview Algorithm
 
-- [ ] Detect whether current entry route changes for requested locale.
-- [ ] If route does not change, return no subtree rebuild effects.
-- [ ] Query direct children using `entries.by_parent`.
-- [ ] Traverse descendants breadth-first or depth-first.
-- [ ] Keep traversal deterministic.
+- [x] Detect whether current entry route changes for requested locale.
+- [x] If route does not change, return no subtree rebuild effects.
+- [x] Query direct children using `entries.by_parent`.
+- [x] Traverse descendants breadth-first or depth-first.
+- [x] Keep traversal deterministic.
 - [ ] Detect cycles and block publish if found.
-- [ ] For each descendant, check active public projection for locale.
-- [ ] Skip unpublished descendants for that locale.
-- [ ] Load descendant active revision.
-- [ ] Load descendant locale snapshot from active revision.
-- [ ] Preserve descendant snapshot values.
-- [ ] Preserve descendant published revision id.
+- [x] For each descendant, check active public projection for locale.
+- [x] Skip unpublished descendants for that locale.
+- [x] Load descendant active revision.
+- [x] Load descendant locale snapshot from active revision.
+- [x] Preserve descendant snapshot values.
+- [x] Preserve descendant published revision id.
 - [ ] Compute new ancestor slug chain.
-- [ ] Compute descendant new path.
-- [ ] Compute descendant new href.
-- [ ] Compare old path and new path.
-- [ ] Add affected URL entry when path changes.
-- [ ] Build route claim set for current entry and affected descendants.
-- [ ] Validate route uniqueness by `locale/path`.
-- [ ] Validate against unrelated existing public routes.
-- [ ] Validate against sibling descendant collisions.
+- [x] Compute descendant new path.
+- [x] Compute descendant new href.
+- [x] Compare old path and new path.
+- [x] Add affected URL entry when path changes.
+- [x] Build route claim set for current entry and affected descendants.
+- [x] Validate route uniqueness by `locale/path`.
+- [x] Validate against unrelated existing public routes.
+- [x] Validate against sibling descendant collisions.
 - [ ] Validate sitemap/search/nav output if route impacts it.
-- [ ] Return blockers for collisions.
+- [x] Return blockers for collisions.
 - [ ] Return warnings for large subtree if needed.
-- [ ] Return affected URLs in parent-first order.
+- [x] Return affected URLs in parent-first order.
 
 ### Subtree Execute Algorithm
 
-- [ ] Re-run subtree preview during execute.
-- [ ] Abort if subtree preview has blockers.
-- [ ] Publish current entry normally.
-- [ ] Rebuild each affected descendant from active published revision.
-- [ ] Upsert descendant `publicEntries`.
-- [ ] Upsert descendant `publicRoutes`.
-- [ ] Replace descendant public asset refs.
-- [ ] Emit descendant revalidation events.
-- [ ] Emit cache tags for old descendant URL.
-- [ ] Emit cache tags for new descendant URL.
-- [ ] Emit cache tags for parent URL.
+- [x] Re-run subtree preview during execute.
+- [x] Abort if subtree preview has blockers.
+- [x] Publish current entry normally.
+- [x] Rebuild each affected descendant from active published revision.
+- [x] Upsert descendant `publicEntries`.
+- [x] Upsert descendant `publicRoutes`.
+- [x] Replace descendant public asset refs.
+- [x] Emit descendant revalidation events.
+- [x] Emit cache tags for old descendant URL.
+- [x] Emit cache tags for new descendant URL.
+- [x] Emit cache tags for parent URL.
 - [ ] Emit sitemap cache tags when sitemap visibility changes.
 - [ ] Emit search cache tags when search visibility changes.
 - [ ] Emit nav cache tags when nav visibility changes.
-- [ ] Do not append descendant content revision unless route revision history requires it.
+- [x] Do not append descendant content revision unless route revision history requires it.
 - [ ] If route-only descendant revision is needed, define explicit revision kind.
-- [ ] Do not clear descendant dirty locales.
-- [ ] Do not update descendant draft rows.
-- [ ] Do not mark descendant unpublished changes as published.
+- [x] Do not clear descendant dirty locales.
+- [x] Do not update descendant draft rows.
+- [x] Do not mark descendant unpublished changes as published.
 - [ ] Write audit detail with affected descendant count.
 - [ ] Return affected descendant URLs in publish result.
 
@@ -1304,36 +1390,36 @@ draft changes.
 
 ### Subtree Revalidation Rules
 
-- [ ] Revalidate old parent URL.
-- [ ] Revalidate new parent URL.
-- [ ] Revalidate old descendant URLs.
-- [ ] Revalidate new descendant URLs.
+- [x] Revalidate old parent URL.
+- [x] Revalidate new parent URL.
+- [x] Revalidate old descendant URLs.
+- [x] Revalidate new descendant URLs.
 - [ ] Revalidate sitemap when any included URL changes.
 - [ ] Revalidate search when any searchable URL changes.
 - [ ] Revalidate nav when any nav-visible URL changes.
 - [ ] Revalidate language switch data when locale route changes.
-- [ ] Store durable revalidation events.
+- [x] Store durable revalidation events.
 - [ ] Surface refresh tracking in Studio.
 
 ### Phase 6 Tests
 
-- [ ] Test parent route change previews descendant URL changes.
-- [ ] Test parent route publish rebuilds child public route.
-- [ ] Test parent route publish rebuilds grandchild public route.
+- [x] Test parent route change previews descendant URL changes.
+- [x] Test parent route publish rebuilds child public route.
+- [x] Test parent route publish rebuilds grandchild public route.
 - [ ] Test subtree rebuild affects only same locale.
 - [ ] Test unpublished descendants are skipped.
-- [ ] Test descendant draft content is not published.
-- [ ] Test descendant dirty locale remains dirty.
-- [ ] Test descendant active revision remains content source.
-- [ ] Test old descendant path no longer resolves.
-- [ ] Test new descendant path resolves.
+- [x] Test descendant draft content is not published.
+- [x] Test descendant dirty locale remains dirty.
+- [x] Test descendant active revision remains content source.
+- [x] Test old descendant path no longer resolves.
+- [x] Test new descendant path resolves.
 - [ ] Test provider reads new descendant path.
 - [ ] Test sitemap reflects new descendant path.
 - [ ] Test search reflects new descendant path.
 - [ ] Test nav reflects new descendant path.
 - [ ] Test cache tags include old and new URLs.
-- [ ] Test revalidation events include descendants.
-- [ ] Test collision with unrelated route blocks before mutation.
+- [x] Test revalidation events include descendants.
+- [x] Test collision with unrelated route blocks before mutation.
 - [ ] Test collision between descendants blocks before mutation.
 - [ ] Test cycle detection blocks before mutation.
 - [ ] Test review preview includes subtree effects.
@@ -1341,7 +1427,7 @@ draft changes.
 
 ### Phase 6 Review Gate
 
-- [ ] Subtree preview is deterministic.
+- [x] Subtree preview is deterministic.
 - [ ] Subtree execute is atomic from product perspective.
 - [ ] Descendant drafts are untouched.
 - [ ] Public provider reads correct new paths.
@@ -1357,15 +1443,15 @@ workflow truth locally.
 
 ### Files Likely Touched
 
-- [ ] `packages/cms/studio-app/src/pages/[collection]/[id].vue`
-- [ ] `packages/cms/studio-app/src/composables/internal/useEntryPublishing.ts`
+- [x] `packages/cms/studio-app/src/pages/[collection]/[id].vue`
+- [x] `packages/cms/studio-app/src/composables/internal/useEntryPublishing.ts`
 - [ ] `packages/cms/studio-app/src/composables/internal/useEntryLocales.ts`
-- [ ] `packages/cms/studio-app/src/components/studio/editor/StudioEntryStatusRail.vue`
+- [x] `packages/cms/studio-app/src/components/studio/editor/StudioEntryStatusRail.vue`
 - [ ] `packages/cms/studio-app/src/components/studio/editor/StudioEntryTranslationReadinessPanel.vue`
-- [ ] `packages/cms/studio-app/src/components/studio/editor/StudioPublishDialog.vue`
+- [x] `packages/cms/studio-app/src/components/studio/editor/StudioPublishDialog.vue`
 - [ ] `packages/cms/studio-app/src/components/studio/editor/StudioEntryTopBar.vue`
-- [ ] `packages/cms/studio-app/src/lib/publicWorkflow.ts`
-- [ ] `test/shared/studio-workflow.test.ts`
+- [x] `packages/cms/studio-app/src/lib/publicWorkflow.ts`
+- [x] `test/shared/studio-workflow.test.ts`
 
 ### Entry Editor UI Rules
 
@@ -1373,9 +1459,9 @@ workflow truth locally.
 - [ ] Top bar shows autosave state separately from readiness.
 - [ ] Top bar publish button respects `canPublish`.
 - [ ] Top bar review button respects `canRequestReview`.
-- [ ] Right rail shows exact readiness detail.
-- [ ] Right rail shows locale matrix.
-- [ ] Right rail shows blockers from backend issues.
+- [x] Right rail shows exact readiness detail.
+- [x] Right rail shows locale matrix.
+- [x] Right rail shows blockers from backend issues.
 - [ ] Right rail shows warnings from backend issues.
 - [ ] Right rail shows affected public URLs.
 - [ ] Right rail shows subtree affected URLs when relevant.
@@ -1385,7 +1471,7 @@ workflow truth locally.
 - [ ] Publish dialog shows descendant route changes.
 - [ ] Publish dialog shows warnings and blockers.
 - [ ] Publish dialog confirms with backend token.
-- [ ] Translation panel shows configured missing locales.
+- [x] Translation panel shows configured missing locales.
 - [ ] Translation panel offers add/copy/AI actions.
 - [ ] Language switch readiness uses readiness detail.
 - [ ] Checkpoint copy becomes save-version copy.
@@ -1393,15 +1479,15 @@ workflow truth locally.
 
 ### Studio Copy Mapping
 
-- [ ] Map `draft` to `Draft`.
-- [ ] Map `needs_work` to `Needs work`.
-- [ ] Map `ready` to `Ready to publish`.
-- [ ] Map `in_review` to `In review`.
-- [ ] Map `live` to `Live`.
-- [ ] Map `live_with_changes` to `Live with unpublished changes`.
-- [ ] Map `missing` to `Missing translation`.
-- [ ] Map issue codes to marketer copy.
-- [ ] Map action codes to button labels.
+- [x] Map `draft` to `Draft`.
+- [x] Map `needs_work` to `Needs work`.
+- [x] Map `ready` to `Ready to publish`.
+- [x] Map `in_review` to `In review`.
+- [x] Map `live` to `Live`.
+- [x] Map `live_with_changes` to `Live with unpublished changes`.
+- [x] Map `missing` to `Missing translation`.
+- [x] Map issue codes to marketer copy.
+- [x] Map action codes to button labels.
 - [ ] Keep raw issue code visible only in developer details.
 - [ ] Keep raw diagnostic id visible only in developer details.
 - [ ] Keep cache tags visible only in developer details.
@@ -1411,8 +1497,8 @@ workflow truth locally.
 ### Studio Deletion Checklist
 
 - [ ] Delete local entry next-action publishability rules.
-- [ ] Delete local translation suggested-action publishability rules.
-- [ ] Delete duplicated publish readiness state enum when no longer needed.
+- [x] Delete local translation suggested-action publishability rules.
+- [x] Delete duplicated publish readiness state enum when no longer needed.
 - [ ] Delete duplicated route status label logic when no longer needed.
 - [ ] Delete duplicated blocking issue merge logic when no longer needed.
 - [ ] Delete raw review preview summary as primary UI.
@@ -1420,12 +1506,12 @@ workflow truth locally.
 
 ### Phase 7 Tests
 
-- [ ] Test rail renders each readiness state.
-- [ ] Test rail renders backend blockers.
+- [x] Test rail renders each readiness state.
+- [x] Test rail renders backend blockers.
 - [ ] Test rail renders backend warnings.
 - [ ] Test rail renders affected public URLs.
 - [ ] Test rail renders descendant affected URLs.
-- [ ] Test publish dialog uses backend readiness.
+- [x] Test publish dialog uses backend readiness.
 - [ ] Test publish button disabled when `canPublish` false.
 - [ ] Test request review button visible when `canRequestReview` true.
 - [ ] Test language matrix shows missing configured locales.
@@ -1448,47 +1534,47 @@ entry editor.
 
 ### Files Likely Touched
 
-- [ ] `packages/cms/studio-app/src/pages/index.vue`
-- [ ] `packages/cms/studio-app/src/pages/reviews.vue`
-- [ ] `packages/cms/studio-app/src/lib/publicWorkflow.ts`
-- [ ] `packages/convex/src/entries/read.ts`
-- [ ] `packages/convex/src/reviewRequests.ts`
-- [ ] `test/shared/studio-workflow.test.ts`
-- [ ] `test/component/reviewRequests.test.ts`
+- [x] `packages/cms/studio-app/src/pages/index.vue`
+- [x] `packages/cms/studio-app/src/pages/reviews.vue`
+- [x] `packages/cms/studio-app/src/lib/publicWorkflow.ts`
+- [x] `packages/convex/src/entries/read.ts`
+- [x] `packages/convex/src/reviewRequests.ts`
+- [x] `test/shared/studio-workflow.test.ts`
+- [x] `test/component/reviewRequests.test.ts`
 
 ### Dashboard Rules
 
-- [ ] Dashboard uses `EntryWorkflowSummary`.
-- [ ] Dashboard does not run exact readiness for every row.
-- [ ] Dashboard lanes use canonical states.
-- [ ] Dashboard issue counts use canonical issue severity.
-- [ ] Dashboard actions use canonical action kinds.
+- [x] Dashboard uses `EntryWorkflowSummary`.
+- [x] Dashboard does not run exact readiness for every row.
+- [x] Dashboard lanes use canonical states.
+- [x] Dashboard issue counts use canonical issue severity.
+- [x] Dashboard actions use canonical action kinds.
 - [ ] Dashboard `Needs attention` links to filtered content.
-- [ ] Dashboard `Continue writing` links to drafts.
+- [x] Dashboard `Continue writing` links to drafts.
 - [ ] Dashboard `Ready to publish` links to ready locales.
 - [ ] Dashboard `AI prepared` links to review/agent-prepared work.
-- [ ] Dashboard hides raw ids.
-- [ ] Dashboard hides cache tags.
-- [ ] Dashboard hides preview JSON.
+- [x] Dashboard hides raw ids.
+- [x] Dashboard hides cache tags.
+- [x] Dashboard hides preview JSON.
 
 ### Review Inbox Rules
 
-- [ ] Review cards show who or what prepared the change.
-- [ ] Review cards show human actor when human-created.
-- [ ] Review cards show agent actor when agent-created.
-- [ ] Review cards show entry and locales.
-- [ ] Review cards show marketer summary.
-- [ ] Review cards show readiness state.
-- [ ] Review cards show affected public URLs.
+- [x] Review cards show who or what prepared the change.
+- [ ] Review cards show human caller when human-created.
+- [ ] Review cards show agent caller when agent-created.
+- [x] Review cards show entry and locales.
+- [x] Review cards show marketer summary.
+- [x] Review cards show readiness state.
+- [x] Review cards show affected public URLs.
 - [ ] Review cards show descendant affected URLs.
-- [ ] Review cards show blockers.
-- [ ] Review cards show warnings.
-- [ ] Review cards show approve/publish when authorized.
+- [x] Review cards show blockers.
+- [x] Review cards show warnings.
+- [x] Review cards show approve/publish when authorized.
 - [ ] Review cards show request changes when authorized.
-- [ ] Review cards show reject when authorized.
-- [ ] Review cards show stale state.
-- [ ] Review cards hide raw preview JSON by default.
-- [ ] Review cards expose raw preview JSON in developer details.
+- [x] Review cards show reject when authorized.
+- [x] Review cards show stale state.
+- [x] Review cards hide raw preview JSON by default.
+- [x] Review cards expose raw preview JSON in developer details.
 
 ### Phase 8 Tests
 
@@ -1497,17 +1583,17 @@ entry editor.
 - [ ] Test dashboard ready locale count.
 - [ ] Test dashboard agent-prepared count.
 - [ ] Test dashboard avoids exact per-row publish preview.
-- [ ] Test review card shows Convex-computed summary.
+- [x] Test review card shows Convex-computed summary.
 - [ ] Test review card hides raw preview JSON.
-- [ ] Test stale review card blocks approval.
-- [ ] Test authorized agent-prepared review approval.
+- [x] Test stale review card blocks approval.
+- [x] Test authorized agent-prepared review approval.
 - [ ] Test request changes action.
 
 ### Phase 8 Review Gate
 
-- [ ] Dashboard and entry editor agree on vocabulary.
-- [ ] Review inbox and publish preview agree on backend truth.
-- [ ] Raw technical data is no longer primary UI.
+- [x] Dashboard and entry editor agree on vocabulary.
+- [x] Review inbox and publish preview agree on backend truth.
+- [x] Raw technical data is no longer primary UI.
 
 ## Phase 9: MCP And Agent Tooling
 
@@ -1517,66 +1603,66 @@ Make MCP a powerful first-class CMS surface while preserving operation safety.
 
 ### Files Likely Touched
 
-- [ ] `packages/cms/src/server/mcp`
-- [ ] `packages/cms/src/server/mcp/tools/content`
+- [x] `packages/cms/src/server/mcp`
+- [x] `packages/cms/src/server/mcp/tools/content`
 - [ ] `packages/convex/src/mcpCredentials.ts`
-- [ ] `packages/convex/src/agentRuns.ts`
-- [ ] `packages/convex/src/reviewRequests.ts`
-- [ ] `test/runtime/mcp-request-publish-review.test.ts`
-- [ ] `test/runtime/mcp-preview-publish.test.ts`
+- [x] `packages/convex/src/agentRuns.ts`
+- [x] `packages/convex/src/reviewRequests.ts`
+- [x] `test/runtime/mcp-request-publish-review.test.ts`
+- [x] `test/runtime/mcp-preview-publish.test.ts`
 
 ### MCP Tool Set
 
 - [ ] Tool: start agent run.
-- [ ] Tool: get readiness detail.
-- [ ] Tool: prepare draft.
-- [ ] Tool: request review.
-- [ ] Tool: preview publish.
-- [ ] Tool: publish when authorized.
-- [ ] Tool: archive when authorized.
-- [ ] Tool: restore when authorized.
+- [x] Tool: get readiness detail.
+- [x] Tool: prepare draft.
+- [x] Tool: request review.
+- [x] Tool: preview publish.
+- [x] Tool: publish when authorized.
+- [x] Tool: archive when authorized.
+- [x] Tool: restore when authorized.
 - [ ] Tool: list own review state.
 - [ ] Tool: list own operation state.
-- [ ] Tool: read developer diagnostics with redaction.
+- [x] Tool: read developer diagnostics with redaction.
 
 ### MCP Safety Rules
 
-- [ ] Every tool authenticates.
-- [ ] Every write tool resolves app identity.
-- [ ] Every write tool checks API key status.
-- [ ] Every write tool checks MCP scope.
-- [ ] Every write tool checks member role.
-- [ ] Every write tool calls Convex operation.
-- [ ] No write tool mutates raw tables.
-- [ ] No tool returns confirmation tokens unless needed by operation flow.
-- [ ] No tool exposes secret settings.
-- [ ] Diagnostics redact credentials.
-- [ ] Diagnostics redact session tokens.
-- [ ] Diagnostics redact raw auth headers.
-- [ ] Destructive operations require explicit confirmation flow.
-- [ ] Archive/restore operations are audited.
-- [ ] Publish operations are audited.
+- [x] Every tool authenticates.
+- [x] Every write tool resolves app identity.
+- [x] Every write tool checks API key status.
+- [x] Every write tool checks MCP scope.
+- [x] Every write tool checks member role.
+- [x] Every write tool calls Convex operation.
+- [x] No write tool mutates raw tables.
+- [x] No tool returns confirmation tokens unless needed by operation flow.
+- [x] No tool exposes secret settings.
+- [x] Diagnostics redact credentials.
+- [x] Diagnostics redact session tokens.
+- [x] Diagnostics redact raw auth headers.
+- [x] Destructive operations require explicit confirmation flow.
+- [x] Archive/restore operations are audited.
+- [x] Publish operations are audited.
 
 ### Phase 9 Tests
 
-- [ ] Test unauthenticated MCP tool fails.
-- [ ] Test revoked API key fails.
-- [ ] Test missing scope fails.
+- [x] Test unauthenticated MCP tool fails.
+- [x] Test revoked API key fails.
+- [x] Test missing scope fails.
 - [ ] Test edit-only agent can prepare draft.
-- [ ] Test edit-only agent cannot publish.
-- [ ] Test edit-only agent can request review when allowed.
-- [ ] Test publish-scoped agent can publish.
-- [ ] Test publish-scoped agent uses canonical publish path.
-- [ ] Test archive-scoped agent can archive.
-- [ ] Test restore-scoped agent can restore.
+- [x] Test edit-only agent cannot publish.
+- [x] Test edit-only agent can request review when allowed.
+- [x] Test publish-scoped agent can publish.
+- [x] Test publish-scoped agent uses canonical publish path.
+- [x] Test archive-scoped agent can archive.
+- [x] Test restore-scoped agent can restore.
 - [ ] Test MCP publish includes subtree rebuild effects.
-- [ ] Test MCP diagnostics are redacted.
+- [x] Test MCP diagnostics are redacted.
 
 ### Phase 9 Review Gate
 
-- [ ] MCP tools are operation-based.
-- [ ] Agent and human permission behavior matches.
-- [ ] Powerful AI usage is enabled without raw table bypasses.
+- [x] MCP tools are operation-based.
+- [x] Agent and human permission behavior matches.
+- [x] Powerful AI usage is enabled without raw table bypasses.
 
 ## Phase 10: Assets, History, And Website Refresh Tracking
 
@@ -1588,64 +1674,77 @@ website output.
 ### Files Likely Touched
 
 - [ ] `packages/convex/src/assets.ts`
-- [ ] `packages/convex/src/entries/workflow/commands.ts`
+- [x] `packages/convex/src/entries/workflow/commands.ts`
+- [x] `packages/convex/src/entries/readiness.ts`
 - [ ] `packages/convex/src/revalidation.ts`
 - [ ] `packages/cms/studio-app/src/composables/internal/useEntryHistory.ts`
-- [ ] `packages/cms/studio-app/src/components/studio/editor/StudioVersionHistoryCard.vue`
+- [x] `packages/cms/studio-app/src/components/studio/editor/StudioVersionHistoryCard.vue`
 - [ ] `packages/cms/studio-app/src/components/studio/editor/StudioCheckpointDialog.vue`
+- [x] `packages/cms/studio-app/src/components/studio/settings/StudioSettingsRevalidationSection.vue`
+- [x] `packages/cms/studio-app/src/pages/index.vue`
 - [ ] `packages/cms/studio-app/src/components/studio/StudioAssetBrowser.vue`
-- [ ] `test/component/entries/publish.test.ts`
-- [ ] `test/component/revalidation.test.ts`
+- [x] `test/component/diagnostics.test.ts`
+- [x] `test/component/entries/publish.test.ts`
+- [x] `test/component/public-api.test.ts`
+- [x] `test/component/revalidation.test.ts`
+- [x] `test/runtime/studio-workflow-components.test.ts`
+- [x] `test/shared/studio-workflow.test.ts`
 
 ### Asset Freshness Decision
 
-- [ ] Decide publish-time asset metadata snapshot or live asset metadata.
-- [ ] Recommended: publish-time metadata snapshot plus explicit republish/refresh.
-- [ ] Document chosen model.
-- [ ] Ensure readiness can detect stale asset metadata if chosen model requires it.
-- [ ] Ensure publish projection writes chosen asset metadata.
-- [ ] Ensure asset update shows affected content when possible.
-- [ ] Ensure public provider output matches chosen model.
-- [ ] Ensure subtree rebuild preserves descendant asset metadata correctly.
+- [x] Decide publish-time asset metadata snapshot or live asset metadata.
+- [x] Recommended: publish-time metadata snapshot plus explicit republish/refresh.
+- [x] Document chosen model.
+- [x] Ensure readiness can detect stale asset metadata if chosen model requires it.
+- [x] Ensure publish projection writes chosen asset metadata.
+- [x] Ensure asset update shows affected content when possible.
+- [x] Ensure public provider output matches chosen model.
+- [x] Ensure subtree rebuild preserves descendant asset metadata correctly.
+
+Chosen model: published asset metadata is a publish-time snapshot. Public
+projection data stores the rendered alt/caption used by the website. Later
+asset metadata edits do not silently mutate published output; exact readiness
+derives `asset_metadata_stale` by rebuilding the active revision projection
+against current asset metadata and lets the locale be republished explicitly.
 
 ### History Copy Rules
 
-- [ ] Replace primary `checkpoint` copy with `save version`.
-- [ ] Display publish events as `Published English`.
-- [ ] Display restore events as `Restored version`.
-- [ ] Display agent events as `AI drafted German` or equivalent copy.
-- [ ] Keep raw revision ids in developer details.
-- [ ] Keep revision kind available in diagnostics.
-- [ ] Keep recovery actions clear.
+- [x] Replace primary `checkpoint` copy with `save version`.
+- [x] Display publish events as `Published English`.
+- [x] Display restore events as `Restored version`.
+- [x] Display agent events as `AI drafted German` or equivalent copy.
+- [x] Keep raw revision ids in developer details.
+- [x] Keep revision kind available in diagnostics.
+- [x] Keep recovery actions clear.
 
 ### Website Refresh Rules
 
-- [ ] Show post-publish tracking as `Website refresh`.
-- [ ] Show pending state.
-- [ ] Show success state.
-- [ ] Show failed state.
-- [ ] Show retry action when safe.
-- [ ] Keep cache tags in developer details.
-- [ ] Keep revalidation event ids in developer details.
-- [ ] Include subtree route rebuild URLs in refresh tracking.
+- [x] Show post-publish tracking as `Website refresh`.
+- [x] Show pending state.
+- [x] Show success state.
+- [x] Show failed state.
+- [x] Show retry action when safe.
+- [x] Keep cache tags in developer details.
+- [x] Keep revalidation event ids in developer details.
+- [x] Include subtree route rebuild URLs in refresh tracking.
 
 ### Phase 10 Tests
 
-- [ ] Test asset metadata model after publish.
-- [ ] Test asset metadata model after asset edit.
-- [ ] Test asset metadata model after subtree rebuild.
-- [ ] Test history copy no longer exposes checkpoint as primary term.
+- [x] Test asset metadata model after publish.
+- [x] Test asset metadata model after asset edit.
+- [x] Test asset metadata model after subtree rebuild.
+- [x] Test history copy no longer exposes checkpoint as primary term.
 - [ ] Test restore action remains available.
-- [ ] Test website refresh pending state.
-- [ ] Test website refresh success state.
-- [ ] Test website refresh failed state.
-- [ ] Test website refresh includes descendant URLs after subtree rebuild.
+- [x] Test website refresh pending state.
+- [x] Test website refresh success state.
+- [x] Test website refresh failed state.
+- [x] Test website refresh includes descendant URLs after subtree rebuild.
 
 ### Phase 10 Review Gate
 
-- [ ] Asset freshness is explicit.
-- [ ] History is marketer-readable.
-- [ ] Website refresh tracking is durable and understandable.
+- [x] Asset freshness is explicit.
+- [x] History is marketer-readable.
+- [x] Website refresh tracking is durable and understandable.
 
 ## Phase 11: Hard Cutover And Deletion
 
@@ -1655,41 +1754,41 @@ Remove old paths after the new paths pass tests.
 
 ### Deletion Rules
 
-- [ ] Delete unreleased internal compatibility paths.
-- [ ] Delete duplicate frontend readiness derivation.
-- [ ] Delete duplicate backend presentation models.
-- [ ] Delete raw review preview primary rendering.
-- [ ] Delete old MCP preview trust path.
-- [ ] Delete hardcoded default locale path.
-- [ ] Delete route blocking language now that subtree rebuild is v1.
-- [ ] Keep released public APIs compatible unless explicitly versioned.
-- [ ] Keep developer diagnostics.
-- [ ] Keep migration paths for user data.
+- [x] Delete unreleased internal compatibility paths.
+- [x] Delete duplicate frontend readiness derivation.
+- [x] Delete duplicate backend presentation models.
+- [x] Delete raw review preview primary rendering.
+- [x] Delete old MCP preview trust path.
+- [x] Delete hardcoded default locale path.
+- [x] Delete route blocking language now that subtree rebuild is v1.
+- [x] Keep released public APIs compatible unless explicitly versioned.
+- [x] Keep developer diagnostics.
+- [x] Keep migration paths for user data.
 
 ### Cutover Checklist
 
-- [ ] All exact readiness tests pass.
-- [ ] All workflow summary tests pass.
-- [ ] All publish/review/agent tests pass.
-- [ ] All subtree rebuild tests pass.
-- [ ] All i18n/provider tests pass.
-- [ ] All Studio readiness rendering tests pass.
-- [ ] All MCP tests pass.
-- [ ] Search for old helper names.
-- [ ] Search for old state enum names.
-- [ ] Search for raw preview primary UI usage.
-- [ ] Search for hardcoded `en`.
-- [ ] Search for public provider draft/readiness reads.
-- [ ] Search for MCP raw table writes.
-- [ ] Delete obsolete tests that only protected removed behavior.
-- [ ] Add replacement tests for new behavior.
+- [x] All exact readiness tests pass.
+- [x] All workflow summary tests pass.
+- [x] All publish/review/agent tests pass.
+- [x] All subtree rebuild tests pass.
+- [x] All i18n/provider tests pass.
+- [x] All Studio readiness rendering tests pass.
+- [x] All MCP tests pass.
+- [x] Search for old helper names.
+- [x] Search for old state enum names.
+- [x] Search for raw preview primary UI usage.
+- [x] Search for hardcoded `en`.
+- [x] Search for public provider draft/readiness reads.
+- [x] Search for MCP raw table writes.
+- [x] Delete obsolete tests that only protected removed behavior.
+- [x] Add replacement tests for new behavior.
 
 ### Phase 11 Review Gate
 
-- [ ] No old path remains for unreleased internals.
-- [ ] No duplicate source of truth remains.
-- [ ] Public/released APIs retain compatibility or have explicit migration notes.
-- [ ] `pnpm run check` passes.
+- [x] No old path remains for unreleased internals.
+- [x] No duplicate source of truth remains.
+- [x] Public/released APIs retain compatibility or have explicit migration notes.
+- [x] `pnpm run check` passes.
 
 ## Global Test Commands
 
@@ -1730,17 +1829,17 @@ pnpm run release:verify
 
 ### PR 1: Vocabulary And Failing Tests
 
-- [ ] Add readiness state vocabulary.
-- [ ] Add issue code vocabulary.
-- [ ] Add action code vocabulary.
+- [x] Add readiness state vocabulary.
+- [x] Add issue code vocabulary.
+- [x] Add action code vocabulary.
 - [ ] Add failing exact readiness tests.
 - [ ] Add failing workflow summary tests.
 - [ ] Add failing review preview tests.
-- [ ] Add failing agent publish tests.
+- [x] Add failing agent publish tests.
 - [ ] Add failing subtree rebuild tests.
 - [ ] Add failing i18n provider tests.
-- [ ] Do not migrate UI in this PR.
-- [ ] Do not add stored workflow state in this PR.
+- [x] Do not migrate UI in this PR.
+- [x] Do not add stored workflow state in this PR.
 
 ### PR 2: Exact Readiness Detail
 
@@ -1773,11 +1872,11 @@ pnpm run release:verify
 
 ### PR 5: Publish/Review/Agent Canonical Path
 
-- [ ] Make review preview Convex-computed.
-- [ ] Make review approval re-check current preview.
-- [ ] Make review approval use canonical publish path.
-- [ ] Add authorized agent direct publish.
-- [ ] Add unauthorized agent fail-closed behavior.
+- [x] Make review preview Convex-computed.
+- [x] Make review approval re-check current preview.
+- [x] Make review approval use canonical publish path.
+- [x] Add authorized agent direct publish.
+- [x] Add unauthorized agent fail-closed behavior.
 - [ ] Add archive/restore operation parity.
 
 ### PR 6: Automatic Subtree Rebuild
@@ -1836,36 +1935,36 @@ pnpm run release:verify
 
 ### Readiness State Matrix
 
-- [ ] Missing locale yields `missing`.
-- [ ] Saved empty draft yields `draft` or `needs_work` according to exact check context.
-- [ ] Missing required field yields `needs_work`.
-- [ ] Valid draft yields `ready`.
-- [ ] Pending non-stale review yields `in_review`.
-- [ ] Published unchanged locale yields `live`.
-- [ ] Published changed locale yields `live_with_changes`.
+- [x] Missing locale yields `missing`.
+- [x] Saved empty draft yields `draft` or `needs_work` according to exact check context.
+- [x] Missing required field yields `needs_work`.
+- [x] Valid draft yields `ready`.
+- [x] Pending non-stale review yields `in_review`.
+- [x] Published unchanged locale yields `live`.
+- [x] Published changed locale yields `live_with_changes`.
 - [ ] Archived entry blocks publish.
 - [ ] Collection mismatch blocks publish.
 - [ ] Missing settings blocks publish with clear issue.
 
 ### Locale Matrix
 
-- [ ] Primary locale can publish while German missing.
+- [x] Primary locale can publish while German missing.
 - [ ] English can publish while German blocked.
 - [ ] German can publish while English live.
-- [ ] French missing appears in Studio readiness.
+- [x] French missing appears in Studio readiness.
 - [ ] French missing does not appear as public content.
-- [ ] Non-`en` default locale works.
+- [x] Non-`en` default locale works.
 - [ ] Parent locale must be public before child locale can publish.
 - [ ] Language switch reads published projections.
 
 ### Required Field Matrix
 
-- [ ] Shared required missing blocks all requested locales.
-- [ ] Localized required missing blocks one locale.
+- [x] Shared required missing blocks all requested locales.
+- [x] Localized required missing blocks one locale.
 - [ ] Body required missing blocks correct scope.
 - [ ] SEO required missing blocks publish.
-- [ ] Data-only required missing blocks publish.
-- [ ] Draft save allows required missing field.
+- [x] Data-only required missing blocks publish.
+- [x] Draft save allows required missing field.
 - [ ] Agent draft save allows required missing field.
 - [ ] Review request is blocked or marked needs work when required field missing.
 
@@ -1965,81 +2064,81 @@ pnpm run release:verify
 
 ### Vocabulary Tracking
 
-- [ ] VOC-001: Add readiness state constants.
-- [ ] VOC-002: Add readiness state type.
-- [ ] VOC-003: Add readiness state validator.
-- [ ] VOC-004: Add readiness issue code constants.
-- [ ] VOC-005: Add readiness issue code type.
-- [ ] VOC-006: Add readiness issue code validator.
-- [ ] VOC-007: Add readiness action constants.
-- [ ] VOC-008: Add readiness action type.
-- [ ] VOC-009: Add readiness action validator.
-- [ ] VOC-010: Add issue builder helper.
-- [ ] VOC-011: Add action builder helper.
-- [ ] VOC-012: Add issue params JSON validation.
-- [ ] VOC-013: Add action params JSON validation.
-- [ ] VOC-014: Add type tests.
-- [ ] VOC-015: Add runtime validator tests.
-- [ ] VOC-016: Keep UI copy out of contract.
-- [ ] VOC-017: Keep experimental detail shape internal.
+- [x] VOC-001: Add readiness state constants.
+- [x] VOC-002: Add readiness state type.
+- [x] VOC-003: Add readiness state validator.
+- [x] VOC-004: Add readiness issue code constants.
+- [x] VOC-005: Add readiness issue code type.
+- [x] VOC-006: Add readiness issue code validator.
+- [x] VOC-007: Add readiness action constants.
+- [x] VOC-008: Add readiness action type.
+- [x] VOC-009: Add readiness action validator.
+- [x] VOC-010: Add issue builder helper.
+- [x] VOC-011: Add action builder helper.
+- [x] VOC-012: Add issue params JSON validation.
+- [x] VOC-013: Add action params JSON validation.
+- [x] VOC-014: Add type tests.
+- [x] VOC-015: Add runtime validator tests.
+- [x] VOC-016: Keep UI copy out of contract.
+- [x] VOC-017: Keep experimental detail shape internal.
 - [ ] VOC-018: Add Studio copy map.
 - [ ] VOC-019: Add MCP copy map.
-- [ ] VOC-020: Review public exports.
+- [x] VOC-020: Review public exports.
 
 ### Exact Readiness Tracking
 
-- [ ] RDY-001: Add `computeEntryReadinessDetail` module.
-- [ ] RDY-002: Load entry.
-- [ ] RDY-003: Load collection.
-- [ ] RDY-004: Load settings.
-- [ ] RDY-005: Resolve locales.
-- [ ] RDY-006: Resolve primary locale.
-- [ ] RDY-007: Resolve default locale.
-- [ ] RDY-008: Load draft rows.
-- [ ] RDY-009: Load public projections.
-- [ ] RDY-010: Load public routes.
-- [ ] RDY-011: Load review requests.
-- [ ] RDY-012: Load current actor permissions.
-- [ ] RDY-013: Build locale record for every configured locale.
-- [ ] RDY-014: Derive missing state.
-- [ ] RDY-015: Derive draft state.
-- [ ] RDY-016: Derive needs-work state.
-- [ ] RDY-017: Derive ready state.
-- [ ] RDY-018: Derive in-review state.
-- [ ] RDY-019: Derive live state.
-- [ ] RDY-020: Derive live-with-changes state.
-- [ ] RDY-021: Compute required field blockers.
-- [ ] RDY-022: Compute route blockers.
-- [ ] RDY-023: Compute parent route blockers.
+- [x] RDY-001: Add `computeEntryReadinessDetail` module.
+- [x] RDY-002: Load entry.
+- [x] RDY-003: Load collection.
+- [x] RDY-004: Load settings.
+- [x] RDY-005: Resolve locales.
+- [x] RDY-006: Resolve primary locale.
+- [x] RDY-007: Resolve default locale.
+- [x] RDY-008: Load draft rows.
+- [x] RDY-009: Load public projections.
+- [x] RDY-010: Load public routes.
+- [x] RDY-011: Load review requests.
+- [x] RDY-012: Load current caller permissions.
+- [x] RDY-013: Build locale record for every configured locale.
+- [x] RDY-014: Derive missing state.
+- [x] RDY-015: Derive draft state.
+- [x] RDY-016: Derive needs-work state.
+- [x] RDY-017: Derive ready state.
+- [x] RDY-018: Derive in-review state.
+- [x] RDY-019: Derive live state.
+- [x] RDY-020: Derive live-with-changes state.
+- [x] RDY-021: Compute required field blockers.
+- [x] RDY-022: Compute route blockers.
+- [x] RDY-023: Compute parent route blockers.
 - [ ] RDY-024: Compute relation warnings/blockers.
 - [ ] RDY-025: Compute asset warnings/blockers.
 - [ ] RDY-026: Compute subtree affected URLs.
 - [ ] RDY-027: Compute subtree collision blockers.
-- [ ] RDY-028: Compute public URL.
-- [ ] RDY-029: Compute draft URL.
-- [ ] RDY-030: Compute next action.
-- [ ] RDY-031: Serialize result.
-- [ ] RDY-032: Add Convex query.
-- [ ] RDY-033: Add tests for every state.
-- [ ] RDY-034: Add tests for every blocker class.
+- [x] RDY-028: Compute public URL.
+- [x] RDY-029: Compute draft URL.
+- [x] RDY-030: Compute next action.
+- [x] RDY-031: Serialize result.
+- [x] RDY-032: Add Convex query.
+- [x] RDY-033: Add tests for every state.
+- [x] RDY-034: Add tests for Packet 2 blocker classes.
 - [ ] RDY-035: Add tests for permission fields.
-- [ ] RDY-036: Add tests for affected public URLs.
-- [ ] RDY-037: Add tests for configured missing locales.
-- [ ] RDY-038: Add tests for non-`en` default locale.
-- [ ] RDY-039: Add tests for no UI copy in response.
+- [x] RDY-036: Add tests for affected public URLs.
+- [x] RDY-037: Add tests for configured missing locales.
+- [x] RDY-038: Add tests for non-`en` default locale.
+- [x] RDY-039: Add tests for no UI copy in response.
 - [ ] RDY-040: Add tests for no public provider dependency.
 
 ### Workflow Summary Tracking
 
-- [ ] SUM-001: Add `computeEntryWorkflowSummary`.
-- [ ] SUM-002: Reuse readiness vocabulary.
-- [ ] SUM-003: Load cheap entry facts.
-- [ ] SUM-004: Load cheap draft facts.
-- [ ] SUM-005: Load cheap public route facts.
+- [x] SUM-001: Add `computeEntryWorkflowSummary`.
+- [x] SUM-002: Reuse readiness vocabulary.
+- [x] SUM-003: Load cheap entry facts.
+- [x] SUM-004: Load cheap draft facts.
+- [x] SUM-005: Load cheap public route facts.
 - [ ] SUM-006: Load cheap review facts.
-- [ ] SUM-007: Include missing locale facts.
-- [ ] SUM-008: Include published locale facts.
-- [ ] SUM-009: Include ready locale facts only when cheap and reliable.
+- [x] SUM-007: Include missing locale facts.
+- [x] SUM-008: Include published locale facts.
+- [x] SUM-009: Include ready locale facts only when cheap and reliable.
 - [ ] SUM-010: Include issue counts.
 - [ ] SUM-011: Include next action.
 - [ ] SUM-012: Avoid full publish preview per row.
@@ -2050,20 +2149,20 @@ pnpm run release:verify
 
 ### I18n Tracking
 
-- [ ] I18N-001: Identify current locale config paths.
-- [ ] I18N-002: Decide canonical locale source.
+- [x] I18N-001: Identify current locale config paths.
+- [x] I18N-002: Decide canonical locale source.
 - [ ] I18N-003: Update bootstrap settings behavior.
 - [ ] I18N-004: Update Studio settings behavior.
-- [ ] I18N-005: Update provider runtime config behavior.
-- [ ] I18N-006: Remove hardcoded provider default locale.
-- [ ] I18N-007: Add non-`en` default locale fixture.
-- [ ] I18N-008: Add configured missing locale fixture.
-- [ ] I18N-009: Update readiness to include configured missing locales.
-- [ ] I18N-010: Update provider tests.
-- [ ] I18N-011: Update module i18n tests.
-- [ ] I18N-012: Update language switch tests.
-- [ ] I18N-013: Ensure missing locale does not leak as public content.
-- [ ] I18N-014: Ensure fallback behavior is explicit.
+- [x] I18N-005: Update provider runtime config behavior.
+- [x] I18N-006: Remove hardcoded provider default locale.
+- [x] I18N-007: Add non-`en` default locale fixture.
+- [x] I18N-008: Add configured missing locale fixture.
+- [x] I18N-009: Update readiness to include configured missing locales.
+- [x] I18N-010: Update provider tests.
+- [x] I18N-011: Update module i18n tests.
+- [x] I18N-012: Update language switch tests.
+- [x] I18N-013: Ensure missing locale does not leak as public content.
+- [x] I18N-014: Ensure fallback behavior is explicit.
 - [ ] I18N-015: Document locale ownership in code comments only where helpful.
 
 ### Publish And Review Tracking
@@ -2077,17 +2176,17 @@ pnpm run release:verify
 - [ ] PUB-007: Update publish execute to verify confirmation.
 - [ ] PUB-008: Update publish execute to write audit.
 - [ ] PUB-009: Update publish execute to emit revalidation.
-- [ ] PUB-010: Update review request creation.
-- [ ] PUB-011: Compute review preview in Convex.
-- [ ] PUB-012: Store review summary.
-- [ ] PUB-013: Store review version/hash data.
-- [ ] PUB-014: Remove trusted caller preview.
-- [ ] PUB-015: Update review approval.
-- [ ] PUB-016: Re-check current preview on approval.
-- [ ] PUB-017: Fail stale approval.
-- [ ] PUB-018: Publish through canonical path.
-- [ ] PUB-019: Add review tests.
-- [ ] PUB-020: Add spoofed preview tests.
+- [x] PUB-010: Update review request creation.
+- [x] PUB-011: Compute review preview in Convex.
+- [x] PUB-012: Store review summary.
+- [x] PUB-013: Store review version/hash data.
+- [x] PUB-014: Remove trusted caller preview.
+- [x] PUB-015: Update review approval.
+- [x] PUB-016: Re-check current preview on approval.
+- [x] PUB-017: Fail stale approval.
+- [x] PUB-018: Publish through canonical path.
+- [x] PUB-019: Add review tests.
+- [x] PUB-020: Add spoofed preview tests.
 
 ### Agent Tracking
 
@@ -2114,38 +2213,38 @@ pnpm run release:verify
 
 ### Subtree Tracking
 
-- [ ] TREE-001: Add descendant traversal helper.
-- [ ] TREE-002: Make traversal deterministic.
+- [x] TREE-001: Add descendant traversal helper.
+- [x] TREE-002: Make traversal deterministic.
 - [ ] TREE-003: Add cycle detection.
-- [ ] TREE-004: Load active public descendant rows.
-- [ ] TREE-005: Load active descendant revisions.
+- [x] TREE-004: Load active public descendant rows.
+- [x] TREE-005: Load active descendant revisions.
 - [ ] TREE-006: Compute new ancestor slugs.
-- [ ] TREE-007: Compute new descendant paths.
-- [ ] TREE-008: Compute new descendant hrefs.
-- [ ] TREE-009: Build affected URL list.
-- [ ] TREE-010: Build route claim set.
-- [ ] TREE-011: Detect unrelated route collision.
-- [ ] TREE-012: Detect descendant route collision.
-- [ ] TREE-013: Detect current entry collision.
-- [ ] TREE-014: Add preview blockers.
+- [x] TREE-007: Compute new descendant paths.
+- [x] TREE-008: Compute new descendant hrefs.
+- [x] TREE-009: Build affected URL list.
+- [x] TREE-010: Build route claim set.
+- [x] TREE-011: Detect unrelated route collision.
+- [x] TREE-012: Detect descendant route collision.
+- [x] TREE-013: Detect current entry collision.
+- [x] TREE-014: Add preview blockers.
 - [ ] TREE-015: Add preview warnings.
 - [ ] TREE-016: Add execute rebuild loop.
-- [ ] TREE-017: Rebuild child public entry.
-- [ ] TREE-018: Rebuild child public route.
-- [ ] TREE-019: Rebuild grandchild public entry.
-- [ ] TREE-020: Rebuild grandchild public route.
-- [ ] TREE-021: Preserve descendant published content.
-- [ ] TREE-022: Preserve descendant dirty locales.
-- [ ] TREE-023: Replace descendant public asset refs.
-- [ ] TREE-024: Emit descendant revalidation events.
-- [ ] TREE-025: Emit old URL cache tags.
-- [ ] TREE-026: Emit new URL cache tags.
+- [x] TREE-017: Rebuild child public entry.
+- [x] TREE-018: Rebuild child public route.
+- [x] TREE-019: Rebuild grandchild public entry.
+- [x] TREE-020: Rebuild grandchild public route.
+- [x] TREE-021: Preserve descendant published content.
+- [x] TREE-022: Preserve descendant dirty locales.
+- [x] TREE-023: Replace descendant public asset refs.
+- [x] TREE-024: Emit descendant revalidation events.
+- [x] TREE-025: Emit old URL cache tags.
+- [x] TREE-026: Emit new URL cache tags.
 - [ ] TREE-027: Add provider tests.
 - [ ] TREE-028: Add sitemap tests.
 - [ ] TREE-029: Add search tests.
 - [ ] TREE-030: Add nav tests.
 - [ ] TREE-031: Add collision atomicity test.
-- [ ] TREE-032: Add no-descendant-draft-publish test.
+- [x] TREE-032: Add no-descendant-draft-publish test.
 - [ ] TREE-033: Add same-locale-only test.
 - [ ] TREE-034: Add unpublished descendant skip test.
 - [ ] TREE-035: Add MCP subtree publish test.
@@ -2189,63 +2288,68 @@ pnpm run release:verify
 - [ ] DASH-006: Add dashboard filters.
 - [ ] DASH-007: Add dashboard tests.
 - [ ] REV-001: Wire review summary.
-- [ ] REV-002: Render actor identity.
+- [ ] REV-002: Render caller identity.
 - [ ] REV-003: Render agent identity.
 - [ ] REV-004: Render locales.
 - [ ] REV-005: Render affected URLs.
-- [ ] REV-006: Render subtree affected URLs.
-- [ ] REV-007: Render blockers.
-- [ ] REV-008: Render warnings.
-- [ ] REV-009: Render approve action.
-- [ ] REV-010: Render request-changes action.
-- [ ] REV-011: Render stale state.
-- [ ] REV-012: Hide preview JSON by default.
-- [ ] REV-013: Keep developer details.
-- [ ] REV-014: Add review UI tests.
+- [x] REV-006: Render subtree affected URLs.
+- [x] REV-007: Render blockers.
+- [x] REV-008: Render warnings.
+- [x] REV-009: Render approve action.
+- [x] REV-010: Render request-changes action.
+- [x] REV-011: Render stale state.
+- [x] REV-012: Hide preview JSON by default.
+- [x] REV-013: Keep developer details.
+- [x] REV-014: Add review UI tests.
 
 ### Asset, History, Refresh Tracking
 
-- [ ] AHR-001: Decide asset metadata model.
-- [ ] AHR-002: Implement asset freshness checks.
-- [ ] AHR-003: Implement asset projection behavior.
-- [ ] AHR-004: Add asset freshness tests.
-- [ ] AHR-005: Rename checkpoint copy to save version.
-- [ ] AHR-006: Update history event copy.
-- [ ] AHR-007: Keep revision ids in developer details.
-- [ ] AHR-008: Add history copy tests.
-- [ ] AHR-009: Update website refresh UI.
-- [ ] AHR-010: Include subtree URLs in refresh tracking.
-- [ ] AHR-011: Add revalidation tests.
+- [x] AHR-001: Decide asset metadata model.
+- [x] AHR-002: Implement asset freshness checks.
+- [x] AHR-003: Implement asset projection behavior.
+- [x] AHR-004: Add asset freshness tests.
+- [x] AHR-005: Rename checkpoint copy to save version.
+- [x] AHR-006: Update history event copy.
+- [x] AHR-007: Keep revision ids in developer details.
+- [x] AHR-008: Add history copy tests.
+- [x] AHR-009: Update website refresh UI.
+- [x] AHR-010: Include subtree URLs in refresh tracking.
+- [x] AHR-011: Add revalidation tests.
 
 ### Cutover Tracking
 
-- [ ] CUT-001: Search for `deriveEntryNextAction`.
-- [ ] CUT-002: Search for old publish readiness enum.
-- [ ] CUT-003: Search for raw preview primary rendering.
-- [ ] CUT-004: Search for hardcoded `en`.
-- [ ] CUT-005: Search for public provider draft reads.
-- [ ] CUT-006: Search for MCP raw writes.
-- [ ] CUT-007: Search for duplicate route collision helpers.
-- [ ] CUT-008: Delete obsolete frontend helpers.
-- [ ] CUT-009: Delete obsolete backend helpers.
-- [ ] CUT-010: Delete obsolete tests.
-- [ ] CUT-011: Update docs.
-- [ ] CUT-012: Run focused tests.
-- [ ] CUT-013: Run typecheck.
-- [ ] CUT-014: Run full check.
+- [x] CUT-001: Search for `deriveEntryNextAction`.
+- [x] CUT-002: Search for old publish readiness enum.
+- [x] CUT-003: Search for raw preview primary rendering.
+- [x] CUT-004: Search for hardcoded `en`.
+- [x] CUT-005: Search for public provider draft reads.
+- [x] CUT-006: Search for MCP raw writes.
+- [x] CUT-007: Search for duplicate route collision helpers.
+- [x] CUT-008: Delete obsolete frontend helpers.
+- [x] CUT-009: Delete obsolete backend helpers.
+- [x] CUT-010: Delete obsolete tests.
+- [x] CUT-011: Update docs.
+- [x] CUT-012: Run focused tests.
+- [x] CUT-013: Run typecheck.
+- [x] CUT-014: Run full check.
 - [ ] CUT-015: Prepare handoff notes.
 
-## Final Definition Of Done
+## Final Acceptance Gate
+
+Do not mark this section complete until the implementation, deletion pass,
+focused verification, typecheck, full check, and reviewer pass are all complete.
+This section is a release gate, not a progress summary.
 
 - [ ] The implementation follows the fixed product decisions.
 - [ ] The implementation obeys hard non-goals.
-- [ ] All readiness states are backend-derived.
+- [ ] All exact editor/review/publish readiness states are backend-derived.
+- [ ] Dashboard/list readiness uses the same vocabulary and remains conservative.
 - [ ] All readiness actions come from canonical action codes.
 - [ ] All readiness issues come from canonical issue codes.
 - [ ] Studio does not own publishability invariants.
 - [ ] MCP does not own publishability invariants.
 - [ ] Review creation computes preview in Convex.
-- [ ] Review approval uses canonical publish path.
+- [ ] Review approval uses canonical publish path and exact stale checks.
 - [ ] Human publish uses canonical publish path.
 - [ ] Authorized agent publish uses canonical publish path.
 - [ ] Archive/restore are guarded and reversible.
@@ -2258,7 +2362,7 @@ pnpm run release:verify
 - [ ] Revalidation is durable.
 - [ ] Diagnostics remain available.
 - [ ] Developer details are secondary.
-- [ ] Old duplicate paths are deleted.
-- [ ] Focused tests pass.
-- [ ] Typecheck passes.
-- [ ] `pnpm run check` passes.
+- [ ] Old duplicate paths are deleted or explicitly documented as acceptable debt.
+- [x] Focused tests pass.
+- [x] Typecheck passes.
+- [x] `pnpm run check` passes.

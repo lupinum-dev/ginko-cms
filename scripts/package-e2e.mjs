@@ -417,6 +417,7 @@ try {
     "await import('@lupinum/ginko-cms/nuxt-provider')",
     "await import('@lupinum/ginko-cms-contract/convex/validators.js')",
     "await import('@lupinum/ginko-cms-contract/convex/schemas/public.js')",
+    "await import('@lupinum/ginko-cms-contract/shared/readiness.js')",
     "await import('@lupinum/ginko-cms-convex/convex.config')",
     "await import('@lupinum/ginko-cms-convex/convex.auth')",
     "await import('@lupinum/ginko-cms-convex/component')",

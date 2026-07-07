@@ -9,7 +9,6 @@
     "prepare:module": "pnpm --filter @lupinum/ginko-cms build",
     "dev": "pnpm run dev:prepare && nuxi dev --cwd playground --dotenv ../.env.local",
     "dev:consumer": "node scripts/dev-consumer-studio.mjs",
-    "dev:i18n-cms": "node scripts/dev-consumer-studio.mjs ../i18n-cms",
     "dev:build": "nuxi build --cwd playground --dotenv ../.env.local",
     "dev:prepare": "pnpm run build && pnpm run prepare:playground && pnpm run prepare:convex",
     "prepare:playground": "pnpm --dir playground exec nuxi prepare",

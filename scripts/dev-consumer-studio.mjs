@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const defaultConsumerDir = resolve(repoRoot, '../i18n-cms')
+const defaultConsumerDir = resolve(repoRoot, 'playground')
 const args = process.argv.slice(2)
 const openBrowser = args.includes('--open')
 const studioOnly = args.includes('--studio-only')

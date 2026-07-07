@@ -280,7 +280,7 @@ Status:
 
 Question:
 
-- Does actor parity survive implementation of direct AI publishing?
+- Does caller parity survive implementation of direct AI publishing?
 
 Setup:
 

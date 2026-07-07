@@ -47,3 +47,10 @@ auditConfig:
   ignoreGhsas:
     - GHSA-848j-6mx2-7j84
 approveBuilds: esbuild,@parcel/watcher,unrs-resolver
+allowBuilds:
+  '@parcel/watcher': set this to true or false
+  better-sqlite3: set this to true or false
+  cbor-extract: set this to true or false
+  esbuild: set this to true or false
+  unrs-resolver: set this to true or false
+  vue-demi: set this to true or false
