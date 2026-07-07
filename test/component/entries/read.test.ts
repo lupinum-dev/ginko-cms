@@ -12,6 +12,7 @@ import {
   seedOwner,
   seedSettings,
   seedEditorFixture,
+  seedMultiLocaleSettings,
   seedTreeFixture,
 } from './helpers'
 
@@ -286,6 +287,19 @@ describe('editor read queries', () => {
         createdAt: 2,
       } as never,
     )
+    await ctx.seed(
+      'activity' as never,
+      {
+        kind: 'agentRun.write',
+        summary: 'Agent run "Draft German launch page" used ginko-cms.save-entry-draft',
+        appIdentityId: 'owner-1',
+        detail: {
+          agentRunId: 'agent-run-1',
+          operationId: 'ginko-cms.save-entry-draft',
+        },
+        createdAt: 3,
+      } as never,
+    )
 
     const owner = ctx.asCmsUser('owner-1')
     const result = await owner.query(api.editor.listActivity, {
@@ -304,7 +318,94 @@ describe('editor read queries', () => {
           summary: 'MCP credential settings revoked for "ba_secret_connection"',
           displaySummary: 'AI agent connection revoked for "user or connection"',
         }),
+        expect.objectContaining({
+          kind: 'agentRun.write',
+          summary: 'Agent run "Draft German launch page" used ginko-cms.save-entry-draft',
+          displaySummary: 'AI updated content',
+        }),
       ]),
     )
+  })
+
+  it('returns cheap workflow summaries with list-only work states', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMultiLocaleSettings(ctx)
+    const { collectionId, entryId } = await seedEditorFixture(ctx)
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(collectionId as never, { locales: ['en', 'de', 'de-CH'] })
+    })
+
+    const owner = ctx.asCmsUser('owner-1')
+    const [summary] = await owner.query(api.editor.listEntrySummaries, {
+      collection: 'posts',
+      locale: 'en',
+    })
+
+    expect(summary?.workflowSummary).toMatchObject({
+      entryId,
+      collection: 'posts',
+      primaryLocale: 'en',
+      workStatesByLocale: {
+        en: 'draft',
+        de: 'missing_translation',
+        'de-CH': 'missing_translation',
+      },
+      issueCounts: {
+        blocker: 0,
+        warning: 0,
+        info: 0,
+      },
+      missingLocales: ['de', 'de-CH'],
+      publishedLocales: [],
+      nextAction: {
+        kind: 'add_locale',
+        locale: 'de',
+        target: 'locale',
+        params: {},
+      },
+    })
+  })
+
+  it('keeps workflow summaries conservative and does not claim exact ready in lists', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    await publishEntry(owner, entryId)
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: await currentDraftVersion(owner, entryId),
+      patch: {
+        locales: {
+          en: {
+            values: {
+              title: 'Changed after publish',
+            },
+          },
+        },
+      },
+    })
+
+    const [summary] = await owner.query(api.editor.listEntrySummaries, {
+      collection: 'posts',
+      locale: 'en',
+    })
+
+    expect(summary?.workflowSummary).toMatchObject({
+      workStatesByLocale: {
+        en: 'changed',
+      },
+      publishedLocales: ['en'],
+      nextAction: {
+        kind: 'preview_publish',
+        locale: 'en',
+        target: 'publish',
+        params: {},
+      },
+    })
+    expect(Object.values(summary?.workflowSummary.workStatesByLocale ?? {})).not.toContain('ready')
   })
 })

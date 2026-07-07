@@ -8,7 +8,7 @@ import { asEntryId, toStringId } from '../lib/ids.js'
 import { compareOrderRank, rankAfter, rankBetween } from '../lib/ordering.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import type { EntryDoc } from './context.js'
-import { refreshEntryReadModelsById } from './projections.js'
+import { refreshDraftAssetRefsForEntrySubtree } from './projections.js'
 
 export async function resolveParentEntryId(
   ctx: QueryOrMutationCtx,
@@ -215,11 +215,9 @@ export async function moveEntryInTree(
     appIdentityId: args.appIdentityId,
     now: args.now,
   })
-  await refreshEntryReadModelsById(ctx, {
+  await refreshDraftAssetRefsForEntrySubtree(ctx, {
     collection: args.collection,
     entryId: args.entry._id,
-    now: args.now,
-    appIdentityId: args.appIdentityId,
     includeSubtree: true,
   })
 
@@ -262,11 +260,9 @@ export async function reparentChildEntries(
       appIdentityId: args.appIdentityId,
       now: args.now,
     })
-    await refreshEntryReadModelsById(ctx, {
+    await refreshDraftAssetRefsForEntrySubtree(ctx, {
       collection: args.collection,
       entryId: child._id,
-      now: args.now,
-      appIdentityId: args.appIdentityId,
       includeSubtree: true,
     })
   }

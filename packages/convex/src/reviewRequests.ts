@@ -1,10 +1,21 @@
-import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
+import {
+  publishReviewPreviewValidator,
+  reviewSummaryValidator,
+} from '@lupinum/ginko-cms-contract/convex/validators.js'
+import type {
+  PublishReviewPreview,
+  PublishReviewPreviewAffectedUrl,
+  ReviewSummary,
+} from '@lupinum/ginko-cms-contract/shared/readiness.js'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
 import { getOwnActiveAgentRunOrThrow, recordOwnedAgentRunWrite } from './agentRuns.js'
 import { canEditEntries, canPublishEntries } from './auth/checks.js'
+import { previewPublishImpactForEntry } from './diagnostics.js'
+import { getCollectionForEntry } from './entries/context.js'
 import { computePublishDraftHash, publishCurrentDraft } from './entries/workflow/commands.js'
+import { stableHash } from './entries/workflow/hashing.js'
 import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
@@ -18,7 +29,8 @@ const reviewRequestStatusValidator = v.union(
 
 const reviewRequestValidator = v.object({
   _id: v.string(),
-  agentRunId: v.string(),
+  agentRunId: v.union(v.string(), v.null()),
+  requestSource: v.union(v.literal('human'), v.literal('agent')),
   operationId: v.literal('ginko-cms.publish-entry'),
   entryId: v.string(),
   locales: v.array(v.string()),
@@ -27,7 +39,7 @@ const reviewRequestValidator = v.object({
   title: v.string(),
   summary: v.string(),
   status: reviewRequestStatusValidator,
-  preview: jsonObjectValidator,
+  preview: publishReviewPreviewValidator,
   requestedBy: v.string(),
   reviewedBy: v.union(v.string(), v.null()),
   createdAt: v.number(),
@@ -36,10 +48,104 @@ const reviewRequestValidator = v.object({
   versionHash: v.union(v.string(), v.null()),
   isStale: v.boolean(),
   staleReason: v.union(v.string(), v.null()),
+  reviewSummary: reviewSummaryValidator,
 })
 
 type ReviewRequestDoc = Doc<'reviewRequests'>
 const MAX_REVIEW_REQUESTS = 100
+const REVIEW_READY_STATUSES = new Set(['ready', 'no_changes'])
+const OUTDATED_REVIEW_PREVIEW_REASON =
+  'Review request must be recreated because its publish preview is outdated.'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isPublishReviewPreview(value: unknown): value is PublishReviewPreview {
+  if (!isRecord(value)) return false
+  return (
+    value.kind === 'publish-review-preview' &&
+    typeof value.status === 'string' &&
+    typeof value.collection === 'string' &&
+    typeof value.entryId === 'string' &&
+    Array.isArray(value.locales) &&
+    Array.isArray(value.affectedPublicUrls) &&
+    Array.isArray(value.changes) &&
+    Array.isArray(value.blockingIssueCodes) &&
+    Array.isArray(value.warningIssueCodes) &&
+    typeof value.computedAt === 'number'
+  )
+}
+
+function staleReviewPreview(request: ReviewRequestDoc): PublishReviewPreview {
+  return {
+    kind: 'publish-review-preview',
+    status: 'blocked',
+    collection: '',
+    entryId: request.entryId,
+    locales: request.locales.map((locale) => ({
+      locale,
+      status: 'blocked',
+      currentHref: null,
+      nextHref: null,
+      blockingIssueCodes: ['outdated_review_preview'],
+      warningIssueCodes: [],
+      changeKinds: [],
+    })),
+    affectedPublicUrls: [],
+    changes: [],
+    blockingIssueCodes: ['outdated_review_preview'],
+    warningIssueCodes: [],
+    computedAt: request.updatedAt ?? request.createdAt,
+  }
+}
+
+function previewForReviewRequest(request: ReviewRequestDoc): PublishReviewPreview {
+  return isPublishReviewPreview(request.preview) ? request.preview : staleReviewPreview(request)
+}
+
+function affectedPublicUrlsFromImpact(
+  impact: Awaited<ReturnType<typeof previewPublishImpactForEntry>>,
+): PublishReviewPreviewAffectedUrl[] {
+  return impact.changes
+    .filter((change) => change.kind === 'route')
+    .map((change): PublishReviewPreviewAffectedUrl => {
+      const scope: PublishReviewPreviewAffectedUrl['scope'] =
+        change.scope === 'descendant' ? 'descendant' : 'current_entry'
+      return {
+        locale: change.locale,
+        entryId: change.entryId ?? impact.entryId,
+        scope,
+        label: change.label,
+        beforeHref: typeof change.before === 'string' ? change.before : null,
+        afterHref: typeof change.after === 'string' ? change.after : null,
+      }
+    })
+    .filter((url) => url.beforeHref || url.afterHref)
+}
+
+function reviewPreviewHash(preview: PublishReviewPreview) {
+  const { computedAt: _computedAt, ...stablePreview } = preview
+  return `preview:${stableHash(stablePreview)}`
+}
+
+function reviewSummaryFromPreview(preview: PublishReviewPreview): ReviewSummary {
+  return {
+    status: preview.status,
+    localeStatuses: preview.locales.map((item) => ({
+      locale: item.locale,
+      status: item.status,
+      currentHref: item.currentHref,
+      nextHref: item.nextHref,
+    })),
+    affectedPublicUrls: preview.affectedPublicUrls,
+    changeCount: preview.changes.length,
+    blockerCount: preview.blockingIssueCodes.length,
+    warningCount: preview.warningIssueCodes.length,
+    blockingIssueCodes: preview.blockingIssueCodes,
+    warningIssueCodes: preview.warningIssueCodes,
+  }
+}
 
 function serializeReviewRequest(
   request: ReviewRequestDoc,
@@ -48,9 +154,12 @@ function serializeReviewRequest(
     staleReason: null,
   },
 ) {
+  const preview = previewForReviewRequest(request)
+  const agentRunId = request.agentRunId ? String(request.agentRunId) : null
   return {
     _id: String(request._id),
-    agentRunId: String(request.agentRunId),
+    agentRunId,
+    requestSource: agentRunId ? 'agent' : 'human',
     operationId: 'ginko-cms.publish-entry',
     entryId: request.entryId,
     locales: request.locales,
@@ -59,7 +168,7 @@ function serializeReviewRequest(
     title: request.title,
     summary: request.summary,
     status: request.status,
-    preview: request.preview,
+    preview,
     requestedBy: request.requestedBy,
     reviewedBy: request.reviewedBy ?? null,
     createdAt: request.createdAt,
@@ -68,11 +177,12 @@ function serializeReviewRequest(
     versionHash: request.versionHash ?? null,
     isStale: stale.isStale,
     staleReason: stale.staleReason,
+    reviewSummary: reviewSummaryFromPreview(preview),
   }
 }
 
-async function reviewStaleState(
-  ctx: { db: { get: (id: Id<'entries'>) => Promise<Doc<'entries'> | null> } },
+async function cheapReviewStaleState(
+  ctx: Parameters<typeof computeReviewPreview>[0],
   request: ReviewRequestDoc,
 ) {
   if (request.status !== 'pending') return { isStale: false, staleReason: null }
@@ -83,17 +193,53 @@ async function reviewStaleState(
   if (entry.draftVersion !== request.expectedVersion) {
     return {
       isStale: true,
-      staleReason: `Draft version changed from ${request.expectedVersion} to ${entry.draftVersion}.`,
+      staleReason: 'This review is out of date. Ask for a new review.',
+    }
+  }
+  if (!isPublishReviewPreview(request.preview) || !request.previewHash) {
+    return {
+      isStale: true,
+      staleReason: OUTDATED_REVIEW_PREVIEW_REASON,
+    }
+  }
+  return { isStale: false, staleReason: null }
+}
+
+export async function exactReviewStaleState(
+  ctx: Parameters<typeof computeReviewPreview>[0],
+  request: ReviewRequestDoc,
+) {
+  const cheap = await cheapReviewStaleState(ctx, request)
+  if (cheap.isStale) return cheap
+  const currentPreview = await computeReviewPreview(ctx, {
+    entryId: request.entryId,
+    locales: request.locales,
+    now: Date.now(),
+  })
+  if (!REVIEW_READY_STATUSES.has(currentPreview.status)) {
+    return {
+      isStale: true,
+      staleReason: 'This review is out of date. Ask for a new review.',
+    }
+  }
+  if (reviewPreviewHash(currentPreview) !== request.previewHash) {
+    return {
+      isStale: true,
+      staleReason: 'This review is out of date. Ask for a new review.',
     }
   }
   return { isStale: false, staleReason: null }
 }
 
 async function serializeReviewRequestWithStaleState(
-  ctx: Parameters<typeof reviewStaleState>[0],
+  ctx: Parameters<typeof cheapReviewStaleState>[0],
   request: ReviewRequestDoc,
+  options: { exact?: boolean } = {},
 ) {
-  return serializeReviewRequest(request, await reviewStaleState(ctx, request))
+  const stale = options.exact
+    ? await exactReviewStaleState(ctx, request)
+    : await cheapReviewStaleState(ctx, request)
+  return serializeReviewRequest(request, stale)
 }
 
 async function getPendingReviewOrThrow(
@@ -134,6 +280,19 @@ async function executeApprovedPublishReview(
     })
   }
 
+  const currentPreview = await computeReviewPreview(ctx, {
+    entryId: request.entryId,
+    locales: request.locales,
+    now: Date.now(),
+  })
+  if (!REVIEW_READY_STATUSES.has(currentPreview.status)) {
+    throwCmsError('REVIEW_PUBLISH_BLOCKED', 'Review request is no longer publishable.', {
+      reviewRequestId: String(request._id),
+      status: currentPreview.status,
+      blockingIssueCodes: currentPreview.blockingIssueCodes,
+    })
+  }
+
   const expectedDraftHash = await computePublishDraftHash(ctx, {
     entryId,
     locales: request.locales,
@@ -148,60 +307,159 @@ async function executeApprovedPublishReview(
   })
 }
 
+async function computeReviewPreview(
+  ctx: Parameters<typeof previewPublishImpactForEntry>[0],
+  args: { entryId: string; locales: string[]; now: number },
+): Promise<PublishReviewPreview> {
+  const entryId = asEntryId(args.entryId)
+  const entry = await ctx.db.get(entryId)
+  if (!entry) {
+    throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: args.entryId })
+  }
+  const collection = await getCollectionForEntry(ctx, entry)
+  const locales = Array.from(new Set(args.locales))
+  const impact = await previewPublishImpactForEntry(ctx, {
+    collection: collection.slug,
+    entryId: args.entryId,
+    locales,
+  })
+  const blockingIssueCodes = Array.from(
+    new Set(impact.blockingDiagnostics.map((diagnostic) => diagnostic.code)),
+  )
+  const warningIssueCodes = Array.from(
+    new Set(impact.warnings.map((diagnostic) => diagnostic.code)),
+  )
+  return {
+    kind: 'publish-review-preview',
+    status: impact.status,
+    collection: collection.slug,
+    entryId: args.entryId,
+    locales: impact.locales.map((locale) => ({
+      locale: locale.locale,
+      status: locale.status,
+      currentHref: locale.currentHref,
+      nextHref: locale.nextHref,
+      blockingIssueCodes: Array.from(
+        new Set(locale.blockingDiagnostics.map((diagnostic) => diagnostic.code)),
+      ),
+      warningIssueCodes: Array.from(new Set(locale.warnings.map((diagnostic) => diagnostic.code))),
+      changeKinds: Array.from(new Set(locale.changes.map((change) => change.kind))),
+    })),
+    affectedPublicUrls: affectedPublicUrlsFromImpact(impact),
+    changes: impact.changes.map((change) => ({
+      locale: change.locale,
+      entryId: change.entryId,
+      scope: change.scope,
+      kind: change.kind,
+      label: change.label,
+      before: change.before,
+      after: change.after,
+    })),
+    blockingIssueCodes,
+    warningIssueCodes,
+    computedAt: args.now,
+  }
+}
+
 export const requestPublishReview = callerMutation.protected({
   id: 'reviewRequests:requestPublishReview',
   args: {
-    agentRunId: v.string(),
+    agentRunId: v.optional(v.union(v.string(), v.null())),
     entryId: v.string(),
     locales: v.array(v.string()),
     expectedVersion: v.number(),
     message: v.optional(v.union(v.string(), v.null())),
     title: v.string(),
     summary: v.string(),
-    preview: jsonObjectValidator,
-    versionHash: v.optional(v.union(v.string(), v.null())),
   },
   guard: canEditEntries,
   returns: reviewRequestValidator,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
-    await getOwnActiveAgentRunOrThrow(ctx, args.agentRunId, appIdentity, now)
+    const agentRunId = args.agentRunId ?? null
+    if (agentRunId) {
+      await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, now)
+    }
     if (args.locales.length === 0) {
       throwCmsError(
         'REVIEW_REQUEST_LOCALES_REQUIRED',
         'Publish review requires at least one locale.',
       )
     }
-    await recordOwnedAgentRunWrite(ctx, args.agentRunId, 'ginko-cms.request-publish-review')
+    const entry = await ctx.db.get(asEntryId(args.entryId))
+    if (!entry) {
+      throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: args.entryId })
+    }
+    if (entry.draftVersion !== args.expectedVersion) {
+      throwCmsError(
+        'ENTRY_CONCURRENT_EDIT',
+        'This entry changed in another session. Reload and request review again.',
+        {
+          entryId: args.entryId,
+          expectedVersion: args.expectedVersion,
+          actualVersion: entry.draftVersion,
+          currentVersion: entry.draftVersion,
+          retryable: true,
+        },
+      )
+    }
+    const locales = Array.from(new Set(args.locales as string[]))
+    const preview = await computeReviewPreview(ctx, {
+      entryId: args.entryId,
+      locales,
+      now,
+    })
+    if (!REVIEW_READY_STATUSES.has(preview.status)) {
+      throwCmsError(
+        'REVIEW_PUBLISH_BLOCKED',
+        'Publish review was not created because the requested publish is currently blocked.',
+        {
+          entryId: args.entryId,
+          locales,
+          status: preview.status,
+          blockingIssueCodes: preview.blockingIssueCodes,
+        },
+      )
+    }
+    const versionHash = await computePublishDraftHash(ctx, {
+      entryId: asEntryId(args.entryId),
+      locales,
+    })
+    const previewHash = reviewPreviewHash(preview)
 
     const id = await ctx.db.insert('reviewRequests', {
-      agentRunId: args.agentRunId as Id<'agentRuns'>,
+      agentRunId: agentRunId ? (agentRunId as Id<'agentRuns'>) : null,
       entryId: args.entryId,
-      locales: Array.from(new Set(args.locales)),
+      locales,
       expectedVersion: args.expectedVersion,
       message: args.message ?? null,
       title: args.title,
       summary: args.summary,
       status: 'pending',
-      preview: args.preview,
+      preview,
       requestedBy: appIdentity.userId,
       reviewedBy: null,
       createdAt: now,
       updatedAt: now,
       reviewedAt: null,
-      versionHash: args.versionHash ?? null,
+      versionHash,
+      previewHash,
     })
     const request = await ctx.db.get(id)
     if (!request) throw new Error('Review request disappeared after create.')
 
+    if (agentRunId) {
+      await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.request-publish-review')
+    }
     await logActivity(ctx, {
       kind: 'reviewRequest.created',
       summary: `Created review request "${args.title}"`,
       appIdentityId: appIdentity.userId,
       detail: {
         reviewRequestId: String(id),
-        agentRunId: args.agentRunId,
+        agentRunId,
+        requestSource: agentRunId ? 'agent' : 'human',
         operationId: 'ginko-cms.publish-entry',
         entryId: args.entryId,
       },
@@ -244,12 +502,22 @@ export const approveReview = callerMutation.protected({
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
     const request = await getPendingReviewOrThrow(ctx, args.reviewRequestId)
+    const stale = await exactReviewStaleState(ctx, request)
+    if (stale.isStale) {
+      throwCmsError(
+        'REVIEW_REQUEST_STALE',
+        stale.staleReason ?? 'This review is out of date. Ask for a new review.',
+        {
+          reviewRequestId: args.reviewRequestId,
+        },
+      )
+    }
     if (
       args.expectedVersionHash !== undefined &&
       args.expectedVersionHash !== null &&
       request.versionHash !== args.expectedVersionHash
     ) {
-      throwCmsError('REVIEW_REQUEST_STALE', 'Review request is stale.', {
+      throwCmsError('REVIEW_REQUEST_STALE', 'This review is out of date. Ask for a new review.', {
         reviewRequestId: args.reviewRequestId,
       })
     }
@@ -272,6 +540,9 @@ export const approveReview = callerMutation.protected({
       detail: {
         reviewRequestId: args.reviewRequestId,
         operationId: 'ginko-cms.publish-entry',
+        locales: request.locales,
+        versionHash: request.versionHash ?? null,
+        previewHash: request.previewHash ?? null,
         result: {
           versionId: String(publishResult.revisionId),
           affectedLocales: publishResult.affectedLocales,

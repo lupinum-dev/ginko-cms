@@ -48,19 +48,38 @@ describe('component: MCP credential settings', () => {
     })
 
     await expect(
-      ctx.raw.query(api.mcpCredentials.resolveAccess, {
+      ctx.asMcpApiKey('ba_key_owner_edit_only', 'owner-1').query(api.mcpCredentials.resolveAccess, {
         apiKeyId: 'ba_key_owner_edit_only',
       }),
     ).resolves.toMatchObject({
+      apiKeyId: 'ba_key_owner_edit_only',
       ownerUserId: 'owner-1',
-      role: 'owner',
-      effectivePermissions: {
-        [cmsPermissionKeys.read]: true,
-        [cmsPermissionKeys.editEntries]: true,
-        [cmsPermissionKeys.publishEntries]: false,
-        [cmsPermissionKeys.manageMembers]: false,
-      },
     })
+  })
+
+  it('does not expose credential ownership through unauthenticated public access', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    await owner.mutation(api.mcpCredentials.upsertSettings, {
+      apiKeyId: 'ba_key_owner_edit_only',
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+    })
+
+    await expect(
+      ctx.raw.query(api.mcpCredentials.resolveAccess, {
+        apiKeyId: 'ba_key_owner_edit_only',
+      }),
+    ).resolves.toBeNull()
+    await expect(
+      ctx
+        .asMcpApiKey('ba_key_owner_edit_only', 'other-user')
+        .query(api.mcpCredentials.resolveAccess, {
+          apiKeyId: 'ba_key_owner_edit_only',
+        }),
+    ).resolves.toBeNull()
   })
 
   it('lists only the current owner credential settings', async () => {
@@ -88,7 +107,37 @@ describe('component: MCP credential settings', () => {
     ])
   })
 
-  it('recomputes effective access from the current owner role', async () => {
+  it('logs credential scope updates for auditability', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    await owner.mutation(api.mcpCredentials.upsertSettings, {
+      apiKeyId: 'ba_key_scope_update',
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read],
+    })
+    await owner.mutation(api.mcpCredentials.upsertSettings, {
+      apiKeyId: 'ba_key_scope_update',
+      ownerUserId: 'owner-1',
+      label: 'Editor bot',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+    })
+
+    const updates = (await ctx.readAll('activity')).filter(
+      (row: { kind: string; detail?: { apiKeyId?: string; scopes?: string[] } }) =>
+        row.kind === 'mcpCredentialSettings.updated' &&
+        row.detail?.apiKeyId === 'ba_key_scope_update',
+    )
+
+    expect(updates).toHaveLength(2)
+    expect(updates.at(-1)?.detail?.scopes).toEqual([
+      cmsPermissionKeys.read,
+      cmsPermissionKeys.editEntries,
+    ])
+  })
+
+  it('resolves only the authenticated credential identity after owner role changes', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'publisher-1', role: 'publisher' })
@@ -101,15 +150,12 @@ describe('component: MCP credential settings', () => {
     })
 
     await expect(
-      ctx.raw.query(api.mcpCredentials.resolveAccess, {
+      ctx.asMcpApiKey('ba_key_publisher', 'publisher-1').query(api.mcpCredentials.resolveAccess, {
         apiKeyId: 'ba_key_publisher',
       }),
     ).resolves.toMatchObject({
+      apiKeyId: 'ba_key_publisher',
       ownerUserId: 'publisher-1',
-      role: 'publisher',
-      effectivePermissions: {
-        [cmsPermissionKeys.publishEntries]: true,
-      },
     })
 
     await owner.mutation(api.members.updateMemberRole, {
@@ -118,16 +164,12 @@ describe('component: MCP credential settings', () => {
     })
 
     await expect(
-      ctx.raw.query(api.mcpCredentials.resolveAccess, {
+      ctx.asMcpApiKey('ba_key_publisher', 'publisher-1').query(api.mcpCredentials.resolveAccess, {
         apiKeyId: 'ba_key_publisher',
       }),
     ).resolves.toMatchObject({
+      apiKeyId: 'ba_key_publisher',
       ownerUserId: 'publisher-1',
-      role: 'viewer',
-      effectivePermissions: {
-        [cmsPermissionKeys.read]: true,
-        [cmsPermissionKeys.publishEntries]: false,
-      },
     })
   })
 
@@ -151,7 +193,7 @@ describe('component: MCP credential settings', () => {
     })
 
     await expect(
-      ctx.raw.query(api.mcpCredentials.resolveAccess, {
+      ctx.asMcpApiKey('ba_key_removed_editor', 'editor-1').query(api.mcpCredentials.resolveAccess, {
         apiKeyId: 'ba_key_removed_editor',
       }),
     ).resolves.toBeNull()

@@ -60,4 +60,19 @@ describe('release-clean backend has no old-system zombie paths', () => {
     }
     expect(offenders).toEqual([])
   })
+
+  it('keeps public content API reads on published projections only', () => {
+    const source = readFileSync(join(root, 'packages/convex/src/public.ts'), 'utf8')
+    const forbidden = [
+      /\.query\(['"]entries['"]\)/,
+      /\.query\(['"]entryDrafts['"]\)/,
+      /\.query\(['"]entryRevisions['"]\)/,
+      /\bctx\.db\.get\(/,
+    ]
+
+    expect(
+      forbidden.filter((pattern) => pattern.test(source)).map(String),
+      'public.ts must not read draft/editor/source-of-truth content tables',
+    ).toEqual([])
+  })
 })

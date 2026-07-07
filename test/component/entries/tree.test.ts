@@ -172,6 +172,56 @@ describe('editor tree mutations', () => {
     ).toEqual([])
   })
 
+  it('blocks permanent delete when only descendant public routes remain', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { rootAId, childId } = await seedTreeFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    await publishEntry(owner, rootAId)
+    await publishEntry(owner, childId)
+    await ctx.raw.run(async (innerCtx) => {
+      const publicEntries = (await innerCtx.db.query('publicEntries').collect()) as Array<{
+        _id: string
+        entryId: string
+      }>
+      const publicRoutes = (await innerCtx.db.query('publicRoutes').collect()) as Array<{
+        _id: string
+        entryId: string
+      }>
+      for (const row of publicEntries.filter((row) => row.entryId === rootAId)) {
+        await innerCtx.db.delete(row._id as never)
+      }
+      for (const row of publicRoutes.filter((row) => row.entryId === rootAId)) {
+        await innerCtx.db.delete(row._id as never)
+      }
+    })
+
+    const backup = await owner.action(api.backup.exportBackup, { scope: 'entry', entryId: rootAId })
+    const preview = await previewDeleteEntry(owner, {
+      entryId: rootAId,
+      exportArtifactId: backup.artifactId,
+    })
+
+    expect(preview.allowed).toBe(false)
+    expect(preview.blockers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'published-descendants',
+        }),
+      ]),
+    )
+    expect(preview.details).toMatchObject({
+      publicDescendantRoutes: expect.arrayContaining([
+        expect.objectContaining({
+          entryId: childId,
+          path: '/docs/root-a/child',
+        }),
+      ]),
+    })
+  })
+
   it('deletes an entry, reparents children, and recomputes their paths', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

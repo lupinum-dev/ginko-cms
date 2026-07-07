@@ -20,9 +20,9 @@ import {
   reorderEntry as reorderEntryArgs,
   reparentEntry as reparentEntryArgs,
   revertDraftToPublished as revertDraftToPublishedArgs,
+  restoreEntry as restoreEntryArgs,
   rollbackVersion as rollbackVersionArgs,
   saveEntryDraft as saveEntryDraftArgs,
-  unarchiveEntry as unarchiveEntryArgs,
   unpublishEntry as unpublishEntryArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
 import { v } from 'convex/values'
@@ -65,6 +65,22 @@ export const getEntry = query({
   args: getEntryArgs.args,
   handler: async (ctx, args) =>
     await ctx.runQuery(components.ginkoCms.editor.getEntry, args as never),
+})
+
+export const getEntryReadinessDetail = query({
+  args: {
+    entryId: v.string(),
+  },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.editor.getEntryReadinessDetail, args as never),
+})
+
+export const getEntryReadinessSummary = query({
+  args: {
+    entryId: v.string(),
+  },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.editor.getEntryReadinessSummary, args as never),
 })
 
 export const listActivity = query({
@@ -151,6 +167,30 @@ export const previewPublishEntryOperation = mutation({
     await ctx.runMutation(components.ginkoCms.editor.previewPublishEntryOperation, args as never),
 })
 
+export const mcpPublishEntry = mutation({
+  args: confirmedArgs({
+    agentRunId: v.string(),
+    ...publishEntryArgs.args,
+  }),
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.editor.mcpPublishEntryOperationExecute,
+      args as never,
+    ),
+})
+
+export const mcpPreviewPublishEntryOperation = mutation({
+  args: {
+    agentRunId: v.string(),
+    ...publishEntryArgs.args,
+  },
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.editor.mcpPreviewPublishEntryOperation,
+      args as never,
+    ),
+})
+
 export const unpublishEntry = mutation({
   args: confirmedArgs(unpublishEntryArgs.args),
   handler: async (ctx, args) =>
@@ -175,19 +215,43 @@ export const previewArchiveEntryOperation = mutation({
     await ctx.runMutation(components.ginkoCms.editor.previewArchiveEntryOperation, args as never),
 })
 
-export const unarchiveEntry = mutation({
-  args: unarchiveEntryArgs.args,
+export const mcpArchiveEntry = mutation({
+  args: confirmedArgs({
+    agentRunId: v.string(),
+    ...archiveEntryArgs.args,
+  }),
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.editor.unarchiveEntry, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.editor.mcpArchiveEntryOperationExecute,
+      args as never,
+    ),
 })
 
-export const mcpUnarchiveEntry = mutation({
+export const mcpPreviewArchiveEntryOperation = mutation({
   args: {
     agentRunId: v.string(),
-    ...unarchiveEntryArgs.args,
+    ...archiveEntryArgs.args,
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.editor.mcpUnarchiveEntry, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.editor.mcpPreviewArchiveEntryOperation,
+      args as never,
+    ),
+})
+
+export const restoreEntry = mutation({
+  args: restoreEntryArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.editor.restoreEntry, args as never),
+})
+
+export const mcpRestoreEntry = mutation({
+  args: {
+    agentRunId: v.string(),
+    ...restoreEntryArgs.args,
+  },
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.editor.mcpRestoreEntry, args as never),
 })
 
 export const revertDraftToPublished = mutation({

@@ -154,6 +154,11 @@ describe('package exports', () => {
       import: './dist/types.js',
     })
     expect(contractPackage.exports?.['./shared/types']).toBeUndefined()
+    expect(contractPackage.exports?.['./shared/readiness.js']).toEqual({
+      types: './dist/readiness.d.ts',
+      import: './dist/readiness.js',
+    })
+    expect(contractPackage.exports?.['./shared/readiness']).toBeUndefined()
     expect(contractPackage.exports?.['./convex/validators.js']).toEqual({
       types: './dist/validators.d.ts',
       import: './dist/validators.js',

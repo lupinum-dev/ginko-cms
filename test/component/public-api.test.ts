@@ -1150,6 +1150,17 @@ describe('public API: list projection', () => {
     )
     expect(unchangedPublicEntry?.data).toEqual(publicEntry?.data)
     expect(unchangedPublicEntry?.cacheTags).toEqual(publicEntry?.cacheTags)
+
+    const updatedAsset = await owner.query(api.assets.getAsset, { assetId: heroAssetId })
+    expect(updatedAsset?.usages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          collectionSlug: 'gallery',
+          entryId,
+          entryTitle: 'Launch',
+        }),
+      ]),
+    )
   })
 
   it('excludes hidden fields from public page, list, and search projections', async () => {
@@ -1490,6 +1501,26 @@ describe('public API: stableId redirect', () => {
     })
     expect(page.status).toBe('found')
     expect(page.page?.title).toBe('Original Title')
+
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(entryId as never, { stableId: 'private-drift' } as never)
+    })
+    await expect(
+      ctx.raw.query(api.public.page, {
+        collection: 'wiki',
+        ref: stableId,
+        locale: 'en',
+      }),
+    ).resolves.toMatchObject({
+      status: 'found',
+      page: expect.objectContaining({
+        revision: stableId,
+        title: 'Original Title',
+      }),
+    })
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(entryId as never, { stableId } as never)
+    })
 
     // Change slug and republish
     await owner.saveEntryDraft({

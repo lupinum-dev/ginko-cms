@@ -28,6 +28,10 @@ import {
   pathSegments,
   publicPathForLocaleSnapshot,
 } from './entries/workflow/path.js'
+import {
+  collectPublishedDescendantRouteChanges,
+  type PublishedDescendantRouteChange,
+} from './entries/workflow/subtreeRoutes.js'
 import { callerQuery } from './functions.js'
 import {
   assertCollectionSupportsLocale,
@@ -35,14 +39,23 @@ import {
   getCollectionMode,
   isRouteBackedCollection,
 } from './lib/collections.js'
+import { isEqualJsonValue } from './lib/data.js'
 import { asEntryId, toStringId } from './lib/ids.js'
 import { getRoutingLocales } from './lib/locale.js'
 import type { CmsCollection, QueryOrMutationCtx } from './lib/types.js'
-import { getFieldCompletionState } from './lib/validation.js'
+import { collectPublishRequiredFieldIssues } from './lib/validation.js'
 
 type PublicRouteRow = Pick<
   Doc<'publicEntries'>,
-  'entryId' | 'collectionId' | 'locale' | 'path' | 'href' | 'parentEntryId' | 'data'
+  | 'entryId'
+  | 'collectionId'
+  | 'locale'
+  | 'path'
+  | 'href'
+  | 'parentEntryId'
+  | 'revisionId'
+  | 'title'
+  | 'data'
 >
 type VisibilityDiagnostic =
   (typeof ginkoPublicVisibilityExplanationValidator.type)['diagnostics'][number]
@@ -176,8 +189,12 @@ function missingDraftRequiredFieldsForData(args: {
   draftData: Record<string, unknown> | null | undefined
 }) {
   if (!args.draftData) return []
-  const completion = getFieldCompletionState(args.collection.fields, args.draftData, args.draftData)
-  return completion.errors.map((error) => error.field)
+  return collectPublishRequiredFieldIssues({
+    collection: args.collection,
+    localizedValues: args.draftData,
+    sharedValues: args.draftData,
+    data: args.draftData,
+  }).map((error) => error.field)
 }
 
 async function relationDiagnosticsForData(args: {
@@ -297,20 +314,20 @@ async function computePublishedAncestorSlugsForPreview(
   ctx: QueryOrMutationCtx,
   args: {
     collection: Doc<'collections'> | null
-    entry: Doc<'entries'>
+    parentEntryId: Id<'entries'> | null
     locale: string
   },
 ): Promise<string[]> {
-  if (!args.entry.parentEntryId) return []
+  if (!args.parentEntryId) return []
 
   const parentPublic = await ctx.db
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) =>
-      q.eq('entryId', args.entry.parentEntryId!).eq('locale', args.locale),
+      q.eq('entryId', args.parentEntryId!).eq('locale', args.locale),
     )
     .first()
   if (!parentPublic) {
-    const parent = await ctx.db.get(args.entry.parentEntryId)
+    const parent = await ctx.db.get(args.parentEntryId)
     return parent ? [parent.baseSlug] : []
   }
 
@@ -386,6 +403,49 @@ function replaceRouteClaimsForPreview(args: {
     })
   }
   return filtered
+}
+
+function replaceDescendantRouteClaimsForPreview(
+  claims: GinkoRouteClaim[],
+  args: { collection: string; locale: string; descendants: PublishedDescendantRouteChange[] },
+) {
+  if (args.descendants.length === 0) return claims
+  const affected = new Set(args.descendants.map((descendant) => descendant.entryId))
+  const filtered = claims.filter(
+    (claim) =>
+      !(
+        claim.kind === 'route' &&
+        claim.collection === args.collection &&
+        claim.locale === args.locale &&
+        affected.has(claim.entryId)
+      ),
+  )
+  for (const descendant of args.descendants) {
+    filtered.push({
+      kind: 'route',
+      collection: args.collection,
+      entryId: descendant.entryId,
+      locale: args.locale,
+      path: descendant.nextPath,
+    })
+  }
+  return filtered
+}
+
+function routeDiagnosticsForAffectedClaims(args: {
+  diagnostics: ReturnType<typeof validateGinkoRouteClaims>
+  collection: string
+  locale: string
+  entryIds: Set<string>
+}) {
+  return args.diagnostics.filter((item) =>
+    item.claims.some(
+      (claim) =>
+        claim.collection === args.collection &&
+        claim.locale === args.locale &&
+        args.entryIds.has(claim.entryId),
+    ),
+  )
 }
 
 async function buildLocaleVisibility(args: {
@@ -856,6 +916,10 @@ export async function previewPublishImpactForEntry(
 
   const draftRows = await readDraftRows(ctx, entry._id)
   const draftView = await readStudioDraftView(ctx, entry, collection)
+  const publishParentEntryId =
+    draftRows.shared && draftRows.shared.parentEntryId !== undefined
+      ? (draftRows.shared.parentEntryId ?? null)
+      : (entry.parentEntryId ?? null)
   const requestedLocales = args.locales?.length ? args.locales : args.locale ? [args.locale] : []
   const targetLocales = requestedLocales.length
     ? requestedLocales
@@ -883,12 +947,25 @@ export async function previewPublishImpactForEntry(
     const blockingDiagnostics: VisibilityDiagnostic[] = []
     const warnings: VisibilityDiagnostic[] = []
     const changes: PublishImpactChange[] = []
+    let descendantRoutePreviews: PublishedDescendantRouteChange[] = []
 
     if (mode === 'none') {
       const missingFields = missingDraftRequiredFieldsForData({
         collection,
         draftData: draftLocale?.data,
       })
+      if (!localeDraftRow) {
+        blockingDiagnostics.push(
+          diagnostic({
+            code: 'missing_locale_route',
+            severity: 'error',
+            collection: collection.slug,
+            entryId,
+            locale,
+            message: `Entry has no "${locale}" locale variant to publish.`,
+          }),
+        )
+      }
       warnings.push(
         diagnostic({
           code: 'data_only_collection',
@@ -900,10 +977,10 @@ export async function previewPublishImpactForEntry(
         }),
       )
       for (const field of missingFields) {
-        warnings.push(
+        blockingDiagnostics.push(
           diagnostic({
             code: 'missing_required_localized_field',
-            severity: 'warning',
+            severity: 'error',
             collection: collection.slug,
             entryId,
             locale,
@@ -912,9 +989,20 @@ export async function previewPublishImpactForEntry(
           }),
         )
       }
+      const dirty = entry.dirtyLocales.includes(locale)
+      const noChanges =
+        currentIncluded &&
+        !dirty &&
+        !!draftLocale &&
+        !!publicRow &&
+        isEqualJsonValue(draftLocale.data, publicRow.data)
       localeImpacts.push({
         locale,
-        status: 'ready',
+        status: blockingDiagnostics.some(isBlockingDiagnostic)
+          ? 'blocked'
+          : noChanges
+            ? 'no_changes'
+            : 'ready',
         currentPath: null,
         nextPath: null,
         currentHref: null,
@@ -978,7 +1066,7 @@ export async function previewPublishImpactForEntry(
     if (draftLocale && localeDraftRow) {
       const ancestorSlugs = await computePublishedAncestorSlugsForPreview(ctx, {
         collection,
-        entry,
+        parentEntryId: publishParentEntryId,
         locale,
       })
       const slug = localeDraftRow.localeSlug ?? draftRows.shared?.slug ?? entry.baseSlug
@@ -994,8 +1082,8 @@ export async function previewPublishImpactForEntry(
       nextHref = renderGinkoHref({ locale, path: nextPath }, activeRoutingLocales)
     }
 
-    if (entry.parentEntryId && nextPath) {
-      const parentRow = await getPublicRowForEntryLocale(ctx, entry.parentEntryId, locale)
+    if (publishParentEntryId && nextPath) {
+      const parentRow = await getPublicRowForEntryLocale(ctx, publishParentEntryId, locale)
       if (!parentRow) {
         blockingDiagnostics.push(
           diagnostic({
@@ -1007,7 +1095,7 @@ export async function previewPublishImpactForEntry(
             path: nextPath,
             href: nextHref,
             details: {
-              parentEntryId: toStringId(entry.parentEntryId),
+              parentEntryId: toStringId(publishParentEntryId),
               parentPath: null,
             },
             message: `Parent entry is not public for locale "${locale}".`,
@@ -1017,6 +1105,14 @@ export async function previewPublishImpactForEntry(
     }
 
     if (nextPath) {
+      descendantRoutePreviews = await collectPublishedDescendantRouteChanges(ctx, {
+        collection,
+        rootEntry: entry,
+        locale,
+        currentPath,
+        nextPath,
+        activeRoutingLocales,
+      })
       const previewClaims = replaceRouteClaimsForPreview({
         claims,
         collection: collection.slug,
@@ -1026,11 +1122,20 @@ export async function previewPublishImpactForEntry(
         nextPath,
         stableId: entry.stableId ?? null,
       })
-      const routeDiagnostics = routeDiagnosticsForEntry({
-        diagnostics: validateGinkoRouteClaims(previewClaims, activeRoutingLocales),
+      const previewClaimsWithSubtree = replaceDescendantRouteClaimsForPreview(previewClaims, {
         collection: collection.slug,
-        entryId,
         locale,
+        descendants: descendantRoutePreviews,
+      })
+      const affectedRouteEntryIds = new Set([
+        entryId,
+        ...descendantRoutePreviews.map((descendant) => descendant.entryId),
+      ])
+      const routeDiagnostics = routeDiagnosticsForAffectedClaims({
+        diagnostics: validateGinkoRouteClaims(previewClaimsWithSubtree, activeRoutingLocales),
+        collection: collection.slug,
+        locale,
+        entryIds: affectedRouteEntryIds,
       })
       blockingDiagnostics.push(
         ...routeDiagnostics.map((item) =>
@@ -1056,10 +1161,25 @@ export async function previewPublishImpactForEntry(
       changes.push(
         change({
           locale,
+          entryId,
+          scope: 'current_entry',
           kind: 'route',
           label: 'Public route',
           before: currentHref,
           after: nextHref,
+        }),
+      )
+    }
+    for (const descendant of descendantRoutePreviews) {
+      changes.push(
+        change({
+          locale,
+          entryId: descendant.entryId,
+          scope: 'descendant',
+          kind: 'route',
+          label: `Descendant public route: ${descendant.title}`,
+          before: descendant.currentHref,
+          after: descendant.nextHref,
         }),
       )
     }

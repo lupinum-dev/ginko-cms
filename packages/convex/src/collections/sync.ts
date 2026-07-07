@@ -9,7 +9,7 @@ import { v } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel.js'
 import { canManageCollections } from '../auth/checks.js'
-import { refreshEntryReadModelsById } from '../entries/projections.js'
+import { refreshDraftAssetRefsForEntrySubtree } from '../entries/projections.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
 import type { getCollectionOrThrow } from '../lib/collections.js'
@@ -119,11 +119,9 @@ export async function recomputeEntryDerivedState(
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
   entry: EntryDoc,
 ) {
-  await refreshEntryReadModelsById(ctx, {
+  await refreshDraftAssetRefsForEntrySubtree(ctx, {
     collection,
     entryId: entry._id,
-    now: entry.updatedAt,
-    appIdentityId: entry.updatedBy,
   })
 }
 

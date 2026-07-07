@@ -1,6 +1,30 @@
 import { v } from 'convex/values'
 import type { Validator } from 'convex/values'
 
+import {
+  readinessActionKinds,
+  readinessActionTargets,
+  entryListWorkStates,
+  readinessIssueCodes,
+  readinessSeverities,
+  readinessStates,
+  type AffectedPublicUrl,
+  type EntryReadinessDetail,
+  type EntryListWorkState,
+  type EntryReadinessLocale,
+  type PublishImpactChangeKind,
+  type PublishImpactStatus,
+  type PublishReviewPreview,
+  type ReadinessAction,
+  type ReadinessActionKind,
+  type ReadinessActionTarget,
+  type ReadinessIssue,
+  type ReadinessIssueCode,
+  type ReadinessParams,
+  type ReadinessSeverity,
+  type ReadinessState,
+  type ReviewSummary,
+} from './readiness.js'
 import type {
   AssetDeleteMode,
   AssetScope,
@@ -24,6 +48,13 @@ import type {
 } from './types.js'
 
 type RequiredValidator<T> = Validator<T, 'required', string>
+
+function literalUnion<T extends readonly [string, string, ...string[]]>(
+  values: T,
+): RequiredValidator<T[number]> {
+  const literals = values.map((value) => v.literal(value))
+  return v.union(literals[0]!, literals[1]!, ...literals.slice(2)) as RequiredValidator<T[number]>
+}
 
 function createJsonValueValidator(depth: number): RequiredValidator<JsonValue> {
   const scalar = v.union(v.null(), v.boolean(), v.number(), v.string())
@@ -115,6 +146,94 @@ export const entryStatusValidator = v.union(
   v.literal('published'),
   v.literal('archived'),
 ) as RequiredValidator<EntryStatus>
+
+export const readinessStateValidator = literalUnion(
+  readinessStates,
+) as RequiredValidator<ReadinessState>
+
+export const readinessSeverityValidator = literalUnion(
+  readinessSeverities,
+) as RequiredValidator<ReadinessSeverity>
+
+export const readinessIssueCodeValidator = literalUnion(
+  readinessIssueCodes,
+) as RequiredValidator<ReadinessIssueCode>
+
+export const readinessActionKindValidator = literalUnion(
+  readinessActionKinds,
+) as RequiredValidator<ReadinessActionKind>
+
+export const readinessActionTargetValidator = literalUnion(
+  readinessActionTargets,
+) as RequiredValidator<ReadinessActionTarget>
+
+export const readinessParamsValidator = v.record(
+  v.string(),
+  v.union(v.string(), v.number(), v.boolean(), v.null()),
+) as RequiredValidator<ReadinessParams>
+
+export const readinessIssueValidator = v.object({
+  code: readinessIssueCodeValidator,
+  severity: readinessSeverityValidator,
+  locale: v.union(v.string(), v.null()),
+  fieldPath: v.union(v.string(), v.null()),
+  messageParams: readinessParamsValidator,
+  diagnosticId: v.union(v.string(), v.null()),
+}) as RequiredValidator<ReadinessIssue>
+
+export const readinessActionValidator = v.object({
+  kind: readinessActionKindValidator,
+  locale: v.union(v.string(), v.null()),
+  target: readinessActionTargetValidator,
+  params: readinessParamsValidator,
+}) as RequiredValidator<ReadinessAction>
+
+export const affectedPublicUrlValidator = v.object({
+  entryId: v.string(),
+  locale: v.string(),
+  kind: v.union(v.literal('current_entry'), v.literal('descendant')),
+  beforePath: v.union(v.string(), v.null()),
+  afterPath: v.union(v.string(), v.null()),
+  beforeHref: v.union(v.string(), v.null()),
+  afterHref: v.union(v.string(), v.null()),
+  reason: v.union(
+    v.literal('publish'),
+    v.literal('route_changed'),
+    v.literal('parent_route_changed'),
+    v.literal('unpublish'),
+    v.literal('archive'),
+  ),
+}) as RequiredValidator<AffectedPublicUrl>
+
+export const entryReadinessLocaleValidator = v.object({
+  locale: v.string(),
+  state: readinessStateValidator,
+  blockers: v.array(readinessIssueValidator),
+  warnings: v.array(readinessIssueValidator),
+  infos: v.array(readinessIssueValidator),
+  nextAction: readinessActionValidator,
+  draftExists: v.boolean(),
+  published: v.boolean(),
+  hasUnpublishedChanges: v.boolean(),
+  canPreview: v.boolean(),
+  canRequestReview: v.boolean(),
+  canPublish: v.boolean(),
+  canArchive: v.boolean(),
+  publicUrl: v.union(v.string(), v.null()),
+  draftUrl: v.union(v.string(), v.null()),
+  affectedPublicUrls: v.array(affectedPublicUrlValidator),
+  reviewRequestId: v.union(v.string(), v.null()),
+  currentDraftVersion: v.union(v.number(), v.null()),
+  currentPublishedRevisionId: v.union(v.string(), v.null()),
+}) as RequiredValidator<EntryReadinessLocale>
+
+export const entryReadinessDetailValidator = v.object({
+  entryId: v.string(),
+  collection: v.string(),
+  primaryLocale: v.string(),
+  locales: v.array(entryReadinessLocaleValidator),
+  updatedAt: v.number(),
+}) as RequiredValidator<EntryReadinessDetail>
 
 export const nodeKindValidator = v.union(
   v.literal('page'),
@@ -410,16 +529,27 @@ export const ginkoPublicVisibilityExplanationValidator = v.object({
   diagnostics: v.array(ginkoVisibilityDiagnosticValidator),
 })
 
+export const ginkoPublishImpactStatusValidator = v.union(
+  v.literal('ready'),
+  v.literal('blocked'),
+  v.literal('no_changes'),
+  v.literal('not_publishable'),
+) as RequiredValidator<PublishImpactStatus>
+
+export const ginkoPublishImpactChangeKindValidator = v.union(
+  v.literal('route'),
+  v.literal('redirect'),
+  v.literal('sitemap'),
+  v.literal('search'),
+  v.literal('nav'),
+  v.literal('seo'),
+) as RequiredValidator<PublishImpactChangeKind>
+
 export const ginkoPublishImpactChangeValidator = v.object({
   locale: v.string(),
-  kind: v.union(
-    v.literal('route'),
-    v.literal('redirect'),
-    v.literal('sitemap'),
-    v.literal('search'),
-    v.literal('nav'),
-    v.literal('seo'),
-  ),
+  entryId: v.optional(v.string()),
+  scope: v.optional(v.union(v.literal('current_entry'), v.literal('descendant'))),
+  kind: ginkoPublishImpactChangeKindValidator,
   label: v.string(),
   before: v.union(v.string(), v.boolean(), v.null()),
   after: v.union(v.string(), v.boolean(), v.null()),
@@ -427,12 +557,7 @@ export const ginkoPublishImpactChangeValidator = v.object({
 
 export const ginkoPublishImpactLocaleValidator = v.object({
   locale: v.string(),
-  status: v.union(
-    v.literal('ready'),
-    v.literal('blocked'),
-    v.literal('no_changes'),
-    v.literal('not_publishable'),
-  ),
+  status: ginkoPublishImpactStatusValidator,
   currentPath: v.union(v.string(), v.null()),
   nextPath: v.union(v.string(), v.null()),
   currentHref: v.union(v.string(), v.null()),
@@ -457,12 +582,7 @@ export const ginkoPublishImpactLocaleValidator = v.object({
 export const ginkoPublishImpactResultValidator = v.object({
   collection: v.string(),
   entryId: v.string(),
-  status: v.union(
-    v.literal('ready'),
-    v.literal('blocked'),
-    v.literal('no_changes'),
-    v.literal('not_publishable'),
-  ),
+  status: ginkoPublishImpactStatusValidator,
   mode: v.union(v.literal('route'), v.literal('none')),
   locales: v.array(ginkoPublishImpactLocaleValidator),
   blockingDiagnostics: v.array(ginkoVisibilityDiagnosticValidator),
@@ -471,6 +591,66 @@ export const ginkoPublishImpactResultValidator = v.object({
   cacheTags: v.array(v.string()),
   events: v.array(v.string()),
 })
+
+export const publishReviewPreviewAffectedUrlValidator = v.object({
+  locale: v.string(),
+  entryId: v.string(),
+  scope: v.union(v.literal('current_entry'), v.literal('descendant')),
+  label: v.string(),
+  beforeHref: v.union(v.string(), v.null()),
+  afterHref: v.union(v.string(), v.null()),
+})
+
+export const publishReviewPreviewValidator = v.object({
+  kind: v.literal('publish-review-preview'),
+  status: ginkoPublishImpactStatusValidator,
+  collection: v.string(),
+  entryId: v.string(),
+  locales: v.array(
+    v.object({
+      locale: v.string(),
+      status: ginkoPublishImpactStatusValidator,
+      currentHref: v.union(v.string(), v.null()),
+      nextHref: v.union(v.string(), v.null()),
+      blockingIssueCodes: v.array(v.string()),
+      warningIssueCodes: v.array(v.string()),
+      changeKinds: v.array(ginkoPublishImpactChangeKindValidator),
+    }),
+  ),
+  affectedPublicUrls: v.array(publishReviewPreviewAffectedUrlValidator),
+  changes: v.array(
+    v.object({
+      locale: v.string(),
+      entryId: v.optional(v.string()),
+      scope: v.optional(v.union(v.literal('current_entry'), v.literal('descendant'))),
+      kind: ginkoPublishImpactChangeKindValidator,
+      label: v.string(),
+      before: v.union(v.string(), v.boolean(), v.null()),
+      after: v.union(v.string(), v.boolean(), v.null()),
+    }),
+  ),
+  blockingIssueCodes: v.array(v.string()),
+  warningIssueCodes: v.array(v.string()),
+  computedAt: v.number(),
+}) as RequiredValidator<PublishReviewPreview>
+
+export const reviewSummaryValidator = v.object({
+  status: ginkoPublishImpactStatusValidator,
+  localeStatuses: v.array(
+    v.object({
+      locale: v.string(),
+      status: ginkoPublishImpactStatusValidator,
+      currentHref: v.union(v.string(), v.null()),
+      nextHref: v.union(v.string(), v.null()),
+    }),
+  ),
+  affectedPublicUrls: v.array(publishReviewPreviewAffectedUrlValidator),
+  changeCount: v.number(),
+  blockerCount: v.number(),
+  warningCount: v.number(),
+  blockingIssueCodes: v.array(v.string()),
+  warningIssueCodes: v.array(v.string()),
+}) as RequiredValidator<ReviewSummary>
 
 export const siteDataListItemValidator = v.object({
   _id: v.string(),
@@ -698,6 +878,26 @@ const studioLocaleReadinessValidator = v.object({
   state: v.union(v.literal('public'), v.literal('draft_only'), v.literal('changed')),
 })
 
+export const entryListWorkStateValidator = literalUnion(
+  entryListWorkStates,
+) as RequiredValidator<EntryListWorkState>
+
+const entryWorkflowSummaryValidator = v.object({
+  entryId: v.string(),
+  collection: v.string(),
+  primaryLocale: v.string(),
+  workStatesByLocale: v.record(v.string(), entryListWorkStateValidator),
+  readinessStatesByLocale: v.record(v.string(), readinessStateValidator),
+  issueCounts: v.object({
+    blocker: v.number(),
+    warning: v.number(),
+    info: v.number(),
+  }),
+  missingLocales: v.array(v.string()),
+  publishedLocales: v.array(v.string()),
+  nextAction: readinessActionValidator,
+})
+
 /** Item returned by listEntrySummaries */
 export const entrySummaryValidator = v.object({
   _id: v.string(),
@@ -718,6 +918,7 @@ export const entrySummaryValidator = v.object({
   blockingIssueCount: v.number(),
   missingTranslationLocales: v.array(v.string()),
   localeReadiness: v.array(studioLocaleReadinessValidator),
+  workflowSummary: entryWorkflowSummaryValidator,
   nextAction: v.string(),
   _can: v.optional(v.record(v.string(), v.boolean())),
 })
@@ -882,6 +1083,7 @@ export const versionListItemValidator = v.object({
     v.literal('unpublished'),
     v.literal('archived'),
     v.literal('checkpoint'),
+    v.literal('routeUpdated'),
   ),
   publishedLocales: v.array(v.string()),
   message: v.union(v.string(), v.null()),

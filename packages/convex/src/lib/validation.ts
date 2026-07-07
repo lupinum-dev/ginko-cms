@@ -3,7 +3,7 @@ import { normalizeFields } from '@lupinum/ginko-cms-contract/shared/fields/norma
 import type { FieldType } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import { throwCmsError } from '../errors.js'
-import type { CmsField, CompletionState, ValidationError } from './types.js'
+import type { CmsCollection, CmsField, CompletionState, ValidationError } from './types.js'
 import { emptyForType, isPlainObject } from './utils.js'
 
 export { evaluateFieldCondition }
@@ -290,6 +290,42 @@ export function getFieldCompletionState(
     complete: errors.length === 0 && filledRequired === totalRequired,
     errors,
   }
+}
+
+export type PublishRequiredFieldIssue = {
+  field: string
+  scope: 'localized' | 'shared'
+  message: string
+}
+
+export function collectPublishRequiredFieldIssues(args: {
+  collection: Pick<CmsCollection, 'fields'>
+  localizedValues?: Record<string, unknown> | null
+  sharedValues?: Record<string, unknown> | null
+  data?: Record<string, unknown> | null
+}): PublishRequiredFieldIssue[] {
+  const localizedFields: CmsField[] = []
+  const sharedFields: CmsField[] = []
+  for (const field of args.collection.fields) {
+    if (field.localized) localizedFields.push(field)
+    else sharedFields.push(field)
+  }
+  const data = args.data ?? {}
+  const localizedValues = args.localizedValues ?? {}
+  const sharedValues = args.sharedValues ?? {}
+  const localized = getFieldCompletionState(localizedFields, localizedValues, data).errors.map(
+    (error) => ({
+      field: error.field,
+      message: error.message,
+      scope: 'localized' as const,
+    }),
+  )
+  const shared = getFieldCompletionState(sharedFields, sharedValues, data).errors.map((error) => ({
+    field: error.field,
+    message: error.message,
+    scope: 'shared' as const,
+  }))
+  return [...localized, ...shared]
 }
 
 export function assertFieldDataValid(

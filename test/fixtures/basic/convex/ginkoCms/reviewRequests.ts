@@ -1,5 +1,4 @@
 /* eslint-disable */
-import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
@@ -7,15 +6,13 @@ import { mutation, query } from '../_generated/server.js'
 
 export const requestPublishReview = mutation({
   args: {
-    agentRunId: v.string(),
+    agentRunId: v.optional(v.union(v.string(), v.null())),
     entryId: v.string(),
     locales: v.array(v.string()),
     expectedVersion: v.number(),
     message: v.optional(v.union(v.string(), v.null())),
     title: v.string(),
     summary: v.string(),
-    preview: jsonObjectValidator,
-    versionHash: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) =>
     await ctx.runMutation(components.ginkoCms.reviewRequests.requestPublishReview, args as never),

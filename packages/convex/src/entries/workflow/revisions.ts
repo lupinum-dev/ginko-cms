@@ -2,7 +2,7 @@
  * Append-only revision writer.
  *
  * `entryRevisions` records meaningful events only (publish, unpublish,
- * rollback, archive, checkpoint). Autosaves do NOT append rows here; they
+ * rollback, archive, checkpoint, route rebuild). Autosaves do NOT append rows here; they
  * live in `entryDrafts` (see drafts.ts).
  *
  * Once written, a revision row is never mutated. `restoreRevision` creates
@@ -17,7 +17,13 @@ import type { MutationCtx } from '../../lib/types.js'
 
 export type EntryRevisionDoc = Doc<'entryRevisions'>
 
-export type RevisionKind = 'publish' | 'unpublish' | 'rollback' | 'archive' | 'checkpoint'
+export type RevisionKind =
+  | 'publish'
+  | 'unpublish'
+  | 'rollback'
+  | 'archive'
+  | 'checkpoint'
+  | 'route_rebuild'
 
 export interface RevisionLocaleSnapshot {
   slug: string | null

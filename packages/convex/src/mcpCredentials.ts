@@ -47,21 +47,10 @@ const mcpCredentialSettingsValidator = v.object({
   revokedAt: v.union(v.number(), v.null()),
 })
 
-const permissionMapValidator = v.record(v.string(), v.boolean())
-
 const resolvedCredentialAccessValidator = v.union(
   v.object({
     apiKeyId: v.string(),
     ownerUserId: v.string(),
-    role: v.union(
-      v.literal('owner'),
-      v.literal('publisher'),
-      v.literal('editor'),
-      v.literal('viewer'),
-    ),
-    scopes: v.array(mcpCredentialScopeValidator),
-    rolePermissions: permissionMapValidator,
-    effectivePermissions: permissionMapValidator,
   }),
   v.null(),
 )
@@ -135,6 +124,19 @@ async function getCredentialSettings(ctx: QueryCtx | MutationCtx, apiKeyId: stri
     .first()
 }
 
+type BetterAuthConvexIdentity = {
+  subject?: unknown
+  sessionId?: unknown
+}
+
+async function currentAuthOwnsCredential(
+  ctx: QueryCtx,
+  args: { apiKeyId: string; ownerUserId: string },
+) {
+  const identity = (await ctx.auth.getUserIdentity()) as BetterAuthConvexIdentity | null
+  return identity?.subject === args.ownerUserId && identity.sessionId === args.apiKeyId
+}
+
 export const upsertSettings = callerMutation.protected({
   id: 'mcpCredentials:upsertSettings',
   args: {
@@ -173,6 +175,16 @@ export const upsertSettings = callerMutation.protected({
       await ctx.db.patch(existing._id, patch)
       const updated = await ctx.db.get(existing._id)
       if (!updated) throw new Error('Credential settings disappeared after update.')
+      await logActivity(ctx, {
+        kind: 'mcpCredentialSettings.updated',
+        summary: `Updated MCP credential settings for "${args.ownerUserId}"`,
+        appIdentityId: appIdentity.userId,
+        detail: {
+          apiKeyId: args.apiKeyId,
+          ownerUserId: args.ownerUserId,
+          scopes,
+        },
+      })
       return serializeCredentialSettings(updated)
     }
 
@@ -260,27 +272,21 @@ export const resolveAccess = callerQuery.public({
   handler: async (ctx, args) => {
     const settings = await getCredentialSettings(ctx, args.apiKeyId)
     if (!settings || settings.status !== 'active') return null
+    if (
+      !(await currentAuthOwnsCredential(ctx, {
+        apiKeyId: settings.apiKeyId,
+        ownerUserId: settings.ownerUserId,
+      }))
+    ) {
+      return null
+    }
 
     const member = await getMemberByUserId(ctx, settings.ownerUserId)
     if (!member) return null
 
-    const scopes = normalizeScopes(settings.scopes as CmsPermissionKey[])
-    const scopeSet = new Set(scopes)
-    const rolePermissions = permissionsForMember(member)
-    const effectivePermissions = Object.fromEntries(
-      cmsPermissionGuards.map(({ key }) => [
-        key,
-        rolePermissions[key] === true && scopeSet.has(key),
-      ]),
-    ) as Record<CmsPermissionKey, boolean>
-
     return {
       apiKeyId: settings.apiKeyId,
       ownerUserId: settings.ownerUserId,
-      role: member.role,
-      scopes,
-      rolePermissions,
-      effectivePermissions,
     }
   },
 })

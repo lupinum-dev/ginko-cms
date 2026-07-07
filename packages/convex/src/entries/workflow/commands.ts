@@ -3,25 +3,21 @@
 // grow a second command surface.
 
 import {
-  contentTags,
   normalizeContentPath,
   uniqueContentTags,
 } from '@lupinum/ginko-cms-contract/shared/contentTags.js'
 import { materializeFieldData } from '@lupinum/ginko-cms-contract/shared/fields/materialize.js'
-import { renderGinkoHref } from '@lupinum/ginko-cms-contract/shared/routeDiagnostics.js'
-import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
+import { previewPublishImpactForEntry } from '../../diagnostics.js'
 import { throwCmsError } from '../../errors.js'
 import { logActivity } from '../../lib/activity.js'
 import { parseMdcBody } from '../../lib/cmsContract/index.js'
 import type { MarkdownRoot, Toc } from '../../lib/cmsContract/types.js'
 import { getCollectionOrThrow, isLocalizedSlugMode } from '../../lib/collections.js'
-import { resolveEntryDescription, resolveEntryTitle } from '../../lib/fields.js'
-import { getRoutingLocales } from '../../lib/locale.js'
 import { generateStableId } from '../../lib/paths.js'
-import { buildPublicSearchText, filterPublicData } from '../../lib/publicData.js'
-import type { CmsField, QueryOrMutationCtx } from '../../lib/types.js'
+import type { QueryOrMutationCtx } from '../../lib/types.js'
 import {
   assertFieldDataValid,
   assertValidLocaleCode,
@@ -29,7 +25,6 @@ import {
 } from '../../lib/validation.js'
 import { scheduleRevalidationOutboxDelivery } from '../../revalidation.js'
 import { resolveEntryPlacement } from '../placement.js'
-import { collectRelationReferences } from '../relations.js'
 import { ensureSharedSlugUnique } from '../slugs.js'
 import {
   deleteEntryAssetRefsBySourceKind,
@@ -45,25 +40,31 @@ import {
   localeSnapshotPathFromPublicPath,
   pathSegments,
   pathPrefixForLocale,
-  publicPathForLocaleSnapshot,
 } from './path.js'
 import {
   deleteAllPublicProjections,
   deletePublicProjection,
-  type PublicProjectionInput,
   readPublicRevisionIdsByLocale,
   upsertPublicProjection,
 } from './projection.js'
+import { buildPublicProjectionFromRevisionSnapshot } from './projectionBuild.js'
 import {
   appendRevisionAndPatchEntry,
   type appendRevision,
   type RevisionLocaleSnapshot,
 } from './revisions.js'
+import {
+  appendDescendantRouteRebuildRevisions,
+  collectDescendantProjectionRebuilds,
+  descendantRevalidationState,
+} from './subtreeRoutes.js'
 
 type PublicRevalidationState = {
   tags: string[]
   paths: string[]
 }
+
+const PUBLISHABLE_IMPACT_STATUSES = new Set(['ready', 'no_changes'])
 
 async function capturePublicRevalidationState(
   ctx: Parameters<typeof appendRevision>[0],
@@ -141,89 +142,6 @@ async function insertRevalidationOutboxEvent(
     createdAt: args.now,
     updatedAt: args.now,
   })
-}
-
-function isJsonObject(value: unknown): value is JsonObject {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function localizedText(value: unknown, locale: string, defaultLocale: string): string | null {
-  if (typeof value === 'string') return value.trim() ? value : null
-  if (!isJsonObject(value)) return null
-  const byLocale = value as Record<string, unknown>
-  for (const candidate of [locale, defaultLocale]) {
-    const text = byLocale[candidate]
-    if (typeof text === 'string' && text.trim()) return text
-  }
-  return null
-}
-
-async function imageWithAssetMetadataFallback(
-  ctx: Parameters<typeof appendRevision>[0],
-  value: unknown,
-  locale: string,
-  defaultLocale: string,
-): Promise<JsonValue> {
-  if (typeof value === 'string') return value
-  if (!isJsonObject(value)) return value as JsonValue
-
-  const src = value.src
-  if (typeof src !== 'string' || !src) return value
-
-  const next: JsonObject = { ...value }
-  const hasAlt = typeof next.alt === 'string' && next.alt.trim().length > 0
-  const hasCaption = typeof next.caption === 'string' && next.caption.trim().length > 0
-  if (hasAlt && hasCaption) return next
-
-  const assetId = ctx.db.normalizeId('assets', src)
-  if (!assetId) return next
-  const asset = await ctx.db.get(assetId)
-  if (!asset || asset.deletedAt) return next
-
-  if (!hasAlt) {
-    const alt = localizedText(asset.alt, locale, defaultLocale)
-    if (alt) next.alt = alt
-  }
-  if (!hasCaption) {
-    const caption = localizedText(asset.caption, locale, defaultLocale)
-    if (caption) next.caption = caption
-  }
-  return next
-}
-
-async function applyPublicImageMetadataFallbacks(
-  ctx: Parameters<typeof appendRevision>[0],
-  fields: CmsField[],
-  data: JsonObject,
-  locale: string,
-  defaultLocale: string,
-): Promise<JsonObject> {
-  const next: JsonObject = { ...data }
-  for (const field of fields) {
-    const key = field.key
-    if (!key || !(key in next)) continue
-    const value = next[key]
-    if (field.type === 'object' && Array.isArray(field.fields) && isJsonObject(value)) {
-      const srcField = field.fields.find(
-        (child) => child.key === 'src' && (child.type === 'image' || child.type === 'file'),
-      )
-      if (srcField) {
-        next[key] = await imageWithAssetMetadataFallback(ctx, value, locale, defaultLocale)
-        continue
-      }
-      next[key] = await applyPublicImageMetadataFallbacks(
-        ctx,
-        field.fields,
-        value,
-        locale,
-        defaultLocale,
-      )
-      continue
-    }
-    if (field.type !== 'image' && field.type !== 'file') continue
-    next[key] = await imageWithAssetMetadataFallback(ctx, value, locale, defaultLocale)
-  }
-  return next
 }
 
 export async function createCanonicalEntry(
@@ -383,7 +301,14 @@ export async function computePublishDraftHash(
   args: { entryId: Id<'entries'>; locales: string[] },
 ): Promise<string> {
   const drafts = await readDraftRows(ctx, args.entryId)
-  return stableHash({
+  return stableHash(publishDraftHashPayload(drafts, args.locales))
+}
+
+function publishDraftHashPayload(
+  drafts: Awaited<ReturnType<typeof readDraftRows>>,
+  locales: string[],
+) {
+  return {
     shared: drafts.shared
       ? {
           parentEntryId: drafts.shared.parentEntryId ?? null,
@@ -393,7 +318,7 @@ export async function computePublishDraftHash(
         }
       : null,
     locales: Object.fromEntries(
-      args.locales
+      locales
         .filter((locale) => drafts.byLocale[locale])
         .map((locale) => {
           const row = drafts.byLocale[locale]!
@@ -407,7 +332,7 @@ export async function computePublishDraftHash(
           ]
         }),
     ),
-  })
+  }
 }
 
 // ─── publish workflow helpers ────────────────────────────────────────────
@@ -433,132 +358,41 @@ interface PublishEntryRunInput {
   >
 }
 
-type PublicProjectionBuildResult = {
-  input: PublicProjectionInput
-  assetRefs: ReturnType<typeof uniqueAssetRefs>
+type PublishPlacementSnapshot = {
+  parentEntryId: Id<'entries'> | null
+  orderRank: string | null
+  slug: string | null
+  shared: JsonObject
 }
 
-async function projectionBodyFromSnapshot(
-  localeSnapshot: RevisionLocaleSnapshot,
-): Promise<{ bodyAst: MarkdownRoot; searchText: string; toc: Toc | null }> {
-  if (localeSnapshot.bodyAst && typeof localeSnapshot.bodyAst === 'object') {
-    return {
-      bodyAst: localeSnapshot.bodyAst as unknown as MarkdownRoot,
-      searchText: localeSnapshot.searchText ?? '',
-      toc: (localeSnapshot.toc as unknown as Toc | null) ?? null,
-    }
-  }
-
-  const parsed = await parseMdcBody(localeSnapshot.bodyMdc ?? '')
+function publishPlacementSnapshot(
+  entry: Doc<'entries'>,
+  drafts: Awaited<ReturnType<typeof readDraftRows>>,
+): PublishPlacementSnapshot {
+  const shared = drafts.shared
   return {
-    bodyAst: parsed.body,
-    searchText: localeSnapshot.searchText ?? parsed.searchText,
-    toc: (localeSnapshot.toc as unknown as Toc | null) ?? parsed.toc ?? null,
+    parentEntryId:
+      shared && shared.parentEntryId !== undefined
+        ? (shared.parentEntryId ?? null)
+        : (entry.parentEntryId ?? null),
+    orderRank:
+      shared && shared.orderRank !== undefined
+        ? (shared.orderRank ?? null)
+        : (entry.orderRank ?? null),
+    slug: shared && shared.slug !== undefined ? (shared.slug ?? null) : entry.baseSlug,
+    shared: (shared?.shared as JsonObject) ?? {},
   }
 }
 
-export async function buildPublicProjectionFromRevisionSnapshot(
-  ctx: Parameters<typeof appendRevision>[0],
-  args: {
-    entry: Doc<'entries'>
-    collection: Doc<'collections'>
-    revisionId: Id<'entryRevisions'>
-    snapshot: { parentEntryId?: Id<'entries'> | null; orderRank?: string | null }
-    locale: string
-    localeSnapshot: RevisionLocaleSnapshot
-    now: number
-  },
-): Promise<PublicProjectionBuildResult> {
-  const path = publicPathForLocaleSnapshot(args.collection, args.localeSnapshot.path, args.locale)
-  const href = renderGinkoHref(
-    { locale: args.locale, path },
-    await getRoutingLocales(ctx, args.collection.locales),
-  )
-  const body = await projectionBodyFromSnapshot(args.localeSnapshot)
-  const publicData = await applyPublicImageMetadataFallbacks(
-    ctx,
-    args.collection.fields,
-    filterPublicData(args.collection.fields, args.localeSnapshot.values),
-    args.locale,
-    args.collection.locales[0] ?? args.locale,
-  )
-  const title =
-    resolveEntryTitle(publicData, args.collection.fields, args.collection.settings) ??
-    args.localeSnapshot.slug ??
-    ''
-  const description =
-    resolveEntryDescription(publicData, args.collection.fields, args.collection.settings) ??
-    resolveEntryDescription(
-      args.localeSnapshot.values,
-      args.collection.fields,
-      args.collection.settings,
-    )
-  const navIncluded = publicInclusionFlag(args.localeSnapshot.values, 'navigation')
-  const searchIncluded = publicInclusionFlag(args.localeSnapshot.values, 'search')
-  const sitemapIncluded = publicInclusionFlag(args.localeSnapshot.values, 'sitemap')
-
-  const existingPublic = await ctx.db
-    .query('publicEntries')
-    .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entry._id).eq('locale', args.locale))
-    .first()
-  const firstPublishedAt =
-    existingPublic?.firstPublishedAt ?? args.entry.firstPublishedAt ?? args.now
-  const assetRefs = uniqueAssetRefs([
-    ...extractAssetRefsFromValues((args.localeSnapshot.values as JsonObject) ?? {}, {
-      locale: args.locale,
-    }),
-    ...extractAssetRefsFromValues(body.bodyAst as unknown as JsonObject, {
-      fieldPathPrefix: 'bodyAst',
-      locale: args.locale,
-    }),
-  ])
-
+function mergeRevalidationState(
+  left: PublicRevalidationState,
+  right: PublicRevalidationState,
+): PublicRevalidationState {
   return {
-    input: {
-      entryId: args.entry._id,
-      collectionId: args.entry.collectionId,
-      locale: args.locale,
-      revisionId: args.revisionId,
-      routeBacked: (args.collection.routing.mode ?? 'route') === 'route',
-      stableId: args.entry.stableId ?? null,
-      parentEntryId: args.snapshot.parentEntryId ?? null,
-      orderKey: args.snapshot.orderRank ?? '',
-      slug: args.localeSnapshot.slug ?? '',
-      path,
-      href,
-      title,
-      description,
-      data: publicData,
-      bodyMdc: args.localeSnapshot.bodyMdc ?? '',
-      bodyAst: body.bodyAst,
-      searchText: searchIncluded
-        ? uniqueContentTags([
-            buildPublicSearchText({ values: publicData, fields: args.collection.fields }),
-            body.searchText,
-          ])
-            .join(' ')
-            .trim()
-        : '',
-      toc: body.toc,
-      cacheTags: buildWorkflowPublicCacheTags({
-        collection: args.collection,
-        entry: args.entry,
-        locale: args.locale,
-        path,
-        data: publicData,
-        fields: args.collection.fields,
-        navIncluded,
-        searchIncluded,
-        sitemapIncluded,
-      }),
-      navIncluded,
-      sitemapIncluded,
-      searchIncluded,
-      entryCreatedAt: args.entry.createdAt,
-      firstPublishedAt,
-      lastPublishedAt: args.now,
-    },
-    assetRefs,
+    tags: uniqueContentTags([...left.tags, ...right.tags]),
+    paths: uniqueContentTags(
+      [...left.paths, ...right.paths].map((path) => normalizeContentPath(path)),
+    ),
   }
 }
 
@@ -579,31 +413,7 @@ async function executePublishEntryRun(
   }
 
   const drafts = await readDraftRows(ctx, args.entryId)
-  const recomputedHash = stableHash({
-    shared: drafts.shared
-      ? {
-          parentEntryId: drafts.shared.parentEntryId ?? null,
-          orderRank: drafts.shared.orderRank ?? null,
-          slug: drafts.shared.slug ?? null,
-          values: drafts.shared.shared ?? {},
-        }
-      : null,
-    locales: Object.fromEntries(
-      args.locales
-        .filter((locale) => drafts.byLocale[locale])
-        .map((locale) => {
-          const row = drafts.byLocale[locale]!
-          return [
-            locale,
-            {
-              slug: row.localeSlug ?? null,
-              values: row.values ?? {},
-              bodyMdc: row.bodyMdc ?? '',
-            },
-          ]
-        }),
-    ),
-  })
+  const recomputedHash = stableHash(publishDraftHashPayload(drafts, args.locales))
 
   if (recomputedHash !== args.expectedDraftHash) {
     throw new Error(
@@ -619,6 +429,11 @@ async function executePublishEntryRun(
   if (!collection) {
     throw new Error(`Publish rejected: collection ${entry.collectionId} no longer exists`)
   }
+  await assertCurrentDraftPublishable(ctx, {
+    collection,
+    entryId: args.entryId,
+    locales: args.locales,
+  })
   const oldRevalidationState = await capturePublicRevalidationState(ctx, {
     entryId: args.entryId,
     locales: args.locales,
@@ -626,6 +441,7 @@ async function executePublishEntryRun(
   const localeSnapshots: Record<string, RevisionLocaleSnapshot | null> = {
     ...(priorSnapshot.locales ?? {}),
   }
+  const publishPlacement = publishPlacementSnapshot(entry, drafts)
   for (const locale of args.locales) {
     const row = drafts.byLocale[locale]
     if (!row) {
@@ -636,13 +452,14 @@ async function executePublishEntryRun(
     }
     const parsed = args.parsedLocales[locale]
     const localeSlug = row.localeSlug ?? null
-    const sharedSlug = drafts.shared?.slug ?? null
+    const sharedSlug = publishPlacement.slug
     const slug = localeSlug ?? sharedSlug ?? entry.baseSlug
     const mergedDraft = materializeFieldData(
       collection.fields,
       (drafts.shared?.shared as JsonObject) ?? {},
       (row.values as JsonObject) ?? {},
     )
+    assertFieldDataValid(collection.fields, mergedDraft, { publish: true })
     assertCmsSchemaArtifactValid(collection.settings, mergedDraft)
     const localeValues: JsonObject = { ...mergedDraft }
     const rowValues = (row.values as JsonObject) ?? {}
@@ -650,7 +467,7 @@ async function executePublishEntryRun(
     if (rowValues.seo !== undefined) localeValues.seo = rowValues.seo
     const ancestorSlugs = await computePublishedAncestorSlugs(ctx, {
       collection,
-      entry,
+      parentEntryId: publishPlacement.parentEntryId,
       locale,
     })
     const path = entrySnapshotPath(collection, {
@@ -667,6 +484,12 @@ async function executePublishEntryRun(
       toc: parsed?.toc ?? null,
     }
   }
+  const descendantRebuilds = await collectDescendantProjectionRebuilds(ctx, {
+    collection,
+    rootEntry: entry,
+    localeSnapshots,
+    locales: args.locales,
+  })
 
   const remainingDirtyLocales = (entry.dirtyLocales ?? []).filter(
     (locale) => !args.locales.includes(locale),
@@ -680,10 +503,10 @@ async function executePublishEntryRun(
       parentRevisionId: entry.latestRevisionId ?? null,
       kind: args.kind ?? 'publish',
       snapshot: {
-        parentEntryId: drafts.shared?.parentEntryId ?? null,
-        orderRank: drafts.shared?.orderRank ?? null,
-        slug: drafts.shared?.slug ?? null,
-        shared: (drafts.shared?.shared as JsonObject) ?? {},
+        parentEntryId: publishPlacement.parentEntryId,
+        orderRank: publishPlacement.orderRank,
+        slug: publishPlacement.slug,
+        shared: publishPlacement.shared,
         locales: localeSnapshots,
       },
       affectedLocales: args.locales,
@@ -697,6 +520,9 @@ async function executePublishEntryRun(
       firstPublishedAt: entryFirstPublishedAt,
       publishedBy: args.appIdentity,
       dirtyLocales: remainingDirtyLocales,
+      baseSlug: publishPlacement.slug ?? entry.baseSlug,
+      parentEntryId: publishPlacement.parentEntryId,
+      orderRank: publishPlacement.orderRank,
     },
   )
 
@@ -710,8 +536,8 @@ async function executePublishEntryRun(
       revisionId: revisionResult.revisionId,
       locale,
       snapshot: {
-        parentEntryId: drafts.shared?.parentEntryId ?? null,
-        orderRank: drafts.shared?.orderRank ?? null,
+        parentEntryId: publishPlacement.parentEntryId,
+        orderRank: publishPlacement.orderRank,
       },
       localeSnapshot,
       now,
@@ -737,6 +563,49 @@ async function executePublishEntryRun(
     })
   }
 
+  const descendantRevisionIds = await appendDescendantRouteRebuildRevisions(ctx, {
+    rebuilds: descendantRebuilds,
+    appIdentity: args.appIdentity,
+    now,
+  })
+
+  for (const rebuild of descendantRebuilds) {
+    const revisionId = descendantRevisionIds.get(String(rebuild.entry._id))
+    if (!revisionId) {
+      throw new Error(`Descendant route rebuild did not create a revision for ${rebuild.entry._id}`)
+    }
+    const projection = await buildPublicProjectionFromRevisionSnapshot(ctx, {
+      entry: rebuild.entry,
+      collection,
+      revisionId,
+      locale: rebuild.locale,
+      snapshot: rebuild.snapshot,
+      localeSnapshot: rebuild.localeSnapshot,
+      now,
+    })
+    await upsertPublicProjection(ctx, projection.input)
+    rebuild.cacheTags = uniqueContentTags([
+      ...rebuild.cacheTags,
+      ...(projection.input.cacheTags ?? []),
+    ])
+    await replaceAssetRefs(ctx, {
+      sourceKind: 'revision',
+      sourceId: `${revisionId}:${rebuild.locale}`,
+      entryId: rebuild.entry._id,
+      collectionId: rebuild.entry.collectionId,
+      refs: projection.assetRefs,
+      now,
+    })
+    await replaceAssetRefs(ctx, {
+      sourceKind: 'public',
+      sourceId: `${rebuild.entry._id}:${rebuild.locale}`,
+      entryId: rebuild.entry._id,
+      collectionId: rebuild.entry.collectionId,
+      refs: projection.assetRefs,
+      now,
+    })
+  }
+
   await logActivity(ctx, {
     kind: 'entry.published',
     summary: 'Published entry',
@@ -756,7 +625,10 @@ async function executePublishEntryRun(
     appIdentityId: args.appIdentity,
     versionId: revisionResult.revisionId,
     now,
-    oldState: oldRevalidationState,
+    oldState: mergeRevalidationState(
+      oldRevalidationState,
+      descendantRevalidationState(descendantRebuilds),
+    ),
   })
   await scheduleRevalidationOutboxDelivery(ctx)
 
@@ -766,43 +638,44 @@ async function executePublishEntryRun(
   }
 }
 
-function buildWorkflowPublicCacheTags(args: {
-  collection: Doc<'collections'>
-  entry: Doc<'entries'>
-  locale: string
-  path: string
-  data: JsonObject
-  fields: CmsField[]
-  navIncluded?: boolean
-  searchIncluded?: boolean
-  sitemapIncluded?: boolean
-}) {
-  const publicEntryKey = args.entry.stableId ?? String(args.entry._id)
-  const assetRefs = extractAssetRefsFromValues(args.data, { locale: args.locale })
-  const relationRefs = collectRelationReferences({ fields: args.fields, data: args.data })
-    .filter((ref) => ref.targetCollectionSlug)
-    .map((ref) => ({ collection: ref.targetCollectionSlug!, targetId: ref.targetId }))
-  return uniqueContentTags([
-    contentTags.collection(args.collection.slug),
-    contentTags.entry(args.collection.slug, publicEntryKey),
-    contentTags.entry(args.collection.slug, publicEntryKey, args.locale),
-    contentTags.route(args.path),
-    args.navIncluded === false ? null : contentTags.nav(args.collection.slug, args.locale),
-    args.searchIncluded === false ? null : contentTags.search(args.locale),
-    args.sitemapIncluded === false ? null : contentTags.sitemap(),
-    ...assetRefs.map((ref) => contentTags.asset(ref.assetId)),
-    ...relationRefs.flatMap((ref) => [
-      contentTags.entry(ref.collection, ref.targetId),
-      contentTags.entry(ref.collection, ref.targetId, args.locale),
-    ]),
-  ])
-}
+async function assertCurrentDraftPublishable(
+  ctx: QueryOrMutationCtx,
+  args: {
+    collection: Doc<'collections'>
+    entryId: Id<'entries'>
+    locales: string[]
+  },
+) {
+  const impact = await previewPublishImpactForEntry(ctx, {
+    collection: args.collection.slug,
+    entryId: String(args.entryId),
+    locales: args.locales,
+  })
+  const blockedLocales = impact.locales.filter(
+    (locale) => !PUBLISHABLE_IMPACT_STATUSES.has(locale.status),
+  )
+  if (
+    PUBLISHABLE_IMPACT_STATUSES.has(impact.status) &&
+    blockedLocales.length === 0 &&
+    impact.blockingDiagnostics.length === 0
+  ) {
+    return
+  }
 
-function publicInclusionFlag(data: JsonObject, key: 'navigation' | 'search' | 'sitemap') {
-  const publicFlags = data.public
-  if (!publicFlags || typeof publicFlags !== 'object' || Array.isArray(publicFlags)) return true
-  const value = (publicFlags as Record<string, unknown>)[key]
-  return typeof value === 'boolean' ? value : true
+  throwCmsError('ENTRY_PUBLISH_NOT_READY', 'Publish rejected: current draft is not publishable.', {
+    entryId: String(args.entryId),
+    locales: args.locales,
+    status: impact.status,
+    blockedLocales: blockedLocales.map((locale) => locale.locale),
+    blockingDiagnostics: impact.blockingDiagnostics.map((diagnostic) => ({
+      code: diagnostic.code,
+      severity: diagnostic.severity,
+      locale: diagnostic.locale ?? null,
+      path: diagnostic.path ?? null,
+      href: diagnostic.href ?? null,
+      message: diagnostic.message,
+    })),
+  })
 }
 
 type SchemaArtifactNode =
@@ -996,20 +869,20 @@ async function computePublishedAncestorSlugs(
   ctx: QueryOrMutationCtx,
   args: {
     collection: Doc<'collections'> | null
-    entry: Doc<'entries'>
+    parentEntryId: Id<'entries'> | null
     locale: string
   },
 ): Promise<string[]> {
-  if (!args.entry.parentEntryId) return []
+  if (!args.parentEntryId) return []
 
   const parentPublic = await ctx.db
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) =>
-      q.eq('entryId', args.entry.parentEntryId!).eq('locale', args.locale),
+      q.eq('entryId', args.parentEntryId!).eq('locale', args.locale),
     )
     .first()
   if (!parentPublic) {
-    const parent = await ctx.db.get(args.entry.parentEntryId)
+    const parent = await ctx.db.get(args.parentEntryId)
     return parent ? [parent.baseSlug] : []
   }
 
@@ -1476,7 +1349,7 @@ export async function createDraftCheckpoint(
 
   await logActivity(ctx, {
     kind: 'entry.checkpointed',
-    summary: 'Created checkpoint',
+    summary: 'Saved version',
     appIdentityId: args.appIdentity,
     entryId: args.entryId,
     collectionId: entry.collectionId,

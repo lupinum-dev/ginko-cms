@@ -229,7 +229,7 @@ export const archiveEntry = defineArgs({
   },
 })
 
-export const unarchiveEntry = defineArgs({
+export const restoreEntry = defineArgs({
   description: 'Restore an archived entry to draft state.',
   args: {
     entryId: v.string(),
@@ -253,16 +253,16 @@ export const rollbackVersion = defineArgs({
 })
 
 export const createCheckpoint = defineArgs({
-  description: 'Create a named checkpoint for the current draft.',
+  description: 'Save a named version of the current draft.',
   args: {
     entryId: v.string(),
     message: v.string(),
   },
   meta: {
     message: {
-      label: 'Checkpoint message',
-      description: 'Short note explaining why this checkpoint exists.',
-      examples: ['Before IA rewrite', 'Pre-launch snapshot'],
+      label: 'Version note',
+      description: 'Short note explaining what this saved version should remember.',
+      examples: ['Before IA rewrite', 'Pre-launch version'],
     },
   },
 })

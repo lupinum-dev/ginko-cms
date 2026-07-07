@@ -16,6 +16,7 @@ import {
   draftVsPublishedDiffValidator,
   entryActivityItemValidator,
   entryListItemValidator,
+  entryReadinessDetailValidator,
   entrySummaryValidator,
   studioEntryListResultValidator,
   studioEntryValidator,
@@ -25,10 +26,16 @@ import {
   versionSnapshotPreviewValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { materializeFieldData } from '@lupinum/ginko-cms-contract/shared/fields/materialize.js'
+import {
+  createReadinessAction,
+  type EntryListWorkState,
+  type ReadinessAction,
+  type ReadinessState,
+} from '@lupinum/ginko-cms-contract/shared/readiness.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { v } from 'convex/values'
 
-import type { Id } from '../_generated/dataModel.js'
+import type { Doc, Id } from '../_generated/dataModel.js'
 import { canRead } from '../auth/checks.js'
 import { attachEntryRecordAccess } from '../auth/recordAccess.js'
 import { throwCmsError } from '../errors.js'
@@ -48,6 +55,7 @@ import {
   getEntryOrThrow,
   readStudioDraftView,
 } from './context.js'
+import { computeEntryReadinessDetail, computeEntryReadinessSummary } from './readiness.js'
 import { createSnapshotFromState, flattenRevisionSnapshot, flattenSnapshot } from './versioning.js'
 import { readDraftRows, type EntryDraftDoc } from './workflow/drafts.js'
 import { entrySnapshotPath, publicPathForLocaleSnapshot } from './workflow/path.js'
@@ -70,11 +78,25 @@ const STUDIO_OVERVIEW_LIMIT = 8
 const ORDER_KEY_TIME_PAD = 16
 const ORDER_KEY_TIME_MAX = 9_999_999_999_999
 
+type PublicRoutePreview = {
+  entryId: string
+  locale: string
+  path: string
+  href: string
+}
+
 function activityAppIdentityId(row: ActivityDoc): string {
   return row.appIdentityId ?? row.actorId ?? 'unknown'
 }
 
-function displayActivitySummary(row: Pick<ActivityDoc, 'kind' | 'summary'>): string {
+function activityOperationId(row: Pick<ActivityDoc, 'detail'>): string | null {
+  const detail = row.detail
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return null
+  const operationId = detail.operationId
+  return typeof operationId === 'string' ? operationId : null
+}
+
+function displayActivitySummary(row: Pick<ActivityDoc, 'kind' | 'summary' | 'detail'>): string {
   if (row.kind.startsWith('member.')) {
     return row.summary.replace(/"[^"]+"/g, '"user or connection"')
   }
@@ -82,6 +104,20 @@ function displayActivitySummary(row: Pick<ActivityDoc, 'kind' | 'summary'>): str
     return row.summary
       .replace(/MCP credential settings/g, 'AI agent connection')
       .replace(/"[^"]+"/g, '"user or connection"')
+  }
+  if (row.kind === 'entry.checkpointed') {
+    return row.summary.replace(/checkpoint/gi, 'version')
+  }
+  if (row.kind === 'agentRun.write') {
+    const operationId = activityOperationId(row)
+    if (operationId === 'ginko-cms.create-entry') return 'AI created content'
+    if (operationId === 'ginko-cms.save-entry-draft') return 'AI updated content'
+    if (operationId === 'ginko-cms.request-publish-review') return 'AI requested review'
+    if (operationId === 'ginko-cms.publish-entry') return 'AI published content'
+    if (operationId === 'ginko-cms.archive-entry') return 'AI archived content'
+    if (operationId === 'ginko-cms.restore-entry') return 'AI restored content'
+    if (operationId === 'ginko-cms.move-asset') return 'AI organized assets'
+    if (operationId === 'ginko-cms.export-backup') return 'AI exported backup'
   }
   return row.summary
 }
@@ -95,10 +131,24 @@ export async function previewDestructiveEntryOperation(ctx: HandlerQueryCtx, ent
     primaryLocale?.data && typeof primaryLocale.data.title === 'string'
       ? primaryLocale.data.title
       : null
+  const publicRows = await ctx.db
+    .query('publicEntries')
+    .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
+    .collect()
   const publicRoutes = await ctx.db
     .query('publicRoutes')
-    .filter((q) => q.eq(q.field('entryId'), entry._id))
+    .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
     .collect()
+  const publicDescendantRoutes = await readPublicDescendantRoutes(ctx, {
+    collectionId: collection._id,
+    locales: collection.locales,
+    rootEntryId: entry._id,
+  })
+  const publicRevisionIdsByLocale = Object.fromEntries(
+    publicRows
+      .map((row): [string, Id<'entryRevisions'>] => [row.locale, row.revisionId])
+      .sort(([left], [right]) => left.localeCompare(right)),
+  )
 
   return {
     entryId: toStringId(entry._id),
@@ -107,9 +157,11 @@ export async function previewDestructiveEntryOperation(ctx: HandlerQueryCtx, ent
     status: entry.status,
     draftVersion: entry.draftVersion,
     dirtyLocales: entry.dirtyLocales,
+    publicRevisionIdsByLocale,
     publishedLocales: publicRoutes.map((route) => route.locale).sort(),
     publicRoutes: publicRoutes
       .map((route) => ({
+        entryId: toStringId(route.entryId),
         locale: route.locale,
         path: route.path,
         href: route.href,
@@ -117,7 +169,48 @@ export async function previewDestructiveEntryOperation(ctx: HandlerQueryCtx, ent
       .sort((left, right) =>
         `${left.locale}:${left.path}`.localeCompare(`${right.locale}:${right.path}`),
       ),
+    publicDescendantRoutes,
   }
+}
+
+async function readPublicDescendantRoutes(
+  ctx: HandlerQueryCtx,
+  args: { collectionId: Id<'collections'>; locales: string[]; rootEntryId: Id<'entries'> },
+): Promise<PublicRoutePreview[]> {
+  const descendants: PublicRoutePreview[] = []
+  const queue = args.locales.map((locale) => ({ locale, parentEntryId: args.rootEntryId }))
+  const seen = new Set<string>()
+
+  while (queue.length > 0) {
+    const next = queue.shift()!
+    const rows = await ctx.db
+      .query('publicEntries')
+      .withIndex('by_collection_locale_parent_orderKey', (q) =>
+        q
+          .eq('collectionId', args.collectionId)
+          .eq('locale', next.locale)
+          .eq('parentEntryId', next.parentEntryId),
+      )
+      .collect()
+    for (const row of rows as Doc<'publicEntries'>[]) {
+      const key = `${row.locale}:${toStringId(row.entryId)}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      descendants.push({
+        entryId: toStringId(row.entryId),
+        locale: row.locale,
+        path: row.path,
+        href: row.href,
+      })
+      queue.push({ locale: row.locale, parentEntryId: row.entryId })
+    }
+  }
+
+  return descendants.sort((left, right) =>
+    `${left.locale}:${left.path}:${left.entryId}`.localeCompare(
+      `${right.locale}:${right.path}:${right.entryId}`,
+    ),
+  )
 }
 
 type StudioEntryRowDoc = {
@@ -139,6 +232,7 @@ type StudioEntryRowDoc = {
   data: Record<string, unknown>
   localeSummaries: Array<{
     locale: string
+    draftExists: boolean
     draftPath: string
     publishedPath: string | null
     published: boolean
@@ -173,10 +267,10 @@ function overviewDraftSlug(args: {
 
 async function resolveOverviewAncestorSlugs(
   ctx: HandlerQueryCtx,
-  args: { entry: EntryDoc; locale: string },
+  args: { parentEntryId: Id<'entries'> | null; locale: string },
 ) {
   const slugs: string[] = []
-  let parentEntryId = args.entry.parentEntryId ?? null
+  let parentEntryId = args.parentEntryId
   while (parentEntryId) {
     const parent = await ctx.db.get(parentEntryId)
     if (!parent) break
@@ -189,7 +283,10 @@ async function resolveOverviewAncestorSlugs(
         localeRow: parentLocaleRow,
       }),
     )
-    parentEntryId = parent.parentEntryId ?? null
+    parentEntryId =
+      parentDraftRows.shared && parentDraftRows.shared.parentEntryId !== undefined
+        ? (parentDraftRows.shared.parentEntryId ?? null)
+        : (parent.parentEntryId ?? null)
   }
   return slugs
 }
@@ -199,12 +296,13 @@ async function computeOverviewDraftPath(
   args: {
     collection: Awaited<ReturnType<typeof getCollectionOrThrow>>
     entry: EntryDoc
+    parentEntryId: Id<'entries'> | null
     slug: string
     locale: string
   },
 ) {
   const ancestorSlugs = await resolveOverviewAncestorSlugs(ctx, {
-    entry: args.entry,
+    parentEntryId: args.parentEntryId,
     locale: args.locale,
   })
   const localePath = entrySnapshotPath(args.collection, {
@@ -244,9 +342,14 @@ async function buildSourceStudioRow(
     sharedRow: draftRows.shared,
     localeRow: preferredLocaleRow,
   })
+  const draftParentEntryId =
+    draftRows.shared && draftRows.shared.parentEntryId !== undefined
+      ? (draftRows.shared.parentEntryId ?? null)
+      : (entry.parentEntryId ?? null)
   const preferredPath = await computeOverviewDraftPath(ctx, {
     collection,
     entry,
+    parentEntryId: draftParentEntryId,
     slug: preferredSlug,
     locale: preferredLocale,
   })
@@ -264,9 +367,11 @@ async function buildSourceStudioRow(
         draftPath: await computeOverviewDraftPath(ctx, {
           collection,
           entry,
+          parentEntryId: draftParentEntryId,
           slug,
           locale,
         }),
+        draftExists: !!localeRow,
         publishedPath: publicRoute?.path ?? null,
         published: !!publicRoute,
         updatedAt: localeRow?.updatedAt ?? entry.updatedAt,
@@ -284,7 +389,7 @@ async function buildSourceStudioRow(
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
     publishedAt: entry.publishedAt ?? null,
-    parentEntryId: draftRows.shared?.parentEntryId ?? entry.parentEntryId ?? null,
+    parentEntryId: draftParentEntryId,
     orderRank: draftRows.shared?.orderRank ?? entry.orderRank ?? '',
     orderKey: buildStudioOrderKey(entry),
     nodeKind: entry.nodeKind ?? 'page',
@@ -382,7 +487,13 @@ function mapStudioSourceRow(
     parentEntryId: toOptionalStringId(row.parentEntryId),
     orderRank: row.orderRank,
     nodeKind: row.nodeKind,
-    localeSummaries: row.localeSummaries,
+    localeSummaries: row.localeSummaries.map((locale) => ({
+      locale: locale.locale,
+      draftPath: locale.draftPath,
+      publishedPath: locale.publishedPath,
+      published: locale.published,
+      updatedAt: locale.updatedAt,
+    })),
   }
 }
 
@@ -433,34 +544,19 @@ function localeReadiness(row: Pick<StudioEntryRowDoc, 'dirtyLocales' | 'localeSu
   return summaries
 }
 
-function entryWorkState(args: {
+function workStateFromWorkflowSummary(args: {
   row: StudioEntryRowDoc
   routeBacked: boolean
-  expectedLocales: string[]
+  workflowSummary: ReturnType<typeof computeEntryWorkflowSummary>
 }) {
-  if (args.row.status === 'archived') {
-    return {
-      publicState: 'data_only' as const,
-      draftChangedSincePublish: false,
-      blockingIssueCount: 0,
-      missingTranslationLocales: [],
-      locales: localeReadiness(args.row),
-      nextAction: 'Archived',
-    }
-  }
   const locales = localeReadiness(args.row)
-  const existingLocales = new Set(locales.map((l) => l.locale))
-  const missingTranslationLocales = args.expectedLocales.filter(
-    (locale) => !existingLocales.has(locale),
-  )
+  const missingTranslationLocales = args.workflowSummary.missingLocales
   const draftChangedSincePublish =
-    args.row.status !== 'published' || args.row.dirtyLocales.length > 0
-  // Full publish blockers belong to the diagnostics/publish-preview path.
-  // This overview only reports cheap, conservative readiness gaps that the
-  // Studio list read model can prove without running the full validator.
-  const blockingIssueCount = args.routeBacked
-    ? locales.filter((locale) => locale.state === 'draft_only' && !locale.draftPath).length
-    : 0
+    args.row.status !== 'published' ||
+    Object.values(args.workflowSummary.workStatesByLocale).some(
+      (state) => state === 'draft' || state === 'changed',
+    )
+  const blockingIssueCount = args.workflowSummary.issueCounts.blocker
   const publicState = !args.routeBacked
     ? ('data_only' as const)
     : blockingIssueCount > 0
@@ -488,15 +584,117 @@ function entryWorkState(args: {
   }
 }
 
+function summaryAction(args: {
+  kind: ReadinessAction['kind']
+  locale: string | null
+  target: ReadinessAction['target']
+}) {
+  return createReadinessAction({
+    kind: args.kind,
+    locale: args.locale,
+    target: args.target,
+    params: {},
+  })
+}
+
+function cheapReadinessStateForListLocale(args: {
+  row: StudioEntryRowDoc
+  locale: StudioEntryRowDoc['localeSummaries'][number] | undefined
+  routeBacked: boolean
+}): ReadinessState {
+  const locale = args.locale
+  if (!locale || (!locale.draftExists && !locale.published)) return 'missing'
+  if (args.row.status === 'archived') return 'needs_work'
+  if (args.routeBacked && !locale.draftPath) return 'needs_work'
+  if (locale.published && !args.row.dirtyLocales.includes(locale.locale)) return 'live'
+  if (locale.published && args.row.dirtyLocales.includes(locale.locale)) {
+    return 'live_with_changes'
+  }
+  return locale.draftExists ? 'ready' : 'draft'
+}
+
+function listWorkStateFromReadinessState(state: ReadinessState): EntryListWorkState {
+  if (state === 'missing') return 'missing_translation'
+  if (state === 'needs_work') return 'blocked'
+  if (state === 'live') return 'public'
+  if (state === 'live_with_changes') return 'changed'
+  return 'draft'
+}
+
+function computeEntryWorkflowSummary(args: {
+  row: StudioEntryRowDoc
+  collection: Awaited<ReturnType<typeof getCollectionOrThrow>>
+  routeBacked: boolean
+}) {
+  const workStatesByLocale: Record<string, EntryListWorkState> = {}
+  const readinessStatesByLocale: Record<string, ReadinessState> = {}
+  const issueCounts = { blocker: 0, warning: 0, info: 0 }
+  const publishedLocales: string[] = []
+  const localeRows = new Map(args.row.localeSummaries.map((locale) => [locale.locale, locale]))
+  const primaryLocale = args.collection.locales[0] ?? args.row.locale
+
+  for (const locale of args.collection.locales) {
+    const row = localeRows.get(locale)
+    if (row?.published) publishedLocales.push(locale)
+    const readinessState = cheapReadinessStateForListLocale({
+      row: args.row,
+      locale: row,
+      routeBacked: args.routeBacked,
+    })
+    readinessStatesByLocale[locale] = readinessState
+    workStatesByLocale[locale] = listWorkStateFromReadinessState(readinessState)
+    if (readinessState === 'needs_work') {
+      issueCounts.blocker += 1
+    }
+  }
+
+  const missingLocales = args.collection.locales.filter(
+    (locale) => workStatesByLocale[locale] === 'missing_translation',
+  )
+  const changedLocale = args.row.dirtyLocales.find((locale) => workStatesByLocale[locale])
+  const firstMissingLocale = missingLocales[0] ?? null
+  const nextAction =
+    issueCounts.blocker > 0
+      ? summaryAction({ kind: 'open_diagnostics', locale: null, target: 'diagnostics' })
+      : firstMissingLocale
+        ? summaryAction({ kind: 'add_locale', locale: firstMissingLocale, target: 'locale' })
+        : changedLocale
+          ? summaryAction({ kind: 'preview_publish', locale: changedLocale, target: 'publish' })
+          : publishedLocales[0]
+            ? summaryAction({
+                kind: 'view_public_page',
+                locale: publishedLocales[0] ?? null,
+                target: 'publish',
+              })
+            : summaryAction({ kind: 'continue_editing', locale: primaryLocale, target: 'editor' })
+
+  return {
+    entryId: toStringId(args.row.entryId),
+    collection: args.collection.slug,
+    primaryLocale,
+    workStatesByLocale,
+    readinessStatesByLocale,
+    issueCounts,
+    missingLocales,
+    publishedLocales,
+    nextAction,
+  }
+}
+
 function mapEntrySummary(args: {
   row: StudioEntryRowDoc
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>
 }) {
   const routeBacked = isRouteBackedCollection(args.collection)
-  const workState = entryWorkState({
+  const workflowSummary = computeEntryWorkflowSummary({
+    row: args.row,
+    collection: args.collection,
+    routeBacked,
+  })
+  const workState = workStateFromWorkflowSummary({
     row: args.row,
     routeBacked,
-    expectedLocales: args.collection.locales,
+    workflowSummary,
   })
 
   return {
@@ -518,12 +716,27 @@ function mapEntrySummary(args: {
     blockingIssueCount: workState.blockingIssueCount,
     missingTranslationLocales: workState.missingTranslationLocales,
     localeReadiness: workState.locales,
+    workflowSummary,
     nextAction: workState.nextAction,
   }
 }
 
 function newestRows<T extends { updatedAt: number }>(rows: T[], limit = STUDIO_OVERVIEW_LIMIT) {
   return [...rows].sort((left, right) => right.updatedAt - left.updatedAt).slice(0, limit)
+}
+
+function hasWorkflowChangedDraft(entry: ReturnType<typeof mapEntrySummary>) {
+  return Object.values(entry.workflowSummary.workStatesByLocale).some(
+    (state) => state === 'draft' || state === 'changed',
+  )
+}
+
+function hasWorkflowBlocker(entry: ReturnType<typeof mapEntrySummary>) {
+  return entry.workflowSummary.issueCounts.blocker > 0
+}
+
+function hasWorkflowMissingLocale(entry: ReturnType<typeof mapEntrySummary>) {
+  return entry.workflowSummary.missingLocales.length > 0
 }
 
 function isStudioListCursor(cursor: string): boolean {
@@ -608,6 +821,8 @@ function mapVersionDisplayAction(action: string) {
       return 'checkpoint' as const
     case 'rollback':
       return 'restoredPublished' as const
+    case 'route_rebuild':
+      return 'routeUpdated' as const
     case 'unpublish':
       return 'unpublished' as const
     case 'publish':
@@ -787,10 +1002,9 @@ export const getStudioOverview = callerQuery.protected({
         type: collection.type,
         locales: collection.locales,
         entryCount: rows.length,
-        changedDrafts: mapped.filter((row) => row.draftChangedSincePublish).length,
-        blocked: mapped.filter((row) => row.blockingIssueCount > 0).length,
-        missingTranslations: mapped.filter((row) => row.missingTranslationLocales.length > 0)
-          .length,
+        changedDrafts: mapped.filter(hasWorkflowChangedDraft).length,
+        blocked: mapped.filter(hasWorkflowBlocker).length,
+        missingTranslations: mapped.filter(hasWorkflowMissingLocale).length,
       })
     }
 
@@ -804,14 +1018,10 @@ export const getStudioOverview = callerQuery.protected({
     const recentPublished = publishedRows
       .sort((left, right) => (right.publishedAt ?? 0) - (left.publishedAt ?? 0))
       .slice(0, STUDIO_OVERVIEW_LIMIT)
-    const changedDrafts = newestRows(
-      allEntrySummaries.filter((entry) => entry.draftChangedSincePublish),
-    )
-    const blockedEntries = allEntrySummaries.filter((entry) => entry.blockingIssueCount > 0)
+    const changedDrafts = newestRows(allEntrySummaries.filter(hasWorkflowChangedDraft))
+    const blockedEntries = allEntrySummaries.filter(hasWorkflowBlocker)
     const blocked = newestRows(blockedEntries)
-    const missingTranslationEntries = allEntrySummaries.filter(
-      (entry) => entry.missingTranslationLocales.length > 0,
-    )
+    const missingTranslationEntries = allEntrySummaries.filter(hasWorkflowMissingLocale)
     const missingTranslations = newestRows(missingTranslationEntries)
     const failedRevalidation = revalidationJobs.filter((job) => job.status === 'failed')
     const pendingRevalidation = revalidationJobs.filter(
@@ -829,7 +1039,7 @@ export const getStudioOverview = callerQuery.protected({
       counts: {
         needsAttention:
           needsAttentionEntryIds.size + failedRevalidation.length + importBlockers.length,
-        changedDrafts: allEntrySummaries.filter((entry) => entry.draftChangedSincePublish).length,
+        changedDrafts: allEntrySummaries.filter(hasWorkflowChangedDraft).length,
         missingTranslations: missingTranslationEntries.length,
         failedRevalidation: failedRevalidation.length,
         importBlockers: importBlockers.length,
@@ -890,6 +1100,26 @@ export const getEntry = callerQuery.protected({
       await buildStudioEntry(ctx, entry, args.locale),
     )
   },
+})
+
+export const getEntryReadinessDetail = callerQuery.protected({
+  id: 'editor:getEntryReadinessDetail',
+  args: {
+    entryId: v.string(),
+  },
+  guard: canRead,
+  returns: entryReadinessDetailValidator,
+  handler: async (ctx: HandlerQueryCtx, args) => computeEntryReadinessDetail(ctx, args),
+})
+
+export const getEntryReadinessSummary = callerQuery.protected({
+  id: 'editor:getEntryReadinessSummary',
+  args: {
+    entryId: v.string(),
+  },
+  guard: canRead,
+  returns: entryReadinessDetailValidator,
+  handler: async (ctx: HandlerQueryCtx, args) => computeEntryReadinessSummary(ctx, args),
 })
 
 export const listActivity = callerQuery.protected({

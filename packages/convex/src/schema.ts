@@ -184,6 +184,7 @@ export default defineSchema({
     .index('by_collection_locale_orderKey', ['collectionId', 'locale', 'orderKey'])
     .index('by_collection_locale_orderKey_entry', ['collectionId', 'locale', 'orderKey', 'entryId'])
     .index('by_collection_locale_path_entry', ['collectionId', 'locale', 'path', 'entryId'])
+    .index('by_collection_locale_stableId', ['collectionId', 'locale', 'stableId'])
     .index('by_collection_locale_parent_orderKey', [
       'collectionId',
       'locale',
@@ -404,7 +405,7 @@ export default defineSchema({
     .index('by_status', ['status']),
 
   reviewRequests: defineTable({
-    agentRunId: v.id('agentRuns'),
+    agentRunId: v.optional(v.union(v.id('agentRuns'), v.null())),
     entryId: v.string(),
     locales: v.array(v.string()),
     expectedVersion: v.number(),
@@ -412,13 +413,14 @@ export default defineSchema({
     title: v.string(),
     summary: v.string(),
     status: v.union(v.literal('pending'), v.literal('approved'), v.literal('rejected')),
-    preview: jsonObjectValidator,
+    preview: jsonValueValidator,
     requestedBy: v.string(),
     reviewedBy: v.optional(v.union(v.string(), v.null())),
     createdAt: v.number(),
     updatedAt: v.number(),
     reviewedAt: v.optional(v.union(v.number(), v.null())),
     versionHash: v.optional(v.union(v.string(), v.null())),
+    previewHash: v.optional(v.string()),
   })
     .index('by_agent_run', ['agentRunId'])
     .index('by_status', ['status'])
@@ -480,7 +482,8 @@ export default defineSchema({
   //   entryDrafts        — current mutable draft state per (entryId, locale)
   //                        plus a shared row with locale=null.
   //   entryRevisions     — append-only, meaningful events only:
-  //                        publish/unpublish/rollback/archive/checkpoint.
+  //                        publish/unpublish/rollback/archive/checkpoint/
+  //                        route_rebuild.
   //                        Replaces the old published-version and draft
   //                        autosave-history models.
   //   contentAssetRefs   — derived asset usage cache, covers drafts +
@@ -525,6 +528,7 @@ export default defineSchema({
       v.literal('rollback'),
       v.literal('archive'),
       v.literal('checkpoint'),
+      v.literal('route_rebuild'),
     ),
     snapshot: v.object({
       parentEntryId: v.optional(v.union(v.id('entries'), v.null())),

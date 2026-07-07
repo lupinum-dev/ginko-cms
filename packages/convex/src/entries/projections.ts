@@ -2,7 +2,6 @@ import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from '../_generated/dataModel.js'
 import type { getCollectionOrThrow } from '../lib/collections.js'
-import { getCollection } from '../lib/collections.js'
 import { compareOrderRank } from '../lib/ordering.js'
 import type { MutationCtx, ReadCtx } from '../lib/types.js'
 import { decodePublicBodyAst } from './bodyAstStorage.js'
@@ -183,25 +182,16 @@ async function refreshPublicAssetRefsForEntry(ctx: MutationCtx, entry: EntryDoc)
   }
 }
 
-export async function rebuildEntryProjectionsFromCurrentState(
+export async function refreshDraftAssetRefsForEntrySubtree(
   ctx: MutationCtx,
-  args: { entry: EntryDoc; collection: CollectionDoc; appIdentity?: string },
-) {
-  void args.collection
-  void args.appIdentity
-  await refreshDraftAssetRefsForEntry(ctx, args.entry)
-  return { entry: args.entry, locales: [], dirtyLocales: args.entry.dirtyLocales, sortCache: {} }
-}
-
-export async function refreshEntryReadModelsById(
-  ctx: MutationCtx,
-  args: { entryId: Id<'entries'>; appIdentity?: string; [key: string]: unknown },
+  args: {
+    collection?: CollectionDoc
+    entryId: Id<'entries'>
+    includeSubtree?: boolean
+  },
 ) {
   const entry = await ctx.db.get(args.entryId)
-  if (!entry) return undefined
-  const collection =
-    (args.collection as CollectionDoc | undefined) ?? (await getCollection(ctx, entry.collectionId))
-  if (!collection) return undefined
+  if (!entry) return
 
   await refreshDraftAssetRefsForEntry(ctx, entry)
 
@@ -218,14 +208,12 @@ export async function refreshEntryReadModelsById(
       return String(left._id).localeCompare(String(right._id))
     })
     for (const child of children) {
-      await refreshEntryReadModelsById(ctx, {
+      await refreshDraftAssetRefsForEntrySubtree(ctx, {
         ...args,
         entryId: child._id,
       })
     }
   }
-
-  return { entry, locales: [], dirtyLocales: entry.dirtyLocales, sortCache: {} }
 }
 
 export async function getActivePublicRouteByPath(
@@ -261,18 +249,10 @@ export async function getActivePublicPageByStableId(
   locale: string,
   stableId: string,
 ) {
-  const entries = await ctx.db
-    .query('entries')
-    .withIndex('by_collection_stableId', (q) =>
-      q.eq('collectionId', collectionId).eq('stableId', stableId),
+  return await ctx.db
+    .query('publicEntries')
+    .withIndex('by_collection_locale_stableId', (q) =>
+      q.eq('collectionId', collectionId).eq('locale', locale).eq('stableId', stableId),
     )
-    .collect()
-  for (const entry of entries) {
-    const publicRow = await ctx.db
-      .query('publicEntries')
-      .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id).eq('locale', locale))
-      .first()
-    if (publicRow) return publicRow
-  }
-  return null
+    .first()
 }

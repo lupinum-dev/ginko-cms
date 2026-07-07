@@ -131,12 +131,13 @@ async function computeStudioDraftPath(
   args: {
     collection: CollectionForEntry
     entry: EntryDoc
+    parentEntryId: Id<'entries'> | null
     slug: string
     locale: string
   },
 ) {
   const ancestorSlugs = await resolveStudioDraftAncestorSlugs(ctx, {
-    entry: args.entry,
+    parentEntryId: args.parentEntryId,
     locale: args.locale,
   })
   const localePath = entrySnapshotPath(args.collection, {
@@ -149,17 +150,20 @@ async function computeStudioDraftPath(
 
 async function resolveStudioDraftAncestorSlugs(
   ctx: QueryOrMutationCtx,
-  args: { entry: EntryDoc; locale: string },
+  args: { parentEntryId: Id<'entries'> | null; locale: string },
 ) {
   const slugs: string[] = []
-  let parentEntryId = args.entry.parentEntryId ?? null
+  let parentEntryId = args.parentEntryId
   while (parentEntryId) {
     const parent = await ctx.db.get(parentEntryId)
     if (!parent) break
     const parentDraftRows = await readDraftRows(ctx, parent._id)
     const parentLocaleRow = parentDraftRows.byLocale[args.locale] ?? null
     slugs.unshift(parentLocaleRow?.localeSlug ?? parentDraftRows.shared?.slug ?? parent.baseSlug)
-    parentEntryId = parent.parentEntryId ?? null
+    parentEntryId =
+      parentDraftRows.shared && parentDraftRows.shared.parentEntryId !== undefined
+        ? (parentDraftRows.shared.parentEntryId ?? null)
+        : (parent.parentEntryId ?? null)
   }
   return slugs
 }
@@ -180,6 +184,10 @@ export async function readStudioDraftView(
   const shared = (draftRows.shared?.shared ?? {}) as JsonMap
   const publishedShared = await latestPublishedShared(ctx, publicRows)
   const sharedSlug = draftRows.shared?.slug ?? entry.baseSlug
+  const draftParentEntryId =
+    draftRows.shared && draftRows.shared.parentEntryId !== undefined
+      ? (draftRows.shared.parentEntryId ?? null)
+      : (entry.parentEntryId ?? null)
   const localeCodes = localeCodesForDraftView({
     collection,
     draftRows,
@@ -200,6 +208,7 @@ export async function readStudioDraftView(
       const draftPath = await computeStudioDraftPath(ctx, {
         collection,
         entry,
+        parentEntryId: draftParentEntryId,
         slug,
         locale,
       })
@@ -230,7 +239,7 @@ export async function readStudioDraftView(
     shared,
     publishedShared,
     baseSlug: sharedSlug,
-    parentEntryId: draftRows.shared?.parentEntryId ?? entry.parentEntryId ?? null,
+    parentEntryId: draftParentEntryId,
     orderRank: draftRows.shared?.orderRank ?? entry.orderRank ?? '',
     locales,
   }

@@ -56,9 +56,9 @@ const revertDraftToPublishedOperation: CmsOperationRef = {
   executeRef: api.entries.draft.revertDraftToPublishedOperationExecute,
   previewRef: api.entries.draft.previewRevertDraftToPublishedOperation,
 }
-const unarchiveEntryOperation: CmsOperationRef = {
-  id: 'ginko-cms.unarchive-entry',
-  executeRef: api.entries.publish.unarchiveEntry,
+const restoreEntryOperation: CmsOperationRef = {
+  id: 'ginko-cms.restore-entry',
+  executeRef: api.entries.publish.restoreEntry,
 }
 
 function createCmsCallerClient(
@@ -99,14 +99,14 @@ function createCmsCallerClient(
       )) as DraftSaveResult,
     moveAsset: async (args: Record<string, unknown>): Promise<null> =>
       (await createOperationClient(authed(), moveAssetOperation).execute(args)) as null,
-    unarchiveEntry: async (args: Record<string, unknown>): Promise<null> =>
-      (await createOperationClient(authed(), unarchiveEntryOperation).execute(args)) as null,
+    restoreEntry: async (args: Record<string, unknown>): Promise<null> =>
+      (await createOperationClient(authed(), restoreEntryOperation).execute(args)) as null,
   }
 }
 
 function createOperationClient(
   ctx: ReturnType<TestConvex<typeof schema>['withIdentity']>,
-  operation: any,
+  operation: CmsOperationRef,
 ) {
   return {
     preview: async (args: Record<string, unknown>) => {

@@ -38,14 +38,15 @@ async function assertNoPublicRoutesForDelete(
   entryId: string,
 ): Promise<void> {
   const result = await previewDestructiveEntryOperation(ctx, entryId)
-  if (result.publicRoutes.length === 0) return
+  if (result.publicRoutes.length === 0 && result.publicDescendantRoutes.length === 0) return
   throwCmsError(
     'ENTRY_HAS_PUBLIC_ROUTES',
-    'Permanent deletion is blocked while the entry has public routes. Unpublish or archive every published locale first.',
+    'Permanent deletion is blocked while the entry or its descendants have public routes. Unpublish or archive every published locale first.',
     {
       entryId,
       suggestedAction: 'unpublish-or-archive',
       publicRoutes: result.publicRoutes,
+      publicDescendantRoutes: result.publicDescendantRoutes,
     },
   )
 }
@@ -246,19 +247,31 @@ export const deleteEntryOperation = defineCmsOperation({
       )
     }
     const result = await previewDestructiveEntryOperation(ctx, args.entryId)
+    const publicRouteBlockers = []
+    if (result.publicRoutes.length > 0) {
+      publicRouteBlockers.push(
+        operationIssue({
+          code: 'public-routes-present',
+          message:
+            'Permanent deletion is blocked while the entry has public routes. Unpublish or archive every published locale first.',
+          details: { publicRoutes: result.publicRoutes },
+        }),
+      )
+    }
+    if (result.publicDescendantRoutes.length > 0) {
+      publicRouteBlockers.push(
+        operationIssue({
+          code: 'published-descendants',
+          message:
+            'Permanent deletion is blocked while published descendant routes would remain live under this entry.',
+          details: { publicDescendantRoutes: result.publicDescendantRoutes },
+        }),
+      )
+    }
     return buildPreview({
       summary: `Will permanently delete "${result.displayLabel ?? result.baseSlug}" and ${result.publicRoutes.length} public route${result.publicRoutes.length === 1 ? '' : 's'}.`,
-      allowed: result.publicRoutes.length === 0,
-      blockers: result.publicRoutes.length
-        ? [
-            operationIssue({
-              code: 'public-routes-present',
-              message:
-                'Permanent deletion is blocked while the entry has public routes. Unpublish or archive every published locale first.',
-              details: { publicRoutes: result.publicRoutes },
-            }),
-          ]
-        : [],
+      allowed: publicRouteBlockers.length === 0,
+      blockers: publicRouteBlockers,
       warnings: [
         operationIssue({
           code: 'permanent-delete',
@@ -271,9 +284,15 @@ export const deleteEntryOperation = defineCmsOperation({
           summary: 'Public routes affected',
           count: result.publicRoutes.length,
         }),
+        operationEffect({
+          kind: 'descendant-routes',
+          summary: 'Published descendant routes checked',
+          count: result.publicDescendantRoutes.length,
+        }),
       ],
       details: {
         publicRoutes: result.publicRoutes,
+        publicDescendantRoutes: result.publicDescendantRoutes,
         draftVersion: entry.draftVersion,
       },
       confirm: {
@@ -281,12 +300,14 @@ export const deleteEntryOperation = defineCmsOperation({
         args,
         effect: {
           publicRoutes: result.publicRoutes,
+          publicDescendantRoutes: result.publicDescendantRoutes,
           draftVersion: entry.draftVersion,
         },
       },
       version: {
         draftVersion: entry.draftVersion,
         latestRevisionId: entry.latestRevisionId ? String(entry.latestRevisionId) : null,
+        publicDescendantRouteCount: result.publicDescendantRoutes.length,
       },
     })
   },

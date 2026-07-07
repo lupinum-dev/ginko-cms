@@ -29,9 +29,9 @@ export {
   previewArchiveEntryOperation,
   publishEntryOperation,
   previewPublishEntryOperation,
+  restoreEntryOperation,
   rollbackVersionOperation,
   previewRollbackVersionOperation,
-  unarchiveEntryOperation,
   unpublishEntryOperation,
   previewUnpublishEntryOperation,
 } from './entries/publish.js'

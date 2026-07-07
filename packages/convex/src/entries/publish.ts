@@ -2,8 +2,8 @@ import {
   archiveEntry as archiveEntryArgs,
   createCheckpoint as createCheckpointArgs,
   publishEntry as publishEntryArgs,
+  restoreEntry as restoreEntryArgs,
   rollbackVersion as rollbackVersionArgs,
-  unarchiveEntry as unarchiveEntryArgs,
   unpublishEntry as unpublishEntryArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
 import {
@@ -13,8 +13,8 @@ import {
 import { v } from 'convex/values'
 
 import type { Id } from '../_generated/dataModel.js'
-import { recordOwnedAgentRunWrite } from '../agentRuns.js'
-import { canArchiveEntries, canEditEntries, canPublishEntries } from '../auth/checks.js'
+import { getOwnActiveAgentRunOrThrow, recordOwnedAgentRunWrite } from '../agentRuns.js'
+import { can, canArchiveEntries, canEditEntries, canPublishEntries } from '../auth/checks.js'
 import { previewPublishImpactForEntry } from '../diagnostics.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
@@ -45,6 +45,73 @@ function formatAffectedRoutes(
   routes: Array<{ locale: string; href: string; path?: string | null }>,
 ): string {
   return routes.map((route) => `${route.locale}: ${route.href}`).join(', ')
+}
+
+function archiveBlockers(result: Awaited<ReturnType<typeof previewDestructiveEntryOperation>>) {
+  const blockers = []
+  if (result.status === 'archived') {
+    blockers.push(
+      operationIssue({ code: 'already-archived', message: 'Entry is already archived.' }),
+    )
+  }
+  if (result.publicDescendantRoutes.length > 0) {
+    blockers.push(
+      operationIssue({
+        code: 'published-descendants',
+        message: `Archive blocked: ${result.publicDescendantRoutes.length} published descendant route${result.publicDescendantRoutes.length === 1 ? '' : 's'} would remain live under this entry.`,
+      }),
+    )
+  }
+  return blockers
+}
+
+function publishedDescendantBlockers(
+  result: Awaited<ReturnType<typeof previewDestructiveEntryOperation>>,
+) {
+  if (result.publicDescendantRoutes.length === 0) return []
+  return [
+    operationIssue({
+      code: 'published-descendants',
+      message: `Operation blocked: ${result.publicDescendantRoutes.length} published descendant route${result.publicDescendantRoutes.length === 1 ? '' : 's'} would remain live under this entry.`,
+    }),
+  ]
+}
+
+function stripAgentRunId<TArgs extends { agentRunId: string }>(args: TArgs) {
+  const { agentRunId: _agentRunId, ...input } = args
+  return input
+}
+
+function defineMcpOperation<TBaseOperation extends Parameters<typeof defineCmsOperation>[0]>(args: {
+  operation: TBaseOperation
+  executeFunctionRef: string
+  operationId: string
+  operationArgs: Record<string, unknown>
+}) {
+  return defineCmsOperation({
+    ...args.operation,
+    executeFunctionRef: args.executeFunctionRef,
+    args: {
+      agentRunId: v.string(),
+      ...args.operationArgs,
+    },
+    load: async (ctx, operationArgs) => {
+      const appIdentity = await ctx.appIdentity()
+      await getOwnActiveAgentRunOrThrow(ctx, operationArgs.agentRunId, appIdentity, Date.now())
+      return args.operation.load
+        ? await args.operation.load(ctx, stripAgentRunId(operationArgs))
+        : undefined
+    },
+    preview: async (ctx, operationArgs, loaded) =>
+      args.operation.preview
+        ? await args.operation.preview(ctx, stripAgentRunId(operationArgs), loaded)
+        : undefined,
+    handler: async (ctx, operationArgs, loaded) => {
+      const result = await args.operation.handler(ctx, stripAgentRunId(operationArgs), loaded)
+      await recordOwnedAgentRunWrite(ctx, operationArgs.agentRunId, args.operationId)
+      return result
+    },
+  })
 }
 
 async function loadRevisionForRollback(
@@ -245,6 +312,20 @@ export const previewPublishEntryOperation = callerMutation.protected(
   }),
 )
 
+const mcpPublishEntryOperation = defineMcpOperation({
+  operation: publishEntryOperation,
+  executeFunctionRef: 'entries/publish:mcpPublishEntryOperationExecute',
+  operationId: 'ginko-cms.publish-entry',
+  operationArgs: publishEntryArgs.args,
+})
+
+export const mcpPublishEntryOperationExecute = callerMutation.protected(mcpPublishEntryOperation)
+export const mcpPreviewPublishEntryOperation = callerMutation.protected(
+  Object.assign(definePreview(mcpPublishEntryOperation), {
+    id: 'entries/publish:mcpPreviewPublishEntryOperation',
+  }),
+)
+
 export const unpublishEntryOperation = defineCmsOperation({
   id: 'ginko-cms.unpublish-entry',
   name: 'unpublish-entry',
@@ -266,13 +347,16 @@ export const unpublishEntryOperation = defineCmsOperation({
   },
   preview: async (ctx, args, { entry }) => {
     const result = await previewDestructiveEntryOperation(ctx, args.entryId)
+    const blockers = [
+      ...(result.publicRoutes.length === 0
+        ? [operationIssue({ code: 'not-public', message: 'Entry is not currently public.' })]
+        : []),
+      ...publishedDescendantBlockers(result),
+    ]
     return buildPreview({
       summary: `Will unpublish "${result.displayLabel ?? result.baseSlug}" and remove ${result.publicRoutes.length} public route${result.publicRoutes.length === 1 ? '' : 's'}.`,
-      allowed: result.publicRoutes.length > 0,
-      blockers:
-        result.publicRoutes.length === 0
-          ? [operationIssue({ code: 'not-public', message: 'Entry is not currently public.' })]
-          : [],
+      allowed: blockers.length === 0,
+      blockers,
       warnings: result.publicRoutes.length
         ? [
             operationIssue({
@@ -287,16 +371,31 @@ export const unpublishEntryOperation = defineCmsOperation({
           summary: 'Public routes removed',
           count: result.publicRoutes.length,
         }),
+        operationEffect({
+          kind: 'descendant-routes',
+          summary: 'Published descendant routes checked',
+          count: result.publicDescendantRoutes.length,
+        }),
       ],
-      details: { publicRoutes: result.publicRoutes },
+      details: {
+        publicRoutes: result.publicRoutes,
+        publicDescendantRoutes: result.publicDescendantRoutes,
+        publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+      },
       confirm: {
         operationId: 'ginko-cms.unpublish-entry',
         args,
-        effect: result.publicRoutes,
+        effect: {
+          publicRoutes: result.publicRoutes,
+          publicDescendantRoutes: result.publicDescendantRoutes,
+          publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+        },
       },
       version: {
         draftVersion: entry.draftVersion,
         latestRevisionId: entry.latestRevisionId ? String(entry.latestRevisionId) : null,
+        publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+        publicDescendantRouteCount: result.publicDescendantRoutes.length,
       },
     })
   },
@@ -338,17 +437,15 @@ export const archiveEntryOperation = defineCmsOperation({
     return {
       entry,
       collection: await getCollectionForEntry(ctx, entry),
+      destructivePreview: await previewDestructiveEntryOperation(ctx, args.entryId),
     }
   },
-  preview: async (ctx, args, { entry }) => {
-    const result = await previewDestructiveEntryOperation(ctx, args.entryId)
+  preview: async (_ctx, args, { entry, destructivePreview: result }) => {
+    const blockers = archiveBlockers(result)
     return buildPreview({
       summary: `Will archive "${result.displayLabel ?? result.baseSlug}" and remove ${result.publicRoutes.length} public route${result.publicRoutes.length === 1 ? '' : 's'}.`,
-      allowed: result.status !== 'archived',
-      blockers:
-        result.status === 'archived'
-          ? [operationIssue({ code: 'already-archived', message: 'Entry is already archived.' })]
-          : [],
+      allowed: blockers.length === 0,
+      blockers,
       warnings: result.publicRoutes.length
         ? [
             operationIssue({
@@ -363,24 +460,38 @@ export const archiveEntryOperation = defineCmsOperation({
           summary: 'Public routes removed',
           count: result.publicRoutes.length,
         }),
+        operationEffect({
+          kind: 'descendant-routes',
+          summary: 'Published descendant routes checked',
+          count: result.publicDescendantRoutes.length,
+        }),
       ],
-      details: { publicRoutes: result.publicRoutes },
+      details: {
+        publicRoutes: result.publicRoutes,
+        publicDescendantRoutes: result.publicDescendantRoutes,
+        publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+      },
       confirm: {
         operationId: 'ginko-cms.archive-entry',
         args,
-        effect: result.publicRoutes,
+        effect: {
+          publicRoutes: result.publicRoutes,
+          publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+        },
       },
       version: {
         draftVersion: entry.draftVersion,
         status: entry.status,
+        publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+        publicDescendantRouteCount: result.publicDescendantRoutes.length,
       },
     })
   },
-  handler: async (ctx, args, { entry, collection }) => {
+  handler: async (ctx, args, { entry, collection, destructivePreview }) => {
     const appIdentity = await ctx.appIdentity()
     await archiveCurrentEntry(ctx, {
       entryId: entry._id,
-      expectedPublicRevisionIds: await readPublicRevisionIdsByLocale(ctx, entry._id),
+      expectedPublicRevisionIds: destructivePreview.publicRevisionIdsByLocale,
       appIdentity: appIdentity.userId,
     })
     void collection
@@ -395,18 +506,38 @@ export const previewArchiveEntryOperation = callerMutation.protected(
   }),
 )
 
-export const unarchiveEntryOperation = defineCmsOperation({
-  id: 'ginko-cms.unarchive-entry',
-  name: 'unarchive-entry',
+const mcpArchiveEntryOperation = defineMcpOperation({
+  operation: archiveEntryOperation,
+  executeFunctionRef: 'entries/publish:mcpArchiveEntryOperationExecute',
+  operationId: 'ginko-cms.archive-entry',
+  operationArgs: archiveEntryArgs.args,
+})
+
+export const mcpArchiveEntryOperationExecute = callerMutation.protected(mcpArchiveEntryOperation)
+export const mcpPreviewArchiveEntryOperation = callerMutation.protected(
+  Object.assign(definePreview(mcpArchiveEntryOperation), {
+    id: 'entries/publish:mcpPreviewArchiveEntryOperation',
+  }),
+)
+
+export const restoreEntryOperation = defineCmsOperation({
+  id: 'ginko-cms.restore-entry',
+  name: 'restore-entry',
   kind: 'safe',
   safety: 'bounded-write',
-  executeFunctionRef: 'entries/publish:unarchiveEntry',
-  args: unarchiveEntryArgs.args,
+  executeFunctionRef: 'entries/publish:restoreEntry',
+  args: restoreEntryArgs.args,
   guard: canArchiveEntries,
   returns: v.null(),
   load: async () => undefined,
   handler: async (ctx, args) => {
     const { appIdentityId, entry, now } = await loadEntryMutationContext(ctx, args.entryId)
+    if (entry.status !== 'archived') {
+      throwCmsError('ENTRY_RESTORE_NOT_ARCHIVED', 'Only archived entries can be restored.', {
+        entryId: args.entryId,
+        status: entry.status,
+      })
+    }
     await ctx.db.patch(entry._id, {
       status: 'draft',
       updatedAt: now,
@@ -414,8 +545,8 @@ export const unarchiveEntryOperation = defineCmsOperation({
       draftVersion: entry.draftVersion + 1,
     })
     await logActivity(ctx, {
-      kind: 'entry.unarchived',
-      summary: 'Unarchived entry',
+      kind: 'entry.restored',
+      summary: 'Restored entry',
       appIdentityId,
       entryId: entry._id,
       collectionId: entry.collectionId,
@@ -425,20 +556,23 @@ export const unarchiveEntryOperation = defineCmsOperation({
   },
 })
 
-export const unarchiveEntry = callerMutation.protected(unarchiveEntryOperation)
+export const restoreEntry = callerMutation.protected(restoreEntryOperation)
 
-export const mcpUnarchiveEntry = callerMutation.protected({
-  id: 'editor:mcpUnarchiveEntry',
+export const mcpRestoreEntry = callerMutation.protected({
+  id: 'editor:mcpRestoreEntry',
   args: {
     agentRunId: v.string(),
-    ...unarchiveEntryArgs.args,
+    ...restoreEntryArgs.args,
   },
-  guard: canEditEntries,
+  guard: canArchiveEntries,
   returns: v.null(),
   handler: async (ctx, args) => {
     const { agentRunId, ...input } = args
-    await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.unarchive-entry')
-    return await unarchiveEntryOperation.handler(ctx, input)
+    const appIdentity = await ctx.appIdentity()
+    await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, Date.now())
+    const result = await restoreEntryOperation.handler(ctx, input)
+    await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.restore-entry')
+    return result
   },
 })
 
@@ -450,13 +584,20 @@ export const rollbackVersionOperation = defineCmsOperation({
   args: rollbackVersionArgs.args,
   guard: canEditEntries,
   load: async (ctx, args) => {
+    const appIdentity = await ctx.appIdentity()
+    if (args.publish === true && !can(appIdentity, canPublishEntries)) {
+      throwCmsError(
+        'ROLLBACK_PUBLISH_FORBIDDEN',
+        'Publishing a restored version requires publish permission.',
+        {
+          entryId: args.entryId,
+          versionId: args.versionId,
+        },
+      )
+    }
     const { entry, revision, revisionNumber } = await loadRevisionForRollback(ctx, args)
     const collection = await getCollectionForEntry(ctx, entry)
     return { entry, collection, revision, revisionNumber }
-  },
-  authorize: {
-    check: (_appIdentity: unknown, _loaded: unknown, args: { publish?: boolean }) =>
-      args.publish ? canPublishEntries : canEditEntries,
   },
   returns: rollbackResultValidator,
   previewReturns: previewResultValidator(),

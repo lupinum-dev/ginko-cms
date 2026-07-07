@@ -3,10 +3,9 @@ import { v } from 'convex/values'
 import { internalMutation, internalQuery } from '../_generated/server.js'
 import { getCollection } from '../lib/collections.js'
 import { asEntryId } from '../lib/ids.js'
+import type { CmsCollection, MutationCtx, QueryCtx } from '../lib/types.js'
 import { rebuildContentAssetRefsForEntry } from './projections.js'
-import { replaceAssetRefs } from './workflow/assetRefs.js'
-import { buildPublicProjectionFromRevisionSnapshot } from './workflow/commands.js'
-import { upsertPublicProjection } from './workflow/projection.js'
+import type { PublicEntryDoc } from './workflow/projection.js'
 
 const projectionIssueValidator = v.object({
   code: v.string(),
@@ -16,12 +15,104 @@ const projectionIssueValidator = v.object({
   message: v.string(),
 })
 
-export const rebuildDerivedStateForEntry = internalMutation({
+type ProjectionIssue = {
+  code: string
+  entryId?: string
+  locale?: string
+  path?: string
+  message: string
+}
+
+async function getCollectionForPublicRow(
+  ctx: QueryCtx,
+  args: {
+    row: PublicEntryDoc
+    cache: Map<string, CmsCollection | null>
+    issues: ProjectionIssue[]
+  },
+) {
+  const cacheKey = String(args.row.collectionId)
+  if (args.cache.has(cacheKey)) return args.cache.get(cacheKey) ?? null
+
+  const collectionRow = await ctx.db.get(args.row.collectionId)
+  const collection = collectionRow ? await getCollection(ctx, collectionRow.slug) : null
+  args.cache.set(cacheKey, collection)
+  if (!collection) {
+    args.issues.push({
+      code: 'collection-not-found',
+      entryId: String(args.row.entryId),
+      locale: args.row.locale,
+      path: args.row.path,
+      message: 'Public row points at a missing collection.',
+    })
+  }
+  return collection
+}
+
+async function syncPublicRouteFromPublicEntry(
+  ctx: MutationCtx,
+  args: {
+    row: PublicEntryDoc
+    collection: CmsCollection
+    issues: ProjectionIssue[]
+  },
+) {
+  const routeBacked = (args.collection.routing.mode ?? 'route') === 'route'
+  const existingByEntry = await ctx.db
+    .query('publicRoutes')
+    .withIndex('by_entry_locale', (q) =>
+      q.eq('entryId', args.row.entryId).eq('locale', args.row.locale),
+    )
+    .first()
+
+  if (!routeBacked) {
+    if (existingByEntry) await ctx.db.delete(existingByEntry._id)
+    return existingByEntry ? 1 : 0
+  }
+
+  const existingByPath = await ctx.db
+    .query('publicRoutes')
+    .withIndex('by_locale_path', (q) => q.eq('locale', args.row.locale).eq('path', args.row.path))
+    .first()
+  if (existingByPath && existingByPath.entryId !== args.row.entryId) {
+    args.issues.push({
+      code: 'public-route-conflict',
+      entryId: String(args.row.entryId),
+      locale: args.row.locale,
+      path: args.row.path,
+      message: 'Public route cannot be rebuilt because another entry already owns this path.',
+    })
+    return 0
+  }
+
+  if (existingByEntry && existingByEntry.path !== args.row.path) {
+    await ctx.db.delete(existingByEntry._id)
+  }
+
+  const target =
+    existingByEntry && existingByEntry.path === args.row.path ? existingByEntry : existingByPath
+  const payload = {
+    entryId: args.row.entryId,
+    collectionId: args.row.collectionId,
+    locale: args.row.locale,
+    path: args.row.path,
+    href: args.row.href,
+    revisionId: args.row.revisionId,
+  }
+
+  if (target) {
+    await ctx.db.replace(target._id, payload)
+  } else {
+    await ctx.db.insert('publicRoutes', payload)
+  }
+  return 1
+}
+
+export const repairPublishedProjectionIndexesForEntry = internalMutation({
   args: {
     entryId: v.string(),
   },
   returns: v.object({
-    publicEntries: v.number(),
     publicRoutes: v.number(),
     contentAssetRefs: v.number(),
     issues: v.array(projectionIssueValidator),
@@ -31,7 +122,6 @@ export const rebuildDerivedStateForEntry = internalMutation({
     const entry = await ctx.db.get(entryId)
     if (!entry) {
       return {
-        publicEntries: 0,
         publicRoutes: 0,
         contentAssetRefs: 0,
         issues: [
@@ -46,7 +136,6 @@ export const rebuildDerivedStateForEntry = internalMutation({
     const collectionRow = await ctx.db.get(entry.collectionId)
     if (!collectionRow) {
       return {
-        publicEntries: 0,
         publicRoutes: 0,
         contentAssetRefs: 0,
         issues: [
@@ -61,7 +150,6 @@ export const rebuildDerivedStateForEntry = internalMutation({
     const collection = await getCollection(ctx, collectionRow.slug)
     if (!collection) {
       return {
-        publicEntries: 0,
         publicRoutes: 0,
         contentAssetRefs: 0,
         issues: [
@@ -74,56 +162,29 @@ export const rebuildDerivedStateForEntry = internalMutation({
       }
     }
 
-    const issues: Array<{
-      code: string
-      entryId?: string
-      locale?: string
-      path?: string
-      message: string
-    }> = []
+    const issues: ProjectionIssue[] = []
     const publicRows = await ctx.db
       .query('publicEntries')
       .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
       .collect()
 
-    let rebuiltPublicEntries = 0
     let rebuiltPublicRoutes = 0
     for (const row of publicRows) {
       const revision = await ctx.db.get(row.revisionId)
-      const localeSnapshot = revision?.snapshot.locales[row.locale]
-      if (!revision || !localeSnapshot) {
+      if (!revision) {
         issues.push({
           code: 'public-revision-missing',
           entryId: String(entry._id),
           locale: row.locale,
           path: row.path,
-          message: 'Public row cannot be rebuilt because its revision snapshot is missing.',
+          message: 'Public row points at a missing revision.',
         })
-        continue
       }
-      const projection = await buildPublicProjectionFromRevisionSnapshot(ctx, {
-        entry,
+      rebuiltPublicRoutes += await syncPublicRouteFromPublicEntry(ctx, {
+        row,
         collection,
-        revisionId: revision._id,
-        snapshot: {
-          parentEntryId: revision.snapshot.parentEntryId ?? null,
-          orderRank: revision.snapshot.orderRank ?? null,
-        },
-        locale: row.locale,
-        localeSnapshot,
-        now: row.lastPublishedAt,
+        issues,
       })
-      await upsertPublicProjection(ctx, projection.input)
-      await replaceAssetRefs(ctx, {
-        sourceKind: 'public',
-        sourceId: `${entry._id}:${row.locale}`,
-        entryId: entry._id,
-        collectionId: entry.collectionId,
-        refs: projection.assetRefs,
-        now: row.lastPublishedAt,
-      })
-      rebuiltPublicEntries += 1
-      rebuiltPublicRoutes += 1
     }
 
     await rebuildContentAssetRefsForEntry(ctx, entry._id, collection)
@@ -133,7 +194,6 @@ export const rebuildDerivedStateForEntry = internalMutation({
       .collect()
 
     return {
-      publicEntries: rebuiltPublicEntries,
       publicRoutes: rebuiltPublicRoutes,
       contentAssetRefs: contentAssetRefs.length,
       issues,
@@ -151,13 +211,7 @@ export const verifyPublicProjectionInvariants = internalQuery({
     issues: v.array(projectionIssueValidator),
   }),
   handler: async (ctx, args) => {
-    const issues: Array<{
-      code: string
-      entryId?: string
-      locale?: string
-      path?: string
-      message: string
-    }> = []
+    const issues: ProjectionIssue[] = []
     const entryId = args.entryId ? asEntryId(args.entryId) : null
     const publicRows = entryId
       ? await ctx.db
@@ -166,6 +220,7 @@ export const verifyPublicProjectionInvariants = internalQuery({
           .collect()
       : await ctx.db.query('publicEntries').collect()
 
+    const collectionCache = new Map<string, CmsCollection | null>()
     const seenRoutes = new Set<string>()
     for (const row of publicRows) {
       const revision = await ctx.db.get(row.revisionId)
@@ -178,6 +233,31 @@ export const verifyPublicProjectionInvariants = internalQuery({
           message: 'Public row points at a missing revision.',
         })
       }
+
+      const collection = await getCollectionForPublicRow(ctx, {
+        row,
+        cache: collectionCache,
+        issues,
+      })
+      const routeBacked = (collection?.routing.mode ?? 'route') === 'route'
+
+      const route = await ctx.db
+        .query('publicRoutes')
+        .withIndex('by_entry_locale', (q) => q.eq('entryId', row.entryId).eq('locale', row.locale))
+        .first()
+      if (!routeBacked) {
+        if (route) {
+          issues.push({
+            code: 'public-route-unexpected',
+            entryId: String(row.entryId),
+            locale: row.locale,
+            path: row.path,
+            message: 'Data-only public entries must not have publicRoutes rows.',
+          })
+        }
+        continue
+      }
+
       const routeKey = `${row.collectionId}:${row.locale}:${row.path}`
       if (seenRoutes.has(routeKey)) {
         issues.push({
@@ -190,10 +270,6 @@ export const verifyPublicProjectionInvariants = internalQuery({
       }
       seenRoutes.add(routeKey)
 
-      const route = await ctx.db
-        .query('publicRoutes')
-        .withIndex('by_entry_locale', (q) => q.eq('entryId', row.entryId).eq('locale', row.locale))
-        .first()
       if (
         !route ||
         route.collectionId !== row.collectionId ||

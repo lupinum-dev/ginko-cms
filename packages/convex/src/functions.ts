@@ -69,7 +69,6 @@ export const cmsPublicReadTables = [
   'cmsSettings',
   'collections',
   'contentAssetRefs',
-  'entries',
   'publicEntries',
   'publicRoutes',
   'siteData',
