@@ -58,8 +58,11 @@ export interface StudioRouteValidationState {
 export interface StudioPublishImpactLocale {
   blockingDiagnostics: StudioWorkflowDiagnostic[]
   changes: Array<{
+    entryId?: string
     kind: string
     label: string
+    locale?: string
+    scope?: 'current_entry' | 'descendant'
     before: string | boolean | null
     after: string | boolean | null
   }>
@@ -90,13 +93,30 @@ export interface StudioPublishImpactState {
   status: string | null
 }
 
+export interface StudioPublishImpactResult {
+  blockingDiagnostics: StudioWorkflowDiagnostic[]
+  cacheTags: string[]
+  changes: StudioPublishImpactLocale['changes']
+  collection: string
+  entryId: string
+  events: string[]
+  locales: Array<
+    Omit<
+      StudioPublishImpactLocale,
+      'hiddenBlockerCount' | 'label' | 'visibleBlockers' | 'visibleWarnings'
+    >
+  >
+  mode: 'route' | 'none'
+  status: string
+  warnings: StudioWorkflowDiagnostic[]
+}
+
 export interface StudioPublishReviewState {
   blocked: boolean
   failed: boolean
   label: string
   locales: string[]
   message: string
-  previewHash: string | null
   stale: boolean
   state: string
 }

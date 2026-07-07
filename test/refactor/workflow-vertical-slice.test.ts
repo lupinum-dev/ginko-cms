@@ -252,13 +252,15 @@ async function previewPublish(
     confirm?: unknown
     confirmation?: { token?: string }
     details?: {
-      locales?: Array<{
-        locale: string
-        status?: string
-        currentPath?: string | null
-        nextPath?: string | null
-        currentRevisionId?: string | null
-      }>
+      publishImpact?: {
+        locales?: Array<{
+          locale: string
+          status?: string
+          currentPath?: string | null
+          nextPath?: string | null
+          currentRevisionId?: string | null
+        }>
+      }
     }
   }
   return {
@@ -266,7 +268,7 @@ async function previewPublish(
     draftHash: stableJson(buildPreview.confirm),
     locales,
     diff: {
-      locales: (buildPreview.details?.locales ?? []).map((locale) => ({
+      locales: (buildPreview.details?.publishImpact?.locales ?? []).map((locale) => ({
         locale: locale.locale,
         status: publishDiffStatus(locale),
         currentPath: locale.currentPath ?? null,

@@ -15,10 +15,18 @@ import { studioConfirm } from './useStudioConfirm'
 interface PublishOperationPreviewState {
   state: PublishPreviewState
   message: string
-  previewHash: string | null
   confirmationToken: string | null
   confirmationExpiresAt: number | null
   locales: string[]
+}
+
+export interface PublishOutcomeState {
+  dirtyLocales: string[]
+  draftVersion: number | null
+  locales: string[]
+  message: string | null
+  mode: 'single' | 'all'
+  versionId: string | null
 }
 
 type DestructivePreview = {
@@ -89,10 +97,10 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
   const showPublishDialog = ref(false)
   const publishMessage = ref('')
   const publishMode = ref<'single' | 'all'>('single')
+  const publishOutcome = ref<PublishOutcomeState | null>(null)
   const publishReadiness = ref<PublishOperationPreviewState>({
     state: 'not_previewed',
     message: 'Preview website changes before publishing.',
-    previewHash: null,
     confirmationToken: null,
     confirmationExpiresAt: null,
     locales: [],
@@ -110,6 +118,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     next: Omit<PublishOperationPreviewState, 'confirmationToken' | 'confirmationExpiresAt'> &
       Partial<Pick<PublishOperationPreviewState, 'confirmationToken' | 'confirmationExpiresAt'>>,
   ) {
+    if (next.state === 'pending') publishOutcome.value = null
     publishReadiness.value = {
       ...next,
       confirmationToken: next.confirmationToken ?? null,
@@ -121,7 +130,6 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     publishReadiness.value = {
       state: 'not_previewed',
       message,
-      previewHash: null,
       confirmationToken: null,
       confirmationExpiresAt: null,
       locales: [],
@@ -129,6 +137,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
   }
 
   function markPublishReadinessStale(message = 'Draft changed after the last publish preview.') {
+    publishOutcome.value = null
     if (publishReadiness.value.state === 'ready' || publishReadiness.value.state === 'blocked') {
       publishReadiness.value = {
         ...publishReadiness.value,
@@ -206,13 +215,21 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       if (typeof expectedVersion !== 'number') {
         throw new TypeError('The saved draft is not loaded. Reload before publishing.')
       }
-      await publishMutation({
+      const result = await publishMutation({
         entryId: entryId.value,
         locales,
         message,
         expectedVersion,
         _confirmationToken: token,
       })
+      publishOutcome.value = {
+        dirtyLocales: Array.isArray(result.dirtyLocales) ? result.dirtyLocales.map(String) : [],
+        draftVersion: typeof result.draftVersion === 'number' ? result.draftVersion : null,
+        locales,
+        message: message ?? null,
+        mode: publishMode.value,
+        versionId: typeof result.versionId === 'string' ? result.versionId : null,
+      }
       showPublishDialog.value = false
       isDirty.value = false
       publishMessage.value = ''
@@ -278,6 +295,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       const token = previewToken(preview)
       if (!token) throw new Error('Preview website changes again before unpublishing.')
       await unpublishMutation({ entryId: entryId.value, _confirmationToken: token })
+      publishOutcome.value = null
       resetPublishReadiness(
         'Entry was unpublished. Preview website changes before publishing again.',
       )
@@ -340,6 +358,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       const token = previewToken(preview)
       if (!token) throw new Error('Preview website changes again before archiving.')
       await archiveMutation({ entryId: entryId.value, _confirmationToken: token })
+      publishOutcome.value = null
       resetPublishReadiness('Entry was archived. Restore it before publishing again.')
       studioDebug.debug('archive:success', { collection: collection.value, entryId: entryId.value })
       await studioDebug.pushWithLogging(
@@ -367,6 +386,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     showPublishDialog,
     publishMessage,
     publishMode,
+    publishOutcome,
     publishReadiness,
     setPublishReadiness,
     markPublishReadinessStale,

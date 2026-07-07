@@ -424,7 +424,6 @@ export function derivePublishOperationPreviewState(input: {
 }): {
   state: PublishPreviewState
   message: string
-  previewHash: string | null
   confirmationToken: string | null
   confirmationExpiresAt: number | null
   locales: string[]
@@ -434,7 +433,6 @@ export function derivePublishOperationPreviewState(input: {
     return {
       state: 'stale',
       message: input.staleReason,
-      previewHash: null,
       confirmationToken: null,
       confirmationExpiresAt: null,
       locales: [],
@@ -451,7 +449,6 @@ export function derivePublishOperationPreviewState(input: {
         undefined,
         'We could not prepare the website preview. Try again.',
       ),
-      previewHash: null,
       confirmationToken: null,
       confirmationExpiresAt: null,
       locales: [],
@@ -473,7 +470,6 @@ export function derivePublishOperationPreviewState(input: {
     return {
       state: 'blocked',
       message,
-      previewHash: null,
       confirmationToken: null,
       confirmationExpiresAt: null,
       locales: [],
@@ -491,7 +487,6 @@ export function derivePublishOperationPreviewState(input: {
         undefined,
         'Preview website changes again before publishing.',
       ),
-      previewHash: null,
       confirmationToken: null,
       confirmationExpiresAt: null,
       locales: [],
@@ -507,7 +502,6 @@ export function derivePublishOperationPreviewState(input: {
         undefined,
         'The preview expired. Preview website changes again before publishing.',
       ),
-      previewHash: null,
       confirmationToken: null,
       confirmationExpiresAt: expiresAt,
       locales: [],
@@ -517,7 +511,6 @@ export function derivePublishOperationPreviewState(input: {
   return {
     state: 'ready',
     message,
-    previewHash: null,
     confirmationToken: token,
     confirmationExpiresAt: expiresAt,
     locales: input.locales,

@@ -1,42 +1,28 @@
 <script setup lang="ts">
-import type {
-  PublishReviewPreview,
-  ReviewSummary,
-} from '@lupinum/ginko-cms-contract/shared/readiness.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { AlertCircle, Check, Inbox, Loader2, X } from 'lucide-vue-next'
+import { AlertCircle, Bot, Check, Inbox, Loader2, X } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
 import { api } from '../boundary/api'
+import StudioReviewWebsiteChanges from '../components/studio/reviews/StudioReviewWebsiteChanges.vue'
 import { cmsPermissionKeys } from '../composables/permissions'
 import { useCmsI18n } from '../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../composables/useCmsStudioQuery'
 import { useConvexMutation } from '../composables/useStudioConvex'
 import { readinessIssueLabel } from '../lib/publicWorkflow'
+import type { StudioReviewRequest } from '../lib/studioReviewRequests'
 
-type ReviewRequest = {
-  _id: string
-  agentRunId: string | null
-  requestSource: 'human' | 'agent'
-  operationId: string
-  entryId: string
-  locales: string[]
-  expectedVersion: number
-  message: string | null
-  title: string
-  summary: string
-  status: 'pending' | 'approved' | 'rejected'
-  preview: PublishReviewPreview
-  requestedBy: string
-  reviewedBy: string | null
-  createdAt: number
-  updatedAt: number
-  reviewedAt: number | null
-  versionHash: string | null
-  isStale: boolean
-  staleReason: string | null
-  reviewSummary: ReviewSummary
+type ReviewRequest = StudioReviewRequest
+
+type ReviewCheckItem = {
+  message: string
+  tone: 'danger' | 'neutral' | 'success' | 'warning'
+}
+
+type ReviewPreparationItem = {
+  message: string
+  tone: 'danger' | 'neutral' | 'success' | 'warning'
 }
 
 const { t, dateLocale } = useCmsI18n()
@@ -61,31 +47,233 @@ const pageError = computed(() =>
     : '',
 )
 
-function formatJson(value: PublishReviewPreview): string {
+function formatJson(value: StudioReviewRequest['preview']): string {
   return JSON.stringify(value, null, 2)
 }
 
-function statusLabel(status: string) {
-  if (status === 'ready') return 'Ready to publish'
-  if (status === 'no_changes') return 'No website changes'
-  if (status === 'blocked') return 'Needs work'
-  if (status === 'not_publishable') return 'Cannot publish'
-  return status.replaceAll('_', ' ')
+function countMessage(count: number, oneKey: string, otherKey: string): string {
+  return t(count === 1 ? oneKey : otherKey, { count })
 }
 
-function reviewSummaryText(summary: ReviewSummary): string {
+function statusLabel(status: string) {
+  if (status === 'ready') return t('ginkoCms.studio.reviewsPage.reviewStatusReady')
+  if (status === 'no_changes') return t('ginkoCms.studio.reviewsPage.reviewStatusNoChanges')
+  if (status === 'blocked') return t('ginkoCms.studio.reviewsPage.reviewStatusBlocked')
+  if (status === 'not_publishable')
+    return t('ginkoCms.studio.reviewsPage.reviewStatusNotPublishable')
+  return t('ginkoCms.studio.reviewsPage.reviewStatusUnknown')
+}
+
+function reviewSummaryText(summary: StudioReviewRequest['reviewSummary']): string {
   const parts = [statusLabel(summary.status)]
   if (summary.changeCount)
-    parts.push(`${summary.changeCount} change${summary.changeCount === 1 ? '' : 's'}`)
+    parts.push(
+      countMessage(
+        summary.changeCount,
+        'ginkoCms.studio.reviewsPage.previewChangesOne',
+        'ginkoCms.studio.reviewsPage.previewChangesOther',
+      ),
+    )
   if (summary.blockerCount)
-    parts.push(`${summary.blockerCount} blocker${summary.blockerCount === 1 ? '' : 's'}`)
+    parts.push(
+      countMessage(
+        summary.blockerCount,
+        'ginkoCms.studio.reviewsPage.previewBlockersOne',
+        'ginkoCms.studio.reviewsPage.previewBlockersOther',
+      ),
+    )
   if (summary.warningCount)
-    parts.push(`${summary.warningCount} warning${summary.warningCount === 1 ? '' : 's'}`)
+    parts.push(
+      countMessage(
+        summary.warningCount,
+        'ginkoCms.studio.reviewsPage.previewWarningsOne',
+        'ginkoCms.studio.reviewsPage.previewWarningsOther',
+      ),
+    )
   return parts.join(' · ')
 }
 
 function requestSourceLabel(request: ReviewRequest): string {
-  return request.requestSource === 'agent' ? 'Prepared by AI' : 'Requested by a person'
+  return request.requestSource === 'agent'
+    ? t('ginkoCms.studio.reviewsPage.requestSourceAgent')
+    : t('ginkoCms.studio.reviewsPage.requestSourceHuman')
+}
+
+function sourcePanelTitle(request: ReviewRequest): string {
+  return request.requestSource === 'agent'
+    ? t('ginkoCms.studio.reviewsPage.aiPreparedTitle')
+    : t('ginkoCms.studio.reviewsPage.humanPreparedTitle')
+}
+
+function sourceSummaryLabel(request: ReviewRequest): string {
+  return request.requestSource === 'agent'
+    ? t('ginkoCms.studio.reviewsPage.assistantSummary')
+    : t('ginkoCms.studio.reviewsPage.requestSummary')
+}
+
+function preparationListTitle(request: ReviewRequest): string {
+  return request.requestSource === 'agent'
+    ? t('ginkoCms.studio.reviewsPage.assistantPreparedList')
+    : t('ginkoCms.studio.reviewsPage.requestPreparedList')
+}
+
+function formatLocaleList(locales: string[]): string {
+  return locales.length
+    ? locales.join(', ').toUpperCase()
+    : t('ginkoCms.studio.reviewsPage.noLanguagesSelected')
+}
+
+function approvalStatusText(request: ReviewRequest): string {
+  if (request.isStale) {
+    return request.staleReason || t('ginkoCms.studio.reviewsPage.staleCheck')
+  }
+  if (request.reviewSummary.blockerCount) {
+    return t('ginkoCms.studio.reviewsPage.publishDecisionBlockers', {
+      count: countMessage(
+        request.reviewSummary.blockerCount,
+        'ginkoCms.studio.reviewsPage.previewBlockersOne',
+        'ginkoCms.studio.reviewsPage.previewBlockersOther',
+      ),
+    })
+  }
+  if (request.reviewSummary.warningCount) {
+    return t('ginkoCms.studio.reviewsPage.publishDecisionWarnings', {
+      count: countMessage(
+        request.reviewSummary.warningCount,
+        'ginkoCms.studio.reviewsPage.previewWarningsOne',
+        'ginkoCms.studio.reviewsPage.previewWarningsOther',
+      ),
+    })
+  }
+  return t('ginkoCms.studio.reviewsPage.readyDecision')
+}
+
+function reviewPreparationItems(request: ReviewRequest): ReviewPreparationItem[] {
+  const items: ReviewPreparationItem[] = []
+
+  if (request.reviewSummary.changeCount) {
+    items.push({
+      message: countMessage(
+        request.reviewSummary.changeCount,
+        'ginkoCms.studio.reviewsPage.preparedChangesOne',
+        'ginkoCms.studio.reviewsPage.preparedChangesOther',
+      ),
+      tone: 'neutral',
+    })
+  } else {
+    items.push({
+      message: t('ginkoCms.studio.reviewsPage.preparedNoChanges'),
+      tone: 'neutral',
+    })
+  }
+
+  if (request.reviewSummary.affectedPublicUrls.length) {
+    items.push({
+      message: countMessage(
+        request.reviewSummary.affectedPublicUrls.length,
+        'ginkoCms.studio.reviewsPage.preparedPagesOne',
+        'ginkoCms.studio.reviewsPage.preparedPagesOther',
+      ),
+      tone: 'neutral',
+    })
+  } else {
+    items.push({
+      message: t('ginkoCms.studio.reviewsPage.preparedNoAffectedPages'),
+      tone: 'neutral',
+    })
+  }
+
+  if (request.isStale) {
+    items.push({
+      message: request.staleReason || t('ginkoCms.studio.reviewsPage.preparedStale'),
+      tone: 'danger',
+    })
+  } else if (request.reviewSummary.blockerCount) {
+    items.push({
+      message: t('ginkoCms.studio.reviewsPage.preparedBlocked', {
+        count: countMessage(
+          request.reviewSummary.blockerCount,
+          'ginkoCms.studio.reviewsPage.previewBlockersOne',
+          'ginkoCms.studio.reviewsPage.previewBlockersOther',
+        ),
+      }),
+      tone: 'danger',
+    })
+  } else if (request.reviewSummary.warningCount) {
+    items.push({
+      message: t('ginkoCms.studio.reviewsPage.preparedWarnings', {
+        count: countMessage(
+          request.reviewSummary.warningCount,
+          'ginkoCms.studio.reviewsPage.previewWarningsOne',
+          'ginkoCms.studio.reviewsPage.previewWarningsOther',
+        ),
+      }),
+      tone: 'warning',
+    })
+  } else {
+    items.push({
+      message: t('ginkoCms.studio.reviewsPage.preparedReady'),
+      tone: 'success',
+    })
+  }
+
+  return items
+}
+
+function reviewCheckItems(request: ReviewRequest): ReviewCheckItem[] {
+  const items: ReviewCheckItem[] = []
+  const hasConcerns =
+    request.isStale || request.reviewSummary.blockerCount || request.reviewSummary.warningCount
+  if (request.isStale) {
+    items.push({
+      message: request.staleReason || t('ginkoCms.studio.reviewsPage.staleCheck'),
+      tone: 'danger',
+    })
+  }
+  if (request.reviewSummary.blockerCount) {
+    items.push({
+      message: t('ginkoCms.studio.reviewsPage.reviewCheckBlockers', {
+        count: countMessage(
+          request.reviewSummary.blockerCount,
+          'ginkoCms.studio.reviewsPage.previewBlockersOne',
+          'ginkoCms.studio.reviewsPage.previewBlockersOther',
+        ),
+      }),
+      tone: 'danger',
+    })
+  }
+  if (request.reviewSummary.warningCount) {
+    items.push({
+      message: t('ginkoCms.studio.reviewsPage.reviewCheckWarnings', {
+        count: countMessage(
+          request.reviewSummary.warningCount,
+          'ginkoCms.studio.reviewsPage.previewWarningsOne',
+          'ginkoCms.studio.reviewsPage.previewWarningsOther',
+        ),
+      }),
+      tone: 'warning',
+    })
+  }
+  if (!hasConcerns) {
+    items.push({
+      message: t('ginkoCms.studio.reviewsPage.noReviewConcerns'),
+      tone: 'success',
+    })
+  }
+  if (request.requestSource === 'agent') {
+    items.push({
+      message: t('ginkoCms.studio.reviewsPage.aiManualCheck'),
+      tone: 'neutral',
+    })
+  }
+  return items
+}
+
+function reviewCheckIconClass(item: ReviewCheckItem): string {
+  if (item.tone === 'danger') return 'ginko:text-destructive'
+  if (item.tone === 'warning') return 'ginko:text-warning-fg'
+  if (item.tone === 'success') return 'ginko:text-success-fg'
+  return 'ginko:text-muted-foreground'
 }
 
 async function approve(request: ReviewRequest): Promise<boolean> {
@@ -160,7 +348,7 @@ async function reject(request: ReviewRequest) {
           v-if="!canPublishEntries && !pageError"
           class="ginko:mb-4 ginko:rounded-lg ginko:border ginko:border-dashed ginko:p-4 ginko:text-sm ginko:text-muted-foreground"
         >
-          You need publish access to approve and publish website changes.
+          {{ t('ginkoCms.studio.reviewsPage.accessRequired') }}
         </div>
 
         <div
@@ -202,8 +390,12 @@ async function reject(request: ReviewRequest) {
             >
               <div class="ginko:min-w-0">
                 <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
-                  <Badge variant="warning">Pending</Badge>
-                  <Badge v-if="request.isStale" variant="destructive">Out of date</Badge>
+                  <Badge variant="warning">
+                    {{ t('ginkoCms.studio.reviewsPage.statusPending') }}
+                  </Badge>
+                  <Badge v-if="request.isStale" variant="destructive">
+                    {{ t('ginkoCms.studio.reviewsPage.statusOutOfDate') }}
+                  </Badge>
                   <Badge variant="outline">{{ statusLabel(request.reviewSummary.status) }}</Badge>
                   <Badge variant="outline">{{ requestSourceLabel(request) }}</Badge>
                 </div>
@@ -227,7 +419,7 @@ async function reject(request: ReviewRequest) {
                     class="ginko:mr-2 ginko:size-3.5 ginko:animate-spin"
                   />
                   <X v-else class="ginko:mr-2 ginko:size-3.5" />
-                  Reject
+                  {{ t('ginkoCms.studio.reviewsPage.rejectButton') }}
                 </Button>
                 <Button
                   size="sm"
@@ -239,27 +431,25 @@ async function reject(request: ReviewRequest) {
                     class="ginko:mr-2 ginko:size-3.5 ginko:animate-spin"
                   />
                   <Check v-else class="ginko:mr-2 ginko:size-3.5" />
-                  Approve and publish
+                  {{ t('ginkoCms.studio.reviewsPage.approveButton') }}
                 </Button>
               </div>
             </div>
 
             <dl
-              class="ginko:mt-4 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-2 ginko:lg:grid-cols-4"
+              class="ginko:mt-3 ginko:flex ginko:flex-wrap ginko:gap-x-5 ginko:gap-y-1 ginko:text-xs ginko:text-muted-foreground"
             >
-              <div>
-                <dt class="ginko:font-medium ginko:text-foreground">Requested by</dt>
-                <dd class="ginko:mt-1">
-                  {{ requestSourceLabel(request) }}
-                </dd>
+              <div class="ginko:flex ginko:gap-1.5">
+                <dt class="ginko:font-medium ginko:text-foreground">
+                  {{ t('ginkoCms.studio.reviewsPage.affectedLocales') }}:
+                </dt>
+                <dd>{{ formatLocaleList(request.locales) }}</dd>
               </div>
-              <div>
-                <dt class="ginko:font-medium ginko:text-foreground">Languages</dt>
-                <dd class="ginko:mt-1">{{ request.locales.join(', ') }}</dd>
-              </div>
-              <div>
-                <dt class="ginko:font-medium ginko:text-foreground">Requested</dt>
-                <dd class="ginko:mt-1">
+              <div class="ginko:flex ginko:gap-1.5">
+                <dt class="ginko:font-medium ginko:text-foreground">
+                  {{ t('ginkoCms.studio.reviewsPage.requested') }}:
+                </dt>
+                <dd>
                   <NuxtTime
                     :datetime="request.createdAt"
                     :locale="dateLocale"
@@ -270,84 +460,230 @@ async function reject(request: ReviewRequest) {
                   />
                 </dd>
               </div>
+              <div class="ginko:flex ginko:gap-1.5">
+                <dt class="ginko:font-medium ginko:text-foreground">
+                  {{ t('ginkoCms.studio.reviewsPage.requestedBy') }}:
+                </dt>
+                <dd>{{ requestSourceLabel(request) }}</dd>
+              </div>
             </dl>
 
-            <div class="ginko:mt-4 ginko:grid ginko:gap-3 ginko:lg:grid-cols-2">
-              <div>
-                <h3 class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
-                  {{ t('ginkoCms.studio.reviewsPage.publishDecision') }}
-                </h3>
-                <div
-                  class="ginko:mt-2 ginko:space-y-2 ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs"
-                >
-                  <div v-if="request.staleReason" class="ginko:text-destructive">
-                    {{ request.staleReason }}
+            <section
+              class="ginko:mt-4 ginko:-mx-4 ginko:border-y ginko:border-border/50 ginko:bg-muted/25 ginko:px-4 ginko:py-4"
+            >
+              <div
+                class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3"
+              >
+                <div class="ginko:min-w-0">
+                  <div class="ginko:flex ginko:items-center ginko:gap-2">
+                    <Bot
+                      v-if="request.requestSource === 'agent'"
+                      class="ginko:size-4 ginko:text-muted-foreground"
+                    />
+                    <Inbox v-else class="ginko:size-4 ginko:text-muted-foreground" />
+                    <h3 class="ginko:text-sm ginko:font-medium">
+                      {{ sourcePanelTitle(request) }}
+                    </h3>
                   </div>
-                  <div>
-                    <span class="ginko:text-muted-foreground">
-                      {{ t('ginkoCms.studio.reviewsPage.affectedLocales') }}:
-                    </span>
-                    {{ request.locales.join(', ') }}
-                  </div>
-                  <div>
-                    <span class="ginko:text-muted-foreground">
-                      {{ t('ginkoCms.studio.reviewsPage.versionState') }}:
-                    </span>
-                    {{
-                      request.isStale
-                        ? t('ginkoCms.studio.reviewsPage.outOfDateRequest')
-                        : t('ginkoCms.studio.reviewsPage.currentDraftRequest')
-                    }}
-                  </div>
-                  <div v-if="request.message">
-                    <span class="ginko:text-muted-foreground">
-                      {{ t('ginkoCms.studio.reviewsPage.message') }}:
-                    </span>
-                    {{ request.message }}
-                  </div>
-                  <div>
-                    <span class="ginko:text-muted-foreground">Publish status:</span>
-                    {{ reviewSummaryText(request.reviewSummary) }}
+                  <div class="ginko:mt-2 ginko:max-w-3xl ginko:text-sm ginko:leading-6">
+                    <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                      {{ sourceSummaryLabel(request) }}
+                    </div>
+                    <p class="ginko:mt-1">
+                      {{ request.message || request.summary }}
+                    </p>
                   </div>
                 </div>
+                <Badge variant="outline" class="ginko:text-xs">
+                  {{ formatLocaleList(request.locales) }}
+                </Badge>
               </div>
-              <div>
-                <h3 class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
-                  {{ t('ginkoCms.studio.reviewsPage.proposedChanges') }}
-                </h3>
+
+              <dl class="ginko:mt-4 ginko:grid ginko:gap-3 ginko:text-xs ginko:sm:grid-cols-3">
+                <div>
+                  <dt class="ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.preparedLanguages') }}
+                  </dt>
+                  <dd class="ginko:mt-1 ginko:font-medium ginko:text-foreground">
+                    {{ formatLocaleList(request.locales) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.publishImpact') }}
+                  </dt>
+                  <dd class="ginko:mt-1 ginko:font-medium ginko:text-foreground">
+                    {{ reviewSummaryText(request.reviewSummary) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.publishDecision') }}
+                  </dt>
+                  <dd
+                    class="ginko:mt-1 ginko:font-medium"
+                    :class="
+                      request.isStale || request.reviewSummary.blockerCount
+                        ? 'ginko:text-destructive'
+                        : 'ginko:text-foreground'
+                    "
+                  >
+                    {{ approvalStatusText(request) }}
+                  </dd>
+                </div>
+              </dl>
+
+              <div class="ginko:mt-4 ginko:border-t ginko:border-border/60 ginko:pt-3">
+                <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                  {{ preparationListTitle(request) }}
+                </div>
+                <ul class="ginko:mt-2 ginko:grid ginko:gap-2 ginko:text-sm ginko:sm:grid-cols-3">
+                  <li
+                    v-for="item in reviewPreparationItems(request)"
+                    :key="`${request._id}:prepared:${item.message}`"
+                    class="ginko:flex ginko:gap-2"
+                  >
+                    <AlertCircle
+                      v-if="item.tone === 'danger' || item.tone === 'warning'"
+                      class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0"
+                      :class="reviewCheckIconClass(item)"
+                    />
+                    <Check
+                      v-else
+                      class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0"
+                      :class="reviewCheckIconClass(item)"
+                    />
+                    <span>{{ item.message }}</span>
+                  </li>
+                </ul>
+              </div>
+            </section>
+
+            <div
+              class="ginko:mt-4 ginko:grid ginko:gap-5 ginko:lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]"
+            >
+              <section class="ginko:min-w-0">
+                <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
+                  <h3 class="ginko:text-sm ginko:font-medium">
+                    {{ t('ginkoCms.studio.reviewsPage.whatChanged') }}
+                  </h3>
+                  <span class="ginko:text-xs ginko:text-muted-foreground">
+                    {{
+                      countMessage(
+                        request.reviewSummary.changeCount,
+                        'ginkoCms.studio.reviewsPage.previewChangesOne',
+                        'ginkoCms.studio.reviewsPage.previewChangesOther',
+                      )
+                    }}
+                  </span>
+                </div>
+
                 <div
-                  class="ginko:mt-2 ginko:space-y-2 ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
+                  class="ginko:mt-3 ginko:divide-y ginko:divide-border/60 ginko:border-y ginko:border-border/60"
                 >
                   <div
                     v-for="localeState in request.reviewSummary.localeStatuses"
                     :key="`${request._id}:locale:${localeState.locale}`"
-                    class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2"
+                    class="ginko:grid ginko:gap-3 ginko:py-3 ginko:text-xs ginko:sm:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]"
                   >
-                    <Badge variant="outline" class="ginko:font-mono">
-                      {{ localeState.locale }}
-                    </Badge>
-                    <span>{{ statusLabel(localeState.status) }}</span>
-                    <span
-                      v-if="localeState.currentHref || localeState.nextHref"
-                      class="ginko:font-mono"
-                    >
-                      {{ localeState.currentHref || 'new' }} -> {{ localeState.nextHref || 'none' }}
-                    </span>
-                  </div>
-                  <div v-if="request.reviewSummary.affectedPublicUrls.length">
-                    <div class="ginko:font-medium ginko:text-foreground">
-                      Pages that will change
+                    <div class="ginko:flex ginko:items-center ginko:gap-2">
+                      <Badge variant="outline" class="ginko:font-mono">
+                        {{ localeState.locale }}
+                      </Badge>
+                      <span>{{ statusLabel(localeState.status) }}</span>
                     </div>
+                    <div class="ginko:min-w-0">
+                      <div class="ginko:font-medium ginko:text-muted-foreground">
+                        {{ t('ginkoCms.studio.reviewsPage.currentLivePage') }}
+                      </div>
+                      <div class="ginko:mt-1 ginko:truncate ginko:font-mono">
+                        {{ localeState.currentHref || t('ginkoCms.studio.reviewsPage.notLiveYet') }}
+                      </div>
+                    </div>
+                    <div class="ginko:min-w-0">
+                      <div class="ginko:font-medium ginko:text-muted-foreground">
+                        {{ t('ginkoCms.studio.reviewsPage.afterPublish') }}
+                      </div>
+                      <div class="ginko:mt-1 ginko:truncate ginko:font-mono ginko:text-foreground">
+                        {{
+                          localeState.nextHref || t('ginkoCms.studio.reviewsPage.noPageUrlPlanned')
+                        }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="ginko:mt-4">
+                  <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.affectedPages') }}
+                  </div>
+                  <div
+                    v-if="request.reviewSummary.affectedPublicUrls.length"
+                    class="ginko:mt-2 ginko:divide-y ginko:divide-border/60 ginko:border-y ginko:border-border/60"
+                  >
                     <div
                       v-for="url in request.reviewSummary.affectedPublicUrls"
                       :key="`${request._id}:url:${url.locale}:${url.beforeHref}:${url.afterHref}`"
-                      class="ginko:font-mono"
+                      class="ginko:grid ginko:gap-3 ginko:py-2 ginko:text-xs ginko:sm:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]"
                     >
-                      {{ url.beforeHref || 'new' }} -> {{ url.afterHref || 'none' }}
+                      <span class="ginko:font-medium">{{ url.label || url.locale }}</span>
+                      <div class="ginko:min-w-0">
+                        <div class="ginko:font-medium ginko:text-muted-foreground">
+                          {{ t('ginkoCms.studio.reviewsPage.before') }}
+                        </div>
+                        <div class="ginko:mt-1 ginko:truncate ginko:font-mono">
+                          {{ url.beforeHref || t('ginkoCms.studio.reviewsPage.notLiveYet') }}
+                        </div>
+                      </div>
+                      <div class="ginko:min-w-0">
+                        <div class="ginko:font-medium ginko:text-muted-foreground">
+                          {{ t('ginkoCms.studio.reviewsPage.after') }}
+                        </div>
+                        <div
+                          class="ginko:mt-1 ginko:truncate ginko:font-mono ginko:text-foreground"
+                        >
+                          {{ url.afterHref || t('ginkoCms.studio.reviewsPage.noPageUrlPlanned') }}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div v-if="request.reviewSummary.blockingIssueCodes.length">
-                    <div class="ginko:font-medium ginko:text-destructive-fg">Blockers</div>
+                  <p v-else class="ginko:mt-2 ginko:text-xs ginko:text-muted-foreground">
+                    {{ t('ginkoCms.studio.reviewsPage.noAffectedPages') }}
+                  </p>
+                </div>
+
+                <StudioReviewWebsiteChanges :request="request" />
+              </section>
+
+              <section>
+                <h3 class="ginko:text-sm ginko:font-medium">
+                  {{ t('ginkoCms.studio.reviewsPage.whatToCheck') }}
+                </h3>
+                <ul class="ginko:mt-3 ginko:space-y-2 ginko:text-sm">
+                  <li
+                    v-for="item in reviewCheckItems(request)"
+                    :key="`${request._id}:check:${item.message}`"
+                    class="ginko:flex ginko:gap-2"
+                  >
+                    <AlertCircle
+                      v-if="item.tone === 'danger' || item.tone === 'warning'"
+                      class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0"
+                      :class="reviewCheckIconClass(item)"
+                    />
+                    <Check
+                      v-else
+                      class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0"
+                      :class="reviewCheckIconClass(item)"
+                    />
+                    <span>{{ item.message }}</span>
+                  </li>
+                </ul>
+
+                <div v-if="request.reviewSummary.blockingIssueCodes.length" class="ginko:mt-4">
+                  <div class="ginko:text-xs ginko:font-medium ginko:text-destructive-fg">
+                    {{ t('ginkoCms.studio.reviewsPage.blockers') }}
+                  </div>
+                  <div class="ginko:mt-2 ginko:space-y-1 ginko:text-xs">
                     <div
                       v-for="code in request.reviewSummary.blockingIssueCodes"
                       :key="`${request._id}:blocker:${code}`"
@@ -355,8 +691,12 @@ async function reject(request: ReviewRequest) {
                       {{ readinessIssueLabel(t, code) }}
                     </div>
                   </div>
-                  <div v-if="request.reviewSummary.warningIssueCodes.length">
-                    <div class="ginko:font-medium ginko:text-warning-fg">Warnings</div>
+                </div>
+                <div v-if="request.reviewSummary.warningIssueCodes.length" class="ginko:mt-4">
+                  <div class="ginko:text-xs ginko:font-medium ginko:text-warning-fg">
+                    {{ t('ginkoCms.studio.reviewsPage.warnings') }}
+                  </div>
+                  <div class="ginko:mt-2 ginko:space-y-1 ginko:text-xs">
                     <div
                       v-for="code in request.reviewSummary.warningIssueCodes"
                       :key="`${request._id}:warning:${code}`"
@@ -365,7 +705,7 @@ async function reject(request: ReviewRequest) {
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
 
             <StudioDeveloperDetails class="ginko:mt-4">

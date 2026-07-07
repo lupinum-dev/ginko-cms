@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { AlertCircle, CheckCircle2, ExternalLink, Globe, Loader2 } from 'lucide-vue-next'
+import { AlertCircle, CheckCircle2, ExternalLink, Globe } from 'lucide-vue-next'
 import { computed } from 'vue'
 
-import { api } from '../../../boundary/api'
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
-import { useCmsStudioQuery } from '../../../composables/useCmsStudioQuery'
 import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
 import {
   derivePublishConfirmationState,
@@ -12,22 +10,23 @@ import {
   readinessActionLabel,
   readinessIssueMessage,
 } from '../../../lib/publicWorkflow'
-import type { StudioEntryReadinessDetail } from './studioWorkflowTypes'
+import type {
+  StudioEntryReadinessDetail,
+  StudioPublishImpactLocale,
+  StudioPublishImpactState,
+  StudioPublishReviewState,
+} from './studioWorkflowTypes'
 
 const props = defineProps<{
   readinessDetail?: StudioEntryReadinessDetail | null
+  publishImpact?: StudioPublishImpactState
   publishImpactRequested?: boolean
+  publishReview?: StudioPublishReviewState
 }>()
 
 const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
 
-const diffArgs = computed(() => {
-  if (!editor.publishing.showPublishDialog) return null
-  return { entryId: editor.loader.entryId }
-})
-const diffQuery = useCmsStudioQuery(api.ginkoCms.editor.getDraftVsPublishedDiff, diffArgs)
-const diff = computed(() => diffQuery.data?.value ?? null)
 const entry = computed(() => {
   const value = editor.loader.entry
   if (value && typeof value === 'object' && 'value' in value) {
@@ -37,6 +36,13 @@ const entry = computed(() => {
 })
 
 const isFirstPublish = computed(() => entry.value?.status === 'draft' && !entry.value?.publishedAt)
+const publishImpactLocales = computed(() => props.publishImpact?.locales ?? [])
+const publishImpactReady = computed(
+  () =>
+    Boolean(props.publishImpactRequested) &&
+    props.publishImpact?.state === 'ready' &&
+    publishImpactLocales.value.length > 0,
+)
 
 const publishLabel = computed(() => {
   if (editor.publishing.publishMode === 'all') {
@@ -59,8 +65,14 @@ const publishConfirmation = computed(() =>
 
 const publishScopeLabel = computed(() =>
   editor.publishing.publishMode === 'all'
-    ? `All languages (${editor.loader.localeVariants.map((variant: { locale: string }) => variant.locale.toUpperCase()).join(', ')})`
-    : `Current language (${editor.loader.currentLocale.toUpperCase()})`,
+    ? collectionEditorT('publishDialogAllLanguages', {
+        locales: editor.loader.localeVariants
+          .map((variant: { locale: string }) => variant.locale.toUpperCase())
+          .join(', '),
+      })
+    : collectionEditorT('publishDialogCurrentLanguage', {
+        locale: editor.loader.currentLocale.toUpperCase(),
+      }),
 )
 
 const readinessView = computed(() =>
@@ -88,8 +100,53 @@ const issueLabel = computed(() => {
     : 'No blocking issues'
 })
 
-const changedFields = computed(() => diff.value?.changes ?? [])
 const showAdvancedDetails = computed(() => advancedEditor.value)
+
+function collectionEditorT(key: string, params?: Record<string, unknown>): string {
+  return editor.loader.t(`ginkoCms.studio.collectionEditor.${key}`, params)
+}
+
+function displayAddress(value: string | null | undefined, fallbackKey: string): string {
+  const trimmed = value?.trim()
+  return trimmed || collectionEditorT(fallbackKey)
+}
+
+function displayInclusion(value: boolean): string {
+  return collectionEditorT(value ? 'publishDialogIncluded' : 'publishDialogExcluded')
+}
+
+function changeKindLabel(change: StudioPublishImpactLocale['changes'][number]): string {
+  if (change.kind === 'route' || change.kind === 'redirect') {
+    return collectionEditorT('publishDialogPageAddress')
+  }
+  if (change.kind === 'seo') return collectionEditorT('publishDialogSearchPreview')
+  if (change.kind === 'sitemap' || change.kind === 'search' || change.kind === 'nav') {
+    return collectionEditorT('publishDialogWebsiteVisibility')
+  }
+  return collectionEditorT('publishDialogWebsiteContent')
+}
+
+const changeKindSummary = computed(() => {
+  const counts = new Map<string, number>()
+  for (const localeImpact of publishImpactLocales.value) {
+    for (const change of localeImpact.changes) {
+      const label = changeKindLabel(change)
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+  }
+  return Array.from(counts.entries()).map(([label, count]) => ({
+    key: label,
+    label,
+    count,
+  }))
+})
+
+const publishImpactMessage = computed(
+  () =>
+    props.publishImpact?.message ||
+    props.publishReview?.message ||
+    collectionEditorT('publishDialogPreviewRequired'),
+)
 </script>
 
 <template>
@@ -110,11 +167,11 @@ const showAdvancedDetails = computed(() => advancedEditor.value)
           class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3"
         >
           <div class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground">
-            Live page
+            {{ collectionEditorT('publishDialogLivePage') }}
           </div>
           <div class="ginko:mt-1 ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
             <div class="ginko:min-w-0 ginko:truncate ginko:font-mono ginko:text-sm">
-              {{ publicUrl || 'No live URL yet' }}
+              {{ publicUrl || collectionEditorT('publishDialogNoLiveUrl') }}
             </div>
             <Button v-if="publicUrl" variant="ghost" size="icon-sm" as-child>
               <a :href="publicUrl" target="_blank" rel="noreferrer" aria-label="Open live URL">
@@ -128,55 +185,110 @@ const showAdvancedDetails = computed(() => advancedEditor.value)
           class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3"
         >
           <div class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground">
-            Languages
+            {{ collectionEditorT('publishDialogLanguages') }}
           </div>
           <div class="ginko:mt-1 ginko:text-sm">{{ publishScopeLabel }}</div>
         </div>
 
-        <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3 ginko:space-y-2">
+        <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3 ginko:space-y-3">
           <div class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground">
-            Website changes
+            {{ collectionEditorT('publishDialogWebsiteChanges') }}
           </div>
-          <div v-if="isFirstPublish" class="ginko:text-xs ginko:text-muted-foreground">
+          <div v-if="publishImpactReady" class="ginko:space-y-3">
+            <div
+              class="ginko:flex ginko:items-start ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
+            >
+              <CheckCircle2
+                class="ginko:mt-0.5 ginko:size-3.5 ginko:shrink-0 ginko:text-success-fg"
+              />
+              <span>
+                {{
+                  isFirstPublish
+                    ? editor.loader.t('ginkoCms.studio.collectionEditor.publishDialogFirstPublish')
+                    : collectionEditorT('publishDialogPreviewReviewed')
+                }}
+              </span>
+            </div>
+
+            <div
+              class="ginko:divide-y ginko:divide-border/60 ginko:border-y ginko:border-border/60"
+            >
+              <div
+                v-for="localeImpact in publishImpactLocales"
+                :key="`publish-dialog-impact:${localeImpact.locale}`"
+                class="ginko:grid ginko:gap-2 ginko:py-2 ginko:text-xs"
+              >
+                <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
+                  <Badge variant="outline" class="ginko:font-mono">
+                    {{ localeImpact.locale.toUpperCase() }}
+                  </Badge>
+                  <span class="ginko:font-medium ginko:text-foreground">
+                    {{ localeImpact.label }}
+                  </span>
+                </div>
+                <div
+                  class="ginko:grid ginko:gap-2 ginko:text-muted-foreground ginko:sm:grid-cols-2"
+                >
+                  <div class="ginko:min-w-0">
+                    <div class="ginko:font-medium">
+                      {{ collectionEditorT('publishDialogCurrentLivePage') }}
+                    </div>
+                    <div class="ginko:mt-0.5 ginko:truncate ginko:font-mono">
+                      {{
+                        displayAddress(
+                          localeImpact.currentHref || localeImpact.currentPath,
+                          'publishDialogNotLiveYet',
+                        )
+                      }}
+                    </div>
+                  </div>
+                  <div class="ginko:min-w-0">
+                    <div class="ginko:font-medium">
+                      {{ collectionEditorT('publishDialogAfterPublish') }}
+                    </div>
+                    <div class="ginko:mt-0.5 ginko:truncate ginko:font-mono ginko:text-foreground">
+                      {{
+                        displayAddress(
+                          localeImpact.nextHref || localeImpact.nextPath,
+                          'publishDialogNoPageUrlPlanned',
+                        )
+                      }}
+                    </div>
+                  </div>
+                </div>
+                <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
+                  <Badge variant="outline" class="ginko:text-xs">
+                    {{ collectionEditorT('publishDialogSitemap') }}
+                    {{ displayInclusion(localeImpact.sitemap.after) }}
+                  </Badge>
+                  <Badge variant="outline" class="ginko:text-xs">
+                    {{ collectionEditorT('publishDialogSearch') }}
+                    {{ displayInclusion(localeImpact.search.after) }}
+                  </Badge>
+                  <Badge variant="outline" class="ginko:text-xs">
+                    {{ collectionEditorT('publishDialogNavigation') }}
+                    {{ displayInclusion(localeImpact.nav.after) }}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="changeKindSummary.length" class="ginko:flex ginko:flex-wrap ginko:gap-1">
+              <Badge
+                v-for="summary in changeKindSummary"
+                :key="summary.key"
+                variant="outline"
+                class="ginko:text-xs"
+              >
+                {{ summary.label }} {{ summary.count }}
+              </Badge>
+            </div>
+          </div>
+          <div v-else-if="isFirstPublish" class="ginko:text-xs ginko:text-muted-foreground">
             {{ editor.loader.t('ginkoCms.studio.collectionEditor.publishDialogFirstPublish') }}
           </div>
-          <div v-else-if="changedFields.length > 0" class="ginko:space-y-1.5">
-            <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
-              {{
-                editor.loader.t('ginkoCms.studio.collectionEditor.publishDialogChangedFields', {
-                  count: changedFields.length,
-                })
-              }}
-            </div>
-            <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
-              <span
-                v-for="change in changedFields.slice(0, 8)"
-                :key="change.field"
-                class="ginko:text-xs ginko:font-mono ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded"
-                >{{ change.field }}</span
-              >
-              <span
-                v-if="changedFields.length > 8"
-                class="ginko:text-xs ginko:text-muted-foreground ginko:px-1"
-                >+{{ changedFields.length - 8 }}
-                {{
-                  editor.loader.t('ginkoCms.studio.collectionEditor.publishDialogMoreFields')
-                }}</span
-              >
-            </div>
-          </div>
-          <div
-            v-else-if="diff && diff.changes.length === 0"
-            class="ginko:text-xs ginko:text-muted-foreground"
-          >
-            {{ editor.loader.t('ginkoCms.studio.collectionEditor.publishDialogNoChanges') }}
-          </div>
-          <div
-            v-else
-            class="ginko:flex ginko:items-center ginko:gap-1.5 ginko:text-xs ginko:text-muted-foreground"
-          >
-            <Loader2 class="ginko:size-3 ginko:animate-spin" />
-            {{ editor.loader.t('ginkoCms.studio.collectionEditor.loading') }}
+          <div v-else class="ginko:text-xs ginko:text-muted-foreground">
+            {{ publishImpactMessage }}
           </div>
         </div>
 
@@ -263,27 +375,25 @@ const showAdvancedDetails = computed(() => advancedEditor.value)
           v-if="showAdvancedDetails"
           class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3 ginko:text-xs"
         >
-          <div class="ginko:font-medium ginko:text-foreground">Developer diagnostics</div>
+          <div class="ginko:font-medium ginko:text-foreground">
+            {{ collectionEditorT('publishDialogReceipt') }}
+          </div>
           <dl class="ginko:mt-3 ginko:grid ginko:grid-cols-2 ginko:gap-2">
             <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
-              <dt class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">Scope</dt>
+              <dt class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
+                {{ collectionEditorT('publishDialogScope') }}
+              </dt>
               <dd class="ginko:mt-0.5 ginko:text-foreground">{{ publishScopeLabel }}</dd>
             </div>
             <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
               <dt class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
-                Draft version
+                {{ collectionEditorT('publishDialogSavedDraftState') }}
               </dt>
               <dd class="ginko:mt-0.5 ginko:font-mono ginko:text-foreground">
                 {{ entry?.draftVersion ?? 'loading' }}
               </dd>
             </div>
           </dl>
-          <div
-            v-if="editor.publishing.publishReadiness.previewHash"
-            class="ginko:mt-2 ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
-          >
-            Preview {{ editor.publishing.publishReadiness.previewHash.slice(0, 24) }}
-          </div>
         </div>
       </div>
 

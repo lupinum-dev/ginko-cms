@@ -1,14 +1,5 @@
 <script setup lang="ts">
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  Globe,
-  Link2,
-  Sparkles,
-  TriangleAlert,
-} from 'lucide-vue-next'
+import { AlertCircle, CheckCircle2, Clock, Globe, Sparkles, TriangleAlert } from 'lucide-vue-next'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
@@ -19,8 +10,12 @@ import {
   readinessIssueMessage,
   readinessStateLabel,
 } from '../../../lib/publicWorkflow'
+import StudioEntryTrackCard from './StudioEntryTrackCard.vue'
+import StudioWorkflowCard from './StudioWorkflowCard.vue'
 import type {
   StudioEntryReadinessDetail,
+  StudioPublishImpactState,
+  StudioPublishReviewState,
   StudioPublicVisibilityState,
   StudioRouteValidationState,
   StudioTranslationReadinessRow,
@@ -30,7 +25,11 @@ import { diagnosticLabel } from './studioWorkflowTypes'
 const props = defineProps<{
   readinessDetail?: StudioEntryReadinessDetail | null
   readinessPending?: boolean
+  publishImpact?: StudioPublishImpactState
+  publishImpactRequested?: boolean
+  publishReview?: StudioPublishReviewState
   publicVisibility?: StudioPublicVisibilityState
+  requestReviewPending?: boolean
   routeValidationRequested: boolean
   routeValidationState: StudioRouteValidationState
   translationReadiness?: StudioTranslationReadinessRow[]
@@ -59,14 +58,6 @@ const readinessView = computed(() =>
     t: editor.loader.t,
     publishMode: 'single',
   }),
-)
-
-const publicUrl = computed(
-  () =>
-    readinessView.value.publicUrl ||
-    readinessView.value.draftUrl ||
-    editor.draft.computedPath ||
-    '',
 )
 
 const isRouteBacked = computed(
@@ -194,35 +185,22 @@ const blockingIssues = computed(() => {
       </div>
     </StudioInspectorSection>
 
-    <StudioInspectorSection title="Live URL">
-      <template #icon>
-        <Link2 class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
-      </template>
-      <a
-        v-if="publicUrl"
-        :href="publicUrl"
-        target="_blank"
-        rel="noreferrer"
-        class="ginko:mb-3 ginko:inline-flex ginko:items-center ginko:gap-1 ginko:break-all ginko:text-sm ginko:leading-relaxed ginko:text-primary ginko:hover:underline"
-      >
-        {{ publicUrl }}
-      </a>
-      <div v-else class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-muted-foreground">
-        No live URL yet
-      </div>
-      <Button
-        v-if="publicUrl"
-        variant="outline"
-        size="sm"
-        as-child
-        class="ginko:mt-4 ginko:w-full ginko:gap-2"
-      >
-        <a :href="publicUrl" target="_blank" rel="noreferrer">
-          <ExternalLink class="ginko:size-4" />
-          Open page
-        </a>
-      </Button>
-    </StudioInspectorSection>
+    <StudioWorkflowCard
+      :readiness-detail="readinessDetail"
+      :readiness-pending="readinessPending"
+      :route-validation-requested="routeValidationRequested"
+      :route-validation-state="routeValidationState"
+      :publish-impact-requested="publishImpactRequested"
+      :publish-impact="publishImpact"
+      :publish-review="publishReview"
+      :request-review-pending="requestReviewPending"
+    />
+
+    <StudioEntryTrackCard
+      :public-visibility="publicVisibility"
+      :readiness-detail="readinessDetail"
+      :readiness-pending="readinessPending"
+    />
 
     <StudioInspectorSection title="Translations">
       <template #icon>
@@ -331,7 +309,7 @@ const blockingIssues = computed(() => {
       </div>
     </StudioInspectorSection>
 
-    <StudioInspectorSection title="Technical details">
+    <StudioInspectorSection title="More details">
       <template #icon>
         <Sparkles class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
       </template>
@@ -339,11 +317,12 @@ const blockingIssues = computed(() => {
         <Switch
           v-model:checked="advancedEditor"
           class="ginko:scale-90"
-          aria-label="Toggle technical editor details"
+          aria-label="Toggle detailed publishing information"
         />
       </template>
       <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground/80">
-        URLs, publish checks, and version history. Usually only needed for troubleshooting.
+        URLs, publish checks, and version history. Usually only needed after something needs a
+        closer look.
       </p>
     </StudioInspectorSection>
 
@@ -359,7 +338,6 @@ const blockingIssues = computed(() => {
         :items="translationRows"
         @review="emit('reviewTranslationReadiness', $event)"
       />
-      <StudioWorkflowCard />
       <StudioVersionHistoryCard />
     </template>
   </div>

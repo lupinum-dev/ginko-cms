@@ -1066,7 +1066,7 @@ describe('editor publish operations', () => {
     })
 
     expect(preview.allowed).toBe(true)
-    expect(preview.details.changes).toEqual(
+    expect(preview.details.publishImpact.changes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           kind: 'route',
@@ -1152,7 +1152,7 @@ describe('editor publish operations', () => {
     })
 
     expect(preview.allowed).toBe(false)
-    expect(preview.details.locales[0]?.blockingDiagnostics).toContainEqual(
+    expect(preview.details.publishImpact.locales[0]?.blockingDiagnostics).toContainEqual(
       expect.objectContaining({
         code: 'route_collision',
         path: '/docs/root-renamed',
@@ -1755,7 +1755,7 @@ describe('editor publish operations', () => {
       locales: ['en'],
     })
     expect(preview.allowed).toBe(true)
-    expect(preview.details.locales[0]).toMatchObject({
+    expect(preview.details.publishImpact.locales[0]).toMatchObject({
       currentPath: '/docs/root-a/child',
       nextPath: '/docs/root-b/child',
     })
@@ -1928,7 +1928,9 @@ describe('editor publish operations', () => {
         message: expect.stringContaining('claimed by 2 public routes'),
       }),
     )
-    expect(conflictPreview.details.locales[0]?.blockingDiagnostics[0]?.code).toBe('route_collision')
+    expect(conflictPreview.details.publishImpact.locales[0]?.blockingDiagnostics[0]?.code).toBe(
+      'route_collision',
+    )
     const readiness = await owner.query(api.editor.getEntryReadinessDetail, { entryId: rightId })
     const de = readiness.locales.find((locale: { locale: string }) => locale.locale === 'de')
     expect(de).toMatchObject({

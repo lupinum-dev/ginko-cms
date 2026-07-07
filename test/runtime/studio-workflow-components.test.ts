@@ -13,6 +13,7 @@ import StudioEntryStatusRail from '../../packages/cms/studio-app/src/components/
 import StudioEntryTranslationReadinessPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryTranslationReadinessPanel.vue'
 import StudioLocaleEditorPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioLocaleEditorPanel.vue'
 import StudioPublishDialog from '../../packages/cms/studio-app/src/components/studio/editor/StudioPublishDialog.vue'
+import StudioPublishOutcomeCard from '../../packages/cms/studio-app/src/components/studio/editor/StudioPublishOutcomeCard.vue'
 import StudioSharedFieldsPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioSharedFieldsPanel.vue'
 import StudioVersionHistoryCard from '../../packages/cms/studio-app/src/components/studio/editor/StudioVersionHistoryCard.vue'
 import FieldArray from '../../packages/cms/studio-app/src/components/studio/fields/FieldArray.vue'
@@ -152,7 +153,7 @@ function studioStubs() {
     },
     StudioDeveloperDetails: {
       props: { framed: Boolean, title: String },
-      template: '<details><summary>{{ title || "Developer details" }}</summary><slot /></details>',
+      template: '<details><summary>{{ title || "Advanced details" }}</summary><slot /></details>',
     },
     StudioInspectorSection: {
       props: { title: String },
@@ -492,13 +493,43 @@ const idleImpact = {
   status: null,
 }
 
+const readyPublishImpact = {
+  ...idleImpact,
+  locales: [
+    {
+      blockingDiagnostics: [],
+      changes: [
+        { after: '/hello', before: '/old-page', kind: 'route', label: 'Public route' },
+        { after: 'New search title', before: 'Old search title', kind: 'seo', label: 'Meta title' },
+        { after: true, before: false, kind: 'nav', label: 'Navigation' },
+      ],
+      currentHref: '/old-page',
+      currentPath: '/old-page',
+      hiddenBlockerCount: 0,
+      label: 'Website changes ready',
+      locale: 'en',
+      nav: { after: true, before: false },
+      nextHref: '/hello',
+      nextPath: '/hello',
+      search: { after: true, before: true },
+      sitemap: { after: true, before: true },
+      status: 'ready',
+      visibleBlockers: [],
+      visibleWarnings: [],
+      warnings: [],
+    },
+  ],
+  message: 'Publish preview is ready.',
+  state: 'ready',
+  status: 'ready',
+}
+
 const publishReview = {
   blocked: false,
   failed: false,
   label: 'Ready',
   locales: ['en'],
   message: 'Ready to publish',
-  previewHash: 'preview-hash',
   stale: false,
   state: 'ready',
 }
@@ -639,7 +670,7 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).toContain('none active')
   })
 
-  it('shows stale publish impact without a confirmable preview hash', () => {
+  it('shows stale publish impact without a confirmable preview', () => {
     const wrapper = mount(StudioEntryPublicWorkflowPanel, {
       global: { stubs: studioStubs() },
       props: {
@@ -650,7 +681,7 @@ describe('Studio workflow components', () => {
           state: 'stale',
         },
         publishImpactRequested: true,
-        publishReview: { ...publishReview, previewHash: null, stale: true, state: 'stale' },
+        publishReview: { ...publishReview, stale: true, state: 'stale' },
         previewScope: 'publish',
         routeValidationRequested: false,
         routeValidationState: emptyRouteValidation,
@@ -659,7 +690,7 @@ describe('Studio workflow components', () => {
     })
 
     expect(wrapper.text()).toContain('Website changes preview is stale')
-    expect(wrapper.text()).not.toContain('Preview preview-hash')
+    expect(wrapper.text()).not.toContain('Preview receipt')
   })
 
   it('renders backend readiness state and blockers in the status rail', () => {
@@ -709,9 +740,115 @@ describe('Studio workflow components', () => {
     })
     const wrapper = mount(Host, { global: { stubs: studioStubs() } })
 
+    expect(wrapper.text()).toContain('Publishing flow')
+    expect(wrapper.text()).toContain('Write')
+    expect(wrapper.text()).toContain('Check')
+    expect(wrapper.text()).toContain('Preview')
+    expect(wrapper.text()).toContain('Review')
+    expect(wrapper.text()).toContain('Publish')
+    expect(wrapper.text()).toContain('Track')
     expect(wrapper.text()).toContain('Needs work')
     expect(wrapper.text()).toContain('EN: Required translation field is missing: title')
     expect(wrapper.text()).not.toContain('No blocking issues')
+  })
+
+  it('shows preview, review, and publish progress in the editor workflow spine', () => {
+    const wrapper = mountWithStudioContext(StudioEntryStatusRail, railEditor(), {
+      publicVisibility: baseVisibility,
+      readinessDetail: baseReadinessDetail,
+      publishImpact: {
+        ...idleImpact,
+        message: 'Website changes are ready to review.',
+        state: 'ready',
+        status: 'ready',
+      },
+      publishImpactRequested: true,
+      publishReview: {
+        ...publishReview,
+        message: 'Website changes are ready to review.',
+      },
+      routeValidationRequested: false,
+      routeValidationState: emptyRouteValidation,
+      translationReadiness: [],
+    })
+
+    expect(wrapper.text()).toContain('Publishing flow')
+    expect(wrapper.text()).toContain('Website changes are ready to review.')
+    expect(wrapper.text()).toContain('Prepared')
+    expect(wrapper.text()).toContain('Reviewed')
+    expect(wrapper.text()).toContain('Publish the approved website changes.')
+  })
+
+  it('tracks live website state, language rollout, and refresh health in the editor rail', () => {
+    const editor = railEditor()
+    editor.loader.entry = { draftVersion: 8, publishedAt: 1, status: 'published' }
+    const wrapper = mountWithStudioContext(StudioEntryStatusRail, editor, {
+      publicVisibility: baseVisibility,
+      readinessDetail: {
+        ...baseReadinessDetail,
+        locales: [
+          {
+            ...baseReadinessDetail.locales[0],
+            canPreview: false,
+            canPublish: false,
+            draftUrl: '/hello',
+            hasUnpublishedChanges: false,
+            publicUrl: '/hello',
+            published: true,
+            state: 'live',
+          },
+        ],
+      },
+      publishImpact: idleImpact,
+      publishImpactRequested: false,
+      publishReview,
+      routeValidationRequested: false,
+      routeValidationState: emptyRouteValidation,
+      translationReadiness: [],
+    })
+
+    expect(wrapper.text()).toContain('Track live website')
+    expect(wrapper.text()).toContain('Live now')
+    expect(wrapper.text()).toContain('Live since')
+    expect(wrapper.text()).toContain('/hello')
+    expect(wrapper.text()).toContain('ENLive')
+    expect(wrapper.text()).toContain('No website refresh issues reported.')
+  })
+
+  it('shows a post-publish Track outcome with affected pages and refresh status', () => {
+    const wrapper = mountWithStudioContext(StudioPublishOutcomeCard, railEditor(), {
+      outcome: {
+        dirtyLocales: [],
+        draftVersion: 8,
+        locales: ['en'],
+        message: 'Launch update',
+        mode: 'single',
+        publishedAt: 1,
+        versionId: 'version-1',
+      },
+      publicVisibility: baseVisibility,
+      publishImpact: {
+        ...readyPublishImpact,
+        events: ['content.revalidate'],
+      },
+    })
+
+    expect(wrapper.text()).toContain('Published to the website')
+    expect(wrapper.text()).toContain('Track')
+    expect(wrapper.text()).toContain('Published languages')
+    expect(wrapper.text()).toContain('EN')
+    expect(wrapper.text()).toContain('Launch update')
+    expect(wrapper.text()).toContain('Open live page')
+    expect(wrapper.text()).toContain('Affected pages')
+    expect(wrapper.text()).toContain('Before publish')
+    expect(wrapper.text()).toContain('/old-page')
+    expect(wrapper.text()).toContain('Live now')
+    expect(wrapper.text()).toContain('/hello')
+    expect(wrapper.text()).toContain('Website refresh queued')
+    expect(wrapper.text()).toContain('Website refresh is queued for the affected pages.')
+    expect(wrapper.find('a[href="/hello"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('version-1')
+    expect(wrapper.text()).not.toContain('content.revalidate')
   })
 
   it('renders status rail workflow copy through English and German dictionaries', () => {
@@ -804,6 +941,190 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).not.toContain('Preview preview-hash')
   })
 
+  it('renders a visual website preview from publish impact URLs', () => {
+    const wrapper = mount(StudioEntryPublicWorkflowPanel, {
+      global: { stubs: studioStubs() },
+      props: {
+        publicVisibility: baseVisibility,
+        publishImpact: {
+          ...idleImpact,
+          locales: [
+            {
+              blockingDiagnostics: [],
+              changes: [],
+              currentHref: '/de/alt',
+              currentPath: '/alt',
+              hiddenBlockerCount: 0,
+              label: 'Ready to publish',
+              locale: 'de',
+              nav: { after: true, before: false },
+              nextHref: '/de/hallo',
+              nextPath: '/hallo',
+              search: { after: true, before: false },
+              sitemap: { after: true, before: false },
+              status: 'ready',
+              visibleBlockers: [],
+              visibleWarnings: [],
+              warnings: [],
+            },
+          ],
+          message: 'Ready to publish',
+          state: 'ready',
+          status: 'ready',
+        },
+        publishImpactRequested: true,
+        publishReview,
+        previewScope: 'publish',
+        routeValidationRequested: false,
+        routeValidationState: emptyRouteValidation,
+        selectedPublishImpactLocale: 'de',
+      },
+    })
+
+    expect(wrapper.text()).toContain('Website preview')
+    expect(wrapper.text()).toContain('Open preview')
+    expect(wrapper.text()).toContain('Open live page')
+    expect(wrapper.get('iframe').attributes('src')).toBe('/de/hallo')
+    expect(wrapper.get('iframe').attributes('title')).toBe('Website preview for de')
+    expect(wrapper.findAll('a').map((link) => link.attributes('href'))).toEqual(
+      expect.arrayContaining(['/de/alt', '/de/hallo']),
+    )
+  })
+
+  it('renders publish impact changes as marketer-readable website effects', () => {
+    const wrapper = mount(StudioEntryPublicWorkflowPanel, {
+      global: { stubs: studioStubs() },
+      props: {
+        publicVisibility: baseVisibility,
+        publishImpact: {
+          ...idleImpact,
+          locales: [
+            {
+              blockingDiagnostics: [],
+              changes: [
+                {
+                  after: '/campaign',
+                  before: '/campaign-old',
+                  kind: 'route',
+                  label: 'Public route',
+                },
+                {
+                  after: 'New campaign title',
+                  before: 'Old campaign title',
+                  kind: 'seo',
+                  label: 'SEO title',
+                },
+                {
+                  after: 'New campaign description',
+                  before: 'Old campaign description',
+                  kind: 'seo',
+                  label: 'SEO description',
+                },
+                {
+                  after: true,
+                  before: false,
+                  kind: 'sitemap',
+                  label: 'Sitemap inclusion',
+                },
+                {
+                  after: true,
+                  before: false,
+                  kind: 'nav',
+                  label: 'Nav inclusion',
+                },
+              ],
+              currentHref: '/campaign-old',
+              currentPath: '/campaign-old',
+              hiddenBlockerCount: 0,
+              label: 'Ready to publish',
+              locale: 'en',
+              nav: { after: true, before: false },
+              nextHref: '/campaign',
+              nextPath: '/campaign',
+              search: { after: true, before: false },
+              sitemap: { after: true, before: false },
+              status: 'ready',
+              visibleBlockers: [],
+              visibleWarnings: [],
+              warnings: [],
+            },
+          ],
+          message: 'Ready to publish',
+          state: 'ready',
+          status: 'ready',
+        },
+        publishImpactRequested: true,
+        publishReview,
+        previewScope: 'publish',
+        routeValidationRequested: false,
+        routeValidationState: emptyRouteValidation,
+        selectedPublishImpactLocale: 'en',
+      },
+    })
+
+    expect(wrapper.text()).toContain('Current live page')
+    expect(wrapper.text()).toContain('After publish')
+    expect(wrapper.text()).toContain('Page address')
+    expect(wrapper.text()).toContain('Page URL')
+    expect(wrapper.text()).toContain('/campaign-old')
+    expect(wrapper.text()).toContain('/campaign')
+    expect(wrapper.text()).toContain('Search preview')
+    expect(wrapper.text()).toContain('Old campaign title')
+    expect(wrapper.text()).toContain('New campaign title')
+    expect(wrapper.text()).toContain('Old campaign description')
+    expect(wrapper.text()).toContain('New campaign description')
+    expect(wrapper.text()).toContain('Website visibility')
+    expect(wrapper.text()).toContain('Navigation')
+    expect(wrapper.text()).toContain('Excluded')
+    expect(wrapper.text()).toContain('Included')
+    expect(wrapper.text()).not.toContain('Old campaign title -> New campaign title')
+    expect(wrapper.text()).not.toContain('false -> true')
+  })
+
+  it('does not embed non-website publish preview URLs', () => {
+    const wrapper = mount(StudioEntryPublicWorkflowPanel, {
+      global: { stubs: studioStubs() },
+      props: {
+        publicVisibility: baseVisibility,
+        publishImpact: {
+          ...idleImpact,
+          locales: [
+            {
+              blockingDiagnostics: [],
+              changes: [],
+              currentHref: null,
+              currentPath: null,
+              hiddenBlockerCount: 0,
+              label: 'Ready to publish',
+              locale: 'en',
+              nav: { after: true, before: false },
+              nextHref: 'javascript:alert(1)',
+              nextPath: null,
+              search: { after: true, before: false },
+              sitemap: { after: true, before: false },
+              status: 'ready',
+              visibleBlockers: [],
+              visibleWarnings: [],
+              warnings: [],
+            },
+          ],
+          message: 'Ready to publish',
+          state: 'ready',
+          status: 'ready',
+        },
+        publishImpactRequested: true,
+        publishReview,
+        previewScope: 'publish',
+        routeValidationRequested: false,
+        routeValidationState: emptyRouteValidation,
+        selectedPublishImpactLocale: 'en',
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('Website preview')
+    expect(wrapper.find('iframe').exists()).toBe(false)
+  })
+
   it('renders global visibility diagnostics once at panel level', () => {
     const wrapper = mount(StudioEntryPublicWorkflowPanel, {
       global: { stubs: studioStubs() },
@@ -875,7 +1196,7 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).toContain('Issues blocking publish')
   })
 
-  it('hides publish impact developer diagnostics unless diagnostics mode is enabled', () => {
+  it('hides publish impact technical receipt unless diagnostics mode is enabled', () => {
     const wrapper = mount(StudioEntryPublicWorkflowPanel, {
       global: { stubs: studioStubs() },
       props: {
@@ -897,10 +1218,37 @@ describe('Studio workflow components', () => {
       },
     })
 
-    expect(wrapper.text()).not.toContain('Developer diagnostics')
+    expect(wrapper.text()).not.toContain('Technical receipt')
     expect(wrapper.text()).not.toContain('entry:entry-1')
     expect(wrapper.text()).not.toContain('collection:docs')
     expect(wrapper.text()).not.toContain('entry.published')
+  })
+
+  it('can hide embedded publish impact when the editor page shows the preview summary', () => {
+    const wrapper = mount(StudioEntryPublicWorkflowPanel, {
+      global: { stubs: studioStubs() },
+      props: {
+        publicVisibility: baseVisibility,
+        publishImpact: {
+          ...idleImpact,
+          message: 'Ready to publish',
+          state: 'ready',
+          status: 'ready',
+        },
+        publishImpactRequested: true,
+        publishReview,
+        previewScope: 'publish',
+        routeValidationRequested: false,
+        routeValidationState: emptyRouteValidation,
+        selectedPublishImpactLocale: null,
+        showPublishImpactSummary: false,
+      },
+    })
+
+    expect(wrapper.text()).toContain('Publish readiness')
+    expect(wrapper.text()).toContain('What will change?')
+    expect(wrapper.text()).not.toContain('Website changes')
+    expect(wrapper.text()).not.toContain('Ready to publishReady to publish')
   })
 
   it('renders publish impact cache tags and events in diagnostics mode', () => {
@@ -929,7 +1277,7 @@ describe('Studio workflow components', () => {
         },
       })
 
-      expect(wrapper.text()).toContain('Developer diagnostics')
+      expect(wrapper.text()).toContain('Technical receipt')
       expect(wrapper.text()).toContain('entry:entry-1')
       expect(wrapper.text()).toContain('collection:docs')
       expect(wrapper.text()).toContain('entry.published')
@@ -1152,7 +1500,7 @@ describe('Studio workflow components', () => {
 })
 
 describe('Studio destructive dialogs', () => {
-  function fakeEditor(readinessState: string, previewHash: string | null = null) {
+  function fakeEditor(readinessState: string, hasConfirmation = false) {
     return {
       history: { entryAssets: [{ id: 'asset-1' }] },
       loader: {
@@ -1168,11 +1516,10 @@ describe('Studio destructive dialogs', () => {
         publishMessage: '',
         publishMode: 'single',
         publishReadiness: {
-          confirmationExpiresAt: previewHash ? Date.now() + 60_000 : null,
-          confirmationToken: previewHash ? 'token' : null,
+          confirmationExpiresAt: hasConfirmation ? Date.now() + 60_000 : null,
+          confirmationToken: hasConfirmation ? 'token' : null,
           locales: ['en'],
           message: `${readinessState} message`,
-          previewHash,
           state: readinessState,
         },
         showPublishDialog: true,
@@ -1233,8 +1580,11 @@ describe('Studio destructive dialogs', () => {
   })
 
   it.each(['ready'])('allows publish confirmation for %s readiness', (state) => {
-    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor(state, 'hash'), {
+    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor(state, true), {
       readinessDetail: baseReadinessDetail,
+      publishImpact: readyPublishImpact,
+      publishImpactRequested: true,
+      publishReview,
     })
     const buttons = wrapper.findAll('button')
     const confirm = buttons[buttons.length - 1]
@@ -1244,6 +1594,30 @@ describe('Studio destructive dialogs', () => {
       'Review what will change on the website before this goes live.',
     )
     expect(confirm.attributes('disabled')).toBeUndefined()
+  })
+
+  it('summarizes website impact in the publish confirmation instead of raw fields', () => {
+    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('ready', true), {
+      readinessDetail: baseReadinessDetail,
+      publishImpact: readyPublishImpact,
+      publishImpactRequested: true,
+      publishReview,
+    })
+
+    expect(wrapper.text()).toContain('Preview reviewed. Confirm to publish these website changes.')
+    expect(wrapper.text()).toContain('Current live page')
+    expect(wrapper.text()).toContain('/old-page')
+    expect(wrapper.text()).toContain('After publish')
+    expect(wrapper.text()).toContain('/hello')
+    expect(wrapper.text()).toContain('Sitemap included')
+    expect(wrapper.text()).toContain('Search included')
+    expect(wrapper.text()).toContain('Navigation included')
+    expect(wrapper.text()).toContain('Page address 1')
+    expect(wrapper.text()).toContain('Search preview 1')
+    expect(wrapper.text()).toContain('Website visibility 1')
+    expect(wrapper.text()).not.toContain('fields changed since last publish')
+    expect(wrapper.text()).not.toContain('Meta title')
+    expect(wrapper.text()).not.toContain('Public route')
   })
 })
 
@@ -1322,7 +1696,7 @@ describe('Studio version history copy', () => {
     expect(wrapper.text()).not.toContain('Checkpoint')
   })
 
-  it('keeps raw revision ids in developer details only', () => {
+  it('keeps raw revision ids in advanced details only', () => {
     const collapsed = mountWithStudioContext(StudioVersionHistoryCard, historyEditor())
 
     expect(collapsed.text()).not.toContain('version-1')
@@ -1330,7 +1704,7 @@ describe('Studio version history copy', () => {
 
     const expanded = mountWithStudioContext(StudioVersionHistoryCard, historyEditor('version-1'))
 
-    expect(expanded.text()).toContain('Developer details')
+    expect(expanded.text()).toContain('Advanced details')
     expect(expanded.text()).toContain('Revision ID')
     expect(expanded.text()).toContain('version-1')
   })

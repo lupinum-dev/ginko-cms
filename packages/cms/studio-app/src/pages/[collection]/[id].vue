@@ -5,8 +5,13 @@ import { computed, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
 import { useStudioHostContext } from '../../boundary/studio-host-context'
+import StudioPublishImpactSummary from '../../components/studio/editor/StudioPublishImpactSummary.vue'
+import StudioPublishOutcomeCard from '../../components/studio/editor/StudioPublishOutcomeCard.vue'
 import type {
   StudioEntryReadinessDetail,
+  StudioPublishImpactLocale,
+  StudioPublishImpactResult,
+  StudioPublishImpactState,
   StudioReadinessLocale,
 } from '../../components/studio/editor/studioWorkflowTypes'
 import { provideStudioEntryEditorContext } from '../../composables/internal/studioEntryEditorContext'
@@ -32,6 +37,20 @@ const IMPACT_STATUS_LABELS: Record<string, string> = {
   not_publishable: 'Not publishable',
 }
 const MAX_DIAGNOSTICS_PER_LOCALE = 3
+type PublishImpactLocaleDetails = Omit<
+  StudioPublishImpactLocale,
+  'hiddenBlockerCount' | 'label' | 'visibleBlockers' | 'visibleWarnings'
+>
+type PublishOperationPreview = {
+  allowed: boolean
+  summary: string
+  blockers: Array<{ code: string; message: string }>
+  warnings: Array<{ code: string; message: string }>
+  effects: Array<{ kind: string; summary: string; count?: number }>
+  details?: { publishImpact?: StudioPublishImpactResult } | null
+  confirm?: unknown
+  confirmation?: { token: string; expiresAt: number }
+}
 
 const isRouteBackedEntry = computed(
   () =>
@@ -62,16 +81,7 @@ const readinessDetailQuery = useCmsStudioQuery(
   computed(() => ({ entryId: editor.loader.entryId })),
   { keepPreviousData: true },
 )
-const publishOperationPreview = ref<{
-  allowed: boolean
-  summary: string
-  blockers: Array<{ code: string; message: string }>
-  warnings: Array<{ code: string; message: string }>
-  effects: Array<{ kind: string; summary: string; count?: number }>
-  details?: { locales?: unknown[]; changes?: unknown[]; events?: unknown[] }
-  confirm?: unknown
-  confirmation?: { token: string; expiresAt: number }
-} | null>(null)
+const publishOperationPreview = ref<PublishOperationPreview | null>(null)
 const routeValidationQuery = useCmsStudioQuery(
   api.ginkoCms.diagnostics.validatePublicRoutes,
   computed(() => (routeValidationRequested.value ? {} : null)),
@@ -126,15 +136,6 @@ function impactStatusLabel(status: string | null | undefined) {
 
 function queryErrorMessage(error: Error | null | undefined, fallback: string) {
   return error?.message ? `${fallback} ${error.message}` : fallback
-}
-
-function stablePreviewHash(value: unknown) {
-  const payload = JSON.stringify(value)
-  let hash = 5381
-  for (let index = 0; index < payload.length; index += 1) {
-    hash = (hash * 33) ^ payload.charCodeAt(index)
-  }
-  return `operation:${(hash >>> 0).toString(36)}:${payload.length.toString(36)}`
 }
 
 function convexClient() {
@@ -277,7 +278,7 @@ const routeValidationState = computed(() => {
   }
 })
 
-const publishImpact = computed(() => {
+const publishImpact = computed<StudioPublishImpactState>(() => {
   if (!publishImpactRequested.value) {
     return {
       state: 'idle',
@@ -303,7 +304,8 @@ const publishImpact = computed(() => {
     }
   }
   const preview = publishOperationPreview.value
-  if (!preview) {
+  const publishImpactDetails = preview?.details?.publishImpact
+  if (!preview || !publishImpactDetails) {
     return {
       state: 'missing',
       message: 'We could not prepare the website preview. Try again.',
@@ -315,47 +317,22 @@ const publishImpact = computed(() => {
       error: null,
     }
   }
-  const blocked = preview.allowed === false || preview.blockers.length > 0
+  const blocked =
+    preview.allowed === false ||
+    preview.blockers.length > 0 ||
+    publishImpactDetails.status === 'blocked' ||
+    publishImpactDetails.status === 'not_publishable'
   const warning = preview.warnings[0]?.message
-  const detailsLocales = Array.isArray(preview.details?.locales)
-    ? preview.details.locales
-    : editor.publishing.publishReadiness.locales.map((locale: string) => ({
-        locale,
-        status: blocked ? 'blocked' : 'ready',
-        currentHref: null,
-        nextHref: null,
-        currentPath: null,
-        nextPath: null,
-        sitemap: { before: false, after: true },
-        search: { before: false, after: true },
-        nav: { before: false, after: true },
-        changes: [],
-        blockingDiagnostics: [],
-        warnings: warning
-          ? [
-              {
-                code: 'publish_preview_warning',
-                severity: 'warning',
-                message: warning,
-              },
-            ]
-          : [],
-      }))
+  const detailsLocales: PublishImpactLocaleDetails[] = publishImpactDetails.locales
   return {
     state: blocked ? 'blocked' : 'ready',
     message:
       preview.blockers[0]?.message ?? warning ?? preview.summary ?? 'Publish preview is ready.',
-    cacheTags: [],
-    events: Array.isArray(preview.details?.events) ? preview.details.events.map(String) : [],
-    locales: detailsLocales.map((localeState) => {
-      const locale = localeState as {
-        locale: string
-        status?: string
-        blockingDiagnostics?: Array<{ code: string; severity?: string; message: string }>
-        warnings?: Array<{ code: string; severity?: string; message: string }>
-      } & Record<string, unknown>
-      const blockers = locale.blockingDiagnostics ?? []
-      const warnings = locale.warnings ?? []
+    cacheTags: publishImpactDetails.cacheTags,
+    events: publishImpactDetails.events,
+    locales: detailsLocales.map((locale): StudioPublishImpactLocale => {
+      const blockers = locale.blockingDiagnostics
+      const warnings = locale.warnings
       return {
         ...locale,
         label: impactStatusLabel(locale.status),
@@ -364,7 +341,7 @@ const publishImpact = computed(() => {
         visibleWarnings: warnings.slice(0, MAX_DIAGNOSTICS_PER_LOCALE),
       }
     }),
-    status: blocked ? 'blocked' : 'ready',
+    status: publishImpactDetails.status,
     pending: false,
     error: null,
   }
@@ -474,7 +451,6 @@ const publishReview = computed(() => {
       readiness.message ||
       readinessIssueMessages(currentReadiness)[0] ||
       readinessActionLabel(editor.loader.t, currentReadiness?.nextAction.kind),
-    previewHash: readiness.previewHash,
     stale: readiness.state === 'stale',
     state: readiness.state,
   }
@@ -515,7 +491,6 @@ async function previewPublishImpact(locale?: string, options: { saveDraft?: bool
       options.saveDraft === false
         ? 'Previewing website changes...'
         : 'Saving draft and previewing website changes...',
-    previewHash: null,
     locales: [],
   })
   if (options.saveDraft !== false && editor.draft.isDirty) {
@@ -524,7 +499,6 @@ async function previewPublishImpact(locale?: string, options: { saveDraft?: bool
       editor.publishing.setPublishReadiness({
         state: 'failed',
         message: editor.draft.error || 'Draft could not be saved before preview.',
-        previewHash: null,
         locales: [],
       })
       publishImpactRequested.value = false
@@ -548,7 +522,6 @@ async function previewPublishImpact(locale?: string, options: { saveDraft?: bool
       editor.publishing.setPublishReadiness({
         state: 'failed',
         message: 'The saved draft is not loaded. Reload before previewing website changes.',
-        previewHash: null,
         locales: [],
       })
       publishImpactRequested.value = false
@@ -564,7 +537,6 @@ async function previewPublishImpact(locale?: string, options: { saveDraft?: bool
         message: scopedReadinessView.blockers[0]
           ? readinessIssueMessage(editor.loader.t, scopedReadinessView.blockers[0])
           : 'No languages are ready to publish.',
-        previewHash: null,
         locales: [],
       })
       publishImpactRequested.value = false
@@ -587,7 +559,6 @@ async function previewPublishImpact(locale?: string, options: { saveDraft?: bool
     editor.publishing.setPublishReadiness({
       state: operationPreview.state,
       message: operationPreview.message,
-      previewHash: stablePreviewHash(preview?.confirm ?? preview),
       confirmationToken: operationPreview.confirmationToken,
       confirmationExpiresAt: operationPreview.confirmationExpiresAt,
       locales: operationPreview.locales,
@@ -599,7 +570,6 @@ async function previewPublishImpact(locale?: string, options: { saveDraft?: bool
         error instanceof Error
           ? `We could not prepare the website preview. ${error.message}`
           : 'We could not prepare the website preview.',
-      previewHash: null,
       locales: [],
     })
     publishImpactRequested.value = false
@@ -719,11 +689,33 @@ async function requestPublishReview(locale = editor.loader.currentLocale) {
           />
         </div>
 
+        <StudioPublishOutcomeCard
+          v-if="editor.publishing.publishOutcome"
+          :outcome="editor.publishing.publishOutcome"
+          :public-visibility="publicVisibility"
+          :publish-impact="publishImpact"
+        />
+
+        <div v-else-if="publishImpactRequested" class="ginko:grid ginko:gap-2">
+          <div class="ginko:px-1">
+            <h2 class="studio-text-title ginko:text-foreground">What will change on the website</h2>
+            <p class="ginko:mt-1 ginko:text-sm ginko:text-muted-foreground">
+              Review affected pages, language versions, and visibility changes before publishing.
+            </p>
+          </div>
+          <StudioPublishImpactSummary
+            preview-scope="publish"
+            :publish-impact="publishImpact"
+            :publish-review="publishReview"
+            :selected-publish-impact-locale="selectedPublishImpactLocale"
+          />
+        </div>
+
         <div v-if="advancedEditor" class="ginko:grid ginko:gap-4">
           <div
             class="ginko:px-1 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
           >
-            Advanced publishing checks
+            Publish readiness details
           </div>
           <StudioEntryPublicWorkflowPanel
             :public-visibility="publicVisibility"
@@ -734,6 +726,7 @@ async function requestPublishReview(locale = editor.loader.currentLocale) {
             preview-scope="publish"
             :publish-review="publishReview"
             :selected-publish-impact-locale="selectedPublishImpactLocale"
+            :show-publish-impact-summary="false"
             @preview-publish-impact="() => previewPublishImpact(editor.loader.currentLocale)"
             @validate-public-routes="validatePublicRoutes"
           />
@@ -756,7 +749,11 @@ async function requestPublishReview(locale = editor.loader.currentLocale) {
         v-if="!editor.loader.pending && editor.loader.entry"
         :readiness-detail="readinessDetail"
         :readiness-pending="readinessDetailQuery.pending.value"
+        :publish-impact-requested="publishImpactRequested"
+        :publish-impact="publishImpact"
+        :publish-review="publishReview"
         :public-visibility="publicVisibility"
+        :request-review-pending="requestReviewPending"
         :route-validation-requested="routeValidationRequested"
         :route-validation-state="routeValidationState"
         :translation-readiness="translationReadiness"
@@ -788,7 +785,9 @@ async function requestPublishReview(locale = editor.loader.currentLocale) {
   <StudioCheckpointDialog />
   <StudioPublishDialog
     :readiness-detail="readinessDetail"
+    :publish-impact="publishImpact"
     :publish-impact-requested="publishImpactRequested"
+    :publish-review="publishReview"
   />
 </template>
 

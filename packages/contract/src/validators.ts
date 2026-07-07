@@ -943,6 +943,7 @@ export const studioOverviewValidator = v.object({
   counts: v.object({
     needsAttention: v.number(),
     changedDrafts: v.number(),
+    readyToPreview: v.number(),
     missingTranslations: v.number(),
     failedRevalidation: v.number(),
     importBlockers: v.number(),
@@ -962,6 +963,7 @@ export const studioOverviewValidator = v.object({
     }),
   ),
   changedDrafts: v.array(entrySummaryValidator),
+  readyToPreview: v.array(entrySummaryValidator),
   blocked: v.array(entrySummaryValidator),
   missingTranslations: v.array(entrySummaryValidator),
   recentPublished: v.array(overviewEntryValidator),

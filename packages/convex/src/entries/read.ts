@@ -28,6 +28,7 @@ import {
 import { materializeFieldData } from '@lupinum/ginko-cms-contract/shared/fields/materialize.js'
 import {
   createReadinessAction,
+  type EntryReadinessDetail,
   type EntryListWorkState,
   type ReadinessAction,
   type ReadinessState,
@@ -739,6 +740,53 @@ function hasWorkflowMissingLocale(entry: ReturnType<typeof mapEntrySummary>) {
   return entry.workflowSummary.missingLocales.length > 0
 }
 
+function isReadyToPreviewCandidate(entry: ReturnType<typeof mapEntrySummary>) {
+  return (
+    entry.status !== 'archived' &&
+    hasWorkflowChangedDraft(entry) &&
+    !hasWorkflowBlocker(entry) &&
+    !hasWorkflowMissingLocale(entry)
+  )
+}
+
+function localeHasStaleReview(locale: EntryReadinessDetail['locales'][number]) {
+  return locale.warnings.some((issue) => issue.code === 'review_preview_stale')
+}
+
+function readinessDetailAllowsPreview(detail: EntryReadinessDetail) {
+  if (
+    detail.locales.some(
+      (locale) =>
+        locale.state === 'missing' || locale.blockers.length > 0 || localeHasStaleReview(locale),
+    )
+  ) {
+    return false
+  }
+
+  return detail.locales.some(
+    (locale) =>
+      locale.hasUnpublishedChanges &&
+      locale.canPreview &&
+      !localeHasStaleReview(locale) &&
+      (locale.state === 'ready' ||
+        locale.state === 'live_with_changes' ||
+        locale.canRequestReview ||
+        locale.canPublish),
+  )
+}
+
+async function canonicalReadyToPreviewEntries(
+  ctx: HandlerQueryCtx,
+  entries: Array<ReturnType<typeof mapEntrySummary>>,
+) {
+  const readyEntries: Array<ReturnType<typeof mapEntrySummary>> = []
+  for (const entry of entries) {
+    const readiness = await computeEntryReadinessDetail(ctx, { entryId: entry.entryId })
+    if (readinessDetailAllowsPreview(readiness)) readyEntries.push(entry)
+  }
+  return readyEntries
+}
+
 function isStudioListCursor(cursor: string): boolean {
   const parts = cursor.split('\0')
   return parts.length === 3 && /^\d{16}$/.test(parts[1] ?? '') && Boolean(parts[2])
@@ -1019,6 +1067,11 @@ export const getStudioOverview = callerQuery.protected({
       .sort((left, right) => (right.publishedAt ?? 0) - (left.publishedAt ?? 0))
       .slice(0, STUDIO_OVERVIEW_LIMIT)
     const changedDrafts = newestRows(allEntrySummaries.filter(hasWorkflowChangedDraft))
+    const readyToPreviewEntries = await canonicalReadyToPreviewEntries(
+      ctx,
+      allEntrySummaries.filter(isReadyToPreviewCandidate),
+    )
+    const readyToPreview = newestRows(readyToPreviewEntries)
     const blockedEntries = allEntrySummaries.filter(hasWorkflowBlocker)
     const blocked = newestRows(blockedEntries)
     const missingTranslationEntries = allEntrySummaries.filter(hasWorkflowMissingLocale)
@@ -1040,6 +1093,7 @@ export const getStudioOverview = callerQuery.protected({
         needsAttention:
           needsAttentionEntryIds.size + failedRevalidation.length + importBlockers.length,
         changedDrafts: allEntrySummaries.filter(hasWorkflowChangedDraft).length,
+        readyToPreview: readyToPreviewEntries.length,
         missingTranslations: missingTranslationEntries.length,
         failedRevalidation: failedRevalidation.length,
         importBlockers: importBlockers.length,
@@ -1047,6 +1101,7 @@ export const getStudioOverview = callerQuery.protected({
       },
       collections: summaries,
       changedDrafts: attachEntryRecordAccess(appIdentity, changedDrafts),
+      readyToPreview: attachEntryRecordAccess(appIdentity, readyToPreview),
       blocked: attachEntryRecordAccess(appIdentity, blocked),
       missingTranslations: attachEntryRecordAccess(appIdentity, missingTranslations),
       recentPublished: attachEntryRecordAccess(appIdentity, recentPublished),

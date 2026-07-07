@@ -13,16 +13,22 @@ import {
   type StudioRouteValidationState,
 } from './studioWorkflowTypes'
 
-const props = defineProps<{
-  publicVisibility: StudioPublicVisibilityState
-  routeValidationRequested: boolean
-  routeValidationState: StudioRouteValidationState
-  publishImpactRequested: boolean
-  publishImpact: StudioPublishImpactState
-  previewScope: 'publish' | 'workflow' | null
-  publishReview: StudioPublishReviewState
-  selectedPublishImpactLocale: string | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    publicVisibility: StudioPublicVisibilityState
+    routeValidationRequested: boolean
+    routeValidationState: StudioRouteValidationState
+    publishImpactRequested: boolean
+    publishImpact: StudioPublishImpactState
+    previewScope: 'publish' | 'workflow' | null
+    publishReview: StudioPublishReviewState
+    selectedPublishImpactLocale: string | null
+    showPublishImpactSummary?: boolean
+  }>(),
+  {
+    showPublishImpactSummary: true,
+  },
+)
 
 const publicOutputSummary = computed(() => {
   const localeCount = props.publicVisibility.localeRows.length
@@ -52,7 +58,7 @@ const advancedEditor = useStudioAdvancedEditor()
     <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
       <div class="ginko:min-w-0">
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-          Technical publishing checks
+          Publish readiness
         </div>
         <div class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
           <span class="ginko:text-sm ginko:font-medium">{{ publicVisibility.status }}</span>
@@ -207,7 +213,7 @@ const advancedEditor = useStudioAdvancedEditor()
     </div>
 
     <StudioPublishImpactSummary
-      v-if="publishImpactRequested"
+      v-if="showPublishImpactSummary && publishImpactRequested"
       class="ginko:mt-3"
       :preview-scope="previewScope"
       :publish-impact="publishImpact"

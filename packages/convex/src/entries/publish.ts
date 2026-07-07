@@ -265,9 +265,7 @@ export const publishEntryOperation = defineCmsOperation({
         }),
       ],
       details: {
-        locales: result.locales,
-        changes: result.changes,
-        events: result.events,
+        publishImpact: result,
       },
       confirm: {
         operationId: 'ginko-cms.publish-entry',

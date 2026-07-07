@@ -408,4 +408,107 @@ describe('editor read queries', () => {
     })
     expect(Object.values(summary?.workflowSummary.workStatesByLocale ?? {})).not.toContain('ready')
   })
+
+  it('includes drafts that canonical readiness allows in Studio overview ready-to-preview', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
+
+    expect(overview.readyToPreview.map((entry: { entryId: string }) => entry.entryId)).toContain(
+      entryId,
+    )
+    expect(overview.counts.readyToPreview).toBe(1)
+  })
+
+  it('excludes required-field-blocked drafts from Studio overview ready-to-preview', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { collectionId, entryId } = await seedEditorFixture(ctx)
+
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(
+        collectionId as never,
+        {
+          fields: [
+            { key: 'title', type: 'text', localized: true, required: true, searchable: true },
+            { key: 'summary', type: 'textarea', localized: true, required: true },
+          ],
+        } as never,
+      )
+    })
+
+    const owner = ctx.asCmsUser('owner-1')
+    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
+
+    expect(
+      overview.readyToPreview.map((entry: { entryId: string }) => entry.entryId),
+    ).not.toContain(entryId)
+    expect(overview.counts.readyToPreview).toBe(0)
+  })
+
+  it('excludes route-impact-blocked drafts from Studio overview ready-to-preview', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    await seedEditorFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    const takenEntryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'taken',
+      localized: { title: 'Taken' },
+    })
+    await publishEntry(owner, takenEntryId)
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'old',
+      localized: { title: 'Old' },
+    })
+    await publishEntry(owner, entryId)
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: await currentDraftVersion(owner, entryId),
+      patch: {
+        shared: {
+          slug: 'taken',
+        },
+        locales: {
+          en: {
+            values: {
+              title: 'Old changed',
+            },
+          },
+        },
+      },
+    })
+
+    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
+
+    expect(
+      overview.readyToPreview.map((entry: { entryId: string }) => entry.entryId),
+    ).not.toContain(entryId)
+  })
+
+  it('excludes missing-language drafts from Studio overview ready-to-preview', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMultiLocaleSettings(ctx)
+    const { collectionId, entryId } = await seedEditorFixture(ctx)
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(collectionId as never, { locales: ['en', 'de'] } as never)
+    })
+
+    const owner = ctx.asCmsUser('owner-1')
+    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
+
+    expect(
+      overview.readyToPreview.map((entry: { entryId: string }) => entry.entryId),
+    ).not.toContain(entryId)
+    expect(overview.counts.readyToPreview).toBe(0)
+  })
 })

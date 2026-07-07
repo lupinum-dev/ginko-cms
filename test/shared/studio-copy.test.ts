@@ -32,7 +32,9 @@ function readWorkspaceFile(path: string) {
 
 const primaryStudioFiles = [
   'packages/cms/studio-app/src/components/studio/editor/StudioEntryStatusRail.vue',
+  'packages/cms/studio-app/src/components/studio/editor/StudioEntryTrackCard.vue',
   'packages/cms/studio-app/src/components/studio/editor/StudioPublishDialog.vue',
+  'packages/cms/studio-app/src/components/studio/editor/StudioPublishOutcomeCard.vue',
   'packages/cms/studio-app/src/components/studio/editor/StudioEntryTranslationReadinessPanel.vue',
   'packages/cms/studio-app/src/components/studio/editor/StudioTranslationReadinessCard.vue',
   'packages/cms/studio-app/src/components/studio/editor/StudioSharedFieldsPanel.vue',
