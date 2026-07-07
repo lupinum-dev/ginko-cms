@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
   attachAssetsToEntry as attachAssetsToEntryArgs,
   deleteAsset as deleteAssetArgs,

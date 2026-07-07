@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
   explainPublicVisibility as explainPublicVisibilityArgs,
   previewPublishImpact as previewPublishImpactArgs,

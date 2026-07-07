@@ -68,9 +68,6 @@ export default createConfigForNuxt({
       'test/**/*.ts',
     ],
     rules: {
-      // Convex handler parameters (ctx, args, q) and runtime composable deps
-      // use `any` for Convex query/mutation return types that lack proper
-      // generic inference. Tracked for proper typing.
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
     },
   })

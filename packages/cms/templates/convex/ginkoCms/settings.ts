@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { updateSettings as updateSettingsArgs } from '@lupinum/ginko-cms-contract/convex/schemas/settings.js'
 
 import { components } from '../_generated/api.js'

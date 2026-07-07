@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
   listRevalidationJobs as listRevalidationJobsArgs,
   retryRevalidationJob as retryRevalidationJobArgs,

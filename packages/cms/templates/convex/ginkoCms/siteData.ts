@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
   createSiteDataBlock as createSiteDataBlockArgs,
   deleteSiteDataBlock as deleteSiteDataBlockArgs,

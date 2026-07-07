@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
   addMember as addMemberArgs,
   bootstrapCmsOwner as bootstrapCmsOwnerArgs,

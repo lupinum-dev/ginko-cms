@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'

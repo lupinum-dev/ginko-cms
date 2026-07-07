@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 

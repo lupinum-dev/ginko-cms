@@ -1,22 +1,57 @@
 import type { CmsCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import type { DefaultFunctionArgs, GenericMutationCtx } from 'convex/server'
+import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
+
+import type { DataModel } from './_generated/dataModel.js'
+import type { CmsMemberAppIdentity } from './auth/appIdentity.js'
+import type { CmsGuard } from './auth/checks.js'
 
 const CONFIRMATION_TTL_MS = 5 * 60_000
 const SCOPE_KEY = 'ginko-cms'
 
-type CmsOperationDefinition = {
+type HandlerCtx = GenericMutationCtx<DataModel> & {
+  cmsCaller?: () => Promise<CmsCaller>
+  appIdentity: () => Promise<CmsMemberAppIdentity>
+}
+
+type ArgsFor<TArgsValidator> = TArgsValidator extends GenericValidator
+  ? TArgsValidator['type']
+  : TArgsValidator extends PropertyValidators
+    ? ObjectType<TArgsValidator>
+    : DefaultFunctionArgs
+
+type OperationLoad<TArgsValidator> = (ctx: HandlerCtx, args: ArgsFor<TArgsValidator>) => unknown
+
+type LoadedFor<TLoad> = TLoad extends (...args: infer _Args) => infer TLoaded
+  ? Awaited<TLoaded>
+  : undefined
+
+type LooseValue = ReturnType<typeof v.any>['type']
+
+export type CmsOperationDefinition<
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+  TLoaded = LooseValue,
+> = {
   id?: string
   name?: string
   kind?: 'safe' | 'destructive'
   safety?: string
-  args?: Record<string, unknown>
-  guard?: any
+  args?: TArgsValidator
+  guard?: CmsGuard | unknown
   returns?: unknown
   previewReturns?: unknown
   executeFunctionRef?: string
-  load?: (...args: any[]) => unknown
-  preview?: (...args: any[]) => unknown
-  handler: (...args: any[]) => unknown
+  load?: (ctx: HandlerCtx, args: ArgsFor<TArgsValidator>) => TLoaded | Promise<TLoaded>
+  preview?: (
+    ctx: HandlerCtx,
+    args: ArgsFor<TArgsValidator>,
+    loaded: TLoaded,
+  ) => PreviewInput | PreviewResult | Promise<PreviewInput | PreviewResult>
+  handler: (ctx: HandlerCtx, args: ArgsFor<TArgsValidator>, loaded: TLoaded) => unknown
 }
 
 type PreviewInput = {
@@ -42,30 +77,44 @@ type PreviewResult = {
   version: unknown
 }
 
-type HandlerCtx = {
-  db: any
-  cmsCaller?: () => Promise<CmsCaller>
-  appIdentity?: () => Promise<{ userId: string } | null>
-}
-
 export type CmsOperationRef = {
   id: string
   executeRef: unknown
   previewRef?: unknown
 }
 
-export function defineCmsOperation<const TDefinition extends CmsOperationDefinition>(
-  definition: TDefinition,
-): TDefinition {
+type CmsOperationInput<
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined,
+  TLoad extends OperationLoad<TArgsValidator> | undefined,
+> = Omit<CmsOperationDefinition<TArgsValidator, LoadedFor<TLoad> | LooseValue>, 'load'> & {
+  load?: TLoad
+}
+
+export function defineCmsOperation<
+  const TArgsValidator extends GenericValidator | PropertyValidators | undefined,
+  const TLoad extends OperationLoad<TArgsValidator> | undefined,
+  const TDefinition extends CmsOperationInput<TArgsValidator, TLoad>,
+>(definition: TDefinition): TDefinition {
   return definition
 }
 
 defineCmsOperation.withContext =
   <_TCtx>() =>
-  <const TDefinition extends CmsOperationDefinition>(definition: TDefinition): TDefinition =>
+  <
+    const TArgsValidator extends GenericValidator | PropertyValidators | undefined,
+    const TLoad extends OperationLoad<TArgsValidator> | undefined,
+    const TDefinition extends CmsOperationInput<TArgsValidator, TLoad>,
+  >(
+    definition: TDefinition,
+  ): TDefinition =>
     definition
 
-export function definePreview(operation: CmsOperationDefinition): CmsOperationDefinition {
+export function definePreview<
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined,
+  TLoaded,
+>(
+  operation: CmsOperationDefinition<TArgsValidator, TLoaded>,
+): CmsOperationDefinition<TArgsValidator, TLoaded> {
   if (!operation.preview) {
     throw new Error('A preview handler is required.')
   }
@@ -76,7 +125,7 @@ export function definePreview(operation: CmsOperationDefinition): CmsOperationDe
     guard: operation.guard,
     returns: operation.previewReturns,
     load: operation.load,
-    handler: async (ctx: HandlerCtx, args: unknown, loaded: unknown) => {
+    handler: async (ctx, args, loaded) => {
       const preview = (await operation.preview!(ctx, args, loaded)) as PreviewResult
       if (operation.kind !== 'destructive') return preview
       return await attachConfirmation(ctx, operation, args, preview)
@@ -122,7 +171,7 @@ export function previewResultValidator() {
 export async function executeDestructiveOperation(
   ctx: HandlerCtx,
   operation: CmsOperationDefinition,
-  args: Record<string, unknown>,
+  args: DefaultFunctionArgs,
   loaded: unknown,
   token: string,
 ) {
@@ -133,7 +182,7 @@ export async function executeDestructiveOperation(
   const tokenHash = await sha256Hex(token)
   const confirmation = await ctx.db
     .query('destructiveConfirmations')
-    .withIndex('by_token_hash', (q: any) => q.eq('tokenHash', tokenHash))
+    .withIndex('by_token_hash', (q) => q.eq('tokenHash', tokenHash))
     .first()
 
   if (!confirmation) throw new Error('Destructive confirmation was not found.')

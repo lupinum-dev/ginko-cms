@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { getCollection as getCollectionArgs } from '@lupinum/ginko-cms-contract/convex/schemas/collections.js'
 import {
   collectionRoutingValidator,

@@ -294,7 +294,7 @@ export const publishEntryOperation = defineCmsOperation({
       appIdentity: appIdentity.userId,
       message: args.message ?? null,
     })
-    const refreshed = await ctx.db.get(entry._id)
+    const refreshed = (await ctx.db.get(entry._id)) as typeof entry | null
     return {
       versionId: String(result.revisionId),
       dirtyLocales: refreshed?.dirtyLocales ?? [],

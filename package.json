@@ -25,7 +25,7 @@
     "check:compatibility-matrix": "node scripts/check-compatibility-matrix.mjs",
     "check:current-content-model": "node scripts/check-current-content-model.mjs",
     "check:stale-surfaces": "node scripts/check-stale-surfaces.mjs",
-    "lint": "pnpm run check:component-auth-boundaries && pnpm run check:convex-surface && pnpm run check:live-mcp-tokens && pnpm run check:cms-contract-vendor && pnpm run check:docs:install-story && pnpm run check:public-vocabulary && pnpm run check:compatibility-matrix && pnpm run check:current-content-model && pnpm run check:stale-surfaces && eslint packages test",
+    "lint": "pnpm run check:component-auth-boundaries && pnpm run check:convex-surface && pnpm run check:live-mcp-tokens && pnpm run check:cms-contract-vendor && pnpm run check:docs:install-story && pnpm run check:public-vocabulary && pnpm run check:compatibility-matrix && pnpm run check:current-content-model && pnpm run check:stale-surfaces && eslint packages test --max-warnings=0",
     "format": "oxfmt . --ignore-path .oxfmtignore",
     "format:check": "oxfmt --check . --ignore-path .oxfmtignore",
     "typecheck": "pnpm --filter @lupinum/ginko-cms-contract typecheck && pnpm --filter @lupinum/ginko-cms-contract build && pnpm --filter @lupinum/ginko-cms-convex typecheck && pnpm --filter @lupinum/ginko-cms typecheck",

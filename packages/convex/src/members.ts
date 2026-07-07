@@ -376,9 +376,7 @@ export const removeMemberOperation = defineCmsOperation({
     const member =
       (await ctx.db
         .query('members')
-        .withIndex('by_userId', (q: { eq: (field: 'userId', value: string) => unknown }) =>
-          q.eq('userId', args.userId),
-        )
+        .withIndex('by_userId', (q) => q.eq('userId', args.userId))
         .first()) ?? null
     return { member }
   },
@@ -422,9 +420,7 @@ export const removeMemberOperation = defineCmsOperation({
     const now = Date.now()
     const credentialSettings: McpCredentialSettingsDoc[] = await ctx.db
       .query('mcpCredentialSettings')
-      .withIndex('by_owner_user', (q: { eq: (field: 'ownerUserId', value: string) => unknown }) =>
-        q.eq('ownerUserId', member.userId),
-      )
+      .withIndex('by_owner_user', (q) => q.eq('ownerUserId', member.userId))
       .collect()
     for (const settings of credentialSettings) {
       if (settings.status !== 'active') continue

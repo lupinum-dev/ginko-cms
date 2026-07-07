@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
   archiveEntry as archiveEntryArgs,
   createCheckpoint as createCheckpointArgs,

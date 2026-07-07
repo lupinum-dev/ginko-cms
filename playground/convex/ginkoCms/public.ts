@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
   list as listArgs,
   nav as navArgs,

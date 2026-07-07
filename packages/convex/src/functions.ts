@@ -8,17 +8,23 @@ import type { CmsCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type {
   FunctionVisibility,
   ActionBuilder,
+  DefaultFunctionArgs,
   GenericActionCtx,
   GenericMutationCtx,
   GenericQueryCtx,
   MutationBuilder,
   QueryBuilder,
 } from 'convex/server'
+import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 
 import type { DataModel } from './_generated/dataModel.js'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server.js'
-import { getAppIdentity, type CmsAppIdentity } from './auth/appIdentity.js'
+import {
+  getAppIdentity,
+  type CmsAppIdentity,
+  type CmsMemberAppIdentity,
+} from './auth/appIdentity.js'
 import { can, type CmsGuard } from './auth/checks.js'
 import { executeDestructiveOperation } from './operationHelpers.js'
 
@@ -42,25 +48,46 @@ type BetterAuthConvexIdentity = {
 }
 
 type HandlerCtx<TCtx> = TCtx & {
-  appIdentity: () => Promise<any>
+  appIdentity: () => Promise<CmsMemberAppIdentity>
   cmsCaller: () => Promise<CmsCaller>
 }
 
-type ProtectedDefinition<TCtx> = {
+type ArgsFor<TArgsValidator> = TArgsValidator extends GenericValidator
+  ? TArgsValidator['type']
+  : TArgsValidator extends PropertyValidators
+    ? ObjectType<TArgsValidator>
+    : DefaultFunctionArgs
+
+type LooseValue = ReturnType<typeof v.any>['type']
+
+type ProtectedDefinition<
+  TCtx extends RootCtx,
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+  TLoaded = LooseValue,
+> = {
   id?: string
-  args?: Record<string, unknown>
+  args?: TArgsValidator
   returns?: unknown
   guard?: CmsGuard | unknown
-  load?: (ctx: HandlerCtx<TCtx>, args: any) => any
-  handler: (ctx: HandlerCtx<TCtx>, args: any, loaded?: any) => unknown
+  load?: (ctx: HandlerCtx<TCtx>, args: ArgsFor<TArgsValidator>) => TLoaded | Promise<TLoaded>
+  handler: (ctx: HandlerCtx<TCtx>, args: ArgsFor<TArgsValidator>, loaded: TLoaded) => unknown
   [key: string]: unknown
 }
 
-type PublicDefinition<TCtx> = {
+type PublicDefinition<
+  TCtx extends RootCtx,
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+> = {
   id?: string
-  args?: Record<string, unknown>
+  args?: TArgsValidator
   returns?: unknown
-  handler: (ctx: HandlerCtx<TCtx>, args: any) => unknown
+  handler: (ctx: HandlerCtx<TCtx>, args: ArgsFor<TArgsValidator>) => unknown
   [key: string]: unknown
 }
 
@@ -124,7 +151,7 @@ async function createHandlerCtx<TCtx extends RootCtx>(
         if (guard) requireCms(identity, guard as CmsGuard)
         identityPromise = Promise.resolve(identity)
       }
-      return await identityPromise
+      return (await identityPromise) as CmsMemberAppIdentity
     },
   })
 
@@ -132,9 +159,15 @@ async function createHandlerCtx<TCtx extends RootCtx>(
   return handlerCtx
 }
 
-function convexDefinition<TCtx extends RootCtx>(
-  definition: ProtectedDefinition<TCtx> | PublicDefinition<TCtx>,
-  handler: (ctx: TCtx, args: any) => unknown,
+function convexDefinition<
+  TCtx extends RootCtx,
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined,
+  TLoaded,
+>(
+  definition:
+    | ProtectedDefinition<TCtx, TArgsValidator, TLoaded>
+    | PublicDefinition<TCtx, TArgsValidator>,
+  handler: (ctx: TCtx, args: DefaultFunctionArgs) => unknown,
 ) {
   const args = {
     ...(definition.args ?? {}),
@@ -149,13 +182,18 @@ function convexDefinition<TCtx extends RootCtx>(
   }
 }
 
-function protectedHandler<TCtx extends RootCtx>(definition: ProtectedDefinition<TCtx>) {
-  return async (ctx: TCtx, args: any) => {
+function protectedHandler<
+  TCtx extends RootCtx,
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined,
+  TLoaded,
+>(definition: ProtectedDefinition<TCtx, TArgsValidator, TLoaded>) {
+  return async (ctx: TCtx, args: DefaultFunctionArgs) => {
     const isDestructive = (definition as { kind?: unknown }).kind === 'destructive'
-    if (isDestructive && typeof args?._confirmationToken !== 'string') {
+    const confirmationToken = args._confirmationToken
+    if (isDestructive && typeof confirmationToken !== 'string') {
       throw new Error('Destructive operation requires confirmation.')
     }
-    const handlerArgs =
+    const handlerArgs = (
       isDestructive && args && typeof args === 'object'
         ? Object.fromEntries(
             Object.entries(args as Record<string, unknown>).filter(
@@ -163,49 +201,116 @@ function protectedHandler<TCtx extends RootCtx>(definition: ProtectedDefinition<
             ),
           )
         : args
+    ) as ArgsFor<TArgsValidator>
     const handlerCtx = await createHandlerCtx(ctx, definition.guard)
-    const loaded = definition.load ? await definition.load(handlerCtx, handlerArgs) : undefined
+    const loaded = (
+      definition.load ? await definition.load(handlerCtx, handlerArgs) : undefined
+    ) as TLoaded
     if (isDestructive) {
       await executeDestructiveOperation(
         handlerCtx as Parameters<typeof executeDestructiveOperation>[0],
-        definition,
-        handlerArgs,
+        definition as unknown as Parameters<typeof executeDestructiveOperation>[1],
+        handlerArgs as DefaultFunctionArgs,
         loaded,
-        args._confirmationToken,
+        confirmationToken as string,
       )
     }
     return await definition.handler(handlerCtx, handlerArgs, loaded)
   }
 }
 
-function publicHandler<TCtx extends RootCtx>(definition: PublicDefinition<TCtx>) {
-  return async (ctx: TCtx, args: any) => {
+function publicHandler<
+  TCtx extends RootCtx,
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined,
+>(definition: PublicDefinition<TCtx, TArgsValidator>) {
+  return async (ctx: TCtx, args: DefaultFunctionArgs) => {
     const handlerCtx = await createHandlerCtx(ctx)
-    return await definition.handler(handlerCtx, args)
+    return await definition.handler(handlerCtx, args as ArgsFor<TArgsValidator>)
   }
 }
 
-export const publicQuery = (definition: PublicDefinition<GenericQueryCtx<DataModel>>) =>
-  query(convexDefinition(definition, publicHandler(definition)) as any)
+export const publicQuery = <
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+>(
+  definition: PublicDefinition<GenericQueryCtx<DataModel>, TArgsValidator>,
+): LooseValue =>
+  query(convexDefinition(definition, publicHandler(definition)) as Parameters<typeof query>[0])
 
-export const protectedQuery = (definition: ProtectedDefinition<GenericQueryCtx<DataModel>>) =>
-  query(convexDefinition(definition, protectedHandler(definition)) as any)
+export const protectedQuery = <
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+  TLoaded = LooseValue,
+>(
+  definition: ProtectedDefinition<GenericQueryCtx<DataModel>, TArgsValidator, TLoaded>,
+): LooseValue =>
+  query(convexDefinition(definition, protectedHandler(definition)) as Parameters<typeof query>[0])
 
-export const publicMutation = (definition: PublicDefinition<GenericMutationCtx<DataModel>>) =>
-  mutation(convexDefinition(definition, publicHandler(definition)) as any)
+export const publicMutation = <
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+>(
+  definition: PublicDefinition<GenericMutationCtx<DataModel>, TArgsValidator>,
+): LooseValue =>
+  mutation(
+    convexDefinition(definition, publicHandler(definition)) as Parameters<typeof mutation>[0],
+  )
 
-export const protectedMutation = (definition: ProtectedDefinition<GenericMutationCtx<DataModel>>) =>
-  mutation(convexDefinition(definition, protectedHandler(definition)) as any)
+export const protectedMutation = <
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+  TLoaded = LooseValue,
+>(
+  definition: ProtectedDefinition<GenericMutationCtx<DataModel>, TArgsValidator, TLoaded>,
+): LooseValue =>
+  mutation(
+    convexDefinition(definition, protectedHandler(definition)) as Parameters<typeof mutation>[0],
+  )
 
-export const protectedAction = (definition: ProtectedDefinition<GenericActionCtx<DataModel>>) =>
-  action(convexDefinition(definition, protectedHandler(definition)) as any)
+export const protectedAction = <
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+  TLoaded = LooseValue,
+>(
+  definition: ProtectedDefinition<GenericActionCtx<DataModel>, TArgsValidator, TLoaded>,
+): LooseValue =>
+  action(convexDefinition(definition, protectedHandler(definition)) as Parameters<typeof action>[0])
 
-export const directInternalQuery = (definition: PublicDefinition<GenericQueryCtx<DataModel>>) =>
-  internalQuery(convexDefinition(definition, publicHandler(definition)) as any)
+export const directInternalQuery = <
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+>(
+  definition: PublicDefinition<GenericQueryCtx<DataModel>, TArgsValidator>,
+): LooseValue =>
+  internalQuery(
+    convexDefinition(definition, publicHandler(definition)) as Parameters<typeof internalQuery>[0],
+  )
 
-export const directInternalMutation = (
-  definition: PublicDefinition<GenericMutationCtx<DataModel>>,
-) => internalMutation(convexDefinition(definition, publicHandler(definition)) as any)
+export const directInternalMutation = <
+  TArgsValidator extends GenericValidator | PropertyValidators | undefined =
+    | GenericValidator
+    | PropertyValidators
+    | undefined,
+>(
+  definition: PublicDefinition<GenericMutationCtx<DataModel>, TArgsValidator>,
+): LooseValue =>
+  internalMutation(
+    convexDefinition(definition, publicHandler(definition)) as Parameters<
+      typeof internalMutation
+    >[0],
+  )
 
 export const callerQuery = {
   public: publicQuery,

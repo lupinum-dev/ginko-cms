@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { v } from 'convex/values'
 
