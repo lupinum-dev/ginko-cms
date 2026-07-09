@@ -89,8 +89,8 @@ importers:
         specifier: 1.6.23
         version: 1.6.23(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3))
       better-convex-nuxt:
-        specifier: 0.4.0
-        version: 0.4.0(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(hono@4.12.25)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3))
+        specifier: 0.5.0
+        version: 0.5.0(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(hono@4.12.25)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3))
       changelogen:
         specifier: ^0.6.2
         version: 0.6.2(magicast@0.5.2)
@@ -261,8 +261,8 @@ importers:
         specifier: ^4.3.0
         version: 4.3.0(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))
       better-convex-nuxt:
-        specifier: 0.4.0
-        version: 0.4.0(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(hono@4.12.25)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3))
+        specifier: 0.5.0
+        version: 0.5.0(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(hono@4.12.25)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3))
       convex:
         specifier: 1.38.0
         version: 1.38.0(react@19.2.6)
@@ -496,8 +496,8 @@ importers:
         specifier: 1.6.23
         version: 1.6.23(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3))
       better-convex-nuxt:
-        specifier: 0.4.0
-        version: 0.4.0(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(hono@4.12.25)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3))
+        specifier: 0.5.0
+        version: 0.5.0(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(hono@4.12.25)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3))
       convex:
         specifier: 1.38.0
         version: 1.38.0(react@19.2.6)
@@ -3695,8 +3695,8 @@ packages:
       zod:
         optional: true
 
-  better-convex-nuxt@0.4.0:
-    resolution: {integrity: sha512-VGRC2PGJQG8b2lE5rKVbl9IVZrkwJ4B20WojqjPGTaUYXgDLVT4/gp9up6ZdYQSUriAahCmxQdhH7/nVcMF1CQ==}
+  better-convex-nuxt@0.5.0:
+    resolution: {integrity: sha512-NVTykSLMsppFyYgtvIqhmSKjpB5Fe8N1DTbS68rxsL5Y9s4vDVRLrWbxR+oia8+JbA6eVReeCibJF3HktKFSUw==}
     peerDependencies:
       nuxt: ^4.0.0
 
@@ -10979,7 +10979,7 @@ snapshots:
     optionalDependencies:
       zod: 4.4.3
 
-  better-convex-nuxt@0.4.0(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(hono@4.12.25)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)):
+  better-convex-nuxt@0.5.0(@opentelemetry/api@1.9.1)(@standard-schema/spec@1.1.0)(better-sqlite3@12.10.0)(hono@4.12.25)(magicast@0.5.2)(nuxt@4.4.7(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.2.9(typescript@6.0.3))(yaml@2.9.0))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)):
     dependencies:
       '@convex-dev/better-auth': 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.25)(react@19.2.6)(typescript@6.0.3)
       '@nuxt/devtools-kit': 3.2.4(magicast@0.5.2)(vite@7.3.5(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))

@@ -1,7 +1,6 @@
-import { useConvexAuth } from 'better-convex-nuxt/composables'
 import type { ComputedRef } from 'vue'
 
-import { computed, useRuntimeConfig } from '#imports'
+import { computed, useConvexAuth, useRuntimeConfig } from '#imports'
 
 interface CmsAuthUser {
   name?: string | null

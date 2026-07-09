@@ -6,6 +6,7 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@lupinum/ginko-content'
   - '@nuxt/*'
+  - better-convex-nuxt
   - nuxt
 overrides:
   # Release audit overrides. These affect local workspace resolution only; packed

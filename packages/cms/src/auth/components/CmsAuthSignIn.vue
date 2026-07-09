@@ -1,10 +1,18 @@
 <script setup lang="ts">
-import { useConvexAuth } from 'better-convex-nuxt/composables'
 import { Loader2 } from 'lucide-vue-next'
 
 import { useCmsI18n } from '#ginko-cms-public/composables/useCmsI18n.js'
 import { resolveRedirectTarget } from '#ginko-cms-public/utils/redirectSafety.js'
-import { computed, navigateTo, onMounted, ref, useRoute, useRuntimeConfig, watch } from '#imports'
+import {
+  computed,
+  navigateTo,
+  onMounted,
+  ref,
+  useConvexAuth,
+  useRoute,
+  useRuntimeConfig,
+  watch,
+} from '#imports'
 
 import CmsAuthInput from './CmsAuthInput.vue'
 import CmsPasswordInput from './CmsPasswordInput.vue'

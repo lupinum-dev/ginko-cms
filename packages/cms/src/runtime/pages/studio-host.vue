@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useConvexAuth } from 'better-convex-nuxt/composables'
-
 import { api } from '#convex/api'
 import type {
   GinkoCmsHostAuthEngine,
@@ -34,6 +32,7 @@ import {
   computed,
   navigateTo,
   onMounted,
+  useConvexAuth,
   useHead,
   useNuxtApp,
   useRequestURL,

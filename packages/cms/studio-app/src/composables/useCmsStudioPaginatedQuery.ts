@@ -1,9 +1,10 @@
 import type {
-  PaginatedQueryArgs,
-  PaginatedQueryItem,
-  PaginatedQueryReference,
-  UseConvexPaginatedQueryOptions,
-} from 'better-convex-nuxt/composables'
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+  PaginationOptions,
+  PaginationResult,
+} from 'convex/server'
 import {
   computed,
   onScopeDispose,
@@ -45,6 +46,28 @@ type UseCmsStudioPaginatedQueryData<DataT> = {
 type UseCmsStudioPaginatedQueryReturn<DataT> = UseCmsStudioPaginatedQueryData<DataT> &
   PromiseLike<UseCmsStudioPaginatedQueryData<DataT>>
 
+type PaginatedQueryReference = FunctionReference<
+  'query',
+  'public',
+  { paginationOpts: PaginationOptions },
+  PaginationResult<unknown>
+>
+
+type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
+  FunctionArgs<Query>,
+  'paginationOpts'
+>
+
+type PaginatedQueryItem<Query extends PaginatedQueryReference> =
+  FunctionReturnType<Query>['page'][number]
+
+type CmsStudioPaginatedQueryOptions<Item, DataT> = {
+  initialNumItems?: number
+  transform?: (results: Item[]) => DataT[]
+  keepPreviousData?: boolean
+  requiredCapability?: CmsPermissionKey
+}
+
 // Studio-side paginated Convex query helper. It reads the host bridge
 // explicitly so the Vite SPA stays independent from Nuxt auto-imports.
 export function useCmsStudioPaginatedQuery<
@@ -53,9 +76,7 @@ export function useCmsStudioPaginatedQuery<
 >(
   query: Query,
   args: MaybeRefOrGetter<PaginatedQueryArgs<Query> | null | undefined>,
-  options: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, DataT> & {
-    requiredCapability?: CmsPermissionKey
-  },
+  options: CmsStudioPaginatedQueryOptions<PaginatedQueryItem<Query>, DataT>,
 ): UseCmsStudioPaginatedQueryReturn<DataT> {
   const studioHost = useStudioHostContext()
   const { ready, can } = useCmsStudioAccess()

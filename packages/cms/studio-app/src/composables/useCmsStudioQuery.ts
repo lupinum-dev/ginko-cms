@@ -1,4 +1,3 @@
-import type { UseConvexQueryOptions } from 'better-convex-nuxt/composables'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import {
   computed,
@@ -45,6 +44,12 @@ export type UseCmsStudioQueryData<DataT> = {
 
 export type UseCmsStudioQueryReturn<DataT> = UseCmsStudioQueryData<DataT> &
   PromiseLike<UseCmsStudioQueryData<DataT>>
+
+type CmsStudioQueryOptions<RawT, DataT> = {
+  transform?: (input: RawT) => DataT
+  keepPreviousData?: boolean
+  requiredCapability?: CmsPermissionKey
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -172,9 +177,7 @@ export function useCmsStudioQuery<
 >(
   query: Query,
   args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
-  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT> & {
-    requiredCapability?: CmsPermissionKey
-  },
+  options?: CmsStudioQueryOptions<FunctionReturnType<Query>, DataT>,
 ): UseCmsStudioQueryReturn<DataT> {
   const studioHost = useStudioHostContext()
   const { ready, can } = useCmsStudioAccess()

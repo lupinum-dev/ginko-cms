@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Upgraded the Nuxt integration baseline to `better-convex-nuxt@0.5.0` and
+  migrated runtime composables to its auto-import-only public API.
 - Migrated the v1 package story to direct publishable CMS packages:
   `@lupinum/ginko-cms`, `@lupinum/ginko-cms-convex`, and
   `@lupinum/ginko-cms-contract` install without local `workspace:`, `file:`, or

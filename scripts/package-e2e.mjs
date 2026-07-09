@@ -154,6 +154,7 @@ function writeConsumerWorkspaceConfig(cwd, overrides) {
     'minimumReleaseAgeExclude:',
     "  - '@lupinum/*'",
     "  - '@nuxt/*'",
+    "  - 'better-convex-nuxt'",
     "  - 'nuxt'",
     'overrides:',
   ]

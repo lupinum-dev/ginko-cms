@@ -285,12 +285,12 @@ describe('package boundary contracts', () => {
   it('keeps Nuxt-oriented runtime composables out of standalone Studio source', () => {
     const imports = readImportSpecifiers(collectSourceFiles('packages/cms/studio-app/src'))
     const runtimeViolations = imports.filter(
-      ({ specifier, typeOnly }) => !typeOnly && specifier === 'better-convex-nuxt/composables',
+      ({ specifier }) => specifier === 'better-convex-nuxt/composables',
     )
 
     expect(
       runtimeViolations.map(({ file, specifier }) => `${file} -> ${specifier}`),
-      'Studio runtime must use its host-bridge Convex boundary instead of Nuxt composables',
+      'Studio must use its host-bridge Convex boundary instead of removed Nuxt composable exports',
     ).toEqual([])
   })
 

@@ -1,4 +1,3 @@
-import type { UseConvexMutationOptions } from 'better-convex-nuxt/composables'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, ref, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 
@@ -13,6 +12,11 @@ type StudioMutationReturn<Mutation extends FunctionReference<'mutation'>> = ((
   pending: ComputedRef<boolean>
   error: Ref<Error | null>
   reset: () => void
+}
+
+type StudioMutationOptions<Args, Result> = {
+  onSuccess?: (result: Result, args: Args) => void
+  onError?: (error: Error, args: Args) => void
 }
 
 type UseConvexUploadOptions = {
@@ -82,7 +86,7 @@ async function uploadFile(postUrl: string, file: File): Promise<string> {
 
 export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   mutation: Mutation,
-  options?: UseConvexMutationOptions<FunctionArgs<Mutation>, FunctionReturnType<Mutation>>,
+  options?: StudioMutationOptions<FunctionArgs<Mutation>, FunctionReturnType<Mutation>>,
 ): StudioMutationReturn<Mutation> {
   type Args = FunctionArgs<Mutation>
   type Result = FunctionReturnType<Mutation>
