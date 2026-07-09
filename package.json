@@ -49,9 +49,9 @@
     "audit:prod": "pnpm audit --prod --audit-level low"
   },
   "devDependencies": {
-    "@better-auth/api-key": "1.6.11",
-    "@better-auth/core": "1.6.11",
-    "@better-auth/utils": "0.4.0",
+    "@better-auth/api-key": "1.6.23",
+    "@better-auth/core": "1.6.23",
+    "@better-auth/utils": "0.4.2",
     "@edge-runtime/vm": "^5.0.0",
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/eslint-config": "^1.15.2",
@@ -65,7 +65,7 @@
     "@types/node": "25.8.0",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/test-utils": "^2.4.10",
-    "better-auth": "1.6.11",
+    "better-auth": "1.6.23",
     "better-convex-nuxt": "0.4.0",
     "changelogen": "^0.6.2",
     "convex": "1.38.0",

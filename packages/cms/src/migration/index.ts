@@ -807,17 +807,17 @@ function addContentGraphWarnings(args: {
   const graph = buildCmsImportGraph(args.documents)
   const canonicalByLocale = new Map<string, string>()
   for (const document of args.documents) {
-    if (!document._canonicalKey || !document._locale) continue
-    const key = `${document._canonicalKey}:${document._locale}`
+    if (!document.canonicalKey || !document.locale) continue
+    const key = `${document.canonicalKey}:${document.locale}`
     const existing = canonicalByLocale.get(key)
-    if (existing && existing !== document._id) {
+    if (existing && existing !== document.id) {
       args.warnings.push({
         code: 'duplicate_canonical_key',
-        message: `Canonical key "${document._canonicalKey}" has multiple "${document._locale}" variants.`,
-        sourcePath: document._file,
+        message: `Canonical key "${document.canonicalKey}" has multiple "${document.locale}" variants.`,
+        sourcePath: document.file?.path || document.id,
       })
     }
-    canonicalByLocale.set(key, document._id)
+    canonicalByLocale.set(key, document.id)
   }
 
   const routeOwners = new Map<string, Set<string>>()

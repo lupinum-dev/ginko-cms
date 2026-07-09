@@ -59,6 +59,14 @@ export default defineConfig({
         __dirname,
         '../ginko-content/packages/content/src/cms-import/index.ts',
       ),
+      '@lupinum/ginko-content/provider': resolve(
+        __dirname,
+        '../ginko-content/packages/content/src/public/provider.ts',
+      ),
+      '@lupinum/ginko-content/testing/provider-contract': resolve(
+        __dirname,
+        '../ginko-content/packages/content/src/testing/provider-contract.ts',
+      ),
       vue: resolve(__dirname, 'node_modules/vue'),
     },
   },

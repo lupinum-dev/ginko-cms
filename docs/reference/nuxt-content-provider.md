@@ -55,7 +55,10 @@ not pass a locale, the provider uses `en`.
 - `routeMeta` is implemented for the Nuxt content provider so route-backed page
   rendering can load localized route metadata without loading rendered body
   content. It is not part of the optional HTTP facade.
-- `query`/public list reads support route-backed and data-only collections.
+- `query` receives the Ginko Content 0.2 provider wire (`{ v: 1, collection,
+plan }`) and pattern-matches the closed query plan AST. It no longer accepts
+  legacy builder-param objects at the provider boundary.
+- Public list reads support route-backed and data-only collections.
   Page, navigation, surroundings, search, and sitemap reads are route-backed
   surfaces and reject data-only collections deliberately.
 - Draft/editor tables are not read by the provider.
@@ -65,14 +68,16 @@ not pass a locale, the provider uses `en`.
 
 ## Current Limits
 
-- `query` is intentionally limited to public list reads. Supported public where
-  clauses are `_draft: false`, `_partial: false`, `_locale`, and `_path` or
-  `path` prefix filters.
+- `query` is intentionally limited to public list reads. Supported public plan
+  filters are `draft: false`, `partial: false`, `locale`, and `path` prefix
+  comparisons.
 - Public sort supports `orderKey`, `entryCreatedAt`, `firstPublishedAt`, and
-  `lastPublishedAt`. The provider drops `_stem` sort hints because they are
-  filesystem ordering hints, not a CMS public index.
-- Cursor pagination is supported. Positive numeric `skip`, `count`, and `without`
-  projections are rejected.
+  `lastPublishedAt`.
+- Positive numeric `skip`, `count`, and `without` projections are rejected.
+- Query and page payloads use the Ginko Content 0.2 envelope: `id`,
+  `collection`, `type`, `path`, `locale`, `canonicalKey`, `resolved`, `body`,
+  and authored fields. Route helpers add `unprefixedPath`, `variants`, and
+  `localePaths`. Legacy underscore metadata and `canonicalPath` are not emitted.
 - `searchSections` is intentionally not exposed by the CMS provider. Host apps
   must use `content.search.engine = 'cms'` with `useContentSearchResults()` or
   an explicit Ginko headless search import instead of rebuilding a frontend-owned

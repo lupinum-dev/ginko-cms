@@ -1,3 +1,5 @@
+import { toContentProviderQuery } from '@lupinum/ginko-content/provider'
+import { expectProviderDocumentEnvelope } from '@lupinum/ginko-content/testing/provider-contract'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const convexMock = vi.hoisted(() => {
@@ -138,13 +140,16 @@ describe('built ginko-cms Nuxt provider package output', () => {
       { locale: 'en' },
     )
     const page = unwrap(wrappedPage)
+    expectProviderDocumentEnvelope(page, { locale: 'en', defaultLocale: 'en' })
     expect(page).toMatchObject({
-      _source: 'ginko',
-      _collection: 'docs',
-      _path: '/docs/workflows/content-routing',
+      id: 'entry-docs-routing',
+      collection: 'docs',
+      type: 'markdown',
+      canonicalKey: 'docs:docs-routing',
       title: 'Content Routing',
       description: 'Route content across locales.',
-      canonicalPath: '/docs/workflows/content-routing',
+      path: '/docs/workflows/content-routing',
+      unprefixedPath: '/docs/workflows/content-routing',
       localePaths: {
         en: {
           path: '/docs/workflows/content-routing',
@@ -166,16 +171,19 @@ describe('built ginko-cms Nuxt provider package output', () => {
       ]),
     )
 
-    const wrappedList = await contentProvider.query({} as never, {
-      collection: 'docs',
-      resolveLocale: { locale: 'en' },
-      limit: 5,
-    })
+    const wrappedList = await contentProvider.query(
+      {} as never,
+      toContentProviderQuery({
+        collection: 'docs',
+        resolveLocale: { locale: 'en' },
+        limit: 5,
+      }),
+    )
     const list = unwrap(wrappedList)
     expect(list).toMatchObject({
       result: [
         expect.objectContaining({
-          _source: 'ginko',
+          collection: 'docs',
           title: 'Content Routing',
         }),
       ],

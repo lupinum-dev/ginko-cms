@@ -1,3 +1,9 @@
+import { toContentProviderQuery } from '@lupinum/ginko-content/provider'
+import {
+  expectNoLegacyProviderEnvelopeFields,
+  expectProviderCapabilities,
+  expectProviderDocumentEnvelope,
+} from '@lupinum/ginko-content/testing/provider-contract'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const bodyAst = {
@@ -268,7 +274,7 @@ describe('CMS provider contract', () => {
   })
 
   it('advertises only the public capabilities covered by executable tests', () => {
-    expect(contentProvider.capabilities).toMatchObject({
+    expectProviderCapabilities(contentProvider as never, {
       routeBackedCollections: true,
       dataCollections: true,
       localizedRoutes: true,
@@ -297,10 +303,15 @@ describe('CMS provider contract', () => {
     )
     const page = unwrap(wrapped)
 
+    expectProviderDocumentEnvelope(page, { locale: 'de', defaultLocale: 'en' })
     expect(page).toMatchObject({
-      _source: 'ginko',
-      _collection: 'docs',
-      _path: '/dokumentation/inhaltsrouting',
+      id: 'entry-docs-routing',
+      collection: 'docs',
+      type: 'markdown',
+      path: '/de/dokumentation/inhaltsrouting',
+      unprefixedPath: '/dokumentation/inhaltsrouting',
+      locale: 'de',
+      canonicalKey: 'docs:docs-routing',
       title: 'Inhaltsrouting',
       body: bodyAst,
       resolved: {
@@ -311,7 +322,7 @@ describe('CMS provider contract', () => {
         requestedRoute: '/dokumentation/inhaltsrouting',
       },
     })
-    expect(page).not.toHaveProperty('_resolvedLocale')
+    expectNoLegacyProviderEnvelopeFields(page)
     expect(cache(wrapped).tags).toEqual(
       expect.arrayContaining([
         'collection:docs',
@@ -339,18 +350,20 @@ describe('CMS provider contract', () => {
   })
 
   it('forwards list pagination and indexed sort to Convex', async () => {
-    const wrapped = await contentProvider.query({} as never, {
-      collection: 'docs',
-      limit: 10,
-      cursor: 'cursor-1',
-      sort: [{ lastPublishedAt: 'desc' }],
-      only: ['title', '_path'],
-    })
+    const wrapped = await contentProvider.query(
+      {} as never,
+      toContentProviderQuery({
+        collection: 'docs',
+        limit: 10,
+        sort: [{ lastPublishedAt: -1 }],
+        only: ['title', 'path'],
+      }),
+    )
 
     expect(unwrap(wrapped)).toMatchObject({
       result: [
-        { title: 'Launch Checklist', _path: '/docs/workflows/launch-checklist' },
-        { title: 'Content Routing', _path: '/docs/workflows/content-routing' },
+        { title: 'Launch Checklist', path: '/docs/workflows/launch-checklist' },
+        { title: 'Content Routing', path: '/docs/workflows/content-routing' },
       ],
       pageInfo: { hasNextPage: false, endCursor: null },
     })
@@ -360,7 +373,7 @@ describe('CMS provider contract', () => {
         collection: 'docs',
         locale: 'en',
         limit: 10,
-        cursor: 'cursor-1',
+        cursor: undefined,
         sort: 'lastPublishedAt:desc',
       },
     })
@@ -380,10 +393,10 @@ describe('CMS provider contract', () => {
           },
         },
       } as never,
-      {
+      toContentProviderQuery({
         collection: 'docs',
         limit: 3,
-      },
+      }),
     )
 
     expect(lastCall()).toEqual({
@@ -460,10 +473,10 @@ describe('CMS provider contract', () => {
           },
         },
       } as never,
-      {
+      toContentProviderQuery({
         collection: 'docs',
         limit: 3,
-      },
+      }),
     )
 
     expect(lastCall()).toEqual({
@@ -490,10 +503,10 @@ describe('CMS provider contract', () => {
           },
         },
       } as never,
-      {
+      toContentProviderQuery({
         collection: 'docs',
         limit: 3,
-      },
+      }),
     )
 
     expect(lastCall()).toEqual({
@@ -546,29 +559,15 @@ describe('CMS provider contract', () => {
     })
   })
 
-  it('drops ginko-content navigation stem sort because it is an internal content hint', async () => {
-    await contentProvider.query({} as never, {
-      collection: 'docs',
-      sort: [{ _stem: 1, $numeric: true }],
-    })
-
-    expect(lastCall()).toEqual({
-      operation: 'list',
-      args: {
-        collection: 'docs',
-        locale: 'en',
-        limit: undefined,
-        cursor: undefined,
-      },
-    })
-  })
-
   it('forwards path prefix filters to the public list query instead of filtering in memory', async () => {
-    await contentProvider.query({} as never, {
-      collection: 'docs',
-      where: { _path: { $prefix: '/docs/workflows' } },
-      limit: 5,
-    })
+    await contentProvider.query(
+      {} as never,
+      toContentProviderQuery({
+        collection: 'docs',
+        where: { path: { $prefix: '/docs/workflows' } },
+        limit: 5,
+      }),
+    )
 
     expect(lastCall()).toEqual({
       operation: 'list',
@@ -584,11 +583,14 @@ describe('CMS provider contract', () => {
 
   it('rejects path prefix queries with public sort because the CMS list endpoint uses path order', async () => {
     await expect(
-      contentProvider.query({} as never, {
-        collection: 'docs',
-        where: { _path: { $prefix: '/docs/workflows' } },
-        sort: [{ lastPublishedAt: 'desc' }],
-      }),
+      contentProvider.query(
+        {} as never,
+        toContentProviderQuery({
+          collection: 'docs',
+          where: { path: { $prefix: '/docs/workflows' } },
+          sort: [{ lastPublishedAt: -1 }],
+        }),
+      ),
     ).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'unsupported_query_shape',
@@ -602,10 +604,13 @@ describe('CMS provider contract', () => {
 
   it('rejects unsupported list sort instead of sorting in memory', async () => {
     await expect(
-      contentProvider.query({} as never, {
-        collection: 'docs',
-        sort: [{ title: 'asc' }],
-      }),
+      contentProvider.query(
+        {} as never,
+        toContentProviderQuery({
+          collection: 'docs',
+          sort: [{ title: 1 }],
+        }),
+      ),
     ).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'unsupported_sort',
@@ -622,9 +627,9 @@ describe('CMS provider contract', () => {
       [
         {
           title: 'Content Routing',
-          _path: '/docs/workflows/content-routing',
           path: '/docs/workflows/content-routing',
-          _locale: 'en',
+          unprefixedPath: '/docs/workflows/content-routing',
+          locale: 'en',
           stableId: 'docs-routing',
           ref: 'docs-routing',
           children: [],
@@ -683,14 +688,17 @@ describe('CMS provider contract', () => {
   })
 
   it('returns an empty body for YAML/data entries with no Markdown body fields', async () => {
-    const wrapped = await contentProvider.query({} as never, {
-      collection: 'authors',
-      first: true,
-    })
+    const wrapped = await contentProvider.query(
+      {} as never,
+      toContentProviderQuery({
+        collection: 'authors',
+        first: true,
+      }),
+    )
 
     expect(unwrap(wrapped)).toMatchObject({
       result: {
-        _type: 'yaml',
+        type: 'yaml',
         title: 'Emily',
         body: {
           type: 'root',

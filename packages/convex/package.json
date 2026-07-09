@@ -51,9 +51,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@better-auth/api-key": "1.6.11",
-    "@better-auth/core": "1.6.11",
-    "@better-auth/utils": "0.4.0",
+    "@better-auth/api-key": "1.6.23",
+    "@better-auth/core": "1.6.23",
+    "@better-auth/utils": "0.4.2",
     "@lupinum/ginko-cms-contract": "workspace:^",
     "comark": "^0.3.2",
     "convex": "1.38.0",
@@ -62,6 +62,6 @@
   },
   "peerDependencies": {
     "@convex-dev/better-auth": "^0.12.2",
-    "better-auth": ">=1.6.9 <1.7.0"
+    "better-auth": ">=1.6.13 <1.7.0"
   }
 }

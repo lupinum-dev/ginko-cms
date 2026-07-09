@@ -1,3 +1,11 @@
+import {
+  toContentProviderNavigationQuery,
+  toContentProviderQuery,
+} from '@lupinum/ginko-content/provider'
+import {
+  expectProviderCapabilities,
+  expectProviderDocumentEnvelope,
+} from '@lupinum/ginko-content/testing/provider-contract'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const convexMock = vi.hoisted(() => {
@@ -441,20 +449,33 @@ describe('Ginko Nuxt content provider', () => {
   })
 
   it('declares only the portable query capabilities it actually supports', () => {
-    expect(contentProvider.capabilities.query).toMatchObject({
-      operators: ['$eq', '$ne', '$in', '$contains', '$icontains', '$prefix', '$and', '$or'],
-      limit: true,
-      skip: false,
-      count: false,
+    expectProviderCapabilities(contentProvider as never, {
+      routeBackedCollections: true,
+      dataCollections: true,
+      localizedRoutes: true,
+      translatedSlugs: true,
+      navigation: true,
+      surroundings: true,
+      searchSections: false,
+      sitemap: true,
+      query: {
+        operators: ['$eq', '$ne', '$in', '$contains', '$icontains', '$prefix', '$and', '$or'],
+        limit: true,
+        skip: false,
+        count: false,
+      },
     })
   })
 
   it('rejects unsupported query shapes before calling Convex', async () => {
     await expect(
-      contentProvider.query({} as never, {
-        collection: 'docs',
-        where: { title: 'Hello' },
-      }),
+      contentProvider.query(
+        {} as never,
+        toContentProviderQuery({
+          collection: 'docs',
+          where: { title: 'Hello' },
+        }),
+      ),
     ).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'unsupported_query_shape',
@@ -465,10 +486,13 @@ describe('Ginko Nuxt content provider', () => {
     })
 
     await expect(
-      contentProvider.query({} as never, {
-        collection: 'docs',
-        skip: 10,
-      }),
+      contentProvider.query(
+        {} as never,
+        toContentProviderQuery({
+          collection: 'docs',
+          skip: 10,
+        }),
+      ),
     ).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'unsupported_query_shape',
@@ -480,11 +504,14 @@ describe('Ginko Nuxt content provider', () => {
   })
 
   it('supports the portable Ginko list subset used by reference apps', async () => {
-    const wrapped = await contentProvider.query({} as never, {
-      collection: 'docs',
-      where: [{ _draft: { $ne: true } }, { _locale: 'en' }],
-      only: ['title', 'description', '_path'],
-    })
+    const wrapped = await contentProvider.query(
+      {} as never,
+      toContentProviderQuery({
+        collection: 'docs',
+        where: [{ draft: { $ne: true } }, { locale: 'en' }],
+        only: ['title', 'description', 'path'],
+      }),
+    )
     const result = unwrap(wrapped)
 
     expect(result).toMatchObject({
@@ -492,12 +519,12 @@ describe('Ginko Nuxt content provider', () => {
         {
           title: 'Content Routing',
           description: 'Route content across locales.',
-          _path: '/docs/workflows/content-routing',
+          path: '/docs/workflows/content-routing',
         },
         {
           title: 'Launch Checklist',
           description: 'Ship with confidence.',
-          _path: '/docs/workflows/launch-checklist',
+          path: '/docs/workflows/launch-checklist',
         },
       ],
     })
@@ -525,10 +552,13 @@ describe('Ginko Nuxt content provider', () => {
   })
 
   it('forwards supported public list sort to Convex instead of sorting in memory', async () => {
-    const wrapped = await contentProvider.query({} as never, {
-      collection: 'docs',
-      sort: [{ lastPublishedAt: -1 }],
-    })
+    const wrapped = await contentProvider.query(
+      {} as never,
+      toContentProviderQuery({
+        collection: 'docs',
+        sort: [{ lastPublishedAt: -1 }],
+      }),
+    )
 
     expect(unwrap(wrapped).result.map((entry: { title: string }) => entry.title)).toEqual([
       'Launch Checklist',
@@ -547,35 +577,30 @@ describe('Ginko Nuxt content provider', () => {
   })
 
   it('resolves Ginko route-variant queries through the page projection', async () => {
-    const wrapped = await contentProvider.query({} as never, {
-      collection: 'docs',
-      first: true,
-      resolveVariant: {
-        path: '/docs/workflows/content-routing',
-        locale: 'en',
-        fallback: [],
-      },
-      only: ['title', '_path', 'localePaths', '_variantPaths'],
-    })
+    const wrapped = await contentProvider.query(
+      {} as never,
+      toContentProviderQuery({
+        collection: 'docs',
+        first: true,
+        resolveVariant: {
+          path: '/docs/workflows/content-routing',
+          locale: 'en',
+          fallback: [],
+        },
+        only: ['title', 'path', 'resolved'],
+      }),
+    )
     const result = unwrap(wrapped)
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       result: {
         title: 'Content Routing',
-        _path: '/docs/workflows/content-routing',
-        localePaths: {
-          en: {
-            path: '/docs/workflows/content-routing',
-            translated: true,
+        path: '/docs/workflows/content-routing',
+        resolved: {
+          variantPaths: {
+            en: '/docs/workflows/content-routing',
+            de: '/dokumentation/arbeitsablaeufe/content-routing',
           },
-          de: {
-            path: '/de/dokumentation/arbeitsablaeufe/content-routing',
-            translated: true,
-          },
-        },
-        _variantPaths: {
-          en: '/docs/workflows/content-routing',
-          de: '/dokumentation/arbeitsablaeufe/content-routing',
         },
       },
     })
@@ -599,43 +624,48 @@ describe('Ginko Nuxt content provider', () => {
   })
 
   it('resolves object-style route and ref variant selectors', async () => {
-    await contentProvider.query({} as never, {
-      collection: 'docs',
-      first: true,
-      resolveVariant: {
-        by: 'route',
-        value: '/docs/workflows/content-routing',
-        locale: 'en',
-      },
-      only: ['title'],
-    })
+    await contentProvider.query(
+      {} as never,
+      toContentProviderQuery({
+        collection: 'docs',
+        first: true,
+        resolveVariant: {
+          route: '/docs/workflows/content-routing',
+          locale: 'en',
+        },
+        only: ['title'],
+      }),
+    )
 
     expect(convexMock.calls.at(-1)).toEqual({
       operation: 'page',
       args: {
         collection: 'docs',
         locale: 'en',
+        fallback: [],
         path: '/docs/workflows/content-routing',
       },
     })
 
     const refResult = unwrap(
-      await contentProvider.query({} as never, {
-        collection: 'docs',
-        first: true,
-        resolveVariant: {
-          by: 'ref',
-          value: 'docs-routing',
-          locale: 'en',
-        },
-        only: ['title', 'resolved'],
-      }),
+      await contentProvider.query(
+        {} as never,
+        toContentProviderQuery({
+          collection: 'docs',
+          first: true,
+          resolveVariant: {
+            ref: 'docs-routing',
+            locale: 'en',
+          },
+          only: ['title', 'resolved'],
+        }),
+      ),
     )
     expect(refResult).toMatchObject({
       result: {
         title: 'Content Routing',
         resolved: expect.objectContaining({
-          requestedRoute: 'docs-routing',
+          requestedRef: 'docs-routing',
         }),
       },
     })
@@ -644,27 +674,31 @@ describe('Ginko Nuxt content provider', () => {
       args: {
         collection: 'docs',
         locale: 'en',
+        fallback: [],
         ref: 'docs-routing',
       },
     })
   })
 
   it('resolves direct ref route-variant selectors from ginko-content', async () => {
-    const wrapped = await contentProvider.query({} as never, {
-      collection: 'docs',
-      first: true,
-      resolveVariant: {
-        ref: 'docs-routing',
-        locale: 'en',
-      },
-      only: ['title', 'resolved'],
-    })
+    const wrapped = await contentProvider.query(
+      {} as never,
+      toContentProviderQuery({
+        collection: 'docs',
+        first: true,
+        resolveVariant: {
+          ref: 'docs-routing',
+          locale: 'en',
+        },
+        only: ['title', 'resolved'],
+      }),
+    )
 
     expect(unwrap(wrapped)).toMatchObject({
       result: {
         title: 'Content Routing',
         resolved: expect.objectContaining({
-          requestedRoute: 'docs-routing',
+          requestedRef: 'docs-routing',
         }),
       },
     })
@@ -673,6 +707,7 @@ describe('Ginko Nuxt content provider', () => {
       args: {
         collection: 'docs',
         locale: 'en',
+        fallback: [],
         ref: 'docs-routing',
       },
     })
@@ -723,7 +758,7 @@ describe('Ginko Nuxt content provider', () => {
 
     expect(unwrap(wrappedPage)).toMatchObject({
       locale: 'de',
-      canonicalPath: '/dokumentation/arbeitsablaeufe/content-routing',
+      unprefixedPath: '/dokumentation/arbeitsablaeufe/content-routing',
       path: '/de/dokumentation/arbeitsablaeufe/content-routing',
       resolved: {
         locale: 'de',
@@ -792,7 +827,7 @@ describe('Ginko Nuxt content provider', () => {
 
     expect(unwrap(wrappedPage)).toMatchObject({
       locale: 'de',
-      canonicalPath: '/blog/default-locale-proof',
+      unprefixedPath: '/blog/default-locale-proof',
       path: '/blog/default-locale-proof',
       resolved: {
         path: '/blog/default-locale-proof',
@@ -832,11 +867,16 @@ describe('Ginko Nuxt content provider', () => {
   })
 
   it('resolves Ginko navigation queries with the normalized locale scope', async () => {
-    const wrapped = await contentProvider.navigationQuery({} as never, {
+    const navWire = toContentProviderNavigationQuery({
       collection: 'docs',
-      where: [{ _draft: { $ne: true } }, { _locale: 'de' }],
-      sort: [{ _stem: 1, $numeric: true }],
+      where: [{ draft: { $ne: true } }, { locale: 'de' }],
+      resolveLocale: { locale: 'de', fallback: false },
     })
+    const wrapped = await contentProvider.navigationQuery(
+      {} as never,
+      navWire.query,
+      navWire.options,
+    )
 
     expect(cache(wrapped).tags).toEqual(expect.arrayContaining(['collection:docs', 'nav:docs:de']))
     expect(convexMock.calls.at(-1)).toEqual({
@@ -851,8 +891,15 @@ describe('Ginko Nuxt content provider', () => {
   it('preserves unsupported operator errors inside rejected where filters', async () => {
     await expect(
       contentProvider.query({} as never, {
+        v: 1,
         collection: 'docs',
-        where: { title: { $near: 'routing' } },
+        plan: {
+          filter: { type: 'compare', field: 'title', operator: 'near', value: 'routing' },
+          sort: [],
+          projection: { only: [], without: [] },
+          skip: 0,
+          mode: 'all',
+        },
       }),
     ).rejects.toMatchObject({
       statusCode: 400,
@@ -970,21 +1017,20 @@ describe('Ginko Nuxt content provider', () => {
       { locale: 'en' },
     )
     const page = unwrap(wrappedPage)
+    expectProviderDocumentEnvelope(page, { locale: 'en', defaultLocale: 'en' })
     expect(page).toMatchObject({
-      _source: 'ginko',
-      _collection: 'docs',
-      _path: '/docs/workflows/content-routing',
+      id: 'entry-docs-routing',
+      collection: 'docs',
+      type: 'markdown',
+      canonicalKey: 'docs:docs-routing',
       title: 'Content Routing',
       description: 'Route content across locales.',
       locale: 'en',
       path: '/docs/workflows/content-routing',
-      canonicalPath: '/docs/workflows/content-routing',
+      unprefixedPath: '/docs/workflows/content-routing',
       defaultLocale: 'en',
       ref: 'docs-routing',
-      stem: 'docs/workflows/content-routing',
-      extension: 'md',
-      _stem: 'docs/workflows/content-routing',
-      _availableLocales: ['en', 'de'],
+      stem: 'docs/workflows/content-routing/index',
       localePaths: {
         en: {
           path: '/docs/workflows/content-routing',
@@ -999,12 +1045,12 @@ describe('Ginko Nuxt content provider', () => {
         {
           locale: 'en',
           path: '/docs/workflows/content-routing',
-          canonicalPath: '/docs/workflows/content-routing',
+          unprefixedPath: '/docs/workflows/content-routing',
         },
         {
           locale: 'de',
           path: '/de/dokumentation/arbeitsablaeufe/content-routing',
-          canonicalPath: '/dokumentation/arbeitsablaeufe/content-routing',
+          unprefixedPath: '/dokumentation/arbeitsablaeufe/content-routing',
         },
       ],
       resolved: {
@@ -1036,7 +1082,7 @@ describe('Ginko Nuxt content provider', () => {
     )
     expect(unwrap(wrappedRouteMeta)).toMatchObject({
       path: '/docs/workflows/content-routing',
-      canonicalPath: '/docs/workflows/content-routing',
+      unprefixedPath: '/docs/workflows/content-routing',
       locale: 'en',
       defaultLocale: 'en',
       localePaths: {
@@ -1052,21 +1098,24 @@ describe('Ginko Nuxt content provider', () => {
     expect(unwrap(wrappedRouteMeta)).not.toHaveProperty('body')
 
     const list = unwrap(
-      await contentProvider.query({} as never, {
-        collection: 'docs',
-        limit: 5,
-        resolveLocale: { locale: 'en' },
-      }),
+      await contentProvider.query(
+        {} as never,
+        toContentProviderQuery({
+          collection: 'docs',
+          limit: 5,
+          resolveLocale: { locale: 'en' },
+        }),
+      ),
     )
     expect(list).toMatchObject({
       result: [
         expect.objectContaining({
           title: 'Content Routing',
-          _source: 'ginko',
+          collection: 'docs',
         }),
         expect.objectContaining({
           title: 'Launch Checklist',
-          _source: 'ginko',
+          collection: 'docs',
         }),
       ],
       pageInfo: { hasNextPage: false, endCursor: null },
@@ -1079,9 +1128,9 @@ describe('Ginko Nuxt content provider', () => {
         ref: 'docs-routing',
         stableId: 'docs-routing',
         title: 'Content Routing',
-        _path: '/docs/workflows/content-routing',
         path: '/docs/workflows/content-routing',
-        _locale: 'en',
+        unprefixedPath: '/docs/workflows/content-routing',
+        locale: 'en',
         children: [],
       },
     ])
@@ -1109,12 +1158,12 @@ describe('Ginko Nuxt content provider', () => {
       {
         title: 'Launch Checklist',
         path: '/docs/workflows/launch-checklist',
-        _path: '/docs/workflows/launch-checklist',
+        unprefixedPath: '/docs/workflows/launch-checklist',
       },
       {
         title: 'Sitemap and SEO',
         path: '/docs/workflows/sitemap-and-seo',
-        _path: '/docs/workflows/sitemap-and-seo',
+        unprefixedPath: '/docs/workflows/sitemap-and-seo',
       },
     ])
     expect(cache(wrappedSurround).tags).toEqual(['collection:docs'])
@@ -1231,10 +1280,13 @@ describe('Ginko Nuxt content provider', () => {
     delete process.env.CONVEX_URL
     try {
       await expect(
-        contentProvider.query({} as never, {
-          collection: 'docs',
-          limit: 1,
-        }),
+        contentProvider.query(
+          {} as never,
+          toContentProviderQuery({
+            collection: 'docs',
+            limit: 1,
+          }),
+        ),
       ).rejects.toMatchObject({
         statusCode: 500,
         statusMessage: 'provider_config_missing',
