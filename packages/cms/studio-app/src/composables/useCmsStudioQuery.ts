@@ -66,7 +66,6 @@ export class CmsStudioQueryError extends Error {
   constructor(
     message: string,
     init: {
-      cause: unknown
       operation: CmsStudioOperation
       functionPath: string
       code?: string
@@ -75,7 +74,7 @@ export class CmsStudioQueryError extends Error {
       data?: unknown
     },
   ) {
-    super(message, { cause: init.cause })
+    super(message)
     this.name = 'CmsStudioQueryError'
     this.operation = init.operation
     this.functionPath = init.functionPath
@@ -110,7 +109,6 @@ export function normalizeCmsStudioQueryError(
           : 'unknown'
 
   return new CmsStudioQueryError(normalized.message, {
-    cause: normalized.cause,
     operation,
     functionPath: safeFunctionName(query),
     code: normalized.code,

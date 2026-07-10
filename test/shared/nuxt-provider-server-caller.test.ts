@@ -29,6 +29,18 @@ type ContentProvider = {
 
 let contentProvider: ContentProvider
 
+function containsValue(root: unknown, expected: unknown): boolean {
+  const seen = new Set<object>()
+  const visit = (value: unknown): boolean => {
+    if (value === expected) return true
+    if ((typeof value !== 'object' && typeof value !== 'function') || value === null) return false
+    if (seen.has(value)) return false
+    seen.add(value)
+    return Object.getOwnPropertyNames(value).some((key) => visit(Reflect.get(value, key)))
+  }
+  return visit(root)
+}
+
 describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
   beforeEach(async () => {
     vi.resetModules()
@@ -116,7 +128,7 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     serverConvexMock.mockReturnValue({
       query: vi.fn(async () => {
         throw Object.assign(new Error('Public failure'), {
-          data: { code: 'PUBLIC_FAILURE' },
+          data: { code: 'PUBLIC_FAILURE', operation: 'spoofed-operation' },
           cause: { data: { token: secret } },
         })
       }),
@@ -131,7 +143,10 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     }
 
     expect(thrown).toBeInstanceOf(Error)
+    expect(containsValue(thrown, secret)).toBe(false)
     expect(JSON.stringify(thrown)).not.toContain(secret)
-    expect(thrown).toMatchObject({ data: { code: 'PUBLIC_FAILURE' } })
+    expect(thrown).toMatchObject({
+      data: { code: 'PUBLIC_FAILURE', operation: 'siteData' },
+    })
   })
 })

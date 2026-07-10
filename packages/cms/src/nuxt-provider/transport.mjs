@@ -51,7 +51,7 @@ const normalizeRemoteError = (error, operation) => {
     code,
     error instanceof Error ? error.message : `CMS provider query failed: ${operation}`,
     statusCode,
-    { operation, ...data },
+    { ...data, operation },
   )
 }
 

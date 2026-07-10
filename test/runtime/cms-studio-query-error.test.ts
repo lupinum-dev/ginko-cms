@@ -23,6 +23,18 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () =
 const { CmsStudioQueryError, normalizeCmsStudioQueryError } =
   await import('../../packages/cms/studio-app/src/composables/useCmsStudioQuery')
 
+function containsValue(root: unknown, expected: unknown): boolean {
+  const seen = new Set<object>()
+  const visit = (value: unknown): boolean => {
+    if (value === expected) return true
+    if ((typeof value !== 'object' && typeof value !== 'function') || value === null) return false
+    if (seen.has(value)) return false
+    seen.add(value)
+    return Object.getOwnPropertyNames(value).some((key) => visit(Reflect.get(value, key)))
+  }
+  return visit(root)
+}
+
 // §10.8 / "Ginko tests": Studio error mapping must classify through the
 // library's shared `ConvexCallError`/`normalizeConvexError` contract, not
 // bespoke transport-envelope/JSON/`Symbol.for('functionName')`/substring
@@ -106,5 +118,22 @@ describe('useCmsStudioQuery error normalization (vNext §10.8, ConvexCallError)'
       'mutation',
     )
     expect(normalizeCmsStudioQueryError(appError, {} as never, 'upload').operation).toBe('upload')
+  })
+
+  it('does not retain an opaque Convex cause anywhere in the Studio error', async () => {
+    const { ConvexCallError } = await import('better-convex-nuxt/errors')
+    const secret = 'studio-opaque-cause-secret'
+    const original = new ConvexCallError({
+      kind: 'server',
+      message: 'Public failure',
+      data: { code: 'PUBLIC_FAILURE' },
+      cause: { authorization: secret },
+    })
+
+    const normalized = normalizeCmsStudioQueryError(original, {} as never)
+
+    expect(containsValue(normalized, secret)).toBe(false)
+    expect(Object.hasOwn(normalized, 'cause')).toBe(false)
+    expect(JSON.stringify(normalized)).not.toContain(secret)
   })
 })
