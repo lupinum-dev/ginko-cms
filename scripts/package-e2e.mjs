@@ -140,7 +140,14 @@ function run(command, args, options = {}) {
 }
 
 function packPackage(packageDir) {
-  run('pnpm', ['--dir', packageDir, 'pack', '--pack-destination', packDir])
+  run('pnpm', [
+    '--dir',
+    packageDir,
+    'pack',
+    '--config.ignore-scripts=true',
+    '--pack-destination',
+    packDir,
+  ])
 }
 
 function buildPackage(packageDir) {

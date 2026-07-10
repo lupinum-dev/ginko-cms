@@ -10,11 +10,13 @@ import { installConvexSetup } from './convex-setup-helpers.js'
 const addImportsDir = vi.fn()
 const addComponentsDir = vi.fn()
 const addLayout = vi.fn()
+const addPlugin = vi.fn()
 const addServerHandler = vi.fn()
 const addServerPlugin = vi.fn()
 const addTypeTemplate = vi.fn((template: { filename: string }) => ({
   dst: resolve(moduleDir, '.nuxt', template.filename),
 }))
+const addTemplate = addTypeTemplate
 const extendPages = vi.fn()
 const convexQuery = vi.fn()
 const useLogger = vi.fn(() => ({
@@ -28,9 +30,11 @@ vi.mock('@nuxt/kit', () => ({
   addComponentsDir,
   addImportsDir,
   addLayout,
+  addPlugin,
   addServerHandler,
   addServerPlugin,
   addTypeTemplate,
+  addTemplate,
   createResolver: () => ({
     resolve: (path: string) => resolve(moduleDir, path),
   }),

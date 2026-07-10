@@ -23,7 +23,6 @@ const projectRoot = fileURLToPath(new URL('../../', import.meta.url))
 const modulePath = resolve(projectRoot, 'packages/cms/src/module')
 type LoadedNuxt = Awaited<ReturnType<typeof loadNuxt>>
 type ComponentDir = string | { path?: string }
-type NuxtPage = { name?: string; path: string }
 
 function getNuxt(instance: LoadedNuxt | undefined): LoadedNuxt {
   if (!instance) throw new Error('Nuxt test instance was not loaded.')
@@ -158,20 +157,11 @@ describe('ginko-cms module e2e boot', () => {
     expect(hasComponentDir).toBe(true)
   })
 
-  // --- Studio pages (pages:extend hook) ---
-
-  it('registers studio pages at the configured /studio route', async () => {
-    const pages: NuxtPage[] = []
-    await getNuxt(nuxt).callHook('pages:extend', pages)
-
-    const pageNames = pages.map((page) => page.name)
-    expect(pageNames).toContain('studio-auth-signin')
-    expect(pageNames).toContain('studio-auth-register')
-    expect(pageNames).toContain('studio-host')
-
-    // Verify paths are rooted at /studio
-    const studioPaths = pages.filter((page) => page.path.startsWith('/studio'))
-    expect(studioPaths.length).toBe(pages.length)
+  it('registers the Studio runtime router plugin for page-less hosts', () => {
+    const plugins = getNuxt(nuxt).options.plugins.map((plugin) =>
+      typeof plugin === 'string' ? plugin : plugin.src,
+    )
+    expect(plugins.some((plugin) => plugin.includes('ginko-cms/studio-pages'))).toBe(true)
   })
 
   // --- Convex module wiring ---

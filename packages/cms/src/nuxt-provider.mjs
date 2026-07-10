@@ -336,28 +336,57 @@ const localeFromOptions = (options = {}, contentRuntime = {}) =>
 const localeFromQuery = (query, filterState, contentRuntime = {}) =>
   query.plan?.resolveLocale?.locale || filterState.locale || defaultLocale(contentRuntime)
 
+const assertPageResult = (result) => {
+  const valid =
+    result &&
+    typeof result === 'object' &&
+    ((result.status === 'found' && result.page && typeof result.page === 'object') ||
+      (result.status === 'not-found' && (result.page === null || result.page === undefined)))
+  if (valid) return result
+  throw providerError(
+    'provider_response_invalid',
+    'Ginko public page returned an invalid response.',
+    502,
+    { operation: 'page' },
+  )
+}
+
+const assertListResult = (result) => {
+  if (result && typeof result === 'object' && Array.isArray(result.entries)) return result
+  throw providerError(
+    'provider_response_invalid',
+    'Ginko public list returned an invalid response.',
+    502,
+    { operation: 'list' },
+  )
+}
+
 const resolveVariant = async (event, collection, selector, contentRuntime) => {
   if (selector.by === 'ref') {
     const locale = selector.requestedLocale || defaultLocale(contentRuntime)
     return {
       locale,
-      result: await callGinko(event, 'page', {
-        collection,
-        locale,
-        ref: selector.ref,
-        fallback: selector.localeChain?.slice(1),
-      }),
+      result: assertPageResult(
+        await callGinko(event, 'page', {
+          collection,
+          locale,
+          ref: selector.ref,
+          fallback: selector.localeChain?.slice(1),
+        }),
+      ),
     }
   }
 
   // Route selectors are already closed and ordered by ginko-content. Trying them
   // in order keeps locale fallback policy in the content engine, not this adapter.
   for (const candidate of selector.candidates || []) {
-    const result = await callGinko(event, 'page', {
-      collection,
-      locale: candidate.locale,
-      path: canonicalFromRoute(candidate.contentPath, candidate.locale),
-    })
+    const result = assertPageResult(
+      await callGinko(event, 'page', {
+        collection,
+        locale: candidate.locale,
+        path: canonicalFromRoute(candidate.contentPath, candidate.locale),
+      }),
+    )
     if (result.status === 'found' && result.page) return { locale: candidate.locale, result }
   }
   return {
@@ -421,14 +450,16 @@ const contentProvider = {
       'Ginko public path prefix queries use path-index order and cannot be combined with public sort.',
     )
     const sort = sortFromPlan(plan.sort)
-    const result = await callGinko(event, 'list', {
-      collection: input.collection,
-      locale,
-      limit: plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit,
-      cursor: plan.paging?.mode === 'cursor' ? plan.paging.after : undefined,
-      ...(pathPrefix ? { pathPrefix } : {}),
-      ...(sort ? { sort } : {}),
-    })
+    const result = assertListResult(
+      await callGinko(event, 'list', {
+        collection: input.collection,
+        locale,
+        limit: plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit,
+        cursor: plan.paging?.mode === 'cursor' ? plan.paging.after : undefined,
+        ...(pathPrefix ? { pathPrefix } : {}),
+        ...(sort ? { sort } : {}),
+      }),
+    )
     const rawEntries = result.entries || []
     const entries = (
       await Promise.all(

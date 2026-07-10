@@ -16,6 +16,7 @@ const addServerPlugin = vi.fn()
 const addTypeTemplate = vi.fn((template: { filename: string }) => ({
   dst: resolve(moduleDir, '.nuxt', template.filename),
 }))
+const addTemplate = addTypeTemplate
 const extendPages = vi.fn()
 const useLogger = vi.fn(() => ({
   success: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock('@nuxt/kit', () => ({
   addServerHandler,
   addServerPlugin,
   addTypeTemplate,
+  addTemplate,
   createResolver: () => ({
     resolve: (path: string) => resolve(moduleDir, path),
   }),

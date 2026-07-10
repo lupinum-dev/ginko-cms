@@ -8,6 +8,8 @@ import {
   addServerHandler,
   createResolver,
   addComponentsDir,
+  addPlugin,
+  addTemplate,
   addTypeTemplate,
 } from '@nuxt/kit'
 import type { Nuxt, NuxtModule } from '@nuxt/schema'
@@ -26,9 +28,9 @@ import {
 } from './module/i18n.js'
 import type { I18nModuleOptions } from './module/i18n.js'
 import type { ModuleOptions } from './module/options.js'
-import { registerStudioPages } from './module/pages.js'
 import { renderPublicContractTypes } from './module/public-contract.js'
 import { buildPublicRuntimeCollections } from './module/runtime-config.js'
+import { renderStudioPagesPlugin } from './module/studio-pages-plugin.js'
 import { createTailwindPlugin } from './module/tailwind.js'
 
 export type {
@@ -234,7 +236,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const cmsAuthDir = moduleResolve('./auth')
     const cmsPackageRoot = locatePackageRoot()
     const cmsStudioUiDir = resolve(cmsPackageRoot, 'studio-app/src/components/ui')
-    const studioRoute = options.route.replace(/\/$/, '')
     const mcpEnabled = options.mcp === true
     options.collections = await resolveConfiguredCollections({
       rootDir: nuxt.options.rootDir,
@@ -454,11 +455,20 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       pathPrefix: false,
     })
 
-    // Register auth pages + the catchall studio host page. The host page
-    // mounts the SPA bundle served from /_ginko-cms-studio/ above; vue-router
-    // inside the SPA handles internal navigation, so Nuxt stays on this same
-    // catchall route as the user moves around the studio.
-    registerStudioPages(studioRoute, cmsAuthDir, cmsRuntimeDir)
+    // Runtime route registration also works in host apps without a pages/
+    // directory, where Nuxt disables its built-in pages module before user
+    // modules run.
+    const studioPagesPlugin = addTemplate({
+      filename: 'ginko-cms/studio-pages.ts',
+      getContents: () =>
+        renderStudioPagesPlugin({
+          studioRoute: options.route,
+          signInPage: resolve(cmsAuthDir, 'pages/signin.vue'),
+          registerPage: resolve(cmsAuthDir, 'pages/register.vue'),
+          hostPage: resolve(cmsRuntimeDir, 'pages/studio-host.vue'),
+        }),
+    })
+    addPlugin(studioPagesPlugin.dst)
 
     // Only inject site-level i18n defaults when the host app already opted into
     // translated site locales and explicitly provided CMS siteI18n overrides.

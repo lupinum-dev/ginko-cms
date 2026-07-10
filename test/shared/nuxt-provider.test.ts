@@ -301,4 +301,32 @@ describe('Ginko Nuxt provider v2', () => {
     ).rejects.toMatchObject({ statusMessage: 'unsupported_query_shape' })
     expect(convexMock.query).not.toHaveBeenCalled()
   })
+
+  it('rejects a malformed page response with a stable provider error', async () => {
+    convexMock.query.mockResolvedValueOnce({ status: 'found', page: null })
+    const query = toContentProviderQuery({ collection: 'docs', first: true })
+    query.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'en',
+      candidates: [{ locale: 'en', contentPath: '/docs/content-routing' }],
+    }
+
+    await expect(contentProvider.query(event, query)).rejects.toMatchObject({
+      statusCode: 502,
+      statusMessage: 'provider_response_invalid',
+      data: { operation: 'page' },
+    })
+  })
+
+  it('rejects a malformed list response with a stable provider error', async () => {
+    convexMock.query.mockResolvedValueOnce({ entries: null })
+
+    await expect(
+      contentProvider.query(event, toContentProviderQuery({ collection: 'docs' })),
+    ).rejects.toMatchObject({
+      statusCode: 502,
+      statusMessage: 'provider_response_invalid',
+      data: { operation: 'list' },
+    })
+  })
 })
