@@ -5,7 +5,7 @@ import { readHostBridge, type HostBridge } from './host-bridge'
 
 export interface StudioHostContext {
   getBridge: () => HostBridge
-  getConvexClient: () => GinkoCmsConvexClientHandle | undefined
+  getConvexClient: () => GinkoCmsConvexClientHandle
   requireConvexClient: () => GinkoCmsConvexClientHandle
 }
 

@@ -1,3 +1,4 @@
+import { classifyGinkoError, type GinkoErrorCategory } from '@public/error-classification'
 import { normalizeConvexError } from 'better-convex-nuxt/errors'
 import { getFunctionName } from 'convex/server'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
@@ -16,15 +17,8 @@ import { useStudioHostContext } from '../boundary/studio-host-context'
 import { cmsPermissionKeys, type CmsPermissionKey } from './permissions'
 import { useCmsStudioAccess } from './useCmsStudioAccess'
 
-type CmsStudioQueryErrorCategory =
-  | 'auth'
-  | 'validation'
-  | 'not_found'
-  | 'rate_limit'
-  | 'network'
-  | 'server'
-  | 'conflict'
-  | 'unknown'
+type CmsStudioQueryErrorCategory = GinkoErrorCategory
+export type CmsStudioOperation = 'query' | 'mutation' | 'action' | 'upload'
 
 type CmsStudioQueryStatus = 'skipped' | 'pending' | 'success' | 'error'
 
@@ -47,18 +41,6 @@ type CmsStudioQueryOptions<RawT, DataT> = {
   requiredCapability?: CmsPermissionKey
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim().length > 0 ? value : undefined
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
-}
-
 function safeFunctionName(query: unknown): string {
   try {
     return getFunctionName(query as never)
@@ -72,40 +54,9 @@ function safeFunctionName(query: unknown): string {
  * `normalized.data` — the structured payload the library preserved verbatim
  * from a Convex application error — never on raw message text.
  */
-function categoryFromGinkoCode(data: unknown): CmsStudioQueryErrorCategory {
-  const record = isRecord(data) ? data : null
-  const code = asString(record?.code)
-  const status = asNumber(record?.status)
-  const upper = code?.toUpperCase()
-  if (upper) {
-    if (upper.includes('UNAUTH') || upper === 'FORBIDDEN') return 'auth'
-    if (upper === 'VALIDATION' || upper === 'INVALID_ARGS') return 'validation'
-    if (upper === 'NOT_FOUND') return 'not_found'
-    if (upper.startsWith('LIMIT_')) return 'rate_limit'
-    if (
-      upper === 'CONFLICT' ||
-      upper.includes('CONFLICT') ||
-      upper.includes('VERSION_MISMATCH') ||
-      upper.startsWith('STALE_')
-    ) {
-      return 'conflict'
-    }
-    if (upper === 'INTERNAL_ERROR' || upper === 'INTERNAL') return 'server'
-  }
-  if (status !== undefined) {
-    if (status === 401 || status === 403) return 'auth'
-    if (status === 400 || status === 422) return 'validation'
-    if (status === 404) return 'not_found'
-    if (status === 409) return 'conflict'
-    if (status === 429) return 'rate_limit'
-    if (status >= 500) return 'server'
-  }
-  return 'unknown'
-}
-
 export class CmsStudioQueryError extends Error {
   readonly isCmsStudioQueryError = true as const
-  readonly operation = 'query' as const
+  readonly operation: CmsStudioOperation
   readonly functionPath: string
   readonly code?: string
   readonly status?: number
@@ -116,6 +67,7 @@ export class CmsStudioQueryError extends Error {
     message: string,
     init: {
       cause: unknown
+      operation: CmsStudioOperation
       functionPath: string
       code?: string
       status?: number
@@ -125,6 +77,7 @@ export class CmsStudioQueryError extends Error {
   ) {
     super(message, { cause: init.cause })
     this.name = 'CmsStudioQueryError'
+    this.operation = init.operation
     this.functionPath = init.functionPath
     this.code = init.code
     this.status = init.status
@@ -133,7 +86,11 @@ export class CmsStudioQueryError extends Error {
   }
 }
 
-export function normalizeCmsStudioQueryError(error: unknown, query: unknown): CmsStudioQueryError {
+export function normalizeCmsStudioQueryError(
+  error: unknown,
+  query: unknown,
+  operation: CmsStudioOperation = 'query',
+): CmsStudioQueryError {
   if (error instanceof CmsStudioQueryError) return error
 
   // The library owns transport/server/unknown shape (kind, code, status, data
@@ -146,11 +103,15 @@ export function normalizeCmsStudioQueryError(error: unknown, query: unknown): Cm
       : normalized.kind === 'transport'
         ? 'network'
         : normalized.kind === 'server'
-          ? categoryFromGinkoCode(normalized.data)
+          ? (classifyGinkoError(normalized.data, {
+              code: normalized.code,
+              status: normalized.status,
+            }) ?? 'server')
           : 'unknown'
 
   return new CmsStudioQueryError(normalized.message, {
     cause: normalized.cause,
+    operation,
     functionPath: safeFunctionName(query),
     code: normalized.code,
     status: normalized.status,

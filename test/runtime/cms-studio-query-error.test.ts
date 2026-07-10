@@ -98,4 +98,13 @@ describe('useCmsStudioQuery error normalization (vNext §10.8, ConvexCallError)'
 
     expect(second).toBe(first)
   })
+
+  it('records the actual Studio operation', () => {
+    const appError = new ConvexError({ code: 'CONFLICT', message: 'stale write' })
+
+    expect(normalizeCmsStudioQueryError(appError, {} as never, 'mutation').operation).toBe(
+      'mutation',
+    )
+    expect(normalizeCmsStudioQueryError(appError, {} as never, 'upload').operation).toBe('upload')
+  })
 })

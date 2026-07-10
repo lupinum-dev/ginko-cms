@@ -125,20 +125,7 @@ describe('ginko-cms better-convex-nuxt dependency defaults (vNext §10.2 / decis
     expect(merged.auth).toBe(false)
   })
 
-  it('top-level `convex: false` survives ONLY because Ginko supplies no defaults entry', () => {
-    const dep = convexDep(false, freshSrcDir())
-    // Decision 12: no better-convex-nuxt entry at all when convex === false.
-    expect(dep).toBeUndefined()
-    // With no entry, Nuxt applies no merge and the off switch is preserved.
-    expect(applyNuxtMerge(false, dep)).toBe(false)
-    // Pin the defeat mechanism this guards against: ANY defaults object (even
-    // an empty one) merged onto the primitive `false` replaces it — which is
-    // exactly why Ginko must emit nothing rather than an empty entry.
-    expect(defu(false as unknown as Record<string, unknown>, {})).not.toBe(false)
-    expect(
-      defu(false as unknown as Record<string, unknown>, {
-        auth: { routeProtection: { redirectTo: '/studio/auth/signin' } },
-      }),
-    ).toEqual({ auth: { routeProtection: { redirectTo: '/studio/auth/signin' } } })
+  it('rejects top-level `convex: false` because Ginko requires Convex', () => {
+    expect(() => convexDep(false, freshSrcDir())).toThrow('ginko-cms requires better-convex-nuxt')
   })
 })

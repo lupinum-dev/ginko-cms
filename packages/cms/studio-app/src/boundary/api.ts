@@ -19,7 +19,7 @@ import { readHostBridge, setHostBridgeForTesting } from './host-bridge'
 //   production, a missing host API is a broken integration and throws.
 
 function readHostApi(): GinkoCmsStudioHostApi | null {
-  return readHostBridge().api ?? null
+  return readHostBridge().api
 }
 
 function buildApiProxy(): unknown {

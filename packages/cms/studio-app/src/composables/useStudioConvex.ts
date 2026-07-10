@@ -106,7 +106,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       options?.onSuccess?.(result, args)
       return result
     } catch (err) {
-      const normalized = normalizeCmsStudioQueryError(err, mutation)
+      const normalized = normalizeCmsStudioQueryError(err, mutation, 'mutation')
       error.value = normalized
       status.value = 'error'
       options?.onError?.(normalized, args)
@@ -177,7 +177,7 @@ export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
       options?.onQueueIdle?.()
       return result
     } catch (err) {
-      const normalized = normalizeCmsStudioQueryError(err, generateUploadUrlMutation)
+      const normalized = normalizeCmsStudioQueryError(err, generateUploadUrlMutation, 'upload')
       error.value = normalized
       status.value = 'error'
       const firstFile = Array.isArray(input) ? input[0] : input

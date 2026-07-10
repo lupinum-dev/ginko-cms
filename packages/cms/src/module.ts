@@ -519,12 +519,16 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
     const { resolve: moduleResolve } = createResolver(import.meta.url)
 
-    // vNext §10.2 / decision 12: the host owns the single Better Auth client
-    // definition. Compute the fallback conditions before returning deps; do not
-    // rely on `defu` to detect the host convention file.
+    // The host owns the single Better Auth client definition. Ginko itself
+    // requires Convex, while nested `auth: false` remains a supported topology.
     const hostConvex = nuxtOptions.convex
+    if (hostConvex === false) {
+      throw new Error(
+        'ginko-cms requires better-convex-nuxt. Remove the top-level `convex: false` option; use `convex.auth: false` to run without authentication.',
+      )
+    }
     const hostAuth = hostConvex && typeof hostConvex === 'object' ? hostConvex.auth : undefined
-    const authDisabled = hostConvex === false || hostAuth === false
+    const authDisabled = hostAuth === false
     const hasExplicitClient =
       hostAuth !== null &&
       typeof hostAuth === 'object' &&
@@ -548,14 +552,9 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       },
     }
 
-    // decision 12: when the host set top-level `convex: false`, Ginko must emit
-    // NO better-convex-nuxt dependency entry at all. Nuxt merges dependency
-    // defaults with `defu(...overrides, nuxt.options.convex, ...defaults)`; a
-    // defaults object would clobber the primitive `false` and defeat the
-    // module's own `=== false` disable check, installing it against the host's
-    // explicit off switch. Any other value keeps the module (Ginko needs it) —
-    // auth defaults are layered on only when auth is not disabled.
-    if (hostConvex !== false) {
+    // Authentication defaults are omitted when the host explicitly selects
+    // Better Convex Nuxt's supported `auth: false` topology.
+    {
       const convexDefaults: Record<string, unknown> = {}
       if (!authDisabled) {
         // routeProtection.redirectTo is provided whenever auth is enabled,

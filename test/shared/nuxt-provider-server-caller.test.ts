@@ -62,11 +62,72 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     expect(convexHttpClientMock).not.toHaveBeenCalled()
   })
 
+  it('reuses one caller for page and concurrent asset queries in the same request', async () => {
+    const query = vi.fn(async (reference: unknown) => {
+      const path = String((reference as Record<symbol, unknown>)[Symbol.for('functionName')])
+      if (path.endsWith('page')) {
+        return {
+          status: 'found',
+          page: {
+            id: 'entry-1',
+            collection: 'pages',
+            stableId: 'entry-1',
+            title: 'Home',
+            updatedAt: 1,
+            locale: { requested: 'en', resolved: 'en' },
+            route: { path: '/', locale: 'en' },
+            data: {
+              heroAsset: 'abcdefghijklmnopqrst',
+              logoAsset: 'bcdefghijklmnopqrstu',
+            },
+            bodyAst: { type: 'root', props: {}, children: [] },
+          },
+        }
+      }
+      return 'https://cdn.example.test/hero.png'
+    })
+    serverConvexMock.mockReturnValue({ query })
+
+    const event = { context: { runtimeConfig: { public: {} } } }
+    await contentProvider.query(event, {
+      v: 1,
+      collection: 'pages',
+      plan: { resolveVariant: { path: '/', locale: 'en' } },
+    })
+
+    expect(serverConvexMock).toHaveBeenCalledTimes(1)
+    expect(query).toHaveBeenCalledTimes(3)
+  })
+
   it('keeps a direct anonymous ConvexHttpClient for genuinely eventless build/CLI paths', async () => {
     await contentProvider.siteData(undefined, { key: 'announcement', locale: 'en' })
 
     expect(convexHttpClientMock).toHaveBeenCalledTimes(1)
     expect(convexHttpClientMock).toHaveBeenCalledWith('https://example.convex.cloud')
     expect(serverConvexMock).not.toHaveBeenCalled()
+  })
+
+  it('never exposes opaque cause data through provider errors', async () => {
+    const secret = 'opaque-cause-secret'
+    serverConvexMock.mockReturnValue({
+      query: vi.fn(async () => {
+        throw Object.assign(new Error('Public failure'), {
+          data: { code: 'PUBLIC_FAILURE' },
+          cause: { data: { token: secret } },
+        })
+      }),
+    })
+
+    const event = { context: { runtimeConfig: { public: {} } } }
+    let thrown: unknown
+    try {
+      await contentProvider.siteData(event, { key: 'announcement', locale: 'en' })
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toBeInstanceOf(Error)
+    expect(JSON.stringify(thrown)).not.toContain(secret)
+    expect(thrown).toMatchObject({ data: { code: 'PUBLIC_FAILURE' } })
   })
 })

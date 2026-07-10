@@ -86,11 +86,11 @@ export interface GinkoCmsStudioMcpApiKeys {
 
 export interface GinkoCmsStudioHostBridge {
   /** The stable, replacement-safe Convex client handle from `useConvex()`. */
-  convexClient?: GinkoCmsConvexClientHandle
+  convexClient: GinkoCmsConvexClientHandle
   config: GinkoCmsPublicConfig
-  api?: GinkoCmsStudioHostApi
-  auth?: GinkoCmsStudioHostBridgeAuth | null
-  mcpApiKeys?: GinkoCmsStudioMcpApiKeys
+  api: GinkoCmsStudioHostApi
+  auth: GinkoCmsStudioHostBridgeAuth | null
+  mcpApiKeys: GinkoCmsStudioMcpApiKeys
   onSignOut: () => void | Promise<void>
 }
 

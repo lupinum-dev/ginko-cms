@@ -1,4 +1,4 @@
-import { normalizeProviderDocument, shapeProviderDocument } from '@lupinum/ginko-content/provider'
+import { normalizeProviderDocument, withContentCache } from '@lupinum/ginko-content/provider'
 
 const normalizeContentTagSegment = (value) => {
   const segment = String(value ?? '').trim()
@@ -218,7 +218,9 @@ const sitemapLocalesForCollection = (contentRuntime, collection, requestedLocale
 }
 
 const normalizeRemoteError = (error, operation) => {
-  const rawData = error?.data || error?.serverErrorData || error?.cause?.data || {}
+  // Only consume the public normalized error contract. `cause` is deliberately
+  // opaque and may contain credentials or transport implementation details.
+  const rawData = error?.data || {}
   const data =
     typeof rawData === 'string'
       ? (() => {
@@ -240,6 +242,19 @@ const normalizeRemoteError = (error, operation) => {
   )
 }
 
+const requestCallers = new WeakMap()
+
+const callerForEvent = async (event) => {
+  if (!event || (typeof event !== 'object' && typeof event !== 'function')) return null
+  const existing = requestCallers.get(event)
+  if (existing) return await existing
+  const pending = import('better-convex-nuxt/server').then(({ serverConvex }) =>
+    serverConvex(event, { auth: 'none' }),
+  )
+  requestCallers.set(event, pending)
+  return await pending
+}
+
 const callConvexFunction = async (event, functionName, operation, args) => {
   // Reading validates site configuration early even before multi-site routing lands.
   providerSite()
@@ -251,8 +266,7 @@ const callConvexFunction = async (event, functionName, operation, args) => {
     // Event-backed request paths route the supplied H3 event through one
     // anonymous `serverConvex` caller so transport/auth stay library-owned.
     if (event) {
-      const { serverConvex } = await import('better-convex-nuxt/server')
-      const caller = serverConvex(event, { auth: 'none' })
+      const caller = await callerForEvent(event)
       return await caller.query(functionReference(functionName), args)
     }
     // Genuinely eventless prerender/build/CLI paths keep a direct anonymous client.
@@ -306,14 +320,6 @@ const hrefFor = (route, locale, options = {}) => {
 }
 
 const publicEntryKey = (entry) => entry?.stableId || entry?.ref || entry?.revision || entry?.id
-
-const providerResultMarker = '__ginkoContentProviderResult'
-
-const withContentCache = (data, cache) => ({
-  [providerResultMarker]: true,
-  data,
-  cache: cache === false ? false : normalizeCacheHint(cache),
-})
 
 const normalizeCacheHint = (hint = {}) => ({
   ...hint,
@@ -441,21 +447,20 @@ const toContentDocument = async (event, entry, requestedLocale = defaultLocale()
     entry?.locale?.resolved || entry?.locale?.requested || route.locale || requestedLocale
   const path = route.path || data.path || '/'
   const variants = variantEntriesFor(entry, locale, route)
-  const variantPaths = Object.fromEntries(
-    variants.map((variant) => [variant.locale, variant.route.path]),
-  )
-  const availableLocales = variants.map((variant) => variant.locale)
   const entryKey = publicEntryKey(entry)
-  const fallback = requested !== locale
 
   return normalizeProviderDocument({
     ...publicData,
     id: entry.id,
     collection: entry.collection,
     type: hasMarkdownBody ? 'markdown' : 'yaml',
-    path,
+    contentPath: path,
     locale,
     canonicalKey: `${entry.collection}:${entryKey}`,
+    routeVariants: variants.map((variant) => ({
+      locale: variant.locale,
+      contentPath: variant.route.path,
+    })),
     ref: entry.ref || entryKey,
     title: entry.title,
     description: publicData.description || publicData.excerpt || '',
@@ -465,45 +470,22 @@ const toContentDocument = async (event, entry, requestedLocale = defaultLocale()
       }),
       assetUrls,
     ),
-    resolved: {
-      locale,
-      requestedLocale: requested,
-      fallback,
-      variantPaths,
-      ...(options.requestedRoute ? { requestedRoute: options.requestedRoute } : {}),
-      ...(options.requestedRef ? { requestedRef: options.requestedRef } : {}),
-      availableLocales,
-    },
     stableId: entryKey,
     updatedAt: entry.updatedAt || entry.publishedAt,
   })
 }
 
 const toContentEntry = async (event, entry, requestedLocale = defaultLocale(), options = {}) => {
-  const document = await toContentDocument(event, entry, requestedLocale, options)
-  if (options.shape === false) return document
-  const contentRuntime = options.contentRuntime || {}
-  const shaped = shapeProviderDocument(document, {
-    defaultLocale: options.defaultLocale || defaultLocale(contentRuntime),
-    locales: contentLocalesFor(
-      contentRuntime,
-      document.collection,
-      document.resolved?.availableLocales,
-    ),
-    route: collectionRouteFor(contentRuntime, document.collection),
-  })
-  const storedHref = entry?.route?.href
-  if (typeof storedHref !== 'string' || !storedHref) return shaped
-  const path = options.canonical ? document.path : routePathname(storedHref)
-  return {
-    ...shaped,
-    path,
-    resolved: {
-      ...shaped.resolved,
-      path,
-    },
-  }
+  return await toContentDocument(event, entry, requestedLocale, options)
 }
+
+const routeFactFor = (entry) => ({
+  collection: entry.collection,
+  canonicalKey: `${entry.collection}:${publicEntryKey(entry)}`,
+  locale:
+    entry.locale?.resolved || entry.locale?.requested || entry.route?.locale || defaultLocale(),
+  contentPath: entry.route?.path || '/',
+})
 
 const cacheHintForEntry = (entry, content) => {
   const locale =

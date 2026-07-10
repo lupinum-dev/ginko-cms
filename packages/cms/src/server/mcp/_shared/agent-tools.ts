@@ -5,6 +5,7 @@ import type { H3Event } from 'h3'
 
 import { api } from '#convex/api'
 
+import { classifyGinkoError } from '../../../public/error-classification.js'
 import { getMcpAuth, type McpConvexCaller } from './auth.js'
 import type { CmsMcpCapabilities } from './capabilities.js'
 import { redactMcpResponse } from './response-redaction.js'
@@ -141,19 +142,6 @@ function readGinkoErrorData(data: unknown): JsonRecord | null {
  * the code carries no product signal, so classification falls back to the
  * library's structural `kind`.
  */
-function categoryFromGinkoCode(code: string | null): McpErrorCategory | null {
-  if (!code) return null
-  const token = code.toLowerCase()
-  if (token.includes('unauth') || token.includes('forbidden')) return 'auth'
-  if (token.includes('not_found')) return 'not_found'
-  if (token.includes('rate_limit')) return 'rate_limit'
-  if (token.includes('conflict') || token.includes('version')) return 'conflict'
-  if (token.startsWith('invalid') || token.startsWith('missing') || token.includes('unsupported')) {
-    return 'validation'
-  }
-  return null
-}
-
 function categoryFromNormalizedKind(kind: ConvexCallErrorKind): McpErrorCategory {
   switch (kind) {
     case 'authentication':
@@ -219,7 +207,9 @@ export function failFromError(error: unknown, fallback: string): McpToolCallback
       : undefined
   const suggestedAction =
     details && typeof details.suggestedAction === 'string' ? details.suggestedAction : undefined
-  const category = categoryFromGinkoCode(code) ?? categoryFromNormalizedKind(normalized.kind)
+  const category =
+    classifyGinkoError(data, { code: normalized.code, status: normalized.status }) ??
+    categoryFromNormalizedKind(normalized.kind)
 
   return fail(message, details, {
     category,

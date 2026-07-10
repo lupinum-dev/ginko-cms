@@ -52,22 +52,6 @@ export default defineConfig({
       '@lupinum/ginko-cms-contract': resolve(__dirname, 'packages/contract/src'),
       '@lupinum/ginko-cms-convex': resolve(__dirname, 'packages/convex/src'),
       '@lupinum/ginko-cms': resolve(__dirname, 'packages/cms/src/module.ts'),
-      '@lupinum/ginko-content/cms-contract': resolve(
-        __dirname,
-        '../ginko-content/packages/content/src/cms-contract/index.ts',
-      ),
-      '@lupinum/ginko-content/cms-import': resolve(
-        __dirname,
-        '../ginko-content/packages/content/src/cms-import/index.ts',
-      ),
-      '@lupinum/ginko-content/provider': resolve(
-        __dirname,
-        '../ginko-content/packages/content/src/public/provider.ts',
-      ),
-      '@lupinum/ginko-content/testing/provider-contract': resolve(
-        __dirname,
-        '../ginko-content/packages/content/src/testing/provider-contract.ts',
-      ),
       vue: resolve(__dirname, 'node_modules/vue'),
     },
   },

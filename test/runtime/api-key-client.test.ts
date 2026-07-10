@@ -33,6 +33,12 @@ describe('requireGinkoApiKeyClient (vNext §10.2/§10.5)', () => {
     expect(() => requireGinkoApiKeyClient(client)).toThrow(GINKO_API_KEY_CLIENT_ERROR)
   })
 
+  it('throws when apiKey exists but delete is not a function', () => {
+    const client = { apiKey: { create: () => Promise.resolve({}), delete: undefined } }
+
+    expect(() => requireGinkoApiKeyClient(client)).toThrow(GINKO_API_KEY_CLIENT_ERROR)
+  })
+
   it('throws for null, undefined, and non-object clients without touching .apiKey', () => {
     expect(() => requireGinkoApiKeyClient(null)).toThrow(GINKO_API_KEY_CLIENT_ERROR)
     expect(() => requireGinkoApiKeyClient(undefined)).toThrow(GINKO_API_KEY_CLIENT_ERROR)

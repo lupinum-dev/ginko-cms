@@ -27,7 +27,7 @@ export const GINKO_API_KEY_CLIENT_ERROR =
  *
  * Backs both the Studio capability check (before rendering API-key management)
  * and §10.5 `createMcpApiKey`. Validates the exact methods Ginko calls
- * (`apiKey.create`) at runtime rather than trusting the compile-time shape,
+ * (`apiKey.create` and `apiKey.delete`) at runtime rather than trusting the compile-time shape,
  * because the host owns the single auth-client definition and may omit the
  * API-key plugin.
  */
@@ -38,7 +38,8 @@ export function requireGinkoApiKeyClient(client: unknown): GinkoApiKeyClient {
   if (
     !apiKey ||
     typeof apiKey !== 'object' ||
-    typeof (apiKey as { create?: unknown }).create !== 'function'
+    typeof (apiKey as { create?: unknown }).create !== 'function' ||
+    typeof (apiKey as { delete?: unknown }).delete !== 'function'
   ) {
     throw new Error(GINKO_API_KEY_CLIENT_ERROR)
   }
