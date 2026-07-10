@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   appendFileSync,
   existsSync,
@@ -22,6 +23,14 @@ const consumerCompatibility = compatibilityMatrix.consumer
 const packDir = resolve(repoRoot, '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
 const pnpmBin = process.env.npm_execpath ?? 'pnpm'
+const candidateMode = process.argv.includes('--candidate')
+const developmentMode = process.argv.includes('--dev-sources')
+const registryDependencies = process.argv.includes('--registry-deps')
+if ([candidateMode, developmentMode, registryDependencies].filter(Boolean).length !== 1) {
+  throw new Error(
+    'Choose exactly one package dependency lane: --candidate, --dev-sources, or --registry-deps.',
+  )
+}
 const siblingContentRoot = resolve(repoRoot, '../ginko-content/packages/content')
 const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
   ? resolve(process.env.GINKO_CONTENT_PACKAGE_ROOT)
@@ -32,15 +41,47 @@ const betterConvexNuxtRoot = process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT
   ? resolve(process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT)
   : undefined
 const liveConvex = process.argv.includes('--live')
-const registryDependencies = process.argv.includes('--registry-deps')
-const registryContent = registryDependencies || !contentRoot
-const registryBetterConvexNuxt = registryDependencies || !betterConvexNuxtRoot
+const registryContent = registryDependencies || (developmentMode && !contentRoot)
+const registryBetterConvexNuxt = registryDependencies || (developmentMode && !betterConvexNuxtRoot)
 const contentRegistryVersion =
   process.env.GINKO_CONTENT_PACKAGE_VERSION ||
   compatibilityMatrix.releaseStack['@lupinum/ginko-content']
 const betterConvexNuxtRegistryVersion =
   process.env.BETTER_CONVEX_NUXT_PACKAGE_VERSION ||
   compatibilityMatrix.releaseStack['better-convex-nuxt']
+
+function sha256(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex')
+}
+
+function requireCandidateArtifact(pathVariable, hashVariable) {
+  const artifact = process.env[pathVariable]
+  const expectedHash = process.env[hashVariable]?.toLowerCase()
+  if (!artifact || !expectedHash) {
+    throw new Error(`Candidate verification requires ${pathVariable} and ${hashVariable}.`)
+  }
+  const resolvedArtifact = resolve(artifact)
+  if (!existsSync(resolvedArtifact) || !resolvedArtifact.endsWith('.tgz')) {
+    throw new Error(`${pathVariable} must reference an existing .tgz file.`)
+  }
+  if (!/^[a-f0-9]{64}$/.test(expectedHash)) {
+    throw new Error(`${hashVariable} must be a lowercase or uppercase SHA-256 digest.`)
+  }
+  const actualHash = sha256(resolvedArtifact)
+  if (actualHash !== expectedHash) {
+    throw new Error(
+      `${pathVariable} SHA-256 mismatch: expected ${expectedHash}, received ${actualHash}.`,
+    )
+  }
+  return { path: resolvedArtifact, sha256: actualHash }
+}
+
+const candidateContent = candidateMode
+  ? requireCandidateArtifact('GINKO_CONTENT_TARBALL', 'GINKO_CONTENT_SHA256')
+  : undefined
+const candidateBetterConvexNuxt = candidateMode
+  ? requireCandidateArtifact('BETTER_CONVEX_NUXT_TARBALL', 'BETTER_CONVEX_NUXT_SHA256')
+  : undefined
 
 function packageE2eEnv() {
   if (!liveConvex) {
@@ -108,7 +149,7 @@ function buildPackage(packageDir) {
 
 function buildPackedPackages() {
   run('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'])
-  if (!registryContent) {
+  if (developmentMode && !registryContent) {
     buildPackage(contentRoot)
   }
 }
@@ -133,10 +174,12 @@ function fileDependency(path) {
 }
 
 function contentDependency(contentTarball) {
+  if (candidateContent) return fileDependency(candidateContent.path)
   return registryContent ? contentRegistryVersion : fileDependency(contentTarball)
 }
 
 function betterConvexNuxtDependency(betterConvexNuxtTarball) {
+  if (candidateBetterConvexNuxt) return fileDependency(candidateBetterConvexNuxt.path)
   return registryBetterConvexNuxt
     ? betterConvexNuxtRegistryVersion
     : fileDependency(betterConvexNuxtTarball)
@@ -205,20 +248,22 @@ try {
   packPackage('packages/contract')
   packPackage('packages/convex')
   packPackage('packages/cms')
-  if (!registryContent) {
+  if (developmentMode && !registryContent) {
     packPackage(contentRoot)
   }
-  if (!registryBetterConvexNuxt) {
+  if (developmentMode && !registryBetterConvexNuxt) {
     packPackage(betterConvexNuxtRoot)
   }
 
   const contractTarball = findTarball('lupinum/ginko-cms-contract')
   const convexTarball = findTarball('lupinum/ginko-cms-convex')
   const cmsTarball = findTarball('lupinum/ginko-cms')
-  const contentTarball = registryContent ? undefined : findTarball('lupinum/ginko-content')
-  const betterConvexNuxtTarball = registryBetterConvexNuxt
-    ? undefined
-    : findTarball('better-convex-nuxt')
+  const contentTarball =
+    registryContent || candidateContent ? undefined : findTarball('lupinum/ginko-content')
+  const betterConvexNuxtTarball =
+    registryBetterConvexNuxt || candidateBetterConvexNuxt
+      ? undefined
+      : findTarball('better-convex-nuxt')
 
   run('node', ['scripts/check-pack-workspace-refs.mjs'])
 
@@ -346,6 +391,24 @@ try {
   )
 
   run('pnpm', ['install', '--ignore-scripts'], { cwd: tempDir })
+
+  const installedVersions = Object.fromEntries(
+    [
+      ['@lupinum/ginko-content', 'node_modules/@lupinum/ginko-content/package.json'],
+      ['better-convex-nuxt', 'node_modules/better-convex-nuxt/package.json'],
+    ].map(([name, path]) => [name, JSON.parse(readFileSync(join(tempDir, path), 'utf8')).version]),
+  )
+  for (const [name, version] of Object.entries(installedVersions)) {
+    if (version !== compatibilityMatrix.releaseStack[name]) {
+      throw new Error(
+        `Installed ${name}@${version}; expected ${compatibilityMatrix.releaseStack[name]} from compatibility.json.`,
+      )
+    }
+  }
+  const consumerLockfile = readFileSync(join(tempDir, 'pnpm-lock.yaml'), 'utf8')
+  if (/\b(?:link|workspace):/.test(consumerLockfile)) {
+    throw new Error('Candidate consumer lockfile contains a workspace or link dependency.')
+  }
   run('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir })
   run('pnpm', ['exec', 'ginko-cms', 'doctor'], { cwd: tempDir })
   run('pnpm', ['exec', 'convex', 'codegen', '--system-udfs', '--typecheck', 'disable'], {
@@ -433,15 +496,34 @@ try {
       'package e2e ok',
       `consumer=${tempDir}`,
       `cms=${basename(cmsTarball)}`,
-      `content=${registryContent ? contentRegistryVersion : basename(contentTarball)}`,
+      `content=${candidateContent ? basename(candidateContent.path) : registryContent ? contentRegistryVersion : basename(contentTarball)}`,
       `convex=${basename(convexTarball)}`,
       `contract=${basename(contractTarball)}`,
       `betterConvexNuxt=${
-        registryBetterConvexNuxt
-          ? betterConvexNuxtRegistryVersion
-          : basename(betterConvexNuxtTarball)
+        candidateBetterConvexNuxt
+          ? basename(candidateBetterConvexNuxt.path)
+          : registryBetterConvexNuxt
+            ? betterConvexNuxtRegistryVersion
+            : basename(betterConvexNuxtTarball)
       }`,
     ].join('\n'),
+  )
+
+  const releaseEvidence = {
+    lane: candidateMode ? 'candidate' : registryDependencies ? 'registry' : 'development',
+    dependencies: {
+      '@lupinum/ginko-content': candidateContent ?? { version: contentRegistryVersion },
+      'better-convex-nuxt': candidateBetterConvexNuxt ?? {
+        version: betterConvexNuxtRegistryVersion,
+      },
+    },
+    packages: Object.fromEntries(
+      [contractTarball, convexTarball, cmsTarball].map((path) => [basename(path), sha256(path)]),
+    ),
+  }
+  writeFileSync(
+    join(packDir, 'release-evidence.json'),
+    `${JSON.stringify(releaseEvidence, null, 2)}\n`,
   )
 } finally {
   if (process.env.GINKO_KEEP_PACKAGE_E2E !== '1') {
