@@ -7,6 +7,16 @@
     "@lupinum/ginko-content": "0.3.0",
     "better-convex-nuxt": "0.6.0"
   },
+  "releaseArtifacts": {
+    "@lupinum/ginko-content": {
+      "sourceCommit": "271d818a3b4e9e1b3fead977d901150887c3dc40",
+      "sha256": "c9d69e1ffd99a5a32a309658e354e4f8d1ad3ef9059739a61a6ead1aee3c5574"
+    },
+    "better-convex-nuxt": {
+      "sourceCommit": "d8b4990a9db2f27910b92a993d6c62c00a939ca1",
+      "sha256": "610484b0281429fabfa33a84e565f5b46d28a0cbaf1ee465a115c62280e6c927"
+    }
+  },
   "tracked": {
     "@better-auth/api-key": ["1.6.23"],
     "@better-auth/core": ["1.6.23"],

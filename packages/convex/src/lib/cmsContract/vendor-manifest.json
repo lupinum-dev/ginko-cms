@@ -1,0 +1,13 @@
+{
+  "package": "@lupinum/ginko-content",
+  "packageVersion": "0.3.0",
+  "sourceCommit": "271d818a3b4e9e1b3fead977d901150887c3dc40",
+  "files": {
+    "index.ts": "4454512874dab85b450ebc651bf84cbb4574cda67969b9213ce59c3b8372656c",
+    "markdownTree.ts": "ee0ffd4721a451c17121ca9c701b9ba0122e1ed60e8fd658d1519e1dcda418fb",
+    "mdc.ts": "4ac09ca5ac66a4bed56cf5ee9892c1c65d8719fe846946d27655acbe84c2ab6c",
+    "path.ts": "a23a7f7abaefa3c6c30bf5b0aec8318b62ba7c5d31c4d3f7d72470a276848251",
+    "slug.ts": "eaac971437f3ca5d9354144481a3e0e4dc6c6935f38e3d1abd4beeba7e66c3c6",
+    "types.ts": "cc32f14804903f5be3431b65ed1a1d4ab92ea640f990f15837e2a873be711ffc"
+  }
+}

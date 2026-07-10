@@ -1,15 +1,68 @@
-import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const check = process.argv.includes('--check')
 const repoRoot = resolve(import.meta.dirname, '..')
-const contentRoot = resolve(
-  process.env.GINKO_CONTENT_ROOT || resolve(repoRoot, '..', 'ginko-content'),
+const compatibility = JSON.parse(
+  readFileSync(resolve(repoRoot, 'packages/cms/compatibility.json'), 'utf8'),
 )
-const canonicalRoot = resolve(contentRoot, 'packages/content/src')
+const sourceArtifact = compatibility.releaseArtifacts['@lupinum/ginko-content']
+const vendorManifestPath = resolve(
+  repoRoot,
+  'packages/convex/src/lib/cmsContract/vendor-manifest.json',
+)
 const targetRoot = resolve(repoRoot, 'packages/convex/src/lib/cmsContract')
+
+const hashFile = (path) => createHash('sha256').update(readFileSync(path)).digest('hex')
+
+if (check) {
+  const manifest = JSON.parse(readFileSync(vendorManifestPath, 'utf8'))
+  if (
+    manifest.packageVersion !== compatibility.releaseStack['@lupinum/ginko-content'] ||
+    manifest.sourceCommit !== sourceArtifact.sourceCommit
+  ) {
+    throw new Error('cmsContract vendor manifest does not match compatibility.json.')
+  }
+  const drift = Object.entries(manifest.files)
+    .filter(([name, expected]) => hashFile(resolve(targetRoot, name)) !== expected)
+    .map(([name]) => name)
+  if (drift.length) {
+    throw new Error(
+      `cmsContract vendor drift detected: ${drift.join(', ')}. Regenerate with the pinned Ginko Content checkout.`,
+    )
+  }
+  console.log('cmsContract vendor checksums match the pinned source manifest.')
+  process.exit(0)
+}
+
+if (!process.env.GINKO_CONTENT_ROOT) {
+  throw new Error(
+    'Vendor regeneration requires GINKO_CONTENT_ROOT at the pinned Ginko Content checkout.',
+  )
+}
+const contentRoot = resolve(process.env.GINKO_CONTENT_ROOT)
+const git = (...args) =>
+  execFileSync('git', ['-C', contentRoot, ...args], { encoding: 'utf8' }).trim()
+if (git('status', '--porcelain')) {
+  throw new Error('GINKO_CONTENT_ROOT must be a clean checkout before vendor regeneration.')
+}
+const sourceCommit = git('rev-parse', 'HEAD')
+if (sourceCommit !== sourceArtifact.sourceCommit) {
+  throw new Error(
+    `GINKO_CONTENT_ROOT is at ${sourceCommit}; expected ${sourceArtifact.sourceCommit}.`,
+  )
+}
+const sourcePackage = JSON.parse(
+  readFileSync(resolve(contentRoot, 'packages/content/package.json'), 'utf8'),
+)
+if (sourcePackage.version !== compatibility.releaseStack['@lupinum/ginko-content']) {
+  throw new Error(
+    `GINKO_CONTENT_ROOT contains ${sourcePackage.name}@${sourcePackage.version}; expected ${compatibility.releaseStack['@lupinum/ginko-content']}.`,
+  )
+}
+const canonicalRoot = resolve(contentRoot, 'packages/content/src')
 
 const generatedHeader = (source) => `/**
  * Generated from \`@lupinum/ginko-content/cms-contract\`.
@@ -200,28 +253,14 @@ function writeFiles(root) {
   formatInPlace(root, [...files.keys()])
 }
 
-if (!check) {
-  writeFiles(targetRoot)
-  console.log(`Synced ${files.size} cms-contract vendor files.`)
-  process.exit(0)
+writeFiles(targetRoot)
+const manifest = {
+  package: '@lupinum/ginko-content',
+  packageVersion: sourcePackage.version,
+  sourceCommit,
+  files: Object.fromEntries(
+    [...files.keys()].sort().map((name) => [name, hashFile(resolve(targetRoot, name))]),
+  ),
 }
-
-const tempRoot = mkdtempSync(resolve(tmpdir(), 'ginko-cms-contract-vendor-'))
-try {
-  writeFiles(tempRoot)
-  const drift = []
-  for (const name of files.keys()) {
-    const expected = readFileSync(resolve(tempRoot, name), 'utf8')
-    const actual = readFileSync(resolve(targetRoot, name), 'utf8')
-    if (expected !== actual) drift.push(name)
-  }
-  if (drift.length) {
-    console.error(
-      `cmsContract vendor drift detected: ${drift.join(', ')}. Run \`pnpm run sync:cms-contract-vendor\`.`,
-    )
-    process.exit(1)
-  }
-  console.log('cmsContract vendor files are in sync.')
-} finally {
-  rmSync(tempRoot, { recursive: true, force: true })
-}
+writeFileSync(vendorManifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+console.log(`Synced ${files.size} cms-contract vendor files from ${sourceCommit}.`)
