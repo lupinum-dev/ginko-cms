@@ -21,8 +21,16 @@ Run the package release gates from the Ginko CMS workspace:
 
 ```bash
 pnpm run release:notes
-pnpm run release:verify
+GINKO_CONTENT_TARBALL=/absolute/path/to/ginko-content.tgz \
+GINKO_CONTENT_SHA256=<sha256> \
+BETTER_CONVEX_NUXT_TARBALL=/absolute/path/to/better-convex-nuxt.tgz \
+BETTER_CONVEX_NUXT_SHA256=<sha256> \
+pnpm run release:verify:candidate
 ```
+
+This installs those exact artifacts, verifies their hashes and
+compatibility-matrix versions, and rejects workspace or link resolution. Review
+`.pack/release-evidence.json` with the other release evidence.
 
 After Ginko Content release candidates are available from the
 registry, also run:

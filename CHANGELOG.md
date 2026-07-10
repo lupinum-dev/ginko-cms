@@ -4,6 +4,9 @@
 
 ### Changed
 
+- Migrated the Nuxt provider and public Convex reads to Ginko Content Wire V2
+  with `@lupinum/ginko-content@0.3.0`; V1 provider payloads are no longer
+  accepted.
 - Upgraded the Nuxt integration baseline to `better-convex-nuxt@0.6.0` (the
   vNext public surface) and `@convex-dev/better-auth@0.12.5`, collapsing the
   prior dual `0.12.2`/`0.12.5` resolution to a single copy.
@@ -70,9 +73,12 @@
 
 ### Fixed
 
-- Made package e2e/release verification pack the sibling local
-  `@lupinum/ginko-content` package by default in coordinated release QA, so
-  verification does not depend on publishing order.
+- Added a strict candidate verification lane that consumes prebuilt Ginko
+  Content and Better Convex Nuxt tarballs by exact SHA-256 instead of repacking
+  mutable sibling checkouts.
+- Made normal CMS-contract vendor checks self-contained through a committed
+  checksum manifest and installed-package parity. Regeneration now requires the
+  exact clean Ginko Content source commit recorded in the compatibility matrix.
 
 ## v0.1.3
 

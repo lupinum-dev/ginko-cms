@@ -15,12 +15,9 @@ Publishable packages in this repo:
 Publish order matters. The contract package is the lowest layer, the Convex
 package depends on it, and the Nuxt CMS package depends on both.
 
-External packages required for the release tuple:
-
-- `@lupinum/ginko-content@0.2.1`
-- `better-convex-nuxt@0.6.0`
-
-Those packages must already be published before the CMS packages are published.
+The external package versions, source commits, and approved artifact hashes live
+only in `packages/cms/compatibility.json`. Those packages must be approved before
+the CMS packages are published.
 
 ## Daily Maintenance
 
@@ -31,14 +28,22 @@ pnpm run check
 pnpm run release:verify
 ```
 
-`release:verify` runs local checks, public package e2e, and production audit.
-The package e2e packs the public package set into `.pack/` and installs it in a
-temporary consumer app. In a sibling workspace it uses the local
-`../ginko-content/packages/content` package by default; pass
-`GINKO_CONTENT_PACKAGE_ROOT` to use a different local checkout. By default,
-`better-convex-nuxt` is installed from the registry version in
-`packages/cms/compatibility.json`; pass `BETTER_CONVEX_NUXT_PACKAGE_ROOT` only
-when intentionally testing a packed local release candidate.
+`release:verify` is the development lane: it runs local checks, source-package
+consumer verification, and the production audit. It is not release evidence.
+
+The release-candidate lane consumes approved dependency tarballs without
+rebuilding them:
+
+```bash
+GINKO_CONTENT_TARBALL=/absolute/path/to/ginko-content.tgz \
+GINKO_CONTENT_SHA256=<sha256> \
+BETTER_CONVEX_NUXT_TARBALL=/absolute/path/to/better-convex-nuxt.tgz \
+BETTER_CONVEX_NUXT_SHA256=<sha256> \
+pnpm run release:verify:candidate
+```
+
+It rejects mismatched hashes, wrong installed versions, and workspace/link
+dependencies. The uncommitted result is `.pack/release-evidence.json`.
 
 For a real release candidate, also run the registry dependency lane after
 Ginko Content is published:
@@ -153,6 +158,18 @@ pnpm run prepare:component
 
 Review generated-file changes by command and checksum/context, not by asking an
 agent to reason over the entire generated output.
+
+The CMS contract vendor has a separate, immutable regeneration path:
+
+```bash
+GINKO_CONTENT_ROOT=/absolute/path/to/pinned-clean-ginko-content \
+pnpm run sync:cms-contract-vendor
+```
+
+The checkout must be clean and exactly match the source commit and package
+version in `packages/cms/compatibility.json`. Normal checks use the committed
+checksum manifest and installed package parity; they do not read a sibling
+checkout.
 
 ## Ownership Boundary
 
