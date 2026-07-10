@@ -80,6 +80,7 @@ function createNuxtMock(rootDir: string) {
       },
       modules: ['nuxt-i18n-micro'],
       rootDir,
+      srcDir: rootDir,
       runtimeConfig: {
         public: {},
       },
@@ -166,17 +167,23 @@ describe('ginko-cms tailwind registration', () => {
     const moduleDependencies = getModuleDependencies(nuxt)
     const convexDependency = moduleDependencies['better-convex-nuxt']
 
+    // vNext §10.2: `auth.enabled` and top-level `permissions` are removed
+    // vocabulary. With no host auth-client and no convention file, Ginko
+    // supplies its fallback client plus route protection.
     expect(convexDependency).toMatchObject({
-      defaults: expect.objectContaining({
-        auth: expect.objectContaining({
-          enabled: true,
+      defaults: {
+        auth: {
           routeProtection: {
             redirectTo: '/studio/auth/signin',
           },
-        }),
-        permissions: false,
-      }),
+          client: expect.stringContaining('convex-auth') as unknown as string,
+        },
+      },
     })
+    expect(
+      (convexDependency.defaults as { auth: Record<string, unknown> }).auth,
+    ).not.toHaveProperty('enabled')
+    expect(convexDependency.defaults).not.toHaveProperty('permissions')
 
     expect(moduleDependencies).toMatchObject({
       '@nuxtjs/color-mode': {

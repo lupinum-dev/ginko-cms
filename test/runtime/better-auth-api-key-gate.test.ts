@@ -4,10 +4,27 @@ import { createAuthClient } from 'better-auth/client'
 import { getTestInstance } from 'better-auth/test'
 import { describe, expect, it } from 'vitest'
 
-import {
-  parseMcpBearerApiKey,
-  verifyMcpBearerApiKey,
-} from '../../packages/cms/src/server/mcp/_shared/better-auth-api-key.js'
+import { parseMcpBearerApiKey } from '../../packages/cms/src/server/mcp/_shared/better-auth-api-key.js'
+
+// The production verifier helper was collapsed into the single library-owned
+// token exchange (vNext §10.9). This gate still proves Better Auth API keys work
+// as MCP credentials via Bearer parsing, so it reconstructs the tiny parse +
+// verify shape locally rather than depending on a deleted helper.
+type BearerVerify = (input: { key: string }) => Promise<{
+  valid: boolean
+  key: { id: string; referenceId: string } | null
+}>
+
+async function verifyMcpBearerApiKey(
+  authorizationHeader: string | null | undefined,
+  verify: BearerVerify,
+): Promise<{ betterAuthApiKeyId: string; authUserId: string } | null> {
+  const key = parseMcpBearerApiKey(authorizationHeader)
+  if (!key) return null
+  const result = await verify({ key })
+  if (!result.valid || !result.key) return null
+  return { betterAuthApiKeyId: result.key.id, authUserId: result.key.referenceId }
+}
 
 const apiKeyPlugin = apiKey({
   enableMetadata: true,

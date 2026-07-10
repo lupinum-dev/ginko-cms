@@ -2,7 +2,11 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import { computed, ref, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 
 import { useStudioHostContext } from '../boundary/studio-host-context'
-import { useCmsStudioQuery, type UseCmsStudioQueryReturn } from './useCmsStudioQuery'
+import {
+  normalizeCmsStudioQueryError,
+  useCmsStudioQuery,
+  type UseCmsStudioQueryReturn,
+} from './useCmsStudioQuery'
 
 type StudioMutationReturn<Mutation extends FunctionReference<'mutation'>> = ((
   args: FunctionArgs<Mutation>,
@@ -26,10 +30,6 @@ type UseConvexUploadOptions = {
   onSuccess?: (storageId: string, file: File) => void
   onError?: (error: Error, file: File) => void
   onQueueIdle?: () => void
-}
-
-function toError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error))
 }
 
 function fileTypeMatches(pattern: string, fileType: string): boolean {
@@ -106,7 +106,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       options?.onSuccess?.(result, args)
       return result
     } catch (err) {
-      const normalized = toError(err)
+      const normalized = normalizeCmsStudioQueryError(err, mutation)
       error.value = normalized
       status.value = 'error'
       options?.onError?.(normalized, args)
@@ -177,7 +177,7 @@ export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
       options?.onQueueIdle?.()
       return result
     } catch (err) {
-      const normalized = toError(err)
+      const normalized = normalizeCmsStudioQueryError(err, generateUploadUrlMutation)
       error.value = normalized
       status.value = 'error'
       const firstFile = Array.isArray(input) ? input[0] : input

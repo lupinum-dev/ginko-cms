@@ -61,7 +61,7 @@ describe('ginko-cms module e2e boot', () => {
         name: 'e2e-boot-fixture',
         type: 'module',
         dependencies: {
-          '@convex-dev/better-auth': '^0.12.2',
+          '@convex-dev/better-auth': '0.12.5',
           '@lupinum/ginko-cms-convex': 'workspace:*',
           'better-auth': '1.6.23',
         },
@@ -183,6 +183,8 @@ describe('ginko-cms module e2e boot', () => {
     }
     expect(options.trellis).toBeUndefined()
     expect(options.convex?.auth?.routeProtection?.redirectTo).toBe('/studio/auth/signin')
-    expect(options.convex?.permissions).toBe(false)
+    // The removed `permissions` vocabulary (vNext §10.2 / decision 12) must
+    // never reappear on the better-convex-nuxt dependency defaults.
+    expect(options.convex).not.toHaveProperty('permissions')
   })
 })

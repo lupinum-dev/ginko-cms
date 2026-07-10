@@ -1,3 +1,5 @@
+import { normalizeConvexError } from 'better-convex-nuxt/errors'
+import { getFunctionName } from 'convex/server'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import {
   computed,
@@ -24,12 +26,6 @@ type CmsStudioQueryErrorCategory =
   | 'conflict'
   | 'unknown'
 
-type ErrorRecord = {
-  code?: unknown
-  status?: unknown
-  data?: unknown
-}
-
 type CmsStudioQueryStatus = 'skipped' | 'pending' | 'success' | 'error'
 
 export type UseCmsStudioQueryData<DataT> = {
@@ -55,17 +51,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
-function parseErrorData(value: unknown): Record<string, unknown> | null {
-  if (typeof value === 'string') {
-    try {
-      return parseErrorData(JSON.parse(value))
-    } catch {
-      return null
-    }
-  }
-  return isRecord(value) ? value : null
-}
-
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
@@ -74,18 +59,23 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
-function getFunctionName(fn: unknown): string {
-  if (typeof fn === 'string') return fn
-  if (!fn || typeof fn !== 'object') return 'unknown'
-  const record = fn as Record<string | symbol, unknown>
-  const symbolName = record[Symbol.for('functionName')]
-  if (typeof symbolName === 'string') return symbolName
-  if (typeof record._path === 'string') return record._path
-  if (typeof record.functionPath === 'string') return record.functionPath
-  return 'unknown'
+function safeFunctionName(query: unknown): string {
+  try {
+    return getFunctionName(query as never)
+  } catch {
+    return 'unknown'
+  }
 }
 
-function categorizeQueryError(code?: string, status?: number): CmsStudioQueryErrorCategory {
+/**
+ * Ginko's product-level classification (vNext §10.8). This operates only on
+ * `normalized.data` — the structured payload the library preserved verbatim
+ * from a Convex application error — never on raw message text.
+ */
+function categoryFromGinkoCode(data: unknown): CmsStudioQueryErrorCategory {
+  const record = isRecord(data) ? data : null
+  const code = asString(record?.code)
+  const status = asNumber(record?.status)
   const upper = code?.toUpperCase()
   if (upper) {
     if (upper.includes('UNAUTH') || upper === 'FORBIDDEN') return 'auth'
@@ -129,6 +119,7 @@ export class CmsStudioQueryError extends Error {
       functionPath: string
       code?: string
       status?: number
+      category: CmsStudioQueryErrorCategory
       data?: unknown
     },
   ) {
@@ -137,7 +128,7 @@ export class CmsStudioQueryError extends Error {
     this.functionPath = init.functionPath
     this.code = init.code
     this.status = init.status
-    this.category = categorizeQueryError(init.code, init.status)
+    this.category = init.category
     this.data = init.data
   }
 }
@@ -145,27 +136,26 @@ export class CmsStudioQueryError extends Error {
 export function normalizeCmsStudioQueryError(error: unknown, query: unknown): CmsStudioQueryError {
   if (error instanceof CmsStudioQueryError) return error
 
-  const record = isRecord(error) ? (error as ErrorRecord) : null
-  const recordData = parseErrorData(record?.data)
-  const data =
-    recordData ??
-    (typeof record?.code === 'string' &&
-    typeof (record as { message?: unknown }).message === 'string'
-      ? (record as Record<string, unknown>)
-      : null)
-  const code = asString(data?.code) ?? asString(record?.code)
-  const status = asNumber(data?.status) ?? asNumber(record?.status)
-  const message =
-    asString(data?.message) ??
-    (error instanceof Error ? error.message : undefined) ??
-    String(error || 'Studio query failed.')
+  // The library owns transport/server/unknown shape (kind, code, status, data
+  // preserved verbatim); Ginko owns conflict/not-found/rate-limit/authorization/
+  // workflow meaning on top of it (vNext §10.8).
+  const normalized = normalizeConvexError(error)
+  const category: CmsStudioQueryErrorCategory =
+    normalized.kind === 'authentication'
+      ? 'auth'
+      : normalized.kind === 'transport'
+        ? 'network'
+        : normalized.kind === 'server'
+          ? categoryFromGinkoCode(normalized.data)
+          : 'unknown'
 
-  return new CmsStudioQueryError(message, {
-    cause: error,
-    functionPath: getFunctionName(query),
-    code,
-    status,
-    data: record?.data ?? data,
+  return new CmsStudioQueryError(normalized.message, {
+    cause: normalized.cause,
+    functionPath: safeFunctionName(query),
+    code: normalized.code,
+    status: normalized.status,
+    category,
+    data: normalized.data,
   })
 }
 

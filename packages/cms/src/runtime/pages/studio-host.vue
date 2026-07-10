@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { api } from '#convex/api'
 import type {
-  GinkoCmsHostAuthEngine,
   GinkoCmsPublicConfig,
   GinkoCmsStudioMcpApiKeyCreateInput,
   GinkoCmsStudioMcpApiKeyCreateResult,
-  GinkoCmsStudioHostApi,
   GinkoCmsStudioHostBridge,
 } from '#ginko-cms-public/types.js'
 // Catchall host page for /studio/* (everything except auth/signin and
@@ -16,9 +14,9 @@ import type {
 //      page (preserving the original target as ?redirect=...).
 //   2. Render <div id="ginko-cms-studio"> as the SPA mount point.
 //   3. Populate window.__GINKO_CMS__ with everything the SPA boundary
-//      needs to fetch real data: cms config, the consumer's Nuxt app
-//      instance, the generated Convex api object, and the
-//      auth-engine refs the SPA reads to mirror sign-in / sign-out state.
+//      needs to fetch real data: cms config, the stable replacement-safe
+//      Convex client handle (useConvex()), the generated Convex api object,
+//      and the auth-state subset the SPA reads to mirror sign-in / sign-out.
 //   4. Inject the SPA bundle's main.js + main.css via useHead() so they
 //      land in the document head.
 //
@@ -32,27 +30,28 @@ import {
   computed,
   navigateTo,
   onMounted,
+  useConvex,
   useConvexAuth,
+  useConvexConfig,
   useHead,
-  useNuxtApp,
   useRequestURL,
   useRoute,
   useRuntimeConfig,
 } from '#imports'
 
+import { requireGinkoApiKeyClient } from '../api-key-client'
+import { buildStudioHostApi } from './studio-host-api'
+
 const runtimeConfig = useRuntimeConfig()
 const requestUrl = useRequestURL()
 const route = useRoute()
-const nuxtApp = useNuxtApp()
 const convexAuth = useConvexAuth()
+const convexConfig = useConvexConfig()
 
 const cmsConfig = computed(() => runtimeConfig.public.ginkoCms as unknown as GinkoCmsPublicConfig)
-const authEnabled = computed(() => {
-  const publicConfig = runtimeConfig.public as {
-    convex?: { auth?: { enabled?: boolean } }
-  }
-  return publicConfig.convex?.auth?.enabled !== false
-})
+// `useConvexConfig().auth === false` is the single normalized disabled-auth
+// signal (vNext §5.7). No raw `runtimeConfig.public.convex` casts here.
+const authDisabled = computed(() => convexConfig.auth === false)
 const studioRoute = computed(() =>
   ((cmsConfig.value.route as string | undefined) ?? '/studio').replace(/\/$/, ''),
 )
@@ -79,20 +78,6 @@ useHead(() => ({
   link: mainCss.value ? [{ rel: 'stylesheet', href: mainCss.value, crossorigin: 'anonymous' }] : [],
 }))
 
-function readAuthEngine(): GinkoCmsHostAuthEngine {
-  return {
-    token: convexAuth.token,
-    user: convexAuth.user,
-    pending: convexAuth.isPending,
-    isAuthenticated: convexAuth.isAuthenticated,
-    isAnonymous: computed(() => !convexAuth.isAuthenticated.value),
-    signOut: async () => {
-      await convexAuth.signOut()
-    },
-    awaitAuthReady: convexAuth.awaitAuthReady,
-  }
-}
-
 function debugStudioHost(message: string, details: Record<string, unknown> = {}): void {
   if (!import.meta.dev) return
   const summary = Object.entries(details)
@@ -101,88 +86,41 @@ function debugStudioHost(message: string, details: Record<string, unknown> = {})
   console.debug(`[ginko-cms] Studio host ${message}${summary ? ` ${summary}` : ''}.`, details)
 }
 
-function getAuthRoute(): string {
-  const publicConfig = runtimeConfig.public as {
-    convex?: { authRoute?: string }
-  }
-  const raw = publicConfig.convex?.authRoute
-  if (typeof raw !== 'string' || raw.length === 0) return '/api/auth'
-  return raw.startsWith('/') ? raw.replace(/\/$/, '') : `/${raw.replace(/\/$/, '')}`
-}
-
-function readRecord(value: unknown): Record<string, unknown> {
-  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
-}
-
-function readAuthApiKeyPayload(body: unknown): Record<string, unknown> {
-  const record = readRecord(body)
-  const data = readRecord(record.data)
-  return Object.keys(data).length > 0 ? data : record
-}
-
-async function postAuthApiKey(path: 'create' | 'delete', input: Record<string, unknown>) {
-  const response = await fetch(`${getAuthRoute()}/api-key/${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(input),
-  })
-  const contentType = response.headers.get('content-type') ?? ''
-  const body = contentType.includes('application/json')
-    ? await response.json()
-    : await response.text()
-  if (!response.ok) {
-    const errorBody = readRecord(body)
-    const message =
-      typeof errorBody.message === 'string'
-        ? errorBody.message
-        : typeof errorBody.error === 'string'
-          ? errorBody.error
-          : `Better Auth API-key ${path} failed with ${response.status}.`
-    throw new Error(message)
-  }
-  const errorBody = readRecord(body).error
-  if (errorBody) {
-    const errorRecord = readRecord(errorBody)
-    const message =
-      typeof errorRecord.message === 'string'
-        ? errorRecord.message
-        : typeof errorBody === 'string'
-          ? errorBody
-          : `Better Auth API-key ${path} failed.`
-    throw new Error(message)
-  }
-  return body
-}
-
+// MCP API-key management goes through the single typed Better Auth client
+// exposed by `useConvexAuth().client` (vNext §10.5). No hand-rolled
+// `/api-key/*` HTTP, route derivation, or response-envelope parsing: the
+// api-key client plugin owns transport and typing. `requireGinkoApiKeyClient`
+// narrows the possibly host-defined client to the `apiKey` surface and reports
+// the exact actionable capability error when the plugin is missing.
 async function createMcpApiKey(
   input: GinkoCmsStudioMcpApiKeyCreateInput,
 ): Promise<GinkoCmsStudioMcpApiKeyCreateResult> {
-  const payload = readAuthApiKeyPayload(
-    await postAuthApiKey('create', {
-      name: input.name,
-      ...(typeof input.expiresIn === 'number' ? { expiresIn: input.expiresIn } : {}),
-      ...(input.metadata ? { metadata: input.metadata } : {}),
-    }),
-  )
-  if (typeof payload.id !== 'string' || typeof payload.key !== 'string') {
-    throw new TypeError('Better Auth API-key create response did not include an id and raw key.')
+  const client = requireGinkoApiKeyClient(convexAuth.client)
+  const result = await client.apiKey.create({
+    name: input.name,
+    expiresIn: input.expiresIn,
+    metadata: input.metadata,
+  })
+  if (result.error) {
+    throw new Error(result.error.message ?? 'Better Auth API-key creation failed')
+  }
+  if (!result.data?.id || !result.data.key) {
+    throw new Error('Better Auth API-key creation returned an incomplete result')
   }
   return {
-    id: payload.id,
-    key: payload.key,
-    name: typeof payload.name === 'string' ? payload.name : null,
-    expiresAt:
-      typeof payload.expiresAt === 'string' || typeof payload.expiresAt === 'number'
-        ? payload.expiresAt
-        : payload.expiresAt instanceof Date
-          ? payload.expiresAt
-          : null,
+    id: result.data.id,
+    key: result.data.key,
+    name: result.data.name ?? null,
+    expiresAt: result.data.expiresAt ?? null,
   }
 }
 
 async function deleteMcpApiKey(input: { keyId: string }): Promise<void> {
-  await postAuthApiKey('delete', { keyId: input.keyId })
+  const client = requireGinkoApiKeyClient(convexAuth.client)
+  const result = await client.apiKey.delete({ keyId: input.keyId })
+  if (result.error) {
+    throw new Error(result.error.message ?? 'Better Auth API-key deletion failed')
+  }
 }
 
 // Populate the host bridge synchronously during client setup. The Studio SPA
@@ -190,7 +128,7 @@ async function deleteMcpApiKey(input: { keyId: string }): Promise<void> {
 // lets the SPA capture inert fallback proxies before the real generated API is
 // available.
 if (import.meta.client) {
-  populateBridge(readAuthEngine())
+  populateBridge(!authDisabled.value)
 }
 
 function loadStudioScript(src: string): void {
@@ -224,27 +162,26 @@ function loadStudioScript(src: string): void {
 // proxies instead of the consumer's generated Convex API.
 onMounted(async () => {
   if (typeof window === 'undefined') return
-  const engine = readAuthEngine()
-  if (engine?.awaitAuthReady) {
-    try {
-      await engine.awaitAuthReady()
-    } catch {
-      // ignore — fall through to the isAuthenticated check
-    }
+  // Wait for auth to settle once (vNext §5.3 `ready()` replaces the pre-vNext
+  // "await auth ready" gate). Never throws for us — resolve or ignore.
+  try {
+    await convexAuth.ready()
+  } catch {
+    // ignore — fall through to the disabled / isAuthenticated checks
   }
-  if (engine && engine.isAuthenticated.value === true) {
-    const user = engine.user.value as { email?: string; id?: string } | null
+  if (authDisabled.value) {
+    debugStudioHost('auth disabled', { script: mainJs.value })
+    populateBridge(false)
+    loadStudioScript(mainJs.value)
+    return
+  }
+  if (convexAuth.isAuthenticated.value === true) {
+    const user = convexAuth.user.value
     debugStudioHost('auth ready', {
       user: user?.email ?? user?.id ?? null,
       script: mainJs.value,
     })
-    populateBridge(engine)
-    loadStudioScript(mainJs.value)
-    return
-  }
-  if (!authEnabled.value) {
-    debugStudioHost('auth disabled', { script: mainJs.value })
-    populateBridge(null)
+    populateBridge(true)
     loadStudioScript(mainJs.value)
     return
   }
@@ -256,45 +193,37 @@ onMounted(async () => {
   await navigateTo(`${studioRoute.value}/auth/signin${redirectQuery}`)
 })
 
-function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
+function populateBridge(includeAuth: boolean): void {
   debugStudioHost('bridge populated', {
-    auth: Boolean(engine),
+    auth: includeAuth,
     collections: Object.keys(cmsConfig.value.collections ?? {}).length,
     route: studioRoute.value,
   })
   const bridge: GinkoCmsStudioHostBridge = {
-    convexUrl: String((runtimeConfig.public as Record<string, unknown>).convexUrl ?? ''),
+    // The stable replacement-safe handle (useConvex()). It survives primary
+    // client replacement across sign-in/out; the SPA never holds the raw client.
+    convexClient: useConvex(),
     config: cmsConfig.value,
-    // The consumer's Nuxt app reference shares the already-configured Convex
-    // client and better-auth token attachment into the SPA context.
-    nuxtApp,
     // The generated Convex api is per-consumer.
     api: buildStudioHostApi(api),
-    // Auth state passthrough so the SPA's useCmsAuthState mirrors what the
-    // consumer's auth engine reports without the SPA having to subscribe
-    // separately. Refs stay live — Vue tracking flows across the boundary
-    // because both sides share the same module instance via useNuxtApp.
-    auth: engine
+    // Auth-state subset so the SPA's useCmsAuthState mirrors sign-in / sign-out
+    // without subscribing separately. Refs stay live across the boundary
+    // because both sides share the same module instance. No Convex JWT crosses.
+    auth: includeAuth
       ? {
-          token: engine.token,
-          user: engine.user,
-          pending: engine.pending,
-          isAuthenticated: engine.isAuthenticated,
-          isAnonymous: engine.isAnonymous,
+          status: convexAuth.status,
+          isPending: convexAuth.isPending,
+          isAuthenticated: convexAuth.isAuthenticated,
+          user: convexAuth.user,
         }
       : null,
-    getAuthToken: async (): Promise<string | null> => {
-      const e = readAuthEngine()
-      return e?.token?.value ?? null
-    },
     mcpApiKeys: {
       create: createMcpApiKey,
       delete: deleteMcpApiKey,
     },
     onSignOut: async () => {
-      const e = readAuthEngine()
       try {
-        await e?.signOut?.()
+        await convexAuth.signOut()
       } finally {
         const { href, origin } = requestUrl
         window.location.href = new URL(
@@ -310,37 +239,6 @@ function populateBridge(engine: GinkoCmsHostAuthEngine | null): void {
 // Browser-side collection contract sync was removed. It exposed installer
 // state to authenticated clients. Contract installation is now an explicit
 // CLI/CI action (`ginko-cms push`), never Studio or Nuxt boot behavior.
-
-function buildStudioHostApi(value: unknown): GinkoCmsStudioHostApi {
-  const requiredGroups = [
-    'agentRuns',
-    'assets',
-    'collections',
-    'diagnostics',
-    'editor',
-    'imports',
-    'mcpCredentials',
-    'members',
-    'public',
-    'revalidation',
-    'reviewRequests',
-    'settings',
-    'siteData',
-  ] as const
-  const root = readObject(value, 'api')
-  const ginkoCms = readObject(root.ginkoCms, 'api.ginkoCms')
-  for (const group of requiredGroups) {
-    readObject(ginkoCms[group], `api.ginkoCms.${group}`)
-  }
-  return value as GinkoCmsStudioHostApi
-}
-
-function readObject(value: unknown, label: string): Record<string, unknown> {
-  if (typeof value === 'object' && value !== null) {
-    return value as Record<string, unknown>
-  }
-  throw new TypeError(`[ginko-cms] Studio host bridge is missing ${label}.`)
-}
 </script>
 
 <template>

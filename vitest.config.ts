@@ -12,7 +12,7 @@ export default defineConfig({
     include:
       process.env.GINKO_CMS_PACKAGE_CONSUMER_TEST === '1'
         ? ['test/module/e2e-package-consumer.test.ts']
-        : ['test/**/*.test.ts'],
+        : ['test/**/*.test.ts', 'packages/convex/test/**/*.test.ts'],
     exclude:
       process.env.GINKO_CMS_PACKAGE_CONSUMER_TEST === '1'
         ? []
@@ -22,6 +22,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '#imports': resolve(__dirname, 'test/helpers/nuxt-imports-shim.ts'),
       '#component': resolve(__dirname, 'packages/convex/src'),
       '#runtime': resolve(__dirname, 'packages/cms/src/runtime'),
       '#ginko-cms-public': resolve(__dirname, 'packages/cms/src/public'),

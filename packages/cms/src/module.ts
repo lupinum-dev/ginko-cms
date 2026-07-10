@@ -41,7 +41,11 @@ export type {
 interface NuxtOptionsExt {
   ginkoCms?: Partial<ModuleOptions> | false
   i18n?: I18nModuleOptions
-  convex?: Record<string, unknown>
+  convex?:
+    | false
+    | (Record<string, unknown> & {
+        auth?: false | (Record<string, unknown> & { client?: unknown })
+      })
   colorMode?: {
     classSuffix?: string
   }
@@ -513,6 +517,22 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const userOptions: Partial<ModuleOptions> =
       nuxtOptions.ginkoCms && typeof nuxtOptions.ginkoCms === 'object' ? nuxtOptions.ginkoCms : {}
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
+    const { resolve: moduleResolve } = createResolver(import.meta.url)
+
+    // vNext §10.2 / decision 12: the host owns the single Better Auth client
+    // definition. Compute the fallback conditions before returning deps; do not
+    // rely on `defu` to detect the host convention file.
+    const hostConvex = nuxtOptions.convex
+    const hostAuth = hostConvex && typeof hostConvex === 'object' ? hostConvex.auth : undefined
+    const authDisabled = hostConvex === false || hostAuth === false
+    const hasExplicitClient =
+      hostAuth !== null &&
+      typeof hostAuth === 'object' &&
+      typeof hostAuth.client === 'string' &&
+      hostAuth.client.length > 0
+    const hasHostConvention = existsSync(resolve(nuxtOptions.srcDir, 'convex-auth.ts'))
+    const useGinkoClientFallback = !authDisabled && !hasExplicitClient && !hasHostConvention
+
     const dependencies: Record<
       string,
       {
@@ -520,22 +540,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         defaults?: Record<string, unknown>
       }
     > = {
-      'better-convex-nuxt': {
-        defaults: defu(
-          typeof nuxtOptions.convex === 'object' && nuxtOptions.convex !== null
-            ? nuxtOptions.convex
-            : {},
-          {
-            auth: {
-              enabled: true,
-              routeProtection: {
-                redirectTo: `${studioRoute}/auth/signin`,
-              },
-            },
-            permissions: false,
-          },
-        ) as Record<string, unknown>,
-      },
       '@nuxtjs/color-mode': {
         version: '>=4.0.0',
         defaults: {
@@ -543,6 +547,35 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         },
       },
     }
+
+    // decision 12: when the host set top-level `convex: false`, Ginko must emit
+    // NO better-convex-nuxt dependency entry at all. Nuxt merges dependency
+    // defaults with `defu(...overrides, nuxt.options.convex, ...defaults)`; a
+    // defaults object would clobber the primitive `false` and defeat the
+    // module's own `=== false` disable check, installing it against the host's
+    // explicit off switch. Any other value keeps the module (Ginko needs it) —
+    // auth defaults are layered on only when auth is not disabled.
+    if (hostConvex !== false) {
+      const convexDefaults: Record<string, unknown> = {}
+      if (!authDisabled) {
+        // routeProtection.redirectTo is provided whenever auth is enabled,
+        // independent of the client fallback (even when the host supplies its
+        // own auth-client definition). Only `auth.client` is gated on the
+        // three fallback conditions.
+        const authDefaults: Record<string, unknown> = {
+          routeProtection: {
+            redirectTo: `${studioRoute}/auth/signin`,
+          },
+        }
+        if (useGinkoClientFallback) {
+          authDefaults.client = moduleResolve('./runtime/convex-auth')
+        }
+        convexDefaults.auth = authDefaults
+      }
+      dependencies['better-convex-nuxt'] =
+        Object.keys(convexDefaults).length > 0 ? { defaults: convexDefaults } : {}
+    }
+
     if (!hasNuxtI18nModule(nuxt.options.modules)) {
       dependencies['nuxt-i18n-micro'] = {
         version: '>=3.17.0',

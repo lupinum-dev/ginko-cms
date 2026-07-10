@@ -294,6 +294,56 @@ describe('package boundary contracts', () => {
     ).toEqual([])
   })
 
+  it('bans deleted Better Convex Nuxt vNext imports and old names everywhere in packages/cms', () => {
+    // §10 "Ginko tests": "package boundary test banning deleted Better Convex
+    // Nuxt imports and old names" — `serverConvexQuery`/`serverConvexMutation`/
+    // `serverConvexAction` (replaced by the single `serverConvex` caller),
+    // `createBetterConvexAuthClient` (replaced by `defineConvexAuthClient`),
+    // library-exported `refreshAuth` (the vNext auth engine has no such
+    // export; `refresh()` lives on the returned engine instance, never as a
+    // standalone import), and `getQueryKey` (removed from the public surface).
+    const bannedNames = [
+      'serverConvexQuery',
+      'serverConvexMutation',
+      'serverConvexAction',
+      'createBetterConvexAuthClient',
+      'getQueryKey',
+    ]
+    const files = [
+      ...collectSourceFiles('packages/cms/src'),
+      ...collectSourceFiles('packages/cms/studio-app/src'),
+      ...collectSourceFiles('packages/convex/src'),
+    ]
+    const violations: string[] = []
+    for (const file of files) {
+      const source = readFileSync(file, 'utf-8')
+      for (const name of bannedNames) {
+        if (new RegExp(`\\b${name}\\b`).test(source)) {
+          violations.push(`${relative(projectRoot, file)} -> ${name}`)
+        }
+      }
+      // `refreshAuth` as a *library* export/import is banned; Ginko's own
+      // `awaitAuthReady`-successor call sites use `auth.refresh()` as a method,
+      // never a bare `refreshAuth` identifier.
+      if (/\brefreshAuth\b/.test(source)) {
+        violations.push(`${relative(projectRoot, file)} -> refreshAuth`)
+      }
+      if (/\bawaitAuthReady\b/.test(source)) {
+        violations.push(`${relative(projectRoot, file)} -> awaitAuthReady`)
+      }
+    }
+
+    expect(violations, 'source references a deleted vNext name').toEqual([])
+
+    // Also ban the deleted names from crossing the scripts/package-e2e fixture
+    // generator, so a regenerated consumer fixture can never resurrect them.
+    const scriptSource = readFileSync(resolve(projectRoot, 'scripts/package-e2e.mjs'), 'utf-8')
+    for (const name of ['serverConvexQuery', 'serverConvexMutation', 'serverConvexAction']) {
+      expect(scriptSource.includes(name), `scripts/package-e2e.mjs references ${name}`).toBe(false)
+    }
+    expect(scriptSource).toContain('serverConvex')
+  })
+
   it('keeps Nuxt auth runtime components independent from Studio source files', () => {
     const imports = readImportSpecifiers(collectSourceFiles('packages/cms/src/auth'))
     const violations = imports.filter(({ specifier }) => specifier.includes('studio-app/src'))

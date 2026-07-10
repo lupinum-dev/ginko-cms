@@ -21,9 +21,7 @@ const STUB_CONFIG: GinkoCmsPublicConfig = {
 }
 
 const STUB_BRIDGE: HostBridge = {
-  convexUrl: '',
   config: STUB_CONFIG,
-  getAuthToken: () => null,
   onSignOut: () => {},
 }
 

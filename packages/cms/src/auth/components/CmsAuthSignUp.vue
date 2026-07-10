@@ -3,16 +3,7 @@ import { Loader2 } from 'lucide-vue-next'
 
 import { useCmsI18n } from '#ginko-cms-public/composables/useCmsI18n.js'
 import { resolveRedirectTarget } from '#ginko-cms-public/utils/redirectSafety.js'
-import {
-  computed,
-  navigateTo,
-  onMounted,
-  ref,
-  useConvexAuth,
-  useRoute,
-  useRuntimeConfig,
-  watch,
-} from '#imports'
+import { computed, navigateTo, onMounted, ref, useConvexAuth, useRoute } from '#imports'
 
 import CmsAuthInput from './CmsAuthInput.vue'
 import CmsPasswordInput from './CmsPasswordInput.vue'
@@ -20,15 +11,10 @@ import CmsPasswordInput from './CmsPasswordInput.vue'
 const props = defineProps<{
   redirectTo: string
 }>()
-const runtimeConfig = useRuntimeConfig()
-const authEnabled =
-  (runtimeConfig.public as { convex?: { auth?: { enabled?: boolean } } }).convex?.auth?.enabled !==
-  false
-const auth = authEnabled ? useConvexAuth() : null
-const isAuthenticated = auth?.isAuthenticated ?? ref(false)
-const isPending = auth?.isPending ?? ref(false)
-const signUp = auth?.signUp ?? null
-const refreshAuth = auth?.refreshAuth ?? null
+// `useConvexAuth()` is called unconditionally (vNext §5.3/§10.3).
+const auth = useConvexAuth()
+const isAuthenticated = auth.isAuthenticated
+const isPending = auth.isPending
 const isSubmitting = ref(false)
 const authError = ref<Error | null>(null)
 const route = useRoute()
@@ -63,24 +49,8 @@ function toSignIn(): string {
 }
 onMounted(() => {
   authFormReady.value = true
-  if (!authEnabled) {
-    void navigateTo(getRedirectTarget())
-  }
 })
 
-watch(
-  [isAuthenticated, isPending],
-  ([authenticated, pending]) => {
-    if (!authEnabled || pending || !authenticated) return
-    if (import.meta.dev) {
-      console.debug('[ginko-cms] auth sign-up redirect', {
-        redirectTo: getRedirectTarget(),
-      })
-    }
-    void navigateTo(getRedirectTarget(), { replace: true })
-  },
-  { immediate: true },
-)
 async function onSubmit(event: Event) {
   event.preventDefault()
   if (!name.value || !email.value || !password.value || !confirmPassword.value) {
@@ -95,33 +65,23 @@ async function onSubmit(event: Event) {
     error.value = t('ginkoCms.auth.signUp.passwordMinLength')
     return
   }
-  if (!signUp) {
-    error.value = t('ginkoCms.auth.signUp.errorFallback')
-    return
-  }
   error.value = null
   authError.value = null
   isSubmitting.value = true
   try {
-    const result = await signUp.email({
+    // Sign-up resolves atomically after the Convex identity is synced (vNext
+    // §5.3): no manual refresh, no watch-based redirect — navigate on success.
+    const result = await auth.signUp.email({
       email: email.value,
       password: password.value,
       name: name.value,
     })
-    const resultError = result && 'error' in result ? result.error : null
-    if (resultError) {
-      const message =
-        typeof resultError === 'object' &&
-        resultError !== null &&
-        'message' in resultError &&
-        typeof resultError.message === 'string'
-          ? resultError.message
-          : t('ginkoCms.auth.signUp.errorFallback')
+    if (result.error) {
+      const message = result.error.message ?? t('ginkoCms.auth.signUp.errorFallback')
       authError.value = new Error(message)
       error.value = message
       return
     }
-    await refreshAuth?.()
     await navigateTo(getRedirectTarget(), { replace: true })
   } catch (caught) {
     const message =

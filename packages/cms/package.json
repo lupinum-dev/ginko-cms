@@ -67,13 +67,14 @@
     "typecheck": "pnpm run build && pnpm --dir ../.. run prepare:playground && pnpm exec vue-tsc -p tsconfig.runtime.json --noEmit && pnpm run studio:typecheck"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.12.2",
+    "@better-auth/api-key": "1.6.23",
+    "@convex-dev/better-auth": "0.12.5",
     "@lupinum/ginko-cms-contract": "workspace:^",
     "@lupinum/ginko-cms-convex": "workspace:^",
     "@nuxt/kit": "^4.4.7",
     "@nuxtjs/color-mode": "^4.0.0",
     "@tailwindcss/vite": "^4.3.0",
-    "better-convex-nuxt": "0.5.0",
+    "better-convex-nuxt": "^0.6.0",
     "convex": "1.38.0",
     "defu": "^6.1.4",
     "jiti": "^2.7.0",
@@ -134,6 +135,7 @@
   },
   "peerDependencies": {
     "@lupinum/ginko-content": "^0.2.1",
+    "better-auth": ">=1.6.13 <1.7.0",
     "nuxt": "^4.4.7",
     "vue": "^3.5.0"
   }

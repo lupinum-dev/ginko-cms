@@ -1,3 +1,4 @@
+import type { GinkoCmsStudioHostBridgeAuth } from '@public/types'
 import { computed, type ComputedRef } from 'vue'
 
 import { useStudioHostContext } from '../boundary/studio-host-context'
@@ -9,8 +10,8 @@ import { useStudioHostContext } from '../boundary/studio-host-context'
 // Reads the Convex auth refs that the host page puts on the typed
 // host bridge. Refs are shared
 // across the host/SPA boundary because both run in the same JS context;
-// `auth.user.value`, `auth.token.value`, etc. update reactively as
-// better-auth signs the user in or out.
+// `auth.user.value`, `auth.isAuthenticated.value`, etc. update reactively as
+// better-auth signs the user in or out. No Convex JWT crosses the bridge.
 //
 // Falls back to "no user, auth disabled" when the bridge isn't populated
 // (studio:dev standalone with no host attached) so Layout still renders
@@ -23,13 +24,10 @@ export interface CmsAuthUser {
   image?: string | null
 }
 
-interface BridgeAuth {
-  token: { value: string | null | undefined }
-  user: { value: unknown }
-  pending: { value: boolean }
-  isAuthenticated: { value: boolean }
-  isAnonymous: { value: boolean }
-}
+// The auth subset the host bridge exposes (vNext §10.6): the
+// `status | isPending | isAuthenticated | user` slice of `UseConvexAuthReturn`.
+// No `token`/`isAnonymous`/`getJwt` — the Studio never receives the Convex JWT.
+type BridgeAuth = GinkoCmsStudioHostBridgeAuth
 
 function normalizeUser(raw: unknown): CmsAuthUser | null {
   if (!raw || typeof raw !== 'object') return null
@@ -57,7 +55,6 @@ interface UseCmsAuthStateReturn {
   user: ComputedRef<CmsAuthUser | null>
   isAuthenticated: ComputedRef<boolean>
   signOut: () => Promise<void>
-  getJwt: () => string | null
 }
 
 export function useCmsAuthState(): UseCmsAuthStateReturn {
@@ -81,9 +78,6 @@ export function useCmsAuthState(): UseCmsAuthStateReturn {
     async signOut(): Promise<void> {
       const onSignOut = studioHost.getBridge().onSignOut
       if (typeof onSignOut === 'function') await onSignOut()
-    },
-    getJwt(): string | null {
-      return readBridgeAuth()?.token.value ?? null
     },
   }
 }

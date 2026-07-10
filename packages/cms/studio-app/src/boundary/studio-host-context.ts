@@ -1,21 +1,21 @@
-import type { ConvexClient } from 'convex/browser'
+import type { GinkoCmsConvexClientHandle } from '@public/types'
 import { hasInjectionContext, inject, type InjectionKey } from 'vue'
 
 import { readHostBridge, type HostBridge } from './host-bridge'
 
 export interface StudioHostContext {
   getBridge: () => HostBridge
-  getConvexClient: () => ConvexClient | undefined
-  requireConvexClient: () => ConvexClient
+  getConvexClient: () => GinkoCmsConvexClientHandle | undefined
+  requireConvexClient: () => GinkoCmsConvexClientHandle
 }
 
 export const studioHostContextKey: InjectionKey<StudioHostContext> = Symbol('ginko-cms.studioHost')
 
 export function createStudioHostContext(getBridge: () => HostBridge = readHostBridge) {
-  const getConvexClient = () => {
-    const bridge = getBridge()
-    return bridge.nuxtApp?.$convex as ConvexClient | undefined
-  }
+  // The host attaches the stable replacement-safe handle (useConvex()) directly
+  // as `bridge.convexClient` (vNext §10.6). We no longer reach `$convex` through
+  // a passed-through `nuxtApp`.
+  const getConvexClient = () => getBridge().convexClient
 
   return {
     getBridge,

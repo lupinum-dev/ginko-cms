@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
+import { ConvexError } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, h, nextTick } from 'vue'
 
@@ -38,25 +39,31 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () =
   }),
 }))
 
-const query = { _path: 'ginkoCms.editor.getEntry' }
+// `normalizeCmsStudioQueryError` resolves the function path through the real
+// `getFunctionName` from `convex/server` (vNext §10.8), which only recognizes
+// an actual `FunctionReference` (the `Symbol.for('functionName')` marker) —
+// not the pre-vNext ad hoc `{ _path }` shape.
+const query = { [Symbol.for('functionName')]: 'ginkoCms.editor.getEntry' }
 
 describe('useCmsStudioQuery', () => {
   it('normalizes Studio query errors with query metadata', () => {
-    const cause = new Error('Raw auth failure') as Error & {
-      data?: { code: string; message: string; status: number }
-      status?: number
-    }
-    cause.data = {
+    // A real Convex application error (vNext §10.8: classification only reads
+    // the library-normalized `ConvexCallError`'s structured `data`, never a
+    // bespoke `{ data }` bag bolted onto a plain `Error`).
+    const cause = new ConvexError({
       code: 'UNAUTHENTICATED',
       message: 'Sign in required',
       status: 401,
-    }
-    cause.status = 401
+    })
 
     const error = normalizeCmsStudioQueryError(cause, query)
 
     expect(error).toBeInstanceOf(CmsStudioQueryError)
-    expect(error.message).toBe('Sign in required')
+    // The library preserves the Convex application error's structured `data`
+    // verbatim (vNext §7); the human-readable message Ginko surfaces to
+    // Studio UI comes from that structured payload, not from re-deriving a
+    // top-level `Error.message` string.
+    expect((error.data as { message?: string })?.message).toBe('Sign in required')
     expect(error.operation).toBe('query')
     expect(error.functionPath).toBe('ginkoCms.editor.getEntry')
     expect(error.code).toBe('UNAUTHENTICATED')
@@ -90,11 +97,7 @@ describe('useCmsStudioQuery', () => {
     const wrapper = mount(Host)
     await nextTick()
 
-    onError?.(
-      Object.assign(new Error('Query failed'), {
-        data: { code: 'NOT_FOUND', message: 'Entry not found.', status: 404 },
-      }),
-    )
+    onError?.(new ConvexError({ code: 'NOT_FOUND', message: 'Entry not found.', status: 404 }))
     await nextTick()
 
     const result = wrapper.vm.result
@@ -137,7 +140,7 @@ describe('useCmsStudioQuery', () => {
     const wrapper = mount(Host)
     await nextTick()
 
-    onError?.({ code: 'LIMIT_RATE', message: 'Slow down.', status: 429 })
+    onError?.(new ConvexError({ code: 'LIMIT_RATE', message: 'Slow down.', status: 429 }))
     await nextTick()
 
     const result = wrapper.vm.result
