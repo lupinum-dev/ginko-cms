@@ -17,8 +17,6 @@ type ContentConfigLike = BuildCmsContractInput & {
   provider?: string
 }
 
-type ContentCollectionLike = BuildCmsContractInput['collections'][string]
-
 type JsonObjectLike = Record<string, unknown>
 
 type DeriveOptions = {
@@ -39,15 +37,12 @@ export async function loadGinkoContentCollections(
   const importer = createJiti(import.meta.url, { interopDefault: true })
   const loaded = await importer.import(configPath)
   const contentConfig = ((loaded as { default?: unknown }).default ?? loaded) as ContentConfigLike
-  const collections = applyGlobalTranslatedSlugs(
-    contentConfig.collections ?? {},
-    options.translatedSlugs === true,
-  )
   const contract = buildCmsContract(
-    { collections },
+    { collections: contentConfig.collections ?? {} },
     {
       defaultLocale: options.defaultLocale,
       locales: options.locales.map((locale) => locale.code),
+      translatedSlugs: options.translatedSlugs === true,
       include: options.include,
     },
   )
@@ -60,21 +55,6 @@ export async function loadGinkoContentCollections(
     )
   }
   return derived
-}
-
-function applyGlobalTranslatedSlugs(
-  collections: Record<string, ContentCollectionLike>,
-  translatedSlugs: boolean,
-): Record<string, ContentCollectionLike> {
-  if (!translatedSlugs) return collections
-  return Object.fromEntries(
-    Object.entries(collections).map(([slug, collection]) => [
-      slug,
-      collection.i18n && collection.translatedSlugs === undefined
-        ? { ...collection, translatedSlugs: true }
-        : collection,
-    ]),
-  )
 }
 
 export async function loadGinkoContentProviderName(rootDir: string): Promise<string | null> {

@@ -1,118 +1,44 @@
-import { toContentProviderQuery } from '@lupinum/ginko-content/provider'
-import { expectProviderDocumentEnvelope } from '@lupinum/ginko-content/testing/provider-contract'
+import { isContentProviderResult, toContentProviderQuery } from '@lupinum/ginko-content/provider'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const convexMock = vi.hoisted(() => {
   const calls: Array<{ operation: string; args: unknown }> = []
+  const page = {
+    id: 'entry-docs-routing',
+    stableId: 'docs-routing',
+    collection: 'docs',
+    revision: 'docs-routing',
+    title: 'Content Routing',
+    data: {
+      description: 'Route content across locales.',
+      bodyAst: { type: 'root', props: {}, children: [] },
+    },
+    locale: { requested: 'en', resolved: 'en' },
+    route: { locale: 'en', path: '/docs/content-routing', slug: 'content-routing' },
+    translations: [],
+    updatedAt: 100,
+    publishedAt: 90,
+  }
   const query = vi.fn(async (ref: Record<symbol, string>, args: unknown) => {
     const operation =
       String(ref[Symbol.for('functionName')] ?? '')
         .split(':')
         .pop() ?? ''
     calls.push({ operation, args })
-
-    if (operation === 'page') {
-      return {
-        status: 'found',
-        page: {
-          id: 'entry-docs-routing',
-          collection: 'docs',
-          revision: 'docs-routing',
-          title: 'Content Routing',
-          data: {
-            description: 'Route content across locales.',
-            bodyAst: {
-              type: 'root',
-              props: {},
-              children: [
-                {
-                  type: 'element',
-                  tag: 'p',
-                  props: {},
-                  children: [{ type: 'text', value: 'Content routing body.' }],
-                },
-              ],
-            },
-          },
-          locale: { requested: 'en', resolved: 'en' },
-          route: { path: '/docs/workflows/content-routing', slug: 'content-routing' },
-          translations: [],
-          updatedAt: 100,
-          publishedAt: 90,
-        },
-      }
-    }
-
+    if (operation === 'page') return { status: 'found', page }
     if (operation === 'list') {
-      return {
-        entries: [
-          {
-            id: 'entry-docs-routing',
-            collection: 'docs',
-            revision: 'docs-routing',
-            title: 'Content Routing',
-            data: {
-              description: 'Route content across locales.',
-              bodyAst: {
-                type: 'root',
-                props: {},
-                children: [
-                  {
-                    type: 'element',
-                    tag: 'p',
-                    props: {},
-                    children: [{ type: 'text', value: 'Content routing body.' }],
-                  },
-                ],
-              },
-            },
-            locale: { requested: 'en', resolved: 'en' },
-            route: { path: '/docs/workflows/content-routing', slug: 'content-routing' },
-            translations: [],
-            updatedAt: 100,
-            publishedAt: 90,
-          },
-        ],
-        pageInfo: { hasNextPage: false, endCursor: null },
-      }
+      return { entries: [page], pageInfo: { hasNextPage: false, endCursor: null } }
     }
-
     throw new Error(`Unhandled package provider test operation: ${operation}`)
   })
-
   return { calls, query }
 })
 
-type ProviderWrappedValue<T> = {
-  __ginkoContentProviderResult?: boolean
-  cache?: unknown
-  data: T
-}
-type ProviderValue<T = Record<string, unknown>> = ProviderWrappedValue<T> | T
-type ContentProvider = {
-  page: (...args: unknown[]) => Promise<ProviderValue>
-  query: (...args: unknown[]) => Promise<ProviderValue>
-}
-type ProviderModule = {
-  __setGinkoNuxtProviderClientFactoryForTests: (
-    factory?: () => { query: typeof convexMock.query },
-  ) => void
-  contentProvider: ContentProvider
-}
+type ProviderModule = typeof import('../../packages/cms/dist/nuxt-provider.mjs')
+let contentProvider: ProviderModule['contentProvider']
+let setClientFactory: ProviderModule['__setGinkoNuxtProviderClientFactoryForTests']
 
-let contentProvider: ContentProvider
-let setClientFactoryForTests: ProviderModule['__setGinkoNuxtProviderClientFactoryForTests']
-
-const isProviderWrappedValue = <T>(value: ProviderValue<T>): value is ProviderWrappedValue<T> =>
-  !!value &&
-  typeof value === 'object' &&
-  '__ginkoContentProviderResult' in value &&
-  !!value.__ginkoContentProviderResult
-
-const unwrap = <T = Record<string, unknown>>(value: ProviderValue<T>): T =>
-  isProviderWrappedValue(value) ? value.data : value
-const cache = (value: ProviderValue): unknown =>
-  isProviderWrappedValue(value) ? value.cache : undefined
+const unwrap = <T>(value: T) => (isContentProviderResult(value) ? value.data : value)
 
 describe('built ginko-cms Nuxt provider package output', () => {
   beforeEach(async () => {
@@ -120,79 +46,46 @@ describe('built ginko-cms Nuxt provider package output', () => {
     convexMock.calls.length = 0
     convexMock.query.mockClear()
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
-    process.env.GINKO_CONTENT_PROVIDER_SITE = 'cms-provider-fixture'
-    ;({ contentProvider, __setGinkoNuxtProviderClientFactoryForTests: setClientFactoryForTests } =
-      (await import('../../packages/cms/dist/nuxt-provider.mjs')) as ProviderModule)
-    setClientFactoryForTests(() => ({ query: convexMock.query }))
+    ;({ contentProvider, __setGinkoNuxtProviderClientFactoryForTests: setClientFactory } =
+      await import('../../packages/cms/dist/nuxt-provider.mjs'))
+    setClientFactory(() => ({ query: convexMock.query }))
   })
 
   afterEach(() => {
-    setClientFactoryForTests?.(undefined)
+    setClientFactory(undefined)
     delete process.env.NUXT_PUBLIC_CONVEX_URL
-    delete process.env.GINKO_CONTENT_PROVIDER_SITE
   })
 
-  it('maps built package page and list reads into the final provider contract shape', async () => {
-    const wrappedPage = await contentProvider.page(
-      {} as never,
-      'docs',
-      '/docs/workflows/content-routing',
-      { locale: 'en' },
-    )
-    const page = unwrap(wrappedPage)
-    expectProviderDocumentEnvelope(page, { locale: 'en', defaultLocale: 'en' })
+  it('ships the same v2 raw-document and cursor contracts as the source adapter', async () => {
+    const pageQuery = toContentProviderQuery({ collection: 'docs', first: true })
+    pageQuery.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'en',
+      candidates: [{ locale: 'en', contentPath: '/docs/content-routing' }],
+    }
+    const page = unwrap(await contentProvider.query({} as never, pageQuery)).result
     expect(page).toMatchObject({
-      id: 'entry-docs-routing',
-      collection: 'docs',
-      type: 'markdown',
       canonicalKey: 'docs:docs-routing',
-      title: 'Content Routing',
-      description: 'Route content across locales.',
-      path: '/docs/workflows/content-routing',
-      unprefixedPath: '/docs/workflows/content-routing',
-      localePaths: {
-        en: {
-          path: '/docs/workflows/content-routing',
-          translated: true,
-        },
-      },
-      resolved: {
-        locale: 'en',
-        requestedLocale: 'en',
-        fallback: false,
-      },
+      contentPath: '/docs/content-routing',
+      routeVariants: [{ locale: 'en', contentPath: '/docs/content-routing' }],
     })
-    expect(cache(wrappedPage).tags).toEqual(
-      expect.arrayContaining([
-        'collection:docs',
-        'entry:docs:docs-routing',
-        'entry:docs:docs-routing:en',
-        'route:/docs/workflows/content-routing',
-      ]),
-    )
+    expect(page).not.toHaveProperty('resolved')
 
-    const wrappedList = await contentProvider.query(
-      {} as never,
-      toContentProviderQuery({
-        collection: 'docs',
-        resolveLocale: { locale: 'en' },
-        limit: 5,
-      }),
-    )
-    const list = unwrap(wrappedList)
-    expect(list).toMatchObject({
-      result: [
-        expect.objectContaining({
+    const list = unwrap(
+      await contentProvider.query(
+        {} as never,
+        toContentProviderQuery({
           collection: 'docs',
-          title: 'Content Routing',
+          paging: { mode: 'cursor', after: null, limit: 5 },
         }),
-      ],
-      pageInfo: { hasNextPage: false, endCursor: null },
-    })
-    expect(cache(wrappedList).tags).toEqual(
-      expect.arrayContaining(['collection:docs', 'entry:docs:docs-routing']),
+      ),
     )
-
+    expect(list).toMatchObject({
+      mode: 'cursor',
+      result: [expect.objectContaining({ canonicalKey: 'docs:docs-routing' })],
+      pageInfo: { hasNext: false, endCursor: null },
+    })
+    expect(list).not.toHaveProperty('total')
     expect(convexMock.calls.map((call) => call.operation)).toEqual(['page', 'list'])
   })
 })

@@ -140,8 +140,8 @@ describe('editor publish operations', () => {
       versionId: publishResult.versionId,
       tags: expect.arrayContaining([
         'collection:posts',
-        `entry:posts:${entryId}`,
-        `entry:posts:${entryId}:en`,
+        'entry:posts:hello-world',
+        'entry:posts:hello-world:en',
         'nav:posts:en',
         'search:en',
         'sitemap',
@@ -316,8 +316,8 @@ describe('editor publish operations', () => {
         versionId: publishResult.versionId,
         tags: expect.arrayContaining([
           'collection:posts',
-          `entry:posts:${entryId}`,
-          `entry:posts:${entryId}:en`,
+          'entry:posts:hello-world',
+          'entry:posts:hello-world:en',
           'nav:posts:en',
           'search:en',
           'sitemap',

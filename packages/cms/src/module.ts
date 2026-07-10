@@ -138,10 +138,10 @@ async function assertGinkoContentSearchBoundary(rootDir: string, nuxtOptions: Nu
   if (provider !== CMS_CONTENT_PROVIDER_NAME) return
 
   const search = nuxtOptions.content?.search
-  if (search === false || search?.engine === 'cms') return
+  if (search === false || search?.engine === 'provider') return
 
   throw new Error(
-    `ginko-cms detected content.config.ts provider "${provider}", but content.search is not using the CMS search engine. Set \`content.search.engine\` to "cms" or set \`content.search\` to false. The default minisearch engine requires provider.searchSections, which the CMS provider intentionally does not expose.`,
+    `ginko-cms detected content.config.ts provider "${provider}", but content.search is not using the provider search engine. Set \`content.search.engine\` to "provider" or set \`content.search\` to false.`,
   )
 }
 

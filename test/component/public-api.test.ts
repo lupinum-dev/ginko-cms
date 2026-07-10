@@ -498,6 +498,11 @@ describe('public API: list pagination', () => {
       collection: 'articles',
       locale: 'en',
     })
+    const routes = await ctx.raw.query(api.public.routes, {
+      collection: 'articles',
+      locale: 'en',
+      cursor: null,
+    })
 
     expect(page.status).toBe('found')
     expect(routeMeta.status).toBe('found')
@@ -508,6 +513,15 @@ describe('public API: list pagination', () => {
     expect(nav.tree[0]?.entry).not.toHaveProperty('bodyAst')
     expect(nav.tree[0]?.entry).not.toHaveProperty('toc')
     expect(sitemap.urls).toHaveLength(1)
+    expect(routes.routes).toEqual([
+      expect.objectContaining({
+        collection: 'articles',
+        stableId: expect.any(String),
+        locale: 'en',
+        path: '/articles/entry-01',
+        sitemapIncluded: true,
+      }),
+    ])
   })
 
   it('projects non-index root slugs to localized collection mounts across public surfaces', async () => {

@@ -2,7 +2,7 @@
 // migration, public, server)
 // into dist/. nuxt-module-build only handles src/runtime/, so we run mkdist
 // for the rest. This keeps the Nuxt module package surface explicit.
-import { copyFileSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { cpSync, copyFileSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -75,6 +75,9 @@ copyFileSync(
   resolve(pkgRoot, 'dist/cli/convex-package-json-shim.cjs'),
 )
 copyFileSync(resolve(pkgRoot, 'src/nuxt-provider.mjs'), resolve(pkgRoot, 'dist/nuxt-provider.mjs'))
+cpSync(resolve(pkgRoot, 'src/nuxt-provider'), resolve(pkgRoot, 'dist/nuxt-provider'), {
+  recursive: true,
+})
 writeFileSync(
   resolve(pkgRoot, 'dist/nuxt-provider.d.ts'),
   [

@@ -22,7 +22,6 @@ export {
   stripLocalePrefix,
   refineUrlPart,
   routeToContentPathCandidates,
-  projectContentPathToLocale,
   pathHasLocalePrefix,
 } from './path.js'
 

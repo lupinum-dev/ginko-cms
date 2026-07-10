@@ -51,6 +51,7 @@ export interface GinkoPublicEntry<
   publishedAt: string
   updatedAt: string
   revision: string
+  stableId: string
 }
 
 export type GinkoPageResult<Entry, Locale extends string = string> =
@@ -90,6 +91,20 @@ export type GinkoPageResult<Entry, Locale extends string = string> =
 export interface GinkoPageInfo {
   hasNextPage: boolean
   endCursor: string | null
+}
+
+export interface GinkoRouteRecord {
+  collection: string
+  stableId: string
+  locale: string
+  path: string
+  sitemapIncluded: boolean
+  lastmod: string
+}
+
+export interface GinkoRoutesResult {
+  routes: GinkoRouteRecord[]
+  pageInfo: GinkoPageInfo
 }
 
 export interface GinkoListResult<Entry, Locale extends string = string> {

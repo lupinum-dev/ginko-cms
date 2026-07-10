@@ -1,1311 +1,304 @@
 import {
+  isContentProviderResult,
   toContentProviderNavigationQuery,
   toContentProviderQuery,
 } from '@lupinum/ginko-content/provider'
 import {
   expectProviderCapabilities,
-  expectProviderDocumentEnvelope,
+  runProviderContractSuite,
 } from '@lupinum/ginko-content/testing/provider-contract'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const entry = (locale = 'en') => ({
+  id: `entry-docs-routing-${locale}`,
+  stableId: 'docs-routing',
+  collection: 'docs',
+  revision: 'docs-routing',
+  title: locale === 'de' ? 'Inhaltsrouting' : 'Content Routing',
+  data: {
+    description: 'Route content across locales.',
+    bodyAst: { type: 'root', props: {}, children: [] },
+  },
+  locale: { requested: locale, resolved: locale },
+  route: {
+    locale,
+    path: locale === 'de' ? '/dokumentation/inhaltsrouting' : '/docs/content-routing',
+    slug: locale === 'de' ? 'inhaltsrouting' : 'content-routing',
+  },
+  translations: [
+    { locale: 'en', status: 'published', route: { locale: 'en', path: '/docs/content-routing' } },
+    {
+      locale: 'de',
+      status: 'published',
+      route: { locale: 'de', path: '/dokumentation/inhaltsrouting' },
+    },
+  ],
+  updatedAt: 1_780_000_100_000,
+  publishedAt: 1_780_000_000_000,
+})
+
 const convexMock = vi.hoisted(() => {
-  const calls: Array<{ operation: string; args: unknown }> = []
-  const query = vi.fn(async (ref: Record<symbol, string>, args: unknown) => {
-    const functionName =
-      ref[Symbol.for('functionName')] ??
-      Object.getOwnPropertySymbols(ref)
-        .map((symbol) => ref[symbol])
-        .find((value): value is string => typeof value === 'string') ??
-      ''
-    const operation = functionName.split(':').pop() ?? ''
+  const calls: Array<{ operation: string; args: Record<string, unknown> }> = []
+  const query = vi.fn(async (reference: Record<symbol, string>, rawArgs: unknown) => {
+    const operation =
+      String(reference[Symbol.for('functionName')] || '')
+        .split(':')
+        .pop() || ''
+    const args = rawArgs as Record<string, unknown>
     calls.push({ operation, args })
-    if (operation === 'list') {
-      const input = args as { sort?: string }
-      const entries = [
-        {
-          id: 'entry-docs-routing',
-          collection: 'docs',
-          revision: 'docs-routing',
-          title: 'Content Routing',
-          data: {
-            description: 'Route content across locales.',
-            bodyAst: {
-              type: 'root',
-              props: {},
-              children: [
-                {
-                  type: 'element',
-                  tag: 'p',
-                  props: {},
-                  children: [{ type: 'text', value: 'Content routing body.' }],
-                },
-              ],
-            },
-          },
-          locale: { requested: 'en', resolved: 'en' },
-          route: { path: '/docs/workflows/content-routing', slug: 'content-routing' },
-          translations: [],
-          updatedAt: 100,
-          publishedAt: 90,
-        },
-        {
-          id: 'entry-docs-launch',
-          collection: 'docs',
-          revision: 'docs-launch',
-          title: 'Launch Checklist',
-          data: {
-            description: 'Ship with confidence.',
-            bodyAst: {
-              type: 'root',
-              props: {},
-              children: [
-                {
-                  type: 'element',
-                  tag: 'p',
-                  props: {},
-                  children: [{ type: 'text', value: 'Launch checklist body.' }],
-                },
-              ],
-            },
-            date: '2026-02-01',
-          },
-          locale: { requested: 'en', resolved: 'en' },
-          route: { path: '/docs/workflows/launch-checklist', slug: 'launch-checklist' },
-          translations: [],
-          updatedAt: 110,
-          publishedAt: 95,
-        },
-      ]
-      return {
-        entries: input.sort === 'lastPublishedAt:desc' ? entries.toReversed() : entries,
-        pageInfo: { hasNextPage: false, endCursor: null },
-      }
+
+    if (operation === 'page') {
+      if (args.path === '/missing') return { status: 'not-found', page: null }
+      return { status: 'found', page: entry(String(args.locale || 'en')) }
     }
-    if (operation === 'page' || operation === 'routeMeta') {
-      const input = args as { locale?: string; path?: string }
-      if (operation === 'page' && input.path === '/docs/asset') {
-        return {
-          status: 'found',
-          page: {
-            id: 'entry-docs-asset',
-            collection: 'docs',
-            revision: 'docs-asset',
-            title: 'Asset page',
-            data: {
-              description: 'Asset backed image.',
-              image: {
-                src: 'j9792htrrg467xmj91mhjrk629874bad',
-                alt: 'Asset alt',
-              },
-              bodyAst: {
-                type: 'root',
-                props: {},
-                children: [
-                  {
-                    type: 'element',
-                    tag: 'img',
-                    props: {
-                      src: 'j9792htrrg467xmj91mhjrk629874bad',
-                      alt: 'Asset alt',
-                    },
-                    children: [],
-                  },
-                ],
-              },
-            },
-            locale: { requested: input.locale || 'en', resolved: input.locale || 'en' },
-            route: { path: '/docs/asset', slug: 'asset' },
-            translations: [],
-            updatedAt: 100,
-            publishedAt: 90,
-          },
-        }
-      }
-      const isGerman = input.locale === 'de'
+    if (operation === 'list') {
       return {
-        status: 'found',
-        page: {
-          id: 'entry-docs-routing',
-          collection: 'docs',
-          revision: 'docs-routing',
-          title: isGerman ? 'Content Routing DE' : 'Content Routing',
-          data:
-            operation === 'routeMeta'
-              ? {}
-              : {
-                  description: 'Route content across locales.',
-                  bodyAst: {
-                    type: 'root',
-                    props: {},
-                    children: [
-                      {
-                        type: 'element',
-                        tag: 'p',
-                        props: {},
-                        children: [{ type: 'text', value: 'Content routing body.' }],
-                      },
-                    ],
-                  },
-                },
-          locale: { requested: input.locale || 'en', resolved: input.locale || 'en' },
-          route: {
-            path: isGerman
-              ? '/dokumentation/arbeitsablaeufe/content-routing'
-              : '/docs/workflows/content-routing',
-            href: isGerman
-              ? '/de/dokumentation/arbeitsablaeufe/content-routing'
-              : '/docs/workflows/content-routing',
-            slug: 'content-routing',
-          },
-          translations: [
-            {
-              locale: 'de',
-              status: 'published',
-              route: {
-                path: '/dokumentation/arbeitsablaeufe/content-routing',
-                href: '/de/dokumentation/arbeitsablaeufe/content-routing',
-                slug: 'content-routing',
-              },
-            },
-            {
-              locale: 'en',
-              status: 'published',
-              route: {
-                path: '/docs/workflows/content-routing',
-                href: '/docs/workflows/content-routing',
-                slug: 'content-routing',
-              },
-            },
-          ],
-          updatedAt: 100,
-          publishedAt: 90,
-        },
+        entries: [entry(String(args.locale || 'en'))],
+        pageInfo: { hasNextPage: args.cursor !== 'next', endCursor: args.cursor ? null : 'next' },
       }
     }
     if (operation === 'nav') {
-      return {
-        tree: [
-          {
-            entry: {
-              id: 'entry-docs-routing',
-              revision: 'docs-routing',
-              title: 'Content Routing',
-              description: 'Route content across locales.',
-              route: {
-                path: '/docs/workflows/content-routing',
-                slug: 'content-routing',
-                locale: 'en',
-              },
-            },
-            children: [],
-          },
-        ],
-      }
+      return { tree: [{ entry: entry(String(args.locale || 'en')), children: [] }] }
     }
     if (operation === 'surround') {
-      return {
-        previous: [
-          {
-            title: 'Launch Checklist',
-            route: { path: '/docs/workflows/launch-checklist', slug: 'launch-checklist' },
-          },
-        ],
-        next: [
-          {
-            title: 'Sitemap and SEO',
-            route: { path: '/docs/workflows/sitemap-and-seo', slug: 'sitemap-and-seo' },
-          },
-        ],
-      }
+      return { previous: [entry(String(args.locale || 'en'))], next: [] }
     }
     if (operation === 'search') {
-      const input = args as { collection?: string }
-      if (input.collection === 'blog') {
-        return {
-          results: [
-            {
-              id: 'entry-blog-routing',
-              collection: 'blog',
-              revision: 'blog-routing',
-              title: 'Routing Blog',
-              snippet: 'Routing across product updates.',
-              data: {
-                description: 'Routing across product updates.',
-                bodyAst: {
-                  type: 'root',
-                  props: {},
-                  children: [],
-                },
-              },
-              locale: { requested: 'en', resolved: 'en' },
-              route: { path: '/blog/routing', slug: 'routing' },
-              translations: [],
-              updatedAt: 105,
-              publishedAt: 95,
-            },
-          ],
-        }
-      }
-      return {
-        results: [
-          {
-            id: 'entry-docs-routing',
-            collection: 'docs',
-            revision: 'docs-routing',
-            title: 'Content Routing',
-            snippet: 'Route content across locales.',
-            data: {
-              description: 'Route content across locales.',
-              bodyAst: {
-                type: 'root',
-                props: {},
-                children: [
-                  {
-                    type: 'element',
-                    tag: 'p',
-                    props: {},
-                    children: [{ type: 'text', value: 'Content routing body.' }],
-                  },
-                ],
-              },
-            },
-            locale: { requested: 'en', resolved: 'en' },
-            route: { path: '/docs/workflows/content-routing', slug: 'content-routing' },
-            translations: [],
-            updatedAt: 100,
-            publishedAt: 90,
-          },
-        ],
-      }
+      return { results: [{ ...entry(String(args.locale || 'en')), snippet: 'Matched excerpt' }] }
     }
     if (operation === 'siteData') {
-      return {
-        key: 'announcement',
-        locale: { requested: 'en', resolved: 'en' },
-        data: { message: 'Live now' },
-        updatedAt: 120,
-      }
+      return { key: args.key, locale: { requested: args.locale }, data: { message: 'Hello' } }
     }
-    if (operation === 'sitemap') {
-      const input = args as { collection?: string; locale?: string }
-      const isGerman = input.locale === 'de'
-      if (input.collection === 'blog') {
-        return {
-          urls: [
-            {
-              route: {
-                path: isGerman ? '/blog/start' : '/blog/launch',
-                href: isGerman ? '/blog/start' : '/blog/launch',
-                slug: isGerman ? 'start' : 'launch',
-                locale: input.locale || 'en',
-              },
-              alternates: [
-                {
-                  locale: 'en',
-                  hreflang: 'en',
-                  route: {
-                    path: '/blog/launch',
-                    href: '/blog/launch',
-                    slug: 'launch',
-                    locale: 'en',
-                  },
-                },
-                {
-                  locale: 'de',
-                  hreflang: 'de',
-                  route: {
-                    path: '/blog/start',
-                    href: '/blog/start',
-                    slug: 'start',
-                    locale: 'de',
-                  },
-                },
-              ],
-              xDefault: {
-                path: '/blog/launch',
-                href: '/blog/launch',
-                slug: 'launch',
-                locale: 'en',
-              },
-              lastmod: '2026-05-05T00:00:00.000Z',
-            },
-          ],
-          pageInfo: { hasNextPage: false, endCursor: null },
-        }
-      }
+    if (operation === 'routes') {
       return {
-        urls: [
+        routes: [
           {
-            route: {
-              path: isGerman
-                ? '/dokumentation/arbeitsablaeufe/content-routing'
-                : '/docs/workflows/content-routing',
-              href: isGerman
-                ? '/dokumentation/arbeitsablaeufe/content-routing'
-                : '/docs/workflows/content-routing',
-              slug: 'content-routing',
-              locale: input.locale || 'en',
-            },
-            alternates: [
-              {
-                locale: 'en',
-                hreflang: 'en',
-                route: {
-                  path: '/docs/workflows/content-routing',
-                  href: '/docs/workflows/content-routing',
-                  slug: 'content-routing',
-                  locale: 'en',
-                },
-              },
-              {
-                locale: 'de',
-                hreflang: 'de-DE',
-                route: {
-                  path: '/dokumentation/arbeitsablaeufe/content-routing',
-                  href: '/dokumentation/arbeitsablaeufe/content-routing',
-                  slug: 'content-routing',
-                  locale: 'de',
-                },
-              },
-            ],
-            xDefault: {
-              path: '/docs/workflows/content-routing',
-              href: '/docs/workflows/content-routing',
-              slug: 'content-routing',
-              locale: 'en',
-            },
+            collection: args.collection,
+            stableId: 'docs-routing',
+            locale: args.locale,
+            path: args.locale === 'de' ? '/dokumentation/inhaltsrouting' : '/docs/content-routing',
+            sitemapIncluded: args.locale !== 'de',
+            lastmod: '2026-05-28T20:28:20.000Z',
           },
         ],
         pageInfo: { hasNextPage: false, endCursor: null },
       }
     }
-    if (operation === 'getAssetUrl') {
-      const input = args as { assetId: string }
-      return input.assetId === 'j9792htrrg467xmj91mhjrk629874bad'
-        ? 'https://example.convex.cloud/api/storage/asset.png'
-        : null
-    }
-    throw new Error(`Unhandled test operation: ${operation}`)
+    if (operation === 'getAssetUrl') return 'https://cdn.example.test/asset.png'
+    throw new Error(`Unexpected Convex operation: ${operation}`)
   })
-
   return { calls, query }
 })
 
-type ProviderWrappedValue<T> = {
-  __ginkoContentProviderResult?: boolean
-  cache?: unknown
-  data: T
-}
-type ProviderValue<T = Record<string, unknown>> = ProviderWrappedValue<T> | T
-type ContentProvider = {
-  capabilities: Record<string, unknown>
-  navigation: (...args: unknown[]) => Promise<ProviderValue>
-  navigationQuery: (...args: unknown[]) => Promise<ProviderValue>
-  page: (...args: unknown[]) => Promise<ProviderValue>
-  query: (...args: unknown[]) => Promise<ProviderValue>
-  routeMeta: (...args: unknown[]) => Promise<ProviderValue>
-  search: (...args: unknown[]) => Promise<ProviderValue>
-  sitemapEntries: (...args: unknown[]) => Promise<ProviderValue>
-  siteData: (...args: unknown[]) => Promise<ProviderValue>
-  surroundings: (...args: unknown[]) => Promise<ProviderValue>
-}
-type ProviderModule = {
-  __setGinkoNuxtProviderClientFactoryForTests: (
-    factory?: () => { query: typeof convexMock.query },
-  ) => void
-  contentProvider: ContentProvider
-}
+type ProviderModule = typeof import('../../packages/cms/src/nuxt-provider.mjs')
+let contentProvider: ProviderModule['contentProvider']
+let setClientFactory: ProviderModule['__setGinkoNuxtProviderClientFactoryForTests']
 
-let contentProvider: ContentProvider
-let setClientFactoryForTests: ProviderModule['__setGinkoNuxtProviderClientFactoryForTests']
+const event = {
+  context: {
+    runtimeConfig: {
+      public: {
+        content: {
+          defaultLocale: 'en',
+          locales: ['en', 'de'],
+          collections: { docs: { type: 'page', i18n: { locales: ['en', 'de'] } } },
+        },
+      },
+    },
+  },
+} as never
 
-const isProviderWrappedValue = <T>(value: ProviderValue<T>): value is ProviderWrappedValue<T> =>
-  !!value &&
-  typeof value === 'object' &&
-  '__ginkoContentProviderResult' in value &&
-  !!value.__ginkoContentProviderResult
+const unwrap = <T>(value: T) => (isContentProviderResult(value) ? value.data : value)
 
-const unwrap = <T = Record<string, unknown>>(value: ProviderValue<T>): T =>
-  isProviderWrappedValue(value) ? value.data : value
-const cache = (value: ProviderValue): unknown =>
-  isProviderWrappedValue(value) ? value.cache : undefined
-
-describe('Ginko Nuxt content provider', () => {
+describe('Ginko Nuxt provider v2', () => {
   beforeEach(async () => {
     vi.resetModules()
     convexMock.calls.length = 0
     convexMock.query.mockClear()
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
-    process.env.GINKO_CONTENT_PROVIDER_SITE = 'cms-provider-fixture'
-    ;({ contentProvider, __setGinkoNuxtProviderClientFactoryForTests: setClientFactoryForTests } =
-      (await import('../../packages/cms/src/nuxt-provider.mjs')) as ProviderModule)
-    setClientFactoryForTests(() => ({ query: convexMock.query }))
+    ;({ contentProvider, __setGinkoNuxtProviderClientFactoryForTests: setClientFactory } =
+      await import('../../packages/cms/src/nuxt-provider.mjs'))
+    setClientFactory(() => ({ query: convexMock.query }))
   })
 
   afterEach(() => {
-    setClientFactoryForTests?.(undefined)
+    setClientFactory(undefined)
     delete process.env.NUXT_PUBLIC_CONVEX_URL
-    delete process.env.GINKO_CONTENT_PROVIDER_SITE
   })
 
-  it('declares only the portable query capabilities it actually supports', () => {
+  runProviderContractSuite({
+    name: 'CMS provider',
+    expectedProviderName: 'cms',
+    loadProvider: async () => contentProvider as never,
+    createEvent: () => event,
+    expectedCapabilities: {
+      query: { operators: ['$eq', '$ne', '$prefix'], pagination: ['cursor'] },
+    },
+    operatorProbes: {
+      $eq: {
+        positive: toContentProviderQuery({ collection: 'docs', where: { locale: { $eq: 'en' } } }),
+      },
+      $ne: {
+        positive: toContentProviderQuery({ collection: 'docs', where: { draft: { $ne: true } } }),
+      },
+      $prefix: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          where: { path: { $prefix: '/docs' } },
+        }),
+      },
+    },
+    paginationProbes: {
+      cursor: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          paging: { mode: 'cursor', after: null, limit: 10 },
+        }),
+      },
+    },
+  })
+
+  it('advertises only capabilities it implements', () => {
     expectProviderCapabilities(contentProvider as never, {
-      routeBackedCollections: true,
-      dataCollections: true,
-      localizedRoutes: true,
-      translatedSlugs: true,
-      navigation: true,
-      surroundings: true,
-      searchSections: false,
-      sitemap: true,
-      query: {
-        operators: ['$eq', '$ne', '$in', '$contains', '$icontains', '$prefix', '$and', '$or'],
-        limit: true,
-        skip: false,
-        count: false,
-      },
+      query: { operators: ['$eq', '$ne', '$prefix'], pagination: ['cursor'] },
     })
   })
 
-  it('rejects unsupported query shapes before calling Convex', async () => {
-    await expect(
-      contentProvider.query(
-        {} as never,
-        toContentProviderQuery({
-          collection: 'docs',
-          where: { title: 'Hello' },
-        }),
-      ),
-    ).rejects.toMatchObject({
-      statusCode: 400,
-      statusMessage: 'unsupported_query_shape',
-      data: {
-        code: 'unsupported_query_shape',
-        field: 'where',
-      },
-    })
-
-    await expect(
-      contentProvider.query(
-        {} as never,
-        toContentProviderQuery({
-          collection: 'docs',
-          skip: 10,
-        }),
-      ),
-    ).rejects.toMatchObject({
-      statusCode: 400,
-      statusMessage: 'unsupported_query_shape',
-      data: {
-        code: 'unsupported_query_shape',
-        field: 'skip',
-      },
-    })
-  })
-
-  it('supports the portable Ginko list subset used by reference apps', async () => {
-    const wrapped = await contentProvider.query(
-      {} as never,
-      toContentProviderQuery({
-        collection: 'docs',
-        where: [{ draft: { $ne: true } }, { locale: 'en' }],
-        only: ['title', 'description', 'path'],
-      }),
-    )
-    const result = unwrap(wrapped)
-
-    expect(result).toMatchObject({
-      result: [
-        {
-          title: 'Content Routing',
-          description: 'Route content across locales.',
-          path: '/docs/workflows/content-routing',
-        },
-        {
-          title: 'Launch Checklist',
-          description: 'Ship with confidence.',
-          path: '/docs/workflows/launch-checklist',
-        },
-      ],
-    })
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'list',
-      args: {
-        collection: 'docs',
-        locale: 'en',
-        limit: undefined,
-        cursor: undefined,
-      },
-    })
-    expect(cache(wrapped)).toMatchObject({
-      tags: expect.arrayContaining([
-        'collection:docs',
-        'entry:docs:docs-routing',
-        'entry:docs:docs-launch',
-        'route:/docs/workflows/content-routing',
-      ]),
-      paths: expect.arrayContaining([
-        '/docs/workflows/content-routing',
-        '/docs/workflows/launch-checklist',
-      ]),
-    })
-  })
-
-  it('forwards supported public list sort to Convex instead of sorting in memory', async () => {
-    const wrapped = await contentProvider.query(
-      {} as never,
-      toContentProviderQuery({
-        collection: 'docs',
-        sort: [{ lastPublishedAt: -1 }],
-      }),
-    )
-
-    expect(unwrap(wrapped).result.map((entry: { title: string }) => entry.title)).toEqual([
-      'Launch Checklist',
-      'Content Routing',
-    ])
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'list',
-      args: {
-        collection: 'docs',
-        locale: 'en',
-        limit: undefined,
-        cursor: undefined,
-        sort: 'lastPublishedAt:desc',
-      },
-    })
-  })
-
-  it('resolves Ginko route-variant queries through the page projection', async () => {
-    const wrapped = await contentProvider.query(
-      {} as never,
-      toContentProviderQuery({
-        collection: 'docs',
-        first: true,
-        resolveVariant: {
-          path: '/docs/workflows/content-routing',
-          locale: 'en',
-          fallback: [],
-        },
-        only: ['title', 'path', 'resolved'],
-      }),
-    )
-    const result = unwrap(wrapped)
-
-    expect(result).toMatchObject({
-      result: {
-        title: 'Content Routing',
-        path: '/docs/workflows/content-routing',
-        resolved: {
-          variantPaths: {
-            en: '/docs/workflows/content-routing',
-            de: '/dokumentation/arbeitsablaeufe/content-routing',
-          },
-        },
-      },
-    })
-    expect(cache(wrapped).tags).toEqual(
-      expect.arrayContaining([
-        'collection:docs',
-        'entry:docs:docs-routing',
-        'entry:docs:docs-routing:en',
-        'route:/docs/workflows/content-routing',
-      ]),
-    )
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'page',
-      args: {
-        collection: 'docs',
-        locale: 'en',
-        fallback: [],
-        path: '/docs/workflows/content-routing',
-      },
-    })
-  })
-
-  it('resolves object-style route and ref variant selectors', async () => {
-    await contentProvider.query(
-      {} as never,
-      toContentProviderQuery({
-        collection: 'docs',
-        first: true,
-        resolveVariant: {
-          route: '/docs/workflows/content-routing',
-          locale: 'en',
-        },
-        only: ['title'],
-      }),
-    )
-
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'page',
-      args: {
-        collection: 'docs',
-        locale: 'en',
-        fallback: [],
-        path: '/docs/workflows/content-routing',
-      },
-    })
-
-    const refResult = unwrap(
-      await contentProvider.query(
-        {} as never,
-        toContentProviderQuery({
-          collection: 'docs',
-          first: true,
-          resolveVariant: {
-            ref: 'docs-routing',
-            locale: 'en',
-          },
-          only: ['title', 'resolved'],
-        }),
-      ),
-    )
-    expect(refResult).toMatchObject({
-      result: {
-        title: 'Content Routing',
-        resolved: expect.objectContaining({
-          requestedRef: 'docs-routing',
-        }),
-      },
-    })
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'page',
-      args: {
-        collection: 'docs',
-        locale: 'en',
-        fallback: [],
-        ref: 'docs-routing',
-      },
-    })
-  })
-
-  it('resolves direct ref route-variant selectors from ginko-content', async () => {
-    const wrapped = await contentProvider.query(
-      {} as never,
-      toContentProviderQuery({
-        collection: 'docs',
-        first: true,
-        resolveVariant: {
-          ref: 'docs-routing',
-          locale: 'en',
-        },
-        only: ['title', 'resolved'],
-      }),
-    )
-
-    expect(unwrap(wrapped)).toMatchObject({
-      result: {
-        title: 'Content Routing',
-        resolved: expect.objectContaining({
-          requestedRef: 'docs-routing',
-        }),
-      },
-    })
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'page',
-      args: {
-        collection: 'docs',
-        locale: 'en',
-        fallback: [],
-        ref: 'docs-routing',
-      },
-    })
-  })
-
-  it('passes explicit fallback policy through page and route metadata reads', async () => {
-    await contentProvider.page({} as never, 'docs', '/docs/workflows/content-routing', {
-      locale: 'de-CH',
-      resolveLocale: {
-        locale: 'de-CH',
-        fallback: ['de', 'en'],
-      },
-    })
-
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'page',
-      args: {
-        collection: 'docs',
-        locale: 'de-CH',
-        fallback: ['de', 'en'],
-        path: '/docs/workflows/content-routing',
-      },
-    })
-
-    await contentProvider.routeMeta({} as never, 'docs', '/docs/workflows/content-routing', {
-      locale: 'de-CH',
-      fallback: false,
-    })
-
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'routeMeta',
-      args: {
-        collection: 'docs',
-        locale: 'de-CH',
-        fallback: false,
-        path: '/docs/workflows/content-routing',
-      },
-    })
-  })
-
-  it('keeps requestedRoute separate from resolved localized route metadata', async () => {
-    const wrappedPage = await contentProvider.page(
-      {} as never,
-      'docs',
-      '/de/dokumentation/arbeitsablaeufe/content-routing?preview=1',
-      { locale: 'de' },
-    )
-
-    expect(unwrap(wrappedPage)).toMatchObject({
-      locale: 'de',
-      unprefixedPath: '/dokumentation/arbeitsablaeufe/content-routing',
-      path: '/de/dokumentation/arbeitsablaeufe/content-routing',
-      resolved: {
-        locale: 'de',
-        requestedLocale: 'de',
-        fallback: false,
-        path: '/de/dokumentation/arbeitsablaeufe/content-routing',
-        requestedRoute: '/de/dokumentation/arbeitsablaeufe/content-routing?preview=1',
-      },
-    })
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'page',
-      args: {
-        collection: 'docs',
-        locale: 'de',
-        path: '/dokumentation/arbeitsablaeufe/content-routing',
-      },
-    })
-    expect(cache(wrappedPage)).toMatchObject({
-      tags: expect.arrayContaining(['route:/dokumentation/arbeitsablaeufe/content-routing']),
-      paths: ['/dokumentation/arbeitsablaeufe/content-routing'],
-    })
-  })
-
-  it('uses stored route href for non-English default-locale routes without adding a prefix', async () => {
-    convexMock.query.mockResolvedValueOnce({
-      status: 'found',
-      page: {
-        id: 'entry-blog-de',
-        collection: 'blog',
-        revision: 'blog-de',
-        title: 'Default-Locale-Beweis',
-        data: {
-          description: 'German default locale route.',
-          bodyAst: {
-            type: 'root',
-            props: {},
-            children: [
-              {
-                type: 'element',
-                tag: 'p',
-                props: {},
-                children: [{ type: 'text', value: 'German default locale route.' }],
-              },
-            ],
-          },
-        },
-        locale: { requested: 'de', resolved: 'de' },
-        route: {
-          locale: 'de',
-          path: '/blog/default-locale-proof',
-          href: '/blog/default-locale-proof',
-          slug: 'default-locale-proof',
-        },
-        translations: [],
-        updatedAt: 100,
-        publishedAt: 90,
-      },
-    })
-
-    const wrappedPage = await contentProvider.page(
-      {} as never,
-      'blog',
-      '/blog/default-locale-proof',
-      { locale: 'de' },
-    )
-
-    expect(unwrap(wrappedPage)).toMatchObject({
-      locale: 'de',
-      unprefixedPath: '/blog/default-locale-proof',
-      path: '/blog/default-locale-proof',
-      resolved: {
-        path: '/blog/default-locale-proof',
-      },
-    })
-  })
-
-  it('fails loudly instead of treating raw body data as parsed MDC', async () => {
-    convexMock.query.mockResolvedValueOnce({
-      status: 'found',
-      page: {
-        id: 'entry-old-row',
-        collection: 'docs',
-        revision: 'old-row',
-        title: 'Old Row',
-        data: {
-          description: 'Missing bodyAst should not be treated as parsed content.',
-          bodyMdc: '# Legacy raw body',
-        },
-        locale: { requested: 'en', resolved: 'en' },
-        route: { path: '/docs/old-row', slug: 'old-row' },
-        translations: [],
-        updatedAt: 100,
-        publishedAt: 90,
-      },
-    })
-
-    await expect(
-      contentProvider.page({} as never, 'docs', '/docs/old-row', { locale: 'en' }),
-    ).rejects.toMatchObject({
-      statusCode: 500,
-      statusMessage: 'provider_body_ast_missing',
-      data: {
-        code: 'provider_body_ast_missing',
-      },
-    })
-  })
-
-  it('resolves Ginko navigation queries with the normalized locale scope', async () => {
-    const navWire = toContentProviderNavigationQuery({
-      collection: 'docs',
-      where: [{ draft: { $ne: true } }, { locale: 'de' }],
-      resolveLocale: { locale: 'de', fallback: false },
-    })
-    const wrapped = await contentProvider.navigationQuery(
-      {} as never,
-      navWire.query,
-      navWire.options,
-    )
-
-    expect(cache(wrapped).tags).toEqual(expect.arrayContaining(['collection:docs', 'nav:docs:de']))
-    expect(convexMock.calls.at(-1)).toEqual({
-      operation: 'nav',
-      args: {
-        collection: 'docs',
-        locale: 'de',
-      },
-    })
-  })
-
-  it('preserves unsupported operator errors inside rejected where filters', async () => {
-    await expect(
-      contentProvider.query({} as never, {
-        v: 1,
-        collection: 'docs',
-        plan: {
-          filter: { type: 'compare', field: 'title', operator: 'near', value: 'routing' },
-          sort: [],
-          projection: { only: [], without: [] },
-          skip: 0,
-          mode: 'all',
-        },
-      }),
-    ).rejects.toMatchObject({
-      statusCode: 400,
-      statusMessage: 'unsupported_query_operator',
-      data: {
-        code: 'unsupported_query_operator',
-        operator: '$near',
-      },
-    })
-  })
-
-  it('aggregates runtime sitemap collections and honors exclude filters', async () => {
-    const event = {
-      context: {
-        runtimeConfig: {
-          public: {
-            content: {
-              defaultLocale: 'en',
-              locales: ['en', 'de'],
-              sitemap: {
-                exclude: ['versions'],
-              },
-              collections: {
-                docs: { i18n: { locales: ['en', 'de'] } },
-                blog: { i18n: { locales: ['en', 'de'] } },
-                versions: { sitemap: false },
-              },
-            },
-            i18n: {
-              locales: [
-                { code: 'en', language: 'en-US' },
-                { code: 'de', language: 'de-DE' },
-              ],
-            },
-          },
-        },
-      },
+  it('returns a raw provider document for a closed route selector', async () => {
+    const query = toContentProviderQuery({ collection: 'docs', first: true })
+    query.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'de',
+      candidates: [{ locale: 'de', contentPath: '/dokumentation/inhaltsrouting' }],
     }
+    const response = unwrap(await contentProvider.query(event, query))
+    const document = response.result
 
-    const allEntries = unwrap<Array<{ _sitemap: string; loc: string }>>(
-      await contentProvider.sitemapEntries(event as never),
-    )
-
-    expect(allEntries).toEqual([
-      expect.objectContaining({
-        _sitemap: 'en-US',
-        loc: '/docs/workflows/content-routing',
-      }),
-      expect.objectContaining({
-        _sitemap: 'de-DE',
-        loc: '/de/dokumentation/arbeitsablaeufe/content-routing',
-      }),
-      expect.objectContaining({
-        _sitemap: 'en-US',
-        loc: '/blog/launch',
-      }),
-      expect.objectContaining({
-        _sitemap: 'de-DE',
-        loc: '/de/blog/start',
-      }),
-    ])
-
-    const filteredEntries = unwrap<Array<{ loc: string }>>(
-      await contentProvider.sitemapEntries(event as never, {
-        include: ['docs', 'blog'],
-        exclude: ['blog'],
-      }),
-    )
-
-    expect(filteredEntries.map((entry) => entry.loc)).toEqual([
-      '/docs/workflows/content-routing',
-      '/de/dokumentation/arbeitsablaeufe/content-routing',
-    ])
-  })
-
-  it('reads sitemap config from the private Nitro runtime shape', async () => {
-    const event = {
-      context: {
-        nitro: {
-          runtimeConfig: {
-            content: {
-              defaultLocale: 'en',
-              locales: ['en', 'de'],
-              sitemap: {},
-              collections: {
-                docs: { i18n: { locales: ['en', 'de'] } },
-              },
-            },
-            i18n: {
-              locales: [
-                { code: 'en', language: 'en-US' },
-                { code: 'de', language: 'de-DE' },
-              ],
-            },
-          },
-        },
-      },
-    }
-
-    const entries = unwrap<Array<{ _sitemap: string; loc: string }>>(
-      await contentProvider.sitemapEntries(event as never),
-    )
-
-    expect(entries.map((entry) => [entry._sitemap, entry.loc])).toEqual([
-      ['en-US', '/docs/workflows/content-routing'],
-      ['de-DE', '/de/dokumentation/arbeitsablaeufe/content-routing'],
-    ])
-  })
-
-  it('maps production Convex projection reads into the neutral content provider shape', async () => {
-    const wrappedPage = await contentProvider.page(
-      {} as never,
-      'docs',
-      '/en/docs/workflows/content-routing',
-      { locale: 'en' },
-    )
-    const page = unwrap(wrappedPage)
-    expectProviderDocumentEnvelope(page, { locale: 'en', defaultLocale: 'en' })
-    expect(page).toMatchObject({
-      id: 'entry-docs-routing',
+    expect(document).toMatchObject({
+      id: expect.any(String),
       collection: 'docs',
-      type: 'markdown',
       canonicalKey: 'docs:docs-routing',
-      title: 'Content Routing',
-      description: 'Route content across locales.',
-      locale: 'en',
-      path: '/docs/workflows/content-routing',
-      unprefixedPath: '/docs/workflows/content-routing',
-      defaultLocale: 'en',
-      ref: 'docs-routing',
-      stem: 'docs/workflows/content-routing/index',
-      localePaths: {
-        en: {
-          path: '/docs/workflows/content-routing',
-          translated: true,
-        },
-        de: {
-          path: '/de/dokumentation/arbeitsablaeufe/content-routing',
-          translated: true,
-        },
-      },
-      variants: [
-        {
-          locale: 'en',
-          path: '/docs/workflows/content-routing',
-          unprefixedPath: '/docs/workflows/content-routing',
-        },
-        {
-          locale: 'de',
-          path: '/de/dokumentation/arbeitsablaeufe/content-routing',
-          unprefixedPath: '/dokumentation/arbeitsablaeufe/content-routing',
-        },
-      ],
-      resolved: {
-        locale: 'en',
-        requestedLocale: 'en',
-        fallback: false,
-        path: '/docs/workflows/content-routing',
-        requestedRoute: '/en/docs/workflows/content-routing',
-        availableLocales: ['en', 'de'],
-      },
-    })
-    expect(cache(wrappedPage)).toMatchObject({
-      tags: expect.arrayContaining([
-        'collection:docs',
-        'entry:docs:docs-routing',
-        'entry:docs:docs-routing:en',
-        'route:/docs/workflows/content-routing',
+      locale: 'de',
+      contentPath: '/dokumentation/inhaltsrouting',
+      body: { type: 'root', children: expect.any(Array) },
+      routeVariants: expect.arrayContaining([
+        { locale: 'en', contentPath: '/docs/content-routing' },
+        { locale: 'de', contentPath: '/dokumentation/inhaltsrouting' },
       ]),
-      paths: ['/docs/workflows/content-routing'],
     })
-
-    const wrappedRouteMeta = await contentProvider.routeMeta(
-      {} as never,
-      'docs',
-      '/docs/workflows/content-routing',
-      {
-        locale: 'en',
-      },
-    )
-    expect(unwrap(wrappedRouteMeta)).toMatchObject({
-      path: '/docs/workflows/content-routing',
-      unprefixedPath: '/docs/workflows/content-routing',
-      locale: 'en',
-      defaultLocale: 'en',
-      localePaths: {
-        en: {
-          path: '/docs/workflows/content-routing',
-          translated: true,
-        },
-      },
-    })
-    expect(cache(wrappedRouteMeta).tags).toEqual(
-      expect.arrayContaining(['collection:docs', 'route:/docs/workflows/content-routing']),
-    )
-    expect(unwrap(wrappedRouteMeta)).not.toHaveProperty('body')
-
-    const list = unwrap(
-      await contentProvider.query(
-        {} as never,
-        toContentProviderQuery({
-          collection: 'docs',
-          limit: 5,
-          resolveLocale: { locale: 'en' },
-        }),
-      ),
-    )
-    expect(list).toMatchObject({
-      result: [
-        expect.objectContaining({
-          title: 'Content Routing',
-          collection: 'docs',
-        }),
-        expect.objectContaining({
-          title: 'Launch Checklist',
-          collection: 'docs',
-        }),
-      ],
-      pageInfo: { hasNextPage: false, endCursor: null },
-    })
-
-    const wrappedNav = await contentProvider.navigation({} as never, 'docs', { locale: 'en' })
-    const nav = unwrap(wrappedNav)
-    expect(nav).toEqual([
-      {
-        ref: 'docs-routing',
-        stableId: 'docs-routing',
-        title: 'Content Routing',
-        path: '/docs/workflows/content-routing',
-        unprefixedPath: '/docs/workflows/content-routing',
-        locale: 'en',
-        children: [],
-      },
-    ])
-    expect(cache(wrappedNav).tags).toEqual(
-      expect.arrayContaining(['collection:docs', 'nav:docs:en']),
-    )
-
-    expect(unwrap(await contentProvider.navigation({} as never, 'docs', ['description']))).toEqual([
-      expect.objectContaining({
-        title: 'Content Routing',
-        description: 'Route content across locales.',
-      }),
-    ])
-
-    const wrappedSurround = await contentProvider.surroundings(
-      {} as never,
-      'docs',
-      '/docs/workflows/content-routing',
-      {
-        locale: 'en',
-      },
-    )
-    const surround = unwrap(wrappedSurround)
-    expect(surround).toEqual([
-      {
-        title: 'Launch Checklist',
-        path: '/docs/workflows/launch-checklist',
-        unprefixedPath: '/docs/workflows/launch-checklist',
-      },
-      {
-        title: 'Sitemap and SEO',
-        path: '/docs/workflows/sitemap-and-seo',
-        unprefixedPath: '/docs/workflows/sitemap-and-seo',
-      },
-    ])
-    expect(cache(wrappedSurround).tags).toEqual(['collection:docs'])
-
-    const wrappedSearch = await contentProvider.search({} as never, {
-      term: 'routing',
-      locale: 'en',
-      collection: 'docs',
-    })
-    expect(unwrap(wrappedSearch)).toEqual([
-      expect.objectContaining({
-        path: '/docs/workflows/content-routing',
-        title: 'Content Routing',
-        collection: 'docs',
-      }),
-    ])
-    expect(cache(wrappedSearch).tags).toEqual(['search:en'])
-
-    const wrappedMultiCollectionSearch = await contentProvider.search({} as never, {
-      query: 'routing',
-      locale: 'en',
-      collections: ['docs', 'blog'],
-    })
-    expect(unwrap(wrappedMultiCollectionSearch)).toEqual([
-      expect.objectContaining({
-        path: '/docs/workflows/content-routing',
-        title: 'Content Routing',
-        collection: 'docs',
-      }),
-      expect.objectContaining({
-        path: '/blog/routing',
-        title: 'Routing Blog',
-        collection: 'blog',
-      }),
-    ])
-
-    const wrappedSiteData = await contentProvider.siteData({} as never, {
-      key: 'announcement',
-      locale: 'en',
-    })
-    expect(unwrap(wrappedSiteData)).toEqual({
-      key: 'announcement',
-      locale: 'en',
-      data: { message: 'Live now' },
-      updatedAt: 120,
-    })
-    expect(cache(wrappedSiteData).tags).toEqual(['site-data:announcement:en'])
-
-    const wrappedSitemap = await contentProvider.sitemapEntries({} as never, { include: ['docs'] })
-    expect(unwrap(wrappedSitemap)).toEqual([
-      {
-        _sitemap: 'en',
-        loc: '/docs/workflows/content-routing',
-        lastmod: undefined,
-        alternatives: [
-          {
-            hreflang: 'en',
-            href: '/docs/workflows/content-routing',
-          },
-          {
-            hreflang: 'de-DE',
-            href: '/de/dokumentation/arbeitsablaeufe/content-routing',
-          },
-          {
-            hreflang: 'x-default',
-            href: '/docs/workflows/content-routing',
-          },
-        ],
-      },
-    ])
-    expect(cache(wrappedSitemap).tags).toEqual(['sitemap'])
-    expect(convexMock.calls.map((call) => call.operation)).toEqual([
-      'page',
-      'routeMeta',
-      'list',
-      'nav',
-      'nav',
-      'surround',
-      'search',
-      'search',
-      'search',
-      'siteData',
-      'sitemap',
-    ])
-  })
-
-  it('resolves published CMS asset ids before returning provider content', async () => {
-    const wrappedPage = await contentProvider.page({} as never, 'docs', '/docs/asset', {
-      locale: 'en',
-    })
-    const page = unwrap(wrappedPage)
-
-    expect(page.image).toEqual({
-      src: 'https://example.convex.cloud/api/storage/asset.png',
-      alt: 'Asset alt',
-    })
-    expect(page.body.children[0].props.src).toBe(
-      'https://example.convex.cloud/api/storage/asset.png',
-    )
-    expect(convexMock.calls).toEqual(
-      expect.arrayContaining([
-        {
-          operation: 'getAssetUrl',
-          args: { assetId: 'j9792htrrg467xmj91mhjrk629874bad' },
-        },
-      ]),
-    )
-  })
-
-  it('fails loudly when required live provider environment is missing', async () => {
-    const previousPublicConvexUrl = process.env.NUXT_PUBLIC_CONVEX_URL
-    const previousConvexUrl = process.env.CONVEX_URL
-    delete process.env.NUXT_PUBLIC_CONVEX_URL
-    delete process.env.CONVEX_URL
-    try {
-      await expect(
-        contentProvider.query(
-          {} as never,
-          toContentProviderQuery({
-            collection: 'docs',
-            limit: 1,
-          }),
-        ),
-      ).rejects.toMatchObject({
-        statusCode: 500,
-        statusMessage: 'provider_config_missing',
-        data: {
-          code: 'provider_config_missing',
-          env: 'NUXT_PUBLIC_CONVEX_URL',
-        },
-      })
-    } finally {
-      if (previousPublicConvexUrl === undefined) {
-        delete process.env.NUXT_PUBLIC_CONVEX_URL
-      } else {
-        process.env.NUXT_PUBLIC_CONVEX_URL = previousPublicConvexUrl
-      }
-      if (previousConvexUrl === undefined) {
-        delete process.env.CONVEX_URL
-      } else {
-        process.env.CONVEX_URL = previousConvexUrl
-      }
+    for (const legacy of [
+      'resolved',
+      'localePaths',
+      'variants',
+      'variantPaths',
+      'availableLocales',
+    ]) {
+      expect(document).not.toHaveProperty(legacy)
     }
+  })
+
+  it('tries closed route candidates in order until a published variant is found', async () => {
+    const query = toContentProviderQuery({ collection: 'docs', first: true })
+    query.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'de',
+      candidates: [
+        { locale: 'de', contentPath: '/missing' },
+        { locale: 'en', contentPath: '/docs/content-routing' },
+      ],
+    }
+
+    const response = unwrap(await contentProvider.query(event, query))
+    const pageCalls = convexMock.calls.filter(({ operation }) => operation === 'page')
+
+    expect(response.result).toMatchObject({ locale: 'en', canonicalKey: 'docs:docs-routing' })
+    expect(pageCalls.map(({ args }) => [args.locale, args.path])).toEqual([
+      ['de', '/missing'],
+      ['en', '/docs/content-routing'],
+    ])
+  })
+
+  it('threads opaque cursors and returns an honest cursor envelope', async () => {
+    const query = toContentProviderQuery({
+      collection: 'docs',
+      paging: { mode: 'cursor', after: 'next', limit: 10 },
+    })
+    const response = unwrap(await contentProvider.query(event, query))
+
+    expect(response).toMatchObject({
+      mode: 'cursor',
+      limit: 10,
+      pageInfo: { endCursor: null, hasNext: false },
+    })
+    expect(response).not.toHaveProperty('total')
+    expect(convexMock.calls.at(-1)?.args.cursor).toBe('next')
+    expect(convexMock.calls.at(-1)?.args.limit).toBe(10)
+  })
+
+  it('returns raw route facts from navigation, surroundings, and search', async () => {
+    const navigationWire = toContentProviderNavigationQuery({ collection: 'docs' })
+    const navigation = unwrap(
+      await contentProvider.navigation!(event, navigationWire.query, { locale: 'en' }),
+    )
+    const surroundings = unwrap(
+      await contentProvider.surroundings!(event, 'docs', '/docs/content-routing', { locale: 'en' }),
+    )
+    const search = unwrap(
+      await contentProvider.search!(event, {
+        term: 'routing',
+        locale: 'en',
+        collections: ['docs'],
+      }),
+    )
+
+    for (const route of [navigation[0]?.route, surroundings[0]?.route, search[0]?.route]) {
+      expect(route).toEqual({
+        collection: 'docs',
+        canonicalKey: 'docs:docs-routing',
+        locale: 'en',
+        contentPath: '/docs/content-routing',
+      })
+      expect(route).not.toHaveProperty('path')
+    }
+  })
+
+  it('enumerates all locale routes and preserves sitemap opt-out as a fact', async () => {
+    const routes = unwrap(await contentProvider.routes!(event))
+
+    expect(routes).toEqual([
+      {
+        collection: 'docs',
+        canonicalKey: 'docs:docs-routing',
+        locale: 'en',
+        contentPath: '/docs/content-routing',
+        sitemap: { lastmod: '2026-05-28T20:28:20.000Z' },
+      },
+      {
+        collection: 'docs',
+        canonicalKey: 'docs:docs-routing',
+        locale: 'de',
+        contentPath: '/dokumentation/inhaltsrouting',
+        sitemap: false,
+      },
+    ])
+    expect(convexMock.calls.filter((call) => call.operation === 'routes')).toHaveLength(2)
+  })
+
+  it('uses the shared symbol-marked cache wrapper', async () => {
+    const response = await contentProvider.query(
+      event,
+      toContentProviderQuery({ collection: 'docs' }),
+    )
+    expect(isContentProviderResult(response)).toBe(true)
+  })
+
+  it('rejects the removed v1 wire before dispatch', async () => {
+    await expect(
+      contentProvider.query(event, {
+        ...toContentProviderQuery({ collection: 'docs' }),
+        v: 1 as 2,
+      }),
+    ).rejects.toMatchObject({ statusMessage: 'unsupported_query_shape' })
+    expect(convexMock.query).not.toHaveBeenCalled()
   })
 })

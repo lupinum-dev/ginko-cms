@@ -3,6 +3,7 @@ import {
   nav as navArgs,
   page as pageArgs,
   routeMeta as routeMetaArgs,
+  routes as routesArgs,
   search as searchArgs,
   singleton as singletonArgs,
   sitemap as sitemapArgs,
@@ -50,6 +51,12 @@ export const sitemap = query({
   args: sitemapArgs.args,
   handler: async (ctx, args) =>
     await ctx.runQuery(components.ginkoCms.public.sitemap, args as never),
+})
+
+export const routes = query({
+  args: routesArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.public.routes, args as never),
 })
 
 export const singleton = query({

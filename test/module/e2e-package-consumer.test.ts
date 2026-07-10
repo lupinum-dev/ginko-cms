@@ -81,7 +81,7 @@ describe('ginko-cms package-first consumer fixture', () => {
         `export default defineNuxtConfig({`,
         `  modules: ['@lupinum/ginko-content', '@lupinum/ginko-cms'],`,
         `  content: {`,
-        `    search: { engine: 'cms' },`,
+        `    search: { engine: 'provider' },`,
         `  },`,
         `})`,
       ].join('\n'),

@@ -78,6 +78,16 @@ export const sitemap = defineArgs({
   },
 })
 
+export const routes = defineArgs({
+  description: 'Enumerate structurally routable published entries for a content build.',
+  args: {
+    collection: v.string(),
+    locale: v.string(),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.union(v.string(), v.null())),
+  },
+})
+
 export const singleton = defineArgs({
   description: 'Load a public singleton entry.',
   args: {

@@ -46,16 +46,12 @@ not pass a locale, the provider uses `en`.
 
 ## Behavior
 
-- `page`, `query`, `navigation`, `navigationQuery`, `surroundings`, `search`,
-  `siteData`, `routeMeta`, and `sitemapEntries` read from Ginko public Convex
-  queries.
+- Provider queries, navigation, surroundings, search, site data, and bounded
+  route enumeration read from Ginko public Convex queries.
 - The public Convex operation is `surround`; `surroundings` is only the Ginko
   Content provider method name. The provider maps CMS `previous` / `next`
   results into the provider contract.
-- `routeMeta` is implemented for the Nuxt content provider so route-backed page
-  rendering can load localized route metadata without loading rendered body
-  content. It is not part of the optional HTTP facade.
-- `query` receives the Ginko Content 0.2 provider wire (`{ v: 1, collection,
+- `query` receives the Ginko Content 0.3 provider wire (`{ v: 2, collection,
 plan }`) and pattern-matches the closed query plan AST. It no longer accepts
   legacy builder-param objects at the provider boundary.
 - Public list reads support route-backed and data-only collections.
@@ -74,12 +70,12 @@ plan }`) and pattern-matches the closed query plan AST. It no longer accepts
 - Public sort supports `orderKey`, `entryCreatedAt`, `firstPublishedAt`, and
   `lastPublishedAt`.
 - Positive numeric `skip`, `count`, and `without` projections are rejected.
-- Query and page payloads use the Ginko Content 0.2 envelope: `id`,
-  `collection`, `type`, `path`, `locale`, `canonicalKey`, `resolved`, `body`,
-  and authored fields. Route helpers add `unprefixedPath`, `variants`, and
-  `localePaths`. Legacy underscore metadata and `canonicalPath` are not emitted.
+- Query results are raw Ginko Content 0.3 provider documents. They expose one
+  structural route model through `contentPath`, `canonicalKey`, and
+  `routeVariants`; route resolution and locale policy remain owned by the
+  content engine.
 - `searchSections` is intentionally not exposed by the CMS provider. Host apps
-  must use `content.search.engine = 'cms'` with `useContentSearchResults()` or
+  must use `content.search.engine = 'provider'` with `useContentSearchResults()` or
   an explicit Ginko headless search import instead of rebuilding a frontend-owned
   section index from public rows.
 

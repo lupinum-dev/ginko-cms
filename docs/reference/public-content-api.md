@@ -48,7 +48,7 @@ Ginko Content search-result helpers instead of static section-data helpers:
 export default defineNuxtConfig({
   content: {
     search: {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs'],
     },
   },

@@ -1190,6 +1190,7 @@ export const ginkoPublicEntryValidator = v.object({
   publishedAt: v.string(),
   updatedAt: v.string(),
   revision: v.string(),
+  stableId: v.string(),
 })
 
 export const ginkoBreadcrumbValidator = v.object({
@@ -1215,6 +1216,7 @@ export const ginkoPublicNavigationEntryValidator = v.object({
   publishedAt: v.string(),
   updatedAt: v.string(),
   revision: v.string(),
+  stableId: v.string(),
 })
 
 function createGinkoNavNodeValidator(depth: number): RequiredValidator<unknown> {
@@ -1272,6 +1274,20 @@ export const ginkoPageResultValidator = v.union(
 export const ginkoPageInfoValidator = v.object({
   hasNextPage: v.boolean(),
   endCursor: v.union(v.string(), v.null()),
+})
+
+export const ginkoRoutesResultValidator = v.object({
+  routes: v.array(
+    v.object({
+      collection: v.string(),
+      stableId: v.string(),
+      locale: v.string(),
+      path: v.string(),
+      sitemapIncluded: v.boolean(),
+      lastmod: v.string(),
+    }),
+  ),
+  pageInfo: ginkoPageInfoValidator,
 })
 
 export const ginkoListResultValidator = v.object({

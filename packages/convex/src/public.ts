@@ -3,6 +3,7 @@ import {
   nav as navArgs,
   page as pageArgs,
   routeMeta as routeMetaArgs,
+  routes as routesArgs,
   search as searchArgs,
   singleton as singletonArgs,
   sitemap as sitemapArgs,
@@ -13,6 +14,7 @@ import {
   ginkoListResultValidator,
   ginkoNavResultValidator,
   ginkoPageResultValidator,
+  ginkoRoutesResultValidator,
   ginkoSearchResultValidator,
   ginkoSingletonResultValidator,
   ginkoSitemapResultValidator,
@@ -1113,6 +1115,59 @@ export const sitemap = callerQuery.public({
         endCursor: result.isDone ? null : result.continueCursor,
       },
     })
+  },
+})
+
+export const routes = callerQuery.public({
+  id: 'public:routes',
+  reads: cmsPublicReadTables,
+  args: routesArgs.args,
+  returns: ginkoRoutesResultValidator,
+  handler: async (ctx, args) => {
+    validatePublicTextArgs(args)
+    const collection = await getCollection(ctx, args.collection)
+    if (!collection) return { routes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+    assertRouteBackedCollection(collection)
+    assertCollectionSupportsLocale(collection, args.locale)
+    const limit = validatePublicLimit(args.limit, SITEMAP_DEFAULT_LIMIT, SITEMAP_MAX_LIMIT)
+    const result = await paginatePublicEntriesForCollection(ctx, {
+      collectionId: collection._id,
+      locale: args.locale,
+      limit,
+      cursor: args.cursor,
+      sortField: 'orderKey',
+      direction: 'asc',
+    })
+    const records = []
+    for (const row of result.page) {
+      const route = await ctx.db
+        .query('publicRoutes')
+        .withIndex('by_entry_locale', (q) => q.eq('entryId', row.entryId).eq('locale', row.locale))
+        .first()
+      if (!route) continue
+      if (!row.stableId) {
+        throwCmsError('INVALID_QUERY', 'Published route is missing its stable content identity.', {
+          collection: args.collection,
+          entryId: String(row.entryId),
+          locale: row.locale,
+        })
+      }
+      records.push({
+        collection: args.collection,
+        stableId: row.stableId,
+        locale: row.locale,
+        path: route.path,
+        sitemapIncluded: publicFlag(row, 'sitemap'),
+        lastmod: new Date(row.lastPublishedAt).toISOString(),
+      })
+    }
+    return {
+      routes: records,
+      pageInfo: {
+        hasNextPage: !result.isDone,
+        endCursor: result.isDone ? null : result.continueCursor,
+      },
+    }
   },
 })
 

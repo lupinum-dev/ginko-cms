@@ -1,3 +1,4 @@
+import { toContentProviderQuery } from '@lupinum/ginko-content/provider'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // §10.9 / "Ginko tests": event-backed `nuxt-provider.mjs` request paths must route the
@@ -23,6 +24,7 @@ vi.mock('convex/browser', () => ({
 
 type ContentProvider = {
   siteData: (event: unknown, request?: Record<string, unknown>) => Promise<unknown>
+  query: (event: unknown, request: ReturnType<typeof toContentProviderQuery>) => Promise<unknown>
 }
 
 let contentProvider: ContentProvider
@@ -89,11 +91,13 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     serverConvexMock.mockReturnValue({ query })
 
     const event = { context: { runtimeConfig: { public: {} } } }
-    await contentProvider.query(event, {
-      v: 1,
-      collection: 'pages',
-      plan: { resolveVariant: { path: '/', locale: 'en' } },
-    })
+    const request = toContentProviderQuery({ collection: 'pages' })
+    request.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'en',
+      candidates: [{ locale: 'en', contentPath: '/' }],
+    }
+    await contentProvider.query(event, request)
 
     expect(serverConvexMock).toHaveBeenCalledTimes(1)
     expect(query).toHaveBeenCalledTimes(3)

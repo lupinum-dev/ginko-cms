@@ -108,7 +108,7 @@ export async function seedEditorFixture(ctx: ReturnType<typeof createCtx>) {
     {
       collectionId,
       baseSlug: 'hello-world',
-      stableId: null,
+      stableId: 'hello-world',
       status: 'draft',
       dirtyLocales: ['en'],
       parentEntryId: null,
@@ -190,7 +190,7 @@ export async function seedTreeFixture(ctx: ReturnType<typeof createCtx>) {
     {
       collectionId,
       baseSlug: 'root-a',
-      stableId: null,
+      stableId: 'docs-root-a',
       status: 'draft',
       dirtyLocales: ['en'],
       parentEntryId: null,
@@ -212,7 +212,7 @@ export async function seedTreeFixture(ctx: ReturnType<typeof createCtx>) {
     {
       collectionId,
       baseSlug: 'root-b',
-      stableId: null,
+      stableId: 'docs-root-b',
       status: 'draft',
       dirtyLocales: ['en'],
       parentEntryId: null,
@@ -234,7 +234,7 @@ export async function seedTreeFixture(ctx: ReturnType<typeof createCtx>) {
     {
       collectionId,
       baseSlug: 'child',
-      stableId: null,
+      stableId: 'docs-child',
       status: 'draft',
       dirtyLocales: ['en'],
       parentEntryId: rootAId,
@@ -256,7 +256,7 @@ export async function seedTreeFixture(ctx: ReturnType<typeof createCtx>) {
     {
       collectionId,
       baseSlug: 'sibling',
-      stableId: null,
+      stableId: 'docs-sibling',
       status: 'draft',
       dirtyLocales: ['en'],
       parentEntryId: rootAId,
@@ -278,7 +278,7 @@ export async function seedTreeFixture(ctx: ReturnType<typeof createCtx>) {
     {
       collectionId,
       baseSlug: 'grandchild',
-      stableId: null,
+      stableId: 'docs-grandchild',
       status: 'draft',
       dirtyLocales: ['en'],
       parentEntryId: childId,

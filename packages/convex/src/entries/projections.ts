@@ -22,6 +22,11 @@ function collectionSlug(collection?: CollectionDoc | null) {
 }
 
 export function mapActivePublicEntryRow(row: PublicEntryDoc, collection?: CollectionDoc | null) {
+  if (!row.stableId) {
+    throw new Error(
+      `Published entry ${String(row.entryId)} is missing its stableId. Republish it to rebuild the public projection.`,
+    )
+  }
   return {
     _id: String(row.entryId),
     collection: collectionSlug(collection) || String(row.collectionId),
@@ -38,7 +43,7 @@ export function mapActivePublicEntryRow(row: PublicEntryDoc, collection?: Collec
     bodyAst: decodePublicBodyAst(row.bodyAst),
     toc: row.toc,
     publishedAt: row.lastPublishedAt,
-    stableId: row.stableId ?? String(row.entryId),
+    stableId: row.stableId,
   }
 }
 

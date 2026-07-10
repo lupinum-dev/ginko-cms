@@ -1,4 +1,14 @@
-import { normalizeProviderDocument, withContentCache } from '@lupinum/ginko-content/provider'
+import { withContentCache } from '@lupinum/ginko-content/provider'
+
+import {
+  canonicalFromRoute,
+  defaultLocale,
+  normalizeContentPath,
+  publicEntryKey,
+  routeFactFor,
+  toContentEntry,
+} from './nuxt-provider/content-shaping.mjs'
+import { callGinko, providerError, setClientFactoryForTests } from './nuxt-provider/transport.mjs'
 
 const normalizeContentTagSegment = (value) => {
   const segment = String(value ?? '').trim()
@@ -6,13 +16,6 @@ const normalizeContentTagSegment = (value) => {
     throw new Error('Content cache tag segments must be non-empty.')
   }
   return segment.replace(/[:\s]+/g, '-')
-}
-
-const normalizeContentPath = (path) => {
-  const value = String(path ?? '').trim()
-  if (!value || value === '/') return '/'
-  const pathWithoutSlashes = value.replace(/^\/+|\/+$/g, '')
-  return pathWithoutSlashes ? `/${pathWithoutSlashes}` : '/'
 }
 
 const uniqueContentTags = (tags) => [
@@ -51,70 +54,8 @@ const contentTags = {
   },
 }
 
-const supportedQueryOperators = new Set([
-  '$eq',
-  '$ne',
-  '$in',
-  '$contains',
-  '$icontains',
-  '$prefix',
-  '$and',
-  '$or',
-])
-
-let testClientFactory
-
 export const __setGinkoNuxtProviderClientFactoryForTests = (factory) => {
-  testClientFactory = factory
-}
-
-const providerError = (code, message, statusCode = 400, details = {}) => {
-  const error = new Error(message)
-  error.statusCode = statusCode
-  error.statusMessage = code
-  error.data = { code, ...details }
-  return error
-}
-
-const requiredEnv = (name) => {
-  const value = process.env[name]
-  if (!value) {
-    throw providerError(
-      'provider_config_missing',
-      `${name} is required for the CMS content provider.`,
-      500,
-      {
-        env: name,
-      },
-    )
-  }
-  return value
-}
-
-const optionalEnv = (name, fallback) => process.env[name] || fallback
-
-const convexUrl = () =>
-  process.env.NUXT_PUBLIC_CONVEX_URL ||
-  process.env.CONVEX_URL ||
-  requiredEnv('NUXT_PUBLIC_CONVEX_URL')
-
-const convexFunctionPrefix = () => 'ginkoCms/public:'
-
-const convexAssetsFunctionPrefix = () => 'ginkoCms/assets:'
-
-const defaultLocale = (runtime = {}) =>
-  runtime?.defaultLocale ||
-  runtime?.i18n?.defaultLocale ||
-  process.env.GINKO_CONTENT_DEFAULT_LOCALE ||
-  process.env.NUXT_PUBLIC_GINKO_CONTENT_DEFAULT_LOCALE ||
-  'en'
-
-const providerSite = () => optionalEnv('GINKO_CONTENT_PROVIDER_SITE', 'default')
-
-const functionReference = (name) => ({ [Symbol.for('functionName')]: name })
-
-const localeLanguageFromEnv = () => {
-  return {}
+  setClientFactoryForTests(factory)
 }
 
 const runtimeConfigFromEvent = async (event) => {
@@ -129,29 +70,6 @@ const runtimeConfigFromEvent = async (event) => {
     // Fall back below for provider-contract tests that pass runtime config directly.
   }
   return event?.context?.runtimeConfig
-}
-
-const localeLanguageFromRuntime = async (event) => {
-  const envLanguages = localeLanguageFromEnv()
-  if (Object.keys(envLanguages).length > 0) return envLanguages
-
-  const runtime = await runtimeConfigFromEvent(event)
-  const i18nLocales = runtime?.public?.i18n?.locales || runtime?.i18n?.locales
-  if (Array.isArray(i18nLocales)) {
-    return Object.fromEntries(
-      i18nLocales
-        .filter((locale) => locale && typeof locale.code === 'string')
-        .map((locale) => [locale.code, locale.language || locale.code]),
-    )
-  }
-
-  const contentLocales = runtime?.public?.content?.locales || runtime?.content?.locales
-  if (!Array.isArray(contentLocales)) return {}
-  return Object.fromEntries(
-    contentLocales
-      .filter((locale) => typeof locale === 'string' && locale.length > 0)
-      .map((locale) => [locale, locale]),
-  )
 }
 
 const contentRuntimeFromEvent = async (event) => {
@@ -186,23 +104,6 @@ const contentRuntimeFromEvent = async (event) => {
   }
 }
 
-const enabledSitemapCollections = (contentRuntime, options = {}) => {
-  const runtimeCollections = contentRuntime?.collections || {}
-  const requestedCollections =
-    options.include || options.collections || contentRuntime?.sitemap?.include
-  const collections = requestedCollections?.length
-    ? requestedCollections
-    : Object.keys(runtimeCollections)
-  const excluded = new Set([
-    ...(contentRuntime?.sitemap?.exclude || []),
-    ...(options.exclude || []),
-  ])
-
-  return [...new Set(collections)]
-    .filter((collection) => !excluded.has(collection))
-    .filter((collection) => runtimeCollections[collection]?.sitemap !== false)
-}
-
 const sitemapLocalesForCollection = (contentRuntime, collection, requestedLocale) => {
   if (requestedLocale) return [requestedLocale]
 
@@ -217,274 +118,10 @@ const sitemapLocalesForCollection = (contentRuntime, collection, requestedLocale
   return [defaultLocale(contentRuntime)]
 }
 
-const normalizeRemoteError = (error, operation) => {
-  // Only consume the public normalized error contract. `cause` is deliberately
-  // opaque and may contain credentials or transport implementation details.
-  const rawData = error?.data || {}
-  const data =
-    typeof rawData === 'string'
-      ? (() => {
-          try {
-            return JSON.parse(rawData)
-          } catch {
-            return { message: rawData }
-          }
-        })()
-      : rawData
-  const code = error?.statusMessage || data.code || 'provider_query_failed'
-  const statusCode =
-    error?.statusCode || data.statusCode || (code === 'missing_locale_route' ? 404 : 500)
-  return providerError(
-    code,
-    error instanceof Error ? error.message : `CMS provider query failed: ${operation}`,
-    statusCode,
-    { operation, ...data },
-  )
-}
-
-const requestCallers = new WeakMap()
-
-const callerForEvent = async (event) => {
-  if (!event || (typeof event !== 'object' && typeof event !== 'function')) return null
-  const existing = requestCallers.get(event)
-  if (existing) return await existing
-  const pending = import('better-convex-nuxt/server').then(({ serverConvex }) =>
-    serverConvex(event, { auth: 'none' }),
-  )
-  requestCallers.set(event, pending)
-  return await pending
-}
-
-const callConvexFunction = async (event, functionName, operation, args) => {
-  // Reading validates site configuration early even before multi-site routing lands.
-  providerSite()
-  try {
-    // A test seam takes precedence so unit tests can inject a fake client.
-    if (testClientFactory) {
-      return await testClientFactory(convexUrl()).query(functionReference(functionName), args)
-    }
-    // Event-backed request paths route the supplied H3 event through one
-    // anonymous `serverConvex` caller so transport/auth stay library-owned.
-    if (event) {
-      const caller = await callerForEvent(event)
-      return await caller.query(functionReference(functionName), args)
-    }
-    // Genuinely eventless prerender/build/CLI paths keep a direct anonymous client.
-    const { ConvexHttpClient } = await import('convex/browser')
-    return await new ConvexHttpClient(convexUrl()).query(functionReference(functionName), args)
-  } catch (error) {
-    throw normalizeRemoteError(error, operation)
-  }
-}
-
-const callGinko = async (event, operation, args) =>
-  await callConvexFunction(event, `${convexFunctionPrefix()}${operation}`, operation, args)
-
-const callGinkoAsset = async (event, operation, args) =>
-  await callConvexFunction(
-    event,
-    `${convexAssetsFunctionPrefix()}${operation}`,
-    `assets:${operation}`,
-    args,
-  )
-
-const routePathname = (path = '/') => {
-  const raw = String(path || '/')
-  try {
-    return normalizeContentPath(new URL(raw, 'https://ginko.local').pathname)
-  } catch {
-    return normalizeContentPath(raw.split(/[?#]/)[0] || '/')
-  }
-}
-
-const canonicalFromRoute = (path = '/', locale = defaultLocale()) => {
-  const normalized = routePathname(path)
-  if (locale && normalized === `/${locale}`) return '/'
-  if (locale && normalized.startsWith(`/${locale}/`)) {
-    return normalized.slice(locale.length + 1) || '/'
-  }
-  return normalized
-}
-
-const hrefFor = (route, locale, options = {}) => {
-  if (options.preferStoredHref !== false && typeof route?.href === 'string' && route.href) {
-    return routePathname(route.href)
-  }
-
-  const rawPath = route?.path || route?.href || '/'
-  const path = rawPath === '/' ? '' : `/${rawPath.replace(/^\/+/, '').replace(/\/+$/, '')}`
-  const defaultLocaleCode = options.defaultLocale || defaultLocale()
-  const prefix = locale && locale !== defaultLocaleCode ? `/${locale}` : ''
-  if (prefix && (path === prefix || path.startsWith(`${prefix}/`))) return path || '/'
-  return `${prefix}${path}` || '/'
-}
-
-const publicEntryKey = (entry) => entry?.stableId || entry?.ref || entry?.revision || entry?.id
-
 const normalizeCacheHint = (hint = {}) => ({
   ...hint,
   tags: uniqueContentTags(hint.tags || []),
   paths: uniqueContentTags((hint.paths || []).map((path) => normalizeContentPath(path))),
-})
-
-const publishedTranslations = (entry) =>
-  (entry?.translations || []).filter(
-    (translation) => translation?.status === 'published' && translation.route?.path,
-  )
-
-const emptyBody = () => ({
-  type: 'root',
-  props: {},
-  children: [],
-})
-
-const parsedBodyFromData = (entry = {}, data = {}, options = {}) => {
-  const value = entry.bodyAst || data.bodyAst
-  if (value && typeof value === 'object') return value
-  if (options.required === false) return emptyBody()
-  throw providerError(
-    'provider_body_ast_missing',
-    'Published content is missing its parsed Comark body AST.',
-    500,
-  )
-}
-
-const hasStoredParsedBody = (entry = {}, data = {}) =>
-  Boolean(
-    (entry.bodyAst && typeof entry.bodyAst === 'object') ||
-    (data.bodyAst && typeof data.bodyAst === 'object'),
-  )
-
-const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0
-
-const hasLegacyMarkdownBody = (entry = {}, data = {}) =>
-  isNonEmptyString(entry.bodyMdc) ||
-  isNonEmptyString(data.bodyMdc) ||
-  isNonEmptyString(entry.body) ||
-  isNonEmptyString(data.body)
-
-const longAssetIdPattern = /^[a-z0-9]{20,40}$/i
-const storageRefPattern = /^[a-z0-9]+;[a-z_]+$/i
-
-const looksLikeAssetId = (value) => {
-  if (typeof value !== 'string') return false
-  if (longAssetIdPattern.test(value)) return true
-  if (!storageRefPattern.test(value)) return false
-  return value.endsWith(';assets') || value.endsWith(';_storage')
-}
-
-const collectAssetIds = (value, out = new Set()) => {
-  if (typeof value === 'string') {
-    if (looksLikeAssetId(value)) out.add(value)
-    return out
-  }
-  if (!value || typeof value !== 'object') return out
-  if (Array.isArray(value)) {
-    for (const child of value) collectAssetIds(child, out)
-    return out
-  }
-  for (const child of Object.values(value)) collectAssetIds(child, out)
-  return out
-}
-
-const replaceAssetIds = (value, urls) => {
-  if (typeof value === 'string') return urls.get(value) || value
-  if (!value || typeof value !== 'object') return value
-  if (Array.isArray(value)) return value.map((child) => replaceAssetIds(child, urls))
-  const next = {}
-  for (const [key, child] of Object.entries(value)) next[key] = replaceAssetIds(child, urls)
-  return next
-}
-
-const resolvePublicAssetIds = async (event, values = []) => {
-  const assetIds = [...new Set(values.flatMap((value) => [...collectAssetIds(value)]))]
-  if (assetIds.length === 0) return new Map()
-  const entries = await Promise.all(
-    assetIds.map(async (assetId) => [
-      assetId,
-      await callGinkoAsset(event, 'getAssetUrl', { assetId }),
-    ]),
-  )
-  return new Map(entries.filter(([, url]) => typeof url === 'string' && url.length > 0))
-}
-
-const collectionRouteFor = (contentRuntime = {}, collection) => {
-  const runtimeCollection = contentRuntime?.collections?.[collection]
-  const routing = runtimeCollection?.routing || {}
-  const settings = runtimeCollection?.settings || {}
-  if (routing.singleton) {
-    return settings.localizedSingletonPaths || settings.singletonPath || routing.pathPrefix
-  }
-  return settings.localizedPathPrefixes || routing.pathPrefix
-}
-
-const contentLocalesFor = (contentRuntime = {}, collection, fallbackLocales = []) => {
-  const runtimeCollection = contentRuntime?.collections?.[collection]
-  const collectionLocales = runtimeCollection?.locales
-  if (Array.isArray(collectionLocales) && collectionLocales.length) return collectionLocales
-  const contentLocales = contentRuntime?.locales
-  if (Array.isArray(contentLocales) && contentLocales.length) return contentLocales
-  return fallbackLocales.length ? fallbackLocales : [defaultLocale(contentRuntime)]
-}
-
-const variantEntriesFor = (entry, locale, route) => {
-  const variants = [{ locale, route }, ...publishedTranslations(entry)]
-    .filter((variant) => variant.locale && variant.route?.path)
-    .filter(
-      (variant, index, list) => list.findIndex((item) => item.locale === variant.locale) === index,
-    )
-  return variants
-}
-
-const toContentDocument = async (event, entry, requestedLocale = defaultLocale(), options = {}) => {
-  const data = entry?.data && typeof entry.data === 'object' ? entry.data : {}
-  const assetUrls = await resolvePublicAssetIds(event, [data, entry?.bodyAst, data.bodyAst])
-  const publicData = replaceAssetIds(data, assetUrls)
-  const hasMarkdownBody = hasStoredParsedBody(entry, data) || hasLegacyMarkdownBody(entry, data)
-  const route = entry?.route || {}
-  const requested = entry?.locale?.requested || requestedLocale
-  const locale =
-    entry?.locale?.resolved || entry?.locale?.requested || route.locale || requestedLocale
-  const path = route.path || data.path || '/'
-  const variants = variantEntriesFor(entry, locale, route)
-  const entryKey = publicEntryKey(entry)
-
-  return normalizeProviderDocument({
-    ...publicData,
-    id: entry.id,
-    collection: entry.collection,
-    type: hasMarkdownBody ? 'markdown' : 'yaml',
-    contentPath: path,
-    locale,
-    canonicalKey: `${entry.collection}:${entryKey}`,
-    routeVariants: variants.map((variant) => ({
-      locale: variant.locale,
-      contentPath: variant.route.path,
-    })),
-    ref: entry.ref || entryKey,
-    title: entry.title,
-    description: publicData.description || publicData.excerpt || '',
-    body: replaceAssetIds(
-      parsedBodyFromData(entry, data, {
-        required: options.includeBody !== false && hasMarkdownBody,
-      }),
-      assetUrls,
-    ),
-    stableId: entryKey,
-    updatedAt: entry.updatedAt || entry.publishedAt,
-  })
-}
-
-const toContentEntry = async (event, entry, requestedLocale = defaultLocale(), options = {}) => {
-  return await toContentDocument(event, entry, requestedLocale, options)
-}
-
-const routeFactFor = (entry) => ({
-  collection: entry.collection,
-  canonicalKey: `${entry.collection}:${publicEntryKey(entry)}`,
-  locale:
-    entry.locale?.resolved || entry.locale?.requested || entry.route?.locale || defaultLocale(),
-  contentPath: entry.route?.path || '/',
 })
 
 const cacheHintForEntry = (entry, content) => {
@@ -549,26 +186,6 @@ const sitemapCacheHint = () => normalizeCacheHint({ tags: [contentTags.sitemap()
 const pickNavFields = (entry = {}, fields = []) =>
   Object.fromEntries(fields.filter((field) => field in entry).map((field) => [field, entry[field]]))
 
-const toNavItem = (node, fields = [], options = {}) => {
-  const entry = node?.entry || {}
-  const unprefixedPath = entry.route?.path || node?.path || ''
-  return {
-    ...pickNavFields(entry, fields),
-    title: entry.title || node?.title || '',
-    path:
-      options.canonical && unprefixedPath
-        ? unprefixedPath
-        : entry.route
-          ? hrefFor(entry.route, entry.route.locale, options)
-          : node?.path || '',
-    unprefixedPath,
-    locale: entry.route?.locale,
-    stableId: entry.stableId ?? entry.revision ?? entry.id,
-    ref: entry.ref ?? entry.stableId ?? entry.revision ?? entry.id,
-    children: (node?.children || []).map((child) => toNavItem(child, fields, options)),
-  }
-}
-
 const assertUnsupportedQueryShape = (condition, field, message) => {
   if (!condition) return
   throw providerError('unsupported_query_shape', message, 400, { field })
@@ -584,10 +201,10 @@ const applyOnlyProjection = (entry, only = []) => {
 }
 
 const assertProviderQuery = (input = {}) => {
-  if (!input || typeof input !== 'object' || input.v !== 1 || !input.plan) {
+  if (!input || typeof input !== 'object' || input.v !== 2 || !input.plan) {
     throw providerError(
       'unsupported_query_shape',
-      'Ginko CMS provider requires the ginko-content provider query wire v1.',
+      'Ginko CMS provider requires the ginko-content provider query wire v2.',
       400,
       { field: 'query' },
     )
@@ -719,45 +336,49 @@ const localeFromOptions = (options = {}, contentRuntime = {}) =>
 const localeFromQuery = (query, filterState, contentRuntime = {}) =>
   query.plan?.resolveLocale?.locale || filterState.locale || defaultLocale(contentRuntime)
 
-const fallbackFromOptions = (options = {}) => {
-  if ('fallback' in (options.resolveLocale || {})) return options.resolveLocale.fallback
-  if ('fallback' in options) return options.fallback
-  return undefined
-}
+const resolveVariant = async (event, collection, selector, contentRuntime) => {
+  if (selector.by === 'ref') {
+    const locale = selector.requestedLocale || defaultLocale(contentRuntime)
+    return {
+      locale,
+      result: await callGinko(event, 'page', {
+        collection,
+        locale,
+        ref: selector.ref,
+        fallback: selector.localeChain?.slice(1),
+      }),
+    }
+  }
 
-const fallbackFromPlan = (plan = {}) =>
-  plan.resolveVariant?.fallback || plan.resolveLocale?.fallback
-
-const lookupFromVariantSelector = (variant = {}) => {
-  if (typeof variant.path === 'string') return { path: variant.path }
-  if (typeof variant.route === 'string') return { path: variant.route }
-  if (typeof variant.ref === 'string') return { ref: variant.ref }
-  return { path: '/' }
+  // Route selectors are already closed and ordered by ginko-content. Trying them
+  // in order keeps locale fallback policy in the content engine, not this adapter.
+  for (const candidate of selector.candidates || []) {
+    const result = await callGinko(event, 'page', {
+      collection,
+      locale: candidate.locale,
+      path: canonicalFromRoute(candidate.contentPath, candidate.locale),
+    })
+    if (result.status === 'found' && result.page) return { locale: candidate.locale, result }
+  }
+  return {
+    locale: selector.requestedLocale || defaultLocale(contentRuntime),
+    result: { status: 'not-found', page: null },
+  }
 }
 
 const contentProvider = {
   name: 'cms',
   capabilities: {
-    routeBackedCollections: true,
-    dataCollections: true,
-    localizedRoutes: true,
-    translatedSlugs: true,
-    navigation: true,
-    surroundings: true,
-    searchSections: false,
-    sitemap: true,
     query: {
-      operators: Array.from(supportedQueryOperators),
-      limit: true,
-      skip: false,
-      count: false,
+      operators: ['$eq', '$ne', '$prefix'],
+      pagination: ['cursor'],
     },
   },
   query: async (event, input = {}) => {
     assertProviderQuery(input)
     const contentRuntime = await contentRuntimeFromEvent(event)
     const plan = input.plan
-    if (plan.resolveVariant) {
+    if (plan.variantSelector) {
       if (!input.collection) {
         throw providerError(
           'unknown_collection',
@@ -768,24 +389,17 @@ const contentProvider = {
           },
         )
       }
-      const variant = plan.resolveVariant
-      const locale = variant.locale || plan.resolveLocale?.locale || defaultLocale(contentRuntime)
-      const lookup = lookupFromVariantSelector(variant)
-      const fallback = fallbackFromPlan(plan)
-      const result = await callGinko(event, 'page', {
-        collection: input.collection,
-        locale,
-        ...(fallback !== undefined ? { fallback } : {}),
-        ...(lookup.ref ? { ref: lookup.ref } : { path: canonicalFromRoute(lookup.path, locale) }),
-      })
+      const { locale, result } = await resolveVariant(
+        event,
+        input.collection,
+        plan.variantSelector,
+        contentRuntime,
+      )
       const entry =
         result.status === 'found' && result.page
           ? await toContentEntry(event, result.page, locale, {
-              requestedRoute: lookup.ref ? undefined : lookup.path,
-              requestedRef: lookup.ref,
               defaultLocale: defaultLocale(contentRuntime),
               contentRuntime,
-              shape: false,
             })
           : null
       const data = { result: entry ? applyOnlyProjection(entry, plan.projection?.only) : null }
@@ -810,8 +424,8 @@ const contentProvider = {
     const result = await callGinko(event, 'list', {
       collection: input.collection,
       locale,
-      limit: plan.limit,
-      cursor: undefined,
+      limit: plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit,
+      cursor: plan.paging?.mode === 'cursor' ? plan.paging.after : undefined,
       ...(pathPrefix ? { pathPrefix } : {}),
       ...(sort ? { sort } : {}),
     })
@@ -822,50 +436,47 @@ const contentProvider = {
           toContentEntry(event, entry, locale, {
             defaultLocale: defaultLocale(contentRuntime),
             contentRuntime,
-            shape: false,
           }),
         ),
       )
     ).map((entry) => applyOnlyProjection(entry, plan.projection?.only))
+    const limit = plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit || entries.length
     const data =
       plan.mode === 'first'
         ? { result: entries[0] || null }
         : {
+            mode: 'cursor',
             result: entries,
-            skip: 0,
-            limit: plan.limit || entries.length,
-            total: entries.length,
-            pageInfo: result.pageInfo,
+            limit,
+            pageInfo: {
+              endCursor: result.pageInfo?.endCursor ?? null,
+              hasNext: result.pageInfo?.hasNextPage === true,
+            },
           }
-    const entryHints = rawEntries.map((entry, index) => cacheHintForEntry(entry, rawEntries[index]))
+    const entryHints = rawEntries.map((entry, index) => cacheHintForEntry(entry, entries[index]))
     return withContentCache(
       data,
       mergeCacheHints(collectionCacheHint(input.collection), ...entryHints),
     )
   },
-  navigationQuery: async (event, input = {}, options = {}) => {
+  navigation: async (event, input, options = {}) => {
     assertProviderQuery(input)
+    const collection = input.collection
+    assertQueryCollection(collection)
     const contentRuntime = await contentRuntimeFromEvent(event)
-    const filterState = collectPlanFilter(input.plan?.filter)
-    const locale =
-      options.resolveLocale?.locale || localeFromQuery(input, filterState, contentRuntime)
-    return input.collection
-      ? await contentProvider.navigation(event, input.collection, {
-          locale,
-          canonical: options.canonical,
-          fields: options.fields || [],
-        })
-      : []
-  },
-  navigation: async (event, collection, fieldsOrOptions = []) => {
-    const contentRuntime = await contentRuntimeFromEvent(event)
-    const options = Array.isArray(fieldsOrOptions) ? { fields: fieldsOrOptions } : fieldsOrOptions
-    const locale = localeFromOptions(options, contentRuntime)
+    const locale = options.locale || defaultLocale(contentRuntime)
+    const fields = input.plan?.projection?.only || []
     const result = await callGinko(event, 'nav', { collection, locale })
     return withContentCache(
-      (result.tree || []).map((node) =>
-        toNavItem(node, options.fields || [], { defaultLocale: defaultLocale(contentRuntime) }),
-      ),
+      (result.tree || []).map(function toRawNavigation(node) {
+        const entry = node.entry || {}
+        return {
+          ...pickNavFields(entry, fields),
+          title: entry.title || node.title || '',
+          route: routeFactFor(entry),
+          children: (node.children || []).map(toRawNavigation),
+        }
+      }),
       navigationCacheHint(collection, locale),
     )
   },
@@ -886,17 +497,13 @@ const contentProvider = {
         previous
           ? {
               title: previous.title,
-              path: hrefFor(previous.route, locale, {
-                defaultLocale: defaultLocale(contentRuntime),
-              }),
-              unprefixedPath: previous.route?.path,
+              route: routeFactFor(previous),
             }
           : null,
         next
           ? {
               title: next.title,
-              path: hrefFor(next.route, locale, { defaultLocale: defaultLocale(contentRuntime) }),
-              unprefixedPath: next.route?.path,
+              route: routeFactFor(next),
             }
           : null,
       ],
@@ -934,12 +541,10 @@ const contentProvider = {
         )
         return searchEntries.map((content, index) => {
           return {
-            path: content.path || content.unprefixedPath || '',
             title: content.title || '',
             excerpt: result.results?.[index]?.snippet || content.description || '',
             score: Math.max(1, searchEntries.length - index),
-            locale: content.locale,
-            collection: content.collection || result.results?.[index]?.collection || collection,
+            route: routeFactFor(result.results?.[index] || content),
           }
         })
       }),
@@ -964,127 +569,56 @@ const contentProvider = {
       siteDataCacheHint(result.key || request.key || '*', locale),
     )
   },
-  page: async (event, collection, routeOrPath = '/', options = {}) => {
+  routes: async (event) => {
     const contentRuntime = await contentRuntimeFromEvent(event)
-    const locale = localeFromOptions(options, contentRuntime)
-    const result = await callGinko(event, 'page', {
-      collection,
-      locale,
-      path: canonicalFromRoute(routeOrPath || options.fallbackRoute || '/', locale),
-      ...(fallbackFromOptions(options) !== undefined
-        ? { fallback: fallbackFromOptions(options) }
-        : {}),
-    })
-    const entry =
-      result.status === 'found' && result.page
-        ? await toContentEntry(event, result.page, locale, {
-            canonical: options.canonical,
-            requestedRoute: routeOrPath || options.fallbackRoute || '/',
-            defaultLocale: defaultLocale(contentRuntime),
-            contentRuntime,
-          })
-        : null
-    return withContentCache(
-      entry,
-      entry ? cacheHintForEntry(result.page, entry) : collectionCacheHint(collection),
-    )
-  },
-  routeMeta: async (event, collection, routeOrPath = '/', options = {}) => {
-    const contentRuntime = await contentRuntimeFromEvent(event)
-    const locale = localeFromOptions(options, contentRuntime)
-    const result = await callGinko(event, 'routeMeta', {
-      collection,
-      locale,
-      path: canonicalFromRoute(routeOrPath || options.fallbackRoute || '/', locale),
-      ...(fallbackFromOptions(options) !== undefined
-        ? { fallback: fallbackFromOptions(options) }
-        : {}),
-    })
-    const page =
-      result.status === 'found' && result.page
-        ? await toContentEntry(event, result.page, locale, {
-            canonical: options.canonical,
-            includeBody: false,
-            requestedRoute: routeOrPath || options.fallbackRoute || '/',
-            defaultLocale: defaultLocale(contentRuntime),
-            contentRuntime,
-          })
-        : null
-    if (!page) return null
-    return withContentCache(
-      {
-        title: page.title,
-        description: page.description,
-        path: page.path,
-        unprefixedPath: page.unprefixedPath,
-        locale: page.locale,
-        defaultLocale: page.defaultLocale,
-        variants: page.variants,
-        localePaths: page.localePaths,
-        resolved: page.resolved,
-      },
-      cacheHintForEntry(result.page, page),
-    )
-  },
-  sitemapEntries: async (event, options = {}) => {
-    const contentRuntime = await contentRuntimeFromEvent(event)
-    const collections = enabledSitemapCollections(contentRuntime, options)
-    const urls = []
+    const collections = Object.entries(contentRuntime.collections || {})
+      .filter(([, collection]) => collection?.type !== 'data')
+      .map(([name]) => name)
+    const records = []
+    const MAX_ROUTE_PAGES = 1000
+    const MAX_ROUTE_RECORDS = 100_000
     for (const collection of collections) {
-      for (const locale of sitemapLocalesForCollection(
-        contentRuntime,
-        collection,
-        options.locale,
-      )) {
+      for (const locale of sitemapLocalesForCollection(contentRuntime, collection)) {
         let cursor = null
+        let pages = 0
         do {
-          const result = await callGinko(event, 'sitemap', {
+          if (++pages > MAX_ROUTE_PAGES || records.length >= MAX_ROUTE_RECORDS) {
+            throw providerError(
+              'unsupported_provider_prerender',
+              `CMS route enumeration exceeded its safety bound for collection "${collection}".`,
+              500,
+              { collection, maxPages: MAX_ROUTE_PAGES, maxRecords: MAX_ROUTE_RECORDS },
+            )
+          }
+          const result = await callGinko(event, 'routes', {
             collection,
             locale,
             cursor,
           })
-          urls.push(...(result.urls || []))
+          if (records.length + (result.routes?.length || 0) > MAX_ROUTE_RECORDS) {
+            throw providerError(
+              'unsupported_provider_prerender',
+              `CMS route enumeration exceeded its safety bound for collection "${collection}".`,
+              500,
+              { collection, maxPages: MAX_ROUTE_PAGES, maxRecords: MAX_ROUTE_RECORDS },
+            )
+          }
+          records.push(
+            ...(result.routes || []).map((route) => ({
+              collection: route.collection,
+              canonicalKey: `${route.collection}:${route.stableId}`,
+              locale: route.locale,
+              contentPath: route.path,
+              ...(route.sitemapIncluded
+                ? { sitemap: { lastmod: route.lastmod } }
+                : { sitemap: false }),
+            })),
+          )
           cursor = result.pageInfo?.endCursor ?? null
         } while (cursor)
       }
     }
-    const localeLanguages = await localeLanguageFromRuntime(event)
-    const sitemapDefaultLocale = defaultLocale(contentRuntime)
-    return withContentCache(
-      urls.map((url) => {
-        const xDefaultAlternative = url.xDefault
-          ? [
-              {
-                hreflang: 'x-default',
-                href: hrefFor(url.xDefault, url.xDefault.locale, {
-                  preferStoredHref: false,
-                  defaultLocale: sitemapDefaultLocale,
-                }),
-              },
-            ]
-          : []
-        return {
-          _sitemap:
-            localeLanguages[url.route?.locale || ''] || url.route?.locale || sitemapDefaultLocale,
-          loc: hrefFor(url.route, url.route?.locale, {
-            preferStoredHref: false,
-            defaultLocale: sitemapDefaultLocale,
-          }),
-          alternatives: [
-            ...(url.alternates || []).map((alternate) => ({
-              hreflang: alternate.hreflang || alternate.locale,
-              href: hrefFor(alternate.route, alternate.route?.locale || alternate.locale, {
-                preferStoredHref: false,
-                defaultLocale: sitemapDefaultLocale,
-              }),
-            })),
-            ...xDefaultAlternative,
-          ],
-          lastmod: url.lastmod,
-        }
-      }),
-      sitemapCacheHint(),
-    )
+    return withContentCache(records, sitemapCacheHint())
   },
 }
 
