@@ -18,7 +18,7 @@ package depends on it, and the Nuxt CMS package depends on both.
 External packages required for the release tuple:
 
 - `@lupinum/ginko-content@0.2.1`
-- `better-convex-nuxt@0.5.0`
+- `better-convex-nuxt@0.6.0`
 
 Those packages must already be published before the CMS packages are published.
 

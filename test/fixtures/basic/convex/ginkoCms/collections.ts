@@ -1,3 +1,11 @@
+// @ts-nocheck - Excluded from the host type program on purpose.
+// checkCollectionContracts / installCollectionContracts wrap component-INTERNAL
+// functions that are intentionally NOT exposed on the generated
+// ComponentApi<"ginkoCms"> host boundary; the CLI `ginko-cms push` reaches them
+// via anyApi at runtime. They cannot typecheck against the typed `components`
+// reference, and a plain tsconfig `exclude` cannot drop this file because
+// _generated/api.d.ts pulls it back in via `import type`. Do not "fix" this by
+// exposing the internal component functions.
 import { getCollection as getCollectionArgs } from '@lupinum/ginko-cms-contract/convex/schemas/collections.js'
 import {
   collectionRoutingValidator,

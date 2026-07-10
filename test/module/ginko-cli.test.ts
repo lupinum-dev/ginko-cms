@@ -382,7 +382,7 @@ describe('ginko-cms CLI', () => {
       JSON.stringify({
         private: true,
         dependencies: {
-          '@convex-dev/better-auth': '0.12.2',
+          '@convex-dev/better-auth': '0.12.5',
           '@lupinum/ginko-cms': 'workspace:*',
           '@lupinum/ginko-cms-convex': 'workspace:*',
           'better-auth': '1.6.23',
@@ -419,7 +419,7 @@ describe('ginko-cms CLI', () => {
       JSON.stringify({
         private: true,
         dependencies: {
-          '@convex-dev/better-auth': '0.12.2',
+          '@convex-dev/better-auth': '0.12.5',
           '@lupinum/ginko-cms': 'workspace:*',
           '@lupinum/ginko-cms-convex': 'workspace:*',
           'better-auth': '1.6.23',

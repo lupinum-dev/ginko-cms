@@ -1,3 +1,12 @@
+// @ts-nocheck - Excluded from the host type program on purpose.
+// listContentMigrationEntries / applyContentMigrationEntries wrap
+// component-INTERNAL functions that are intentionally NOT exposed on the
+// generated ComponentApi<"ginkoCms"> host boundary (there is no `migrations`
+// member); the CLI `ginko-cms migrate` reaches them via anyApi at runtime.
+// They cannot typecheck against the typed `components` reference, and a plain
+// tsconfig `exclude` cannot drop this file because _generated/api.d.ts pulls it
+// back in via `import type`. Do not "fix" this by exposing the internal
+// component functions.
 import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 

@@ -4,8 +4,34 @@
 
 ### Changed
 
-- Upgraded the Nuxt integration baseline to `better-convex-nuxt@0.5.0` and
-  migrated runtime composables to its auto-import-only public API.
+- Upgraded the Nuxt integration baseline to `better-convex-nuxt@0.6.0` (the
+  vNext public surface) and `@convex-dev/better-auth@0.12.5`, collapsing the
+  prior dual `0.12.2`/`0.12.5` resolution to a single copy.
+- Adopted `serverConvex(event, options)` as the only server call API,
+  replacing the removed `serverConvexQuery`/`serverConvexMutation`/
+  `serverConvexAction` functions everywhere in the CMS server runtime (MCP
+  middleware, public API routes, and the event-backed `nuxt-provider.mjs`
+  data helpers).
+- Adopted `useConvexAuth()`'s vNext `status`/`ready()` contract in the auth
+  components, `useCmsAuthState`, and `studio-host.vue`; sign-in/sign-up no
+  longer call a manual `refreshAuth()` since `signIn`/`signUp` synchronize
+  Convex automatically.
+- Added `packages/cms/src/runtime/convex-auth.ts`, a `defineConvexAuthClient`
+  definition registering the `@better-auth/api-key` client plugin, consumed
+  through `better-convex-nuxt`'s `auth.client` module option with
+  host-definition precedence.
+- Narrowed the Studio host bridge to a single `convexClient` handle
+  (`ConvexClientHandle`) and dropped the raw `nuxtApp`, `convexUrl`, and
+  `getAuthToken`/JWT-bearing fields; the Studio SPA can no longer observe the
+  Convex JWT or reach unlisted API functions.
+- Replaced ad hoc transport-envelope/JSON/message-substring error
+  classification in Studio (`useCmsStudioQuery.ts`) and MCP
+  (`agent-tools.ts`) with `normalizeConvexError`/`ConvexCallError` from
+  `better-convex-nuxt/errors`.
+- Collapsed the MCP credential exchange to a single `exchangeCredential`
+  dependency backed by one `exchangeConvexToken` call and one narrow
+  `serverConvex` caller per request; the raw JWT is no longer stored in the
+  MCP request context, and duplicate `/convex/token` requests are gone.
 - Migrated the v1 package story to direct publishable CMS packages:
   `@lupinum/ginko-cms`, `@lupinum/ginko-cms-convex`, and
   `@lupinum/ginko-cms-contract` install without local `workspace:`, `file:`, or
