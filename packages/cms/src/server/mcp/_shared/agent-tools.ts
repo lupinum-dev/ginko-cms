@@ -1,17 +1,16 @@
 import type { CmsCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { McpToolCallbackResult } from '@nuxtjs/mcp-toolkit/server'
+import { normalizeConvexError, type ConvexCallErrorKind } from 'better-convex-nuxt/errors'
 import type { H3Event } from 'h3'
 
 import { api } from '#convex/api'
 
-import { getMcpAuth } from './auth.js'
+import { getMcpAuth, type McpConvexCaller } from './auth.js'
 import type { CmsMcpCapabilities } from './capabilities.js'
-import { createConvexAuthCaller } from './convex-caller.js'
 import { redactMcpResponse } from './response-redaction.js'
 import { getMcpCmsCallerFromAuth, resolveCmsMcpCapabilitiesForCmsCaller } from './runtime.js'
 
 type JsonRecord = Record<string, unknown>
-type McpConvexCaller = ReturnType<typeof createConvexAuthCaller>
 export type AgentMcpContext = Awaited<ReturnType<typeof getMcpToolContext>>
 
 type McpErrorCategory =
@@ -60,7 +59,7 @@ function getMcpConvexCaller(event: H3Event, caller: CmsCaller): McpConvexCaller 
   if (!auth || auth.apiKeyId !== caller.apiKeyId) {
     throw new Error('MCP Convex calls require matching MCP authentication.')
   }
-  return createConvexAuthCaller(event, auth.convexAuthToken)
+  return auth.caller
 }
 
 async function resolveCmsMcpCapabilities(
@@ -120,71 +119,52 @@ function cleanErrorMessage(message: string): string {
   return cleaned || message
 }
 
-function parseJsonObjectText(text: string): JsonRecord | null {
-  for (let start = text.indexOf('{'); start >= 0; start = text.indexOf('{', start + 1)) {
-    for (let end = text.lastIndexOf('}'); end > start; end = text.lastIndexOf('}', end - 1)) {
-      try {
-        const parsed = JSON.parse(text.slice(start, end + 1))
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          return parsed as JsonRecord
-        }
-      } catch {
-        // Keep looking; Convex messages can contain non-JSON prefixes/suffixes.
-      }
+/**
+ * Read the structured `data` the library preserved verbatim from a Convex
+ * application error. Never scans message text for embedded JSON — the library
+ * owns transport/server/unknown classification and hands us `data` directly.
+ */
+function readGinkoErrorData(data: unknown): JsonRecord | null {
+  if (typeof data === 'string') {
+    try {
+      return readGinkoErrorData(JSON.parse(data))
+    } catch {
+      return null
     }
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  return data as JsonRecord
+}
+
+/**
+ * Refine a Ginko product error code into an MCP category. Returns `null` when
+ * the code carries no product signal, so classification falls back to the
+ * library's structural `kind`.
+ */
+function categoryFromGinkoCode(code: string | null): McpErrorCategory | null {
+  if (!code) return null
+  const token = code.toLowerCase()
+  if (token.includes('unauth') || token.includes('forbidden')) return 'auth'
+  if (token.includes('not_found')) return 'not_found'
+  if (token.includes('rate_limit')) return 'rate_limit'
+  if (token.includes('conflict') || token.includes('version')) return 'conflict'
+  if (token.startsWith('invalid') || token.startsWith('missing') || token.includes('unsupported')) {
+    return 'validation'
   }
   return null
 }
 
-function categoryFromCode(code: string, message: string): McpErrorCategory {
-  const token = `${code} ${message}`.toLowerCase()
-  if (token.includes('unauth') || token.includes('forbidden')) return 'auth'
-  if (token.includes('not_found') || token.includes('not found')) return 'not_found'
-  if (token.includes('rate_limit') || token.includes('too many')) return 'rate_limit'
-  if (
-    token.includes('conflict') ||
-    token.includes('version') ||
-    token.includes('confirmation') ||
-    token.includes('changed in another session')
-  ) {
-    return 'conflict'
+function categoryFromNormalizedKind(kind: ConvexCallErrorKind): McpErrorCategory {
+  switch (kind) {
+    case 'authentication':
+      return 'auth'
+    case 'transport':
+      return 'network'
+    case 'server':
+      return 'server'
+    default:
+      return 'unknown'
   }
-  if (token.includes('network') || token.includes('remote upload')) return 'network'
-  if (
-    token.includes('invalid') ||
-    token.includes('required') ||
-    token.includes('unsupported') ||
-    token.includes('mime') ||
-    token.includes('locale')
-  ) {
-    return 'validation'
-  }
-  return 'server'
-}
-
-function failFromStructuredMessage(message: string): McpToolCallbackResult | null {
-  const parsed = parseJsonObjectText(message)
-  const code = typeof parsed?.code === 'string' ? parsed.code : null
-  const parsedMessage = typeof parsed?.message === 'string' ? parsed.message : null
-  if (!code || !parsedMessage) return null
-
-  const parsedRecord = parsed as JsonRecord
-  const details =
-    parsedRecord.details && typeof parsedRecord.details === 'object'
-      ? parsedRecord.details
-      : undefined
-  const suggestedAction =
-    details &&
-    !Array.isArray(details) &&
-    typeof (details as Record<string, unknown>).suggestedAction === 'string'
-      ? String((details as Record<string, unknown>).suggestedAction)
-      : undefined
-
-  return fail(parsedMessage, details, {
-    category: categoryFromCode(code, parsedMessage),
-    code,
-    ...(suggestedAction ? { suggestedAction } : {}),
-  })
 }
 
 export function fail(
@@ -224,10 +204,28 @@ export function failFromError(error: unknown, fallback: string): McpToolCallback
       suggestedAction: error.suggestedAction,
     })
   }
-  if (error instanceof Error) {
-    return failFromStructuredMessage(error.message) ?? fail(error.message)
-  }
-  return fail(fallback)
+
+  // The library owns transport/server/unknown classification and preserves the
+  // Convex application `data` verbatim; we refine category from that structured
+  // data, never from re-parsed message text.
+  const normalized = normalizeConvexError(error)
+  const data = readGinkoErrorData(normalized.data)
+  const code = typeof data?.code === 'string' ? data.code : (normalized.code ?? null)
+  const message =
+    (typeof data?.message === 'string' ? data.message : null) ?? normalized.message ?? fallback
+  const details =
+    data?.details && typeof data.details === 'object' && !Array.isArray(data.details)
+      ? (data.details as JsonRecord)
+      : undefined
+  const suggestedAction =
+    details && typeof details.suggestedAction === 'string' ? details.suggestedAction : undefined
+  const category = categoryFromGinkoCode(code) ?? categoryFromNormalizedKind(normalized.kind)
+
+  return fail(message, details, {
+    category,
+    ...(code ? { code } : {}),
+    ...(suggestedAction ? { suggestedAction } : {}),
+  })
 }
 
 export async function loadAgentContext(

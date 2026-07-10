@@ -1,4 +1,4 @@
-import { ConvexHttpClient } from 'convex/browser'
+import { serverConvex, type ServerConvexCaller } from 'better-convex-nuxt/server'
 import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
 
@@ -26,7 +26,7 @@ const PUBLIC_STRING_MAX_LENGTH = 512
 const PUBLIC_LOCALE_MAX_LENGTH = 32
 const PUBLIC_COLLECTION_MAX_LENGTH = 80
 
-type PublicQueryRef = Parameters<ConvexHttpClient['query']>[0]
+type PublicQueryRef = Parameters<ServerConvexCaller['query']>[0]
 type GinkoPublicApiRefs = {
   page: PublicQueryRef
   list: PublicQueryRef
@@ -159,36 +159,22 @@ function statusForCmsCode(code: string) {
     : 500
 }
 
-function convexUrlFor(runtimeConfig: RuntimeConfig) {
-  const url =
-    runtimePublic(runtimeConfig).convex?.url ??
-    process.env.NUXT_PUBLIC_CONVEX_URL ??
-    process.env.CONVEX_URL
-  if (!url) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Convex URL is not configured for Ginko public API.',
-    })
-  }
-  return url
-}
-
 export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig(event) as RuntimeConfig
-  const client = new ConvexHttpClient(convexUrlFor(runtimeConfig))
+  const convex = serverConvex(event, { auth: 'none' })
   const query = getQuery(event) as Record<string, QueryValue>
   const endpoint = getRequestURL(event).pathname.split('/').filter(Boolean).at(-1)
 
   try {
     switch (endpoint) {
       case 'page':
-        return await client.query(ginkoPublicApi.page, {
+        return await convex.query(ginkoPublicApi.page, {
           collection: requiredString(query.collection, 'collection', PUBLIC_COLLECTION_MAX_LENGTH),
           locale: localeString(query.locale, runtimeConfig),
           path: requiredString(query.path, 'path'),
         })
       case 'list':
-        return await client.query(ginkoPublicApi.list, {
+        return await convex.query(ginkoPublicApi.list, {
           collection: requiredString(query.collection, 'collection', PUBLIC_COLLECTION_MAX_LENGTH),
           locale: localeString(query.locale, runtimeConfig),
           limit: optionalNumber(query.limit),
@@ -196,12 +182,12 @@ export default defineEventHandler(async (event) => {
           sort: optionalString(query.sort, 'sort', PUBLIC_STRING_MAX_LENGTH),
         })
       case 'nav':
-        return await client.query(ginkoPublicApi.nav, {
+        return await convex.query(ginkoPublicApi.nav, {
           collection: requiredString(query.collection, 'collection', PUBLIC_COLLECTION_MAX_LENGTH),
           locale: localeString(query.locale, runtimeConfig),
         })
       case 'surround':
-        return await client.query(ginkoPublicApi.surround, {
+        return await convex.query(ginkoPublicApi.surround, {
           collection: requiredString(query.collection, 'collection', PUBLIC_COLLECTION_MAX_LENGTH),
           locale: localeString(query.locale, runtimeConfig),
           path: requiredString(query.path, 'path'),
@@ -209,7 +195,7 @@ export default defineEventHandler(async (event) => {
           next: optionalNumber(query.next),
         })
       case 'search':
-        return await client.query(ginkoPublicApi.search, {
+        return await convex.query(ginkoPublicApi.search, {
           query: requiredString(query.query, 'query', PUBLIC_QUERY_MAX_LENGTH),
           locale: localeString(query.locale, runtimeConfig),
           collection: requiredString(query.collection, 'collection', PUBLIC_COLLECTION_MAX_LENGTH),
@@ -217,19 +203,19 @@ export default defineEventHandler(async (event) => {
           cursor: optionalString(query.cursor, 'cursor', PUBLIC_STRING_MAX_LENGTH) ?? null,
         })
       case 'sitemap':
-        return await client.query(ginkoPublicApi.sitemap, {
+        return await convex.query(ginkoPublicApi.sitemap, {
           collection: requiredString(query.collection, 'collection', PUBLIC_COLLECTION_MAX_LENGTH),
           locale: localeString(query.locale, runtimeConfig),
           limit: optionalNumber(query.limit),
           cursor: optionalString(query.cursor, 'cursor', PUBLIC_STRING_MAX_LENGTH) ?? null,
         })
       case 'singleton':
-        return await client.query(ginkoPublicApi.singleton, {
+        return await convex.query(ginkoPublicApi.singleton, {
           name: requiredString(query.name, 'name', PUBLIC_COLLECTION_MAX_LENGTH),
           locale: optionalString(query.locale, 'locale', PUBLIC_LOCALE_MAX_LENGTH),
         })
       case 'site-data':
-        return await client.query(ginkoPublicApi.siteData, {
+        return await convex.query(ginkoPublicApi.siteData, {
           key: requiredString(query.key, 'key', PUBLIC_COLLECTION_MAX_LENGTH),
           locale: optionalString(query.locale, 'locale', PUBLIC_LOCALE_MAX_LENGTH),
         })

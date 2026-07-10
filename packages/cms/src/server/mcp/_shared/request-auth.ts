@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
 
-import { parseMcpBearerApiKey, type BetterAuthApiKeyVerifier } from './better-auth-api-key.js'
+import type { ServerConvexCaller } from 'better-convex-nuxt/server'
+
+import { parseMcpBearerApiKey } from './better-auth-api-key.js'
 
 const STORAGE_NAMESPACE = 'cache:ginko:mcp-auth'
 const GRACE_WINDOW_MS = 30_000
@@ -31,12 +33,31 @@ type ResolvedMcpCredentialAccess = {
   ownerUserId: string
 }
 
-type AuthenticateDeps = FailureBudgetDeps & {
-  verifyApiKey: BetterAuthApiKeyVerifier
-  getConvexAuthToken: (apiKey: string) => Promise<string>
+/**
+ * The narrow, request-scoped Convex caller a validated MCP credential is allowed
+ * to use. It is a `serverConvex` caller narrowed to the read/write operations MCP
+ * tools may perform — never the raw JWT.
+ */
+export interface ExchangedMcpCredential {
+  apiKeyId: string
+  ownerUserId: string
+  caller: Pick<ServerConvexCaller, 'query' | 'mutation' | 'action'>
+}
+
+export type AuthenticateDeps = FailureBudgetDeps & {
+  /**
+   * Exchange a bearer credential for a validated app identity plus a narrow caller.
+   *
+   * - Resolving to `null` means a definitive invalid credential (401/403 upstream)
+   *   and consumes the failure budget.
+   * - Throwing means the authentication infrastructure is unavailable (transport
+   *   failure, malformed/missing JWT claims) and returns 503 without charging the
+   *   bad-secret budget. These two outcomes must never collapse into one branch.
+   */
+  exchangeCredential: (credential: string) => Promise<ExchangedMcpCredential | null>
   resolveCredentialAccess: (
     apiKeyId: string,
-    convexAuthToken: string,
+    caller: ExchangedMcpCredential['caller'],
   ) => Promise<ResolvedMcpCredentialAccess | null>
   now?: () => number
 }
@@ -179,9 +200,12 @@ export async function authenticateMcpRequestContext(
   const clientIp = input.clientIp ?? null
   const limiter = await enforceFailureBudget({ ip: clientIp, hash, now }, deps)
 
-  let verified: Awaited<ReturnType<BetterAuthApiKeyVerifier>>
+  // A single exchange owns transport, upstream verification, and JWT decoding.
+  // `null` is a definitive bad credential (consume budget); a thrown error is an
+  // infrastructure failure (503, no budget charge). These must not collapse.
+  let exchanged: ExchangedMcpCredential | null
   try {
-    verified = await deps.verifyApiKey({ key: token })
+    exchanged = await deps.exchangeCredential(token)
   } catch {
     throw deps.createError({
       statusCode: 503,
@@ -189,7 +213,7 @@ export async function authenticateMcpRequestContext(
     })
   }
 
-  if (!verified.valid || !verified.key) {
+  if (!exchanged) {
     await limiter.recordFailure()
     throw deps.createError({
       statusCode: 401,
@@ -197,19 +221,9 @@ export async function authenticateMcpRequestContext(
     })
   }
 
-  let convexAuthToken: string
-  try {
-    convexAuthToken = await deps.getConvexAuthToken(token)
-  } catch {
-    throw deps.createError({
-      statusCode: 503,
-      statusMessage: 'MCP authentication temporarily unavailable',
-    })
-  }
-
   let access: ResolvedMcpCredentialAccess | null
   try {
-    access = await deps.resolveCredentialAccess(verified.key.id, convexAuthToken)
+    access = await deps.resolveCredentialAccess(exchanged.apiKeyId, exchanged.caller)
   } catch {
     throw deps.createError({
       statusCode: 503,
@@ -217,7 +231,11 @@ export async function authenticateMcpRequestContext(
     })
   }
 
-  if (!access || access.ownerUserId !== verified.key.referenceId) {
+  if (
+    !access ||
+    access.apiKeyId !== exchanged.apiKeyId ||
+    access.ownerUserId !== exchanged.ownerUserId
+  ) {
     await limiter.recordFailure()
     throw deps.createError({
       statusCode: 401,
@@ -225,10 +243,11 @@ export async function authenticateMcpRequestContext(
     })
   }
 
+  // Store validated claims and the narrow caller only — never the raw JWT.
   input.context.mcpAuth = {
-    apiKeyId: verified.key.id,
-    authUserId: verified.key.referenceId,
-    convexAuthToken,
+    apiKeyId: exchanged.apiKeyId,
+    authUserId: exchanged.ownerUserId,
+    caller: exchanged.caller,
   }
 }
 

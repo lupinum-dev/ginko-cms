@@ -4,9 +4,6 @@ import { redactMcpResponse } from '../../packages/cms/src/server/mcp/_shared/res
 
 vi.mock('#convex/api', () => ({ api: {} }))
 vi.mock('../../packages/cms/src/server/mcp/_shared/auth.js', () => ({ getMcpAuth: () => null }))
-vi.mock('../../packages/cms/src/server/mcp/_shared/convex-caller.js', () => ({
-  createConvexAuthCaller: () => ({}),
-}))
 vi.mock('../../packages/cms/src/server/mcp/_shared/runtime.js', () => ({
   getMcpCmsCallerFromAuth: () => ({ kind: 'anonymous' }),
   resolveCmsMcpCapabilitiesForCmsCaller: async () => ({}),

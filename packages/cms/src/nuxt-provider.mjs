@@ -240,25 +240,35 @@ const normalizeRemoteError = (error, operation) => {
   )
 }
 
-const callConvexFunction = async (functionName, operation, args) => {
-  const { ConvexHttpClient } = await import('convex/browser')
-  const client = testClientFactory
-    ? testClientFactory(convexUrl())
-    : new ConvexHttpClient(convexUrl())
+const callConvexFunction = async (event, functionName, operation, args) => {
   // Reading validates site configuration early even before multi-site routing lands.
   providerSite()
   try {
-    return await client.query(functionReference(functionName), args)
+    // A test seam takes precedence so unit tests can inject a fake client.
+    if (testClientFactory) {
+      return await testClientFactory(convexUrl()).query(functionReference(functionName), args)
+    }
+    // Event-backed request paths route the supplied H3 event through one
+    // anonymous `serverConvex` caller so transport/auth stay library-owned.
+    if (event) {
+      const { serverConvex } = await import('better-convex-nuxt/server')
+      const caller = serverConvex(event, { auth: 'none' })
+      return await caller.query(functionReference(functionName), args)
+    }
+    // Genuinely eventless prerender/build/CLI paths keep a direct anonymous client.
+    const { ConvexHttpClient } = await import('convex/browser')
+    return await new ConvexHttpClient(convexUrl()).query(functionReference(functionName), args)
   } catch (error) {
     throw normalizeRemoteError(error, operation)
   }
 }
 
-const callGinko = async (operation, args) =>
-  await callConvexFunction(`${convexFunctionPrefix()}${operation}`, operation, args)
+const callGinko = async (event, operation, args) =>
+  await callConvexFunction(event, `${convexFunctionPrefix()}${operation}`, operation, args)
 
-const callGinkoAsset = async (operation, args) =>
+const callGinkoAsset = async (event, operation, args) =>
   await callConvexFunction(
+    event,
     `${convexAssetsFunctionPrefix()}${operation}`,
     `assets:${operation}`,
     args,
@@ -380,11 +390,14 @@ const replaceAssetIds = (value, urls) => {
   return next
 }
 
-const resolvePublicAssetIds = async (values = []) => {
+const resolvePublicAssetIds = async (event, values = []) => {
   const assetIds = [...new Set(values.flatMap((value) => [...collectAssetIds(value)]))]
   if (assetIds.length === 0) return new Map()
   const entries = await Promise.all(
-    assetIds.map(async (assetId) => [assetId, await callGinkoAsset('getAssetUrl', { assetId })]),
+    assetIds.map(async (assetId) => [
+      assetId,
+      await callGinkoAsset(event, 'getAssetUrl', { assetId }),
+    ]),
   )
   return new Map(entries.filter(([, url]) => typeof url === 'string' && url.length > 0))
 }
@@ -417,9 +430,9 @@ const variantEntriesFor = (entry, locale, route) => {
   return variants
 }
 
-const toContentDocument = async (entry, requestedLocale = defaultLocale(), options = {}) => {
+const toContentDocument = async (event, entry, requestedLocale = defaultLocale(), options = {}) => {
   const data = entry?.data && typeof entry.data === 'object' ? entry.data : {}
-  const assetUrls = await resolvePublicAssetIds([data, entry?.bodyAst, data.bodyAst])
+  const assetUrls = await resolvePublicAssetIds(event, [data, entry?.bodyAst, data.bodyAst])
   const publicData = replaceAssetIds(data, assetUrls)
   const hasMarkdownBody = hasStoredParsedBody(entry, data) || hasLegacyMarkdownBody(entry, data)
   const route = entry?.route || {}
@@ -466,8 +479,8 @@ const toContentDocument = async (entry, requestedLocale = defaultLocale(), optio
   })
 }
 
-const toContentEntry = async (entry, requestedLocale = defaultLocale(), options = {}) => {
-  const document = await toContentDocument(entry, requestedLocale, options)
+const toContentEntry = async (event, entry, requestedLocale = defaultLocale(), options = {}) => {
+  const document = await toContentDocument(event, entry, requestedLocale, options)
   if (options.shape === false) return document
   const contentRuntime = options.contentRuntime || {}
   const shaped = shapeProviderDocument(document, {
@@ -777,7 +790,7 @@ const contentProvider = {
       const locale = variant.locale || plan.resolveLocale?.locale || defaultLocale(contentRuntime)
       const lookup = lookupFromVariantSelector(variant)
       const fallback = fallbackFromPlan(plan)
-      const result = await callGinko('page', {
+      const result = await callGinko(event, 'page', {
         collection: input.collection,
         locale,
         ...(fallback !== undefined ? { fallback } : {}),
@@ -785,7 +798,7 @@ const contentProvider = {
       })
       const entry =
         result.status === 'found' && result.page
-          ? await toContentEntry(result.page, locale, {
+          ? await toContentEntry(event, result.page, locale, {
               requestedRoute: lookup.ref ? undefined : lookup.path,
               requestedRef: lookup.ref,
               defaultLocale: defaultLocale(contentRuntime),
@@ -812,7 +825,7 @@ const contentProvider = {
       'Ginko public path prefix queries use path-index order and cannot be combined with public sort.',
     )
     const sort = sortFromPlan(plan.sort)
-    const result = await callGinko('list', {
+    const result = await callGinko(event, 'list', {
       collection: input.collection,
       locale,
       limit: plan.limit,
@@ -824,7 +837,7 @@ const contentProvider = {
     const entries = (
       await Promise.all(
         rawEntries.map((entry) =>
-          toContentEntry(entry, locale, {
+          toContentEntry(event, entry, locale, {
             defaultLocale: defaultLocale(contentRuntime),
             contentRuntime,
             shape: false,
@@ -866,7 +879,7 @@ const contentProvider = {
     const contentRuntime = await contentRuntimeFromEvent(event)
     const options = Array.isArray(fieldsOrOptions) ? { fields: fieldsOrOptions } : fieldsOrOptions
     const locale = localeFromOptions(options, contentRuntime)
-    const result = await callGinko('nav', { collection, locale })
+    const result = await callGinko(event, 'nav', { collection, locale })
     return withContentCache(
       (result.tree || []).map((node) =>
         toNavItem(node, options.fields || [], { defaultLocale: defaultLocale(contentRuntime) }),
@@ -877,7 +890,7 @@ const contentProvider = {
   surroundings: async (event, collection, path, options = {}) => {
     const contentRuntime = await contentRuntimeFromEvent(event)
     const locale = localeFromOptions(options, contentRuntime)
-    const result = await callGinko('surround', {
+    const result = await callGinko(event, 'surround', {
       collection,
       locale,
       path: canonicalFromRoute(path, locale),
@@ -924,14 +937,14 @@ const contentProvider = {
     }
     const collectionResults = await Promise.all(
       collections.map(async (collection) => {
-        const result = await callGinko('search', {
+        const result = await callGinko(event, 'search', {
           query,
           locale,
           collection,
         })
         const searchEntries = await Promise.all(
           (result.results || []).map((entry) =>
-            toContentEntry(entry, locale, {
+            toContentEntry(event, entry, locale, {
               defaultLocale: defaultLocale(contentRuntime),
               contentRuntime,
             }),
@@ -955,7 +968,7 @@ const contentProvider = {
   siteData: async (event, request = {}) => {
     const contentRuntime = await contentRuntimeFromEvent(event)
     const locale = request.locale || defaultLocale(contentRuntime)
-    const result = await callGinko('siteData', {
+    const result = await callGinko(event, 'siteData', {
       key: request.key,
       locale,
     })
@@ -972,7 +985,7 @@ const contentProvider = {
   page: async (event, collection, routeOrPath = '/', options = {}) => {
     const contentRuntime = await contentRuntimeFromEvent(event)
     const locale = localeFromOptions(options, contentRuntime)
-    const result = await callGinko('page', {
+    const result = await callGinko(event, 'page', {
       collection,
       locale,
       path: canonicalFromRoute(routeOrPath || options.fallbackRoute || '/', locale),
@@ -982,7 +995,7 @@ const contentProvider = {
     })
     const entry =
       result.status === 'found' && result.page
-        ? await toContentEntry(result.page, locale, {
+        ? await toContentEntry(event, result.page, locale, {
             canonical: options.canonical,
             requestedRoute: routeOrPath || options.fallbackRoute || '/',
             defaultLocale: defaultLocale(contentRuntime),
@@ -997,7 +1010,7 @@ const contentProvider = {
   routeMeta: async (event, collection, routeOrPath = '/', options = {}) => {
     const contentRuntime = await contentRuntimeFromEvent(event)
     const locale = localeFromOptions(options, contentRuntime)
-    const result = await callGinko('routeMeta', {
+    const result = await callGinko(event, 'routeMeta', {
       collection,
       locale,
       path: canonicalFromRoute(routeOrPath || options.fallbackRoute || '/', locale),
@@ -1007,7 +1020,7 @@ const contentProvider = {
     })
     const page =
       result.status === 'found' && result.page
-        ? await toContentEntry(result.page, locale, {
+        ? await toContentEntry(event, result.page, locale, {
             canonical: options.canonical,
             includeBody: false,
             requestedRoute: routeOrPath || options.fallbackRoute || '/',
@@ -1043,7 +1056,7 @@ const contentProvider = {
       )) {
         let cursor = null
         do {
-          const result = await callGinko('sitemap', {
+          const result = await callGinko(event, 'sitemap', {
             collection,
             locale,
             cursor,

@@ -6,38 +6,43 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   authenticateMcpRequestContext,
   resetMcpAuthState,
+  type ExchangedMcpCredential,
 } from '#ginko-cms-server/mcp/_shared/request-auth'
 
 type StorageValue = number[]
 
 const storageData = new Map<string, StorageValue>()
 let storageFailure = false
-let verifyResult: { valid: boolean; key: { id: string; referenceId: string } | null } = {
-  valid: false,
-  key: null,
-}
-let accessResult: { apiKeyId: string; ownerUserId: string } | null = null
-const verifySpy = vi.fn(async () => verifyResult)
-const tokenSpy = vi.fn(async () => 'convex-token-valid')
-const accessSpy = vi.fn(async () => accessResult)
 
-function createEvent(token: string) {
-  return {
-    path: '/mcp',
-    context: {},
-    node: {
-      req: {
-        headers: {
-          authorization: `Bearer ${token}`,
-          'x-forwarded-for': '127.0.0.1',
-        },
-        socket: {
-          remoteAddress: '127.0.0.1',
-        },
-      },
-    },
-  } as never
+// A narrow caller stand-in: query/mutation/action only, never a raw JWT.
+const callerQuery = vi.fn()
+const narrowCaller: ExchangedMcpCredential['caller'] = {
+  query: callerQuery,
+  mutation: vi.fn(),
+  action: vi.fn(),
 }
+
+type ExchangeOutcome = 'valid' | 'invalid' | 'transport'
+let exchangeOutcome: ExchangeOutcome = 'invalid'
+let accessResult: { apiKeyId: string; ownerUserId: string } | null = null
+
+const exchangeSpy = vi.fn(async (): Promise<ExchangedMcpCredential | null> => {
+  switch (exchangeOutcome) {
+    case 'valid':
+      return { apiKeyId: 'ba_key_valid', ownerUserId: 'user-1', caller: narrowCaller }
+    case 'transport':
+      // Infrastructure failure (transport, or malformed/claim-less JWT): must
+      // throw so the caller returns 503 without charging the bad-secret budget.
+      throw new Error('MCP authentication temporarily unavailable')
+    case 'invalid':
+    default:
+      // Definitive invalid credential (401/403 upstream): consumes the budget.
+      return null
+  }
+})
+const accessSpy = vi.fn(async (_apiKeyId: string, _caller: ExchangedMcpCredential['caller']) => {
+  return accessResult
+})
 
 function authDeps() {
   return {
@@ -53,10 +58,9 @@ function authDeps() {
         storageData.set(key, value)
       },
     }),
-    verifyApiKey: async (input: { key: string }) => verifySpy(input),
-    getConvexAuthToken: async (apiKey: string) => tokenSpy(apiKey),
-    resolveCredentialAccess: async (apiKeyId: string, convexAuthToken: string) =>
-      accessSpy(apiKeyId, convexAuthToken),
+    exchangeCredential: async (credential: string) => exchangeSpy(credential),
+    resolveCredentialAccess: async (apiKeyId: string, caller: ExchangedMcpCredential['caller']) =>
+      accessSpy(apiKeyId, caller),
   }
 }
 
@@ -64,37 +68,47 @@ describe('ginko mcp auth middleware', () => {
   beforeEach(() => {
     storageData.clear()
     storageFailure = false
-    verifyResult = { valid: false, key: null }
+    exchangeOutcome = 'invalid'
     accessResult = null
-    verifySpy.mockClear()
-    tokenSpy.mockClear()
+    exchangeSpy.mockClear()
     accessSpy.mockClear()
+    callerQuery.mockClear()
     resetMcpAuthState()
   })
 
-  it('stores authenticated MCP context for a valid Better Auth API key', async () => {
-    verifyResult = { valid: true, key: { id: 'ba_key_valid', referenceId: 'user-1' } }
+  it('stores validated claims and the narrow caller, never the raw JWT', async () => {
+    exchangeOutcome = 'valid'
     accessResult = { apiKeyId: 'ba_key_valid', ownerUserId: 'user-1' }
-    const event = createEvent('ba_raw_valid')
+    const context: Record<string, unknown> = {}
 
     await authenticateMcpRequestContext(
       {
-        path: event.path,
-        authorizationHeader: event.node.req.headers.authorization,
-        clientIp: event.node.req.headers['x-forwarded-for'],
-        context: event.context,
+        path: '/mcp',
+        authorizationHeader: 'Bearer ba_raw_valid',
+        clientIp: '127.0.0.1',
+        context,
       },
       authDeps(),
     )
 
-    expect(event.context.mcpAuth).toEqual({
-      apiKeyId: 'ba_key_valid',
-      authUserId: 'user-1',
-      convexAuthToken: 'convex-token-valid',
-    })
-    expect(verifySpy).toHaveBeenCalledWith({ key: 'ba_raw_valid' })
-    expect(tokenSpy).toHaveBeenCalledWith('ba_raw_valid')
-    expect(accessSpy).toHaveBeenCalledWith('ba_key_valid', 'convex-token-valid')
+    const mcpAuth = context.mcpAuth as {
+      apiKeyId: string
+      authUserId: string
+      caller: ExchangedMcpCredential['caller']
+    }
+    expect(mcpAuth.apiKeyId).toBe('ba_key_valid')
+    expect(mcpAuth.authUserId).toBe('user-1')
+    expect(mcpAuth.caller).toBe(narrowCaller)
+    expect(typeof mcpAuth.caller.query).toBe('function')
+
+    // The whole context must never carry the exchanged JWT under any key.
+    expect(JSON.stringify(context)).not.toContain('convexAuthToken')
+    expect('convexAuthToken' in mcpAuth).toBe(false)
+
+    // Exactly one exchange for a valid credential.
+    expect(exchangeSpy).toHaveBeenCalledTimes(1)
+    expect(exchangeSpy).toHaveBeenCalledWith('ba_raw_valid')
+    expect(accessSpy).toHaveBeenCalledWith('ba_key_valid', narrowCaller)
   })
 
   it('does not enable spoofable forwarded IP parsing in the Nitro middleware', async () => {
@@ -107,34 +121,38 @@ describe('ginko mcp auth middleware', () => {
     expect(source).not.toContain('xForwardedFor: true')
   })
 
-  it('does not call the API-key verify HTTP route that Better Auth does not expose', async () => {
+  it('uses the library token exchange, never a bespoke API-key verify HTTP route', async () => {
     const middlewarePath = fileURLToPath(
       new URL('../../packages/cms/src/server/middleware/mcp-auth.ts', import.meta.url),
     )
     const source = await readFile(middlewarePath, 'utf8')
 
-    expect(source).toContain('/convex/token')
+    expect(source).toContain('exchangeConvexToken')
     expect(source).not.toContain('/api-key/verify')
+    // The raw JWT is never fetched twice nor stored in the middleware itself.
+    expect(source).not.toContain('convexAuthToken')
   })
 
-  it('rejects invalid API keys and rate-limits repeated failures', async () => {
+  it('rejects invalid credentials, charges the budget once each, and rate-limits', async () => {
+    exchangeOutcome = 'invalid'
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const event = createEvent('ba_raw_invalid')
+      const context: Record<string, unknown> = {}
       await expect(
         authenticateMcpRequestContext(
           {
-            path: event.path,
-            authorizationHeader: event.node.req.headers.authorization,
-            clientIp: event.node.req.headers['x-forwarded-for'],
-            context: event.context,
+            path: '/mcp',
+            authorizationHeader: 'Bearer ba_raw_invalid',
+            clientIp: '127.0.0.1',
+            context,
           },
           authDeps(),
         ),
       ).rejects.toMatchObject({ statusCode: 401 })
-      expect(event.context.mcpAuth).toBeUndefined()
+      expect(context.mcpAuth).toBeUndefined()
     }
 
-    expect(verifySpy).toHaveBeenCalledTimes(5)
+    // One exchange attempt per request, one budget entry per failure.
+    expect(exchangeSpy).toHaveBeenCalledTimes(5)
     expect([...storageData.values()].map((values) => values.length).sort()).toEqual([5, 5])
     expect([...storageData.keys()].join('\n')).not.toContain('ba_raw_invalid')
 
@@ -151,7 +169,28 @@ describe('ginko mcp auth middleware', () => {
     ).rejects.toMatchObject({ statusCode: 429 })
   })
 
+  it('returns 503 for an infrastructure/transport failure without charging the budget', async () => {
+    exchangeOutcome = 'transport'
+
+    await expect(
+      authenticateMcpRequestContext(
+        {
+          path: '/mcp',
+          authorizationHeader: 'Bearer ba_raw_unavailable',
+          clientIp: '127.0.0.1',
+          context: {},
+        },
+        authDeps(),
+      ),
+    ).rejects.toMatchObject({ statusCode: 503 })
+
+    // Exactly one exchange attempt, and NO failure budget entry recorded.
+    expect(exchangeSpy).toHaveBeenCalledTimes(1)
+    expect([...storageData.values()]).toEqual([])
+  })
+
   it('does not leak rejected MCP bearer tokens in auth failures or limiter storage', async () => {
+    exchangeOutcome = 'invalid'
     const rawToken = 'ba_raw_expired_or_deleted_secret'
 
     await expect(
@@ -174,9 +213,33 @@ describe('ginko mcp auth middleware', () => {
     expect([...storageData.keys()].join('\n')).not.toContain(rawToken)
   })
 
-  it('rejects verified API keys without matching active CMS credential settings', async () => {
-    verifyResult = { valid: true, key: { id: 'ba_key_valid', referenceId: 'user-1' } }
+  it('rejects a claim/access mismatch with exactly one 401 failure charge', async () => {
+    exchangeOutcome = 'valid'
+    // resolved owner differs from the decoded claim -> exactly one failure, 401.
     accessResult = { apiKeyId: 'ba_key_valid', ownerUserId: 'other-user' }
+    const context: Record<string, unknown> = {}
+
+    await expect(
+      authenticateMcpRequestContext(
+        {
+          path: '/mcp',
+          authorizationHeader: 'Bearer ba_raw_valid',
+          clientIp: '127.0.0.1',
+          context,
+        },
+        authDeps(),
+      ),
+    ).rejects.toMatchObject({ statusCode: 401 })
+
+    expect(context.mcpAuth).toBeUndefined()
+    expect(exchangeSpy).toHaveBeenCalledTimes(1)
+    // Exactly one failure charge (one entry per IP + hash bucket).
+    expect([...storageData.values()].map((values) => values.length).sort()).toEqual([1, 1])
+  })
+
+  it('rejects a missing credential-settings record with one 401 charge', async () => {
+    exchangeOutcome = 'valid'
+    accessResult = null
 
     await expect(
       authenticateMcpRequestContext(
@@ -189,11 +252,16 @@ describe('ginko mcp auth middleware', () => {
         authDeps(),
       ),
     ).rejects.toMatchObject({ statusCode: 401 })
+
+    expect(exchangeSpy).toHaveBeenCalledTimes(1)
+    expect([...storageData.values()].map((values) => values.length).sort()).toEqual([1, 1])
   })
 
   it('uses the grace path when storage fails after a healthy storage read', async () => {
-    verifyResult = { valid: true, key: { id: 'ba_key_prime', referenceId: 'user-1' } }
+    exchangeOutcome = 'valid'
     accessResult = { apiKeyId: 'ba_key_prime', ownerUserId: 'user-1' }
+    // Prime a healthy read so the grace window is active.
+    accessResult = { apiKeyId: 'ba_key_valid', ownerUserId: 'user-1' }
     await authenticateMcpRequestContext(
       {
         path: '/mcp',
@@ -203,7 +271,8 @@ describe('ginko mcp auth middleware', () => {
       },
       authDeps(),
     )
-    verifyResult = { valid: false, key: null }
+
+    exchangeOutcome = 'invalid'
     accessResult = null
     storageFailure = true
 
@@ -220,7 +289,7 @@ describe('ginko mcp auth middleware', () => {
     ).rejects.toMatchObject({ statusCode: 401 })
   })
 
-  it('rejects missing MCP bearer tokens', async () => {
+  it('rejects missing MCP bearer tokens before any exchange', async () => {
     await expect(
       authenticateMcpRequestContext(
         {
@@ -234,11 +303,8 @@ describe('ginko mcp auth middleware', () => {
           getStorage: async () => {
             throw new Error('storage should not be read')
           },
-          verifyApiKey: async () => {
-            throw new Error('token should not be verified')
-          },
-          getConvexAuthToken: async () => {
-            throw new Error('Convex token should not be requested')
+          exchangeCredential: async () => {
+            throw new Error('credential should not be exchanged')
           },
           resolveCredentialAccess: async () => {
             throw new Error('credential access should not be resolved')
