@@ -15,6 +15,8 @@ import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { parse as parseYaml } from 'yaml'
+
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const compatibilityMatrix = JSON.parse(
   readFileSync(resolve(repoRoot, 'packages/cms/compatibility.json'), 'utf8'),
@@ -199,6 +201,33 @@ function betterConvexNuxtDependency(betterConvexNuxtTarball) {
   return registryBetterConvexNuxt
     ? betterConvexNuxtRegistryVersion
     : fileDependency(betterConvexNuxtTarball)
+}
+
+function assertCandidateLockfile(lockfileText, expectedSpecifiers) {
+  const lockfile = parseYaml(lockfileText)
+  const rootImporter = lockfile?.importers?.['.']
+  if (!rootImporter) {
+    throw new Error('Candidate consumer lockfile is missing its root importer.')
+  }
+
+  for (const [name, expectedSpecifier] of Object.entries(expectedSpecifiers)) {
+    const dependency = rootImporter.dependencies?.[name] ?? rootImporter.devDependencies?.[name]
+    if (dependency?.specifier !== expectedSpecifier) {
+      throw new Error(
+        `Candidate lockfile resolves ${name} from ${dependency?.specifier ?? 'missing'}; expected ${expectedSpecifier}.`,
+      )
+    }
+
+    for (const sectionName of ['packages', 'snapshots']) {
+      for (const key of Object.keys(lockfile?.[sectionName] ?? {})) {
+        if (key.startsWith(`${name}@`) && !key.startsWith(`${name}@file:`)) {
+          throw new Error(
+            `Candidate lockfile contains non-tarball ${name} resolution in ${sectionName}: ${key}.`,
+          )
+        }
+      }
+    }
+  }
 }
 
 function yamlQuote(value) {
@@ -438,6 +467,15 @@ try {
   const consumerLockfile = readFileSync(join(tempDir, 'pnpm-lock.yaml'), 'utf8')
   if (/\b(?:link|workspace):/.test(consumerLockfile)) {
     throw new Error('Candidate consumer lockfile contains a workspace or link dependency.')
+  }
+  if (candidateMode) {
+    assertCandidateLockfile(consumerLockfile, {
+      '@lupinum/ginko-cms': fileDependency(cmsTarball),
+      '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
+      '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
+      '@lupinum/ginko-content': fileDependency(candidateContent.path),
+      'better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
+    })
   }
   run('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir })
   run('pnpm', ['exec', 'ginko-cms', 'doctor'], { cwd: tempDir })
