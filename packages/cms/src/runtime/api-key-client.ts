@@ -32,12 +32,13 @@ export const GINKO_API_KEY_CLIENT_ERROR =
  * API-key plugin.
  */
 export function requireGinkoApiKeyClient(client: unknown): GinkoApiKeyClient {
-  const apiKey =
-    client && typeof client === 'object' ? (client as { apiKey?: unknown }).apiKey : undefined
+  const hasClientNamespace = typeof client === 'object' || typeof client === 'function'
+  const apiKey = client && hasClientNamespace ? (client as { apiKey?: unknown }).apiKey : undefined
+  const hasApiKeyNamespace = typeof apiKey === 'object' || typeof apiKey === 'function'
 
   if (
     !apiKey ||
-    typeof apiKey !== 'object' ||
+    !hasApiKeyNamespace ||
     typeof (apiKey as { create?: unknown }).create !== 'function' ||
     typeof (apiKey as { delete?: unknown }).delete !== 'function'
   ) {

@@ -21,6 +21,17 @@ describe('requireGinkoApiKeyClient (vNext §10.2/§10.5)', () => {
     expect(narrowed.apiKey.create).toBe(create)
   })
 
+  it("accepts Better Auth's callable apiKey proxy when both required methods exist", () => {
+    const apiKey = Object.assign(() => undefined, {
+      create: () => Promise.resolve({ key: 'mcp_x', id: 'ba_key_1' }),
+      delete: () => Promise.resolve(),
+    })
+
+    const client = Object.assign(() => undefined, { apiKey })
+
+    expect(requireGinkoApiKeyClient(client).apiKey).toBe(apiKey)
+  })
+
   it('throws the exact actionable error when the client has no apiKey namespace at all', () => {
     const client = { signIn: { email: () => {} } }
 
