@@ -4,8 +4,8 @@ Date: 2026-07-11
 
 ## Candidate Tuple
 
-- Ginko Content `0.3.0`: `808bf3bf708dcb5329d2e3f8360ed89fe8a3e411e35495323a31330477af3905`
-- Better Convex Nuxt `0.6.0`: `8bfe3a119601e3322dffccd5787df9619ad6fa76eead255a961c7f9314ed6ca0`
+- Ginko Content `0.3.0`: `dae9dde8898db1d162bb34d2eb2dc809d9f0aa01514c372911744863e602b54f`
+- Better Convex Nuxt `0.6.0`: `6ac9209cde5f7a4ea36c041951bd98d07e2495340cbbaeccc4b6aa2beab657c4`
 - Ginko CMS Contract `0.1.1`: `c9f983fc1382a808e203353f4edfee4abfa6e4af20ce5e808d141e72a21f6510`
 - Ginko CMS Convex `0.1.2`: `801d1cbb4e6b89adc68afe58c220a5492c1bebf6a3261e2c1df358c98995a8da`
 - Ginko CMS `0.1.3`: `d17da3e938619b77fefdeee974e16c33d113e9b5b05d3d1403d04752561a509c`
@@ -53,8 +53,8 @@ no outgoing-identity content remained visible and no console error appeared.
 All temporary entries, assets, MCP keys, membership changes, owner-email changes,
 and origin changes were cleaned up or restored after certification.
 
-The final `d17da3e` CMS artifact was then recertified through the real
-`i18n-cms` consumer. The consumer used exact `file:` tarballs for the complete
+The CMS artifact was then recertified through the real packed consumer. The
+consumer used exact `file:` tarballs for the complete
 tuple, with workspace overrides preventing nested registry copies. Its Convex
 deployment, eight collection contracts, lint, typecheck, 230-route production
 prerender, CMS doctor, MCP doctor, and browser smoke all passed.
@@ -85,8 +85,8 @@ console.
 
 ## Commits
 
-- `db2d0499` setup-safe provider search and empty-query dispatch guard
-- `0f8eb3e0` runtime-resolvable Better Convex Nuxt server entry
+- `72a022b7` collision-safe search auto-import and certified Ginko Content toolchain
+- `6dcc8cd2` request-safe Better Convex Nuxt server configuration bridge
 - `1a5b4b2f` callable collection-contract component boundary
 - `32324537` mounted provider routes and lossless runtime collection merging
 - `a6ee213` real consumer V-next API and exact-artifact migration
@@ -108,7 +108,7 @@ console.
   workflow remains covered by the existing live-story certification and
   deterministic asset tests; the final browser run verified the populated media
   library but could not transmit a new file.
-- The real consumer provides one smoke principal, so the final browser run could
+- The real consumer provides one smoke user, so the final browser run could
   not repeat A-to-B replacement. The packed-candidate identity replacement proof
   and Better Convex Nuxt deterministic race suite remain the executable evidence.
 - The real consumer production audit has one low-severity `elliptic` advisory
