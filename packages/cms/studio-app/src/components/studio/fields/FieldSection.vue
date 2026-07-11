@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronsUpDown } from 'lucide-vue-next'
+import { ChevronsUpDown } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useCmsI18n } from '../../../composables/useCmsI18n'

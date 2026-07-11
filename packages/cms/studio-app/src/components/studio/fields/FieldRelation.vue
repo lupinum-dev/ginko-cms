@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, ChevronsUpDown, Search, X } from 'lucide-vue-next'
+import { Check, ChevronsUpDown, Search, X } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 
 import { useCmsI18n } from '../../../composables/useCmsI18n'

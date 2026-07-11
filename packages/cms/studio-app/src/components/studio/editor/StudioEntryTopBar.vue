@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { resolveEntryTitle } from '@lupinum/ginko-cms-contract/shared/fields/title.js'
-import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   Archive,
   ChevronDown,
@@ -13,7 +11,9 @@ import {
   Loader2,
   MoreHorizontal,
   Save,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import { resolveEntryTitle } from '@lupinum/ginko-cms-contract/shared/fields/title.js'
+import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { computed, onMounted, ref, unref } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'

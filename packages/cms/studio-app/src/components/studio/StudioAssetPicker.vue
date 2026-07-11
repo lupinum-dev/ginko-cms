@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { File, ImagePlus, X } from 'lucide-vue-next'
+import { File, ImagePlus, X } from '@lucide/vue'
 import { computed, ref } from 'vue'
 
 import { api } from '../../boundary/api'

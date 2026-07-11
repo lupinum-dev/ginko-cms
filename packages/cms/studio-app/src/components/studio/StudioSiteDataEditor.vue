@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus, Trash2 } from 'lucide-vue-next'
+import { Plus, Trash2 } from '@lucide/vue'
 import { computed, nextTick, ref, watch } from 'vue'
 
 import { useCmsI18n } from '../../composables/useCmsI18n'

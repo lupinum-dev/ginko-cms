@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { EntryStatus } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import {
   AlertCircle,
   FileText,
@@ -10,7 +8,9 @@ import {
   Pencil,
   Plus,
   Search,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type { EntryStatus } from '@lupinum/ginko-cms-contract/shared/types.js'
+import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

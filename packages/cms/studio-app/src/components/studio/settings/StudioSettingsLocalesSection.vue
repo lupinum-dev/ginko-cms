@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, Languages, Loader2, Plus, X } from 'lucide-vue-next'
+import { AlertCircle, Languages, Loader2, Plus, X } from '@lucide/vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, FileText, History, Loader2, Zap } from 'lucide-vue-next'
+import { ArrowRight, FileText, History, Loader2, Zap } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

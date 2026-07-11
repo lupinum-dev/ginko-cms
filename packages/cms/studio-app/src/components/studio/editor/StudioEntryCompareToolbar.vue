@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeftRight, Brackets, FileText, Settings } from 'lucide-vue-next'
+import { ArrowLeftRight, Brackets, FileText, Settings } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'

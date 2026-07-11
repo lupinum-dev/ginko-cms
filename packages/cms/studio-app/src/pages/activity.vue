@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { Activity, AlertCircle, Loader2 } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { Activity, AlertCircle, Loader2 } from 'lucide-vue-next'
 import { computed } from 'vue'
 
 import { api } from '../boundary/api'

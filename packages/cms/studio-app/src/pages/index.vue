@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   UploadCloud,
   Workflow,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { computed } from 'vue'
 
 import { api } from '../boundary/api'

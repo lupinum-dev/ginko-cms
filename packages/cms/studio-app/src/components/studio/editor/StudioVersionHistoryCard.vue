@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Ellipsis, Flag } from 'lucide-vue-next'
+import { Ellipsis, Flag } from '@lucide/vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 

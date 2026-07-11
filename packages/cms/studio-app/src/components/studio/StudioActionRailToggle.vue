@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PanelRightClose, PanelRightOpen } from 'lucide-vue-next'
+import { PanelRightClose, PanelRightOpen } from '@lucide/vue'
 
 import { useStudioActionRailController } from '../../composables/useStudioActionRailController'
 

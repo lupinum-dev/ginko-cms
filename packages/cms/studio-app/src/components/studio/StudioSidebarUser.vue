@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, LogOut } from 'lucide-vue-next'
+import { ChevronDown, LogOut } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 

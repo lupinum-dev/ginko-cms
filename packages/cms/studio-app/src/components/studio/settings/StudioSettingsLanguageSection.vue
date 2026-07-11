@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Globe } from 'lucide-vue-next'
+import { Globe } from '@lucide/vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 

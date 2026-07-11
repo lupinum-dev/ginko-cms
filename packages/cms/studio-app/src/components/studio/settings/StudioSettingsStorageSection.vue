@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, Database, RefreshCw } from 'lucide-vue-next'
+import { AlertCircle, Database, RefreshCw } from '@lucide/vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 

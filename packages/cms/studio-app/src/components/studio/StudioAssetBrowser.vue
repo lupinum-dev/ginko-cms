@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { LocaleText } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import {
   AlertTriangle,
   ArrowUp,
@@ -22,7 +20,9 @@ import {
   Undo2,
   Upload,
   X,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type { LocaleText } from '@lupinum/ginko-cms-contract/shared/types.js'
+import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'

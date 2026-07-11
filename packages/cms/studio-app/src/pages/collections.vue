@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, ArrowLeft, MousePointerClick } from 'lucide-vue-next'
+import { AlertCircle, ArrowLeft, MousePointerClick } from '@lucide/vue'
 
 import { useStudioCollectionsAdmin } from '../composables/internal/useStudioCollectionsAdmin'
 const {

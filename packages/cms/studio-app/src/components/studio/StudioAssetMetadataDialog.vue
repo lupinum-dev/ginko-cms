@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { File, Loader2 } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { File, Loader2 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Editor } from '@tiptap/core'
 import {
   AlignVerticalJustifyCenter,
   Columns2,
@@ -14,7 +13,8 @@ import {
   Table,
   Trash2,
   Video,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type { Editor } from '@tiptap/core'
 import { computed, toRef } from 'vue'
 
 import { useToolbarActions } from '../model/useToolbarActions'

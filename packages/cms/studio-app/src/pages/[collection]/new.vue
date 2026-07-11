@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AlertCircle } from '@lucide/vue'
 import { resolveEntryTitle } from '@lupinum/ginko-cms-contract/shared/fields/title.js'
 import type {
   CmsField,
@@ -12,7 +13,6 @@ import {
   compareOrderRank,
   getClientValidationErrors,
 } from '@public/utils/cmsFields'
-import { AlertCircle } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

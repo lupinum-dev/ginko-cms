@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { User, UserPlus, Users, X } from 'lucide-vue-next'
+import { User, UserPlus, Users, X } from '@lucide/vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 

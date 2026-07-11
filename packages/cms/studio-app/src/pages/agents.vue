@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { AlertCircle, Ban, Bot, Clock, Loader2 } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { AlertCircle, Ban, Bot, Clock, Loader2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
 import { api } from '../boundary/api'

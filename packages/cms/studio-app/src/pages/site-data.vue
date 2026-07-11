@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Database, Loader2, Plus, Trash2 } from 'lucide-vue-next'
+import { Database, Loader2, Plus, Trash2 } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioSiteDataAdmin } from '../composables/internal/useStudioSiteDataAdmin'

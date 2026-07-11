@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Copy, GripVertical, MoreHorizontal } from 'lucide-vue-next'
+import { Copy, GripVertical, MoreHorizontal } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'

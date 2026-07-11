@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { X } from '@lucide/vue'
 import { reactiveOmit } from '@vueuse/core'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { X } from 'lucide-vue-next'
 import type { DialogContentEmits, DialogContentProps } from 'reka-ui'
 import { DialogClose, DialogContent, useForwardPropsEmits } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'

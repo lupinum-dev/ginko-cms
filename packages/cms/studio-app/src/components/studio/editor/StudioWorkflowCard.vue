@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, Check, Circle, Clock } from 'lucide-vue-next'
+import { AlertCircle, Check, Circle, Clock } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Trash2 } from 'lucide-vue-next'
+import { Trash2 } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useCmsI18n } from '../../../composables/useCmsI18n'

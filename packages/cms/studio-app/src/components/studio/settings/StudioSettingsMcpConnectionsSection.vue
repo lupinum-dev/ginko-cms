@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, BadgeCheck, Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-vue-next'
+import { AlertCircle, BadgeCheck, Copy, KeyRound, Loader2, Plus, Trash2 } from '@lucide/vue'
 import { computed, ref } from 'vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'

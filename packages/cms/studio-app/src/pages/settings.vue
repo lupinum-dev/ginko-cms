@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, Settings } from 'lucide-vue-next'
+import { AlertCircle, Settings } from '@lucide/vue'
 import { proxyRefs } from 'vue'
 
 import StudioSettingsConfigurationSection from '../components/studio/settings/StudioSettingsConfigurationSection.vue'

@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { Pencil, RefreshCw } from '@lucide/vue'
 import type { Editor as TiptapEditor, JSONContent } from '@tiptap/core'
 import { NodeSelection } from '@tiptap/pm/state'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import type { Editor as TiptapVueEditor } from '@tiptap/vue-3'
 import { onKeyStroke, useLocalStorage, useScrollLock } from '@vueuse/core'
-import { Pencil, RefreshCw } from 'lucide-vue-next'
 import type { Ref } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 

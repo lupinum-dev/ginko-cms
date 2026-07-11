@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Loader2, Upload } from 'lucide-vue-next'
+import { Loader2, Upload } from '@lucide/vue'
 import { ref } from 'vue'
 
 const browserRef = ref<{

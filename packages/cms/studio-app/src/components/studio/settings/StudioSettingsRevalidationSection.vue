@@ -7,7 +7,7 @@ import {
   RefreshCw,
   RotateCcw,
   ShieldCheck,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 import { websiteRefreshStatusLabel } from '../../../lib/publicWorkflow'

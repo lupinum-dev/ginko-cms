@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertTriangle, Code2, Database, Route, Settings2 } from 'lucide-vue-next'
+import { AlertTriangle, Code2, Database, Route, Settings2 } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { deriveCapabilityWarnings } from '../../../lib/publicWorkflow'

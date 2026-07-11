@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronsLeft, Search } from 'lucide-vue-next'
+import { ChevronsLeft, Search } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useCmsConfig } from '../../composables/useCmsConfig'

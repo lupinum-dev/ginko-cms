@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronRight, FileText, Folder, LayoutDashboard, Search, Settings } from 'lucide-vue-next'
+import { ChevronRight, FileText, Folder, LayoutDashboard, Search, Settings } from '@lucide/vue'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
