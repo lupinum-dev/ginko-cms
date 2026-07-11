@@ -183,9 +183,7 @@ function fileDependency(path) {
 
 function contentAddressedCopy(path) {
   const artifactDir = join(tempDir, 'artifacts')
-  const extension = '.tgz'
-  const filename = basename(path, extension)
-  const target = join(artifactDir, `${filename}-${sha256(path)}${extension}`)
+  const target = join(artifactDir, `${sha256(path)}.tgz`)
   mkdirSync(artifactDir, { recursive: true })
   copyFileSync(path, target)
   return target

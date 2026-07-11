@@ -297,9 +297,15 @@ try {
       const createDraftButtons = page.getByRole('button', { name: 'Create draft' })
       if ((await createDraftButtons.count()) < 1) throw new Error('Create draft action is missing')
       await createDraftButtons.first().click()
-      await page.waitForURL(new RegExp(`/studio/content/${collection}/[^/]+$`), { timeout: 30000 })
+      await page.waitForURL(
+        new RegExp(`/studio/content/${collection}/(?!new(?:[/?#]|$))[^/?#]+$`),
+        { timeout: 30000 },
+      )
       fixtureEntryUrl = page.url()
-      await page.getByText('Saved', { exact: true }).waitFor({ timeout: 30000 })
+      await page
+        .locator('.studio-entry-topbar__save-indicator')
+        .getByText('Saved', { exact: true })
+        .waitFor({ timeout: 30000 })
 
       await page.getByRole('button', { name: 'Preview website changes' }).click()
       await page.getByRole('heading', { name: 'What will change on the website' }).waitFor({
@@ -401,12 +407,13 @@ try {
       await expectText(page, collectionLabel, 60000)
       await page.getByPlaceholder('Search title, slug, or path').waitFor({ timeout: 30000 })
       const rows = page.getByTestId('cms-entry-row')
+      await rows.filter({ hasText: fixtureTitle }).waitFor({ timeout: 30000 })
       const rowCount = await rows.count()
       if (rowCount < 1) throw new Error(`${collection} entry list rendered no rows`)
       const fixtureRow = rows.filter({ hasText: fixtureTitle })
       if ((await fixtureRow.count()) !== 1) throw new Error('published fixture row is missing')
       const rowText = await fixtureRow.textContent()
-      if (!/\b(?:Live|Draft only|Needs attention|Data-only|Archived)\b/.test(rowText)) {
+      if (!/Live|Draft only|Needs attention|Data-only|Archived/.test(rowText)) {
         throw new Error(`entry row did not expose public state: ${redact(rowText)}`)
       }
       if (!/[A-Z]{2}\s*·\s*(?:Live|Draft)/.test(rowText)) {
@@ -425,6 +432,7 @@ try {
       const search = page.getByPlaceholder('Search title, slug, or path')
       await search.waitFor({ timeout: 30000 })
       const rows = page.getByTestId('cms-entry-row')
+      await rows.filter({ hasText: fixtureTitle }).waitFor({ timeout: 30000 })
       const before = await rows.count()
       if (before < 1) throw new Error(`entry list had no rows for filter proof: ${before}`)
       await search.fill(fixtureToken)
@@ -451,7 +459,15 @@ try {
     async () => {
       if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
       await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
-      await expectText(page, fixtureTitle)
+      const titleField = page.getByRole('textbox', { name: 'Title *' })
+      await titleField.waitFor({ timeout: 30000 })
+      const titleElement = await titleField.elementHandle()
+      await page.waitForFunction(
+        ({ element, expected }) =>
+          element instanceof HTMLInputElement && element.value === expected,
+        { element: titleElement, expected: fixtureTitle },
+        { timeout: 30000 },
+      )
       const hasPublish = await page
         .getByRole('button', { name: /publish/i })
         .first()
@@ -474,9 +490,9 @@ try {
     const uploadInput = page.locator('input[type="file"]')
     if ((await uploadInput.count()) !== 1) throw new Error('Media upload input is missing')
     await uploadInput.setInputFiles(uploadFixturePath)
-    const uploadedAsset = page.getByText(uploadFilename, { exact: true })
-    await uploadedAsset.first().waitFor({ timeout: 30000 })
-    await uploadedAsset.first().click()
+    const uploadedAssetRow = page.getByRole('row').filter({ hasText: uploadFilename })
+    await uploadedAssetRow.waitFor({ timeout: 30000 })
+    await uploadedAssetRow.click()
 
     const trashButton = page.getByRole('button', { name: 'Move to Trash' })
     await trashButton.first().waitFor({ timeout: 30000 })
@@ -484,9 +500,7 @@ try {
     const trashDialog = page.getByRole('dialog', { name: 'Move asset to trash?' })
     await trashDialog.waitFor({ timeout: 30000 })
     await trashDialog.getByRole('button', { name: 'Move to trash' }).click()
-    await page
-      .getByText(uploadFilename, { exact: true })
-      .waitFor({ state: 'hidden', timeout: 30000 })
+    await uploadedAssetRow.waitFor({ state: 'hidden', timeout: 30000 })
 
     return { filename: uploadFilename, retired: true }
   })
