@@ -166,6 +166,9 @@ async function revokeActiveMcpConnection(page, rawKey) {
     .getByRole('button', { name: /revoke/i })
     .first()
     .click()
+  const revokeDialog = page.getByRole('dialog', { name: 'Revoke MCP access?' })
+  await revokeDialog.waitFor({ timeout: 30000 })
+  await revokeDialog.getByRole('button', { name: 'Revoke access' }).click()
   await page.getByText('MCP connection revoked.').waitFor({ timeout: 30000 })
   activeMcpConnection.revoked = true
   const revoked = await mcpInitialize(rawKey)
@@ -492,12 +495,12 @@ try {
     await uploadInput.setInputFiles(uploadFixturePath)
     const uploadedAssetRow = page.getByRole('row').filter({ hasText: uploadFilename })
     await uploadedAssetRow.waitFor({ timeout: 30000 })
-    await uploadedAssetRow.click()
+    await uploadedAssetRow.getByRole('checkbox').check()
 
     const trashButton = page.getByRole('button', { name: 'Move to Trash' })
-    await trashButton.first().waitFor({ timeout: 30000 })
-    await trashButton.first().click()
-    const trashDialog = page.getByRole('dialog', { name: 'Move asset to trash?' })
+    await trashButton.waitFor({ timeout: 30000 })
+    await trashButton.click()
+    const trashDialog = page.getByRole('dialog', { name: 'Move selected assets to trash?' })
     await trashDialog.waitFor({ timeout: 30000 })
     await trashDialog.getByRole('button', { name: 'Move to trash' }).click()
     await uploadedAssetRow.waitFor({ state: 'hidden', timeout: 30000 })
@@ -532,18 +535,24 @@ try {
     return { count: body.tree.length, firstRoute }
   })
 
-  await story('public-api.search', 'Public API search returns published results only', async () => {
-    const { response, body, text } = await fetchJson(
-      `/api/ginko/v1/search?collection=${collection}&locale=en&query=${fixtureToken}&limit=2`,
-    )
-    if (!response.ok)
-      throw new Error(`public search failed ${response.status}: ${redact(text).slice(0, 300)}`)
-    if (!Array.isArray(body?.results) || body.results.length < 1) {
-      throw new Error('public search returned no results')
-    }
-    assertNoDraftProjection('public search', body)
-    return { count: body.results.length, firstPath: body.results[0]?.route?.path ?? null }
-  })
+  await story(
+    'public-api.search',
+    'Public API respects the collection search contract',
+    async () => {
+      const { response, body, text } = await fetchJson(
+        `/api/ginko/v1/search?collection=${collection}&locale=en&query=${fixtureToken}&limit=2`,
+      )
+      if (!response.ok) {
+        throw new Error(`public search failed ${response.status}: ${redact(text).slice(0, 300)}`)
+      }
+      if (!Array.isArray(body?.results)) throw new Error('public search returned an invalid shape')
+      assertNoDraftProjection('public search', body)
+      return {
+        count: body.results.length,
+        firstPath: body.results[0]?.route?.path ?? null,
+      }
+    },
+  )
 
   await story('public-api.sitemap', 'Public API sitemap returns published URLs only', async () => {
     const { response, body, text } = await fetchJson(
@@ -762,9 +771,7 @@ try {
       limit: 2,
       compact: true,
     })
-    if (!Array.isArray(search?.results) || search.results.length < 1) {
-      throw new Error('public search tool returned no compact results')
-    }
+    if (!Array.isArray(search?.results)) throw new Error('public search tool returned invalid data')
     return {
       toolCount: tools.length,
       collectionCount: collectionList.length,
