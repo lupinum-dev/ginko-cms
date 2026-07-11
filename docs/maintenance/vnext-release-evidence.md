@@ -53,10 +53,22 @@ no outgoing-identity content remained visible and no console error appeared.
 All temporary entries, assets, MCP keys, membership changes, owner-email changes,
 and origin changes were cleaned up or restored after certification.
 
-Direct A-to-B browser replacement was not run because this environment contains
-credentials for only one identity. Better Convex Nuxt's deterministic identity
-replacement suite covers that invariant; a live two-identity repeat remains a
-deployment-specific publication check when a second identity is provisioned.
+Direct A-to-B replacement was verified in the in-app browser with a disposable
+second identity and a consumer-only probe built against the exact packed
+candidate. On one mounted page, identity A started authenticated and settled;
+the integrated `signIn.email` operation then replaced it with identity B without
+a reload. The reactive user changed to B, status returned to `authenticated`,
+pending returned to `false`, B entered Studio as the expected owner, and the
+console remained free of warnings and errors. Afterward, all 11 Better Auth
+tables (including row IDs), CMS members, and deployment environment values were
+restored byte-for-byte to their pre-test state.
+
+The same consumer-only browser probe invoked a real Convex mutation and action
+through the packed candidate and intentionally forced both calls to fail. The
+public error view used the locally captured operation, reported `mutation` and
+`action` respectively, and serialized the normalized errors without `cause`.
+Neither failure produced an uncaught rejection, warning, or error in the browser
+console.
 
 ## Commits
 
