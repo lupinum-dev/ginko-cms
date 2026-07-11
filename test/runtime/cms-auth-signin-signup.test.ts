@@ -2,6 +2,7 @@
 
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 
 // §10.3 / "Ginko tests": sign-in and sign-up must resolve atomically off
 // `useConvexAuth().signIn`/`signUp` alone — no manual `refreshAuth()` call and
@@ -63,6 +64,7 @@ describe('CmsAuthSignIn (vNext §10.3, no manual refresh)', () => {
       props: { redirectTo: '/studio' },
       global: { stubs: globalStubs },
     })
+    await nextTick()
 
     await wrapper.find('[data-testid="cms-auth-email"]').setValue('user@example.com')
     await wrapper.find('[data-testid="cms-auth-password"]').setValue('correct horse battery')
@@ -83,6 +85,7 @@ describe('CmsAuthSignIn (vNext §10.3, no manual refresh)', () => {
       props: { redirectTo: '/studio' },
       global: { stubs: globalStubs },
     })
+    await nextTick()
 
     await wrapper.find('[data-testid="cms-auth-email"]').setValue('user@example.com')
     await wrapper.find('[data-testid="cms-auth-password"]').setValue('wrong')
@@ -109,6 +112,7 @@ describe('CmsAuthSignUp (vNext §10.3, no manual refresh)', () => {
       props: { redirectTo: '/studio' },
       global: { stubs: globalStubs },
     })
+    await nextTick()
 
     await wrapper.find('[data-testid="cms-auth-register-email"]').setValue('user@example.com')
     await wrapper.find('input#name').setValue('Jane Doe')

@@ -26,7 +26,13 @@ const error = ref<string | null>(null)
 const authFormReady = ref(false)
 const isLoading = computed(() => isSubmitting.value)
 const isRedirecting = computed(
-  () => isPending.value || isAuthenticated.value || (isSubmitting.value && !authError.value),
+  // Auth state is client-owned and may start pending after SSR. Keep the
+  // server and first client render identical, then reveal the form on mount.
+  () =>
+    !authFormReady.value ||
+    isPending.value ||
+    isAuthenticated.value ||
+    (isSubmitting.value && !authError.value),
 )
 onMounted(() => {
   authFormReady.value = true
