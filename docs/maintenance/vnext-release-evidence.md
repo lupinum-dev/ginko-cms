@@ -8,14 +8,14 @@ Date: 2026-07-11
 - Better Convex Nuxt `0.6.0`: `8bfe3a119601e3322dffccd5787df9619ad6fa76eead255a961c7f9314ed6ca0`
 - Ginko CMS Contract `0.1.1`: `c9f983fc1382a808e203353f4edfee4abfa6e4af20ce5e808d141e72a21f6510`
 - Ginko CMS Convex `0.1.2`: `801d1cbb4e6b89adc68afe58c220a5492c1bebf6a3261e2c1df358c98995a8da`
-- Ginko CMS `0.1.3`: `449a954ba0c8cf37528d23498e1b003fe0a55db5af81d06959eb0c47e60065d1`
+- Ginko CMS `0.1.3`: `d17da3e938619b77fefdeee974e16c33d113e9b5b05d3d1403d04752561a509c`
 
 The dependency artifacts were installed by exact file and SHA-256. The consumer
 lockfile contained no `workspace:` or `link:` resolution.
 
 ## Deterministic Evidence
 
-- `pnpm run check`: passed; 107 test files and 844 tests passed, with one
+- `pnpm run check`: passed; 107 test files and 847 tests passed, with one
   explicitly skipped test.
 - `pnpm run audit:prod`: passed with no known vulnerabilities.
 - Two serial candidate package runs produced identical evidence manifests and
@@ -53,6 +53,19 @@ no outgoing-identity content remained visible and no console error appeared.
 All temporary entries, assets, MCP keys, membership changes, owner-email changes,
 and origin changes were cleaned up or restored after certification.
 
+The final `d17da3e` CMS artifact was then recertified through the real
+`i18n-cms` consumer. The consumer used exact `file:` tarballs for the complete
+tuple, with workspace overrides preventing nested registry copies. Its Convex
+deployment, eight collection contracts, lint, typecheck, 230-route production
+prerender, CMS doctor, MCP doctor, and browser smoke all passed.
+
+The in-app browser verified EN/DE public pages, provider search, signed-out
+Studio protection, sign-in, Studio live reads, draft creation, preview,
+publishing, the resulting public page and navigation update, unpublishing,
+archival cleanup, MCP connection creation and revocation, and sign-out. The
+captured browser console contained no warnings or errors. The temporary entry
+and MCP connection were removed before closeout.
+
 Direct A-to-B replacement was verified in the in-app browser with a disposable
 second identity and a consumer-only probe built against the exact packed
 candidate. On one mounted page, identity A started authenticated and settled;
@@ -75,6 +88,9 @@ console.
 - `db2d0499` setup-safe provider search and empty-query dispatch guard
 - `0f8eb3e0` runtime-resolvable Better Convex Nuxt server entry
 - `1a5b4b2f` callable collection-contract component boundary
+- `32324537` mounted provider routes and lossless runtime collection merging
+- `a6ee213` real consumer V-next API and exact-artifact migration
+- `75dad67` real consumer Convex adapter refresh
 - `48d197db` secure opaque-error boundaries
 - `52e17419` exact dependency artifact verification
 - `2614a41b` reproducible Content vendor verification
@@ -85,3 +101,18 @@ console.
 - `08c446af` stable sign-in/sign-up hydration
 - `02ae37fc` live-update-safe Studio pagination
 - `a735cc72` hardened packed and live release harnesses
+
+## Known External Limits
+
+- The Codex in-app browser does not support file upload. The upload/retirement
+  workflow remains covered by the existing live-story certification and
+  deterministic asset tests; the final browser run verified the populated media
+  library but could not transmit a new file.
+- The real consumer provides one smoke principal, so the final browser run could
+  not repeat A-to-B replacement. The packed-candidate identity replacement proof
+  and Better Convex Nuxt deterministic race suite remain the executable evidence.
+- The real consumer production audit has one low-severity `elliptic` advisory
+  under the required `secure-exec` browser polyfill. The advisory reports no
+  patched version. Ginko CMS itself reports no known production vulnerabilities.
+- The consumer deployment has no website-refresh target configured. Publishing
+  correctly queues refresh work; local public reads update directly from Convex.
