@@ -16,7 +16,7 @@
     "better-convex-nuxt": "^0.6.0",
     "convex": "1.38.0",
     "h3": "1.15.11",
-    "nuxt": "^4.4.7",
+    "nuxt": "^4.4.8",
     "tailwindcss": "^4.3.0"
   }
 }

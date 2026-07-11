@@ -9,12 +9,12 @@
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "db2d0499345135059ad239bca06354c8ade168e5",
-      "sha256": "808bf3bf708dcb5329d2e3f8360ed89fe8a3e411e35495323a31330477af3905"
+      "sourceCommit": "72a022b715491185148c7236c0cc79a82737b4ea",
+      "sha256": "dae9dde8898db1d162bb34d2eb2dc809d9f0aa01514c372911744863e602b54f"
     },
     "better-convex-nuxt": {
-      "sourceCommit": "0f8eb3e09e83ef28c2c563128e75c738973ac5c5",
-      "sha256": "8bfe3a119601e3322dffccd5787df9619ad6fa76eead255a961c7f9314ed6ca0"
+      "sourceCommit": "6dcc8cd2d67dbdb90891d5f7db6b12e9261f6bf8",
+      "sha256": "6ac9209cde5f7a4ea36c041951bd98d07e2495340cbbaeccc4b6aa2beab657c4"
     }
   },
   "tracked": {
@@ -28,11 +28,11 @@
     "convex": ["1.38.0", "^1.38.0"],
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
-    "nuxt": ["^4.4.7", "4.4.7"],
+    "nuxt": ["^4.4.8", "4.4.8"],
     "secure-exec": ["^0.2.1", "0.2.1"],
-    "typescript": ["~6.0.3", "^6.0.3", "6.0.3"],
-    "vite": ["^7.3.2", "7.3.2", "^7.3.3", "7.3.3"],
-    "vue-tsc": ["^3.2.9", "3.2.9"]
+    "typescript": ["~5.9.3", "^5.9.3", "5.9.3"],
+    "vite": ["^7.3.6", "7.3.6"],
+    "vue-tsc": ["^3.3.7", "3.3.7"]
   },
   "consumer": {
     "dependencies": {
@@ -40,12 +40,12 @@
       "better-auth": "1.6.23",
       "better-convex-nuxt": "0.6.0",
       "convex": "1.38.0",
-      "nuxt": "^4.4.7"
+      "nuxt": "^4.4.8"
     },
     "devDependencies": {
       "@types/node": "^25.8.0",
-      "typescript": "~6.0.3",
-      "vue-tsc": "^3.2.9"
+      "typescript": "~5.9.3",
+      "vue-tsc": "^3.3.7"
     }
   },
   "intentionalHolds": [
