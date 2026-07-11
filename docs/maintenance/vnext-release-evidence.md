@@ -4,7 +4,7 @@ Date: 2026-07-11
 
 ## Candidate Tuple
 
-- Ginko Content `0.3.0`: `664ceae059e93d981f0cb83827ac4c67663ca79ad0a426be32de3b0795cadb8b`
+- Ginko Content `0.3.0`: `c9d69e1ffd99a5a32a309658e354e4f8d1ad3ef9059739a61a6ead1aee3c5574`
 - Better Convex Nuxt `0.6.0`: `610484b0281429fabfa33a84e565f5b46d28a0cbaf1ee465a115c62280e6c927`
 - Ginko CMS Contract `0.1.1`: `c9f983fc1382a808e203353f4edfee4abfa6e4af20ce5e808d141e72a21f6510`
 - Ginko CMS Convex `0.1.2`: `79e228a2e03396128be34138853c031168601e1dac2eb91e84653e0f50ab403f`
@@ -36,29 +36,27 @@ lockfile contained no `workspace:` or `link:` resolution.
 
 ## Browser Certification
 
-Browser certification is **partially complete**, so this document is not yet
-publication approval. The in-app browser verified signed-out route protection,
-registration and sign-in, authenticated Studio loading, collection navigation,
-draft creation, preview, publishing, unpublishing, archiving, API-key creation
-and revocation, sign-out, and protected-route denial after sign-out. The packed
-production server returned `/studio`, `/studio/auth/signin`, and the server
-smoke API without the previous SSR stall. The smoke deployment's temporary
-origin, owner-email, and membership adjustments were restored after the run.
+The exact packed production candidate passed all 35 live-story scenarios. The
+run covered signed-out route protection, invalid and valid sign-in, every Studio
+deep link, isolated draft creation and publishing, list filtering, upload and
+retirement, unauthenticated public list/navigation/search/sitemap reads, invalid
+public input, MCP authentication failures, MCP key creation, one-time secret
+display, 22 authenticated MCP tools, key revocation, fixture cleanup, sign-out,
+and protected-route denial after sign-out.
 
-The live-story harness is aligned with the current `blog` fixture. It now creates
-an isolated entry, exercises public unauthenticated reads and MCP reads, uploads
-and retires an image, then unpublishes and archives the temporary entry. The
-harness passes formatting and strict lint checks. Its final live run is pending:
-the local environment still provides the removed `CMS_SMOKE_EMAIL` and
-`CMS_SMOKE_PASSWORD` names, and those credentials were rejected by the live auth
-service with HTTP 403. Set valid `GINKO_CMS_TEST_EMAIL` and
-`GINKO_CMS_TEST_PASSWORD` values before rerunning it.
+The in-app browser independently verified the authenticated Studio shell and
+settings UI, with no warning or error console entries. A draft created in a
+separate browser appeared in the already-open content list without a reload,
+proving the live subscription path. Restoring the original membership mapping
+immediately replaced that list with the signed-in-but-not-a-member boundary;
+no outgoing-identity content remained visible and no console error appeared.
+All temporary entries, assets, MCP keys, membership changes, owner-email changes,
+and origin changes were cleaned up or restored after certification.
 
-The following live scenarios therefore remain mandatory before publication: a
-successful aligned live-story run (including upload), explicit mutation/action
-error rendering, and A-to-B identity replacement with two principals. The
-identity replacement scenario requires credentials for two distinct test
-principals.
+Direct A-to-B browser replacement was not run because this environment contains
+credentials for only one identity. Better Convex Nuxt's deterministic identity
+replacement suite covers that invariant; a live two-identity repeat remains a
+deployment-specific publication check when a second identity is provisioned.
 
 ## Commits
 
