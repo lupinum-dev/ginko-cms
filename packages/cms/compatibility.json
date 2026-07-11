@@ -9,12 +9,12 @@
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "271d818a3b4e9e1b3fead977d901150887c3dc40",
-      "sha256": "c9d69e1ffd99a5a32a309658e354e4f8d1ad3ef9059739a61a6ead1aee3c5574"
+      "sourceCommit": "db2d0499345135059ad239bca06354c8ade168e5",
+      "sha256": "808bf3bf708dcb5329d2e3f8360ed89fe8a3e411e35495323a31330477af3905"
     },
     "better-convex-nuxt": {
-      "sourceCommit": "d8b4990a9db2f27910b92a993d6c62c00a939ca1",
-      "sha256": "610484b0281429fabfa33a84e565f5b46d28a0cbaf1ee465a115c62280e6c927"
+      "sourceCommit": "0f8eb3e09e83ef28c2c563128e75c738973ac5c5",
+      "sha256": "8bfe3a119601e3322dffccd5787df9619ad6fa76eead255a961c7f9314ed6ca0"
     }
   },
   "tracked": {

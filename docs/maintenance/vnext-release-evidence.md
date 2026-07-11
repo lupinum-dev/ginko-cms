@@ -4,11 +4,11 @@ Date: 2026-07-11
 
 ## Candidate Tuple
 
-- Ginko Content `0.3.0`: `c9d69e1ffd99a5a32a309658e354e4f8d1ad3ef9059739a61a6ead1aee3c5574`
-- Better Convex Nuxt `0.6.0`: `610484b0281429fabfa33a84e565f5b46d28a0cbaf1ee465a115c62280e6c927`
+- Ginko Content `0.3.0`: `808bf3bf708dcb5329d2e3f8360ed89fe8a3e411e35495323a31330477af3905`
+- Better Convex Nuxt `0.6.0`: `8bfe3a119601e3322dffccd5787df9619ad6fa76eead255a961c7f9314ed6ca0`
 - Ginko CMS Contract `0.1.1`: `c9f983fc1382a808e203353f4edfee4abfa6e4af20ce5e808d141e72a21f6510`
 - Ginko CMS Convex `0.1.2`: `79e228a2e03396128be34138853c031168601e1dac2eb91e84653e0f50ab403f`
-- Ginko CMS `0.1.3`: `aeb61be8087b3afd99421edd97cdf519bacf730807e4ba370d30dca8e2d5bd07`
+- Ginko CMS `0.1.3`: `d2671d9fcc9ac339a2460c67a3455a19f91d965cf8d8c092b7b1504dd4c18cdf`
 
 The dependency artifacts were installed by exact file and SHA-256. The consumer
 lockfile contained no `workspace:` or `link:` resolution.
@@ -72,6 +72,8 @@ console.
 
 ## Commits
 
+- `db2d0499` setup-safe provider search and empty-query dispatch guard
+- `0f8eb3e0` runtime-resolvable Better Convex Nuxt server entry
 - `48d197db` secure opaque-error boundaries
 - `52e17419` exact dependency artifact verification
 - `2614a41b` reproducible Content vendor verification

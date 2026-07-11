@@ -1,7 +1,7 @@
 {
   "package": "@lupinum/ginko-content",
   "packageVersion": "0.3.0",
-  "sourceCommit": "271d818a3b4e9e1b3fead977d901150887c3dc40",
+  "sourceCommit": "db2d0499345135059ad239bca06354c8ade168e5",
   "files": {
     "index.ts": "4454512874dab85b450ebc651bf84cbb4574cda67969b9213ce59c3b8372656c",
     "markdownTree.ts": "ee0ffd4721a451c17121ca9c701b9ba0122e1ed60e8fd658d1519e1dcda418fb",
