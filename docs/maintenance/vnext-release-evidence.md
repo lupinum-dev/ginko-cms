@@ -8,7 +8,7 @@ Date: 2026-07-11
 - Better Convex Nuxt `0.6.0`: `6ac9209cde5f7a4ea36c041951bd98d07e2495340cbbaeccc4b6aa2beab657c4`
 - Ginko CMS Contract `0.1.1`: `c9f983fc1382a808e203353f4edfee4abfa6e4af20ce5e808d141e72a21f6510`
 - Ginko CMS Convex `0.1.2`: `801d1cbb4e6b89adc68afe58c220a5492c1bebf6a3261e2c1df358c98995a8da`
-- Ginko CMS `0.1.3`: `d17da3e938619b77fefdeee974e16c33d113e9b5b05d3d1403d04752561a509c`
+- Ginko CMS `0.1.3`: `5ca6d61d9995a9386a178cda9901e0357cfa673cd67a03f70caec7d3702fd00e`
 
 The dependency artifacts were installed by exact file and SHA-256. The consumer
 lockfile contained no `workspace:` or `link:` resolution.
@@ -20,6 +20,10 @@ lockfile contained no `workspace:` or `link:` resolution.
 - `pnpm run audit:prod`: passed with no known vulnerabilities.
 - Two serial candidate package runs produced identical evidence manifests and
   byte-identical Contract, Convex, and CMS tarballs.
+- The final in-app-browser pass reverified signed-out route protection, a real
+  credentialed Studio session, all eight collection contracts, public Content
+  rendering, the MCP settings surface, unauthenticated MCP rejection, clean
+  warmed-page consoles, and sign-out against the exact local tarball tuple.
 - The packed consumer passed initialization, doctor, offline Convex codegen,
   Nuxt preparation/typechecking, and public package import probes with its
   public-content API and MCP routes explicitly enabled.
@@ -101,6 +105,11 @@ console.
 - `08c446af` stable sign-in/sign-up hydration
 - `02ae37fc` live-update-safe Studio pagination
 - `a735cc72` hardened packed and live release harnesses
+- `edaf8dc1` maintained Lucide Studio icon boundary
+- `ea29f674` coordinated V-next toolchain and artifact tuple
+- `03ee7f6d` duplicate candidate resolution rejection
+- `70a33032` pinned Ginko Content contract vendor evidence
+- `741ccb44` coordinated candidate release evidence
 
 ## Known External Limits
 
