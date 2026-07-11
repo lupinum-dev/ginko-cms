@@ -8,9 +8,8 @@ import {
   addServerHandler,
   createResolver,
   addComponentsDir,
-  addPlugin,
-  addTemplate,
   addTypeTemplate,
+  extendPages,
 } from '@nuxt/kit'
 import type { Nuxt, NuxtModule } from '@nuxt/schema'
 import { ConvexHttpClient } from 'convex/browser'
@@ -30,7 +29,6 @@ import type { I18nModuleOptions } from './module/i18n.js'
 import type { ModuleOptions } from './module/options.js'
 import { renderPublicContractTypes } from './module/public-contract.js'
 import { buildPublicRuntimeCollections } from './module/runtime-config.js'
-import { renderStudioPagesPlugin } from './module/studio-pages-plugin.js'
 import { createTailwindPlugin } from './module/tailwind.js'
 
 export type {
@@ -85,11 +83,11 @@ const CMS_CONTENT_PROVIDER_MODULE = '@lupinum/ginko-cms/nuxt-provider'
 function hasNuxtI18nModule(modules: unknown[] = []): boolean {
   return modules.some((entry) => {
     if (typeof entry === 'string') {
-      return entry === '@nuxtjs/i18n'
+      return entry === '@nuxtjs/i18n' || entry === 'nuxt-i18n-micro'
     }
 
     if (Array.isArray(entry) && typeof entry[0] === 'string') {
-      return entry[0] === '@nuxtjs/i18n'
+      return entry[0] === '@nuxtjs/i18n' || entry[0] === 'nuxt-i18n-micro'
     }
 
     return false
@@ -455,20 +453,41 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       pathPrefix: false,
     })
 
-    // Runtime route registration also works in host apps without a pages/
-    // directory, where Nuxt disables its built-in pages module before user
-    // modules run.
-    const studioPagesPlugin = addTemplate({
-      filename: 'ginko-cms/studio-pages.ts',
-      getContents: () =>
-        renderStudioPagesPlugin({
-          studioRoute: options.route,
-          signInPage: resolve(cmsAuthDir, 'pages/signin.vue'),
-          registerPage: resolve(cmsAuthDir, 'pages/register.vue'),
-          hostPage: resolve(cmsRuntimeDir, 'pages/studio-host.vue'),
-        }),
+    // Ginko owns application pages even when the host has no pages directory.
+    // Force Nuxt's pages system on before extending its build-time route table;
+    // registering routes from a runtime plugin can deadlock initial SSR routing.
+    nuxt.options.pages = true
+    extendPages((pages) => {
+      const routes = [
+        {
+          name: 'studio-auth-signin',
+          path: `${options.route.replace(/\/$/, '')}/auth/signin`,
+          file: resolve(cmsAuthDir, 'pages/signin.vue'),
+          meta: { layout: false },
+        },
+        {
+          name: 'studio-auth-register',
+          path: `${options.route.replace(/\/$/, '')}/auth/register`,
+          file: resolve(cmsAuthDir, 'pages/register.vue'),
+          meta: { layout: false },
+        },
+        {
+          name: 'studio-host',
+          path: `${options.route.replace(/\/$/, '')}/:slug(.*)*`,
+          file: resolve(cmsRuntimeDir, 'pages/studio-host.vue'),
+          meta: { layout: false },
+        },
+      ]
+
+      for (const route of routes) {
+        if (pages.some((page) => page.name === route.name)) {
+          throw new Error(
+            `@lupinum/ginko-cms cannot register route "${route.name}" because the host already uses that route name.`,
+          )
+        }
+        pages.push(route)
+      }
     })
-    addPlugin(studioPagesPlugin.dst)
 
     // Only inject site-level i18n defaults when the host app already opted into
     // translated site locales and explicitly provided CMS siteI18n overrides.
@@ -524,6 +543,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   },
   moduleDependencies(nuxt) {
     const nuxtOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
+    const appHasConfiguredLocales = hasConfiguredI18nLocales(nuxtOptions.i18n ?? {})
     const userOptions: Partial<ModuleOptions> =
       nuxtOptions.ginkoCms && typeof nuxtOptions.ginkoCms === 'object' ? nuxtOptions.ginkoCms : {}
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
@@ -585,7 +605,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         Object.keys(convexDefaults).length > 0 ? { defaults: convexDefaults } : {}
     }
 
-    if (!hasNuxtI18nModule(nuxt.options.modules)) {
+    if (appHasConfiguredLocales && !hasNuxtI18nModule(nuxt.options.modules)) {
       dependencies['nuxt-i18n-micro'] = {
         version: '>=3.17.0',
         defaults: {

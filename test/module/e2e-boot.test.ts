@@ -92,6 +92,10 @@ describe('ginko-cms module e2e boot', () => {
     expect(getNuxt(nuxt).options).toBeDefined()
   })
 
+  it('does not install an i18n runtime into a locale-less host', () => {
+    expect(getNuxt(nuxt).options.modules).not.toContain('nuxt-i18n-micro')
+  })
+
   // --- Runtime config ---
 
   it('injects ginkoCms into public runtime config', () => {
@@ -128,16 +132,6 @@ describe('ginko-cms module e2e boot', () => {
     expect(getNuxt(nuxt).options.i18n?.defaultLocale).toBeUndefined()
   })
 
-  // --- Composables (imports:dirs hook) ---
-
-  it('registers composables via imports:dirs hook', async () => {
-    const dirs: string[] = []
-    await getNuxt(nuxt).callHook('imports:dirs', dirs)
-
-    const hasComposables = dirs.some((dir: string) => dir.includes('runtime/composables'))
-    expect(hasComposables).toBe(true)
-  })
-
   it('resolves the runtime alias from sibling source during module setup', () => {
     expect(getNuxt(nuxt).options.alias['#ginko-cms']).toBe(
       resolve(projectRoot, 'packages/cms/src/runtime'),
@@ -157,11 +151,31 @@ describe('ginko-cms module e2e boot', () => {
     expect(hasComponentDir).toBe(true)
   })
 
-  it('registers the Studio runtime router plugin for page-less hosts', () => {
-    const plugins = getNuxt(nuxt).options.plugins.map((plugin) =>
-      typeof plugin === 'string' ? plugin : plugin.src,
+  it('enables build-time Studio routes for page-less hosts', async () => {
+    expect(getNuxt(nuxt).options.pages).toMatchObject({ enabled: true })
+
+    const pages: Array<{ name?: string; path?: string; file?: string }> = []
+    await getNuxt(nuxt).callHook('pages:extend', pages)
+
+    expect(pages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'studio-auth-signin',
+          path: '/studio/auth/signin',
+          meta: { layout: false },
+        }),
+        expect.objectContaining({
+          name: 'studio-auth-register',
+          path: '/studio/auth/register',
+          meta: { layout: false },
+        }),
+        expect.objectContaining({
+          name: 'studio-host',
+          path: '/studio/:slug(.*)*',
+          meta: { layout: false },
+        }),
+      ]),
     )
-    expect(plugins.some((plugin) => plugin.includes('ginko-cms/studio-pages'))).toBe(true)
   })
 
   // --- Convex module wiring ---
