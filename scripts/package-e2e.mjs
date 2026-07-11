@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   appendFileSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -180,6 +181,16 @@ function fileDependency(path) {
   return `file:${path}`
 }
 
+function contentAddressedCopy(path) {
+  const artifactDir = join(tempDir, 'artifacts')
+  const extension = '.tgz'
+  const filename = basename(path, extension)
+  const target = join(artifactDir, `${filename}-${sha256(path)}${extension}`)
+  mkdirSync(artifactDir, { recursive: true })
+  copyFileSync(path, target)
+  return target
+}
+
 function contentDependency(contentTarball) {
   if (candidateContent) return fileDependency(candidateContent.path)
   return registryContent ? contentRegistryVersion : fileDependency(contentTarball)
@@ -262,9 +273,9 @@ try {
     packPackage(betterConvexNuxtRoot)
   }
 
-  const contractTarball = findTarball('lupinum/ginko-cms-contract')
-  const convexTarball = findTarball('lupinum/ginko-cms-convex')
-  const cmsTarball = findTarball('lupinum/ginko-cms')
+  const packedContractTarball = findTarball('lupinum/ginko-cms-contract')
+  const packedConvexTarball = findTarball('lupinum/ginko-cms-convex')
+  const packedCmsTarball = findTarball('lupinum/ginko-cms')
   const contentTarball =
     registryContent || candidateContent ? undefined : findTarball('lupinum/ginko-content')
   const betterConvexNuxtTarball =
@@ -273,6 +284,12 @@ try {
       : findTarball('better-convex-nuxt')
 
   run('node', ['scripts/check-pack-workspace-refs.mjs'])
+
+  // pnpm caches file dependencies by path and version. Hash-named copies ensure
+  // the consumer always installs the bytes packed by this verification run.
+  const contractTarball = contentAddressedCopy(packedContractTarball)
+  const convexTarball = contentAddressedCopy(packedConvexTarball)
+  const cmsTarball = contentAddressedCopy(packedCmsTarball)
 
   writeFileSync(
     join(tempDir, 'package.json'),
@@ -288,7 +305,9 @@ try {
           '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
           '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
           '@lupinum/ginko-content': contentDependency(contentTarball),
+          '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
           'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
+          'secure-exec': compatibilityMatrix.tracked['secure-exec'][1],
         },
         devDependencies: consumerCompatibility.devDependencies,
       },
@@ -303,8 +322,10 @@ try {
     '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
     '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
     '@lupinum/ginko-content': contentDependency(contentTarball),
+    '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
     'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
     convex: consumerCompatibility.dependencies.convex,
+    'secure-exec': compatibilityMatrix.tracked['secure-exec'][1],
   })
 
   writeFileSync(
@@ -314,6 +335,10 @@ try {
       '',
       'export default defineNuxtConfig({',
       '  modules: [ginkoCms],',
+      '  ginkoCms: {',
+      '    mcp: true,',
+      '    publicContent: { api: true },',
+      '  },',
       '})',
       '',
     ].join('\n'),
