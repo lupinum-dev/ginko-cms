@@ -8,14 +8,14 @@ Date: 2026-07-11
 - Better Convex Nuxt `0.6.0`: `610484b0281429fabfa33a84e565f5b46d28a0cbaf1ee465a115c62280e6c927`
 - Ginko CMS Contract `0.1.1`: `c9f983fc1382a808e203353f4edfee4abfa6e4af20ce5e808d141e72a21f6510`
 - Ginko CMS Convex `0.1.2`: `79e228a2e03396128be34138853c031168601e1dac2eb91e84653e0f50ab403f`
-- Ginko CMS `0.1.3`: `6423cf30883da688dc64560195ddbcaf7412f71c520e5412b0f6d221bd39061a`
+- Ginko CMS `0.1.3`: `aeb61be8087b3afd99421edd97cdf519bacf730807e4ba370d30dca8e2d5bd07`
 
 The dependency artifacts were installed by exact file and SHA-256. The consumer
 lockfile contained no `workspace:` or `link:` resolution.
 
 ## Deterministic Evidence
 
-- `pnpm run check`: passed; 107 test files and 843 tests passed, with one
+- `pnpm run check`: passed; 107 test files and 844 tests passed, with one
   explicitly skipped test.
 - `pnpm run audit:prod`: passed with no known vulnerabilities.
 - Two serial candidate package runs produced identical evidence manifests and
@@ -26,6 +26,13 @@ lockfile contained no `workspace:` or `link:` resolution.
 - A live candidate run successfully deployed the packed Convex functions.
 - A production Nuxt build from the packed consumer completed and contained the
   Studio host plus sign-in/register chunks.
+- The final local playground returned unauthenticated HTTP 200 responses for
+  public list, navigation, search, and sitemap endpoints; list and navigation
+  returned published records.
+- The Studio pagination regression test proves that a live first-page insertion
+  rebuilds already-loaded pages from the new cursor without losing a displaced
+  row. It also proves that only one live subscription exists and that disposal
+  unsubscribes exactly once.
 
 ## Browser Certification
 
@@ -47,11 +54,11 @@ the local environment still provides the removed `CMS_SMOKE_EMAIL` and
 service with HTTP 403. Set valid `GINKO_CMS_TEST_EMAIL` and
 `GINKO_CMS_TEST_PASSWORD` values before rerunning it.
 
-The following scenarios therefore remain mandatory before publication: a
-successful aligned live-story run, pagination under live updates, explicit
-mutation/action error rendering, duplicate-subscription inspection, and A-to-B
-identity replacement with two principals. The identity replacement scenario
-requires credentials for two distinct test principals.
+The following live scenarios therefore remain mandatory before publication: a
+successful aligned live-story run (including upload), explicit mutation/action
+error rendering, and A-to-B identity replacement with two principals. The
+identity replacement scenario requires credentials for two distinct test
+principals.
 
 ## Commits
 
@@ -63,3 +70,5 @@ requires credentials for two distinct test principals.
 - `177d9fc1` build-time Studio routing and locale-less SSR fix
 - `80233596` callable Better Auth API-key client support
 - `08c446af` stable sign-in/sign-up hydration
+- `02ae37fc` live-update-safe Studio pagination
+- `a735cc72` hardened packed and live release harnesses
