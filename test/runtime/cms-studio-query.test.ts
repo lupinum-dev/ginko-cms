@@ -153,4 +153,61 @@ describe('useCmsStudioQuery', () => {
 
     host.convex = undefined
   })
+
+  it('rebuilds loaded pages from the new cursor after a live first-page update', async () => {
+    let onResult:
+      | ((value: { page: string[]; isDone: boolean; continueCursor: string | null }) => void)
+      | null = null
+    const queryPage = vi
+      .fn()
+      .mockResolvedValueOnce({ page: ['C', 'D'], isDone: false, continueCursor: 'cursor-2' })
+      .mockResolvedValueOnce({ page: ['B', 'C'], isDone: false, continueCursor: 'cursor-new-2' })
+    const unsubscribe = vi.fn()
+    const convex = {
+      onUpdate: vi.fn((_query, _args, next) => {
+        onResult = next
+        return unsubscribe
+      }),
+      query: queryPage,
+    }
+    host.convex = convex
+
+    const Host = defineComponent({
+      setup() {
+        const result = useCmsStudioPaginatedQuery(query as never, {}, { initialNumItems: 2 })
+        return { result }
+      },
+      render() {
+        return h('div')
+      },
+    })
+
+    const wrapper = mount(Host)
+    await nextTick()
+    onResult?.({ page: ['A', 'B'], isDone: false, continueCursor: 'cursor-1' })
+    await nextTick()
+
+    wrapper.vm.result.loadMore(2)
+    await vi.waitFor(() => {
+      expect(wrapper.vm.result.results.value).toEqual(['A', 'B', 'C', 'D'])
+    })
+
+    // Inserting X moves B across the first cursor boundary. Reusing the old
+    // tail would produce X,A,C,D and silently lose B from the visible window.
+    onResult?.({ page: ['X', 'A'], isDone: false, continueCursor: 'cursor-new-1' })
+
+    await vi.waitFor(() => {
+      expect(wrapper.vm.result.results.value).toEqual(['X', 'A', 'B', 'C'])
+    })
+    expect(queryPage).toHaveBeenNthCalledWith(
+      2,
+      query,
+      expect.objectContaining({ paginationOpts: { cursor: 'cursor-new-1', numItems: 2 } }),
+    )
+    expect(convex.onUpdate).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
+    expect(unsubscribe).toHaveBeenCalledTimes(1)
+    host.convex = undefined
+  })
 })
