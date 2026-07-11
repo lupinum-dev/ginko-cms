@@ -164,6 +164,19 @@ describe('Ginko Nuxt provider v2', () => {
     })
   })
 
+  it('maps the canonical source-order sort to the CMS order index', async () => {
+    const query = toContentProviderQuery({
+      collection: 'docs',
+      sort: [{ 'file.stem': 1, $numeric: true }],
+    })
+
+    await contentProvider.query(event, query)
+
+    expect(convexMock.calls.find(({ operation }) => operation === 'list')?.args).toMatchObject({
+      sort: 'orderKey:asc',
+    })
+  })
+
   it('returns a raw provider document for a closed route selector', async () => {
     const query = toContentProviderQuery({ collection: 'docs', first: true })
     query.plan.variantSelector = {
@@ -216,6 +229,66 @@ describe('Ginko Nuxt provider v2', () => {
       ['de', '/missing'],
       ['en', '/docs/content-routing'],
     ])
+  })
+
+  it('reapplies the collection mount to mount-agnostic route candidates', async () => {
+    const query = toContentProviderQuery({ collection: 'docs', first: true })
+    query.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'en',
+      candidates: [{ locale: 'en', contentPath: '/content-routing' }],
+    }
+    const mountedEvent = {
+      context: {
+        runtimeConfig: {
+          public: {
+            content: {
+              defaultLocale: 'en',
+              collections: {
+                docs: { route: { en: '/docs', de: '/dokumentation' } },
+              },
+            },
+            ginkoCms: {
+              collections: { docs: { collectionId: 'cms-docs' } },
+            },
+          },
+        },
+      },
+    } as never
+
+    await contentProvider.query(mountedEvent, query)
+
+    expect(convexMock.calls.find(({ operation }) => operation === 'page')?.args).toMatchObject({
+      locale: 'en',
+      path: '/docs/content-routing',
+    })
+  })
+
+  it('does not duplicate a collection mount already present in a route candidate', async () => {
+    const query = toContentProviderQuery({ collection: 'docs', first: true })
+    query.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'en',
+      candidates: [{ locale: 'en', contentPath: '/docs/content-routing' }],
+    }
+    const mountedEvent = {
+      context: {
+        runtimeConfig: {
+          public: {
+            content: {
+              defaultLocale: 'en',
+              collections: { docs: { route: '/docs' } },
+            },
+          },
+        },
+      },
+    } as never
+
+    await contentProvider.query(mountedEvent, query)
+
+    expect(convexMock.calls.find(({ operation }) => operation === 'page')?.args).toMatchObject({
+      path: '/docs/content-routing',
+    })
   })
 
   it('threads opaque cursors and returns an honest cursor envelope', async () => {

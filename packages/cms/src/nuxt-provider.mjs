@@ -85,12 +85,23 @@ const contentRuntimeFromEvent = async (event) => {
     contentI18n.defaultLocale ||
     i18nRuntime.defaultLocale
 
+  const collectionNames = new Set([
+    ...Object.keys(contentRuntime.collections || {}),
+    ...Object.keys(cmsRuntime.collections || {}),
+  ])
+  const collections = Object.fromEntries(
+    [...collectionNames].map((name) => [
+      name,
+      {
+        ...(contentRuntime.collections?.[name] || {}),
+        ...(cmsRuntime.collections?.[name] || {}),
+      },
+    ]),
+  )
+
   return {
     ...contentRuntime,
-    collections: {
-      ...(contentRuntime.collections || {}),
-      ...(cmsRuntime.collections || {}),
-    },
+    collections,
     ...(defaultLocaleCode ? { defaultLocale: defaultLocaleCode } : {}),
     locales:
       contentRuntime.locales ||
@@ -304,7 +315,9 @@ const sortFromPlan = (sort = []) => {
   ])
   for (const item of sort) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue
-    const field = item.field
+    // Ginko Content normalizes an omitted sort to numeric `file.stem` order.
+    // The CMS projection persists that same source order as `orderKey`.
+    const field = item.field === 'file.stem' ? 'orderKey' : item.field
     if (!supportedFields.has(field)) {
       throw providerError(
         'unsupported_sort',
@@ -326,6 +339,19 @@ const sortFromPlan = (sort = []) => {
     )
   }
   return undefined
+}
+
+const mountedContentPath = (contentRuntime, collection, locale, contentPath) => {
+  const route = contentRuntime?.collections?.[collection]?.route
+  const mount = typeof route === 'string' ? route : route?.[locale]
+  const normalizedPath = canonicalFromRoute(contentPath, locale)
+  const normalizedMount = normalizeContentPath(mount)
+  if (!mount || normalizedMount === '/') return normalizedPath
+  if (normalizedPath === normalizedMount || normalizedPath.startsWith(`${normalizedMount}/`)) {
+    return normalizedPath
+  }
+  if (normalizedPath === '/') return normalizedMount
+  return normalizeContentPath(`${normalizedMount}/${normalizedPath.replace(/^\/+/, '')}`)
 }
 
 const hasExplicitPublicSort = (sort = []) => sort.some((item) => item?.field)
@@ -384,7 +410,12 @@ const resolveVariant = async (event, collection, selector, contentRuntime) => {
       await callGinko(event, 'page', {
         collection,
         locale: candidate.locale,
-        path: canonicalFromRoute(candidate.contentPath, candidate.locale),
+        path: mountedContentPath(
+          contentRuntime,
+          collection,
+          candidate.locale,
+          candidate.contentPath,
+        ),
       }),
     )
     if (result.status === 'found' && result.page) return { locale: candidate.locale, result }
