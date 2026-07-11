@@ -1,4 +1,5 @@
-import { writeFile } from 'node:fs/promises'
+import { unlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 
 import { chromium } from 'playwright'
@@ -15,12 +16,19 @@ if (!configuredBaseUrl || !email || !password) {
 }
 
 const baseUrl = configuredBaseUrl.replace(/\/+$/, '')
+const collection = 'blog'
+const collectionLabel = 'Blog'
+const fixtureToken = Date.now().toString(36)
+const fixtureTitle = `V-next live smoke ${fixtureToken}`
+const uploadFilename = `vnext-live-smoke-${fixtureToken}.png`
+const uploadFixturePath = resolve(tmpdir(), uploadFilename)
 const results = []
 let activeMcpConnection = null
 let mcpRequestId = 2
+let fixtureEntryUrl = null
 
 function redact(value) {
-  return String(value).replace(/[A-Za-z0-9_-]{24,}/g, '[REDACTED]')
+  return String(value).replace(/[\w-]{24,}/g, '[REDACTED]')
 }
 
 async function story(id, title, run) {
@@ -186,6 +194,14 @@ const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
 const page = await context.newPage()
 
+await writeFile(
+  uploadFixturePath,
+  Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nH0AAAAASUVORK5CYII=',
+    'base64',
+  ),
+)
+
 try {
   await story(
     'auth.signed-out-protected-route',
@@ -265,16 +281,50 @@ try {
     },
   )
 
+  await story(
+    'content.fixture-publish',
+    'Creates and publishes an isolated smoke entry',
+    async () => {
+      await page.goto(`${baseUrl}/studio/content/${collection}/new`, {
+        waitUntil: 'domcontentloaded',
+      })
+      await page.getByRole('textbox', { name: 'Title *' }).waitFor({ timeout: 30000 })
+      await page.getByRole('textbox', { name: 'Title *' }).fill(fixtureTitle)
+      await page
+        .getByRole('textbox', { name: 'Description' })
+        .fill('Automated V-next release-candidate verification entry.')
+
+      const createDraftButtons = page.getByRole('button', { name: 'Create draft' })
+      if ((await createDraftButtons.count()) < 1) throw new Error('Create draft action is missing')
+      await createDraftButtons.first().click()
+      await page.waitForURL(new RegExp(`/studio/content/${collection}/[^/]+$`), { timeout: 30000 })
+      fixtureEntryUrl = page.url()
+      await page.getByText('Saved', { exact: true }).waitFor({ timeout: 30000 })
+
+      await page.getByRole('button', { name: 'Preview website changes' }).click()
+      await page.getByRole('heading', { name: 'What will change on the website' }).waitFor({
+        timeout: 30000,
+      })
+      await page.getByRole('button', { name: 'Publish EN' }).click()
+      const publishDialog = page.getByRole('dialog', { name: 'Publish?' })
+      await publishDialog.waitFor({ timeout: 30000 })
+      await publishDialog.getByRole('button', { name: 'Publish', exact: true }).click()
+      await page.getByText('published', { exact: true }).waitFor({ timeout: 30000 })
+
+      return { url: fixtureEntryUrl, title: fixtureTitle }
+    },
+  )
+
   const routes = [
     ['studio-home', '/studio/', 'Ginko CMS Studio'],
-    ['studio-posts', '/studio/content/posts', 'Blog posts'],
-    ['studio-assets', '/studio/assets', 'Assets'],
-    ['studio-model', '/studio/model', 'Content model'],
-    ['studio-activity', '/studio/activity', 'Activity'],
-    ['studio-agents', '/studio/agents', 'Agents'],
-    ['studio-reviews', '/studio/reviews', 'Reviews'],
-    ['studio-imports', '/studio/imports', 'Imports'],
-    ['studio-site-data', '/studio/site-data', 'Site data'],
+    ['studio-blog', `/studio/content/${collection}`, collectionLabel],
+    ['studio-assets', '/studio/assets', 'Media'],
+    ['studio-model', '/studio/model', 'Content setup'],
+    ['studio-activity', '/studio/activity', 'Activity log'],
+    ['studio-agents', '/studio/agents', 'AI work sessions'],
+    ['studio-reviews', '/studio/reviews', 'Approvals'],
+    ['studio-imports', '/studio/imports', 'Content imports'],
+    ['studio-site-data', '/studio/site-data', 'Site-wide content'],
     ['studio-settings', '/studio/settings', 'Settings'],
   ]
 
@@ -291,15 +341,9 @@ try {
     'Content model shows code-defined read-only collection contracts',
     async () => {
       await page.goto(`${baseUrl}/studio/model`, { waitUntil: 'domcontentloaded' })
-      await expectText(page, 'Collection contracts', 60000)
-      const bodyText = await page.locator('body').innerText({ timeout: 30000 })
-      for (const expected of [
-        'Code-defined',
-        'read-only metadata',
-        'Route-backed',
-        'Public output',
-        'Fields',
-      ]) {
+      await expectText(page, 'Content setup', 60000)
+      const bodyText = await page.locator('body').textContent({ timeout: 30000 })
+      for (const expected of ['Managed by developers', 'Content type details', 'fields']) {
         if (!bodyText.includes(expected)) {
           throw new Error(`content model did not show ${expected}`)
         }
@@ -309,23 +353,23 @@ try {
           throw new Error(`content model exposed schema mutation control: ${forbidden}`)
         }
       }
-      return { collections: 8, readonly: true }
+      return { readonly: true }
     },
   )
 
   await story('site-data.view', 'Permitted user can view site data', async () => {
     await page.goto(`${baseUrl}/studio/site-data`, { waitUntil: 'domcontentloaded' })
-    await expectText(page, 'Site data', 60000)
-    const bodyText = await page.locator('body').innerText({ timeout: 30000 })
-    if (!bodyText.includes('No site data blocks') && !bodyText.includes('New block')) {
-      throw new Error('site data page did not show block list or empty state')
+    await expectText(page, 'Site-wide content', 60000)
+    const bodyText = await page.locator('body').textContent({ timeout: 30000 })
+    if (!bodyText.includes('No site-wide sections') && !bodyText.includes('New section')) {
+      throw new Error('site-wide content page did not show its list or empty state')
     }
     return { url: page.url() }
   })
 
   await story(
     'nav.command-palette-assets',
-    'Command palette opens and navigates to Assets',
+    'Command palette opens and navigates to Media',
     async () => {
       await page.goto(`${baseUrl}/studio/`, { waitUntil: 'domcontentloaded' })
       await expectText(page, 'Ginko CMS Studio', 60000)
@@ -334,17 +378,17 @@ try {
         .first()
         .click()
       await page.getByPlaceholder('Search content or Studio pages').waitFor({ timeout: 30000 })
-      const assetsSubtitle = page.getByText('Browse and edit uploaded files')
+      const assetsSubtitle = page.getByText('Find and manage website assets')
       await assetsSubtitle.waitFor({ timeout: 30000 })
       await assetsSubtitle.evaluate((element) => {
         const option = element.closest('[role="option"]')
         if (!(option instanceof HTMLElement)) {
-          throw new Error('Assets command option was not found.')
+          throw new TypeError('Media command option was not found.')
         }
         option.click()
       })
       await page.waitForURL(/\/studio\/assets$/, { timeout: 30000 })
-      await expectText(page, 'Assets')
+      await expectText(page, 'Media')
       return { url: page.url() }
     },
   )
@@ -353,18 +397,19 @@ try {
     'content.entry-list-state',
     'Entry list shows content status and locale state',
     async () => {
-      await page.goto(`${baseUrl}/studio/content/posts`, { waitUntil: 'domcontentloaded' })
-      await expectText(page, 'Blog posts', 60000)
+      await page.goto(`${baseUrl}/studio/content/${collection}`, { waitUntil: 'domcontentloaded' })
+      await expectText(page, collectionLabel, 60000)
       await page.getByPlaceholder('Search title, slug, or path').waitFor({ timeout: 30000 })
       const rows = page.getByTestId('cms-entry-row')
       const rowCount = await rows.count()
-      if (rowCount < 1) throw new Error('posts entry list rendered no rows')
-      const firstRow = rows.first()
-      const rowText = await firstRow.innerText()
-      if (!/\b(Public|Draft only|Needs attention|Data-only|Archived)\b/.test(rowText)) {
+      if (rowCount < 1) throw new Error(`${collection} entry list rendered no rows`)
+      const fixtureRow = rows.filter({ hasText: fixtureTitle })
+      if ((await fixtureRow.count()) !== 1) throw new Error('published fixture row is missing')
+      const rowText = await fixtureRow.textContent()
+      if (!/\b(?:Live|Draft only|Needs attention|Data-only|Archived)\b/.test(rowText)) {
         throw new Error(`entry row did not expose public state: ${redact(rowText)}`)
       }
-      if (!/[A-Z]{2}\s*·\s*(Public|Draft)/.test(rowText)) {
+      if (!/[A-Z]{2}\s*·\s*(?:Live|Draft)/.test(rowText)) {
         throw new Error(`entry row did not expose locale readiness: ${redact(rowText)}`)
       }
       return { url: page.url(), rows: rowCount }
@@ -375,28 +420,28 @@ try {
     'content.entry-list-search-filter',
     'Entry list can filter entries by supported fields',
     async () => {
-      await page.goto(`${baseUrl}/studio/content/posts`, { waitUntil: 'domcontentloaded' })
-      await expectText(page, 'Blog posts', 60000)
+      await page.goto(`${baseUrl}/studio/content/${collection}`, { waitUntil: 'domcontentloaded' })
+      await expectText(page, collectionLabel, 60000)
       const search = page.getByPlaceholder('Search title, slug, or path')
       await search.waitFor({ timeout: 30000 })
       const rows = page.getByTestId('cms-entry-row')
       const before = await rows.count()
-      if (before < 2) throw new Error(`entry list had too few rows for filter proof: ${before}`)
-      await search.fill('animals')
+      if (before < 1) throw new Error(`entry list had no rows for filter proof: ${before}`)
+      await search.fill(fixtureToken)
       await page.waitForFunction(
-        (initialRows) => {
+        (expectedTitle) => {
           const renderedRows = document.querySelectorAll('[data-testid="cms-entry-row"]')
-          return renderedRows.length > 0 && renderedRows.length < initialRows
+          return renderedRows.length === 1 && renderedRows[0]?.textContent?.includes(expectedTitle)
         },
-        before,
+        fixtureTitle,
         { timeout: 30000 },
       )
       const after = await rows.count()
-      const filteredText = await rows.first().innerText()
-      if (!/animals|creatures|dangerous/i.test(filteredText)) {
+      const filteredText = await rows.first().textContent()
+      if (!filteredText.includes(fixtureTitle)) {
         throw new Error(`filtered row did not match expected content: ${redact(filteredText)}`)
       }
-      return { before, after, query: 'animals' }
+      return { before, after, query: fixtureToken }
     },
   )
 
@@ -404,11 +449,9 @@ try {
     'content.entry-editor-state',
     'Entry editor shows draft/publish workflow state',
     async () => {
-      const firstEntryLink = page.locator('a[href*="/studio/content/posts/"]').first()
-      await firstEntryLink.waitFor({ timeout: 30000 })
-      await firstEntryLink.click()
-      await page.waitForURL(/\/studio\/content\/posts\/[^/]+$/, { timeout: 30000 })
-      await expectText(page, 'Blog posts')
+      if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
+      await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
+      await expectText(page, fixtureTitle)
       const hasPublish = await page
         .getByRole('button', { name: /publish/i })
         .first()
@@ -425,9 +468,32 @@ try {
     },
   )
 
+  await story('assets.upload-and-trash', 'Uploads and retires a smoke image', async () => {
+    await page.goto(`${baseUrl}/studio/assets`, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('heading', { name: 'Media' }).waitFor({ timeout: 30000 })
+    const uploadInput = page.locator('input[type="file"]')
+    if ((await uploadInput.count()) !== 1) throw new Error('Media upload input is missing')
+    await uploadInput.setInputFiles(uploadFixturePath)
+    const uploadedAsset = page.getByText(uploadFilename, { exact: true })
+    await uploadedAsset.first().waitFor({ timeout: 30000 })
+    await uploadedAsset.first().click()
+
+    const trashButton = page.getByRole('button', { name: 'Move to Trash' })
+    await trashButton.first().waitFor({ timeout: 30000 })
+    await trashButton.first().click()
+    const trashDialog = page.getByRole('dialog', { name: 'Move asset to trash?' })
+    await trashDialog.waitFor({ timeout: 30000 })
+    await trashDialog.getByRole('button', { name: 'Move to trash' }).click()
+    await page
+      .getByText(uploadFilename, { exact: true })
+      .waitFor({ state: 'hidden', timeout: 30000 })
+
+    return { filename: uploadFilename, retired: true }
+  })
+
   await story('public-api.list', 'Public API lists only published entries', async () => {
     const { response, body, text } = await fetchJson(
-      '/api/ginko/v1/list?collection=posts&locale=en&limit=2',
+      `/api/ginko/v1/list?collection=${collection}&locale=en&limit=2`,
     )
     if (!response.ok)
       throw new Error(`public list failed ${response.status}: ${redact(text).slice(0, 300)}`)
@@ -438,7 +504,9 @@ try {
   })
 
   await story('public-api.nav', 'Public API navigation returns published routes only', async () => {
-    const { response, body, text } = await fetchJson('/api/ginko/v1/nav?collection=posts&locale=en')
+    const { response, body, text } = await fetchJson(
+      `/api/ginko/v1/nav?collection=${collection}&locale=en`,
+    )
     if (!response.ok)
       throw new Error(`public nav failed ${response.status}: ${redact(text).slice(0, 300)}`)
     if (!Array.isArray(body?.tree) || body.tree.length < 1) {
@@ -452,7 +520,7 @@ try {
 
   await story('public-api.search', 'Public API search returns published results only', async () => {
     const { response, body, text } = await fetchJson(
-      '/api/ginko/v1/search?collection=posts&locale=en&query=webb&limit=2',
+      `/api/ginko/v1/search?collection=${collection}&locale=en&query=${fixtureToken}&limit=2`,
     )
     if (!response.ok)
       throw new Error(`public search failed ${response.status}: ${redact(text).slice(0, 300)}`)
@@ -465,7 +533,7 @@ try {
 
   await story('public-api.sitemap', 'Public API sitemap returns published URLs only', async () => {
     const { response, body, text } = await fetchJson(
-      '/api/ginko/v1/sitemap?collection=posts&locale=en&limit=5',
+      `/api/ginko/v1/sitemap?collection=${collection}&locale=en&limit=5`,
     )
     if (!response.ok)
       throw new Error(`public sitemap failed ${response.status}: ${redact(text).slice(0, 300)}`)
@@ -482,7 +550,9 @@ try {
     'public-api.search-validation',
     'Public API validates invalid search input',
     async () => {
-      const { response, body } = await fetchJson('/api/ginko/v1/search?collection=posts&locale=en')
+      const { response, body } = await fetchJson(
+        `/api/ginko/v1/search?collection=${collection}&locale=en`,
+      )
       if (response.status !== 400)
         throw new Error(`missing search query returned ${response.status}`)
       return { status: response.status, code: body?.data?.code ?? body?.code ?? null }
@@ -548,7 +618,7 @@ try {
         (response) => response.url().includes('/api/auth/api-key/create'),
         { timeout: 30000 },
       )
-      await page.getByRole('button', { name: /^Create$/ }).click()
+      await page.getByRole('button', { name: 'Create MCP connection' }).click()
       const createResponse = await createResponsePromise
       const createBody = await createResponse.json().catch(() => null)
       if (!createResponse.ok()) {
@@ -622,17 +692,23 @@ try {
 
     const collections = await mcpTool(rawKey, 'list-collections')
     const collectionList = collections?.collections
-    if (!Array.isArray(collectionList) || !collectionList.some((item) => item.slug === 'posts')) {
-      throw new Error('list-collections did not include posts')
+    if (
+      !Array.isArray(collectionList) ||
+      !collectionList.some((item) => item.slug === collection)
+    ) {
+      throw new Error(`list-collections did not include ${collection}`)
     }
 
-    const posts = await mcpTool(rawKey, 'get-collection', { slug: 'posts', compact: true })
-    if (posts?.slug !== 'posts' || posts?.routing?.mode !== 'route') {
-      throw new Error('get-collection did not return compact posts route metadata')
+    const collectionResult = await mcpTool(rawKey, 'get-collection', {
+      slug: collection,
+      compact: true,
+    })
+    if (collectionResult?.slug !== collection || collectionResult?.routing?.mode !== 'route') {
+      throw new Error(`get-collection did not return compact ${collection} route metadata`)
     }
 
     const cmsEntries = await mcpTool(rawKey, 'list-entries', {
-      collection: 'posts',
+      collection,
       locale: 'en',
     })
     const editableEntries = cmsEntries?.entries
@@ -647,12 +723,12 @@ try {
       locale: 'en',
       compact: true,
     })
-    if (cmsEntry?.collection !== 'posts' || cmsEntry?.entryId !== entryId) {
+    if (cmsEntry?.collection !== collection || cmsEntry?.entryId !== entryId) {
       throw new Error('get-entry did not return the requested compact CMS entry')
     }
 
     const publicList = await mcpTool(rawKey, 'list', {
-      collection: 'posts',
+      collection,
       locale: 'en',
       limit: 1,
       compact: true,
@@ -666,9 +742,9 @@ try {
     }
 
     const search = await mcpTool(rawKey, 'search', {
-      collection: 'posts',
+      collection,
       locale: 'en',
-      query: 'webb',
+      query: fixtureToken,
       limit: 2,
       compact: true,
     })
@@ -688,6 +764,31 @@ try {
     if (!activeMcpConnection?.rawKey) throw new Error('MCP connection was not created')
     const revokedStatus = await revokeActiveMcpConnection(page, activeMcpConnection.rawKey)
     return { revokedStatus }
+  })
+
+  await story('content.fixture-cleanup', 'Unpublishes and archives the smoke entry', async () => {
+    if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
+    await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
+    await page.getByText(fixtureTitle, { exact: true }).first().waitFor({ timeout: 30000 })
+
+    const entryActions = page.getByRole('button', { name: `Entry actions for ${fixtureTitle}` })
+    await entryActions.click()
+    const unpublish = page.getByRole('menuitem', { name: 'Unpublish' })
+    if ((await unpublish.count()) === 1) {
+      await unpublish.click()
+      const dialog = page.getByRole('dialog', { name: 'Unpublish' })
+      await dialog.waitFor({ timeout: 30000 })
+      await dialog.getByRole('button', { name: 'Unpublish' }).click()
+      await page.getByText('draft', { exact: true }).waitFor({ timeout: 30000 })
+    }
+
+    await entryActions.click()
+    await page.getByRole('menuitem', { name: 'Archive' }).click()
+    const archiveDialog = page.getByRole('dialog', { name: 'Archive' })
+    await archiveDialog.waitFor({ timeout: 30000 })
+    await archiveDialog.getByRole('button', { name: 'Archive' }).click()
+    await page.waitForURL(new RegExp(`/studio/content/${collection}/?$`), { timeout: 30000 })
+    return { archived: true }
   })
 
   await story(
@@ -733,6 +834,7 @@ try {
     })
   }
   await browser.close()
+  await unlink(uploadFixturePath).catch(() => undefined)
   if (outputPath) {
     const failed = results.filter((result) => result.status !== 'passed')
     await writeFile(
