@@ -357,6 +357,40 @@ describe('Ginko Nuxt provider v2', () => {
     expect(convexMock.calls.filter((call) => call.operation === 'routes')).toHaveLength(2)
   })
 
+  it('uses only the canonical Content locale policy for route enumeration', async () => {
+    const conflictingEvent = {
+      context: {
+        runtimeConfig: {
+          public: {
+            content: {
+              defaultLocale: 'en',
+              locales: ['en', 'de'],
+              collections: { docs: { type: 'page', i18n: { locales: ['de'] } } },
+            },
+            ginkoCms: {
+              defaultLocale: 'fr',
+              locales: [{ code: 'fr' }],
+              collections: { legacy: { type: 'page' } },
+            },
+            i18n: {
+              defaultLocale: 'it',
+              locales: [{ code: 'it' }],
+            },
+          },
+        },
+      },
+    } as never
+
+    await contentProvider.routes!(conflictingEvent)
+
+    expect(convexMock.calls.filter((call) => call.operation === 'routes')).toEqual([
+      {
+        operation: 'routes',
+        args: { collection: 'docs', locale: 'de', cursor: null },
+      },
+    ])
+  })
+
   it('uses the shared symbol-marked cache wrapper', async () => {
     const response = await contentProvider.query(
       event,

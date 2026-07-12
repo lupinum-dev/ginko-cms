@@ -75,44 +75,8 @@ const runtimeConfigFromEvent = async (event) => {
 const contentRuntimeFromEvent = async (event) => {
   const runtime = await runtimeConfigFromEvent(event)
   const publicRuntime = runtime?.public || {}
-  const contentRuntime = publicRuntime.content || runtime?.content || {}
-  const cmsRuntime = publicRuntime.ginkoCms || runtime?.ginkoCms || {}
-  const i18nRuntime = publicRuntime.i18n || runtime?.i18n || {}
-  const contentI18n = contentRuntime.i18n || {}
-  const defaultLocaleCode =
-    cmsRuntime.defaultLocale ||
-    contentRuntime.defaultLocale ||
-    contentI18n.defaultLocale ||
-    i18nRuntime.defaultLocale
-
-  const collectionNames = new Set([
-    ...Object.keys(contentRuntime.collections || {}),
-    ...Object.keys(cmsRuntime.collections || {}),
-  ])
-  const collections = Object.fromEntries(
-    [...collectionNames].map((name) => [
-      name,
-      {
-        ...(contentRuntime.collections?.[name] || {}),
-        ...(cmsRuntime.collections?.[name] || {}),
-      },
-    ]),
-  )
-
-  return {
-    ...contentRuntime,
-    collections,
-    ...(defaultLocaleCode ? { defaultLocale: defaultLocaleCode } : {}),
-    locales:
-      contentRuntime.locales ||
-      cmsRuntime.locales?.map?.((locale) => (typeof locale === 'string' ? locale : locale.code)) ||
-      i18nRuntime.locales?.map?.((locale) => (typeof locale === 'string' ? locale : locale.code)),
-    i18n: {
-      ...contentI18n,
-      ...(i18nRuntime || {}),
-      ...(defaultLocaleCode ? { defaultLocale: defaultLocaleCode } : {}),
-    },
-  }
+  const contentRuntime = publicRuntime.content || runtime?.content
+  return contentRuntime && typeof contentRuntime === 'object' ? contentRuntime : {}
 }
 
 const sitemapLocalesForCollection = (contentRuntime, collection, requestedLocale) => {
