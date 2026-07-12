@@ -391,6 +391,41 @@ describe('Ginko Nuxt provider v2', () => {
     ])
   })
 
+  it('prefers the server Content policy without merging its public representation', async () => {
+    const conflictingEvent = {
+      context: {
+        runtimeConfig: {
+          content: {
+            defaultLocale: 'fr',
+            locales: ['fr'],
+            collections: { guides: { type: 'page', i18n: { locales: ['fr'] } } },
+          },
+          public: {
+            content: {
+              defaultLocale: 'en',
+              locales: ['en'],
+              collections: { docs: { type: 'page', i18n: { locales: ['en'] } } },
+            },
+            ginkoCms: {
+              defaultLocale: 'de',
+              locales: [{ code: 'de' }],
+              collections: { legacy: { type: 'page' } },
+            },
+          },
+        },
+      },
+    } as never
+
+    await contentProvider.routes!(conflictingEvent)
+
+    expect(convexMock.calls.filter((call) => call.operation === 'routes')).toEqual([
+      {
+        operation: 'routes',
+        args: { collection: 'guides', locale: 'fr', cursor: null },
+      },
+    ])
+  })
+
   it('uses the shared symbol-marked cache wrapper', async () => {
     const response = await contentProvider.query(
       event,

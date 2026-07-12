@@ -75,7 +75,7 @@ const runtimeConfigFromEvent = async (event) => {
 const contentRuntimeFromEvent = async (event) => {
   const runtime = await runtimeConfigFromEvent(event)
   const publicRuntime = runtime?.public || {}
-  const contentRuntime = publicRuntime.content || runtime?.content
+  const contentRuntime = runtime?.content || publicRuntime.content
   return contentRuntime && typeof contentRuntime === 'object' ? contentRuntime : {}
 }
 
