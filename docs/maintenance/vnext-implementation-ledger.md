@@ -292,3 +292,47 @@ mixed-generation reindex defect. The final suites cover:
   pulled forward.
 - Next work package: WP2A versioned contract upgrade, resumable migration
   ledger, validation, activation, and recovery drill.
+
+## WP2A — Versioned Upgrade And Recovery
+
+### Implemented evidence
+
+- Content migrations now persist source/contract-bound runs, per-entry
+  input/output receipts, transactional cursors, target-validation receipts,
+  and expiring single-use transition approvals.
+- Finalization validates the stored drafts against the exact proposed Content
+  contract. Activation rechecks every validated draft version and applies an
+  explicit `preserve`, `rebuild`, or `unpublish` public-output strategy without
+  leaving mixed contract generations.
+- Focused migration tests prove changed-source rejection, committed receipt
+  skipping, retry conflicts, exact approval consumption, and edit-after-
+  validation invalidation.
+- Commit `2d4827e0` is the coordinated v0.1.3 credential bridge: it retains only
+  the legacy table needed for a bounded one-shot delete, records aggregate audit
+  counts, exposes no legacy authentication function, and proves retry safety.
+  Commit `dfd11ef1` removes the empty table, cutover function, and temporary host
+  wrapper while retaining the audit receipt table.
+- Permanent entry deletion and forced referenced-asset purge were deleted.
+  Asset restore is limited to missing assets with no current content references.
+- The deploy-key backup CLI was deleted. Custom `snapshot` exports are documented
+  as bounded comparison artifacts; official Convex deployment snapshots are the
+  disaster-recovery source, and downgrade to v0.1.3 is unsupported.
+- Backup archive v2 strictly checks schema/package/contract metadata, table
+  allowlists, row and byte counts, payload checksums, row limits, and asset-byte
+  limits. Filesystem migration uses `lstat`, rejects symlinks and non-files,
+  tracks real directories, and caps depth, file count, and bytes before parsing.
+- Focused verification passed 74 tests across migrations, backup, credential,
+  tree, filesystem, CLI, and generated-bridge suites. Workspace typecheck,
+  component generation, module build, Studio build/typecheck, and playground
+  prepare passed.
+
+### Remaining WP2A release evidence
+
+- Run the exact packed v0.1.3 bridge and final candidate against a sanitized
+  deployment snapshot, including a forced batch-two interruption/retry.
+- Complete the official Convex snapshot restore drill and retain its operator
+  evidence. Until that drill passes, `Recoverable destructive actions` remains
+  open in the acceptance matrix.
+- Add total import-run duration plus entry/locale/field/relation-edge limits and
+  resumable server-side import batches. Until those bounds pass hostile fixtures,
+  `Bounded import and archive parsing` remains open.

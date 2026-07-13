@@ -2818,9 +2818,9 @@ Use only these statuses:
 | Canonical Content policy            | implemented | Drift/apply invariant suite             |
 | Atomic policy and collection sync   | implemented | Transactional sync tests                |
 | Generation-safe reindex             | implemented | Mid-run policy replacement test         |
-| Contract migration finalization     | open        | Entry validation and approval test      |
-| Migration retry and resume          | open        | Crash/retry receipt test                |
-| Legacy MCP-key cutover              | open        | Old-token denial and audit test         |
+| Contract migration finalization     | implemented | Entry validation and approval test      |
+| Migration retry and resume          | implemented | Crash/retry receipt test                |
+| Legacy MCP-key cutover              | implemented | Old-token denial and audit test         |
 | Recoverable destructive actions     | open        | Snapshot/restore drill                  |
 | Bounded import and archive parsing  | open        | Hostile archive/filesystem limits       |
 | Provider runtime decoders           | open        | Adversarial Wire V2 suite               |
