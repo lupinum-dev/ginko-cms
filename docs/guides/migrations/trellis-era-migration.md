@@ -95,12 +95,37 @@ The MCP server environment needs a Convex URL plus one Better Auth base URL
 source: `GINKO_CMS_BETTER_AUTH_BASE_URL`, `CONVEX_SITE_URL`, or
 `BETTER_AUTH_URL`. Keep `CONVEX_DEPLOY_KEY` for setup and contract sync only.
 
+### Required v0.1.3 Credential Cutover
+
+The `0.1.3` component schema contains hashed legacy `mcpKeys`. Those secrets
+cannot be converted into Better Auth API keys. Production upgrades therefore
+use the coordinated bridge artifact from commit `2d4827e0` before the final
+`0.2` candidate:
+
+1. Take and verify an official Convex deployment snapshot.
+2. Deploy the bridge package and regenerate the host setup files.
+3. Run the host-internal one-shot function:
+
+   ```bash
+   pnpm exec convex run ginkoCms/legacyCredentialCutover:revokeAndDeleteLegacyMcpKeys '{}'
+   ```
+
+4. Run it once more and require `alreadyComplete: true`, then verify the
+   `legacyCredentialCutovers` receipt and an empty `mcpKeys` table.
+5. Deploy the final `0.2` package and delete the temporary host
+   `convex/ginkoCms/legacyCredentialCutover.ts` wrapper.
+6. Owners create replacement Better Auth API keys and explicit CMS credential
+   settings.
+
+No bridge runtime accepts a legacy token. The bridge only deletes the old rows
+and records aggregate counts; it never reads or exports raw credential material.
+
 ## Backups
 
-Before changing production content or generated host files, preserve a verified
-backup through the owner-authenticated backup workflow. Restore apply is narrow
-in v1 and should be treated as an operator repair path, not a generic rollback
-button.
+Before changing production content or generated host files, create and verify an
+official Convex deployment snapshot. Custom CMS exports are bounded comparison
+artifacts; restore apply is a narrow unreferenced-asset repair path, not a generic
+rollback button.
 
 ## Audit And Rollback
 
@@ -109,6 +134,7 @@ approving public-output changes. Review requests bind the operation id, caller,
 target entry, arguments, preview state, and draft version; stale draft state or
 changed diagnostics require a new request.
 
-Rollback for a bad migration is operational, not automatic. Restore from a
-verified backup only after preserving the current state, then rerun
+Rollback for a bad migration is operational, not automatic. Restore an official
+pre-upgrade Convex snapshot only after preserving the current state, then rerun
 `pnpm exec ginko-cms deploy --check` and inspect Studio before resuming writes.
+Downgrade of a deployment containing `0.2.x` data to `0.1.3` is unsupported.

@@ -7,8 +7,9 @@ contract sync.
 
 ## Before Applying A Migration
 
-Export or preserve a verified full backup through an owner-authenticated
-operator workflow.
+Create and independently verify an official Convex deployment snapshot. A
+Ginko CMS `snapshot` export may also help compare rows, but it is not a complete
+disaster-recovery source.
 
 Keep the backup with the deploy or release notes for the change. Do not rely on
 local development resets for shared staging or production data.
@@ -22,7 +23,7 @@ Next step:
 
 1. Read the drift report.
 2. If migration is required, create a migration scaffold.
-3. Export a backup before changing data.
+3. Verify the pre-migration Convex deployment snapshot.
 
 ## If `ginko-cms push` Fails
 
@@ -34,44 +35,48 @@ Next step:
 
 1. Run `pnpm exec ginko-cms push --check`.
 2. Write an explicit content migration.
-3. Run a backup.
+3. Verify the pre-migration Convex deployment snapshot.
 4. Apply the content migration.
-5. Run `pnpm exec ginko-cms push` again.
+5. Finalize it with an explicit `preserve`, `rebuild`, or `unpublish` public
+   strategy.
+6. Activate the exact single-use approval.
 
 ## If A Content Migration Fails
 
 `ginko-cms migrate plan` writes nothing. `ginko-cms migrate apply` writes changed
-entries in chunks and uses `draftVersion` to reject entries edited since the
-plan was built.
+entries in 50-entry transactions. Each transaction records input/output hashes,
+an entry receipt, and the run cursor atomically. Retrying skips committed
+receipts; an entry edited after planning or application stops with a conflict.
 
 Treat the migration as application code:
 
 1. Stop the rollout.
 2. Inspect which entries were changed.
-3. Use the backup as the recovery source if the migration partially applied.
+3. Resume from the durable run receipts after fixing the cause.
 4. Fix the migration.
 5. Re-run against a disposable deployment before retrying shared data.
 
-There is no migration history table. The migration file, CLI output, backup,
-and release notes are the audit trail.
+Finalization validates every stored entry against the exact target contract and
+creates an expiring single-use approval. Activation rejects changed entries,
+changed migration source, a different contract hash, or an expired approval.
 
 ## Use The Backup For Recovery
 
-The CLI can export, download, and verify backups. It does not expose a backup
-import command. Treat the backup file as the recovery source for an operator-led
-restore or manual repair, not as a broad command you can apply over live data.
+The deploy-key CLI does not expose owner-authenticated backup actions. Treat a
+custom export as comparison data for operator-led repair, not as a broad command
+you can apply over live data.
 
 The component-level restore actions can dry-run any backup artifact and apply
-only missing asset-scoped artifacts after the caller confirms the exact archive
-checksum. Full, collection, and entry artifacts remain comparison sources for an
-operator-led repair flow.
+only missing, currently unreferenced asset-scoped artifacts after the caller
+confirms the exact archive checksum. Snapshot, collection, and entry artifacts
+remain comparison sources for an operator-led repair flow.
 
 For production recovery:
 
 1. Stop writes to the affected CMS deployment.
 2. Preserve the failed migration output and the backup artifact/checksum.
-3. Restore or inspect the backup in an isolated deployment or operator
-   environment.
+3. Restore the independently verified Convex deployment snapshot to an isolated
+   deployment, or inspect the custom export in an operator environment.
 4. Repair live data only after comparing the backup with the partially migrated
    state.
 5. Re-run the fixed migration against disposable data before retrying shared
@@ -79,6 +84,9 @@ For production recovery:
 
 Do not overwrite live CMS tables directly to force a recovery. That can destroy
 entries written after the backup was created.
+
+Downgrade from data written by `0.2.x` to `0.1.3` is unsupported. Recover with a
+forward fix or restore a Convex deployment snapshot taken before the upgrade.
 
 ## Final Verification
 

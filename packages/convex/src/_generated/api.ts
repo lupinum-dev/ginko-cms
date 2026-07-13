@@ -49,7 +49,6 @@ import type * as entries_workflow_subtreeRoutes from "../entries/workflow/subtre
 import type * as errors from "../errors.js";
 import type * as functions from "../functions.js";
 import type * as imports from "../imports.js";
-import type * as legacyCredentialCutover from "../legacyCredentialCutover.js";
 import type * as lib from "../lib.js";
 import type * as lib_activity from "../lib/activity.js";
 import type * as lib_cmsContract_index from "../lib/cmsContract/index.js";
@@ -135,7 +134,6 @@ const fullApi: ApiFromModules<{
   errors: typeof errors;
   functions: typeof functions;
   imports: typeof imports;
-  legacyCredentialCutover: typeof legacyCredentialCutover;
   lib: typeof lib;
   "lib/activity": typeof lib_activity;
   "lib/cmsContract/index": typeof lib_cmsContract_index;

@@ -447,24 +447,6 @@ export default defineSchema({
     .index('by_owner_user', ['ownerUserId'])
     .index('by_status', ['status']),
 
-  // Transitional v0.1.3 table. No runtime function reads or accepts these
-  // credentials; legacyCredentialCutover deletes them before the final schema.
-  mcpKeys: defineTable({
-    name: v.string(),
-    prefix: v.string(),
-    hash: v.string(),
-    boundUserId: v.string(),
-    issuedBy: v.string(),
-    status: v.union(v.literal('active'), v.literal('revoked')),
-    createdAt: v.number(),
-    expiresAt: v.optional(v.number()),
-    lastUsedAt: v.optional(v.union(v.number(), v.null())),
-    revokedAt: v.optional(v.union(v.number(), v.null())),
-  })
-    .index('by_hash', ['hash'])
-    .index('by_bound_user', ['boundUserId'])
-    .index('by_status', ['status']),
-
   legacyCredentialCutovers: defineTable({
     key: v.literal('mcpKeys-v0.1.3'),
     deletedCount: v.number(),
