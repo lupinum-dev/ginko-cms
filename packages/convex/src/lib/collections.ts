@@ -23,6 +23,18 @@ export function isRouteBackedCollection(collection: CmsCollection): boolean {
   return getCollectionMode(collection) === 'route'
 }
 
+export function getCollectionDefaultLocale(
+  collection: Pick<CmsCollection, 'locales' | 'settings'>,
+  fallback = 'en',
+): string {
+  const settings = collection.settings
+  if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
+    const configured = settings.defaultLocale
+    if (typeof configured === 'string' && collection.locales.includes(configured)) return configured
+  }
+  return collection.locales[0] ?? fallback
+}
+
 export function assertCollectionSupportsLocale(
   collection: Pick<CmsCollection, 'slug' | 'locales'>,
   locale: string,

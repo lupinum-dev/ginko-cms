@@ -4,6 +4,11 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 
 import { api } from '#convex/api'
 
+import {
+  resolveContentRuntimePolicy,
+  type ContentRuntimeConfig,
+} from '../utils/content-runtime-policy.js'
+
 type QueryValue = string | string[] | undefined
 
 type CmsErrorData = {
@@ -14,10 +19,10 @@ type CmsErrorData = {
 
 type RuntimePublicConfig = {
   convex?: { url?: string }
-  ginkoCms?: { defaultLocale?: string; locales?: Array<{ code?: string }> }
+  content?: { defaultLocale?: string; locales?: string[] }
 }
 
-type RuntimeConfig = {
+type RuntimeConfig = ContentRuntimeConfig & {
   public?: RuntimePublicConfig
 }
 
@@ -42,10 +47,6 @@ const ginkoPublicApi = (
     ginkoCms: { public: GinkoPublicApiRefs }
   }
 ).ginkoCms.public
-
-function runtimePublic(runtimeConfig: RuntimeConfig): RuntimePublicConfig {
-  return runtimeConfig.public ?? {}
-}
 
 function queryString(value: QueryValue) {
   const first = Array.isArray(value) ? value[0] : value
@@ -101,8 +102,7 @@ function requiredString(value: QueryValue, name: string, maxLength = PUBLIC_STRI
 }
 
 function defaultLocaleFor(runtimeConfig: RuntimeConfig) {
-  const ginkoConfig = runtimePublic(runtimeConfig).ginkoCms
-  return ginkoConfig?.defaultLocale ?? ginkoConfig?.locales?.[0]?.code ?? 'en'
+  return resolveContentRuntimePolicy(runtimeConfig).defaultLocale
 }
 
 function localeString(value: QueryValue, runtimeConfig: RuntimeConfig) {

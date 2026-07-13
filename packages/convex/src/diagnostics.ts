@@ -36,6 +36,7 @@ import { callerQuery } from './functions.js'
 import {
   assertCollectionSupportsLocale,
   getCollection,
+  getCollectionDefaultLocale,
   getCollectionMode,
   isRouteBackedCollection,
 } from './lib/collections.js'
@@ -130,12 +131,19 @@ async function buildRouteClaims(ctx: QueryOrMutationCtx) {
         entryId: toStringId(row.entryId),
         locale: row.locale,
         path: row.path,
+        href: row.href,
       })
     }
   }
 
   const redirects = await ctx.db.query('redirects').collect()
   for (const redirect of redirects) {
+    const collection = redirect.collectionId ? await ctx.db.get(redirect.collectionId) : null
+    const routingLocales = await getRoutingLocales(
+      ctx,
+      collection?.locales ?? localeCodes,
+      collection ? getCollectionDefaultLocale(collection) : undefined,
+    )
     pushClaim({
       kind: 'redirect',
       collection: redirect.collectionId
@@ -144,7 +152,9 @@ async function buildRouteClaims(ctx: QueryOrMutationCtx) {
       entryId: redirect.entryId ? toStringId(redirect.entryId) : redirect.from,
       locale: redirect.locale,
       path: redirect.from,
+      href: renderGinkoHref({ locale: redirect.locale, path: redirect.from }, routingLocales),
       targetPath: redirect.to,
+      targetHref: renderGinkoHref({ locale: redirect.locale, path: redirect.to }, routingLocales),
     })
     if (!localeCodes.includes(redirect.locale)) localeCodes.push(redirect.locale)
   }
@@ -804,9 +814,11 @@ export const explainPublicVisibility = callerQuery.protected({
 
     const { claims, locales: routeLocales } = await buildRouteClaims(ctx)
     const routeDiagnostics = validateGinkoRouteClaims(claims, routeLocales)
-    const activeRoutingLocales = routeLocales.length
-      ? routeLocales
-      : await getRoutingLocales(ctx, collection.locales)
+    const activeRoutingLocales = await getRoutingLocales(
+      ctx,
+      collection.locales,
+      getCollectionDefaultLocale(collection),
+    )
     const draftView = await readStudioDraftView(ctx, entry, collection)
     const requestedLocales = args.locale ? [args.locale] : collection.locales
     const localeResults = []
@@ -929,10 +941,12 @@ export async function previewPublishImpactForEntry(
   for (const locale of targetLocales) {
     assertCollectionSupportsLocale(collection, locale)
   }
-  const { claims, locales: routeLocales } = await buildRouteClaims(ctx)
-  const activeRoutingLocales = routeLocales.length
-    ? routeLocales
-    : await getRoutingLocales(ctx, collection.locales)
+  const { claims } = await buildRouteClaims(ctx)
+  const activeRoutingLocales = await getRoutingLocales(
+    ctx,
+    collection.locales,
+    getCollectionDefaultLocale(collection),
+  )
 
   const localeImpacts: PublishImpactLocale[] = []
   for (const locale of targetLocales) {

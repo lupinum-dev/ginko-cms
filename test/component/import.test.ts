@@ -94,13 +94,35 @@ async function seedCodeDefinedCollections(
   ctx: ReturnType<typeof createCtx>,
   collections: Array<Record<string, unknown>>,
 ) {
-  return await ctx.raw.mutation(api.collections.installCollectionContracts, {
-    collections,
-  })
+  const now = Date.now()
+  for (const collection of collections) {
+    const routing = collection.routing as Record<string, unknown>
+    await ctx.seed(
+      'collections' as never,
+      {
+        ...collection,
+        icon: collection.icon ?? null,
+        routing: {
+          mode: 'route',
+          slugMode: 'shared',
+          rootSlug: null,
+          singleton: false,
+          ...routing,
+        },
+        fields: collection.fields ?? [],
+        settings: collection.settings ?? {},
+        contract: { source: 'code', version: 'test-policy' },
+        createdAt: now,
+        updatedAt: now,
+        updatedBy: 'test-policy',
+      } as never,
+    )
+  }
+  return { created: collections.length, updated: 0, skipped: 0, missingFromConfig: [] }
 }
 
 describe('filesystem content import', () => {
-  it('syncs code-defined collection contracts through the host/import operation', async () => {
+  it('reads the collection projection installed from canonical policy', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
@@ -430,7 +452,7 @@ describe('filesystem content import', () => {
       page: {
         route: {
           path: '/dokumentation',
-          href: '/dokumentation',
+          href: '/de/dokumentation',
         },
       },
     })
@@ -439,7 +461,7 @@ describe('filesystem content import', () => {
         expect.objectContaining({
           locale: 'de',
           path: '/dokumentation',
-          href: '/dokumentation',
+          href: '/de/dokumentation',
         }),
       ]),
     )
@@ -448,7 +470,7 @@ describe('filesystem content import', () => {
         expect.objectContaining({
           locale: 'de',
           path: '/dokumentation',
-          href: '/dokumentation',
+          href: '/de/dokumentation',
         }),
       ]),
     )

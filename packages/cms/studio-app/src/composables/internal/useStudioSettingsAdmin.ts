@@ -1,7 +1,7 @@
 import type { CmsRole } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { ShallowUnwrapRef } from 'vue'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 import { api } from '../../boundary/api'
 import { useStudioHostContext } from '../../boundary/studio-host-context'
@@ -116,8 +116,17 @@ export function useStudioSettingsAdmin() {
     },
   )
   const persistedSettings = computed(() => settingsQuery.data?.value ?? null)
-  const locales = ref<Array<{ code: string; label: string; isDefault: boolean; fallback: string }>>(
-    [],
+  const locales = computed<
+    Array<{ code: string; label: string; isDefault: boolean; fallback: string }>
+  >(() =>
+    (persistedSettings.value?.locales ?? []).map(
+      (locale: { code: string; label?: string; isDefault?: boolean; fallback?: string }) => ({
+        code: locale.code,
+        label: locale.label ?? '',
+        isDefault: locale.isDefault ?? false,
+        fallback: locale.fallback ?? '',
+      }),
+    ),
   )
   const defaultLocale = computed(
     () => locales.value.find((locale) => locale.isDefault)?.code ?? config.defaultLocale ?? 'en',
@@ -184,14 +193,12 @@ export function useStudioSettingsAdmin() {
   const addMemberMutation = useConvexMutation(api.ginkoCms.members.addMember)
   const updateRoleMutation = useConvexMutation(api.ginkoCms.members.updateMemberRole)
   const removeMemberMutation = useConvexMutation(api.ginkoCms.members.removeMember)
-  const updateSettingsMutation = useConvexMutation(api.ginkoCms.settings.updateSettings)
   const upsertMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.upsertSettings)
   const revokeMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.revokeSettings)
   const retryRevalidationJobMutation = useConvexMutation(
     api.ginkoCms.revalidation.retryRevalidationJob,
   )
   const error = ref('')
-  const localeError = ref('')
   const revalidationError = ref('')
   const revalidationInfo = ref('')
   const mcpConnectionError = ref('')
@@ -201,7 +208,6 @@ export function useStudioSettingsAdmin() {
   const revokingMcpApiKeyId = ref('')
   const mcpConnectionSaving = ref(false)
   const showAddMember = ref(false)
-  const localeSaving = ref(false)
   const mcpConnectionForm = reactive<{
     name: string
     expiresIn: string
@@ -300,100 +306,6 @@ export function useStudioSettingsAdmin() {
       },
     ]
   })
-
-  watch(
-    persistedSettings,
-    (settings) => {
-      locales.value = (settings?.locales ?? []).map(
-        (locale: { code: string; label?: string; isDefault?: boolean; fallback?: string }) => ({
-          code: locale.code,
-          label: locale.label ?? '',
-          isDefault: locale.isDefault ?? false,
-          fallback: locale.fallback ?? '',
-        }),
-      )
-    },
-    { immediate: true },
-  )
-
-  function addLocale() {
-    locales.value.push({
-      code: '',
-      label: '',
-      isDefault: locales.value.length === 0,
-      fallback: '',
-    })
-  }
-
-  function removeLocale(index: number) {
-    const [removed] = locales.value.splice(index, 1)
-    if (removed?.isDefault && locales.value.length > 0) {
-      const firstLocale = locales.value[0]
-      if (firstLocale) {
-        locales.value[0] = {
-          code: firstLocale.code,
-          label: firstLocale.label,
-          fallback: firstLocale.fallback,
-          isDefault: true,
-        }
-      }
-    }
-  }
-
-  function setDefaultLocale(code: string) {
-    for (const locale of locales.value) {
-      locale.isDefault = locale.code === code
-    }
-  }
-
-  async function handleSaveLocales() {
-    localeError.value = ''
-    const normalized = locales.value
-      .map((locale) => ({
-        code: locale.code.trim(),
-        label: locale.label?.trim() || undefined,
-        isDefault: locale.isDefault ?? false,
-        fallback: locale.fallback?.trim() || undefined,
-      }))
-      .filter((locale) => locale.code.length > 0)
-
-    if (normalized.length === 0) {
-      localeError.value = t('ginkoCms.studio.settingsPage.localeRequired')
-      return
-    }
-    const defaultCount = normalized.filter((locale) => locale.isDefault).length
-    if (defaultCount !== 1) {
-      localeError.value = t('ginkoCms.studio.settingsPage.localeDefaultOne')
-      return
-    }
-    const codes = normalized.map((locale) => locale.code)
-    if (new Set(codes).size !== codes.length) {
-      localeError.value = t('ginkoCms.studio.settingsPage.localeUnique')
-      return
-    }
-    for (const locale of normalized) {
-      if (locale.fallback && !codes.includes(locale.fallback)) {
-        localeError.value = t('ginkoCms.studio.settingsPage.fallbackMissing', {
-          locale: locale.fallback,
-        })
-        return
-      }
-      if (locale.fallback === locale.code) {
-        localeError.value = t('ginkoCms.studio.settingsPage.fallbackSelf', {
-          locale: locale.code,
-        })
-        return
-      }
-    }
-    localeSaving.value = true
-    try {
-      await updateSettingsMutation({ locales: normalized })
-    } catch (e) {
-      localeError.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.saveLocalesError'))
-    } finally {
-      localeSaving.value = false
-    }
-  }
 
   async function handleAddMember() {
     if (!newMember.userId.trim()) return
@@ -621,7 +533,6 @@ export function useStudioSettingsAdmin() {
   )
 
   return {
-    addLocale,
     canManageMembers,
     canManageSettings,
     collectionCount,
@@ -631,12 +542,9 @@ export function useStudioSettingsAdmin() {
     handleAddMember,
     handleRemoveMember,
     handleRetryRevalidationJob,
-    handleSaveLocales,
     handleUpdateRole,
     isLoading,
     config,
-    localeError,
-    localeSaving,
     locales,
     formatTimestamp,
     members,
@@ -668,10 +576,8 @@ export function useStudioSettingsAdmin() {
     copyMcpToken,
     formatRevalidationReason,
     persistedSettings,
-    removeLocale,
     setStudioLocale,
     settingsQuery,
-    setDefaultLocale,
     showAddMember,
     studioLocales,
     storageHygiene,

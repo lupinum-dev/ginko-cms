@@ -1,50 +1,27 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { createJiti } from 'jiti'
 
-import { resolveConfiguredCollections } from '../module/collections.js'
-import { resolveLocaleSettings } from '../module/i18n.js'
-import type { ModuleOptions } from '../module/options.js'
-import { buildPublicRuntimeCollections } from '../module/runtime-config.js'
-import { type CliIo, type ConvexClientFactory, stableJson, write } from './args.js'
+import {
+  loadGinkoContentContract,
+  type ContentRuntimePolicyInput,
+} from '../module/content-contract.js'
+import { type CliIo, type ConvexClientFactory, write } from './args.js'
 import { deployKey, publicConvexUrl } from './env.js'
-
-type RuntimeCollection = ReturnType<typeof buildPublicRuntimeCollections>[string]
 
 type PushArgs = {
   check: boolean
 }
 
-type CheckDriftChange = Record<string, unknown> & {
-  kind?: string
-  safe?: boolean
-}
-
-type CheckDriftEntry = {
-  slug: string
-  reason: 'missing' | 'different'
-  entryCount?: number
-  entryCountExact?: boolean
-  migrationRequired?: boolean
-  safeToPush?: boolean
-  changes?: CheckDriftChange[]
-}
-
-type MissingFromConfigDetail = {
-  slug: string
-  entryCount?: number
-  entryCountExact?: boolean
-  migrationRequired?: boolean
-  safeToPush?: boolean
-}
-
-type CheckCollectionContractsResult = {
-  drift: CheckDriftEntry[]
-  missingFromConfig: string[]
-  missingFromConfigDetails?: MissingFromConfigDetail[]
+type CheckCmsPolicyResult = {
+  matches: boolean
+  installedContractSha256: string | null
+  expectedContractSha256: string
+  drift: Array<{ path: string; installed?: unknown; expected?: unknown }>
 }
 
 function parsePushArgs(args: string[]): PushArgs {
@@ -53,8 +30,13 @@ function parsePushArgs(args: string[]): PushArgs {
   }
 }
 
-async function loadNuxtGinkoOptions(cwd: string): Promise<ModuleOptions> {
+async function loadPushConfig(cwd: string): Promise<{ content?: ContentRuntimePolicyInput }> {
   const configPath = resolve(cwd, 'nuxt.config.ts')
+  if (!existsSync(resolve(cwd, 'content.config.ts'))) {
+    throw new Error(
+      'ginko-cms push requires content.config.ts as the canonical Content policy source.',
+    )
+  }
   const importer = createJiti(import.meta.url, { interopDefault: true })
   const globalWithNuxtConfig = globalThis as typeof globalThis & {
     defineNuxtConfig?: (config: unknown) => unknown
@@ -72,207 +54,13 @@ async function loadNuxtGinkoOptions(cwd: string): Promise<ModuleOptions> {
     }
   }
   const config = ((loaded as { default?: unknown }).default ?? loaded) as {
-    ginkoCms?: Partial<ModuleOptions> | false
-    content?: {
-      i18n?: {
-        defaultLocale?: string
-        locales?: string[]
-        fallback?: Record<string, string[]>
-        translatedSlugs?: boolean
-      }
-    }
-    i18n?: {
-      defaultLocale?: string
-      locales?: Array<{ code: string; label?: string; name?: string }>
-    }
+    ginkoCms?: object | false
+    content?: { i18n?: ContentRuntimePolicyInput }
   }
   if (config.ginkoCms === false) {
     throw new Error('ginko-cms is disabled in nuxt.config; no collection contracts can be pushed.')
   }
-  const userOptions = config.ginkoCms && typeof config.ginkoCms === 'object' ? config.ginkoCms : {}
-  const options: ModuleOptions = {
-    route: userOptions.route ?? '/studio',
-    debugStudio: userOptions.debugStudio,
-    collectionsDir: userOptions.collectionsDir,
-    content: userOptions.content,
-    contentTranslatedSlugs: config.content?.i18n?.translatedSlugs === true,
-    collections: userOptions.collections ?? {},
-    defaultLocale:
-      userOptions.defaultLocale ??
-      config.content?.i18n?.defaultLocale ??
-      config.i18n?.defaultLocale ??
-      'en',
-    locales:
-      userOptions.locales ??
-      config.content?.i18n?.locales?.map((code) => ({
-        code,
-        isDefault: code === (config.content?.i18n?.defaultLocale ?? userOptions.defaultLocale),
-        fallback: config.content?.i18n?.fallback?.[code]?.[0],
-      })) ??
-      config.i18n?.locales?.map((locale) => ({
-        code: locale.code,
-        label: locale.label ?? locale.name,
-        isDefault: locale.code === (config.i18n?.defaultLocale ?? userOptions.defaultLocale),
-      })) ??
-      [],
-    search: userOptions.search ?? { enabled: false },
-    siteData: userOptions.siteData ?? { enabled: false },
-    publicContent: userOptions.publicContent ?? {
-      api: false,
-      prerender: false,
-      prerenderFailure: 'error',
-    },
-    forms: userOptions.forms ?? { enabled: false },
-    siteI18n: userOptions.siteI18n,
-    sidebar: userOptions.sidebar,
-    mcp: userOptions.mcp ?? false,
-  }
-  const localeSettings = resolveLocaleSettings(options)
-  options.collections = await resolveConfiguredCollections({
-    rootDir: cwd,
-    moduleOptions: options,
-    defaultLocale: localeSettings.defaultLocale,
-    locales: localeSettings.locales,
-  })
-  return options
-}
-
-function collectionPayload(collections: Record<string, RuntimeCollection>) {
-  return Object.entries(collections).map(([slug, collection]) => ({
-    slug,
-    label: collection.label,
-    ...(collection.icon !== undefined ? { icon: collection.icon } : {}),
-    type: collection.type,
-    routing: {
-      mode: collection.routing.mode ?? 'route',
-      pathPrefix: collection.routing.pathPrefix,
-      slugMode: collection.routing.slugMode ?? 'shared',
-      rootSlug: collection.routing.rootSlug ?? null,
-      singleton: collection.routing.singleton ?? false,
-    },
-    locales: collection.locales,
-    fields: collection.fields ?? [],
-    settings: collection.settings ?? {},
-  }))
-}
-
-function formatEntryCount(entryCount: number | undefined, exact = true) {
-  if (entryCount === undefined) return 'unknown'
-  if (!exact) return `${entryCount}+`
-  return String(entryCount)
-}
-
-function formatYesNo(value: boolean | undefined) {
-  if (value === undefined) return 'unknown'
-  return value ? 'yes' : 'no'
-}
-
-function formatStringList(values: unknown) {
-  if (!Array.isArray(values) || values.length === 0) return 'none'
-  return values.map((value) => String(value)).join(', ')
-}
-
-function formatDriftChange(change: CheckDriftChange) {
-  switch (change.kind) {
-    case 'collection_missing':
-      return 'collection is not installed yet'
-    case 'label_changed':
-      return 'collection label changed'
-    case 'icon_changed':
-      return 'collection icon changed'
-    case 'settings_changed':
-      return 'collection settings changed'
-    case 'schema_changed':
-      return 'collection schema changed'
-    case 'contract_snapshot_changed':
-      return 'contract snapshot changed'
-    case 'type_changed':
-      return `type changed: ${String(change.from)} -> ${String(change.to)}`
-    case 'routing_changed':
-      return 'routing changed'
-    case 'locales_changed':
-      return `locales changed: added [${formatStringList(change.added)}], removed [${formatStringList(change.removed)}]`
-    case 'field_added':
-      return `field added: ${String(change.field)}${change.required ? ' (required)' : ' (optional)'}`
-    case 'field_removed':
-      return `field removed: ${String(change.field)}`
-    case 'field_changed':
-      return `field changed: ${String(change.field)}`
-    default:
-      return change.kind ? String(change.kind) : JSON.stringify(change)
-  }
-}
-
-function formatDriftReport(result: CheckCollectionContractsResult) {
-  const lines = ['Collection contract drift detected.', '']
-
-  for (const entry of result.drift) {
-    lines.push(`${entry.slug}:`)
-    lines.push(`  status: ${entry.reason}`)
-    lines.push(`  affected entries: ${formatEntryCount(entry.entryCount, entry.entryCountExact)}`)
-    lines.push(`  migration required: ${formatYesNo(entry.migrationRequired)}`)
-    if (entry.changes && entry.changes.length > 0) {
-      lines.push('  changes:')
-      for (const change of entry.changes) {
-        const safety = change.safe === false ? 'migration required' : 'safe to push'
-        lines.push(`    - ${formatDriftChange(change)} (${safety})`)
-      }
-    }
-    lines.push('')
-  }
-
-  const missingDetails =
-    result.missingFromConfigDetails ??
-    result.missingFromConfig.map((slug) => ({
-      slug,
-      entryCount: undefined,
-      migrationRequired: undefined,
-      safeToPush: undefined,
-    }))
-
-  if (missingDetails.length > 0) {
-    lines.push('Collections missing from content.config.ts:')
-    for (const detail of missingDetails) {
-      lines.push(
-        `  - ${detail.slug}: affected entries=${formatEntryCount(detail.entryCount, detail.entryCountExact)}, migration required=${formatYesNo(detail.migrationRequired)}`,
-      )
-    }
-    lines.push('')
-  }
-
-  const hasUnknownMigrationState =
-    result.drift.some((entry) => entry.migrationRequired === undefined) ||
-    missingDetails.some((entry) => entry.migrationRequired === undefined)
-
-  const requiresMigration =
-    result.drift.some((entry) => entry.migrationRequired !== false) ||
-    missingDetails.some((entry) => entry.migrationRequired !== false)
-  if (requiresMigration) {
-    lines.push('Recommended next steps:')
-    if (hasUnknownMigrationState) {
-      lines.push('  1. Treat this drift as migration-required until the check says otherwise.')
-      lines.push('  2. Create or choose an explicit content migration.')
-      lines.push('  3. Run a backup before applying changes.')
-      lines.push('  4. Apply the content migration, then rerun `pnpm exec ginko-cms push --check`.')
-      lines.push('  5. Push only after the check reports safe drift.')
-    } else {
-      lines.push('  1. Create or choose an explicit content migration.')
-      lines.push('  2. Run a backup before applying changes.')
-      lines.push('  3. Apply the content migration, then rerun `pnpm exec ginko-cms push --check`.')
-      lines.push('  4. Push only after the check reports safe drift.')
-    }
-    lines.push('')
-    lines.push('Starter command:')
-    lines.push('  pnpm exec ginko-cms migrate create <change-name>')
-  } else {
-    lines.push('Recommended next step:')
-    lines.push('  pnpm exec ginko-cms push')
-  }
-
-  lines.push('')
-  lines.push('Docs: docs/guides/changing-collections.md')
-
-  return `${lines.join('\n')}\n`
+  return { content: config.content?.i18n }
 }
 
 export async function runPushCommand(
@@ -282,9 +70,9 @@ export async function runPushCommand(
   convexClientFactory: ConvexClientFactory = (url) => new ConvexHttpClient(url),
 ): Promise<number> {
   const push = parsePushArgs(args.slice(1))
-  const options = await loadNuxtGinkoOptions(cwd)
-  const localeSettings = resolveLocaleSettings(options)
-  const payload = collectionPayload(buildPublicRuntimeCollections(options, localeSettings))
+  const config = await loadPushConfig(cwd)
+  const contract = await loadGinkoContentContract({ rootDir: cwd, content: config.content })
+  const contractSha256 = await hashCanonicalJson(contract)
   const client = convexClientFactory(publicConvexUrl(cwd))
   const adminKey = deployKey(cwd)
   if (!client.setAdminAuth) {
@@ -293,27 +81,30 @@ export async function runPushCommand(
   client.setAdminAuth(adminKey)
 
   if (push.check) {
-    const result = (await client.query(anyApi.ginkoCms.collections.checkCollectionContracts, {
-      collections: payload,
-    })) as CheckCollectionContractsResult
-    if (result.drift.length > 0 || result.missingFromConfig.length > 0) {
-      write(io.stderr, formatDriftReport(result))
+    const result = (await client.query(anyApi.ginkoCms.policy.checkCmsPolicy, {
+      contract,
+      contractSha256,
+    })) as CheckCmsPolicyResult
+    if (!result.matches) {
+      write(io.stderr, `Ginko CMS policy drift detected (${result.drift.length} change(s)):\n`)
+      for (const change of result.drift) write(io.stderr, `  - ${change.path}\n`)
       return 1
     }
     write(
       io.stdout,
-      `Ginko CMS collection contracts are installed for ${payload.length} collection(s).\n`,
+      `Ginko CMS policy ${contractSha256} is installed for ${Object.keys(contract.collections).length} collection(s).\n`,
     )
     return 0
   }
 
-  const result = (await client.mutation(anyApi.ginkoCms.collections.installCollectionContracts, {
-    collections: payload,
+  const result = (await client.mutation(anyApi.ginkoCms.policy.installCmsPolicy, {
+    contract,
+    contractSha256,
   })) as { created: number; updated: number; skipped: number; missingFromConfig: string[] }
   write(
     io.stdout,
     `Ginko CMS collection contracts pushed: created=${result.created}, updated=${result.updated}, skipped=${result.skipped}, missingFromConfig=[${result.missingFromConfig.join(', ')}].\n`,
   )
-  write(io.stdout, `Contract fingerprint: ${stableJson(payload).length}:${payload.length}\n`)
+  write(io.stdout, `Contract SHA-256: ${contractSha256}\n`)
   return 0
 }

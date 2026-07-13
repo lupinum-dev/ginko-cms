@@ -118,15 +118,7 @@ describe('ginko-cms tailwind registration', () => {
     await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
 
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
-        route: '/studio',
-      },
-      nuxt,
-    )
+    await setupModule({ route: '/studio' }, nuxt)
 
     const providerHook = nuxt.hook.mock.calls.find(([name]) => name === 'content:providers')?.[1]
     expect(providerHook).toBeTypeOf('function')
@@ -144,12 +136,7 @@ describe('ginko-cms tailwind registration', () => {
     tempDirs.push(rootDir)
     await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
-    const options = {
-      collections: {},
-      defaultLocale: 'en',
-      locales: [{ code: 'en', isDefault: true }],
-      route: '/studio',
-    }
+    const options = { route: '/studio' }
 
     await setupModule(options, nuxt)
     await setupModule(options, nuxt)
@@ -244,15 +231,7 @@ describe('ginko-cms tailwind registration', () => {
     const nuxt = createNuxtMock(rootDir)
     delete nuxt.options.css
 
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
-        route: '/studio',
-      },
-      nuxt,
-    )
+    await setupModule({ route: '/studio' }, nuxt)
 
     expect(nuxt.options.css).toBeUndefined()
   })
@@ -263,15 +242,7 @@ describe('ginko-cms tailwind registration', () => {
     await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
 
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
-        route: '/studio',
-      },
-      nuxt,
-    )
+    await setupModule({ route: '/studio' }, nuxt)
 
     const plugin = nuxt.options.vite.plugins.find(
       (entry) => entry.name === 'ginko-cms:tailwind-source-injection',
@@ -296,15 +267,7 @@ describe('ginko-cms tailwind registration', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
-      await setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        nuxt,
-      )
+      await setupModule({ route: '/studio' }, nuxt)
 
       const plugin = nuxt.options.vite.plugins.find(
         (entry) => entry.name === 'ginko-cms:tailwind-source-injection',
@@ -329,16 +292,8 @@ describe('ginko-cms tailwind registration', () => {
     const nuxt = createNuxtMock(rootDir)
     nuxt.options.colorMode = { classSuffix: '-mode' }
 
-    await expect(
-      setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        nuxt,
-      ),
-    ).rejects.toThrow('ginko-cms requires colorMode.classSuffix to be ""')
+    await expect(setupModule({ route: '/studio' }, nuxt)).rejects.toThrow(
+      'ginko-cms requires colorMode.classSuffix to be ""',
+    )
   })
 })

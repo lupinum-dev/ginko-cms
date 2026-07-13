@@ -101,10 +101,6 @@ describe('cms settings visibility', () => {
 
     await expect(
       owner.mutation(api.settings.updateSettings, {
-        locales: [
-          { code: 'en', label: 'English', isDefault: true },
-          { code: 'de', label: 'Deutsch' },
-        ],
         webhooks: [
           {
             id: 'hook-1',
@@ -119,10 +115,7 @@ describe('cms settings visibility', () => {
     ).resolves.toBeNull()
 
     await expect(owner.query(api.settings.getSettings, {})).resolves.toMatchObject({
-      locales: [
-        { code: 'en', label: 'English', isDefault: true },
-        { code: 'de', label: 'Deutsch' },
-      ],
+      locales: [{ code: 'en', label: 'English', isDefault: true }],
       webhooks: [
         {
           id: 'hook-1',
@@ -139,7 +132,7 @@ describe('cms settings visibility', () => {
       expect.objectContaining({
         kind: 'settings.updated',
         appIdentityId: 'owner-1',
-        detail: { changes: ['locales', 'webhooks'] },
+        detail: { changes: ['webhooks'] },
       }),
     ])
   })

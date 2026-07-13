@@ -124,7 +124,6 @@ mounted components from the host app's `convex/convex.config.ts`.
 - [Changing collections](./docs/guides/changing-collections.md)
 - [Trellis-era migration](./docs/guides/migrations/trellis-era-migration.md)
 - [Public content API](./docs/reference/public-content-api.md)
-- [CMS config helpers](./docs/reference/cms-config-helpers.md)
 - [Nuxt content provider](./docs/reference/nuxt-content-provider.md)
 - [Studio theming](./docs/guides/theming-the-studio.md)
 - [Release candidate checklist](./docs/maintenance/release-candidate.md)

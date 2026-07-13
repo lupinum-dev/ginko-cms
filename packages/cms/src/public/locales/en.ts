@@ -319,7 +319,7 @@ const en = {
         studioLanguageDescription:
           'Choose the language for the Studio interface. This is saved per browser.',
         locales: 'Languages',
-        localesDescription: 'Configure languages and fallback chains for content localization.',
+        localesDescription: 'Defined by the canonical Ginko Content policy.',
         members: 'Members',
         membersDescription: 'Control who can access and edit content in the CMS.',
         mcpTokenReady: 'Your MCP access key is ready',

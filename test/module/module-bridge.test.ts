@@ -121,34 +121,17 @@ describe('ginko-cms Convex setup validation', () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-missing-setup-'))
     tempDirs.push(rootDir)
 
-    await expect(
-      setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        createNuxtMock(rootDir),
-      ),
-    ).rejects.toThrow('ginko-cms init')
+    await expect(setupModule({ route: '/studio' }, createNuxtMock(rootDir))).rejects.toThrow(
+      'ginko-cms init',
+    )
   })
 
   it('loads once direct Convex setup files are installed', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-installed-setup-'))
     tempDirs.push(rootDir)
     await installConvexSetup(rootDir)
-
     const nuxt = createNuxtMock(rootDir)
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
-        route: '/studio',
-      },
-      nuxt,
-    )
+    await setupModule({ route: '/studio' }, nuxt)
 
     expect((nuxt.options as { trellis?: unknown }).trellis).toBeUndefined()
     expect(nuxt.options.css).toEqual([])
@@ -182,17 +165,9 @@ describe('ginko-cms Convex setup validation', () => {
     process.env.npm_lifecycle_event = 'postinstall'
 
     try {
-      await expect(
-        setupModule(
-          {
-            collections: {},
-            defaultLocale: 'en',
-            locales: [{ code: 'en', isDefault: true }],
-            route: '/studio',
-          },
-          createNuxtMock(rootDir),
-        ),
-      ).rejects.toThrow(`${staleMcpBridgeFile} is a stale generated bridge file`)
+      await expect(setupModule({ route: '/studio' }, createNuxtMock(rootDir))).rejects.toThrow(
+        `${staleMcpBridgeFile} is a stale generated bridge file`,
+      )
     } finally {
       if (previousLifecycleEvent === undefined) {
         delete process.env.npm_lifecycle_event
@@ -211,15 +186,7 @@ describe('ginko-cms Convex setup validation', () => {
     process.env.CONVEX_DEPLOY_KEY = 'super-secret-test-value'
     try {
       const nuxt = createNuxtMock(rootDir)
-      await setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        nuxt,
-      )
+      await setupModule({ route: '/studio' }, nuxt)
 
       expect(JSON.stringify(nuxt.options.runtimeConfig.public)).not.toContain(
         'super-secret-test-value',
@@ -242,9 +209,6 @@ describe('ginko-cms Convex setup validation', () => {
     const nuxt = createNuxtMock(rootDir)
     await setupModule(
       {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
         route: '/studio',
         publicContent: {
           api: {
@@ -308,6 +272,16 @@ describe('ginko-cms Convex setup validation', () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prerender-route-backed-'))
     tempDirs.push(rootDir)
     await installConvexSetup(rootDir)
+    writeFileSync(
+      join(rootDir, 'content.config.ts'),
+      `export default {
+        collections: {
+          blog: { type: 'page', source: 'content/blog/**/*.md', route: '/blog' },
+          authors: { type: 'data', source: 'content/authors/**/*.yml', cms: { route: { mode: 'none' } } },
+        },
+      }\n`,
+      'utf8',
+    )
 
     const previousConvexUrl = process.env.NUXT_PUBLIC_CONVEX_URL
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
@@ -325,18 +299,6 @@ describe('ginko-cms Convex setup validation', () => {
       const nuxt = createNuxtMock(rootDir)
       await setupModule(
         {
-          collections: {
-            blog: {
-              type: 'flat',
-              routing: { pathPrefix: '/blog' },
-            },
-            authors: {
-              type: 'flat',
-              routing: { mode: 'none', pathPrefix: '/authors' },
-            },
-          },
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
           publicContent: {
             prerender: true,
           },
@@ -389,11 +351,6 @@ describe('ginko-cms Convex setup validation', () => {
       const nuxt = createNuxtMock(rootDir)
       await setupModule(
         {
-          collections: {
-            index: {},
-          },
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }, { code: 'de' }],
           publicContent: {
             prerender: true,
           },
@@ -443,16 +400,8 @@ describe('ginko-cms Convex setup validation', () => {
       'utf8',
     )
 
-    await expect(
-      setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        createNuxtMock(rootDir),
-      ),
-    ).rejects.toThrow('convex/convex.config.ts')
+    await expect(setupModule({ route: '/studio' }, createNuxtMock(rootDir))).rejects.toThrow(
+      'convex/convex.config.ts',
+    )
   })
 })

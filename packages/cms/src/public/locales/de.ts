@@ -322,8 +322,7 @@ const de = {
         studioLanguageDescription:
           'Wähle die Sprache für die Studio-Oberfläche. Wird pro Browser gespeichert.',
         locales: 'Sprachen',
-        localesDescription:
-          'Sprachen und Fallback-Ketten für die Inhalts-Lokalisierung konfigurieren.',
+        localesDescription: 'Durch die kanonische Ginko-Content-Richtlinie definiert.',
         members: 'Mitglieder',
         membersDescription: 'Steuere, wer auf das CMS zugreifen und Inhalte bearbeiten kann.',
         mcpTokenReady: 'Dein MCP-Zugriffsschlüssel ist bereit',

@@ -20,9 +20,6 @@ Use these docs by reader task:
 - Product model: read [Positioning](./concepts/positioning.md),
   [Content model](./reference/content-model.md), and
   [Studio workflows](./concepts/studio/workflows.md).
-- Advanced config: use
-  [CMS config helpers](./reference/cms-config-helpers.md) only when the app does
-  not derive CMS contracts from `content.config.ts`.
 - Auth and roles: use [Auth and roles](./reference/auth-and-roles.md) for the
   Better Auth, CMS member, MCP credential, agent-run, and review-request model.
 - Agent workflows: use [MCP agent workflows](./guides/mcp-agent-workflows.md)
@@ -54,7 +51,6 @@ docs/
   reference/
     auth-and-roles.md
     content-model.md
-    cms-config-helpers.md
     nuxt-content-provider.md
     public-content-api.md
   concepts/

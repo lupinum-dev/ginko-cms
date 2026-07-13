@@ -37,6 +37,7 @@ const setupFiles = [
   'convex/ginkoCms/mcpCredentials.ts',
   'convex/ginkoCms/members.ts',
   'convex/ginkoCms/migrations.ts',
+  'convex/ginkoCms/policy.ts',
   'convex/ginkoCms/public.ts',
   'convex/ginkoCms/revalidation.ts',
   'convex/ginkoCms/reviewRequests.ts',

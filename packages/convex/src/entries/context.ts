@@ -4,7 +4,7 @@ import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type { Doc, Id } from '../_generated/dataModel.js'
 import { requireRecord } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
-import { getCollectionOrThrow } from '../lib/collections.js'
+import { getCollectionDefaultLocale, getCollectionOrThrow } from '../lib/collections.js'
 import { asEntryId, toOptionalStringId, toStringId } from '../lib/ids.js'
 import type { HandlerMutationCtx, MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { getFieldCompletionState } from '../lib/validation.js'
@@ -107,7 +107,7 @@ export function buildVersionedEntry(
 export function getDefaultLocale(
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
 ): string {
-  return collection.locales[0] ?? 'en'
+  return getCollectionDefaultLocale(collection)
 }
 
 function localeCodesForDraftView(args: {

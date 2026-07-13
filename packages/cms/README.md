@@ -79,7 +79,6 @@ See the workspace docs for
 [next collection steps](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/getting-started/next-collections.md),
 [collection changes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/changing-collections.md),
 [Trellis-era migration](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/migrations/trellis-era-migration.md),
-[CMS config helpers](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/reference/cms-config-helpers.md),
 [migration recipes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/migrations/recipes.md),
 [Tailwind/theming notes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/theming-the-studio.md),
 and

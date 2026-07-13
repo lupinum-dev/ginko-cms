@@ -5,6 +5,7 @@ import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/t
 import type { Doc, Id } from '../../_generated/dataModel.js'
 import { parseMdcBody } from '../../lib/cmsContract/index.js'
 import type { MarkdownRoot, Toc } from '../../lib/cmsContract/types.js'
+import { getCollectionDefaultLocale } from '../../lib/collections.js'
 import { resolveEntryDescription, resolveEntryTitle } from '../../lib/fields.js'
 import { getRoutingLocales } from '../../lib/locale.js'
 import { buildPublicSearchText, filterPublicData } from '../../lib/publicData.js'
@@ -176,7 +177,11 @@ export async function buildPublicProjectionFromRevisionSnapshot(
   const path = publicPathForLocaleSnapshot(args.collection, args.localeSnapshot.path, args.locale)
   const href = renderGinkoHref(
     { locale: args.locale, path },
-    await getRoutingLocales(ctx, args.collection.locales),
+    await getRoutingLocales(
+      ctx,
+      args.collection.locales,
+      getCollectionDefaultLocale(args.collection, args.locale),
+    ),
   )
   const body = await projectionBodyFromSnapshot(args.localeSnapshot)
   const publicData = await applyPublicImageMetadataFallbacks(
@@ -184,7 +189,7 @@ export async function buildPublicProjectionFromRevisionSnapshot(
     args.collection.fields,
     filterPublicData(args.collection.fields, args.localeSnapshot.values),
     args.locale,
-    args.collection.locales[0] ?? args.locale,
+    getCollectionDefaultLocale(args.collection, args.locale),
   )
   const title =
     resolveEntryTitle(publicData, args.collection.fields, args.collection.settings) ??

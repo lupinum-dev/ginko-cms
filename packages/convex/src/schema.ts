@@ -25,6 +25,14 @@ import { v } from 'convex/values'
  * into Convex through deploy-key authenticated internal component functions.
  */
 export default defineSchema({
+  cmsPolicies: defineTable({
+    key: v.literal('active'),
+    contract: jsonValueValidator,
+    contractSha256: v.string(),
+    installedAt: v.number(),
+    installedBy: v.string(),
+  }).index('by_key', ['key']),
+
   collections: defineTable({
     slug: v.string(),
     label: localeTextValidator,
@@ -53,10 +61,15 @@ export default defineSchema({
 
   collectionReindexJobs: defineTable({
     collectionId: v.id('collections'),
-    phase: v.optional(
-      v.union(v.literal('draft'), v.literal('published'), v.literal('archived'), v.null()),
+    requestedGeneration: v.string(),
+    appliedGeneration: v.union(v.string(), v.null()),
+    phase: v.union(
+      v.literal('draft'),
+      v.literal('published'),
+      v.literal('archived'),
+      v.literal('verify'),
     ),
-    cursor: v.optional(v.union(v.string(), v.null())),
+    cursor: v.union(v.string(), v.null()),
     requestedBy: v.string(),
     requestedAt: v.number(),
     updatedAt: v.number(),

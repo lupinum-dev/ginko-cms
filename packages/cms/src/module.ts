@@ -4,6 +4,10 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
+  assertResolvedContentContract,
+  type ResolvedContentContractV1,
+} from '@lupinum/ginko-content/cms-contract'
+import {
   defineNuxtModule,
   addServerHandler,
   createResolver,
@@ -16,8 +20,11 @@ import { ConvexHttpClient } from 'convex/browser'
 import { anyApi, type FunctionReference } from 'convex/server'
 import { defu } from 'defu'
 
-import { resolveConfiguredCollections } from './module/collections.js'
-import { loadGinkoContentProviderName } from './module/content-contract.js'
+import {
+  loadGinkoContentContract,
+  loadGinkoContentProviderName,
+  projectContractCollections,
+} from './module/content-contract.js'
 import { assertConvexSetupInstalled } from './module/convex.js'
 import {
   resolveLocaleSettings,
@@ -26,7 +33,7 @@ import {
   syncConfiguredI18nDefaults,
 } from './module/i18n.js'
 import type { I18nModuleOptions } from './module/i18n.js'
-import type { ModuleOptions } from './module/options.js'
+import type { ModuleOptions, ResolvedModuleOptions } from './module/options.js'
 import { renderPublicContractTypes } from './module/public-contract.js'
 import { buildPublicRuntimeCollections } from './module/runtime-config.js'
 import { createTailwindPlugin } from './module/tailwind.js'
@@ -61,6 +68,7 @@ interface NuxtOptionsExt {
   runtimeConfig: {
     public: { ginkoCms?: Record<string, unknown> }
     ginkoCms?: Record<string, unknown>
+    content?: { contract?: ResolvedContentContractV1 }
   }
 }
 
@@ -79,6 +87,27 @@ type PublicContentApiOption = NonNullable<ModuleOptions['publicContent']>['api']
 
 const CMS_CONTENT_PROVIDER_NAME = 'cms'
 const CMS_CONTENT_PROVIDER_MODULE = '@lupinum/ginko-cms/nuxt-provider'
+const MODULE_OPTION_KEYS = new Set([
+  'route',
+  'editorialLayout',
+  'debugStudio',
+  'search',
+  'siteData',
+  'publicContent',
+  'forms',
+  'siteI18n',
+  'sidebar',
+  'mcp',
+])
+
+function assertModuleOptionKeys(input: object) {
+  for (const key of Object.keys(input)) {
+    if (MODULE_OPTION_KEYS.has(key)) continue
+    throw new Error(
+      `[ginko-cms] Unknown ginkoCms option "${key}". Collection, route, field, and locale policy must come from the resolved Ginko Content contract.`,
+    )
+  }
+}
 
 function hasNuxtI18nModule(modules: unknown[] = []): boolean {
   return modules.some((entry) => {
@@ -92,40 +121,6 @@ function hasNuxtI18nModule(modules: unknown[] = []): boolean {
 
     return false
   })
-}
-
-function inferLocaleOptions(options: ModuleOptions, nuxtOptions: NuxtOptionsExt): ModuleOptions {
-  if (options.locales.length > 0) return options
-
-  const contentI18n = nuxtOptions.content?.i18n
-  if (Array.isArray(contentI18n?.locales) && contentI18n.locales.length > 0) {
-    const defaultLocale = contentI18n.defaultLocale ?? options.defaultLocale
-    return {
-      ...options,
-      defaultLocale,
-      locales: contentI18n.locales.map((code) => ({
-        code,
-        isDefault: code === defaultLocale,
-        fallback: contentI18n.fallback?.[code]?.[0],
-      })),
-    }
-  }
-
-  const i18nLocales = nuxtOptions.i18n?.locales
-  if (Array.isArray(i18nLocales) && i18nLocales.length > 0) {
-    const defaultLocale = nuxtOptions.i18n?.defaultLocale ?? options.defaultLocale
-    return {
-      ...options,
-      defaultLocale,
-      locales: i18nLocales.map((locale) => ({
-        code: locale.code,
-        label: locale.label ?? locale.name,
-        isDefault: locale.code === defaultLocale,
-      })),
-    }
-  }
-
-  return options
 }
 
 async function assertGinkoContentSearchBoundary(rootDir: string, nuxtOptions: NuxtOptionsExt) {
@@ -208,9 +203,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   defaults: {
     route: '/studio',
     debugStudio: undefined,
-    collections: {},
-    defaultLocale: 'en',
-    locales: [],
     search: { enabled: false },
     siteData: { enabled: false },
     publicContent: {
@@ -221,12 +213,25 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     forms: { enabled: false },
     mcp: false,
   },
-  async setup(options, nuxt) {
+  async setup(moduleInput, nuxt) {
+    assertModuleOptionKeys(moduleInput)
+    const options = { ...moduleInput } as ResolvedModuleOptions
     const { resolve: moduleResolve } = createResolver(import.meta.url)
     const moduleOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
     registerCmsContentProvider(nuxt)
-    options = inferLocaleOptions(options, moduleOptions)
-    options.contentTranslatedSlugs = moduleOptions.content?.i18n?.translatedSlugs === true
+    const contentContract = moduleOptions.runtimeConfig.content?.contract
+      ? assertResolvedContentContract(moduleOptions.runtimeConfig.content.contract)
+      : await loadGinkoContentContract({
+          rootDir: nuxt.options.rootDir,
+          content: moduleOptions.content?.i18n,
+        })
+    options.defaultLocale = contentContract.defaultLocale
+    options.locales = contentContract.locales.map((code) => ({
+      code,
+      isDefault: code === contentContract.defaultLocale,
+      fallback: contentContract.localeFallbacks[code]?.[0],
+    }))
+    options.collections = projectContractCollections(contentContract, options.editorialLayout)
     const localeSettings = resolveLocaleSettings(options)
     const cmsRuntimeDir = moduleResolve('./runtime')
     const cmsPublicDir = moduleResolve('./public')
@@ -235,12 +240,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const cmsPackageRoot = locatePackageRoot()
     const cmsStudioUiDir = resolve(cmsPackageRoot, 'studio-app/src/components/ui')
     const mcpEnabled = options.mcp === true
-    options.collections = await resolveConfiguredCollections({
-      rootDir: nuxt.options.rootDir,
-      moduleOptions: options,
-      defaultLocale: localeSettings.defaultLocale,
-      locales: localeSettings.locales,
-    })
     await assertGinkoContentSearchBoundary(nuxt.options.rootDir, moduleOptions)
 
     nuxt.options.alias ??= {}
@@ -644,7 +643,7 @@ function resolvePublicApiRoute(api: PublicContentApiOption) {
   return normalized.replace(/\/+$/, '')
 }
 
-function routeBackedCollectionNames(collections: ModuleOptions['collections']) {
+function routeBackedCollectionNames(collections: ResolvedModuleOptions['collections']) {
   return Object.entries(collections)
     .filter(([, collection]) => (collection.routing?.mode ?? 'route') === 'route')
     .map(([name]) => name)

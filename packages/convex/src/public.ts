@@ -34,6 +34,7 @@ import { callerQuery, cmsPublicReadTables } from './functions.js'
 import {
   assertCollectionSupportsLocale,
   getCollection,
+  getCollectionDefaultLocale,
   isRouteBackedCollection,
   needsStableId,
 } from './lib/collections.js'
@@ -103,7 +104,7 @@ type PublicSearchCursor = {
   offset: number
 }
 
-async function getDefaultLocale(ctx: Parameters<typeof getCmsSettings>[0], fallback: string) {
+async function getSiteDefaultLocale(ctx: Parameters<typeof getCmsSettings>[0], fallback: string) {
   const settings = await getCmsSettings(ctx)
   return (
     settings?.locales.find((locale) => locale.isDefault)?.code ??
@@ -729,7 +730,7 @@ export const page = callerQuery.public({
         requestedLocale: args.locale,
         requestedPath,
         result: { page: null, redirectTo: null },
-        defaultLocale: await getDefaultLocale(ctx, collection.locales[0] ?? 'en'),
+        defaultLocale: getCollectionDefaultLocale(collection),
       })
     }
 
@@ -743,7 +744,7 @@ export const page = callerQuery.public({
         redirectTo: args.ref || mapped.path === requestedPath ? null : mapped.path,
       },
       translations,
-      defaultLocale: await getDefaultLocale(ctx, collection.locales[0] ?? 'en'),
+      defaultLocale: getCollectionDefaultLocale(collection),
     })
   },
 })
@@ -783,7 +784,7 @@ export const routeMeta = callerQuery.public({
         requestedLocale: args.locale,
         requestedPath,
         result: { page: null, redirectTo: null },
-        defaultLocale: await getDefaultLocale(ctx, collection.locales[0] ?? 'en'),
+        defaultLocale: getCollectionDefaultLocale(collection),
       })
     }
 
@@ -800,7 +801,7 @@ export const routeMeta = callerQuery.public({
         redirectTo: args.ref || mapped.path === requestedPath ? null : mapped.path,
       },
       translations,
-      defaultLocale: await getDefaultLocale(ctx, collection.locales[0] ?? 'en'),
+      defaultLocale: getCollectionDefaultLocale(collection),
     })
   },
 })
@@ -1086,7 +1087,7 @@ export const sitemap = callerQuery.public({
       return toGinkoSitemapResult({
         entries: [],
         translationsByEntryId: new Map(),
-        defaultLocale: await getDefaultLocale(ctx, 'en'),
+        defaultLocale: await getSiteDefaultLocale(ctx, 'en'),
       })
     }
     assertRouteBackedCollection(collection)
@@ -1109,7 +1110,7 @@ export const sitemap = callerQuery.public({
     return toGinkoSitemapResult({
       entries,
       translationsByEntryId,
-      defaultLocale: await getDefaultLocale(ctx, 'en'),
+      defaultLocale: await getSiteDefaultLocale(ctx, 'en'),
       pageInfo: {
         hasNextPage: !result.isDone,
         endCursor: result.isDone ? null : result.continueCursor,

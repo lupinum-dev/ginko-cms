@@ -1,24 +1,25 @@
 import {
-  collectionRoutingValidator,
-  fieldValidator,
-  jsonValueValidator,
-  localeTextValidator,
-} from '@lupinum/ginko-cms-contract/convex/validators.js'
+  normalizeContentPath,
+  uniqueContentTags,
+} from '@lupinum/ginko-cms-contract/shared/contentTags.js'
 import type { CmsField, JsonValue, LocaleText } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { v } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel.js'
 import { canManageCollections } from '../auth/checks.js'
-import { refreshDraftAssetRefsForEntrySubtree } from '../entries/projections.js'
+import { rebuildContentAssetRefsForEntry } from '../entries/projections.js'
+import { pathPrefixForLocale } from '../entries/workflow/path.js'
+import { upsertPublicProjection } from '../entries/workflow/projection.js'
+import { buildPublicProjectionFromRevisionSnapshot } from '../entries/workflow/projectionBuild.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
 import type { getCollectionOrThrow } from '../lib/collections.js'
-import { collectionEntryCountSnapshot, collectionHasEntries } from '../lib/collections.js'
+import { collectionHasEntries } from '../lib/collections.js'
 import { isEqualJsonValue } from '../lib/data.js'
 import { normalizeFields } from '../lib/fields.js'
 import { toStringId } from '../lib/ids.js'
 import { resolveLocaleText } from '../lib/locale.js'
-import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
+import type { MutationCtx } from '../lib/types.js'
 import {
   assertFieldDefinitionsValid,
   assertValidLocaleCode,
@@ -26,23 +27,12 @@ import {
 } from '../lib/validation.js'
 import {
   classifyCollectionContractDrift,
-  classifyMissingCollectionContract,
   contractChangeCategories,
   type CollectionContractSnapshot,
 } from './drift.js'
 import { scheduleCollectionReindex } from './jobs.js'
 
 type EntryDoc = Doc<'entries'>
-type ContractSnapshotInput = {
-  slug: string
-  label: LocaleText
-  icon: string | null
-  type: 'flat' | 'tree'
-  routing: ReturnType<typeof normalizeRouting>
-  locales: string[]
-  fields: CmsField[]
-  settings: JsonValue
-}
 type SyncConfigCollectionsArgs = {
   collections: Array<{
     slug: string
@@ -86,43 +76,76 @@ export function normalizeRouting(routing: {
   }
 }
 
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
-  if (value && typeof value === 'object') {
-    return `{${Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableJson(entryValue)}`)
-      .join(',')}}`
-  }
-  return JSON.stringify(value)
-}
-
-function contractVersion(input: ContractSnapshotInput): string {
-  const source = stableJson(input)
-  let hash = 2166136261
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-  return `v1-${(hash >>> 0).toString(16).padStart(8, '0')}`
-}
-
-function contractSnapshot(input: ContractSnapshotInput) {
-  return {
-    source: 'code' as const,
-    version: contractVersion(input),
-  }
-}
-
 export async function recomputeEntryDerivedState(
   ctx: MutationCtx,
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
   entry: EntryDoc,
+  generation?: string,
 ) {
-  await refreshDraftAssetRefsForEntrySubtree(ctx, {
-    collection,
-    entryId: entry._id,
+  const publicRows = await ctx.db
+    .query('publicEntries')
+    .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
+    .collect()
+  const oldPaths = publicRows.map((row) => row.href)
+  const newPaths: string[] = []
+  const tags: string[] = []
+
+  for (const row of publicRows) {
+    const revision = await ctx.db.get(row.revisionId)
+    const localeSnapshot = revision?.snapshot.locales[row.locale] ?? null
+    if (!revision || !localeSnapshot) continue
+    const projection = await buildPublicProjectionFromRevisionSnapshot(ctx, {
+      entry,
+      collection,
+      revisionId: revision._id,
+      snapshot: {
+        parentEntryId: revision.snapshot.parentEntryId ?? null,
+        orderRank: revision.snapshot.orderRank ?? null,
+      },
+      locale: row.locale,
+      localeSnapshot,
+      now: row.lastPublishedAt,
+    })
+    await upsertPublicProjection(ctx, projection.input)
+    newPaths.push(projection.input.href)
+    tags.push(...(projection.input.cacheTags ?? []))
+  }
+
+  await rebuildContentAssetRefsForEntry(ctx, entry._id, collection)
+
+  if (!generation || publicRows.length === 0) return false
+  const idempotencyKey = `content.revalidate:policy:${generation}:${String(entry._id)}`
+  const existing = await ctx.db
+    .query('outboxEvents')
+    .withIndex('by_idempotency_key', (q) => q.eq('idempotencyKey', idempotencyKey))
+    .first()
+  if (existing) return false
+  const now = Date.now()
+  await ctx.db.insert('outboxEvents', {
+    type: 'content.revalidate',
+    status: 'pending',
+    idempotencyKey,
+    versionId: null,
+    siteId: null,
+    tags: uniqueContentTags(tags),
+    paths: uniqueContentTags([
+      ...oldPaths,
+      ...newPaths,
+      ...collection.locales.map((locale) => pathPrefixForLocale(collection, locale) || '/'),
+    ]).map(normalizeContentPath),
+    payload: {
+      reason: 'policy_sync',
+      collection: collection.slug,
+      entryId: String(entry._id),
+      generation,
+    },
+    attempts: 0,
+    nextAttemptAt: now,
+    lastError: null,
+    createdAt: now,
+    updatedAt: now,
   })
+  return true
 }
 
 export async function recomputeCollectionDerivedState(
@@ -181,60 +204,9 @@ export function mapCollectionListItem(
   }
 }
 
-// Collection contract sync writes through internal component functions
-// only. The CLI reaches this path with Convex deploy-key admin auth. The
-// old public snapshot-install mutation was deleted because it allowed any
-// authenticated client that knew the deployment URL to mutate collection
-// contracts — directly contradicting the ADR that schema is code-owned and
-// must not be edited from Studio/MCP.
-export const installCollectionContractsArgs = {
-  collections: v.array(
-    v.object({
-      slug: v.string(),
-      label: v.optional(localeTextValidator),
-      icon: v.optional(v.string()),
-      type: v.union(v.literal('flat'), v.literal('tree')),
-      routing: collectionRoutingValidator,
-      locales: v.array(v.string()),
-      fields: v.optional(v.array(fieldValidator)),
-      settings: v.optional(jsonValueValidator),
-    }),
-  ),
-}
-
-export const installCollectionContractsReturns = v.object({
-  created: v.number(),
-  updated: v.number(),
-  skipped: v.number(),
-  missingFromConfig: v.array(v.string()),
-})
-
-const collectionContractDriftValidator = v.object({
-  slug: v.string(),
-  reason: v.union(v.literal('missing'), v.literal('different')),
-  entryCount: v.number(),
-  entryCountExact: v.boolean(),
-  migrationRequired: v.boolean(),
-  safeToPush: v.boolean(),
-  changes: v.array(jsonValueValidator),
-})
-
-export const checkCollectionContractsReturns = v.object({
-  drift: v.array(collectionContractDriftValidator),
-  missingFromConfigDetails: v.array(
-    v.object({
-      slug: v.string(),
-      entryCount: v.number(),
-      entryCountExact: v.boolean(),
-      migrationRequired: v.boolean(),
-      safeToPush: v.boolean(),
-    }),
-  ),
-  missingFromConfig: v.array(v.string()),
-})
-
 function normalizedIncomingContract(
   incoming: SyncConfigCollectionsArgs['collections'][number],
+  requestedGeneration: string,
 ): CollectionContractSnapshot {
   const fields = normalizeFields(incoming.fields ?? [])
   const routing = normalizeRouting(incoming.routing)
@@ -250,16 +222,7 @@ function normalizedIncomingContract(
     locales: incoming.locales,
     fields,
     settings,
-    contract: contractSnapshot({
-      slug: incoming.slug,
-      label,
-      icon,
-      type: incoming.type,
-      routing,
-      locales: incoming.locales,
-      fields,
-      settings,
-    }),
+    contract: { source: 'code', version: requestedGeneration },
   }
 }
 
@@ -280,10 +243,11 @@ function normalizedExistingContract(collection: Doc<'collections'>): CollectionC
   }
 }
 
-async function syncCodeDefinedCollectionContracts(
+export async function syncCodeDefinedCollectionContracts(
   ctx: MutationCtx,
   args: SyncConfigCollectionsArgs,
   appIdentityId: string,
+  requestedGeneration: string,
 ) {
   let created = 0
   let updated = 0
@@ -325,7 +289,7 @@ async function syncCodeDefinedCollectionContracts(
       if (hasEntries) {
         const drift = classifyCollectionContractDrift({
           existing: normalizedExistingContract(existing),
-          incoming: normalizedIncomingContract(incoming),
+          incoming: normalizedIncomingContract(incoming, requestedGeneration),
           entryCount: 1,
         })
         const incompatibleChanges = contractChangeCategories(drift.changes)
@@ -372,16 +336,7 @@ async function syncCodeDefinedCollectionContracts(
         changed = true
       }
 
-      const nextContract = contractSnapshot({
-        slug: incoming.slug,
-        label,
-        icon,
-        type: incoming.type,
-        routing: normalizedRouting,
-        locales: incoming.locales,
-        fields,
-        settings,
-      })
+      const nextContract = { source: 'code' as const, version: requestedGeneration }
       if (!isEqualJsonValue(existingRouting, normalizedRouting)) {
         patch.routing = normalizedRouting
         changed = true
@@ -409,7 +364,7 @@ async function syncCodeDefinedCollectionContracts(
       const needsReindex =
         patch.routing !== undefined || patch.locales !== undefined || patch.fields !== undefined
       if (needsReindex) {
-        await scheduleCollectionReindex(ctx, existing._id, appIdentityId)
+        await scheduleCollectionReindex(ctx, existing._id, appIdentityId, nextContract.version)
       }
 
       updated += 1
@@ -425,16 +380,7 @@ async function syncCodeDefinedCollectionContracts(
       locales: incoming.locales,
       fields,
       settings,
-      contract: contractSnapshot({
-        slug: incoming.slug,
-        label,
-        icon,
-        type: incoming.type,
-        routing: normalizedRouting,
-        locales: incoming.locales,
-        fields,
-        settings,
-      }),
+      contract: { source: 'code', version: requestedGeneration },
       createdAt: now,
       updatedAt: now,
       updatedBy: appIdentityId,
@@ -443,70 +389,4 @@ async function syncCodeDefinedCollectionContracts(
   }
 
   return { created, updated, skipped, missingFromConfig }
-}
-
-export async function checkCollectionContractsHandler(
-  ctx: QueryOrMutationCtx,
-  args: SyncConfigCollectionsArgs,
-) {
-  const incomingSlugs = new Set(args.collections.map((collection) => collection.slug))
-  const existingCollections = await ctx.db.query('collections').collect()
-  const missingFromConfigDetails = await Promise.all(
-    existingCollections
-      .filter((collection) => !incomingSlugs.has(collection.slug))
-      .map(async (collection) => {
-        const entryCount = await collectionEntryCountSnapshot(ctx, collection._id)
-        return {
-          slug: collection.slug,
-          entryCount: entryCount.count,
-          entryCountExact: entryCount.exact,
-          migrationRequired: entryCount.count > 0,
-          safeToPush: entryCount.count === 0,
-        }
-      }),
-  )
-  missingFromConfigDetails.sort((left, right) => left.slug.localeCompare(right.slug))
-  const missingFromConfig = missingFromConfigDetails.map((collection) => collection.slug)
-  const drift: Array<{
-    slug: string
-    reason: 'missing' | 'different'
-    entryCount: number
-    entryCountExact: boolean
-    migrationRequired: boolean
-    safeToPush: boolean
-    changes: JsonValue[]
-  }> = []
-
-  for (const incoming of args.collections) {
-    const normalized = normalizedIncomingContract(incoming)
-    const existing = await ctx.db
-      .query('collections')
-      .withIndex('by_slug', (q) => q.eq('slug', incoming.slug))
-      .first()
-
-    if (!existing) {
-      const missing = classifyMissingCollectionContract(incoming.slug)
-      drift.push({ ...missing, reason: 'missing', entryCountExact: true })
-      continue
-    }
-
-    const entryCount = await collectionEntryCountSnapshot(ctx, existing._id)
-    const contractDrift = classifyCollectionContractDrift({
-      existing: normalizedExistingContract(existing),
-      incoming: normalized,
-      entryCount: entryCount.count,
-    })
-    if (contractDrift.changes.length > 0) {
-      drift.push({ ...contractDrift, reason: 'different', entryCountExact: entryCount.exact })
-    }
-  }
-
-  return { drift, missingFromConfig, missingFromConfigDetails }
-}
-
-export async function installCollectionContractsHandler(
-  ctx: MutationCtx,
-  args: SyncConfigCollectionsArgs,
-) {
-  return await syncCodeDefinedCollectionContracts(ctx, args, 'bootstrap')
 }

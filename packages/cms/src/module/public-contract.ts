@@ -1,8 +1,8 @@
-import type { CollectionConfig, FieldConfig, ModuleOptions } from './options.js'
+import type { CollectionConfig, FieldConfig, ResolvedModuleOptions } from './options.js'
 
 const jsonMapType = 'Record<string, JsonValue>'
 
-export function renderPublicContractTypes(options: ModuleOptions): string {
+export function renderPublicContractTypes(options: ResolvedModuleOptions): string {
   const locales = options.locales.length
     ? options.locales.map((locale) => locale.code)
     : [options.defaultLocale]

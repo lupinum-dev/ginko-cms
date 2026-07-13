@@ -37,10 +37,6 @@
       "types": "./dist/convex/auth-config.d.ts",
       "import": "./dist/convex/auth-config.js"
     },
-    "./config": {
-      "types": "./dist/config/index.d.ts",
-      "import": "./dist/config/index.js"
-    },
     "./migration": {
       "types": "./dist/migration/index.d.ts",
       "import": "./dist/migration/index.js"
@@ -134,7 +130,7 @@
     "vue-router": "^5.0.7"
   },
   "peerDependencies": {
-    "@lupinum/ginko-content": "^0.3.0",
+    "@lupinum/ginko-content": "^0.4.0-rc.1",
     "better-auth": ">=1.6.13 <1.7.0",
     "nuxt": "^4.4.8",
     "vue": "^3.5.0"

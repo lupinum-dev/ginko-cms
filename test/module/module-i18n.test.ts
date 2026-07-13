@@ -1,7 +1,6 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -18,12 +17,8 @@ const addTypeTemplate = vi.fn((template: { filename: string }) => ({
 }))
 const addTemplate = addTypeTemplate
 const extendPages = vi.fn()
-const useLogger = vi.fn(() => ({
-  success: vi.fn(),
-}))
-
-const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const moduleDir = resolve(packageRoot, 'packages/cms/src')
+const useLogger = vi.fn(() => ({ success: vi.fn() }))
+const moduleDir = resolve(import.meta.dirname, '../../packages/cms/src')
 
 vi.mock('@nuxt/kit', () => ({
   addComponentsDir,
@@ -34,9 +29,7 @@ vi.mock('@nuxt/kit', () => ({
   addServerPlugin,
   addTypeTemplate,
   addTemplate,
-  createResolver: () => ({
-    resolve: (path: string) => resolve(moduleDir, path),
-  }),
+  createResolver: () => ({ resolve: (path: string) => resolve(moduleDir, path) }),
   defineNuxtModule: <T>(definition: T) => definition,
   extendPages,
   useLogger,
@@ -45,42 +38,26 @@ vi.mock('@nuxt/kit', () => ({
 vi.resetModules()
 
 const moduleDefinition = (await import('../../packages/cms/src/module')).default as unknown as {
-  (options: Record<string, unknown>, nuxt: Record<string, unknown>): Promise<void>
   setup: (options: Record<string, unknown>, nuxt: Record<string, unknown>) => Promise<void>
 }
 
-async function setupModule(options: Record<string, unknown>, nuxt: Record<string, unknown>) {
-  if (typeof moduleDefinition.setup === 'function') {
-    return moduleDefinition.setup(options, nuxt)
-  }
-  const { runWithNuxtContext } = await vi.importActual<typeof import('@nuxt/kit')>('@nuxt/kit')
-  return runWithNuxtContext(nuxt, () => moduleDefinition(options, nuxt))
-}
-
-function createNuxtMock(rootDir: string) {
+function createNuxtMock(rootDir: string, contentI18n: Record<string, unknown>) {
   return {
     hook: vi.fn(),
     options: {
+      alias: {} as Record<string, string>,
       css: [] as string[],
-      build: {
-        templates: [],
-      },
+      build: { templates: [] },
+      content: { i18n: contentI18n },
       i18n: {
         strategy: 'prefix_except_default',
         autoDetectLanguage: false,
         localeCookie: null,
-      },
+      } as Record<string, unknown>,
       modules: ['nuxt-i18n-micro'],
       rootDir,
-      runtimeConfig: {
-        public: {},
-      },
-      vite: {
-        plugins: [] as Array<{
-          name: string
-          transform?: (code: string, id: string) => { code: string; map: unknown } | string | null
-        }>,
-      },
+      runtimeConfig: { public: {} as Record<string, unknown> },
+      vite: { plugins: [] },
     },
   }
 }
@@ -88,118 +65,69 @@ function createNuxtMock(rootDir: string) {
 describe('ginko-cms i18n setup', () => {
   const tempDirs: string[] = []
 
-  afterEach(() => {
-    addImportsDir.mockClear()
-    addComponentsDir.mockClear()
-    addLayout.mockClear()
-    addPlugin.mockClear()
-    extendPages.mockClear()
-    useLogger.mockClear()
-
-    for (const dir of tempDirs.splice(0)) {
-      rmSync(dir, { force: true, recursive: true })
-    }
-  })
-
-  it('does not derive host Nuxt i18n defaults when the app has no i18n locale config', async () => {
+  async function fixture(contentI18n: Record<string, unknown>) {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-i18n-'))
     tempDirs.push(rootDir)
     await installConvexSetup(rootDir)
-    const nuxt = createNuxtMock(rootDir)
+    writeFileSync(join(rootDir, 'content.config.ts'), 'export default { collections: {} }\n')
+    return createNuxtMock(rootDir, contentI18n)
+  }
 
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'fr',
-        locales: [
-          { code: 'fr', label: 'Français', isDefault: true },
-          { code: 'it', label: 'Italiano' },
-        ],
-        route: '/studio',
-      },
-      nuxt,
-    )
+  afterEach(() => {
+    vi.clearAllMocks()
+    for (const dir of tempDirs.splice(0)) rmSync(dir, { force: true, recursive: true })
+  })
+
+  it('uses Content i18n as CMS policy without deriving host i18n configuration', async () => {
+    const nuxt = await fixture({
+      defaultLocale: 'fr',
+      locales: ['fr', 'it'],
+      fallback: { it: ['fr'] },
+    })
+
+    await moduleDefinition.setup({ route: '/studio' }, nuxt)
 
     expect(nuxt.options.i18n).toEqual({
       strategy: 'prefix_except_default',
       autoDetectLanguage: false,
       localeCookie: null,
     })
-    expect((nuxt.options as { colorMode: { classSuffix: string } }).colorMode).toEqual({
-      classSuffix: '',
-    })
     expect(nuxt.options.runtimeConfig.public.ginkoCms).toMatchObject({
       defaultLocale: 'fr',
       locales: [
-        { code: 'fr', label: 'Français', isDefault: true },
-        { code: 'it', label: 'Italiano', isDefault: false },
+        { code: 'fr', isDefault: true },
+        { code: 'it', isDefault: false, fallback: 'fr' },
       ],
     })
   })
 
-  it('only syncs defaultLocale and fallbackLocale when the app already declared i18n locales', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-i18n-configured-'))
-    tempDirs.push(rootDir)
-    await installConvexSetup(rootDir)
-    const nuxt = createNuxtMock(rootDir) as ReturnType<typeof createNuxtMock> & {
-      options: { i18n: Record<string, unknown> }
-    }
+  it('only fills compatible host i18n defaults from Content policy', async () => {
+    const nuxt = await fixture({ defaultLocale: 'fr', locales: ['fr', 'it'] })
+    nuxt.options.i18n.locales = [{ code: 'fr' }, { code: 'it' }]
 
-    nuxt.options.i18n = {
-      locales: [
-        { code: 'fr', name: 'Français' },
-        { code: 'it', name: 'Italiano' },
-      ],
-      strategy: 'prefix_except_default',
-      autoDetectLanguage: false,
-      localeCookie: null,
-    }
-
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'fr',
-        locales: [
-          { code: 'fr', label: 'Français', isDefault: true },
-          { code: 'it', label: 'Italiano' },
-        ],
-        route: '/studio',
-      },
-      nuxt,
-    )
+    await moduleDefinition.setup({ route: '/studio' }, nuxt)
 
     expect(nuxt.options.i18n).toMatchObject({
-      locales: [
-        { code: 'fr', name: 'Français' },
-        { code: 'it', name: 'Italiano' },
-      ],
+      locales: [{ code: 'fr' }, { code: 'it' }],
       defaultLocale: 'fr',
       fallbackLocale: 'fr',
-      strategy: 'prefix_except_default',
-      autoDetectLanguage: false,
-      localeCookie: null,
-    })
-    expect((nuxt.options as { colorMode: { classSuffix: string } }).colorMode).toEqual({
-      classSuffix: '',
     })
   })
 
-  it('rejects a default locale that is not declared in ginkoCms.locales', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-i18n-invalid-'))
-    tempDirs.push(rootDir)
-    await installConvexSetup(rootDir)
-    const nuxt = createNuxtMock(rootDir)
+  it('rejects host i18n that disagrees with Content policy', async () => {
+    const nuxt = await fixture({ defaultLocale: 'fr', locales: ['fr', 'it'] })
+    nuxt.options.i18n.locales = [{ code: 'fr' }]
+
+    await expect(moduleDefinition.setup({ route: '/studio' }, nuxt)).rejects.toThrow(
+      'Missing locale "it" in i18n.locales',
+    )
+  })
+
+  it('rejects removed CMS-owned collection and locale policy options', async () => {
+    const nuxt = await fixture({ defaultLocale: 'fr', locales: ['fr'] })
 
     await expect(
-      setupModule(
-        {
-          collections: {},
-          defaultLocale: 'fr',
-          locales: [{ code: 'de', label: 'Deutsch' }],
-          route: '/studio',
-        },
-        nuxt,
-      ),
-    ).rejects.toThrow('ginkoCms.defaultLocale "fr" must exist in ginkoCms.locales')
+      moduleDefinition.setup({ route: '/studio', collections: {} }, nuxt),
+    ).rejects.toThrow('Unknown ginkoCms option "collections"')
   })
 })

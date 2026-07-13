@@ -444,7 +444,9 @@ export const ginkoRouteClaimValidator = v.object({
   entryId: v.string(),
   locale: v.string(),
   path: v.string(),
+  href: v.optional(v.union(v.string(), v.null())),
   targetPath: v.optional(v.union(v.string(), v.null())),
+  targetHref: v.optional(v.union(v.string(), v.null())),
 })
 
 export const ginkoRouteDiagnosticCodeValidator = v.union(
@@ -1479,14 +1481,6 @@ export const importResultValidator = v.object({
       published: v.optional(v.array(v.string())),
     }),
   ),
-})
-
-/** installCollectionContracts result */
-export const syncConfigResultValidator = v.object({
-  created: v.number(),
-  updated: v.number(),
-  skipped: v.number(),
-  missingFromConfig: v.array(v.string()),
 })
 
 /** Import preview result */

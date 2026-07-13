@@ -29,6 +29,14 @@ function createOutput() {
   }
 }
 
+function writeContentConfig(rootDir: string, collection: string, pathPrefix: string) {
+  writeFileSync(
+    resolve(rootDir, 'content.config.ts'),
+    `export default { collections: { ${collection}: { type: 'page', source: 'content/${collection}/**/*.md', route: '${pathPrefix}' } } }\n`,
+    'utf8',
+  )
+}
+
 async function runCli(args: string[], cwd: string) {
   const stdout = createOutput()
   const stderr = createOutput()
@@ -182,18 +190,7 @@ describe('ginko-cms CLI', () => {
       ].join('\n'),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    collections: { pages: { type: 'flat', routing: { pathPrefix: '/' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    writeContentConfig(rootDir, 'pages', '/')
     const calls: Array<{
       kind: string
       args?: string[] | Record<string, unknown>
@@ -243,7 +240,8 @@ describe('ginko-cms CLI', () => {
       ])
       expect(calls[1]).toEqual({ kind: 'auth', token: 'deploy-key-test' })
       expect(calls[2]?.args).toMatchObject({
-        collections: [expect.objectContaining({ slug: 'pages' })],
+        contract: { collections: { pages: expect.objectContaining({ id: 'pages' }) } },
+        contractSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
       })
     } finally {
       if (previousDeployKey === undefined) {
@@ -271,18 +269,7 @@ describe('ginko-cms CLI', () => {
       ].join('\n'),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    collections: { pages: { type: 'flat', routing: { pathPrefix: '/' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    writeContentConfig(rootDir, 'pages', '/')
     const calls: Array<{ kind: string; args?: Record<string, unknown>; token?: string }> = []
     const stdout = createOutput()
     const stderr = createOutput()
@@ -302,7 +289,12 @@ describe('ginko-cms CLI', () => {
             setAdminAuth: (token: string) => calls.push({ kind: 'auth', token }),
             query: async (_ref, args) => {
               calls.push({ kind: 'query', args: args as Record<string, unknown> })
-              return { drift: [], missingFromConfig: [] }
+              return {
+                matches: true,
+                installedContractSha256: (args as { contractSha256: string }).contractSha256,
+                expectedContractSha256: (args as { contractSha256: string }).contractSha256,
+                drift: [],
+              }
             },
             mutation: async () => {
               throw new Error('deploy --check should not use mutation')
@@ -469,7 +461,7 @@ describe('ginko-cms CLI', () => {
     expect(doctor.stderr).toContain('Add "secure-exec": "^0.2.1" to dependencies')
   })
 
-  it('pushes collection contracts with Convex deploy-key admin auth', async () => {
+  it('pushes the canonical Content policy with Convex deploy-key admin auth', async () => {
     const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
     delete process.env.CONVEX_DEPLOY_KEY
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-'))
@@ -481,20 +473,7 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    defaultLocale: 'en',",
-        "    locales: [{ code: 'en', isDefault: true }],",
-        "    collections: { blog: { type: 'flat', routing: { pathPrefix: '/blog' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    writeContentConfig(rootDir, 'blog', '/blog')
     const calls: Array<{ kind: string; args?: Record<string, unknown>; token?: string }> = []
 
     const stdout = createOutput()
@@ -527,7 +506,8 @@ describe('ginko-cms CLI', () => {
       expect(calls[0]).toEqual({ kind: 'auth', token: 'deploy-key-test' })
       expect(calls[1]?.kind).toBe('mutation')
       expect(calls[1]?.args).toMatchObject({
-        collections: [expect.objectContaining({ slug: 'blog' })],
+        contract: { collections: { blog: expect.objectContaining({ id: 'blog' }) } },
+        contractSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
       })
       expect(calls[1]?.args).not.toHaveProperty(removedLegacyArg)
       expect(calls[1]?.args).not.toHaveProperty('caller')
@@ -541,7 +521,24 @@ describe('ginko-cms CLI', () => {
     }
   })
 
-  it('prints actionable collection drift when push check fails', async () => {
+  it('refuses to push when the canonical Content policy source is missing', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-missing-policy-'))
+    tempDirs.push(rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+
+    const result = await runCli(['push'], rootDir)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain('requires content.config.ts')
+  })
+
+  it('prints exact policy paths when push check fails', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-check-'))
     tempDirs.push(rootDir)
     writeFileSync(
@@ -551,20 +548,7 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    defaultLocale: 'en',",
-        "    locales: [{ code: 'en', isDefault: true }],",
-        "    collections: { posts: { type: 'flat', routing: { pathPrefix: '/posts' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    writeContentConfig(rootDir, 'posts', '/posts')
 
     const stdout = createOutput()
     const stderr = createOutput()
@@ -578,29 +562,14 @@ describe('ginko-cms CLI', () => {
         ({
           setAdminAuth: () => {},
           query: async () => ({
+            matches: false,
+            installedContractSha256: 'a'.repeat(64),
+            expectedContractSha256: 'b'.repeat(64),
             drift: [
               {
-                slug: 'posts',
-                reason: 'different',
-                entryCount: 1000,
-                entryCountExact: false,
-                migrationRequired: true,
-                safeToPush: false,
-                changes: [
-                  { kind: 'field_removed', field: 'badge', safe: false },
-                  { kind: 'field_added', field: 'category', required: false, safe: true },
-                  { kind: 'schema_changed', safe: false },
-                ],
-              },
-            ],
-            missingFromConfig: ['legacy'],
-            missingFromConfigDetails: [
-              {
-                slug: 'legacy',
-                entryCount: 3,
-                entryCountExact: true,
-                migrationRequired: true,
-                safeToPush: false,
+                path: '$.collections.posts.fields',
+                installed: [],
+                expected: [{ key: 'title' }],
               },
             ],
           }),
@@ -615,14 +584,8 @@ describe('ginko-cms CLI', () => {
 
     expect(code).toBe(1)
     expect(stdout.read()).toBe('')
-    expect(stderr.read()).toContain('Collection contract drift detected')
-    expect(stderr.read()).toContain('posts:')
-    expect(stderr.read()).toContain('affected entries: 1000+')
-    expect(stderr.read()).toContain('field removed: badge')
-    expect(stderr.read()).toContain('field added: category (optional)')
-    expect(stderr.read()).toContain('collection schema changed')
-    expect(stderr.read()).toContain('legacy: affected entries=3')
-    expect(stderr.read()).toContain('pnpm exec ginko-cms migrate create <change-name>')
+    expect(stderr.read()).toContain('Ginko CMS policy drift detected (1 change(s))')
+    expect(stderr.read()).toContain('$.collections.posts.fields')
   })
 
   it('redacts secrets from top-level CLI errors', async () => {
@@ -635,20 +598,7 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    defaultLocale: 'en',",
-        "    locales: [{ code: 'en', isDefault: true }],",
-        "    collections: { posts: { type: 'flat', routing: { pathPrefix: '/posts' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    writeContentConfig(rootDir, 'posts', '/posts')
 
     const stdout = createOutput()
     const stderr = createOutput()
@@ -676,7 +626,7 @@ describe('ginko-cms CLI', () => {
     expect(stderr.read()).not.toContain('mcp_abcdefghijklmnopqrstuvwxyz123456')
   })
 
-  it('treats legacy drift without migration metadata as migration-required', async () => {
+  it('reports a missing installed policy as root drift', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-check-legacy-'))
     tempDirs.push(rootDir)
     writeFileSync(
@@ -686,18 +636,7 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    collections: { posts: { type: 'flat', routing: { pathPrefix: '/posts' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    writeContentConfig(rootDir, 'posts', '/posts')
 
     const stdout = createOutput()
     const stderr = createOutput()
@@ -711,8 +650,10 @@ describe('ginko-cms CLI', () => {
         ({
           setAdminAuth: () => {},
           query: async () => ({
-            drift: [{ slug: 'posts', reason: 'different' }],
-            missingFromConfig: [],
+            matches: false,
+            installedContractSha256: null,
+            expectedContractSha256: 'b'.repeat(64),
+            drift: [{ path: '$', expected: { format: 'ginko-content-contract' } }],
           }),
           mutation: async () => {
             throw new Error('push --check should not use mutation')
@@ -725,10 +666,8 @@ describe('ginko-cms CLI', () => {
 
     expect(code).toBe(1)
     expect(stdout.read()).toBe('')
-    expect(stderr.read()).toContain('migration required: unknown')
-    expect(stderr.read()).toContain('Treat this drift as migration-required')
-    expect(stderr.read()).toContain('pnpm exec ginko-cms migrate create <change-name>')
-    expect(stderr.read()).not.toContain('Recommended next step:\n  pnpm exec ginko-cms push')
+    expect(stderr.read()).toContain('Ginko CMS policy drift detected (1 change(s))')
+    expect(stderr.read()).toContain('  - $')
   })
 
   it('scaffolds project content migration files', async () => {

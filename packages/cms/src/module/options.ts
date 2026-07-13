@@ -50,33 +50,32 @@ export interface SiteI18nEntry {
   description?: string
 }
 
+export interface CmsEditorialLayout {
+  collections: Record<
+    string,
+    {
+      label?: LocaleText
+      icon?: string
+      fields: Record<
+        string,
+        {
+          label?: LocaleText
+          description?: string | null
+          hidden?: boolean
+          width?: 'full' | 'half'
+        }
+      >
+    }
+  >
+}
+
 export interface ModuleOptions {
   /** Route where the studio admin UI is mounted (default: '/studio') */
   route: string
-  /** Directory of JSON collection definitions, relative to the Nuxt root. */
-  collectionsDir?: string
-  /**
-   * Content contract source. By default, ginko-cms derives collection
-   * contracts from `content.config.ts` when @lupinum/ginko-content is present.
-   * Set to false only for fully custom CMS integrations.
-   */
-  content?:
-    | false
-    | {
-        source?: 'auto' | 'ginko-content'
-        collections?: string[]
-        overrides?: Record<string, Partial<CollectionConfig>>
-      }
+  /** Presentation-only Studio layout keyed by resolved Content collection and field IDs. */
+  editorialLayout?: CmsEditorialLayout
   /** Enable client-side studio debug logging (defaults to dev only when unset) */
   debugStudio?: boolean
-  /** Internal mirror of @lupinum/ginko-content's global i18n translated-slug mode. */
-  contentTranslatedSlugs?: boolean
-  /** Content collection definitions */
-  collections: Record<string, CollectionConfig>
-  /** Default locale code (default: 'en') */
-  defaultLocale: string
-  /** Locale configuration */
-  locales: LocaleConfig[]
   /** Search configuration */
   search?: { enabled: boolean }
   /** Site data blocks (business hours, banners) */
@@ -121,4 +120,15 @@ export interface ModuleOptions {
    * registration.
    */
   mcp?: boolean
+}
+
+/**
+ * Resolved exclusively from ResolvedContentContractV1 during module setup.
+ *
+ * @internal
+ */
+export type ResolvedModuleOptions = ModuleOptions & {
+  collections: Record<string, CollectionConfig>
+  defaultLocale: string
+  locales: LocaleConfig[]
 }

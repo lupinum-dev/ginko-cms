@@ -26,36 +26,18 @@ export default defineNuxtConfig({
     url: process.env.CONVEX_URL,
   },
 
+  content: {
+    i18n: {
+      defaultLocale: 'en',
+      locales: ['en'],
+    },
+  },
+
   ginkoCms: {
     route: '/studio',
     publicContent: {
       api: true,
       prerender: true,
-    },
-    collections: {
-      blog: {
-        type: 'flat',
-        routing: {
-          pathPrefix: '/blog',
-        },
-        fields: [
-          { key: 'title', type: 'text', required: true },
-          { key: 'description', type: 'textarea' },
-          { key: 'bodyMdc', type: 'richtext' },
-          { key: 'featured', type: 'toggle' },
-        ],
-      },
-      authors: {
-        type: 'flat',
-        routing: {
-          mode: 'none',
-          pathPrefix: '/authors',
-        },
-        fields: [
-          { key: 'name', type: 'text', required: true },
-          { key: 'bio', type: 'textarea' },
-        ],
-      },
     },
   },
 })

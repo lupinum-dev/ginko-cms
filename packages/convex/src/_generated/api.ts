@@ -76,6 +76,7 @@ import type * as members from "../members.js";
 import type * as migrations from "../migrations.js";
 import type * as operationHelpers from "../operationHelpers.js";
 import type * as operations from "../operations.js";
+import type * as policy from "../policy.js";
 import type * as public_ from "../public.js";
 import type * as publicReadAdapter from "../publicReadAdapter.js";
 import type * as revalidation from "../revalidation.js";
@@ -160,6 +161,7 @@ const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   operationHelpers: typeof operationHelpers;
   operations: typeof operations;
+  policy: typeof policy;
   public: typeof public_;
   publicReadAdapter: typeof publicReadAdapter;
   revalidation: typeof revalidation;

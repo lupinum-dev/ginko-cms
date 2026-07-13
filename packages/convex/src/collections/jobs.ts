@@ -6,6 +6,7 @@ import { internalAction, internalMutation, internalQuery } from '../_generated/s
 import { getCollectionOrThrow } from '../lib/collections.js'
 import { asCollectionId, toStringId } from '../lib/ids.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
+import { scheduleRevalidationOutboxDelivery } from '../revalidation.js'
 import { recomputeEntryDerivedState } from './sync.js'
 
 const COLLECTION_REINDEX_BATCH_SIZE = 50
@@ -47,13 +48,31 @@ export async function scheduleCollectionReindex(
   ctx: MutationCtx,
   collectionId: Id<'collections'>,
   appIdentityId: string,
+  requestedGeneration?: string,
 ) {
+  const collection = await ctx.db.get(collectionId)
+  const generation = requestedGeneration ?? collection?.contract?.version ?? `manual:${Date.now()}`
   const existing = await getCollectionReindexJob(ctx, collectionId)
-  if (existing) return
-
   const now = Date.now()
+  if (existing) {
+    if (existing.requestedGeneration === generation) return
+    await ctx.db.patch(existing._id, {
+      requestedGeneration: generation,
+      appliedGeneration: null,
+      phase: 'draft',
+      cursor: null,
+      requestedBy: appIdentityId,
+      requestedAt: now,
+      updatedAt: now,
+    })
+    await scheduleReindexWorker(ctx, collectionId)
+    return
+  }
+
   await ctx.db.insert('collectionReindexJobs', {
     collectionId,
+    requestedGeneration: generation,
+    appliedGeneration: null,
     phase: 'draft',
     cursor: null,
     requestedBy: appIdentityId,
@@ -148,13 +167,19 @@ async function readCollectionReindexRows(
 export const getCollectionReindexPage = internalQuery({
   args: {
     collectionId: v.string(),
-    phase: v.union(v.literal('draft'), v.literal('published'), v.literal('archived')),
-    cursor: v.union(v.string(), v.null()),
   },
   returns: v.union(
     v.null(),
     v.object({
       collectionSlug: v.string(),
+      requestedGeneration: v.string(),
+      phase: v.union(
+        v.literal('draft'),
+        v.literal('published'),
+        v.literal('archived'),
+        v.literal('verify'),
+      ),
+      cursor: v.union(v.string(), v.null()),
       entryIds: v.array(v.string()),
       continueCursor: v.union(v.string(), v.null()),
       isDone: v.boolean(),
@@ -165,10 +190,22 @@ export const getCollectionReindexPage = internalQuery({
     const target = await getCollectionReindexTarget(ctx, collectionId)
     if (!target) return null
 
-    const cursor = parseCreatedAtCursor(args.cursor)
+    if (target.job.phase === 'verify') {
+      return {
+        collectionSlug: target.collection.slug,
+        requestedGeneration: target.job.requestedGeneration,
+        phase: 'verify' as const,
+        cursor: null,
+        entryIds: [],
+        continueCursor: null,
+        isDone: true,
+      }
+    }
+
+    const cursor = parseCreatedAtCursor(target.job.cursor)
     const rows = await readCollectionReindexRows(ctx, {
       collectionId,
-      phase: args.phase,
+      phase: target.job.phase,
       cursor,
       limit: COLLECTION_REINDEX_BATCH_SIZE + 1,
     })
@@ -177,6 +214,9 @@ export const getCollectionReindexPage = internalQuery({
 
     return {
       collectionSlug: target.collection.slug,
+      requestedGeneration: target.job.requestedGeneration,
+      phase: target.job.phase,
+      cursor: target.job.cursor,
       entryIds: page.map((entry) => toStringId(entry._id)),
       continueCursor:
         isDone || page.length === 0 ? null : encodeCreatedAtCursor(page[page.length - 1]!),
@@ -189,50 +229,72 @@ export const applyCollectionReindexPage = internalMutation({
   args: {
     collectionId: v.string(),
     phase: v.union(v.literal('draft'), v.literal('published'), v.literal('archived')),
+    requestedGeneration: v.string(),
     cursor: v.union(v.string(), v.null()),
     nextCursor: v.union(v.string(), v.null()),
     entryIds: v.array(v.string()),
   },
-  returns: v.null(),
+  returns: v.union(v.literal('continue'), v.literal('restart'), v.literal('complete')),
   handler: async (ctx, args) => {
     const collectionId = asCollectionId(args.collectionId)
     const job = await getCollectionReindexJob(ctx, collectionId)
     const target = job ? await getCollectionReindexTarget(ctx, collectionId) : null
     if (!target) {
-      if (!job) return null
+      if (!job) return 'complete' as const
       await ctx.db.delete(job._id)
-      return null
+      return 'complete' as const
     }
 
+    if (target.job.requestedGeneration !== args.requestedGeneration) return 'restart' as const
+    if (target.job.phase !== args.phase || target.job.cursor !== args.cursor)
+      return 'restart' as const
+
     const hydratedCollection = await getCollectionOrThrow(ctx, target.collection.slug)
+    let scheduledRevalidation = false
     for (const entryId of args.entryIds) {
       const entry = await ctx.db.get(entryId as Id<'entries'>)
       if (!entry || entry.collectionId !== collectionId) continue
-      await recomputeEntryDerivedState(ctx, hydratedCollection, entry)
+      scheduledRevalidation =
+        (await recomputeEntryDerivedState(
+          ctx,
+          hydratedCollection,
+          entry,
+          args.requestedGeneration,
+        )) || scheduledRevalidation
     }
+    if (scheduledRevalidation) await scheduleRevalidationOutboxDelivery(ctx)
 
+    const nextPhase = args.nextCursor === null ? nextReindexPhase(args.phase) : args.phase
     await ctx.db.patch(target.job._id, {
-      phase: args.phase,
+      phase: nextPhase ?? 'verify',
       cursor: args.nextCursor,
       updatedAt: Date.now(),
     })
 
-    return null
+    return 'continue' as const
   },
 })
 
 export const finishCollectionReindex = internalMutation({
   args: {
     collectionId: v.string(),
+    requestedGeneration: v.string(),
   },
-  returns: v.null(),
+  returns: v.union(v.literal('restart'), v.literal('complete')),
   handler: async (ctx, args) => {
     const collectionId = asCollectionId(args.collectionId)
     const job = await getCollectionReindexJob(ctx, collectionId)
-    if (job) {
-      await ctx.db.delete(job._id)
-    }
-    return null
+    if (!job) return 'complete' as const
+    if (job.requestedGeneration !== args.requestedGeneration) return 'restart' as const
+    await ctx.db.patch(job._id, {
+      appliedGeneration: args.requestedGeneration,
+      updatedAt: Date.now(),
+    })
+    const verified = await getCollectionReindexJob(ctx, collectionId)
+    if (!verified || verified.appliedGeneration !== verified.requestedGeneration)
+      return 'restart' as const
+    await ctx.db.delete(verified._id)
+    return 'complete' as const
   },
 })
 
@@ -242,47 +304,46 @@ export const runCollectionReindexJob = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    let phase: CollectionJobPhase | null = 'draft'
-    let cursor: string | null = null
     type ReindexPage = {
       collectionSlug: string
+      requestedGeneration: string
+      phase: CollectionJobPhase | 'verify'
+      cursor: string | null
       entryIds: string[]
       continueCursor: string | null
       isDone: boolean
     }
 
-    while (phase) {
-      while (true) {
-        const page = (await ctx.runQuery(
-          internalJobsApi.collections.jobs.getCollectionReindexPage,
-          { collectionId: args.collectionId, phase, cursor },
-        )) as ReindexPage | null
-        if (!page) {
-          await ctx.runMutation(internalJobsApi.collections.jobs.finishCollectionReindex, {
+    while (true) {
+      const page = (await ctx.runQuery(internalJobsApi.collections.jobs.getCollectionReindexPage, {
+        collectionId: args.collectionId,
+      })) as ReindexPage | null
+      if (!page) return null
+
+      if (page.phase === 'verify') {
+        const result = await ctx.runMutation(
+          internalJobsApi.collections.jobs.finishCollectionReindex,
+          {
             collectionId: args.collectionId,
-          })
-          return null
-        }
-
-        await ctx.runMutation(internalJobsApi.collections.jobs.applyCollectionReindexPage, {
-          collectionId: args.collectionId,
-          phase,
-          cursor,
-          nextCursor: page.continueCursor,
-          entryIds: page.entryIds,
-        })
-
-        if (page.isDone) break
-        cursor = page.continueCursor
+            requestedGeneration: page.requestedGeneration,
+          },
+        )
+        if (result === 'complete') return null
+        continue
       }
 
-      phase = nextReindexPhase(phase)
-      cursor = null
+      const result = await ctx.runMutation(
+        internalJobsApi.collections.jobs.applyCollectionReindexPage,
+        {
+          collectionId: args.collectionId,
+          requestedGeneration: page.requestedGeneration,
+          phase: page.phase,
+          cursor: page.cursor,
+          nextCursor: page.continueCursor,
+          entryIds: page.entryIds,
+        },
+      )
+      if (result === 'complete') return null
     }
-
-    await ctx.runMutation(internalJobsApi.collections.jobs.finishCollectionReindex, {
-      collectionId: args.collectionId,
-    })
-    return null
   },
 })

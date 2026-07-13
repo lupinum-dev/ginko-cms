@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
+import { getLocaleChain } from '../../../packages/convex/src/lib/locale'
 import { api, createCtx } from '../../helpers'
 
 async function seedOwner(ctx: ReturnType<typeof createCtx>, userId = 'owner-1') {
@@ -129,6 +130,32 @@ async function seedPublicProjection(
 }
 
 describe('locale fallback chain via public API', () => {
+  it('prefers the exact installed Content fallback chain over its lossy settings projection', async () => {
+    const ctx = createCtx()
+    await seedSettingsWithFallback(ctx)
+    await ctx.seed(
+      'cmsPolicies' as never,
+      {
+        key: 'active',
+        contract: {
+          defaultLocale: 'en',
+          localeFallbacks: { 'de-CH': ['fr', 'en'] },
+        },
+        contractSha256: 'policy-a',
+        installedAt: Date.now(),
+        installedBy: 'deployment',
+      } as never,
+    )
+
+    await expect(
+      ctx.raw.run(async (inner) => await getLocaleChain(inner, 'de-CH')),
+    ).resolves.toEqual({
+      locale: 'de-CH',
+      chain: ['de-CH', 'fr', 'en'],
+      defaultLocale: 'en',
+    })
+  })
+
   it('does not synthesize route-backed fallback pages (de-CH -> de -> en)', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

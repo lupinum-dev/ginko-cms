@@ -75,6 +75,7 @@ async function seedPublishedEntry(
     locale: string
     slug: string
     path: string
+    href?: string
     title?: string
     draftSlug?: string | null
     draftTitle?: string
@@ -179,7 +180,7 @@ async function seedPublishedEntry(
       locale: input.locale,
       slug: input.slug,
       path: input.path,
-      href: input.path,
+      href: input.href ?? input.path,
       title: input.title ?? input.slug,
       description: null,
       data: input.publishedData ?? (input.title ? { title: input.title } : {}),
@@ -201,7 +202,7 @@ async function seedPublishedEntry(
         collectionId: input.collectionId,
         locale: input.locale,
         path: input.path,
-        href: input.path,
+        href: input.href ?? input.path,
       } as never,
     )
   }
@@ -337,6 +338,7 @@ describe('public visibility diagnostics', () => {
       locale: 'en',
       slug: 'english-de-path',
       path: '/de/foo',
+      href: '/en/de/foo',
       title: 'English',
     })
     await seedPublishedEntry(ctx, {
@@ -345,6 +347,7 @@ describe('public visibility diagnostics', () => {
       locale: 'de',
       slug: 'german-root-path',
       path: '/foo',
+      href: '/foo',
       title: 'Deutsch',
     })
 
@@ -380,6 +383,7 @@ describe('public visibility diagnostics', () => {
       locale: 'de',
       slug: 'german-root-path',
       path: '/foo',
+      href: '/de/foo',
       title: 'Deutsch',
     })
 

@@ -1,21 +1,14 @@
 import { updateSettings as updateSettingsArgs } from '@lupinum/ginko-cms-contract/convex/schemas/settings.js'
 import {
   cmsSettingsValidator,
-  localeConfigValidator,
   studioSettingsValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 
 import { canManageSettings, canRead } from './auth/checks.js'
-import { callerMutation, callerQuery, directInternalMutation } from './functions.js'
+import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { getCmsSettings } from './lib/locale.js'
-import { assertValidLocaleCode } from './lib/validation.js'
-
-const bootstrapSettingsResultValidator = v.object({
-  created: v.boolean(),
-  updated: v.boolean(),
-})
 
 function serializeStudioSettings(settings: Awaited<ReturnType<typeof getCmsSettings>>) {
   if (!settings) return null
@@ -68,43 +61,6 @@ export const getSettings = callerQuery.protected({
   handler: async (ctx) => serializeCmsSettings(await getCmsSettings(ctx)),
 })
 
-// AUTH-AUDIT: intentionally unguarded — called by the Convex component installer
-// to seed initial CMS settings before any user exists.
-export const syncBootstrapSettings = directInternalMutation({
-  id: 'settings:syncBootstrapSettings',
-  args: {
-    locales: v.array(localeConfigValidator),
-  },
-  returns: bootstrapSettingsResultValidator,
-  handler: async (ctx, args) => {
-    ;(args.locales as Array<{ code: string }>).forEach((locale) =>
-      assertValidLocaleCode(locale.code, 'SETTINGS_LOCALE_INVALID'),
-    )
-    const existing = await getCmsSettings(ctx)
-    if (!existing) {
-      await ctx.db.insert('cmsSettings', {
-        key: 'site',
-        locales: args.locales,
-        webhooks: [],
-        updatedBy: 'bootstrap',
-        updatedAt: Date.now(),
-      })
-      return { created: true, updated: false }
-    }
-
-    if ((existing.locales?.length ?? 0) > 0) {
-      return { created: false, updated: false }
-    }
-
-    await ctx.db.patch(existing._id, {
-      locales: args.locales,
-      updatedBy: 'bootstrap',
-      updatedAt: Date.now(),
-    })
-    return { created: false, updated: true }
-  },
-})
-
 export const updateSettings = callerMutation.protected({
   id: 'settings:updateSettings',
   args: updateSettingsArgs.args,
@@ -113,14 +69,10 @@ export const updateSettings = callerMutation.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const existing = await getCmsSettings(ctx)
-    ;(args.locales as Array<{ code: string }> | undefined)?.forEach((locale) =>
-      assertValidLocaleCode(locale.code, 'SETTINGS_LOCALE_INVALID'),
-    )
     const patch: Record<string, unknown> = {
       updatedBy: appIdentity.userId,
       updatedAt: Date.now(),
     }
-    if (args.locales !== undefined) patch.locales = args.locales
     if (args.webhooks !== undefined) {
       ;(args.webhooks as Array<{ url: string }>).forEach((webhook) => assertWebhookUrl(webhook.url))
       patch.webhooks = args.webhooks
@@ -129,7 +81,7 @@ export const updateSettings = callerMutation.protected({
     if (!existing) {
       await ctx.db.insert('cmsSettings', {
         key: 'site',
-        locales: args.locales ?? [],
+        locales: [],
         webhooks: args.webhooks ?? [],
         updatedBy: appIdentity.userId,
         updatedAt: Date.now(),

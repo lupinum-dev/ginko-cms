@@ -12,9 +12,9 @@ but they do not edit schema. Contract changes move in one direction:
 content.config.ts -> ginko-cms push -> synced CMS contract
 ```
 
-`content.config.ts` is the default source for Ginko Content apps. Use
-`ginkoCms.collections` or `collectionsDir` only for custom CMS integrations that
-intentionally do not derive contracts from Ginko Content.
+`content.config.ts` is the only collection-policy source in Ginko CMS 0.2.
+Custom integrations must produce the same resolved Ginko Content contract;
+they cannot layer CMS-owned schema or routing overrides on top of it.
 
 Stored content is separate. If a contract change can invalidate existing
 entries, update the content explicitly before pushing the new contract.

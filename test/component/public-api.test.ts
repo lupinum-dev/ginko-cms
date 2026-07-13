@@ -1184,31 +1184,24 @@ describe('public API: list projection', () => {
 
     const owner = ctx.asCmsUser('owner-1')
 
-    await ctx.raw.mutation(api.collections.installCollectionContracts, {
-      collections: [
+    await seedPublishedEntries(ctx, 0, {
+      collectionSlug: 'secure-posts',
+      pathPrefix: '/secure-posts',
+      fields: [
+        { key: 'title', type: 'text', localized: true, searchable: true },
         {
-          slug: 'secure-posts',
-          label: { en: 'Secure posts' },
-          type: 'flat',
-          routing: { pathPrefix: '/secure-posts' },
-          locales: ['en'],
+          key: 'internalNote',
+          type: 'text',
+          localized: true,
+          searchable: true,
+          hidden: true,
+        },
+        {
+          key: 'meta',
+          type: 'object',
           fields: [
-            { key: 'title', type: 'text', localized: true, searchable: true },
-            {
-              key: 'internalNote',
-              type: 'text',
-              localized: true,
-              searchable: true,
-              hidden: true,
-            },
-            {
-              key: 'meta',
-              type: 'object',
-              fields: [
-                { key: 'summary', type: 'text', searchable: true },
-                { key: 'secret', type: 'text', searchable: true, hidden: true },
-              ],
-            },
+            { key: 'summary', type: 'text', searchable: true },
+            { key: 'secret', type: 'text', searchable: true, hidden: true },
           ],
         },
       ],
@@ -1574,7 +1567,7 @@ describe('public API: stableId redirect', () => {
 // SEO + sitemap locale defaults
 // ---------------------------------------------------------------------------
 describe('public API: SEO and sitemap locale defaults', () => {
-  it('uses CMS settings default locale for x-default instead of collection order', async () => {
+  it('uses the canonical collection default locale for x-default', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await ctx.seed(
@@ -1607,7 +1600,7 @@ describe('public API: SEO and sitemap locale defaults', () => {
         },
         locales: ['en', 'de'],
         fields: [{ key: 'title', type: 'text', localized: true, searchable: true }],
-        settings: {},
+        settings: { defaultLocale: 'de' },
         createdAt: now,
         updatedAt: now,
         updatedBy: 'owner-1',
