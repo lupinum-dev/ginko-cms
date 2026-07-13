@@ -30,9 +30,10 @@ function defineCmsGuard(
 
 export function can(appIdentity: CmsAppIdentity, guard: CmsGuard): boolean {
   if (!guard.check(appIdentity)) return false
-  if (!guard.permission || appIdentity?.kind !== 'member' || appIdentity.audit.origin !== 'mcp') {
+  if (appIdentity?.kind !== 'member' || appIdentity.audit.origin !== 'mcp') {
     return true
   }
+  if (!guard.permission) return false
   return appIdentity.mcpEffectivePermissions?.[guard.permission] === true
 }
 
@@ -120,6 +121,18 @@ export const canManageAssets = defineCmsGuard(
   cmsPermissionKeys.manageAssets,
 )
 
+export const canManageBackups = defineCmsGuard(
+  'Manage backups',
+  hasRole('owner').check,
+  cmsPermissionKeys.manageBackups,
+)
+
+export const canManagePortability = defineCmsGuard(
+  'Manage portability',
+  hasRole('owner').check,
+  cmsPermissionKeys.managePortability,
+)
+
 export const cmsPermissionGuards = [
   { key: cmsPermissionKeys.read, guard: canRead },
   { key: cmsPermissionKeys.createEntries, guard: canCreateEntries },
@@ -131,4 +144,6 @@ export const cmsPermissionGuards = [
   { key: cmsPermissionKeys.manageSettings, guard: canManageSettings },
   { key: cmsPermissionKeys.manageMembers, guard: canManageMembers },
   { key: cmsPermissionKeys.manageAssets, guard: canManageAssets },
+  { key: cmsPermissionKeys.manageBackups, guard: canManageBackups },
+  { key: cmsPermissionKeys.managePortability, guard: canManagePortability },
 ] satisfies Array<{ key: CmsPermissionKey; guard: CmsGuard }>

@@ -1,3 +1,7 @@
+import {
+  bootstrapCmsOwner,
+  bootstrapCmsOwnerComponent,
+} from '@lupinum/ginko-cms-contract/convex/schemas/members.js'
 import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { describe, expect, it } from 'vitest'
 
@@ -8,13 +12,17 @@ import {
   canDeleteEntries,
   canEditEntries,
   canManageAssets,
+  canManageBackups,
   canManageCollections,
   canManageMembers,
+  canManagePortability,
   canManageSettings,
   canPublishEntries,
   canRead,
   can,
   isBootstrapUser,
+  hasRole,
+  cmsPermissionGuards,
 } from '#component/auth/checks.js'
 import { bootstrapCmsOwnerRecord, validateFirstOwnerEmail } from '#component/members.js'
 
@@ -114,6 +122,14 @@ function memberAppIdentity(role: 'owner' | 'publisher' | 'editor' | 'viewer'): C
 }
 
 describe('cms member bootstrap', () => {
+  it('keeps caller-controlled email out of both bootstrap boundaries', () => {
+    expect(Object.keys(bootstrapCmsOwner.args)).toEqual(['displayName'])
+    expect(Object.keys(bootstrapCmsOwnerComponent.args).sort()).toEqual([
+      'configuredOwnerEmail',
+      'displayName',
+    ])
+  })
+
   it('creates exactly one bootstrap owner and logs the activity', async () => {
     const { ctx, state } = createMembersCtx()
 
@@ -182,6 +198,18 @@ describe('first owner email validation', () => {
 })
 
 describe('cms guards', () => {
+  it('fails closed for MCP identities when a protected guard has no permission', () => {
+    const owner = memberAppIdentity('owner') as CmsMemberAppIdentity
+    const mcpOwner: CmsMemberAppIdentity = {
+      ...owner,
+      caller: { kind: 'mcp', apiKeyId: 'key_1' },
+      mcpEffectivePermissions: {},
+      audit: { origin: 'mcp', apiKeyId: 'key_1' },
+    }
+
+    expect(can(mcpOwner, hasRole('owner'))).toBe(false)
+  })
+
   it('allows bootstrap appIdentitys to read and bootstrap, but nothing stronger', () => {
     const appIdentity: CmsAppIdentity = {
       kind: 'authenticated',
@@ -204,6 +232,8 @@ describe('cms guards', () => {
     expect(can(appIdentity, canManageSettings)).toBe(false)
     expect(can(appIdentity, canManageMembers)).toBe(false)
     expect(can(appIdentity, canManageAssets)).toBe(false)
+    expect(can(appIdentity, canManageBackups)).toBe(false)
+    expect(can(appIdentity, canManagePortability)).toBe(false)
   })
 
   it('maps owner, publisher, editor, and viewer roles to the expected permission matrix', () => {
@@ -222,6 +252,8 @@ describe('cms guards', () => {
     expect(can(owner, canManageSettings)).toBe(true)
     expect(can(owner, canManageMembers)).toBe(true)
     expect(can(owner, canManageAssets)).toBe(true)
+    expect(can(owner, canManageBackups)).toBe(true)
+    expect(can(owner, canManagePortability)).toBe(true)
 
     expect(can(publisher, canRead)).toBe(true)
     expect(can(publisher, canCreateEntries)).toBe(true)
@@ -233,6 +265,8 @@ describe('cms guards', () => {
     expect(can(publisher, canManageSettings)).toBe(false)
     expect(can(publisher, canManageMembers)).toBe(false)
     expect(can(publisher, canManageAssets)).toBe(true)
+    expect(can(publisher, canManageBackups)).toBe(false)
+    expect(can(publisher, canManagePortability)).toBe(false)
 
     expect(can(editor, canRead)).toBe(true)
     expect(can(editor, canCreateEntries)).toBe(true)
@@ -256,4 +290,24 @@ describe('cms guards', () => {
     expect(can(viewer, canManageMembers)).toBe(false)
     expect(can(viewer, canManageAssets)).toBe(false)
   })
+
+  it.each(['owner', 'publisher', 'editor', 'viewer'] as const)(
+    'intersects every %s MCP permission with both role and explicit scope',
+    (role) => {
+      const user = memberAppIdentity(role) as CmsMemberAppIdentity
+      const allScopes = Object.fromEntries(cmsPermissionGuards.map(({ key }) => [key, true]))
+      const noScopes = Object.fromEntries(cmsPermissionGuards.map(({ key }) => [key, false]))
+      const mcp = (scopes: Record<string, boolean>): CmsMemberAppIdentity => ({
+        ...user,
+        caller: { kind: 'mcp', apiKeyId: `${role}_key` },
+        mcpEffectivePermissions: scopes,
+        audit: { origin: 'mcp', apiKeyId: `${role}_key` },
+      })
+
+      for (const { guard } of cmsPermissionGuards) {
+        expect(can(mcp(allScopes), guard)).toBe(can(user, guard))
+        expect(can(mcp(noScopes), guard)).toBe(false)
+      }
+    },
+  )
 })

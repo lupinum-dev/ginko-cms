@@ -4,6 +4,14 @@
 
 ### Changed
 
+- Made Studio authentication mandatory. Hosts using the unsupported
+  `convex.auth: false` topology must configure Better Convex Nuxt
+  authentication before upgrading.
+- Convex JWTs now carry a server-issued `ginkoCredentialKind` claim so browser
+  sessions and Better Auth API-key sessions have disjoint, fail-closed CMS
+  authority.
+- Added explicit backup and portability permission keys. Backup and owner
+  diagnostics now use permission-bearing guards on direct Convex callables.
 - Migrated the Nuxt provider and public Convex reads to Ginko Content Wire V2
   with `@lupinum/ginko-content@0.3.0`; V1 provider payloads are no longer
   accepted.
@@ -59,6 +67,11 @@
 
 ### Migration Notes
 
+- Set `BETTER_AUTH_SECRET`; runtime startup and `ginko-cms doctor` no longer
+  accept an invented development fallback.
+- Regenerate the host member adapter. First-owner bootstrap no longer accepts a
+  caller-provided email; it authorizes only the verified JWT email against
+  `GINKO_FIRST_OWNER_EMAIL`.
 - Install the publishable package tuple directly:
   `@lupinum/ginko-content`, `@lupinum/ginko-cms`,
   `@lupinum/ginko-cms-convex`, `better-convex-nuxt`,

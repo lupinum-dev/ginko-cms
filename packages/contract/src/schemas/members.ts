@@ -44,16 +44,11 @@ export const bootstrapCmsOwner = defineArgs({
   description: 'Bootstrap the first CMS owner.',
   args: {
     displayName: v.optional(v.string()),
-    email: v.optional(v.string()),
   },
   meta: {
     displayName: {
       label: 'Display Name',
       description: 'Preferred name to persist on the bootstrapped owner record.',
-    },
-    email: {
-      label: 'Email',
-      description: 'Email address to persist on the bootstrapped owner record.',
     },
   },
 })
@@ -62,17 +57,12 @@ export const bootstrapCmsOwnerComponent = defineArgs({
   description: 'Bootstrap the first CMS owner from the host app.',
   args: {
     displayName: v.optional(v.string()),
-    email: v.optional(v.string()),
     configuredOwnerEmail: v.optional(v.string()),
   },
   meta: {
     displayName: {
       label: 'Display Name',
       description: 'Preferred name to persist on the bootstrapped owner record.',
-    },
-    email: {
-      label: 'Email',
-      description: 'Email address to persist on the bootstrapped owner record.',
     },
     configuredOwnerEmail: {
       label: 'Configured Owner Email',

@@ -87,7 +87,6 @@ async function claimCmsOwnership() {
   try {
     await bootstrapCmsOwner({
       displayName: user.value?.name ?? undefined,
-      email: user.value?.email ?? undefined,
     })
   } catch (error) {
     bootstrapError.value = getCmsErrorMessage(error, t('ginkoCms.studio.layout.bootstrapError'))

@@ -372,6 +372,7 @@ export default defineSchema({
     label: v.optional(v.union(v.string(), v.null())),
     scopes: v.array(v.string()),
     status: v.union(v.literal('active'), v.literal('revoked')),
+    expiresAt: v.optional(v.union(v.number(), v.null())),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedBy: v.string(),

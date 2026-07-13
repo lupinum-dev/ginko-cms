@@ -52,7 +52,8 @@ NUXT_PUBLIC_SITE_URL=https://your-site.example
   `${CONVEX_SITE_URL}/api/auth`.
 - `CONVEX_DEPLOYMENT`: Convex CLI deployment name. Convex owns and writes this
   during project setup.
-- `BETTER_AUTH_SECRET`: Better Auth session/signing secret.
+- `BETTER_AUTH_SECRET`: required Better Auth session/signing secret. Runtime
+  startup and `ginko-cms doctor` fail closed when it is missing.
 - `SITE_URL`: canonical site origin for auth redirects and public URLs.
 - `NUXT_PUBLIC_SITE_URL`: browser-visible canonical site origin when public
   runtime config needs it.

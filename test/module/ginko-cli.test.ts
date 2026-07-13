@@ -87,6 +87,7 @@ describe('ginko-cms CLI', () => {
     expect(init.stdout).toContain('Ginko CMS initialized')
     expect(init.stdout).toContain('Next: run `pnpm exec ginko-cms doctor`')
     expect(init.stdout).toContain('configure the required environment')
+    expect(init.stdout).toContain('Set `BETTER_AUTH_SECRET`')
     expect(init.stdout).toContain('run `pnpm exec ginko-cms deploy`')
     expect(init.stdout).toContain(
       'Host apps must depend directly on `@convex-dev/better-auth`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
@@ -109,9 +110,22 @@ describe('ginko-cms CLI', () => {
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, staleMcpBridgeFile))).toBe(false)
 
+    writeFileSync(resolve(rootDir, '.env.local'), 'BETTER_AUTH_SECRET=test-secret\n')
     const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(0)
     expect(check.stdout).toContain('Ginko CMS doctor passed')
+  })
+
+  it('reports a missing Better Auth secret without printing a secret value', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-secret-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+
+    const check = await runCli(['doctor'], rootDir)
+
+    expect(check.code).toBe(1)
+    expect(check.stderr).toContain('BETTER_AUTH_SECRET is required')
+    expect(check.stderr).not.toContain('ginko-cms-dev-secret')
   })
 
   it('rejects the removed setup alias with init guidance', async () => {
@@ -160,9 +174,12 @@ describe('ginko-cms CLI', () => {
     await runCli(['init'], rootDir)
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
-        '\n',
-      ),
+      [
+        'CONVEX_URL=https://example.convex.cloud',
+        'CONVEX_DEPLOY_KEY=deploy-key-test',
+        'BETTER_AUTH_SECRET=test-secret',
+        '',
+      ].join('\n'),
       'utf8',
     )
     writeFileSync(
@@ -246,9 +263,12 @@ describe('ginko-cms CLI', () => {
     await runCli(['init'], rootDir)
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
-        '\n',
-      ),
+      [
+        'CONVEX_URL=https://example.convex.cloud',
+        'CONVEX_DEPLOY_KEY=deploy-key-test',
+        'BETTER_AUTH_SECRET=test-secret',
+        '',
+      ].join('\n'),
       'utf8',
     )
     writeFileSync(
@@ -311,6 +331,7 @@ describe('ginko-cms CLI', () => {
     tempDirs.push(rootDir)
 
     await runCli(['init'], rootDir)
+    writeFileSync(resolve(rootDir, '.env.local'), 'BETTER_AUTH_SECRET=test-secret\n', 'utf8')
     writeFileSync(resolve(rootDir, staleMcpBridgeFile), '// stale generated output\n', 'utf8')
 
     const check = await runCli(['doctor'], rootDir)
@@ -326,7 +347,11 @@ describe('ginko-cms CLI', () => {
     const legacySecretName = ['CONVEX', 'IDENTITY', 'FORWARDING', 'KEY'].join('_')
 
     await runCli(['init'], rootDir)
-    writeFileSync(resolve(rootDir, '.env.local'), `${legacySecretName}=old-secret\n`, 'utf8')
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      `BETTER_AUTH_SECRET=test-secret\n${legacySecretName}=old-secret\n`,
+      'utf8',
+    )
 
     const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(1)

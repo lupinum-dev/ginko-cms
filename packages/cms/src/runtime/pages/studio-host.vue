@@ -32,7 +32,6 @@ import {
   onMounted,
   useConvex,
   useConvexAuth,
-  useConvexConfig,
   useHead,
   useRequestURL,
   useRoute,
@@ -46,12 +45,8 @@ const runtimeConfig = useRuntimeConfig()
 const requestUrl = useRequestURL()
 const route = useRoute()
 const convexAuth = useConvexAuth()
-const convexConfig = useConvexConfig()
 
 const cmsConfig = computed(() => runtimeConfig.public.ginkoCms as unknown as GinkoCmsPublicConfig)
-// `useConvexConfig().auth === false` is the single normalized disabled-auth
-// signal (vNext §5.7). No raw `runtimeConfig.public.convex` casts here.
-const authDisabled = computed(() => convexConfig.auth === false)
 const studioRoute = computed(() =>
   ((cmsConfig.value.route as string | undefined) ?? '/studio').replace(/\/$/, ''),
 )
@@ -128,7 +123,7 @@ async function deleteMcpApiKey(input: { keyId: string }): Promise<void> {
 // lets the SPA capture inert fallback proxies before the real generated API is
 // available.
 if (import.meta.client) {
-  populateBridge(!authDisabled.value)
+  populateBridge(true)
 }
 
 function loadStudioScript(src: string): void {
@@ -167,13 +162,7 @@ onMounted(async () => {
   try {
     await convexAuth.ready()
   } catch {
-    // ignore — fall through to the disabled / isAuthenticated checks
-  }
-  if (authDisabled.value) {
-    debugStudioHost('auth disabled', { script: mainJs.value })
-    populateBridge(false)
-    loadStudioScript(mainJs.value)
-    return
+    // ignore — fall through to the authenticated-state check
   }
   if (convexAuth.isAuthenticated.value === true) {
     const user = convexAuth.user.value

@@ -57,6 +57,71 @@ describe('component: MCP credential settings', () => {
     })
   })
 
+  it('rejects an expired credential on the next direct Convex call', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await ctx.asCmsUser('owner-1').mutation(api.mcpCredentials.upsertSettings, {
+      apiKeyId: 'ba_key_expired',
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read],
+      expiresAt: Date.now() - 1,
+    })
+
+    await expect(
+      ctx.asMcpApiKey('ba_key_expired', 'owner-1').query(api.members.getAccessContext, {}),
+    ).rejects.toThrow('MCP credential is not active')
+  })
+
+  it('denies scope-blind backup and owner-diagnostic calls through direct wrappers', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    await owner.mutation(api.mcpCredentials.upsertSettings, {
+      apiKeyId: 'ba_key_read_only_owner',
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read],
+    })
+    const mcp = ctx.asMcpApiKey('ba_key_read_only_owner', 'owner-1')
+
+    await expect(mcp.action(api.backup.exportBackup, { scope: 'full' })).rejects.toThrow(
+      'Forbidden',
+    )
+    await expect(mcp.action(api.backup.downloadBackup, { artifactId: 'backup_1' })).rejects.toThrow(
+      'Forbidden',
+    )
+    await expect(
+      mcp.action(api.backup.restoreBackup, {
+        artifactId: 'backup_1',
+        expectedChecksum: 'sha256',
+      }),
+    ).rejects.toThrow('Forbidden')
+    await expect(
+      mcp.mutation(api.backup.deleteBackupArtifactOperationExecute, {
+        artifactId: 'backup_1',
+        _confirmationToken: 'confirmation',
+      }),
+    ).rejects.toThrow('Forbidden')
+    await expect(mcp.query(api.diagnostics.storageHygieneReport, {})).rejects.toThrow('Forbidden')
+  })
+
+  it('restricts the MCP backup wrapper to entry scope even with delete authority', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    await owner.mutation(api.mcpCredentials.upsertSettings, {
+      apiKeyId: 'ba_key_delete_owner',
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.deleteEntries],
+    })
+
+    await expect(
+      ctx.asMcpApiKey('ba_key_delete_owner', 'owner-1').action(api.backup.mcpExportBackup, {
+        agentRunId: 'run_1',
+        scope: 'full',
+      }),
+    ).rejects.toThrow('restricted to one explicit entry')
+  })
+
   it('does not expose credential ownership through unauthenticated public access', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
@@ -79,7 +144,7 @@ describe('component: MCP credential settings', () => {
         .query(api.mcpCredentials.resolveAccess, {
           apiKeyId: 'ba_key_owner_edit_only',
         }),
-    ).resolves.toBeNull()
+    ).rejects.toThrow('MCP credential is not active')
   })
 
   it('lists only the current owner credential settings', async () => {
@@ -196,7 +261,7 @@ describe('component: MCP credential settings', () => {
       ctx.asMcpApiKey('ba_key_removed_editor', 'editor-1').query(api.mcpCredentials.resolveAccess, {
         apiKeyId: 'ba_key_removed_editor',
       }),
-    ).resolves.toBeNull()
+    ).rejects.toThrow('MCP credential is not active')
 
     const rows = await ctx.readAll('mcpCredentialSettings')
     expect(rows).toEqual([

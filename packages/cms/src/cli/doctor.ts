@@ -15,6 +15,15 @@ export async function runDoctorCommand(cwd: string, io: CliIo): Promise<number> 
   }
   const issues = [
     ...checkConvexComponentInstall(cwd),
+    ...(!env.BETTER_AUTH_SECRET?.trim()
+      ? [
+          {
+            name: 'missing env BETTER_AUTH_SECRET',
+            message: 'BETTER_AUTH_SECRET is required.',
+            fix: 'Set BETTER_AUTH_SECRET to a strong deployment secret in the host environment.',
+          },
+        ]
+      : []),
     ...legacyIdentitySecretNames
       .filter((name) => Boolean(env[name]?.trim()))
       .map((name) => ({

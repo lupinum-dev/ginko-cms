@@ -53,6 +53,8 @@ describe('shared contracts', () => {
       manageSettings: 'cms.settings.manage',
       manageMembers: 'cms.members.manage',
       manageAssets: 'cms.assets.manage',
+      manageBackups: 'cms.backups.manage',
+      managePortability: 'cms.portability.manage',
     })
   })
 

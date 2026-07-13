@@ -12,6 +12,7 @@ import type * as agentRuns from "../agentRuns.js";
 import type * as assets from "../assets.js";
 import type * as auth_appIdentity from "../auth/appIdentity.js";
 import type * as auth_checks from "../auth/checks.js";
+import type * as auth_credentialKind from "../auth/credentialKind.js";
 import type * as auth_recordAccess from "../auth/recordAccess.js";
 import type * as backup from "../backup.js";
 import type * as collections from "../collections.js";
@@ -95,6 +96,7 @@ const fullApi: ApiFromModules<{
   assets: typeof assets;
   "auth/appIdentity": typeof auth_appIdentity;
   "auth/checks": typeof auth_checks;
+  "auth/credentialKind": typeof auth_credentialKind;
   "auth/recordAccess": typeof auth_recordAccess;
   backup: typeof backup;
   collections: typeof collections;

@@ -18,6 +18,7 @@ export async function runInitCommand(cwd: string, io: CliIo): Promise<number> {
         `If MCP code mode is enabled, host apps must also depend directly on \`secure-exec\`.`,
         `Set \`CONVEX_URL\` or \`NUXT_PUBLIC_CONVEX_URL\` in the Nuxt app environment.`,
         `Set \`CONVEX_DEPLOY_KEY\` in the Nuxt app/server environment before contract sync.`,
+        `Set \`BETTER_AUTH_SECRET\` in the host and Convex deployment; runtime and doctor fail closed without it.`,
         `Set \`GINKO_FIRST_OWNER_EMAIL\` in the Convex deployment with \`pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com\`.`,
         '',
       ].join('\n'),

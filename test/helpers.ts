@@ -67,7 +67,8 @@ function createCmsCallerClient(
 ) {
   const identity = {
     subject: caller.kind === 'user' ? caller.userId : caller.ownerUserId,
-    ...(caller.kind === 'mcp' ? { sessionId: caller.apiKeyId } : {}),
+    ginkoCredentialKind: caller.kind === 'mcp' ? 'mcp-api-key' : 'user-session',
+    ...(caller.kind === 'mcp' ? { sessionId: caller.apiKeyId } : { sessionId: 'test-session' }),
   }
   const authed = () => ctx.withIdentity(identity)
   return {

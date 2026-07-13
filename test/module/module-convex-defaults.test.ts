@@ -1,5 +1,4 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -8,12 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const moduleDir = resolve(packageRoot, 'packages/cms/src')
-
-// `defu` is a dependency of packages/cms (not the workspace root), and is the
-// exact merge the Ginko module and Nuxt use. Resolve it from the cms package so
-// the merge check exercises the real implementation.
-const cmsRequire = createRequire(resolve(packageRoot, 'packages/cms/package.json'))
-const { defu } = (await import(cmsRequire.resolve('defu'))) as typeof import('defu')
 
 // The module reads these Nuxt Kit helpers at import/eval time. `createResolver`
 // mirrors the real resolver: `resolve('./runtime/convex-auth')` yields an
@@ -61,19 +54,6 @@ function convexDep(convex: ConvexOption, srcDir: string) {
   return moduleDefinition.moduleDependencies(nuxtWith(convex, srcDir))['better-convex-nuxt']
 }
 
-/**
- * Model Nuxt 4.4's dependency-defaults merge for a single dependency that
- * provides only `defaults` (no overrides): `defu(nuxt.options.convex, defaults)`.
- * When Ginko emits no entry, Nuxt applies no merge and the host value is kept.
- */
-function applyNuxtMerge(
-  convex: ConvexOption,
-  dep: { defaults?: Record<string, unknown> } | undefined,
-) {
-  if (!dep) return convex
-  return defu(convex, dep.defaults ?? {})
-}
-
 describe('ginko-cms better-convex-nuxt dependency defaults (vNext §10.2 / decision 12)', () => {
   const tempDirs: string[] = []
 
@@ -115,14 +95,10 @@ describe('ginko-cms better-convex-nuxt dependency defaults (vNext §10.2 / decis
 
   // ---- Decision 12: the executable merge check, both cases ----
 
-  it('nested `auth: false` survives the Nuxt dependency merge', () => {
-    const host = { auth: false as const }
-    const dep = convexDep({ ...host }, freshSrcDir())
-    // Ginko injects neither client nor route protection when auth is disabled.
-    expect(dep?.defaults?.auth).toBeUndefined()
-    // And after Nuxt merges whatever Ginko emitted, `auth: false` still holds.
-    const merged = applyNuxtMerge({ ...host }, dep) as Record<string, unknown>
-    expect(merged.auth).toBe(false)
+  it('rejects nested `auth: false` because Studio requires authentication', () => {
+    expect(() => convexDep({ auth: false }, freshSrcDir())).toThrow(
+      'Ginko CMS Studio requires authentication',
+    )
   })
 
   it('rejects top-level `convex: false` because Ginko requires Convex', () => {

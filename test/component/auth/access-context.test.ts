@@ -136,15 +136,9 @@ describe('cms permission context', () => {
 
     const spoofedAgent = ctx.asMcpApiKey('ba_key_editor', 'outsider-1')
 
-    await expect(spoofedAgent.query(api.members.getAccessContext, {})).resolves.toMatchObject({
-      userId: 'outsider-1',
-      role: null,
-      can: {
-        [cmsPermissionKeys.read]: false,
-        [cmsPermissionKeys.editEntries]: false,
-        [cmsPermissionKeys.publishEntries]: false,
-      },
-    })
+    await expect(spoofedAgent.query(api.members.getAccessContext, {})).rejects.toThrow(
+      'MCP credential is not active',
+    )
   })
 
   it('reports only effective scoped permissions for owner MCP credentials', async () => {

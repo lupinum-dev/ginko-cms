@@ -27,6 +27,8 @@ const mcpCredentialScopeKeys = [
   cmsPermissionKeys.manageSettings,
   cmsPermissionKeys.manageMembers,
   cmsPermissionKeys.manageAssets,
+  cmsPermissionKeys.manageBackups,
+  cmsPermissionKeys.managePortability,
 ] as const
 
 const mcpCredentialScopeValidator = v.union(
@@ -40,6 +42,7 @@ const mcpCredentialSettingsValidator = v.object({
   label: v.union(v.string(), v.null()),
   scopes: v.array(mcpCredentialScopeValidator),
   status: v.union(v.literal('active'), v.literal('revoked')),
+  expiresAt: v.union(v.number(), v.null()),
   createdBy: v.string(),
   createdAt: v.number(),
   updatedBy: v.string(),
@@ -63,6 +66,7 @@ function serializeCredentialSettings(settings: CredentialSettingsDoc) {
     label: settings.label ?? null,
     scopes: settings.scopes as CmsPermissionKey[],
     status: settings.status,
+    expiresAt: settings.expiresAt ?? null,
     createdBy: settings.createdBy,
     createdAt: settings.createdAt,
     updatedBy: settings.updatedBy,
@@ -127,6 +131,7 @@ async function getCredentialSettings(ctx: QueryCtx | MutationCtx, apiKeyId: stri
 type BetterAuthConvexIdentity = {
   subject?: unknown
   sessionId?: unknown
+  ginkoCredentialKind?: unknown
 }
 
 async function currentAuthOwnsCredential(
@@ -134,7 +139,11 @@ async function currentAuthOwnsCredential(
   args: { apiKeyId: string; ownerUserId: string },
 ) {
   const identity = (await ctx.auth.getUserIdentity()) as BetterAuthConvexIdentity | null
-  return identity?.subject === args.ownerUserId && identity.sessionId === args.apiKeyId
+  return (
+    identity?.ginkoCredentialKind === 'mcp-api-key' &&
+    identity.subject === args.ownerUserId &&
+    identity.sessionId === args.apiKeyId
+  )
 }
 
 export const upsertSettings = callerMutation.protected({
@@ -144,6 +153,7 @@ export const upsertSettings = callerMutation.protected({
     ownerUserId: v.string(),
     label: v.optional(v.union(v.string(), v.null())),
     scopes: v.array(mcpCredentialScopeValidator),
+    expiresAt: v.optional(v.union(v.number(), v.null())),
   },
   guard: canManageSettings,
   returns: mcpCredentialSettingsValidator,
@@ -166,6 +176,7 @@ export const upsertSettings = callerMutation.protected({
       label: args.label ?? null,
       scopes,
       status: 'active' as const,
+      expiresAt: args.expiresAt ?? null,
       updatedBy: appIdentity.userId,
       updatedAt: now,
       revokedAt: null,

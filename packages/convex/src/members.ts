@@ -17,8 +17,10 @@ import {
   canDeleteEntries,
   canEditEntries,
   canManageAssets,
+  canManageBackups,
   canManageCollections,
   canManageMembers,
+  canManagePortability,
   canManageSettings,
   canPublishEntries,
   canRead,
@@ -158,6 +160,16 @@ const cmsPermissions = [
     label: 'Manage assets',
     check: canManageAssets,
   }),
+  definePermission({
+    key: cmsPermissionKeys.manageBackups,
+    label: 'Manage backups',
+    check: canManageBackups,
+  }),
+  definePermission({
+    key: cmsPermissionKeys.managePortability,
+    label: 'Manage portability',
+    check: canManagePortability,
+  }),
 ] as const
 
 function normalizeEmail(email: string | null | undefined): string | null {
@@ -246,7 +258,7 @@ export const bootstrapCmsOwner = callerMutation.protected({
     const appIdentity = await ctx.appIdentity()
     const trustedEmail = appIdentity.caller.kind === 'user' ? appIdentity.caller.email : undefined
 
-    validateFirstOwnerEmail(args.email ?? trustedEmail, args.configuredOwnerEmail)
+    validateFirstOwnerEmail(trustedEmail, args.configuredOwnerEmail)
 
     return await bootstrapCmsOwnerRecord(ctx, appIdentity.userId, {
       displayName: args.displayName ?? appIdentity.member?.displayName ?? undefined,

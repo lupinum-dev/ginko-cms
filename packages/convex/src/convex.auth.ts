@@ -3,6 +3,13 @@ import { createClient, type AuthFunctions, type GenericCtx } from '@convex-dev/b
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth, type BetterAuthOptions } from 'better-auth'
 
+import {
+  ginkoConvexJwtPayload,
+  ginkoCredentialKindPlugin,
+  parseBearerApiKey,
+  requireBetterAuthSecret,
+} from './auth/credentialKind.js'
+
 declare const process: {
   env: Record<string, string | undefined>
 }
@@ -37,14 +44,6 @@ export async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<
   return identity
 }
 
-function parseBearerApiKey(authorizationHeader?: string | null): string | null {
-  const prefix = 'Bearer '
-  if (!authorizationHeader?.startsWith(prefix)) return null
-
-  const token = authorizationHeader.slice(prefix.length).trim()
-  return token.length > 0 ? token : null
-}
-
 function resolveTrustedOrigins(configured: BetterAuthOptions['trustedOrigins'] = []) {
   const origins = [
     process.env.SITE_URL,
@@ -71,7 +70,7 @@ export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOpt
   const createAuthOptions = (ctx: GenericCtx) =>
     ({
       ...options,
-      secret: process.env.BETTER_AUTH_SECRET ?? 'ginko-cms-dev-secret',
+      secret: requireBetterAuthSecret(),
       trustedOrigins: resolveTrustedOrigins(options.trustedOrigins),
       database: authComponent.adapter(ctx),
       emailAndPassword: {
@@ -86,8 +85,12 @@ export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOpt
             enabled: false,
           },
         }),
+        ginkoCredentialKindPlugin(),
         convex({
           authConfig: deps.authConfig as never,
+          jwt: {
+            definePayload: ginkoConvexJwtPayload,
+          },
         }),
         ...(options.plugins ?? []),
       ],

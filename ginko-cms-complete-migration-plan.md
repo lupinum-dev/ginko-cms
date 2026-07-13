@@ -2807,61 +2807,61 @@ Use only these statuses:
 - `amended`
 - `deferred` with an explicit owner and reason
 
-| Area                                | Status | Required executable evidence            |
-| ----------------------------------- | ------ | --------------------------------------- |
-| First-owner identity                | open   | Hostile email argument test             |
-| JWT credential kind                 | open   | Direct Convex browser/MCP matrix        |
-| Required auth secret                | open   | Missing-secret startup and doctor tests |
-| Studio route protection             | open   | SSR signed-out redirect test            |
-| Unsupported auth-disabled topology  | open   | Module rejection test                   |
-| Permission-complete call guards     | open   | Role/origin/scope direct-call matrix    |
-| Canonical Content policy            | open   | Drift/apply invariant suite             |
-| Atomic policy and collection sync   | open   | Transactional sync tests                |
-| Generation-safe reindex             | open   | Mid-run policy replacement test         |
-| Contract migration finalization     | open   | Entry validation and approval test      |
-| Migration retry and resume          | open   | Crash/retry receipt test                |
-| Legacy MCP-key cutover              | open   | Old-token denial and audit test         |
-| Recoverable destructive actions     | open   | Snapshot/restore drill                  |
-| Bounded import and archive parsing  | open   | Hostile archive/filesystem limits       |
-| Provider runtime decoders           | open   | Adversarial Wire V2 suite               |
-| Public render safety                | open   | Packed AST-to-render exploit probes     |
-| Structured asset resolution         | open   | No arbitrary-string lookup test         |
-| Asset publication state             | open   | Unreferenced-global denial test         |
-| Upload byte verification            | open   | MIME/signature mismatch tests           |
-| Backend-neutral runtime data source | open   | Filesystem/CMS/Worker contract suite    |
-| One request adapter context         | open   | Binder reuse and disposal tests         |
-| Portable Content contract           | open   | Packed public codec probes              |
-| Portable codecs and directory       | open   | Node and Worker purity probes           |
-| Level-1 portability contracts       | open   | Codec/manifest hostile fixture suite    |
-| Bidirectional semantic round trip   | open   | Files to CMS to files equality          |
-| Deterministic asset portability     | open   | Byte/hash/reference round-trip suite    |
-| Portable conflict and retry safety  | open   | Immutable plan and lost-response tests  |
-| Bounded consistent export           | open   | Lease, roster, and pagination tests     |
-| Studio principal retirement         | open   | A to B and sign-out tests               |
-| Disposed-scope settlement           | open   | Refresh/reset-after-unmount tests       |
-| Pagination concurrency              | open   | Same-cursor deduplication test          |
-| Exact Studio API types              | open   | Packed type consumer                    |
-| Supervised MCP surface              | open   | Direct publish/archive negative probes  |
-| MCP credential fail-closed          | open   | Revoked/orphan direct-call tests        |
-| Idempotent MCP entry creation       | open   | Lost-response retry test                |
-| Agent-run audit truth               | open   | Immutable snapshot test                 |
-| Revalidation boundary               | open   | Redirect/body sentinel tests            |
-| Revalidation target cardinality     | open   | Second-enabled-target rejection         |
-| Bounded outbox recovery             | open   | Indexed multi-batch recovery test       |
-| Stable operational cursors          | open   | Equal-timestamp pagination test         |
-| Ginko Content public ownership      | open   | CMS facade/prerender absence tests      |
-| Public query budget                 | open   | 1 versus 1000 entry query-count test    |
-| Direct Content contract             | open   | Packed Convex import proof              |
-| Phantom surface deletion            | open   | Declaration/docs negative checks        |
-| Standalone install                  | open   | Clean archive frozen install            |
-| Exact compatibility tuple           | open   | Manifest-owned hash tests               |
-| Deterministic packs                 | open   | Two identical serial packs              |
-| Real packed provider consumer       | open   | Nitro runtime scenario suite            |
-| Retention and privacy inventory     | open   | Indexed cleanup and policy evidence     |
-| Accessible Studio workflows         | open   | Axe, keyboard, and focus suite          |
-| Supported scale envelope            | open   | Boundary fixtures and bundle budgets    |
-| Novice and upgrade journeys         | open   | Fresh install and `0.1.3` drill         |
-| Browser and MCP certification       | open   | Exact-tuple evidence                    |
+| Area                                | Status      | Required executable evidence            |
+| ----------------------------------- | ----------- | --------------------------------------- |
+| First-owner identity                | implemented | Hostile email argument test             |
+| JWT credential kind                 | implemented | Direct Convex browser/MCP matrix        |
+| Required auth secret                | implemented | Missing-secret startup and doctor tests |
+| Studio route protection             | implemented | SSR signed-out redirect test            |
+| Unsupported auth-disabled topology  | implemented | Module rejection test                   |
+| Permission-complete call guards     | implemented | Role/origin/scope direct-call matrix    |
+| Canonical Content policy            | open        | Drift/apply invariant suite             |
+| Atomic policy and collection sync   | open        | Transactional sync tests                |
+| Generation-safe reindex             | open        | Mid-run policy replacement test         |
+| Contract migration finalization     | open        | Entry validation and approval test      |
+| Migration retry and resume          | open        | Crash/retry receipt test                |
+| Legacy MCP-key cutover              | open        | Old-token denial and audit test         |
+| Recoverable destructive actions     | open        | Snapshot/restore drill                  |
+| Bounded import and archive parsing  | open        | Hostile archive/filesystem limits       |
+| Provider runtime decoders           | open        | Adversarial Wire V2 suite               |
+| Public render safety                | open        | Packed AST-to-render exploit probes     |
+| Structured asset resolution         | open        | No arbitrary-string lookup test         |
+| Asset publication state             | open        | Unreferenced-global denial test         |
+| Upload byte verification            | open        | MIME/signature mismatch tests           |
+| Backend-neutral runtime data source | open        | Filesystem/CMS/Worker contract suite    |
+| One request adapter context         | open        | Binder reuse and disposal tests         |
+| Portable Content contract           | open        | Packed public codec probes              |
+| Portable codecs and directory       | open        | Node and Worker purity probes           |
+| Level-1 portability contracts       | open        | Codec/manifest hostile fixture suite    |
+| Bidirectional semantic round trip   | open        | Files to CMS to files equality          |
+| Deterministic asset portability     | open        | Byte/hash/reference round-trip suite    |
+| Portable conflict and retry safety  | open        | Immutable plan and lost-response tests  |
+| Bounded consistent export           | open        | Lease, roster, and pagination tests     |
+| Studio principal retirement         | open        | A to B and sign-out tests               |
+| Disposed-scope settlement           | open        | Refresh/reset-after-unmount tests       |
+| Pagination concurrency              | open        | Same-cursor deduplication test          |
+| Exact Studio API types              | open        | Packed type consumer                    |
+| Supervised MCP surface              | open        | Direct publish/archive negative probes  |
+| MCP credential fail-closed          | open        | Revoked/orphan direct-call tests        |
+| Idempotent MCP entry creation       | open        | Lost-response retry test                |
+| Agent-run audit truth               | open        | Immutable snapshot test                 |
+| Revalidation boundary               | open        | Redirect/body sentinel tests            |
+| Revalidation target cardinality     | open        | Second-enabled-target rejection         |
+| Bounded outbox recovery             | open        | Indexed multi-batch recovery test       |
+| Stable operational cursors          | open        | Equal-timestamp pagination test         |
+| Ginko Content public ownership      | open        | CMS facade/prerender absence tests      |
+| Public query budget                 | open        | 1 versus 1000 entry query-count test    |
+| Direct Content contract             | open        | Packed Convex import proof              |
+| Phantom surface deletion            | open        | Declaration/docs negative checks        |
+| Standalone install                  | open        | Clean archive frozen install            |
+| Exact compatibility tuple           | open        | Manifest-owned hash tests               |
+| Deterministic packs                 | open        | Two identical serial packs              |
+| Real packed provider consumer       | open        | Nitro runtime scenario suite            |
+| Retention and privacy inventory     | open        | Indexed cleanup and policy evidence     |
+| Accessible Studio workflows         | open        | Axe, keyboard, and focus suite          |
+| Supported scale envelope            | open        | Boundary fixtures and bundle budgets    |
+| Novice and upgrade journeys         | open        | Fresh install and `0.1.3` drill         |
+| Browser and MCP certification       | open        | Exact-tuple evidence                    |
 
 Do not mark all rows at the end. Update each row when its work package passes.
 

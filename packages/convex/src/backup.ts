@@ -6,7 +6,7 @@ import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
 import { internalMutation, internalQuery } from './_generated/server.js'
-import { hasRole } from './auth/checks.js'
+import { canDeleteEntries, canManageBackups } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
 import { callerAction, callerMutation } from './functions.js'
 import { logActivity } from './lib/activity.js'
@@ -765,7 +765,7 @@ async function exportBackupForScope(
 export const exportBackup = callerAction.protected({
   id: 'backup:exportBackup',
   args: backupScopeArgs,
-  guard: hasRole('owner'),
+  guard: canManageBackups,
   returns: v.object({
     artifactId: v.string(),
     checksum: v.string(),
@@ -793,7 +793,7 @@ export const mcpExportBackup = callerAction.protected({
     agentRunId: v.string(),
     ...backupScopeArgs,
   },
-  guard: hasRole('owner'),
+  guard: canDeleteEntries,
   returns: v.object({
     artifactId: v.string(),
     checksum: v.string(),
@@ -807,6 +807,12 @@ export const mcpExportBackup = callerAction.protected({
   }),
   handler: async (ctx, rawArgs) => {
     const { agentRunId, ...scopeArgs } = rawArgs
+    if (scopeArgs.scope !== 'entry' || !scopeArgs.entryId) {
+      throwCmsError(
+        'BACKUP_SCOPE_INVALID',
+        'MCP backup export is restricted to one explicit entry.',
+      )
+    }
     await ctx.runMutation(backupApi.agentRuns.recordWrite, {
       agentRunId,
       operationId: 'ginko-cms.export-backup',
@@ -823,7 +829,7 @@ export const mcpExportBackup = callerAction.protected({
 export const verifyBackup = callerAction.protected({
   id: 'backup:verifyBackup',
   args: { artifactId: v.string() },
-  guard: hasRole('owner'),
+  guard: canManageBackups,
   returns: v.object({
     ok: v.boolean(),
     checksumMatches: v.boolean(),
@@ -875,7 +881,7 @@ export const verifyBackup = callerAction.protected({
 export const downloadBackup = callerAction.protected({
   id: 'backup:downloadBackup',
   args: { artifactId: v.string() },
-  guard: hasRole('owner'),
+  guard: canManageBackups,
   returns: v.object({
     artifactId: v.string(),
     checksum: v.string(),
@@ -912,7 +918,7 @@ export const downloadBackup = callerAction.protected({
 export const previewRestoreBackup = callerAction.protected({
   id: 'backup:previewRestoreBackup',
   args: { artifactId: v.string() },
-  guard: hasRole('owner'),
+  guard: canManageBackups,
   returns: restorePreviewValidator,
   handler: async (ctx, args) => {
     const { artifact, archive, checksum } = await loadArchiveForArtifact(
@@ -929,7 +935,7 @@ export const restoreBackup = callerAction.protected({
     artifactId: v.string(),
     expectedChecksum: v.string(),
   },
-  guard: hasRole('owner'),
+  guard: canManageBackups,
   returns: v.object({
     artifactId: v.string(),
     scope: backupScopeValidator,
@@ -1029,7 +1035,7 @@ export const deleteBackupArtifactOperation = defineCmsOperation({
   kind: 'destructive',
   executeFunctionRef: 'backup:deleteBackupArtifactOperationExecute',
   args: deleteBackupArtifactArgs,
-  guard: hasRole('owner'),
+  guard: canManageBackups,
   returns: v.null(),
   previewReturns: previewResultValidator(),
   load: async (ctx, args) => {

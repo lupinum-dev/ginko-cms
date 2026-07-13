@@ -26,6 +26,7 @@ import {
   type CmsMemberAppIdentity,
 } from './auth/appIdentity.js'
 import { can, type CmsGuard } from './auth/checks.js'
+import { throwCmsError } from './errors.js'
 import { executeDestructiveOperation } from './operationHelpers.js'
 
 type ExtractQueryVisibility<T> =
@@ -45,6 +46,7 @@ type BetterAuthConvexIdentity = {
   subject?: string | null
   email?: string | null
   sessionId?: unknown
+  ginkoCredentialKind?: unknown
 }
 
 type HandlerCtx<TCtx> = TCtx & {
@@ -103,19 +105,30 @@ export const cmsPublicReadTables = [
 
 export async function resolveCmsCaller(ctx: RootCtx): Promise<CmsCaller> {
   const auth = (await ctx.auth.getUserIdentity()) as BetterAuthConvexIdentity | null
-  if (auth?.subject) {
-    const apiKeyId = typeof auth.sessionId === 'string' ? auth.sessionId : null
-    if (apiKeyId) {
-      const mcpCaller = cmsMcpCaller(apiKeyId)
-      const mcpIdentity = await getAppIdentity(ctx, mcpCaller)
-      if (mcpIdentity?.kind === 'member' && mcpIdentity.userId === auth.subject) {
-        return assertCmsCallerConsistency(mcpCaller)
-      }
-    }
-    return assertCmsCallerConsistency(cmsCallerFromConvexAuthIdentity(auth))
-  }
+  if (!auth?.subject) return cmsAnonymousCaller()
 
-  return cmsAnonymousCaller()
+  switch (auth.ginkoCredentialKind) {
+    case 'user-session':
+      return assertCmsCallerConsistency(cmsCallerFromConvexAuthIdentity(auth))
+
+    case 'mcp-api-key': {
+      const apiKeyId = typeof auth.sessionId === 'string' ? auth.sessionId : null
+      if (apiKeyId) {
+        const mcpCaller = cmsMcpCaller(apiKeyId)
+        const mcpIdentity = await getAppIdentity(ctx, mcpCaller)
+        if (mcpIdentity?.kind === 'member' && mcpIdentity.userId === auth.subject) {
+          return assertCmsCallerConsistency(mcpCaller)
+        }
+      }
+      return throwCmsError('MCP_CREDENTIAL_REJECTED', 'MCP credential is not active.')
+    }
+
+    default:
+      return throwCmsError(
+        'CMS_CREDENTIAL_KIND_INVALID',
+        'Authenticated identity has no supported credential kind.',
+      )
+  }
 }
 
 export async function resolveCmsAppIdentity(

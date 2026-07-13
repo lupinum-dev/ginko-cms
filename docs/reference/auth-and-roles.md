@@ -36,20 +36,28 @@ Before the first owner exists, set the allowed bootstrap email:
 pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
 ```
 
-The matching Better Auth user can claim ownership in Studio. After an owner row
-exists, normal CMS member management controls access.
+The matching Better Auth user can claim ownership in Studio. The browser sends
+only an optional display name; authorization and the persisted email come from
+the verified JWT identity. After an owner row exists, normal CMS member
+management controls access.
+
+Studio always requires Better Convex Nuxt authentication. `convex.auth: false`
+is not a supported CMS topology.
 
 ## MCP Credentials
 
 External MCP bearer tokens are Better Auth API keys. Ginko CMS never stores the
-raw API key. After Better Auth verifies a bearer token, the CMS resolves the key
-id through `mcpCredentialSettings`.
+raw API key. After Better Auth verifies a bearer token, its Convex JWT carries
+the server-issued `mcp-api-key` credential kind and the CMS resolves the key id
+through `mcpCredentialSettings`. A browser `sessionId` is never interpreted as
+an API-key discriminator.
 
 `mcpCredentialSettings` stores:
 
 - the Better Auth API-key id;
 - the owning Better Auth user id;
 - CMS scopes;
+- API-key expiry when configured;
 - optional collection limits;
 - review/trusted safety mode metadata;
 - active or revoked status.

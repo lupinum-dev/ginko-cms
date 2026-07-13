@@ -18,7 +18,7 @@ import {
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
-import { canRead, hasRole } from './auth/checks.js'
+import { canManageSettings, canRead } from './auth/checks.js'
 import { readStudioDraftView } from './entries/context.js'
 import { collectRelationReferences } from './entries/relations.js'
 import { readDraftRows } from './entries/workflow/drafts.js'
@@ -1329,7 +1329,7 @@ function countByEntry(rows: Array<Doc<'entryRevisions'> | Doc<'contentAssetRefs'
 export const storageHygieneReport = callerQuery.protected({
   id: 'diagnostics:storageHygieneReport',
   args: {},
-  guard: hasRole('owner'),
+  guard: canManageSettings,
   returns: v.object({
     counts: storageTableCountsValidator,
     revisionsPerEntry: storageDistributionValidator,

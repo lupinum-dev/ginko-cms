@@ -510,7 +510,12 @@ export function useStudioSettingsAdmin() {
       return
     }
     mcpConnectionSaving.value = true
-    let created: { id: string; key: string; name?: string | null } | null = null
+    let created: {
+      id: string
+      key: string
+      name?: string | null
+      expiresAt?: string | number | Date | null
+    } | null = null
     try {
       created = await bridgeApi.create({
         name,
@@ -522,6 +527,10 @@ export function useStudioSettingsAdmin() {
         ownerUserId: userId,
         label: name,
         scopes,
+        expiresAt:
+          created.expiresAt === null || created.expiresAt === undefined
+            ? null
+            : new Date(created.expiresAt).getTime(),
       })
       mcpCreatedToken.value = { id: created.id, key: created.key, name: created.name ?? name }
       mcpConnectionInfo.value = 'MCP connection created.'

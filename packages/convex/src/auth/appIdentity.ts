@@ -173,7 +173,15 @@ async function resolveMcpAppIdentity(
   caller: Extract<CmsCaller, { kind: 'mcp' }>,
 ): Promise<CmsAppIdentity> {
   const settings = await getMcpCredentialSettings(ctx, caller.apiKeyId)
-  if (!settings || settings.status !== 'active') return null
+  if (
+    !settings ||
+    settings.status !== 'active' ||
+    (settings.expiresAt !== undefined &&
+      settings.expiresAt !== null &&
+      settings.expiresAt <= Date.now())
+  ) {
+    return null
+  }
 
   const member = await getCmsMember(ctx, settings.ownerUserId)
   if (!member) return null

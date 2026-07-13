@@ -6,6 +6,12 @@ import { createAuthClient } from 'better-auth/client'
 import { getTestInstance } from 'better-auth/test'
 import { describe, expect, it } from 'vitest'
 
+import {
+  ginkoConvexJwtPayload,
+  ginkoCredentialKindPlugin,
+  requireBetterAuthSecret,
+} from '../src/auth/credentialKind.js'
+
 function parseBearerApiKey(authorizationHeader?: string | null): string | null {
   const prefix = 'Bearer '
   if (!authorizationHeader?.startsWith(prefix)) return null
@@ -33,7 +39,20 @@ const TEST_USER = {
 } as const
 
 describe('Better Auth API-key Convex token sessions', () => {
-  it('issues Convex auth tokens for Bearer API-key sessions with the API key id as sessionId', async () => {
+  it('requires the deployment auth secret instead of inventing one', () => {
+    const previous = process.env.BETTER_AUTH_SECRET
+    delete process.env.BETTER_AUTH_SECRET
+    try {
+      expect(() => requireBetterAuthSecret()).toThrow('BETTER_AUTH_SECRET is required')
+      process.env.BETTER_AUTH_SECRET = 'test-secret'
+      expect(requireBetterAuthSecret()).toBe('test-secret')
+    } finally {
+      if (previous === undefined) delete process.env.BETTER_AUTH_SECRET
+      else process.env.BETTER_AUTH_SECRET = previous
+    }
+  })
+
+  it('issues Convex auth tokens for Bearer API-key sessions with an explicit MCP credential kind', async () => {
     const previousSiteUrl = process.env.CONVEX_SITE_URL
     process.env.CONVEX_SITE_URL = 'http://localhost:3000'
     try {
@@ -55,9 +74,13 @@ describe('Better Auth API-key Convex token sessions', () => {
                 enabled: false,
               },
             }),
+            ginkoCredentialKindPlugin(),
             convex({
               authConfig: {
                 providers: [getAuthConfigProvider()],
+              },
+              jwt: {
+                definePayload: ginkoConvexJwtPayload,
               },
             }),
           ],
@@ -104,6 +127,16 @@ describe('Better Auth API-key Convex token sessions', () => {
       expect(sessionCookie).toBeTruthy()
       const signedInHeaders = new Headers({ cookie: sessionCookie as string })
 
+      const browserTokenResponse = await instance.customFetchImpl(
+        'http://localhost:3000/api/auth/convex/token',
+        { method: 'GET', headers: signedInHeaders },
+      )
+      expect(browserTokenResponse.ok).toBe(true)
+      const browserTokenBody = (await browserTokenResponse.json()) as { token?: unknown }
+      const browserPayload = decodeJwtPayload(browserTokenBody.token as string)
+      expect(browserPayload.sub).toBe(userId)
+      expect(browserPayload.ginkoCredentialKind).toBe('user-session')
+
       const created = await client.apiKey.create({
         name: 'Convex MCP',
         fetchOptions: {
@@ -129,6 +162,7 @@ describe('Better Auth API-key Convex token sessions', () => {
       const payload = decodeJwtPayload(body.token as string)
       expect(payload.sub).toBe(userId)
       expect(payload.sessionId).toBe(created.data?.id)
+      expect(payload.ginkoCredentialKind).toBe('mcp-api-key')
     } finally {
       if (previousSiteUrl === undefined) {
         delete process.env.CONVEX_SITE_URL
