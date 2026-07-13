@@ -1,1941 +1,2915 @@
-# Ginko CMS Complete Migration Plan
+# Ginko CMS vNext Coordinated Implementation Plan
 
-Status: top-level implementation plan.
+Status: authoritative implementation specification
 
-Date: 2026-07-04.
+Target: coordinated `0.2.0-rc.1`, followed by `0.2.0`
 
-Audience: maintainers and implementers who need one end-to-end plan for the
-final Ginko CMS system.
+Last reviewed: 2026-07-13
 
-## Scope
+Owners: Ginko CMS maintainers, with coordinated changes in Ginko Content and
+Better Convex Nuxt where this document explicitly assigns them
 
-This is the complete migration plan. It is not only the MCP permission plan.
+## 1. Purpose And Authority
 
-The MCP/AI permission work is one important lane inside the full CMS migration,
-but the final product also needs:
+This document defines the coordinated Ginko CMS vNext architecture and the work
+required across Ginko Content, Ginko CMS, and Better Convex Nuxt integration to
+make it release-ready. It replaces the previous migration diary that used this
+filename.
 
-- Trellis removal;
-- direct `better-convex-nuxt` integration;
-- Better Auth ownership of identity;
-- a simpler CMS role model;
-- canonical content lifecycle;
-- Studio workflow updates;
-- public delivery through Ginko Content;
-- asset, import, backup, and restore boundaries;
-- release/package hardening;
-- docs and verification gates.
+Repository-specific Ginko Content `0.4` implementation details live in
+[`../ginko-content/VNEXT-0.4.md`](../ginko-content/VNEXT-0.4.md). That document
+owns Ginko Content files and public APIs; this document owns coordinated ordering
+and release acceptance.
 
-Supporting documents:
+The old migration diary and the release evidence dated 2026-07-11 are historical
+records. They are not evidence that the current branch is release-ready. Current
+release approval must be based on artifacts produced after every work package in
+this document is complete.
 
-- `move-off-trellis.md`: Trellis removal and direct Convex cutover plan.
-- `cms2-comparison.md`: current CMS vs CMS2 comparison and sweet spot.
-- `migration-decision-questions.md`: decision guide with context.
-- `mcp-ai-permission-migration-plan.md`: detailed MCP/AI permission lane.
+When implementation, documentation, and historical checklists disagree, use
+this priority order:
 
-This document is the program-level plan that ties those documents together.
+1. Security invariants and executable tests.
+2. This implementation specification and accepted architecture decisions.
+3. Public package contracts and migration guidance.
+4. Historical plans, logs, and release evidence.
 
-Research inputs checked for this pass:
+Every completed work package must update this file's acceptance matrix. Do not
+turn it into an implementation diary. Detailed command output belongs in a new
+candidate evidence artifact generated from the exact release tuple.
 
-- current `ginko-cms` repo;
-- `ginko-cms2`;
-- `better-convex-nuxt` starters:
-  - `mcp-agent`;
-  - `team`;
-  - `agentic-saas`;
-- Better Auth API-key plugin docs:
-  `https://better-auth.com/docs/plugins/api-key`;
-- Better Auth API-key advanced docs:
-  `https://better-auth.com/docs/plugins/api-key/advanced`;
-- Nuxt MCP Toolkit docs:
-  `https://mcp-toolkit.nuxt.dev/`;
-- Nuxt MCP Toolkit package/repo surface:
-  `https://github.com/nuxt-modules/mcp-toolkit`.
+## 2. Executive Decision
 
-## Final Product Shape
+Ginko CMS is not ready for a near-1.0 architecture freeze.
 
-Ginko CMS should become a focused self-hosted website CMS for Nuxt and Convex.
+The correct next release is a coordinated pre-1.0 minor:
 
-It should be:
+- `@lupinum/ginko-content@0.4.0`;
+- Better Convex Nuxt `0.6.0` or an accepted lifecycle-compatible successor;
+- `@lupinum/ginko-cms@0.2.0`
+- `@lupinum/ginko-cms-convex@0.2.0`
+- `@lupinum/ginko-cms-contract@0.2.0`
 
-- simple to install;
-- direct to debug;
-- reliable around publishing and public reads;
-- AI-native through MCP;
-- strict about permissions;
-- not a generic SaaS platform;
-- not a page builder;
-- not a database admin;
-- not a second auth/team framework.
+Use Ginko Content `0.4.0-rc.1` and CMS `0.2.0-rc.1` while validating real
+consumers. Freeze every exact upstream version and hash in compatibility before
+candidate verification. Promote Ginko Content to `0.4.0` only with the
+coordinated CMS candidate. Do not publish `1.0.0` until the public exports,
+Content provider and portability contracts, configuration model, runtime
+support, and migration policy have baked in at least two independent packed
+consumers.
 
-The simplest final architecture:
+The vNext direction is:
 
 ```text
-Host Nuxt app
-  installs Ginko CMS module
-  uses better-convex-nuxt for Convex, Better Auth, and SSR wiring
-
-Better Auth
-  owns users, sessions, accounts, API keys, and optional teams later
-
-Ginko CMS Convex component
-  owns CMS product data and invariants:
-  collections, entries, drafts, revisions, public projections,
-  members, roles, assets, imports, backups, restore, audit,
-  MCP credentials, agent runs, review requests
-
-Ginko CMS Studio
-  owns editor workflows:
-  draft editing, publish preview, review, assets, imports,
-  settings, MCP token UX, agent workspace
-
-Nuxt MCP Toolkit
-  owns MCP route/tool transport
-
-Ginko Content
-  owns public website content-query/provider semantics
+content.config.ts
+  |
+  v
+Ginko Content resolved policy
+  |
+  +--> Ginko Content runtime projection
+  |
+  +--> one immutable CMS policy artifact
+          |
+          v
+one atomic CMS policy + collection sync
+          |
+          v
+Ginko CMS Convex domain and raw published facts
+          |
+          v
+typed request-scoped CMS Content provider
+          |
+          v
+Ginko Content owns public route, locale, query, navigation,
+search, sitemap, prerender, agent, and rendered-document projection
 ```
 
-## Current State
-
-### Already Good
-
-The current repo is a strong release base:
-
-- package split already exists;
-- setup CLI and doctor exist;
-- standalone Studio SPA exists;
-- direct Convex setup is already partly in place;
-- Trellis package dependencies are mostly removed from package metadata;
-- content lifecycle is mature;
-- publishing has stale-draft and projection invariants;
-- managed assets exist;
-- imports have preview/apply safety;
-- backups have artifact and purge safety concepts;
-- public provider surface exists;
-- release verification and package E2E already exist;
-- docs already explain direct Convex and Better Auth setup.
-
-These parts should mostly be simplified and preserved, not rewritten.
-
-### Previously Missing Or Incomplete
-
-The migration originally targeted these gaps:
-
-- MCP depended on `CONVEX_DEPLOY_KEY` for normal tool execution.
-- Review requests needed a focused Studio inbox and agent workspace.
-- Trellis naming and bridge cleanup checks needed to remain only where they
-  detect old generated host files.
-- `CmsCaller` needed to stop carrying synthetic MCP Convex identity.
-- restore needed operator-grade dry-run/apply guidance.
-- Studio needed owner-scoped Better Auth API-key MCP connection management.
-
-Result on 2026-07-04: these migration gates are closed. Remaining work is
-ordinary release maintenance: human tarball inspection, version decisions, and
-manual publish following `MAINTAINING.md`.
-
-## Decisions Already Made
-
-Treat these as fixed unless a maintainer explicitly reopens them.
-
-| Area                      | Decision                                                                                                       |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Trellis                   | Move off Trellis with a hard cutover. Do not keep dual paths.                                                  |
-| Nuxt integration          | Use `better-convex-nuxt` for Nuxt, Convex, Better Auth, and SSR wiring.                                        |
-| Auth                      | Better Auth owns users, sessions, accounts, API keys, and optional teams.                                      |
-| CMS roles                 | Ginko CMS owns only product roles: owner, publisher, editor, viewer.                                           |
-| Tenants                   | No CMS tenants/workspaces now. Use Better Auth teams only if there is a real host-team requirement.            |
-| MCP                       | Exposed MCP is first-class. External clients should connect to the CMS.                                        |
-| MCP transport             | Use Nuxt MCP Toolkit.                                                                                          |
-| MCP tokens                | Prefer Better Auth API keys for connection tokens; CMS owns scopes and workflow limits.                        |
-| Agent work                | Add `agentRuns` as first-class task/work-session records.                                                      |
-| Agent destructive actions | Default to review requests. Trusted direct execution comes later only if proven safe.                          |
-| AI authority              | AI can eventually do anything a normal user can do, but only through delegated scopes and current role checks. |
-| Publishing                | Keep canonical draft, revision, publish, projection, and preview invariants.                                   |
-| Public reads              | Public site reads go through published projections and Ginko Content provider semantics.                       |
-| Assets                    | Keep managed asset invariants. Clarify public metadata and content exchange language.                          |
-| Imports                   | Keep strict preview/apply and no-partial-write behavior.                                                       |
-| Backups                   | Keep backups separate from content exchange. Do not overclaim restore until restore dry-run/apply exists.      |
-| Studio                    | Keep standalone Studio SPA, but add CMS2-inspired agent/review/readiness primitives.                           |
-| Release                   | Block local dependency specifiers in packed packages.                                                          |
-
-## Non-Goals
-
-Do not implement these during this migration:
-
-- CMS tenants;
-- generic organizations/workspaces owned by CMS;
-- schema/member/admin MCP tools;
-- raw table MCP tools;
-- generic operation registries;
-- Trellis-compatible bridge exports;
-- generated wrapper directories;
-- second session/user/team system;
-- feature flags to keep old and new internal paths alive;
-- public draft reads through the site provider;
-- direct AI delete/purge as a v1 default.
-
-## Source Of Truth Rules
-
-Each important concept needs exactly one owner.
-
-| Concept               | Owner                  | Notes                                         |
-| --------------------- | ---------------------- | --------------------------------------------- |
-| User identity         | Better Auth            | Use stable Better Auth `user.id`.             |
-| Session               | Better Auth            | Studio/browser concern.                       |
-| API key lifecycle     | Better Auth            | Creation, expiry, verification, revocation.   |
-| CMS member role       | Ginko CMS Convex       | Product role only.                            |
-| MCP CMS scopes        | Ginko CMS Convex       | Collection and capability limits.             |
-| Agent task/session    | Ginko CMS Convex       | `agentRuns`.                                  |
-| Draft                 | Ginko CMS Convex       | Canonical editable state.                     |
-| Revision              | Ginko CMS Convex       | Immutable content snapshot.                   |
-| Public projection     | Ginko CMS Convex       | Derived and rebuildable from published state. |
-| Public website query  | Ginko Content          | Reads published projection data.              |
-| MCP route transport   | Nuxt MCP Toolkit       | No product authority in transport.            |
-| Studio workflow       | Ginko CMS Studio       | UI orchestration only.                        |
-| Destructive invariant | Ginko CMS Convex       | Never frontend-only.                          |
-| Package release proof | Ginko CMS repo scripts | Packed consumer must pass.                    |
-
-## Research Findings For Safe V1
-
-These findings change how the migration should be approached.
-
-### Better Auth API Keys Are Promising But Must Be Proven
-
-Better Auth's API-key plugin supports API-key creation, verification, expiry,
-metadata, prefixes, rate limiting, multiple key configurations, and
-user-owned/organization-owned keys. That makes it a good candidate for MCP
-connection tokens.
-
-Important risk:
-
-- the API-key plugin now lives in `@better-auth/api-key`, not only
-  `better-auth/plugins`;
-- using API keys to mock user sessions is explicitly security-sensitive;
-- validating an API key and separately fetching a session can double-increment
-  rate limits;
-- the default API-key header is `x-api-key`, while MCP clients commonly use
-  `Authorization: Bearer ...`;
-- `@better-auth/api-key` version alignment must be checked with the installed
-  `better-auth` version.
-
-V1 implication:
-
-- do not assume API keys automatically become safe user sessions;
-- prefer verifying the key once at the Nuxt boundary and forwarding only the
-  resolved user/key identity into Convex;
-- if Bearer tokens are required for MCP clients, prove a custom key getter or
-  adapter path before changing the real MCP runtime;
-- keep CMS scopes outside Better Auth permissions unless a proof shows Better
-  Auth permissions can express CMS collection and workflow constraints cleanly.
-
-### Nuxt MCP Toolkit Is Transport, Not Product Authority
-
-Nuxt MCP Toolkit gives the right transport shape:
-
-- file/discovery-based tools, resources, prompts;
-- Zod validation;
-- middleware;
-- dynamic definitions/visibility;
-- sessions;
-- multiple handlers;
-- MCP SDK compatibility.
-
-V1 implication:
-
-- use it to expose the MCP endpoint and tool schemas;
-- do not put CMS authority in toolkit visibility guards;
-- do not treat MCP sessions as CMS authorization;
-- Convex must still enforce every sensitive permission.
-
-### Local Starters Confirm The Safer Agent Pattern
-
-The `mcp-agent` starter confirms:
-
-- explicit tools are easier to audit than generic tool wrappers;
-- preview/request-approval/execute is the right destructive shape;
-- source guards and redaction tests are worth keeping;
-- MCP route middleware is the correct place for request context, not product
-  authorization.
-
-The `agentic-saas` starter confirms:
-
-- `agentRuns` should be bounded records with capabilities, expiry, status, and
-  audit;
-- agent execution should re-check the delegating user's current permission;
-- terminal run states matter;
-- revocation and current permission checks are not optional.
-
-V1 implication:
-
-- copy the pattern, not the domain model;
-- Ginko CMS should use CMS roles and collection scopes, not organizations or
-  project permissions;
-- agent writes should require current role and current token scope every time.
-
-### CMS2 Confirms The Product Workflow But Not The Token Final Form
-
-`ginko-cms2` has the better product workflow:
-
-- MCP is first-class;
-- agent runs exist;
-- publish/archive requests are review requests;
-- Studio has review and agent concepts;
-- MCP instructions explicitly warn agents not to invent authority fields.
-
-But CMS2's token shape is not necessarily the final shape because it issues its
-own route token. For final Ginko CMS, the token lifecycle should first be tested
-with Better Auth API keys.
-
-V1 implication:
-
-- use CMS2's workflow shape;
-- do not blindly copy its token table;
-- adapt token lifecycle to Better Auth if the proof passes.
-
-### Current Repo Has Four Concrete Risk Clusters
-
-The current repo still has:
-
-- local `file:` dependencies for `better-convex-nuxt`;
-- CMS-owned `mcpKeys`;
-- `projectTool` and generic MCP runtime ceremony;
-- normal MCP dependence on `CONVEX_DEPLOY_KEY`;
-- `CmsCaller` compatibility-style identity plumbing.
-
-V1 implication:
-
-- these are not all one refactor;
-- package/release baseline must be fixed before heavy product work;
-- MCP auth must be proven before deleting old `mcpKeys`;
-- `projectTool` should be replaced only after explicit tools exist;
-- deploy key removal from normal MCP must happen with a working token path.
-
-## V1 Safety Strategy
-
-The safest v1 is supervised AI, not full autonomous publishing.
-
-V1 should include:
-
-- external MCP connection;
-- scoped connection tokens;
-- role-intersected MCP permissions;
-- agent runs;
-- draft create/update;
-- publish preview;
-- publish/archive review requests;
-- Studio review approval/rejection;
-- audit for every agent write and human approval;
-- package-level release proof.
-
-V1 should not include by default:
-
-- direct agent publish;
-- direct agent archive;
-- direct agent delete;
-- purge;
-- schema mutation through MCP;
-- member/settings management through MCP;
-- CMS tenants/workspaces;
-- public draft reads;
-- unproven restore claims.
-
-Direct publish can be added later only if the trusted-mode proof passes. If that
-proof is ambiguous, shipping without direct publish is the better v1.
-
-## Big Refactor Entry Gates
-
-Do not start broad MCP/AI or Trellis-cleanup refactors until these gates pass.
-
-### Gate 1: Package Reality Gate
-
-Purpose:
-
-- prove local workspace success is not hiding release failure.
-
-Must pass before:
-
-- any large runtime refactor.
-
-Checks:
-
-- no release artifact depends on `workspace:`, `file:`, or `link:`;
-- `better-convex-nuxt` dependency is publishable;
-- package E2E installs packed artifacts in a clean consumer;
-- package E2E does not rely on sibling checkouts except through packed tarballs.
-
-Failure means:
-
-- stop product work and fix packaging first.
-
-### Gate 2: Better Auth API-Key Gate
-
-Purpose:
-
-- prove the final MCP connection-token owner.
-
-Must pass before:
-
-- deleting `mcpKeys`;
-- changing Studio MCP settings UI;
-- removing deploy-key-backed MCP calls.
-
-Checks:
-
-- `@better-auth/api-key` works with the installed Better Auth version;
-- key can be created by an authenticated Studio user;
-- key can be verified from the Nuxt MCP route;
-- Bearer token usage is supported or cleanly adapted;
-- verification returns stable Better Auth user id and key id;
-- revoked, expired, malformed, and wrong-config keys fail;
-- rate limit behavior is known and does not double-count per request;
-- raw key is never stored in CMS rows or logs.
-
-Failure means:
-
-- use a tiny CMS-owned MCP token table as the explicit fallback;
-- keep the same CMS scopes and role intersection;
-- do not block agent runs/review requests on Better Auth token lifecycle.
-
-Result on 2026-07-04:
-
-- Passed as an isolated proof. `@better-auth/api-key@1.6.11` works on the
-  installed Better Auth `1.6.11` line when `@better-auth/core@1.6.11` and
-  `@better-auth/utils@0.4.0` are pinned with it.
-- Passed. A signed-in Better Auth user can create an API key, verify it, and
-  resolve a stable Better Auth user id plus API-key id.
-- Passed. Bearer-token usage is supported through an explicit Nuxt-boundary
-  adapter that parses `Authorization: Bearer ...` and passes only the raw key to
-  Better Auth verification. The plugin's default remains `x-api-key`.
-- Passed. Deleted and expired keys fail verification.
-- Passed. API-key rate limiting happens inside `verifyApiKey`; the proof does
-  not do a second session lookup, avoiding double-counting one MCP request.
-- Passed. The proof helper returns only `{ betterAuthApiKeyId, authUserId }`
-  and does not return the raw key.
-- Boundary note: this was not the live MCP cutover. The later Phase 5 cutover
-  replaced `mcpKeys` with Better Auth API keys plus CMS credential settings.
-
-### Gate 3: Current Role Intersection Gate
-
-Purpose:
-
-- prove tokens never outlive the user's current CMS authority.
-
-Must pass before:
-
-- enabling MCP write tools outside a local proof.
-
-Checks:
-
-- editor token can write drafts;
-- editor token cannot publish;
-- downgraded editor token loses draft write immediately;
-- removed member token loses protected access immediately;
-- owner token is still limited by token scope;
-- all denials are audited.
-
-Failure means:
-
-- no MCP writes in v1.
-
-Result on 2026-07-04:
-
-- Partial pass. The current component path re-reads the MCP key's bound member
-  row when resolving app identity, so role changes affect existing MCP callers
-  without refreshing a token.
-- Passed. An editor-bound MCP key can save a draft and cannot publish.
-- Passed. After the bound editor is downgraded to viewer, the same MCP key
-  immediately loses draft-write permission.
-- Superseded by Phase 5. Removing a member now revokes active
-  `mcpCredentialSettings`; legacy `mcpKeys` no longer exist.
-- Passed. Studio capability visibility remains derived from backend permission
-  checks.
-- Not complete yet. Owner-token scope limits require the Phase 5 CMS credential
-  settings row, and denial audit requires the later agent/audit gate. Do not
-  expose MCP write tools to real users until those checks pass.
-
-### Gate 4: Agent Run Gate
-
-Purpose:
-
-- prove AI writes are traceable and bounded.
-
-Must pass before:
-
-- exposing draft-write MCP tools to real users.
-
-Checks:
-
-- first write creates or requires an `agentRun`;
-- run has status, capability list, collection restrictions, expiry, and actor
-  identity;
-- completed/revoked/failed/expired runs cannot write;
-- run permission check re-reads the delegating user's current CMS role;
-- audit links token, user, run, tool, entry, and operation.
-
-Failure means:
-
-- only read-only MCP should ship.
-
-### Gate 5: Review Request Gate
-
-Purpose:
-
-- prove agents can prepare public changes without changing public state.
-
-Must pass before:
-
-- enabling agent publish/archive workflows.
-
-Checks:
-
-- agent can update draft;
-- agent can preview publish;
-- agent can create review request;
-- public projection is unchanged before approval;
-- publisher/owner approval re-checks role and stale draft state;
-- editor cannot approve;
-- reject has no public effect;
-- audit records requester, agent run, reviewer, and final operation.
-
-Failure means:
-
-- v1 may allow draft assistance only, not publish/archive preparation.
-
-### Gate 6: Explicit MCP Surface Gate
-
-Purpose:
-
-- prevent MCP from becoming a second admin API.
-
-Must pass before:
-
-- deleting `projectTool`;
-- claiming the new MCP is production-ready.
-
-Checks:
-
-- tool list is explicit and small;
-- no raw table tools;
-- no schema/member/settings tools;
-- no tool accepts authority fields;
-- no tool returns secrets or raw internal documents;
-- source guard tests catch forbidden imports and old runtimes;
-- at least one real MCP client or SDK smoke can list tools and call read/draft
-  tools.
-
-Failure means:
-
-- keep MCP internal/experimental and do not document it as first-class.
-
-### Gate 7: Studio Operator Gate
-
-Purpose:
-
-- prove humans can supervise agent work.
-
-Must pass before:
-
-- presenting v1 as AI-native.
-
-Checks:
-
-- user can create and revoke MCP connection;
-- user can choose expiry and scope;
-- editor can see own agent runs and draft changes;
-- publisher/owner can review pending requests;
-- stale requests are obvious;
-- approval/rejection uses canonical backend operations;
-- UI copy does not claim autonomous publish if trusted mode is disabled.
-
-Failure means:
-
-- keep MCP as advanced/experimental and delay broad positioning.
-
-### Gate 8: Release Gate
-
-Purpose:
-
-- prove final state as a package.
-
-Must pass before:
-
-- release candidate.
-
-Checks:
-
-- `pnpm run check`;
-- `pnpm run release:verify`;
-- package E2E;
-- no-zombie searches for Trellis, `projectTool`, old `mcpKeys`, and normal MCP
-  `CONVEX_DEPLOY_KEY` dependency;
-- docs describe exactly the shipped behavior.
-
-Failure means:
-
-- no release candidate.
-
-## Baseline Experiments
-
-Run these before larger rewrites. They are designed to prove the risky parts
-with minimal code.
-
-### Experiment 1: Packed Dependency Baseline
-
-Question:
-
-- Can a packed consumer install Ginko CMS without local dependency specifiers?
-
-Steps:
-
-- Replace local `file:` dependency specs for `better-convex-nuxt` with a
-  publishable version/range for release verification.
-- Add or tighten a packed manifest check that fails on `workspace:`, `file:`,
-  and `link:`.
-- Run package E2E against packed artifacts.
-
-Acceptance criteria:
-
-- packed `@lupinum/ginko-cms` manifest contains no local dependency specifiers;
-- packed consumer installs without local workspace assumptions;
-- package E2E passes;
-- failure output names the exact offending package and field.
-
-Result on 2026-07-04:
-
-- Passed. `better-convex-nuxt` now resolves through the publishable
-  compatibility-matrix version, `0.4.0`, in the root workspace, CMS package, and
-  playground manifests.
-- Passed. Packed manifest checking now rejects `workspace:`, `file:`, and
-  `link:` in dependency fields and reports the offending packed package plus the
-  manifest field.
-- Passed. `pnpm run package:e2e` installed packed
-  `@lupinum/ginko-cms`, `@lupinum/ginko-cms-convex`, and
-  `@lupinum/ginko-cms-contract` into a clean consumer. The consumer used
-  `better-convex-nuxt=0.4.0`.
-- Failed once, then passed. `pnpm run release:verify` initially stopped at
-  `format:check`; after formatting the named files, the full gate passed.
-
-Go/no-go:
-
-- Do not call the package releasable until this passes.
-
-### Experiment 2: Better Auth API Key As MCP Credential
-
-Question:
-
-- Can Better Auth API keys be used as external MCP bearer tokens in the Nuxt MCP
-  route?
-
-Steps:
-
-- Add and enable `@better-auth/api-key` in a small proof.
-- Create an API key from a Studio/server flow.
-- Verify it at the MCP route boundary.
-- Resolve Better Auth `user.id`.
-- Forward only the resolved identity/key id to Convex.
-
-Acceptance criteria:
-
-- token is shown once;
-- raw token is never stored in CMS rows;
-- expired token fails;
-- revoked token fails;
-- malformed token fails;
-- verified token resolves a stable Better Auth user id;
-- rate-limit behavior is measured and does not double-count a single MCP
-  request;
-- Bearer-token usage is proven or replaced with a documented supported header;
-- MCP bearer auth works with a real MCP client or SDK smoke.
-
-Result on 2026-07-04:
-
-- Passed for the non-client SDK proof. `test/runtime/better-auth-api-key-gate`
-  creates and verifies keys through Better Auth's real API-key plugin and client
-  plugin.
-- Bearer support is proven at the Nuxt boundary through
-  `parseMcpBearerApiKey()` and `verifyMcpBearerApiKey()`.
-- Real external MCP client smoke remains for the later explicit MCP surface
-  gate, after the live MCP route is cut over.
-
-Fallback:
-
-- If Better Auth API keys do not fit the Nuxt/Convex runtime, use a tiny
-  CMS-owned token table only for MCP token lifecycle. Keep the same CMS scopes
-  and current-role intersection model.
-
-### Experiment 3: Effective Permission Intersection
-
-Question:
-
-- Does an existing MCP token immediately lose authority when the user role
-  changes?
-
-Steps:
-
-- Create an editor user.
-- Create an MCP token with draft-write scope.
-- Confirm draft write works.
-- Downgrade user to viewer.
-- Reuse same token.
-
-Acceptance criteria:
-
-- token verification still succeeds;
-- draft write is denied after downgrade;
-- removal from CMS members blocks protected MCP tools;
-- denied attempt is audited;
-- no MCP input can override `authUserId`, `memberId`, role, or organization.
-
-### Experiment 4: Agent Run And Review Request Slice
-
-Question:
-
-- Can an agent update a draft and request publish review without changing the
-  public website?
-
-Steps:
-
-- Create `agentRuns`.
-- Create `reviewRequests`.
-- Add MCP tools for read, save draft, preview publish, request publish.
-- Approve review in Studio as publisher/owner.
-
-Acceptance criteria:
-
-- agent draft write is linked to one run;
-- review request stores observed draft/revision details;
-- public projection is unchanged before approval;
-- approval re-checks current permissions and stale draft state;
-- canonical publish function performs the actual publish;
-- audit records delegating user, agent run, reviewer, and publish action.
-
-### Experiment 5: Studio Agent Workspace UX
-
-Question:
-
-- Can a normal editor understand what an agent did and what needs review?
-
-Steps:
-
-- Add a minimal Studio agent workspace.
-- Show active/recent agent runs.
-- Show draft changes and review requests.
-- Show approve/reject controls only to roles that can approve.
-
-Acceptance criteria:
-
-- editor can see their own agent runs;
-- publisher/owner can see pending review requests;
-- viewer cannot approve or mutate;
-- stale review requests are visibly stale;
-- approving from Studio uses the same canonical backend operation.
-
-### Experiment 6: Trusted Direct Publish Proof
-
-Question:
-
-- Can direct agent publish be made safe enough for explicitly delegated trusted
-  automation?
-
-Run this only after Experiments 2-5 pass.
-
-Acceptance criteria:
-
-- disabled by default;
-- requires explicit trusted scope;
-- requires current publisher/owner role;
-- editor token cannot direct publish;
-- role downgrade blocks an existing trusted token;
-- publish preview or equivalent stale-state guard is enforced;
-- audit clearly marks trusted agent direct execution.
-
-Go/no-go:
-
-- If this is hard to explain or hard to test, keep trusted direct publish out of
-  v1 and ship review requests only.
-
-## Migration Phases
-
-### Phase 0: Freeze Baseline And Ownership
-
-Objective:
-
-- Lock the migration baseline before implementation expands.
-
-Todos:
-
-- [x] Confirm this document is the top-level source of truth.
-- [x] Keep `move-off-trellis.md` as the Trellis lane.
-- [x] Keep `mcp-ai-permission-migration-plan.md` as the detailed MCP lane.
-- [x] Mark all reopened decisions in `migration-decision-questions.md`.
-- [x] Confirm no CMS tenants/workspaces are being added.
-- [x] Confirm Better Auth owns API-key lifecycle if Experiment 2 passes.
-- [x] Confirm default AI mode is supervised/review-gated.
-
-Acceptance criteria:
-
-- implementer can start from this file and find every related plan;
-- no phase requires old and new internal paths to run side by side;
-- every new table has a named owner and acceptance criterion.
-
-Verification:
+Studio and MCP operate authenticated CMS domain commands. They do not define
+public routing policy. The Nuxt module hosts Studio and connects the packages;
+it does not become a second public-content engine.
+
+Filesystem content and CMS content are two first-class backends for this model.
+Ginko Content owns a portable Markdown/MDC codec so adoption of the CMS is not a
+one-way decision:
+
+```text
+Markdown/MDC + assets <--> portable Ginko Content model <--> Ginko CMS
+```
+
+## 3. Product Boundaries
+
+### 3.1 Ginko Content Owns
+
+- canonical content collection identifiers;
+- public locale codes, default locale, fallback policy, and translated slugs;
+- collection mounts and route projection;
+- provider wire contracts and canonical document envelopes;
+- the versioned Markdown/MDC portability format, semantic codecs, canonical
+  reference syntax, and portable asset-path rules;
+- one portable document model, deterministic codecs, safe directory format,
+  structural reference/asset rules, and observable Level-1 contract tests;
+- navigation, surroundings, search, sitemap, prerender, and agent projection;
+- public route alternatives and `x-default` behavior;
+- the framework-free resolved policy consumed by CMS setup.
+
+### 3.2 Ginko CMS Owns
+
+- editable collection field/domain contracts derived from Content collections;
+- drafts, revisions, publishing, unpublishing, archiving, and restore;
+- CMS members, roles, permissions, review requests, and audit;
+- public projection records and raw provider facts;
+- managed assets, imports, backups, recovery, and revalidation outbox;
+- authenticated published-export rosters, draft-import plans, host-side asset
+  transfer, and CMS-specific import/export receipts;
+- Studio workflows;
+- MCP tools that invoke canonical CMS operations.
+
+CMS may persist a derived copy of Content policy only when it is:
+
+- installed from the canonical Content policy;
+- marked and treated as derived;
+- replaced atomically with collection contracts;
+- rebuildable;
+- checked for drift;
+- not editable in Studio.
+
+### 3.3 Better Convex Nuxt Owns
+
+- the Nuxt Convex client lifecycle;
+- authentication settlement and replacement;
+- stable replacement-safe client handles;
+- `serverConvex()` token policy and caller construction;
+- Nuxt route-protection middleware;
+- normalized Convex call errors.
+
+Ginko CMS must not duplicate those responsibilities. The standalone Studio is a
+separate Vite application, so it may adapt the stable client handle to Vue
+state. That adapter must add CMS scope and identity guards without reconstructing
+Better Convex Nuxt auth or client ownership.
+
+### 3.4 The Host Application Owns
+
+- deployment environment and secrets;
+- the Nuxt installation;
+- thin generated Convex root adapters;
+- authentication provider configuration;
+- the canonical `content.config.ts`.
+
+Generated host adapters may be one file per stable CMS domain. They must remain
+thin, generated, and sync-checked. A previous goal of forcing all host setup into
+five files is rejected because it would create a monolith without reducing
+product complexity.
+
+### 3.5 Third-Party CMS Adapter Authors Own
+
+- verified operator identity and authorization;
+- backend transactions, cursor implementation, authorization, and operational
+  cleanup;
+- entry and asset persistence, including D1/R2, SQL/object storage, or another
+  platform;
+- a Ginko Content read provider when the backend serves runtime content;
+- direct import/export orchestration when the backend needs it;
+- passing published runtime data-source and Level-1 codec contracts, plus
+  adapter-owned restart, fault, authorization, and cleanup evidence.
+
+Adapter authors consume canonical Ginko Content models and codecs. They do not
+copy manifest schemas, route projection, locale policy, reference syntax,
+Markdown parsing, or asset-rewrite rules into their integration.
+
+## 4. Non-Goals
+
+Do not add these while completing vNext:
+
+- tenants or workspaces;
+- a second team or identity system;
+- anonymous Studio operation;
+- trusted autonomous publishing;
+- collection-limited MCP credentials without an approved product requirement;
+- compatibility shims for unreleased internals;
+- a generic service or repository layer;
+- a generic release framework;
+- live bidirectional synchronization or dual writes between Git and CMS;
+- preservation of byte-for-byte Markdown formatting, comments, or complete CMS
+  revision/audit history in a portable content export;
+- dual Content Wire versions;
+- a second export allowlist;
+- publication, tagging, or pushing from an agent session.
+
+`publicRoutes` is not scheduled for deletion merely for architectural purity.
+It may remain as an explicitly documented, rebuildable route-collision index
+until measurement proves a simpler indexed `publicEntries` model can replace it.
+
+## 5. Current Baseline
+
+The implementation starts from Ginko CMS commit
+`125828d0a0f9b7ed1c1d35ec038e40424c3acfd1`.
+
+Confirmed useful foundations:
+
+- Content Wire V2 is the only active provider query path.
+- The provider caches one `serverConvex(event, { auth: 'none' })` caller per H3
+  event and reuses it for documents and assets.
+- CMS provider reads use published projections; the Content preview cookie does
+  not authorize CMS drafts.
+- Production code does not read `ConvexCallError.cause`.
+- Studio receives the stable Better Convex Nuxt handle rather than a raw client.
+- Same-user token rotation does not require subscription replacement.
+- Current source checks pass, but the missing semantic cases in this plan remain
+  release blockers.
+- Ginko Content `/cms-import` and the CMS filesystem migration planner provide a
+  useful one-way import foundation, but no lossless semantic CMS export or asset
+  round trip exists yet.
+
+Known artifact baseline:
+
+- Better Convex Nuxt lifecycle fix: `fb238d96`.
+- Ginko Content `0.3.0` provides the import foundation but not the data-source
+  and portability contracts required by WP3A. The coordinated target is
+  `0.4.0-rc.1`, promoted to `0.4.0` after certification.
+- The canonical CMS compatibility file still points to an older Better Convex
+  Nuxt artifact and must be updated only after a clean candidate is produced.
+- The current Ginko Content worktree is not a release artifact.
+- Existing CMS packed evidence predates the two latest locale-policy commits.
+
+## 6. Architectural Invariants
+
+The following statements must become executable invariants:
+
+1. A client argument can never grant identity, role, scope, email, or ownership.
+2. An MCP credential can never degrade into its owner's browser authority.
+3. Missing auth secrets fail closed.
+4. Outgoing-principal data is retired before replacement identity work begins.
+5. No disposed Vue scope can acquire or reacquire a subscription.
+6. No stale query, page, transform, callback, error, or log can commit.
+7. Content policy has one canonical source and one rebuildable CMS projection.
+8. Provider-returned identity facts cannot override locally requested facts.
+9. Published reads never expose drafts, archived data, private fields, or
+   credentials.
+10. Remote error data and response bodies never cross a boundary unsanitized.
+11. Every destructive operation uses preview, confirmation, and canonical
+    execution; agent public-output changes are review-gated in vNext.
+12. Release verification installs exact immutable tarballs with no sibling,
+    workspace, link, or registry substitute.
+13. Markdown to CMS to Markdown preserves supported authored fields, route
+    inputs, locales, references, bodies, and assets; projected routes,
+    navigation, search, and sitemap are rebuilt and behaviorally compared.
+
+### Work Package Execution Protocol
+
+Use the same sequence for every work package:
+
+1. Confirm all involved repositories are clean and record their starting
+   commits.
+2. Add the smallest failing regression test that proves the finding. A source
+   scan is useful, but it does not replace a behavioral test when the behavior
+   can be executed.
+3. Implement the simplest hard cutover that makes the invariant true. Delete
+   the contradictory path in the same work package.
+4. Run the focused tests first, then formatting, lint, typecheck, boundary
+   checks, and the affected repository gate.
+5. Inspect the complete diff for duplicate sources of truth, compatibility
+   leftovers, generated-output churn, secrets, and undocumented public changes.
+6. Update the acceptance matrix and migration guidance.
+7. Commit only that work package. Do not combine unrelated cleanup.
+
+Generated files are regenerated through their canonical commands and reviewed
+separately from source changes. Release artifacts remain uncommitted.
+
+### Cross-Repository Delivery Map
+
+| Work package                 | Primary repository          | Coordinated repository                       | Prerequisite                  | Produced contract or evidence                          |
+| ---------------------------- | --------------------------- | -------------------------------------------- | ----------------------------- | ------------------------------------------------------ |
+| WP1 identity/auth            | Ginko CMS                   | Better Convex Nuxt verification              | current auth public API       | fail-closed caller matrix                              |
+| WP2 Content policy           | Ginko Content               | Ginko CMS                                    | accepted policy shape         | immutable policy artifact and atomic sync              |
+| WP2A upgrade/recovery        | Ginko CMS                   | host deployment docs                         | WP2 contract hashes           | resumable ledger and recovery drill                    |
+| WP3 provider/assets          | Ginko Content               | Ginko CMS                                    | Wire V2 and render policy     | validated raw facts and safe assets                    |
+| WP3A integration/portability | Ginko Content first         | Ginko CMS second                             | WP2 and WP3 semantics         | data source, codec, Node directory, CMS vertical slice |
+| WP4 Studio lifecycle         | Ginko CMS                   | Better Convex Nuxt only on reproduced defect | accepted stable client handle | identity-safe Studio operations                        |
+| WP5 MCP                      | Ginko CMS                   | none                                         | WP1 canonical authority       | supervised, scoped automation                          |
+| WP6 public delivery          | Ginko Content               | Ginko CMS                                    | WP3 data source               | bounded public queries and delivery                    |
+| WP7 API freeze               | Ginko Content and Ginko CMS | Better Convex Nuxt contract probe            | preceding public APIs         | intentional packed exports                             |
+| WP8 artifacts/CI             | Ginko CMS coordinator       | all repositories                             | clean accepted commits        | exact compatibility tuple                              |
+| WP8A operational quality     | Ginko CMS                   | adapter examples                             | stable workflows              | accessibility, retention, scale, onboarding            |
+| WP9 certification            | Ginko CMS coordinator       | all repositories and consumers               | exact candidate tuple         | final executable evidence                              |
+
+For cross-repository work, finish and pack the upstream contract before editing
+the downstream adapter. Record its commit and SHA-256 in a temporary work-package
+note; update compatibility only when the work package is accepted. Never make a
+downstream test green through a sibling source alias.
+
+## 7. Work Package 1: Secure Identity And Auth Topology
+
+### Objective
+
+Remove the two authorization vulnerabilities, require real secrets, and make
+the supported authentication topology explicit.
+
+### 7.1 First-Owner Bootstrap
+
+Delete email authority from the client-facing mutation. The browser may provide
+a display name, but ownership authorization must use the verified JWT email.
+The configured owner email must come from the deployment, not the browser.
+
+Cornerstone shape:
+
+```ts
+// Public host mutation contract.
+export const bootstrapCmsOwnerArgs = {
+  displayName: v.optional(v.string()),
+}
+
+// Host adapter. The environment value overrides nothing supplied by a caller
+// because the public args do not contain either email field.
+export const bootstrapCmsOwner = mutation({
+  args: bootstrapCmsOwnerArgs,
+  handler: async (ctx, args) => {
+    const configuredOwnerEmail = process.env.GINKO_FIRST_OWNER_EMAIL
+    return await ctx.runMutation(components.ginkoCms.members.bootstrapCmsOwner, {
+      ...(args.displayName ? { displayName: args.displayName } : {}),
+      ...(configuredOwnerEmail ? { configuredOwnerEmail } : {}),
+    })
+  },
+})
+
+// Component mutation.
+const appIdentity = await ctx.appIdentity()
+const verifiedEmail = appIdentity.caller.kind === 'user' ? appIdentity.caller.email : undefined
+
+validateFirstOwnerEmail(verifiedEmail, args.configuredOwnerEmail)
+```
+
+If the Convex component can safely read the deployment environment directly,
+delete `configuredOwnerEmail` from the component args too. Do not pass the
+authenticated email through args merely to avoid reading it from identity.
+
+Required tests:
+
+- attacker JWT email plus configured-owner client email must fail;
+- missing verified email must fail;
+- missing configured owner email must fail;
+- matching normalized verified email succeeds exactly once;
+- concurrent claims create one owner;
+- a later caller cannot use bootstrap to change membership.
+
+### 7.2 Explicit Credential Kind
+
+`sessionId` exists on browser and API-key sessions. It is not a credential-type
+discriminator.
+
+The signed Convex JWT must carry a trusted claim:
+
+```ts
+type GinkoCredentialKind = 'user-session' | 'mcp-api-key'
+
+type GinkoConvexIdentity = {
+  subject: string
+  sessionId: string
+  ginkoCredentialKind: GinkoCredentialKind
+}
+```
+
+The issuer must derive this claim from a trusted Better Auth validation signal.
+Do not infer it in Convex from whether a CMS credential row happens to exist.
+Do not guess from arbitrary IDs.
+
+The resolver then becomes exhaustive:
+
+```ts
+export async function resolveCmsCaller(ctx: RootCtx): Promise<CmsCaller> {
+  const identity = await readGinkoConvexIdentity(ctx)
+  if (!identity) return cmsAnonymousCaller()
+
+  switch (identity.ginkoCredentialKind) {
+    case 'user-session':
+      return cmsCallerFromConvexAuthIdentity(identity)
+
+    case 'mcp-api-key': {
+      const caller = cmsMcpCaller(identity.sessionId)
+      const appIdentity = await getAppIdentity(ctx, caller)
+      if (appIdentity?.kind !== 'member' || appIdentity.userId !== identity.subject) {
+        throwCmsError('MCP_CREDENTIAL_REJECTED', 'MCP credential is not active.')
+      }
+      return caller
+    }
+  }
+}
+```
+
+Implementation order:
+
+1. Add a focused Better Auth integration test proving which trusted signal is
+   available during JWT issuance.
+2. Prefer a claim supplied from validated request context.
+3. If the upstream plugin cannot expose a reliable signal, implement a dedicated
+   MCP Convex-token issuer.
+4. Reject prefix-only or row-existence inference as the final design.
+5. Keep browser sessions working with their normal `sessionId`.
+
+Required tests:
+
+- browser JWT resolves to user;
+- active API key resolves to MCP caller;
+- missing settings, revoked settings, wrong owner, expired key, and cleanup
+  failure all fail closed;
+- every case is exercised through a direct protected Convex call, not only MCP
+  HTTP middleware;
+- role downgrade and membership removal take effect on the next call.
+
+### 7.3 Auth Secret
+
+Use one required secret:
+
+```ts
+function requireBetterAuthSecret(): string {
+  const secret = process.env.BETTER_AUTH_SECRET
+  if (!secret) {
+    throw new Error('BETTER_AUTH_SECRET is required.')
+  }
+  return secret
+}
+```
+
+Delete the public development literal. Development setup may generate a local
+secret into an ignored environment file; runtime code must not invent one.
+`ginko-cms doctor` must report a missing secret without printing any value.
+
+### 7.4 Supported Topology
+
+Ginko CMS Studio requires authentication. Reject nested `convex.auth: false` at
+module setup with an actionable error. Public Content provider calls continue
+to use `auth: 'none'`; that is unrelated to disabling CMS authentication.
+
+Wire Better Convex Nuxt route protection explicitly:
+
+```ts
+{
+  name: 'studio-host',
+  path: '/studio/:slug(.*)*',
+  file: resolveRuntimePage('studio-host.vue'),
+  meta: {
+    layout: false,
+    convexAuth: true,
+  },
+}
+```
+
+Required browser proof:
+
+- signed-out SSR navigation redirects before Studio mounts;
+- auth pages remain unprotected;
+- pending auth never flashes the Studio shell;
+- signed-in non-members receive the CMS membership boundary;
+- sign-out immediately retires Studio data.
+
+### 7.5 Permission-Complete Callable Guards
+
+Every MCP-reachable protected callable must carry a permission-bearing guard.
+Role-only guards are insufficient because the canonical `can()` function
+intersects MCP scopes only when `guard.permission` exists.
+
+The current backup and owner diagnostics functions use bare `hasRole('owner')`
+guards. A read-only API key owned by an owner can therefore call those packed
+Convex wrappers directly and bypass the MCP tool's capability check.
+
+Make the authority explicit:
+
+- add a deliberate `manageBackups` permission for export, verify, download,
+  restore, and backup-artifact deletion, or map each operation to an existing
+  permission only where the product meaning is exact;
+- add a separate `managePortability` permission for every portability plan,
+  upload, apply, roster, download, finalize, abort, and cleanup boundary;
+- restrict MCP entry-backup export to entry scope and `deleteEntries`;
+- use `manageSettings` for owner storage diagnostics;
+- reject public protected definitions with unscoped guards unless they are an
+  explicitly documented bootstrap-only function that rejects MCP identity;
+- do not rely on a Nitro/MCP tool check to protect a direct Convex callable.
+
+Cornerstone invariant:
+
+```ts
+export function can(identity: CmsAppIdentity, guard: CmsGuard): boolean {
+  if (!guard.check(identity)) return false
+  if (identity?.kind === 'member' && identity.audit.origin === 'mcp') {
+    if (!guard.permission) return false
+    return identity.mcpEffectivePermissions?.[guard.permission] === true
+  }
+  return true
+}
+```
+
+Required tests:
+
+- table-driven role x origin x scope coverage for every exported callable;
+- direct wrapper calls, not only Studio and MCP HTTP calls;
+- read-only owner MCP cannot export/download a full backup, restore an asset,
+  delete a backup, or read owner storage diagnostics;
+- entry backup through MCP rejects non-entry scopes;
+- a static guard fails when an MCP-reachable protected definition has no
+  permission.
+
+### Gate And Commit
+
+Focused auth tests, component auth-boundary checks, module tests, typecheck, and
+lint must pass.
+
+Suggested commit:
+
+`fix!: make CMS identity and authentication fail closed`
+
+## 8. Work Package 2: Canonical Content Policy
+
+### Objective
+
+Make Ginko Content policy the one source of public locale, collection, and route
+truth. Keep CMS storage as a derived operational projection.
+
+### 8.1 One Framework-Free Resolved Contract
+
+Evolve Ginko Content's existing `CmsContract` into the single
+`ResolvedContentContractV1` defined by the Ginko Content `0.4` specification.
+Do not add `ResolvedContentCmsPolicy`, a second locale/routing object, or a
+separate collection-contract array.
+
+Ginko Content produces one deterministic artifact and its RFC 8785/SHA-256
+hash. The exact artifact contains collection, field, locale, reference, media,
+and authored routing policy. It is used by:
+
+- the Ginko Content module;
+- the Ginko CMS Nuxt module;
+- `ginko-cms push`;
+- generated CMS types and portability codecs;
+- the integrated playground;
+- package-consumer fixtures.
+
+Do not let CMS independently parse a subset of `content.config.ts`, reconstruct
+defaults, or accept an overlapping policy input. Every semantic mutation to the
+resolved artifact changes its one canonical hash.
+
+CMS presentation configuration is permitted only as a separate
+`CmsEditorialLayout` keyed by contract collection and field IDs. It contains
+labels, icons, widths, grouping, and conditional presentation; it cannot contain
+locales, routes, field types, defaults, validation, identity, or component
+policy. Setup rejects unknown keys. This non-semantic layout is not installed as
+Content policy and does not change `contractSha256`.
+
+### 8.2 One Atomic Backend Sync
+
+Replace separate locale bootstrap and collection install behavior with one
+deploy-authorized operation:
+
+```ts
+type InstallCmsPolicyInput = {
+  contract: ResolvedContentContractV1
+  contractSha256: string
+}
+
+// Component mutation called only by the host's deploy-authorized
+// internalMutation adapter.
+export const installCmsPolicy = mutation({
+  args: installCmsPolicyValidator,
+  handler: async (ctx, input) => {
+    await validatePolicyAndCollectionDrift(ctx, input)
+    await replaceDerivedPolicy(ctx, input.contract, input.contractSha256)
+    await installCollectionContracts(ctx, input.contract.collections)
+    return await readInstalledPolicySummary(ctx)
+  },
+})
+```
+
+Convex does not provide multi-mutation transactions across separate calls, so
+policy and collection installation must happen inside one mutation.
+
+The installed state records the canonical contract bytes or their lossless JSON
+value plus `contractSha256`. `push --check` reconstructs the exact artifact,
+recomputes the hash, and reports concrete field, locale, fallback, route,
+reference, and media drift. No independently hashed sub-policy is accepted.
+
+### 8.3 Delete Parallel Configuration
+
+Remove these `0.1.x` configuration paths in the `0.2.0` breaking release:
+
+- `collectionsDir`;
+- inline CMS `collections` as a second source;
+- CMS routing/schema overrides layered on Content;
+- `content: false`;
+- mutable Studio locales and default locale;
+- fallback inference from Nuxt i18n;
+- the internal `contentTranslatedSlugs` option.
+
+Studio displays resolved locale policy read-only. CMS-specific editorial
+metadata may be introduced later only when keyed by canonical locale codes and
+clearly not used for routing.
+
+### 8.4 Runtime Reads
+
+On the server, prefer `runtimeConfig.content`. Use
+`runtimeConfig.public.content` only as a fallback in constrained test/runtime
+environments. Never merge either with `public.ginkoCms` or Nuxt i18n.
+
+The public CMS HTTP facade is scheduled for deletion in Work Package 6. Until it
+is deleted, its locale selection must use this same resolved policy.
+
+### 8.5 Generation-Safe Reindexing
+
+Collection reindex jobs must be keyed by the requested policy/contract
+generation. Returning early merely because a job already exists can lose a
+newer generation: early rows may be processed under policy A, later rows under
+policy B, while the request to restart for B is discarded.
+
+Use explicit requested and applied generations:
+
+```ts
+type CollectionReindexJob = {
+  collectionId: Id<'collections'>
+  requestedGeneration: string
+  appliedGeneration: string | null
+  phase: 'drafts' | 'public' | 'verify'
+  cursor: string | null
+}
+```
+
+Scheduling a newer generation updates `requestedGeneration` even when a job is
+running. Before each batch, the worker compares generations. A mismatch resets
+the phase and cursor so every row is processed under one generation. The job is
+deleted only when verification proves `appliedGeneration === requestedGeneration`.
+
+### Required Tests
+
+- private Content runtime wins over conflicting public Content runtime;
+- CMS and Nuxt i18n values never override Content policy;
+- code policy changes appear as `push --check` drift;
+- applying sync changes Studio, fallback, diagnostics, hrefs, provider routes,
+  and revalidation consistently;
+- collection-local locale/default rules override site defaults where the
+  Content contract says they should;
+- malformed and cyclic fallbacks fail before deployment;
+- a dirty or missing policy artifact cannot be pushed.
+- pausing after reindex page one, syncing a second generation, and completing
+  leaves every entry on the second generation with one clean terminal job.
+
+### Gate And Commit
+
+Run Content policy tests, CMS module and CLI tests, Convex projection tests,
+typecheck, package boundary checks, and the integrated playground prepare.
+
+Suggested commit:
+
+`fix!: make Ginko Content policy canonical in CMS`
+
+## 8A. Work Package 2A: Versioned Upgrade And Recovery
+
+### Objective
+
+Make the published `0.1.x` to `0.2.0` upgrade executable, resumable, auditable,
+and honest about recovery. The current migration command transforms drafts in
+50-entry transactions, stores no run or entry receipts, and still cannot make
+an incompatible contract pushable when entries exist.
+
+### 8A.1 Migration Ledger
+
+Persist one run per migration source and contract transition:
+
+```ts
+type ContentMigrationRun = {
+  migrationId: string
+  sourceHash: string
+  fromContractHash: string
+  toContractHash: string
+  status: 'planned' | 'applying' | 'validating' | 'ready' | 'activated' | 'failed'
+  cursor: string | null
+  startedAt: number
+  completedAt: number | null
+}
+
+type ContentMigrationEntryReceipt = {
+  runId: Id<'contentMigrationRuns'>
+  entryId: Id<'entries'>
+  inputHash: string
+  outputHash: string
+  appliedDraftVersion: number
+  appliedAt: number
+}
+```
+
+The exact table shape may be combined when it remains bounded and queryable,
+but the following behavior is mandatory:
+
+- reusing a migration ID with a different source hash fails;
+- a committed entry receipt is skipped on retry;
+- a changed entry fails with an actionable conflict instead of being silently
+  transformed again;
+- run status and cursor are updated in the same transaction as each batch;
+- user-authored transforms do not need to be idempotent.
+
+### 8A.2 Contract Transition Approval
+
+Successful draft transformation is not sufficient. Finalization validates all
+stored entries against the proposed contract and creates a single-use approval
+bound to exactly:
+
+```ts
+type ContractTransitionApproval = {
+  migrationId: string
+  fromContractHash: string
+  toContractHash: string
+  validatedEntryCount: number
+  expiresAt: number
+  consumedAt: number | null
+}
+```
+
+Atomic policy/collection sync consumes that approval. A different target
+contract, changed migration source, new conflicting entry, or expired approval
+fails.
+
+Public-output changes require an explicit strategy:
+
+- `preserve` is allowed only when validation proves the public projection is
+  unaffected;
+- `rebuild` must process a named target generation and verify every affected
+  public row before the transition is considered complete;
+- `unpublish` intentionally removes affected variants before activation.
+
+For `0.2.0`, prefer an honest maintenance-window transition over a partially
+implemented zero-downtime deployment system. Never leave mixed public rows from
+two contract generations while claiming the migration is complete.
+
+### 8A.3 Legacy MCP Credential Cutover
+
+The published `0.1.3` schema contains legacy `mcpKeys`; vNext replaces it with
+Better Auth API keys plus `mcpCredentialSettings`. Raw legacy credentials cannot
+be safely migrated.
+
+Use a two-stage schema rollout:
+
+1. Retain the legacy table only for an internal one-shot cutover.
+2. Revoke/delete every legacy credential and record an audit receipt.
+3. Prove old tokens fail immediately.
+4. Require owners to create replacement Better Auth credentials.
+5. Remove the empty legacy table and cutover function in the next coordinated
+   schema commit.
+
+No legacy runtime API remains active during the bridge release.
+
+### 8A.4 Recovery Contract
+
+The custom backup mechanism is an export/comparison artifact, not credible full
+disaster recovery:
+
+- non-asset scopes cannot be restored;
+- asset restore creates a new ID and does not repair old references;
+- the current CLI uses deploy-key admin auth while calling owner-guarded actions;
+- full exports collect and serialize complete tables and asset bytes in memory.
+
+For `0.2.0`:
+
+- remove permanent entry purge; reversible archive remains supported;
+- remove forced purge for referenced assets;
+- retain asset restore only for provably unreferenced assets;
+- rename/document custom `full` backup as a bounded export snapshot unless a
+  complete round-trip restore is implemented;
+- use an officially tested Convex deployment snapshot procedure for disaster
+  recovery;
+- make the operator backup command actually authenticate through an explicit
+  owner session/credential, or remove it from the production runbook.
+
+Do not use the presence of a non-restorable export as authorization for
+permanent deletion.
+
+### 8A.5 Archive And Import Limits
+
+Strictly decode export manifests. Record CMS schema version, package version,
+contract hashes, table allowlist, row counts, byte counts, and checksum. Reject
+unknown tables, incompatible schema versions, and malformed rows during preview.
+
+Define and enforce limits before parsing or traversal:
+
+- maximum import/export bytes;
+- maximum files, entries, locales, fields, and relation edges;
+- maximum filesystem depth;
+- maximum asset bytes per export;
+- maximum batch size and total run duration.
+
+Filesystem migration uses `lstat`, rejects or deliberately confines symlinks,
+tracks visited real paths, and prevents cycles. Large imports are resumable
+bounded batches with run identity rather than one unbounded request.
+
+### 8A.6 Downgrade Policy
+
+Downgrade from data written by `0.2.x` to `0.1.3` is unsupported. Recovery means
+a forward fix or an independently verified pre-upgrade Convex snapshot restore.
+State this in release notes and migration guidance.
+
+### Required Tests
+
+- real `v0.1.3` data upgraded through the exact packed candidate;
+- failure during batch two followed by retry transforms every entry once;
+- reused migration ID with changed source fails;
+- incompatible field, localization, locale, and routing transitions finalize
+  and consume only their exact approval;
+- changed/new entries invalidate finalization;
+- no mixed public contract generation after activation;
+- all legacy MCP tokens fail after cutover;
+- permanent entry purge and referenced-asset purge are absent;
+- official snapshot recovery drill restores a sanitized deployment;
+- archive manifest rejects wrong schema, unknown tables, malformed rows, excess
+  size, symlink cycles, and excessive depth.
+
+### Gate And Commit
+
+Run migration unit/integration tests, a sanitized upgrade drill, backup/import
+tests, policy sync tests, package typecheck, and the exact packed consumer.
+
+Suggested commits:
+
+- `fix!: make content migrations resumable and contract-bound`
+- `fix!: remove non-restorable destructive recovery claims`
+- `build: prove the v0.1 to v0.2 upgrade path`
+
+## 9. Work Package 3: Typed Provider And Asset Boundary
+
+### Objective
+
+Make the CMS-to-Content boundary explicit, typed, hostile-input-safe, and
+bounded.
+
+### 9.1 Provider Operation Context
+
+Convert the provider implementation to TypeScript and use one immutable request
+context:
+
+```ts
+interface CmsProviderRequestContext {
+  event: H3Event
+  caller: Awaited<ReturnType<typeof serverConvex>>
+  policy: ResolvedContentCmsPolicy
+}
+
+const contexts = new WeakMap<H3Event, Promise<CmsProviderRequestContext>>()
+
+async function contextFor(event: H3Event): Promise<CmsProviderRequestContext> {
+  const current = contexts.get(event)
+  if (current) return current
+
+  const pending = createProviderContext(event)
+  contexts.set(event, pending)
+  return pending
+}
+```
+
+The context is reused for document, navigation, search, route, site-data, and
+asset operations. Pure shaping functions receive data and policy, never H3
+events or transport constructors.
+
+### 9.2 Runtime Decoders
+
+Use Ginko Content-owned provider decoders when available. If the public provider
+package exposes only TypeScript types, add runtime parsers upstream rather than
+maintaining a divergent CMS copy.
+
+Every operation follows this order:
+
+```ts
+const raw = await context.caller.query(reference, requestArgs)
+const wire = parseCmsListWireResult(raw)
+
+assertRequestedFacts({
+  requested: {
+    collection: request.collection,
+    locale: request.locale,
+  },
+  returned: wire,
+})
+
+return wire.entries.map((entry) => shapeProviderDocument(entry, context.policy))
+```
+
+Reject before transformation, asset resolution, cache publication, or logging:
+
+- wrong collection or locale;
+- conflicting stable identity;
+- absolute or credential-bearing paths;
+- paths with query strings or fragments;
+- site-locale double prefixes;
+- projected fields supplied by CMS where Content owns projection;
+- invalid route variants;
+- invalid ISO dates;
+- malformed cursors or page envelopes;
+- unknown collections;
+- duplicate canonical identities or route collisions.
+
+Locally captured `operation` is always authoritative in normalized errors.
+
+### 9.3 Error Redaction
+
+Sanitize both text and structured data:
+
+```ts
+const publicError = {
+  code: localCode(remote),
+  status: localStatus(remote),
+  message: redactSecretString(localMessage(remote)),
+  data: redactSecretValue(selectAllowedRemoteData(remote.data)),
+  operation,
+}
+```
+
+Do not spread arbitrary remote data. Use an allowlist for useful application
+fields. Never include `cause`, raw bodies, tokens, cookies, keys, or headers.
+
+### 9.4 Canonical Render-Safety Policy
+
+Ginko Content owns one framework-free render policy for parsed Markdown/MDC
+ASTs. CMS invokes that exact policy after Comark parsing and before writing a
+revision or public projection. Ginko Content enforces it again while rendering
+as defense in depth.
+
+The current chain accepts active tags and arbitrary native properties. Raw MDC
+can produce `script`, `style`, `iframe`, `svg`, and event properties such as
+`onerror`; the Content renderer forwards node properties to Vue `h()`.
+
+The canonical policy must:
+
+- allow only safe structural HTML tags and registered content components;
+- reject `script`, `style`, `iframe`, `object`, `embed`, active SVG/MathML, and
+  other executable document contexts by default;
+- reject event-like properties, `innerHTML`, `textContent`, unsafe `is`/`as`,
+  directives, and prototype-polluting keys;
+- validate URL-bearing props against an explicit protocol policy;
+- keep component prop policy tied to the registered component contract;
+- return structured publish issues with exact AST paths;
+- share the same URL/tag/prop rules with agent Markdown serialization.
+
+Cornerstone boundary:
+
+```ts
+const parsed = await parseMdcBody(bodyMdc)
+const validated = validatePublicMarkdownAst(parsed.body, resolvedRenderPolicy)
+
+if (!validated.ok) {
+  throwCmsError('PUBLISH_BODY_UNSAFE', 'Rich content contains unsafe markup.', {
+    issues: validated.issues,
+  })
+}
+```
+
+Do not create a CMS-only sanitizer that can drift from the renderer. Unknown or
+unsafe nodes fail publication; silently dropping executable content would make
+editor previews and published output disagree.
+
+### 9.5 Structured Asset Resolution
+
+Delete recursive arbitrary-string asset detection. Asset references must come
+from:
+
+- fields whose canonical CMS schema type is `image`, `images`, or `file`;
+- known body AST image/media nodes;
+- explicit public asset-reference records.
+
+Resolve authorized public asset facts inside the Convex public document query,
+where the collection contract, canonical identity, locale, revision, and typed
+field path are all available. Do not expose a generic key-based asset resolver:
+an asset ID and field path alone cannot prove that a document is authorized to
+publish the asset.
+
+The Convex public query returns the final bounded public asset fact while that
+authorization context is available:
+
+```ts
+type PublicAssetFact = {
+  assetId: string
+  url: string
+  expiresAt: number | null
+  mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+  bytes: number
+  sha256: string
+}
+```
+
+The URL is credential-free and suitable for anonymous public delivery. If it
+expires, every provider/SSR cache TTL is clamped below `expiresAt`; an already
+expired URL fails the query. Prefer a durable application delivery URL so public
+content does not embed storage capabilities. CLI portability transfer URLs are
+a separate authenticated boundary and never enter provider data, SSR, cache,
+Studio, logs, or DevTools.
+
+### 9.6 Asset Publication And Byte Verification
+
+Asset ownership scope and public visibility are separate concepts. A global
+asset is reusable across entries; it is not automatically public merely because
+its opaque ID becomes known.
+
+For `0.2.0`, require a public reference for anonymous URL resolution. If the
+product needs standalone public global assets, add an explicit publication
+state and audit event rather than overloading `scope: 'global'`.
+
+The server already enforces a 25 MB limit and excludes SVG, HTML, and archives.
+Storage `contentType` is still uploader-controlled. Before registration, a
+backend-owned verification action reads the stored bytes, incrementally
+recomputes SHA-256 and length, parses the complete supported image container,
+checks the Content 0.4 dimension/frame/decoded-size limits, and selects the
+verified media type. The internal registration mutation accepts only that
+verification result. Caller or CLI metadata is never labeled verified.
+
+Managed PDF is deferred with Ginko Content 0.4. Reject MIME mismatches,
+truncation, invalid terminal structure, and unsupported bytes. Failed
+verification marks the run-owned storage object `cleanup-required`; indexed
+retry cleanup continues until deletion succeeds or an operator-visible terminal
+failure is recorded.
+
+### Required Tests
+
+- every provider operation rejects malformed envelopes;
+- requested `docs/en` cannot return `other/fr`;
+- recursive secret sentinels do not appear in serialization or inspection;
+- script/style/iframe/SVG/event-handler/unsafe-protocol ASTs fail publication
+  and cannot render through the exact packed SSR/client chain;
+- route and stable-ID shaping match Content Wire V2;
+- missing body AST fails deterministically;
+- draft and private projections remain unavailable;
+- unknown asset-like strings are never queried or replaced;
+- a document with many assets performs one bounded lookup;
+- unpublished global assets cannot resolve anonymously;
+- mismatched file signatures and MIME metadata are rejected;
+- concurrent document and asset work uses one request caller.
+
+### Gate And Commit
+
+Run provider contract tests against installed Ginko Content, focused security
+tests, typecheck, lint, and a packed provider import probe.
+
+Suggested commit:
+
+`fix!: enforce the typed Ginko Content provider boundary`
+
+## 9A. Work Package 3A: CMS Integration SDK And Markdown Portability
+
+### Objective
+
+Make Ginko Content a backend-neutral integration foundation and make filesystem
+Markdown/MDC and Ginko CMS interchangeable storage backends for the same content
+model. A team must be able to build a CMS adapter on Convex, Cloudflare, SQL, or
+another platform, begin with files, adopt that CMS, and later return to files
+without proprietary content lock-in or manual asset reconstruction.
+
+The current foundation is incomplete:
+
+- Ginko Content's `/cms-import` subpath parses filesystem files and builds a
+  canonical content graph;
+- Ginko CMS plans filesystem imports and can upload discovered local assets;
+- raw MDC is already the CMS's canonical editable body;
+- no CMS-to-filesystem export contract exists;
+- asset discovery and replacement currently scan arbitrary strings and rewrite
+  substrings, which is unsafe and cannot prove reference fidelity;
+- backup JSON is an operational artifact, not a portable Markdown export.
+
+Do not extend the backup format into this feature and do not create a live
+Git/CMS synchronization engine.
+
+### 9A.1 One Ginko Content Portability Contract
+
+Ginko Content `VNEXT-0.4.md` normatively defines `PortableDocumentV1`, the
+frontmatter/data mapping, the one resolved contract, RFC 8785/SHA-256 hashing,
+manifest rebuilding, MDC policy, assets, errors, and filesystem limits. CMS does
+not redefine any of those shapes.
+
+CMS identity maps exactly:
+
+```text
+PortableDocumentV1.canonicalKey <-> entries.stableId
+```
+
+The CMS column name may remain `stableId`, but its value is the unmodified
+Content-owned opaque `canonicalKey`. New imports never derive it from a path,
+slug, route, locale, or `${collection}:...` prefix. Legacy `stableId` and
+`translationKey` conversion happens once in the `0.1.x` migration.
+
+Portable files always materialize collection, canonical key, and locale.
+Deleting and rebuilding `.ginko/portable.json` in an unchanged directory must
+be byte-identical. Moving a file preserves identity but updates its indexed
+path; the deterministic writer restores the canonical path. Final
+routes, navigation trees, search indexes, sitemap entries, AST, TOC, and public
+projections are rebuilt behavior, not portable authority.
+
+### 9A.2 Backend-Neutral Runtime Data Source
+
+Use the fixed, bounded `ContentDataSource<Context>` from Ginko Content `0.4`.
+It returns `ProviderDocumentInput`, `JsonValue | null` site data, bounded search
+and navigation, and cursor-paged routes. It has no caller-selected generics,
+`resolveAssets()`, `defineContentDataSource()`, or provider-owned invalidation.
+
+The CMS implementation lives in `packages/cms/src/nuxt-provider/` and uses one
+request-scoped context:
+
+```ts
+interface GinkoCmsDataSourceContext {
+  event: H3Event
+  caller: ReturnType<typeof serverConvex>
+}
+```
+
+The H3 binder creates it once and reuses the caller. Convex public queries return
+authorized, typed public asset URLs while entry identity, locale, publication,
+and the field contract are available. A guessed asset key or field path never
+forms a separate authorization API.
+
+Migrate current provider invalidation to Ginko Content's single configured cache
+adapter in one hard-cutover commit, then remove `provider.invalidate`. A
+before/after contract test proves the same bounded tags are invalidated once;
+the final runtime has no provider-only or dual invalidation topology.
+
+CMS routes use a stable indexed order
+`(collection, canonicalKey, locale, publicProjectionId)`. The opaque cursor binds
+that sort key, requested collection/locale scope, source name, and a public-
+projection snapshot generation. A sitemap enumeration retains the generation
+until exhaustion; mutation invalidates the cursor rather than silently skipping
+or duplicating a route. Return at most 250 rows per page and enforce the Content
+configured maximum total route count in the host consumer.
+
+### 9A.3 No Generic Transactional Ports In This Release
+
+Do not publish `PortableSnapshotSource`, `PortableImportTarget`, generic leases,
+or a durable-receipt framework in Content `0.4` or CMS `0.2`. Their lifecycle was
+not proven by two real backends and would force filesystem, Convex, and remote
+systems into one speculative state machine.
+
+Ginko Content publishes codecs and Node directory operations. Ginko CMS builds
+one direct, CMS-specific CLI vertical slice. A generic protocol may be designed
+later from the proven Node, CMS, and one additional production backend.
+
+### 9A.4 Executable Adapter Kit
+
+Publish these intentional entries from the same declarative package manifest:
+
+```text
+@lupinum/ginko-content/data-source
+@lupinum/ginko-content/provider
+@lupinum/ginko-content/portability
+@lupinum/ginko-content/portability/node
+@lupinum/ginko-content/testing/data-source-contract
+@lupinum/ginko-content/testing/portability-contract
+```
+
+`package.json.exports` is the sole allowlist. Generate or check public metadata,
+declarations, docs, and probes from it. `/data-source` contains the pure read
+contract. `/provider` contains the H3 binder. `/portability` contains the model,
+codecs, hashing, structural references/assets, manifest rebuild, and semantic
+comparison. `/portability/node` performs safe directory I/O.
+
+The testing entries provide Level-1 observable protocol conformance only:
+
+- `runContentDataSourceContract()`;
+- portable codec/directory contract vectors;
+- canonical multilingual tree/data fixtures with references and assets;
+- hostile fixtures for bounds, cursors, hashes, paths, identities, MDC, and
+  assets.
+
+CMS separately records Level-2 authorization, restart, concurrent replay,
+fault-after-effect, expiry cleanup, and storage evidence. Do not call Level-1
+results production certification.
+
+The released `0.3.0` `/cms-import` API is folded into the new portability codec
+during the next pre-`1.0` minor. Migrate Ginko CMS in the same coordinated
+release, document the replacement, and remove the duplicate entry rather than
+maintaining two parsers or an indefinite alias.
+
+### 9A.5 Semantic Round-Trip Guarantee
+
+The supported guarantee is semantic normalization:
+
+```ts
+const before = normalizePortableModel(sourceBundle)
+const cms = await importIntoCms(sourceBundle)
+const exported = await exportFromCms(cms)
+const after = normalizePortableModel(exported)
+
+expect(after).toEqual(before)
+```
+
+Equality covers:
+
+- collection, canonical key, locale, parent, authored slug, and order;
+- shared and localized typed field values;
+- canonical relation references, including arrays and nested fields;
+- raw MDC meaning and supported custom-component syntax;
+- authored visibility flags;
+- asset bytes, verified media type, and every typed reference;
+- translated slugs and collection-local locale behavior.
+
+Final routes, navigation, search, sitemap, AST, TOC, and public rows are rebuilt
+from authored inputs and compared in a separate behavioral suite. They are not
+part of portable canonical equality.
+
+The guarantee does not cover YAML comments, whitespace style, frontmatter key
+order from the original author, editor-only TipTap state, CMS revision history,
+reviews, members, audit logs, revalidation history, or byte-identical Markdown.
+State those exclusions in product documentation and CLI output.
+
+Every exported file always carries collection, `canonicalKey`, and locale.
+Relations serialize through Ginko Content's canonical reference shape, never
+Convex document IDs or routes.
+
+### 9A.6 Published Export Only
+
+CMS `0.2` exports immutable published revisions only. Working drafts, revision
+history, reviews, and audit records are not portable in this release. There is
+no `--state working` option.
+
+Imports create or update drafts. Finalization verifies completeness and records
+the receipt; it never publishes. Publication remains a separate canonical,
+confirmed CMS operation. Working export is deferred until immutable checkpoints
+exist and pass concurrent edit/asset replacement tests.
+
+### 9A.7 Deterministic Asset Portability
+
+Byte objects use the Ginko Content path
+`public/ginko-assets/<sha256>.<verified-extension>`. Original filenames and
+display metadata belong to logical references, never to the byte-object path.
+Two CMS assets with identical bytes therefore share one portable byte object
+without losing per-reference metadata.
+
+Reference rewriting is schema-aware:
+
+- `image`, `images`, and `file` fields are rewritten from CMS asset ID to a
+  typed portable asset reference;
+- Markdown image/link nodes and known MDC media props are parsed and rewritten;
+- nested typed fields use their field contract;
+- arbitrary strings are never searched or replaced;
+- external HTTPS assets remain external and are never downloaded implicitly;
+- `http:`, `data:`, `blob:`, executable formats, SVG, HTML, and archives are
+  rejected in the initial portability profile.
+
+At CMS asset registration, persist immutable verified SHA-256, byte count,
+verified media type, and verification status. The initial allowlist is PNG,
+JPEG, GIF, and WebP. Managed PDF is deferred with Content 0.4. Byte structure,
+not filenames or caller MIME claims, selects the type and extension.
+
+On import:
+
+1. validate every manifest path before filesystem access;
+2. verify size, checksum, media signature, and declared type;
+3. stream each unique byte object through the host-side CMS adapter once;
+4. register managed assets and receive new CMS asset IDs;
+5. structurally rewrite portable references to those IDs;
+6. validate all references before applying entries;
+7. remove newly uploaded unreferenced objects when the import fails.
+
+Convex operations exchange JSON rosters, plans, receipts, upload authorizations,
+and export holds. They never return or accept a `ReadableStream`.
+
+Import transfer is exact:
+
+1. an authenticated mutation creates `PortableAssetStage` before URL issuance;
+2. the CLI sends bytes to an authenticated CMS Nitro stage endpoint rather than
+   directly to Convex storage;
+3. the endpoint rechecks `managePortability`, obtains a Convex single-use upload
+   URL, streams at most 25 MiB with a 30-second idle and two-minute total timeout,
+   receives the storage ID, and records it against the stage before responding;
+4. a backend-owned action obtains that storage object's URL, permits only the
+   configured Convex storage origin, uses `redirect: 'error'`, incrementally
+   hashes/parses the body, and rejects length/type/integrity mismatch;
+5. an internal mutation conditionally records verified facts or marks the stage
+   cleanup-required.
+
+The stage attempt lease is five minutes, leaving a three-minute commit margin
+after the maximum transfer. Persist only `HMAC(serverSecret, attemptToken)` and
+an attempt generation; return the bearer token once and redact it everywhere.
+A stale token/generation, wrong caller/run, reused response, or unexpected
+storage origin cannot advance the stage. Every request re-resolves current
+membership and `managePortability`; caller ID alone is insufficient, so role or
+credential revocation takes effect on the next call.
+
+Convex generated uploads have one unavoidable platform window: storage may
+commit before the Nitro endpoint records the returned ID. Close it with one
+bounded global orphan reconciler over `_storage`, not a pretend run-only claim.
+After a ten-minute grace period, it deletes storage objects absent from the one
+canonical storage-reference inventory covering assets, backups, portability
+stages, and export holds. It runs only inside the Ginko CMS Convex component's
+proven isolated storage namespace. A component-boundary test must show that
+root-application and other-component storage is neither enumerable nor
+deletable. The inventory helper and sweeper are shared by every CMS upload path.
+Fault injection after storage commit/before stage record and after record/before
+HTTP response must prove eventual deletion or idempotent recovery. If the
+installed Convex version cannot prove both paged `_storage` enumeration and
+component namespace isolation, portability upload is blocked; do not ship an
+unverifiable or cross-application cleanup promise.
+
+Export bytes use an authenticated Nitro endpoint owned by the CMS package:
+`GET /api/_ginko/portability/assets/:holdId`. It requires the same operator
+credential as the run, validates caller/run/hold/expiry through one
+`serverConvex()` caller, fetches the held immutable storage object server-side,
+permits only the configured Convex storage origin, follows zero redirects, and
+streams with the same byte/time limits. A download capability stores only a
+keyed nonce hash, expires after 60 seconds, and permits at most three atomically
+claimed attempts so a broken connection is retryable. Every attempt rechecks
+current `managePortability` authority.
+Responses set `Cache-Control: no-store`; tokens and storage URLs are never
+logged, serialized, redirected to the client, or placed in SSR.
+
+The CLI streams without `arrayBuffer()` or base64 conversion and recomputes the
+expected SHA-256. Portability transfer capabilities are unrelated to public
+provider asset URLs.
+
+Missing, corrupt, hostile, or unsupported assets block apply. HTTPS references
+may remain external only when they were external in the source. Import never
+fetches remote bytes implicitly.
+
+### 9A.8 Plan, Apply, And Receipt Workflow
+
+Expose one direct CLI operator workflow:
 
 ```bash
-git diff --check -- *.md
-rg -n "workspace|tenant|organization|Trellis|mcpKeys|projectTool|CONVEX_DEPLOY_KEY" \
-  ginko-cms-complete-migration-plan.md migration-decision-questions.md \
-  mcp-ai-permission-migration-plan.md move-off-trellis.md
+ginko-cms content export --out ./ginko-content-export
+ginko-cms content verify ./ginko-content-export
+ginko-cms content import ./ginko-content-export --plan ./import-plan.json
+ginko-cms content import --apply ./import-plan.json
 ```
 
-Verification result on 2026-07-04:
+Studio and MCP do not receive bulk import/export authority in `0.2.0`. A later
+Studio workflow may call the same canonical operations after the CLI workflow
+has production evidence; it must not define its own policy or format.
 
-- Passed by document inspection. This document remains the top-level source of
-  truth, with `move-off-trellis.md` and
-  `mcp-ai-permission-migration-plan.md` as lane-specific plans.
-- Passed. Decisions still ban CMS tenants/workspaces for v1 and keep default AI
-  mode supervised/review-gated.
-- Passed. Better Auth API-key lifecycle remains conditional on Gate 2 /
-  Experiment 2.
+The plan is immutable and binds:
 
-### Phase 1: Release And Package Baseline
+- source manifest and content-contract hashes;
+- target deployment and target contract hash;
+- caller and collection scope;
+- create, guarded-update, skip, and conflict counts;
+- asset upload/reuse decisions;
+- warnings and blockers.
 
-Objective:
+Portability uses one dedicated bounded run/receipt model. It does not reuse the
+contract-migration ledger from WP2A because the two workflows have different
+identities, effects, and cleanup rules. Replace the old summary-only
+`collectionImportRuns` model instead of keeping overlapping import ledgers.
 
-- Make the current direct-Convex package base releasable before deep feature
-  work.
+```ts
+type PortablePlanPayload = PortableImportPlanPayload | PortableExportPlanPayload
 
-Todos:
+type PortablePlanPayloadBase = {
+  format: 'ginko-cms-portability-plan'
+  version: 1
+  deploymentId: string
+  scope: { collections: string[] }
+  targetContractSha256: string
+}
 
-- [x] Remove release-blocking local `file:` dependency specs.
-- [x] Add packed manifest checks for `workspace:`, `file:`, and `link:`.
-- [x] Ensure package E2E installs packed artifacts in a clean consumer.
-- [x] Keep Trellis package dependencies absent.
-- [x] Keep `better-convex-nuxt` as the only Nuxt/Convex/Better Auth integration
-      dependency.
-- [x] Update quickstart and package READMEs to match the publishable install
-      story.
+type PortableImportPlanPayload = PortablePlanPayloadBase & {
+  mode: 'import'
+  sourceManifestSha256: string
+  sourceContractSha256: string
+  itemCount: number
+  itemRootSha256: string
+  assetCount: number
+  assetRootSha256: string
+}
 
-Acceptance criteria:
+type PortableExportPlanPayload = PortablePlanPayloadBase & {
+  mode: 'export'
+}
 
-- `pnpm install` works from a clean checkout;
-- package metadata has no Trellis dependency;
-- packed artifacts have no local dependency specifiers;
-- package consumer test passes;
-- docs install command uses publishable package specs.
+type PortablePlanRecord = {
+  planId: string
+  payload: PortablePlanPayload
+  payloadSha256: string
+  callerId: string
+  createdAt: number
+  expiresAt: number
+}
 
-Verification:
+type PortableImportPlanItemPayload = {
+  identity: { collection: string; canonicalKey: string; locale: string }
+  expectedDraftSha256: string | null
+  effect: 'create' | 'update' | 'skip' | 'conflict'
+  documentSha256: string
+  dependencyKeys: string[]
+}
 
-```bash
-pnpm install
-pnpm run check:publish-specifiers
-pnpm run package:e2e
-pnpm run release:verify
+type PortableImportPlanItemRow = {
+  planId: string
+  itemKey: string
+  inputSha256: string
+  payload: PortableImportPlanItemPayload
+}
+
+type PortableImportPlanAssetPayload = {
+  sha256: string
+  bytes: number
+  mediaType: PortableMediaType
+  effect: 'upload' | 'reuse' | 'conflict'
+  referencedBy: string[]
+}
+
+type PortableImportPlanAssetRow = {
+  planId: string
+  assetKey: string
+  inputSha256: string
+  payload: PortableImportPlanAssetPayload
+}
+
+type PortableImportRun = PortableRunBase & {
+  mode: 'import'
+  state: 'planned' | 'applying' | 'verifying' | 'complete' | 'aborted' | 'expired'
+  sourceManifestSha256: string
+  sourceContractSha256: string
+}
+
+type PortableExportRun = PortableRunBase & {
+  mode: 'export'
+  state: 'capturing' | 'ready' | 'complete' | 'aborted' | 'expired'
+  rosterGeneration: number
+}
+
+type PortableRunBase = {
+  runId: string
+  planId: string
+  payloadSha256: string
+  callerId: string
+  deploymentId: string
+  scope: { collections: string[] }
+  targetContractSha256: string
+  createdAt: number
+  updatedAt: number
+  expiresAt: number
+}
+
+type PortableItemReceipt = {
+  runId: string
+  itemKey: string
+  inputSha256: string
+  status: 'committed'
+  effect: 'created-draft' | 'updated-draft' | 'skipped'
+  resultId: string
+  committedAt: number
+}
+
+type PortableAssetStage = {
+  runId: string
+  sha256: string
+  byteLength: number
+  mediaType: PortableMediaType
+  state:
+    | 'awaiting-upload'
+    | 'uploaded'
+    | 'verifying'
+    | 'verified'
+    | 'attached'
+    | 'cleanup-required'
+    | 'cleaned'
+  storageId: string | null
+  assetId: string | null
+  attemptTokenHash: string
+  attemptGeneration: number
+  leaseExpiresAt: number
+}
+
+type PortableExportRosterItem = {
+  runId: string
+  rosterIndex: number
+  identity: { collection: string; canonicalKey: string; locale: string }
+  revisionId: string
+  documentSha256: string
+}
+
+type PortableExportAssetHold = {
+  runId: string
+  sha256: string
+  storageId: string
+  bytes: number
+  mediaType: PortableMediaType
+  expiresAt: number
+}
+
+type PortableExportReceipt = {
+  runId: string
+  manifestSha256: string
+  documentCount: number
+  assetCount: number
+  completedAt: number
+}
 ```
 
-Verification result on 2026-07-04:
+Store payload and rows server-side. `payloadSha256` hashes only the semantic
+payload, never its own hash, IDs, caller, or timestamps. `itemKey` is the SHA-256
+of canonical JSON identity. `documentSha256` hashes canonical
+`PortableDocumentV1` before CMS asset-ID rewriting. `inputSha256` hashes the row
+payload without its envelope. `assetKey` is the verified blob SHA-256. Dependency
+keys are sorted item/asset keys.
 
-- `pnpm install --config.confirm-modules-purge=false`: passed. Plain
-  `pnpm install` first aborted because pnpm required an interactive modules
-  purge confirmation in this non-TTY session.
-- `pnpm run check:publish-specifiers`: passed.
-- `pnpm run package:e2e`: passed.
-- `pnpm run release:verify`: passed after applying formatter output. The final
-  run passed format, lint, typecheck, publish-specifier checks, 669 tests,
-  package E2E, and production audit.
-- Packed local specifier check passed for the packed CMS artifacts. The local
-  workspace also packed sibling `@lupinum/ginko-content` because that checkout
-  exists, but `better-convex-nuxt` was consumed as `0.4.0`.
+Import rows sort by key; `itemRootSha256` and `assetRootSha256` incrementally
+hash JCS arrays of payloads only, excluding `planId`, keys, and input hashes.
+Runs bind the immutable payload hash. Use indexed
+rows with explicit limits: at most 100,000 documents, 100,000 unique assets, 250
+items per mutation, a 10 GiB total bundle limit, a two-hour run TTL, and a
+five-minute stage-attempt lease. Plans enforce every Content per-file, count,
+depth, and aggregate limit before issuing an upload or creating a run.
+Each plan/receipt/roster row is at most 256 KiB canonical JSON, each document has
+at most 256 direct relation/asset dependency keys, and reverse reference lists
+page through separate indexed rows rather than growing one Convex document.
 
-Cleanup verification on 2026-07-04:
+Every Convex callable and Nitro route in this workflow uses the standard
+permission-bearing guard with `managePortability`, accepts only the CLI/operator
+origin, and resolves current membership and credential state on every call.
+Planning authority is not a durable capability: role removal, membership
+removal, key revocation, or scope reduction blocks the next upload, apply,
+download, finalize, abort, or cleanup call. Cleanup also has an internal bounded
+scheduler path that grants no content-read authority.
 
-- Passed. `pnpm run release:verify` passed again after the root adapter and
-  component API cleanup. The run covered format, lint with existing warnings
-  only, typecheck/build, publish-specifier checks, full Vitest (`92` files,
-  `693` tests, `1` skipped), clean-consumer package E2E, packed local-specifier
-  checks for four tarballs, and production audit.
-- Passed. A real downstream packed-consumer migration installed the packed CMS
-  tarballs, ran `ginko-cms doctor`, `ginko-cms mcp-doctor`, `convex codegen`,
-  `ginko-cms push --check`, typecheck, lint, and production build.
-- Passed. The consumer production runtime rendered `/`, `/login`,
-  `/studio/auth/signin`, `/studio/auth/register`, and redirected `/studio` to
-  Studio sign-in. The configured CMS browser smoke signed in with the test
-  credentials and loaded Studio settings.
-- Found and fixed. Consumer `convex codegen` caught missing packed component API
-  entries for root adapter calls. The Convex component now exports
-  `agentRuns`, `mcpCredentials`, and `reviewRequests`, and the package boundary
-  tests explicitly allow those required component entrypoints.
-- Passed. A packed downstream consumer ran through the important browser and MCP
-  stories: sign-in, Studio route sweep, entry editor, settings, MCP connection
-  creation, unauthenticated `/mcp` rejection, authenticated MCP initialize, MCP
-  revoke, and revoked-key rejection.
-- Found and fixed during broader verification. `pnpm run release:verify` first
-  failed on stale private-consumer references in this plan, then on stale
-  playground Better Auth setup, then on the component boundary allowlist. The
-  final run passed format, lint with existing warnings only, typecheck/build,
-  publish-specifier checks, full Vitest (`92` files, `694` tests, `1` skipped),
-  clean-consumer package E2E, packed local-specifier checks for four tarballs,
-  and production audit.
+Document apply is one Convex transaction: validate run/plan/current draft hash,
+check an existing `(runId,itemKey)` receipt, apply the draft command, and insert
+the committed receipt. There is no pre-effect pending row for documents. Same
+key and input returns the committed receipt; same key with changed input fails.
+This makes crash-after-effect/before-response deterministic.
 
-Next gate:
+Assets require external byte transfer, so create the run-owned stage before
+issuing an upload URL. Reclaim after lease expiry uses a new attempt token;
+stale attempts cannot advance state. Verification and attachment transitions
+are conditional on the current token/state. Expiry has the same stop-and-clean-
+run-owned-staging semantics as abort.
 
-- No package gate remains open for migration work. Before publishing, a human
-  maintainer still needs to inspect `.pack/*.tgz`, confirm package versions and
-  npm settings, and follow `MAINTAINING.md`.
+Allowed run transitions are closed:
 
-### Phase 2: Remove Remaining Trellis Ceremony
-
-Objective:
-
-- Delete leftover Trellis-era structures that make the system harder to reason
-  about.
-
-Todos:
-
-- [x] Remove stale Trellis bridge marker language from active generated output.
-- [x] Keep only doctor detection for old host files that users must delete.
-- [x] Remove `_trellisForwarding` assumptions.
-- [x] Remove generated operation descriptor/handle concepts.
-- [x] Replace `CmsCaller` with direct identity resolution where possible.
-- [x] Keep deploy-key/admin transport only for setup, doctor, sync, and narrow
-      admin operations.
-
-Acceptance criteria:
-
-- no active runtime import depends on Trellis packages or `#trellis`;
-- no active CMS code requires generated Trellis bridge files;
-- tests still catch stale host Trellis files;
-- identity resolution is simpler than the Trellis-era caller abstraction.
-
-Verification:
-
-```bash
-rg -n "@lupinum/trellis|#trellis|_trellisForwarding|defineTrellis|Trellis" \
-  packages docs test README.md
-pnpm run typecheck
-pnpm run lint
+```text
+import: planned -> applying -> verifying -> complete
+export: capturing -> ready -> complete
+active import/export state -> aborted | expired
 ```
 
-Expected result:
+Terminal states never reopen. Every transition is an authenticated transaction
+that checks caller, plan hash, current state, expiry, and expected counts.
+Import verification requires all planned item receipts committed and every
+referenced asset attached. Export is deliberately restart-only in `0.2.0`: the
+CLI writes to a new local staging directory, verifies its manifest, then calls
+complete once with the manifest hash and counts. That call atomically records or
+idempotently replays `PortableExportReceipt`. A CLI crash deletes the abandoned
+local staging directory, aborts or lets the server run expire, and starts a new
+run; there is no partial export resume or per-file server acknowledgment.
 
-- matches are limited to migration docs, tests for stale cleanup, and explicit
-  historical wording.
+Default conflict policy is fail. The initial release supports create, guarded
+draft update, and skip. A draft update requires the plan's expected current
+draft hash to still match. Route reassignment, deletion, and blind overwrite are
+not portability operations in `0.2.0`.
 
-Verification result on 2026-07-04:
+Imports always create or update drafts. Publishing is a separate normal CMS
+command after review. `finalize` only verifies completeness and seals receipts.
+`abort` prevents new effects and cleans newly staged, unreferenced assets owned
+by that run; it does not attempt to roll back created drafts.
 
-- Passed. Active source has no live Trellis package import, `#trellis` alias,
-  `_trellisForwarding`, or `defineTrellis` usage.
-- Passed. Remaining search matches under `packages docs test README.md
-AGENTS.md` are tests that assert legacy surfaces are absent.
-- Passed. Focused guard tests passed:
-  `vitest run test/module/module-bridge.test.ts test/module/ginko-cli.test.ts
-test/module/package-boundaries.test.ts test/module/package-exports.test.ts
-test/shared/mcp-tools.test.ts`.
-- Boundary note: the remaining `CmsCaller` type is now CMS-owned identity
-  plumbing, not Trellis forwarding. Its MCP/deploy variants should be removed
-  only with Gate 2 and the MCP authority cutover so the migration does not keep
-  old and new token paths side by side.
+Successful import and export create bounded receipts containing hashes and
+counts, not full content or asset bytes. Receipts support retry and audit but do
+not become a second content source.
 
-### Phase 3: Better Auth And CMS Roles
+### 9A.9 Consistent And Bounded Export
 
-Objective:
+Exports must not `.collect()` all entries or assets into memory. Process entries
+and asset bytes in bounded pages and stream files to the destination.
 
-- Make identity and CMS role authority unambiguous.
+For a consistent published scope, acquire a CMS-owned short-lived editorial
+write lease, capture a durable roster of immutable public revision IDs and
+verified asset hashes in bounded pages, then release the lease before byte
+streaming and serialization. This lease is a CMS implementation detail, not a
+generic Ginko Content protocol requirement. It expires automatically after
+failure. Public reads remain available; only conflicting editorial writes in
+the selected scope receive an actionable retry response.
 
-Todos:
+Every roster row binds the run ID, collection, canonical key, locale, immutable
+revision ID, and document hash. Asset rows bind the immutable Convex storage ID,
+verified byte hash, length, media type, and an export hold owned by the run.
+Deletion and retirement commands must reject or defer deletion of a storage
+object with a live hold. Holds expire with the run and indexed cleanup removes
+them after complete, abort, or expiry.
 
-- [x] Use Better Auth stable `user.id` as canonical `authUserId`.
-- [x] Keep CMS members as product-role rows only.
-- [x] Keep role matrix small: owner, publisher, editor, viewer.
-- [x] Move team/org concerns to Better Auth only if a real product requirement
-      appears.
-- [x] Add invariant tests for role downgrade/removal.
-- [x] Ensure Studio capability visibility is derived from backend permission
-      checks, not its own source of truth.
+The lease contains a monotonically increasing fencing generation and opaque
+token. Every roster-page transaction verifies and renews the unexpired token;
+every conflicting editorial write checks the same scoped lease. If the lease
+expires or its generation changes before the seal transaction, discard the
+partial roster and holds and restart capture. Sealing verifies the final page,
+roster counts, and holds before marking the export ready and releasing the
+lease.
 
-Result on 2026-07-04:
+The host exports only from the sealed roster and held storage IDs. Publication,
+unpublication, asset deletion, or replacement immediately after capture
+therefore cannot create a mixed snapshot.
 
-- Passed for the current role-authority slice. CMS member rows remain product
-  role rows, no tenant/workspace table was added, and the role matrix remains
-  owner/publisher/editor/viewer.
-- Passed. `test/component/auth/access-context.test.ts` now proves MCP
-  capabilities re-read the current bound member role.
-- Passed. `test/component/entries/draft.test.ts` now proves an editor MCP key
-  can write drafts, cannot publish, and loses draft-write immediately after a
-  role downgrade.
-- Passed. `test/component/members-crud.test.ts` continues to prove member
-  removal revokes active legacy MCP keys.
-- Verification passed:
-  `pnpm exec vitest run test/component/auth/access-context.test.ts test/component/members-crud.test.ts test/component/entries/draft.test.ts test/component/entries/publish.test.ts test/runtime/mcp-runtime.test.ts test/component/mcpCredentials.test.ts`
-  and `pnpm exec vitest run test/runtime/cms-studio-query.test.ts`.
+### 9A.10 Ownership And Hard Cutover
 
-Acceptance criteria:
+After the shared codec exists:
 
-- member role change affects Studio permissions immediately;
-- member removal blocks protected CMS operations;
-- frontend capability display cannot grant backend authority;
-- no CMS tenant/workspace table is introduced.
+- replace CMS-local frontmatter mapping with the Ginko Content codec;
+- replace regex asset discovery and global substring rewriting;
+- keep CMS filesystem orchestration thin and Node-specific;
+- keep Convex operations JSON-only and focused on authenticated rosters, plans,
+  receipts, staged upload authorization, export holds, asset registration, and
+  canonical entry commands;
+- delete duplicate portable schemas and serializers from CMS;
+- keep backup/recovery and content portability separate in code and docs.
 
-Verification:
+### 9A.11 Junior-Executable Implementation Phases
 
-```bash
-pnpm exec vitest run test/component/auth test/component/members-crud.test.ts
-pnpm exec vitest run test/runtime/cms-studio-query.test.ts
+Implement in this order. Each phase starts with a failing test and ends green;
+do not build the Convex adapter before the pure model is accepted.
+
+#### Phase 0: Extract The Runtime Data Source Contract
+
+Suggested Ginko Content ownership:
+
+```text
+packages/content/src/data-source/
+  capabilities.ts
+  types.ts
+  errors.ts
+  index.ts
+packages/content/src/public/provider.ts
+packages/content/src/testing/data-source-contract.ts
 ```
 
-### Phase 4: Canonical Content Lifecycle Hardening
+Move raw provider facts, queries, capabilities, and response contracts into the
+pure entry. Keep H3 context creation, cache application, and provider binding in
+`public/provider.ts`. Migrate the filesystem provider and provider fixture
+first, then Ginko CMS. Delete direct external `ContentProvider` construction
+after every provider uses `bindContentProvider()`.
 
-Objective:
+Extend the existing provider contract suite rather than creating overlapping
+tests. Verify every optional operation, response decoder, capability, cache
+hint, locale/identity guard, and error code.
 
-- Preserve the current mature content lifecycle while simplifying wrappers.
+Gate: filesystem and fixture providers pass the same data-source suite; pure
+imports pass Node and Worker-compatible V8; H3 binder tests prove one context
+per request and no backend error cause escapes.
 
-Todos:
+#### Phase A: Freeze Canonical Fixtures In Ginko Content
 
-- [x] Keep draft save as the only canonical editable content path.
-- [x] Keep immutable revisions.
-- [x] Keep publish preview and stale draft guards.
-- [x] Keep public projections derived from published state.
-- [x] Collapse derived route/public tables only if a measured query reason does
-      not justify keeping them.
-- [x] Add rebuild/health checks for every derived public row.
-- [x] Confirm rollback/archive/restore semantics are explicit and reversible
-      where possible.
+Create fixtures under `packages/content/test/fixtures/portability/` for:
 
-Result on 2026-07-04:
+- one multilingual tree collection;
+- one localized flat collection;
+- one data-only collection;
+- shared and localized fields of every supported type;
+- parent/child order, translated slugs, scalar/array relations, MDC components,
+  authored public-visibility flags, and duplicate asset bytes.
 
-- Passed. Draft saves, immutable revisions, stale publish checks, and public
-  projection derivation are already covered by the existing entry publish/read
-  and Studio workflow tests.
-- Fixed. `rebuildDerivedStateForEntry` now resolves an entry's collection by id
-  before normalizing through the collection slug helper; it no longer treats a
-  valid entry collection id as a missing collection.
-- Added. `test/component/entries/projection-maintenance.test.ts` now proves
-  public projection drift can be detected and rebuilt from the published
-  revision.
-- Verification passed:
-  `pnpm exec vitest run test/component/entries/projection-maintenance.test.ts test/component/entries/read.test.ts test/component/entries/publish.test.ts test/runtime/studio-workflow-components.test.ts`.
+For each fixture, record the normalized semantic model and asset SHA-256 values.
+Use the existing filesystem parser to create the initial expected model, then
+review it manually. Do not derive expectations from CMS output.
 
-Acceptance criteria:
+Gate: focused Ginko Content fixture tests and `git diff --check`.
 
-- draft save never rewrites public projection;
-- publish creates immutable revision;
-- stale publish is rejected;
-- public projections can be rebuilt or validated;
-- public provider never reads drafts.
+#### Phase B: Implement The Pure Ginko Content Codec
 
-Verification:
+Suggested ownership:
 
-```bash
-pnpm exec vitest run test/component/entries/read.test.ts test/component/entries/publish.test.ts
-pnpm exec vitest run test/runtime/studio-workflow-components.test.ts
+```text
+packages/content/src/portability/
+  model.ts
+  manifest.ts
+  errors.ts
+  frontmatter.ts
+  documents.ts
+  references.ts
+  assets.ts
+  semantic-equality.ts
+  index.ts
 ```
 
-### Phase 5: MCP Token Proof And Credential Model
+Start with manifest parsing and canonical hashing. Add document serialization,
+then parsing, relations, and finally structural asset rewriting. Every module is
+framework-free and operates on validated values. Export it through one
+`./portability` package entry.
 
-Objective:
+Delete or move the corresponding logic from `/cms-import` only after all
+existing import fixtures pass through the new codec.
 
-- Replace custom MCP key authority with a simpler token ownership model.
+Gate: unit tests, package purity scan, direct Node ESM import, Worker-compatible
+V8 import, declarations, and packed type/runtime consumer.
 
-Todos:
+#### Phase C: Add Observable Contract Tests
 
-- [x] Run Experiment 2.
-- [x] Use Better Auth API keys for token lifecycle if the experiment passes.
-- [x] Add CMS-owned MCP credential settings for scopes, collections, and safety
-      mode.
-- [x] Remove `mcpKeys` as the default token table if Better Auth API keys work.
-- [x] Keep raw tokens out of CMS rows, audit, logs, and UI after creation.
-- [x] Add current-role intersection checks.
+Suggested ownership:
 
-Result on 2026-07-04:
-
-- Partial pass. Added CMS-owned `mcpCredentialSettings` keyed by Better Auth
-  API-key id. It stores CMS scopes, collection ids, safety mode, owner user id,
-  status, and audit metadata only; it does not store raw API keys or token
-  hashes.
-- Passed. The live MCP middleware now accepts Bearer Better Auth API keys,
-  verifies them through the Better Auth `/api/auth/api-key/verify` route, and
-  rejects keys without matching active CMS credential settings.
-- Passed. `defineGinkoAuth` registers the Better Auth API-key plugin by
-  default, and `@lupinum/ginko-cms-convex` carries the pinned publishable
-  `@better-auth/api-key`, `@better-auth/core`, and `@better-auth/utils` tuple
-  proven by Gate 2.
-- Passed. `mcpCredentials.upsertSettings` rejects scopes the credential owner
-  cannot currently hold.
-- Passed. `mcpCredentials.resolveAccess` computes effective permissions as
-  credential scope intersect current CMS member role, so owner credentials are
-  still explicitly scoped.
-- Passed. Role downgrade is reflected immediately when resolving an existing
-  credential.
-- Passed. Removing a member revokes active scoped credential settings.
-- Passed. Convex MCP app identity now resolves from `mcpCredentialSettings`
-  instead of `mcpKeys`, and backend guards intersect current member role with
-  credential scopes for MCP callers.
-- Passed. The legacy backend `mcpKeys` table/module, contract schemas, and
-  lifecycle tests were deleted after the live route moved to Better Auth API-key
-  verification plus `mcpCredentialSettings`.
-- Cleanup pass. The old Studio settings page no longer exposes the legacy
-  `mcpKeys` query/create/revoke surface, and the Studio host bridge no longer
-  requires `api.ginkoCms.mcpKeys`.
-- Boundary note: the Studio creation flow still needs a Better Auth API-key
-  backed replacement.
-- Verification passed:
-  `pnpm exec vitest run test/component/mcpCredentials.test.ts test/component/members-crud.test.ts test/runtime/mcp-auth-middleware.test.ts test/runtime/mcp-runtime.test.ts test/runtime/better-auth-api-key-gate.test.ts`
-  and `pnpm --filter @lupinum/ginko-cms-convex typecheck`.
-- Additional verification passed:
-  `pnpm exec vitest run test/runtime/mcp-auth-middleware.test.ts test/runtime/better-auth-api-key-gate.test.ts test/runtime/mcp-runtime.test.ts test/runtime/mcp-project-tool.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/caller.test.ts test/shared/mcp-tools.test.ts test/component/mcpCredentials.test.ts test/component/auth/access-context.test.ts test/component/entries/draft.test.ts`,
-  `pnpm --filter @lupinum/ginko-cms-contract typecheck`,
-  `pnpm --filter @lupinum/ginko-cms-contract build`,
-  `pnpm --filter @lupinum/ginko-cms-convex typecheck`,
-  `pnpm --filter @lupinum/ginko-cms typecheck`,
-  `pnpm run check:publish-specifiers`, and `pnpm run package:e2e`.
-- Studio cleanup verification passed:
-  `pnpm --filter @lupinum/ginko-cms studio:typecheck`,
-  `pnpm exec vue-tsc -p packages/cms/tsconfig.runtime.json --noEmit`, and
-  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/shared/studio-workflow.test.ts`.
-
-Acceptance criteria:
-
-- token lifecycle is owned by Better Auth or explicitly documented fallback;
-- CMS credential row cannot grant more than current member role;
-- revoked/expired tokens fail;
-- role downgrade/removal affects existing tokens immediately;
-- audit identifies token connection without exposing the raw token.
-
-Verification:
-
-```bash
-pnpm exec vitest run test/component/mcpCredentials.test.ts test/runtime/mcp-auth-middleware.test.ts
-pnpm exec vitest run test/runtime/mcp-runtime.test.ts
+```text
+packages/content/src/testing/portability-contract.ts
+test/contracts/portability-contracts.test.ts
 ```
 
-Expected code direction:
+Keep fixtures inside `/testing/portability-contract`; do not publish a separate
+fixture-only entry. Prove codecs, manifest rebuild, canonical hashing, bounds,
+and structured errors through observable Level-1 tests. Do not claim that a
+shared black-box suite certifies persistence durability, authorization,
+transactions, cleanup, restart behavior, or deployment security.
 
-- do not reintroduce CMS-owned raw MCP token storage. Better Auth owns API-key
-  lifecycle; CMS rows only store credential settings and scopes.
+Gate: conforming fixtures pass; broken identity, manifest, bound, hash, MIME,
+path, and error fixtures fail for the expected structured reason.
 
-### Phase 6: Agent Runs And Review Requests
+#### Phase D: Add The Node Directory Adapter
 
-Objective:
+Suggested ownership:
 
-- Make AI work a product concept instead of an invisible MCP side effect.
-
-Todos:
-
-- [x] Add `agentRuns`.
-- [x] Add `reviewRequests`.
-- [x] Link all MCP writes to an agent run.
-- [x] Make public/destructive publish actions create review requests by default.
-- [x] Add Studio review approval/rejection backed by canonical operations.
-- [x] Add stale-state checks to approval.
-- [x] Add audit events for agent, delegating user, reviewer, and operation.
-
-Result on 2026-07-04:
-
-- Partial pass. Added `agentRuns` and `reviewRequests` as backend product
-  records with focused lifecycle tests.
-- Passed. One credential id can create multiple active runs.
-- Passed. Completed, revoked, and expired runs reject write recording.
-- Passed. Review requests require an active run, and request/reject state
-  changes do not mutate public output by themselves.
-- Passed. Publish-review approval now executes the canonical publish path before
-  marking the request approved. Publisher approval requires a matching version
-  hash and current draft version; stale approval fails closed. Editor approval
-  is denied by backend role checks.
-- Added. `request-publish-review` is now an explicit MCP tool that requires an
-  active `agentRunId`, uses read-guarded publish-impact diagnostics, stores a
-  `ginko-cms.publish-entry` review request, and returns `publicChanged: false`.
-  It strips destructive confirmation-token handling out of the agent path.
-- Passed. Studio now exposes a focused review request inbox at `/reviews`.
-  Publisher/owner users can list pending requests, approve through
-  `reviewRequests.approveReview`, or reject through
-  `reviewRequests.rejectReview`. The list query is publisher-gated and returns
-  pending requests only.
-- Passed. Active MCP writes now require an `agentRunId` and call
-  `agentRuns.recordWrite` before executing the state-changing operation.
-  Covered write tools: `create-entry`, `save-entry-draft`, `unarchive-entry`,
-  `move-asset`, `export-backup`, and `request-publish-review`.
-- Passed. `agentRuns.recordWrite` rejects inactive/expired runs, rejects a
-  different delegated user, rejects mismatched bound MCP credentials, updates
-  `lastWriteAt`, and logs `agentRun.write` with agent run, operation, delegated
-  user, and credential context. Review request creation/approval/rejection and
-  canonical publish approval also log activity records with requester, reviewer,
-  operation, and result details.
-- Boundary note: Archive, unpublish, and delete review-request execution are
-  still missing. Direct destructive defaults and old operation tool files have
-  been removed from the active MCP surface.
-- Verification passed:
-  `pnpm exec vitest run test/component/agentRuns.test.ts test/component/reviewRequests.test.ts test/component/entries/publish.test.ts`
-  plus
-  `pnpm exec vitest run test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts test/runtime/mcp-project-tool.test.ts test/runtime/mcp-auth-middleware.test.ts test/runtime/mcp-runtime.test.ts test/component/agentRuns.test.ts test/component/reviewRequests.test.ts`,
-  `pnpm exec vitest run test/component/agentRuns.test.ts test/component/reviewRequests.test.ts test/component/entries/publish.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts`,
-  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
-  `pnpm --filter @lupinum/ginko-cms typecheck`.
-- Review inbox verification passed:
-  `pnpm exec vitest run test/component/reviewRequests.test.ts`,
-  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/shared/studio-workflow.test.ts test/shared/mcp-tools.test.ts`,
-  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
-  `pnpm --filter @lupinum/ginko-cms typecheck`.
-- Agent-run write-link verification passed:
-  `pnpm exec vitest run test/component/agentRuns.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts`,
-  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
-  `pnpm --filter @lupinum/ginko-cms typecheck`.
-
-Acceptance criteria:
-
-- read-only MCP can run without a write run if desired;
-- every MCP write is tied to one run;
-- public state does not change when an agent only requests review;
-- approval re-checks role and stale state;
-- rejection has no public output effect;
-- completed/revoked runs cannot keep writing.
-
-Verification:
-
-```bash
-pnpm exec vitest run test/component test/runtime/mcp-runtime.test.ts
-pnpm exec vitest run test/runtime/studio-workflow-components.test.ts
+```text
+packages/content/src/portability-node/
+  read-directory.ts
+  write-directory.ts
+  safe-path.ts
+  streams.ts
+  index.ts
 ```
 
-### Phase 7: Rebuild MCP Surface With Nuxt MCP Toolkit
+Use structured YAML/JSON APIs and Ginko codecs. Normalize line endings and file
+ordering. Reject traversal, symlinks, devices, oversized files, excessive
+counts/depth, and changed bytes. Write into a new staging directory, verify the
+complete manifest, then rename into place; never partially overwrite a target
+directory.
 
-Objective:
+Gate: Level-1 contract tests, hostile filesystem tests, exact manifest rebuild,
+two deterministic writes, and npm/pnpm packed consumers.
 
-- Make MCP a small product API, not a generic admin/runtime layer.
+#### Phase E: Replace The Ginko CMS Import Path
 
-Todos:
+Suggested ownership:
 
-- [x] Use Nuxt MCP Toolkit for route registration and tool transport.
-- [x] Delete generic `projectTool` once explicit tools replace it.
-- [x] Remove normal MCP dependency on `CONVEX_DEPLOY_KEY`.
-- [x] Remove synthetic MCP Convex identity.
-- [x] Expose explicit product tools only.
-- [x] Keep tool schemas free of authority inputs.
-- [x] Redact secrets and raw internal docs from MCP responses.
+```text
+packages/cms/src/portability/
+  directory.ts
+  asset-transport.ts
+  commands.ts
+  plan.ts
+packages/convex/src/portability/
+  rosters.ts
+  runs.ts
+  items.ts
+  assets.ts
+  receipts.ts
+```
 
-Result on 2026-07-04:
+Implement the direct CLI-to-CMS vertical slice, not generic public ports. The
+host reads or writes Ginko Content directories and streams
+assets. Convex exposes JSON-only authenticated plans, immutable published
+rosters, committed item receipts, canonical draft commands, staged upload
+authorizations, and export holds.
 
-- Partial pass. The route/tool layer already uses Nuxt MCP Toolkit and the
-  current MCP surface guard tests pass. `request-publish-review` is now an
-  explicit product MCP tool for the supervised publish path.
-- Passed. The live MCP route now verifies Better Auth API keys and requires
-  active `mcpCredentialSettings`; it no longer consumes legacy `mcpKeys` bearer
-  tokens.
-- Passed. The default/code-mode MCP tool list no longer exposes direct
-  publish, unpublish, archive, entry delete, or asset delete tools. The active
-  surface now uses `preview-publish` for non-mutating publish diagnostics and
-  `request-publish-review` for supervised publish requests.
-- Passed. Agent-facing prompts/resources no longer instruct clients to use
-  `_confirmationToken` or direct publish execution; they describe preview plus
-  review request as the publish path.
-- Passed. The generic `projectTool` runtime and its dedicated runtime test were
-  deleted. The remaining active direct helpers now use explicit `defineMcpTool`
-  definitions and direct Convex refs.
-- Passed. Inactive direct destructive MCP tool files were deleted after removal
-  from the active surface.
-- Passed. Shared MCP structured responses now redact secret-bearing fields such
-  as API keys, bearer/authorization values, confirmation tokens, password
-  fields, deploy keys, and token hashes. Convex `_creationTime` is replaced
-  before MCP clients receive structured content, while public ids and workflow
-  hashes remain available.
-- Passed. Normal MCP calls no longer use `CONVEX_DEPLOY_KEY`. The MCP auth
-  middleware verifies the Better Auth API key, requests a Better Auth Convex
-  token from `/api/auth/convex/token`, stores that token in request context, and
-  tool calls use `ConvexHttpClient.setAuth(token)` for Convex transport.
-- Passed. The synthetic MCP Convex issuer was deleted. Convex now treats a
-  Better Auth API-key token as MCP only when the token `sessionId` matches active
-  `mcpCredentialSettings` owned by the authenticated `subject`; otherwise the
-  identity remains an ordinary user identity.
-- Passed. A package-local runtime proof verifies that
-  `@convex-dev/better-auth@0.12.2` issues `/convex/token` JWTs for Bearer
-  API-key sessions with `sub` equal to the Better Auth user id and `sessionId`
-  equal to the Better Auth API-key id.
-- Verification passed:
-  `pnpm exec vitest run test/shared/mcp-tools.test.ts test/runtime/mcp-project-tool.test.ts test/runtime/mcp-auth-middleware.test.ts` before `projectTool` deletion,
-  `pnpm exec vitest run test/runtime/mcp-preview-publish.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts`,
-  `pnpm exec vitest run test/shared/mcp-tools.test.ts test/runtime/mcp-runtime.test.ts test/runtime/mcp-preview-publish.test.ts test/runtime/mcp-request-publish-review.test.ts test/runtime/mcp-auth-middleware.test.ts`,
-  `pnpm --filter @lupinum/ginko-cms typecheck`, and
-  `pnpm run release:verify`.
-- Redaction verification passed:
-  `pnpm exec vitest run test/runtime/mcp-response-redaction.test.ts test/runtime/mcp-preview-publish.test.ts test/runtime/mcp-request-publish-review.test.ts test/shared/mcp-tools.test.ts`
-  and `pnpm --filter @lupinum/ginko-cms typecheck`.
-- Final gate rerun passed after the redaction, Studio agent-run revoke, and docs
-  slices: `pnpm run release:verify`.
-- Final MCP transport gate verification passed:
-  `pnpm exec vitest run packages/convex/test/better-auth-api-key-convex-token.test.ts test/runtime/better-auth-api-key-gate.test.ts test/runtime/mcp-auth-middleware.test.ts test/runtime/mcp-runtime.test.ts test/shared/caller.test.ts test/component/auth/access-context.test.ts test/component/entries/draft.test.ts test/component/agentRuns.test.ts test/module/ginko-cli.test.ts`,
-  `pnpm run prepare:component`, `pnpm run check:publish-specifiers`,
-  `pnpm run typecheck`, `pnpm install`, `pnpm run package:e2e`, and
-  `pnpm run release:verify` through format, lint, typecheck, publish-specifier
-  checks, full Vitest (`93` files, `691` tests, `1` skipped), package E2E, and
-  production audit.
+Implement import first using the CMS-specific run and receipt model. Then add
+published export using immutable revision rosters. Keep WP2A contract migration
+records separate. Replace `collectionImportRuns` so there is one CMS content
+import authority.
 
-Default v1 tool surface:
+Delete `FilesystemMigrationEntry`, CMS-local frontmatter mapping, regex asset
+detection, and substring replacement after the new adapter covers their public
+behavior. Do not expose Convex IDs in portable documents or manifests.
 
-- list collections;
-- get collection schema summary;
-- list/search entries;
-- get entry;
-- create entry draft;
-- save draft;
-- preview publish;
+Gate: authorization matrix, bounded JSON pagination and host streaming tests,
+crash/restart and lost-response receipt tests, scoped cleanup, concurrent
+published-roster tests, and production audit.
+
+#### Phase F: Add Operator UX
+
+Wire the CLI commands to the direct portability operations. CLI performs local
+filesystem access; Convex never reads a caller path. Present the immutable plan,
+published scope, conflicts, asset totals, and blockers before confirmation.
+
+Do not add a Studio flow in `0.2.0`. Record it as later product work only after
+the CLI workflow is proven and user research justifies browser bundle UX.
+
+Gate: CLI integration tests with a real temporary directory and exact packed
+packages. Test interruption after asset upload, after entry batch, before
+finalize, and after a lost successful response.
+
+#### Phase G: Prove Pure Runtime Compatibility
+
+Import the pure data-source and portability entries in Node and a real
+Worker-compatible V8 runtime. Hash the canonical JSON vectors incrementally in
+both runtimes. This proves core import-graph and algorithm portability; it does
+not pretend that a production D1/R2 adapter exists or is certified.
+
+Gate: packed Node and Worker-runtime import/hash/codec probes pass without Node,
+Nuxt, H3, Convex, or vendor SDKs in the pure entry graphs.
+
+#### Phase H: Documentation And Release Evidence
+
+Publish one adapter-author guide containing:
+
+1. implement the runtime read data source when a CMS serves live content;
+2. create an adapter-owned verified context;
+3. implement bounded, fixed-shape operations;
+4. use the Ginko codec rather than defining document or manifest shapes;
+5. keep persistence, authorization, streaming, and retry policy in the adapter;
+6. run Level-1 conformance and publish separate operational evidence;
+7. integrate the separate read-side `ContentProvider` when runtime delivery is
+   required;
+8. pack and test without workspace resolution.
+
+Generate API documentation from the package manifest and public declarations.
+Include a complete minimal adapter and a production checklist. Never document
+an adapter as certified unless its artifact hash and conformance results appear
+in release evidence.
+
+### 9A.12 Cross-Repository Dependency Order
+
+The work moves across repositories in one direction:
+
+```text
+Ginko Content fixtures
+  -> pure portability model/codecs
+  -> Level-1 codec/data-source contracts
+  -> Node directory adapter
+  -> accepted Ginko Content tarball
+  -> Ginko CMS direct import/export integration
+  -> CLI orchestration
+  -> exact coordinated tarballs
+  -> packed Node and Worker-runtime proof
+```
+
+Ginko CMS pins the exact accepted Ginko Content tarball while implementing its
+integration. Never develop it against a sibling source alias. Better Convex Nuxt
+is not part of portability; it is used only by the Nuxt/Studio host for
+authenticated calls and lifecycle management.
+
+### Required Tests
+
+- pure portability imports contain no Nuxt, H3, Node, Convex, Cloudflare, or CMS
+  dependencies;
+- pure data-source imports contain no Nuxt, H3, Node, Convex, Cloudflare, or CMS
+  dependencies;
+- filesystem and Ginko CMS read adapters pass the same runtime data-source
+  suite;
+- runtime adapters reject hostile identity fields, malformed cache hints,
+  oversized pages, unrequested assets, credential-bearing asset URLs, arbitrary
+  error bodies, and recursive secret sentinels;
+- every advertised data-source capability has a positive and negative probe;
+- Node-directory codecs pass the shared Level-1 portability suite;
+- CMS operational evidence covers restart, concurrent replay, authorization,
+  scoped cleanup, and fault-after-effect cases that Level 1 cannot prove;
+- filesystem to CMS to filesystem semantic equality for Markdown, MDC, YAML,
+  and JSON collections;
+- CMS to filesystem to CMS semantic equality;
+- shared/localized fields, nested objects, arrays, nulls, dates, and Unicode;
+- localized routes, translated slugs, fallbacks, tree parents, root entries,
+  navigation order, and data-only collections;
+- scalar/array relations, forward references, missing targets, and cycles;
+- Markdown images, links, custom MDC media props, nested asset fields, duplicate
+  assets, same-name different-byte assets, and Unicode filenames;
+- missing files, changed checksums, MIME/signature mismatches, traversal paths,
+  symlinks, oversized files, excessive counts/depth, and interrupted uploads;
+- lost upload-URL response, URL expiry/replay, wrong caller/run/token/storage
+  origin, crash after upload before verification, and cleanup retry;
+- image truncation, invalid terminal bytes, excessive dimensions/pixels/frames,
+  calculated decoded-size overflow, and unsupported PDF/SVG/archive bytes;
+- published export excludes unpublished edits and remains internally consistent
+  across concurrent publication, unpublication, and asset replacement;
+- no working-export option or code path exists;
+- import retry after a lost response creates no duplicate entries or assets;
+- same receipt key with changed input is rejected;
+- crash after the atomic draft effect but before the response returns replays the
+  committed receipt; concurrent attempts commit once;
+- abort stops new effects and cleans only run-owned staged assets;
+- interrupted imports leave drafts but never alter public projections;
+- concurrent edit during export is rejected or excluded by the captured roster;
+- lease expiry or fencing-generation change during paged roster capture discards
+  the partial roster and holds;
+- delete/replace immediately after sealing cannot remove a held export blob;
+- deterministic export twice produces identical files and manifest hashes;
+- a packed Ginko Content + CMS consumer performs both directions without
+  workspace or sibling-source resolution;
+- browser proof that the exported filesystem site renders the same pages,
+  references, localized routes, navigation, search, sitemap, and assets as the
+  CMS-backed site.
+
+### Gate And Commit
+
+Run Ginko Content codec tests first, then CMS planning/application tests, exact
+packed cross-package tests, typecheck, lint, security limits, and the CMS-backed
+versus exported-filesystem browser comparison.
+
+Suggested commits:
+
+- Ginko Content: `feat!: define the portable content bundle contract`
+- Ginko CMS: `feat!: add deterministic Markdown import and export`
+- Coordinated tests: `test: prove filesystem and CMS semantic round trips`
+
+## 10. Work Package 4: Identity-Safe Studio State
+
+### Objective
+
+Make Studio state obey principal, argument, pagination, and scope lifetimes.
+
+### 10.1 One Operation Context
+
+Every Studio subscription captures:
+
+```ts
+interface StudioOperationContext {
+  readonly operationId: number
+  readonly principalKey: string
+  readonly argsKey: string
+  readonly paginationGeneration: number
+  readonly disposedGeneration: number
+}
+```
+
+The adapter owns monotonic generations:
+
+```ts
+function isCurrent(context: StudioOperationContext): boolean {
+  return (
+    !disposed.value &&
+    context.principalKey === currentPrincipalKey.value &&
+    context.operationId === currentOperationId &&
+    context.paginationGeneration === paginationGeneration
+  )
+}
+
+function commitIfCurrent(context: StudioOperationContext, commit: () => void): void {
+  if (isCurrent(context)) commit()
+}
+```
+
+Check currentness before:
+
+- transforms;
+- data and error commits;
+- pagination cursor changes;
+- callbacks;
+- logs or debug output;
+- refresh/reacquisition;
+- loading-state completion.
+
+### 10.2 Principal Retirement
+
+The host bridge already exposes auth status and user refs. Derive a principal
+key from the settled authenticated user. On pending replacement, sign-out, or a
+different user ID:
+
+1. increment the principal generation;
+2. unsubscribe;
+3. clear permissions and private query data immediately;
+4. mark Studio loading/unauthenticated;
+5. acquire new subscriptions only after the replacement principal settles.
+
+Delete `hadReadyStudioAccess` behavior that can keep the outgoing principal
+visible.
+
+### 10.3 Disposal
+
+Set `disposed = true` before unsubscribing. After disposal:
+
+- `refresh()` and `reset()` return without acquiring work;
+- `loadMore()` returns without dispatch;
+- pending completions cannot transform or commit;
+- awaited lifecycle promises settle deterministically.
+
+Delete the current `PromiseLike` implementation that resolves immediately and
+does not represent query settlement. Return a normal object. If an awaited API
+is later required, design and test its settlement contract explicitly.
+
+### 10.4 Pagination
+
+Track an in-flight cursor request. Concurrent `loadMore()` calls for the same
+cursor must not append duplicate pages. A first-page update may rebuild the
+loaded tail, but each page completion must be guarded by principal, arguments,
+cursor, generation, and disposal.
+
+### 10.5 Exact API Types
+
+Keep the runtime allowlist, but derive its type from the generated component API
+rather than mapping every entry to generic `FunctionReference`:
+
+```ts
+type StudioMembersApi = Pick<
+  ComponentApi['members'],
+  'getAccessContext' | 'bootstrapCmsOwner' | 'listMembers'
+>
+
+export interface GinkoCmsStudioHostApi {
+  ginkoCms: {
+    members: StudioMembersApi
+    // Other groups are picked from the same generated ComponentApi.
+  }
+}
+```
+
+One descriptor may drive the runtime pick, but the exact generated argument and
+return types must remain intact.
+
+### Required Tests
+
+- unmount before first live value;
+- refresh and reset immediately after unmount;
+- A to B, user to anonymous, and anonymous to user;
+- queued callbacks from the retired client;
+- route transition during first load, refresh, and tail rebuild;
+- same-user token rotation without duplicate subscription;
+- concurrent same-cursor `loadMore()`;
+- mutation, action, and upload completion after disposal;
+- exact compile-time args and return types through the Studio bridge.
+
+### Gate And Commit
+
+Run focused Studio lifecycle tests, Better Convex Nuxt handle integration tests,
+Studio typecheck, browser-component tests, and lint.
+
+No Better Convex Nuxt API addition is required for this work package. Add a
+framework-free library helper only if a second real non-Nuxt consumer proves the
+same need.
+
+Suggested commit:
+
+`fix: make Studio state principal and scope safe`
+
+## 11. Work Package 5: Supervised MCP Authority
+
+### Objective
+
+Make the MCP product match its documented authority model.
+
+### 11.1 vNext Tool Surface
+
+For `0.2.0`, MCP may:
+
+- inspect collection contracts;
+- read published and editable content when scoped;
+- create entries and save drafts;
+- inspect assets;
+- preview publish impact;
 - request publish review;
-- get asset;
-- resolve public asset URLs;
-- list own agent runs;
-- get review request status.
+- inspect its own agent runs and review status.
 
-Not v1 default:
+Remove direct MCP publish and archive tools for this release. Do not keep hidden
+callable wrappers that provide the same unreviewed path. Human Studio approval
+invokes the canonical operation and rechecks role, version, and blockers.
 
-- direct publish;
-- direct archive;
-- direct delete;
-- purge;
-- schema mutations;
-- member management;
-- settings management;
-- raw table reads;
-- deploy/admin tools.
+### 11.2 Credential Authority
 
-Acceptance criteria:
+Effective authority is the intersection of:
 
-- external MCP client can connect;
-- expected tools are listed;
-- no tool accepts `authUserId`, `memberId`, `role`, token hash, or raw authority
-  fields;
-- editor token can draft but cannot publish;
-- publisher/owner token can request publish review;
-- old direct destructive MCP defaults are gone.
-
-Verification:
-
-```bash
-pnpm exec vitest run test/shared/mcp-tools.test.ts test/runtime/mcp-runtime.test.ts
-pnpm exec vitest run test/runtime/mcp-auth-middleware.test.ts
+```text
+verified Better Auth API key identity
+AND active CMS credential settings
+AND current CMS membership and role
+AND configured CMS scopes
 ```
 
-Expected code direction:
+Do not add collection limits or trusted safety mode merely because historical
+docs mentioned them. Remove those claims. Add either feature later only with a
+concrete use case and an executable authorization matrix.
 
-- `projectTool` should not be reintroduced. Keep explicit tools as direct MCP
-  product contracts.
+### 11.3 Honest Agent Runs
 
-### Phase 8: Studio Final UX
+Agent runs are audit and lifecycle records, not a second permission system.
+Store immutable start-time audit facts:
 
-Objective:
-
-- Make the Studio feel like the control center for humans and delegated agents.
-
-Todos:
-
-- [x] Keep the standalone SPA boundary.
-- [x] Add Better Auth API-key connection management.
-- [x] Add agent workspace.
-- [x] Add review request inbox.
-- [x] Improve publish readiness and projection health visibility.
-- [x] Show agent changes as draft/review artifacts, not mysterious side effects.
-- [x] Keep destructive actions previewed and confirmable.
-- [x] Keep role-based controls derived from backend capabilities.
-
-Result on 2026-07-04:
-
-- Partial pass. The standalone Studio SPA boundary remains intact, and Studio
-  capability visibility tests still pass.
-- Passed. The legacy MCP key-management settings section was removed from the
-  active Studio app and the Studio host API no longer requires `mcpKeys`.
-- Passed. Studio now includes a focused review request inbox that uses the
-  canonical backend approval/rejection mutations.
-- Passed. Studio now includes a read-only agent workspace at `/agents`, backed
-  by `agentRuns.listOwnRuns`, showing the current member's active/recent runs,
-  safety mode, scopes, collection scope count, credential id, last write time,
-  and last error.
-- Passed. The agent workspace now lets users revoke active own agent runs
-  through the canonical `agentRuns.revokeRun` backend mutation.
-- Passed. Entry workflow panels expose public visibility, publish-impact
-  preview, route validation, revalidation job state, review requests, and
-  destructive-operation preview/confirmation paths through existing backend
-  operations.
-- Passed. Settings now include owner-scoped Better Auth API-key MCP connection
-  management. The Studio host bridge calls the existing better-convex-nuxt
-  `/api/auth/**` proxy for Better Auth API-key `create`/`delete`, shows the raw
-  key once, stores only the Better Auth key id plus CMS scopes in
-  `mcpCredentialSettings`, lets the user choose expiry and scopes, lists current
-  owner credentials, and revokes both CMS credential settings and the Better
-  Auth key.
-- Boundary note: this intentionally did not add a parallel CMS token creator and
-  did not broaden MCP credential self-service to non-owners. The existing
-  `mcpCredentials` mutations remain guarded by `manageSettings`; changing that
-  is a separate product-role decision.
-- Not complete. Studio does not yet include run start controls or trusted
-  automation controls.
-- Verification passed:
-  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/runtime/cms-studio-query.test.ts`,
-  `pnpm --filter @lupinum/ginko-cms studio:typecheck`,
-  `pnpm exec vue-tsc -p packages/cms/tsconfig.runtime.json --noEmit`, and
-  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/shared/studio-workflow.test.ts`.
-- Review inbox verification passed:
-  `pnpm exec vitest run test/component/reviewRequests.test.ts`,
-  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/shared/studio-workflow.test.ts test/shared/mcp-tools.test.ts`,
-  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
-  `pnpm --filter @lupinum/ginko-cms typecheck`.
-- Agent workspace verification passed:
-  `pnpm exec vitest run test/component/agentRuns.test.ts`,
-  `pnpm --filter @lupinum/ginko-cms-convex typecheck`, and
-  `pnpm --filter @lupinum/ginko-cms typecheck`.
-- Better Auth MCP connection-management verification passed:
-  `pnpm exec vitest run test/component/mcpCredentials.test.ts`,
-  `pnpm --filter @lupinum/ginko-cms studio:typecheck`,
-  `pnpm --filter @lupinum/ginko-cms typecheck`,
-  `pnpm install`,
-  `pnpm run check:publish-specifiers`,
-  `pnpm run package:e2e`, and
-  `pnpm run release:verify`.
-- Agent revoke UI verification passed:
-  `pnpm --filter @lupinum/ginko-cms studio:typecheck` and
-  `pnpm exec vitest run test/runtime/studio-workflow-components.test.ts test/runtime/cms-studio-query.test.ts`.
-- Final gate rerun passed after the Studio agent-run revoke and docs slices:
-  `pnpm run release:verify`.
-- Note: `test/runtime/editor-workflows.test.ts` is listed in the plan but does
-  not currently exist in this repo.
-
-Acceptance criteria:
-
-- owner can create/revoke MCP connections;
-- editor can create a scoped editing MCP connection if allowed;
-- editor can see agent-created drafts;
-- publisher/owner can approve/reject review requests;
-- viewer cannot mutate;
-- stale review/publish state is visible;
-- settings do not imply MCP needs `CONVEX_DEPLOY_KEY` as normal runtime auth.
-
-Verification:
-
-```bash
-pnpm exec vitest run test/runtime/editor-workflows.test.ts
-pnpm exec vitest run test/runtime/studio-workflow-components.test.ts
-pnpm exec vitest run test/runtime/cms-studio-query.test.ts
+```ts
+type AgentRunAuditSnapshot = {
+  credentialApiKeyId: string
+  delegatedUserId: string
+  scopeSnapshot: CmsPermissionKey[]
+  taskName: string
+  createdAt: number
+  expiresAt: number | null
+}
 ```
 
-### Phase 9: Assets, Imports, Backups, Restore
+Current credential status, scopes, and member role are still checked on every
+operation. Do not render current credential scopes as though they were the
+historical requested scopes.
 
-Objective:
+### 11.4 MCP Redaction
 
-- Keep current operational strengths while clarifying boundaries.
+All success summaries, error messages, suggested actions, structured output,
+inspection output, and logs use one recursive redactor. The raw API key appears
+only once in the Better Auth creation response shown to the authenticated owner.
 
-Todos:
+### 11.5 Idempotent Entry Creation
 
-- [x] Keep managed asset metadata and public URL gating.
-- [x] Keep content asset refs.
-- [x] Keep import preview/apply and no-partial-write behavior.
-- [x] Separate content exchange from operator backup/restore.
-- [x] Add restore dry-run/apply before claiming operator-grade restore.
-- [x] Keep purge gated and audited.
-- [x] Add smoke for export/import roundtrip if not already covered in this repo.
+MCP transports and clients may retry after a lost response. Entry creation is
+the one write that cannot rely on draft-version checks or destructive
+confirmation redemption.
 
-Result on 2026-07-04:
+Require a caller-bound request key for MCP create:
 
-- Passed for the existing operational baseline. Asset metadata/public URL
-  gating, content asset refs, import preview/apply behavior, backup separation,
-  purge gates, and rich-text asset mapping tests pass.
-- Added. `backup.previewRestoreBackup` dry-runs restore impact from a backup
-  artifact without writing. `backup.restoreBackup` applies the safe v1 restore
-  case only: missing asset-scoped artifacts with a caller-confirmed checksum.
-  Full, collection, and entry artifacts remain comparison sources for
-  operator-led repair; they are not automatically applied over live tables.
-- Verification passed:
-  `pnpm exec vitest run test/component/assets.test.ts test/component/import.test.ts test/component/backup.test.ts test/component/storage-maintenance.test.ts test/runtime/editor/richtext-asset-mapping.test.ts`
-  and
-  `pnpm --filter @lupinum/ginko-cms-convex typecheck`.
-
-Acceptance criteria:
-
-- asset public URL exposure follows published/public rules;
-- import preview shows changes before writes;
-- failed import does not partially write;
-- backup artifact model remains separate from content exchange;
-- restore dry-run reports impact without writes;
-- restore apply is gated, audited, and covered by tests.
-
-Verification:
-
-```bash
-pnpm exec vitest run test/component test/runtime/editor/richtext-asset-mapping.test.ts
-pnpm exec vitest run test/runtime/editor-workflows.test.ts
+```ts
+type CreateEntryRequest = {
+  requestId: string
+  collection: string
+  input: CreateEntryInput
+}
 ```
 
-### Phase 10: Public Delivery And Ginko Content Provider
+Persist a bounded receipt keyed by credential/caller plus `requestId`, with an
+arguments hash and created entry ID. The exact duplicate returns the original
+result. Reusing the key with different arguments fails. Expired receipts are
+removed by indexed bounded cleanup.
 
-Objective:
+Do not make every mutation pass through a generic idempotency framework. Add
+durable idempotency only to operations whose transport retry can duplicate a
+product action.
 
-- Keep public site reads simple, deterministic, and published-only.
+### Required Tests
 
-Todos:
+- every tool has an explicit required scope;
+- direct publish/archive tools and wrappers are absent;
+- editor cannot approve or publish;
+- publisher/owner approval rechecks current role and draft version;
+- revoked/expired/orphan keys fail in MCP and direct Convex calls;
+- agent run ownership and expiry are enforced;
+- role and scope changes affect the next call;
+- exact and concurrent duplicate create requests return one entry, while the
+  same request key with different arguments or another credential is rejected;
+- secret sentinels are absent from text and structured output;
+- no tool accepts user ID, role, token hash, or authority overrides.
 
-- [x] Keep public provider surface.
-- [x] Ensure provider reads only public projections.
-- [x] Preserve old site DSL ergonomics through Ginko Content provider semantics,
-      not by reviving old CMS API surfaces.
-- [x] Keep route diagnostics honest.
-- [x] Keep revalidation outbox behavior clear.
+### Gate And Commit
 
-Result on 2026-07-04:
+Run MCP middleware, token, tool contract, operation, audit, and browser tests.
 
-- Passed. Public API, Nuxt provider, publish, and revalidation checks pass
-  against published projections.
-- Passed. Route/path changes and revalidation behavior remain covered by the
-  existing component tests.
-- Verification passed:
-  `pnpm exec vitest run test/component/entries/publish.test.ts test/component/public-api.test.ts test/shared/nuxt-provider.test.ts test/component/revalidation.test.ts test/module/e2e-package-consumer.test.ts`.
+Suggested commit:
 
-Acceptance criteria:
+`fix!: make MCP public-output work review gated`
 
-- public provider cannot read drafts;
-- route/path changes revalidate old and new public paths;
-- content query contract is documented;
-- Ginko Content owns neutral read semantics;
-- CMS owns editorial workflow only.
+## 12. Work Package 6: Public Delivery And Projection Performance
 
-Verification:
+### Objective
 
-```bash
-pnpm exec vitest run test/component/entries/publish.test.ts
-pnpm exec vitest run test/module/e2e-package-consumer.test.ts
+Let Ginko Content own website projection and remove avoidable per-row work.
+
+### 12.1 Delete Parallel Public Delivery
+
+Delete `publicContent.prerender` and CMS-owned locale/path prerender projection.
+Ginko Content owns prerender and sitemap.
+
+The recommended `0.2.0` decision is also to delete the optional CMS public HTTP
+facade and its generated website API types. Ginko Content already provides the
+consumer-facing query surface. No named non-Ginko consumer currently justifies
+maintaining a second website API.
+
+If a real consumer blocks deletion, stop and record that product requirement.
+Move the facade into an explicitly versioned package with its own contract; do
+not keep it as an incidental option in the main Nuxt module.
+
+Convex public functions remain as the raw, published-only provider backend.
+
+### 12.2 Remove Query N+1 Behavior
+
+Immediately remove the clear route lookup N+1 by using the route facts already
+stored on the public projection when valid.
+
+Translation/navigation queries must have a fixed query budget independent of
+row count. Choose one measured implementation:
+
+- one bounded collection projection read grouped in memory; or
+- a derived `routeVariants` summary stored on each public projection.
+
+If `routeVariants` is chosen, document it as derived and rebuildable, update all
+variants transactionally on publish/unpublish, and add a rebuild/health check.
+
+Cornerstone acceptance:
+
+```ts
+expect(queryCountForNavigation({ entries: 1 })).toBeLessThanOrEqual(MAX_QUERIES)
+expect(queryCountForNavigation({ entries: 1000 })).toBeLessThanOrEqual(MAX_QUERIES)
 ```
 
-### Phase 11: Trusted Agent Automation
+Do not replace one N+1 with unbounded `Promise.all`.
 
-Objective:
+### 12.3 Revalidation Safety
 
-- Decide whether trusted direct execution belongs in v1.
+Outbound delivery:
 
-Todos:
-
-- [x] Run Experiment 6 only after supervised/review mode works.
-- [x] Add direct publish only if the model is easy to explain and test.
-- [x] Keep direct archive/delete/purge out unless explicitly designed.
-- [x] Require explicit trusted scope and current publisher/owner role.
-- [x] Add audit and rollback guidance.
-
-Result on 2026-07-04:
-
-- Decision: do not add trusted direct publish in this slice. Supervised/review
-  mode is not fully wired through MCP and Studio yet, so trusted automation
-  would weaken the mental model.
-- Decision updated after the supervised/review slices: do not run trusted direct
-  publish Experiment 6 for v1. The review path is the default product model, and
-  trusted direct publish remains deferred until it has its own small proof and
-  release gate.
-- Passed. Existing publish, credential-scope, MCP runtime, and MCP surface tests
-  still pass. The new credential `safetyMode: "trusted"` is metadata only and
-  does not grant direct execution.
-- Passed. `mcpCredentials.upsertSettings` now rejects `safetyMode: "trusted"`
-  unless the delegated member is currently an owner or publisher and the
-  credential explicitly includes `cms.entries.publish`.
-- Verification passed:
-  `pnpm exec vitest run test/component/entries/publish.test.ts test/component/mcpCredentials.test.ts test/runtime/mcp-runtime.test.ts test/shared/mcp-tools.test.ts`.
-- Trusted-scope invariant verification passed again in
-  `pnpm exec vitest run test/component/mcpCredentials.test.ts` and in the final
-  `pnpm run release:verify`.
-- Passed. Audit and rollback guidance was added to
-  `docs/guides/migrations/trellis-era-migration.md`: audit MCP-assisted work
-  through `agentRuns` and `reviewRequests`; preserve current state before any
-  restore; rerun `ginko-cms deploy --check` and inspect Studio before resuming
-  writes.
-
-Acceptance criteria:
-
-- trusted mode disabled by default;
-- trusted token is explicitly scoped;
-- current role is always checked at execution time;
-- publish stale-state guard still applies;
-- owner/publisher downgrade blocks existing trusted token;
-- tests prove editor cannot direct publish.
-
-Verification:
-
-```bash
-pnpm exec vitest run test/component test/runtime/mcp-runtime.test.ts
-pnpm exec vitest run test/shared/mcp-tools.test.ts
+```ts
+await fetch(target.endpoint, {
+  method: 'POST',
+  redirect: 'error',
+  headers: signedHeaders,
+  body,
+  signal,
+})
 ```
 
-Decision gate:
+Reject endpoint usernames/passwords. Store a stable local category and HTTP
+status, never the remote body. Remove CMS webhook configuration and unused event
+types if only revalidation delivery is implemented.
 
-- If this phase weakens the mental model, ship v1 without trusted direct
-  publish. Review requests are enough for first release.
+For `0.2`, enforce exactly one enabled revalidation target per environment.
+The current UI suggests multiple targets while an event is permanently assigned
+to the first enabled production target. Reject a second enabled target during
+configuration instead of silently providing incomplete fan-out semantics.
 
-### Phase 12: Documentation And Migration Guide
+Delivery is at least once. Every request carries the stable event idempotency
+key, and the receiver contract must require durable deduplication by that key.
+Document and test this boundary; do not describe successful HTTP delivery as
+exactly once.
 
-Objective:
+Expired lock recovery must be indexed and bounded:
 
-- Make the final system understandable without prior Trellis/CMS2 context.
+```ts
+outboxEvents.index('by_status_lock_expiry', ['status', 'lockExpiresAt'])
 
-Todos:
-
-- [x] Update README install story.
-- [x] Update quickstart.
-- [x] Update environment docs.
-- [x] Update MCP docs.
-- [x] Update auth/role docs.
-- [x] Update Studio workflow docs.
-- [x] Update backup/import/restore docs.
-- [x] Write breaking migration guide from Trellis-era Ginko CMS.
-- [x] Add cleanup checklist for old host generated files.
-
-Result on 2026-07-04:
-
-- Partial pass. Existing install-story and public-vocabulary doc checks pass.
-- Updated `docs/getting-started/environment.md` and Studio MCP connection help
-  to describe Better Auth API keys, `CONVEX_SITE_URL`, optional
-  `GINKO_CMS_BETTER_AUTH_BASE_URL`, and Better Auth Convex token transport for
-  normal MCP calls.
-- Updated `docs/reference/content-model.md` to include
-  `mcpCredentialSettings`, `agentRuns`, and `reviewRequests`; the legacy
-  `mcpKeys` table is no longer documented because it was deleted.
-- Updated README/package README links, `docs/reference/auth-and-roles.md`,
-  `docs/guides/mcp-agent-workflows.md`, Studio workflow docs, and
-  `docs/guides/migrations/trellis-era-migration.md` to describe the current
-  Better Auth API-key, CMS role, agent-run, review-request, and Trellis cleanup
-  story.
-- Passed. Documentation now reflects the final MCP transport decision:
-  `CONVEX_DEPLOY_KEY` remains setup/contract-sync admin transport, not normal
-  MCP runtime transport.
-- Verification passed:
-  `pnpm run check:docs:install-story && pnpm run check:public-vocabulary`.
-- Documentation slice verification passed again after the auth/role, Studio,
-  MCP agent workflow, and Trellis migration docs update:
-  `pnpm run check:docs:install-story && pnpm run check:public-vocabulary`.
-- Final gate rerun passed after the documentation updates:
-  `pnpm run release:verify`.
-
-Acceptance criteria:
-
-- a new user can install without knowing Trellis existed;
-- existing user can identify files to delete;
-- docs do not describe custom MCP keys if Better Auth API keys are the final
-  path;
-- docs do not claim restore capabilities that do not exist;
-- docs explain AI authority and review/trusted modes clearly.
-
-Verification:
-
-```bash
-pnpm run docs:check
-pnpm run check:public-vocabulary
-rg -n "Trellis|trellis|mcpKeys|CONVEX_DEPLOY_KEY.*MCP|file:|workspace:|link:" docs README.md packages/cms/README.md
+const expired = await db
+  .query('outboxEvents')
+  .withIndex('by_status_lock_expiry', (q) => q.eq('status', 'processing').lt('lockExpiresAt', now))
+  .take(RECOVERY_BATCH_SIZE)
 ```
 
-### Phase 13: Final Cleanup And Release Gate
+Reschedule recovery while another batch remains. Never call `.collect()` across
+all processing events.
 
-Objective:
+### 12.4 Stable Operational Pagination
 
-- Prove the final CMS system as a package, not just a local workspace.
+Activity and audit pagination must use a stable cursor. A timestamp-only cursor
+skips records when multiple events share the boundary timestamp. Prefer native
+Convex pagination; otherwise use the immutable tuple `(createdAt, _id)` and
+encode both values in an opaque cursor.
 
-Todos:
+The same rule applies to every operational history exposed by Studio or MCP.
+Do not claim native cursor semantics while returning a timestamp.
 
-- [x] Delete old MCP key UI if replaced.
-- [x] Delete `projectTool` after explicit MCP tools exist.
-- [x] Delete unused compatibility wrappers.
-- [x] Remove generated `dist/` churn from commits.
-- [x] Run no-zombie searches.
-- [x] Run full verification.
-- [x] Pack and inspect artifacts.
-- [x] Prepare release notes and migration notes.
+### Required Tests
 
-Result on 2026-07-04:
+- public route, navigation, search, sitemap, and list query budgets;
+- route collisions and rebuild invariants;
+- draft/public separation;
+- redirect rejection and URL credential rejection;
+- secret response bodies never persist;
+- a second enabled revalidation target is rejected with an actionable error;
+- retries deliver the same idempotency key and the receiver fixture deduplicates
+  it;
+- expired delivery locks recover in bounded indexed batches;
+- identical activity timestamps paginate without loss or duplication;
+- Content prerender and sitemap cover translated routes and fallbacks after CMS
+  prerender deletion.
 
-- Passed. `pnpm run release:verify` completed end to end after the migration
-  slices.
-- Passed. Packed artifact local specifier checks found no `workspace:`, `file:`,
-  or `link:` specs in packed manifests. Clean package E2E installed packed
-  `@lupinum/ginko-cms`, `@lupinum/ginko-cms-convex`, and
-  `@lupinum/ginko-cms-contract`; the consumer used `better-convex-nuxt=0.4.0`.
-- Passed. Production audit reported no known vulnerabilities.
-- Passed. Active Trellis runtime search returned no `@lupinum/trellis`,
-  `#trellis`, `_trellisForwarding`, or `defineTrellis` matches outside ignored
-  generated/dependency output.
-- Generated `.pack/`, package `dist/`, and `playground/.nuxt/` output exists
-  from verification but remains ignored and must not be committed.
-- Passed. Old operation MCP tool files and `projectTool` were deleted after the
-  explicit MCP surface covered the active workflows.
-- Passed. Backend legacy `mcpKeys` table/module/schema/tests were deleted and
-  component entrypoint boundaries were updated.
-- Passed. `pnpm run check:stale-surfaces` passed. The remaining compatibility
-  matches are intentional: package compatibility metadata, the required Convex
-  CLI package-json shim, migration docs/tests, or current caller/auth transport
-  code awaiting the MCP auth-token cutover.
-- Passed. `pnpm run release:verify` completed end to end after this cleanup:
-  format, lint, typecheck, publish-specifier checks, full tests, clean-consumer
-  package E2E, and production audit all passed.
-- Passed again after the Studio review inbox, agent workspace, and MCP
-  agent-run write-link slices. `pnpm run release:verify` completed format,
-  lint, typecheck, publish-specifier checks, full Vitest
-  (`92` files, `687` tests, `1` skipped), clean-consumer package E2E, packed
-  local-specifier checks for four tarballs, and production audit.
-- Passed again after the redaction, Studio agent-run revoke, and docs slices.
-  `pnpm run release:verify` completed format, lint with existing warnings only,
-  typecheck, publish-specifier checks, full Vitest (`93` files, `688` tests,
-  `1` skipped), clean-consumer package E2E, packed local-specifier checks for
-  four tarballs, and production audit.
-- Passed again after the Studio Better Auth MCP connection-management and
-  trusted-scope invariant slices. `pnpm run release:verify` completed format,
-  lint with existing warnings only, typecheck/build, publish-specifier checks,
-  full Vitest (`93` files, `690` tests, `1` skipped), clean-consumer package
-  E2E, packed local-specifier checks for four tarballs, and production audit.
-- Passed again after the Phase 7 MCP token-transport cutover and release-note
-  updates. `pnpm run release:verify` completed format, lint with existing
-  warnings only, typecheck/build, publish-specifier checks, full Vitest
-  (`93` files, `691` tests, `1` skipped), clean-consumer package E2E, packed
-  local-specifier checks for four tarballs, and production audit. A separate
-  `pnpm audit --prod --audit-level low` rerun also reported no known
-  vulnerabilities.
-- Passed again after the root-adapter/package-surface cleanup. `pnpm run
-release:verify` completed format, lint with existing warnings only,
-  typecheck/build, publish-specifier checks, full Vitest (`92` files, `693`
-  tests, `1` skipped), clean-consumer package E2E, packed local-specifier
-  checks for four tarballs, and production audit. A downstream packed install
-  also passed `convex codegen`, `ginko-cms push --check`, typecheck, lint,
-  production build, route smoke, and CMS browser login smoke.
-- Passed. `CHANGELOG.md` now has unreleased release and migration notes for the
-  direct package install story, Trellis cleanup, Better Auth MCP credentials,
-  token-based MCP Convex transport, and review-first agent workflow.
-- Passed. `docs/guides/migrations/trellis-era-migration.md` now covers the
-  host cleanup checklist, Better Auth MCP token transport, audit points, and
-  rollback guidance.
-- Passed again on 2026-07-05 after the migration cleanup pass. Generated
-  Convex host setup now treats `packages/cms/templates/convex` as canonical for
-  `auth.ts`, `convex.config.ts`, `http.ts`, `betterAuth/*`, and `ginkoCms/*`,
-  with playground and basic fixtures synced and guarded by
-  `check-convex-template-sync`.
-- Passed. Component collection-contract and content-migration admin operations
-  now use the canonical internal component functions behind the unchanged host
-  root adapters; duplicate `*Internal` preservation names were removed.
-- Passed. Studio Settings was decomposed into focused section components
-  without changing backend permission checks or read/write behavior.
-- Passed. `smoke:live-stories` is now an explicit manual harness requiring
-  `CMS_STORY_BASE_URL`, `GINKO_CMS_TEST_EMAIL`, and
-  `GINKO_CMS_TEST_PASSWORD`; dated browser evidence was moved out of the stable
-  story checklist and into `docs/maintenance/cms-user-story-verification-log.md`.
-- Verification passed on 2026-07-05:
-  `pnpm install`,
-  `node scripts/check-convex-template-sync.mjs`,
-  `pnpm run check:stale-surfaces`,
-  `pnpm run check:publish-specifiers`,
-  `pnpm --filter @lupinum/ginko-cms typecheck`,
-  `pnpm exec vitest run test/module/ginko-cli.test.ts test/module/e2e-package-consumer.test.ts`,
-  `pnpm exec vitest run test/component/import.test.ts test/component/public-api.test.ts`,
-  `pnpm exec vitest run test/component/members-crud.test.ts test/component/site-data.test.ts test/component/settings.test.ts`,
-  `pnpm run package:e2e`, and `pnpm run release:verify`.
-- The full `release:verify` pass completed format, lint with existing warnings
-  only, typecheck/build, publish-specifier checks, full Vitest (`93` files,
-  `709` tests, `1` skipped), clean-consumer package E2E, packed
-  local-specifier checks for four tarballs, and production audit with no known
-  vulnerabilities.
-- Manual live browser/MCP smoke was not rerun in this cleanup pass because it
-  now requires an explicit running consumer URL and credentials. Run it only
-  with `CMS_STORY_BASE_URL`, `GINKO_CMS_TEST_EMAIL`, and
-  `GINKO_CMS_TEST_PASSWORD` set.
+### Gate And Commit
 
-Next gate:
+Run public API/provider tests, projection rebuild tests, performance fixtures,
+Content sitemap/prerender integration, audit, and typecheck.
 
-- No remaining migration phase gate is open. Before publishing, a human
-  maintainer still needs to inspect `.pack/*.tgz`, confirm package versions and
-  npm settings, and follow `MAINTAINING.md`.
+Suggested commit:
 
-Acceptance criteria:
+`refactor!: let Ginko Content own public delivery`
 
-- no active Trellis runtime remains;
-- no old and new MCP authority paths remain side by side;
-- no second source of truth for identity, role, or token authority exists;
-- package consumer works from packed artifacts;
-- release notes explain breaking changes and migration steps.
+## 13. Work Package 7: Maintainability And Public API Freeze
 
-Verification:
+### Objective
+
+Delete phantom contracts and make the remaining code understandable without
+inventing generic layers.
+
+### 13.1 Direct Ginko Content Contract
+
+First prove that `@lupinum/ginko-content/cms-contract` imports, bundles, and runs
+inside the exact packed Convex component.
+
+If it passes:
+
+- delete the vendored contract directory;
+- delete the regex source transformer;
+- delete its checksum manifest;
+- delete duplicate parser dependencies;
+- test the public subpath directly.
+
+If it fails, fix the upstream framework-free package boundary. Do not continue
+source rewriting as the permanent architecture.
+
+### 13.2 Delete Phantom Surfaces
+
+Audit and remove:
+
+- unused `search.enabled`, `siteData.enabled`, and `forms.enabled` options;
+- discarded `GINKO_CONTENT_PROVIDER_SITE` reads;
+- `outboxEvents.siteId` while there is no site model;
+- webhook/event contracts without delivery;
+- `plan` and `workspaceId` Studio access fields;
+- fake `reads` metadata that does not enforce table access;
+- compatibility comments and stale Trellis runtime claims;
+- duplicate generated component exports when no production consumer requires
+  them.
+
+### 13.3 Focused Decomposition
+
+Decompose only after behavior is covered:
+
+- `StudioAssetBrowser.vue`: orchestration, selection state, upload workflow, and
+  presentation components;
+- `useStudioAssetFinder.ts`: query state, filters, selection, and commands;
+- `Editor.vue`: editor orchestration versus toolbars/dialogs;
+- `public.ts`: page, list, navigation, search, routes, and site-data operations;
+- `validators.ts`: domain-owned validator modules;
+- large Convex workflow files: commands, pure projections, and validation.
+
+Rules:
+
+- domain logic does not move into Vue or transport code;
+- no `BaseService`, generic repository, or generic command bus;
+- each extracted module has one domain responsibility;
+- public exports do not increase merely because files were split;
+- generated files are excluded from size goals.
+
+### 13.4 Public Export Freeze
+
+Use each package's `exports` field as the only public allowlist. Generate packed
+runtime imports, type imports, and negative deep-import probes from it.
+
+Before `1.0.0`:
+
+- decide whether `@lupinum/ginko-cms-convex/_generated/component.js` remains
+  public or only `/component` remains;
+- replace wildcard Contract exports if they expose new files accidentally;
+- document every retained subpath;
+- declare the supported Node engine range consistently.
+
+### Required Tests
+
+- no removed phantom option appears in declarations or docs;
+- packed Convex directly imports the Content contract;
+- every declared export runtime-imports and type-imports;
+- forbidden private paths fail;
+- Studio exact types compile without broad casts;
+- module-size checks exclude generated sources and prevent regression.
+
+### Gate And Commit
+
+Run format, lint, typecheck, package contracts, dependency boundaries, packed
+imports, and focused behavior tests.
+
+Suggested commits:
+
+- `refactor!: remove duplicate vNext contracts and phantom surfaces`
+- `refactor: decompose the largest CMS ownership boundaries`
+
+## 14. Work Package 8: Exact Artifact And CI Pipeline
+
+### Objective
+
+Make one reproducible path from clean commits to an integrated candidate.
+
+### 14.1 Standalone Workspace
+
+Remove normal-check dependencies on sibling repositories:
+
+- remove sibling Ginko Content from `pnpm-workspace.yaml`;
+- remove Vitest aliases into sibling Content source;
+- remove the absolute Better Convex Nuxt tarball override;
+- remove stale `legacy-peer-deps` and `link-workspace-packages` settings when a
+  strict install passes;
+- run installed package parity against the pinned Content tarball.
+
+A clean `git archive` or clone must pass frozen install without adjacent
+checkouts.
+
+### 14.2 Local Tarball Development And Candidate Lanes
+
+Do not publish npm packages while the coordinated APIs are changing. Use two
+explicit local lanes:
+
+```bash
+# Fast integration feedback. Dirty source is allowed and recorded.
+pnpm run dev:pack
+
+# Release evidence. Every source must be clean and compatibility-pinned.
+pnpm run candidate:pack
+pnpm run release:verify:candidate
+```
+
+`dev:pack` writes to `.pack/dev/`, records source commit and dirty state, and
+may compute hashes for diagnostics. Its artifacts must contain a development
+evidence marker and are never written to `compatibility.json`, changelogs, or
+release evidence.
+
+Each dev pack is immutable and cache-proof: pack to a temporary name, compute
+SHA-256, then atomically rename to
+`<package>-<version>-dev.<commit>.<sha256>.tgz`. Never overwrite a path. Every
+probe uses a fresh consumer directory, manifest, lockfile, package-manager store
+or cache, and install. A regression test creates two dirty packs with one semver
+and different bytes and proves the second consumer executes the second build.
+
+`candidate:pack` writes to `.pack/candidate/`, refuses any dirty coordinated
+repository, packs each package once per run, verifies version and source commit,
+and runs twice serially to compare archive and content-manifest hashes. Candidate
+verification installs those exact local `.tgz` paths into fresh temporary
+consumers. It never resolves a candidate package from npm, a workspace, a link,
+or a sibling source directory.
+
+Temporary consumer manifests may use exact `file:/absolute/path/package.tgz`
+dependencies because they are generated evidence, not published source.
+Committed package manifests retain semver ranges and must contain no machine-
+specific paths. The consumer lockfile is inspected for one physical resolution
+of every coordinated package.
+
+Only reviewed clean upstream candidate artifacts may be recorded in
+compatibility. Publication is a later explicit promotion decision after all
+release gates pass; neither lane publishes, tags, or pushes.
+
+### 14.3 Coordinated Versions
+
+Set Ginko Content to `0.4.0-rc.1` and all three CMS packages to `0.2.0-rc.1` for
+the first coordinated candidate. Use explicit workspace ranges inside each
+repository so packed dependency rewriting is deterministic:
+
+```json
+{
+  "dependencies": {
+    "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.1",
+    "@lupinum/ginko-cms-convex": "workspace:^0.2.0-rc.1"
+  }
+}
+```
+
+Promote Ginko Content to `0.4.0` and all three CMS packages to `0.2.0` only after
+coordinated candidate approval.
+
+The CMS release-candidate peer dependency is
+`"@lupinum/ginko-content": "^0.4.0-rc.1"`; the final `0.2.0` peer is
+`"^0.4.0"`. npm and pnpm candidate installs treat every peer warning as a
+failure. The current `^0.3.0` range is removed in the same cutover.
+
+### 14.4 Compatibility Is The Only Tuple Authority
+
+Candidate verification accepts artifact paths only. Expected commit, version,
+and SHA-256 come from `packages/cms/compatibility.json`:
+
+```ts
+const expected = compatibility.releaseArtifacts[packageName]
+const actualHash = sha256(artifactPath)
+
+assertEqual(actualHash, expected.sha256)
+assertPackedVersion(artifactPath, compatibility.releaseStack[packageName])
+assertSourceCommit(evidence, expected.sourceCommit)
+```
+
+Do not accept a caller-provided expected hash. That creates a second authority
+and allows any same-version tarball to pass.
+
+`compatibility.releaseArtifacts` contains external upstream artifacts only:
+Ginko Content and Better Convex Nuxt. It must not contain the CMS packages that
+embed this file because their own hashes would be self-referential. Contract,
+Convex, and CMS tarball hashes belong only to generated, uncommitted candidate
+evidence.
+
+The candidate order is fixed:
+
+1. clean and pack each upstream repository twice;
+2. compare its two archives and content manifests;
+3. review the upstream commits, versions, and hashes;
+4. update and commit CMS compatibility with those upstream facts;
+5. from that clean CMS commit, pack Contract, Convex, and CMS twice;
+6. generate external evidence containing all five artifact hashes;
+7. install those exact five local tarballs into fresh npm and pnpm consumers;
+8. reject any tuple, peer, lockfile, source-commit, or hash mismatch.
+
+### 14.5 Immutable Upstream Artifacts
+
+Before CMS candidate verification:
+
+1. Ginko Content is clean at the accepted integration-SDK commit and packs
+   `0.4.0-rc.1`, matching compatibility exactly.
+2. Better Convex Nuxt is clean at `fb238d96` or an accepted successor and packs
+   `0.6.0`.
+3. Each upstream pack records commit, dirty state, package manager, Node
+   version, content manifest, and SHA-256.
+4. CMS verifies those values against compatibility.
+
+CI checks out immutable commits, never mutable branch fallbacks. Remove obsolete
+Trellis checkouts.
+
+### 14.6 Deterministic Packing
+
+Pack Contract, Convex, and CMS twice from unchanged built source. Compare:
+
+- archive SHA-256;
+- file paths;
+- modes;
+- sizes;
+- per-file content hashes;
+- packed `package.json`.
+
+Any difference fails the gate. Do not normalize a difference away without
+identifying its source.
+
+### 14.7 Real Packed Consumer
+
+The candidate consumer must install the exact five-package tuple and:
+
+1. register packed Ginko Content and packed Ginko CMS;
+2. configure provider `cms` in `content.config.ts`;
+3. run CMS init, doctor, and offline codegen;
+4. prepare, typecheck, and build Nuxt;
+5. boot the Nitro server;
+6. execute provider-backed `one()`;
+7. execute nested `populate()`;
+8. execute navigation, surroundings, search, site data, and routes;
+9. generate provider-backed sitemap and localized routes;
+10. prove the provider virtual module loads from the tarball;
+11. inspect the lockfile for one exact physical resolution per coordinated
+    package;
+12. run public package-export probes;
+13. import the filesystem fixture into CMS, export it back to files, and compare
+    normalized content plus asset hashes;
+14. boot the exported filesystem backend and compare its public routes,
+    navigation, search, sitemap, rendered content, and assets with the CMS
+    backend.
+
+No workspace, link, sibling source, external absolute path, or registry duplicate
+may satisfy a candidate package.
+
+### 14.8 Evidence Schema
+
+Generate evidence instead of hand-maintaining version tables:
+
+```json
+{
+  "candidate": "0.2.0-rc.1",
+  "source": {
+    "commit": "<cms-commit>",
+    "dirty": false
+  },
+  "toolchain": {
+    "node": "<version>",
+    "pnpm": "<version>",
+    "os": "<platform>"
+  },
+  "artifacts": {
+    "@lupinum/ginko-content": {
+      "version": "0.4.0-rc.1",
+      "commit": "<commit>",
+      "sha256": "<sha256>"
+    }
+  },
+  "consumer": {
+    "lockfileSha256": "<sha256>",
+    "scenarios": ["prepare", "typecheck", "build", "provider-one", "portable-round-trip"]
+  },
+  "gates": {
+    "check": "passed",
+    "packageCandidate": "passed",
+    "browser": "passed"
+  }
+}
+```
+
+The final evidence document may summarize this JSON but must not duplicate the
+tuple manually.
+
+### Gate And Commit
+
+Run clean standalone install, two serial pack runs, the real packed consumer,
+package contract probes, production audit, and CI workflow validation.
+
+Suggested commit:
+
+`build!: certify exact standalone vNext artifacts`
+
+## 14A. Work Package 8A: 1.0 Operational Quality
+
+### Objective
+
+Close the product-operability gaps that do not justify new architecture but do
+determine whether the CMS is supportable, inclusive, and predictable near
+`1.0.0`.
+
+### 14A.1 Data Retention And Privacy Inventory
+
+Create one reviewed inventory for every durable operational record:
+
+| Record family       | Purpose                     | User-visible | Retention                                 | Exported        | Deletion rule                    |
+| ------------------- | --------------------------- | ------------ | ----------------------------------------- | --------------- | -------------------------------- |
+| activity            | editorial history           | yes          | explicit duration                         | yes/no          | indexed batch                    |
+| destructive audit   | security evidence           | restricted   | explicit duration or justified indefinite | yes/no          | indexed batch or documented hold |
+| agent runs/reviews  | assisted-authoring evidence | restricted   | explicit duration                         | yes/no          | indexed batch                    |
+| confirmations       | replay prevention           | no           | expiry plus bounded grace                 | no              | indexed batch                    |
+| revalidation events | delivery evidence           | operator     | delivered/failed duration                 | no              | indexed batch                    |
+| backup manifests    | recovery                    | owner        | explicit duration                         | operator export | explicit owner deletion          |
+
+Record actual policy, not aspirational prose. Each retained field needs a
+purpose; backup/export payloads containing member or credential-adjacent data
+need the same classification. Cleanup jobs must use retention indexes and
+bounded batches. Do not introduce a generic retention engine.
+
+Before `1.0.0`, document the application-owner procedure for data access,
+export, correction, and deletion requests, including records that cannot be
+deleted immediately for security reasons.
+
+### 14A.2 Accessibility As An Executable Contract
+
+Add automated axe checks and keyboard scenarios for the actual Studio shell,
+dialogs, field relations, arrays, asset selection, version history, and
+destructive confirmations.
+
+Correct known semantic defects directly:
+
+- do not nest interactive `role="button"` elements in relation fields;
+- implement combobox/listbox semantics only where the keyboard and focus model
+  actually supports them;
+- give icon-only version-history and array controls accessible names;
+- restore focus after dialogs and preserve a visible focus indicator;
+- announce validation, upload, and background-operation failures.
+
+Automated checks complement, but do not replace, one manual screen-reader and
+keyboard pass before `1.0.0`.
+
+### 14A.3 Measured Scale Envelope
+
+Publish supported operating bounds for:
+
+- entries per collection and locales per entry;
+- navigation, search, sitemap, and public-route result sizes;
+- asset size and assets returned per page;
+- import file count, depth, total bytes, and per-document bytes;
+- portable export entry/asset counts, total bytes, lease duration, and retry
+  behavior;
+- backup/export size and expected recovery mechanism;
+- Studio initial compressed JavaScript and CSS.
+
+Use fixtures at the documented boundary. Add gzip or Brotli budgets for the
+initial Studio route and keep editor/asset features lazy. A large total lazy
+chunk graph is not itself a release blocker; regressions in initial interactive
+cost are.
+
+### 14A.4 Novice And Upgrade Journeys
+
+Certify two workflows without undocumented operator knowledge:
+
+1. a new owner installs the packages, creates the first owner through the
+   server-only bootstrap, configures Content, publishes one entry, and observes
+   it in the real provider consumer;
+2. a sanitized `0.1.3` fixture follows the documented `0.2` cutover, including
+   legacy-key revocation, contract migration, recovery preparation, and packed
+   artifact verification;
+3. an existing Markdown site imports its entries and assets into CMS, edits and
+   publishes content, exports back to a standalone filesystem site, and verifies
+   semantic parity.
+
+The test records commands and expected decisions but never embeds credentials.
+Failures must identify the owner action required instead of exposing internal
+Convex or Nuxt terminology.
+
+### Required Tests
+
+- retention cleanup boundaries and legal-hold exceptions, if supported;
+- axe checks with zero serious or critical violations on primary workflows;
+- keyboard-only creation, editing, relation selection, publishing, and delete
+  confirmation;
+- boundary-size public queries, import rejection, and bounded cleanup;
+- compressed initial-route budget;
+- clean novice install and sanitized `0.1.3` cutover drills.
+
+### Gate And Commit
+
+Treat unresolved serious accessibility defects, undocumented sensitive-data
+retention, and a failed supported upgrade drill as `1.0.0` blockers. They may be
+scheduled after the first `0.2.0-rc.1` only when the candidate is explicitly not
+represented as generally available.
+
+Suggested commits:
+
+- `fix: make Studio workflows accessibly operable`
+- `docs: define retention scale and upgrade guarantees`
+- `test: certify novice and upgrade journeys`
+
+## 15. Work Package 9: Coordinated Release Certification
+
+### Objective
+
+Prove deterministic invariants first, then validate the exact candidate in a
+real browser and deployment.
+
+### 15.1 Repository Gates
+
+Ginko Content:
 
 ```bash
 pnpm run check
-pnpm run release:verify
+pnpm run release:pack
 pnpm run package:e2e
-rg -n "@lupinum/trellis|#trellis|_trellisForwarding|defineTrellis|projectTool|mcpKeys" \
-  packages docs test README.md
 ```
 
-Expected result:
+Better Convex Nuxt:
 
-- remaining matches are only intentional docs, historical migration notes, or
-  tests that assert old surfaces are gone.
+```bash
+pnpm run check
+pnpm run check:contracts
+pnpm run test:e2e
+pnpm run release:verify
+```
 
-## Cross-Cutting Test Matrix
+Ginko CMS:
 
-### Auth And Roles
+```bash
+pnpm run check
+pnpm run package:e2e
+pnpm run audit:prod
+pnpm run release:verify:candidate
+```
 
-- user id maps from Better Auth to CMS member;
-- owner can manage members/settings;
-- publisher can publish/approve;
-- editor can draft but not publish;
-- viewer can read but not write;
-- role downgrade affects Studio and MCP immediately;
-- removed member cannot use existing token.
+Run candidate verification twice serially and compare the complete evidence and
+artifact hashes.
 
-### Content Lifecycle
+### 15.2 Deterministic Security And Lifecycle Matrix
 
-- draft save does not publish;
-- publish creates immutable revision;
-- stale publish fails;
-- archive/unpublish clears public projection correctly;
-- route changes revalidate old and new paths;
-- public provider reads published-only state.
+Mandatory cases:
 
-### MCP And AI
+- owner bootstrap with hostile email args;
+- browser versus API-key JWT kind;
+- missing, revoked, expired, mismatched, and orphan MCP credentials;
+- A to B, sign-out, and anonymous to user;
+- queued old-client callbacks;
+- unmount before first query value;
+- refresh/reset after disposal;
+- pagination cursor changes and concurrent `loadMore()`;
+- provider fact conflicts and malformed envelopes;
+- draft/public projection separation;
+- Content preview cookie with published-only CMS provider;
+- route collision and policy drift;
+- revalidation redirect and secret body;
+- MCP message/data/log secret sentinels.
 
-- token create/verify/revoke/expire;
-- token scope intersects current role;
-- read-only tools do not mutate;
-- write tools require run;
-- review request does not publish;
-- approval publishes through canonical operation;
-- trusted mode disabled by default;
-- no MCP tool accepts authority inputs.
+### 15.3 Browser And Live Proof
 
-### Studio
+Use only the exact recorded candidate tuple.
 
-- settings load for each role;
-- MCP token UI respects role;
-- agent workspace shows runs;
-- review inbox gates approve/reject;
-- stale publish/review state is visible;
-- destructive actions have preview/confirmation.
+Verify:
 
-### Assets
+- signed-out SSR Studio redirect;
+- registration/sign-in and owner claim;
+- member and role boundaries;
+- authenticated Studio shell;
+- A to B replacement when two principals are available;
+- sign-out with immediate data retirement;
+- collection and locale policy display;
+- draft create/edit/preview;
+- publish through human approval;
+- unpublish/archive/restore through canonical operations;
+- public Content reads;
+- navigation, search, pagination, translated slugs, fallback routes, and sitemap;
+- nested reference population;
+- upload and public asset resolution;
+- filesystem-to-CMS import with assets and CMS-to-filesystem export from the
+  same candidate data, followed by semantic comparison and filesystem rendering;
+- MCP key creation, scoped draft work, review request, approval, revocation, and
+  post-revocation denial;
+- mutation/action/upload error operation labels.
 
-- managed asset refs update correctly;
-- public URL gating follows publish state;
-- rich text asset ids resolve correctly;
-- delete/purge is gated and audited.
+Inspect console, network, SSR payloads, error serialization, logs, and MCP output
+for:
 
-### Imports, Backups, Restore
+- stale principal data;
+- auth flicker;
+- duplicate subscriptions;
+- uncaught rejections;
+- credentials or causes;
+- private provider responses;
+- workspace or development asset paths.
 
-- import preview is write-free;
-- import apply is atomic enough to avoid partial writes;
-- content exchange roundtrip works;
-- backup artifact metadata is correct;
-- restore dry-run is write-free;
-- restore apply is gated and audited.
+Clean all temporary entries, assets, API keys, agent runs, review requests, and
+membership changes.
 
-### Package And Release
+### 15.4 Candidate Approval
 
-- no Trellis dependencies;
-- no local dependency specs in packed artifacts;
-- public exports are intentional;
-- generated files are regenerated, not hand-edited;
-- package consumer installs and runs;
-- release verification passes.
+The release candidate is approved only when:
 
-## Implementation Order Recommendation
+- all three source repositories are clean;
+- every mandatory work package is committed separately;
+- compatibility matches exact artifacts;
+- both serial verification runs are identical;
+- the real packed consumer and browser suite pass;
+- no active checklist item remains unchecked;
+- known external limits are explicit and do not invalidate a mandatory scenario.
 
-Recommended order:
+Do not publish, tag, or push as part of automated implementation.
 
-1. Release/package baseline.
-2. Trellis ceremony cleanup.
-3. Better Auth role authority cleanup.
-4. Content lifecycle hardening.
-5. Better Auth API-key MCP proof.
-6. Agent runs and review requests.
-7. Nuxt MCP Toolkit explicit tool rebuild.
-8. Studio AI/review workspace.
-9. Assets/imports/backups/restore completion.
-10. Public provider hardening.
-11. Trusted automation proof.
-12. Docs and release.
+Suggested commit:
 
-Why this order:
+`test: certify the coordinated Ginko CMS vNext candidate`
 
-- package baseline prevents local-only success;
-- Trellis cleanup reduces complexity before adding new concepts;
-- role authority must be correct before MCP scopes;
-- content invariants must stay stable before agents can mutate drafts;
-- supervised MCP/AI must work before trusted automation is considered.
+## 16. Implementation Order
 
-## Failure Modes
+Use this order. Do not begin cosmetic decomposition while security and ownership
+are unstable.
 
-### Migration Fails Because We Start With The Big Refactor
+1. WP1 - identity and auth.
+2. WP2 - canonical Content policy.
+3. WP2A - versioned upgrade and recovery.
+4. WP3 - provider, render safety, and assets.
+5. WP3A - backend-neutral CMS integration and Markdown portability.
+6. WP4 - Studio lifecycle and exact types.
+7. WP5 - supervised MCP.
+8. WP6 - public delivery and performance.
+9. WP7 - maintainability and export freeze.
+10. WP8 - exact artifacts and CI.
+11. WP8A - `1.0` operational quality.
+12. WP9 - coordinated certification.
 
-Mitigation:
+Each work package must leave its affected repository green. Do not combine
+unrelated packages into a single commit.
 
-- run the entry gates first;
-- build vertical slices;
-- delete only after the replacement has passed its gate;
-- keep v1 supervised if trusted automation is not proven.
+## 17. Acceptance Matrix
 
-### Migration Fails Because We Keep Old And New Paths
+Use only these statuses:
 
-Mitigation:
+- `open`
+- `implemented`
+- `amended`
+- `deferred` with an explicit owner and reason
 
-- hard cut unreleased internals;
-- delete old runtime after each phase passes;
-- keep compatibility only for released public APIs with a removal target.
+| Area                                | Status | Required executable evidence            |
+| ----------------------------------- | ------ | --------------------------------------- |
+| First-owner identity                | open   | Hostile email argument test             |
+| JWT credential kind                 | open   | Direct Convex browser/MCP matrix        |
+| Required auth secret                | open   | Missing-secret startup and doctor tests |
+| Studio route protection             | open   | SSR signed-out redirect test            |
+| Unsupported auth-disabled topology  | open   | Module rejection test                   |
+| Permission-complete call guards     | open   | Role/origin/scope direct-call matrix    |
+| Canonical Content policy            | open   | Drift/apply invariant suite             |
+| Atomic policy and collection sync   | open   | Transactional sync tests                |
+| Generation-safe reindex             | open   | Mid-run policy replacement test         |
+| Contract migration finalization     | open   | Entry validation and approval test      |
+| Migration retry and resume          | open   | Crash/retry receipt test                |
+| Legacy MCP-key cutover              | open   | Old-token denial and audit test         |
+| Recoverable destructive actions     | open   | Snapshot/restore drill                  |
+| Bounded import and archive parsing  | open   | Hostile archive/filesystem limits       |
+| Provider runtime decoders           | open   | Adversarial Wire V2 suite               |
+| Public render safety                | open   | Packed AST-to-render exploit probes     |
+| Structured asset resolution         | open   | No arbitrary-string lookup test         |
+| Asset publication state             | open   | Unreferenced-global denial test         |
+| Upload byte verification            | open   | MIME/signature mismatch tests           |
+| Backend-neutral runtime data source | open   | Filesystem/CMS/Worker contract suite    |
+| One request adapter context         | open   | Binder reuse and disposal tests         |
+| Portable Content contract           | open   | Packed public codec probes              |
+| Portable codecs and directory       | open   | Node and Worker purity probes           |
+| Level-1 portability contracts       | open   | Codec/manifest hostile fixture suite    |
+| Bidirectional semantic round trip   | open   | Files to CMS to files equality          |
+| Deterministic asset portability     | open   | Byte/hash/reference round-trip suite    |
+| Portable conflict and retry safety  | open   | Immutable plan and lost-response tests  |
+| Bounded consistent export           | open   | Lease, roster, and pagination tests     |
+| Studio principal retirement         | open   | A to B and sign-out tests               |
+| Disposed-scope settlement           | open   | Refresh/reset-after-unmount tests       |
+| Pagination concurrency              | open   | Same-cursor deduplication test          |
+| Exact Studio API types              | open   | Packed type consumer                    |
+| Supervised MCP surface              | open   | Direct publish/archive negative probes  |
+| MCP credential fail-closed          | open   | Revoked/orphan direct-call tests        |
+| Idempotent MCP entry creation       | open   | Lost-response retry test                |
+| Agent-run audit truth               | open   | Immutable snapshot test                 |
+| Revalidation boundary               | open   | Redirect/body sentinel tests            |
+| Revalidation target cardinality     | open   | Second-enabled-target rejection         |
+| Bounded outbox recovery             | open   | Indexed multi-batch recovery test       |
+| Stable operational cursors          | open   | Equal-timestamp pagination test         |
+| Ginko Content public ownership      | open   | CMS facade/prerender absence tests      |
+| Public query budget                 | open   | 1 versus 1000 entry query-count test    |
+| Direct Content contract             | open   | Packed Convex import proof              |
+| Phantom surface deletion            | open   | Declaration/docs negative checks        |
+| Standalone install                  | open   | Clean archive frozen install            |
+| Exact compatibility tuple           | open   | Manifest-owned hash tests               |
+| Deterministic packs                 | open   | Two identical serial packs              |
+| Real packed provider consumer       | open   | Nitro runtime scenario suite            |
+| Retention and privacy inventory     | open   | Indexed cleanup and policy evidence     |
+| Accessible Studio workflows         | open   | Axe, keyboard, and focus suite          |
+| Supported scale envelope            | open   | Boundary fixtures and bundle budgets    |
+| Novice and upgrade journeys         | open   | Fresh install and `0.1.3` drill         |
+| Browser and MCP certification       | open   | Exact-tuple evidence                    |
 
-### Migration Fails Because MCP Becomes A Second Admin API
+Do not mark all rows at the end. Update each row when its work package passes.
 
-Mitigation:
+## 18. Definition Of vNext Done
 
-- explicit tools only;
-- no raw table tools;
-- no member/settings/schema tools by default;
-- no authority inputs;
-- all sensitive writes through canonical CMS operations.
+Ginko CMS vNext is done when:
 
-### Migration Fails Because Better Auth API Keys Do Not Fit
+- identity and API-key authority fail closed;
+- every callable guard is complete for browser, server, and MCP origins;
+- Studio requires authentication and has no outgoing-principal retention;
+- Content policy is canonical and CMS policy is a rebuildable projection;
+- policy reindexing cannot mix generations;
+- upgrades are resumable, contract transitions are validated, and destructive
+  operations have a tested recovery path;
+- Content Wire V2 inputs and outputs are strictly validated;
+- CMS publishes only raw provider facts and Ginko Content owns public projection;
+- unsafe Markdown AST cannot become active browser content;
+- arbitrary strings are never treated as assets;
+- public asset access is explicit and uploaded bytes match their accepted type;
+- runtime CMS integrations implement one pure Ginko Content data-source
+  contract and receive H3/Nuxt behavior only through the official binder;
+- published Markdown/MDC and CMS content move through one Ginko Content
+  portability contract;
+- non-Convex CMS authors can reuse the same content model, codecs, data-source
+  boundary, and Level-1 contract tests without inheriting Convex policy;
+- authored entries, locales, slug/parent/order route inputs, references, bodies,
+  and asset bytes survive both directions semantically; projected routes,
+  navigation, search, and sitemap are rebuilt and behaviorally compared;
+- CMS imports are deterministic, bounded, resumable, and conflict-safe; exports
+  are deterministic and restart-safe; both have CMS-owned operational evidence;
+- MCP public-output work is review-gated;
+- retried MCP creates cannot duplicate content;
+- remote errors, redirects, and bodies cannot leak secrets;
+- revalidation target semantics, retry delivery, and lock recovery are explicit
+  and bounded;
+- query cost is bounded independently of result count;
+- operational pagination is stable under timestamp collisions;
+- duplicate and phantom contracts are removed;
+- public package exports and Node support are intentional;
+- a standalone clone installs and verifies without sibling repositories;
+- exact artifacts pack deterministically;
+- a real packed Content + CMS consumer builds, boots, and exercises the provider;
+- the exact candidate passes deterministic, browser, and MCP certification;
+- migration guidance explains every `0.1.x` removal;
+- retention, accessibility, supported scale, and novice operation have
+  executable evidence;
+- the coordinated `0.2.0` packages bake in two independent consumers.
 
-Mitigation:
-
-- run the API-key experiment early;
-- keep a tiny CMS token fallback;
-- do not redesign agent runs or permissions around the fallback.
-
-### Migration Fails Because AI Can Do Too Much
-
-Mitigation:
-
-- default to review requests;
-- use current-role intersection;
-- disable trusted mode by default;
-- require explicit trusted scope and tests.
-
-### Migration Fails Because Public Projections Drift
-
-Mitigation:
-
-- keep projections derived and rebuildable;
-- add invariant tests;
-- add diagnostics/health checks;
-- never let draft save write public projection.
-
-### Migration Fails Because Release Works Only Locally
-
-Mitigation:
-
-- packed manifest checks;
-- packed consumer E2E;
-- reject local dependency specifiers;
-- run release verification before declaring done.
-
-## Final Definition Of Done
-
-The migration is complete when all of this is true:
-
-- Ginko CMS installs without Trellis.
-- Ginko CMS uses `better-convex-nuxt` for Nuxt/Convex/Better Auth integration.
-- Better Auth owns users, sessions, and MCP connection-token lifecycle, unless
-  the documented fallback is chosen after a failed experiment.
-- CMS owns only CMS product roles and scopes.
-- No CMS tenant/workspace system exists.
-- Drafts, revisions, publish, archive, public projections, and revalidation
-  pass invariant tests.
-- Public provider reads published projection data only.
-- Assets, imports, backups, and restore have honest documented guarantees.
-- MCP is first-class and uses Nuxt MCP Toolkit.
-- MCP tools are explicit product tools, not a generic admin layer.
-- MCP effective permission is token scope intersect current CMS role.
-- Every MCP write is tied to an agent run.
-- Public/destructive agent work is review-gated by default.
-- Trusted direct publish is either absent or proven by tests.
-- Studio exposes token management, agent runs, and review requests.
-- Old custom MCP authority paths are deleted or explicitly deprecated.
-- Packed artifacts have no local dependency specs.
-- `pnpm run check`, package E2E, and release verification pass.
+Promotion to `1.0.0` is a separate decision. It requires no unresolved security
+or ownership finding, an intentionally frozen public surface, and evidence that
+the `0.2.x` architecture works outside the development workspace.
