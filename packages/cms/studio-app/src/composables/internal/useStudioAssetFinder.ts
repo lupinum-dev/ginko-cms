@@ -196,7 +196,6 @@ export function useStudioAssetFinder(
     allowedTypes: [...ALLOWED_ASSET_MIME_TYPES],
     maxSizeBytes: MAX_ASSET_SIZE_BYTES,
   })
-  const registerAssetMutation = useConvexMutation(api.ginkoCms.assets.registerAsset)
   const updateAssetMutation = useConvexMutation(api.ginkoCms.assets.updateAsset)
   const trashAssetMutation = useConvexMutation(api.ginkoCms.assets.deleteAsset)
   const restoreAssetMutation = useConvexMutation(api.ginkoCms.assets.restoreAsset)
@@ -806,18 +805,16 @@ export function useStudioAssetFinder(
                 : context?.collectionId || context?.collectionSlug
                   ? 'collection'
                   : 'global'
-        const assetId = await registerAssetMutation({
-          storageId,
-          filename: file.name,
-          mimeType: file.type,
-          size: file.size,
-          ...(dimensions.width ? { width: dimensions.width } : {}),
-          ...(dimensions.height ? { height: dimensions.height } : {}),
-          scope,
-          ...(scope === 'entry' ? { entryId: context?.entryId } : {}),
-          ...(scope !== 'global' ? { collectionId: context?.collectionId } : {}),
-          ...(scope !== 'global' ? { collectionSlug: context?.collectionSlug } : {}),
-        })
+        const assetId = await studioHost
+          .requireConvexClient()
+          .action(api.ginkoCms.assets.registerAsset, {
+            storageId,
+            filename: file.name,
+            scope,
+            ...(scope === 'entry' ? { entryId: context?.entryId } : {}),
+            ...(scope !== 'global' ? { collectionId: context?.collectionId } : {}),
+            ...(scope !== 'global' ? { collectionSlug: context?.collectionSlug } : {}),
+          })
         if (typeof assetId === 'string') await context?.onAssetRegistered?.(assetId)
         if (typeof assetId === 'string') options.onAssetUploaded?.(assetId)
       }

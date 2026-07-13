@@ -44,6 +44,7 @@ import type * as entries_workflow_hashing from "../entries/workflow/hashing.js";
 import type * as entries_workflow_path from "../entries/workflow/path.js";
 import type * as entries_workflow_projection from "../entries/workflow/projection.js";
 import type * as entries_workflow_projectionBuild from "../entries/workflow/projectionBuild.js";
+import type * as entries_workflow_renderSafety from "../entries/workflow/renderSafety.js";
 import type * as entries_workflow_revisions from "../entries/workflow/revisions.js";
 import type * as entries_workflow_subtreeRoutes from "../entries/workflow/subtreeRoutes.js";
 import type * as errors from "../errors.js";
@@ -129,6 +130,7 @@ const fullApi: ApiFromModules<{
   "entries/workflow/path": typeof entries_workflow_path;
   "entries/workflow/projection": typeof entries_workflow_projection;
   "entries/workflow/projectionBuild": typeof entries_workflow_projectionBuild;
+  "entries/workflow/renderSafety": typeof entries_workflow_renderSafety;
   "entries/workflow/revisions": typeof entries_workflow_revisions;
   "entries/workflow/subtreeRoutes": typeof entries_workflow_subtreeRoutes;
   errors: typeof errors;

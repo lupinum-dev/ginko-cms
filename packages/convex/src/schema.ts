@@ -297,8 +297,10 @@ export default defineSchema({
     filename: v.string(),
     mimeType: v.string(),
     size: v.number(),
-    width: v.optional(v.union(v.number(), v.null())),
-    height: v.optional(v.union(v.number(), v.null())),
+    sha256: v.string(),
+    width: v.number(),
+    height: v.number(),
+    frames: v.number(),
     alt: v.optional(v.union(localeTextValidator, v.null())),
     caption: v.optional(v.union(localeTextValidator, v.null())),
     scope: v.union(v.literal('global'), v.literal('collection'), v.literal('entry')),
@@ -317,6 +319,14 @@ export default defineSchema({
     .index('by_scope', ['scope'])
     .index('by_created', ['createdAt'])
     .index('by_created_storage', ['createdAt', 'storageId']),
+
+  assetCleanupTasks: defineTable({
+    storageId: v.id('_storage'),
+    status: v.union(v.literal('cleanup-required'), v.literal('terminal-failure')),
+    attempts: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_status', ['status', 'updatedAt']),
 
   siteData: defineTable({
     key: v.string(),

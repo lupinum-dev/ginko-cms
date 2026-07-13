@@ -1167,6 +1167,21 @@ export const ginkoLocaleResolutionValidator = v.object({
 })
 
 /** Locked public entry */
+export const ginkoPublicAssetFactValidator = v.object({
+  fieldPath: v.string(),
+  assetId: v.string(),
+  url: v.string(),
+  expiresAt: v.union(v.number(), v.null()),
+  mediaType: v.union(
+    v.literal('image/png'),
+    v.literal('image/jpeg'),
+    v.literal('image/gif'),
+    v.literal('image/webp'),
+  ),
+  bytes: v.number(),
+  sha256: v.string(),
+})
+
 export const ginkoPublicEntryValidator = v.object({
   id: v.string(),
   collection: v.string(),
@@ -1187,6 +1202,7 @@ export const ginkoPublicEntryValidator = v.object({
   updatedAt: v.string(),
   revision: v.string(),
   stableId: v.string(),
+  assetFacts: v.array(ginkoPublicAssetFactValidator),
 })
 
 export const ginkoBreadcrumbValidator = v.object({
@@ -1213,6 +1229,7 @@ export const ginkoPublicNavigationEntryValidator = v.object({
   updatedAt: v.string(),
   revision: v.string(),
   stableId: v.string(),
+  assetFacts: v.array(ginkoPublicAssetFactValidator),
 })
 
 function createGinkoNavNodeValidator(depth: number): RequiredValidator<unknown> {

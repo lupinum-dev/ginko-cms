@@ -7,10 +7,14 @@ import { executeConfirmedOperation } from '../helpers'
 import { createCtx, seedOwner, seedSettings, seedEditorFixture } from './entries/helpers'
 
 const api = anyApi
+const validPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+)
 
 async function seedStorageObject(
   ctx: ReturnType<typeof createCtx>,
-  input: { bytes: string; type?: string },
+  input: { bytes: BlobPart; type?: string },
 ) {
   return (await ctx.raw.run(
     async (innerCtx) => await innerCtx.storage.store(new Blob([input.bytes], { type: input.type })),
@@ -182,18 +186,6 @@ describe('asset management', () => {
     expect(urls[activeAssetId]).toMatch(/^https?:\/\//)
     expect(urls[deletedAssetId]).toBeNull()
     expect(urls['not-an-id']).toBeNull()
-  })
-
-  it('returns null for malformed public asset URL lookups', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-
-    await expect(
-      ctx.raw.query(api.assets.getAssetUrl, {
-        assetId: 'abcdefghijklmnopqrstuvwx',
-      }),
-    ).resolves.toBeNull()
   })
 
   it('rejects unbounded asset URL resolution requests', async () => {
@@ -619,11 +611,9 @@ describe('asset management', () => {
     await ctx.raw.run(async (innerCtx) => await innerCtx.storage.delete(storageId as never))
 
     await expect(
-      owner.mutation(api.assets.registerAsset, {
+      owner.action(api.assets.registerAsset, {
         storageId,
         filename: 'missing.png',
-        mimeType: 'image/png',
-        size: 512,
         scope: 'global',
       }),
     ).rejects.toThrow(/storage|not found/i)
@@ -636,18 +626,58 @@ describe('asset management', () => {
     const storageId = await seedStorageObject(ctx, { bytes: 'payload' })
 
     await expect(
-      owner.mutation(api.assets.registerAsset, {
+      owner.action(api.assets.registerAsset, {
         storageId,
         filename: 'payload.png',
-        mimeType: 'image/png',
-        size: 512,
         scope: 'global',
       }),
     ).rejects.toThrow(/mime|unsupported/i)
 
     await expect(
       ctx.raw.run(async (innerCtx) => await innerCtx.db.system.get('_storage', storageId as never)),
-    ).resolves.toMatchObject({ _id: storageId })
+    ).resolves.toBeNull()
+  })
+
+  it('registers only server-verified image facts', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const storageId = await seedStorageObject(ctx, { bytes: validPng, type: 'image/png' })
+    const assetId = await ctx.asCmsUser('owner-1').action(api.assets.registerAsset, {
+      storageId,
+      filename: 'verified.png',
+      scope: 'global',
+    })
+
+    expect(await ctx.readAll('assets')).toEqual([
+      expect.objectContaining({
+        _id: assetId,
+        storageId,
+        mimeType: 'image/png',
+        size: validPng.length,
+        width: 1,
+        height: 1,
+        frames: 1,
+        sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+      }),
+    ])
+  })
+
+  it('rejects a claimed MIME mismatch and removes the invalid upload', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const storageId = await seedStorageObject(ctx, { bytes: validPng, type: 'image/jpeg' })
+
+    await expect(
+      ctx.asCmsUser('owner-1').action(api.assets.registerAsset, {
+        storageId,
+        filename: 'forged.jpg',
+        scope: 'global',
+      }),
+    ).rejects.toThrow(/does not match/i)
+    await expect(
+      ctx.raw.run(async (innerCtx) => await innerCtx.db.system.get('_storage', storageId as never)),
+    ).resolves.toBeNull()
+    expect(await ctx.readAll('assets')).toEqual([])
   })
 
   it('updates draft asset references when an entry field selects a replacement asset', async () => {
@@ -808,16 +838,14 @@ describe('asset management', () => {
     await seedOwner(ctx)
     const owner = ctx.asCmsUser('owner-1')
     const storageId = await seedStorageObject(ctx, {
-      bytes: 'png bytes',
+      bytes: validPng,
       type: 'image/png',
     })
 
     await expect(
-      owner.mutation(api.assets.registerAsset, {
+      owner.action(api.assets.registerAsset, {
         storageId,
         filename: 'avatar.png',
-        mimeType: 'image/png',
-        size: 9,
         scope: 'collection',
         collectionId: 'not-a-convex-id',
       }),

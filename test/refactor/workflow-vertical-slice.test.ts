@@ -1085,11 +1085,30 @@ describe('Gate 1 — workflow backend spine', () => {
   it('writes contentAssetRefs for draft, revision, and public sources when assets are referenced', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    const { entryId } = await seedFixture(ctx)
+    const { entryId, collectionId } = await seedFixture(ctx)
     const owner = workflowClient(ctx, 'owner-1')
-    const heroAssetId = 'asset000000000000000001'
-    const galleryAssetId = 'asset000000000000000002'
-    const bodyAssetId = 'asset000000000000000003'
+    const seedImage = async (filename: string) => {
+      const storageId = await ctx.raw.run(
+        async (innerCtx) =>
+          await innerCtx.storage.store(new Blob(['image'], { type: 'image/png' })),
+      )
+      return await ctx.seed('assets' as never, {
+        storageId,
+        filename,
+        mimeType: 'image/png',
+        size: 5,
+        width: 1,
+        height: 1,
+        scope: 'collection',
+        entryId: null,
+        collectionId,
+        createdBy: 'owner-1',
+        createdAt: Date.now(),
+      })
+    }
+    const heroAssetId = await seedImage('hero.png')
+    const galleryAssetId = await seedImage('gallery.png')
+    const bodyAssetId = await seedImage('body.png')
 
     await saveEntryDraft(owner, {
       entryId,

@@ -10,6 +10,8 @@ import {
   deleteEntryAssetRefsBySourceKind,
   extractAssetRefsFromText,
   extractAssetRefsFromValues,
+  extractPublicBodyAssetRefs,
+  extractPublicFieldAssetRefs,
   replaceAssetRefs,
   uniqueAssetRefs,
 } from './workflow/assetRefs.js'
@@ -78,7 +80,7 @@ export async function clearEntryProjectionRows(ctx: MutationCtx, entryId: Id<'en
 export async function rebuildContentAssetRefsForEntry(
   ctx: MutationCtx,
   entryId: Id<'entries'>,
-  _collection: CollectionDoc,
+  collection: CollectionDoc,
 ) {
   const entry = await ctx.db.get(entryId)
   if (!entry) return
@@ -92,7 +94,7 @@ export async function rebuildContentAssetRefsForEntry(
   })
   await refreshDraftAssetRefsForEntry(ctx, entry)
   await refreshRevisionAssetRefsForEntry(ctx, entry)
-  await refreshPublicAssetRefsForEntry(ctx, entry)
+  await refreshPublicAssetRefsForEntry(ctx, entry, collection)
 }
 
 async function refreshDraftAssetRefsForEntry(ctx: MutationCtx, entry: EntryDoc) {
@@ -163,16 +165,22 @@ async function refreshRevisionAssetRefsForEntry(ctx: MutationCtx, entry: EntryDo
   }
 }
 
-async function refreshPublicAssetRefsForEntry(ctx: MutationCtx, entry: EntryDoc) {
+async function refreshPublicAssetRefsForEntry(
+  ctx: MutationCtx,
+  entry: EntryDoc,
+  collection: CollectionDoc,
+) {
   const rows = await ctx.db
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
     .collect()
   for (const row of rows) {
     const refs = uniqueAssetRefs([
-      ...extractAssetRefsFromValues(row.data, { locale: row.locale }),
-      ...extractAssetRefsFromValues(decodePublicBodyAst(row.bodyAst), {
-        fieldPathPrefix: 'bodyAst',
+      ...extractPublicFieldAssetRefs(row.data, collection.fields, {
+        fieldPathPrefix: 'data',
+        locale: row.locale,
+      }),
+      ...extractPublicBodyAssetRefs(decodePublicBodyAst(row.bodyAst), {
         locale: row.locale,
       }),
     ])

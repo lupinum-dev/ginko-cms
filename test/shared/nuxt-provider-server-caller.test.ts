@@ -10,7 +10,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const serverConvexMock = vi.hoisted(() => vi.fn())
 const convexHttpClientMock = vi.hoisted(() =>
   vi.fn(function ConvexHttpClient() {
-    return { query: vi.fn(async () => ({ key: 'announcement', data: null })) }
+    return {
+      query: vi.fn(async () => ({
+        key: 'announcement',
+        data: null,
+        locale: {
+          requested: 'en',
+          resolved: 'en',
+          policy: 'strict',
+          fallbacks: { fields: [] },
+        },
+      })),
+    }
   }),
 )
 
@@ -48,7 +59,7 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     convexHttpClientMock.mockClear()
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
     process.env.GINKO_CONTENT_PROVIDER_SITE = 'cms-provider-fixture'
-    ;({ contentProvider } = (await import('../../packages/cms/src/nuxt-provider.mjs')) as {
+    ;({ contentProvider } = (await import('../../packages/cms/src/nuxt-provider.ts')) as {
       contentProvider: ContentProvider
     })
   })
@@ -61,9 +72,13 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
   it('routes a supplied H3 event through exactly one anonymous serverConvex caller', async () => {
     const query = vi.fn(async () => ({
       key: 'announcement',
-      locale: { requested: 'en' },
+      locale: {
+        requested: 'en',
+        resolved: 'en',
+        policy: 'strict',
+        fallbacks: { fields: [] },
+      },
       data: { message: 'hi' },
-      updatedAt: 1,
     }))
     serverConvexMock.mockReturnValue({ query })
 
@@ -76,7 +91,30 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     expect(convexHttpClientMock).not.toHaveBeenCalled()
   })
 
-  it('reuses one caller for page and concurrent asset queries in the same request', async () => {
+  it('shares one request caller across concurrent provider operations', async () => {
+    const query = vi.fn(async () => ({
+      key: 'announcement',
+      locale: {
+        requested: 'en',
+        resolved: 'en',
+        policy: 'strict',
+        fallbacks: { fields: [] },
+      },
+      data: null,
+    }))
+    serverConvexMock.mockReturnValue({ query })
+
+    const event = { context: { runtimeConfig: { public: {} } } }
+    await Promise.all([
+      contentProvider.siteData(event, { key: 'announcement', locale: 'en' }),
+      contentProvider.siteData(event, { key: 'announcement', locale: 'en' }),
+    ])
+
+    expect(serverConvexMock).toHaveBeenCalledTimes(1)
+    expect(query).toHaveBeenCalledTimes(2)
+  })
+
+  it('reuses one caller without issuing arbitrary asset-id queries', async () => {
     const query = vi.fn(async (reference: unknown) => {
       const path = String((reference as Record<symbol, unknown>)[Symbol.for('functionName')])
       if (path.endsWith('page')) {
@@ -86,19 +124,47 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
             id: 'entry-1',
             collection: 'pages',
             stableId: 'entry-1',
+            assetFacts: [
+              {
+                fieldPath: 'data.heroAsset',
+                assetId: 'abcdefghijklmnopqrst',
+                url: 'https://assets.example/hero.png',
+                expiresAt: null,
+                mediaType: 'image/png',
+                bytes: 68,
+                sha256: '0'.repeat(64),
+              },
+            ],
             title: 'Home',
-            updatedAt: 1,
-            locale: { requested: 'en', resolved: 'en' },
-            route: { path: '/', locale: 'en' },
+            revision: 'revision-1',
+            updatedAt: '2026-05-28T20:28:20.000Z',
+            publishedAt: '2026-05-28T20:28:20.000Z',
+            locale: {
+              requested: 'en',
+              resolved: 'en',
+              policy: 'strict',
+              fallbacks: { fields: [] },
+            },
+            route: { path: '/', slug: '', locale: 'en', source: 'published' },
+            translations: [],
             data: {
               heroAsset: 'abcdefghijklmnopqrst',
               logoAsset: 'bcdefghijklmnopqrstu',
             },
             bodyAst: { type: 'root', props: {}, children: [] },
           },
+          collection: 'pages',
+          locale: {
+            requested: 'en',
+            resolved: 'en',
+            policy: 'strict',
+            fallbacks: { fields: [] },
+          },
+          breadcrumbs: [],
+          seo: { title: 'Home', description: '', canonical: '/', alternates: [], xDefault: null },
         }
       }
-      return 'https://cdn.example.test/hero.png'
+      throw new Error(`Unexpected provider query: ${path}`)
     })
     serverConvexMock.mockReturnValue({ query })
 
@@ -109,10 +175,14 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
       requestedLocale: 'en',
       candidates: [{ locale: 'en', contentPath: '/' }],
     }
-    await contentProvider.query(event, request)
+    const result = (await contentProvider.query(event, request)) as {
+      data: { result: { heroAsset: string; logoAsset: string } }
+    }
 
     expect(serverConvexMock).toHaveBeenCalledTimes(1)
-    expect(query).toHaveBeenCalledTimes(3)
+    expect(query).toHaveBeenCalledTimes(1)
+    expect(result.data.result.heroAsset).toBe('https://assets.example/hero.png')
+    expect(result.data.result.logoAsset).toBe('bcdefghijklmnopqrstu')
   })
 
   it('keeps a direct anonymous ConvexHttpClient for genuinely eventless build/CLI paths', async () => {

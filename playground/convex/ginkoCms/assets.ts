@@ -3,7 +3,6 @@ import {
   deleteAsset as deleteAssetArgs,
   getAsset as getAssetArgs,
   getAssetManagerData as getAssetManagerDataArgs,
-  getAssetUrl as getAssetUrlArgs,
   listColocatedAssets as listColocatedAssetsArgs,
   moveAsset as moveAssetArgs,
   registerAsset as registerAssetArgs,
@@ -13,7 +12,7 @@ import {
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
-import { mutation, query } from '../_generated/server.js'
+import { action, mutation, query } from '../_generated/server.js'
 
 function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
   return {
@@ -33,10 +32,10 @@ export const generateUploadUrl = mutation({
     await ctx.runMutation(components.ginkoCms.assets.generateUploadUrl, args as never),
 })
 
-export const registerAsset = mutation({
+export const registerAsset = action({
   args: registerAssetArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.assets.registerAsset, args as never),
+    await ctx.runAction(components.ginkoCms.assets.registerAsset, args as never),
 })
 
 export const attachAssetsToEntry = mutation({
@@ -64,12 +63,6 @@ export const mcpMoveAsset = mutation({
   },
   handler: async (ctx, args) =>
     await ctx.runMutation(components.ginkoCms.assets.mcpMoveAsset, args as never),
-})
-
-export const getAssetUrl = query({
-  args: getAssetUrlArgs.args,
-  handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.assets.getAssetUrl, args as never),
 })
 
 export const getAsset = query({

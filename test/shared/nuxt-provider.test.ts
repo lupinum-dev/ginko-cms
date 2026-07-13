@@ -12,29 +12,72 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const entry = (locale = 'en') => ({
   id: `entry-docs-routing-${locale}`,
   stableId: 'docs-routing',
+  assetFacts: [],
   collection: 'docs',
   revision: 'docs-routing',
   title: locale === 'de' ? 'Inhaltsrouting' : 'Content Routing',
-  data: {
-    description: 'Route content across locales.',
-    bodyAst: { type: 'root', props: {}, children: [] },
+  data: { description: 'Route content across locales.' },
+  bodyAst: { type: 'root', props: {}, children: [] },
+  locale: {
+    requested: locale,
+    resolved: locale,
+    policy: 'strict',
+    fallbacks: { fields: [] },
   },
-  locale: { requested: locale, resolved: locale },
   route: {
     locale,
     path: locale === 'de' ? '/dokumentation/inhaltsrouting' : '/docs/content-routing',
     slug: locale === 'de' ? 'inhaltsrouting' : 'content-routing',
+    source: 'published',
   },
   translations: [
-    { locale: 'en', status: 'published', route: { locale: 'en', path: '/docs/content-routing' } },
+    {
+      locale: 'en',
+      status: 'published',
+      route: {
+        locale: 'en',
+        slug: 'content-routing',
+        path: '/docs/content-routing',
+        source: 'published',
+      },
+    },
     {
       locale: 'de',
       status: 'published',
-      route: { locale: 'de', path: '/dokumentation/inhaltsrouting' },
+      route: {
+        locale: 'de',
+        slug: 'inhaltsrouting',
+        path: '/dokumentation/inhaltsrouting',
+        source: 'published',
+      },
     },
   ],
-  updatedAt: 1_780_000_100_000,
-  publishedAt: 1_780_000_000_000,
+  updatedAt: '2026-05-28T20:28:20.000Z',
+  publishedAt: '2026-05-28T20:26:40.000Z',
+})
+
+const localeResult = (locale = 'en') => ({
+  requested: locale,
+  resolved: locale,
+  policy: 'strict',
+  fallbacks: { fields: [] },
+})
+
+const pageResult = (args: Record<string, unknown>, page: ReturnType<typeof entry> | null) => ({
+  status: page ? 'found' : 'not-found',
+  page,
+  collection: String(args.collection),
+  locale: localeResult(String(args.locale || 'en')),
+  breadcrumbs: [],
+  seo: page
+    ? {
+        title: page.title,
+        description: '',
+        canonical: page.route.path,
+        alternates: [],
+        xDefault: null,
+      }
+    : null,
 })
 
 const convexMock = vi.hoisted(() => {
@@ -48,26 +91,45 @@ const convexMock = vi.hoisted(() => {
     calls.push({ operation, args })
 
     if (operation === 'page') {
-      if (args.path === '/missing') return { status: 'not-found', page: null }
-      return { status: 'found', page: entry(String(args.locale || 'en')) }
+      if (args.path === '/missing') return pageResult(args, null)
+      return pageResult(args, entry(String(args.locale || 'en')))
     }
     if (operation === 'list') {
       return {
         entries: [entry(String(args.locale || 'en'))],
         pageInfo: { hasNextPage: args.cursor !== 'next', endCursor: args.cursor ? null : 'next' },
+        collection: args.collection,
+        locale: localeResult(String(args.locale || 'en')),
       }
     }
     if (operation === 'nav') {
-      return { tree: [{ entry: entry(String(args.locale || 'en')), children: [] }] }
+      return {
+        tree: [{ entry: entry(String(args.locale || 'en')), children: [] }],
+        collection: args.collection,
+        locale: localeResult(String(args.locale || 'en')),
+      }
     }
     if (operation === 'surround') {
-      return { previous: [entry(String(args.locale || 'en'))], next: [] }
+      return {
+        previous: [entry(String(args.locale || 'en'))],
+        next: [],
+        collection: args.collection,
+        locale: localeResult(String(args.locale || 'en')),
+      }
     }
     if (operation === 'search') {
-      return { results: [{ ...entry(String(args.locale || 'en')), snippet: 'Matched excerpt' }] }
+      return {
+        results: [entry(String(args.locale || 'en'))],
+        pageInfo: { hasNextPage: false, endCursor: null },
+        locale: localeResult(String(args.locale || 'en')),
+      }
     }
     if (operation === 'siteData') {
-      return { key: args.key, locale: { requested: args.locale }, data: { message: 'Hello' } }
+      return {
+        key: args.key,
+        locale: localeResult(String(args.locale || 'en')),
+        data: { message: 'Hello' },
+      }
     }
     if (operation === 'routes') {
       return {
@@ -84,13 +146,12 @@ const convexMock = vi.hoisted(() => {
         pageInfo: { hasNextPage: false, endCursor: null },
       }
     }
-    if (operation === 'getAssetUrl') return 'https://cdn.example.test/asset.png'
     throw new Error(`Unexpected Convex operation: ${operation}`)
   })
   return { calls, query }
 })
 
-type ProviderModule = typeof import('../../packages/cms/src/nuxt-provider.mjs')
+type ProviderModule = typeof import('../../packages/cms/src/nuxt-provider.ts')
 let contentProvider: ProviderModule['contentProvider']
 let setClientFactory: ProviderModule['__setGinkoNuxtProviderClientFactoryForTests']
 
@@ -117,7 +178,7 @@ describe('Ginko Nuxt provider v2', () => {
     convexMock.query.mockClear()
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
     ;({ contentProvider, __setGinkoNuxtProviderClientFactoryForTests: setClientFactory } =
-      await import('../../packages/cms/src/nuxt-provider.mjs'))
+      await import('../../packages/cms/src/nuxt-provider.ts'))
     setClientFactory(() => ({ query: convexMock.query }))
   })
 
@@ -190,7 +251,7 @@ describe('Ginko Nuxt provider v2', () => {
     expect(document).toMatchObject({
       id: expect.any(String),
       collection: 'docs',
-      canonicalKey: 'docs:docs-routing',
+      canonicalKey: 'docs-routing',
       locale: 'de',
       contentPath: '/dokumentation/inhaltsrouting',
       body: { type: 'root', children: expect.any(Array) },
@@ -224,7 +285,7 @@ describe('Ginko Nuxt provider v2', () => {
     const response = unwrap(await contentProvider.query(event, query))
     const pageCalls = convexMock.calls.filter(({ operation }) => operation === 'page')
 
-    expect(response.result).toMatchObject({ locale: 'en', canonicalKey: 'docs:docs-routing' })
+    expect(response.result).toMatchObject({ locale: 'en', canonicalKey: 'docs-routing' })
     expect(pageCalls.map(({ args }) => [args.locale, args.path])).toEqual([
       ['de', '/missing'],
       ['en', '/docs/content-routing'],
@@ -327,7 +388,7 @@ describe('Ginko Nuxt provider v2', () => {
     for (const route of [navigation[0]?.route, surroundings[0]?.route, search[0]?.route]) {
       expect(route).toEqual({
         collection: 'docs',
-        canonicalKey: 'docs:docs-routing',
+        canonicalKey: 'docs-routing',
         locale: 'en',
         contentPath: '/docs/content-routing',
       })
@@ -341,14 +402,14 @@ describe('Ginko Nuxt provider v2', () => {
     expect(routes).toEqual([
       {
         collection: 'docs',
-        canonicalKey: 'docs:docs-routing',
+        canonicalKey: 'docs-routing',
         locale: 'en',
         contentPath: '/docs/content-routing',
         sitemap: { lastmod: '2026-05-28T20:28:20.000Z' },
       },
       {
         collection: 'docs',
-        canonicalKey: 'docs:docs-routing',
+        canonicalKey: 'docs-routing',
         locale: 'de',
         contentPath: '/dokumentation/inhaltsrouting',
         sitemap: false,
@@ -469,6 +530,43 @@ describe('Ginko Nuxt provider v2', () => {
       statusCode: 502,
       statusMessage: 'provider_response_invalid',
       data: { operation: 'list' },
+    })
+  })
+
+  it('rejects collection and locale substitution inside a decoded page', async () => {
+    convexMock.query.mockResolvedValueOnce(
+      pageResult({ collection: 'docs', locale: 'en' }, { ...entry('fr'), collection: 'other' }),
+    )
+    const query = toContentProviderQuery({ collection: 'docs', first: true })
+    query.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'en',
+      candidates: [{ locale: 'en', contentPath: '/docs/content-routing' }],
+    }
+
+    await expect(contentProvider.query(event, query)).rejects.toMatchObject({
+      statusCode: 502,
+      statusMessage: 'provider_response_invalid',
+      data: { operation: 'page' },
+    })
+  })
+
+  it.each([
+    [
+      'navigation',
+      () => contentProvider.navigation!(event, toContentProviderQuery({ collection: 'docs' })),
+    ],
+    ['surroundings', () => contentProvider.surroundings!(event, 'docs', '/docs/content-routing')],
+    ['search', () => contentProvider.search!(event, { term: 'routing', collections: ['docs'] })],
+    ['site data', () => contentProvider.siteData!(event, { key: 'announcement', locale: 'en' })],
+    ['routes', () => contentProvider.routes!(event)],
+  ])('rejects a malformed %s envelope before shaping', async (operation, invoke) => {
+    convexMock.query.mockResolvedValueOnce({ malformed: true })
+
+    await expect(invoke()).rejects.toMatchObject({
+      statusCode: 502,
+      statusMessage: 'provider_response_invalid',
+      data: { operation },
     })
   })
 })

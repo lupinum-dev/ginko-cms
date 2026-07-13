@@ -128,7 +128,19 @@ export function createCtx() {
     raw: ctx,
     seed: async (table: string, value: Record<string, unknown>) =>
       await ctx.run(
-        async (mutationCtx) => await mutationCtx.db.insert(table as never, value as never),
+        async (mutationCtx) =>
+          await mutationCtx.db.insert(
+            table as never,
+            (table === 'assets'
+              ? {
+                  sha256: '0'.repeat(64),
+                  frames: 1,
+                  ...value,
+                  width: value.width ?? 1,
+                  height: value.height ?? 1,
+                }
+              : value) as never,
+          ),
       ),
     readAll: async (table: string) =>
       await ctx.run(async (mutationCtx) => await mutationCtx.db.query(table as never).collect()),
@@ -237,8 +249,8 @@ export async function executeConfirmedOperation(
       allowed?: boolean
       confirmation?: { token: string; expiresAt: number }
     }
-  } catch {
-    throw new Error(`Preview for ${input.operationId} did not return a confirmation token.`)
+  } catch (cause) {
+    throw new Error(`Preview for ${input.operationId} failed.`, { cause })
   }
   const token =
     preview.allowed !== false && preview.confirmation && preview.confirmation.expiresAt > Date.now()

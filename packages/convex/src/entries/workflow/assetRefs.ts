@@ -11,7 +11,7 @@
  * whether content has been published or checkpointed.
  */
 
-import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import type { CmsField, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Id } from '../../_generated/dataModel.js'
 import type { MutationCtx } from '../../lib/types.js'
@@ -93,6 +93,77 @@ export function extractAssetRefsFromValues(
 ): AssetRef[] {
   const out: AssetRef[] = []
   walkValue(values, options.fieldPathPrefix ?? '', options.locale, out)
+  return out
+}
+
+/** Extract only schema-declared image fields for public URL resolution. */
+export function extractPublicFieldAssetRefs(
+  values: JsonValue | null | undefined,
+  fields: CmsField[],
+  options: { fieldPathPrefix: string; locale: string | null },
+): AssetRef[] {
+  if (!values || typeof values !== 'object' || Array.isArray(values)) return []
+  const out: AssetRef[] = []
+  const visitFields = (record: Record<string, JsonValue>, schema: CmsField[], prefix: string) => {
+    for (const field of schema) {
+      const value = record[field.key]
+      const path = `${prefix}.${field.key}`
+      if (field.type === 'image' && typeof value === 'string' && looksLikeAssetId(value)) {
+        out.push({ assetId: value, fieldPath: path, locale: options.locale })
+      } else if (field.type === 'images' && Array.isArray(value)) {
+        value.forEach((item, index) => {
+          if (typeof item === 'string' && looksLikeAssetId(item)) {
+            out.push({ assetId: item, fieldPath: `${path}[${index}]`, locale: options.locale })
+          }
+        })
+      } else if (field.fields?.length && value && typeof value === 'object') {
+        if (Array.isArray(value)) {
+          value.forEach((item, index) => {
+            if (item && typeof item === 'object' && !Array.isArray(item)) {
+              visitFields(item as Record<string, JsonValue>, field.fields!, `${path}[${index}]`)
+            }
+          })
+        } else {
+          visitFields(value as Record<string, JsonValue>, field.fields, path)
+        }
+      }
+    }
+  }
+  visitFields(values as Record<string, JsonValue>, fields, options.fieldPathPrefix)
+  return out
+}
+
+/** Extract only image source properties from the parsed public body tree. */
+export function extractPublicBodyAssetRefs(
+  bodyAst: JsonValue | null | undefined,
+  options: { locale: string | null },
+): AssetRef[] {
+  const out: AssetRef[] = []
+  const visit = (value: JsonValue, path: string) => {
+    if (Array.isArray(value)) {
+      value.forEach((child, index) => visit(child, `${path}[${index}]`))
+      return
+    }
+    if (!value || typeof value !== 'object') return
+    const record = value as Record<string, JsonValue>
+    const tag = typeof record.tag === 'string' ? record.tag.toLowerCase() : ''
+    const props = record.props
+    if (
+      ['img', 'image', 'proseimg'].includes(tag) &&
+      props &&
+      typeof props === 'object' &&
+      !Array.isArray(props)
+    ) {
+      const src = (props as Record<string, JsonValue>).src
+      if (typeof src === 'string' && looksLikeAssetId(src)) {
+        out.push({ assetId: src, fieldPath: `${path}.props.src`, locale: options.locale })
+      }
+    }
+    for (const [key, child] of Object.entries(record)) {
+      if (key !== 'props') visit(child, `${path}.${key}`)
+    }
+  }
+  if (bodyAst !== undefined && bodyAst !== null) visit(bodyAst, 'bodyAst')
   return out
 }
 

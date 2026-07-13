@@ -11,9 +11,15 @@ import { getRoutingLocales } from '../../lib/locale.js'
 import { buildPublicSearchText, filterPublicData } from '../../lib/publicData.js'
 import type { CmsField, QueryOrMutationCtx } from '../../lib/types.js'
 import { collectRelationReferences } from '../relations.js'
-import { extractAssetRefsFromValues, uniqueAssetRefs } from './assetRefs.js'
+import {
+  extractAssetRefsFromValues,
+  extractPublicBodyAssetRefs,
+  extractPublicFieldAssetRefs,
+  uniqueAssetRefs,
+} from './assetRefs.js'
 import { publicPathForLocaleSnapshot } from './path.js'
 import type { PublicProjectionInput } from './projection.js'
+import { assertPublicBodySafe } from './renderSafety.js'
 import type { RevisionLocaleSnapshot } from './revisions.js'
 
 export type PublicProjectionBuildResult = {
@@ -105,17 +111,22 @@ async function applyPublicImageMetadataFallbacks(
 }
 
 async function projectionBodyFromSnapshot(
+  ctx: QueryOrMutationCtx,
   localeSnapshot: RevisionLocaleSnapshot,
+  collection: Doc<'collections'>,
 ): Promise<{ bodyAst: MarkdownRoot; searchText: string; toc: Toc | null }> {
   if (localeSnapshot.bodyAst && typeof localeSnapshot.bodyAst === 'object') {
+    const bodyAst = localeSnapshot.bodyAst as unknown as MarkdownRoot
+    await assertPublicBodySafe(ctx, bodyAst, collection)
     return {
-      bodyAst: localeSnapshot.bodyAst as unknown as MarkdownRoot,
+      bodyAst,
       searchText: localeSnapshot.searchText ?? '',
       toc: (localeSnapshot.toc as unknown as Toc | null) ?? null,
     }
   }
 
   const parsed = await parseMdcBody(localeSnapshot.bodyMdc ?? '')
+  await assertPublicBodySafe(ctx, parsed.body, collection)
   return {
     bodyAst: parsed.body,
     searchText: localeSnapshot.searchText ?? parsed.searchText,
@@ -135,7 +146,10 @@ function buildWorkflowPublicCacheTags(args: {
   sitemapIncluded?: boolean
 }) {
   const publicEntryKey = args.entry.stableId ?? String(args.entry._id)
-  const assetRefs = extractAssetRefsFromValues(args.data, { locale: args.locale })
+  const assetRefs = extractAssetRefsFromValues(args.data, {
+    fieldPathPrefix: 'data',
+    locale: args.locale,
+  })
   const relationRefs = collectRelationReferences({ fields: args.fields, data: args.data })
     .filter((ref) => ref.targetCollectionSlug)
     .map((ref) => ({ collection: ref.targetCollectionSlug!, targetId: ref.targetId }))
@@ -183,7 +197,7 @@ export async function buildPublicProjectionFromRevisionSnapshot(
       getCollectionDefaultLocale(args.collection, args.locale),
     ),
   )
-  const body = await projectionBodyFromSnapshot(args.localeSnapshot)
+  const body = await projectionBodyFromSnapshot(ctx, args.localeSnapshot, args.collection)
   const publicData = await applyPublicImageMetadataFallbacks(
     ctx,
     args.collection.fields,
@@ -213,11 +227,11 @@ export async function buildPublicProjectionFromRevisionSnapshot(
   const firstPublishedAt =
     existingPublic?.firstPublishedAt ?? args.entry.firstPublishedAt ?? args.now
   const assetRefs = uniqueAssetRefs([
-    ...extractAssetRefsFromValues((args.localeSnapshot.values as JsonObject) ?? {}, {
+    ...extractPublicFieldAssetRefs(publicData, args.collection.fields, {
+      fieldPathPrefix: 'data',
       locale: args.locale,
     }),
-    ...extractAssetRefsFromValues(body.bodyAst as unknown as JsonObject, {
-      fieldPathPrefix: 'bodyAst',
+    ...extractPublicBodyAssetRefs(body.bodyAst as unknown as JsonObject, {
       locale: args.locale,
     }),
   ])

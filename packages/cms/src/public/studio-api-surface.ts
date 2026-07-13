@@ -49,7 +49,7 @@ export const studioApiSurface = {
     previewDeleteAssetOperation: 'mutation',
     previewPurgeAssetOperation: 'mutation',
     purgeAsset: 'mutation',
-    registerAsset: 'mutation',
+    registerAsset: 'action',
     resolveAssetUrls: 'query',
     restoreAsset: 'mutation',
     updateAsset: 'mutation',

@@ -48,6 +48,7 @@ import {
   upsertPublicProjection,
 } from './projection.js'
 import { buildPublicProjectionFromRevisionSnapshot } from './projectionBuild.js'
+import { assertPublicBodySafe } from './renderSafety.js'
 import {
   appendRevisionAndPatchEntry,
   type appendRevision,
@@ -904,12 +905,21 @@ export async function publishCurrentDraft(
   },
 ): Promise<{ revisionId: Id<'entryRevisions'>; affectedLocales: string[] }> {
   const draftRows = await readDraftRows(ctx, args.entryId)
+  const entry = await ctx.db.get(args.entryId)
+  if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.', { entryId: args.entryId })
+  const collection = await ctx.db.get(entry.collectionId)
+  if (!collection) {
+    throwCmsError('COLLECTION_NOT_FOUND', 'Entry collection not found.', {
+      collectionId: entry.collectionId,
+    })
+  }
 
   const parsedLocales: Record<string, ParsedLocaleBody> = {}
   for (const locale of args.locales) {
     const draft = draftRows.byLocale[locale]
     const bodyMdc = draft?.bodyMdc ?? ''
     const parsed = await parseMdcBody(bodyMdc)
+    await assertPublicBodySafe(ctx, parsed.body, collection)
     parsedLocales[locale] = {
       bodyMdc,
       bodyAst: parsed.body,

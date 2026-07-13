@@ -407,7 +407,7 @@ export const finalizeContentMigration = directInternalMutation({
     if (!['planned', 'applying', 'validating', 'ready'].includes(run.status)) {
       throw new Error(`Content migration cannot finalize from status "${run.status}".`)
     }
-    const contract = assertResolvedContentContract(args.contract)
+    assertResolvedContentContract(args.contract)
     if (
       args.contractSha256 !== run.toContractHash ||
       (await hashCanonicalJson(args.contract)) !== args.contractSha256
@@ -503,7 +503,7 @@ export const activateContentMigration = directInternalMutation({
     const now = Date.now()
     if (!approval || approval.consumedAt !== null) throw new Error('Approval is already consumed.')
     if (approval.expiresAt <= now) throw new Error('Contract transition approval expired.')
-    const contract = assertResolvedContentContract(args.contract)
+    assertResolvedContentContract(args.contract)
     if (
       args.contractSha256 !== approval.toContractHash ||
       args.contractSha256 !== run.toContractHash ||

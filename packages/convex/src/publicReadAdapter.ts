@@ -26,6 +26,7 @@ export interface PublicProjectionEntry {
   toc?: JsonValue
   publishedAt: number
   stableId: string
+  assetFacts: GinkoPublicEntry['assetFacts']
 }
 
 export interface PublicTranslationSummary {
@@ -133,6 +134,7 @@ export function toGinkoEntry(
     updatedAt: toIso(entry.publishedAt),
     revision: entry.stableId,
     stableId: entry.stableId,
+    assetFacts: entry.assetFacts,
   }
 }
 

@@ -183,6 +183,14 @@ describe('public API: asset metadata fallbacks', () => {
       alt: 'Localized asset alt',
       caption: 'Localized asset caption',
     })
+    expect(page.page?.assetFacts).toEqual([
+      expect.objectContaining({
+        assetId,
+        fieldPath: 'data.image.src',
+        mediaType: 'image/png',
+        sha256: '0'.repeat(64),
+      }),
+    ])
   })
 
   it('keeps explicit image field alt/caption overrides', async () => {

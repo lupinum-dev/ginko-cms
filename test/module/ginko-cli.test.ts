@@ -54,28 +54,6 @@ async function runCli(args: string[], cwd: string) {
   }
 }
 
-async function runCliWithClient(
-  args: string[],
-  cwd: string,
-  action: (ref: unknown, args: Record<string, unknown>) => Promise<unknown>,
-) {
-  const stdout = createOutput()
-  const stderr = createOutput()
-  const code = await runGinkoCmsCli(args, {
-    cwd,
-    io: {
-      stdout: stdout.stream,
-      stderr: stderr.stream,
-    },
-    convexClientFactory: () => ({ action, setAdminAuth: () => {} }) as never,
-  })
-  return {
-    code,
-    stdout: stdout.read(),
-    stderr: stderr.read(),
-  }
-}
-
 describe('ginko-cms CLI', () => {
   const tempDirs: string[] = []
   const staleMcpBridgeFile = ['convex', `ginkoCms${'Mcp.ts'}`].join('/')

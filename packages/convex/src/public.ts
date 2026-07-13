@@ -42,7 +42,8 @@ import { getCmsSettings, getLocaleChain } from './lib/locale.js'
 import { compareOrderRank } from './lib/ordering.js'
 import { parseStableIdFromPath } from './lib/paths.js'
 import { orderTreeRows } from './lib/treeOrder.js'
-import type { ReadCtx } from './lib/types.js'
+import type { QueryCtx, ReadCtx } from './lib/types.js'
+import { resolvePublicAssetFacts } from './publicAssets.js'
 import {
   toGinkoEntry,
   toGinkoListResult,
@@ -543,8 +544,10 @@ function parsePublicSearchCursor(cursor: string | null | undefined) {
   return (parsed as PublicSearchCursor).offset
 }
 
-function mapPublicEntry(row: PublicEntryRow, collection: CollectionDoc) {
-  return mapActivePublicEntryRow(row, collection) as PublicProjectionEntry
+async function mapPublicEntry(ctx: QueryCtx, row: PublicEntryRow, collection: CollectionDoc) {
+  const projected = mapActivePublicEntryRow(row, collection)
+  const assetFacts = await resolvePublicAssetFacts(ctx, row)
+  return { ...projected, assetFacts } as PublicProjectionEntry
 }
 
 function toNavigationEntry(
@@ -734,7 +737,7 @@ export const page = callerQuery.public({
       })
     }
 
-    const mapped = mapPublicEntry(projected, collection)
+    const mapped = await mapPublicEntry(ctx, projected, collection)
     return toGinkoPageResult({
       collection: args.collection,
       requestedLocale: args.locale,
@@ -789,8 +792,9 @@ export const routeMeta = callerQuery.public({
     }
 
     const mapped = {
-      ...mapPublicEntry(projected, collection),
+      ...(await mapPublicEntry(ctx, projected, collection)),
       data: {},
+      assetFacts: [],
     }
     return toGinkoPageResult({
       collection: args.collection,
@@ -843,7 +847,7 @@ export const list = callerQuery.public({
       collection: args.collection,
       requestedLocale: args.locale,
       result: {
-        page: pageRows.map((row) => mapPublicEntry(row, collection)),
+        page: await Promise.all(pageRows.map((row) => mapPublicEntry(ctx, row, collection))),
         isDone: result.isDone,
         continueCursor: result.isDone ? null : result.continueCursor,
       },
@@ -896,7 +900,7 @@ export const nav = callerQuery.public({
     for (const row of rows) {
       if (row.navIncluded === false) continue
       const entry = toNavigationEntry(
-        mapPublicEntry(row, collection),
+        await mapPublicEntry(ctx, row, collection),
         args.locale,
         translationsByEntryId.get(String(row.entryId)) ?? [],
       )
@@ -998,16 +1002,16 @@ export const surround = callerQuery.public({
       .take(nextLimit)
     const allRows = [...previousRows, ...nextRows]
     const translationsByEntryId = await getTranslationsByEntryId(ctx, allRows)
-    const mapRow = (row: (typeof allRows)[number]) =>
+    const mapRow = async (row: (typeof allRows)[number]) =>
       toGinkoEntry(
-        mapPublicEntry(row, collection),
+        await mapPublicEntry(ctx, row, collection),
         args.locale,
         translationsByEntryId.get(String(row.entryId)) ?? [],
       )
 
     return {
-      previous: previousRows.map(mapRow),
-      next: nextRows.map(mapRow),
+      previous: await Promise.all(previousRows.map(mapRow)),
+      next: await Promise.all(nextRows.map(mapRow)),
       collection: args.collection,
       locale: {
         requested: args.locale,
@@ -1057,7 +1061,7 @@ export const search = callerQuery.public({
     for (const row of pageRows) {
       if (!publicFlag(row, 'search')) continue
       const snippet = buildSnippet(row.searchText, args.query)
-      const mapped = mapPublicEntry(row, collection)
+      const mapped = await mapPublicEntry(ctx, row, collection)
       matches.push({
         ...mapped,
         snippet: snippet.text,
@@ -1103,7 +1107,9 @@ export const sitemap = callerQuery.public({
     })
 
     const filteredRows = result.page.filter((row) => publicFlag(row, 'sitemap'))
-    const entries = filteredRows.map((row) => mapPublicEntry(row, collection))
+    const entries = await Promise.all(
+      filteredRows.map((row) => mapPublicEntry(ctx, row, collection)),
+    )
     const translationRows = filteredRows.map((row) => ({ entryId: row.entryId }))
     const translationsByEntryId = await getTranslationsByEntryId(ctx, translationRows)
 
@@ -1225,7 +1231,7 @@ export const singleton = callerQuery.public({
     return toGinkoSingletonResult({
       name: args.name,
       requestedLocale: args.locale,
-      entry: row ? mapPublicEntry(row, collection) : null,
+      entry: row ? await mapPublicEntry(ctx, row, collection) : null,
       translations: row ? await getTranslationsForEntry(ctx, row.entryId) : [],
       failure: row ? null : 'no_published_entry',
     })

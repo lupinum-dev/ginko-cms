@@ -398,6 +398,31 @@ describe('editor publish operations', () => {
     expect(revisionRow?.snapshot.locales.en).not.toHaveProperty('bodyAst')
   })
 
+  it.each([
+    '<script>alert(1)</script>',
+    '<style>body{display:none}</style>',
+    '<iframe src="https://example.test"></iframe>',
+    '<svg><script>alert(1)</script></svg>',
+    '<img src="javascript:alert(1)" onerror="alert(1)">',
+  ])('rejects unsafe rich content before revision or public projection writes', async (bodyMdc) => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const entry = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
+
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: entry.draftVersion,
+      patch: { locales: { en: { values: { title: 'Unsafe' }, bodyMdc } } },
+    })
+
+    await expect(publishEntry(owner, entryId)).rejects.toThrow(/unsafe markup/i)
+    expect(await ctx.readAll('entryRevisions')).toHaveLength(0)
+    expect(await ctx.readAll('publicEntries')).toHaveLength(0)
+  })
+
   it('does not rewrite active public projections when a draft is saved', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

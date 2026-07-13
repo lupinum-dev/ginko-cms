@@ -6,18 +6,27 @@ const convexMock = vi.hoisted(() => {
   const page = {
     id: 'entry-docs-routing',
     stableId: 'docs-routing',
+    assetFacts: [],
     collection: 'docs',
     revision: 'docs-routing',
     title: 'Content Routing',
-    data: {
-      description: 'Route content across locales.',
-      bodyAst: { type: 'root', props: {}, children: [] },
+    data: { description: 'Route content across locales.' },
+    bodyAst: { type: 'root', props: {}, children: [] },
+    locale: {
+      requested: 'en',
+      resolved: 'en',
+      policy: 'strict',
+      fallbacks: { fields: [] },
     },
-    locale: { requested: 'en', resolved: 'en' },
-    route: { locale: 'en', path: '/docs/content-routing', slug: 'content-routing' },
+    route: {
+      locale: 'en',
+      path: '/docs/content-routing',
+      slug: 'content-routing',
+      source: 'published',
+    },
     translations: [],
-    updatedAt: 100,
-    publishedAt: 90,
+    updatedAt: '2026-05-28T20:28:20.000Z',
+    publishedAt: '2026-05-28T20:26:40.000Z',
   }
   const query = vi.fn(async (ref: Record<symbol, string>, args: unknown) => {
     const operation =
@@ -25,9 +34,29 @@ const convexMock = vi.hoisted(() => {
         .split(':')
         .pop() ?? ''
     calls.push({ operation, args })
-    if (operation === 'page') return { status: 'found', page }
+    if (operation === 'page') {
+      return {
+        status: 'found',
+        page,
+        collection: 'docs',
+        locale: page.locale,
+        breadcrumbs: [],
+        seo: {
+          title: page.title,
+          description: '',
+          canonical: page.route.path,
+          alternates: [],
+          xDefault: null,
+        },
+      }
+    }
     if (operation === 'list') {
-      return { entries: [page], pageInfo: { hasNextPage: false, endCursor: null } }
+      return {
+        entries: [page],
+        pageInfo: { hasNextPage: false, endCursor: null },
+        collection: 'docs',
+        locale: page.locale,
+      }
     }
     throw new Error(`Unhandled package provider test operation: ${operation}`)
   })
@@ -65,7 +94,7 @@ describe('built ginko-cms Nuxt provider package output', () => {
     }
     const page = unwrap(await contentProvider.query({} as never, pageQuery)).result
     expect(page).toMatchObject({
-      canonicalKey: 'docs:docs-routing',
+      canonicalKey: 'docs-routing',
       contentPath: '/docs/content-routing',
       routeVariants: [{ locale: 'en', contentPath: '/docs/content-routing' }],
     })
@@ -82,7 +111,7 @@ describe('built ginko-cms Nuxt provider package output', () => {
     )
     expect(list).toMatchObject({
       mode: 'cursor',
-      result: [expect.objectContaining({ canonicalKey: 'docs:docs-routing' })],
+      result: [expect.objectContaining({ canonicalKey: 'docs-routing' })],
       pageInfo: { hasNext: false, endCursor: null },
     })
     expect(list).not.toHaveProperty('total')

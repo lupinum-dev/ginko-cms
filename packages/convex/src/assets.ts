@@ -3,7 +3,6 @@ import {
   deleteAsset as deleteAssetArgs,
   getAsset as getAssetArgs,
   getAssetManagerData as getAssetManagerDataArgs,
-  getAssetUrl as getAssetUrlArgs,
   listColocatedAssets as listColocatedAssetsArgs,
   moveAsset as moveAssetArgs,
   registerAsset as registerAssetArgs,
@@ -15,23 +14,27 @@ import {
   assetManagerAssetValidator,
   assetManagerPageValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
+import { verifyPublicImageBytes } from '@lupinum/ginko-content/cms-contract'
+import { anyApi } from 'convex/server'
+import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
+import { internalAction, internalMutation } from './_generated/server.js'
 import { recordOwnedAgentRunWrite } from './agentRuns.js'
 import { canManageAssets, canRead, requireRecord } from './auth/checks.js'
 import { assertBackupArtifactCoversPurge } from './backup.js'
 import { readStudioDraftView } from './entries/context.js'
 import { rebuildContentAssetRefsForEntry } from './entries/projections.js'
 import { throwCmsError } from './errors.js'
-import { callerMutation, callerQuery, cmsPublicReadTables } from './functions.js'
+import { callerAction, callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { getCollection } from './lib/collections.js'
 import { resolveEntryTitle } from './lib/fields.js'
 import { toOptionalStringId, toStringId } from './lib/ids.js'
 import { resolveLocaleText } from './lib/locale.js'
 import { sanitizeFilename, validateAssetUploadPolicy } from './lib/sanitize.js'
-import type { MutationCtx, QueryOrMutationCtx, ReadCtx } from './lib/types.js'
+import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
 import {
   blockedPreview,
   defineCmsOperation,
@@ -44,11 +47,6 @@ import {
 
 type AssetDoc = Doc<'assets'>
 type CollectionDoc = Doc<'collections'>
-type StorageMetadata = {
-  contentType?: string
-  size: number
-}
-
 type AssetRefUsage = {
   entryId: string
   entryTitle: string
@@ -72,6 +70,34 @@ type CollectionMeta = {
 const MAX_RESOLVED_ASSET_URLS = 200
 const MAX_COLOCATED_GROUP_ASSETS = 200
 const ASSET_MANAGER_SCAN_BATCH_SIZE = 50
+type RegisterVerifiedAssetRef = FunctionReference<
+  'mutation',
+  'internal',
+  Record<string, unknown>,
+  string
+>
+type AssetInternalMutationRef = FunctionReference<
+  'mutation',
+  'internal',
+  Record<string, unknown>,
+  unknown
+>
+type AssetInternalActionRef = FunctionReference<
+  'action',
+  'internal',
+  Record<string, unknown>,
+  unknown
+>
+const assetsApi = anyApi as unknown as {
+  assets: {
+    registerVerifiedAsset: RegisterVerifiedAssetRef
+    queueInvalidUploadCleanup: AssetInternalMutationRef
+    finishInvalidUploadCleanup: AssetInternalMutationRef
+    failInvalidUploadCleanup: AssetInternalMutationRef
+    cleanupInvalidUpload: AssetInternalActionRef
+  }
+}
+const MAX_ASSET_CLEANUP_ATTEMPTS = 5
 
 const purgeAssetArgs = {
   assetId: v.string(),
@@ -371,43 +397,6 @@ async function validateAssetScopeRelationships(
   return { entryId, collectionId }
 }
 
-async function deleteUploadedStorageObject(ctx: QueryOrMutationCtx, storageId: Id<'_storage'>) {
-  if (!('storage' in ctx) || !('delete' in ctx.storage)) return
-
-  try {
-    await ctx.storage.delete(storageId)
-  } catch {
-    // Best-effort cleanup only. The validation error is the one callers need.
-  }
-}
-
-async function loadStorageMetadata(ctx: QueryOrMutationCtx, storageId: Id<'_storage'>) {
-  const row = await ctx.db.system.get('_storage', storageId)
-  const metadata: StorageMetadata | null = row
-    ? {
-        contentType: row.contentType,
-        size: row.size,
-      }
-    : null
-
-  if (!metadata) {
-    throwCmsError('ASSET_STORAGE_MISSING', 'Uploaded asset storage object was not found.', {
-      storageId: toStringId(storageId),
-    })
-  }
-
-  if (!metadata.contentType) {
-    throwCmsError('ASSET_MIME_INVALID', 'Uploaded asset storage object is missing a MIME type.', {
-      storageId: toStringId(storageId),
-    })
-  }
-
-  return validateAssetUploadPolicy({
-    mimeType: metadata.contentType,
-    size: metadata.size,
-  })
-}
-
 function getDefaultLocale(settings: Doc<'cmsSettings'> | null): string {
   return (
     settings?.locales.find((locale) => locale.isDefault)?.code ?? settings?.locales[0]?.code ?? 'en'
@@ -424,20 +413,6 @@ function assetOwnerPathFromMeta(
     collectionMeta?.label ?? entryMeta?.collectionLabel ?? 'Unknown collection'
   if (asset.scope === 'collection') return ['Global', collectionLabel]
   return ['Global', collectionLabel, entryMeta?.title ?? 'Unknown entry']
-}
-
-async function canResolvePublicAssetUrl(ctx: ReadCtx, asset: AssetDoc): Promise<boolean> {
-  if (asset.deletedAt != null) return false
-  if (asset.scope === 'global') return true
-  if (!asset.entryId) return false
-
-  const assetId = toStringId(asset._id)
-  const refs = await ctx.db
-    .query('contentAssetRefs')
-    .withIndex('by_asset_source', (q) => q.eq('assetId', assetId).eq('sourceKind', 'public'))
-    .collect()
-
-  return refs.some((ref) => ref.entryId === asset.entryId)
 }
 
 async function deleteAssetReferenceRows(ctx: MutationCtx, assetId: string) {
@@ -643,7 +618,7 @@ export const generateUploadUrl = callerMutation.protected({
   handler: async (ctx) => await ctx.storage.generateUploadUrl(),
 })
 
-export const registerAsset = callerMutation.protected({
+export const registerAsset = callerAction.protected({
   id: 'assets:registerAsset',
   args: registerAssetArgs.args,
   guard: canManageAssets,
@@ -651,47 +626,168 @@ export const registerAsset = callerMutation.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const storageId = args.storageId as Id<'_storage'>
-    const filename = sanitizeFilename(args.filename)
+    let uploadedObjectExists = false
 
     try {
-      const { entryId, collectionId } = await validateAssetScopeRelationships(ctx, args)
-      const serverMetadata = await loadStorageMetadata(ctx, storageId)
-
-      const assetId = await ctx.db.insert('assets', {
+      const blob = await ctx.storage.get(storageId)
+      if (!blob) {
+        throwCmsError('ASSET_STORAGE_MISSING', 'Uploaded asset storage object was not found.', {
+          storageId: toStringId(storageId),
+        })
+      }
+      uploadedObjectExists = true
+      const claimed = validateAssetUploadPolicy({ mimeType: blob.type, size: blob.size })
+      const verified = await verifyPublicImageBytes(
+        new Uint8Array(await blob.arrayBuffer()),
+        claimed.mimeType,
+      )
+      const { mediaType, ...verifiedFacts } = verified
+      return await ctx.runMutation(assetsApi.assets.registerVerifiedAsset, {
+        ...args,
         storageId,
-        filename,
-        mimeType: serverMetadata.mimeType,
-        size: serverMetadata.size,
-        width: args.width ?? null,
-        height: args.height ?? null,
-        alt: args.alt ?? null,
-        caption: args.caption ?? null,
-        scope: args.scope,
-        entryId,
-        collectionId,
-        tags: [],
         createdBy: appIdentity.userId,
-        updatedBy: null,
-        createdAt: Date.now(),
-        updatedAt: null,
-        deletedAt: null,
-        deletedBy: null,
+        ...verifiedFacts,
+        mimeType: mediaType,
       })
-
-      await logActivity(ctx, {
-        kind: 'asset.uploaded',
-        summary: `Uploaded asset "${filename}"`,
-        appIdentityId: appIdentity.userId,
-        entryId,
-        collectionId,
-        detail: { filename, mimeType: serverMetadata.mimeType, scope: args.scope },
-      })
-
-      return toStringId(assetId)
     } catch (error) {
-      await deleteUploadedStorageObject(ctx, storageId)
+      if (!uploadedObjectExists) throw error
+      try {
+        await ctx.storage.delete(storageId)
+      } catch {
+        const taskId = (await ctx.runMutation(assetsApi.assets.queueInvalidUploadCleanup, {
+          storageId,
+        })) as Id<'assetCleanupTasks'>
+        await ctx.scheduler.runAfter(0, assetsApi.assets.cleanupInvalidUpload, {
+          taskId,
+          storageId,
+          attempt: 1,
+        })
+        throwCmsError('ASSET_CLEANUP_QUEUED', 'Invalid upload cleanup was queued for retry.')
+      }
       throw error
     }
+  },
+})
+
+export const queueInvalidUploadCleanup = internalMutation({
+  args: { storageId: v.id('_storage') },
+  returns: v.id('assetCleanupTasks'),
+  handler: async (ctx, args) => {
+    const now = Date.now()
+    return await ctx.db.insert('assetCleanupTasks', {
+      storageId: args.storageId,
+      status: 'cleanup-required',
+      attempts: 0,
+      createdAt: now,
+      updatedAt: now,
+    })
+  },
+})
+
+export const finishInvalidUploadCleanup = internalMutation({
+  args: { taskId: v.id('assetCleanupTasks') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (await ctx.db.get(args.taskId)) await ctx.db.delete(args.taskId)
+    return null
+  },
+})
+
+export const failInvalidUploadCleanup = internalMutation({
+  args: { taskId: v.id('assetCleanupTasks'), attempt: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId)
+    if (!task) return null
+    await ctx.db.patch(task._id, {
+      attempts: args.attempt,
+      status: args.attempt >= MAX_ASSET_CLEANUP_ATTEMPTS ? 'terminal-failure' : 'cleanup-required',
+      updatedAt: Date.now(),
+    })
+    return null
+  },
+})
+
+export const cleanupInvalidUpload = internalAction({
+  args: {
+    taskId: v.id('assetCleanupTasks'),
+    storageId: v.id('_storage'),
+    attempt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      await ctx.storage.delete(args.storageId)
+      await ctx.runMutation(assetsApi.assets.finishInvalidUploadCleanup, { taskId: args.taskId })
+    } catch {
+      await ctx.runMutation(assetsApi.assets.failInvalidUploadCleanup, {
+        taskId: args.taskId,
+        attempt: args.attempt,
+      })
+      if (args.attempt < MAX_ASSET_CLEANUP_ATTEMPTS) {
+        await ctx.scheduler.runAfter(
+          1_000 * 2 ** (args.attempt - 1),
+          assetsApi.assets.cleanupInvalidUpload,
+          { ...args, attempt: args.attempt + 1 },
+        )
+      }
+    }
+    return null
+  },
+})
+
+export const registerVerifiedAsset = internalMutation({
+  args: {
+    ...registerAssetArgs.args,
+    storageId: v.id('_storage'),
+    createdBy: v.string(),
+    mimeType: v.union(
+      v.literal('image/gif'),
+      v.literal('image/jpeg'),
+      v.literal('image/png'),
+      v.literal('image/webp'),
+    ),
+    bytes: v.number(),
+    sha256: v.string(),
+    width: v.number(),
+    height: v.number(),
+    frames: v.number(),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const { entryId, collectionId } = await validateAssetScopeRelationships(ctx, args)
+    const filename = sanitizeFilename(args.filename)
+    const assetId = await ctx.db.insert('assets', {
+      storageId: args.storageId,
+      filename,
+      mimeType: args.mimeType,
+      size: args.bytes,
+      sha256: args.sha256,
+      width: args.width,
+      height: args.height,
+      frames: args.frames,
+      alt: args.alt ?? null,
+      caption: args.caption ?? null,
+      scope: args.scope,
+      entryId,
+      collectionId,
+      tags: [],
+      createdBy: args.createdBy,
+      updatedBy: null,
+      createdAt: Date.now(),
+      updatedAt: null,
+      deletedAt: null,
+      deletedBy: null,
+    })
+    await logActivity(ctx, {
+      kind: 'asset.uploaded',
+      summary: `Uploaded asset "${filename}"`,
+      appIdentityId: args.createdBy,
+      entryId,
+      collectionId,
+      detail: { filename, mimeType: args.mimeType, scope: args.scope, sha256: args.sha256 },
+    })
+    return toStringId(assetId)
   },
 })
 
@@ -803,22 +899,6 @@ export const mcpMoveAsset = callerMutation.protected({
     const { agentRunId, ...input } = args
     await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.move-asset')
     return await moveAssetOperation.handler(ctx, input)
-  },
-})
-
-// AUTH-AUDIT: intentionally unguarded — public query for resolving asset storage URLs.
-export const getAssetUrl = callerQuery.public({
-  id: 'assets:getAssetUrl',
-  reads: cmsPublicReadTables,
-  args: getAssetUrlArgs.args,
-  returns: v.union(v.null(), v.string()),
-  handler: async (ctx, args) => {
-    const assetId = ctx.db.normalizeId('assets', args.assetId)
-    if (!assetId) return null
-    const asset = await ctx.db.get(assetId)
-    if (!asset) return null
-    if (!(await canResolvePublicAssetUrl(ctx, asset))) return null
-    return await ctx.storage.getUrl(asset.storageId)
   },
 })
 
@@ -1121,7 +1201,7 @@ export const deleteAssetOperation = defineCmsOperation({
     if (!asset) return null
     const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
     const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
-    if (usageCount > 0) {
+    if (usageCount > 0 && !args.force) {
       throwCmsError('ASSET_IN_USE', 'Cannot move an in-use asset to trash without force', {
         assetId: args.assetId,
         usageCount,

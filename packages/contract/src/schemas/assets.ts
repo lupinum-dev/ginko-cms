@@ -4,13 +4,6 @@ import { v } from 'convex/values'
 import { defineArgs } from '../args.js'
 import { assetScopeValidator, localeTextValidator } from '../validators.js'
 
-export const getAssetUrl = defineArgs({
-  description: 'Resolve one asset id to a storage URL.',
-  args: {
-    assetId: v.string(),
-  },
-})
-
 export const getAsset = defineArgs({
   description: 'Load one CMS asset with ownership and usage metadata.',
   args: {
@@ -50,10 +43,6 @@ export const registerAsset = defineArgs({
   args: {
     storageId: v.string(),
     filename: v.string(),
-    mimeType: v.string(),
-    size: v.number(),
-    width: v.optional(v.number()),
-    height: v.optional(v.number()),
     alt: v.optional(localeTextValidator),
     caption: v.optional(localeTextValidator),
     scope: assetScopeValidator,
@@ -109,5 +98,6 @@ export const deleteAsset = defineArgs({
   description: 'Move an asset to trash.',
   args: {
     assetId: v.string(),
+    force: v.optional(v.boolean()),
   },
 })
