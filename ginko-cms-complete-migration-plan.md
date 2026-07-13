@@ -2815,9 +2815,9 @@ Use only these statuses:
 | Studio route protection             | implemented | SSR signed-out redirect test            |
 | Unsupported auth-disabled topology  | implemented | Module rejection test                   |
 | Permission-complete call guards     | implemented | Role/origin/scope direct-call matrix    |
-| Canonical Content policy            | open        | Drift/apply invariant suite             |
-| Atomic policy and collection sync   | open        | Transactional sync tests                |
-| Generation-safe reindex             | open        | Mid-run policy replacement test         |
+| Canonical Content policy            | implemented | Drift/apply invariant suite             |
+| Atomic policy and collection sync   | implemented | Transactional sync tests                |
+| Generation-safe reindex             | implemented | Mid-run policy replacement test         |
 | Contract migration finalization     | open        | Entry validation and approval test      |
 | Migration retry and resume          | open        | Crash/retry receipt test                |
 | Legacy MCP-key cutover              | open        | Old-token denial and audit test         |

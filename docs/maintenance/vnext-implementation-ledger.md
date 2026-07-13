@@ -184,3 +184,111 @@ tree and is work-package evidence, not candidate certification.
   was not modified.
 - Next work package: WP2 canonical Content policy, beginning upstream in Ginko
   Content with the one resolved contract and canonical hash.
+
+## 2026-07-13 — WP2 canonical Ginko Content policy
+
+### Objective and acceptance criteria
+
+Make one closed, resolved Ginko Content artifact the only CMS collection,
+field, route, locale, fallback, reference, media, and portable-component policy.
+Acceptance required exact drift reporting, one transactional policy/collection
+install, consistent derived runtime reads, and a generation-safe reindex that
+cannot finish a mixed generation.
+
+### Repository ownership and hard cutovers
+
+- Ginko Content added the exact `ResolvedContentContractV1` builder, canonical
+  JSON SHA-256, strict trust-boundary validator, and the canonical contract plus
+  hash on the resolved Content module context.
+- Ginko CMS now installs the lossless contract and hash in `cmsPolicies` and
+  derives locale settings and Studio collection rows in the same Convex
+  mutation. A failed collection compatibility check rolls the entire mutation
+  back.
+- Deleted CMS-owned collection installation/check callables, inline
+  `ginkoCms.collections`, `collectionsDir` module configuration, mutable Studio
+  locale policy, `content: false`, `contentTranslatedSlugs`, and the public
+  `@lupinum/ginko-cms/config` helper export. The filesystem migration command's
+  input-directory option remains separate migration tooling, not runtime
+  policy.
+- Nuxt i18n is compatibility validation only. Private Content runtime policy
+  wins over public Content runtime fallback; neither is merged with public CMS
+  runtime configuration.
+- Collection-local defaults now drive projection hrefs, diagnostics, public
+  routes, image fallback, and public reads. Exact Content fallback arrays are
+  read from the installed policy rather than reconstructed from the lossy
+  single-fallback Studio projection.
+- Reindex jobs carry requested and applied contract generations. Replacement
+  resets phase and cursor; stale pages restart. Published projections are
+  rebuilt from immutable revisions, old and new paths are revalidated, and the
+  terminal job is deleted only after the requested generation is verified.
+
+No compatibility shim, second policy parser, independently hashed sub-policy,
+frontend orchestration path, cache, or parallel read model was added.
+
+### Test-first and invariant evidence
+
+Focused red runs first reproduced missing strict validation, missing canonical
+module exposure, stale policy drift, transactional partial-write risk, and the
+mixed-generation reindex defect. The final suites cover:
+
+- exact closed artifact validation, malformed values, and cyclic fallbacks;
+- canonical hashing and concrete field/array drift paths;
+- mismatched-hash and malformed-policy rejection before any write;
+- exact policy, locale, and collection installation in one mutation;
+- rollback to the old exact policy when collection drift requires migration;
+- private-versus-public Content runtime precedence and Nuxt i18n disagreement;
+- removed CMS policy options failing clearly instead of being ignored;
+- collection-local default hrefs, exact fallback chains, diagnostics, provider
+  rows/routes, and policy-generation revalidation;
+- page-one pause, generation replacement, complete replay of 51 rows under the
+  replacement generation, verification, and one clean terminal state.
+
+### Commands and results
+
+- Ginko Content unit/contracts suite: 46 files and 424 tests passed.
+- Ginko Content source typecheck and build: passed.
+- Ginko Content `dev:pack`: passed from clean commit `ae5b9ecf5195`; an isolated
+  fresh consumer verified the SHA-256, installed the tarball through a short
+  local filename, runtime-imported the builder, validator, and hasher, and
+  reproduced the canonical empty-contract hash.
+- Ginko CMS focused policy/runtime/diagnostics/fallback suite: 4 files and 34
+  tests passed.
+- Ginko CMS `pnpm run prepare:component`: passed and regenerated bindings.
+- Ginko CMS integrated focused regression suite: 5 files and 53 tests passed.
+- Ginko CMS `pnpm run check`: passed, including format, lint and boundary
+  checks, Contract build, Convex and module typechecks, Studio build/typecheck,
+  integrated playground prepare, publish-specifier checks, and 112 passed test
+  files plus 1 skipped; 885 tests passed plus 1 skipped.
+- Better Convex Nuxt remained at
+  `467aa0eeb24d26b3695482420807c892959fc683`; its pre-existing dirty tree was
+  inspected only and not modified.
+
+### Immutable development artifact
+
+- Path:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.ae5b9ecf5195.452b9ebcf1aca8ed76d4e9c58a3022b5d78a6e759c459425332b31f4f628314a.tgz`
+- SHA-256:
+  `452b9ebcf1aca8ed76d4e9c58a3022b5d78a6e759c459425332b31f4f628314a`
+- The adjacent evidence JSON records the clean source commit. This is a
+  development artifact only; it is not compatibility or release
+  certification.
+
+### Commits and acceptance matrix
+
+- Ginko Content:
+  - `c1f89d0` — `feat!: resolve the portable content contract`
+  - `1db9aa3` — `build: add immutable development artifacts`
+  - `11b070c` — `feat: validate resolved content artifacts at trust boundaries`
+  - `ae5b9ec` — `feat: expose the canonical contract from Content setup`
+- Ginko CMS:
+  - `5134f4ba` — `fix!: make Ginko Content policy canonical in CMS`
+- Updated to `implemented`: Canonical Content policy, Atomic policy and
+  collection sync, Generation-safe reindex.
+
+### Open findings and next phase
+
+- No WP2 blocker remains. Package candidate versions, standalone-workspace
+  installation, and compatibility recording remain owned by WP8 and were not
+  pulled forward.
+- Next work package: WP2A versioned contract upgrade, resumable migration
+  ledger, validation, activation, and recovery drill.
