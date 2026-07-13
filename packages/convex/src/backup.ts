@@ -20,7 +20,29 @@ import {
   definePreview,
 } from './operationHelpers.js'
 
-const BACKUP_ARCHIVE_VERSION = 1
+const BACKUP_ARCHIVE_VERSION = 2
+const BACKUP_CMS_SCHEMA_VERSION = '0.2'
+const BACKUP_PACKAGE_VERSION = '0.2.0-rc.1'
+const MAX_BACKUP_ARCHIVE_BYTES = 50 * 1024 * 1024
+const MAX_BACKUP_DATA_BYTES = 20 * 1024 * 1024
+const MAX_BACKUP_ASSET_BYTES = 25 * 1024 * 1024
+const MAX_BACKUP_TABLE_ROWS = 10_000
+const BACKUP_TABLES = new Set([
+  'activity',
+  'assets',
+  'cmsPolicies',
+  'cmsSettings',
+  'collections',
+  'contentAssetRefs',
+  'entries',
+  'entryDrafts',
+  'entryRevisions',
+  'members',
+  'publicEntries',
+  'publicRoutes',
+  'redirects',
+  'siteData',
+])
 const BACKUP_DRIVER = 'convex-storage-json'
 type AnyInternalQuery = FunctionReference<'query', 'internal', Record<string, unknown>, unknown>
 type AnyInternalMutation = FunctionReference<
@@ -49,7 +71,7 @@ const backupApi = anyApi as unknown as {
 }
 
 const backupScopeValidator = v.union(
-  v.literal('full'),
+  v.literal('snapshot'),
   v.literal('collection'),
   v.literal('entry'),
   v.literal('asset'),
@@ -90,7 +112,7 @@ const backupArtifactValidator = v.union(
   v.null(),
 )
 
-type BackupScope = 'full' | 'collection' | 'entry' | 'asset'
+type BackupScope = 'snapshot' | 'collection' | 'entry' | 'asset'
 
 type BackupScopeInput = {
   scope: BackupScope
@@ -120,6 +142,15 @@ type BackupArchive = {
     revisions: number
     assets: number
     members: number
+  }
+  manifest: {
+    cmsSchemaVersion: typeof BACKUP_CMS_SCHEMA_VERSION
+    packageVersion: string
+    contractHashes: string[]
+    tables: string[]
+    rowCounts: Record<string, number>
+    dataBytes: number
+    assetBytes: number
   }
   data: Record<string, JsonRecord[]>
   assetBytes: Record<string, number[]>
@@ -164,7 +195,7 @@ function restoreIssue(code: string, message: string) {
 }
 
 function normalizeScope(args: BackupScopeInput): BackupScopeInput {
-  if (args.scope === 'full') return { scope: 'full' }
+  if (args.scope === 'snapshot') return { scope: 'snapshot' }
   if (args.scope === 'collection') {
     if (!args.collectionId) {
       throwCmsError('BACKUP_SCOPE_INVALID', 'collection export requires collectionId.')
@@ -237,6 +268,21 @@ async function buildArchive(ctx: BackupActionCtx, scope: BackupScopeInput) {
     assets: data.assets?.length ?? 0,
     members: data.members?.length ?? 0,
   }
+  assertBackupDataLimits(data)
+  const dataBytes = byteLength(canonicalJson(data))
+  const totalAssetBytes = Object.values(assetBytes).reduce((sum, bytes) => sum + bytes.length, 0)
+  if (dataBytes > MAX_BACKUP_DATA_BYTES || totalAssetBytes > MAX_BACKUP_ASSET_BYTES) {
+    throwCmsError('BACKUP_SIZE_LIMIT_EXCEEDED', 'Backup scope exceeds archive size limits.')
+  }
+  const tables = Object.keys(data).sort()
+  const rowCounts = Object.fromEntries(tables.map((table) => [table, data[table]?.length ?? 0]))
+  const contractHashes = Array.from(
+    new Set(
+      (data.cmsPolicies ?? [])
+        .map((policy) => policy.contractSha256)
+        .filter((hash): hash is string => typeof hash === 'string'),
+    ),
+  ).sort()
   const dataChecksum = await sha256Hex(canonicalJson({ data, assetBytes }))
   return {
     version: BACKUP_ARCHIVE_VERSION,
@@ -244,19 +290,185 @@ async function buildArchive(ctx: BackupActionCtx, scope: BackupScopeInput) {
     scope,
     dataChecksum,
     counts,
+    manifest: {
+      cmsSchemaVersion: BACKUP_CMS_SCHEMA_VERSION,
+      packageVersion: BACKUP_PACKAGE_VERSION,
+      contractHashes,
+      tables,
+      rowCounts,
+      dataBytes,
+      assetBytes: totalAssetBytes,
+    },
     data,
     assetBytes,
   } satisfies BackupArchive
 }
 
-function assertBackupArchive(value: BackupArchive, artifactId: string) {
-  if (value.version !== BACKUP_ARCHIVE_VERSION) {
+function byteLength(value: string) {
+  return new TextEncoder().encode(value).byteLength
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function hasExactKeys(value: Record<string, unknown>, keys: string[]) {
+  const actual = Object.keys(value).sort()
+  const expected = [...keys].sort()
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index])
+}
+
+function isNonnegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0
+}
+
+function assertBackupDataLimits(data: Record<string, JsonRecord[]>) {
+  for (const [table, rows] of Object.entries(data)) {
+    if (!BACKUP_TABLES.has(table)) {
+      throwCmsError('BACKUP_TABLE_UNSUPPORTED', `Backup archive contains unknown table "${table}".`)
+    }
+    if (!Array.isArray(rows) || rows.length > MAX_BACKUP_TABLE_ROWS) {
+      throwCmsError('BACKUP_ROW_LIMIT_EXCEEDED', `Backup table "${table}" exceeds row limits.`)
+    }
+    if (rows.some((row) => !isPlainRecord(row))) {
+      throwCmsError('BACKUP_ROW_INVALID', `Backup table "${table}" contains a malformed row.`)
+    }
+  }
+}
+
+export function decodeBackupArchive(archiveJson: string, artifactId = 'unbound'): BackupArchive {
+  if (byteLength(archiveJson) > MAX_BACKUP_ARCHIVE_BYTES) {
+    throwCmsError('BACKUP_SIZE_LIMIT_EXCEEDED', 'Backup archive exceeds the maximum byte size.', {
+      artifactId,
+    })
+  }
+  let value: unknown
+  try {
+    value = JSON.parse(archiveJson)
+  } catch {
+    throwCmsError('BACKUP_ARCHIVE_INVALID', 'Backup archive is not valid JSON.', { artifactId })
+  }
+  if (!isPlainRecord(value) || value.version !== BACKUP_ARCHIVE_VERSION) {
     throwCmsError('BACKUP_RESTORE_VERSION_UNSUPPORTED', 'Backup archive version is unsupported.', {
       artifactId,
-      version: value.version,
+      version:
+        isPlainRecord(value) && ['string', 'number'].includes(typeof value.version)
+          ? (value.version as string | number)
+          : null,
       supportedVersion: BACKUP_ARCHIVE_VERSION,
     })
   }
+  if (
+    !hasExactKeys(value, [
+      'version',
+      'exportedAt',
+      'scope',
+      'dataChecksum',
+      'counts',
+      'manifest',
+      'data',
+      'assetBytes',
+    ]) ||
+    !isPlainRecord(value.scope) ||
+    !isPlainRecord(value.counts) ||
+    !isPlainRecord(value.manifest) ||
+    !isPlainRecord(value.data) ||
+    !isPlainRecord(value.assetBytes)
+  ) {
+    throwCmsError('BACKUP_ARCHIVE_INVALID', 'Backup archive manifest or payload is malformed.', {
+      artifactId,
+    })
+  }
+  const scope = value.scope
+  const expectedScopeKeys =
+    scope.scope === 'snapshot'
+      ? ['scope']
+      : scope.scope === 'collection'
+        ? ['scope', 'collectionId']
+        : scope.scope === 'entry'
+          ? ['scope', 'entryId']
+          : scope.scope === 'asset'
+            ? ['scope', 'assetId']
+            : []
+  if (
+    expectedScopeKeys.length === 0 ||
+    !hasExactKeys(scope, expectedScopeKeys) ||
+    expectedScopeKeys.slice(1).some((key) => typeof scope[key] !== 'string') ||
+    !isNonnegativeInteger(value.exportedAt) ||
+    typeof value.dataChecksum !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(value.dataChecksum) ||
+    !hasExactKeys(value.counts, ['entries', 'revisions', 'assets', 'members']) ||
+    Object.values(value.counts).some((count) => !isNonnegativeInteger(count))
+  ) {
+    throwCmsError('BACKUP_ARCHIVE_INVALID', 'Backup archive metadata is malformed.', {
+      artifactId,
+    })
+  }
+  const manifest = value.manifest
+  if (
+    !hasExactKeys(manifest, [
+      'cmsSchemaVersion',
+      'packageVersion',
+      'contractHashes',
+      'tables',
+      'rowCounts',
+      'dataBytes',
+      'assetBytes',
+    ]) ||
+    manifest.cmsSchemaVersion !== BACKUP_CMS_SCHEMA_VERSION ||
+    typeof manifest.packageVersion !== 'string' ||
+    !Array.isArray(manifest.contractHashes) ||
+    manifest.contractHashes.some((hash) => typeof hash !== 'string') ||
+    !Array.isArray(manifest.tables) ||
+    manifest.tables.some((table) => typeof table !== 'string') ||
+    !isPlainRecord(manifest.rowCounts) ||
+    !isNonnegativeInteger(manifest.dataBytes) ||
+    !isNonnegativeInteger(manifest.assetBytes)
+  ) {
+    throwCmsError('BACKUP_MANIFEST_INVALID', 'Backup archive manifest is incompatible.', {
+      artifactId,
+    })
+  }
+  const data = value.data as Record<string, JsonRecord[]>
+  assertBackupDataLimits(data)
+  if (
+    value.counts.entries !== (data.entries?.length ?? 0) ||
+    value.counts.revisions !== (data.entryRevisions?.length ?? 0) ||
+    value.counts.assets !== (data.assets?.length ?? 0) ||
+    value.counts.members !== (data.members?.length ?? 0)
+  ) {
+    throwCmsError('BACKUP_MANIFEST_INVALID', 'Backup summary counts do not match payload rows.')
+  }
+  const tables = Object.keys(data).sort()
+  if (canonicalJson(manifest.tables) !== canonicalJson(tables)) {
+    throwCmsError('BACKUP_MANIFEST_INVALID', 'Backup manifest table allowlist does not match data.')
+  }
+  for (const table of tables) {
+    if (manifest.rowCounts[table] !== data[table]?.length) {
+      throwCmsError('BACKUP_MANIFEST_INVALID', `Backup row count does not match table "${table}".`)
+    }
+  }
+  const dataBytes = byteLength(canonicalJson(data))
+  if (dataBytes !== manifest.dataBytes || dataBytes > MAX_BACKUP_DATA_BYTES) {
+    throwCmsError('BACKUP_SIZE_LIMIT_EXCEEDED', 'Backup data byte count is invalid.')
+  }
+  let assetByteCount = 0
+  for (const [assetId, bytes] of Object.entries(value.assetBytes)) {
+    if (
+      !Array.isArray(bytes) ||
+      bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)
+    ) {
+      throwCmsError('BACKUP_ARCHIVE_INVALID', `Backup asset bytes are malformed for "${assetId}".`)
+    }
+    assetByteCount += bytes.length
+    if (assetByteCount > MAX_BACKUP_ASSET_BYTES) {
+      throwCmsError('BACKUP_SIZE_LIMIT_EXCEEDED', 'Backup asset bytes exceed the size limit.')
+    }
+  }
+  if (assetByteCount !== manifest.assetBytes) {
+    throwCmsError('BACKUP_MANIFEST_INVALID', 'Backup asset byte count does not match manifest.')
+  }
+  return value as BackupArchive
 }
 
 async function loadArchiveForArtifact(
@@ -279,6 +491,11 @@ async function loadArchiveForArtifact(
   if (!blob) {
     throwCmsError('BACKUP_STORAGE_MISSING', 'Backup archive bytes are missing.', { artifactId })
   }
+  if (blob.size > MAX_BACKUP_ARCHIVE_BYTES) {
+    throwCmsError('BACKUP_SIZE_LIMIT_EXCEEDED', 'Backup archive exceeds the maximum byte size.', {
+      artifactId,
+    })
+  }
 
   const archiveJson = await blob.text()
   const checksum = await sha256Hex(archiveJson)
@@ -288,8 +505,15 @@ async function loadArchiveForArtifact(
     })
   }
 
-  const archive = JSON.parse(archiveJson) as BackupArchive
-  assertBackupArchive(archive, artifactId)
+  const archive = decodeBackupArchive(archiveJson, artifactId)
+  if (
+    (await sha256Hex(canonicalJson({ data: archive.data, assetBytes: archive.assetBytes }))) !==
+    archive.dataChecksum
+  ) {
+    throwCmsError('BACKUP_DATA_CHECKSUM_MISMATCH', 'Backup payload checksum is invalid.', {
+      artifactId,
+    })
+  }
 
   return { artifact, archive, archiveJson, checksum }
 }
@@ -373,6 +597,14 @@ async function buildRestorePreview(
     const missingAssets = changes.find((change) => change.table === 'assets')?.missingRows ?? 0
     const conflictingAssets =
       changes.find((change) => change.table === 'assets')?.conflictingRows ?? 0
+    if ((current.contentAssetRefs?.length ?? 0) > 0) {
+      blockers.push(
+        restoreIssue(
+          'restore-asset-referenced',
+          'Automatic asset restore is limited to assets with no current content references.',
+        ),
+      )
+    }
     if (archiveAssets.length !== 1) {
       blockers.push(
         restoreIssue(
@@ -438,7 +670,7 @@ function assertArtifactScopeCovers(
   },
   target: BackupScopeInput,
 ) {
-  if (artifact.scope === 'full') return
+  if (artifact.scope === 'snapshot') return
   if (target.scope === 'collection') {
     if (
       artifact.scope === 'collection' &&
@@ -469,11 +701,20 @@ function assertArtifactScopeCovers(
 async function collectBackupDataForScope(ctx: QueryOrMutationCtx, rawArgs: BackupScopeInput) {
   const args = normalizeScope(rawArgs)
   const data: Record<string, JsonRecord[]> = {}
+  const takeTable = async (table: string) => {
+    const rows = (await ctx.db
+      .query(table as never)
+      .take(MAX_BACKUP_TABLE_ROWS + 1)) as JsonRecord[]
+    if (rows.length > MAX_BACKUP_TABLE_ROWS) {
+      throwCmsError('BACKUP_ROW_LIMIT_EXCEEDED', `Backup table "${table}" exceeds row limits.`)
+    }
+    return rows
+  }
   const collectTable = async (table: string) => {
-    data[table] = (await ctx.db.query(table as never).collect()) as JsonRecord[]
+    data[table] = await takeTable(table)
   }
 
-  if (args.scope === 'full') {
+  if (args.scope === 'snapshot') {
     for (const table of [
       'collections',
       'entries',
@@ -487,10 +728,11 @@ async function collectBackupDataForScope(ctx: QueryOrMutationCtx, rawArgs: Backu
       'members',
       'siteData',
       'cmsSettings',
+      'cmsPolicies',
     ]) {
       await collectTable(table)
     }
-    data.activity = (await ctx.db.query('activity').collect()).filter(
+    data.activity = (await takeTable('activity')).filter(
       (row) => row.kind !== 'backup.exported',
     ) as JsonRecord[]
     return data
@@ -501,32 +743,32 @@ async function collectBackupDataForScope(ctx: QueryOrMutationCtx, rawArgs: Backu
     data.collections = (await ctx.db
       .query('collections')
       .filter((q) => q.eq(q.field('_id'), collectionId))
-      .collect()) as JsonRecord[]
+      .take(MAX_BACKUP_TABLE_ROWS + 1)) as JsonRecord[]
     const entries = await ctx.db
       .query('entries')
       .withIndex('by_collection_status', (q) => q.eq('collectionId', collectionId))
-      .collect()
+      .take(MAX_BACKUP_TABLE_ROWS + 1)
     data.entries = entries as JsonRecord[]
     const entryIds = new Set(entries.map((entry) => String(entry._id)))
-    data.entryDrafts = (await ctx.db.query('entryDrafts').collect()).filter((row) =>
+    data.entryDrafts = (await takeTable('entryDrafts')).filter((row) =>
       entryIds.has(String(row.entryId)),
     ) as JsonRecord[]
-    data.entryRevisions = (await ctx.db.query('entryRevisions').collect()).filter((row) =>
+    data.entryRevisions = (await takeTable('entryRevisions')).filter((row) =>
       entryIds.has(String(row.entryId)),
     ) as JsonRecord[]
-    data.publicEntries = (await ctx.db.query('publicEntries').collect()).filter((row) =>
+    data.publicEntries = (await takeTable('publicEntries')).filter((row) =>
       entryIds.has(String(row.entryId)),
     ) as JsonRecord[]
-    data.publicRoutes = (await ctx.db.query('publicRoutes').collect()).filter((row) =>
+    data.publicRoutes = (await takeTable('publicRoutes')).filter((row) =>
       entryIds.has(String(row.entryId)),
     ) as JsonRecord[]
-    data.contentAssetRefs = (await ctx.db.query('contentAssetRefs').collect()).filter((row) =>
+    data.contentAssetRefs = (await takeTable('contentAssetRefs')).filter((row) =>
       entryIds.has(String(row.entryId)),
     ) as JsonRecord[]
     data.assets = (await ctx.db
       .query('assets')
       .withIndex('by_collection', (q) => q.eq('collectionId', collectionId))
-      .collect()) as JsonRecord[]
+      .take(MAX_BACKUP_TABLE_ROWS + 1)) as JsonRecord[]
     return data
   }
 
@@ -537,32 +779,35 @@ async function collectBackupDataForScope(ctx: QueryOrMutationCtx, rawArgs: Backu
     data.entryDrafts = (await ctx.db
       .query('entryDrafts')
       .withIndex('by_entry', (q) => q.eq('entryId', entryId))
-      .collect()) as JsonRecord[]
+      .take(MAX_BACKUP_TABLE_ROWS + 1)) as JsonRecord[]
     data.entryRevisions = (await ctx.db
       .query('entryRevisions')
       .withIndex('by_entry_createdAt', (q) => q.eq('entryId', entryId))
-      .collect()) as JsonRecord[]
+      .take(MAX_BACKUP_TABLE_ROWS + 1)) as JsonRecord[]
     data.publicEntries = (await ctx.db
       .query('publicEntries')
       .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId))
-      .collect()) as JsonRecord[]
+      .take(MAX_BACKUP_TABLE_ROWS + 1)) as JsonRecord[]
     data.publicRoutes = (await ctx.db
       .query('publicRoutes')
       .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId))
-      .collect()) as JsonRecord[]
+      .take(MAX_BACKUP_TABLE_ROWS + 1)) as JsonRecord[]
     data.contentAssetRefs = (await ctx.db
       .query('contentAssetRefs')
       .withIndex('by_entry', (q) => q.eq('entryId', entryId))
-      .collect()) as JsonRecord[]
+      .take(MAX_BACKUP_TABLE_ROWS + 1)) as JsonRecord[]
     data.assets = (await ctx.db
       .query('assets')
       .withIndex('by_entry', (q) => q.eq('entryId', entryId))
-      .collect()) as JsonRecord[]
+      .take(MAX_BACKUP_TABLE_ROWS + 1)) as JsonRecord[]
     return data
   }
 
   const asset = await ctx.db.get(args.assetId as Id<'assets'>)
   data.assets = asset ? ([asset] as JsonRecord[]) : []
+  data.contentAssetRefs = (await takeTable('contentAssetRefs')).filter(
+    (row) => row.assetId === args.assetId,
+  )
   return data
 }
 
@@ -668,6 +913,24 @@ export const restoreBackupAsset = internalMutation({
         artifactId: args.artifactId,
         assetId: args.originalAssetId,
       })
+    }
+    const references = await Promise.all(
+      (['draft', 'revision', 'public'] as const).map(
+        async (sourceKind) =>
+          await ctx.db
+            .query('contentAssetRefs')
+            .withIndex('by_asset_source', (query) =>
+              query.eq('assetId', args.originalAssetId).eq('sourceKind', sourceKind),
+            )
+            .first(),
+      ),
+    )
+    if (references.some(Boolean)) {
+      throwCmsError(
+        'BACKUP_RESTORE_ASSET_REFERENCED',
+        'Automatic asset restore is limited to assets with no content references.',
+        { artifactId: args.artifactId, assetId: args.originalAssetId },
+      )
     }
 
     const asset = rowWithoutConvexMetadata(args.asset)
@@ -859,9 +1122,30 @@ export const verifyBackup = callerAction.protected({
         artifactId: args.artifactId,
       })
     }
+    if (blob.size > MAX_BACKUP_ARCHIVE_BYTES) {
+      throwCmsError('BACKUP_SIZE_LIMIT_EXCEEDED', 'Backup archive exceeds the maximum byte size.', {
+        artifactId: args.artifactId,
+      })
+    }
     const archiveJson = await blob.text()
     const checksumMatches = (await sha256Hex(archiveJson)) === artifact.checksum
-    const archive = JSON.parse(archiveJson) as BackupArchive
+    if (!checksumMatches) {
+      return {
+        ok: false,
+        checksumMatches: false,
+        currentDataMatches: false,
+        artifactId: artifact.artifactId,
+      }
+    }
+    const archive = decodeBackupArchive(archiveJson, args.artifactId)
+    if (
+      (await sha256Hex(canonicalJson({ data: archive.data, assetBytes: archive.assetBytes }))) !==
+      archive.dataChecksum
+    ) {
+      throwCmsError('BACKUP_DATA_CHECKSUM_MISMATCH', 'Backup payload checksum is invalid.', {
+        artifactId: args.artifactId,
+      })
+    }
     const current = await buildArchive(ctx as unknown as BackupActionCtx, {
       scope: artifact.scope,
       collectionId: artifact.collectionId ? String(artifact.collectionId) : undefined,
@@ -888,25 +1172,10 @@ export const downloadBackup = callerAction.protected({
     archiveJson: v.string(),
   }),
   handler: async (ctx, args) => {
-    const artifact = (await ctx.runQuery(backupApi.backup.getBackupArtifact, {
-      artifactId: args.artifactId,
-    })) as { artifactId: string; checksum: string; storageRef: string } | null
-    if (!artifact) {
-      throwCmsError('BACKUP_NOT_FOUND', 'Backup artifact not found.', {
-        artifactId: args.artifactId,
-      })
-    }
-    const blob = await ctx.storage.get(artifact.storageRef as Id<'_storage'>)
-    if (!blob) {
-      throwCmsError('BACKUP_STORAGE_MISSING', 'Backup archive bytes are missing.', {
-        artifactId: args.artifactId,
-      })
-    }
-    const archiveJson = await blob.text()
-    const checksum = await sha256Hex(archiveJson)
-    if (checksum !== artifact.checksum) {
-      throwCmsError('BACKUP_CHECKSUM_MISMATCH', 'Backup archive checksum does not match artifact.')
-    }
+    const { artifact, archiveJson, checksum } = await loadArchiveForArtifact(
+      ctx as unknown as BackupActionCtx,
+      args.artifactId,
+    )
     return {
       artifactId: artifact.artifactId,
       checksum,
@@ -1063,7 +1332,7 @@ export const deleteBackupArtifactOperation = defineCmsOperation({
         operationIssue({
           code: 'backup-artifact-delete',
           message:
-            'Deleting this backup can block future permanent entry or asset purges until a fresh matching backup is exported.',
+            'Deleting this backup can block a future asset purge until a fresh matching backup is exported.',
         }),
       ],
       details: {

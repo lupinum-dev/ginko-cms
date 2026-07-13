@@ -26,7 +26,6 @@ import {
   type ReviewSummary,
 } from './readiness.js'
 import type {
-  AssetDeleteMode,
   AssetScope,
   CmsRole,
   CollectionDefinition,
@@ -247,11 +246,6 @@ export const assetScopeValidator = v.union(
   v.literal('collection'),
   v.literal('entry'),
 ) as RequiredValidator<AssetScope>
-
-export const assetDeleteModeValidator = v.union(
-  v.literal('delete'),
-  v.literal('moveToCollection'),
-) as RequiredValidator<AssetDeleteMode>
 
 export const sortDirectionValidator = v.union(
   v.literal('asc'),

@@ -793,6 +793,7 @@ describe('ginko-cms CLI', () => {
   it('applies only changed explicit content migration entries', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-migrate-apply-'))
     tempDirs.push(rootDir)
+    writeContentConfig(rootDir, 'posts', '/posts')
     writeFileSync(
       resolve(rootDir, '.env.local'),
       ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
@@ -851,7 +852,9 @@ describe('ginko-cms CLI', () => {
             },
             mutation: async (_ref, args) => {
               calls.push({ kind: 'mutation', args: args as Record<string, unknown> })
-              return { changed: 1, unchanged: 0 }
+              return calls.filter((call) => call.kind === 'mutation').length === 1
+                ? { runId: 'run-1' }
+                : { changed: 1, skipped: 0 }
             },
             action: async () => {
               throw new Error('migrate apply should not use public action')
@@ -863,206 +866,38 @@ describe('ginko-cms CLI', () => {
     expect(code).toBe(0)
     expect(stderr.read()).toBe('')
     expect(stdout.read()).toContain('Applied content migration 2026-test: changed=1')
-    expect(calls.map((call) => call.kind)).toEqual(['auth', 'query', 'mutation'])
-    expect(calls[2]?.args).toMatchObject({
+    expect(calls.map((call) => call.kind)).toEqual(['auth', 'mutation', 'query', 'mutation'])
+    expect(calls[1]?.args).toMatchObject({
       migrationId: '2026-test',
+      sourceHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      toContractHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    })
+    expect(calls[2]?.args).toMatchObject({ runId: 'run-1' })
+    expect(calls[3]?.args).toMatchObject({
+      runId: 'run-1',
       entries: [
         expect.objectContaining({
-          collection: 'posts',
-          entryId: 'entry-1',
-          shared: { badge: 'new' },
+          inputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          entry: expect.objectContaining({
+            collection: 'posts',
+            entryId: 'entry-1',
+            shared: { badge: 'new' },
+          }),
         }),
       ],
     })
     expect(calls[2]?.args).not.toHaveProperty(removedLegacyArg)
   })
 
-  it('exports a backup archive file through the installed backup API', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-export-'))
+  it('does not expose owner-authenticated backup actions through the deploy-key CLI', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-removed-'))
     tempDirs.push(rootDir)
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
-        '\n',
-      ),
-    )
 
-    const calls: Array<Record<string, unknown>> = []
-    const result = await runCliWithClient(
-      ['backup', 'export', '--scope', 'full', '--out', 'backup.json'],
-      rootDir,
-      async (_ref, args) => {
-        calls.push(args)
-        if ('scope' in args) {
-          return {
-            artifactId: 'backup_123',
-            checksum: 'abc',
-            counts: { entries: 1 },
-          }
-        }
-        return {
-          artifactId: 'backup_123',
-          checksum: 'abc',
-          archiveJson: '{"version":1}',
-        }
-      },
-    )
-
-    expect(result.code).toBe(0)
-    expect(result.stdout).toContain('artifactId=backup_123')
-    expect(readFileSync(resolve(rootDir, 'backup.json'), 'utf8')).toBe('{"version":1}')
-    expect(calls).toEqual([{ scope: 'full' }, { artifactId: 'backup_123' }])
-  })
-
-  it.each([
-    {
-      args: [
-        'backup',
-        'export',
-        '--scope',
-        'collection',
-        '--collection-id',
-        'posts',
-        '--out',
-        'backups/posts.json',
-      ],
-      expected: { scope: 'collection', collectionId: 'posts' },
-    },
-    {
-      args: [
-        'backup',
-        'export',
-        '--scope',
-        'entry',
-        '--entry-id',
-        'entry_123',
-        '--out',
-        'backups/entry.json',
-      ],
-      expected: { scope: 'entry', entryId: 'entry_123' },
-    },
-    {
-      args: [
-        'backup',
-        'export',
-        '--scope',
-        'asset',
-        '--asset-id',
-        'asset_123',
-        '--out',
-        'backups/asset.json',
-      ],
-      expected: { scope: 'asset', assetId: 'asset_123' },
-    },
-  ])(
-    'exports scoped backup archives through the installed backup API',
-    async ({ args, expected }) => {
-      const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-export-scoped-'))
-      tempDirs.push(rootDir)
-      writeFileSync(
-        resolve(rootDir, '.env.local'),
-        ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
-          '\n',
-        ),
-      )
-
-      const calls: Array<Record<string, unknown>> = []
-      const result = await runCliWithClient(args, rootDir, async (_ref, actionArgs) => {
-        calls.push(actionArgs)
-        if ('scope' in actionArgs) {
-          return {
-            artifactId: 'backup_scoped',
-            checksum: 'abc',
-            counts: { entries: 1, assets: 1 },
-          }
-        }
-        return {
-          artifactId: 'backup_scoped',
-          checksum: 'abc',
-          archiveJson: '{"version":1,"scope":"scoped"}',
-        }
-      })
-
-      expect(result.code).toBe(0)
-      expect(result.stdout).toContain('artifactId=backup_scoped')
-      expect(readFileSync(resolve(rootDir, String(args.at(-1))), 'utf8')).toBe(
-        '{"version":1,"scope":"scoped"}',
-      )
-      expect(calls).toEqual([expected, { artifactId: 'backup_scoped' }])
-    },
-  )
-
-  it('downloads a backup archive artifact through the installed backup API', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-download-'))
-    tempDirs.push(rootDir)
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
-        '\n',
-      ),
-    )
-
-    const calls: Array<Record<string, unknown>> = []
-    const result = await runCliWithClient(
-      ['backup', 'download', '--artifact-id', 'backup_123', '--out', 'downloaded/backup.json'],
-      rootDir,
-      async (_ref, args) => {
-        calls.push(args)
-        return {
-          artifactId: 'backup_123',
-          checksum: 'abc',
-          archiveJson: '{"version":1,"downloaded":true}',
-        }
-      },
-    )
-
-    expect(result.code).toBe(0)
-    expect(result.stdout).toContain('artifactId=backup_123')
-    expect(readFileSync(resolve(rootDir, 'downloaded/backup.json'), 'utf8')).toBe(
-      '{"version":1,"downloaded":true}',
-    )
-    expect(calls).toEqual([{ artifactId: 'backup_123' }])
-  })
-
-  it('returns a failing status when backup verification detects drift', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-verify-'))
-    tempDirs.push(rootDir)
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
-        '\n',
-      ),
-    )
-
-    const result = await runCliWithClient(
-      ['backup', 'verify', '--artifact-id', 'backup_123'],
-      rootDir,
-      async () => ({
-        ok: false,
-        checksumMatches: true,
-        currentDataMatches: false,
-      }),
-    )
-
-    expect(result.code).toBe(1)
-    expect(result.stderr).toContain('currentDataMatches=false')
-  })
-
-  it('does not expose backup import in the MVP CLI', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-import-'))
-    tempDirs.push(rootDir)
-    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_URL=https://example.convex.cloud\n')
-    writeFileSync(resolve(rootDir, 'backup.json'), '{"version":1}', 'utf8')
-
-    const result = await runCliWithClient(
-      ['backup', 'import', '--file', 'backup.json', '--empty-only'],
-      rootDir,
-      async () => {
-        throw new Error('import should not run')
-      },
-    )
+    const result = await runCli(['backup', 'export', '--scope', 'snapshot'], rootDir)
 
     expect(result.code).toBe(2)
-    expect(result.stderr).toContain('Unknown backup command "import"')
+    expect(result.stderr).toContain('Unknown command "backup"')
+    expect(result.stderr).not.toContain('backup export')
   })
 })

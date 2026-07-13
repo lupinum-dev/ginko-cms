@@ -4,7 +4,6 @@ import { realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 import { type CliRunner, type ConvexClientFactory, parseArgs, usage, write } from './args.js'
-import { runBackupCommand } from './backup.js'
 import { resolveConvexCliBin, runNodeScript } from './convex.js'
 import { runDeployCommand } from './deploy.js'
 import { runDoctorCommand } from './doctor.js'
@@ -55,9 +54,6 @@ export async function runGinkoCmsCli(
         options.runner,
         options.convexClientFactory,
       )
-    }
-    if (command === 'backup') {
-      return await runBackupCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
     if (command === 'migrate') {
       return await runMigrateCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)

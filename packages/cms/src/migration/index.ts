@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { basename, extname, join, relative, resolve } from 'node:path'
 
 import {
@@ -116,6 +116,15 @@ const reservedFrontmatterKeys = new Set([
   'search',
   'navigation',
 ])
+const MAX_MIGRATION_FILES = 10_000
+const MAX_MIGRATION_BYTES = 50 * 1024 * 1024
+const MAX_MIGRATION_DEPTH = 32
+
+type MigrationTraversalBudget = {
+  files: number
+  bytes: number
+  directories: Set<string>
+}
 
 export async function createFilesystemMigrationPlan(
   options: FilesystemMigrationOptions,
@@ -125,9 +134,10 @@ export async function createFilesystemMigrationPlan(
   const contentDir = resolve(rootDir, options.contentDir ?? 'content')
   const defaultLocale = options.defaultLocale ?? 'en'
   const warnings: FilesystemMigrationPlan['warnings'] = []
-  const collections = readCollections(collectionsDir, warnings)
+  const traversal = { files: 0, bytes: 0, directories: new Set<string>() }
+  const collections = readCollections(collectionsDir, warnings, traversal)
   const collectionBySlug = new Map(collections.map((collection) => [collection.slug, collection]))
-  const contentFiles = existsSync(contentDir) ? walk(contentDir) : []
+  const contentFiles = existsSync(contentDir) ? walk(contentDir, traversal) : []
   const importContext = createCmsImportContext({ collections, defaultLocale })
   const navigation = existsSync(contentDir)
     ? await readNavigationDocuments({
@@ -262,9 +272,10 @@ export async function uploadFilesystemMigrationAssets(
 function readCollections(
   collectionsDir: string,
   warnings: FilesystemMigrationPlan['warnings'],
+  traversal: MigrationTraversalBudget,
 ): FilesystemMigrationPlan['collections'] {
   if (!existsSync(collectionsDir)) return []
-  const files = walk(collectionsDir)
+  const files = walk(collectionsDir, traversal)
     .filter((file) => file.endsWith('.json'))
     .sort()
   const collections: FilesystemMigrationPlan['collections'] = []
@@ -1034,11 +1045,43 @@ function omit(record: JsonRecord, keys: string[]) {
   return Object.fromEntries(Object.entries(record).filter(([key]) => !omitted.has(key)))
 }
 
-function walk(directory: string): string[] {
+function walk(directory: string, budget: MigrationTraversalBudget, depth = 0): string[] {
   if (!existsSync(directory)) return []
+  if (depth > MAX_MIGRATION_DEPTH) {
+    throw new Error(
+      `Filesystem migration exceeds maximum directory depth (${MAX_MIGRATION_DEPTH}).`,
+    )
+  }
+  const directoryStats = lstatSync(directory)
+  if (directoryStats.isSymbolicLink()) {
+    throw new Error(`Filesystem migration rejects symbolic links: ${directory}`)
+  }
+  if (!directoryStats.isDirectory()) {
+    throw new Error(`Filesystem migration expected a directory: ${directory}`)
+  }
+  const realDirectory = realpathSync(directory)
+  if (budget.directories.has(realDirectory)) {
+    throw new Error(`Filesystem migration encountered a repeated directory: ${directory}`)
+  }
+  budget.directories.add(realDirectory)
   return readdirSync(directory).flatMap((entry) => {
     const path = join(directory, entry)
-    const stats = statSync(path)
-    return stats.isDirectory() ? walk(path) : [path]
+    const stats = lstatSync(path)
+    if (stats.isSymbolicLink()) {
+      throw new Error(`Filesystem migration rejects symbolic links: ${path}`)
+    }
+    if (stats.isDirectory()) return walk(path, budget, depth + 1)
+    if (!stats.isFile()) {
+      throw new Error(`Filesystem migration rejects non-file input: ${path}`)
+    }
+    budget.files += 1
+    budget.bytes += stats.size
+    if (budget.files > MAX_MIGRATION_FILES) {
+      throw new Error(`Filesystem migration exceeds maximum file count (${MAX_MIGRATION_FILES}).`)
+    }
+    if (budget.bytes > MAX_MIGRATION_BYTES) {
+      throw new Error(`Filesystem migration exceeds maximum input bytes (${MAX_MIGRATION_BYTES}).`)
+    }
+    return [path]
   })
 }

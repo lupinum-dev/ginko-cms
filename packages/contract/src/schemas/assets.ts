@@ -109,6 +109,5 @@ export const deleteAsset = defineArgs({
   description: 'Move an asset to trash.',
   args: {
     assetId: v.string(),
-    force: v.optional(v.boolean()),
   },
 })

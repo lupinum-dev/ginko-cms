@@ -231,45 +231,6 @@ export async function moveEntryInTree(
   })
 }
 
-export async function reparentChildEntries(
-  ctx: MutationCtx,
-  args: {
-    entry: EntryDoc
-    collection: Awaited<ReturnType<typeof getCollectionOrThrow>>
-    appIdentityId: string
-    now: number
-  },
-) {
-  const children = await ctx.db
-    .query('entries')
-    .withIndex('by_parent', (q) =>
-      q.eq('collectionId', args.entry.collectionId).eq('parentEntryId', args.entry._id),
-    )
-    .collect()
-
-  for (const child of children) {
-    await ctx.db.patch(child._id, {
-      parentEntryId: args.entry.parentEntryId ?? null,
-      updatedAt: args.now,
-      updatedBy: args.appIdentityId,
-    })
-    await syncSharedDraftPlacement(ctx, {
-      entry: child,
-      parentEntryId: args.entry.parentEntryId ?? null,
-      orderRank: child.orderRank ?? '',
-      appIdentityId: args.appIdentityId,
-      now: args.now,
-    })
-    await refreshDraftAssetRefsForEntrySubtree(ctx, {
-      collection: args.collection,
-      entryId: child._id,
-      includeSubtree: true,
-    })
-  }
-
-  return children
-}
-
 async function syncSharedDraftPlacement(
   ctx: MutationCtx,
   args: {

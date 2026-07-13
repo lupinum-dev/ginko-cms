@@ -1,11 +1,22 @@
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
+import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { createJiti } from 'jiti'
 
-import { type CliIo, type ConvexClientFactory, hasFlag, stableJson, usage, write } from './args.js'
+import { loadGinkoContentContract } from '../module/content-contract.js'
+import {
+  type CliIo,
+  type ConvexClientFactory,
+  hasFlag,
+  readFlag,
+  stableJson,
+  usage,
+  write,
+} from './args.js'
 import { deployKey, publicConvexUrl } from './env.js'
 
 type ContentMigrationLocale = {
@@ -24,6 +35,7 @@ type ContentMigrationEntry = {
 
 type ContentMigration = {
   id: string
+  sourceHash: string
   collections: string[]
   up(entry: ContentMigrationEntry): ContentMigrationEntry | Promise<ContentMigrationEntry>
 }
@@ -38,6 +50,8 @@ type PlannedChange = {
   before: ContentMigrationEntry
   after: ContentMigrationEntry
   paths: string[]
+  inputHash: string
+  outputHash: string
 }
 
 type PlannedError = {
@@ -52,6 +66,7 @@ type MigrationPlan = {
   unchanged: number
   changes: PlannedChange[]
   errors: PlannedError[]
+  runId?: string
 }
 
 function migrationSlug(input: string) {
@@ -151,22 +166,6 @@ function assertMigrationOutput(
     }
   }
 
-  const beforeLocales = sortedUnique(Object.keys(before.locales))
-  const afterLocales = sortedUnique(Object.keys(after.locales))
-  if (stableJson(beforeLocales) !== stableJson(afterLocales)) {
-    throw new Error(
-      `Migration cannot add or remove locale keys for ${before.collection}/${before.entryId}.`,
-    )
-  }
-
-  for (const locale of beforeLocales) {
-    if (before.locales[locale] !== null && after.locales[locale] === null) {
-      throw new Error(
-        `Migration cannot delete locale "${locale}" for ${before.collection}/${before.entryId}.`,
-      )
-    }
-  }
-
   return after
 }
 
@@ -200,6 +199,7 @@ async function loadContentMigration(cwd: string, fileArg: string): Promise<Conte
 
   return {
     id: migration.id,
+    sourceHash: createHash('sha256').update(readFileSync(file)).digest('hex'),
     collections,
     up: migration.up,
   }
@@ -220,12 +220,13 @@ function createMigrationClient(cwd: string, convexClientFactory: ConvexClientFac
 async function fetchCollectionEntries(
   client: ReturnType<typeof createMigrationClient>['client'],
   collection: string,
+  runId?: string,
 ): Promise<ContentMigrationEntry[]> {
   const entries: ContentMigrationEntry[] = []
   let cursor: string | null = null
 
   do {
-    const args = { collection, cursor, limit: 100 }
+    const args = { collection, cursor, limit: 100, ...(runId ? { runId } : {}) }
     const result = (await client.query(
       anyApi.ginkoCms.migrations.listContentMigrationEntries,
       args,
@@ -241,6 +242,7 @@ async function fetchCollectionEntries(
 async function buildMigrationPlan(
   migration: ContentMigration,
   client: ReturnType<typeof createMigrationClient>['client'],
+  runId?: string,
 ): Promise<MigrationPlan> {
   const plan: MigrationPlan = {
     migration,
@@ -248,10 +250,11 @@ async function buildMigrationPlan(
     unchanged: 0,
     changes: [],
     errors: [],
+    ...(runId ? { runId } : {}),
   }
 
   for (const collection of migration.collections) {
-    const entries = await fetchCollectionEntries(client, collection)
+    const entries = await fetchCollectionEntries(client, collection, runId)
     for (const before of entries) {
       plan.scanned += 1
       try {
@@ -264,6 +267,8 @@ async function buildMigrationPlan(
           before,
           after,
           paths: changedValuePaths(before, after),
+          inputHash: await hashCanonicalJson(before),
+          outputHash: await hashCanonicalJson(after),
         })
       } catch (error) {
         plan.errors.push({
@@ -357,21 +362,45 @@ async function applyMigrationPlan(
   plan: MigrationPlan,
   client: ReturnType<typeof createMigrationClient>['client'],
 ) {
+  if (!plan.runId) throw new Error('Content migration apply requires a durable run id.')
   let changed = 0
-  let unchanged = 0
+  let skipped = 0
 
   for (let index = 0; index < plan.changes.length; index += 50) {
-    const entries = plan.changes.slice(index, index + 50).map((change) => change.after)
-    const args = { migrationId: plan.migration.id, entries }
+    const changes = plan.changes.slice(index, index + 50)
+    const args = {
+      runId: plan.runId,
+      cursor: changes.at(-1)!.after.entryId,
+      entries: changes.map((change) => ({
+        inputHash: change.inputHash,
+        outputHash: change.outputHash,
+        entry: change.after,
+      })),
+    }
     const result = (await client.mutation(
-      anyApi.ginkoCms.migrations.applyContentMigrationEntries,
+      anyApi.ginkoCms.migrations.applyContentMigrationBatch,
       args,
-    )) as { changed: number; unchanged: number }
+    )) as { changed: number; skipped: number }
     changed += result.changed
-    unchanged += result.unchanged
+    skipped += result.skipped
   }
 
-  return { changed, unchanged }
+  return { changed, skipped }
+}
+
+async function beginMigrationRun(
+  cwd: string,
+  migration: ContentMigration,
+  client: ReturnType<typeof createMigrationClient>['client'],
+) {
+  const contract = await loadGinkoContentContract({ rootDir: cwd })
+  const contractSha256 = await hashCanonicalJson(contract)
+  const run = (await client.mutation(anyApi.ginkoCms.migrations.beginContentMigration, {
+    migrationId: migration.id,
+    sourceHash: migration.sourceHash,
+    toContractHash: contractSha256,
+  })) as { runId: string }
+  return { contract, contractSha256, runId: run.runId }
 }
 
 export async function runMigrateCommand(
@@ -423,16 +452,61 @@ export async function runMigrateCommand(
     return 0
   }
 
-  if (subcommand === 'plan' || subcommand === 'apply') {
+  if (['plan', 'apply', 'finalize', 'activate'].includes(subcommand)) {
     const fileArg = args[2]
     if (!fileArg) throw new Error(`ginko-cms migrate ${subcommand} requires a migration file.`)
-    if (subcommand === 'apply' && !hasFlag(args, '--yes')) {
-      throw new Error('ginko-cms migrate apply requires --yes.')
+    if (['apply', 'activate'].includes(subcommand) && !hasFlag(args, '--yes')) {
+      throw new Error(`ginko-cms migrate ${subcommand} requires --yes.`)
+    }
+    if (
+      ['apply', 'finalize', 'activate'].includes(subcommand) &&
+      !existsSync(resolve(cwd, 'content.config.ts'))
+    ) {
+      throw new Error(
+        `ginko-cms migrate ${subcommand} requires content.config.ts as the canonical target policy source.`,
+      )
     }
 
     const migration = await loadContentMigration(cwd, fileArg)
     const { client } = createMigrationClient(cwd, convexClientFactory)
-    const plan = await buildMigrationPlan(migration, client)
+    if (subcommand === 'finalize' || subcommand === 'activate') {
+      const transition = await beginMigrationRun(cwd, migration, client)
+      if (subcommand === 'finalize') {
+        const publicStrategy = readFlag(args, '--strategy')
+        if (!['preserve', 'rebuild', 'unpublish'].includes(publicStrategy ?? '')) {
+          throw new Error(
+            'ginko-cms migrate finalize requires --strategy preserve|rebuild|unpublish.',
+          )
+        }
+        const result = (await client.mutation(anyApi.ginkoCms.migrations.finalizeContentMigration, {
+          runId: transition.runId,
+          contract: transition.contract,
+          contractSha256: transition.contractSha256,
+          publicStrategy,
+        })) as { validatedEntryCount: number; expiresAt: number }
+        write(
+          io.stdout,
+          `Finalized content migration ${migration.id}: validated=${result.validatedEntryCount}, approvalExpiresAt=${new Date(result.expiresAt).toISOString()}.\n`,
+        )
+        return 0
+      }
+      const result = (await client.mutation(anyApi.ginkoCms.migrations.activateContentMigration, {
+        runId: transition.runId,
+        contract: transition.contract,
+        contractSha256: transition.contractSha256,
+      })) as { status: 'activated'; contractSha256: string }
+      write(
+        io.stdout,
+        `Activated content migration ${migration.id} at contract ${result.contractSha256}.\n`,
+      )
+      return 0
+    }
+
+    let runId: string | undefined
+    if (subcommand === 'apply') {
+      runId = (await beginMigrationRun(cwd, migration, client)).runId
+    }
+    const plan = await buildMigrationPlan(migration, client, runId)
     write(io.stdout, formatMigrationPlan(plan))
 
     if (plan.errors.length > 0) {
@@ -448,16 +522,16 @@ export async function runMigrateCommand(
     const result = await applyMigrationPlan(plan, client)
     write(
       io.stdout,
-      `Applied content migration ${migration.id}: changed=${result.changed}, unchanged=${result.unchanged}.\n`,
+      `Applied content migration ${migration.id}: changed=${result.changed}, skipped=${result.skipped}.\n`,
     )
     write(
       io.stdout,
-      'Next: run `pnpm exec ginko-cms push --check`; push only after the check reports safe drift.\n',
+      'Next: run `pnpm exec ginko-cms migrate finalize <file> --strategy rebuild`, inspect the approval, then activate it explicitly.\n',
     )
     return 0
   }
 
   throw new Error(
-    'Unknown migrate command. Available commands: `ginko-cms migrate create <name>`, `ginko-cms migrate list`, `ginko-cms migrate plan <file>`, `ginko-cms migrate apply <file> --yes`.',
+    'Unknown migrate command. Available commands: create, list, plan, apply, finalize, activate.',
   )
 }

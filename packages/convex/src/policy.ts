@@ -50,7 +50,7 @@ function titleize(value: string): string {
     .join(' ')
 }
 
-function fieldProjection(field: ResolvedContentFieldV1): CmsField {
+export function fieldProjection(field: ResolvedContentFieldV1): CmsField {
   return {
     key: field.key,
     type: field.type,
@@ -88,7 +88,7 @@ function collectionSettings(collection: ResolvedContentCollectionV1): JsonValue 
   } as unknown as JsonValue
 }
 
-function collectionProjection(collection: ResolvedContentCollectionV1) {
+export function collectionProjection(collection: ResolvedContentCollectionV1) {
   return {
     slug: collection.id,
     label: titleize(collection.id),
@@ -137,6 +137,7 @@ async function replaceDerivedLocales(
 export async function installCmsPolicyHandler(
   ctx: MutationCtx,
   args: { contract: JsonValue; contractSha256: string },
+  options: { allowIncompatible?: boolean; scheduleReindex?: boolean } = {},
 ) {
   const contract = assertResolvedContentContract(args.contract)
   const computedSha256 = await hashCanonicalJson(args.contract)
@@ -172,8 +173,13 @@ export async function installCmsPolicyHandler(
     },
     'deployment',
     args.contractSha256,
+    options.allowIncompatible,
   )
-  if (existing && existing.contractSha256 !== args.contractSha256) {
+  if (
+    options.scheduleReindex !== false &&
+    existing &&
+    existing.contractSha256 !== args.contractSha256
+  ) {
     for (const collection of await ctx.db.query('collections').collect()) {
       await scheduleCollectionReindex(ctx, collection._id, 'deployment', args.contractSha256)
     }

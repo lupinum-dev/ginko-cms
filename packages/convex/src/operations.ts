@@ -35,11 +35,7 @@ export {
   unpublishEntryOperation,
   previewUnpublishEntryOperation,
 } from './entries/publish.js'
-export {
-  createEntryOperation,
-  deleteEntryOperation,
-  previewDeleteEntryOperation,
-} from './entries/tree.js'
+export { createEntryOperation } from './entries/tree.js'
 
 export const cleanupExpiredConfirmations = internalMutation({
   args: {

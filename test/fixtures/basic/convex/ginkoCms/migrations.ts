@@ -1,13 +1,10 @@
-// @ts-nocheck - Excluded from the host type program on purpose.
-// listContentMigrationEntries / applyContentMigrationEntries wrap
-// component-INTERNAL functions that are intentionally NOT exposed on the
-// generated ComponentApi<"ginkoCms"> host boundary (there is no `migrations`
-// member); the CLI `ginko-cms migrate` reaches them via anyApi at runtime.
-// They cannot typecheck against the typed `components` reference, and a plain
-// tsconfig `exclude` cannot drop this file because _generated/api.d.ts pulls it
-// back in via `import type`. Do not "fix" this by exposing the internal
-// component functions.
-import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
+// @ts-nocheck - Component-internal maintenance functions are intentionally
+// absent from the public ComponentApi type. These host-internal wrappers are
+// reached only by the deploy-key authenticated ginko-cms migrate CLI.
+import {
+  jsonObjectValidator,
+  jsonValueValidator,
+} from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
@@ -30,24 +27,60 @@ const contentMigrationEntryValidator = v.object({
   locales: v.record(v.string(), contentMigrationLocaleValidator),
 })
 
+export const beginContentMigration = internalMutation({
+  args: {
+    migrationId: v.string(),
+    sourceHash: v.string(),
+    toContractHash: v.string(),
+  },
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.migrations.beginContentMigration, args as never),
+})
+
 export const listContentMigrationEntries = internalQuery({
   args: {
     collection: v.string(),
     cursor: v.union(v.string(), v.null()),
     limit: v.optional(v.number()),
+    runId: v.optional(v.string()),
   },
   handler: async (ctx, args) =>
     await ctx.runQuery(components.ginkoCms.migrations.listContentMigrationEntries, args as never),
 })
 
-export const applyContentMigrationEntries = internalMutation({
+export const applyContentMigrationBatch = internalMutation({
   args: {
-    migrationId: v.string(),
-    entries: v.array(contentMigrationEntryValidator),
+    runId: v.string(),
+    cursor: v.string(),
+    entries: v.array(
+      v.object({
+        inputHash: v.string(),
+        outputHash: v.string(),
+        entry: contentMigrationEntryValidator,
+      }),
+    ),
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(
-      components.ginkoCms.migrations.applyContentMigrationEntries,
-      args as never,
-    ),
+    await ctx.runMutation(components.ginkoCms.migrations.applyContentMigrationBatch, args as never),
+})
+
+export const finalizeContentMigration = internalMutation({
+  args: {
+    runId: v.string(),
+    contract: jsonValueValidator,
+    contractSha256: v.string(),
+    publicStrategy: v.union(v.literal('preserve'), v.literal('rebuild'), v.literal('unpublish')),
+  },
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.migrations.finalizeContentMigration, args as never),
+})
+
+export const activateContentMigration = internalMutation({
+  args: {
+    runId: v.string(),
+    contract: jsonValueValidator,
+    contractSha256: v.string(),
+  },
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.migrations.activateContentMigration, args as never),
 })

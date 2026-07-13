@@ -3,7 +3,6 @@ import {
   createCheckpoint as createCheckpointArgs,
   createEntry as createEntryArgs,
   createLocaleVariant as createLocaleVariantArgs,
-  deleteEntry as deleteEntryArgs,
   getDraftVsPublishedDiff as getDraftVsPublishedDiffArgs,
   getEntry as getEntryArgs,
   getEntryActivity as getEntryActivityArgs,
@@ -305,16 +304,4 @@ export const reparentEntry = mutation({
   args: reparentEntryArgs.args,
   handler: async (ctx, args) =>
     await ctx.runMutation(components.ginkoCms.editor.reparentEntry, args as never),
-})
-
-export const deleteEntry = mutation({
-  args: confirmedArgs(deleteEntryArgs.args),
-  handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.editor.deleteEntryOperationExecute, args as never),
-})
-
-export const previewDeleteEntryOperation = mutation({
-  args: deleteEntryArgs.args,
-  handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.editor.previewDeleteEntryOperation, args as never),
 })

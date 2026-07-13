@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, symlinkSync, truncateSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -14,6 +14,29 @@ import {
 } from '../../packages/cms/src/migration/index.js'
 
 describe('filesystem migration planning', () => {
+  it('rejects symbolic links and oversized inputs before parsing', async () => {
+    const linkedRoot = mkdtempSync(join(tmpdir(), 'ginko-migration-link-'))
+    mkdirSync(join(linkedRoot, 'collections'), { recursive: true })
+    mkdirSync(join(linkedRoot, 'outside'), { recursive: true })
+    writeFileSync(join(linkedRoot, 'outside', 'post.md'), '# Outside')
+    mkdirSync(join(linkedRoot, 'content'), { recursive: true })
+    symlinkSync(join(linkedRoot, 'outside'), join(linkedRoot, 'content', 'linked'))
+
+    await expect(createFilesystemMigrationPlan({ rootDir: linkedRoot })).rejects.toThrow(
+      /rejects symbolic links/i,
+    )
+
+    const oversizedRoot = mkdtempSync(join(tmpdir(), 'ginko-migration-size-'))
+    mkdirSync(join(oversizedRoot, 'collections'), { recursive: true })
+    const oversizedFile = join(oversizedRoot, 'collections', 'oversized.json')
+    writeFileSync(oversizedFile, '')
+    truncateSync(oversizedFile, 50 * 1024 * 1024 + 1)
+
+    await expect(createFilesystemMigrationPlan({ rootDir: oversizedRoot })).rejects.toThrow(
+      /maximum input bytes/i,
+    )
+  })
+
   it('parses structured frontmatter and returns an auditable apply result', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-migration-'))
     mkdirSync(join(rootDir, 'collections'), { recursive: true })

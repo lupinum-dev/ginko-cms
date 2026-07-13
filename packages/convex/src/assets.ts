@@ -75,7 +75,6 @@ const ASSET_MANAGER_SCAN_BATCH_SIZE = 50
 
 const purgeAssetArgs = {
   assetId: v.string(),
-  force: v.optional(v.boolean()),
   exportArtifactId: v.string(),
 }
 
@@ -1122,7 +1121,7 @@ export const deleteAssetOperation = defineCmsOperation({
     if (!asset) return null
     const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
     const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
-    if (usageCount > 0 && args.force !== true) {
+    if (usageCount > 0) {
       throwCmsError('ASSET_IN_USE', 'Cannot move an in-use asset to trash without force', {
         assetId: args.assetId,
         usageCount,
@@ -1232,7 +1231,7 @@ export const purgeAssetOperation = defineCmsOperation({
         blockers: [
           operationIssue({
             code: 'asset-in-use',
-            message: 'Cannot permanently delete an in-use asset without force.',
+            message: 'Referenced assets cannot be permanently deleted.',
           }),
         ],
         effects: [
@@ -1266,14 +1265,6 @@ export const purgeAssetOperation = defineCmsOperation({
           code: 'permanent-delete',
           message: 'This permanently removes the asset record and stored file.',
         }),
-        ...(usageCount > 0
-          ? [
-              operationIssue({
-                code: 'forced-delete',
-                message: 'Forced deletion will remove existing content asset reference rows.',
-              }),
-            ]
-          : []),
       ],
       effects: [
         operationEffect({
@@ -1312,8 +1303,8 @@ export const purgeAssetOperation = defineCmsOperation({
     })
     const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
     const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
-    if (usageCount > 0 && args.force !== true) {
-      throwCmsError('ASSET_IN_USE', 'Cannot permanently delete an in-use asset without force', {
+    if (usageCount > 0) {
+      throwCmsError('ASSET_IN_USE', 'Referenced assets cannot be permanently deleted', {
         assetId: args.assetId,
         usageCount,
       })

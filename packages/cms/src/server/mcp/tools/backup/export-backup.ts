@@ -27,13 +27,6 @@ export default defineMcpTool({
           ...exported,
           scope: 'entry',
           entryId: args.entryId,
-          nextAction: {
-            tool: 'delete-entry',
-            args: {
-              entryId: args.entryId,
-              exportArtifactId: exported.artifactId,
-            },
-          },
         },
         `Exported entry backup "${exported.artifactId}" for "${args.entryId}".`,
       )

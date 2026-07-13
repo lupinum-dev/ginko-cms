@@ -2,12 +2,7 @@ import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
 import { defineArgs } from '../args.js'
-import {
-  assetDeleteModeValidator,
-  entryStatusValidator,
-  jsonObjectValidator,
-  nodeKindValidator,
-} from '../validators.js'
+import { entryStatusValidator, jsonObjectValidator, nodeKindValidator } from '../validators.js'
 
 export const listEntries = defineArgs({
   description: 'List CMS entries for a collection and locale.',
@@ -284,22 +279,5 @@ export const reparentEntry = defineArgs({
     parentEntryId: v.optional(v.string()),
     beforeEntryId: v.optional(v.string()),
     afterEntryId: v.optional(v.string()),
-  },
-})
-
-export const deleteEntry = defineArgs({
-  description: 'Delete an entry permanently.',
-  args: {
-    entryId: v.string(),
-    assetMode: v.optional(assetDeleteModeValidator),
-    exportArtifactId: v.optional(v.string()),
-  },
-  meta: {
-    assetMode: {
-      label: 'Asset handling',
-      description: 'What to do with entry-scoped assets before deleting the entry.',
-      enum: ['delete', 'moveToCollection'],
-      defaultHint: 'delete',
-    },
   },
 })

@@ -248,6 +248,7 @@ export async function syncCodeDefinedCollectionContracts(
   args: SyncConfigCollectionsArgs,
   appIdentityId: string,
   requestedGeneration: string,
+  allowIncompatible = false,
 ) {
   let created = 0
   let updated = 0
@@ -293,7 +294,7 @@ export async function syncCodeDefinedCollectionContracts(
           entryCount: 1,
         })
         const incompatibleChanges = contractChangeCategories(drift.changes)
-        if (incompatibleChanges.length > 0) {
+        if (incompatibleChanges.length > 0 && !allowIncompatible) {
           throwCmsError(
             'COLLECTION_CONTRACT_CHANGE_REQUIRES_MIGRATION',
             `Collection "${incoming.slug}" has entries and cannot accept code-defined contract changes to ${incompatibleChanges.join(', ')} while drift is migration-required. Run \`pnpm exec ginko-cms push --check\` to inspect drift, then follow docs/guides/changing-collections.md#when-a-migration-is-required. Development-only table resets are not a production migration path.`,

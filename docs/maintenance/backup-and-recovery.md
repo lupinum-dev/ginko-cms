@@ -5,33 +5,27 @@ asset work, or release validation. Backups are owner-authenticated operational
 artifacts; they are not a second content model and they are not an automatic
 rollback system.
 
-## What Backup Commands Cover
+## What Component Backups Cover
 
-The CLI accepts backup helper commands:
-
-```bash
-pnpm exec ginko-cms backup export --scope full --out ./ginko-backup.json
-pnpm exec ginko-cms backup verify --artifact-id <id>
-pnpm exec ginko-cms backup download --artifact-id <id> --out ./ginko-backup.json
-```
+The Convex component exposes backup actions to authenticated CMS owners. The
+deploy-key CLI deliberately does not wrap those actions: a setup/admin key must
+not impersonate an owner.
 
 Supported export scopes are:
 
 | Scope        | Required argument      |
 | ------------ | ---------------------- |
-| `full`       | none                   |
+| `snapshot`   | none                   |
 | `collection` | `--collection-id <id>` |
 | `entry`      | `--entry-id <id>`      |
 | `asset`      | `--asset-id <id>`      |
 
-The backing Convex actions require a CMS owner identity. Unlike `push` and
-`migrate`, the current backup CLI path is not deploy-key setup/admin transport.
-Do not put these commands in a headless migration runbook unless the host has
-deliberately provided owner-authenticated execution for the backup actions.
+`snapshot` is a bounded CMS data export for comparison and narrow recovery
+workflows. It is not a deployment disaster-recovery snapshot.
 
 ## Verify Semantics
 
-`backup verify` checks two things:
+Backup verification checks two things:
 
 - `checksumMatches`: the stored archive still matches the recorded checksum.
 - `currentDataMatches`: the live data still matches the backup scope.
@@ -41,9 +35,6 @@ An old backup can still have `checksumMatches: true` while
 changed since the backup was created.
 
 ## Restore Semantics
-
-The CLI can export, download, and verify backup artifacts. It does not expose an
-import or restore command for backup artifacts.
 
 The Convex component exposes owner-authenticated restore actions for the narrow
 safe v1 case:
@@ -56,7 +47,7 @@ safe v1 case:
 
 Restore apply stores fresh asset bytes in Convex storage and creates a new asset
 row. It does not overwrite existing rows, preserve the old Convex document id,
-or apply `full`, `collection`, or `entry` artifacts over live data.
+or apply `snapshot`, `collection`, or `entry` artifacts over live data.
 
 Do not overwrite live CMS tables directly from a backup. That can destroy content
 written after the backup was created.
@@ -71,6 +62,10 @@ example, rejects a missing or stale backup artifact. The expected flow is:
 3. Preview the destructive operation.
 4. Execute only after the preview confirms the backup is valid for the current
    data.
+
+For deployment disaster recovery, use official Convex deployment snapshots.
+Package downgrades are unsupported: recover by deploying a forward fix, or by
+restoring a deployment snapshot taken before the upgrade.
 
 ## Related Pages
 

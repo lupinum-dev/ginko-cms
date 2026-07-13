@@ -83,7 +83,7 @@ describe('component: MCP credential settings', () => {
     })
     const mcp = ctx.asMcpApiKey('ba_key_read_only_owner', 'owner-1')
 
-    await expect(mcp.action(api.backup.exportBackup, { scope: 'full' })).rejects.toThrow(
+    await expect(mcp.action(api.backup.exportBackup, { scope: 'snapshot' })).rejects.toThrow(
       'Forbidden',
     )
     await expect(mcp.action(api.backup.downloadBackup, { artifactId: 'backup_1' })).rejects.toThrow(
@@ -117,7 +117,7 @@ describe('component: MCP credential settings', () => {
     await expect(
       ctx.asMcpApiKey('ba_key_delete_owner', 'owner-1').action(api.backup.mcpExportBackup, {
         agentRunId: 'run_1',
-        scope: 'full',
+        scope: 'snapshot',
       }),
     ).rejects.toThrow('restricted to one explicit entry')
   })

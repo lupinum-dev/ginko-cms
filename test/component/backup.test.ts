@@ -5,17 +5,66 @@ import { describe, expect, it } from 'vitest'
 
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
+import { decodeBackupArchive } from '../../packages/convex/src/backup'
 import { executeConfirmedOperation } from '../helpers'
-import {
-  createCtx,
-  deleteEntry,
-  previewDeleteEntry,
-  seedEditorFixture,
-  seedOwner,
-  seedSettings,
-} from './entries/helpers'
+import { createCtx, seedEditorFixture, seedOwner, seedSettings } from './entries/helpers'
 
 const api = anyApi
+
+function emptyArchive(overrides: Record<string, unknown> = {}) {
+  return JSON.stringify({
+    version: 2,
+    exportedAt: 1,
+    scope: { scope: 'snapshot' },
+    dataChecksum: '0'.repeat(64),
+    counts: { entries: 0, revisions: 0, assets: 0, members: 0 },
+    manifest: {
+      cmsSchemaVersion: '0.2',
+      packageVersion: '0.2.0-rc.1',
+      contractHashes: [],
+      tables: [],
+      rowCounts: {},
+      dataBytes: 2,
+      assetBytes: 0,
+    },
+    data: {},
+    assetBytes: {},
+    ...overrides,
+  })
+}
+
+describe('backup archive trust boundary', () => {
+  it('accepts the strict empty archive shape', () => {
+    expect(decodeBackupArchive(emptyArchive())).toMatchObject({ version: 2 })
+  })
+
+  it('rejects unsupported schemas and unknown tables', () => {
+    const wrongSchema = JSON.parse(emptyArchive())
+    wrongSchema.manifest.cmsSchemaVersion = '0.1'
+    expect(() => decodeBackupArchive(JSON.stringify(wrongSchema))).toThrow(/manifest/i)
+
+    const unknownTable = JSON.parse(emptyArchive())
+    unknownTable.data.shellCommands = []
+    unknownTable.manifest.tables = ['shellCommands']
+    unknownTable.manifest.rowCounts = { shellCommands: 0 }
+    unknownTable.manifest.dataBytes = JSON.stringify({ shellCommands: [] }).length
+    expect(() => decodeBackupArchive(JSON.stringify(unknownTable))).toThrow(/unknown table/i)
+  })
+
+  it('rejects malformed rows and dishonest byte counts', () => {
+    const malformed = JSON.parse(emptyArchive())
+    malformed.data.entries = [null]
+    malformed.manifest.tables = ['entries']
+    malformed.manifest.rowCounts = { entries: 1 }
+    malformed.manifest.dataBytes = JSON.stringify({ entries: [null] }).length
+    malformed.counts.entries = 1
+    expect(() => decodeBackupArchive(JSON.stringify(malformed))).toThrow(/malformed row/i)
+
+    const dishonest = JSON.parse(emptyArchive())
+    dishonest.manifest.dataBytes = 20 * 1024 * 1024 + 1
+    expect(() => decodeBackupArchive(JSON.stringify(dishonest))).toThrow(/byte count|size/i)
+  })
+})
 
 async function seedStorageObject(
   ctx: ReturnType<typeof createCtx>,
@@ -34,7 +83,7 @@ describe('backup export and purge gating', () => {
     await seedEditorFixture(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const exported = await owner.action(api.backup.exportBackup, { scope: 'full' })
+    const exported = await owner.action(api.backup.exportBackup, { scope: 'snapshot' })
 
     expect(exported.artifactId).toMatch(/^backup_/)
     expect(exported.checksum).toMatch(/^[a-f0-9]{64}$/)
@@ -45,7 +94,7 @@ describe('backup export and purge gating', () => {
     expect(artifacts).toHaveLength(1)
     expect(artifacts[0]).toMatchObject({
       artifactId: exported.artifactId,
-      scope: 'full',
+      scope: 'snapshot',
       checksum: exported.checksum,
       driver: 'convex-storage-json',
     })
@@ -99,7 +148,7 @@ describe('backup export and purge gating', () => {
     await seedEditorFixture(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const exported = await owner.action(api.backup.exportBackup, { scope: 'full' })
+    const exported = await owner.action(api.backup.exportBackup, { scope: 'snapshot' })
     const [artifactBefore] = await ctx.readAll('backupArtifacts')
     expect(artifactBefore?.artifactId).toBe(exported.artifactId)
     expect(
@@ -306,19 +355,16 @@ describe('backup export and purge gating', () => {
     ).rejects.toThrow(/did not return a confirmation token/)
 
     await expect(
-      executeConfirmedOperation(owner, {
-        operationId: 'ginko-cms.purge-asset',
-        preview: api.assets.previewPurgeAssetOperation,
-        execute: api.assets.purgeAsset,
-        args: {
-          assetId: assetId as string,
-          force: true,
-          exportArtifactId: exported.artifactId,
-        },
+      owner.mutation(api.assets.previewPurgeAssetOperation, {
+        assetId: assetId as string,
+        force: true,
+        exportArtifactId: exported.artifactId,
       }),
-    ).resolves.toBeNull()
-    expect(await ctx.raw.run(async (innerCtx) => await innerCtx.storage.get(storageId))).toBeNull()
-    expect(await ctx.readAll('contentAssetRefs')).toEqual([])
+    ).rejects.toThrow(/extra field|force/i)
+    expect(
+      await ctx.raw.run(async (innerCtx) => Boolean(await innerCtx.storage.get(storageId))),
+    ).toBe(true)
+    expect(await ctx.readAll('contentAssetRefs')).toHaveLength(1)
   })
 
   it('rejects asset purge when the backup scope does not cover the asset', async () => {
@@ -518,7 +564,7 @@ describe('backup export and purge gating', () => {
     await seedEditorFixture(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const exported = await owner.action(api.backup.exportBackup, { scope: 'full' })
+    const exported = await owner.action(api.backup.exportBackup, { scope: 'snapshot' })
     const preview = await owner.action(api.backup.previewRestoreBackup, {
       artifactId: exported.artifactId,
     })
@@ -535,35 +581,5 @@ describe('backup export and purge gating', () => {
     ).rejects.toSatisfy(
       (error: unknown) => getCmsErrorData(error)?.code === 'BACKUP_RESTORE_BLOCKED',
     )
-  })
-
-  it('rejects permanent entry delete without a matching backup artifact', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const fixture = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    await expect(previewDeleteEntry(owner, { entryId: fixture.entryId })).rejects.toSatisfy(
-      (error: unknown) => {
-        const data = getCmsErrorData(error)
-        return (
-          data?.code === 'BACKUP_REQUIRED' &&
-          (data.details as { suggestedAction?: string } | null)?.suggestedAction === 'export-backup'
-        )
-      },
-    )
-
-    const exported = await owner.action(api.backup.exportBackup, {
-      scope: 'entry',
-      entryId: fixture.entryId,
-    })
-    await expect(
-      deleteEntry(owner, {
-        entryId: fixture.entryId,
-        exportArtifactId: exported.artifactId,
-      }),
-    ).resolves.toBeNull()
-    expect(await owner.query(api.editor.getEntry, { id: fixture.entryId })).toBeNull()
   })
 })

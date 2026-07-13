@@ -75,6 +75,57 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index('by_collection', ['collectionId']),
 
+  contentMigrationRuns: defineTable({
+    migrationId: v.string(),
+    sourceHash: v.string(),
+    fromContractHash: v.string(),
+    toContractHash: v.string(),
+    status: v.union(
+      v.literal('planned'),
+      v.literal('applying'),
+      v.literal('validating'),
+      v.literal('ready'),
+      v.literal('activated'),
+      v.literal('failed'),
+    ),
+    cursor: v.union(v.string(), v.null()),
+    startedAt: v.number(),
+    completedAt: v.union(v.number(), v.null()),
+  }).index('by_migration_id', ['migrationId']),
+
+  contentMigrationEntryReceipts: defineTable({
+    runId: v.id('contentMigrationRuns'),
+    entryId: v.id('entries'),
+    inputHash: v.string(),
+    outputHash: v.string(),
+    appliedDraftVersion: v.number(),
+    appliedAt: v.number(),
+  })
+    .index('by_run_entry', ['runId', 'entryId'])
+    .index('by_run', ['runId']),
+
+  contentMigrationValidationReceipts: defineTable({
+    runId: v.id('contentMigrationRuns'),
+    entryId: v.id('entries'),
+    entryHash: v.string(),
+    draftVersion: v.number(),
+    validatedAt: v.number(),
+  })
+    .index('by_run_entry', ['runId', 'entryId'])
+    .index('by_run', ['runId']),
+
+  contractTransitionApprovals: defineTable({
+    runId: v.id('contentMigrationRuns'),
+    migrationId: v.string(),
+    sourceHash: v.string(),
+    fromContractHash: v.string(),
+    toContractHash: v.string(),
+    publicStrategy: v.union(v.literal('preserve'), v.literal('rebuild'), v.literal('unpublish')),
+    validatedEntryCount: v.number(),
+    expiresAt: v.number(),
+    consumedAt: v.union(v.number(), v.null()),
+  }).index('by_run', ['runId']),
+
   entries: defineTable({
     collectionId: v.id('collections'),
     baseSlug: v.string(),
@@ -396,6 +447,32 @@ export default defineSchema({
     .index('by_owner_user', ['ownerUserId'])
     .index('by_status', ['status']),
 
+  // Transitional v0.1.3 table. No runtime function reads or accepts these
+  // credentials; legacyCredentialCutover deletes them before the final schema.
+  mcpKeys: defineTable({
+    name: v.string(),
+    prefix: v.string(),
+    hash: v.string(),
+    boundUserId: v.string(),
+    issuedBy: v.string(),
+    status: v.union(v.literal('active'), v.literal('revoked')),
+    createdAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    lastUsedAt: v.optional(v.union(v.number(), v.null())),
+    revokedAt: v.optional(v.union(v.number(), v.null())),
+  })
+    .index('by_hash', ['hash'])
+    .index('by_bound_user', ['boundUserId'])
+    .index('by_status', ['status']),
+
+  legacyCredentialCutovers: defineTable({
+    key: v.literal('mcpKeys-v0.1.3'),
+    deletedCount: v.number(),
+    activeCount: v.number(),
+    revokedCount: v.number(),
+    performedAt: v.number(),
+  }).index('by_key', ['key']),
+
   agentRuns: defineTable({
     credentialApiKeyId: v.optional(v.union(v.string(), v.null())),
     delegatedUserId: v.string(),
@@ -603,7 +680,7 @@ export default defineSchema({
   backupArtifacts: defineTable({
     artifactId: v.string(),
     scope: v.union(
-      v.literal('full'),
+      v.literal('snapshot'),
       v.literal('collection'),
       v.literal('entry'),
       v.literal('asset'),

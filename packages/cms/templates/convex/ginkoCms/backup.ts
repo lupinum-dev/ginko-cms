@@ -4,7 +4,7 @@ import { components } from '../_generated/api.js'
 import { action, mutation } from '../_generated/server.js'
 
 const backupScopeValidator = v.union(
-  v.literal('full'),
+  v.literal('snapshot'),
   v.literal('collection'),
   v.literal('entry'),
   v.literal('asset'),

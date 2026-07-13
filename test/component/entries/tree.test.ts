@@ -8,16 +8,11 @@ import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
   createCtx,
-  deleteEntry,
-  previewDeleteEntry,
-  publishEntry,
   seedEditorFixture,
   seedMultiLocaleSettings,
   seedOwner,
   seedSettings,
-  seedStorageObject,
   seedTreeFixture,
-  unpublishEntry,
 } from './helpers'
 
 const api = anyApi
@@ -129,129 +124,6 @@ describe('editor tree mutations', () => {
     expect(grandchild?.path).toBe('/docs/root-b/child/grandchild')
   })
 
-  it('blocks permanent delete while public routes exist and matches preview blocked state', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    await publishEntry(owner, entryId)
-    const backup = await owner.action(api.backup.exportBackup, { scope: 'entry', entryId })
-    const preview = await previewDeleteEntry(owner, {
-      entryId,
-      exportArtifactId: backup.artifactId,
-    })
-    expect(preview.allowed).toBe(false)
-    expect(preview.blockers[0]?.code).toBe('public-routes-present')
-    expect(preview.effects).toContainEqual(expect.objectContaining({ kind: 'routes', count: 1 }))
-
-    await unpublishEntry(owner, entryId)
-    const previewAfterUnpublish = await previewDeleteEntry(owner, {
-      entryId,
-      exportArtifactId: backup.artifactId,
-    })
-    expect(previewAfterUnpublish.allowed).toBe(true)
-
-    await deleteEntry(owner, {
-      entryId,
-      exportArtifactId: backup.artifactId,
-    })
-    const after = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
-    expect(after).toBeNull()
-    expect((await ctx.readAll('entryRevisions')).filter((row) => row.entryId === entryId)).toEqual(
-      [],
-    )
-    expect((await ctx.readAll('entryDrafts')).filter((row) => row.entryId === entryId)).toEqual([])
-    expect((await ctx.readAll('publicEntries')).filter((row) => row.entryId === entryId)).toEqual(
-      [],
-    )
-    expect((await ctx.readAll('publicRoutes')).filter((row) => row.entryId === entryId)).toEqual([])
-    expect(
-      (await ctx.readAll('contentAssetRefs')).filter((row) => row.entryId === entryId),
-    ).toEqual([])
-  })
-
-  it('blocks permanent delete when only descendant public routes remain', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { rootAId, childId } = await seedTreeFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    await publishEntry(owner, rootAId)
-    await publishEntry(owner, childId)
-    await ctx.raw.run(async (innerCtx) => {
-      const publicEntries = (await innerCtx.db.query('publicEntries').collect()) as Array<{
-        _id: string
-        entryId: string
-      }>
-      const publicRoutes = (await innerCtx.db.query('publicRoutes').collect()) as Array<{
-        _id: string
-        entryId: string
-      }>
-      for (const row of publicEntries.filter((row) => row.entryId === rootAId)) {
-        await innerCtx.db.delete(row._id as never)
-      }
-      for (const row of publicRoutes.filter((row) => row.entryId === rootAId)) {
-        await innerCtx.db.delete(row._id as never)
-      }
-    })
-
-    const backup = await owner.action(api.backup.exportBackup, { scope: 'entry', entryId: rootAId })
-    const preview = await previewDeleteEntry(owner, {
-      entryId: rootAId,
-      exportArtifactId: backup.artifactId,
-    })
-
-    expect(preview.allowed).toBe(false)
-    expect(preview.blockers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'published-descendants',
-        }),
-      ]),
-    )
-    expect(preview.details).toMatchObject({
-      publicDescendantRoutes: expect.arrayContaining([
-        expect.objectContaining({
-          entryId: childId,
-          path: '/docs/root-a/child',
-        }),
-      ]),
-    })
-  })
-
-  it('deletes an entry, reparents children, and recomputes their paths', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { childId, grandchildId, rootAId } = await seedTreeFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    const backup = await owner.action(api.backup.exportBackup, {
-      scope: 'entry',
-      entryId: childId,
-    })
-
-    await deleteEntry(owner, {
-      entryId: childId,
-      exportArtifactId: backup.artifactId,
-    })
-
-    const deletedChild = await owner.query(api.editor.getEntry, {
-      id: childId,
-      locale: 'en',
-    })
-    const grandchild = await owner.query(api.editor.getEntry, {
-      id: grandchildId,
-      locale: 'en',
-    })
-    expect(deletedChild).toBeNull()
-    expect(grandchild?.parentEntryId).toBe(rootAId)
-    expect(grandchild?.path).toBe('/docs/root-a/grandchild')
-  })
-
   it('rejects reparenting when recursive localized paths would conflict', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
@@ -360,59 +232,6 @@ describe('editor tree mutations', () => {
     ])
     expect(leftEntry?.path).toBe('/docs/root-a/gemeinsam')
     expect(rightEntry?.path).toBe('/docs/root-b/gemeinsam')
-  })
-
-  it('moves entry-scoped assets to the collection on delete', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { childId, collectionId } = await seedTreeFixture(ctx)
-
-    const now = Date.now()
-    const storageId = await seedStorageObject(ctx, { bytes: 'diagram', type: 'image/png' })
-    await ctx.seed(
-      'assets' as never,
-      {
-        storageId,
-        filename: 'diagram.png',
-        mimeType: 'image/png',
-        size: 128,
-        width: null,
-        height: null,
-        alt: null,
-        caption: null,
-        scope: 'entry',
-        entryId: childId,
-        collectionId,
-        createdBy: 'owner-1',
-        updatedBy: 'owner-1',
-        createdAt: now,
-        updatedAt: now,
-      } as never,
-    )
-
-    const owner = ctx.asCmsUser('owner-1')
-    const backup = await owner.action(api.backup.exportBackup, {
-      scope: 'entry',
-      entryId: childId,
-    })
-
-    await deleteEntry(owner, {
-      entryId: childId,
-      assetMode: 'moveToCollection',
-      exportArtifactId: backup.artifactId,
-    })
-
-    const colocatedAssets = await owner.query(api.assets.listColocatedAssets, {
-      collectionSlug: 'docs',
-    })
-    const assets = colocatedAssets.collection
-    expect(assets).toHaveLength(1)
-    expect(assets[0]).toMatchObject({
-      scope: 'collection',
-      entryId: null,
-      collectionId,
-    })
   })
 })
 

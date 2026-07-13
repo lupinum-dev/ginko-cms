@@ -41,11 +41,6 @@ const archiveEntryOperation: CmsOperationRef = {
   executeRef: api.entries.publish.archiveEntryOperationExecute,
   previewRef: api.entries.publish.previewArchiveEntryOperation,
 }
-const deleteEntryOperation: CmsOperationRef = {
-  id: 'ginko-cms.delete-entry',
-  executeRef: api.entries.tree.deleteEntryOperationExecute,
-  previewRef: api.entries.tree.previewDeleteEntryOperation,
-}
 const rollbackVersionOperation: CmsOperationRef = {
   id: 'ginko-cms.rollback-version',
   executeRef: api.entries.publish.rollbackVersionOperationExecute,
@@ -206,22 +201,6 @@ export async function previewArchiveEntry(appIdentity: CmsCallerClient, entryId:
 export async function archiveEntry(appIdentity: CmsCallerClient, entryId: string) {
   const operation = appIdentity.operation(archiveEntryOperation)
   const args = { entryId }
-  const preview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: preview.confirmation })
-}
-
-export async function previewDeleteEntry(
-  appIdentity: CmsCallerClient,
-  args: { entryId: string; exportArtifactId?: string; assetMode?: 'delete' | 'moveToCollection' },
-) {
-  return await appIdentity.operation(deleteEntryOperation).preview(args)
-}
-
-export async function deleteEntry(
-  appIdentity: CmsCallerClient,
-  args: { entryId: string; exportArtifactId: string; assetMode?: 'delete' | 'moveToCollection' },
-) {
-  const operation = appIdentity.operation(deleteEntryOperation)
   const preview = await operation.preview(args)
   return await operation.execute(args, { confirmation: preview.confirmation })
 }

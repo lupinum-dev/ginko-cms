@@ -6,9 +6,8 @@ import { requireRecord } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
 import { getCollectionDefaultLocale, getCollectionOrThrow } from '../lib/collections.js'
 import { asEntryId, toOptionalStringId, toStringId } from '../lib/ids.js'
-import type { HandlerMutationCtx, MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
+import type { HandlerMutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { getFieldCompletionState } from '../lib/validation.js'
-import { clearEntryProjectionRows } from './projections.js'
 import { readDraftRows, type EntryDraftDoc } from './workflow/drafts.js'
 import { entrySnapshotPath, publicPathForLocaleSnapshot } from './workflow/path.js'
 
@@ -243,34 +242,6 @@ export async function readStudioDraftView(
     orderRank: draftRows.shared?.orderRank ?? entry.orderRank ?? '',
     locales,
   }
-}
-
-export async function deleteEntryRecords(ctx: MutationCtx, entryId: Id<'entries'>) {
-  await clearEntryProjectionRows(ctx, entryId)
-
-  let revisionsDeleted = 0
-  do {
-    const revisions = await ctx.db
-      .query('entryRevisions')
-      .withIndex('by_entry_createdAt', (q) => q.eq('entryId', entryId))
-      .take(100)
-    revisionsDeleted = revisions.length
-    for (const revision of revisions) {
-      await ctx.db.delete(revision._id)
-    }
-  } while (revisionsDeleted === 100)
-
-  let draftsDeleted = 0
-  do {
-    const drafts = await ctx.db
-      .query('entryDrafts')
-      .withIndex('by_entry', (q) => q.eq('entryId', entryId))
-      .take(100)
-    draftsDeleted = drafts.length
-    for (const draft of drafts) {
-      await ctx.db.delete(draft._id)
-    }
-  } while (draftsDeleted === 100)
 }
 
 async function latestPublishedShared(

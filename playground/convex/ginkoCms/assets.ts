@@ -24,7 +24,6 @@ function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
 
 const purgeAssetArgs = {
   assetId: v.string(),
-  force: v.optional(v.boolean()),
   exportArtifactId: v.string(),
 }
 
