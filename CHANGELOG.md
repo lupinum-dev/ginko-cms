@@ -81,6 +81,9 @@
   instead of accepting arbitrary return values.
 - Backup artifact storage is now represented by its only supported driver
   instead of advertising hypothetical backend adapters.
+- Removed completed root-level migration journals, comparison notes, and audit
+  plans that contradicted current architecture. Durable behavior remains in the
+  maintained docs and Git history.
 
 ### Removed
 

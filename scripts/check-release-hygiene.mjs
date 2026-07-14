@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const scannedExtensions = new Set(['.js', '.json', '.md', '.mjs', '.ts', '.vue', '.yaml', '.yml'])
 const privatePathPattern = /i18n-cms|\/_temp\/i18n-cms|\/Users\/matthias\/Git\/_temp/
-const ignoredFiles = new Set(['journal.md', 'update.md', 'scripts/check-release-hygiene.mjs'])
+const ignoredFiles = new Set(['scripts/check-release-hygiene.mjs'])
 
 const trackedFiles = execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf8' })
   .split('\n')
