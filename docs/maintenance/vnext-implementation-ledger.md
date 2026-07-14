@@ -336,6 +336,11 @@ mixed-generation reindex defect. The final suites cover:
   document above 256 KiB. Component evidence records locale/field/relation
   totals, applies a 251-item plan in bounded ten-item batches, and runtime
   orchestration retries after a simulated lost batch-two response.
+- Work-package commit `7cc827c4` (`feat!: bound and resume portable imports`)
+  passed the focused 27-test planning/component/retry slice, then the complete
+  clean-repository `pnpm check` gate (format, policy guards, lint, package and
+  Studio builds/typechecks, publish-specifier checks, and the full test suite)
+  from a detached exact-commit worktree.
 - Focused verification passed 74 tests across migrations, backup, credential,
   tree, filesystem, CLI, and generated-bridge suites. Workspace typecheck,
   component generation, module build, Studio build/typecheck, and playground
