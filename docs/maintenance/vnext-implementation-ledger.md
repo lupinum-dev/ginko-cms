@@ -1576,7 +1576,7 @@ Focused green evidence:
   gated skip / 934 tests with one skip.
 
 The first repository-gate attempts found only integration cleanup in the new
-work: a public test title used the internal word “principal”, one removed
+work: a public test title used an internal identity term, one removed
 pagination constraint left an unused import, and that deletion needed Oxfmt.
 After those direct corrections, the uninterrupted full gate above passed.
 
@@ -1603,11 +1603,101 @@ Chromium Worker probes, and fresh pnpm/npm consumers.
 
 ### Commit, findings, and acceptance matrix
 
-- Ginko CMS: `a5ef63d1` — `fix: make Studio state principal and scope safe`.
+- Ginko CMS: `a5ef63d1` — the WP4 Studio lifecycle and scope-safety implementation.
 - Ginko Content: unchanged at `fe24e4a`.
 - Better Convex Nuxt: unchanged and clean at `dda45f9`.
 - No blocker or framework defect remains. The development CMS artifact is not a
   final candidate; final WP8/WP9 clean two-pack evidence is still required.
-- Updated to `implemented`: `Studio principal retirement`,
+- Updated the Studio caller-retirement row to `implemented`,
   `Disposed-scope settlement`, `Pagination concurrency`, and
   `Exact Studio API types`.
+
+## 2026-07-14 — WP5 Supervised MCP Authority
+
+### Objective and hard cutover
+
+Make the callable MCP product match its documented review-gated authority. MCP
+may inspect CMS state and assets, create entries, save drafts, preview publish
+impact, request human publish review, and inspect its own runs and review
+status. It cannot publish, archive, restore, export backups, or move asset
+ownership.
+
+The old direct tools, component functions, and generated host bridge wrappers
+for those excluded writes were deleted. Human publish and archive guards now
+reject MCP callers even if a legacy credential row contains those scopes. The
+accepted MCP credential-scope validator and runtime capability snapshot expose
+only read, create-entry, and edit-entry authority. No compatibility path or
+hidden callable wrapper remains.
+
+### Audit truth, review ownership, and retry safety
+
+- Agent runs are credential-owned and now persist an immutable effective-scope snapshot at start. Studio
+  and MCP serialization reads that snapshot rather than joining current
+  credential settings and presenting them as history. Every protected call
+  still rechecks current credential status, expiry, member role, and scopes.
+- MCP run listing is credential-scoped. Review-status lookup proves ownership
+  through the originating run and remains available after the run closes.
+- MCP entry creation alone requires a caller-provided `requestId`. A single
+  CMS-owned receipt table records caller, request id, stable argument hash,
+  created entry, and expiry. Exact and concurrent retries return the original
+  entry; changed arguments and another credential using the run fail. Expired
+  receipts are removed through the expiry index in bounded batches.
+- The existing recursive response redactor remains the one output boundary for
+  success and error text and structured values. Tool-contract tests also prove
+  every active tool declares a capability and accepts no user, role, key, token
+  hash, or capability override input.
+
+### Test-first and executable evidence
+
+The initial contract tests were red because 22 tools still included direct
+publish, archive, restore, backup export, and asset movement; publish preview
+issued destructive confirmation data; create had no request key; and run
+serialization joined current credential scopes. The implementation deleted
+those paths and corrected the host templates rather than weakening the tests.
+
+Focused MCP, component, review, redaction, and runtime evidence passed 8 files
+and 70 tests before the broader gate. Additional adversarial coverage proves
+concurrent duplicate creation, argument-hash conflict, cross-credential run
+denial, immutable scope history, expired credential rejection, closed-run
+review lookup, and direct publish/archive denial with unchanged public rows.
+
+`pnpm check` passed formatting, architecture and generated-surface guards,
+lint, all package/Studio typechecks and builds, publish-specifier checks, and
+the complete test suite. `package:e2e:dev` then installed the exact tuple into a
+fresh strict pnpm consumer and passed generated host setup, doctor, typecheck,
+Nuxt/Nitro production build, package imports, and portable content verification.
+
+Exact development artifact bytes:
+
+- Content at immutable commit `fe24e4a`:
+  `12253bbddb77a65ef84af86dbd94b253102d615b93596b8422b6323644800cc4`.
+- Better Convex Nuxt at clean commit `dda45f9`:
+  `46043aef29efc6087e4aa3fe90d88862fb6d57ac9fb96677adeff5672c4676fb`.
+- CMS Contract:
+  `6a81d799e275d207c39bd636f5e48f6ceb65892ee20eadc2bb5dce6f55ac0078`.
+- CMS Convex:
+  `456d7ed2c2b8dcc28a7fdd41e52ed9dfb4e61b7131fe554fe63667397b8d6054`.
+- CMS:
+  `72bd4caba2db221daad97b463b193a1623039af491908f69326d7c7e6287e0df`.
+
+During final packaging, the shared Ginko Content checkout was switched by a
+concurrent task to `codex/release-0.3.0-rc.1` and contained unrelated uncommitted
+work. No file in that checkout was changed or reset. The already-reviewed
+`fe24e4a` commit was packed from an isolated detached worktree and reproduced
+the previously certified SHA-256 exactly.
+
+The Ginko Content product owner confirmed that the release branch intentionally
+supersedes `fe24e4a`, but is not yet an immutable dependency candidate. The
+publish target is Content `0.3.0-rc.1`, following the public `0.2.1` baseline;
+the unpublished “0.4” work and CMS portability work are being combined into
+that single semver step. CMS continues to use the certified `fe24e4a` bytes only
+as temporary integration evidence. Final coordinated verification must replace
+them with the clean `0.3.0-rc.1` commit and reproducible tarball supplied after
+Content's complete gate. `0add0822` is explicitly not the dependency commit.
+
+### Acceptance matrix
+
+Updated to `implemented`: `Supervised MCP surface`,
+`MCP credential fail-closed`, `Idempotent MCP entry creation`, and
+`Agent-run audit truth`. Final clean candidate regeneration remains WP8/WP9
+work; these development artifacts are not release candidates.
