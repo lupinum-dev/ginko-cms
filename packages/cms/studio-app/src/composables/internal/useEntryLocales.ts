@@ -1,5 +1,6 @@
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
+import type { FunctionArgs } from 'convex/server'
 import type { Ref } from 'vue'
 import { computed, reactive, ref, watch } from 'vue'
 import type { useRouter } from 'vue-router'
@@ -196,7 +197,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
               ...buildSecondaryBodyPatch(),
             },
           },
-        },
+        } as FunctionArgs<typeof api.ginkoCms.editor.saveEntryDraft>['patch'],
       })
       secondaryLastSaved.value = new Date()
       await secondaryEntryQuery.refresh()

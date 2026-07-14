@@ -62,11 +62,7 @@ const renderedTitle = computed(() => {
 })
 
 const entry = computed(() => {
-  const value = editor?.loader.entry
-  if (value && typeof value === 'object' && 'value' in value) {
-    return value.value
-  }
-  return value
+  return editor?.loader.entry ?? null
 })
 
 const currentReadinessView = computed(() =>

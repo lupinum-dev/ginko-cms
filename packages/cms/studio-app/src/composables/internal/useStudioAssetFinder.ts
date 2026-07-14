@@ -7,10 +7,9 @@ import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
-import { useStudioHostContext } from '../../boundary/studio-host-context'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
 import { useCmsStudioPaginatedQuery } from '../useCmsStudioPaginatedQuery'
-import { useConvexMutation, useConvexUpload } from '../useStudioConvex'
+import { useConvexAction, useConvexMutation, useConvexUpload } from '../useStudioConvex'
 import type { StudioAssetContext, StudioAssetRecord } from './types'
 import { studioConfirm } from './useStudioConfirm'
 
@@ -190,7 +189,6 @@ export function useStudioAssetFinder(
 ) {
   useCmsStudioAccess()
 
-  const studioHost = useStudioHostContext()
   const ASSET_PAGE_SIZE = 100
   const upload = useConvexUpload(api.ginkoCms.assets.generateUploadUrl, {
     allowedTypes: [...ALLOWED_ASSET_MIME_TYPES],
@@ -200,20 +198,16 @@ export function useStudioAssetFinder(
   const trashAssetMutation = useConvexMutation(api.ginkoCms.assets.deleteAsset)
   const restoreAssetMutation = useConvexMutation(api.ginkoCms.assets.restoreAsset)
   const moveAssetMutation = useConvexMutation(api.ginkoCms.assets.moveAsset)
+  const previewTrashAssetMutation = useConvexMutation(
+    api.ginkoCms.assets.previewDeleteAssetOperation,
+  )
+  const registerAssetAction = useConvexAction(api.ginkoCms.assets.registerAsset)
 
   async function previewTrashAsset(asset: FinderAssetRecord, force: boolean) {
-    const preview = (await studioHost
-      .requireConvexClient()
-      .mutation(api.ginkoCms.assets.previewDeleteAssetOperation, {
-        assetId: asset.id,
-        ...(force ? { force: true } : {}),
-      })) as {
-      allowed: boolean
-      blockers: Array<{ message: string }>
-      warnings: Array<{ message: string }>
-      summary: string
-      confirmation?: { token: string; expiresAt: number }
-    }
+    const preview = await previewTrashAssetMutation({
+      assetId: asset.id,
+      ...(force ? { force: true } : {}),
+    })
     if (preview.allowed === false || preview.blockers.length > 0) {
       throw new Error(
         preview.blockers[0]?.message ?? preview.warnings[0]?.message ?? preview.summary,
@@ -248,7 +242,7 @@ export function useStudioAssetFinder(
     () => ({
       search: searchQuery.value.trim() || undefined,
       kind: typeFilter.value,
-      deleted: sidebarMode.value === 'trash' ? 'trashed' : 'active',
+      deleted: sidebarMode.value === 'trash' ? ('trashed' as const) : ('active' as const),
       usage: usageFilter.value,
     }),
     { initialNumItems: ASSET_PAGE_SIZE },
@@ -805,16 +799,14 @@ export function useStudioAssetFinder(
                 : context?.collectionId || context?.collectionSlug
                   ? 'collection'
                   : 'global'
-        const assetId = await studioHost
-          .requireConvexClient()
-          .action(api.ginkoCms.assets.registerAsset, {
-            storageId,
-            filename: file.name,
-            scope,
-            ...(scope === 'entry' ? { entryId: context?.entryId } : {}),
-            ...(scope !== 'global' ? { collectionId: context?.collectionId } : {}),
-            ...(scope !== 'global' ? { collectionSlug: context?.collectionSlug } : {}),
-          })
+        const assetId = await registerAssetAction({
+          storageId,
+          filename: file.name,
+          scope,
+          ...(scope === 'entry' ? { entryId: context?.entryId } : {}),
+          ...(scope !== 'global' ? { collectionId: context?.collectionId } : {}),
+          ...(scope !== 'global' ? { collectionSlug: context?.collectionSlug } : {}),
+        })
         if (typeof assetId === 'string') await context?.onAssetRegistered?.(assetId)
         if (typeof assetId === 'string') options.onAssetUploaded?.(assetId)
       }
@@ -1017,6 +1009,7 @@ export function useStudioAssetFinder(
     error.value = ''
     try {
       for (const asset of selectedAssets) {
+        if (!asset.collectionId) continue
         await moveAssetMutation({
           assetId: asset.id,
           scope: 'collection',

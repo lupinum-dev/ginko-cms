@@ -1,5 +1,6 @@
 import type { CmsRole } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
+import type { FunctionArgs } from 'convex/server'
 import type { ShallowUnwrapRef } from 'vue'
 import { computed, reactive, ref } from 'vue'
 
@@ -32,6 +33,8 @@ type RevalidationTarget = {
   createdAt: number
   updatedAt: number
 }
+
+type McpScope = FunctionArgs<typeof api.ginkoCms.mcpCredentials.upsertSettings>['scopes'][number]
 
 type RevalidationJob = {
   id: string
@@ -211,7 +214,7 @@ export function useStudioSettingsAdmin() {
   const mcpConnectionForm = reactive<{
     name: string
     expiresIn: string
-    scopes: string[]
+    scopes: McpScope[]
   }>({
     name: 'Codex MCP',
     expiresIn: '604800',
@@ -389,7 +392,7 @@ export function useStudioSettingsAdmin() {
     await storageHygieneQuery.refresh()
   }
 
-  function toggleMcpScope(scope: string, checked: boolean) {
+  function toggleMcpScope(scope: McpScope, checked: boolean) {
     const next = new Set(mcpConnectionForm.scopes)
     if (checked) next.add(scope)
     else next.delete(scope)

@@ -13,6 +13,7 @@ import {
   compareOrderRank,
   getClientValidationErrors,
 } from '@public/utils/cmsFields'
+import type { FunctionArgs } from 'convex/server'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -408,8 +409,10 @@ async function handleCreate(publish = false) {
       collection: collection.value,
       slug: effectiveSlug.value,
       locale: defaultLocale.value,
-      shared: buildSharedData(),
-      localized: buildLocalizedData(dataFields),
+      shared: buildSharedData() as FunctionArgs<typeof api.ginkoCms.editor.createEntry>['shared'],
+      localized: buildLocalizedData(dataFields) as FunctionArgs<
+        typeof api.ginkoCms.editor.createEntry
+      >['localized'],
       ...(isTree.value ? { nodeKind: form.kind as NodeKind } : {}),
       ...(isTree.value && form.parentEntryId ? { parentEntryId: form.parentEntryId } : {}),
     })

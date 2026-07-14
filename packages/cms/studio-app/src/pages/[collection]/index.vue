@@ -11,6 +11,7 @@ import {
 } from '@lucide/vue'
 import type { EntryStatus } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
+import type { FunctionArgs } from 'convex/server'
 import { computed, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -175,24 +176,26 @@ const listQuery = useCmsStudioPaginatedQuery(api.ginkoCms.editor.listEntriesForS
   initialNumItems: pageSize.value,
 })
 studioDebug.watchQueryError('listEntriesForStudio', listQuery, { collection })
-const summaryArgs = computed(() => {
-  if (!collectionExists.value || workStateFilter.value === 'all') return null
-  return {
-    collection: collection.value,
-    locale: locale.value,
-    workState: workStateFilter.value === 'blocked' ? 'needs_attention' : workStateFilter.value,
-    ...(statusFilter.value !== 'all' ? { status: statusFilter.value } : {}),
-    ...(searchQuery.value.trim() ? { query: searchQuery.value.trim() } : {}),
-    limit: 150,
-  }
-})
+const summaryArgs = computed<FunctionArgs<typeof api.ginkoCms.editor.listEntrySummaries> | null>(
+  () => {
+    if (!collectionExists.value || workStateFilter.value === 'all') return null
+    return {
+      collection: collection.value,
+      locale: locale.value,
+      workState: workStateFilter.value === 'blocked' ? 'needs_attention' : workStateFilter.value,
+      ...(statusFilter.value !== 'all' ? { status: statusFilter.value } : {}),
+      ...(searchQuery.value.trim() ? { query: searchQuery.value.trim() } : {}),
+      limit: 150,
+    }
+  },
+)
 const summaryQuery = useCmsStudioQuery(api.ginkoCms.editor.listEntrySummaries, summaryArgs)
 studioDebug.watchQueryError('listEntrySummaries', summaryQuery, { collection })
 const rows = computed<StudioEntryRow[]>(() =>
-  listQuery.results.value.map((item: StudioEntryRow & { baseSlug?: string }) => ({
-    ...item,
-    slug: item.baseSlug ?? item.slug,
-  })),
+  listQuery.results.value.map((item) => {
+    const row = item as unknown as StudioEntryRow & { baseSlug?: string }
+    return { ...row, slug: row.baseSlug ?? row.slug }
+  }),
 )
 watchEffect(async () => {
   const currentCollection = collectionConfig.value

@@ -57,7 +57,12 @@ watch(query, (val: string) => {
   }, 250)
 })
 
-const cmsSearch = useStudioSearch(debouncedQuery, { limit: 10 })
+const cmsSearch = useStudioSearch(debouncedQuery, {
+  collection: computed(() =>
+    typeof route.params.collection === 'string' ? route.params.collection : undefined,
+  ),
+  limit: 10,
+})
 const searchPending = computed(
   () => query.value !== debouncedQuery.value || cmsSearch.pending?.value,
 )

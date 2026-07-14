@@ -23,7 +23,15 @@ import type { FunctionReference } from 'convex/server'
  */
 export type StudioOperationKind = 'query' | 'mutation' | 'action'
 
-export type StudioApiSurface = Record<string, Record<string, StudioOperationKind>>
+export type StudioApiEntry =
+  | StudioOperationKind
+  | {
+      kind: StudioOperationKind
+      component?: string
+      confirmation?: true
+    }
+
+export type StudioApiSurface = Record<string, Record<string, StudioApiEntry>>
 
 /**
  * Every currently-allowed Studio group, function, and operation kind.
@@ -40,7 +48,11 @@ export const studioApiSurface = {
   },
   assets: {
     attachAssetsToEntry: 'mutation',
-    deleteAsset: 'mutation',
+    deleteAsset: {
+      kind: 'mutation',
+      component: 'deleteAssetOperationExecute',
+      confirmation: true,
+    },
     generateUploadUrl: 'mutation',
     getAsset: 'query',
     getAssetManagerData: 'query',
@@ -48,7 +60,7 @@ export const studioApiSurface = {
     moveAsset: 'mutation',
     previewDeleteAssetOperation: 'mutation',
     previewPurgeAssetOperation: 'mutation',
-    purgeAsset: 'mutation',
+    purgeAsset: { kind: 'mutation', confirmation: true },
     registerAsset: 'action',
     resolveAssetUrls: 'query',
     restoreAsset: 'mutation',
@@ -70,7 +82,11 @@ export const studioApiSurface = {
     storageHygieneReport: 'query',
   },
   editor: {
-    archiveEntry: 'mutation',
+    archiveEntry: {
+      kind: 'mutation',
+      component: 'archiveEntryOperationExecute',
+      confirmation: true,
+    },
     createCheckpoint: 'mutation',
     createEntry: 'mutation',
     createLocaleVariant: 'mutation',
@@ -91,12 +107,24 @@ export const studioApiSurface = {
     previewPublishEntryOperation: 'mutation',
     previewRollbackVersionOperation: 'mutation',
     previewUnpublishEntryOperation: 'mutation',
-    publishEntry: 'mutation',
+    publishEntry: {
+      kind: 'mutation',
+      component: 'publishEntryOperationExecute',
+      confirmation: true,
+    },
     reparentEntry: 'mutation',
     reorderEntry: 'mutation',
-    rollbackVersion: 'mutation',
+    rollbackVersion: {
+      kind: 'mutation',
+      component: 'rollbackVersionOperationExecute',
+      confirmation: true,
+    },
     saveEntryDraft: 'mutation',
-    unpublishEntry: 'mutation',
+    unpublishEntry: {
+      kind: 'mutation',
+      component: 'unpublishEntryOperationExecute',
+      confirmation: true,
+    },
   },
   members: {
     addMember: 'mutation',
@@ -104,7 +132,11 @@ export const studioApiSurface = {
     getAccessContext: 'query',
     listMembers: 'query',
     previewRemoveMemberOperation: 'mutation',
-    removeMember: 'mutation',
+    removeMember: {
+      kind: 'mutation',
+      component: 'removeMemberOperationExecute',
+      confirmation: true,
+    },
     updateMemberRole: 'mutation',
   },
   public: {
@@ -121,7 +153,11 @@ export const studioApiSurface = {
     listRevalidationJobs: 'query',
     listRevalidationTargets: 'query',
     previewRetryRevalidationJobOperation: 'mutation',
-    retryRevalidationJob: 'mutation',
+    retryRevalidationJob: {
+      kind: 'mutation',
+      component: 'retryRevalidationJobOperationExecute',
+      confirmation: true,
+    },
     upsertRevalidationTarget: 'mutation',
   },
   reviewRequests: {
@@ -137,7 +173,11 @@ export const studioApiSurface = {
   },
   siteData: {
     createSiteDataBlock: 'mutation',
-    deleteSiteDataBlock: 'mutation',
+    deleteSiteDataBlock: {
+      kind: 'mutation',
+      component: 'deleteSiteDataBlockOperationExecute',
+      confirmation: true,
+    },
     getSiteDataBlock: 'query',
     listSiteData: 'query',
     previewDeleteSiteDataBlockOperation: 'mutation',
@@ -153,14 +193,51 @@ export const studioApiSurface = {
  * *only* from the descriptor, a backend function absent from the descriptor can
  * never appear on it.
  */
-export type StudioApiFromSurface<Surface extends StudioApiSurface> = {
+export type StudioApiFromSurface<Surface extends StudioApiSurface, ComponentApi> = {
   ginkoCms: {
     [Group in keyof Surface]: {
-      [Name in keyof Surface[Group]]: Surface[Group][Name] extends 'query'
-        ? FunctionReference<'query'>
-        : Surface[Group][Name] extends 'mutation'
-          ? FunctionReference<'mutation'>
-          : FunctionReference<'action'>
+      [Name in keyof Surface[Group]]: Group extends keyof ComponentApi
+        ? StudioComponentName<Surface[Group][Name], Name> extends keyof ComponentApi[Group]
+          ? ComponentApi[Group][StudioComponentName<
+              Surface[Group][Name],
+              Name
+            >] extends FunctionReference<
+              infer Kind,
+              infer _Visibility,
+              infer Args,
+              infer Return,
+              infer ComponentPath
+            >
+            ? FunctionReference<
+                Kind,
+                'public',
+                StudioArgs<Surface[Group][Name], Args>,
+                Return,
+                ComponentPath
+              >
+            : never
+          : never
+        : never
     }
   }
 }
+
+export type StudioEntryKind<Entry> = Entry extends {
+  kind: infer Kind extends StudioOperationKind
+}
+  ? Kind
+  : Entry extends StudioOperationKind
+    ? Entry
+    : never
+
+type StudioComponentName<Entry extends StudioApiEntry, Name> = Entry extends {
+  component: infer ComponentName
+}
+  ? ComponentName
+  : Name
+
+type StudioArgs<Entry extends StudioApiEntry, Args> = Entry extends { confirmation: true }
+  ? Args extends Record<string, unknown>
+    ? Omit<Args, '_confirmationToken'> & { _confirmationToken: string }
+    : Args
+  : Args

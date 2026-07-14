@@ -12,8 +12,11 @@
 //      the descriptor entries — a backend function present on `#convex/api` but
 //      absent from the descriptor must not appear on the bridge.
 
+import type { ComponentApi } from '@lupinum/ginko-cms-convex/component'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
+
 import type { api } from '#convex/api'
-import type { studioApiSurface } from '#ginko-cms-public/studio-api-surface.js'
+import type { StudioEntryKind, studioApiSurface } from '#ginko-cms-public/studio-api-surface.js'
 import type { GinkoCmsStudioHostApi } from '#ginko-cms-public/types.js'
 
 type TypeAssert<Condition extends true> = Condition
@@ -40,7 +43,7 @@ type SurfaceMatchesConvex = {
   [Group in keyof Surface]: {
     [Name in keyof Surface[Group]]: Group extends keyof ConvexGinkoCms
       ? Name extends keyof ConvexGinkoCms[Group]
-        ? Surface[Group][Name] extends OpKindOf<ConvexGinkoCms[Group][Name]>
+        ? StudioEntryKind<Surface[Group][Name]> extends OpKindOf<ConvexGinkoCms[Group][Name]>
           ? true
           : [
               'KIND_MISMATCH',
@@ -69,9 +72,22 @@ type _EveryDescriptorEntryExistsWithDeclaredKind = TypeAssert<
 // ---------------------------------------------------------------------------
 
 type BridgeGinkoCms = GinkoCmsStudioHostApi['ginkoCms']
+type GeneratedGinkoCms = ComponentApi
 
 // The bridge exposes exactly the descriptor's groups — no more, no fewer.
 type _BridgeGroupsMatchDescriptor = TypeAssert<TypeEqual<keyof BridgeGinkoCms, keyof Surface>>
+type _ExactGetAccessContext = TypeAssert<
+  TypeEqual<
+    FunctionArgs<BridgeGinkoCms['members']['getAccessContext']>,
+    FunctionArgs<GeneratedGinkoCms['members']['getAccessContext']>
+  >
+>
+type _ExactSaveEntryDraft = TypeAssert<
+  TypeEqual<
+    FunctionReturnType<BridgeGinkoCms['editor']['saveEntryDraft']>,
+    FunctionReturnType<GeneratedGinkoCms['editor']['saveEntryDraft']>
+  >
+>
 
 // The bridge type is, by construction, `StudioApiFromSurface<typeof
 // studioApiSurface>` — so its per-function names and kinds cannot drift from the
@@ -103,6 +119,8 @@ type _NoMigrationsGroup = BridgeGinkoCms['migrations']
 export type _StudioApiSurfaceTypeTest = [
   _EveryDescriptorEntryExistsWithDeclaredKind,
   _BridgeGroupsMatchDescriptor,
+  _ExactGetAccessContext,
+  _ExactSaveEntryDraft,
   _NoMcpCreateEntry,
   _NoRestoreEntry,
   _NoGetAssetUrl,

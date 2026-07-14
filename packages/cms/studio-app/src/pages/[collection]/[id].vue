@@ -112,9 +112,7 @@ const currentReadinessView = computed(() =>
 )
 
 function getCurrentLocale() {
-  return typeof editor.loader.currentLocale === 'string'
-    ? editor.loader.currentLocale
-    : editor.loader.currentLocale.value
+  return editor.loader.currentLocale
 }
 
 function visibilityStatusLabel(status: string | null | undefined) {
@@ -194,7 +192,7 @@ const publicVisibility = computed(() => {
           ...localeState,
           current: localeState.locale === currentLocale,
           draftState: variant ? 'Draft exists' : isPublic ? 'No draft changes' : 'Missing draft',
-          publishedState: variant?.published || isPublic ? 'Live' : 'Not live',
+          publishedState: variant?.publishedPath || isPublic ? 'Live' : 'Not live',
           draftPath: variant?.draftPath ?? null,
           publishedPath: variant?.publishedPath ?? null,
           label: visibilityStatusLabel(localeState.status),
@@ -378,7 +376,7 @@ const translationReadiness = computed(() =>
         locale: locale.code,
         label: locale.label || locale.code,
         exists: localeReadiness?.draftExists ?? !!variant,
-        published: localeReadiness?.published ?? !!variant?.published,
+        published: localeReadiness?.published ?? variant?.publishedPath != null,
         draftPath: localeReadiness?.draftUrl ?? variant?.draftPath ?? null,
         status: readinessDetailQuery.pending.value
           ? 'Checking publish status'

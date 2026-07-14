@@ -7,6 +7,7 @@ import type {
   LocaleText,
   SlugMode,
 } from '@lupinum/ginko-cms-contract/shared/types.js'
+import type { ComponentApi as GinkoCmsComponentApi } from '@lupinum/ginko-cms-convex/component'
 import type { ConvexAuthStatus, ConvexClientHandle, ConvexUser } from 'better-convex-nuxt'
 import type { ComputedRef, Ref } from 'vue'
 
@@ -62,7 +63,10 @@ export interface GinkoCmsStudioHostBridgeAuth {
  * runtime object can never drift, and no un-listed backend function can appear
  * on either.
  */
-export type GinkoCmsStudioHostApi = StudioApiFromSurface<typeof studioApiSurface>
+export type GinkoCmsStudioHostApi = StudioApiFromSurface<
+  typeof studioApiSurface,
+  GinkoCmsComponentApi
+>
 
 export interface GinkoCmsStudioMcpApiKeyCreateInput {
   name: string

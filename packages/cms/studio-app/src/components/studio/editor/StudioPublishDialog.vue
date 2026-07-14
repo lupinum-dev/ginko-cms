@@ -27,13 +27,7 @@ const props = defineProps<{
 const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
 
-const entry = computed(() => {
-  const value = editor.loader.entry
-  if (value && typeof value === 'object' && 'value' in value) {
-    return value.value
-  }
-  return value
-})
+const entry = computed(() => editor.loader.entry)
 
 const isFirstPublish = computed(() => entry.value?.status === 'draft' && !entry.value?.publishedAt)
 const publishImpactLocales = computed(() => props.publishImpact?.locales ?? [])

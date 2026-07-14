@@ -54,6 +54,8 @@ interface UseCmsAuthStateReturn {
   authEnabled: ComputedRef<boolean>
   user: ComputedRef<CmsAuthUser | null>
   isAuthenticated: ComputedRef<boolean>
+  pending: ComputedRef<boolean>
+  principalKey: ComputedRef<string>
   signOut: () => Promise<void>
 }
 
@@ -69,12 +71,19 @@ export function useCmsAuthState(): UseCmsAuthStateReturn {
   const auth = computed<BridgeAuth | null>(() => readBridgeAuth())
 
   const isAuthenticated = computed(() => auth.value?.isAuthenticated.value === true)
+  const pending = computed(() => auth.value?.isPending.value === true)
   const user = computed(() => normalizeUser(auth.value?.user.value))
+  const principalKey = computed(() => {
+    if (pending.value) return 'pending'
+    return isAuthenticated.value && user.value ? `user:${user.value.id}` : 'anonymous'
+  })
 
   return {
     authEnabled: computed(() => auth.value !== null),
     user,
     isAuthenticated,
+    pending,
+    principalKey,
     async signOut(): Promise<void> {
       const onSignOut = studioHost.getBridge().onSignOut
       if (typeof onSignOut === 'function') await onSignOut()

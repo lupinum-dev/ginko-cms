@@ -21,13 +21,7 @@ const props = defineProps<{
 const editor = useStudioEntryEditorContext()
 type TrackTone = 'danger' | 'neutral' | 'success' | 'warning'
 
-const entry = computed(() => {
-  const value = editor.loader.entry
-  if (value && typeof value === 'object' && 'value' in value) {
-    return value.value
-  }
-  return value
-})
+const entry = computed(() => editor.loader.entry)
 
 const readinessView = computed(() =>
   mapEntryReadinessDetail({

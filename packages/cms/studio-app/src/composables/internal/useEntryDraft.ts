@@ -2,6 +2,7 @@ import type { JsonObject, NodeKind } from '@lupinum/ginko-cms-contract/shared/ty
 import { isEqualJsonValue } from '@lupinum/ginko-cms-contract/shared/utils.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { buildCmsFieldData } from '@public/utils/cmsFields'
+import type { FunctionArgs } from 'convex/server'
 import type { Ref } from 'vue'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
@@ -371,7 +372,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
           ...(Object.keys(localePatch).length > 0
             ? { locales: { [currentLocale.value]: localePatch } }
             : {}),
-        },
+        } as FunctionArgs<typeof api.ginkoCms.editor.saveEntryDraft>['patch'],
       })
       const draftVersion = saveResult?.draftVersion ?? currentEntry.draftVersion
       await refreshEntry()

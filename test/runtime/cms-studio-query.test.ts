@@ -3,7 +3,7 @@
 import { mount } from '@vue/test-utils'
 import { ConvexError } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent, h, nextTick } from 'vue'
+import { computed, defineComponent, h, nextTick, ref } from 'vue'
 
 import { useCmsStudioPaginatedQuery } from '../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuery'
 import {
@@ -13,16 +13,14 @@ import {
 } from '../../packages/cms/studio-app/src/composables/useCmsStudioQuery'
 
 const host = vi.hoisted(() => ({
-  convex: undefined as
-    | {
-        onUpdate: ReturnType<typeof vi.fn>
-      }
-    | undefined,
+  bridge: { auth: null as null | Record<string, unknown> },
+  convex: undefined as Record<string, ReturnType<typeof vi.fn>> | undefined,
 }))
 
 vi.mock('../../packages/cms/studio-app/src/boundary/studio-host-context', () => ({
   useStudioHostContext: () => ({
     getConvexClient: () => host.convex,
+    getBridge: () => host.bridge,
   }),
 }))
 
@@ -34,7 +32,10 @@ vi.mock('../../packages/cms/studio-app/src/composables/permissions', () => ({
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () => ({
   useCmsStudioAccess: () => ({
-    ready: computed(() => true),
+    ready: computed(() => {
+      const auth = host.bridge.auth as { isAuthenticated?: { value?: boolean } } | null | undefined
+      return auth?.isAuthenticated?.value ?? true
+    }),
     can: () => computed(() => true),
   }),
 }))
@@ -46,6 +47,167 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () =
 const query = { [Symbol.for('functionName')]: 'ginkoCms.editor.getEntry' }
 
 describe('useCmsStudioQuery', () => {
+  it('retires identity data immediately and ignores queued callbacks from the old user', async () => {
+    const user = ref<{ id: string } | null>({ id: 'user-a' })
+    const isPending = ref(false)
+    const subscriptions: Array<(value: unknown) => void> = []
+    const transform = vi.fn((value: unknown) => value)
+    const unsubscribe = vi.fn()
+    host.bridge.auth = {
+      status: computed(() => (isPending.value ? 'loading' : 'authenticated')),
+      isPending: computed(() => isPending.value),
+      isAuthenticated: computed(() => !isPending.value && user.value !== null),
+      user,
+    }
+    host.convex = {
+      onUpdate: vi.fn((_query, _args, next) => {
+        subscriptions.push(next)
+        return unsubscribe
+      }),
+    }
+
+    const Host = defineComponent({
+      setup() {
+        return {
+          result: useCmsStudioQuery(query as never, {}, { keepPreviousData: true, transform }),
+        }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+
+    subscriptions[0]?.({ owner: 'user-a' })
+    await nextTick()
+    expect(wrapper.vm.result.data.value).toEqual({ owner: 'user-a' })
+
+    isPending.value = true
+    await nextTick()
+    expect(wrapper.vm.result.data.value).toBeNull()
+    expect(unsubscribe).toHaveBeenCalledTimes(1)
+
+    subscriptions[0]?.({ owner: 'retired-user-a' })
+    await nextTick()
+    expect(wrapper.vm.result.data.value).toBeNull()
+    expect(transform).toHaveBeenCalledTimes(1)
+
+    user.value = { id: 'user-b' }
+    isPending.value = false
+    await nextTick()
+    expect(host.convex.onUpdate).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
+    host.bridge.auth = null
+    host.convex = undefined
+  })
+
+  it('retires subscriptions across user, anonymous, and replacement-user transitions', async () => {
+    const user = ref<{ id: string } | null>({ id: 'user-a' })
+    const subscriptions: Array<(value: unknown) => void> = []
+    const unsubscribe = vi.fn()
+    host.bridge.auth = {
+      status: computed(() => (user.value ? 'authenticated' : 'unauthenticated')),
+      isPending: computed(() => false),
+      isAuthenticated: computed(() => user.value !== null),
+      user,
+    }
+    host.convex = {
+      onUpdate: vi.fn((_query, _args, next) => {
+        subscriptions.push(next)
+        return unsubscribe
+      }),
+    }
+
+    const Host = defineComponent({
+      setup() {
+        return { result: useCmsStudioQuery(query as never, {}, { keepPreviousData: true }) }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+    subscriptions[0]?.({ owner: 'user-a' })
+    await nextTick()
+
+    user.value = null
+    await nextTick()
+    expect(wrapper.vm.result.data.value).toBeNull()
+    expect(host.convex.onUpdate).toHaveBeenCalledTimes(1)
+
+    user.value = { id: 'user-b' }
+    await nextTick()
+    expect(host.convex.onUpdate).toHaveBeenCalledTimes(2)
+    subscriptions[1]?.({ owner: 'user-b' })
+    await nextTick()
+    expect(wrapper.vm.result.data.value).toEqual({ owner: 'user-b' })
+
+    wrapper.unmount()
+    host.bridge.auth = null
+    host.convex = undefined
+  })
+
+  it('does not reacquire when auth rotates for the same identity', async () => {
+    const user = ref<{ id: string; tokenVersion: number } | null>({
+      id: 'user-a',
+      tokenVersion: 1,
+    })
+    host.bridge.auth = {
+      status: computed(() => 'authenticated'),
+      isPending: computed(() => false),
+      isAuthenticated: computed(() => true),
+      user,
+    }
+    host.convex = { onUpdate: vi.fn(() => vi.fn()) }
+
+    const Host = defineComponent({
+      setup() {
+        return { result: useCmsStudioQuery(query as never, {}) }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+
+    user.value = { id: 'user-a', tokenVersion: 2 }
+    await nextTick()
+    expect(host.convex.onUpdate).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
+    host.bridge.auth = null
+    host.convex = undefined
+  })
+
+  it('does not reacquire or commit after scope disposal and is not promise-like', async () => {
+    let onResult: ((value: unknown) => void) | null = null
+    const transform = vi.fn((value: unknown) => value)
+    host.convex = {
+      onUpdate: vi.fn((_query, _args, next) => {
+        onResult = next
+        return vi.fn()
+      }),
+    }
+    const Host = defineComponent({
+      setup() {
+        return { result: useCmsStudioQuery(query as never, {}, { transform }) }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+    const result = wrapper.vm.result
+
+    expect('then' in result).toBe(false)
+    wrapper.unmount()
+    await result.refresh()
+    onResult?.({ secret: 'retired' })
+    await nextTick()
+
+    expect(host.convex.onUpdate).toHaveBeenCalledTimes(1)
+    expect(transform).not.toHaveBeenCalled()
+    expect(result.data.value).toBeNull()
+    host.convex = undefined
+  })
+
   it('normalizes Studio query errors with query metadata', () => {
     // A real Convex application error (vNext §10.8: classification only reads
     // the library-normalized `ConvexCallError`'s structured `data`, never a
@@ -208,6 +370,91 @@ describe('useCmsStudioQuery', () => {
 
     wrapper.unmount()
     expect(unsubscribe).toHaveBeenCalledTimes(1)
+    host.convex = undefined
+  })
+
+  it('deduplicates concurrent requests for the same pagination cursor', async () => {
+    let onResult:
+      | ((value: { page: string[]; isDone: boolean; continueCursor: string | null }) => void)
+      | null = null
+    let resolvePage!: (value: {
+      page: string[]
+      isDone: boolean
+      continueCursor: string | null
+    }) => void
+    const pendingPage = new Promise<{
+      page: string[]
+      isDone: boolean
+      continueCursor: string | null
+    }>((resolve) => {
+      resolvePage = resolve
+    })
+    host.convex = {
+      onUpdate: vi.fn((_query, _args, next) => {
+        onResult = next
+        return vi.fn()
+      }),
+      query: vi.fn(() => pendingPage),
+    }
+    const Host = defineComponent({
+      setup() {
+        return {
+          result: useCmsStudioPaginatedQuery(query as never, {}, { initialNumItems: 2 }),
+        }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+    onResult?.({ page: ['A'], isDone: false, continueCursor: 'same-cursor' })
+    await nextTick()
+
+    wrapper.vm.result.loadMore(2)
+    wrapper.vm.result.loadMore(2)
+    expect(host.convex.query).toHaveBeenCalledTimes(1)
+
+    resolvePage({ page: ['B'], isDone: true, continueCursor: null })
+    await vi.waitFor(() => expect(wrapper.vm.result.results.value).toEqual(['A', 'B']))
+    wrapper.unmount()
+    host.convex = undefined
+  })
+
+  it('settles paginated disposal without refresh, load, transform, or stale commits', async () => {
+    let onResult:
+      | ((value: { page: string[]; isDone: boolean; continueCursor: string | null }) => void)
+      | null = null
+    const transform = vi.fn((items: string[]) => items)
+    host.convex = {
+      onUpdate: vi.fn((_query, _args, next) => {
+        onResult = next
+        return vi.fn()
+      }),
+      query: vi.fn(),
+    }
+    const Host = defineComponent({
+      setup() {
+        return {
+          result: useCmsStudioPaginatedQuery(query as never, {}, { initialNumItems: 2, transform }),
+        }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+    const result = wrapper.vm.result
+    expect('then' in result).toBe(false)
+
+    wrapper.unmount()
+    await result.refresh()
+    await result.reset()
+    result.loadMore(2)
+    onResult?.({ page: ['retired'], isDone: false, continueCursor: 'retired-cursor' })
+    await nextTick()
+
+    expect(host.convex.onUpdate).toHaveBeenCalledTimes(1)
+    expect(host.convex.query).not.toHaveBeenCalled()
+    expect(transform).not.toHaveBeenCalled()
+    expect(result.results.value).toEqual([])
     host.convex = undefined
   })
 })

@@ -15,6 +15,7 @@ import {
 
 import { useStudioHostContext } from '../boundary/studio-host-context'
 import { cmsPermissionKeys, type CmsPermissionKey } from './permissions'
+import { useCmsAuthState } from './useCmsAuthState'
 import { useCmsStudioAccess } from './useCmsStudioAccess'
 
 type CmsStudioQueryErrorCategory = GinkoErrorCategory
@@ -32,8 +33,7 @@ export type UseCmsStudioQueryData<DataT> = {
   isStale: ComputedRef<boolean>
 }
 
-export type UseCmsStudioQueryReturn<DataT> = UseCmsStudioQueryData<DataT> &
-  PromiseLike<UseCmsStudioQueryData<DataT>>
+export type UseCmsStudioQueryReturn<DataT> = UseCmsStudioQueryData<DataT>
 
 type CmsStudioQueryOptions<RawT, DataT> = {
   transform?: (input: RawT) => DataT
@@ -129,6 +129,7 @@ export function useCmsStudioQuery<
   options?: CmsStudioQueryOptions<FunctionReturnType<Query>, DataT>,
 ): UseCmsStudioQueryReturn<DataT> {
   const studioHost = useStudioHostContext()
+  const auth = useCmsAuthState()
   const { ready, can } = useCmsStudioAccess()
   const canRead = can(cmsPermissionKeys.read)
   const requiredCapability = options?.requiredCapability
@@ -138,10 +139,13 @@ export function useCmsStudioQuery<
   const pending = ref(false)
   const isStale = ref(false)
   let unsubscribe: (() => void) | null = null
+  let disposed = false
+  let operationId = 0
+  let lastPrincipalKey: string | null = null
 
   const gatedArgs = computed(() => {
     const value = toValue(args)
-    if (!ready.value || !canRead.value || !canRequired.value) {
+    if (auth.pending.value || !ready.value || !canRead.value || !canRequired.value) {
       return null
     }
     return value ?? null
@@ -151,11 +155,29 @@ export function useCmsStudioQuery<
   const applyTransform = (raw: FunctionReturnType<Query>): DataT =>
     queryOptions.transform ? queryOptions.transform(raw) : (raw as unknown as DataT)
 
+  const operationInput = computed(() => ({
+    args: gatedArgs.value,
+    principalKey: auth.principalKey.value,
+  }))
+
   const start = () => {
+    if (disposed) return
+    const currentOperationId = ++operationId
+    const { args: inputArgs, principalKey } = operationInput.value
     unsubscribe?.()
     unsubscribe = null
 
-    const nextArgs = gatedArgs.value as FunctionArgs<Query> | null | undefined
+    if (lastPrincipalKey !== null && lastPrincipalKey !== principalKey) {
+      data.value = null
+      error.value = null
+      isStale.value = false
+    }
+    lastPrincipalKey = principalKey
+
+    const isCurrent = () =>
+      !disposed && currentOperationId === operationId && principalKey === auth.principalKey.value
+
+    const nextArgs = inputArgs as FunctionArgs<Query> | null | undefined
     if (nextArgs == null) {
       error.value = null
       pending.value = false
@@ -181,12 +203,14 @@ export function useCmsStudioQuery<
       query,
       nextArgs,
       (raw: FunctionReturnType<Query>) => {
+        if (!isCurrent()) return
         data.value = applyTransform(raw)
         error.value = null
         pending.value = false
         isStale.value = false
       },
       (err: unknown) => {
+        if (!isCurrent()) return
         error.value = normalizeCmsStudioQueryError(err, query)
         pending.value = false
         isStale.value = false
@@ -194,14 +218,21 @@ export function useCmsStudioQuery<
     )
   }
 
-  const stop = watch(gatedArgs, start, { immediate: true, deep: true })
+  const stop = watch(operationInput, start, { immediate: true, deep: true })
   onScopeDispose(() => {
+    disposed = true
+    operationId += 1
     stop()
     unsubscribe?.()
     unsubscribe = null
+    data.value = null
+    error.value = null
+    pending.value = false
+    isStale.value = false
   })
 
   const refresh = async () => {
+    if (disposed) return
     error.value = null
     start()
   }
@@ -211,6 +242,7 @@ export function useCmsStudioQuery<
     error,
     refresh,
     clear: () => {
+      if (disposed) return
       data.value = null
       error.value = null
     },
@@ -224,14 +256,5 @@ export function useCmsStudioQuery<
     isStale: computed(() => isStale.value),
   }
 
-  const result = resultData as UseCmsStudioQueryReturn<DataT>
-
-  result.then = <TResult1 = UseCmsStudioQueryData<DataT>, TResult2 = never>(
-    onFulfilled?:
-      | ((value: UseCmsStudioQueryData<DataT>) => TResult1 | PromiseLike<TResult1>)
-      | null,
-    onRejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
-  ) => Promise.resolve(resultData).then(onFulfilled, onRejected)
-
-  return result
+  return resultData
 }

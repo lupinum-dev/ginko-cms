@@ -21,7 +21,6 @@ const { studioRoute, pending, permissions, isMember, canRead, canBootstrap } = u
 const bootstrapCmsOwner = useConvexMutation(api.ginkoCms.members.bootstrapCmsOwner)
 const bootstrapPending = ref(false)
 const bootstrapError = ref('')
-const hadReadyStudioAccess = ref(false)
 const studioAccess = computed<{ status: string; reason: string | null }>(() => {
   if (bootstrapPending.value) {
     return { status: 'bootstrapping', reason: null }
@@ -33,7 +32,7 @@ const studioAccess = computed<{ status: string; reason: string | null }>(() => {
       reason: bootstrapError.value ? 'bootstrap_error' : null,
     }
   }
-  if ((permissions.ready.value || hadReadyStudioAccess.value) && canRead.value) {
+  if (permissions.ready.value && canRead.value) {
     return { status: 'ready', reason: null }
   }
   if (pending.value) {
@@ -51,11 +50,6 @@ const studioAccess = computed<{ status: string; reason: string | null }>(() => {
 watch(
   () => studioAccess.value.status,
   (status) => {
-    if (status === 'ready') {
-      hadReadyStudioAccess.value = true
-    } else if (status === 'forbidden' && studioAccess.value.reason === 'auth') {
-      hadReadyStudioAccess.value = false
-    }
     // Debug hook: set window.__ginkoLayoutDebug = [] before navigating to
     // capture studioAccess transitions.
     if (

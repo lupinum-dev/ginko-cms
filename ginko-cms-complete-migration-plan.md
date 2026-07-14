@@ -2837,10 +2837,10 @@ Use only these statuses:
 | Deterministic asset portability     | implemented | Byte/hash/reference round-trip suite    |
 | Portable conflict and retry safety  | implemented | Immutable plan and lost-response tests  |
 | Bounded consistent export           | implemented | Lease, roster, and pagination tests     |
-| Studio principal retirement         | open        | A to B and sign-out tests               |
-| Disposed-scope settlement           | open        | Refresh/reset-after-unmount tests       |
-| Pagination concurrency              | open        | Same-cursor deduplication test          |
-| Exact Studio API types              | open        | Packed type consumer                    |
+| Studio principal retirement         | implemented | A to B and sign-out tests               |
+| Disposed-scope settlement           | implemented | Refresh/reset-after-unmount tests       |
+| Pagination concurrency              | implemented | Same-cursor deduplication test          |
+| Exact Studio API types              | implemented | Packed type consumer                    |
 | Supervised MCP surface              | open        | Direct publish/archive negative probes  |
 | MCP credential fail-closed          | open        | Revoked/orphan direct-call tests        |
 | Idempotent MCP entry creation       | open        | Lost-response retry test                |
