@@ -1,6 +1,7 @@
 import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import {
   collectPortableAssetReferences,
+  collectPortableMdcAssetReferences,
   collectPortableReferences,
   hashCanonicalJson,
   type PortableDocumentV1,
@@ -55,6 +56,14 @@ export async function createPortableDraftImportPlan(
     deploymentId: string
     targetContractSha256: string
     currentDraftSha256ByItemKey: ReadonlyMap<string, string | null>
+    currentAssetBySha256?: ReadonlyMap<
+      string,
+      {
+        assetId: string
+        bytes: number
+        mediaType: string
+      }
+    >
   },
 ): Promise<PortableDraftImportPlan> {
   if (!options.deploymentId) throw new Error('Portable import requires a deployment ID.')
@@ -122,6 +131,17 @@ export async function createPortableDraftImportPlan(
       owners.add(itemKey)
       referencedAssets.set(reference.sha256, owners)
     }
+    if (document.body) {
+      for (const reference of await collectPortableMdcAssetReferences(
+        document.body.source,
+        collection.componentPolicy,
+      )) {
+        dependencies.add(reference.sha256)
+        const owners = referencedAssets.get(reference.sha256) ?? new Set<string>()
+        owners.add(itemKey)
+        referencedAssets.set(reference.sha256, owners)
+      }
+    }
     const payload: PortableImportPlanItemPayload = {
       identity,
       expectedDraftSha256: currentDraftSha256,
@@ -143,11 +163,17 @@ export async function createPortableDraftImportPlan(
   for (const asset of [...bundle.assets].sort((left, right) =>
     compare(left.sha256, right.sha256),
   )) {
+    const current = options.currentAssetBySha256?.get(asset.sha256)
+    const effect = !current
+      ? 'upload'
+      : current.bytes === asset.bytes && current.mediaType === asset.mediaType
+        ? 'reuse'
+        : 'conflict'
     const payload: PortableImportPlanAssetPayload = {
       sha256: asset.sha256,
       bytes: asset.bytes,
       mediaType: asset.mediaType,
-      effect: 'conflict',
+      effect,
       referencedBy: [...(referencedAssets.get(asset.sha256) ?? [])].sort(compare),
     }
     assets.push({
@@ -155,9 +181,9 @@ export async function createPortableDraftImportPlan(
       inputSha256: await hashJson(payload),
       payload,
     })
-  }
-  if (assets.length > 0) {
-    blockers.push('Portable asset staging is required before this plan can apply.')
+    if (effect === 'conflict') {
+      blockers.push(`Portable asset ${asset.sha256} conflicts with stored metadata.`)
+    }
   }
 
   const payload = {

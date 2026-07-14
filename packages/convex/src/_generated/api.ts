@@ -77,6 +77,7 @@ import type * as operationHelpers from "../operationHelpers.js";
 import type * as operations from "../operations.js";
 import type * as policy from "../policy.js";
 import type * as portability from "../portability.js";
+import type * as portability_assets from "../portability/assets.js";
 import type * as portability_items from "../portability/items.js";
 import type * as portability_model from "../portability/model.js";
 import type * as portability_runs from "../portability/runs.js";
@@ -166,6 +167,7 @@ const fullApi: ApiFromModules<{
   operations: typeof operations;
   policy: typeof policy;
   portability: typeof portability;
+  "portability/assets": typeof portability_assets;
   "portability/items": typeof portability_items;
   "portability/model": typeof portability_model;
   "portability/runs": typeof portability_runs;

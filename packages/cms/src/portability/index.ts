@@ -1,5 +1,9 @@
 export { readCmsPortableDirectory, verifyCmsPortableDirectory } from './directory.js'
 export {
+  uploadPreparedPortableDraftImportAssets,
+  type PortableAssetTransferOptions,
+} from './asset-transport.js'
+export {
   applyPreparedPortableDraftImport,
   preparePortableDraftImport,
   type PreparedPortableDraftImport,

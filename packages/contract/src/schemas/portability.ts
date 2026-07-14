@@ -28,6 +28,24 @@ export const inspectPortableDrafts = defineArgs({
   },
 })
 
+export const inspectPortableAssets = defineArgs({
+  description: 'Read canonical registered asset facts for one bounded import-planning page.',
+  args: {
+    assets: v.array(
+      v.object({
+        sha256: v.string(),
+        bytes: v.number(),
+        mediaType: v.union(
+          v.literal('image/png'),
+          v.literal('image/jpeg'),
+          v.literal('image/gif'),
+          v.literal('image/webp'),
+        ),
+      }),
+    ),
+  },
+})
+
 export const appendImportPlanItems = defineArgs({
   description: 'Append one bounded page of immutable import plan items.',
   args: {
@@ -36,6 +54,21 @@ export const appendImportPlanItems = defineArgs({
     items: v.array(
       v.object({
         itemKey: v.string(),
+        inputSha256: v.string(),
+        payload: jsonObjectValidator,
+      }),
+    ),
+  },
+})
+
+export const appendImportPlanAssets = defineArgs({
+  description: 'Append one bounded page of immutable import plan assets.',
+  args: {
+    planId: v.string(),
+    payloadSha256: v.string(),
+    assets: v.array(
+      v.object({
+        assetKey: v.string(),
         inputSha256: v.string(),
         payload: jsonObjectValidator,
       }),
@@ -56,6 +89,47 @@ export const sealImportPlan = defineArgs({
 export const beginImportApply = defineArgs({
   description: 'Move a planned portable import into its applying state.',
   args: runArgs,
+})
+
+export const beginPortableAssetUpload = defineArgs({
+  description: 'Fence one host-mediated portability asset upload attempt.',
+  args: {
+    ...runArgs,
+    sha256: v.string(),
+    attemptTokenHash: v.string(),
+    storageOrigin: v.string(),
+  },
+})
+
+export const issuePortableAssetUploadUrl = defineArgs({
+  description: 'Issue one Convex upload URL to the authenticated CMS host.',
+  args: {
+    ...runArgs,
+    sha256: v.string(),
+    attemptTokenHash: v.string(),
+    attemptGeneration: v.number(),
+  },
+})
+
+export const recordPortableAssetUpload = defineArgs({
+  description: 'Conditionally bind a committed storage object to its fenced stage.',
+  args: {
+    ...runArgs,
+    sha256: v.string(),
+    attemptTokenHash: v.string(),
+    attemptGeneration: v.number(),
+    storageId: v.id('_storage'),
+  },
+})
+
+export const verifyPortableAssetUpload = defineArgs({
+  description: 'Verify and atomically attach one fenced portability asset stage.',
+  args: {
+    ...runArgs,
+    sha256: v.string(),
+    attemptTokenHash: v.string(),
+    attemptGeneration: v.number(),
+  },
 })
 
 export const applyImportItem = defineArgs({

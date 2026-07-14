@@ -128,15 +128,25 @@ describe('CMS portable draft import planning', () => {
     })
   })
 
-  it('blocks asset-bearing imports until verified staging decisions exist', async () => {
+  it('discovers MDC assets and deterministically plans upload, reuse, and metadata conflicts', async () => {
     const { contract, document } = fixture()
+    const sha256 = 'a'.repeat(64)
+    const assetDocument = {
+      ...document,
+      body: {
+        kind: 'mdc' as const,
+        source: `![Hero](/ginko-assets/${sha256}.png)`,
+      },
+    }
     const bundle = {
       contract,
-      documents: [{ file: 'content/posts/hello/en.md', document, bytes: new Uint8Array() }],
+      documents: [
+        { file: 'content/posts/hello/en.md', document: assetDocument, bytes: new Uint8Array() },
+      ],
       assets: [
         {
-          sha256: 'a'.repeat(64),
-          file: `public/ginko-assets/${'a'.repeat(64)}.png`,
+          sha256,
+          file: `public/ginko-assets/${sha256}.png`,
           bytes: 1,
           mediaType: 'image/png' as const,
           content: new Uint8Array([0]),
@@ -150,14 +160,40 @@ describe('CMS portable draft import planning', () => {
         assets: [],
       },
     }
-    const plan = await createPortableDraftImportPlan(bundle, {
+    const itemKey = await hashCanonicalJson({
+      collection: 'posts',
+      canonicalKey: 'hello',
+      locale: 'en',
+    })
+    const base = {
       deploymentId: 'deployment-test',
       targetContractSha256: await hashCanonicalJson(contract),
-      currentDraftSha256ByItemKey: new Map(),
+      currentDraftSha256ByItemKey: new Map([[itemKey, null]]),
+    }
+
+    const upload = await createPortableDraftImportPlan(bundle, {
+      ...base,
+      currentAssetBySha256: new Map(),
+    })
+    const reuse = await createPortableDraftImportPlan(bundle, {
+      ...base,
+      currentAssetBySha256: new Map([
+        [sha256, { assetId: 'asset-1', bytes: 1, mediaType: 'image/png' as const }],
+      ]),
+    })
+    const conflict = await createPortableDraftImportPlan(bundle, {
+      ...base,
+      currentAssetBySha256: new Map([
+        [sha256, { assetId: 'asset-1', bytes: 2, mediaType: 'image/png' as const }],
+      ]),
     })
 
-    expect(plan.blockers).toContain(
-      'Portable asset staging is required before this plan can apply.',
-    )
+    expect(upload.assets[0]?.payload).toMatchObject({ effect: 'upload', referencedBy: [itemKey] })
+    expect(upload.items[0]?.payload.dependencyKeys).toContain(sha256)
+    expect(upload.blockers).toEqual([])
+    expect(reuse.assets[0]?.payload.effect).toBe('reuse')
+    expect(reuse.blockers).toEqual([])
+    expect(conflict.assets[0]?.payload.effect).toBe('conflict')
+    expect(conflict.blockers).toEqual([`Portable asset ${sha256} conflicts with stored metadata.`])
   })
 })

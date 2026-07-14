@@ -6,7 +6,7 @@ settings:
 
 overrides:
   '@babel/core': 7.29.6
-  '@lupinum/ginko-content': file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz
+  '@lupinum/ginko-content': file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
   better-convex-nuxt: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz
   '@vitest/browser': 4.1.10
   '@vitest/browser-playwright': 4.1.10
@@ -54,8 +54,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       '@lupinum/ginko-content':
-        specifier: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz
-        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz(90c8fa27b042901d362a81c1958e02e2)
+        specifier: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
+        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)
       '@nuxt/devtools':
         specifier: ^3.2.4
         version: 3.2.4(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))
@@ -97,7 +97,7 @@ importers:
         version: 1.6.23(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
         specifier: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz
-        version: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz(f5d66649e9632f2b6771790f53bbfc6c)
+        version: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz(0667c5f7a5cddb45673379721dcc391b)
       changelogen:
         specifier: ^0.6.2
         version: 0.6.2(magicast@0.5.2)
@@ -110,6 +110,9 @@ importers:
       eslint:
         specifier: ^10.3.0
         version: 10.3.0(jiti@2.7.0)
+      h3:
+        specifier: 1.15.11
+        version: 1.15.11
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1(@noble/hashes@2.2.0)
@@ -162,8 +165,8 @@ importers:
         specifier: workspace:^
         version: link:../convex
       '@lupinum/ginko-content':
-        specifier: file:../../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz
-        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz(90c8fa27b042901d362a81c1958e02e2)
+        specifier: file:../../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
+        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)
       '@nuxt/kit':
         specifier: ^4.4.8
         version: 4.4.8(magicast@0.5.2)
@@ -178,13 +181,16 @@ importers:
         version: 1.6.23(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
         specifier: file:../../../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz
-        version: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz(f5d66649e9632f2b6771790f53bbfc6c)
+        version: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz(0667c5f7a5cddb45673379721dcc391b)
       convex:
         specifier: 1.38.0
         version: 1.38.0(react@19.2.6)
       defu:
         specifier: ^6.1.4
         version: 6.1.7
+      h3:
+        specifier: 1.15.11
+        version: 1.15.11
       jiti:
         specifier: ^2.7.0
         version: 2.7.0
@@ -373,8 +379,8 @@ importers:
         specifier: workspace:^
         version: link:../contract
       '@lupinum/ginko-content':
-        specifier: file:../../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz
-        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz(90c8fa27b042901d362a81c1958e02e2)
+        specifier: file:../../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
+        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)
       better-auth:
         specifier: '>=1.6.13 <1.7.0'
         version: 1.6.23(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
@@ -403,8 +409,8 @@ importers:
         specifier: workspace:*
         version: link:../packages/convex
       '@lupinum/ginko-content':
-        specifier: file:../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz
-        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz(90c8fa27b042901d362a81c1958e02e2)
+        specifier: file:../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
+        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)
       '@nuxtjs/sitemap':
         specifier: ^8.0.15
         version: 8.0.15(@nuxt/schema@4.4.8)(magicast@0.5.2)(nuxt@4.4.8(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.3.7(typescript@5.9.3))(yaml@2.9.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))(zod@4.4.3)
@@ -416,7 +422,7 @@ importers:
         version: 1.6.23(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
         specifier: file:../../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz
-        version: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz(f5d66649e9632f2b6771790f53bbfc6c)
+        version: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz(0667c5f7a5cddb45673379721dcc391b)
       convex:
         specifier: 1.38.0
         version: 1.38.0(react@19.2.6)
@@ -1188,8 +1194,8 @@ packages:
     peerDependencies:
       vue: 3.5.39
 
-  '@lupinum/ginko-content@file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz':
-    resolution: {integrity: sha512-ZB1s1l/6UZrND0M4OBlTz9WcRfH+HIlHXOH3GhKJzbJSga7gLONrUJSyCHr5yfS1ilISn/9tuiTPCZkjDPsucw==, tarball: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz}
+  '@lupinum/ginko-content@file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz':
+    resolution: {integrity: sha512-DlhiGVqg5jiq0fQhO7Lzdn2jvFgcAUv84SgnSjnI6YyUZC6jjwOl5Rn0J18SXWUyzvU68UP5llE4qNDVijCg3Q==, tarball: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz}
     version: 0.4.0-rc.1
     engines: {node: '>=22.0.0'}
     hasBin: true
@@ -3596,11 +3602,14 @@ packages:
         optional: true
 
   better-convex-nuxt@file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz:
-    resolution: {integrity: sha512-Q0DzkS8Ap+eS58dcyWYJCOcfC7RsigCBhxYTNMKH0CrRtyq52rkWT/0oOEGo8d8DVrGUvjD8RiSo757hiO6S+w==, tarball: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz}
+    resolution: {integrity: sha512-QjUbEVBVqx6PwPLqg09Uoz/qcXIwKZ9z0KkFIrUwmeZBF0ywyla6bQjfbLqEoOEOj2MNbkpb/5xGb6t2ltVqDg==, tarball: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz}
     version: 0.6.0
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     peerDependencies:
-      nuxt: ^4.0.0
+      '@convex-dev/better-auth': 0.12.5
+      better-auth: 1.6.23
+      convex: 1.38.0
+      nuxt: ^4.4.0
 
   better-sqlite3@12.10.0:
     resolution: {integrity: sha512-CyzaZRQKyHkB2ZInfTTl2nvT33EbDpjkLEbE8/Zck3Ll6O0qqvuGdrJ45HgtH+HykRg88ITY3AdreBGN70aBSQ==}
@@ -5647,9 +5656,6 @@ packages:
   onetime@6.0.0:
     resolution: {integrity: sha512-1FlR+gjXK7X+AsAHso35MnyN5KqGwJRi/31ft6x0M194ht7S+rWAvd7PHss9xSKMzE0asv1pyIHaJYq+BbacAQ==}
     engines: {node: '>=12'}
-
-  oniguruma-parser@0.12.1:
-    resolution: {integrity: sha512-8Unqkvk1RYc6yq2WBYRj4hdnsAxVze8i7iPfQr8e4uSP3tRv0rpZcbGUDvxfQQcdwHt/e9PrMvGCsa8OqG9X3w==}
 
   oniguruma-parser@0.12.2:
     resolution: {integrity: sha512-6HVa5oIrgMC6aA6WF6XyyqbhRPJrKR02L20+2+zpDtO5QAzGHAUGw5TKQvwi5vctNnRHkJYmjAhRVQF2EKdTQw==}
@@ -8257,7 +8263,7 @@ snapshots:
     dependencies:
       vue: 3.5.39(typescript@5.9.3)
 
-  '@lupinum/ginko-content@file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz(90c8fa27b042901d362a81c1958e02e2)':
+  '@lupinum/ginko-content@file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)':
     dependencies:
       '@comark/vue': 0.4.0(shiki@4.2.0)(vue@3.5.39(typescript@5.9.3))
       '@nuxt/kit': 4.4.8(magicast@0.5.2)
@@ -10664,7 +10670,7 @@ snapshots:
     optionalDependencies:
       zod: 4.4.3
 
-  better-convex-nuxt@file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz(f5d66649e9632f2b6771790f53bbfc6c):
+  better-convex-nuxt@file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz(0667c5f7a5cddb45673379721dcc391b):
     dependencies:
       '@convex-dev/better-auth': 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.25)(react@19.2.6)(typescript@5.9.3)
       '@nuxt/devtools-kit': 3.2.4(magicast@0.5.2)(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))
@@ -10676,37 +10682,8 @@ snapshots:
       nuxt: 4.4.8(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.3.7(typescript@5.9.3))(yaml@2.9.0)
       ohash: 2.0.11
     transitivePeerDependencies:
-      - '@auth0/auth0-react'
-      - '@clerk/clerk-react'
-      - '@clerk/react'
-      - '@cloudflare/workers-types'
-      - '@lynx-js/react'
-      - '@opentelemetry/api'
-      - '@prisma/client'
-      - '@standard-schema/spec'
-      - '@sveltejs/kit'
-      - '@tanstack/react-start'
-      - '@tanstack/solid-start'
-      - better-sqlite3
-      - bufferutil
-      - drizzle-kit
-      - drizzle-orm
-      - hono
       - magicast
-      - mongodb
-      - mysql2
-      - next
-      - pg
-      - prisma
-      - react
-      - react-dom
-      - solid-js
-      - svelte
-      - typescript
-      - utf-8-validate
       - vite
-      - vitest
-      - vue
 
   better-sqlite3@12.10.0:
     dependencies:
@@ -13229,13 +13206,11 @@ snapshots:
     dependencies:
       mimic-fn: 4.0.0
 
-  oniguruma-parser@0.12.1: {}
-
   oniguruma-parser@0.12.2: {}
 
   oniguruma-to-es@4.3.5:
     dependencies:
-      oniguruma-parser: 0.12.1
+      oniguruma-parser: 0.12.2
       regex: 6.1.0
       regex-recursion: 6.0.2
 

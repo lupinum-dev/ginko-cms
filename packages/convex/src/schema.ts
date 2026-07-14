@@ -195,6 +195,8 @@ export default defineSchema({
     callerId: v.string(),
     stagedItemCount: v.number(),
     stagedAssetCount: v.number(),
+    initializedAssetCount: v.number(),
+    initializedAttachedAssetCount: v.number(),
     createdAt: v.number(),
     expiresAt: v.number(),
   })
@@ -218,6 +220,40 @@ export default defineSchema({
   })
     .index('by_plan_asset', ['planId', 'assetKey'])
     .index('by_plan', ['planId']),
+
+  portableAssetStages: defineTable({
+    runId: v.string(),
+    callerId: v.string(),
+    sha256: v.string(),
+    byteLength: v.number(),
+    mediaType: v.union(
+      v.literal('image/png'),
+      v.literal('image/jpeg'),
+      v.literal('image/gif'),
+      v.literal('image/webp'),
+    ),
+    state: v.union(
+      v.literal('awaiting-upload'),
+      v.literal('uploaded'),
+      v.literal('verifying'),
+      v.literal('verified'),
+      v.literal('attached'),
+      v.literal('cleanup-required'),
+      v.literal('cleaned'),
+    ),
+    storageId: v.union(v.id('_storage'), v.null()),
+    assetId: v.union(v.string(), v.null()),
+    attemptTokenHash: v.union(v.string(), v.null()),
+    attemptGeneration: v.number(),
+    leaseExpiresAt: v.union(v.number(), v.null()),
+    storageOrigin: v.union(v.string(), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_run_sha256', ['runId', 'sha256'])
+    .index('by_run', ['runId'])
+    .index('by_storage', ['storageId'])
+    .index('by_state', ['state', 'updatedAt']),
 
   portableRuns: defineTable({
     runId: v.string(),
@@ -374,6 +410,8 @@ export default defineSchema({
     .index('by_entry', ['entryId'])
     .index('by_collection', ['collectionId'])
     .index('by_scope', ['scope'])
+    .index('by_sha256', ['sha256'])
+    .index('by_storage', ['storageId'])
     .index('by_created', ['createdAt'])
     .index('by_created_storage', ['createdAt', 'storageId']),
 
@@ -383,7 +421,9 @@ export default defineSchema({
     attempts: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index('by_status', ['status', 'updatedAt']),
+  })
+    .index('by_status', ['status', 'updatedAt'])
+    .index('by_storage', ['storageId']),
 
   siteData: defineTable({
     key: v.string(),
@@ -755,6 +795,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_artifact', ['artifactId'])
+    .index('by_driver_storage', ['driver', 'storageRef'])
     .index('by_scope_target', ['scope', 'collectionId', 'entryId'])
     .index('by_created', ['createdAt']),
 })

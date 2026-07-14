@@ -1,16 +1,27 @@
 /// <reference types="vite/client" />
 
+import { createHash } from 'node:crypto'
+
 import {
   buildResolvedContentContract,
   hashCanonicalJson,
 } from '@lupinum/ginko-content/cms-contract'
 import type { PortableDocumentV1 } from '@lupinum/ginko-content/portability'
 import { anyApi } from 'convex/server'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createCtx, seedMember } from './entries/helpers'
 
 const api = anyApi
+const validPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+)
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
 function contractFixture() {
   const contract = buildResolvedContentContract(
@@ -42,6 +53,15 @@ function contractFixture() {
     role: null,
     required: false,
     relation: { collection: 'authors', multiple: false },
+  })
+  contract.collections.posts.fields.push({
+    ...fieldTemplate,
+    key: 'hero',
+    type: 'image',
+    role: null,
+    required: false,
+    media: { mediaTypes: ['image/png'], aspectRatio: null },
+    validation: null,
   })
   return contract
 }
@@ -76,6 +96,13 @@ async function createPlan(
     planId?: string
     expectedDraftSha256?: string | null
     effect?: 'create' | 'update' | 'skip' | 'conflict'
+    assets?: Array<{
+      sha256: string
+      bytes: number
+      mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+      effect: 'upload' | 'reuse' | 'conflict'
+      referencedBy: string[]
+    }>
   } = {},
 ) {
   const identity = {
@@ -92,6 +119,13 @@ async function createPlan(
   }
   const itemKey = await hashCanonicalJson(identity)
   const inputSha256 = await hashCanonicalJson(itemPayload)
+  const assets = await Promise.all(
+    (options.assets ?? []).map(async (asset) => ({
+      assetKey: asset.sha256,
+      inputSha256: await hashCanonicalJson(asset),
+      payload: asset,
+    })),
+  )
   const payload = {
     format: 'ginko-cms-portability-plan' as const,
     version: 1 as const,
@@ -103,8 +137,8 @@ async function createPlan(
     sourceContractSha256: targetContractSha256,
     itemCount: 1,
     itemRootSha256: await hashCanonicalJson([itemPayload]),
-    assetCount: 0,
-    assetRootSha256: await hashCanonicalJson([]),
+    assetCount: assets.length,
+    assetRootSha256: await hashCanonicalJson(assets.map((asset) => asset.payload)),
   }
   const payloadSha256 = await hashCanonicalJson(payload)
   const planId = options.planId ?? 'plan-1'
@@ -119,6 +153,13 @@ async function createPlan(
     payloadSha256,
     items: [{ itemKey, inputSha256, payload: itemPayload }],
   })
+  if (assets.length > 0) {
+    await operator.mutation(api.portability.appendImportPlanAssets, {
+      planId,
+      payloadSha256,
+      assets,
+    })
+  }
   const run = await operator.action(api.portability.sealImportPlan, {
     planId,
     payloadSha256,
@@ -127,6 +168,428 @@ async function createPlan(
 }
 
 describe('portable draft import', () => {
+  it('seals exact immutable upload asset rows into the bound run', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contractSha256 } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const sha256 = 'a'.repeat(64)
+
+    const plan = await createPlan(owner, contractSha256, documentFixture, {
+      assets: [
+        {
+          sha256,
+          bytes: 68,
+          mediaType: 'image/png',
+          effect: 'upload',
+          referencedBy: [],
+        },
+      ],
+    })
+
+    expect(plan.state).toBe('planned')
+    expect(await ctx.readAll('portableImportPlanAssets' as never)).toEqual([
+      expect.objectContaining({ planId: 'plan-1', assetKey: sha256 }),
+    ])
+    expect(await ctx.readAll('portableRuns' as never)).toEqual([
+      expect.objectContaining({ runId: plan.runId, attachedAssetCount: 0 }),
+    ])
+    expect(await ctx.readAll('portableAssetStages' as never)).toEqual([
+      expect.objectContaining({
+        runId: plan.runId,
+        sha256,
+        state: 'awaiting-upload',
+        storageId: null,
+        assetId: null,
+      }),
+    ])
+    await expect(
+      owner.mutation(api.portability.beginImportApply, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+      }),
+    ).rejects.toThrow(/asset.*attached/i)
+  })
+
+  it('fences host-mediated upload attempts by caller, token hash, generation, and lease', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contractSha256 } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const sha256 = 'a'.repeat(64)
+    const tokenHash = 'b'.repeat(64)
+    const plan = await createPlan(owner, contractSha256, documentFixture, {
+      assets: [
+        {
+          sha256,
+          bytes: 68,
+          mediaType: 'image/png',
+          effect: 'upload',
+          referencedBy: [],
+        },
+      ],
+    })
+
+    const attempt = await owner.mutation(api.portability.beginPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash: tokenHash,
+      storageOrigin: 'https://some-deployment.convex.cloud',
+    })
+    expect(attempt).toMatchObject({ attemptGeneration: 1 })
+    await expect(
+      owner.mutation(api.portability.beginPortableAssetUpload, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: 'c'.repeat(64),
+        storageOrigin: 'https://some-deployment.convex.cloud',
+      }),
+    ).rejects.toThrow(/lease|attempt/i)
+    await expect(
+      owner.mutation(api.portability.issuePortableAssetUploadUrl, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: tokenHash,
+        attemptGeneration: 1,
+      }),
+    ).resolves.toMatchObject({
+      state: 'awaiting-upload',
+      uploadUrl: expect.any(String),
+      byteLength: 68,
+      mediaType: 'image/png',
+      storageOrigin: 'https://some-deployment.convex.cloud',
+    })
+
+    const storageId = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob(['not-yet-verified'], { type: 'image/png' })),
+    )) as string
+    await expect(
+      owner.mutation(api.portability.recordPortableAssetUpload, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: 'c'.repeat(64),
+        attemptGeneration: 1,
+        storageId,
+      }),
+    ).rejects.toThrow(/attempt|token/i)
+    await owner.mutation(api.portability.recordPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash: tokenHash,
+      attemptGeneration: 1,
+      storageId,
+    })
+    expect(await ctx.readAll('portableAssetStages' as never)).toEqual([
+      expect.objectContaining({ state: 'uploaded', storageId, attemptGeneration: 1 }),
+    ])
+    await expect(
+      owner.mutation(api.portability.issuePortableAssetUploadUrl, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: tokenHash,
+        attemptGeneration: 1,
+      }),
+    ).resolves.toMatchObject({ state: 'uploaded' })
+
+    await ctx.raw.run(async (innerCtx) => {
+      const member = await innerCtx.db
+        .query('members')
+        .withIndex('by_userId', (query) => query.eq('userId', 'owner-1'))
+        .unique()
+      if (member) await innerCtx.db.delete(member._id)
+    })
+    await expect(
+      owner.mutation(api.portability.issuePortableAssetUploadUrl, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: tokenHash,
+        attemptGeneration: 1,
+      }),
+    ).rejects.toThrow(/Manage portability|member/i)
+  })
+
+  it('verifies staged bytes through the storage origin and atomically attaches one managed asset', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contractSha256 } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const sha256 = createHash('sha256').update(validPng).digest('hex')
+    const tokenHash = 'b'.repeat(64)
+    const plan = await createPlan(owner, contractSha256, documentFixture, {
+      assets: [
+        {
+          sha256,
+          bytes: validPng.byteLength,
+          mediaType: 'image/png',
+          effect: 'upload',
+          referencedBy: [],
+        },
+      ],
+    })
+    const storageId = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob([validPng], { type: 'image/png' })),
+    )) as string
+    const storageUrl = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.getUrl(storageId as never),
+    )) as string
+    const storageOrigin = new URL(storageUrl).origin
+    await owner.mutation(api.portability.beginPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash: tokenHash,
+      storageOrigin,
+    })
+    await owner.mutation(api.portability.recordPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash: tokenHash,
+      attemptGeneration: 1,
+      storageId,
+    })
+    const fetch = vi.fn(
+      async () => new Response(validPng, { headers: { 'content-type': 'image/png' } }),
+    )
+    vi.stubGlobal('fetch', fetch)
+
+    const result = await owner.action(api.portability.verifyPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash: tokenHash,
+      attemptGeneration: 1,
+    })
+
+    expect(result).toMatchObject({ state: 'attached', assetId: expect.any(String) })
+    expect(fetch).toHaveBeenCalledWith(storageUrl, expect.objectContaining({ redirect: 'error' }))
+    expect(await ctx.readAll('assets')).toEqual([
+      expect.objectContaining({
+        storageId,
+        sha256,
+        size: validPng.byteLength,
+        mimeType: 'image/png',
+      }),
+    ])
+    expect(await ctx.readAll('portableRuns' as never)).toEqual([
+      expect.objectContaining({ attachedAssetCount: 1 }),
+    ])
+    await expect(
+      owner.mutation(api.portability.issuePortableAssetUploadUrl, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: tokenHash,
+        attemptGeneration: 1,
+      }),
+    ).resolves.toEqual({ state: 'attached', assetId: result.assetId })
+    await expect(
+      owner.mutation(api.portability.beginPortableAssetUpload, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: 'd'.repeat(64),
+        storageOrigin,
+      }),
+    ).resolves.toEqual({ state: 'attached', assetId: result.assetId })
+    await owner.mutation(api.portability.abortImport, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+    })
+    expect(await ctx.readAll('assets')).toEqual([])
+    expect(await ctx.readAll('portableAssetStages' as never)).toContainEqual(
+      expect.objectContaining({
+        runId: plan.runId,
+        state: 'cleanup-required',
+        storageId,
+        assetId: null,
+      }),
+    )
+  })
+
+  it('structurally rewrites typed and MDC local references to the attached CMS asset ID', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contractSha256 } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const sha256 = createHash('sha256').update(validPng).digest('hex')
+    const storageId = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob([validPng], { type: 'image/png' })),
+    )) as string
+    const assetId = await ctx.seed(
+      'assets' as never,
+      {
+        storageId,
+        filename: 'hero.png',
+        mimeType: 'image/png',
+        size: validPng.byteLength,
+        sha256,
+        width: 1,
+        height: 1,
+        frames: 1,
+        alt: null,
+        caption: null,
+        scope: 'global',
+        entryId: null,
+        collectionId: null,
+        createdBy: 'owner-1',
+        updatedBy: null,
+        createdAt: Date.now(),
+        updatedAt: null,
+        deletedAt: null,
+        deletedBy: null,
+      } as never,
+    )
+    const reference = {
+      kind: 'local' as const,
+      path: `/ginko-assets/${sha256}.png` as const,
+      sha256,
+      bytes: validPng.byteLength,
+      mediaType: 'image/png' as const,
+      originalFilename: 'hero.png',
+    }
+    const document = {
+      ...documentFixture,
+      shared: { title: 'Hello', hero: reference },
+      body: { kind: 'mdc' as const, source: `![Hero](${reference.path})` },
+    }
+    const plan = await createPlan(owner, contractSha256, document, {
+      assets: [
+        {
+          sha256,
+          bytes: validPng.byteLength,
+          mediaType: 'image/png',
+          effect: 'reuse',
+          referencedBy: [],
+        },
+      ],
+    })
+    await owner.mutation(api.portability.beginImportApply, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+    })
+    await owner.mutation(api.portability.applyImportItem, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      itemKey: plan.itemKey,
+      inputSha256: plan.inputSha256,
+      document,
+    })
+
+    const drafts = await ctx.readAll('entryDrafts')
+    expect(drafts.find((row) => row.locale === null)?.shared).toMatchObject({ hero: assetId })
+    expect(drafts.find((row) => row.locale === 'en')?.bodyMdc).toContain(String(assetId))
+    expect(drafts.find((row) => row.locale === 'en')?.bodyMdc).not.toContain('/ginko-assets/')
+    const identity = {
+      collection: document.collection,
+      canonicalKey: document.canonicalKey,
+      locale: document.locale,
+    }
+    const itemKey = await hashCanonicalJson(identity)
+    await expect(
+      owner.query(api.portability.inspectPortableDrafts, {
+        items: [{ itemKey, identity }],
+      }),
+    ).resolves.toEqual([{ itemKey, currentDraftSha256: await hashCanonicalJson(document) }])
+  })
+
+  it('preserves a run-owned attached asset once an imported draft references it', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contractSha256 } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const sha256 = createHash('sha256').update(validPng).digest('hex')
+    const reference = {
+      kind: 'local' as const,
+      path: `/ginko-assets/${sha256}.png` as const,
+      sha256,
+      bytes: validPng.byteLength,
+      mediaType: 'image/png' as const,
+      originalFilename: 'hero.png',
+    }
+    const document = { ...documentFixture, shared: { title: 'Hello', hero: reference } }
+    const plan = await createPlan(owner, contractSha256, document, {
+      planId: 'referenced-upload-plan',
+      assets: [
+        {
+          sha256,
+          bytes: validPng.byteLength,
+          mediaType: 'image/png',
+          effect: 'upload',
+          referencedBy: [],
+        },
+      ],
+    })
+    const storageId = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob([validPng], { type: 'image/png' })),
+    )) as string
+    const storageUrl = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.getUrl(storageId as never),
+    )) as string
+    const attemptTokenHash = 'd'.repeat(64)
+    await owner.mutation(api.portability.beginPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash,
+      storageOrigin: new URL(storageUrl).origin,
+    })
+    await owner.mutation(api.portability.recordPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash,
+      attemptGeneration: 1,
+      storageId,
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(validPng, { headers: { 'content-type': 'image/png' } })),
+    )
+    const attached = await owner.action(api.portability.verifyPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash,
+      attemptGeneration: 1,
+    })
+    await owner.mutation(api.portability.beginImportApply, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+    })
+    await owner.mutation(api.portability.applyImportItem, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      itemKey: plan.itemKey,
+      inputSha256: plan.inputSha256,
+      document,
+    })
+
+    await owner.mutation(api.portability.abortImport, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+    })
+
+    expect(await ctx.readAll('assets')).toContainEqual(
+      expect.objectContaining({ _id: attached.assetId, storageId }),
+    )
+    expect(await ctx.readAll('portableAssetStages' as never)).toContainEqual(
+      expect.objectContaining({ runId: plan.runId, state: 'attached', storageId }),
+    )
+    expect(
+      await ctx.raw.run(async (innerCtx) =>
+        Boolean(await innerCtx.storage.get(storageId as never)),
+      ),
+    ).toBe(true)
+  })
+
   it.each(['publisher', 'editor', 'viewer'] as const)(
     'rejects the %s role before creating portability state',
     async (role) => {
@@ -403,12 +866,43 @@ describe('portable draft import', () => {
   })
 
   it('keeps aborted and expired imports closed', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T08:00:00.000Z'))
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
     const { contractSha256 } = await installFixture(ctx)
     const owner = ctx.asCmsUser('owner-1')
+    const sha256 = createHash('sha256').update(validPng).digest('hex')
     const aborted = await createPlan(owner, contractSha256, documentFixture, {
       planId: 'abort-plan',
+      assets: [
+        {
+          sha256,
+          bytes: validPng.byteLength,
+          mediaType: 'image/png',
+          effect: 'upload',
+          referencedBy: [],
+        },
+      ],
+    })
+    const storageId = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob([validPng], { type: 'image/png' })),
+    )) as string
+    const attemptTokenHash = 'a'.repeat(64)
+    await owner.mutation(api.portability.beginPortableAssetUpload, {
+      runId: aborted.runId,
+      payloadSha256: aborted.payloadSha256,
+      sha256,
+      attemptTokenHash,
+      storageOrigin: 'https://storage.example.test',
+    })
+    await owner.mutation(api.portability.recordPortableAssetUpload, {
+      runId: aborted.runId,
+      payloadSha256: aborted.payloadSha256,
+      sha256,
+      attemptTokenHash,
+      attemptGeneration: 1,
+      storageId,
     })
 
     await expect(
@@ -417,6 +911,18 @@ describe('portable draft import', () => {
         payloadSha256: aborted.payloadSha256,
       }),
     ).resolves.toEqual({ runId: aborted.runId, state: 'aborted' })
+    expect(await ctx.readAll('portableAssetStages' as never)).toContainEqual(
+      expect.objectContaining({ runId: aborted.runId, state: 'cleanup-required', storageId }),
+    )
+    await ctx.raw.finishAllScheduledFunctions(() => vi.runAllTimers())
+    expect(
+      await ctx.raw.run(async (innerCtx) =>
+        Boolean(await innerCtx.storage.get(storageId as never)),
+      ),
+    ).toBe(false)
+    expect(await ctx.readAll('portableAssetStages' as never)).toContainEqual(
+      expect.objectContaining({ runId: aborted.runId, state: 'cleaned', storageId: null }),
+    )
     await expect(
       owner.mutation(api.portability.abortImport, {
         runId: aborted.runId,
@@ -432,6 +938,34 @@ describe('portable draft import', () => {
 
     const expired = await createPlan(owner, contractSha256, documentFixture, {
       planId: 'expire-plan',
+      assets: [
+        {
+          sha256,
+          bytes: validPng.byteLength,
+          mediaType: 'image/png',
+          effect: 'upload',
+          referencedBy: [],
+        },
+      ],
+    })
+    const expiredStorageId = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob([validPng], { type: 'image/png' })),
+    )) as string
+    const expiredTokenHash = 'e'.repeat(64)
+    await owner.mutation(api.portability.beginPortableAssetUpload, {
+      runId: expired.runId,
+      payloadSha256: expired.payloadSha256,
+      sha256,
+      attemptTokenHash: expiredTokenHash,
+      storageOrigin: 'https://storage.example.test',
+    })
+    await owner.mutation(api.portability.recordPortableAssetUpload, {
+      runId: expired.runId,
+      payloadSha256: expired.payloadSha256,
+      sha256,
+      attemptTokenHash: expiredTokenHash,
+      attemptGeneration: 1,
+      storageId: expiredStorageId,
     })
     await ctx.raw.run(async (innerCtx) => {
       const run = await innerCtx.db
@@ -446,6 +980,19 @@ describe('portable draft import', () => {
         payloadSha256: expired.payloadSha256,
       }),
     ).resolves.toEqual({ runId: expired.runId, state: 'expired' })
+    expect(await ctx.readAll('portableAssetStages' as never)).toContainEqual(
+      expect.objectContaining({
+        runId: expired.runId,
+        state: 'cleanup-required',
+        storageId: expiredStorageId,
+      }),
+    )
+    await ctx.raw.finishAllScheduledFunctions(() => vi.runAllTimers())
+    expect(
+      await ctx.raw.run(async (innerCtx) =>
+        Boolean(await innerCtx.storage.get(expiredStorageId as never)),
+      ),
+    ).toBe(false)
     await expect(
       owner.mutation(api.portability.expireImport, {
         runId: expired.runId,
@@ -458,6 +1005,41 @@ describe('portable draft import', () => {
         payloadSha256: expired.payloadSha256,
       }),
     ).rejects.toThrow(/expired/i)
+  })
+
+  it('closes aborted asset stages in bounded scheduled pages', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T09:00:00.000Z'))
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contractSha256 } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const assets = Array.from({ length: 101 }, (_, index) => ({
+      sha256: index.toString(16).padStart(64, '0'),
+      bytes: 1,
+      mediaType: 'image/png' as const,
+      effect: 'upload' as const,
+      referencedBy: [],
+    }))
+    const plan = await createPlan(owner, contractSha256, documentFixture, {
+      planId: 'paged-cleanup-plan',
+      assets,
+    })
+
+    await owner.mutation(api.portability.abortImport, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+    })
+
+    const beforeContinuation = await ctx.readAll('portableAssetStages' as never)
+    expect(beforeContinuation.filter((stage) => stage.state === 'cleaned')).toHaveLength(100)
+    expect(beforeContinuation.filter((stage) => stage.state === 'awaiting-upload')).toHaveLength(1)
+    await ctx.raw.finishAllScheduledFunctions(() => vi.runAllTimers())
+    expect(
+      (await ctx.readAll('portableAssetStages' as never)).filter(
+        (stage) => stage.state === 'cleaned',
+      ),
+    ).toHaveLength(101)
   })
 
   it('seals more than one mutation page without collecting the plan into one transaction', async () => {

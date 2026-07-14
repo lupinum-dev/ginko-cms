@@ -2835,7 +2835,7 @@ Use only these statuses:
 | Level-1 portability contracts       | implemented | Codec/manifest hostile fixture suite    |
 | Bidirectional semantic round trip   | open        | Files to CMS to files equality          |
 | Deterministic asset portability     | implemented | Byte/hash/reference round-trip suite    |
-| Portable conflict and retry safety  | open        | Immutable plan and lost-response tests  |
+| Portable conflict and retry safety  | implemented | Immutable plan and lost-response tests  |
 | Bounded consistent export           | open        | Lease, roster, and pagination tests     |
 | Studio principal retirement         | open        | A to B and sign-out tests               |
 | Disposed-scope settlement           | open        | Refresh/reset-after-unmount tests       |

@@ -6,6 +6,7 @@ export const PORTABLE_PLAN_PAGE_LIMIT = 250
 export const PORTABLE_DOCUMENT_LIMIT = 100_000
 export const PORTABLE_ASSET_LIMIT = 100_000
 export const PORTABLE_ROW_BYTE_LIMIT = 256 * 1024
+export const PORTABLE_ASSET_BYTE_LIMIT = 25 * 1024 * 1024
 
 export type PortablePlanPayload = {
   format: 'ginko-cms-portability-plan'
@@ -28,6 +29,14 @@ export type PortableImportPlanItemPayload = {
   effect: 'create' | 'update' | 'skip' | 'conflict'
   documentSha256: string
   dependencyKeys: string[]
+}
+
+export type PortableImportPlanAssetPayload = {
+  sha256: string
+  bytes: number
+  mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+  effect: 'upload' | 'reuse' | 'conflict'
+  referencedBy: string[]
 }
 
 export function assertSha256(value: unknown, label: string): asserts value is string {
@@ -136,6 +145,30 @@ export function assertImportPlanItemPayload(value: JsonMap): PortableImportPlanI
     assertSha256(payload.expectedDraftSha256, 'expectedDraftSha256')
   }
   return payload as PortableImportPlanItemPayload
+}
+
+export function assertImportPlanAssetPayload(value: JsonMap): PortableImportPlanAssetPayload {
+  const payload = value as unknown as Partial<PortableImportPlanAssetPayload>
+  if (
+    Object.keys(value).sort().join(',') !==
+      ['bytes', 'effect', 'mediaType', 'referencedBy', 'sha256'].join(',') ||
+    !Number.isSafeInteger(payload.bytes) ||
+    payload.bytes! <= 0 ||
+    payload.bytes! > PORTABLE_ASSET_BYTE_LIMIT ||
+    !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(String(payload.mediaType)) ||
+    !['upload', 'reuse', 'conflict'].includes(String(payload.effect)) ||
+    !Array.isArray(payload.referencedBy) ||
+    payload.referencedBy.length > 256 ||
+    payload.referencedBy.some((key) => typeof key !== 'string' || !/^[a-f0-9]{64}$/.test(key)) ||
+    payload.referencedBy.some((key, index) => index > 0 && payload.referencedBy![index - 1]! >= key)
+  ) {
+    throw new Error('Portable import plan asset payload is invalid.')
+  }
+  if (canonicalJsonBytes(value).length > PORTABLE_ROW_BYTE_LIMIT) {
+    throw new Error('Portable import plan asset exceeds 256 KiB.')
+  }
+  assertSha256(payload.sha256, 'asset sha256')
+  return payload as PortableImportPlanAssetPayload
 }
 
 export async function matchesCanonicalHash(value: JsonMap, expected: string): Promise<boolean> {

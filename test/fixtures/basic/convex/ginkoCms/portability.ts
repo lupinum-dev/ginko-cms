@@ -1,14 +1,20 @@
 import {
   abortImport as abortImportArgs,
+  appendImportPlanAssets as appendImportPlanAssetsArgs,
   appendImportPlanItems as appendImportPlanItemsArgs,
   applyImportItem as applyImportItemArgs,
   beginImportApply as beginImportApplyArgs,
+  beginPortableAssetUpload as beginPortableAssetUploadArgs,
   beginImportVerification as beginImportVerificationArgs,
   createImportPlan as createImportPlanArgs,
   expireImport as expireImportArgs,
   finalizeImport as finalizeImportArgs,
+  inspectPortableAssets as inspectPortableAssetsArgs,
   inspectPortableDrafts as inspectPortableDraftsArgs,
+  issuePortableAssetUploadUrl as issuePortableAssetUploadUrlArgs,
+  recordPortableAssetUpload as recordPortableAssetUploadArgs,
   sealImportPlan as sealImportPlanArgs,
+  verifyPortableAssetUpload as verifyPortableAssetUploadArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
 
 import { components } from '../_generated/api'
@@ -18,6 +24,12 @@ export const inspectPortableDrafts = query({
   args: inspectPortableDraftsArgs.args,
   handler: async (ctx, args) =>
     await ctx.runQuery(components.ginkoCms.portability.inspectPortableDrafts, args as never),
+})
+
+export const inspectPortableAssets = query({
+  args: inspectPortableAssetsArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.portability.inspectPortableAssets, args as never),
 })
 
 export const createImportPlan = mutation({
@@ -32,10 +44,43 @@ export const appendImportPlanItems = mutation({
     await ctx.runMutation(components.ginkoCms.portability.appendImportPlanItems, args as never),
 })
 
+export const appendImportPlanAssets = mutation({
+  args: appendImportPlanAssetsArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.portability.appendImportPlanAssets, args as never),
+})
+
 export const sealImportPlan = action({
   args: sealImportPlanArgs.args,
   handler: async (ctx, args) =>
     await ctx.runAction(components.ginkoCms.portability.sealImportPlan, args as never),
+})
+
+export const beginPortableAssetUpload = mutation({
+  args: beginPortableAssetUploadArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.portability.beginPortableAssetUpload, args as never),
+})
+
+export const issuePortableAssetUploadUrl = mutation({
+  args: issuePortableAssetUploadUrlArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.portability.issuePortableAssetUploadUrl,
+      args as never,
+    ),
+})
+
+export const recordPortableAssetUpload = mutation({
+  args: recordPortableAssetUploadArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.portability.recordPortableAssetUpload, args as never),
+})
+
+export const verifyPortableAssetUpload = action({
+  args: verifyPortableAssetUploadArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runAction(components.ginkoCms.portability.verifyPortableAssetUpload, args as never),
 })
 
 export const beginImportApply = mutation({

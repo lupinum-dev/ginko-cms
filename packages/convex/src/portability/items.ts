@@ -5,7 +5,11 @@ import {
 } from '@lupinum/ginko-content/cms-contract'
 import {
   hashCanonicalJson,
+  collectPortableMdcAssetReferences,
+  rewritePortableMdcAssetReferencesForStorage,
+  rewriteStoredMdcAssetReferences,
   validatePortableDocument,
+  type PortableAssetReferenceV1,
   type PortableDocumentV1,
 } from '@lupinum/ginko-content/portability'
 
@@ -53,6 +57,7 @@ async function normalizePortableFields(
   ctx: MutationCtx,
   fields: CmsField[],
   value: JsonMap,
+  runId: string,
 ): Promise<JsonMap> {
   const output: JsonMap = {}
   for (const field of fields) {
@@ -78,26 +83,33 @@ async function normalizePortableFields(
       continue
     }
     if (field.type === 'image' || field.type === 'file') {
-      output[field.key] = normalizeExternalAsset(candidate)
+      output[field.key] = await normalizePortableAsset(ctx, runId, candidate)
       continue
     }
     if (field.type === 'images') {
       if (!Array.isArray(candidate)) throw new Error(`Portable asset list ${field.key} is invalid.`)
-      output[field.key] = candidate.map(normalizeExternalAsset)
+      output[field.key] = await Promise.all(
+        candidate.map(async (item) => await normalizePortableAsset(ctx, runId, item)),
+      )
       continue
     }
     if (field.fields?.length && Array.isArray(candidate)) {
       output[field.key] = await Promise.all(
         candidate.map(async (item) =>
           item && typeof item === 'object' && !Array.isArray(item)
-            ? await normalizePortableFields(ctx, field.fields!, item as JsonMap)
+            ? await normalizePortableFields(ctx, field.fields!, item as JsonMap, runId)
             : item,
         ),
       )
       continue
     }
     if (field.fields?.length && candidate && typeof candidate === 'object') {
-      output[field.key] = await normalizePortableFields(ctx, field.fields, candidate as JsonMap)
+      output[field.key] = await normalizePortableFields(
+        ctx,
+        field.fields,
+        candidate as JsonMap,
+        runId,
+      )
       continue
     }
     output[field.key] = candidate
@@ -131,18 +143,63 @@ async function normalizeRelation(ctx: MutationCtx, field: CmsField, value: unkno
   return reference.canonicalKey
 }
 
-function normalizeExternalAsset(value: unknown): string {
+async function normalizePortableAsset(ctx: MutationCtx, runId: string, value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('Portable asset reference is invalid.')
   }
-  const reference = value as { kind?: unknown; url?: unknown }
-  if (reference.kind !== 'external' || typeof reference.url !== 'string') {
+  const reference = value as { kind?: unknown; url?: unknown; sha256?: unknown }
+  if (reference.kind === 'external' && typeof reference.url === 'string') {
+    if (!reference.url.startsWith('https://')) {
+      throw new Error('Portable external asset URL must use HTTPS.')
+    }
+    return reference.url
+  }
+  if (reference.kind !== 'local' || typeof reference.sha256 !== 'string') {
+    throw new Error('Portable asset reference is invalid.')
+  }
+  const stage = await ctx.db
+    .query('portableAssetStages')
+    .withIndex('by_run_sha256', (query) =>
+      query.eq('runId', runId).eq('sha256', reference.sha256 as string),
+    )
+    .unique()
+  if (!stage || stage.state !== 'attached' || !stage.assetId) {
     throw new Error('Portable local asset is not attached to the import run.')
   }
-  return reference.url
+  return stage.assetId
 }
 
-function portableFields(fields: CmsField[], value: JsonMap): JsonMap {
+async function rewritePortableBodyAssets(
+  ctx: MutationCtx,
+  runId: string,
+  source: string,
+  policy: ResolvedContentContractV1['collections'][string]['componentPolicy'],
+) {
+  const assetIdBySha256 = new Map<string, string>()
+  for (const reference of await collectPortableMdcAssetReferences(source, policy)) {
+    const stage = await ctx.db
+      .query('portableAssetStages')
+      .withIndex('by_run_sha256', (query) =>
+        query.eq('runId', runId).eq('sha256', reference.sha256),
+      )
+      .unique()
+    if (!stage || stage.state !== 'attached' || !stage.assetId) {
+      throw new Error('Portable MDC asset is not attached to the import run.')
+    }
+    assetIdBySha256.set(reference.sha256, stage.assetId)
+  }
+  return await rewritePortableMdcAssetReferencesForStorage(source, policy, (reference) => {
+    const assetId = assetIdBySha256.get(reference.sha256)
+    if (!assetId) throw new Error('Portable MDC asset rewrite is incomplete.')
+    return assetId
+  })
+}
+
+async function portableFields(
+  ctx: QueryOrMutationCtx,
+  fields: CmsField[],
+  value: JsonMap,
+): Promise<JsonMap> {
   const output: JsonMap = {}
   for (const field of fields) {
     const candidate = value[field.key]
@@ -176,26 +233,30 @@ function portableFields(fields: CmsField[], value: JsonMap): JsonMap {
       continue
     }
     if (field.type === 'image' || field.type === 'file') {
-      output[field.key] = portableExternalAsset(candidate)
+      output[field.key] = await portableAsset(ctx, candidate)
       continue
     }
     if (field.type === 'images') {
       if (!Array.isArray(candidate)) {
         throw new TypeError(`Stored asset list ${field.key} cannot be made portable.`)
       }
-      output[field.key] = candidate.map(portableExternalAsset)
+      output[field.key] = await Promise.all(
+        candidate.map(async (item) => await portableAsset(ctx, item)),
+      )
       continue
     }
     if (field.fields?.length && Array.isArray(candidate)) {
-      output[field.key] = candidate.map((item) =>
-        item && typeof item === 'object' && !Array.isArray(item)
-          ? portableFields(field.fields!, item as JsonMap)
-          : item,
+      output[field.key] = await Promise.all(
+        candidate.map(async (item) =>
+          item && typeof item === 'object' && !Array.isArray(item)
+            ? await portableFields(ctx, field.fields!, item as JsonMap)
+            : item,
+        ),
       )
       continue
     }
     if (field.fields?.length && candidate && typeof candidate === 'object') {
-      output[field.key] = portableFields(field.fields, candidate as JsonMap)
+      output[field.key] = await portableFields(ctx, field.fields, candidate as JsonMap)
       continue
     }
     output[field.key] = candidate
@@ -203,11 +264,35 @@ function portableFields(fields: CmsField[], value: JsonMap): JsonMap {
   return output
 }
 
-function portableExternalAsset(value: unknown) {
-  if (typeof value !== 'string' || !value.startsWith('https://')) {
-    throw new Error('Stored managed asset requires portable asset staging.')
+async function portableAsset(
+  ctx: QueryOrMutationCtx,
+  value: unknown,
+): Promise<PortableAssetReferenceV1> {
+  if (typeof value === 'string' && value.startsWith('https://')) {
+    return { kind: 'external', url: value as `https://${string}` }
   }
-  return { kind: 'external' as const, url: value }
+  const assetId = typeof value === 'string' ? ctx.db.normalizeId('assets', value) : null
+  const asset = assetId ? await ctx.db.get(assetId) : null
+  if (!asset || asset.deletedAt !== null) {
+    throw new Error('Stored managed asset is unavailable for portability.')
+  }
+  const extension =
+    asset.mimeType === 'image/jpeg'
+      ? 'jpg'
+      : asset.mimeType === 'image/png' ||
+          asset.mimeType === 'image/gif' ||
+          asset.mimeType === 'image/webp'
+        ? asset.mimeType.slice('image/'.length)
+        : null
+  if (!extension) throw new Error('Stored managed asset type is not portable.')
+  return {
+    kind: 'local' as const,
+    path: `/ginko-assets/${asset.sha256}.${extension}` as `/ginko-assets/${string}`,
+    sha256: asset.sha256,
+    bytes: asset.size,
+    mediaType: asset.mimeType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+    originalFilename: asset.filename,
+  }
 }
 
 async function currentPortableDocument(
@@ -245,9 +330,22 @@ async function currentPortableDocument(
       slug: localized.localeSlug ?? shared.slug ?? entry.baseSlug,
       parentCanonicalKey: parent?.stableId ?? null,
       order: shared.orderRank ?? entry.orderRank ?? null,
-      shared: portableFields(collection.fields, shared.shared ?? {}),
-      localized: portableFields(collection.fields, values),
-      body: { kind: 'mdc', source: localized.bodyMdc ?? '' },
+      shared: await portableFields(ctx, collection.fields, shared.shared ?? {}),
+      localized: await portableFields(ctx, collection.fields, values),
+      body: {
+        kind: 'mdc',
+        source: await rewriteStoredMdcAssetReferences(
+          localized.bodyMdc ?? '',
+          contract.collections[collection.slug]!.componentPolicy,
+          async (identity) => {
+            const reference = await portableAsset(ctx, identity)
+            if (reference.kind !== 'local') {
+              throw new Error('Stored MDC asset identity is not managed.')
+            }
+            return reference.path
+          },
+        ),
+      },
       visibility: {
         navigation: visibility.navigation === true,
         search: visibility.search === true,
@@ -280,6 +378,7 @@ export async function applyPortableDraft(
   args: {
     documentValue: JsonMap
     planItem: PortableImportPlanItemPayload
+    runId: string
     appIdentityId: string
     now: number
   },
@@ -298,12 +397,26 @@ export async function applyPortableDraft(
   }
 
   const collection = await getCollectionOrThrow(ctx, document.collection)
-  const normalizedShared = await normalizePortableFields(ctx, collection.fields, document.shared)
+  const normalizedShared = await normalizePortableFields(
+    ctx,
+    collection.fields,
+    document.shared,
+    args.runId,
+  )
   const normalizedLocalized = await normalizePortableFields(
     ctx,
     collection.fields,
     document.localized,
+    args.runId,
   )
+  const bodyMdc = document.body
+    ? await rewritePortableBodyAssets(
+        ctx,
+        args.runId,
+        document.body.source,
+        contract.collections[document.collection]!.componentPolicy,
+      )
+    : ''
   assertFieldDataValid(collection.fields, { ...normalizedShared, ...normalizedLocalized })
   const existing = await ctx.db
     .query('entries')
@@ -366,7 +479,7 @@ export async function applyPortableDraft(
       locale: document.locale,
       baseRevisionId: null,
       values,
-      bodyMdc: document.body?.source ?? '',
+      bodyMdc,
       updatedBy: args.appIdentityId,
       updatedAt: args.now,
     })
@@ -393,7 +506,7 @@ export async function applyPortableDraft(
       locales: {
         [document.locale]: {
           values,
-          bodyMdc: document.body?.source ?? '',
+          bodyMdc,
         },
       },
     },

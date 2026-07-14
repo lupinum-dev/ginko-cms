@@ -74,6 +74,7 @@
     "better-convex-nuxt": "^0.6.0",
     "convex": "1.38.0",
     "defu": "^6.1.4",
+    "h3": "1.15.11",
     "jiti": "^2.7.0",
     "magic-string": "^0.30.21",
     "nitropack": "^2.13.4",

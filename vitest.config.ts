@@ -23,11 +23,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '#imports': resolve(__dirname, 'test/helpers/nuxt-imports-shim.ts'),
+      '#convex/api': resolve(__dirname, 'test/helpers/convex-api-shim.ts'),
       '#component': resolve(__dirname, 'packages/convex/src'),
       '#runtime': resolve(__dirname, 'packages/cms/src/runtime'),
       '#ginko-cms-public': resolve(__dirname, 'packages/cms/src/public'),
       '#ginko-cms-server': resolve(__dirname, 'packages/cms/src/server'),
       '@public': resolve(__dirname, 'packages/cms/src/public'),
+      'nitropack/runtime': resolve(__dirname, 'test/helpers/nitro-runtime-shim.ts'),
       '@lupinum/ginko-cms-contract/convex/schemas': resolve(
         __dirname,
         'packages/contract/src/schemas',

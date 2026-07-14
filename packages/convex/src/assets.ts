@@ -754,42 +754,63 @@ export const registerVerifiedAsset = internalMutation({
     frames: v.number(),
   },
   returns: v.string(),
-  handler: async (ctx, args) => {
-    const { entryId, collectionId } = await validateAssetScopeRelationships(ctx, args)
-    const filename = sanitizeFilename(args.filename)
-    const assetId = await ctx.db.insert('assets', {
-      storageId: args.storageId,
-      filename,
-      mimeType: args.mimeType,
-      size: args.bytes,
-      sha256: args.sha256,
-      width: args.width,
-      height: args.height,
-      frames: args.frames,
-      alt: args.alt ?? null,
-      caption: args.caption ?? null,
-      scope: args.scope,
-      entryId,
-      collectionId,
-      tags: [],
-      createdBy: args.createdBy,
-      updatedBy: null,
-      createdAt: Date.now(),
-      updatedAt: null,
-      deletedAt: null,
-      deletedBy: null,
-    })
-    await logActivity(ctx, {
-      kind: 'asset.uploaded',
-      summary: `Uploaded asset "${filename}"`,
-      appIdentityId: args.createdBy,
-      entryId,
-      collectionId,
-      detail: { filename, mimeType: args.mimeType, scope: args.scope, sha256: args.sha256 },
-    })
-    return toStringId(assetId)
-  },
+  handler: async (ctx, args) => await registerVerifiedAssetRecord(ctx, args),
 })
+
+export async function registerVerifiedAssetRecord(
+  ctx: MutationCtx,
+  args: {
+    storageId: Id<'_storage'>
+    filename: string
+    mimeType: 'image/gif' | 'image/jpeg' | 'image/png' | 'image/webp'
+    bytes: number
+    sha256: string
+    width: number
+    height: number
+    frames: number
+    alt?: string | Record<string, string> | null
+    caption?: string | Record<string, string> | null
+    scope: 'global' | 'collection' | 'entry'
+    entryId?: string
+    collectionId?: string
+    collectionSlug?: string
+    createdBy: string
+  },
+) {
+  const { entryId, collectionId } = await validateAssetScopeRelationships(ctx, args)
+  const filename = sanitizeFilename(args.filename)
+  const assetId = await ctx.db.insert('assets', {
+    storageId: args.storageId,
+    filename,
+    mimeType: args.mimeType,
+    size: args.bytes,
+    sha256: args.sha256,
+    width: args.width,
+    height: args.height,
+    frames: args.frames,
+    alt: args.alt ?? null,
+    caption: args.caption ?? null,
+    scope: args.scope,
+    entryId,
+    collectionId,
+    tags: [],
+    createdBy: args.createdBy,
+    updatedBy: null,
+    createdAt: Date.now(),
+    updatedAt: null,
+    deletedAt: null,
+    deletedBy: null,
+  })
+  await logActivity(ctx, {
+    kind: 'asset.uploaded',
+    summary: `Uploaded asset "${filename}"`,
+    appIdentityId: args.createdBy,
+    entryId,
+    collectionId,
+    detail: { filename, mimeType: args.mimeType, scope: args.scope, sha256: args.sha256 },
+  })
+  return toStringId(assetId)
+}
 
 export const attachAssetsToEntry = callerMutation.protected({
   id: 'assets:attachAssetsToEntry',

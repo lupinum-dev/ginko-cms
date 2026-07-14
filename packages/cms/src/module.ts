@@ -339,6 +339,17 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       }
     }
 
+    addServerHandler({
+      route: '/api/_ginko/portability/assets/:sha256/attempt',
+      method: 'post',
+      handler: resolve(cmsServerDir, 'routes/portability-asset-attempt'),
+    })
+    addServerHandler({
+      route: '/api/_ginko/portability/assets/:sha256',
+      method: 'put',
+      handler: resolve(cmsServerDir, 'routes/portability-asset-upload'),
+    })
+
     if (options.publicContent?.prerender && !isTypecheck() && !isNuxtPrepare()) {
       const hookNitroConfig = nuxt.hook as unknown as (
         name: 'nitro:config',

@@ -239,6 +239,27 @@ describe('ginko-cms Convex setup validation', () => {
     )
   })
 
+  it('registers the CLI-only portability asset transfer routes', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-portability-routes-'))
+    tempDirs.push(rootDir)
+    await installConvexSetup(rootDir)
+
+    await setupModule({ route: '/studio' }, createNuxtMock(rootDir))
+
+    expect(addServerHandler.mock.calls.map(([handler]) => handler)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          route: '/api/_ginko/portability/assets/:sha256/attempt',
+          method: 'post',
+        }),
+        expect.objectContaining({
+          route: '/api/_ginko/portability/assets/:sha256',
+          method: 'put',
+        }),
+      ]),
+    )
+  })
+
   it('normalizes localized root prerender routes without trailing slash', async () => {
     const previousConvexUrl = process.env.NUXT_PUBLIC_CONVEX_URL
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'

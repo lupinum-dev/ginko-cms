@@ -4,6 +4,10 @@ import { hashCanonicalJson } from '@lupinum/ginko-content/portability'
 import type { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 
+import {
+  uploadPreparedPortableDraftImportAssets,
+  type PortableAssetTransferOptions,
+} from './asset-transport.js'
 import { readCmsPortableDirectory } from './directory.js'
 import { createPortableDraftImportPlan, type PortableDraftImportPlan } from './plan.js'
 
@@ -46,10 +50,33 @@ export async function preparePortableDraftImport(
     })) as Array<{ itemKey: string; currentDraftSha256: string | null }>
     for (const row of rows) currentDraftSha256ByItemKey.set(row.itemKey, row.currentDraftSha256)
   }
+  const currentAssetBySha256 = new Map<
+    string,
+    { assetId: string; bytes: number; mediaType: string }
+  >()
+  const assetFacts = bundle.assets
+    .map((asset) => ({
+      sha256: asset.sha256,
+      bytes: asset.bytes,
+      mediaType: asset.mediaType,
+    }))
+    .sort((left, right) => compare(left.sha256, right.sha256))
+  for (let offset = 0; offset < assetFacts.length; offset += PAGE_SIZE) {
+    const rows = (await client.query(api.ginkoCms.portability.inspectPortableAssets, {
+      assets: assetFacts.slice(offset, offset + PAGE_SIZE),
+    })) as Array<{
+      sha256: string
+      current: { assetId: string; bytes: number; mediaType: string } | null
+    }>
+    for (const row of rows) {
+      if (row.current) currentAssetBySha256.set(row.sha256, row.current)
+    }
+  }
   const plan = await createPortableDraftImportPlan(bundle, {
     deploymentId: options.deploymentId,
     targetContractSha256: options.targetContractSha256,
     currentDraftSha256ByItemKey,
+    currentAssetBySha256,
   })
   if (plan.blockers.length > 0) {
     throw new Error(`Portable import is blocked: ${plan.blockers.join(' ')}`)
@@ -67,6 +94,13 @@ export async function preparePortableDraftImport(
       items: plan.items.slice(offset, offset + PAGE_SIZE),
     })
   }
+  for (let offset = 0; offset < plan.assets.length; offset += PAGE_SIZE) {
+    await client.mutation(api.ginkoCms.portability.appendImportPlanAssets, {
+      planId,
+      payloadSha256: plan.payloadSha256,
+      assets: plan.assets.slice(offset, offset + PAGE_SIZE),
+    })
+  }
   const sealed = (await client.action(api.ginkoCms.portability.sealImportPlan, {
     planId,
     payloadSha256: plan.payloadSha256,
@@ -77,7 +111,14 @@ export async function preparePortableDraftImport(
 export async function applyPreparedPortableDraftImport(
   client: DirectCmsClient,
   prepared: PreparedPortableDraftImport,
+  assetTransfer?: PortableAssetTransferOptions,
 ) {
+  if (prepared.assets.some((asset) => asset.payload.effect === 'upload')) {
+    if (!assetTransfer) {
+      throw new Error('Portable import assets require authenticated CMS host transfer options.')
+    }
+    await uploadPreparedPortableDraftImportAssets(prepared, assetTransfer)
+  }
   const started = (await client.mutation(api.ginkoCms.portability.beginImportApply, {
     runId: prepared.runId,
     payloadSha256: prepared.payloadSha256,

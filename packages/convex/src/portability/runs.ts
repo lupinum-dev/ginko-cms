@@ -1,5 +1,6 @@
 import {
   abortImport as abortImportArgs,
+  appendImportPlanAssets as appendImportPlanAssetsArgs,
   appendImportPlanItems as appendImportPlanItemsArgs,
   applyImportItem as applyImportItemArgs,
   beginImportApply as beginImportApplyArgs,
@@ -7,6 +8,7 @@ import {
   createImportPlan as createImportPlanArgs,
   expireImport as expireImportArgs,
   finalizeImport as finalizeImportArgs,
+  inspectPortableAssets as inspectPortableAssetsArgs,
   inspectPortableDrafts as inspectPortableDraftsArgs,
   sealImportPlan as sealImportPlanArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
@@ -29,8 +31,10 @@ import {
   directInternalQuery,
 } from '../functions.js'
 import type { MutationCtx } from '../lib/types.js'
+import { isCmsStorageReferenced } from '../storageMaintenance.js'
 import { applyPortableDraft, portableDraftSha256 } from './items.js'
 import {
+  assertImportPlanAssetPayload,
   assertImportPlanItemPayload,
   assertImportPlanPayload,
   assertSha256,
@@ -39,6 +43,7 @@ import {
 } from './model.js'
 
 const stateResult = v.object({ runId: v.string(), state: v.string() })
+const PORTABLE_STAGE_CLEANUP_PAGE_SIZE = 100
 
 export const inspectPortableDrafts = callerQuery.protected({
   id: 'portability:inspectPortableDrafts',
@@ -65,6 +70,59 @@ export const inspectPortableDrafts = callerQuery.protected({
       result.push({
         itemKey: item.itemKey,
         currentDraftSha256: await portableDraftSha256(ctx, item.identity),
+      })
+    }
+    return result
+  },
+})
+
+export const inspectPortableAssets = callerQuery.protected({
+  id: 'portability:inspectPortableAssets',
+  args: inspectPortableAssetsArgs.args,
+  guard: canManagePortability,
+  returns: v.array(
+    v.object({
+      sha256: v.string(),
+      current: v.union(
+        v.object({
+          assetId: v.string(),
+          bytes: v.number(),
+          mediaType: v.string(),
+        }),
+        v.null(),
+      ),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (args.assets.length === 0 || args.assets.length > PORTABLE_PLAN_PAGE_LIMIT) {
+      throw new Error(`Portable asset inspection pages contain 1-${PORTABLE_PLAN_PAGE_LIMIT} rows.`)
+    }
+    const seen = new Set<string>()
+    const result = []
+    for (const asset of args.assets) {
+      assertSha256(asset.sha256, 'asset sha256')
+      if (seen.has(asset.sha256)) throw new Error('Portable asset inspection has duplicate hashes.')
+      seen.add(asset.sha256)
+      const stored = await ctx.db
+        .query('assets')
+        .withIndex('by_sha256', (query) => query.eq('sha256', asset.sha256))
+        .collect()
+      const active = stored
+        .filter((candidate) => candidate.deletedAt == null)
+        .sort((left, right) => String(left._id).localeCompare(String(right._id)))
+      const current =
+        active.find(
+          (candidate) => candidate.size === asset.bytes && candidate.mimeType === asset.mediaType,
+        ) ?? active[0]
+      result.push({
+        sha256: asset.sha256,
+        current: current
+          ? {
+              assetId: String(current._id),
+              bytes: current.size,
+              mediaType: current.mimeType,
+            }
+          : null,
       })
     }
     return result
@@ -150,6 +208,8 @@ export const createImportPlan = callerMutation.protected({
       callerId: identity.userId,
       stagedItemCount: 0,
       stagedAssetCount: 0,
+      initializedAssetCount: 0,
+      initializedAttachedAssetCount: 0,
       createdAt,
       expiresAt,
     })
@@ -222,6 +282,70 @@ export const appendImportPlanItems = callerMutation.protected({
   },
 })
 
+export const appendImportPlanAssets = callerMutation.protected({
+  id: 'portability:appendImportPlanAssets',
+  args: appendImportPlanAssetsArgs.args,
+  guard: canManagePortability,
+  returns: v.object({ accepted: v.number() }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.appIdentity()
+    if (args.assets.length === 0 || args.assets.length > PORTABLE_PLAN_PAGE_LIMIT) {
+      throw new Error(`Portable plan asset pages contain 1-${PORTABLE_PLAN_PAGE_LIMIT} rows.`)
+    }
+    const plan = await getPlan(ctx, args.planId)
+    if (plan.callerId !== identity.userId || plan.payloadSha256 !== args.payloadSha256) {
+      throw new Error('Portable plan caller or payload mismatch.')
+    }
+    if (plan.expiresAt <= Date.now()) throw new Error('Portable plan expired.')
+    const run = await ctx.db
+      .query('portableRuns')
+      .withIndex('by_plan_id', (query) => query.eq('planId', plan.planId))
+      .first()
+    if (run) throw new Error('Sealed portable plans are immutable.')
+
+    const planPayload = assertImportPlanPayload(plan.payload)
+    const seen = new Set<string>()
+    let inserted = 0
+    for (const asset of args.assets) {
+      if (seen.has(asset.assetKey)) {
+        throw new Error('Portable plan page contains a duplicate asset key.')
+      }
+      seen.add(asset.assetKey)
+      const payload = assertImportPlanAssetPayload(asset.payload)
+      if (payload.sha256 !== asset.assetKey) throw new Error('Portable asset key mismatch.')
+      if ((await hashCanonicalJson(asset.payload)) !== asset.inputSha256) {
+        throw new Error('Portable asset input hash mismatch.')
+      }
+      const existing = await ctx.db
+        .query('portableImportPlanAssets')
+        .withIndex('by_plan_asset', (query) =>
+          query.eq('planId', plan.planId).eq('assetKey', asset.assetKey),
+        )
+        .unique()
+      if (existing) {
+        if (existing.inputSha256 !== asset.inputSha256) {
+          throw new Error('Portable asset key input mismatch.')
+        }
+        continue
+      }
+      await ctx.db.insert('portableImportPlanAssets', {
+        planId: plan.planId,
+        assetKey: asset.assetKey,
+        inputSha256: asset.inputSha256,
+        payload: asset.payload,
+      })
+      inserted += 1
+    }
+    if (plan.stagedAssetCount + inserted > planPayload.assetCount) {
+      throw new Error('Portable plan has more asset rows than its immutable payload.')
+    }
+    if (inserted > 0) {
+      await ctx.db.patch(plan._id, { stagedAssetCount: plan.stagedAssetCount + inserted })
+    }
+    return { accepted: args.assets.length }
+  },
+})
+
 export const readImportSealPage = directInternalQuery({
   args: {
     planId: v.string(),
@@ -277,6 +401,141 @@ export const readImportSealPage = directInternalQuery({
   },
 })
 
+export const readImportAssetSealPage = directInternalQuery({
+  args: {
+    planId: v.string(),
+    callerId: v.string(),
+    payloadSha256: v.string(),
+    afterAssetKey: v.union(v.string(), v.null()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const plan = await ctx.db
+      .query('portablePlans')
+      .withIndex('by_plan_id', (query) => query.eq('planId', args.planId))
+      .unique()
+    if (!plan || plan.callerId !== args.callerId || plan.payloadSha256 !== args.payloadSha256) {
+      throw new Error('Portable plan caller or payload mismatch.')
+    }
+    if (plan.expiresAt <= Date.now()) throw new Error('Portable plan expired.')
+    const indexed = ctx.db.query('portableImportPlanAssets').withIndex('by_plan_asset', (query) => {
+      const scoped = query.eq('planId', plan.planId)
+      return args.afterAssetKey === null ? scoped : scoped.gt('assetKey', args.afterAssetKey)
+    })
+    const fetched = await indexed.take(PORTABLE_PLAN_PAGE_LIMIT + 1)
+    const rows = fetched.slice(0, PORTABLE_PLAN_PAGE_LIMIT)
+    for (const row of rows) {
+      const asset = assertImportPlanAssetPayload(row.payload)
+      const stored = await ctx.db
+        .query('assets')
+        .withIndex('by_sha256', (query) => query.eq('sha256', asset.sha256))
+        .collect()
+      const active = stored.filter((candidate) => candidate.deletedAt == null)
+      const exact = active.some(
+        (candidate) => candidate.size === asset.bytes && candidate.mimeType === asset.mediaType,
+      )
+      const expectedEffect = active.length === 0 ? 'upload' : exact ? 'reuse' : 'conflict'
+      if (asset.effect !== expectedEffect) {
+        throw new Error(`Portable asset effect mismatch: expected ${expectedEffect}.`)
+      }
+      if (expectedEffect === 'conflict') {
+        throw new Error(`Portable asset ${asset.sha256} conflicts with stored metadata.`)
+      }
+    }
+    return {
+      rows: rows.map((row) => ({ assetKey: row.assetKey, payload: row.payload })),
+      nextAssetKey:
+        fetched.length > PORTABLE_PLAN_PAGE_LIMIT ? (rows.at(-1)?.assetKey ?? null) : null,
+    }
+  },
+})
+
+export const initializeImportAssetStagePage = directInternalMutation({
+  args: {
+    planId: v.string(),
+    callerId: v.string(),
+    payloadSha256: v.string(),
+    assetKeys: v.array(v.string()),
+  },
+  returns: v.object({ initialized: v.number(), attached: v.number() }),
+  handler: async (ctx, args) => {
+    if (args.assetKeys.length === 0 || args.assetKeys.length > PORTABLE_PLAN_PAGE_LIMIT) {
+      throw new Error(
+        `Portable asset initialization pages contain 1-${PORTABLE_PLAN_PAGE_LIMIT} rows.`,
+      )
+    }
+    const plan = await getPlan(ctx, args.planId)
+    if (plan.callerId !== args.callerId || plan.payloadSha256 !== args.payloadSha256) {
+      throw new Error('Portable plan caller or payload mismatch.')
+    }
+    if (plan.expiresAt <= Date.now()) throw new Error('Portable plan expired.')
+    const runId = `portable-import:${plan.planId}`
+    let initialized = 0
+    let attached = 0
+    for (const assetKey of args.assetKeys) {
+      const existing = await ctx.db
+        .query('portableAssetStages')
+        .withIndex('by_run_sha256', (query) => query.eq('runId', runId).eq('sha256', assetKey))
+        .unique()
+      if (existing) continue
+      const row = await ctx.db
+        .query('portableImportPlanAssets')
+        .withIndex('by_plan_asset', (query) =>
+          query.eq('planId', plan.planId).eq('assetKey', assetKey),
+        )
+        .unique()
+      if (!row) throw new Error('Portable plan asset is missing during initialization.')
+      const asset = assertImportPlanAssetPayload(row.payload)
+      const stored = await ctx.db
+        .query('assets')
+        .withIndex('by_sha256', (query) => query.eq('sha256', asset.sha256))
+        .collect()
+      const exact = stored
+        .filter(
+          (candidate) =>
+            candidate.deletedAt == null &&
+            candidate.size === asset.bytes &&
+            candidate.mimeType === asset.mediaType,
+        )
+        .sort((left, right) => String(left._id).localeCompare(String(right._id)))[0]
+      const expectedEffect = stored.some((candidate) => candidate.deletedAt == null)
+        ? exact
+          ? 'reuse'
+          : 'conflict'
+        : 'upload'
+      if (asset.effect !== expectedEffect || expectedEffect === 'conflict') {
+        throw new Error(`Portable asset effect mismatch: expected ${expectedEffect}.`)
+      }
+      const now = Date.now()
+      await ctx.db.insert('portableAssetStages', {
+        runId,
+        callerId: plan.callerId,
+        sha256: asset.sha256,
+        byteLength: asset.bytes,
+        mediaType: asset.mediaType,
+        state: exact ? 'attached' : 'awaiting-upload',
+        storageId: exact?.storageId ?? null,
+        assetId: exact ? String(exact._id) : null,
+        attemptTokenHash: null,
+        attemptGeneration: 0,
+        leaseExpiresAt: null,
+        storageOrigin: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      initialized += 1
+      if (exact) attached += 1
+    }
+    if (initialized > 0) {
+      await ctx.db.patch(plan._id, {
+        initializedAssetCount: plan.initializedAssetCount + initialized,
+        initializedAttachedAssetCount: plan.initializedAttachedAssetCount + attached,
+      })
+    }
+    return { initialized, attached }
+  },
+})
+
 export const commitImportSeal = directInternalMutation({
   args: {
     planId: v.string(),
@@ -284,6 +543,8 @@ export const commitImportSeal = directInternalMutation({
     payloadSha256: v.string(),
     itemCount: v.number(),
     itemRootSha256: v.string(),
+    assetCount: v.number(),
+    assetRootSha256: v.string(),
   },
   returns: stateResult,
   handler: async (ctx, args) => {
@@ -306,9 +567,10 @@ export const commitImportSeal = directInternalMutation({
       throw new Error('Portable plan item root or count mismatch.')
     }
     if (
-      payload.assetCount !== 0 ||
-      plan.stagedAssetCount !== 0 ||
-      (await hashCanonicalJson([])) !== payload.assetRootSha256
+      args.assetCount !== payload.assetCount ||
+      plan.stagedAssetCount !== payload.assetCount ||
+      plan.initializedAssetCount !== payload.assetCount ||
+      args.assetRootSha256 !== payload.assetRootSha256
     ) {
       throw new Error('Portable asset plan rows are incomplete.')
     }
@@ -334,7 +596,7 @@ export const commitImportSeal = directInternalMutation({
       sourceManifestSha256: payload.sourceManifestSha256,
       sourceContractSha256: payload.sourceContractSha256,
       committedItemCount: 0,
-      attachedAssetCount: 0,
+      attachedAssetCount: plan.initializedAttachedAssetCount,
       createdAt: now,
       updatedAt: now,
       expiresAt: plan.expiresAt,
@@ -357,6 +619,31 @@ const readImportSealPageRef = makeFunctionReference<
   }
 >('portability/runs:readImportSealPage')
 
+const readImportAssetSealPageRef = makeFunctionReference<
+  'query',
+  {
+    planId: string
+    callerId: string
+    payloadSha256: string
+    afterAssetKey: string | null
+  },
+  {
+    rows: Array<{ assetKey: string; payload: JsonMap }>
+    nextAssetKey: string | null
+  }
+>('portability/runs:readImportAssetSealPage')
+
+const initializeImportAssetStagePageRef = makeFunctionReference<
+  'mutation',
+  {
+    planId: string
+    callerId: string
+    payloadSha256: string
+    assetKeys: string[]
+  },
+  { initialized: number; attached: number }
+>('portability/runs:initializeImportAssetStagePage')
+
 const commitImportSealRef = makeFunctionReference<
   'mutation',
   {
@@ -365,6 +652,8 @@ const commitImportSealRef = makeFunctionReference<
     payloadSha256: string
     itemCount: number
     itemRootSha256: string
+    assetCount: number
+    assetRootSha256: string
   },
   { runId: string; state: string }
 >('portability/runs:commitImportSeal')
@@ -399,12 +688,45 @@ export const sealImportPlan = callerAction.protected({
       afterItemKey = page.nextItemKey
     }
     hash.update(new TextEncoder().encode(']'))
+    const assetHash = new IncrementalSha256()
+    assetHash.update(new TextEncoder().encode('['))
+    let afterAssetKey: string | null = null
+    let assetCount = 0
+    for (;;) {
+      const page: {
+        rows: Array<{ assetKey: string; payload: JsonMap }>
+        nextAssetKey: string | null
+      } = await ctx.runQuery(readImportAssetSealPageRef, {
+        planId: args.planId,
+        callerId: identity.userId,
+        payloadSha256: args.payloadSha256,
+        afterAssetKey,
+      })
+      for (const row of page.rows) {
+        if (assetCount > 0) assetHash.update(new TextEncoder().encode(','))
+        assetHash.update(canonicalJsonBytes(row.payload))
+        assetCount += 1
+      }
+      if (page.rows.length > 0) {
+        await ctx.runMutation(initializeImportAssetStagePageRef, {
+          planId: args.planId,
+          callerId: identity.userId,
+          payloadSha256: args.payloadSha256,
+          assetKeys: page.rows.map((row) => row.assetKey),
+        })
+      }
+      if (page.nextAssetKey === null) break
+      afterAssetKey = page.nextAssetKey
+    }
+    assetHash.update(new TextEncoder().encode(']'))
     return await ctx.runMutation(commitImportSealRef, {
       planId: args.planId,
       callerId: identity.userId,
       payloadSha256: args.payloadSha256,
       itemCount,
       itemRootSha256: hash.digestHex(),
+      assetCount,
+      assetRootSha256: assetHash.digestHex(),
     })
   },
 })
@@ -428,6 +750,11 @@ export const beginImportApply = callerMutation.protected({
       payloadSha256: args.payloadSha256,
       state: 'planned',
     })
+    const plan = await getPlan(ctx, run.planId)
+    const payload = assertImportPlanPayload(plan.payload)
+    if (run.attachedAssetCount !== payload.assetCount) {
+      throw new Error('Portable import cannot apply before every asset is attached.')
+    }
     await ctx.db.patch(run._id, { state: 'applying', updatedAt: Date.now() })
     return { runId: run.runId, state: 'applying' }
   },
@@ -478,6 +805,7 @@ export const applyImportItem = callerMutation.protected({
     const applied = await applyPortableDraft(ctx, {
       documentValue: args.document,
       planItem,
+      runId: run.runId,
       appIdentityId: identity.userId,
       now: Date.now(),
     })
@@ -581,6 +909,106 @@ export const finalizeImport = callerMutation.protected({
   },
 })
 
+async function closeImportStagePage(
+  ctx: MutationCtx,
+  runId: string,
+  cursor: string | null,
+): Promise<void> {
+  const indexed = ctx.db.query('portableAssetStages').withIndex('by_run_sha256', (query) => {
+    const scoped = query.eq('runId', runId)
+    return cursor === null ? scoped : scoped.gt('sha256', cursor)
+  })
+  const fetched = await indexed.take(PORTABLE_STAGE_CLEANUP_PAGE_SIZE + 1)
+  const stages = fetched.slice(0, PORTABLE_STAGE_CLEANUP_PAGE_SIZE)
+  const now = Date.now()
+  for (const stage of stages) {
+    if (stage.state === 'cleaned') continue
+    if (stage.state === 'attached') {
+      if (stage.storageOrigin === null) continue
+      if (!stage.storageId || !stage.assetId) continue
+      const assetId = ctx.db.normalizeId('assets', stage.assetId)
+      const asset = assetId ? await ctx.db.get(assetId) : null
+      if (!asset || asset.storageId !== stage.storageId) continue
+      const contentReference = await ctx.db
+        .query('contentAssetRefs')
+        .withIndex('by_asset_source', (query) => query.eq('assetId', stage.assetId!))
+        .first()
+      if (contentReference) continue
+      if (
+        await isCmsStorageReferenced(ctx, stage.storageId, {
+          assetId: asset._id,
+          portableStageId: stage._id,
+        })
+      ) {
+        continue
+      }
+      await ctx.db.delete(asset._id)
+      await ctx.db.patch(stage._id, {
+        state: 'cleanup-required',
+        assetId: null,
+        attemptTokenHash: null,
+        leaseExpiresAt: null,
+        updatedAt: now,
+      })
+      await ctx.scheduler.runAfter(0, cleanupPortableAssetStageRef, {
+        stageId: stage._id,
+        storageId: stage.storageId,
+        attempt: 1,
+      })
+      continue
+    }
+    if (!stage.storageId) {
+      await ctx.db.patch(stage._id, {
+        state: 'cleaned',
+        attemptTokenHash: null,
+        leaseExpiresAt: null,
+        updatedAt: now,
+      })
+      continue
+    }
+    await ctx.db.patch(stage._id, {
+      state: 'cleanup-required',
+      attemptTokenHash: null,
+      leaseExpiresAt: null,
+      updatedAt: now,
+    })
+    await ctx.scheduler.runAfter(0, cleanupPortableAssetStageRef, {
+      stageId: stage._id,
+      storageId: stage.storageId,
+      attempt: 1,
+    })
+  }
+  if (fetched.length > PORTABLE_STAGE_CLEANUP_PAGE_SIZE) {
+    await ctx.scheduler.runAfter(0, closeImportStagesRef, {
+      runId,
+      cursor: stages.at(-1)!.sha256,
+    })
+  }
+}
+
+export const closeImportStages = directInternalMutation({
+  args: { runId: v.string(), cursor: v.union(v.string(), v.null()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await getRun(ctx, args.runId)
+    if (run.state !== 'aborted' && run.state !== 'expired') return null
+    await closeImportStagePage(ctx, run.runId, args.cursor)
+    return null
+  },
+})
+
+const cleanupPortableAssetStageRef = makeFunctionReference<
+  'action',
+  { stageId: string; storageId: string; attempt: number },
+  null
+>('portability/assets:cleanupPortableAssetStage')
+
+const closeImportStagesRef = makeFunctionReference<
+  'mutation',
+  { runId: string; cursor: string | null },
+  null
+>('portability/runs:closeImportStages')
+
 export const abortImport = callerMutation.protected({
   id: 'portability:abortImport',
   args: abortImportArgs.args,
@@ -592,7 +1020,10 @@ export const abortImport = callerMutation.protected({
     if (run.callerId !== identity.userId || run.payloadSha256 !== args.payloadSha256) {
       throw new Error('Portable run caller or payload mismatch.')
     }
-    if (run.state === 'aborted') return { runId: run.runId, state: run.state }
+    if (run.state === 'aborted') {
+      await closeImportStagePage(ctx, run.runId, null)
+      return { runId: run.runId, state: run.state }
+    }
     if (run.state === 'complete' || run.state === 'expired') {
       throw new Error(`Terminal portable run state ${run.state} cannot be aborted.`)
     }
@@ -600,6 +1031,7 @@ export const abortImport = callerMutation.protected({
       throw new Error('Portable run expired and must be closed as expired.')
     }
     await ctx.db.patch(run._id, { state: 'aborted', updatedAt: Date.now() })
+    await closeImportStagePage(ctx, run.runId, null)
     return { runId: run.runId, state: 'aborted' }
   },
 })
@@ -615,12 +1047,16 @@ export const expireImport = callerMutation.protected({
     if (run.callerId !== identity.userId || run.payloadSha256 !== args.payloadSha256) {
       throw new Error('Portable run caller or payload mismatch.')
     }
-    if (run.state === 'expired') return { runId: run.runId, state: run.state }
+    if (run.state === 'expired') {
+      await closeImportStagePage(ctx, run.runId, null)
+      return { runId: run.runId, state: run.state }
+    }
     if (run.state === 'complete' || run.state === 'aborted') {
       throw new Error(`Terminal portable run state ${run.state} cannot expire.`)
     }
     if (run.expiresAt > Date.now()) throw new Error('Portable run has not expired.')
     await ctx.db.patch(run._id, { state: 'expired', updatedAt: Date.now() })
+    await closeImportStagePage(ctx, run.runId, null)
     return { runId: run.runId, state: 'expired' }
   },
 })
