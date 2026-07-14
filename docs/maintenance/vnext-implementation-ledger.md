@@ -1359,3 +1359,60 @@ by CMS:
 the actual Node directory codec, CMS import planning/apply, confirmed publish,
 immutable published export, and a fresh CMS import. Packed-candidate and browser
 rendering parity remain later release gates and are not claimed by this row.
+
+## 2026-07-14 — Remove Superseded Content CMS Import Boundary
+
+### Objective and hard cutover
+
+Remove the unreleased `@lupinum/ginko-content/cms-import` compatibility surface
+after the CMS consumer moved to the canonical portability codec and Node
+directory entries. Acceptance required one mapping authority: no package
+export, build entry, public-surface declaration, generated `dist` directory, or
+positive packed-consumer import could remain. No shim, alias, feature flag, or
+dual implementation was permitted.
+
+The contract test was changed first and failed because `./cms-import` was still
+exported. The implementation then deleted the 101-line source boundary and its
+190-line unit suite, removed the manifest/build/public-surface entries, and
+updated the architecture and migration documentation to point directly to
+`./portability` and `./portability/node`. The packed consumer now proves the
+removed path fails with `ERR_PACKAGE_PATH_NOT_EXPORTED` while all replacement
+subpaths continue to import and build.
+
+### Executable and artifact evidence
+
+- Focused package-export and architecture-boundary slice: 2 files and 38 tests
+  passed.
+- `pnpm lint && pnpm test`: passed; the post-deletion standard baseline is 99
+  files and 831 tests.
+- A fresh consumer installed the exact tarball, passed prepare, typecheck, and
+  build, retained the canonical subpath imports, and rejected `./cms-import`.
+- The exact-tarball Node/Chromium Worker probe passed 3 canonical hash vectors
+  and the `docs.introduction` portability codec fixture.
+- The first full `pnpm verify` attempt was rejected after 12 of 15 e2e tests
+  passed: three search fixtures observed shared `dist` files disappear during
+  their builds (`pagefind.js`, then the module entry). The isolated search
+  matrix immediately passed 4 of 4 tests, and a complete focused e2e rerun
+  passed 6 files and 15 tests. No product or harness code was changed for this
+  environmental build race.
+- The clean authoritative `pnpm verify` retry exited `0`. Repository policy,
+  lint, compatibility, documentation build/smoke, all 13 example builds,
+  typechecks, quickstart, 99 standard files / 831 tests, and 6 e2e files / 15
+  tests passed in that uninterrupted run.
+- `git diff --check`, `node --check scripts/test-packed-consumer.mjs`, and the
+  final absence check for `packages/content/dist/cms-import` passed.
+
+Immutable development artifact:
+`/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.c33dae1f4e45.3aa695d0df36164b9ed12201d033001c1fb5d176464223369a8cdd3f4c638d67.tgz`
+— SHA-256
+`3aa695d0df36164b9ed12201d033001c1fb5d176464223369a8cdd3f4c638d67`.
+The development filename records the pre-commit source revision; the bytes are
+content-addressed and were verified before commit.
+
+- Ginko Content: `5dcc0e9` —
+  `refactor!: remove superseded cms-import boundary`.
+
+This work package does not claim a new acceptance-matrix row. It closes the
+one-source-of-truth cleanup required before candidate packing: portability is
+the sole public mapping and directory boundary, and the superseded path is
+absent rather than deprecated in parallel.
