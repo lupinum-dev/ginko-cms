@@ -173,7 +173,14 @@ async function bootNitro() {
   const port = 41_000 + (process.pid % 10_000)
   const child = spawn(process.execPath, ['.output/server/index.mjs'], {
     cwd: tempDir,
-    env: { ...packageE2eEnv(), HOST: '127.0.0.1', PORT: String(port) },
+    env: {
+      ...packageE2eEnv(),
+      BETTER_AUTH_SECRET: 'package-e2e-only-secret',
+      CONVEX_URL: 'http://127.0.0.1:3210',
+      HOST: '127.0.0.1',
+      NUXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3210',
+      PORT: String(port),
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
