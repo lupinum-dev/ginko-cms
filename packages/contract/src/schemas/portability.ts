@@ -161,3 +161,87 @@ export const expireImport = defineArgs({
   description: 'Close an active portable import after its immutable deadline.',
   args: runArgs,
 })
+
+export const createExportRun = defineArgs({
+  description: 'Start one fenced immutable published-content export capture.',
+  args: {
+    runId: v.string(),
+    deploymentId: v.string(),
+    scope: v.object({ collections: v.array(v.string()) }),
+    sourceContractSha256: v.string(),
+    leaseTokenHash: v.string(),
+  },
+})
+
+const exportLeaseArgs = {
+  runId: v.string(),
+  leaseTokenHash: v.string(),
+  leaseGeneration: v.number(),
+}
+
+export const captureExportPage = defineArgs({
+  description: 'Capture one bounded page of immutable public revisions and asset holds.',
+  args: exportLeaseArgs,
+})
+
+export const sealExportRun = defineArgs({
+  description: 'Verify the final captured page and release the editorial write lease.',
+  args: exportLeaseArgs,
+})
+
+export const readExportDocuments = defineArgs({
+  description: 'Read one bounded page of documents reconstructed from a sealed export roster.',
+  args: {
+    runId: v.string(),
+    cursor: v.union(v.string(), v.null()),
+    limit: v.number(),
+  },
+})
+
+export const readExportAssets = defineArgs({
+  description: 'Read one bounded page of held immutable export asset facts.',
+  args: {
+    runId: v.string(),
+    cursor: v.union(v.string(), v.null()),
+    limit: v.number(),
+  },
+})
+
+export const beginPortableAssetDownload = defineArgs({
+  description: 'Fence one short-lived host-mediated export asset download capability.',
+  args: {
+    runId: v.string(),
+    holdId: v.string(),
+    downloadTokenHash: v.string(),
+  },
+})
+
+export const claimPortableAssetDownload = defineArgs({
+  description: 'Atomically claim one of at most three export asset download attempts.',
+  args: {
+    runId: v.string(),
+    holdId: v.string(),
+    downloadTokenHash: v.string(),
+    downloadGeneration: v.number(),
+  },
+})
+
+export const completeExportRun = defineArgs({
+  description: 'Record or replay one verified local export manifest receipt.',
+  args: {
+    runId: v.string(),
+    manifestSha256: v.string(),
+    documentCount: v.number(),
+    assetCount: v.number(),
+  },
+})
+
+export const abortExportRun = defineArgs({
+  description: 'Stop an active restart-only portable export and release its holds.',
+  args: { runId: v.string() },
+})
+
+export const expireExportRun = defineArgs({
+  description: 'Close an active portable export after its immutable deadline.',
+  args: { runId: v.string() },
+})

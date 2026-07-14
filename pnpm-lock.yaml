@@ -6,7 +6,7 @@ settings:
 
 overrides:
   '@babel/core': 7.29.6
-  '@lupinum/ginko-content': file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
+  '@lupinum/ginko-content': file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz
   better-convex-nuxt: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz
   '@vitest/browser': 4.1.10
   '@vitest/browser-playwright': 4.1.10
@@ -54,8 +54,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       '@lupinum/ginko-content':
-        specifier: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
-        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)
+        specifier: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz
+        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz(90c8fa27b042901d362a81c1958e02e2)
       '@nuxt/devtools':
         specifier: ^3.2.4
         version: 3.2.4(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))
@@ -165,8 +165,8 @@ importers:
         specifier: workspace:^
         version: link:../convex
       '@lupinum/ginko-content':
-        specifier: file:../../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
-        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)
+        specifier: file:../../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz
+        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz(90c8fa27b042901d362a81c1958e02e2)
       '@nuxt/kit':
         specifier: ^4.4.8
         version: 4.4.8(magicast@0.5.2)
@@ -379,8 +379,8 @@ importers:
         specifier: workspace:^
         version: link:../contract
       '@lupinum/ginko-content':
-        specifier: file:../../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
-        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)
+        specifier: file:../../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz
+        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz(90c8fa27b042901d362a81c1958e02e2)
       better-auth:
         specifier: '>=1.6.13 <1.7.0'
         version: 1.6.23(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
@@ -409,8 +409,8 @@ importers:
         specifier: workspace:*
         version: link:../packages/convex
       '@lupinum/ginko-content':
-        specifier: file:../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
-        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)
+        specifier: file:../../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz
+        version: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz(90c8fa27b042901d362a81c1958e02e2)
       '@nuxtjs/sitemap':
         specifier: ^8.0.15
         version: 8.0.15(@nuxt/schema@4.4.8)(magicast@0.5.2)(nuxt@4.4.8(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.3.7(typescript@5.9.3))(yaml@2.9.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))(zod@4.4.3)
@@ -1194,8 +1194,8 @@ packages:
     peerDependencies:
       vue: 3.5.39
 
-  '@lupinum/ginko-content@file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz':
-    resolution: {integrity: sha512-DlhiGVqg5jiq0fQhO7Lzdn2jvFgcAUv84SgnSjnI6YyUZC6jjwOl5Rn0J18SXWUyzvU68UP5llE4qNDVijCg3Q==, tarball: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz}
+  '@lupinum/ginko-content@file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz':
+    resolution: {integrity: sha512-Vgpmmex3SPb2au8ElsI1R0GcwHjXMQDgkJm30EQRTgmzojdJlbINBZOrmJWMXrHdqxsCUBNxlCNmyeakvdZXeg==, tarball: file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz}
     version: 0.4.0-rc.1
     engines: {node: '>=22.0.0'}
     hasBin: true
@@ -8263,7 +8263,7 @@ snapshots:
     dependencies:
       vue: 3.5.39(typescript@5.9.3)
 
-  '@lupinum/ginko-content@file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz(90c8fa27b042901d362a81c1958e02e2)':
+  '@lupinum/ginko-content@file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz(90c8fa27b042901d362a81c1958e02e2)':
     dependencies:
       '@comark/vue': 0.4.0(shiki@4.2.0)(vue@3.5.39(typescript@5.9.3))
       '@nuxt/kit': 4.4.8(magicast@0.5.2)

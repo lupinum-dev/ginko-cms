@@ -255,34 +255,120 @@ export default defineSchema({
     .index('by_storage', ['storageId'])
     .index('by_state', ['state', 'updatedAt']),
 
-  portableRuns: defineTable({
-    runId: v.string(),
-    planId: v.string(),
-    mode: v.literal('import'),
-    state: v.union(
-      v.literal('planned'),
-      v.literal('applying'),
-      v.literal('verifying'),
-      v.literal('complete'),
-      v.literal('aborted'),
-      v.literal('expired'),
+  portableRuns: defineTable(
+    v.union(
+      v.object({
+        runId: v.string(),
+        planId: v.string(),
+        mode: v.literal('import'),
+        state: v.union(
+          v.literal('planned'),
+          v.literal('applying'),
+          v.literal('verifying'),
+          v.literal('complete'),
+          v.literal('aborted'),
+          v.literal('expired'),
+        ),
+        payloadSha256: v.string(),
+        callerId: v.string(),
+        deploymentId: v.string(),
+        scope: v.object({ collections: v.array(v.string()) }),
+        targetContractSha256: v.string(),
+        sourceManifestSha256: v.string(),
+        sourceContractSha256: v.string(),
+        committedItemCount: v.number(),
+        attachedAssetCount: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        expiresAt: v.number(),
+      }),
+      v.object({
+        runId: v.string(),
+        planId: v.null(),
+        mode: v.literal('export'),
+        state: v.union(
+          v.literal('capturing'),
+          v.literal('ready'),
+          v.literal('complete'),
+          v.literal('aborted'),
+          v.literal('expired'),
+        ),
+        payloadSha256: v.string(),
+        callerId: v.string(),
+        deploymentId: v.string(),
+        scope: v.object({ collections: v.array(v.string()) }),
+        sourceContractSha256: v.string(),
+        sourceContract: jsonObjectValidator,
+        documentCount: v.number(),
+        assetCount: v.number(),
+        capturePosition: v.object({
+          collectionIndex: v.number(),
+          localeIndex: v.number(),
+          orderKey: v.union(v.string(), v.null()),
+          entryId: v.union(v.id('entries'), v.null()),
+        }),
+        captureComplete: v.boolean(),
+        leaseTokenHash: v.union(v.string(), v.null()),
+        leaseGeneration: v.number(),
+        leaseExpiresAt: v.union(v.number(), v.null()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        expiresAt: v.number(),
+      }),
     ),
-    payloadSha256: v.string(),
-    callerId: v.string(),
-    deploymentId: v.string(),
-    scope: v.object({ collections: v.array(v.string()) }),
-    targetContractSha256: v.string(),
-    sourceManifestSha256: v.string(),
-    sourceContractSha256: v.string(),
-    committedItemCount: v.number(),
-    attachedAssetCount: v.number(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    expiresAt: v.number(),
-  })
+  )
     .index('by_run_id', ['runId'])
     .index('by_plan_id', ['planId'])
+    .index('by_mode_state', ['mode', 'state'])
+    .index('by_mode_created_at', ['mode', 'createdAt'])
     .index('by_expires_at', ['expiresAt']),
+
+  portableExportRoster: defineTable({
+    runId: v.string(),
+    index: v.number(),
+    collection: v.string(),
+    canonicalKey: v.string(),
+    locale: v.string(),
+    revisionId: v.id('entryRevisions'),
+    document: jsonObjectValidator,
+    documentSha256: v.string(),
+  })
+    .index('by_run_index', ['runId', 'index'])
+    .index('by_run_identity', ['runId', 'collection', 'canonicalKey', 'locale'])
+    .index('by_revision', ['revisionId']),
+
+  portableExportAssets: defineTable({
+    holdId: v.string(),
+    runId: v.string(),
+    sha256: v.string(),
+    storageId: v.id('_storage'),
+    bytes: v.number(),
+    mediaType: v.union(
+      v.literal('image/png'),
+      v.literal('image/jpeg'),
+      v.literal('image/gif'),
+      v.literal('image/webp'),
+    ),
+    originalFilename: v.string(),
+    expiresAt: v.number(),
+    downloadTokenHash: v.union(v.string(), v.null()),
+    downloadGeneration: v.number(),
+    downloadAttempts: v.number(),
+    downloadExpiresAt: v.union(v.number(), v.null()),
+  })
+    .index('by_hold_id', ['holdId'])
+    .index('by_run_sha256', ['runId', 'sha256'])
+    .index('by_run', ['runId'])
+    .index('by_storage', ['storageId'])
+    .index('by_expires_at', ['expiresAt']),
+
+  portableExportReceipts: defineTable({
+    runId: v.string(),
+    manifestSha256: v.string(),
+    documentCount: v.number(),
+    assetCount: v.number(),
+    completedAt: v.number(),
+  }).index('by_run', ['runId']),
 
   portableItemReceipts: defineTable({
     runId: v.string(),

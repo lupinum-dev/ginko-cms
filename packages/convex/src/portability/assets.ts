@@ -22,12 +22,14 @@ const PORTABLE_ASSET_IDLE_TIMEOUT_MS = 30_000
 const PORTABLE_ASSET_TOTAL_TIMEOUT_MS = 2 * 60 * 1_000
 const MAX_PORTABLE_ASSET_CLEANUP_ATTEMPTS = 5
 
-async function getRun(ctx: MutationCtx, runId: string): Promise<Doc<'portableRuns'>> {
+type ImportRun = Extract<Doc<'portableRuns'>, { mode: 'import' }>
+
+async function getRun(ctx: MutationCtx, runId: string): Promise<ImportRun> {
   const run = await ctx.db
     .query('portableRuns')
     .withIndex('by_run_id', (query) => query.eq('runId', runId))
     .unique()
-  if (!run) throw new Error('Portable run not found.')
+  if (!run || run.mode !== 'import') throw new Error('Portable import run not found.')
   return run
 }
 
@@ -40,10 +42,7 @@ async function getStage(ctx: MutationCtx, runId: string, sha256: string) {
   return stage
 }
 
-function requirePlannedRun(
-  run: Doc<'portableRuns'>,
-  input: { callerId: string; payloadSha256: string },
-) {
+function requirePlannedRun(run: ImportRun, input: { callerId: string; payloadSha256: string }) {
   if (run.callerId !== input.callerId) throw new Error('Portable run belongs to another caller.')
   if (run.payloadSha256 !== input.payloadSha256) throw new Error('Portable run payload mismatch.')
   if (run.expiresAt <= Date.now()) throw new Error('Portable run expired.')

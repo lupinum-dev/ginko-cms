@@ -20,7 +20,7 @@ overrides:
   # `pnpm why <name>` shows all upstream owners resolve the patched version
   # without help and `pnpm audit --prod --audit-level low` stays green.
   '@babel/core': 7.29.6
-  '@lupinum/ginko-content': file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz
+  '@lupinum/ginko-content': file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz
   better-convex-nuxt: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz
   '@vitest/browser': 4.1.10
   '@vitest/browser-playwright': 4.1.10

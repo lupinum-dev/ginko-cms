@@ -188,6 +188,14 @@ export async function isCmsStorageReferenced(
   if (stages.some((stage) => stage._id !== ignore.portableStageId)) {
     return true
   }
+  if (
+    await ctx.db
+      .query('portableExportAssets')
+      .withIndex('by_storage', (query) => query.eq('storageId', storageId))
+      .first()
+  ) {
+    return true
+  }
   return Boolean(
     await ctx.db
       .query('backupArtifacts')

@@ -1,10 +1,11 @@
-import { createHmac, randomBytes } from 'node:crypto'
+import { createHash, createHmac, randomBytes } from 'node:crypto'
 
 const MAX_PORTABLE_ASSET_BYTES = 25 * 1024 * 1024
 const PORTABLE_ASSET_IDLE_TIMEOUT_MS = 30_000
 const PORTABLE_ASSET_TOTAL_TIMEOUT_MS = 2 * 60_000
 const MAX_UPLOAD_RESPONSE_BYTES = 4 * 1024
 const TOKEN_HASH_DOMAIN = 'ginko-cms:portability-asset-attempt:v1\0'
+const DOWNLOAD_TOKEN_HASH_DOMAIN = 'ginko-cms:portability-asset-download:v1\0'
 
 type PortableMediaType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
 
@@ -52,6 +53,114 @@ export function createPortableAssetAttempt(secret: string) {
 export function hashPortableAssetAttemptToken(secret: string, token: string) {
   if (!secret || !token) throw new Error('Portability upload token is invalid.')
   return createHmac('sha256', secret).update(TOKEN_HASH_DOMAIN).update(token).digest('hex')
+}
+
+export function createPortableAssetDownloadAttempt(secret: string) {
+  if (!secret) throw new Error('Portability token secret is not configured.')
+  const token = randomBytes(32).toString('base64url')
+  return {
+    token,
+    tokenHash: createHmac('sha256', secret)
+      .update(DOWNLOAD_TOKEN_HASH_DOMAIN)
+      .update(token)
+      .digest('hex'),
+  }
+}
+
+export function hashPortableAssetDownloadToken(secret: string, token: string) {
+  if (!secret || !token) throw new Error('Portability download token is invalid.')
+  return createHmac('sha256', secret).update(DOWNLOAD_TOKEN_HASH_DOMAIN).update(token).digest('hex')
+}
+
+export async function downloadPortableAssetStream(input: {
+  storageUrl: string
+  storageOrigin: string
+  expectedBytes: number
+  expectedSha256: string
+  fetch?: typeof globalThis.fetch
+  idleTimeoutMs?: number
+  totalTimeoutMs?: number
+}): Promise<ReadableStream<Uint8Array>> {
+  if (
+    !Number.isSafeInteger(input.expectedBytes) ||
+    input.expectedBytes < 1 ||
+    input.expectedBytes > MAX_PORTABLE_ASSET_BYTES ||
+    !/^[0-9a-f]{64}$/.test(input.expectedSha256)
+  ) {
+    throw new Error('Portable asset download facts are invalid.')
+  }
+  const storageOrigin = new URL(input.storageOrigin)
+  const storageUrl = new URL(input.storageUrl)
+  if (
+    storageOrigin.protocol !== 'https:' ||
+    storageOrigin.origin !== input.storageOrigin ||
+    storageUrl.origin !== storageOrigin.origin ||
+    storageUrl.username ||
+    storageUrl.password
+  ) {
+    throw new Error('Portable asset download URL has an unexpected origin.')
+  }
+  const abortController = new AbortController()
+  let idleTimer: ReturnType<typeof setTimeout> | undefined
+  const resetIdleTimer = () => {
+    if (idleTimer) clearTimeout(idleTimer)
+    idleTimer = setTimeout(
+      () => abortController.abort(new Error('Portable asset download idle timeout.')),
+      input.idleTimeoutMs ?? PORTABLE_ASSET_IDLE_TIMEOUT_MS,
+    )
+  }
+  const totalTimer = setTimeout(
+    () => abortController.abort(new Error('Portable asset download total timeout.')),
+    input.totalTimeoutMs ?? PORTABLE_ASSET_TOTAL_TIMEOUT_MS,
+  )
+  const clearTimers = () => {
+    clearTimeout(totalTimer)
+    if (idleTimer) clearTimeout(idleTimer)
+  }
+  resetIdleTimer()
+  let response: Response
+  try {
+    response = await (input.fetch ?? globalThis.fetch)(storageUrl, {
+      method: 'GET',
+      redirect: 'error',
+      signal: abortController.signal,
+    })
+  } catch (error) {
+    clearTimers()
+    throw error
+  }
+  if (!response.ok || !response.body) {
+    clearTimers()
+    await response.body?.cancel().catch(() => {})
+    throw new Error(`Portable asset storage download failed with HTTP ${response.status}.`)
+  }
+  const declaredLength = response.headers.get('content-length')
+  if (declaredLength !== null && Number(declaredLength) !== input.expectedBytes) {
+    clearTimers()
+    await response.body.cancel().catch(() => {})
+    throw new Error('Portable asset storage length does not match its hold.')
+  }
+  let receivedBytes = 0
+  const hash = createHash('sha256')
+  return response.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        receivedBytes += chunk.byteLength
+        if (receivedBytes > input.expectedBytes) {
+          throw new Error('Portable asset storage body exceeds its hold.')
+        }
+        hash.update(chunk)
+        resetIdleTimer()
+        controller.enqueue(chunk)
+      },
+      flush() {
+        clearTimers()
+        if (receivedBytes !== input.expectedBytes || hash.digest('hex') !== input.expectedSha256) {
+          throw new Error('Portable asset storage body does not match its hold.')
+        }
+      },
+    }),
+  )
 }
 
 export async function uploadPortableAssetStream(input: {

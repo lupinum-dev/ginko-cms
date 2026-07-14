@@ -18,3 +18,15 @@ export {
   recordPortableAssetUpload,
   verifyPortableAssetUpload,
 } from './portability/assets.js'
+export {
+  abortExportRun,
+  beginPortableAssetDownload,
+  captureExportPage,
+  claimPortableAssetDownload,
+  completeExportRun,
+  createExportRun,
+  expireExportRun,
+  readExportDocuments,
+  readExportAssets,
+  sealExportRun,
+} from './portability/exports.js'

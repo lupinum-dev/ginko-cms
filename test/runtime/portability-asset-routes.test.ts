@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+import { createHash } from 'node:crypto'
+
 import { createApp, createRouter, toWebHandler } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -12,6 +14,11 @@ const serverConvex = vi.fn(() => ({ mutation, action }))
 vi.mock('better-convex-nuxt/server', () => ({ serverConvex }))
 
 const attemptHandler = (await import('#ginko-cms-server/routes/portability-asset-attempt')).default
+const downloadAttemptHandler = (
+  await import('#ginko-cms-server/routes/portability-asset-download-attempt')
+).default
+const downloadHandler = (await import('#ginko-cms-server/routes/portability-asset-download'))
+  .default
 const uploadHandler = (await import('#ginko-cms-server/routes/portability-asset-upload')).default
 
 const sha256 = 'a'.repeat(64)
@@ -23,7 +30,7 @@ const requestHeaders = {
 }
 
 function routeFetch(
-  method: 'post' | 'put',
+  method: 'get' | 'post' | 'put',
   path: string,
   handler: typeof attemptHandler,
   init: RequestInit = {},
@@ -32,7 +39,12 @@ function routeFetch(
   const router = createRouter()
   router[method](path, handler)
   app.use(router)
-  return toWebHandler(app)(new Request(`http://localhost${path.replace(':sha256', sha256)}`, init))
+  return toWebHandler(app)(
+    new Request(
+      `http://localhost${path.replace(':sha256', sha256).replace(':holdId', sha256)}`,
+      init,
+    ),
+  )
 }
 
 describe('portability asset Nitro routes', () => {
@@ -80,6 +92,68 @@ describe('portability asset Nitro routes', () => {
       }),
     )
     expect(JSON.stringify(mutation.mock.calls)).not.toContain(body.token)
+  })
+
+  it('issues and streams one server-only export download capability', async () => {
+    mutation
+      .mockResolvedValueOnce({
+        state: 'attempt',
+        downloadGeneration: 1,
+        expiresAt: Date.now() + 60_000,
+      })
+      .mockResolvedValueOnce({
+        storageUrl: 'https://storage.example.test/object',
+        sha256: createHash('sha256')
+          .update(new Uint8Array([1, 2, 3, 4]))
+          .digest('hex'),
+        bytes: 4,
+        mediaType: 'image/png',
+        attempt: 1,
+      })
+    const attemptResponse = await routeFetch(
+      'post',
+      '/api/_ginko/portability/assets/:holdId/download-attempt',
+      downloadAttemptHandler,
+      {
+        method: 'POST',
+        headers: {
+          cookie: requestHeaders.cookie,
+          'x-ginko-portability-run': 'export-1',
+        },
+      },
+    )
+    const attempt = (await attemptResponse.json()) as { token: string; downloadGeneration: number }
+    const storageFetch = vi.fn(
+      async () =>
+        new Response(new Uint8Array([1, 2, 3, 4]), {
+          headers: { 'content-length': '4' },
+        }),
+    )
+    vi.stubGlobal('fetch', storageFetch)
+
+    const response = await routeFetch(
+      'get',
+      '/api/_ginko/portability/assets/:holdId',
+      downloadHandler,
+      {
+        method: 'GET',
+        headers: {
+          cookie: requestHeaders.cookie,
+          'x-ginko-portability-run': 'export-1',
+          'x-ginko-portability-attempt': attempt.token,
+          'x-ginko-portability-generation': String(attempt.downloadGeneration),
+        },
+      },
+    )
+
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]))
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('content-type')).toBe('image/png')
+    expect(storageFetch).toHaveBeenCalledWith(
+      new URL('https://storage.example.test/object'),
+      expect.objectContaining({ redirect: 'error' }),
+    )
+    expect(JSON.stringify(mutation.mock.calls)).not.toContain(attempt.token)
   })
 
   it('rejects a browser-originated attempt before constructing a caller', async () => {

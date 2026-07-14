@@ -18,6 +18,14 @@ export type PortableAssetTransferOptions = {
   totalTimeoutMs?: number
 }
 
+export type PortableExportAsset = {
+  holdId: string
+  sha256: string
+  bytes: number
+  mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+  originalFilename: string
+}
+
 export async function uploadPreparedPortableDraftImportAssets(
   prepared: PreparedPortableDraftImport,
   options: PortableAssetTransferOptions,
@@ -31,6 +39,89 @@ export async function uploadPreparedPortableDraftImportAssets(
       cmsOrigin: origin,
       sessionCookie: cookie,
     })
+  }
+}
+
+export async function* downloadPortableExportAsset(
+  runId: string,
+  asset: PortableExportAsset,
+  options: PortableAssetTransferOptions,
+): AsyncIterable<Uint8Array> {
+  const origin = resolveCmsOrigin(options.cmsOrigin)
+  const cookie = requiredCookie(options.sessionCookie)
+  const endpoint = new URL(`/api/_ginko/portability/assets/${asset.holdId}`, origin)
+  const headers = { cookie, 'x-ginko-portability-run': runId }
+  const attemptResponse = await (options.fetch ?? globalThis.fetch)(
+    `${endpoint}/download-attempt`,
+    {
+      method: 'POST',
+      headers,
+      redirect: 'error',
+    },
+  )
+  const attempt = await readHostJson(attemptResponse)
+  if (!isDownloadAttempt(attempt)) {
+    throw new Error('CMS portability host returned an invalid download attempt.')
+  }
+  const abortController = new AbortController()
+  let idleTimer: ReturnType<typeof setTimeout> | undefined
+  const resetIdleTimer = () => {
+    if (idleTimer) clearTimeout(idleTimer)
+    idleTimer = setTimeout(
+      () => abortController.abort(new Error('Portable asset download idle timeout.')),
+      options.idleTimeoutMs ?? IDLE_TIMEOUT_MS,
+    )
+  }
+  const totalTimer = setTimeout(
+    () => abortController.abort(new Error('Portable asset download total timeout.')),
+    options.totalTimeoutMs ?? TOTAL_TIMEOUT_MS,
+  )
+  resetIdleTimer()
+  const response = await (options.fetch ?? globalThis.fetch)(endpoint, {
+    method: 'GET',
+    headers: {
+      ...headers,
+      'x-ginko-portability-attempt': attempt.token,
+      'x-ginko-portability-generation': String(attempt.downloadGeneration),
+    },
+    redirect: 'error',
+    signal: abortController.signal,
+  })
+  if (!response.ok || !response.body) {
+    clearTimeout(totalTimer)
+    if (idleTimer) clearTimeout(idleTimer)
+    await response.body?.cancel().catch(() => {})
+    throw new Error(`CMS portability host failed with HTTP ${response.status}.`)
+  }
+  if (
+    response.headers.get('content-type') !== asset.mediaType ||
+    Number(response.headers.get('content-length')) !== asset.bytes
+  ) {
+    clearTimeout(totalTimer)
+    if (idleTimer) clearTimeout(idleTimer)
+    await response.body.cancel().catch(() => {})
+    throw new Error('CMS portability host returned asset facts that do not match the hold.')
+  }
+  const reader = response.body.getReader()
+  const hash = createHash('sha256')
+  let bytes = 0
+  try {
+    while (true) {
+      const result = await reader.read()
+      if (result.done) break
+      bytes += result.value.byteLength
+      if (bytes > asset.bytes) throw new Error('Portable asset download exceeds its hold.')
+      hash.update(result.value)
+      resetIdleTimer()
+      yield result.value
+    }
+    if (bytes !== asset.bytes || hash.digest('hex') !== asset.sha256) {
+      throw new Error('Portable asset download does not match its hold.')
+    }
+  } finally {
+    clearTimeout(totalTimer)
+    if (idleTimer) clearTimeout(idleTimer)
+    reader.releaseLock()
   }
 }
 
@@ -219,6 +310,23 @@ function isAttached(value: unknown): value is { state: 'attached'; assetId: stri
   const result = value as Record<string, unknown>
   return (
     result.state === 'attached' && typeof result.assetId === 'string' && result.assetId.length > 0
+  )
+}
+
+function isDownloadAttempt(value: unknown): value is {
+  state: 'attempt'
+  token: string
+  downloadGeneration: number
+} {
+  if (!value || typeof value !== 'object') return false
+  const attempt = value as Record<string, unknown>
+  return (
+    attempt.state === 'attempt' &&
+    typeof attempt.token === 'string' &&
+    attempt.token.length >= 32 &&
+    attempt.token.length <= 256 &&
+    Number.isSafeInteger(attempt.downloadGeneration) &&
+    Number(attempt.downloadGeneration) >= 1
   )
 }
 

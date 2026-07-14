@@ -6,7 +6,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   assertPortableOperatorRequest,
+  createPortableAssetDownloadAttempt,
   createPortableAssetAttempt,
+  downloadPortableAssetStream,
   resolvePortableStorageOrigin,
   uploadPortableAssetStream,
 } from '#ginko-cms-server/utils/portability-asset-transport'
@@ -31,6 +33,50 @@ describe('portability asset host transport', () => {
     expect(first.tokenHash).toMatch(/^[0-9a-f]{64}$/)
     expect(first.tokenHash).not.toBe(createHash('sha256').update(first.token).digest('hex'))
     expect(first).not.toHaveProperty('secret')
+  })
+
+  it('uses a distinct keyed domain for download capability tokens', () => {
+    const upload = createPortableAssetAttempt('server-secret')
+    const download = createPortableAssetDownloadAttempt('server-secret')
+
+    expect(download.tokenHash).toMatch(/^[0-9a-f]{64}$/)
+    expect(download.tokenHash).not.toBe(createHash('sha256').update(download.token).digest('hex'))
+    expect(download.tokenHash).not.toBe(upload.tokenHash)
+  })
+
+  it('streams and rehashes an exact held storage response without redirects', async () => {
+    const sha256 = createHash('sha256').update(bytes).digest('hex')
+    const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      expect(init.redirect).toBe('error')
+      return new Response(stream([bytes.subarray(0, 2), bytes.subarray(2)]), {
+        headers: { 'content-length': String(bytes.byteLength) },
+      })
+    })
+    const body = await downloadPortableAssetStream({
+      storageUrl: 'https://storage.example.test/object',
+      storageOrigin: 'https://storage.example.test',
+      expectedBytes: bytes.byteLength,
+      expectedSha256: sha256,
+      fetch,
+    })
+
+    await expect(new Response(body).arrayBuffer()).resolves.toEqual(bytes.buffer)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects held storage bytes with a changed hash', async () => {
+    const body = await downloadPortableAssetStream({
+      storageUrl: 'https://storage.example.test/object',
+      storageOrigin: 'https://storage.example.test',
+      expectedBytes: bytes.byteLength,
+      expectedSha256: 'a'.repeat(64),
+      fetch: async () =>
+        new Response(stream([bytes]), {
+          headers: { 'content-length': String(bytes.byteLength) },
+        }),
+    })
+
+    await expect(new Response(body).arrayBuffer()).rejects.toThrow(/does not match/i)
   })
 
   it('streams exact bytes once to the configured storage origin', async () => {

@@ -44,6 +44,7 @@ import {
   previewResultValidator,
   definePreview,
 } from './operationHelpers.js'
+import { assertStorageOutsidePortableExportHold } from './portability/lease.js'
 
 type AssetDoc = Doc<'assets'>
 type CollectionDoc = Doc<'collections'>
@@ -848,6 +849,10 @@ export const updateAsset = callerMutation.protected({
     const asset = await ctx.db.get(args.assetId as Id<'assets'>)
     requireRecord(asset, 'Asset')
 
+    if (args.filename !== undefined) {
+      await assertStorageOutsidePortableExportHold(ctx, asset.storageId)
+    }
+
     const patch: Record<string, unknown> = {
       updatedBy: appIdentity.userId,
       updatedAt: Date.now(),
@@ -1220,6 +1225,7 @@ export const deleteAssetOperation = defineCmsOperation({
   handler: async (ctx, args, { asset }) => {
     const appIdentity = await ctx.appIdentity()
     if (!asset) return null
+    await assertStorageOutsidePortableExportHold(ctx, asset.storageId)
     const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
     const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
     if (usageCount > 0 && !args.force) {
@@ -1398,6 +1404,7 @@ export const purgeAssetOperation = defineCmsOperation({
   handler: async (ctx, args, { asset }) => {
     const appIdentity = await ctx.appIdentity()
     if (!asset) return null
+    await assertStorageOutsidePortableExportHold(ctx, asset.storageId)
     await assertBackupArtifactCoversPurge(ctx, args.exportArtifactId, {
       scope: 'asset',
       assetId: args.assetId,

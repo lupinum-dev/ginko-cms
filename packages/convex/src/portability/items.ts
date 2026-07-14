@@ -2,6 +2,7 @@ import type { CmsField, JsonMap } from '@lupinum/ginko-cms-contract/shared/types
 import {
   assertResolvedContentContract,
   type ResolvedContentContractV1,
+  type ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
 import {
   hashCanonicalJson,
@@ -197,7 +198,7 @@ async function rewritePortableBodyAssets(
 
 async function portableFields(
   ctx: QueryOrMutationCtx,
-  fields: CmsField[],
+  fields: ResolvedContentFieldV1[],
   value: JsonMap,
 ): Promise<JsonMap> {
   const output: JsonMap = {}
@@ -209,11 +210,11 @@ async function portableFields(
       continue
     }
     if (field.type === 'relation') {
-      if (typeof candidate !== 'string' || !field.relation?.collectionId) {
+      if (typeof candidate !== 'string' || !field.relation?.collection) {
         throw new Error(`Stored relation ${field.key} cannot be made portable.`)
       }
       output[field.key] = {
-        collection: field.relation.collectionId,
+        collection: field.relation.collection,
         canonicalKey: candidate,
       }
       continue
@@ -222,12 +223,12 @@ async function portableFields(
       if (
         !Array.isArray(candidate) ||
         candidate.some((item) => typeof item !== 'string') ||
-        !field.relation?.collectionId
+        !field.relation?.collection
       ) {
         throw new Error(`Stored relation list ${field.key} cannot be made portable.`)
       }
       output[field.key] = candidate.map((canonicalKey) => ({
-        collection: field.relation!.collectionId,
+        collection: field.relation!.collection,
         canonicalKey,
       }))
       continue
@@ -330,8 +331,12 @@ async function currentPortableDocument(
       slug: localized.localeSlug ?? shared.slug ?? entry.baseSlug,
       parentCanonicalKey: parent?.stableId ?? null,
       order: shared.orderRank ?? entry.orderRank ?? null,
-      shared: await portableFields(ctx, collection.fields, shared.shared ?? {}),
-      localized: await portableFields(ctx, collection.fields, values),
+      shared: await portableFields(
+        ctx,
+        contract.collections[collection.slug]!.fields,
+        shared.shared ?? {},
+      ),
+      localized: await portableFields(ctx, contract.collections[collection.slug]!.fields, values),
       body: {
         kind: 'mdc',
         source: await rewriteStoredMdcAssetReferences(
@@ -353,6 +358,69 @@ async function currentPortableDocument(
       },
     },
     contract,
+  )
+}
+
+export async function portablePublishedDocument(
+  ctx: QueryOrMutationCtx,
+  input: {
+    revisionId: Id<'entryRevisions'>
+    collection: string
+    canonicalKey: string
+    locale: string
+    contract: ResolvedContentContractV1
+  },
+): Promise<PortableDocumentV1> {
+  const revision = await ctx.db.get(input.revisionId)
+  if (!revision) throw new Error('Portable export revision is missing.')
+  const collectionContract = input.contract.collections[input.collection]
+  if (!collectionContract)
+    throw new Error('Portable export collection is absent from its contract.')
+  const localized = revision.snapshot.locales[input.locale]
+  if (!localized) throw new Error('Portable export revision does not contain its rostered locale.')
+  const values = { ...localized.values } as JsonMap
+  const publicValue = values.public
+  delete values.public
+  const visibility =
+    publicValue && typeof publicValue === 'object' && !Array.isArray(publicValue)
+      ? (publicValue as JsonMap)
+      : {}
+  const parent = revision.snapshot.parentEntryId
+    ? await ctx.db.get(revision.snapshot.parentEntryId)
+    : null
+  return validatePortableDocument(
+    {
+      format: 'ginko-content-document',
+      version: 1,
+      collection: input.collection,
+      canonicalKey: input.canonicalKey,
+      locale: input.locale,
+      slug: localized.slug ?? revision.snapshot.slug ?? input.canonicalKey,
+      parentCanonicalKey: parent?.stableId ?? null,
+      order: revision.snapshot.orderRank ?? null,
+      shared: await portableFields(ctx, collectionContract.fields, revision.snapshot.shared),
+      localized: await portableFields(ctx, collectionContract.fields, values),
+      body: {
+        kind: 'mdc',
+        source: await rewriteStoredMdcAssetReferences(
+          localized.bodyMdc ?? '',
+          collectionContract.componentPolicy,
+          async (identity) => {
+            const reference = await portableAsset(ctx, identity)
+            if (reference.kind !== 'local') {
+              throw new Error('Stored MDC asset identity is not managed.')
+            }
+            return reference.path
+          },
+        ),
+      },
+      visibility: {
+        navigation: visibility.navigation === true,
+        search: visibility.search === true,
+        sitemap: visibility.sitemap === true,
+      },
+    },
+    input.contract,
   )
 }
 

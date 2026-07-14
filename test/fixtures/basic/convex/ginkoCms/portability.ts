@@ -1,4 +1,5 @@
 import {
+  abortExportRun as abortExportRunArgs,
   abortImport as abortImportArgs,
   appendImportPlanAssets as appendImportPlanAssetsArgs,
   appendImportPlanItems as appendImportPlanItemsArgs,
@@ -6,13 +7,22 @@ import {
   beginImportApply as beginImportApplyArgs,
   beginPortableAssetUpload as beginPortableAssetUploadArgs,
   beginImportVerification as beginImportVerificationArgs,
+  beginPortableAssetDownload as beginPortableAssetDownloadArgs,
   createImportPlan as createImportPlanArgs,
+  captureExportPage as captureExportPageArgs,
+  claimPortableAssetDownload as claimPortableAssetDownloadArgs,
+  completeExportRun as completeExportRunArgs,
+  createExportRun as createExportRunArgs,
+  expireExportRun as expireExportRunArgs,
   expireImport as expireImportArgs,
   finalizeImport as finalizeImportArgs,
   inspectPortableAssets as inspectPortableAssetsArgs,
   inspectPortableDrafts as inspectPortableDraftsArgs,
   issuePortableAssetUploadUrl as issuePortableAssetUploadUrlArgs,
   recordPortableAssetUpload as recordPortableAssetUploadArgs,
+  readExportAssets as readExportAssetsArgs,
+  readExportDocuments as readExportDocumentsArgs,
+  sealExportRun as sealExportRunArgs,
   sealImportPlan as sealImportPlanArgs,
   verifyPortableAssetUpload as verifyPortableAssetUploadArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
@@ -117,4 +127,70 @@ export const expireImport = mutation({
   args: expireImportArgs.args,
   handler: async (ctx, args) =>
     await ctx.runMutation(components.ginkoCms.portability.expireImport, args as never),
+})
+
+export const createExportRun = mutation({
+  args: createExportRunArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.portability.createExportRun, args as never),
+})
+
+export const captureExportPage = mutation({
+  args: captureExportPageArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.portability.captureExportPage, args as never),
+})
+
+export const sealExportRun = mutation({
+  args: sealExportRunArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.portability.sealExportRun, args as never),
+})
+
+export const readExportDocuments = query({
+  args: readExportDocumentsArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.portability.readExportDocuments, args as never),
+})
+
+export const readExportAssets = query({
+  args: readExportAssetsArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.portability.readExportAssets, args as never),
+})
+
+export const beginPortableAssetDownload = mutation({
+  args: beginPortableAssetDownloadArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.portability.beginPortableAssetDownload,
+      args as never,
+    ),
+})
+
+export const claimPortableAssetDownload = mutation({
+  args: claimPortableAssetDownloadArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.portability.claimPortableAssetDownload,
+      args as never,
+    ),
+})
+
+export const completeExportRun = mutation({
+  args: completeExportRunArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.portability.completeExportRun, args as never),
+})
+
+export const abortExportRun = mutation({
+  args: abortExportRunArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.portability.abortExportRun, args as never),
+})
+
+export const expireExportRun = mutation({
+  args: expireExportRunArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.portability.expireExportRun, args as never),
 })

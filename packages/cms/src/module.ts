@@ -349,6 +349,16 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       method: 'put',
       handler: resolve(cmsServerDir, 'routes/portability-asset-upload'),
     })
+    addServerHandler({
+      route: '/api/_ginko/portability/assets/:holdId/download-attempt',
+      method: 'post',
+      handler: resolve(cmsServerDir, 'routes/portability-asset-download-attempt'),
+    })
+    addServerHandler({
+      route: '/api/_ginko/portability/assets/:holdId',
+      method: 'get',
+      handler: resolve(cmsServerDir, 'routes/portability-asset-download'),
+    })
 
     if (options.publicContent?.prerender && !isTypecheck() && !isNuxtPrepare()) {
       const hookNitroConfig = nuxt.hook as unknown as (

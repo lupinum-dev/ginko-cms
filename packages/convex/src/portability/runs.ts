@@ -138,18 +138,20 @@ async function getPlan(ctx: MutationCtx, planId: string): Promise<Doc<'portableP
   return plan
 }
 
-async function getRun(ctx: MutationCtx, runId: string): Promise<Doc<'portableRuns'>> {
+type ImportRun = Extract<Doc<'portableRuns'>, { mode: 'import' }>
+
+async function getRun(ctx: MutationCtx, runId: string): Promise<ImportRun> {
   const run = await ctx.db
     .query('portableRuns')
     .withIndex('by_run_id', (query) => query.eq('runId', runId))
     .unique()
-  if (!run) throw new Error('Portable run not found.')
+  if (!run || run.mode !== 'import') throw new Error('Portable import run not found.')
   return run
 }
 
 function requireCurrentRun(
-  run: Doc<'portableRuns'>,
-  args: { callerId: string; payloadSha256: string; state: Doc<'portableRuns'>['state'] },
+  run: ImportRun,
+  args: { callerId: string; payloadSha256: string; state: ImportRun['state'] },
 ) {
   if (run.callerId !== args.callerId) throw new Error('Portable run belongs to another caller.')
   if (run.payloadSha256 !== args.payloadSha256) throw new Error('Portable run payload mismatch.')

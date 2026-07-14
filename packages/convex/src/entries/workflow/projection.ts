@@ -23,6 +23,7 @@ import type { Doc, Id } from '../../_generated/dataModel.js'
 import { throwCmsError } from '../../errors.js'
 import type { MarkdownRoot, Toc } from '../../lib/cmsContract/types.js'
 import type { MutationCtx, QueryCtx } from '../../lib/types.js'
+import { assertCollectionOutsidePortableExportLease } from '../../portability/lease.js'
 import { encodePublicBodyAst, encodePublicToc } from '../bodyAstStorage.js'
 
 export type PublicEntryDoc = Doc<'publicEntries'>
@@ -90,6 +91,7 @@ export async function upsertPublicProjection(
   ctx: MutationCtx,
   input: PublicProjectionInput,
 ): Promise<void> {
+  await assertCollectionOutsidePortableExportLease(ctx, input.collectionId)
   const existing = await ctx.db
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', input.entryId).eq('locale', input.locale))
@@ -219,6 +221,7 @@ export async function deletePublicProjection(
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entryId).eq('locale', args.locale))
     .first()
+  if (entryRow) await assertCollectionOutsidePortableExportLease(ctx, entryRow.collectionId)
   if (entryRow) await ctx.db.delete(entryRow._id)
 
   const routeRow = await ctx.db
@@ -241,6 +244,9 @@ export async function deleteAllPublicProjections(
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId))
     .collect()
+  if (entryRows[0]) {
+    await assertCollectionOutsidePortableExportLease(ctx, entryRows[0].collectionId)
+  }
   const locales = entryRows.map((row) => row.locale)
   for (const row of entryRows) {
     await ctx.db.delete(row._id)
