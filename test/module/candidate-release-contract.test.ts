@@ -44,6 +44,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).not.toContain('GINKO_CONTENT_SHA256')
     expect(source).not.toContain('BETTER_CONVEX_NUXT_SHA256')
     expect(source).toContain('compatibilityMatrix.releaseArtifacts')
+    expect(source).toContain("'    mcp: false,'")
   })
 
   it('keeps committed workspace resolution machine-independent', () => {

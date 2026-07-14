@@ -473,7 +473,7 @@ try {
       'export default defineNuxtConfig({',
       '  modules: [ginkoCms],',
       '  ginkoCms: {',
-      '    mcp: true,',
+      '    mcp: false,',
       '    publicContent: { api: true },',
       '  },',
       '})',
