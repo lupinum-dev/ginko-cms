@@ -22,7 +22,7 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms': '0.2.0-rc.1',
       '@lupinum/ginko-cms-convex': '0.2.0-rc.1',
       '@lupinum/ginko-cms-contract': '0.2.0-rc.1',
-      '@lupinum/ginko-content': '0.4.0-rc.1',
+      '@lupinum/ginko-content': '0.3.0-rc.1',
       'better-convex-nuxt': '0.6.1',
     })
     expect(

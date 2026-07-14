@@ -533,7 +533,7 @@ describe('Ginko Nuxt provider v2', () => {
     await expect(contentProvider.query(event, query)).rejects.toMatchObject({
       statusCode: 502,
       statusMessage: 'provider_response_invalid',
-      data: { operation: 'page' },
+      data: { code: 'provider_response_invalid' },
     })
   })
 
@@ -545,7 +545,7 @@ describe('Ginko Nuxt provider v2', () => {
     ).rejects.toMatchObject({
       statusCode: 502,
       statusMessage: 'provider_response_invalid',
-      data: { operation: 'list' },
+      data: { code: 'provider_response_invalid' },
     })
   })
 
@@ -563,7 +563,7 @@ describe('Ginko Nuxt provider v2', () => {
     await expect(contentProvider.query(event, query)).rejects.toMatchObject({
       statusCode: 502,
       statusMessage: 'provider_response_invalid',
-      data: { operation: 'page' },
+      data: { code: 'provider_response_invalid' },
     })
   })
 
@@ -576,13 +576,15 @@ describe('Ginko Nuxt provider v2', () => {
     ['search', () => contentProvider.search!(event, { term: 'routing', collections: ['docs'] })],
     ['site data', () => contentProvider.siteData!(event, { key: 'announcement', locale: 'en' })],
     ['routes', () => contentProvider.routes!(event)],
-  ])('rejects a malformed %s envelope before shaping', async (operation, invoke) => {
+  ])('rejects a malformed %s envelope before shaping', async (_operation, invoke) => {
     convexMock.query.mockResolvedValueOnce({ malformed: true })
 
-    await expect(invoke()).rejects.toMatchObject({
+    const error = await invoke().catch((cause) => cause)
+    expect(error).toMatchObject({
       statusCode: 502,
       statusMessage: 'provider_response_invalid',
-      data: { operation },
+      data: { code: 'provider_response_invalid' },
     })
+    expect(error.data).not.toHaveProperty('operation')
   })
 })

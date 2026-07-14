@@ -181,7 +181,8 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     expect(containsValue(thrown, secret)).toBe(false)
     expect(JSON.stringify(thrown)).not.toContain(secret)
     expect(thrown).toMatchObject({
-      data: { code: 'PUBLIC_FAILURE', operation: 'siteData' },
+      data: { code: 'PUBLIC_FAILURE' },
     })
+    expect((thrown as { data: object }).data).not.toHaveProperty('operation')
   })
 })

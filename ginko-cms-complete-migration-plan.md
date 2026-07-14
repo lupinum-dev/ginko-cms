@@ -44,15 +44,15 @@ Ginko CMS is not ready for a near-1.0 architecture freeze.
 
 The correct next release is a coordinated pre-1.0 minor:
 
-- `@lupinum/ginko-content@0.4.0`;
+- `@lupinum/ginko-content@0.3.0`;
 - Better Convex Nuxt `0.6.0` or an accepted lifecycle-compatible successor;
 - `@lupinum/ginko-cms@0.2.0`
 - `@lupinum/ginko-cms-convex@0.2.0`
 - `@lupinum/ginko-cms-contract@0.2.0`
 
-Use Ginko Content `0.4.0-rc.1` and CMS `0.2.0-rc.1` while validating real
+Use Ginko Content `0.3.0-rc.1` and CMS `0.2.0-rc.1` while validating real
 consumers. Freeze every exact upstream version and hash in compatibility before
-candidate verification. Promote Ginko Content to `0.4.0` only with the
+candidate verification. Promote Ginko Content to `0.3.0` only with the
 coordinated CMS candidate. Do not publish `1.0.0` until the public exports,
 Content provider and portability contracts, configuration model, runtime
 support, and migration policy have baked in at least two independent packed
@@ -225,7 +225,8 @@ Known artifact baseline:
 - Better Convex Nuxt lifecycle fix: `fb238d96`.
 - Ginko Content `0.3.0` provides the import foundation but not the data-source
   and portability contracts required by WP3A. The coordinated target is
-  `0.4.0-rc.1`, promoted to `0.4.0` after certification.
+  `0.3.0-rc.1`, promoted to `0.3.0` after certification. This coordinated
+  release number supersedes the unpublished `0.4.0-rc.1` development label.
 - The canonical CMS compatibility file still points to an older Better Convex
   Nuxt artifact and must be updated only after a clean candidate is produced.
 - The current Ginko Content worktree is not a release artifact.
@@ -2398,7 +2399,7 @@ release gates pass; neither lane publishes, tags, or pushes.
 
 ### 14.3 Coordinated Versions
 
-Set Ginko Content to `0.4.0-rc.1` and all three CMS packages to `0.2.0-rc.1` for
+Set Ginko Content to `0.3.0-rc.1` and all three CMS packages to `0.2.0-rc.1` for
 the first coordinated candidate. Use explicit workspace ranges inside each
 repository so packed dependency rewriting is deterministic:
 
@@ -2411,12 +2412,12 @@ repository so packed dependency rewriting is deterministic:
 }
 ```
 
-Promote Ginko Content to `0.4.0` and all three CMS packages to `0.2.0` only after
+Promote Ginko Content to `0.3.0` and all three CMS packages to `0.2.0` only after
 coordinated candidate approval.
 
 The CMS release-candidate peer dependency is
-`"@lupinum/ginko-content": "^0.4.0-rc.1"`; the final `0.2.0` peer is
-`"^0.4.0"`. npm and pnpm candidate installs treat every peer warning as a
+`"@lupinum/ginko-content": "^0.3.0-rc.1"`; the final `0.2.0` peer is
+`"^0.3.0"`. npm and pnpm candidate installs treat every peer warning as a
 failure. The current `^0.3.0` range is removed in the same cutover.
 
 ### 14.4 Compatibility Is The Only Tuple Authority
@@ -2458,7 +2459,7 @@ The candidate order is fixed:
 Before CMS candidate verification:
 
 1. Ginko Content is clean at the accepted integration-SDK commit and packs
-   `0.4.0-rc.1`, matching compatibility exactly.
+   `0.3.0-rc.1`, matching compatibility exactly.
 2. Better Convex Nuxt is clean at `fb238d96` or an accepted successor and packs
    `0.6.0`.
 3. Each upstream pack records commit, dirty state, package manager, Node
@@ -2526,7 +2527,7 @@ Generate evidence instead of hand-maintaining version tables:
   },
   "artifacts": {
     "@lupinum/ginko-content": {
-      "version": "0.4.0-rc.1",
+      "version": "0.3.0-rc.1",
       "commit": "<commit>",
       "sha256": "<sha256>"
     }

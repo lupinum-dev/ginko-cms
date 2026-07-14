@@ -4,13 +4,13 @@
     "@lupinum/ginko-cms": "0.2.0-rc.1",
     "@lupinum/ginko-cms-convex": "0.2.0-rc.1",
     "@lupinum/ginko-cms-contract": "0.2.0-rc.1",
-    "@lupinum/ginko-content": "0.4.0-rc.1",
+    "@lupinum/ginko-content": "0.3.0-rc.1",
     "better-convex-nuxt": "0.6.1"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "fe24e4a6a3ba315c816f04103ef22da3f87c226a",
-      "sha256": "12253bbddb77a65ef84af86dbd94b253102d615b93596b8422b6323644800cc4"
+      "sourceCommit": "2e4fce691e528254d75e41ca0f847f78d748f522",
+      "sha256": "972e0b86ec21fbee3ee859351fea4c9948eea0a18f7b727b722ce66536329577"
     },
     "better-convex-nuxt": {
       "sourceCommit": "dda45f962153601d8cbc4c645ad0cfd14fe39d8e",
