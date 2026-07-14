@@ -9,7 +9,7 @@
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "451f90adbf4e9faf018832b250b20dcb80e5cbf8",
+      "sourceCommit": "2450cc491e86e6469242ce9416496e3962ce5dd5",
       "sha256": "972e0b86ec21fbee3ee859351fea4c9948eea0a18f7b727b722ce66536329577"
     },
     "better-convex-nuxt": {
