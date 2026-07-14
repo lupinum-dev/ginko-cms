@@ -1470,3 +1470,47 @@ Phase H documentation is implemented. No adapter is described as operationally
 certified: the guide explicitly separates protocol conformance from
 artifact-hash-pinned, adapter-owned operational evidence. Candidate generation
 and coordinated release certification remain the next work package.
+
+## 2026-07-14 — Preparatory Exact Artifact Infrastructure
+
+### Objective and scope
+
+Establish the deterministic local candidate machinery needed by the later WP8
+and WP9 gates without treating an intermediate candidate as final release
+certification. This work was infrastructure preparation only: the authoritative
+implementation order remains at WP4, and every artifact acceptance row remains
+open until all behavior-changing work packages are committed and the candidates
+are regenerated from clean final sources.
+
+### Changes and architectural decisions
+
+- Added exact coordinated Content, Better Convex Nuxt, Contract, Convex, and CMS
+  artifact inputs with SHA-256 verification and no registry, workspace, link, or
+  sibling-source fallback.
+- Made generated component API augmentation type-only so a packed host can
+  typecheck without importing deployment-owned generated runtime code.
+- Added isolated fresh pnpm and npm consumers with strict peer handling,
+  generated host setup, typecheck, production Nuxt/Nitro build, boot, package
+  imports, and portability verification.
+- Kept offline boot independent from MCP startup and aligned the complete
+  candidate tuple on Convex `1.42.1` after npm's stricter peer resolver exposed
+  the stale `1.38` tuple. No compatibility shim or dual dependency path was
+  retained.
+
+### Executable evidence and intermediate artifacts
+
+At clean CMS commit `837fb478`, `release:verify:candidate` passed the repository
+gate (121 test files plus one gated skip; 925 tests plus one skip), both exact
+pnpm and npm package consumers, Nitro boot, portability verification, and the
+production audit. The exact intermediate artifacts were:
+
+- Content: `12253bbddb77a65ef84af86dbd94b253102d615b93596b8422b6323644800cc4`.
+- Better Convex Nuxt: `2fa872366fd3b1f372d82a87b91074f7119fb06ba7c9ae3054c76b747272b82f`.
+- CMS Contract: `6a81d799e275d207c39bd636f5e48f6ceb65892ee20eadc2bb5dce6f55ac0078`.
+- CMS Convex: `e87672e0df5bd7264c28990a30eed711ebb3f927e56618b858f9f30e219bd731`.
+- CMS: `f7d5dc49e4cb19325f42c55df6cc543e2834311ae7c9443e4f685b40cfc57dd9`.
+
+The coordinating commits are `29c4f387`, `610a600e`, `e4e7c3c8`, `e0d5bc0e`,
+`0884b58d`, and `837fb478`. Their evidence is intentionally classified as
+intermediate: subsequent WP4-WP8A source changes invalidate the CMS artifact
+and require a new clean two-pack candidate before any matrix row is closed.
