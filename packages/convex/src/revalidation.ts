@@ -372,7 +372,6 @@ export const listRevalidationJobs = callerQuery.protected({
 
 export const retryRevalidationJobOperation = defineCmsOperation({
   id: 'ginko-cms.retry-revalidation-job',
-  name: 'retry-revalidation-job',
   kind: 'destructive',
   executeFunctionRef: 'revalidation:retryRevalidationJobOperationExecute',
   args: retryRevalidationJobArgs.args,

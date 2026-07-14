@@ -301,7 +301,6 @@ export const updateMemberRole = callerMutation.protected({
 
 export const removeMemberOperation = defineCmsOperation({
   id: 'ginko-cms.remove-member',
-  name: 'remove-member',
   kind: 'destructive',
   executeFunctionRef: 'members:removeMemberOperationExecute',
   args: removeMemberArgs.args,

@@ -1257,7 +1257,6 @@ const deleteBackupArtifactArgs = {
 
 export const deleteBackupArtifactOperation = defineCmsOperation({
   id: 'ginko-cms.delete-backup-artifact',
-  name: 'delete-backup-artifact',
   kind: 'destructive',
   executeFunctionRef: 'backup:deleteBackupArtifactOperationExecute',
   args: deleteBackupArtifactArgs,

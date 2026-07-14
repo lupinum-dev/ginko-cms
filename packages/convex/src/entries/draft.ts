@@ -373,7 +373,6 @@ export const mcpSaveEntryDraft = callerMutation.protected({
 
 export const revertDraftToPublishedOperation = defineCmsOperation({
   id: 'ginko-cms.revert-draft-to-published',
-  name: 'revert-draft-to-published',
   kind: 'destructive',
   executeFunctionRef: 'entries/draft:revertDraftToPublishedOperationExecute',
   args: revertDraftToPublishedArgs.args,

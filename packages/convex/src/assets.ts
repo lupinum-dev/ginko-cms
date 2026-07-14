@@ -1145,7 +1145,6 @@ export const rebuildContentAssetRefsPage = callerMutation.protected({
 
 export const deleteAssetOperation = defineCmsOperation({
   id: 'ginko-cms.delete-asset',
-  name: 'delete-asset',
   kind: 'destructive',
   executeFunctionRef: 'assets:deleteAssetOperationExecute',
   args: deleteAssetArgs.args,
@@ -1269,7 +1268,6 @@ export const restoreAsset = callerMutation.protected({
 
 export const purgeAssetOperation = defineCmsOperation({
   id: 'ginko-cms.purge-asset',
-  name: 'purge-asset',
   kind: 'destructive',
   executeFunctionRef: 'assets:purgeAsset',
   args: purgeAssetArgs,

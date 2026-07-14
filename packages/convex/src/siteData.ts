@@ -349,7 +349,6 @@ export const updateSiteDataBlock = callerMutation.protected({
 
 export const deleteSiteDataBlockOperation = defineCmsOperation({
   id: 'ginko-cms.delete-site-data-block',
-  name: 'delete-site-data-block',
   kind: 'destructive',
   executeFunctionRef: 'siteData:deleteSiteDataBlockOperationExecute',
   args: deleteSiteDataBlockArgs.args,

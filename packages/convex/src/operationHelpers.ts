@@ -37,9 +37,7 @@ export type CmsOperationDefinition<
   TLoaded = LooseValue,
 > = {
   id?: string
-  name?: string
   kind?: 'safe' | 'destructive'
-  safety?: string
   args?: TArgsValidator
   guard?: CmsGuard | unknown
   returns?: unknown
@@ -77,12 +75,6 @@ type PreviewResult = {
   version: unknown
 }
 
-export type CmsOperationRef = {
-  id: string
-  executeRef: unknown
-  previewRef?: unknown
-}
-
 type CmsOperationInput<
   TArgsValidator extends GenericValidator | PropertyValidators | undefined,
   TLoad extends OperationLoad<TArgsValidator> | undefined,
@@ -97,17 +89,6 @@ export function defineCmsOperation<
 >(definition: TDefinition): TDefinition {
   return definition
 }
-
-defineCmsOperation.withContext =
-  <_TCtx>() =>
-  <
-    const TArgsValidator extends GenericValidator | PropertyValidators | undefined,
-    const TLoad extends OperationLoad<TArgsValidator> | undefined,
-    const TDefinition extends CmsOperationInput<TArgsValidator, TLoad>,
-  >(
-    definition: TDefinition,
-  ): TDefinition =>
-    definition
 
 export function definePreview<
   TArgsValidator extends GenericValidator | PropertyValidators | undefined,

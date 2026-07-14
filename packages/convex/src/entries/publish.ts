@@ -147,7 +147,6 @@ async function runCanonicalRollbackVersion(
 
 export const publishEntryOperation = defineCmsOperation({
   id: 'ginko-cms.publish-entry',
-  name: 'publish-entry',
   kind: 'destructive',
   executeFunctionRef: 'entries/publish:publishEntryOperationExecute',
   args: publishEntryArgs.args,
@@ -293,7 +292,6 @@ export const mcpPreviewPublishEntry = callerMutation.protected({
 
 export const unpublishEntryOperation = defineCmsOperation({
   id: 'ginko-cms.unpublish-entry',
-  name: 'unpublish-entry',
   kind: 'destructive',
   executeFunctionRef: 'entries/publish:unpublishEntryOperationExecute',
   args: unpublishEntryArgs.args,
@@ -387,7 +385,6 @@ export const previewUnpublishEntryOperation = callerMutation.protected(
 
 export const archiveEntryOperation = defineCmsOperation({
   id: 'ginko-cms.archive-entry',
-  name: 'archive-entry',
   kind: 'destructive',
   executeFunctionRef: 'entries/publish:archiveEntryOperationExecute',
   args: archiveEntryArgs.args,
@@ -504,7 +501,6 @@ export const restoreEntry = callerMutation.protected({
 
 export const rollbackVersionOperation = defineCmsOperation({
   id: 'ginko-cms.rollback-version',
-  name: 'rollback-version',
   kind: 'destructive',
   executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute',
   args: rollbackVersionArgs.args,
