@@ -544,3 +544,88 @@ precedence.
   route enumeration across canonical public-state changes.
 - Next work package: freeze the normative portability fixtures, then implement
   the pure Content codec before any CMS portability persistence.
+
+## 2026-07-14 — WP3A Phases A-C Pure Portability Contract
+
+### Objective and acceptance criteria
+
+Freeze reviewed filesystem-owned portability vectors before implementation,
+then add the framework-free document/MDC/manifest codec and its observable
+Level-1 runner. Acceptance required materialized canonical identity, exact
+shared/localized placement, closed topology, strict JSON/YAML parsing,
+reversible NFC-safe paths, semantic MDC rejection, canonical manifests,
+structural references/assets, and no Node/Nuxt/H3/Convex imports in the pure
+entry graph.
+
+### Repository ownership and hard cutovers
+
+- Ginko Content added the sole `PortableDocumentV1`, manifest, reference,
+  asset, error, semantic-model, and MDC model under `src/portability/` and
+  exposed it only through `./portability`.
+- The resolved-contract validator now rejects reserved portable field names,
+  invalid page/data body policies, and duplicate nested field keys. The codec
+  classifies fields exclusively through that resolved contract; it does not
+  carry a second schema.
+- Canonical JSON parsing rejects duplicate keys before values are constructed.
+  Canonical YAML rejects duplicates, aliases, anchors, tags, merge keys,
+  non-string keys, implementation scalars, and control bytes.
+- Markdown serialization is asynchronous because the pinned Comark parser is
+  asynchronous; every parse and write validates the semantic MDC projection.
+- Asset traversal visits typed contract fields and declared MDC media props
+  only. Two references to the same verified PNG produce one blob identity; no
+  arbitrary string scanning or replacement was added.
+- Package public-surface metadata was brought in sync with the already shipped
+  data-source/binder entries and the new portability/testing entries. The old
+  `/cms-import` entry remains only until the CMS consumer is migrated in Phase
+  E, as required by the coordinated hard-cutover order.
+
+### Frozen fixtures and test-first evidence
+
+Fixtures under `packages/content/test/fixtures/portability/` cover a
+multilingual tree, a localized flat page, a data collection, translated slugs,
+parent rank, scalar/array relations, a registered MDC component, authored
+visibility, every supported field type, and duplicate references to one asset
+byte identity. The expected red run failed because `src/portability` did not
+exist. Later red runs exposed the missing public-surface classifications and
+the asynchronous MDC serialization boundary.
+
+Final focused tests cover canonical document round trips, moved-file identity,
+NFC/percent path vectors, missing references, topology, unknown/misplaced
+fields, active MDC rejection, all field mappings, shared asset deduplication,
+manifest byte rebuilding, hash/size mismatch, duplicate YAML/JSON keys, and
+credential-bearing external URLs. The published testing entry runs nine
+observable codec/hash/path/MDC/manifest checks without claiming persistence or
+authorization certification.
+
+### Commands and results
+
+- Ginko Content `pnpm run lint`: passed, including repository policy,
+  compatibility, test-selection, and ESLint checks.
+- Ginko Content `pnpm run typecheck`: passed, including source typecheck,
+  package build/declarations, and the Nuxt type consumer.
+- Portability contract suite: 9 tests passed.
+- Public export and asset suites: 2 files and 38 tests passed.
+- Direct built Node ESM imports of `./portability` and
+  `./testing/portability-contract` passed; the runner reported 9 checks.
+- Pure source/dist import scans found no Node, Nuxt, H3, Convex, or Cloudflare
+  imports. `git diff --check` passed.
+- Better Convex Nuxt remained read-only at
+  `467aa0eeb24d26b3695482420807c892959fc683`; no file was modified.
+
+### Immutable development artifact
+
+- Path:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.03ddc52721d4.94af24d74c526c9a977aee2bd65637da1abefe912d869425b35a7499a56d17c2.tgz`
+- SHA-256:
+  `94af24d74c526c9a977aee2bd65637da1abefe912d869425b35a7499a56d17c2`
+- Source commit: `03ddc52721d4`; the adjacent JSON is development evidence,
+  not candidate certification.
+
+### Commit, acceptance matrix, and next phase
+
+- Ginko Content `03ddc52` — `feat!: add the portable document codecs`.
+- No portability matrix row is marked implemented yet: the pure codec evidence
+  is complete, but the required Node directory suite and isolated packed
+  runtime/type consumers belong to Phase D.
+- Next work package: safe deterministic Node directory read/write/rebuild,
+  followed by an accepted Content tarball for the CMS Phase-E consumer.
