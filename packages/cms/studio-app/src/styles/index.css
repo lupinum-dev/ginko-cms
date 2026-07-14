@@ -1,6 +1,13 @@
 @import 'tailwindcss' prefix(ginko);
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
+
+/* Ported color/type themes (.color-*, .theme-mono/.theme-scaled), re-scoped
+ * under .ginko-cms so theme classes applied on the Studio root cannot leak
+ * into host apps. Imported after @custom-variant dark so the dark variant is
+ * in scope. See D2 in the Studio shell-migration RFC. */
+@import './themes.css';
 
 @theme inline {
   --font-sans: var(--font-body);
@@ -346,17 +353,17 @@
   --success: var(--ginko-cms-studio-success, oklch(0.63 0.09 160));
   --success-foreground: var(--ginko-cms-studio-success-foreground, oklch(0.985 0 0));
   --success-fg: var(--ginko-cms-studio-success-fg, oklch(0.42 0.08 160));
-  --warning: var(--ginko-cms-warning, oklch(0.769 0.188 70.08));
+  --warning: var(--ginko-cms-warning, oklch(0.769 0.188 70.08)); /* ginko-keep: amber h70, matches the studio warning-fg/bg/border system (template ships yellow h92) */
   --warning-foreground: var(--ginko-cms-warning-foreground, oklch(0.205 0 0));
   --warning-fg: var(--ginko-cms-warning-fg, oklch(0.48 0.13 70));
   --border: var(--ginko-cms-border, oklch(0.922 0 0));
   --input: var(--ginko-cms-input, oklch(0.922 0 0));
-  --ring: var(--ginko-cms-ring, var(--studio-action));
-  --chart-1: var(--ginko-cms-chart-1, oklch(0.87 0 0));
-  --chart-2: var(--ginko-cms-chart-2, oklch(0.556 0 0));
-  --chart-3: var(--ginko-cms-chart-3, oklch(0.439 0 0));
-  --chart-4: var(--ginko-cms-chart-4, oklch(0.371 0 0));
-  --chart-5: var(--ginko-cms-chart-5, oklch(0.269 0 0));
+  --ring: var(--ginko-cms-ring, var(--studio-action)); /* ginko-keep: focus ring tracks the brand action color (template uses neutral grey oklch(0.708)) */
+  --chart-1: var(--ginko-cms-chart-1, oklch(0.87 0 0)); /* ginko-keep: monochrome chart ramp by default; color themes recolor it (template default is blue) */
+  --chart-2: var(--ginko-cms-chart-2, oklch(0.556 0 0)); /* ginko-keep */
+  --chart-3: var(--ginko-cms-chart-3, oklch(0.439 0 0)); /* ginko-keep */
+  --chart-4: var(--ginko-cms-chart-4, oklch(0.371 0 0)); /* ginko-keep */
+  --chart-5: var(--ginko-cms-chart-5, oklch(0.269 0 0)); /* ginko-keep */
   --sidebar: var(--ginko-cms-sidebar, oklch(0.985 0 0));
   --sidebar-foreground: var(--ginko-cms-sidebar-foreground, oklch(0.145 0 0));
   --sidebar-primary: var(--ginko-cms-studio-sidebar-primary, var(--studio-action));
@@ -368,6 +375,24 @@
   --sidebar-accent-foreground: var(--ginko-cms-sidebar-accent-foreground, oklch(0.205 0 0));
   --sidebar-border: var(--ginko-cms-sidebar-border, oklch(0.922 0 0));
   --sidebar-ring: var(--ginko-cms-sidebar-ring, oklch(0.708 0 0));
+
+  /* ── Template-parity tokens (added in shell-migration D2) ──────────────────
+   * Tokens the dashboard template's tailwind.css :root ships that the Studio
+   * lacked. Public ones keep the --ginko-cms-* consumer-override contract. */
+  --header-height: var(--ginko-cms-header-height, 54px);
+  --surface: var(--ginko-cms-surface, oklch(0.98 0 0));
+  --surface-foreground: var(--ginko-cms-surface-foreground, var(--foreground));
+
+  /* Unovis chart vars — private/internal, no consumer-override contract. */
+  --vis-primary-color: var(--primary);
+  --vis-secondary-color: var(--primary);
+  --vis-text-color: var(--muted-foreground);
+  --vis-tooltip-background-color: none !important;
+  --vis-tooltip-border-color: none !important;
+  --vis-tooltip-text-color: none !important;
+  --vis-tooltip-shadow-color: none !important;
+  --vis-tooltip-backdrop-filter: none !important;
+  --vis-tooltip-padding: none !important;
 
   /* Tailwind v4 utilities such as bg-primary resolve through --color-* theme
    * variables. Define those aliases inside the CMS scope so host app theme
@@ -490,17 +515,17 @@
   --success: var(--ginko-cms-dark-studio-success, oklch(0.58 0.08 160));
   --success-foreground: var(--ginko-cms-dark-studio-success-foreground, oklch(0.145 0 0));
   --success-fg: var(--ginko-cms-dark-studio-success-fg, oklch(0.78 0.08 160));
-  --warning: var(--ginko-cms-dark-warning, oklch(0.769 0.188 70.08));
+  --warning: var(--ginko-cms-dark-warning, oklch(0.769 0.188 70.08)); /* ginko-keep: amber h70 (template ships yellow h86) */
   --warning-foreground: var(--ginko-cms-dark-warning-foreground, oklch(0.205 0 0));
   --warning-fg: var(--ginko-cms-dark-warning-fg, oklch(0.84 0.14 78));
   --border: var(--ginko-cms-dark-border, oklch(1 0 0 / 0.1));
   --input: var(--ginko-cms-dark-input, oklch(1 0 0 / 0.15));
-  --ring: var(--ginko-cms-dark-ring, var(--studio-action));
-  --chart-1: var(--ginko-cms-dark-chart-1, oklch(0.87 0 0));
-  --chart-2: var(--ginko-cms-dark-chart-2, oklch(0.556 0 0));
-  --chart-3: var(--ginko-cms-dark-chart-3, oklch(0.439 0 0));
-  --chart-4: var(--ginko-cms-dark-chart-4, oklch(0.371 0 0));
-  --chart-5: var(--ginko-cms-dark-chart-5, oklch(0.269 0 0));
+  --ring: var(--ginko-cms-dark-ring, var(--studio-action)); /* ginko-keep: focus ring tracks the brand action color (template uses neutral grey oklch(0.556)) */
+  --chart-1: var(--ginko-cms-dark-chart-1, oklch(0.87 0 0)); /* ginko-keep: monochrome chart ramp (template default is blue) */
+  --chart-2: var(--ginko-cms-dark-chart-2, oklch(0.556 0 0)); /* ginko-keep */
+  --chart-3: var(--ginko-cms-dark-chart-3, oklch(0.439 0 0)); /* ginko-keep */
+  --chart-4: var(--ginko-cms-dark-chart-4, oklch(0.371 0 0)); /* ginko-keep */
+  --chart-5: var(--ginko-cms-dark-chart-5, oklch(0.269 0 0)); /* ginko-keep */
   --sidebar: var(--ginko-cms-dark-sidebar, oklch(0.205 0 0));
   --sidebar-foreground: var(--ginko-cms-dark-sidebar-foreground, oklch(0.985 0 0));
   --sidebar-primary: var(--ginko-cms-dark-studio-sidebar-primary, var(--studio-action));
@@ -512,6 +537,20 @@
   --sidebar-accent-foreground: var(--ginko-cms-dark-sidebar-accent-foreground, oklch(0.985 0 0));
   --sidebar-border: var(--ginko-cms-dark-sidebar-border, oklch(1 0 0 / 0.1));
   --sidebar-ring: var(--ginko-cms-dark-sidebar-ring, oklch(0.556 0 0));
+
+  /* ── Template-parity tokens (dark) ── keep light/dark parity with the block
+   * above. --header-height does not vary by scheme, so it stays light-only. */
+  --surface: var(--ginko-cms-dark-surface, oklch(0.2 0 0));
+  --surface-foreground: var(--ginko-cms-dark-surface-foreground, oklch(0.708 0 0));
+
+  /* Unovis tooltip vars — private/internal. (--vis-primary/secondary/text
+   * inherit from --primary/--muted-foreground, which already flip in dark.) */
+  --vis-tooltip-background-color: none !important;
+  --vis-tooltip-border-color: none !important;
+  --vis-tooltip-text-color: none !important;
+  --vis-tooltip-shadow-color: none !important;
+  --vis-tooltip-backdrop-filter: none !important;
+  --vis-tooltip-padding: none !important;
 
   /* Dark page canvas: matches body background; sidebar/cards elevate
    * from it. Hierarchy in dark = page (0.145) → sidebar/card (0.205). */

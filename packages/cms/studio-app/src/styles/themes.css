@@ -1,0 +1,405 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * Ginko CMS Studio — color & type themes
+ *
+ * Ported from the shadcn dashboard template's app/assets/css/themes.css and
+ * adapted to the Studio's embedding contract (Studio shell-migration RFC, D2).
+ *
+ * Porting rules applied to every rule below:
+ *   1. Scope:   every selector is prefixed with `.ginko-cms`. Theme classes
+ *               (`.color-blue`, `.theme-mono`, …) are applied ON the .ginko-cms
+ *               root, so `.color-blue` → `.ginko-cms.color-blue`. This keeps the
+ *               themes from ever leaking into a host app's markup.
+ *   2. Dark:    the template's `@variant dark { … }` is expanded to explicit
+ *               `.dark .ginko-cms.color-blue { … }` rules — the host toggles
+ *               `.dark` on an ancestor and the Studio root is a descendant, so
+ *               this matches the studio's existing `.dark .ginko-cms` pattern.
+ *   3. Palette: Tailwind's palette vars are emitted prefixed under
+ *               `prefix(ginko)`, so `var(--color-blue-700)` → `var(--ginko-color-blue-700)`.
+ *   4. Scale:   Tailwind theme-scale vars are likewise prefixed:
+ *               `--spacing` → `--ginko-spacing`, `--text-lg` → `--ginko-text-lg`.
+ *               `--radius` is the Studio's own indirection var and stays bare.
+ *   5. Utils:   utility-class overrides target the prefixed, escaped class
+ *               (`.rounded-md` → `.ginko\:rounded-md`); `@apply` is expanded to
+ *               plain declarations to avoid prefix-in-@apply ambiguity.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/* ── Type variants ───────────────────────────────────────────────────────── */
+
+.ginko-cms.theme-mono {
+  --font-sans: var(--font-mono);
+  --primary: var(--ginko-color-stone-600);
+  --primary-foreground: var(--ginko-color-stone-50);
+  --chart-1: var(--ginko-color-stone-300);
+  --chart-2: var(--ginko-color-stone-500);
+  --chart-3: var(--ginko-color-stone-600);
+  --chart-4: var(--ginko-color-stone-700);
+  --chart-5: var(--ginko-color-stone-800);
+  --sidebar-primary: var(--ginko-color-stone-600);
+  --sidebar-primary-foreground: var(--ginko-color-stone-50);
+  --sidebar-ring: var(--ginko-color-stone-400);
+  --vis-primary-color: var(--primary);
+}
+
+.dark .ginko-cms.theme-mono {
+  --primary: var(--ginko-color-stone-500);
+  --primary-foreground: var(--ginko-color-stone-50);
+  --sidebar-primary: var(--ginko-color-stone-500);
+  --sidebar-primary-foreground: var(--ginko-color-stone-50);
+  --sidebar-ring: var(--ginko-color-stone-900);
+}
+
+@media (min-width: 1024px) {
+  .ginko-cms.theme-mono {
+    --font-sans: var(--font-mono);
+    --radius: 0.45em;
+    --ginko-text-lg: 1rem;
+    --ginko-text-xl: 1.1rem;
+    --ginko-text-2xl: 1.2rem;
+    --ginko-text-3xl: 1.3rem;
+    --ginko-text-4xl: 1.4rem;
+    --ginko-text-5xl: 1.5rem;
+    --ginko-text-6xl: 1.6rem;
+    --ginko-text-7xl: 1.7rem;
+    --ginko-text-8xl: 1.8rem;
+    --ginko-text-base: 0.85rem;
+    --ginko-text-sm: 0.8rem;
+    --ginko-spacing: 0.222222rem;
+  }
+}
+
+.ginko-cms.theme-mono .ginko\:rounded-xs,
+.ginko-cms.theme-mono .ginko\:rounded-sm,
+.ginko-cms.theme-mono .ginko\:rounded-md,
+.ginko-cms.theme-mono .ginko\:rounded-lg,
+.ginko-cms.theme-mono .ginko\:rounded-xl {
+  border-radius: 0;
+}
+
+.ginko-cms.theme-mono .ginko\:shadow-xs,
+.ginko-cms.theme-mono .ginko\:shadow-sm,
+.ginko-cms.theme-mono .ginko\:shadow-md,
+.ginko-cms.theme-mono .ginko\:shadow-lg,
+.ginko-cms.theme-mono .ginko\:shadow-xl {
+  box-shadow: none;
+}
+
+.ginko-cms.theme-mono [data-slot='toggle-group'],
+.ginko-cms.theme-mono [data-slot='toggle-group-item'],
+.ginko-cms.theme-mono [data-slot='checkbox'],
+.ginko-cms.theme-mono [data-slot='radio'],
+.ginko-cms.theme-mono [data-slot='switch'],
+.ginko-cms.theme-mono [data-slot='switch-thumb'] {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* .theme-scaled — scale overrides apply at ≥1024px (matches the template). */
+@media (min-width: 1024px) {
+  .ginko-cms.theme-scaled {
+    --radius: 0.45em;
+    --ginko-text-lg: 1rem;
+    --ginko-text-xl: 1.1rem;
+    --ginko-text-2xl: 1.2rem;
+    --ginko-text-3xl: 1.3rem;
+    --ginko-text-4xl: 1.4rem;
+    --ginko-text-5xl: 1.5rem;
+    --ginko-text-6xl: 1.6rem;
+    --ginko-text-7xl: 1.7rem;
+    --ginko-text-8xl: 1.8rem;
+    --ginko-text-base: 0.85rem;
+    --ginko-text-sm: 0.8rem;
+    --ginko-spacing: 0.2rem;
+  }
+}
+
+.ginko-cms.theme-scaled [data-slot='select-trigger'],
+.ginko-cms.theme-scaled [data-slot='toggle-group-item'] {
+  --ginko-spacing: 0.2rem;
+}
+
+.ginko-cms.theme-scaled [data-slot='card'] {
+  border-radius: var(--radius);
+  padding-block: calc(var(--ginko-spacing) * 4);
+  gap: calc(var(--ginko-spacing) * 2);
+}
+
+.ginko-cms.theme-scaled [data-slot='card'].ginko\:pb-0 {
+  padding-bottom: 0;
+}
+
+/* ── Radius variants ─────────────────────────────────────────────────────── */
+
+.ginko-cms.theme-rounded-none {
+  --radius: 0;
+}
+
+.ginko-cms.theme-rounded-small {
+  --radius: 0.4rem;
+}
+
+.ginko-cms.theme-rounded-medium {
+  --radius: 0.65rem;
+}
+
+.ginko-cms.theme-rounded-large {
+  --radius: 1rem;
+}
+
+.ginko-cms.theme-rounded-full {
+  --radius: 1.2rem;
+}
+
+/* ── Font-family variants ────────────────────────────────────────────────── */
+/* These reference host-provided font vars; inert unless the host loads them. */
+
+.ginko-cms.theme-inter {
+  --font-sans: var(--font-inter);
+}
+
+.ginko-cms.theme-noto-sans {
+  --font-sans: var(--font-noto-sans);
+}
+
+.ginko-cms.theme-nunito-sans {
+  --font-sans: var(--font-nunito-sans);
+}
+
+.ginko-cms.theme-figtree {
+  --font-sans: var(--font-figtree);
+}
+
+/* ── Color themes ────────────────────────────────────────────────────────── */
+
+.ginko-cms.color-blue {
+  --primary: var(--ginko-color-blue-700);
+  --primary-foreground: var(--ginko-color-blue-50);
+  --sidebar-primary: var(--ginko-color-blue-600);
+  --sidebar-primary-foreground: var(--ginko-color-blue-50);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-blue-300);
+  --chart-2: var(--ginko-color-blue-500);
+  --chart-3: var(--ginko-color-blue-600);
+  --chart-4: var(--ginko-color-blue-700);
+  --chart-5: var(--ginko-color-blue-800);
+}
+
+.dark .ginko-cms.color-blue {
+  --primary: var(--ginko-color-blue-700);
+  --primary-foreground: var(--ginko-color-blue-50);
+  --sidebar-primary: var(--ginko-color-blue-500);
+  --sidebar-primary-foreground: var(--ginko-color-blue-50);
+}
+
+.ginko-cms.color-green {
+  --primary: var(--ginko-color-lime-600);
+  --primary-foreground: var(--ginko-color-lime-50);
+  --ring: var(--ginko-color-lime-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-green-300);
+  --chart-2: var(--ginko-color-green-500);
+  --chart-3: var(--ginko-color-green-600);
+  --chart-4: var(--ginko-color-green-700);
+  --chart-5: var(--ginko-color-green-800);
+  --sidebar-primary: var(--ginko-color-lime-600);
+  --sidebar-primary-foreground: var(--ginko-color-lime-50);
+  --sidebar-ring: var(--ginko-color-lime-400);
+}
+
+.dark .ginko-cms.color-green {
+  --primary: var(--ginko-color-lime-600);
+  --primary-foreground: var(--ginko-color-lime-50);
+  --ring: var(--ginko-color-lime-900);
+  --sidebar-primary: var(--ginko-color-lime-500);
+  --sidebar-primary-foreground: var(--ginko-color-lime-50);
+  --sidebar-ring: var(--ginko-color-lime-900);
+}
+
+.ginko-cms.color-amber {
+  --primary: var(--ginko-color-amber-600);
+  --primary-foreground: var(--ginko-color-amber-50);
+  --ring: var(--ginko-color-amber-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-amber-300);
+  --chart-2: var(--ginko-color-amber-500);
+  --chart-3: var(--ginko-color-amber-600);
+  --chart-4: var(--ginko-color-amber-700);
+  --chart-5: var(--ginko-color-amber-800);
+  --sidebar-primary: var(--ginko-color-amber-600);
+  --sidebar-primary-foreground: var(--ginko-color-amber-50);
+  --sidebar-ring: var(--ginko-color-amber-400);
+}
+
+.dark .ginko-cms.color-amber {
+  --primary: var(--ginko-color-amber-500);
+  --primary-foreground: var(--ginko-color-amber-50);
+  --ring: var(--ginko-color-amber-900);
+  --sidebar-primary: var(--ginko-color-amber-500);
+  --sidebar-primary-foreground: var(--ginko-color-amber-50);
+  --sidebar-ring: var(--ginko-color-amber-900);
+}
+
+.ginko-cms.color-rose {
+  --primary: var(--ginko-color-rose-600);
+  --primary-foreground: var(--ginko-color-rose-50);
+  --ring: var(--ginko-color-rose-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-rose-300);
+  --chart-2: var(--ginko-color-rose-500);
+  --chart-3: var(--ginko-color-rose-600);
+  --chart-4: var(--ginko-color-rose-700);
+  --chart-5: var(--ginko-color-rose-800);
+  --sidebar-primary: var(--ginko-color-rose-600);
+  --sidebar-primary-foreground: var(--ginko-color-rose-50);
+  --sidebar-ring: var(--ginko-color-rose-400);
+}
+
+.dark .ginko-cms.color-rose {
+  --primary: var(--ginko-color-rose-500);
+  --primary-foreground: var(--ginko-color-rose-50);
+  --ring: var(--ginko-color-rose-900);
+  --sidebar-primary: var(--ginko-color-rose-500);
+  --sidebar-primary-foreground: var(--ginko-color-rose-50);
+  --sidebar-ring: var(--ginko-color-rose-900);
+}
+
+.ginko-cms.color-purple {
+  --primary: var(--ginko-color-purple-600);
+  --primary-foreground: var(--ginko-color-purple-50);
+  --ring: var(--ginko-color-purple-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-purple-300);
+  --chart-2: var(--ginko-color-purple-500);
+  --chart-3: var(--ginko-color-purple-600);
+  --chart-4: var(--ginko-color-purple-700);
+  --chart-5: var(--ginko-color-purple-800);
+  --sidebar-primary: var(--ginko-color-purple-600);
+  --sidebar-primary-foreground: var(--ginko-color-purple-50);
+  --sidebar-ring: var(--ginko-color-purple-400);
+}
+
+.dark .ginko-cms.color-purple {
+  --primary: var(--ginko-color-purple-500);
+  --primary-foreground: var(--ginko-color-purple-50);
+  --ring: var(--ginko-color-purple-900);
+  --sidebar-primary: var(--ginko-color-purple-500);
+  --sidebar-primary-foreground: var(--ginko-color-purple-50);
+  --sidebar-ring: var(--ginko-color-purple-900);
+}
+
+.ginko-cms.color-orange {
+  --primary: var(--ginko-color-orange-600);
+  --primary-foreground: var(--ginko-color-orange-50);
+  --ring: var(--ginko-color-orange-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-orange-300);
+  --chart-2: var(--ginko-color-orange-500);
+  --chart-3: var(--ginko-color-orange-600);
+  --chart-4: var(--ginko-color-orange-700);
+  --chart-5: var(--ginko-color-orange-800);
+  --sidebar-primary: var(--ginko-color-orange-600);
+  --sidebar-primary-foreground: var(--ginko-color-orange-50);
+  --sidebar-ring: var(--ginko-color-orange-400);
+}
+
+.dark .ginko-cms.color-orange {
+  --primary: var(--ginko-color-orange-500);
+  --primary-foreground: var(--ginko-color-orange-50);
+  --ring: var(--ginko-color-orange-900);
+  --sidebar-primary: var(--ginko-color-orange-500);
+  --sidebar-primary-foreground: var(--ginko-color-orange-50);
+  --sidebar-ring: var(--ginko-color-orange-900);
+}
+
+.ginko-cms.color-teal {
+  --primary: var(--ginko-color-teal-600);
+  --primary-foreground: var(--ginko-color-teal-50);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-teal-300);
+  --chart-2: var(--ginko-color-teal-500);
+  --chart-3: var(--ginko-color-teal-600);
+  --chart-4: var(--ginko-color-teal-700);
+  --chart-5: var(--ginko-color-teal-800);
+  --sidebar-primary: var(--ginko-color-teal-600);
+  --sidebar-primary-foreground: var(--ginko-color-teal-50);
+  --sidebar-ring: var(--ginko-color-teal-400);
+}
+
+.dark .ginko-cms.color-teal {
+  --primary: var(--ginko-color-teal-500);
+  --primary-foreground: var(--ginko-color-teal-50);
+  --sidebar-primary: var(--ginko-color-teal-500);
+  --sidebar-primary-foreground: var(--ginko-color-teal-50);
+  --sidebar-ring: var(--ginko-color-teal-900);
+}
+
+.ginko-cms.color-red {
+  --primary: var(--ginko-color-red-600);
+  --primary-foreground: var(--ginko-color-red-50);
+  --ring: var(--ginko-color-red-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-red-300);
+  --chart-2: var(--ginko-color-red-500);
+  --chart-3: var(--ginko-color-red-600);
+  --chart-4: var(--ginko-color-red-700);
+  --chart-5: var(--ginko-color-red-800);
+  --sidebar-primary: var(--ginko-color-red-600);
+  --sidebar-primary-foreground: var(--ginko-color-red-50);
+  --sidebar-ring: var(--ginko-color-red-400);
+}
+
+.dark .ginko-cms.color-red {
+  --primary: var(--ginko-color-red-500);
+  --primary-foreground: var(--ginko-color-red-50);
+  --ring: var(--ginko-color-red-900);
+  --sidebar-primary: var(--ginko-color-red-500);
+  --sidebar-primary-foreground: var(--ginko-color-red-50);
+  --sidebar-ring: var(--ginko-color-red-900);
+}
+
+.ginko-cms.color-yellow {
+  --primary: var(--ginko-color-yellow-400);
+  --primary-foreground: var(--ginko-color-yellow-900);
+  --ring: var(--ginko-color-yellow-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-yellow-300);
+  --chart-2: var(--ginko-color-yellow-500);
+  --chart-3: var(--ginko-color-yellow-600);
+  --chart-4: var(--ginko-color-yellow-700);
+  --chart-5: var(--ginko-color-yellow-800);
+  --sidebar-primary: var(--ginko-color-yellow-600);
+  --sidebar-primary-foreground: var(--ginko-color-yellow-50);
+  --sidebar-ring: var(--ginko-color-yellow-400);
+}
+
+.dark .ginko-cms.color-yellow {
+  --primary: var(--ginko-color-yellow-500);
+  --primary-foreground: var(--ginko-color-yellow-900);
+  --ring: var(--ginko-color-yellow-900);
+  --sidebar-primary: var(--ginko-color-yellow-500);
+  --sidebar-primary-foreground: var(--ginko-color-yellow-50);
+  --sidebar-ring: var(--ginko-color-yellow-900);
+}
+
+.ginko-cms.color-violet {
+  --primary: var(--ginko-color-violet-600);
+  --primary-foreground: var(--ginko-color-violet-50);
+  --ring: var(--ginko-color-violet-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-violet-300);
+  --chart-2: var(--ginko-color-violet-500);
+  --chart-3: var(--ginko-color-violet-600);
+  --chart-4: var(--ginko-color-violet-700);
+  --chart-5: var(--ginko-color-violet-800);
+  --sidebar-primary: var(--ginko-color-violet-600);
+  --sidebar-primary-foreground: var(--ginko-color-violet-50);
+  --sidebar-ring: var(--ginko-color-violet-400);
+}
+
+.dark .ginko-cms.color-violet {
+  --primary: var(--ginko-color-violet-500);
+  --primary-foreground: var(--ginko-color-violet-50);
+  --ring: var(--ginko-color-violet-900);
+  --sidebar-primary: var(--ginko-color-violet-500);
+  --sidebar-primary-foreground: var(--ginko-color-violet-50);
+  --sidebar-ring: var(--ginko-color-violet-900);
+}
