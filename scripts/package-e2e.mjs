@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   appendFileSync,
@@ -27,6 +27,12 @@ const candidateMode = process.argv.includes('--candidate')
 const packDir = resolve(repoRoot, candidateMode ? '.pack/candidate' : '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
 const pnpmBin = process.env.npm_execpath ?? 'pnpm'
+const packageManagerOption = process.argv.indexOf('--package-manager')
+const consumerPackageManager =
+  packageManagerOption === -1 ? 'pnpm' : process.argv[packageManagerOption + 1]
+if (!['npm', 'pnpm'].includes(consumerPackageManager)) {
+  throw new Error('--package-manager must be npm or pnpm.')
+}
 const developmentMode = process.argv.includes('--dev-sources')
 const registryDependencies = process.argv.includes('--registry-deps')
 if ([candidateMode, developmentMode, registryDependencies].filter(Boolean).length !== 1) {
@@ -126,6 +132,9 @@ function packageE2eEnv() {
       ...env,
       npm_config_confirm_modules_purge: 'false',
       npm_config_dangerously_allow_all_builds: 'true',
+      npm_config_cache: join(tempDir, '.npm-cache'),
+      npm_config_store_dir: join(tempDir, '.pnpm-store'),
+      npm_config_strict_peer_deps: 'true',
       npm_config_verify_deps_before_run: 'false',
     }
   }
@@ -134,6 +143,9 @@ function packageE2eEnv() {
     ...process.env,
     npm_config_confirm_modules_purge: 'false',
     npm_config_dangerously_allow_all_builds: 'true',
+    npm_config_cache: join(tempDir, '.npm-cache'),
+    npm_config_store_dir: join(tempDir, '.pnpm-store'),
+    npm_config_strict_peer_deps: 'true',
     npm_config_verify_deps_before_run: 'false',
   }
 
@@ -147,6 +159,47 @@ function run(command, args, options = {}) {
     env: packageE2eEnv(),
     stdio: 'inherit',
   })
+}
+
+function consumerExec(command, args = []) {
+  if (consumerPackageManager === 'pnpm') {
+    run('pnpm', ['exec', command, ...args], { cwd: tempDir })
+  } else {
+    run('npm', ['exec', '--', command, ...args], { cwd: tempDir })
+  }
+}
+
+async function bootNitro() {
+  const port = 41_000 + (process.pid % 10_000)
+  const child = spawn(process.execPath, ['.output/server/index.mjs'], {
+    cwd: tempDir,
+    env: { ...packageE2eEnv(), HOST: '127.0.0.1', PORT: String(port) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let output = ''
+  child.stdout.on('data', (chunk) => (output += chunk))
+  child.stderr.on('data', (chunk) => (output += chunk))
+  try {
+    const deadline = Date.now() + 30_000
+    while (Date.now() < deadline) {
+      if (child.exitCode !== null) {
+        throw new Error(`Packed Nitro server exited before readiness:\n${output}`)
+      }
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/api/convex-alias-smoke`)
+        const body = await response.json()
+        if (!response.ok || body?.ok !== true) {
+          throw new Error(`Packed Nitro smoke returned ${response.status}: ${JSON.stringify(body)}`)
+        }
+        return
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 200))
+      }
+    }
+    throw new Error(`Timed out waiting for packed Nitro server:\n${output}`)
+  } finally {
+    child.kill('SIGTERM')
+  }
 }
 
 function packPackage(packageDir) {
@@ -332,6 +385,14 @@ try {
       cwd: repoRoot,
       encoding: 'utf8',
     }).trim()
+    const currentStatus = execFileSync(
+      'git',
+      ['status', '--porcelain', '--untracked-files=normal'],
+      { cwd: repoRoot, encoding: 'utf8' },
+    ).trim()
+    if (currentStatus) {
+      throw new Error(`Candidate verification requires a clean CMS repository:\n${currentStatus}`)
+    }
     if (evidence.source?.dirty !== false || evidence.source?.commit !== currentCommit) {
       throw new Error('Candidate evidence does not describe the current clean CMS commit.')
     }
@@ -361,7 +422,10 @@ try {
       {
         private: true,
         name: 'ginko-cms-package-e2e-consumer',
-        packageManager: rootPackageJson.packageManager,
+        packageManager:
+          consumerPackageManager === 'pnpm'
+            ? rootPackageJson.packageManager
+            : `npm@${execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim()}`,
         type: 'module',
         dependencies: {
           ...consumerCompatibility.dependencies,
@@ -381,16 +445,18 @@ try {
     'utf8',
   )
 
-  writeConsumerWorkspaceConfig(tempDir, {
-    '@lupinum/ginko-cms': fileDependency(cmsTarball),
-    '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
-    '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
-    '@lupinum/ginko-content': contentDependency(installedContentTarball),
-    '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
-    'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
-    convex: consumerCompatibility.dependencies.convex,
-    'secure-exec': compatibilityMatrix.tracked['secure-exec'][1],
-  })
+  if (consumerPackageManager === 'pnpm') {
+    writeConsumerWorkspaceConfig(tempDir, {
+      '@lupinum/ginko-cms': fileDependency(cmsTarball),
+      '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
+      '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
+      '@lupinum/ginko-content': contentDependency(installedContentTarball),
+      '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
+      'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
+      convex: consumerCompatibility.dependencies.convex,
+      'secure-exec': compatibilityMatrix.tracked['secure-exec'][1],
+    })
+  }
 
   writeFileSync(
     join(tempDir, 'nuxt.config.ts'),
@@ -494,7 +560,11 @@ try {
     'utf8',
   )
 
-  run('pnpm', ['install', '--ignore-scripts'], { cwd: tempDir })
+  if (consumerPackageManager === 'pnpm') {
+    run('pnpm', ['install', '--ignore-scripts'], { cwd: tempDir })
+  } else {
+    run('npm', ['install', '--ignore-scripts', '--strict-peer-deps'], { cwd: tempDir })
+  }
 
   const installedVersions = Object.fromEntries(
     [
@@ -513,11 +583,15 @@ try {
       )
     }
   }
-  const consumerLockfile = readFileSync(join(tempDir, 'pnpm-lock.yaml'), 'utf8')
+  const lockfilePath = join(
+    tempDir,
+    consumerPackageManager === 'pnpm' ? 'pnpm-lock.yaml' : 'package-lock.json',
+  )
+  const consumerLockfile = readFileSync(lockfilePath, 'utf8')
   if (/\b(?:link|workspace):/.test(consumerLockfile)) {
     throw new Error('Candidate consumer lockfile contains a workspace or link dependency.')
   }
-  if (candidateMode) {
+  if (candidateMode && consumerPackageManager === 'pnpm') {
     assertCandidateLockfile(consumerLockfile, {
       '@lupinum/ginko-cms': fileDependency(cmsTarball),
       '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
@@ -526,11 +600,29 @@ try {
       'better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
     })
   }
-  run('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir })
-  run('pnpm', ['exec', 'ginko-cms', 'doctor'], { cwd: tempDir })
-  run('pnpm', ['exec', 'convex', 'codegen', '--system-udfs', '--typecheck', 'disable'], {
-    cwd: tempDir,
-  })
+  if (candidateMode && consumerPackageManager === 'npm') {
+    const lockfile = JSON.parse(consumerLockfile)
+    for (const name of [
+      '@lupinum/ginko-cms',
+      '@lupinum/ginko-cms-contract',
+      '@lupinum/ginko-cms-convex',
+      '@lupinum/ginko-content',
+      'better-convex-nuxt',
+    ]) {
+      const suffix = `node_modules/${name}`
+      const matches = Object.keys(lockfile.packages ?? {}).filter(
+        (path) => path === suffix || path.endsWith(`/${suffix}`),
+      )
+      if (matches.length !== 1 || !lockfile.packages[matches[0]]?.resolved?.startsWith('file:')) {
+        throw new Error(
+          `npm candidate lockfile does not contain one exact file resolution for ${name}.`,
+        )
+      }
+    }
+  }
+  consumerExec('ginko-cms', ['init'])
+  consumerExec('ginko-cms', ['doctor'])
+  consumerExec('convex', ['codegen', '--system-udfs', '--typecheck', 'disable'])
   addOfflineComponentsStub(tempDir)
 
   for (const relativePath of [
@@ -571,8 +663,10 @@ try {
     }
   }
 
-  run('pnpm', ['exec', 'nuxt', 'prepare'], { cwd: tempDir })
-  run('pnpm', ['exec', 'nuxt', 'typecheck'], { cwd: tempDir })
+  consumerExec('nuxt', ['prepare'])
+  consumerExec('nuxt', ['typecheck'])
+  consumerExec('nuxt', ['build'])
+  await bootNitro()
   if (liveConvex) {
     run(
       'pnpm',
@@ -616,11 +710,11 @@ try {
     "await writePortableDirectory('portable-check', { contract, documents: [document], assets: [] })",
   ].join(';')
   run('node', ['--input-type=module', '--eval', portabilityCheck], { cwd: tempDir })
-  run('pnpm', ['exec', 'ginko-cms', 'content', 'verify', 'portable-check'], { cwd: tempDir })
+  consumerExec('ginko-cms', ['content', 'verify', 'portable-check'])
 
   console.log(
     [
-      'package e2e ok',
+      `package e2e ${consumerPackageManager} ok`,
       `consumer=${tempDir}`,
       `cms=${basename(cmsTarball)}`,
       `content=${candidateContent ? basename(candidateContent.path) : registryContent ? contentRegistryVersion : basename(contentTarball)}`,
@@ -638,6 +732,8 @@ try {
 
   const releaseEvidence = {
     lane: candidateMode ? 'candidate' : registryDependencies ? 'registry' : 'development',
+    packageManager: consumerPackageManager,
+    lockfileSha256: sha256(lockfilePath),
     dependencies: {
       '@lupinum/ginko-content': candidateContent ??
         developmentContent ?? { version: contentRegistryVersion },
@@ -652,7 +748,7 @@ try {
     ),
   }
   writeFileSync(
-    join(packDir, 'release-evidence.json'),
+    join(packDir, `release-evidence-${consumerPackageManager}.json`),
     `${JSON.stringify(releaseEvidence, null, 2)}\n`,
   )
 } finally {
