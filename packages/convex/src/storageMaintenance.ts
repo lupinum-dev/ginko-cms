@@ -131,6 +131,7 @@ export const cleanupStorageHygiene = internalMutation({
         deletedRuns += 1
       }
     }
+    let deletedTerminalRuns = 0
     for (const row of [...completedRuns, ...revokedRuns, ...failedRuns]) {
       const retainedReview = await ctx.db
         .query('reviewRequests')
@@ -139,13 +140,12 @@ export const cleanupStorageHygiene = internalMutation({
       if (retainedReview) continue
       await ctx.db.delete(row._id)
       deletedRuns += 1
+      deletedTerminalRuns += 1
     }
-    const runPageFull =
-      expiredActiveRuns.length === limit ||
-      abandonedLegacyRuns.length === limit ||
-      completedRuns.length === limit ||
-      revokedRuns.length === limit ||
-      failedRuns.length === limit
+    const activeRunPageFull =
+      expiredActiveRuns.length === limit || abandonedLegacyRuns.length === limit
+    const terminalRunPageFull =
+      completedRuns.length === limit || revokedRuns.length === limit || failedRuns.length === limit
 
     const remaining =
       deliveredOutbox.length === limit ||
@@ -153,7 +153,8 @@ export const cleanupStorageHygiene = internalMutation({
       activity.length === limit ||
       approvedReviews.length === limit ||
       rejectedReviews.length === limit ||
-      runPageFull
+      activeRunPageFull ||
+      (deletedTerminalRuns > 0 && terminalRunPageFull)
     if (remaining) {
       await ctx.scheduler.runAfter(
         0,

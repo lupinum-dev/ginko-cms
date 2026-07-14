@@ -266,6 +266,48 @@ describe('storage maintenance', () => {
     expect(await ctx.readAll('reviewRequests')).toEqual([])
   })
 
+  it('does not loop on a full page of terminal runs retained by reviews', async () => {
+    const ctx = createCtx()
+    const now = Date.UTC(2026, 4, 13)
+    for (let index = 0; index < 2; index += 1) {
+      const runId = await ctx.seed(
+        'agentRuns' as never,
+        {
+          credentialApiKeyId: `retained-key-${index}`,
+          delegatedUserId: 'owner-1',
+          scopeSnapshot: ['read'],
+          taskName: `retained run ${index}`,
+          status: 'completed',
+          createdBy: 'owner-1',
+          createdAt: now - 200 * DAY_MS,
+          updatedAt: now - 181 * DAY_MS,
+          endedAt: now - 181 * DAY_MS,
+        } as never,
+      )
+      await ctx.seed(
+        'reviewRequests' as never,
+        {
+          agentRunId: runId,
+          entryId: `retained-entry-${index}`,
+          locales: ['en'],
+          expectedVersion: 1,
+          title: `retained review ${index}`,
+          summary: `retained review ${index}`,
+          status: 'pending',
+          preview: {},
+          requestedBy: 'owner-1',
+          createdAt: now - 181 * DAY_MS,
+          updatedAt: now - 181 * DAY_MS,
+        } as never,
+      )
+    }
+
+    await expect(
+      ctx.raw.mutation(api.storageMaintenance.cleanupStorageHygiene, { now, limit: 2 }),
+    ).resolves.toMatchObject({ agentRuns: 0, remaining: false })
+    expect(await ctx.readAll('agentRuns')).toHaveLength(2)
+  })
+
   it('reports storage hygiene counts and largest growth risks for owners', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
