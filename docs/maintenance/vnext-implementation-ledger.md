@@ -439,3 +439,108 @@ asset lookup; and public projection reference identity.
   successful deletion; verified asset facts remain canonical on the asset row.
 - Next work package: WP3A Content data-source contract and binder, followed by
   portability codecs and Node directory operations.
+
+## 2026-07-14 — WP3A Runtime Data Source And Stable Routes
+
+### Objective and acceptance criteria
+
+Replace direct provider construction with the fixed, bounded Content data
+source and one H3 binder; keep one immutable context and one anonymous Convex
+caller per request; make provider invalidation solely cache-adapter-owned; and
+page public routes in stable canonical-identity order under one projection
+generation. Acceptance required pre-dispatch request bounds, post-dispatch
+result and cache bounds, disposal abort, secret-safe errors, cursor progress,
+one caller under concurrency, a 250-row route page ceiling, and cursor
+invalidation after any public projection mutation.
+
+### Repository ownership and hard cutovers
+
+- Ginko Content added the pure `ContentDataSource<Context>` entry, its Level-1
+  observable contract runner, and the H3 `bindContentProvider()` adapter.
+  Caller-selected result generics, provider invalidation, and generic asset
+  lookup are absent from the source contract.
+- Query lowering now materializes the mandatory core bounds: all-mode defaults
+  to 100, first-mode is exactly one, and count-mode carries no limit.
+- The binder validates exact cache hints, NFC and credential-free cache keys,
+  ETags, JSON site data and timestamps, query/navigation/search result counts,
+  route snapshots, cursor progress, and the 100,000-route aggregate ceiling.
+  Disposal aborts the operation and late backend results cannot publish cache
+  or projected data.
+- Ginko CMS deleted the eventless `ConvexHttpClient` branch and direct provider
+  implementation. The only exported provider is the binder result over one
+  `GinkoCmsDataSourceContext` containing the H3 event and anonymous caller.
+- Public route paging moved from order-key pagination to the existing indexed
+  `(collection, locale, canonicalKey)` order with the public projection row ID
+  as the cursor tie identity. The opaque cursor binds source, collection,
+  locale, generation, canonical key, and projection ID.
+- Added one rebuildable `publicProjectionState` row. Public projection writers
+  and index repair bump its generation; a mutation between pages fails with
+  `INVALID_CURSOR` instead of skipping or duplicating routes.
+- Route wire responses now require a non-empty bounded snapshot. The CMS
+  source carries that snapshot across collection/locale scopes and Content
+  rejects any mid-enumeration change.
+- The Studio bridge operation-kind source of truth now includes Convex actions,
+  fixing the generated type for byte-verifying asset registration. No shim,
+  dual provider, provider cache, or alternate route roster was retained.
+
+### Test-first and invariant evidence
+
+Expected red runs reproduced two caller creations under concurrent operations,
+unbounded returned arrays, invalid site-data acceptance, credential-bearing
+cache hints, repeating cursors, missing route snapshots, order-key route
+cursors surviving publication changes, and the stale Studio bridge action
+type. Final tests cover each failure plus exact scope/source cursor binding,
+projection-ID replay validation, canonical-key uniqueness, and locale-policy
+precedence.
+
+### Commands and results
+
+- Ginko Content focused provider/data-source suite: 5 files and 22 tests
+  passed; source typecheck and lint passed.
+- Ginko Content `pack:check`: passed before the final bounded-result commit;
+  the final clean `dev:pack` below rebuilt and packed the same public entries.
+- Ginko CMS `pnpm run prepare:component`: passed and regenerated component
+  bindings for `publicProjectionState`.
+- Ginko CMS focused provider and public route suites: 2 files and 59 tests
+  passed; the final public API suite passed 30 tests after cursor-ID validation.
+- Ginko CMS repository format, lint, boundary checks, Contract/Convex/module
+  typechecks, module and Studio builds, playground preparation, and publish
+  specifier checks passed.
+- Ginko CMS full tests passed: 113 files passed, 1 skipped; 896 tests passed,
+  1 skipped. The first full gate exposed and then removed the obsolete
+  eventless provider transport test; the final full suite is green.
+- Better Convex Nuxt remained read-only at
+  `467aa0eeb24d26b3695482420807c892959fc683`; its pre-existing dirty state was
+  unchanged.
+
+### Immutable development artifact
+
+- Path:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.68883f4159aa.9078435e6aea9051448f0e3dbec3a54cc1f4e96844e834ced19576714da0597e.tgz`
+- SHA-256:
+  `9078435e6aea9051448f0e3dbec3a54cc1f4e96844e834ced19576714da0597e`
+- Source commit: `68883f4159aa`; the adjacent JSON is development evidence,
+  not candidate certification.
+
+### Commits and acceptance matrix
+
+- Ginko Content:
+  - `7783fb2` — `feat!: introduce the bounded content data source`
+  - `b1f201d` — `feat!: bind request-scoped content data sources`
+  - `68883f4` — `fix: enforce bounded data source results`
+- Ginko CMS:
+  - `c706f261` — `fix: validate migrations against resolved contracts`
+  - `0115ffdb` — `feat!: bind CMS to the bounded content source`
+- Updated to `implemented`: Backend-neutral runtime data source, One request
+  adapter context.
+
+### Open findings and next phase
+
+- The development artifact is not yet a fresh isolated Nitro consumer or
+  Worker-runtime purity proof; Provider runtime decoders and Real packed
+  provider consumer remain open until those executable probes run.
+- `publicProjectionState` is derived operational state. It contains no content,
+  is recreated by the first projection mutation, and exists only to invalidate
+  route enumeration across canonical public-state changes.
+- Next work package: freeze the normative portability fixtures, then implement
+  the pure Content codec before any CMS portability persistence.
