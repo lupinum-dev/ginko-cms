@@ -16,4 +16,10 @@ export const cmsPermissionKeys = {
 
 export type CmsPermissionKey = (typeof cmsPermissionKeys)[keyof typeof cmsPermissionKeys]
 
+export const mcpCredentialScopeKeys = [
+  cmsPermissionKeys.read,
+  cmsPermissionKeys.createEntries,
+  cmsPermissionKeys.editEntries,
+] as const
+
 export type CmsPermissionMap = Record<CmsPermissionKey, boolean>

@@ -1,21 +1,14 @@
 import type { GinkoPublicAssetFact } from '@lupinum/ginko-cms-contract/shared/publicContent.js'
 
-import type { Id } from './_generated/dataModel.js'
 import { throwCmsError } from './errors.js'
-import type { QueryCtx } from './lib/types.js'
+import type { QueryOrMutationCtx } from './lib/types.js'
 
 const supportedMediaTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
-export async function resolvePublicAssetFacts(
-  ctx: QueryCtx,
-  entry: { entryId: Id<'entries'>; locale: string },
+export async function buildPublicAssetFacts(
+  ctx: QueryOrMutationCtx,
+  refs: Array<{ assetId: string; fieldPath: string }>,
 ): Promise<GinkoPublicAssetFact[]> {
-  const refs = await ctx.db
-    .query('contentAssetRefs')
-    .withIndex('by_source', (q) =>
-      q.eq('sourceKind', 'public').eq('sourceId', `${String(entry.entryId)}:${entry.locale}`),
-    )
-    .take(101)
   if (refs.length > 100) {
     throwCmsError(
       'PUBLIC_ASSET_LIMIT_EXCEEDED',

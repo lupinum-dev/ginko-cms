@@ -1,6 +1,6 @@
 import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import {
-  cmsPermissionKeys,
+  mcpCredentialScopeKeys,
   type CmsPermissionKey,
 } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { v } from 'convex/values'
@@ -15,12 +15,6 @@ import type { MutationCtx, QueryCtx } from './lib/types.js'
 
 type MemberDoc = Doc<'members'>
 type CredentialSettingsDoc = Doc<'mcpCredentialSettings'>
-
-export const mcpCredentialScopeKeys = [
-  cmsPermissionKeys.read,
-  cmsPermissionKeys.createEntries,
-  cmsPermissionKeys.editEntries,
-] as const
 
 const mcpCredentialScopeValidator = v.union(
   ...mcpCredentialScopeKeys.map((scope) => v.literal(scope)),

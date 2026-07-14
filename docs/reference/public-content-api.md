@@ -70,9 +70,9 @@ Collections have an explicit public mode:
 - `none`: data-only; published rows are usable through `list` and relations,
   but route-only public methods reject the collection.
 
-Route-backed capability is enforced at runtime. Generated types constrain the
-currently generated page and nav inputs when the generated contract is
-available.
+Route-backed capability is enforced at runtime. Ginko Content owns the typed
+website query surface and its sitemap/prerender integration; CMS does not
+generate a parallel website API contract.
 
 ## Provider Shape
 
@@ -97,55 +97,13 @@ Public runtime reads do not expose schema/admin methods. Build/admin tooling own
 schema inspection, route diagnostics, publish-impact preview, and generated type
 drift checks.
 
-## HTTP Facade
+## Delivery Ownership
 
-External consumers can opt into a Nitro HTTP facade over the same Convex public
-queries:
-
-```ts
-export default defineNuxtConfig({
-  ginkoCms: {
-    publicContent: {
-      api: true,
-    },
-  },
-})
-```
-
-`api: true` registers these published-read endpoints under `/api/ginko/v1`:
-
-- `/api/ginko/v1/page?collection=docs&locale=de&path=/doku/start`
-- `/api/ginko/v1/list?collection=blog&locale=en&limit=20`
-- `/api/ginko/v1/nav?collection=docs&locale=de`
-- `/api/ginko/v1/surround?collection=blog&locale=en&path=/blog/hello`
-- `/api/ginko/v1/search?query=api&locale=en&collection=docs`
-- `/api/ginko/v1/sitemap?locale=de&collection=docs`
-- `/api/ginko/v1/singleton?name=siteSettings&locale=en`
-- `/api/ginko/v1/site-data?key=banner&locale=de`
-
-The HTTP facade validates input before calling Convex:
-
-- `collection`, `name`, and `key` are at most 80 characters.
-- `locale` is at most 32 characters.
-- `query` is at most 256 characters.
-- other string query values are at most 512 characters.
-- numeric query values must be integers.
-
-Route metadata is a provider-only operation for Nuxt content rendering, not an
-HTTP facade endpoint. The HTTP facade intentionally exposes page and list-style
-published reads only; route metadata stays inside the content provider contract
-unless a separate external consumer need proves otherwise.
-
-Use a custom route when needed:
-
-```ts
-publicContent: {
-  api: { route: '/content-api' },
-}
-```
-
-The HTTP facade is a transport only. It does not introduce a second data model,
-projection language, or admin surface.
+Ginko Content is the only website-facing query and prerender owner. Ginko CMS
+publishes the raw, published-only Convex provider functions used by the Content
+provider, but it does not register a second Nitro HTTP facade and it does not
+add CMS-owned prerender routes. A future non-Ginko consumer requires an
+explicitly versioned product contract rather than an option on the CMS module.
 
 ## Result Contracts
 

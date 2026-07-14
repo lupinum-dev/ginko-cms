@@ -93,9 +93,7 @@ type McpCredentialSettings = {
 const mcpScopeOptions = [
   { key: cmsPermissionKeys.read, label: 'Read content' },
   { key: cmsPermissionKeys.createEntries, label: 'Create entries' },
-  { key: cmsPermissionKeys.editEntries, label: 'Edit entries' },
-  { key: cmsPermissionKeys.publishEntries, label: 'Request publish review' },
-  { key: cmsPermissionKeys.manageAssets, label: 'Manage assets' },
+  { key: cmsPermissionKeys.editEntries, label: 'Edit drafts and request publish review' },
 ] as const
 
 const mcpExpiryOptions = [

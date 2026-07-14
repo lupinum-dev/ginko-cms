@@ -80,18 +80,6 @@ export interface ModuleOptions {
   search?: { enabled: boolean }
   /** Site data blocks (business hours, banners) */
   siteData?: { enabled: boolean }
-  /** Public content HTTP facade and static route generation. */
-  publicContent?: {
-    /**
-     * Expose published reads through Nitro HTTP routes for external consumers.
-     * - true uses /api/ginko/v1
-     * - { route } uses a custom base route
-     * @default false
-     */
-    api?: boolean | { route?: string }
-    prerender?: boolean
-    prerenderFailure?: 'error' | 'warn'
-  }
   /** Form submissions */
   forms?: { enabled: boolean }
   /**

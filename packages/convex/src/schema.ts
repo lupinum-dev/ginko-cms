@@ -1,5 +1,6 @@
 import {
   fieldValidator,
+  ginkoPublicAssetFactValidator,
   jsonObjectValidator,
   jsonValueValidator,
   localeTextValidator,
@@ -409,6 +410,7 @@ export default defineSchema({
     searchText: v.optional(v.string()),
     toc: v.optional(v.union(jsonValueValidator, v.null())),
     cacheTags: v.array(v.string()),
+    assetFacts: v.optional(v.array(ginkoPublicAssetFactValidator)),
     navIncluded: v.boolean(),
     sitemapIncluded: v.optional(v.boolean()),
     searchIncluded: v.optional(v.boolean()),
@@ -588,6 +590,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_status_nextAttemptAt', ['status', 'nextAttemptAt'])
+    .index('by_status_lock_expiry', ['status', 'lockExpiresAt'])
     .index('by_status_updatedAt', ['status', 'updatedAt'])
     .index('by_idempotency_key', ['idempotencyKey'])
     .index('by_type_status', ['type', 'status']),

@@ -2845,12 +2845,12 @@ Use only these statuses:
 | MCP credential fail-closed          | implemented | Revoked/orphan direct-call tests        |
 | Idempotent MCP entry creation       | implemented | Lost-response retry test                |
 | Agent-run audit truth               | implemented | Immutable snapshot test                 |
-| Revalidation boundary               | open        | Redirect/body sentinel tests            |
-| Revalidation target cardinality     | open        | Second-enabled-target rejection         |
-| Bounded outbox recovery             | open        | Indexed multi-batch recovery test       |
-| Stable operational cursors          | open        | Equal-timestamp pagination test         |
-| Ginko Content public ownership      | open        | CMS facade/prerender absence tests      |
-| Public query budget                 | open        | 1 versus 1000 entry query-count test    |
+| Revalidation boundary               | implemented | Redirect/body sentinel tests            |
+| Revalidation target cardinality     | implemented | Second-enabled-target rejection         |
+| Bounded outbox recovery             | implemented | Indexed multi-batch recovery test       |
+| Stable operational cursors          | implemented | Equal-timestamp pagination test         |
+| Ginko Content public ownership      | implemented | CMS facade/prerender absence tests      |
+| Public query budget                 | implemented | 1 versus 1000 entry query-count test    |
 | Direct Content contract             | open        | Packed Convex import proof              |
 | Phantom surface deletion            | open        | Declaration/docs negative checks        |
 | Standalone install                  | open        | Clean archive frozen install            |

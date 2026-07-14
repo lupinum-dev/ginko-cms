@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
@@ -187,6 +188,7 @@ async function seedPublishedEntry(
       parentEntryId: input.parentEntryId ?? null,
       orderKey: `a0\u0000${entryId}`,
       cacheTags: [`entry:${entryId}`],
+      assetFacts: [],
       navIncluded: true,
       entryCreatedAt: now,
       firstPublishedAt: now,
@@ -287,11 +289,27 @@ async function seedPendingPublishReview(
   ctx: ReturnType<typeof createCtx>,
   input: { entryId: string; locales: string[]; expectedVersion?: number },
 ) {
-  const owner = ctx.asCmsUser('owner-1')
-  const agentRun = await owner.mutation(api.agentRuns.startRun, {
+  const apiKeyId = `readiness-review-${input.entryId}`
+  await ctx.seed(
+    'mcpCredentialSettings' as never,
+    {
+      apiKeyId,
+      ownerUserId: 'owner-1',
+      label: 'readiness review fixture',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+      status: 'active',
+      createdBy: 'owner-1',
+      createdAt: Date.now(),
+      updatedBy: 'owner-1',
+      updatedAt: Date.now(),
+      revokedAt: null,
+    } as never,
+  )
+  const agent = ctx.asMcpApiKey(apiKeyId, 'owner-1')
+  const agentRun = await agent.mutation(api.agentRuns.startRun, {
     taskName: 'Readiness review fixture',
   })
-  const review = await owner.mutation(api.reviewRequests.requestPublishReview, {
+  const review = await agent.mutation(api.reviewRequests.requestPublishReview, {
     agentRunId: agentRun._id,
     entryId: input.entryId,
     expectedVersion: input.expectedVersion ?? 1,

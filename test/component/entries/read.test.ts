@@ -234,7 +234,7 @@ describe('editor read queries', () => {
     ])
   })
 
-  it('paginates activity with native Convex cursors', async () => {
+  it('paginates activity with opaque indexed cursors', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
@@ -262,6 +262,40 @@ describe('editor read queries', () => {
     expect(firstPage.page.map((row) => row.summary)).toEqual(['Activity 4', 'Activity 3'])
     expect(firstPage.isDone).toBe(false)
     expect(secondPage.page.map((row) => row.summary)).toEqual(['Activity 2', 'Activity 1'])
+  })
+
+  it('paginates identical activity timestamps without loss or duplication', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+
+    for (let index = 0; index < 5; index += 1) {
+      await ctx.seed(
+        'activity' as never,
+        {
+          kind: 'test.activity',
+          summary: `Same-time activity ${index}`,
+          appIdentityId: 'owner-1',
+          createdAt: 42,
+        } as never,
+      )
+    }
+
+    const owner = ctx.asCmsUser('owner-1')
+    const seen: string[] = []
+    let cursor: string | null = null
+    let isDone = false
+    while (!isDone) {
+      const result = await owner.query(api.editor.listActivity, {
+        paginationOpts: { numItems: 2, cursor },
+      })
+      seen.push(...result.page.map((row) => row._id))
+      cursor = result.continueCursor
+      isDone = result.isDone
+    }
+
+    expect(seen).toHaveLength(5)
+    expect(new Set(seen).size).toBe(5)
   })
 
   it('returns editor-safe activity display summaries without rewriting raw summaries', async () => {

@@ -10,6 +10,7 @@ import { resolveEntryDescription, resolveEntryTitle } from '../../lib/fields.js'
 import { getRoutingLocales } from '../../lib/locale.js'
 import { buildPublicSearchText, filterPublicData } from '../../lib/publicData.js'
 import type { CmsField, QueryOrMutationCtx } from '../../lib/types.js'
+import { buildPublicAssetFacts } from '../../publicAssets.js'
 import { collectRelationReferences } from '../relations.js'
 import {
   extractAssetRefsFromValues,
@@ -235,6 +236,7 @@ export async function buildPublicProjectionFromRevisionSnapshot(
       locale: args.locale,
     }),
   ])
+  const assetFacts = await buildPublicAssetFacts(ctx, assetRefs)
 
   return {
     input: {
@@ -274,6 +276,7 @@ export async function buildPublicProjectionFromRevisionSnapshot(
         searchIncluded,
         sitemapIncluded,
       }),
+      assetFacts,
       navIncluded,
       sitemapIncluded,
       searchIncluded,

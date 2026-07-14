@@ -110,6 +110,7 @@ async function seedPublicProjection(
       parentEntryId: null,
       orderKey: `a0\u0000${opts.entryId}`,
       cacheTags: [`entry:${opts.entryId}`],
+      assetFacts: [],
       navIncluded: true,
       entryCreatedAt: opts.publishedAt,
       firstPublishedAt: opts.publishedAt,

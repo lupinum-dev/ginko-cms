@@ -259,72 +259,35 @@ describe('editor publish operations', () => {
     expect(activeRoutes[0]?.revisionId).toBe(activeEntries[0]?.revisionId)
   })
 
-  it('publishes through the same projection, audit, and revalidation semantics for MCP publishers', async () => {
+  it('rejects legacy MCP publish scope without changing public output', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
-    const owner = ctx.asCmsUser('owner-1')
-    await owner.mutation(api.mcpCredentials.upsertSettings, {
-      apiKeyId: 'ba_key_publish',
-      ownerUserId: 'owner-1',
-      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.publishEntries],
-    })
+    await ctx.seed(
+      'mcpCredentialSettings' as never,
+      {
+        apiKeyId: 'ba_key_publish',
+        ownerUserId: 'owner-1',
+        label: 'legacy publisher',
+        scopes: [cmsPermissionKeys.read, cmsPermissionKeys.publishEntries],
+        status: 'active',
+        createdBy: 'owner-1',
+        createdAt: Date.now(),
+        updatedBy: 'owner-1',
+        updatedAt: Date.now(),
+        revokedAt: null,
+      } as never,
+    )
 
     const agentPublisher = ctx.asMcpApiKey('ba_key_publish', 'owner-1')
-    const publishResult = await publishEntry(agentPublisher, entryId)
+    await expect(() => publishEntry(agentPublisher, entryId)).rejects.toThrow()
 
-    const publicRows = (await ctx.readAll('publicEntries')).filter(
-      (row: { entryId: string }) => row.entryId === entryId,
-    )
-    expect(publicRows).toHaveLength(1)
-    expect(publicRows[0]).toMatchObject({
-      revisionId: publishResult.versionId,
-      path: '/posts/hello-world',
-      locale: 'en',
-      title: 'Hello world',
-    })
-
-    const revisions = (await ctx.readAll('entryRevisions')).filter(
-      (row: { entryId: string }) => row.entryId === entryId,
-    )
-    expect(revisions).toEqual([
-      expect.objectContaining({
-        _id: publishResult.versionId,
-        kind: 'publish',
-        createdBy: 'owner-1',
-      }),
-    ])
-
-    const auditRows = await ctx.readAll('destructiveAuditLog')
-    expect(auditRows).toEqual([
-      expect.objectContaining({
-        operationId: 'ginko-cms.publish-entry',
-        executePath: 'entries/publish:publishEntryOperationExecute',
-        callerKey: 'mcp:ba_key_publish',
-        scopeKey: 'ginko-cms',
-      }),
-    ])
-
-    const publishOutbox = (await ctx.readAll('outboxEvents')).filter(
-      (row: { type: string; status: string }) =>
-        row.type === 'content.revalidate' && row.status === 'pending',
-    )
-    expect(publishOutbox).toEqual([
-      expect.objectContaining({
-        versionId: publishResult.versionId,
-        tags: expect.arrayContaining([
-          'collection:posts',
-          'entry:posts:hello-world',
-          'entry:posts:hello-world:en',
-          'nav:posts:en',
-          'search:en',
-          'sitemap',
-        ]),
-        paths: expect.arrayContaining(['/posts', '/posts/hello-world']),
-      }),
-    ])
+    expect(await ctx.readAll('publicEntries')).toEqual([])
+    expect(await ctx.readAll('entryRevisions')).toEqual([])
+    expect(await ctx.readAll('destructiveAuditLog')).toEqual([])
+    expect(await ctx.readAll('outboxEvents')).toEqual([])
   })
 
   it('does not let an edit-only MCP credential publish directly', async () => {

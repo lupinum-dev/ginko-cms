@@ -324,6 +324,7 @@ describe('atomic CMS policy installation', () => {
         description: null,
         data: { title: 'Eins' },
         cacheTags: ['collection:posts'],
+        assetFacts: [],
         navIncluded: true,
         sitemapIncluded: true,
         searchIncluded: true,

@@ -474,7 +474,6 @@ try {
       '  modules: [ginkoCms],',
       '  ginkoCms: {',
       '    mcp: false,',
-      '    publicContent: { api: true },',
       '  },',
       '})',
       '',

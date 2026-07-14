@@ -35,9 +35,5 @@ export default defineNuxtConfig({
 
   ginkoCms: {
     route: '/studio',
-    publicContent: {
-      api: true,
-      prerender: true,
-    },
   },
 })

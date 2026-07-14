@@ -43,7 +43,10 @@ Public serving state:
 
 - `publicEntries`: active published rows for page, list, search, nav, sitemap,
   singleton, and data-only reads. Public rows are the canonical active published
-  projection used by website reads.
+  projection used by website reads. Each row also snapshots the published
+  entry's derived asset facts so public reads never query asset references per
+  result row. Those facts are rebuilt from canonical revision and asset state
+  during publish or projection repair.
 - `publicRoutes`: route lookup rows for route-backed page and route metadata
   reads. Route rows are derived from public rows and can be repaired from them.
   Data-only collections do not create route rows.
@@ -116,7 +119,9 @@ publish-time projection inputs separately.
 
 Revalidation outbox rows are operational delivery state, not a rebuildable read
 model. They are created from publish/site-data events, retried, and eventually
-cleaned up according to retention rules.
+cleaned up according to retention rules. Expired processing locks are read
+through the status-and-expiry index in bounded batches; recovery schedules the
+next batch while work remains.
 
 ## Asset Metadata Policy
 

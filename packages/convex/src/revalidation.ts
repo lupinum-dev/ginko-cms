@@ -33,6 +33,7 @@ const internalRevalidationApi = internal as typeof internal & {
 }
 
 const DEFAULT_BATCH_LIMIT = 10
+const RECOVERY_BATCH_SIZE = 25
 const LOCK_TTL_MS = 2 * 60 * 1000
 const MAX_ATTEMPTS = 8
 const ERROR_BODY_LIMIT = 500
@@ -178,6 +179,10 @@ function assertValidTargetEndpoint(endpoint: string) {
     throw new Error('REVALIDATION_ENDPOINT_INVALID')
   }
 
+  if (parsed.username || parsed.password) {
+    throw new Error('REVALIDATION_ENDPOINT_CREDENTIALS_FORBIDDEN')
+  }
+
   const privateOrReserved = isPrivateOrReservedHost(parsed.hostname)
   if (privateOrReserved && !localRevalidationAllowed()) {
     throw new Error('REVALIDATION_ENDPOINT_PUBLIC_HTTPS_REQUIRED')
@@ -232,6 +237,19 @@ export const upsertRevalidationTarget = callerMutation.protected({
   handler: async (ctx, args) => {
     assertValidTargetEndpoint(args.endpoint)
     if (!args.secretEnv.trim()) throw new Error('REVALIDATION_SECRET_ENV_REQUIRED')
+    if (args.enabled) {
+      const enabledTarget = await ctx.db
+        .query('revalidationTargets')
+        .withIndex('by_enabled_environment', (query) =>
+          query.eq('enabled', true).eq('environment', args.environment),
+        )
+        .first()
+      if (enabledTarget && String(enabledTarget._id) !== args.targetId) {
+        throw new Error(
+          `REVALIDATION_TARGET_ALREADY_ENABLED_FOR_ENVIRONMENT: Disable the existing ${args.environment} target before enabling another one.`,
+        )
+      }
+    }
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
     const patch = {
@@ -597,10 +615,11 @@ export const recoverExpiredDeliveries = internalMutation({
   handler: async (ctx, args) => {
     const rows = await ctx.db
       .query('outboxEvents')
-      .withIndex('by_status_nextAttemptAt', (q) => q.eq('status', 'delivering'))
-      .collect()
-    for (const row of rows) {
-      if ((row.lockExpiresAt ?? 0) > args.now) continue
+      .withIndex('by_status_lock_expiry', (query) =>
+        query.eq('status', 'delivering').lt('lockExpiresAt', args.now),
+      )
+      .take(RECOVERY_BATCH_SIZE + 1)
+    for (const row of rows.slice(0, RECOVERY_BATCH_SIZE)) {
       await ctx.db.patch(row._id, {
         status: 'pending',
         nextAttemptAt: args.now,
@@ -609,6 +628,13 @@ export const recoverExpiredDeliveries = internalMutation({
         lastError: 'Delivery lock expired before completion.',
         updatedAt: args.now,
       })
+    }
+    if (rows.length > RECOVERY_BATCH_SIZE) {
+      await ctx.scheduler.runAfter(
+        1,
+        internalRevalidationApi.revalidation.deliverDue as never,
+        {} as never,
+      )
     }
     return null
   },
@@ -662,6 +688,7 @@ export const deliverDue = internalAction({
         try {
           response = await fetch(job.target.endpoint, {
             method: 'POST',
+            redirect: 'error',
             headers: {
               'content-type': 'application/json',
               'x-ginko-revalidation-event': job.id,
@@ -693,7 +720,6 @@ export const deliverDue = internalAction({
           continue
         }
 
-        const responseText = await response.text().catch(() => '')
         await ctx.runMutation(
           internalRevalidationApi.revalidation.recordRevalidationDelivery as never,
           {
@@ -702,7 +728,7 @@ export const deliverDue = internalAction({
             statusCode: response.status,
             permanent: permanentErrorStatus(response.status),
             now: Date.now(),
-            error: `Revalidation endpoint returned HTTP ${response.status}${responseText ? `: ${truncateError(responseText)}` : ''}`,
+            error: `Revalidation endpoint returned HTTP ${response.status}.`,
           } as never,
         )
       } catch (error) {

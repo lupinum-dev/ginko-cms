@@ -12,12 +12,9 @@ import {
   addServerHandler,
   createResolver,
   addComponentsDir,
-  addTypeTemplate,
   extendPages,
 } from '@nuxt/kit'
 import type { Nuxt, NuxtModule } from '@nuxt/schema'
-import { ConvexHttpClient } from 'convex/browser'
-import { anyApi, type FunctionReference } from 'convex/server'
 import { defu } from 'defu'
 
 import {
@@ -34,7 +31,6 @@ import {
 } from './module/i18n.js'
 import type { I18nModuleOptions } from './module/i18n.js'
 import type { ModuleOptions, ResolvedModuleOptions } from './module/options.js'
-import { renderPublicContractTypes } from './module/public-contract.js'
 import { buildPublicRuntimeCollections } from './module/runtime-config.js'
 import { createTailwindPlugin } from './module/tailwind.js'
 
@@ -83,8 +79,6 @@ interface NitroOptionsExt {
   publicAssets?: Array<{ baseURL: string; dir: string; maxAge?: number }>
 }
 
-type PublicContentApiOption = NonNullable<ModuleOptions['publicContent']>['api']
-
 const CMS_CONTENT_PROVIDER_NAME = 'cms'
 const CMS_CONTENT_PROVIDER_MODULE = '@lupinum/ginko-cms/nuxt-provider'
 const MODULE_OPTION_KEYS = new Set([
@@ -93,7 +87,6 @@ const MODULE_OPTION_KEYS = new Set([
   'debugStudio',
   'search',
   'siteData',
-  'publicContent',
   'forms',
   'siteI18n',
   'sidebar',
@@ -205,11 +198,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     debugStudio: undefined,
     search: { enabled: false },
     siteData: { enabled: false },
-    publicContent: {
-      api: false,
-      prerender: false,
-      prerenderFailure: 'error',
-    },
     forms: { enabled: false },
     mcp: false,
   },
@@ -246,12 +234,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     nuxt.options.alias['#ginko-cms'] = cmsRuntimeDir
     nuxt.options.alias['#ginko-cms/editor'] = resolve(cmsRuntimeDir, 'editor')
     nuxt.options.alias['#ginko-cms-public'] = cmsPublicDir
-
-    const publicContractTemplate = addTypeTemplate({
-      filename: 'types/ginko-cms-public-contract.d.ts',
-      getContents: () => renderPublicContractTypes(options),
-    })
-    nuxt.options.alias['#ginko-cms-public-contract'] = publicContractTemplate.dst
 
     // i18n integration
     const i18nOptions = (moduleOptions.i18n ??= {})
@@ -320,25 +302,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       })
     }
 
-    const publicApiBase = resolvePublicApiRoute(options.publicContent?.api)
-    if (publicApiBase) {
-      for (const endpoint of [
-        'page',
-        'list',
-        'nav',
-        'surround',
-        'search',
-        'sitemap',
-        'singleton',
-        'site-data',
-      ]) {
-        addServerHandler({
-          route: `${publicApiBase}/${endpoint}`,
-          handler: resolve(cmsServerDir, 'routes/public-api'),
-        })
-      }
-    }
-
     addServerHandler({
       route: '/api/_ginko/portability/assets/:sha256/attempt',
       method: 'post',
@@ -359,37 +322,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       method: 'get',
       handler: resolve(cmsServerDir, 'routes/portability-asset-download'),
     })
-
-    if (options.publicContent?.prerender && !isTypecheck() && !isNuxtPrepare()) {
-      const hookNitroConfig = nuxt.hook as unknown as (
-        name: 'nitro:config',
-        callback: (
-          nitro: NitroOptionsExt & { prerender?: { routes?: string[] } },
-        ) => void | Promise<void>,
-      ) => void
-      hookNitroConfig('nitro:config', async (nitro) => {
-        const routes = await loadGinkoPrerenderRoutes({
-          isDev: nuxt.options.dev,
-          defaultLocale: localeSettings.defaultLocale,
-          collections: routeBackedCollectionNames(options.collections ?? {}),
-          collectionLocales: Object.fromEntries(
-            Object.entries(buildPublicRuntimeCollections(options, localeSettings)).map(
-              ([collection, config]) => [collection, config.locales],
-            ),
-          ),
-        }).catch((error) => {
-          if (options.publicContent?.prerenderFailure === 'warn') {
-            console.warn(
-              `[ginko-cms] failed to load CMS prerender routes: ${error instanceof Error ? error.message : String(error)}`,
-            )
-            return []
-          }
-          throw error
-        })
-        nitro.prerender ??= {}
-        nitro.prerender.routes = Array.from(new Set([...(nitro.prerender.routes ?? []), ...routes]))
-      })
-    }
 
     // Tailwind source injection
     nuxt.options.vite ??= {}
@@ -642,85 +574,5 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     return dependencies
   },
 })
-
-function isTypecheck() {
-  return (
-    process.argv.some((arg) => arg.includes('typecheck')) ||
-    process.env.npm_lifecycle_event === 'typecheck'
-  )
-}
-
-function isNuxtPrepare() {
-  return (
-    process.argv.some((arg) => arg === 'prepare' || arg.endsWith('/prepare')) ||
-    process.env.npm_lifecycle_event === 'postinstall'
-  )
-}
-
-function resolvePublicApiRoute(api: PublicContentApiOption) {
-  if (!api) return null
-  const route = api === true ? '/api/ginko/v1' : (api.route ?? '/api/ginko/v1')
-  const normalized = route.startsWith('/') ? route : `/${route}`
-  return normalized.replace(/\/+$/, '')
-}
-
-function routeBackedCollectionNames(collections: ResolvedModuleOptions['collections']) {
-  return Object.entries(collections)
-    .filter(([, collection]) => (collection.routing?.mode ?? 'route') === 'route')
-    .map(([name]) => name)
-}
-
-export async function loadGinkoPrerenderRoutes(args: {
-  isDev: boolean
-  defaultLocale: string
-  collections: string[]
-  collectionLocales: Record<string, string[]>
-}) {
-  if (args.isDev) return []
-  const convexUrl = process.env.NUXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL
-  if (!convexUrl) {
-    throw new Error('Convex URL is not configured for Ginko prerender route generation.')
-  }
-  const client = new ConvexHttpClient(convexUrl)
-  const sitemapQuery = anyApi.ginkoCms.public.sitemap as FunctionReference<'query'>
-  const urls: Array<{
-    collection?: string
-    route?: { locale?: string; path?: string }
-  }> = []
-  for (const collection of args.collections) {
-    for (const locale of args.collectionLocales[collection] ?? [args.defaultLocale]) {
-      let cursor: string | null = null
-      do {
-        const sitemap = (await client.query(sitemapQuery, {
-          collection,
-          locale,
-          cursor,
-        })) as {
-          urls?: Array<{ collection?: string; route?: { locale?: string; path?: string } }>
-          pageInfo?: { endCursor: string | null }
-        }
-        urls.push(...(sitemap.urls ?? []))
-        cursor = sitemap.pageInfo?.endCursor ?? null
-      } while (cursor)
-    }
-  }
-
-  return urls
-    .filter((entry) => {
-      const collection = entry.collection
-      const locale = entry.route?.locale
-      if (!collection || !locale) return false
-      const allowedLocales = args.collectionLocales[collection]
-      return !allowedLocales || allowedLocales.includes(locale)
-    })
-    .map((entry) => {
-      const route = entry.route
-      if (!route?.path) return null
-      const prefix = route.locale && route.locale !== args.defaultLocale ? `/${route.locale}` : ''
-      const routePath = route.path === '/' ? '' : route.path.replace(/\/+$/, '')
-      return `${prefix}${routePath}` || '/'
-    })
-    .filter((route): route is string => !!route)
-}
 
 export default ginkoCmsModule

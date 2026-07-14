@@ -79,6 +79,46 @@ const STUDIO_OVERVIEW_LIMIT = 8
 const ORDER_KEY_TIME_PAD = 16
 const ORDER_KEY_TIME_MAX = 9_999_999_999_999
 
+type ActivityCursor = {
+  v: 1
+  kind: 'activity'
+  createdAt: number
+  creationTime: number
+}
+
+function parseActivityCursor(value: string | null): ActivityCursor | null {
+  if (!value) return null
+  let cursor: unknown
+  try {
+    cursor = JSON.parse(value)
+  } catch {
+    throwCmsError('INVALID_CURSOR', 'Activity cursor is invalid.')
+  }
+  const parsed = cursor as Partial<ActivityCursor>
+  if (
+    !cursor ||
+    typeof cursor !== 'object' ||
+    parsed.v !== 1 ||
+    parsed.kind !== 'activity' ||
+    typeof parsed.createdAt !== 'number' ||
+    !Number.isFinite(parsed.createdAt) ||
+    typeof parsed.creationTime !== 'number' ||
+    !Number.isFinite(parsed.creationTime)
+  ) {
+    throwCmsError('INVALID_CURSOR', 'Activity cursor is invalid.')
+  }
+  return parsed as ActivityCursor
+}
+
+function encodeActivityCursor(row: ActivityDoc) {
+  return JSON.stringify({
+    v: 1,
+    kind: 'activity',
+    createdAt: row.createdAt,
+    creationTime: row._creationTime,
+  } satisfies ActivityCursor)
+}
+
 type PublicRoutePreview = {
   entryId: string
   locale: string
@@ -1167,18 +1207,33 @@ export const listActivity = callerQuery.protected({
       1,
       Math.min(args.paginationOpts.numItems ?? ACTIVITY_DEFAULT_LIMIT, ACTIVITY_MAX_LIMIT),
     )
-    const rows = await ctx.db
-      .query('activity')
-      .withIndex('by_time', (q) =>
-        args.paginationOpts.cursor ? q.lt('createdAt', Number(args.paginationOpts.cursor)) : q,
-      )
-      .order('desc')
-      .take(limit + 1)
-    const pageRows = rows.slice(0, limit)
-    const nextRow = rows.at(limit)
+    const cursor = parseActivityCursor(args.paginationOpts.cursor)
+    const sameTimestampRows = cursor
+      ? await ctx.db
+          .query('activity')
+          .withIndex('by_time', (query) =>
+            query.eq('createdAt', cursor.createdAt).lt('_creationTime', cursor.creationTime),
+          )
+          .order('desc')
+          .take(limit + 1)
+      : []
+    const remaining = limit + 1 - sameTimestampRows.length
+    const olderRows =
+      remaining > 0
+        ? await ctx.db
+            .query('activity')
+            .withIndex('by_time', (query) =>
+              cursor ? query.lt('createdAt', cursor.createdAt) : query,
+            )
+            .order('desc')
+            .take(remaining)
+        : []
+    const rows = [...sameTimestampRows, ...olderRows]
+    const isDone = rows.length <= limit
+    const page = isDone ? rows : rows.slice(0, limit)
 
     return {
-      page: pageRows.map((row) => ({
+      page: page.map((row) => ({
         _id: toStringId(row._id),
         kind: row.kind,
         summary: row.summary,
@@ -1190,8 +1245,8 @@ export const listActivity = callerQuery.protected({
         appIdentityId: activityAppIdentityId(row),
         createdAt: row.createdAt,
       })),
-      isDone: !nextRow,
-      continueCursor: nextRow ? String(pageRows.at(-1)?.createdAt ?? '') : null,
+      isDone,
+      continueCursor: isDone || page.length === 0 ? null : encodeActivityCursor(page.at(-1)!),
     }
   },
 })

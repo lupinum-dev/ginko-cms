@@ -303,11 +303,10 @@ describe('cms guards', () => {
         mcpEffectivePermissions: scopes,
         audit: { origin: 'mcp', apiKeyId: `${role}_key` },
       })
+      const callableMcpGuards = new Set([canRead, canCreateEntries, canEditEntries])
 
       for (const { guard } of cmsPermissionGuards) {
-        expect(can(mcp(allScopes), guard)).toBe(
-          guard === canManagePortability ? false : can(user, guard),
-        )
+        expect(can(mcp(allScopes), guard)).toBe(callableMcpGuards.has(guard) && can(user, guard))
         expect(can(mcp(noScopes), guard)).toBe(false)
       }
     },

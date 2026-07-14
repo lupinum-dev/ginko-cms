@@ -44,7 +44,7 @@ import { compareOrderRank } from './lib/ordering.js'
 import { parseStableIdFromPath } from './lib/paths.js'
 import { orderTreeRows } from './lib/treeOrder.js'
 import type { QueryCtx, ReadCtx } from './lib/types.js'
-import { resolvePublicAssetFacts } from './publicAssets.js'
+import { readTranslationsByEntryId } from './publicProjectionReads.js'
 import {
   toGinkoEntry,
   toGinkoListResult,
@@ -612,8 +612,14 @@ function parsePublicSearchCursor(cursor: string | null | undefined) {
 
 async function mapPublicEntry(ctx: QueryCtx, row: PublicEntryRow, collection: CollectionDoc) {
   const projected = mapActivePublicEntryRow(row, collection)
-  const assetFacts = await resolvePublicAssetFacts(ctx, row)
-  return { ...projected, assetFacts } as PublicProjectionEntry
+  if (!row.assetFacts) {
+    throwCmsError(
+      'PUBLIC_PROJECTION_REBUILD_REQUIRED',
+      'Published content predates projection-owned asset facts. Rebuild the public projection before serving it.',
+      { entryId: String(row.entryId), locale: row.locale },
+    )
+  }
+  return { ...projected, assetFacts: row.assetFacts } as PublicProjectionEntry
 }
 
 function toNavigationEntry(
@@ -654,17 +660,6 @@ async function getTranslationsForEntry(
     href: row.href,
     published: true,
   }))
-}
-
-async function getTranslationsByEntryId(
-  ctx: Parameters<typeof getCmsSettings>[0],
-  rows: Array<{ entryId: Id<'entries'> }>,
-) {
-  const result = new Map<string, PublicTranslationSummary[]>()
-  for (const row of rows) {
-    result.set(String(row.entryId), await getTranslationsForEntry(ctx, row.entryId))
-  }
-  return result
 }
 
 async function resolvePublicPage(
@@ -907,7 +902,7 @@ export const list = callerQuery.public({
       pathPrefix: args.pathPrefix,
     })
     const pageRows = result.page
-    const translationsByEntryId = await getTranslationsByEntryId(ctx, pageRows)
+    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection._id, pageRows)
 
     return toGinkoListResult({
       collection: args.collection,
@@ -959,7 +954,7 @@ export const nav = callerQuery.public({
       )
     }
     const rows = scannedRows.filter((row) => publicFlag(row, 'navigation'))
-    const translationsByEntryId = await getTranslationsByEntryId(ctx, rows)
+    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection._id, rows)
     const nodes = new Map<string, { entry: ReturnType<typeof toGinkoEntry>; children: unknown[] }>()
     const roots: Array<{ entry: ReturnType<typeof toGinkoEntry>; children: unknown[] }> = []
 
@@ -1067,7 +1062,7 @@ export const surround = callerQuery.public({
       .order('asc')
       .take(nextLimit)
     const allRows = [...previousRows, ...nextRows]
-    const translationsByEntryId = await getTranslationsByEntryId(ctx, allRows)
+    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection._id, allRows)
     const mapRow = async (row: (typeof allRows)[number]) =>
       toGinkoEntry(
         await mapPublicEntry(ctx, row, collection),
@@ -1134,9 +1129,11 @@ export const search = callerQuery.public({
         highlights: snippet.highlights,
       })
     }
+    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection._id, pageRows)
     return toGinkoSearchResult({
       requestedLocale: args.locale,
       results: matches as PublicProjectionEntry[],
+      translationsByEntryId,
       pageInfo: {
         hasNextPage,
         endCursor: hasNextPage ? encodePublicSearchCursor(offset + pageRows.length) : null,
@@ -1177,7 +1174,11 @@ export const sitemap = callerQuery.public({
       filteredRows.map((row) => mapPublicEntry(ctx, row, collection)),
     )
     const translationRows = filteredRows.map((row) => ({ entryId: row.entryId }))
-    const translationsByEntryId = await getTranslationsByEntryId(ctx, translationRows)
+    const translationsByEntryId = await readTranslationsByEntryId(
+      ctx,
+      collection._id,
+      translationRows,
+    )
 
     return toGinkoSitemapResult({
       entries,
@@ -1256,11 +1257,6 @@ export const routes = callerQuery.public({
     const pageRows = hasNextPage ? rows.slice(0, limit) : rows
     const records = []
     for (const row of pageRows) {
-      const route = await ctx.db
-        .query('publicRoutes')
-        .withIndex('by_entry_locale', (q) => q.eq('entryId', row.entryId).eq('locale', row.locale))
-        .first()
-      if (!route) continue
       if (!row.stableId) {
         throwCmsError('INVALID_QUERY', 'Published route is missing its stable content identity.', {
           collection: args.collection,
@@ -1272,7 +1268,7 @@ export const routes = callerQuery.public({
         collection: args.collection,
         stableId: row.stableId,
         locale: row.locale,
-        path: route.path,
+        path: row.path,
         sitemapIncluded: publicFlag(row, 'sitemap'),
         lastmod: new Date(row.lastPublishedAt).toISOString(),
       })

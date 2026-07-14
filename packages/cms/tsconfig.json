@@ -18,7 +18,6 @@
     "paths": {
       "#ginko-cms": ["./src/runtime"],
       "#ginko-cms/*": ["./src/runtime/*"],
-      "#ginko-cms-public-contract": ["./src/public/generated-contract"],
       "#ginko-cms-public": ["./src/public"],
       "#ginko-cms-public/*": ["./src/public/*"],
       "#runtime/*": ["./src/runtime/*"]

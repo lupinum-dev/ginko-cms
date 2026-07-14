@@ -17,6 +17,7 @@
  *   #16 publicEntries rows are upsert-or-delete, never history.
  */
 
+import type { GinkoPublicAssetFact } from '@lupinum/ginko-cms-contract/shared/publicContent.js'
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
@@ -49,6 +50,7 @@ export interface PublicProjectionInput {
   searchText?: string
   toc?: Toc | null
   cacheTags?: string[]
+  assetFacts: GinkoPublicAssetFact[]
   navIncluded?: boolean
   sitemapIncluded?: boolean
   searchIncluded?: boolean
@@ -112,6 +114,7 @@ export async function upsertPublicProjection(
     description: input.description ?? null,
     data: input.data,
     cacheTags: input.cacheTags ?? [],
+    assetFacts: input.assetFacts,
     navIncluded: input.navIncluded ?? true,
     sitemapIncluded: input.sitemapIncluded ?? true,
     searchIncluded: input.searchIncluded ?? true,

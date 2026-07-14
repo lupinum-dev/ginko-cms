@@ -85,6 +85,7 @@ import type * as portability_model from "../portability/model.js";
 import type * as portability_runs from "../portability/runs.js";
 import type * as public_ from "../public.js";
 import type * as publicAssets from "../publicAssets.js";
+import type * as publicProjectionReads from "../publicProjectionReads.js";
 import type * as publicReadAdapter from "../publicReadAdapter.js";
 import type * as revalidation from "../revalidation.js";
 import type * as reviewRequests from "../reviewRequests.js";
@@ -177,6 +178,7 @@ const fullApi: ApiFromModules<{
   "portability/runs": typeof portability_runs;
   public: typeof public_;
   publicAssets: typeof publicAssets;
+  publicProjectionReads: typeof publicProjectionReads;
   publicReadAdapter: typeof publicReadAdapter;
   revalidation: typeof revalidation;
   reviewRequests: typeof reviewRequests;

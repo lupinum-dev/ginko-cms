@@ -1,3 +1,4 @@
+import { mcpCredentialScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
@@ -7,7 +8,6 @@ import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import type { MutationCtx } from './lib/types.js'
-import { mcpCredentialScopeKeys } from './mcpCredentials.js'
 
 const agentRunStatusValidator = v.union(
   v.literal('active'),

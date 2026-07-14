@@ -164,6 +164,38 @@ describe('revalidation outbox worker', () => {
     ).resolves.toEqual(expect.any(String))
   })
 
+  it('rejects target URLs containing credentials', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    process.env.GINKO_CMS_REVALIDATION_ALLOWED_HOSTS = 'site.example'
+
+    await expect(() =>
+      ctx.asCmsUser('owner-1').mutation(api.revalidation.upsertRevalidationTarget, {
+        name: 'Production',
+        environment: 'production',
+        endpoint: 'https://user:password@site.example/api/revalidate',
+        secretEnv: 'GINKO_REVALIDATE_TOKEN_TEST',
+        enabled: true,
+      }),
+    ).rejects.toThrow('REVALIDATION_ENDPOINT_CREDENTIALS_FORBIDDEN')
+  })
+
+  it('rejects a second enabled target in the same environment', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedTarget(ctx)
+
+    await expect(() =>
+      ctx.asCmsUser('owner-1').mutation(api.revalidation.upsertRevalidationTarget, {
+        name: 'Second production target',
+        environment: 'production',
+        endpoint: 'https://site.example/api/other-revalidate',
+        secretEnv: 'GINKO_REVALIDATE_TOKEN_TEST',
+        enabled: true,
+      }),
+    ).rejects.toThrow('REVALIDATION_TARGET_ALREADY_ENABLED_FOR_ENVIRONMENT')
+  })
+
   it('keeps jobs pending when no target is configured', async () => {
     const ctx = createCtx()
     const eventId = await seedEvent(ctx)
@@ -240,6 +272,7 @@ describe('revalidation outbox worker', () => {
       'https://site.example/api/_content/revalidate',
       expect.objectContaining({
         method: 'POST',
+        redirect: 'error',
         headers: expect.objectContaining({
           'x-ginko-revalidation-event': eventId,
         }),
@@ -292,7 +325,61 @@ describe('revalidation outbox worker', () => {
       lockExpiresAt: null,
     })
     expect(row?.lastError).toContain('HTTP 500')
+    expect(row?.lastError).not.toContain('upstream unavailable')
     expect(row?.nextAttemptAt).toBeGreaterThan(Date.now())
+  })
+
+  it('reuses the stable idempotency key when retrying delivery', async () => {
+    const ctx = createCtx()
+    await seedTarget(ctx)
+    const eventId = await seedEvent(ctx)
+    process.env.GINKO_REVALIDATE_TOKEN_TEST = 'secret-token'
+    const receivedKeys = new Set<string>()
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { idempotencyKey: string }
+      receivedKeys.add(body.idempotencyKey)
+      return new Response(null, {
+        status: receivedKeys.size === 1 && fetchMock.mock.calls.length === 1 ? 500 : 200,
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await ctx.raw.action(api.revalidation.deliverDue, {})
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(eventId as never, { nextAttemptAt: Date.now() - 1 })
+    })
+    await ctx.raw.action(api.revalidation.deliverDue, {})
+
+    const bodies = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse(String((init as RequestInit).body)),
+    ) as Array<{ eventId: string; idempotencyKey: string }>
+    expect(bodies).toHaveLength(2)
+    expect(bodies[0]).toMatchObject({ eventId })
+    expect(bodies[1]).toEqual(bodies[0])
+    expect(receivedKeys.size).toBe(1)
+  })
+
+  it('recovers expired locks in bounded batches and schedules remaining work', async () => {
+    const ctx = createCtx()
+    const now = Date.now()
+    for (let index = 0; index < 27; index += 1) {
+      await seedEvent(ctx, {
+        status: 'delivering',
+        lockedAt: now - 120_000,
+        lockExpiresAt: now - index - 1,
+      })
+    }
+
+    await ctx.raw.mutation(api.revalidation.recoverExpiredDeliveries, { now })
+
+    const rows = await ctx.readAll('outboxEvents')
+    expect(rows.filter((row) => row.status === 'pending')).toHaveLength(25)
+    expect(rows.filter((row) => row.status === 'delivering')).toHaveLength(2)
+
+    await ctx.raw.mutation(api.revalidation.recoverExpiredDeliveries, { now })
+    expect(
+      (await ctx.readAll('outboxEvents')).filter((row) => row.status === 'pending'),
+    ).toHaveLength(27)
   })
 
   it('records delivery timeouts as retryable failures', async () => {

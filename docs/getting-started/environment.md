@@ -175,6 +175,11 @@ variable as `secretEnv`. Set that target-specific secret in the Convex
 environment. Ginko CMS does not require one fixed revalidation token variable
 name.
 
+Only one target may be enabled for each of `production`, `preview`, and
+`development`. Disable the current target before enabling a replacement. Target
+URLs must not contain a username or password, and delivery never follows HTTP
+redirects.
+
 ## Removed Names
 
 - `GINKO_CMS_INSTALL_SECRET`: removed. Collection contract sync uses
