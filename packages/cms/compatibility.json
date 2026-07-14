@@ -1,20 +1,20 @@
 {
   "name": "Ginko CMS release compatibility",
   "releaseStack": {
-    "@lupinum/ginko-cms": "0.1.3",
-    "@lupinum/ginko-cms-convex": "0.1.2",
-    "@lupinum/ginko-cms-contract": "0.1.1",
-    "@lupinum/ginko-content": "0.3.0",
-    "better-convex-nuxt": "0.6.0"
+    "@lupinum/ginko-cms": "0.2.0-rc.1",
+    "@lupinum/ginko-cms-convex": "0.2.0-rc.1",
+    "@lupinum/ginko-cms-contract": "0.2.0-rc.1",
+    "@lupinum/ginko-content": "0.4.0-rc.1",
+    "better-convex-nuxt": "0.6.1"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "72a022b715491185148c7236c0cc79a82737b4ea",
-      "sha256": "dae9dde8898db1d162bb34d2eb2dc809d9f0aa01514c372911744863e602b54f"
+      "sourceCommit": "fe24e4a6a3ba315c816f04103ef22da3f87c226a",
+      "sha256": "12253bbddb77a65ef84af86dbd94b253102d615b93596b8422b6323644800cc4"
     },
     "better-convex-nuxt": {
-      "sourceCommit": "6dcc8cd2d67dbdb90891d5f7db6b12e9261f6bf8",
-      "sha256": "6ac9209cde5f7a4ea36c041951bd98d07e2495340cbbaeccc4b6aa2beab657c4"
+      "sourceCommit": "dda45f962153601d8cbc4c645ad0cfd14fe39d8e",
+      "sha256": "2fa872366fd3b1f372d82a87b91074f7119fb06ba7c9ae3054c76b747272b82f"
     }
   },
   "tracked": {
@@ -24,7 +24,7 @@
     "@convex-dev/better-auth": ["0.12.5"],
     "@nuxtjs/mcp-toolkit": ["^0.16.1", "0.16.1", ">=0.16.1"],
     "better-auth": ["1.6.23", ">=1.6.13 <1.7.0"],
-    "better-convex-nuxt": ["0.6.0", "^0.6.0"],
+    "better-convex-nuxt": ["0.6.1", "^0.6.1"],
     "convex": ["1.38.0", "^1.38.0"],
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
@@ -38,7 +38,7 @@
     "dependencies": {
       "@convex-dev/better-auth": "0.12.5",
       "better-auth": "1.6.23",
-      "better-convex-nuxt": "0.6.0",
+      "better-convex-nuxt": "0.6.1",
       "convex": "1.38.0",
       "nuxt": "^4.4.8"
     },

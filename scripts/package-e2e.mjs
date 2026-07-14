@@ -23,10 +23,10 @@ const compatibilityMatrix = JSON.parse(
 )
 const rootPackageJson = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'))
 const consumerCompatibility = compatibilityMatrix.consumer
-const packDir = resolve(repoRoot, '.pack')
+const candidateMode = process.argv.includes('--candidate')
+const packDir = resolve(repoRoot, candidateMode ? '.pack/candidate' : '.pack')
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
 const pnpmBin = process.env.npm_execpath ?? 'pnpm'
-const candidateMode = process.argv.includes('--candidate')
 const developmentMode = process.argv.includes('--dev-sources')
 const registryDependencies = process.argv.includes('--registry-deps')
 if ([candidateMode, developmentMode, registryDependencies].filter(Boolean).length !== 1) {
@@ -57,37 +57,40 @@ function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
 }
 
-function requireCandidateArtifact(pathVariable, hashVariable) {
+function requireCandidateArtifact(pathVariable, packageName) {
   const artifact = process.env[pathVariable]
-  const expectedHash = process.env[hashVariable]?.toLowerCase()
-  if (!artifact || !expectedHash) {
-    throw new Error(`Candidate verification requires ${pathVariable} and ${hashVariable}.`)
+  const expected = compatibilityMatrix.releaseArtifacts[packageName]
+  if (!artifact) {
+    throw new Error(`Candidate verification requires ${pathVariable}.`)
+  }
+  if (!expected?.sha256 || !expected?.sourceCommit) {
+    throw new Error(`Compatibility is missing immutable release evidence for ${packageName}.`)
   }
   const resolvedArtifact = resolve(artifact)
   if (!existsSync(resolvedArtifact) || !resolvedArtifact.endsWith('.tgz')) {
     throw new Error(`${pathVariable} must reference an existing .tgz file.`)
   }
-  if (!/^[a-f0-9]{64}$/.test(expectedHash)) {
-    throw new Error(`${hashVariable} must be a lowercase or uppercase SHA-256 digest.`)
-  }
   const actualHash = sha256(resolvedArtifact)
-  if (actualHash !== expectedHash) {
+  if (actualHash !== expected.sha256) {
     throw new Error(
-      `${pathVariable} SHA-256 mismatch: expected ${expectedHash}, received ${actualHash}.`,
+      `${pathVariable} SHA-256 mismatch: expected ${expected.sha256}, received ${actualHash}.`,
     )
   }
-  return { path: resolvedArtifact, sha256: actualHash }
+  return { path: resolvedArtifact, sha256: actualHash, commit: expected.sourceCommit }
 }
 
 const candidateContent = candidateMode
-  ? requireCandidateArtifact('GINKO_CONTENT_TARBALL', 'GINKO_CONTENT_SHA256')
+  ? requireCandidateArtifact('GINKO_CONTENT_TARBALL', '@lupinum/ginko-content')
   : undefined
 const developmentContent =
-  developmentMode && process.env.GINKO_CONTENT_TARBALL && process.env.GINKO_CONTENT_SHA256
-    ? requireCandidateArtifact('GINKO_CONTENT_TARBALL', 'GINKO_CONTENT_SHA256')
+  developmentMode && process.env.GINKO_CONTENT_TARBALL
+    ? {
+        path: resolve(process.env.GINKO_CONTENT_TARBALL),
+        sha256: sha256(resolve(process.env.GINKO_CONTENT_TARBALL)),
+      }
     : undefined
 const candidateBetterConvexNuxt = candidateMode
-  ? requireCandidateArtifact('BETTER_CONVEX_NUXT_TARBALL', 'BETTER_CONVEX_NUXT_SHA256')
+  ? requireCandidateArtifact('BETTER_CONVEX_NUXT_TARBALL', 'better-convex-nuxt')
   : undefined
 
 function packageE2eEnv() {
@@ -289,19 +292,21 @@ function addOfflineComponentsStub(cwd) {
 }
 
 try {
-  buildPackedPackages()
+  if (!candidateMode) {
+    buildPackedPackages()
 
-  rmSync(packDir, { force: true, recursive: true })
-  mkdirSync(packDir, { recursive: true })
+    rmSync(packDir, { force: true, recursive: true })
+    mkdirSync(packDir, { recursive: true })
 
-  packPackage('packages/contract')
-  packPackage('packages/convex')
-  packPackage('packages/cms')
-  if (developmentMode && !registryContent && !developmentContent) {
-    packPackage(contentRoot)
-  }
-  if (developmentMode && !registryBetterConvexNuxt) {
-    packPackage(betterConvexNuxtRoot)
+    packPackage('packages/contract')
+    packPackage('packages/convex')
+    packPackage('packages/cms')
+    if (developmentMode && !registryContent && !developmentContent) {
+      packPackage(contentRoot)
+    }
+    if (developmentMode && !registryBetterConvexNuxt) {
+      packPackage(betterConvexNuxtRoot)
+    }
   }
 
   const packedContractTarball = findTarball('lupinum/ginko-cms-contract')
@@ -315,7 +320,33 @@ try {
       ? undefined
       : findTarball('better-convex-nuxt')
 
-  run('node', ['scripts/check-pack-workspace-refs.mjs'])
+  if (candidateMode) {
+    const evidencePath = resolve(packDir, 'candidate-artifact.json')
+    if (!existsSync(evidencePath)) {
+      throw new Error(
+        'Candidate artifacts are missing candidate-artifact.json; run pnpm candidate:pack.',
+      )
+    }
+    const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
+    const currentCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    }).trim()
+    if (evidence.source?.dirty !== false || evidence.source?.commit !== currentCommit) {
+      throw new Error('Candidate evidence does not describe the current clean CMS commit.')
+    }
+    for (const [name, path] of [
+      ['@lupinum/ginko-cms-contract', packedContractTarball],
+      ['@lupinum/ginko-cms-convex', packedConvexTarball],
+      ['@lupinum/ginko-cms', packedCmsTarball],
+    ]) {
+      if (evidence.artifacts?.[name]?.sha256 !== sha256(path)) {
+        throw new Error(`Candidate ${name} hash does not match candidate-artifact.json.`)
+      }
+    }
+  } else {
+    run('node', ['scripts/check-pack-workspace-refs.mjs'])
+  }
 
   // pnpm caches file dependencies by path and version. Hash-named copies ensure
   // the consumer always installs the bytes packed by this verification run.
