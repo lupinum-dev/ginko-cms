@@ -18,6 +18,18 @@ export function requireBetterAuthSecret(): string {
   return secret
 }
 
+export function resolveBetterAuthSecret(): string {
+  const secret = process.env.BETTER_AUTH_SECRET?.trim()
+  if (secret) return secret
+  // Convex module analysis and Better Auth schema generation evaluate modules
+  // without deployment env vars, so throwing here would fail every convex
+  // push (the generated betterAuth/auth.ts constructs auth at import time).
+  // A random per-evaluation secret keeps a misconfigured runtime fail-closed:
+  // nothing signed with it can ever be verified by another isolate, so no
+  // usable credential is issued.
+  return `ginko-missing-better-auth-secret-${crypto.randomUUID()}`
+}
+
 export function parseBearerApiKey(authorizationHeader?: string | null): string | null {
   const prefix = 'Bearer '
   if (!authorizationHeader?.startsWith(prefix)) return null

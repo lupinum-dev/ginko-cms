@@ -7,7 +7,7 @@ import {
   ginkoConvexJwtPayload,
   ginkoCredentialKindPlugin,
   parseBearerApiKey,
-  requireBetterAuthSecret,
+  resolveBetterAuthSecret,
 } from './auth/credentialKind.js'
 
 declare const process: {
@@ -70,7 +70,7 @@ export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOpt
 
   const createAuthOptions = (ctx: GenericCtx) =>
     ({
-      secret: requireBetterAuthSecret(),
+      secret: resolveBetterAuthSecret(),
       trustedOrigins: resolveTrustedOrigins(options.trustedOrigins),
       database: authComponent.adapter(ctx),
       emailAndPassword: {

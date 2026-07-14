@@ -37,6 +37,9 @@ dist
 # Env
 .env
 
+# UI shell migration audit output (screenshots, diffs, manifests)
+.ui-audit/
+
 # Testing
 reports
 coverage

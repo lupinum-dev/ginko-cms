@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "i18n-cms-consumer",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "/Users/matthias/Git/workspace/i18n-cms", "run", "dev"],
+      "port": 9999
+    },
+    {
+      "name": "playground",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "autoPort": false
+    }
+  ]
+}
