@@ -109,6 +109,20 @@ const candidateBetterConvexNuxt = candidateMode
   : undefined
 
 function packageE2eEnv() {
+  const packageManagerConfig =
+    consumerPackageManager === 'npm'
+      ? {
+          npm_config_cache: join(tempDir, '.npm-cache'),
+          npm_config_legacy_peer_deps: 'false',
+          npm_config_strict_peer_deps: 'true',
+        }
+      : {
+          npm_config_confirm_modules_purge: 'false',
+          npm_config_dangerously_allow_all_builds: 'true',
+          npm_config_store_dir: join(tempDir, '.pnpm-store'),
+          npm_config_strict_peer_deps: 'true',
+          npm_config_verify_deps_before_run: 'false',
+        }
   if (!liveConvex) {
     const inheritedKeys = [
       'CI',
@@ -139,23 +153,13 @@ function packageE2eEnv() {
     )
     return {
       ...env,
-      npm_config_confirm_modules_purge: 'false',
-      npm_config_dangerously_allow_all_builds: 'true',
-      npm_config_cache: join(tempDir, '.npm-cache'),
-      npm_config_store_dir: join(tempDir, '.pnpm-store'),
-      npm_config_strict_peer_deps: 'true',
-      npm_config_verify_deps_before_run: 'false',
+      ...packageManagerConfig,
     }
   }
 
   const env = {
     ...process.env,
-    npm_config_confirm_modules_purge: 'false',
-    npm_config_dangerously_allow_all_builds: 'true',
-    npm_config_cache: join(tempDir, '.npm-cache'),
-    npm_config_store_dir: join(tempDir, '.pnpm-store'),
-    npm_config_strict_peer_deps: 'true',
-    npm_config_verify_deps_before_run: 'false',
+    ...packageManagerConfig,
   }
 
   return env
