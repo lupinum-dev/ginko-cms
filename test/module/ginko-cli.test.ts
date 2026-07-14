@@ -90,7 +90,7 @@ describe('ginko-cms CLI', () => {
     )
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/better-auth')
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/config')
-    expect(readFileSync(resolve(rootDir, 'convex/schema.ts'), 'utf8')).toContain('by_auth_key')
+    expect(readFileSync(resolve(rootDir, 'convex/schema.ts'), 'utf8')).toContain('defineSchema({})')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)

@@ -57,6 +57,12 @@
 - Kept agent public-output changes review-gated by default. Direct trusted
   publish remains out of the v1 default surface until it has a separately
   reviewed model.
+- Bounded MCP agent runs to a four-hour server default, a 24-hour maximum, and
+  ten concurrent active runs per credential. Expired and abandoned runs are
+  now reclaimed by indexed retention cleanup.
+- Narrowed `defineGinkoAuth` to the supported `emailPassword` and
+  `trustedOrigins` options so callers cannot diverge from the generated Better
+  Auth schema or replace Ginko's fixed plugin ordering.
 
 ### Removed
 
@@ -64,6 +70,12 @@
   destructive MCP tools from the active v1 surface.
 - Removed Trellis package metadata/runtime dependencies from the CMS release
   path.
+- Removed automatic orphan-storage deletion. Storage hygiene remains
+  observable, but unowned bytes are no longer deleted without an atomic
+  ownership protocol.
+- Removed the unused generated host `users` table and no-op
+  `createUserIfNeeded` export. Better Auth remains the identity source of truth
+  and CMS membership remains component-owned.
 
 ### Migration Notes
 
@@ -83,6 +95,9 @@
   transport.
 - See `docs/guides/migrations/trellis-era-migration.md` for the host cleanup
   checklist.
+- Existing hosts may delete the old generated `users` table after confirming
+  their application did not adopt it for host-owned data. Ginko CMS never read
+  or wrote that table.
 
 ### Fixed
 

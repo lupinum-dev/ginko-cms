@@ -5,7 +5,7 @@ import { components, internal } from './_generated/api'
 import authConfig from './auth.config'
 import authSchema from './betterAuth/schema'
 
-export const { authComponent, createAuth, createAuthOptions, createUserIfNeeded } = defineGinkoAuth(
+export const { authComponent, createAuth, createAuthOptions } = defineGinkoAuth(
   { components, internal, authConfig, authSchema },
   {
     emailPassword: true,
