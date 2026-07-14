@@ -1839,6 +1839,16 @@ describe('Studio version history copy', () => {
     )
   })
 
+  it('passes automated accessibility checks for version history', async () => {
+    const wrapper = mountWithStudioContext(StudioVersionHistoryCard, historyEditor())
+    const result = await axe.run(wrapper.element, {
+      rules: { 'color-contrast': { enabled: false } },
+    })
+
+    expect(result.violations.map((violation) => violation.id)).toEqual([])
+    wrapper.unmount()
+  })
+
   it('keeps raw revision ids in advanced details only', () => {
     const collapsed = mountWithStudioContext(StudioVersionHistoryCard, historyEditor())
 
