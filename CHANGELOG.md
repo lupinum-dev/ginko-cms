@@ -69,6 +69,8 @@
 - Made `runtimeConfig.public.convex.siteUrl` from `better-convex-nuxt` the sole
   Nuxt MCP token-exchange origin, removing CMS-specific request-time environment
   fallbacks.
+- Generated Better Auth HTTP setup now uses the component's maintained lazy
+  route registration API.
 
 ### Removed
 
