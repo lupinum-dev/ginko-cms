@@ -2021,3 +2021,47 @@ concentrate on whether the explicit 180-day assisted-authoring duration and
 indefinite destructive-audit hold match the deploying organization's policy;
 changing those values is a product/privacy decision, not a reason to add a
 configurable retention framework.
+
+## 2026-07-14 — WP8A Accessible Studio Workflows
+
+### Direct semantic corrections
+
+The relation field no longer places an interactive remove control inside an
+interactive disclosure container. Selected relations, their native remove
+buttons, and the native options trigger are siblings in one field frame. The
+trigger exposes its expanded state and controlled panel; options expose pressed
+state. Escape from the search/results area closes the panel and restores focus
+to the trigger. No unsupported combobox or listbox role was added.
+
+Array inputs and icon-only remove actions now have row-specific accessible
+names. Array disclosures and version details expose expanded state. Decorative
+icons are hidden from the accessibility tree, and the shared field-error
+primitive announces newly rendered validation failures. These are direct
+component fixes; no accessibility wrapper or parallel control implementation
+was introduced.
+
+### Executable evidence
+
+- The first focused run failed the new relation-structure and array-name
+  assertions before implementation.
+- Axe-core `4.12.1` is pinned as the one automated accessibility engine.
+- Component axe checks pass for relation fields, array fields, and version
+  history. Color contrast is excluded only in jsdom, which cannot compute the
+  rendered theme; theme contrast remains a browser/manual responsibility.
+- The real Reka dialog implementation passes axe checks for asset selection
+  and destructive confirmation. Escape closes each dialog and restores focus
+  to its external trigger.
+- The real Studio workspace passes landmark and axe checks with header, main
+  work area, and details rail present.
+- The focused final run passed 2 files and 57 tests. Focused ESLint and the CMS
+  package typecheck/build also passed.
+
+Implementation commit `84f893cc` is
+`fix: make Studio controls accessibly operable`. Executable workflow commit
+`3179640f` is `test: certify Studio accessibility workflows`.
+
+Updated to `implemented`: `Accessible Studio workflows`. One manual
+screen-reader and keyboard pass remains required before `1.0.0`, as specified
+by the plan; it is not replaced by this automated candidate evidence. Review
+should concentrate on the relation field's split-button layout and on focus
+restoration if the underlying dialog primitive changes.
