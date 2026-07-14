@@ -44,7 +44,7 @@
     "codegen": "pnpm --dir ../.. exec convex codegen --component-dir packages/convex/src",
     "prepack": "pnpm run build",
     "prepare:component": "pnpm run codegen",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json"
   },
   "dependencies": {
     "@better-auth/api-key": "1.6.23",
