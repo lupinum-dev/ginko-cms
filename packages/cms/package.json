@@ -72,7 +72,7 @@
     "@nuxtjs/color-mode": "^4.0.0",
     "@tailwindcss/vite": "^4.3.0",
     "better-convex-nuxt": "^0.6.1",
-    "convex": "1.38.0",
+    "convex": "1.42.1",
     "defu": "^6.1.4",
     "h3": "1.15.11",
     "jiti": "^2.7.0",

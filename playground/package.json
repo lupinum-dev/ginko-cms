@@ -15,7 +15,7 @@
     "@tailwindcss/vite": "^4.3.0",
     "better-auth": "1.6.23",
     "better-convex-nuxt": "^0.6.1",
-    "convex": "1.38.0",
+    "convex": "1.42.1",
     "h3": "1.15.11",
     "nuxt": "^4.4.8",
     "tailwindcss": "^4.3.0"

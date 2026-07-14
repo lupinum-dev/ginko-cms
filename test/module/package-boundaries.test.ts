@@ -357,7 +357,7 @@ describe('package boundary contracts', () => {
     expect(contractPackage.dependencies?.['@lupinum/ginko-cms']).toBeUndefined()
     expect(contractPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBeUndefined()
     expect(contractPackage.dependencies?.convex).toBeUndefined()
-    expect(contractPackage.peerDependencies?.convex).toBe('^1.38.0')
+    expect(contractPackage.peerDependencies?.convex).toBe('^1.42.1')
 
     const convexDeps = {
       ...convexPackage.dependencies,

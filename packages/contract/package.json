@@ -89,10 +89,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json"
   },
   "devDependencies": {
-    "convex": "1.38.0"
+    "convex": "1.42.1"
   },
   "peerDependencies": {
-    "convex": "^1.38.0"
+    "convex": "^1.42.1"
   },
   "peerDependenciesMeta": {
     "convex": {
