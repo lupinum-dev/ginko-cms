@@ -99,7 +99,7 @@ const backupArtifactValidator = v.union(
     entryId: v.optional(v.union(v.string(), v.null())),
     assetId: v.optional(v.union(v.string(), v.null())),
     checksum: v.string(),
-    driver: v.string(),
+    driver: v.literal('convex-storage-json'),
     storageRef: v.string(),
     counts: backupCountsValidator,
     createdBy: v.string(),

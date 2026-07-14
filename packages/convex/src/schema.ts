@@ -864,9 +864,8 @@ export default defineSchema({
     assetId: v.optional(v.union(v.string(), v.null())),
     // Hex SHA-256 of the archive bytes.
     checksum: v.string(),
-    // Storage location. v1 uses Convex `_storage`; future S3/etc. backends
-    // record their own driver-specific id here.
-    driver: v.string(),
+    // Backup archives are stored in the component's Convex storage namespace.
+    driver: v.literal('convex-storage-json'),
     storageRef: v.string(),
     // Counts captured in the manifest, for sanity-checking restore.
     counts: v.object({

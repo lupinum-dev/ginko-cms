@@ -79,6 +79,8 @@
   build artifacts.
 - Destructive preview functions now validate their shared result envelope
   instead of accepting arbitrary return values.
+- Backup artifact storage is now represented by its only supported driver
+  instead of advertising hypothetical backend adapters.
 
 ### Removed
 
