@@ -1211,3 +1211,71 @@ lease/roster/pagination evidence. `Bidirectional semantic round trip` and
 proves operator wiring and recovery, but does not substitute for the specified
 real Node/Worker purity and semantic round-trip probes. Phase G adds those
 runtime proofs next.
+
+## 2026-07-14 — Phase G Pure Runtime Compatibility
+
+### Objective and acceptance criteria
+
+Certify the already packed Ginko Content pure data-source and portability
+entries in Node and a real Worker-compatible V8 runtime. Acceptance required
+the exact content-addressed tarball, incremental canonical hashing in both
+runtimes, a codec semantic round trip, byte-equal results, and an inspected
+bundle graph with no Node, Nuxt, H3, Nitro, Convex, or vendor SDK dependency.
+This proof does not claim that a production D1/R2 adapter exists.
+
+### Test-first implementation and corrections
+
+The red run was `pnpm run test:pure-runtimes`, which failed because the packed
+runtime certification command did not exist. The implementation adds one shared
+probe used by Node and Worker, rather than maintaining two expected-result
+paths. It covers three frozen canonical JSON vectors, feeds their bytes into
+the incremental SHA-256 implementation in three-byte chunks, reparses a
+serialized portability contract fixture, and checks the public data-source
+limit.
+
+The packed harness extracts the exact tarball, imports only its built public
+data-source, portability, and portability-contract fixture entries in Node,
+then bundles that same extracted graph for a Blob-backed Web Worker. Chromium
+proves `WorkerGlobalScope` is present and `document` is absent. Esbuild's
+metafile is rejected if a pure graph contains Node built-ins, Nuxt, H3, Nitro,
+Convex, or Cloudflare SDK inputs/imports. The first Worker attempt exposed that
+esbuild does not resolve generated `file:` URL specifiers; the harness was
+corrected to generate absolute filesystem specifiers before acceptance.
+
+No published package source changed. `pnpm dev:pack` rebuilt bytes identical to
+the existing development artifact and correctly refused to overwrite its
+content-addressed path. The new certification remains external release evidence
+and is attached immediately after `release:pack` in `release:verify`.
+
+### Commands and results
+
+- Exact packed Node/Worker probe: exit `0`; SHA-256
+  `285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401`,
+  3 canonical vectors, and codec fixture `docs.introduction` passed with
+  byte-equal Node and Worker results.
+- `pnpm run lint`: passed, including repository policies, compatibility matrix,
+  test selection, and ESLint.
+- The one authoritative `pnpm verify` run for this work package exited `0`.
+  Its standard suite passed 100 files and 834 tests; its e2e suite passed 6
+  files and 15 tests. Documentation build/smoke, all 13 example builds, source
+  and packed type checks, quickstart, package checks, and the remaining verify
+  stages passed in the same run.
+- `node --check` passed for both new scripts, and `git diff --check` passed.
+- The exact hash-pinned packed runtime probe was repeated after commit and
+  passed unchanged.
+
+### Immutable artifact, commit, and acceptance matrix
+
+- Content artifact:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz`
+  — SHA-256
+  `285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401`.
+- Ginko Content: `c33dae1` —
+  `test: certify packed pure runtime compatibility`.
+
+`Portable codecs and directory` is now `implemented`: the exact packed pure
+entries pass Node and real Chromium Worker import, hash, codec, and graph-purity
+probes. `Bidirectional semantic round trip` remains open because a codec fixture
+round trip is not the required filesystem -> CMS -> filesystem and CMS ->
+filesystem -> CMS proof. That coordinated semantic proof is the next work
+package; no acceptance claim is borrowed from this narrower runtime gate.

@@ -2831,7 +2831,7 @@ Use only these statuses:
 | Backend-neutral runtime data source | implemented | Filesystem/CMS/Worker contract suite    |
 | One request adapter context         | implemented | Binder reuse and disposal tests         |
 | Portable Content contract           | implemented | Packed public codec probes              |
-| Portable codecs and directory       | open        | Node and Worker purity probes           |
+| Portable codecs and directory       | implemented | Node and Worker purity probes           |
 | Level-1 portability contracts       | implemented | Codec/manifest hostile fixture suite    |
 | Bidirectional semantic round trip   | open        | Files to CMS to files equality          |
 | Deterministic asset portability     | implemented | Byte/hash/reference round-trip suite    |
