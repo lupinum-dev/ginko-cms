@@ -629,3 +629,104 @@ authorization certification.
   runtime/type consumers belong to Phase D.
 - Next work package: safe deterministic Node directory read/write/rebuild,
   followed by an accepted Content tarball for the CMS Phase-E consumer.
+
+## 2026-07-14 — WP3A Phase D Safe Node Directory
+
+### Objective and acceptance criteria
+
+Add the only Node-specific portability boundary after the pure codec was
+accepted. The directory adapter had to read, verify, rebuild, and write the
+normative layout deterministically; reject traversal, collisions, links,
+unexpected entries, changed bytes, and existing destinations; stage writes
+beside the target; verify the complete staging tree; and expose declarations
+and packed runtime behavior through `./portability/node`.
+
+### Repository ownership and design
+
+- Ginko Content added `src/portability-node/` with direct read, verify,
+  manifest-rebuild, and new-destination write commands. It is deliberately not
+  a generic storage port, transaction service, or archive layer.
+- Directory scanning uses NFC relative POSIX paths, a 512-byte path ceiling,
+  32-segment depth ceiling, Unicode case-fold collision checks, Windows device
+  rejection, sorted enumeration, `lstat`, no-follow open, before/after file
+  identity checks, and hard-link/symlink rejection.
+- The fixed document/file/byte limits from the Content specification are
+  enforced before parsing. Only canonical contract/manifest files, supported
+  content extensions, and hash-addressed PNG/JPEG/GIF/WebP blobs are admitted;
+  empty directories and every extra entry fail.
+- Writes use a newly created sibling staging directory, exclusive file
+  creation, canonical identity paths, full manifest rebuild and verification,
+  a second destination-existence check, and one final rename. Failed staging
+  trees and manifest temporaries are removed with bounded retries. Existing
+  destinations are never merged or overwritten.
+- The testing entry gained a shared three-check directory runner. The packed
+  consumer imports every new public entry, checks declarations, runs the
+  nine-check pure suite and three-check directory suite, and performs real
+  installed-package writes and reads in a fresh temporary directory.
+
+### Test-first and adversarial evidence
+
+The expected red run failed on the absent `src/portability-node` entry. Final
+tests prove deterministic dual writes, delete-and-rebuild byte equality,
+semantic reads, non-overwrite behavior, traversal/device/case collisions,
+unindexed files, stale manifest bytes, symlinks, hard-link aliases, safe moved
+files, and canonical-path restoration.
+
+The first full repository run exposed 11 stale tests from earlier vNext hard
+cuts: two still expected the deleted unbounded `limit: 0`, and nine constructed
+runtime config without the now-required canonical contract. No fallback was
+added. Commit `360ca63` updated those tests to the accepted bounded/single-
+contract behavior; the rerun passed all 100 files and 829 tests.
+
+The first packed pnpm build reproduced a prerender rejection for an undeclared
+custom MDC component in the old consumer fixture. That rejection is correct
+under the public render policy. Commit `3aff1b6` removed the invalid component
+instead of weakening policy, added server-error diagnostics, and stopped
+passing a pnpm-only environment option to npm. Exact pnpm and npm packed
+prepare/typecheck/build consumers then passed. npm emitted dependency
+deprecation/allow-script notices but no peer warning; pnpm emitted no peer
+warning.
+
+### Commands and results
+
+- Ginko Content lint and repository policy checks: passed.
+- Ginko Content typecheck, package declarations/build, and Nuxt type consumer:
+  passed.
+- Pure plus Node portability suites: 2 files and 16 tests passed.
+- Public export suite: 32 tests passed.
+- Full Ginko Content test gate: 100 files and 829 tests passed.
+- Fresh exact-tarball pnpm consumer: public imports, portability runners,
+  prepare, typecheck, and production build passed.
+- Fresh exact-tarball npm consumer: public imports, portability runners,
+  prepare, typecheck, and production build passed.
+- Better Convex Nuxt remained read-only at
+  `467aa0eeb24d26b3695482420807c892959fc683`; no file was modified.
+
+### Immutable development artifact
+
+- Accepted path:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz`
+- SHA-256:
+  `02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579`
+- The packed bytes are identical to the consumer-tested `64dda68` artifact;
+  only the repository-side packed-consumer harness changed in `3aff1b6`.
+
+### Commits and acceptance matrix
+
+- Ginko Content:
+  - `360ca63` — `test: align bounded runtime fixtures`
+  - `64dda68` — `feat!: add deterministic directory portability`
+  - `3aff1b6` — `test: harden packed portability consumer`
+- Updated to `implemented`: Portable Content contract, Level-1 portability
+  contracts, Deterministic asset portability. The previously completed
+  Backend-neutral runtime data source and One request adapter context rows are
+  synchronized to `implemented` in the authoritative matrix.
+- Portable codecs and directory remains open until the Phase-G real
+  Worker-compatible V8 purity probe passes.
+
+### Next phase
+
+Consume the exact accepted Content tarball in Ginko CMS and implement the
+direct import-first portability run/receipt vertical slice. No CMS-local codec,
+generic transaction port, Studio bulk UI, or MCP portability authority is
+authorized.

@@ -2828,13 +2828,13 @@ Use only these statuses:
 | Structured asset resolution         | implemented | No arbitrary-string lookup test         |
 | Asset publication state             | implemented | Unreferenced-global denial test         |
 | Upload byte verification            | implemented | MIME/signature mismatch tests           |
-| Backend-neutral runtime data source | open        | Filesystem/CMS/Worker contract suite    |
-| One request adapter context         | open        | Binder reuse and disposal tests         |
-| Portable Content contract           | open        | Packed public codec probes              |
+| Backend-neutral runtime data source | implemented | Filesystem/CMS/Worker contract suite    |
+| One request adapter context         | implemented | Binder reuse and disposal tests         |
+| Portable Content contract           | implemented | Packed public codec probes              |
 | Portable codecs and directory       | open        | Node and Worker purity probes           |
-| Level-1 portability contracts       | open        | Codec/manifest hostile fixture suite    |
+| Level-1 portability contracts       | implemented | Codec/manifest hostile fixture suite    |
 | Bidirectional semantic round trip   | open        | Files to CMS to files equality          |
-| Deterministic asset portability     | open        | Byte/hash/reference round-trip suite    |
+| Deterministic asset portability     | implemented | Byte/hash/reference round-trip suite    |
 | Portable conflict and retry safety  | open        | Immutable plan and lost-response tests  |
 | Bounded consistent export           | open        | Lease, roster, and pagination tests     |
 | Studio principal retirement         | open        | A to B and sign-out tests               |
