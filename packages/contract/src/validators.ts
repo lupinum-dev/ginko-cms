@@ -1301,6 +1301,7 @@ export const ginkoRoutesResultValidator = v.object({
     }),
   ),
   pageInfo: ginkoPageInfoValidator,
+  snapshot: v.string(),
 })
 
 export const ginkoListResultValidator = v.object({

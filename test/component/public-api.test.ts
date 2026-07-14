@@ -530,6 +530,46 @@ describe('public API: list pagination', () => {
         sitemapIncluded: true,
       }),
     ])
+    expect(routes.snapshot).toMatch(/^\d+$/)
+  })
+
+  it('pages routes by stable identity and invalidates a cursor after publication changes', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    await seedPublishedEntries(ctx, 3, { collectionSlug: 'articles' })
+
+    const first = await ctx.raw.query(api.public.routes, {
+      collection: 'articles',
+      locale: 'en',
+      limit: 1,
+      cursor: null,
+    })
+    const second = await ctx.raw.query(api.public.routes, {
+      collection: 'articles',
+      locale: 'en',
+      limit: 1,
+      cursor: first.pageInfo.endCursor,
+    })
+    expect(first.snapshot).toBe(second.snapshot)
+    expect(first.routes[0]?.stableId).not.toBe(second.routes[0]?.stableId)
+
+    const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'articles',
+      slug: 'entry-04',
+      localized: { title: 'Entry D' },
+    })
+    await publishEntry(owner, entryId)
+
+    await expect(() =>
+      ctx.raw.query(api.public.routes, {
+        collection: 'articles',
+        locale: 'en',
+        limit: 1,
+        cursor: first.pageInfo.endCursor,
+      }),
+    ).rejects.toSatisfy((error: unknown) => getCmsErrorData(error)?.code === 'INVALID_CURSOR')
   })
 
   it('projects non-index root slugs to localized collection mounts across public surfaces', async () => {

@@ -21,7 +21,7 @@ import type { FunctionReference } from 'convex/server'
  * and has the declared kind, and that no function absent from this descriptor
  * leaks into the constructed bridge type.
  */
-export type StudioOperationKind = 'query' | 'mutation'
+export type StudioOperationKind = 'query' | 'mutation' | 'action'
 
 export type StudioApiSurface = Record<string, Record<string, StudioOperationKind>>
 
@@ -29,7 +29,7 @@ export type StudioApiSurface = Record<string, Record<string, StudioOperationKind
  * Every currently-allowed Studio group, function, and operation kind.
  *
  * `as const satisfies StudioApiSurface` pins each kind to a literal
- * `'query' | 'mutation'`, so a misspelled kind fails to compile locally
+ * `'query' | 'mutation' | 'action'`, so a misspelled kind fails to compile locally
  * (before the generated-api type test even runs).
  */
 export const studioApiSurface = {
@@ -152,7 +152,7 @@ export const studioApiSurface = {
 /**
  * The mapped bridge type derived from a {@link StudioApiSurface} descriptor
  * (vNext §10.7). Each descriptor kind becomes the matching
- * `FunctionReference<'query' | 'mutation'>`. Because the bridge type is built
+ * `FunctionReference<'query' | 'mutation' | 'action'>`. Because the bridge type is built
  * *only* from the descriptor, a backend function absent from the descriptor can
  * never appear on it.
  */
@@ -161,7 +161,9 @@ export type StudioApiFromSurface<Surface extends StudioApiSurface> = {
     [Group in keyof Surface]: {
       [Name in keyof Surface[Group]]: Surface[Group][Name] extends 'query'
         ? FunctionReference<'query'>
-        : FunctionReference<'mutation'>
+        : Surface[Group][Name] extends 'mutation'
+          ? FunctionReference<'mutation'>
+          : FunctionReference<'action'>
     }
   }
 }

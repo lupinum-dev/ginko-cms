@@ -2,14 +2,13 @@ import type { ContentProvider } from '@lupinum/ginko-content/provider'
 import type { FunctionReference } from 'convex/server'
 
 type ProviderEvent = Parameters<ContentProvider['query']>[0]
-type ProviderRequestEvent = ProviderEvent | undefined
 type PublicErrorData = Record<string, unknown>
 type ProviderError = Error & {
   statusCode: number
   statusMessage: string
   data: PublicErrorData & { code: string }
 }
-type ConvexQueryCaller = {
+export type ConvexQueryCaller = {
   query: (reference: FunctionReference<'query'>, args: Record<string, unknown>) => Promise<unknown>
 }
 type ClientFactory = (url: string) => ConvexQueryCaller
@@ -124,42 +123,26 @@ const normalizeRemoteError = (error: unknown, operation: string): ProviderError 
   })
 }
 
-const requestCallers = new WeakMap<object, Promise<ConvexQueryCaller>>()
-
-const callerForEvent = async (event: ProviderEvent): Promise<ConvexQueryCaller> => {
-  const existing = requestCallers.get(event)
-  if (existing) return await existing
-  const pending = import('better-convex-nuxt/server').then(
-    ({ serverConvex }) => serverConvex(event, { auth: 'none' }) as ConvexQueryCaller,
-  )
-  requestCallers.set(event, pending)
-  return await pending
-}
-
-const callConvexFunction = async (
-  event: ProviderRequestEvent,
-  functionName: string,
-  operation: string,
-  args: Record<string, unknown>,
-): Promise<unknown> => {
+export const callerForEvent = async (event: ProviderEvent): Promise<ConvexQueryCaller> => {
   try {
     if (testClientFactory) {
-      return await testClientFactory(convexUrl()).query(functionReference(functionName), args)
+      return testClientFactory(convexUrl())
     }
-    if (event) {
-      const caller = await callerForEvent(event)
-      return await caller.query(functionReference(functionName), args)
-    }
-    const { ConvexHttpClient } = await import('convex/browser')
-    return await new ConvexHttpClient(convexUrl()).query(functionReference(functionName), args)
+    const { serverConvex } = await import('better-convex-nuxt/server')
+    return serverConvex(event, { auth: 'none' }) as ConvexQueryCaller
   } catch (error) {
-    throw normalizeRemoteError(error, operation)
+    throw normalizeRemoteError(error, 'context')
   }
 }
 
 export const callGinko = async (
-  event: ProviderRequestEvent,
+  caller: ConvexQueryCaller,
   operation: string,
   args: Record<string, unknown>,
-): Promise<unknown> =>
-  await callConvexFunction(event, `ginkoCms/public:${operation}`, operation, args)
+): Promise<unknown> => {
+  try {
+    return await caller.query(functionReference(`ginkoCms/public:${operation}`), args)
+  } catch (error) {
+    throw normalizeRemoteError(error, operation)
+  }
+}

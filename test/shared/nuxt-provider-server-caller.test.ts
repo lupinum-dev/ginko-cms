@@ -3,34 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // §10.9 / "Ginko tests": event-backed `nuxt-provider.mjs` request paths must route the
 // supplied H3 event through exactly one anonymous `serverConvex` caller so transport/auth
-// stay library-owned, while genuinely eventless build/CLI paths keep a direct
-// `ConvexHttpClient`. These two mocks let us observe which one `callConvexFunction` picks
-// without going through the `__setGinkoNuxtProviderClientFactoryForTests` test seam (which
-// would otherwise short-circuit both branches).
+// stay library-owned. The bound H3 provider has no eventless transport path.
 const serverConvexMock = vi.hoisted(() => vi.fn())
-const convexHttpClientMock = vi.hoisted(() =>
-  vi.fn(function ConvexHttpClient() {
-    return {
-      query: vi.fn(async () => ({
-        key: 'announcement',
-        data: null,
-        locale: {
-          requested: 'en',
-          resolved: 'en',
-          policy: 'strict',
-          fallbacks: { fields: [] },
-        },
-      })),
-    }
-  }),
-)
 
 vi.mock('better-convex-nuxt/server', () => ({
   serverConvex: serverConvexMock,
-}))
-
-vi.mock('convex/browser', () => ({
-  ConvexHttpClient: convexHttpClientMock,
 }))
 
 type ContentProvider = {
@@ -56,7 +33,6 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
   beforeEach(async () => {
     vi.resetModules()
     serverConvexMock.mockClear()
-    convexHttpClientMock.mockClear()
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
     process.env.GINKO_CONTENT_PROVIDER_SITE = 'cms-provider-fixture'
     ;({ contentProvider } = (await import('../../packages/cms/src/nuxt-provider.ts')) as {
@@ -88,7 +64,6 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     expect(serverConvexMock).toHaveBeenCalledTimes(1)
     expect(serverConvexMock).toHaveBeenCalledWith(event, { auth: 'none' })
     expect(query).toHaveBeenCalledTimes(1)
-    expect(convexHttpClientMock).not.toHaveBeenCalled()
   })
 
   it('shares one request caller across concurrent provider operations', async () => {
@@ -183,14 +158,6 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     expect(query).toHaveBeenCalledTimes(1)
     expect(result.data.result.heroAsset).toBe('https://assets.example/hero.png')
     expect(result.data.result.logoAsset).toBe('bcdefghijklmnopqrstu')
-  })
-
-  it('keeps a direct anonymous ConvexHttpClient for genuinely eventless build/CLI paths', async () => {
-    await contentProvider.siteData(undefined, { key: 'announcement', locale: 'en' })
-
-    expect(convexHttpClientMock).toHaveBeenCalledTimes(1)
-    expect(convexHttpClientMock).toHaveBeenCalledWith('https://example.convex.cloud')
-    expect(serverConvexMock).not.toHaveBeenCalled()
   })
 
   it('never exposes opaque cause data through provider errors', async () => {

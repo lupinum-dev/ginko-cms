@@ -99,6 +99,7 @@ export const cmsPublicReadTables = [
   'collections',
   'contentAssetRefs',
   'publicEntries',
+  'publicProjectionState',
   'publicRoutes',
   'siteData',
 ] as const

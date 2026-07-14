@@ -29,6 +29,7 @@ import {
   getActivePublicPageByStableId,
   mapActivePublicEntryRow,
 } from './entries/projections.js'
+import { readPublicProjectionGeneration } from './entries/workflow/projection.js'
 import { throwCmsError } from './errors.js'
 import { callerQuery, cmsPublicReadTables } from './functions.js'
 import {
@@ -103,6 +104,16 @@ type PublicSearchCursor = {
   v: 1
   kind: 'publicSearch'
   offset: number
+}
+type PublicRoutesCursor = {
+  v: 1
+  kind: 'publicRoutes'
+  source: 'cms'
+  collection: string
+  locale: string
+  generation: number
+  canonicalKey: string
+  projectionId: string
 }
 
 async function getSiteDefaultLocale(ctx: Parameters<typeof getCmsSettings>[0], fallback: string) {
@@ -512,6 +523,61 @@ function parsePublicEntryCursor(
     throwCmsError('INVALID_CURSOR', invalidCursorMessage, { cursor })
   }
   return parsed as PublicEntryCursor
+}
+
+function encodePublicRoutesCursor(args: {
+  row: PublicEntryRow
+  collection: string
+  locale: string
+  generation: number
+}) {
+  const canonicalKey = args.row.stableId
+  if (!canonicalKey) {
+    throwCmsError('INVALID_QUERY', 'Published route is missing its stable content identity.')
+  }
+  return JSON.stringify({
+    v: 1,
+    kind: 'publicRoutes',
+    source: 'cms',
+    collection: args.collection,
+    locale: args.locale,
+    generation: args.generation,
+    canonicalKey,
+    projectionId: String(args.row._id),
+  } satisfies PublicRoutesCursor)
+}
+
+function parsePublicRoutesCursor(args: {
+  cursor: string | null | undefined
+  collection: string
+  locale: string
+  generation: number
+}) {
+  if (!args.cursor) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(args.cursor)
+  } catch {
+    throwCmsError('INVALID_CURSOR', 'Public route cursor is invalid.')
+  }
+  const cursor = parsed as Partial<PublicRoutesCursor>
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    cursor.v !== 1 ||
+    cursor.kind !== 'publicRoutes' ||
+    cursor.source !== 'cms' ||
+    cursor.collection !== args.collection ||
+    cursor.locale !== args.locale ||
+    cursor.generation !== args.generation ||
+    typeof cursor.canonicalKey !== 'string' ||
+    !cursor.canonicalKey ||
+    typeof cursor.projectionId !== 'string' ||
+    !cursor.projectionId
+  ) {
+    throwCmsError('INVALID_CURSOR', 'Public route cursor is invalid or expired.')
+  }
+  return cursor as PublicRoutesCursor
 }
 
 function encodePublicSearchCursor(offset: number) {
@@ -1132,21 +1198,64 @@ export const routes = callerQuery.public({
   returns: ginkoRoutesResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
+    const generation = await readPublicProjectionGeneration(ctx)
+    const snapshot = String(generation)
     const collection = await getCollection(ctx, args.collection)
-    if (!collection) return { routes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+    if (!collection) {
+      return { routes: [], pageInfo: { hasNextPage: false, endCursor: null }, snapshot }
+    }
     assertRouteBackedCollection(collection)
     assertCollectionSupportsLocale(collection, args.locale)
-    const limit = validatePublicLimit(args.limit, SITEMAP_DEFAULT_LIMIT, SITEMAP_MAX_LIMIT)
-    const result = await paginatePublicEntriesForCollection(ctx, {
-      collectionId: collection._id,
-      locale: args.locale,
-      limit,
+    const limit = validatePublicLimit(args.limit, 250, 250)
+    const cursor = parsePublicRoutesCursor({
       cursor: args.cursor,
-      sortField: 'orderKey',
-      direction: 'asc',
+      collection: args.collection,
+      locale: args.locale,
+      generation,
     })
+    if (cursor) {
+      const cursorRow = await ctx.db
+        .query('publicEntries')
+        .withIndex('by_collection_locale_stableId', (query) =>
+          query
+            .eq('collectionId', collection._id)
+            .eq('locale', args.locale)
+            .eq('stableId', cursor.canonicalKey),
+        )
+        .unique()
+      if (!cursorRow || String(cursorRow._id) !== cursor.projectionId) {
+        throwCmsError('INVALID_CURSOR', 'Public route cursor no longer identifies its projection.')
+      }
+    }
+    const rows = await ctx.db
+      .query('publicEntries')
+      .withIndex('by_collection_locale_stableId', (query) => {
+        const scope = query.eq('collectionId', collection._id).eq('locale', args.locale)
+        return cursor ? scope.gt('stableId', cursor.canonicalKey) : scope
+      })
+      .order('asc')
+      .take(limit + 1)
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]!
+      if (!row.stableId) {
+        throwCmsError('INVALID_QUERY', 'Published route is missing its stable content identity.', {
+          collection: args.collection,
+          entryId: String(row.entryId),
+          locale: row.locale,
+        })
+      }
+      if (index > 0 && rows[index - 1]?.stableId === row.stableId) {
+        throwCmsError('INVALID_QUERY', 'Published route identity is not unique.', {
+          collection: args.collection,
+          canonicalKey: row.stableId,
+          locale: row.locale,
+        })
+      }
+    }
+    const hasNextPage = rows.length > limit
+    const pageRows = hasNextPage ? rows.slice(0, limit) : rows
     const records = []
-    for (const row of result.page) {
+    for (const row of pageRows) {
       const route = await ctx.db
         .query('publicRoutes')
         .withIndex('by_entry_locale', (q) => q.eq('entryId', row.entryId).eq('locale', row.locale))
@@ -1171,9 +1280,18 @@ export const routes = callerQuery.public({
     return {
       routes: records,
       pageInfo: {
-        hasNextPage: !result.isDone,
-        endCursor: result.isDone ? null : result.continueCursor,
+        hasNextPage,
+        endCursor:
+          hasNextPage && pageRows.length
+            ? encodePublicRoutesCursor({
+                row: pageRows[pageRows.length - 1]!,
+                collection: args.collection,
+                locale: args.locale,
+                generation,
+              })
+            : null,
       },
+      snapshot,
     }
   },
 })

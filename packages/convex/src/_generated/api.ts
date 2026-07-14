@@ -79,6 +79,7 @@ import type * as operationHelpers from "../operationHelpers.js";
 import type * as operations from "../operations.js";
 import type * as policy from "../policy.js";
 import type * as public_ from "../public.js";
+import type * as publicAssets from "../publicAssets.js";
 import type * as publicReadAdapter from "../publicReadAdapter.js";
 import type * as revalidation from "../revalidation.js";
 import type * as reviewRequests from "../reviewRequests.js";
@@ -165,6 +166,7 @@ const fullApi: ApiFromModules<{
   operations: typeof operations;
   policy: typeof policy;
   public: typeof public_;
+  publicAssets: typeof publicAssets;
   publicReadAdapter: typeof publicReadAdapter;
   revalidation: typeof revalidation;
   reviewRequests: typeof reviewRequests;

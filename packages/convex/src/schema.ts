@@ -292,6 +292,12 @@ export default defineSchema({
     .index('by_locale_path', ['locale', 'path'])
     .index('by_entry_locale', ['entryId', 'locale']),
 
+  publicProjectionState: defineTable({
+    key: v.literal('global'),
+    generation: v.number(),
+    updatedAt: v.number(),
+  }).index('by_key', ['key']),
+
   assets: defineTable({
     storageId: v.id('_storage'),
     filename: v.string(),

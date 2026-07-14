@@ -56,6 +56,32 @@ export interface PublicProjectionInput {
   lastPublishedAt: number
 }
 
+export async function readPublicProjectionGeneration(ctx: QueryCtx | MutationCtx): Promise<number> {
+  const state = await ctx.db
+    .query('publicProjectionState')
+    .withIndex('by_key', (query) => query.eq('key', 'global'))
+    .unique()
+  return state?.generation ?? 0
+}
+
+export async function bumpPublicProjectionGeneration(ctx: MutationCtx): Promise<number> {
+  const state = await ctx.db
+    .query('publicProjectionState')
+    .withIndex('by_key', (query) => query.eq('key', 'global'))
+    .unique()
+  const generation = (state?.generation ?? 0) + 1
+  if (state) {
+    await ctx.db.patch(state._id, { generation, updatedAt: Date.now() })
+  } else {
+    await ctx.db.insert('publicProjectionState', {
+      key: 'global',
+      generation,
+      updatedAt: Date.now(),
+    })
+  }
+  return generation
+}
+
 /**
  * Upsert one (entryId, locale) public row + matching route lookup row.
  * Atomic: either both succeed or both fail (Convex mutation semantics).
@@ -110,6 +136,7 @@ export async function upsertPublicProjection(
       )
       .first()
     if (routeRow) await ctx.db.delete(routeRow._id)
+    await bumpPublicProjectionGeneration(ctx)
     return
   }
 
@@ -121,6 +148,7 @@ export async function upsertPublicProjection(
     href: input.href,
     revisionId: input.revisionId,
   })
+  await bumpPublicProjectionGeneration(ctx)
 }
 
 interface RouteInput {
@@ -198,6 +226,7 @@ export async function deletePublicProjection(
     .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entryId).eq('locale', args.locale))
     .first()
   if (routeRow) await ctx.db.delete(routeRow._id)
+  if (entryRow || routeRow) await bumpPublicProjectionGeneration(ctx)
 }
 
 /**
@@ -223,6 +252,7 @@ export async function deleteAllPublicProjections(
   for (const row of routeRows) {
     await ctx.db.delete(row._id)
   }
+  if (entryRows.length || routeRows.length) await bumpPublicProjectionGeneration(ctx)
   return locales
 }
 

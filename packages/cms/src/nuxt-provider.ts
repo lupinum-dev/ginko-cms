@@ -8,8 +8,15 @@ import {
   parseCmsSiteDataWireResult,
   parseCmsSurroundWireResult,
 } from '@lupinum/ginko-content/cms-contract'
+import type {
+  BoundedContentProviderQuery,
+  ContentDataSource,
+  ContentDataSourceCacheHint,
+  ContentDataSourceControl,
+  ContentDataSourceResult,
+} from '@lupinum/ginko-content/data-source'
 import {
-  withContentCache,
+  bindContentProvider,
   type ContentCacheHint,
   type ContentProvider,
   type ContentProviderNavigationItem,
@@ -20,6 +27,7 @@ import {
   type ContentProviderVariantSelector,
   type ContentRouteRecord,
 } from '@lupinum/ginko-content/provider'
+import type { H3Event } from 'h3'
 
 import {
   canonicalFromRoute,
@@ -29,10 +37,15 @@ import {
   routeFactFor,
   toContentEntry,
 } from './nuxt-provider/content-shaping.js'
-import { callGinko, providerError, setClientFactoryForTests } from './nuxt-provider/transport.js'
+import {
+  callGinko,
+  callerForEvent,
+  providerError,
+  setClientFactoryForTests,
+  type ConvexQueryCaller,
+} from './nuxt-provider/transport.js'
 
-type ProviderEvent = Parameters<ContentProvider['query']>[0]
-type ProviderRequestEvent = ProviderEvent | undefined
+type ProviderEvent = H3Event
 type UnknownRecord = Record<string, unknown>
 type ContentRuntime = {
   defaultLocale?: string
@@ -63,6 +76,10 @@ type CmsSearchRequest = Partial<Parameters<NonNullable<ContentProvider['search']
   collection?: string
 }
 type CmsSiteDataRequest = Partial<ContentProviderSiteDataRequest>
+interface GinkoCmsDataSourceContext {
+  event: H3Event
+  caller: ConvexQueryCaller
+}
 
 const isRecord = (value: unknown): value is UnknownRecord =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -117,7 +134,7 @@ export const __setGinkoNuxtProviderClientFactoryForTests = (
   setClientFactoryForTests(factory)
 }
 
-const runtimeConfigFromEvent = async (event: ProviderRequestEvent): Promise<RuntimeConfig> => {
+const runtimeConfigFromEvent = async (event: ProviderEvent): Promise<RuntimeConfig> => {
   const context = event?.context as UnknownRecord | undefined
   const nitro = isRecord(context?.nitro) ? context.nitro : undefined
   const eventRuntimeConfig = nitro?.runtimeConfig || context?.runtimeConfig
@@ -133,7 +150,7 @@ const runtimeConfigFromEvent = async (event: ProviderRequestEvent): Promise<Runt
   return {}
 }
 
-const contentRuntimeFromEvent = async (event: ProviderRequestEvent): Promise<ContentRuntime> => {
+const contentRuntimeFromEvent = async (event: ProviderEvent): Promise<ContentRuntime> => {
   const runtime = await runtimeConfigFromEvent(event)
   const publicRuntime = runtime?.public || {}
   const contentRuntime = runtime?.content || publicRuntime.content
@@ -229,6 +246,55 @@ const siteDataCacheHint = (key: string, locale?: string): ContentCacheHint =>
   normalizeCacheHint({ tags: [contentTags.siteData(key || '*', locale)] })
 
 const sitemapCacheHint = () => normalizeCacheHint({ tags: [contentTags.sitemap()] })
+
+const dataSourceCacheHint = (
+  hint: ContentCacheHint | false,
+): ContentDataSourceCacheHint | false => {
+  if (hint === false) return false
+  return {
+    tags: [...(hint.tags || [])],
+    paths: [...(hint.paths || [])],
+    maxAge: hint.maxAge ?? null,
+    swr: hint.swr ?? null,
+    etag: hint.etag ?? null,
+    lastModified: hint.lastModified ? hint.lastModified.valueOf() : null,
+  }
+}
+
+const sourceResult = <T>(data: T, cache: ContentCacheHint | false): ContentDataSourceResult<T> => ({
+  data,
+  cache: dataSourceCacheHint(cache),
+})
+
+type RoutesCursor = {
+  source: 'cms'
+  scope: number
+  backend: string | null
+  snapshot: string | null
+}
+
+const parseRoutesCursor = (cursor: string | null): RoutesCursor => {
+  if (cursor === null) return { source: 'cms', scope: 0, backend: null, snapshot: null }
+  try {
+    const parsed = JSON.parse(cursor) as Partial<RoutesCursor>
+    if (
+      parsed.source !== 'cms' ||
+      !Number.isSafeInteger(parsed.scope) ||
+      (parsed.scope as number) < 0 ||
+      (parsed.backend !== null && typeof parsed.backend !== 'string') ||
+      (parsed.snapshot !== null && typeof parsed.snapshot !== 'string')
+    ) {
+      throw new Error('invalid')
+    }
+    return parsed as RoutesCursor
+  } catch {
+    throw providerError('CURSOR_INVALID', 'CMS route cursor is invalid.', 400, {
+      operation: 'routes',
+    })
+  }
+}
+
+const encodeRoutesCursor = (cursor: RoutesCursor): string => JSON.stringify(cursor)
 
 const pickNavFields = (entry: UnknownRecord, fields: string[] = []): UnknownRecord =>
   Object.fromEntries(fields.filter((field) => field in entry).map((field) => [field, entry[field]]))
@@ -442,7 +508,7 @@ const decodeResult = <T>(operation: string, parser: (raw: unknown) => T, raw: un
 }
 
 const resolveVariant = async (
-  event: ProviderRequestEvent,
+  caller: ConvexQueryCaller,
   collection: string,
   selector: ContentProviderVariantSelector,
   contentRuntime: ContentRuntime,
@@ -455,7 +521,7 @@ const resolveVariant = async (
         'page',
         parseCmsPageWireResult,
         { collection, locale },
-        await callGinko(event, 'page', {
+        await callGinko(caller, 'page', {
           collection,
           locale,
           ref: selector.ref,
@@ -472,7 +538,7 @@ const resolveVariant = async (
       'page',
       parseCmsPageWireResult,
       { collection, locale: candidate.locale },
-      await callGinko(event, 'page', {
+      await callGinko(caller, 'page', {
         collection,
         locale: candidate.locale,
         path: mountedContentPath(
@@ -491,17 +557,23 @@ const resolveVariant = async (
   }
 }
 
-const contentProviderImplementation = {
+const contentDataSource = {
   name: 'cms',
   capabilities: {
+    protocol: 'ginko-content-data-source/v1',
     query: {
       operators: ['$eq', '$ne', '$prefix'],
       pagination: ['cursor'],
+      maxPageSize: 100,
     },
   },
-  query: async (event: ProviderEvent, input: ContentProviderQuery) => {
+  query: async (
+    context: GinkoCmsDataSourceContext,
+    input: BoundedContentProviderQuery,
+    _control: ContentDataSourceControl,
+  ) => {
     assertProviderQuery(input)
-    const contentRuntime = await contentRuntimeFromEvent(event)
+    const contentRuntime = await contentRuntimeFromEvent(context.event)
     const plan = input.plan
     if (plan.variantSelector) {
       if (!input.collection) {
@@ -515,7 +587,7 @@ const contentProviderImplementation = {
         )
       }
       const { locale, result } = await resolveVariant(
-        event,
+        context.caller,
         input.collection,
         plan.variantSelector,
         contentRuntime,
@@ -523,7 +595,7 @@ const contentProviderImplementation = {
       const entry =
         result.status === 'found' && result.page ? await toContentEntry(result.page, locale) : null
       const data = { result: entry ? applyOnlyProjection(entry, plan.projection?.only) : null }
-      return withContentCache(
+      return sourceResult(
         data,
         entry && result.page
           ? cacheHintForEntry(result.page, entry)
@@ -549,7 +621,7 @@ const contentProviderImplementation = {
       'list',
       parseCmsListWireResult,
       { collection, locale },
-      await callGinko(event, 'list', {
+      await callGinko(context.caller, 'list', {
         collection,
         locale,
         limit: plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit,
@@ -576,26 +648,27 @@ const contentProviderImplementation = {
             },
           }
     const entryHints = rawEntries.map((entry, index) => cacheHintForEntry(entry, entries[index]))
-    return withContentCache(data, mergeCacheHints(collectionCacheHint(collection), ...entryHints))
+    return sourceResult(data, mergeCacheHints(collectionCacheHint(collection), ...entryHints))
   },
   navigation: async (
-    event: ProviderEvent,
-    input: ContentProviderQuery,
-    options: ContentProviderNavigationOptions = {},
+    context: GinkoCmsDataSourceContext,
+    input: BoundedContentProviderQuery,
+    options: ContentProviderNavigationOptions & { limit: number },
+    _control: ContentDataSourceControl,
   ) => {
     assertProviderQuery(input)
     const collection = input.collection
     assertQueryCollection(collection)
-    const contentRuntime = await contentRuntimeFromEvent(event)
+    const contentRuntime = await contentRuntimeFromEvent(context.event)
     const locale = options.locale || defaultLocale(contentRuntime)
     const fields = input.plan?.projection?.only || []
     const result = decodeRequested(
       'navigation',
       parseCmsNavWireResult,
       { collection, locale },
-      await callGinko(event, 'nav', { collection, locale }),
+      await callGinko(context.caller, 'nav', { collection, locale, limit: options.limit }),
     )
-    return withContentCache(
+    return sourceResult(
       result.tree.map(function toRawNavigation(node): ContentProviderNavigationItem {
         const entry = node.entry
         return {
@@ -609,18 +682,19 @@ const contentProviderImplementation = {
     )
   },
   surroundings: async (
-    event: ProviderEvent,
+    context: GinkoCmsDataSourceContext,
     collection: string,
     path: string,
-    options: ContentProviderSurroundingsOptions = {},
+    options: ContentProviderSurroundingsOptions,
+    _control: ContentDataSourceControl,
   ) => {
-    const contentRuntime = await contentRuntimeFromEvent(event)
+    const contentRuntime = await contentRuntimeFromEvent(context.event)
     const locale = localeFromOptions(options, contentRuntime)
     const result = decodeRequested(
       'surroundings',
       parseCmsSurroundWireResult,
       { collection, locale },
-      await callGinko(event, 'surround', {
+      await callGinko(context.caller, 'surround', {
         collection,
         locale,
         path: canonicalFromRoute(path, locale),
@@ -630,7 +704,7 @@ const contentProviderImplementation = {
     )
     const previous = (result.previous || [])[0]
     const next = (result.next || [])[0]
-    return withContentCache(
+    return sourceResult(
       [
         previous
           ? {
@@ -648,8 +722,12 @@ const contentProviderImplementation = {
       collectionCacheHint(collection),
     )
   },
-  search: async (event: ProviderEvent, request: CmsSearchRequest = {}) => {
-    const contentRuntime = await contentRuntimeFromEvent(event)
+  search: async (
+    context: GinkoCmsDataSourceContext,
+    request: CmsSearchRequest & { limit: number },
+    _control: ContentDataSourceControl,
+  ) => {
+    const contentRuntime = await contentRuntimeFromEvent(context.event)
     const locale = request.locale || defaultLocale(contentRuntime)
     const query = request.query || request.term || ''
     const collections = request.collections?.length
@@ -668,7 +746,12 @@ const contentProviderImplementation = {
           'search',
           parseCmsSearchWireResult,
           { collection, locale },
-          await callGinko(event, 'search', { query, locale, collection }),
+          await callGinko(context.caller, 'search', {
+            query,
+            locale,
+            collection,
+            limit: request.limit,
+          }),
         )
         const searchEntries = await Promise.all(
           (result.results || []).map((entry) => toContentEntry(entry, locale)),
@@ -684,16 +767,20 @@ const contentProviderImplementation = {
       }),
     )
     const data = collectionResults.flat()
-    return withContentCache(data, searchCacheHint(locale))
+    return sourceResult(data, searchCacheHint(locale))
   },
-  siteData: async (event: ProviderRequestEvent, request: CmsSiteDataRequest = {}) => {
-    const contentRuntime = await contentRuntimeFromEvent(event)
+  siteData: async (
+    context: GinkoCmsDataSourceContext,
+    request: CmsSiteDataRequest,
+    _control: ContentDataSourceControl,
+  ) => {
+    const contentRuntime = await contentRuntimeFromEvent(context.event)
     const locale = request.locale || defaultLocale(contentRuntime)
     const result = decodeRequested(
       'site data',
       parseCmsSiteDataWireResult,
       { locale },
-      await callGinko(event, 'siteData', { key: request.key, locale }),
+      await callGinko(context.caller, 'siteData', { key: request.key, locale }),
     )
     if (result.key !== request.key) {
       throw providerError(
@@ -703,83 +790,106 @@ const contentProviderImplementation = {
         { operation: 'siteData', field: 'key' },
       )
     }
-    return withContentCache(
+    return sourceResult(
       {
         key: result.key,
         locale: result.locale?.resolved || result.locale?.requested || locale,
         data: result.data ?? null,
+        updatedAt: null,
       },
       siteDataCacheHint(result.key || request.key || '*', locale),
     )
   },
-  routes: async (event: ProviderEvent) => {
-    const contentRuntime = await contentRuntimeFromEvent(event)
+  routes: async (
+    context: GinkoCmsDataSourceContext,
+    request: { cursor: string | null; limit: number },
+    _control: ContentDataSourceControl,
+  ) => {
+    const contentRuntime = await contentRuntimeFromEvent(context.event)
     const collections = Object.entries(contentRuntime.collections || {})
       .filter(([, collection]) => collection?.type !== 'data')
       .map(([name]) => name)
-    const records: ContentRouteRecord[] = []
-    const MAX_ROUTE_PAGES = 1000
-    const MAX_ROUTE_RECORDS = 100_000
-    for (const collection of collections) {
-      for (const locale of sitemapLocalesForCollection(contentRuntime, collection)) {
-        let cursor: string | null = null
-        let pages = 0
-        do {
-          if (++pages > MAX_ROUTE_PAGES || records.length >= MAX_ROUTE_RECORDS) {
-            throw providerError(
-              'unsupported_provider_prerender',
-              `CMS route enumeration exceeded its safety bound for collection "${collection}".`,
-              500,
-              { collection, maxPages: MAX_ROUTE_PAGES, maxRecords: MAX_ROUTE_RECORDS },
-            )
-          }
-          const result: RoutesResult = decodeResult(
-            'routes',
-            parseCmsRoutesWireResult,
-            await callGinko(event, 'routes', { collection, locale, cursor }),
-          )
-          if (
-            result.routes.some(
-              (route) => route.collection !== collection || route.locale !== locale,
-            )
-          ) {
-            throw providerError(
-              'provider_response_invalid',
-              'Ginko routes substituted a different collection or locale.',
-              502,
-              { operation: 'routes', collection, locale },
-            )
-          }
-          if (records.length + (result.routes?.length || 0) > MAX_ROUTE_RECORDS) {
-            throw providerError(
-              'unsupported_provider_prerender',
-              `CMS route enumeration exceeded its safety bound for collection "${collection}".`,
-              500,
-              { collection, maxPages: MAX_ROUTE_PAGES, maxRecords: MAX_ROUTE_RECORDS },
-            )
-          }
-          records.push(
-            ...result.routes.map(
-              (route): ContentRouteRecord => ({
-                collection: route.collection,
-                canonicalKey: route.stableId,
-                locale: route.locale,
-                contentPath: route.path,
-                ...(route.sitemapIncluded
-                  ? { sitemap: { lastmod: route.lastmod } }
-                  : { sitemap: false }),
-              }),
-            ),
-          )
-          cursor = result.pageInfo?.endCursor ?? null
-        } while (cursor)
+    const scopes = collections.flatMap((collection) =>
+      sitemapLocalesForCollection(contentRuntime, collection).map((locale) => ({
+        collection,
+        locale,
+      })),
+    )
+    let position = parseRoutesCursor(request.cursor)
+    while (position.scope < scopes.length) {
+      const scope = scopes[position.scope]!
+      const result: RoutesResult = decodeResult(
+        'routes',
+        parseCmsRoutesWireResult,
+        await callGinko(context.caller, 'routes', {
+          ...scope,
+          cursor: position.backend,
+          limit: request.limit,
+        }),
+      )
+      if (
+        result.routes.some(
+          (route) => route.collection !== scope.collection || route.locale !== scope.locale,
+        )
+      ) {
+        throw providerError(
+          'provider_response_invalid',
+          'Ginko routes substituted a different collection or locale.',
+          502,
+          { operation: 'routes', ...scope },
+        )
       }
+      if (position.snapshot !== null && result.snapshot !== position.snapshot) {
+        throw providerError(
+          'CURSOR_INVALID',
+          'CMS route snapshot changed during enumeration.',
+          400,
+          {
+            operation: 'routes',
+          },
+        )
+      }
+      const backend = result.pageInfo?.endCursor ?? null
+      const next = backend
+        ? { source: 'cms' as const, scope: position.scope, backend, snapshot: result.snapshot }
+        : {
+            source: 'cms' as const,
+            scope: position.scope + 1,
+            backend: null,
+            snapshot: result.snapshot,
+          }
+      const records = result.routes.map(
+        (route): ContentRouteRecord => ({
+          collection: route.collection,
+          canonicalKey: route.stableId,
+          locale: route.locale,
+          contentPath: route.path,
+          ...(route.sitemapIncluded ? { sitemap: { lastmod: route.lastmod } } : { sitemap: false }),
+        }),
+      )
+      if (records.length || next.scope >= scopes.length) {
+        return sourceResult(
+          {
+            items: records,
+            nextCursor: next.scope >= scopes.length ? null : encodeRoutesCursor(next),
+            snapshot: result.snapshot,
+          },
+          sitemapCacheHint(),
+        )
+      }
+      position = next
     }
-    return withContentCache(records, sitemapCacheHint())
+    return sourceResult(
+      { items: [], nextCursor: null, snapshot: position.snapshot ?? '0' },
+      sitemapCacheHint(),
+    )
   },
-}
+} satisfies ContentDataSource<GinkoCmsDataSourceContext>
 
-const contentProvider: ContentProvider = contentProviderImplementation as unknown as ContentProvider
+const contentProvider: ContentProvider = bindContentProvider({
+  source: contentDataSource,
+  createContext: async (event) => ({ event, caller: await callerForEvent(event) }),
+})
 
 export { contentProvider }
 export default contentProvider

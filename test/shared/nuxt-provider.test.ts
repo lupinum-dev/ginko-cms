@@ -144,6 +144,7 @@ const convexMock = vi.hoisted(() => {
           },
         ],
         pageInfo: { hasNextPage: false, endCursor: null },
+        snapshot: '1',
       }
     }
     throw new Error(`Unexpected Convex operation: ${operation}`)
@@ -223,6 +224,21 @@ describe('Ginko Nuxt provider v2', () => {
     expectProviderCapabilities(contentProvider as never, {
       query: { operators: ['$eq', '$ne', '$prefix'], pagination: ['cursor'] },
     })
+  })
+
+  it('creates one request-scoped Convex caller for concurrent operations', async () => {
+    const createCaller = vi.fn(() => ({ query: convexMock.query }))
+    setClientFactory(createCaller)
+
+    await Promise.all([
+      contentProvider.query(event, toContentProviderQuery({ collection: 'docs', limit: 2 })),
+      contentProvider.siteData!(event, { key: 'announcement', locale: 'en' }),
+    ])
+
+    expect(createCaller).toHaveBeenCalledOnce()
+    expect(convexMock.calls.map(({ operation }) => operation)).toEqual(
+      expect.arrayContaining(['list', 'siteData']),
+    )
   })
 
   it('maps the canonical source-order sort to the CMS order index', async () => {
@@ -447,7 +463,7 @@ describe('Ginko Nuxt provider v2', () => {
     expect(convexMock.calls.filter((call) => call.operation === 'routes')).toEqual([
       {
         operation: 'routes',
-        args: { collection: 'docs', locale: 'de', cursor: null },
+        args: { collection: 'docs', locale: 'de', cursor: null, limit: 250 },
       },
     ])
   })
@@ -482,7 +498,7 @@ describe('Ginko Nuxt provider v2', () => {
     expect(convexMock.calls.filter((call) => call.operation === 'routes')).toEqual([
       {
         operation: 'routes',
-        args: { collection: 'guides', locale: 'fr', cursor: null },
+        args: { collection: 'guides', locale: 'fr', cursor: null, limit: 250 },
       },
     ])
   })

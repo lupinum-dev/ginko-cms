@@ -5,7 +5,7 @@ import { getCollection } from '../lib/collections.js'
 import { asEntryId } from '../lib/ids.js'
 import type { CmsCollection, MutationCtx, QueryCtx } from '../lib/types.js'
 import { rebuildContentAssetRefsForEntry } from './projections.js'
-import type { PublicEntryDoc } from './workflow/projection.js'
+import { bumpPublicProjectionGeneration, type PublicEntryDoc } from './workflow/projection.js'
 
 const projectionIssueValidator = v.object({
   code: v.string(),
@@ -186,6 +186,7 @@ export const repairPublishedProjectionIndexesForEntry = internalMutation({
         issues,
       })
     }
+    if (rebuiltPublicRoutes > 0) await bumpPublicProjectionGeneration(ctx)
 
     await rebuildContentAssetRefsForEntry(ctx, entry._id, collection)
     const contentAssetRefs = await ctx.db
