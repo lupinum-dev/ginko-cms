@@ -87,15 +87,22 @@ describe('studio ui primitives', () => {
   })
 
   it('exposes shadcn-style field state and orientation attributes', () => {
+    // The refreshed template Field is a plain <div> with only `class` +
+    // `orientation`; it no longer owns `invalid`/`disabled` props. Callers now
+    // pass the invalid state through as a `data-invalid` attribute, which the
+    // fieldVariants cva turns into `data-[invalid=true]:text-destructive`.
     const responsive = mount(Field, {
-      props: { orientation: 'responsive', invalid: true, disabled: true },
+      props: { orientation: 'responsive' },
+      attrs: { 'data-invalid': 'true' },
       slots: { default: 'Field body' },
     })
 
     expect(responsive.attributes('role')).toBe('group')
     expect(responsive.attributes('data-orientation')).toBe('responsive')
     expect(responsive.attributes('data-invalid')).toBe('true')
-    expect(responsive.attributes('data-disabled')).toBe('true')
+    expect(responsive.attributes('class')).toContain(
+      'ginko:data-[invalid=true]:text-destructive',
+    )
     expect(responsive.attributes('class')).toContain('ginko:@md/field-group:flex-row')
   })
 
@@ -234,9 +241,11 @@ describe('studio ui primitives', () => {
     const button = wrapper.get('[data-sidebar="menu-button"]')
 
     expect(button.attributes('data-active')).toBe('true')
-    expect(button.attributes('class')).toContain('ginko:data-[active=true]:bg-sidebar-primary')
+    // Refreshed sidebarMenuButtonVariants drive the active item with the accent
+    // token pair (was sidebar-primary before the template refresh).
+    expect(button.attributes('class')).toContain('ginko:data-[active=true]:bg-sidebar-accent')
     expect(button.attributes('class')).toContain(
-      'ginko:data-[active=true]:text-sidebar-primary-foreground',
+      'ginko:data-[active=true]:text-sidebar-accent-foreground',
     )
   })
 

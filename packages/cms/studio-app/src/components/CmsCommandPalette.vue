@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ArrowRight, FileText, History, Loader2, Zap } from '@lucide/vue'
+import { ArrowRight, FileText, History, Loader2, Search, Zap } from '@lucide/vue'
+import { ListboxFilter } from 'reka-ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -118,6 +119,13 @@ const recentSection = computed<PaletteItem[]>(() =>
   query.value ? [] : recentItems.value.filter((item) => item.href),
 )
 
+// The palette runs a debounced SERVER search and expects every provided item to
+// render; the refreshed reka-ui Command otherwise filters items client-side by
+// their rendered text against filterState.search. We deliberately keep the
+// Command's internal filter disabled (its search state is never populated — see
+// the ListboxFilter bound to `query` below) and drive visibility purely from the
+// server results + these v-if guards, so this custom empty state replaces the
+// self-gating <CommandEmpty>.
 const hasAnyItems = computed(
   () =>
     recentSection.value.length > 0 ||
@@ -207,113 +215,130 @@ onBeforeUnmount(() => {
     :description="t('ginkoCms.studio.commandPalette.description')"
     @update:open="open = $event"
   >
-    <Command :filter-function="undefined">
-      <CommandInput
+    <!--
+      Custom command input: bind reka's ListboxFilter to `query` (which drives
+      the debounced server search) rather than the Command context's
+      filterState.search. This intentionally leaves the Command's internal
+      client-side filter disabled so all server-provided items render. Markup
+      mirrors ui/command/CommandInput.vue.
+    -->
+    <div
+      data-slot="command-input-wrapper"
+      class="ginko:flex ginko:h-12 ginko:items-center ginko:gap-2 ginko:border-b ginko:px-3"
+    >
+      <Search class="ginko:size-4 ginko:shrink-0 ginko:opacity-50" />
+      <ListboxFilter
         v-model="query"
+        auto-focus
+        data-slot="command-input"
         :placeholder="t('ginkoCms.studio.commandPalette.placeholder')"
+        class="ginko:placeholder:text-muted-foreground ginko:flex ginko:h-12 ginko:w-full ginko:rounded-md ginko:bg-transparent ginko:py-3 ginko:text-sm ginko:outline-hidden ginko:disabled:cursor-not-allowed ginko:disabled:opacity-50"
       />
-      <CommandList>
-        <div
-          v-if="searchPending && query"
-          class="ginko:flex ginko:items-center ginko:justify-center ginko:py-8 ginko:text-sm ginko:text-muted-foreground"
+    </div>
+    <CommandList>
+      <div
+        v-if="searchPending && query"
+        class="ginko:flex ginko:items-center ginko:justify-center ginko:py-8 ginko:text-sm ginko:text-muted-foreground"
+      >
+        <Loader2 class="ginko:mr-2 ginko:size-4 ginko:animate-spin" />
+        {{ t('ginkoCms.studio.commandPalette.searching') }}
+      </div>
+
+      <div
+        v-else-if="!hasAnyItems"
+        class="ginko:py-6 ginko:text-center ginko:text-sm ginko:text-muted-foreground"
+      >
+        {{ t('ginkoCms.studio.commandPalette.noResults') }}
+      </div>
+
+      <CommandGroup v-if="recentSection.length" :heading="t('ginkoCms.common.recent')">
+        <CommandItem
+          v-for="item in recentSection"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
         >
-          <Loader2 class="ginko:mr-2 ginko:size-4 ginko:animate-spin" />
-          {{ t('ginkoCms.studio.commandPalette.searching') }}
-        </div>
-
-        <CommandEmpty v-else-if="!hasAnyItems">
-          {{ t('ginkoCms.studio.commandPalette.noResults') }}
-        </CommandEmpty>
-
-        <CommandGroup v-if="recentSection.length" :heading="t('ginkoCms.common.recent')">
-          <CommandItem
-            v-for="item in recentSection"
-            :key="item.id"
-            :value="item.id"
-            @select="selectItem(item)"
-          >
-            <History class="ginko:text-muted-foreground" />
-            <div class="ginko:min-w-0 ginko:flex-1">
-              <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
-              <div
-                v-if="item.subtitle"
-                class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
-              >
-                {{ item.subtitle }}
-              </div>
+          <History class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+            <div
+              v-if="item.subtitle"
+              class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
+            >
+              {{ item.subtitle }}
             </div>
-          </CommandItem>
-        </CommandGroup>
+          </div>
+        </CommandItem>
+      </CommandGroup>
 
-        <CommandSeparator v-if="recentSection.length && searchItems.length" />
+      <CommandSeparator v-if="recentSection.length && searchItems.length" />
 
-        <CommandGroup v-if="searchItems.length" :heading="t('ginkoCms.common.content')">
-          <CommandItem
-            v-for="item in searchItems"
-            :key="item.id"
-            :value="item.id"
-            @select="selectItem(item)"
-          >
-            <FileText class="ginko:text-muted-foreground" />
-            <div class="ginko:min-w-0 ginko:flex-1">
-              <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
-              <div
-                v-if="item.subtitle"
-                class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
-              >
-                {{ item.subtitle }}
-              </div>
+      <CommandGroup v-if="searchItems.length" :heading="t('ginkoCms.common.content')">
+        <CommandItem
+          v-for="item in searchItems"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
+        >
+          <FileText class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+            <div
+              v-if="item.subtitle"
+              class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
+            >
+              {{ item.subtitle }}
             </div>
-          </CommandItem>
-        </CommandGroup>
+          </div>
+        </CommandItem>
+      </CommandGroup>
 
-        <CommandSeparator
-          v-if="(recentSection.length || searchItems.length) && staticLinks.length"
-        />
+      <CommandSeparator
+        v-if="(recentSection.length || searchItems.length) && staticLinks.length"
+      />
 
-        <CommandGroup :heading="t('ginkoCms.common.pages')">
-          <CommandItem
-            v-for="item in staticLinks"
-            :key="item.id"
-            :value="item.id"
-            @select="selectItem(item)"
-          >
-            <ArrowRight class="ginko:text-muted-foreground" />
-            <div class="ginko:min-w-0 ginko:flex-1">
-              <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
-              <div
-                v-if="item.subtitle"
-                class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
-              >
-                {{ item.subtitle }}
-              </div>
+      <CommandGroup :heading="t('ginkoCms.common.pages')">
+        <CommandItem
+          v-for="item in staticLinks"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
+        >
+          <ArrowRight class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+            <div
+              v-if="item.subtitle"
+              class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
+            >
+              {{ item.subtitle }}
             </div>
-          </CommandItem>
-        </CommandGroup>
+          </div>
+        </CommandItem>
+      </CommandGroup>
 
-        <CommandSeparator v-if="actionItems.length" />
+      <CommandSeparator v-if="actionItems.length" />
 
-        <CommandGroup v-if="actionItems.length" :heading="t('ginkoCms.common.actions')">
-          <CommandItem
-            v-for="item in actionItems"
-            :key="item.id"
-            :value="item.id"
-            @select="selectItem(item)"
-          >
-            <Zap class="ginko:text-muted-foreground" />
-            <div class="ginko:min-w-0 ginko:flex-1">
-              <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
-              <div
-                v-if="item.subtitle"
-                class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
-              >
-                {{ item.subtitle }}
-              </div>
+      <CommandGroup v-if="actionItems.length" :heading="t('ginkoCms.common.actions')">
+        <CommandItem
+          v-for="item in actionItems"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
+        >
+          <Zap class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+            <div
+              v-if="item.subtitle"
+              class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
+            >
+              {{ item.subtitle }}
             </div>
-          </CommandItem>
-        </CommandGroup>
-      </CommandList>
-    </Command>
+          </div>
+        </CommandItem>
+      </CommandGroup>
+    </CommandList>
 
     <div
       class="ginko:flex ginko:items-center ginko:justify-between ginko:border-t ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:text-muted-foreground"

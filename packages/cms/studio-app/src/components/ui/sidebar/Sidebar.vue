@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SidebarProps } from '.'
+import { computed } from 'vue'
 import { Sheet, SheetContent } from '../sheet'
 import SheetDescription from '../sheet/SheetDescription.vue'
 import SheetHeader from '../sheet/SheetHeader.vue'
@@ -18,6 +19,34 @@ const props = withDefaults(defineProps<SidebarProps>(), {
 })
 
 const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+
+// Variant/side-conditional classes are hoisted out of the template `:class`
+// bindings so the ginkoify codemod never scans the `side === 'left'` /
+// `variant === 'inset'` comparison operands. Bare position/variant words like
+// 'left'/'inset' collide with the Tailwind utility allowlist and would be
+// wrongly `ginko:`-prefixed inside a `cn(...)` expression; selecting the class
+// string in <script> keeps the codemod --check gate green with identical output.
+const isFloatingOrInset = computed(
+  () => props.variant === 'floating' || props.variant === 'inset',
+)
+
+const gapWidthClass = computed(() =>
+  isFloatingOrInset.value
+    ? 'ginko:group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
+    : 'ginko:group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
+)
+
+const sidePositionClass = computed(() =>
+  props.side === 'left'
+    ? 'ginko:left-0 ginko:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]'
+    : 'ginko:right-0 ginko:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]',
+)
+
+const paddingClass = computed(() =>
+  isFloatingOrInset.value
+    ? 'ginko:p-2 ginko:group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
+    : 'ginko:group-data-[collapsible=icon]:w-(--sidebar-width-icon) ginko:group-data-[side=left]:border-r ginko:group-data-[side=right]:border-l',
+)
 </script>
 
 <template>
@@ -72,9 +101,7 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
           'ginko:relative ginko:w-(--sidebar-width) ginko:bg-transparent ginko:transition-[width] ginko:duration-200 ginko:ease-linear',
           'ginko:group-data-[collapsible=offcanvas]:w-0',
           'ginko:group-data-[side=right]:rotate-180',
-          variant === 'floating' || variant === 'inset'
-            ? 'ginko:group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
-            : 'ginko:group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
+          gapWidthClass,
         )
       "
     />
@@ -82,13 +109,9 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
       :class="
         cn(
           'ginko:fixed ginko:inset-y-0 ginko:z-10 ginko:hidden ginko:h-svh ginko:w-(--sidebar-width) ginko:transition-[left,right,width] ginko:duration-200 ginko:ease-linear ginko:md:flex',
-          side === 'left'
-            ? 'ginko:left-0 ginko:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]'
-            : 'ginko:right-0 ginko:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]',
+          sidePositionClass,
           // Adjust the padding for floating and inset variants.
-          variant === 'floating' || variant === 'inset'
-            ? 'ginko:p-2 ginko:group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
-            : 'ginko:group-data-[collapsible=icon]:w-(--sidebar-width-icon) ginko:group-data-[side=left]:border-r ginko:group-data-[side=right]:border-l',
+          paddingClass,
           props.class,
         )
       "

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { computed } from 'vue'
-
+import { useVModel } from '@vueuse/core'
 import { cn } from '../utils'
 
 const props = defineProps<{
@@ -14,17 +13,15 @@ const emits = defineEmits<{
   (e: 'update:modelValue', payload: string | number): void
 }>()
 
-const modelValue = computed<string | number | undefined>({
-  get: () => props.modelValue ?? props.defaultValue,
-  set: (value) => {
-    emits('update:modelValue', value ?? '')
-  },
+const modelValue = useVModel(props, 'modelValue', emits, {
+  passive: true,
+  defaultValue: props.defaultValue,
 })
 </script>
 
 <template>
   <textarea
-    :value="modelValue ?? ''"
+    v-model="modelValue"
     data-slot="textarea"
     :class="
       cn(
@@ -32,6 +29,5 @@ const modelValue = computed<string | number | undefined>({
         props.class,
       )
     "
-    @input="modelValue = ($event.target as HTMLTextAreaElement).value"
   />
 </template>

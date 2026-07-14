@@ -1,6 +1,6 @@
 import type { VariantProps } from 'class-variance-authority'
-import { cva } from 'class-variance-authority'
 import type { HTMLAttributes } from 'vue'
+import { cva } from 'class-variance-authority'
 
 export interface SidebarProps {
   side?: 'left' | 'right'
@@ -36,13 +36,13 @@ export { default as SidebarTrigger } from './SidebarTrigger.vue'
 export { useSidebar } from './utils'
 
 export const sidebarMenuButtonVariants = cva(
-  'ginko:peer/menu-button ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:overflow-hidden ginko:rounded-md ginko:p-2 ginko:text-left ginko:outline-hidden ginko:ring-sidebar-ring ginko:transition-[width,height,padding] ginko:hover:bg-sidebar-accent ginko:hover:text-sidebar-accent-foreground ginko:focus-visible:ring-2 ginko:active:bg-sidebar-accent ginko:active:text-sidebar-accent-foreground ginko:disabled:pointer-events-none ginko:disabled:opacity-50 ginko:group-has-data-[sidebar=menu-action]/menu-item:pr-8 ginko:aria-disabled:pointer-events-none ginko:aria-disabled:opacity-50 ginko:data-[active=true]:bg-sidebar-primary ginko:data-[active=true]:font-medium ginko:data-[active=true]:text-sidebar-primary-foreground ginko:data-[active=true]:hover:bg-sidebar-primary ginko:data-[active=true]:hover:text-sidebar-primary-foreground ginko:data-[state=open]:bg-sidebar-accent ginko:data-[state=open]:text-sidebar-accent-foreground ginko:data-[state=open]:hover:bg-sidebar-accent ginko:data-[state=open]:hover:text-sidebar-accent-foreground ginko:group-data-[collapsible=icon]:size-8! ginko:group-data-[collapsible=icon]:p-2! ginko:[&>span:last-child]:truncate ginko:[&>svg]:size-4 ginko:[&>svg]:shrink-0 ginko:[&>svg]:text-current ginko:[&>.iconify]:size-4 ginko:[&>.iconify]:shrink-0 ginko:[&>.iconify]:text-current',
+  'ginko:peer/menu-button ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:overflow-hidden ginko:rounded-md ginko:p-2 ginko:text-left ginko:text-sm ginko:outline-hidden ginko:ring-sidebar-ring ginko:transition-[width,height,padding] ginko:hover:bg-sidebar-accent ginko:hover:text-sidebar-accent-foreground ginko:focus-visible:ring-2 ginko:active:bg-sidebar-accent ginko:active:text-sidebar-accent-foreground ginko:disabled:pointer-events-none ginko:disabled:opacity-50 ginko:group-has-data-[sidebar=menu-action]/menu-item:pr-8 ginko:aria-disabled:pointer-events-none ginko:aria-disabled:opacity-50 ginko:data-[active=true]:bg-sidebar-accent ginko:data-[active=true]:font-medium ginko:data-[active=true]:text-sidebar-accent-foreground ginko:data-[state=open]:hover:bg-sidebar-accent ginko:data-[state=open]:hover:text-sidebar-accent-foreground ginko:group-data-[collapsible=icon]:size-8! ginko:group-data-[collapsible=icon]:p-2! ginko:[&>span:last-child]:truncate ginko:[&>svg]:size-4 ginko:[&>svg]:shrink-0',
   {
     variants: {
       variant: {
         default: 'ginko:hover:bg-sidebar-accent ginko:hover:text-sidebar-accent-foreground',
         outline:
-          'ginko:bg-background ginko:shadow-none ginko:ring-1 ginko:ring-sidebar-border ginko:hover:bg-sidebar-accent ginko:hover:text-sidebar-accent-foreground ginko:hover:ring-sidebar-accent',
+          'ginko:bg-background ginko:shadow-[0_0_0_1px_var(--sidebar-border)] ginko:hover:bg-sidebar-accent ginko:hover:text-sidebar-accent-foreground ginko:hover:shadow-[0_0_0_1px_var(--sidebar-accent)]',
       },
       size: {
         default: 'ginko:h-8 ginko:text-sm',
@@ -57,4 +57,6 @@ export const sidebarMenuButtonVariants = cva(
   },
 )
 
-export type SidebarMenuButtonVariants = VariantProps<typeof sidebarMenuButtonVariants>
+export type SidebarMenuButtonVariants = VariantProps<
+  typeof sidebarMenuButtonVariants
+>

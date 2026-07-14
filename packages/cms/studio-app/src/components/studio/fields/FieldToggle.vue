@@ -23,7 +23,7 @@ const value = computed({
 
 <template>
   <Field
-    :invalid="Boolean(fieldError)"
+    :data-invalid="Boolean(fieldError) || undefined"
     orientation="horizontal"
     class="ginko:justify-between ginko:py-1"
   >

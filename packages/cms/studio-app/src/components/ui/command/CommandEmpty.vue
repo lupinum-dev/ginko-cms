@@ -1,18 +1,31 @@
 <script setup lang="ts">
+import type { PrimitiveProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
-
+import { reactiveOmit } from '@vueuse/core'
+import { Primitive } from 'reka-ui'
+import { computed } from 'vue'
 import { cn } from '../utils'
+import { useCommand } from '.'
 
-const props = defineProps<{ class?: HTMLAttributes['class'] }>()
+const props = defineProps<
+  PrimitiveProps & { class?: HTMLAttributes['class'] }
+>()
+
+const delegatedProps = reactiveOmit(props, 'class')
+
+const { filterState } = useCommand()
+const isRender = computed(
+  () => !!filterState.search && filterState.filtered.count === 0,
+)
 </script>
 
 <template>
-  <div
+  <Primitive
+    v-if="isRender"
     data-slot="command-empty"
-    :class="
-      cn('ginko:py-6 ginko:text-center ginko:text-sm ginko:text-muted-foreground', props.class)
-    "
+    v-bind="delegatedProps"
+    :class="cn('ginko:py-6 ginko:text-center ginko:text-sm ginko:text-muted-foreground', props.class)"
   >
     <slot />
-  </div>
+  </Primitive>
 </template>

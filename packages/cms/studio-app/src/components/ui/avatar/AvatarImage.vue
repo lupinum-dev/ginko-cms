@@ -6,7 +6,11 @@ const props = defineProps<AvatarImageProps>()
 </script>
 
 <template>
-  <AvatarImage data-slot="avatar-image" v-bind="props" class="ginko:aspect-square ginko:size-full">
+  <AvatarImage
+    data-slot="avatar-image"
+    v-bind="props"
+    class="ginko:aspect-square ginko:size-full"
+  >
     <slot />
   </AvatarImage>
 </template>

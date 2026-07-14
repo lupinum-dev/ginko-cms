@@ -1,27 +1,22 @@
 <script setup lang="ts">
-import type { PrimitiveProps } from 'reka-ui'
-import { Primitive } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
-
 import { cn } from '../utils'
 
-const props = withDefaults(defineProps<PrimitiveProps & { class?: HTMLAttributes['class'] }>(), {
-  as: 'div',
-})
+const props = defineProps<{
+  class?: HTMLAttributes['class']
+}>()
 </script>
 
 <template>
-  <Primitive
+  <div
     data-slot="field-group"
-    :as="as"
-    :as-child="asChild"
     :class="
       cn(
-        'ginko:group/field-group ginko:@container/field-group ginko:flex ginko:w-full ginko:flex-col ginko:gap-5',
+        'ginko:group/field-group ginko:@container/field-group ginko:flex ginko:w-full ginko:flex-col ginko:gap-7 ginko:data-[slot=checkbox-group]:gap-3 ginko:[&>[data-slot=field-group]]:gap-4',
         props.class,
       )
     "
   >
     <slot />
-  </Primitive>
+  </div>
 </template>

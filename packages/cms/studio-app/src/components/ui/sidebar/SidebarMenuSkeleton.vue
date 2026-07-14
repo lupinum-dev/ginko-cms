@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 import { computed } from 'vue'
-
 import { Skeleton } from '../skeleton'
 import { cn } from '../utils'
 
@@ -19,12 +18,7 @@ const width = computed(() => {
   <div
     data-slot="sidebar-menu-skeleton"
     data-sidebar="menu-skeleton"
-    :class="
-      cn(
-        'ginko:flex ginko:h-8 ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2',
-        props.class,
-      )
-    "
+    :class="cn('ginko:flex ginko:h-8 ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2', props.class)"
   >
     <Skeleton
       v-if="showIcon"

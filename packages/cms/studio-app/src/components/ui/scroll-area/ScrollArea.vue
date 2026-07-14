@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { reactiveOmit } from '@vueuse/core'
 import type { ScrollAreaRootProps } from 'reka-ui'
-import { ScrollAreaCorner, ScrollAreaRoot, ScrollAreaViewport } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
-
+import { reactiveOmit } from '@vueuse/core'
+import { ScrollAreaCorner, ScrollAreaRoot, ScrollAreaViewport } from 'reka-ui'
 import { cn } from '../utils'
 import ScrollBar from './ScrollBar.vue'
 
@@ -21,7 +20,7 @@ const delegatedProps = reactiveOmit(props, 'class', 'viewportClass')
   <ScrollAreaRoot
     data-slot="scroll-area"
     v-bind="delegatedProps"
-    :class="cn('relative ginko:min-h-0 ginko:min-w-0 ginko:w-full', props.class)"
+    :class="cn('ginko:relative ginko:min-h-0 ginko:min-w-0 ginko:w-full', props.class)"
   >
     <ScrollAreaViewport
       data-slot="scroll-area-viewport"

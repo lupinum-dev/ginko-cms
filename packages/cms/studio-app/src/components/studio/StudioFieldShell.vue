@@ -15,7 +15,7 @@ defineProps<{
 </script>
 
 <template>
-  <Field :invalid="Boolean(error)" :class="cn('ginko:gap-2', $props.class)">
+  <Field :data-invalid="Boolean(error) || undefined" :class="cn('ginko:gap-2', $props.class)">
     <div class="ginko:flex ginko:min-h-6 ginko:items-center ginko:justify-between ginko:gap-3">
       <FieldLabel
         :for="$props.for"

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-
 import { cn } from '../utils'
 
 const props = defineProps<{
@@ -15,7 +14,9 @@ const props = defineProps<{
     :data-variant="variant ?? 'legend'"
     :class="
       cn(
-        'ginko:mb-1.5 ginko:font-medium ginko:data-[variant=label]:text-sm ginko:data-[variant=legend]:text-base',
+        'ginko:mb-3 ginko:font-medium',
+        'ginko:data-[variant=legend]:text-base',
+        'ginko:data-[variant=label]:text-sm',
         props.class,
       )
     "
