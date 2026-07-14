@@ -1908,3 +1908,52 @@ Updated to `implemented`: `Direct Content contract` and
 `Phantom surface deletion`. WP8/WP9 own final version alignment, exact clean
 two-pack reproducibility, documentation/release notes, and candidate
 certification against Content `0.3.0-rc.1`.
+
+## 2026-07-14 — WP3 Packed Provider And Render Safety
+
+### Executable boundary evidence
+
+The package-consumer gate now copies one probe into the fresh consumer and
+executes it against the installed `@lupinum/ginko-content/cms-contract`
+exports. The probe rejects hostile payloads through all seven public CMS Wire
+V2 decoders, an over-depth site-data value, and substituted requested
+collection/locale facts. It also exercises the public Markdown policy against
+script, style, iframe, SVG, event-handler, JavaScript-URL, and data-URL input,
+with a safe relative link as the positive control.
+
+Render acceptance does not stop at the policy function. The packed Nuxt
+consumer registers the exact public component directory from the installed
+Content tarball and renders a hostile script AST through `ContentRenderer`.
+Nitro must return the specific `Public Markdown AST is not render-safe.` error,
+and the exploit marker must not appear in the response. The harness supplies
+only Content's generated locale-path template dependency; it does not copy or
+reimplement the renderer.
+
+### Verification and package findings
+
+- Focused formatting, lint, and the packed-safety probe test passed.
+- A fresh strict pnpm consumer passed initialization, doctor, typecheck,
+  Nuxt/Nitro production build, package imports, the packed decoder/policy
+  probes, the real renderer rejection, and portable-content verification.
+- A fresh strict npm consumer passed the same package and render checks against
+  the identical freshly packed Content tarball bytes.
+- Work-package commit `5f54ea1c` is `test: certify packed Content safety
+boundaries`.
+
+Enabling the complete Content Nuxt module in the hash-addressed `file:`
+consumer also exposed a separate Content packaging defect: Nitro prerender
+generated an invalid absolute import for
+`dist/integrations/nitro/runtime-config.js`. A subsequent sibling source
+rebuild failed resolving `dist/types/config`. Both exact stacks were sent to
+the Content owner. The development tarball used for these safety probes is not
+the immutable release candidate and does not replace CMS compatibility
+provenance; final WP8 certification remains blocked on a new clean Content
+source, reproducible tarball, and green Windows/full-release lanes.
+
+### Acceptance matrix
+
+Updated to `implemented`: `Provider runtime decoders` and
+`Public render safety`. The strongest evidence is the packed consumer crossing
+the actual AST-to-render boundary. Review should focus on the intentionally
+minimal locale-template harness and on keeping the package probe tied to every
+public Wire decoder as that exported set evolves.

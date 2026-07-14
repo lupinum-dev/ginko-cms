@@ -2824,8 +2824,8 @@ Use only these statuses:
 | Legacy MCP-key cutover              | implemented | Old-token denial and audit test         |
 | Recoverable destructive actions     | open        | Snapshot/restore drill                  |
 | Bounded import and archive parsing  | implemented | Limits and batch-two retry fixtures     |
-| Provider runtime decoders           | open        | Adversarial Wire V2 suite               |
-| Public render safety                | open        | Packed AST-to-render exploit probes     |
+| Provider runtime decoders           | implemented | Adversarial Wire V2 suite               |
+| Public render safety                | implemented | Packed AST-to-render exploit probes     |
 | Structured asset resolution         | implemented | No arbitrary-string lookup test         |
 | Asset publication state             | implemented | Unreferenced-global denial test         |
 | Upload byte verification            | implemented | MIME/signature mismatch tests           |
