@@ -2825,9 +2825,9 @@ Use only these statuses:
 | Bounded import and archive parsing  | open        | Hostile archive/filesystem limits       |
 | Provider runtime decoders           | open        | Adversarial Wire V2 suite               |
 | Public render safety                | open        | Packed AST-to-render exploit probes     |
-| Structured asset resolution         | open        | No arbitrary-string lookup test         |
-| Asset publication state             | open        | Unreferenced-global denial test         |
-| Upload byte verification            | open        | MIME/signature mismatch tests           |
+| Structured asset resolution         | implemented | No arbitrary-string lookup test         |
+| Asset publication state             | implemented | Unreferenced-global denial test         |
+| Upload byte verification            | implemented | MIME/signature mismatch tests           |
 | Backend-neutral runtime data source | open        | Filesystem/CMS/Worker contract suite    |
 | One request adapter context         | open        | Binder reuse and disposal tests         |
 | Portable Content contract           | open        | Packed public codec probes              |

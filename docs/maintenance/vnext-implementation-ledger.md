@@ -336,3 +336,106 @@ mixed-generation reindex defect. The final suites cover:
 - Add total import-run duration plus entry/locale/field/relation-edge limits and
   resumable server-side import batches. Until those bounds pass hostile fixtures,
   `Bounded import and archive parsing` remains open.
+
+## 2026-07-13 — WP3 provider, render, and asset safety boundary
+
+### Objective and acceptance criteria
+
+Replace the untyped CMS provider boundary with exact Content-owned wire
+decoders, enforce the one public Markdown render policy before publication and
+rendering, resolve assets only as bounded document-scoped facts, and derive all
+stored image identity from verified bytes. Acceptance required adversarial
+decoders, secret-safe errors, no arbitrary asset-string replacement, no generic
+anonymous asset lookup, MIME/signature mismatch rejection, and bounded cleanup
+recovery when invalid storage deletion fails.
+
+### Repository ownership and hard cutovers
+
+- Ginko Content added strict decoders for all seven CMS public operations,
+  authoritative request/response fact checks, one render-policy validator used
+  by browser and agent output, incremental PNG/JPEG/GIF/WebP verification, and
+  the exact structured public asset-fact envelope.
+- Ginko CMS converted the provider source from JavaScript plus handwritten
+  declarations to TypeScript built declarations. Transport uses a recursively
+  allowlisted error envelope and one request-cached caller.
+- Publication and projection rebuild validate stored AST through the exact
+  Content render policy. Managed body-image identifiers are validated against
+  active verified assets before the canonical URL rule is evaluated.
+- Asset registration is now an action that reads the Convex storage blob,
+  verifies bytes through Content, and performs one internal insert containing
+  immutable SHA-256, byte count, media type, dimensions, and frame count.
+  Caller MIME, size, and dimensions were deleted.
+- Deleted the public `getAssetUrl` query and generated host wrappers. Public
+  queries now return at most 100 exact asset facts while the published entry,
+  locale, and field path are known. The provider rewrites only a matching exact
+  path and identity; unrelated asset-looking strings remain unchanged.
+- Public reference extraction is schema-aware for image fields and parsed body
+  image nodes. Invalid-upload deletion retries use one operational cleanup task
+  with five bounded attempts and an operator-visible terminal state.
+- Removed AVIF, PDF, and document upload policy from the initial verified image
+  profile. No compatibility shim, dual resolver, asset metadata projection, or
+  provider-side asset query remains.
+
+### Test-first and invariant evidence
+
+Expected red runs first reproduced malformed public result acceptance, request
+fact substitution, unsafe Markdown nodes/props/protocols, arbitrary asset-string
+replacement, caller-provided upload metadata, MIME/signature mismatch, missing
+verified facts, and the anonymous global-asset resolver.
+
+Final focused evidence covers exact decoder failures for every public
+operation; collection/locale substitution; recursive navigation typing;
+script/style/iframe/SVG/event/protocol render probes; PNG checksums and exact
+terminals; JPEG/GIF/WebP container bounds; upload cleanup; structured nested
+field resolution; unchanged arbitrary asset-like strings; one caller with no
+asset lookup; and public projection reference identity.
+
+### Commands and results
+
+- Ginko Content `pnpm run typecheck`: passed, including source typecheck,
+  package build, and the Nuxt type consumer.
+- Ginko Content focused provider/render/asset suites: 3 files and 32 tests
+  passed in the final integrated run; the broader render plus agent suite also
+  passed 46 tests during implementation.
+- Ginko CMS `pnpm run prepare:component`: passed and regenerated component
+  bindings after the schema/action hard cutover.
+- Ginko CMS focused provider, asset, and public suites: 4 files and 84 tests
+  passed.
+- Ginko CMS `pnpm run test`: passed; the no-zombie-path architecture gate and
+  workflow vertical-slice asset-reference test pass.
+- Ginko CMS `pnpm run check`: passed, including format, lint/boundary/stale
+  surface checks, typecheck/build, publish-specifier validation, and all tests.
+- Better Convex Nuxt remained read-only at
+  `467aa0eeb24d26b3695482420807c892959fc683`; no file was modified.
+
+### Immutable development artifact
+
+- Path:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.ac9691d39b5b.3bc97044a3ca00bd7cc90306dd553d5474d2313a9a8a14d52ceeda02920f6811.tgz`
+- SHA-256:
+  `3bc97044a3ca00bd7cc90306dd553d5474d2313a9a8a14d52ceeda02920f6811`
+- Source commit: `ac9691d39b5b`; the adjacent JSON is development evidence,
+  not candidate certification.
+
+### Commits and acceptance matrix
+
+- Ginko Content:
+  - `733be76` — `feat: decode CMS provider wire results`
+  - `5959ec6` — `fix: reject substituted CMS provider facts`
+  - `6551217` — `fix: type recursive CMS navigation results`
+  - `7766394` — `feat!: enforce one public Markdown render policy`
+  - `9193bdd` — `feat: verify public image bytes and identity`
+  - `ac9691d` — `feat: validate structured CMS asset facts`
+- Ginko CMS:
+  - `0a2568a5` — `feat!: enforce CMS provider safety boundary`
+- Updated to `implemented`: Structured asset resolution, Asset publication
+  state, Upload byte verification.
+
+### Open findings and next phase
+
+- Packed decoder/render exploit probes and binder disposal evidence remain for
+  WP3A/final candidate certification; those matrix rows remain open.
+- The cleanup task is operational derived state only and can be removed after
+  successful deletion; verified asset facts remain canonical on the asset row.
+- Next work package: WP3A Content data-source contract and binder, followed by
+  portability codecs and Node directory operations.
