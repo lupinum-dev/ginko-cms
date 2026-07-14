@@ -1972,3 +1972,52 @@ Updated to `implemented`: `Provider runtime decoders` and
 the actual AST-to-render boundary. Review should focus on the intentionally
 minimal locale-template harness and on keeping the package probe tied to every
 public Wire decoder as that exported set evolves.
+
+## 2026-07-14 — WP8A Retention And Privacy Inventory
+
+### One explicit policy, no generic retention engine
+
+The existing hourly storage-maintenance mutation remains the single cleanup
+path. Closed review requests and ended agent runs now use status/time indexes
+and the same bounded maximum batch size of 100. Approved/rejected reviews and
+completed/revoked/failed runs expire after 180 days. Pending reviews, active
+runs, and an ended run still referenced by a retained review are preserved.
+The cleanup reschedules only while it made progress through a full indexed
+page, avoiding a loop behind intentionally retained rows.
+
+Existing policies were inventoried rather than duplicated: activity is 180
+days, delivered outbox evidence 30 days, failed outbox evidence 90 days,
+confirmations and idempotency receipts use their existing expiry indexes,
+backup artifacts require confirmed owner deletion, and destructive audit rows
+remain under an explicit indefinite security hold. Portability execution state
+continues to use its run-owned expiry and cleanup paths.
+
+### Privacy and operator procedure
+
+`docs/maintenance/data-retention-and-privacy.md` records the purpose, retained
+fields, visibility, exact duration, export status, and deletion rule for every
+operational record family. It also documents sensitive-data exclusions and a
+deployment-owner procedure for verified access, export, correction, key
+revocation, membership removal, bounded expiry, security-audit holds, backup
+deletion, and external Convex snapshot handling. The bounded CMS snapshot
+continues to exclude credentials, agent/review records, destructive audit,
+confirmations, and revalidation delivery evidence.
+
+### Test-first evidence and review focus
+
+The focused storage-maintenance test failed first because the cleanup result
+and rows had no agent-run/review policy. The final five-test suite proves the
+180-day boundaries, status exclusions, related-review preservation, indefinite
+destructive-audit retention, and a three-row cleanup completed through two-row
+indexed batches. Convex typecheck passed, as did the 43-test focused storage,
+agent-run, review, and revalidation slice. Component code generation passed and
+produced no public API drift.
+
+Work-package commit `1fb679a4` is
+`feat: bound operational record retention`.
+
+Updated to `implemented`: `Retention and privacy inventory`. Review should
+concentrate on whether the explicit 180-day assisted-authoring duration and
+indefinite destructive-audit hold match the deploying organization's policy;
+changing those values is a product/privacy decision, not a reason to add a
+configurable retention framework.

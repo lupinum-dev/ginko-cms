@@ -2858,7 +2858,7 @@ Use only these statuses:
 | Exact compatibility tuple           | open        | Manifest-owned hash tests                                                                                       |
 | Deterministic packs                 | open        | Two identical serial packs                                                                                      |
 | Real packed provider consumer       | open        | Nitro runtime scenario suite                                                                                    |
-| Retention and privacy inventory     | open        | Indexed cleanup and policy evidence                                                                             |
+| Retention and privacy inventory     | implemented | Indexed cleanup and policy evidence                                                                             |
 | Accessible Studio workflows         | open        | Axe, keyboard, and focus suite                                                                                  |
 | Supported scale envelope            | open        | Boundary fixtures and bundle budgets                                                                            |
 | Novice and upgrade journeys         | open        | Fresh install and `0.1.3` drill                                                                                 |
