@@ -28,6 +28,10 @@ describe('cms permission context', () => {
     expect(accessCtx?.can[cmsPermissionKeys.bootstrap]).toBe(true)
     expect(accessCtx?.can[cmsPermissionKeys.manageSettings]).toBe(false)
     expect(accessCtx?.can[cmsPermissionKeys.manageMembers]).toBe(false)
+    expect(Object.keys(accessCtx?.can ?? {}).sort()).toEqual(
+      Object.values(cmsPermissionKeys).sort(),
+    )
+    expect(accessCtx).not.toHaveProperty('permissions')
   })
 
   it('returns a non-null all-false permission map for authenticated non-members after bootstrap', async () => {

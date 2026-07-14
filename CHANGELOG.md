@@ -63,6 +63,9 @@
 - Narrowed `defineGinkoAuth` to the supported `emailPassword` and
   `trustedOrigins` options so callers cannot diverge from the generated Better
   Auth schema or replace Ginko's fixed plugin ordering.
+- Made the contract-validated `can` map the sole access-context permission
+  surface and derive it from the backend guard registry. The undocumented
+  duplicate `permissions` alias was removed.
 
 ### Removed
 

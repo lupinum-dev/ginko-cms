@@ -5,28 +5,20 @@ import {
   removeMember as removeMemberArgs,
   updateMemberRole as updateMemberRoleArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/members.js'
-import { memberValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
+import {
+  accessContextValidator,
+  memberValidator,
+} from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
 import {
   can,
-  canArchiveEntries,
-  canCreateEntries,
-  canDeleteEntries,
-  canEditEntries,
-  canManageAssets,
-  canManageBackups,
-  canManageCollections,
+  cmsPermissionGuards,
   canManageMembers,
-  canManagePortability,
-  canManageSettings,
-  canPublishEntries,
-  canRead,
   isAuthenticated,
   isBootstrapUser,
-  type CmsGuard,
 } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
@@ -46,10 +38,6 @@ import {
 type MemberDoc = Doc<'members'>
 type McpCredentialSettingsDoc = Doc<'mcpCredentialSettings'>
 const MEMBER_LIST_MAX = 500
-
-function definePermission(input: { key: string; label: string; check: CmsGuard }) {
-  return input
-}
 
 async function countOwners(ctx: MutationCtx): Promise<number> {
   return (
@@ -108,68 +96,9 @@ export async function bootstrapCmsOwnerRecord(
   return serializeMember(member)
 }
 
-const cmsPermissions = [
-  definePermission({ key: cmsPermissionKeys.read, label: 'Read CMS', check: canRead }),
-  definePermission({
-    key: cmsPermissionKeys.bootstrap,
-    label: 'Bootstrap CMS',
-    check: isBootstrapUser,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.createEntries,
-    label: 'Create entries',
-    check: canCreateEntries,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.editEntries,
-    label: 'Edit entries',
-    check: canEditEntries,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.publishEntries,
-    label: 'Publish entries',
-    check: canPublishEntries,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.archiveEntries,
-    label: 'Archive entries',
-    check: canArchiveEntries,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.deleteEntries,
-    label: 'Delete entries',
-    check: canDeleteEntries,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.manageCollections,
-    label: 'Manage collections',
-    check: canManageCollections,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.manageSettings,
-    label: 'Manage settings',
-    check: canManageSettings,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.manageMembers,
-    label: 'Manage members',
-    check: canManageMembers,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.manageAssets,
-    label: 'Manage assets',
-    check: canManageAssets,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.manageBackups,
-    label: 'Manage backups',
-    check: canManageBackups,
-  }),
-  definePermission({
-    key: cmsPermissionKeys.managePortability,
-    label: 'Manage portability',
-    check: canManagePortability,
-  }),
+const accessPermissionGuards = [
+  ...cmsPermissionGuards,
+  { key: cmsPermissionKeys.bootstrap, guard: isBootstrapUser },
 ] as const
 
 function normalizeEmail(email: string | null | undefined): string | null {
@@ -180,15 +109,12 @@ function normalizeEmail(email: string | null | undefined): string | null {
 const getAccessContextDefinition = {
   id: 'members:getAccessContext',
   args: {},
-  returns: v.any(),
+  returns: accessContextValidator,
   handler: async (ctx: { appIdentity: () => Promise<unknown> }) => {
     const appIdentity = await ctx.appIdentity()
     if (!appIdentity) return null
     const effectivePermissions = Object.fromEntries(
-      cmsPermissions.map((permission) => [
-        permission.key,
-        appIdentity ? can(appIdentity as never, permission.check) : false,
-      ]),
+      accessPermissionGuards.map(({ key, guard }) => [key, can(appIdentity as never, guard)]),
     )
     return {
       userId:
@@ -200,7 +126,6 @@ const getAccessContextDefinition = {
           ? appIdentity.role
           : null,
       can: effectivePermissions,
-      permissions: effectivePermissions,
       member:
         appIdentity &&
         typeof appIdentity === 'object' &&
