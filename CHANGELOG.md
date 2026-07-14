@@ -74,6 +74,9 @@
 - Safe create, draft-save, asset-move, and entry-restore writes are now direct
   protected mutations. The operation export surface is reserved for writes that
   actually require preview and confirmation.
+- Replaced migration-era vocabulary and deleted-model scanners with a focused
+  release-hygiene check for template parity, private local paths, and tracked
+  build artifacts.
 
 ### Removed
 

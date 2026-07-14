@@ -70,10 +70,8 @@ Useful focused commands:
 corepack pnpm run format:check
 corepack pnpm exec eslint packages test
 corepack pnpm run check:docs:install-story
-corepack pnpm run check:public-vocabulary
 corepack pnpm run check:compatibility-matrix
-corepack pnpm run check:current-content-model
-corepack pnpm run check:stale-surfaces
+corepack pnpm run check:release-hygiene
 corepack pnpm exec vitest run <test-files> --reporter=dot
 ```
 
