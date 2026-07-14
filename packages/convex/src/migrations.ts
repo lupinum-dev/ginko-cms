@@ -407,7 +407,7 @@ export const finalizeContentMigration = directInternalMutation({
     if (!['planned', 'applying', 'validating', 'ready'].includes(run.status)) {
       throw new Error(`Content migration cannot finalize from status "${run.status}".`)
     }
-    assertResolvedContentContract(args.contract)
+    const contract = assertResolvedContentContract(args.contract)
     if (
       args.contractSha256 !== run.toContractHash ||
       (await hashCanonicalJson(args.contract)) !== args.contractSha256
