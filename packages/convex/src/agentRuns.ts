@@ -33,6 +33,10 @@ const agentRunValidator = v.object({
 
 type AgentRunDoc = Doc<'agentRuns'>
 const MAX_AGENT_RUNS = 100
+const DEFAULT_AGENT_RUN_TTL_MS = 4 * 60 * 60 * 1_000
+const MAX_AGENT_RUN_TTL_MS = 24 * 60 * 60 * 1_000
+const MAX_ACTIVE_AGENT_RUNS_PER_CREDENTIAL = 10
+const MAX_TASK_NAME_LENGTH = 200
 
 function serializeRun(run: AgentRunDoc) {
   return {
@@ -170,6 +174,33 @@ export const startRun = callerMutation.protected({
       throwCmsError('MCP_CREDENTIAL_REQUIRED', 'Only MCP credentials can start agent runs.')
     }
     const credentialApiKeyId = appIdentity.audit.apiKeyId
+    const taskName = args.taskName.trim()
+    if (!taskName || taskName.length > MAX_TASK_NAME_LENGTH) {
+      throwCmsError(
+        'INVALID_AGENT_RUN_TASK',
+        `Agent run task names must contain between 1 and ${MAX_TASK_NAME_LENGTH} characters.`,
+      )
+    }
+    const requestedExpiry = args.expiresAt
+    const expiresAt = requestedExpiry == null ? now + DEFAULT_AGENT_RUN_TTL_MS : requestedExpiry
+    if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+      throwCmsError('INVALID_AGENT_RUN_EXPIRY', 'Agent run expiry must be in the future.')
+    }
+    if (expiresAt > now + MAX_AGENT_RUN_TTL_MS) {
+      throwCmsError('INVALID_AGENT_RUN_EXPIRY', 'Agent runs cannot last longer than 24 hours.')
+    }
+    const activeRuns = await ctx.db
+      .query('agentRuns')
+      .withIndex('by_credential_status_expires_at', (q) =>
+        q.eq('credentialApiKeyId', credentialApiKeyId).eq('status', 'active').gt('expiresAt', now),
+      )
+      .take(MAX_ACTIVE_AGENT_RUNS_PER_CREDENTIAL)
+    if (activeRuns.length === MAX_ACTIVE_AGENT_RUNS_PER_CREDENTIAL) {
+      throwCmsError(
+        'AGENT_RUN_LIMIT_REACHED',
+        `A credential can have at most ${MAX_ACTIVE_AGENT_RUNS_PER_CREDENTIAL} active agent runs.`,
+      )
+    }
     const scopeSnapshot = Object.entries(appIdentity.mcpEffectivePermissions ?? {})
       .filter(
         ([permission, enabled]) =>
@@ -182,12 +213,12 @@ export const startRun = callerMutation.protected({
       credentialApiKeyId,
       delegatedUserId: appIdentity.userId,
       scopeSnapshot,
-      taskName: args.taskName,
+      taskName,
       status: 'active',
       createdBy: appIdentity.userId,
       createdAt: now,
       updatedAt: now,
-      expiresAt: args.expiresAt ?? null,
+      expiresAt,
       endedAt: null,
       lastWriteAt: null,
       lastError: null,
@@ -197,7 +228,7 @@ export const startRun = callerMutation.protected({
 
     await logActivity(ctx, {
       kind: 'agentRun.started',
-      summary: `Started agent run "${args.taskName}"`,
+      summary: `Started agent run "${taskName}"`,
       appIdentityId: appIdentity.userId,
       detail: {
         agentRunId: String(id),

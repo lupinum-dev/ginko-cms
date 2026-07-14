@@ -10,7 +10,11 @@ export const startAgentRun = defineMcpTool({
   description: 'Start a bounded, credential-owned CMS agent run before making changes.',
   inputSchema: {
     taskName: z.string().min(1).max(200),
-    expiresAt: z.number().nullable().optional(),
+    expiresAt: z
+      .number()
+      .describe('Optional earlier expiry as a Unix timestamp in milliseconds; maximum 24 hours.')
+      .nullable()
+      .optional(),
   },
   group: 'agent-runs',
   handler: async (args, ctx) => {

@@ -649,8 +649,10 @@ export default defineSchema({
     lastError: v.optional(v.union(v.string(), v.null())),
   })
     .index('by_credential', ['credentialApiKeyId'])
+    .index('by_credential_status_expires_at', ['credentialApiKeyId', 'status', 'expiresAt'])
     .index('by_delegated_user', ['delegatedUserId'])
     .index('by_status', ['status'])
+    .index('by_status_expires_at', ['status', 'expiresAt'])
     .index('by_status_updated_at', ['status', 'updatedAt']),
 
   mcpCreateEntryReceipts: defineTable({

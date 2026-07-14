@@ -1,20 +1,12 @@
 /// <reference types="vite/client" />
 
-import { anyApi, type FunctionReference } from 'convex/server'
+import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import { createCtx, seedEditorFixture, seedOwner, seedSettings } from './entries/helpers'
 
 const api = anyApi
 const DAY_MS = 24 * 60 * 60 * 1000
-const componentOrphanReconciler = Object.assign(
-  {},
-  {
-    [Symbol.for('toReferencePath')]:
-      '_reference/childComponent/ginkoCms/storageMaintenance/reconcileStorageOrphans',
-  },
-) as FunctionReference<'action', 'internal'>
-
 async function seedOutboxEvent(
   ctx: ReturnType<typeof createCtx>,
   input: {
@@ -47,115 +39,6 @@ async function seedOutboxEvent(
 }
 
 describe('storage maintenance', () => {
-  it('enumerates only the component storage namespace before deleting old unreferenced objects', async () => {
-    const ctx = createCtx()
-    const rootStorageId = (await ctx.raw.run(async (innerCtx) =>
-      innerCtx.storage.store(new Blob(['root-only'], { type: 'text/plain' })),
-    )) as string
-    const now = Date.now() + 11 * 60 * 1_000
-
-    await expect(
-      ctx.raw.action(componentOrphanReconciler, { now, cursor: null, limit: 100 }),
-    ).resolves.toMatchObject({ scanned: 0, deleted: 0, complete: true })
-    expect(
-      await ctx.raw.run(async (innerCtx) =>
-        Boolean(await innerCtx.storage.get(rootStorageId as never)),
-      ),
-    ).toBe(true)
-
-    await expect(
-      ctx.raw.action(api.storageMaintenance.reconcileStorageOrphans, {
-        now,
-        cursor: null,
-        limit: 100,
-      }),
-    ).resolves.toMatchObject({ scanned: 1, deleted: 1, complete: true })
-    expect(
-      await ctx.raw.run(async (innerCtx) =>
-        Boolean(await innerCtx.storage.get(rootStorageId as never)),
-      ),
-    ).toBe(false)
-  })
-
-  it('keeps every storage object present in the canonical CMS reference inventory', async () => {
-    const ctx = createCtx()
-    const ids = await Promise.all(
-      ['asset', 'backup', 'stage', 'cleanup', 'orphan'].map(async (value) =>
-        ctx.raw.run(async (innerCtx) =>
-          innerCtx.storage.store(new Blob([value], { type: 'text/plain' })),
-        ),
-      ),
-    )
-    await ctx.seed(
-      'assets' as never,
-      {
-        storageId: ids[0],
-        filename: 'asset.png',
-        mimeType: 'image/png',
-        size: 5,
-        width: 1,
-        height: 1,
-        scope: 'global',
-        createdBy: 'owner-1',
-        createdAt: Date.now(),
-      } as never,
-    )
-    await ctx.seed(
-      'backupArtifacts' as never,
-      {
-        artifactId: 'backup-1',
-        scope: 'snapshot',
-        checksum: 'a'.repeat(64),
-        driver: 'convex-storage-json',
-        storageRef: String(ids[1]),
-        counts: { entries: 0, revisions: 0, assets: 0, members: 0 },
-        createdBy: 'owner-1',
-        createdAt: Date.now(),
-      } as never,
-    )
-    await ctx.seed(
-      'portableAssetStages' as never,
-      {
-        runId: 'run-1',
-        callerId: 'owner-1',
-        sha256: 'b'.repeat(64),
-        byteLength: 5,
-        mediaType: 'image/png',
-        state: 'uploaded',
-        storageId: ids[2],
-        assetId: null,
-        attemptTokenHash: 'c'.repeat(64),
-        attemptGeneration: 1,
-        leaseExpiresAt: Date.now(),
-        storageOrigin: 'https://storage.example.test',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      } as never,
-    )
-    await ctx.seed(
-      'assetCleanupTasks' as never,
-      {
-        storageId: ids[3],
-        status: 'cleanup-required',
-        attempts: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      } as never,
-    )
-
-    await expect(
-      ctx.raw.action(api.storageMaintenance.reconcileStorageOrphans, {
-        now: Date.now() + 11 * 60 * 1_000,
-        cursor: null,
-        limit: 100,
-      }),
-    ).resolves.toMatchObject({ scanned: 5, deleted: 1, complete: true })
-    const present = await ctx.raw.run(async (innerCtx) =>
-      Promise.all(ids.map(async (id) => Boolean(await innerCtx.storage.get(id as never)))),
-    )
-    expect(present).toEqual([true, true, true, true, false])
-  })
-
   it('cleans expired operational history without deleting security audit rows', async () => {
     const ctx = createCtx()
     const now = Date.UTC(2026, 4, 13)
@@ -321,7 +204,7 @@ describe('storage maintenance', () => {
       outboxDelivered: 1,
       outboxFailed: 1,
       activity: 1,
-      agentRuns: 1,
+      agentRuns: 2,
       reviewRequests: 1,
       remaining: false,
     })
@@ -340,7 +223,8 @@ describe('storage maintenance', () => {
     )
     const runIds = (await ctx.readAll('agentRuns')).map((row) => String(row._id))
     expect(runIds).not.toContain(oldCompletedRun)
-    expect(runIds).toEqual(expect.arrayContaining([retainedCompletedRun, activeRun]))
+    expect(runIds).not.toContain(activeRun)
+    expect(runIds).toContain(retainedCompletedRun)
 
     const reviewIds = (await ctx.readAll('reviewRequests')).map((row) => String(row._id))
     expect(reviewIds).not.toContain(oldApprovedReview)

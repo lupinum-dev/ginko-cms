@@ -52,12 +52,14 @@ describe('component: agent runs', () => {
       delegatedUserId: 'owner-1',
       scopeSnapshot: [cmsPermissionKeys.read],
       status: 'active',
+      expiresAt: expect.any(Number),
     })
     expect(second).toMatchObject({
       credentialApiKeyId: 'ba_key_owner',
       delegatedUserId: 'owner-1',
       scopeSnapshot: [cmsPermissionKeys.read],
       status: 'active',
+      expiresAt: expect.any(Number),
     })
   })
 
@@ -121,13 +123,23 @@ describe('component: agent runs', () => {
       }),
     ).rejects.toThrow('Agent run is not active.')
 
-    const expired = await agent.mutation(api.agentRuns.startRun, {
-      taskName: 'Expire me',
-      expiresAt: Date.now() - 1,
-    })
+    const expiredId = await ctx.seed(
+      'agentRuns' as never,
+      {
+        credentialApiKeyId: 'ba_key_owner',
+        delegatedUserId: 'owner-1',
+        scopeSnapshot: [],
+        taskName: 'Expired run',
+        status: 'active',
+        createdBy: 'owner-1',
+        createdAt: Date.now() - 2,
+        updatedAt: Date.now() - 2,
+        expiresAt: Date.now() - 1,
+      } as never,
+    )
     await expect(
       agent.mutation(api.agentRuns.recordWrite, {
-        agentRunId: expired._id,
+        agentRunId: expiredId,
         operationId: 'ginko-cms.save-entry-draft',
       }),
     ).rejects.toThrow('Agent run has expired.')
@@ -242,7 +254,7 @@ describe('component: agent runs', () => {
         taskName: 'Second visible run',
         delegatedUserId: 'owner-1',
         scopeSnapshot: [cmsPermissionKeys.read],
-        expiresAt: null,
+        expiresAt: expect.any(Number),
         lastWriteAt: null,
       }),
       expect.objectContaining({
@@ -298,6 +310,44 @@ describe('component: agent runs', () => {
         taskName: 'Human run',
       }),
     ).rejects.toThrow('Only MCP credentials can start agent runs.')
+  })
+
+  it('enforces server-selected expiry and an active-run cap', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const agent = await ownerAgent(ctx)
+    const before = Date.now()
+
+    const defaulted = await agent.mutation(api.agentRuns.startRun, {
+      taskName: 'Default expiry',
+    })
+    expect(defaulted.expiresAt).toBeGreaterThan(before)
+    expect(defaulted.expiresAt).toBeLessThanOrEqual(before + 4 * 60 * 60 * 1_000 + 1_000)
+
+    await expect(
+      agent.mutation(api.agentRuns.startRun, {
+        taskName: 'Already expired',
+        expiresAt: Date.now() - 1,
+      }),
+    ).rejects.toThrow('Agent run expiry must be in the future.')
+    await expect(
+      agent.mutation(api.agentRuns.startRun, {
+        taskName: 'Too long',
+        expiresAt: Date.now() + 24 * 60 * 60 * 1_000 + 60_000,
+      }),
+    ).rejects.toThrow('Agent runs cannot last longer than 24 hours.')
+
+    for (let index = 1; index < 10; index += 1) {
+      await agent.mutation(api.agentRuns.startRun, { taskName: `Active run ${index}` })
+    }
+    await expect(
+      agent.mutation(api.agentRuns.startRun, { taskName: 'One too many' }),
+    ).rejects.toThrow('A credential can have at most 10 active agent runs.')
+
+    await agent.mutation(api.agentRuns.completeRun, { agentRunId: defaulted._id })
+    await expect(
+      agent.mutation(api.agentRuns.startRun, { taskName: 'Replacement run' }),
+    ).resolves.toMatchObject({ status: 'active' })
   })
 
   it('requires member access before starting runs', async () => {

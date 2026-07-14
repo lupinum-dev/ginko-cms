@@ -12,7 +12,6 @@ const internalApi = internal as typeof internal & {
   }
   storageMaintenance: {
     cleanupStorageHygiene: unknown
-    reconcileStorageOrphans: unknown
   }
 }
 
@@ -20,13 +19,6 @@ crons.interval(
   'deliver revalidation outbox',
   { minutes: 1 },
   internalApi.revalidation.deliverDue as never,
-  {},
-)
-
-crons.interval(
-  'reconcile orphaned CMS storage',
-  { hours: 1 },
-  internalApi.storageMaintenance.reconcileStorageOrphans as never,
   {},
 )
 

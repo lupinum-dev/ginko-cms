@@ -1,16 +1,13 @@
-import { makeFunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 
 import { internal } from './_generated/api.js'
 import type { Id } from './_generated/dataModel.js'
-import { internalAction, internalMutation, internalQuery } from './_generated/server.js'
+import { internalMutation } from './_generated/server.js'
 import type { QueryOrMutationCtx } from './lib/types.js'
 
 const internalApi = internal as typeof internal & {
   storageMaintenance: {
     cleanupStorageHygiene: unknown
-    readStorageOrphanPage: unknown
-    reconcileStorageOrphans: unknown
   }
 }
 
@@ -20,18 +17,6 @@ const DELIVERED_OUTBOX_RETENTION_MS = 30 * DAY_MS
 const FAILED_OUTBOX_RETENTION_MS = 90 * DAY_MS
 const ACTIVITY_RETENTION_MS = 180 * DAY_MS
 const ASSISTED_AUTHORING_RETENTION_MS = 180 * DAY_MS
-const STORAGE_ORPHAN_GRACE_MS = 10 * 60 * 1_000
-const DEFAULT_STORAGE_SCAN_BATCH_SIZE = 100
-const readStorageOrphanPageRef = makeFunctionReference<
-  'query',
-  { now: number; cursor: string | null; limit: number },
-  { candidates: string[]; scanned: number; cursor: string | null; complete: boolean }
->('storageMaintenance:readStorageOrphanPage')
-const reconcileStorageOrphansRef = makeFunctionReference<
-  'action',
-  { now: number; cursor: string | null; limit: number },
-  { scanned: number; deleted: number; complete: boolean }
->('storageMaintenance:reconcileStorageOrphans')
 
 const cleanupResultValidator = v.object({
   outboxDelivered: v.number(),
@@ -98,6 +83,20 @@ export const cleanupStorageHygiene = internalMutation({
     for (const row of reviews) await ctx.db.delete(row._id)
 
     const runCutoff = now - ASSISTED_AUTHORING_RETENTION_MS
+    const expiredActiveRuns = await ctx.db
+      .query('agentRuns')
+      .withIndex('by_status_expires_at', (q) =>
+        q.eq('status', 'active').gt('expiresAt', 0).lt('expiresAt', now),
+      )
+      .take(limit)
+    const abandonedLegacyRuns = (
+      await ctx.db
+        .query('agentRuns')
+        .withIndex('by_status_updated_at', (q) =>
+          q.eq('status', 'active').lt('updatedAt', runCutoff),
+        )
+        .take(limit)
+    ).filter((run) => run.expiresAt == null)
     const completedRuns = await ctx.db
       .query('agentRuns')
       .withIndex('by_status_updated_at', (q) =>
@@ -115,6 +114,23 @@ export const cleanupStorageHygiene = internalMutation({
       .withIndex('by_status_updated_at', (q) => q.eq('status', 'failed').lt('updatedAt', runCutoff))
       .take(limit)
     let deletedRuns = 0
+    for (const row of [...expiredActiveRuns, ...abandonedLegacyRuns]) {
+      const retainedReview = await ctx.db
+        .query('reviewRequests')
+        .withIndex('by_agent_run', (q) => q.eq('agentRunId', row._id))
+        .first()
+      if (retainedReview) {
+        await ctx.db.patch(row._id, {
+          status: 'failed',
+          updatedAt: now,
+          endedAt: now,
+          lastError: 'Agent run expired before completion.',
+        })
+      } else {
+        await ctx.db.delete(row._id)
+        deletedRuns += 1
+      }
+    }
     for (const row of [...completedRuns, ...revokedRuns, ...failedRuns]) {
       const retainedReview = await ctx.db
         .query('reviewRequests')
@@ -125,7 +141,11 @@ export const cleanupStorageHygiene = internalMutation({
       deletedRuns += 1
     }
     const runPageFull =
-      completedRuns.length === limit || revokedRuns.length === limit || failedRuns.length === limit
+      expiredActiveRuns.length === limit ||
+      abandonedLegacyRuns.length === limit ||
+      completedRuns.length === limit ||
+      revokedRuns.length === limit ||
+      failedRuns.length === limit
 
     const remaining =
       deliveredOutbox.length === limit ||
@@ -133,7 +153,7 @@ export const cleanupStorageHygiene = internalMutation({
       activity.length === limit ||
       approvedReviews.length === limit ||
       rejectedReviews.length === limit ||
-      (deletedRuns > 0 && runPageFull)
+      runPageFull
     if (remaining) {
       await ctx.scheduler.runAfter(
         0,
@@ -152,70 +172,6 @@ export const cleanupStorageHygiene = internalMutation({
     }
   },
 })
-
-export const readStorageOrphanPage = internalQuery({
-  args: {
-    now: v.number(),
-    cursor: v.union(v.string(), v.null()),
-    limit: v.number(),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    const limit = Math.min(Math.max(Math.floor(args.limit), 1), DEFAULT_STORAGE_SCAN_BATCH_SIZE)
-    const cursor = parseStorageCursor(args.cursor)
-    const ordered = ctx.db.system.query('_storage').order('asc')
-    const fetched = await (cursor
-      ? ordered
-          .filter((query) =>
-            query.or(
-              query.gt(query.field('_creationTime'), cursor.creationTime),
-              query.and(
-                query.eq(query.field('_creationTime'), cursor.creationTime),
-                query.gt(query.field('_id'), cursor.id as Id<'_storage'>),
-              ),
-            ),
-          )
-          .take(limit + 1)
-      : ordered.take(limit + 1))
-    const page = fetched.slice(0, limit)
-    const candidates: string[] = []
-    for (const storage of page) {
-      if (storage._creationTime >= args.now - STORAGE_ORPHAN_GRACE_MS) continue
-      if (!(await isCmsStorageReferenced(ctx, storage._id))) candidates.push(String(storage._id))
-    }
-    const complete = fetched.length <= limit
-    const last = page.at(-1)
-    return {
-      candidates,
-      scanned: page.length,
-      cursor:
-        !complete && last
-          ? JSON.stringify({ creationTime: last._creationTime, id: String(last._id) })
-          : null,
-      complete,
-    }
-  },
-})
-
-function parseStorageCursor(value: string | null) {
-  if (value === null) return null
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(value)
-  } catch {
-    throw new Error('Storage reconciliation cursor is invalid.')
-  }
-  const cursor = parsed as { creationTime?: unknown; id?: unknown }
-  if (
-    !Number.isFinite(cursor.creationTime) ||
-    Number(cursor.creationTime) < 0 ||
-    typeof cursor.id !== 'string' ||
-    !cursor.id
-  ) {
-    throw new Error('Storage reconciliation cursor is invalid.')
-  }
-  return { creationTime: Number(cursor.creationTime), id: cursor.id }
-}
 
 export async function isCmsStorageReferenced(
   ctx: QueryOrMutationCtx,
@@ -261,37 +217,3 @@ export async function isCmsStorageReferenced(
       .first(),
   )
 }
-
-export const reconcileStorageOrphans = internalAction({
-  args: {
-    now: v.optional(v.number()),
-    cursor: v.optional(v.union(v.string(), v.null())),
-    limit: v.optional(v.number()),
-  },
-  returns: v.object({ scanned: v.number(), deleted: v.number(), complete: v.boolean() }),
-  handler: async (ctx, args) => {
-    const now = args.now ?? Date.now()
-    const limit = Math.min(
-      Math.max(Math.floor(args.limit ?? DEFAULT_STORAGE_SCAN_BATCH_SIZE), 1),
-      DEFAULT_STORAGE_SCAN_BATCH_SIZE,
-    )
-    const page = await ctx.runQuery(readStorageOrphanPageRef, {
-      now,
-      cursor: args.cursor ?? null,
-      limit,
-    })
-    let deleted = 0
-    for (const candidate of page.candidates) {
-      await ctx.storage.delete(candidate as Id<'_storage'>)
-      deleted += 1
-    }
-    if (!page.complete) {
-      await ctx.scheduler.runAfter(0, reconcileStorageOrphansRef, {
-        now,
-        cursor: page.cursor,
-        limit,
-      })
-    }
-    return { scanned: page.scanned, deleted, complete: page.complete }
-  },
-})
