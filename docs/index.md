@@ -27,6 +27,8 @@ Use these docs by reader task:
 - Release and recovery work: use the
   [release candidate checklist](./maintenance/release-candidate.md) and
   [backup and recovery](./maintenance/backup-and-recovery.md).
+- Deployment privacy operations: use the
+  [data retention and privacy inventory](./maintenance/data-retention-and-privacy.md).
 - Agent-assisted setup or maintenance: use the repo-local
   [Ginko CMS Codex skill](../skills/ginko-cms/SKILL.md).
 
@@ -66,6 +68,7 @@ docs/
   maintenance/
     backup-and-recovery.md
     convex-component-diagnostics-issue.md
+    data-retention-and-privacy.md
     release-candidate.md
 skills/
   ginko-cms/

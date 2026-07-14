@@ -222,11 +222,107 @@ describe('storage maintenance', () => {
       } as never,
     )
 
+    const oldCompletedRun = await ctx.seed(
+      'agentRuns' as never,
+      {
+        credentialApiKeyId: 'old-run-key',
+        delegatedUserId: 'owner-1',
+        scopeSnapshot: ['read'],
+        taskName: 'old completed run',
+        status: 'completed',
+        createdBy: 'owner-1',
+        createdAt: now - 200 * DAY_MS,
+        updatedAt: now - 181 * DAY_MS,
+        endedAt: now - 181 * DAY_MS,
+      } as never,
+    )
+    const retainedCompletedRun = await ctx.seed(
+      'agentRuns' as never,
+      {
+        credentialApiKeyId: 'retained-run-key',
+        delegatedUserId: 'owner-1',
+        scopeSnapshot: ['read'],
+        taskName: 'completed run with retained review',
+        status: 'completed',
+        createdBy: 'owner-1',
+        createdAt: now - 200 * DAY_MS,
+        updatedAt: now - 181 * DAY_MS,
+        endedAt: now - 181 * DAY_MS,
+      } as never,
+    )
+    const activeRun = await ctx.seed(
+      'agentRuns' as never,
+      {
+        credentialApiKeyId: 'active-run-key',
+        delegatedUserId: 'owner-1',
+        scopeSnapshot: ['read'],
+        taskName: 'old active run',
+        status: 'active',
+        createdBy: 'owner-1',
+        createdAt: now - 400 * DAY_MS,
+        updatedAt: now - 400 * DAY_MS,
+      } as never,
+    )
+    const oldApprovedReview = await ctx.seed(
+      'reviewRequests' as never,
+      {
+        agentRunId: null,
+        entryId: 'old-entry',
+        locales: ['en'],
+        expectedVersion: 1,
+        title: 'old approved review',
+        summary: 'old approved review',
+        status: 'approved',
+        preview: {},
+        requestedBy: 'owner-1',
+        reviewedBy: 'owner-1',
+        createdAt: now - 200 * DAY_MS,
+        updatedAt: now - 181 * DAY_MS,
+        reviewedAt: now - 181 * DAY_MS,
+      } as never,
+    )
+    const retainedApprovedReview = await ctx.seed(
+      'reviewRequests' as never,
+      {
+        agentRunId: retainedCompletedRun,
+        entryId: 'recent-entry',
+        locales: ['en'],
+        expectedVersion: 1,
+        title: 'recent approved review',
+        summary: 'recent approved review',
+        status: 'approved',
+        preview: {},
+        requestedBy: 'owner-1',
+        reviewedBy: 'owner-1',
+        createdAt: now - 200 * DAY_MS,
+        updatedAt: now - 179 * DAY_MS,
+        reviewedAt: now - 179 * DAY_MS,
+      } as never,
+    )
+    const pendingReview = await ctx.seed(
+      'reviewRequests' as never,
+      {
+        agentRunId: null,
+        entryId: 'pending-entry',
+        locales: ['en'],
+        expectedVersion: 1,
+        title: 'old pending review',
+        summary: 'old pending review',
+        status: 'pending',
+        preview: {},
+        requestedBy: 'owner-1',
+        createdAt: now - 400 * DAY_MS,
+        updatedAt: now - 400 * DAY_MS,
+      } as never,
+    )
+
     const result = await ctx.raw.mutation(api.storageMaintenance.cleanupStorageHygiene, { now })
     expect(result).toMatchObject({
       outboxDelivered: 1,
       outboxFailed: 1,
       activity: 1,
+      agentRuns: 1,
+      reviewRequests: 1,
       remaining: false,
     })
 
@@ -242,6 +338,48 @@ describe('storage maintenance', () => {
     expect((await ctx.readAll('destructiveAuditLog')).map((row) => String(row._id))).toContain(
       auditId,
     )
+    const runIds = (await ctx.readAll('agentRuns')).map((row) => String(row._id))
+    expect(runIds).not.toContain(oldCompletedRun)
+    expect(runIds).toEqual(expect.arrayContaining([retainedCompletedRun, activeRun]))
+
+    const reviewIds = (await ctx.readAll('reviewRequests')).map((row) => String(row._id))
+    expect(reviewIds).not.toContain(oldApprovedReview)
+    expect(reviewIds).toEqual(expect.arrayContaining([retainedApprovedReview, pendingReview]))
+  })
+
+  it('continues closed-review cleanup in bounded indexed batches', async () => {
+    const ctx = createCtx()
+    const now = Date.UTC(2026, 4, 13)
+    for (let index = 0; index < 3; index += 1) {
+      await ctx.seed(
+        'reviewRequests' as never,
+        {
+          agentRunId: null,
+          entryId: `old-entry-${index}`,
+          locales: ['en'],
+          expectedVersion: 1,
+          title: `old review ${index}`,
+          summary: `old review ${index}`,
+          status: 'rejected',
+          preview: {},
+          requestedBy: 'owner-1',
+          reviewedBy: 'owner-1',
+          createdAt: now - 200 * DAY_MS,
+          updatedAt: now - 181 * DAY_MS,
+          reviewedAt: now - 181 * DAY_MS,
+        } as never,
+      )
+    }
+
+    await expect(
+      ctx.raw.mutation(api.storageMaintenance.cleanupStorageHygiene, { now, limit: 2 }),
+    ).resolves.toMatchObject({ reviewRequests: 2, remaining: true })
+    expect(await ctx.readAll('reviewRequests')).toHaveLength(1)
+
+    await expect(
+      ctx.raw.mutation(api.storageMaintenance.cleanupStorageHygiene, { now, limit: 2 }),
+    ).resolves.toMatchObject({ reviewRequests: 1, remaining: false })
+    expect(await ctx.readAll('reviewRequests')).toEqual([])
   })
 
   it('reports storage hygiene counts and largest growth risks for owners', async () => {

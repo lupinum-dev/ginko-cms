@@ -70,4 +70,5 @@ restoring a deployment snapshot taken before the upgrade.
 ## Related Pages
 
 - [Migration recovery](../guides/migrations/recovery.md)
+- [Data retention and privacy](./data-retention-and-privacy.md)
 - [Release candidate checklist](./release-candidate.md)

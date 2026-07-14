@@ -19,6 +19,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const DELIVERED_OUTBOX_RETENTION_MS = 30 * DAY_MS
 const FAILED_OUTBOX_RETENTION_MS = 90 * DAY_MS
 const ACTIVITY_RETENTION_MS = 180 * DAY_MS
+const ASSISTED_AUTHORING_RETENTION_MS = 180 * DAY_MS
 const STORAGE_ORPHAN_GRACE_MS = 10 * 60 * 1_000
 const DEFAULT_STORAGE_SCAN_BATCH_SIZE = 100
 const readStorageOrphanPageRef = makeFunctionReference<
@@ -36,6 +37,8 @@ const cleanupResultValidator = v.object({
   outboxDelivered: v.number(),
   outboxFailed: v.number(),
   activity: v.number(),
+  agentRuns: v.number(),
+  reviewRequests: v.number(),
   remaining: v.boolean(),
 })
 
@@ -78,8 +81,59 @@ export const cleanupStorageHygiene = internalMutation({
       .take(limit)
     for (const row of activity) await ctx.db.delete(row._id)
 
+    const reviewCutoff = now - ASSISTED_AUTHORING_RETENTION_MS
+    const approvedReviews = await ctx.db
+      .query('reviewRequests')
+      .withIndex('by_status_updated_at', (q) =>
+        q.eq('status', 'approved').lt('updatedAt', reviewCutoff),
+      )
+      .take(limit)
+    const rejectedReviews = await ctx.db
+      .query('reviewRequests')
+      .withIndex('by_status_updated_at', (q) =>
+        q.eq('status', 'rejected').lt('updatedAt', reviewCutoff),
+      )
+      .take(limit)
+    const reviews = [...approvedReviews, ...rejectedReviews]
+    for (const row of reviews) await ctx.db.delete(row._id)
+
+    const runCutoff = now - ASSISTED_AUTHORING_RETENTION_MS
+    const completedRuns = await ctx.db
+      .query('agentRuns')
+      .withIndex('by_status_updated_at', (q) =>
+        q.eq('status', 'completed').lt('updatedAt', runCutoff),
+      )
+      .take(limit)
+    const revokedRuns = await ctx.db
+      .query('agentRuns')
+      .withIndex('by_status_updated_at', (q) =>
+        q.eq('status', 'revoked').lt('updatedAt', runCutoff),
+      )
+      .take(limit)
+    const failedRuns = await ctx.db
+      .query('agentRuns')
+      .withIndex('by_status_updated_at', (q) => q.eq('status', 'failed').lt('updatedAt', runCutoff))
+      .take(limit)
+    let deletedRuns = 0
+    for (const row of [...completedRuns, ...revokedRuns, ...failedRuns]) {
+      const retainedReview = await ctx.db
+        .query('reviewRequests')
+        .withIndex('by_agent_run', (q) => q.eq('agentRunId', row._id))
+        .first()
+      if (retainedReview) continue
+      await ctx.db.delete(row._id)
+      deletedRuns += 1
+    }
+    const runPageFull =
+      completedRuns.length === limit || revokedRuns.length === limit || failedRuns.length === limit
+
     const remaining =
-      deliveredOutbox.length === limit || failedOutbox.length === limit || activity.length === limit
+      deliveredOutbox.length === limit ||
+      failedOutbox.length === limit ||
+      activity.length === limit ||
+      approvedReviews.length === limit ||
+      rejectedReviews.length === limit ||
+      (deletedRuns > 0 && runPageFull)
     if (remaining) {
       await ctx.scheduler.runAfter(
         0,
@@ -92,6 +146,8 @@ export const cleanupStorageHygiene = internalMutation({
       outboxDelivered: deliveredOutbox.length,
       outboxFailed: failedOutbox.length,
       activity: activity.length,
+      agentRuns: deletedRuns,
+      reviewRequests: reviews.length,
       remaining,
     }
   },

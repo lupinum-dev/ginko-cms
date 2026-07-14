@@ -650,7 +650,8 @@ export default defineSchema({
   })
     .index('by_credential', ['credentialApiKeyId'])
     .index('by_delegated_user', ['delegatedUserId'])
-    .index('by_status', ['status']),
+    .index('by_status', ['status'])
+    .index('by_status_updated_at', ['status', 'updatedAt']),
 
   mcpCreateEntryReceipts: defineTable({
     callerKey: v.string(),
@@ -684,6 +685,7 @@ export default defineSchema({
   })
     .index('by_agent_run', ['agentRunId'])
     .index('by_status', ['status'])
+    .index('by_status_updated_at', ['status', 'updatedAt'])
     .index('by_entry', ['entryId']),
 
   destructiveConfirmations: defineTable({
