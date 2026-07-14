@@ -1701,3 +1701,108 @@ Updated to `implemented`: `Supervised MCP surface`,
 `MCP credential fail-closed`, `Idempotent MCP entry creation`, and
 `Agent-run audit truth`. Final clean candidate regeneration remains WP8/WP9
 work; these development artifacts are not release candidates.
+
+## 2026-07-14 — WP6 Public Delivery And Projection Performance
+
+### Objective and ownership cutover
+
+Make Ginko Content the single website-facing query, prerender, and sitemap
+owner while retaining CMS Convex public functions as its published-only
+provider backend. Delete the CMS Nuxt public HTTP facade, its generated website
+API types, and CMS-owned prerender configuration instead of maintaining two
+public delivery products.
+
+The CMS module now rejects the removed `publicContent` option. Ginko Content
+owns the consumer contract; CMS owns publication, projections, and durable
+revalidation delivery. No compatibility shim, parallel facade, replacement
+adapter, or second public read model was added.
+
+### Bounded public reads and rebuildable projection facts
+
+- Route enumeration reads paths already present on `publicEntries`; it no
+  longer issues a route lookup per row.
+- Translation-dependent list, navigation, surround, search, and sitemap reads
+  use one bounded collection projection query and group translations in memory.
+  The query-count fixture proves the same one-query budget for one and 1,000
+  inputs; it does not replace the N+1 with unbounded concurrent queries.
+- Published asset facts are derived once during publish or projection rebuild
+  and stored on `publicEntries`. Public reads fail with
+  `PUBLIC_PROJECTION_REBUILD_REQUIRED` for an old row without those facts,
+  rather than silently falling back to the removed per-row asset-reference
+  query path. The schema field is temporarily optional only so the schema can
+  deploy before the required projection rebuild.
+
+### Delivery, recovery, and cursor invariants
+
+- Revalidation targets reject URL credentials and a second enabled target in
+  the same environment. Delivery disables redirects, never reads or persists a
+  remote response body, and reports only a local category plus HTTP status.
+- Delivery remains explicitly at least once. Retries carry the stable event
+  idempotency key, and the receiver contract requires durable deduplication by
+  that key.
+- Expired processing locks use the `by_status_lock_expiry` index in batches of 25. Reading one sentinel row beyond the batch determines whether to schedule
+  another recovery pass.
+- Activity pagination uses an opaque cursor over `(createdAt, _creationTime)`
+  and indexed continuation queries. Native Convex component pagination is not
+  available, and Convex cannot range an index on `_id`; `_creationTime` is the
+  platform-supported immutable tie-breaker in the custom index. Equal
+  `createdAt` fixtures prove no loss or duplication.
+
+### Test-first evidence and corrections
+
+Focused red tests first exposed the second public delivery surface, route and
+translation N+1 behavior, per-row asset queries, redirect/body leakage risk,
+ambiguous multi-target configuration, unbounded recovery, and timestamp-only
+cursor loss. The first native-pagination implementation was removed when the
+architecture guard correctly identified that Convex components do not support
+it. The indexed opaque tuple cursor is the direct supported implementation.
+
+The broad gate also found WP5 residue in Studio scope choices and legacy MCP
+permission rows. The scope keys now have one contract-owned source of truth,
+Studio offers only read/create/edit, and backend guards reject every removed
+MCP write permission even when an old settings row contains it. Direct publish
+tests now prove rejection and unchanged public state.
+
+### Commands and exact development evidence
+
+- `pnpm run prepare:component`: passed and regenerated the component API from
+  the updated schema and functions.
+- `pnpm run check`: passed formatting, architecture and generated-surface
+  guards, lint, every package and Studio typecheck/build,
+  publish-specifier checks, and the complete suite: 123 files passed plus one
+  gated skip; 932 tests passed plus one skip.
+- `package:e2e:dev`: packed the dirty WP6 source, installed the exact tuple in a
+  fresh strict pnpm consumer, and passed host initialization, doctor,
+  typecheck, Nuxt/Nitro production build, package imports, and portable-content
+  verification.
+
+Exact development artifact bytes:
+
+- Certified temporary Content artifact from `fe24e4a`:
+  `12253bbddb77a65ef84af86dbd94b253102d615b93596b8422b6323644800cc4`.
+- Better Convex Nuxt from clean `dda45f9`:
+  `46043aef29efc6087e4aa3fe90d88862fb6d57ac9fb96677adeff5672c4676fb`.
+- CMS Contract:
+  `23a32a0bba33c142539b923f2b8a3f573a224392a55de9e23511a320c04e4560`.
+- CMS Convex:
+  `e92554f6f2a3db5ead0799b3bcb8da857646d4b78252b5b97dab4c1048325800`.
+- CMS:
+  `c29c0200a05063f55cb1a41de63bc744ad642ecf0397f6a3069afdc73e5e5c5b`.
+
+The package evidence records lockfile SHA-256
+`66a0ac04cc2780901575608657ad5ba6e9f330894062818b63474a300b5bb3a0`.
+These are development artifacts, not release candidates. CMS remains pinned to
+the certified `fe24e4a` bytes for integration evidence until the Ginko Content
+product owner supplies the final clean `0.3.0-rc.1` commit, reproducible
+tarball, SHA-256, and complete gates. `0add0822` is not accepted as that commit.
+
+### Acceptance matrix and next phase
+
+Source commit: `88d9b93e` —
+`refactor!: let Ginko Content own public delivery`.
+
+Updated to `implemented`: `Revalidation boundary`,
+`Revalidation target cardinality`, `Bounded outbox recovery`,
+`Stable operational cursors`, `Ginko Content public ownership`, and
+`Public query budget`. WP7 owns the maintainability and public-surface freeze;
+WP8/WP9 still own final clean, exact-tuple release certification.
