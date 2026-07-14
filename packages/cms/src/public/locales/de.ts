@@ -972,10 +972,6 @@ const de = {
         approveError: 'Freigabe konnte nicht abgeschlossen werden.',
         rejectError: 'Freigabe konnte nicht abgelehnt werden.',
       },
-      importsPage: {
-        title: 'Content-Importe',
-        description: 'Datei-Importe und Blocker prüfen',
-      },
       userMenu: {
         darkMode: 'Dunkel',
         lightMode: 'Hell',

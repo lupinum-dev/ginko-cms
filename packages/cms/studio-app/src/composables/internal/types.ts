@@ -68,16 +68,6 @@ export interface StudioCollectionConfig {
     activeSiteProjectionRunId: string | null
     activatedAt: number | null
   }
-  lastImportRun?: {
-    importRunId: string
-    kind: 'preview' | 'apply'
-    status: 'previewed' | 'blocked' | 'applied' | 'published' | 'failed'
-    publish: boolean
-    blockerCount: number
-    warningCount: number
-    publishedCount: number
-    createdAt: number
-  } | null
 }
 
 export interface StudioAssetRecord {

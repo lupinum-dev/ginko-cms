@@ -1,5 +1,5 @@
 // Build the additional top-level source directories (auth, cli,
-// migration, public, server)
+// portability, public, server)
 // into dist/. nuxt-module-build only handles src/runtime/, so we run mkdist
 // for the rest. This keeps the Nuxt module package surface explicit.
 import { copyFileSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -11,7 +11,16 @@ import { mkdist } from 'mkdist'
 const here = dirname(fileURLToPath(import.meta.url))
 const pkgRoot = resolve(here, '..')
 
-const extras = ['auth', 'cli', 'convex', 'migration', 'module', 'nuxt-provider', 'public', 'server']
+const extras = [
+  'auth',
+  'cli',
+  'convex',
+  'module',
+  'nuxt-provider',
+  'portability',
+  'public',
+  'server',
+]
 
 function walkFiles(directory) {
   const entries = []

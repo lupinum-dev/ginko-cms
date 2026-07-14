@@ -21,7 +21,6 @@ export type StudioWorkQueueCounts = {
   changedDrafts?: number | null
   missingTranslations?: number | null
   failedRevalidation?: number | null
-  importBlockers?: number | null
   pendingRevalidation?: number | null
 }
 
@@ -76,19 +75,17 @@ export function deriveStudioWorkQueueSummary(counts: StudioWorkQueueCounts) {
   const changedDrafts = countValue(counts.changedDrafts)
   const missingTranslations = countValue(counts.missingTranslations)
   const failedRevalidation = countValue(counts.failedRevalidation)
-  const importBlockers = countValue(counts.importBlockers)
   const pendingRevalidation = countValue(counts.pendingRevalidation)
   const needsAttention =
-    countValue(counts.needsAttention) || missingTranslations + failedRevalidation + importBlockers
+    countValue(counts.needsAttention) || missingTranslations + failedRevalidation
 
   return {
     needsAttention,
     changedDrafts,
     missingTranslations,
     failedRevalidation,
-    importBlockers,
     pendingRevalidation,
-    healthy: needsAttention === 0 && failedRevalidation === 0 && importBlockers === 0,
+    healthy: needsAttention === 0 && failedRevalidation === 0,
   }
 }
 

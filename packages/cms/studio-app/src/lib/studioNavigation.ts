@@ -8,7 +8,6 @@ export type StudioStaticRouteId =
   | 'collections'
   | 'activity'
   | 'agents'
-  | 'imports'
   | 'settings'
 
 export type StudioRouteSection = 'home' | 'editor' | 'operations' | 'settings'
@@ -85,15 +84,6 @@ export const studioStaticRoutes: StudioStaticRoute[] = [
     labelKey: 'ginkoCms.studio.agentsPage.title',
     subtitleKey: 'ginkoCms.studio.agentsPage.description',
     requiredCapability: cmsPermissionKeys.manageSettings,
-  },
-  {
-    id: 'imports',
-    path: 'imports',
-    icon: 'lucide:file-archive',
-    section: 'operations',
-    labelKey: 'ginkoCms.studio.importsPage.title',
-    subtitleKey: 'ginkoCms.studio.importsPage.description',
-    requiredCapability: cmsPermissionKeys.manageCollections,
   },
   {
     id: 'settings',

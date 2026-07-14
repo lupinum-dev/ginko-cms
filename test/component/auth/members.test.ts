@@ -305,7 +305,9 @@ describe('cms guards', () => {
       })
 
       for (const { guard } of cmsPermissionGuards) {
-        expect(can(mcp(allScopes), guard)).toBe(can(user, guard))
+        expect(can(mcp(allScopes), guard)).toBe(
+          guard === canManagePortability ? false : can(user, guard),
+        )
         expect(can(mcp(noScopes), guard)).toBe(false)
       }
     },

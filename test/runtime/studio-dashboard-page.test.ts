@@ -10,7 +10,6 @@ const overview = vi.hoisted(() => ({
   counts: {
     changedDrafts: 3,
     failedRevalidation: 0,
-    importBlockers: 0,
     missingTranslations: 1,
     needsAttention: 1,
     pendingRevalidation: 0,
@@ -66,7 +65,6 @@ const overview = vi.hoisted(() => ({
     },
   ],
   revalidationJobs: [],
-  importRuns: [],
   activity: [
     {
       _id: 'activity-1',

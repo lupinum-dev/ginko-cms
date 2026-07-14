@@ -129,7 +129,7 @@ export const canManageBackups = defineCmsGuard(
 
 export const canManagePortability = defineCmsGuard(
   'Manage portability',
-  hasRole('owner').check,
+  (appIdentity) => hasRole('owner').check(appIdentity) && appIdentity?.audit.origin === 'user',
   cmsPermissionKeys.managePortability,
 )
 

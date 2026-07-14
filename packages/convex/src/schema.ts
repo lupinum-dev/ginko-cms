@@ -188,34 +188,85 @@ export default defineSchema({
     .index('by_entry', ['entryId'])
     .index('by_collection', ['collectionId']),
 
-  collectionImportRuns: defineTable({
-    importRunId: v.string(),
-    kind: v.union(v.literal('preview'), v.literal('apply')),
-    status: v.optional(
-      v.union(
-        v.literal('previewed'),
-        v.literal('blocked'),
-        v.literal('applied'),
-        v.literal('published'),
-        v.literal('failed'),
-      ),
-    ),
-    publish: v.boolean(),
-    publishLocales: v.array(v.string()),
-    source: v.optional(jsonObjectValidator),
-    request: v.optional(jsonObjectValidator),
-    summary: v.optional(jsonObjectValidator),
-    collectionSlugs: v.array(v.string()),
-    collectionCount: v.number(),
-    entryCount: v.number(),
-    assetCount: v.number(),
-    result: jsonObjectValidator,
-    createdBy: v.string(),
+  portablePlans: defineTable({
+    planId: v.string(),
+    payload: jsonObjectValidator,
+    payloadSha256: v.string(),
+    callerId: v.string(),
+    stagedItemCount: v.number(),
+    stagedAssetCount: v.number(),
     createdAt: v.number(),
+    expiresAt: v.number(),
   })
-    .index('by_import_run', ['importRunId'])
-    .index('by_created_at', ['createdAt'])
-    .index('by_kind_created_at', ['kind', 'createdAt']),
+    .index('by_plan_id', ['planId'])
+    .index('by_expires_at', ['expiresAt']),
+
+  portableImportPlanItems: defineTable({
+    planId: v.string(),
+    itemKey: v.string(),
+    inputSha256: v.string(),
+    payload: jsonObjectValidator,
+  })
+    .index('by_plan_item', ['planId', 'itemKey'])
+    .index('by_plan', ['planId']),
+
+  portableImportPlanAssets: defineTable({
+    planId: v.string(),
+    assetKey: v.string(),
+    inputSha256: v.string(),
+    payload: jsonObjectValidator,
+  })
+    .index('by_plan_asset', ['planId', 'assetKey'])
+    .index('by_plan', ['planId']),
+
+  portableRuns: defineTable({
+    runId: v.string(),
+    planId: v.string(),
+    mode: v.literal('import'),
+    state: v.union(
+      v.literal('planned'),
+      v.literal('applying'),
+      v.literal('verifying'),
+      v.literal('complete'),
+      v.literal('aborted'),
+      v.literal('expired'),
+    ),
+    payloadSha256: v.string(),
+    callerId: v.string(),
+    deploymentId: v.string(),
+    scope: v.object({ collections: v.array(v.string()) }),
+    targetContractSha256: v.string(),
+    sourceManifestSha256: v.string(),
+    sourceContractSha256: v.string(),
+    committedItemCount: v.number(),
+    attachedAssetCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index('by_run_id', ['runId'])
+    .index('by_plan_id', ['planId'])
+    .index('by_expires_at', ['expiresAt']),
+
+  portableItemReceipts: defineTable({
+    runId: v.string(),
+    itemKey: v.string(),
+    inputSha256: v.string(),
+    status: v.literal('committed'),
+    effect: v.union(v.literal('created-draft'), v.literal('updated-draft'), v.literal('skipped')),
+    resultId: v.string(),
+    committedAt: v.number(),
+  })
+    .index('by_run_item', ['runId', 'itemKey'])
+    .index('by_run', ['runId']),
+
+  portableImportReceipts: defineTable({
+    runId: v.string(),
+    payloadSha256: v.string(),
+    documentCount: v.number(),
+    assetCount: v.number(),
+    completedAt: v.number(),
+  }).index('by_run', ['runId']),
 
   publicEntries: defineTable({
     entryId: v.id('entries'),

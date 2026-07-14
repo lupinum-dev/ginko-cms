@@ -1303,7 +1303,7 @@ const storageTableCountsValidator = v.object({
   contentAssetRefs: v.number(),
   outboxEvents: v.number(),
   activity: v.number(),
-  collectionImportRuns: v.number(),
+  portableRuns: v.number(),
   backupArtifacts: v.number(),
   softDeletedAssets: v.number(),
 })
@@ -1376,8 +1376,8 @@ export const storageHygieneReport = callerQuery.protected({
       await ctx.db.query('outboxEvents').take(STORAGE_REPORT_SCAN_LIMIT + 1),
     )
     const activity = boundedRows(await ctx.db.query('activity').take(STORAGE_REPORT_SCAN_LIMIT + 1))
-    const collectionImportRuns = boundedRows(
-      await ctx.db.query('collectionImportRuns').take(STORAGE_REPORT_SCAN_LIMIT + 1),
+    const portableRuns = boundedRows(
+      await ctx.db.query('portableRuns').take(STORAGE_REPORT_SCAN_LIMIT + 1),
     )
     const backupArtifacts = boundedRows(
       await ctx.db.query('backupArtifacts').take(STORAGE_REPORT_SCAN_LIMIT + 1),
@@ -1391,7 +1391,7 @@ export const storageHygieneReport = callerQuery.protected({
       contentAssetRefs.truncated ? 'contentAssetRefs' : null,
       outboxEvents.truncated ? 'outboxEvents' : null,
       activity.truncated ? 'activity' : null,
-      collectionImportRuns.truncated ? 'collectionImportRuns' : null,
+      portableRuns.truncated ? 'portableRuns' : null,
       backupArtifacts.truncated ? 'backupArtifacts' : null,
       assets.truncated ? 'assets' : null,
     ].filter((table): table is string => table !== null)
@@ -1405,7 +1405,7 @@ export const storageHygieneReport = callerQuery.protected({
         contentAssetRefs: contentAssetRefs.rows.length,
         outboxEvents: outboxEvents.rows.length,
         activity: activity.rows.length,
-        collectionImportRuns: collectionImportRuns.rows.length,
+        portableRuns: portableRuns.rows.length,
         backupArtifacts: backupArtifacts.rows.length,
         softDeletedAssets: assets.rows.filter((asset) => asset.deletedAt != null).length,
       },

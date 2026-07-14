@@ -59,7 +59,7 @@ deploy.
 - Studio routes, layout, and runtime components.
 - CMS setup CLI commands.
 - Direct Convex setup validation.
-- Filesystem migration helpers.
+- Deterministic Content portability helpers.
 - Public CMS provider integration.
 - Tailwind v4 integration for the CMS UI.
 

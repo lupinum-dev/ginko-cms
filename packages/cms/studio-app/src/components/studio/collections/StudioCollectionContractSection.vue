@@ -30,16 +30,6 @@ type CollectionDetail = {
     activeSiteProjectionRunId: string | null
     activatedAt: number | null
   }
-  lastImportRun?: {
-    importRunId: string
-    kind: 'preview' | 'apply'
-    status: 'previewed' | 'blocked' | 'applied' | 'published' | 'failed'
-    publish: boolean
-    blockerCount: number
-    warningCount: number
-    publishedCount: number
-    createdAt: number
-  } | null
 }
 
 type CollectionDraft = {
@@ -121,18 +111,6 @@ const projectionFacts = computed(() => [
     props.collectionDetail?.projectionStatus?.activeSiteProjectionRunId ?? 'none active',
   ],
 ])
-
-const lastImport = computed(() => props.collectionDetail?.lastImportRun ?? null)
-
-function importToneClass(status: string) {
-  if (status === 'blocked' || status === 'failed') {
-    return 'ginko:border-destructive/40 ginko:bg-destructive/10 ginko:text-destructive-fg'
-  }
-  if (status === 'published' || status === 'applied') {
-    return 'ginko:border-success/40 ginko:bg-success/10 ginko:text-success-fg'
-  }
-  return 'ginko:border-border ginko:bg-muted/50 ginko:text-muted-foreground'
-}
 </script>
 
 <template>
@@ -360,50 +338,6 @@ function importToneClass(status: string) {
                 </dd>
               </div>
             </dl>
-          </StudioDeveloperDetails>
-        </div>
-        <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
-          <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
-            <div>
-              <Label class="ginko:text-xs ginko:text-muted-foreground">Last content import</Label>
-              <p class="ginko:mt-1 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-                Imports apply content under this developer-managed content setup. Unknown fields and
-                blocked relations are reported instead of changing the content setup.
-              </p>
-            </div>
-            <Badge
-              v-if="lastImport"
-              variant="outline"
-              class="ginko:capitalize"
-              :class="importToneClass(lastImport.status)"
-            >
-              {{ lastImport.status }}
-            </Badge>
-            <Badge v-else variant="outline">none</Badge>
-          </div>
-          <dl
-            v-if="lastImport"
-            class="ginko:mt-3 ginko:grid ginko:grid-cols-3 ginko:gap-2 ginko:text-xs"
-          >
-            <div class="ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5">
-              <dt class="ginko:text-muted-foreground">Blockers</dt>
-              <dd class="ginko:font-medium ginko:text-foreground">{{ lastImport.blockerCount }}</dd>
-            </div>
-            <div class="ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5">
-              <dt class="ginko:text-muted-foreground">Warnings</dt>
-              <dd class="ginko:font-medium ginko:text-foreground">{{ lastImport.warningCount }}</dd>
-            </div>
-            <div class="ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5">
-              <dt class="ginko:text-muted-foreground">Published</dt>
-              <dd class="ginko:font-medium ginko:text-foreground">
-                {{ lastImport.publishedCount }}
-              </dd>
-            </div>
-          </dl>
-          <StudioDeveloperDetails v-if="lastImport" class="ginko:mt-3" :framed="false">
-            <p class="ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground">
-              {{ lastImport.importRunId }}
-            </p>
           </StudioDeveloperDetails>
         </div>
       </div>

@@ -56,7 +56,7 @@ type StorageHygieneReport = {
     contentAssetRefs: number
     outboxEvents: number
     activity: number
-    collectionImportRuns: number
+    portableRuns: number
     backupArtifacts: number
     softDeletedAssets: number
   }
@@ -265,7 +265,7 @@ export function useStudioSettingsAdmin() {
       },
       {
         label: t('ginkoCms.studio.settingsPage.storageImportRuns'),
-        value: numberFormatter.format(report.counts.collectionImportRuns),
+        value: numberFormatter.format(report.counts.portableRuns),
       },
       {
         label: t('ginkoCms.studio.settingsPage.storageBackups'),

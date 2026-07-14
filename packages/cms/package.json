@@ -37,9 +37,9 @@
       "types": "./dist/convex/auth-config.d.ts",
       "import": "./dist/convex/auth-config.js"
     },
-    "./migration": {
-      "types": "./dist/migration/index.d.ts",
-      "import": "./dist/migration/index.js"
+    "./portability": {
+      "types": "./dist/portability/index.d.ts",
+      "import": "./dist/portability/index.js"
     },
     "./public": {
       "types": "./dist/public/index.d.ts",

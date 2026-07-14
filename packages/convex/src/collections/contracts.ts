@@ -23,40 +23,11 @@ async function getDefaultLocale(ctx: QueryOrMutationCtx) {
   )
 }
 
-function numberFrom(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0
-}
-
-async function getLastImportRunForCollection(ctx: QueryOrMutationCtx, collectionSlug: string) {
-  const runs = await ctx.db
-    .query('collectionImportRuns')
-    .withIndex('by_created_at')
-    .order('desc')
-    .take(20)
-  const run = runs.find((candidate) => candidate.collectionSlugs.includes(collectionSlug))
-  if (!run) return null
-  const summary =
-    typeof run.summary === 'object' && run.summary !== null && !Array.isArray(run.summary)
-      ? run.summary
-      : {}
-  return {
-    importRunId: run.importRunId,
-    kind: run.kind,
-    status: run.status ?? (run.kind === 'preview' ? 'previewed' : 'applied'),
-    publish: run.publish,
-    blockerCount: numberFrom(summary.blockerCount),
-    warningCount: numberFrom(summary.warningCount),
-    publishedCount: numberFrom(summary.publishedCount),
-    createdAt: run.createdAt,
-  }
-}
-
 async function mapCollectionDoc(
   ctx: QueryOrMutationCtx,
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
   locale: string,
 ) {
-  const lastImportRun = await getLastImportRunForCollection(ctx, collection.slug)
   return {
     _id: toStringId(collection._id),
     slug: collection.slug,
@@ -74,7 +45,6 @@ async function mapCollectionDoc(
     fields: collection.fields,
     settings: collection.settings ?? {},
     contract: collection.contract,
-    lastImportRun,
     createdAt: collection.createdAt,
     updatedAt: collection.updatedAt,
     updatedBy: collection.updatedBy,

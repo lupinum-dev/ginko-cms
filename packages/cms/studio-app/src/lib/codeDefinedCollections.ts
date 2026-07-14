@@ -118,6 +118,5 @@ export function codeDefinedCollectionDetail(
       activeSiteProjectionRunId: null,
       activatedAt: null,
     },
-    lastImportRun: null,
   }
 }

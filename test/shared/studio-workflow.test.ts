@@ -6,12 +6,6 @@ import {
   formatDestructiveConfirmationPrompt,
 } from '../../packages/cms/studio-app/src/lib/destructiveWorkflow'
 import {
-  deriveImportRunResult,
-  deriveImportRunsOverview,
-  deriveImportRunSummary,
-  formatImportIssue,
-} from '../../packages/cms/studio-app/src/lib/importRuns'
-import {
   deriveDashboardCollectionSummary,
   deriveCapabilityWarnings,
   derivePublishConfirmationState,
@@ -256,15 +250,13 @@ describe('Studio public workflow helpers', () => {
         changedDrafts: 5,
         missingTranslations: 2,
         failedRevalidation: 1,
-        importBlockers: 1,
         pendingRevalidation: 3,
       }),
     ).toEqual({
-      needsAttention: 4,
+      needsAttention: 3,
       changedDrafts: 5,
       missingTranslations: 2,
       failedRevalidation: 1,
-      importBlockers: 1,
       pendingRevalidation: 3,
       healthy: false,
     })
@@ -413,104 +405,5 @@ describe('Studio public workflow helpers', () => {
       summary: 'Roll back "hello-world". Target id: version-2. Preview: draft diff.',
       warning: 'Current draft and published state will be replaced.',
     })
-  })
-})
-
-describe('Studio import run helpers', () => {
-  it('summarizes import workflow runs for the Studio overview', () => {
-    const overview = deriveImportRunsOverview([
-      {
-        _id: 'run-1',
-        importRunId: 'import-1',
-        kind: 'preview',
-        status: 'blocked',
-        summary: { blockerCount: 2, warningCount: 1, publishedCount: 0 },
-        createdAt: 100,
-      },
-      {
-        _id: 'run-2',
-        importRunId: 'import-2',
-        kind: 'apply',
-        status: 'published',
-        summary: { blockerCount: 0, warningCount: 3, publishedCount: 5 },
-        createdAt: 200,
-      },
-    ])
-
-    expect(overview).toMatchObject({
-      totalRuns: 2,
-      previewRuns: 1,
-      applyRuns: 1,
-      publishedRuns: 1,
-      blockedRuns: 1,
-      failedRuns: 0,
-      totalBlockers: 2,
-      totalWarnings: 4,
-      totalPublished: 5,
-    })
-    expect(overview.latestRun?.importRunId).toBe('import-2')
-  })
-
-  it('surfaces malformed apply results instead of treating them as safe', () => {
-    const result = deriveImportRunResult({
-      _id: 'run-1',
-      importRunId: 'import-1',
-      kind: 'apply',
-      status: 'applied',
-      summary: { blockerCount: 2, warningCount: 1, publishedCount: 0 },
-    })
-
-    expect(result).toMatchObject({
-      malformed: 'Stored apply result is missing or malformed.',
-      blockerCount: 2,
-      warningCount: 1,
-      publishedCount: 0,
-    })
-  })
-
-  it('derives blockers and entry changes from stored import results', () => {
-    const run = {
-      _id: 'run-2',
-      importRunId: 'import-2',
-      kind: 'apply' as const,
-      status: 'published',
-      result: {
-        blockedChanges: [
-          { code: 'relation_missing', entryKey: 'docs:child:de', message: 'Missing target' },
-        ],
-        warnings: [{ kind: 'asset_rewritten', message: 'Image moved' }],
-        noops: ['docs:intro:en'],
-        entries: {
-          created: ['docs:intro:de'],
-          updated: ['docs:intro:en'],
-          published: ['docs:intro:en', 'docs:intro:de'],
-          skipped: ['docs:missing:de'],
-        },
-        entryChanges: [
-          {
-            key: 'docs:intro:en',
-            status: 'update',
-            changes: [{ kind: 'route_update', current: '/docs/old', next: '/docs/intro' }],
-          },
-        ],
-      },
-    }
-
-    const result = deriveImportRunResult(run)
-
-    expect(result.blockerCount).toBe(1)
-    expect(result.warningCount).toBe(1)
-    expect(result.publishedCount).toBe(2)
-    expect(result.entryChanges).toEqual([
-      {
-        key: 'docs:intro:en',
-        status: 'update',
-        changes: ['route_update: /docs/old -> /docs/intro'],
-      },
-    ])
-    expect(deriveImportRunSummary(run)).toEqual({ blockers: 1, warnings: 1, published: 2 })
-    expect(formatImportIssue(result.blockers[0])).toBe(
-      'relation_missing · docs:child:de · Missing target',
-    )
   })
 })

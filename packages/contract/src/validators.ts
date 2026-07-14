@@ -942,7 +942,6 @@ export const studioOverviewValidator = v.object({
     readyToPreview: v.number(),
     missingTranslations: v.number(),
     failedRevalidation: v.number(),
-    importBlockers: v.number(),
     pendingRevalidation: v.number(),
   }),
   collections: v.array(
@@ -977,18 +976,6 @@ export const studioOverviewValidator = v.object({
       lastError: v.union(v.string(), v.null()),
       createdAt: v.number(),
       updatedAt: v.number(),
-    }),
-  ),
-  importRuns: v.array(
-    v.object({
-      id: v.string(),
-      importRunId: v.string(),
-      kind: v.union(v.literal('preview'), v.literal('apply')),
-      status: v.string(),
-      entryCount: v.number(),
-      assetCount: v.number(),
-      collectionSlugs: v.array(v.string()),
-      createdAt: v.number(),
     }),
   ),
   activity: v.array(
@@ -1377,14 +1364,6 @@ export const ginkoRouteDiagnosticValidator = v.object({
   claims: v.array(ginkoRouteClaimValidator),
 })
 
-export const importRunStatusValidator = v.union(
-  v.literal('previewed'),
-  v.literal('blocked'),
-  v.literal('applied'),
-  v.literal('published'),
-  v.literal('failed'),
-)
-
 /** Collection list item */
 export const collectionListItemValidator = v.object({
   _id: v.string(),
@@ -1413,20 +1392,6 @@ export const collectionProjectionStatusValidator = v.object({
   activatedAt: v.union(v.number(), v.null()),
 })
 
-export const collectionImportStatusValidator = v.union(
-  v.object({
-    importRunId: v.string(),
-    kind: v.union(v.literal('preview'), v.literal('apply')),
-    status: importRunStatusValidator,
-    publish: v.boolean(),
-    blockerCount: v.number(),
-    warningCount: v.number(),
-    publishedCount: v.number(),
-    createdAt: v.number(),
-  }),
-  v.null(),
-)
-
 /** Collection detail (getCollection) */
 export const collectionDocValidator = v.object({
   _id: v.string(),
@@ -1451,86 +1416,7 @@ export const collectionDocValidator = v.object({
     }),
   ),
   projectionStatus: v.optional(collectionProjectionStatusValidator),
-  lastImportRun: collectionImportStatusValidator,
   createdAt: v.number(),
   updatedAt: v.number(),
   updatedBy: v.string(),
-})
-
-/** Import result */
-export const importResultValidator = v.object({
-  importRunId: v.optional(v.string()),
-  status: v.optional(
-    v.union(
-      v.literal('previewed'),
-      v.literal('blocked'),
-      v.literal('applied'),
-      v.literal('published'),
-      v.literal('failed'),
-    ),
-  ),
-  created: v.array(v.string()),
-  updated: v.array(v.string()),
-  skipped: v.array(v.string()),
-  noops: v.array(v.string()),
-  blockedChanges: v.array(jsonValueValidator),
-  warnings: v.optional(v.array(jsonValueValidator)),
-  changes: v.optional(v.array(jsonValueValidator)),
-  summary: v.optional(jsonValueValidator),
-  assets: v.optional(
-    v.object({
-      referenced: v.number(),
-      uploaded: v.number(),
-      skipped: v.number(),
-      unresolvedAllowed: v.optional(v.boolean()),
-    }),
-  ),
-  entries: v.optional(
-    v.object({
-      created: v.array(v.string()),
-      updated: v.array(v.string()),
-      skipped: v.array(v.string()),
-      published: v.optional(v.array(v.string())),
-    }),
-  ),
-})
-
-/** Import preview result */
-export const importPreviewResultValidator = v.object({
-  importRunId: v.optional(v.string()),
-  status: v.optional(
-    v.union(
-      v.literal('previewed'),
-      v.literal('blocked'),
-      v.literal('applied'),
-      v.literal('published'),
-      v.literal('failed'),
-    ),
-  ),
-  collections: v.array(jsonValueValidator),
-  entries: v.optional(v.array(jsonValueValidator)),
-  assets: v.optional(v.array(jsonValueValidator)),
-  warnings: v.optional(v.array(jsonValueValidator)),
-  blockers: v.optional(v.array(jsonValueValidator)),
-  summary: v.optional(jsonValueValidator),
-})
-
-/** Persisted collection import preview/apply report */
-export const importRunValidator = v.object({
-  _id: v.string(),
-  importRunId: v.string(),
-  kind: v.union(v.literal('preview'), v.literal('apply')),
-  status: importRunStatusValidator,
-  publish: v.boolean(),
-  publishLocales: v.array(v.string()),
-  source: jsonObjectValidator,
-  request: jsonObjectValidator,
-  summary: jsonObjectValidator,
-  collectionSlugs: v.array(v.string()),
-  collectionCount: v.number(),
-  entryCount: v.number(),
-  assetCount: v.number(),
-  result: jsonObjectValidator,
-  createdBy: v.string(),
-  createdAt: v.number(),
 })

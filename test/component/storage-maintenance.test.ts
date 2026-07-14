@@ -67,46 +67,6 @@ describe('storage maintenance', () => {
       updatedAt: now - 400 * DAY_MS,
     })
 
-    const oldImportRun = await ctx.seed(
-      'collectionImportRuns' as never,
-      {
-        importRunId: 'old-import',
-        kind: 'preview',
-        status: 'previewed',
-        publish: false,
-        publishLocales: [],
-        source: {},
-        request: {},
-        summary: {},
-        collectionSlugs: [],
-        collectionCount: 0,
-        entryCount: 0,
-        assetCount: 0,
-        result: {},
-        createdBy: 'owner-1',
-        createdAt: now - 91 * DAY_MS,
-      } as never,
-    )
-    const recentImportRun = await ctx.seed(
-      'collectionImportRuns' as never,
-      {
-        importRunId: 'recent-import',
-        kind: 'apply',
-        status: 'applied',
-        publish: false,
-        publishLocales: [],
-        source: {},
-        request: {},
-        summary: {},
-        collectionSlugs: [],
-        collectionCount: 0,
-        entryCount: 0,
-        assetCount: 0,
-        result: {},
-        createdBy: 'owner-1',
-        createdAt: now - 89 * DAY_MS,
-      } as never,
-    )
     const oldActivity = await ctx.seed(
       'activity' as never,
       {
@@ -151,7 +111,6 @@ describe('storage maintenance', () => {
     expect(result).toMatchObject({
       outboxDelivered: 1,
       outboxFailed: 1,
-      importRuns: 1,
       activity: 1,
       remaining: false,
     })
@@ -160,10 +119,6 @@ describe('storage maintenance', () => {
     expect(outboxIds).not.toContain(oldDelivered)
     expect(outboxIds).not.toContain(oldFailed)
     expect(outboxIds).toEqual(expect.arrayContaining([recentDelivered, recentFailed, pending]))
-
-    const importRunIds = (await ctx.readAll('collectionImportRuns')).map((row) => String(row._id))
-    expect(importRunIds).not.toContain(oldImportRun)
-    expect(importRunIds).toContain(recentImportRun)
 
     const activityIds = (await ctx.readAll('activity')).map((row) => String(row._id))
     expect(activityIds).not.toContain(oldActivity)

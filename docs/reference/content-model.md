@@ -51,10 +51,11 @@ Public serving state:
   and next affected paths/tags, delivery attempts, retry state, and retention.
 - `revalidationTargets`: delivery configuration for cache invalidation.
 
-Imports and backups:
+Portability and backups:
 
-- `collectionImportRuns`: persisted import preview/apply reports for Studio and
-  operator inspection.
+- `portablePlans`, `portableImportPlanItems`, `portableRuns`, and
+  `portableItemReceipts`: bounded operator-only import plans, runs, and
+  idempotent draft receipts. They never publish content.
 - `backupArtifacts`: completed backup exports and their checksums/storage refs.
   Restore preview reads these artifacts; restore apply is limited to missing
   asset-scoped artifacts and writes a fresh asset row/storage object.

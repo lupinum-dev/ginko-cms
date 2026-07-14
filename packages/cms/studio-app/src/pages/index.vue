@@ -4,7 +4,6 @@ import {
   Bot,
   CheckCircle2,
   Eye,
-  FileArchive,
   FileText,
   Globe2,
   Inbox,
@@ -77,10 +76,8 @@ type OverviewEntry = {
 
 type OverviewRun = {
   id: string
-  importRunId?: string
   status: string
   paths?: string[]
-  collectionSlugs?: string[]
   entryCount?: number
   lastError?: string | null
   createdAt: number
@@ -96,7 +93,6 @@ type Overview = {
   missingTranslations?: OverviewEntry[]
   recentPublished?: OverviewEntry[]
   revalidationJobs?: OverviewRun[]
-  importRuns?: OverviewRun[]
   activity?: Array<{
     _id: string
     summary: string
@@ -181,7 +177,6 @@ const workQueue = computed(() =>
     changedDrafts: overview.value?.counts?.changedDrafts,
     missingTranslations: overview.value?.counts?.missingTranslations,
     failedRevalidation: overview.value?.counts?.failedRevalidation,
-    importBlockers: overview.value?.counts?.importBlockers,
     pendingRevalidation: overview.value?.counts?.pendingRevalidation,
   }),
 )
@@ -262,18 +257,6 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
       value: loadingValue ?? workQueue.value.failedRevalidation,
       icon: RefreshCw,
       tone: workQueue.value.failedRevalidation > 0 ? 'danger' : 'neutral',
-    })
-  }
-
-  if (!overviewReady.value || workQueue.value.importBlockers > 0) {
-    rows.push({
-      key: 'importBlockers',
-      label: 'Import needs review',
-      description: 'Imported content that needs a human check before it affects the website.',
-      value: loadingValue ?? workQueue.value.importBlockers,
-      icon: FileArchive,
-      tone: workQueue.value.importBlockers > 0 ? 'danger' : 'neutral',
-      to: `${studioRoute}/imports`,
     })
   }
 
@@ -844,7 +827,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   <div>
                     <div class="ginko:font-medium">Website update status unavailable</div>
                     <div class="ginko:text-xs ginko:text-muted-foreground">
-                      Studio is still loading website refresh and import status.
+                      Studio is still loading website refresh status.
                     </div>
                   </div>
                 </div>
@@ -858,7 +841,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   <div>
                     <div class="ginko:font-medium">No blocked website updates</div>
                     <div class="ginko:text-xs ginko:text-muted-foreground">
-                      Imports and website refreshes are healthy.
+                      Website refreshes are healthy.
                     </div>
                   </div>
                 </div>
@@ -872,16 +855,6 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   </div>
                   <div class="ginko:mt-1 ginko:truncate ginko:text-xs ginko:text-muted-foreground">
                     {{ websiteRefreshStatusMessage(t, job) }}
-                  </div>
-                </div>
-                <div
-                  v-for="run in overview?.importRuns ?? []"
-                  :key="`import:${run.id}`"
-                  class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3 ginko:text-sm"
-                >
-                  <div class="ginko:font-medium">Import {{ run.status }}</div>
-                  <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-                    {{ run.entryCount ?? 0 }} entries · {{ run.collectionSlugs?.join(', ') }}
                   </div>
                 </div>
               </div>

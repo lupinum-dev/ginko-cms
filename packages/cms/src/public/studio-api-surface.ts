@@ -58,9 +58,6 @@ export const studioApiSurface = {
     getCollection: 'query',
     listCollections: 'query',
   },
-  imports: {
-    listImportRuns: 'query',
-  },
   mcpCredentials: {
     listOwnSettings: 'query',
     revokeSettings: 'mutation',

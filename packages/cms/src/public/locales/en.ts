@@ -953,10 +953,6 @@ const en = {
         approveError: 'Approval could not be completed.',
         rejectError: 'Approval could not be rejected.',
       },
-      importsPage: {
-        title: 'Content imports',
-        description: 'Review file imports and blockers',
-      },
       userMenu: {
         darkMode: 'Dark',
         lightMode: 'Light',

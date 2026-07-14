@@ -1,5 +1,4 @@
 packages:
-  - '../ginko-content/packages/*'
   - 'packages/*'
   - 'playground'
 minimumReleaseAge: 1440
@@ -21,6 +20,7 @@ overrides:
   # `pnpm why <name>` shows all upstream owners resolve the patched version
   # without help and `pnpm audit --prod --audit-level low` stays green.
   '@babel/core': 7.29.6
+  '@lupinum/ginko-content': file:../ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz
   better-convex-nuxt: file:../../convex/better-convex-nuxt/.release-artifacts/better-convex-nuxt-0.6.0.tgz
   '@vitest/browser': 4.1.10
   '@vitest/browser-playwright': 4.1.10

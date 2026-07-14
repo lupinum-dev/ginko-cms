@@ -55,6 +55,7 @@
     "@better-auth/core": "1.6.23",
     "@better-auth/utils": "0.4.2",
     "@edge-runtime/vm": "^5.0.0",
+    "@lupinum/ginko-content": "^0.4.0-rc.1",
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/eslint-config": "^1.15.2",
     "@nuxt/kit": "^4.4.8",

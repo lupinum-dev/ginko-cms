@@ -13,13 +13,11 @@ const DEFAULT_CLEANUP_BATCH_SIZE = 100
 const DAY_MS = 24 * 60 * 60 * 1000
 const DELIVERED_OUTBOX_RETENTION_MS = 30 * DAY_MS
 const FAILED_OUTBOX_RETENTION_MS = 90 * DAY_MS
-const IMPORT_RUN_RETENTION_MS = 90 * DAY_MS
 const ACTIVITY_RETENTION_MS = 180 * DAY_MS
 
 const cleanupResultValidator = v.object({
   outboxDelivered: v.number(),
   outboxFailed: v.number(),
-  importRuns: v.number(),
   activity: v.number(),
   remaining: v.boolean(),
 })
@@ -57,12 +55,6 @@ export const cleanupStorageHygiene = internalMutation({
       .take(limit)
     for (const row of failedOutbox) await ctx.db.delete(row._id)
 
-    const importRuns = await ctx.db
-      .query('collectionImportRuns')
-      .withIndex('by_created_at', (q) => q.lt('createdAt', now - IMPORT_RUN_RETENTION_MS))
-      .take(limit)
-    for (const row of importRuns) await ctx.db.delete(row._id)
-
     const activity = await ctx.db
       .query('activity')
       .withIndex('by_time', (q) => q.lt('createdAt', now - ACTIVITY_RETENTION_MS))
@@ -70,10 +62,7 @@ export const cleanupStorageHygiene = internalMutation({
     for (const row of activity) await ctx.db.delete(row._id)
 
     const remaining =
-      deliveredOutbox.length === limit ||
-      failedOutbox.length === limit ||
-      importRuns.length === limit ||
-      activity.length === limit
+      deliveredOutbox.length === limit || failedOutbox.length === limit || activity.length === limit
     if (remaining) {
       await ctx.scheduler.runAfter(
         0,
@@ -85,7 +74,6 @@ export const cleanupStorageHygiene = internalMutation({
     return {
       outboxDelivered: deliveredOutbox.length,
       outboxFailed: failedOutbox.length,
-      importRuns: importRuns.length,
       activity: activity.length,
       remaining,
     }

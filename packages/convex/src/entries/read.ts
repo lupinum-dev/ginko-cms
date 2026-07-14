@@ -1056,11 +1056,6 @@ export const getStudioOverview = callerQuery.protected({
       })
     }
 
-    const imports = await ctx.db
-      .query('collectionImportRuns')
-      .withIndex('by_created_at')
-      .order('desc')
-      .take(20)
     const revalidationJobs = await ctx.db.query('outboxEvents').take(50)
     const activity = await ctx.db.query('activity').withIndex('by_time').order('desc').take(12)
     const recentPublished = publishedRows
@@ -1080,9 +1075,6 @@ export const getStudioOverview = callerQuery.protected({
     const pendingRevalidation = revalidationJobs.filter(
       (job) => job.status === 'pending' || job.status === 'delivering',
     )
-    const importBlockers = imports.filter(
-      (run) => run.status === 'blocked' || run.status === 'failed',
-    )
     const needsAttentionEntryIds = new Set([
       ...blockedEntries.map((entry) => entry.entryId),
       ...missingTranslationEntries.map((entry) => entry.entryId),
@@ -1090,13 +1082,11 @@ export const getStudioOverview = callerQuery.protected({
 
     return {
       counts: {
-        needsAttention:
-          needsAttentionEntryIds.size + failedRevalidation.length + importBlockers.length,
+        needsAttention: needsAttentionEntryIds.size + failedRevalidation.length,
         changedDrafts: allEntrySummaries.filter(hasWorkflowChangedDraft).length,
         readyToPreview: readyToPreviewEntries.length,
         missingTranslations: missingTranslationEntries.length,
         failedRevalidation: failedRevalidation.length,
-        importBlockers: importBlockers.length,
         pendingRevalidation: pendingRevalidation.length,
       },
       collections: summaries,
@@ -1117,16 +1107,6 @@ export const getStudioOverview = callerQuery.protected({
           createdAt: job.createdAt,
           updatedAt: job.updatedAt,
         })),
-      importRuns: importBlockers.slice(0, STUDIO_OVERVIEW_LIMIT).map((run) => ({
-        id: toStringId(run._id),
-        importRunId: run.importRunId,
-        kind: run.kind,
-        status: run.status ?? (run.kind === 'preview' ? 'previewed' : 'applied'),
-        entryCount: run.entryCount,
-        assetCount: run.assetCount,
-        collectionSlugs: run.collectionSlugs,
-        createdAt: run.createdAt,
-      })),
       activity: activity.map((row) => ({
         _id: toStringId(row._id),
         kind: row.kind,
