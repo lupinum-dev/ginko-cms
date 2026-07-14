@@ -167,9 +167,7 @@ export const studioApiSurface = {
     requestPublishReview: 'mutation',
   },
   settings: {
-    getSettings: 'query',
     getStudioSettings: 'query',
-    updateSettings: 'mutation',
   },
   siteData: {
     createSiteDataBlock: 'mutation',

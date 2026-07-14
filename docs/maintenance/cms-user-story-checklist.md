@@ -212,10 +212,10 @@ Status legend:
 - [x] A user can open Settings.
 - [x] Settings shows Members.
 - [x] Settings shows MCP connections.
-- [x] A permitted user can update supported CMS settings.
-- [x] Settings validation blocks invalid webhook and revalidation options.
+- [x] Content policy supplies the read-only Studio locale projection.
+- [x] Revalidation target validation blocks invalid delivery endpoints.
 - [x] Read-only users can view allowed settings without write controls.
-- [x] Settings changes are audited or visible in activity where supported.
+- [x] Revalidation target changes are audited or visible in activity.
 - [x] Settings copy does not claim unsupported autonomous publish behavior.
 
 ## MCP Connection Stories

@@ -26,16 +26,20 @@ import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
-import type { StudioAssetContext, StudioAssetRecord } from '../../composables/internal/types'
+import type {
+  FinderAssetRecord,
+  FinderItem,
+  SidebarMode,
+  StudioAssetBrowserMode,
+} from '../../composables/internal/assetFinderTypes'
 import {
   finderAssetToStudioAsset,
   mimeKind,
-  type FinderAssetRecord,
-  type FinderItem,
-  type SidebarMode,
-  type StudioAssetBrowserMode,
-  useStudioAssetFinder,
-} from '../../composables/internal/useStudioAssetFinder'
+  mimeTypeMatches,
+  parseAspectRatio,
+} from '../../composables/internal/assetFinderUtils'
+import type { StudioAssetContext, StudioAssetRecord } from '../../composables/internal/types'
+import { useStudioAssetFinder } from '../../composables/internal/useStudioAssetFinder'
 import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useCmsStudioSettings } from '../../composables/useCmsStudioSettings'
 import { useConvexMutation } from '../../composables/useStudioConvex'
@@ -44,6 +48,8 @@ import SheetContent from '../ui/sheet/SheetContent.vue'
 import SheetDescription from '../ui/sheet/SheetDescription.vue'
 import SheetHeader from '../ui/sheet/SheetHeader.vue'
 import SheetTitle from '../ui/sheet/SheetTitle.vue'
+import StudioAssetMobileFilters from './assets/StudioAssetMobileFilters.vue'
+import StudioAssetMobileScopes from './assets/StudioAssetMobileScopes.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -461,21 +467,6 @@ function itemKey(item: FinderItem): string {
 
 function isChosen(assetId: string): boolean {
   return normalizedValue.value.includes(assetId)
-}
-
-function mimeTypeMatches(pattern: string, mimeType: string): boolean {
-  if (pattern.endsWith('/*')) return mimeType.startsWith(pattern.slice(0, -1))
-  return pattern === mimeType
-}
-
-function parseAspectRatio(value: string | null | undefined): number | null {
-  if (!value) return null
-  const match = value.trim().match(/^(\d+(?:\.\d+)?)(?::|\/)(\d+(?:\.\d+)?)$/)
-  if (!match) return null
-  const width = Number(match[1])
-  const height = Number(match[2])
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null
-  return width / height
 }
 
 function assertAssetAllowed(asset: Pick<FinderAssetRecord, 'mimeType' | 'width' | 'height'>) {
@@ -1452,218 +1443,25 @@ defineExpose({
         </ScrollArea>
       </aside>
 
-      <Sheet v-model:open="mobileScopesOpen">
-        <SheetContent
-          side="left"
-          class="ginko:w-[19rem] ginko:max-w-[85vw] ginko:p-0 ginko:md:hidden"
-        >
-          <SheetHeader class="ginko:border-b ginko:pr-12">
-            <SheetTitle class="ginko:text-sm">Browse media</SheetTitle>
-            <SheetDescription>Choose an owner, tag, view, or trash.</SheetDescription>
-          </SheetHeader>
-          <ScrollArea class="ginko:flex-1">
-            <div class="ginko:py-3">
-              <div class="ginko:mb-2">
-                <div class="ginko:px-4 ginko:py-1">
-                  <span
-                    class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
-                  >
-                    Collections
-                  </span>
-                </div>
-                <nav class="ginko:space-y-px ginko:px-2">
-                  <button
-                    v-for="item in sidebarCollections"
-                    :key="`mobile-coll:${item.key}`"
-                    class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-sm ginko:transition-colors"
-                    :class="
-                      isSidebarActive('collections', item.key)
-                        ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
-                        : 'ginko:text-foreground/80 ginko:hover:bg-accent'
-                    "
-                    @click="selectMobileSidebar('collections', item.key)"
-                  >
-                    <Icon
-                      :name="item.icon"
-                      class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60"
-                    />
-                    <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{
-                      item.label
-                    }}</span>
-                    <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
-                      item.count
-                    }}</span>
-                  </button>
-                </nav>
-              </div>
+      <StudioAssetMobileScopes
+        v-model:open="mobileScopesOpen"
+        :mode="mode"
+        :collections="sidebarCollections"
+        :tags="sidebarTags"
+        :full-views="sidebarFullViews"
+        :trash-count="trashCount"
+        :is-active="isSidebarActive"
+        @select="selectMobileSidebar"
+      />
 
-              <div v-if="sidebarTags.length > 0" class="ginko:mb-2">
-                <div class="ginko:px-4 ginko:py-1">
-                  <span
-                    class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
-                  >
-                    Tags
-                  </span>
-                </div>
-                <nav class="ginko:space-y-px ginko:px-2">
-                  <button
-                    v-for="tag in sidebarTags"
-                    :key="`mobile-tag:${tag.key}`"
-                    class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-sm ginko:transition-colors"
-                    :class="
-                      isSidebarActive('tags', tag.key)
-                        ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
-                        : 'ginko:text-foreground/80 ginko:hover:bg-accent'
-                    "
-                    @click="selectMobileSidebar('tags', tag.key)"
-                  >
-                    <div
-                      class="ginko:size-[10px] ginko:shrink-0 ginko:rounded-full"
-                      :style="{ backgroundColor: tag.color }"
-                    />
-                    <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ tag.label }}</span>
-                    <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
-                      tag.count
-                    }}</span>
-                  </button>
-                </nav>
-              </div>
-
-              <div class="ginko:mb-2">
-                <div class="ginko:px-4 ginko:py-1">
-                  <span
-                    class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
-                  >
-                    Library views
-                  </span>
-                </div>
-                <nav class="ginko:space-y-px ginko:px-2">
-                  <button
-                    v-for="item in sidebarFullViews"
-                    :key="`mobile-full:${item.key}`"
-                    class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-sm ginko:transition-colors"
-                    :class="
-                      isSidebarActive('full', item.key)
-                        ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
-                        : 'ginko:text-foreground/80 ginko:hover:bg-accent'
-                    "
-                    @click="selectMobileSidebar('full', item.key)"
-                  >
-                    <Icon
-                      :name="item.icon"
-                      class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60"
-                    />
-                    <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{
-                      item.label
-                    }}</span>
-                    <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
-                      item.count
-                    }}</span>
-                  </button>
-                </nav>
-              </div>
-
-              <div v-if="mode === 'manage'" class="ginko:mx-2 ginko:border-t ginko:pt-2">
-                <button
-                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-sm ginko:transition-colors"
-                  :class="
-                    isSidebarActive('trash', 'trash')
-                      ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
-                      : 'ginko:text-foreground/80 ginko:hover:bg-accent'
-                  "
-                  @click="selectMobileSidebar('trash', 'trash')"
-                >
-                  <Trash2 class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60" />
-                  <span class="ginko:flex-1 ginko:truncate ginko:text-left">Trash</span>
-                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
-                    trashCount
-                  }}</span>
-                </button>
-              </div>
-            </div>
-          </ScrollArea>
-        </SheetContent>
-      </Sheet>
-
-      <Sheet v-model:open="mobileFiltersOpen">
-        <SheetContent
-          side="bottom"
-          class="ginko:max-h-[85dvh] ginko:rounded-t-xl ginko:p-0 ginko:sm:hidden"
-        >
-          <SheetHeader class="ginko:border-b ginko:pr-12">
-            <SheetTitle class="ginko:text-sm">Filter media</SheetTitle>
-            <SheetDescription>Adjust the current asset view.</SheetDescription>
-          </SheetHeader>
-          <div class="ginko:grid ginko:gap-3 ginko:p-4">
-            <Label class="ginko:text-xs">View</Label>
-            <div
-              class="ginko:inline-flex ginko:w-fit ginko:items-center ginko:rounded-lg ginko:bg-muted/60 ginko:p-0.5"
-            >
-              <button
-                class="ginko:inline-flex ginko:h-8 ginko:w-8 ginko:items-center ginko:justify-center ginko:rounded-md ginko:transition-[color,background-color] ginko:duration-150 ginko:ease-out"
-                :class="
-                  viewMode === 'list'
-                    ? 'ginko:bg-background'
-                    : 'ginko:text-muted-foreground ginko:hover:text-foreground'
-                "
-                @click="viewMode = 'list'"
-              >
-                <List class="ginko:size-4" />
-              </button>
-              <button
-                class="ginko:inline-flex ginko:h-8 ginko:w-8 ginko:items-center ginko:justify-center ginko:rounded-md ginko:transition-[color,background-color] ginko:duration-150 ginko:ease-out"
-                :class="
-                  viewMode === 'grid'
-                    ? 'ginko:bg-background'
-                    : 'ginko:text-muted-foreground ginko:hover:text-foreground'
-                "
-                @click="viewMode = 'grid'"
-              >
-                <Grid3x3 class="ginko:size-4" />
-              </button>
-            </div>
-
-            <Label class="ginko:text-xs">Sort</Label>
-            <select
-              v-model="sortBy"
-              class="ginko:h-9 ginko:rounded-md ginko:border ginko:bg-background ginko:px-3 ginko:text-sm ginko:outline-none ginko:focus:ring-2 ginko:focus:ring-ring"
-            >
-              <option value="name">Name</option>
-              <option value="date">Date</option>
-              <option value="size">Size</option>
-              <option value="kind">Kind</option>
-            </select>
-
-            <Label class="ginko:text-xs">Type</Label>
-            <select
-              v-model="typeFilter"
-              class="ginko:h-9 ginko:rounded-md ginko:border ginko:bg-background ginko:px-3 ginko:text-sm ginko:outline-none ginko:focus:ring-2 ginko:focus:ring-ring"
-            >
-              <option value="all">All types</option>
-              <option value="image">Images</option>
-              <option value="document">Documents</option>
-            </select>
-
-            <Label class="ginko:text-xs">Date</Label>
-            <select
-              v-model="timeFilter"
-              class="ginko:h-9 ginko:rounded-md ginko:border ginko:bg-background ginko:px-3 ginko:text-sm ginko:outline-none ginko:focus:ring-2 ginko:focus:ring-ring"
-            >
-              <option value="any">Any time</option>
-              <option value="24h">Last 24h</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="90d">Last 90 days</option>
-            </select>
-
-            <div class="ginko:flex ginko:gap-2 ginko:pt-2">
-              <Button variant="outline" class="ginko:flex-1" @click="clearFilters">Clear</Button>
-              <Button class="ginko:flex-1" @click="mobileFiltersOpen = false">Done</Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
+      <StudioAssetMobileFilters
+        v-model:open="mobileFiltersOpen"
+        v-model:view-mode="viewMode"
+        v-model:sort-by="sortBy"
+        v-model:type-filter="typeFilter"
+        v-model:time-filter="timeFilter"
+        @clear="clearFilters"
+      />
       <Sheet v-model:open="mobileDetailsOpen">
         <SheetContent
           side="bottom"

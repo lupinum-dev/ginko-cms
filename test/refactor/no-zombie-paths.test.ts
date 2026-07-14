@@ -45,6 +45,21 @@ function filesUnder(dir: string): string[] {
 }
 
 describe('release-clean backend has no old-system zombie paths', () => {
+  it('imports the Content CMS contract directly without a vendored copy', () => {
+    const oldVendorRoot = join(root, 'packages/convex/src/lib/cmsContract')
+    expect(existsSync(oldVendorRoot) ? readdirSync(oldVendorRoot) : []).toEqual([])
+    const directConsumers = [
+      'packages/convex/src/entries/workflow/commands.ts',
+      'packages/convex/src/entries/workflow/path.ts',
+      'packages/convex/src/entries/workflow/projectionBuild.ts',
+    ]
+    for (const file of directConsumers) {
+      expect(readFileSync(join(root, file), 'utf8')).toContain(
+        "from '@lupinum/ginko-content/cms-contract'",
+      )
+    }
+  })
+
   it('does not reference deleted editorial/projection models or route-specific draft wrappers', () => {
     const offenders: string[] = []
     for (const relativeRoot of scanRoots) {

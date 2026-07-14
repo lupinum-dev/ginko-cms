@@ -467,11 +467,7 @@ export const claimDueRevalidationEvents = internalMutation({
     v.object({
       id: v.string(),
       idempotencyKey: v.string(),
-      type: v.union(
-        v.literal('content.revalidate'),
-        v.literal('content.webhook'),
-        v.literal('content.publish'),
-      ),
+      type: v.literal('content.revalidate'),
       tags: v.array(v.string()),
       paths: v.array(v.string()),
       payload: jsonObjectValidator,

@@ -43,7 +43,6 @@ describe('ginko mcp runtime', () => {
   it('derives MCP capability visibility from backend permission context', async () => {
     const accessContext = {
       userId: 'owner-1',
-      workspaceId: null,
       role: 'owner',
       can: {
         'cms.read': true,

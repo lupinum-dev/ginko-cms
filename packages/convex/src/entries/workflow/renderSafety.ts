@@ -1,13 +1,15 @@
 import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   validatePublicMarkdownAst,
+  type ParseMdcBodyResult,
   type PortableComponentPolicyV1,
 } from '@lupinum/ginko-content/cms-contract'
 
 import type { Doc } from '../../_generated/dataModel.js'
 import { throwCmsError } from '../../errors.js'
-import type { MarkdownRoot } from '../../lib/cmsContract/types.js'
 import type { QueryOrMutationCtx } from '../../lib/types.js'
+
+type MarkdownRoot = ParseMdcBodyResult['body']
 
 function componentPolicyFor(collection: Doc<'collections'>): PortableComponentPolicyV1 {
   const settings = collection.settings

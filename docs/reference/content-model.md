@@ -65,8 +65,8 @@ Portability and backups:
 
 Access, operations, and audit:
 
-- `cmsSettings`: site-level CMS settings such as locale configuration and
-  webhook definitions.
+- `cmsSettings`: the installed Content locale projection used by Studio and
+  public locale resolution.
 - `members`: Studio members and roles.
 - `mcpCredentialSettings`: CMS-owned scopes, expiry, status, and owner mapping
   for Better Auth API-key credentials. Raw API keys are not stored here.

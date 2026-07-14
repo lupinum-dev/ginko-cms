@@ -1,5 +1,6 @@
+import { generateCanonicalKey } from '@lupinum/ginko-content/cms-contract'
+
 import type { Doc } from '../../_generated/dataModel.js'
-import { generateCanonicalKey } from '../../lib/cmsContract/index.js'
 
 type WorkflowCollection = Pick<Doc<'collections'>, 'routing'> & {
   settings?: unknown

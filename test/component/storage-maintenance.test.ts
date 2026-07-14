@@ -30,7 +30,6 @@ async function seedOutboxEvent(
       status: input.status,
       idempotencyKey: `storage-maintenance:${input.status}:${input.updatedAt}`,
       versionId: null,
-      siteId: null,
       targetId: null,
       tags: [],
       paths: [],

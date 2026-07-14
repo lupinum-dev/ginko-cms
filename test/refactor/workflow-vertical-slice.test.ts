@@ -86,7 +86,6 @@ async function seedFixture(ctx: ReturnType<typeof createCtx>) {
         { code: 'en', label: 'English', isDefault: true },
         { code: 'de', label: 'German', fallback: 'en' },
       ],
-      webhooks: [],
       updatedBy: 'owner-1',
       updatedAt: now,
     } as never,

@@ -87,7 +87,6 @@ async function enqueuePublicSiteDataRevalidation(
     status: 'pending',
     idempotencyKey,
     versionId: null,
-    siteId: null,
     targetId: null,
     tags: ['site-data', `site-data:${args.key}`],
     paths: ['/'],

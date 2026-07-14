@@ -8,13 +8,12 @@ import {
 } from '@lupinum/ginko-cms-contract/shared/contentTags.js'
 import { materializeFieldData } from '@lupinum/ginko-cms-contract/shared/fields/materialize.js'
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
+import { parseMdcBody, type ParseMdcBodyResult } from '@lupinum/ginko-content/cms-contract'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
 import { previewPublishImpactForEntry } from '../../diagnostics.js'
 import { throwCmsError } from '../../errors.js'
 import { logActivity } from '../../lib/activity.js'
-import { parseMdcBody } from '../../lib/cmsContract/index.js'
-import type { MarkdownRoot, Toc } from '../../lib/cmsContract/types.js'
 import { getCollectionOrThrow, isLocalizedSlugMode } from '../../lib/collections.js'
 import { generateStableId } from '../../lib/paths.js'
 import type { QueryOrMutationCtx } from '../../lib/types.js'
@@ -59,6 +58,9 @@ import {
   collectDescendantProjectionRebuilds,
   descendantRevalidationState,
 } from './subtreeRoutes.js'
+
+type MarkdownRoot = ParseMdcBodyResult['body']
+type Toc = NonNullable<ParseMdcBodyResult['toc']>
 
 type PublicRevalidationState = {
   tags: string[]
@@ -127,7 +129,6 @@ async function insertRevalidationOutboxEvent(
     status: 'pending',
     idempotencyKey,
     versionId: args.versionId ? String(args.versionId) : null,
-    siteId: null,
     tags,
     paths,
     payload: {

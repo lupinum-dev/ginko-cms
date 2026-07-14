@@ -34,7 +34,6 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     vi.resetModules()
     serverConvexMock.mockClear()
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
-    process.env.GINKO_CONTENT_PROVIDER_SITE = 'cms-provider-fixture'
     ;({ contentProvider } = (await import('../../packages/cms/src/nuxt-provider.ts')) as {
       contentProvider: ContentProvider
     })
@@ -42,7 +41,6 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
 
   afterEach(() => {
     delete process.env.NUXT_PUBLIC_CONVEX_URL
-    delete process.env.GINKO_CONTENT_PROVIDER_SITE
   })
 
   it('routes a supplied H3 event through exactly one anonymous serverConvex caller', async () => {

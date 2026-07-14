@@ -66,6 +66,15 @@ deploy.
 The Convex component implementation lives in `@lupinum/ginko-cms-convex`. The
 framework-neutral contract types live in `@lupinum/ginko-cms-contract`.
 
+## Public Subpaths
+
+- `@lupinum/ginko-cms`
+- `@lupinum/ginko-cms/convex/auth`
+- `@lupinum/ginko-cms/convex/auth-config`
+- `@lupinum/ginko-cms/nuxt-provider`
+- `@lupinum/ginko-cms/portability`
+- `@lupinum/ginko-cms/public`
+
 ## Scope
 
 Generated host files should stay thin and import the Ginko CMS Convex component

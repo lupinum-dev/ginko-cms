@@ -127,7 +127,6 @@ async function replaceDerivedLocales(
     await ctx.db.insert('cmsSettings', {
       key: 'site',
       locales,
-      webhooks: [],
       updatedBy: 'deployment',
       updatedAt: now,
     })

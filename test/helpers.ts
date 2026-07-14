@@ -296,31 +296,12 @@ export async function seedMember(
   )
 }
 
-export async function seedSettings(
-  ctx: TestCtx,
-  options?: {
-    webhooks?: Array<{
-      id: string
-      name: string
-      url: string
-      enabled: boolean
-      events: Array<
-        | 'entry.published'
-        | 'entry.unpublished'
-        | 'entry.deleted'
-        | 'asset.created'
-        | 'asset.deleted'
-      >
-      secretFingerprint: string | null
-    }>
-  },
-) {
+export async function seedSettings(ctx: TestCtx) {
   await ctx.seed(
     'cmsSettings' as never,
     {
       key: 'site',
       locales: [{ code: 'en', label: 'English', isDefault: true }],
-      webhooks: options?.webhooks ?? [],
       updatedBy: 'owner-1',
       updatedAt: Date.now(),
     } as never,
@@ -336,7 +317,6 @@ export async function seedMultiLocaleSettings(ctx: TestCtx) {
         { code: 'en', label: 'English', isDefault: true },
         { code: 'de', label: 'Deutsch', isDefault: false },
       ],
-      webhooks: [],
       updatedBy: 'owner-1',
       updatedAt: Date.now(),
     } as never,

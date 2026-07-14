@@ -15,7 +15,6 @@ describe('integration: full entry lifecycle', () => {
       {
         key: 'site',
         locales: [{ code: 'en', label: 'English', isDefault: true }],
-        webhooks: [],
         updatedBy: 'owner-1',
         updatedAt: Date.now(),
       } as never,
@@ -171,7 +170,6 @@ describe('integration: multi-locale with fallback', () => {
           { code: 'de', label: 'German', fallback: 'en' },
           { code: 'de-CH', label: 'Swiss German', fallback: 'de' },
         ],
-        webhooks: [],
         updatedBy: 'owner-1',
         updatedAt: Date.now(),
       } as never,

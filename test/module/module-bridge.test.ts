@@ -209,6 +209,16 @@ describe('ginko-cms Convex setup validation', () => {
     ).rejects.toThrow('Unknown ginkoCms option "publicContent"')
   })
 
+  it.each(['search', 'siteData', 'forms'])('rejects removed phantom option %s', async (key) => {
+    const rootDir = mkdtempSync(join(tmpdir(), `ginko-cms-removed-${key}-`))
+    tempDirs.push(rootDir)
+    await installConvexSetup(rootDir)
+
+    await expect(
+      setupModule({ route: '/studio', [key]: { enabled: true } }, createNuxtMock(rootDir)),
+    ).rejects.toThrow(`Unknown ginkoCms option "${key}"`)
+  })
+
   it('registers the CLI-only portability asset transfer routes', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-portability-routes-'))
     tempDirs.push(rootDir)

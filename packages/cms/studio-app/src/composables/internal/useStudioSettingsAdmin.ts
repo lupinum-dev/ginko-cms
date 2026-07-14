@@ -110,7 +110,7 @@ export function useStudioSettingsAdmin() {
   const studioHost = useStudioHostContext()
   const authState = useCmsAuthState()
   const settingsQuery = useCmsStudioQuery(
-    api.ginkoCms.settings.getSettings,
+    api.ginkoCms.settings.getStudioSettings,
     {},
     {
       requiredCapability: cmsPermissionKeys.manageSettings,

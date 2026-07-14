@@ -2851,8 +2851,8 @@ Use only these statuses:
 | Stable operational cursors          | implemented | Equal-timestamp pagination test         |
 | Ginko Content public ownership      | implemented | CMS facade/prerender absence tests      |
 | Public query budget                 | implemented | 1 versus 1000 entry query-count test    |
-| Direct Content contract             | open        | Packed Convex import proof              |
-| Phantom surface deletion            | open        | Declaration/docs negative checks        |
+| Direct Content contract             | implemented | Packed Convex import proof              |
+| Phantom surface deletion            | implemented | Declaration/docs negative checks        |
 | Standalone install                  | open        | Clean archive frozen install            |
 | Exact compatibility tuple           | open        | Manifest-owned hash tests               |
 | Deterministic packs                 | open        | Two identical serial packs              |

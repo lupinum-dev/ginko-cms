@@ -93,17 +93,6 @@ type PublicDefinition<
   [key: string]: unknown
 }
 
-export const cmsPublicReadTables = [
-  'assets',
-  'cmsSettings',
-  'collections',
-  'contentAssetRefs',
-  'publicEntries',
-  'publicProjectionState',
-  'publicRoutes',
-  'siteData',
-] as const
-
 export async function resolveCmsCaller(ctx: RootCtx): Promise<CmsCaller> {
   const auth = (await ctx.auth.getUserIdentity()) as BetterAuthConvexIdentity | null
   if (!auth?.subject) return cmsAnonymousCaller()

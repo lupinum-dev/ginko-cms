@@ -76,12 +76,6 @@ export interface ModuleOptions {
   editorialLayout?: CmsEditorialLayout
   /** Enable client-side studio debug logging (defaults to dev only when unset) */
   debugStudio?: boolean
-  /** Search configuration */
-  search?: { enabled: boolean }
-  /** Site data blocks (business hours, banners) */
-  siteData?: { enabled: boolean }
-  /** Form submissions */
-  forms?: { enabled: boolean }
   /**
    * Per-locale overrides for nuxt-site-config i18n keys (`nuxtSiteConfig.name`,
    * `nuxtSiteConfig.description`). Falls back to `site.name` / `site.description`

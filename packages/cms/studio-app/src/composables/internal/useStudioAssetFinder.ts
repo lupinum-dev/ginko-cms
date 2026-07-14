@@ -2,7 +2,6 @@ import {
   ALLOWED_ASSET_MIME_TYPES,
   MAX_ASSET_SIZE_BYTES,
 } from '@lupinum/ginko-cms-contract/shared/assetPolicy.js'
-import type { LocaleText } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref, watch } from 'vue'
 
@@ -10,172 +9,37 @@ import { api } from '../../boundary/api'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
 import { useCmsStudioPaginatedQuery } from '../useCmsStudioPaginatedQuery'
 import { useConvexAction, useConvexMutation, useConvexUpload } from '../useStudioConvex'
-import type { StudioAssetContext, StudioAssetRecord } from './types'
+import type {
+  BreadcrumbSegment,
+  FinderAssetItem,
+  FinderAssetRecord,
+  FinderFolder,
+  FinderItem,
+  SidebarMode,
+  StudioAssetBrowserMode,
+} from './assetFinderTypes'
+import {
+  arraysEqual,
+  formatDate,
+  formatFileSize,
+  getImageDimensions,
+  latestAssetTimestamp,
+  mimeIcon,
+  mimeTypeMatches,
+  normalizeAssetTags,
+  parseAspectRatio,
+  withoutKey,
+} from './assetFinderUtils'
+import type { StudioAssetContext } from './types'
 import { studioConfirm } from './useStudioConfirm'
 
-export type SidebarMode = 'collections' | 'tags' | 'full' | 'trash'
-export type StudioAssetBrowserMode = 'manage' | 'pick'
-
-export interface FinderFolder {
-  type: 'folder'
-  id: string
-  label: string
-  icon: string
-  count: number
-  modifiedAt: number | null
-}
-
-export interface FinderAssetRecord {
-  id: string
-  filename: string
-  mimeType: string
-  size: number
-  width: number | null
-  height: number | null
-  scope: 'global' | 'collection' | 'entry'
-  entryId: string | null
-  collectionId: string | null
-  collectionSlug: string | null
-  collectionLabel: string | null
-  entryTitle: string | null
-  ownerPath: string[]
-  url: string | null
-  thumbnailUrl: string | null
-  createdAt: number
-  updatedAt: number | null
-  deletedAt: number | null
-  alt: LocaleText | null
-  caption: LocaleText | null
-  tags: string[]
-  usages: Array<{
-    entryId: string
-    entryTitle: string
-    fieldPath: string
-    locale: string
-    collectionSlug: string
-    collectionLabel: string
-  }>
-}
-
-export interface FinderAssetItem {
-  type: 'asset'
-  asset: FinderAssetRecord
-  tags: string[]
-}
-
-export type FinderItem = FinderFolder | FinderAssetItem
-
-export interface BreadcrumbSegment {
-  label: string
-  drillPath: string[]
-}
-
-export function mimeKind(mimeType: string): string {
-  if (mimeType === 'image/jpeg') return 'JPEG Image'
-  if (mimeType === 'image/png') return 'PNG Image'
-  if (mimeType === 'image/svg+xml') return 'SVG Image'
-  if (mimeType === 'image/webp') return 'WebP Image'
-  if (mimeType === 'image/x-icon') return 'Icon'
-  if (mimeType === 'application/pdf') return 'PDF Document'
-  if (mimeType.startsWith('image/')) return 'Image'
-  return 'File'
-}
-
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1_048_576) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1_048_576).toFixed(1)} MB`
-}
-
-export function formatDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-export function mimeIcon(mimeType: string): string {
-  if (mimeType === 'application/pdf') return 'lucide:file-text'
-  if (mimeType === 'application/zip') return 'lucide:file-archive'
-  if (mimeType.startsWith('image/')) return 'lucide:image'
-  return 'lucide:file'
-}
-
-function latestTimestamp(assets: FinderAssetRecord[]): number | null {
-  if (assets.length === 0) return null
-  let max = 0
-  for (const asset of assets) {
-    const timestamp = asset.updatedAt ?? asset.createdAt
-    if (timestamp > max) max = timestamp
-  }
-  return max
-}
-
-function normalizeTags(tags: string[]): string[] {
-  const next = new Set<string>()
-  for (const tag of tags) {
-    const normalized = tag.trim().toLowerCase()
-    if (normalized.length === 0) continue
-    next.add(normalized)
-  }
-  return Array.from(next)
-}
-
-function arraysEqual(left: string[], right: string[]): boolean {
-  if (left.length !== right.length) return false
-  return left.every((value, index) => value === right[index])
-}
-
-function withoutKey(record: Record<string, string[]>, key: string): Record<string, string[]> {
-  return Object.fromEntries(Object.entries(record).filter(([entryKey]) => entryKey !== key))
-}
-
-async function getImageDimensions(file: File): Promise<{ width?: number; height?: number }> {
-  if (!file.type.startsWith('image/')) return {}
-  return await new Promise<{ width?: number; height?: number }>((resolve) => {
-    const image = new Image()
-    image.onload = () => resolve({ width: image.width, height: image.height })
-    image.onerror = () => resolve({})
-    image.src = URL.createObjectURL(file)
-  })
-}
-
-function mimeTypeMatches(pattern: string, mimeType: string): boolean {
-  if (pattern.endsWith('/*')) {
-    return mimeType.startsWith(pattern.slice(0, -1))
-  }
-  return pattern === mimeType
-}
-
-function parseAspectRatio(value: string | null | undefined): number | null {
-  if (!value) return null
-  const match = value.trim().match(/^(\d+(?:\.\d+)?)(?::|\/)(\d+(?:\.\d+)?)$/)
-  if (!match) return null
-  const width = Number(match[1])
-  const height = Number(match[2])
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null
-  return width / height
-}
-
-export function finderAssetToStudioAsset(asset: FinderAssetRecord): StudioAssetRecord {
-  return {
-    _id: asset.id,
-    filename: asset.filename,
-    mimeType: asset.mimeType,
-    size: asset.size,
-    width: asset.width,
-    height: asset.height,
-    url: asset.url,
-    alt: asset.alt,
-    caption: asset.caption,
-    entryId: asset.entryId,
-    collectionId: asset.collectionId,
-    ownerPath: asset.ownerPath,
-    createdAt: asset.createdAt,
-    updatedAt: asset.updatedAt,
-  }
-}
+export type {
+  FinderAssetRecord,
+  FinderItem,
+  SidebarMode,
+  StudioAssetBrowserMode,
+} from './assetFinderTypes'
+export { finderAssetToStudioAsset, mimeKind } from './assetFinderUtils'
 
 export function useStudioAssetFinder(
   options: {
@@ -272,7 +136,7 @@ export function useStudioAssetFinder(
       for (const asset of nextAssets) {
         const override = nextOverrides[asset.id]
         if (!override) continue
-        if (arraysEqual(override, normalizeTags(asset.tags ?? []))) {
+        if (arraysEqual(override, normalizeAssetTags(asset.tags ?? []))) {
           nextOverrides = withoutKey(nextOverrides, asset.id)
           changed = true
         }
@@ -497,7 +361,7 @@ export function useStudioAssetFinder(
               label: collection.label,
               icon: 'lucide:folder',
               count: collectionAssets.length,
-              modifiedAt: latestTimestamp(collectionAssets),
+              modifiedAt: latestAssetTimestamp(collectionAssets),
             })
           }
           return items
@@ -513,7 +377,7 @@ export function useStudioAssetFinder(
             label: collection.label,
             icon: 'lucide:folder',
             count: collectionAssets.length,
-            modifiedAt: latestTimestamp(collectionAssets),
+            modifiedAt: latestAssetTimestamp(collectionAssets),
           })
         }
         for (const asset of activeAssets.value.filter((asset) => asset.scope === 'global')) {
@@ -540,7 +404,7 @@ export function useStudioAssetFinder(
             label: asset.entryTitle ?? asset.entryId,
             icon: 'lucide:file-text',
             count: assetsForEntry.length,
-            modifiedAt: latestTimestamp(assetsForEntry),
+            modifiedAt: latestAssetTimestamp(assetsForEntry),
           })
         }
         for (const asset of activeAssets.value.filter(
@@ -576,7 +440,7 @@ export function useStudioAssetFinder(
           label: asset.entryTitle ?? asset.entryId,
           icon: 'lucide:file-text',
           count: assetsForEntry.length,
-          modifiedAt: latestTimestamp(assetsForEntry),
+          modifiedAt: latestAssetTimestamp(assetsForEntry),
         })
       }
       for (const asset of activeAssets.value.filter(
@@ -819,7 +683,7 @@ export function useStudioAssetFinder(
   }
 
   async function updateAssetTags(assetId: string, nextTags: string[]) {
-    const normalized = normalizeTags(nextTags)
+    const normalized = normalizeAssetTags(nextTags)
     const previous = localTagOverrides.value[assetId]
     localTagOverrides.value = {
       ...localTagOverrides.value,
@@ -867,7 +731,7 @@ export function useStudioAssetFinder(
   }
 
   async function applyTagToSelection(tag: string, mode: 'add' | 'remove') {
-    const normalizedTag = normalizeTags([tag])[0]
+    const normalizedTag = normalizeAssetTags([tag])[0]
     if (!normalizedTag || selectedVisibleAssetIds.value.length === 0) return
     actionPending.value = true
     error.value = ''

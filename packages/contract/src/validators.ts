@@ -386,7 +386,6 @@ export const permissionMapValidator = v.record(v.string(), v.boolean())
 export const accessContextValidator = v.union(
   v.object({
     userId: v.union(v.string(), v.null()),
-    workspaceId: v.union(v.string(), v.null()),
     role: v.union(cmsRoleValidator, v.null()),
     can: permissionMapValidator,
     member: v.union(memberValidator, v.null()),
@@ -400,34 +399,6 @@ export const studioSettingsValidator = v.union(
     locales: v.array(localeConfigValidator),
     updatedAt: v.number(),
     updatedBy: v.union(v.string(), v.null()),
-  }),
-  v.null(),
-)
-
-export const webhookEventValidator = v.union(
-  v.literal('entry.published'),
-  v.literal('entry.unpublished'),
-  v.literal('entry.deleted'),
-  v.literal('asset.created'),
-  v.literal('asset.deleted'),
-)
-
-export const webhookConfigValidator = v.object({
-  id: v.string(),
-  name: v.string(),
-  url: v.string(),
-  enabled: v.boolean(),
-  events: v.array(webhookEventValidator),
-  secretFingerprint: v.union(v.string(), v.null()),
-})
-
-export const cmsSettingsValidator = v.union(
-  v.object({
-    key: v.literal('site'),
-    locales: v.array(localeConfigValidator),
-    webhooks: v.array(webhookConfigValidator),
-    updatedBy: v.union(v.string(), v.null()),
-    updatedAt: v.number(),
   }),
   v.null(),
 )

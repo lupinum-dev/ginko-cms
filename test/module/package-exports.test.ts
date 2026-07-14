@@ -95,10 +95,7 @@ describe('package exports', () => {
       types: './dist/_generated/component.d.ts',
       import: './dist/_generated/component.js',
     })
-    expect(convexPackage.exports?.['./_generated/component.js']).toEqual({
-      types: './dist/_generated/component.d.ts',
-      import: './dist/_generated/component.js',
-    })
+    expect(convexPackage.exports?.['./_generated/component.js']).toBeUndefined()
     expect(convexPackage.exports?.[componentBridgeExport]).toBeUndefined()
   })
 

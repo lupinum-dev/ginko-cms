@@ -46,7 +46,6 @@ async function seedEvent(
       status: options?.status ?? 'pending',
       idempotencyKey: `test:${now}:${Math.random()}`,
       versionId: 'version-1',
-      siteId: null,
       targetId: options?.targetId ?? null,
       tags: ['entry:posts:hello-world', 'collection:posts'],
       paths: ['/posts/hello-world', '/posts'],

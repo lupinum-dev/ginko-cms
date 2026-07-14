@@ -307,14 +307,11 @@ On 2026-07-05, focused settings and site-data checks passed:
 - `rg -n "autonomous|auto[- ]?publish|automatically publish|direct publish|publish automatically|publish without" packages/cms/studio-app packages/cms/src/public/locales docs -g '*.vue' -g '*.ts' -g '*.md'`
 - `pnpm exec oxfmt --check test/component/settings.test.ts`
 
-That slice proves:
+That historical slice proved the former settings mutation boundary. The unused
+webhook configuration and mutation were removed in WP7; Content policy now owns
+the locale projection and Studio reads that projection without a parallel
+settings write path. Current revalidation evidence proves:
 
-- owners can update supported settings fields and the settings mutation writes a
-  `settings.updated` activity record;
-- read-only viewers get only sanitized Studio settings and cannot read full
-  owner settings;
-- invalid webhook URLs, raw API-key payloads, and raw webhook secrets are
-  rejected at the mutation boundary;
 - invalid local/public revalidation endpoints are rejected unless explicitly
   allowed by development or hostname allow-list configuration;
 - Settings UI copy does not claim autonomous/direct publish behavior; the only

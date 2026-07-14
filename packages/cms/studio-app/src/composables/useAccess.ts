@@ -20,13 +20,10 @@ interface UseAccessReturn {
   ctx: ComputedRef<{
     role?: string | null
     userId?: string | null
-    workspaceId?: string | null
     can?: Record<string, boolean>
   } | null>
   role: ComputedRef<string | null>
-  plan: ComputedRef<string | null>
   userId: ComputedRef<string | null>
-  workspaceId: ComputedRef<string | null>
   ready: ComputedRef<boolean>
   pending: ComputedRef<boolean>
   can: (permission: string) => ComputedRef<boolean>
@@ -37,7 +34,6 @@ export function useAccess(): UseAccessReturn {
   const ctx = ref<{
     role?: string | null
     userId?: string | null
-    workspaceId?: string | null
     can?: Record<string, boolean>
   } | null>(null)
   const pending = ref(true)
@@ -62,7 +58,6 @@ export function useAccess(): UseAccessReturn {
         next: {
           role?: string | null
           userId?: string | null
-          workspaceId?: string | null
           can?: Record<string, boolean>
         } | null,
       ) => {
@@ -93,9 +88,7 @@ export function useAccess(): UseAccessReturn {
   return {
     ctx: computed(() => ctx.value),
     role: computed(() => ctx.value?.role ?? null),
-    plan: computed(() => null),
     userId: computed(() => ctx.value?.userId ?? null),
-    workspaceId: computed(() => ctx.value?.workspaceId ?? null),
     ready: computed(() => ctx.value !== null),
     pending: computed(() => pending.value),
     can: (permission: string) => computed(() => ctx.value?.can?.[permission] === true),

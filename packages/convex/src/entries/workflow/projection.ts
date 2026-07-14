@@ -19,13 +19,16 @@
 
 import type { GinkoPublicAssetFact } from '@lupinum/ginko-cms-contract/shared/publicContent.js'
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
+import type { ParseMdcBodyResult } from '@lupinum/ginko-content/cms-contract'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
 import { throwCmsError } from '../../errors.js'
-import type { MarkdownRoot, Toc } from '../../lib/cmsContract/types.js'
 import type { MutationCtx, QueryCtx } from '../../lib/types.js'
 import { assertCollectionOutsidePortableExportLease } from '../../portability/lease.js'
 import { encodePublicBodyAst, encodePublicToc } from '../bodyAstStorage.js'
+
+type MarkdownRoot = ParseMdcBodyResult['body']
+type Toc = NonNullable<ParseMdcBodyResult['toc']>
 
 export type PublicEntryDoc = Doc<'publicEntries'>
 export type PublicRouteDoc = Doc<'publicRoutes'>

@@ -126,7 +126,6 @@ export async function recomputeEntryDerivedState(
     status: 'pending',
     idempotencyKey,
     versionId: null,
-    siteId: null,
     tags: uniqueContentTags(tags),
     paths: uniqueContentTags([
       ...oldPaths,

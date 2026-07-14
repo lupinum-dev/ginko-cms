@@ -85,9 +85,6 @@ const MODULE_OPTION_KEYS = new Set([
   'route',
   'editorialLayout',
   'debugStudio',
-  'search',
-  'siteData',
-  'forms',
   'siteI18n',
   'sidebar',
   'mcp',
@@ -196,9 +193,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   defaults: {
     route: '/studio',
     debugStudio: undefined,
-    search: { enabled: false },
-    siteData: { enabled: false },
-    forms: { enabled: false },
     mcp: false,
   },
   async setup(moduleInput, nuxt) {

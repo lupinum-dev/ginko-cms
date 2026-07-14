@@ -1,10 +1,9 @@
 import { contentTags, uniqueContentTags } from '@lupinum/ginko-cms-contract/shared/contentTags.js'
 import { renderGinkoHref } from '@lupinum/ginko-cms-contract/shared/routeDiagnostics.js'
 import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import { parseMdcBody, type ParseMdcBodyResult } from '@lupinum/ginko-content/cms-contract'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
-import { parseMdcBody } from '../../lib/cmsContract/index.js'
-import type { MarkdownRoot, Toc } from '../../lib/cmsContract/types.js'
 import { getCollectionDefaultLocale } from '../../lib/collections.js'
 import { resolveEntryDescription, resolveEntryTitle } from '../../lib/fields.js'
 import { getRoutingLocales } from '../../lib/locale.js'
@@ -22,6 +21,9 @@ import { publicPathForLocaleSnapshot } from './path.js'
 import type { PublicProjectionInput } from './projection.js'
 import { assertPublicBodySafe } from './renderSafety.js'
 import type { RevisionLocaleSnapshot } from './revisions.js'
+
+type MarkdownRoot = ParseMdcBodyResult['body']
+type Toc = NonNullable<ParseMdcBodyResult['toc']>
 
 export type PublicProjectionBuildResult = {
   input: PublicProjectionInput

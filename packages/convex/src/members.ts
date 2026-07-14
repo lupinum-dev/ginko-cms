@@ -29,7 +29,7 @@ import {
   type CmsGuard,
 } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
-import { callerMutation, callerQuery, cmsPublicReadTables } from './functions.js'
+import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx } from './lib/types.js'
@@ -218,7 +218,6 @@ const getAccessContextDefinition = {
 
 export const getAccessContext = callerQuery.public({
   ...getAccessContextDefinition,
-  reads: cmsPublicReadTables,
 })
 
 /** Validates that the first owner claim is being made by the configured owner email. */

@@ -571,7 +571,6 @@ export const activateContentMigration = directInternalMutation({
         status: 'pending',
         idempotencyKey: `content.revalidate:transition:${String(args.runId)}`,
         versionId: null,
-        siteId: null,
         tags: uniqueContentTags([
           ...oldPublicEntries.flatMap((row) => row.cacheTags),
           ...newPublicEntries.flatMap((row) => row.cacheTags),

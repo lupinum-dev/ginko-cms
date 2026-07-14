@@ -67,10 +67,6 @@ through `/api/auth/api-key/verify`; product authorization happens inside the
 Ginko CMS Convex component using `mcpCredentialSettings` plus the current member
 role.
 
-`GINKO_CONTENT_PROVIDER_SITE` is reserved for a future provider site partition.
-The provider reads it and defaults to `default`, but current public Convex
-queries are not partitioned by this value.
-
 ## Content Portability Operator Session
 
 The `ginko-cms content export` and `ginko-cms content import` operator commands

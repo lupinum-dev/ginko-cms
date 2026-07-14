@@ -24,6 +24,7 @@ type PackageJson = {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   exports?: Record<string, unknown>
+  engines?: { node?: string }
   files?: string[]
   peerDependencies?: Record<string, string>
 }
@@ -175,13 +176,24 @@ describe('package boundary contracts', () => {
   it('keeps public export keys intentional and minimal', () => {
     expect(Object.keys(contractPackage.exports ?? {}).sort()).toEqual([
       './convex/caller.js',
-      './convex/schemas/*.js',
+      './convex/schemas/assets.js',
+      './convex/schemas/collections.js',
+      './convex/schemas/diagnostics.js',
+      './convex/schemas/editor.js',
+      './convex/schemas/members.js',
+      './convex/schemas/portability.js',
+      './convex/schemas/public.js',
+      './convex/schemas/revalidation.js',
+      './convex/schemas/siteData.js',
       './convex/validators.js',
       './shared/assetPolicy.js',
       './shared/caller.js',
       './shared/contentTags.js',
       './shared/fields',
-      './shared/fields/*.js',
+      './shared/fields/conditions.js',
+      './shared/fields/materialize.js',
+      './shared/fields/normalize.js',
+      './shared/fields/title.js',
       './shared/order.js',
       './shared/permissions.js',
       './shared/publicContent.js',
@@ -192,7 +204,6 @@ describe('package boundary contracts', () => {
     ])
 
     expect(Object.keys(convexPackage.exports ?? {}).sort()).toEqual([
-      './_generated/component.js',
       './component',
       './convex.auth',
       './convex.config',
@@ -207,6 +218,27 @@ describe('package boundary contracts', () => {
       './portability',
       './public',
     ])
+  })
+
+  it('declares one supported Node range across coordinated packages', () => {
+    expect(contractPackage.engines?.node).toBe('>=22.0.0')
+    expect(convexPackage.engines?.node).toBe(contractPackage.engines?.node)
+    expect(cmsPackage.engines?.node).toBe(contractPackage.engines?.node)
+  })
+
+  it('documents every retained package subpath from the manifest allowlists', () => {
+    for (const [packageRoot, packageJson] of [
+      ['packages/contract', contractPackage],
+      ['packages/convex', convexPackage],
+      ['packages/cms', cmsPackage],
+    ] as const) {
+      const readme = readFileSync(resolve(projectRoot, packageRoot, 'README.md'), 'utf8')
+      for (const subpath of Object.keys(packageJson.exports ?? {})) {
+        const specifier =
+          subpath === '.' ? packageJson.name : `${packageJson.name}/${subpath.slice(2)}`
+        expect(readme, `${specifier} must be documented`).toContain(`\`${specifier}\``)
+      }
+    }
   })
 
   it('keeps contract source free of Nuxt, Vue, Studio, and Convex component imports', () => {

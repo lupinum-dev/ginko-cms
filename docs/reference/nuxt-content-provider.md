@@ -31,16 +31,6 @@ NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 `provider_config_missing`; the provider does not silently fall back to
 filesystem or non-CMS data.
 
-Optional environment:
-
-```bash
-GINKO_CONTENT_PROVIDER_SITE=your-site-key
-```
-
-`GINKO_CONTENT_PROVIDER_SITE` defaults to `default`. The provider reads it during
-queries, but current public Convex queries are not partitioned by this value.
-Treat it as reserved until multi-site routing is implemented.
-
 The Convex public function prefix is fixed at `ginkoCms/public:`. If a call does
 not pass a locale, the provider uses `en`.
 

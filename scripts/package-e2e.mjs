@@ -22,6 +22,9 @@ const compatibilityMatrix = JSON.parse(
   readFileSync(resolve(repoRoot, 'packages/cms/compatibility.json'), 'utf8'),
 )
 const rootPackageJson = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'))
+const coordinatedPackageManifests = ['packages/cms', 'packages/contract', 'packages/convex'].map(
+  (packageRoot) => JSON.parse(readFileSync(resolve(repoRoot, packageRoot, 'package.json'), 'utf8')),
+)
 const consumerCompatibility = compatibilityMatrix.consumer
 const candidateMode = process.argv.includes('--candidate')
 const packDir = resolve(repoRoot, candidateMode ? '.pack/candidate' : '.pack')
@@ -61,6 +64,12 @@ const betterConvexNuxtRegistryVersion =
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
+}
+
+function declaredExportSpecifiers(packageManifest) {
+  return Object.keys(packageManifest.exports ?? {}).map((subpath) =>
+    subpath === '.' ? packageManifest.name : `${packageManifest.name}/${subpath.slice(2)}`,
+  )
 }
 
 function requireCandidateArtifact(pathVariable, packageName) {
@@ -694,19 +703,39 @@ try {
     )
   }
 
+  const exportSpecifiers = coordinatedPackageManifests.flatMap(declaredExportSpecifiers)
   const importCheck = [
-    "await import('@lupinum/ginko-cms')",
-    "await import('@lupinum/ginko-cms/nuxt-provider')",
-    "await import('@lupinum/ginko-cms-contract/convex/validators.js')",
-    "await import('@lupinum/ginko-cms-contract/convex/schemas/public.js')",
-    "await import('@lupinum/ginko-cms-contract/shared/readiness.js')",
-    "await import('@lupinum/ginko-cms-convex/convex.config')",
-    "await import('@lupinum/ginko-cms-convex/convex.auth')",
-    "await import('@lupinum/ginko-cms-convex/component')",
+    ...exportSpecifiers.map((specifier) => `await import(${JSON.stringify(specifier)})`),
     "console.log('package imports ok')",
   ].join(';')
 
   run('node', ['--input-type=module', '--eval', importCheck], { cwd: tempDir })
+
+  writeFileSync(
+    join(tempDir, 'package-export-types.ts'),
+    `${exportSpecifiers
+      .map(
+        (specifier, index) => `import type * as Export${index} from ${JSON.stringify(specifier)}`,
+      )
+      .join('\n')}\nexport {}\n`,
+  )
+  consumerExec('tsc', [
+    '--noEmit',
+    '--module',
+    'NodeNext',
+    '--moduleResolution',
+    'NodeNext',
+    '--skipLibCheck',
+    '--target',
+    'ES2022',
+    'package-export-types.ts',
+  ])
+
+  const privateImportCheck = [
+    "const blocked = ['@lupinum/ginko-cms/private', '@lupinum/ginko-cms-contract/private', '@lupinum/ginko-cms-convex/_generated/component.js']",
+    "for (const specifier of blocked) { try { await import(specifier); throw new Error(`Private import unexpectedly resolved: ${specifier}`) } catch (error) { if (String(error?.code) !== 'ERR_PACKAGE_PATH_NOT_EXPORTED') throw error } }",
+  ].join(';')
+  run('node', ['--input-type=module', '--eval', privateImportCheck], { cwd: tempDir })
 
   const portabilityCheck = [
     "import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'",

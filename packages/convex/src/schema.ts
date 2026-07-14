@@ -534,39 +534,12 @@ export default defineSchema({
         fallback: v.optional(v.string()),
       }),
     ),
-    webhooks: v.optional(
-      v.union(
-        v.array(
-          v.object({
-            id: v.string(),
-            name: v.string(),
-            url: v.string(),
-            enabled: v.boolean(),
-            events: v.array(
-              v.union(
-                v.literal('entry.published'),
-                v.literal('entry.unpublished'),
-                v.literal('entry.deleted'),
-                v.literal('asset.created'),
-                v.literal('asset.deleted'),
-              ),
-            ),
-            secretFingerprint: v.union(v.string(), v.null()),
-          }),
-        ),
-        v.null(),
-      ),
-    ),
     updatedBy: v.optional(v.union(v.string(), v.null())),
     updatedAt: v.number(),
   }).index('by_key', ['key']),
 
   outboxEvents: defineTable({
-    type: v.union(
-      v.literal('content.revalidate'),
-      v.literal('content.webhook'),
-      v.literal('content.publish'),
-    ),
+    type: v.literal('content.revalidate'),
     status: v.union(
       v.literal('pending'),
       v.literal('delivering'),
@@ -575,7 +548,6 @@ export default defineSchema({
     ),
     idempotencyKey: v.string(),
     versionId: v.union(v.string(), v.null()),
-    siteId: v.union(v.string(), v.null()),
     targetId: v.optional(v.union(v.id('revalidationTargets'), v.null())),
     tags: v.array(v.string()),
     paths: v.array(v.string()),

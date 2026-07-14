@@ -166,6 +166,8 @@ declare module 'vue' {
     StudioActionRailToggle: typeof import('./src/components/studio/StudioActionRailToggle.vue')['default']
     StudioAssetBrowser: typeof import('./src/components/studio/StudioAssetBrowser.vue')['default']
     StudioAssetMetadataDialog: typeof import('./src/components/studio/StudioAssetMetadataDialog.vue')['default']
+    StudioAssetMobileFilters: typeof import('./src/components/studio/assets/StudioAssetMobileFilters.vue')['default']
+    StudioAssetMobileScopes: typeof import('./src/components/studio/assets/StudioAssetMobileScopes.vue')['default']
     StudioAssetPicker: typeof import('./src/components/studio/StudioAssetPicker.vue')['default']
     StudioCheckpointDialog: typeof import('./src/components/studio/editor/StudioCheckpointDialog.vue')['default']
     StudioCollectionActionRail: typeof import('./src/components/studio/collections/StudioCollectionActionRail.vue')['default']

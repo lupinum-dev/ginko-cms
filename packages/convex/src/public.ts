@@ -31,7 +31,7 @@ import {
 } from './entries/projections.js'
 import { readPublicProjectionGeneration } from './entries/workflow/projection.js'
 import { throwCmsError } from './errors.js'
-import { callerQuery, cmsPublicReadTables } from './functions.js'
+import { callerQuery } from './functions.js'
 import {
   assertCollectionSupportsLocale,
   getCollection,
@@ -761,7 +761,6 @@ function buildSnippet(source: string | null | undefined, queryText?: string) {
 // they serve the public-facing content API (read-only, published data only).
 export const page = callerQuery.public({
   id: 'public:page',
-  reads: cmsPublicReadTables,
   args: pageArgs.args,
   returns: ginkoPageResultValidator,
   handler: async (ctx, args) => {
@@ -815,7 +814,6 @@ export const page = callerQuery.public({
 
 export const routeMeta = callerQuery.public({
   id: 'public:routeMeta',
-  reads: cmsPublicReadTables,
   args: routeMetaArgs.args,
   returns: ginkoPageResultValidator,
   handler: async (ctx, args) => {
@@ -873,7 +871,6 @@ export const routeMeta = callerQuery.public({
 
 export const list = callerQuery.public({
   id: 'public:list',
-  reads: cmsPublicReadTables,
   args: listArgs.args,
   returns: ginkoListResultValidator,
   handler: async (ctx, args) => {
@@ -919,7 +916,6 @@ export const list = callerQuery.public({
 
 export const nav = callerQuery.public({
   id: 'public:nav',
-  reads: cmsPublicReadTables,
   args: navArgs.args,
   returns: ginkoNavResultValidator,
   handler: async (ctx, args) => {
@@ -1002,7 +998,6 @@ export const nav = callerQuery.public({
 
 export const surround = callerQuery.public({
   id: 'public:surround',
-  reads: cmsPublicReadTables,
   args: surroundArgs.args,
   returns: ginkoSurroundResultValidator,
   handler: async (ctx, args) => {
@@ -1086,7 +1081,6 @@ export const surround = callerQuery.public({
 
 export const search = callerQuery.public({
   id: 'public:search',
-  reads: cmsPublicReadTables,
   args: searchArgs.args,
   returns: ginkoSearchResultValidator,
   handler: async (ctx, args) => {
@@ -1144,7 +1138,6 @@ export const search = callerQuery.public({
 
 export const sitemap = callerQuery.public({
   id: 'public:sitemap',
-  reads: cmsPublicReadTables,
   args: sitemapArgs.args,
   returns: ginkoSitemapResultValidator,
   handler: async (ctx, args) => {
@@ -1194,7 +1187,6 @@ export const sitemap = callerQuery.public({
 
 export const routes = callerQuery.public({
   id: 'public:routes',
-  reads: cmsPublicReadTables,
   args: routesArgs.args,
   returns: ginkoRoutesResultValidator,
   handler: async (ctx, args) => {
@@ -1294,7 +1286,6 @@ export const routes = callerQuery.public({
 
 export const singleton = callerQuery.public({
   id: 'public:singleton',
-  reads: cmsPublicReadTables,
   args: singletonArgs.args,
   returns: ginkoSingletonResultValidator,
   handler: async (ctx, args) => {
@@ -1354,7 +1345,6 @@ export const singleton = callerQuery.public({
 
 export const siteData = callerQuery.public({
   id: 'public:siteData',
-  reads: cmsPublicReadTables,
   args: siteDataArgs.args,
   returns: ginkoSiteDataResultValidator,
   handler: async (ctx, args) => {

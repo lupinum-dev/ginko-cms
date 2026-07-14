@@ -1626,7 +1626,6 @@ describe('public API: SEO and sitemap locale defaults', () => {
           { code: 'en', label: 'English' },
           { code: 'de', label: 'German', isDefault: true },
         ],
-        webhooks: [],
         updatedBy: 'owner-1',
         updatedAt: Date.now(),
       } as never,

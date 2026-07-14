@@ -1,6 +1,9 @@
 import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import type { ParseMdcBodyResult } from '@lupinum/ginko-content/cms-contract'
 
-import type { MarkdownRoot, Toc, TocLink } from '../lib/cmsContract/types.js'
+type MarkdownRoot = ParseMdcBodyResult['body']
+type Toc = NonNullable<ParseMdcBodyResult['toc']>
+type TocLink = Toc['links'][number]
 
 export function encodePublicBodyAst(bodyAst: MarkdownRoot): string {
   return JSON.stringify(bodyAst)

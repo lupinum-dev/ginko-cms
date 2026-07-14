@@ -23,7 +23,6 @@ async function seedSettings(
     {
       key: 'site',
       locales,
-      webhooks: [],
       updatedBy: 'owner-1',
       updatedAt: Date.now(),
     } as never,
@@ -590,7 +589,7 @@ describe('public visibility diagnostics', () => {
     )
   })
 
-  it('previews route, cache, and webhook impact for a dirty draft without promising redirects for shared slugs', async () => {
+  it('previews route and cache impact for a dirty draft without promising redirects for shared slugs', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
