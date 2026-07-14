@@ -1939,6 +1939,12 @@ reimplement the renderer.
   the identical freshly packed Content tarball bytes.
 - Work-package commit `5f54ea1c` is `test: certify packed Content safety
 boundaries`.
+- The exact clean follow-up commit `e991fee7` passed the complete `pnpm check`
+  gate: formatting, all policy/generated-surface guards, lint, every package
+  and Studio build/typecheck, publish-specifier checks, 126 test files passed
+  plus one gated skip, and 936 tests passed plus one skip. That follow-up also
+  makes the playground declare the contract package imported by generated host
+  setup, removing reliance on an old hoisted dependency tree.
 
 Enabling the complete Content Nuxt module in the hash-addressed `file:`
 consumer also exposed a separate Content packaging defect: Nitro prerender
