@@ -7,9 +7,14 @@ import {
   hashCanonicalJson,
 } from '@lupinum/ginko-content/cms-contract'
 import type { PortableDocumentV1 } from '@lupinum/ginko-content/portability'
+import { writePortableDirectory } from '@lupinum/ginko-content/portability/node'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { exportPortablePublishedContent } from '../../packages/cms/src/portability/commands.js'
+import {
+  applyPreparedPortableDraftImport,
+  exportPortablePublishedContent,
+  preparePortableDraftImport,
+} from '../../packages/cms/src/portability/commands.js'
 
 const functionName = Symbol.for('functionName')
 const temporaryDirectories: string[] = []
@@ -157,5 +162,104 @@ describe('published portability export orchestration', () => {
       }),
     ).rejects.toThrow(/could not be written safely/i)
     expect(calls.at(-1)).toMatch(/:abortExportRun$/)
+  })
+})
+
+describe('draft portability import orchestration', () => {
+  it('resumes the same sealed plan after lost item, verification, and finalize responses', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ginko-cms-import-retry-'))
+    temporaryDirectories.push(root)
+    const source = join(root, 'portable')
+    const { contract, document } = fixture()
+    await writePortableDirectory(source, { contract, documents: [document], assets: [] })
+
+    let itemCommitted = false
+    let verifying = false
+    let complete = false
+    let loseItemResponse = true
+    let loseVerificationResponse = true
+    let loseFinalizeResponse = true
+    const calls: string[] = []
+    const client = {
+      query: async (reference: unknown, args: Record<string, unknown>) => {
+        const path = pathOf(reference)
+        calls.push(path)
+        if (path.endsWith(':inspectPortableDrafts')) {
+          return (args.items as Array<{ itemKey: string }>).map(({ itemKey }) => ({
+            itemKey,
+            currentDraftSha256: null,
+          }))
+        }
+        if (path.endsWith(':inspectPortableAssets')) return []
+        throw new Error(`Unexpected query ${path}`)
+      },
+      mutation: async (reference: unknown) => {
+        const path = pathOf(reference)
+        calls.push(path)
+        if (
+          path.endsWith(':createImportPlan') ||
+          path.endsWith(':appendImportPlanItems') ||
+          path.endsWith(':appendImportPlanAssets')
+        ) {
+          return null
+        }
+        if (path.endsWith(':beginImportApply')) {
+          return { state: complete ? 'complete' : verifying ? 'verifying' : 'applying' }
+        }
+        if (path.endsWith(':applyImportItem')) {
+          if (!itemCommitted) itemCommitted = true
+          if (loseItemResponse) {
+            loseItemResponse = false
+            throw new Error('connection lost after committed item')
+          }
+          return { status: 'replayed' }
+        }
+        if (path.endsWith(':beginImportVerification')) {
+          verifying = true
+          if (loseVerificationResponse) {
+            loseVerificationResponse = false
+            throw new Error('connection lost before finalize')
+          }
+          return { state: 'verifying' }
+        }
+        if (path.endsWith(':finalizeImport')) {
+          complete = true
+          if (loseFinalizeResponse) {
+            loseFinalizeResponse = false
+            throw new Error('connection lost after finalize committed')
+          }
+          return { state: 'complete', status: 'replayed' }
+        }
+        throw new Error(`Unexpected mutation ${path}`)
+      },
+      action: async (reference: unknown) => {
+        const path = pathOf(reference)
+        calls.push(path)
+        if (path.endsWith(':sealImportPlan')) return { runId: 'import-retry-run' }
+        throw new Error(`Unexpected action ${path}`)
+      },
+    }
+    const prepared = await preparePortableDraftImport(client as never, source, {
+      deploymentId: 'deployment-1',
+      targetContractSha256: await hashCanonicalJson(contract),
+      planId: 'import-retry-plan',
+    })
+
+    await expect(applyPreparedPortableDraftImport(client as never, prepared)).rejects.toThrow(
+      'connection lost after committed item',
+    )
+    await expect(applyPreparedPortableDraftImport(client as never, prepared)).rejects.toThrow(
+      'connection lost before finalize',
+    )
+    await expect(applyPreparedPortableDraftImport(client as never, prepared)).rejects.toThrow(
+      'connection lost after finalize committed',
+    )
+    await expect(applyPreparedPortableDraftImport(client as never, prepared)).resolves.toEqual({
+      state: 'complete',
+      status: 'replayed',
+    })
+
+    expect(calls.filter((path) => path.endsWith(':applyImportItem'))).toHaveLength(2)
+    expect(calls.filter((path) => path.endsWith(':finalizeImport'))).toHaveLength(2)
   })
 })

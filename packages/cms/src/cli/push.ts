@@ -30,7 +30,9 @@ function parsePushArgs(args: string[]): PushArgs {
   }
 }
 
-async function loadPushConfig(cwd: string): Promise<{ content?: ContentRuntimePolicyInput }> {
+export async function loadContentConfig(
+  cwd: string,
+): Promise<{ content?: ContentRuntimePolicyInput }> {
   const configPath = resolve(cwd, 'nuxt.config.ts')
   if (!existsSync(resolve(cwd, 'content.config.ts'))) {
     throw new Error(
@@ -70,7 +72,7 @@ export async function runPushCommand(
   convexClientFactory: ConvexClientFactory = (url) => new ConvexHttpClient(url),
 ): Promise<number> {
   const push = parsePushArgs(args.slice(1))
-  const config = await loadPushConfig(cwd)
+  const config = await loadContentConfig(cwd)
   const contract = await loadGinkoContentContract({ rootDir: cwd, content: config.content })
   const contractSha256 = await hashCanonicalJson(contract)
   const client = convexClientFactory(publicConvexUrl(cwd))

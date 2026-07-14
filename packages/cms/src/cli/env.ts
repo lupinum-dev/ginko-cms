@@ -48,3 +48,56 @@ export function deployKey(cwd: string): string {
   }
   return trimmed
 }
+
+function requiredEnvironment(cwd: string, names: string[], message: string): string {
+  const local = readLocalEnv(cwd)
+  for (const name of names) {
+    const value = process.env[name] ?? local[name]
+    if (value?.trim()) return value.trim()
+  }
+  throw new Error(message)
+}
+
+export function convexSiteOrigin(cwd: string): string {
+  const configured = requiredEnvironment(
+    cwd,
+    ['GINKO_CMS_BETTER_AUTH_BASE_URL', 'CONVEX_SITE_URL', 'BETTER_AUTH_URL'],
+    'ginko-cms content commands require GINKO_CMS_BETTER_AUTH_BASE_URL, CONVEX_SITE_URL, or BETTER_AUTH_URL.',
+  )
+  const url = new URL(configured)
+  const path = url.pathname.replace(/\/+$/, '')
+  if (
+    (path !== '' && path !== '/api/auth') ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error('The configured Better Auth URL must be an exact origin or end in /api/auth.')
+  }
+  return url.origin
+}
+
+export function cmsSiteOrigin(cwd: string): string {
+  return requiredEnvironment(
+    cwd,
+    ['SITE_URL', 'NUXT_PUBLIC_SITE_URL'],
+    'ginko-cms content commands require SITE_URL or NUXT_PUBLIC_SITE_URL for host asset transfer.',
+  )
+}
+
+export function convexDeploymentId(cwd: string): string {
+  return requiredEnvironment(
+    cwd,
+    ['CONVEX_DEPLOYMENT'],
+    'ginko-cms content commands require CONVEX_DEPLOYMENT.',
+  )
+}
+
+export function operatorSessionCookie(cwd: string): string {
+  return requiredEnvironment(
+    cwd,
+    ['GINKO_CMS_SESSION_COOKIE'],
+    'ginko-cms content commands require GINKO_CMS_SESSION_COOKIE with a current Better Auth session cookie.',
+  )
+}

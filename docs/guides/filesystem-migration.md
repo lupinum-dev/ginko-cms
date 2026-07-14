@@ -1,55 +1,76 @@
-# Portable Directory Import
+# Portable Content Export And Import
 
-`@lupinum/ginko-cms/portability` imports a verified Ginko Content portable
-directory into an existing CMS deployment. The resolved Content contract must
-already be installed in the target deployment. Import never creates collection
-definitions and never publishes content.
+`ginko-cms content` moves content through the versioned Ginko Content portable
+directory format. Export reads published revisions only. Import writes drafts
+only: it never creates collection definitions and never publishes content.
 
-The caller must be an authenticated CMS owner using the user origin. MCP
-credentials cannot use the bulk portability operations.
+The local resolved Content contract must match the contract installed in the
+deployment. Run these commands as an authenticated CMS owner. MCP credentials
+and deploy keys cannot use the bulk portability operations.
 
-## Prepare And Apply
+## Operator Environment
 
-Create the portable directory with the Ginko Content Node portability API, then
-pass its root directory to the CMS import commands:
+The CLI reads the normal host configuration plus an operator's current Better
+Auth session:
 
-```ts
-import { ConvexHttpClient } from 'convex/browser'
-import {
-  applyPreparedPortableDraftImport,
-  preparePortableDraftImport,
-} from '@lupinum/ginko-cms/portability'
-
-const client = new ConvexHttpClient(process.env.CONVEX_URL!)
-client.setAuth(ownerToken)
-
-const prepared = await preparePortableDraftImport(client, './portable-content', {
-  deploymentId: 'production',
-  targetContractSha256: installedContractSha256,
-})
-
-const receipt = await applyPreparedPortableDraftImport(client, prepared, {
-  cmsOrigin: process.env.GINKO_CMS_ORIGIN!,
-  sessionCookie: process.env.GINKO_CMS_SESSION_COOKIE!,
-})
+```bash
+export CONVEX_URL=https://your-deployment.convex.cloud
+export CONVEX_SITE_URL=https://your-deployment.convex.site
+export CONVEX_DEPLOYMENT=prod:your-deployment-name
+export SITE_URL=https://your-cms.example
+export GINKO_CMS_SESSION_COOKIE='better-auth.session_token=...'
 ```
 
-Preparation verifies the directory through Ginko Content, inspects the exact
-current draft hashes, and seals an immutable server-side plan. Applying that
-plan writes drafts in dependency order and records one idempotent receipt per
-item. If the caller loses a successful response, it can apply the same prepared
-plan again; committed items replay their receipts instead of writing twice.
+Set `GINKO_CMS_SESSION_COOKIE` in the invoking shell or a secret manager-backed
+process environment. Do not commit it or copy it into the portable directory or
+plan. The CLI exchanges it for a fresh Convex token before every JSON operation,
+so session revocation and current membership permissions are rechecked while a
+run is in progress. Asset byte transfers use the same session through the CMS
+host origin.
 
-Keep the returned prepared plan and its verified source directory for the
-duration of the run. Changing the
-deployment, contract hash, item payload, or expected draft hash invalidates the
-operation instead of silently overwriting newer CMS work.
+## Export And Verify
 
-Local image blobs are streamed from the verified directory through the CMS
-host. The host requires the same current owner session as the Convex planning
-calls, never returns a Convex upload URL to the CLI, and re-verifies the stored
-bytes before attaching the asset. Treat the session cookie as a secret; do not
-write it into a plan or portable directory.
+```bash
+pnpm exec ginko-cms content export --out ./portable-content
+pnpm exec ginko-cms content verify ./portable-content
+```
+
+Export refuses an existing destination and captures an immutable roster before
+writing. It exports every local collection by default; restrict the scope with
+`--collections posts,pages`. The completed directory is verified locally before
+the server run is completed.
+
+There is deliberately no working-copy or draft export mode. An export contains
+published revision data and the managed image bytes referenced by that frozen
+roster. Canonical external HTTPS asset references remain external; they are not
+downloaded or converted into managed assets.
+
+## Plan, Review, And Apply An Import
+
+Planning has no draft effects. It verifies the directory, inspects exact current
+draft hashes, and seals an immutable server-side plan:
+
+```bash
+pnpm exec ginko-cms content import ./portable-content --plan ./import-plan.json
+```
+
+Review the printed create/update/skip and asset counts and the plan file. Apply
+only that reviewed plan with the separate confirmation command:
+
+```bash
+pnpm exec ginko-cms content import --apply ./import-plan.json
+```
+
+Keep the plan and its source directory unchanged until the run completes. Apply
+revalidates the plan and document hashes locally before any network effect.
+Changing the deployment, installed contract, item payload, asset metadata, or
+expected current draft hash fails closed instead of overwriting newer work.
+
+Apply writes drafts in dependency order and records idempotent item and terminal
+receipts. If the process is interrupted or loses a successful response, run the
+same `--apply` command again. Already committed uploads and items replay their
+receipts rather than writing twice. Publishing remains a separate normal Studio
+workflow.
 
 ## Current Boundary
 
@@ -65,6 +86,8 @@ write it into a plan or portable directory.
 - Import planning and mutations are bounded to 250 items per request. The
   immutable plan binds the source manifest, source and target contracts,
   deployment, scope, item hashes, and expected current draft hashes.
+- Export and import require a current owner session and current bulk portability
+  permission. Studio and MCP do not expose alternate bulk-write authority.
 
 ## Related Pages
 

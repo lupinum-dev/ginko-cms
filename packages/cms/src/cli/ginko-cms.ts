@@ -4,6 +4,7 @@ import { realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 import { type CliRunner, type ConvexClientFactory, parseArgs, usage, write } from './args.js'
+import { runContentCommand } from './content.js'
 import { resolveConvexCliBin, runNodeScript } from './convex.js'
 import { runDeployCommand } from './deploy.js'
 import { runDoctorCommand } from './doctor.js'
@@ -58,6 +59,9 @@ export async function runGinkoCmsCli(
     if (command === 'migrate') {
       return await runMigrateCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
+    if (command === 'content') {
+      return await runContentCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    }
     if (command === 'convex') {
       const runner = options.runner ?? runNodeScript
       return await runner(resolveConvexCliBin(), parsed.args.slice(1), { cwd: parsed.cwd })
@@ -80,7 +84,7 @@ function redactCliMessage(message: string, cwd: string) {
     ...process.env,
   }
   for (const [name, value] of Object.entries(env)) {
-    const secretLikeName = /KEY|TOKEN|SECRET|PASSWORD/i.test(name)
+    const secretLikeName = /KEY|TOKEN|SECRET|PASSWORD|COOKIE/i.test(name)
     const secretValue = typeof value === 'string' ? value.trim() : ''
     if (!secretLikeName || secretValue.length < 8) continue
     redacted = redacted.split(secretValue).join('[redacted]')

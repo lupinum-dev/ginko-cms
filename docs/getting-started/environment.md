@@ -71,6 +71,27 @@ role.
 The provider reads it and defaults to `default`, but current public Convex
 queries are not partitioned by this value.
 
+## Content Portability Operator Session
+
+The `ginko-cms content export` and `ginko-cms content import` operator commands
+also require:
+
+```bash
+GINKO_CMS_SESSION_COOKIE='better-auth.session_token=...'
+```
+
+Provide this short-lived Better Auth session cookie in the invoking shell or a
+secret manager-backed process environment. Do not commit it to `.env.local`, a
+portable directory, or an import plan. The commands exchange the cookie for a
+fresh Convex token before each JSON operation and send it only to the configured
+Better Auth and CMS origins. `CONVEX_DEPLOY_KEY` is not an alternative product
+identity for these commands.
+
+The operator commands also use `CONVEX_DEPLOYMENT` to bind plans and runs,
+`CONVEX_SITE_URL` (or `GINKO_CMS_BETTER_AUTH_BASE_URL`) for token exchange, and
+`SITE_URL` (or `NUXT_PUBLIC_SITE_URL`) for authenticated asset byte transfer.
+See [Portable content export and import](../guides/filesystem-migration.md).
+
 ## Maintainer Smoke Tests
 
 ```bash

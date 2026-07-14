@@ -23,6 +23,7 @@ export type CliRunner = (
 ) => Promise<number>
 
 export type ConvexClientLike = Pick<ConvexHttpClient, 'action' | 'query' | 'mutation'> & {
+  setAuth?: (token: string) => void
   setAdminAuth?: (token: string, actingAsIdentity?: unknown) => void
 }
 
@@ -72,6 +73,10 @@ export function usage(): string {
     `  ${commandName} migrate apply <file> --yes [--cwd <path>]`,
     `  ${commandName} migrate finalize <file> --strategy preserve|rebuild|unpublish [--cwd <path>]`,
     `  ${commandName} migrate activate <file> --yes [--cwd <path>]`,
+    `  ${commandName} content export --out <directory> [--collections <slug,...>] [--cwd <path>]`,
+    `  ${commandName} content verify <directory> [--cwd <path>]`,
+    `  ${commandName} content import <directory> --plan <file> [--cwd <path>]`,
+    `  ${commandName} content import --apply <plan-file> [--cwd <path>]`,
     `  ${commandName} convex [...args] [--cwd <path>]`,
     `  ${commandName} doctor [--cwd <path>]`,
     `  ${commandName} mcp-doctor [--cwd <path>]`,
@@ -79,6 +84,7 @@ export function usage(): string {
     '`init` writes missing Convex setup files and CMS root adapters. `doctor` validates setup and stale generated bridge files.',
     'The convex command proxies the Convex CLI bundled with Ginko CMS.',
     'Migration commands scaffold, inspect, apply, validate, and activate contract-bound content migrations.',
+    'Content commands export published revisions, verify portable directories, and plan or apply draft-only imports.',
     '',
   ].join('\n')
 }
