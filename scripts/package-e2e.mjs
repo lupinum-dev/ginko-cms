@@ -201,6 +201,7 @@ async function bootNitro() {
   child.stderr.on('data', (chunk) => (output += chunk))
   try {
     const deadline = Date.now() + 30_000
+    let ready = false
     while (Date.now() < deadline) {
       if (child.exitCode !== null) {
         throw new Error(`Packed Nitro server exited before readiness:\n${output}`)
@@ -211,12 +212,27 @@ async function bootNitro() {
         if (!response.ok || body?.ok !== true) {
           throw new Error(`Packed Nitro smoke returned ${response.status}: ${JSON.stringify(body)}`)
         }
-        return
+        ready = true
+        break
       } catch {
         await new Promise((resolve) => setTimeout(resolve, 200))
       }
     }
-    throw new Error(`Timed out waiting for packed Nitro server:\n${output}`)
+    if (!ready) {
+      throw new Error(`Timed out waiting for packed Nitro server:\n${output}`)
+    }
+
+    const renderResponse = await fetch(`http://127.0.0.1:${port}/render-safety`)
+    const renderBody = await renderResponse.text()
+    if (
+      renderResponse.status < 500 ||
+      renderBody.includes('packed-render-exploit') ||
+      !renderBody.includes('Public Markdown AST is not render-safe.')
+    ) {
+      throw new Error(
+        `Packed Content renderer did not fail closed (${renderResponse.status}): ${renderBody}`,
+      )
+    }
   } finally {
     child.kill('SIGTERM')
   }
@@ -481,10 +497,27 @@ try {
   writeFileSync(
     join(tempDir, 'nuxt.config.ts'),
     [
+      "import { addTemplate, defineNuxtModule } from 'nuxt/kit'",
       "import ginkoCms from '@lupinum/ginko-cms'",
       '',
+      'const contentRendererHarness = defineNuxtModule({',
+      '  setup() {',
+      '    addTemplate({',
+      "      filename: 'content-i18n.mjs',",
+      "      getContents: () => \"export const useLocalePath = () => (route) => typeof route === 'string' ? route : ''\",",
+      '    })',
+      '  },',
+      '})',
+      '',
       'export default defineNuxtConfig({',
-      '  modules: [ginkoCms],',
+      '  modules: [contentRendererHarness, ginkoCms],',
+      '  components: [{',
+      "    path: './node_modules/@lupinum/ginko-content/dist/runtime/app/components',",
+      '    pathPrefix: false,',
+      "    prefix: '',",
+      '    global: true,',
+      "    ignore: ['Prose/**', 'internal/**'],",
+      '  }],',
       '  ginkoCms: {',
       '    mcp: false,',
       '  },',
@@ -556,6 +589,19 @@ try {
       null,
       2,
     ),
+    'utf8',
+  )
+
+  mkdirSync(join(tempDir, 'pages'), { recursive: true })
+  writeFileSync(
+    join(tempDir, 'pages/render-safety.vue'),
+    [
+      '<script setup lang="ts">',
+      "const value = { collection: 'posts', locale: 'en', body: { type: 'root', children: [{ type: 'element', tag: 'script', props: {}, children: [{ type: 'text', value: 'packed-render-exploit' }] }] } }",
+      '</script>',
+      '<template><ContentRenderer :value="value" /></template>',
+      '',
+    ].join('\n'),
     'utf8',
   )
 
@@ -714,6 +760,12 @@ try {
   ].join(';')
 
   run('node', ['--input-type=module', '--eval', importCheck], { cwd: tempDir })
+  mkdirSync(join(tempDir, 'scripts'), { recursive: true })
+  copyFileSync(
+    resolve(repoRoot, 'scripts/packed-content-safety-probe.mjs'),
+    join(tempDir, 'scripts/packed-content-safety-probe.mjs'),
+  )
+  run('node', ['scripts/packed-content-safety-probe.mjs'], { cwd: tempDir })
 
   writeFileSync(
     join(tempDir, 'package-export-types.ts'),
