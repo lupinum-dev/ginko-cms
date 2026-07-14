@@ -24,6 +24,29 @@ const forbiddenPhrases = [
 const docs = [
   { path: 'README.md', required: true, forbidsContradiction: true },
   { path: 'packages/cms/README.md', required: true, forbidsContradiction: true },
+  {
+    path: 'skills/ginko-cms/references/setup-and-env.md',
+    required: true,
+    forbidsContradiction: true,
+  },
+]
+
+const activeSetupDocs = [
+  '.gitignore',
+  'ARCHITECTURE.md',
+  'SECURITY.md',
+  'skills/ginko-cms/SKILL.md',
+  'skills/ginko-cms/references/setup-and-env.md',
+  'skills/ginko-cms/references/mcp-agent-workflows.md',
+  'skills/ginko-cms/references/repo-development.md',
+]
+
+const legacySetupPatterns = [
+  /@lupinum\/trellis(?:-bridge|-eslint)?/i,
+  /CONVEX_IDENTITY_FORWARDING_KEY/,
+  /GINKO_CMS_COMPONENT_FORWARDING_KEY/,
+  /ginkoCmsMcp\.ts/,
+  /trellis bridge generate/i,
 ]
 
 const canonicalDeployDocs = [
@@ -56,6 +79,17 @@ for (const doc of docs) {
       if (pattern.test(contents)) {
         errors.push(`${doc.path}: matches forbidden contradictory wording /${pattern.source}/`)
       }
+    }
+  }
+}
+
+for (const docPath of activeSetupDocs) {
+  const contents = readFileSync(resolve(repoRoot, docPath), 'utf8')
+  for (const pattern of legacySetupPatterns) {
+    if (pattern.test(contents)) {
+      errors.push(
+        `${docPath}: active setup documentation contains legacy claim /${pattern.source}/`,
+      )
     }
   }
 }

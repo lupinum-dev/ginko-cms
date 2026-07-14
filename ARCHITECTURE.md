@@ -10,8 +10,8 @@ projections, and provider integration with Ginko core.
 The v1 architecture has three packages:
 
 - `@lupinum/ginko-cms`: Nuxt module, Studio host, auth pages, public API routes,
-  filesystem migration tooling, CMS provider integration, and the bridge
-  manifest used during setup.
+  filesystem migration tooling, CMS provider integration, and host setup
+  templates.
 - `@lupinum/ginko-cms-contract`: framework-neutral shared domain contracts,
   public-content types, Convex validators, and schema helpers.
 - `@lupinum/ginko-cms-convex`: Convex component implementation for content,
@@ -20,7 +20,7 @@ The v1 architecture has three packages:
 
 Keep domain contracts free of Nuxt, Vue, Studio, and package implementation
 details. Keep the Convex component free of Studio and Nuxt runtime dependencies.
-Keep host-generated bridge files thin.
+Keep host-generated Convex setup files thin.
 
 ## Runtime Shape
 
@@ -43,15 +43,15 @@ publish content, but they do not mutate schema.
 
 ## Setup Boundary
 
-Trellis powers internal bridge generation, route protection, permissions, and
-Convex integration mechanics. Public setup should still feel like Ginko CMS.
-Users install and validate Ginko CMS; they should not need to understand Trellis
-concepts to build a Ginko CMS site.
+The host application owns Better Auth identities, provider choices, and its
+Convex app. `better-convex-nuxt` owns Nuxt-side Convex lifecycle, SSR callers,
+auth synchronization, route protection, and token exchange. Ginko CMS composes
+that foundation and owns only CMS product policy.
 
 The durable rule is:
 
-> Trellis may power internals, but Ginko CMS owns the user-facing installation,
-> setup, and validation experience.
+> Host setup files expose the CMS component; they do not duplicate identity,
+> authorization, or CMS domain policy.
 
 ## Studio Boundary
 
@@ -96,7 +96,7 @@ Studio and MCP share the same product boundary:
 - avoid schema/config mutation.
 
 MCP is a first-class CMS surface, but it is opt-in through module configuration.
-Core tables, generated types, and bridge machinery may exist regardless of route
+Core tables, generated types, and host setup glue may exist regardless of route
 registration; the externally exposed MCP server should not be enabled
 implicitly.
 

@@ -20,13 +20,13 @@ pnpm exec ginko-cms mcp-doctor
 
 It checks:
 
-- `CONVEX_DEPLOY_KEY`
-- `CONVEX_IDENTITY_FORWARDING_KEY` or `GINKO_CMS_COMPONENT_FORWARDING_KEY`
+- a Convex URL and Better Auth HTTP action origin
 - `secure-exec` as a host dependency for Nuxt MCP code mode
-- generated `convex/ginkoCmsMcp.ts`
-- direct Convex component imports and dependencies
+- generated Convex setup/root adapter files and direct dependencies
 
-MCP server-to-Convex calls need a Convex URL and `CONVEX_DEPLOY_KEY`.
+Normal MCP calls authenticate with Better Auth API keys, exchange them for a
+Convex token through `better-convex-nuxt`, and then enforce current CMS
+membership and credential scopes. They do not use `CONVEX_DEPLOY_KEY`.
 
 ## Authoring Flow
 

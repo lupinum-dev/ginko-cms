@@ -1,6 +1,6 @@
 ---
 name: ginko-cms
-description: Use when Codex needs to install, configure, debug, document, test, or operate Ginko CMS in a Nuxt app, including @lupinum/ginko-cms, @lupinum/ginko-cms-convex, @lupinum/ginko-content provider setup, generated Convex bridge files, Studio, collection contract sync, migrations, filesystem import, public content reads, backups, release checks, or changes inside the Ginko CMS repository itself.
+description: Use when Codex needs to install, configure, debug, document, test, or operate Ginko CMS in a Nuxt app, including @lupinum/ginko-cms, @lupinum/ginko-cms-convex, @lupinum/ginko-content provider setup, host-owned Convex setup files, Studio, collection contract sync, migrations, filesystem import, public content reads, backups, release checks, or changes inside the Ginko CMS repository itself.
 ---
 
 # Ginko CMS
@@ -30,7 +30,7 @@ operations, publishing, assets, public projections, and MCP workflows.
    - In a host Nuxt app, use these bundled references, installed package source
      or generated bridge files, and the host app's own config/docs. Do not treat
      an unrelated `docs/` directory as Ginko CMS truth.
-3. Prefer existing commands and generated bridge paths. Do not add a second
+3. Prefer existing commands and generated setup paths. Do not add a second
    source of truth for collection contracts, env vars, public API fields, or
    migration state.
 
@@ -43,10 +43,10 @@ operations, publishing, assets, public projections, and MCP workflows.
   direct CMS contract path.
 - Run collection contract changes through `pnpm exec ginko-cms push --check`
   before pushing.
-- Treat generated Convex bridge files as host-owned generated glue after
-  `ginko-cms init`; do not move CMS policy into bridge files.
-- Use `CONVEX_DEPLOY_KEY` for contract sync/admin CLI operations and a matching
-  forwarding key in both the app/server environment and Convex deployment.
+- Treat generated Convex setup files and root adapters as host-owned glue after
+  `ginko-cms init`; do not move CMS policy into those files.
+- Use `CONVEX_DEPLOY_KEY` only for contract sync and other admin CLI transport.
+  Runtime identity comes from Better Auth through `better-convex-nuxt`.
 - Do not claim the Nuxt provider reads drafts. It reads published public Convex
   projections.
 - Do not claim backup CLI commands are headless deploy-key operations. Backup
@@ -60,8 +60,8 @@ operations, publishing, assets, public projections, and MCP workflows.
 
 Read [references/setup-and-env.md](references/setup-and-env.md). The setup path
 is install packages, define at least one collection, run `ginko-cms init`, make
-Convex URL/deploy key/forwarding key/first owner available, deploy generated
-Convex files, then run `ginko-cms push` and `ginko-cms push --check`.
+Convex URL/site URL/deploy key/Better Auth secret/first owner available, then
+run `ginko-cms deploy` and `ginko-cms deploy --check`.
 
 ### Change Collections Or Routes
 
@@ -92,7 +92,7 @@ destructive flows.
 ### Modify This Repository
 
 Use Corepack pnpm. Run focused tests while working, then run the broader gate
-before handoff when touching docs, package metadata, bridge generation, Convex
+before handoff when touching docs, package metadata, host setup generation, Convex
 auth, Studio workflow, MCP, or release scripts.
 
 ```bash
@@ -111,7 +111,7 @@ that delegates to Corepack, then rerun the same command.
 - State limitations plainly: no backup import command, no provider draft reads,
   no current public-query partition by `GINKO_CONTENT_PROVIDER_SITE`, and no
   headless hard-cutover path when collection drift remains unsafe.
-- Keep examples runnable and include hidden setup: packages, env vars, bridge
+- Keep examples runnable and include hidden setup: packages, env vars, host setup
   generation, Convex deploy/dev, push, and first-owner setup when relevant.
 
 ## Validation
