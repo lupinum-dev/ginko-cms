@@ -957,3 +957,127 @@ semantic round trip and Bounded consistent export remain open. The next Phase-E
 work package adds restart-only immutable published export with bounded roster
 pages, scoped editorial fencing, host byte download, and exact directory
 verification before any operator CLI UX is wired.
+
+## 2026-07-14 — Phase E3 Immutable Published Export
+
+### Objective and acceptance criteria
+
+Add the restart-only CMS-to-filesystem path for immutable published revisions.
+Acceptance required bounded capture and host serialization, a scoped expiring
+editorial fence, immutable revision/document and storage facts, live asset
+holds, authenticated server-only byte transfer, deterministic Content directory
+verification, idempotent completion, and bounded cleanup after completion,
+abort, run expiry, or capture-lease expiry. Working and draft export, Studio,
+MCP, generic ports, archives, and resumable partial export remained excluded.
+
+### Repository ownership and design
+
+- Ginko Content commit `2977c40597b6` changed the Node directory writer to
+  consume document and asset async iterables and stream each asset directly to
+  its staged file. The follow-up `07462b628e39` removed the remaining
+  full-directory verification path: `verifyPortableDirectoryBounded()` retains
+  only the contract, bounded manifest/reference facts, and one file's bytes at a
+  time. CMS consumes only the corrected immutable tarball recorded below.
+- CMS uses the existing `portableRuns` authority with a closed discriminated
+  export state machine: `capturing -> ready -> complete`, with active states
+  also able to become `aborted` or `expired`. No second run ledger, migration
+  record, compatibility state, or generic adapter was added.
+- Capture pages contain at most 100 public projections in explicit indexed
+  `(collection, locale, orderKey, entryId)` order. A monotonic generation and
+  opaque lease token fence every page and seal. Each renewal schedules a
+  generation-bound 60-second expiry; stale scheduled calls cannot expire a
+  renewed lease. Lease expiry releases the logical hold immediately and marks
+  the failed capture expired before deleting derived rows in pages of 100.
+- The temporary roster binds collection, `canonicalKey`, locale, immutable
+  revision ID, canonical portable document, and its SHA-256. The document is a
+  derived, rebuildable capture fact limited to 256 KiB and deleted at the run's
+  terminal cleanup. Keeping it in the roster avoids a second read from mutable
+  asset filenames or parent rows after sealing while canonical content remains
+  the published revision.
+- Unique asset rows bind exact storage ID, verified hash, byte length, media
+  type, filename, and run deadline. Asset trash, purge, and filename mutation
+  reject while a live hold protects the blob. The canonical storage inventory
+  also retains held objects from the component orphan reconciler.
+- Export download uses two same-origin Nitro routes. Every attempt resolves the
+  current operator session and `managePortability` guard, stores only a
+  domain-separated HMAC of a random bearer, expires after 60 seconds, and permits
+  at most three atomic claims. The Convex storage URL remains server-only; the
+  host permits only the exact configured storage origin, follows no redirects,
+  and streams with byte, idle, total-time, and SHA-256 checks. Responses are
+  `no-store` and tokens are absent from Convex arguments and logs.
+- The direct portability command captures and seals, pages documents/assets,
+  streams them through Ginko Content's staging writer, runs bounded manifest
+  verification, then records or replays the bounded export receipt. Any local
+  failure aborts the server run; no per-file receipt or resume state exists.
+- Generated component bindings and all three host bridge copies were regenerated
+  or synchronized from the contract. The generated component file was not
+  edited by hand.
+
+### Test-first and adversarial evidence
+
+The first export tests established 101-document `100 + 1` pagination, scoped
+projection fencing, immutable published revision selection, exact asset holds,
+and the three-claim download fence. Later red tests proved two real gaps:
+filename mutation was accepted after sealing, and a failed 60-second capture
+retained its partial roster/holds until the two-hour run deadline. Live hold
+checks and generation-bound lease-expiry cleanup closed those paths.
+
+Final coverage includes exact operator and origin checks, keyed token-domain
+separation, storage-origin and redirect rejection, truncated/changed streams,
+client rehashing, token redaction, bounded local writer orchestration, abort on
+local failure, canonical roster hashes, post-seal mutable-row independence,
+completion hold release, terminal cleanup, monotonic restart generations, and
+owner/user-only authorization. Import and storage-maintenance regressions run in
+the same focused suite.
+
+### Commands and results
+
+- Ginko Content authoritative `pnpm verify`: exit `0`; 100 files and 834 tests
+  passed, followed by 6 files and 15 E2E tests, source/example type checks,
+  production example builds, and quickstart validation.
+- Exact Content pnpm packed consumer: passed from the immutable tarball below,
+  including every public subpath import and generated Nuxt types.
+- `pnpm run prepare:component`: passed after the final schema and callable
+  changes.
+- Focused CMS export/import/host/storage/authorization suites: passed. The final
+  export and command slice passed 2 files and 7 tests; the broader focused slice
+  passed 6 files and 46 tests before the final roster hardening.
+- `pnpm run format:check`: passed across 910 files.
+- `pnpm run lint`: passed, including component auth boundaries, Convex surface,
+  live-token checks, vendor parity, docs, compatibility, content-model,
+  stale-surface, bridge-template sync, and ESLint.
+- Contract and Convex package type checks: passed.
+- `pnpm run check:publish-specifiers`: passed.
+- `pnpm run audit:prod`: passed with no known vulnerabilities.
+- `pnpm run test`: exit `0`; 118 files passed, 1 environment-gated file was
+  skipped, 919 tests passed, and 1 was skipped.
+- The aggregate `pnpm run check` passed format, lint, Contract/Convex typecheck,
+  package builds, Studio build, and playground Nuxt preparation, then stopped at
+  the already-recorded external host fixture boundary: its stale
+  `playground/convex/_generated/api.d.ts` lacks `components` because host Convex
+  codegen cannot run against the configured development deployment without
+  `BETTER_AUTH_SECRET`. The export bridge-specific type errors were fixed in the
+  canonical template; only the common generated-host declarations remain. No
+  secret, deployment, or generated declaration was altered to mask the issue.
+- `git diff --check`: passed before commit.
+- Better Convex Nuxt remained read-only at `59278ea89e7a`; no file was changed.
+
+### Immutable development artifact and commit
+
+- Consumed Content path:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz`
+- Verified SHA-256:
+  `285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401`
+- Ginko Content: `2977c405` — `feat: stream portable directory writes`
+- Ginko Content: `07462b6` — `fix: bound portable directory verification`
+- Ginko CMS: `08b7f5ff` — `feat!: add immutable published export`
+
+### Acceptance matrix and next phase
+
+Updated to `implemented`: Bounded consistent export. The implementation now has
+executable lease, roster, pagination, streaming, hold, expiry, and cleanup
+evidence. Bidirectional semantic round trip remains open until Phase F wires the
+operator CLI and exact packed integration exercises filesystem -> CMS ->
+filesystem and CMS -> filesystem -> CMS. The next work package adds only the
+specified CLI operator UX using one Better Auth session for Convex token
+exchange and the host byte routes; Studio and MCP bulk authority remain absent.
