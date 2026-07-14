@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
+import axe from 'axe-core'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, reactive, ref } from 'vue'
 
@@ -19,11 +20,13 @@ import StudioVersionHistoryCard from '../../packages/cms/studio-app/src/componen
 import FieldArray from '../../packages/cms/studio-app/src/components/studio/fields/FieldArray.vue'
 import FieldBlocks from '../../packages/cms/studio-app/src/components/studio/fields/FieldBlocks.vue'
 import FieldObject from '../../packages/cms/studio-app/src/components/studio/fields/FieldObject.vue'
+import FieldRelations from '../../packages/cms/studio-app/src/components/studio/fields/FieldRelations.vue'
 import FieldRichtext from '../../packages/cms/studio-app/src/components/studio/fields/FieldRichtext.vue'
 import StudioEmptyState from '../../packages/cms/studio-app/src/components/studio/StudioEmptyState.vue'
 import StudioListFrame from '../../packages/cms/studio-app/src/components/studio/StudioListFrame.vue'
 import StudioNotice from '../../packages/cms/studio-app/src/components/studio/StudioNotice.vue'
 import StudioSegmentedControl from '../../packages/cms/studio-app/src/components/studio/StudioSegmentedControl.vue'
+import FieldError from '../../packages/cms/studio-app/src/components/ui/field/FieldError.vue'
 import { provideStudioEntryEditorContext } from '../../packages/cms/studio-app/src/composables/internal/studioEntryEditorContext'
 
 function createTestLocalStorage(): Storage {
@@ -66,6 +69,21 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () =>
     error: ref(null),
     pending: ref(false),
     refresh: vi.fn(),
+  }),
+}))
+
+vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuery', () => ({
+  useCmsStudioPaginatedQuery: () => ({
+    hasNextPage: ref(false),
+    results: ref([
+      {
+        _id: 'entry-1',
+        slug: 'first-entry',
+        stableId: 'stable-1',
+        title: 'First entry',
+      },
+    ]),
+    status: ref('loaded'),
   }),
 }))
 
@@ -115,6 +133,10 @@ function studioStubs() {
     DropdownMenuItem: { template: '<button type="button"><slot /></button>' },
     DropdownMenuTrigger: { template: '<span><slot /></span>' },
     Globe: { template: '<span />' },
+    FieldDescription: { template: '<p><slot /></p>' },
+    FieldError: { template: '<p role="alert"><slot /></p>' },
+    FieldLegend: { template: '<legend><slot /></legend>' },
+    FieldSet: { template: '<fieldset><slot /></fieldset>' },
     Label: { template: '<label><slot /></label>' },
     Loader2: { template: '<span />' },
     NuxtTime: {
@@ -187,6 +209,13 @@ function studioStubs() {
 }
 
 describe('Studio shadcn surface wrappers', () => {
+  it('announces field validation errors', () => {
+    const wrapper = mount(FieldError, { slots: { default: 'Title is required.' } })
+
+    expect(wrapper.attributes('role')).toBe('alert')
+    expect(wrapper.text()).toBe('Title is required.')
+  })
+
   it('renders notices with tone, title, body, and action slot', () => {
     const wrapper = mount(StudioNotice, {
       global: { stubs: studioStubs() },
@@ -1364,6 +1393,117 @@ describe('Studio workflow components', () => {
     },
   )
 
+  it('gives array removal controls descriptive accessible names', () => {
+    const wrapper = mount(FieldArray, {
+      props: {
+        field: {
+          key: 'socials',
+          type: 'array',
+          required: false,
+          description: null,
+          fields: [
+            { key: 'label', type: 'string', required: false },
+            { key: 'to', type: 'string', required: false },
+          ],
+        },
+        modelValue: [{ label: 'Website', to: 'https://example.com' }],
+        label: 'Social links',
+        fieldError: null,
+      },
+      global: { stubs: studioStubs() },
+    })
+
+    expect(wrapper.get('button[aria-label="Remove item 1"]').exists()).toBe(true)
+  })
+
+  it('keeps relation removal separate from the disclosure trigger and restores focus on Escape', async () => {
+    const wrapper = mount(FieldRelations, {
+      attachTo: document.body,
+      props: {
+        field: {
+          key: 'related',
+          type: 'relations',
+          required: false,
+          description: null,
+          relation: { collectionId: 'articles' },
+        },
+        modelValue: ['stable-1'],
+        locale: 'en',
+        label: 'Related entries',
+        fieldError: null,
+      },
+      global: { stubs: studioStubs() },
+    })
+
+    expect(wrapper.find('[role="button"] [role="button"]').exists()).toBe(false)
+    expect(wrapper.find('button button').exists()).toBe(false)
+
+    const trigger = wrapper.get('button[aria-controls="related-options"]')
+    await trigger.trigger('click')
+    expect(trigger.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('#related-options').exists()).toBe(true)
+
+    const search = wrapper.get('input[aria-label="Search entries..."]')
+    search.element.focus()
+    await search.trigger('keydown', { key: 'Escape' })
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(trigger.element)
+
+    const remove = wrapper.get('button[aria-label="Remove First entry"]')
+    await remove.trigger('click')
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[]])
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+
+    wrapper.unmount()
+  })
+
+  it('passes automated accessibility checks for relation and array controls', async () => {
+    const relations = mount(FieldRelations, {
+      attachTo: document.body,
+      props: {
+        field: {
+          key: 'related',
+          type: 'relations',
+          required: false,
+          description: null,
+          relation: { collectionId: 'articles' },
+        },
+        modelValue: ['stable-1'],
+        locale: 'en',
+        label: 'Related entries',
+        fieldError: null,
+      },
+      global: { stubs: studioStubs() },
+    })
+    const array = mount(FieldArray, {
+      attachTo: document.body,
+      props: {
+        field: {
+          key: 'socials',
+          type: 'array',
+          required: false,
+          description: null,
+          fields: [
+            { key: 'label', type: 'string', required: false },
+            { key: 'to', type: 'string', required: false },
+          ],
+        },
+        modelValue: [{ label: 'Website', to: 'https://example.com' }],
+        label: 'Social links',
+        fieldError: null,
+      },
+      global: { stubs: studioStubs() },
+    })
+
+    for (const wrapper of [relations, array]) {
+      const result = await axe.run(wrapper.element, {
+        rules: { 'color-contrast': { enabled: false } },
+      })
+      expect(result.violations.map((violation) => violation.id)).toEqual([])
+      wrapper.unmount()
+    }
+  })
+
   it.each([
     [
       'idle',
@@ -1694,6 +1834,9 @@ describe('Studio version history copy', () => {
     expect(wrapper.text()).toContain('Save version')
     expect(wrapper.text()).toContain('v3')
     expect(wrapper.text()).not.toContain('Checkpoint')
+    expect(wrapper.get('button[aria-label="Version 3 details"]').attributes('aria-expanded')).toBe(
+      'false',
+    )
   })
 
   it('keeps raw revision ids in advanced details only', () => {
@@ -1707,6 +1850,9 @@ describe('Studio version history copy', () => {
     expect(expanded.text()).toContain('Advanced details')
     expect(expanded.text()).toContain('Revision ID')
     expect(expanded.text()).toContain('version-1')
+    expect(expanded.get('button[aria-label="Version 3 details"]').attributes('aria-expanded')).toBe(
+      'true',
+    )
   })
 
   it('lets users save a version without learning checkpoint terminology', () => {

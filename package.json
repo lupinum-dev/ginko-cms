@@ -69,6 +69,7 @@
     "@types/node": "25.8.0",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/test-utils": "^2.4.10",
+    "axe-core": "4.12.1",
     "better-auth": "1.6.23",
     "better-convex-nuxt": "^0.6.1",
     "changelogen": "^0.6.2",

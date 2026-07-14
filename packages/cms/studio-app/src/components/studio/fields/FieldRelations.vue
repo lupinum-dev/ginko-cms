@@ -27,6 +27,7 @@ const value = computed({
 const relationSearch = ref('')
 const open = ref(false)
 const root = useTemplateRef<HTMLElement>('root')
+const trigger = useTemplateRef<HTMLButtonElement>('trigger')
 const { relatedEntries, entryByStableId, hasMoreEntries, status } = useRelationEntries(
   computed(() => props.field),
   computed(() => props.locale),
@@ -91,6 +92,11 @@ function removeRelation(stableId: string) {
   value.value = selectedStableIds.value.filter((item) => item !== stableId)
 }
 
+function closeAndRestoreFocus() {
+  open.value = false
+  trigger.value?.focus()
+}
+
 function handleDocumentPointerDown(event: PointerEvent) {
   const target = event.target
   if (!(target instanceof Node) || root.value?.contains(target)) return
@@ -102,7 +108,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
 </script>
 
 <template>
-  <div ref="root" class="ginko:relative">
+  <div ref="root" class="ginko:relative" @keydown.esc.stop.prevent="closeAndRestoreFocus">
     <StudioFieldShell
       :for="field.key"
       :label="label"
@@ -111,19 +117,11 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
       :error="fieldError"
     >
       <div
-        :id="field.key"
-        role="button"
-        tabindex="0"
-        class="ginko:border-input ginko:flex ginko:min-h-9 ginko:w-full ginko:items-start ginko:justify-between ginko:gap-2 ginko:rounded-md ginko:border ginko:bg-transparent ginko:px-2.5 ginko:py-1.5 ginko:text-left ginko:text-sm ginko:outline-none ginko:transition-[color,box-shadow] ginko:hover:bg-accent/40 ginko:focus-visible:border-ring ginko:focus-visible:ring-[3px] ginko:focus-visible:ring-ring/50 ginko:aria-invalid:border-destructive ginko:aria-invalid:ring-destructive/20"
-        :aria-expanded="open"
-        :aria-invalid="fieldError ? true : undefined"
-        @click="open = !open"
-        @keydown.enter.prevent="open = !open"
-        @keydown.space.prevent="open = !open"
+        class="ginko:border-input ginko:flex ginko:min-h-9 ginko:w-full ginko:items-start ginko:gap-1.5 ginko:rounded-md ginko:border ginko:bg-transparent ginko:p-1 ginko:text-sm ginko:focus-within:border-ring ginko:focus-within:ring-[3px] ginko:focus-within:ring-ring/50 ginko:has-[button[aria-invalid=true]]:border-destructive ginko:has-[button[aria-invalid=true]]:ring-destructive/20"
       >
         <span
           v-if="selectedEntries.length"
-          class="ginko:flex ginko:min-w-0 ginko:flex-1 ginko:flex-wrap ginko:gap-1.5"
+          class="ginko:flex ginko:min-w-0 ginko:flex-wrap ginko:gap-1.5"
         >
           <span
             v-for="selectedEntry in selectedEntries"
@@ -131,40 +129,52 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
             class="ginko:inline-flex ginko:max-w-full ginko:items-center ginko:gap-1.5 ginko:rounded-full ginko:border ginko:border-border/40 ginko:bg-muted ginko:px-2 ginko:py-0.5 ginko:text-xs"
           >
             <span class="ginko:max-w-40 ginko:truncate">{{ selectedEntry.title }}</span>
-            <span
-              role="button"
-              tabindex="0"
-              class="ginko:rounded-full ginko:p-0.5 ginko:text-muted-foreground ginko:hover:bg-background ginko:hover:text-foreground"
+            <button
+              type="button"
+              class="ginko:grid ginko:size-6 ginko:shrink-0 ginko:place-items-center ginko:rounded-full ginko:text-muted-foreground ginko:outline-none ginko:hover:bg-background ginko:hover:text-foreground ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring"
               :aria-label="`Remove ${selectedEntry.title}`"
               @click.stop="removeRelation(selectedEntry.stableId)"
-              @keydown.enter.stop.prevent="removeRelation(selectedEntry.stableId)"
-              @keydown.space.stop.prevent="removeRelation(selectedEntry.stableId)"
             >
-              <X class="ginko:size-3" />
-            </span>
+              <X aria-hidden="true" class="ginko:size-3" />
+            </button>
           </span>
         </span>
-        <span v-else class="ginko:text-muted-foreground">
-          {{ t('ginkoCms.studio.fieldRenderer.selectRelatedEntry') }}
-        </span>
-        <ChevronsUpDown
-          class="ginko:ml-auto ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground"
-        />
+        <button
+          :id="field.key"
+          ref="trigger"
+          type="button"
+          class="ginko:flex ginko:min-h-7 ginko:min-w-8 ginko:flex-1 ginko:items-center ginko:justify-between ginko:gap-2 ginko:rounded-sm ginko:px-1.5 ginko:text-left ginko:outline-none ginko:hover:bg-accent/40"
+          :aria-controls="`${field.key}-options`"
+          :aria-expanded="open"
+          :aria-invalid="fieldError ? true : undefined"
+          :aria-label="t('ginkoCms.studio.fieldRenderer.selectRelatedEntry')"
+          @click="open = !open"
+        >
+          <span v-if="selectedEntries.length === 0" class="ginko:text-muted-foreground">
+            {{ t('ginkoCms.studio.fieldRenderer.selectRelatedEntry') }}
+          </span>
+          <ChevronsUpDown
+            aria-hidden="true"
+            class="ginko:ml-auto ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground"
+          />
+        </button>
       </div>
       <div
         v-if="open"
+        :id="`${field.key}-options`"
         class="ginko:mt-1 ginko:w-full ginko:overflow-hidden ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-popover ginko:text-popover-foreground ginko:shadow-md"
       >
         <div class="ginko:border-b ginko:border-border/40 ginko:p-2">
           <div class="ginko:relative">
             <Search
+              aria-hidden="true"
               class="ginko:pointer-events-none ginko:absolute ginko:left-2.5 ginko:top-1/2 ginko:size-3.5 ginko:-translate-y-1/2 ginko:text-muted-foreground/60"
             />
             <Input
               v-model="relationSearch"
               :placeholder="t('ginkoCms.studio.fieldRenderer.searchEntries')"
+              :aria-label="t('ginkoCms.studio.fieldRenderer.searchEntries')"
               class="ginko:h-8 ginko:border-border/40 ginko:bg-card ginko:pl-8 ginko:text-sm ginko:shadow-none"
-              @keydown.stop
             />
           </div>
         </div>
@@ -174,6 +184,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
             :key="relatedEntry._id"
             variant="ghost"
             class="ginko:h-auto ginko:w-full ginko:justify-start ginko:gap-3 ginko:px-2 ginko:py-2 ginko:text-left ginko:text-sm ginko:font-normal"
+            :aria-pressed="selectedStableIds.includes(relatedEntry.stableId)"
             @click="toggleRelationSelection(relatedEntry.stableId)"
           >
             <span
@@ -186,6 +197,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
             >
               <Check
                 v-if="selectedStableIds.includes(relatedEntry.stableId)"
+                aria-hidden="true"
                 class="ginko:size-3.5"
               />
             </span>

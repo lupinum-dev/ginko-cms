@@ -120,9 +120,11 @@ function formatVersionAction(version: VersionListItem) {
             variant="ghost"
             size="icon"
             class="ginko:size-7"
+            :aria-label="`Version ${version.version} details`"
+            :aria-expanded="editor.history.previewVersionId === version._id"
             @click="editor.history.toggleVersionPreview(version._id)"
           >
-            <Ellipsis class="ginko:size-4" />
+            <Ellipsis aria-hidden="true" class="ginko:size-4" />
           </Button>
         </ItemActions>
       </Item>

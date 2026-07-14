@@ -113,6 +113,7 @@ function socialIconName(item: Record<string, unknown>) {
           class="ginko:grid ginko:grid-cols-[auto_minmax(0,1fr)_auto] ginko:items-center ginko:gap-2 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-[var(--studio-surface)] ginko:p-2 ginko:md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.35fr)_auto]"
         >
           <div
+            aria-hidden="true"
             class="ginko:grid ginko:size-8 ginko:place-items-center ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/40"
           >
             <Icon :name="socialIconName(item)" class="ginko:size-4" />
@@ -120,6 +121,7 @@ function socialIconName(item: Record<string, unknown>) {
           <Input
             :model-value="typeof item.label === 'string' ? item.label : ''"
             placeholder="Label"
+            :aria-label="`Item ${index + 1} label`"
             class="ginko:h-8"
             :disabled="disabled"
             @update:model-value="updateArrayItem(index, 'label', $event)"
@@ -127,6 +129,7 @@ function socialIconName(item: Record<string, unknown>) {
           <Input
             :model-value="typeof item.to === 'string' ? item.to : ''"
             placeholder="URL"
+            :aria-label="`Item ${index + 1} URL`"
             class="ginko:col-start-2 ginko:h-8 ginko:md:col-start-auto"
             :disabled="disabled"
             @update:model-value="updateArrayItem(index, 'to', $event)"
@@ -136,13 +139,15 @@ function socialIconName(item: Record<string, unknown>) {
             variant="ghost"
             size="icon"
             class="ginko:size-8"
+            :aria-label="`Remove item ${index + 1}`"
             @click="removeArrayItem(index)"
           >
-            <Trash2 class="ginko:size-4" />
+            <Trash2 aria-hidden="true" class="ginko:size-4" />
           </Button>
           <Input
             :model-value="typeof item.icon === 'string' ? item.icon : ''"
             placeholder="icon"
+            :aria-label="`Item ${index + 1} icon`"
             class="ginko:col-start-2 ginko:col-span-1 ginko:h-8 ginko:font-mono ginko:text-xs ginko:md:col-span-2"
             :disabled="disabled"
             @update:model-value="updateArrayItem(index, 'icon', $event)"
@@ -163,20 +168,30 @@ function socialIconName(item: Record<string, unknown>) {
             variant="ghost"
             size="sm"
             class="ginko:h-7 ginko:gap-1 ginko:px-2 ginko:text-xs ginko:font-medium ginko:text-muted-foreground"
+            :aria-controls="`${field.key}-item-${index}`"
+            :aria-expanded="!collapsedItems.has(index)"
             @click="toggleItemCollapse(index)"
           >
             <Icon
               :name="collapsedItems.has(index) ? 'lucide:chevron-right' : 'lucide:chevron-down'"
+              aria-hidden="true"
               class="ginko:size-3"
             />
             {{ t('ginkoCms.studio.fieldRenderer.itemLabel', { index: index + 1 }) }}
           </Button>
-          <Button v-if="!disabled" variant="ghost" size="sm" @click="removeArrayItem(index)">
-            <Trash2 class="ginko:size-4" />
+          <Button
+            v-if="!disabled"
+            variant="ghost"
+            size="sm"
+            :aria-label="`Remove item ${index + 1}`"
+            @click="removeArrayItem(index)"
+          >
+            <Trash2 aria-hidden="true" class="ginko:size-4" />
           </Button>
         </div>
         <div
           v-if="!collapsedItems.has(index)"
+          :id="`${field.key}-item-${index}`"
           class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:pt-2 ginko:md:grid-cols-2"
         >
           <StudioFieldRenderer
