@@ -195,28 +195,27 @@ function codeModeToolNames(): string[] {
 describe('MCP tool safety contracts', () => {
   it('exposes the curated code-mode tool names, not file layout conventions', () => {
     expect(codeModeToolNames()).toEqual([
-      'archive-entry',
+      'complete-agent-run',
       'create-entry',
       'explain-public-visibility',
-      'export-backup',
       'get-asset',
       'get-collection',
       'get-entry',
       'get-readiness-detail',
+      'get-review-status',
       'list',
+      'list-agent-runs',
       'list-collections',
       'list-entries',
-      'move-asset',
       'nav',
       'page',
       'preview-publish',
-      'publish-entry',
       'request-publish-review',
       'resolve-asset-urls',
-      'restore-entry',
       'save-entry-draft',
       'search',
       'sitemap',
+      'start-agent-run',
     ])
   })
 
@@ -256,7 +255,7 @@ describe('MCP tool safety contracts', () => {
       tsFiles(directRoot)
         .map((path) => normalize(path).replace(normalize(`${directRoot}/`), ''))
         .sort(),
-    ).toEqual(['assets.ts', 'content.ts', 'public.ts'])
+    ).toEqual(['agent-runs.ts', 'assets.ts', 'content.ts', 'public.ts'])
   })
 
   it('registers MCP handlers through the discovery directory, not dead file globs', () => {
@@ -298,21 +297,27 @@ describe('MCP tool safety contracts', () => {
     expect(mcpDoctor).toContain('Nuxt MCP code mode resolves it from the host app root')
   })
 
-  it('keeps sensitive MCP tools explicit on the shared powerful MCP surface', () => {
-    const sensitiveTools = [
-      'archive-entry',
-      'export-backup',
-      'preview-publish',
-      'publish-entry',
-      'request-publish-review',
-      'restore-entry',
-    ]
+  it('keeps public-output writes review gated and removes unrelated MCP authority', () => {
+    const sensitiveTools = ['preview-publish', 'request-publish-review']
 
     expect(
       codeModeToolNames()
         .filter((name) => sensitiveTools.includes(name))
         .sort(),
     ).toEqual(sensitiveTools)
+
+    for (const forbidden of [
+      'publish-entry',
+      'archive-entry',
+      'restore-entry',
+      'move-asset',
+      'export-backup',
+    ]) {
+      expect(codeModeToolNames()).not.toContain(forbidden)
+    }
+
+    expect(existsSync(join(toolsRoot, 'content/publish-entry.ts'))).toBe(false)
+    expect(existsSync(join(toolsRoot, 'content/archive-entry.ts'))).toBe(false)
   })
 
   it('keeps active MCP tools explicit and removes the generic projectTool runtime', () => {
@@ -333,14 +338,11 @@ describe('MCP tool safety contracts', () => {
     expect(directSources).not.toContain(forbiddenGeneratedOpPath)
     expect(directSources).not.toContain(['operation', 'Refs'].join(''))
 
-    for (const explicitToolName of [
-      "name: 'create-entry'",
-      "name: 'save-entry-draft'",
-      "name: 'move-asset'",
-    ]) {
+    for (const explicitToolName of ["name: 'create-entry'", "name: 'save-entry-draft'"]) {
       expect(directSources).toContain(explicitToolName)
     }
-    expect(allToolSources).toContain("name: 'restore-entry'")
+    expect(directSources).toContain("name: 'start-agent-run'")
+    expect(allToolSources).toContain("name: 'get-review-status'")
 
     for (const oldOperationName of [
       'createEntryOperation',
@@ -360,29 +362,19 @@ describe('MCP tool safety contracts', () => {
     }
   })
 
-  it('requires active agent runs for every MCP write tool', () => {
+  it('requires active agent runs and caller-bound request ids for content writes', () => {
     const writeToolSources = [
       join(directRoot, 'content.ts'),
-      join(directRoot, 'assets.ts'),
-      join(toolsRoot, 'backup/export-backup.ts'),
       join(toolsRoot, 'content/preview-publish.ts'),
-      join(toolsRoot, 'content/publish-entry.ts'),
       join(toolsRoot, 'content/request-publish-review.ts'),
-      join(toolsRoot, 'content/archive-entry.ts'),
-      join(toolsRoot, 'content/restore-entry.ts'),
     ].map((path) => readFileSync(path, 'utf8'))
 
     for (const source of writeToolSources) {
       for (const toolName of [
         'create-entry',
         'save-entry-draft',
-        'move-asset',
-        'export-backup',
         'preview-publish',
-        'publish-entry',
         'request-publish-review',
-        'archive-entry',
-        'restore-entry',
       ]) {
         if (!source.includes(`name: '${toolName}'`)) continue
         expect(source).toContain('agentRunId: z.string()')
@@ -391,18 +383,34 @@ describe('MCP tool safety contracts', () => {
     }
 
     const combinedSource = writeToolSources.join('\n')
+    expect(combinedSource).toMatch(/requestId:\s*z\s*\.string\(\)/)
     expect(combinedSource).toContain('api.ginkoCms.editor.mcpCreateEntry')
     expect(combinedSource).toContain('api.ginkoCms.editor.mcpSaveEntryDraft')
-    expect(combinedSource).toContain('api.ginkoCms.editor.mcpRestoreEntry')
-    expect(combinedSource).toContain('api.ginkoCms.assets.mcpMoveAsset')
-    expect(combinedSource).toContain('api.ginkoCms.backup.mcpExportBackup')
-    expect(combinedSource).toContain('api.ginkoCms.editor.mcpPreviewPublishEntryOperation')
-    expect(combinedSource).toContain('api.ginkoCms.editor.mcpPublishEntry')
-    expect(combinedSource).toContain('api.ginkoCms.editor.mcpPreviewArchiveEntryOperation')
-    expect(combinedSource).toContain('api.ginkoCms.editor.mcpArchiveEntry')
+    expect(combinedSource).toContain('api.ginkoCms.editor.mcpPreviewPublishEntry')
+    expect(combinedSource).not.toContain('api.ginkoCms.editor.mcpPublishEntry')
+    expect(combinedSource).not.toContain('api.ginkoCms.editor.mcpArchiveEntry')
     expect(combinedSource).not.toContain('mcpRecordPublishEntry')
     expect(combinedSource).not.toContain('mcpRecordArchiveEntry')
     expect(combinedSource).toContain('api.ginkoCms.reviewRequests.requestPublishReview')
+  })
+
+  it('requires an explicit capability and never accepts authority overrides', () => {
+    const sources = codeModeTools().map(({ path }) => readFileSync(path, 'utf8'))
+    for (const source of sources) {
+      expect(source).not.toContain('loadAgentContext(ctx.event)')
+    }
+    const combined = sources.join('\n')
+    for (const authorityInput of [
+      'authUserId:',
+      'memberId:',
+      'ownerUserId:',
+      'role:',
+      'tokenHash:',
+      'apiKeyId:',
+      'capability:',
+    ]) {
+      expect(combined).not.toContain(authorityInput)
+    }
   })
 
   it('keeps MCP from uploading or fetching new assets', () => {
@@ -440,11 +448,13 @@ describe('MCP tool safety contracts', () => {
     expect(promptsAndResources).not.toContain('list-assets')
     expect(promptsAndResources).toContain('resolve-asset-urls')
     expect(promptsAndResources).toContain('preview-publish')
-    expect(promptsAndResources).toContain('publish-entry')
     expect(promptsAndResources).toContain('request-publish-review')
+    expect(promptsAndResources).toContain('get-review-status')
     expect(promptsAndResources).toContain('page')
     expect(promptsAndResources).toContain('sitemap')
     expect(promptsAndResources).not.toContain('_confirmationToken')
+    expect(promptsAndResources).not.toContain('publish-entry')
+    expect(promptsAndResources).not.toContain('archive-entry')
 
     for (const forbidden of [
       'create-content-piece',

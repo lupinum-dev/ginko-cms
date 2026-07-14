@@ -65,10 +65,12 @@ Access, operations, and audit:
 - `cmsSettings`: site-level CMS settings such as locale configuration and
   webhook definitions.
 - `members`: Studio members and roles.
-- `mcpCredentialSettings`: CMS-owned scopes, collection limits, safety mode, and
-  owner mapping for Better Auth API-key credentials. Raw API keys are not stored
-  here.
-- `agentRuns`: bounded delegated agent work sessions.
+- `mcpCredentialSettings`: CMS-owned scopes, expiry, status, and owner mapping
+  for Better Auth API-key credentials. Raw API keys are not stored here.
+- `agentRuns`: bounded delegated work sessions with an immutable effective-scope
+  snapshot.
+- `mcpCreateEntryReceipts`: credential-bound, expiring idempotency receipts for
+  MCP entry creation. Expired rows are cleaned in bounded indexed batches.
 - `reviewRequests`: agent-created requests for human review before public or
   destructive operations.
 - `destructiveConfirmations`: gated destructive-operation confirmation tokens.

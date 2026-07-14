@@ -1,3 +1,4 @@
+import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
@@ -5,6 +6,16 @@ import { createCtx, seedMember, seedOwner } from '../helpers'
 import { publishEntry, seedEditorFixture, seedSettings, seedTreeFixture } from './entries/helpers'
 
 const api = anyApi
+
+async function asEditorAgent(ctx: ReturnType<typeof createCtx>, userId = 'editor-1') {
+  const apiKeyId = `ba_key_${userId}`
+  await ctx.asCmsUser('owner-1').mutation(api.mcpCredentials.upsertSettings, {
+    apiKeyId,
+    ownerUserId: userId,
+    scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+  })
+  return ctx.asMcpApiKey(apiKeyId, userId)
+}
 
 describe('component: review requests', () => {
   it('creates review requests without changing public output', async () => {
@@ -15,7 +26,7 @@ describe('component: review requests', () => {
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Prepare publish',
     })
@@ -128,7 +139,7 @@ describe('component: review requests', () => {
     const { rootAId, childId, grandchildId } = await seedTreeFixture(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
 
     await publishEntry(owner, rootAId)
     await publishEntry(owner, childId)
@@ -190,7 +201,7 @@ describe('component: review requests', () => {
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Spoof review',
     })
@@ -217,7 +228,7 @@ describe('component: review requests', () => {
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Stale review',
     })
@@ -258,7 +269,7 @@ describe('component: review requests', () => {
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const publisher = ctx.asCmsUser('publisher-1')
     const viewer = ctx.asCmsUser('viewer-1')
     const run = await editor.mutation(api.agentRuns.startRun, {
@@ -356,7 +367,7 @@ describe('component: review requests', () => {
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const publisher = ctx.asCmsUser('publisher-1')
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Prepare publish',
@@ -410,7 +421,7 @@ describe('component: review requests', () => {
     const { rootAId, childId } = await seedTreeFixture(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const publisher = ctx.asCmsUser('publisher-1')
 
     await publishEntry(owner, rootAId)
@@ -477,7 +488,7 @@ describe('component: review requests', () => {
     await seedSettings(ctx)
     const { entryId, collectionId } = await seedEditorFixture(ctx)
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const publisher = ctx.asCmsUser('publisher-1')
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Prepare publish',
@@ -534,7 +545,7 @@ describe('component: review requests', () => {
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const publisher = ctx.asCmsUser('publisher-1')
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Prepare publish',
@@ -581,7 +592,7 @@ describe('component: review requests', () => {
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const publisher = ctx.asCmsUser('publisher-1')
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Prepare publish',
@@ -646,7 +657,7 @@ describe('component: review requests', () => {
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const owner = ctx.asCmsUser('owner-1')
     const publisher = ctx.asCmsUser('publisher-1')
     const run = await editor.mutation(api.agentRuns.startRun, {
@@ -702,7 +713,7 @@ describe('component: review requests', () => {
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
 
-    const editor = ctx.asCmsUser('editor-1')
+    const editor = await asEditorAgent(ctx)
     const run = await editor.mutation(api.agentRuns.startRun, {
       taskName: 'Closed run',
     })
@@ -726,7 +737,7 @@ describe('component: review requests', () => {
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
     await seedMember(ctx, { userId: 'editor-2', role: 'editor' })
 
-    const firstEditor = ctx.asCmsUser('editor-1')
+    const firstEditor = await asEditorAgent(ctx)
     const secondEditor = ctx.asCmsUser('editor-2')
     const run = await firstEditor.mutation(api.agentRuns.startRun, {
       taskName: 'First editor run',
@@ -742,5 +753,48 @@ describe('component: review requests', () => {
         summary: 'Wrong run.',
       }),
     ).rejects.toThrow('Agent run belongs to a different user.')
+  })
+
+  it('lets only the requesting MCP credential inspect review status, including after run completion', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    for (const apiKeyId of ['ba_key_editor', 'ba_key_other']) {
+      await ctx.seed('mcpCredentialSettings', {
+        apiKeyId,
+        ownerUserId: 'editor-1',
+        scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+        status: 'active',
+        createdBy: 'owner-1',
+        createdAt: Date.now(),
+        updatedBy: 'owner-1',
+        updatedAt: Date.now(),
+        revokedAt: null,
+      })
+    }
+    const editorAgent = ctx.asMcpApiKey('ba_key_editor', 'editor-1')
+    const run = await editorAgent.mutation(api.agentRuns.startRun, { taskName: 'Request review' })
+    const review = await editorAgent.mutation(api.reviewRequests.requestPublishReview, {
+      agentRunId: run._id,
+      entryId,
+      expectedVersion: 1,
+      locales: ['en'],
+      title: 'Agent publish request',
+      summary: 'Ready for review.',
+    })
+    await editorAgent.mutation(api.agentRuns.completeRun, { agentRunId: run._id })
+
+    await expect(
+      editorAgent.query(api.reviewRequests.getOwnReviewRequest, {
+        reviewRequestId: review._id,
+      }),
+    ).resolves.toMatchObject({ _id: review._id, agentRunId: run._id, status: 'pending' })
+    await expect(
+      ctx
+        .asMcpApiKey('ba_key_other', 'editor-1')
+        .query(api.reviewRequests.getOwnReviewRequest, { reviewRequestId: review._id }),
+    ).rejects.toThrow('Agent run belongs to a different MCP credential.')
   })
 })

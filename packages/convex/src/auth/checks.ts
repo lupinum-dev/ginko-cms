@@ -81,13 +81,14 @@ export const canEditEntries = defineCmsGuard(
 
 export const canPublishEntries = defineCmsGuard(
   'Publish entries',
-  hasRole('owner', 'publisher').check,
+  (appIdentity) =>
+    appIdentity?.audit.origin !== 'mcp' && hasRole('owner', 'publisher').check(appIdentity),
   cmsPermissionKeys.publishEntries,
 )
 
 export const canArchiveEntries = defineCmsGuard(
   'Archive entries',
-  hasRole('owner').check,
+  (appIdentity) => appIdentity?.audit.origin !== 'mcp' && hasRole('owner').check(appIdentity),
   cmsPermissionKeys.archiveEntries,
 )
 

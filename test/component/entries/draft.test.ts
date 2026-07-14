@@ -133,6 +133,7 @@ describe('editor draft mutations', () => {
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
     await seedSettings(ctx)
+    await seedEditorFixture(ctx)
     const { entryId } = await seedEditorFixture(ctx)
     await ctx.seed(
       'mcpCredentialSettings' as never,
@@ -227,6 +228,7 @@ describe('editor draft mutations', () => {
     await expect(
       editorAgent.mutation(api.editor.mcpCreateEntry, {
         agentRunId: run._id,
+        requestId: 'create-agent-entry-1',
         collection: 'posts',
         locale: 'en',
         slug: 'agent-created',
@@ -268,6 +270,70 @@ describe('editor draft mutations', () => {
       }),
     ).rejects.toThrow('Agent run is not active.')
     expect(await ctx.readAll('publicEntries')).toEqual(beforePublicRows)
+  })
+
+  it('makes MCP entry creation idempotent per credential and request id', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
+    await seedSettings(ctx)
+    await seedEditorFixture(ctx)
+    await ctx.seed('mcpCredentialSettings', {
+      apiKeyId: 'ba_key_editor',
+      ownerUserId: 'editor-1',
+      scopes: [
+        cmsPermissionKeys.read,
+        cmsPermissionKeys.createEntries,
+        cmsPermissionKeys.editEntries,
+      ],
+      status: 'active',
+      createdBy: 'owner-1',
+      createdAt: Date.now(),
+      updatedBy: 'owner-1',
+      updatedAt: Date.now(),
+      revokedAt: null,
+    })
+    await ctx.seed('mcpCredentialSettings', {
+      apiKeyId: 'ba_key_other',
+      ownerUserId: 'editor-1',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.createEntries],
+      status: 'active',
+      createdBy: 'owner-1',
+      createdAt: Date.now(),
+      updatedBy: 'owner-1',
+      updatedAt: Date.now(),
+      revokedAt: null,
+    })
+    const editorAgent = ctx.asMcpApiKey('ba_key_editor', 'editor-1')
+    const run = await editorAgent.mutation(api.agentRuns.startRun, { taskName: 'Create once' })
+    const input = {
+      agentRunId: run._id,
+      requestId: 'create-once-1',
+      collection: 'posts',
+      locale: 'en',
+      slug: 'created-once',
+      localized: { title: 'Created once' },
+    }
+
+    const [first, retry] = await Promise.all([
+      editorAgent.mutation(api.editor.mcpCreateEntry, input),
+      editorAgent.mutation(api.editor.mcpCreateEntry, input),
+    ])
+
+    expect(retry).toBe(first)
+    expect(
+      (await ctx.readAll('entries')).filter((entry) => entry.baseSlug === 'created-once'),
+    ).toHaveLength(1)
+    expect(await ctx.readAll('mcpCreateEntryReceipts')).toHaveLength(1)
+    await expect(
+      editorAgent.mutation(api.editor.mcpCreateEntry, {
+        ...input,
+        slug: 'different-arguments',
+      }),
+    ).rejects.toThrow('requestId was already used with different create arguments.')
+    await expect(
+      ctx.asMcpApiKey('ba_key_other', 'editor-1').mutation(api.editor.mcpCreateEntry, input),
+    ).rejects.toThrow('Agent run belongs to a different MCP credential.')
   })
 
   it('returns rich text draft state separately from localized values', async () => {

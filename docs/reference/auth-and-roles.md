@@ -58,8 +58,6 @@ an API-key discriminator.
 - the owning Better Auth user id;
 - CMS scopes;
 - API-key expiry when configured;
-- optional collection limits;
-- review/trusted safety mode metadata;
 - active or revoked status.
 
 Effective MCP authority is the intersection of:
@@ -75,8 +73,9 @@ because the component re-reads the current member state.
 ## Agent Runs And Review Requests
 
 MCP writes must be linked to an active `agentRun`. The run records the delegated
-user, credential id when present, requested scopes, safety mode, expiry, and
-write timestamps.
+user, credential id, immutable effective-scope snapshot, expiry, and write
+timestamps. Current member access and credential settings are still re-checked
+on every operation; the snapshot is historical audit data, not authorization.
 
 Public or destructive agent work is review-gated by default. The current MCP
 publish path is:
@@ -87,8 +86,8 @@ publish path is:
 4. Have a publisher or owner approve or reject in Studio.
 
 Approval re-checks the reviewer role and stale draft state, then calls the
-canonical backend publish operation. Direct agent publish, archive, delete, and
-purge are not v1 defaults.
+canonical backend publish operation. Direct agent publish, archive, restore,
+delete, backup export, asset ownership changes, and purge are not exposed.
 
 ## Current Runtime Boundary
 

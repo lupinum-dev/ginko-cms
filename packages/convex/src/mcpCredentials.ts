@@ -16,19 +16,10 @@ import type { MutationCtx, QueryCtx } from './lib/types.js'
 type MemberDoc = Doc<'members'>
 type CredentialSettingsDoc = Doc<'mcpCredentialSettings'>
 
-const mcpCredentialScopeKeys = [
+export const mcpCredentialScopeKeys = [
   cmsPermissionKeys.read,
   cmsPermissionKeys.createEntries,
   cmsPermissionKeys.editEntries,
-  cmsPermissionKeys.publishEntries,
-  cmsPermissionKeys.archiveEntries,
-  cmsPermissionKeys.deleteEntries,
-  cmsPermissionKeys.manageCollections,
-  cmsPermissionKeys.manageSettings,
-  cmsPermissionKeys.manageMembers,
-  cmsPermissionKeys.manageAssets,
-  cmsPermissionKeys.manageBackups,
-  cmsPermissionKeys.managePortability,
 ] as const
 
 const mcpCredentialScopeValidator = v.union(
@@ -283,6 +274,7 @@ export const resolveAccess = callerQuery.public({
   handler: async (ctx, args) => {
     const settings = await getCredentialSettings(ctx, args.apiKeyId)
     if (!settings || settings.status !== 'active') return null
+    if (settings.expiresAt != null && settings.expiresAt <= Date.now()) return null
     if (
       !(await currentAuthOwnsCredential(ctx, {
         apiKeyId: settings.apiKeyId,

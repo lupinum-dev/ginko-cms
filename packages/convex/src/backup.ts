@@ -6,7 +6,7 @@ import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
 import { internalMutation, internalQuery } from './_generated/server.js'
-import { canDeleteEntries, canManageBackups } from './auth/checks.js'
+import { canManageBackups } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
 import { callerAction, callerMutation } from './functions.js'
 import { logActivity } from './lib/activity.js'
@@ -57,11 +57,7 @@ type AnyMutation = FunctionReference<
   Record<string, unknown>,
   unknown
 >
-
 const backupApi = anyApi as unknown as {
-  agentRuns: {
-    recordWrite: AnyMutation
-  }
   backup: {
     collectBackupData: AnyInternalQuery
     getBackupArtifact: AnyInternalQuery
@@ -1046,45 +1042,6 @@ export const exportBackup = callerAction.protected({
         appIdentity: () => Promise<{ userId: string }>
       },
       rawArgs,
-    )
-  },
-})
-
-export const mcpExportBackup = callerAction.protected({
-  id: 'backup:mcpExportBackup',
-  args: {
-    agentRunId: v.string(),
-    ...backupScopeArgs,
-  },
-  guard: canDeleteEntries,
-  returns: v.object({
-    artifactId: v.string(),
-    checksum: v.string(),
-    storageRef: v.string(),
-    counts: v.object({
-      entries: v.number(),
-      revisions: v.number(),
-      assets: v.number(),
-      members: v.number(),
-    }),
-  }),
-  handler: async (ctx, rawArgs) => {
-    const { agentRunId, ...scopeArgs } = rawArgs
-    if (scopeArgs.scope !== 'entry' || !scopeArgs.entryId) {
-      throwCmsError(
-        'BACKUP_SCOPE_INVALID',
-        'MCP backup export is restricted to one explicit entry.',
-      )
-    }
-    await ctx.runMutation(backupApi.agentRuns.recordWrite, {
-      agentRunId,
-      operationId: 'ginko-cms.export-backup',
-    })
-    return await exportBackupForScope(
-      ctx as unknown as BackupActionCtx & {
-        appIdentity: () => Promise<{ userId: string }>
-      },
-      scopeArgs,
     )
   },
 })

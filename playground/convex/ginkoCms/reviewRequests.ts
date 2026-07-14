@@ -25,6 +25,12 @@ export const listPendingReviews = query({
     await ctx.runQuery(components.ginkoCms.reviewRequests.listPendingReviews, args as never),
 })
 
+export const getOwnReviewRequest = query({
+  args: { reviewRequestId: v.string() },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.reviewRequests.getOwnReviewRequest, args as never),
+})
+
 export const approveReview = mutation({
   args: {
     reviewRequestId: v.string(),

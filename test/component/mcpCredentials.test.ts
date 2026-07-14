@@ -33,7 +33,7 @@ describe('component: MCP credential settings', () => {
         ownerUserId: 'editor-1',
         scopes: [cmsPermissionKeys.publishEntries],
       }),
-    ).rejects.toThrow('Credential scope exceeds current member role.')
+    ).rejects.toThrow()
   })
 
   it('limits owner credentials to explicitly granted scopes', async () => {
@@ -70,6 +70,11 @@ describe('component: MCP credential settings', () => {
     await expect(
       ctx.asMcpApiKey('ba_key_expired', 'owner-1').query(api.members.getAccessContext, {}),
     ).rejects.toThrow('MCP credential is not active')
+    await expect(
+      ctx.asMcpApiKey('ba_key_expired', 'owner-1').query(api.mcpCredentials.resolveAccess, {
+        apiKeyId: 'ba_key_expired',
+      }),
+    ).rejects.toThrow('MCP credential is not active')
   })
 
   it('denies scope-blind backup and owner-diagnostic calls through direct wrappers', async () => {
@@ -102,24 +107,6 @@ describe('component: MCP credential settings', () => {
       }),
     ).rejects.toThrow('Forbidden')
     await expect(mcp.query(api.diagnostics.storageHygieneReport, {})).rejects.toThrow('Forbidden')
-  })
-
-  it('restricts the MCP backup wrapper to entry scope even with delete authority', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    const owner = ctx.asCmsUser('owner-1')
-    await owner.mutation(api.mcpCredentials.upsertSettings, {
-      apiKeyId: 'ba_key_delete_owner',
-      ownerUserId: 'owner-1',
-      scopes: [cmsPermissionKeys.deleteEntries],
-    })
-
-    await expect(
-      ctx.asMcpApiKey('ba_key_delete_owner', 'owner-1').action(api.backup.mcpExportBackup, {
-        agentRunId: 'run_1',
-        scope: 'snapshot',
-      }),
-    ).rejects.toThrow('restricted to one explicit entry')
   })
 
   it('does not expose credential ownership through unauthenticated public access', async () => {
@@ -211,7 +198,7 @@ describe('component: MCP credential settings', () => {
     await owner.mutation(api.mcpCredentials.upsertSettings, {
       apiKeyId: 'ba_key_publisher',
       ownerUserId: 'publisher-1',
-      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.publishEntries],
+      scopes: [cmsPermissionKeys.read],
     })
 
     await expect(

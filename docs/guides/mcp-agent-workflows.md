@@ -10,8 +10,7 @@ Auth at creation time and is not stored by Ginko CMS.
 
 For a key to use CMS tools, an owner or settings-capable user must also create
 active `mcpCredentialSettings` for the Better Auth API-key id. Those settings
-bind the key to a CMS member, scopes, optional collection limits, and safety
-mode.
+bind the key to a CMS member, supported MCP scopes, expiry, and active status.
 
 The final Studio connection-management flow is not complete yet. Until that UI
 ships, treat MCP connections as an advanced operator flow and verify them with:
@@ -53,7 +52,8 @@ The supervised publish path is:
 2. Save draft changes.
 3. Call `preview-publish` to inspect blockers and public impact.
 4. Call `request-publish-review` with the observed version.
-5. Have a publisher or owner approve or reject the request in Studio.
+5. Call `get-review-status` to follow the request.
+6. Have a publisher or owner approve or reject the request in Studio.
 
 Approval calls the canonical backend publish operation and re-checks current
 role plus stale draft state. Rejection has no public-output effect.
@@ -65,8 +65,8 @@ role plus stale draft state. Rejection has no public-output effect.
 - Structured MCP responses redact secret-bearing fields and Convex creation
   metadata.
 - Completed, revoked, failed, or expired agent runs cannot keep writing.
-- Trusted direct execution is metadata only in the current v1 slice; it does not
-  grant direct publish/delete/purge.
+- MCP publish and destructive actions remain review- or owner-controlled; no
+  credential scope enables direct publish, archive, delete, or purge.
 
 ## Server Environment
 

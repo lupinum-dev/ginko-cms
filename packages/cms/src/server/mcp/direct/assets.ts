@@ -5,8 +5,6 @@ import { api } from '#convex/api'
 
 import { fail, failFromError, loadAgentContext, ok } from '../_shared/agent-tools'
 
-const assetScope = z.enum(['global', 'collection', 'entry'])
-
 export const getAsset = defineMcpTool({
   name: 'get-asset',
   description: 'Load one CMS asset with ownership and usage metadata.',
@@ -31,29 +29,6 @@ export const getAsset = defineMcpTool({
       return ok(result, `Loaded asset "${args.assetId}".`)
     } catch (error) {
       return failFromError(error, 'Failed to load asset.')
-    }
-  },
-})
-
-export const moveAsset = defineMcpTool({
-  name: 'move-asset',
-  description: 'Move an asset to a different CMS scope.',
-  inputSchema: {
-    agentRunId: z.string().describe('Active agent run id for this write.'),
-    assetId: z.string(),
-    scope: assetScope,
-    entryId: z.string().optional(),
-    collectionId: z.string().optional(),
-    collectionSlug: z.string().optional(),
-  },
-  group: 'assets',
-  handler: async (args, ctx) => {
-    try {
-      const context = await loadAgentContext(ctx.event, 'manageAssets')
-      await context.convex.mutation(api.ginkoCms.assets.mcpMoveAsset, args)
-      return ok({ moved: true, assetId: args.assetId, scope: args.scope }, 'Moved asset.')
-    } catch (error) {
-      return failFromError(error, 'Failed to move asset.')
     }
   },
 })

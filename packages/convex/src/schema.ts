@@ -649,8 +649,9 @@ export default defineSchema({
   }).index('by_key', ['key']),
 
   agentRuns: defineTable({
-    credentialApiKeyId: v.optional(v.union(v.string(), v.null())),
+    credentialApiKeyId: v.string(),
     delegatedUserId: v.string(),
+    scopeSnapshot: v.array(v.string()),
     taskName: v.string(),
     status: v.union(
       v.literal('active'),
@@ -669,6 +670,18 @@ export default defineSchema({
     .index('by_credential', ['credentialApiKeyId'])
     .index('by_delegated_user', ['delegatedUserId'])
     .index('by_status', ['status']),
+
+  mcpCreateEntryReceipts: defineTable({
+    callerKey: v.string(),
+    apiKeyId: v.string(),
+    requestId: v.string(),
+    argsHash: v.string(),
+    entryId: v.id('entries'),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index('by_caller_request', ['callerKey', 'requestId'])
+    .index('by_expires_at', ['expiresAt']),
 
   reviewRequests: defineTable({
     agentRunId: v.optional(v.union(v.id('agentRuns'), v.null())),

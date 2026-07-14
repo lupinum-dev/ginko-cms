@@ -10,8 +10,12 @@ import type {
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
-import { getOwnActiveAgentRunOrThrow, recordOwnedAgentRunWrite } from './agentRuns.js'
-import { canEditEntries, canPublishEntries } from './auth/checks.js'
+import {
+  getOwnActiveAgentRunOrThrow,
+  getOwnAgentRunOrThrow,
+  recordOwnedAgentRunWrite,
+} from './agentRuns.js'
+import { canEditEntries, canPublishEntries, canRead } from './auth/checks.js'
 import { previewPublishImpactForEntry } from './diagnostics.js'
 import { getCollectionForEntry } from './entries/context.js'
 import { computePublishDraftHash, publishCurrentDraft } from './entries/workflow/commands.js'
@@ -378,6 +382,9 @@ export const requestPublishReview = callerMutation.protected({
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
     const agentRunId = args.agentRunId ?? null
+    if (appIdentity.audit.origin === 'mcp' && !agentRunId) {
+      throwCmsError('AGENT_RUN_REQUIRED', 'MCP publish review requires an active agent run.')
+    }
     if (agentRunId) {
       await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, now)
     }
@@ -487,6 +494,30 @@ export const listPendingReviews = callerQuery.protected({
     return await Promise.all(
       requests.map((request) => serializeReviewRequestWithStaleState(ctx, request)),
     )
+  },
+})
+
+export const getOwnReviewRequest = callerQuery.protected({
+  id: 'reviewRequests:getOwnReviewRequest',
+  args: { reviewRequestId: v.string() },
+  guard: canRead,
+  returns: reviewRequestValidator,
+  handler: async (ctx, args) => {
+    const appIdentity = await ctx.appIdentity()
+    const request = await ctx.db.get(args.reviewRequestId as Id<'reviewRequests'>)
+    if (!request) {
+      throwCmsError('REVIEW_REQUEST_NOT_FOUND', 'Review request not found.', {
+        reviewRequestId: args.reviewRequestId,
+      })
+    }
+    if (request.agentRunId) {
+      await getOwnAgentRunOrThrow(ctx, String(request.agentRunId), appIdentity)
+    } else if (request.requestedBy !== appIdentity.userId || appIdentity.audit.origin === 'mcp') {
+      throwCmsError('REVIEW_REQUEST_FORBIDDEN', 'Review request belongs to a different caller.', {
+        reviewRequestId: args.reviewRequestId,
+      })
+    }
+    return await serializeReviewRequestWithStaleState(ctx, request)
   },
 })
 

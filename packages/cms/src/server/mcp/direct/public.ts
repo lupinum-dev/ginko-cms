@@ -21,7 +21,7 @@ export const page = defineMcpTool({
   tags: ['read-only', 'public'],
   handler: async (args, ctx) => {
     try {
-      const context = await loadAgentContext(ctx.event)
+      const context = await loadAgentContext(ctx.event, 'readCms')
       const result = await context.convex.query(api.ginkoCms.public.page, args)
       const pageResult = result as { status?: string }
       if (pageResult.status === 'not-found') {
@@ -54,7 +54,7 @@ export const sitemap = defineMcpTool({
   tags: ['read-only', 'public'],
   handler: async (args, ctx) => {
     try {
-      const context = await loadAgentContext(ctx.event)
+      const context = await loadAgentContext(ctx.event, 'readCms')
       const result = await context.convex.query(api.ginkoCms.public.sitemap, args)
       const urls = (result as { urls?: unknown[] }).urls ?? []
       return ok(result, `Loaded ${urls.length} sitemap URL${urls.length === 1 ? '' : 's'}.`)

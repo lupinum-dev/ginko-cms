@@ -6,7 +6,8 @@ import { canRead } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
-import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
+import type { MutationCtx } from './lib/types.js'
+import { mcpCredentialScopeKeys } from './mcpCredentials.js'
 
 const agentRunStatusValidator = v.union(
   v.literal('active'),
@@ -14,17 +15,11 @@ const agentRunStatusValidator = v.union(
   v.literal('revoked'),
   v.literal('failed'),
 )
-const agentRunSafetyModeValidator = v.union(
-  v.literal('human'),
-  v.literal('review-gated'),
-  v.literal('credential-missing'),
-)
 const agentRunValidator = v.object({
   _id: v.string(),
-  credentialApiKeyId: v.union(v.string(), v.null()),
+  credentialApiKeyId: v.string(),
   delegatedUserId: v.string(),
-  requestedScopes: v.array(v.string()),
-  safetyMode: agentRunSafetyModeValidator,
+  scopeSnapshot: v.array(v.string()),
   taskName: v.string(),
   status: agentRunStatusValidator,
   createdBy: v.string(),
@@ -37,21 +32,14 @@ const agentRunValidator = v.object({
 })
 
 type AgentRunDoc = Doc<'agentRuns'>
-type CredentialSettingsDoc = Doc<'mcpCredentialSettings'>
 const MAX_AGENT_RUNS = 100
 
-function serializeRun(run: AgentRunDoc, credentialSettings?: CredentialSettingsDoc | null) {
-  const hasCredential = run.credentialApiKeyId != null
+function serializeRun(run: AgentRunDoc) {
   return {
     _id: String(run._id),
-    credentialApiKeyId: run.credentialApiKeyId ?? null,
+    credentialApiKeyId: run.credentialApiKeyId,
     delegatedUserId: run.delegatedUserId,
-    requestedScopes: credentialSettings?.scopes ?? [],
-    safetyMode: !hasCredential
-      ? ('human' as const)
-      : credentialSettings
-        ? ('review-gated' as const)
-        : ('credential-missing' as const),
+    scopeSnapshot: run.scopeSnapshot,
     taskName: run.taskName,
     status: run.status,
     createdBy: run.createdBy,
@@ -62,18 +50,6 @@ function serializeRun(run: AgentRunDoc, credentialSettings?: CredentialSettingsD
     lastWriteAt: run.lastWriteAt ?? null,
     lastError: run.lastError ?? null,
   }
-}
-
-async function credentialSettingsForRun(ctx: Pick<QueryOrMutationCtx, 'db'>, run: AgentRunDoc) {
-  if (!run.credentialApiKeyId) return null
-  return await ctx.db
-    .query('mcpCredentialSettings')
-    .withIndex('by_api_key_id', (q) => q.eq('apiKeyId', run.credentialApiKeyId!))
-    .first()
-}
-
-async function serializeRunWithCredential(ctx: Pick<QueryOrMutationCtx, 'db'>, run: AgentRunDoc) {
-  return serializeRun(run, await credentialSettingsForRun(ctx, run))
 }
 
 export async function getActiveAgentRunOrThrow(
@@ -107,7 +83,12 @@ function assertRunBelongsToIdentity(run: AgentRunDoc, appIdentity: CmsMemberAppI
       agentRunId: String(run._id),
     })
   }
-  if (appIdentity.audit.origin === 'mcp' && run.credentialApiKeyId !== appIdentity.audit.apiKeyId) {
+  if (appIdentity.audit.origin !== 'mcp') {
+    throwCmsError('AGENT_RUN_FORBIDDEN', 'Agent run requires its MCP credential.', {
+      agentRunId: String(run._id),
+    })
+  }
+  if (run.credentialApiKeyId !== appIdentity.audit.apiKeyId) {
     throwCmsError('AGENT_RUN_FORBIDDEN', 'Agent run belongs to a different MCP credential.', {
       agentRunId: String(run._id),
     })
@@ -125,6 +106,19 @@ export async function getOwnActiveAgentRunOrThrow(
   now: number,
 ) {
   const run = await getActiveAgentRunOrThrow(ctx, runId, now)
+  assertRunBelongsToIdentity(run, appIdentity)
+  return run
+}
+
+export async function getOwnAgentRunOrThrow(
+  ctx: { db: { get: (id: Id<'agentRuns'>) => Promise<AgentRunDoc | null> } },
+  runId: string,
+  appIdentity: CmsMemberAppIdentity,
+) {
+  const run = await ctx.db.get(runId as Id<'agentRuns'>)
+  if (!run) {
+    throwCmsError('AGENT_RUN_NOT_FOUND', 'Agent run not found.', { agentRunId: runId })
+  }
   assertRunBelongsToIdentity(run, appIdentity)
   return run
 }
@@ -153,12 +147,12 @@ export async function recordOwnedAgentRunWrite(
     detail: {
       agentRunId,
       operationId,
-      credentialApiKeyId: run.credentialApiKeyId ?? null,
+      credentialApiKeyId: run.credentialApiKeyId,
       callerApiKeyId: appIdentity.audit.origin === 'mcp' ? appIdentity.audit.apiKeyId : null,
     },
   })
 
-  return await serializeRunWithCredential(ctx, updated)
+  return serializeRun(updated)
 }
 
 export const startRun = callerMutation.protected({
@@ -172,11 +166,22 @@ export const startRun = callerMutation.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
-    const credentialApiKeyId =
-      appIdentity.audit.origin === 'mcp' ? appIdentity.audit.apiKeyId : null
+    if (appIdentity.audit.origin !== 'mcp') {
+      throwCmsError('MCP_CREDENTIAL_REQUIRED', 'Only MCP credentials can start agent runs.')
+    }
+    const credentialApiKeyId = appIdentity.audit.apiKeyId
+    const scopeSnapshot = Object.entries(appIdentity.mcpEffectivePermissions ?? {})
+      .filter(
+        ([permission, enabled]) =>
+          enabled &&
+          mcpCredentialScopeKeys.includes(permission as (typeof mcpCredentialScopeKeys)[number]),
+      )
+      .map(([permission]) => permission)
+      .sort()
     const id = await ctx.db.insert('agentRuns', {
       credentialApiKeyId,
       delegatedUserId: appIdentity.userId,
+      scopeSnapshot,
       taskName: args.taskName,
       status: 'active',
       createdBy: appIdentity.userId,
@@ -200,7 +205,7 @@ export const startRun = callerMutation.protected({
       },
     })
 
-    return await serializeRunWithCredential(ctx, run)
+    return serializeRun(run)
   },
 })
 
@@ -214,25 +219,21 @@ export const listOwnRuns = callerQuery.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const boundedLimit = Math.max(1, Math.min(MAX_AGENT_RUNS, args.limit ?? 50))
-    const runs = await ctx.db
-      .query('agentRuns')
-      .withIndex('by_delegated_user', (q) => q.eq('delegatedUserId', appIdentity.userId))
-      .order('desc')
-      .take(boundedLimit)
-    const credentials = await ctx.db
-      .query('mcpCredentialSettings')
-      .withIndex('by_owner_user', (q) => q.eq('ownerUserId', appIdentity.userId))
-      .collect()
-    const credentialByApiKey = new Map(
-      credentials.map((credential) => [credential.apiKeyId, credential]),
-    )
+    const credentialApiKeyId =
+      appIdentity.audit.origin === 'mcp' ? appIdentity.audit.apiKeyId : null
+    const runs = credentialApiKeyId
+      ? await ctx.db
+          .query('agentRuns')
+          .withIndex('by_credential', (q) => q.eq('credentialApiKeyId', credentialApiKeyId))
+          .order('desc')
+          .take(boundedLimit)
+      : await ctx.db
+          .query('agentRuns')
+          .withIndex('by_delegated_user', (q) => q.eq('delegatedUserId', appIdentity.userId))
+          .order('desc')
+          .take(boundedLimit)
 
-    return runs.map((run) =>
-      serializeRun(
-        run,
-        run.credentialApiKeyId ? credentialByApiKey.get(run.credentialApiKeyId) : null,
-      ),
-    )
+    return runs.map(serializeRun)
   },
 })
 
@@ -262,7 +263,7 @@ export const completeRun = callerMutation.protected({
       detail: { agentRunId: args.agentRunId },
     })
 
-    return await serializeRunWithCredential(ctx, updated)
+    return serializeRun(updated)
   },
 })
 
@@ -276,7 +277,12 @@ export const revokeRun = callerMutation.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
-    const run = await getOwnActiveAgentRunOrThrow(ctx, args.agentRunId, appIdentity, now)
+    const run = await getActiveAgentRunOrThrow(ctx, args.agentRunId, now)
+    if (run.delegatedUserId !== appIdentity.userId) {
+      throwCmsError('AGENT_RUN_FORBIDDEN', 'Agent run belongs to a different user.', {
+        agentRunId: args.agentRunId,
+      })
+    }
     await ctx.db.patch(run._id, {
       status: 'revoked',
       updatedAt: now,
@@ -292,7 +298,7 @@ export const revokeRun = callerMutation.protected({
       detail: { agentRunId: args.agentRunId },
     })
 
-    return await serializeRunWithCredential(ctx, updated)
+    return serializeRun(updated)
   },
 })
 

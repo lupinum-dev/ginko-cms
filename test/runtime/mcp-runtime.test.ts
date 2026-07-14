@@ -68,13 +68,6 @@ describe('ginko mcp runtime', () => {
       readCms: true,
       createEntries: true,
       editEntries: true,
-      publishEntries: true,
-      archiveEntries: true,
-      deleteEntries: true,
-      manageCollections: true,
-      manageMembers: true,
-      manageSettings: true,
-      manageAssets: true,
     })
   })
 

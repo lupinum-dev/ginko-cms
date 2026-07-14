@@ -284,7 +284,7 @@ async function hashPreview(preview: PreviewResult): Promise<string> {
   })
 }
 
-async function hashValue(value: unknown): Promise<string> {
+export async function hashValue(value: unknown): Promise<string> {
   return await sha256Hex(stableJson(value))
 }
 

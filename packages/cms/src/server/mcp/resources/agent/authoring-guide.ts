@@ -23,7 +23,7 @@ export default defineMcpResource({
           '',
           'Use public `page`, `list`, `nav`, `search`, and `sitemap` with `compact: true` for editorial verification unless full public payloads are needed.',
           '',
-          'Publishing: call `get-readiness-detail` for readiness context. If direct publish was requested and the credential has publish permission, call `preview-publish` or `publish-entry` with the active `agentRunId`; otherwise call `request-publish-review` with the active `agentRunId`, observed draft version, entry, and locales. Review requests do not change public output.',
+          'Publishing: call `get-readiness-detail`, then `preview-publish` and `request-publish-review` with the active `agentRunId`, observed draft version, entry, and locales. Review requests do not change public output. Use `get-review-status` to follow the human decision.',
           '',
           'Verification loop after publish: call `page`, `list`, `search`, `nav`, and `sitemap` for the same collection and locales.',
           '',

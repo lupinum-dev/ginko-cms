@@ -14,8 +14,7 @@ type AgentRun = {
   _id: string
   credentialApiKeyId: string | null
   delegatedUserId: string
-  requestedScopes: string[]
-  safetyMode: 'human' | 'review-gated' | 'credential-missing'
+  scopeSnapshot: string[]
   taskName: string
   status: 'active' | 'completed' | 'revoked' | 'failed'
   createdBy: string
@@ -57,12 +56,6 @@ function statusVariant(status: AgentRun['status']) {
 function shortId(value: string | null): string {
   if (!value) return '-'
   return value.length > 12 ? `${value.slice(0, 6)}...${value.slice(-4)}` : value
-}
-
-function safetyLabel(mode: AgentRun['safetyMode']) {
-  if (mode === 'review-gated') return 'review required'
-  if (mode === 'credential-missing') return 'missing access key'
-  return 'human-controlled'
 }
 
 function scopeSummary(scopes: string[]) {
@@ -174,8 +167,8 @@ async function revokeRun(run: AgentRun) {
               <div
                 class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
               >
-                <span>{{ safetyLabel(run.safetyMode) }}</span>
-                <span>{{ scopeSummary(run.requestedScopes) }}</span>
+                <span>{{ run.credentialApiKeyId ? 'review required' : 'human-controlled' }}</span>
+                <span>{{ scopeSummary(run.scopeSnapshot) }}</span>
                 <span v-if="run.expiresAt">
                   expires
                   <NuxtTime

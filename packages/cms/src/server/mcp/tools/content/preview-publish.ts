@@ -7,8 +7,7 @@ import { failFromError, loadAgentContext, ok } from '../../_shared/agent-tools'
 
 export default defineMcpTool({
   name: 'preview-publish',
-  description:
-    'Preview publish blockers, confirmation data, and public-impact changes without publishing content.',
+  description: 'Preview publish blockers and public-impact changes without publishing content.',
   inputSchema: {
     agentRunId: z.string().describe('Active agent run id for this publish preview.'),
     entryId: z.string().describe('Entry id to preview.'),
@@ -19,17 +18,14 @@ export default defineMcpTool({
   group: 'content',
   handler: async (args, ctx) => {
     try {
-      const context = await loadAgentContext(ctx.event, 'publishEntries')
-      const preview = await context.convex.mutation(
-        api.ginkoCms.editor.mcpPreviewPublishEntryOperation,
-        {
-          agentRunId: args.agentRunId,
-          entryId: args.entryId,
-          locales: args.locales,
-          expectedVersion: args.expectedVersion,
-          ...(args.message ? { message: args.message } : {}),
-        },
-      )
+      const context = await loadAgentContext(ctx.event, 'editEntries')
+      const preview = await context.convex.mutation(api.ginkoCms.editor.mcpPreviewPublishEntry, {
+        agentRunId: args.agentRunId,
+        entryId: args.entryId,
+        locales: args.locales,
+        expectedVersion: args.expectedVersion,
+        ...(args.message ? { message: args.message } : {}),
+      })
 
       return ok(
         {

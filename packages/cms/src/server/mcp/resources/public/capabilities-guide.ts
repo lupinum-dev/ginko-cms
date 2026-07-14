@@ -21,7 +21,7 @@ export default defineMcpResource({
           '',
           'Data-only collections are not public routes. Public list reads can inspect their published rows, but agents must not call page, nav, surround, search, or sitemap tools for them.',
           '',
-          'Studio shows the same workflow an agent should follow: inspect collection capability, inspect entry locale state, run `explain-public-visibility`, call `get-readiness-detail`, call `preview-publish` only with publish permission and the active `agentRunId`, then either call `publish-entry` when direct publish was requested and permitted or create a human review request with `request-publish-review`.',
+          'Studio shows the same workflow an agent should follow: inspect collection capability and entry locale state, run `explain-public-visibility`, call `get-readiness-detail`, call `preview-publish` with the active `agentRunId`, create a human review request with `request-publish-review`, then follow it with `get-review-status`.',
           '',
           'Before publishing a localized route, inspect collection mode, localized required fields, parent route state, route collisions, and public visibility diagnostics.',
           '',

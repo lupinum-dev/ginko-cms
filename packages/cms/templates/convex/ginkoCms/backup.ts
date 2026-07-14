@@ -30,15 +30,6 @@ export const exportBackup = action({
     await ctx.runAction(components.ginkoCms.backup.exportBackup, args as never),
 })
 
-export const mcpExportBackup = action({
-  args: {
-    agentRunId: v.string(),
-    ...backupScopeArgs,
-  },
-  handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.mcpExportBackup, args as never),
-})
-
 export const downloadBackup = action({
   args: { artifactId: v.string() },
   handler: async (ctx, args) =>

@@ -6,6 +6,21 @@ import { createCtx, seedMember, seedOwner } from '../helpers'
 
 const api = anyApi
 
+async function ownerAgent(ctx: ReturnType<typeof createCtx>, apiKeyId = 'ba_key_owner') {
+  await ctx.seed('mcpCredentialSettings', {
+    apiKeyId,
+    ownerUserId: 'owner-1',
+    scopes: [cmsPermissionKeys.read],
+    status: 'active',
+    createdBy: 'owner-1',
+    createdAt: Date.now(),
+    updatedBy: 'owner-1',
+    updatedAt: Date.now(),
+    revokedAt: null,
+  })
+  return ctx.asMcpApiKey(apiKeyId, 'owner-1')
+}
+
 describe('component: agent runs', () => {
   it('allows one credential to create multiple bounded runs', async () => {
     const ctx = createCtx()
@@ -35,17 +50,41 @@ describe('component: agent runs', () => {
     expect(first).toMatchObject({
       credentialApiKeyId: 'ba_key_owner',
       delegatedUserId: 'owner-1',
-      requestedScopes: [cmsPermissionKeys.read],
-      safetyMode: 'review-gated',
+      scopeSnapshot: [cmsPermissionKeys.read],
       status: 'active',
     })
     expect(second).toMatchObject({
       credentialApiKeyId: 'ba_key_owner',
       delegatedUserId: 'owner-1',
-      requestedScopes: [cmsPermissionKeys.read],
-      safetyMode: 'review-gated',
+      scopeSnapshot: [cmsPermissionKeys.read],
       status: 'active',
     })
+  })
+
+  it('keeps the effective scope snapshot immutable after credential settings change', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    await owner.mutation(api.mcpCredentials.upsertSettings, {
+      apiKeyId: 'ba_key_owner',
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read],
+    })
+    const agent = ctx.asMcpApiKey('ba_key_owner', 'owner-1')
+    const run = await agent.mutation(api.agentRuns.startRun, { taskName: 'Historical scope' })
+
+    await owner.mutation(api.mcpCredentials.upsertSettings, {
+      apiKeyId: 'ba_key_owner',
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+    })
+
+    await expect(agent.query(api.agentRuns.listOwnRuns, { limit: 10 })).resolves.toEqual([
+      expect.objectContaining({
+        _id: run._id,
+        scopeSnapshot: [cmsPermissionKeys.read],
+      }),
+    ])
   })
 
   it('blocks writes after a run is completed, revoked, or expired', async () => {
@@ -53,40 +92,41 @@ describe('component: agent runs', () => {
     await seedOwner(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
-    const completed = await owner.mutation(api.agentRuns.startRun, {
+    const agent = await ownerAgent(ctx)
+    const completed = await agent.mutation(api.agentRuns.startRun, {
       taskName: 'Complete me',
     })
     await expect(
-      owner.mutation(api.agentRuns.recordWrite, {
+      agent.mutation(api.agentRuns.recordWrite, {
         agentRunId: completed._id,
         operationId: 'ginko-cms.save-entry-draft',
       }),
     ).resolves.toMatchObject({ lastWriteAt: expect.any(Number) })
-    await owner.mutation(api.agentRuns.completeRun, { agentRunId: completed._id })
+    await agent.mutation(api.agentRuns.completeRun, { agentRunId: completed._id })
     await expect(
-      owner.mutation(api.agentRuns.recordWrite, {
+      agent.mutation(api.agentRuns.recordWrite, {
         agentRunId: completed._id,
         operationId: 'ginko-cms.save-entry-draft',
       }),
     ).rejects.toThrow('Agent run is not active.')
 
-    const revoked = await owner.mutation(api.agentRuns.startRun, {
+    const revoked = await agent.mutation(api.agentRuns.startRun, {
       taskName: 'Revoke me',
     })
     await owner.mutation(api.agentRuns.revokeRun, { agentRunId: revoked._id })
     await expect(
-      owner.mutation(api.agentRuns.recordWrite, {
+      agent.mutation(api.agentRuns.recordWrite, {
         agentRunId: revoked._id,
         operationId: 'ginko-cms.save-entry-draft',
       }),
     ).rejects.toThrow('Agent run is not active.')
 
-    const expired = await owner.mutation(api.agentRuns.startRun, {
+    const expired = await agent.mutation(api.agentRuns.startRun, {
       taskName: 'Expire me',
       expiresAt: Date.now() - 1,
     })
     await expect(
-      owner.mutation(api.agentRuns.recordWrite, {
+      agent.mutation(api.agentRuns.recordWrite, {
         agentRunId: expired._id,
         operationId: 'ginko-cms.save-entry-draft',
       }),
@@ -95,8 +135,9 @@ describe('component: agent runs', () => {
     const failedRunId = await ctx.seed(
       'agentRuns' as never,
       {
-        credentialApiKeyId: null,
+        credentialApiKeyId: 'ba_key_owner',
         delegatedUserId: 'owner-1',
+        scopeSnapshot: [],
         taskName: 'Failed run',
         status: 'failed',
         createdBy: 'owner-1',
@@ -109,7 +150,7 @@ describe('component: agent runs', () => {
       } as never,
     )
     await expect(
-      owner.mutation(api.agentRuns.recordWrite, {
+      agent.mutation(api.agentRuns.recordWrite, {
         agentRunId: failedRunId,
         operationId: 'ginko-cms.save-entry-draft',
       }),
@@ -184,13 +225,14 @@ describe('component: agent runs', () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     const owner = ctx.asCmsUser('owner-1')
+    const agent = await ownerAgent(ctx)
     const outsider = ctx.asCmsUser('outsider-1')
     const expiresAt = Date.now() + 60_000
-    const first = await owner.mutation(api.agentRuns.startRun, {
+    const first = await agent.mutation(api.agentRuns.startRun, {
       taskName: 'First visible run',
       expiresAt,
     })
-    const second = await owner.mutation(api.agentRuns.startRun, {
+    const second = await agent.mutation(api.agentRuns.startRun, {
       taskName: 'Second visible run',
     })
 
@@ -199,8 +241,7 @@ describe('component: agent runs', () => {
         _id: second._id,
         taskName: 'Second visible run',
         delegatedUserId: 'owner-1',
-        requestedScopes: [],
-        safetyMode: 'human',
+        scopeSnapshot: [cmsPermissionKeys.read],
         expiresAt: null,
         lastWriteAt: null,
       }),
@@ -208,8 +249,7 @@ describe('component: agent runs', () => {
         _id: first._id,
         taskName: 'First visible run',
         delegatedUserId: 'owner-1',
-        requestedScopes: [],
-        safetyMode: 'human',
+        scopeSnapshot: [cmsPermissionKeys.read],
         expiresAt,
         lastWriteAt: null,
       }),
@@ -224,9 +264,9 @@ describe('component: agent runs', () => {
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
 
-    const owner = ctx.asCmsUser('owner-1')
     const editor = ctx.asCmsUser('editor-1')
-    const run = await owner.mutation(api.agentRuns.startRun, {
+    const agent = await ownerAgent(ctx)
+    const run = await agent.mutation(api.agentRuns.startRun, {
       taskName: 'Owner run',
     })
 
@@ -238,7 +278,7 @@ describe('component: agent runs', () => {
     )
   })
 
-  it('blocks MCP callers from using human-started runs', async () => {
+  it('does not create credential-free agent runs', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await ctx.seed('mcpCredentialSettings', {
@@ -253,16 +293,11 @@ describe('component: agent runs', () => {
       revokedAt: null,
     })
 
-    const run = await ctx.asCmsUser('owner-1').mutation(api.agentRuns.startRun, {
-      taskName: 'Human run',
-    })
-
     await expect(
-      ctx.asMcpApiKey('ba_key_owner', 'owner-1').mutation(api.agentRuns.recordWrite, {
-        agentRunId: run._id,
-        operationId: 'ginko-cms.save-entry-draft',
+      ctx.asCmsUser('owner-1').mutation(api.agentRuns.startRun, {
+        taskName: 'Human run',
       }),
-    ).rejects.toThrow('Agent run belongs to a different MCP credential.')
+    ).rejects.toThrow('Only MCP credentials can start agent runs.')
   })
 
   it('requires member access before starting runs', async () => {

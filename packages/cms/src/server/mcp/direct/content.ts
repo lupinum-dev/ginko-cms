@@ -13,6 +13,11 @@ export const createEntry = defineMcpTool({
   description: 'Create a new CMS entry in a collection.',
   inputSchema: {
     agentRunId: z.string().describe('Active agent run id for this write.'),
+    requestId: z
+      .string()
+      .min(1)
+      .max(128)
+      .describe('Caller-generated idempotency key for this create request.'),
     collection: z.string().describe('Collection slug.'),
     locale: z.string().optional(),
     slug: z.string().describe('Draft slug for the new entry.'),

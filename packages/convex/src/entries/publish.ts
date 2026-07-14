@@ -13,7 +13,7 @@ import {
 import { v } from 'convex/values'
 
 import type { Id } from '../_generated/dataModel.js'
-import { getOwnActiveAgentRunOrThrow, recordOwnedAgentRunWrite } from '../agentRuns.js'
+import { getOwnActiveAgentRunOrThrow } from '../agentRuns.js'
 import { can, canArchiveEntries, canEditEntries, canPublishEntries } from '../auth/checks.js'
 import { previewPublishImpactForEntry } from '../diagnostics.js'
 import { throwCmsError } from '../errors.js'
@@ -75,43 +75,6 @@ function publishedDescendantBlockers(
       message: `Operation blocked: ${result.publicDescendantRoutes.length} published descendant route${result.publicDescendantRoutes.length === 1 ? '' : 's'} would remain live under this entry.`,
     }),
   ]
-}
-
-function stripAgentRunId<TArgs extends { agentRunId: string }>(args: TArgs) {
-  const { agentRunId: _agentRunId, ...input } = args
-  return input
-}
-
-function defineMcpOperation<TBaseOperation extends Parameters<typeof defineCmsOperation>[0]>(args: {
-  operation: TBaseOperation
-  executeFunctionRef: string
-  operationId: string
-  operationArgs: Record<string, unknown>
-}) {
-  return defineCmsOperation({
-    ...args.operation,
-    executeFunctionRef: args.executeFunctionRef,
-    args: {
-      agentRunId: v.string(),
-      ...args.operationArgs,
-    },
-    load: async (ctx, operationArgs) => {
-      const appIdentity = await ctx.appIdentity()
-      await getOwnActiveAgentRunOrThrow(ctx, operationArgs.agentRunId, appIdentity, Date.now())
-      return args.operation.load
-        ? await args.operation.load(ctx, stripAgentRunId(operationArgs))
-        : undefined
-    },
-    preview: async (ctx, operationArgs, loaded) =>
-      args.operation.preview
-        ? await args.operation.preview(ctx, stripAgentRunId(operationArgs), loaded)
-        : undefined,
-    handler: async (ctx, operationArgs, loaded) => {
-      const result = await args.operation.handler(ctx, stripAgentRunId(operationArgs), loaded)
-      await recordOwnedAgentRunWrite(ctx, operationArgs.agentRunId, args.operationId)
-      return result
-    },
-  })
 }
 
 async function loadRevisionForRollback(
@@ -310,19 +273,23 @@ export const previewPublishEntryOperation = callerMutation.protected(
   }),
 )
 
-const mcpPublishEntryOperation = defineMcpOperation({
-  operation: publishEntryOperation,
-  executeFunctionRef: 'entries/publish:mcpPublishEntryOperationExecute',
-  operationId: 'ginko-cms.publish-entry',
-  operationArgs: publishEntryArgs.args,
+export const mcpPreviewPublishEntry = callerMutation.protected({
+  id: 'entries/publish:mcpPreviewPublishEntry',
+  args: {
+    agentRunId: v.string(),
+    ...publishEntryArgs.args,
+  },
+  guard: canEditEntries,
+  returns: previewResultValidator(),
+  handler: async (ctx, args) => {
+    const { agentRunId, ...input } = args
+    const appIdentity = await ctx.appIdentity()
+    await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, Date.now())
+    const loaded = await publishEntryOperation.load(ctx, input)
+    const preview = await publishEntryOperation.preview(ctx, input, loaded)
+    return { ...preview, confirm: null, confirmation: null }
+  },
 })
-
-export const mcpPublishEntryOperationExecute = callerMutation.protected(mcpPublishEntryOperation)
-export const mcpPreviewPublishEntryOperation = callerMutation.protected(
-  Object.assign(definePreview(mcpPublishEntryOperation), {
-    id: 'entries/publish:mcpPreviewPublishEntryOperation',
-  }),
-)
 
 export const unpublishEntryOperation = defineCmsOperation({
   id: 'ginko-cms.unpublish-entry',
@@ -504,20 +471,6 @@ export const previewArchiveEntryOperation = callerMutation.protected(
   }),
 )
 
-const mcpArchiveEntryOperation = defineMcpOperation({
-  operation: archiveEntryOperation,
-  executeFunctionRef: 'entries/publish:mcpArchiveEntryOperationExecute',
-  operationId: 'ginko-cms.archive-entry',
-  operationArgs: archiveEntryArgs.args,
-})
-
-export const mcpArchiveEntryOperationExecute = callerMutation.protected(mcpArchiveEntryOperation)
-export const mcpPreviewArchiveEntryOperation = callerMutation.protected(
-  Object.assign(definePreview(mcpArchiveEntryOperation), {
-    id: 'entries/publish:mcpPreviewArchiveEntryOperation',
-  }),
-)
-
 export const restoreEntryOperation = defineCmsOperation({
   id: 'ginko-cms.restore-entry',
   name: 'restore-entry',
@@ -555,24 +508,6 @@ export const restoreEntryOperation = defineCmsOperation({
 })
 
 export const restoreEntry = callerMutation.protected(restoreEntryOperation)
-
-export const mcpRestoreEntry = callerMutation.protected({
-  id: 'editor:mcpRestoreEntry',
-  args: {
-    agentRunId: v.string(),
-    ...restoreEntryArgs.args,
-  },
-  guard: canArchiveEntries,
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const { agentRunId, ...input } = args
-    const appIdentity = await ctx.appIdentity()
-    await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, Date.now())
-    const result = await restoreEntryOperation.handler(ctx, input)
-    await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.restore-entry')
-    return result
-  },
-})
 
 export const rollbackVersionOperation = defineCmsOperation({
   id: 'ginko-cms.rollback-version',

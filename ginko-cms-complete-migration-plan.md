@@ -2841,10 +2841,10 @@ Use only these statuses:
 | Disposed-scope settlement           | implemented | Refresh/reset-after-unmount tests       |
 | Pagination concurrency              | implemented | Same-cursor deduplication test          |
 | Exact Studio API types              | implemented | Packed type consumer                    |
-| Supervised MCP surface              | open        | Direct publish/archive negative probes  |
-| MCP credential fail-closed          | open        | Revoked/orphan direct-call tests        |
-| Idempotent MCP entry creation       | open        | Lost-response retry test                |
-| Agent-run audit truth               | open        | Immutable snapshot test                 |
+| Supervised MCP surface              | implemented | Direct publish/archive negative probes  |
+| MCP credential fail-closed          | implemented | Revoked/orphan direct-call tests        |
+| Idempotent MCP entry creation       | implemented | Lost-response retry test                |
+| Agent-run audit truth               | implemented | Immutable snapshot test                 |
 | Revalidation boundary               | open        | Redirect/body sentinel tests            |
 | Revalidation target cardinality     | open        | Second-enabled-target rejection         |
 | Bounded outbox recovery             | open        | Indexed multi-batch recovery test       |

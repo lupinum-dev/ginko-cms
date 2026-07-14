@@ -56,15 +56,6 @@ export const moveAsset = mutation({
     await ctx.runMutation(components.ginkoCms.assets.moveAsset, args as never),
 })
 
-export const mcpMoveAsset = mutation({
-  args: {
-    agentRunId: v.string(),
-    ...moveAssetArgs.args,
-  },
-  handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.assets.mcpMoveAsset, args as never),
-})
-
 export const getAsset = query({
   args: getAssetArgs.args,
   handler: async (ctx, args) =>
