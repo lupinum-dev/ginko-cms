@@ -48,6 +48,12 @@ describe('release-clean backend has no old-system zombie paths', () => {
   it('imports the Content CMS contract directly without a vendored copy', () => {
     const oldVendorRoot = join(root, 'packages/convex/src/lib/cmsContract')
     expect(existsSync(oldVendorRoot) ? readdirSync(oldVendorRoot) : []).toEqual([])
+    expect(readFileSync(join(root, 'package.json'), 'utf8')).not.toContain(
+      'sync:cms-contract-vendor',
+    )
+    expect(readFileSync(join(root, 'MAINTAINING.md'), 'utf8')).not.toContain(
+      'sync:cms-contract-vendor',
+    )
     const directConsumers = [
       'packages/convex/src/entries/workflow/commands.ts',
       'packages/convex/src/entries/workflow/path.ts',

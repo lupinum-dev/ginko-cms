@@ -159,17 +159,10 @@ pnpm run prepare:component
 Review generated-file changes by command and checksum/context, not by asking an
 agent to reason over the entire generated output.
 
-The CMS contract vendor has a separate, immutable regeneration path:
-
-```bash
-GINKO_CONTENT_ROOT=/absolute/path/to/pinned-clean-ginko-content \
-pnpm run sync:cms-contract-vendor
-```
-
-The checkout must be clean and exactly match the source commit and package
-version in `packages/cms/compatibility.json`. Normal checks use the committed
-checksum manifest and installed package parity; they do not read a sibling
-checkout.
+CMS Convex consumes `@lupinum/ginko-content/cms-contract` directly. There is no
+CMS-owned vendor copy or regeneration command. Candidate verification must use
+the exact clean Content tarball recorded in `packages/cms/compatibility.json`;
+normal checks resolve the installed package and do not read sibling source.
 
 ## Ownership Boundary
 
