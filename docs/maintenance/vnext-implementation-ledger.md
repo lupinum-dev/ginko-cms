@@ -843,3 +843,117 @@ the Content MDC structural asset collector/rewriter, packs a new immutable
 Content artifact, then implements CMS run-owned asset staging and cleanup. The
 current `portableImportPlanAssets` table is reserved for that specified row
 shape and is not a second active asset authority.
+
+## 2026-07-14 — Phase E2 Verified Import Asset Staging
+
+### Objective and acceptance criteria
+
+Complete the import-first vertical slice for local PNG, JPEG, GIF, and WebP
+assets without exposing storage URLs or byte bodies through Convex. Acceptance
+required immutable asset plan rows, one run-owned stage per hash, fenced and
+revocable host transfer, structural typed/MDC rewriting, byte verification,
+lost-response replay, bounded abort/expiry cleanup, and a proven component-only
+orphan reconciler.
+
+### Repository ownership and design
+
+- Ginko Content commit `d29cb6c06f68` supplies the accepted structural
+  stored-to-portable and portable-to-storage MDC rewrites. Ginko CMS consumes
+  only its exact immutable tarball; no sibling-source alias or CMS-local codec
+  was added.
+- Asset inspection and plan rows are paged at 250. Sealing recomputes the
+  canonical asset root and creates one stage per exact hash. Existing verified
+  bytes attach by canonical asset identity; conflicting metadata blocks the
+  plan.
+- The CMS host owns the only byte path. A CLI-only Nitro endpoint rechecks a
+  current owner session on every attempt, stores only a domain-separated HMAC
+  of a random bearer, obtains a single-use Convex upload URL server-side, and
+  streams at most 25 MiB with exact origin, length, media type, idle, total, and
+  response-size bounds. The CLI streams a local file without `arrayBuffer()` or
+  base64 and independently recomputes its planned SHA-256.
+- Convex verifies the stored image signature, hash, length, media type,
+  dimensions, and frame count before atomically registering and attaching the
+  managed asset. Typed fields and parsed MDC media nodes are rewritten
+  structurally; arbitrary strings and external HTTPS references are unchanged.
+- Abort and expiry close stages in explicit indexed pages of 100. Newly staged
+  assets are deleted only when the canonical asset, content-reference, stage,
+  cleanup-task, backup, and storage inventory proves them unreferenced. One
+  hourly component-internal orphan reconciler covers the unavoidable
+  storage-commit-before-stage-record window after a ten-minute grace period.
+  A root/component namespace test proves it cannot enumerate or delete root
+  application storage.
+- An already attached stage replays to a fresh process without minting another
+  bearer or rereading local bytes. Uploaded/verifying retries reuse the same
+  fenced attempt; expired attempts require a new generation.
+
+The stage table and orphan job are required operational derived state for the
+external-byte transaction boundary. Canonical content remains drafts plus
+verified asset rows; stages are run-owned, rebuild no content, and have bounded
+terminal cleanup. No Studio or MCP bulk authority, remote download path,
+generic storage adapter, compatibility route, or automatic publish path was
+added.
+
+### Test-first and adversarial evidence
+
+The initial host/client red run had five expected failures: the client transfer
+did not exist, attached attempts rejected replay, and the route returned a new
+token for an already attached stage. Earlier component red runs proved that
+uploaded stages survived abort, unreferenced attached assets survived abort,
+and stage cleanup stopped after the first 100 rows.
+
+Final tests cover token HMAC sealing and redaction; current-cookie authority;
+browser-origin rejection; wrong upload origin; short/long bodies; stream
+rehashing; changed local bytes; uploaded/verifying/attached replay; caller,
+token, generation, lease, and revocation fences; exact signature verification;
+typed and MDC round trips; referenced-asset preservation; abort/expiry cleanup;
+101-row continuation; canonical inventory retention; orphan deletion; and root
+namespace isolation. The architecture lint then rejected two uses of native
+`Query.paginate()`; both were replaced by explicit indexed cursors before
+acceptance.
+
+### Commands and results
+
+- Ginko Content authoritative `pnpm verify`: passed with durable exit status
+  `0`; full suite passed 100 files and 833 tests.
+- Exact Content packed consumer: passed from the immutable tarball below.
+- `pnpm run prepare:component`: passed; generated component bindings were
+  regenerated rather than edited.
+- `pnpm run format:check`: passed across 904 files.
+- `pnpm run lint`: passed, including component-boundary, Convex-surface,
+  compatibility, stale-surface, template-sync, and ESLint gates.
+- `pnpm --filter @lupinum/ginko-cms-convex typecheck`: passed.
+- `pnpm --filter @lupinum/ginko-cms build`: passed, including the Contract and
+  component builds, module extras, and Studio production build.
+- Final focused asset/import/storage suite: 5 files and 38 tests passed; the
+  broader integrated portability suite passed 7 files and 51 tests.
+- `pnpm run test`: passed; 116 files passed and 1 environment-gated file was
+  skipped, with 908 tests passed and 1 skipped.
+- `git diff --check`: passed before commit.
+- The exact workspace `pnpm run typecheck` passed Contract and component
+  typechecks, package builds, Studio build, and playground Nuxt preparation,
+  then stopped at the host fixture because
+  `playground/convex/_generated/api.d.ts` cannot be regenerated against the
+  configured development deployment while that deployment lacks
+  `BETTER_AUTH_SECRET`. Two codegen attempts failed during remote analysis
+  before push for that same external configuration requirement. No secret was
+  created, no deployment was altered, and the generated declaration was not
+  hand-edited. This external host-codegen gate remains open.
+
+### Immutable development artifact and commit
+
+- Consumed Content path:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.d29cb6c06f68.837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1.tgz`
+- Verified SHA-256:
+  `837fa55bccd63c0bb2d87c22cbb3e3657ae0f635f218bf8c2a2d908b3a0923e1`
+- Ginko Content: `d29cb6c` —
+  `feat!: rewrite portable MDC to storage identities`
+- Ginko CMS: `692fdba9` —
+  `feat!: add verified portability asset staging`
+
+### Acceptance matrix and next phase
+
+Updated to `implemented`: Portable conflict and retry safety. Bidirectional
+semantic round trip and Bounded consistent export remain open. The next Phase-E
+work package adds restart-only immutable published export with bounded roster
+pages, scoped editorial fencing, host byte download, and exact directory
+verification before any operator CLI UX is wired.
