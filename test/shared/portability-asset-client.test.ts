@@ -138,7 +138,6 @@ async function preparedFixture(content: Uint8Array): Promise<PreparedPortableDra
         },
       },
     ],
-    documentsByItemKey: {},
     blockers: [],
   }
 }

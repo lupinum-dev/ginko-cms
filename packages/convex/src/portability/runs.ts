@@ -2,21 +2,26 @@ import {
   abortImport as abortImportArgs,
   appendImportPlanAssets as appendImportPlanAssetsArgs,
   appendImportPlanItems as appendImportPlanItemsArgs,
-  applyImportItem as applyImportItemArgs,
+  applyImportBatch as applyImportBatchArgs,
   beginImportApply as beginImportApplyArgs,
   beginImportVerification as beginImportVerificationArgs,
+  countPortableImportFieldValues,
   createImportPlan as createImportPlanArgs,
   expireImport as expireImportArgs,
   finalizeImport as finalizeImportArgs,
   inspectPortableAssets as inspectPortableAssetsArgs,
   inspectPortableDrafts as inspectPortableDraftsArgs,
+  PORTABLE_IMPORT_LIMITS,
   sealImportPlan as sealImportPlanArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
+import { assertResolvedContentContract } from '@lupinum/ginko-content/cms-contract'
 import {
   canonicalJsonBytes,
+  collectPortableReferences,
   hashCanonicalJson,
   IncrementalSha256,
+  validatePortableDocument,
 } from '@lupinum/ginko-content/portability'
 import { makeFunctionReference } from 'convex/server'
 import { v } from 'convex/values'
@@ -30,7 +35,7 @@ import {
   directInternalMutation,
   directInternalQuery,
 } from '../functions.js'
-import type { MutationCtx } from '../lib/types.js'
+import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { isCmsStorageReferenced } from '../storageMaintenance.js'
 import { applyPortableDraft, portableDraftSha256 } from './items.js'
 import {
@@ -129,7 +134,7 @@ export const inspectPortableAssets = callerQuery.protected({
   },
 })
 
-async function getPlan(ctx: MutationCtx, planId: string): Promise<Doc<'portablePlans'>> {
+async function getPlan(ctx: QueryOrMutationCtx, planId: string): Promise<Doc<'portablePlans'>> {
   const plan = await ctx.db
     .query('portablePlans')
     .withIndex('by_plan_id', (query) => query.eq('planId', planId))
@@ -140,7 +145,7 @@ async function getPlan(ctx: MutationCtx, planId: string): Promise<Doc<'portableP
 
 type ImportRun = Extract<Doc<'portableRuns'>, { mode: 'import' }>
 
-async function getRun(ctx: MutationCtx, runId: string): Promise<ImportRun> {
+async function getRun(ctx: QueryOrMutationCtx, runId: string): Promise<ImportRun> {
   const run = await ctx.db
     .query('portableRuns')
     .withIndex('by_run_id', (query) => query.eq('runId', runId))
@@ -212,6 +217,9 @@ export const createImportPlan = callerMutation.protected({
       stagedAssetCount: 0,
       initializedAssetCount: 0,
       initializedAttachedAssetCount: 0,
+      stagedLocales: [],
+      stagedFieldValueCount: 0,
+      stagedRelationEdgeCount: 0,
       createdAt,
       expiresAt,
     })
@@ -226,8 +234,13 @@ export const appendImportPlanItems = callerMutation.protected({
   returns: v.object({ accepted: v.number() }),
   handler: async (ctx, args) => {
     const identity = await ctx.appIdentity()
-    if (args.items.length === 0 || args.items.length > PORTABLE_PLAN_PAGE_LIMIT) {
-      throw new Error(`Portable plan item pages contain 1-${PORTABLE_PLAN_PAGE_LIMIT} rows.`)
+    if (
+      args.items.length === 0 ||
+      args.items.length > PORTABLE_IMPORT_LIMITS.stagedItemsPerRequest
+    ) {
+      throw new Error(
+        `Portable plan item pages contain 1-${PORTABLE_IMPORT_LIMITS.stagedItemsPerRequest} rows.`,
+      )
     }
     const plan = await getPlan(ctx, args.planId)
     if (plan.callerId !== identity.userId || plan.payloadSha256 !== args.payloadSha256) {
@@ -241,14 +254,33 @@ export const appendImportPlanItems = callerMutation.protected({
     if (run) throw new Error('Sealed portable plans are immutable.')
 
     const payload = assertImportPlanPayload(plan.payload)
+    const active = await ctx.db
+      .query('cmsPolicies')
+      .withIndex('by_key', (query) => query.eq('key', 'active'))
+      .first()
+    if (!active) throw new Error('Portable import requires an installed Content contract.')
+    const contract = assertResolvedContentContract(active.contract)
     const seen = new Set<string>()
+    const seenApplyOrders = new Set<number>()
+    const stagedLocales = new Set(plan.stagedLocales)
+    let stagedFieldValueCount = plan.stagedFieldValueCount
+    let stagedRelationEdgeCount = plan.stagedRelationEdgeCount
     let inserted = 0
     for (const item of args.items) {
       if (seen.has(item.itemKey))
         throw new Error('Portable plan page contains a duplicate item key.')
       seen.add(item.itemKey)
-      const payload = assertImportPlanItemPayload(item.payload)
-      if ((await hashCanonicalJson(payload.identity)) !== item.itemKey) {
+      if (
+        !Number.isSafeInteger(item.applyOrder) ||
+        item.applyOrder < 0 ||
+        item.applyOrder >= payload.itemCount ||
+        seenApplyOrders.has(item.applyOrder)
+      ) {
+        throw new Error('Portable plan item apply order is invalid or duplicated.')
+      }
+      seenApplyOrders.add(item.applyOrder)
+      const itemPayload = assertImportPlanItemPayload(item.payload)
+      if ((await hashCanonicalJson(itemPayload.identity)) !== item.itemKey) {
         throw new Error('Portable item key mismatch.')
       }
       if ((await hashCanonicalJson(item.payload)) !== item.inputSha256) {
@@ -261,16 +293,63 @@ export const appendImportPlanItems = callerMutation.protected({
         )
         .unique()
       if (existing) {
-        if (existing.inputSha256 !== item.inputSha256) {
+        if (
+          existing.inputSha256 !== item.inputSha256 ||
+          existing.applyOrder !== item.applyOrder ||
+          (await hashCanonicalJson(existing.document)) !== (await hashCanonicalJson(item.document))
+        ) {
           throw new Error('Portable item key input mismatch.')
         }
         continue
       }
+      const orderConflict = await ctx.db
+        .query('portableImportPlanItems')
+        .withIndex('by_plan_apply_order', (query) =>
+          query.eq('planId', plan.planId).eq('applyOrder', item.applyOrder),
+        )
+        .unique()
+      if (orderConflict) throw new Error('Portable plan apply order is duplicated.')
+      if (canonicalJsonBytes(item.document).length > PORTABLE_IMPORT_LIMITS.documentBytes) {
+        throw new Error('Portable import document exceeds 256 KiB.')
+      }
+      const document = validatePortableDocument(item.document, contract)
+      if (
+        document.collection !== itemPayload.identity.collection ||
+        document.canonicalKey !== itemPayload.identity.canonicalKey ||
+        document.locale !== itemPayload.identity.locale ||
+        (await hashCanonicalJson(document as unknown as JsonMap)) !== itemPayload.documentSha256
+      ) {
+        throw new Error('Portable plan document does not match its immutable item payload.')
+      }
+      const collection = contract.collections[document.collection]!
+      const relationEdges =
+        collectPortableReferences(collection.fields, {
+          ...document.shared,
+          ...document.localized,
+        }).length + (document.parentCanonicalKey === null ? 0 : 1)
+      stagedLocales.add(document.locale)
+      stagedFieldValueCount += countPortableImportFieldValues(document)
+      stagedRelationEdgeCount += relationEdges
+      if (stagedLocales.size > PORTABLE_IMPORT_LIMITS.locales) {
+        throw new Error(`Portable import locale count exceeds ${PORTABLE_IMPORT_LIMITS.locales}.`)
+      }
+      if (stagedFieldValueCount > PORTABLE_IMPORT_LIMITS.fieldValues) {
+        throw new Error(
+          `Portable import field value count exceeds ${PORTABLE_IMPORT_LIMITS.fieldValues}.`,
+        )
+      }
+      if (stagedRelationEdgeCount > PORTABLE_IMPORT_LIMITS.relationEdges) {
+        throw new Error(
+          `Portable import relation edge count exceeds ${PORTABLE_IMPORT_LIMITS.relationEdges}.`,
+        )
+      }
       await ctx.db.insert('portableImportPlanItems', {
         planId: plan.planId,
+        applyOrder: item.applyOrder,
         itemKey: item.itemKey,
         inputSha256: item.inputSha256,
         payload: item.payload,
+        document: item.document,
       })
       inserted += 1
     }
@@ -278,7 +357,12 @@ export const appendImportPlanItems = callerMutation.protected({
       throw new Error('Portable plan has more item rows than its immutable payload.')
     }
     if (inserted > 0) {
-      await ctx.db.patch(plan._id, { stagedItemCount: plan.stagedItemCount + inserted })
+      await ctx.db.patch(plan._id, {
+        stagedItemCount: plan.stagedItemCount + inserted,
+        stagedLocales: [...stagedLocales].sort(),
+        stagedFieldValueCount,
+        stagedRelationEdgeCount,
+      })
     }
     return { accepted: args.items.length }
   },
@@ -762,10 +846,56 @@ export const beginImportApply = callerMutation.protected({
   },
 })
 
-export const applyImportItem = callerMutation.protected({
-  id: 'portability:applyImportItem',
-  args: applyImportItemArgs.args,
-  guard: canManagePortability,
+export const readImportApplyBatch = directInternalQuery({
+  args: {
+    runId: v.string(),
+    callerId: v.string(),
+    payloadSha256: v.string(),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const run = await getRun(ctx, args.runId)
+    requireCurrentRun(run, {
+      callerId: args.callerId,
+      payloadSha256: args.payloadSha256,
+      state: 'applying',
+    })
+    const plan = await getPlan(ctx, run.planId)
+    const payload = assertImportPlanPayload(plan.payload)
+    const rows = await ctx.db
+      .query('portableImportPlanItems')
+      .withIndex('by_plan_apply_order', (query) =>
+        query.eq('planId', run.planId).gte('applyOrder', run.committedItemCount),
+      )
+      .take(PORTABLE_IMPORT_LIMITS.appliedItemsPerBatch)
+    rows.forEach((row, index) => {
+      if (row.applyOrder !== run.committedItemCount + index) {
+        throw new Error('Portable import apply order is incomplete.')
+      }
+    })
+    return {
+      committedItemCount: run.committedItemCount,
+      itemCount: payload.itemCount,
+      rows: rows.map((row) => ({
+        applyOrder: row.applyOrder,
+        itemKey: row.itemKey,
+        inputSha256: row.inputSha256,
+        payload: row.payload,
+        document: row.document,
+      })),
+    }
+  },
+})
+
+export const commitImportBatchItem = directInternalMutation({
+  args: {
+    runId: v.string(),
+    callerId: v.string(),
+    payloadSha256: v.string(),
+    applyOrder: v.number(),
+    itemKey: v.string(),
+    inputSha256: v.string(),
+  },
   returns: v.object({
     runId: v.string(),
     itemKey: v.string(),
@@ -776,23 +906,14 @@ export const applyImportItem = callerMutation.protected({
     committedAt: v.number(),
   }),
   handler: async (ctx, args) => {
-    const identity = await ctx.appIdentity()
     const run = await getRun(ctx, args.runId)
     requireCurrentRun(run, {
-      callerId: identity.userId,
+      callerId: args.callerId,
       payloadSha256: args.payloadSha256,
       state: 'applying',
     })
-    const receipt = await ctx.db
-      .query('portableItemReceipts')
-      .withIndex('by_run_item', (query) => query.eq('runId', run.runId).eq('itemKey', args.itemKey))
-      .unique()
-    if (receipt) {
-      if (receipt.inputSha256 !== args.inputSha256) {
-        throw new Error('Portable receipt input mismatch.')
-      }
-      const { _id: _ignoredId, _creationTime: _ignoredCreationTime, ...result } = receipt
-      return result
+    if (args.applyOrder !== run.committedItemCount) {
+      throw new Error('Portable import batch item is stale or out of order.')
     }
     const row = await ctx.db
       .query('portableImportPlanItems')
@@ -800,15 +921,15 @@ export const applyImportItem = callerMutation.protected({
         query.eq('planId', run.planId).eq('itemKey', args.itemKey),
       )
       .unique()
-    if (!row || row.inputSha256 !== args.inputSha256) {
+    if (!row || row.applyOrder !== args.applyOrder || row.inputSha256 !== args.inputSha256) {
       throw new Error('Portable plan item input mismatch.')
     }
     const planItem = assertImportPlanItemPayload(row.payload)
     const applied = await applyPortableDraft(ctx, {
-      documentValue: args.document,
+      documentValue: row.document,
       planItem,
       runId: run.runId,
-      appIdentityId: identity.userId,
+      appIdentityId: args.callerId,
       now: Date.now(),
     })
     const committedAt = Date.now()
@@ -827,6 +948,65 @@ export const applyImportItem = callerMutation.protected({
       updatedAt: committedAt,
     })
     return result
+  },
+})
+
+const readImportApplyBatchRef = makeFunctionReference<
+  'query',
+  { runId: string; callerId: string; payloadSha256: string },
+  {
+    committedItemCount: number
+    itemCount: number
+    rows: Array<{
+      applyOrder: number
+      itemKey: string
+      inputSha256: string
+      payload: JsonMap
+      document: JsonMap
+    }>
+  }
+>('portability/runs:readImportApplyBatch')
+
+const commitImportBatchItemRef = makeFunctionReference<
+  'mutation',
+  {
+    runId: string
+    callerId: string
+    payloadSha256: string
+    applyOrder: number
+    itemKey: string
+    inputSha256: string
+  },
+  unknown
+>('portability/runs:commitImportBatchItem')
+
+export const applyImportBatch = callerAction.protected({
+  id: 'portability:applyImportBatch',
+  args: applyImportBatchArgs.args,
+  guard: canManagePortability,
+  returns: v.object({ committed: v.number(), complete: v.boolean() }),
+  handler: async (ctx, args): Promise<{ committed: number; complete: boolean }> => {
+    const identity = await ctx.appIdentity()
+    const batch = await ctx.runQuery(readImportApplyBatchRef, {
+      runId: args.runId,
+      callerId: identity.userId,
+      payloadSha256: args.payloadSha256,
+    })
+    for (const row of batch.rows) {
+      await ctx.runMutation(commitImportBatchItemRef, {
+        runId: args.runId,
+        callerId: identity.userId,
+        payloadSha256: args.payloadSha256,
+        applyOrder: row.applyOrder,
+        itemKey: row.itemKey,
+        inputSha256: row.inputSha256,
+      })
+    }
+    const committed = batch.committedItemCount + batch.rows.length
+    if (batch.rows.length === 0 && committed < batch.itemCount) {
+      throw new Error('Portable import batch cannot make progress.')
+    }
+    return { committed, complete: committed === batch.itemCount }
   },
 })
 

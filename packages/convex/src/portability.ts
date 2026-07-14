@@ -2,7 +2,7 @@ export {
   abortImport,
   appendImportPlanAssets,
   appendImportPlanItems,
-  applyImportItem,
+  applyImportBatch,
   beginImportApply,
   beginImportVerification,
   createImportPlan,

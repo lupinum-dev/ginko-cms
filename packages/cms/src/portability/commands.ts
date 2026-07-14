@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
+import { PORTABLE_IMPORT_LIMITS } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
 import type { ResolvedContentContractV1 } from '@lupinum/ginko-content/cms-contract'
 import { hashCanonicalJson, type PortableDocumentV1 } from '@lupinum/ginko-content/portability'
 import {
@@ -210,11 +211,15 @@ export async function preparePortableDraftImport(
     payload: plan.payload,
     payloadSha256: plan.payloadSha256,
   })
-  for (let offset = 0; offset < plan.items.length; offset += IMPORT_PAGE_SIZE) {
+  for (
+    let offset = 0;
+    offset < plan.items.length;
+    offset += PORTABLE_IMPORT_LIMITS.stagedItemsPerRequest
+  ) {
     await client.mutation(api.ginkoCms.portability.appendImportPlanItems, {
       planId,
       payloadSha256: plan.payloadSha256,
-      items: plan.items.slice(offset, offset + IMPORT_PAGE_SIZE),
+      items: plan.items.slice(offset, offset + PORTABLE_IMPORT_LIMITS.stagedItemsPerRequest),
     })
   }
   for (let offset = 0; offset < plan.assets.length; offset += IMPORT_PAGE_SIZE) {
@@ -247,16 +252,12 @@ export async function applyPreparedPortableDraftImport(
     payloadSha256: prepared.payloadSha256,
   })) as { state: string }
   if (started.state === 'applying') {
-    for (const item of dependencyOrder(prepared.items)) {
-      const document = prepared.documentsByItemKey[item.itemKey]
-      if (!document) throw new Error(`Portable plan document ${item.itemKey} is missing.`)
-      await client.mutation(api.ginkoCms.portability.applyImportItem, {
+    for (;;) {
+      const batch = (await client.action(api.ginkoCms.portability.applyImportBatch, {
         runId: prepared.runId,
         payloadSha256: prepared.payloadSha256,
-        itemKey: item.itemKey,
-        inputSha256: item.inputSha256,
-        document,
-      })
+      })) as { complete: boolean }
+      if (batch.complete) break
     }
   }
   if (started.state !== 'complete') {
@@ -269,26 +270,6 @@ export async function applyPreparedPortableDraftImport(
     runId: prepared.runId,
     payloadSha256: prepared.payloadSha256,
   })
-}
-
-function dependencyOrder(items: PortableDraftImportPlan['items']) {
-  const byKey = new Map(items.map((item) => [item.itemKey, item]))
-  const permanent = new Set<string>()
-  const active = new Set<string>()
-  const ordered: typeof items = []
-  const visit = (itemKey: string) => {
-    if (permanent.has(itemKey)) return
-    if (active.has(itemKey)) throw new Error('Portable plan dependencies contain a cycle.')
-    const item = byKey.get(itemKey)
-    if (!item) return
-    active.add(itemKey)
-    for (const dependency of item.payload.dependencyKeys) visit(dependency)
-    active.delete(itemKey)
-    permanent.add(itemKey)
-    ordered.push(item)
-  }
-  for (const item of items) visit(item.itemKey)
-  return ordered
 }
 
 function compare(left: string, right: string) {

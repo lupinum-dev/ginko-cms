@@ -3,6 +3,39 @@ import { v } from 'convex/values'
 import { defineArgs } from '../args.js'
 import { jsonObjectValidator } from '../validators.js'
 
+export const PORTABLE_IMPORT_LIMITS = Object.freeze({
+  entries: 100_000,
+  locales: 100,
+  fieldValues: 1_000_000,
+  relationEdges: 1_000_000,
+  documentBytes: 256 * 1024,
+  stagedItemsPerRequest: 10,
+  appliedItemsPerBatch: 10,
+  durationMs: 2 * 60 * 60 * 1_000,
+})
+
+export function countPortableImportFieldValues(document: unknown): number {
+  if (!document || typeof document !== 'object' || Array.isArray(document)) return 0
+  const candidate = document as { shared?: unknown; localized?: unknown }
+  const pending = [candidate.shared, candidate.localized]
+  let count = 0
+  while (pending.length > 0) {
+    const value = pending.pop()
+    if (Array.isArray(value)) {
+      count += value.length
+      if (count > PORTABLE_IMPORT_LIMITS.fieldValues) return count
+      for (const item of value) pending.push(item)
+      continue
+    }
+    if (!value || typeof value !== 'object') continue
+    const values = Object.values(value)
+    count += values.length
+    if (count > PORTABLE_IMPORT_LIMITS.fieldValues) return count
+    for (const item of values) pending.push(item)
+  }
+  return count
+}
+
 export const createImportPlan = defineArgs({
   description: 'Create an immutable CMS portability import plan.',
   args: {
@@ -53,9 +86,11 @@ export const appendImportPlanItems = defineArgs({
     payloadSha256: v.string(),
     items: v.array(
       v.object({
+        applyOrder: v.number(),
         itemKey: v.string(),
         inputSha256: v.string(),
         payload: jsonObjectValidator,
+        document: jsonObjectValidator,
       }),
     ),
   },
@@ -132,14 +167,9 @@ export const verifyPortableAssetUpload = defineArgs({
   },
 })
 
-export const applyImportItem = defineArgs({
-  description: 'Idempotently apply one planned portable document as a CMS draft.',
-  args: {
-    ...runArgs,
-    itemKey: v.string(),
-    inputSha256: v.string(),
-    document: jsonObjectValidator,
-  },
+export const applyImportBatch = defineArgs({
+  description: 'Resume one bounded server-owned batch of planned portable drafts.',
+  args: runArgs,
 })
 
 export const beginImportVerification = defineArgs({

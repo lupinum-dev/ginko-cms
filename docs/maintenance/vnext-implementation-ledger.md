@@ -321,6 +321,21 @@ mixed-generation reindex defect. The final suites cover:
   allowlists, row and byte counts, payload checksums, row limits, and asset-byte
   limits. Filesystem migration uses `lstat`, rejects symlinks and non-files,
   tracks real directories, and caps depth, file count, and bytes before parsing.
+- Portable draft import now has one CMS-owned operational envelope shared by
+  the CLI and Convex boundary: 100,000 entries, 100 locales, 1,000,000 nested
+  field values, 1,000,000 exact relation/parent edges, 256 KiB per staged
+  document, ten staged/applied items per request, and a two-hour total run
+  deadline. Content's bounded directory reader remains the archive authority.
+- The unreleased per-item apply callable was deleted. Each validated document
+  is stored once in its expiring immutable plan, bound through its canonical
+  document hash, and assigned one dependency-safe apply order. A bounded
+  server action advances that order through the existing item receipts, so an
+  interrupted action resumes from the committed count without client-owned
+  document streaming or a second run ledger.
+- Hostile fixtures now reject the 100,001st entry, the 101st locale, and a
+  document above 256 KiB. Component evidence records locale/field/relation
+  totals, applies a 251-item plan in bounded ten-item batches, and runtime
+  orchestration retries after a simulated lost batch-two response.
 - Focused verification passed 74 tests across migrations, backup, credential,
   tree, filesystem, CLI, and generated-bridge suites. Workspace typecheck,
   component generation, module build, Studio build/typecheck, and playground
@@ -333,9 +348,6 @@ mixed-generation reindex defect. The final suites cover:
 - Complete the official Convex snapshot restore drill and retain its operator
   evidence. Until that drill passes, `Recoverable destructive actions` remains
   open in the acceptance matrix.
-- Add total import-run duration plus entry/locale/field/relation-edge limits and
-  resumable server-side import batches. Until those bounds pass hostile fixtures,
-  `Bounded import and archive parsing` remains open.
 
 ## 2026-07-13 — WP3 provider, render, and asset safety boundary
 

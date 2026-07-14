@@ -2823,7 +2823,7 @@ Use only these statuses:
 | Migration retry and resume          | implemented | Crash/retry receipt test                |
 | Legacy MCP-key cutover              | implemented | Old-token denial and audit test         |
 | Recoverable destructive actions     | open        | Snapshot/restore drill                  |
-| Bounded import and archive parsing  | open        | Hostile archive/filesystem limits       |
+| Bounded import and archive parsing  | implemented | Limits and batch-two retry fixtures     |
 | Provider runtime decoders           | open        | Adversarial Wire V2 suite               |
 | Public render safety                | open        | Packed AST-to-render exploit probes     |
 | Structured asset resolution         | implemented | No arbitrary-string lookup test         |

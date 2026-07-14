@@ -166,17 +166,17 @@ describe('published portability export orchestration', () => {
 })
 
 describe('draft portability import orchestration', () => {
-  it('resumes the same sealed plan after lost item, verification, and finalize responses', async () => {
+  it('resumes server-owned batches after a lost batch-two response', async () => {
     const root = mkdtempSync(join(tmpdir(), 'ginko-cms-import-retry-'))
     temporaryDirectories.push(root)
     const source = join(root, 'portable')
     const { contract, document } = fixture()
     await writePortableDirectory(source, { contract, documents: [document], assets: [] })
 
-    let itemCommitted = false
+    let committedBatches = 0
     let verifying = false
     let complete = false
-    let loseItemResponse = true
+    let loseBatchTwoResponse = true
     let loseVerificationResponse = true
     let loseFinalizeResponse = true
     const calls: string[] = []
@@ -206,14 +206,6 @@ describe('draft portability import orchestration', () => {
         if (path.endsWith(':beginImportApply')) {
           return { state: complete ? 'complete' : verifying ? 'verifying' : 'applying' }
         }
-        if (path.endsWith(':applyImportItem')) {
-          if (!itemCommitted) itemCommitted = true
-          if (loseItemResponse) {
-            loseItemResponse = false
-            throw new Error('connection lost after committed item')
-          }
-          return { status: 'replayed' }
-        }
         if (path.endsWith(':beginImportVerification')) {
           verifying = true
           if (loseVerificationResponse) {
@@ -236,6 +228,14 @@ describe('draft portability import orchestration', () => {
         const path = pathOf(reference)
         calls.push(path)
         if (path.endsWith(':sealImportPlan')) return { runId: 'import-retry-run' }
+        if (path.endsWith(':applyImportBatch')) {
+          committedBatches += 1
+          if (committedBatches === 2 && loseBatchTwoResponse) {
+            loseBatchTwoResponse = false
+            throw new Error('connection lost after committed batch two')
+          }
+          return { complete: committedBatches >= 2 }
+        }
         throw new Error(`Unexpected action ${path}`)
       },
     }
@@ -246,7 +246,7 @@ describe('draft portability import orchestration', () => {
     })
 
     await expect(applyPreparedPortableDraftImport(client as never, prepared)).rejects.toThrow(
-      'connection lost after committed item',
+      'connection lost after committed batch two',
     )
     await expect(applyPreparedPortableDraftImport(client as never, prepared)).rejects.toThrow(
       'connection lost before finalize',
@@ -259,7 +259,7 @@ describe('draft portability import orchestration', () => {
       status: 'replayed',
     })
 
-    expect(calls.filter((path) => path.endsWith(':applyImportItem'))).toHaveLength(2)
+    expect(calls.filter((path) => path.endsWith(':applyImportBatch'))).toHaveLength(3)
     expect(calls.filter((path) => path.endsWith(':finalizeImport'))).toHaveLength(2)
   })
 })

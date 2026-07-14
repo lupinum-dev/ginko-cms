@@ -1,8 +1,13 @@
+import {
+  countPortableImportFieldValues,
+  PORTABLE_IMPORT_LIMITS,
+} from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
 import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import {
   collectPortableAssetReferences,
   collectPortableMdcAssetReferences,
   collectPortableReferences,
+  canonicalJsonBytes,
   hashCanonicalJson,
   type PortableDocumentV1,
 } from '@lupinum/ginko-content/portability'
@@ -40,13 +45,18 @@ export type PortableDraftImportPlan = {
     assetRootSha256: string
   }
   payloadSha256: string
-  items: Array<{ itemKey: string; inputSha256: string; payload: PortableImportPlanItemPayload }>
+  items: Array<{
+    applyOrder: number
+    itemKey: string
+    inputSha256: string
+    payload: PortableImportPlanItemPayload
+    document: PortableDocumentV1
+  }>
   assets: Array<{
     assetKey: string
     inputSha256: string
     payload: PortableImportPlanAssetPayload
   }>
-  documentsByItemKey: Record<string, PortableDocumentV1>
   blockers: string[]
 }
 
@@ -72,6 +82,25 @@ export async function createPortableDraftImportPlan(
   const documents = [...bundle.documents].sort((left, right) =>
     compareIdentity(left.document, right.document),
   )
+  const localeCount = new Set(documents.map(({ document }) => document.locale)).size
+  if (localeCount > PORTABLE_IMPORT_LIMITS.locales) {
+    throw new Error(`Portable import locale count exceeds ${PORTABLE_IMPORT_LIMITS.locales}.`)
+  }
+  let fieldValueCount = 0
+  for (const { document } of documents) {
+    if (
+      canonicalJsonBytes(document as unknown as JsonValue).length >
+      PORTABLE_IMPORT_LIMITS.documentBytes
+    ) {
+      throw new Error('Portable import document exceeds 256 KiB.')
+    }
+    fieldValueCount += countPortableImportFieldValues(document)
+    if (fieldValueCount > PORTABLE_IMPORT_LIMITS.fieldValues) {
+      throw new Error(
+        `Portable import field value count exceeds ${PORTABLE_IMPORT_LIMITS.fieldValues}.`,
+      )
+    }
+  }
   const identityKeys = new Map<string, string>()
   for (const { document } of documents) {
     const identity = portableIdentity(document)
@@ -79,7 +108,7 @@ export async function createPortableDraftImportPlan(
   }
 
   const items: PortableDraftImportPlan['items'] = []
-  const documentsByItemKey: Record<string, PortableDocumentV1> = {}
+  let relationEdgeCount = 0
   const blockers: string[] = []
   const referencedAssets = new Map<string, Set<string>>()
   for (const { document } of documents) {
@@ -104,10 +133,17 @@ export async function createPortableDraftImportPlan(
       if (!parent) throw new Error(`Portable parent for ${itemKey} is missing.`)
       dependencies.add(parent)
     }
-    for (const reference of collectPortableReferences(collection.fields, {
+    const references = collectPortableReferences(collection.fields, {
       ...document.shared,
       ...document.localized,
-    })) {
+    })
+    relationEdgeCount += references.length + (document.parentCanonicalKey === null ? 0 : 1)
+    if (relationEdgeCount > PORTABLE_IMPORT_LIMITS.relationEdges) {
+      throw new Error(
+        `Portable import relation edge count exceeds ${PORTABLE_IMPORT_LIMITS.relationEdges}.`,
+      )
+    }
+    for (const reference of references) {
       const target = bundle.contract.collections[reference.collection]
       const dependency = target
         ? identityKeys.get(
@@ -154,10 +190,10 @@ export async function createPortableDraftImportPlan(
       documentSha256,
       dependencyKeys: [...dependencies].sort(compare),
     }
-    items.push({ itemKey, inputSha256: await hashJson(payload), payload })
-    documentsByItemKey[itemKey] = document
+    items.push({ applyOrder: -1, itemKey, inputSha256: await hashJson(payload), payload, document })
   }
   items.sort((left, right) => compare(left.itemKey, right.itemKey))
+  for (const [applyOrder, item] of dependencyOrder(items).entries()) item.applyOrder = applyOrder
 
   const assets: PortableDraftImportPlan['assets'] = []
   for (const asset of [...bundle.assets].sort((left, right) =>
@@ -207,9 +243,28 @@ export async function createPortableDraftImportPlan(
     payloadSha256: await hashJson(payload),
     items,
     assets,
-    documentsByItemKey,
     blockers: [...new Set(blockers)],
   }
+}
+
+function dependencyOrder(items: PortableDraftImportPlan['items']) {
+  const byKey = new Map(items.map((item) => [item.itemKey, item]))
+  const permanent = new Set<string>()
+  const active = new Set<string>()
+  const ordered: typeof items = []
+  const visit = (itemKey: string) => {
+    if (permanent.has(itemKey)) return
+    if (active.has(itemKey)) throw new Error('Portable plan dependencies contain a cycle.')
+    const item = byKey.get(itemKey)
+    if (!item) return
+    active.add(itemKey)
+    for (const dependency of item.payload.dependencyKeys) visit(dependency)
+    active.delete(itemKey)
+    permanent.add(itemKey)
+    ordered.push(item)
+  }
+  for (const item of items) visit(item.itemKey)
+  return ordered
 }
 
 function portableIdentity(document: PortableDocumentV1) {

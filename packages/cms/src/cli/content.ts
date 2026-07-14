@@ -175,7 +175,6 @@ async function readPreparedPlan(path: string): Promise<PreparedPortableDraftImpo
     !parsed.payload ||
     !Array.isArray(parsed.items) ||
     !Array.isArray(parsed.assets) ||
-    !parsed.documentsByItemKey ||
     !Array.isArray(parsed.blockers) ||
     parsed.blockers.length > 0
   ) {
@@ -194,15 +193,20 @@ async function readPreparedPlan(path: string): Promise<PreparedPortableDraftImpo
   ) {
     throw new Error('Portable import plan rows do not match the payload.')
   }
+  const applyOrders = new Set<number>()
   for (const item of parsed.items) {
-    const document = parsed.documentsByItemKey[item.itemKey]
     if (
+      !Number.isSafeInteger(item.applyOrder) ||
+      item.applyOrder < 0 ||
+      item.applyOrder >= parsed.items.length ||
+      applyOrders.has(item.applyOrder) ||
       (await hashCanonicalJson(item.payload)) !== item.inputSha256 ||
-      !document ||
-      (await hashCanonicalJson(document)) !== item.payload.documentSha256
+      !item.document ||
+      (await hashCanonicalJson(item.document)) !== item.payload.documentSha256
     ) {
       throw new Error(`Portable import plan item ${item.itemKey} is invalid.`)
     }
+    applyOrders.add(item.applyOrder)
   }
   for (const asset of parsed.assets) {
     if ((await hashCanonicalJson(asset.payload)) !== asset.inputSha256) {

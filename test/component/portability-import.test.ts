@@ -151,7 +151,7 @@ async function createPlan(
   await operator.mutation(api.portability.appendImportPlanItems, {
     planId,
     payloadSha256,
-    items: [{ itemKey, inputSha256, payload: itemPayload }],
+    items: [{ applyOrder: 0, itemKey, inputSha256, payload: itemPayload, document }],
   })
   if (assets.length > 0) {
     await operator.mutation(api.portability.appendImportPlanAssets, {
@@ -475,12 +475,9 @@ describe('portable draft import', () => {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
     })
-    await owner.mutation(api.portability.applyImportItem, {
+    await owner.action(api.portability.applyImportBatch, {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
-      itemKey: plan.itemKey,
-      inputSha256: plan.inputSha256,
-      document,
     })
 
     const drafts = await ctx.readAll('entryDrafts')
@@ -564,12 +561,9 @@ describe('portable draft import', () => {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
     })
-    await owner.mutation(api.portability.applyImportItem, {
+    await owner.action(api.portability.applyImportBatch, {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
-      itemKey: plan.itemKey,
-      inputSha256: plan.inputSha256,
-      document,
     })
 
     await owner.mutation(api.portability.abortImport, {
@@ -627,7 +621,7 @@ describe('portable draft import', () => {
     expect(await ctx.readAll('portablePlans' as never)).toEqual([])
   })
 
-  it('commits one draft transactionally and replays a lost successful response', async () => {
+  it('commits one server-owned batch and replays a lost successful response', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
     const { contractSha256 } = await installFixture(ctx)
@@ -638,38 +632,67 @@ describe('portable draft import', () => {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
     })
-    const first = await owner.mutation(api.portability.applyImportItem, {
+    const first = await owner.action(api.portability.applyImportBatch, {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
-      itemKey: plan.itemKey,
-      inputSha256: plan.inputSha256,
-      document: plan.document,
     })
-    const replay = await owner.mutation(api.portability.applyImportItem, {
+    const replay = await owner.action(api.portability.applyImportBatch, {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
-      itemKey: plan.itemKey,
-      inputSha256: plan.inputSha256,
-      document: plan.document,
     })
 
     expect(replay).toEqual(first)
-    expect(first).toMatchObject({ status: 'committed', effect: 'created-draft' })
+    expect(first).toEqual({ committed: 1, complete: true })
     expect(await ctx.readAll('entries')).toEqual([
       expect.objectContaining({ stableId: 'hello', status: 'draft', publishedAt: null }),
     ])
     expect(await ctx.readAll('publicEntries')).toEqual([])
     expect(await ctx.readAll('portableItemReceipts' as never)).toHaveLength(1)
+  })
+
+  it('rejects an oversized document before it enters the immutable plan', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contractSha256 } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
 
     await expect(
-      owner.mutation(api.portability.applyImportItem, {
-        runId: plan.runId,
-        payloadSha256: plan.payloadSha256,
-        itemKey: plan.itemKey,
-        inputSha256: 'f'.repeat(64),
-        document: plan.document,
+      createPlan(owner, contractSha256, {
+        ...documentFixture,
+        body: { kind: 'mdc', source: 'x'.repeat(257 * 1024) },
       }),
-    ).rejects.toThrow(/input.*mismatch/i)
+    ).rejects.toThrow(/document exceeds 256 KiB/i)
+    expect(await ctx.readAll('portableImportPlanItems' as never)).toEqual([])
+  })
+
+  it('rejects an import plan above the exact entry envelope', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contractSha256 } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const payload = {
+      format: 'ginko-cms-portability-plan' as const,
+      version: 1 as const,
+      mode: 'import' as const,
+      deploymentId: 'test-deployment',
+      scope: { collections: ['posts'] },
+      targetContractSha256: contractSha256,
+      sourceManifestSha256: '1'.repeat(64),
+      sourceContractSha256: contractSha256,
+      itemCount: 100_001,
+      itemRootSha256: await hashCanonicalJson([]),
+      assetCount: 0,
+      assetRootSha256: await hashCanonicalJson([]),
+    }
+
+    await expect(
+      owner.mutation(api.portability.createImportPlan, {
+        planId: 'oversized-plan',
+        payload,
+        payloadSha256: await hashCanonicalJson(payload),
+      }),
+    ).rejects.toThrow(/plan payload is invalid/i)
+    expect(await ctx.readAll('portablePlans' as never)).toEqual([])
   })
 
   it('seals only the exact immutable plan rows and finalizes without publishing', async () => {
@@ -683,12 +706,9 @@ describe('portable draft import', () => {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
     })
-    await owner.mutation(api.portability.applyImportItem, {
+    await owner.action(api.portability.applyImportBatch, {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
-      itemKey: plan.itemKey,
-      inputSha256: plan.inputSha256,
-      document: plan.document,
     })
     await owner.mutation(api.portability.beginImportVerification, {
       runId: plan.runId,
@@ -725,12 +745,9 @@ describe('portable draft import', () => {
       runId: create.runId,
       payloadSha256: create.payloadSha256,
     })
-    await owner.mutation(api.portability.applyImportItem, {
+    await owner.action(api.portability.applyImportBatch, {
       runId: create.runId,
       payloadSha256: create.payloadSha256,
-      itemKey: create.itemKey,
-      inputSha256: create.inputSha256,
-      document: create.document,
     })
 
     const expectedDraftSha256 = await hashCanonicalJson(documentFixture)
@@ -748,15 +765,15 @@ describe('portable draft import', () => {
       runId: update.runId,
       payloadSha256: update.payloadSha256,
     })
-    const receipt = await owner.mutation(api.portability.applyImportItem, {
+    const batch = await owner.action(api.portability.applyImportBatch, {
       runId: update.runId,
       payloadSha256: update.payloadSha256,
-      itemKey: update.itemKey,
-      inputSha256: update.inputSha256,
-      document: changed,
     })
 
-    expect(receipt.effect).toBe('updated-draft')
+    expect(batch).toEqual({ committed: 1, complete: true })
+    expect(await ctx.readAll('portableItemReceipts' as never)).toContainEqual(
+      expect.objectContaining({ runId: update.runId, effect: 'updated-draft' }),
+    )
     expect(await ctx.readAll('entries')).toEqual([
       expect.objectContaining({ status: 'draft', publishedAt: null, draftVersion: 2 }),
     ])
@@ -784,12 +801,9 @@ describe('portable draft import', () => {
       runId: author.runId,
       payloadSha256: author.payloadSha256,
     })
-    await owner.mutation(api.portability.applyImportItem, {
+    await owner.action(api.portability.applyImportBatch, {
       runId: author.runId,
       payloadSha256: author.payloadSha256,
-      itemKey: author.itemKey,
-      inputSha256: author.inputSha256,
-      document: author.document,
     })
 
     const post = await createPlan(
@@ -808,13 +822,19 @@ describe('portable draft import', () => {
       runId: post.runId,
       payloadSha256: post.payloadSha256,
     })
-    await owner.mutation(api.portability.applyImportItem, {
+    await owner.action(api.portability.applyImportBatch, {
       runId: post.runId,
       payloadSha256: post.payloadSha256,
-      itemKey: post.itemKey,
-      inputSha256: post.inputSha256,
-      document: post.document,
     })
+
+    expect(await ctx.readAll('portablePlans' as never)).toContainEqual(
+      expect.objectContaining({
+        planId: 'post-relation-plan',
+        stagedLocales: ['en'],
+        stagedFieldValueCount: 4,
+        stagedRelationEdgeCount: 1,
+      }),
+    )
 
     expect(await ctx.readAll('entryDrafts')).toContainEqual(
       expect.objectContaining({ locale: null, shared: { title: 'Hello', author: 'ada' } }),
@@ -842,12 +862,9 @@ describe('portable draft import', () => {
       runId: create.runId,
       payloadSha256: create.payloadSha256,
     })
-    await owner.mutation(api.portability.applyImportItem, {
+    await owner.action(api.portability.applyImportBatch, {
       runId: create.runId,
       payloadSha256: create.payloadSha256,
-      itemKey: create.itemKey,
-      inputSha256: create.inputSha256,
-      document: create.document,
     })
 
     await expect(
@@ -1042,7 +1059,7 @@ describe('portable draft import', () => {
     ).toHaveLength(101)
   })
 
-  it('seals more than one mutation page without collecting the plan into one transaction', async () => {
+  it('seals large plans and resumes them through bounded server-owned batches', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
     const { contractSha256 } = await installFixture(ctx)
@@ -1063,12 +1080,15 @@ describe('portable draft import', () => {
         dependencyKeys: [],
       }
       rows.push({
+        applyOrder: -1,
         itemKey: await hashCanonicalJson(identity),
         inputSha256: await hashCanonicalJson(payload),
         payload,
+        document,
       })
     }
     rows.sort((left, right) => left.itemKey.localeCompare(right.itemKey))
+    rows.forEach((row, applyOrder) => (row.applyOrder = applyOrder))
     const payload = {
       format: 'ginko-cms-portability-plan' as const,
       version: 1 as const,
@@ -1089,16 +1109,13 @@ describe('portable draft import', () => {
       payload,
       payloadSha256,
     })
-    await owner.mutation(api.portability.appendImportPlanItems, {
-      planId: 'paged-plan',
-      payloadSha256,
-      items: rows.slice(0, 250),
-    })
-    await owner.mutation(api.portability.appendImportPlanItems, {
-      planId: 'paged-plan',
-      payloadSha256,
-      items: rows.slice(250),
-    })
+    for (let offset = 0; offset < rows.length; offset += 10) {
+      await owner.mutation(api.portability.appendImportPlanItems, {
+        planId: 'paged-plan',
+        payloadSha256,
+        items: rows.slice(offset, offset + 10),
+      })
+    }
 
     await expect(
       owner.action(api.portability.sealImportPlan, {
@@ -1106,5 +1123,21 @@ describe('portable draft import', () => {
         payloadSha256,
       }),
     ).resolves.toEqual({ runId: 'portable-import:paged-plan', state: 'planned' })
+    await owner.mutation(api.portability.beginImportApply, {
+      runId: 'portable-import:paged-plan',
+      payloadSha256,
+    })
+    await expect(
+      owner.action(api.portability.applyImportBatch, {
+        runId: 'portable-import:paged-plan',
+        payloadSha256,
+      }),
+    ).resolves.toEqual({ committed: 10, complete: false })
+    await expect(
+      owner.action(api.portability.applyImportBatch, {
+        runId: 'portable-import:paged-plan',
+        payloadSha256,
+      }),
+    ).resolves.toEqual({ committed: 20, complete: false })
   })
 })

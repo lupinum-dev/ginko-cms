@@ -116,7 +116,6 @@ describe('ginko-cms content operator CLI', () => {
         if (path.endsWith(':appendImportPlanItems')) return null
         if (path.endsWith(':appendImportPlanAssets')) return null
         if (path.endsWith(':beginImportApply')) return { state: 'applying' }
-        if (path.endsWith(':applyImportItem')) return { status: 'committed' }
         if (path.endsWith(':beginImportVerification')) return { state: 'verifying' }
         if (path.endsWith(':finalizeImport')) return { state: 'complete' }
         if (path.endsWith(':abortExportRun')) return { state: 'aborted' }
@@ -126,6 +125,7 @@ describe('ginko-cms content operator CLI', () => {
         const path = pathOf(reference)
         calls.push({ kind: 'action', path, args })
         if (path.endsWith(':sealImportPlan')) return { runId: 'import-run-1' }
+        if (path.endsWith(':applyImportBatch')) return { committed: 1, complete: true }
         throw new Error(`Unexpected action ${path}`)
       },
     }

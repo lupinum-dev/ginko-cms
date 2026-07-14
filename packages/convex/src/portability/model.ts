@@ -1,9 +1,10 @@
+import { PORTABLE_IMPORT_LIMITS } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { canonicalJsonBytes, hashCanonicalJson } from '@lupinum/ginko-content/portability'
 
-export const PORTABLE_RUN_TTL_MS = 2 * 60 * 60 * 1_000
+export const PORTABLE_RUN_TTL_MS = PORTABLE_IMPORT_LIMITS.durationMs
 export const PORTABLE_PLAN_PAGE_LIMIT = 250
-export const PORTABLE_DOCUMENT_LIMIT = 100_000
+export const PORTABLE_DOCUMENT_LIMIT = PORTABLE_IMPORT_LIMITS.entries
 export const PORTABLE_ASSET_LIMIT = 100_000
 export const PORTABLE_ROW_BYTE_LIMIT = 256 * 1024
 export const PORTABLE_ASSET_BYTE_LIMIT = 25 * 1024 * 1024

@@ -108,7 +108,7 @@ describe('CMS portable draft import planning', () => {
         payload: expect.objectContaining({ effect: 'create', expectedDraftSha256: null }),
       }),
     ])
-    expect(first.documentsByItemKey[itemKey]).toEqual(document)
+    expect(first.items[0]?.document).toEqual(document)
     expect(first.blockers).toEqual([])
   })
 
@@ -144,6 +144,54 @@ describe('CMS portable draft import planning', () => {
       effect: 'update',
       expectedDraftSha256: 'f'.repeat(64),
     })
+  })
+
+  it('rejects an import whose distinct locale count exceeds the operational envelope', async () => {
+    const { contract, document } = fixture()
+    const documents = Array.from({ length: 101 }, (_, index) => ({
+      file: `content/posts/hello/locale-${index}.md`,
+      bytes: new Uint8Array(),
+      document: {
+        ...document,
+        locale: `locale-${index}`,
+      },
+    }))
+    const currentDraftSha256ByItemKey = new Map<string, null>()
+    for (const { document: candidate } of documents) {
+      currentDraftSha256ByItemKey.set(
+        await hashCanonicalJson({
+          collection: candidate.collection,
+          canonicalKey: candidate.canonicalKey,
+          locale: candidate.locale,
+        }),
+        null,
+      )
+    }
+
+    await expect(
+      createPortableDraftImportPlan(
+        {
+          contract,
+          documents,
+          assets: [],
+          manifest: {
+            format: 'ginko-content-portable',
+            version: 1,
+            contract: {
+              file: '.ginko/content-contract.json',
+              sha256: await hashCanonicalJson(contract),
+            },
+            documents: [],
+            assets: [],
+          },
+        },
+        {
+          deploymentId: 'deployment-test',
+          targetContractSha256: await hashCanonicalJson(contract),
+          currentDraftSha256ByItemKey,
+        },
+      ),
+    ).rejects.toThrow(/locale count exceeds 100/i)
   })
 
   it('discovers MDC assets and deterministically plans upload, reuse, and metadata conflicts', async () => {

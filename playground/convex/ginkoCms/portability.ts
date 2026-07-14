@@ -3,7 +3,7 @@ import {
   abortImport as abortImportArgs,
   appendImportPlanAssets as appendImportPlanAssetsArgs,
   appendImportPlanItems as appendImportPlanItemsArgs,
-  applyImportItem as applyImportItemArgs,
+  applyImportBatch as applyImportBatchArgs,
   beginImportApply as beginImportApplyArgs,
   beginPortableAssetUpload as beginPortableAssetUploadArgs,
   beginImportVerification as beginImportVerificationArgs,
@@ -99,10 +99,10 @@ export const beginImportApply = mutation({
     await ctx.runMutation(components.ginkoCms.portability.beginImportApply, args as never),
 })
 
-export const applyImportItem = mutation({
-  args: applyImportItemArgs.args,
+export const applyImportBatch = action({
+  args: applyImportBatchArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.applyImportItem, args as never),
+    await ctx.runAction(components.ginkoCms.portability.applyImportBatch, args as never),
 })
 
 export const beginImportVerification = mutation({

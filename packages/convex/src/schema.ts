@@ -198,6 +198,9 @@ export default defineSchema({
     stagedAssetCount: v.number(),
     initializedAssetCount: v.number(),
     initializedAttachedAssetCount: v.number(),
+    stagedLocales: v.array(v.string()),
+    stagedFieldValueCount: v.number(),
+    stagedRelationEdgeCount: v.number(),
     createdAt: v.number(),
     expiresAt: v.number(),
   })
@@ -206,11 +209,14 @@ export default defineSchema({
 
   portableImportPlanItems: defineTable({
     planId: v.string(),
+    applyOrder: v.number(),
     itemKey: v.string(),
     inputSha256: v.string(),
     payload: jsonObjectValidator,
+    document: jsonObjectValidator,
   })
     .index('by_plan_item', ['planId', 'itemKey'])
+    .index('by_plan_apply_order', ['planId', 'applyOrder'])
     .index('by_plan', ['planId']),
 
   portableImportPlanAssets: defineTable({
