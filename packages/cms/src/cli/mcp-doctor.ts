@@ -16,11 +16,11 @@ function hasHostDependency(cwd: string, name: string): boolean {
 export async function runMcpDoctor(cwd: string, io: CliIo): Promise<number> {
   let issues = 0
   const env = readLocalEnv(cwd)
-  const hasEnv = (key: string) => Boolean((process.env[key] ?? env[key])?.trim())
-  const hasBetterAuthBaseUrl =
-    hasEnv('GINKO_CMS_BETTER_AUTH_BASE_URL') ||
-    hasEnv('CONVEX_SITE_URL') ||
-    hasEnv('BETTER_AUTH_URL')
+  const readEnv = (key: string) => (process.env[key] ?? env[key])?.trim()
+  const hasEnv = (key: string) => Boolean(readEnv(key))
+  const explicitSiteUrl = readEnv('NUXT_PUBLIC_CONVEX_SITE_URL') ?? readEnv('CONVEX_SITE_URL')
+  const convexUrl = readEnv('NUXT_PUBLIC_CONVEX_URL') ?? readEnv('CONVEX_URL')
+  const hasResolvableSiteUrl = Boolean(explicitSiteUrl || canDeriveConvexSiteUrl(convexUrl))
   const convexSetupIssues = checkConvexComponentInstall(cwd)
   const checks = [
     {
@@ -29,9 +29,9 @@ export async function runMcpDoctor(cwd: string, io: CliIo): Promise<number> {
       fix: 'Set NUXT_PUBLIC_CONVEX_URL or CONVEX_URL in .env.local or the server environment.',
     },
     {
-      name: 'Better Auth base URL',
-      ok: hasBetterAuthBaseUrl,
-      fix: 'Set GINKO_CMS_BETTER_AUTH_BASE_URL, CONVEX_SITE_URL, or BETTER_AUTH_URL in .env.local or the server environment.',
+      name: 'Convex site URL',
+      ok: hasResolvableSiteUrl,
+      fix: 'Set NUXT_PUBLIC_CONVEX_SITE_URL or CONVEX_SITE_URL when the Convex site URL cannot be derived from the deployment URL.',
     },
     {
       name: 'secure-exec host dependency',
@@ -57,4 +57,17 @@ export async function runMcpDoctor(cwd: string, io: CliIo): Promise<number> {
     write(io.stderr, `After fixes, deploy Convex with: pnpm exec convex deploy --yes\n`)
   }
   return issues === 0 ? 0 : 1
+}
+
+function canDeriveConvexSiteUrl(value: string | undefined): boolean {
+  if (!value) return false
+  try {
+    const url = new URL(value)
+    return (
+      url.hostname.endsWith('.convex.cloud') ||
+      ((url.hostname === '127.0.0.1' || url.hostname === 'localhost') && url.port === '3210')
+    )
+  } catch {
+    return false
+  }
 }

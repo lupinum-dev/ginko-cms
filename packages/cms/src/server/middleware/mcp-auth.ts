@@ -1,4 +1,4 @@
-import { exchangeConvexToken, serverConvex } from 'better-convex-nuxt/server'
+import { exchangeConvexToken, normalizeSiteUrl, serverConvex } from 'better-convex-nuxt/server'
 import { createError, defineEventHandler, getRequestHeader, getRequestIP, type H3Event } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
 
@@ -94,50 +94,31 @@ export function resolveMcpClientIp(event: H3Event): string | null {
 /**
  * Resolve the Convex site origin used for the Better Auth token exchange.
  *
- * The deployment contract allows a value ending in exactly `/api/auth` (the
- * Better Auth base path), which normalizes back to its origin. A root value is
- * used as-is. Every other non-root path is rejected before any exchange, so a
- * misconfigured base URL can never redirect a credential elsewhere.
+ * `better-convex-nuxt` owns this normalized runtime value and the security
+ * validation applied before token exchange. Ginko must not independently
+ * resolve a second auth origin from process environment fallbacks.
  */
 export function resolveMcpSiteOrigin(event: H3Event): string {
   const runtimeConfig = useRuntimeConfig(event) as {
-    ginkoCms?: { betterAuthBaseUrl?: string }
     public?: { convex?: { siteUrl?: string } }
   }
-  const configured =
-    runtimeConfig.ginkoCms?.betterAuthBaseUrl ??
-    process.env.GINKO_CMS_BETTER_AUTH_BASE_URL ??
-    process.env.CONVEX_SITE_URL ??
-    process.env.BETTER_AUTH_URL ??
-    runtimeConfig.public?.convex?.siteUrl
+  const configured = runtimeConfig.public?.convex?.siteUrl
 
   if (!configured) {
     throw createError({
       statusCode: 503,
-      statusMessage: 'Better Auth API-key verification URL is not configured for MCP.',
+      statusMessage: 'Convex site URL is not configured for MCP token exchange.',
     })
   }
 
-  let url: URL
   try {
-    url = new URL(configured)
+    return normalizeSiteUrl(configured)
   } catch {
     throw createError({
       statusCode: 503,
-      statusMessage: 'Better Auth API-key verification URL is not a valid URL.',
+      statusMessage: 'Convex site URL is not valid for MCP token exchange.',
     })
   }
-
-  const path = url.pathname.replace(/\/+$/, '')
-  if (path === '' || path === '/api/auth') {
-    return url.origin
-  }
-
-  throw createError({
-    statusCode: 503,
-    statusMessage:
-      'Better Auth API-key verification URL must be a site origin or its /api/auth base.',
-  })
 }
 
 function decodeJwtPayload(token: string): Record<string, unknown> {

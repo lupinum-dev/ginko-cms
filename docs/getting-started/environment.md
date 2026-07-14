@@ -22,9 +22,9 @@ GINKO_FIRST_OWNER_EMAIL=owner@example.com
   content provider.
 - `CONVEX_URL`: server-side Convex URL used by CLI/server routes. It may match
   `NUXT_PUBLIC_CONVEX_URL`.
-- `CONVEX_SITE_URL`: Convex HTTP action site URL. MCP uses this to verify
-  Better Auth API keys through the host auth route unless
-  `GINKO_CMS_BETTER_AUTH_BASE_URL` is set.
+- `CONVEX_SITE_URL`: Convex HTTP action site URL. `better-convex-nuxt` resolves
+  it into the canonical `runtimeConfig.public.convex.siteUrl` used by MCP token
+  exchange.
 - `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for setup and
   collection contract sync admin transport.
 - `GINKO_FIRST_OWNER_EMAIL`: required until the first CMS owner has claimed
@@ -38,7 +38,6 @@ often needs them:
 
 ```bash
 NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
-GINKO_CMS_BETTER_AUTH_BASE_URL=https://your-deployment.convex.site/api/auth
 CONVEX_DEPLOYMENT=dev:your-deployment-name
 BETTER_AUTH_SECRET=long-random-secret
 SITE_URL=https://your-site.example
@@ -47,9 +46,6 @@ NUXT_PUBLIC_SITE_URL=https://your-site.example
 
 - `NUXT_PUBLIC_CONVEX_SITE_URL`: public Convex HTTP action site URL when the
   browser needs to call Convex HTTP actions.
-- `GINKO_CMS_BETTER_AUTH_BASE_URL`: optional override for the Better Auth base
-  route used by MCP API-key verification. Omit it when Better Auth is served at
-  `${CONVEX_SITE_URL}/api/auth`.
 - `CONVEX_DEPLOYMENT`: Convex CLI deployment name. Convex owns and writes this
   during project setup.
 - `BETTER_AUTH_SECRET`: required Better Auth session/signing secret. Runtime
@@ -84,8 +80,10 @@ Better Auth and CMS origins. `CONVEX_DEPLOY_KEY` is not an alternative product
 identity for these commands.
 
 The operator commands also use `CONVEX_DEPLOYMENT` to bind plans and runs,
-`CONVEX_SITE_URL` (or `GINKO_CMS_BETTER_AUTH_BASE_URL`) for token exchange, and
-`SITE_URL` (or `NUXT_PUBLIC_SITE_URL`) for authenticated asset byte transfer.
+`CONVEX_SITE_URL` for token exchange, and `SITE_URL` (or
+`NUXT_PUBLIC_SITE_URL`) for authenticated asset byte transfer. The CLI also
+accepts `GINKO_CMS_BETTER_AUTH_BASE_URL` as an explicit operator-only override;
+the Nuxt MCP runtime does not.
 See [Portable content export and import](../guides/filesystem-migration.md).
 
 ## Maintainer Smoke Tests

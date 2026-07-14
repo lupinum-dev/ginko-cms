@@ -91,9 +91,10 @@ Agent public-output changes are review-gated by default. Existing automation
 that expected direct publish/delete should be moved to draft, preview, and
 review-request workflows.
 
-The MCP server environment needs a Convex URL plus one Better Auth base URL
-source: `GINKO_CMS_BETTER_AUTH_BASE_URL`, `CONVEX_SITE_URL`, or
-`BETTER_AUTH_URL`. Keep `CONVEX_DEPLOY_KEY` for setup and contract sync only.
+The MCP server uses the normalized `runtimeConfig.public.convex.siteUrl` owned
+by `better-convex-nuxt`. Configure `convex.siteUrl` (or its supported Convex
+environment input) once; do not add a CMS-specific runtime auth origin. Keep
+`CONVEX_DEPLOY_KEY` for setup and contract sync only.
 
 ### Required v0.1.3 Credential Cutover
 

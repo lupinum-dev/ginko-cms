@@ -128,7 +128,12 @@ describe('ginko mcp auth middleware', () => {
     const source = await readFile(middlewarePath, 'utf8')
 
     expect(source).toContain('exchangeConvexToken')
+    expect(source).toContain('normalizeSiteUrl')
+    expect(source).toContain('runtimeConfig.public?.convex?.siteUrl')
     expect(source).not.toContain('/api-key/verify')
+    expect(source).not.toContain('process.env.GINKO_CMS_BETTER_AUTH_BASE_URL')
+    expect(source).not.toContain('process.env.CONVEX_SITE_URL')
+    expect(source).not.toContain('process.env.BETTER_AUTH_URL')
     // The raw JWT is never fetched twice nor stored in the middleware itself.
     expect(source).not.toContain('convexAuthToken')
   })

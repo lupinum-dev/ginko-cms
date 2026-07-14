@@ -66,6 +66,9 @@
 - Made the contract-validated `can` map the sole access-context permission
   surface and derive it from the backend guard registry. The undocumented
   duplicate `permissions` alias was removed.
+- Made `runtimeConfig.public.convex.siteUrl` from `better-convex-nuxt` the sole
+  Nuxt MCP token-exchange origin, removing CMS-specific request-time environment
+  fallbacks.
 
 ### Removed
 
