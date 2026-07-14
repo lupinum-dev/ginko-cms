@@ -904,7 +904,7 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
               <div class="ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3">
-                <h2 class="studio-text-title">Latest workspace activity</h2>
+                <h2 class="studio-text-title">Latest CMS activity</h2>
               </div>
               <div v-if="recentActivity.length" class="ginko:divide-y ginko:divide-border/70">
                 <div v-for="item in recentActivity" :key="item._id" class="ginko:px-4 ginko:py-3">
