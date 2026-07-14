@@ -1806,3 +1806,88 @@ Updated to `implemented`: `Revalidation boundary`,
 `Stable operational cursors`, `Ginko Content public ownership`, and
 `Public query budget`. WP7 owns the maintainability and public-surface freeze;
 WP8/WP9 still own final clean, exact-tuple release certification.
+
+## 2026-07-14 — WP7 Contract Ownership And Public-Surface Freeze
+
+### Objective and hard cutover
+
+Remove duplicate or imaginary vNext surfaces before freezing package exports.
+Ginko Content now directly owns the CMS-neutral MDC/path/slug contract through
+`@lupinum/ginko-content/cms-contract`; CMS Convex imports that contract instead
+of carrying a 619-line synchronized vendor copy. The vendor tree, sync script,
+manifest, and parity test were deleted. No fallback copy, adapter, or dual path
+remains.
+
+The same hard-cutover rule removed module options and declarations that did not
+have a working product path: `search`, `siteData`, `forms`, the nonexistent
+`GINKO_CONTENT_PROVIDER_SITE` environment variable, outbox `siteId`, unused
+webhook/publish outbox variants, fake public-read metadata, Studio
+`workspaceId`/`plan` access facts, and the unused webhook settings mutation.
+Content policy is the single locale source; Studio reads the resulting locale
+projection through `getStudioSettings`.
+
+### Frozen package and maintainability boundaries
+
+- Contract field and schema exports are explicit subpaths rather than wildcard
+  patterns. The duplicate Convex `./_generated/component.js` export was removed;
+  `./component` is the one supported component entrypoint.
+- The packed-consumer gate derives every public runtime specifier from package
+  manifests, imports each one, resolves each type entry, and proves selected
+  private/deleted paths fail with `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+- Every package now states the actual Node.js floor, `>=22.0.0`.
+- Asset-finder types and pure filtering helpers moved out of the two largest
+  Studio modules, and mobile scope/filter controls became focused components.
+  The browser is 2,115 lines and the finder composable is 979 lines. These are
+  still large review areas, so a handwritten-module size guard holds them below
+  their current ceilings while later refactors can reduce them further.
+
+### Verification and exact development evidence
+
+- `pnpm run prepare:component`: passed using the direct Content contract and
+  regenerated the checked Convex API files.
+- `pnpm run check`: passed formatting, architecture/generated-surface guards,
+  lint, every package and Studio typecheck/build, publish-specifier checks, and
+  the complete suite: 124 files passed plus one gated skip; 928 tests passed
+  plus one skip.
+- `package:e2e:dev`: packed the WP7 source, installed only the exact artifacts
+  in a fresh strict pnpm consumer, and passed initialization, doctor, Nuxt/Nitro
+  production build, every manifest-derived runtime and type import, private
+  subpath rejection, and portable-content verification.
+
+Exact development artifact bytes:
+
+- Certified temporary Content artifact from `fe24e4a`:
+  `12253bbddb77a65ef84af86dbd94b253102d615b93596b8422b6323644800cc4`.
+- Better Convex Nuxt from clean `dda45f9`:
+  `46043aef29efc6087e4aa3fe90d88862fb6d57ac9fb96677adeff5672c4676fb`.
+- CMS Contract:
+  `24d7cdc6ebdcacf6d4c67ee9ff923e2beb93c048d75386404a6ab4276a00e4ad`.
+- CMS Convex:
+  `c7e67555fa43a5f671504a78bbb4e74a19a23ba391c6933115b476d3c6f8a7b4`.
+- CMS:
+  `40784b36f6c8aa0b8d8014ef8caacddd8859e90c0ed67257c2c7fa87b516b8d4`.
+- Lockfile:
+  `b054deb7879e5d2d5fd25e3b71d3b93f199b08487cbf0148ec18e93586b10ecc`.
+
+These are development artifacts, not release candidates. CMS still uses the
+certified `fe24e4a` bytes until the Ginko Content product owner supplies the
+final clean `0.3.0-rc.1` commit, reproducible tarball, SHA-256, and complete
+gate results. `0add0822` is not accepted as the dependency commit.
+
+### Reviewer focus and next phase
+
+Source commit: `7a472cb7` —
+`refactor!: remove duplicate vNext contracts and phantom surfaces`.
+
+The strongest part of this slice is the deletion-first ownership cutover: the
+MDC/path contract and locale policy now each have one source of truth, and the
+packed test derives its assertions from the manifests instead of maintaining a
+second export list. Review should concentrate on the intentionally breaking
+surface deletions, the generated Convex API delta, and the remaining large
+asset browser/finder modules. The new size guard prevents regression but does
+not claim those modules are finished abstractions.
+
+Updated to `implemented`: `Direct Content contract` and
+`Phantom surface deletion`. WP8/WP9 own final version alignment, exact clean
+two-pack reproducibility, documentation/release notes, and candidate
+certification against Content `0.3.0-rc.1`.
