@@ -278,16 +278,11 @@ async function assertNoCanonicalDraftPathConflict(
   }
 }
 
-export const saveEntryDraftOperation = defineCmsOperation({
+const saveEntryDraftDefinition = defineCmsOperation({
   id: 'ginko-cms.save-entry-draft',
-  name: 'save-entry-draft',
-  kind: 'safe',
-  safety: 'bounded-write',
-  executeFunctionRef: 'entries/draft:saveEntryDraft',
   args: saveEntryDraftArgs.args,
   guard: canEditEntries,
   returns: draftSaveResultValidator,
-  load: async () => undefined,
   handler: async (ctx, args) => {
     const { appIdentityId, collection, entry, now } = await loadEntryMutationContext(
       ctx,
@@ -359,7 +354,7 @@ export const saveEntryDraftOperation = defineCmsOperation({
   },
 })
 
-export const saveEntryDraft = callerMutation.protected(saveEntryDraftOperation)
+export const saveEntryDraft = callerMutation.protected(saveEntryDraftDefinition)
 
 export const mcpSaveEntryDraft = callerMutation.protected({
   id: 'editor:mcpSaveEntryDraft',
@@ -372,7 +367,7 @@ export const mcpSaveEntryDraft = callerMutation.protected({
   handler: async (ctx, args) => {
     const { agentRunId, ...input } = args
     await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.save-entry-draft')
-    return await saveEntryDraftOperation.handler(ctx, input)
+    return await saveEntryDraftDefinition.handler(ctx, input)
   },
 })
 

@@ -7,7 +7,6 @@ const CONFIRMATION_CLEANUP_BATCH_SIZE = 100
 
 export {
   deleteAssetOperation,
-  moveAssetOperation,
   previewDeleteAssetOperation,
   previewPurgeAssetOperation,
   purgeAssetOperation,
@@ -20,7 +19,6 @@ export {
 } from './revalidation.js'
 export { deleteSiteDataBlockOperation, previewDeleteSiteDataBlockOperation } from './siteData.js'
 export {
-  saveEntryDraftOperation,
   revertDraftToPublishedOperation,
   previewRevertDraftToPublishedOperation,
 } from './entries/draft.js'
@@ -29,13 +27,11 @@ export {
   previewArchiveEntryOperation,
   publishEntryOperation,
   previewPublishEntryOperation,
-  restoreEntryOperation,
   rollbackVersionOperation,
   previewRollbackVersionOperation,
   unpublishEntryOperation,
   previewUnpublishEntryOperation,
 } from './entries/publish.js'
-export { createEntryOperation } from './entries/tree.js'
 
 export const cleanupExpiredConfirmations = internalMutation({
   args: {

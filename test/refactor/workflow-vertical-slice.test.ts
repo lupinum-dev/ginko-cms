@@ -33,14 +33,6 @@ type CmsOperationRef = {
   previewRef?: FunctionReference<'mutation'>
 }
 
-const createEntryOperation: CmsOperationRef = {
-  id: 'ginko-cms.create-entry',
-  executeRef: api.entries.tree.createEntry,
-}
-const saveEntryDraftOperation: CmsOperationRef = {
-  id: 'ginko-cms.save-entry-draft',
-  executeRef: api.entries.draft.saveEntryDraft,
-}
 const publishEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.publish-entry',
   executeRef: api.entries.publish.publishEntryOperationExecute,
@@ -69,11 +61,11 @@ function workflowClient(ctx: ReturnType<typeof createCtx>, userId: string) {
 type WorkflowClient = ReturnType<typeof workflowClient>
 
 async function createEntry(owner: WorkflowClient, args: Record<string, unknown>) {
-  return (await owner.operation(createEntryOperation).execute(args)) as string
+  return (await owner.mutation(api.entries.tree.createEntry, args as never)) as string
 }
 
 async function saveEntryDraft(owner: WorkflowClient, args: Record<string, unknown>) {
-  return await owner.operation(saveEntryDraftOperation).execute(args)
+  return await owner.mutation(api.entries.draft.saveEntryDraft, args as never)
 }
 
 async function seedFixture(ctx: ReturnType<typeof createCtx>) {

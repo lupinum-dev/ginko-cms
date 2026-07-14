@@ -14,18 +14,6 @@ type CmsOperationRef = {
   previewRef?: FunctionReference<'mutation'>
 }
 
-const createEntryOperation: CmsOperationRef = {
-  id: 'ginko-cms.create-entry',
-  executeRef: api.entries.tree.createEntry,
-}
-const saveEntryDraftOperation: CmsOperationRef = {
-  id: 'ginko-cms.save-entry-draft',
-  executeRef: api.entries.draft.saveEntryDraft,
-}
-const moveAssetOperation: CmsOperationRef = {
-  id: 'ginko-cms.move-asset',
-  executeRef: api.assets.moveAsset,
-}
 const publishEntryOperation: CmsOperationRef = {
   id: 'ginko-cms.publish-entry',
   executeRef: api.entries.publish.publishEntryOperationExecute,
@@ -50,10 +38,6 @@ const revertDraftToPublishedOperation: CmsOperationRef = {
   id: 'ginko-cms.revert-draft-to-published',
   executeRef: api.entries.draft.revertDraftToPublishedOperationExecute,
   previewRef: api.entries.draft.previewRevertDraftToPublishedOperation,
-}
-const restoreEntryOperation: CmsOperationRef = {
-  id: 'ginko-cms.restore-entry',
-  executeRef: api.entries.publish.restoreEntry,
 }
 
 function createCmsCallerClient(
@@ -88,15 +72,13 @@ function createCmsCallerClient(
     operation: <TOperation extends CmsOperationRef>(operation: TOperation) =>
       createOperationClient(authed(), operation),
     createEntry: async (args: Record<string, unknown>): Promise<string> =>
-      (await createOperationClient(authed(), createEntryOperation).execute(args)) as string,
+      (await authed().mutation(api.entries.tree.createEntry, args as never)) as string,
     saveEntryDraft: async (args: Record<string, unknown>): Promise<DraftSaveResult> =>
-      (await createOperationClient(authed(), saveEntryDraftOperation).execute(
-        args,
-      )) as DraftSaveResult,
+      (await authed().mutation(api.entries.draft.saveEntryDraft, args as never)) as DraftSaveResult,
     moveAsset: async (args: Record<string, unknown>): Promise<null> =>
-      (await createOperationClient(authed(), moveAssetOperation).execute(args)) as null,
+      (await authed().mutation(api.assets.moveAsset, args as never)) as null,
     restoreEntry: async (args: Record<string, unknown>): Promise<null> =>
-      (await createOperationClient(authed(), restoreEntryOperation).execute(args)) as null,
+      (await authed().mutation(api.entries.publish.restoreEntry, args as never)) as null,
   }
 }
 

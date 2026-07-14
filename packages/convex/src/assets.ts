@@ -882,16 +882,11 @@ export const updateAsset = callerMutation.protected({
   },
 })
 
-export const moveAssetOperation = defineCmsOperation({
+export const moveAsset = callerMutation.protected({
   id: 'ginko-cms.move-asset',
-  name: 'move-asset',
-  kind: 'safe',
-  safety: 'bounded-write',
-  executeFunctionRef: 'assets:moveAsset',
   args: moveAssetArgs.args,
   guard: canManageAssets,
   returns: v.null(),
-  load: async () => undefined,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const { entryId, collectionId } = await validateAssetScopeRelationships(ctx, args)
@@ -909,8 +904,6 @@ export const moveAssetOperation = defineCmsOperation({
     return null
   },
 })
-
-export const moveAsset = callerMutation.protected(moveAssetOperation)
 
 export const getAsset = callerQuery.protected({
   id: 'assets:getAsset',

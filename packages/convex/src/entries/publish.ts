@@ -471,16 +471,11 @@ export const previewArchiveEntryOperation = callerMutation.protected(
   }),
 )
 
-export const restoreEntryOperation = defineCmsOperation({
+export const restoreEntry = callerMutation.protected({
   id: 'ginko-cms.restore-entry',
-  name: 'restore-entry',
-  kind: 'safe',
-  safety: 'bounded-write',
-  executeFunctionRef: 'entries/publish:restoreEntry',
   args: restoreEntryArgs.args,
   guard: canArchiveEntries,
   returns: v.null(),
-  load: async () => undefined,
   handler: async (ctx, args) => {
     const { appIdentityId, entry, now } = await loadEntryMutationContext(ctx, args.entryId)
     if (entry.status !== 'archived') {
@@ -506,8 +501,6 @@ export const restoreEntryOperation = defineCmsOperation({
     return null
   },
 })
-
-export const restoreEntry = callerMutation.protected(restoreEntryOperation)
 
 export const rollbackVersionOperation = defineCmsOperation({
   id: 'ginko-cms.rollback-version',

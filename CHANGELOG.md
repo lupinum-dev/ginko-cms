@@ -71,6 +71,9 @@
   fallbacks.
 - Generated Better Auth HTTP setup now uses the component's maintained lazy
   route registration API.
+- Safe create, draft-save, asset-move, and entry-restore writes are now direct
+  protected mutations. The operation export surface is reserved for writes that
+  actually require preview and confirmation.
 
 ### Removed
 

@@ -18,16 +18,11 @@ import { moveEntryInTree } from './placement.js'
 import { createCanonicalEntry } from './workflow/commands.js'
 import { publicPathForLocaleSnapshot } from './workflow/path.js'
 
-export const createEntryOperation = defineCmsOperation({
+const createEntryDefinition = defineCmsOperation({
   id: 'ginko-cms.create-entry',
-  name: 'create-entry',
-  kind: 'safe',
-  safety: 'bounded-write',
-  executeFunctionRef: 'entries/tree:createEntry',
   args: createEntryArgs.args,
   guard: canCreateEntries,
   returns: v.string(),
-  load: async () => undefined,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     return String(
@@ -46,7 +41,7 @@ export const createEntryOperation = defineCmsOperation({
   },
 })
 
-export const createEntry = callerMutation.protected(createEntryOperation)
+export const createEntry = callerMutation.protected(createEntryDefinition)
 
 export const mcpCreateEntry = callerMutation.protected({
   id: 'editor:mcpCreateEntry',
@@ -98,7 +93,7 @@ export const mcpCreateEntry = callerMutation.protected({
       .take(25)
     await Promise.all(expiredReceipts.map((expired) => ctx.db.delete(expired._id)))
 
-    const entryId = await createEntryOperation.handler(ctx, input)
+    const entryId = await createEntryDefinition.handler(ctx, input)
     await ctx.db.insert('mcpCreateEntryReceipts', {
       callerKey,
       apiKeyId: appIdentity.audit.apiKeyId,
