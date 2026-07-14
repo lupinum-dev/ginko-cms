@@ -77,6 +77,8 @@
 - Replaced migration-era vocabulary and deleted-model scanners with a focused
   release-hygiene check for template parity, private local paths, and tracked
   build artifacts.
+- Destructive preview functions now validate their shared result envelope
+  instead of accepting arbitrary return values.
 
 ### Removed
 

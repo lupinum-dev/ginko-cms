@@ -146,7 +146,23 @@ export function blockedPreview(input: PreviewInput & { blocker?: unknown }) {
 }
 
 export function previewResultValidator() {
-  return v.any()
+  return v.object({
+    allowed: v.boolean(),
+    blockers: v.array(v.any()),
+    warnings: v.array(v.any()),
+    effects: v.array(v.any()),
+    summary: v.string(),
+    details: v.any(),
+    confirm: v.any(),
+    confirmation: v.union(
+      v.object({
+        token: v.string(),
+        expiresAt: v.number(),
+      }),
+      v.null(),
+    ),
+    version: v.any(),
+  })
 }
 
 export async function executeDestructiveOperation(
