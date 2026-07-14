@@ -730,3 +730,116 @@ Consume the exact accepted Content tarball in Ginko CMS and implement the
 direct import-first portability run/receipt vertical slice. No CMS-local codec,
 generic transaction port, Studio bulk UI, or MCP portability authority is
 authorized.
+
+## 2026-07-14 — Phase E1 Deterministic Asset-Free Draft Import
+
+### Objective and acceptance criteria
+
+Replace the legacy filesystem scanner and summary-only bulk import mutation
+with one direct Ginko Content directory-to-CMS draft path. This work package
+had to consume the exact accepted Content artifact, bind immutable plans to the
+deployment, caller, scope, contract and canonical row hashes, page plan writes
+and sealing, guard draft updates with the inspected portable hash, make item
+application safe after a lost response, keep run transitions closed, and never
+publish. Asset-bearing imports were required to fail before creating a server
+plan until the separate staged-transfer work package exists.
+
+### Repository ownership and design
+
+- Ginko CMS now resolves Ginko Content through one exact pnpm override to the
+  accepted development tarball. Vitest sibling-source aliases and the Content
+  workspace entries were removed, so CMS tests and builds exercise the packed
+  public `./portability` and `./portability/node` entries.
+- `@lupinum/ginko-cms/portability` is a direct command surface: it verifies a
+  Content directory, inspects current draft hashes in pages of 250, creates and
+  appends an immutable plan, seals it, then applies documents in structural
+  parent/relation order. It does not expose a generic source or target port.
+- Convex stores one canonical portability plan/run/receipt model. Plan rows are
+  limited to 250 per mutation and 256 KiB each; sealing incrementally hashes
+  ordered pages rather than collecting the plan in one transaction. Runs use a
+  two-hour deadline and the closed import states `planned`, `applying`,
+  `verifying`, `complete`, `aborted`, and `expired`.
+- Item application checks the receipt before the effect. The same
+  `(runId,itemKey,inputSha256)` replays the committed receipt; changed input
+  fails. Create and update write drafts only, skip is explicit, and finalize
+  checks derived committed counts before recording its bounded receipt.
+- Portable relations are converted structurally to stored canonical IDs and
+  reconstructed structurally for later guarded inspection. External asset
+  references accept canonical HTTPS values. Local asset blobs are an explicit
+  plan blocker in this work package; no substring rewriting or remote download
+  path was retained.
+- Bulk portability requires a current owner membership and the user origin.
+  Publisher, editor, viewer, and MCP credentials are rejected even when an MCP
+  credential claims a portability-named scope.
+- Generated Convex component and playground bindings were regenerated from the
+  new contract and bridge. The large generated component file was not edited by
+  hand.
+
+### Hard cutover
+
+Deleted the old `collections/import` mutation, `collectionImportRuns` table and
+diagnostics, auto-publish import path, `@lupinum/ginko-cms/migration` scanner and
+caller adapter, regex/substr asset rewriting, import validators, Studio import
+page/queue/navigation/API, host bridge files, and their legacy component and
+shared tests. The package export, build extras, template inventory, generated
+bridges, package-boundary assertions, workflow tests, dashboard text, and
+operator guide now name only the portability path. No compatibility shim,
+feature flag, or dual ledger remains.
+
+### Test-first and adversarial evidence
+
+The new component and host tests cover role and MCP denial, exact Content
+directory reading, deterministic plans, create/update/skip decisions, local
+asset blocking, lost-successful-response replay, changed-input rejection,
+draft-only finalization, stale guarded updates, 251-row multi-page sealing,
+structural relation storage and portable re-inspection, and closed abort/expiry
+states. The relation re-inspection test first failed because stored canonical
+IDs were being passed back to the Content validator as strings; the direct
+structural reverse conversion fixed the model without string scanning.
+
+The complete test gate initially found one pre-existing authorization-matrix
+assumption that every permission accepts an equivalently scoped MCP key. The
+matrix now records the intentional `managePortability` exception instead of
+weakening the owner/user-only guard. No compatibility authority was added.
+
+### Commands and results
+
+- Exact packed Node imports of `@lupinum/ginko-content/portability` and
+  `@lupinum/ginko-content/portability/node`: passed through the installed CMS
+  dependency graph.
+- Focused portability and authorization suite: 3 files and 29 tests passed.
+- `pnpm run format` and `pnpm run format:check`: passed.
+- `pnpm run lint`, including auth-boundary, Convex-surface, vendor parity,
+  documentation, compatibility, content-model, stale-surface, template-sync,
+  and ESLint checks: passed.
+- `pnpm run typecheck`, including contract builds, Convex typecheck, CMS/Nuxt
+  build, playground preparation, Vue typecheck, and Studio typecheck: passed.
+- `pnpm run test`: passed with exit status 0. The intentionally environment-
+  gated module boot scenarios remained skipped.
+- `pnpm run prepare:component` and offline playground Convex code generation:
+  passed after the portability contract build.
+- `git diff --check`: passed before commit.
+- Ginko Content remained clean at
+  `3aff1b68def4d562585b22964e92d0a40573262c`.
+- Better Convex Nuxt remained read-only at
+  `467aa0eeb24d26b3695482420807c892959fc683`; its pre-existing dirty worktree
+  was not modified.
+
+### Immutable development artifact and commit
+
+- Consumed path:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.3aff1b68def4.02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579.tgz`
+- Verified SHA-256:
+  `02f6f28517fc9a41844b74f80915731ae60c73c546ab2afee94185f4090a4579`
+- Ginko CMS: `e4d8a006` — `feat!: add deterministic draft import`
+
+### Acceptance matrix and next phase
+
+No additional row is marked implemented yet. `Portable conflict and retry
+safety`, `Bounded import and archive parsing`, and `Bidirectional semantic round
+trip` remain open until staged assets, cleanup fault injection, published
+export, and the complete round trip pass. The next work package first corrects
+the Content MDC structural asset collector/rewriter, packs a new immutable
+Content artifact, then implements CMS run-owned asset staging and cleanup. The
+current `portableImportPlanAssets` table is reserved for that specified row
+shape and is not a second active asset authority.
