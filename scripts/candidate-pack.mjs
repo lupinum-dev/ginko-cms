@@ -152,7 +152,10 @@ const betterConvexNuxtRoot = resolve(
 )
 const contentTarball = resolve(
   process.env.GINKO_CONTENT_TARBALL ??
-    resolve(contentRoot, '.pack/candidate/lupinum-ginko-content-0.4.0-rc.1.tgz'),
+    resolve(
+      contentRoot,
+      `.pack/candidate/lupinum-ginko-content-${compatibility.releaseStack['@lupinum/ginko-content']}.tgz`,
+    ),
 )
 const betterConvexNuxtTarball = resolve(
   process.env.BETTER_CONVEX_NUXT_TARBALL ??

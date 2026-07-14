@@ -39,6 +39,7 @@
     "package:e2e:dev": "node scripts/package-e2e.mjs --dev-sources",
     "package:e2e:registry": "node scripts/package-e2e.mjs --registry-deps",
     "package:e2e:live": "node scripts/package-e2e.mjs --candidate --live",
+    "dev:pack": "node scripts/dev-pack.mjs",
     "candidate:pack": "node scripts/candidate-pack.mjs",
     "release:verify": "pnpm run check && pnpm run package:e2e:dev && pnpm run audit:prod",
     "release:verify:candidate": "pnpm run check && pnpm run package:e2e && pnpm run package:e2e:npm && pnpm run audit:prod",

@@ -13,6 +13,7 @@ describe('coordinated CMS candidate release contract', () => {
     }>('packages/cms/compatibility.json')
 
     expect(workspace.scripts['candidate:pack']).toBe('node scripts/candidate-pack.mjs')
+    expect(workspace.scripts['dev:pack']).toBe('node scripts/dev-pack.mjs')
     expect(workspace.scripts['package:e2e:npm']).toBe(
       'node scripts/package-e2e.mjs --candidate --package-manager npm',
     )
@@ -43,6 +44,17 @@ describe('coordinated CMS candidate release contract', () => {
     }
   })
 
+  it('keeps dirty development artifacts immutable and separate from candidates', () => {
+    const source = readFileSync('scripts/dev-pack.mjs', 'utf8')
+
+    expect(source).toContain("'.pack/dev'")
+    expect(source).toContain('ginko-cms-development-artifact')
+    expect(source).toContain('worktreeDirty')
+    expect(source).toContain('Development artifact already exists')
+    expect(source).not.toContain('compatibility.json')
+    expect(source).not.toContain('release-evidence')
+  })
+
   it('takes candidate hashes only from compatibility', () => {
     const source = readFileSync('scripts/package-e2e.mjs', 'utf8')
 
@@ -61,5 +73,18 @@ describe('coordinated CMS candidate release contract', () => {
     expect(lockfile).not.toContain('127.0.0.1')
     expect(lockfile).not.toContain('.pack/')
     expect(() => readFileSync('.npmrc', 'utf8')).toThrow()
+  })
+
+  it('keeps CI on immutable compatibility commits without legacy sibling setup', () => {
+    const workflow = readFileSync('.github/workflows/ci.yml', 'utf8')
+
+    expect(workflow).not.toContain('lupinum-dev/trellis')
+    expect(workflow).not.toContain('TRELLIS_CI_REF')
+    expect(workflow).not.toContain('GINKO_CONTENT_CI_REF')
+    expect(workflow).not.toContain('--lockfile-only')
+    expect(workflow).toContain('steps.compatibility.outputs.content_commit')
+    expect(workflow).toContain('steps.compatibility.outputs.better_convex_nuxt_commit')
+    expect(workflow).toContain('pnpm run candidate:pack')
+    expect(workflow).toContain('pnpm run release:verify:candidate')
   })
 })
