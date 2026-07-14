@@ -1279,3 +1279,83 @@ probes. `Bidirectional semantic round trip` remains open because a codec fixture
 round trip is not the required filesystem -> CMS -> filesystem and CMS ->
 filesystem -> CMS proof. That coordinated semantic proof is the next work
 package; no acceptance claim is borrowed from this narrower runtime gate.
+
+## 2026-07-14 — Coordinated Bidirectional Semantic Round Trip
+
+### Objective and acceptance criteria
+
+Prove the two real product directions through Ginko Content directories and the
+CMS operation layer: filesystem -> CMS draft -> explicit publish -> immutable
+filesystem export, then exported filesystem -> a fresh CMS. Acceptance required
+semantic equality for plain Markdown, registered MDC, YAML, and JSON
+collections, including nested objects, arrays, nulls, dates represented in JSON,
+and Unicode. A second import of the exported directory had to resolve every CMS
+draft as an exact `skip`, proving the CMS-side canonical hashes survived the
+reverse direction.
+
+### Test-first defect and direct correction
+
+The first test fixture was corrected to obey the existing data-collection
+topology (`slug: ""`). The component harness then needed a test-only reference
+mapper because package orchestration addresses the host bridge while
+`convex-test` loads the component functions directly. Once those harness facts
+were correct, the test failed in `portablePublishedDocument` with
+`DOCUMENT_INVALID`.
+
+The product defect was that published revision snapshots intentionally include
+shared values in each locale snapshot, but portability export passed every
+present locale value to the localized projection. Shared fields therefore
+appeared in both `shared` and `localized`. The same conversion also constructed
+an MDC body for YAML/JSON data documents, whose canonical body must be `null`.
+
+The fix keeps the installed Content contract as the only classification source:
+shared and localized output each filter the collection fields by the canonical
+`localized` flag, and one small body helper returns `null` unless the collection
+portable format is MDC. The same helper is used for current-draft hashing and
+published export so guarded import comparisons and export cannot drift. A
+brief attempt to model data collections as an entry `nodeKind` was rejected and
+removed: the existing entry model uses routing/collection policy for data-only
+semantics, and its node-kind vocabulary is deliberately page/tree oriented.
+
+No adapter, format, storage table, bridge export, compatibility path, or second
+semantic model was added. Import remains draft-only and the test invokes the
+existing confirmed publish operation explicitly.
+
+### Executable evidence
+
+- Expected product red: real published export failed with
+  `DOCUMENT_INVALID` after importing and publishing the four-format directory.
+- Green coordinated test: a real temporary Content directory containing plain
+  Markdown, registered MDC, YAML, and JSON passed filesystem -> CMS ->
+  filesystem semantic comparison. Import into a fresh CMS produced four
+  `create` effects; preparing the identical directory again produced four
+  `skip` effects from current CMS draft hashes.
+- Focused portability slice: 5 files and 29 tests passed.
+- `pnpm run prepare:component`: passed; the public component surface did not
+  change, so regenerated bindings remained byte-identical.
+- Focused Oxfmt, ESLint, and Convex typecheck passed.
+- `pnpm run check` passed formatting over 913 files, all lint/policy guards,
+  Contract typecheck/build, Convex typecheck/build, CMS package build, and Studio
+  production build. It then stopped only at the previously recorded external
+  playground fixture: stale `playground/convex/_generated/api.d.ts` has no
+  `components` export. No generated host declaration was edited to conceal it.
+- The gates after that external boundary were run directly:
+  `check:publish-specifiers` and `studio:typecheck` passed; the full test suite
+  passed 120 files with 1 environment-gated skip and 922 tests with 1 skip.
+- `git diff --check` passed before commit.
+
+### Artifact, commit, and acceptance matrix
+
+The test consumed the immutable accepted Ginko Content artifact already pinned
+by CMS:
+`/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz`
+— SHA-256
+`285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401`.
+
+- Ginko CMS: `d7a40081` —
+  `fix!: preserve semantic portability round trips`.
+
+`Bidirectional semantic round trip` is now `implemented`. The evidence crosses
+the actual Node directory codec, CMS import planning/apply, confirmed publish,
+immutable published export, and a fresh CMS import. Packed-candidate and browser
+rendering parity remain later release gates and are not claimed by this row.
