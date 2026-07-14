@@ -1514,3 +1514,100 @@ The coordinating commits are `29c4f387`, `610a600e`, `e4e7c3c8`, `e0d5bc0e`,
 `0884b58d`, and `837fb478`. Their evidence is intentionally classified as
 intermediate: subsequent WP4-WP8A source changes invalidate the CMS artifact
 and require a new clean two-pack candidate before any matrix row is closed.
+
+## 2026-07-14 — WP4 Identity-Safe Studio State
+
+### Objective and acceptance criteria
+
+Retire all private Studio state when the authenticated identity, arguments,
+pagination generation, or Vue scope changes; prevent stale async work from
+transforming or committing; deduplicate same-cursor page requests; and preserve
+the exact generated component arguments and returns through the Studio host
+allowlist. Acceptance required A-to-B and sign-out transitions, same-identity
+token rotation, callbacks queued by retired clients, post-unmount refresh/reset,
+mutation/action/upload settlement after disposal, cursor concurrency, local
+compile-time equality, and a fresh packed host consumer.
+
+### Repository ownership, files, and hard cutovers
+
+- Ginko CMS owns all implementation and tests. Ginko Content was consumed only
+  through its exact clean candidate. Better Convex Nuxt was built and packed as
+  read-only evidence and remains clean at `dda45f9`.
+- `useCmsAuthState`, the query and paginated-query composables, and
+  `useStudioConvex` now guard state and callbacks with identity, operation, and
+  disposal generations. Pagination also owns one in-flight cursor.
+- Deleted the fake immediately-resolving `PromiseLike` query surface and the
+  `hadReadyStudioAccess` state that could retain outgoing private UI.
+- Added one private one-shot operation-scope helper for mutations, actions, and
+  uploads. It was not generalized into a framework or exported from the
+  package. Asset registration and deletion now use these guarded helpers rather
+  than bypassing them through the raw client.
+- The runtime Studio allowlist remains the single descriptor, but its mapped
+  type now derives exact arguments and returns from the generated component API.
+  Descriptor metadata names internal execute functions for confirmed public
+  wrappers without adding a second surface authority.
+- Exact typing exposed real erased-type mistakes in editor, asset, settings,
+  search, and page consumers. Those call sites now use the actual bridge
+  contracts. Studio search was simplified to the real collection-scoped public
+  search API; the nonexistent optional `collections` argument was deleted.
+- Added `test/runtime/studio-operation-scope.test.ts`; expanded the Studio query
+  lifecycle suite and compile-time surface assertions. No generated Convex file
+  was edited.
+
+### Test-first evidence and corrections
+
+The new focused cases were red before implementation: retired callbacks still
+transformed values, disposed helpers could reacquire or commit, query objects
+were promise-like without a settlement contract, duplicate cursor loads
+dispatched twice, and async mutation/action/upload completions updated retired
+state. Replacing broad bridge references with exact generated types then
+produced 32 compile errors, revealing the previously hidden argument and return
+assumptions; the call sites were corrected rather than weakening the types.
+
+Focused green evidence:
+
+- Studio lifecycle, operation-scope, host-bridge, browser-guard, workflow, and
+  module boot slice: 8 files and 99 tests passed.
+- The narrow query/operation adversarial slice: 2 files and 13 tests passed.
+- CMS package typecheck, including generated consumer API equality, Studio
+  typecheck, and both production builds passed.
+- `pnpm check` passed formatting, every architecture/lint guard, all package and
+  Studio typechecks/builds, publish-specifier checks, and 122 test files with one
+  gated skip / 934 tests with one skip.
+
+The first repository-gate attempts found only integration cleanup in the new
+work: a public test title used the internal word “principal”, one removed
+pagination constraint left an unused import, and that deletion needed Oxfmt.
+After those direct corrections, the uninterrupted full gate above passed.
+
+### Packed runtime evidence and artifacts
+
+`package:e2e:dev` built the dirty WP4 sources, packed every package, installed
+them into a fresh strict pnpm consumer, generated the host setup, and passed
+doctor, typecheck, Nuxt/Nitro production build, runtime package imports, and
+portable content verification. Exact bytes:
+
+- Content candidate:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/lupinum-ginko-content-0.4.0-rc.1.tgz`
+  — `12253bbddb77a65ef84af86dbd94b253102d615b93596b8422b6323644800cc4`.
+- CMS Contract: `6a81d799e275d207c39bd636f5e48f6ceb65892ee20eadc2bb5dce6f55ac0078`.
+- CMS Convex: `e87672e0df5bd7264c28990a30eed711ebb3f927e56618b858f9f30e219bd731`.
+- CMS: `3f58182b5549f632c51786feb88359588d16c3341075b498f631dcc36ca7ef8f`.
+- Better Convex Nuxt development pack:
+  `46043aef29efc6087e4aa3fe90d88862fb6d57ac9fb96677adeff5672c4676fb`.
+
+Ginko Content's independent `release:verify` also passed from clean commit
+`fe24e4a`: 101 standard files / 835 tests, 6 e2e files / 15 tests, browser and
+static generation, production audit, deterministic release pack, pure Node and
+Chromium Worker probes, and fresh pnpm/npm consumers.
+
+### Commit, findings, and acceptance matrix
+
+- Ginko CMS: `a5ef63d1` — `fix: make Studio state principal and scope safe`.
+- Ginko Content: unchanged at `fe24e4a`.
+- Better Convex Nuxt: unchanged and clean at `dda45f9`.
+- No blocker or framework defect remains. The development CMS artifact is not a
+  final candidate; final WP8/WP9 clean two-pack evidence is still required.
+- Updated to `implemented`: `Studio principal retirement`,
+  `Disposed-scope settlement`, `Pagination concurrency`, and
+  `Exact Studio API types`.
