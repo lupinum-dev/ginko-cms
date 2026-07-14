@@ -352,7 +352,16 @@ mixed-generation reindex defect. The final suites cover:
   deployment snapshot, including a forced batch-two interruption/retry.
 - Complete the official Convex snapshot restore drill and retain its operator
   evidence. Until that drill passes, `Recoverable destructive actions` remains
-  open in the acceptance matrix.
+  unavailable for release approval.
+- `Recoverable destructive actions` is deferred to the release operator, not
+  claimed as implemented. This task environment has no configured Convex
+  deployment, deploy/admin credential, or disposable restore target. The owner
+  must export a pre-upgrade official snapshot, restore it into an isolated
+  sanitized deployment, run the exact packed `0.1.3` bridge/final candidate
+  including the batch-two interruption, compare the restored facts, and retain
+  the commands and deployment-scoped evidence. Component backup tests do not
+  satisfy this criterion because the bounded CMS snapshot is deliberately not
+  a disaster-recovery artifact.
 
 ## 2026-07-13 — WP3 provider, render, and asset safety boundary
 
