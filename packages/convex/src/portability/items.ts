@@ -1,6 +1,7 @@
 import type { CmsField, JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   assertResolvedContentContract,
+  type ResolvedContentCollectionV1,
   type ResolvedContentContractV1,
   type ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
@@ -265,6 +266,28 @@ async function portableFields(
   return output
 }
 
+async function portableBody(
+  ctx: QueryOrMutationCtx,
+  collection: ResolvedContentCollectionV1,
+  source: string,
+): Promise<PortableDocumentV1['body']> {
+  if (collection.portable.format !== 'mdc') return null
+  return {
+    kind: 'mdc',
+    source: await rewriteStoredMdcAssetReferences(
+      source,
+      collection.componentPolicy,
+      async (identity) => {
+        const reference = await portableAsset(ctx, identity)
+        if (reference.kind !== 'local') {
+          throw new Error('Stored MDC asset identity is not managed.')
+        }
+        return reference.path
+      },
+    ),
+  }
+}
+
 async function portableAsset(
   ctx: QueryOrMutationCtx,
   value: unknown,
@@ -321,6 +344,7 @@ async function currentPortableDocument(
       ? (publicValue as JsonMap)
       : {}
   const parent = shared.parentEntryId ? await ctx.db.get(shared.parentEntryId) : null
+  const collectionContract = contract.collections[collection.slug]!
   return validatePortableDocument(
     {
       format: 'ginko-content-document',
@@ -333,24 +357,15 @@ async function currentPortableDocument(
       order: shared.orderRank ?? entry.orderRank ?? null,
       shared: await portableFields(
         ctx,
-        contract.collections[collection.slug]!.fields,
+        collectionContract.fields.filter((field) => !field.localized),
         shared.shared ?? {},
       ),
-      localized: await portableFields(ctx, contract.collections[collection.slug]!.fields, values),
-      body: {
-        kind: 'mdc',
-        source: await rewriteStoredMdcAssetReferences(
-          localized.bodyMdc ?? '',
-          contract.collections[collection.slug]!.componentPolicy,
-          async (identity) => {
-            const reference = await portableAsset(ctx, identity)
-            if (reference.kind !== 'local') {
-              throw new Error('Stored MDC asset identity is not managed.')
-            }
-            return reference.path
-          },
-        ),
-      },
+      localized: await portableFields(
+        ctx,
+        collectionContract.fields.filter((field) => field.localized),
+        values,
+      ),
+      body: await portableBody(ctx, collectionContract, localized.bodyMdc ?? ''),
       visibility: {
         navigation: visibility.navigation === true,
         search: visibility.search === true,
@@ -398,22 +413,17 @@ export async function portablePublishedDocument(
       slug: localized.slug ?? revision.snapshot.slug ?? input.canonicalKey,
       parentCanonicalKey: parent?.stableId ?? null,
       order: revision.snapshot.orderRank ?? null,
-      shared: await portableFields(ctx, collectionContract.fields, revision.snapshot.shared),
-      localized: await portableFields(ctx, collectionContract.fields, values),
-      body: {
-        kind: 'mdc',
-        source: await rewriteStoredMdcAssetReferences(
-          localized.bodyMdc ?? '',
-          collectionContract.componentPolicy,
-          async (identity) => {
-            const reference = await portableAsset(ctx, identity)
-            if (reference.kind !== 'local') {
-              throw new Error('Stored MDC asset identity is not managed.')
-            }
-            return reference.path
-          },
-        ),
-      },
+      shared: await portableFields(
+        ctx,
+        collectionContract.fields.filter((field) => !field.localized),
+        revision.snapshot.shared,
+      ),
+      localized: await portableFields(
+        ctx,
+        collectionContract.fields.filter((field) => field.localized),
+        values,
+      ),
+      body: await portableBody(ctx, collectionContract, localized.bodyMdc ?? ''),
       visibility: {
         navigation: visibility.navigation === true,
         search: visibility.search === true,
