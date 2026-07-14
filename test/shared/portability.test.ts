@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   createPortableDraftImportPlan,
   readCmsPortableDirectory,
+  verifyCmsPortableDirectory,
 } from '../../packages/cms/src/portability/index.js'
 
 const roots: string[] = []
@@ -53,6 +54,23 @@ function fixture() {
 }
 
 describe('CMS portable draft import planning', () => {
+  it('verifies through the bounded Content directory authority', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ginko-cms-portability-'))
+    roots.push(root)
+    const directory = join(root, 'bundle')
+    const { contract, document } = fixture()
+    await writePortableDirectory(directory, { contract, documents: [document], assets: [] })
+
+    const verified = await verifyCmsPortableDirectory(directory)
+
+    expect(verified).toMatchObject({
+      contract,
+      manifest: { format: 'ginko-content-portable', version: 1 },
+    })
+    expect(verified).not.toHaveProperty('documents')
+    expect(verified).not.toHaveProperty('assets')
+  })
+
   it('reads through the Content directory authority and emits a deterministic immutable plan', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ginko-cms-portability-'))
     roots.push(root)
