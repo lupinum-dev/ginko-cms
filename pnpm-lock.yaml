@@ -388,6 +388,9 @@ importers:
       '@lupinum/ginko-cms':
         specifier: workspace:*
         version: link:../packages/cms
+      '@lupinum/ginko-cms-contract':
+        specifier: workspace:*
+        version: link:../packages/contract
       '@lupinum/ginko-cms-convex':
         specifier: workspace:*
         version: link:../packages/convex

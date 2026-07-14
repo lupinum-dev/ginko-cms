@@ -9,6 +9,7 @@
   "dependencies": {
     "@convex-dev/better-auth": "0.12.5",
     "@lupinum/ginko-cms": "workspace:*",
+    "@lupinum/ginko-cms-contract": "workspace:*",
     "@lupinum/ginko-cms-convex": "workspace:*",
     "@lupinum/ginko-content": "^0.3.0-rc.1",
     "@nuxtjs/sitemap": "^8.0.15",
