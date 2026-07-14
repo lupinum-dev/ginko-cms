@@ -1416,3 +1416,57 @@ This work package does not claim a new acceptance-matrix row. It closes the
 one-source-of-truth cleanup required before candidate packing: portability is
 the sole public mapping and directory boundary, and the superseded path is
 absent rather than deprecated in parallel.
+
+## 2026-07-14 — Phase H Adapter Documentation And Generated API
+
+### Objective and source-of-truth design
+
+Publish the missing data-source adapter-author guidance without creating a
+second API authority. The package manifest remains the subpath authority and
+`packages/content/src/public/data-source.ts` remains the declaration authority.
+One deterministic script derives the public API page from those inputs and a
+lint-time `--check` mode supplies the rebuild invariant. The handwritten guide
+owns only integration guidance, the complete minimal adapter, Level 1 versus
+Level 2 evidence, packed testing, and the production checklist.
+
+The documentation contract was written first and failed for the absent guide,
+old public-surface ownership, missing typechecked example, and absent generated
+API page. The implementation points the data-source and its conformance export
+to the new guide, compiles the exact guide example in the Nuxt type fixture,
+and copies that canonical source into the fresh packed consumer so installed
+declarations must compile it.
+
+### Corrections and executable evidence
+
+- The first docs build exposed that an HTML “generated file” comment becomes a
+  public Markdown AST node rejected by the existing render policy. The visible
+  generated notice already carried the fact, so the redundant comment was
+  deleted; the renderer policy was not widened. A live request then returned
+  HTTP 200 and the production docs build prerendered 191 routes.
+- The first packed-consumer attempt placed the example in `server/plugins`,
+  causing Nitro to require a default plugin export. The consumer copy now lives
+  at `server/data-source-adapter.ts`, matching its provider-factory role. The
+  fresh exact-tarball pnpm consumer then passed imports, prepare, typecheck,
+  production build, portability probes, and the negative `cms-import` probe.
+- Focused documentation contract: 1 file and 3 tests passed. The exact adapter
+  example passed the real Nuxt type fixture.
+- Generated API check, docs-drift's 14 checks, focused ESLint, script syntax,
+  documentation build/smoke, and `git diff --check` passed.
+- `pnpm lint && pnpm test` passed with 100 files and 834 tests.
+- The one authoritative Phase H `pnpm verify` run exited `0`: policy/lint,
+  generated API drift, 191-route docs build/smoke, all 13 examples, 100 files /
+  834 standard tests, 6 files / 15 e2e tests, typechecks, and quickstart passed.
+
+The exact unchanged package bytes used by the fresh consumer were:
+`/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.c33dae1f4e45.3aa695d0df36164b9ed12201d033001c1fb5d176464223369a8cdd3f4c638d67.tgz`
+— SHA-256
+`3aa695d0df36164b9ed12201d033001c1fb5d176464223369a8cdd3f4c638d67`.
+This documentation work package did not change packed package files.
+
+- Ginko Content: `5012657` —
+  `docs: publish data source adapter guidance`.
+
+Phase H documentation is implemented. No adapter is described as operationally
+certified: the guide explicitly separates protocol conformance from
+artifact-hash-pinned, adapter-owned operational evidence. Candidate generation
+and coordinated release certification remain the next work package.
