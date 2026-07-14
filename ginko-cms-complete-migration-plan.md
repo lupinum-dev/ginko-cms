@@ -2836,7 +2836,7 @@ Use only these statuses:
 | Bidirectional semantic round trip   | open        | Files to CMS to files equality          |
 | Deterministic asset portability     | implemented | Byte/hash/reference round-trip suite    |
 | Portable conflict and retry safety  | implemented | Immutable plan and lost-response tests  |
-| Bounded consistent export           | open        | Lease, roster, and pagination tests     |
+| Bounded consistent export           | implemented | Lease, roster, and pagination tests     |
 | Studio principal retirement         | open        | A to B and sign-out tests               |
 | Disposed-scope settlement           | open        | Refresh/reset-after-unmount tests       |
 | Pagination concurrency              | open        | Same-cursor deduplication test          |

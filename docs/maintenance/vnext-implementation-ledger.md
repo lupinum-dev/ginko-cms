@@ -1081,3 +1081,133 @@ operator CLI and exact packed integration exercises filesystem -> CMS ->
 filesystem and CMS -> filesystem -> CMS. The next work package adds only the
 specified CLI operator UX using one Better Auth session for Convex token
 exchange and the host byte routes; Studio and MCP bulk authority remain absent.
+
+## 2026-07-14 — Phase F Operator Content Portability CLI
+
+### Objective and acceptance criteria
+
+Expose the direct CMS portability operations through one owner-operated CLI
+workflow without adding a browser flow, MCP authority, deploy-key product
+identity, filesystem access in Convex, or a second portability protocol.
+Acceptance required real temporary-directory export/verify/plan/apply coverage,
+an immutable review boundary before draft effects, current Better Auth authority,
+secret-safe failures, retry after interrupted/lost responses, and a fresh strict
+peer consumer using exact local package tarballs.
+
+### Repository ownership and design
+
+- `ginko-cms content export --out <directory>` captures published revisions
+  through the existing restart-only export operation and writes/verifies the
+  directory with Ginko Content. Optional `--collections` is validated against
+  the one local resolved Content contract; the CLI reports the exact scope.
+- `ginko-cms content verify <directory>` is local and bounded. It requires no
+  deployment credentials and uses Ginko Content's canonical verifier and
+  manifest hash.
+- `ginko-cms content import <directory> --plan <file>` verifies the source,
+  inspects current draft/asset facts, seals the existing immutable server plan,
+  and creates a new mode-`0600` plan file with exclusive creation. It reports
+  scope, create/update/skip, asset upload/reuse, and blocker counts without
+  changing drafts.
+- `ginko-cms content import --apply <plan-file>` is the explicit confirmation
+  boundary. Before network effects it rehashes the payload, row roots, each row,
+  and every embedded document. The existing operation layer remains the only
+  writer and publishing is still a separate Studio action.
+- One Better Auth session cookie is exchanged through Better Convex Nuxt for a
+  fresh Convex token before every JSON query, mutation, or action. The same
+  session reaches only the exact CMS host origin for byte transfer. Deploy keys,
+  Studio, and MCP do not gain portability authority. CLI error redaction now
+  treats cookie-valued environment variables as secrets.
+- Retry remains a direct replay of the same sealed plan. No CLI checkpoint table,
+  resume file, adapter, or client-side state machine was added; server receipts
+  decide whether an upload, item, verification transition, or finalize call is
+  new or replayed.
+- The existing package-E2E harness now accepts the already content-addressed
+  development Content artifact through its candidate artifact variables, copies
+  long source paths to a short hash-named consumer artifact, enforces strict peer
+  dependencies, and invokes the packed CLI on a real generated portable
+  directory. Its disposable non-live host gets only a fixture Better Auth
+  secret so the fail-closed doctor gate can run.
+
+### Test-first and adversarial evidence
+
+The initial CLI integration test failed with `Unknown command "content"` before
+the route existed. The green test creates a real Ginko Content portable
+directory and exercises export, verify, plan, and explicit apply through a fake
+operator transport. It proves a fresh token exchange before calls, plan
+tampering rejection before network access, and authentication failure without
+cookie disclosure.
+
+The orchestration retry test commits an item and loses its response, loses the
+successful transition immediately before finalize, commits finalize and loses
+that response, then reruns the same prepared plan to a replayed terminal receipt.
+The Phase-E2 host tests remain the command path's asset-upload interruption and
+attached-stage replay evidence; no alternate asset path was introduced.
+
+The first packed attempts exposed harness defects rather than product defects:
+direct source packing retained Content's released `0.3.0` manifest and produced
+a peer warning, the disposable doctor lacked its required auth secret, a long
+artifact pathname exceeded pnpm's store filename limit, and the configured
+development expected-version override was not honored by the installed-version
+assertion. The accepted harness consumes the verified `0.4.0-rc.1` tarball,
+uses a short hash-addressed copy, fails on peer mismatches, and validates the
+configured development stack without changing the released compatibility
+matrix early.
+
+### Commands and results
+
+- Focused CLI/export/asset route and transport slice: 5 files and 43 tests
+  passed. The final CLI plus replay slice passed 2 files and 4 tests.
+- `pnpm run test`: exit `0`; 119 files passed, 1 environment-gated file was
+  skipped, 921 tests passed, and 1 was skipped.
+- `pnpm run format:check`: passed across 912 files.
+- `pnpm run lint`: passed, including auth-boundary, Convex-surface, live-token,
+  vendor parity, docs, compatibility, current-model, stale-surface, and ESLint
+  gates.
+- Contract and Convex package type checks passed. The CMS module, CLI extras,
+  and Studio production builds passed; `studio:typecheck` passed.
+- `pnpm run check:publish-specifiers`: passed.
+- `pnpm run audit:prod`: passed with no known vulnerabilities.
+- Exact development `package:e2e` passed from a fresh consumer with strict peer
+  checking. It installed Content `0.4.0-rc.1`, CMS, CMS Contract, CMS Convex,
+  and a locally packed Better Convex Nuxt; initialized and checked a host;
+  generated offline Convex/Nuxt types; passed Nuxt typecheck and package import
+  probes; created a real portable directory; and printed
+  `Portable content verified: documents=1, assets=0` through the packed CLI.
+- The aggregate CMS typecheck again passed Contract/Convex typechecks, package
+  and Studio builds, and playground Nuxt preparation, then stopped only at the
+  recorded external host fixture boundary: stale
+  `playground/convex/_generated/api.d.ts` lacks `components`. No secret,
+  deployment, or generated declaration was altered to hide that limitation.
+- `git diff --check` and `node --check scripts/package-e2e.mjs` passed before
+  commit.
+
+### Immutable artifacts and commit
+
+- Content:
+  `/Users/matthias/Git/workspace/ginko-content/.pack/dev/ginko-content-0.4.0-rc.1-dev.07462b628e39.285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401.tgz`
+  — SHA-256
+  `285a7a4a61d974feb9148632a48f3fd8667e656a2b338cc93c0e59d72eb2f401`.
+- Packed CMS: SHA-256
+  `d0eea2cf36866b28ffd7ab9d2701d072b89f978529c0d074ece2ae30a539d29b`.
+- Packed CMS Convex: SHA-256
+  `1c6c75ed8b974afb541a8b661502fec0fde000c676464f1a835f90f1af5c8e1f`.
+- Packed CMS Contract: SHA-256
+  `827114b844be476f3fa2f42e7d08efa17aa149f1413bae570ed348f29f497901`.
+- Packed Better Convex Nuxt: SHA-256
+  `596dbc6bae0067a26db1761b91ae4ee72fc66e0a7e3e18712220a9eb20e6b729`.
+  Its read-only repository was clean when observed at
+  `0cc056f9a4134af7c775870ed3c75144ffa95d93`; this differs from the earlier
+  recorded observation because that external repository advanced, not because
+  this goal edited it.
+- Ginko Content remained clean at `07462b6`.
+- Ginko CMS: `25dfa7a9` —
+  `feat!: add operator content portability CLI`.
+
+### Acceptance matrix and next phase
+
+`Bounded consistent export` is corrected to `implemented` with the Phase-E3
+lease/roster/pagination evidence. `Bidirectional semantic round trip` and
+`Portable codecs and directory` remain open: the Phase-F transport integration
+proves operator wiring and recovery, but does not substitute for the specified
+real Node/Worker purity and semantic round-trip probes. Phase G adds those
+runtime proofs next.
