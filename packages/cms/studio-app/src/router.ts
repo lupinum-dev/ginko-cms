@@ -72,11 +72,15 @@ export function createStudioRouter() {
         path: '/content/:collection',
         name: 'studio-collection',
         component: () => import('./pages/[collection]/index.vue'),
+        // Phase L: collection details (status, work queue, filters) panel.
+        meta: { rightSidebar: true },
       },
       {
         path: '/content/:collection/new',
         name: 'studio-new',
         component: () => import('./pages/[collection]/new.vue'),
+        // Phase L: draft-setup guidance + route preview panel.
+        meta: { rightSidebar: true },
       },
       {
         path: '/content/:collection/:id',

@@ -22,12 +22,13 @@ import { useCmsStudioAccess } from '../../composables/useCmsStudioAccess'
 import { useCmsStudioPaginatedQuery } from '../../composables/useCmsStudioPaginatedQuery'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
 import { useCmsStudioSettings } from '../../composables/useCmsStudioSettings'
-import { useStudioActionRailController } from '../../composables/useStudioActionRailController'
+import { useRightSidebarPanel } from '../../composables/useRightSidebar'
 import { useConvexMutation } from '../../composables/useStudioConvex'
 import { useStudioDebug } from '../../composables/useStudioDebug'
 import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
 import { publicStateLabel, publicStateTone, readinessActionLabel } from '../../lib/publicWorkflow'
 import { orderStudioTreeRows } from '../../lib/studioTree'
+import StudioCollectionDetailsPanel from '../../components/studio/collections/StudioCollectionDetailsPanel.vue'
 
 const { can } = useCmsStudioAccess()
 const canCreateEntries = can(cmsPermissionKeys.createEntries)
@@ -69,7 +70,27 @@ const collectionExists = computed(() => collectionConfig.value !== null)
 const searchQuery = ref('')
 const statusFilter = ref<'all' | EntryStatus>('all')
 const workStateFilter = ref<'all' | 'changed' | 'blocked' | 'missing_translation'>('all')
-const { collapsed } = useStudioActionRailController()
+// Collection details live in the shell's right sidebar (Phase L; successor of
+// the retired action rail). Props getter keeps everything reactive; callbacks
+// arrive in the panel as listener props.
+useRightSidebarPanel({
+  title: () => collectionLabel.value,
+  description: () => t('ginkoCms.studio.collectionListPage.detailsPanelDescription'),
+  component: StudioCollectionDetailsPanel,
+  props: () => ({
+    activeFilterLabel: activeFilterLabel.value,
+    canCreateEntries: canCreateEntries.value,
+    collectionExists: collectionExists.value,
+    collectionType: collectionType.value,
+    hasActiveFilters: hasActiveFilters.value,
+    isSingleton: isSingleton.value,
+    newEntryTo: `${contentRoute}/${collection.value}/new`,
+    stats: collectionRailStats.value,
+    onClearFilters: clearFilters,
+    onSetWorkState: setWorkStateFilter,
+  }),
+  defaultOpen: false,
+})
 
 type LocaleSummary = {
   locale: string
@@ -472,7 +493,7 @@ const kindColors: Record<string, string> = {
 </script>
 
 <template>
-  <StudioWorkspace :rail="true" :rail-collapsed="collapsed" class="ginko:h-full">
+  <StudioWorkspace class="ginko:h-full">
     <template #header>
       <StudioPageHeader :title="collectionLabel" :eyebrow="t('ginkoCms.studio.layout.content')">
         <template #actions>
@@ -483,7 +504,6 @@ const kindColors: Record<string, string> = {
                 : t('ginkoCms.studio.collectionsPage.typeFlat')
             }}
           </Badge>
-          <StudioActionRailToggle />
           <Button v-if="collectionExists && canCreateEntries && !isSingleton" as-child size="sm">
             <RouterLink :to="`${contentRoute}/${collection}/new`">
               <Plus class="ginko:mr-1.5 ginko:size-3.5" />
@@ -843,19 +863,5 @@ const kindColors: Record<string, string> = {
       </StudioPageBody>
     </ScrollArea>
 
-    <template #rail>
-      <StudioCollectionActionRail
-        :active-filter-label="activeFilterLabel"
-        :can-create-entries="canCreateEntries"
-        :collection-exists="collectionExists"
-        :collection-type="collectionType"
-        :has-active-filters="hasActiveFilters"
-        :is-singleton="isSingleton"
-        :new-entry-to="`${contentRoute}/${collection}/new`"
-        :stats="collectionRailStats"
-        @clear-filters="clearFilters"
-        @set-work-state="setWorkStateFilter"
-      />
-    </template>
   </StudioWorkspace>
 </template>

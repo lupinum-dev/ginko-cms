@@ -52,18 +52,18 @@ describe('Studio executable accessibility contract', () => {
   })
 
   it('keeps the workspace landmarks accessible', async () => {
+    // The detail <aside> landmark moved from the workspace grid to the shell's
+    // right sidebar (Phase L retired the in-card action rail); its a11y is
+    // covered by the right-sidebar suite. The workspace keeps header + main.
     const wrapper = mount(StudioWorkspace, {
       attachTo: document.querySelector('#ginko-cms-studio') as HTMLElement,
-      props: { rail: true },
       slots: {
         header: '<header><h1>Entry editor</h1></header>',
         default: '<section aria-label="Entry fields">Fields</section>',
-        rail: '<nav aria-label="Entry details">Details</nav>',
       },
     })
 
     expect(wrapper.get('main').exists()).toBe(true)
-    expect(wrapper.get('aside').exists()).toBe(true)
     await expectNoAxeViolations(wrapper.element)
   })
 

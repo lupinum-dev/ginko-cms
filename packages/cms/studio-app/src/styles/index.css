@@ -491,8 +491,6 @@
   --studio-canvas-max-width: var(--ginko-cms-studio-canvas-max-width, 80rem);
   --studio-canvas-wide-max-width: var(--ginko-cms-studio-canvas-wide-max-width, 96rem);
   --studio-editor-canvas-max-width: var(--ginko-cms-studio-editor-canvas-max-width, 80rem);
-  --studio-action-rail-width: var(--ginko-cms-studio-action-rail-width, 20rem);
-  --studio-action-rail-collapsed-width: var(--ginko-cms-studio-action-rail-collapsed-width, 3.5rem);
 
   --studio-surface: var(--ginko-cms-studio-surface, var(--card));
   --studio-panel: var(--ginko-cms-studio-panel, oklch(0.985 0 0));

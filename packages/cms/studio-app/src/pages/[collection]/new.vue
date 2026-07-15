@@ -24,10 +24,12 @@ import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
 import { useCmsStudioSettings } from '../../composables/useCmsStudioSettings'
+import { useRightSidebarPanel } from '../../composables/useRightSidebar'
 import { useConvexMutation } from '../../composables/useStudioConvex'
 import { useStudioDebug } from '../../composables/useStudioDebug'
 import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
 import { slugifyStudioText } from '../../lib/slug'
+import StudioEntryCreatePanel from '../../components/studio/editor/StudioEntryCreatePanel.vue'
 
 const { can } = useCmsStudioAccess()
 const canPublishEntries = can(cmsPermissionKeys.publishEntries)
@@ -282,6 +284,16 @@ const computedPath = computed(() => {
   }
   const prefix = collectionConfig.value?.pathPrefix?.replace(/\/$/, '') ?? `/${collection.value}`
   return `${prefix}/${effectiveSlug.value}`
+})
+
+// Right-sidebar panel: draft-setup guidance + live route preview (Phase L;
+// replaces the dead #rail templates removed with the editor shell's rail).
+useRightSidebarPanel({
+  title: () => t('ginkoCms.studio.collectionEditor.newEntry'),
+  description: () => collectionConfig.value?.label ?? String(collection.value),
+  component: StudioEntryCreatePanel,
+  props: () => ({ computedPath: computedPath.value }),
+  defaultOpen: false,
 })
 const editorContext = computed(() => ({
   slug: effectiveSlug.value,
@@ -738,34 +750,5 @@ if (typeof window !== 'undefined') {
       </section>
     </template>
 
-    <template #rail>
-      <div>
-        <StudioInspectorSection title="Draft setup">
-          <p class="ginko:mt-3 studio-text-body ginko:text-muted-foreground">
-            Create the entry first. Translation, route status, versions, and workflow details become
-            available afterwards.
-          </p>
-        </StudioInspectorSection>
-        <StudioInspectorSection title="Route preview">
-          <div
-            class="ginko:mt-3 ginko:truncate ginko:font-mono ginko:text-sm ginko:text-muted-foreground"
-          >
-            {{ computedPath || 'No route yet' }}
-          </div>
-        </StudioInspectorSection>
-      </div>
-    </template>
-    <template #rail-actions>
-      <Button size="sm" :disabled="saving" @click="handleCreate(false)">Create draft</Button>
-      <Button
-        v-if="canPublishEntries"
-        variant="outline"
-        size="sm"
-        :disabled="saving"
-        @click="handleCreate(true)"
-      >
-        Create and publish
-      </Button>
-    </template>
   </StudioEntryEditorShell>
 </template>
