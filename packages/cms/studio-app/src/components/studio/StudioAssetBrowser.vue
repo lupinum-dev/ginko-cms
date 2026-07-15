@@ -182,12 +182,12 @@ const {
 })
 
 const ownerPathLabel = (asset: Pick<FinderAssetRecord, 'ownerPath'>) =>
-  asset.ownerPath?.length ? asset.ownerPath.join(' / ') : 'Global'
+  asset.ownerPath?.length ? asset.ownerPath.join(' / ') : t('ginkoCms.studio.assetBrowser.globalPath')
 
 const ownershipLabel = (asset: Pick<FinderAssetRecord, 'scope' | 'collectionLabel'>) => {
-  if (asset.scope === 'global') return 'Shared library asset'
-  if (asset.scope === 'collection') return `Shared in ${asset.collectionLabel ?? 'collection'}`
-  return 'Owned by this entry'
+  if (asset.scope === 'global') return t('ginkoCms.studio.assetBrowser.ownershipGlobalAsset')
+  if (asset.scope === 'collection') return t('ginkoCms.studio.assetBrowser.ownershipCollection', { label: asset.collectionLabel ?? t('ginkoCms.studio.assetBrowser.ownershipCollectionFallback') })
+  return t('ginkoCms.studio.assetBrowser.ownershipEntry')
 }
 
 function localeTextHasValue(value: LocaleText | string | null | undefined, locale: string) {
@@ -212,9 +212,9 @@ function metadataCoverage(asset: Pick<FinderAssetRecord, 'alt' | 'caption'>) {
 
 function metadataCoverageLabel(asset: Pick<FinderAssetRecord, 'alt' | 'caption'>) {
   const coverage = metadataCoverage(asset)
-  if (coverage.complete) return 'Details complete'
+  if (coverage.complete) return t('ginkoCms.studio.assetBrowser.detailsComplete')
   const missing = new Set([...coverage.missingAlt, ...coverage.missingCaption])
-  return `Missing details: ${Array.from(missing).join(', ').toUpperCase()}`
+  return t('ginkoCms.studio.assetBrowser.missingDetails', { locales: Array.from(missing).join(', ').toUpperCase() })
 }
 
 function previewKey(asset: Pick<FinderAssetRecord, 'id' | 'thumbnailUrl'>) {
@@ -246,22 +246,22 @@ const uploadDestinations = computed(() => [
   {
     value: 'context',
     label: props.assetContext?.entryId
-      ? 'This entry'
+      ? t('ginkoCms.studio.assetBrowser.destThisEntry')
       : props.assetContext?.collectionSlug || props.assetContext?.collectionId
-        ? 'This collection'
-        : 'Global',
+        ? t('ginkoCms.studio.assetBrowser.destThisCollection')
+        : t('ginkoCms.studio.assetBrowser.destGlobal'),
     disabled: false,
   },
   {
     value: 'collection',
     label: props.assetContext?.collectionSlug
-      ? `${props.assetContext.collectionSlug} collection`
-      : 'Collection',
+      ? t('ginkoCms.studio.assetBrowser.destCollectionNamed', { slug: props.assetContext.collectionSlug })
+      : t('ginkoCms.studio.assetBrowser.destCollection'),
     disabled: !props.assetContext?.collectionSlug && !props.assetContext?.collectionId,
   },
   {
     value: 'global',
-    label: 'Shared library',
+    label: t('ginkoCms.studio.assetBrowser.destSharedLibrary'),
     disabled: false,
   },
 ])
@@ -270,9 +270,10 @@ const uploadDestinations = computed(() => [
 const filtersOpen = ref(false)
 const showFilterRow = computed(() => filtersOpen.value || activeFilterCount.value > 0)
 
+const { t } = useCmsI18n()
 const viewSegments = [
-  { value: 'list', label: 'List', icon: List },
-  { value: 'grid', label: 'Grid', icon: Grid3x3 },
+  { value: 'list', label: t('ginkoCms.studio.assetBrowser.viewList'), icon: List },
+  { value: 'grid', label: t('ginkoCms.studio.assetBrowser.viewGrid'), icon: Grid3x3 },
 ]
 
 const selectedVisibleAssets = computed(() => {
@@ -289,7 +290,6 @@ const canBulkMakeGlobal = computed(() =>
 )
 
 const updateAsset = useConvexMutation(api.ginkoCms.assets.updateAsset)
-const { t } = useCmsI18n()
 const studioSettings = useCmsStudioSettings()
 
 const normalizedValue = computed(() => {
@@ -335,18 +335,18 @@ if (assetSelection) {
 const pendingDestructiveActionTitle = computed(() => {
   const action = pendingDestructiveAssetAction.value
   if (!action) return ''
-  if (action.kind === 'bulk-trash') return 'Move selected assets to trash?'
-  return 'Move asset to trash?'
+  if (action.kind === 'bulk-trash') return t('ginkoCms.studio.assetBrowser.bulkTrashTitle')
+  return t('ginkoCms.studio.assetBrowser.trashTitle')
 })
 
 const pendingDestructiveActionDescription = computed(() => {
   const action = pendingDestructiveAssetAction.value
   if (!action) return ''
-  return 'Assets in trash no longer appear in picker results, but can still be restored.'
+  return t('ginkoCms.studio.assetBrowser.trashDescription')
 })
 
 const pendingDestructiveConfirmLabel = computed(() => {
-  return 'Move to trash'
+  return t('ginkoCms.studio.assetBrowser.moveToTrashConfirm')
 })
 
 const pendingDestructiveUsageCount = computed(() => {
@@ -400,10 +400,10 @@ function handleDestructiveDialogOpen(open: boolean) {
 const statusText = computed(() => {
   const parts: string[] = []
   if (folderCount.value > 0)
-    parts.push(`${folderCount.value} folder${folderCount.value === 1 ? '' : 's'}`)
+    parts.push(t(folderCount.value === 1 ? 'ginkoCms.studio.assetBrowser.statusFoldersOne' : 'ginkoCms.studio.assetBrowser.statusFoldersOther', { count: folderCount.value }))
   if (assetCount.value > 0)
-    parts.push(`${assetCount.value} file${assetCount.value === 1 ? '' : 's'}`)
-  return parts.join(', ') || 'Empty'
+    parts.push(t(assetCount.value === 1 ? 'ginkoCms.studio.assetBrowser.statusFilesOne' : 'ginkoCms.studio.assetBrowser.statusFilesOther', { count: assetCount.value }))
+  return parts.join(', ') || t('ginkoCms.studio.assetBrowser.statusEmpty')
 })
 
 const localeOptions = computed(() => {
@@ -505,7 +505,7 @@ function assertAssetAllowed(asset: Pick<FinderAssetRecord, 'mimeType' | 'width' 
     acceptedTypes.value.length > 0 &&
     !acceptedTypes.value.some((acceptedType) => mimeTypeMatches(acceptedType, asset.mimeType))
   ) {
-    throw new Error(`File type "${asset.mimeType || 'unknown'}" is not allowed.`)
+    throw new Error(t('ginkoCms.studio.assetBrowser.typeNotAllowed', { type: asset.mimeType || t('ginkoCms.studio.assetBrowser.typeUnknown') }))
   }
 
   const expectedRatio = parseAspectRatio(props.aspectRatio)
@@ -514,7 +514,7 @@ function assertAssetAllowed(asset: Pick<FinderAssetRecord, 'mimeType' | 'width' 
   const actualRatio = asset.width / asset.height
   const tolerance = 0.01
   if (Math.abs(actualRatio - expectedRatio) / expectedRatio > tolerance) {
-    throw new Error(`Image must use a ${props.aspectRatio} aspect ratio.`)
+    throw new Error(t('ginkoCms.studio.assetBrowser.aspectRatioError', { ratio: props.aspectRatio }))
   }
 }
 
@@ -655,15 +655,15 @@ defineExpose({
       class="ginko:flex ginko:min-h-12 ginko:shrink-0 ginko:items-center ginko:justify-between ginko:gap-3 ginko:border-b ginko:px-4 ginko:py-2"
     >
       <div class="ginko:min-w-0">
-        <h3 class="ginko:truncate studio-text-title">{{ title ?? 'Media' }}</h3>
+        <h3 class="ginko:truncate studio-text-title">{{ title ?? t('ginkoCms.studio.assetBrowser.title') }}</h3>
         <p v-if="isPickMode" class="ginko:truncate ginko:text-xs ginko:text-muted-foreground">
-          Choose or upload an asset without leaving this entry.
+          {{ t('ginkoCms.studio.assetBrowser.pickerHint') }}
         </p>
       </div>
       <Button size="sm" :disabled="uploading" @click="uploadInput?.click()">
         <Loader2 v-if="uploading" class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin" />
         <Upload v-else class="ginko:mr-1.5 ginko:size-3.5" />
-        Upload
+        {{ t('ginkoCms.common.upload') }}
       </Button>
     </div>
 
@@ -674,7 +674,7 @@ defineExpose({
     >
       <template #nav>
         <aside
-          aria-label="Asset library navigation"
+          :aria-label="t('ginkoCms.studio.assetBrowser.navAriaLabel')"
           class="ginko:flex ginko:h-full ginko:min-h-0 ginko:flex-col"
         >
           <ScrollArea class="ginko:flex-1">
@@ -684,7 +684,7 @@ defineExpose({
                 <span
                   class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                 >
-                  Library
+                  {{ t('ginkoCms.studio.assetBrowser.sectionLibrary') }}
                 </span>
               </div>
               <nav class="ginko:space-y-px ginko:px-2">
@@ -698,7 +698,7 @@ defineExpose({
                   @click="selectSidebar('full', 'all')"
                 >
                   <Icon name="lucide:layers" class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60" />
-                  <span class="ginko:flex-1 ginko:truncate ginko:text-left">All media</span>
+                  <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ t('ginkoCms.studio.assetBrowser.allMedia') }}</span>
                   <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{ sidebarFullViews[0]?.count ?? 0 }}</span>
                 </button>
                 <button
@@ -729,7 +729,7 @@ defineExpose({
                 <span
                   class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                 >
-                  Tags
+                  {{ t('ginkoCms.studio.assetBrowser.sectionTags') }}
                 </span>
               </div>
               <nav class="ginko:space-y-px ginko:px-2">
@@ -767,7 +767,7 @@ defineExpose({
                 @click="selectSidebar('trash', 'trash')"
               >
                 <Trash2 class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60" />
-                <span class="ginko:flex-1 ginko:truncate ginko:text-left">Trash</span>
+                <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ t('ginkoCms.studio.assetBrowser.trash') }}</span>
                 <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
                   trashCount
                 }}</span>
@@ -786,7 +786,7 @@ defineExpose({
             variant="ghost"
             size="sm"
             class="ginko:h-7 ginko:w-7 ginko:p-0 ginko:md:hidden"
-            aria-label="Browse asset library"
+            :aria-label="t('ginkoCms.studio.assetBrowser.browseAriaLabel')"
             @click="mobileScopesOpen = true"
           >
             <Menu class="ginko:size-4" />
@@ -827,7 +827,7 @@ defineExpose({
           <StudioSegmentedControl
             :model-value="viewMode"
             :items="viewSegments"
-            aria-label="View mode"
+            :aria-label="t('ginkoCms.studio.assetBrowser.viewModeAriaLabel')"
             class="ginko:hidden ginko:sm:inline-flex"
             @update:model-value="viewMode = $event as 'list' | 'grid'"
           />
@@ -836,15 +836,15 @@ defineExpose({
             <SelectTrigger
               size="sm"
               class="ginko:hidden ginko:text-xs ginko:sm:flex"
-              aria-label="Sort"
+              :aria-label="t('ginkoCms.studio.assetBrowser.sortAriaLabel')"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="name">Name</SelectItem>
-              <SelectItem value="date">Date</SelectItem>
-              <SelectItem value="size">Size</SelectItem>
-              <SelectItem value="kind">Kind</SelectItem>
+              <SelectItem value="name">{{ t('ginkoCms.studio.assetBrowser.sortName') }}</SelectItem>
+              <SelectItem value="date">{{ t('ginkoCms.studio.assetBrowser.sortDate') }}</SelectItem>
+              <SelectItem value="size">{{ t('ginkoCms.studio.assetBrowser.sortSize') }}</SelectItem>
+              <SelectItem value="kind">{{ t('ginkoCms.studio.assetBrowser.sortKind') }}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -855,7 +855,7 @@ defineExpose({
             size="sm"
             class="ginko:hidden ginko:h-7 ginko:gap-1.5 ginko:px-2 ginko:sm:inline-flex"
             :aria-expanded="showFilterRow"
-            aria-label="Toggle filters"
+            :aria-label="t('ginkoCms.studio.assetBrowser.toggleFiltersAriaLabel')"
             @click="filtersOpen = !filtersOpen"
           >
             <SlidersHorizontal class="ginko:size-3.5" />
@@ -866,7 +866,7 @@ defineExpose({
             variant="ghost"
             size="sm"
             class="ginko:h-7 ginko:w-7 ginko:p-0 ginko:sm:hidden"
-            aria-label="Filter assets"
+            :aria-label="t('ginkoCms.studio.assetBrowser.filterAssetsAriaLabel')"
             @click="mobileFiltersOpen = true"
           >
             <SlidersHorizontal class="ginko:size-4" />
@@ -880,7 +880,7 @@ defineExpose({
             />
             <Input
               v-model="searchQuery"
-              placeholder="Search..."
+              :placeholder="t('ginkoCms.studio.assetBrowser.searchPlaceholder')"
               class="ginko:h-8 ginko:w-full ginko:border-border/40 ginko:bg-card ginko:pl-8 ginko:text-sm ginko:shadow-none"
             />
           </div>
@@ -890,7 +890,7 @@ defineExpose({
             variant="ghost"
             size="sm"
             class="ginko:h-7 ginko:w-7 ginko:p-0 ginko:lg:hidden"
-            aria-label="Inspect selected asset"
+            :aria-label="t('ginkoCms.studio.assetBrowser.inspectSelectedAriaLabel')"
             @click="mobileDetailsOpen = true"
           >
             <PanelRight class="ginko:size-4" />
@@ -905,13 +905,13 @@ defineExpose({
           >
             <Loader2 v-if="uploading" class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin" />
             <Upload v-else class="ginko:mr-1.5 ginko:size-3.5" />
-            Upload
+            {{ t('ginkoCms.common.upload') }}
           </Button>
           <Select v-if="isPickMode && embedded" v-model="uploadDestination">
             <SelectTrigger
               size="sm"
               class="ginko:max-w-40 ginko:text-xs"
-              aria-label="Upload destination"
+              :aria-label="t('ginkoCms.studio.assetBrowser.uploadDestinationAriaLabel')"
             >
               <SelectValue />
             </SelectTrigger>
@@ -934,58 +934,58 @@ defineExpose({
           class="ginko:hidden ginko:shrink-0 ginko:flex-wrap ginko:items-center ginko:gap-1.5 ginko:border-b ginko:px-3 ginko:py-2 ginko:sm:flex"
         >
           <Select v-model="typeFilter">
-            <SelectTrigger size="sm" class="ginko:text-xs" aria-label="Type">
+            <SelectTrigger size="sm" class="ginko:text-xs" :aria-label="t('ginkoCms.studio.assetBrowser.filterTypeAriaLabel')">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              <SelectItem value="image">Images</SelectItem>
-              <SelectItem value="document">Documents</SelectItem>
+              <SelectItem value="all">{{ t('ginkoCms.studio.assetBrowser.typeAll') }}</SelectItem>
+              <SelectItem value="image">{{ t('ginkoCms.studio.assetBrowser.typeImages') }}</SelectItem>
+              <SelectItem value="document">{{ t('ginkoCms.studio.assetBrowser.typeDocuments') }}</SelectItem>
             </SelectContent>
           </Select>
           <Select v-model="timeFilter">
             <SelectTrigger
               size="sm"
               class="ginko:hidden ginko:text-xs ginko:lg:flex"
-              aria-label="Time"
+              :aria-label="t('ginkoCms.studio.assetBrowser.filterTimeAriaLabel')"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="any">Any time</SelectItem>
-              <SelectItem value="24h">Last 24h</SelectItem>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="any">{{ t('ginkoCms.studio.assetBrowser.timeAny') }}</SelectItem>
+              <SelectItem value="24h">{{ t('ginkoCms.studio.assetBrowser.time24h') }}</SelectItem>
+              <SelectItem value="7d">{{ t('ginkoCms.studio.assetBrowser.time7d') }}</SelectItem>
+              <SelectItem value="30d">{{ t('ginkoCms.studio.assetBrowser.time30d') }}</SelectItem>
+              <SelectItem value="90d">{{ t('ginkoCms.studio.assetBrowser.time90d') }}</SelectItem>
             </SelectContent>
           </Select>
           <Select v-model="usageFilter">
             <SelectTrigger
               size="sm"
               class="ginko:hidden ginko:text-xs ginko:xl:flex"
-              aria-label="Usage"
+              :aria-label="t('ginkoCms.studio.assetBrowser.filterUsageAriaLabel')"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All files</SelectItem>
-              <SelectItem value="used">Used</SelectItem>
-              <SelectItem value="unused">Unused</SelectItem>
+              <SelectItem value="all">{{ t('ginkoCms.studio.assetBrowser.usageAll') }}</SelectItem>
+              <SelectItem value="used">{{ t('ginkoCms.studio.assetBrowser.usageUsed') }}</SelectItem>
+              <SelectItem value="unused">{{ t('ginkoCms.studio.assetBrowser.usageUnused') }}</SelectItem>
             </SelectContent>
           </Select>
           <Select v-model="sizeFilter">
             <SelectTrigger
               size="sm"
               class="ginko:hidden ginko:text-xs ginko:xl:flex"
-              aria-label="Size"
+              :aria-label="t('ginkoCms.studio.assetBrowser.filterSizeAriaLabel')"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="any">Any size</SelectItem>
-              <SelectItem value="small">&lt; 100 KB</SelectItem>
-              <SelectItem value="medium">100 KB - 1 MB</SelectItem>
-              <SelectItem value="large">&gt; 1 MB</SelectItem>
+              <SelectItem value="any">{{ t('ginkoCms.studio.assetBrowser.sizeAny') }}</SelectItem>
+              <SelectItem value="small">{{ t('ginkoCms.studio.assetBrowser.sizeSmall') }}</SelectItem>
+              <SelectItem value="medium">{{ t('ginkoCms.studio.assetBrowser.sizeMedium') }}</SelectItem>
+              <SelectItem value="large">{{ t('ginkoCms.studio.assetBrowser.sizeLarge') }}</SelectItem>
             </SelectContent>
           </Select>
           <button
@@ -993,7 +993,7 @@ defineExpose({
             class="ginko:h-6 ginko:rounded-full ginko:px-2 ginko:text-xs ginko:text-muted-foreground ginko:transition-colors ginko:hover:bg-muted/60 ginko:hover:text-foreground"
             @click="clearFilters"
           >
-            Clear
+            {{ t('ginkoCms.studio.assetBrowser.clear') }}
           </button>
         </div>
 
@@ -1002,11 +1002,11 @@ defineExpose({
           class="ginko:flex ginko:shrink-0 ginko:items-center ginko:gap-2 ginko:border-b ginko:bg-muted/20 ginko:px-3 ginko:py-2"
         >
           <Badge variant="outline" class="ginko:text-xs"
-            >{{ selectedVisibleAssetIds.length }} selected</Badge
+            >{{ t('ginkoCms.studio.assetBrowser.selectedCount', { count: selectedVisibleAssetIds.length }) }}</Badge
           >
           <Input
             v-model="bulkTagInput"
-            placeholder="Tag selected assets..."
+            :placeholder="t('ginkoCms.studio.assetBrowser.tagSelectedPlaceholder')"
             class="ginko:h-8 ginko:max-w-48 ginko:text-xs"
             @keydown="handleBulkTagKeydown"
           />
@@ -1017,7 +1017,7 @@ defineExpose({
             :disabled="actionPending"
             @click="commitBulkTag('add')"
           >
-            Add tag
+            {{ t('ginkoCms.studio.assetBrowser.addTag') }}
           </Button>
           <Button
             size="sm"
@@ -1026,7 +1026,7 @@ defineExpose({
             :disabled="actionPending"
             @click="commitBulkTag('remove')"
           >
-            Remove tag
+            {{ t('ginkoCms.studio.assetBrowser.removeTag') }}
           </Button>
           <Button
             v-if="canBulkShareInCollection"
@@ -1036,7 +1036,7 @@ defineExpose({
             :disabled="actionPending"
             @click="moveAssetsToCollection([...selectedVisibleAssetIds])"
           >
-            Make available to this collection
+            {{ t('ginkoCms.studio.assetBrowser.makeAvailableCollection') }}
           </Button>
           <Button
             v-if="canBulkMakeGlobal"
@@ -1046,7 +1046,7 @@ defineExpose({
             :disabled="actionPending"
             @click="moveAssetsToGlobal([...selectedVisibleAssetIds])"
           >
-            Make available everywhere
+            {{ t('ginkoCms.studio.assetBrowser.makeAvailableEverywhere') }}
           </Button>
           <Button
             size="sm"
@@ -1055,7 +1055,7 @@ defineExpose({
             :disabled="actionPending"
             @click="requestTrashSelectedAssets"
           >
-            Move to Trash
+            {{ t('ginkoCms.studio.assetBrowser.moveToTrash') }}
           </Button>
           <Button
             size="sm"
@@ -1064,7 +1064,7 @@ defineExpose({
             :disabled="actionPending"
             @click="clearAssetSelection"
           >
-            Clear
+            {{ t('ginkoCms.studio.assetBrowser.clear') }}
           </Button>
         </div>
 
@@ -1080,8 +1080,8 @@ defineExpose({
           <StudioEmptyState
             v-else-if="currentItems.length === 0"
             class="ginko:m-6 ginko:border-0 ginko:bg-transparent"
-            title="No items"
-            :description="activeFilterCount > 0 ? 'Try adjusting your filters' : undefined"
+            :title="t('ginkoCms.studio.assetBrowser.emptyTitle')"
+            :description="activeFilterCount > 0 ? t('ginkoCms.studio.assetBrowser.emptyFilterHint') : undefined"
           >
             <template #icon>
               <FolderOpen class="ginko:size-5" aria-hidden="true" />
@@ -1111,18 +1111,18 @@ defineExpose({
                 <th
                   class="ginko:w-[45%] ginko:px-4 ginko:py-2 ginko:font-medium ginko:text-muted-foreground/70"
                 >
-                  Name
+                  {{ t('ginkoCms.studio.assetBrowser.columnName') }}
                 </th>
                 <th class="ginko:px-3 ginko:py-2 ginko:font-medium ginko:text-muted-foreground/70">
-                  Date Modified
+                  {{ t('ginkoCms.studio.assetBrowser.columnDateModified') }}
                 </th>
                 <th
                   class="ginko:px-3 ginko:py-2 ginko:text-right ginko:font-medium ginko:text-muted-foreground/70"
                 >
-                  Size
+                  {{ t('ginkoCms.studio.assetBrowser.columnSize') }}
                 </th>
                 <th class="ginko:px-3 ginko:py-2 ginko:font-medium ginko:text-muted-foreground/70">
-                  Kind
+                  {{ t('ginkoCms.studio.assetBrowser.columnKind') }}
                 </th>
               </tr>
             </thead>
@@ -1229,14 +1229,14 @@ defineExpose({
                   class="ginko:whitespace-nowrap ginko:px-3 ginko:py-1.5 ginko:text-right ginko:tabular-nums ginko:text-muted-foreground"
                 >
                   <template v-if="item.type === 'folder'"
-                    >{{ item.count }} item{{ item.count === 1 ? '' : 's' }}</template
+                    >{{ t(item.count === 1 ? 'ginkoCms.studio.assetBrowser.folderItemsOne' : 'ginkoCms.studio.assetBrowser.folderItemsOther', { count: item.count }) }}</template
                   >
                   <template v-else>{{ formatFileSize(item.asset.size) }}</template>
                 </td>
                 <td
                   class="ginko:whitespace-nowrap ginko:px-3 ginko:py-1.5 ginko:text-muted-foreground"
                 >
-                  {{ item.type === 'folder' ? 'Folder' : mimeKind(item.asset.mimeType) }}
+                  {{ item.type === 'folder' ? t('ginkoCms.studio.assetBrowser.folderKind') : mimeKind(item.asset.mimeType) }}
                 </td>
               </tr>
             </tbody>
@@ -1338,7 +1338,7 @@ defineExpose({
                 :disabled="isLoadingMoreAssets"
                 @click="loadMoreAssets"
               >
-                {{ isLoadingMoreAssets ? 'Loading…' : 'Load more' }}
+                {{ isLoadingMoreAssets ? t('ginkoCms.studio.assetBrowser.loadingMore') : t('ginkoCms.common.loadMore') }}
               </Button>
             </div>
           </div>
@@ -1376,67 +1376,63 @@ defineExpose({
                 </div>
               </div>
               <Button class="ginko:w-full" size="sm" @click="chooseAsset(selectedAssetForDetails)">
-                {{ multiple && isChosen(selectedAssetForDetails.id) ? 'Remove' : 'Choose' }}
+                {{ multiple && isChosen(selectedAssetForDetails.id) ? t('ginkoCms.common.remove') : t('ginkoCms.studio.assetBrowser.choose') }}
               </Button>
               <div class="ginko:space-y-2.5 ginko:text-xs">
                 <div class="ginko:flex ginko:justify-between ginko:gap-3">
-                  <span class="ginko:text-muted-foreground/70">Filename</span>
+                  <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.filename') }}</span>
                   <span class="ginko:truncate ginko:font-mono">{{
                     selectedAssetForDetails.filename
                   }}</span>
                 </div>
                 <div class="ginko:flex ginko:justify-between">
-                  <span class="ginko:text-muted-foreground/70">Kind</span>
+                  <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.kind') }}</span>
                   <span>{{ mimeKind(selectedAssetForDetails.mimeType) }}</span>
                 </div>
                 <div class="ginko:flex ginko:justify-between">
-                  <span class="ginko:text-muted-foreground/70">Size</span>
+                  <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.size') }}</span>
                   <span>{{ formatFileSize(selectedAssetForDetails.size) }}</span>
                 </div>
                 <div v-if="selectedAssetForDetails.width" class="ginko:flex ginko:justify-between">
-                  <span class="ginko:text-muted-foreground/70">Dimensions</span>
+                  <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.dimensions') }}</span>
                   <span
                     >{{ selectedAssetForDetails.width }} x
                     {{ selectedAssetForDetails.height }}</span
                   >
                 </div>
                 <div class="ginko:flex ginko:justify-between">
-                  <span class="ginko:text-muted-foreground/70">Ownership</span>
+                  <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.ownership') }}</span>
                   <Badge variant="outline" class="ginko:text-xs">{{
                     ownershipLabel(selectedAssetForDetails)
                   }}</Badge>
                 </div>
                 <div class="ginko:flex ginko:justify-between ginko:gap-3">
-                  <span class="ginko:text-muted-foreground/70">Owner path</span>
+                  <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.ownerPath') }}</span>
                   <span class="ginko:truncate">{{ ownerPathLabel(selectedAssetForDetails) }}</span>
                 </div>
                 <div
                   v-if="selectedAssetForDetails.collectionLabel"
                   class="ginko:flex ginko:justify-between ginko:gap-3"
                 >
-                  <span class="ginko:text-muted-foreground/70">Collection</span>
+                  <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.collection') }}</span>
                   <span class="ginko:truncate">{{ selectedAssetForDetails.collectionLabel }}</span>
                 </div>
                 <div
                   v-if="selectedAssetForDetails.entryTitle"
                   class="ginko:flex ginko:justify-between ginko:gap-3"
                 >
-                  <span class="ginko:text-muted-foreground/70">Entry</span>
+                  <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.entry') }}</span>
                   <span class="ginko:truncate">{{ selectedAssetForDetails.entryTitle }}</span>
                 </div>
                 <div class="ginko:flex ginko:justify-between">
-                  <span class="ginko:text-muted-foreground/70">Usage</span>
-                  <span
-                    >{{ selectedAssetForDetails.usages.length }} place{{
-                      selectedAssetForDetails.usages.length === 1 ? '' : 's'
-                    }}</span
-                  >
+                  <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.usage') }}</span>
+                  <span>{{ t(selectedAssetForDetails.usages.length === 1 ? 'ginkoCms.studio.assetBrowser.usagePlacesOne' : 'ginkoCms.studio.assetBrowser.usagePlacesOther', { count: selectedAssetForDetails.usages.length }) }}</span>
                 </div>
               </div>
               <Separator />
               <div class="ginko:space-y-2">
                 <div class="ginko:space-y-1.5">
-                  <Label class="ginko:text-xs">Language</Label>
+                  <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.language') }}</Label>
                   <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
                     <button
                       v-for="locale in localeOptions"
@@ -1460,11 +1456,11 @@ defineExpose({
                   </div>
                 </div>
                 <div class="ginko:space-y-1.5">
-                  <Label class="ginko:text-xs">Alt Text</Label>
+                  <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.altText') }}</Label>
                   <Input v-model="altText" class="ginko:h-8 ginko:text-xs" />
                 </div>
                 <div class="ginko:space-y-1.5">
-                  <Label class="ginko:text-xs">Caption</Label>
+                  <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.caption') }}</Label>
                   <Input v-model="captionText" class="ginko:h-8 ginko:text-xs" />
                 </div>
                 <Button
@@ -1474,12 +1470,12 @@ defineExpose({
                   :disabled="savingMeta"
                   @click="saveMetadata"
                 >
-                  Save details
+                  {{ t('ginkoCms.studio.assetBrowser.saveDetails') }}
                 </Button>
               </div>
             </template>
             <div v-else class="ginko:text-sm ginko:text-muted-foreground">
-              Select an asset to inspect it.
+              {{ t('ginkoCms.studio.assetBrowser.inspectEmpty') }}
             </div>
           </div>
         </ScrollArea>
@@ -1541,37 +1537,37 @@ defineExpose({
 
                 <div class="ginko:space-y-2.5 ginko:text-xs">
                   <div class="ginko:flex ginko:justify-between ginko:gap-3">
-                    <span class="ginko:text-muted-foreground/70">Filename</span>
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.filename') }}</span>
                     <span class="ginko:truncate ginko:font-mono">{{
                       selectedAssetForDetails.filename
                     }}</span>
                   </div>
                   <div class="ginko:flex ginko:justify-between">
-                    <span class="ginko:text-muted-foreground/70">Kind</span>
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.kind') }}</span>
                     <span>{{ mimeKind(selectedAssetForDetails.mimeType) }}</span>
                   </div>
                   <div class="ginko:flex ginko:justify-between">
-                    <span class="ginko:text-muted-foreground/70">Size</span>
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.size') }}</span>
                     <span>{{ formatFileSize(selectedAssetForDetails.size) }}</span>
                   </div>
                   <div
                     v-if="selectedAssetForDetails.width"
                     class="ginko:flex ginko:justify-between"
                   >
-                    <span class="ginko:text-muted-foreground/70">Dimensions</span>
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.dimensions') }}</span>
                     <span
                       >{{ selectedAssetForDetails.width }} x
                       {{ selectedAssetForDetails.height }}</span
                     >
                   </div>
                   <div class="ginko:flex ginko:justify-between ginko:gap-3">
-                    <span class="ginko:text-muted-foreground/70">Ownership</span>
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.ownership') }}</span>
                     <Badge variant="outline" class="ginko:text-xs">{{
                       ownershipLabel(selectedAssetForDetails)
                     }}</Badge>
                   </div>
                   <div class="ginko:flex ginko:justify-between ginko:gap-3">
-                    <span class="ginko:text-muted-foreground/70">Owner path</span>
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.ownerPath') }}</span>
                     <span class="ginko:truncate">{{
                       ownerPathLabel(selectedAssetForDetails)
                     }}</span>
@@ -1580,7 +1576,7 @@ defineExpose({
                     v-if="selectedAssetForDetails.collectionLabel"
                     class="ginko:flex ginko:justify-between ginko:gap-3"
                   >
-                    <span class="ginko:text-muted-foreground/70">Collection</span>
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.collection') }}</span>
                     <span class="ginko:truncate">{{
                       selectedAssetForDetails.collectionLabel
                     }}</span>
@@ -1589,7 +1585,7 @@ defineExpose({
                     v-if="selectedAssetForDetails.entryTitle"
                     class="ginko:flex ginko:justify-between ginko:gap-3"
                   >
-                    <span class="ginko:text-muted-foreground/70">Entry</span>
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.entry') }}</span>
                     <span class="ginko:truncate">{{ selectedAssetForDetails.entryTitle }}</span>
                   </div>
                 </div>
@@ -1608,7 +1604,7 @@ defineExpose({
                     {{ metadataCoverageLabel(selectedAssetForDetails) }}
                   </div>
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs">Language</Label>
+                    <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.language') }}</Label>
                     <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
                       <button
                         v-for="locale in localeOptions"
@@ -1632,7 +1628,7 @@ defineExpose({
                     </div>
                   </div>
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs">Alt Text</Label>
+                    <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.altText') }}</Label>
                     <Input
                       v-model="altText"
                       class="ginko:h-9 ginko:text-sm"
@@ -1640,7 +1636,7 @@ defineExpose({
                     />
                   </div>
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs">Caption</Label>
+                    <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.caption') }}</Label>
                     <Input
                       v-model="captionText"
                       class="ginko:h-9 ginko:text-sm"
@@ -1658,7 +1654,7 @@ defineExpose({
                       v-if="savingMeta"
                       class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin"
                     />
-                    Save details
+                    {{ t('ginkoCms.studio.assetBrowser.saveDetails') }}
                   </Button>
                   <Button
                     v-if="canCopyDefaultMetadata"
@@ -1668,7 +1664,7 @@ defineExpose({
                     :disabled="savingMeta"
                     @click="copyDefaultMetadataToMissingLocales"
                   >
-                    Copy default details to missing languages
+                    {{ t('ginkoCms.studio.assetBrowser.copyDefaultDetails') }}
                   </Button>
                 </div>
 
@@ -1678,7 +1674,7 @@ defineExpose({
                     <h4
                       class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                     >
-                      Tags
+                      {{ t('ginkoCms.studio.assetBrowser.tags') }}
                     </h4>
                     <div
                       v-if="selectedAssetTags.length > 0"
@@ -1699,7 +1695,7 @@ defineExpose({
                     </div>
                     <Input
                       v-model="selectedTagInput"
-                      placeholder="Add tag..."
+                      :placeholder="t('ginkoCms.studio.assetBrowser.addTagPlaceholder')"
                       class="ginko:h-8 ginko:text-xs"
                       :disabled="actionPending"
                       @keydown="handleSelectedTagKeydown"
@@ -1717,7 +1713,7 @@ defineExpose({
                         @click="restoreSelectedAsset"
                       >
                         <Undo2 class="ginko:mr-2 ginko:size-3.5" />
-                        Restore
+                        {{ t('ginkoCms.studio.assetBrowser.restore') }}
                       </Button>
                     </template>
                     <template v-else>
@@ -1733,7 +1729,7 @@ defineExpose({
                         @click="moveSelectedAssetToCollection"
                       >
                         <ArrowUp class="ginko:mr-2 ginko:size-3.5" />
-                        Make available to this collection
+                        {{ t('ginkoCms.studio.assetBrowser.makeAvailableCollection') }}
                       </Button>
                       <Button
                         v-if="selectedAssetForDetails.scope !== 'global'"
@@ -1744,7 +1740,7 @@ defineExpose({
                         @click="moveSelectedAssetToGlobal"
                       >
                         <Globe class="ginko:mr-2 ginko:size-3.5" />
-                        Make available everywhere
+                        {{ t('ginkoCms.studio.assetBrowser.makeAvailableEverywhere') }}
                       </Button>
                       <Button
                         variant="outline"
@@ -1754,7 +1750,7 @@ defineExpose({
                         @click="requestTrashAsset(selectedAssetForDetails)"
                       >
                         <Trash2 class="ginko:mr-2 ginko:size-3.5" />
-                        Move to Trash
+                        {{ t('ginkoCms.studio.assetBrowser.moveToTrash') }}
                       </Button>
                     </template>
                   </div>
@@ -1766,7 +1762,7 @@ defineExpose({
               class="ginko:absolute ginko:inset-x-0 ginko:bottom-0 ginko:border-t ginko:bg-background ginko:p-4"
             >
               <Button class="ginko:w-full" @click="chooseAsset(selectedAssetForDetails)">
-                {{ multiple && isChosen(selectedAssetForDetails.id) ? 'Remove' : 'Choose' }}
+                {{ multiple && isChosen(selectedAssetForDetails.id) ? t('ginkoCms.common.remove') : t('ginkoCms.studio.assetBrowser.choose') }}
               </Button>
             </div>
           </template>
@@ -1811,12 +1807,10 @@ defineExpose({
                     <h4
                       class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                     >
-                      Tags
+                      {{ t('ginkoCms.studio.assetBrowser.tags') }}
                     </h4>
                     <span class="ginko:text-xs ginko:text-muted-foreground/50">
-                      {{ selectedAssetTags.length }} tag{{
-                        selectedAssetTags.length === 1 ? '' : 's'
-                      }}
+                      {{ t(selectedAssetTags.length === 1 ? 'ginkoCms.studio.assetBrowser.tagsCountOne' : 'ginkoCms.studio.assetBrowser.tagsCountOther', { count: selectedAssetTags.length }) }}
                     </span>
                   </div>
                   <div
@@ -1846,7 +1840,7 @@ defineExpose({
                   </div>
                   <Input
                     v-model="selectedTagInput"
-                    placeholder="Add tag..."
+                    :placeholder="t('ginkoCms.studio.assetBrowser.addTagPlaceholder')"
                     class="ginko:h-8 ginko:text-xs"
                     :disabled="actionPending"
                     @keydown="handleSelectedTagKeydown"
@@ -1855,29 +1849,29 @@ defineExpose({
 
                 <div class="ginko:space-y-2.5 ginko:text-xs">
                   <div class="ginko:flex ginko:justify-between">
-                    <span class="ginko:text-muted-foreground/70">Filename</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.filename') }}</span
                     ><span class="ginko:ml-2 ginko:max-w-[200px] ginko:truncate ginko:font-mono">{{
                       selectedAsset.filename
                     }}</span>
                   </div>
                   <div class="ginko:flex ginko:justify-between">
-                    <span class="ginko:text-muted-foreground/70">Kind</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.kind') }}</span
                     ><span>{{ mimeKind(selectedAsset.mimeType) }}</span>
                   </div>
                   <div class="ginko:flex ginko:justify-between">
-                    <span class="ginko:text-muted-foreground/70">Size</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.size') }}</span
                     ><span>{{ formatFileSize(selectedAsset.size) }}</span>
                   </div>
                   <div v-if="selectedAsset.width" class="ginko:flex ginko:justify-between">
-                    <span class="ginko:text-muted-foreground/70">Dimensions</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.dimensions') }}</span
                     ><span>{{ selectedAsset.width }} x {{ selectedAsset.height }}</span>
                   </div>
                   <div class="ginko:flex ginko:justify-between">
-                    <span class="ginko:text-muted-foreground/70">Created</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.created') }}</span
                     ><span>{{ formatDate(selectedAsset.createdAt) }}</span>
                   </div>
                   <div v-if="selectedAsset.updatedAt" class="ginko:flex ginko:justify-between">
-                    <span class="ginko:text-muted-foreground/70">Modified</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.modified') }}</span
                     ><span>{{ formatDate(selectedAsset.updatedAt) }}</span>
                   </div>
                 </div>
@@ -1888,7 +1882,7 @@ defineExpose({
                   <h4
                     class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                   >
-                    Details
+                    {{ t('ginkoCms.studio.assetBrowser.details') }}
                   </h4>
                   <div
                     class="ginko:rounded-md ginko:border ginko:px-2.5 ginko:py-2 ginko:text-xs"
@@ -1901,7 +1895,7 @@ defineExpose({
                     {{ metadataCoverageLabel(selectedAsset) }}
                   </div>
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs">Language</Label>
+                    <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.language') }}</Label>
                     <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
                       <button
                         v-for="locale in localeOptions"
@@ -1925,13 +1919,13 @@ defineExpose({
                           v-if="locale.isDefault"
                           class="ginko:text-xs ginko:text-muted-foreground"
                         >
-                          default
+                          {{ t('ginkoCms.studio.assetBrowser.localeDefault') }}
                         </span>
                       </button>
                     </div>
                   </div>
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs">Alt Text</Label>
+                    <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.altText') }}</Label>
                     <Input
                       v-model="altText"
                       class="ginko:h-8 ginko:text-xs"
@@ -1939,7 +1933,7 @@ defineExpose({
                     />
                   </div>
                   <div class="ginko:space-y-1.5">
-                    <Label class="ginko:text-xs">Caption</Label>
+                    <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.caption') }}</Label>
                     <Input
                       v-model="captionText"
                       class="ginko:h-8 ginko:text-xs"
@@ -1957,7 +1951,7 @@ defineExpose({
                       v-if="savingMeta"
                       class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin"
                     />
-                    Save details
+                    {{ t('ginkoCms.studio.assetBrowser.saveDetails') }}
                   </Button>
                   <Button
                     v-if="canCopyDefaultMetadata"
@@ -1967,7 +1961,7 @@ defineExpose({
                     :disabled="savingMeta"
                     @click="copyDefaultMetadataToMissingLocales"
                   >
-                    Copy default details to missing languages
+                    {{ t('ginkoCms.studio.assetBrowser.copyDefaultDetails') }}
                   </Button>
                 </div>
 
@@ -1977,16 +1971,16 @@ defineExpose({
                   <h4
                     class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                   >
-                    Location
+                    {{ t('ginkoCms.studio.assetBrowser.location') }}
                   </h4>
                   <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
-                    <span class="ginko:text-muted-foreground/70">Ownership</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.ownership') }}</span
                     ><Badge variant="outline" class="ginko:text-xs">{{
                       ownershipLabel(selectedAsset)
                     }}</Badge>
                   </div>
                   <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
-                    <span class="ginko:text-muted-foreground/70">Owner path</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.ownerPath') }}</span
                     ><span class="ginko:ml-2 ginko:max-w-[220px] ginko:truncate">{{
                       ownerPathLabel(selectedAsset)
                     }}</span>
@@ -1995,11 +1989,11 @@ defineExpose({
                     v-if="selectedAsset.collectionLabel"
                     class="ginko:flex ginko:justify-between"
                   >
-                    <span class="ginko:text-muted-foreground/70">Collection</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.collection') }}</span
                     ><span>{{ selectedAsset.collectionLabel }}</span>
                   </div>
                   <div v-if="selectedAsset.entryTitle" class="ginko:flex ginko:justify-between">
-                    <span class="ginko:text-muted-foreground/70">Entry</span
+                    <span class="ginko:text-muted-foreground/70">{{ t('ginkoCms.studio.assetBrowser.entry') }}</span
                     ><span class="ginko:ml-2 ginko:max-w-[200px] ginko:truncate">{{
                       selectedAsset.entryTitle
                     }}</span>
@@ -2012,20 +2006,18 @@ defineExpose({
                   <h4
                     class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
                   >
-                    Usage
+                    {{ t('ginkoCms.studio.assetBrowser.usage') }}
                   </h4>
                   <div
                     v-if="selectedAsset.usages.length === 0"
                     class="ginko:flex ginko:items-center ginko:gap-1.5 ginko:text-xs ginko:text-warning-fg"
                   >
                     <AlertTriangle class="ginko:size-3.5" />
-                    Not used anywhere
+                    {{ t('ginkoCms.studio.assetBrowser.notUsedAnywhere') }}
                   </div>
                   <template v-else>
                     <p class="ginko:text-xs ginko:text-muted-foreground/60">
-                      Used in {{ selectedAsset.usages.length }} place{{
-                        selectedAsset.usages.length === 1 ? '' : 's'
-                      }}
+                      {{ t(selectedAsset.usages.length === 1 ? 'ginkoCms.studio.assetBrowser.usedInOne' : 'ginkoCms.studio.assetBrowser.usedInOther', { count: selectedAsset.usages.length }) }}
                     </p>
                     <div
                       v-for="(usage, i) in selectedAsset.usages.slice(0, 5)"
@@ -2057,7 +2049,7 @@ defineExpose({
                       @click="restoreSelectedAsset"
                     >
                       <Undo2 class="ginko:mr-2 ginko:size-3.5" />
-                      Restore
+                      {{ t('ginkoCms.studio.assetBrowser.restore') }}
                     </Button>
                   </template>
                   <template v-else>
@@ -2070,7 +2062,7 @@ defineExpose({
                       @click="moveSelectedAssetToCollection"
                     >
                       <ArrowUp class="ginko:mr-2 ginko:size-3.5" />
-                      Make available to this collection
+                      {{ t('ginkoCms.studio.assetBrowser.makeAvailableCollection') }}
                     </Button>
                     <Button
                       v-if="selectedAsset.scope !== 'global'"
@@ -2081,7 +2073,7 @@ defineExpose({
                       @click="moveSelectedAssetToGlobal"
                     >
                       <Globe class="ginko:mr-2 ginko:size-3.5" />
-                      Make available everywhere
+                      {{ t('ginkoCms.studio.assetBrowser.makeAvailableEverywhere') }}
                     </Button>
                     <Button
                       variant="outline"
@@ -2091,7 +2083,7 @@ defineExpose({
                       @click="requestTrashAsset(selectedAsset)"
                     >
                       <Trash2 class="ginko:mr-2 ginko:size-3.5" />
-                      Move to Trash
+                      {{ t('ginkoCms.studio.assetBrowser.moveToTrash') }}
                     </Button>
                   </template>
                 </div>
@@ -2116,20 +2108,20 @@ defineExpose({
         :tone="pendingDestructiveUsageCount > 0 ? 'warning' : 'neutral'"
         :title="
           pendingDestructiveUsageCount > 0
-            ? `${pendingDestructiveUsageCount} usage${pendingDestructiveUsageCount === 1 ? '' : 's'} affected`
-            : 'No usage found'
+            ? t(pendingDestructiveUsageCount === 1 ? 'ginkoCms.studio.assetBrowser.usageAffectedOne' : 'ginkoCms.studio.assetBrowser.usageAffectedOther', { count: pendingDestructiveUsageCount })
+            : t('ginkoCms.studio.assetBrowser.noUsageFound')
         "
         :description="
           pendingDestructiveUsageCount > 0
-            ? 'Review affected content before confirming this destructive action.'
-            : 'No entries currently reference the selected asset.'
+            ? t('ginkoCms.studio.assetBrowser.reviewAffected')
+            : t('ginkoCms.studio.assetBrowser.noEntriesReference')
         "
       />
       <div class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3">
         <div
           class="ginko:mb-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
         >
-          Affected assets
+          {{ t('ginkoCms.studio.assetBrowser.affectedAssets') }}
         </div>
         <div class="ginko:space-y-2">
           <div
@@ -2141,14 +2133,14 @@ defineExpose({
               asset.filename
             }}</span>
             <span class="ginko:shrink-0 ginko:text-muted-foreground">
-              {{ asset.usages.length }} usage{{ asset.usages.length === 1 ? '' : 's' }}
+              {{ t(asset.usages.length === 1 ? 'ginkoCms.studio.assetBrowser.assetUsageOne' : 'ginkoCms.studio.assetBrowser.assetUsageOther', { count: asset.usages.length }) }}
             </span>
           </div>
           <div
             v-if="pendingDestructiveAffectedAssets.length > 6"
             class="ginko:text-xs ginko:text-muted-foreground"
           >
-            +{{ pendingDestructiveAffectedAssets.length - 6 }} more
+            {{ t('ginkoCms.studio.assetBrowser.moreAffected', { count: pendingDestructiveAffectedAssets.length - 6 }) }}
           </div>
         </div>
       </div>

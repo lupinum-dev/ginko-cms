@@ -6,6 +6,7 @@ import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
+import { useCmsI18n } from '../useCmsI18n'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
 import { useCmsStudioPaginatedQuery } from '../useCmsStudioPaginatedQuery'
 import { useConvexAction, useConvexMutation, useConvexUpload } from '../useStudioConvex'
@@ -52,6 +53,7 @@ export function useStudioAssetFinder(
   } = {},
 ) {
   useCmsStudioAccess()
+  const { t } = useCmsI18n()
 
   const ASSET_PAGE_SIZE = 100
   const upload = useConvexUpload(api.ginkoCms.assets.generateUploadUrl, {
@@ -175,7 +177,7 @@ export function useStudioAssetFinder(
     return [
       {
         key: 'global',
-        label: 'Shared library',
+        label: t('ginkoCms.studio.assetBrowser.sharedLibrary'),
         icon: 'lucide:globe',
         count: activeAssets.value.filter((asset) => asset.scope === 'global').length,
       },
@@ -200,10 +202,10 @@ export function useStudioAssetFinder(
   )
 
   const sidebarFullViews = computed(() => [
-    { key: 'all', label: 'All media', icon: 'lucide:layers', count: activeAssets.value.length },
+    { key: 'all', label: t('ginkoCms.studio.assetBrowser.allMedia'), icon: 'lucide:layers', count: activeAssets.value.length },
     {
       key: 'global',
-      label: 'Shared library',
+      label: t('ginkoCms.studio.assetBrowser.sharedLibrary'),
       icon: 'lucide:globe',
       count: activeAssets.value.filter((asset) => asset.scope === 'global').length,
     },
@@ -267,23 +269,28 @@ export function useStudioAssetFinder(
 
   const breadcrumb = computed<BreadcrumbSegment[]>(() => {
     if (sidebarMode.value === 'trash') {
-      return [{ label: 'Trash', drillPath: [] }]
+      return [{ label: t('ginkoCms.studio.assetBrowser.trash'), drillPath: [] }]
     }
 
     if (sidebarMode.value === 'tags') {
       const tag = tagMap.value.get(sidebarKey.value)
-      return [{ label: `Tag: ${tag?.label ?? sidebarKey.value}`, drillPath: [] }]
+      return [
+        {
+          label: t('ginkoCms.studio.assetBrowser.tagBreadcrumb', { tag: tag?.label ?? sidebarKey.value }),
+          drillPath: [],
+        },
+      ]
     }
 
     if (sidebarMode.value === 'full') {
-      if (sidebarKey.value === 'all') return [{ label: 'All media', drillPath: [] }]
-      if (sidebarKey.value === 'global') return [{ label: 'Shared library', drillPath: [] }]
+      if (sidebarKey.value === 'all') return [{ label: t('ginkoCms.studio.assetBrowser.allMedia'), drillPath: [] }]
+      if (sidebarKey.value === 'global') return [{ label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] }]
       const collection = sidebarCollections.value.find((item) => item.key === sidebarKey.value)
       return [{ label: collection?.label ?? sidebarKey.value, drillPath: [] }]
     }
 
     if (sidebarKey.value === 'global') {
-      const segments: BreadcrumbSegment[] = [{ label: 'Shared library', drillPath: [] }]
+      const segments: BreadcrumbSegment[] = [{ label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] }]
       for (let index = 0; index < drillPath.value.length; index++) {
         const segment = drillPath.value[index]!
         const path = drillPath.value.slice(0, index + 1)

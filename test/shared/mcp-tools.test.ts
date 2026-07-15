@@ -515,8 +515,10 @@ describe('MCP tool safety contracts', () => {
     expect(publicWorkflowPanel).toContain('publicWorkflowWhatWillChange')
     expect(translationReadinessPanel).toContain('translationReadinessLanguageStatus')
     expect(translationReadinessPanel).toContain('translationReadinessReviewLanguage')
-    expect(collectionContract).toContain('Website use')
-    expect(collectionContract).toContain('Creates website pages')
-    expect(collectionContract).toContain('Shared content')
+    // The collection-contract copy moved into the locale packs (i18n completion
+    // sweep, W6); the section references it by key.
+    expect(collectionContract).toContain('collectionContract.websiteUse')
+    expect(collectionContract).toContain('collectionContract.createsWebsitePages')
+    expect(collectionContract).toContain('collectionContract.sharedContent')
   })
 })

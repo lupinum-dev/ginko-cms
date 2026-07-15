@@ -132,7 +132,11 @@ function removeAsset(assetId: string) {
           size="icon"
           variant="ghost"
           class="ginko:size-5"
-          :aria-label="`Remove ${assetsById.get(assetId)?.filename ?? assetId}`"
+          :aria-label="
+            t('ginkoCms.studio.assetPicker.removeAsset', {
+              name: assetsById.get(assetId)?.filename ?? assetId,
+            })
+          "
           @click="removeAsset(assetId)"
         >
           <X class="ginko:size-3" />

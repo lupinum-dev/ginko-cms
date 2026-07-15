@@ -346,7 +346,7 @@ function formatBlockData(value: unknown): string {
     "
   >
     <div v-if="deleteTarget" class="ginko:space-y-2 ginko:text-sm ginko:text-muted-foreground">
-      <div>Delete "{{ deleteTarget.label }}"?</div>
+      <div>{{ t('ginkoCms.studio.siteDataPage.deletePrompt', { label: deleteTarget.label }) }}</div>
       <div
         class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/40 ginko:p-3 ginko:text-xs"
       >
@@ -363,7 +363,7 @@ function formatBlockData(value: unknown): string {
           <span class="ginko:text-foreground">{{ deleteTarget.localized ? 'yes' : 'no' }}</span>
         </div>
         <div v-if="deleteTarget.visibility === 'public'" class="ginko:mt-2 ginko:text-destructive">
-          This block is exposed through public site-data reads.
+          {{ t('ginkoCms.studio.siteDataPage.deletePublicWarning') }}
         </div>
       </div>
     </div>

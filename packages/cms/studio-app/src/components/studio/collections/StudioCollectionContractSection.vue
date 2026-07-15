@@ -111,11 +111,15 @@ const projectionFacts = computed(() => [
         class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
       >
         <Settings2 class="ginko:size-4 ginko:text-muted-foreground" />
-        Content type details
+        {{ t('ginkoCms.studio.collectionsPage.collectionSettings') }}
       </h2>
       <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
-        Managed by developers ·
-        {{ collectionDraft.mode === 'route' ? 'Creates website pages' : 'Shared content' }}
+        {{ t('ginkoCms.studio.collectionsPage.codeDefinedBadge') }} ·
+        {{
+          collectionDraft.mode === 'route'
+            ? t('ginkoCms.studio.collectionContract.createsWebsitePages')
+            : t('ginkoCms.studio.collectionContract.sharedContent')
+        }}
       </p>
     </div>
     <div class="ginko:flex-1 ginko:min-w-0 ginko:space-y-4">
@@ -123,12 +127,16 @@ const projectionFacts = computed(() => [
         v-if="collectionDetailPending"
         class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3 ginko:text-xs ginko:text-muted-foreground"
       >
-        Loading the selected content type...
+        {{ t('ginkoCms.studio.collectionContract.loadingType') }}
       </div>
       <StudioNotice
         v-else-if="collectionDetailError"
         tone="danger"
-        :description="`Failed to load the selected content type. ${collectionDetailError.message}`"
+        :description="
+          t('ginkoCms.studio.collectionContract.loadError', {
+            message: collectionDetailError.message,
+          })
+        "
       />
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3">
         <div class="ginko:flex ginko:items-start ginko:gap-3">
@@ -138,9 +146,7 @@ const projectionFacts = computed(() => [
               {{ collectionDraft.label || selectedCollection }}
             </div>
             <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-              This content type is managed by developers and synced into Studio as setup details.
-              Change fields, routing, locales, and website behavior in the application config, then
-              resync the app.
+              {{ t('ginkoCms.studio.collectionContract.managedDescription') }}
             </p>
           </div>
         </div>
@@ -150,7 +156,9 @@ const projectionFacts = computed(() => [
       >
         <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
           <div>
-            <Label class="ginko:text-xs ginko:text-muted-foreground">Website use</Label>
+            <Label class="ginko:text-xs ginko:text-muted-foreground">{{
+              t('ginkoCms.studio.collectionContract.websiteUse')
+            }}</Label>
             <div
               class="ginko:mt-1 ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm ginko:font-medium"
             >
@@ -159,37 +167,42 @@ const projectionFacts = computed(() => [
                 class="ginko:size-4 ginko:text-muted-foreground"
               />
               <Database v-else class="ginko:size-4 ginko:text-muted-foreground" />
-              {{ collectionDraft.mode === 'route' ? 'Creates website pages' : 'Shared content' }}
+              {{
+                collectionDraft.mode === 'route'
+                  ? t('ginkoCms.studio.collectionContract.createsWebsitePages')
+                  : t('ginkoCms.studio.collectionContract.sharedContent')
+              }}
             </div>
             <p
               class="ginko:mt-1 ginko:max-w-2xl ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
             >
               {{
                 collectionDraft.mode === 'route'
-                  ? 'Creates public pages with localized routes, visibility diagnostics, sitemap/search/nav participation, SEO, and website-change checks.'
-                  : 'Stores structured content for lists, relations, single-entry content, and site-wide content without page routes.'
+                  ? t('ginkoCms.studio.collectionContract.routeModeDescription')
+                  : t('ginkoCms.studio.collectionContract.dataModeDescription')
               }}
             </p>
           </div>
-          <Badge variant="secondary" class="ginko:text-xs">Managed by developers</Badge>
+          <Badge variant="secondary" class="ginko:text-xs">{{
+            t('ginkoCms.studio.collectionsPage.codeDefinedBadge')
+          }}</Badge>
         </div>
         <div
           v-if="collectionDraft.mode === 'none'"
           class="ginko:space-y-2 ginko:rounded-md ginko:border ginko:border-dashed ginko:bg-background ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-muted-foreground"
         >
           <p>
-            Page controls are hidden for shared-content types. Sitemap, search, navigation, and
-            route diagnostics do not apply until this content type creates website pages.
+            {{ t('ginkoCms.studio.collectionContract.pageControlsHidden') }}
           </p>
           <div
             v-if="normalizedPathPrefix && normalizedPathPrefix !== '/'"
             class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2"
           >
             <span>
-              Out-of-date URL prefix:
+              {{ t('ginkoCms.studio.collectionContract.outOfDatePrefix') }}
               <code class="ginko:font-mono ginko:text-foreground">{{ normalizedPathPrefix }}</code>
             </span>
-            <span>Update the code-defined collection config to clear it.</span>
+            <span>{{ t('ginkoCms.studio.collectionContract.clearPrefixHint') }}</span>
           </div>
         </div>
       </div>
@@ -218,7 +231,7 @@ const projectionFacts = computed(() => [
             </Badge>
           </div>
           <p v-else class="ginko:mt-2 ginko:text-xs ginko:text-muted-foreground">
-            No locales are configured for this collection.
+            {{ t('ginkoCms.studio.collectionContract.noLocalesConfigured') }}
           </p>
         </div>
       </div>
@@ -226,9 +239,11 @@ const projectionFacts = computed(() => [
         <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
           <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
             <div>
-              <Label class="ginko:text-xs ginko:text-muted-foreground">Live website content</Label>
+              <Label class="ginko:text-xs ginko:text-muted-foreground">{{
+                t('ginkoCms.studio.collectionContract.liveWebsiteContent')
+              }}</Label>
               <p class="ginko:mt-1 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-                Website reads use active live content only. Draft saves do not change these rows.
+                {{ t('ginkoCms.studio.collectionContract.liveContentDescription') }}
               </p>
             </div>
             <Badge
@@ -243,8 +258,8 @@ const projectionFacts = computed(() => [
               {{
                 collectionDetail?.projectionStatus?.activeCollectionProjectionRunId ||
                 collectionDetail?.projectionStatus?.activeSiteProjectionRunId
-                  ? 'active'
-                  : 'none'
+                  ? t('ginkoCms.studio.collectionContract.active')
+                  : t('ginkoCms.studio.collectionContract.none')
               }}
             </Badge>
           </div>
@@ -282,15 +297,14 @@ const projectionFacts = computed(() => [
             v-if="collectionDraft.mode === 'route'"
             class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
           >
-            Public routes, redirects, sitemap, search, and navigation diagnostics are evaluated
-            from these developer-managed settings.
+            {{ t('ginkoCms.studio.collectionContract.developerRoutesNote') }}
           </p>
         </div>
       </StudioDeveloperDetails>
       <StudioNotice
         v-if="capabilityWarnings.length"
         tone="warning"
-        title="Review collection config"
+        :title="t('ginkoCms.studio.collectionContract.reviewConfig')"
       >
         <ul class="ginko:space-y-1 ginko:text-xs ginko:leading-relaxed">
           <li v-for="warning in capabilityWarnings" :key="warning">- {{ warning }}</li>

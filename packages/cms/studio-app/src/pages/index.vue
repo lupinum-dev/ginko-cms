@@ -192,8 +192,8 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
   const rows: WorkQueueMetric[] = [
     {
       key: 'needsAttention',
-      label: 'Needs attention',
-      description: 'Start here when publishing is blocked or website updates need review.',
+      label: t('ginkoCms.studio.dashboard.queueNeedsAttention'),
+      description: t('ginkoCms.studio.dashboard.queueNeedsAttentionDesc'),
       value: loadingValue ?? workQueue.value.needsAttention,
       icon: AlertCircle,
       tone: workQueue.value.needsAttention > 0 ? 'danger' : 'neutral',
@@ -201,8 +201,8 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
     },
     {
       key: 'readyToPreview',
-      label: 'Ready to preview',
-      description: 'Drafts with no known blockers. Review website changes before publishing.',
+      label: t('ginkoCms.studio.dashboard.queueReadyToPreview'),
+      description: t('ginkoCms.studio.dashboard.queueReadyToPreviewDesc'),
       value: loadingValue ?? overview.value?.counts?.readyToPreview ?? 0,
       icon: CheckCircle2,
       tone: (overview.value?.counts?.readyToPreview ?? 0) > 0 ? 'info' : 'neutral',
@@ -210,8 +210,8 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
     },
     {
       key: 'changedDrafts',
-      label: 'Continue editing',
-      description: 'Draft edits waiting for preview, review, or publishing.',
+      label: t('ginkoCms.studio.dashboard.queueContinueEditing'),
+      description: t('ginkoCms.studio.dashboard.queueContinueEditingDesc'),
       value: loadingValue ?? workQueue.value.changedDrafts,
       icon: FileText,
       tone: workQueue.value.changedDrafts > 0 ? 'info' : 'neutral',
@@ -219,8 +219,8 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
     },
     {
       key: 'missingTranslations',
-      label: 'Missing languages',
-      description: 'Language versions that still need content before the website is complete.',
+      label: t('ginkoCms.studio.dashboard.queueMissingLanguages'),
+      description: t('ginkoCms.studio.dashboard.queueMissingLanguagesDesc'),
       value: loadingValue ?? workQueue.value.missingTranslations,
       icon: Languages,
       tone: workQueue.value.missingTranslations > 0 ? 'warning' : 'neutral',
@@ -231,8 +231,8 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
   if (canPublishEntries.value) {
     rows.push({
       key: 'readyForReview',
-      label: 'Ready for review',
-      description: 'Publish requests waiting for a human decision.',
+      label: t('ginkoCms.studio.dashboard.queueReadyForReview'),
+      description: t('ginkoCms.studio.dashboard.queueReadyForReviewDesc'),
       value: reviewsLoadingValue ?? pendingReviews.value.length,
       icon: Inbox,
       tone: pendingReviews.value.length > 0 ? 'warning' : 'neutral',
@@ -243,8 +243,8 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
   if (reviewsLoadingValue !== null || aiPreparedReviews.value.length > 0) {
     rows.push({
       key: 'aiPrepared',
-      label: 'AI prepared',
-      description: 'AI-submitted website changes waiting for review.',
+      label: t('ginkoCms.studio.dashboard.queueAiPrepared'),
+      description: t('ginkoCms.studio.dashboard.queueAiPreparedDesc'),
       value: reviewsLoadingValue ?? aiPreparedReviews.value.length,
       icon: Bot,
       tone: aiPreparedReviews.value.length > 0 ? 'info' : 'neutral',
@@ -255,8 +255,8 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
   if (!overviewReady.value || workQueue.value.failedRevalidation > 0) {
     rows.push({
       key: 'failedRevalidation',
-      label: 'Website refresh',
-      description: 'Failed website refreshes that can affect recently published content.',
+      label: t('ginkoCms.studio.dashboard.queueWebsiteRefresh'),
+      description: t('ginkoCms.studio.dashboard.queueWebsiteRefreshDesc'),
       value: loadingValue ?? workQueue.value.failedRevalidation,
       icon: RefreshCw,
       tone: workQueue.value.failedRevalidation > 0 ? 'danger' : 'neutral',
@@ -305,7 +305,9 @@ function blockerCount(entry: OverviewEntry) {
 }
 
 function routeModeLabel(mode: unknown) {
-  return mode === 'none' ? 'Shared data' : 'Website pages'
+  return mode === 'none'
+    ? t('ginkoCms.studio.dashboard.routeModeSharedData')
+    : t('ginkoCms.studio.dashboard.routeModeWebsitePages')
 }
 
 function metricToneClass(tone: WorkQueueMetric['tone']) {
@@ -411,9 +413,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 class="ginko:flex ginko:items-center ginko:justify-between ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3"
               >
                 <div>
-                  <h2 class="studio-text-title">Blocked from publishing</h2>
+                  <h2 class="studio-text-title">{{ t('ginkoCms.studio.dashboard.blockedTitle') }}</h2>
                   <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
-                    Content with issues to fix before the website can change.
+                    {{ t('ginkoCms.studio.dashboard.blockedDescription') }}
                   </p>
                 </div>
                 <Badge variant="outline" class="ginko:text-xs">
@@ -440,8 +442,13 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   <div
                     class="ginko:self-center ginko:text-xs ginko:text-muted-foreground ginko:@2xl:text-right"
                   >
-                    {{ blockerCount(entry) }} publish issue{{
-                      blockerCount(entry) === 1 ? '' : 's'
+                    {{
+                      t(
+                        blockerCount(entry) === 1
+                          ? 'ginkoCms.studio.dashboard.blockedIssuesOne'
+                          : 'ginkoCms.studio.dashboard.blockedIssuesOther',
+                        { count: blockerCount(entry) },
+                      )
                     }}
                   </div>
                   <AlertCircle
@@ -451,8 +458,8 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               </div>
               <StudioEmptyState
                 v-else
-                title="No publish blockers"
-                description="The current work queue has no publish blockers."
+                :title="t('ginkoCms.studio.dashboard.noPublishBlockersTitle')"
+                :description="t('ginkoCms.studio.dashboard.noPublishBlockersDescription')"
                 class="ginko:m-4"
               />
             </section>
@@ -461,9 +468,11 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
               <div class="ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3">
-                <h2 class="studio-text-title">Content overview</h2>
+                <h2 class="studio-text-title">
+                  {{ t('ginkoCms.studio.dashboard.contentOverviewTitle') }}
+                </h2>
                 <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
-                  Content types, website use, drafts, and translation gaps.
+                  {{ t('ginkoCms.studio.dashboard.contentOverviewDescription') }}
                 </p>
               </div>
               <div class="ginko:overflow-x-auto">
@@ -471,11 +480,11 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   <div
                     class="ginko:grid ginko:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem_8rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
                   >
-                    <div>Collection</div>
-                    <div>Website use</div>
-                    <div>Entries</div>
-                    <div>Drafts</div>
-                    <div>Translations</div>
+                    <div>{{ t('ginkoCms.studio.dashboard.columnCollection') }}</div>
+                    <div>{{ t('ginkoCms.studio.dashboard.columnWebsiteUse') }}</div>
+                    <div>{{ t('ginkoCms.studio.dashboard.columnEntries') }}</div>
+                    <div>{{ t('ginkoCms.studio.dashboard.columnDrafts') }}</div>
+                    <div>{{ t('ginkoCms.studio.dashboard.columnTranslations') }}</div>
                   </div>
                   <RouterLink
                     v-for="collection in collectionRows"
@@ -512,7 +521,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 class="ginko:flex ginko:items-center ginko:gap-2 ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3"
               >
                 <Workflow class="ginko:size-4 ginko:text-muted-foreground" />
-                <h2 class="studio-text-title">Track website updates</h2>
+                <h2 class="studio-text-title">
+                  {{ t('ginkoCms.studio.dashboard.trackWebsiteUpdatesTitle') }}
+                </h2>
               </div>
               <div class="ginko:space-y-3 ginko:p-4">
                 <div
@@ -523,9 +534,11 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                     class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground"
                   />
                   <div>
-                    <div class="ginko:font-medium">Website update status unavailable</div>
+                    <div class="ginko:font-medium">
+                      {{ t('ginkoCms.studio.dashboard.trackStatusUnavailableTitle') }}
+                    </div>
                     <div class="ginko:text-xs ginko:text-muted-foreground">
-                      Studio is still loading website refresh status.
+                      {{ t('ginkoCms.studio.dashboard.trackStatusUnavailableDescription') }}
                     </div>
                   </div>
                 </div>
@@ -537,9 +550,11 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                     class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-success"
                   />
                   <div>
-                    <div class="ginko:font-medium">No blocked website updates</div>
+                    <div class="ginko:font-medium">
+                      {{ t('ginkoCms.studio.dashboard.trackHealthyTitle') }}
+                    </div>
                     <div class="ginko:text-xs ginko:text-muted-foreground">
-                      Website refreshes are healthy.
+                      {{ t('ginkoCms.studio.dashboard.trackHealthyDescription') }}
                     </div>
                   </div>
                 </div>
@@ -592,8 +607,8 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               </div>
               <StudioEmptyState
                 v-else
-                title="Nothing live yet"
-                description="Published entries will appear here after website changes go live."
+                :title="t('ginkoCms.studio.dashboard.nothingLiveTitle')"
+                :description="t('ginkoCms.studio.dashboard.nothingLiveDescription')"
                 class="ginko:m-4"
               />
             </section>

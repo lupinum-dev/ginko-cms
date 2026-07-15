@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import type { StudioAssetContext } from '../../composables/internal/types'
+import { useCmsI18n } from '../../composables/useCmsI18n'
 import StudioAssetMetadataForm from './StudioAssetMetadataForm.vue'
 
 // Picker-context wrapper: keeps the dialog chrome the asset picker relies on and
@@ -17,6 +18,8 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
 }>()
 
+const { t } = useCmsI18n()
+
 const open = computed({
   get: () => props.open,
   set: (value: boolean) => emit('update:open', value),
@@ -27,10 +30,9 @@ const open = computed({
   <Dialog :open="open" @update:open="open = $event">
     <DialogContent size="sm" class="ginko:gap-0 ginko:overflow-hidden ginko:p-0">
       <DialogHeader class="ginko:border-b ginko:px-5 ginko:py-4 ginko:pr-12">
-        <DialogTitle>Edit image details</DialogTitle>
+        <DialogTitle>{{ t('ginkoCms.studio.assetMetadataDialog.title') }}</DialogTitle>
         <DialogDescription>
-          Update image text used by editors. Live pages keep their current image details until they
-          are published again.
+          {{ t('ginkoCms.studio.assetMetadataDialog.description') }}
         </DialogDescription>
       </DialogHeader>
 

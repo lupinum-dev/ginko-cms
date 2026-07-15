@@ -151,6 +151,12 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsI18n', () => ({
     t: (key: string) => {
       const messages: Record<string, string> = {
         'ginkoCms.studio.collectionListPage.newEntry': 'New content',
+        'ginkoCms.studio.dashboard.queueNeedsAttention': 'Needs attention',
+        'ginkoCms.studio.dashboard.queueReadyToPreview': 'Ready to preview',
+        'ginkoCms.studio.dashboard.queueContinueEditing': 'Continue editing',
+        'ginkoCms.studio.dashboard.queueMissingLanguages': 'Missing languages',
+        'ginkoCms.studio.dashboard.queueReadyForReview': 'Ready for review',
+        'ginkoCms.studio.dashboard.queueAiPrepared': 'AI prepared',
         'ginkoCms.studio.dashboard.headerDescription':
           'Review drafts, approvals, translation gaps, and publish blockers.',
         'ginkoCms.studio.dashboard.overviewLoadErrorDescription':
