@@ -10,6 +10,10 @@ const { t } = useCmsI18n()
 
 const studioVersion = computed(() => (cmsConfig as { version?: string }).version || 'v2.0.0')
 
+// The template's AppSidebar drives `variant`/`collapsible`/`side` from
+// useAppSettings. The Studio has no such setting surface (its only sidebar
+// config is `cmsConfig.sidebar.dark`, applied as a root class in Layout), so
+// these stay fixed to the Studio's established icon-collapsible left rail.
 function openCommandPalette() {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
@@ -24,7 +28,7 @@ function openCommandPalette() {
     collapsible="icon"
     class="studio-sidebar ginko:border-r ginko:border-border/40 ginko:bg-sidebar"
   >
-    <SidebarHeader class="ginko:px-3 ginko:py-3">
+    <SidebarHeader class="ginko:gap-2 ginko:px-3 ginko:py-3">
       <div class="ginko:flex ginko:items-center ginko:gap-2">
         <SidebarMenu class="ginko:min-w-0 ginko:flex-1">
           <SidebarMenuItem>
@@ -62,36 +66,25 @@ function openCommandPalette() {
           <ChevronsLeft class="ginko:size-3.5" />
         </SidebarTrigger>
       </div>
-    </SidebarHeader>
 
-    <SidebarGroup
-      class="ginko:p-0 ginko:px-3 ginko:pb-2 ginko:group-data-[collapsible=icon]:hidden"
-    >
-      <SidebarGroupContent class="ginko:relative">
-        <button
-          type="button"
-          class="studio-motion-fast ginko:relative ginko:flex ginko:h-9 ginko:w-full ginko:items-center ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-background/50 ginko:pl-9 ginko:pr-14 ginko:text-left ginko:text-sm ginko:text-sidebar-foreground/70 ginko:hover:border-border ginko:hover:bg-muted/40 ginko:hover:text-sidebar-foreground ginko:focus-visible:border-ring ginko:focus-visible:outline-none ginko:focus-visible:ring-[3px] ginko:focus-visible:ring-ring/40"
-          @click="openCommandPalette"
+      <button
+        type="button"
+        data-testid="cms-sidebar-search"
+        class="studio-motion-fast ginko:relative ginko:flex ginko:h-9 ginko:w-full ginko:items-center ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-background/50 ginko:pl-9 ginko:pr-14 ginko:text-left ginko:text-sm ginko:text-sidebar-foreground/70 ginko:hover:border-border ginko:hover:bg-muted/40 ginko:hover:text-sidebar-foreground ginko:focus-visible:border-ring ginko:focus-visible:outline-none ginko:focus-visible:ring-[3px] ginko:focus-visible:ring-ring/40 ginko:group-data-[collapsible=icon]:hidden"
+        @click="openCommandPalette"
+      >
+        <Search
+          class="ginko:absolute ginko:left-3 ginko:top-1/2 ginko:size-4 ginko:-translate-y-1/2 ginko:text-muted-foreground/60"
+        />
+        <span class="ginko:truncate">{{ t('ginkoCms.studio.layout.searchPlaceholder') }}</span>
+        <span
+          class="ginko:absolute ginko:right-2 ginko:top-1/2 ginko:flex ginko:-translate-y-1/2 ginko:items-center ginko:gap-0.5"
         >
-          <Search
-            class="ginko:absolute ginko:left-3 ginko:top-1/2 ginko:size-4 ginko:-translate-y-1/2 ginko:text-muted-foreground/60"
-          />
-          <span class="ginko:truncate">{{ t('ginkoCms.studio.layout.searchPlaceholder') }}</span>
-          <span
-            class="ginko:absolute ginko:right-2 ginko:top-1/2 ginko:flex ginko:-translate-y-1/2 ginko:items-center ginko:gap-0.5"
-          >
-            <kbd
-              class="ginko:pointer-events-none ginko:inline-flex ginko:h-5 ginko:min-w-[20px] ginko:select-none ginko:items-center ginko:justify-center ginko:rounded-sm ginko:border ginko:border-border/60 ginko:bg-muted/40 ginko:px-1 ginko:font-mono ginko:text-xs ginko:font-medium ginko:text-muted-foreground"
-              >⌘</kbd
-            >
-            <kbd
-              class="ginko:pointer-events-none ginko:inline-flex ginko:h-5 ginko:min-w-[20px] ginko:select-none ginko:items-center ginko:justify-center ginko:rounded-sm ginko:border ginko:border-border/60 ginko:bg-muted/40 ginko:px-1 ginko:font-mono ginko:text-xs ginko:font-medium ginko:text-muted-foreground"
-              >K</kbd
-            >
-          </span>
-        </button>
-      </SidebarGroupContent>
-    </SidebarGroup>
+          <Kbd>⌘</Kbd>
+          <Kbd>K</Kbd>
+        </span>
+      </button>
+    </SidebarHeader>
 
     <SidebarContent class="ginko:px-3 ginko:pb-3">
       <StudioSidebarNav />

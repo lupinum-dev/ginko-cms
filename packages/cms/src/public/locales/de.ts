@@ -153,6 +153,7 @@ const de = {
         greeting: 'Hey, {name}',
         commandHint: 'Cmd K',
         home: 'Home',
+        entry: 'Eintrag',
         content: 'Inhalte',
         editor: 'Editor',
         operations: 'Betrieb',

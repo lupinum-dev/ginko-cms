@@ -3,6 +3,7 @@ import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref, watch } from 'vue'
 
 import { api } from './boundary/api'
+import { useAppearance } from './composables/useAppearance'
 import { useCmsAuthState } from './composables/useCmsAuthState'
 import { useCmsConfig } from './composables/useCmsConfig'
 import { useCmsI18n } from './composables/useCmsI18n'
@@ -12,10 +13,19 @@ import { useConvexMutation } from './composables/useStudioConvex'
 const { t } = useCmsI18n()
 const cmsConfig = useCmsConfig()
 const { user } = useCmsAuthState()
+
+// Appearance (D7): the color/type/radius theme classes that themes.css keys off
+// (`.ginko-cms.color-blue`, `.theme-mono`, …). These are bound declaratively
+// into the `.ginko-cms` root's `:class` below rather than mutated onto the DOM
+// imperatively — that keeps them reactive, avoids fighting Vue's class patching,
+// and re-applies automatically across the access-state branch swap. The Phase 6
+// Settings → Appearance UI drives the same composable.
+const { appearanceClasses } = useAppearance()
 const studioClass = computed(() => [
   'ginko-cms',
   'ginko-cms--studio',
   cmsConfig.sidebar?.dark && 'ginko-cms--sidebar-dark',
+  ...appearanceClasses.value,
 ])
 const { studioRoute, pending, permissions, isMember, canRead, canBootstrap } = useCmsStudioAccess()
 const bootstrapCmsOwner = useConvexMutation(api.ginkoCms.members.bootstrapCmsOwner)
@@ -99,8 +109,21 @@ async function claimCmsOwnership() {
     <CmsCommandPalette :studio-route="studioRoute" />
     <StudioSidebar />
 
+    <!--
+      Scroll model (RFC Phase 3, step 5). The template lets the whole
+      SidebarInset grow and scroll as one document (`@container/main p-4 lg:p-6`
+      on the page wrapper). The Studio deliberately keeps its established
+      fixed-pane model instead: the inset is `overflow-hidden` at full height and
+      each page owns its internal scroll containers (the entry editor, the asset
+      browser, and the list frames all rely on this to keep their headers/rails
+      pinned while only the body scrolls). So the `@container/main` context and
+      the `p-4 lg:p-6` padding rhythm are NOT applied here — they belong INSIDE
+      the scrollable region of the document-like pages, applied per page in
+      Phase 6. `z-10` lifts the inset above the (future) right-sidebar panel so
+      the resize rail paints over the boundary.
+    -->
     <SidebarInset
-      class="ginko:relative ginko:flex ginko:min-h-svh ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:flex-col ginko:overflow-hidden ginko:bg-transparent"
+      class="ginko:relative ginko:z-10 ginko:flex ginko:min-h-svh ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:flex-col ginko:overflow-hidden ginko:bg-transparent"
     >
       <StudioHeader />
       <div

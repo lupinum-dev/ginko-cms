@@ -17,6 +17,7 @@ import {
   studioRoutesForSection,
   type StudioStaticRoute,
 } from '../../lib/studioNavigation'
+import type { StudioNavLinkItem } from './StudioSidebarNavGroup.vue'
 import StudioCollectionIcon from './collections/StudioCollectionIcon.vue'
 
 const cmsConfig = useCmsConfig()
@@ -63,14 +64,18 @@ function canAccessRoute(route: StudioStaticRoute): boolean {
   const requiredCapability = route.requiredCapability
   return !requiredCapability || capabilityAccess[requiredCapability]?.value === true
 }
-function sectionLinks(section: 'editor' | 'operations' | 'settings') {
+function sectionLinks(section: 'editor' | 'operations' | 'settings'): StudioNavLinkItem[] {
   return studioRoutesForSection(section)
     .filter(canAccessRoute)
-    .map((route) => ({
-      to: studioRouteHref(studioRoute, route),
-      icon: route.icon,
-      label: t(route.labelKey),
-    }))
+    .map((route) => {
+      const to = studioRouteHref(studioRoute, route)
+      return {
+        to,
+        iconName: route.icon,
+        label: t(route.labelKey),
+        active: isActive(to),
+      }
+    })
 }
 const editorLinks = computed(() => sectionLinks('editor'))
 const operationLinks = computed(() => sectionLinks('operations'))
@@ -102,78 +107,33 @@ const settingsLinks = computed(() => sectionLinks('settings'))
           </li>
         </template>
         <template v-else>
-          <SidebarMenuItem v-for="collection in collections" :key="collection.slug">
-            <SidebarMenuButton
-              as-child
-              :tooltip="collection.label"
-              :is-active="activeCollection === collection.slug"
-            >
-              <RouterLink :to="`${contentRoute}/${collection.slug}`">
-                <StudioCollectionIcon
-                  :icon="collection.icon"
-                  :slug="collection.slug"
-                  class="ginko:size-4"
-                />
-                <span>{{ collection.label }}</span>
-              </RouterLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          <StudioSidebarNavLink
+            v-for="collection in collections"
+            :key="collection.slug"
+            :to="`${contentRoute}/${collection.slug}`"
+            :label="collection.label"
+            :tooltip="collection.label"
+            :active="activeCollection === collection.slug"
+          >
+            <template #icon>
+              <StudioCollectionIcon
+                :icon="collection.icon"
+                :slug="collection.slug"
+                class="ginko:size-4"
+              />
+            </template>
+          </StudioSidebarNavLink>
         </template>
       </SidebarMenu>
     </SidebarGroupContent>
   </SidebarGroup>
 
-  <SidebarGroup class="ginko:mb-3">
-    <SidebarGroupLabel>{{ t('ginkoCms.studio.layout.editor') }}</SidebarGroupLabel>
-    <SidebarGroupContent>
-      <SidebarMenu>
-        <SidebarMenuItem v-for="link in editorLinks" :key="link.to">
-          <SidebarMenuButton as-child :tooltip="link.label" :is-active="isActive(link.to)">
-            <RouterLink :to="link.to">
-              <Icon :name="link.icon" class="ginko:size-4" />
-              <span>{{ link.label }}</span>
-            </RouterLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarGroupContent>
-  </SidebarGroup>
+  <StudioSidebarNavGroup :label="t('ginkoCms.studio.layout.editor')" :links="editorLinks" />
 
-  <template v-if="operationLinks.length">
-    <SidebarGroup class="ginko:mb-3">
-      <SidebarGroupLabel>{{ t('ginkoCms.studio.layout.operations') }}</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          <SidebarMenuItem v-for="link in operationLinks" :key="link.to">
-            <SidebarMenuButton as-child :tooltip="link.label" :is-active="isActive(link.to)">
-              <RouterLink :to="link.to">
-                <Icon :name="link.icon" class="ginko:size-4" />
-                <span>{{ link.label }}</span>
-              </RouterLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  </template>
+  <StudioSidebarNavGroup
+    :label="t('ginkoCms.studio.layout.operations')"
+    :links="operationLinks"
+  />
 
-  <template v-if="settingsLinks.length">
-    <SidebarGroup class="ginko:mb-3">
-      <SidebarGroupLabel>
-        {{ t('ginkoCms.common.settings') }}
-      </SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          <SidebarMenuItem v-for="link in settingsLinks" :key="link.to">
-            <SidebarMenuButton as-child :tooltip="link.label" :is-active="isActive(link.to)">
-              <RouterLink :to="link.to">
-                <Icon :name="link.icon" class="ginko:size-4" />
-                <span>{{ link.label }}</span>
-              </RouterLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  </template>
+  <StudioSidebarNavGroup :label="t('ginkoCms.common.settings')" :links="settingsLinks" />
 </template>

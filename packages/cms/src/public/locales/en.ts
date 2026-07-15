@@ -152,6 +152,7 @@ const en = {
         greeting: 'Hey, {name}',
         commandHint: 'Cmd K',
         home: 'Home',
+        entry: 'Entry',
         content: 'Content',
         editor: 'Editor',
         operations: 'Operations',

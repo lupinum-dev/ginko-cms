@@ -231,6 +231,8 @@ declare module 'vue' {
     StudioSharedFieldsPanel: typeof import('./src/components/studio/editor/StudioSharedFieldsPanel.vue')['default']
     StudioSidebar: typeof import('./src/components/studio/StudioSidebar.vue')['default']
     StudioSidebarNav: typeof import('./src/components/studio/StudioSidebarNav.vue')['default']
+    StudioSidebarNavGroup: typeof import('./src/components/studio/StudioSidebarNavGroup.vue')['default']
+    StudioSidebarNavLink: typeof import('./src/components/studio/StudioSidebarNavLink.vue')['default']
     StudioSidebarUser: typeof import('./src/components/studio/StudioSidebarUser.vue')['default']
     StudioSiteDataEditor: typeof import('./src/components/studio/StudioSiteDataEditor.vue')['default']
     StudioStatusPill: typeof import('./src/components/studio/StudioStatusPill.vue')['default']
