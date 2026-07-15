@@ -298,7 +298,6 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.dashboard.title')"
-        :eyebrow="t('ginkoCms.studio.layout.home')"
         :description="t('ginkoCms.studio.dashboard.headerDescription')"
       >
       </StudioPageHeader>

@@ -25,13 +25,9 @@ const {
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.collectionsPage.title')"
-        :eyebrow="t('ginkoCms.studio.layout.operations')"
         :description="t('ginkoCms.studio.collectionsPage.headerDescription')"
       >
         <template #actions>
-          <Badge variant="secondary" class="ginko:text-xs ginko:tabular-nums">
-            {{ collections.length }}
-          </Badge>
           <Badge variant="outline" class="ginko:text-xs">
             {{ t('ginkoCms.studio.collectionsPage.codeDefinedBadge') }}
           </Badge>

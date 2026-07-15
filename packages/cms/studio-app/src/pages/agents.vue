@@ -83,7 +83,6 @@ async function revokeRun(run: AgentRun) {
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.agentsPage.title')"
-        :eyebrow="t('ginkoCms.studio.layout.operations')"
         :description="t('ginkoCms.studio.agentsPage.description')"
       >
         <template #actions>
@@ -243,7 +242,7 @@ async function revokeRun(run: AgentRun) {
                   class="ginko:size-3.5 ginko:animate-spin"
                 />
                 <Ban v-else class="ginko:size-3.5" />
-                Revoke
+                {{ t('ginkoCms.studio.agentsPage.endSession') }}
               </Button>
             </div>
           </article>

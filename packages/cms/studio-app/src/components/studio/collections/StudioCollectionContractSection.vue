@@ -74,17 +74,6 @@ const capabilityWarnings = computed(() =>
   }),
 )
 
-const routeCapabilities = [
-  'Page routes',
-  'Navigation',
-  'Surround',
-  'Search',
-  'Sitemap',
-  'SEO',
-  'Website changes preview',
-]
-const dataOnlyCapabilities = ['Lists', 'Relations', 'Single-entry content', 'Site-wide content']
-
 const localeLabelsByCode = computed(() =>
   Object.fromEntries(props.locales.map((locale) => [locale.code, locale.label ?? locale.code])),
 )
@@ -184,18 +173,6 @@ const projectionFacts = computed(() => [
           </div>
           <Badge variant="secondary" class="ginko:text-xs">Managed by developers</Badge>
         </div>
-        <div class="ginko:flex ginko:flex-wrap ginko:gap-1.5">
-          <Badge
-            v-for="capability in collectionDraft.mode === 'route'
-              ? routeCapabilities
-              : dataOnlyCapabilities"
-            :key="capability"
-            variant="outline"
-            class="ginko:text-xs"
-          >
-            {{ capability }}
-          </Badge>
-        </div>
         <div
           v-if="collectionDraft.mode === 'none'"
           class="ginko:space-y-2 ginko:rounded-md ginko:border ginko:border-dashed ginko:bg-background ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-muted-foreground"
@@ -209,44 +186,14 @@ const projectionFacts = computed(() => [
             class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2"
           >
             <span>
-              Stale URL prefix:
+              Out-of-date URL prefix:
               <code class="ginko:font-mono ginko:text-foreground">{{ normalizedPathPrefix }}</code>
             </span>
             <span>Update the code-defined collection config to clear it.</span>
           </div>
         </div>
       </div>
-      <div class="ginko:grid ginko:gap-3 ginko:sm:grid-cols-2">
-        <StudioDeveloperDetails>
-          <dl class="ginko:space-y-1 ginko:text-xs">
-            <div class="ginko:flex ginko:justify-between ginko:gap-3">
-              <dt class="ginko:text-muted-foreground">Slug</dt>
-              <dd class="ginko:font-mono ginko:text-foreground">{{ selectedCollection }}</dd>
-            </div>
-            <div class="ginko:flex ginko:justify-between ginko:gap-3">
-              <dt class="ginko:text-muted-foreground">Type</dt>
-              <dd class="ginko:text-foreground">{{ collectionDetail?.type ?? 'flat' }}</dd>
-            </div>
-            <div class="ginko:flex ginko:justify-between ginko:gap-3">
-              <dt class="ginko:text-muted-foreground">Icon</dt>
-              <dd class="ginko:font-mono ginko:text-foreground">
-                {{ collectionDraft.icon || 'none' }}
-              </dd>
-            </div>
-            <div class="ginko:flex ginko:justify-between ginko:gap-3">
-              <dt class="ginko:text-muted-foreground">Source</dt>
-              <dd class="ginko:text-foreground">
-                {{ collectionDetail?.contract?.source === 'code' ? 'managed in code' : 'unknown' }}
-              </dd>
-            </div>
-            <div class="ginko:flex ginko:justify-between ginko:gap-3">
-              <dt class="ginko:text-muted-foreground">Model version</dt>
-              <dd class="ginko:font-mono ginko:text-foreground">
-                {{ collectionDetail?.contract?.version ?? 'not synced' }}
-              </dd>
-            </div>
-          </dl>
-        </StudioDeveloperDetails>
+      <div class="ginko:grid ginko:gap-3">
         <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
           <Label class="ginko:text-xs ginko:text-muted-foreground">{{
             t('ginkoCms.studio.collectionsPage.supportedLocales')
@@ -275,27 +222,6 @@ const projectionFacts = computed(() => [
           </p>
         </div>
       </div>
-      <div
-        v-if="collectionDraft.mode === 'route'"
-        class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3"
-      >
-        <StudioDeveloperDetails :framed="false">
-          <dl class="ginko:grid ginko:gap-2 ginko:text-xs ginko:sm:grid-cols-2">
-            <div
-              v-for="[label, value] in routeFacts"
-              :key="label"
-              class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3 ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5"
-            >
-              <dt class="ginko:text-muted-foreground">{{ label }}</dt>
-              <dd class="ginko:font-mono ginko:text-foreground">{{ value }}</dd>
-            </div>
-          </dl>
-          <p class="ginko:mt-2 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-            Public routes, redirects, sitemap, search, and navigation diagnostics are evaluated from
-            these developer-managed settings.
-          </p>
-        </StudioDeveloperDetails>
-      </div>
       <div class="ginko:grid ginko:gap-3 ginko:lg:grid-cols-2">
         <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
           <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
@@ -322,24 +248,45 @@ const projectionFacts = computed(() => [
               }}
             </Badge>
           </div>
-          <StudioDeveloperDetails class="ginko:mt-3" :framed="false">
-            <dl class="ginko:space-y-1 ginko:text-xs">
-              <div
-                v-for="[label, value] in projectionFacts"
-                :key="label"
-                class="ginko:flex ginko:justify-between ginko:gap-3 ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5"
-              >
-                <dt class="ginko:text-muted-foreground">{{ label }}</dt>
-                <dd
-                  class="ginko:max-w-[14rem] ginko:truncate ginko:font-mono ginko:text-foreground"
-                >
-                  {{ value }}
-                </dd>
-              </div>
-            </dl>
-          </StudioDeveloperDetails>
         </div>
       </div>
+      <!-- One Advanced-details surface per screen (design review S3): slug,
+           schema, routing, and projection facts live together behind a single
+           disclosure instead of three scattered ones. -->
+      <StudioDeveloperDetails>
+        <div class="ginko:space-y-3">
+          <dl class="ginko:grid ginko:gap-2 ginko:text-xs ginko:sm:grid-cols-2">
+            <div
+              v-for="[label, value] in [
+                ['Slug', selectedCollection],
+                ['Type', collectionDetail?.type ?? 'flat'],
+                ['Icon', collectionDraft.icon || 'none'],
+                [
+                  'Source',
+                  collectionDetail?.contract?.source === 'code' ? 'managed in code' : 'unknown',
+                ],
+                ['Model version', collectionDetail?.contract?.version ?? 'not synced'],
+                ...(collectionDraft.mode === 'route' ? routeFacts : []),
+                ...projectionFacts,
+              ]"
+              :key="String(label)"
+              class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3 ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5"
+            >
+              <dt class="ginko:text-muted-foreground">{{ label }}</dt>
+              <dd class="ginko:max-w-[14rem] ginko:truncate ginko:font-mono ginko:text-foreground">
+                {{ value }}
+              </dd>
+            </div>
+          </dl>
+          <p
+            v-if="collectionDraft.mode === 'route'"
+            class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground"
+          >
+            Public routes, redirects, sitemap, search, and navigation diagnostics are evaluated
+            from these developer-managed settings.
+          </p>
+        </div>
+      </StudioDeveloperDetails>
       <StudioNotice
         v-if="capabilityWarnings.length"
         tone="warning"

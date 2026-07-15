@@ -19,6 +19,10 @@ type ActivityItem = {
   collectionId: string | null
   locale: string | null
   createdAt: number
+  collectionSlug?: string | null
+  collectionLabel?: string | null
+  entrySlug?: string | null
+  actorLabel?: string | null
 }
 
 const { t, dateLocale } = useCmsI18n()
@@ -49,10 +53,15 @@ function loadMore() {
   activityQuery.loadMore(pageSize)
 }
 function entryLink(item: ActivityItem): string | null {
-  if (item.entryId && item.collectionId) {
-    return `${contentRoute}/${item.collectionId}/${item.entryId}`
+  // Entry routes are keyed by collection SLUG; older backends only sent the
+  // collection id (which never resolved), so no slug → no link.
+  if (item.entryId && item.collectionSlug) {
+    return `${contentRoute}/${item.collectionSlug}/${item.entryId}`
   }
   return null
+}
+function collectionBadge(item: ActivityItem): string | null {
+  return item.collectionLabel ?? item.collectionSlug ?? null
 }
 </script>
 
@@ -61,7 +70,6 @@ function entryLink(item: ActivityItem): string | null {
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.activityPage.title')"
-        :eyebrow="t('ginkoCms.studio.layout.operations')"
         :description="t('ginkoCms.studio.activityPage.description')"
       >
         <template #actions>
@@ -128,7 +136,7 @@ function entryLink(item: ActivityItem): string | null {
           class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
         >
           <div
-            class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:md:grid"
+            class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:@3xl:grid"
           >
             <div>{{ t('ginkoCms.studio.activityPage.columnActivity') }}</div>
             <div class="ginko:text-right">{{ t('ginkoCms.studio.activityPage.columnWhen') }}</div>
@@ -152,9 +160,11 @@ function entryLink(item: ActivityItem): string | null {
               <div
                 class="ginko:mt-0.5 ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
               >
-                <Badge v-if="item.collectionId" variant="outline" class="ginko:text-xs">
-                  {{ item.collectionId }}
+                <Badge v-if="collectionBadge(item)" variant="outline" class="ginko:text-xs">
+                  {{ collectionBadge(item) }}
                 </Badge>
+                <span v-if="item.entrySlug" class="ginko:font-mono">{{ item.entrySlug }}</span>
+                <span v-if="item.actorLabel">{{ item.actorLabel }}</span>
               </div>
               <StudioDeveloperDetails class="ginko:mt-2" :framed="false">
                 <div class="ginko:mt-2 ginko:flex ginko:flex-wrap ginko:gap-2 ginko:text-xs">
@@ -173,7 +183,7 @@ function entryLink(item: ActivityItem): string | null {
               </StudioDeveloperDetails>
             </div>
             <div
-              class="ginko:text-xs ginko:tabular-nums ginko:text-muted-foreground ginko:md:text-right"
+              class="ginko:text-xs ginko:tabular-nums ginko:text-muted-foreground ginko:@3xl:text-right"
             >
               <NuxtTime
                 :datetime="item.createdAt"

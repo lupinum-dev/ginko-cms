@@ -511,7 +511,7 @@ const kindColors: Record<string, string> = {
 <template>
   <StudioWorkspace class="ginko:h-full">
     <template #header>
-      <StudioPageHeader :title="collectionLabel" :eyebrow="t('ginkoCms.studio.layout.content')">
+      <StudioPageHeader :title="collectionLabel">
         <template #actions>
           <Badge variant="soft">
             {{

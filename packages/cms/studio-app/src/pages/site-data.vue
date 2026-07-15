@@ -57,7 +57,6 @@ function formatBlockData(value: unknown): string {
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.siteDataPage.title')"
-        :eyebrow="t('ginkoCms.studio.layout.editor')"
         :description="t('ginkoCms.studio.siteDataPage.description')"
       >
         <template #actions>

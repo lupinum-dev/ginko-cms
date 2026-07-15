@@ -130,6 +130,61 @@ function activityAppIdentityId(row: ActivityDoc): string {
   return row.appIdentityId ?? row.actorId ?? 'unknown'
 }
 
+// Editor-safe display names for an activity page (design review S3): the
+// Studio never prints raw document/user ids, so resolve collection labels,
+// entry slugs, and member display names in one batched pass per page.
+async function resolveActivityDisplayFields(
+  ctx: HandlerQueryCtx,
+  page: ActivityDoc[],
+): Promise<{
+  collections: Map<string, { slug: string; label: string | null }>
+  entries: Map<string, string>
+  actors: Map<string, string | null>
+}> {
+  const collectionIds = new Set<string>()
+  const entryIds = new Set<string>()
+  const actorIds = new Set<string>()
+  for (const row of page) {
+    if (row.collectionId) collectionIds.add(String(row.collectionId))
+    if (row.entryId) entryIds.add(String(row.entryId))
+    actorIds.add(activityAppIdentityId(row))
+  }
+
+  const collections = new Map<string, { slug: string; label: string | null }>()
+  for (const id of collectionIds) {
+    const doc = await ctx.db.get(id as never)
+    if (doc && 'slug' in doc) {
+      const label = (doc as { label?: unknown }).label
+      const labelText =
+        typeof label === 'string'
+          ? label
+          : label && typeof label === 'object'
+            ? (Object.values(label as Record<string, string>).find(
+                (value) => typeof value === 'string' && value,
+              ) ?? null)
+            : null
+      collections.set(id, { slug: (doc as { slug: string }).slug, label: labelText })
+    }
+  }
+
+  const entries = new Map<string, string>()
+  for (const id of entryIds) {
+    const doc = await ctx.db.get(id as never)
+    if (doc && 'baseSlug' in doc) entries.set(id, (doc as { baseSlug: string }).baseSlug)
+  }
+
+  const actors = new Map<string, string | null>()
+  for (const id of actorIds) {
+    const member = await ctx.db
+      .query('members')
+      .withIndex('by_userId', (query) => query.eq('userId', id))
+      .first()
+    actors.set(id, member?.displayName ?? member?.email ?? null)
+  }
+
+  return { collections, entries, actors }
+}
+
 function activityOperationId(row: Pick<ActivityDoc, 'detail'>): string | null {
   const detail = row.detail
   if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return null
@@ -1243,6 +1298,7 @@ export const listActivity = callerQuery.protected({
     const rows = [...sameTimestampRows, ...olderRows]
     const isDone = rows.length <= limit
     const page = isDone ? rows : rows.slice(0, limit)
+    const display = await resolveActivityDisplayFields(ctx, page)
 
     return {
       page: page.map((row) => ({
@@ -1256,6 +1312,14 @@ export const listActivity = callerQuery.protected({
         detail: row.detail ?? null,
         appIdentityId: activityAppIdentityId(row),
         createdAt: row.createdAt,
+        collectionSlug: row.collectionId
+          ? (display.collections.get(String(row.collectionId))?.slug ?? null)
+          : null,
+        collectionLabel: row.collectionId
+          ? (display.collections.get(String(row.collectionId))?.label ?? null)
+          : null,
+        entrySlug: row.entryId ? (display.entries.get(String(row.entryId)) ?? null) : null,
+        actorLabel: display.actors.get(activityAppIdentityId(row)) ?? null,
       })),
       isDone,
       continueCursor: isDone || page.length === 0 ? null : encodeActivityCursor(page.at(-1)!),

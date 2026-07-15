@@ -1007,6 +1007,13 @@ export const activityItemValidator = v.object({
   detail: v.union(jsonValueValidator, v.null()),
   appIdentityId: v.string(),
   createdAt: v.number(),
+  // Editor-safe display names, resolved server-side so the Studio never has
+  // to print raw document/user ids (design review S3). All optional: older
+  // deployments simply omit them and the UI falls back.
+  collectionSlug: v.optional(v.union(v.string(), v.null())),
+  collectionLabel: v.optional(v.union(v.string(), v.null())),
+  entrySlug: v.optional(v.union(v.string(), v.null())),
+  actorLabel: v.optional(v.union(v.string(), v.null())),
 })
 
 /** Activity list result (paginated) */

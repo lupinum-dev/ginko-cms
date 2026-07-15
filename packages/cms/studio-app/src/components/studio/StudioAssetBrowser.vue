@@ -266,6 +266,11 @@ const uploadDestinations = computed(() => [
   },
 ])
 
+// Filters render on demand; the row pins itself open while any filter is
+// active so state is never hidden.
+const filtersOpen = ref(false)
+const showFilterRow = computed(() => filtersOpen.value || activeFilterCount.value > 0)
+
 const viewSegments = [
   { value: 'list', label: 'List', icon: List },
   { value: 'grid', label: 'Grid', icon: Grid3x3 },
@@ -680,17 +685,32 @@ defineExpose({
                 <span
                   class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
                 >
-                  Collections
+                  Library
                 </span>
               </div>
               <nav class="ginko:space-y-px ginko:px-2">
+                <button
+                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-sm ginko:transition-colors"
+                  :class="
+                    isSidebarActive('full', 'all')
+                      ? 'ginko:bg-accent ginko:font-medium ginko:text-accent-foreground'
+                      : 'ginko:text-foreground/80 ginko:hover:bg-accent'
+                  "
+                  @click="selectSidebar('full', 'all')"
+                >
+                  <Icon name="lucide:layers" class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60" />
+                  <span class="ginko:flex-1 ginko:truncate ginko:text-left">All media</span>
+                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
+                    sidebarFullViews[0]?.count ?? 0
+                  }}</span>
+                </button>
                 <button
                   v-for="item in sidebarCollections"
                   :key="`coll:${item.key}`"
                   class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-sm ginko:transition-colors"
                   :class="
                     isSidebarActive('collections', item.key)
-                      ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
+                      ? 'ginko:bg-accent ginko:font-medium ginko:text-accent-foreground'
                       : 'ginko:text-foreground/80 ginko:hover:bg-accent'
                   "
                   @click="selectSidebar('collections', item.key)"
@@ -722,7 +742,7 @@ defineExpose({
                   class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-sm ginko:transition-colors"
                   :class="
                     isSidebarActive('tags', tag.key)
-                      ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
+                      ? 'ginko:bg-accent ginko:font-medium ginko:text-accent-foreground'
                       : 'ginko:text-foreground/80 ginko:hover:bg-accent'
                   "
                   @click="selectSidebar('tags', tag.key)"
@@ -739,44 +759,12 @@ defineExpose({
               </nav>
             </div>
 
-            <div class="ginko:mb-2">
-              <div class="ginko:px-4 ginko:py-1">
-                <span
-                  class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/70"
-                >
-                  Library views
-                </span>
-              </div>
-              <nav class="ginko:space-y-px ginko:px-2">
-                <button
-                  v-for="item in sidebarFullViews"
-                  :key="`full:${item.key}`"
-                  class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-sm ginko:transition-colors"
-                  :class="
-                    isSidebarActive('full', item.key)
-                      ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
-                      : 'ginko:text-foreground/80 ginko:hover:bg-accent'
-                  "
-                  @click="selectSidebar('full', item.key)"
-                >
-                  <Icon
-                    :name="item.icon"
-                    class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60"
-                  />
-                  <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ item.label }}</span>
-                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
-                    item.count
-                  }}</span>
-                </button>
-              </nav>
-            </div>
-
             <div v-if="mode === 'manage'" class="ginko:mx-2 ginko:border-t ginko:pt-2">
               <button
                 class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2 ginko:rounded-md ginko:px-2 ginko:py-[5px] ginko:text-sm ginko:transition-colors"
                 :class="
                   isSidebarActive('trash', 'trash')
-                    ? 'ginko:bg-primary ginko:font-medium ginko:text-primary-foreground'
+                    ? 'ginko:bg-accent ginko:font-medium ginko:text-accent-foreground'
                     : 'ginko:text-foreground/80 ginko:hover:bg-accent'
                 "
                 @click="selectSidebar('trash', 'trash')"
@@ -865,70 +853,20 @@ defineExpose({
 
           <Separator orientation="vertical" class="ginko:hidden ginko:h-5 ginko:lg:block" />
 
-          <div class="ginko:hidden ginko:items-center ginko:gap-1.5 ginko:sm:flex">
-            <Select v-model="typeFilter">
-              <SelectTrigger size="sm" class="ginko:text-xs" aria-label="Type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                <SelectItem value="image">Images</SelectItem>
-                <SelectItem value="document">Documents</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select v-model="timeFilter">
-              <SelectTrigger
-                size="sm"
-                class="ginko:hidden ginko:text-xs ginko:lg:flex"
-                aria-label="Time"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any time</SelectItem>
-                <SelectItem value="24h">Last 24h</SelectItem>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select v-model="usageFilter">
-              <SelectTrigger
-                size="sm"
-                class="ginko:hidden ginko:text-xs ginko:xl:flex"
-                aria-label="Usage"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All files</SelectItem>
-                <SelectItem value="used">Used</SelectItem>
-                <SelectItem value="unused">Unused</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select v-model="sizeFilter">
-              <SelectTrigger
-                size="sm"
-                class="ginko:hidden ginko:text-xs ginko:xl:flex"
-                aria-label="Size"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any size</SelectItem>
-                <SelectItem value="small">&lt; 100 KB</SelectItem>
-                <SelectItem value="medium">100 KB - 1 MB</SelectItem>
-                <SelectItem value="large">&gt; 1 MB</SelectItem>
-              </SelectContent>
-            </Select>
-            <button
-              v-if="activeFilterCount > 0"
-              class="ginko:h-6 ginko:rounded-full ginko:px-2 ginko:text-xs ginko:text-muted-foreground ginko:transition-colors ginko:hover:bg-muted/60 ginko:hover:text-foreground"
-              @click="clearFilters"
-            >
-              Clear
-            </button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="ginko:hidden ginko:h-7 ginko:gap-1.5 ginko:px-2 ginko:sm:inline-flex"
+            :aria-expanded="showFilterRow"
+            aria-label="Toggle filters"
+            @click="filtersOpen = !filtersOpen"
+          >
+            <SlidersHorizontal class="ginko:size-3.5" />
+            <Badge v-if="activeFilterCount > 0" variant="secondary" class="ginko:h-4 ginko:px-1 ginko:text-[10px]">
+              {{ activeFilterCount }}
+            </Badge>
+          </Button>
+
 
           <Button
             variant="ghost"
@@ -994,6 +932,77 @@ defineExpose({
               </SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <!-- Filters live in their own row, shown on demand (design review S3:
+             four always-on dropdowns over an often-empty library were noise).
+             The row stays visible while any filter is active. -->
+        <div
+          v-if="showFilterRow"
+          class="ginko:hidden ginko:shrink-0 ginko:flex-wrap ginko:items-center ginko:gap-1.5 ginko:border-b ginko:px-3 ginko:py-2 ginko:sm:flex"
+        >
+          <Select v-model="typeFilter">
+            <SelectTrigger size="sm" class="ginko:text-xs" aria-label="Type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="image">Images</SelectItem>
+              <SelectItem value="document">Documents</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select v-model="timeFilter">
+            <SelectTrigger
+              size="sm"
+              class="ginko:hidden ginko:text-xs ginko:lg:flex"
+              aria-label="Time"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">Any time</SelectItem>
+              <SelectItem value="24h">Last 24h</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select v-model="usageFilter">
+            <SelectTrigger
+              size="sm"
+              class="ginko:hidden ginko:text-xs ginko:xl:flex"
+              aria-label="Usage"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All files</SelectItem>
+              <SelectItem value="used">Used</SelectItem>
+              <SelectItem value="unused">Unused</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select v-model="sizeFilter">
+            <SelectTrigger
+              size="sm"
+              class="ginko:hidden ginko:text-xs ginko:xl:flex"
+              aria-label="Size"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">Any size</SelectItem>
+              <SelectItem value="small">&lt; 100 KB</SelectItem>
+              <SelectItem value="medium">100 KB - 1 MB</SelectItem>
+              <SelectItem value="large">&gt; 1 MB</SelectItem>
+            </SelectContent>
+          </Select>
+          <button
+            v-if="activeFilterCount > 0"
+            class="ginko:h-6 ginko:rounded-full ginko:px-2 ginko:text-xs ginko:text-muted-foreground ginko:transition-colors ginko:hover:bg-muted/60 ginko:hover:text-foreground"
+            @click="clearFilters"
+          >
+            Clear
+          </button>
         </div>
 
         <div

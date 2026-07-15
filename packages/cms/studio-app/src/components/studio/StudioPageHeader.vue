@@ -4,10 +4,11 @@ import { useSlots } from 'vue'
 
 import { cn } from '../ui/utils'
 
+// No eyebrow: the shell breadcrumb + H1 already locate the page twice; a
+// third uppercase label was pure repetition (design review A7).
 defineProps<{
   class?: HTMLAttributes['class']
   description?: string
-  eyebrow?: string
   title: string
 }>()
 
@@ -34,12 +35,6 @@ const slots = useSlots()
     >
       <div class="ginko:min-w-0 ginko:flex-1">
         <slot name="breadcrumb" />
-        <div
-          v-if="eyebrow || slots.eyebrow"
-          class="studio-text-eyebrow ginko:mb-1 ginko:truncate ginko:text-muted-foreground/70"
-        >
-          <slot name="eyebrow">{{ eyebrow }}</slot>
-        </div>
         <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
           <h1 class="ginko:truncate ginko:text-2xl ginko:font-bold ginko:tracking-tight ginko:text-foreground">
             {{ title }}

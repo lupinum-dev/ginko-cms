@@ -112,7 +112,6 @@ async function reject(request: ReviewRequest) {
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.reviewsPage.title')"
-        :eyebrow="t('ginkoCms.studio.layout.publishing')"
         :description="t('ginkoCms.studio.reviewsPage.description')"
       >
         <template #actions>

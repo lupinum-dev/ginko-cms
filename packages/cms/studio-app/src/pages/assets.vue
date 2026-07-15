@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Loader2, Upload } from '@lucide/vue'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 import StudioAssetDetailsPanel from '../components/studio/StudioAssetDetailsPanel.vue'
 import { useCmsI18n } from '../composables/useCmsI18n'
 import { provideStudioAssetSelection } from '../composables/useStudioAssetSelection'
-import { useRightSidebarPanel } from '../composables/useRightSidebar'
+import { useRightSidebar, useRightSidebarPanel } from '../composables/useRightSidebar'
 
 const browserRef = ref<{
   uploadInput?: HTMLInputElement | null
@@ -30,6 +30,19 @@ useRightSidebarPanel({
   defaultOpen: false,
   compact: true,
 })
+
+// A panel whose only content is "no asset selected" should not sit open
+// (design review A8): it opens itself when a selection appears, mirroring the
+// reviews page.
+const rightSidebar = useRightSidebar()
+watch(
+  () => assetSelection.selectedAssetId.value,
+  (assetId, previous) => {
+    if (assetId && !previous && !rightSidebar.isMobile.value) {
+      rightSidebar.setOpen(true)
+    }
+  },
+)
 </script>
 
 <template>
@@ -37,7 +50,6 @@ useRightSidebarPanel({
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.assetsPage.title')"
-        :eyebrow="t('ginkoCms.studio.layout.editor')"
         :description="t('ginkoCms.studio.assetsPage.description')"
       >
         <template #actions>
