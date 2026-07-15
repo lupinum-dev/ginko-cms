@@ -474,6 +474,16 @@ describe('MCP tool safety contracts', () => {
       join(process.cwd(), 'packages/cms/studio-app/src/pages/[collection]/[id].vue'),
       'utf8',
     )
+    // RFC Phase 5: the workflow surfaces moved out of the entry page's main column
+    // into the right-sidebar details panel, which the entry page registers. The
+    // "stays visible in the entry screen" contract now holds through that panel.
+    const entryDetailsPanel = readFileSync(
+      join(
+        process.cwd(),
+        'packages/cms/studio-app/src/components/studio/editor/StudioEntryDetailsPanel.vue',
+      ),
+      'utf8',
+    )
     const publicWorkflowPanel = readFileSync(
       join(
         process.cwd(),
@@ -496,8 +506,9 @@ describe('MCP tool safety contracts', () => {
       'utf8',
     )
 
-    expect(entryPage).toContain('StudioEntryPublicWorkflowPanel')
-    expect(entryPage).toContain('StudioEntryTranslationReadinessPanel')
+    expect(entryPage).toContain('StudioEntryDetailsPanel')
+    expect(entryDetailsPanel).toContain('StudioEntryPublicWorkflowPanel')
+    expect(entryDetailsPanel).toContain('StudioEntryTranslationReadinessPanel')
     expect(publicWorkflowPanel).toContain('Live website content')
     expect(publicWorkflowPanel).toContain('What will change?')
     expect(translationReadinessPanel).toContain('Language status')

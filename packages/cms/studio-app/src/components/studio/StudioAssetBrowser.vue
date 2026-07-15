@@ -42,6 +42,7 @@ import type { StudioAssetContext, StudioAssetRecord } from '../../composables/in
 import { useStudioAssetFinder } from '../../composables/internal/useStudioAssetFinder'
 import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useCmsStudioSettings } from '../../composables/useCmsStudioSettings'
+import { useStudioAssetSelection } from '../../composables/useStudioAssetSelection'
 import { useConvexMutation } from '../../composables/useStudioConvex'
 import Sheet from '../ui/sheet/Sheet.vue'
 import SheetContent from '../ui/sheet/SheetContent.vue'
@@ -300,6 +301,27 @@ const drawerOpen = computed({
     if (!open) selectAsset(null)
   },
 })
+
+// Publish the current selection to the page-level controller (when present) so
+// the right-sidebar asset-details panel can render it (RFC Phase 5 step 5 / D4).
+// Optional inject: the picker context has no provider and simply skips this.
+const assetSelection = useStudioAssetSelection()
+if (assetSelection) {
+  watch(
+    () => selectedAssetForDetails.value?.id ?? null,
+    (id) => {
+      assetSelection.selectedAssetId.value = id
+    },
+    { immediate: true },
+  )
+  watch(
+    () => props.assetContext,
+    (context) => {
+      assetSelection.assetContext.value = context
+    },
+    { immediate: true },
+  )
+}
 
 const pendingDestructiveActionTitle = computed(() => {
   const action = pendingDestructiveAssetAction.value
@@ -609,7 +631,7 @@ defineExpose({
 <template>
   <div
     class="ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col ginko:overflow-hidden"
-    :class="embedded ? 'h-full' : ''"
+    :class="embedded ? 'ginko:h-full' : ''"
   >
     <input
       ref="uploadInput"
@@ -1148,7 +1170,7 @@ defineExpose({
                         <span
                           class="ginko:block ginko:truncate"
                           :class="
-                            item.asset.deletedAt ? 'line-through ginko:text-muted-foreground' : ''
+                            item.asset.deletedAt ? 'ginko:line-through ginko:text-muted-foreground' : ''
                           "
                         >
                           {{ item.asset.filename }}
@@ -1275,7 +1297,7 @@ defineExpose({
                 </div>
                 <span
                   class="ginko:line-clamp-2 ginko:w-full ginko:text-center ginko:text-xs ginko:leading-tight"
-                  :class="item.asset.deletedAt ? 'line-through ginko:text-muted-foreground' : ''"
+                  :class="item.asset.deletedAt ? 'ginko:line-through ginko:text-muted-foreground' : ''"
                 >
                   {{ item.asset.filename }}
                 </span>

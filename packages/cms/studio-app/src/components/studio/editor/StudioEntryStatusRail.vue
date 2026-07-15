@@ -18,7 +18,6 @@ import type {
   StudioPublishReviewState,
   StudioPublicVisibilityState,
   StudioRouteValidationState,
-  StudioTranslationReadinessRow,
 } from './studioWorkflowTypes'
 import { diagnosticLabel } from './studioWorkflowTypes'
 
@@ -32,12 +31,10 @@ const props = defineProps<{
   requestReviewPending?: boolean
   routeValidationRequested: boolean
   routeValidationState: StudioRouteValidationState
-  translationReadiness?: StudioTranslationReadinessRow[]
 }>()
 
 const emit = defineEmits<{
   validatePublicRoutes: []
-  reviewTranslationReadiness: [locale: string]
 }>()
 
 const editor = useStudioEntryEditorContext()
@@ -60,8 +57,6 @@ const isRouteBacked = computed(
     (editor.loader.collectionConfig?.mode !== 'none' &&
       editor.loader.collectionConfig?.routing?.mode !== 'none'),
 )
-
-const translationRows = computed(() => props.translationReadiness ?? [])
 
 const localeSummaries = computed(() =>
   readinessView.value.languageRows.map((row) => ({
@@ -259,7 +254,7 @@ const blockingIssues = computed(() => {
       <template #icon>
         <TriangleAlert
           class="ginko:size-4 ginko:shrink-0"
-          :class="blockingIssues.length > 0 ? 'text-warning-fg' : 'text-muted-foreground/70'"
+          :class="blockingIssues.length > 0 ? 'ginko:text-warning-fg' : 'ginko:text-muted-foreground/70'"
         />
       </template>
       <div
@@ -319,20 +314,5 @@ const blockingIssues = computed(() => {
         closer look.
       </p>
     </StudioInspectorSection>
-
-    <template v-if="advancedEditor">
-      <StudioRouteStatusCard
-        v-if="publicVisibility"
-        :public-visibility="publicVisibility"
-        :route-validation-requested="routeValidationRequested"
-        :route-validation-state="routeValidationState"
-        @validate-public-routes="emit('validatePublicRoutes')"
-      />
-      <StudioTranslationReadinessCard
-        :items="translationRows"
-        @review="emit('reviewTranslationReadiness', $event)"
-      />
-      <StudioVersionHistoryCard />
-    </template>
   </div>
 </template>

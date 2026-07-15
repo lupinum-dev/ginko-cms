@@ -355,8 +355,6 @@ function requestReview() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Separator orientation="vertical" class="ginko:mx-1 ginko:h-4" />
-        <StudioActionRailToggle />
       </div>
     </div>
   </header>

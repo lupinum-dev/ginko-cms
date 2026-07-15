@@ -2,9 +2,82 @@
 
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
-import { defineComponent, ref } from 'vue'
+import { defineComponent, h, ref } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import StudioReviewsPage from '../../packages/cms/studio-app/src/pages/reviews.vue'
+import { provideRightSidebar } from '../../packages/cms/studio-app/src/composables/useRightSidebar'
+
+// The reviews page registers a right-sidebar details panel, so mounting it needs
+// the layout's right-sidebar controller (provideRightSidebar) in an ancestor plus
+// the jsdom globals its VueUse dependencies read.
+function installLocalStorage() {
+  const values = new Map<string, string>()
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: {
+      get length() {
+        return values.size
+      },
+      clear: () => values.clear(),
+      getItem: (key: string) => values.get(key) ?? null,
+      key: (index: number) => Array.from(values.keys())[index] ?? null,
+      removeItem: (key: string) => {
+        values.delete(key)
+      },
+      setItem: (key: string, value: string) => {
+        values.set(key, value)
+      },
+    } satisfies Storage,
+  })
+}
+
+function installMatchMedia() {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: vi.fn((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
+}
+
+function mountReviewsPage() {
+  installLocalStorage()
+  installMatchMedia()
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {
+        path: '/reviews',
+        name: 'studio-reviews',
+        meta: { rightSidebar: true },
+        component: { render: () => h('div') },
+      },
+    ],
+  })
+  router.push('/reviews')
+  // Layout harness that provides the right-sidebar controller the page registers into.
+  const Harness = defineComponent({
+    setup() {
+      provideRightSidebar()
+      return () => h(StudioReviewsPage)
+    },
+  })
+  return mount(Harness, {
+    global: {
+      plugins: [router],
+      stubs: stubs(),
+    },
+  })
+}
 
 const pendingReviews = vi.hoisted(() => [
   {
@@ -226,6 +299,8 @@ const messages = vi.hoisted<Record<string, string>>(() => ({
   'ginkoCms.studio.reviewsPage.websiteVisibility': 'Website visibility',
   'ginkoCms.studio.reviewsPage.whatChanged': 'What changed',
   'ginkoCms.studio.reviewsPage.whatToCheck': 'What to check before approval',
+  'ginkoCms.studio.reviewsPage.viewDetails': 'Details',
+  'ginkoCms.studio.reviewDetails.title': 'Review details',
 }))
 
 vi.mock('../../packages/cms/studio-app/src/boundary/api', () => ({
@@ -326,11 +401,7 @@ function stubs() {
 
 describe('Studio reviews page', () => {
   it('surfaces AI-prepared website changes as a marketer approval summary', () => {
-    const wrapper = mount(StudioReviewsPage, {
-      global: {
-        stubs: stubs(),
-      },
-    })
+    const wrapper = mountReviewsPage()
 
     expect(wrapper.text()).toContain('AI assistant prepared this')
     expect(wrapper.text()).toContain('Assistant summary')

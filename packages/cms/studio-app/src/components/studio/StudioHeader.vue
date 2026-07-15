@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PanelRight, Search } from '@lucide/vue'
 import type { RouteLocationRaw } from 'vue-router'
-import { computed } from 'vue'
+import { computed, toValue } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { api } from '../../boundary/api'
@@ -25,8 +25,12 @@ const cmsConfig = useCmsConfig()
 // Right-sidebar toggle (RFC Phase 4 step 4). `available` is true when the
 // active route declares `meta.rightSidebar` or a page has registered a panel,
 // so the button is hidden on routes without a details surface.
-const { available: rightSidebarAvailable, open: rightSidebarOpen, toggle: toggleRightSidebar } =
-  useRightSidebar()
+const {
+  available: rightSidebarAvailable,
+  open: rightSidebarOpen,
+  toggle: toggleRightSidebar,
+  panel: rightSidebarPanel,
+} = useRightSidebar()
 const studioRoute = cmsConfig.route.replace(/\/$/, '')
 
 // Collections resolve their human label the same way the sidebar does, so the
@@ -81,10 +85,11 @@ const breadcrumb = computed<BreadcrumbEntry[]>(() => {
   const name = String(route.name ?? '')
 
   // Entry-editor family: Home → Collection → (New content | Entry).
-  // Entry titles come from the editor context, which is provided inside the
-  // page subtree and is not reachable from this layout-level header (the
-  // provide/inject boundary the RFC resolves in Phase 5). Until then the tail
-  // is a generic label; the collection segment is fully resolved.
+  // On the editor route the entry title comes from the details panel the page
+  // registers with the right-sidebar controller (RFC Phase 5 step 5): its
+  // reactive `panel.title` is readable here at the layout level, across the
+  // provide/inject boundary that blocks the page's editor context. Falls back to
+  // the generic label before the panel registers (or if it is absent).
   if (name === 'studio-collection' || name === 'studio-new' || name === 'studio-edit') {
     const slug = String(route.params.collection ?? '')
     const items: BreadcrumbEntry[] = [
@@ -94,7 +99,8 @@ const breadcrumb = computed<BreadcrumbEntry[]>(() => {
     if (name === 'studio-new') {
       items.push({ label: t('ginkoCms.studio.collectionListPage.newEntry') })
     } else if (name === 'studio-edit') {
-      items.push({ label: t('ginkoCms.studio.layout.entry') })
+      const panelTitle = toValue(rightSidebarPanel.value?.title)
+      items.push({ label: panelTitle || t('ginkoCms.studio.layout.entry') })
     }
     return items
   }

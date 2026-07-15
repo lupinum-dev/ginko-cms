@@ -178,6 +178,26 @@ const en = {
         close: 'Close details panel',
         closeResizable: 'Close details panel. Drag or use arrow keys to resize.',
       },
+      entryDetails: {
+        status: 'Status',
+        workflow: 'Workflow',
+        history: 'History',
+        previewChanges: 'Preview website changes',
+        checkLinks: 'Check links',
+        websiteChangesTitle: 'What will change on the website',
+        websiteChangesDescription:
+          'Review affected pages, language versions, and visibility changes before publishing.',
+      },
+      assetDetails: {
+        title: 'Asset details',
+        emptyTitle: 'No asset selected',
+        emptyHint: 'Select an asset to view and edit its details.',
+      },
+      reviewDetails: {
+        title: 'Review details',
+        emptyTitle: 'No review selected',
+        emptyHint: 'Select a pending review to see its full website-change details.',
+      },
       dashboard: {
         title: 'Work queue',
         description: 'Review drafts, approvals, translation gaps, and publish blockers.',
@@ -872,6 +892,7 @@ const en = {
         preparedStale: 'This review is out of date.',
         whatChanged: 'What changed',
         whatToCheck: 'What to check before approval',
+        viewDetails: 'Details',
         readyDecision: 'Ready to approve and publish.',
         publishDecisionBlockers: '{count} must be resolved before publishing.',
         publishDecisionWarnings: '{count} to review before publishing.',

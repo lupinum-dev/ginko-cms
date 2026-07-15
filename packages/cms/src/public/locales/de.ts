@@ -181,6 +181,26 @@ const de = {
         closeResizable:
           'Detailbereich schließen. Zum Ändern der Größe ziehen oder Pfeiltasten verwenden.',
       },
+      entryDetails: {
+        status: 'Status',
+        workflow: 'Workflow',
+        history: 'Verlauf',
+        previewChanges: 'Website-Änderungen vorschauen',
+        checkLinks: 'Links prüfen',
+        websiteChangesTitle: 'Was sich auf der Website ändert',
+        websiteChangesDescription:
+          'Prüfe betroffene Seiten, Sprachversionen und Sichtbarkeitsänderungen vor dem Veröffentlichen.',
+      },
+      assetDetails: {
+        title: 'Asset-Details',
+        emptyTitle: 'Kein Asset ausgewählt',
+        emptyHint: 'Wähle ein Asset aus, um seine Details anzusehen und zu bearbeiten.',
+      },
+      reviewDetails: {
+        title: 'Freigabe-Details',
+        emptyTitle: 'Keine Freigabe ausgewählt',
+        emptyHint: 'Wähle eine offene Freigabe aus, um alle Website-Änderungen im Detail zu sehen.',
+      },
       dashboard: {
         title: 'Arbeitsliste',
         description: 'Prüfe Entwürfe, Freigaben, Übersetzungslücken und Publishing-Blocker.',
@@ -890,6 +910,7 @@ const de = {
         preparedStale: 'Diese Prüfung ist veraltet.',
         whatChanged: 'Was sich ändert',
         whatToCheck: 'Vor der Freigabe prüfen',
+        viewDetails: 'Details',
         readyDecision: 'Bereit zur Freigabe und Veröffentlichung.',
         publishDecisionBlockers: '{count} muss vor der Veröffentlichung gelöst werden.',
         publishDecisionWarnings: '{count} vor der Veröffentlichung prüfen.',

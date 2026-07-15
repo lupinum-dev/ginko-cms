@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { useStudioActionRailController } from '../../../composables/useStudioActionRailController'
-
-const { collapsed } = useStudioActionRailController()
+// The editor detail surface (status / workflow / history) moved to the
+// right-sidebar details panel (StudioEntryDetailsPanel), so the shell no longer
+// owns an action rail — the main column is fields + TipTap + top bar (RFC Phase 5
+// step 3). The right sidebar is provided by the layout and toggled from the
+// header, not from this shell.
 </script>
 
 <template>
-  <StudioWorkspace :rail="true" :rail-collapsed="collapsed" class="ginko:h-full">
+  <StudioWorkspace class="ginko:h-full">
     <template #header>
       <slot name="top" />
     </template>
@@ -19,21 +21,6 @@ const { collapsed } = useStudioActionRailController()
         </div>
       </ScrollArea>
     </div>
-    <template #rail>
-      <StudioActionRail
-        sheet-description="Status, live URL, translations, and available actions."
-        sheet-title="Entry details"
-        title="Details"
-      >
-        <slot name="rail" />
-        <template v-if="$slots['rail-actions']" #actions>
-          <slot name="rail-actions" />
-        </template>
-        <template v-if="$slots['rail-collapsed']" #collapsed>
-          <slot name="rail-collapsed" />
-        </template>
-      </StudioActionRail>
-    </template>
   </StudioWorkspace>
 </template>
 
