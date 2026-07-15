@@ -12,7 +12,7 @@ export const alertVariants = cva(
       variant: {
         default: 'ginko:bg-card ginko:text-card-foreground',
         destructive:
-          'ginko:border-destructive/40 ginko:bg-destructive/5 ginko:text-destructive-fg ginko:[&>svg]:text-destructive-fg ginko:*:data-[slot=alert-description]:text-destructive-fg/90',
+          'ginko:border-destructive/40 ginko:bg-destructive/5 ginko:dark:bg-destructive/10 ginko:text-destructive-fg ginko:[&>svg]:text-destructive-fg ginko:*:data-[slot=alert-description]:text-destructive-fg/90',
         success:
           'ginko:border-success/40 ginko:bg-success/10 ginko:text-success-fg ginko:[&>svg]:text-success-fg ginko:*:data-[slot=alert-description]:text-foreground/85 ginko:dark:bg-success/15',
         warning:

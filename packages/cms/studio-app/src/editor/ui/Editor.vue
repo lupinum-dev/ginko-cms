@@ -717,7 +717,7 @@ defineExpose({
 
       <div
         v-if="conversionBanner && !isFocusMode"
-        class="ginko:border-b ginko:border-warning/20 ginko:bg-warning/10 ginko:px-3 ginko:py-2 ginko:text-warning-fg"
+        class="ginko:border-b ginko:border-warning/20 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:px-3 ginko:py-2 ginko:text-warning-fg"
       >
         <p class="ginko:text-sm ginko:font-medium">Conversion guard active</p>
         <p class="ginko:text-xs ginko:leading-5">

@@ -50,7 +50,7 @@ const showStatusPill = computed(
 )
 const panelTone = computed(() =>
   isMissing.value
-    ? 'ginko:border-warning/45 ginko:bg-warning/5'
+    ? 'ginko:border-warning/45 ginko:bg-warning/5 ginko:dark:bg-warning/10'
     : 'ginko:border-border/40 ginko:bg-card',
 )
 

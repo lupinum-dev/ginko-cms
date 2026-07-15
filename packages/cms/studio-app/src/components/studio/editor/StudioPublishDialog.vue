@@ -335,7 +335,7 @@ const publishImpactMessage = computed(
 
         <div
           v-if="readinessView.warnings.length"
-          class="ginko:rounded-lg ginko:border ginko:border-warning/30 ginko:bg-warning/10 ginko:p-3 ginko:text-sm ginko:text-warning-fg"
+          class="ginko:rounded-lg ginko:border ginko:border-warning/30 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:p-3 ginko:text-sm ginko:text-warning-fg"
         >
           <div class="ginko:text-xs ginko:font-medium ginko:uppercase">
             {{ collectionEditorT('publishDialogWarnings') }}

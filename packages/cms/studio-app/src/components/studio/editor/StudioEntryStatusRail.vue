@@ -272,7 +272,7 @@ const blockingIssues = computed(() => {
         <div
           v-for="issue in blockingIssues"
           :key="issue.key"
-          class="ginko:flex ginko:items-start ginko:gap-2.5 ginko:rounded-lg ginko:border ginko:border-warning/25 ginko:bg-warning/10 ginko:p-2.5"
+          class="ginko:flex ginko:items-start ginko:gap-2.5 ginko:rounded-lg ginko:border ginko:border-warning/25 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:p-2.5"
         >
           <AlertCircle class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-warning-fg" />
           <span class="ginko:text-xs ginko:leading-relaxed ginko:text-warning-fg">

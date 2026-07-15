@@ -251,7 +251,7 @@ const projectionFacts = computed(() => [
               :class="
                 collectionDetail?.projectionStatus?.activeCollectionProjectionRunId ||
                 collectionDetail?.projectionStatus?.activeSiteProjectionRunId
-                  ? 'ginko:border-success/40 ginko:bg-success/10 ginko:text-success-fg'
+                  ? 'ginko:border-success/40 ginko:bg-success/10 ginko:dark:bg-success/15 ginko:text-success-fg'
                   : ''
               "
             >

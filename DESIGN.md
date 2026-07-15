@@ -55,11 +55,25 @@ OKLCH for everything. **Pure neutrals** (chroma 0) for all chrome surfaces AND f
 
 ### Dark tokens
 
-Mirror structure with parallel `--ginko-cms-dark-*` overrides. Background `0.145 0 0` (matches `--studio-shell-bg`), card and sidebar `0.205 0 0` (single elevation tier above page), primary flips to near-white (`--studio-action` dark value). `--sidebar-primary` follows `--studio-action`. Borders use **alpha** rather than fixed grey: `--border: oklch(1 0 0 / 0.10)`, `--input: oklch(1 0 0 / 0.15)` — they pick up the surface beneath, so a card on a dialog and a card on the page get appropriately-weighted edges.
+Mirror structure with parallel `--ginko-cms-dark-*` overrides. Primary flips to near-white (`--studio-action` dark value); `--sidebar-primary` follows `--studio-action`. Borders use **alpha** rather than fixed grey: `--border: oklch(1 0 0 / 0.10)`, `--input: oklch(1 0 0 / 0.15)` — they pick up the surface beneath, so a card on a dialog and a card on the page get appropriately-weighted edges.
+
+**Dark elevation ladder** (deliberate divergence from the Phase-1 template snapshot, matching shadcn's own dark refresh — every overlay tier is one visible step above the one it floats on):
+
+| Lightness | Tier          | Tokens                                        |
+| --------- | ------------- | --------------------------------------------- |
+| `0.145`   | Well          | `--background` (inset canvas)                 |
+| `0.205`   | Canvas / card | `--card`, `--sidebar`, dark page canvas       |
+| `0.269`   | Overlay       | `--popover` — menus, selects, **and dialogs** |
+| `0.32`    | Nav hover     | `--sidebar-accent`                            |
+| `0.371`   | Hover fill    | `--accent`                                    |
+
+Dialogs render on `bg-popover` (not `bg-background`), so consumers theme them through `--ginko-cms(-dark)-popover`.
 
 ### Pairing rule
 
 Tinted backgrounds (`bg-success/12`, `bg-warning/15`, `bg-destructive/10`) **must** use the `*-fg` foreground token, not the `--success` / `--warning` color directly. The `--success` lightness (0.696) on a 12%-tinted-success background fails WCAG AA (~2.6:1). `--success-fg` (0.5) gets you to ~5.2:1.
+
+**Dark tint rule:** tinted semantic surfaces read muddy at light-mode opacities on dark canvases — every `bg-{success,warning,destructive}/5..15` pairs with a `dark:` bump roughly one step up (`/5→/10`, `/10→/15`, `/12→/20`, `/15→/25`), always with `*-fg` text.
 
 ### Charts
 
@@ -150,17 +164,20 @@ Compact-but-not-cramped. Editors work in this all day.
 
 ## Motion
 
-Three durations, two curves. Components compose.
+Four durations, three curves. Components compose — never invent a per-component duration; reference the tokens (`duration-(--motion-*)` in Tailwind, `var(--motion-*)` in keyframes).
 
-| Class                | Duration | Curve            | Use                                                 |
-| -------------------- | -------- | ---------------- | --------------------------------------------------- |
-| `studio-motion-fast` | 120 ms   | `ease-out-quart` | Hover, focus, color flips                           |
-| `studio-motion-base` | 180 ms   | `ease-out-quart` | State transitions (status pill flips, toast settle) |
-| `studio-motion-slow` | 280 ms   | `ease-in-out`    | Layout-adjacent (sheet slide)                       |
+| Token / class         | Duration | Curve                   | Use                                                 |
+| --------------------- | -------- | ----------------------- | ---------------------------------------------------- |
+| `studio-motion-fast`  | 120 ms   | `ease-out-quart`        | Hover, focus, color flips, page crossfade            |
+| `studio-motion-base`  | 180 ms   | `ease-out-quart`        | State transitions (status pill flips, collapsibles)  |
+| `studio-motion-slow`  | 280 ms   | `ease-in-out`           | Layout-adjacent (sheet slide)                        |
+| `--motion-panel`      | 240 ms   | `--motion-ease-panel`   | Structural panels (both sidebars, inset resize)      |
 
-All three transition only color/border/box-shadow/opacity by default. Components that need transform opt in.
+All three utility classes transition only color/border/box-shadow/opacity by default. Components that need transform opt in.
 
-`prefers-reduced-motion: reduce` collapses durations to 1ms. Always.
+**Page transitions:** opacity-only crossfade (`--motion-fast`) on the RouterView in App.vue — no translate (it fights the fixed-pane scroll model), no `appear`.
+
+`prefers-reduced-motion: reduce` is **token zeroing**: the media query collapses every `--motion-*` (and tw-animate's `--tw-duration`) to 1 ms, so anything animated through the tokens needs no per-class rules.
 
 **Reveal:** outer cards (`StudioSection`, `StudioListFrame`, `StudioEmptyState`) opt into `studio-reveal` — `@starting-style` fade + 4 px settle on first paint. Skipped under reduced motion. Subtle, never bouncy. No bounce, no elastic, no spring physics on the chrome.
 

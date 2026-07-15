@@ -167,7 +167,7 @@ const st = (key: string, params?: Record<string, unknown>): string =>
           </div>
           <div
             v-if="job.lastError"
-            class="ginko:rounded-md ginko:bg-destructive/10 ginko:text-destructive-fg ginko:text-xs ginko:px-3 ginko:py-2"
+            class="ginko:rounded-md ginko:bg-destructive/10 ginko:dark:bg-destructive/15 ginko:text-destructive-fg ginko:text-xs ginko:px-3 ginko:py-2"
           >
             {{ job.lastError }}
           </div>

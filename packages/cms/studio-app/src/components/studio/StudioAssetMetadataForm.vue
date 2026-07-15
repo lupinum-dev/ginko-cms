@@ -220,7 +220,7 @@ async function saveMetadata() {
 
       <div
         v-if="error"
-        class="ginko:rounded-md ginko:bg-destructive/10 ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-destructive-fg"
+        class="ginko:rounded-md ginko:bg-destructive/10 ginko:dark:bg-destructive/15 ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-destructive-fg"
       >
         {{ error }}
       </div>

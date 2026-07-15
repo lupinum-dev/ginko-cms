@@ -55,7 +55,10 @@ const sideClass = computed(() => {
       data-slot="sheet-content"
       :class="
         cn(
-          'ginko-cms ginko:@container ginko:bg-background ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out ginko:fixed ginko:z-50 ginko:flex ginko:flex-col ginko:gap-4 ginko:shadow-lg ginko:transition ginko:ease-in-out ginko:data-[state=closed]:duration-300 ginko:data-[state=open]:duration-500',
+          // ginko-keep: slide timing reads the motion-slow token (template
+          // ships 500ms open / 300ms close) — sheets join the motion rhythm,
+          // and the token-zeroing media query covers reduced motion.
+          'ginko-cms ginko:@container ginko:bg-background ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out ginko:fixed ginko:z-50 ginko:flex ginko:flex-col ginko:gap-4 ginko:shadow-lg ginko:transition ginko:ease-in-out ginko:data-[state=closed]:duration-(--motion-slow) ginko:data-[state=open]:duration-(--motion-slow)',
           sideClass,
           props.class,
         )

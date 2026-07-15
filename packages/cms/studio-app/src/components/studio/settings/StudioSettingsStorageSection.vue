@@ -100,7 +100,7 @@ const settings = props.admin
 
           <div
             v-if="settings.storageHygiene.truncatedTables.length"
-            class="ginko:rounded-md ginko:bg-warning/15 ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-warning-fg"
+            class="ginko:rounded-md ginko:bg-warning/15 ginko:dark:bg-warning/25 ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-warning-fg"
           >
             {{
               settings.t('ginkoCms.studio.settingsPage.storageTruncated', {
