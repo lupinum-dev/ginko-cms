@@ -2,6 +2,7 @@
 import { ExternalLink } from '@lucide/vue'
 import { computed } from 'vue'
 
+import { useCmsI18n } from '../../../composables/useCmsI18n'
 import {
   statusToneClass,
   type StudioPublicVisibilityState,
@@ -18,6 +19,10 @@ const emit = defineEmits<{
   validatePublicRoutes: []
 }>()
 
+const { t } = useCmsI18n()
+const td = (key: string, params?: Record<string, unknown>): string =>
+  t(`ginkoCms.studio.entryDetails.${key}`, params)
+
 const currentRoute = computed(() => props.publicVisibility.localeRows.find((row) => row.current))
 const routePath = computed(
   () =>
@@ -25,15 +30,16 @@ const routePath = computed(
 )
 const routeLabel = computed(
   () =>
-    currentRoute.value?.label || (props.publicVisibility.isRouteBacked ? 'Unknown' : 'Shared data'),
+    currentRoute.value?.label ||
+    (props.publicVisibility.isRouteBacked ? td('statusUnknown') : td('routeSharedData')),
 )
 </script>
 
 <template>
-  <StudioInspectorSection title="URL diagnostics">
+  <StudioInspectorSection :title="td('urlDiagnostics')">
     <div class="ginko:min-w-0">
       <div class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-muted-foreground">
-        {{ routePath || 'No page URL' }}
+        {{ routePath || td('noPageUrl') }}
       </div>
       <Badge
         variant="outline"
@@ -47,7 +53,7 @@ const routeLabel = computed(
       <Button v-if="routePath" variant="outline" size="sm" as-child>
         <a :href="routePath" target="_blank" rel="noreferrer" class="ginko:gap-2">
           <ExternalLink class="ginko:size-4" />
-          Open in site
+          {{ td('openInSite') }}
         </a>
       </Button>
       <Button
@@ -56,7 +62,7 @@ const routeLabel = computed(
         :disabled="!publicVisibility.isRouteBacked"
         @click="emit('validatePublicRoutes')"
       >
-        {{ routeValidationRequested ? routeValidationState.state : 'Check links' }}
+        {{ routeValidationRequested ? routeValidationState.state : td('checkLinks') }}
       </Button>
     </div>
   </StudioInspectorSection>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
 import StudioLocaleVisibilityRow from './StudioLocaleVisibilityRow.vue'
 import StudioPublishImpactSummary from './StudioPublishImpactSummary.vue'
@@ -51,6 +52,10 @@ const emit = defineEmits<{
   validatePublicRoutes: []
 }>()
 const advancedEditor = useStudioAdvancedEditor()
+
+const { t } = useCmsI18n()
+const ce = (key: string, params?: Record<string, unknown>): string =>
+  t(`ginkoCms.studio.collectionEditor.${key}`, params)
 </script>
 
 <template>
@@ -58,12 +63,12 @@ const advancedEditor = useStudioAdvancedEditor()
     <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
       <div class="ginko:min-w-0">
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-          Publish readiness
+          {{ ce('publicWorkflowPublishReadiness') }}
         </div>
         <div class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
           <span class="ginko:text-sm ginko:font-medium">{{ publicVisibility.status }}</span>
           <Badge :variant="publicVisibility.isRouteBacked ? 'secondary' : 'outline'">
-            {{ publicVisibility.isRouteBacked ? 'Website pages' : 'Shared data' }}
+            {{ publicVisibility.isRouteBacked ? ce('publicWorkflowWebsitePages') : ce('publicWorkflowSharedData') }}
           </Badge>
           <Badge
             v-if="publishImpactRequested && previewScope === 'publish'"
@@ -82,7 +87,7 @@ const advancedEditor = useStudioAdvancedEditor()
           class="ginko:h-8 ginko:text-xs"
           @click="emit('previewPublishImpact')"
         >
-          What will change?
+          {{ ce('publicWorkflowWhatWillChange') }}
         </Button>
         <Button
           variant="outline"
@@ -91,7 +96,7 @@ const advancedEditor = useStudioAdvancedEditor()
           :disabled="!publicVisibility.isRouteBacked"
           @click="emit('validatePublicRoutes')"
         >
-          Check links
+          {{ ce('publicWorkflowCheckLinks') }}
         </Button>
       </div>
     </div>
@@ -100,7 +105,7 @@ const advancedEditor = useStudioAdvancedEditor()
       v-if="publicVisibility.pending"
       class="ginko:mt-3 ginko:text-xs ginko:text-muted-foreground"
     >
-      Checking live website content...
+      {{ ce('publicWorkflowCheckingLiveContent') }}
     </div>
     <div v-else-if="publicVisibility.error" class="ginko:mt-3 ginko:text-xs ginko:text-destructive">
       {{ publicVisibility.errorMessage }}
@@ -112,24 +117,24 @@ const advancedEditor = useStudioAdvancedEditor()
             <div
               class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase"
             >
-              Live website content
+              {{ ce('publicWorkflowLiveContent') }}
             </div>
             <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
               {{
                 publicVisibility.isRouteBacked
-                  ? 'URLs, links, and live website content for this entry.'
-                  : 'No page URL is produced for this shared data collection.'
+                  ? ce('publicWorkflowRouteBackedHint')
+                  : ce('publicWorkflowSharedDataHint')
               }}
             </p>
           </div>
           <Badge variant="outline" class="ginko:text-xs">
-            {{ publicVisibility.isRouteBacked ? 'Website pages' : 'Shared data' }}
+            {{ publicVisibility.isRouteBacked ? ce('publicWorkflowWebsitePages') : ce('publicWorkflowSharedData') }}
           </Badge>
         </div>
         <div class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:sm:grid-cols-3">
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
             <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
-              Languages checked
+              {{ ce('publicWorkflowLanguagesChecked') }}
             </div>
             <div class="ginko:text-sm ginko:font-medium ginko:tabular-nums">
               {{ publicOutputSummary.localeCount }}
@@ -137,7 +142,7 @@ const advancedEditor = useStudioAdvancedEditor()
           </div>
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
             <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
-              Live languages
+              {{ ce('publicWorkflowLiveLanguages') }}
             </div>
             <div class="ginko:text-sm ginko:font-medium ginko:tabular-nums">
               {{ publicOutputSummary.publishedCount }}
@@ -145,7 +150,7 @@ const advancedEditor = useStudioAdvancedEditor()
           </div>
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
             <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
-              Issues blocking publish
+              {{ ce('publishDialogIssuesBlocking') }}
             </div>
             <div class="ginko:text-sm ginko:font-medium ginko:tabular-nums">
               {{ publicOutputSummary.blockedCount }}
@@ -157,7 +162,7 @@ const advancedEditor = useStudioAdvancedEditor()
         :diagnostics="publicVisibility.globalDiagnostics.slice(0, 4)"
         :hidden-count="publicVisibility.hiddenGlobalDiagnosticCount"
         item-key-prefix="visibility-global"
-        more-label="global diagnostic"
+        more-label-key="GlobalDiagnostic"
       />
       <StudioLocaleVisibilityRow
         v-for="localeState in publicVisibility.localeRows"
@@ -168,7 +173,7 @@ const advancedEditor = useStudioAdvancedEditor()
         v-if="publicVisibility.localeRows.length === 0"
         class="ginko:rounded-md ginko:border ginko:bg-background ginko:p-3 ginko:text-xs ginko:text-muted-foreground"
       >
-        No language visibility rows were returned.
+        {{ ce('publicWorkflowNoLanguageRows') }}
       </div>
     </div>
 
@@ -178,7 +183,7 @@ const advancedEditor = useStudioAdvancedEditor()
       <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2">
         <div>
           <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-            Link checks
+            {{ ce('publicWorkflowLinkChecks') }}
           </div>
           <div
             class="ginko:mt-1 ginko:text-xs"
@@ -191,7 +196,7 @@ const advancedEditor = useStudioAdvancedEditor()
             {{
               routeValidationRequested
                 ? routeValidationState.message
-                : 'Run validation to check site-wide URL and redirect conflicts.'
+                : ce('publicWorkflowRunValidation')
             }}
           </div>
         </div>
@@ -199,7 +204,7 @@ const advancedEditor = useStudioAdvancedEditor()
           variant="outline"
           :class="routeValidationRequested ? statusToneClass(routeValidationState.state) : ''"
         >
-          {{ routeValidationRequested ? routeValidationState.state : 'not run' }}
+          {{ routeValidationRequested ? routeValidationState.state : ce('publicWorkflowNotRun') }}
         </Badge>
       </div>
 
@@ -208,7 +213,7 @@ const advancedEditor = useStudioAdvancedEditor()
         :diagnostics="routeValidationState.diagnostics"
         :hidden-count="routeValidationState.hiddenDiagnosticCount"
         item-key-prefix="route-validation"
-        more-label="URL issue"
+        more-label-key="UrlIssue"
       />
     </div>
 

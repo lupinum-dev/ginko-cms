@@ -19,6 +19,8 @@ const props = defineProps<{
 }>()
 
 const editor = useStudioEntryEditorContext()
+const t = (key: string, params?: Record<string, unknown>): string =>
+  editor.loader.t(`ginkoCms.studio.entryDetails.${key}`, params)
 type TrackTone = 'danger' | 'neutral' | 'success' | 'warning'
 
 const entry = computed(() => editor.loader.entry)
@@ -59,16 +61,16 @@ const changedLiveCount = computed(
 const trackState = computed(() => {
   if (props.readinessPending) {
     return {
-      label: 'Checking live status',
+      label: t('trackChecking'),
       tone: 'neutral' as const,
-      message: 'Checking what is live and what still needs attention.',
+      message: t('trackCheckingMessage'),
     }
   }
   if (!entry.value?.publishedAt && liveLanguageCount.value === 0) {
     return {
-      label: 'Not live yet',
+      label: t('trackNotLive'),
       tone: 'neutral' as const,
-      message: 'Publish this entry to start tracking the live website version.',
+      message: t('trackNotLiveMessage'),
     }
   }
   if (
@@ -76,17 +78,15 @@ const trackState = computed(() => {
     readinessView.value.currentLocale?.state === 'live_with_changes'
   ) {
     return {
-      label: 'Live with draft changes',
+      label: t('trackLiveWithChanges'),
       tone: 'warning' as const,
-      message: 'A live version exists, and the draft has changes that are not live yet.',
+      message: t('trackLiveWithChangesMessage'),
     }
   }
   return {
-    label: 'Live now',
+    label: t('trackLiveNow'),
     tone: 'success' as const,
-    message: liveUrl.value
-      ? 'The current version is live on the website.'
-      : 'The current version is published; no live page link is available yet.',
+    message: liveUrl.value ? t('trackLiveNowMessage') : t('trackLiveNowNoLink'),
   }
 })
 
@@ -108,7 +108,7 @@ const refreshState = computed(() => {
   const first = refreshDiagnostics.value[0]
   if (first) {
     return {
-      label: 'Website refresh needs attention',
+      label: t('trackRefreshNeedsAttention'),
       message: first.message,
       tone: (first.severity === 'warning' || first.severity === 'info'
         ? 'warning'
@@ -118,20 +118,20 @@ const refreshState = computed(() => {
   if (entry.value?.publishedAt || liveLanguageCount.value > 0) {
     if (!refreshDiagnosticsLoaded.value) {
       return {
-        label: 'Website refresh',
-        message: 'Website refresh status has not been checked yet.',
+        label: t('trackRefresh'),
+        message: t('trackRefreshUnchecked'),
         tone: 'neutral' as TrackTone,
       }
     }
     return {
-      label: 'Website refresh',
-      message: 'No website refresh issues reported.',
+      label: t('trackRefresh'),
+      message: t('trackRefreshHealthy'),
       tone: 'success' as TrackTone,
     }
   }
   return {
-    label: 'Website refresh',
-    message: 'Website refresh starts after publishing.',
+    label: t('trackRefresh'),
+    message: t('trackRefreshAfterPublish'),
     tone: 'neutral' as TrackTone,
   }
 })
@@ -157,14 +157,14 @@ function localeToneClass(row: {
 }
 
 function localeLabel(row: { published: boolean; hasUnpublishedChanges: boolean; status: string }) {
-  if (row.published && row.hasUnpublishedChanges) return 'Draft changes'
-  if (row.published) return 'Live'
+  if (row.published && row.hasUnpublishedChanges) return t('stepDraftChanges')
+  if (row.published) return t('statusLive')
   return row.status
 }
 </script>
 
 <template>
-  <StudioInspectorSection title="Track live website">
+  <StudioInspectorSection :title="t('trackLiveWebsite')">
     <template #icon>
       <Globe2 class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
     </template>
@@ -201,7 +201,7 @@ function localeLabel(row: { published: boolean; hasUnpublishedChanges: boolean; 
       </div>
 
       <div v-if="entry?.publishedAt" class="ginko:text-xs">
-        <div class="ginko:mb-1 ginko:font-medium ginko:text-muted-foreground">Live since</div>
+        <div class="ginko:mb-1 ginko:font-medium ginko:text-muted-foreground">{{ t('liveSince') }}</div>
         <div class="ginko:text-sm ginko:font-medium ginko:text-foreground">
           <NuxtTime
             :datetime="entry.publishedAt"
@@ -216,7 +216,7 @@ function localeLabel(row: { published: boolean; hasUnpublishedChanges: boolean; 
 
       <div>
         <div class="ginko:mb-1 ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
-          Live page
+          {{ t('livePage') }}
         </div>
         <a
           v-if="liveUrl"
@@ -228,12 +228,12 @@ function localeLabel(row: { published: boolean; hasUnpublishedChanges: boolean; 
           <span class="ginko:truncate">{{ liveUrl }}</span>
           <ExternalLink class="ginko:size-3.5 ginko:shrink-0" />
         </a>
-        <div v-else class="ginko:text-xs ginko:text-muted-foreground">No live page yet.</div>
+        <div v-else class="ginko:text-xs ginko:text-muted-foreground">{{ t('noLivePage') }}</div>
       </div>
 
       <div v-if="languageRows.length">
         <div class="ginko:mb-2 ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
-          Language versions
+          {{ t('languageVersions') }}
         </div>
         <div class="ginko:flex ginko:flex-wrap ginko:gap-1.5">
           <span

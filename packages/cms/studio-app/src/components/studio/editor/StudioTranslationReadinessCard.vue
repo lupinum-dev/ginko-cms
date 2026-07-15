@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { useCmsI18n } from '../../../composables/useCmsI18n'
 import type { StudioTranslationReadinessRow } from './studioWorkflowTypes'
 
 const props = defineProps<{
@@ -10,6 +11,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   review: [locale: string]
 }>()
+
+const { t } = useCmsI18n()
+const td = (key: string, params?: Record<string, unknown>): string =>
+  t(`ginkoCms.studio.entryDetails.${key}`, params)
 
 const primaryItem = computed(() => props.items[0] ?? null)
 const filledCount = computed(() => {
@@ -23,7 +28,7 @@ const percent = computed(() =>
 </script>
 
 <template>
-  <StudioInspectorSection v-if="primaryItem" title="Language status">
+  <StudioInspectorSection v-if="primaryItem" :title="td('languageStatus')">
     <div class="ginko:flex ginko:items-center ginko:gap-4">
       <div
         class="ginko:grid ginko:size-14 ginko:place-items-center ginko:rounded-full ginko:border-4 ginko:border-muted ginko:text-sm ginko:font-semibold"
@@ -33,7 +38,7 @@ const percent = computed(() =>
       <div class="ginko:min-w-0">
         <div class="ginko:font-medium">{{ primaryItem.label }}</div>
         <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-          {{ filledCount }} of {{ totalCount }} fields filled
+          {{ td('fieldsFilled', { filled: filledCount, total: totalCount }) }}
         </div>
         <Badge
           variant="outline"
@@ -44,7 +49,7 @@ const percent = computed(() =>
               : 'ginko:border-success/40 ginko:text-success-fg'
           "
         >
-          {{ primaryItem.missingFields.length ? 'Needs work' : 'Ready' }}
+          {{ primaryItem.missingFields.length ? td('statusNeedsWork') : td('statusReady') }}
         </Badge>
       </div>
     </div>
@@ -54,7 +59,7 @@ const percent = computed(() =>
       class="ginko:mt-4 ginko:w-full ginko:justify-between"
       @click="emit('review', primaryItem.locale)"
     >
-      Review language
+      {{ td('reviewLanguage') }}
       <span>›</span>
     </Button>
   </StudioInspectorSection>

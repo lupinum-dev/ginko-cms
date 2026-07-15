@@ -1,12 +1,22 @@
 <script setup lang="ts">
+import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { diagnosticLabel, type StudioWorkflowDiagnostic } from './studioWorkflowTypes'
 
-defineProps<{
+const props = defineProps<{
   diagnostics: StudioWorkflowDiagnostic[]
   hiddenCount?: number
   itemKeyPrefix: string
-  moreLabel: string
+  moreLabelKey: string
 }>()
+
+const { t } = useCmsI18n()
+
+function moreLabel(count: number): string {
+  const variant = count === 1 ? 'One' : 'Other'
+  return t(`ginkoCms.studio.collectionEditor.diagnosticsMore${props.moreLabelKey}${variant}`, {
+    count,
+  })
+}
 </script>
 
 <template>
@@ -31,7 +41,7 @@ defineProps<{
       </div>
     </div>
     <div v-if="hiddenCount" class="ginko:text-xs ginko:text-muted-foreground">
-      +{{ hiddenCount }} more {{ moreLabel }}{{ hiddenCount === 1 ? '' : 's' }}
+      {{ moreLabel(hiddenCount) }}
     </div>
   </div>
 </template>

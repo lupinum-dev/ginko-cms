@@ -37,7 +37,15 @@ Reason: a simple/advanced mode split would create two product surfaces and two s
 
 ## Implementation Status
 
-Updated: 2026-07-05
+Updated: 2026-07-15 — the shadcn shell migration (branch `studio-shadcn-shell`) and the
+follow-up design review (`studio-design-review.md`) re-audited this plan. Two regressions
+the migration introduced (missing Home nav item, raw `collection.type` on Home) are fixed;
+the Content Imports section is obsolete (the imports page was replaced by the portability
+command layer); remaining UNMET items (MCP naming, Revoke→End session, media/storage
+settings section) were picked up by the design-review waves. Per-criterion evidence:
+`scripts/ui-shell-migration/audits/audit-d-revision-reconcile.md`.
+
+Previous status (2026-07-05):
 
 Completed in the implementation pass:
 

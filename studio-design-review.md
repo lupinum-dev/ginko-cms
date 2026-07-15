@@ -1,6 +1,13 @@
 # Studio Design Review — shadcn fidelity + simplification
 
 Created: 2026-07-15 · Branch: `studio-shadcn-shell` (after Phase L)
+**Status: implemented** (same day) — waves F1a `5fc86f63`, S1 `48b7758e`, F1c `f83e551c`,
+S2 `a47a91a4`, S3 `e2883e64` + i18n/docs follow-ups. Corrections found during
+implementation: the `△ n ms ◎` footer pill (A4) is the Nuxt DevTools overlay from the
+playground dev server, not product UI — no product change needed; the Media back-chevron
+is folder-drill navigation, kept. Deferred with tracking: archived-entry restore action
+(backend surface change, task chip), template shortcut conventions, entry-list
+selection-preview panel.
 Method: live walkthrough of all 11 routes + overlays in the browser (1440×900 light/dark, 375×812 mobile), measured with JS probes, plus four code audits (tokens, primitives/patterns, vocabulary/i18n, UI-REVISION reconciliation).
 
 This review judges the current branch against its own two constitutions — `DESIGN.md`

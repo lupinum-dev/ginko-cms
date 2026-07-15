@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { groupWebsiteChanges } from '../../../lib/websiteChangePresenter'
 import StudioDeveloperDetails from '../StudioDeveloperDetails.vue'
 import StudioWorkflowDiagnosticsList from './StudioWorkflowDiagnosticsList.vue'
@@ -18,6 +19,10 @@ const props = defineProps<{
   showDeveloperDiagnostics?: boolean
   selectedPublishImpactLocale: string | null
 }>()
+
+const { t } = useCmsI18n()
+const ce = (key: string, params?: Record<string, unknown>): string =>
+  t(`ginkoCms.studio.collectionEditor.${key}`, params)
 
 function safeWebsiteUrl(value: string | null | undefined): string {
   const trimmed = value?.trim()
@@ -37,24 +42,24 @@ function displayAddress(value: string | null | undefined, fallback: string): str
 }
 
 function displayInclusion(value: boolean): string {
-  return value ? 'included' : 'excluded'
+  return value ? ce('publishDialogIncluded') : ce('publishDialogExcluded')
 }
 
-const websiteChangeLabels = {
-  canonicalUrl: 'Canonical URL',
-  empty: 'Empty',
-  excluded: 'Excluded',
-  included: 'Included',
-  navigation: 'Navigation',
-  notSet: 'Not set',
-  oldUrlRedirect: 'Old URL redirect',
-  pageUrl: 'Page URL',
-  search: 'Search',
-  sitemap: 'Sitemap',
-}
+const websiteChangeLabels = computed(() => ({
+  canonicalUrl: ce('publishImpactCanonicalUrl'),
+  empty: ce('publishImpactEmpty'),
+  excluded: ce('publishImpactExcluded'),
+  included: ce('publishImpactIncluded'),
+  navigation: ce('publishDialogNavigation'),
+  notSet: ce('publishImpactNotSet'),
+  oldUrlRedirect: ce('publishImpactOldUrlRedirect'),
+  pageUrl: ce('publishImpactPageUrl'),
+  search: ce('publishDialogSearch'),
+  sitemap: ce('publishDialogSitemap'),
+}))
 
 function websiteChangeGroups(localeImpact: StudioPublishImpactLocale) {
-  return groupWebsiteChanges(localeImpact.changes, websiteChangeLabels)
+  return groupWebsiteChanges(localeImpact.changes, websiteChangeLabels.value)
 }
 
 const previewLocaleImpact = computed<StudioPublishImpactLocale | null>(() => {
@@ -87,7 +92,11 @@ const showWebsitePreview = computed(
     <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2">
       <div>
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-          {{ previewScope === 'workflow' ? 'Read-only publish check' : 'Website changes' }}
+          {{
+            previewScope === 'workflow'
+              ? ce('publishImpactReadOnlyCheck')
+              : ce('publishDialogWebsiteChanges')
+          }}
         </div>
         <div
           class="ginko:mt-1 ginko:text-sm ginko:font-medium"
@@ -108,7 +117,7 @@ const showWebsitePreview = computed(
             : statusToneClass(publishReview.state || publishImpact.state)
         "
       >
-        {{ previewScope === 'workflow' ? 'Read-only' : publishReview.label }}
+        {{ previewScope === 'workflow' ? ce('publishImpactReadOnly') : publishReview.label }}
       </Badge>
     </div>
 
@@ -127,7 +136,7 @@ const showWebsitePreview = computed(
       v-if="publishImpact.state === 'pending'"
       class="ginko:mt-3 ginko:text-xs ginko:text-muted-foreground"
     >
-      Previewing website changes...
+      {{ ce('publishImpactPreviewing') }}
     </div>
     <div
       v-else-if="
@@ -141,9 +150,11 @@ const showWebsitePreview = computed(
     </div>
     <div v-else class="ginko:mt-3 ginko:space-y-3">
       <div v-if="previewScope === 'workflow'" class="ginko:text-xs ginko:text-muted-foreground">
-        This is a read-only saved-draft preview for
-        {{ selectedPublishImpactLocale || 'the selected language' }}. It does not confirm the header
-        Publish action.
+        {{
+          ce('publishImpactReadOnlyNotice', {
+            locale: selectedPublishImpactLocale || ce('publishImpactSelectedLanguage'),
+          })
+        }}
       </div>
 
       <div
@@ -156,7 +167,7 @@ const showWebsitePreview = computed(
           <div class="ginko:min-w-0">
             <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
               <div class="ginko:text-sm ginko:font-medium ginko:text-foreground">
-                Website preview
+                {{ ce('publishImpactWebsitePreview') }}
               </div>
               <Badge variant="outline" class="ginko:font-mono ginko:text-xs">
                 {{ previewLocaleImpact?.locale?.toUpperCase() }}
@@ -175,17 +186,25 @@ const showWebsitePreview = computed(
               size="sm"
               as-child
             >
-              <a :href="liveComparisonUrl" target="_blank" rel="noreferrer">Open live page</a>
+              <a :href="liveComparisonUrl" target="_blank" rel="noreferrer">{{
+                ce('publishOutcomeOpenLivePage')
+              }}</a>
             </Button>
             <Button variant="outline" size="sm" as-child>
-              <a :href="previewUrl" target="_blank" rel="noreferrer">Open preview</a>
+              <a :href="previewUrl" target="_blank" rel="noreferrer">{{
+                ce('publishImpactOpenPreview')
+              }}</a>
             </Button>
           </div>
         </div>
         <div class="ginko:bg-background">
           <iframe
             :src="previewUrl"
-            :title="`Website preview for ${previewLocaleImpact?.locale ?? 'selected language'}`"
+            :title="
+              ce('publishImpactWebsitePreviewFor', {
+                locale: previewLocaleImpact?.locale ?? ce('publishImpactSelectedLanguageShort'),
+              })
+            "
             class="ginko:block ginko:h-80 ginko:w-full ginko:border-0 ginko:bg-background"
             loading="lazy"
             referrerpolicy="no-referrer"
@@ -199,11 +218,11 @@ const showWebsitePreview = computed(
           showDeveloperDiagnostics &&
           (publishImpact.cacheTags.length || publishImpact.events.length)
         "
-        title="Technical receipt"
+        :title="ce('publishImpactTechnicalReceipt')"
       >
         <div v-if="publishImpact.cacheTags.length">
           <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
-            Website refresh targets
+            {{ ce('publishImpactRefreshTargets') }}
           </div>
           <div class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-1">
             <Badge
@@ -218,7 +237,7 @@ const showWebsitePreview = computed(
         </div>
         <div v-if="publishImpact.events.length" class="ginko:mt-2">
           <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
-            Website refresh messages
+            {{ ce('publishImpactRefreshMessages') }}
           </div>
           <div class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-1">
             <Badge
@@ -252,7 +271,7 @@ const showWebsitePreview = computed(
           <span
             class="ginko:max-w-full ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
           >
-            {{ localeImpact.nextHref || localeImpact.nextPath || 'No page URL' }}
+            {{ localeImpact.nextHref || localeImpact.nextPath || ce('publishImpactNoPageUrl') }}
           </span>
         </div>
 
@@ -260,20 +279,27 @@ const showWebsitePreview = computed(
           class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-2"
         >
           <div>
-            <div class="ginko:text-xs ginko:font-medium ginko:uppercase">Current live page</div>
+            <div class="ginko:text-xs ginko:font-medium ginko:uppercase">
+              {{ ce('publishDialogCurrentLivePage') }}
+            </div>
             <div class="ginko:mt-0.5 ginko:truncate ginko:font-mono">
               {{
-                displayAddress(localeImpact.currentHref || localeImpact.currentPath, 'Not live yet')
+                displayAddress(
+                  localeImpact.currentHref || localeImpact.currentPath,
+                  ce('publishDialogNotLiveYet'),
+                )
               }}
             </div>
           </div>
           <div>
-            <div class="ginko:text-xs ginko:font-medium ginko:uppercase">After publish</div>
+            <div class="ginko:text-xs ginko:font-medium ginko:uppercase">
+              {{ ce('publishDialogAfterPublish') }}
+            </div>
             <div class="ginko:mt-0.5 ginko:truncate ginko:font-mono">
               {{
                 displayAddress(
                   localeImpact.nextHref || localeImpact.nextPath,
-                  'No page URL planned',
+                  ce('publishDialogNoPageUrlPlanned'),
                 )
               }}
             </div>
@@ -282,17 +308,17 @@ const showWebsitePreview = computed(
 
         <div class="ginko:mt-3">
           <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-            Live website content after publish
+            {{ ce('publishImpactLiveContentAfter') }}
           </div>
           <div class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-1">
             <Badge variant="outline" class="ginko:text-xs">
-              Sitemap {{ displayInclusion(localeImpact.sitemap.after) }}
+              {{ ce('publishDialogSitemap') }} {{ displayInclusion(localeImpact.sitemap.after) }}
             </Badge>
             <Badge variant="outline" class="ginko:text-xs">
-              Search {{ displayInclusion(localeImpact.search.after) }}
+              {{ ce('publishDialogSearch') }} {{ displayInclusion(localeImpact.search.after) }}
             </Badge>
             <Badge variant="outline" class="ginko:text-xs">
-              Navigation {{ displayInclusion(localeImpact.nav.after) }}
+              {{ ce('publishDialogNavigation') }} {{ displayInclusion(localeImpact.nav.after) }}
             </Badge>
           </div>
         </div>
@@ -302,7 +328,9 @@ const showWebsitePreview = computed(
             v-if="websiteChangeGroups(localeImpact).pageAddressRows.length"
             class="ginko:border-t ginko:border-border/60 ginko:pt-3"
           >
-            <div class="ginko:text-xs ginko:font-medium ginko:text-foreground">Page address</div>
+            <div class="ginko:text-xs ginko:font-medium ginko:text-foreground">
+              {{ ce('publishDialogPageAddress') }}
+            </div>
             <div class="ginko:mt-2 ginko:grid ginko:gap-2">
               <div
                 v-for="change in websiteChangeGroups(localeImpact).pageAddressRows"
@@ -312,7 +340,7 @@ const showWebsitePreview = computed(
                 <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                 <div class="ginko:min-w-0">
                   <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                    Before
+                    {{ ce('publishImpactBefore') }}
                   </span>
                   <span class="ginko:block ginko:break-words ginko:font-mono">
                     {{ change.before }}
@@ -320,7 +348,7 @@ const showWebsitePreview = computed(
                 </div>
                 <div class="ginko:min-w-0">
                   <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                    After
+                    {{ ce('publishImpactAfter') }}
                   </span>
                   <span class="ginko:block ginko:break-words ginko:font-mono ginko:text-foreground">
                     {{ change.after }}
@@ -334,7 +362,9 @@ const showWebsitePreview = computed(
             v-if="websiteChangeGroups(localeImpact).searchPreviewRows.length"
             class="ginko:border-t ginko:border-border/60 ginko:pt-3"
           >
-            <div class="ginko:text-xs ginko:font-medium ginko:text-foreground">Search preview</div>
+            <div class="ginko:text-xs ginko:font-medium ginko:text-foreground">
+              {{ ce('publishDialogSearchPreview') }}
+            </div>
             <div class="ginko:mt-2 ginko:grid ginko:gap-2">
               <div
                 v-for="change in websiteChangeGroups(localeImpact).searchPreviewRows"
@@ -344,7 +374,7 @@ const showWebsitePreview = computed(
                 <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                 <div class="ginko:min-w-0">
                   <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                    Before
+                    {{ ce('publishImpactBefore') }}
                   </span>
                   <span class="ginko:block ginko:break-words ginko:font-mono">
                     {{ change.before }}
@@ -352,7 +382,7 @@ const showWebsitePreview = computed(
                 </div>
                 <div class="ginko:min-w-0">
                   <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                    After
+                    {{ ce('publishImpactAfter') }}
                   </span>
                   <span class="ginko:block ginko:break-words ginko:font-mono ginko:text-foreground">
                     {{ change.after }}
@@ -367,7 +397,7 @@ const showWebsitePreview = computed(
             class="ginko:border-t ginko:border-border/60 ginko:pt-3"
           >
             <div class="ginko:text-xs ginko:font-medium ginko:text-foreground">
-              Website visibility
+              {{ ce('publishDialogWebsiteVisibility') }}
             </div>
             <div class="ginko:mt-2 ginko:grid ginko:gap-2">
               <div
@@ -378,13 +408,13 @@ const showWebsitePreview = computed(
                 <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                 <div>
                   <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                    Before
+                    {{ ce('publishImpactBefore') }}
                   </span>
                   {{ change.before }}
                 </div>
                 <div>
                   <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                    After
+                    {{ ce('publishImpactAfter') }}
                   </span>
                   <span class="ginko:text-foreground">{{ change.after }}</span>
                 </div>
@@ -397,7 +427,9 @@ const showWebsitePreview = computed(
               v-if="websiteChangeGroups(localeImpact).seoSettingRows.length"
               class="ginko:border-t ginko:border-border/60 ginko:pt-3"
             >
-              <div class="ginko:text-xs ginko:font-medium ginko:text-foreground">SEO settings</div>
+              <div class="ginko:text-xs ginko:font-medium ginko:text-foreground">
+                {{ ce('publishImpactSeoSettings') }}
+              </div>
               <div class="ginko:mt-2 ginko:grid ginko:gap-2">
                 <div
                   v-for="change in websiteChangeGroups(localeImpact).seoSettingRows"
@@ -407,13 +439,13 @@ const showWebsitePreview = computed(
                   <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                   <div>
                     <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                      Before
+                      {{ ce('publishImpactBefore') }}
                     </span>
                     {{ change.before }}
                   </div>
                   <div>
                     <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                      After
+                      {{ ce('publishImpactAfter') }}
                     </span>
                     <span class="ginko:text-foreground">{{ change.after }}</span>
                   </div>
@@ -426,7 +458,7 @@ const showWebsitePreview = computed(
               class="ginko:border-t ginko:border-border/60 ginko:pt-3"
             >
               <div class="ginko:text-xs ginko:font-medium ginko:text-foreground">
-                Other website changes
+                {{ ce('publishImpactOtherChanges') }}
               </div>
               <div class="ginko:mt-2 ginko:grid ginko:gap-2">
                 <div
@@ -437,13 +469,13 @@ const showWebsitePreview = computed(
                   <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                   <div>
                     <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                      Before
+                      {{ ce('publishImpactBefore') }}
                     </span>
                     {{ change.before }}
                   </div>
                   <div>
                     <span class="ginko:block ginko:text-xs ginko:font-medium ginko:uppercase">
-                      After
+                      {{ ce('publishImpactAfter') }}
                     </span>
                     <span class="ginko:text-foreground">{{ change.after }}</span>
                   </div>
@@ -458,13 +490,13 @@ const showWebsitePreview = computed(
           :diagnostics="localeImpact.visibleBlockers"
           :hidden-count="localeImpact.hiddenBlockerCount"
           :item-key-prefix="`impact:${localeImpact.locale}:blocker`"
-          more-label="blocker"
+          more-label-key="Blocker"
         />
         <StudioWorkflowDiagnosticsList
           class="ginko:mt-3"
           :diagnostics="localeImpact.visibleWarnings"
           :item-key-prefix="`impact:${localeImpact.locale}:warning`"
-          more-label="warning"
+          more-label-key="Warning"
         />
       </div>
     </div>

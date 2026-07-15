@@ -6,15 +6,30 @@ This file captures the design system the Ginko CMS Studio runs on. It exists so 
 
 **Product.** Design serves the product, not the other way around. Editors live in this UI; it has to be calm and dense, not loud and decorative. PRODUCT.md anti-references "decorative SaaS dashboards" — the studio's job is to disappear into a fast workflow.
 
+### Binding interaction principles (design review, 2026-07-15)
+
+1. **One primary action per screen** — everything else is secondary/ghost or in a `⋯` menu; a status never wears the CTA's clothes.
+2. **Say it once** — a status or fact appears in exactly one place per screen.
+3. **Progressive disclosure** — developer/process detail collapses behind `Advanced details` (one disclosure per surface, not three).
+4. **Content in the card, metadata in the right sidebar** — and the content column always wins the space fight (metadata panels register `compact`).
+5. **Empty ≠ visible** — zero-count rows, "nothing selected" panels, and 0-chips disappear rather than render placeholders.
+6. **One vocabulary, no internals** — no document ids, schema terms, or workflow jargon in the default persona's view; language machinery only exists on multilingual sites.
+7. **Defaults over options** — every visible setting must justify why it isn't a good default.
+8. **Grids respond to their container** — anything inside the inset card, a panel, a split pane, or a dialog uses `@container` variants (`@2xl/@3xl/@5xl`), never viewport `md:`/`lg:`.
+
 ## Color
 
-OKLCH for everything. **Pure neutrals** (chroma 0) for all chrome surfaces. Emerald-500 as the single accent in light, used at <10% surface coverage.
+OKLCH for everything. **Pure neutrals** (chroma 0) for all chrome surfaces AND for the default primary.
+
+> Updated 2026-07-15 (design review): the Phase P template-parity pass replaced the emerald
+> accent with the shadcn template's neutral primary. This section now describes the shipped
+> system; the earlier emerald-single-accent scheme is retired.
 
 ### Strategy
 
-**Restrained.** One accent, pure-neutral greys for the rest. The accent is reserved for active sidebar state (light only), primary actions (publish, save), and `success` semantics. No decorative color anywhere else.
+**Restrained, neutral-first.** The default `--primary` is `--studio-action` = near-black `oklch(0.205 0 0)` (near-white in dark) — primary actions read as weight, not hue. `--ring` is neutral grey (`oklch(0.708 0 0)`, template parity). Color is reserved for SEMANTICS: `--success` (`oklch(0.63 0.09 160)`, decoupled from primary), `--warning`, `--destructive` — always via tokens, always paired with their `*-fg` partners on tinted surfaces.
 
-**Dark-mode exception:** `--sidebar-primary` swaps to a saturated blue-purple (`oklch(0.488 0.243 264.376)`) in dark — the only intentional non-emerald accent in the system. `--primary` (publish/save buttons) stays emerald in both modes, so the active sidebar pill is the only blue-in-dark element. This is a deliberate tonal lift for dark mode; the publish-action emerald and the navigation blue read as two different roles instead of competing.
+**Optional accent themes.** `themes.css` ships user-selectable accent themes (`.color-blue`, `.color-violet`, …) that re-point `--primary`; Settings → Appearance exposes a curated set of five (default, blue, green, amber, violet). Studio components must therefore never assume the primary's hue — only its role.
 
 ### Light tokens (`oklch` triples)
 
@@ -27,20 +42,20 @@ OKLCH for everything. **Pure neutrals** (chroma 0) for all chrome surfaces. Emer
 | `--sidebar`            | `0.985 0 0`          | Sidebar tower surface                                          |
 | `--muted`              | `0.97 0 0`           | Sub-surface backgrounds, hover states                          |
 | `--muted-foreground`   | `0.556 0 0`          | Secondary text                                                 |
-| `--primary`            | `0.696 0.17 162.48`  | Emerald-500. Active sidebar pill, primary CTAs, ring           |
+| `--primary`            | `0.205 0 0`          | Neutral near-black (= `--studio-action`). Primary CTAs         |
 | `--primary-foreground` | `0.985 0 0`          | Text/icons on primary                                          |
-| `--success`            | `0.696 0.17 162.48`  | Same as primary; soft surfaces use it via `/12` opacity        |
+| `--success`            | `0.63 0.09 160`      | Success semantics; soft surfaces via `/10`–`/12` opacity       |
 | `--success-fg`         | `0.5 0.13 162`       | **Text on tinted-success bg.** AA-compliant pairing.           |
 | `--warning`            | `0.769 0.188 70.08`  | Amber tint surface                                             |
 | `--warning-fg`         | `0.48 0.13 70`       | **Text on tinted-warning bg.**                                 |
 | `--destructive`        | `0.577 0.245 27.325` | Solid destructive (delete buttons)                             |
 | `--destructive-fg`     | `0.45 0.2 27`        | **Text on tinted-destructive bg.**                             |
 | `--border`             | `0.922 0 0`          | Default border. Used at /40 (default), /60 (strong), /30 (sub) |
-| `--ring`               | = `--primary`        | Focus ring; emerald, with 2px offset on primary buttons        |
+| `--ring`               | `0.708 0 0`          | Focus ring; neutral grey (template parity)                     |
 
 ### Dark tokens
 
-Mirror structure with parallel `--ginko-cms-dark-*` overrides. Background `0.145 0 0` (matches `--studio-shell-bg`), card and sidebar `0.205 0 0` (single elevation tier above page), primary unchanged (emerald). `--sidebar-primary` becomes `oklch(0.488 0.243 264.376)` (blue-purple) — see Strategy. Borders use **alpha** rather than fixed grey: `--border: oklch(1 0 0 / 0.10)`, `--input: oklch(1 0 0 / 0.15)` — they pick up the surface beneath, so a card on a dialog and a card on the page get appropriately-weighted edges.
+Mirror structure with parallel `--ginko-cms-dark-*` overrides. Background `0.145 0 0` (matches `--studio-shell-bg`), card and sidebar `0.205 0 0` (single elevation tier above page), primary flips to near-white (`--studio-action` dark value). `--sidebar-primary` follows `--studio-action`. Borders use **alpha** rather than fixed grey: `--border: oklch(1 0 0 / 0.10)`, `--input: oklch(1 0 0 / 0.15)` — they pick up the surface beneath, so a card on a dialog and a card on the page get appropriately-weighted edges.
 
 ### Pairing rule
 
@@ -71,7 +86,7 @@ Type ladder. Seven steps. Apply via `studio-text-*` class (see `styles/index.css
 | `caption`    | 12 px | 500    | 0      | Helpers, timestamps, locale codes           |
 | `eyebrow`    | 12 px | 600    | 0      | Section group labels (CONTENT, MANAGE)      |
 
-System sans (Geist would be drift). Cap body line-length at 65–75ch where possible.
+Geist / Geist Mono (self-hosted via `@fontsource-variable`, template parity since Phase P). Cap body line-length at 65–75ch where possible.
 
 ## Spacing
 

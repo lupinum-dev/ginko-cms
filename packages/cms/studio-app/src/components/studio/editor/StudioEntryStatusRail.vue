@@ -36,6 +36,9 @@ const props = defineProps<{
 const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
 
+const t = (key: string, params?: Record<string, unknown>): string =>
+  editor.loader.t(`ginkoCms.studio.entryDetails.${key}`, params)
+
 const entry = computed(() => editor.loader.entry)
 
 const readinessView = computed(() =>
@@ -103,7 +106,7 @@ const blockingIssues = computed(() => {
 
 <template>
   <div class="ginko:min-w-0">
-    <StudioInspectorSection title="Status">
+    <StudioInspectorSection :title="t('status')">
       <template #icon>
         <Clock class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
       </template>
@@ -111,10 +114,10 @@ const blockingIssues = computed(() => {
         <StudioStatusPill
           :label="
             readinessPending
-              ? 'Checking'
+              ? t('statusChecking')
               : readinessView.currentLocale
                 ? readinessStateLabel(editor.loader.t, readinessView.currentLocale.state)
-                : 'Unknown'
+                : t('statusUnknown')
           "
           :tone="
             readinessView.blockers.length
@@ -132,7 +135,7 @@ const blockingIssues = computed(() => {
       <div v-if="entry?.publishedAt" class="ginko:space-y-3 ginko:text-sm">
         <div>
           <div class="ginko:mb-0.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground/70">
-            Live since
+            {{ t('liveSince') }}
           </div>
           <div class="ginko:font-medium ginko:text-foreground">
             <NuxtTime
@@ -147,7 +150,7 @@ const blockingIssues = computed(() => {
         </div>
         <div v-if="hasMultipleLocales">
           <div class="ginko:mb-1.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground/70">
-            Current language
+            {{ t('currentLanguage') }}
           </div>
           <div
             class="ginko:font-mono ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground"
@@ -160,13 +163,13 @@ const blockingIssues = computed(() => {
         v-else-if="readinessPending"
         class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground"
       >
-        Checking what can publish...
+        {{ t('checkingPublish') }}
       </div>
       <div v-else class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground">
         {{
           readinessView.nextAction
             ? readinessActionLabel(editor.loader.t, readinessView.nextAction.kind)
-            : 'We could not check the publish status yet.'
+            : t('publishStatusUnknown')
         }}
       </div>
     </StudioInspectorSection>
@@ -190,7 +193,7 @@ const blockingIssues = computed(() => {
       :readiness-pending="readinessPending"
     />
 
-    <StudioInspectorSection v-if="hasMultipleLocales" title="Translations">
+    <StudioInspectorSection v-if="hasMultipleLocales" :title="t('translations')">
       <template #icon>
         <Globe class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
       </template>
@@ -204,8 +207,8 @@ const blockingIssues = computed(() => {
           <span class="ginko:text-xs ginko:text-muted-foreground">
             {{
               publishedLocaleCount === localeSummaries.length
-                ? 'All languages are up to date'
-                : 'Some languages need work'
+                ? t('allLanguagesUpToDate')
+                : t('someLanguagesNeedWork')
             }}
           </span>
         </div>
@@ -246,13 +249,13 @@ const blockingIssues = computed(() => {
           </div>
         </div>
       </div>
-      <div v-else class="ginko:text-sm ginko:text-muted-foreground">No translation data yet.</div>
+      <div v-else class="ginko:text-sm ginko:text-muted-foreground">{{ t('noTranslationData') }}</div>
     </StudioInspectorSection>
 
     <!-- Issues only exist when there are issues (principle 5); the healthy
          state is already told by the Status pill above, and the Check-links
          action lives once, in the WORKFLOW section. -->
-    <StudioInspectorSection v-if="blockingIssues.length > 0" title="Issues">
+    <StudioInspectorSection v-if="blockingIssues.length > 0" :title="t('issues')">
       <template #icon>
         <TriangleAlert class="ginko:size-4 ginko:shrink-0 ginko:text-warning-fg" />
       </template>
@@ -270,7 +273,7 @@ const blockingIssues = computed(() => {
       </div>
     </StudioInspectorSection>
 
-    <StudioInspectorSection title="More details">
+    <StudioInspectorSection :title="t('moreDetails')">
       <template #icon>
         <Sparkles class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
       </template>
@@ -278,12 +281,11 @@ const blockingIssues = computed(() => {
         <Switch
           v-model:checked="advancedEditor"
           class="ginko:scale-90"
-          aria-label="Toggle detailed publishing information"
+          :aria-label="t('toggleDetails')"
         />
       </template>
       <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground/80">
-        URLs, publish checks, and version history. Usually only needed after something needs a
-        closer look.
+        {{ t('moreDetailsHint') }}
       </p>
     </StudioInspectorSection>
   </div>

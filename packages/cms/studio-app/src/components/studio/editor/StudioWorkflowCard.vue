@@ -39,6 +39,9 @@ type WorkflowStep = {
 
 const editor = useStudioEntryEditorContext()
 
+const t = (key: string, params?: Record<string, unknown>): string =>
+  editor.loader.t(`ginkoCms.studio.entryDetails.${key}`, params)
+
 const entry = computed(() => editor.loader.entry)
 
 const readinessView = computed(() =>
@@ -63,7 +66,7 @@ const routeHasBlocker = computed(
 const firstBlockerMessage = computed(() => {
   const blocker = readinessView.value.blockers[0]
   if (blocker) return readinessIssueMessage(editor.loader.t, blocker)
-  if (routeHasBlocker.value) return 'Website URL check found a blocking issue.'
+  if (routeHasBlocker.value) return t('routeBlockerFound')
   return null
 })
 
@@ -129,21 +132,21 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
     {
       key: 'write',
       title: studioWorkflowLabel('write'),
-      description: editor.draft.isDirty ? 'Draft has unsaved changes.' : 'Draft is saved.',
+      description: editor.draft.isDirty ? t('stepWriteDirty') : t('stepWriteSaved'),
       state: editor.draft.isDirty ? 'current' : writeDone ? 'done' : 'waiting',
-      status: editor.draft.isDirty ? 'Editing' : 'Saved',
+      status: editor.draft.isDirty ? t('stepEditing') : t('stepSaved'),
     },
     {
       key: 'check',
       title: studioWorkflowLabel('check'),
       description: props.readinessPending
-        ? 'Checking content, language, and URL readiness.'
+        ? t('stepCheckPending')
         : firstBlockerMessage.value ||
           (checkDone
-            ? 'Content, language, and URL checks have no blockers.'
+            ? t('stepCheckDone')
             : readinessView.value.nextAction
               ? readinessActionLabel(editor.loader.t, readinessView.value.nextAction.kind)
-              : 'Run readiness checks before previewing.'),
+              : t('stepCheckFallback')),
       state: props.readinessPending
         ? 'current'
         : firstBlockerMessage.value
@@ -152,25 +155,25 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
             ? 'done'
             : 'current',
       status: props.readinessPending
-        ? 'Checking'
+        ? t('statusChecking')
         : firstBlockerMessage.value
-          ? 'Needs work'
+          ? t('statusNeedsWork')
           : checkDone
-            ? 'Ready'
-            : 'Next',
+            ? t('statusReady')
+            : t('stepNext'),
     },
     {
       key: 'preview',
       title: studioWorkflowLabel('preview'),
       description: previewPending.value
-        ? 'Preparing website changes.'
+        ? t('stepPreviewPending')
         : previewReady.value
-          ? props.publishReview?.message || 'Website changes are ready to review.'
+          ? props.publishReview?.message || t('stepPreviewReady')
           : previewBlocked.value
-            ? props.publishReview?.message || props.publishImpact?.message || 'Preview needs work.'
+            ? props.publishReview?.message || props.publishImpact?.message || t('stepPreviewBlocked')
             : readinessView.value.canPreview
-              ? 'Preview what will change on the website.'
-              : 'Finish checks before previewing website changes.',
+              ? t('stepPreviewAvailable')
+              : t('stepPreviewWaiting'),
       state: previewPending.value
         ? 'current'
         : previewReady.value
@@ -181,25 +184,25 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
               ? 'current'
               : 'waiting',
       status: previewPending.value
-        ? 'Previewing'
+        ? t('stepPreviewing')
         : previewReady.value
-          ? 'Prepared'
+          ? t('stepPrepared')
           : previewBlocked.value
-            ? 'Needs preview'
-            : 'Waiting',
+            ? t('stepNeedsPreview')
+            : t('statusWaiting'),
     },
     {
       key: 'review',
       title: studioWorkflowLabel('review'),
       description: props.requestReviewPending
-        ? 'Sending this for review.'
+        ? t('stepReviewPending')
         : reviewRequested.value
-          ? 'A publishing review is waiting for a decision.'
+          ? t('stepReviewRequested')
           : readinessView.value.canPublish && previewReady.value
-            ? 'Review what will change before publishing.'
+            ? t('stepReviewReady')
             : canReview
-              ? 'Request or complete a publishing review.'
-              : 'Review starts after preview is ready.',
+              ? t('stepReviewAvailable')
+              : t('stepReviewWaiting'),
       state:
         props.requestReviewPending || reviewRequested.value
           ? 'current'
@@ -209,27 +212,27 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
               ? 'current'
               : 'waiting',
       status: props.requestReviewPending
-        ? 'Sending'
+        ? t('stepSending')
         : reviewRequested.value
-          ? 'In review'
+          ? t('stepInReview')
           : readinessView.value.canPublish && previewReady.value
-            ? 'Reviewed'
+            ? t('stepReviewed')
             : canReview
-              ? 'Ready'
-              : 'Waiting',
+              ? t('statusReady')
+              : t('statusWaiting'),
     },
     {
       key: 'publish',
       title: studioWorkflowLabel('publish'),
       description: currentLocaleIsLive.value
-        ? 'This language is already live.'
+        ? t('stepPublishLive')
         : liveWithChanges.value
-          ? 'A live version exists; draft changes are not live yet.'
+          ? t('stepPublishChanges')
           : publishAvailable
-            ? 'Publish the approved website changes.'
+            ? t('stepPublishAvailable')
             : firstBlockerMessage.value
-              ? 'Resolve blockers before publishing.'
-              : 'Publishing unlocks after preview and review.',
+              ? t('stepPublishBlocked')
+              : t('stepPublishWaiting'),
       state: currentLocaleIsLive.value
         ? 'done'
         : firstBlockerMessage.value
@@ -238,27 +241,27 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
             ? 'current'
             : 'waiting',
       status: currentLocaleIsLive.value
-        ? 'Live'
+        ? t('statusLive')
         : liveWithChanges.value
-          ? 'Draft changes'
+          ? t('stepDraftChanges')
           : publishAvailable
-            ? 'Ready'
+            ? t('statusReady')
             : firstBlockerMessage.value
-              ? 'Blocked'
-              : 'Waiting',
+              ? t('stepBlocked')
+              : t('statusWaiting'),
     },
     {
       key: 'track',
       title: studioWorkflowLabel('track'),
       description: entry.value?.publishedAt
         ? liveWithChanges.value
-          ? 'Track the live version while draft changes continue.'
+          ? t('stepTrackChanges')
           : liveUrl
-            ? 'Already live on the website.'
-            : 'Published; website status is available in details.'
-        : 'Track live status after publishing.',
+            ? t('stepTrackLive')
+            : t('stepTrackPublished')
+        : t('stepTrackWaiting'),
       state: entry.value?.publishedAt ? 'done' : 'waiting',
-      status: entry.value?.publishedAt ? 'Already live' : 'Waiting',
+      status: entry.value?.publishedAt ? t('stepAlreadyLive') : t('statusWaiting'),
     },
   ]
 })
@@ -281,7 +284,7 @@ function markerClass(state: WorkflowStepState) {
 </script>
 
 <template>
-  <StudioInspectorSection title="Publishing flow">
+  <StudioInspectorSection :title="t('publishingFlow')">
     <ol class="ginko:space-y-3">
       <li
         v-for="step in workflowSteps"

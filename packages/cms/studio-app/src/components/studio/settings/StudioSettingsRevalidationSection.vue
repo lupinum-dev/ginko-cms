@@ -6,6 +6,8 @@ import { websiteRefreshStatusLabel } from '../../../lib/publicWorkflow'
 
 const props = defineProps<{ admin: StudioSettingsAdminViewModel }>()
 const settings = props.admin
+const st = (key: string, params?: Record<string, unknown>): string =>
+  settings.t(`ginkoCms.studio.settingsPage.${key}`, params)
 </script>
 
 <template>
@@ -19,13 +21,13 @@ const settings = props.admin
         class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
       >
         <RadioTower class="ginko:size-4 ginko:text-muted-foreground" />
-        Website refresh
+        {{ st('revalidationTitle') }}
         <Badge variant="outline" class="ginko:text-xs">
           {{ settings.revalidationJobs.length }}
         </Badge>
       </h2>
       <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
-        Where published changes are sent and whether the website refreshed successfully.
+        {{ st('revalidationDescription') }}
       </p>
     </div>
 
@@ -47,8 +49,7 @@ const settings = props.admin
           v-if="settings.revalidationTargets.length === 0"
           class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
         >
-          No website refresh target is configured. Published changes will wait until a target is
-          enabled.
+          {{ st('revalidationNoTarget') }}
         </div>
         <div
           v-for="target in settings.revalidationTargets"
@@ -62,26 +63,26 @@ const settings = props.admin
                   target.name
                 }}</span>
                 <Badge :variant="target.enabled ? 'default' : 'secondary'" class="ginko:text-xs">
-                  {{ target.enabled ? 'Enabled' : 'Disabled' }}
+                  {{ target.enabled ? st('revalidationEnabled') : st('revalidationDisabled') }}
                 </Badge>
                 <Badge variant="outline" class="ginko:text-xs">
                   {{ target.environment }}
                 </Badge>
               </div>
               <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-                Updated {{ settings.formatTimestamp(target.updatedAt) }}
+                {{ st('revalidationUpdated', { time: settings.formatTimestamp(target.updatedAt) }) }}
               </div>
             </div>
             <ShieldCheck class="ginko:size-4 ginko:text-muted-foreground ginko:shrink-0" />
           </div>
           <StudioDeveloperDetails>
             <div class="ginko:space-y-2">
-              <div class="ginko:text-xs ginko:text-muted-foreground">Endpoint</div>
+              <div class="ginko:text-xs ginko:text-muted-foreground">{{ st('revalidationEndpoint') }}</div>
               <code
                 class="ginko:block ginko:break-all ginko:rounded ginko:bg-background ginko:px-2 ginko:py-1 ginko:font-mono ginko:text-xs"
                 >{{ target.endpoint }}</code
               >
-              <div class="ginko:text-xs ginko:text-muted-foreground">Secret env</div>
+              <div class="ginko:text-xs ginko:text-muted-foreground">{{ st('revalidationSecretEnv') }}</div>
               <code
                 class="ginko:block ginko:break-all ginko:rounded ginko:bg-background ginko:px-2 ginko:py-1 ginko:font-mono ginko:text-xs"
                 >{{ target.secretEnv }}</code
@@ -95,7 +96,7 @@ const settings = props.admin
         <div
           class="ginko:px-4 ginko:py-3 ginko:flex ginko:items-center ginko:justify-between ginko:gap-3"
         >
-          <div class="ginko:text-sm ginko:font-medium">Recent refreshes</div>
+          <div class="ginko:text-sm ginko:font-medium">{{ st('revalidationRecent') }}</div>
           <Button
             variant="outline"
             size="sm"
@@ -106,14 +107,14 @@ const settings = props.admin
               class="ginko:size-3.5"
               :class="{ 'ginko:animate-spin': settings.revalidationJobsQuery.pending.value }"
             />
-            Refresh
+            {{ st('storageRefresh') }}
           </Button>
         </div>
         <div
           v-if="settings.revalidationJobs.length === 0"
           class="ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
         >
-          No website refreshes have been recorded yet.
+          {{ st('revalidationNoJobs') }}
         </div>
         <div
           v-for="job in settings.revalidationJobs"
@@ -132,14 +133,21 @@ const settings = props.admin
                   {{ websiteRefreshStatusLabel(settings.t, job.status) }}
                 </Badge>
                 <span class="ginko:text-xs ginko:text-muted-foreground">
-                  {{ job.paths.length }} page{{ job.paths.length === 1 ? '' : 's' }}
+                  {{
+                    job.paths.length === 1
+                      ? st('revalidationPagesOne', { count: job.paths.length })
+                      : st('revalidationPagesOther', { count: job.paths.length })
+                  }}
                 </span>
               </div>
               <div class="ginko:text-xs ginko:text-muted-foreground">
-                {{ settings.formatRevalidationReason(job) }} · {{ job.attempts }} attempt{{
-                  job.attempts === 1 ? '' : 's'
+                {{ settings.formatRevalidationReason(job) }} ·
+                {{
+                  job.attempts === 1
+                    ? st('revalidationAttemptsOne', { count: job.attempts })
+                    : st('revalidationAttemptsOther', { count: job.attempts })
                 }}
-                · Next {{ settings.formatTimestamp(job.nextAttemptAt) }}
+                · {{ st('revalidationNext') }} {{ settings.formatTimestamp(job.nextAttemptAt) }}
               </div>
             </div>
             <Button
@@ -154,7 +162,7 @@ const settings = props.admin
                 class="ginko:size-3.5 ginko:animate-spin"
               />
               <RotateCcw v-else class="ginko:size-3.5" />
-              Retry
+              {{ st('revalidationRetry') }}
             </Button>
           </div>
           <div
@@ -168,19 +176,19 @@ const settings = props.admin
               class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:text-xs ginko:md:grid-cols-2"
             >
               <div class="ginko:min-w-0">
-                <div class="ginko:mb-1 ginko:text-muted-foreground">Job id</div>
+                <div class="ginko:mb-1 ginko:text-muted-foreground">{{ st('revalidationJobId') }}</div>
                 <div class="ginko:break-all ginko:font-mono">{{ job.id }}</div>
               </div>
               <div class="ginko:min-w-0">
-                <div class="ginko:mb-1 ginko:text-muted-foreground">Paths</div>
+                <div class="ginko:mb-1 ginko:text-muted-foreground">{{ st('revalidationPaths') }}</div>
                 <div class="ginko:break-all ginko:font-mono">
-                  {{ job.paths.length ? job.paths.join(', ') : 'none' }}
+                  {{ job.paths.length ? job.paths.join(', ') : st('revalidationNone') }}
                 </div>
               </div>
               <div class="ginko:min-w-0 ginko:md:col-span-2">
-                <div class="ginko:mb-1 ginko:text-muted-foreground">Tags</div>
+                <div class="ginko:mb-1 ginko:text-muted-foreground">{{ st('revalidationTags') }}</div>
                 <div class="ginko:break-all ginko:font-mono">
-                  {{ job.tags.length ? job.tags.join(', ') : 'none' }}
+                  {{ job.tags.length ? job.tags.join(', ') : st('revalidationNone') }}
                 </div>
               </div>
             </div>

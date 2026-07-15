@@ -4,6 +4,35 @@
 
 ### Changed
 
+- Studio design review (simplification + shadcn fidelity, follows the shell
+  migration). Highlights: in-card layouts now respond to their container
+  (`@container` queries) instead of the viewport, so forms and lists never
+  crush beside an open details panel; the content list is title-first with a
+  column set that cannot collapse; Home states each queue once (zero-count
+  queues hide, the publishing-path diagram and duplicate sections are gone,
+  Home is a discrete sidebar item again); the editor's details panel opens at
+  the compact 320px width, its top-bar primary action is a stable
+  "Publish {locale}" (blockers are explained in the dialog, which now leads
+  with the blocked/ready verdict), and the six-step workflow/track cards sit
+  behind the Advanced-details toggle; single-language sites see no
+  translation machinery anywhere; Media has one Library navigation section
+  and on-demand filters; Content setup consolidates its developer facts into
+  one Advanced-details block; the Activity log shows collection/entry/actor
+  display names instead of raw document ids (and its entry links now
+  actually resolve); Settings → Appearance is Theme + five curated accents
+  (Type and Corners pickers removed; stored preferences still apply and can
+  be reset); page-header eyebrows are gone. Full findings and rationale:
+  `studio-design-review.md`.
+- Studio layout usage (Phase L): ultra-wide viewports clamp the content card
+  at `--studio-content-max` (new public override
+  `--ginko-cms-studio-content-max`, default 105rem) and center the
+  card/panel pair; detail panels can register `compact` to keep the 320px
+  metadata width on laptop viewports; `StudioSplitPane` is the sanctioned
+  in-card scoped-navigation pattern (resizable, persisted, collapses below
+  md). The in-card action rail is fully retired in favor of right-sidebar
+  panels — the `--studio-action-rail-*` public override tokens are removed
+  (consumer-contract change; they no longer style anything).
+
 - Migrated the Studio UI onto the shadcn dashboard shell (template parity):
   new sticky global header with breadcrumbs, template-structured sidebar
   (icon-collapse, mobile Sheet), and a resizable right sidebar that now hosts

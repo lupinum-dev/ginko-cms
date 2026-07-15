@@ -4,6 +4,8 @@ import { Ellipsis, Flag } from '@lucide/vue'
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 
 const editor = useStudioEntryEditorContext()
+const ce = (key: string, params?: Record<string, unknown>): string =>
+  editor.loader.t(`ginkoCms.studio.collectionEditor.${key}`, params)
 
 type VersionListItem = {
   _id: string
@@ -44,7 +46,7 @@ function formatVersionAction(version: VersionListItem) {
 </script>
 
 <template>
-  <StudioInspectorSection title="Versions">
+  <StudioInspectorSection :title="ce('versions')">
     <template #action>
       <Button
         variant="ghost"
@@ -60,7 +62,7 @@ function formatVersionAction(version: VersionListItem) {
       v-if="editor.history.versions.length === 0"
       class="ginko:mt-4 ginko:text-xs ginko:text-muted-foreground"
     >
-      No versions yet.
+      {{ ce('versionsNoneYet') }}
     </div>
     <div
       v-else
@@ -76,7 +78,7 @@ function formatVersionAction(version: VersionListItem) {
           <ItemTitle>
             v{{ version.version }}
             <span v-if="version.isCurrentPublished" class="ginko:ml-1 ginko:text-success-fg">
-              Live
+              {{ ce('versionLive') }}
             </span>
           </ItemTitle>
           <ItemDescription>
@@ -101,15 +103,15 @@ function formatVersionAction(version: VersionListItem) {
           >
             <dl class="ginko:grid ginko:gap-2 ginko:text-xs">
               <div class="ginko:grid ginko:gap-1">
-                <dt class="ginko:font-medium ginko:text-muted-foreground">Revision ID</dt>
+                <dt class="ginko:font-medium ginko:text-muted-foreground">{{ ce('versionRevisionId') }}</dt>
                 <dd class="ginko:break-all ginko:font-mono">{{ version._id }}</dd>
               </div>
               <div class="ginko:grid ginko:gap-1">
-                <dt class="ginko:font-medium ginko:text-muted-foreground">Version number</dt>
+                <dt class="ginko:font-medium ginko:text-muted-foreground">{{ ce('versionNumber') }}</dt>
                 <dd class="ginko:font-mono">{{ version.version }}</dd>
               </div>
               <div v-if="version.createdBy" class="ginko:grid ginko:gap-1">
-                <dt class="ginko:font-medium ginko:text-muted-foreground">Created by</dt>
+                <dt class="ginko:font-medium ginko:text-muted-foreground">{{ ce('versionCreatedBy') }}</dt>
                 <dd class="ginko:break-all ginko:font-mono">{{ version.createdBy }}</dd>
               </div>
             </dl>
@@ -120,7 +122,7 @@ function formatVersionAction(version: VersionListItem) {
             variant="ghost"
             size="icon"
             class="ginko:size-7"
-            :aria-label="`Version ${version.version} details`"
+            :aria-label="ce('versionDetailsAria', { version: version.version })"
             :aria-expanded="editor.history.previewVersionId === version._id"
             @click="editor.history.toggleVersionPreview(version._id)"
           >

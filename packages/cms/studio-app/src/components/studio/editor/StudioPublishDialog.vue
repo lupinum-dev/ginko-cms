@@ -86,12 +86,12 @@ const issueLabel = computed(() => {
   const blocker = readinessView.value.blockers[0]
   if (blocker) return readinessIssueMessage(editor.loader.t, blocker)
   if (editor.publishing.publishReadiness.state === 'blocked') {
-    return editor.publishing.publishReadiness.message || 'Publishing is blocked.'
+    return editor.publishing.publishReadiness.message || collectionEditorT('publishDialogBlocked')
   }
-  if (readinessView.value.canPublish) return 'No blocking issues'
+  if (readinessView.value.canPublish) return collectionEditorT('publishDialogNoBlockingIssues')
   return readinessView.value.nextAction
     ? readinessActionLabel(editor.loader.t, readinessView.value.nextAction.kind)
-    : 'No blocking issues'
+    : collectionEditorT('publishDialogNoBlockingIssues')
 })
 
 const showAdvancedDetails = computed(() => advancedEditor.value)
@@ -161,7 +161,7 @@ const publishImpactMessage = computed(
       <DialogHeader>
         <DialogTitle> {{ publishLabel }}? </DialogTitle>
         <DialogDescription>
-          Review what will change on the website before this goes live.
+          {{ collectionEditorT('publishDialogDescription') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -183,7 +183,11 @@ const publishImpactMessage = computed(
               class="ginko:mb-1 ginko:text-xs ginko:font-medium ginko:uppercase"
               :class="isBlocked ? 'ginko:text-destructive' : 'ginko:text-success-fg'"
             >
-              {{ isBlocked ? 'Issues blocking publish' : 'Ready to publish' }}
+              {{
+                isBlocked
+                  ? collectionEditorT('publishDialogIssuesBlocking')
+                  : collectionEditorT('publishDialogReadyToPublish')
+              }}
             </div>
             <div class="ginko:font-medium">{{ issueLabel }}</div>
             <div
@@ -207,7 +211,12 @@ const publishImpactMessage = computed(
               {{ publicUrl || collectionEditorT('publishDialogNoLiveUrl') }}
             </div>
             <Button v-if="publicUrl" variant="ghost" size="icon-sm" as-child>
-              <a :href="publicUrl" target="_blank" rel="noreferrer" aria-label="Open live URL">
+              <a
+                :href="publicUrl"
+                target="_blank"
+                rel="noreferrer"
+                :aria-label="collectionEditorT('publishDialogOpenLiveUrl')"
+              >
                 <ExternalLink class="ginko:size-4" />
               </a>
             </Button>
@@ -328,7 +337,9 @@ const publishImpactMessage = computed(
           v-if="readinessView.warnings.length"
           class="ginko:rounded-lg ginko:border ginko:border-warning/30 ginko:bg-warning/10 ginko:p-3 ginko:text-sm ginko:text-warning-fg"
         >
-          <div class="ginko:text-xs ginko:font-medium ginko:uppercase">Warnings</div>
+          <div class="ginko:text-xs ginko:font-medium ginko:uppercase">
+            {{ collectionEditorT('publishDialogWarnings') }}
+          </div>
           <div class="ginko:mt-1">
             {{ readinessIssueMessage(editor.loader.t, readinessView.warnings[0]) }}
           </div>

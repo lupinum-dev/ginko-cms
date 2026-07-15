@@ -18,7 +18,9 @@ const props = defineProps<{
 }>()
 
 const editor = useStudioEntryEditorContext()
-const { studioLocales } = useCmsI18n()
+const { studioLocales, t } = useCmsI18n()
+const ce = (key: string, params?: Record<string, unknown>): string =>
+  t(`ginkoCms.studio.collectionEditor.${key}`, params)
 
 const localeCode = computed(() =>
   props.side === 'primary' ? editor.loader.currentLocale : editor.locales.secondaryLocale,
@@ -74,8 +76,8 @@ const localizedSlugInputId = computed(() => `localized-slug-${props.side}`)
 const localizedPathInputId = computed(() => `localized-computed-path-${props.side}`)
 const localizedUrlHelp = computed(() =>
   props.side === 'primary'
-    ? `This URL slug belongs to ${localeCodeLabel.value} only.`
-    : `URL managed in ${primaryLocaleLabel.value}.`,
+    ? ce('localePanelSlugOwnership', { locale: localeCodeLabel.value })
+    : ce('localePanelUrlManaged', { locale: primaryLocaleLabel.value }),
 )
 
 function updateField(fieldKey: string, value: unknown) {
@@ -98,7 +100,7 @@ function updateField(fieldKey: string, value: unknown) {
       <div class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2">
         <button
           type="button"
-          aria-label="Reorder language"
+          :aria-label="ce('localePanelReorder')"
           class="ginko:hidden ginko:cursor-grab ginko:items-center ginko:justify-center ginko:rounded ginko:text-muted-foreground/60 ginko:transition-colors ginko:hover:text-foreground ginko:focus-visible:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring/50 ginko:active:cursor-grabbing ginko:@2xl:inline-flex"
         >
           <GripVertical class="ginko:size-4" />
@@ -121,7 +123,7 @@ function updateField(fieldKey: string, value: unknown) {
           :variant="side === 'primary' ? 'success' : 'soft'"
           class="studio-locale-panel__role-badge ginko:shrink-0 ginko:rounded-md ginko:text-xs ginko:font-semibold"
         >
-          {{ side === 'primary' ? 'Source of truth' : 'Translation' }}
+          {{ side === 'primary' ? ce('localePanelSourceOfTruth') : ce('localePanelTranslation') }}
         </Badge>
         <StudioStatusPill
           v-if="showStatusPill"
@@ -144,7 +146,7 @@ function updateField(fieldKey: string, value: unknown) {
           </span>
           <span
             class="studio-locale-panel__timestamp studio-text-caption ginko:hidden ginko:truncate ginko:text-muted-foreground ginko:@5xl:inline"
-            :title="`Last updated`"
+            :title="ce('localePanelLastUpdated')"
           >
             <NuxtTime
               :datetime="lastUpdatedAt"
@@ -165,15 +167,15 @@ function updateField(fieldKey: string, value: unknown) {
           :disabled="editor.draft.saving"
           @click="editor.locales.handleSaveSecondaryDraft()"
         >
-          <span class="studio-locale-panel__action-full">Save translation draft</span>
-          <span class="studio-locale-panel__action-short">Save draft</span>
+          <span class="studio-locale-panel__action-full">{{ ce('localePanelSaveTranslationDraft') }}</span>
+          <span class="studio-locale-panel__action-short">{{ ce('localePanelSaveDraft') }}</span>
         </Button>
         <DropdownMenu v-if="side === 'secondary' && editor.loader.canEditEntries">
           <DropdownMenuTrigger as-child>
             <Button
               variant="ghost"
               size="icon-sm"
-              :aria-label="`Translation actions for ${localeCodeLabel}`"
+              :aria-label="ce('localePanelTranslationActions', { locale: localeCodeLabel })"
             >
               <MoreHorizontal class="ginko:size-4" />
             </Button>
@@ -184,7 +186,7 @@ function updateField(fieldKey: string, value: unknown) {
               @click="editor.copyPrimaryToSecondary()"
             >
               <Copy class="ginko:mr-2 ginko:size-3.5" />
-              Copy from {{ primaryLocaleLabel }}
+              {{ ce('localePanelCopyFrom', { locale: primaryLocaleLabel }) }}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -195,10 +197,13 @@ function updateField(fieldKey: string, value: unknown) {
       <StudioNotice
         v-if="isMissing"
         tone="warning"
-        title="This language is missing key content."
+        :title="ce('localePanelMissingContentTitle')"
       >
-        {{ missingFields?.length }} field{{ missingFields?.length === 1 ? '' : 's' }} still need
-        content.
+        {{
+          missingFields?.length === 1
+            ? ce('localePanelMissingContentOne', { count: missingFields?.length })
+            : ce('localePanelMissingContentOther', { count: missingFields?.length })
+        }}
       </StudioNotice>
 
       <div
@@ -208,7 +213,7 @@ function updateField(fieldKey: string, value: unknown) {
         <div
           class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-[minmax(0,1fr)_16rem]"
         >
-          <StudioFieldShell :for="localizedSlugInputId" label="Live URL">
+          <StudioFieldShell :for="localizedSlugInputId" :label="ce('localePanelLiveUrl')">
             <Input
               v-if="side === 'primary'"
               :id="localizedSlugInputId"
@@ -219,7 +224,7 @@ function updateField(fieldKey: string, value: unknown) {
             <Input
               v-else
               :id="localizedSlugInputId"
-              :model-value="`Managed in ${primaryLocaleLabel}`"
+              :model-value="ce('localePanelManagedIn', { locale: primaryLocaleLabel })"
               disabled
               class="ginko:font-mono ginko:text-sm"
             />

@@ -1860,9 +1860,11 @@ describe('Studio version history copy', () => {
     expect(wrapper.text()).toContain('Save version')
     expect(wrapper.text()).toContain('v3')
     expect(wrapper.text()).not.toContain('Checkpoint')
-    expect(wrapper.get('button[aria-label="Version 3 details"]').attributes('aria-expanded')).toBe(
-      'false',
-    )
+    expect(
+      wrapper
+        .get('button[aria-label="ginkoCms.studio.collectionEditor.versionDetailsAria"]')
+        .attributes('aria-expanded'),
+    ).toBe('false')
   })
 
   it('passes automated accessibility checks for version history', async () => {
@@ -1879,16 +1881,18 @@ describe('Studio version history copy', () => {
     const collapsed = mountWithStudioContext(StudioVersionHistoryCard, historyEditor())
 
     expect(collapsed.text()).not.toContain('version-1')
-    expect(collapsed.text()).not.toContain('Revision ID')
+    expect(collapsed.text()).not.toContain('ginkoCms.studio.collectionEditor.versionRevisionId')
 
     const expanded = mountWithStudioContext(StudioVersionHistoryCard, historyEditor('version-1'))
 
     expect(expanded.text()).toContain('Advanced details')
-    expect(expanded.text()).toContain('Revision ID')
+    expect(expanded.text()).toContain('ginkoCms.studio.collectionEditor.versionRevisionId')
     expect(expanded.text()).toContain('version-1')
-    expect(expanded.get('button[aria-label="Version 3 details"]').attributes('aria-expanded')).toBe(
-      'true',
-    )
+    expect(
+      expanded
+        .get('button[aria-label="ginkoCms.studio.collectionEditor.versionDetailsAria"]')
+        .attributes('aria-expanded'),
+    ).toBe('true')
   })
 
   it('lets users save a version without learning checkpoint terminology', () => {
