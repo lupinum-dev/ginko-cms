@@ -6,6 +6,7 @@ import {
   FileText,
   Inbox,
   Languages,
+  Plus,
   RefreshCw,
   Workflow,
 } from '@lucide/vue'
@@ -108,6 +109,7 @@ const reviewsRoute = `${studioRoute}/reviews`
 const studioSettings = useCmsStudioSettings()
 const locale = computed(() => studioSettings.defaultLocale.value)
 const { can } = useCmsStudioAccess()
+const canCreateEntries = can(cmsPermissionKeys.createEntries)
 const canManageSettings = can(cmsPermissionKeys.manageSettings)
 const canPublishEntries = can(cmsPermissionKeys.publishEntries)
 const { dateLocale, t } = useCmsI18n()
@@ -141,6 +143,33 @@ const collections = computed(() => {
     label: bySlug.get(hostCollection.slug)?.label || hostCollection.label,
   }))
 })
+// Queue rows deep-link into the first entry-capable (non-singleton) collection
+// with the matching list filter; singleton lists redirect straight to their
+// entry and would drop the filter query. Route-backed (website page)
+// collections win over data-only ones — "New content" and translation-gap
+// links should land on pages, not reference data like authors.
+const entryCapableCollections = computed(() =>
+  collections.value.filter((collection) => !collection.singleton),
+)
+const firstEntryCollectionSlug = computed(
+  () =>
+    (
+      entryCapableCollections.value.find((collection) => collection.mode !== 'none') ??
+      entryCapableCollections.value[0]
+    )?.slug ?? null,
+)
+function workQueueHref(work: 'changed' | 'blocked' | 'missing_translation') {
+  return firstEntryCollectionSlug.value
+    ? `${contentRoute}/${firstEntryCollectionSlug.value}?work=${work}`
+    : contentRoute
+}
+// THE one primary action on Home (DESIGN.md principle 1): start new content in
+// the first writable collection. Hidden when nothing accepts new entries.
+const newContentTo = computed(() =>
+  canCreateEntries.value && firstEntryCollectionSlug.value
+    ? `${contentRoute}/${firstEntryCollectionSlug.value}/new`
+    : null,
+)
 const overview = computed(() => (overviewQuery.data.value ?? null) as Overview | null)
 const overviewReady = computed(
   () => !!overview.value && !overviewQuery.pending.value && !overviewQuery.error.value,
@@ -168,7 +197,7 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
       value: loadingValue ?? workQueue.value.needsAttention,
       icon: AlertCircle,
       tone: workQueue.value.needsAttention > 0 ? 'danger' : 'neutral',
-      to: contentRoute,
+      to: workQueueHref('blocked'),
     },
     {
       key: 'readyToPreview',
@@ -186,7 +215,7 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
       value: loadingValue ?? workQueue.value.changedDrafts,
       icon: FileText,
       tone: workQueue.value.changedDrafts > 0 ? 'info' : 'neutral',
-      to: contentRoute,
+      to: workQueueHref('changed'),
     },
     {
       key: 'missingTranslations',
@@ -195,7 +224,7 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
       value: loadingValue ?? workQueue.value.missingTranslations,
       icon: Languages,
       tone: workQueue.value.missingTranslations > 0 ? 'warning' : 'neutral',
-      to: contentRoute,
+      to: workQueueHref('missing_translation'),
     },
   ]
 
@@ -300,6 +329,14 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
         :title="t('ginkoCms.studio.dashboard.title')"
         :description="t('ginkoCms.studio.dashboard.headerDescription')"
       >
+        <template #actions>
+          <Button v-if="newContentTo" as-child size="sm">
+            <RouterLink :to="newContentTo">
+              <Plus class="ginko:mr-1.5 ginko:size-3.5" />
+              {{ t('ginkoCms.studio.collectionListPage.newEntry') }}
+            </RouterLink>
+          </Button>
+        </template>
       </StudioPageHeader>
     </template>
 

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, ref } from 'vue'
 
 import StudioDashboardPage from '../../packages/cms/studio-app/src/pages/index.vue'
@@ -77,6 +77,21 @@ const overview = vi.hoisted(() => ({
   ],
 }))
 
+const collectionList = vi.hoisted(() => [
+  {
+    _id: 'collection-1',
+    entryCount: 4,
+    label: 'Pages',
+    locales: ['en', 'de'],
+    mode: 'route',
+    singleton: false,
+    slug: 'pages',
+    type: 'tree',
+  },
+])
+
+const access = vi.hoisted(() => ({ allowed: true }))
+
 const pendingReviews = vi.hoisted(() => [
   {
     _id: 'review-1',
@@ -115,6 +130,7 @@ vi.mock('../../packages/cms/studio-app/src/boundary/api', () => ({
 
 vi.mock('../../packages/cms/studio-app/src/composables/permissions', () => ({
   cmsPermissionKeys: {
+    createEntries: 'createEntries',
     manageAssets: 'manageAssets',
     manageSettings: 'manageSettings',
     publishEntries: 'publishEntries',
@@ -134,6 +150,7 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsI18n', () => ({
     dateLocale: 'en',
     t: (key: string) => {
       const messages: Record<string, string> = {
+        'ginkoCms.studio.collectionListPage.newEntry': 'New content',
         'ginkoCms.studio.dashboard.headerDescription':
           'Review drafts, approvals, translation gaps, and publish blockers.',
         'ginkoCms.studio.dashboard.overviewLoadErrorDescription':
@@ -152,7 +169,7 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsI18n', () => ({
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () => ({
   useCmsStudioAccess: () => ({
-    can: () => ref(true),
+    can: () => ref(access.allowed),
   }),
 }))
 
@@ -174,6 +191,13 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () =>
     if (query === 'listPendingReviews') {
       return {
         data: ref(pendingReviews),
+        error: ref(null),
+        pending: ref(false),
+      }
+    }
+    if (query === 'listCollections') {
+      return {
+        data: ref(collectionList),
         error: ref(null),
         pending: ref(false),
       }
@@ -229,6 +253,10 @@ function stubs() {
 }
 
 describe('Studio dashboard page', () => {
+  beforeEach(() => {
+    access.allowed = true
+  })
+
   it('opens with the marketer publishing workflow and its current queues', () => {
     const wrapper = mount(StudioDashboardPage, {
       global: {
@@ -250,5 +278,51 @@ describe('Studio dashboard page', () => {
     expect(wrapper.findAll('a').map((link) => link.attributes('href'))).toEqual(
       expect.arrayContaining(['/studio/content', '/studio/reviews']),
     )
+  })
+
+  it('deep-links queue rows into the first entry-capable collection with the matching filter', () => {
+    const wrapper = mount(StudioDashboardPage, {
+      global: {
+        stubs: stubs(),
+      },
+    })
+
+    const hrefs = wrapper.findAll('a').map((link) => link.attributes('href'))
+    expect(hrefs).toEqual(
+      expect.arrayContaining([
+        '/studio/content/pages?work=blocked',
+        '/studio/content/pages?work=changed',
+        '/studio/content/pages?work=missing_translation',
+      ]),
+    )
+    // Review queues keep pointing at the approvals page.
+    expect(hrefs).toContain('/studio/reviews')
+  })
+
+  it('offers New content as the primary header action when entries can be created', () => {
+    const wrapper = mount(StudioDashboardPage, {
+      global: {
+        stubs: stubs(),
+      },
+    })
+
+    const newContentLink = wrapper
+      .findAll('a')
+      .find((link) => link.attributes('href') === '/studio/content/pages/new')
+    expect(newContentLink).toBeDefined()
+    expect(newContentLink?.text()).toContain('New content')
+  })
+
+  it('hides the New content action without the createEntries capability', () => {
+    access.allowed = false
+    const wrapper = mount(StudioDashboardPage, {
+      global: {
+        stubs: stubs(),
+      },
+    })
+
+    expect(
+      wrapper.findAll('a').some((link) => link.attributes('href') === '/studio/content/pages/new'),
+    ).toBe(false)
   })
 })

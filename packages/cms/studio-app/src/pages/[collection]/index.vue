@@ -11,7 +11,7 @@ import {
 import type { EntryStatus } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { FunctionArgs } from 'convex/server'
-import { computed, ref, watchEffect } from 'vue'
+import { computed, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
@@ -82,9 +82,41 @@ const isSingleton = computed(() =>
   Boolean(collectionConfig.value?.singleton ?? configuredCollection.value?.routing?.singleton),
 )
 const collectionExists = computed(() => collectionConfig.value !== null)
-const searchQuery = ref('')
-const statusFilter = ref<'all' | EntryStatus>('all')
-const workStateFilter = ref<'all' | 'changed' | 'blocked' | 'missing_translation'>('all')
+// Work-queue deep links: filters initialize from the URL (?status=, ?work=,
+// ?q=) so Home queue rows can land on a pre-filtered list. Only valid union
+// members are accepted; anything else falls back to the default view.
+const statusFilterValues: readonly EntryStatus[] = ['draft', 'published', 'archived']
+const workStateFilterValues = ['changed', 'blocked', 'missing_translation'] as const
+type WorkStateFilter = (typeof workStateFilterValues)[number]
+function queryParamString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+function statusFilterFromQuery(): 'all' | EntryStatus {
+  const value = queryParamString(route.query.status)
+  return (statusFilterValues as readonly string[]).includes(value) ? (value as EntryStatus) : 'all'
+}
+function workStateFilterFromQuery(): 'all' | WorkStateFilter {
+  const value = queryParamString(route.query.work)
+  return (workStateFilterValues as readonly string[]).includes(value)
+    ? (value as WorkStateFilter)
+    : 'all'
+}
+const searchQuery = ref(queryParamString(route.query.q))
+const statusFilter = ref<'all' | EntryStatus>(statusFilterFromQuery())
+const workStateFilter = ref<'all' | WorkStateFilter>(workStateFilterFromQuery())
+// Keep the URL shareable: filter changes mirror into the query without pushing
+// history entries, and defaults are omitted so clean URLs stay clean.
+watch([statusFilter, workStateFilter, searchQuery], ([status, work, query]) => {
+  const nextQuery: Record<string, string> = {}
+  for (const [key, value] of Object.entries(route.query)) {
+    if (key === 'status' || key === 'work' || key === 'q') continue
+    if (typeof value === 'string') nextQuery[key] = value
+  }
+  if (status !== 'all') nextQuery.status = status
+  if (work !== 'all') nextQuery.work = work
+  if (query) nextQuery.q = query
+  void router.replace({ query: nextQuery })
+})
 // Collection details live in the shell's right sidebar (Phase L; successor of
 // the retired action rail). Props getter keeps everything reactive; callbacks
 // arrive in the panel as listener props.
