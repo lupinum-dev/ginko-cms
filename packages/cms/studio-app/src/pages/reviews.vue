@@ -53,6 +53,7 @@ useRightSidebarPanel({
   component: StudioReviewDetailsPanel,
   props: () => ({ request: selectedReview.value }),
   defaultOpen: false,
+  compact: true,
 })
 
 function selectReview(request: ReviewRequest) {

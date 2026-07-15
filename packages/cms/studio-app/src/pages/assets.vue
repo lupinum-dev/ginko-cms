@@ -28,6 +28,7 @@ useRightSidebarPanel({
     assetContext: assetSelection.assetContext.value,
   }),
   defaultOpen: false,
+  compact: true,
 })
 </script>
 

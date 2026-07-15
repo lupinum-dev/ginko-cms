@@ -90,6 +90,7 @@ useRightSidebarPanel({
     onSetWorkState: setWorkStateFilter,
   }),
   defaultOpen: false,
+  compact: true,
 })
 
 type LocaleSummary = {

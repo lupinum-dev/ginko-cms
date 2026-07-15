@@ -658,11 +658,17 @@ defineExpose({
       </Button>
     </div>
 
-    <div class="ginko:flex ginko:min-h-0 ginko:flex-1 ginko:overflow-hidden">
-      <aside
-        class="ginko:hidden ginko:w-[200px] ginko:shrink-0 ginko:border-r ginko:bg-muted/20 ginko:md:flex ginko:md:flex-col"
-      >
-        <ScrollArea class="ginko:flex-1">
+    <StudioSplitPane
+      storage-id="ginko-studio-assets-split"
+      :nav-default-size="16"
+      class="ginko:overflow-hidden"
+    >
+      <template #nav>
+        <aside
+          aria-label="Asset library navigation"
+          class="ginko:flex ginko:h-full ginko:min-h-0 ginko:flex-col"
+        >
+          <ScrollArea class="ginko:flex-1">
           <div class="ginko:py-3">
             <div class="ginko:mb-2">
               <div class="ginko:px-4 ginko:py-1">
@@ -778,10 +784,11 @@ defineExpose({
               </button>
             </div>
           </div>
-        </ScrollArea>
-      </aside>
+          </ScrollArea>
+        </aside>
+      </template>
 
-      <div class="ginko:flex ginko:min-w-0 ginko:flex-1 ginko:flex-col">
+      <div class="ginko:flex ginko:min-h-0 ginko:min-w-0 ginko:flex-1 ginko:flex-col">
         <div
           class="ginko:flex ginko:h-auto ginko:min-h-11 ginko:shrink-0 ginko:flex-wrap ginko:items-center ginko:gap-2 ginko:border-b ginko:px-3 ginko:py-2"
         >
@@ -2069,7 +2076,7 @@ defineExpose({
           </template>
         </SheetContent>
       </Sheet>
-    </div>
+    </StudioSplitPane>
   </div>
 
   <StudioConfirmDialog

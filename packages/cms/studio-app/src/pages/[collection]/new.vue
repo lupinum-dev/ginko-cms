@@ -290,10 +290,14 @@ const computedPath = computed(() => {
 // replaces the dead #rail templates removed with the editor shell's rail).
 useRightSidebarPanel({
   title: () => t('ginkoCms.studio.collectionEditor.newEntry'),
-  description: () => collectionConfig.value?.label ?? String(collection.value),
+  description: () => {
+    const label = collectionConfig.value?.label
+    return typeof label === 'string' ? label : String(collection.value)
+  },
   component: StudioEntryCreatePanel,
   props: () => ({ computedPath: computedPath.value }),
   defaultOpen: false,
+  compact: true,
 })
 const editorContext = computed(() => ({
   slug: effectiveSlug.value,

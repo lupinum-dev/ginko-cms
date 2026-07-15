@@ -234,6 +234,22 @@ describe('setSize tier clamping', () => {
     expect(controller.sizePref.value).toBeCloseTo(max, 5)
   })
 
+  it('compact panels use the 320px default on the laptop tier (no split view)', async () => {
+    const { controller } = await mountController({ width: 1280 })
+    controller.registerPanel({
+      title: 'Asset details',
+      component: { template: '<div />' },
+      compact: true,
+    })
+    await nextTick()
+    // No stored preference: compact forces the wide-tier default width even
+    // below 1536px; a drag preference (setSize) still overrides it.
+    expect(controller.widthVars.value.laptop).toBe('20rem')
+    controller.setSize(30)
+    await nextTick()
+    expect(controller.widthVars.value.laptop).toContain('clamp(')
+  })
+
   it('resetSize returns to the responsive default (null)', async () => {
     const { controller } = await mountController({ width: 1280 })
     controller.setSize(40)

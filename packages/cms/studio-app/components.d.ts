@@ -246,6 +246,7 @@ declare module 'vue' {
     StudioSidebarNavLink: typeof import('./src/components/studio/StudioSidebarNavLink.vue')['default']
     StudioSidebarUser: typeof import('./src/components/studio/StudioSidebarUser.vue')['default']
     StudioSiteDataEditor: typeof import('./src/components/studio/StudioSiteDataEditor.vue')['default']
+    StudioSplitPane: typeof import('./src/components/studio/StudioSplitPane.vue')['default']
     StudioStatusPill: typeof import('./src/components/studio/StudioStatusPill.vue')['default']
     StudioTranslationReadinessCard: typeof import('./src/components/studio/editor/StudioTranslationReadinessCard.vue')['default']
     StudioVersionHistoryCard: typeof import('./src/components/studio/editor/StudioVersionHistoryCard.vue')['default']

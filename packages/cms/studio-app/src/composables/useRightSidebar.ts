@@ -136,6 +136,14 @@ export interface RightSidebarPanelDef {
   props?: MaybeRefOrGetter<Record<string, unknown>>
   /** applied only while the open preference is still null (no preference yet) */
   defaultOpen?: boolean
+  /**
+   * Compact panels (metadata/detail lists — assets, reviews, collection
+   * status) use the wide-tier 320px default even on laptop viewports, instead
+   * of the split-view 57.5vw workspace width that only content-heavy panels
+   * (the entry editor) earn. Studio-specific extension of the template API.
+   * A user drag preference still overrides this.
+   */
+  compact?: boolean
 }
 
 export interface RightSidebarController {
@@ -239,7 +247,9 @@ export function provideRightSidebar(): RightSidebarController {
     const pref = sizePref.value
     if (pref === null) {
       return {
-        laptop: LAPTOP_DEFAULT_CSS,
+        laptop: panel.value?.compact
+          ? `${RIGHT_SIDEBAR_WIDE_DEFAULT_REM}rem`
+          : LAPTOP_DEFAULT_CSS,
         wide: `${RIGHT_SIDEBAR_WIDE_DEFAULT_REM}rem`,
       }
     }
