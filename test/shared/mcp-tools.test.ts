@@ -509,10 +509,12 @@ describe('MCP tool safety contracts', () => {
     expect(entryPage).toContain('StudioEntryDetailsPanel')
     expect(entryDetailsPanel).toContain('StudioEntryPublicWorkflowPanel')
     expect(entryDetailsPanel).toContain('StudioEntryTranslationReadinessPanel')
-    expect(publicWorkflowPanel).toContain('Live website content')
-    expect(publicWorkflowPanel).toContain('What will change?')
-    expect(translationReadinessPanel).toContain('Language status')
-    expect(translationReadinessPanel).toContain('Review language')
+    // The literal moved into the locale packs (design review F1b); the panel
+    // references it by key.
+    expect(publicWorkflowPanel).toContain('publicWorkflowLiveContent')
+    expect(publicWorkflowPanel).toContain('publicWorkflowWhatWillChange')
+    expect(translationReadinessPanel).toContain('translationReadinessLanguageStatus')
+    expect(translationReadinessPanel).toContain('translationReadinessReviewLanguage')
     expect(collectionContract).toContain('Website use')
     expect(collectionContract).toContain('Creates website pages')
     expect(collectionContract).toContain('Shared content')

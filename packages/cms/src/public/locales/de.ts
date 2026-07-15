@@ -456,6 +456,10 @@ const de = {
         appearanceModeLight: 'Hell',
         appearanceModeDark: 'Dunkel',
         appearanceModeSystem: 'System',
+        appearanceLegacyLabel: 'Eigene Schrift- und Ecken-Einstellungen',
+        appearanceLegacyDescription:
+          'Dieser Browser verwendet noch Schrift- oder Ecken-Einstellungen aus einer älteren Studio-Version.',
+        appearanceLegacyReset: 'Auf Standard zurücksetzen',
         peopleAccessTitle: 'Personen und Zugriff',
         peopleAccessDescription: 'Mitglieder, Rollen und wer in diesem Studio arbeiten kann.',
         localizationTitle: 'Lokalisierung',
@@ -1153,8 +1157,9 @@ const de = {
           'Bitte einen Owner, dir Einstellungszugriff zu geben, bevor du KI-Arbeitssitzungen prüfst.',
         empty: 'Noch keine KI-Arbeitssitzungen',
         emptyDescription:
-          'KI-Arbeitssitzungen erscheinen hier, nachdem vertrauenswürdige MCP-Clients Arbeit starten.',
+          'KI-Arbeitssitzungen erscheinen hier, sobald ein verbundenes KI-Tool mit der Arbeit beginnt.',
         loadError: 'KI-Arbeitssitzungen konnten nicht geladen werden.',
+        endSession: 'Sitzung beenden',
       },
       reviewsPage: {
         title: 'Freigaben',

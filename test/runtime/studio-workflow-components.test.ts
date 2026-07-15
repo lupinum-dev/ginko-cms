@@ -670,8 +670,10 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).toContain('Content type details')
     expect(wrapper.text()).toContain('Managed by developers')
     expect(wrapper.text()).toContain('Creates website pages')
-    expect(wrapper.text()).toContain('Page routes')
-    expect(wrapper.text()).toContain('Sitemap')
+    // The capability chip row is gone (design review S3) — the explainer
+    // sentence carries the capabilities in prose instead.
+    expect(wrapper.text()).not.toContain('Page routes')
+    expect(wrapper.text()).toContain('sitemap/search/nav')
     expect(wrapper.text()).toContain('contract-v1')
     expect(wrapper.text()).toContain('collection-batch-1')
   })
@@ -696,10 +698,10 @@ describe('Studio workflow components', () => {
     })
 
     expect(wrapper.text()).toContain('Shared content')
-    expect(wrapper.text()).toContain('Lists')
-    expect(wrapper.text()).toContain('Relations')
+    // Capability chips removed (design review S3); the mode sentence stays.
+    expect(wrapper.text()).toContain('lists, relations, single-entry content')
     expect(wrapper.text()).toContain('Page controls are hidden')
-    expect(wrapper.text()).toContain('Stale URL prefix')
+    expect(wrapper.text()).toContain('Out-of-date URL prefix')
     expect(wrapper.text()).toContain('/authors')
     expect(wrapper.text()).not.toContain('URL settings')
   })

@@ -444,6 +444,10 @@ const en = {
         appearanceModeLight: 'Light',
         appearanceModeDark: 'Dark',
         appearanceModeSystem: 'System',
+        appearanceLegacyLabel: 'Custom type and corner settings',
+        appearanceLegacyDescription:
+          'This browser still uses type or corner preferences from an older Studio version.',
+        appearanceLegacyReset: 'Reset to defaults',
         peopleAccessTitle: 'People and access',
         peopleAccessDescription: 'Members, roles, and who can work in this Studio.',
         localizationTitle: 'Localization',
@@ -1126,8 +1130,9 @@ const en = {
         accessRequiredDescription:
           'Ask an owner to grant settings access before reviewing AI work sessions.',
         empty: 'No AI work sessions yet',
-        emptyDescription: 'AI work sessions will appear here after trusted MCP clients start work.',
+        emptyDescription: 'AI work sessions will appear here after a connected AI tool starts work.',
         loadError: 'AI work sessions could not be loaded.',
+        endSession: 'End session',
       },
       reviewsPage: {
         title: 'Approvals',

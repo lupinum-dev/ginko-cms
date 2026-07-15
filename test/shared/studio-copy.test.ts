@@ -130,8 +130,10 @@ describe('Studio copy guardrails', () => {
     })
 
     expect(violations).toEqual([])
+    // The list header is fully keyed now (design review F1a): the status
+    // column uses the shared statusColumn locale key.
     expect(readWorkspaceFile('packages/cms/studio-app/src/pages/[collection]/index.vue')).toContain(
-      'Live status',
+      'collectionListPage.statusColumn',
     )
   })
 

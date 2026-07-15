@@ -266,8 +266,7 @@ const uploadDestinations = computed(() => [
   },
 ])
 
-// Filters render on demand; the row pins itself open while any filter is
-// active so state is never hidden.
+// On-demand filter row; pins itself open while any filter is active.
 const filtersOpen = ref(false)
 const showFilterRow = computed(() => filtersOpen.value || activeFilterCount.value > 0)
 
@@ -700,9 +699,7 @@ defineExpose({
                 >
                   <Icon name="lucide:layers" class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60" />
                   <span class="ginko:flex-1 ginko:truncate ginko:text-left">All media</span>
-                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
-                    sidebarFullViews[0]?.count ?? 0
-                  }}</span>
+                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{ sidebarFullViews[0]?.count ?? 0 }}</span>
                 </button>
                 <button
                   v-for="item in sidebarCollections"
@@ -862,11 +859,8 @@ defineExpose({
             @click="filtersOpen = !filtersOpen"
           >
             <SlidersHorizontal class="ginko:size-3.5" />
-            <Badge v-if="activeFilterCount > 0" variant="secondary" class="ginko:h-4 ginko:px-1 ginko:text-[10px]">
-              {{ activeFilterCount }}
-            </Badge>
+            <Badge v-if="activeFilterCount > 0" variant="secondary" class="ginko:h-4 ginko:px-1 ginko:text-xs">{{ activeFilterCount }}</Badge>
           </Button>
-
 
           <Button
             variant="ghost"
@@ -934,9 +928,7 @@ defineExpose({
           </Select>
         </div>
 
-        <!-- Filters live in their own row, shown on demand (design review S3:
-             four always-on dropdowns over an often-empty library were noise).
-             The row stays visible while any filter is active. -->
+        <!-- On-demand filter row (design review S3); pinned open while a filter is active. -->
         <div
           v-if="showFilterRow"
           class="ginko:hidden ginko:shrink-0 ginko:flex-wrap ginko:items-center ginko:gap-1.5 ginko:border-b ginko:px-3 ginko:py-2 ginko:sm:flex"
