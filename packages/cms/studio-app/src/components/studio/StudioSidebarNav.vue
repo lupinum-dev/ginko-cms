@@ -64,7 +64,9 @@ function canAccessRoute(route: StudioStaticRoute): boolean {
   const requiredCapability = route.requiredCapability
   return !requiredCapability || capabilityAccess[requiredCapability]?.value === true
 }
-function sectionLinks(section: 'editor' | 'operations' | 'settings'): StudioNavLinkItem[] {
+function sectionLinks(
+  section: 'home' | 'editor' | 'operations' | 'settings',
+): StudioNavLinkItem[] {
   return studioRoutesForSection(section)
     .filter(canAccessRoute)
     .map((route) => {
@@ -77,12 +79,31 @@ function sectionLinks(section: 'editor' | 'operations' | 'settings'): StudioNavL
       }
     })
 }
+// The Home link is a discrete nav item again (UI-REVISION P0; the shell swap
+// had regressed it to logo-as-home only — design review, audit D).
+const homeLinks = computed(() => sectionLinks('home'))
 const editorLinks = computed(() => sectionLinks('editor'))
 const operationLinks = computed(() => sectionLinks('operations'))
 const settingsLinks = computed(() => sectionLinks('settings'))
 </script>
 
 <template>
+  <SidebarGroup class="ginko:mb-1 ginko:pt-0">
+    <SidebarGroupContent>
+      <SidebarMenu>
+        <StudioSidebarNavLink
+          v-for="link in homeLinks"
+          :key="link.to"
+          :to="link.to"
+          :label="link.label"
+          :tooltip="link.label"
+          :icon-name="link.iconName"
+          :active="route.path === link.to || route.path === `${link.to}/`"
+        />
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
+
   <SidebarGroup class="ginko:mb-3">
     <SidebarGroupLabel>
       {{ t('ginkoCms.studio.layout.content') }}

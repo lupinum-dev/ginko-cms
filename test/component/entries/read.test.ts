@@ -345,12 +345,12 @@ describe('editor read queries', () => {
         expect.objectContaining({
           kind: 'member.invited',
           summary: 'Invited member "user_secret_123"',
-          displaySummary: 'Invited member "user or connection"',
+          displaySummary: 'Invited member',
         }),
         expect.objectContaining({
           kind: 'mcpCredentialSettings.revoked',
           summary: 'MCP credential settings revoked for "ba_secret_connection"',
-          displaySummary: 'AI agent connection revoked for "user or connection"',
+          displaySummary: 'AI agent connection revoked',
         }),
         expect.objectContaining({
           kind: 'agentRun.write',

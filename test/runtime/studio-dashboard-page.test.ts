@@ -236,22 +236,17 @@ describe('Studio dashboard page', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Publishing path')
-    expect(wrapper.text()).toContain('Write -> Check -> Preview -> Review -> Publish -> Track')
-    expect(wrapper.text()).toContain('Write')
-    expect(wrapper.text()).toContain('Check')
-    expect(wrapper.text()).toContain('Preview')
-    expect(wrapper.text()).toContain('Review')
-    expect(wrapper.text()).toContain('Publish')
-    expect(wrapper.text()).toContain('Track')
-    expect(wrapper.text()).toContain('Draft website content and language versions.')
-    expect(wrapper.text()).toContain('Resolve blockers, missing languages, and URL issues.')
-    expect(wrapper.text()).toContain('See what will change on the website.')
-    expect(wrapper.text()).toContain('Approve human and AI-prepared publish requests.')
-    expect(wrapper.text()).toContain('Confirm approved website changes from the entry editor.')
-    expect(wrapper.text()).toContain('Verify what is live and whether refreshes succeeded.')
-    expect(wrapper.text()).toContain('AI prepared this')
-    expect(wrapper.text()).toContain('Already live')
+    // The publishing-path pipeline diagram is gone (design review S1 —
+    // say-it-once): the queue rows are the single rendering of the workflow.
+    expect(wrapper.text()).not.toContain('Publishing path')
+    expect(wrapper.text()).not.toContain('Write -> Check -> Preview -> Review -> Publish -> Track')
+    // All fixture queues have work, so every row renders.
+    expect(wrapper.text()).toContain('Needs attention')
+    expect(wrapper.text()).toContain('Ready to preview')
+    expect(wrapper.text()).toContain('Continue editing')
+    expect(wrapper.text()).toContain('Missing languages')
+    expect(wrapper.text()).toContain('Ready for review')
+    expect(wrapper.text()).toContain('AI prepared')
     expect(wrapper.findAll('a').map((link) => link.attributes('href'))).toEqual(
       expect.arrayContaining(['/studio/content', '/studio/reviews']),
     )

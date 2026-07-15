@@ -137,14 +137,26 @@ function activityOperationId(row: Pick<ActivityDoc, 'detail'>): string | null {
   return typeof operationId === 'string' ? operationId : null
 }
 
+// Redacts the quoted identifier (email / connection name — PII) from a
+// summary instead of substituting a placeholder, so the display copy stays
+// grammatical: 'Revoked AI agent connection for "x"' → 'Revoked AI agent
+// connection'.
+function redactQuotedIdentifier(summary: string): string {
+  return summary
+    .replace(/\s+for\s+"[^"]+"/g, '')
+    .replace(/\s*"[^"]+"/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 function displayActivitySummary(row: Pick<ActivityDoc, 'kind' | 'summary' | 'detail'>): string {
   if (row.kind.startsWith('member.')) {
-    return row.summary.replace(/"[^"]+"/g, '"user or connection"')
+    return redactQuotedIdentifier(row.summary)
   }
   if (row.kind.startsWith('mcpCredentialSettings.')) {
-    return row.summary
-      .replace(/MCP credential settings/g, 'AI agent connection')
-      .replace(/"[^"]+"/g, '"user or connection"')
+    return redactQuotedIdentifier(
+      row.summary.replace(/MCP credential settings/g, 'AI agent connection'),
+    )
   }
   if (row.kind === 'entry.checkpointed') {
     return row.summary.replace(/checkpoint/gi, 'version')
