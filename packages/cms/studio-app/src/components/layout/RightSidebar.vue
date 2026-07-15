@@ -72,7 +72,7 @@ function onEscape() {
     data-slot="right-sidebar"
     :aria-hidden="!open || !available"
     :inert="!open || !available || undefined"
-    class="ginko:relative ginko:hidden ginko:shrink-0 ginko:overflow-hidden ginko:md:sticky ginko:md:self-start ginko:md:flex ginko:md:flex-col ginko:md:transition-[width,opacity] ginko:md:duration-[240ms] ginko:md:ease-[cubic-bezier(0.2,0,0,1)]"
+    class="ginko:relative ginko:hidden ginko:shrink-0 ginko:overflow-hidden ginko:md:sticky ginko:md:self-start ginko:md:flex ginko:md:flex-col ginko:md:transition-[width,opacity] ginko:md:duration-(--motion-panel) ginko:md:ease-(--motion-ease-panel)"
     :class="panelClass"
     :style="panelStyle"
     @keydown.escape="onEscape"

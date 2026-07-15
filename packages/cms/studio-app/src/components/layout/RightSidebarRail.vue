@@ -134,7 +134,7 @@ function onKeydown(event: KeyboardEvent) {
         'ginko:group ginko:absolute ginko:right-0 ginko:z-20 ginko:hidden ginko:w-4 ginko:translate-x-1/2 ginko:outline-none ginko:sm:flex',
         open ? 'ginko:cursor-col-resize ginko:touch-none' : 'ginko:cursor-pointer',
         isMainInsetStyle ? 'ginko:-top-[9px] ginko:h-svh' : 'ginko:inset-y-0 ginko:h-svh',
-        'ginko:after:bg-sidebar-border ginko:after:absolute ginko:after:inset-y-3 ginko:after:left-1/2 ginko:after:w-[3px] ginko:after:-translate-x-1/2 ginko:after:scale-y-75 ginko:after:rounded-full ginko:after:opacity-0 ginko:after:transition-[opacity,scale] ginko:after:duration-150 ginko:after:ease-[cubic-bezier(0.2,0,0,1)]',
+        'ginko:after:bg-sidebar-border ginko:after:absolute ginko:after:inset-y-3 ginko:after:left-1/2 ginko:after:w-[3px] ginko:after:-translate-x-1/2 ginko:after:scale-y-75 ginko:after:rounded-full ginko:after:opacity-0 ginko:after:transition-[opacity,scale] ginko:after:duration-(--motion-fast) ginko:after:ease-(--motion-ease-panel)',
         'ginko:hover:after:scale-y-100 ginko:hover:after:opacity-100 ginko:focus-visible:after:scale-y-100 ginko:focus-visible:after:opacity-100 ginko:active:after:scale-y-95',
         props.class,
       )

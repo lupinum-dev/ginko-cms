@@ -98,7 +98,7 @@ const paddingClass = computed(() =>
     <div
       :class="
         cn(
-          'ginko:relative ginko:w-(--sidebar-width) ginko:bg-transparent ginko:transition-[width] ginko:duration-200 ginko:ease-linear',
+          'ginko:relative ginko:w-(--sidebar-width) ginko:bg-transparent ginko:transition-[width] ginko:duration-(--motion-panel) ginko:ease-(--motion-ease-panel)',
           'ginko:group-data-[collapsible=offcanvas]:w-0',
           'ginko:group-data-[side=right]:rotate-180',
           gapWidthClass,
@@ -108,7 +108,7 @@ const paddingClass = computed(() =>
     <div
       :class="
         cn(
-          'ginko:fixed ginko:inset-y-0 ginko:z-10 ginko:hidden ginko:h-svh ginko:w-(--sidebar-width) ginko:transition-[left,right,width] ginko:duration-200 ginko:ease-linear ginko:md:flex',
+          'ginko:fixed ginko:inset-y-0 ginko:z-10 ginko:hidden ginko:h-svh ginko:w-(--sidebar-width) ginko:transition-[left,right,width] ginko:duration-(--motion-panel) ginko:ease-(--motion-ease-panel) ginko:md:flex',
           sidePositionClass,
           // Adjust the padding for floating and inset variants.
           paddingClass,

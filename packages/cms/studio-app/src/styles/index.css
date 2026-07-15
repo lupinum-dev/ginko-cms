@@ -286,11 +286,16 @@
   transition-timing-function: var(--motion-ease-soft);
 }
 
+/* Reduced motion = token zeroing: every duration that flows through the
+ * --motion-* tokens (and tw-animate's --tw-duration) collapses to 1ms, so
+ * components animated via duration-(--motion-*) need no per-class rules. */
 @media (prefers-reduced-motion: reduce) {
-  .ginko-cms .studio-motion-fast,
-  .ginko-cms .studio-motion-base,
-  .ginko-cms .studio-motion-slow {
-    transition-duration: 1ms;
+  .ginko-cms {
+    --motion-fast: 1ms;
+    --motion-base: 1ms;
+    --motion-slow: 1ms;
+    --motion-panel: 1ms;
+    --tw-duration: 1ms;
   }
 }
 
@@ -518,8 +523,10 @@
   --motion-fast: 120ms; /* hover, focus, color flips */
   --motion-base: 180ms; /* state transitions (status pills, dialog enter) */
   --motion-slow: 280ms; /* layout-adjacent (sheet slide, accordion) */
+  --motion-panel: 240ms; /* structural panels (right sidebar, inset resize) */
   --motion-ease: cubic-bezier(0.32, 0.72, 0, 1); /* ease-out-quart, exponential settle */
   --motion-ease-soft: cubic-bezier(0.4, 0, 0.2, 1); /* ease-in-out, sub-perceptual moves */
+  --motion-ease-panel: cubic-bezier(0.2, 0, 0, 1); /* emphasized decelerate, panel slides */
   --studio-accent-bg: var(--ginko-cms-studio-accent-bg, oklch(0.96 0 0));
   --studio-accent-fg: var(--ginko-cms-studio-accent-fg, oklch(0.37 0 0));
   --studio-accent-border: var(--ginko-cms-studio-accent-border, oklch(0.82 0 0 / 0.55));
@@ -543,7 +550,11 @@
   --foreground: var(--ginko-cms-dark-foreground, oklch(0.985 0 0));
   --card: var(--ginko-cms-dark-card, oklch(0.205 0 0));
   --card-foreground: var(--ginko-cms-dark-card-foreground, oklch(0.985 0 0));
-  --popover: var(--ginko-cms-dark-popover, oklch(0.205 0 0));
+  /* Dark elevation ladder (deliberate divergence from the Phase-1 template
+   * snapshot, matching shadcn's own dark refresh): 0.145 well → 0.205
+   * canvas/card → 0.269 popover/dialog → 0.371 hover fill. Menus and dialogs
+   * get a real tier above cards instead of vanishing into them. */
+  --popover: var(--ginko-cms-dark-popover, oklch(0.269 0 0));
   --popover-foreground: var(--ginko-cms-dark-popover-foreground, oklch(0.985 0 0));
   --primary: var(--studio-action);
   --primary-foreground: var(--studio-action-foreground);
@@ -551,12 +562,13 @@
   --secondary-foreground: var(--ginko-cms-dark-secondary-foreground, oklch(0.985 0 0));
   --muted: var(--ginko-cms-dark-muted, oklch(0.269 0 0));
   --muted-foreground: var(--ginko-cms-dark-muted-foreground, oklch(0.708 0 0));
-  --accent: var(--ginko-cms-dark-accent, oklch(0.269 0 0));
+  /* Hover fill clears the popover floor so menu-item hover stays visible. */
+  --accent: var(--ginko-cms-dark-accent, oklch(0.371 0 0));
   --accent-foreground: var(--ginko-cms-dark-accent-foreground, oklch(0.985 0 0));
   --destructive: var(--ginko-cms-dark-destructive, oklch(0.396 0.141 25.723));
   --destructive-foreground: var(--ginko-cms-dark-destructive-foreground, oklch(0.985 0 0));
   --destructive-fg: var(--ginko-cms-dark-destructive-fg, oklch(0.78 0.16 25));
-  --success: var(--ginko-cms-dark-studio-success, oklch(0.58 0.08 160));
+  --success: var(--ginko-cms-dark-studio-success, oklch(0.6 0.11 160));
   --success-foreground: var(--ginko-cms-dark-studio-success-foreground, oklch(0.145 0 0));
   --success-fg: var(--ginko-cms-dark-studio-success-fg, oklch(0.78 0.08 160));
   --warning: var(--ginko-cms-dark-warning, oklch(0.769 0.188 70.08)); /* ginko-keep: amber h70 (template ships yellow h86) */
@@ -577,7 +589,9 @@
     --ginko-cms-dark-studio-sidebar-primary-foreground,
     var(--studio-action-foreground)
   );
-  --sidebar-accent: var(--ginko-cms-dark-sidebar-accent, oklch(0.269 0 0));
+  /* Nav hover sits between card (0.205) and the global hover fill (0.371) so
+   * sidebar items don't double-jump against their 0.205 rail. */
+  --sidebar-accent: var(--ginko-cms-dark-sidebar-accent, oklch(0.32 0 0));
   --sidebar-accent-foreground: var(--ginko-cms-dark-sidebar-accent-foreground, oklch(0.985 0 0));
   --sidebar-border: var(--ginko-cms-dark-sidebar-border, oklch(1 0 0 / 0.1));
   --sidebar-ring: var(--ginko-cms-dark-sidebar-ring, oklch(0.556 0 0));

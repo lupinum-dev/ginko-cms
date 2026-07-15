@@ -30,7 +30,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       <DialogContent
         :class="
           cn(
-            'ginko:relative ginko:z-50 ginko:grid ginko:w-full ginko:max-w-lg ginko:my-8 ginko:gap-4 ginko:border ginko:border-border ginko:bg-background ginko:p-6 ginko:shadow-lg ginko:duration-200 ginko:sm:rounded-lg ginko:md:w-full',
+            'ginko:relative ginko:z-50 ginko:grid ginko:w-full ginko:max-w-lg ginko:my-8 ginko:gap-4 ginko:border ginko:border-border ginko:bg-popover ginko:text-popover-foreground ginko:p-6 ginko:shadow-lg ginko:duration-200 ginko:sm:rounded-lg ginko:md:w-full',
             props.class,
           )
         "

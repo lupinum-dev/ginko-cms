@@ -11,7 +11,11 @@ import DialogOverlay from './DialogOverlay.vue'
 import DialogPortal from './DialogPortal.vue'
 
 const dialogContentVariants = cva(
-  'ginko-cms ginko:@container ginko:fixed ginko:top-[50%] ginko:left-[50%] ginko:z-50 ginko:grid ginko:translate-x-[-50%] ginko:translate-y-[-50%] ginko:gap-4 ginko:rounded-xl ginko:border ginko:border-border ginko:bg-background ginko:p-6 ginko:shadow-2xl ginko:duration-200 ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+  // ginko-keep: bg-popover (template ships bg-background) — dark dialogs join
+  // the overlay elevation tier (0.269) instead of vanishing into cards; light
+  // is unchanged because the light popover token is white. Consumers theme
+  // dialogs via --ginko-cms(-dark)-popover.
+  'ginko-cms ginko:@container ginko:fixed ginko:top-[50%] ginko:left-[50%] ginko:z-50 ginko:grid ginko:translate-x-[-50%] ginko:translate-y-[-50%] ginko:gap-4 ginko:rounded-xl ginko:border ginko:border-border ginko:bg-popover ginko:text-popover-foreground ginko:p-6 ginko:shadow-2xl ginko:duration-200 ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
   {
     variants: {
       size: {
