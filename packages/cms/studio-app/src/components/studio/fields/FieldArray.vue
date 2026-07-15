@@ -110,7 +110,7 @@ function socialIconName(item: Record<string, unknown>) {
         <div
           v-for="(item, index) in arrayItems"
           :key="index"
-          class="ginko:grid ginko:grid-cols-[auto_minmax(0,1fr)_auto] ginko:items-center ginko:gap-2 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-[var(--studio-surface)] ginko:p-2 ginko:md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.35fr)_auto]"
+          class="ginko:grid ginko:grid-cols-[auto_minmax(0,1fr)_auto] ginko:items-center ginko:gap-2 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-[var(--studio-surface)] ginko:p-2 ginko:@3xl:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.35fr)_auto]"
         >
           <div
             aria-hidden="true"
@@ -192,7 +192,7 @@ function socialIconName(item: Record<string, unknown>) {
         <div
           v-if="!collapsedItems.has(index)"
           :id="`${field.key}-item-${index}`"
-          class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:pt-2 ginko:md:grid-cols-2"
+          class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:pt-2 ginko:@3xl:grid-cols-2"
         >
           <StudioFieldRenderer
             v-for="nestedField in nestedFields"

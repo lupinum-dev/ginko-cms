@@ -77,7 +77,9 @@ function onEscape() {
     :style="panelStyle"
     @keydown.escape="onEscape"
   >
-    <div v-if="open && panel" class="ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col">
+    <!-- @container: panel bodies span 320px (compact) to 57.5vw (split view);
+         panel components size themselves off this, never the viewport. -->
+    <div v-if="open && panel" class="ginko:@container ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col">
       <div :class="headerClass">
         <h2 class="ginko:text-sm ginko:font-semibold">
           {{ toValue(panel.title) }}
@@ -107,7 +109,7 @@ function onEscape() {
           {{ toValue(panel?.description) }}
         </SheetDescription>
       </SheetHeader>
-      <div class="ginko:min-h-0 ginko:flex-1 ginko:overflow-auto ginko:px-4 ginko:pb-4">
+      <div class="ginko:@container ginko:min-h-0 ginko:flex-1 ginko:overflow-auto ginko:px-4 ginko:pb-4">
         <component
           :is="panel.component"
           v-if="panel"

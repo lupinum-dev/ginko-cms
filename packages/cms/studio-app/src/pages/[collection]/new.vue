@@ -584,7 +584,7 @@ if (typeof window !== 'undefined') {
 
           <div
             v-else-if="!isRouteBackedCollection"
-            class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-2"
+            class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-2"
           >
             <StudioFieldShell for="manual-slug" label="Entry key">
               <Input
@@ -597,7 +597,7 @@ if (typeof window !== 'undefined') {
             </StudioFieldShell>
           </div>
 
-          <div v-if="isTree" class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-4">
+          <div v-if="isTree" class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-4">
             <StudioFieldShell for="kind" :label="t('ginkoCms.studio.collectionEditor.kind')">
               <Select v-model="form.kind">
                 <SelectTrigger>
@@ -643,7 +643,7 @@ if (typeof window !== 'undefined') {
 
           <div
             v-if="sharedFields.length > 0"
-            class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-2"
+            class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-2"
           >
             <StudioFieldRenderer
               v-for="field in sharedFields"

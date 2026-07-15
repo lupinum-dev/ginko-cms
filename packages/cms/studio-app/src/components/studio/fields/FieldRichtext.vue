@@ -190,7 +190,7 @@ function onConversionRecovered() {
     </template>
     <div
       :class="
-        richtextPreview ? 'ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:xl:grid-cols-2' : ''
+        richtextPreview ? 'ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@5xl:grid-cols-2' : ''
       "
     >
       <RichtextEditor

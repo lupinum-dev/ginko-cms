@@ -151,7 +151,7 @@ async function revokeRun(run: AgentRun) {
           <article
             v-for="run in runs"
             :key="run._id"
-            class="ginko:grid ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-4 ginko:py-3 ginko:last:border-b-0 ginko:md:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] ginko:md:items-center"
+            class="ginko:grid ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-4 ginko:py-3 ginko:last:border-b-0 ginko:@3xl:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] ginko:@3xl:items-center"
           >
             <div class="ginko:min-w-0">
               <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">

@@ -671,6 +671,8 @@ const en = {
         slugColumn: 'Slug',
         statusColumn: 'Status',
         localesColumn: 'Languages',
+        localeLive: 'Live',
+        localeDraft: 'Draft',
         updatedColumn: 'Updated',
         reorderError: 'Failed to reorder entry.',
         moveError: 'Failed to move entry.',

@@ -60,7 +60,7 @@ function updateObjectField(fieldKey: string, nextValue: unknown) {
         {{ fieldError }}
       </FieldError>
     </div>
-    <div class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-2">
+    <div class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-2">
       <StudioFieldRenderer
         v-for="nestedField in nestedFields"
         :key="nestedField.key"

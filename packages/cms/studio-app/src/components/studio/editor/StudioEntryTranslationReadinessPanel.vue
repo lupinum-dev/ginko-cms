@@ -30,7 +30,7 @@ const emit = defineEmits<{
       <Badge variant="outline">{{ currentLocale }} current</Badge>
     </div>
 
-    <div class="ginko:mt-3 ginko:grid ginko:gap-3 ginko:md:grid-cols-2">
+    <div class="ginko:mt-3 ginko:grid ginko:gap-3 ginko:@2xl:grid-cols-2">
       <div
         v-for="localeState in items"
         :key="`translation-readiness:${localeState.locale}`"

@@ -55,7 +55,7 @@ const sideClass = computed(() => {
       data-slot="sheet-content"
       :class="
         cn(
-          'ginko-cms ginko:bg-background ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out ginko:fixed ginko:z-50 ginko:flex ginko:flex-col ginko:gap-4 ginko:shadow-lg ginko:transition ginko:ease-in-out ginko:data-[state=closed]:duration-300 ginko:data-[state=open]:duration-500',
+          'ginko-cms ginko:@container ginko:bg-background ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out ginko:fixed ginko:z-50 ginko:flex ginko:flex-col ginko:gap-4 ginko:shadow-lg ginko:transition ginko:ease-in-out ginko:data-[state=closed]:duration-300 ginko:data-[state=open]:duration-500',
           sideClass,
           props.class,
         )

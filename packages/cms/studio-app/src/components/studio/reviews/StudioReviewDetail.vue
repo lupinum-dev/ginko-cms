@@ -122,7 +122,7 @@ const {
     </section>
 
     <div
-      class="ginko:mt-4 ginko:grid ginko:gap-5 ginko:lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]"
+      class="ginko:mt-4 ginko:grid ginko:gap-5 ginko:@3xl:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]"
     >
       <section class="ginko:min-w-0">
         <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">

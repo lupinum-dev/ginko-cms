@@ -11,7 +11,7 @@ const editor = useStudioEntryEditorContext()
       <fieldset
         v-if="editor.loader.isTree"
         :disabled="!editor.loader.canEditEntries"
-        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:border-0 ginko:p-0 ginko:md:grid-cols-4"
+        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-4"
       >
         <StudioFieldShell
           for="kind"
@@ -88,7 +88,7 @@ const editor = useStudioEntryEditorContext()
       <fieldset
         v-if="editor.loader.sharedFields.length > 0"
         :disabled="!editor.loader.canEditEntries"
-        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:md:grid-cols-2 ginko:xl:grid-cols-4"
+        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-2 ginko:@5xl:grid-cols-4"
       >
         <StudioFieldRenderer
           v-for="field in editor.loader.sharedFields"

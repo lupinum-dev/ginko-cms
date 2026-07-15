@@ -63,6 +63,21 @@ const collectionType = computed(
   () => collectionConfig.value?.type ?? configuredCollection.value?.type ?? 'flat',
 )
 const isTree = computed(() => collectionType.value === 'tree')
+// Language machinery stays invisible on single-locale sites (design review
+// principle 6): the Languages column only exists when there is something to
+// compare.
+const hasMultipleLocales = computed(
+  () => ((collectionConfig.value?.locales ?? []) as string[]).length > 1,
+)
+// List grid templates are container-query driven (@3xl/@5xl of the inset card,
+// not the viewport) and the title track is the ONLY flexible one — fixed
+// tracks total well under the @3xl floor, so the title can never collapse to
+// 0 the way the old fixed 44rem template did beside an open panel.
+const listGridClass = computed(() =>
+  hasMultipleLocales.value
+    ? 'ginko:@3xl:grid-cols-[minmax(0,1fr)_9rem_7rem] ginko:@5xl:grid-cols-[minmax(0,1fr)_minmax(9rem,12rem)_9rem_7rem]'
+    : 'ginko:@3xl:grid-cols-[minmax(0,1fr)_9rem_7rem]',
+)
 const isSingleton = computed(() =>
   Boolean(collectionConfig.value?.singleton ?? configuredCollection.value?.routing?.singleton),
 )
@@ -698,7 +713,10 @@ const kindColors: Record<string, string> = {
                   </RouterLink>
                 </div>
 
-                <div class="ginko:hidden ginko:items-center ginko:gap-1 ginko:md:flex">
+                <div
+                  v-if="hasMultipleLocales"
+                  class="ginko:hidden ginko:items-center ginko:gap-1 ginko:@3xl:flex"
+                >
                   <span
                     v-for="variant in row.localeVariants"
                     :key="variant.locale"
@@ -710,14 +728,18 @@ const kindColors: Record<string, string> = {
                     "
                   >
                     {{ variant.locale.toUpperCase() }} ·
-                    {{ variant.published ? 'Live' : 'Draft' }}
+                    {{
+                      variant.published
+                        ? t('ginkoCms.studio.collectionListPage.localeLive')
+                        : t('ginkoCms.studio.collectionListPage.localeDraft')
+                    }}
                   </span>
                 </div>
 
                 <StudioStatusPill
                   :label="row.publicStateLabel"
                   :tone="row.publicStateTone"
-                  class="ginko:hidden ginko:sm:inline-flex"
+                  class="ginko:hidden ginko:@3xl:inline-flex"
                 />
 
                 <div class="ginko:flex ginko:items-center ginko:gap-0.5">
@@ -746,14 +768,17 @@ const kindColors: Record<string, string> = {
             class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
           >
             <div
-              class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:lg:grid"
+              class="ginko:hidden ginko:gap-3 ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:@3xl:grid"
+              :class="listGridClass"
             >
-              <div>Content</div>
-              <div>Languages</div>
-              <div>Live status</div>
-              <div>Next action</div>
-              <div class="ginko:text-right">Edited</div>
-              <div class="ginko:text-right">Edit</div>
+              <div>{{ t('ginkoCms.studio.collectionListPage.titleColumn') }}</div>
+              <div v-if="hasMultipleLocales" class="ginko:hidden ginko:@5xl:block">
+                {{ t('ginkoCms.studio.collectionListPage.localesColumn') }}
+              </div>
+              <div>{{ t('ginkoCms.studio.collectionListPage.statusColumn') }}</div>
+              <div class="ginko:text-right">
+                {{ t('ginkoCms.studio.collectionListPage.updatedColumn') }}
+              </div>
             </div>
             <div
               v-for="row in enrichedRows"
@@ -761,8 +786,9 @@ const kindColors: Record<string, string> = {
               :draggable="!isTree && canEditRow(row)"
               data-testid="cms-entry-row"
               :data-entry-slug="row.slug"
-              class="ginko:group ginko:grid ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-5 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30 ginko:lg:grid-cols-[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem] ginko:lg:items-center"
-              :class="dropHint?.targetId === row._id ? 'ginko:bg-primary/5' : ''"
+              class="ginko:group ginko:grid ginko:cursor-pointer ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-5 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30 ginko:@3xl:items-center"
+              :class="[listGridClass, dropHint?.targetId === row._id ? 'ginko:bg-primary/5' : '']"
+              @click="router.push(`${contentRoute}/${collection}/${row._id}`)"
               @dragstart="startDrag(row._id)"
               @dragend="endDrag"
               @dragover.prevent="onDragOver($event, row)"
@@ -785,8 +811,11 @@ const kindColors: Record<string, string> = {
                 </RouterLink>
               </div>
 
-              <!-- Languages -->
-              <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-1">
+              <!-- Languages: only when the collection actually has several -->
+              <div
+                v-if="hasMultipleLocales"
+                class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-1 ginko:@3xl:hidden ginko:@5xl:flex"
+              >
                 <span
                   v-for="variant in row.localeSummaries"
                   :key="variant.locale"
@@ -797,7 +826,12 @@ const kindColors: Record<string, string> = {
                       : 'ginko:bg-warning/10 ginko:text-warning-fg ginko:dark:bg-warning/20'
                   "
                 >
-                  {{ variant.locale.toUpperCase() }} · {{ variant.published ? 'Live' : 'Draft' }}
+                  {{ variant.locale.toUpperCase() }} ·
+                  {{
+                    variant.published
+                      ? t('ginkoCms.studio.collectionListPage.localeLive')
+                      : t('ginkoCms.studio.collectionListPage.localeDraft')
+                  }}
                 </span>
               </div>
 
@@ -805,19 +839,9 @@ const kindColors: Record<string, string> = {
                 <StudioStatusPill :label="row.publicStateLabel" :tone="row.publicStateTone" />
               </div>
 
-              <div class="ginko:min-w-0 ginko:text-xs ginko:leading-4 ginko:text-muted-foreground">
-                {{ row.nextAction }}
-                <span
-                  v-if="row.status !== 'archived' && row.missingTranslationLocales.length"
-                  class="ginko:block"
-                >
-                  Missing {{ row.missingTranslationLocales.join(', ').toUpperCase() }}
-                </span>
-              </div>
-
               <!-- Updated -->
               <div
-                class="ginko:hidden ginko:text-right ginko:text-xs ginko:text-muted-foreground ginko:sm:block"
+                class="ginko:hidden ginko:text-right ginko:text-xs ginko:text-muted-foreground ginko:@3xl:block"
               >
                 <NuxtTime
                   :datetime="row.updatedAt"
@@ -825,24 +849,6 @@ const kindColors: Record<string, string> = {
                   month="short"
                   day="numeric"
                 />
-              </div>
-
-              <!-- Actions -->
-              <div class="ginko:flex ginko:justify-end ginko:gap-0.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  class="ginko:size-7 ginko:p-0 ginko:text-muted-foreground ginko:hover:text-foreground"
-                  as-child
-                  @click.stop
-                >
-                  <RouterLink
-                    :to="`${contentRoute}/${collection}/${row._id}`"
-                    :aria-label="`Edit ${row.title || row.slug}`"
-                  >
-                    <Pencil class="ginko:size-3.5" />
-                  </RouterLink>
-                </Button>
               </div>
             </div>
           </div>

@@ -143,8 +143,11 @@ async function claimCmsOwnership() {
       style="margin-left: auto"
     >
       <StudioHeader />
+      <!-- @container: in-card layouts key off THIS width (which shrinks when
+           the right-sidebar panel opens), never off the viewport. Pages use
+           @3xl/@5xl/@7xl variants (768/1024/1280px container equivalents). -->
       <div
-        class="ginko:min-h-0 ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:overflow-hidden"
+        class="ginko:@container ginko:min-h-0 ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:overflow-hidden"
       >
         <slot />
       </div>

@@ -307,7 +307,7 @@ const showWebsitePreview = computed(
               <div
                 v-for="change in websiteChangeGroups(localeImpact).pageAddressRows"
                 :key="`route:${localeImpact.locale}:${change.key}`"
-                class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
               >
                 <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                 <div class="ginko:min-w-0">
@@ -339,7 +339,7 @@ const showWebsitePreview = computed(
               <div
                 v-for="change in websiteChangeGroups(localeImpact).searchPreviewRows"
                 :key="`search-preview:${localeImpact.locale}:${change.key}`"
-                class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
               >
                 <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                 <div class="ginko:min-w-0">
@@ -373,7 +373,7 @@ const showWebsitePreview = computed(
               <div
                 v-for="change in websiteChangeGroups(localeImpact).visibilityRows"
                 :key="`visibility:${localeImpact.locale}:${change.key}`"
-                class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
               >
                 <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                 <div>
@@ -402,7 +402,7 @@ const showWebsitePreview = computed(
                 <div
                   v-for="change in websiteChangeGroups(localeImpact).seoSettingRows"
                   :key="`seo:${localeImpact.locale}:${change.key}`"
-                  class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                  class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
                 >
                   <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                   <div>
@@ -432,7 +432,7 @@ const showWebsitePreview = computed(
                 <div
                   v-for="change in websiteChangeGroups(localeImpact).otherRows"
                   :key="`other:${localeImpact.locale}:${change.key}`"
-                  class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                  class="ginko:grid ginko:gap-1 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]"
                 >
                   <div class="ginko:font-medium ginko:text-foreground">{{ change.label }}</div>
                   <div>

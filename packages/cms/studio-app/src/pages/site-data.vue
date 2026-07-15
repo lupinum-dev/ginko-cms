@@ -105,7 +105,7 @@ function formatBlockData(value: unknown): string {
           :title="t('ginkoCms.studio.siteDataPage.createTitle')"
         >
           <div class="ginko:space-y-4 ginko:p-4">
-            <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-2">
+            <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@3xl:grid-cols-2">
               <div class="ginko:space-y-1.5">
                 <Label for="new-key" class="ginko:text-xs"
                   >{{ t('ginkoCms.common.key') }}

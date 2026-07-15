@@ -41,13 +41,13 @@ const mdUp = useMediaQuery('(min-width: 768px)')
         :default-size="navDefaultSize"
         :min-size="navMinSize"
         :max-size="navMaxSize"
-        class="ginko:flex ginko:min-w-44 ginko:flex-col ginko:bg-muted/20"
+        class="ginko:@container ginko:flex ginko:min-w-44 ginko:flex-col ginko:bg-muted/20"
       >
         <slot name="nav" />
       </ResizablePanel>
       <ResizableHandle />
     </template>
-    <ResizablePanel class="ginko:flex ginko:min-w-0 ginko:flex-col">
+    <ResizablePanel class="ginko:@container ginko:flex ginko:min-w-0 ginko:flex-col">
       <slot />
     </ResizablePanel>
   </ResizablePanelGroup>

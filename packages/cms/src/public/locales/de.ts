@@ -683,6 +683,8 @@ const de = {
         slugColumn: 'Slug',
         statusColumn: 'Status',
         localesColumn: 'Sprachen',
+        localeLive: 'Live',
+        localeDraft: 'Entwurf',
         updatedColumn: 'Aktualisiert',
         reorderError: 'Eintrag konnte nicht neu sortiert werden.',
         moveError: 'Eintrag konnte nicht verschoben werden.',

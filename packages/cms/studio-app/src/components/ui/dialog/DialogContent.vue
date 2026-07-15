@@ -11,7 +11,7 @@ import DialogOverlay from './DialogOverlay.vue'
 import DialogPortal from './DialogPortal.vue'
 
 const dialogContentVariants = cva(
-  'ginko-cms ginko:fixed ginko:top-[50%] ginko:left-[50%] ginko:z-50 ginko:grid ginko:translate-x-[-50%] ginko:translate-y-[-50%] ginko:gap-4 ginko:rounded-xl ginko:border ginko:border-border ginko:bg-background ginko:p-6 ginko:shadow-2xl ginko:duration-200 ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+  'ginko-cms ginko:@container ginko:fixed ginko:top-[50%] ginko:left-[50%] ginko:z-50 ginko:grid ginko:translate-x-[-50%] ginko:translate-y-[-50%] ginko:gap-4 ginko:rounded-xl ginko:border ginko:border-border ginko:bg-background ginko:p-6 ginko:shadow-2xl ginko:duration-200 ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
   {
     variants: {
       size: {

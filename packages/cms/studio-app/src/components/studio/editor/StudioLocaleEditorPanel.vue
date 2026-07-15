@@ -96,7 +96,7 @@ function updateField(fieldKey: string, value: unknown) {
         <button
           type="button"
           aria-label="Reorder language"
-          class="ginko:hidden ginko:cursor-grab ginko:items-center ginko:justify-center ginko:rounded ginko:text-muted-foreground/60 ginko:transition-colors ginko:hover:text-foreground ginko:focus-visible:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring/50 ginko:active:cursor-grabbing ginko:sm:inline-flex"
+          class="ginko:hidden ginko:cursor-grab ginko:items-center ginko:justify-center ginko:rounded ginko:text-muted-foreground/60 ginko:transition-colors ginko:hover:text-foreground ginko:focus-visible:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring/50 ginko:active:cursor-grabbing ginko:@2xl:inline-flex"
         >
           <GripVertical class="ginko:size-4" />
         </button>
@@ -133,13 +133,13 @@ function updateField(fieldKey: string, value: unknown) {
         />
         <template v-if="lastUpdatedAt">
           <span
-            class="studio-locale-panel__meta-separator studio-text-caption ginko:hidden ginko:text-muted-foreground/60 ginko:lg:inline"
+            class="studio-locale-panel__meta-separator studio-text-caption ginko:hidden ginko:text-muted-foreground/60 ginko:@5xl:inline"
             aria-hidden="true"
           >
             ·
           </span>
           <span
-            class="studio-locale-panel__timestamp studio-text-caption ginko:hidden ginko:truncate ginko:text-muted-foreground ginko:lg:inline"
+            class="studio-locale-panel__timestamp studio-text-caption ginko:hidden ginko:truncate ginko:text-muted-foreground ginko:@5xl:inline"
             :title="`Last updated`"
           >
             <NuxtTime
@@ -202,7 +202,7 @@ function updateField(fieldKey: string, value: unknown) {
         class="studio-locale-panel__localized-url ginko:min-h-[9.75rem] ginko:rounded-md ginko:bg-muted/30 ginko:px-3.5 ginko:py-3"
       >
         <div
-          class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-[minmax(0,1fr)_16rem]"
+          class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-[minmax(0,1fr)_16rem]"
         >
           <StudioFieldShell :for="localizedSlugInputId" label="Live URL">
             <Input
@@ -240,7 +240,7 @@ function updateField(fieldKey: string, value: unknown) {
       <fieldset
         v-if="editor.loader.localizedFields.length > 0"
         :disabled="!editor.loader.canEditEntries"
-        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:md:grid-cols-2"
+        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-2"
       >
         <StudioFieldRenderer
           v-for="field in editor.loader.localizedFields"

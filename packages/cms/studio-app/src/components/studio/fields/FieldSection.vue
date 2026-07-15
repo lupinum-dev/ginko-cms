@@ -54,7 +54,7 @@ const sectionValue = computed(() => asFieldContext(value.value))
     <CollapsibleContent class="ginko:px-3 ginko:pb-3">
       <div
         v-if="nestedFields.length > 0"
-        class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-2 ginko:pt-2"
+        class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-2 ginko:pt-2"
       >
         <StudioFieldRenderer
           v-for="subField in nestedFields"

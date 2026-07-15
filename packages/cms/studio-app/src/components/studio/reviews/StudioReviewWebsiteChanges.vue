@@ -56,7 +56,7 @@ const hiddenPreviewChangesText = computed(() =>
           <div
             v-for="change in changeGroups.pageAddressRows"
             :key="`page-address:${change.key}`"
-            class="ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
+            class="ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
           >
             <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
               <Badge variant="outline" class="ginko:font-mono">{{ change.locale }}</Badge>
@@ -88,7 +88,7 @@ const hiddenPreviewChangesText = computed(() =>
         <div
           v-for="change in changeGroups.searchPreviewRows"
           :key="change.key"
-          class="ginko:mt-2 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
+          class="ginko:mt-2 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
         >
           <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
             <Badge variant="outline" class="ginko:h-fit ginko:w-fit ginko:font-mono">
@@ -126,7 +126,7 @@ const hiddenPreviewChangesText = computed(() =>
           <div
             v-for="change in changeGroups.visibilityRows"
             :key="`visibility:${change.key}`"
-            class="ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
+            class="ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
           >
             <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
               <Badge variant="outline" class="ginko:font-mono">{{ change.locale }}</Badge>
@@ -155,7 +155,7 @@ const hiddenPreviewChangesText = computed(() =>
           <div
             v-for="change in changeGroups.seoSettingRows"
             :key="`seo:${change.key}`"
-            class="ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
+            class="ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
           >
             <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
               <Badge variant="outline" class="ginko:font-mono">{{ change.locale }}</Badge>
@@ -184,7 +184,7 @@ const hiddenPreviewChangesText = computed(() =>
           <div
             v-for="change in changeGroups.otherRows"
             :key="`other:${change.key}`"
-            class="ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
+            class="ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:@xl:grid-cols-[minmax(8rem,0.45fr)_minmax(0,1fr)_minmax(0,1fr)]"
           >
             <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
               <Badge variant="outline" class="ginko:font-mono">{{ change.locale }}</Badge>
