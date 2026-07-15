@@ -132,7 +132,7 @@ async function claimCmsOwnership() {
       the resize rail paints over the boundary.
     -->
     <SidebarInset
-      class="ginko:relative ginko:z-10 ginko:flex ginko:min-h-svh ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:flex-col ginko:overflow-hidden ginko:bg-transparent"
+      class="ginko:relative ginko:z-10 ginko:flex ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:flex-col ginko:overflow-hidden"
     >
       <StudioHeader />
       <div

@@ -22,7 +22,10 @@
   All tokens remain overridable through the existing `--ginko-cms-*` consumer
   contract, which gained `--header-height`, `--surface`, and
   `--surface-foreground`. `tw-animate-css` is now bundled (compiled fully
-  under the `ginko` prefix; built CSS +3KB gzipped).
+  under the `ginko` prefix; built CSS +3KB gzipped). The Studio now ships
+  Geist and Geist Mono (self-hosted woff2) and renders in the template's
+  inset layout: the content area floats as a rounded card on a
+  sidebar-colored canvas.
 - Fixed `convex dev` pushes failing with "BETTER_AUTH_SECRET is required":
   module analysis runs without deployment env vars, so the import-time check
   became a lazy resolver that stays fail-closed (a missing secret yields an

@@ -122,7 +122,7 @@ function openPalette() {
 
 <template>
   <header
-    class="studio-header ginko:sticky ginko:top-0 ginko:md:peer-data-[variant=inset]:top-2 ginko:z-10 ginko:flex ginko:h-(--header-height) ginko:shrink-0 ginko:items-center ginko:gap-4 ginko:border-b ginko:border-border/60 ginko:bg-background ginko:px-4 ginko:md:px-6"
+    class="studio-header ginko:sticky ginko:top-0 ginko:md:peer-data-[variant=inset]:top-2 ginko:z-10 ginko:flex ginko:h-(--header-height) ginko:shrink-0 ginko:items-center ginko:gap-4 ginko:border-b ginko:bg-background ginko:px-4 ginko:md:px-6 ginko:md:rounded-tl-xl ginko:md:rounded-tr-xl"
   >
     <div class="ginko:flex ginko:h-4 ginko:w-full ginko:min-w-0 ginko:items-center ginko:gap-4">
       <SidebarTrigger />
@@ -172,7 +172,7 @@ function openPalette() {
         data-slot="right-sidebar-trigger"
         variant="ghost"
         size="icon"
-        class="ginko:size-8 ginko:text-muted-foreground ginko:hover:text-foreground ginko:transition-transform ginko:duration-150 ginko:ease-out ginko:active:scale-[0.96]"
+        class="ginko:size-9 ginko:text-muted-foreground ginko:hover:text-foreground ginko:transition-transform ginko:duration-150 ginko:ease-out ginko:active:scale-[0.96]"
         aria-controls="right-sidebar"
         :aria-expanded="rightSidebarOpen"
         aria-keyshortcuts="Meta+."

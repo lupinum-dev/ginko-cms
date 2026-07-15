@@ -7,6 +7,14 @@ import Icon from './components/Icon.vue'
 import NuxtTime from './components/NuxtTime.vue'
 import { createStudioRouter } from './router'
 
+// Self-hosted Geist + Geist Mono (template parity). @nuxt/fonts serves these in
+// the Nuxt template; the standalone SPA ships them via @fontsource-variable so
+// the @font-face woff2 assets land in dist/studio-app/assets and load under the
+// host bridge's relative asset base. The @theme font tokens in styles/index.css
+// resolve to the 'Geist Variable' / 'Geist Mono Variable' families these define.
+import '@fontsource-variable/geist/index.css'
+import '@fontsource-variable/geist-mono/index.css'
+
 import './styles/index.css'
 
 const MOUNT_TARGET = '#ginko-cms-studio'

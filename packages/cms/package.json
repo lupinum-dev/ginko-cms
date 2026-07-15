@@ -65,6 +65,8 @@
   "dependencies": {
     "@better-auth/api-key": "1.6.23",
     "@convex-dev/better-auth": "0.12.5",
+    "@fontsource-variable/geist": "^5.2.9",
+    "@fontsource-variable/geist-mono": "^5.2.8",
     "@lucide/vue": "^1.24.0",
     "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.1",
     "@lupinum/ginko-cms-convex": "workspace:^0.2.0-rc.1",

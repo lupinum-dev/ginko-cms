@@ -33,10 +33,12 @@ const panelClass = computed(() => {
     // Width comes from per-tier CSS vars (set below) so the responsive default
     // and clamping resolve in pure CSS — the layout never guesses the viewport.
     'ginko:opacity-100 ginko:md:w-(--rsw-laptop) ginko:2xl:w-(--rsw-wide)',
-    // --rsw-reserve = space the panel must leave free: a 24rem main-content
-    // minimum plus the left sidebar while it is expanded. The :has() variant
-    // tracks the left sidebar's state live, so collapsing it frees up width.
-    'ginko:[--rsw-reserve:42rem] ginko:group-has-[[data-side=left][data-state=collapsed]]/sidebar-wrapper:[--rsw-reserve:26rem]',
+    // --rsw-reserve = space the panel must leave free: a 26rem main-content
+    // term (24rem minimum + the inset card's ~2rem m-2 gutter) plus the left
+    // sidebar while it is expanded (16rem → 42rem). The :has() variant tracks
+    // the left sidebar's state live, so collapsing it to the 3rem icon rail
+    // frees width down to the 29rem floor.
+    'ginko:[--rsw-reserve:42rem] ginko:group-has-[[data-side=left][data-state=collapsed]]/sidebar-wrapper:[--rsw-reserve:29rem]',
     'ginko:bg-sidebar ginko:text-sidebar-foreground ginko:md:top-0 ginko:md:h-svh',
   )
 })

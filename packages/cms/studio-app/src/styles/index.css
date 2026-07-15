@@ -15,13 +15,16 @@
   --font-mono: var(--font-mono);
   --font-body: var(--font-body);
   --font-heading: var(--font-heading);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  /* Template-parity radius scale (tailwind.css @theme inline): a ±4px additive
+   * ramp around --radius, not the old multiplicative scale. The 2xl/3xl/4xl
+   * steps continue the +4px cadence for the components that reach past xl. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -93,11 +96,41 @@
   --docs-sidebar-width-collapsed: 4.5rem;
   --docs-sidebar-width: var(--docs-sidebar-width-expanded);
 
-  --font-body:
-    'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-heading:
-    'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  /* Template parity: Geist / Geist Mono, self-hosted via @fontsource-variable
+   * (imported in main.ts → 'Geist Variable' / 'Geist Mono Variable' families).
+   * The --ginko-cms-font-* override fallbacks let a consumer swap the stack. */
+  --font-body: var(
+    --ginko-cms-font-body,
+    'Geist Variable',
+    'Geist',
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    system-ui,
+    sans-serif
+  );
+  --font-heading: var(
+    --ginko-cms-font-heading,
+    'Geist Variable',
+    'Geist',
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    system-ui,
+    sans-serif
+  );
+  --font-mono: var(
+    --ginko-cms-font-mono,
+    'Geist Mono Variable',
+    'Geist Mono',
+    'JetBrains Mono',
+    'SFMono-Regular',
+    Consolas,
+    'Liberation Mono',
+    monospace
+  );
 }
 
 @layer base {
@@ -111,6 +144,10 @@
   .ginko-cms {
     @apply ginko:bg-background ginko:text-foreground;
     font-family: var(--font-body);
+    /* Template parity (tailwind.css @layer base body): crisper Geist rendering,
+     * no faux-bold synthesis on the variable weight axis. */
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
   }
 
   .ginko-cms h1,
@@ -358,12 +395,12 @@
   --warning-fg: var(--ginko-cms-warning-fg, oklch(0.48 0.13 70));
   --border: var(--ginko-cms-border, oklch(0.922 0 0));
   --input: var(--ginko-cms-input, oklch(0.922 0 0));
-  --ring: var(--ginko-cms-ring, var(--studio-action)); /* ginko-keep: focus ring tracks the brand action color (template uses neutral grey oklch(0.708)) */
-  --chart-1: var(--ginko-cms-chart-1, oklch(0.87 0 0)); /* ginko-keep: monochrome chart ramp by default; color themes recolor it (template default is blue) */
-  --chart-2: var(--ginko-cms-chart-2, oklch(0.556 0 0)); /* ginko-keep */
-  --chart-3: var(--ginko-cms-chart-3, oklch(0.439 0 0)); /* ginko-keep */
-  --chart-4: var(--ginko-cms-chart-4, oklch(0.371 0 0)); /* ginko-keep */
-  --chart-5: var(--ginko-cms-chart-5, oklch(0.269 0 0)); /* ginko-keep */
+  --ring: var(--ginko-cms-ring, oklch(0.708 0 0)); /* template parity: neutral grey focus ring */
+  --chart-1: var(--ginko-cms-chart-1, var(--color-blue-300)); /* template parity: blue chart ramp; color themes recolor it */
+  --chart-2: var(--ginko-cms-chart-2, var(--color-blue-500));
+  --chart-3: var(--ginko-cms-chart-3, var(--color-blue-600));
+  --chart-4: var(--ginko-cms-chart-4, var(--color-blue-700));
+  --chart-5: var(--ginko-cms-chart-5, var(--color-blue-800));
   --sidebar: var(--ginko-cms-sidebar, oklch(0.985 0 0));
   --sidebar-foreground: var(--ginko-cms-sidebar-foreground, oklch(0.145 0 0));
   --sidebar-primary: var(--ginko-cms-studio-sidebar-primary, var(--studio-action));
@@ -437,9 +474,11 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Page canvas: pure neutral grey. Cards float; sidebar reads as a
-   * separate tower. Three tiers: page (0.97) → sidebar (0.985) → card (1.0). */
-  --studio-shell-bg: var(--ginko-cms-studio-shell-bg, oklch(0.97 0 0));
+  /* Page canvas = sidebar color (template inset parity). The template paints the
+   * body/SidebarProvider with bg-sidebar; the inset main area floats as a
+   * rounded card in --background on top of it. So the canvas tracks --sidebar
+   * (light 0.985), not a separate grey. */
+  --studio-shell-bg: var(--ginko-cms-studio-shell-bg, var(--sidebar));
   --studio-shell-header-height: var(--ginko-cms-studio-shell-header-height, 3.5rem);
   --studio-shell-toolbar-height: var(--ginko-cms-studio-shell-toolbar-height, 2.75rem);
   --studio-canvas-max-width: var(--ginko-cms-studio-canvas-max-width, 80rem);
@@ -520,12 +559,12 @@
   --warning-fg: var(--ginko-cms-dark-warning-fg, oklch(0.84 0.14 78));
   --border: var(--ginko-cms-dark-border, oklch(1 0 0 / 0.1));
   --input: var(--ginko-cms-dark-input, oklch(1 0 0 / 0.15));
-  --ring: var(--ginko-cms-dark-ring, var(--studio-action)); /* ginko-keep: focus ring tracks the brand action color (template uses neutral grey oklch(0.556)) */
-  --chart-1: var(--ginko-cms-dark-chart-1, oklch(0.87 0 0)); /* ginko-keep: monochrome chart ramp (template default is blue) */
-  --chart-2: var(--ginko-cms-dark-chart-2, oklch(0.556 0 0)); /* ginko-keep */
-  --chart-3: var(--ginko-cms-dark-chart-3, oklch(0.439 0 0)); /* ginko-keep */
-  --chart-4: var(--ginko-cms-dark-chart-4, oklch(0.371 0 0)); /* ginko-keep */
-  --chart-5: var(--ginko-cms-dark-chart-5, oklch(0.269 0 0)); /* ginko-keep */
+  --ring: var(--ginko-cms-dark-ring, oklch(0.556 0 0)); /* template parity: neutral grey focus ring */
+  --chart-1: var(--ginko-cms-dark-chart-1, var(--color-blue-300)); /* template parity: blue chart ramp */
+  --chart-2: var(--ginko-cms-dark-chart-2, var(--color-blue-500));
+  --chart-3: var(--ginko-cms-dark-chart-3, var(--color-blue-600));
+  --chart-4: var(--ginko-cms-dark-chart-4, var(--color-blue-700));
+  --chart-5: var(--ginko-cms-dark-chart-5, var(--color-blue-800));
   --sidebar: var(--ginko-cms-dark-sidebar, oklch(0.205 0 0));
   --sidebar-foreground: var(--ginko-cms-dark-sidebar-foreground, oklch(0.985 0 0));
   --sidebar-primary: var(--ginko-cms-dark-studio-sidebar-primary, var(--studio-action));
@@ -552,9 +591,9 @@
   --vis-tooltip-backdrop-filter: none !important;
   --vis-tooltip-padding: none !important;
 
-  /* Dark page canvas: matches body background; sidebar/cards elevate
-   * from it. Hierarchy in dark = page (0.145) → sidebar/card (0.205). */
-  --studio-shell-bg: var(--ginko-cms-dark-studio-shell-bg, oklch(0.145 0 0));
+  /* Dark page canvas = sidebar color (template inset parity): the inset card
+   * (--background 0.145) floats on the --sidebar canvas (0.205). */
+  --studio-shell-bg: var(--ginko-cms-dark-studio-shell-bg, var(--sidebar));
 
   --studio-surface: var(--ginko-cms-dark-studio-surface, var(--card));
   --studio-panel: var(--ginko-cms-dark-studio-panel, oklch(0.205 0 0));

@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "dashboard-template",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "/Users/matthias/Git/1_apps/nuxt-shadcn-dashboard-template", "run", "dev", "--port", "4400"],
+      "port": 4400
+    },
+    {
       "name": "i18n-cms-consumer",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "/Users/matthias/Git/workspace/i18n-cms", "run", "dev"],

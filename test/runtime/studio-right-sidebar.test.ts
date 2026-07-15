@@ -227,7 +227,7 @@ describe('setSize tier clamping', () => {
     const { controller } = await mountController({ width: 1280 })
     const max = controller.tierMaxRem()
     // 1280px tier: min(0.65*1280, 900, 1280-reserve)/16. The 0.65 vw cap binds
-    // (832px), well under the reserve-aware term (1280-400 = 880), so = 52rem.
+    // (832px), well under the reserve-aware term (1280-416 = 864), so = 52rem.
     expect(max).toBeCloseTo(52, 5)
     controller.setSize(200)
     await nextTick()

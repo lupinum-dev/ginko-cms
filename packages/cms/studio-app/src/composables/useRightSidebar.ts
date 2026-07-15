@@ -76,16 +76,14 @@ const WIDE_BREAKPOINT_PX = 1536 // Tailwind 2xl
 // added on top by reservePx() (SIDEBAR_WIDTH = 16rem expanded, --sidebar-width-icon
 // = 3rem when icon-collapsed), so it must not be baked in here.
 //
-// Retuned for the Studio's actual shell (RFC Phase 6). The Studio runs the left
-// rail in `variant=sidebar` (flush against the inset) with `collapsible=icon` —
-// NOT the template's `inset` variant this constant was first tuned against. The
-// inset variant adds an `m-2` gutter around SidebarInset; `variant=sidebar` has
-// none, so the old 26rem (24rem main minimum + a ~2rem inset-margin term) over-
-// reserved. The corrected floor is the 24rem main-content minimum plus a ~1rem
-// scrollbar/gutter allowance = 25rem. (The CSS mirror of this floor lives in
-// RightSidebar.vue's `--rsw-reserve`, which likewise starts from a 24rem main
-// minimum and adds the left rail width via a :has() variant.)
-export const MAIN_CONTENT_RESERVE_PX = 400
+// Tuned for the Studio's actual shell (visual-parity pass). The Studio runs the
+// left rail in the template's `inset` variant with `collapsible=icon`: the
+// SidebarInset floats as a rounded card with an `m-2` gutter around it. So the
+// main-content floor is the 24rem minimum plus that ~2rem inset-margin term =
+// 26rem = 416px. (The CSS mirror of this floor lives in RightSidebar.vue's
+// `--rsw-reserve`, which starts from the same 26rem term and adds the left
+// rail's rendered width via a :has() variant.)
+export const MAIN_CONTENT_RESERVE_PX = 416
 
 export function clampRightSidebarSize(
   rem: number,
