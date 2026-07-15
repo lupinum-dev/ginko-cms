@@ -1,3 +1,4 @@
+import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import {
   abortExportRun as abortExportRunArgs,
   abortImport as abortImportArgs,
@@ -63,7 +64,10 @@ export const appendImportPlanAssets = mutation({
 export const sealImportPlan = action({
   args: sealImportPlanArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.portability.sealImportPlan, args as never),
+    await ctx.runAction(components.ginkoCms.portability.sealImportPlan, {
+      ...args,
+      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const beginPortableAssetUpload = mutation({
@@ -90,7 +94,10 @@ export const recordPortableAssetUpload = mutation({
 export const verifyPortableAssetUpload = action({
   args: verifyPortableAssetUploadArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.portability.verifyPortableAssetUpload, args as never),
+    await ctx.runAction(components.ginkoCms.portability.verifyPortableAssetUpload, {
+      ...args,
+      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const beginImportApply = mutation({
@@ -102,7 +109,10 @@ export const beginImportApply = mutation({
 export const applyImportBatch = action({
   args: applyImportBatchArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.portability.applyImportBatch, args as never),
+    await ctx.runAction(components.ginkoCms.portability.applyImportBatch, {
+      ...args,
+      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const beginImportVerification = mutation({

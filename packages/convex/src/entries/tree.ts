@@ -33,6 +33,7 @@ const createEntryDefinition = defineCmsOperation({
         slug: args.slug,
         shared: (args.shared as JsonMap | undefined) ?? {},
         localized: (args.localized as JsonMap | undefined) ?? {},
+        bodyMdc: args.bodyMdc,
         parentEntryId: args.parentEntryId,
         orderRank: args.orderRank,
         nodeKind: args.nodeKind ?? null,

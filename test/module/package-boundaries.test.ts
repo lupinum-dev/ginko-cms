@@ -478,6 +478,7 @@ describe('package boundary contracts', () => {
       'members.js',
       'migrations.js',
       'operations.js',
+      'policy.js',
       'portability.js',
       'portability/runs.js',
       'public.js',

@@ -176,6 +176,15 @@ const parentOptions = computed<ParentOption[]>(() => {
   walk(roots, 0)
   return result
 })
+// reka-ui SelectItem rejects empty-string values, so the "None (root)" option
+// carries a sentinel that maps back to the empty parentEntryId the form uses.
+const ROOT_PARENT_VALUE = '__root__'
+const parentSelectValue = computed({
+  get: () => (form.parentEntryId === '' ? ROOT_PARENT_VALUE : form.parentEntryId),
+  set: (value: string) => {
+    form.parentEntryId = value === ROOT_PARENT_VALUE ? '' : value
+  },
+})
 const slugSourceKey = computed(() => slugField.value?.slugFrom ?? null)
 
 function ensureLocalizedSlugState(locale: string) {
@@ -374,8 +383,20 @@ async function focusFirstValidationError() {
   }
 }
 
+// Rich-text content is stored on the draft row's bodyMdc column, never inside
+// the shared/localized value maps (mirrors useEntryDraft's save path). It is
+// therefore excluded here and sent as the dedicated `bodyMdc` create argument.
+function withoutRichtext(list: CmsField[]): CmsField[] {
+  return list.filter((field) => field.type !== 'richtext')
+}
+function buildBodyMdc(): string | undefined {
+  const richtextField = fields.value.find((field) => field.type === 'richtext')
+  if (!richtextField) return void 0
+  const value = dataFields[richtextField.key]
+  return typeof value === 'string' && value.length > 0 ? value : void 0
+}
 function buildSharedData(): JsonObject | undefined {
-  const d = (buildCmsFieldData(sharedFields.value, dataFields) ?? {}) as JsonObject
+  const d = (buildCmsFieldData(withoutRichtext(sharedFields.value), dataFields) ?? {}) as JsonObject
   if (slugField.value && !usesLocalizedSlug.value && !slugField.value.localized && form.slug) {
     d[slugField.value.key] = form.slug
   }
@@ -386,7 +407,7 @@ function buildSharedData(): JsonObject | undefined {
   return Object.keys(d).length > 0 ? d : void 0
 }
 function buildLocalizedData(source: Record<string, unknown>): JsonObject | undefined {
-  const d = (buildCmsFieldData(localizedFields.value, source) ?? {}) as JsonObject
+  const d = (buildCmsFieldData(withoutRichtext(localizedFields.value), source) ?? {}) as JsonObject
   if (slugField.value?.localized && activeSlugLocale.value) {
     const localizedSlug = localizedSlugFor(activeSlugLocale.value)
     if (localizedSlug) d[slugField.value.key] = localizedSlug
@@ -428,6 +449,7 @@ async function handleCreate(publish = false) {
       localized: buildLocalizedData(dataFields) as FunctionArgs<
         typeof api.ginkoCms.editor.createEntry
       >['localized'],
+      bodyMdc: buildBodyMdc(),
       ...(isTree.value ? { nodeKind: form.kind as NodeKind } : {}),
       ...(isTree.value && form.parentEntryId ? { parentEntryId: form.parentEntryId } : {}),
     })
@@ -612,12 +634,12 @@ if (typeof window !== 'undefined') {
               </Select>
             </StudioFieldShell>
             <StudioFieldShell for="parent" :label="t('ginkoCms.studio.collectionEditor.parent')">
-              <Select v-model="form.parentEntryId">
+              <Select v-model="parentSelectValue">
                 <SelectTrigger>
                   <SelectValue :placeholder="t('ginkoCms.common.noneRoot')" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{{ t('ginkoCms.common.noneRoot') }}</SelectItem>
+                  <SelectItem :value="ROOT_PARENT_VALUE">{{ t('ginkoCms.common.noneRoot') }}</SelectItem>
                   <SelectItem v-for="e in parentOptions" :key="e._id" :value="e._id">
                     {{ e.indent }}{{ e.title || e._id }}
                   </SelectItem>

@@ -60,6 +60,7 @@ describe('shared contracts', () => {
 
   it('exports shared editor schemas with explicit public args and MCP labels', () => {
     expect(Object.keys(validatorFields(createEntry.args)).sort()).toEqual([
+      'bodyMdc',
       'collection',
       'locale',
       'localized',

@@ -180,7 +180,18 @@ export async function createCanonicalEntry(
   })
   const stableId = await generateStableId(ctx, collection._id)
   const shared = (args.shared ?? {}) as JsonObject
-  const localized = (args.localized ?? {}) as JsonObject
+  const localized = { ...((args.localized ?? {}) as JsonObject) }
+  // Rich-text content is canonical on the draft row's bodyMdc column, never in
+  // the values map. Lift a richtext value out of `localized` for callers that
+  // send it as a plain field (Studio create, MCP create) so the body is not
+  // silently stranded where no reader looks.
+  let bodyMdc = args.bodyMdc ?? null
+  for (const field of collection.fields) {
+    if (field.type !== 'richtext') continue
+    const value = localized[field.key]
+    delete localized[field.key]
+    if (bodyMdc === null && typeof value === 'string') bodyMdc = value
+  }
   const mergedDraft = materializeFieldData(collection.fields, shared, localized)
   assertFieldDataValid(collection.fields, mergedDraft, { publish: false })
 
@@ -222,7 +233,7 @@ export async function createCanonicalEntry(
     baseRevisionId: null,
     ...(isLocalizedSlugMode(collection) ? { localeSlug: baseSlug } : {}),
     values: localized,
-    bodyMdc: args.bodyMdc ?? '',
+    bodyMdc: bodyMdc ?? '',
     updatedBy: args.appIdentity,
     updatedAt: now,
   })

@@ -20,6 +20,7 @@ const componentModules = [
   'migrations',
   'mcpCredentials',
   'operations',
+  'policy',
   'portability',
   'portability/runs',
   'public',

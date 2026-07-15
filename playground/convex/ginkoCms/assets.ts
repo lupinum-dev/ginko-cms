@@ -1,3 +1,4 @@
+import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import {
   attachAssetsToEntry as attachAssetsToEntryArgs,
   deleteAsset as deleteAssetArgs,
@@ -35,7 +36,10 @@ export const generateUploadUrl = mutation({
 export const registerAsset = action({
   args: registerAssetArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.assets.registerAsset, args as never),
+    await ctx.runAction(components.ginkoCms.assets.registerAsset, {
+      ...args,
+      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const attachAssetsToEntry = mutation({

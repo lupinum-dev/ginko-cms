@@ -1,3 +1,4 @@
+import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
@@ -27,25 +28,37 @@ function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
 export const exportBackup = action({
   args: backupScopeArgs,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.exportBackup, args as never),
+    await ctx.runAction(components.ginkoCms.backup.exportBackup, {
+      ...args,
+      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const downloadBackup = action({
   args: { artifactId: v.string() },
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.downloadBackup, args as never),
+    await ctx.runAction(components.ginkoCms.backup.downloadBackup, {
+      ...args,
+      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const verifyBackup = action({
   args: { artifactId: v.string() },
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.verifyBackup, args as never),
+    await ctx.runAction(components.ginkoCms.backup.verifyBackup, {
+      ...args,
+      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const previewRestoreBackup = action({
   args: { artifactId: v.string() },
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.previewRestoreBackup, args as never),
+    await ctx.runAction(components.ginkoCms.backup.previewRestoreBackup, {
+      ...args,
+      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const restoreBackup = action({
@@ -54,7 +67,10 @@ export const restoreBackup = action({
     expectedChecksum: v.string(),
   },
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.restoreBackup, args as never),
+    await ctx.runAction(components.ginkoCms.backup.restoreBackup, {
+      ...args,
+      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const deleteBackupArtifact = mutation({

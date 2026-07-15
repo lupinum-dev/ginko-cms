@@ -109,6 +109,7 @@ export const createEntry = defineArgs({
     slug: v.string(),
     shared: v.optional(jsonObjectValidator),
     localized: v.optional(jsonObjectValidator),
+    bodyMdc: v.optional(v.string()),
     parentEntryId: v.optional(v.string()),
     orderRank: v.optional(v.string()),
     nodeKind: v.optional(nodeKindValidator),
@@ -118,6 +119,10 @@ export const createEntry = defineArgs({
       label: 'Collection slug',
       description: 'The collection that should own the new entry.',
       examples: ['docs', 'blog'],
+    },
+    bodyMdc: {
+      label: 'Body (MDC)',
+      description: 'Rich-text body for the created locale. Stored on the draft body column.',
     },
     slug: {
       label: 'Slug',

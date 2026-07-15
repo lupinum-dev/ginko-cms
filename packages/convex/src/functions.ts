@@ -1,3 +1,4 @@
+import { cmsCallerValidator } from '@lupinum/ginko-cms-contract/convex/caller.js'
 import {
   assertCmsCallerConsistency,
   cmsAnonymousCaller,
@@ -142,8 +143,19 @@ export function requireCms(
 async function createHandlerCtx<TCtx extends RootCtx>(
   ctx: TCtx,
   guard?: CmsGuard | unknown,
+  trustedCaller?: CmsCaller | null,
 ): Promise<HandlerCtx<TCtx>> {
-  const caller = await resolveCmsCaller(ctx)
+  // Convex does not propagate user auth into component ACTIONS (ctx.auth is
+  // empty there), so host-app action facades forward the caller they resolved
+  // from their own ctx.auth as `_trustedCaller`. Component functions are only
+  // callable by the host app — never directly by clients — so this argument
+  // carries exactly the trust of the app's own auth resolution. It is used
+  // only when ctx.auth yields nothing, and MCP callers are still re-validated
+  // against stored credentials during app-identity resolution.
+  let caller = await resolveCmsCaller(ctx)
+  if (caller.kind === 'anonymous' && trustedCaller) {
+    caller = assertCmsCallerConsistency(trustedCaller)
+  }
   let identityPromise: Promise<CmsAppIdentity> | null = null
 
   const handlerCtx = Object.assign(ctx, {
@@ -177,6 +189,9 @@ function convexDefinition<
     ...((definition as { kind?: unknown }).kind === 'destructive'
       ? { _confirmationToken: v.optional(v.string()) }
       : {}),
+    ...((definition as { acceptsTrustedCaller?: boolean }).acceptsTrustedCaller
+      ? { _trustedCaller: v.optional(cmsCallerValidator) }
+      : {}),
   }
   return {
     args,
@@ -196,16 +211,23 @@ function protectedHandler<
     if (isDestructive && typeof confirmationToken !== 'string') {
       throw new Error('Destructive operation requires confirmation.')
     }
+    const acceptsTrustedCaller = (definition as { acceptsTrustedCaller?: boolean })
+      .acceptsTrustedCaller
+    const trustedCaller = acceptsTrustedCaller ? (args._trustedCaller as CmsCaller | null) : null
+    const strippedKeys = new Set([
+      ...(isDestructive ? ['_confirmationToken'] : []),
+      ...(acceptsTrustedCaller ? ['_trustedCaller'] : []),
+    ])
     const handlerArgs = (
-      isDestructive && args && typeof args === 'object'
+      strippedKeys.size > 0 && args && typeof args === 'object'
         ? Object.fromEntries(
             Object.entries(args as Record<string, unknown>).filter(
-              ([key]) => key !== '_confirmationToken',
+              ([key]) => !strippedKeys.has(key),
             ),
           )
         : args
     ) as ArgsFor<TArgsValidator>
-    const handlerCtx = await createHandlerCtx(ctx, definition.guard)
+    const handlerCtx = await createHandlerCtx(ctx, definition.guard, trustedCaller)
     const loaded = (
       definition.load ? await definition.load(handlerCtx, handlerArgs) : undefined
     ) as TLoaded
@@ -286,8 +308,16 @@ export const protectedAction = <
   TLoaded = LooseValue,
 >(
   definition: ProtectedDefinition<GenericActionCtx<DataModel>, TArgsValidator, TLoaded>,
-): LooseValue =>
-  action(convexDefinition(definition, protectedHandler(definition)) as Parameters<typeof action>[0])
+): LooseValue => {
+  // Component actions never see the host app's ctx.auth, so they always
+  // accept the facade-forwarded `_trustedCaller` argument.
+  const actionDefinition = { ...definition, acceptsTrustedCaller: true }
+  return action(
+    convexDefinition(actionDefinition, protectedHandler(actionDefinition)) as Parameters<
+      typeof action
+    >[0],
+  )
+}
 
 export const directInternalQuery = <
   TArgsValidator extends GenericValidator | PropertyValidators | undefined =

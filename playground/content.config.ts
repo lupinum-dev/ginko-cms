@@ -4,9 +4,23 @@ const blog = defineCollection({
   type: 'page',
   source: 'content/blog/**/*.md',
   route: '/blog',
+  i18n: true,
   cms: {
     fields: {
-      featured: { type: 'toggle' },
+      featured: { type: 'toggle', localized: false },
+    },
+  },
+})
+
+const docs = defineCollection({
+  type: 'page',
+  source: 'content/docs/**/*.md',
+  route: '/docs',
+  i18n: true,
+  cms: {
+    type: 'tree',
+    fields: {
+      description: { type: 'textarea' },
     },
   },
 })
@@ -23,4 +37,4 @@ const authors = defineCollection({
   },
 })
 
-export default defineContentConfig({ collections: { blog, authors } })
+export default defineContentConfig({ collections: { blog, docs, authors } })

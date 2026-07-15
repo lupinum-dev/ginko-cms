@@ -13,7 +13,10 @@ export default defineNuxtConfig({
 
   i18n: {
     defaultLocale: 'en',
-    locales: [{ code: 'en', name: 'English' }],
+    locales: [
+      { code: 'en', name: 'English' },
+      { code: 'de', name: 'Deutsch' },
+    ],
     localeCookie: 'playground-locale',
     metaBaseUrl: 'https://playground.ginko.local',
   },
@@ -29,7 +32,7 @@ export default defineNuxtConfig({
   content: {
     i18n: {
       defaultLocale: 'en',
-      locales: ['en'],
+      locales: ['en', 'de'],
     },
   },
 
