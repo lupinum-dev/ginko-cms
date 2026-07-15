@@ -64,7 +64,7 @@ function selectedClass(active: boolean) {
   >
     <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
       <h2
-        class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
+        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
       >
         <Palette class="ginko:size-4 ginko:text-muted-foreground" />
         {{ t('ginkoCms.studio.settingsPage.appearanceColorLabel') }}
@@ -106,7 +106,7 @@ function selectedClass(active: boolean) {
   >
     <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
       <h2
-        class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
+        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
       >
         <Type class="ginko:size-4 ginko:text-muted-foreground" />
         {{ t('ginkoCms.studio.settingsPage.appearanceTypeLabel') }}
@@ -138,7 +138,7 @@ function selectedClass(active: boolean) {
     class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8 ginko:first:pt-0"
   >
     <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
-      <h2 class="ginko:text-sm ginko:font-medium ginko:text-foreground">
+      <h2 class="studio-text-label ginko:text-foreground">
         {{ t('ginkoCms.studio.settingsPage.appearanceRadiusLabel') }}
       </h2>
       <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
@@ -170,7 +170,7 @@ function selectedClass(active: boolean) {
     class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8 ginko:first:pt-0"
   >
     <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
-      <h2 class="ginko:text-sm ginko:font-medium ginko:text-foreground">
+      <h2 class="studio-text-label ginko:text-foreground">
         {{ t('ginkoCms.studio.settingsPage.appearanceModeLabel') }}
       </h2>
       <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">

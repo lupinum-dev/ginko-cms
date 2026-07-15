@@ -43,7 +43,7 @@ async function confirmRevokeConnection() {
   >
     <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
       <h2
-        class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
+        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
       >
         <KeyRound class="ginko:size-4 ginko:text-muted-foreground" />
         MCP connections for AI tools
@@ -72,29 +72,23 @@ async function confirmRevokeConnection() {
         :description="settings.mcpConnectionInfo"
       />
 
-      <div
+      <StudioNotice
         v-if="settings.mcpCreatedToken"
-        class="ginko:rounded-lg ginko:border ginko:border-warning/30 ginko:bg-warning/10 ginko:p-4 ginko:space-y-3"
+        tone="warning"
+        :title="settings.t('ginkoCms.studio.settingsPage.mcpTokenReady')"
+        :description="settings.t('ginkoCms.studio.settingsPage.mcpTokenReadyDescription')"
       >
-        <div class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3">
-          <div class="ginko:min-w-0">
-            <div class="ginko:text-sm ginko:font-medium">
-              {{ settings.t('ginkoCms.studio.settingsPage.mcpTokenReady') }}
-            </div>
-            <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-              {{ settings.t('ginkoCms.studio.settingsPage.mcpTokenReadyDescription') }}
-            </p>
-          </div>
+        <div class="ginko:mt-3 ginko:space-y-3">
+          <code
+            class="ginko:block ginko:break-all ginko:rounded-md ginko:bg-background ginko:px-3 ginko:py-2 ginko:text-xs"
+            >{{ settings.mcpCreatedToken.key }}</code
+          >
           <Button variant="outline" size="sm" @click="settings.copyMcpToken">
             <Copy class="ginko:size-3.5" />
             Copy access key
           </Button>
         </div>
-        <code
-          class="ginko:block ginko:break-all ginko:rounded-md ginko:bg-background ginko:px-3 ginko:py-2 ginko:text-xs"
-          >{{ settings.mcpCreatedToken.key }}</code
-        >
-      </div>
+      </StudioNotice>
 
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-4">
         <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-[1fr_10rem]">

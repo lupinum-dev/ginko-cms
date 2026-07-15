@@ -13,7 +13,7 @@ const settings = props.admin
   >
     <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
       <h2
-        class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
+        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
       >
         <Languages class="ginko:size-4 ginko:text-muted-foreground" />
         {{ settings.t('ginkoCms.studio.settingsPage.locales') }}

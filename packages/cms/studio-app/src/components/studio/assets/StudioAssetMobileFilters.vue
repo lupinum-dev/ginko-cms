@@ -7,6 +7,11 @@ const sortBy = defineModel<string>('sortBy', { required: true })
 const typeFilter = defineModel<string>('typeFilter', { required: true })
 const timeFilter = defineModel<string>('timeFilter', { required: true })
 defineEmits<{ clear: [] }>()
+
+const viewSegments = [
+  { value: 'list', label: 'List', icon: List },
+  { value: 'grid', label: 'Grid', icon: Grid3x3 },
+]
 </script>
 
 <template>
@@ -21,59 +26,52 @@ defineEmits<{ clear: [] }>()
       </SheetHeader>
       <div class="ginko:grid ginko:gap-3 ginko:p-4">
         <Label class="ginko:text-xs">View</Label>
-        <div
-          class="ginko:inline-flex ginko:w-fit ginko:items-center ginko:rounded-lg ginko:bg-muted/60 ginko:p-0.5"
-        >
-          <button
-            v-for="option in [
-              { value: 'list' as const, icon: List },
-              { value: 'grid' as const, icon: Grid3x3 },
-            ]"
-            :key="option.value"
-            class="ginko:inline-flex ginko:h-8 ginko:w-8 ginko:items-center ginko:justify-center ginko:rounded-md ginko:transition-[color,background-color] ginko:duration-150 ginko:ease-out"
-            :class="
-              viewMode === option.value
-                ? 'ginko:bg-background'
-                : 'ginko:text-muted-foreground ginko:hover:text-foreground'
-            "
-            @click="viewMode = option.value"
-          >
-            <component :is="option.icon" class="ginko:size-4" />
-          </button>
-        </div>
+        <StudioSegmentedControl
+          :model-value="viewMode"
+          :items="viewSegments"
+          aria-label="View"
+          class="ginko:w-fit"
+          @update:model-value="viewMode = $event as 'list' | 'grid'"
+        />
 
         <Label class="ginko:text-xs">Sort</Label>
-        <select
-          v-model="sortBy"
-          class="ginko:h-9 ginko:rounded-md ginko:border ginko:bg-background ginko:px-3 ginko:text-sm ginko:outline-none ginko:focus:ring-2 ginko:focus:ring-ring"
-        >
-          <option value="name">Name</option>
-          <option value="date">Date</option>
-          <option value="size">Size</option>
-          <option value="kind">Kind</option>
-        </select>
+        <Select v-model="sortBy">
+          <SelectTrigger class="ginko:h-9 ginko:w-full ginko:text-sm" aria-label="Sort">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Name</SelectItem>
+            <SelectItem value="date">Date</SelectItem>
+            <SelectItem value="size">Size</SelectItem>
+            <SelectItem value="kind">Kind</SelectItem>
+          </SelectContent>
+        </Select>
 
         <Label class="ginko:text-xs">Type</Label>
-        <select
-          v-model="typeFilter"
-          class="ginko:h-9 ginko:rounded-md ginko:border ginko:bg-background ginko:px-3 ginko:text-sm ginko:outline-none ginko:focus:ring-2 ginko:focus:ring-ring"
-        >
-          <option value="all">All types</option>
-          <option value="image">Images</option>
-          <option value="document">Documents</option>
-        </select>
+        <Select v-model="typeFilter">
+          <SelectTrigger class="ginko:h-9 ginko:w-full ginko:text-sm" aria-label="Type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="image">Images</SelectItem>
+            <SelectItem value="document">Documents</SelectItem>
+          </SelectContent>
+        </Select>
 
         <Label class="ginko:text-xs">Date</Label>
-        <select
-          v-model="timeFilter"
-          class="ginko:h-9 ginko:rounded-md ginko:border ginko:bg-background ginko:px-3 ginko:text-sm ginko:outline-none ginko:focus:ring-2 ginko:focus:ring-ring"
-        >
-          <option value="any">Any time</option>
-          <option value="24h">Last 24h</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-          <option value="90d">Last 90 days</option>
-        </select>
+        <Select v-model="timeFilter">
+          <SelectTrigger class="ginko:h-9 ginko:w-full ginko:text-sm" aria-label="Date">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Any time</SelectItem>
+            <SelectItem value="24h">Last 24h</SelectItem>
+            <SelectItem value="7d">Last 7 days</SelectItem>
+            <SelectItem value="30d">Last 30 days</SelectItem>
+            <SelectItem value="90d">Last 90 days</SelectItem>
+          </SelectContent>
+        </Select>
 
         <div class="ginko:flex ginko:gap-2 ginko:pt-2">
           <Button variant="outline" class="ginko:flex-1" @click="$emit('clear')">Clear</Button>

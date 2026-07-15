@@ -266,6 +266,11 @@ const uploadDestinations = computed(() => [
   },
 ])
 
+const viewSegments = [
+  { value: 'list', label: 'List', icon: List },
+  { value: 'grid', label: 'Grid', icon: Grid3x3 },
+]
+
 const selectedVisibleAssets = computed(() => {
   const ids = new Set(selectedVisibleAssetIds.value)
   return assets.value.filter((asset) => ids.has(asset.id))
@@ -834,81 +839,88 @@ defineExpose({
             </template>
           </div>
 
-          <div
-            class="ginko:hidden ginko:items-center ginko:rounded-lg ginko:bg-muted/60 ginko:p-0.5 ginko:sm:inline-flex"
-          >
-            <button
-              class="ginko:inline-flex ginko:h-6 ginko:w-6 ginko:items-center ginko:justify-center ginko:rounded-md ginko:transition-[color,background-color] ginko:duration-150 ginko:ease-out"
-              :class="
-                viewMode === 'list'
-                  ? 'ginko:bg-background'
-                  : 'ginko:text-muted-foreground ginko:hover:text-foreground'
-              "
-              @click="viewMode = 'list'"
-            >
-              <List class="ginko:size-3.5" />
-            </button>
-            <button
-              class="ginko:inline-flex ginko:h-6 ginko:w-6 ginko:items-center ginko:justify-center ginko:rounded-md ginko:transition-[color,background-color] ginko:duration-150 ginko:ease-out"
-              :class="
-                viewMode === 'grid'
-                  ? 'ginko:bg-background'
-                  : 'ginko:text-muted-foreground ginko:hover:text-foreground'
-              "
-              @click="viewMode = 'grid'"
-            >
-              <Grid3x3 class="ginko:size-3.5" />
-            </button>
-          </div>
+          <StudioSegmentedControl
+            :model-value="viewMode"
+            :items="viewSegments"
+            aria-label="View mode"
+            class="ginko:hidden ginko:sm:inline-flex"
+            @update:model-value="viewMode = $event as 'list' | 'grid'"
+          />
 
-          <select
-            v-model="sortBy"
-            class="ginko:hidden ginko:h-7 ginko:rounded-md ginko:border-0 ginko:bg-muted/60 ginko:px-2 ginko:text-xs ginko:outline-none ginko:focus:ring-2 ginko:focus:ring-ring ginko:sm:block"
-          >
-            <option value="name">Name</option>
-            <option value="date">Date</option>
-            <option value="size">Size</option>
-            <option value="kind">Kind</option>
-          </select>
+          <Select v-model="sortBy">
+            <SelectTrigger
+              size="sm"
+              class="ginko:hidden ginko:text-xs ginko:sm:flex"
+              aria-label="Sort"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="date">Date</SelectItem>
+              <SelectItem value="size">Size</SelectItem>
+              <SelectItem value="kind">Kind</SelectItem>
+            </SelectContent>
+          </Select>
 
           <Separator orientation="vertical" class="ginko:hidden ginko:h-5 ginko:lg:block" />
 
           <div class="ginko:hidden ginko:items-center ginko:gap-1.5 ginko:sm:flex">
-            <select
-              v-model="typeFilter"
-              class="ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-xs ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground"
-            >
-              <option value="all">All types</option>
-              <option value="image">Images</option>
-              <option value="document">Documents</option>
-            </select>
-            <select
-              v-model="timeFilter"
-              class="ginko:hidden ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-xs ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground ginko:lg:block"
-            >
-              <option value="any">Any time</option>
-              <option value="24h">Last 24h</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="90d">Last 90 days</option>
-            </select>
-            <select
-              v-model="usageFilter"
-              class="ginko:hidden ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-xs ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground ginko:xl:block"
-            >
-              <option value="all">All files</option>
-              <option value="used">Used</option>
-              <option value="unused">Unused</option>
-            </select>
-            <select
-              v-model="sizeFilter"
-              class="ginko:hidden ginko:h-6 ginko:rounded-full ginko:border-0 ginko:bg-muted/60 ginko:pl-2 ginko:pr-5 ginko:text-xs ginko:text-muted-foreground ginko:outline-none ginko:transition-colors ginko:hover:text-foreground ginko:xl:block"
-            >
-              <option value="any">Any size</option>
-              <option value="small">&lt; 100 KB</option>
-              <option value="medium">100 KB - 1 MB</option>
-              <option value="large">&gt; 1 MB</option>
-            </select>
+            <Select v-model="typeFilter">
+              <SelectTrigger size="sm" class="ginko:text-xs" aria-label="Type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="image">Images</SelectItem>
+                <SelectItem value="document">Documents</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select v-model="timeFilter">
+              <SelectTrigger
+                size="sm"
+                class="ginko:hidden ginko:text-xs ginko:lg:flex"
+                aria-label="Time"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any time</SelectItem>
+                <SelectItem value="24h">Last 24h</SelectItem>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select v-model="usageFilter">
+              <SelectTrigger
+                size="sm"
+                class="ginko:hidden ginko:text-xs ginko:xl:flex"
+                aria-label="Usage"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All files</SelectItem>
+                <SelectItem value="used">Used</SelectItem>
+                <SelectItem value="unused">Unused</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select v-model="sizeFilter">
+              <SelectTrigger
+                size="sm"
+                class="ginko:hidden ginko:text-xs ginko:xl:flex"
+                aria-label="Size"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any size</SelectItem>
+                <SelectItem value="small">&lt; 100 KB</SelectItem>
+                <SelectItem value="medium">100 KB - 1 MB</SelectItem>
+                <SelectItem value="large">&gt; 1 MB</SelectItem>
+              </SelectContent>
+            </Select>
             <button
               v-if="activeFilterCount > 0"
               class="ginko:h-6 ginko:rounded-full ginko:px-2 ginko:text-xs ginko:text-muted-foreground ginko:transition-colors ginko:hover:bg-muted/60 ginko:hover:text-foreground"
@@ -963,21 +975,25 @@ defineExpose({
             <Upload v-else class="ginko:mr-1.5 ginko:size-3.5" />
             Upload
           </Button>
-          <select
-            v-if="isPickMode && embedded"
-            v-model="uploadDestination"
-            class="ginko:h-7 ginko:max-w-40 ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-card ginko:px-2 ginko:text-xs ginko:outline-none ginko:focus:ring-2 ginko:focus:ring-ring"
-            aria-label="Upload destination"
-          >
-            <option
-              v-for="destination in uploadDestinations"
-              :key="destination.value"
-              :value="destination.value"
-              :disabled="destination.disabled"
+          <Select v-if="isPickMode && embedded" v-model="uploadDestination">
+            <SelectTrigger
+              size="sm"
+              class="ginko:max-w-40 ginko:text-xs"
+              aria-label="Upload destination"
             >
-              {{ destination.label }}
-            </option>
-          </select>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="destination in uploadDestinations"
+                :key="destination.value"
+                :value="destination.value"
+                :disabled="destination.disabled"
+              >
+                {{ destination.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div
@@ -1068,6 +1084,13 @@ defineExpose({
           >
             <template #icon>
               <FolderOpen class="ginko:size-5" aria-hidden="true" />
+            </template>
+            <template v-if="activeFilterCount === 0" #action>
+              <Button size="sm" :disabled="uploading" @click="uploadInput?.click()">
+                <Loader2 v-if="uploading" class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin" />
+                <Upload v-else class="ginko:mr-1.5 ginko:size-3.5" />
+                Upload
+              </Button>
             </template>
           </StudioEmptyState>
 
