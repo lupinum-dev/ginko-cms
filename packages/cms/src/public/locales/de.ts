@@ -175,6 +175,12 @@ const de = {
         forbiddenDescription: 'Du bist angemeldet, aber kein CMS-Mitglied dieses Projekts.',
         forbiddenAuthDescription: 'Melde dich an, bevor du auf das Studio zugreifst.',
       },
+      rightSidebar: {
+        open: 'Detailbereich öffnen',
+        close: 'Detailbereich schließen',
+        closeResizable:
+          'Detailbereich schließen. Zum Ändern der Größe ziehen oder Pfeiltasten verwenden.',
+      },
       dashboard: {
         title: 'Arbeitsliste',
         description: 'Prüfe Entwürfe, Freigaben, Übersetzungslücken und Publishing-Blocker.',

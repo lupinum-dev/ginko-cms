@@ -37,6 +37,9 @@ export function createStudioRouter() {
         path: '/assets',
         name: 'studio-assets',
         component: () => import('./pages/assets.vue'),
+        // RFC Phase 4 step 2: a details surface (asset metadata) lives here, so
+        // the right-sidebar toggle is available even before a panel registers.
+        meta: { rightSidebar: true },
       },
       {
         path: '/activity',
@@ -52,6 +55,8 @@ export function createStudioRouter() {
         path: '/reviews',
         name: 'studio-reviews',
         component: () => import('./pages/reviews.vue'),
+        // RFC Phase 4 step 2: review / website-change detail surface.
+        meta: { rightSidebar: true },
       },
       {
         path: '/settings',
@@ -77,6 +82,9 @@ export function createStudioRouter() {
         path: '/content/:collection/:id',
         name: 'studio-edit',
         component: () => import('./pages/[collection]/[id].vue'),
+        // RFC Phase 4 step 2 / D4: the entry editor's details panel (status,
+        // workflow, history) is the primary right-sidebar surface (defaultOpen).
+        meta: { rightSidebar: true },
       },
     ],
   })

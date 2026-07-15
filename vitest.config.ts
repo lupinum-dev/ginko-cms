@@ -55,6 +55,10 @@ export default defineConfig({
       '@lupinum/ginko-cms-convex': resolve(__dirname, 'packages/convex/src'),
       '@lupinum/ginko-cms': resolve(__dirname, 'packages/cms/src/module.ts'),
       vue: resolve(__dirname, 'node_modules/vue'),
+      // vue-router is a dependency of packages/cms (used by the Studio SPA) and
+      // is not hoisted to the workspace root, so tests under test/ that import
+      // it directly (or transitively via a Studio composable) resolve it here.
+      'vue-router': resolve(__dirname, 'packages/cms/node_modules/vue-router'),
     },
   },
   esbuild: {

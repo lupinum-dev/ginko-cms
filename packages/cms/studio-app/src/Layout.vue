@@ -8,9 +8,18 @@ import { useCmsAuthState } from './composables/useCmsAuthState'
 import { useCmsConfig } from './composables/useCmsConfig'
 import { useCmsI18n } from './composables/useCmsI18n'
 import { useCmsStudioAccess } from './composables/useCmsStudioAccess'
+import { provideRightSidebar } from './composables/useRightSidebar'
 import { useConvexMutation } from './composables/useStudioConvex'
 
 const { t } = useCmsI18n()
+
+// Right-sidebar controller (RFC Phase 4). Provided at the layout root so both
+// the SidebarInset subtree (StudioHeader toggle, RightSidebarRail) and the
+// RightSidebar panel — which is a LATER flex sibling of SidebarInset, outside
+// the page subtree — inject the same instance. Pages register their detail
+// panel via useRightSidebarPanel(); availability also honours
+// `route.meta.rightSidebar` so the header trigger shows before a page mounts.
+provideRightSidebar()
 const cmsConfig = useCmsConfig()
 const { user } = useCmsAuthState()
 
@@ -131,7 +140,14 @@ async function claimCmsOwnership() {
       >
         <slot />
       </div>
+      <!-- Resize/toggle rail. Inside SidebarInset (RFC Phase 4 step 3) so the
+           inset's z-10 lifts the rail's grip above the panel, which is a later
+           flex sibling that would otherwise paint over the boundary. -->
+      <RightSidebarRail />
     </SidebarInset>
+    <!-- The detail panel is the LAST sibling of SidebarInset so it lays out to
+         the right of the main area as a flex sibling of the inset. -->
+    <RightSidebar />
   </SidebarProvider>
   <div
     v-else

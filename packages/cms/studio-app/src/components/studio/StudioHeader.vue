@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Search } from '@lucide/vue'
+import { PanelRight, Search } from '@lucide/vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
@@ -7,6 +7,7 @@ import { useRoute } from 'vue-router'
 import { api } from '../../boundary/api'
 import { useCmsConfig } from '../../composables/useCmsConfig'
 import { useCmsI18n } from '../../composables/useCmsI18n'
+import { useRightSidebar } from '../../composables/useRightSidebar'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
 import {
   codeDefinedCollectionList,
@@ -20,6 +21,12 @@ import {
 const { t } = useCmsI18n()
 const route = useRoute()
 const cmsConfig = useCmsConfig()
+
+// Right-sidebar toggle (RFC Phase 4 step 4). `available` is true when the
+// active route declares `meta.rightSidebar` or a page has registered a panel,
+// so the button is hidden on routes without a details surface.
+const { available: rightSidebarAvailable, open: rightSidebarOpen, toggle: toggleRightSidebar } =
+  useRightSidebar()
 const studioRoute = cmsConfig.route.replace(/\/$/, '')
 
 // Collections resolve their human label the same way the sidebar does, so the
@@ -150,12 +157,34 @@ function openPalette() {
         <Search class="ginko:size-4" />
         <span class="ginko:sr-only">{{ t('ginkoCms.studio.layout.openCommandPalette') }}</span>
       </Button>
-    </div>
 
-    <!-- Phase 4: the right-sidebar toggle mounts here. The template renders a
-         <Button data-slot="right-sidebar-trigger"> gated on
-         useRightSidebar().available, with aria-controls="right-sidebar" and
-         aria-keyshortcuts="Meta+.". Wiring lands with the right-sidebar port. -->
+      <!-- Right-sidebar toggle (RFC Phase 4 step 4): visible only when a detail
+           panel is available for the route; drives the same controller as the
+           Cmd/Ctrl+. shortcut and the resize rail. -->
+      <Button
+        v-if="rightSidebarAvailable"
+        data-slot="right-sidebar-trigger"
+        variant="ghost"
+        size="icon"
+        class="ginko:size-8 ginko:text-muted-foreground ginko:hover:text-foreground ginko:transition-transform ginko:duration-150 ginko:ease-out ginko:active:scale-[0.96]"
+        aria-controls="right-sidebar"
+        :aria-expanded="rightSidebarOpen"
+        aria-keyshortcuts="Meta+."
+        :aria-label="
+          rightSidebarOpen
+            ? t('ginkoCms.studio.rightSidebar.close')
+            : t('ginkoCms.studio.rightSidebar.open')
+        "
+        @click="toggleRightSidebar"
+      >
+        <PanelRight class="ginko:size-4" />
+        <span class="ginko:sr-only">{{
+          rightSidebarOpen
+            ? t('ginkoCms.studio.rightSidebar.close')
+            : t('ginkoCms.studio.rightSidebar.open')
+        }}</span>
+      </Button>
+    </div>
   </header>
 </template>
 

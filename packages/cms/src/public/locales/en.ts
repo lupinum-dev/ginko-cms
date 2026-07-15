@@ -173,6 +173,11 @@ const en = {
         forbiddenDescription: 'You are signed in, but you are not a CMS member for this project.',
         forbiddenAuthDescription: 'You need to sign in before accessing Studio.',
       },
+      rightSidebar: {
+        open: 'Open details panel',
+        close: 'Close details panel',
+        closeResizable: 'Close details panel. Drag or use arrow keys to resize.',
+      },
       dashboard: {
         title: 'Work queue',
         description: 'Review drafts, approvals, translation gaps, and publish blockers.',

@@ -129,6 +129,8 @@ declare module 'vue' {
     ResizableHandle: typeof import('./src/components/ui/resizable/ResizableHandle.vue')['default']
     ResizablePanel: typeof import('./src/components/ui/resizable/ResizablePanel.vue')['default']
     ResizablePanelGroup: typeof import('./src/components/ui/resizable/ResizablePanelGroup.vue')['default']
+    RightSidebar: typeof import('./src/components/layout/RightSidebar.vue')['default']
+    RightSidebarRail: typeof import('./src/components/layout/RightSidebarRail.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ScrollArea: typeof import('./src/components/ui/scroll-area/ScrollArea.vue')['default']
