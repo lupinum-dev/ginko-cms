@@ -1,6 +1,6 @@
 # RFC: Migrate the Ginko CMS Studio onto the shadcn Dashboard Shell
 
-- **Status:** Draft
+- **Status:** Implemented (Phases 0–6 landed on `studio-shadcn-shell`, 2026-07-15; Phase 7 auth pages pending as follow-up)
 - **Date:** 2026-07-14
 - **Owner:** Matthias
 - **Source of truth for the target design:** `/Users/matthias/Git/1_apps/nuxt-shadcn-dashboard-template` (referred to below as **the template**)

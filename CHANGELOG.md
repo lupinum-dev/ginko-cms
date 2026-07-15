@@ -4,6 +4,30 @@
 
 ### Changed
 
+- Migrated the Studio UI onto the shadcn dashboard shell (template parity):
+  new sticky global header with breadcrumbs, template-structured sidebar
+  (icon-collapse, mobile Sheet), and a resizable right sidebar that now hosts
+  the entry editor's Status / Workflow / History details (replacing the
+  editor's action rail), plus asset and review detail panels. Publish stays
+  canonical in the entry top bar; the panel adds a contextual trigger driving
+  the same dialog. Toggle with the header button or Cmd/Ctrl+Period; panel
+  open state and width persist per browser.
+- Refreshed all vendored shadcn ui primitives to the current template
+  snapshot and added breadcrumb, kbd, popover, resizable, table, and tabs
+  sets. Deliberate Studio customizations (button motion/density system, badge
+  variants, testids) are preserved and documented per set.
+- Merged the template's design tokens and theme system: 10 accent color
+  themes, mono/scaled type variants, and radius variants, selectable in the
+  new Settings → Appearance section (persisted per browser in localStorage).
+  All tokens remain overridable through the existing `--ginko-cms-*` consumer
+  contract, which gained `--header-height`, `--surface`, and
+  `--surface-foreground`. `tw-animate-css` is now bundled (compiled fully
+  under the `ginko` prefix; built CSS +3KB gzipped).
+- Fixed `convex dev` pushes failing with "BETTER_AUTH_SECRET is required":
+  module analysis runs without deployment env vars, so the import-time check
+  became a lazy resolver that stays fail-closed (a missing secret yields an
+  unverifiable per-isolate value instead of breaking every push).
+
 - Made Studio authentication mandatory. Hosts using the unsupported
   `convex.auth: false` topology must configure Better Convex Nuxt
   authentication before upgrading.
