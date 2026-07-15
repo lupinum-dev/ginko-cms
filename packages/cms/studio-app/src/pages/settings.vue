@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { AlertCircle, Settings } from '@lucide/vue'
+import { Settings } from '@lucide/vue'
 import { proxyRefs } from 'vue'
 
+import StudioSettingsAppearanceSection from '../components/studio/settings/StudioSettingsAppearanceSection.vue'
 import StudioSettingsConfigurationSection from '../components/studio/settings/StudioSettingsConfigurationSection.vue'
 import StudioSettingsLanguageSection from '../components/studio/settings/StudioSettingsLanguageSection.vue'
 import StudioSettingsLocalesSection from '../components/studio/settings/StudioSettingsLocalesSection.vue'
@@ -17,7 +18,7 @@ const admin = proxyRefs(useStudioSettingsAdmin())
 <template>
   <StudioWorkspace class="ginko:h-full">
     <template #header>
-      <StudioPageHeader :title="admin.t('ginkoCms.studio.settingsPage.title')" eyebrow="Settings">
+      <StudioPageHeader :title="admin.t('ginkoCms.studio.settingsPage.title')">
         <template #actions>
           <Settings class="ginko:size-4 ginko:text-muted-foreground" />
         </template>
@@ -25,15 +26,14 @@ const admin = proxyRefs(useStudioSettingsAdmin())
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content studio-page-body">
+      <StudioPageBody>
         <!-- Global error -->
-        <div
+        <StudioNotice
           v-if="admin.error"
-          class="ginko:mb-6 ginko:p-3 ginko:rounded-lg ginko:bg-destructive/10 ginko:text-destructive-fg ginko:text-sm ginko:flex ginko:items-center ginko:gap-2 ginko:max-w-4xl"
-        >
-          <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-          {{ admin.error }}
-        </div>
+          tone="danger"
+          :description="admin.error"
+          class="ginko:mb-6"
+        />
 
         <!-- Loading skeleton -->
         <div v-if="admin.isLoading" class="ginko:space-y-8">
@@ -65,6 +65,20 @@ const admin = proxyRefs(useStudioSettingsAdmin())
             </div>
             <div class="ginko:divide-y">
               <StudioSettingsMembersSection :admin="admin" />
+            </div>
+          </section>
+
+          <section>
+            <div class="ginko:mb-4">
+              <h2 class="studio-text-title">
+                {{ admin.t('ginkoCms.studio.settingsPage.appearanceTitle') }}
+              </h2>
+              <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+                {{ admin.t('ginkoCms.studio.settingsPage.appearanceDescription') }}
+              </p>
+            </div>
+            <div class="ginko:divide-y">
+              <StudioSettingsAppearanceSection />
             </div>
           </section>
 
@@ -113,7 +127,7 @@ const admin = proxyRefs(useStudioSettingsAdmin())
             </div>
           </section>
         </div>
-      </div>
+      </StudioPageBody>
     </ScrollArea>
   </StudioWorkspace>
 </template>

@@ -181,6 +181,11 @@ function studioStubs() {
       props: { title: String },
       template: '<section><h2>{{ title }}</h2><slot name="action" /><slot /></section>',
     },
+    StudioNotice: {
+      props: { description: String, title: String, tone: String },
+      template:
+        '<div role="alert"><strong v-if="title">{{ title }}</strong><p v-if="description">{{ description }}</p><slot /><slot name="action" /></div>',
+    },
     StudioSection: {
       props: { badge: String, title: String },
       template:

@@ -245,6 +245,8 @@ const de = {
       },
       assetsPage: {
         title: 'Medien',
+        description:
+          'Finde, lade hoch und organisiere die Bilder und Dateien, die auf deiner Website verwendet werden.',
         filesCount: '{count} Dateien',
         scope: 'Eigentum',
         scopeAll: 'Alle',
@@ -316,12 +318,19 @@ const de = {
       },
       collectionsPage: {
         title: 'Content-Setup',
+        headerDescription:
+          'Content-Typen, die in diesem Studio verfügbar sind, und wie sie auf der Website erscheinen.',
         codeDefinedBadge: 'Von Entwicklern verwaltet',
         noCollections: 'Keine Content-Typen',
         typeFlat: 'Liste',
         typeTree: 'Hierarchie',
+        backToList: 'Content-Typen',
+        emptyTitle: 'Content-Typ auswählen',
         emptyDescription:
           'Content-Typen werden von Entwicklern verwaltet und als Setup-Details ins Studio synchronisiert.',
+        installingTitle: 'Content-Setup wird noch installiert',
+        installingDescription:
+          'Studio zeigt das Laufzeitmodell des Hosts, damit das Setup einsehbar bleibt. Das Bearbeiten ist verfügbar, sobald der Snapshot des Content-Modells fertig installiert ist.',
         pathPrefix: 'URL-Präfix',
         icon: 'Icon',
         iconFieldPlaceholder: 'lucide:file-text',
@@ -336,6 +345,23 @@ const de = {
       },
       settingsPage: {
         title: 'Einstellungen',
+        appearanceTitle: 'Darstellung',
+        appearanceDescription:
+          'Theme, Akzentfarbe und Dichte für dieses Studio. Pro Browser gespeichert.',
+        appearanceColorLabel: 'Akzentfarbe',
+        appearanceColorDescription:
+          'Die Hauptfarbe für Schaltflächen, Links und Hervorhebungen.',
+        appearanceTypeLabel: 'Schrift',
+        appearanceTypeDescription: 'Zu einer monospaced oder skalierten Schriftvariante wechseln.',
+        appearanceRadiusLabel: 'Ecken',
+        appearanceRadiusDescription: 'Wie abgerundet Karten, Schaltflächen und Felder erscheinen.',
+        appearanceRadiusDefault: 'Standard',
+        appearanceModeLabel: 'Theme',
+        appearanceModeDescription:
+          'Helles oder dunkles Theme verwenden oder der Systemeinstellung folgen.',
+        appearanceModeLight: 'Hell',
+        appearanceModeDark: 'Dunkel',
+        appearanceModeSystem: 'System',
         peopleAccessTitle: 'Personen und Zugriff',
         peopleAccessDescription: 'Mitglieder, Rollen und wer in diesem Studio arbeiten kann.',
         localizationTitle: 'Lokalisierung',
@@ -862,6 +888,8 @@ const de = {
         emptyDescription:
           'Aktionen wie Veröffentlichen, Bearbeiten und Hochladen werden hier angezeigt.',
         loadError: 'Aktivität konnte nicht geladen werden.',
+        columnActivity: 'Aktivität',
+        columnWhen: 'Wann',
       },
       agentsPage: {
         title: 'KI-Arbeitssitzungen',

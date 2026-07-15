@@ -18,7 +18,13 @@ const slots = useSlots()
   <header
     :class="
       cn(
-        'studio-page-header ginko:min-h-14 ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-card ginko:px-6 ginko:py-3',
+        // Page-intro rhythm (RFC Phase 6, double-header reconciliation). The
+        // global StudioHeader owns navigation chrome (breadcrumbs + panel
+        // toggle); this block is the in-content page intro and must NOT read as
+        // a second toolbar. So it carries no border, no card fill, and no fixed
+        // toolbar height — just the title/description/actions row on the
+        // content padding rhythm (p-4 lg:p-6, matching StudioPageBody).
+        'studio-page-header ginko:shrink-0 ginko:px-4 ginko:pt-4 ginko:pb-2 ginko:lg:px-6 ginko:lg:pt-6',
         $props.class,
       )
     "

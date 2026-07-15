@@ -34,7 +34,11 @@ useRightSidebarPanel({
 <template>
   <StudioWorkspace class="ginko:h-full">
     <template #header>
-      <StudioPageHeader title="Media" eyebrow="Editor">
+      <StudioPageHeader
+        :title="t('ginkoCms.studio.assetsPage.title')"
+        :eyebrow="t('ginkoCms.studio.layout.editor')"
+        :description="t('ginkoCms.studio.assetsPage.description')"
+      >
         <template #actions>
           <Button
             size="sm"
@@ -46,7 +50,7 @@ useRightSidebarPanel({
               class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin"
             />
             <Upload v-else class="ginko:mr-1.5 ginko:size-3.5" />
-            Upload
+            {{ t('ginkoCms.common.upload') }}
           </Button>
         </template>
       </StudioPageHeader>

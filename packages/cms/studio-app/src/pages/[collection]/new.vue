@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { AlertCircle } from '@lucide/vue'
 import { resolveEntryTitle } from '@lupinum/ginko-cms-contract/shared/fields/title.js'
 import type {
   CmsField,
@@ -476,13 +475,8 @@ if (typeof window !== 'undefined') {
       />
     </template>
 
-    <div
-      v-if="isMultiLocale"
-      class="ginko:rounded-lg ginko:border ginko:border-dashed ginko:border-border/40 ginko:bg-muted/30 ginko:p-4"
-    >
-      <div
-        class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm ginko:text-muted-foreground"
-      >
+    <StudioNotice v-if="isMultiLocale" tone="info">
+      <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
         <code
           class="ginko:rounded ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-xs"
           >{{ defaultLocale.toUpperCase() }}</code
@@ -491,7 +485,7 @@ if (typeof window !== 'undefined') {
         <span v-if="showDefaultLocaleLabel" class="ginko:mx-1">&middot;</span>
         <span>{{ t('ginkoCms.studio.collectionEditor.translationsAfterCreate') }}</span>
       </div>
-    </div>
+    </StudioNotice>
 
     <div v-if="isSchemaLoading" class="ginko:space-y-5">
       <div
@@ -506,15 +500,7 @@ if (typeof window !== 'undefined') {
     </div>
 
     <template v-else>
-      <div
-        v-if="error"
-        class="ginko:rounded-lg ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"
-      >
-        <div class="ginko:flex ginko:items-center ginko:gap-2">
-          <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-          {{ error }}
-        </div>
-      </div>
+      <StudioNotice v-if="error" tone="danger" :description="error" />
 
       <StudioSection
         title="Publishing details"
@@ -530,15 +516,11 @@ if (typeof window !== 'undefined') {
               class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3"
             >
               <div class="ginko:min-w-0 ginko:space-y-1">
-                <div
-                  class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
-                >
-                  Live URL
-                </div>
+                <div class="studio-text-eyebrow ginko:text-muted-foreground">Live URL</div>
                 <div class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-foreground">
                   {{ computedPath || 'Add a title to generate the URL' }}
                 </div>
-                <div class="ginko:text-xs ginko:text-muted-foreground">
+                <div class="studio-text-caption ginko:text-muted-foreground">
                   {{
                     sharedSlugManuallyEdited
                       ? 'URL slug edited manually.'
@@ -670,11 +652,11 @@ if (typeof window !== 'undefined') {
           class="ginko:flex ginko:items-center ginko:gap-3 ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-3"
         >
           <span
-            class="ginko:font-mono ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground"
+            class="studio-text-caption ginko:font-mono ginko:font-semibold ginko:uppercase ginko:text-muted-foreground"
           >
             {{ defaultLocale.toUpperCase() }}
           </span>
-          <div v-if="showDefaultLocaleLabel" class="ginko:font-medium">
+          <div v-if="showDefaultLocaleLabel" class="studio-text-label ginko:text-foreground">
             {{ defaultLocaleLabel }}
           </div>
           <StudioStatusPill label="Draft setup" tone="neutral" />
@@ -688,15 +670,11 @@ if (typeof window !== 'undefined') {
               class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3"
             >
               <div class="ginko:min-w-0 ginko:space-y-1">
-                <div
-                  class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
-                >
-                  Live URL
-                </div>
+                <div class="studio-text-eyebrow ginko:text-muted-foreground">Live URL</div>
                 <div class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-foreground">
                   {{ computedPath || 'Add a title to generate the URL' }}
                 </div>
-                <div class="ginko:text-xs ginko:text-muted-foreground">
+                <div class="studio-text-caption ginko:text-muted-foreground">
                   {{
                     defaultLocalizedSlugState.manuallyEdited
                       ? 'URL slug edited manually for this language.'
@@ -763,7 +741,7 @@ if (typeof window !== 'undefined') {
     <template #rail>
       <div>
         <StudioInspectorSection title="Draft setup">
-          <p class="ginko:mt-3 ginko:text-sm ginko:text-muted-foreground">
+          <p class="ginko:mt-3 studio-text-body ginko:text-muted-foreground">
             Create the entry first. Translation, route status, versions, and workflow details become
             available afterwards.
           </p>

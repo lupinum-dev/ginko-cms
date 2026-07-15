@@ -188,16 +188,14 @@ function updateField(fieldKey: string, value: unknown) {
     </div>
 
     <div class="ginko:space-y-5 ginko:bg-card ginko:p-5">
-      <div
+      <StudioNotice
         v-if="isMissing"
-        class="ginko:rounded-md ginko:border ginko:border-warning/40 ginko:bg-warning/10 ginko:px-3.5 ginko:py-3 ginko:text-sm ginko:text-warning-fg"
+        tone="warning"
+        title="This language is missing key content."
       >
-        <div class="ginko:font-medium">This language is missing key content.</div>
-        <div class="ginko:mt-1 ginko:text-xs">
-          {{ missingFields?.length }} field{{ missingFields?.length === 1 ? '' : 's' }} still need
-          content.
-        </div>
-      </div>
+        {{ missingFields?.length }} field{{ missingFields?.length === 1 ? '' : 's' }} still need
+        content.
+      </StudioNotice>
 
       <div
         v-if="isRouteBackedEntry && usesLocalizedSlug"

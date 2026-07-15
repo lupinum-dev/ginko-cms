@@ -24,16 +24,20 @@ const settings = props.admin
     </div>
 
     <div class="ginko:flex-1 ginko:min-w-0 ginko:space-y-4">
-      <div v-if="settings.settingsQuery.error?.value" class="ginko:text-sm ginko:text-destructive">
-        {{ settings.t('ginkoCms.studio.settingsPage.loadError') }}
-      </div>
+      <StudioNotice
+        v-if="settings.settingsQuery.error?.value"
+        tone="danger"
+        :description="settings.t('ginkoCms.studio.settingsPage.loadError')"
+      />
 
-      <div
+      <StudioEmptyState
         v-else-if="settings.locales.length === 0"
-        class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-4 ginko:text-sm ginko:text-muted-foreground"
+        :title="settings.t('ginkoCms.studio.settingsPage.noLocales')"
       >
-        {{ settings.t('ginkoCms.studio.settingsPage.noLocales') }}
-      </div>
+        <template #icon>
+          <Languages class="ginko:size-5" aria-hidden="true" />
+        </template>
+      </StudioEmptyState>
 
       <div v-else class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:divide-y">
         <div

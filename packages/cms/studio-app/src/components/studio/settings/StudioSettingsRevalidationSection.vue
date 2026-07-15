@@ -1,13 +1,5 @@
 <script setup lang="ts">
-import {
-  AlertCircle,
-  BadgeCheck,
-  Loader2,
-  RadioTower,
-  RefreshCw,
-  RotateCcw,
-  ShieldCheck,
-} from '@lucide/vue'
+import { Loader2, RadioTower, RefreshCw, RotateCcw, ShieldCheck } from '@lucide/vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 import { websiteRefreshStatusLabel } from '../../../lib/publicWorkflow'
@@ -38,21 +30,17 @@ const settings = props.admin
     </div>
 
     <div class="ginko:flex-1 ginko:min-w-0 ginko:space-y-4">
-      <div
+      <StudioNotice
         v-if="settings.revalidationError"
-        class="ginko:p-3 ginko:rounded-lg ginko:bg-destructive/10 ginko:text-destructive-fg ginko:text-sm ginko:flex ginko:items-center ginko:gap-2"
-      >
-        <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-        {{ settings.revalidationError }}
-      </div>
+        tone="danger"
+        :description="settings.revalidationError"
+      />
 
-      <div
+      <StudioNotice
         v-if="settings.revalidationInfo"
-        class="ginko:p-3 ginko:rounded-lg ginko:bg-success/15 ginko:text-success-fg ginko:dark:bg-success/20 ginko:text-sm ginko:flex ginko:items-center ginko:gap-2"
-      >
-        <BadgeCheck class="ginko:size-4 ginko:shrink-0" />
-        {{ settings.revalidationInfo }}
-      </div>
+        tone="success"
+        :description="settings.revalidationInfo"
+      />
 
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:divide-y">
         <div
@@ -116,7 +104,7 @@ const settings = props.admin
           >
             <RefreshCw
               class="ginko:size-3.5"
-              :class="{ 'animate-spin': settings.revalidationJobsQuery.pending.value }"
+              :class="{ 'ginko:animate-spin': settings.revalidationJobsQuery.pending.value }"
             />
             Refresh
           </Button>

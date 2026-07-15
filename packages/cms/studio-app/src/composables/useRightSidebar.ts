@@ -71,13 +71,21 @@ const LAPTOP_DEFAULT_CSS =
   'min(clamp(30rem, 57.5vw, 50rem), calc(100vw - var(--rsw-reserve)))'
 const LAPTOP_MAX_CSS = 'min(65vw, 56.25rem, calc(100vw - var(--rsw-reserve)))'
 const WIDE_BREAKPOINT_PX = 1536 // Tailwind 2xl
-// 26rem — JS mirror of --rsw-reserve's floor. Slightly above the 24rem main
-// minimum to absorb the inset variant's margins and the scrollbar.
+// Main-content floor for the panel's drag/keyboard resize cap. This is ONLY the
+// main column's minimum — the left sidebar's real rendered width is measured and
+// added on top by reservePx() (SIDEBAR_WIDTH = 16rem expanded, --sidebar-width-icon
+// = 3rem when icon-collapsed), so it must not be baked in here.
 //
-// RFC risk note: this assumes the template's inset margins. The Studio shell
-// runs the sidebar in the `sidebar` (not `inset`) variant, so this may need
-// retuning once Phase 5/6 lock the editor layout — it is exported for that.
-export const MAIN_CONTENT_RESERVE_PX = 416
+// Retuned for the Studio's actual shell (RFC Phase 6). The Studio runs the left
+// rail in `variant=sidebar` (flush against the inset) with `collapsible=icon` —
+// NOT the template's `inset` variant this constant was first tuned against. The
+// inset variant adds an `m-2` gutter around SidebarInset; `variant=sidebar` has
+// none, so the old 26rem (24rem main minimum + a ~2rem inset-margin term) over-
+// reserved. The corrected floor is the 24rem main-content minimum plus a ~1rem
+// scrollbar/gutter allowance = 25rem. (The CSS mirror of this floor lives in
+// RightSidebar.vue's `--rsw-reserve`, which likewise starts from a 24rem main
+// minimum and adds the left rail width via a :has() variant.)
+export const MAIN_CONTENT_RESERVE_PX = 400
 
 export function clampRightSidebarSize(
   rem: number,

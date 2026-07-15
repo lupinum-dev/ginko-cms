@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, BadgeCheck, Copy, KeyRound, Loader2, Plus, Trash2 } from '@lucide/vue'
+import { Copy, KeyRound, Loader2, Plus, Trash2 } from '@lucide/vue'
 import { computed, ref } from 'vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
@@ -60,21 +60,17 @@ async function confirmRevokeConnection() {
     </div>
 
     <div class="ginko:flex-1 ginko:min-w-0 ginko:space-y-4">
-      <div
+      <StudioNotice
         v-if="settings.mcpConnectionError"
-        class="ginko:p-3 ginko:rounded-lg ginko:bg-destructive/10 ginko:text-destructive-fg ginko:text-sm ginko:flex ginko:items-center ginko:gap-2"
-      >
-        <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-        {{ settings.mcpConnectionError }}
-      </div>
+        tone="danger"
+        :description="settings.mcpConnectionError"
+      />
 
-      <div
+      <StudioNotice
         v-if="settings.mcpConnectionInfo"
-        class="ginko:p-3 ginko:rounded-lg ginko:bg-success/15 ginko:text-success-fg ginko:dark:bg-success/20 ginko:text-sm ginko:flex ginko:items-center ginko:gap-2"
-      >
-        <BadgeCheck class="ginko:size-4 ginko:shrink-0" />
-        {{ settings.mcpConnectionInfo }}
-      </div>
+        tone="success"
+        :description="settings.mcpConnectionInfo"
+      />
 
       <div
         v-if="settings.mcpCreatedToken"
@@ -137,13 +133,9 @@ async function confirmRevokeConnection() {
               :key="scope.key"
               class="ginko:flex ginko:items-center ginko:gap-2 ginko:rounded-md ginko:border ginko:border-border/40 ginko:px-3 ginko:py-2 ginko:text-xs"
             >
-              <input
-                type="checkbox"
-                class="ginko:size-3.5 ginko:accent-primary"
-                :checked="settings.mcpConnectionForm.scopes.includes(scope.key)"
-                @change="
-                  settings.toggleMcpScope(scope.key, ($event.target as HTMLInputElement).checked)
-                "
+              <Checkbox
+                :model-value="settings.mcpConnectionForm.scopes.includes(scope.key)"
+                @update:model-value="settings.toggleMcpScope(scope.key, $event === true)"
               />
               <span>{{ scope.label }}</span>
             </label>

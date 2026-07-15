@@ -54,19 +54,14 @@ function selectCollection(slug: string) {
           </div>
         </div>
 
-        <div
+        <StudioEmptyState
           v-else-if="collections.length === 0"
-          class="ginko:flex ginko:flex-col ginko:items-center ginko:justify-center ginko:py-12 ginko:px-4 ginko:text-center"
+          :title="t('ginkoCms.studio.collectionsPage.noCollections')"
         >
-          <div
-            class="ginko:size-10 ginko:rounded-xl ginko:bg-muted ginko:flex ginko:items-center ginko:justify-center ginko:mb-3"
-          >
-            <Layers class="ginko:size-5 ginko:text-muted-foreground" />
-          </div>
-          <p class="ginko:text-xs ginko:text-muted-foreground">
-            {{ t('ginkoCms.studio.collectionsPage.noCollections') }}
-          </p>
-        </div>
+          <template #icon>
+            <Layers class="ginko:size-5" aria-hidden="true" />
+          </template>
+        </StudioEmptyState>
 
         <div v-else class="ginko:space-y-1">
           <button

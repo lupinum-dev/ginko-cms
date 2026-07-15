@@ -52,7 +52,7 @@ const settings = props.admin
           >
             <RefreshCw
               class="ginko:size-3.5"
-              :class="{ 'animate-spin': settings.storageHygieneQuery.pending.value }"
+              :class="{ 'ginko:animate-spin': settings.storageHygieneQuery.pending.value }"
             />
             {{ settings.t('ginkoCms.studio.settingsPage.storageRefresh') }}
           </Button>

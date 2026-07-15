@@ -10,7 +10,7 @@ defineProps<{
 <template>
   <div
     class="ginko:rounded-md ginko:border ginko:bg-background ginko:p-3"
-    :class="localeState.current ? 'border-primary/50' : ''"
+    :class="localeState.current ? 'ginko:border-primary/50' : ''"
   >
     <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2">
       <div class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2">

@@ -1046,34 +1046,23 @@ defineExpose({
 
         <ScrollArea class="ginko:flex-1">
           <div v-if="error || localError" class="ginko:px-6 ginko:pt-4">
-            <div
-              class="ginko:rounded-lg ginko:border ginko:border-destructive/20 ginko:bg-destructive/5 ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-destructive"
-            >
-              {{ localError || error }}
-            </div>
+            <StudioNotice tone="danger" :description="localError || error" />
           </div>
 
           <div v-if="isLoading" class="ginko:grid ginko:grid-cols-1 ginko:gap-2 ginko:p-6">
-            <div
-              v-for="index in 12"
-              :key="index"
-              class="ginko:h-9 ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30"
-            />
+            <Skeleton v-for="index in 12" :key="index" class="ginko:h-9" />
           </div>
 
-          <div
+          <StudioEmptyState
             v-else-if="currentItems.length === 0"
-            class="ginko:flex ginko:flex-col ginko:items-center ginko:justify-center ginko:py-24 ginko:text-center"
+            class="ginko:m-6 ginko:border-0 ginko:bg-transparent"
+            title="No items"
+            :description="activeFilterCount > 0 ? 'Try adjusting your filters' : undefined"
           >
-            <FolderOpen class="ginko:mb-4 ginko:size-12 ginko:text-muted-foreground/20" />
-            <p class="ginko:text-sm ginko:text-muted-foreground/70">No items</p>
-            <p
-              v-if="activeFilterCount > 0"
-              class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground/50"
-            >
-              Try adjusting your filters
-            </p>
-          </div>
+            <template #icon>
+              <FolderOpen class="ginko:size-5" aria-hidden="true" />
+            </template>
+          </StudioEmptyState>
 
           <table v-else-if="viewMode === 'list'" class="ginko:w-full ginko:text-xs">
             <thead class="ginko:sticky ginko:top-0 ginko:z-10 ginko:bg-card ginko:text-left">

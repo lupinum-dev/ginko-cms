@@ -60,7 +60,7 @@ const selectedFieldBadges = computed(() => {
   >
     <div class="ginko:space-y-1 ginko:md:w-56 ginko:md:shrink-0">
       <h2
-        class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
+        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
       >
         <List class="ginko:size-4 ginko:text-muted-foreground" />
         {{ t('ginkoCms.common.fields') }}
@@ -89,7 +89,7 @@ const selectedFieldBadges = computed(() => {
           v-for="field in collectionFields"
           :key="field.key"
           class="ginko:group ginko:flex ginko:items-center ginko:justify-between ginko:px-4 ginko:py-3 ginko:cursor-pointer ginko:transition-colors ginko:hover:bg-muted/30"
-          :class="selectedFieldKey === field.key ? 'bg-muted/50' : ''"
+          :class="selectedFieldKey === field.key ? 'ginko:bg-muted/50' : ''"
           :data-testid="`cms-field-row-${field.key}`"
           @click="selectedFieldKey = field.key"
         >
@@ -117,7 +117,7 @@ const selectedFieldBadges = computed(() => {
       >
         <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
           <div class="ginko:min-w-0">
-            <h3 class="ginko:truncate ginko:text-sm ginko:font-medium">
+            <h3 class="studio-text-label ginko:truncate">
               {{ resolveLabel(selectedField) }}
             </h3>
             <p class="ginko:mt-1 ginko:font-mono ginko:text-xs ginko:text-muted-foreground">

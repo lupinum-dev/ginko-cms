@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, Ban, Bot, Clock, Loader2 } from '@lucide/vue'
+import { Ban, Bot, Clock, Loader2 } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref } from 'vue'
 
@@ -93,14 +93,12 @@ async function revokeRun(run: AgentRun) {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content studio-page-body">
-        <div
+      <StudioPageBody class="ginko:space-y-4">
+        <StudioNotice
           v-if="pageError || revokeError"
-          class="ginko:mb-4 ginko:flex ginko:items-center ginko:gap-2 ginko:rounded-md ginko:border ginko:border-destructive/25 ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"
-        >
-          <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-          {{ pageError || revokeError }}
-        </div>
+          tone="danger"
+          :description="pageError || revokeError"
+        />
 
         <StudioEmptyState
           v-if="ready && !canManageSettings"
@@ -254,7 +252,7 @@ async function revokeRun(run: AgentRun) {
         <div v-if="isLoading && runs.length > 0" class="ginko:flex ginko:justify-center ginko:py-4">
           <Loader2 class="ginko:size-4 ginko:animate-spin ginko:text-muted-foreground" />
         </div>
-      </div>
+      </StudioPageBody>
     </ScrollArea>
   </StudioWorkspace>
 </template>

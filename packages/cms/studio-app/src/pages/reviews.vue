@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, Check, Inbox, Loader2, PanelRight, X } from '@lucide/vue'
+import { Check, Inbox, Loader2, PanelRight, X } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref } from 'vue'
 
@@ -123,21 +123,20 @@ async function reject(request: ReviewRequest) {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content studio-page-body">
-        <div
+      <StudioPageBody>
+        <StudioNotice
           v-if="pageError || decisionError"
-          class="ginko:mb-4 ginko:flex ginko:items-center ginko:gap-2 ginko:rounded-md ginko:border ginko:border-destructive/25 ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"
-        >
-          <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-          {{ pageError || decisionError }}
-        </div>
+          tone="danger"
+          :description="pageError || decisionError"
+          class="ginko:mb-4"
+        />
 
-        <div
+        <StudioNotice
           v-if="!canPublishEntries && !pageError"
-          class="ginko:mb-4 ginko:rounded-lg ginko:border ginko:border-dashed ginko:p-4 ginko:text-sm ginko:text-muted-foreground"
-        >
-          {{ t('ginkoCms.studio.reviewsPage.accessRequired') }}
-        </div>
+          tone="info"
+          :description="t('ginkoCms.studio.reviewsPage.accessRequired')"
+          class="ginko:mb-4"
+        />
 
         <div
           v-if="reviews.length === 0 && isLoading"
@@ -365,12 +364,11 @@ async function reject(request: ReviewRequest) {
                 </dl>
               </StudioDeveloperDetails>
 
-              <div
+              <StudioNotice
                 v-if="approvalCandidate.staleReason"
-                class="ginko:rounded-md ginko:border ginko:border-destructive/25 ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"
-              >
-                {{ approvalCandidate.staleReason }}
-              </div>
+                tone="danger"
+                :description="approvalCandidate.staleReason"
+              />
             </div>
 
             <DialogFooter>
@@ -399,7 +397,7 @@ async function reject(request: ReviewRequest) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </StudioPageBody>
     </ScrollArea>
   </StudioWorkspace>
 </template>

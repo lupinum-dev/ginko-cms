@@ -242,6 +242,7 @@ const en = {
       },
       assetsPage: {
         title: 'Media',
+        description: 'Find, upload, and organize the images and files used across your website.',
         filesCount: '{count} files',
         scope: 'Ownership',
         scopeAll: 'All',
@@ -312,12 +313,19 @@ const en = {
       },
       collectionsPage: {
         title: 'Content setup',
+        headerDescription:
+          'Content types available in this Studio and how they appear on the website.',
         codeDefinedBadge: 'Managed by developers',
         noCollections: 'No content types',
         typeFlat: 'List',
         typeTree: 'Hierarchy',
+        backToList: 'Content types',
+        emptyTitle: 'Select a content type',
         emptyDescription:
           'Content types are managed by developers and synced into Studio as setup details.',
+        installingTitle: 'Content setup is still installing',
+        installingDescription:
+          'Studio is showing the host runtime model so the setup stays inspectable. Editing will be available after the content model snapshot finishes installing.',
         pathPrefix: 'URL prefix',
         icon: 'Icon',
         iconFieldPlaceholder: 'lucide:file-text',
@@ -332,6 +340,20 @@ const en = {
       },
       settingsPage: {
         title: 'Settings',
+        appearanceTitle: 'Appearance',
+        appearanceDescription: 'Theme, accent color, and density for this Studio. Saved per browser.',
+        appearanceColorLabel: 'Accent color',
+        appearanceColorDescription: 'The primary color used across buttons, links, and highlights.',
+        appearanceTypeLabel: 'Type',
+        appearanceTypeDescription: 'Switch to a monospaced or scaled type treatment.',
+        appearanceRadiusLabel: 'Corners',
+        appearanceRadiusDescription: 'How rounded cards, buttons, and inputs appear.',
+        appearanceRadiusDefault: 'Default',
+        appearanceModeLabel: 'Theme',
+        appearanceModeDescription: 'Use a light or dark theme, or follow your system setting.',
+        appearanceModeLight: 'Light',
+        appearanceModeDark: 'Dark',
+        appearanceModeSystem: 'System',
         peopleAccessTitle: 'People and access',
         peopleAccessDescription: 'Members, roles, and who can work in this Studio.',
         localizationTitle: 'Localization',
@@ -846,6 +868,8 @@ const en = {
         empty: 'No activity yet',
         emptyDescription: 'Actions like publishing, editing, and uploading will appear here.',
         loadError: 'Failed to load activity.',
+        columnActivity: 'Activity',
+        columnWhen: 'When',
       },
       agentsPage: {
         title: 'AI work sessions',

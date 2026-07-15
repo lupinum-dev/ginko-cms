@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  AlertCircle,
   FileText,
   FolderX,
   GripVertical,
@@ -475,17 +474,15 @@ const kindColors: Record<string, string> = {
 <template>
   <StudioWorkspace :rail="true" :rail-collapsed="collapsed" class="ginko:h-full">
     <template #header>
-      <StudioPageHeader :title="collectionLabel" eyebrow="Content">
+      <StudioPageHeader :title="collectionLabel" :eyebrow="t('ginkoCms.studio.layout.content')">
         <template #actions>
-          <span
-            class="ginko:rounded-full ginko:bg-muted ginko:px-2 ginko:py-0.5 ginko:text-xs ginko:text-muted-foreground"
-          >
+          <Badge variant="soft">
             {{
               isTree
                 ? t('ginkoCms.studio.collectionsPage.typeTree')
                 : t('ginkoCms.studio.collectionsPage.typeFlat')
             }}
-          </span>
+          </Badge>
           <StudioActionRailToggle />
           <Button v-if="collectionExists && canCreateEntries && !isSingleton" as-child size="sm">
             <RouterLink :to="`${contentRoute}/${collection}/new`">
@@ -500,7 +497,7 @@ const kindColors: Record<string, string> = {
     <!-- Search & filter bar -->
     <template #toolbar>
       <div
-        class="ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5"
+        class="ginko:shrink-0 ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:lg:px-6"
       >
         <div
           class="studio-page-content studio-page-content--wide studio-toolbar-row ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2 ginko:py-1.5"
@@ -555,15 +552,9 @@ const kindColors: Record<string, string> = {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content studio-page-content--wide studio-page-body">
+      <StudioPageBody width="wide">
         <!-- Error -->
-        <div
-          v-if="pageError"
-          class="ginko:mb-4 ginko:flex ginko:items-center ginko:gap-2 ginko:rounded-md ginko:border ginko:border-destructive/25 ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"
-        >
-          <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-          {{ pageError }}
-        </div>
+        <StudioNotice v-if="pageError" tone="danger" :description="pageError" class="ginko:mb-4" />
 
         <!-- Loading state -->
         <div
@@ -750,7 +741,7 @@ const kindColors: Record<string, string> = {
               data-testid="cms-entry-row"
               :data-entry-slug="row.slug"
               class="ginko:group ginko:grid ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-5 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30 ginko:lg:grid-cols-[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem] ginko:lg:items-center"
-              :class="dropHint?.targetId === row._id ? 'bg-primary/5' : ''"
+              :class="dropHint?.targetId === row._id ? 'ginko:bg-primary/5' : ''"
               @dragstart="startDrag(row._id)"
               @dragend="endDrag"
               @dragover.prevent="onDragOver($event, row)"
@@ -849,7 +840,7 @@ const kindColors: Record<string, string> = {
             </Button>
           </div>
         </div>
-      </div>
+      </StudioPageBody>
     </ScrollArea>
 
     <template #rail>

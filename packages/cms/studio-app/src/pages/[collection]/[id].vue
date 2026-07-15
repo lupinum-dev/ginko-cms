@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { AlertCircle } from '@lucide/vue'
 import { resolveEntryTitle } from '@lupinum/ginko-cms-contract/shared/fields/title.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { computed } from 'vue'
@@ -61,26 +60,18 @@ useRightSidebarPanel({
       <StudioEntryCompareToolbar />
     </template>
 
-    <div
-      v-if="editor.draft.error"
-      class="ginko:rounded-lg ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"
-    >
-      <div class="ginko:flex ginko:items-start ginko:gap-2">
-        <AlertCircle class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0" />
-        <div>
-          <template v-if="editor.draft.error.includes(';')">
-            <ul class="ginko:list-inside ginko:list-disc ginko:space-y-0.5">
-              <li v-for="(msg, i) in editor.draft.error.split('; ')" :key="i">
-                {{ msg }}
-              </li>
-            </ul>
-          </template>
-          <template v-else>
-            {{ editor.draft.error }}
-          </template>
-        </div>
-      </div>
-    </div>
+    <StudioNotice v-if="editor.draft.error" tone="danger">
+      <template v-if="editor.draft.error.includes(';')">
+        <ul class="ginko:list-inside ginko:list-disc ginko:space-y-0.5">
+          <li v-for="(msg, i) in editor.draft.error.split('; ')" :key="i">
+            {{ msg }}
+          </li>
+        </ul>
+      </template>
+      <template v-else>
+        {{ editor.draft.error }}
+      </template>
+    </StudioNotice>
 
     <div v-if="editor.loader.pending" class="ginko:space-y-5">
       <div
@@ -119,9 +110,10 @@ useRightSidebarPanel({
       </div>
     </template>
 
-    <div v-else class="ginko:py-16 ginko:text-center ginko:text-muted-foreground">
-      {{ editor.loader.t('ginkoCms.studio.collectionEditor.entryNotFound') }}
-    </div>
+    <StudioEmptyState
+      v-else
+      :title="editor.loader.t('ginkoCms.studio.collectionEditor.entryNotFound')"
+    />
   </StudioEntryEditorShell>
 
   <StudioCheckpointDialog />

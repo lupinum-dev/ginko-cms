@@ -94,7 +94,7 @@ function formatBlockData(value: unknown): string {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content studio-page-body">
+      <StudioPageBody>
         <!-- Error -->
         <StudioNotice v-if="error" tone="danger" class="ginko:mb-4" :description="error" />
 
@@ -330,7 +330,7 @@ function formatBlockData(value: unknown): string {
             </div>
           </div>
         </StudioListFrame>
-      </div>
+      </StudioPageBody>
     </ScrollArea>
   </StudioWorkspace>
   <StudioConfirmDialog

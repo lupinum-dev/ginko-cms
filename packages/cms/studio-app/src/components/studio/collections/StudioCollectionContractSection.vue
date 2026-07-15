@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertTriangle, Code2, Database, Route, Settings2 } from '@lucide/vue'
+import { Code2, Database, Route, Settings2 } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { deriveCapabilityWarnings } from '../../../lib/publicWorkflow'
@@ -119,7 +119,7 @@ const projectionFacts = computed(() => [
   >
     <div class="ginko:space-y-1 ginko:md:w-56 ginko:md:shrink-0">
       <h2
-        class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
+        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
       >
         <Settings2 class="ginko:size-4 ginko:text-muted-foreground" />
         Content type details
@@ -136,12 +136,11 @@ const projectionFacts = computed(() => [
       >
         Loading the selected content type...
       </div>
-      <div
+      <StudioNotice
         v-else-if="collectionDetailError"
-        class="ginko:rounded-lg ginko:border ginko:border-destructive/40 ginko:bg-destructive/10 ginko:p-3 ginko:text-xs ginko:text-destructive-fg"
-      >
-        Failed to load the selected content type. {{ collectionDetailError.message }}
-      </div>
+        tone="danger"
+        :description="`Failed to load the selected content type. ${collectionDetailError.message}`"
+      />
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3">
         <div class="ginko:flex ginko:items-start ginko:gap-3">
           <Code2 class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground" />
@@ -341,20 +340,15 @@ const projectionFacts = computed(() => [
           </StudioDeveloperDetails>
         </div>
       </div>
-      <div
+      <StudioNotice
         v-if="capabilityWarnings.length"
-        class="ginko:space-y-2 ginko:rounded-md ginko:border ginko:border-warning/30 ginko:bg-warning/10 ginko:p-3"
+        tone="warning"
+        title="Review collection config"
       >
-        <div
-          class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-xs ginko:font-medium ginko:text-warning-fg"
-        >
-          <AlertTriangle class="ginko:size-4" />
-          Review collection config
-        </div>
-        <ul class="ginko:space-y-1 ginko:text-xs ginko:leading-relaxed ginko:text-warning-fg/90">
+        <ul class="ginko:space-y-1 ginko:text-xs ginko:leading-relaxed">
           <li v-for="warning in capabilityWarnings" :key="warning">- {{ warning }}</li>
         </ul>
-      </div>
+      </StudioNotice>
     </div>
   </section>
 </template>

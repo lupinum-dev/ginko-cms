@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Activity, AlertCircle, Loader2 } from '@lucide/vue'
+import { Activity, Loader2 } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed } from 'vue'
 
@@ -65,20 +65,20 @@ function entryLink(item: ActivityItem): string | null {
         :description="t('ginkoCms.studio.activityPage.description')"
       >
         <template #actions>
-          <Activity class="ginko:size-4 ginko:text-muted-foreground" />
+          <Activity class="ginko:size-4 ginko:text-muted-foreground" aria-hidden="true" />
         </template>
       </StudioPageHeader>
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content studio-page-body">
-        <div
+      <StudioPageBody>
+        <StudioNotice
           v-if="pageError"
-          class="ginko:mb-4 ginko:flex ginko:items-center ginko:gap-2 ginko:rounded-md ginko:border ginko:border-destructive/25 ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"
-        >
-          <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-          {{ pageError }}
-        </div>
+          tone="danger"
+          :title="t('ginkoCms.studio.activityPage.loadError')"
+          :description="pageError"
+          class="ginko:mb-4"
+        />
 
         <StudioEmptyState
           v-if="ready && !canManageSettings"
@@ -130,8 +130,8 @@ function entryLink(item: ActivityItem): string | null {
           <div
             class="ginko:hidden ginko:grid-cols-[minmax(0,1fr)_12rem] ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:md:grid"
           >
-            <div>Activity</div>
-            <div class="ginko:text-right">When</div>
+            <div>{{ t('ginkoCms.studio.activityPage.columnActivity') }}</div>
+            <div class="ginko:text-right">{{ t('ginkoCms.studio.activityPage.columnWhen') }}</div>
           </div>
           <div
             v-for="item in rows"
@@ -194,7 +194,7 @@ function entryLink(item: ActivityItem): string | null {
             {{ t('ginkoCms.common.loadMore') }}
           </Button>
         </div>
-      </div>
+      </StudioPageBody>
     </ScrollArea>
   </StudioWorkspace>
 </template>
