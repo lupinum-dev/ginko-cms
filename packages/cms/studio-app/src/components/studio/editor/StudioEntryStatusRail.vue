@@ -279,7 +279,7 @@ const blockingIssues = computed(() => {
       </template>
       <template #action>
         <Switch
-          v-model:checked="advancedEditor"
+          v-model="advancedEditor"
           class="ginko:scale-90"
           :aria-label="t('toggleDetails')"
         />

@@ -4,16 +4,14 @@ const STORAGE_KEY = 'ginko-cms:studio:advanced-editor'
 const advancedEditor = ref(false)
 let loaded = false
 
-function diagnosticsEnabledByUrl() {
-  if (typeof window === 'undefined') return false
-  return new URLSearchParams(window.location.search).get('diagnostics') === '1'
-}
-
+// "More details" preference for the editor's details panel (workflow spine,
+// track card, technical receipt). This is a plain persisted user preference:
+// the panel toggle is itself the explicit path UI-REVISION requires for
+// advanced information. It is deliberately NOT tied to the `?diagnostics=1`
+// URL flag — that gate previously made the visible toggle a no-op for normal
+// users (design review follow-up). The raw editor DebugPanel keeps its own
+// separate `settings.enableDebug` gate.
 function loadAdvancedEditorPreference() {
-  if (!diagnosticsEnabledByUrl()) {
-    advancedEditor.value = false
-    return
-  }
   if (loaded) return
   loaded = true
   if (typeof localStorage === 'undefined') return
@@ -23,18 +21,10 @@ function loadAdvancedEditorPreference() {
 export function useStudioAdvancedEditor() {
   loadAdvancedEditorPreference()
 
-  watch(
-    advancedEditor,
-    (value) => {
-      if (!diagnosticsEnabledByUrl()) {
-        if (value) advancedEditor.value = false
-        return
-      }
-      if (typeof localStorage === 'undefined') return
-      localStorage.setItem(STORAGE_KEY, String(value))
-    },
-    { immediate: true },
-  )
+  watch(advancedEditor, (value) => {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(STORAGE_KEY, String(value))
+  })
 
   return advancedEditor
 }

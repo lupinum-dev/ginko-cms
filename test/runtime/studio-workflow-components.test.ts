@@ -795,9 +795,8 @@ describe('Studio workflow components', () => {
   })
 
   it('shows preview, review, and publish progress in the editor workflow spine', () => {
-    // The spine only renders in advanced/diagnostics mode now (design review
-    // S2); enable it the same way the app does — via ?diagnostics=1.
-    window.history.replaceState({}, '', '/?diagnostics=1')
+    // The spine only renders behind the "More details" preference (design
+    // review S2); it is a plain persisted toggle now.
     const advanced = useStudioAdvancedEditor()
     advanced.value = true
 
@@ -827,7 +826,6 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).toContain('Publish the approved website changes.')
 
     advanced.value = false
-    window.history.replaceState({}, '', '/')
   })
 
   it('tracks live website state, language rollout, and refresh health in the editor rail', () => {
@@ -1305,11 +1303,10 @@ describe('Studio workflow components', () => {
   it('renders publish impact cache tags and events in diagnostics mode', () => {
     const restoreLocalStorage = installTestLocalStorage()
     try {
-      window.history.replaceState(null, '', '/studio/docs/entry-1?diagnostics=1')
       localStorage.setItem('ginko-cms:studio:advanced-editor', 'true')
       // The composable's one-shot localStorage load may already have latched
-      // earlier in this module; set the shared ref directly (legal while
-      // ?diagnostics=1 is on) so this test is order-independent.
+      // earlier in this module; set the shared ref directly so this test is
+      // order-independent.
       useStudioAdvancedEditor().value = true
       const wrapper = mount(StudioEntryPublicWorkflowPanel, {
         global: { stubs: studioStubs() },
@@ -1337,6 +1334,9 @@ describe('Studio workflow components', () => {
       expect(wrapper.text()).toContain('collection:docs')
       expect(wrapper.text()).toContain('entry.published')
     } finally {
+      // The preference is a plain shared ref now — reset it so later tests
+      // in this module see the default-off state.
+      useStudioAdvancedEditor().value = false
       window.history.replaceState(null, '', '/')
       restoreLocalStorage()
     }
