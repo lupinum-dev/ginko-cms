@@ -147,40 +147,44 @@ async function resolveActivityDisplayFields(
   for (const row of page) {
     if (row.collectionId) collectionIds.add(String(row.collectionId))
     if (row.entryId) entryIds.add(String(row.entryId))
-    actorIds.add(activityAppIdentityId(row))
+    // Rows written since the actorLabel column exists carry the name from
+    // write time (even when it resolved to null) — only legacy rows need the
+    // read-time member lookup.
+    if (row.actorLabel === undefined) actorIds.add(activityAppIdentityId(row))
   }
 
   const collections = new Map<string, { slug: string; label: string | null }>()
-  for (const id of collectionIds) {
-    const doc = await ctx.db.get(id as never)
-    if (doc && 'slug' in doc) {
-      const label = (doc as { label?: unknown }).label
-      const labelText =
-        typeof label === 'string'
-          ? label
-          : label && typeof label === 'object'
-            ? (Object.values(label as Record<string, string>).find(
-                (value) => typeof value === 'string' && value,
-              ) ?? null)
-            : null
-      collections.set(id, { slug: (doc as { slug: string }).slug, label: labelText })
-    }
-  }
-
   const entries = new Map<string, string>()
-  for (const id of entryIds) {
-    const doc = await ctx.db.get(id as never)
-    if (doc && 'baseSlug' in doc) entries.set(id, (doc as { baseSlug: string }).baseSlug)
-  }
-
   const actors = new Map<string, string | null>()
-  for (const id of actorIds) {
-    const member = await ctx.db
-      .query('members')
-      .withIndex('by_userId', (query) => query.eq('userId', id))
-      .first()
-    actors.set(id, member?.displayName ?? member?.email ?? null)
-  }
+
+  await Promise.all([
+    ...Array.from(collectionIds, async (id) => {
+      const doc = await ctx.db.get(id as never)
+      if (doc && 'slug' in doc) {
+        const label = (doc as { label?: unknown }).label
+        const labelText =
+          typeof label === 'string'
+            ? label
+            : label && typeof label === 'object'
+              ? (Object.values(label as Record<string, string>).find(
+                  (value) => typeof value === 'string' && value,
+                ) ?? null)
+              : null
+        collections.set(id, { slug: (doc as { slug: string }).slug, label: labelText })
+      }
+    }),
+    ...Array.from(entryIds, async (id) => {
+      const doc = await ctx.db.get(id as never)
+      if (doc && 'baseSlug' in doc) entries.set(id, (doc as { baseSlug: string }).baseSlug)
+    }),
+    ...Array.from(actorIds, async (id) => {
+      const member = await ctx.db
+        .query('members')
+        .withIndex('by_userId', (query) => query.eq('userId', id))
+        .first()
+      actors.set(id, member?.displayName ?? member?.email ?? null)
+    }),
+  ])
 
   return { collections, entries, actors }
 }
@@ -1319,7 +1323,10 @@ export const listActivity = callerQuery.protected({
           ? (display.collections.get(String(row.collectionId))?.label ?? null)
           : null,
         entrySlug: row.entryId ? (display.entries.get(String(row.entryId)) ?? null) : null,
-        actorLabel: display.actors.get(activityAppIdentityId(row)) ?? null,
+        actorLabel:
+          row.actorLabel !== undefined
+            ? row.actorLabel
+            : (display.actors.get(activityAppIdentityId(row)) ?? null),
       })),
       isDone,
       continueCursor: isDone || page.length === 0 ? null : encodeActivityCursor(page.at(-1)!),

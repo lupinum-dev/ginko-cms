@@ -730,6 +730,10 @@ export default defineSchema({
     detail: v.optional(v.union(jsonValueValidator, v.null())),
     appIdentityId: v.optional(v.string()),
     actorId: v.optional(v.string()),
+    // Actor display name captured at WRITE time — display names on old rows
+    // resolve at read time as a fallback, but new rows keep the name the
+    // actor had when they acted (rename-stable audit trail).
+    actorLabel: v.optional(v.union(v.string(), v.null())),
     createdAt: v.number(),
   })
     .index('by_time', ['createdAt'])

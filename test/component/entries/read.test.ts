@@ -298,6 +298,55 @@ describe('editor read queries', () => {
     expect(new Set(seen).size).toBe(5)
   })
 
+  it('captures actor labels at write time and still resolves legacy rows at read time', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    await seedEditorFixture(ctx)
+    const now = Date.now()
+    await ctx.seed(
+      'members' as never,
+      {
+        userId: 'named-editor',
+        role: 'editor',
+        displayName: 'Mara Winter',
+        createdAt: now,
+        updatedAt: now,
+        updatedBy: 'named-editor',
+      } as never,
+    )
+
+    // New rows: logActivity resolves the label when the row is written.
+    const editor = ctx.asCmsUser('named-editor')
+    await editor.mutation(api.editor.createEntry, {
+      collection: 'posts',
+      slug: 'actor-label-entry',
+      locale: 'en',
+      localized: { title: 'Actor label entry' },
+    })
+
+    // Legacy rows (written before the column existed) have no actorLabel and
+    // must fall back to the read-time member lookup.
+    await ctx.seed(
+      'activity' as never,
+      {
+        kind: 'test.legacy',
+        summary: 'Legacy row without stored label',
+        appIdentityId: 'named-editor',
+        createdAt: now + 1,
+      } as never,
+    )
+
+    const owner = ctx.asCmsUser('owner-1')
+    const result = await owner.query(api.editor.listActivity, {
+      paginationOpts: { numItems: 10, cursor: null },
+    })
+    const created = result.page.find((row) => row.kind === 'entry.created')
+    const legacy = result.page.find((row) => row.kind === 'test.legacy')
+    expect(created?.actorLabel).toBe('Mara Winter')
+    expect(legacy?.actorLabel).toBe('Mara Winter')
+  })
+
   it('returns editor-safe activity display summaries without rewriting raw summaries', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

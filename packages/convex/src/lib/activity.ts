@@ -16,6 +16,14 @@ export async function logActivity(
     createdAt?: number
   },
 ) {
+  // Resolve the actor's display name at write time so the audit trail keeps
+  // the name the actor had when they acted. listActivity still resolves
+  // missing labels at read time for rows written before this field existed.
+  const member = await ctx.db
+    .query('members')
+    .withIndex('by_userId', (query) => query.eq('userId', args.appIdentityId))
+    .first()
+
   await ctx.db.insert('activity', {
     kind: args.kind,
     summary: args.summary,
@@ -24,6 +32,7 @@ export async function logActivity(
     collectionId: args.collectionId ?? null,
     locale: args.locale ?? null,
     detail: args.detail ?? null,
+    actorLabel: member?.displayName ?? member?.email ?? null,
     createdAt: args.createdAt ?? Date.now(),
   })
 }
