@@ -5,6 +5,8 @@ import { computed } from 'vue'
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import type { StudioEntry } from '../../../composables/internal/types'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
+import { readinessStateTone } from '../../../lib/publicWorkflow'
+import StudioEntryHeroFields from './StudioEntryHeroFields.vue'
 
 type EntryMetadata = StudioEntry & {
   updatedAt?: number | string | null
@@ -14,6 +16,9 @@ type EntryMetadata = StudioEntry & {
 const props = defineProps<{
   side: 'primary' | 'secondary'
   status?: string
+  /** Raw readiness state code — drives the pill tone; `status` is display-only. */
+  state?: string | null
+  blocked?: boolean
   missingFields?: string[]
 }>()
 
@@ -26,6 +31,7 @@ const localeCode = computed(() =>
   props.side === 'primary' ? editor.loader.currentLocale : editor.locales.secondaryLocale,
 )
 const localeCodeLabel = computed(() => localeCode.value.toUpperCase())
+const isSourceOfTruthLocale = computed(() => localeCode.value === editor.loader.defaultLocale)
 // Single-language sites get no translation vocabulary ("Source of truth",
 // locale chips) — design review S2, principle 6.
 const hasMultipleLocales = computed(() => (editor.loader.locales?.length ?? 1) > 1)
@@ -80,6 +86,15 @@ const localizedUrlHelp = computed(() =>
     : ce('localePanelUrlManaged', { locale: primaryLocaleLabel.value }),
 )
 
+// The hero only renders locale-scoped fields here; shared hero fields render
+// once at page level in [id].vue.
+const localizedHeroTitleField = computed(() =>
+  editor.loader.heroTitleField?.localized ? editor.loader.heroTitleField : null,
+)
+const localizedHeroDescriptionField = computed(() =>
+  editor.loader.heroDescriptionField?.localized ? editor.loader.heroDescriptionField : null,
+)
+
 function updateField(fieldKey: string, value: unknown) {
   if (props.side === 'primary') {
     editor.draft.dataFields[fieldKey] = value
@@ -118,23 +133,20 @@ function updateField(fieldKey: string, value: unknown) {
             {{ localeCodeLabel }}
           </span>
         </span>
+        <!-- "Source of truth" belongs to the DEFAULT locale, not to whichever
+             pane renders first — in Single mode the primary pane can show a
+             translation (W1 walkthrough finding). -->
         <Badge
           v-if="hasMultipleLocales"
-          :variant="side === 'primary' ? 'success' : 'soft'"
+          :variant="isSourceOfTruthLocale ? 'success' : 'soft'"
           class="studio-locale-panel__role-badge ginko:shrink-0 ginko:rounded-md ginko:text-xs ginko:font-semibold"
         >
-          {{ side === 'primary' ? ce('localePanelSourceOfTruth') : ce('localePanelTranslation') }}
+          {{ isSourceOfTruthLocale ? ce('localePanelSourceOfTruth') : ce('localePanelTranslation') }}
         </Badge>
         <StudioStatusPill
           v-if="showStatusPill"
           :label="status"
-          :tone="
-            status === 'Public' || status === 'Published' || status === 'Live'
-              ? 'success'
-              : isMissing
-                ? 'warning'
-                : 'neutral'
-          "
+          :tone="readinessStateTone(state, { blocked: blocked || isMissing })"
           class="ginko:shrink-0 ginko:capitalize"
         />
         <template v-if="lastUpdatedAt">
@@ -206,6 +218,45 @@ function updateField(fieldKey: string, value: unknown) {
         }}
       </StudioNotice>
 
+      <!-- Writing surface: localized title/description render as the hero
+           heading, the URL block moves below the content (metadata-last). -->
+      <StudioEntryHeroFields
+        v-if="localizedHeroTitleField"
+        :title-field="localizedHeroTitleField"
+        :description-field="localizedHeroDescriptionField"
+        :values="side === 'primary' ? editor.draft.dataFields : editor.locales.secondaryDataFields"
+        :disabled="!editor.loader.canEditEntries"
+        :id-prefix="side === 'secondary' ? 'secondary-' : ''"
+        show-validation
+        @update="updateField"
+      />
+
+      <fieldset
+        v-if="editor.loader.localizedDetailFields.length > 0"
+        :disabled="!editor.loader.canEditEntries"
+        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-2"
+      >
+        <StudioFieldRenderer
+          v-for="field in editor.loader.localizedDetailFields"
+          :key="`${side}-${field.key}`"
+          :field="field"
+          :model-value="
+            side === 'primary'
+              ? editor.draft.dataFields[field.key]
+              : editor.locales.secondaryDataFields[field.key]
+          "
+          :context="
+            side === 'primary' ? editor.draft.editorContext : editor.locales.secondaryEditorContext
+          "
+          :locale="localeCode"
+          :asset-context="
+            side === 'primary' ? editor.draft.assetContext : editor.locales.secondaryAssetContext
+          "
+          :disabled="!editor.loader.canEditEntries"
+          @update:model-value="updateField(field.key, $event)"
+        />
+      </fieldset>
+
       <div
         v-if="isRouteBackedEntry && usesLocalizedSlug"
         class="studio-locale-panel__localized-url ginko:min-h-[9.75rem] ginko:rounded-md ginko:bg-muted/30 ginko:px-3.5 ginko:py-3"
@@ -245,32 +296,6 @@ function updateField(fieldKey: string, value: unknown) {
           {{ localizedUrlHelp }}
         </p>
       </div>
-
-      <fieldset
-        v-if="editor.loader.localizedFields.length > 0"
-        :disabled="!editor.loader.canEditEntries"
-        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-2"
-      >
-        <StudioFieldRenderer
-          v-for="field in editor.loader.localizedFields"
-          :key="`${side}-${field.key}`"
-          :field="field"
-          :model-value="
-            side === 'primary'
-              ? editor.draft.dataFields[field.key]
-              : editor.locales.secondaryDataFields[field.key]
-          "
-          :context="
-            side === 'primary' ? editor.draft.editorContext : editor.locales.secondaryEditorContext
-          "
-          :locale="localeCode"
-          :asset-context="
-            side === 'primary' ? editor.draft.assetContext : editor.locales.secondaryAssetContext
-          "
-          :disabled="!editor.loader.canEditEntries"
-          @update:model-value="updateField(field.key, $event)"
-        />
-      </fieldset>
     </div>
   </section>
 </template>

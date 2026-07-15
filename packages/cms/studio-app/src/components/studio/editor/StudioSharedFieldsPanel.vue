@@ -8,10 +8,17 @@ const editor = useStudioEntryEditorContext()
 // "Shared / applies to all languages" is schema vocabulary that only earns
 // its place when there are several languages (design review S2, principle 6).
 const hasMultipleLocales = computed(() => (editor.loader.locales?.length ?? 1) > 1)
+// Metadata-last (writing surface): this panel renders below the content and
+// disappears entirely when the hero absorbed every shared field and there is
+// no tree placement to manage.
+const hasContent = computed(
+  () => editor.loader.isTree || editor.loader.sharedDetailFields.length > 0,
+)
 </script>
 
 <template>
   <StudioSection
+    v-if="hasContent"
     :title="
       hasMultipleLocales
         ? editor.loader.t('ginkoCms.studio.collectionEditor.sharedFields')
@@ -102,12 +109,12 @@ const hasMultipleLocales = computed(() => (editor.loader.locales?.length ?? 1) >
       </fieldset>
 
       <fieldset
-        v-if="editor.loader.sharedFields.length > 0"
+        v-if="editor.loader.sharedDetailFields.length > 0"
         :disabled="!editor.loader.canEditEntries"
         class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-2 ginko:@5xl:grid-cols-4"
       >
         <StudioFieldRenderer
-          v-for="field in editor.loader.sharedFields"
+          v-for="field in editor.loader.sharedDetailFields"
           :key="field.key"
           :field="field"
           :model-value="editor.draft.dataFields[field.key]"

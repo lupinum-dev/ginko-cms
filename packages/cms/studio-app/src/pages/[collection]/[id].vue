@@ -4,6 +4,7 @@ import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { computed } from 'vue'
 
 import StudioEntryDetailsPanel from '../../components/studio/editor/StudioEntryDetailsPanel.vue'
+import StudioEntryHeroFields from '../../components/studio/editor/StudioEntryHeroFields.vue'
 import { provideStudioEntryEditorContext } from '../../composables/internal/studioEntryEditorContext'
 import { useStudioEntryEditor } from '../../composables/internal/useStudioEntryEditor'
 import { useCmsI18n } from '../../composables/useCmsI18n'
@@ -32,12 +33,27 @@ const collectionLabel = computed(() => {
   return editor.loader.collection ?? ''
 })
 
+// Shared hero fields render once above the locale panels; localized ones
+// render inside each panel (see StudioLocaleEditorPanel).
+const sharedHeroTitleField = computed(() =>
+  editor.loader.heroTitleField && !editor.loader.heroTitleField.localized
+    ? editor.loader.heroTitleField
+    : null,
+)
+const sharedHeroDescriptionField = computed(() =>
+  editor.loader.heroDescriptionField && !editor.loader.heroDescriptionField.localized
+    ? editor.loader.heroDescriptionField
+    : null,
+)
+
 // Register the entry-details panel in the right sidebar (RFC Phase 5 step 2).
 // The editor context crosses the layout/page provide boundary through the props
 // getter; the panel re-provides it so the moved cards keep their inject() intact.
 // The reactive title also feeds StudioHeader's last breadcrumb on this route.
 useRightSidebarPanel({
-  title: () => entryTitle.value || t('ginkoCms.studio.layout.entry'),
+  // Locale without a title yet → the slug still identifies the entry far
+  // better than a generic "Entry" (W1 walkthrough finding).
+  title: () => entryTitle.value || editor.loader.entry?.slug || t('ginkoCms.studio.layout.entry'),
   description: () => collectionLabel.value || undefined,
   component: StudioEntryDetailsPanel,
   props: () => ({ editor }),
@@ -110,9 +126,19 @@ useRightSidebarPanel({
             </Button>
           </template>
         </StudioNotice>
-        <div>
-          <StudioSharedFieldsPanel />
-        </div>
+        <!-- Writing surface (content-first order): a SHARED title/description
+             renders once as the page hero; locale panels carry their own hero
+             when the title is localized. Shared metadata moves BELOW. -->
+        <StudioEntryHeroFields
+          v-if="sharedHeroTitleField"
+          :title-field="sharedHeroTitleField"
+          :description-field="sharedHeroDescriptionField"
+          :values="editor.draft.dataFields"
+          :disabled="!editor.loader.canEditEntries"
+          show-validation
+          class="ginko:px-1"
+          @update="(key, value) => (editor.draft.dataFields[key] = value)"
+        />
 
         <div
           class="studio-entry-locale-panels ginko:grid ginko:grid-cols-1 ginko:items-start ginko:gap-5"
@@ -122,14 +148,25 @@ useRightSidebarPanel({
               : ''
           "
         >
-          <StudioLocaleEditorPanel side="primary" :status="workflow.primaryLocaleStatus" />
+          <StudioLocaleEditorPanel
+            side="primary"
+            :status="workflow.primaryLocaleStatus"
+            :state="workflow.primaryLocaleState"
+            :blocked="workflow.primaryLocaleBlocked"
+          />
           <StudioLocaleEditorPanel
             v-if="workflow.isCompareMode"
             side="secondary"
             :status="workflow.secondaryLocaleStatus"
+            :state="workflow.secondaryLocaleState"
+            :blocked="workflow.secondaryLocaleBlocked"
             :missing-fields="workflow.secondaryLocaleMissingFields"
           />
         </div>
+
+        <!-- Shared metadata reads as details, not headline — it hides itself
+             when the hero absorbed everything it had to offer. -->
+        <StudioSharedFieldsPanel />
       </div>
     </template>
 

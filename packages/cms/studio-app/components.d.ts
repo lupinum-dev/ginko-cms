@@ -201,6 +201,7 @@ declare module 'vue' {
     StudioEntryCreatePanel: typeof import('./src/components/studio/editor/StudioEntryCreatePanel.vue')['default']
     StudioEntryDetailsPanel: typeof import('./src/components/studio/editor/StudioEntryDetailsPanel.vue')['default']
     StudioEntryEditorShell: typeof import('./src/components/studio/editor/StudioEntryEditorShell.vue')['default']
+    StudioEntryHeroFields: typeof import('./src/components/studio/editor/StudioEntryHeroFields.vue')['default']
     StudioEntryPublicWorkflowPanel: typeof import('./src/components/studio/editor/StudioEntryPublicWorkflowPanel.vue')['default']
     StudioEntryStatusRail: typeof import('./src/components/studio/editor/StudioEntryStatusRail.vue')['default']
     StudioEntryTopBar: typeof import('./src/components/studio/editor/StudioEntryTopBar.vue')['default']

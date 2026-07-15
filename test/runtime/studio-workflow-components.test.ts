@@ -318,10 +318,20 @@ describe('Studio shadcn surface wrappers', () => {
 const t = (key: string, params?: Record<string, unknown>) => {
   const labels: Record<string, string> = {
     'ginkoCms.studio.collectionsPage.collectionSettings': 'Content type details',
+    'ginkoCms.studio.collectionsPage.codeDefinedBadge': 'Managed by developers',
     'ginkoCms.studio.collectionsPage.supportedLocales': 'Supported locales',
     'ginkoCms.studio.collectionsPage.fieldsCount': `${params?.count ?? 0} fields`,
     'ginkoCms.studio.collectionsPage.widthHalfLabel': 'half width',
     'ginkoCms.studio.collectionsPage.noFields': 'No fields defined yet.',
+    'ginkoCms.studio.collectionContract.createsWebsitePages': 'Creates website pages',
+    'ginkoCms.studio.collectionContract.sharedContent': 'Shared content',
+    'ginkoCms.studio.collectionContract.routeModeDescription':
+      'Creates public pages with localized routes, visibility diagnostics, sitemap/search/nav participation, SEO, and website-change checks.',
+    'ginkoCms.studio.collectionContract.dataModeDescription':
+      'Stores structured content for lists, relations, single-entry content, and site-wide content without page routes.',
+    'ginkoCms.studio.collectionContract.pageControlsHidden':
+      'Page controls are hidden for shared-content types. Sitemap, search, navigation, and route diagnostics do not apply until this content type creates website pages.',
+    'ginkoCms.studio.collectionContract.outOfDatePrefix': 'Out-of-date URL prefix:',
   }
   return labels[key] ?? key
 }
@@ -389,7 +399,12 @@ function createLocalePanelEditor() {
       currentLocale: 'en',
       dateLocale: 'en',
       entry: { publishedAt: '2026-05-21T12:52:50.899Z' },
-      localizedFields: [{ key: 'title', label: 'Title', type: 'text' }],
+      localizedFields: [{ key: 'title', label: 'Title', type: 'text', localized: true }],
+      // Writing-surface split (W4): the hero absorbs title/description, the
+      // generic loop renders the remaining detail fields.
+      heroTitleField: { key: 'title', label: 'Title', type: 'text', localized: true },
+      heroDescriptionField: null,
+      localizedDetailFields: [],
       t: (key: string) => (key === 'ginkoCms.common.path' ? 'Path' : key),
     },
     draft: {
@@ -440,6 +455,12 @@ function createSharedFieldsPanelEditor(locales: string[] = ['en']) {
       locales,
       parentOptions: [],
       sharedFields: [
+        { key: 'date', label: 'Date', localized: false, type: 'date' },
+        { key: 'image', label: 'Image', localized: false, type: 'asset' },
+      ],
+      heroTitleField: null,
+      heroDescriptionField: null,
+      sharedDetailFields: [
         { key: 'date', label: 'Date', localized: false, type: 'date' },
         { key: 'image', label: 'Image', localized: false, type: 'asset' },
       ],

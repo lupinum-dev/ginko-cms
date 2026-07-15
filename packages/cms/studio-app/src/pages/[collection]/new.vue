@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { resolveEntryTitle } from '@lupinum/ginko-cms-contract/shared/fields/title.js'
+import {
+  resolveDescriptionFieldKey,
+  resolveEntryTitle,
+  resolveTitleFieldKey,
+} from '@lupinum/ginko-cms-contract/shared/fields/title.js'
 import type {
   CmsField,
   JsonMap,
@@ -30,6 +34,7 @@ import { useStudioDebug } from '../../composables/useStudioDebug'
 import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
 import { slugifyStudioText } from '../../lib/slug'
 import StudioEntryCreatePanel from '../../components/studio/editor/StudioEntryCreatePanel.vue'
+import StudioEntryHeroFields from '../../components/studio/editor/StudioEntryHeroFields.vue'
 
 const { can } = useCmsStudioAccess()
 const canPublishEntries = can(cmsPermissionKeys.publishEntries)
@@ -121,6 +126,51 @@ const sharedFields = computed(() =>
 )
 const localizedFields = computed(() =>
   fields.value.filter((field) => field.localized && field.type !== 'slug'),
+)
+// Writing-surface hero (mirrors useEntryLoader's display-only split): the
+// title/description render as a large borderless heading, the generic loops
+// below render the remaining detail fields. buildSharedData/buildLocalizedData
+// keep reading the FULL field lists, so payloads are unaffected.
+function heroEligible(field: CmsField | null | undefined): field is CmsField {
+  return (
+    !!field &&
+    (field.type === 'text' || field.type === 'textarea') &&
+    !field.hidden &&
+    !field.condition
+  )
+}
+const heroTitleField = computed<CmsField | null>(() => {
+  const key = resolveTitleFieldKey(fields.value, collectionConfig.value?.settings)
+  const field = key ? fields.value.find((candidate) => candidate.key === key) : null
+  return heroEligible(field) ? field : null
+})
+const heroDescriptionField = computed<CmsField | null>(() => {
+  if (!heroTitleField.value) return null
+  const key = resolveDescriptionFieldKey(fields.value, collectionConfig.value?.settings)
+  const field = key ? fields.value.find((candidate) => candidate.key === key) : null
+  return heroEligible(field) &&
+    field.key !== heroTitleField.value.key &&
+    Boolean(field.localized) === Boolean(heroTitleField.value.localized)
+    ? field
+    : null
+})
+const heroFieldKeys = computed(() => {
+  const keys = new Set<string>()
+  if (heroTitleField.value) keys.add(heroTitleField.value.key)
+  if (heroDescriptionField.value) keys.add(heroDescriptionField.value.key)
+  return keys
+})
+const sharedDetailFields = computed(() =>
+  sharedFields.value.filter((field) => !heroFieldKeys.value.has(field.key)),
+)
+const localizedDetailFields = computed(() =>
+  localizedFields.value.filter((field) => !heroFieldKeys.value.has(field.key)),
+)
+const sharedHeroTitleField = computed(() =>
+  heroTitleField.value && !heroTitleField.value.localized ? heroTitleField.value : null,
+)
+const localizedHeroTitleField = computed(() =>
+  heroTitleField.value?.localized ? heroTitleField.value : null,
 )
 const slugMode = computed(
   () => collectionConfig.value?.slugMode ?? collectionConfig.value?.routing?.slugMode ?? 'shared',
@@ -554,15 +604,17 @@ if (typeof window !== 'undefined') {
               class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3"
             >
               <div class="ginko:min-w-0 ginko:space-y-1">
-                <div class="studio-text-eyebrow ginko:text-muted-foreground">Live URL</div>
+                <div class="studio-text-eyebrow ginko:text-muted-foreground">
+                  {{ t('ginkoCms.studio.collectionEditor.liveUrl') }}
+                </div>
                 <div class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-foreground">
-                  {{ computedPath || 'Add a title to generate the URL' }}
+                  {{ computedPath || t('ginkoCms.studio.collectionEditor.urlNeedsTitle') }}
                 </div>
                 <div class="studio-text-caption ginko:text-muted-foreground">
                   {{
                     sharedSlugManuallyEdited
-                      ? 'URL slug edited manually.'
-                      : 'URL slug is generated from the title.'
+                      ? t('ginkoCms.studio.collectionEditor.sharedSlugManual')
+                      : t('ginkoCms.studio.collectionEditor.sharedSlugAuto')
                   }}
                 </div>
               </div>
@@ -575,7 +627,7 @@ if (typeof window !== 'undefined') {
                   type="button"
                   @click="resetSharedSlugToTitle"
                 >
-                  Reset to title
+                  {{ t('ginkoCms.studio.collectionEditor.resetToTitle') }}
                 </Button>
                 <Button
                   variant="outline"
@@ -584,14 +636,18 @@ if (typeof window !== 'undefined') {
                   type="button"
                   @click="sharedSlugEditing = !sharedSlugEditing"
                 >
-                  {{ sharedSlugEditing ? 'Done' : 'Edit slug' }}
+                  {{
+                    sharedSlugEditing
+                      ? t('ginkoCms.studio.collectionEditor.slugDone')
+                      : t('ginkoCms.studio.collectionEditor.editSlug')
+                  }}
                 </Button>
               </div>
             </div>
             <StudioFieldShell
               v-if="sharedSlugEditing"
               for="manual-slug"
-              label="URL slug"
+              :label="t('ginkoCms.studio.collectionEditor.urlSlugLabel')"
               class="ginko:mt-3"
             >
               <Input
@@ -663,12 +719,24 @@ if (typeof window !== 'undefined') {
             </StudioFieldShell>
           </div>
 
+          <!-- Shared hero (single-language sites): the title writes the same
+               dataFields the slug watchers read, so URL generation is
+               untouched; the loop below renders the remaining detail fields. -->
+          <StudioEntryHeroFields
+            v-if="sharedHeroTitleField"
+            :title-field="sharedHeroTitleField"
+            :description-field="heroDescriptionField"
+            :values="dataFields"
+            :show-validation="shouldShowFieldValidation(sharedHeroTitleField.key)"
+            @update="(key, value) => (dataFields[key] = value)"
+            @blur="markFieldTouched"
+          />
           <div
-            v-if="sharedFields.length > 0"
+            v-if="sharedDetailFields.length > 0"
             class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-2"
           >
             <StudioFieldRenderer
-              v-for="field in sharedFields"
+              v-for="field in sharedDetailFields"
               :key="field.key"
               :field="field"
               :model-value="dataFields[field.key]"
@@ -700,6 +768,16 @@ if (typeof window !== 'undefined') {
           <StudioStatusPill label="Draft setup" tone="neutral" />
         </div>
         <div class="ginko:bg-card ginko:p-5">
+          <StudioEntryHeroFields
+            v-if="localizedHeroTitleField"
+            :title-field="localizedHeroTitleField"
+            :description-field="heroDescriptionField"
+            :values="dataFields"
+            :show-validation="shouldShowFieldValidation(localizedHeroTitleField.key)"
+            class="ginko:mb-5"
+            @update="(key, value) => (dataFields[key] = value)"
+            @blur="markFieldTouched"
+          />
           <div
             v-if="isRouteBackedCollection && usesLocalizedSlug"
             class="ginko:mb-5 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:px-4 ginko:py-3"
@@ -708,15 +786,17 @@ if (typeof window !== 'undefined') {
               class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3"
             >
               <div class="ginko:min-w-0 ginko:space-y-1">
-                <div class="studio-text-eyebrow ginko:text-muted-foreground">Live URL</div>
+                <div class="studio-text-eyebrow ginko:text-muted-foreground">
+                  {{ t('ginkoCms.studio.collectionEditor.liveUrl') }}
+                </div>
                 <div class="ginko:truncate ginko:font-mono ginko:text-sm ginko:text-foreground">
-                  {{ computedPath || 'Add a title to generate the URL' }}
+                  {{ computedPath || t('ginkoCms.studio.collectionEditor.urlNeedsTitle') }}
                 </div>
                 <div class="studio-text-caption ginko:text-muted-foreground">
                   {{
                     defaultLocalizedSlugState.manuallyEdited
-                      ? 'URL slug edited manually for this language.'
-                      : 'URL slug is generated from this language title.'
+                      ? t('ginkoCms.studio.collectionEditor.localizedSlugManual')
+                      : t('ginkoCms.studio.collectionEditor.localizedSlugAuto')
                   }}
                 </div>
               </div>
@@ -729,7 +809,7 @@ if (typeof window !== 'undefined') {
                   type="button"
                   @click="resetLocalizedSlugToTitle(defaultLocale)"
                 >
-                  Reset to title
+                  {{ t('ginkoCms.studio.collectionEditor.resetToTitle') }}
                 </Button>
                 <Button
                   variant="outline"
@@ -738,14 +818,18 @@ if (typeof window !== 'undefined') {
                   type="button"
                   @click="defaultLocalizedSlugState.editing = !defaultLocalizedSlugState.editing"
                 >
-                  {{ defaultLocalizedSlugState.editing ? 'Done' : 'Edit slug' }}
+                  {{
+                    defaultLocalizedSlugState.editing
+                      ? t('ginkoCms.studio.collectionEditor.slugDone')
+                      : t('ginkoCms.studio.collectionEditor.editSlug')
+                  }}
                 </Button>
               </div>
             </div>
             <StudioFieldShell
               v-if="defaultLocalizedSlugState.editing"
               for="manual-slug"
-              label="URL slug"
+              :label="t('ginkoCms.studio.collectionEditor.urlSlugLabel')"
               class="ginko:mt-3"
             >
               <Input
@@ -758,9 +842,12 @@ if (typeof window !== 'undefined') {
             </StudioFieldShell>
           </div>
 
-          <div v-if="localizedFields.length > 0" class="ginko:grid ginko:grid-cols-1 ginko:gap-4">
+          <div
+            v-if="localizedDetailFields.length > 0"
+            class="ginko:grid ginko:grid-cols-1 ginko:gap-4"
+          >
             <StudioFieldRenderer
-              v-for="field in localizedFields"
+              v-for="field in localizedDetailFields"
               :key="field.key"
               :field="field"
               :model-value="dataFields[field.key]"

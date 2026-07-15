@@ -1,3 +1,8 @@
+import {
+  resolveDescriptionFieldKey,
+  resolveTitleFieldKey,
+} from '@lupinum/ginko-cms-contract/shared/fields/title.js'
+import type { CmsField } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { compareOrderRank } from '@public/utils/cmsFields'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -82,6 +87,55 @@ export function useEntryLoader() {
   const fields = computed<StudioField[]>(() => collectionConfig.value?.fields ?? [])
   const sharedFields = computed(() => fields.value.filter((field) => !field.localized))
   const localizedFields = computed(() => fields.value.filter((field) => field.localized))
+
+  // --- Writing-surface hero fields (display-only) ---
+  // Title/description render as a large borderless heading + subtitle instead
+  // of boxed form inputs. CRITICAL: sharedFields/localizedFields above stay
+  // untouched — useEntryDraft/useEntryLocales/copyPrimaryToSecondary build
+  // save payloads from them; the hero extraction only changes what the
+  // generic field loops RENDER (the *DetailFields lists below).
+  function heroEligible(field: StudioField | null | undefined): field is StudioField {
+    return (
+      !!field &&
+      (field.type === 'text' || field.type === 'textarea') &&
+      !field.hidden &&
+      !field.condition
+    )
+  }
+  const heroTitleField = computed<StudioField | null>(() => {
+    const key = resolveTitleFieldKey(fields.value as CmsField[], collectionConfig.value?.settings)
+    const field = key ? fields.value.find((candidate) => candidate.key === key) : null
+    return heroEligible(field) ? field : null
+  })
+  const heroDescriptionField = computed<StudioField | null>(() => {
+    // No hero without a title — a lone floating description reads as a bug.
+    if (!heroTitleField.value) return null
+    const key = resolveDescriptionFieldKey(
+      fields.value as CmsField[],
+      collectionConfig.value?.settings,
+    )
+    const field = key ? fields.value.find((candidate) => candidate.key === key) : null
+    // The description joins the hero only when it lives on the same surface
+    // as the title (both localized or both shared) — a mixed pair would strip
+    // a field from one render loop without any hero rendering it.
+    return heroEligible(field) &&
+      field.key !== heroTitleField.value.key &&
+      Boolean(field.localized) === Boolean(heroTitleField.value.localized)
+      ? field
+      : null
+  })
+  const heroFieldKeys = computed(() => {
+    const keys = new Set<string>()
+    if (heroTitleField.value) keys.add(heroTitleField.value.key)
+    if (heroDescriptionField.value) keys.add(heroDescriptionField.value.key)
+    return keys
+  })
+  const sharedDetailFields = computed(() =>
+    sharedFields.value.filter((field) => !heroFieldKeys.value.has(field.key)),
+  )
+  const localizedDetailFields = computed(() =>
+    localizedFields.value.filter((field) => !heroFieldKeys.value.has(field.key)),
+  )
   const localeVariants = computed(() => entry.value?.localeVariants ?? [])
   const currentLocale = computed(() => entry.value?.locale ?? routeLocale.value)
   const existingEntries = computed<ParentEntry[]>(
@@ -150,6 +204,10 @@ export function useEntryLoader() {
     fields,
     sharedFields,
     localizedFields,
+    heroTitleField,
+    heroDescriptionField,
+    sharedDetailFields,
+    localizedDetailFields,
     localeVariants,
     currentLocale,
     parentPathById,

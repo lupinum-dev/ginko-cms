@@ -416,6 +416,15 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
       : undefined,
   )
 
+  // Raw state codes for tone decisions — labels above are display-only and
+  // localized, so anything deriving semantics must use these instead.
+  const primaryLocaleState = computed(
+    () => currentReadinessView.value.currentLocale?.state ?? null,
+  )
+  const primaryLocaleBlocked = computed(
+    () => (currentReadinessView.value.currentLocale?.blockers.length ?? 0) > 0,
+  )
+
   const secondaryLocaleReadiness = computed(() =>
     editor.locales.secondaryLocale
       ? (readinessDetail.value?.locales.find(
@@ -428,6 +437,11 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     secondaryLocaleReadiness.value
       ? readinessStateLabel(editor.loader.t, secondaryLocaleReadiness.value.state)
       : undefined,
+  )
+
+  const secondaryLocaleState = computed(() => secondaryLocaleReadiness.value?.state ?? null)
+  const secondaryLocaleBlocked = computed(
+    () => (secondaryLocaleReadiness.value?.blockers.length ?? 0) > 0,
   )
 
   const secondaryLocaleMissingFields = computed(() =>
@@ -648,7 +662,11 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     publicVisibility,
     translationReadiness,
     primaryLocaleStatus,
+    primaryLocaleState,
+    primaryLocaleBlocked,
     secondaryLocaleStatus,
+    secondaryLocaleState,
+    secondaryLocaleBlocked,
     secondaryLocaleMissingFields,
     isCompareMode,
     publishReview,

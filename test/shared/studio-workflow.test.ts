@@ -16,6 +16,7 @@ import {
   readinessActionLabel,
   readinessIssueMessage,
   readinessStateLabel,
+  readinessStateTone,
   websiteRefreshStatusLabel,
   websiteRefreshStatusMessage,
 } from '../../packages/cms/studio-app/src/lib/publicWorkflow'
@@ -287,6 +288,25 @@ describe('Studio public workflow helpers', () => {
       }),
     ).toBe('Required translation field is missing: title')
     expect(readinessActionLabel(testT, 'publish_locale')).toBe('Publish this language')
+  })
+
+  it('derives status pill tones from state codes, never from localized labels', () => {
+    expect(readinessStateTone('live')).toBe('success')
+    expect(readinessStateTone('live_with_changes')).toBe('success')
+    expect(readinessStateTone('ready')).toBe('success')
+    expect(readinessStateTone('needs_work')).toBe('warning')
+    expect(readinessStateTone('missing')).toBe('warning')
+    expect(readinessStateTone('in_review')).toBe('info')
+    // Plain drafts are a normal state, not a problem state.
+    expect(readinessStateTone('draft')).toBe('neutral')
+    expect(readinessStateTone(null)).toBe('neutral')
+    expect(readinessStateTone(undefined)).toBe('neutral')
+    // Blockers override every state.
+    expect(readinessStateTone('live', { blocked: true })).toBe('warning')
+    expect(readinessStateTone('draft', { blocked: true })).toBe('warning')
+    // Tone is code-driven: a German (or any) label never changes the result,
+    // because the label is not an input at all.
+    expect(readinessStateTone('live')).toBe(readinessStateTone('live', { blocked: false }))
   })
 
   it('maps website refresh job states to marketer-facing Studio copy', () => {

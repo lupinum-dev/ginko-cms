@@ -2,6 +2,7 @@
 import { AlertCircle, Clock, Globe, Sparkles, TriangleAlert } from '@lucide/vue'
 import { computed } from 'vue'
 
+import { createReadinessActionHandler } from '../../../composables/internal/readinessActionHandler'
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
 import {
@@ -9,6 +10,7 @@ import {
   readinessActionLabel,
   readinessIssueMessage,
   readinessStateLabel,
+  readinessStateTone,
 } from '../../../lib/publicWorkflow'
 import StudioEntryTrackCard from './StudioEntryTrackCard.vue'
 import StudioWorkflowCard from './StudioWorkflowCard.vue'
@@ -35,6 +37,7 @@ const props = defineProps<{
 
 const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
+const actionHandler = createReadinessActionHandler(editor)
 
 const t = (key: string, params?: Record<string, unknown>): string =>
   editor.loader.t(`ginkoCms.studio.entryDetails.${key}`, params)
@@ -54,6 +57,7 @@ const localeSummaries = computed(() =>
   readinessView.value.languageRows.map((row) => ({
     label: row.label,
     status: row.status,
+    state: row.state,
     blocked: row.blocked,
   })),
 )
@@ -76,6 +80,8 @@ const publishedLocaleCount = computed(
 // exists when there is more than one language.
 const isLive = computed(() => entry.value?.status === 'published')
 const hasMultipleLocales = computed(() => localeSummaries.value.length > 1)
+
+const nextActionHandled = computed(() => actionHandler.canHandle(readinessView.value.nextAction))
 
 const blockingIssues = computed(() => {
   const issues: Array<{ key: string; message: string }> = []
@@ -120,14 +126,13 @@ const blockingIssues = computed(() => {
                 : t('statusUnknown')
           "
           :tone="
-            readinessView.blockers.length
-              ? 'warning'
-              : readinessView.currentLocale?.state === 'live' ||
-                  readinessView.currentLocale?.state === 'ready'
+            readinessView.currentLocale
+              ? readinessStateTone(readinessView.currentLocale.state, {
+                  blocked: readinessView.blockers.length > 0,
+                })
+              : entry?.status === 'published'
                 ? 'success'
-                : entry?.status === 'published'
-                  ? 'success'
-                  : 'warning'
+                : 'neutral'
           "
           class="ginko:capitalize"
         />
@@ -164,6 +169,18 @@ const blockingIssues = computed(() => {
         class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground"
       >
         {{ t('checkingPublish') }}
+      </div>
+      <!-- The next step is a real button whenever the dispatcher can act on
+           it (focus the field, switch locale, open the publish preview, …);
+           unhandled kinds keep the label-only sentence. -->
+      <div v-else-if="nextActionHandled" class="ginko:mt-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          @click="actionHandler.handle(readinessView.nextAction)"
+        >
+          {{ readinessActionLabel(editor.loader.t, readinessView.nextAction?.kind) }}
+        </Button>
       </div>
       <div v-else class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground">
         {{
@@ -236,15 +253,7 @@ const blockingIssues = computed(() => {
             </span>
             <StudioStatusPill
               :label="locale.status"
-              :tone="
-                locale.blocked
-                  ? 'warning'
-                  : locale.status === 'Published' ||
-                      locale.status === 'Public' ||
-                      locale.status === 'Live'
-                    ? 'success'
-                    : 'neutral'
-              "
+              :tone="readinessStateTone(locale.state, { blocked: locale.blocked })"
             />
           </div>
         </div>

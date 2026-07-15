@@ -184,6 +184,29 @@ export function readinessStateLabel(
   )
 }
 
+// Tone comes from the STATE CODE, never from the localized label — label
+// comparisons broke in any non-English Studio. Blockers override everything;
+// plain drafts are a normal state, not a problem, so they render neutral.
+export function readinessStateTone(
+  state: ReadinessState | string | null | undefined,
+  options?: { blocked?: boolean },
+): 'success' | 'warning' | 'info' | 'neutral' {
+  if (options?.blocked) return 'warning'
+  switch (state) {
+    case 'live':
+    case 'live_with_changes':
+    case 'ready':
+      return 'success'
+    case 'needs_work':
+    case 'missing':
+      return 'warning'
+    case 'in_review':
+      return 'info'
+    default:
+      return 'neutral'
+  }
+}
+
 export function readinessActionLabel(
   t: StudioWorkflowTranslator,
   kind: ReadinessActionKind | string | null | undefined,

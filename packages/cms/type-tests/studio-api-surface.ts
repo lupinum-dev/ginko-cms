@@ -102,8 +102,6 @@ type _ExactSaveEntryDraft = TypeAssert<
 
 // @ts-expect-error `editor.mcpCreateEntry` is an MCP-only backend function, not part of the Studio allowlist.
 type _NoMcpCreateEntry = BridgeGinkoCms['editor']['mcpCreateEntry']
-// @ts-expect-error `editor.restoreEntry` is not part of the Studio allowlist.
-type _NoRestoreEntry = BridgeGinkoCms['editor']['restoreEntry']
 // @ts-expect-error `assets.getAssetUrl` is not part of the Studio allowlist.
 type _NoGetAssetUrl = BridgeGinkoCms['assets']['getAssetUrl']
 // @ts-expect-error `agentRuns.startRun` is not part of the Studio allowlist.
@@ -122,7 +120,6 @@ export type _StudioApiSurfaceTypeTest = [
   _ExactGetAccessContext,
   _ExactSaveEntryDraft,
   _NoMcpCreateEntry,
-  _NoRestoreEntry,
   _NoGetAssetUrl,
   _NoStartRun,
   _NoRouteMeta,
