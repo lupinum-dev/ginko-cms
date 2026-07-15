@@ -139,15 +139,20 @@ const saveIndicatorLabel = computed(() => {
   if (!editor) return ''
   if (saveState.value === 'saving')
     return editor.loader.t('ginkoCms.studio.collectionEditor.saving')
-  if (saveState.value === 'dirty') return 'Unsaved changes'
-  if (saveState.value === 'conflict') return 'Save conflict'
-  if (saveState.value === 'offline-pending') return 'Offline pending'
-  if (!lastSaved.value) return 'Saved'
+  if (saveState.value === 'dirty')
+    return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateDirty')
+  if (saveState.value === 'conflict')
+    return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateConflict')
+  if (saveState.value === 'offline-pending')
+    return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateOffline')
+  if (!lastSaved.value) return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateSaved')
   const formatted = new Intl.DateTimeFormat(editor.loader.dateLocale || undefined, {
     hour: 'numeric',
     minute: '2-digit',
   }).format(lastSaved.value)
-  return `Saved last ${formatted}`
+  return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateSavedAt', {
+    time: formatted,
+  })
 })
 
 const showEntryActions = computed(
