@@ -25,7 +25,10 @@ const headerClass =
   'ginko:border-b ginko:h-(--header-height) ginko:flex ginko:flex-col ginko:justify-center ginko:px-4 ginko:mt-[9px]'
 
 const panelClass = computed(() => {
-  if (!open.value) {
+  // Zero-width (not unmounted) when unavailable: the aside must stay in the
+  // flex row so its margin-right:auto keeps the ultra-wide clamp symmetric
+  // (see panelStyle) on routes without a detail panel.
+  if (!available.value || !open.value) {
     return 'w-0 opacity-0 pointer-events-none'
   }
 
@@ -46,6 +49,11 @@ const panelClass = computed(() => {
 const panelStyle = computed(() => ({
   '--rsw-laptop': widthVars.value.laptop,
   '--rsw-wide': widthVars.value.wide,
+  // Ultra-wide clamp counterpart to SidebarInset's margin-left:auto (see
+  // Layout.vue): free canvas space splits evenly around the card/panel pair.
+  // Resolves to 0 when the viewport is fully used, so narrow layouts are
+  // unchanged.
+  marginRight: 'auto',
 }))
 
 function onEscape() {
@@ -60,11 +68,10 @@ function onEscape() {
 
 <template>
   <aside
-    v-if="available"
     id="right-sidebar"
     data-slot="right-sidebar"
-    :aria-hidden="!open"
-    :inert="!open || undefined"
+    :aria-hidden="!open || !available"
+    :inert="!open || !available || undefined"
     class="ginko:relative ginko:hidden ginko:shrink-0 ginko:overflow-hidden ginko:md:sticky ginko:md:self-start ginko:md:flex ginko:md:flex-col ginko:md:transition-[width,opacity] ginko:md:duration-[240ms] ginko:md:ease-[cubic-bezier(0.2,0,0,1)]"
     :class="panelClass"
     :style="panelStyle"

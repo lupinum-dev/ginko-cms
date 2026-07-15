@@ -419,6 +419,13 @@
   --header-height: var(--ginko-cms-header-height, 54px);
   --surface: var(--ginko-cms-surface, oklch(0.98 0 0));
   --surface-foreground: var(--ginko-cms-surface-foreground, var(--foreground));
+  /* Ultra-wide clamp: max width of the inset content CARD (the right-sidebar
+   * panel sits outside this budget). On viewports wider than card+panel the
+   * card/panel pair centers on the canvas via auto margins in Layout.vue /
+   * RightSidebar.vue, so 4K screens get breathing room instead of
+   * meter-long text lines. Scheme-invariant, so light-only like
+   * --header-height. */
+  --studio-content-max: var(--ginko-cms-studio-content-max, 105rem);
 
   /* Unovis chart vars — private/internal, no consumer-override contract. */
   --vis-primary-color: var(--primary);

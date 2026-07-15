@@ -131,8 +131,16 @@ async function claimCmsOwnership() {
       Phase 6. `z-10` lifts the inset above the (future) right-sidebar panel so
       the resize rail paints over the boundary.
     -->
+    <!-- Ultra-wide clamp: the card caps at --studio-content-max and the
+         leftover canvas splits between margin-left:auto here and
+         margin-right:auto on RightSidebar, centering the card/panel pair.
+         Inline styles (not classes) because the sidebar primitive's
+         peer-data-[variant=inset] rules also set margins and class order
+         must not decide; auto resolves to 0 when there is no free space, so
+         laptop layouts are unchanged. -->
     <SidebarInset
-      class="ginko:relative ginko:z-10 ginko:flex ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:flex-col ginko:overflow-hidden"
+      class="ginko:relative ginko:z-10 ginko:flex ginko:w-full ginko:min-w-0 ginko:max-w-(--studio-content-max) ginko:flex-1 ginko:flex-col ginko:overflow-hidden"
+      style="margin-left: auto"
     >
       <StudioHeader />
       <div
