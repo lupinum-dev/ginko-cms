@@ -114,6 +114,7 @@ export const studioApiSurface = {
     },
     reparentEntry: 'mutation',
     reorderEntry: 'mutation',
+    restoreEntry: 'mutation',
     rollbackVersion: {
       kind: 'mutation',
       component: 'rollbackVersionOperationExecute',

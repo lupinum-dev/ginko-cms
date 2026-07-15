@@ -98,7 +98,18 @@ useRightSidebarPanel({
           tone="warning"
           :title="t('ginkoCms.studio.collectionEditor.archivedNoticeTitle')"
           :description="t('ginkoCms.studio.collectionEditor.archivedNoticeDescription')"
-        />
+        >
+          <template v-if="editor.loader.canArchiveEntries" #action>
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="editor.draft.saving"
+              @click="editor.publishing.handleRestore()"
+            >
+              {{ t('ginkoCms.common.restoreDraft') }}
+            </Button>
+          </template>
+        </StudioNotice>
         <div>
           <StudioSharedFieldsPanel />
         </div>

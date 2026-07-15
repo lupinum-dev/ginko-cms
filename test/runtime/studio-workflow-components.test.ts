@@ -11,6 +11,7 @@ import StudioCollectionContractSection from '../../packages/cms/studio-app/src/c
 import StudioCheckpointDialog from '../../packages/cms/studio-app/src/components/studio/editor/StudioCheckpointDialog.vue'
 import StudioEntryPublicWorkflowPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryPublicWorkflowPanel.vue'
 import StudioEntryStatusRail from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryStatusRail.vue'
+import StudioEntryTopBar from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryTopBar.vue'
 import StudioEntryTranslationReadinessPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioEntryTranslationReadinessPanel.vue'
 import StudioLocaleEditorPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioLocaleEditorPanel.vue'
 import StudioPublishDialog from '../../packages/cms/studio-app/src/components/studio/editor/StudioPublishDialog.vue'
@@ -1911,5 +1912,72 @@ describe('Studio version history copy', () => {
 
     expect(wrapper.text()).toContain('URL updated')
     expect(wrapper.text()).not.toContain('Published EN')
+  })
+})
+
+describe('Studio entry top bar restore action', () => {
+  function topBarEditor(status: 'draft' | 'published' | 'archived') {
+    return reactive({
+      draft: {
+        dataFields: {},
+        handleSaveDraft: vi.fn(),
+        lastSaved: null,
+        saveState: 'saved',
+        saving: false,
+      },
+      history: { showCheckpointDialog: false },
+      loader: {
+        canArchiveEntries: true,
+        canEditEntries: true,
+        canPublishEntries: true,
+        collectionConfig: { settings: {} },
+        currentLocale: 'en',
+        dateLocale: 'en',
+        entry: { status },
+        fields: [],
+        localeVariants: [{ locale: 'en' }],
+        t: dictionaryT(en),
+      },
+      publishing: {
+        handleArchive: vi.fn(),
+        handlePublish: vi.fn(),
+        handlePublishAll: vi.fn(),
+        handleRestore: vi.fn(),
+        handleUnpublish: vi.fn(),
+        publishReadiness: { state: 'not_previewed' },
+      },
+    })
+  }
+
+  function menuLabels(wrapper: ReturnType<typeof mountWithStudioContext>) {
+    return wrapper.findAll('button').map((button) => button.text().trim())
+  }
+
+  it('offers restore instead of archive for archived entries', async () => {
+    const editor = topBarEditor('archived')
+    const wrapper = mountWithStudioContext(StudioEntryTopBar, editor)
+
+    const labels = menuLabels(wrapper)
+    expect(labels).toContain('Restore draft')
+    expect(labels).not.toContain('Archive')
+
+    const restoreItem = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Restore draft')
+    await restoreItem?.trigger('click')
+    expect(editor.publishing.handleRestore).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('offers archive but not restore for non-archived entries', () => {
+    const draft = mountWithStudioContext(StudioEntryTopBar, topBarEditor('draft'))
+    expect(menuLabels(draft)).toContain('Archive')
+    expect(menuLabels(draft)).not.toContain('Restore draft')
+    draft.unmount()
+
+    const published = mountWithStudioContext(StudioEntryTopBar, topBarEditor('published'))
+    expect(menuLabels(published)).toContain('Archive')
+    expect(menuLabels(published)).not.toContain('Restore draft')
+    published.unmount()
   })
 })

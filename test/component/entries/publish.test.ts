@@ -948,6 +948,39 @@ describe('editor publish operations', () => {
     })
     expect(restoredEntry?.status).toBe('draft')
     expect(await ctx.readAll('publicEntries')).toEqual([])
+    expect(await ctx.readAll('activity')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'entry.restored',
+          appIdentityId: 'owner-1',
+          entryId,
+        }),
+      ]),
+    )
+  })
+
+  it('rejects restoring an archived entry for callers without archive permission', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
+    const { entryId } = await seedEditorFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    await publishEntry(owner, entryId)
+    await archiveEntry(owner, entryId)
+
+    const editor = ctx.asCmsUser('editor-1')
+    await expect(editor.restoreEntry({ entryId })).rejects.toThrow(/Archive entries/i)
+
+    const stillArchived = await owner.query(api.editor.getEntry, {
+      id: entryId,
+      locale: 'en',
+    })
+    expect(stillArchived?.status).toBe('archived')
+    expect((await ctx.readAll('activity')).map((row: { kind: string }) => row.kind)).not.toContain(
+      'entry.restored',
+    )
   })
 
   it('publishes child paths from published ancestry instead of draft ancestry', async () => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   Archive,
+  ArchiveRestore,
   ChevronDown,
   EyeOff,
   Flag,
@@ -314,12 +315,20 @@ function requestReview() {
               {{ editor.loader.t('ginkoCms.common.unpublish') }}
             </DropdownMenuItem>
             <DropdownMenuItem
-              v-if="editor.loader.canArchiveEntries"
+              v-if="entry?.status !== 'archived' && editor.loader.canArchiveEntries"
               :disabled="editor.draft.saving || !editor.loader.canArchiveEntries"
               @click="editor.publishing.handleArchive()"
             >
               <Archive class="ginko:mr-2 ginko:size-3.5" />
               {{ editor.loader.t('ginkoCms.common.archive') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              v-if="entry?.status === 'archived' && editor.loader.canArchiveEntries"
+              :disabled="editor.draft.saving || !editor.loader.canArchiveEntries"
+              @click="editor.publishing.handleRestore()"
+            >
+              <ArchiveRestore class="ginko:mr-2 ginko:size-3.5" />
+              {{ editor.loader.t('ginkoCms.common.restoreDraft') }}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -109,6 +109,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
   const publishMutation = useConvexMutation(api.ginkoCms.editor.publishEntry)
   const unpublishMutation = useConvexMutation(api.ginkoCms.editor.unpublishEntry)
   const archiveMutation = useConvexMutation(api.ginkoCms.editor.archiveEntry)
+  const restoreMutation = useConvexMutation(api.ginkoCms.editor.restoreEntry)
 
   function convexClient() {
     return studioHost.requireConvexClient()
@@ -382,6 +383,30 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     }
   }
 
+  // Restore is a plain non-destructive mutation (archived -> draft), so unlike
+  // archive/unpublish it needs no preview token and no confirmation dialog.
+  async function handleRestore() {
+    if (!canArchiveEntries.value) return
+    saving.value = true
+    error.value = ''
+    studioDebug.debug('restore:start', { collection: collection.value, entryId: entryId.value })
+    try {
+      await restoreMutation({ entryId: entryId.value })
+      publishOutcome.value = null
+      resetPublishReadiness()
+      studioDebug.debug('restore:success', { collection: collection.value, entryId: entryId.value })
+    } catch (e) {
+      error.value = getCmsErrorMessage(e, t('ginkoCms.studio.collectionEditor.rollbackError'))
+      studioDebug.error('restore:error', {
+        collection: collection.value,
+        entryId: entryId.value,
+        error: e,
+      })
+    } finally {
+      saving.value = false
+    }
+  }
+
   return {
     showPublishDialog,
     publishMessage,
@@ -395,5 +420,6 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     confirmPublish,
     handleUnpublish,
     handleArchive,
+    handleRestore,
   }
 }
