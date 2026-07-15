@@ -274,6 +274,14 @@ const visibleQueueRows = computed(() =>
   ),
 )
 const allCaughtUp = computed(() => overviewReady.value && visibleQueueRows.value.length === 0)
+// First run = the site has no entries anywhere; the empty queue should teach
+// the first step instead of celebrating.
+const isFirstRun = computed(
+  () =>
+    overviewReady.value &&
+    collections.value.length > 0 &&
+    collections.value.every((collection) => (collection.entryCount ?? 0) === 0),
+)
 const collectionRows = computed(() => {
   if (overview.value?.collections?.length) return overview.value.collections
   return collections.value.map((collection) => ({
@@ -313,9 +321,9 @@ function routeModeLabel(mode: unknown) {
 function metricToneClass(tone: WorkQueueMetric['tone']) {
   switch (tone) {
     case 'danger':
-      return 'ginko:border-destructive/40 ginko:bg-destructive/10 ginko:text-destructive-fg'
+      return 'ginko:border-destructive/40 ginko:bg-destructive/10 ginko:dark:bg-destructive/15 ginko:text-destructive-fg'
     case 'warning':
-      return 'ginko:border-warning/40 ginko:bg-warning/10 ginko:text-warning-fg'
+      return 'ginko:border-warning/40 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:text-warning-fg'
     case 'info':
       return 'ginko:border-primary/30 ginko:bg-primary/5 ginko:text-primary'
     default:
@@ -365,10 +373,28 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
           </div>
           <StudioEmptyState
             v-if="allCaughtUp"
-            :title="t('ginkoCms.studio.dashboard.allCaughtUpTitle')"
-            :description="t('ginkoCms.studio.dashboard.allCaughtUpDescription')"
+            :title="
+              isFirstRun
+                ? t('ginkoCms.studio.dashboard.firstRunTitle')
+                : t('ginkoCms.studio.dashboard.allCaughtUpTitle')
+            "
+            :description="
+              isFirstRun
+                ? t('ginkoCms.studio.dashboard.firstRunDescription')
+                : t('ginkoCms.studio.dashboard.allCaughtUpDescription')
+            "
             class="ginko:m-4"
-          />
+          >
+            <!-- First run teaches the first step instead of celebrating an
+                 empty queue (design review W7). -->
+            <template v-if="isFirstRun && newContentTo" #action>
+              <Button as-child size="sm">
+                <RouterLink :to="newContentTo">
+                  {{ t('ginkoCms.studio.dashboard.firstRunCta') }}
+                </RouterLink>
+              </Button>
+            </template>
+          </StudioEmptyState>
           <div v-else class="ginko:divide-y ginko:divide-border/70">
             <component
               :is="row.to ? 'RouterLink' : 'div'"

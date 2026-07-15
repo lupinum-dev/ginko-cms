@@ -38,8 +38,13 @@ const rightSidebar = useRightSidebar()
 watch(
   () => assetSelection.selectedAssetId.value,
   (assetId, previous) => {
-    if (assetId && !previous && !rightSidebar.isMobile.value) {
+    if (rightSidebar.isMobile.value) return
+    if (assetId && !previous) {
       rightSidebar.setOpen(true)
+    } else if (!assetId && previous) {
+      // Mirror on deselect: an open panel showing "no asset selected" is
+      // dead space (empty ≠ visible).
+      rightSidebar.setOpen(false)
     }
   },
 )
@@ -48,10 +53,9 @@ watch(
 <template>
   <StudioWorkspace class="ginko:h-full">
     <template #header>
-      <StudioPageHeader
-        :title="t('ginkoCms.studio.assetsPage.title')"
-        :description="t('ginkoCms.studio.assetsPage.description')"
-      >
+      <!-- No description line: the in-card library nav + breadcrumb already
+           say what this page is (design review W7 — triple-labeling diet). -->
+      <StudioPageHeader :title="t('ginkoCms.studio.assetsPage.title')">
         <template #actions>
           <Button
             size="sm"

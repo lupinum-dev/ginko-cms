@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Check, Inbox, Loader2, PanelRight, X } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { api } from '../boundary/api'
 import StudioReviewDetail from '../components/studio/reviews/StudioReviewDetail.vue'
@@ -48,6 +48,16 @@ const selectedReview = computed<ReviewRequest | null>(
   () => reviews.value.find((review) => review._id === selectedReviewId.value) ?? null,
 )
 const rightSidebar = useRightSidebar()
+// Mirror of the auto-open in selectReview: when the selection disappears
+// (request decided/withdrawn), an open panel showing nothing is dead space.
+watch(
+  () => selectedReview.value,
+  (review, previous) => {
+    if (!review && previous && !rightSidebar.isMobile.value) {
+      rightSidebar.setOpen(false)
+    }
+  },
+)
 useRightSidebarPanel({
   title: () => t('ginkoCms.studio.reviewDetails.title'),
   component: StudioReviewDetailsPanel,

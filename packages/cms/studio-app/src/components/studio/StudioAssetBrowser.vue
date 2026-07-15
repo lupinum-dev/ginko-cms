@@ -699,7 +699,7 @@ defineExpose({
                 >
                   <Icon name="lucide:layers" class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60" />
                   <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ t('ginkoCms.studio.assetBrowser.allMedia') }}</span>
-                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{ sidebarFullViews[0]?.count ?? 0 }}</span>
+                  <span v-if="(sidebarFullViews[0]?.count ?? 0) > 0" class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{ sidebarFullViews[0]?.count }}</span>
                 </button>
                 <button
                   v-for="item in sidebarCollections"
@@ -717,9 +717,10 @@ defineExpose({
                     class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60"
                   />
                   <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ item.label }}</span>
-                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
-                    item.count
-                  }}</span>
+                  <span
+                    v-if="item.count > 0"
+                    class="ginko:text-xs ginko:tabular-nums ginko:opacity-50"
+                  >{{ item.count }}</span>
                 </button>
               </nav>
             </div>
@@ -749,9 +750,10 @@ defineExpose({
                     :style="{ backgroundColor: tag.color }"
                   />
                   <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ tag.label }}</span>
-                  <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
-                    tag.count
-                  }}</span>
+                  <span
+                    v-if="tag.count > 0"
+                    class="ginko:text-xs ginko:tabular-nums ginko:opacity-50"
+                  >{{ tag.count }}</span>
                 </button>
               </nav>
             </div>
@@ -768,9 +770,10 @@ defineExpose({
               >
                 <Trash2 class="ginko:size-[15px] ginko:shrink-0 ginko:opacity-60" />
                 <span class="ginko:flex-1 ginko:truncate ginko:text-left">{{ t('ginkoCms.studio.assetBrowser.trash') }}</span>
-                <span class="ginko:text-xs ginko:tabular-nums ginko:opacity-50">{{
-                  trashCount
-                }}</span>
+                <span
+                  v-if="trashCount > 0"
+                  class="ginko:text-xs ginko:tabular-nums ginko:opacity-50"
+                >{{ trashCount }}</span>
               </button>
             </div>
           </div>
@@ -828,6 +831,7 @@ defineExpose({
             :model-value="viewMode"
             :items="viewSegments"
             :aria-label="t('ginkoCms.studio.assetBrowser.viewModeAriaLabel')"
+            collapse-labels
             class="ginko:hidden ginko:sm:inline-flex"
             @update:model-value="viewMode = $event as 'list' | 'grid'"
           />
@@ -1597,8 +1601,8 @@ defineExpose({
                     class="ginko:rounded-md ginko:border ginko:px-2.5 ginko:py-2 ginko:text-xs"
                     :class="
                       metadataCoverage(selectedAssetForDetails).complete
-                        ? 'ginko:border-success/30 ginko:bg-success/10 ginko:text-success-fg'
-                        : 'ginko:border-warning/30 ginko:bg-warning/10 ginko:text-warning-fg'
+                        ? 'ginko:border-success/30 ginko:bg-success/10 ginko:dark:bg-success/15 ginko:text-success-fg'
+                        : 'ginko:border-warning/30 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:text-warning-fg'
                     "
                   >
                     {{ metadataCoverageLabel(selectedAssetForDetails) }}
@@ -1888,8 +1892,8 @@ defineExpose({
                     class="ginko:rounded-md ginko:border ginko:px-2.5 ginko:py-2 ginko:text-xs"
                     :class="
                       metadataCoverage(selectedAsset).complete
-                        ? 'ginko:border-success/30 ginko:bg-success/10 ginko:text-success-fg'
-                        : 'ginko:border-warning/30 ginko:bg-warning/10 ginko:text-warning-fg'
+                        ? 'ginko:border-success/30 ginko:bg-success/10 ginko:dark:bg-success/15 ginko:text-success-fg'
+                        : 'ginko:border-warning/30 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:text-warning-fg'
                     "
                   >
                     {{ metadataCoverageLabel(selectedAsset) }}

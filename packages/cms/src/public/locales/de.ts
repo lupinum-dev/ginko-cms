@@ -307,6 +307,10 @@ const de = {
         noActivityDescription: 'Redaktions- und Website-Aktualisierungsereignisse erscheinen hier.',
         allCaughtUpTitle: 'Alles erledigt',
         allCaughtUpDescription: 'Im Moment braucht nichts deine Aufmerksamkeit.',
+        firstRunTitle: 'Erstelle deinen ersten Inhalt',
+        firstRunDescription:
+          'Es wurde noch nichts geschrieben. Erstelle deinen ersten Eintrag, um ihn hier zu sehen.',
+        firstRunCta: 'Ersten Inhalt erstellen',
         alreadyLive: 'Bereits live',
         viewAllActivity: 'Gesamte Aktivität ansehen',
         collectionTypeTree: 'Baum',

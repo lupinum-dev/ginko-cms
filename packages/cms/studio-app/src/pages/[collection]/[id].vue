@@ -194,7 +194,10 @@ useRightSidebarPanel({
   min-width: 0;
 }
 
-@media (min-width: 1600px) {
+/* Container query, not viewport (DESIGN.md principle 8): the panes split as
+ * soon as the CANVAS is wide enough — e.g. on a laptop with the details
+ * panel collapsed — instead of waiting for a 1600px window. */
+@container (min-width: 72rem) {
   .studio-entry-locale-panels--compare {
     width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
