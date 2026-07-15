@@ -27,6 +27,7 @@ import StudioListFrame from '../../packages/cms/studio-app/src/components/studio
 import StudioNotice from '../../packages/cms/studio-app/src/components/studio/StudioNotice.vue'
 import StudioSegmentedControl from '../../packages/cms/studio-app/src/components/studio/StudioSegmentedControl.vue'
 import FieldError from '../../packages/cms/studio-app/src/components/ui/field/FieldError.vue'
+import { useStudioAdvancedEditor } from '../../packages/cms/studio-app/src/composables/useStudioAdvancedEditor'
 import { provideStudioEntryEditorContext } from '../../packages/cms/studio-app/src/composables/internal/studioEntryEditorContext'
 
 function createTestLocalStorage(): Storage {
@@ -429,12 +430,13 @@ function mountLocalePanelComparison() {
   })
 }
 
-function createSharedFieldsPanelEditor() {
+function createSharedFieldsPanelEditor(locales: string[] = ['en']) {
   return reactive({
     loader: {
       canEditEntries: true,
       currentLocale: 'en',
       isTree: false,
+      locales,
       parentOptions: [],
       sharedFields: [
         { key: 'date', label: 'Date', localized: false, type: 'date' },
@@ -460,8 +462,8 @@ function createSharedFieldsPanelEditor() {
   })
 }
 
-function mountSharedFieldsPanel() {
-  const editor = createSharedFieldsPanelEditor()
+function mountSharedFieldsPanel(locales: string[] = ['en']) {
+  const editor = createSharedFieldsPanelEditor(locales)
   const Host = defineComponent({
     setup() {
       provideStudioEntryEditorContext(editor as never)
@@ -631,10 +633,18 @@ function railEditor(translate = dictionaryT(en)) {
 
 describe('Studio workflow components', () => {
   it('renders shared properties without URL ownership copy', () => {
-    const wrapper = mountSharedFieldsPanel()
+    // Multilingual sites get the shared-fields framing…
+    const multilingual = mountSharedFieldsPanel(['en', 'de'])
+    expect(multilingual.text()).toContain('ginkoCms.studio.collectionEditor.sharedFields')
+    expect(multilingual.text()).toContain(
+      'ginkoCms.studio.collectionEditor.appliesToAllLanguages',
+    )
 
-    expect(wrapper.text()).toContain('Shared properties')
-    expect(wrapper.text()).toContain('Applies to all languages')
+    // …single-language sites get plain "Details" with no language vocabulary
+    // (design review S2, principle 6).
+    const wrapper = mountSharedFieldsPanel()
+    expect(wrapper.text()).toContain('ginkoCms.common.metadata')
+    expect(wrapper.text()).not.toContain('ginkoCms.studio.collectionEditor.appliesToAllLanguages')
     expect(wrapper.text()).toContain('Date')
     expect(wrapper.text()).toContain('Image')
     expect(wrapper.text()).not.toContain('Publishing details')
@@ -774,19 +784,21 @@ describe('Studio workflow components', () => {
     })
     const wrapper = mount(Host, { global: { stubs: studioStubs() } })
 
-    expect(wrapper.text()).toContain('Publishing flow')
-    expect(wrapper.text()).toContain('Write')
-    expect(wrapper.text()).toContain('Check')
-    expect(wrapper.text()).toContain('Preview')
-    expect(wrapper.text()).toContain('Review')
-    expect(wrapper.text()).toContain('Publish')
-    expect(wrapper.text()).toContain('Track')
+    // The six-step publishing-flow card is advanced-only now (design review
+    // S2, say-it-once): the default rail leads with status + blockers.
+    expect(wrapper.text()).not.toContain('Publishing flow')
     expect(wrapper.text()).toContain('Needs work')
     expect(wrapper.text()).toContain('EN: Required translation field is missing: title')
     expect(wrapper.text()).not.toContain('No blocking issues')
   })
 
   it('shows preview, review, and publish progress in the editor workflow spine', () => {
+    // The spine only renders in advanced/diagnostics mode now (design review
+    // S2); enable it the same way the app does — via ?diagnostics=1.
+    window.history.replaceState({}, '', '/?diagnostics=1')
+    const advanced = useStudioAdvancedEditor()
+    advanced.value = true
+
     const wrapper = mountWithStudioContext(StudioEntryStatusRail, railEditor(), {
       publicVisibility: baseVisibility,
       readinessDetail: baseReadinessDetail,
@@ -811,6 +823,9 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).toContain('Prepared')
     expect(wrapper.text()).toContain('Reviewed')
     expect(wrapper.text()).toContain('Publish the approved website changes.')
+
+    advanced.value = false
+    window.history.replaceState({}, '', '/')
   })
 
   it('tracks live website state, language rollout, and refresh health in the editor rail', () => {
@@ -1290,6 +1305,10 @@ describe('Studio workflow components', () => {
     try {
       window.history.replaceState(null, '', '/studio/docs/entry-1?diagnostics=1')
       localStorage.setItem('ginko-cms:studio:advanced-editor', 'true')
+      // The composable's one-shot localStorage load may already have latched
+      // earlier in this module; set the shared ref directly (legal while
+      // ?diagnostics=1 is on) so this test is order-independent.
+      useStudioAdvancedEditor().value = true
       const wrapper = mount(StudioEntryPublicWorkflowPanel, {
         global: { stubs: studioStubs() },
         props: {
@@ -1754,12 +1773,14 @@ describe('Studio destructive dialogs', () => {
     expect(wrapper.text()).toContain('/old-page')
     expect(wrapper.text()).toContain('After publish')
     expect(wrapper.text()).toContain('/hello')
-    expect(wrapper.text()).toContain('Sitemap included')
-    expect(wrapper.text()).toContain('Search included')
-    expect(wrapper.text()).toContain('Navigation included')
-    expect(wrapper.text()).toContain('Page address 1')
-    expect(wrapper.text()).toContain('Search preview 1')
-    expect(wrapper.text()).toContain('Website visibility 1')
+    // Inclusion badges became one prose line, and the change-kind count
+    // badges moved behind advanced details (design review S2).
+    expect(wrapper.text()).toContain('Sitemap: included')
+    expect(wrapper.text()).toContain('Search: included')
+    expect(wrapper.text()).toContain('Navigation: included')
+    expect(wrapper.text()).not.toContain('Page address 1')
+    expect(wrapper.text()).not.toContain('Search preview 1')
+    expect(wrapper.text()).not.toContain('Website visibility 1')
     expect(wrapper.text()).not.toContain('fields changed since last publish')
     expect(wrapper.text()).not.toContain('Meta title')
     expect(wrapper.text()).not.toContain('Public route')

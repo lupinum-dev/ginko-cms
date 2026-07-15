@@ -2,10 +2,7 @@
 import {
   Archive,
   ChevronDown,
-  ChevronRight,
-  Clock,
   EyeOff,
-  FileText,
   Flag,
   Globe,
   Loader2,
@@ -38,12 +35,6 @@ const emit = defineEmits<{
 
 const editor = props.mode === 'new' ? null : useStudioEntryEditorContext()
 const mounted = ref(false)
-
-const collectionLabel = computed(() =>
-  props.mode === 'new'
-    ? ''
-    : (editor?.loader.collectionConfig?.label ?? editor?.loader.collection ?? ''),
-)
 
 const displayTitle = computed(() => {
   if (props.mode === 'new') return props.title || 'New content'
@@ -87,31 +78,24 @@ const publishAllReadinessView = computed(() =>
     : null,
 )
 
+// The primary action keeps a stable verb (design review S2): a status like
+// "Needs work" never masquerades as the CTA. When publishing is blocked the
+// button still opens the shared dialog, which explains the blockers and gates
+// the confirm — the action is always reachable, the outcome is guarded.
 const publishLabel = computed(() => {
   if (!editor) return 'Publish'
   const locale = editor.loader.currentLocale.toUpperCase()
-  if (editor.publishing.publishReadiness.state === 'pending') return 'Previewing...'
-  if (!currentReadinessView.value?.currentLocale) return 'Loading...'
-  if (!currentReadinessView.value.canPublish) {
-    return currentReadinessView.value.blockers.length ? 'Needs work' : 'Not ready'
-  }
   return `${editor.loader.t('ginkoCms.common.publish')} ${locale}`
 })
 
 const publishDisabled = computed(
   () =>
-    !editor ||
-    editor.draft.saving ||
-    editor.publishing.publishReadiness.state === 'pending' ||
-    !currentReadinessView.value?.canPublish,
+    !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
 )
 
 const publishAllDisabled = computed(
   () =>
-    !editor ||
-    editor.draft.saving ||
-    editor.publishing.publishReadiness.state === 'pending' ||
-    !publishAllReadinessView.value?.canPublish,
+    !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
 )
 
 const canRequestReview = computed(
@@ -127,6 +111,20 @@ const statusTone = computed<'success' | 'warning' | 'danger' | 'neutral'>(() => 
   if (entry.value?.status === 'archived') return 'danger'
   if (entry.value?.status === 'draft') return 'warning'
   return 'neutral'
+})
+
+const statusLabel = computed(() => {
+  const status = entry.value?.status
+  if (!status || !editor) return status ?? ''
+  const key =
+    status === 'published'
+      ? 'ginkoCms.common.publishedStatus'
+      : status === 'archived'
+        ? 'ginkoCms.common.archived'
+        : status === 'draft'
+          ? 'ginkoCms.common.draft'
+          : null
+  return key ? editor.loader.t(key) : status
 })
 
 const saveState = computed(() => (editor ? unref(editor.draft.saveState) : 'saved'))
@@ -191,37 +189,34 @@ function requestReview() {
     <div
       class="studio-page-content studio-entry-topbar__inner ginko:flex ginko:h-14 ginko:items-center ginko:gap-3 ginko:px-6"
     >
-      <nav
-        class="studio-entry-topbar__breadcrumb ginko:flex ginko:min-w-0 ginko:flex-1 ginko:items-center ginko:gap-1.5"
-        aria-label="Breadcrumb"
-      >
-        <template v-if="mode === 'new'">
-          <span class="studio-text-title ginko:truncate ginko:text-foreground">
-            {{ title || 'New content' }}
-          </span>
-        </template>
-        <template v-else>
-          <Clock class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
-          <RouterLink
-            v-if="editor"
-            :to="`${editor.loader.contentRoute}/${editor.loader.collection}`"
-            class="studio-entry-topbar__collection studio-text-body ginko:truncate ginko:text-muted-foreground ginko:transition-colors ginko:hover:text-foreground"
-          >
-            {{ collectionLabel }}
-          </RouterLink>
-          <ChevronRight
-            class="studio-entry-topbar__collection-separator ginko:size-3.5 ginko:shrink-0 ginko:text-muted-foreground/60"
-          />
-          <FileText
-            class="studio-entry-topbar__title-icon ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70"
-          />
+      <!-- The shell header breadcrumb already names collection + entry; the
+           top bar carries STATE on the left (status pill + save indicator)
+           instead of repeating identity (design review S2, principle 2). -->
+      <div class="ginko:flex ginko:min-w-0 ginko:flex-1 ginko:items-center ginko:gap-2">
+        <template v-if="mode !== 'new' && editor">
+          <StudioStatusPill v-if="entry" :label="statusLabel" :tone="statusTone" />
           <span
-            class="studio-entry-topbar__title studio-text-title ginko:truncate ginko:text-foreground"
+            class="studio-entry-topbar__save-indicator studio-text-caption ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-1.5"
+            :class="saveIndicatorTone"
           >
-            {{ renderedTitle }}
+            <Loader2 v-if="saveState === 'saving'" class="ginko:size-3 ginko:animate-spin" />
+            <span
+              v-else
+              class="ginko:size-1.5 ginko:shrink-0 ginko:rounded-full"
+              :class="
+                saveState === 'dirty'
+                  ? 'ginko:bg-muted-foreground/70'
+                  : saveState === 'conflict'
+                    ? 'ginko:bg-destructive'
+                    : saveState === 'offline-pending'
+                      ? 'ginko:bg-warning-fg'
+                      : 'ginko:bg-success-fg/70'
+              "
+            />
+            <span class="ginko:truncate">{{ saveIndicatorLabel }}</span>
           </span>
         </template>
-      </nav>
+      </div>
 
       <div v-if="mode === 'new'" class="studio-entry-topbar__actions">
         <Button variant="outline" size="sm" :disabled="saving" @click="emit('createDraft')">
@@ -232,32 +227,6 @@ function requestReview() {
       </div>
 
       <div v-else-if="editor" class="studio-entry-topbar__actions">
-        <span
-          class="studio-entry-topbar__save-indicator studio-text-caption ginko:flex ginko:items-center ginko:gap-1.5"
-          :class="saveIndicatorTone"
-        >
-          <Loader2 v-if="saveState === 'saving'" class="ginko:size-3 ginko:animate-spin" />
-          <span
-            v-else
-            class="ginko:size-1.5 ginko:rounded-full"
-            :class="
-              saveState === 'dirty'
-                ? 'ginko:bg-muted-foreground/70'
-                : saveState === 'conflict'
-                  ? 'ginko:bg-destructive'
-                  : saveState === 'offline-pending'
-                    ? 'ginko:bg-warning-fg'
-                    : 'ginko:bg-success-fg/70'
-            "
-          />
-          {{ saveIndicatorLabel }}
-        </span>
-        <StudioStatusPill
-          v-if="entry"
-          :label="entry.status"
-          :tone="statusTone"
-          class="ginko:capitalize"
-        />
         <Button
           v-if="editor.loader.canEditEntries"
           variant="outline"
@@ -277,9 +246,6 @@ function requestReview() {
           <Button
             size="sm"
             class="ginko:min-w-0 ginko:rounded-r-none"
-            :variant="
-              editor.publishing.publishReadiness.state === 'blocked' ? 'secondary' : 'default'
-            "
             :disabled="publishDisabled"
             @click="openPublishDialog"
           >
@@ -290,9 +256,6 @@ function requestReview() {
               <Button
                 size="sm"
                 class="ginko:rounded-l-none ginko:border-l ginko:border-primary-foreground/20 ginko:px-2"
-                :variant="
-                  editor.publishing.publishReadiness.state === 'blocked' ? 'secondary' : 'default'
-                "
                 :disabled="publishAllDisabled"
                 aria-label="More publish options"
               >
@@ -377,24 +340,13 @@ function requestReview() {
   display: none;
 }
 
-.studio-entry-topbar__title {
-  max-width: min(44rem, 48vw);
-}
-
 @media (max-width: 639px) {
-  .studio-entry-topbar__collection,
-  .studio-entry-topbar__collection-separator,
-  .studio-entry-topbar__title-icon,
   .studio-entry-topbar__label-full {
     display: none;
   }
 
   .studio-entry-topbar__label-short {
     display: inline;
-  }
-
-  .studio-entry-topbar__title {
-    max-width: 100%;
   }
 }
 </style>

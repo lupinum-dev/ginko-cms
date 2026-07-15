@@ -96,6 +96,15 @@ const issueLabel = computed(() => {
 
 const showAdvancedDetails = computed(() => advancedEditor.value)
 
+const isBlocked = computed(
+  () =>
+    readinessView.value.blockers.length > 0 ||
+    !readinessView.value.canPublish ||
+    editor.publishing.publishReadiness.state === 'blocked',
+)
+
+const hasMultipleLocales = computed(() => editor.loader.locales.length > 1)
+
 function collectionEditorT(key: string, params?: Record<string, unknown>): string {
   return editor.loader.t(`ginkoCms.studio.collectionEditor.${key}`, params)
 }
@@ -157,6 +166,36 @@ const publishImpactMessage = computed(
       </DialogHeader>
 
       <div class="ginko:space-y-4">
+        <!-- Blockers lead (design review S2): the first thing the dialog answers
+             is "can this go live, and if not, why". -->
+        <div
+          class="ginko:flex ginko:items-start ginko:gap-2 ginko:rounded-lg ginko:border ginko:p-3 ginko:text-sm"
+          :class="
+            isBlocked
+              ? 'ginko:border-destructive/40 ginko:text-destructive-fg'
+              : 'ginko:border-success/40 ginko:text-success-fg'
+          "
+        >
+          <AlertCircle v-if="isBlocked" class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0" />
+          <CheckCircle2 v-else class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0" />
+          <div>
+            <div
+              class="ginko:mb-1 ginko:text-xs ginko:font-medium ginko:uppercase"
+              :class="isBlocked ? 'ginko:text-destructive' : 'ginko:text-success-fg'"
+            >
+              {{ isBlocked ? 'Issues blocking publish' : 'Ready to publish' }}
+            </div>
+            <div class="ginko:font-medium">{{ issueLabel }}</div>
+            <div
+              v-if="publishConfirmation.disabledReason"
+              class="ginko:mt-1 ginko:text-xs"
+              :class="isBlocked ? 'ginko:text-destructive' : 'ginko:text-muted-foreground'"
+            >
+              {{ publishConfirmation.disabledReason }}
+            </div>
+          </div>
+        </div>
+
         <div
           class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3"
         >
@@ -176,6 +215,7 @@ const publishImpactMessage = computed(
         </div>
 
         <div
+          v-if="hasMultipleLocales"
           class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3"
         >
           <div class="ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground">
@@ -250,24 +290,21 @@ const publishImpactMessage = computed(
                     </div>
                   </div>
                 </div>
-                <div class="ginko:flex ginko:flex-wrap ginko:gap-1">
-                  <Badge variant="outline" class="ginko:text-xs">
-                    {{ collectionEditorT('publishDialogSitemap') }}
-                    {{ displayInclusion(localeImpact.sitemap.after) }}
-                  </Badge>
-                  <Badge variant="outline" class="ginko:text-xs">
-                    {{ collectionEditorT('publishDialogSearch') }}
-                    {{ displayInclusion(localeImpact.search.after) }}
-                  </Badge>
-                  <Badge variant="outline" class="ginko:text-xs">
-                    {{ collectionEditorT('publishDialogNavigation') }}
-                    {{ displayInclusion(localeImpact.nav.after) }}
-                  </Badge>
+                <div class="ginko:text-muted-foreground">
+                  {{ collectionEditorT('publishDialogSitemap') }}:
+                  {{ displayInclusion(localeImpact.sitemap.after).toLowerCase() }} ·
+                  {{ collectionEditorT('publishDialogSearch') }}:
+                  {{ displayInclusion(localeImpact.search.after).toLowerCase() }} ·
+                  {{ collectionEditorT('publishDialogNavigation') }}:
+                  {{ displayInclusion(localeImpact.nav.after).toLowerCase() }}
                 </div>
               </div>
             </div>
 
-            <div v-if="changeKindSummary.length" class="ginko:flex ginko:flex-wrap ginko:gap-1">
+            <div
+              v-if="showAdvancedDetails && changeKindSummary.length"
+              class="ginko:flex ginko:flex-wrap ginko:gap-1"
+            >
               <Badge
                 v-for="summary in changeKindSummary"
                 :key="summary.key"
@@ -286,60 +323,6 @@ const publishImpactMessage = computed(
           </div>
         </div>
 
-        <div
-          class="ginko:flex ginko:items-start ginko:gap-2 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3 ginko:text-sm"
-          :class="
-            readinessView.blockers.length ||
-            !readinessView.canPublish ||
-            editor.publishing.publishReadiness.state === 'blocked'
-              ? 'ginko:border-destructive/40 ginko:text-destructive-fg'
-              : 'ginko:border-success/40 ginko:text-success-fg'
-          "
-        >
-          <AlertCircle
-            v-if="
-              readinessView.blockers.length ||
-              !readinessView.canPublish ||
-              editor.publishing.publishReadiness.state === 'blocked'
-            "
-            class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0"
-          />
-          <CheckCircle2 v-else class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0" />
-          <div>
-            <div
-              class="ginko:mb-1 ginko:text-xs ginko:font-medium ginko:uppercase"
-              :class="
-                readinessView.blockers.length ||
-                !readinessView.canPublish ||
-                editor.publishing.publishReadiness.state === 'blocked'
-                  ? 'ginko:text-destructive'
-                  : 'ginko:text-success-fg'
-              "
-            >
-              {{
-                readinessView.blockers.length ||
-                !readinessView.canPublish ||
-                editor.publishing.publishReadiness.state === 'blocked'
-                  ? 'Issues blocking publish'
-                  : 'Ready to publish'
-              }}
-            </div>
-            <div class="ginko:font-medium">{{ issueLabel }}</div>
-            <div
-              v-if="publishConfirmation.disabledReason"
-              class="ginko:mt-1 ginko:text-xs"
-              :class="
-                readinessView.blockers.length ||
-                !readinessView.canPublish ||
-                editor.publishing.publishReadiness.state === 'blocked'
-                  ? 'ginko:text-destructive'
-                  : 'ginko:text-muted-foreground'
-              "
-            >
-              {{ publishConfirmation.disabledReason }}
-            </div>
-          </div>
-        </div>
 
         <div
           v-if="readinessView.warnings.length"

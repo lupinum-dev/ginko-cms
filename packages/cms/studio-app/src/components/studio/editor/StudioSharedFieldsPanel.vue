@@ -1,12 +1,28 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 
 const EMPTY_PARENT_VALUE = '__ginko_root__'
 const editor = useStudioEntryEditorContext()
+// "Shared / applies to all languages" is schema vocabulary that only earns
+// its place when there are several languages (design review S2, principle 6).
+const hasMultipleLocales = computed(() => (editor.loader.locales?.length ?? 1) > 1)
 </script>
 
 <template>
-  <StudioSection title="Shared properties" badge="Applies to all languages">
+  <StudioSection
+    :title="
+      hasMultipleLocales
+        ? editor.loader.t('ginkoCms.studio.collectionEditor.sharedFields')
+        : editor.loader.t('ginkoCms.common.metadata')
+    "
+    :badge="
+      hasMultipleLocales
+        ? editor.loader.t('ginkoCms.studio.collectionEditor.appliesToAllLanguages')
+        : undefined
+    "
+  >
     <div class="ginko:space-y-4">
       <fieldset
         v-if="editor.loader.isTree"

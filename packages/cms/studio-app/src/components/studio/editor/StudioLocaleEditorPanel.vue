@@ -24,6 +24,9 @@ const localeCode = computed(() =>
   props.side === 'primary' ? editor.loader.currentLocale : editor.locales.secondaryLocale,
 )
 const localeCodeLabel = computed(() => localeCode.value.toUpperCase())
+// Single-language sites get no translation vocabulary ("Source of truth",
+// locale chips) — design review S2, principle 6.
+const hasMultipleLocales = computed(() => (editor.loader.locales?.length ?? 1) > 1)
 const localeFlag = computed(() => {
   const locale = studioLocales.value.find(
     (item: { code: string; flag?: string }) => item.code === localeCode.value,
@@ -114,6 +117,7 @@ function updateField(fieldKey: string, value: unknown) {
           </span>
         </span>
         <Badge
+          v-if="hasMultipleLocales"
           :variant="side === 'primary' ? 'success' : 'soft'"
           class="studio-locale-panel__role-badge ginko:shrink-0 ginko:rounded-md ginko:text-xs ginko:font-semibold"
         >

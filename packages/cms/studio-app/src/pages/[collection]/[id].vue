@@ -42,6 +42,10 @@ useRightSidebarPanel({
   component: StudioEntryDetailsPanel,
   props: () => ({ editor }),
   defaultOpen: true,
+  // The content being edited wins the space fight (design review S2): the
+  // details panel opens at the 320px metadata width even on laptop viewports.
+  // Users can still drag it wider; the preference persists.
+  compact: true,
 })
 </script>
 
@@ -87,6 +91,14 @@ useRightSidebarPanel({
 
     <template v-else-if="editor.loader.entry">
       <div class="ginko:grid ginko:gap-5">
+        <!-- Archived is otherwise only visible as a pill; the form reads as
+             broken without an explicit explanation (design review S2). -->
+        <StudioNotice
+          v-if="editor.loader.entry.status === 'archived'"
+          tone="warning"
+          :title="t('ginkoCms.studio.collectionEditor.archivedNoticeTitle')"
+          :description="t('ginkoCms.studio.collectionEditor.archivedNoticeDescription')"
+        />
         <div>
           <StudioSharedFieldsPanel />
         </div>

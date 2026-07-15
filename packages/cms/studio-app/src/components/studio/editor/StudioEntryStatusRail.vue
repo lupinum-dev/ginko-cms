@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, CheckCircle2, Clock, Globe, Sparkles, TriangleAlert } from '@lucide/vue'
+import { AlertCircle, Clock, Globe, Sparkles, TriangleAlert } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
@@ -33,10 +33,6 @@ const props = defineProps<{
   routeValidationState: StudioRouteValidationState
 }>()
 
-const emit = defineEmits<{
-  validatePublicRoutes: []
-}>()
-
 const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
 
@@ -49,13 +45,6 @@ const readinessView = computed(() =>
     t: editor.loader.t,
     publishMode: 'single',
   }),
-)
-
-const isRouteBacked = computed(
-  () =>
-    props.publicVisibility?.isRouteBacked ??
-    (editor.loader.collectionConfig?.mode !== 'none' &&
-      editor.loader.collectionConfig?.routing?.mode !== 'none'),
 )
 
 const localeSummaries = computed(() =>
@@ -76,6 +65,14 @@ const localesAllUniform = computed(() => {
 const publishedLocaleCount = computed(
   () => readinessView.value.languageRows.filter((row) => row.published && !row.blocked).length,
 )
+
+// Say-it-once gating (design review S2): the six-step workflow card and the
+// track card are detail surfaces — they render behind the "More details"
+// toggle (the track card also surfaces on its own once the entry is live,
+// because the live URL is primary information). Language machinery only
+// exists when there is more than one language.
+const isLive = computed(() => entry.value?.status === 'published')
+const hasMultipleLocales = computed(() => localeSummaries.value.length > 1)
 
 const blockingIssues = computed(() => {
   const issues: Array<{ key: string; message: string }> = []
@@ -148,7 +145,7 @@ const blockingIssues = computed(() => {
             />
           </div>
         </div>
-        <div>
+        <div v-if="hasMultipleLocales">
           <div class="ginko:mb-1.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground/70">
             Current language
           </div>
@@ -175,6 +172,7 @@ const blockingIssues = computed(() => {
     </StudioInspectorSection>
 
     <StudioWorkflowCard
+      v-if="advancedEditor"
       :readiness-detail="readinessDetail"
       :readiness-pending="readinessPending"
       :route-validation-requested="routeValidationRequested"
@@ -186,12 +184,13 @@ const blockingIssues = computed(() => {
     />
 
     <StudioEntryTrackCard
+      v-if="advancedEditor || isLive"
       :public-visibility="publicVisibility"
       :readiness-detail="readinessDetail"
       :readiness-pending="readinessPending"
     />
 
-    <StudioInspectorSection title="Translations">
+    <StudioInspectorSection v-if="hasMultipleLocales" title="Translations">
       <template #icon>
         <Globe class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
       </template>
@@ -250,32 +249,14 @@ const blockingIssues = computed(() => {
       <div v-else class="ginko:text-sm ginko:text-muted-foreground">No translation data yet.</div>
     </StudioInspectorSection>
 
-    <StudioInspectorSection title="Issues">
+    <!-- Issues only exist when there are issues (principle 5); the healthy
+         state is already told by the Status pill above, and the Check-links
+         action lives once, in the WORKFLOW section. -->
+    <StudioInspectorSection v-if="blockingIssues.length > 0" title="Issues">
       <template #icon>
-        <TriangleAlert
-          class="ginko:size-4 ginko:shrink-0"
-          :class="blockingIssues.length > 0 ? 'ginko:text-warning-fg' : 'ginko:text-muted-foreground/70'"
-        />
+        <TriangleAlert class="ginko:size-4 ginko:shrink-0 ginko:text-warning-fg" />
       </template>
-      <div
-        v-if="blockingIssues.length === 0"
-        class="ginko:flex ginko:items-start ginko:gap-2 ginko:text-sm"
-      >
-        <CheckCircle2 class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-success-fg" />
-        <div>
-          <div class="ginko:font-medium">No blocking issues</div>
-          <div class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground/80">
-            {{
-              readinessView.nextAction
-                ? readinessActionLabel(editor.loader.t, readinessView.nextAction.kind)
-                : readinessPending
-                  ? 'Checking what can publish...'
-                  : 'We could not check the publish status yet.'
-            }}
-          </div>
-        </div>
-      </div>
-      <div v-else class="ginko:space-y-2">
+      <div class="ginko:space-y-2">
         <div
           v-for="issue in blockingIssues"
           :key="issue.key"
@@ -286,15 +267,6 @@ const blockingIssues = computed(() => {
             {{ issue.message }}
           </span>
         </div>
-        <Button
-          v-if="isRouteBacked"
-          variant="outline"
-          size="sm"
-          class="ginko:mt-2 ginko:w-full ginko:border-border/60 ginko:text-xs ginko:font-medium ginko:hover:bg-muted/30"
-          @click="emit('validatePublicRoutes')"
-        >
-          Check links
-        </Button>
       </div>
     </StudioInspectorSection>
 

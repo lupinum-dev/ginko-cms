@@ -72,7 +72,6 @@ function openPublishDialog() {
           :request-review-pending="workflow.requestReviewPending"
           :route-validation-requested="workflow.routeValidationRequested"
           :route-validation-state="workflow.routeValidationState"
-          @validate-public-routes="workflow.validatePublicRoutes"
         />
       </CollapsibleContent>
     </Collapsible>
@@ -97,9 +96,6 @@ function openPublishDialog() {
             v-if="canPublish"
             size="sm"
             class="ginko:w-full"
-            :variant="
-              editor.publishing.publishReadiness.state === 'blocked' ? 'secondary' : 'default'
-            "
             :disabled="editor.loader.pending || editor.draft.saving"
             @click="openPublishDialog"
           >
