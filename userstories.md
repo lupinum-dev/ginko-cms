@@ -39,11 +39,11 @@ For the later gap-assessment work package, add one assessment row per story:
 | Members, settings, and operations                   | ADM |       7 |
 | Imports, migrations, backups, and recovery          | IMP |       6 |
 | Agents and MCP                                      | AGT |       7 |
-| Public website and API behavior                     | WEB |       6 |
+| Public website and API behavior                     | WEB |       7 |
 | Reliability, accessibility, and responsive behavior | QUA |       6 |
 | Developer setup and integration                     | DEV |       6 |
-| Common expectations requiring product decisions     | CND |       9 |
-| **Total**                                           |     | **117** |
+| Common expectations requiring product decisions     | CND |      12 |
+| **Total**                                           |     | **121** |
 
 ## Product boundary
 
@@ -51,8 +51,8 @@ Ginko CMS is a content operations system for code-defined Nuxt websites.
 
 - Developers define collections, fields, validation, routing capabilities, locales, and public behavior in code.
 - Editors manage entries, documents, localized content, routes, SEO, assets, drafts, versions, and review preparation.
-- Publishers and owners may also execute public-output operations and change immediately public site data.
-- Publishers and owners approve public-output changes.
+- Publishers and owners approve and execute entry public-output operations according to their backend permissions.
+- In the current v1 authority model, immediately public site data is owner-managed settings; expanding its editorial workflow is the CND-12 decision.
 - Agents may prepare work through MCP, but they use the same guarded operations and review model as humans.
 - The Nuxt application owns presentation. Studio is not a visual page builder.
 - Studio and MCP inspect the content model but do not create, change, delete, import, or reorder schema.
@@ -60,20 +60,22 @@ Ginko CMS is a content operations system for code-defined Nuxt websites.
 
 ## Personas and permissions
 
-| Persona        | Primary goals                                                          | Expected authority                                                            |
-| -------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Public visitor | Read the current website in the right language                         | Published public output only                                                  |
-| Viewer         | Inspect content, status, diagnostics, activity, and allowed settings   | Read only                                                                     |
-| Editor         | Create and improve drafts, translations, routes, relations, and assets | Draft writes, no direct publish                                               |
-| Translator     | Complete and compare localized variants                                | Editor-equivalent locale work, no direct publish unless separately authorized |
-| Publisher      | Review readiness and approve public changes                            | Draft writes and publishing, no owner-only administration                     |
-| Owner          | Operate and administer the CMS safely                                  | Full CMS authority, including members and guarded destructive operations      |
-| Developer      | Define the content model and connect the Nuxt application              | Code and operational setup, not editorial approval by default                 |
-| External agent | Prepare bounded content work through MCP                               | Explicit credential scopes, active run, review-gated public changes           |
+| Persona        | Primary goals                                                          | Expected authority                                                                 |
+| -------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Public visitor | Read the current website in the right language                         | Published public output only                                                       |
+| Viewer         | Inspect content, status, diagnostics, activity, and allowed settings   | Read only                                                                          |
+| Editor         | Create and improve drafts, translations, routes, relations, and assets | Draft writes, no direct publish                                                    |
+| Translator     | Complete and compare localized variants                                | Editor-role persona focused on locale work; publishing requires the publisher role |
+| Publisher      | Review readiness and approve public changes                            | Draft writes and publishing, no owner-only administration                          |
+| Owner          | Operate and administer the CMS safely                                  | Full CMS authority, including members and guarded destructive operations           |
+| Developer      | Define the content model and connect the Nuxt application              | Code and operational setup, not editorial approval by default                      |
+| External agent | Prepare bounded content work through MCP                               | Explicit credential scopes, active run, review-gated public changes                |
 
 Permission controls in the UI are a presentation of backend authority, not a second authorization system. Every protected operation must be enforced by the backend even when called outside Studio.
 
 “Operator” is a task hat, not another CMS role. In protected CMS workflows it means an **owner** performing imports, backups, restores, or destructive administration. In local non-mutating setup/check stories it may mean a **developer** running CLI verification without gaining CMS content authority.
+
+The backend roles are exactly **viewer**, **editor**, **publisher**, and **owner**, and each is site-wide. “Translator” is an editor-role persona, not a fifth role: a translator who must publish holds the publisher role for the whole site. Restricting a member’s authority to specific locales or collections is an open product decision ([CND-11](#cnd-11-scope-member-authority-to-locales-or-collections)), not an implied capability.
 
 ## Universal dream-experience principles
 
@@ -109,18 +111,22 @@ The same entry and locale must not be described differently by the dashboard, co
 
 These decisions remove ambiguity between stories and define what the checks must prove.
 
-| Concept                           | Catalog decision                                                                                                                                                                                                                                                                                                        |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Draft persistence                 | Autosave is the canonical editing model. “Save now” forces the current autosave to flush and reports its result; it does not create a second draft or a historical version. A separate “Save version” action may create a named history point through the versioning model.                                             |
-| Site data                         | In v1, site data has no separate draft/publish lifecycle. Only a publisher or owner may save it because a successful save changes canonical public site data and schedules revalidation. Editors and viewers inspect it read-only. The UI must preview broad website impact and explicitly confirm high-impact changes. |
-| Locale configuration              | The installed code/content policy is the source of truth for configured locales, fallback, and default locale. Studio inspects and diagnoses that projection; it does not maintain a competing editable locale list.                                                                                                    |
-| Unpublish                         | Removes selected published locale output but keeps the entry in active editorial work, normally as Draft or Live with changes for remaining locales.                                                                                                                                                                    |
-| Archive                           | Is entry-wide across all locales. It removes the entry from normal active work and removes its public output while preserving identity, content, locales, and history for restoration. Descendant editorial states are not silently archived.                                                                           |
-| Permanent delete                  | Owner-only exceptional removal after archive, dependency resolution, confirmation, and any required backup/retention checks.                                                                                                                                                                                            |
-| Single-entry multi-locale publish | Every locale included in one confirmed “Publish all ready” plan commits its content/public effects atomically or none of those locale effects commit. Revalidation delivery is tracked after content activation and may retry independently.                                                                            |
-| Subtree route change              | The moved/renamed published entry and all affected published descendant route/projection effects in the locale commit atomically or none commit. Descendant draft content is never published as a side effect.                                                                                                          |
-| Bulk inventory actions            | Each selected entry is an independently guarded item with a durable outcome receipt. The UI never implies cross-entry atomicity; retry targets only failed or stale items.                                                                                                                                              |
-| Backup and restore                | Export scope and restore capability are separate facts. V1 may export full, collection, entry, and asset artifacts, but restore apply is limited to the documented missing-asset scope. Export must never be presented as proof of full disaster recovery.                                                              |
+| Concept                           | Catalog decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Draft persistence                 | Autosave is the canonical editing model. “Save now” forces the current autosave to flush and reports its result; it does not create a second draft or a historical version. A separate “Save version” action may create a named history point through the versioning model.                                                                                                                                                                                                                 |
+| Site data                         | In v1, site data has no separate draft/publish lifecycle. Only an owner may save it through the canonical `manageSettings` authority. A successful save changes canonical data immediately; it schedules public revalidation only when the block is public. Publishers, editors, and viewers inspect it read-only. V1 activity records attribution and the changed key/locale, not a recoverable value snapshot; expanded editorial authority or versioned rollback is the CND-12 decision. |
+| Locale configuration              | The installed code/content policy is the source of truth for configured locales, fallback, and default locale. Studio inspects and diagnoses that projection; it does not maintain a competing editable locale list.                                                                                                                                                                                                                                                                        |
+| Unpublish                         | Removes selected published locale output but keeps the entry in active editorial work, normally as Draft or Live with changes for remaining locales.                                                                                                                                                                                                                                                                                                                                        |
+| Archive                           | Is entry-wide across all locales. It removes the entry from normal active work and removes its public output while preserving identity, content, locales, and history for restoration. Descendant editorial states are not silently archived.                                                                                                                                                                                                                                               |
+| Permanent delete                  | Owner-only exceptional removal after archive, dependency resolution, confirmation, and any required backup/retention checks.                                                                                                                                                                                                                                                                                                                                                                |
+| Single-entry multi-locale publish | Every locale included in one confirmed “Publish all ready” plan commits its content/public effects atomically or none of those locale effects commit. Revalidation delivery is tracked after content activation and may retry independently.                                                                                                                                                                                                                                                |
+| Subtree route change              | The moved/renamed published entry and all affected published descendant route/projection effects in the locale commit atomically or none commit. Descendant draft content is never published as a side effect.                                                                                                                                                                                                                                                                              |
+| Bulk inventory actions            | Each selected entry is an independently guarded item with a durable outcome receipt. The UI never implies cross-entry atomicity; retry targets only failed or stale items.                                                                                                                                                                                                                                                                                                                  |
+| Backup and restore                | Export scope and restore capability are separate facts. V1 may export full, collection, entry, and asset artifacts, but restore apply is limited to the documented missing-asset scope. Export must never be presented as proof of full disaster recovery.                                                                                                                                                                                                                                  |
+| Readiness truth                   | The composite readiness/work state is derived on demand from canonical draft, entry lifecycle status, revision, public-output, review, and configuration rows by one backend readiness computation shared by the dashboard, entry lists, editor, reviews, MCP, and publish preview/execution. The composite readiness projection is never stored, and no surface computes competing readiness rules.                                                                                        |
+| Draft preview access              | In v1, rendered draft previews require an authenticated, authorized editor context. An implementation may use a short-lived session-bound credential, but it must not create a transferable anonymous share link. Stakeholder share links are the separate CND-06 decision.                                                                                                                                                                                                                 |
+| Agent public operations           | In the current v1 runtime, MCP public-output and destructive operations are review-gated; agents prepare drafts and request review. Granting a trusted agent direct caller-parity publish, archive, or restore authority is the explicit CND-10 decision. Until accepted, no MCP tool may expose those direct operations.                                                                                                                                                                   |
+| Performance target scale          | Checks that reference “target scale” mean the v1 scale target from VISION.md: hundreds to low thousands of entries, multiple locales, Convex-backed assets, and editorial/site-content search. The catalog makes no performance claims beyond that tested envelope.                                                                                                                                                                                                                         |
 
 ---
 
@@ -602,7 +608,7 @@ These decisions remove ambiguity between stories and define what the checks must
 3. Inspect the rendered page and navigate within a safely bounded preview context.
 4. Return to the same editor state.
 
-**Should happen:** Preview uses authorized draft data and the host app’s presentation. It is protected from public indexing and sharing beyond authorized access.
+**Should happen:** Preview uses authorized draft data and the host app’s presentation. It is protected from public indexing and sharing beyond authorized access. In v1, preview requires an authenticated, authorized editor context; any short-lived preview credential is bound to that context and is not a transferable stakeholder link. Share links are the separate CND-06 decision.
 
 **Should not happen:** Preview must not write public projections, expose an unguessable token in logs, or silently fall back to the live version when draft rendering fails.
 
@@ -701,7 +707,7 @@ These decisions remove ambiguity between stories and define what the checks must
 3. Confirm the guarded operation.
 4. Later open archived content and restore it to a valid location.
 
-**Should happen:** Archiving the selected document is entry-wide across all its locales and removes its public output atomically while preserving content/history. Descendant entries are not silently marked archived; any descendant public-route effects are listed and handled by the canonical route operation. Archiving an entire subtree requires an explicit per-entry bulk plan. Restore revalidates parents, routes, and collisions before returning the selected entry to draft workflow.
+**Should happen:** Archive and restore semantics are the entry-wide semantics of LIF-01 and LIF-02; this story adds only the hierarchical concerns. Archiving the selected document is entry-wide across all its locales and removes its public output atomically while preserving content/history. Descendant entries are not silently marked archived; any descendant public-route effects are listed and handled by the canonical route operation. Archiving an entire subtree requires an explicit per-entry bulk plan. Restore revalidates parents, routes, and collisions before returning the selected entry to draft workflow.
 
 **Should not happen:** Children must not become orphaned or remain publicly reachable unexpectedly. Restore must not overwrite a new route occupant.
 
@@ -881,7 +887,7 @@ These decisions remove ambiguity between stories and define what the checks must
 
 **Should not happen:** Failed uploads must not leave misleading ready records, expose storage internals, accept unsafe file types, or create duplicates on retry.
 
-**Checks:** Valid file; wrong type; too large; zero-byte/corrupt; duplicate content/name; network interruption; multi-upload; keyboard/file-picker; mobile.
+**Checks:** Valid GIF/JPEG/PNG/WebP; wrong type; SVG and HTML rejected in v1; too large; zero-byte/corrupt; duplicate content/name; network interruption; multi-upload; keyboard/file-picker; mobile. Any later script-bearing file support requires a separate sanitization, content-type, disposition, and origin policy.
 
 ### AST-02: Browse, search, and filter assets
 
@@ -1364,7 +1370,7 @@ Unpublish and archive are separate operations. Unpublished content remains activ
 
 ### DAT-01: Edit shared site data
 
-**User story:** As a publisher or owner, I want to update reusable public content such as contact details, footer text, announcements, or organization information.
+**User story:** As an owner, I want to update reusable public content such as contact details, footer text, announcements, or organization information.
 
 **Dream experience:** Site data is grouped by human purpose, shows where it is used, and makes its immediate public/revalidation effect clear before saving.
 
@@ -1375,15 +1381,15 @@ Unpublish and archive are separate operations. Unpublished content remains activ
 3. Edit shared or localized values and review affected website areas.
 4. Explicitly confirm high-impact changes when required, then save and review revalidation behavior.
 
-**Should happen:** Validation follows the block contract. Editors and viewers can inspect without write controls. In v1, only publishers and owners may save; a successful save changes canonical public site data and schedules revalidation, and there is no separate unpublished site-data draft.
+**Should happen:** Validation follows the block contract. Publishers, editors, and viewers can inspect without write controls. In v1, only owners may save through `manageSettings`; a successful save changes canonical site data immediately, schedules revalidation when the block is public, and has no separate unpublished draft. Activity records the actor, key, locale, and operation outcome without silently retaining the full prior value as a second recovery store.
 
 **Should not happen:** Site data must not become a hidden schema editor, imply that a saved change is still only a draft, or claim a separate publish workflow that does not exist.
 
-**Checks:** Shared/localized block; invalid payload; save failure; editor/viewer read-only behavior; publisher/owner save; public provider result; revalidation delivery; empty block list.
+**Checks:** Shared/localized block; invalid payload; save failure; publisher/editor/viewer read-only behavior; owner save; public block schedules revalidation; private block does not schedule public revalidation merely for a data save; mistaken value corrected by a subsequent owner save; activity attribution without full-value leakage; public provider result; empty block list; CND-12 decision recorded.
 
 ### DAT-02: Understand site-data impact
 
-**User story:** As a publisher or owner, I want to know which website areas may change when reusable site data is updated.
+**User story:** As an owner, I want to know which website areas may change when reusable site data is updated.
 
 **Dream experience:** The product names affected pages/tags where provable and clearly labels broader conservative invalidation.
 
@@ -1765,20 +1771,20 @@ The matrix describes product capability, not merely current UI visibility. Every
 
 **User story:** As an owner, I want to create a scoped external-agent connection without granting broad CMS authority.
 
-**Dream experience:** The setup explains scopes, collection limits, expiry, safety mode, and one-time secret handling before creation.
+**Dream experience:** The setup explains operation scopes, expiry, safety mode, and one-time secret handling before creation.
 
 **Steps:**
 
 1. Open Settings > MCP connections.
 2. Choose create connection.
-3. Configure allowed scopes, collections, expiry, and safety mode.
+3. Configure allowed operation scopes, expiry, and safety mode.
 4. Create and copy the raw key once.
 
 **Should happen:** Better Auth owns the API key; CMS stores only its stable key ID and CMS policy. Raw key material is shown once and never persisted in CMS state.
 
 **Should not happen:** The UI must not reveal old raw keys, accept client-supplied role/member authority, or default to unnecessary scopes.
 
-**Checks:** Minimal/full allowed scope; expiry; collection limit; copy-once; reload hides key; owner-only; audit; secret redaction.
+**Checks:** Minimal/full operation scope; expiry; copy-once; reload hides key; owner-only; audit; secret redaction; no UI claim of locale/collection restriction unless CND-11 is accepted.
 
 ### AGT-02: Revoke or expire an MCP connection
 
@@ -1816,7 +1822,7 @@ The matrix describes product capability, not merely current UI visibility. Every
 
 **Should not happen:** Completed, failed, revoked, or expired runs must not keep writing. A run ID must not confer authority by itself.
 
-**Checks:** Lifecycle states; scope intersection; collection boundary; expiry; current-role change; activity attribution; secret redaction.
+**Checks:** Lifecycle states; operation-scope intersection; expiry; current-role change; activity attribution; secret redaction.
 
 ### AGT-04: Let an agent prepare a draft
 
@@ -1835,7 +1841,7 @@ The matrix describes product capability, not merely current UI visibility. Every
 
 **Should not happen:** Agents must not read raw tables, mutate schema/settings/members, bypass active-run requirements, or change public output through draft tools.
 
-**Checks:** Create/update; idempotent retry; wrong collection/scope; invalid field; stale draft; no public change; human-visible attribution.
+**Checks:** Create/update; idempotent retry; missing operation scope; unknown collection; invalid field; stale draft; no public change; human-visible attribution.
 
 ### AGT-05: Let an agent prepare a translation
 
@@ -1888,11 +1894,11 @@ The matrix describes product capability, not merely current UI visibility. Every
 3. Inspect collections, entries, public content, assets, runs, and reviews within scope.
 4. Attempt a disallowed operation and receive a safe denial.
 
-**Should happen:** Tools operate through CMS domain operations, redact secrets/creation metadata, and enforce role, credential, scope, collection, run, and safety policy.
+**Should happen:** Tools operate through CMS domain operations, redact secrets/creation metadata, and enforce current member role, credential status, operation scope, active run, and safety policy. Locale/collection credential limits are not claimed unless CND-11 is accepted and implemented as canonical authority.
 
 **Should not happen:** No raw table reads, schema mutation, member/settings/deploy administration, authority-shaped inputs, or default direct destructive/public operations.
 
-**Checks:** Tool list; each allowed read/write; anonymous/malformed/revoked key; out-of-scope collection; denial copy; rate limit; no double counting.
+**Checks:** Tool list; each allowed read/write; anonymous/malformed/revoked key; missing operation scope; unknown collection; denial copy; rate limit; no double counting.
 
 ---
 
@@ -2006,6 +2012,25 @@ The matrix describes product capability, not merely current UI visibility. Every
 
 **Checks:** Route repair; asset-ref rebuild; public-row limitation; concurrent publish; failed repair; public privacy; invariant tests.
 
+### WEB-07: Inspect and retire public redirects
+
+**User story:** As a publisher or owner, I want to see which public redirects exist and remove obsolete ones without breaking inbound links.
+
+**Dream experience:** Redirects read as website facts — old URL, current target, status behavior, locale, and the operation that created them — not as database rows, and retiring one is as accountable as any other public-output change.
+
+**Steps:**
+
+1. Open the redirects inventory or route diagnostics.
+2. Review each redirect’s source path, target, status code, locale, creating operation, and age.
+3. Preview the removal impact for an obsolete redirect.
+4. Confirm the guarded removal and verify revalidation.
+
+**Should happen:** Redirect source is recorded using the canonical schema vocabulary (`publish`, `import`, or explicitly guarded `manual`). A publish-time redirect is created only when the collection and route-change policy support it. Removal is previewed, confirmed, audited, and emits revalidation for affected paths. A redirected source path is freed for reuse by new content only through the same canonical route-collision validation used everywhere else.
+
+**Should not happen:** Studio must not invent redirects for unpublish/archive unless an explicit documented policy requires them, allow ad-hoc edits that bypass route validation, create loops or chains ending at non-public targets, silently drop a redirect that inbound links still depend on without preview, or leave a removed redirect served from cache indefinitely.
+
+**Checks:** List/filter redirects; redirect created by live rename; supported permanent-status policy; removal preview and confirmation; loop/chain prevention; collision when a new entry claims a redirected path; locale-specific redirect; permission matrix; audit record; revalidation delivery.
+
 ---
 
 ## 16. Reliability, accessibility, responsive behavior, and edge states
@@ -2114,6 +2139,60 @@ The matrix describes product capability, not merely current UI visibility. Every
 **Should not happen:** Header reflection, bearer echo, raw Convex creation metadata, stack traces, client-controlled role/member fields, or draft/private payload leakage.
 
 **Checks:** Automated secret-pattern scans; malformed/unknown/revoked key; errors; audit; browser URL/history; public APIs; backups; support diagnostics.
+
+### Experience quality contract
+
+Speed, feel, and taste are assessed with the same discipline as functional stories: speed through measured budgets, feel and taste through a structured, repeatable review loop. Both use the **target-scale fixture**: a seeded dataset at the documented v1 scale target (on the order of 1,500 entries across three locales, a documentation tree at least five levels deep, several hundred assets, and long MDC bodies). Measurements against an empty or toy dataset do not count as evidence.
+
+Initial interaction budgets (p95 on mid-range hardware against the target-scale fixture; changing a budget is a recorded product decision, not a release-time adjustment):
+
+| Interaction                                       | Budget                       |
+| ------------------------------------------------- | ---------------------------- |
+| Cold Studio load to interactive work queue        | < 2.5s                       |
+| Navigation between primary sections               | < 300ms                      |
+| Keystroke to rendered character in a long body    | < 50ms, no dropped frames    |
+| Search or filter results                          | < 300ms                      |
+| Entry list paging and sorting                     | < 200ms                      |
+| Publish preview computation                       | < 2s                         |
+| INP / CLS on primary routes                       | INP < 200ms, CLS < 0.1       |
+
+### QUA-07: Meet interaction performance budgets at target scale
+
+**User story:** As an editor working in Studio all day, I want every routine interaction to feel immediate so the CMS is never the slow part of my work.
+
+**Dream experience:** Studio feels like a native tool: typing never lags, lists never stutter, and waiting is rare, brief, and explained.
+
+**Steps:**
+
+1. Seed the documented target-scale fixture.
+2. Run the instrumented browser pass over primary routes and core editor interactions.
+3. Compare measured p95 values against the published budget table.
+4. Record the results per release and triage any regression as a finding.
+
+**Should happen:** Budgets are versioned in this catalog, measured automatically through the existing UI-audit/live-story browser harness, and recorded per release so trends are visible. Speed is a measured fact, not an impression. A blown budget is a finding with severity and an owner, exactly like a functional failure.
+
+**Should not happen:** Performance must not be assessed only against empty or trivial data, budgets must not be silently raised to make a release pass, skeletons and spinners must not mask unbounded waits, and measurement must not depend on manual stopwatch work that nobody repeats.
+
+**Checks:** Cold load; section navigation; editor input latency on a long document; search/filter latency; list paging at target scale; publish preview computation; INP/CLS on primary routes; fixture documented and reproducible; per-release trend recorded; budget-change decisions auditable.
+
+### QUA-08: Review taste and feel through a structured, repeatable loop
+
+**User story:** As the product team, we want taste, feel, and language quality reviewed with the same discipline as functional stories so experience quality cannot silently erode between releases.
+
+**Dream experience:** Every release gets an experience verdict a reviewer can defend: rubric scores, screenshot evidence, comparative anchors, and real-user signals — not one person’s mood on review day.
+
+**Steps:**
+
+1. Capture the standard screenshot set (primary routes across supported viewports in light and dark) with the UI-audit harness against the target-scale fixture.
+2. Run a model-assisted design review of the set against the published rubric, producing scored, screen-referenced findings.
+3. A human design owner triages every finding: accept, fix, or overrule with recorded rationale.
+4. Periodically anchor the loop with a side-by-side benchmark against two reference tools and moderated task sessions with real editors.
+
+**Should happen:** The rubric is versioned and derived from the binding sources — PRODUCT.md brand personality and anti-references plus the DESIGN.md interaction principles — so review criteria and product intent cannot drift apart. The model-assisted review is a repeatable lens that produces specific findings tied to a screen, route, and rubric dimension. The human owner holds the verdict. Interaction-cost counts (clicks/keystrokes) for the top recurring editorial tasks are tracked against ceilings, and real-user sessions happen on a stated cadence.
+
+**Should not happen:** Taste review must not collapse into “looks fine to me” inside code review, the model reviewer must not become the sole authority without human triage, the rubric must not fork from PRODUCT.md/DESIGN.md into a second taste truth, screenshots must not be compared across incompatible build modes, findings must not lack a concrete screen reference, and real-user evidence must not be postponed indefinitely because proxy reviews exist.
+
+**Checks:** Rubric exists and cites its source documents; screenshot set completeness (routes × viewports × themes); model review repeatability (same set yields substantially the same top findings); human triage record with rationale for overrules; interaction-cost table for the top ten tasks; comparative benchmark on file; at least one moderated user session per assessment cycle; findings triaged into the same tracker as functional gaps.
 
 ---
 
@@ -2414,6 +2493,66 @@ These workflows are common enough that the team should assess them, but they are
 
 **Checks:** Crop/focal round-trip; invalid coordinates; responsive preview; shared asset in two usages; locale/shared-field behavior; asset replacement; public rendering.
 
+### CND-10: Grant an agent direct guarded public-operation authority
+
+**User story:** As an owner, I want to decide whether a trusted agent identity may publish, archive, or restore directly through the same guarded operations as an authorized human.
+
+**Dream experience:** Caller parity is a deliberate, operation-specific configuration decision, not a drifting default. An agent granted one operation uses the identical preview, confirmation, execution, and audit path as a human with the required role; an agent without it requests review. Nothing about the agent path is a second implementation.
+
+**Steps:**
+
+1. Review the credential scope and safety-mode configuration for publish, archive, and restore.
+2. Explicitly grant only the accepted operation scopes to one specific connection.
+3. Start or use a verified active agent run.
+4. The agent previews and executes an allowed operation through the canonical operation layer.
+5. Inspect the outcome, attribution, and the effect of run expiry, revocation, or role downgrade.
+
+**Should happen:** If accepted, every enabled direct agent operation uses the same canonical preview/confirm/execute/audit path and revalidation as its human equivalent. Publish produces identical readiness, revision, projection, and audit semantics. Archive/restore require the same owner authority and reversible lifecycle rules as human archive/restore. Effective authority remains the intersection of the verified credential, active operation scopes, a verified active agent run, the owning member’s current role, and safety mode; run expiry, revocation, or downgrade stops the operation on the next protected call.
+
+**Should not happen:** A run ID or historical scope snapshot must not confer public-operation authority. Default connections must not gain scopes silently. Direct agent operations must not bypass preview/confirmation semantics, skip review-gating for connections that were not explicitly granted, diverge from human output, or expand to permanent delete, purge, backup administration, member management, or settings management.
+
+**Checks:** Default-deny for new connections; independent publish/archive/restore scope decisions; explicit grant; active-run requirement; required owning-member role; run expiry; role downgrade; revocation mid-run; output/audit/revalidation identical to the human operation; readiness/stale-state parity; permanent delete/purge remain unavailable; recorded accept/defer/reject decision.
+
+**Decision note:** `docs/concepts/studio/marketer-publishing-pipeline.md` names direct authorized agent publish and reversible archive/restore as product goals, while `docs/reference/auth-and-roles.md` and `docs/concepts/studio/workflows.md` describe the current runtime as review-gated with trusted-direct execution as a later, explicitly designed mode. The gap assessment must resolve the operation-specific conflict explicitly. This catalog treats review-gated as the v1 baseline until decisions are recorded.
+
+### CND-11: Scope member authority to locales or collections
+
+**User story:** As an owner, I want to decide whether a translator, agency, or contributor can be limited to specific locales or collections, or whether v1 keeps exactly four site-wide roles.
+
+**Dream experience:** Authority stays one backend model. If scoping is accepted, every surface — Studio controls, MCP, reviews, readiness, and publish — enforces the same boundary from the backend. If it is rejected or deferred, personas and documentation stop implying that per-locale authorization exists.
+
+**Steps:**
+
+1. Review the current four-role, site-wide authority model against real team needs.
+2. Record an accept, defer, or reject decision with rationale.
+3. If accepted, define the canonical scope model, its enforcement in backend operations, and its Studio/MCP presentation.
+4. Verify the full permission matrix, including denial states.
+
+**Should happen:** In v1, viewer, editor, publisher, and owner remain the only backend roles and each is site-wide; the Translator persona maps to the editor role. Current MCP credentials also have flat operation scopes rather than locale/collection limits. Any accepted scoping is enforced by backend operations as one source of truth and appears consistently in Studio, MCP, readiness, reviews, and denial copy.
+
+**Should not happen:** Locale or collection restrictions must not be implemented as UI-only hiding, become a parallel permission store beside CMS membership, ship half-enforced across Studio and MCP, or silently grant a “translator” publish authority narrower than the backend actually enforces.
+
+**Checks:** Four-role matrix without scoping; documentation/persona alignment; current flat MCP operation scopes; if accepted: backend-enforced locale/collection denial in Studio and MCP, readiness and review parity, audit of scope changes.
+
+### CND-12: Expand site-data editing and recovery beyond owner-only immediate writes
+
+**User story:** As an owner and editorial team, we want to decide whether reusable site data should remain owner-only immediate settings or gain publisher/editor workflow, version history, and rollback.
+
+**Dream experience:** The product makes one explicit choice. A simple v1 keeps owner-only immediate writes and honestly states the recovery limit. An expanded workflow uses one canonical version/approval model rather than hiding entry-like drafts inside settings.
+
+**Steps:**
+
+1. Review which site-data blocks can change public output and how often editors need to update them.
+2. Record accept, defer, or reject decisions for broader edit authority and versioned recovery.
+3. If accepted, define canonical roles, version storage, review/publish behavior, rollback, retention, and revalidation.
+4. Verify the complete permission and recovery matrix.
+
+**Should happen:** Until accepted, `manageSettings` remains owner-only, saves are immediately canonical/public where visibility is public, activity records attribution without full-value snapshots, and correction requires another owner save. Existing exports do not imply a v1 site-data restore path. If expanded, Studio, backend operations, activity, MCP policy, and public reads use one version truth with testable rollback semantics.
+
+**Should not happen:** The UI must not imply editor/publisher write access that the backend denies, retain arbitrary previous values in generic activity records, add a second hidden site-data draft store, or claim rollback that only means manually reconstructing data from logs.
+
+**Checks:** Current owner-only matrix; publisher/editor/viewer denial; immediate public save and revalidation; mistaken-save correction; accept/defer/reject record; if accepted: version immutability, approval authority, rollback, retention/privacy, concurrent edits, and public-output atomicity.
+
 ---
 
 ## Intentional non-stories and guardrails
@@ -2427,7 +2566,7 @@ These are important acceptance criteria because implementing them would violate 
 5. Missing translations do not globally block ready locales.
 6. Permanent deletion is not the normal content-removal workflow; archive and restore are preferred.
 7. MCP does not expose raw table access, schema mutation, member/settings management, deploy/admin tools, or client-supplied authority.
-8. MCP does not directly publish, delete, or purge by default; public/destructive agent work is review-gated.
+8. MCP does not directly publish, archive, restore, delete, or purge by default; public/destructive agent work is review-gated. Granting direct caller-parity publish/archive/restore authority is the explicit CND-10 decision, not a default.
 9. Imports do not create schema and do not silently publish.
 10. Backup UI does not claim restore capabilities the implementation does not provide.
 11. Ginko CMS does not create a second user, tenant, organization, or workspace source of truth beside Better Auth identity and CMS membership.
@@ -2436,8 +2575,8 @@ These are important acceptance criteria because implementing them would violate 
 14. Technical identifiers, projection terminology, cache tags, events, and raw payloads do not dominate editor-facing workflows.
 15. Autosave and “Save now” do not become separate draft persistence systems.
 16. Studio does not maintain locale policy independently from the installed code/content-policy source of truth.
-17. Site-data saves are not described as unpublished drafts in v1; successful permitted writes have immediate canonical public/revalidation semantics.
-18. Scheduling, assignments, comments, notifications, templates, share previews, and similar CND workflows are not implementation commitments until the team explicitly accepts their canonical state and lifecycle.
+17. Site-data saves are not described as unpublished drafts in v1; successful permitted writes change canonical data immediately, and public blocks schedule revalidation.
+18. Scheduling, assignments, comments, notifications, templates, share previews, direct agent public operations, scoped member authority, expanded site-data workflow, and similar CND workflows are not implementation commitments until the team explicitly accepts their canonical state and lifecycle.
 
 ## Recommended assessment order
 
