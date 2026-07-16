@@ -8,10 +8,11 @@ const configuredBaseUrl = process.env.CMS_STORY_BASE_URL
 const email = process.env.GINKO_CMS_TEST_EMAIL
 const password = process.env.GINKO_CMS_TEST_PASSWORD
 const outputPath = process.env.CMS_STORY_OUTPUT ? resolve(process.env.CMS_STORY_OUTPUT) : null
+const publicOnly = process.argv.includes('--public-only')
 
-if (!configuredBaseUrl || !email || !password) {
+if (!configuredBaseUrl || (!publicOnly && (!email || !password))) {
   throw new Error(
-    'cms-live-story-smoke requires CMS_STORY_BASE_URL, GINKO_CMS_TEST_EMAIL, and GINKO_CMS_TEST_PASSWORD.',
+    'cms-live-story-smoke requires CMS_STORY_BASE_URL, plus GINKO_CMS_TEST_EMAIL and GINKO_CMS_TEST_PASSWORD unless --public-only is used.',
   )
 }
 
@@ -26,12 +27,14 @@ const results = []
 let activeMcpConnection = null
 let mcpRequestId = 2
 let fixtureEntryUrl = null
+let publicContentFixture = null
 
 function redact(value) {
   return String(value).replace(/[\w-]{24,}/g, '[REDACTED]')
 }
 
 async function story(id, title, run) {
+  if (publicOnly && !id.startsWith('public-')) return
   const startedAt = Date.now()
   try {
     const evidence = await run()
@@ -64,6 +67,16 @@ async function fetchJson(path, init) {
     body = text
   }
   return { response, body, text }
+}
+
+function contentApiPath(endpoint, params) {
+  const encoded = Buffer.from(JSON.stringify(params))
+    .toString('base64')
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '')
+  const chunks = encoded.match(/.{1,100}/g) ?? []
+  return `/api/_content/${endpoint}/_/${chunks.join('/')}.json`
 }
 
 async function mcpInitialize(rawKey) {
@@ -177,12 +190,11 @@ async function revokeActiveMcpConnection(page, rawKey) {
 }
 
 function summarizePublicEntries(body) {
-  const entries =
-    body && typeof body === 'object' && Array.isArray(body.entries) ? body.entries : []
+  const entries = body && typeof body === 'object' && Array.isArray(body.result) ? body.result : []
   return {
     count: entries.length,
-    firstPath: entries[0]?.route?.path ?? entries[0]?.path ?? null,
-    firstTitle: entries[0]?.title ?? entries[0]?.data?.title ?? null,
+    firstPath: entries[0]?.route?.resolvedPath ?? null,
+    firstTitle: entries[0]?.title ?? null,
   }
 }
 
@@ -509,73 +521,122 @@ try {
   })
 
   await story('public-api.list', 'Public API lists only published entries', async () => {
-    const { response, body, text } = await fetchJson(
-      `/api/ginko/v1/list?collection=${collection}&locale=en&limit=2`,
-    )
+    const path = contentApiPath('query', {
+      collection,
+      resolveLocale: { locale: 'en', exact: true },
+      sort: [{ lastPublishedAt: -1 }],
+      limit: 2,
+    })
+    const { response, body, text } = await fetchJson(path)
     if (!response.ok)
       throw new Error(`public list failed ${response.status}: ${redact(text).slice(0, 300)}`)
     const summary = summarizePublicEntries(body)
     if (summary.count < 1) throw new Error('public list returned no entries')
+    if (!summary.firstPath || !summary.firstTitle) {
+      throw new Error('public list entry did not include a route path and title')
+    }
+    publicContentFixture = summary
     assertNoDraftProjection('public list', body)
     return summary
   })
 
+  await story('public-page.blog', 'Public blog renders the published list and detail', async () => {
+    if (!publicContentFixture) throw new Error('public list evidence is unavailable')
+    await page.goto(`${baseUrl}/blog`, { waitUntil: 'domcontentloaded' })
+    const postLink = page.getByRole('link', { name: publicContentFixture.firstTitle })
+    await postLink.waitFor({ timeout: 30000 })
+    const href = await postLink.getAttribute('href')
+    if (href !== publicContentFixture.firstPath) {
+      throw new Error(`public blog linked to ${href || 'no route'}`)
+    }
+    await postLink.click()
+    await page
+      .getByRole('heading', { level: 1, name: publicContentFixture.firstTitle })
+      .waitFor({ timeout: 30000 })
+    return { path: page.url().replace(baseUrl, ''), title: publicContentFixture.firstTitle }
+  })
+
+  await story(
+    'public-page.not-found',
+    'Public content pages preserve HTTP 404 status',
+    async () => {
+      const missingPath = `/blog/missing-${fixtureToken}`
+      const response = await fetch(`${baseUrl}${missingPath}`)
+      if (response.status !== 404) {
+        throw new Error(`missing public blog page returned ${response.status}`)
+      }
+      return { path: missingPath, status: response.status }
+    },
+  )
+
   await story('public-api.nav', 'Public API navigation returns published routes only', async () => {
     const { response, body, text } = await fetchJson(
-      `/api/ginko/v1/nav?collection=${collection}&locale=en`,
+      `/api/_content/navigation?collection=${collection}&locale=en`,
     )
     if (!response.ok)
       throw new Error(`public nav failed ${response.status}: ${redact(text).slice(0, 300)}`)
-    if (!Array.isArray(body?.tree) || body.tree.length < 1) {
+    if (!Array.isArray(body) || body.length < 1) {
       throw new Error('public nav returned no tree entries')
     }
     assertNoDraftProjection('public nav', body)
-    const firstRoute = body.tree[0]?.entry?.route?.path ?? null
+    const firstRoute = body[0]?.path ?? null
     if (!firstRoute) throw new Error('public nav entry did not include a route path')
-    return { count: body.tree.length, firstRoute }
+    return { count: body.length, firstRoute }
   })
 
   await story(
     'public-api.search',
     'Public API respects the collection search contract',
     async () => {
+      if (!publicContentFixture) throw new Error('public list evidence is unavailable')
       const { response, body, text } = await fetchJson(
-        `/api/ginko/v1/search?collection=${collection}&locale=en&query=${fixtureToken}&limit=2`,
+        `/api/_content/search?q=${encodeURIComponent(publicContentFixture.firstTitle)}&locale=en`,
       )
       if (!response.ok) {
         throw new Error(`public search failed ${response.status}: ${redact(text).slice(0, 300)}`)
       }
-      if (!Array.isArray(body?.results)) throw new Error('public search returned an invalid shape')
+      if (!Array.isArray(body)) throw new Error('public search returned an invalid shape')
+      if (!body.some((result) => result?.path === publicContentFixture.firstPath)) {
+        throw new Error('public search did not return the published entry from public list')
+      }
       assertNoDraftProjection('public search', body)
       return {
-        count: body.results.length,
-        firstPath: body.results[0]?.route?.path ?? null,
+        count: body.length,
+        firstPath: body[0]?.path ?? null,
       }
     },
   )
 
   await story('public-api.sitemap', 'Public API sitemap returns published URLs only', async () => {
-    const { response, body, text } = await fetchJson(
-      `/api/ginko/v1/sitemap?collection=${collection}&locale=en&limit=5`,
-    )
+    const { response, body, text } = await fetchJson(`/api/_content/sitemap?include=${collection}`)
     if (!response.ok)
       throw new Error(`public sitemap failed ${response.status}: ${redact(text).slice(0, 300)}`)
-    if (!Array.isArray(body?.urls) || body.urls.length < 1) {
+    if (!Array.isArray(body) || body.length < 1) {
       throw new Error('public sitemap returned no URLs')
     }
     assertNoDraftProjection('public sitemap', body)
-    const firstRoute = body.urls[0]?.route?.path ?? null
+    const firstRoute = body[0]?.loc ?? null
     if (!firstRoute) throw new Error('public sitemap entry did not include a route path')
-    return { count: body.urls.length, firstRoute, hasNextPage: body.pageInfo?.hasNextPage === true }
+    const routeResponses = await Promise.all(
+      body.map(async (entry) => ({
+        path: entry?.loc,
+        status: entry?.loc ? (await fetch(`${baseUrl}${entry.loc}`)).status : null,
+      })),
+    )
+    const brokenRoute = routeResponses.find((entry) => entry.status !== 200)
+    if (brokenRoute) {
+      throw new Error(
+        `public sitemap route ${brokenRoute.path || '(missing)'} returned ${brokenRoute.status}`,
+      )
+    }
+    return { count: body.length, firstRoute }
   })
 
   await story(
     'public-api.search-validation',
     'Public API validates invalid search input',
     async () => {
-      const { response, body } = await fetchJson(
-        `/api/ginko/v1/search?collection=${collection}&locale=en`,
-      )
+      const { response, body } = await fetchJson(`/api/_content/search?locale=en`)
       if (response.status !== 400)
         throw new Error(`missing search query returned ${response.status}`)
       return { status: response.status, code: body?.data?.code ?? body?.code ?? null }

@@ -1,9 +1,6 @@
 <template>
   <div class="max-w-2xl mx-auto p-8">
-    <NuxtLink
-      to="/"
-      class="text-sm text-gray-400 hover:text-gray-600 mb-4 block"
-    >
+    <NuxtLink to="/" class="text-sm text-gray-400 hover:text-gray-600 mb-4 block">
       &larr; Home
     </NuxtLink>
 
@@ -11,14 +8,15 @@
 
     <article v-else-if="page" class="prose dark:prose-invert max-w-none">
       <h1>{{ page.title }}</h1>
-      <p v-if="page.data.description" class="text-gray-500 text-lg">
-        {{ page.data.description }}
+      <p v-if="page.description" class="text-gray-500 text-lg">
+        {{ page.description }}
       </p>
 
-      <MDC v-if="page.data.bodyMdc" :value="page.data.bodyMdc" />
-      <div v-else-if="page.data.bodyMdc === ''" class="text-gray-400 italic">
-        No content.
-      </div>
+      <ContentRenderer :value="page">
+        <template #empty>
+          <div class="text-gray-400 italic">No content.</div>
+        </template>
+      </ContentRenderer>
     </article>
 
     <div v-else class="text-gray-500">Page not found.</div>
@@ -26,11 +24,10 @@
 </template>
 
 <script setup lang="ts">
-const route = useRoute()
-const slug = Array.isArray(route.params.slug) ? route.params.slug.join('/') : route.params.slug
-const result = await useFetch('/api/ginko/v1/page', {
-  query: { collection: 'docs', path: `/docs/${slug || ''}` },
-})
-const pending = result.pending
-const page = computed(() => (result.data.value?.status === 'found' ? result.data.value.page : null))
+const { page, status } = await useContentPage('docs')
+const pending = computed(() => status.value === 'pending')
+
+if (import.meta.server && !page.value) {
+  setResponseStatus(404)
+}
 </script>

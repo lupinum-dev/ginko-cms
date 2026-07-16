@@ -84,6 +84,8 @@ interface GinkoCmsDataSourceContext {
 const isRecord = (value: unknown): value is UnknownRecord =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
+const CMS_PUBLIC_SEARCH_MAX_LIMIT = 50
+
 const normalizeContentTagSegment = (value: unknown): string => {
   const segment = String(value ?? '').trim()
   if (!segment) {
@@ -666,7 +668,7 @@ const contentDataSource = {
       'navigation',
       parseCmsNavWireResult,
       { collection, locale },
-      await callGinko(context.caller, 'nav', { collection, locale, limit: options.limit }),
+      await callGinko(context.caller, 'nav', { collection, locale }),
     )
     return sourceResult(
       result.tree.map(function toRawNavigation(node): ContentProviderNavigationItem {
@@ -729,7 +731,10 @@ const contentDataSource = {
   ) => {
     const contentRuntime = await contentRuntimeFromEvent(context.event)
     const locale = request.locale || defaultLocale(contentRuntime)
-    const query = request.query || request.term || ''
+    const query = (request.query || request.term || '').trim()
+    if (!query) {
+      throw providerError('INVALID_QUERY', 'Search query must not be empty.', 400)
+    }
     const collections = request.collections?.length
       ? request.collections
       : request.collection
@@ -750,7 +755,7 @@ const contentDataSource = {
             query,
             locale,
             collection,
-            limit: request.limit,
+            limit: Math.min(request.limit, CMS_PUBLIC_SEARCH_MAX_LIMIT),
           }),
         )
         const searchEntries = await Promise.all(

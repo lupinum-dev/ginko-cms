@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
-  modules: ['../packages/cms/src/module', '@nuxtjs/sitemap'],
+  modules: ['@lupinum/ginko-content', '../packages/cms/src/module', '@nuxtjs/sitemap'],
 
   devtools: { enabled: true },
   compatibilityDate: 'latest',
@@ -33,6 +33,10 @@ export default defineNuxtConfig({
     i18n: {
       defaultLocale: 'en',
       locales: ['en', 'de'],
+    },
+    search: {
+      engine: 'provider',
+      collections: ['blog'],
     },
   },
 

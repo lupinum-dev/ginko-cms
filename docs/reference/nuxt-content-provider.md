@@ -65,9 +65,9 @@ plan }`) and pattern-matches the closed query plan AST. It no longer accepts
   `routeVariants`; route resolution and locale policy remain owned by the
   content engine.
 - `searchSections` is intentionally not exposed by the CMS provider. Host apps
-  must use `content.search.engine = 'provider'` with `useContentSearchResults()` or
-  an explicit Ginko headless search import instead of rebuilding a frontend-owned
-  section index from public rows.
+  must use `content.search.engine = 'provider'` with `useContentSearch()` from
+  `@lupinum/ginko-content/client` instead of rebuilding a frontend-owned section
+  index from public rows.
 
 ## Related Pages
 

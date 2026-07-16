@@ -390,7 +390,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       nitroOptions.experimental.asyncContext = true
     }
 
-    // The website read API is provided by @lupinum/ginko through the active
+    // The website read API is provided by @lupinum/ginko-content through the active
     // content provider. ginko-cms does not auto-import public website-reader
     // composables into host apps.
     addComponentsDir({

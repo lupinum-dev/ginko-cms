@@ -37,4 +37,7 @@ const authors = defineCollection({
   },
 })
 
-export default defineContentConfig({ collections: { blog, docs, authors } })
+export default defineContentConfig({
+  provider: 'cms',
+  collections: { blog, docs, authors },
+})

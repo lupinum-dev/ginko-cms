@@ -120,8 +120,8 @@ to `pathPrefix` list queries.
   surfaces.
 - Data-only collections should not be documented as page or sitemap sources.
 - CMS-backed search is provider-backed. Host apps should configure
-  `content.search.engine = 'cms'` and use `useContentSearchResults()` or an
-  explicit Ginko headless search import, not static search-section data.
+  `content.search.engine = 'provider'` and use `useContentSearch()` from
+  `@lupinum/ginko-content/client`, not static search-section data.
 
 ## Cache And Revalidation
 

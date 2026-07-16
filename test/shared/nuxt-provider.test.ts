@@ -410,6 +410,20 @@ describe('Ginko Nuxt provider v2', () => {
       })
       expect(route).not.toHaveProperty('path')
     }
+    expect(convexMock.calls.find(({ operation }) => operation === 'nav')?.args).toEqual({
+      collection: 'docs',
+      locale: 'en',
+    })
+    expect(convexMock.calls.find(({ operation }) => operation === 'search')?.args).toMatchObject({
+      limit: 50,
+    })
+  })
+
+  it('rejects empty provider searches before calling Convex', async () => {
+    await expect(
+      contentProvider.search!(event, { term: '   ', locale: 'en', collections: ['docs'] }),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'INVALID_QUERY' })
+    expect(convexMock.query).not.toHaveBeenCalled()
   })
 
   it('enumerates all locale routes and preserves sitemap opt-out as a fact', async () => {

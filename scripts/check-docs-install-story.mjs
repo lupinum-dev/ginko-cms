@@ -57,6 +57,17 @@ const canonicalDeployDocs = [
   'docs/maintenance/release-candidate.md',
 ]
 
+const publicContentDocs = [
+  'docs/reference/public-content-api.md',
+  'docs/reference/nuxt-content-provider.md',
+  'skills/ginko-cms/references/public-content-and-provider.md',
+]
+
+const stalePublicContentPatterns = [
+  /useContentSearchResults\(/,
+  /content\.search\.engine\s*=\s*['"]cms['"]/,
+]
+
 const oldSetupOrderPattern =
   /pnpm exec convex dev --once[\s\S]{0,240}?pnpm exec ginko-cms push(?! --check)/
 
@@ -101,6 +112,15 @@ for (const docPath of canonicalDeployDocs) {
   }
   if (oldSetupOrderPattern.test(contents)) {
     errors.push(`${docPath}: canonical setup path must not document convex-dev-then-push`)
+  }
+}
+
+for (const docPath of publicContentDocs) {
+  const contents = readFileSync(resolve(repoRoot, docPath), 'utf8')
+  for (const pattern of stalePublicContentPatterns) {
+    if (pattern.test(contents)) {
+      errors.push(`${docPath}: public content documentation contains stale API /${pattern.source}/`)
+    }
   }
 }
 

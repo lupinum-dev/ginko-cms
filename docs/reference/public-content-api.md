@@ -30,15 +30,22 @@ application page code should stay the same whether the active provider is
 filesystem or CMS.
 
 ```ts
+import { navigation, paginate, useContentSearch } from '@lupinum/ginko-content/client'
+
 const { page, previous, next } = await useContentPage(docs, {
-  surround: { fields: ['description'] },
+  surround: { select: ['description'] },
 })
 
-const { data: posts } = await useContentMany(blog, {
-  sort: { lastPublishedAt: 'desc' },
-})
+const { data: posts } = await useAsyncData('blog-posts', () =>
+  paginate(blog, {
+    mode: 'cursor',
+    locale: 'en',
+  }),
+)
 
-const { data: navTree } = await useContentTree(docs)
+const { data: navTree } = await useAsyncData('docs-navigation', () =>
+  navigation(docs, { locale: 'en' }),
+)
 ```
 
 CMS-backed search is provider-backed. Configure the CMS search engine and use
@@ -56,7 +63,8 @@ export default defineNuxtConfig({
 ```
 
 ```ts
-const { results, pending, error } = await useContentSearchResults(query, {
+const { query, results, pending, error } = await useContentSearch({
+  collection: 'docs',
   locale,
 })
 ```
