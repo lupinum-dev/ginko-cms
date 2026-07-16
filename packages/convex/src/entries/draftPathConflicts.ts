@@ -7,7 +7,7 @@ import {
   effectiveDraftParent,
   effectiveDraftSlug,
 } from './workflow/draftPlacement.js'
-import { readDraftRows } from './workflow/drafts.js'
+import { readDraftPlacementRows } from './workflow/drafts.js'
 import { entrySnapshotPath } from './workflow/path.js'
 
 type CollectionDoc = Awaited<ReturnType<typeof getCollectionOrThrow>>
@@ -38,14 +38,8 @@ export async function assertNoDraftSiblingPathConflict(
     parentEntryId?: Id<'entries'> | null
   },
 ) {
-  const movingRows = await ctx.db
-    .query('entryDrafts')
-    .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entry._id))
-    .collect()
-  const movingShared = movingRows.find((row) => row.locale === null) ?? null
-  const movingByLocale = new Map(
-    movingRows.filter((row) => row.locale !== null).map((row) => [row.locale as string, row]),
-  )
+  const movingRows = await readDraftPlacementRows(ctx, args.entry._id, args.locales)
+  const movingShared = movingRows.shared
   const targetParent =
     args.parentEntryId !== undefined
       ? args.parentEntryId
@@ -75,7 +69,7 @@ export async function assertNoDraftSiblingPathConflict(
   const candidateDrafts = await Promise.all(
     [...candidates.values()].map(async (candidate) => ({
       candidate,
-      draftRows: await readDraftRows(ctx, candidate._id),
+      draftRows: await readDraftPlacementRows(ctx, candidate._id, args.locales),
     })),
   )
 
@@ -86,7 +80,7 @@ export async function assertNoDraftSiblingPathConflict(
       const movingSlug = effectiveDraftSlug(
         args.entry,
         movingShared,
-        movingByLocale.get(locale) ?? null,
+        movingRows.byLocale[locale] ?? null,
       )
       const candidateSlug = effectiveDraftSlug(
         candidate,

@@ -329,6 +329,96 @@ describe('editor tree mutations', () => {
 })
 
 describe('tree cycle detection', () => {
+  it('rejects a draft-only parent override that would create an effective cycle', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { rootAId, childId } = await seedTreeFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const root = await owner.query(api.editor.getEntry, { id: rootAId, locale: 'en' })
+
+    await expect(
+      owner.saveEntryDraft({
+        entryId: rootAId,
+        expectedDraftVersion: root.draftVersion,
+        patch: { shared: { parentEntryId: childId } },
+      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return getCmsErrorData(error)?.code === 'ENTRY_INVALID_TREE_MOVE'
+    })
+  })
+
+  it('rejects draft parents from another collection', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { rootAId } = await seedTreeFixture(ctx)
+    const now = Date.now()
+    await ctx.seed(
+      'collections' as never,
+      {
+        slug: 'other-docs',
+        label: { en: 'Other docs' },
+        icon: null,
+        type: 'tree',
+        routing: {
+          pathPrefix: '/other-docs',
+          slugMode: 'shared',
+          rootSlug: null,
+          singleton: false,
+        },
+        locales: ['en'],
+        fields: [{ key: 'title', type: 'text', localized: true, searchable: true }],
+        settings: { maxDepth: 4 },
+        createdAt: now,
+        updatedAt: now,
+        updatedBy: 'owner-1',
+      } as never,
+    )
+    const owner = ctx.asCmsUser('owner-1')
+    const foreignParentId = await owner.createEntry({
+      collection: 'other-docs',
+      slug: 'foreign-parent',
+      localized: { title: 'Foreign parent' },
+    })
+    const root = await owner.query(api.editor.getEntry, { id: rootAId, locale: 'en' })
+
+    await expect(
+      owner.saveEntryDraft({
+        entryId: rootAId,
+        expectedDraftVersion: root.draftVersion,
+        patch: { shared: { parentEntryId: foreignParentId } },
+      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return getCmsErrorData(error)?.code === 'ENTRY_PARENT_NOT_FOUND'
+    })
+  })
+
+  it('rejects draft parent overrides beyond the collection depth limit', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { rootBId, grandchildId } = await seedTreeFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const levelFourId = await owner.createEntry({
+      collection: 'docs',
+      parentEntryId: grandchildId,
+      slug: 'level-four',
+      localized: { title: 'Level four' },
+    })
+    const root = await owner.query(api.editor.getEntry, { id: rootBId, locale: 'en' })
+
+    await expect(
+      owner.saveEntryDraft({
+        entryId: rootBId,
+        expectedDraftVersion: root.draftVersion,
+        patch: { shared: { parentEntryId: levelFourId } },
+      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return getCmsErrorData(error)?.code === 'ENTRY_MAX_DEPTH_EXCEEDED'
+    })
+  })
+
   it('rejects creating an entry with a nonexistent parentEntryId (prevents self-reference at creation)', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

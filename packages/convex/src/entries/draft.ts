@@ -27,6 +27,7 @@ import { assertNoDraftSiblingPathConflict } from './draftPathConflicts.js'
 import { getDraftVsPublishedDiffPreview } from './read.js'
 import { rewriteStoredRelationData } from './relations.js'
 import { refreshDraftAssetRefsForSave } from './workflow/commands.js'
+import { assertValidDraftParentChain } from './workflow/draftPlacement.js'
 import { applyDraftPatch, type SaveDraftPatch } from './workflow/drafts.js'
 
 async function saveCanonicalDraft(
@@ -112,6 +113,12 @@ async function saveCanonicalDraft(
   const sharedRouteChanged =
     normalizedPatch.shared?.parentEntryId !== undefined ||
     normalizedPatch.shared?.slug !== undefined
+  if (normalizedPatch.shared?.parentEntryId !== undefined) {
+    await assertValidDraftParentChain(ctx, {
+      entry: result.entry,
+      collection: args.collection,
+    })
+  }
   const routeLocales = sharedRouteChanged
     ? args.collection.locales
     : Object.entries(normalizedPatch.locales ?? {}).flatMap(([locale, patch]) =>
@@ -178,6 +185,10 @@ async function revertCanonicalDraftToPublished(
   } else {
     await ctx.db.insert('entryDrafts', sharedPayload)
   }
+  await assertValidDraftParentChain(ctx, {
+    entry: args.entry,
+    collection: args.collection,
+  })
 
   for (const draft of existingDrafts) {
     if (draft.locale !== null && !publicLocales.has(draft.locale)) {

@@ -329,3 +329,36 @@ export async function readDraftRows(
   }
   return { shared, byLocale }
 }
+
+/**
+ * Read only the shared and requested locale rows needed for route placement.
+ * This avoids loading unrelated locale bodies and field data.
+ */
+export async function readDraftPlacementRows(
+  ctx: { db: MutationCtx['db'] | { query: MutationCtx['db']['query'] } },
+  entryId: Id<'entries'>,
+  locales: Iterable<string>,
+): Promise<{
+  shared: EntryDraftDoc | null
+  byLocale: Record<string, EntryDraftDoc>
+}> {
+  const localeCodes = [...new Set(locales)]
+  const [shared, ...localeRows] = await Promise.all([
+    ctx.db
+      .query('entryDrafts')
+      .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId).eq('locale', null))
+      .first(),
+    ...localeCodes.map((locale) =>
+      ctx.db
+        .query('entryDrafts')
+        .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId).eq('locale', locale))
+        .first(),
+    ),
+  ])
+  const byLocale: Record<string, EntryDraftDoc> = {}
+  localeCodes.forEach((locale, index) => {
+    const row = localeRows[index]
+    if (row) byLocale[locale] = row
+  })
+  return { shared, byLocale }
+}

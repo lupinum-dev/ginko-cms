@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { assertNoDraftSiblingPathConflict } from '../../../packages/convex/src/entries/draftPathConflicts'
+import { resolveDraftAncestorSlugs } from '../../../packages/convex/src/entries/workflow/draftPlacement'
 
 function indexedResult(rows: unknown[]) {
   return {
@@ -57,7 +58,7 @@ describe('draft sibling query budget', () => {
           ] as const,
       ),
     ])
-    const queryCalls: Array<{ table: string; index: string }> = []
+    const queryCalls: Array<{ table: string; index: string; locale?: unknown }> = []
     const query = vi.fn((table: string) => ({
       withIndex: (index: string, configure: (q: unknown) => unknown) => {
         const conditions = new Map<string, unknown>()
@@ -68,10 +69,14 @@ describe('draft sibling query budget', () => {
           },
         }
         configure(q)
-        queryCalls.push({ table, index })
+        queryCalls.push({ table, index, locale: conditions.get('locale') })
         if (table === 'entries') return indexedResult(siblings)
         if (index === 'by_parent_override') return indexedResult([])
-        return indexedResult(draftRows.get(String(conditions.get('entryId'))) ?? [])
+        return indexedResult(
+          (draftRows.get(String(conditions.get('entryId'))) ?? []).filter(
+            (row) => (row as { locale?: string | null }).locale === conditions.get('locale'),
+          ),
+        )
       },
     }))
 
@@ -103,9 +108,51 @@ describe('draft sibling query budget', () => {
     )
 
     expect(queryCalls.filter((call) => call.table === 'entries')).toHaveLength(1)
-    expect(queryCalls.filter((call) => call.table === 'entryDrafts')).toHaveLength(
-      2 + siblings.length,
-    )
+    const placementCalls = queryCalls.filter((call) => call.index === 'by_entry_locale')
+    expect(placementCalls).toHaveLength((1 + siblings.length) * 3)
+    expect(new Set(placementCalls.map((call) => call.locale))).toEqual(new Set([null, 'en', 'de']))
+    expect(queryCalls.filter((call) => call.index === 'by_entry')).toHaveLength(0)
     expect(queryCalls.some((call) => call.table === 'publicEntries')).toBe(false)
+  })
+
+  it('fails boundedly when legacy draft ancestry contains a cycle', async () => {
+    const entries = new Map([
+      ['entry-a', { _id: 'entry-a', baseSlug: 'a', parentEntryId: null }],
+      ['entry-b', { _id: 'entry-b', baseSlug: 'b', parentEntryId: null }],
+    ])
+    const sharedRows = new Map([
+      ['entry-a', { entryId: 'entry-a', locale: null, parentEntryId: 'entry-b', slug: 'a' }],
+      ['entry-b', { entryId: 'entry-b', locale: null, parentEntryId: 'entry-a', slug: 'b' }],
+    ])
+    const ctx = {
+      db: {
+        get: vi.fn(async (entryId: string) => entries.get(entryId) ?? null),
+        query: vi.fn(() => ({
+          withIndex: (_index: string, configure: (q: unknown) => unknown) => {
+            const conditions = new Map<string, unknown>()
+            const q = {
+              eq(field: string, value: unknown) {
+                conditions.set(field, value)
+                return q
+              },
+            }
+            configure(q)
+            const row =
+              conditions.get('locale') === null
+                ? sharedRows.get(String(conditions.get('entryId')))
+                : null
+            return { first: async () => row ?? null }
+          },
+        })),
+      },
+    }
+
+    await expect(
+      resolveDraftAncestorSlugs(ctx as never, {
+        parentEntryId: 'entry-a' as never,
+        locale: 'en',
+      }),
+    ).rejects.toThrow('Draft ancestry contains a cycle')
+    expect(ctx.db.get).toHaveBeenCalledTimes(2)
   })
 })

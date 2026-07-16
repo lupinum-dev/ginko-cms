@@ -16,6 +16,7 @@ import { getCollectionForEntry, getEntryOrThrow } from './context.js'
 import { assertNoDraftSiblingPathConflict } from './draftPathConflicts.js'
 import { moveEntryInTree } from './placement.js'
 import { createCanonicalEntry } from './workflow/commands.js'
+import { assertValidDraftParentChain } from './workflow/draftPlacement.js'
 
 const createEntryDefinition = defineCmsOperation({
   id: 'ginko-cms.create-entry',
@@ -143,11 +144,17 @@ export const reparentEntry = callerMutation.protected({
     const entry = await getEntryOrThrow(ctx, args.entryId)
     const collection = await getCollectionForEntry(ctx, entry)
     const fromParent = entry.parentEntryId ? String(entry.parentEntryId) : null
+    const parentEntryId = args.parentEntryId ? asEntryId(args.parentEntryId) : null
+    await assertValidDraftParentChain(ctx, {
+      entry,
+      collection,
+      parentEntryId,
+    })
     await assertNoDraftSiblingPathConflict(ctx, {
       entry,
       collection,
       locales: collection.locales,
-      parentEntryId: args.parentEntryId ? asEntryId(args.parentEntryId) : null,
+      parentEntryId,
     })
     await moveEntryInTree(ctx, {
       entry,
