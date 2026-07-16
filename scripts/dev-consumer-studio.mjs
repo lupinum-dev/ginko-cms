@@ -3,9 +3,13 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { dirname, resolve } from 'node:path'
+import { loadEnvFile } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const repoEnvFile = resolve(repoRoot, '.env.local')
+if (existsSync(repoEnvFile)) loadEnvFile(repoEnvFile)
+
 const defaultConsumerDir = resolve(repoRoot, 'playground')
 const args = process.argv.slice(2)
 const openBrowser = args.includes('--open')
@@ -14,7 +18,8 @@ const explicitConsumerDir = args.find((arg) => !arg.startsWith('--'))
 const consumerDir = resolve(
   explicitConsumerDir ?? process.env.GINKO_CMS_CONSUMER_DIR ?? defaultConsumerDir,
 )
-const consumerUrl = process.env.GINKO_CMS_CONSUMER_URL ?? 'http://localhost:9999'
+const consumerUrl = process.env.GINKO_CMS_CONSUMER_URL ?? 'http://localhost:3000'
+const consumerUrlParts = new URL(consumerUrl)
 const studioHost = process.env.GINKO_STUDIO_HOST ?? '127.0.0.1'
 const studioStartPort = Number(process.env.GINKO_STUDIO_PORT ?? 5252)
 
@@ -31,6 +36,7 @@ Options:
                 GINKO_STUDIO_DEV_SERVER set.
 
 Environment:
+  .env.local               Loaded from the Ginko CMS repository when present.
   GINKO_CMS_CONSUMER_DIR   Consumer app directory. Default: ${defaultConsumerDir}
   GINKO_CMS_CONSUMER_URL   Consumer URL for printed/opened links. Default: ${consumerUrl}
   GINKO_STUDIO_HOST        Studio Vite host. Default: ${studioHost}
@@ -100,7 +106,6 @@ const children = []
 let shuttingDown = false
 
 if (!studioOnly) {
-  const consumerUrlParts = new URL(consumerUrl)
   if (!(await isConsumerPortFree(consumerUrlParts))) {
     console.error(`[dev:consumer] ${consumerUrl} is already in use.`)
     console.error(
@@ -148,6 +153,10 @@ if (!studioOnly) {
       env: {
         ...process.env,
         GINKO_STUDIO_DEV_SERVER: studioDevServer,
+        HOST: consumerUrlParts.hostname === 'localhost' ? '127.0.0.1' : consumerUrlParts.hostname,
+        PORT: String(
+          Number(consumerUrlParts.port || (consumerUrlParts.protocol === 'https:' ? 443 : 80)),
+        ),
       },
     }),
   )

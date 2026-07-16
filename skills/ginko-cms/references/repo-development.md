@@ -75,6 +75,23 @@ corepack pnpm run check:release-hygiene
 corepack pnpm exec vitest run <test-files> --reporter=dot
 ```
 
+## Authenticated Studio And HMR
+
+Use the single canonical runbook:
+
+- `docs/maintenance/local-studio-development.md`
+
+The normal command is:
+
+```bash
+corepack pnpm run dev:consumer
+```
+
+It loads the repository `.env.local`, starts the playground on
+`http://localhost:3000`, and mounts the Studio Vite development server through
+the Nuxt host. Do not run the Studio SPA standalone when validating login or
+host-bridge behavior.
+
 ## Generated Files
 
 Convex generated files are regenerated, not edited:

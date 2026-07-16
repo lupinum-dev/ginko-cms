@@ -157,6 +157,9 @@ pnpm run build
 public setup behavior, run the release verification flow from `AGENTS.md` and
 let a human maintainer inspect the packed output.
 
+For a real Nuxt host with Better Auth login and Studio HMR, follow
+[Local Studio Development](./docs/maintenance/local-studio-development.md).
+
 ## Credits
 
 Ginko CMS is its own implementation, but its product direction is inspired by
