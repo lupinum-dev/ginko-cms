@@ -7,13 +7,13 @@ minimumReleaseAgeExclude:
   - '@nuxt/*'
   - better-convex-nuxt
   - nuxt
-onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - better-sqlite3
-  - cbor-extract
-  - esbuild
-  - unrs-resolver
-  - vue-demi
+allowBuilds:
+  '@parcel/watcher': true
+  better-sqlite3: true
+  cbor-extract: true
+  esbuild: true
+  unrs-resolver: true
+  vue-demi: true
 overrides:
   # Release audit overrides. These affect local workspace resolution only; packed
   # package manifests must not ship override policy. Remove a line when

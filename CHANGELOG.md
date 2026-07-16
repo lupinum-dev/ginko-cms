@@ -2,7 +2,76 @@
 
 ## Unreleased
 
+### Added
+
+- Studio: archived entries can be restored — the archived notice gains a
+  "Restore draft" action and the entry-actions menu offers Restore instead of
+  Archive on archived entries (`restoreEntry` joined the Studio API surface).
+- Studio: work-queue deep links — collection lists read and mirror
+  `?status=` / `?work=` / `?q=`, Home's queue rows link to pre-filtered
+  lists, and Home gains a "New content" primary action (plus a guided
+  "Create your first content" empty state on first run).
+- Studio: writing surface — the entry title renders as a large borderless
+  heading with the description as a quiet subtitle (per locale pane in
+  compare mode); the URL block and shared metadata move below the content,
+  and the shared panel hides itself when the hero absorbed everything.
+- Studio: the status rail's next step is a real button when actionable
+  (focus the missing field, switch locale, open reviews, run route checks,
+  or open the publish preview through the standard flow).
+- `createEntry` accepts an explicit `bodyMdc` argument; rich-text content
+  sent inside the localized values map by older callers is lifted onto the
+  draft body column instead of being stranded where no reader looks.
+
+### Fixed
+
+- Asset uploads (and every other component action: backups, portability)
+  work again: Convex does not propagate user auth into component actions,
+  so host-app facades now forward a `_trustedCaller` resolved from their own
+  `ctx.auth`; component actions accept it only when `ctx.auth` is empty and
+  MCP callers are still re-validated against stored credentials. Consumer
+  facades regenerated from the templates pick this up automatically.
+- `ginko-cms push` works against fresh component builds again — the
+  component entrypoint list was missing `policy.js`, so
+  `checkCmsPolicy`/`installCmsPolicy` never deployed.
+- Tree collections: the "Parent" select on the new-entry page never opened
+  (reka-ui rejects empty-string SelectItem values); nested entries can now
+  be created through the UI.
+- Status pill tones derive from readiness state codes instead of comparing
+  localized labels — non-English Studios show correct tones, and plain
+  drafts render neutral instead of warning.
+- Activity rows store the actor's display name at write time (rename-stable
+  audit trail); legacy rows still resolve at read time.
+- Playground public pages and live-story checks now use the Ginko Content
+  engine instead of the removed `/api/ginko/v1` facade; CMS-backed navigation
+  and search also honor the component's public argument and limit contracts.
+  Provider failures now remain 5xx errors instead of masquerading as empty
+  lists or missing posts.
+- MCP invalid-credential limiting is atomic in Convex while retaining the
+  real client IP at the Nuxt boundary; signed host calls reject replay,
+  tampering, and stale requests, and expired-bucket cleanup no longer
+  contends with authentication transactions.
+- Draft route ownership is validated through indexed effective siblings for
+  saves, moves, locale creation, and published-state reverts. Parent/slug
+  precedence now has one canonical implementation, including the distinction
+  between no parent override and an explicit move to root.
+- Asset-manager relationship reads use focused per-locale title resolution
+  and deduplicate shared/locale metadata work instead of constructing full
+  Studio draft views for every referenced entry.
+
 ### Changed
+
+- Studio i18n is complete: Media (asset browser family), Home, Site-wide
+  content, Content setup, and the new-entry URL block are fully translated
+  (≈200 new keys per pack, en/de parity enforced).
+- Studio dark mode gains a real elevation ladder — popovers/menus/selects
+  AND dialogs sit on `--popover` at `oklch(0.269 0 0)` above cards (0.205),
+  hover fills at 0.371. Consumer note: dialogs are now themed through
+  `--ginko-cms(-dark)-popover` instead of the background token. Tinted
+  semantic surfaces carry `dark:` opacity bumps.
+- Studio motion is tokenized: structural panels share `--motion-panel`
+  (240ms, fixes the sidebar/inset timing seam), sheets slide at
+  `--motion-slow` (was 500ms), pages crossfade opacity-only, and
+  `prefers-reduced-motion` zeroes every motion token (1ms) globally.
 
 - Studio design review (simplification + shadcn fidelity, follows the shell
   migration). Highlights: in-card layouts now respond to their container

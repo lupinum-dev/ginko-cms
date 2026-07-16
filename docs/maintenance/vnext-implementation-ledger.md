@@ -39,7 +39,7 @@ stage, commit, reset, hide, or otherwise modify it.
 ### Toolchain
 
 - Node: `v24.18.0`
-- pnpm through Corepack: `10.33.0`
+- pnpm through Corepack: `11.13.1`
 - Date/time zone: `2026-07-13`, `Europe/Vienna`
 
 ### Current phase and work package
@@ -73,7 +73,7 @@ authorized. Better Convex Nuxt is read-only.
 - `git branch --show-current`, `git rev-parse HEAD`, and `git status --short`
   in all three repositories: completed; results recorded above.
 - `node --version`: passed (`v24.18.0`).
-- `corepack pnpm --version`: passed (`10.33.0`).
+- `corepack pnpm --version`: passed (`11.13.1`).
 - Specification object checks with `git cat-file -t`: both authoritative
   commits exist and resolve to commit objects.
 - Post-0.3 Content log and diff audit: completed; no 0.4 implementation work
