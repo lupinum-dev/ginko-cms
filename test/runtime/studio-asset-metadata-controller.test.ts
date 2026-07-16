@@ -73,4 +73,23 @@ describe('Studio asset metadata controller', () => {
       caption: { en: 'Hero caption', de: 'Hero caption' },
     })
   })
+
+  it('preserves non-empty unsaved locale drafts when copying default metadata', async () => {
+    const harness = controller()
+    harness.selected.value = asset({
+      alt: { en: 'Hero alt' },
+      caption: { en: 'Hero caption' },
+    })
+    await nextTick()
+    harness.metadata.activeLocale.value = 'de'
+    harness.metadata.altText.value = 'Eigener Alternativtext'
+
+    await harness.metadata.copyDefaultMetadataToMissingLocales()
+
+    expect(harness.updateAsset).toHaveBeenCalledWith({
+      assetId: 'asset-1',
+      alt: { en: 'Hero alt', de: 'Eigener Alternativtext' },
+      caption: { en: 'Hero caption', de: 'Hero caption' },
+    })
+  })
 })

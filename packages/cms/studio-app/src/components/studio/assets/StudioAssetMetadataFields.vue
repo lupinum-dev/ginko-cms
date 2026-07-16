@@ -40,12 +40,12 @@ const { metadata } = useStudioAssetBrowserContext()
       v-if="props.showCoverage"
       class="ginko:rounded-md ginko:border ginko:px-2.5 ginko:py-2 ginko:text-xs"
       :class="
-        metadata.coverage(props.asset).complete
+        metadata.draftCoverage.value.complete
           ? 'ginko:border-success/30 ginko:bg-success/10 ginko:dark:bg-success/15 ginko:text-success-fg'
           : 'ginko:border-warning/30 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:text-warning-fg'
       "
     >
-      {{ metadata.coverageLabel(props.asset) }}
+      {{ metadata.draftCoverageLabel.value }}
     </div>
     <div class="ginko:space-y-1.5">
       <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.language') }}</Label>

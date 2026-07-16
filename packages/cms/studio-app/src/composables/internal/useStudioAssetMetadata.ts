@@ -89,10 +89,13 @@ export function useStudioAssetMetadata(options: {
     return typeof text === 'string' && text.trim().length > 0
   }
 
-  function coverage(asset: Pick<FinderAssetRecord, 'alt' | 'caption'>): MetadataCoverage {
+  function metadataCoverage(
+    alt: LocaleText | string | null | undefined,
+    caption: LocaleText | string | null | undefined,
+  ): MetadataCoverage {
     const locales = localeOptions.value.map((locale) => locale.code)
-    const missingAlt = locales.filter((locale) => !localeTextHasValue(asset.alt, locale))
-    const missingCaption = locales.filter((locale) => !localeTextHasValue(asset.caption, locale))
+    const missingAlt = locales.filter((locale) => !localeTextHasValue(alt, locale))
+    const missingCaption = locales.filter((locale) => !localeTextHasValue(caption, locale))
     return {
       complete: missingAlt.length === 0 && missingCaption.length === 0,
       missingAlt,
@@ -100,8 +103,11 @@ export function useStudioAssetMetadata(options: {
     }
   }
 
-  function coverageLabel(asset: Pick<FinderAssetRecord, 'alt' | 'caption'>) {
-    const result = coverage(asset)
+  function coverage(asset: Pick<FinderAssetRecord, 'alt' | 'caption'>): MetadataCoverage {
+    return metadataCoverage(asset.alt, asset.caption)
+  }
+
+  function coverageLabelFromResult(result: MetadataCoverage) {
     if (result.complete) return options.t('ginkoCms.studio.assetBrowser.detailsComplete')
     return options.t('ginkoCms.studio.assetBrowser.missingDetails', {
       locales: Array.from(new Set([...result.missingAlt, ...result.missingCaption]))
@@ -109,6 +115,13 @@ export function useStudioAssetMetadata(options: {
         .toUpperCase(),
     })
   }
+
+  function coverageLabel(asset: Pick<FinderAssetRecord, 'alt' | 'caption'>) {
+    return coverageLabelFromResult(coverage(asset))
+  }
+
+  const draftCoverage = computed(() => metadataCoverage(altDrafts.value, captionDrafts.value))
+  const draftCoverageLabel = computed(() => coverageLabelFromResult(draftCoverage.value))
 
   function mergedLocaleText(
     existing: LocaleText | string | null | undefined,
@@ -127,7 +140,7 @@ export function useStudioAssetMetadata(options: {
     if (!altDrafts.value[defaultLocale]?.trim() && !captionDrafts.value[defaultLocale]?.trim()) {
       return false
     }
-    const result = coverage(asset)
+    const result = draftCoverage.value
     return result.missingAlt.length > 0 || result.missingCaption.length > 0
   })
 
@@ -160,7 +173,7 @@ export function useStudioAssetMetadata(options: {
     const defaultCaption = captionDrafts.value[defaultLocale]?.trim()
     const nextAlt = { ...altDrafts.value }
     const nextCaption = { ...captionDrafts.value }
-    const result = coverage(asset)
+    const result = draftCoverage.value
     for (const locale of result.missingAlt) if (defaultAlt) nextAlt[locale] = defaultAlt
     for (const locale of result.missingCaption) {
       if (defaultCaption) nextCaption[locale] = defaultCaption
@@ -199,5 +212,7 @@ export function useStudioAssetMetadata(options: {
     copyDefaultMetadataToMissingLocales,
     coverage,
     coverageLabel,
+    draftCoverage,
+    draftCoverageLabel,
   }
 }
