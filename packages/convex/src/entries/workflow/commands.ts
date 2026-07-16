@@ -32,6 +32,7 @@ import {
   replaceAssetRefs,
   uniqueAssetRefs,
 } from './assetRefs.js'
+import { effectiveDraftParent, effectiveDraftSlug } from './draftPlacement.js'
 import { applyDraftPatch, readDraftRows, type SaveDraftPatch } from './drafts.js'
 import { stableHash } from './hashing.js'
 import {
@@ -180,7 +181,7 @@ export async function createCanonicalEntry(
   })
   const stableId = await generateStableId(ctx, collection._id)
   const shared = (args.shared ?? {}) as JsonObject
-  const localized = { ...((args.localized ?? {}) as JsonObject) }
+  let localized = { ...((args.localized ?? {}) as JsonObject) }
   // Rich-text content is canonical on the draft row's bodyMdc column, never in
   // the values map. Lift a richtext value out of `localized` for callers that
   // send it as a plain field (Studio create, MCP create) so the body is not
@@ -188,8 +189,8 @@ export async function createCanonicalEntry(
   let bodyMdc = args.bodyMdc ?? null
   for (const field of collection.fields) {
     if (field.type !== 'richtext') continue
-    const value = localized[field.key]
-    delete localized[field.key]
+    const { [field.key]: value, ...remainingLocalized } = localized
+    localized = remainingLocalized
     if (bodyMdc === null && typeof value === 'string') bodyMdc = value
   }
   const mergedDraft = materializeFieldData(collection.fields, shared, localized)
@@ -384,15 +385,12 @@ function publishPlacementSnapshot(
 ): PublishPlacementSnapshot {
   const shared = drafts.shared
   return {
-    parentEntryId:
-      shared && shared.parentEntryId !== undefined
-        ? (shared.parentEntryId ?? null)
-        : (entry.parentEntryId ?? null),
+    parentEntryId: effectiveDraftParent(entry, shared),
     orderRank:
       shared && shared.orderRank !== undefined
         ? (shared.orderRank ?? null)
         : (entry.orderRank ?? null),
-    slug: shared && shared.slug !== undefined ? (shared.slug ?? null) : entry.baseSlug,
+    slug: effectiveDraftSlug(entry, shared, null),
     shared: (shared?.shared as JsonObject) ?? {},
   }
 }

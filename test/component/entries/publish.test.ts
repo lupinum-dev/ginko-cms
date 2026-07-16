@@ -1922,17 +1922,20 @@ describe('editor publish operations', () => {
       localized: { title: 'Right' },
     })
     await owner.mutation(api.editor.createLocaleVariant, { entryId: rightId, locale: 'de' })
-    const right = await owner.query(api.editor.getEntry, { id: rightId, locale: 'de' })
-    await owner.saveEntryDraft({
-      entryId: rightId,
-      expectedDraftVersion: right.draftVersion,
-      patch: {
-        locales: {
-          de: {
-            slug: 'gemeinsam',
-          },
-        },
-      },
+    // Draft saves reject this collision. Seed legacy-invalid localized state
+    // directly so publish preview/execution still prove their safety net.
+    await ctx.raw.run(async (innerCtx) => {
+      const entry = await innerCtx.db.get(rightId as never)
+      const localeDraft = await innerCtx.db
+        .query('entryDrafts')
+        .withIndex('by_entry_locale', (q) => q.eq('entryId', rightId as never).eq('locale', 'de'))
+        .first()
+      if (!entry || !localeDraft) throw new Error('Missing localized collision fixture')
+      await innerCtx.db.patch(localeDraft._id, { localeSlug: 'gemeinsam' })
+      await innerCtx.db.patch(entry._id, {
+        draftVersion: entry.draftVersion + 1,
+        dirtyLocales: Array.from(new Set([...(entry.dirtyLocales ?? []), 'de'])),
+      })
     })
 
     const expectedVersion = await currentDraftVersion(owner, rightId)

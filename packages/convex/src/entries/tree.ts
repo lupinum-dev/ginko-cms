@@ -6,17 +6,16 @@ import {
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { v } from 'convex/values'
 
-import type { Doc } from '../_generated/dataModel.js'
 import { getOwnActiveAgentRunOrThrow, recordOwnedAgentRunWrite } from '../agentRuns.js'
 import { canCreateEntries, canEditEntries } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
 import { asEntryId } from '../lib/ids.js'
 import { defineCmsOperation, hashValue } from '../operationHelpers.js'
-import { getCollectionForEntry, getEntryOrThrow, readStudioDraftView } from './context.js'
+import { getCollectionForEntry, getEntryOrThrow } from './context.js'
+import { assertNoDraftSiblingPathConflict } from './draftPathConflicts.js'
 import { moveEntryInTree } from './placement.js'
 import { createCanonicalEntry } from './workflow/commands.js'
-import { publicPathForLocaleSnapshot } from './workflow/path.js'
 
 const createEntryDefinition = defineCmsOperation({
   id: 'ginko-cms.create-entry',
@@ -144,10 +143,11 @@ export const reparentEntry = callerMutation.protected({
     const entry = await getEntryOrThrow(ctx, args.entryId)
     const collection = await getCollectionForEntry(ctx, entry)
     const fromParent = entry.parentEntryId ? String(entry.parentEntryId) : null
-    await assertNoDraftPathConflictForMove(ctx, {
+    await assertNoDraftSiblingPathConflict(ctx, {
       entry,
       collection,
-      parentEntryId: args.parentEntryId,
+      locales: collection.locales,
+      parentEntryId: args.parentEntryId ? asEntryId(args.parentEntryId) : null,
     })
     await moveEntryInTree(ctx, {
       entry,
@@ -167,60 +167,3 @@ export const reparentEntry = callerMutation.protected({
     return null
   },
 })
-
-async function assertNoDraftPathConflictForMove(
-  ctx: Parameters<typeof readStudioDraftView>[0],
-  args: {
-    entry: Awaited<ReturnType<typeof getEntryOrThrow>>
-    collection: Awaited<ReturnType<typeof getCollectionForEntry>>
-    parentEntryId?: string
-  },
-) {
-  const movingView = await readStudioDraftView(ctx, args.entry, args.collection)
-  const parent = args.parentEntryId ? await getEntryOrThrow(ctx, args.parentEntryId) : null
-  const parentView = parent ? await readStudioDraftView(ctx, parent, args.collection) : null
-  const candidatePaths = new Map<string, string>()
-
-  for (const localeView of movingView.locales) {
-    const slug = localeView.draftSlug ?? args.entry.baseSlug
-    const parentLocale = parentView?.locales.find((item) => item.locale === localeView.locale)
-    const parentPath = parentLocale?.draftPath ?? null
-    const candidatePath = parentPath
-      ? `${parentPath.replace(/\/$/, '')}/${slug}`
-      : publicPathForLocaleSnapshot(args.collection, slug, localeView.locale)
-    candidatePaths.set(localeView.locale, candidatePath)
-  }
-
-  const statuses: Array<Doc<'entries'>['status']> = ['draft', 'published', 'archived']
-  const entries = (
-    await Promise.all(
-      statuses.map((status) =>
-        ctx.db
-          .query('entries')
-          .withIndex('by_collection_status', (q) =>
-            q.eq('collectionId', args.entry.collectionId).eq('status', status),
-          )
-          .collect(),
-      ),
-    )
-  ).flat()
-
-  for (const other of entries) {
-    if (other._id === args.entry._id) continue
-    const otherView = await readStudioDraftView(ctx, other, args.collection)
-    for (const localeView of otherView.locales) {
-      const candidate = candidatePaths.get(localeView.locale)
-      if (!candidate || localeView.draftPath !== candidate) continue
-      throwCmsError(
-        'ENTRY_PATH_CONFLICT',
-        `Path "${candidate}" already exists for locale "${localeView.locale}"`,
-        {
-          entryId: String(args.entry._id),
-          conflictingEntryId: String(other._id),
-          locale: localeView.locale,
-          path: candidate,
-        },
-      )
-    }
-  }
-}

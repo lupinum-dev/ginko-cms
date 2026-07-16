@@ -244,10 +244,7 @@ async function upsertLocaleDraft(
 
 function sharedDraftChanged(existing: EntryDraftDoc | null, patch: SharedDraftPatch): boolean {
   if (!existing) return true
-  if (
-    patch.parentEntryId !== undefined &&
-    (existing.parentEntryId ?? null) !== (patch.parentEntryId ?? null)
-  ) {
+  if (patch.parentEntryId !== undefined && existing.parentEntryId !== patch.parentEntryId) {
     return true
   }
   if (patch.orderRank !== undefined && (existing.orderRank ?? null) !== (patch.orderRank ?? null)) {

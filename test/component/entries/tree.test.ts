@@ -233,6 +233,99 @@ describe('editor tree mutations', () => {
     expect(leftEntry?.path).toBe('/docs/root-a/gemeinsam')
     expect(rightEntry?.path).toBe('/docs/root-b/gemeinsam')
   })
+
+  it('distinguishes an omitted parent override from an explicit move to root', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMultiLocaleSettings(ctx)
+    const now = Date.now()
+    await ctx.seed(
+      'collections' as never,
+      {
+        slug: 'localized-docs',
+        label: { en: 'Localized docs' },
+        icon: null,
+        type: 'tree',
+        routing: {
+          pathPrefix: '/localized-docs',
+          slugMode: 'localized',
+          rootSlug: null,
+          singleton: false,
+        },
+        locales: ['en', 'de'],
+        fields: [{ key: 'title', type: 'text', localized: true, searchable: true }],
+        settings: { maxDepth: 4 },
+        createdAt: now,
+        updatedAt: now,
+        updatedBy: 'owner-1',
+      } as never,
+    )
+
+    const owner = ctx.asCmsUser('owner-1')
+    const rootConflictId = await owner.createEntry({
+      collection: 'localized-docs',
+      slug: 'root-conflict',
+      localized: { title: 'Root conflict' },
+    })
+    const parentId = await owner.createEntry({
+      collection: 'localized-docs',
+      slug: 'parent',
+      localized: { title: 'Parent' },
+    })
+    const nestedId = await owner.createEntry({
+      collection: 'localized-docs',
+      parentEntryId: parentId,
+      slug: 'nested',
+      localized: { title: 'Nested' },
+    })
+    for (const entryId of [rootConflictId, nestedId]) {
+      await owner.mutation(api.editor.createLocaleVariant, { entryId, locale: 'de' })
+      const entry = await owner.query(api.editor.getEntry, { id: entryId, locale: 'de' })
+      await owner.saveEntryDraft({
+        entryId,
+        expectedDraftVersion: entry.draftVersion,
+        patch: { locales: { de: { slug: 'gemeinsam' } } },
+      })
+    }
+
+    // Simulate the canonical "no draft parent override" state by replacing the
+    // shared row without the optional field. It must still resolve to the
+    // canonical nested parent, not to root.
+    await ctx.raw.run(async (mutationCtx) => {
+      const shared = await mutationCtx.db
+        .query('entryDrafts')
+        .withIndex('by_entry_locale', (q) => q.eq('entryId', nestedId).eq('locale', null))
+        .first()
+      if (!shared) throw new Error('Missing shared draft row')
+      const {
+        _id,
+        _creationTime: _ignoredCreationTime,
+        parentEntryId: _removed,
+        ...withoutParentOverride
+      } = shared
+      await mutationCtx.db.replace(_id, withoutParentOverride)
+    })
+
+    const nested = await owner.query(api.editor.getEntry, { id: nestedId, locale: 'de' })
+    expect(nested?.parentEntryId).toBe(parentId)
+    await expect(
+      owner.saveEntryDraft({
+        entryId: nestedId,
+        expectedDraftVersion: nested.draftVersion,
+        patch: { shared: { parentEntryId: null } },
+      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return getCmsErrorData(error)?.code === 'ENTRY_PATH_CONFLICT'
+    })
+
+    const sharedRows = (await ctx.readAll('entryDrafts')) as Array<{
+      entryId: string
+      locale: string | null
+      parentEntryId?: string | null
+    }>
+    const nestedShared = sharedRows.find((row) => row.entryId === nestedId && row.locale === null)
+    expect(nestedShared).not.toHaveProperty('parentEntryId')
+  })
 })
 
 describe('tree cycle detection', () => {

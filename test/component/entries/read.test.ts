@@ -553,21 +553,21 @@ describe('editor read queries', () => {
       localized: { title: 'Old' },
     })
     await publishEntry(owner, entryId)
-    await owner.saveEntryDraft({
-      entryId,
-      expectedDraftVersion: await currentDraftVersion(owner, entryId),
-      patch: {
-        shared: {
-          slug: 'taken',
-        },
-        locales: {
-          en: {
-            values: {
-              title: 'Old changed',
-            },
-          },
-        },
-      },
+    // Write validation prevents creating this state through saveEntryDraft.
+    // Seed a legacy-invalid draft directly so the overview diagnostic remains
+    // a defense for pre-existing corruption.
+    await ctx.raw.run(async (innerCtx) => {
+      const entry = await innerCtx.db.get(entryId as never)
+      const shared = await innerCtx.db
+        .query('entryDrafts')
+        .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId as never).eq('locale', null))
+        .first()
+      if (!entry || !shared) throw new Error('Missing route-impact fixture')
+      await innerCtx.db.patch(shared._id, { slug: 'taken' })
+      await innerCtx.db.patch(entry._id, {
+        draftVersion: entry.draftVersion + 1,
+        dirtyLocales: ['en'],
+      })
     })
 
     const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })

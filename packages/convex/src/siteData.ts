@@ -357,10 +357,10 @@ export const deleteSiteDataBlockOperation = defineCmsOperation({
   previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
     assertValidSiteDataKey(args.key)
-    const row =
-      (await ctx.db.query('siteData').collect()).find((candidate: SiteDataDoc) => {
-        return candidate.key === args.key
-      }) ?? null
+    const row = await ctx.db
+      .query('siteData')
+      .withIndex('by_key', (q) => q.eq('key', args.key))
+      .first()
     return { row }
   },
   preview: async (_ctx, args, { row }) => {

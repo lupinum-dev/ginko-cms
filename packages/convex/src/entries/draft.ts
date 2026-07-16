@@ -9,7 +9,6 @@ import { v } from 'convex/values'
 
 import { recordOwnedAgentRunWrite } from '../agentRuns.js'
 import { canCreateEntries, canEditEntries } from '../auth/checks.js'
-import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
 import { isLocalizedSlugMode } from '../lib/collections.js'
 import { asEntryId } from '../lib/ids.js'
@@ -24,6 +23,7 @@ import {
   definePreview,
 } from '../operationHelpers.js'
 import { loadEntryMutationContext, readStudioDraftView } from './context.js'
+import { assertNoDraftSiblingPathConflict } from './draftPathConflicts.js'
 import { getDraftVsPublishedDiffPreview } from './read.js'
 import { rewriteStoredRelationData } from './relations.js'
 import { refreshDraftAssetRefsForSave } from './workflow/commands.js'
@@ -109,6 +109,21 @@ async function saveCanonicalDraft(
     now: args.now,
     patch: normalizedPatch,
   })
+  const sharedRouteChanged =
+    normalizedPatch.shared?.parentEntryId !== undefined ||
+    normalizedPatch.shared?.slug !== undefined
+  const routeLocales = sharedRouteChanged
+    ? args.collection.locales
+    : Object.entries(normalizedPatch.locales ?? {}).flatMap(([locale, patch]) =>
+        patch.slug !== undefined ? [locale] : [],
+      )
+  if (routeLocales.length > 0) {
+    await assertNoDraftSiblingPathConflict(ctx, {
+      entry: result.entry,
+      collection: args.collection,
+      locales: routeLocales,
+    })
+  }
   await refreshDraftAssetRefsForSave(ctx, {
     entryId: args.entryId,
     collectionId: result.entry.collectionId,
@@ -127,6 +142,7 @@ async function revertCanonicalDraftToPublished(
   ctx: MutationCtx,
   args: {
     entry: Awaited<ReturnType<typeof loadEntryMutationContext>>['entry']
+    collection: Awaited<ReturnType<typeof loadEntryMutationContext>>['collection']
     appIdentityId: string
     now: number
   },
@@ -188,6 +204,14 @@ async function revertCanonicalDraftToPublished(
     }
   }
 
+  if (publicRows.length > 0) {
+    await assertNoDraftSiblingPathConflict(ctx, {
+      entry: args.entry,
+      collection: args.collection,
+      locales: publicRows.map((row) => row.locale),
+    })
+  }
+
   const nextDraftVersion = args.entry.draftVersion + 1
   await ctx.db.patch(args.entry._id, {
     dirtyLocales: [],
@@ -219,16 +243,6 @@ export const createLocaleVariant = callerMutation.protected({
     if (existing) return String(existing._id)
 
     const slug = isLocalizedSlugMode(collection) ? entry.baseSlug : null
-    if (slug) {
-      const view = await readStudioDraftView(ctx, entry, collection)
-      const localeView = view.locales.find((item) => item.locale === args.locale)
-      await assertNoCanonicalDraftPathConflict(ctx, {
-        collection,
-        entryId: entry._id,
-        locale: args.locale,
-        path: localeView?.draftPath ?? `/${slug}`,
-      })
-    }
 
     const draftId = await ctx.db.insert('entryDrafts', {
       entryId: entry._id,
@@ -240,6 +254,13 @@ export const createLocaleVariant = callerMutation.protected({
       updatedBy: appIdentityId,
       updatedAt: now,
     })
+    if (slug) {
+      await assertNoDraftSiblingPathConflict(ctx, {
+        entry,
+        collection,
+        locales: [args.locale],
+      })
+    }
     const dirtyLocales = Array.from(new Set([...(entry.dirtyLocales ?? []), args.locale]))
     await ctx.db.patch(entry._id, {
       dirtyLocales,
@@ -250,33 +271,6 @@ export const createLocaleVariant = callerMutation.protected({
     return String(draftId)
   },
 })
-
-async function assertNoCanonicalDraftPathConflict(
-  ctx: Parameters<typeof readStudioDraftView>[0],
-  args: {
-    collection: Awaited<ReturnType<typeof loadEntryMutationContext>>['collection']
-    entryId: Parameters<typeof applyDraftPatch>[1]['entryId']
-    locale: string
-    path: string
-  },
-) {
-  const entries = await ctx.db
-    .query('entries')
-    .filter((q) => q.eq(q.field('collectionId'), args.collection._id))
-    .collect()
-  for (const other of entries) {
-    if (other._id === args.entryId) continue
-    const view = await readStudioDraftView(ctx, other, args.collection)
-    const locale = view.locales.find((item) => item.locale === args.locale)
-    if (locale?.draftPath !== args.path) continue
-    throwCmsError('ENTRY_PATH_CONFLICT', `Path "${args.path}" already exists`, {
-      entryId: String(args.entryId),
-      conflictingEntryId: String(other._id),
-      locale: args.locale,
-      path: args.path,
-    })
-  }
-}
 
 const saveEntryDraftDefinition = defineCmsOperation({
   id: 'ginko-cms.save-entry-draft',
@@ -425,8 +419,12 @@ export const revertDraftToPublishedOperation = defineCmsOperation({
       ctx,
       args.entryId,
     )
-    void collection
-    return await revertCanonicalDraftToPublished(ctx, { entry, appIdentityId, now })
+    return await revertCanonicalDraftToPublished(ctx, {
+      entry,
+      collection,
+      appIdentityId,
+      now,
+    })
   },
 })
 

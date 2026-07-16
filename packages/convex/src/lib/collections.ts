@@ -1,6 +1,6 @@
 import { normalizeFields } from '@lupinum/ginko-cms-contract/shared/fields/normalize.js'
 
-import type { Id } from '../_generated/dataModel.js'
+import type { Doc, Id } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'
 import type { CmsCollection, CmsField, ReadCtx, SlugMode } from './types.js'
 
@@ -75,6 +75,10 @@ export async function getCollection(ctx: ReadCtx, slug: string): Promise<CmsColl
 
   if (!collection) return null
 
+  return normalizeCollectionDoc(collection)
+}
+
+export function normalizeCollectionDoc(collection: Doc<'collections'>): CmsCollection {
   return {
     ...collection,
     fields: normalizeFields(collection.fields as Array<Partial<CmsField>>),

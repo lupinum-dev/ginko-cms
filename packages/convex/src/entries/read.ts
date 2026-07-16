@@ -58,8 +58,12 @@ import {
 } from './context.js'
 import { computeEntryReadinessDetail, computeEntryReadinessSummary } from './readiness.js'
 import { createSnapshotFromState, flattenRevisionSnapshot, flattenSnapshot } from './versioning.js'
-import { readDraftRows, type EntryDraftDoc } from './workflow/drafts.js'
-import { entrySnapshotPath, publicPathForLocaleSnapshot } from './workflow/path.js'
+import {
+  computeDraftPath,
+  effectiveDraftParent,
+  effectiveDraftSlug,
+} from './workflow/draftPlacement.js'
+import { readDraftRows } from './workflow/drafts.js'
 
 /** Default page size for the studio entry list. */
 const STUDIO_LIST_DEFAULT_LIMIT = 50
@@ -369,62 +373,6 @@ function selectStudioLocaleCode(locales: string[], fallbackChain: string[]) {
   return [...locales].sort()[0] ?? null
 }
 
-function overviewDraftSlug(args: {
-  entry: EntryDoc
-  sharedRow: EntryDraftDoc | null
-  localeRow: EntryDraftDoc | null
-}) {
-  return args.localeRow?.localeSlug ?? args.sharedRow?.slug ?? args.entry.baseSlug
-}
-
-async function resolveOverviewAncestorSlugs(
-  ctx: HandlerQueryCtx,
-  args: { parentEntryId: Id<'entries'> | null; locale: string },
-) {
-  const slugs: string[] = []
-  let parentEntryId = args.parentEntryId
-  while (parentEntryId) {
-    const parent = await ctx.db.get(parentEntryId)
-    if (!parent) break
-    const parentDraftRows = await readDraftRows(ctx, parent._id)
-    const parentLocaleRow = parentDraftRows.byLocale[args.locale] ?? null
-    slugs.unshift(
-      overviewDraftSlug({
-        entry: parent,
-        sharedRow: parentDraftRows.shared,
-        localeRow: parentLocaleRow,
-      }),
-    )
-    parentEntryId =
-      parentDraftRows.shared && parentDraftRows.shared.parentEntryId !== undefined
-        ? (parentDraftRows.shared.parentEntryId ?? null)
-        : (parent.parentEntryId ?? null)
-  }
-  return slugs
-}
-
-async function computeOverviewDraftPath(
-  ctx: HandlerQueryCtx,
-  args: {
-    collection: Awaited<ReturnType<typeof getCollectionOrThrow>>
-    entry: EntryDoc
-    parentEntryId: Id<'entries'> | null
-    slug: string
-    locale: string
-  },
-) {
-  const ancestorSlugs = await resolveOverviewAncestorSlugs(ctx, {
-    parentEntryId: args.parentEntryId,
-    locale: args.locale,
-  })
-  const localePath = entrySnapshotPath(args.collection, {
-    slug: args.slug,
-    stableId: args.entry.stableId ?? null,
-    ancestorSlugs,
-  })
-  return publicPathForLocaleSnapshot(args.collection, localePath, args.locale)
-}
-
 async function buildSourceStudioRow(
   ctx: HandlerQueryCtx,
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
@@ -449,16 +397,9 @@ async function buildSourceStudioRow(
   const preferredLocaleRow = draftRows.byLocale[preferredLocale] ?? null
   const preferredValues = (preferredLocaleRow?.values ?? {}) as JsonMap
   const preferredData = materializeFieldData(collection.fields, shared, preferredValues)
-  const preferredSlug = overviewDraftSlug({
-    entry,
-    sharedRow: draftRows.shared,
-    localeRow: preferredLocaleRow,
-  })
-  const draftParentEntryId =
-    draftRows.shared && draftRows.shared.parentEntryId !== undefined
-      ? (draftRows.shared.parentEntryId ?? null)
-      : (entry.parentEntryId ?? null)
-  const preferredPath = await computeOverviewDraftPath(ctx, {
+  const preferredSlug = effectiveDraftSlug(entry, draftRows.shared, preferredLocaleRow)
+  const draftParentEntryId = effectiveDraftParent(entry, draftRows.shared)
+  const preferredPath = await computeDraftPath(ctx, {
     collection,
     entry,
     parentEntryId: draftParentEntryId,
@@ -468,15 +409,11 @@ async function buildSourceStudioRow(
   const localeSummaries = await Promise.all(
     locales.map(async (locale) => {
       const localeRow = draftRows.byLocale[locale] ?? null
-      const slug = overviewDraftSlug({
-        entry,
-        sharedRow: draftRows.shared,
-        localeRow,
-      })
+      const slug = effectiveDraftSlug(entry, draftRows.shared, localeRow)
       const publicRoute = routeByLocale.get(locale) ?? null
       return {
         locale,
-        draftPath: await computeOverviewDraftPath(ctx, {
+        draftPath: await computeDraftPath(ctx, {
           collection,
           entry,
           parentEntryId: draftParentEntryId,
@@ -1349,7 +1286,7 @@ export const listVersions = callerQuery.protected({
       (
         await ctx.db
           .query('publicEntries')
-          .filter((q) => q.eq(q.field('entryId'), entry._id))
+          .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
           .collect()
       ).map((row) => String(row.revisionId)),
     )

@@ -1007,9 +1007,26 @@ describe('Gate 1 — workflow backend spine', () => {
       entryId: secondEntryId,
       expectedDraftVersion: 1,
       patch: {
-        shared: { slug: 'hello' },
+        shared: { slug: 'second' },
         locales: { en: { values: { title: 'Second' }, bodyMdc: '# Second' } },
       },
+    })
+    // saveEntryDraft now rejects this collision. Seed legacy-invalid draft
+    // state directly to retain publish-time atomic rollback coverage.
+    await ctx.raw.run(async (db) => {
+      const entry = await db.db.get(secondEntryId as never)
+      const shared = await db.db
+        .query('entryDrafts')
+        .withIndex('by_entry_locale', (q) =>
+          q.eq('entryId', secondEntryId as never).eq('locale', null),
+        )
+        .first()
+      if (!entry || !shared) throw new Error('Missing collision fixture')
+      await db.db.patch(shared._id, { slug: 'hello' })
+      await db.db.patch(entry._id, {
+        draftVersion: entry.draftVersion + 1,
+        dirtyLocales: ['en'],
+      })
     })
     const secondPreview = await previewPublish(owner, ctx, secondEntryId, ['en'])
 
