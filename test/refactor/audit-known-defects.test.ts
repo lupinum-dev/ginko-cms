@@ -73,9 +73,9 @@ describe('known audit defects', () => {
 
   it('does not resolve asset entry metadata serially inside the usage-row loop', () => {
     const body = section(
-      source('packages/convex/src/assets.ts'),
-      'async function loadAssetRelationships(',
-      'async function resolveEntryMetaForAssetRef(',
+      source('packages/convex/src/assets/relationships.ts'),
+      'export async function loadAssetRelationships(',
+      'return {',
     )
 
     expect(body).not.toMatch(/for \(const row of rows\)[\s\S]*await resolveEntryMetaForAssetRef/)
