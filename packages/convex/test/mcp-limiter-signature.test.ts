@@ -6,7 +6,7 @@ import {
   runVerifiedMcpLimiterRequest,
   signMcpLimiterPayload,
   verifyMcpLimiterPayloadSignature,
-} from '../src/auth/mcpLimiterSignature.js'
+} from '../src/mcpLimiterProtocol.js'
 
 describe('MCP limiter signatures', () => {
   it('domain-separates opaque IP and credential buckets', async () => {

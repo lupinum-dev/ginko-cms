@@ -1,8 +1,6 @@
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
-import {
-  requireBetterAuthSecret,
-  runVerifiedMcpLimiterRequest,
-} from '@lupinum/ginko-cms/convex/auth'
+import { runVerifiedMcpLimiterRequest } from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
+import { requireBetterAuthSecret } from '@lupinum/ginko-cms/convex/auth'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'

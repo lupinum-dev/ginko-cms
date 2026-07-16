@@ -4,7 +4,7 @@ import {
   deriveMcpLimiterBucketKey,
   signMcpLimiterPayload,
   type McpLimiterOperation,
-} from '@lupinum/ginko-cms-convex/convex.auth'
+} from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
 import type { ServerConvexCaller } from 'better-convex-nuxt/server'
 
 import { parseMcpBearerApiKey } from './better-auth-api-key.js'

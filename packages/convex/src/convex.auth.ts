@@ -11,14 +11,6 @@ import {
 } from './auth/credentialKind.js'
 
 export { requireBetterAuthSecret } from './auth/credentialKind.js'
-export {
-  assertMcpLimiterSignedRequest,
-  deriveMcpLimiterBucketKey,
-  runVerifiedMcpLimiterRequest,
-  signMcpLimiterPayload,
-  verifyMcpLimiterPayloadSignature,
-} from './auth/mcpLimiterSignature.js'
-export type { McpLimiterOperation, McpLimiterSignedPayload } from './auth/mcpLimiterSignature.js'
 
 declare const process: {
   env: Record<string, string | undefined>
