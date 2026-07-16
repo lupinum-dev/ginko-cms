@@ -30,7 +30,8 @@ export const exportBackup = action({
   handler: async (ctx, args) =>
     await ctx.runAction(components.ginkoCms.backup.exportBackup, {
       ...args,
-      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      _trustedCaller:
+        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
     } as never),
 })
 
@@ -39,7 +40,8 @@ export const downloadBackup = action({
   handler: async (ctx, args) =>
     await ctx.runAction(components.ginkoCms.backup.downloadBackup, {
       ...args,
-      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      _trustedCaller:
+        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
     } as never),
 })
 
@@ -48,7 +50,8 @@ export const verifyBackup = action({
   handler: async (ctx, args) =>
     await ctx.runAction(components.ginkoCms.backup.verifyBackup, {
       ...args,
-      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      _trustedCaller:
+        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
     } as never),
 })
 
@@ -57,7 +60,8 @@ export const previewRestoreBackup = action({
   handler: async (ctx, args) =>
     await ctx.runAction(components.ginkoCms.backup.previewRestoreBackup, {
       ...args,
-      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      _trustedCaller:
+        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
     } as never),
 })
 
@@ -69,7 +73,8 @@ export const restoreBackup = action({
   handler: async (ctx, args) =>
     await ctx.runAction(components.ginkoCms.backup.restoreBackup, {
       ...args,
-      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      _trustedCaller:
+        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
     } as never),
 })
 

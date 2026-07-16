@@ -9,6 +9,7 @@ import {
   resolveAssetUrls as resolveAssetUrlsArgs,
   updateAsset as updateAssetArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/assets.js'
+import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
@@ -35,7 +36,11 @@ export const generateUploadUrl = mutation({
 export const registerAsset = action({
   args: registerAssetArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.assets.registerAsset, args as never),
+    await ctx.runAction(components.ginkoCms.assets.registerAsset, {
+      ...args,
+      _trustedCaller:
+        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+    } as never),
 })
 
 export const attachAssetsToEntry = mutation({

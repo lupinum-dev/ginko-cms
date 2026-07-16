@@ -1,4 +1,3 @@
-import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import {
   abortExportRun as abortExportRunArgs,
   abortImport as abortImportArgs,
@@ -27,6 +26,7 @@ import {
   sealImportPlan as sealImportPlanArgs,
   verifyPortableAssetUpload as verifyPortableAssetUploadArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
+import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/shared/caller.js'
 
 import { components } from '../_generated/api'
 import { action, mutation, query } from '../_generated/server'
@@ -66,7 +66,8 @@ export const sealImportPlan = action({
   handler: async (ctx, args) =>
     await ctx.runAction(components.ginkoCms.portability.sealImportPlan, {
       ...args,
-      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      _trustedCaller:
+        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
     } as never),
 })
 
@@ -96,7 +97,8 @@ export const verifyPortableAssetUpload = action({
   handler: async (ctx, args) =>
     await ctx.runAction(components.ginkoCms.portability.verifyPortableAssetUpload, {
       ...args,
-      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      _trustedCaller:
+        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
     } as never),
 })
 
@@ -111,7 +113,8 @@ export const applyImportBatch = action({
   handler: async (ctx, args) =>
     await ctx.runAction(components.ginkoCms.portability.applyImportBatch, {
       ...args,
-      _trustedCaller: cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      _trustedCaller:
+        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
     } as never),
 })
 
