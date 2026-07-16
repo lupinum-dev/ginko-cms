@@ -4,8 +4,8 @@ import { ref, watch } from 'vue'
 
 import StudioAssetDetailsPanel from '../components/studio/StudioAssetDetailsPanel.vue'
 import { useCmsI18n } from '../composables/useCmsI18n'
-import { provideStudioAssetSelection } from '../composables/useStudioAssetSelection'
 import { useRightSidebar, useRightSidebarPanel } from '../composables/useRightSidebar'
+import { provideStudioAssetSelection } from '../composables/useStudioAssetSelection'
 
 const browserRef = ref<{
   uploadInput?: HTMLInputElement | null

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
+
 import type { FieldVariants } from '.'
-import { cn } from '../utils'
 import { fieldVariants } from '.'
+import { cn } from '../utils'
 
 const props = defineProps<{
   class?: HTMLAttributes['class']

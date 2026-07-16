@@ -248,7 +248,13 @@ async function saveMetadata() {
     <div
       class="ginko:flex ginko:items-center ginko:justify-end ginko:gap-2 ginko:border-t ginko:px-5 ginko:py-3"
     >
-      <Button v-if="showCancel" variant="outline" size="sm" :disabled="saving" @click="emit('cancel')">
+      <Button
+        v-if="showCancel"
+        variant="outline"
+        size="sm"
+        :disabled="saving"
+        @click="emit('cancel')"
+      >
         Cancel
       </Button>
       <Button size="sm" :disabled="!selectedAsset || saving" @click="saveMetadata">

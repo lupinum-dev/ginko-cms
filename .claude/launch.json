@@ -2,18 +2,6 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dashboard-template",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "/Users/matthias/Git/1_apps/nuxt-shadcn-dashboard-template", "run", "dev", "--port", "4400"],
-      "port": 4400
-    },
-    {
-      "name": "i18n-cms-consumer",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "/Users/matthias/Git/workspace/i18n-cms", "run", "dev"],
-      "port": 9999
-    },
-    {
       "name": "playground",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["run", "dev"],
@@ -23,14 +11,33 @@
     {
       "name": "studio-vite",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "packages/cms", "exec", "vite", "--config", "studio-app/vite.config.ts", "--port", "5252"],
+      "runtimeArgs": [
+        "--dir",
+        "packages/cms",
+        "exec",
+        "vite",
+        "--config",
+        "studio-app/vite.config.ts",
+        "--port",
+        "5252"
+      ],
       "port": 5252,
       "autoPort": false
     },
     {
       "name": "playground-hmr",
       "runtimeExecutable": "env",
-      "runtimeArgs": ["GINKO_STUDIO_DEV_SERVER=http://localhost:5252", "pnpm", "--dir", "playground", "exec", "nuxi", "dev", "--dotenv", ".env.local"],
+      "runtimeArgs": [
+        "GINKO_STUDIO_DEV_SERVER=http://localhost:5252",
+        "pnpm",
+        "--dir",
+        "playground",
+        "exec",
+        "nuxi",
+        "dev",
+        "--dotenv",
+        ".env.local"
+      ],
       "port": 3000,
       "autoPort": false
     }

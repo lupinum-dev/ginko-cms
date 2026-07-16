@@ -35,8 +35,19 @@ function blockAround(css: string, anchor: string): string {
 /** Parse `--token: value;` declarations into a name → value map. */
 function parseDecls(blockBody: string): Record<string, string> {
   const out: Record<string, string> = {}
-  for (const match of blockBody.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
-    out[match[1]] = match[2].trim()
+  let offset = 0
+  for (const line of blockBody.split('\n')) {
+    const declaration = line.trim()
+    if (declaration.startsWith('--')) {
+      const separator = declaration.indexOf(':')
+      const valueStart = offset + line.indexOf(':') + 1
+      const end = blockBody.indexOf(';', valueStart)
+      const name = declaration.slice(0, separator)
+      if (separator >= 0 && end >= 0 && /^--[a-z0-9-]+$/.test(name)) {
+        out[name] = blockBody.slice(valueStart, end).trim()
+      }
+    }
+    offset += line.length + 1
   }
   return out
 }

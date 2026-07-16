@@ -42,7 +42,7 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
     </div>
 
     <div
-      class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-3"
+      class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:@2xl:grid-cols-3"
     >
       <div>
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
@@ -67,9 +67,15 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
           {{ ce('localeVisibilityWebsiteSurfaces') }}
         </div>
         <div class="ginko:mt-0.5 ginko:flex ginko:flex-wrap ginko:gap-1">
-          <Badge variant="outline" class="ginko:text-xs">{{ ce('publishDialogSitemap') }} {{ localeState.sitemap }}</Badge>
-          <Badge variant="outline" class="ginko:text-xs">{{ ce('publishDialogSearch') }} {{ localeState.search }}</Badge>
-          <Badge variant="outline" class="ginko:text-xs">{{ ce('localeVisibilityNav') }} {{ localeState.nav }}</Badge>
+          <Badge variant="outline" class="ginko:text-xs"
+            >{{ ce('publishDialogSitemap') }} {{ localeState.sitemap }}</Badge
+          >
+          <Badge variant="outline" class="ginko:text-xs"
+            >{{ ce('publishDialogSearch') }} {{ localeState.search }}</Badge
+          >
+          <Badge variant="outline" class="ginko:text-xs"
+            >{{ ce('localeVisibilityNav') }} {{ localeState.nav }}</Badge
+          >
         </div>
       </div>
     </div>

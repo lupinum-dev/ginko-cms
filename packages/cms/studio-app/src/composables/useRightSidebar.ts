@@ -1,3 +1,4 @@
+import { useEventListener, useMediaQuery, useStorage, useWindowSize } from '@vueuse/core'
 import {
   computed,
   inject,
@@ -13,7 +14,6 @@ import {
   type Ref,
   type ShallowRef,
 } from 'vue'
-import { useEventListener, useMediaQuery, useStorage, useWindowSize } from '@vueuse/core'
 import { useRoute } from 'vue-router'
 
 // SPA port of the template's `app/composables/useRightSidebar.ts` (RFC D3).
@@ -39,8 +39,7 @@ const SIZE_STORAGE_KEY = 'ginko-studio-right-sidebar-size' // number (rem) | nul
 // true / false / null and finite numbers / null faithfully, and never throw on
 // corrupt storage (falling back to null = "no preference").
 const OPEN_PREF_SERIALIZER = {
-  read: (raw: string): boolean | null =>
-    raw === 'true' ? true : raw === 'false' ? false : null,
+  read: (raw: string): boolean | null => (raw === 'true' ? true : raw === 'false' ? false : null),
   write: (value: boolean | null): string => String(value),
 }
 const SIZE_PREF_SERIALIZER = {
@@ -67,8 +66,7 @@ export const RIGHT_SIDEBAR_WIDE_MAX_REM = 30 // 480px — max on ≥1536px scree
 // space kept free for the left sidebar (when expanded) plus a 24rem minimum
 // for the main content. RightSidebar.vue sets it via a :has() variant so it
 // tracks the left sidebar's collapsed state live, in pure CSS.
-const LAPTOP_DEFAULT_CSS =
-  'min(clamp(30rem, 57.5vw, 50rem), calc(100vw - var(--rsw-reserve)))'
+const LAPTOP_DEFAULT_CSS = 'min(clamp(30rem, 57.5vw, 50rem), calc(100vw - var(--rsw-reserve)))'
 const LAPTOP_MAX_CSS = 'min(65vw, 56.25rem, calc(100vw - var(--rsw-reserve)))'
 const WIDE_BREAKPOINT_PX = 1536 // Tailwind 2xl
 // Main-content floor for the panel's drag/keyboard resize cap. This is ONLY the
@@ -171,8 +169,7 @@ export interface RightSidebarController {
   resetSize: () => void
 }
 
-const rightSidebarKey: InjectionKey<RightSidebarController> =
-  Symbol('right-sidebar')
+const rightSidebarKey: InjectionKey<RightSidebarController> = Symbol('right-sidebar')
 
 export function provideRightSidebar(): RightSidebarController {
   const route = useRoute()
@@ -182,9 +179,7 @@ export function provideRightSidebar(): RightSidebarController {
   // Availability comes from `route.meta.rightSidebar` OR a live registration:
   // the layout header renders BEFORE the page's setup registers its panel, so
   // the route-meta signal keeps the header trigger visible from the first frame.
-  const available = computed(
-    () => route.meta.rightSidebar === true || panel.value !== null,
-  )
+  const available = computed(() => route.meta.rightSidebar === true || panel.value !== null)
 
   const isMobile = useMediaQuery('(max-width: 767px)')
   // openMobile is intentionally NOT persisted: it always starts false so a
@@ -247,9 +242,7 @@ export function provideRightSidebar(): RightSidebarController {
     const pref = sizePref.value
     if (pref === null) {
       return {
-        laptop: panel.value?.compact
-          ? `${RIGHT_SIDEBAR_WIDE_DEFAULT_REM}rem`
-          : LAPTOP_DEFAULT_CSS,
+        laptop: panel.value?.compact ? `${RIGHT_SIDEBAR_WIDE_DEFAULT_REM}rem` : LAPTOP_DEFAULT_CSS,
         wide: `${RIGHT_SIDEBAR_WIDE_DEFAULT_REM}rem`,
       }
     }
@@ -335,9 +328,7 @@ export function provideRightSidebar(): RightSidebarController {
 export function useRightSidebar(): RightSidebarController {
   const controller = inject(rightSidebarKey)
   if (!controller) {
-    throw new Error(
-      'useRightSidebar() is only available inside the Studio layout',
-    )
+    throw new Error('useRightSidebar() is only available inside the Studio layout')
   }
   return controller
 }

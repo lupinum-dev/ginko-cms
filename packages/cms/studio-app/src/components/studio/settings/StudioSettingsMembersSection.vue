@@ -10,12 +10,10 @@ const settings = props.admin
 <template>
   <!-- ─── Members ─── -->
   <section
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8"
   >
-    <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
-      <h2
-        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
-      >
+    <div class="ginko:space-y-1 ginko:@3xl:w-64 ginko:@3xl:shrink-0">
+      <h2 class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground">
         <Users class="ginko:size-4 ginko:text-muted-foreground" />
         {{ settings.t('ginkoCms.studio.settingsPage.members') }}
         <Badge variant="outline" class="ginko:text-xs">

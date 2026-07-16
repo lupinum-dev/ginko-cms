@@ -6,10 +6,13 @@ import { describe, expect, it } from 'vitest'
 const root = resolve(import.meta.dirname, '../..')
 
 const budgets = {
-  // 2150 → 2160 (design review S3, reviewed): the asset browser gained the
-  // on-demand filter row + merged Library nav; net growth after the F1c
-  // primitive conversions is +7 lines.
-  'packages/cms/studio-app/src/components/studio/StudioAssetBrowser.vue': 2_160,
+  // W8 decomposition: the ~2150-line browser was split into a shell + focused
+  // ./assets components behind a provided context seam. The shell now owns only
+  // props/expose, the finder call, context assembly, the split-pane skeleton and
+  // the view dispatch; the toolbar and manage drawer are the two heaviest leaves.
+  'packages/cms/studio-app/src/components/studio/StudioAssetBrowser.vue': 480,
+  'packages/cms/studio-app/src/components/studio/assets/StudioAssetToolbar.vue': 300,
+  'packages/cms/studio-app/src/components/studio/assets/StudioAssetManageDrawer.vue': 280,
   'packages/cms/studio-app/src/composables/internal/useStudioAssetFinder.ts': 1_000,
   'packages/contract/src/validators.ts': 1_400,
   'packages/convex/src/public.ts': 1_400,

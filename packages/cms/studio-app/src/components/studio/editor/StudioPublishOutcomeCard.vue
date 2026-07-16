@@ -151,7 +151,7 @@ function refreshIconClass(tone: TrackTone) {
           <div
             v-for="page in affectedPages"
             :key="page.key"
-            class="ginko:grid ginko:gap-3 ginko:py-3 ginko:text-xs ginko:sm:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]"
+            class="ginko:grid ginko:gap-3 ginko:py-3 ginko:text-xs ginko:@2xl:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]"
           >
             <div class="ginko:flex ginko:items-center ginko:gap-2">
               <Badge variant="outline" class="ginko:font-mono">{{

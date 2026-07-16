@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { Check, Monitor, Moon, Palette, Sun } from '@lucide/vue'
+import { computed } from 'vue'
 
 import { useAppearance, type AppearanceColor } from '../../../composables/useAppearance'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
@@ -67,9 +67,9 @@ function selectedClass(active: boolean) {
 <template>
   <!-- ─── Theme (light / dark / system) ─── -->
   <section
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8 ginko:first:pt-0"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8 ginko:first:pt-0"
   >
-    <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
+    <div class="ginko:space-y-1 ginko:@3xl:w-64 ginko:@3xl:shrink-0">
       <h2 class="studio-text-label ginko:text-foreground">
         {{ t('ginkoCms.studio.settingsPage.appearanceModeLabel') }}
       </h2>
@@ -98,12 +98,10 @@ function selectedClass(active: boolean) {
 
   <!-- ─── Accent color ─── -->
   <section
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8 ginko:first:pt-0"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8 ginko:first:pt-0"
   >
-    <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
-      <h2
-        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
-      >
+    <div class="ginko:space-y-1 ginko:@3xl:w-64 ginko:@3xl:shrink-0">
+      <h2 class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground">
         <Palette class="ginko:size-4 ginko:text-muted-foreground" />
         {{ t('ginkoCms.studio.settingsPage.appearanceColorLabel') }}
       </h2>
@@ -113,7 +111,7 @@ function selectedClass(active: boolean) {
     </div>
 
     <div class="ginko:flex-1 ginko:min-w-0">
-      <div class="ginko:grid ginko:grid-cols-2 ginko:sm:grid-cols-3 ginko:gap-2 ginko:max-w-md">
+      <div class="ginko:grid ginko:grid-cols-2 ginko:@2xl:grid-cols-3 ginko:gap-2 ginko:max-w-md">
         <Button
           v-for="color in colorOptions"
           :key="color"
@@ -142,9 +140,9 @@ function selectedClass(active: boolean) {
        user in a mode the UI stopped offering. -->
   <section
     v-if="hasLegacyTweaks"
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8 ginko:first:pt-0"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8 ginko:first:pt-0"
   >
-    <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
+    <div class="ginko:space-y-1 ginko:@3xl:w-64 ginko:@3xl:shrink-0">
       <h2 class="studio-text-label ginko:text-foreground">
         {{ t('ginkoCms.studio.settingsPage.appearanceLegacyLabel') }}
       </h2>

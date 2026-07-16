@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { SidebarProps } from '.'
 import { computed } from 'vue'
+
+import type { SidebarProps } from '.'
 import { Sheet, SheetContent } from '../sheet'
 import SheetDescription from '../sheet/SheetDescription.vue'
 import SheetHeader from '../sheet/SheetHeader.vue'
@@ -26,9 +27,7 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
 // 'left'/'inset' collide with the Tailwind utility allowlist and would be
 // wrongly `ginko:`-prefixed inside a `cn(...)` expression; selecting the class
 // string in <script> keeps the codemod --check gate green with identical output.
-const isFloatingOrInset = computed(
-  () => props.variant === 'floating' || props.variant === 'inset',
-)
+const isFloatingOrInset = computed(() => props.variant === 'floating' || props.variant === 'inset')
 
 const gapWidthClass = computed(() =>
   isFloatingOrInset.value

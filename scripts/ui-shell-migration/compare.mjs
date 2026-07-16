@@ -134,7 +134,9 @@ async function pngSet(dir) {
   try {
     entries = await readdir(dir)
   } catch (error) {
-    throw new Error(`cannot read directory ${dir}: ${error instanceof Error ? error.message : error}`)
+    throw new Error(
+      `cannot read directory ${dir}: ${error instanceof Error ? error.message : error}`,
+    )
   }
   return new Set(entries.filter((f) => f.toLowerCase().endsWith('.png')).map((f) => basename(f)))
 }

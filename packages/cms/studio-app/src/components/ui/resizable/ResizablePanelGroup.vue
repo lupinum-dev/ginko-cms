@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import type { SplitterGroupEmits, SplitterGroupProps } from 'reka-ui'
-import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
+import type { SplitterGroupEmits, SplitterGroupProps } from 'reka-ui'
 import { SplitterGroup, useForwardPropsEmits } from 'reka-ui'
+import type { HTMLAttributes } from 'vue'
+
 import { cn } from '../utils'
 
-const props = defineProps<
-  SplitterGroupProps & { class?: HTMLAttributes['class'] }
->()
+const props = defineProps<SplitterGroupProps & { class?: HTMLAttributes['class'] }>()
 const emits = defineEmits<SplitterGroupEmits>()
 
 const delegatedProps = reactiveOmit(props, 'class')
@@ -20,7 +19,10 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     data-slot="resizable-panel-group"
     v-bind="forwarded"
     :class="
-      cn('ginko:flex ginko:h-full ginko:w-full ginko:data-[orientation=vertical]:flex-col', props.class)
+      cn(
+        'ginko:flex ginko:h-full ginko:w-full ginko:data-[orientation=vertical]:flex-col',
+        props.class,
+      )
     "
   >
     <slot />

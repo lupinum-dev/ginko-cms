@@ -241,8 +241,7 @@ const de = {
           'Es existiert eine Live-Version; Entwurfsänderungen sind noch nicht live.',
         stepPublishAvailable: 'Veröffentliche die freigegebenen Website-Änderungen.',
         stepPublishBlocked: 'Behebe die Blocker vor dem Veröffentlichen.',
-        stepPublishWaiting:
-          'Das Veröffentlichen wird nach Vorschau und Freigabe freigeschaltet.',
+        stepPublishWaiting: 'Das Veröffentlichen wird nach Vorschau und Freigabe freigeschaltet.',
         stepDraftChanges: 'Entwurfsänderungen',
         stepBlocked: 'Blockiert',
         stepTrackChanges: 'Verfolge die Live-Version, während die Entwurfsänderungen weitergehen.',
@@ -339,13 +338,16 @@ const de = {
         routeModeSharedData: 'Geteilte Daten',
         routeModeWebsitePages: 'Website-Seiten',
         blockedTitle: 'Veröffentlichung blockiert',
-        blockedDescription: 'Inhalte mit Problemen, die vor der Website-Änderung behoben werden müssen.',
+        blockedDescription:
+          'Inhalte mit Problemen, die vor der Website-Änderung behoben werden müssen.',
         blockedIssuesOne: '{count} Veröffentlichungsproblem',
         blockedIssuesOther: '{count} Veröffentlichungsprobleme',
         noPublishBlockersTitle: 'Keine Veröffentlichungsblocker',
-        noPublishBlockersDescription: 'Die aktuelle Arbeitsliste hat keine Veröffentlichungsblocker.',
+        noPublishBlockersDescription:
+          'Die aktuelle Arbeitsliste hat keine Veröffentlichungsblocker.',
         contentOverviewTitle: 'Inhaltsübersicht',
-        contentOverviewDescription: 'Content-Typen, Website-Nutzung, Entwürfe und Übersetzungslücken.',
+        contentOverviewDescription:
+          'Content-Typen, Website-Nutzung, Entwürfe und Übersetzungslücken.',
         columnCollection: 'Kollektion',
         columnWebsiteUse: 'Website-Nutzung',
         columnEntries: 'Einträge',
@@ -353,7 +355,8 @@ const de = {
         columnTranslations: 'Übersetzungen',
         trackWebsiteUpdatesTitle: 'Website-Updates verfolgen',
         trackStatusUnavailableTitle: 'Website-Update-Status nicht verfügbar',
-        trackStatusUnavailableDescription: 'Studio lädt noch den Status der Website-Aktualisierung.',
+        trackStatusUnavailableDescription:
+          'Studio lädt noch den Status der Website-Aktualisierung.',
         trackHealthyTitle: 'Keine blockierten Website-Updates',
         trackHealthyDescription: 'Die Website-Aktualisierungen sind in Ordnung.',
         nothingLiveTitle: 'Noch nichts live',
@@ -443,7 +446,8 @@ const de = {
         createError: 'Bereich konnte nicht erstellt werden.',
         deleteError: 'Bereich konnte nicht gelöscht werden.',
         deletePrompt: '"{label}" löschen?',
-        deletePublicWarning: 'Dieser Bereich wird über öffentliche Site-Data-Abrufe bereitgestellt.',
+        deletePublicWarning:
+          'Dieser Bereich wird über öffentliche Site-Data-Abrufe bereitgestellt.',
       },
       siteDataEditor: {
         open: 'Geöffnet',
@@ -491,8 +495,7 @@ const de = {
         appearanceDescription:
           'Theme, Akzentfarbe und Dichte für dieses Studio. Pro Browser gespeichert.',
         appearanceColorLabel: 'Akzentfarbe',
-        appearanceColorDescription:
-          'Die Hauptfarbe für Schaltflächen, Links und Hervorhebungen.',
+        appearanceColorDescription: 'Die Hauptfarbe für Schaltflächen, Links und Hervorhebungen.',
         appearanceTypeLabel: 'Schrift',
         appearanceTypeDescription: 'Zu einer monospaced oder skalierten Schriftvariante wechseln.',
         appearanceRadiusLabel: 'Ecken',
@@ -869,7 +872,8 @@ const de = {
         filters: 'Filter',
         clearFilters: 'Filter zurücksetzen',
         noActiveCollection: 'Keine aktive Sammlung',
-        noActiveCollectionDescription: 'Die Sammlungseinrichtung ist für diese Route nicht verfügbar.',
+        noActiveCollectionDescription:
+          'Die Sammlungseinrichtung ist für diese Route nicht verfügbar.',
       },
       collectionEditor: {
         newEntry: 'Neuer Inhalt',
@@ -1017,7 +1021,8 @@ const de = {
         previewContent: 'Inhalt',
         previewNoLocaleData: 'Keine Inhalte für diese Sprache verfügbar.',
         draftSetup: 'Entwurf einrichten',
-        draftSetupDescription: 'Erstelle zuerst den Eintrag. Übersetzungen, Routenstatus, Versionen und Workflow-Details werden danach verfügbar.',
+        draftSetupDescription:
+          'Erstelle zuerst den Eintrag. Übersetzungen, Routenstatus, Versionen und Workflow-Details werden danach verfügbar.',
         routePreview: 'Routenvorschau',
         noRouteYet: 'Noch keine Route',
         createPanelDescription: 'Einrichtungshinweise für den neuen Eintrag.',
@@ -1308,7 +1313,8 @@ const de = {
         pageControlsHidden:
           'Seitensteuerungen sind für geteilte Content-Typen ausgeblendet. Sitemap, Suche, Navigation und Routendiagnose gelten erst, wenn dieser Content-Typ Website-Seiten erstellt.',
         outOfDatePrefix: 'Veraltetes URL-Präfix:',
-        clearPrefixHint: 'Aktualisiere die code-definierte Kollektions-Konfiguration, um es zu entfernen.',
+        clearPrefixHint:
+          'Aktualisiere die code-definierte Kollektions-Konfiguration, um es zu entfernen.',
         noLocalesConfigured: 'Für diese Kollektion sind keine Sprachen konfiguriert.',
         liveWebsiteContent: 'Live-Website-Inhalt',
         liveContentDescription:

@@ -293,9 +293,7 @@ onBeforeUnmount(() => {
         </CommandItem>
       </CommandGroup>
 
-      <CommandSeparator
-        v-if="(recentSection.length || searchItems.length) && staticLinks.length"
-      />
+      <CommandSeparator v-if="(recentSection.length || searchItems.length) && staticLinks.length" />
 
       <CommandGroup :heading="t('ginkoCms.common.pages')">
         <CommandItem

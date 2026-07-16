@@ -130,7 +130,7 @@ function socialIconName(item: Record<string, unknown>) {
             :model-value="typeof item.to === 'string' ? item.to : ''"
             placeholder="URL"
             :aria-label="`Item ${index + 1} URL`"
-            class="ginko:col-start-2 ginko:h-8 ginko:md:col-start-auto"
+            class="ginko:col-start-2 ginko:h-8 ginko:@3xl:col-start-auto"
             :disabled="disabled"
             @update:model-value="updateArrayItem(index, 'to', $event)"
           />
@@ -148,7 +148,7 @@ function socialIconName(item: Record<string, unknown>) {
             :model-value="typeof item.icon === 'string' ? item.icon : ''"
             placeholder="icon"
             :aria-label="`Item ${index + 1} icon`"
-            class="ginko:col-start-2 ginko:col-span-1 ginko:h-8 ginko:font-mono ginko:text-xs ginko:md:col-span-2"
+            class="ginko:col-start-2 ginko:col-span-1 ginko:h-8 ginko:font-mono ginko:text-xs ginko:@3xl:col-span-2"
             :disabled="disabled"
             @update:model-value="updateArrayItem(index, 'icon', $event)"
           />

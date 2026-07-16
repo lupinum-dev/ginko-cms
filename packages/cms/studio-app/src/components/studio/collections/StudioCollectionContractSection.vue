@@ -104,12 +104,10 @@ const projectionFacts = computed(() => [
 
 <template>
   <section
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:pb-8"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:pb-8"
   >
-    <div class="ginko:space-y-1 ginko:md:w-56 ginko:md:shrink-0">
-      <h2
-        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
-      >
+    <div class="ginko:space-y-1 ginko:@3xl:w-56 ginko:@3xl:shrink-0">
+      <h2 class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground">
         <Settings2 class="ginko:size-4 ginko:text-muted-foreground" />
         {{ t('ginkoCms.studio.collectionsPage.collectionSettings') }}
       </h2>
@@ -235,7 +233,7 @@ const projectionFacts = computed(() => [
           </p>
         </div>
       </div>
-      <div class="ginko:grid ginko:gap-3 ginko:lg:grid-cols-2">
+      <div class="ginko:grid ginko:gap-3 ginko:@5xl:grid-cols-2">
         <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
           <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
             <div>
@@ -270,7 +268,7 @@ const projectionFacts = computed(() => [
            disclosure instead of three scattered ones. -->
       <StudioDeveloperDetails>
         <div class="ginko:space-y-3">
-          <dl class="ginko:grid ginko:gap-2 ginko:text-xs ginko:sm:grid-cols-2">
+          <dl class="ginko:grid ginko:gap-2 ginko:text-xs ginko:@2xl:grid-cols-2">
             <div
               v-for="[label, value] in [
                 ['Slug', selectedCollection],

@@ -40,9 +40,9 @@ const admin = proxyRefs(useStudioSettingsAdmin())
           <div
             v-for="i in 3"
             :key="`skeleton-section-${i}`"
-            class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4"
+            class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4"
           >
-            <div class="ginko:md:w-64 ginko:md:shrink-0 ginko:space-y-2">
+            <div class="ginko:@3xl:w-64 ginko:@3xl:shrink-0 ginko:space-y-2">
               <Skeleton class="ginko:h-4 ginko:w-24" />
               <Skeleton class="ginko:h-3 ginko:w-40" />
             </div>

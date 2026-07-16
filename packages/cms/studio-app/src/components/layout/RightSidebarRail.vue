@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { GripVertical } from '@lucide/vue'
+import { useTextDirection } from '@vueuse/core'
 import type { HTMLAttributes } from 'vue'
 import { computed, ref } from 'vue'
-import { useTextDirection } from '@vueuse/core'
-import { GripVertical } from '@lucide/vue'
 
 import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useRightSidebar } from '../../composables/useRightSidebar'
@@ -18,8 +18,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useCmsI18n()
-const { available, open, toggle, setSize, tierMinRem, tierMaxRem } =
-  useRightSidebar()
+const { available, open, toggle, setSize, tierMinRem, tierMaxRem } = useRightSidebar()
 
 // Studio left sidebar is the `sidebar` variant, not `inset`.
 const isMainInsetStyle = false
@@ -149,7 +148,7 @@ function onKeydown(event: KeyboardEvent) {
     <span
       v-if="open"
       aria-hidden="true"
-      class="ginko:bg-background ginko:z-20 ginko:text-muted-foreground ginko:pointer-events-none ginko:absolute ginko:top-1/2 ginko:left-1/2 ginko:-translate-x-1/2 ginko:-translate-y-1/2 ginko:rounded-sm ginko:border ginko:p-0.5 ginko:opacity-0 ginko:shadow-sm ginko:transition-opacity ginko:duration-150 ginko:group-hover:opacity-100 ginko:group-focus-visible:opacity-100"
+      class="ginko:bg-background ginko:z-20 ginko:text-muted-foreground ginko:pointer-events-none ginko:absolute ginko:top-1/2 ginko:left-1/2 ginko:-translate-x-1/2 ginko:-translate-y-1/2 ginko:rounded-sm ginko:border ginko:p-0.5 ginko:opacity-0 ginko:shadow-sm ginko:transition-opacity ginko:duration-(--motion-fast) ginko:group-hover:opacity-100 ginko:group-focus-visible:opacity-100"
     >
       <GripVertical class="ginko:size-3" />
     </span>

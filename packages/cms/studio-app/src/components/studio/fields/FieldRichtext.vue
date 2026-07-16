@@ -247,7 +247,7 @@ function onConversionRecovered() {
       />
       <div
         v-if="richtextPreview"
-        class="ginko:min-h-[260px] ginko:rounded-md ginko:border ginko:border-border/40 ginko:p-4 prose prose-sm dark:prose-invert ginko:max-w-none ginko:overflow-auto ginko:xl:min-h-[400px]"
+        class="ginko:min-h-[260px] ginko:rounded-md ginko:border ginko:border-border/40 ginko:p-4 prose prose-sm dark:prose-invert ginko:max-w-none ginko:overflow-auto ginko:@7xl:min-h-[400px]"
       >
         <pre
           v-if="value"

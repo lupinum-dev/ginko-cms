@@ -191,7 +191,7 @@ function updateCustomJson(nextValue: string) {
           @update:model-value="updateField('text', $event)"
         />
       </StudioFieldShell>
-      <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-2">
+      <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@3xl:grid-cols-2">
         <StudioFieldShell
           for="site-data-banner-cta-label"
           :label="t('ginkoCms.studio.siteDataEditor.ctaLabel')"
@@ -215,7 +215,7 @@ function updateCustomJson(nextValue: string) {
           />
         </StudioFieldShell>
       </div>
-      <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-2">
+      <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@3xl:grid-cols-2">
         <StudioFieldShell
           for="site-data-banner-starts-at"
           :label="t('ginkoCms.studio.siteDataEditor.startsAt')"
@@ -255,7 +255,7 @@ function updateCustomJson(nextValue: string) {
         :key="index"
         class="ginko:rounded ginko:border ginko:border-border/40 ginko:p-3 ginko:space-y-3"
       >
-        <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-2">
+        <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@3xl:grid-cols-2">
           <StudioFieldShell
             :for="`site-data-item-${index}-name`"
             :label="

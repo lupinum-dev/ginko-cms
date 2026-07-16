@@ -6,12 +6,12 @@ import { defineComponent, h, nextTick, toValue } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import StudioAssetDetailsPanel from '../../packages/cms/studio-app/src/components/studio/StudioAssetDetailsPanel.vue'
-import { provideStudioAssetSelection } from '../../packages/cms/studio-app/src/composables/useStudioAssetSelection'
 import {
   provideRightSidebar,
   useRightSidebarPanel,
   type RightSidebarController,
 } from '../../packages/cms/studio-app/src/composables/useRightSidebar'
+import { provideStudioAssetSelection } from '../../packages/cms/studio-app/src/composables/useStudioAssetSelection'
 
 const mocks = vi.hoisted(() => ({
   updateAsset: vi.fn(),

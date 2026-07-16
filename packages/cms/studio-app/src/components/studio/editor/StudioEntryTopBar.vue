@@ -68,17 +68,6 @@ const currentReadinessView = computed(() =>
     : null,
 )
 
-const publishAllReadinessView = computed(() =>
-  editor
-    ? mapEntryReadinessDetail({
-        readinessDetail: props.readinessDetail,
-        currentLocale: editor.loader.currentLocale,
-        t: editor.loader.t,
-        publishMode: 'all',
-      })
-    : null,
-)
-
 // The primary action keeps a stable verb (design review S2): a status like
 // "Needs work" never masquerades as the CTA. When publishing is blocked the
 // button still opens the shared dialog, which explains the blockers and gates
@@ -90,13 +79,11 @@ const publishLabel = computed(() => {
 })
 
 const publishDisabled = computed(
-  () =>
-    !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
+  () => !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
 )
 
 const publishAllDisabled = computed(
-  () =>
-    !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
+  () => !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
 )
 
 const canRequestReview = computed(

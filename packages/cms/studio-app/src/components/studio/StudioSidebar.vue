@@ -39,15 +39,23 @@ function openCommandPalette() {
               <div
                 class="ginko:flex ginko:aspect-square ginko:size-8 ginko:items-center ginko:justify-center ginko:rounded-lg ginko:bg-sidebar-primary ginko:text-sidebar-primary-foreground"
               >
-                <svg viewBox="0 0 24 24" class="ginko:size-4" fill="currentColor" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  class="ginko:size-4"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
               </div>
-              <div class="ginko:grid ginko:flex-1 ginko:text-left ginko:text-sm ginko:leading-tight">
+              <div
+                class="ginko:grid ginko:flex-1 ginko:text-left ginko:text-sm ginko:leading-tight"
+              >
                 <span class="ginko:truncate ginko:font-semibold">Ginko Studio</span>
-                <span class="ginko:truncate ginko:text-xs ginko:tabular-nums ginko:text-muted-foreground">{{
-                  studioVersion
-                }}</span>
+                <span
+                  class="ginko:truncate ginko:text-xs ginko:tabular-nums ginko:text-muted-foreground"
+                  >{{ studioVersion }}</span
+                >
               </div>
             </RouterLink>
           </SidebarMenuButton>

@@ -141,7 +141,9 @@ function updateField(fieldKey: string, value: unknown) {
           :variant="isSourceOfTruthLocale ? 'success' : 'soft'"
           class="studio-locale-panel__role-badge ginko:shrink-0 ginko:rounded-md ginko:text-xs ginko:font-semibold"
         >
-          {{ isSourceOfTruthLocale ? ce('localePanelSourceOfTruth') : ce('localePanelTranslation') }}
+          {{
+            isSourceOfTruthLocale ? ce('localePanelSourceOfTruth') : ce('localePanelTranslation')
+          }}
         </Badge>
         <StudioStatusPill
           v-if="showStatusPill"
@@ -179,7 +181,9 @@ function updateField(fieldKey: string, value: unknown) {
           :disabled="editor.draft.saving"
           @click="editor.locales.handleSaveSecondaryDraft()"
         >
-          <span class="studio-locale-panel__action-full">{{ ce('localePanelSaveTranslationDraft') }}</span>
+          <span class="studio-locale-panel__action-full">{{
+            ce('localePanelSaveTranslationDraft')
+          }}</span>
           <span class="studio-locale-panel__action-short">{{ ce('localePanelSaveDraft') }}</span>
         </Button>
         <DropdownMenu v-if="side === 'secondary' && editor.loader.canEditEntries">
@@ -206,11 +210,7 @@ function updateField(fieldKey: string, value: unknown) {
     </div>
 
     <div class="ginko:space-y-5 ginko:bg-card ginko:p-5">
-      <StudioNotice
-        v-if="isMissing"
-        tone="warning"
-        :title="ce('localePanelMissingContentTitle')"
-      >
+      <StudioNotice v-if="isMissing" tone="warning" :title="ce('localePanelMissingContentTitle')">
         {{
           missingFields?.length === 1
             ? ce('localePanelMissingContentOne', { count: missingFields?.length })

@@ -103,15 +103,21 @@ function formatVersionAction(version: VersionListItem) {
           >
             <dl class="ginko:grid ginko:gap-2 ginko:text-xs">
               <div class="ginko:grid ginko:gap-1">
-                <dt class="ginko:font-medium ginko:text-muted-foreground">{{ ce('versionRevisionId') }}</dt>
+                <dt class="ginko:font-medium ginko:text-muted-foreground">
+                  {{ ce('versionRevisionId') }}
+                </dt>
                 <dd class="ginko:break-all ginko:font-mono">{{ version._id }}</dd>
               </div>
               <div class="ginko:grid ginko:gap-1">
-                <dt class="ginko:font-medium ginko:text-muted-foreground">{{ ce('versionNumber') }}</dt>
+                <dt class="ginko:font-medium ginko:text-muted-foreground">
+                  {{ ce('versionNumber') }}
+                </dt>
                 <dd class="ginko:font-mono">{{ version.version }}</dd>
               </div>
               <div v-if="version.createdBy" class="ginko:grid ginko:gap-1">
-                <dt class="ginko:font-medium ginko:text-muted-foreground">{{ ce('versionCreatedBy') }}</dt>
+                <dt class="ginko:font-medium ginko:text-muted-foreground">
+                  {{ ce('versionCreatedBy') }}
+                </dt>
                 <dd class="ginko:break-all ginko:font-mono">{{ version.createdBy }}</dd>
               </div>
             </dl>

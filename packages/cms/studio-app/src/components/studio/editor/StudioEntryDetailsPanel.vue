@@ -48,7 +48,10 @@ function openPublishDialog() {
 
   <div v-else class="studio-entry-details-panel ginko:flex ginko:flex-col ginko:gap-1">
     <!-- Status: entry status, publishing-flow steps, track-live / route status. -->
-    <Collapsible :default-open="true" class="ginko:border-b ginko:border-border ginko:last:border-b-0">
+    <Collapsible
+      :default-open="true"
+      class="ginko:border-b ginko:border-border ginko:last:border-b-0"
+    >
       <CollapsibleTrigger
         class="studio-entry-details-panel__trigger ginko:group ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-2 ginko:py-3 ginko:text-left"
       >
@@ -77,7 +80,10 @@ function openPublishDialog() {
     </Collapsible>
 
     <!-- Workflow: publish actions + public-workflow / translation-readiness detail. -->
-    <Collapsible :default-open="true" class="ginko:border-b ginko:border-border ginko:last:border-b-0">
+    <Collapsible
+      :default-open="true"
+      class="ginko:border-b ginko:border-border ginko:last:border-b-0"
+    >
       <CollapsibleTrigger
         class="studio-entry-details-panel__trigger ginko:group ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-2 ginko:py-3 ginko:text-left"
       >
@@ -131,10 +137,7 @@ function openPublishDialog() {
           :public-visibility="workflow.publicVisibility"
           :publish-impact="workflow.publishImpact"
         />
-        <div
-          v-else-if="workflow.publishImpactRequested"
-          class="ginko:mt-4 ginko:grid ginko:gap-2"
-        >
+        <div v-else-if="workflow.publishImpactRequested" class="ginko:mt-4 ginko:grid ginko:gap-2">
           <div class="ginko:px-1">
             <h3 class="studio-text-title ginko:text-foreground">
               {{ t('ginkoCms.studio.entryDetails.websiteChangesTitle') }}
@@ -176,7 +179,10 @@ function openPublishDialog() {
     </Collapsible>
 
     <!-- History: version history + checkpoint (restore) controls. -->
-    <Collapsible :default-open="false" class="ginko:border-b ginko:border-border ginko:last:border-b-0">
+    <Collapsible
+      :default-open="false"
+      class="ginko:border-b ginko:border-border ginko:last:border-b-0"
+    >
       <CollapsibleTrigger
         class="studio-entry-details-panel__trigger ginko:group ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-2 ginko:py-3 ginko:text-left"
       >

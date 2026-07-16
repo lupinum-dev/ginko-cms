@@ -258,7 +258,9 @@ const blockingIssues = computed(() => {
           </div>
         </div>
       </div>
-      <div v-else class="ginko:text-sm ginko:text-muted-foreground">{{ t('noTranslationData') }}</div>
+      <div v-else class="ginko:text-sm ginko:text-muted-foreground">
+        {{ t('noTranslationData') }}
+      </div>
     </StudioInspectorSection>
 
     <!-- Issues only exist when there are issues (principle 5); the healthy
@@ -287,11 +289,7 @@ const blockingIssues = computed(() => {
         <Sparkles class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
       </template>
       <template #action>
-        <Switch
-          v-model="advancedEditor"
-          class="ginko:scale-90"
-          :aria-label="t('toggleDetails')"
-        />
+        <Switch v-model="advancedEditor" class="ginko:scale-90" :aria-label="t('toggleDetails')" />
       </template>
       <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground/80">
         {{ t('moreDetailsHint') }}

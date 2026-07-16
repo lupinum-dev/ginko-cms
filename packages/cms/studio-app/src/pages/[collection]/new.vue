@@ -21,6 +21,8 @@ import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
+import StudioEntryCreatePanel from '../../components/studio/editor/StudioEntryCreatePanel.vue'
+import StudioEntryHeroFields from '../../components/studio/editor/StudioEntryHeroFields.vue'
 import type { StudioCollectionConfig } from '../../composables/internal/types'
 import { cmsPermissionKeys } from '../../composables/permissions'
 import { useCmsConfig } from '../../composables/useCmsConfig'
@@ -33,8 +35,6 @@ import { useConvexMutation } from '../../composables/useStudioConvex'
 import { useStudioDebug } from '../../composables/useStudioDebug'
 import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
 import { slugifyStudioText } from '../../lib/slug'
-import StudioEntryCreatePanel from '../../components/studio/editor/StudioEntryCreatePanel.vue'
-import StudioEntryHeroFields from '../../components/studio/editor/StudioEntryHeroFields.vue'
 
 const { can } = useCmsStudioAccess()
 const canPublishEntries = can(cmsPermissionKeys.publishEntries)
@@ -675,7 +675,10 @@ if (typeof window !== 'undefined') {
             </StudioFieldShell>
           </div>
 
-          <div v-if="isTree" class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-4">
+          <div
+            v-if="isTree"
+            class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-4"
+          >
             <StudioFieldShell for="kind" :label="t('ginkoCms.studio.collectionEditor.kind')">
               <Select v-model="form.kind">
                 <SelectTrigger>
@@ -695,7 +698,9 @@ if (typeof window !== 'undefined') {
                   <SelectValue :placeholder="t('ginkoCms.common.noneRoot')" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem :value="ROOT_PARENT_VALUE">{{ t('ginkoCms.common.noneRoot') }}</SelectItem>
+                  <SelectItem :value="ROOT_PARENT_VALUE">{{
+                    t('ginkoCms.common.noneRoot')
+                  }}</SelectItem>
                   <SelectItem v-for="e in parentOptions" :key="e._id" :value="e._id">
                     {{ e.indent }}{{ e.title || e._id }}
                   </SelectItem>
@@ -862,6 +867,5 @@ if (typeof window !== 'undefined') {
         </div>
       </section>
     </template>
-
   </StudioEntryEditorShell>
 </template>

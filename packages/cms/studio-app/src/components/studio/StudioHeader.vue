@@ -1,22 +1,19 @@
 <script setup lang="ts">
 import { PanelRight, Search } from '@lucide/vue'
-import type { RouteLocationRaw } from 'vue-router'
 import { computed, toValue } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import { useRoute } from 'vue-router'
 
 import { api } from '../../boundary/api'
 import { useCmsConfig } from '../../composables/useCmsConfig'
 import { useCmsI18n } from '../../composables/useCmsI18n'
-import { useRightSidebar } from '../../composables/useRightSidebar'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
+import { useRightSidebar } from '../../composables/useRightSidebar'
 import {
   codeDefinedCollectionList,
   type StudioCollectionListItem,
 } from '../../lib/codeDefinedCollections'
-import {
-  studioStaticRoutes,
-  type StudioStaticRouteId,
-} from '../../lib/studioNavigation'
+import { studioStaticRoutes, type StudioStaticRouteId } from '../../lib/studioNavigation'
 
 const { t } = useCmsI18n()
 const route = useRoute()
@@ -131,10 +128,7 @@ function openPalette() {
         <BreadcrumbList class="ginko:flex-nowrap">
           <template v-for="(item, index) in breadcrumb" :key="index">
             <BreadcrumbItem class="ginko:min-w-0">
-              <BreadcrumbLink
-                v-if="index !== breadcrumb.length - 1 && item.to"
-                as-child
-              >
+              <BreadcrumbLink v-if="index !== breadcrumb.length - 1 && item.to" as-child>
                 <RouterLink :to="item.to" class="ginko:truncate">
                   {{ item.label }}
                 </RouterLink>
@@ -172,7 +166,7 @@ function openPalette() {
         data-slot="right-sidebar-trigger"
         variant="ghost"
         size="icon"
-        class="ginko:size-9 ginko:text-muted-foreground ginko:hover:text-foreground ginko:transition-transform ginko:duration-150 ginko:ease-out ginko:active:scale-[0.96]"
+        class="ginko:size-9 ginko:text-muted-foreground ginko:hover:text-foreground ginko:transition-transform ginko:duration-(--motion-fast) ginko:ease-out ginko:active:scale-[0.96]"
         aria-controls="right-sidebar"
         :aria-expanded="rightSidebarOpen"
         aria-keyshortcuts="Meta+."

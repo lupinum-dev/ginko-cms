@@ -2,9 +2,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createReadinessAction } from '../../packages/contract/src/readiness'
 import { createReadinessActionHandler } from '../../packages/cms/studio-app/src/composables/internal/readinessActionHandler'
 import type { StudioEntryEditorContext } from '../../packages/cms/studio-app/src/composables/internal/studioEntryEditorContext'
+import { createReadinessAction } from '../../packages/contract/src/readiness'
 
 function createEditorMock(overrides: { canPublishEntries?: boolean } = {}) {
   const routerPush = vi.fn()

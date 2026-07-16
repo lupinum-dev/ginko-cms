@@ -276,7 +276,7 @@ const showWebsitePreview = computed(
         </div>
 
         <div
-          class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:sm:grid-cols-2"
+          class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:@2xl:grid-cols-2"
         >
           <div>
             <div class="ginko:text-xs ginko:font-medium ginko:uppercase">

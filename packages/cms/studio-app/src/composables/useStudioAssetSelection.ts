@@ -16,9 +16,8 @@ export interface StudioAssetSelectionController {
   assetContext: Ref<StudioAssetContext | undefined>
 }
 
-const studioAssetSelectionKey: InjectionKey<StudioAssetSelectionController> = Symbol(
-  'studio-asset-selection',
-)
+const studioAssetSelectionKey: InjectionKey<StudioAssetSelectionController> =
+  Symbol('studio-asset-selection')
 
 export function provideStudioAssetSelection(): StudioAssetSelectionController {
   const controller: StudioAssetSelectionController = {

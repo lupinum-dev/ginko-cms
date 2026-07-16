@@ -39,12 +39,10 @@ async function confirmRevokeConnection() {
   <!-- ─── MCP connections ─── -->
   <section
     v-if="settings.canManageSettings"
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8"
   >
-    <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
-      <h2
-        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
-      >
+    <div class="ginko:space-y-1 ginko:@3xl:w-64 ginko:@3xl:shrink-0">
+      <h2 class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground">
         <KeyRound class="ginko:size-4 ginko:text-muted-foreground" />
         MCP connections for AI tools
         <Badge variant="outline" class="ginko:text-xs">
@@ -91,7 +89,7 @@ async function confirmRevokeConnection() {
       </StudioNotice>
 
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-4">
-        <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-[1fr_10rem]">
+        <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@3xl:grid-cols-[1fr_10rem]">
           <div class="ginko:space-y-1.5">
             <Label class="ginko:text-xs ginko:text-muted-foreground">Name</Label>
             <Input
@@ -121,7 +119,7 @@ async function confirmRevokeConnection() {
 
         <div class="ginko:mt-4 ginko:space-y-2">
           <Label class="ginko:text-xs ginko:text-muted-foreground">Permissions</Label>
-          <div class="ginko:grid ginko:grid-cols-1 ginko:gap-2 ginko:sm:grid-cols-2">
+          <div class="ginko:grid ginko:grid-cols-1 ginko:gap-2 ginko:@2xl:grid-cols-2">
             <label
               v-for="scope in settings.mcpScopeOptions"
               :key="scope.key"
@@ -137,7 +135,7 @@ async function confirmRevokeConnection() {
         </div>
 
         <div
-          class="ginko:mt-4 ginko:flex ginko:flex-col ginko:gap-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
+          class="ginko:mt-4 ginko:flex ginko:flex-col ginko:gap-3 ginko:@2xl:flex-row ginko:@2xl:items-center ginko:@2xl:justify-between"
         >
           <StudioDeveloperDetails class="ginko:min-w-0 ginko:flex-1" :framed="false">
             <code
@@ -162,7 +160,7 @@ async function confirmRevokeConnection() {
 
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:divide-y">
         <div
-          class="ginko:flex ginko:flex-col ginko:gap-2 ginko:px-4 ginko:py-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
+          class="ginko:flex ginko:flex-col ginko:gap-2 ginko:px-4 ginko:py-3 ginko:@2xl:flex-row ginko:@2xl:items-center ginko:@2xl:justify-between"
         >
           <div class="ginko:text-sm ginko:font-medium">Active MCP connections</div>
           <Button
@@ -185,7 +183,7 @@ async function confirmRevokeConnection() {
         <div
           v-for="connection in visibleConnections"
           :key="connection.apiKeyId"
-          class="ginko:flex ginko:flex-col ginko:gap-3 ginko:px-4 ginko:py-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
+          class="ginko:flex ginko:flex-col ginko:gap-3 ginko:px-4 ginko:py-3 ginko:@2xl:flex-row ginko:@2xl:items-center ginko:@2xl:justify-between"
         >
           <div class="ginko:min-w-0">
             <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
@@ -216,7 +214,7 @@ async function confirmRevokeConnection() {
             <Trash2 v-else class="ginko:size-3.5" />
             Revoke access
           </Button>
-          <StudioDeveloperDetails class="ginko:w-full ginko:sm:basis-full" :framed="false">
+          <StudioDeveloperDetails class="ginko:w-full ginko:@2xl:basis-full" :framed="false">
             <code
               class="ginko:mt-2 ginko:block ginko:break-all ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1 ginko:text-xs"
               >{{ connection.apiKeyId }}</code

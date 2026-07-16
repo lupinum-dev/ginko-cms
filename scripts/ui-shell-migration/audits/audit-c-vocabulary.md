@@ -13,13 +13,13 @@ cognate DE values.
 
 ## Summary table
 
-| Class | Finding count | Worst offenders |
-| --- | --- | --- |
-| 1. Hardcoded strings | ~50 literal attrs + ~120 text nodes across ~20 files | `StudioAssetBrowser`, `StudioPublishImpactSummary`, `StudioEntry*` rail, `StudioSettingsRevalidationSection` |
-| 2. Terminology drift | 9 clusters | `assetDetails`=“Asset details” on Media page; MCP-in-primary; `Stale`; `MDC`; `entry` |
-| 3. Editor-safe leaks | 6 | `MDC Markdown`, `code-defined collection config`, `Custom JSON`, `Technical receipt`, `Review collection config`, `site-data reads` |
-| 4. en/de parity | keys: **clean (910=910)**; 0 missing/extra. ~10 DE values English (mostly cognates) | `Events`, `Global` |
-| 5. Tone | dominant = sentence-case + terminal period | `Display Name`, `Studio Language`, 2 period-less descriptions |
+| Class                | Finding count                                                                       | Worst offenders                                                                                                                     |
+| -------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Hardcoded strings | ~50 literal attrs + ~120 text nodes across ~20 files                                | `StudioAssetBrowser`, `StudioPublishImpactSummary`, `StudioEntry*` rail, `StudioSettingsRevalidationSection`                        |
+| 2. Terminology drift | 9 clusters                                                                          | `assetDetails`=“Asset details” on Media page; MCP-in-primary; `Stale`; `MDC`; `entry`                                               |
+| 3. Editor-safe leaks | 6                                                                                   | `MDC Markdown`, `code-defined collection config`, `Custom JSON`, `Technical receipt`, `Review collection config`, `site-data reads` |
+| 4. en/de parity      | keys: **clean (910=910)**; 0 missing/extra. ~10 DE values English (mostly cognates) | `Events`, `Global`                                                                                                                  |
+| 5. Tone              | dominant = sentence-case + terminal period                                          | `Display Name`, `Studio Language`, 2 period-less descriptions                                                                       |
 
 **Headline:** key parity is perfect and the locale terminology cutover largely landed
 in `en.ts`/`de.ts`. The real gap is **whole editor-rail and asset-browser components
@@ -31,6 +31,7 @@ English. Seven studio components have `i18n=0`.
 ## Class 1 — Hardcoded user-visible strings (not wired through `t()`)
 
 ### Components with ZERO i18n (entire template hardcoded) — HIGH
+
 These import no `useCmsI18n`/`t`; every visible string is a literal:
 
 - `components/studio/editor/StudioPublishImpactSummary.vue` — high — e.g. L130 “Previewing website changes...”, L159 “Website preview”, L206 “Website refresh targets”, L221 “Website refresh messages”, L285 “Live website content after publish”, L315/323 “Before”/“After”, L370 “Website visibility”, L429 “Other website changes”, L202 `title="Technical receipt"` — whole publish-impact panel hardcoded — needs `studio.publishImpact.*` keys.
@@ -46,6 +47,7 @@ These import no `useCmsI18n`/`t`; every visible string is a literal:
 - `components/studio/settings/StudioSettingsRevalidationSection.vue` — high — L22 “Website refresh”, L28 “Where published changes are sent…”, L50 “No website refresh target is configured…”, L109 “Refresh”, L116 “No website refreshes have been recorded yet.”, L157 “Retry” — whole settings section hardcoded.
 
 ### Components with partial i18n (some `t()`, many literals) — MED
+
 - `components/studio/StudioAssetBrowser.vue` (i18n=4, large template port) — med/high —
   L651 “Choose or upload an asset without leaving this entry.”, L657/964 “Upload”,
   L678 “Collections”, L710/1657/1790 “Tags”, L742 “Library views”, L917/1050 “Clear”,
@@ -56,7 +58,7 @@ These import no `useCmsI18n`/`t`; every visible string is a literal:
   L1956 “Location”, L1991 “Usage”, L1998 “Not used anywhere”, L2108 “Affected assets”, plus
   literal attrs L668/799/925/949/970 `aria-label`, L939 `placeholder="Search..."`,
   L992 `placeholder="Tag selected assets..."`, L1678/1825 `placeholder="Add tag..."`, L1066 `title="No items"`.
-  (Note: the terminology in these literals is *already correct* — “Make available…”, “Library views” — they just aren’t translatable.)
+  (Note: the terminology in these literals is _already correct_ — “Make available…”, “Library views” — they just aren’t translatable.)
 - `components/studio/collections/StudioCollectionContractSection.vue` (i18n=1) — high —
   L125 “Content type details”, L137 “Loading the selected content type...”, L152/153, L204,
   L212 “Stale URL prefix:”, L274, L294, L305, L346 `title="Review collection config"`.
@@ -93,17 +95,17 @@ labels via `t('ginkoCms.studio.layout.*')`. Collection labels come from config (
 
 ## Class 2 — Terminology drift vs UI-REVISION.md
 
-| Location | Current string | Issue | Suggested | Sev |
-| --- | --- | --- | --- | --- |
-| `en.ts` L192-194 `studio.assetDetails.*` (used as **Media** page right-panel title `pages/assets.vue:24`) | “Asset details” / “No asset selected” / “Select an asset…” | `Assets`→`Media` cutover incomplete; user sees “Asset” on the Media page | “Media details” / “No media selected” / “Select media…” | med |
-| `en.ts` L196-199 `studio.reviewDetails.*` (used on **Approvals** page `pages/reviews.vue:52`) | “Review details” / “No review selected” | page is “Approvals”; noun “review” inconsistent with page title | “Approval details” / align to Approvals | low |
-| `en.ts` L249 `assetsPage.scopeGlobal`, L835 `assetPicker.global` | “Global” | UI-REVISION: `Global` in media → `Shared library` | “Shared library” | med |
-| `StudioSettingsMcpConnectionsSection.vue` L49/164/189 + `en.ts` L378-395 `mcp*` (primary) | “MCP connections”, “Connect an MCP client” | UI-REVISION: `MCP connections`→`AI agent connections` in **primary**, keep `MCP` only in details | “AI agent connections” (primary); MCP behind Advanced | med |
-| `StudioCollectionContractSection.vue` L212 | “Stale URL prefix:” | UI-REVISION: `Stale`→`Out of date` | “Out of date URL prefix” | med |
-| `StudioCollectionContractSection.vue` (component name + L346 `title="Review collection config"`) | “collection config” / “Contract” | `Collection contract`→`Content type details`; component/name still “Contract” | “Content type details” | med |
-| `en.ts` L155 `layout.entry`, L217-218 `entryCountOne/Other`, L893-902 agents, many `*.entry*` | “Entry” / “{count} entries” | UI-REVISION leans editor language “content/document”; “entry” persists in editor-facing UI (breadcrumb `StudioHeader.vue:103`, `[id].vue:40`) | “content” / “document” where editor-facing | low |
-| `en.ts` L893-902 `agentsPage.title` = “AI work sessions” vs doc `Agent sessions`; `agentSessionId` L987 vs doc `Agent run id` | “AI work sessions” | impl went further than doc (fine, but doc drift — flag for alignment) | confirm canonical term | low |
-| `en.ts` L6 `common.manage` + L160 `layout.manage` = “Manage” | “Manage” | UI-REVISION: `Manage`→`Operations`; **both keys unused in studio-app** (dead) | remove or rename | low |
+| Location                                                                                                                      | Current string                                             | Issue                                                                                                                                         | Suggested                                               | Sev |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --- |
+| `en.ts` L192-194 `studio.assetDetails.*` (used as **Media** page right-panel title `pages/assets.vue:24`)                     | “Asset details” / “No asset selected” / “Select an asset…” | `Assets`→`Media` cutover incomplete; user sees “Asset” on the Media page                                                                      | “Media details” / “No media selected” / “Select media…” | med |
+| `en.ts` L196-199 `studio.reviewDetails.*` (used on **Approvals** page `pages/reviews.vue:52`)                                 | “Review details” / “No review selected”                    | page is “Approvals”; noun “review” inconsistent with page title                                                                               | “Approval details” / align to Approvals                 | low |
+| `en.ts` L249 `assetsPage.scopeGlobal`, L835 `assetPicker.global`                                                              | “Global”                                                   | UI-REVISION: `Global` in media → `Shared library`                                                                                             | “Shared library”                                        | med |
+| `StudioSettingsMcpConnectionsSection.vue` L49/164/189 + `en.ts` L378-395 `mcp*` (primary)                                     | “MCP connections”, “Connect an MCP client”                 | UI-REVISION: `MCP connections`→`AI agent connections` in **primary**, keep `MCP` only in details                                              | “AI agent connections” (primary); MCP behind Advanced   | med |
+| `StudioCollectionContractSection.vue` L212                                                                                    | “Stale URL prefix:”                                        | UI-REVISION: `Stale`→`Out of date`                                                                                                            | “Out of date URL prefix”                                | med |
+| `StudioCollectionContractSection.vue` (component name + L346 `title="Review collection config"`)                              | “collection config” / “Contract”                           | `Collection contract`→`Content type details`; component/name still “Contract”                                                                 | “Content type details”                                  | med |
+| `en.ts` L155 `layout.entry`, L217-218 `entryCountOne/Other`, L893-902 agents, many `*.entry*`                                 | “Entry” / “{count} entries”                                | UI-REVISION leans editor language “content/document”; “entry” persists in editor-facing UI (breadcrumb `StudioHeader.vue:103`, `[id].vue:40`) | “content” / “document” where editor-facing              | low |
+| `en.ts` L893-902 `agentsPage.title` = “AI work sessions” vs doc `Agent sessions`; `agentSessionId` L987 vs doc `Agent run id` | “AI work sessions”                                         | impl went further than doc (fine, but doc drift — flag for alignment)                                                                         | confirm canonical term                                  | low |
+| `en.ts` L6 `common.manage` + L160 `layout.manage` = “Manage”                                                                  | “Manage”                                                   | UI-REVISION: `Manage`→`Operations`; **both keys unused in studio-app** (dead)                                                                 | remove or rename                                        | low |
 
 Router still names routes `assets`/`reviews` (URLs `/studio/assets`, `/studio/reviews`)
 while labels read Media/Approvals. Labels are wired to locale, so **no visible-label
@@ -116,15 +118,15 @@ mismatch** — only the URL slug differs (IA note, out of vocabulary scope).
 Per UI-REVISION Goal L17-29 (“should not require understanding … MDC/JSON/collection
 contracts/config”).
 
-| Location | String | Leak | Suggested | Sev |
-| --- | --- | --- | --- | --- |
-| `en.ts` L702 `collectionEditor.contentLabel` | “Content (MDC Markdown)” | `MDC` technical token | “Content” | med |
-| `en.ts` L704 & L860 `*.richtextPlaceholder` (+ de.ts L714/878) | “Write content in MDC Markdown…” | `MDC` | “Write your content…” | med |
-| `en.ts` L851 `fieldRenderer.sectionEmpty` | “Add sub-fields to this section in the **code-defined collection config**.” | “code-defined … config” internals | “…managed by developers.” | med |
-| `en.ts` L312 `siteDataEditor.customJson` (+de) | “Custom JSON” | raw JSON as primary field label | “Custom data” / behind Advanced | med |
-| `StudioPublishImpactSummary.vue` L202 | `title="Technical receipt"` | “Technical” diagnostic surfaced in primary | move behind Advanced details | med |
-| `pages/site-data.vue` L367 | “This block is exposed through public **site-data reads**.” | “site-data reads” + “block” (should be “section”) | “This section is shown on the website.” | med |
-| `StudioCollectionContractSection.vue` L346 | `title="Review collection config"` | “config” internals | “Review content type” | low |
+| Location                                                       | String                                                                      | Leak                                              | Suggested                               | Sev |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------- | --- |
+| `en.ts` L702 `collectionEditor.contentLabel`                   | “Content (MDC Markdown)”                                                    | `MDC` technical token                             | “Content”                               | med |
+| `en.ts` L704 & L860 `*.richtextPlaceholder` (+ de.ts L714/878) | “Write content in MDC Markdown…”                                            | `MDC`                                             | “Write your content…”                   | med |
+| `en.ts` L851 `fieldRenderer.sectionEmpty`                      | “Add sub-fields to this section in the **code-defined collection config**.” | “code-defined … config” internals                 | “…managed by developers.”               | med |
+| `en.ts` L312 `siteDataEditor.customJson` (+de)                 | “Custom JSON”                                                               | raw JSON as primary field label                   | “Custom data” / behind Advanced         | med |
+| `StudioPublishImpactSummary.vue` L202                          | `title="Technical receipt"`                                                 | “Technical” diagnostic surfaced in primary        | move behind Advanced details            | med |
+| `pages/site-data.vue` L367                                     | “This block is exposed through public **site-data reads**.”                 | “site-data reads” + “block” (should be “section”) | “This section is shown on the website.” | med |
+| `StudioCollectionContractSection.vue` L346                     | `title="Review collection config"`                                          | “config” internals                                | “Review content type”                   | low |
 
 Positive: reviews advanced-details keys (`requestId`, `agentSessionId`, `entryId`,
 `en.ts` L986-988) and the `workflow.issues.*` set are correctly reworded to website
@@ -162,6 +164,7 @@ components are.
 sentence **with terminal period**.
 
 Outliers:
+
 - `common.displayName` L35 = “Display Name” — Title Case (vs sentence-case siblings). → “Display name”.
 - `settingsPage.studioLanguage` L366 = “Studio Language” — Title Case (cf. `defaultLocale` “Default language”, `locale` “Language”). → “Studio language”.
 - `reviewsPage.description` L905 = “Review pending website changes” — **no terminal period** (sibling page descriptions have one).
@@ -173,6 +176,7 @@ Outliers:
 ---
 
 ## Appendix — method
+
 - Literal attrs: `grep -E '(placeholder|title|aria-label|alt|label)="…[A-Za-z]…"'` minus
   bound (`:attr=`) and `data-testid` → 50 hits.
 - Text nodes: capitalized multi-word lines in templates minus JS/imports/interpolation.

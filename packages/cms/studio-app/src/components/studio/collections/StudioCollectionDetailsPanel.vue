@@ -47,11 +47,7 @@ const { t } = useCmsI18n()
             {{ t('ginkoCms.studio.collectionListPage.newEntry') }}
           </RouterLink>
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          @click="emit('setWorkState', 'missing_translation')"
-        >
+        <Button variant="outline" size="sm" @click="emit('setWorkState', 'missing_translation')">
           {{ t('ginkoCms.studio.collectionListPage.reviewLanguageQueue') }}
         </Button>
       </div>

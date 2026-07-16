@@ -69,13 +69,7 @@ export const APPEARANCE_COLORS: AppearanceColor[] = [
 export const APPEARANCE_TYPES: AppearanceType[] = ['default', 'mono', 'scaled']
 
 /** Selectable radius variants (must mirror the `.theme-rounded-*` rules). */
-export const APPEARANCE_RADII: AppearanceRadius[] = [
-  'none',
-  'small',
-  'medium',
-  'large',
-  'full',
-]
+export const APPEARANCE_RADII: AppearanceRadius[] = ['none', 'small', 'medium', 'large', 'full']
 
 export const APPEARANCE_STORAGE_KEY = 'ginko-studio-appearance'
 

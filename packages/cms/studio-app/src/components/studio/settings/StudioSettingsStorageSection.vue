@@ -11,12 +11,10 @@ const settings = props.admin
   <!-- ─── Storage diagnostics ─── -->
   <section
     v-if="settings.canManageSettings"
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8"
   >
-    <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
-      <h2
-        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
-      >
+    <div class="ginko:space-y-1 ginko:@3xl:w-64 ginko:@3xl:shrink-0">
+      <h2 class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground">
         <Database class="ginko:size-4 ginko:text-muted-foreground" />
         {{ settings.t('ginkoCms.studio.settingsPage.storageHygiene') }}
       </h2>
@@ -28,7 +26,7 @@ const settings = props.admin
     <div class="ginko:flex-1 ginko:min-w-0 ginko:space-y-4">
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40">
         <div
-          class="ginko:flex ginko:flex-col ginko:gap-3 ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3 ginko:sm:flex-row ginko:sm:items-center ginko:sm:justify-between"
+          class="ginko:flex ginko:flex-col ginko:gap-3 ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3 ginko:@2xl:flex-row ginko:@2xl:items-center ginko:@2xl:justify-between"
         >
           <div class="ginko:min-w-0">
             <div class="ginko:text-sm ginko:font-medium">
@@ -68,7 +66,7 @@ const settings = props.admin
 
         <div
           v-else-if="!settings.storageHygiene"
-          class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:p-4 ginko:sm:grid-cols-2"
+          class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:p-4 ginko:@2xl:grid-cols-2"
         >
           <Skeleton
             v-for="i in 6"
@@ -110,7 +108,7 @@ const settings = props.admin
           </div>
 
           <StudioDeveloperDetails>
-            <div class="ginko:grid ginko:grid-cols-1 ginko:gap-x-4 ginko:sm:grid-cols-2">
+            <div class="ginko:grid ginko:grid-cols-1 ginko:gap-x-4 ginko:@2xl:grid-cols-2">
               <div
                 v-for="row in settings.storageHygieneRows"
                 :key="row.label"

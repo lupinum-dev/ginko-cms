@@ -1,13 +1,5 @@
 <script setup lang="ts">
-import {
-  FileText,
-  FolderX,
-  GripVertical,
-  Loader2,
-  Pencil,
-  Plus,
-  Search,
-} from '@lucide/vue'
+import { FileText, FolderX, GripVertical, Loader2, Pencil, Plus, Search } from '@lucide/vue'
 import type { EntryStatus } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { FunctionArgs } from 'convex/server'
@@ -15,6 +7,7 @@ import { computed, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
+import StudioCollectionDetailsPanel from '../../components/studio/collections/StudioCollectionDetailsPanel.vue'
 import { cmsPermissionKeys } from '../../composables/permissions'
 import { useCmsConfig } from '../../composables/useCmsConfig'
 import { useCmsI18n } from '../../composables/useCmsI18n'
@@ -28,7 +21,6 @@ import { useStudioDebug } from '../../composables/useStudioDebug'
 import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
 import { publicStateLabel, publicStateTone, readinessActionLabel } from '../../lib/publicWorkflow'
 import { orderStudioTreeRows } from '../../lib/studioTree'
-import StudioCollectionDetailsPanel from '../../components/studio/collections/StudioCollectionDetailsPanel.vue'
 
 const { can } = useCmsStudioAccess()
 const canCreateEntries = can(cmsPermissionKeys.createEntries)
@@ -570,7 +562,9 @@ const kindColors: Record<string, string> = {
         <div
           class="studio-page-content studio-page-content--wide studio-toolbar-row ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2 ginko:py-1.5"
         >
-          <div class="ginko:relative ginko:min-w-0 ginko:flex-1 ginko:basis-full ginko:sm:basis-64">
+          <div
+            class="ginko:relative ginko:min-w-0 ginko:flex-1 ginko:basis-full ginko:@2xl:basis-64"
+          >
             <Search
               class="ginko:pointer-events-none ginko:absolute ginko:left-2.5 ginko:top-1/2 ginko:size-3.5 ginko:-translate-y-1/2 ginko:text-muted-foreground/60"
             />
@@ -901,6 +895,5 @@ const kindColors: Record<string, string> = {
         </div>
       </StudioPageBody>
     </ScrollArea>
-
   </StudioWorkspace>
 </template>

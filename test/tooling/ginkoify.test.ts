@@ -10,13 +10,19 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  checkViewportVariants,
+  isViewportAllowlisted,
+  isViewportScoped,
   prefixClassString,
   prefixToken,
+  scanViewportVariants,
   shouldPrefixToken,
   transformScript,
   transformSource,
   transformTemplate,
 } from '../../scripts/ui-shell-migration/ginkoify.mjs'
+
+const SRC = 'packages/cms/studio-app/src'
 
 describe('prefixToken — variant order (prefix is always first)', () => {
   it('prefixes a bare utility', () => {
@@ -260,6 +266,99 @@ describe('does not touch <style> blocks', () => {
     expect(out).toContain(`class="ginko:flex"`)
     expect(out).toContain(`.foo { display: flex; }`)
     expect(out).toContain(`.bar { padding: 1rem; }`)
+  })
+})
+
+describe('viewport-variant guard — content must use container queries', () => {
+  it('scans out viewport variants but never container-query variants', () => {
+    expect(scanViewportVariants('<div class="ginko:md:flex-row ginko:sm:grid-cols-2">')).toEqual([
+      'ginko:md:flex-row',
+      'ginko:sm:grid-cols-2',
+    ])
+    expect(scanViewportVariants('ginko:2xl:hidden ginko:xl:min-h-[400px]')).toEqual([
+      'ginko:2xl:hidden',
+      'ginko:xl:min-h-[400px]',
+    ])
+    // Container-query variants (the desired form) are left alone.
+    expect(
+      scanViewportVariants('ginko:@2xl:flex ginko:@3xl:grid-cols-2 ginko:@container/main'),
+    ).toEqual([])
+    // The bare prefixed utility (no viewport variant) is not a hit.
+    expect(scanViewportVariants('ginko:flex ginko:md-heading')).toEqual([])
+  })
+
+  it('flags a synthetic offender in a Studio content component', () => {
+    const hits = checkViewportVariants(
+      `${SRC}/components/studio/settings/StudioSettingsSyntheticSection.vue`,
+      '<div class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10"></div>',
+    )
+    expect(hits).toEqual(['ginko:md:flex-row', 'ginko:md:gap-10'])
+  })
+
+  it('flags a synthetic offender in a Studio page', () => {
+    expect(
+      checkViewportVariants(
+        `${SRC}/pages/synthetic.vue`,
+        '<div class="ginko:lg:grid-cols-2"></div>',
+      ),
+    ).toEqual(['ginko:lg:grid-cols-2'])
+  })
+
+  it('accepts shell-chrome allowlisted files (named + prefix + dir)', () => {
+    const offending = '<div class="ginko:md:hidden ginko:lg:w-64"></div>'
+    // Named entries.
+    expect(checkViewportVariants(`${SRC}/components/studio/StudioHeader.vue`, offending)).toEqual(
+      [],
+    )
+    expect(
+      checkViewportVariants(`${SRC}/components/studio/StudioEntryTopBar.vue`, offending),
+    ).toEqual([])
+    // StudioSidebar*.vue prefix rule.
+    expect(
+      checkViewportVariants(`${SRC}/components/studio/StudioSidebarNav.vue`, offending),
+    ).toEqual([])
+    // components/studio/layout/** dir rule (reserved frame primitives).
+    expect(
+      checkViewportVariants(`${SRC}/components/studio/layout/StudioFrame.vue`, offending),
+    ).toEqual([])
+  })
+
+  it('accepts justified-viewport allowlisted files (overlays, page frame, master-detail)', () => {
+    const offending = '<div class="ginko:sm:max-w-lg"></div>'
+    for (const rel of [
+      'components/studio/StudioPageBody.vue',
+      'components/studio/StudioPageHeader.vue',
+      'components/studio/StudioConfirmDialog.vue',
+      'components/studio/StudioGlobalPrompt.vue',
+      'components/studio/editor/StudioPublishDialog.vue',
+      'components/studio/assets/StudioAssetMobileFilters.vue',
+      'components/studio/assets/StudioAssetMobileScopes.vue',
+      'components/studio/collections/StudioCollectionsListPanel.vue',
+      'pages/collections.vue',
+      'pages/reviews.vue',
+      'pages/[collection]/index.vue',
+    ]) {
+      expect(checkViewportVariants(`${SRC}/${rel}`, offending)).toEqual([])
+      expect(isViewportAllowlisted(`${SRC}/${rel}`)).toBe(true)
+    }
+  })
+
+  it('scopes the guard to Studio content surfaces only', () => {
+    // Vendored primitives and the app frame are out of scope.
+    expect(isViewportScoped(`${SRC}/components/ui/button/Button.vue`)).toBe(false)
+    expect(isViewportScoped(`${SRC}/components/layout/RightSidebar.vue`)).toBe(false)
+    // Studio content and pages are in scope.
+    expect(
+      isViewportScoped(`${SRC}/components/studio/settings/StudioSettingsMembersSection.vue`),
+    ).toBe(true)
+    expect(isViewportScoped(`${SRC}/pages/agents.vue`)).toBe(true)
+    // Out-of-scope files are never flagged, even with a viewport variant present.
+    expect(
+      checkViewportVariants(
+        `${SRC}/components/ui/button/Button.vue`,
+        '<i class="ginko:md:flex"></i>',
+      ),
+    ).toEqual([])
   })
 })
 

@@ -28,8 +28,8 @@ import StudioListFrame from '../../packages/cms/studio-app/src/components/studio
 import StudioNotice from '../../packages/cms/studio-app/src/components/studio/StudioNotice.vue'
 import StudioSegmentedControl from '../../packages/cms/studio-app/src/components/studio/StudioSegmentedControl.vue'
 import FieldError from '../../packages/cms/studio-app/src/components/ui/field/FieldError.vue'
-import { useStudioAdvancedEditor } from '../../packages/cms/studio-app/src/composables/useStudioAdvancedEditor'
 import { provideStudioEntryEditorContext } from '../../packages/cms/studio-app/src/composables/internal/studioEntryEditorContext'
+import { useStudioAdvancedEditor } from '../../packages/cms/studio-app/src/composables/useStudioAdvancedEditor'
 
 function createTestLocalStorage(): Storage {
   const values = new Map<string, string>()
@@ -658,9 +658,7 @@ describe('Studio workflow components', () => {
     // Multilingual sites get the shared-fields framing…
     const multilingual = mountSharedFieldsPanel(['en', 'de'])
     expect(multilingual.text()).toContain('ginkoCms.studio.collectionEditor.sharedFields')
-    expect(multilingual.text()).toContain(
-      'ginkoCms.studio.collectionEditor.appliesToAllLanguages',
-    )
+    expect(multilingual.text()).toContain('ginkoCms.studio.collectionEditor.appliesToAllLanguages')
 
     // …single-language sites get plain "Details" with no language vocabulary
     // (design review S2, principle 6).

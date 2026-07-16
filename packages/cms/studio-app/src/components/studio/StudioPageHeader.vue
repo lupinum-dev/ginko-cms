@@ -36,7 +36,9 @@ const slots = useSlots()
       <div class="ginko:min-w-0 ginko:flex-1">
         <slot name="breadcrumb" />
         <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
-          <h1 class="ginko:truncate ginko:text-2xl ginko:font-bold ginko:tracking-tight ginko:text-foreground">
+          <h1
+            class="ginko:truncate ginko:text-2xl ginko:font-bold ginko:tracking-tight ginko:text-foreground"
+          >
             {{ title }}
           </h1>
           <slot name="badges" />

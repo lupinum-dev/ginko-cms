@@ -270,7 +270,7 @@ const publishImpactMessage = computed(
                   </span>
                 </div>
                 <div
-                  class="ginko:grid ginko:gap-2 ginko:text-muted-foreground ginko:sm:grid-cols-2"
+                  class="ginko:grid ginko:gap-2 ginko:text-muted-foreground ginko:@2xl:grid-cols-2"
                 >
                   <div class="ginko:min-w-0">
                     <div class="ginko:font-medium">
@@ -331,7 +331,6 @@ const publishImpactMessage = computed(
             {{ publishImpactMessage }}
           </div>
         </div>
-
 
         <div
           v-if="readinessView.warnings.length"

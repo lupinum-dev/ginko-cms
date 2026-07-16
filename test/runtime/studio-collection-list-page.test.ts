@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
-import StudioCollectionListPage from '../../packages/cms/studio-app/src/pages/[collection]/index.vue'
 import { provideRightSidebar } from '../../packages/cms/studio-app/src/composables/useRightSidebar'
+import StudioCollectionListPage from '../../packages/cms/studio-app/src/pages/[collection]/index.vue'
 
 // The collection list page registers a right-sidebar details panel, so mounting
 // it needs the layout's right-sidebar controller (provideRightSidebar) in an
@@ -49,7 +49,9 @@ function installMatchMedia() {
   })
 }
 
-async function mountListPage(url: string): Promise<{ router: Router; wrapper: ReturnType<typeof mount> }> {
+async function mountListPage(
+  url: string,
+): Promise<{ router: Router; wrapper: ReturnType<typeof mount> }> {
   installLocalStorage()
   installMatchMedia()
   const router = createRouter({
@@ -230,7 +232,10 @@ function stubs() {
       template:
         '<header><span>{{ eyebrow }}</span><h1>{{ title }}</h1><p>{{ description }}</p><slot name="actions" /></header>',
     },
-    StudioStatusPill: { props: { label: String, tone: String }, template: '<span>{{ label }}</span>' },
+    StudioStatusPill: {
+      props: { label: String, tone: String },
+      template: '<span>{{ label }}</span>',
+    },
     StudioWorkspace: {
       template: '<main><slot name="header" /><slot name="toolbar" /><slot /></main>',
     },

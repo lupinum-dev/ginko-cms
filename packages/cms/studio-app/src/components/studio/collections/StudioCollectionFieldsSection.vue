@@ -56,12 +56,10 @@ const selectedFieldBadges = computed(() => {
 
 <template>
   <section
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8"
   >
-    <div class="ginko:space-y-1 ginko:md:w-56 ginko:md:shrink-0">
-      <h2
-        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
-      >
+    <div class="ginko:space-y-1 ginko:@3xl:w-56 ginko:@3xl:shrink-0">
+      <h2 class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground">
         <List class="ginko:size-4 ginko:text-muted-foreground" />
         {{ t('ginkoCms.common.fields') }}
       </h2>
@@ -141,7 +139,7 @@ const selectedFieldBadges = computed(() => {
         >
           {{ selectedField.description }}
         </p>
-        <dl class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:sm:grid-cols-2">
+        <dl class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:@2xl:grid-cols-2">
           <div class="ginko:rounded-md ginko:bg-background ginko:px-2 ginko:py-1.5">
             <dt class="ginko:text-muted-foreground">Layout</dt>
             <dd class="ginko:mt-0.5 ginko:text-foreground">{{ selectedField.width ?? 'full' }}</dd>

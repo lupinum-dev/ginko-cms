@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
+
 import { cn } from '../utils'
 
 const props = defineProps<{
@@ -8,10 +9,7 @@ const props = defineProps<{
 </script>
 
 <template>
-  <tbody
-    data-slot="table-body"
-    :class="cn('ginko:[&_tr:last-child]:border-0', props.class)"
-  >
+  <tbody data-slot="table-body" :class="cn('ginko:[&_tr:last-child]:border-0', props.class)">
     <slot />
   </tbody>
 </template>

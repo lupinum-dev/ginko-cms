@@ -18,7 +18,6 @@ import {
 } from '../../packages/cms/studio-app/src/composables/useRightSidebar'
 
 const OPEN_KEY = 'ginko-studio-right-sidebar-state'
-const SIZE_KEY = 'ginko-studio-right-sidebar-size'
 
 function installLocalStorage() {
   const values = new Map<string, string>()
@@ -282,9 +281,9 @@ describe('keyboard shortcut gating (shouldToggleRightSidebar)', () => {
     Object.defineProperty(editable, 'isContentEditable', { value: true })
 
     for (const target of [input, textarea, editable]) {
-      expect(
-        shouldToggleRightSidebar({ key: '.', metaKey: false, ctrlKey: false, target }),
-      ).toBe(false)
+      expect(shouldToggleRightSidebar({ key: '.', metaKey: false, ctrlKey: false, target })).toBe(
+        false,
+      )
     }
     // The modifier combo still wins inside an editor (can't be typed normally).
     expect(

@@ -418,9 +418,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
 
   // Raw state codes for tone decisions — labels above are display-only and
   // localized, so anything deriving semantics must use these instead.
-  const primaryLocaleState = computed(
-    () => currentReadinessView.value.currentLocale?.state ?? null,
-  )
+  const primaryLocaleState = computed(() => currentReadinessView.value.currentLocale?.state ?? null)
   const primaryLocaleBlocked = computed(
     () => (currentReadinessView.value.currentLocale?.blockers.length ?? 0) > 0,
   )

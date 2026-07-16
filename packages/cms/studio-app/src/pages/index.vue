@@ -424,14 +424,10 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
           </div>
         </section>
 
-
         <div
           class="ginko:grid ginko:min-w-0 ginko:gap-6 ginko:@5xl:grid-cols-[minmax(0,1.4fr)_minmax(24rem,0.6fr)]"
         >
           <div class="ginko:min-w-0 ginko:space-y-6">
-
-
-
             <section
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
@@ -439,7 +435,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                 class="ginko:flex ginko:items-center ginko:justify-between ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3"
               >
                 <div>
-                  <h2 class="studio-text-title">{{ t('ginkoCms.studio.dashboard.blockedTitle') }}</h2>
+                  <h2 class="studio-text-title">
+                    {{ t('ginkoCms.studio.dashboard.blockedTitle') }}
+                  </h2>
                   <p class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
                     {{ t('ginkoCms.studio.dashboard.blockedDescription') }}
                   </p>
@@ -643,7 +641,9 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
               class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
             >
               <div class="ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3">
-                <h2 class="studio-text-title">{{ t('ginkoCms.studio.dashboard.recentActivity') }}</h2>
+                <h2 class="studio-text-title">
+                  {{ t('ginkoCms.studio.dashboard.recentActivity') }}
+                </h2>
               </div>
               <div v-if="recentActivity.length" class="ginko:divide-y ginko:divide-border/70">
                 <div

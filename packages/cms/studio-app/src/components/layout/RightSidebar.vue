@@ -10,16 +10,8 @@ import { cn } from '../ui/utils'
 // the card-style branch is elided; the markup is otherwise kept verbatim so
 // future template pulls diff cleanly. The Sheet's close control and the toggle
 // labels carry the user-facing copy; this component has no literal strings.
-const {
-  panel,
-  open,
-  available,
-  isMobile,
-  openMobile,
-  setOpen,
-  setOpenMobile,
-  widthVars,
-} = useRightSidebar()
+const { panel, open, available, isMobile, openMobile, setOpen, setOpenMobile, widthVars } =
+  useRightSidebar()
 
 const headerClass =
   'ginko:border-b ginko:h-(--header-height) ginko:flex ginko:flex-col ginko:justify-center ginko:px-4 ginko:mt-[9px]'
@@ -59,9 +51,7 @@ const panelStyle = computed(() => ({
 function onEscape() {
   setOpen(false)
   nextTick(() => {
-    document
-      .querySelector<HTMLElement>('[data-slot="right-sidebar-trigger"]')
-      ?.focus()
+    document.querySelector<HTMLElement>('[data-slot="right-sidebar-trigger"]')?.focus()
   })
 }
 </script>
@@ -79,7 +69,10 @@ function onEscape() {
   >
     <!-- @container: panel bodies span 320px (compact) to 57.5vw (split view);
          panel components size themselves off this, never the viewport. -->
-    <div v-if="open && panel" class="ginko:@container ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col">
+    <div
+      v-if="open && panel"
+      class="ginko:@container ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col"
+    >
       <div :class="headerClass">
         <h2 class="ginko:text-sm ginko:font-semibold">
           {{ toValue(panel.title) }}
@@ -97,11 +90,7 @@ function onEscape() {
     </div>
   </aside>
 
-  <Sheet
-    v-if="available && isMobile"
-    :open="openMobile"
-    @update:open="setOpenMobile"
-  >
+  <Sheet v-if="available && isMobile" :open="openMobile" @update:open="setOpenMobile">
     <SheetContent side="right" class="ginko:w-[86vw] ginko:sm:max-w-sm">
       <SheetHeader class="ginko:border-b ginko:pr-10">
         <SheetTitle>{{ toValue(panel?.title) }}</SheetTitle>
@@ -109,12 +98,10 @@ function onEscape() {
           {{ toValue(panel?.description) }}
         </SheetDescription>
       </SheetHeader>
-      <div class="ginko:@container ginko:min-h-0 ginko:flex-1 ginko:overflow-auto ginko:px-4 ginko:pb-4">
-        <component
-          :is="panel.component"
-          v-if="panel"
-          v-bind="toValue(panel.props)"
-        />
+      <div
+        class="ginko:@container ginko:min-h-0 ginko:flex-1 ginko:overflow-auto ginko:px-4 ginko:pb-4"
+      >
+        <component :is="panel.component" v-if="panel" v-bind="toValue(panel.props)" />
       </div>
     </SheetContent>
   </Sheet>

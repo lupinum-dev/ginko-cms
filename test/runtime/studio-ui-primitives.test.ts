@@ -100,9 +100,7 @@ describe('studio ui primitives', () => {
     expect(responsive.attributes('role')).toBe('group')
     expect(responsive.attributes('data-orientation')).toBe('responsive')
     expect(responsive.attributes('data-invalid')).toBe('true')
-    expect(responsive.attributes('class')).toContain(
-      'ginko:data-[invalid=true]:text-destructive',
-    )
+    expect(responsive.attributes('class')).toContain('ginko:data-[invalid=true]:text-destructive')
     expect(responsive.attributes('class')).toContain('ginko:@md/field-group:flex-row')
   })
 

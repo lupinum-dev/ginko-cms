@@ -673,6 +673,106 @@ function lineDiff(before, after) {
   return lines
 }
 
+// ---------------------------------------------------------------------------
+// Viewport-variant guard
+// ---------------------------------------------------------------------------
+// Studio design-system rule: CONTENT components respond to the width of their
+// content PANE, not the browser viewport — the sidebar and right rail change the
+// pane width independently of the viewport. So content must use container-query
+// variants (`ginko:@2xl:` …), never viewport variants (`ginko:md:` …). This guard
+// flags viewport variants that leak into Studio content surfaces.
+
+/**
+ * Matches a Tailwind VIEWPORT variant written prefix-first: the `ginko:` prefix
+ * immediately followed by a viewport breakpoint (`sm|md|lg|xl|2xl`). Container-query
+ * variants (`ginko:@2xl:` …) are deliberately NOT matched — the leading `@` breaks
+ * the `ginko:<bp>` adjacency this pattern requires.
+ */
+const VIEWPORT_VARIANT_RE = /ginko:(?:sm|md|lg|xl|2xl):[^\s"'`]*/g
+
+/** Every viewport-variant class token in `source` (raw text scan). */
+export function scanViewportVariants(source) {
+  return source.match(VIEWPORT_VARIANT_RE) ?? []
+}
+
+/**
+ * The guard applies only to Studio CONTENT surfaces: `components/studio/**` and
+ * `pages/**` under the studio-app. Vendored primitives (`components/ui/**`, which
+ * keep 1:1 template parity) and the app frame (`components/layout/**`) are out of
+ * scope by design.
+ */
+export function isViewportScoped(path) {
+  const p = path.replace(/\\/g, '/')
+  return p.includes('/components/studio/') || p.includes('/pages/')
+}
+
+/**
+ * Files where a VIEWPORT variant is the correct tool and a container query cannot
+ * serve. Kept as an explicit list so every entry carries its reason. A container
+ * query needs an `@container` ancestor in the SAME document subtree; the exceptions
+ * below either establish no such ancestor or are portalled out of every container.
+ */
+const VIEWPORT_ALLOWLIST_DIR = 'components/studio/layout/'
+const VIEWPORT_ALLOWLIST_PREFIX = 'components/studio/StudioSidebar'
+const VIEWPORT_ALLOWLIST_FILES = new Set([
+  // --- Shell chrome: the app frame legitimately tracks the VIEWPORT, not a pane.
+  //     (StudioSidebar*.vue and components/studio/layout/** are matched by the
+  //     prefix/dir rules above.) ---
+  'components/studio/StudioHeader.vue',
+  'components/studio/StudioEntryTopBar.vue',
+
+  // --- Page-frame primitives: the `p-4 lg:p-6` / `lg:px-6` padding rhythm is
+  //     deliberately viewport-based for 1:1 parity with the dashboard template, and
+  //     StudioPageHeader renders in the workspace header slot OUTSIDE @container/main,
+  //     so header and body cannot share a content container. ---
+  'components/studio/StudioPageBody.vue',
+  'components/studio/StudioPageHeader.vue',
+
+  // --- Teleported overlays: Dialog/Sheet content portals to the <body> root,
+  //     outside every @container, so its max-width tracks the viewport (mirroring
+  //     the DialogContent primitive's own `sm:` width). Only the width override on
+  //     the teleported node remains viewport-based here — grids INSIDE the dialog
+  //     were converted to `@`-queries against DialogContent's own @container. ---
+  'components/studio/StudioConfirmDialog.vue',
+  'components/studio/StudioGlobalPrompt.vue',
+  'components/studio/editor/StudioPublishDialog.vue',
+  'pages/reviews.vue',
+
+  // --- Teleported mobile sheets: shown only on small viewports; the Sheet portals
+  //     outside @container, so the viewport is the only signal reachable. ---
+  'components/studio/assets/StudioAssetMobileFilters.vue',
+  'components/studio/assets/StudioAssetMobileScopes.vue',
+
+  // --- Master-detail split: the collections list/detail split spans the whole
+  //     content pane and toggles panes on the viewport; the list pane mirrors the
+  //     same `lg` breakpoint (and carries the `lg:px-6` padding rhythm). ---
+  'pages/collections.vue',
+  'components/studio/collections/StudioCollectionsListPanel.vue',
+
+  // --- Content-list route: residual `lg:px-6` is the page-padding rhythm (above);
+  //     the toolbar search basis was converted to an `@`-query. ---
+  'pages/[collection]/index.vue',
+])
+
+/** True if `path` is exempt from the viewport-variant guard. */
+export function isViewportAllowlisted(path) {
+  const p = path.replace(/\\/g, '/')
+  if (p.includes(VIEWPORT_ALLOWLIST_DIR)) return true
+  if (p.includes(VIEWPORT_ALLOWLIST_PREFIX)) return true
+  for (const f of VIEWPORT_ALLOWLIST_FILES) if (p.endsWith(f)) return true
+  return false
+}
+
+/**
+ * Guard a single file: returns the viewport-variant tokens that should have been
+ * container queries. Empty when the file is out of scope, allowlisted, or clean.
+ */
+export function checkViewportVariants(path, source) {
+  if (!isViewportScoped(path)) return []
+  if (isViewportAllowlisted(path)) return []
+  return scanViewportVariants(source)
+}
+
 function main(argv) {
   const args = argv.slice(2)
   const dry = args.includes('--dry')
@@ -688,9 +788,14 @@ function main(argv) {
   const files = collectFiles(paths)
   let changedCount = 0
   const offenders = []
+  const viewportOffenders = []
 
   for (const file of files) {
     const source = readFileSync(file, 'utf8')
+    if (check) {
+      const vv = checkViewportVariants(file, source)
+      if (vv.length > 0) viewportOffenders.push({ file, classes: [...new Set(vv)] })
+    }
     const out = transformSource(source, file)
     if (out === source) continue
     changedCount++
@@ -708,12 +813,29 @@ function main(argv) {
   }
 
   if (check) {
+    let failed = false
     if (offenders.length > 0) {
       console.error(`\n${offenders.length} file(s) contain unprefixed Tailwind utilities:`)
       for (const f of offenders) console.error(`  ${f}`)
       console.error('\nRun: node scripts/ui-shell-migration/ginkoify.mjs <paths>')
-      process.exit(1)
+      failed = true
     }
+    if (viewportOffenders.length > 0) {
+      console.error(
+        `\n${viewportOffenders.length} Studio content file(s) use viewport variants where the` +
+          ' design system requires container queries (ginko:@2xl:/@3xl:/@5xl:/@7xl: …):',
+      )
+      for (const { file, classes } of viewportOffenders) {
+        console.error(`  ${file}\n    ${classes.join(' ')}`)
+      }
+      console.error(
+        '\nConvert each to a container-query variant, or — if the class genuinely tracks the' +
+          ' viewport (teleported overlay, shell chrome) — add the file to VIEWPORT_ALLOWLIST_FILES' +
+          ' with a justification.',
+      )
+      failed = true
+    }
+    if (failed) process.exit(1)
     console.log(`ginkoify --check: ${files.length} file(s) clean`)
     return
   }

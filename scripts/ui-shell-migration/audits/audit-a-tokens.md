@@ -1,6 +1,6 @@
 # Audit A — Design-Token & Color Fidelity
 
-Scope: `packages/cms/studio-app/src` (*.vue, *.ts, *.css), read-only, against `DESIGN.md`.
+Scope: `packages/cms/studio-app/src` (_.vue, _.ts, \*.css), read-only, against `DESIGN.md`.
 Branch: `studio-shadcn-shell`. Date: 2026-07-15.
 
 Headline: component-level color hygiene is **strong** — semantic tokens are used almost everywhere and tinted-bg / `*-fg` pairing is correct in nearly all cases. The most material finding is **Class 6: DESIGN.md's Color tables are stale relative to the shipped tokens** (post "Phase P — visual parity with the dashboard template"). A handful of palette-literal and hex-literal spots remain, mostly in a dev debug panel and tag-color data.
@@ -91,14 +91,14 @@ Note: the `--warning` token carries a deliberate `ginko-keep` comment (`index.cs
 
 ## Summary counts
 
-| Class | Finding kind | P1 | P2 | P3 | Notes/acceptable |
-| ----- | ------------ | -- | -- | -- | ---------------- |
-| 1 | Palette-literal classes (DebugPanel slate) | 0 | 0 | 1 | — |
-| 2 | Hex / oklch literals outside styles | 0 | 1 | 3 | +2 acceptable (flags, placeholder) |
-| 3 | Pairing-rule (gray/default text on tinted bg) | 0 | 1 | 1 | rest compliant |
-| 4 | Off-ladder opacity variants | 0 | 0 | ~14 | cosmetic weight drift |
-| 5 | Inline-style color | 0 | 0 | 1 | rest data-driven/acceptable |
-| 6 | Token values vs DESIGN.md tables | 0 | 4 | 0 | DESIGN.md stale post-Phase-P |
-| **Total** | | **0** | **6** | **~20** | |
+| Class     | Finding kind                                  | P1    | P2    | P3      | Notes/acceptable                   |
+| --------- | --------------------------------------------- | ----- | ----- | ------- | ---------------------------------- |
+| 1         | Palette-literal classes (DebugPanel slate)    | 0     | 0     | 1       | —                                  |
+| 2         | Hex / oklch literals outside styles           | 0     | 1     | 3       | +2 acceptable (flags, placeholder) |
+| 3         | Pairing-rule (gray/default text on tinted bg) | 0     | 1     | 1       | rest compliant                     |
+| 4         | Off-ladder opacity variants                   | 0     | 0     | ~14     | cosmetic weight drift              |
+| 5         | Inline-style color                            | 0     | 0     | 1       | rest data-driven/acceptable        |
+| 6         | Token values vs DESIGN.md tables              | 0     | 4     | 0       | DESIGN.md stale post-Phase-P       |
+| **Total** |                                               | **0** | **6** | **~20** |                                    |
 
 No P1 (visibly-wrong-color) defects. Zero broken tinted/fg contrast pairings on user-facing surfaces. The real work item is **reconciling DESIGN.md's Color section with the shipped neutral-primary token set** (Class 6), then optionally normalizing off-ladder opacity steps (Class 4) and re-skinning the debug panel (Class 1).

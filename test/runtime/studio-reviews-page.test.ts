@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import StudioReviewsPage from '../../packages/cms/studio-app/src/pages/reviews.vue'
 import { provideRightSidebar } from '../../packages/cms/studio-app/src/composables/useRightSidebar'
+import StudioReviewsPage from '../../packages/cms/studio-app/src/pages/reviews.vue'
 
 // The reviews page registers a right-sidebar details panel, so mounting it needs
 // the layout's right-sidebar controller (provideRightSidebar) in an ancestor plus

@@ -14,7 +14,6 @@ import { createStudioRouter } from './router'
 // resolve to the 'Geist Variable' / 'Geist Mono Variable' families these define.
 import '@fontsource-variable/geist/index.css'
 import '@fontsource-variable/geist-mono/index.css'
-
 import './styles/index.css'
 
 const MOUNT_TARGET = '#ginko-cms-studio'

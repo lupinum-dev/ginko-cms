@@ -17,8 +17,8 @@ import {
   studioRoutesForSection,
   type StudioStaticRoute,
 } from '../../lib/studioNavigation'
-import type { StudioNavLinkItem } from './StudioSidebarNavGroup.vue'
 import StudioCollectionIcon from './collections/StudioCollectionIcon.vue'
+import type { StudioNavLinkItem } from './StudioSidebarNavGroup.vue'
 
 const cmsConfig = useCmsConfig()
 const studioRoute = cmsConfig.route.replace(/\/$/, '')
@@ -64,9 +64,7 @@ function canAccessRoute(route: StudioStaticRoute): boolean {
   const requiredCapability = route.requiredCapability
   return !requiredCapability || capabilityAccess[requiredCapability]?.value === true
 }
-function sectionLinks(
-  section: 'home' | 'editor' | 'operations' | 'settings',
-): StudioNavLinkItem[] {
+function sectionLinks(section: 'home' | 'editor' | 'operations' | 'settings'): StudioNavLinkItem[] {
   return studioRoutesForSection(section)
     .filter(canAccessRoute)
     .map((route) => {
@@ -151,10 +149,7 @@ const settingsLinks = computed(() => sectionLinks('settings'))
 
   <StudioSidebarNavGroup :label="t('ginkoCms.studio.layout.editor')" :links="editorLinks" />
 
-  <StudioSidebarNavGroup
-    :label="t('ginkoCms.studio.layout.operations')"
-    :links="operationLinks"
-  />
+  <StudioSidebarNavGroup :label="t('ginkoCms.studio.layout.operations')" :links="operationLinks" />
 
   <StudioSidebarNavGroup :label="t('ginkoCms.common.settings')" :links="settingsLinks" />
 </template>

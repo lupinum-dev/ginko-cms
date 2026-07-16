@@ -68,7 +68,11 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
         <div class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
           <span class="ginko:text-sm ginko:font-medium">{{ publicVisibility.status }}</span>
           <Badge :variant="publicVisibility.isRouteBacked ? 'secondary' : 'outline'">
-            {{ publicVisibility.isRouteBacked ? ce('publicWorkflowWebsitePages') : ce('publicWorkflowSharedData') }}
+            {{
+              publicVisibility.isRouteBacked
+                ? ce('publicWorkflowWebsitePages')
+                : ce('publicWorkflowSharedData')
+            }}
           </Badge>
           <Badge
             v-if="publishImpactRequested && previewScope === 'publish'"
@@ -128,10 +132,14 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
             </p>
           </div>
           <Badge variant="outline" class="ginko:text-xs">
-            {{ publicVisibility.isRouteBacked ? ce('publicWorkflowWebsitePages') : ce('publicWorkflowSharedData') }}
+            {{
+              publicVisibility.isRouteBacked
+                ? ce('publicWorkflowWebsitePages')
+                : ce('publicWorkflowSharedData')
+            }}
           </Badge>
         </div>
-        <div class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:sm:grid-cols-3">
+        <div class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:@2xl:grid-cols-3">
           <div class="ginko:rounded ginko:bg-muted/40 ginko:px-2 ginko:py-1.5">
             <div class="ginko:text-xs ginko:uppercase ginko:text-muted-foreground">
               {{ ce('publicWorkflowLanguagesChecked') }}

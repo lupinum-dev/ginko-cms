@@ -170,7 +170,9 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
         : previewReady.value
           ? props.publishReview?.message || t('stepPreviewReady')
           : previewBlocked.value
-            ? props.publishReview?.message || props.publishImpact?.message || t('stepPreviewBlocked')
+            ? props.publishReview?.message ||
+              props.publishImpact?.message ||
+              t('stepPreviewBlocked')
             : readinessView.value.canPreview
               ? t('stepPreviewAvailable')
               : t('stepPreviewWaiting'),
@@ -274,11 +276,13 @@ function stepTone(state: WorkflowStepState) {
 }
 
 function markerClass(state: WorkflowStepState) {
-  if (state === 'done') return 'ginko:bg-success/12 ginko:dark:bg-success/20 ginko:text-success-fg ginko:ring-success/30'
+  if (state === 'done')
+    return 'ginko:bg-success/12 ginko:dark:bg-success/20 ginko:text-success-fg ginko:ring-success/30'
   if (state === 'blocked') {
     return 'ginko:bg-destructive/10 ginko:dark:bg-destructive/15 ginko:text-destructive-fg ginko:ring-destructive/25'
   }
-  if (state === 'current') return 'ginko:bg-warning/15 ginko:dark:bg-warning/25 ginko:text-warning-fg ginko:ring-warning/30'
+  if (state === 'current')
+    return 'ginko:bg-warning/15 ginko:dark:bg-warning/25 ginko:text-warning-fg ginko:ring-warning/30'
   return 'ginko:bg-muted ginko:text-muted-foreground ginko:ring-border/80'
 }
 </script>

@@ -1,20 +1,14 @@
 <script setup lang="ts">
-import type { DialogContentEmits, DialogContentProps } from 'reka-ui'
-import type { HTMLAttributes } from 'vue'
-import { reactiveOmit } from '@vueuse/core'
 import { X } from '@lucide/vue'
-import {
-  DialogClose,
-  DialogContent,
-  DialogOverlay,
-  useForwardPropsEmits,
-} from 'reka-ui'
+import { reactiveOmit } from '@vueuse/core'
+import type { DialogContentEmits, DialogContentProps } from 'reka-ui'
+import { DialogClose, DialogContent, DialogOverlay, useForwardPropsEmits } from 'reka-ui'
+import type { HTMLAttributes } from 'vue'
+
 import { cn } from '../utils'
 import DialogPortal from './DialogPortal.vue'
 
-const props = defineProps<
-  DialogContentProps & { class?: HTMLAttributes['class'] }
->()
+const props = defineProps<DialogContentProps & { class?: HTMLAttributes['class'] }>()
 const emits = defineEmits<DialogContentEmits>()
 
 const delegatedProps = reactiveOmit(props, 'class')

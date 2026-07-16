@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
+
 import { Label } from '../label'
 import { cn } from '../utils'
 

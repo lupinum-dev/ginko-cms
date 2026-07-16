@@ -10,8 +10,8 @@ import { cmsPermissionKeys } from '../composables/permissions'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../composables/useCmsStudioQuery'
 import { useRightSidebar, useRightSidebarPanel } from '../composables/useRightSidebar'
-import { useStudioReviewPresentation } from '../composables/useStudioReviewPresentation'
 import { useConvexMutation } from '../composables/useStudioConvex'
+import { useStudioReviewPresentation } from '../composables/useStudioReviewPresentation'
 import type { StudioReviewRequest } from '../lib/studioReviewRequests'
 
 type ReviewRequest = StudioReviewRequest
@@ -181,11 +181,7 @@ async function reject(request: ReviewRequest) {
             v-for="request in reviews"
             :key="request._id"
             class="ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card ginko:p-4"
-            :class="
-              selectedReviewId === request._id
-                ? 'ginko:ring-2 ginko:ring-primary/40'
-                : ''
-            "
+            :class="selectedReviewId === request._id ? 'ginko:ring-2 ginko:ring-primary/40' : ''"
           >
             <div
               class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-4"
@@ -307,7 +303,7 @@ async function reject(request: ReviewRequest) {
                 </p>
               </div>
 
-              <dl class="ginko:grid ginko:gap-3 ginko:text-sm ginko:sm:grid-cols-2">
+              <dl class="ginko:grid ginko:gap-3 ginko:text-sm ginko:@2xl:grid-cols-2">
                 <div>
                   <dt class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
                     {{ t('ginkoCms.studio.reviewsPage.affectedLocales') }}

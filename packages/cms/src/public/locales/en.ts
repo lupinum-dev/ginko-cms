@@ -254,8 +254,7 @@ const en = {
           'A live version exists, and the draft has changes that are not live yet.',
         trackLiveNow: 'Live now',
         trackLiveNowMessage: 'The current version is live on the website.',
-        trackLiveNowNoLink:
-          'The current version is published; no live page link is available yet.',
+        trackLiveNowNoLink: 'The current version is published; no live page link is available yet.',
         trackRefreshNeedsAttention: 'Website refresh needs attention',
         trackRefresh: 'Website refresh',
         trackRefreshUnchecked: 'Website refresh status has not been checked yet.',
@@ -301,7 +300,8 @@ const en = {
         allCaughtUpTitle: 'All caught up',
         allCaughtUpDescription: 'Nothing needs your attention right now.',
         firstRunTitle: 'Start your first content',
-        firstRunDescription: 'Nothing has been written yet. Create your first entry to see it here.',
+        firstRunDescription:
+          'Nothing has been written yet. Create your first entry to see it here.',
         firstRunCta: 'Create your first content',
         alreadyLive: 'Already live',
         viewAllActivity: 'View all activity',
@@ -476,7 +476,8 @@ const en = {
       settingsPage: {
         title: 'Settings',
         appearanceTitle: 'Appearance',
-        appearanceDescription: 'Theme, accent color, and density for this Studio. Saved per browser.',
+        appearanceDescription:
+          'Theme, accent color, and density for this Studio. Saved per browser.',
         appearanceColorLabel: 'Accent color',
         appearanceColorDescription: 'The primary color used across buttons, links, and highlights.',
         appearanceTypeLabel: 'Type',
@@ -993,7 +994,8 @@ const en = {
         previewContent: 'Content',
         previewNoLocaleData: 'No content available for this language.',
         draftSetup: 'Draft setup',
-        draftSetupDescription: 'Create the entry first. Translation, route status, versions, and workflow details become available afterwards.',
+        draftSetupDescription:
+          'Create the entry first. Translation, route status, versions, and workflow details become available afterwards.',
         routePreview: 'Route preview',
         noRouteYet: 'No route yet',
         createPanelDescription: 'Setup guidance for the new entry.',
@@ -1052,7 +1054,8 @@ const en = {
         publicWorkflowLiveLanguages: 'Live languages',
         publicWorkflowNoLanguageRows: 'No language visibility rows were returned.',
         publicWorkflowLinkChecks: 'Link checks',
-        publicWorkflowRunValidation: 'Run validation to check site-wide URL and redirect conflicts.',
+        publicWorkflowRunValidation:
+          'Run validation to check site-wide URL and redirect conflicts.',
         publicWorkflowNotRun: 'not run',
         localeVisibilityCurrent: 'Current',
         localeVisibilityNotPublished: 'Not published',
@@ -1351,7 +1354,8 @@ const en = {
         accessRequiredDescription:
           'Ask an owner to grant settings access before reviewing AI work sessions.',
         empty: 'No AI work sessions yet',
-        emptyDescription: 'AI work sessions will appear here after a connected AI tool starts work.',
+        emptyDescription:
+          'AI work sessions will appear here after a connected AI tool starts work.',
         loadError: 'AI work sessions could not be loaded.',
         endSession: 'End session',
       },

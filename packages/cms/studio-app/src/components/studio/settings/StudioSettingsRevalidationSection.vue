@@ -14,12 +14,10 @@ const st = (key: string, params?: Record<string, unknown>): string =>
   <!-- ─── Website refresh ─── -->
   <section
     v-if="settings.canManageSettings"
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8"
   >
-    <div class="ginko:space-y-1 ginko:md:w-64 ginko:md:shrink-0">
-      <h2
-        class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground"
-      >
+    <div class="ginko:space-y-1 ginko:@3xl:w-64 ginko:@3xl:shrink-0">
+      <h2 class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground">
         <RadioTower class="ginko:size-4 ginko:text-muted-foreground" />
         {{ st('revalidationTitle') }}
         <Badge variant="outline" class="ginko:text-xs">
@@ -70,19 +68,25 @@ const st = (key: string, params?: Record<string, unknown>): string =>
                 </Badge>
               </div>
               <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-                {{ st('revalidationUpdated', { time: settings.formatTimestamp(target.updatedAt) }) }}
+                {{
+                  st('revalidationUpdated', { time: settings.formatTimestamp(target.updatedAt) })
+                }}
               </div>
             </div>
             <ShieldCheck class="ginko:size-4 ginko:text-muted-foreground ginko:shrink-0" />
           </div>
           <StudioDeveloperDetails>
             <div class="ginko:space-y-2">
-              <div class="ginko:text-xs ginko:text-muted-foreground">{{ st('revalidationEndpoint') }}</div>
+              <div class="ginko:text-xs ginko:text-muted-foreground">
+                {{ st('revalidationEndpoint') }}
+              </div>
               <code
                 class="ginko:block ginko:break-all ginko:rounded ginko:bg-background ginko:px-2 ginko:py-1 ginko:font-mono ginko:text-xs"
                 >{{ target.endpoint }}</code
               >
-              <div class="ginko:text-xs ginko:text-muted-foreground">{{ st('revalidationSecretEnv') }}</div>
+              <div class="ginko:text-xs ginko:text-muted-foreground">
+                {{ st('revalidationSecretEnv') }}
+              </div>
               <code
                 class="ginko:block ginko:break-all ginko:rounded ginko:bg-background ginko:px-2 ginko:py-1 ginko:font-mono ginko:text-xs"
                 >{{ target.secretEnv }}</code
@@ -122,7 +126,7 @@ const st = (key: string, params?: Record<string, unknown>): string =>
           class="ginko:px-4 ginko:py-3 ginko:space-y-3"
         >
           <div
-            class="ginko:flex ginko:flex-col ginko:gap-3 ginko:md:flex-row ginko:md:items-start ginko:md:justify-between"
+            class="ginko:flex ginko:flex-col ginko:gap-3 ginko:@3xl:flex-row ginko:@3xl:items-start ginko:@3xl:justify-between"
           >
             <div class="ginko:min-w-0 ginko:space-y-1">
               <div class="ginko:flex ginko:items-center ginko:gap-2 ginko:min-w-0">
@@ -173,20 +177,26 @@ const st = (key: string, params?: Record<string, unknown>): string =>
           </div>
           <StudioDeveloperDetails>
             <div
-              class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:text-xs ginko:md:grid-cols-2"
+              class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:text-xs ginko:@3xl:grid-cols-2"
             >
               <div class="ginko:min-w-0">
-                <div class="ginko:mb-1 ginko:text-muted-foreground">{{ st('revalidationJobId') }}</div>
+                <div class="ginko:mb-1 ginko:text-muted-foreground">
+                  {{ st('revalidationJobId') }}
+                </div>
                 <div class="ginko:break-all ginko:font-mono">{{ job.id }}</div>
               </div>
               <div class="ginko:min-w-0">
-                <div class="ginko:mb-1 ginko:text-muted-foreground">{{ st('revalidationPaths') }}</div>
+                <div class="ginko:mb-1 ginko:text-muted-foreground">
+                  {{ st('revalidationPaths') }}
+                </div>
                 <div class="ginko:break-all ginko:font-mono">
                   {{ job.paths.length ? job.paths.join(', ') : st('revalidationNone') }}
                 </div>
               </div>
-              <div class="ginko:min-w-0 ginko:md:col-span-2">
-                <div class="ginko:mb-1 ginko:text-muted-foreground">{{ st('revalidationTags') }}</div>
+              <div class="ginko:min-w-0 ginko:@3xl:col-span-2">
+                <div class="ginko:mb-1 ginko:text-muted-foreground">
+                  {{ st('revalidationTags') }}
+                </div>
                 <div class="ginko:break-all ginko:font-mono">
                   {{ job.tags.length ? job.tags.join(', ') : st('revalidationNone') }}
                 </div>

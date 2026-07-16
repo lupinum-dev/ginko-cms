@@ -61,7 +61,7 @@ const {
         </Badge>
       </div>
 
-      <dl class="ginko:mt-4 ginko:grid ginko:gap-3 ginko:text-xs ginko:sm:grid-cols-3">
+      <dl class="ginko:mt-4 ginko:grid ginko:gap-3 ginko:text-xs ginko:@2xl:grid-cols-3">
         <div>
           <dt class="ginko:text-muted-foreground">
             {{ t('ginkoCms.studio.reviewsPage.preparedLanguages') }}
@@ -99,7 +99,7 @@ const {
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
           {{ preparationListTitle(request) }}
         </div>
-        <ul class="ginko:mt-2 ginko:grid ginko:gap-2 ginko:text-sm ginko:sm:grid-cols-3">
+        <ul class="ginko:mt-2 ginko:grid ginko:gap-2 ginko:text-sm ginko:@2xl:grid-cols-3">
           <li
             v-for="item in reviewPreparationItems(request)"
             :key="`${request._id}:prepared:${item.message}`"
@@ -146,7 +146,7 @@ const {
           <div
             v-for="localeState in request.reviewSummary.localeStatuses"
             :key="`${request._id}:locale:${localeState.locale}`"
-            class="ginko:grid ginko:gap-3 ginko:py-3 ginko:text-xs ginko:sm:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]"
+            class="ginko:grid ginko:gap-3 ginko:py-3 ginko:text-xs ginko:@2xl:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]"
           >
             <div class="ginko:flex ginko:items-center ginko:gap-2">
               <Badge variant="outline" class="ginko:font-mono">
@@ -184,7 +184,7 @@ const {
             <div
               v-for="url in request.reviewSummary.affectedPublicUrls"
               :key="`${request._id}:url:${url.locale}:${url.beforeHref}:${url.afterHref}`"
-              class="ginko:grid ginko:gap-3 ginko:py-2 ginko:text-xs ginko:sm:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]"
+              class="ginko:grid ginko:gap-3 ginko:py-2 ginko:text-xs ginko:@2xl:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]"
             >
               <span class="ginko:font-medium">{{ url.label || url.locale }}</span>
               <div class="ginko:min-w-0">
@@ -267,7 +267,7 @@ const {
     </div>
 
     <StudioDeveloperDetails class="ginko:mt-4">
-      <dl class="ginko:grid ginko:gap-2 ginko:text-xs ginko:sm:grid-cols-2">
+      <dl class="ginko:grid ginko:gap-2 ginko:text-xs ginko:@2xl:grid-cols-2">
         <div>
           <dt class="ginko:text-muted-foreground">
             {{ t('ginkoCms.studio.reviewsPage.requestId') }}

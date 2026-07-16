@@ -148,11 +148,13 @@ function localeToneClass(row: {
   hasUnpublishedChanges: boolean
   blocked: boolean
 }) {
-  if (row.blocked) return 'ginko:border-warning/30 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:text-warning-fg'
+  if (row.blocked)
+    return 'ginko:border-warning/30 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:text-warning-fg'
   if (row.published && row.hasUnpublishedChanges) {
     return 'ginko:border-warning/30 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:text-warning-fg'
   }
-  if (row.published) return 'ginko:border-success/30 ginko:bg-success/10 ginko:dark:bg-success/15 ginko:text-success-fg'
+  if (row.published)
+    return 'ginko:border-success/30 ginko:bg-success/10 ginko:dark:bg-success/15 ginko:text-success-fg'
   return 'ginko:border-border/60 ginko:bg-muted/40 ginko:text-muted-foreground'
 }
 
@@ -201,7 +203,9 @@ function localeLabel(row: { published: boolean; hasUnpublishedChanges: boolean; 
       </div>
 
       <div v-if="entry?.publishedAt" class="ginko:text-xs">
-        <div class="ginko:mb-1 ginko:font-medium ginko:text-muted-foreground">{{ t('liveSince') }}</div>
+        <div class="ginko:mb-1 ginko:font-medium ginko:text-muted-foreground">
+          {{ t('liveSince') }}
+        </div>
         <div class="ginko:text-sm ginko:font-medium ginko:text-foreground">
           <NuxtTime
             :datetime="entry.publishedAt"

@@ -32,7 +32,6 @@ import {
   withoutKey,
 } from './assetFinderUtils'
 import type { StudioAssetContext } from './types'
-import { studioConfirm } from './useStudioConfirm'
 
 export type {
   FinderAssetRecord,
@@ -202,7 +201,12 @@ export function useStudioAssetFinder(
   )
 
   const sidebarFullViews = computed(() => [
-    { key: 'all', label: t('ginkoCms.studio.assetBrowser.allMedia'), icon: 'lucide:layers', count: activeAssets.value.length },
+    {
+      key: 'all',
+      label: t('ginkoCms.studio.assetBrowser.allMedia'),
+      icon: 'lucide:layers',
+      count: activeAssets.value.length,
+    },
     {
       key: 'global',
       label: t('ginkoCms.studio.assetBrowser.sharedLibrary'),
@@ -276,21 +280,27 @@ export function useStudioAssetFinder(
       const tag = tagMap.value.get(sidebarKey.value)
       return [
         {
-          label: t('ginkoCms.studio.assetBrowser.tagBreadcrumb', { tag: tag?.label ?? sidebarKey.value }),
+          label: t('ginkoCms.studio.assetBrowser.tagBreadcrumb', {
+            tag: tag?.label ?? sidebarKey.value,
+          }),
           drillPath: [],
         },
       ]
     }
 
     if (sidebarMode.value === 'full') {
-      if (sidebarKey.value === 'all') return [{ label: t('ginkoCms.studio.assetBrowser.allMedia'), drillPath: [] }]
-      if (sidebarKey.value === 'global') return [{ label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] }]
+      if (sidebarKey.value === 'all')
+        return [{ label: t('ginkoCms.studio.assetBrowser.allMedia'), drillPath: [] }]
+      if (sidebarKey.value === 'global')
+        return [{ label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] }]
       const collection = sidebarCollections.value.find((item) => item.key === sidebarKey.value)
       return [{ label: collection?.label ?? sidebarKey.value, drillPath: [] }]
     }
 
     if (sidebarKey.value === 'global') {
-      const segments: BreadcrumbSegment[] = [{ label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] }]
+      const segments: BreadcrumbSegment[] = [
+        { label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] },
+      ]
       for (let index = 0; index < drillPath.value.length; index++) {
         const segment = drillPath.value[index]!
         const path = drillPath.value.slice(0, index + 1)
@@ -768,17 +778,6 @@ export function useStudioAssetFinder(
     actionPending.value = true
     error.value = ''
     try {
-      const referencedCount = selectedAssets.filter((asset) => asset.usages.length > 0).length
-      const force =
-        referencedCount > 0
-          ? await studioConfirm({
-              title: 'Move referenced assets to trash?',
-              description: `${referencedCount} selected asset${referencedCount === 1 ? ' is' : 's are'} still referenced. Move the selection to trash anyway?`,
-              confirmLabel: 'Move to trash',
-              confirmVariant: 'destructive',
-            })
-          : true
-      if (!force) return
       for (const asset of selectedAssets) {
         const assetForce = asset.usages.length > 0
         const token = await previewTrashAsset(asset, assetForce)
@@ -801,20 +800,6 @@ export function useStudioAssetFinder(
     } finally {
       actionPending.value = false
     }
-  }
-
-  async function trashSelectedAsset() {
-    if (!selectedAsset.value) return
-    const confirmed = await studioConfirm({
-      title: 'Move asset to trash?',
-      description: `Move "${selectedAsset.value.filename}" to trash? This removes it from normal asset pickers but can still be restored.`,
-      confirmLabel: 'Move to trash',
-      confirmVariant: 'destructive',
-    })
-    if (!confirmed) {
-      return
-    }
-    await trashAssets([selectedAsset.value.id])
   }
 
   async function restoreSelectedAsset() {
@@ -975,7 +960,6 @@ export function useStudioAssetFinder(
     applyTagToSelection,
     setSelectedAssetTags,
     trashAssets,
-    trashSelectedAsset,
     restoreSelectedAsset,
     moveSelectedAssetToCollection,
     moveSelectedAssetToGlobal,

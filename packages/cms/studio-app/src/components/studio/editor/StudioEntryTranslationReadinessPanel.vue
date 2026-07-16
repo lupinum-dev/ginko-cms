@@ -34,7 +34,9 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
           {{ ce('translationReadinessCheckDrafts') }}
         </div>
       </div>
-      <Badge variant="outline">{{ ce('translationReadinessCurrentBadge', { locale: currentLocale }) }}</Badge>
+      <Badge variant="outline">{{
+        ce('translationReadinessCurrentBadge', { locale: currentLocale })
+      }}</Badge>
     </div>
 
     <div class="ginko:mt-3 ginko:grid ginko:gap-3 ginko:@2xl:grid-cols-2">
@@ -59,15 +61,29 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
 
         <div class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground">
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">{{ ce('translationReadinessDraft') }}</span>
-            <span>{{ localeState.exists ? ce('translationReadinessExists') : ce('translationReadinessMissing') }}</span>
+            <span class="ginko:font-medium ginko:text-foreground">{{
+              ce('translationReadinessDraft')
+            }}</span>
+            <span>{{
+              localeState.exists
+                ? ce('translationReadinessExists')
+                : ce('translationReadinessMissing')
+            }}</span>
           </div>
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">{{ ce('translationReadinessLiveStatus') }}</span>
-            <span>{{ localeState.published ? ce('translationReadinessLive') : ce('translationReadinessNotLive') }}</span>
+            <span class="ginko:font-medium ginko:text-foreground">{{
+              ce('translationReadinessLiveStatus')
+            }}</span>
+            <span>{{
+              localeState.published
+                ? ce('translationReadinessLive')
+                : ce('translationReadinessNotLive')
+            }}</span>
           </div>
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">{{ ce('translationReadinessUrl') }}</span>
+            <span class="ginko:font-medium ginko:text-foreground">{{
+              ce('translationReadinessUrl')
+            }}</span>
             <span class="ginko:truncate ginko:font-mono">
               {{
                 localeState.draftPath ||
@@ -78,7 +94,9 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
             </span>
           </div>
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">{{ ce('translationReadinessMissingLabel') }}</span>
+            <span class="ginko:font-medium ginko:text-foreground">{{
+              ce('translationReadinessMissingLabel')
+            }}</span>
             <span>
               {{
                 localeState.missingFields.length
@@ -138,7 +156,9 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
         <div
           class="ginko:mt-3 ginko:rounded-md ginko:bg-muted/40 ginko:px-3 ginko:py-2 ginko:text-xs"
         >
-          <div class="ginko:font-medium ginko:text-foreground">{{ ce('translationReadinessNextAction') }}</div>
+          <div class="ginko:font-medium ginko:text-foreground">
+            {{ ce('translationReadinessNextAction') }}
+          </div>
           <div class="ginko:mt-1 ginko:text-muted-foreground">
             {{ localeState.suggestedAction }}
           </div>

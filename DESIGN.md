@@ -166,12 +166,12 @@ Compact-but-not-cramped. Editors work in this all day.
 
 Four durations, three curves. Components compose — never invent a per-component duration; reference the tokens (`duration-(--motion-*)` in Tailwind, `var(--motion-*)` in keyframes).
 
-| Token / class         | Duration | Curve                   | Use                                                 |
-| --------------------- | -------- | ----------------------- | ---------------------------------------------------- |
-| `studio-motion-fast`  | 120 ms   | `ease-out-quart`        | Hover, focus, color flips, page crossfade            |
-| `studio-motion-base`  | 180 ms   | `ease-out-quart`        | State transitions (status pill flips, collapsibles)  |
-| `studio-motion-slow`  | 280 ms   | `ease-in-out`           | Layout-adjacent (sheet slide)                        |
-| `--motion-panel`      | 240 ms   | `--motion-ease-panel`   | Structural panels (both sidebars, inset resize)      |
+| Token / class        | Duration | Curve                 | Use                                                 |
+| -------------------- | -------- | --------------------- | --------------------------------------------------- |
+| `studio-motion-fast` | 120 ms   | `ease-out-quart`      | Hover, focus, color flips, page crossfade           |
+| `studio-motion-base` | 180 ms   | `ease-out-quart`      | State transitions (status pill flips, collapsibles) |
+| `studio-motion-slow` | 280 ms   | `ease-in-out`         | Layout-adjacent (sheet slide)                       |
+| `--motion-panel`     | 240 ms   | `--motion-ease-panel` | Structural panels (both sidebars, inset resize)     |
 
 All three utility classes transition only color/border/box-shadow/opacity by default. Components that need transform opt in.
 

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { HTMLAttributes, Ref } from 'vue'
 import { defaultDocument, useEventListener, useMediaQuery, useVModel } from '@vueuse/core'
 import { TooltipProvider } from 'reka-ui'
+import type { HTMLAttributes, Ref } from 'vue'
 import { computed, ref } from 'vue'
+
 import { cn } from '../utils'
 import {
   provideSidebarContext,
@@ -51,16 +52,11 @@ function setOpenMobile(value: boolean) {
 
 // Helper to toggle the sidebar.
 function toggleSidebar() {
-  return isMobile.value
-    ? setOpenMobile(!openMobile.value)
-    : setOpen(!open.value)
+  return isMobile.value ? setOpenMobile(!openMobile.value) : setOpen(!open.value)
 }
 
 useEventListener('keydown', (event: KeyboardEvent) => {
-  if (
-    event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-    (event.metaKey || event.ctrlKey)
-  ) {
+  if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
     event.preventDefault()
     toggleSidebar()
   }

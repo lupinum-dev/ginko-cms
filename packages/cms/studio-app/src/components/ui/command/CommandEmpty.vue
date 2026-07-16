@@ -1,22 +1,19 @@
 <script setup lang="ts">
-import type { PrimitiveProps } from 'reka-ui'
-import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
+import type { PrimitiveProps } from 'reka-ui'
 import { Primitive } from 'reka-ui'
+import type { HTMLAttributes } from 'vue'
 import { computed } from 'vue'
-import { cn } from '../utils'
-import { useCommand } from '.'
 
-const props = defineProps<
-  PrimitiveProps & { class?: HTMLAttributes['class'] }
->()
+import { useCommand } from '.'
+import { cn } from '../utils'
+
+const props = defineProps<PrimitiveProps & { class?: HTMLAttributes['class'] }>()
 
 const delegatedProps = reactiveOmit(props, 'class')
 
 const { filterState } = useCommand()
-const isRender = computed(
-  () => !!filterState.search && filterState.filtered.count === 0,
-)
+const isRender = computed(() => !!filterState.search && filterState.filtered.count === 0)
 </script>
 
 <template>
@@ -24,7 +21,9 @@ const isRender = computed(
     v-if="isRender"
     data-slot="command-empty"
     v-bind="delegatedProps"
-    :class="cn('ginko:py-6 ginko:text-center ginko:text-sm ginko:text-muted-foreground', props.class)"
+    :class="
+      cn('ginko:py-6 ginko:text-center ginko:text-sm ginko:text-muted-foreground', props.class)
+    "
   >
     <slot />
   </Primitive>
