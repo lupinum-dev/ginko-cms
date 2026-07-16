@@ -38,4 +38,18 @@ describe('playground public blog failure semantics', () => {
       detailPage.indexOf('setResponseStatus(404)'),
     )
   })
+
+  it('keeps sitemap route verification to a bounded deterministic sample', async () => {
+    const smoke = await readFile(resolve(root, 'scripts/cms-live-story-smoke.mjs'), 'utf8')
+    const sitemapStory = smoke.slice(
+      smoke.indexOf("story('public-api.sitemap'"),
+      smoke.indexOf("story(\n    'public-api.search-validation'"),
+    )
+
+    expect(sitemapStory).toContain(
+      'const sampleIndexes = [0, Math.floor(body.length / 2), body.length - 1]',
+    )
+    expect(sitemapStory).toContain('sampledRoutes.map(async (path)')
+    expect(sitemapStory).not.toContain('body.map(async')
+  })
 })

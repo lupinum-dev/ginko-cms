@@ -13,6 +13,7 @@ const budgets = {
   'packages/cms/studio-app/src/components/studio/StudioAssetBrowser.vue': 480,
   'packages/cms/studio-app/src/components/studio/assets/StudioAssetToolbar.vue': 300,
   'packages/cms/studio-app/src/components/studio/assets/StudioAssetManageDrawer.vue': 280,
+  'packages/cms/studio-app/src/composables/internal/studioAssetBrowserContext.ts': 480,
   'packages/cms/studio-app/src/composables/internal/useStudioAssetFinder.ts': 1_000,
   'packages/contract/src/validators.ts': 1_400,
   'packages/convex/src/public.ts': 1_400,

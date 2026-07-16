@@ -42,6 +42,7 @@ export const checkFailureBudget = query({
         await ctx.runQuery(components.ginkoCms.mcpAuthLimiter.checkFailureBudget, {
           ipBucketKey: args.ipBucketKey,
           credentialBucketKey: args.credentialBucketKey,
+          now: args.timestamp,
         }),
     )
   },

@@ -7,6 +7,7 @@ import type { MutationCtx, QueryCtx } from './lib/types.js'
 const IP_LIMIT = { max: 30, windowMs: 60_000 }
 const CREDENTIAL_LIMIT = { max: 5, windowMs: 5 * 60_000 }
 const CLEANUP_BATCH_SIZE = 100
+const OPPORTUNISTIC_CLEANUP_BATCH_SIZE = 2
 
 const limiterResult = v.object({ limited: v.boolean() })
 
@@ -35,48 +36,53 @@ export const checkFailureBudget = callerQuery.public({
   args: {
     ipBucketKey: v.string(),
     credentialBucketKey: v.string(),
+    now: v.number(),
   },
   returns: limiterResult,
   handler: async (ctx, args) => {
-    const now = Date.now()
     const [ipLimited, credentialLimited] = await Promise.all([
-      bucketIsLimited(ctx, args.ipBucketKey, now, IP_LIMIT),
-      bucketIsLimited(ctx, args.credentialBucketKey, now, CREDENTIAL_LIMIT),
+      bucketIsLimited(ctx, args.ipBucketKey, args.now, IP_LIMIT),
+      bucketIsLimited(ctx, args.credentialBucketKey, args.now, CREDENTIAL_LIMIT),
     ])
     return { limited: ipLimited || credentialLimited }
   },
 })
 
-async function recordBucket(
+async function readBucket(ctx: MutationCtx, bucketKey: string) {
+  return await ctx.db
+    .query('mcpAuthFailureBuckets')
+    .withIndex('by_key', (q) => q.eq('bucketKey', bucketKey))
+    .first()
+}
+
+async function writeBucket(
   ctx: MutationCtx,
   args: {
+    existing: Awaited<ReturnType<typeof readBucket>>
     bucketKey: string
-    requestId: string
-    now: number
-    config: typeof IP_LIMIT
+    attempts: Array<{ requestId: string; timestamp: number }>
+    expiresAt: number
   },
 ) {
-  const existing = await ctx.db
-    .query('mcpAuthFailureBuckets')
-    .withIndex('by_key', (q) => q.eq('bucketKey', args.bucketKey))
-    .first()
-  const attempts = activeAttempts(existing?.attempts ?? [], args.now, args.config.windowMs)
-  if (attempts.some((attempt) => attempt.requestId === args.requestId)) {
-    return attempts.length >= args.config.max
-  }
-  const wasLimited = attempts.length >= args.config.max
-  if (!wasLimited) attempts.push({ requestId: args.requestId, timestamp: args.now })
-  const expiresAt = args.now + args.config.windowMs
+  const { existing, bucketKey, attempts, expiresAt } = args
   if (existing) {
     await ctx.db.patch(existing._id, { attempts, expiresAt })
   } else {
     await ctx.db.insert('mcpAuthFailureBuckets', {
-      bucketKey: args.bucketKey,
+      bucketKey,
       attempts,
       expiresAt,
     })
   }
-  return wasLimited
+}
+
+async function deleteExpiredFailureBuckets(ctx: MutationCtx, now: number, limit: number) {
+  const expired = await ctx.db
+    .query('mcpAuthFailureBuckets')
+    .withIndex('by_expires_at', (q) => q.lte('expiresAt', now))
+    .take(limit)
+  for (const bucket of expired) await ctx.db.delete(bucket._id)
+  return expired.length
 }
 
 export const recordFailure = callerMutation.public({
@@ -88,21 +94,41 @@ export const recordFailure = callerMutation.public({
   returns: limiterResult,
   handler: async (ctx, args) => {
     const now = Date.now()
-    const [ipLimited, credentialLimited] = await Promise.all([
-      recordBucket(ctx, {
+    await deleteExpiredFailureBuckets(ctx, now, OPPORTUNISTIC_CLEANUP_BATCH_SIZE)
+
+    const [ipBucket, credentialBucket] = await Promise.all([
+      readBucket(ctx, args.ipBucketKey),
+      readBucket(ctx, args.credentialBucketKey),
+    ])
+    const ipAttempts = activeAttempts(ipBucket?.attempts ?? [], now, IP_LIMIT.windowMs)
+    const credentialAttempts = activeAttempts(
+      credentialBucket?.attempts ?? [],
+      now,
+      CREDENTIAL_LIMIT.windowMs,
+    )
+    const limited =
+      ipAttempts.length >= IP_LIMIT.max || credentialAttempts.length >= CREDENTIAL_LIMIT.max
+    const replayed =
+      ipAttempts.some((attempt) => attempt.requestId === args.requestId) ||
+      credentialAttempts.some((attempt) => attempt.requestId === args.requestId)
+    if (limited || replayed) return { limited }
+
+    const attempt = { requestId: args.requestId, timestamp: now }
+    await Promise.all([
+      writeBucket(ctx, {
+        existing: ipBucket,
         bucketKey: args.ipBucketKey,
-        requestId: args.requestId,
-        now,
-        config: IP_LIMIT,
+        attempts: [...ipAttempts, attempt],
+        expiresAt: now + IP_LIMIT.windowMs,
       }),
-      recordBucket(ctx, {
+      writeBucket(ctx, {
+        existing: credentialBucket,
         bucketKey: args.credentialBucketKey,
-        requestId: args.requestId,
-        now,
-        config: CREDENTIAL_LIMIT,
+        attempts: [...credentialAttempts, attempt],
+        expiresAt: now + CREDENTIAL_LIMIT.windowMs,
       }),
     ])
-    return { limited: ipLimited || credentialLimited }
+    return { limited: false }
   },
 })
 
@@ -118,11 +144,6 @@ export const cleanupExpiredFailureBuckets = internalMutation({
       Math.max(Math.floor(args.limit ?? CLEANUP_BATCH_SIZE), 1),
       CLEANUP_BATCH_SIZE,
     )
-    const expired = await ctx.db
-      .query('mcpAuthFailureBuckets')
-      .withIndex('by_expires_at', (q) => q.lte('expiresAt', now))
-      .take(limit)
-    for (const bucket of expired) await ctx.db.delete(bucket._id)
-    return expired.length
+    return await deleteExpiredFailureBuckets(ctx, now, limit)
   },
 })

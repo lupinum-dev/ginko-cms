@@ -25,6 +25,7 @@ describe('component: MCP authentication failure limiter', () => {
       ctx.raw.query(api.mcpAuthLimiter.checkFailureBudget, {
         ipBucketKey,
         credentialBucketKey,
+        now: Date.now(),
       }),
     ).resolves.toEqual({ limited: true })
 
@@ -55,31 +56,130 @@ describe('component: MCP authentication failure limiter', () => {
     ])
   })
 
-  it('keeps global cleanup out of record transactions and deletes expired buckets separately', async () => {
+  it('evaluates the advisory check at the signed request timestamp', async () => {
     const ctx = createCtx()
-    const now = Date.now()
+    const credentialBucketKey = 'e'.repeat(64)
     await ctx.seed(
       'mcpAuthFailureBuckets' as never,
       {
-        bucketKey: 'e'.repeat(64),
-        attempts: [{ requestId: 'expired', timestamp: now - 600_000 }],
-        expiresAt: now - 1,
+        bucketKey: credentialBucketKey,
+        attempts: Array.from({ length: 5 }, (_, index) => ({
+          requestId: `request-${index}`,
+          timestamp: 1_000,
+        })),
+        expiresAt: 301_000,
       } as never,
     )
 
-    await ctx.raw.mutation(api.mcpAuthLimiter.recordFailure, {
+    const args = {
       ipBucketKey: 'f'.repeat(64),
-      credentialBucketKey: '0'.repeat(64),
-      requestId: 'current',
-    })
-    expect(await ctx.readAll('mcpAuthFailureBuckets')).toHaveLength(3)
+      credentialBucketKey,
+    }
+    await expect(
+      ctx.raw.query(api.mcpAuthLimiter.checkFailureBudget, { ...args, now: 2_000 }),
+    ).resolves.toEqual({ limited: true })
+    await expect(
+      ctx.raw.query(api.mcpAuthLimiter.checkFailureBudget, { ...args, now: 400_000 }),
+    ).resolves.toEqual({ limited: false })
+  })
+
+  it.each([
+    {
+      saturatedKey: 'ipBucketKey' as const,
+      saturatedBucketKey: 'e'.repeat(64),
+      otherBucketKey: 'f'.repeat(64),
+      attempts: 30,
+    },
+    {
+      saturatedKey: 'credentialBucketKey' as const,
+      saturatedBucketKey: '0'.repeat(64),
+      otherBucketKey: '1'.repeat(64),
+      attempts: 5,
+    },
+  ])(
+    'does not mutate the other bucket when $saturatedKey is already saturated',
+    async ({ saturatedKey, saturatedBucketKey, otherBucketKey, attempts }) => {
+      const ctx = createCtx()
+      const now = Date.now()
+      await ctx.seed(
+        'mcpAuthFailureBuckets' as never,
+        {
+          bucketKey: saturatedBucketKey,
+          attempts: Array.from({ length: attempts }, (_, index) => ({
+            requestId: `existing-${index}`,
+            timestamp: now,
+          })),
+          expiresAt: now + 300_000,
+        } as never,
+      )
+
+      const args = {
+        ipBucketKey: saturatedKey === 'ipBucketKey' ? saturatedBucketKey : otherBucketKey,
+        credentialBucketKey:
+          saturatedKey === 'credentialBucketKey' ? saturatedBucketKey : otherBucketKey,
+        requestId: 'blocked-request',
+      }
+      await expect(ctx.raw.mutation(api.mcpAuthLimiter.recordFailure, args)).resolves.toEqual({
+        limited: true,
+      })
+
+      const rows = (await ctx.readAll('mcpAuthFailureBuckets')) as Array<{
+        bucketKey: string
+        attempts: Array<{ requestId: string }>
+      }>
+      expect(rows).toHaveLength(1)
+      expect(rows[0]?.bucketKey).toBe(saturatedBucketKey)
+      expect(rows[0]?.attempts).toHaveLength(attempts)
+    },
+  )
+
+  it('opportunistically drains enough expired buckets to self-stabilize under new keys', async () => {
+    const ctx = createCtx()
+    const now = Date.now()
+    for (let index = 0; index < 6; index += 1) {
+      await ctx.seed(
+        'mcpAuthFailureBuckets' as never,
+        {
+          bucketKey: `${index}`.repeat(64),
+          attempts: [{ requestId: `expired-${index}`, timestamp: now - 600_000 }],
+          expiresAt: now - 1,
+        } as never,
+      )
+    }
+
+    const ipBucketKey = 'a'.repeat(64)
+    for (let index = 0; index < 4; index += 1) {
+      await ctx.raw.mutation(api.mcpAuthLimiter.recordFailure, {
+        ipBucketKey,
+        credentialBucketKey: String.fromCharCode(98 + index).repeat(64),
+        requestId: `current-${index}`,
+      })
+    }
+
+    const rows = (await ctx.readAll('mcpAuthFailureBuckets')) as Array<{
+      expiresAt: number
+    }>
+    expect(rows).toHaveLength(5)
+    expect(rows.every((row) => row.expiresAt > now)).toBe(true)
+  })
+
+  it('keeps a bounded explicit cleanup mutation for idle periods', async () => {
+    const ctx = createCtx()
+    const now = Date.now()
+    for (let index = 0; index < 3; index += 1) {
+      await ctx.seed(
+        'mcpAuthFailureBuckets' as never,
+        {
+          bucketKey: `${index}`.repeat(64),
+          attempts: [{ requestId: `expired-${index}`, timestamp: now - 600_000 }],
+          expiresAt: now - 1,
+        } as never,
+      )
+    }
 
     await expect(
-      ctx.raw.mutation(api.mcpAuthLimiter.cleanupExpiredFailureBuckets, {
-        now,
-        limit: 100,
-      }),
-    ).resolves.toBe(1)
-    expect(await ctx.readAll('mcpAuthFailureBuckets')).toHaveLength(2)
+      ctx.raw.mutation(api.mcpAuthLimiter.cleanupExpiredFailureBuckets, { now, limit: 2 }),
+    ).resolves.toBe(2)
+    expect(await ctx.readAll('mcpAuthFailureBuckets')).toHaveLength(1)
   })
 })

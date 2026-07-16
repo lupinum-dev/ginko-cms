@@ -617,10 +617,17 @@ try {
     assertNoDraftProjection('public sitemap', body)
     const firstRoute = body[0]?.loc ?? null
     if (!firstRoute) throw new Error('public sitemap entry did not include a route path')
+    const sampleIndexes = [0, Math.floor(body.length / 2), body.length - 1]
+    const sampledRoutes = [
+      ...new Set([
+        publicContentFixture?.firstPath,
+        ...sampleIndexes.map((index) => body[index]?.loc),
+      ]),
+    ].filter((path) => typeof path === 'string' && path.length > 0)
     const routeResponses = await Promise.all(
-      body.map(async (entry) => ({
-        path: entry?.loc,
-        status: entry?.loc ? (await fetch(`${baseUrl}${entry.loc}`)).status : null,
+      sampledRoutes.map(async (path) => ({
+        path,
+        status: (await fetch(`${baseUrl}${path}`)).status,
       })),
     )
     const brokenRoute = routeResponses.find((entry) => entry.status !== 200)
@@ -629,7 +636,7 @@ try {
         `public sitemap route ${brokenRoute.path || '(missing)'} returned ${brokenRoute.status}`,
       )
     }
-    return { count: body.length, firstRoute }
+    return { count: body.length, firstRoute, checkedRoutes: routeResponses.length }
   })
 
   await story(

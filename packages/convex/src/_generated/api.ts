@@ -10,6 +10,7 @@
 
 import type * as agentRuns from "../agentRuns.js";
 import type * as assets from "../assets.js";
+import type * as assets_relationships from "../assets/relationships.js";
 import type * as auth_appIdentity from "../auth/appIdentity.js";
 import type * as auth_checks from "../auth/checks.js";
 import type * as auth_credentialKind from "../auth/credentialKind.js";
@@ -102,6 +103,7 @@ import { anyApi, componentsGeneric } from "convex/server";
 const fullApi: ApiFromModules<{
   agentRuns: typeof agentRuns;
   assets: typeof assets;
+  "assets/relationships": typeof assets_relationships;
   "auth/appIdentity": typeof auth_appIdentity;
   "auth/checks": typeof auth_checks;
   "auth/credentialKind": typeof auth_credentialKind;
