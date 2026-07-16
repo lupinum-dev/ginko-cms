@@ -58,6 +58,13 @@ function writeConsumerWorkspaceConfig(cwd: string, overrides: Record<string, str
     "  - '@lupinum/*'",
     "  - '@nuxt/*'",
     "  - 'nuxt'",
+    'allowBuilds:',
+    "  '@parcel/watcher': true",
+    '  better-sqlite3: true',
+    '  cbor-extract: true',
+    '  esbuild: true',
+    '  unrs-resolver: true',
+    '  vue-demi: true',
     'overrides:',
   ]
 
@@ -179,7 +186,8 @@ describe('ginko-cms package-first consumer fixture', () => {
       cms: '@lupinum/ginko-cms/nuxt-provider',
     })
     expect(existsSync(join(tempDir, 'convex/auth.config.ts'))).toBe(true)
-    expect(existsSync(join(tempDir, 'convex', 'ginkoCms'))).toBe(false)
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'collections.ts'))).toBe(true)
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'mcpCredentials.ts'))).toBe(true)
     expect(existsSync(join(tempDir, 'convex', 'ginkoCms.ts'))).toBe(false)
     expect(existsSync(join(tempDir, 'convex', `ginkoCms${'Mcp.ts'}`))).toBe(false)
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
