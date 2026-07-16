@@ -6,7 +6,6 @@ import { api } from '#convex/api'
 
 import {
   authenticateMcpRequestContext,
-  getMcpAuthStorageNamespace,
   type ExchangedMcpCredential,
 } from '../mcp/_shared/request-auth'
 
@@ -16,6 +15,14 @@ export default defineEventHandler(async (event) => {
 
 export async function authenticateMcpRequest(event: H3Event) {
   const siteOrigin = resolveMcpSiteOrigin(event)
+  const limiterSecret = process.env.BETTER_AUTH_SECRET?.trim()
+  if (!limiterSecret) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'BETTER_AUTH_SECRET is required for MCP authentication.',
+    })
+  }
+  const limiterCaller = serverConvex(event, { auth: 'none' })
   await authenticateMcpRequestContext(
     {
       path: event.path,
@@ -29,10 +36,11 @@ export async function authenticateMcpRequest(event: H3Event) {
           statusCode: input.statusCode,
           statusMessage: input.statusMessage,
         }),
-      getStorage: async () => {
-        const { useStorage } = await import('nitropack/runtime')
-        return useStorage(getMcpAuthStorageNamespace())
-      },
+      limiterSecret,
+      checkFailureBudget: async (args) =>
+        await limiterCaller.query(api.ginkoCms.mcpCredentials.checkFailureBudget, args),
+      recordFailure: async (args) =>
+        await limiterCaller.mutation(api.ginkoCms.mcpCredentials.recordFailure, args),
       exchangeCredential: (credential) => exchangeMcpCredential(event, siteOrigin, credential),
       resolveCredentialAccess: async (apiKeyId, caller) => {
         return await caller.query(api.ginkoCms.mcpCredentials.resolveAccess, {
@@ -65,6 +73,9 @@ async function exchangeMcpCredential(
     // Only a definitive upstream rejection is a bad secret; anything else is a
     // transport/infrastructure failure and must not charge the budget.
     if (result.status === 401 || result.status === 403) return null
+    if (result.status === 429) {
+      throw Object.assign(new Error('MCP token exchange rate limited.'), { statusCode: 429 })
+    }
     throw new Error('MCP token exchange transport failure')
   }
 

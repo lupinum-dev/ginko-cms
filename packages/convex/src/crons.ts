@@ -7,6 +7,9 @@ const internalApi = internal as typeof internal & {
   operations: {
     cleanupExpiredConfirmations: unknown
   }
+  mcpAuthLimiter: {
+    cleanupExpiredFailureBuckets: unknown
+  }
   revalidation: {
     deliverDue: unknown
   }
@@ -26,6 +29,13 @@ crons.interval(
   'cleanup expired MCP confirmations',
   { minutes: 10 },
   internalApi.operations.cleanupExpiredConfirmations as never,
+  {},
+)
+
+crons.interval(
+  'cleanup expired MCP authentication buckets',
+  { minutes: 10 },
+  internalApi.mcpAuthLimiter.cleanupExpiredFailureBuckets as never,
   {},
 )
 

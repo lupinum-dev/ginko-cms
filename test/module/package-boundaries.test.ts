@@ -474,6 +474,7 @@ describe('package boundary contracts', () => {
       'entries/publish.js',
       'entries/read.js',
       'entries/tree.js',
+      'mcpAuthLimiter.js',
       'mcpCredentials.js',
       'members.js',
       'migrations.js',

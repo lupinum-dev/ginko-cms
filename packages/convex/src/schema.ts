@@ -781,7 +781,10 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_entry', ['entryId'])
-    .index('by_entry_locale', ['entryId', 'locale']),
+    .index('by_entry_locale', ['entryId', 'locale'])
+    // Only shared rows set parentEntryId. Missing means "no draft override";
+    // null means an explicit move to the collection root.
+    .index('by_parent_override', ['parentEntryId']),
 
   entryRevisions: defineTable({
     entryId: v.id('entries'),
@@ -853,6 +856,19 @@ export default defineSchema({
     .index('by_asset_source', ['assetId', 'sourceKind'])
     .index('by_source', ['sourceKind', 'sourceId'])
     .index('by_entry', ['entryId']),
+
+  mcpAuthFailureBuckets: defineTable({
+    bucketKey: v.string(),
+    attempts: v.array(
+      v.object({
+        requestId: v.string(),
+        timestamp: v.number(),
+      }),
+    ),
+    expiresAt: v.number(),
+  })
+    .index('by_key', ['bucketKey'])
+    .index('by_expires_at', ['expiresAt']),
 
   backupArtifacts: defineTable({
     artifactId: v.string(),

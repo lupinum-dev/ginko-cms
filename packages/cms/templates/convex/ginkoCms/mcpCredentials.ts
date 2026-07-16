@@ -1,4 +1,8 @@
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+import {
+  requireBetterAuthSecret,
+  runVerifiedMcpLimiterRequest,
+} from '@lupinum/ginko-cms/convex/auth'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
@@ -18,6 +22,47 @@ const mcpCredentialScopeValidator = v.union(
     cmsPermissionKeys.manageAssets,
   ].map((scope) => v.literal(scope)),
 )
+
+const limiterArgs = {
+  ipBucketKey: v.string(),
+  credentialBucketKey: v.string(),
+  requestId: v.string(),
+  timestamp: v.number(),
+  signature: v.string(),
+}
+
+export const checkFailureBudget = query({
+  args: limiterArgs,
+  handler: async (ctx, args) => {
+    return await runVerifiedMcpLimiterRequest(
+      requireBetterAuthSecret(),
+      'check',
+      args,
+      async () =>
+        await ctx.runQuery(components.ginkoCms.mcpAuthLimiter.checkFailureBudget, {
+          ipBucketKey: args.ipBucketKey,
+          credentialBucketKey: args.credentialBucketKey,
+        }),
+    )
+  },
+})
+
+export const recordFailure = mutation({
+  args: limiterArgs,
+  handler: async (ctx, args) => {
+    return await runVerifiedMcpLimiterRequest(
+      requireBetterAuthSecret(),
+      'record',
+      args,
+      async () =>
+        await ctx.runMutation(components.ginkoCms.mcpAuthLimiter.recordFailure, {
+          ipBucketKey: args.ipBucketKey,
+          credentialBucketKey: args.credentialBucketKey,
+          requestId: args.requestId,
+        }),
+    )
+  },
+})
 
 export const upsertSettings = mutation({
   args: {

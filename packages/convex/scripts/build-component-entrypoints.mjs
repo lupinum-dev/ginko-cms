@@ -19,6 +19,7 @@ const componentModules = [
   'members',
   'migrations',
   'mcpCredentials',
+  'mcpAuthLimiter',
   'operations',
   'policy',
   'portability',
