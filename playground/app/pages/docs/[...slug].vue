@@ -24,10 +24,11 @@
 </template>
 
 <script setup lang="ts">
-const { page, status } = await useContentPage('docs')
+const { page, status, error: loadError } = await useContentPage('docs')
 const pending = computed(() => status.value === 'pending')
 
-if (import.meta.server && !page.value) {
-  setResponseStatus(404)
+if (import.meta.server) {
+  throwPublicContentFailure(loadError.value, 'This documentation page is temporarily unavailable.')
+  if (!page.value) setResponseStatus(404)
 }
 </script>
