@@ -40,10 +40,10 @@ For the later gap-assessment work package, add one assessment row per story:
 | Imports, migrations, backups, and recovery          | IMP |       6 |
 | Agents and MCP                                      | AGT |       7 |
 | Public website and API behavior                     | WEB |       7 |
-| Reliability, accessibility, and responsive behavior | QUA |       6 |
+| Reliability, accessibility, and responsive behavior | QUA |       8 |
 | Developer setup and integration                     | DEV |       6 |
 | Common expectations requiring product decisions     | CND |      12 |
-| **Total**                                           |     | **121** |
+| **Total**                                           |     | **123** |
 
 ## Product boundary
 
@@ -2146,15 +2146,15 @@ Speed, feel, and taste are assessed with the same discipline as functional stori
 
 Initial interaction budgets (p95 on mid-range hardware against the target-scale fixture; changing a budget is a recorded product decision, not a release-time adjustment):
 
-| Interaction                                       | Budget                       |
-| ------------------------------------------------- | ---------------------------- |
-| Cold Studio load to interactive work queue        | < 2.5s                       |
-| Navigation between primary sections               | < 300ms                      |
-| Keystroke to rendered character in a long body    | < 50ms, no dropped frames    |
-| Search or filter results                          | < 300ms                      |
-| Entry list paging and sorting                     | < 200ms                      |
-| Publish preview computation                       | < 2s                         |
-| INP / CLS on primary routes                       | INP < 200ms, CLS < 0.1       |
+| Interaction                                    | Budget                    |
+| ---------------------------------------------- | ------------------------- |
+| Cold Studio load to interactive work queue     | < 2.5s                    |
+| Navigation between primary sections            | < 300ms                   |
+| Keystroke to rendered character in a long body | < 50ms, no dropped frames |
+| Search or filter results                       | < 300ms                   |
+| Entry list paging and sorting                  | < 200ms                   |
+| Publish preview computation                    | < 2s                      |
+| INP / CLS on primary routes                    | INP < 200ms, CLS < 0.1    |
 
 ### QUA-07: Meet interaction performance budgets at target scale
 
@@ -2589,7 +2589,7 @@ The later team assessment should evaluate complete vertical workflows before iso
 5. **Asset slice:** upload, metadata, attach, usage, replace, trash, restore, purge guards.
 6. **Collaboration slice:** agent draft, review request, stale review, approve/reject, activity/audit attribution.
 7. **Operations slice:** members, revalidation, imports, backup/verify, supported restore, diagnostics.
-8. **Quality slice:** permission matrix, keyboard/screen reader, mobile, failure recovery, secret redaction, public draft isolation.
+8. **Quality slice:** permission matrix, keyboard/screen reader, mobile, failure recovery, secret redaction, public draft isolation, interaction performance budgets, structured taste/feel review.
 9. **Developer slice:** clean install, init/doctor, contract sync, provider integration, contract migration, release verification.
 10. **Product-decision slice:** accept, defer, or reject each CND story with a named canonical source, lifecycle, permissions, retention, and testable acceptance boundary.
 
