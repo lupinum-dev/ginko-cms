@@ -62,10 +62,10 @@ and [Environment](./docs/getting-started/environment.md).
 ## What You Get
 
 - Studio routes and layout mounted into the Nuxt app.
-- Convex-backed content, assets, members, settings, imports, and projections.
+- Convex-backed content, assets, members, settings, and public projections.
 - Better Auth integration through host-owned Convex files.
 - Public content reads for Ginko-powered Nuxt sites.
-- Filesystem-to-CMS migration tooling.
+- Owner-only CLI portability for deterministic content export and draft import.
 - MCP operations that go through the CMS operation layer.
 - Tailwind v4 source registration handled by the Nuxt module.
 
@@ -78,6 +78,13 @@ and [Environment](./docs/getting-started/environment.md).
 - `convex/betterAuth/*`
 - `convex/http.ts`
 - `convex/schema.ts`
+- `convex/.ginko-cms-setup.json` (template provenance only)
+
+Running `ginko-cms init` again updates generated files that still match their
+recorded template hash. If both the host file and package template changed, the
+command preserves the host file, prints a safe merge diff, and exits with a
+setup conflict instead of overwriting user work.
+
 - the Ginko CMS component registration in `convex/convex.config.ts`
 
 Keep `convex/convex.config.ts`, `convex/auth.config.ts`, and
@@ -122,7 +129,7 @@ mounted components from the host app's `convex/convex.config.ts`.
 - [Auth and roles](./docs/reference/auth-and-roles.md)
 - [MCP agent workflows](./docs/guides/mcp-agent-workflows.md)
 - [Changing collections](./docs/guides/changing-collections.md)
-- [Trellis-era migration](./docs/guides/migrations/trellis-era-migration.md)
+- [Contract transitions](./docs/guides/changing-collections.md)
 - [Public content API](./docs/reference/public-content-api.md)
 - [Nuxt content provider](./docs/reference/nuxt-content-provider.md)
 - [Studio theming](./docs/guides/theming-the-studio.md)

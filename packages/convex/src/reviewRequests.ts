@@ -49,14 +49,39 @@ const reviewRequestValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   reviewedAt: v.union(v.number(), v.null()),
+  reviewFeedback: v.union(v.string(), v.null()),
   versionHash: v.union(v.string(), v.null()),
   isStale: v.boolean(),
   staleReason: v.union(v.string(), v.null()),
   reviewSummary: reviewSummaryValidator,
 })
 
+// Slim outcome shape for closed (non-pending) review requests. Rejections
+// carry the reviewer feedback so the editor sees it where work resumes
+// (PUB-06); the heavy publish preview stays out of this payload.
+const reviewOutcomeValidator = v.object({
+  _id: v.string(),
+  entryId: v.string(),
+  status: v.union(v.literal('approved'), v.literal('rejected')),
+  title: v.string(),
+  locales: v.array(v.string()),
+  expectedVersion: v.number(),
+  createdAt: v.number(),
+  reviewedBy: v.union(v.string(), v.null()),
+  reviewedByLabel: v.union(v.string(), v.null()),
+  reviewedAt: v.union(v.number(), v.null()),
+  reviewFeedback: v.union(v.string(), v.null()),
+})
+
 type ReviewRequestDoc = Doc<'reviewRequests'>
+type ReviewOutcomeDoc = ReviewRequestDoc & { status: 'approved' | 'rejected' }
+
+function isReviewOutcome(request: ReviewRequestDoc): request is ReviewOutcomeDoc {
+  return request.status !== 'pending'
+}
+
 const MAX_REVIEW_REQUESTS = 100
+const MAX_REVIEW_OUTCOMES = 20
 const REVIEW_READY_STATUSES = new Set(['ready', 'no_changes'])
 const OUTDATED_REVIEW_PREVIEW_REASON =
   'Review request must be recreated because its publish preview is outdated.'
@@ -178,6 +203,7 @@ function serializeReviewRequest(
     createdAt: request.createdAt,
     updatedAt: request.updatedAt,
     reviewedAt: request.reviewedAt ?? null,
+    reviewFeedback: request.reviewFeedback ?? null,
     versionHash: request.versionHash ?? null,
     isStale: stale.isStale,
     staleReason: stale.staleReason,
@@ -585,22 +611,107 @@ export const approveReview = callerMutation.protected({
   },
 })
 
+async function serializeReviewOutcome(
+  ctx: Parameters<typeof cheapReviewStaleState>[0],
+  request: ReviewOutcomeDoc,
+) {
+  const reviewedBy = request.reviewedBy ?? null
+  const member = reviewedBy
+    ? await ctx.db
+        .query('members')
+        .withIndex('by_userId', (q) => q.eq('userId', reviewedBy))
+        .first()
+    : null
+  return {
+    _id: String(request._id),
+    entryId: request.entryId,
+    status: request.status,
+    title: request.title,
+    locales: request.locales,
+    expectedVersion: request.expectedVersion,
+    createdAt: request.createdAt,
+    reviewedBy,
+    reviewedByLabel: member?.displayName ?? member?.email ?? null,
+    reviewedAt: request.reviewedAt ?? null,
+    reviewFeedback: request.reviewFeedback ?? null,
+  }
+}
+
+function sortNewestOutcomeFirst(left: ReviewOutcomeDoc, right: ReviewOutcomeDoc) {
+  return (right.reviewedAt ?? right.updatedAt) - (left.reviewedAt ?? left.updatedAt)
+}
+
+export const listRecentReviewOutcomesForEntry = callerQuery.protected({
+  id: 'reviewRequests:listRecentReviewOutcomesForEntry',
+  args: {
+    entryId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  guard: canRead,
+  returns: v.array(reviewOutcomeValidator),
+  handler: async (ctx, args) => {
+    const boundedLimit = Math.max(1, Math.min(MAX_REVIEW_OUTCOMES, args.limit ?? 5))
+    const requests = await ctx.db
+      .query('reviewRequests')
+      .withIndex('by_entry', (q) => q.eq('entryId', args.entryId))
+      .order('desc')
+      .take(MAX_REVIEW_REQUESTS)
+    const outcomes = requests
+      .filter(isReviewOutcome)
+      .sort(sortNewestOutcomeFirst)
+      .slice(0, boundedLimit)
+    return await Promise.all(outcomes.map((outcome) => serializeReviewOutcome(ctx, outcome)))
+  },
+})
+
+export const listRecentReviewOutcomes = callerQuery.protected({
+  id: 'reviewRequests:listRecentReviewOutcomes',
+  args: {
+    limit: v.optional(v.number()),
+  },
+  guard: canPublishEntries,
+  returns: v.array(reviewOutcomeValidator),
+  handler: async (ctx, args) => {
+    const boundedLimit = Math.max(1, Math.min(MAX_REVIEW_OUTCOMES, args.limit ?? 10))
+    const takeByStatus = (status: 'approved' | 'rejected') =>
+      ctx.db
+        .query('reviewRequests')
+        .withIndex('by_status_updated_at', (q) => q.eq('status', status))
+        .order('desc')
+        .take(boundedLimit)
+    const [approved, rejected] = await Promise.all([
+      takeByStatus('approved'),
+      takeByStatus('rejected'),
+    ])
+    const outcomes = [...approved, ...rejected]
+      .filter(isReviewOutcome)
+      .sort(sortNewestOutcomeFirst)
+      .slice(0, boundedLimit)
+    return await Promise.all(outcomes.map((outcome) => serializeReviewOutcome(ctx, outcome)))
+  },
+})
+
+const MAX_REVIEW_FEEDBACK_LENGTH = 2000
+
 export const rejectReview = callerMutation.protected({
   id: 'reviewRequests:rejectReview',
   args: {
     reviewRequestId: v.string(),
+    feedback: v.optional(v.string()),
   },
   guard: canPublishEntries,
   returns: reviewRequestValidator,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
+    const feedback = args.feedback?.trim().slice(0, MAX_REVIEW_FEEDBACK_LENGTH) || null
     const request = await getPendingReviewOrThrow(ctx, args.reviewRequestId)
     await ctx.db.patch(request._id, {
       status: 'rejected',
       reviewedBy: appIdentity.userId,
       reviewedAt: now,
       updatedAt: now,
+      reviewFeedback: feedback,
     })
     const updated = await ctx.db.get(request._id)
     if (!updated) throw new Error('Review request disappeared after rejection.')
@@ -609,7 +720,9 @@ export const rejectReview = callerMutation.protected({
       kind: 'reviewRequest.rejected',
       summary: `Rejected review request "${request.title}"`,
       appIdentityId: appIdentity.userId,
-      detail: { reviewRequestId: args.reviewRequestId },
+      detail: feedback
+        ? { reviewRequestId: args.reviewRequestId, feedback }
+        : { reviewRequestId: args.reviewRequestId },
     })
 
     return await serializeReviewRequestWithStaleState(ctx, updated)

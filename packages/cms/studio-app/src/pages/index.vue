@@ -143,11 +143,9 @@ const collections = computed(() => {
     label: bySlug.get(hostCollection.slug)?.label || hostCollection.label,
   }))
 })
-// Queue rows deep-link into the first entry-capable (non-singleton) collection
-// with the matching list filter; singleton lists redirect straight to their
-// entry and would drop the filter query. Route-backed (website page)
-// collections win over data-only ones — "New content" and translation-gap
-// links should land on pages, not reference data like authors.
+// "New content" starts in the first entry-capable (non-singleton) collection.
+// Route-backed (website page) collections win over data-only ones — the CTA
+// should land on pages, not reference data like authors.
 const entryCapableCollections = computed(() =>
   collections.value.filter((collection) => !collection.singleton),
 )
@@ -158,11 +156,6 @@ const firstEntryCollectionSlug = computed(
       entryCapableCollections.value[0]
     )?.slug ?? null,
 )
-function workQueueHref(work: 'changed' | 'blocked' | 'missing_translation') {
-  return firstEntryCollectionSlug.value
-    ? `${contentRoute}/${firstEntryCollectionSlug.value}?work=${work}`
-    : contentRoute
-}
 // THE one primary action on Home (DESIGN.md principle 1): start new content in
 // the first writable collection. Hidden when nothing accepts new entries.
 const newContentTo = computed(() =>
@@ -183,50 +176,107 @@ const workQueue = computed(() =>
     pendingRevalidation: overview.value?.counts?.pendingRevalidation,
   }),
 )
+// A queue row must link somewhere that shows exactly what it counted (NAV-01),
+// and list filters are per collection — so editorial queue rows split per
+// collection, each linking to that collection's filtered list. The overview
+// still counts archived entries as work while the destination lists exclude
+// them, so the archived entries the overview exposes are subtracted here; the
+// real fix (excluding archived from overview counts) lives in the backend.
+function archivedCountBySlug(entries: OverviewEntry[] | undefined) {
+  const counts = new Map<string, number>()
+  for (const entry of entries ?? []) {
+    if (entry.status !== 'archived') continue
+    counts.set(entry.collection, (counts.get(entry.collection) ?? 0) + 1)
+  }
+  return counts
+}
+function collectionQueueCounts(
+  field: 'blocked' | 'changedDrafts' | 'missingTranslations',
+  entries: OverviewEntry[] | undefined,
+) {
+  const archived = archivedCountBySlug(entries)
+  return (overview.value?.collections ?? []).flatMap((collection) => {
+    const slug = String(collection.slug ?? '')
+    const count = Math.max(0, Number(collection[field] ?? 0) - (archived.get(slug) ?? 0))
+    if (!slug || count === 0) return []
+    return [{ slug, label: String(collection.label || slug), count }]
+  })
+}
 const workQueueRows = computed<WorkQueueMetric[]>(() => {
-  const loadingValue = overviewReady.value ? null : '...'
   const reviewsLoadingValue =
     canPublishEntries.value && reviewsQuery.pending.value && reviewsQuery.data.value === null
       ? '...'
       : null
-  const rows: WorkQueueMetric[] = [
+  const rows: WorkQueueMetric[] = []
+  const editorialQueues = [
     {
-      key: 'needsAttention',
-      label: t('ginkoCms.studio.dashboard.queueNeedsAttention'),
-      description: t('ginkoCms.studio.dashboard.queueNeedsAttentionDesc'),
-      value: loadingValue ?? workQueue.value.needsAttention,
+      work: 'blocked',
+      field: 'blocked',
+      entries: overview.value?.blocked,
+      labelKey: 'ginkoCms.studio.dashboard.queueNeedsAttention',
+      descriptionKey: 'ginkoCms.studio.dashboard.queueNeedsAttentionDesc',
       icon: AlertCircle,
-      tone: workQueue.value.needsAttention > 0 ? 'danger' : 'neutral',
-      to: workQueueHref('blocked'),
+      tone: 'danger',
     },
     {
-      key: 'readyToPreview',
-      label: t('ginkoCms.studio.dashboard.queueReadyToPreview'),
-      description: t('ginkoCms.studio.dashboard.queueReadyToPreviewDesc'),
-      value: loadingValue ?? overview.value?.counts?.readyToPreview ?? 0,
-      icon: CheckCircle2,
-      tone: (overview.value?.counts?.readyToPreview ?? 0) > 0 ? 'info' : 'neutral',
-      to: contentRoute,
-    },
-    {
-      key: 'changedDrafts',
-      label: t('ginkoCms.studio.dashboard.queueContinueEditing'),
-      description: t('ginkoCms.studio.dashboard.queueContinueEditingDesc'),
-      value: loadingValue ?? workQueue.value.changedDrafts,
+      work: 'changed',
+      field: 'changedDrafts',
+      entries: overview.value?.changedDrafts,
+      labelKey: 'ginkoCms.studio.dashboard.queueContinueEditing',
+      descriptionKey: 'ginkoCms.studio.dashboard.queueContinueEditingDesc',
       icon: FileText,
-      tone: workQueue.value.changedDrafts > 0 ? 'info' : 'neutral',
-      to: workQueueHref('changed'),
+      tone: 'info',
     },
     {
-      key: 'missingTranslations',
-      label: t('ginkoCms.studio.dashboard.queueMissingLanguages'),
-      description: t('ginkoCms.studio.dashboard.queueMissingLanguagesDesc'),
-      value: loadingValue ?? workQueue.value.missingTranslations,
+      work: 'missing_translation',
+      field: 'missingTranslations',
+      entries: overview.value?.missingTranslations,
+      labelKey: 'ginkoCms.studio.dashboard.queueMissingLanguages',
+      descriptionKey: 'ginkoCms.studio.dashboard.queueMissingLanguagesDesc',
       icon: Languages,
-      tone: workQueue.value.missingTranslations > 0 ? 'warning' : 'neutral',
-      to: workQueueHref('missing_translation'),
+      tone: 'warning',
     },
-  ]
+  ] as const
+
+  const readyToPreviewRow: WorkQueueMetric = {
+    key: 'readyToPreview',
+    label: t('ginkoCms.studio.dashboard.queueReadyToPreview'),
+    description: t('ginkoCms.studio.dashboard.queueReadyToPreviewDesc'),
+    value: overviewReady.value ? (overview.value?.counts?.readyToPreview ?? 0) : '...',
+    icon: CheckCircle2,
+    tone: (overview.value?.counts?.readyToPreview ?? 0) > 0 ? 'info' : 'neutral',
+    // Deliberately unlinked: no list filter reproduces this queue yet, and the
+    // old target (/content) was a dead route.
+  }
+
+  if (!overviewReady.value) {
+    rows.push(
+      ...editorialQueues.map<WorkQueueMetric>((queue) => ({
+        key: queue.work,
+        label: t(queue.labelKey),
+        description: t(queue.descriptionKey),
+        value: '...',
+        icon: queue.icon,
+        tone: 'neutral',
+      })),
+    )
+    rows.splice(1, 0, readyToPreviewRow)
+  } else {
+    for (const queue of editorialQueues) {
+      for (const collection of collectionQueueCounts(queue.field, queue.entries)) {
+        rows.push({
+          key: `${queue.work}:${collection.slug}`,
+          label: `${t(queue.labelKey)} · ${collection.label}`,
+          description: t(queue.descriptionKey),
+          value: collection.count,
+          icon: queue.icon,
+          tone: queue.tone,
+          to: `${contentRoute}/${collection.slug}?work=${queue.work}`,
+        })
+      }
+      if (queue.work === 'blocked') rows.push(readyToPreviewRow)
+    }
+  }
 
   if (canPublishEntries.value) {
     rows.push({
@@ -257,7 +307,7 @@ const workQueueRows = computed<WorkQueueMetric[]>(() => {
       key: 'failedRevalidation',
       label: t('ginkoCms.studio.dashboard.queueWebsiteRefresh'),
       description: t('ginkoCms.studio.dashboard.queueWebsiteRefreshDesc'),
-      value: loadingValue ?? workQueue.value.failedRevalidation,
+      value: overviewReady.value ? workQueue.value.failedRevalidation : '...',
       icon: RefreshCw,
       tone: workQueue.value.failedRevalidation > 0 ? 'danger' : 'neutral',
     })
@@ -296,6 +346,12 @@ const collectionRows = computed(() => {
     missingTranslations: 0,
   }))
 })
+// Archived content is not publishable work: the destination lists exclude it,
+// so the blocked card must not offer it either (same backend caveat as the
+// queue rows above).
+const blockedEntries = computed(() =>
+  (overview.value?.blocked ?? []).filter((entry) => entry.status !== 'archived'),
+)
 const recentActivity = computed(() => overview.value?.activity ?? activityQuery.results.value)
 const recentActivityCapped = computed(() => recentActivity.value.slice(0, 6))
 const pendingReviews = computed<ReviewRequest[]>(
@@ -443,12 +499,12 @@ function metricToneClass(tone: WorkQueueMetric['tone']) {
                   </p>
                 </div>
                 <Badge variant="outline" class="ginko:text-xs">
-                  {{ overview?.blocked?.length ?? 0 }}
+                  {{ blockedEntries.length }}
                 </Badge>
               </div>
-              <div v-if="overview?.blocked?.length" class="ginko:divide-y ginko:divide-border/70">
+              <div v-if="blockedEntries.length" class="ginko:divide-y ginko:divide-border/70">
                 <RouterLink
-                  v-for="entry in overview.blocked"
+                  v-for="entry in blockedEntries"
                   :key="`blocked:${entry.entryId}`"
                   :to="entryHref(entry)"
                   class="ginko:grid ginko:gap-3 ginko:px-4 ginko:py-3 ginko:transition-colors ginko:hover:bg-accent/40 ginko:@2xl:grid-cols-[minmax(0,1fr)_10rem_2rem]"

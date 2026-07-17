@@ -20,7 +20,7 @@ function moreLabel(count: number): string {
 </script>
 
 <template>
-  <div v-if="diagnostics.length" class="ginko:space-y-2">
+  <div v-if="diagnostics.length" class="ginko:min-w-0 ginko:space-y-2">
     <div
       v-for="diagnostic in diagnostics"
       :key="`${itemKeyPrefix}:${diagnostic.code}:${diagnostic.locale}:${diagnostic.href}:${diagnostic.path}:${diagnostic.message}`"
@@ -35,7 +35,7 @@ function moreLabel(count: number): string {
       <div class="ginko:mt-0.5">{{ diagnostic.message }}</div>
       <div
         v-if="diagnostic.href || diagnostic.path"
-        class="ginko:mt-1 ginko:truncate ginko:font-mono ginko:text-xs ginko:opacity-75"
+        class="ginko:mt-1 ginko:break-all ginko:font-mono ginko:text-xs ginko:opacity-75"
       >
         {{ diagnostic.href || diagnostic.path }}
       </div>

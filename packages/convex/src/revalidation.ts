@@ -5,7 +5,7 @@ import { v } from 'convex/values'
 
 import { internal } from './_generated/api.js'
 import type { Doc, Id } from './_generated/dataModel.js'
-import { internalAction, internalMutation } from './_generated/server.js'
+import { internalAction, internalMutation, type ActionCtx } from './_generated/server.js'
 import { canManageSettings } from './auth/checks.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
@@ -28,6 +28,7 @@ const internalRevalidationApi = internal as typeof internal & {
     claimDueRevalidationEvents: unknown
     recordRevalidationDelivery: unknown
     recoverExpiredDeliveries: unknown
+    scheduleNextRevalidationDelivery: unknown
     deliverDue: unknown
   }
 }
@@ -59,6 +60,8 @@ type ClaimedEvent = {
   paths: string[]
   payload: JsonObject
   attempts: number
+  deliveryGeneration: number
+  leaseId: string
   target: {
     id: string
     name: string
@@ -82,6 +85,10 @@ function getReason(payload: Record<string, unknown>): string {
 
 function backoffMsForAttempt(attempt: number) {
   return BACKOFF_MS[Math.min(Math.max(attempt - 1, 0), BACKOFF_MS.length - 1)] ?? 7_200_000
+}
+
+function deliveryLeaseId(eventId: Id<'outboxEvents'>, generation: number, claimedAt: number) {
+  return `${String(eventId)}:${generation}:${claimedAt}`
 }
 
 function truncateError(value: string) {
@@ -218,6 +225,26 @@ async function scheduleRevalidationDelivery(ctx: MutationCtx) {
   await ctx.scheduler.runAfter(1, internalRevalidationApi.revalidation.deliverDue as never, {})
 }
 
+export const scheduleNextRevalidationDelivery = internalMutation({
+  args: { now: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (!(await getEnabledTarget(ctx))) return null
+    const next = await ctx.db
+      .query('outboxEvents')
+      .withIndex('by_status_nextAttemptAt', (query) => query.eq('status', 'pending'))
+      .order('asc')
+      .first()
+    if (!next) return null
+    await ctx.scheduler.runAt(
+      Math.max(next.nextAttemptAt, args.now + 1),
+      internalRevalidationApi.revalidation.deliverDue as never,
+      {},
+    )
+    return null
+  },
+})
+
 export async function scheduleRevalidationOutboxDelivery(ctx: MutationCtx) {
   await scheduleRevalidationDelivery(ctx)
 }
@@ -267,16 +294,17 @@ export const upsertRevalidationTarget = callerMutation.protected({
       const existing = await ctx.db.get(targetId)
       if (!existing) throw new Error('REVALIDATION_TARGET_NOT_FOUND')
       await ctx.db.patch(targetId, patch)
+      if (args.enabled) await scheduleRevalidationDelivery(ctx)
       return args.targetId
     }
 
-    return toStringId(
-      await ctx.db.insert('revalidationTargets', {
-        ...patch,
-        createdBy: appIdentity.userId,
-        createdAt: now,
-      }),
-    )
+    const targetId = await ctx.db.insert('revalidationTargets', {
+      ...patch,
+      createdBy: appIdentity.userId,
+      createdAt: now,
+    })
+    if (args.enabled) await scheduleRevalidationDelivery(ctx)
+    return toStringId(targetId)
   },
 })
 
@@ -347,16 +375,17 @@ export const listRevalidationJobs = callerQuery.protected({
   ),
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 20, 1), 100)
-    const rows = args.status
+    const internalStatus = args.status === 'failed' ? 'dead' : args.status
+    const rows = internalStatus
       ? await ctx.db
           .query('outboxEvents')
-          .withIndex('by_status_nextAttemptAt', (q) => q.eq('status', args.status!))
+          .withIndex('by_status_nextAttemptAt', (q) => q.eq('status', internalStatus))
           .take(limit)
       : await ctx.db.query('outboxEvents').take(limit)
 
     return rows.map((row) => ({
       id: toStringId(row._id),
-      status: row.status,
+      status: row.status === 'dead' ? ('failed' as const) : row.status,
       tags: row.tags,
       paths: row.paths,
       attempts: row.attempts,
@@ -437,8 +466,10 @@ export const retryRevalidationJobOperation = defineCmsOperation({
     const now = Date.now()
     await ctx.db.patch(eventId, {
       status: 'pending',
+      attempts: 0,
       nextAttemptAt: now,
       lastError: null,
+      leaseId: null,
       lockedAt: null,
       lockExpiresAt: null,
       updatedAt: now,
@@ -471,6 +502,8 @@ export const claimDueRevalidationEvents = internalMutation({
       paths: v.array(v.string()),
       payload: jsonObjectValidator,
       attempts: v.number(),
+      deliveryGeneration: v.number(),
+      leaseId: v.string(),
       target: v.object({
         id: v.string(),
         name: v.string(),
@@ -488,8 +521,9 @@ export const claimDueRevalidationEvents = internalMutation({
     const limit = Math.min(Math.max(args.limit ?? DEFAULT_BATCH_LIMIT, 1), 50)
     const due = await ctx.db
       .query('outboxEvents')
-      .withIndex('by_status_nextAttemptAt', (q) => q.eq('status', 'pending'))
-      .filter((q) => q.lte(q.field('nextAttemptAt'), args.now))
+      .withIndex('by_status_nextAttemptAt', (q) =>
+        q.eq('status', 'pending').lte('nextAttemptAt', args.now),
+      )
       .take(limit)
     const claimed: ClaimedEvent[] = []
 
@@ -497,22 +531,29 @@ export const claimDueRevalidationEvents = internalMutation({
       if (event.type !== 'content.revalidate') continue
       if (event.attempts >= MAX_ATTEMPTS) {
         await ctx.db.patch(event._id, {
-          status: 'failed',
+          status: 'dead',
+          leaseId: null,
+          lockedAt: null,
+          lockExpiresAt: null,
           lastError: `Maximum delivery attempts reached (${MAX_ATTEMPTS}).`,
           updatedAt: args.now,
         })
         continue
       }
 
-      const target = await getEnabledTarget(ctx, event.targetId ?? null)
+      const target = await getEnabledTarget(ctx)
       if (!target) {
         continue
       }
 
+      const deliveryGeneration = event.deliveryGeneration + 1
+      const leaseId = deliveryLeaseId(event._id, deliveryGeneration, args.now)
       await ctx.db.patch(event._id, {
         status: 'delivering',
         targetId: target._id,
         attempts: event.attempts + 1,
+        deliveryGeneration,
+        leaseId,
         lockedAt: args.now,
         lockExpiresAt: args.now + LOCK_TTL_MS,
         updatedAt: args.now,
@@ -526,6 +567,8 @@ export const claimDueRevalidationEvents = internalMutation({
         paths: event.paths,
         payload: event.payload as JsonObject,
         attempts: event.attempts + 1,
+        deliveryGeneration,
+        leaseId,
         target: {
           id: toStringId(target._id),
           name: target.name,
@@ -543,22 +586,32 @@ export const claimDueRevalidationEvents = internalMutation({
 export const recordRevalidationDelivery = internalMutation({
   args: {
     eventId: v.string(),
+    deliveryGeneration: v.number(),
+    leaseId: v.string(),
     ok: v.boolean(),
     statusCode: v.optional(v.number()),
     error: v.optional(v.string()),
     permanent: v.optional(v.boolean()),
     now: v.number(),
   },
-  returns: v.null(),
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const eventId = asOutboxEventId(args.eventId)
     const event = await ctx.db.get(eventId)
-    if (!event) return null
+    if (
+      !event ||
+      event.status !== 'delivering' ||
+      event.deliveryGeneration !== args.deliveryGeneration ||
+      event.leaseId !== args.leaseId
+    ) {
+      return false
+    }
 
     if (args.ok) {
       await ctx.db.patch(eventId, {
         status: 'delivered',
         lastError: null,
+        leaseId: null,
         lockedAt: null,
         lockExpiresAt: null,
         deliveredAt: args.now,
@@ -575,30 +628,32 @@ export const recordRevalidationDelivery = internalMutation({
           tags: event.tags,
         },
       })
-      return null
+      return true
     }
 
     const lastError = truncateError(args.error ?? 'Revalidation delivery failed.')
     if (args.permanent === true || event.attempts >= MAX_ATTEMPTS) {
       await ctx.db.patch(eventId, {
-        status: 'failed',
+        status: 'dead',
         lastError,
+        leaseId: null,
         lockedAt: null,
         lockExpiresAt: null,
         updatedAt: args.now,
       })
-      return null
+      return true
     }
 
     await ctx.db.patch(eventId, {
       status: 'pending',
       nextAttemptAt: args.now + backoffMsForAttempt(event.attempts),
       lastError,
+      leaseId: null,
       lockedAt: null,
       lockExpiresAt: null,
       updatedAt: args.now,
     })
-    return null
+    return true
   },
 })
 
@@ -618,6 +673,7 @@ export const recoverExpiredDeliveries = internalMutation({
       await ctx.db.patch(row._id, {
         status: 'pending',
         nextAttemptAt: args.now,
+        leaseId: null,
         lockedAt: null,
         lockExpiresAt: null,
         lastError: 'Delivery lock expired before completion.',
@@ -635,6 +691,92 @@ export const recoverExpiredDeliveries = internalMutation({
   },
 })
 
+async function recordDelivery(
+  ctx: ActionCtx,
+  job: ClaimedEvent,
+  result: {
+    ok: boolean
+    statusCode?: number
+    error?: string
+    permanent?: boolean
+  },
+) {
+  await ctx.runMutation(
+    internalRevalidationApi.revalidation.recordRevalidationDelivery as never,
+    {
+      eventId: job.id,
+      deliveryGeneration: job.deliveryGeneration,
+      leaseId: job.leaseId,
+      now: Date.now(),
+      ...result,
+    } as never,
+  )
+}
+
+async function deliverClaimedEvent(ctx: ActionCtx, job: ClaimedEvent) {
+  const token = process.env[job.target.secretEnv]
+  if (!token) {
+    await recordDelivery(ctx, job, {
+      ok: false,
+      permanent: true,
+      error: `Missing revalidation secret env "${job.target.secretEnv}".`,
+    })
+    return
+  }
+
+  try {
+    const timestamp = String(Date.now())
+    const body = JSON.stringify({
+      eventId: job.id,
+      idempotencyKey: job.idempotencyKey,
+      reason: getReason(job.payload),
+      tags: job.tags,
+      paths: job.paths,
+      createdAt: typeof job.payload.createdAt === 'number' ? job.payload.createdAt : undefined,
+    })
+    assertValidTargetEndpoint(job.target.endpoint)
+    const signature = await hmacSha256Hex(token, `${timestamp}.${job.id}.${body}`)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), REVALIDATION_FETCH_TIMEOUT_MS)
+    let response: Response
+    try {
+      response = await fetch(job.target.endpoint, {
+        method: 'POST',
+        redirect: 'error',
+        headers: {
+          'content-type': 'application/json',
+          'x-ginko-revalidation-event': job.id,
+          'x-ginko-signature': `sha256=${signature}`,
+          'x-ginko-signature-timestamp': timestamp,
+        },
+        body,
+        signal: controller.signal,
+      })
+    } catch (error) {
+      if (controller.signal.aborted) throw new Error('Revalidation endpoint timed out.')
+      throw error
+    } finally {
+      clearTimeout(timeout)
+    }
+
+    if (response.ok) {
+      await recordDelivery(ctx, job, { ok: true, statusCode: response.status })
+      return
+    }
+    await recordDelivery(ctx, job, {
+      ok: false,
+      statusCode: response.status,
+      permanent: permanentErrorStatus(response.status),
+      error: `Revalidation endpoint returned HTTP ${response.status}.`,
+    })
+  } catch (error) {
+    await recordDelivery(ctx, job, {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Network error during revalidation.',
+    })
+  }
+}
+
 export const deliverDue = internalAction({
   args: {},
   returns: v.null(),
@@ -649,95 +791,11 @@ export const deliverDue = internalAction({
       { now, limit: DEFAULT_BATCH_LIMIT } as never,
     )) as ClaimedEvent[]
 
-    for (const job of jobs) {
-      const token = process.env[job.target.secretEnv]
-      if (!token) {
-        await ctx.runMutation(
-          internalRevalidationApi.revalidation.recordRevalidationDelivery as never,
-          {
-            eventId: job.id,
-            ok: false,
-            permanent: true,
-            now: Date.now(),
-            error: `Missing revalidation secret env "${job.target.secretEnv}".`,
-          } as never,
-        )
-        continue
-      }
-
-      try {
-        const timestamp = String(Date.now())
-        const body = JSON.stringify({
-          eventId: job.id,
-          idempotencyKey: job.idempotencyKey,
-          reason: getReason(job.payload),
-          tags: job.tags,
-          paths: job.paths,
-          createdAt: typeof job.payload.createdAt === 'number' ? job.payload.createdAt : undefined,
-        })
-        assertValidTargetEndpoint(job.target.endpoint)
-        const signature = await hmacSha256Hex(token, `${timestamp}.${job.id}.${body}`)
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), REVALIDATION_FETCH_TIMEOUT_MS)
-        let response: Response
-        try {
-          response = await fetch(job.target.endpoint, {
-            method: 'POST',
-            redirect: 'error',
-            headers: {
-              'content-type': 'application/json',
-              'x-ginko-revalidation-event': job.id,
-              'x-ginko-signature': `sha256=${signature}`,
-              'x-ginko-signature-timestamp': timestamp,
-            },
-            body,
-            signal: controller.signal,
-          })
-        } catch (error) {
-          if (controller.signal.aborted) {
-            throw new Error('Revalidation endpoint timed out.')
-          }
-          throw error
-        } finally {
-          clearTimeout(timeout)
-        }
-
-        if (response.ok) {
-          await ctx.runMutation(
-            internalRevalidationApi.revalidation.recordRevalidationDelivery as never,
-            {
-              eventId: job.id,
-              ok: true,
-              statusCode: response.status,
-              now: Date.now(),
-            } as never,
-          )
-          continue
-        }
-
-        await ctx.runMutation(
-          internalRevalidationApi.revalidation.recordRevalidationDelivery as never,
-          {
-            eventId: job.id,
-            ok: false,
-            statusCode: response.status,
-            permanent: permanentErrorStatus(response.status),
-            now: Date.now(),
-            error: `Revalidation endpoint returned HTTP ${response.status}.`,
-          } as never,
-        )
-      } catch (error) {
-        await ctx.runMutation(
-          internalRevalidationApi.revalidation.recordRevalidationDelivery as never,
-          {
-            eventId: job.id,
-            ok: false,
-            now: Date.now(),
-            error: error instanceof Error ? error.message : 'Network error during revalidation.',
-          } as never,
-        )
-      }
-    }
+    await Promise.all(jobs.map(async (job) => await deliverClaimedEvent(ctx, job)))
+    await ctx.runMutation(
+      internalRevalidationApi.revalidation.scheduleNextRevalidationDelivery as never,
+      { now: Date.now() } as never,
+    )
 
     return null
   },

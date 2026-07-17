@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
+  archiveEntry,
   createCtx,
   currentDraftVersion,
   publishEntry,
@@ -575,6 +576,94 @@ describe('editor read queries', () => {
     expect(
       overview.readyToPreview.map((entry: { entryId: string }) => entry.entryId),
     ).not.toContain(entryId)
+  })
+
+  it('excludes archived entries from Studio overview work queues', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMultiLocaleSettings(ctx)
+    const { collectionId, entryId } = await seedEditorFixture(ctx)
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(collectionId as never, { locales: ['en', 'de'] } as never)
+    })
+
+    const owner = ctx.asCmsUser('owner-1')
+    await archiveEntry(owner, entryId)
+
+    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
+
+    expect(overview.counts).toMatchObject({
+      needsAttention: 0,
+      changedDrafts: 0,
+      missingTranslations: 0,
+    })
+    expect(overview.blocked).toEqual([])
+    expect(overview.changedDrafts).toEqual([])
+    expect(overview.missingTranslations).toEqual([])
+    expect(
+      overview.collections.find((summary: { slug: string }) => summary.slug === 'posts'),
+    ).toMatchObject({
+      changedDrafts: 0,
+      blocked: 0,
+      missingTranslations: 0,
+    })
+  })
+
+  it('does not describe archived entries as blocked in workflow summaries', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    await archiveEntry(owner, entryId)
+
+    const [summary] = await owner.query(api.editor.listEntrySummaries, {
+      collection: 'posts',
+      locale: 'en',
+      status: 'archived',
+    })
+
+    expect(summary).toMatchObject({ _id: entryId, status: 'archived' })
+    expect(summary?.workflowSummary.issueCounts.blocker).toBe(0)
+    expect(summary?.workflowSummary.workStatesByLocale.en).not.toBe('blocked')
+  })
+
+  it('reports live entries with newer drafts as public, never draft_only', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    await publishEntry(owner, entryId)
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: await currentDraftVersion(owner, entryId),
+      patch: {
+        locales: {
+          en: {
+            values: {
+              title: 'Changed after publish',
+            },
+          },
+        },
+      },
+    })
+
+    const [summary] = await owner.query(api.editor.listEntrySummaries, {
+      collection: 'posts',
+      locale: 'en',
+    })
+
+    expect(summary).toMatchObject({
+      status: 'published',
+      publicState: 'public',
+      draftChangedSincePublish: true,
+    })
+    expect(
+      summary?.localeReadiness.find((locale: { locale: string }) => locale.locale === 'en')?.state,
+    ).toBe('changed')
   })
 
   it('excludes missing-language drafts from Studio overview ready-to-preview', async () => {

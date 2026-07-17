@@ -90,6 +90,13 @@ export function createStudioRouter() {
         // workflow, history) is the primary right-sidebar surface (defaultOpen).
         meta: { rightSidebar: true },
       },
+      {
+        // Unknown Studio URLs (stale bookmarks, mistyped paths) render a
+        // visible not-found state with an exit instead of a blank canvas.
+        path: '/:pathMatch(.*)*',
+        name: 'studio-not-found',
+        component: () => import('./pages/not-found.vue'),
+      },
     ],
   })
 }

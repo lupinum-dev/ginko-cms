@@ -80,8 +80,9 @@ Then open Studio and verify:
 - Test entries can be created for the configured collections, including at
   least one relation field and one rich body field when the app defines them.
 - Reopening the entries shows the saved values.
-- Publish or destructive preview flows work when the deployment exposes MCP
-  destructive operations.
+- Publish, unpublish, archive, restore, and rollback use the Studio guarded
+  preview/confirm/execute flow. MCP has no direct public-output or destructive
+  operation path.
 
 ## Required Environment
 
@@ -110,18 +111,32 @@ Use this command to inspect drift:
 pnpm exec ginko-cms push --check
 ```
 
-For production or shared staging data, preserve a verified backup through an
-owner-authenticated operator workflow and plan an explicit content migration
-before pushing the new contract. Push only after `ginko-cms push --check` reports
-safe drift. Do not clear CMS tables to force the push through.
+For production or shared staging data, create and verify an official Convex
+deployment backup before risky contract work. Presentation-only and compatible
+content changes may install directly when `ginko-cms push --check` reports them
+safe. Content-incompatible changes must use the bounded owner-only contract
+transition workflow; do not clear CMS tables to force a push through.
+
+For a transition, explicitly unpublish affected live entries, then stage,
+inspect, apply, and atomically activate the exact run:
+
+```bash
+pnpm exec ginko-cms contract transition stage ginko/transitions/<file>.ts --yes
+pnpm exec ginko-cms contract transition status <run-id>
+pnpm exec ginko-cms contract transition apply <run-id> --yes
+pnpm exec ginko-cms contract transition activate <run-id> --yes
+```
+
+Studio writes remain locked from staging through activation. A run can be
+cancelled only before apply begins; after that point it is resume-only.
 
 For disposable local development only, a full CMS content reset is acceptable
 after confirming the data can be discarded. Keep auth/member state separate
 unless the test requires a completely fresh deployment.
 
-For the user-facing workflow, safe/unsafe change matrix, migration recipes, and
-recovery notes, see
+For the user-facing workflow, safe/unsafe change matrix, transition recipes,
+and recovery notes, see
 [Changing collections](../guides/changing-collections.md),
-[Migration recipes](../guides/migrations/recipes.md), and
-[Migration recovery](../guides/migrations/recovery.md). For backup semantics,
+[Contract transition recipes](../guides/migrations/recipes.md), and
+[Contract transition recovery](../guides/migrations/recovery.md). For recovery boundaries,
 see [Backup and recovery](./backup-and-recovery.md).

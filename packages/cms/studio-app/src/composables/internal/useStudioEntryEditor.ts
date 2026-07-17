@@ -85,6 +85,7 @@ function createStudioEntryEditorContextBase() {
     canArchiveEntries: loader.canArchiveEntries,
     saving: draft.saving,
     error: draft.error,
+    hydratedDraftVersion: draft.lastHydratedVersion,
     isDirty: draft.isDirty,
     form: draft.form,
     handleSaveDraft: draft.handleSaveDraft,

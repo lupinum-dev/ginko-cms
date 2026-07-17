@@ -3,8 +3,9 @@ import { Trash2 } from '@lucide/vue'
 import { computed, ref } from 'vue'
 
 import { useCmsI18n } from '../../../composables/useCmsI18n'
+import { fieldDisplayLabel, humanizeFieldKey } from '../../../lib/fieldLabel'
 import type { FieldContext, FieldDefinition } from './useFieldCommon'
-import { asFieldContext, createDefaultRecord, formatLabel } from './useFieldCommon'
+import { asFieldContext, createDefaultRecord } from './useFieldCommon'
 
 type BlockItem = {
   type: string
@@ -52,6 +53,11 @@ const blockItems = computed<BlockItem[]>(() =>
 )
 const blockTypeToAdd = ref('')
 const collapsedItems = ref(new Set<number>())
+
+function blockTypeLabel(type: string): string {
+  const nested = nestedFields.value.find((candidate) => candidate.key === type)
+  return nested ? fieldDisplayLabel(nested) : humanizeFieldKey(type)
+}
 
 function toggleItemCollapse(index: number) {
   const next = new Set(collapsedItems.value)
@@ -125,7 +131,7 @@ function removeBlock(index: number) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="block in nestedFields" :key="block.key" :value="block.key">
-              {{ block.label ?? formatLabel(block.key) }}
+              {{ fieldDisplayLabel(block) }}
             </SelectItem>
           </SelectContent>
         </Select>
@@ -152,7 +158,7 @@ function removeBlock(index: number) {
               class="ginko:size-3 ginko:text-muted-foreground"
             />
             <Badge variant="outline">
-              {{ nestedFields.find((field2) => field2.key === block.type)?.label ?? block.type }}
+              {{ blockTypeLabel(block.type) }}
             </Badge>
           </Button>
           <Button v-if="!disabled" variant="ghost" size="sm" @click="removeBlock(index)">

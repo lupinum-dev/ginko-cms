@@ -105,7 +105,9 @@ export const studioRouteSectionOrder: StudioRouteSection[] = [
 
 export function studioRouteHref(studioRoute: string, route: StudioStaticRoute): string {
   const base = studioRoute.replace(/\/$/, '')
-  return route.path ? `${base}/${route.path}` : base
+  // Inside the SPA `studioRoute` is '' (the router base owns the prefix), so
+  // the Home entry must resolve to '/' — an empty `to` would be a self-link.
+  return route.path ? `${base}/${route.path}` : base || '/'
 }
 
 export function studioRoutesForSection(section: StudioRouteSection): StudioStaticRoute[] {

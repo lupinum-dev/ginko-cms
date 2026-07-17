@@ -148,7 +148,7 @@ describe('CMS portable draft import planning', () => {
 
   it('rejects an import whose distinct locale count exceeds the operational envelope', async () => {
     const { contract, document } = fixture()
-    const documents = Array.from({ length: 101 }, (_, index) => ({
+    const documents = Array.from({ length: 4 }, (_, index) => ({
       file: `content/posts/hello/locale-${index}.md`,
       bytes: new Uint8Array(),
       document: {
@@ -191,7 +191,58 @@ describe('CMS portable draft import planning', () => {
           currentDraftSha256ByItemKey,
         },
       ),
-    ).rejects.toThrow(/locale count exceeds 100/i)
+    ).rejects.toThrow(/locale count exceeds 3/i)
+  })
+
+  it('rejects document and asset limit-plus-one bundles before planning work begins', async () => {
+    const { contract, document } = fixture()
+    const baseBundle = {
+      contract,
+      manifest: {
+        format: 'ginko-content-portable' as const,
+        version: 1 as const,
+        contract: { file: '.ginko/content-contract.json' as const, sha256: 'b'.repeat(64) },
+        documents: [],
+        assets: [],
+      },
+    }
+    const options = {
+      deploymentId: 'deployment-test',
+      targetContractSha256: await hashCanonicalJson(contract),
+      currentDraftSha256ByItemKey: new Map<string, null>(),
+    }
+
+    await expect(
+      createPortableDraftImportPlan(
+        {
+          ...baseBundle,
+          documents: Array.from({ length: 5_001 }, (_, index) => ({
+            file: `content/posts/${index}/en.md`,
+            bytes: new Uint8Array(),
+            document: { ...document, canonicalKey: String(index), slug: String(index) },
+          })),
+          assets: [],
+        },
+        options,
+      ),
+    ).rejects.toThrow(/document count exceeds 5000/i)
+
+    await expect(
+      createPortableDraftImportPlan(
+        {
+          ...baseBundle,
+          documents: [],
+          assets: Array.from({ length: 501 }, (_, index) => ({
+            sha256: index.toString(16).padStart(64, '0'),
+            file: `public/ginko-assets/${index}.png`,
+            bytes: 1,
+            mediaType: 'image/png' as const,
+            content: new Uint8Array([0]),
+          })),
+        },
+        options,
+      ),
+    ).rejects.toThrow(/asset count exceeds 500/i)
   })
 
   it('discovers MDC assets and deterministically plans upload, reuse, and metadata conflicts', async () => {

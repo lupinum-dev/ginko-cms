@@ -28,6 +28,8 @@
 const { page: post, status, error: loadError } = await useContentPage('blog')
 const pending = computed(() => status.value === 'pending')
 
+useCmsSeoAlternates(post)
+
 if (import.meta.server) {
   throwPublicContentFailure(loadError.value, 'This post is temporarily unavailable.')
   if (!post.value) setResponseStatus(404)

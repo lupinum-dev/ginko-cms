@@ -11,14 +11,16 @@ diagnostics, not in the primary editing path.
 ## Rules
 
 - Collection definitions live in application code.
-- Studio inspects collection contracts synced from code.
+- Studio inspects only the installed `cmsContract` resolved from code.
 - Studio edits content, localized content, routes, SEO, navigation placement, assets, drafts, versions, and publish state.
 - Studio does not create, update, delete, import, or reorder collection schema.
 - MCP follows the same rule: agents may inspect contracts and operate content workflows, but they do not mutate schema or config.
-- Filesystem import applies content under existing code-defined contracts.
+- Owner-CLI portability imports apply content under the installed code-defined
+  contract.
 - Unknown collections, unknown fields, unresolved assets, and unresolved relations are reported as blockers or warnings. They never create schema implicitly.
 - Public website reads use active public-output rows only.
-- Draft saves, import previews, and readiness previews never change public output.
+- Draft saves, CLI portability plans, and readiness previews never change public
+  output.
 - Publishing creates immutable published versions and activates public output atomically.
 
 ## What Studio Owns
@@ -35,8 +37,10 @@ Studio owns editor-facing workflows:
 - inspect delegated agent runs and review requests
 - approve or reject review-gated agent public-output changes when the current
   role allows it
-- inspect import runs and apply content imports under existing contracts
 - inspect active public-output state
+
+Filesystem portability is intentionally outside Studio. Owners validate, plan,
+apply, inspect, and resume bounded content imports through the CLI.
 
 ## What Code Owns
 
@@ -52,7 +56,10 @@ Application code owns content contracts:
 - public profiles
 - search, sort, filter, sitemap, and navigation flags
 
-When the code contract changes, the host app syncs a read-only contract snapshot into Convex. Studio then shows the new contract state and reports drift for stored content.
+When the code contract changes, the host app installs one read-only
+`cmsContract` with separate content and presentation hashes. Studio shows the
+installed state and mismatch diagnostics; a mismatch remains readable but
+blocks editorial writes.
 
 ## Editor Mental Model
 

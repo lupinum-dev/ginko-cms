@@ -31,6 +31,8 @@ import type { Doc } from '../_generated/dataModel.js'
 import { internalMutation } from '../_generated/server.js'
 import { canManagePortability } from '../auth/checks.js'
 import { callerMutation, callerQuery } from '../functions.js'
+import { getCollection } from '../lib/collections.js'
+import { readInstalledCmsContract } from '../lib/installedContract.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { portablePublishedDocument } from './items.js'
 import {
@@ -145,22 +147,16 @@ export const createExportRun = callerMutation.protected({
     ) {
       throw new Error('Portable export scope is invalid.')
     }
-    const policy = await ctx.db
-      .query('cmsPolicies')
-      .withIndex('by_key', (query) => query.eq('key', 'active'))
-      .unique()
-    if (!policy || policy.contractSha256 !== args.sourceContractSha256) {
+    const installed = await readInstalledCmsContract(ctx)
+    if (!installed || installed.record.contentHash !== args.sourceContractSha256) {
       throw new Error('Portable export source contract does not match the installed contract.')
     }
-    const contract = assertResolvedContentContract(policy.contract)
+    const contract = installed.content
     for (const slug of args.scope.collections) {
       if (!contract.collections[slug]) {
         throw new Error(`Portable export collection "${slug}" is absent from the contract.`)
       }
-      const collection = await ctx.db
-        .query('collections')
-        .withIndex('by_slug', (query) => query.eq('slug', slug))
-        .unique()
+      const collection = await getCollection(ctx, slug)
       if (!collection) throw new Error(`Portable export collection "${slug}" is not installed.`)
     }
     const payload = {
@@ -232,7 +228,7 @@ export const createExportRun = callerMutation.protected({
       deploymentId: args.deploymentId,
       scope: args.scope,
       sourceContractSha256: args.sourceContractSha256,
-      sourceContract: policy.contract as JsonMap,
+      sourceContract: installed.record.content as JsonMap,
       documentCount: 0,
       assetCount: 0,
       capturePosition: {
@@ -287,10 +283,7 @@ export const captureExportPage = callerMutation.protected({
       await scheduleLeaseExpiry(ctx, run.runId, run.leaseGeneration, leaseExpiresAt)
       return { captured: 0, complete: true }
     }
-    const collection = await ctx.db
-      .query('collections')
-      .withIndex('by_slug', (query) => query.eq('slug', collectionSlug))
-      .unique()
+    const collection = await getCollection(ctx, collectionSlug)
     if (!collection) throw new Error('Portable export collection disappeared during capture.')
     const locale = collection.locales[position.localeIndex]
     if (!locale) {
@@ -313,7 +306,7 @@ export const captureExportPage = callerMutation.protected({
     const ordered = ctx.db
       .query('publicEntries')
       .withIndex('by_collection_locale_orderKey_entry', (query) =>
-        query.eq('collectionId', collection._id).eq('locale', locale),
+        query.eq('collection', collection.slug).eq('locale', locale),
       )
     const fetched = await (position.orderKey !== null && position.entryId !== null
       ? ordered
@@ -337,7 +330,7 @@ export const captureExportPage = callerMutation.protected({
       }
       const entry = await ctx.db.get(row.entryId)
       if (!entry) throw new Error('Portable export entry disappeared during capture.')
-      const canonicalKey = entry.stableId ?? entry.baseSlug
+      const canonicalKey = entry.stableId
       const document = await portablePublishedDocument(ctx, {
         revisionId: row.revisionId,
         collection: collectionSlug,

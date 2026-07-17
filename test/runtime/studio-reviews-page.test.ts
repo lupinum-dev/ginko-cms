@@ -197,6 +197,35 @@ const pendingReviews = vi.hoisted(() => [
   },
 ])
 
+const recentOutcomes = vi.hoisted(() => [
+  {
+    _id: 'outcome-1',
+    entryId: 'entry-9',
+    status: 'rejected' as const,
+    title: 'Spring newsletter page',
+    locales: ['en'],
+    expectedVersion: 3,
+    createdAt: 10,
+    reviewedBy: 'publisher-1',
+    reviewedByLabel: 'Pat Publisher',
+    reviewedAt: 20,
+    reviewFeedback: 'Please add the campaign date before the next review.',
+  },
+  {
+    _id: 'outcome-2',
+    entryId: 'entry-8',
+    status: 'approved' as const,
+    title: 'Careers page refresh',
+    locales: ['en'],
+    expectedVersion: 2,
+    createdAt: 5,
+    reviewedBy: 'publisher-1',
+    reviewedByLabel: 'Pat Publisher',
+    reviewedAt: 15,
+    reviewFeedback: null,
+  },
+])
+
 const messages = vi.hoisted<Record<string, string>>(() => ({
   'ginkoCms.common.cancel': 'Cancel',
   'ginkoCms.studio.layout.publishing': 'Publishing',
@@ -274,6 +303,17 @@ const messages = vi.hoisted<Record<string, string>>(() => ({
   'ginkoCms.studio.reviewsPage.publishImpact': 'Website changes',
   'ginkoCms.studio.reviewsPage.readyDecision': 'Ready to approve and publish.',
   'ginkoCms.studio.reviewsPage.rejectButton': 'Reject',
+  'ginkoCms.studio.reviewsPage.rejectDialogTitle': 'Reject this request?',
+  'ginkoCms.studio.reviewsPage.rejectConfirmButton': 'Reject request',
+  'ginkoCms.studio.reviewsPage.rejectFeedbackLabel': 'Feedback for the editor',
+  'ginkoCms.studio.reviewsPage.rejectFeedbackPlaceholder':
+    'What should change before the next review?',
+  'ginkoCms.studio.reviewsPage.rejectFeedbackHint':
+    'Optional, but it helps: the editor sees this next to the entry.',
+  'ginkoCms.studio.reviewsPage.recentOutcomesTitle': 'Recent decisions',
+  'ginkoCms.studio.reviewsPage.outcomeApproved': 'Approved',
+  'ginkoCms.studio.reviewsPage.outcomeChangesRequested': 'Changes requested',
+  'ginkoCms.studio.reviewsPage.outcomeReviewedBy': '{name} ·',
   'ginkoCms.studio.reviewsPage.requested': 'Requested',
   'ginkoCms.studio.reviewsPage.requestedBy': 'Requested by',
   'ginkoCms.studio.reviewsPage.requestPreparedList': 'What is ready for review',
@@ -309,6 +349,7 @@ vi.mock('../../packages/cms/studio-app/src/boundary/api', () => ({
       reviewRequests: {
         approveReview: 'approveReview',
         listPendingReviews: 'listPendingReviews',
+        listRecentReviewOutcomes: 'listRecentReviewOutcomes',
         rejectReview: 'rejectReview',
       },
     },
@@ -343,22 +384,23 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () =
 }))
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () => ({
-  useCmsStudioQuery: () => ({
-    data: ref(pendingReviews),
+  useCmsStudioQuery: (query: unknown) => ({
+    data: ref(query === 'listRecentReviewOutcomes' ? recentOutcomes : pendingReviews),
     error: ref(null),
     pending: ref(false),
     refresh: vi.fn(),
   }),
 }))
 
+const mutationMocks = vi.hoisted<Record<string, ReturnType<typeof vi.fn>>>(() => ({}))
+
 vi.mock('../../packages/cms/studio-app/src/composables/useStudioConvex', () => ({
-  useConvexMutation: () =>
-    Object.assign(
-      vi.fn(async () => undefined),
-      {
-        pending: ref(false),
-      },
-    ),
+  useConvexMutation: (fn: string) => {
+    mutationMocks[fn] ??= vi.fn(async () => undefined)
+    return Object.assign(mutationMocks[fn], {
+      pending: ref(false),
+    })
+  },
 }))
 
 vi.mock('@public/utils/cmsErrors', () => ({
@@ -376,6 +418,14 @@ function stubs() {
         '<button type="button" :disabled="disabled" v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
     }),
     Dialog: { props: { open: Boolean }, template: '<div v-if="open"><slot /></div>' },
+    Label: { template: '<label v-bind="$attrs"><slot /></label>' },
+    Textarea: defineComponent({
+      inheritAttrs: false,
+      props: { modelValue: String },
+      emits: ['update:modelValue'],
+      template:
+        '<textarea v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+    }),
     DialogContent: { template: '<div><slot /></div>' },
     DialogDescription: { template: '<p><slot /></p>' },
     DialogFooter: { template: '<footer><slot /></footer>' },
@@ -438,5 +488,38 @@ describe('Studio reviews page', () => {
     expect(wrapper.text()).toContain(
       'Check the assistant summary against the brief before approving.',
     )
+  })
+
+  it('lists recent decisions with reviewer feedback below the pending queue (PUB-06)', () => {
+    const wrapper = mountReviewsPage()
+
+    expect(wrapper.text()).toContain('Recent decisions')
+    expect(wrapper.text()).toContain('Changes requested')
+    expect(wrapper.text()).toContain('Spring newsletter page')
+    expect(wrapper.text()).toContain('Please add the campaign date before the next review.')
+    expect(wrapper.text()).toContain('Approved')
+    expect(wrapper.text()).toContain('Careers page refresh')
+    expect(wrapper.text()).toContain('Pat Publisher')
+  })
+
+  it('sends optional reviewer feedback with the rejection', async () => {
+    const wrapper = mountReviewsPage()
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Reject')!
+      .trigger('click')
+    expect(wrapper.text()).toContain('Feedback for the editor')
+
+    await wrapper.find('#rejection-feedback').setValue('Shorten the headline first.')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Reject request')!
+      .trigger('click')
+
+    expect(mutationMocks.rejectReview).toHaveBeenCalledWith({
+      reviewRequestId: 'review-1',
+      feedback: 'Shorten the headline first.',
+    })
   })
 })

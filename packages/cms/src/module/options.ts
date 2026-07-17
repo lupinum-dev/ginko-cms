@@ -102,6 +102,21 @@ export interface ModuleOptions {
    * registration.
    */
   mcp?: boolean
+  /**
+   * Draft preview wiring (EDT-10). The host app owns the preview page; the
+   * convention is a session-guarded, noindex route at
+   * `<route>/[collection]/[entryId]?locale=<code>` that renders the guarded
+   * `api.ginkoCms.draftPreview.getDraftPreview` result with the site's own
+   * body renderer. Studio links "Preview draft" there.
+   *
+   * Set `route: null` to hide draft-preview links in Studio when the host has
+   * no preview page.
+   *
+   * @default { route: '/preview' }
+   */
+  preview?: {
+    route?: string | null
+  }
 }
 
 /**

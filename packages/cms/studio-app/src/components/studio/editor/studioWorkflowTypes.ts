@@ -162,6 +162,22 @@ export function diagnosticLabel(code: string) {
   return DIAGNOSTIC_LABELS[code] ?? 'Website issue'
 }
 
+// Publish-preview review states arrive as machine codes; the badge label maps
+// through these collectionEditor keys instead of rendering the raw code.
+const PREVIEW_STATE_LABEL_KEYS: Record<string, string> = {
+  not_previewed: 'publishPreviewStateNotPreviewed',
+  pending: 'publishPreviewStatePending',
+  blocked: 'publishPreviewStateBlocked',
+  failed: 'publishPreviewStateFailed',
+  stale: 'publishPreviewStateStale',
+  expired: 'publishPreviewStateExpired',
+}
+
+export function publishReviewStateLabelKey(state: string | null | undefined): string | null {
+  if (!state) return null
+  return PREVIEW_STATE_LABEL_KEYS[state] ?? null
+}
+
 export function statusToneClass(status: string | null | undefined) {
   if (!status) return ''
   if (['blocked', 'collision', 'error', 'failed', 'missing', 'not_publishable'].includes(status)) {

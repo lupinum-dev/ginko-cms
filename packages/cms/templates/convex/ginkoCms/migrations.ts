@@ -1,86 +1,106 @@
 // @ts-nocheck - Component-internal maintenance functions are intentionally
-// absent from the public ComponentApi type. These host-internal wrappers are
-// reached only by the deploy-key authenticated ginko-cms migrate CLI.
-import {
-  jsonObjectValidator,
-  jsonValueValidator,
-} from '@lupinum/ginko-cms-contract/convex/validators.js'
+// absent from the public ComponentApi type. Only the deploy-key authenticated
+// owner CLI can invoke these host-internal wrappers.
+import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { internalMutation, internalQuery } from '../_generated/server.js'
 
-const contentMigrationLocaleValidator = v.union(
-  v.object({
-    values: jsonObjectValidator,
-    bodyMdc: v.optional(v.union(v.string(), v.null())),
-  }),
+const nodeKindValidator = v.union(
+  v.literal('page'),
+  v.literal('folder'),
+  v.literal('group'),
+  v.literal('section'),
   v.null(),
 )
 
-const contentMigrationEntryValidator = v.object({
-  collection: v.string(),
-  entryId: v.string(),
-  stableId: v.union(v.string(), v.null()),
-  draftVersion: v.number(),
+const transitionOutputValidator = v.object({
+  slug: v.string(),
+  parentEntryId: v.union(v.string(), v.null()),
+  orderRank: v.string(),
+  nodeKind: nodeKindValidator,
   shared: jsonObjectValidator,
-  locales: v.record(v.string(), contentMigrationLocaleValidator),
+  locales: v.record(
+    v.string(),
+    v.object({
+      slug: v.union(v.string(), v.null()),
+      values: jsonObjectValidator,
+      bodyMdc: v.string(),
+    }),
+  ),
 })
 
-export const beginContentMigration = internalMutation({
+export const beginContractTransition = internalMutation({
   args: {
-    migrationId: v.string(),
-    sourceHash: v.string(),
-    toContractHash: v.string(),
+    runKey: v.string(),
+    targetContent: jsonObjectValidator,
+    targetContentHash: v.string(),
+    actor: v.string(),
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.migrations.beginContentMigration, args as never),
+    await ctx.runMutation(components.ginkoCms.migrations.beginContractTransition, args as never),
 })
 
-export const listContentMigrationEntries = internalQuery({
-  args: {
-    collection: v.string(),
-    cursor: v.union(v.string(), v.null()),
-    limit: v.optional(v.number()),
-    runId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.migrations.listContentMigrationEntries, args as never),
-})
-
-export const applyContentMigrationBatch = internalMutation({
+export const listContractTransitionPage = internalQuery({
   args: {
     runId: v.string(),
-    cursor: v.string(),
-    entries: v.array(
+    cursor: v.union(v.string(), v.null()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.migrations.listContractTransitionPage, args as never),
+})
+
+export const stageContractTransitionPage = internalMutation({
+  args: {
+    runId: v.string(),
+    cursor: v.union(v.string(), v.null()),
+    limit: v.optional(v.number()),
+    items: v.array(
       v.object({
+        entryId: v.string(),
+        inputDraftVersion: v.number(),
         inputHash: v.string(),
         outputHash: v.string(),
-        entry: contentMigrationEntryValidator,
+        output: transitionOutputValidator,
       }),
     ),
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.migrations.applyContentMigrationBatch, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.migrations.stageContractTransitionPage,
+      args as never,
+    ),
 })
 
-export const finalizeContentMigration = internalMutation({
+export const applyContractTransitionPage = internalMutation({
   args: {
     runId: v.string(),
-    contract: jsonValueValidator,
-    contractSha256: v.string(),
-    publicStrategy: v.union(v.literal('preserve'), v.literal('rebuild'), v.literal('unpublish')),
+    limit: v.optional(v.number()),
+    actor: v.string(),
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.migrations.finalizeContentMigration, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.migrations.applyContractTransitionPage,
+      args as never,
+    ),
 })
 
-export const activateContentMigration = internalMutation({
-  args: {
-    runId: v.string(),
-    contract: jsonValueValidator,
-    contractSha256: v.string(),
-  },
+export const activateContractTransition = internalMutation({
+  args: { runId: v.string(), actor: v.string() },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.migrations.activateContentMigration, args as never),
+    await ctx.runMutation(components.ginkoCms.migrations.activateContractTransition, args as never),
+})
+
+export const cancelContractTransition = internalMutation({
+  args: { runId: v.string() },
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.migrations.cancelContractTransition, args as never),
+})
+
+export const getContractTransitionStatus = internalQuery({
+  args: { runId: v.string() },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.migrations.getContractTransitionStatus, args as never),
 })

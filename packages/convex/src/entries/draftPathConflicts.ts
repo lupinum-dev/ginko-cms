@@ -45,25 +45,15 @@ export async function assertNoDraftSiblingPathConflict(
       ? args.parentEntryId
       : effectiveDraftParent(args.entry, movingShared)
 
-  const [canonicalSiblings, draftMoveIns] = await Promise.all([
-    ctx.db
-      .query('entries')
-      .withIndex('by_parent', (q) =>
-        q.eq('collectionId', args.collection._id).eq('parentEntryId', targetParent),
-      )
-      .collect(),
-    ctx.db
-      .query('entryDrafts')
-      .withIndex('by_parent_override', (q) => q.eq('parentEntryId', targetParent))
-      .collect(),
-  ])
+  const canonicalSiblings = await ctx.db
+    .query('entries')
+    .withIndex('by_parent', (q) =>
+      q.eq('collection', args.collection.slug).eq('parentEntryId', targetParent),
+    )
+    .collect()
 
   const candidates = new Map<string, EntryDoc>()
   for (const sibling of canonicalSiblings) candidates.set(String(sibling._id), sibling)
-  const moveInEntries = await Promise.all(draftMoveIns.map((moveIn) => ctx.db.get(moveIn.entryId)))
-  for (const entry of moveInEntries) {
-    if (entry?.collectionId === args.collection._id) candidates.set(String(entry._id), entry)
-  }
   candidates.delete(String(args.entry._id))
 
   const candidateDrafts = await Promise.all(

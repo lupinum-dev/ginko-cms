@@ -2,74 +2,91 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
+import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { createJiti } from 'jiti'
 
 import { loadGinkoContentContract } from '../module/content-contract.js'
-import {
-  type CliIo,
-  type ConvexClientFactory,
-  hasFlag,
-  readFlag,
-  stableJson,
-  usage,
-  write,
-} from './args.js'
+import { type CliIo, type ConvexClientFactory, hasFlag, usage, write } from './args.js'
 import { deployKey, publicConvexUrl } from './env.js'
 
-type ContentMigrationLocale = {
-  values: Record<string, unknown>
-  bodyMdc?: string | null
-} | null
+type NodeKind = 'page' | 'folder' | 'group' | 'section' | null
 
-type ContentMigrationEntry = {
-  collection: string
-  entryId: string
-  stableId: string | null
-  draftVersion: number
-  shared: Record<string, unknown>
-  locales: Record<string, ContentMigrationLocale>
+type TransitionLocaleInput = {
+  slug: string | null
+  values: Record<string, unknown>
+  bodyMdc: string
+  version: number
 }
 
-type ContentMigration = {
+type TransitionInput = {
+  entryId: string
+  collection: string
+  stableId: string
+  lifecycle: 'active' | 'archived'
+  draftVersion: number
+  sharedVersion: number
+  slug: string
+  parentEntryId: string | null
+  orderRank: string
+  nodeKind: NodeKind
+  shared: Record<string, unknown>
+  locales: Record<string, TransitionLocaleInput>
+}
+
+type TransitionLocaleOutput = {
+  slug: string | null
+  values: Record<string, unknown>
+  bodyMdc: string
+}
+
+type TransitionOutput = {
+  slug: string
+  parentEntryId: string | null
+  orderRank: string
+  nodeKind: NodeKind
+  shared: Record<string, unknown>
+  locales: Record<string, TransitionLocaleOutput>
+}
+
+type ContractTransition = {
   id: string
   sourceHash: string
-  collections: string[]
-  up(entry: ContentMigrationEntry): ContentMigrationEntry | Promise<ContentMigrationEntry>
+  up(entry: TransitionInput): TransitionOutput | Promise<TransitionOutput>
 }
 
-type ContentMigrationEntryPage = {
-  page: ContentMigrationEntry[]
+type TransitionPage = {
+  page: Array<{
+    entryId: string
+    inputDraftVersion: number
+    inputHash: string
+    current: TransitionInput
+  }>
   isDone: boolean
-  continueCursor: string | null
+  continueCursor: string
 }
 
-type PlannedChange = {
-  before: ContentMigrationEntry
-  after: ContentMigrationEntry
-  paths: string[]
-  inputHash: string
-  outputHash: string
+type TransitionStatus = {
+  runKey: string
+  state: string
+  fromContentHash: string
+  toContentHash: string
+  stagedCount: number
+  appliedCount: number
+  pendingCount: number
+  lockActive: boolean
+  cursor: string | null
 }
 
-type PlannedError = {
-  collection: string
-  entryId: string
-  message: string
-}
+const OUTPUT_KEYS = new Set(['slug', 'parentEntryId', 'orderRank', 'nodeKind', 'shared', 'locales'])
+const LOCALE_OUTPUT_KEYS = new Set(['slug', 'values', 'bodyMdc'])
+const PAGE_SIZE = 50
+const APPLY_PAGE_SIZE = 25
+const ACTOR = 'owner-cli'
 
-type MigrationPlan = {
-  migration: ContentMigration
-  scanned: number
-  unchanged: number
-  changes: PlannedChange[]
-  errors: PlannedError[]
-  runId?: string
-}
-
-function migrationSlug(input: string) {
+function transitionSlug(input: string) {
   return input
     .trim()
     .toLowerCase()
@@ -77,26 +94,62 @@ function migrationSlug(input: string) {
     .replace(/^-+|-+$/g, '')
 }
 
-function migrationDate() {
+function transitionDate() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function migrationTemplate(id: string) {
-  return `type ContentMigrationEntry = {
-  collection: string
+function transitionTemplate(id: string) {
+  return `type TransitionInput = {
   entryId: string
-  stableId: string | null
+  collection: string
+  stableId: string
+  lifecycle: 'active' | 'archived'
   draftVersion: number
+  sharedVersion: number
+  slug: string
+  parentEntryId: string | null
+  orderRank: string
+  nodeKind: 'page' | 'folder' | 'group' | 'section' | null
   shared: Record<string, unknown>
-  locales: Record<string, { values: Record<string, unknown>; bodyMdc?: string | null } | null>
+  locales: Record<string, {
+    slug: string | null
+    values: Record<string, unknown>
+    bodyMdc: string
+    version: number
+  }>
+}
+
+type TransitionOutput = {
+  slug: string
+  parentEntryId: string | null
+  orderRank: string
+  nodeKind: 'page' | 'folder' | 'group' | 'section' | null
+  shared: Record<string, unknown>
+  locales: Record<string, {
+    slug: string | null
+    values: Record<string, unknown>
+    bodyMdc: string
+  }>
 }
 
 export default {
   id: '${id}',
-  collections: [],
 
-  async up(entry: ContentMigrationEntry): Promise<ContentMigrationEntry> {
-    return entry
+  async up(entry: TransitionInput): Promise<TransitionOutput> {
+    return {
+      slug: entry.slug,
+      parentEntryId: entry.parentEntryId,
+      orderRank: entry.orderRank,
+      nodeKind: entry.nodeKind,
+      shared: entry.shared,
+      locales: Object.fromEntries(
+        Object.entries(entry.locales).map(([locale, value]) => [locale, {
+          slug: value.slug,
+          values: value.values,
+          bodyMdc: value.bodyMdc,
+        }]),
+      ),
+    }
   },
 }
 `
@@ -106,432 +159,322 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+function cloneInput(input: TransitionInput): TransitionInput {
+  return JSON.parse(JSON.stringify(input)) as TransitionInput
+}
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error)
 }
 
-function cloneEntry(entry: ContentMigrationEntry): ContentMigrationEntry {
-  return JSON.parse(JSON.stringify(entry)) as ContentMigrationEntry
+function assertExactKeys(value: Record<string, unknown>, allowed: Set<string>, context: string) {
+  const extra = Object.keys(value).filter((key) => !allowed.has(key))
+  if (extra.length)
+    throw new Error(`${context} returned unsupported keys: ${extra.sort().join(', ')}.`)
 }
 
-function sortedUnique(values: string[]) {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right))
-}
-
-function assertContentMigrationEntry(
-  value: unknown,
-  context: string,
-): asserts value is ContentMigrationEntry {
-  if (!isRecord(value)) throw new TypeError(`${context} must return an entry object.`)
-  if (typeof value.collection !== 'string')
-    throw new TypeError(`${context} returned invalid collection.`)
-  if (typeof value.entryId !== 'string') throw new TypeError(`${context} returned invalid entryId.`)
-  if (typeof value.draftVersion !== 'number') {
-    throw new TypeError(`${context} returned invalid draftVersion.`)
+function assertTransitionOutput(value: unknown, context: string): TransitionOutput {
+  if (!isRecord(value)) throw new TypeError(`${context} must return an object.`)
+  assertExactKeys(value, OUTPUT_KEYS, context)
+  if (typeof value.slug !== 'string') throw new TypeError(`${context} returned an invalid slug.`)
+  if (value.parentEntryId !== null && typeof value.parentEntryId !== 'string') {
+    throw new TypeError(`${context} returned an invalid parentEntryId.`)
   }
-  if (value.stableId !== null && typeof value.stableId !== 'string') {
-    throw new TypeError(`${context} returned invalid stableId.`)
+  if (typeof value.orderRank !== 'string') {
+    throw new TypeError(`${context} returned an invalid orderRank.`)
+  }
+  if (
+    value.nodeKind !== null &&
+    value.nodeKind !== 'page' &&
+    value.nodeKind !== 'folder' &&
+    value.nodeKind !== 'group' &&
+    value.nodeKind !== 'section'
+  ) {
+    throw new TypeError(`${context} returned an invalid nodeKind.`)
   }
   if (!isRecord(value.shared)) throw new TypeError(`${context} returned invalid shared values.`)
   if (!isRecord(value.locales)) throw new TypeError(`${context} returned invalid locales.`)
 
-  for (const [locale, snapshot] of Object.entries(value.locales)) {
-    if (snapshot === null) continue
-    if (!isRecord(snapshot)) {
-      throw new TypeError(`${context} returned invalid locale snapshot for "${locale}".`)
+  const locales: Record<string, TransitionLocaleOutput> = {}
+  for (const [locale, candidate] of Object.entries(value.locales)) {
+    if (!isRecord(candidate)) throw new TypeError(`${context} returned invalid locale ${locale}.`)
+    assertExactKeys(candidate, LOCALE_OUTPUT_KEYS, `${context} locale ${locale}`)
+    if (candidate.slug !== null && typeof candidate.slug !== 'string') {
+      throw new TypeError(`${context} returned an invalid locale slug for ${locale}.`)
     }
-    if (!isRecord(snapshot.values)) {
-      throw new TypeError(`${context} returned invalid locale values for "${locale}".`)
+    if (!isRecord(candidate.values)) {
+      throw new TypeError(`${context} returned invalid locale values for ${locale}.`)
     }
-    if (
-      snapshot.bodyMdc !== undefined &&
-      snapshot.bodyMdc !== null &&
-      typeof snapshot.bodyMdc !== 'string'
-    ) {
-      throw new TypeError(`${context} returned invalid bodyMdc for "${locale}".`)
+    if (typeof candidate.bodyMdc !== 'string') {
+      throw new TypeError(`${context} returned an invalid locale body for ${locale}.`)
     }
-  }
-}
-
-function assertMigrationOutput(
-  before: ContentMigrationEntry,
-  after: unknown,
-): ContentMigrationEntry {
-  assertContentMigrationEntry(after, `Migration ${before.collection}/${before.entryId}`)
-
-  const immutableKeys = ['collection', 'entryId', 'stableId', 'draftVersion'] as const
-  for (const key of immutableKeys) {
-    if (after[key] !== before[key]) {
-      throw new Error(`Migration cannot change ${key} for ${before.collection}/${before.entryId}.`)
+    locales[locale] = {
+      slug: candidate.slug,
+      values: candidate.values,
+      bodyMdc: candidate.bodyMdc,
     }
   }
 
-  return after
+  return {
+    slug: value.slug,
+    parentEntryId: value.parentEntryId,
+    orderRank: value.orderRank,
+    nodeKind: value.nodeKind,
+    shared: value.shared,
+    locales,
+  }
 }
 
-async function loadContentMigration(cwd: string, fileArg: string): Promise<ContentMigration> {
+function identityOutput(input: TransitionInput): TransitionOutput {
+  return {
+    slug: input.slug,
+    parentEntryId: input.parentEntryId,
+    orderRank: input.orderRank,
+    nodeKind: input.nodeKind,
+    shared: input.shared,
+    locales: Object.fromEntries(
+      Object.entries(input.locales).map(([locale, value]) => [
+        locale,
+        { slug: value.slug, values: value.values, bodyMdc: value.bodyMdc },
+      ]),
+    ),
+  }
+}
+
+async function loadContractTransition(cwd: string, fileArg: string): Promise<ContractTransition> {
   const file = resolve(cwd, fileArg)
-  if (!existsSync(file)) throw new Error(`Content migration file does not exist: ${file}`)
-
+  if (!existsSync(file)) throw new Error(`Contract transition file does not exist: ${file}`)
   const importer = createJiti(import.meta.url, { interopDefault: true })
   const loaded = await importer.import(file)
-  const migration = ((loaded as { default?: unknown }).default ??
-    loaded) as Partial<ContentMigration>
-
-  if (!isRecord(migration)) throw new TypeError(`Content migration must export an object: ${file}`)
-  if (typeof migration.id !== 'string' || migration.id.trim() === '') {
-    throw new TypeError(`Content migration must define a non-empty id: ${file}`)
+  const transition = ((loaded as { default?: unknown }).default ??
+    loaded) as Partial<ContractTransition>
+  if (!isRecord(transition))
+    throw new TypeError(`Contract transition must export an object: ${file}`)
+  if (typeof transition.id !== 'string' || !transition.id.trim()) {
+    throw new TypeError(`Contract transition must define a non-empty id: ${file}`)
   }
-  if (!Array.isArray(migration.collections)) {
-    throw new TypeError(`Content migration "${migration.id}" must define collections.`)
+  if (typeof transition.up !== 'function') {
+    throw new TypeError(`Contract transition "${transition.id}" must define up(entry).`)
   }
-  const collections = sortedUnique(
-    migration.collections.filter(
-      (collection): collection is string => typeof collection === 'string',
-    ),
-  )
-  if (collections.length === 0) {
-    throw new Error(`Content migration "${migration.id}" must list at least one collection.`)
-  }
-  if (typeof migration.up !== 'function') {
-    throw new TypeError(`Content migration "${migration.id}" must define an up(entry) function.`)
-  }
-
   return {
-    id: migration.id,
+    id: transition.id,
     sourceHash: createHash('sha256').update(readFileSync(file)).digest('hex'),
-    collections,
-    up: migration.up,
+    up: transition.up,
   }
 }
 
-function createMigrationClient(cwd: string, convexClientFactory: ConvexClientFactory) {
-  const client = convexClientFactory(publicConvexUrl(cwd))
+function createTransitionClient(cwd: string, factory: ConvexClientFactory) {
+  const client = factory(publicConvexUrl(cwd))
   if (!client.setAdminAuth) {
-    throw new Error('ginko-cms migrate requires a Convex client with admin auth support.')
+    throw new Error('ginko-cms contract transition requires Convex deploy-key authentication.')
   }
   client.setAdminAuth(deployKey(cwd))
-
-  return {
-    client,
-  }
+  return client
 }
 
-async function fetchCollectionEntries(
-  client: ReturnType<typeof createMigrationClient>['client'],
-  collection: string,
-  runId?: string,
-): Promise<ContentMigrationEntry[]> {
-  const entries: ContentMigrationEntry[] = []
-  let cursor: string | null = null
-
-  do {
-    const args = { collection, cursor, limit: 100, ...(runId ? { runId } : {}) }
-    const result = (await client.query(
-      anyApi.ginkoCms.migrations.listContentMigrationEntries,
-      args,
-    )) as ContentMigrationEntryPage
-    entries.push(...result.page)
-    cursor = result.continueCursor
-    if (result.isDone) break
-  } while (cursor !== null)
-
-  return entries
+async function readStatus(
+  client: ReturnType<typeof createTransitionClient>,
+  runId: string,
+): Promise<TransitionStatus> {
+  return (await client.query(anyApi.ginkoCms.migrations.getContractTransitionStatus, {
+    runId,
+  })) as TransitionStatus
 }
 
-async function buildMigrationPlan(
-  migration: ContentMigration,
-  client: ReturnType<typeof createMigrationClient>['client'],
-  runId?: string,
-): Promise<MigrationPlan> {
-  const plan: MigrationPlan = {
-    migration,
-    scanned: 0,
-    unchanged: 0,
-    changes: [],
-    errors: [],
-    ...(runId ? { runId } : {}),
-  }
-
-  for (const collection of migration.collections) {
-    const entries = await fetchCollectionEntries(client, collection, runId)
-    for (const before of entries) {
-      plan.scanned += 1
-      try {
-        const after = assertMigrationOutput(before, await migration.up(cloneEntry(before)))
-        if (stableJson(before) === stableJson(after)) {
-          plan.unchanged += 1
-          continue
-        }
-        plan.changes.push({
-          before,
-          after,
-          paths: changedValuePaths(before, after),
-          inputHash: await hashCanonicalJson(before),
-          outputHash: await hashCanonicalJson(after),
-        })
-      } catch (error) {
-        plan.errors.push({
-          collection: before.collection,
-          entryId: before.entryId,
-          message: errorMessage(error),
-        })
-      }
-    }
-  }
-
-  return plan
-}
-
-function diffRecordPaths(
-  prefix: string,
-  before: Record<string, unknown>,
-  after: Record<string, unknown>,
-  paths: string[],
-) {
-  const keys = sortedUnique([...Object.keys(before), ...Object.keys(after)])
-  for (const key of keys) {
-    const beforeValue = before[key]
-    const afterValue = after[key]
-    const path = `${prefix}.${key}`
-    if (stableJson(beforeValue) === stableJson(afterValue)) continue
-    if (isRecord(beforeValue) && isRecord(afterValue)) {
-      diffRecordPaths(path, beforeValue, afterValue, paths)
-    } else {
-      paths.push(path)
-    }
-  }
-}
-
-function changedValuePaths(before: ContentMigrationEntry, after: ContentMigrationEntry) {
-  const paths: string[] = []
-  diffRecordPaths('shared', before.shared, after.shared, paths)
-
-  for (const locale of sortedUnique([
-    ...Object.keys(before.locales),
-    ...Object.keys(after.locales),
-  ])) {
-    const beforeLocale = before.locales[locale]
-    const afterLocale = after.locales[locale]
-    if (beforeLocale === null && afterLocale === null) continue
-    if (beforeLocale === null || afterLocale === null) {
-      paths.push(`locales.${locale}`)
-      continue
-    }
-    diffRecordPaths(`locales.${locale}.values`, beforeLocale.values, afterLocale.values, paths)
-    if ((beforeLocale.bodyMdc ?? null) !== (afterLocale.bodyMdc ?? null)) {
-      paths.push(`locales.${locale}.bodyMdc`)
-    }
-  }
-
-  return paths
-}
-
-function formatMigrationPlan(plan: MigrationPlan) {
-  const lines = [
-    `Content migration plan: ${plan.migration.id}`,
-    `  collections: ${plan.migration.collections.join(', ')}`,
-    `  entries scanned: ${plan.scanned}`,
-    `  changed: ${plan.changes.length}`,
-    `  unchanged: ${plan.unchanged}`,
-    `  errors: ${plan.errors.length}`,
-  ]
-
-  if (plan.changes.length > 0) {
-    lines.push('', 'Sample changes:')
-    for (const change of plan.changes.slice(0, 5)) {
-      const paths = change.paths.slice(0, 8).join(', ') || 'entry changed'
-      lines.push(`  - ${change.after.collection}/${change.after.entryId}: ${paths}`)
-    }
-  }
-
-  if (plan.errors.length > 0) {
-    lines.push('', 'Errors:')
-    for (const error of plan.errors.slice(0, 10)) {
-      lines.push(`  - ${error.collection}/${error.entryId}: ${error.message}`)
-    }
-    if (plan.errors.length > 10) {
-      lines.push(`  - ${plan.errors.length - 10} more error(s) omitted`)
-    }
-  }
-
-  return `${lines.join('\n')}\n`
-}
-
-async function applyMigrationPlan(
-  plan: MigrationPlan,
-  client: ReturnType<typeof createMigrationClient>['client'],
-) {
-  if (!plan.runId) throw new Error('Content migration apply requires a durable run id.')
-  let changed = 0
-  let skipped = 0
-
-  for (let index = 0; index < plan.changes.length; index += 50) {
-    const changes = plan.changes.slice(index, index + 50)
-    const args = {
-      runId: plan.runId,
-      cursor: changes.at(-1)!.after.entryId,
-      entries: changes.map((change) => ({
-        inputHash: change.inputHash,
-        outputHash: change.outputHash,
-        entry: change.after,
-      })),
-    }
-    const result = (await client.mutation(
-      anyApi.ginkoCms.migrations.applyContentMigrationBatch,
-      args,
-    )) as { changed: number; skipped: number }
-    changed += result.changed
-    skipped += result.skipped
-  }
-
-  return { changed, skipped }
-}
-
-async function beginMigrationRun(
+async function beginAndStage(
   cwd: string,
-  migration: ContentMigration,
-  client: ReturnType<typeof createMigrationClient>['client'],
+  transition: ContractTransition,
+  client: ReturnType<typeof createTransitionClient>,
 ) {
-  const contract = await loadGinkoContentContract({ rootDir: cwd })
-  const contractSha256 = await hashCanonicalJson(contract)
-  const run = (await client.mutation(anyApi.ginkoCms.migrations.beginContentMigration, {
-    migrationId: migration.id,
-    sourceHash: migration.sourceHash,
-    toContractHash: contractSha256,
-  })) as { runId: string }
-  return { contract, contractSha256, runId: run.runId }
+  const targetContent = await loadGinkoContentContract({ rootDir: cwd })
+  if (!isRecord(targetContent))
+    throw new TypeError('content.config.ts did not resolve to an object.')
+  const targetContentHash = await hashCanonicalJson(targetContent as unknown as JsonValue)
+  const runKey = createHash('sha256')
+    .update(`${transition.id}:${transition.sourceHash}:${targetContentHash}`)
+    .digest('hex')
+  const begun = (await client.mutation(anyApi.ginkoCms.migrations.beginContractTransition, {
+    runKey,
+    targetContent,
+    targetContentHash,
+    actor: ACTOR,
+  })) as { runId: string; state: string }
+
+  const counts = { scanned: 0, changed: 0, staged: 0 }
+  let status = await readStatus(client, begun.runId)
+  if (status.state !== 'staging' && status.state !== 'ready') {
+    throw new Error(`Contract transition ${begun.runId} cannot stage from state ${status.state}.`)
+  }
+
+  while (status.state === 'staging') {
+    const cursor = status.cursor
+    const page = (await client.query(anyApi.ginkoCms.migrations.listContractTransitionPage, {
+      runId: begun.runId,
+      cursor,
+      limit: PAGE_SIZE,
+    })) as TransitionPage
+    const items = await Promise.all(
+      page.page.map(async (item) => {
+        const context = `Transition ${transition.id} for ${item.current.collection}/${item.entryId}`
+        let output: TransitionOutput
+        try {
+          output = assertTransitionOutput(await transition.up(cloneInput(item.current)), context)
+        } catch (error) {
+          throw new Error(`${context} failed: ${errorMessage(error)}`)
+        }
+        counts.scanned += 1
+        if (
+          (await hashCanonicalJson(identityOutput(item.current) as unknown as JsonValue)) !==
+          (await hashCanonicalJson(output as unknown as JsonValue))
+        ) {
+          counts.changed += 1
+        }
+        return {
+          entryId: item.entryId,
+          inputDraftVersion: item.inputDraftVersion,
+          inputHash: item.inputHash,
+          outputHash: await hashCanonicalJson(output as unknown as JsonValue),
+          output,
+        }
+      }),
+    )
+    const staged = (await client.mutation(anyApi.ginkoCms.migrations.stageContractTransitionPage, {
+      runId: begun.runId,
+      cursor,
+      limit: PAGE_SIZE,
+      items,
+    })) as { state: string; staged: number }
+    counts.staged += staged.staged
+    status = await readStatus(client, begun.runId)
+  }
+
+  return { runId: begun.runId, targetContentHash, counts, status }
 }
 
-export async function runMigrateCommand(
+async function applyAllPages(client: ReturnType<typeof createTransitionClient>, runId: string) {
+  let applied = 0
+  for (;;) {
+    const result = (await client.mutation(anyApi.ginkoCms.migrations.applyContractTransitionPage, {
+      runId,
+      limit: APPLY_PAGE_SIZE,
+      actor: ACTOR,
+    })) as { applied: number; appliedCount: number; readyToActivate: boolean }
+    applied += result.applied
+    if (result.readyToActivate) return { applied, appliedCount: result.appliedCount }
+  }
+}
+
+function formatStatus(runId: string, status: TransitionStatus) {
+  return [
+    `Contract transition ${runId}`,
+    `  state: ${status.state}`,
+    `  lock active: ${status.lockActive ? 'yes' : 'no'}`,
+    `  from: ${status.fromContentHash}`,
+    `  to: ${status.toContentHash}`,
+    `  staged: ${status.stagedCount}`,
+    `  applied: ${status.appliedCount}`,
+    `  pending: ${status.pendingCount}`,
+    '',
+  ].join('\n')
+}
+
+export async function runContractCommand(
   args: string[],
   cwd: string,
   io: CliIo,
   convexClientFactory: ConvexClientFactory = (url) => new ConvexHttpClient(url),
 ): Promise<number> {
-  const subcommand = args[1]
-  const migrationsDir = join(cwd, 'ginko', 'migrations')
-
+  if (args[1] !== 'transition') {
+    throw new Error('Unknown contract command. Available command: transition.')
+  }
+  const subcommand = args[2]
+  const transitionsDir = join(cwd, 'ginko', 'transitions')
   if (!subcommand || ['--help', '-h'].includes(subcommand)) {
     write(io.stdout, usage())
     return 0
   }
 
   if (subcommand === 'create') {
-    const name = args.slice(2).join(' ')
-    if (!name) throw new Error('ginko-cms migrate create requires a change name.')
-    const slug = migrationSlug(name)
-    if (!slug) throw new Error('ginko-cms migrate create requires a descriptive change name.')
-    const id = `${migrationDate()}-${slug}`
-    const file = join(migrationsDir, `${id}.ts`)
-    if (existsSync(file)) throw new Error(`Migration already exists: ${file}`)
-
-    mkdirSync(migrationsDir, { recursive: true })
-    writeFileSync(file, migrationTemplate(id), 'utf8')
-    write(io.stdout, `Created content migration scaffold: ${file}\n`)
-    write(
-      io.stdout,
-      'Next: edit the transform, run `pnpm exec ginko-cms migrate plan <file>`, then apply with `--yes`.\n',
-    )
+    const name = args.slice(3).join(' ')
+    if (!name) throw new Error('ginko-cms contract transition create requires a change name.')
+    const slug = transitionSlug(name)
+    if (!slug) throw new Error('Contract transition name must contain letters or numbers.')
+    const id = `${transitionDate()}-${slug}`
+    const file = join(transitionsDir, `${id}.ts`)
+    if (existsSync(file)) throw new Error(`Contract transition already exists: ${file}`)
+    mkdirSync(transitionsDir, { recursive: true })
+    writeFileSync(file, transitionTemplate(id), 'utf8')
+    write(io.stdout, `Created contract transition scaffold: ${file}\n`)
     return 0
   }
 
   if (subcommand === 'list') {
-    if (!existsSync(migrationsDir)) {
-      write(io.stdout, 'No content migrations found.\n')
+    if (!existsSync(transitionsDir)) {
+      write(io.stdout, 'No contract transitions found.\n')
       return 0
     }
-    const migrations = readdirSync(migrationsDir)
-      .filter((file) => file.endsWith('.ts') || file.endsWith('.js') || file.endsWith('.mjs'))
+    const files = readdirSync(transitionsDir)
+      .filter((file) => /\.(?:ts|js|mjs)$/u.test(file))
       .sort((left, right) => left.localeCompare(right))
-    if (migrations.length === 0) {
-      write(io.stdout, 'No content migrations found.\n')
-      return 0
-    }
-    for (const migration of migrations) write(io.stdout, `${migration}\n`)
+    write(io.stdout, files.length ? `${files.join('\n')}\n` : 'No contract transitions found.\n')
     return 0
   }
 
-  if (['plan', 'apply', 'finalize', 'activate'].includes(subcommand)) {
-    const fileArg = args[2]
-    if (!fileArg) throw new Error(`ginko-cms migrate ${subcommand} requires a migration file.`)
-    if (['apply', 'activate'].includes(subcommand) && !hasFlag(args, '--yes')) {
-      throw new Error(`ginko-cms migrate ${subcommand} requires --yes.`)
-    }
-    if (
-      ['apply', 'finalize', 'activate'].includes(subcommand) &&
-      !existsSync(resolve(cwd, 'content.config.ts'))
-    ) {
+  if (subcommand === 'stage') {
+    const fileArg = args[3]
+    if (!fileArg) throw new Error('ginko-cms contract transition stage requires a transition file.')
+    if (!hasFlag(args, '--yes')) {
       throw new Error(
-        `ginko-cms migrate ${subcommand} requires content.config.ts as the canonical target policy source.`,
+        'ginko-cms contract transition stage requires --yes because it locks Studio writes.',
       )
     }
-
-    const migration = await loadContentMigration(cwd, fileArg)
-    const { client } = createMigrationClient(cwd, convexClientFactory)
-    if (subcommand === 'finalize' || subcommand === 'activate') {
-      const transition = await beginMigrationRun(cwd, migration, client)
-      if (subcommand === 'finalize') {
-        const publicStrategy = readFlag(args, '--strategy')
-        if (!['preserve', 'rebuild', 'unpublish'].includes(publicStrategy ?? '')) {
-          throw new Error(
-            'ginko-cms migrate finalize requires --strategy preserve|rebuild|unpublish.',
-          )
-        }
-        const result = (await client.mutation(anyApi.ginkoCms.migrations.finalizeContentMigration, {
-          runId: transition.runId,
-          contract: transition.contract,
-          contractSha256: transition.contractSha256,
-          publicStrategy,
-        })) as { validatedEntryCount: number; expiresAt: number }
-        write(
-          io.stdout,
-          `Finalized content migration ${migration.id}: validated=${result.validatedEntryCount}, approvalExpiresAt=${new Date(result.expiresAt).toISOString()}.\n`,
-        )
-        return 0
-      }
-      const result = (await client.mutation(anyApi.ginkoCms.migrations.activateContentMigration, {
-        runId: transition.runId,
-        contract: transition.contract,
-        contractSha256: transition.contractSha256,
-      })) as { status: 'activated'; contractSha256: string }
-      write(
-        io.stdout,
-        `Activated content migration ${migration.id} at contract ${result.contractSha256}.\n`,
+    if (!existsSync(resolve(cwd, 'content.config.ts'))) {
+      throw new Error(
+        'Contract transition staging requires content.config.ts as the target contract.',
       )
-      return 0
     }
-
-    let runId: string | undefined
-    if (subcommand === 'apply') {
-      runId = (await beginMigrationRun(cwd, migration, client)).runId
-    }
-    const plan = await buildMigrationPlan(migration, client, runId)
-    write(io.stdout, formatMigrationPlan(plan))
-
-    if (plan.errors.length > 0) {
-      write(io.stderr, 'Content migration has errors; nothing was applied.\n')
-      return 1
-    }
-    if (subcommand === 'plan') return 0
-    if (plan.changes.length === 0) {
-      write(io.stdout, `No content changes to apply for migration ${migration.id}.\n`)
-      return 0
-    }
-
-    const result = await applyMigrationPlan(plan, client)
+    const client = createTransitionClient(cwd, convexClientFactory)
+    const transition = await loadContractTransition(cwd, fileArg)
+    const result = await beginAndStage(cwd, transition, client)
     write(
       io.stdout,
-      `Applied content migration ${migration.id}: changed=${result.changed}, skipped=${result.skipped}.\n`,
+      `Staged contract transition ${transition.id}: runId=${result.runId}, scanned=${result.counts.scanned}, changed=${result.counts.changed}, staged=${result.counts.staged}.\n`,
     )
-    write(
-      io.stdout,
-      'Next: run `pnpm exec ginko-cms migrate finalize <file> --strategy rebuild`, inspect the approval, then activate it explicitly.\n',
-    )
+    return 0
+  }
+
+  const runId = args[3]
+  if (!runId) throw new Error(`ginko-cms contract transition ${subcommand} requires a run id.`)
+
+  if (subcommand === 'status') {
+    const client = createTransitionClient(cwd, convexClientFactory)
+    write(io.stdout, formatStatus(runId, await readStatus(client, runId)))
+    return 0
+  }
+  if (!hasFlag(args, '--yes')) {
+    throw new Error(`ginko-cms contract transition ${subcommand} requires --yes.`)
+  }
+  const client = createTransitionClient(cwd, convexClientFactory)
+  if (subcommand === 'apply') {
+    const result = await applyAllPages(client, runId)
+    write(io.stdout, `Applied contract transition ${runId}: applied=${result.appliedCount}.\n`)
+    return 0
+  }
+  if (subcommand === 'activate') {
+    const result = (await client.mutation(anyApi.ginkoCms.migrations.activateContractTransition, {
+      runId,
+      actor: ACTOR,
+    })) as { state: 'complete'; contentHash: string; appliedCount: number }
+    write(io.stdout, `Activated contract ${result.contentHash}; applied=${result.appliedCount}.\n`)
+    return 0
+  }
+  if (subcommand === 'cancel') {
+    await client.mutation(anyApi.ginkoCms.migrations.cancelContractTransition, { runId })
+    write(io.stdout, `Cancelled contract transition ${runId}.\n`)
     return 0
   }
 
   throw new Error(
-    'Unknown migrate command. Available commands: create, list, plan, apply, finalize, activate.',
+    'Unknown transition command. Available: create, list, stage, status, apply, activate, cancel.',
   )
 }

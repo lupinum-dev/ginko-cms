@@ -22,7 +22,7 @@ It is not:
 
 The host app owns rendering and defines the content model in code. Ginko CMS
 owns content operations: Studio, Convex-backed content storage, Better Auth,
-assets, public output, migration tooling, and MCP.
+assets, public output, contract transitions, owner-CLI portability, and MCP.
 
 ## Target Users
 
@@ -46,8 +46,9 @@ Against broad CMS/data platforms, Ginko CMS is intentionally narrower. It is
 optimized for app-owned Nuxt websites, provider integration with Ginko, typed
 contracts, website-shaped public reads, route-aware content, and localization.
 Studio should express that focus as a content operations cockpit: work queues,
-translation readiness, website changes, public-output verification, imports,
-assets, activity, and diagnostics for developer-facing operational details.
+translation readiness, website changes, public-output verification, assets,
+activity, and diagnostics for developer-facing operational details. Content
+portability remains an owner-only CLI workflow rather than a Studio area.
 
 The message should remain respectful:
 

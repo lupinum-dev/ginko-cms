@@ -13,9 +13,14 @@ export default defineNuxtConfig({
 
   i18n: {
     defaultLocale: 'en',
+    // `seo: false` stops nuxt-i18n-micro from emitting hreflang alternates
+    // (and x-default) for every configured locale regardless of whether the
+    // translation is published. Content pages emit their own published-only
+    // alternates via `useCmsSeoAlternates`. Canonical, og:url, og:locale and
+    // <html lang/dir> are still managed by the i18n module.
     locales: [
-      { code: 'en', name: 'English' },
-      { code: 'de', name: 'Deutsch' },
+      { code: 'en', name: 'English', seo: false },
+      { code: 'de', name: 'Deutsch', seo: false },
     ],
     localeCookie: 'playground-locale',
     metaBaseUrl: 'https://playground.ginko.local',
@@ -42,5 +47,6 @@ export default defineNuxtConfig({
 
   ginkoCms: {
     route: '/studio',
+    mcp: true,
   },
 })

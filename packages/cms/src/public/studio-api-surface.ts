@@ -69,6 +69,7 @@ export const studioApiSurface = {
   collections: {
     getCollection: 'query',
     listCollections: 'query',
+    searchStudioEntries: 'query',
   },
   mcpCredentials: {
     listOwnSettings: 'query',
@@ -105,6 +106,7 @@ export const studioApiSurface = {
     listVersions: 'query',
     previewArchiveEntryOperation: 'mutation',
     previewPublishEntryOperation: 'mutation',
+    previewRestoreEntryOperation: 'mutation',
     previewRollbackVersionOperation: 'mutation',
     previewUnpublishEntryOperation: 'mutation',
     publishEntry: {
@@ -114,7 +116,11 @@ export const studioApiSurface = {
     },
     reparentEntry: 'mutation',
     reorderEntry: 'mutation',
-    restoreEntry: 'mutation',
+    restoreEntry: {
+      kind: 'mutation',
+      component: 'restoreEntryOperationExecute',
+      confirmation: true,
+    },
     rollbackVersion: {
       kind: 'mutation',
       component: 'rollbackVersionOperationExecute',
@@ -164,6 +170,8 @@ export const studioApiSurface = {
   reviewRequests: {
     approveReview: 'mutation',
     listPendingReviews: 'query',
+    listRecentReviewOutcomes: 'query',
+    listRecentReviewOutcomesForEntry: 'query',
     rejectReview: 'mutation',
     requestPublishReview: 'mutation',
   },

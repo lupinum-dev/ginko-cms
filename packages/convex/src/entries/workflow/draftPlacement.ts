@@ -2,16 +2,17 @@ import type { Doc, Id } from '../../_generated/dataModel.js'
 import { throwCmsError } from '../../errors.js'
 import type { getCollectionOrThrow } from '../../lib/collections.js'
 import type { QueryOrMutationCtx } from '../../lib/types.js'
+import type { EntryDraftDoc, SharedDraftView } from './drafts.js'
 import { readDraftPlacementRows } from './drafts.js'
 import { entrySnapshotPath, publicPathForLocaleSnapshot } from './path.js'
 
-type EntryPlacement = Pick<Doc<'entries'>, 'baseSlug' | 'parentEntryId' | 'stableId'>
-type LocaleDraftPlacement = Pick<Doc<'entryDrafts'>, 'localeSlug'> | null
+type EntryPlacement = Pick<Doc<'entries'>, 'slug' | 'parentEntryId' | 'stableId'>
+type LocaleDraftPlacement = Pick<EntryDraftDoc, 'localeSlug'> | null
 type DraftCollection = Awaited<ReturnType<typeof getCollectionOrThrow>>
 
 export function effectiveDraftParent(
   entry: Pick<EntryPlacement, 'parentEntryId'>,
-  sharedRow: Pick<Doc<'entryDrafts'>, 'parentEntryId'> | null,
+  sharedRow: Pick<SharedDraftView, 'parentEntryId'> | null,
 ): Id<'entries'> | null {
   return sharedRow?.parentEntryId !== undefined
     ? (sharedRow.parentEntryId ?? null)
@@ -19,11 +20,11 @@ export function effectiveDraftParent(
 }
 
 export function effectiveDraftSlug(
-  entry: Pick<EntryPlacement, 'baseSlug'>,
-  sharedRow: Pick<Doc<'entryDrafts'>, 'slug'> | null,
+  entry: Pick<EntryPlacement, 'slug'>,
+  sharedRow: Pick<SharedDraftView, 'slug'> | null,
   localeRow: LocaleDraftPlacement,
 ): string {
-  return localeRow?.localeSlug ?? sharedRow?.slug ?? entry.baseSlug
+  return localeRow?.localeSlug ?? sharedRow?.slug ?? entry.slug
 }
 
 export async function resolveDraftAncestorSlugs(
@@ -73,7 +74,7 @@ export async function assertValidDraftParentChain(
   if (args.collection.type !== 'tree') {
     if (targetParent) {
       throwCmsError('ENTRY_PARENT_NOT_ALLOWED', 'Flat collections cannot assign a parent entry', {
-        collectionId: String(args.collection._id),
+        collection: args.collection.slug,
         parentEntryId: String(targetParent),
       })
     }
@@ -94,9 +95,9 @@ export async function assertValidDraftParentChain(
     visited.add(currentId)
 
     const parent = await ctx.db.get(currentParentId)
-    if (!parent || parent.collectionId !== args.collection._id) {
+    if (!parent || parent.collection !== args.collection.slug) {
       throwCmsError('ENTRY_PARENT_NOT_FOUND', 'Parent entry not found', {
-        collectionId: String(args.collection._id),
+        collection: args.collection.slug,
         parentEntryId: currentId,
       })
     }

@@ -17,6 +17,7 @@ type TestChain = {
   deleteRow: ReturnType<typeof vi.fn>
   extendMarkRange: ReturnType<typeof vi.fn>
   focus: ReturnType<typeof vi.fn>
+  insertContent: ReturnType<typeof vi.fn>
   insertTable: ReturnType<typeof vi.fn>
   run: ReturnType<typeof vi.fn>
   setHorizontalRule: ReturnType<typeof vi.fn>
@@ -36,6 +37,7 @@ function createChain(): TestChain {
     addRowAfter: vi.fn(() => chain),
     extendMarkRange: vi.fn(() => chain),
     focus: vi.fn(() => chain),
+    insertContent: vi.fn(() => chain),
     insertTable: vi.fn(() => chain),
     run: vi.fn(() => true),
     setHorizontalRule: vi.fn(() => chain),
@@ -102,6 +104,7 @@ describe('useToolbarActions', () => {
     const editor = {
       chain: vi.fn(() => chain),
       isActive: vi.fn((name: string) => (name === 'link' ? false : false)),
+      state: { selection: { empty: false } },
     }
 
     const actions = useToolbarActions(ref(editor as unknown as Editor))
@@ -114,5 +117,28 @@ describe('useToolbarActions', () => {
     editor.isActive.mockImplementation((name: string) => name === 'link')
     await actions.toggleMark('link')
     expect(chain.unsetLink).toHaveBeenCalled()
+  })
+
+  it('inserts the URL as visible link text when the selection is collapsed', async () => {
+    const chain = createChain()
+    studioPrompt.mockResolvedValue('https://example.com/docs')
+
+    const editor = {
+      chain: vi.fn(() => chain),
+      isActive: vi.fn(() => false),
+      state: { selection: { empty: true } },
+    }
+
+    const actions = useToolbarActions(ref(editor as unknown as Editor))
+    await actions.toggleMark('link')
+
+    expect(chain.insertContent).toHaveBeenCalledWith([
+      {
+        marks: [{ attrs: { href: 'https://example.com/docs' }, type: 'link' }],
+        text: 'https://example.com/docs',
+        type: 'text',
+      },
+    ])
+    expect(chain.setLink).not.toHaveBeenCalled()
   })
 })

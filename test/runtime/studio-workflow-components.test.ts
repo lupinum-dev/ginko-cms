@@ -17,6 +17,7 @@ import StudioLocaleEditorPanel from '../../packages/cms/studio-app/src/component
 import StudioPublishDialog from '../../packages/cms/studio-app/src/components/studio/editor/StudioPublishDialog.vue'
 import StudioPublishOutcomeCard from '../../packages/cms/studio-app/src/components/studio/editor/StudioPublishOutcomeCard.vue'
 import StudioSharedFieldsPanel from '../../packages/cms/studio-app/src/components/studio/editor/StudioSharedFieldsPanel.vue'
+import StudioVersionDiffList from '../../packages/cms/studio-app/src/components/studio/editor/StudioVersionDiffList.vue'
 import StudioVersionHistoryCard from '../../packages/cms/studio-app/src/components/studio/editor/StudioVersionHistoryCard.vue'
 import FieldArray from '../../packages/cms/studio-app/src/components/studio/fields/FieldArray.vue'
 import FieldBlocks from '../../packages/cms/studio-app/src/components/studio/fields/FieldBlocks.vue'
@@ -877,7 +878,9 @@ describe('Studio workflow components', () => {
     })
 
     expect(wrapper.text()).toContain('Track live website')
-    expect(wrapper.text()).toContain('Live now')
+    // The redesigned track card states the live fact once via Status: Live
+    // (say-it-once); the former "Live now" pill was removed deliberately.
+    expect(wrapper.text()).toContain('Status')
     expect(wrapper.text()).toContain('Live since')
     expect(wrapper.text()).toContain('/hello')
     expect(wrapper.text()).toContain('ENLive')
@@ -1011,9 +1014,18 @@ describe('Studio workflow components', () => {
   })
 
   it('renders a visual website preview from publish impact URLs', () => {
-    const wrapper = mount(StudioEntryPublicWorkflowPanel, {
-      global: { stubs: studioStubs() },
-      props: {
+    // EDT-10: the rendered preview link opens the guarded DRAFT preview route
+    // (host convention /preview/[collection]/[entryId]?locale=…), never the
+    // prospective live URL, and the preview opens in a new tab (no iframe).
+    const editor = railEditor()
+    const wrapper = mountWithStudioContext(
+      StudioEntryPublicWorkflowPanel,
+      {
+        ...editor,
+        loader: { ...editor.loader, collection: 'posts' },
+        workflow: { draftPreviewOpened: false, markDraftPreviewOpened: vi.fn() },
+      },
+      {
         publicVisibility: baseVisibility,
         publishImpact: {
           ...idleImpact,
@@ -1048,16 +1060,19 @@ describe('Studio workflow components', () => {
         routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: 'de',
       },
-    })
+    )
 
     expect(wrapper.text()).toContain('Website preview')
-    expect(wrapper.text()).toContain('Open preview')
+    expect(wrapper.text()).toContain('Preview draft')
     expect(wrapper.text()).toContain('Open live page')
-    expect(wrapper.get('iframe').attributes('src')).toBe('/de/hallo')
-    expect(wrapper.get('iframe').attributes('title')).toBe('Website preview for de')
+    expect(wrapper.text()).toContain('/de/hallo')
+    expect(wrapper.find('iframe').exists()).toBe(false)
     expect(wrapper.findAll('a').map((link) => link.attributes('href'))).toEqual(
-      expect.arrayContaining(['/de/alt', '/de/hallo']),
+      expect.arrayContaining(['/de/alt', '/preview/posts/entry-1?locale=de']),
     )
+    // The prospective live URL is shown as text but never offered as the
+    // preview link for unpublished content.
+    expect(wrapper.find('a[href="/de/hallo"]').exists()).toBe(false)
   })
 
   it('renders publish impact changes as marketer-readable website effects', () => {
@@ -1686,10 +1701,11 @@ describe('Studio workflow components', () => {
 })
 
 describe('Studio destructive dialogs', () => {
-  function fakeEditor(readinessState: string, hasConfirmation = false) {
+  function fakeEditor(readinessState: string, hasConfirmation = false, draftPreviewOpened = false) {
     return {
       history: { entryAssets: [{ id: 'asset-1' }] },
       loader: {
+        collection: 'posts',
         currentLocale: 'en',
         entry: { draftVersion: 7, publishedAt: 1, status: 'published' },
         entryId: 'entry-1',
@@ -1697,6 +1713,7 @@ describe('Studio destructive dialogs', () => {
         locales: [{ code: 'en' }],
         t: dictionaryT(en),
       },
+      workflow: { draftPreviewOpened, markDraftPreviewOpened: vi.fn() },
       publishing: {
         confirmPublish: vi.fn(),
         publishMessage: '',
@@ -1782,8 +1799,23 @@ describe('Studio destructive dialogs', () => {
     expect(confirm.attributes('disabled')).toBeUndefined()
   })
 
-  it('summarizes website impact in the publish confirmation instead of raw fields', () => {
+  it('claims a reviewed preview only after the draft preview was opened (EDT-10)', () => {
     const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('ready', true), {
+      readinessDetail: baseReadinessDetail,
+      publishImpact: readyPublishImpact,
+      publishImpactRequested: true,
+      publishReview,
+    })
+
+    expect(wrapper.text()).not.toContain('Preview reviewed.')
+    expect(wrapper.text()).toContain(
+      'You have not opened the draft preview yet. Check the page before publishing.',
+    )
+    expect(wrapper.find('a[href="/preview/posts/entry-1?locale=en"]').exists()).toBe(true)
+  })
+
+  it('summarizes website impact in the publish confirmation instead of raw fields', () => {
+    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('ready', true, true), {
       readinessDetail: baseReadinessDetail,
       publishImpact: readyPublishImpact,
       publishImpactRequested: true,
@@ -1812,13 +1844,19 @@ describe('Studio destructive dialogs', () => {
 describe('Studio version history copy', () => {
   function historyEditor(previewVersionId: string | null = null) {
     return {
+      draft: { saving: false },
       history: {
         checkpointMessage: '',
+        diffLeftVersionId: null as string | null,
         entryAssets: [],
         handleCreateCheckpoint: vi.fn(),
+        handleRollback: vi.fn(),
         previewVersionId,
         showCheckpointDialog: true,
+        toggleDiff: vi.fn(),
         toggleVersionPreview: vi.fn(),
+        versionDiff: null,
+        versionDiffPending: false,
         versions: [
           {
             _id: 'version-1',
@@ -1834,6 +1872,8 @@ describe('Studio version history copy', () => {
         ],
       },
       loader: {
+        canEditEntries: false,
+        canPublishEntries: false,
         dateLocale: 'en',
         t: (key: string) =>
           ({
@@ -1884,9 +1924,9 @@ describe('Studio version history copy', () => {
     expect(wrapper.text()).not.toContain('Checkpoint')
     expect(
       wrapper
-        .get('button[aria-label="ginkoCms.studio.collectionEditor.versionDetailsAria"]')
-        .attributes('aria-expanded'),
-    ).toBe('false')
+        .find('button[aria-label="ginkoCms.studio.collectionEditor.versionActionsAria"]')
+        .exists(),
+    ).toBe(true)
   })
 
   it('passes automated accessibility checks for version history', async () => {
@@ -1910,11 +1950,7 @@ describe('Studio version history copy', () => {
     expect(expanded.text()).toContain('Advanced details')
     expect(expanded.text()).toContain('ginkoCms.studio.collectionEditor.versionRevisionId')
     expect(expanded.text()).toContain('version-1')
-    expect(
-      expanded
-        .get('button[aria-label="ginkoCms.studio.collectionEditor.versionDetailsAria"]')
-        .attributes('aria-expanded'),
-    ).toBe('true')
+    expect(expanded.get('button[aria-expanded]').attributes('aria-expanded')).toBe('true')
   })
 
   it('lets users save a version without learning checkpoint terminology', () => {
@@ -1931,6 +1967,158 @@ describe('Studio version history copy', () => {
 
     expect(wrapper.text()).toContain('URL updated')
     expect(wrapper.text()).not.toContain('Published EN')
+  })
+
+  function actionableHistoryEditor() {
+    const editor = historyEditor()
+    editor.loader.canEditEntries = true
+    editor.loader.canPublishEntries = true
+    editor.loader.t = dictionaryT(en)
+    editor.history.versions = [
+      {
+        _id: 'version-2',
+        action: 'publish',
+        createdAt: 2,
+        createdBy: 'owner-1',
+        displayAction: 'published',
+        isCurrentPublished: true,
+        message: 'Campaign launch',
+        publishedLocales: ['en'],
+        version: 4,
+      },
+      ...editor.history.versions,
+    ]
+    return editor
+  }
+
+  it('offers compare and restore actions on historical versions', async () => {
+    const editor = actionableHistoryEditor()
+    const wrapper = mountWithStudioContext(StudioVersionHistoryCard, editor)
+
+    // Compare is only offered against the current version, so the latest row
+    // has none and there is exactly one compare action for the older version.
+    const compareButtons = wrapper
+      .findAll('button')
+      .filter((button) => button.text().trim() === 'Compare with current version')
+    expect(compareButtons).toHaveLength(1)
+    await compareButtons[0].trigger('click')
+    expect(editor.history.toggleDiff).toHaveBeenCalledWith('version-1')
+
+    const restoreDraft = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Restore as draft')
+    await restoreDraft!.trigger('click')
+    expect(editor.history.handleRollback).toHaveBeenCalledWith('version-2')
+
+    const restorePublish = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Restore and publish')
+    await restorePublish!.trigger('click')
+    expect(editor.history.handleRollback).toHaveBeenCalledWith('version-2', true)
+  })
+
+  it('gates restore actions by permissions', () => {
+    const publisherless = actionableHistoryEditor()
+    publisherless.loader.canPublishEntries = false
+    const wrapper = mountWithStudioContext(StudioVersionHistoryCard, publisherless)
+    expect(wrapper.text()).toContain('Restore as draft')
+    expect(wrapper.text()).not.toContain('Restore and publish')
+
+    const viewer = actionableHistoryEditor()
+    viewer.loader.canEditEntries = false
+    viewer.loader.canPublishEntries = false
+    const viewerWrapper = mountWithStudioContext(StudioVersionHistoryCard, viewer)
+    expect(viewerWrapper.text()).not.toContain('Restore as draft')
+    expect(viewerWrapper.text()).not.toContain('Restore and publish')
+  })
+
+  it('collapses long histories to five versions with a show-all toggle', async () => {
+    const editor = actionableHistoryEditor()
+    editor.history.versions = Array.from({ length: 7 }, (_, index) => ({
+      _id: `version-${7 - index}`,
+      action: 'checkpoint',
+      createdAt: 7 - index,
+      createdBy: 'owner-1',
+      displayAction: 'checkpoint',
+      isCurrentPublished: false,
+      message: '',
+      publishedLocales: [] as string[],
+      version: 7 - index,
+    }))
+    const wrapper = mountWithStudioContext(StudioVersionHistoryCard, editor)
+
+    expect(wrapper.text()).toContain('v7')
+    expect(wrapper.text()).toContain('v3')
+    expect(wrapper.text()).not.toContain('v2')
+    const showAll = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Show all 7 versions')
+    expect(showAll).toBeDefined()
+    await showAll!.trigger('click')
+    expect(wrapper.text()).toContain('v1')
+    expect(wrapper.text()).toContain('Show fewer versions')
+  })
+})
+
+describe('Studio version diff list', () => {
+  function diffEditor(overrides: Record<string, unknown> = {}) {
+    return {
+      history: {
+        versionDiff: {
+          changes: [
+            { field: 'locale.en.values.title', left: 'Old title', right: 'New title' },
+            { field: 'shared.baseSlug', left: null, right: 'hello-page' },
+            { field: 'locale.de.values.title', left: 'Alter Titel', right: '' },
+          ],
+          leftVersionId: 'version-1',
+          rightVersionId: 'version-2',
+        },
+        versionDiffPending: false,
+        ...overrides,
+      },
+      loader: {
+        fields: [{ key: 'title', label: 'Title', localized: true }],
+        locales: [
+          { code: 'en', label: 'English' },
+          { code: 'de', label: 'Deutsch' },
+        ],
+        t: dictionaryT(en),
+      },
+    }
+  }
+
+  it('renders field changes with writer-facing labels', () => {
+    const wrapper = mountWithStudioContext(StudioVersionDiffList, diffEditor())
+
+    expect(wrapper.text()).toContain('Compared with the current version')
+    expect(wrapper.text()).toContain('Title · English')
+    expect(wrapper.text()).toContain('Title · Deutsch')
+    expect(wrapper.text()).toContain('URL slug')
+    expect(wrapper.text()).toContain('Changed')
+    expect(wrapper.text()).toContain('Added')
+    expect(wrapper.text()).toContain('Removed')
+    expect(wrapper.text()).toContain('This version')
+    expect(wrapper.text()).toContain('Current version')
+    expect(wrapper.text()).toContain('Old title')
+    expect(wrapper.text()).toContain('New title')
+  })
+
+  it('shows a calm empty state when versions match', () => {
+    const wrapper = mountWithStudioContext(
+      StudioVersionDiffList,
+      diffEditor({ versionDiff: { changes: [], leftVersionId: 'a', rightVersionId: 'b' } }),
+    )
+
+    expect(wrapper.text()).toContain('This version matches the current version.')
+  })
+
+  it('shows a loading message while the comparison resolves', () => {
+    const wrapper = mountWithStudioContext(
+      StudioVersionDiffList,
+      diffEditor({ versionDiff: null, versionDiffPending: true }),
+    )
+
+    expect(wrapper.text()).toContain('Comparing versions…')
   })
 })
 

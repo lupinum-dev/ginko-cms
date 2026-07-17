@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
+import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import { verifyPortableDirectoryBounded } from '@lupinum/ginko-content/portability/node'
 import { exchangeConvexToken } from 'better-convex-nuxt/server'
 import { ConvexHttpClient } from 'convex/browser'
@@ -84,7 +85,7 @@ export async function runContentCommand(
     const contract = await localContract(cwd)
     const prepared = await preparePortableDraftImport(client, resolve(cwd, directory), {
       deploymentId: convexDeploymentId(cwd),
-      targetContractSha256: await hashCanonicalJson(contract),
+      targetContractSha256: await hashJson(contract),
     })
     const planPath = resolve(cwd, planFile)
     writeFileSync(planPath, `${JSON.stringify(prepared, null, 2)}\n`, {
@@ -108,7 +109,7 @@ async function verifyCommand(args: string[], cwd: string, io: CliIo) {
     throw new Error('ginko-cms content verify requires <directory>.')
   }
   const verified = await verifyPortableDirectoryBounded(resolve(cwd, directory))
-  const manifestSha256 = await hashCanonicalJson(verified.manifest)
+  const manifestSha256 = await hashJson(verified.manifest)
   write(
     io.stdout,
     `Portable content verified: documents=${verified.manifest.documents.length}, assets=${verified.manifest.assets.length}, manifest=${manifestSha256}.\n`,
@@ -180,16 +181,14 @@ async function readPreparedPlan(path: string): Promise<PreparedPortableDraftImpo
   ) {
     throw new Error('Portable import plan file is invalid or blocked.')
   }
-  if ((await hashCanonicalJson(parsed.payload)) !== parsed.payloadSha256) {
+  if ((await hashJson(parsed.payload)) !== parsed.payloadSha256) {
     throw new Error('Portable import plan payload hash does not match the file.')
   }
   if (
     parsed.payload.itemCount !== parsed.items.length ||
     parsed.payload.assetCount !== parsed.assets.length ||
-    (await hashCanonicalJson(parsed.items.map((item) => item.payload))) !==
-      parsed.payload.itemRootSha256 ||
-    (await hashCanonicalJson(parsed.assets.map((asset) => asset.payload))) !==
-      parsed.payload.assetRootSha256
+    (await hashJson(parsed.items.map((item) => item.payload))) !== parsed.payload.itemRootSha256 ||
+    (await hashJson(parsed.assets.map((asset) => asset.payload))) !== parsed.payload.assetRootSha256
   ) {
     throw new Error('Portable import plan rows do not match the payload.')
   }
@@ -200,16 +199,16 @@ async function readPreparedPlan(path: string): Promise<PreparedPortableDraftImpo
       item.applyOrder < 0 ||
       item.applyOrder >= parsed.items.length ||
       applyOrders.has(item.applyOrder) ||
-      (await hashCanonicalJson(item.payload)) !== item.inputSha256 ||
+      (await hashJson(item.payload)) !== item.inputSha256 ||
       !item.document ||
-      (await hashCanonicalJson(item.document)) !== item.payload.documentSha256
+      (await hashJson(item.document)) !== item.payload.documentSha256
     ) {
       throw new Error(`Portable import plan item ${item.itemKey} is invalid.`)
     }
     applyOrders.add(item.applyOrder)
   }
   for (const asset of parsed.assets) {
-    if ((await hashCanonicalJson(asset.payload)) !== asset.inputSha256) {
+    if ((await hashJson(asset.payload)) !== asset.inputSha256) {
       throw new Error(`Portable import plan asset ${asset.assetKey} is invalid.`)
     }
   }
@@ -228,4 +227,8 @@ function countEffects(prepared: PreparedPortableDraftImport) {
     upload: assets('upload'),
     reuse: assets('reuse'),
   }
+}
+
+async function hashJson(value: unknown) {
+  return await hashCanonicalJson(value as JsonValue)
 }

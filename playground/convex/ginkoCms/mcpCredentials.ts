@@ -1,24 +1,13 @@
-import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+import { mcpCredentialScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { runVerifiedMcpLimiterRequest } from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
 import { requireBetterAuthSecret } from '@lupinum/ginko-cms/convex/auth'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { mutation, query } from '../_generated/server.js'
 
 const mcpCredentialScopeValidator = v.union(
-  ...[
-    cmsPermissionKeys.read,
-    cmsPermissionKeys.createEntries,
-    cmsPermissionKeys.editEntries,
-    cmsPermissionKeys.publishEntries,
-    cmsPermissionKeys.archiveEntries,
-    cmsPermissionKeys.deleteEntries,
-    cmsPermissionKeys.manageCollections,
-    cmsPermissionKeys.manageSettings,
-    cmsPermissionKeys.manageMembers,
-    cmsPermissionKeys.manageAssets,
-  ].map((scope) => v.literal(scope)),
+  ...mcpCredentialScopeKeys.map((scope) => v.literal(scope)),
 )
 
 const limiterArgs = {
@@ -69,9 +58,18 @@ export const upsertSettings = mutation({
     ownerUserId: v.string(),
     label: v.optional(v.union(v.string(), v.null())),
     scopes: v.array(mcpCredentialScopeValidator),
+    expiresAt: v.optional(v.union(v.number(), v.null())),
   },
-  handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.mcpCredentials.upsertSettings, args as never),
+  handler: async (ctx, args) => {
+    if (typeof args.expiresAt === 'number' && args.expiresAt <= Date.now()) {
+      throw new ConvexError({
+        code: 'MCP_CREDENTIAL_EXPIRY_IN_PAST',
+        message: 'The MCP connection expiry must be in the future.',
+        details: { expiresAt: args.expiresAt },
+      })
+    }
+    return await ctx.runMutation(components.ginkoCms.mcpCredentials.upsertSettings, args as never)
+  },
 })
 
 export const listOwnSettings = query({

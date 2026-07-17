@@ -30,8 +30,16 @@ jobs:
       - name: Install frozen standalone workspace
         run: pnpm install --frozen-lockfile
 
-      - name: Repository gate
-        run: pnpm run check
+      - name: Refactor reliability proof
+        run: pnpm run verify:refactor
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: refactor-proof-${{ github.sha }}
+          path: ginko-cms/reports/refactor-proof
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Production audit
         run: pnpm run audit:prod

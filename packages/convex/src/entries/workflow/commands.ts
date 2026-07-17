@@ -1,46 +1,41 @@
-// Shared entry workflow helpers. Public callable mutations live in
-// `entries/tree`, `entries/draft`, and `entries/publish`; this file should not
-// grow a second command surface.
+/** Canonical entry commands. Public callables delegate here. */
 
 import {
   normalizeContentPath,
   uniqueContentTags,
 } from '@lupinum/ginko-cms-contract/shared/contentTags.js'
 import { materializeFieldData } from '@lupinum/ginko-cms-contract/shared/fields/materialize.js'
-import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { parseMdcBody, type ParseMdcBodyResult } from '@lupinum/ginko-content/cms-contract'
+import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import { parseMdcBody } from '@lupinum/ginko-content/cms-contract'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
-import { previewPublishImpactForEntry } from '../../diagnostics.js'
 import { throwCmsError } from '../../errors.js'
 import { logActivity } from '../../lib/activity.js'
-import { getCollectionOrThrow, isLocalizedSlugMode } from '../../lib/collections.js'
-import { generateStableId } from '../../lib/paths.js'
-import type { QueryOrMutationCtx } from '../../lib/types.js'
+import {
+  assertCollectionSupportsLocale,
+  getCollectionOrThrow,
+  isLocalizedSlugMode,
+  needsStableId,
+} from '../../lib/collections.js'
+import { assertCmsContractWritable, readInstalledCmsContract } from '../../lib/installedContract.js'
+import { rankAfter } from '../../lib/ordering.js'
+import { generateStableId, pathPrefixForLocale, rootSlugForLocale } from '../../lib/paths.js'
+import { enqueueRevalidationEvent } from '../../lib/revalidationOutbox.js'
+import type { CmsCollection, MutationCtx, QueryOrMutationCtx } from '../../lib/types.js'
 import {
   assertFieldDataValid,
   assertValidLocaleCode,
   assertValidSlug,
 } from '../../lib/validation.js'
 import { scheduleRevalidationOutboxDelivery } from '../../revalidation.js'
-import { resolveEntryPlacement } from '../placement.js'
-import { ensureSharedSlugUnique } from '../slugs.js'
 import {
-  deleteEntryAssetRefsBySourceKind,
   extractAssetRefsFromText,
   extractAssetRefsFromValues,
   replaceAssetRefs,
   uniqueAssetRefs,
 } from './assetRefs.js'
-import { effectiveDraftParent, effectiveDraftSlug } from './draftPlacement.js'
 import { applyDraftPatch, readDraftRows, type SaveDraftPatch } from './drafts.js'
 import { stableHash } from './hashing.js'
-import {
-  entrySnapshotPath,
-  localeSnapshotPathFromPublicPath,
-  pathSegments,
-  pathPrefixForLocale,
-} from './path.js'
 import {
   deleteAllPublicProjections,
   deletePublicProjection,
@@ -48,107 +43,125 @@ import {
   upsertPublicProjection,
 } from './projection.js'
 import { buildPublicProjectionFromRevisionSnapshot } from './projectionBuild.js'
-import { assertPublicBodySafe } from './renderSafety.js'
 import {
-  appendRevisionAndPatchEntry,
-  type appendRevision,
+  publicPathForEntry,
+  publicPathForPlacement,
+  validatePublicPlacement,
+  validatePublicRedirectCandidate,
+  type PublicTreePathOptions,
+} from './publicTree.js'
+import {
+  appendRevision,
+  type RevisionKind,
   type RevisionLocaleSnapshot,
+  type RevisionSnapshots,
 } from './revisions.js'
-import {
-  appendDescendantRouteRebuildRevisions,
-  collectDescendantProjectionRebuilds,
-  descendantRevalidationState,
-} from './subtreeRoutes.js'
+import { bumpRouteGeneration } from './routeGeneration.js'
 
-type MarkdownRoot = ParseMdcBodyResult['body']
-type Toc = NonNullable<ParseMdcBodyResult['toc']>
+type WorkflowMutationCtx = MutationCtx
 
-type PublicRevalidationState = {
-  tags: string[]
-  paths: string[]
+function operationId(kind: RevisionKind, entryId: Id<'entries'>, now: number): string {
+  return `${kind}:${String(entryId)}:${now}`
 }
 
-const PUBLISHABLE_IMPACT_STATUSES = new Set(['ready', 'no_changes'])
+async function activeContractOrThrow(ctx: QueryOrMutationCtx) {
+  return await assertCmsContractWritable(ctx)
+}
 
-async function capturePublicRevalidationState(
-  ctx: Parameters<typeof appendRevision>[0],
-  args: { entryId: Id<'entries'>; locales?: string[] },
-): Promise<PublicRevalidationState> {
-  const scopedEntries = args.locales
-    ? (
-        await Promise.all(
-          uniqueContentTags(args.locales).map((locale) =>
-            ctx.db
-              .query('publicEntries')
-              .withIndex('by_entry_locale', (q) =>
-                q.eq('entryId', args.entryId).eq('locale', locale),
-              )
-              .first(),
-          ),
-        )
-      ).filter((entry): entry is Doc<'publicEntries'> => entry !== null)
-    : await ctx.db
-        .query('publicEntries')
-        .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entryId))
-        .collect()
+function publicSegment(collection: CmsCollection, entry: Doc<'entries'>, slug: string): string {
+  return needsStableId(collection) ? `${slug}-${entry.stableId}` : slug
+}
+
+function publicTreeOptions(collection: CmsCollection, locale: string): PublicTreePathOptions {
   return {
-    tags: uniqueContentTags(scopedEntries.flatMap((entry) => entry.cacheTags)),
-    paths: uniqueContentTags(scopedEntries.map((entry) => normalizeContentPath(entry.path))),
+    pathPrefix: pathPrefixForLocale(collection, locale),
+    rootSlug: rootSlugForLocale(collection, locale),
   }
 }
 
-async function insertRevalidationOutboxEvent(
-  ctx: Parameters<typeof appendRevision>[0],
+async function publicPathForSnapshot(
+  ctx: QueryOrMutationCtx,
   args: {
-    kind: 'publish' | 'unpublish' | 'archive' | 'rollback'
-    collection: Doc<'collections'>
-    entryId: Id<'entries'>
-    appIdentityId: string
-    versionId: Id<'entryRevisions'> | null
-    now: number
-    oldState?: PublicRevalidationState
+    entry: Doc<'entries'>
+    collection: CmsCollection
+    locale: string
+    snapshot: RevisionLocaleSnapshot
   },
-) {
-  const versionKey = args.versionId ? String(args.versionId) : String(args.now)
-  const idempotencyKey = `content.revalidate:${args.kind}:${String(args.entryId)}:${versionKey}`
-  const existing = await ctx.db
-    .query('outboxEvents')
-    .withIndex('by_idempotency_key', (q) => q.eq('idempotencyKey', idempotencyKey))
-    .first()
-  if (existing) return existing._id
-
-  const newState = await capturePublicRevalidationState(ctx, { entryId: args.entryId })
-  const tags = uniqueContentTags([...(args.oldState?.tags ?? []), ...newState.tags])
-  const directPaths = [...(args.oldState?.paths ?? []), ...newState.paths]
-  const aggregatePaths = args.collection.locales.map((locale) =>
-    normalizeContentPath(pathPrefixForLocale(args.collection, locale) || '/'),
-  )
-  const paths = uniqueContentTags([...directPaths, ...aggregatePaths].map(normalizeContentPath))
-
-  return await ctx.db.insert('outboxEvents', {
-    type: 'content.revalidate',
-    status: 'pending',
-    idempotencyKey,
-    versionId: args.versionId ? String(args.versionId) : null,
-    tags,
-    paths,
-    payload: {
-      reason: args.kind,
-      collection: args.collection.slug,
-      entryId: String(args.entryId),
-      appIdentityId: args.appIdentityId,
-      versionId: args.versionId ? String(args.versionId) : null,
-    },
-    attempts: 0,
-    nextAttemptAt: args.now,
-    lastError: null,
-    createdAt: args.now,
-    updatedAt: args.now,
+): Promise<string> {
+  const path = await publicPathForPlacement(ctx, {
+    collection: args.entry.collection,
+    locale: args.locale,
+    parentEntryId: args.snapshot.parentEntryId,
+    slug: publicSegment(args.collection, args.entry, args.snapshot.slug),
+    options: publicTreeOptions(args.collection, args.locale),
   })
+  if (!path) {
+    throwCmsError('PUBLIC_PARENT_UNREACHABLE', 'Publish the parent before publishing this entry.')
+  }
+  return path
+}
+
+async function assertPublicPlacementAvailable(
+  ctx: QueryOrMutationCtx,
+  args: {
+    entry: Doc<'entries'>
+    collection: CmsCollection
+    locale: string
+    snapshot: RevisionLocaleSnapshot
+  },
+): Promise<void> {
+  const segment = publicSegment(args.collection, args.entry, args.snapshot.slug)
+  const issues = await validatePublicPlacement(ctx, {
+    collection: args.entry.collection,
+    locale: args.locale,
+    entryId: args.entry._id,
+    parentEntryId: args.snapshot.parentEntryId,
+    slug: segment,
+    options: publicTreeOptions(args.collection, args.locale),
+  })
+  if (issues.length) {
+    throwCmsError('ENTRY_PUBLISHED_PATH_CONFLICT', issues[0]!.message, {
+      locale: args.locale,
+      slug: segment,
+      issues,
+    })
+  }
+}
+
+async function nextOrderRank(
+  ctx: QueryOrMutationCtx,
+  collection: string,
+  parentEntryId: Id<'entries'> | null,
+): Promise<string> {
+  const siblings = await ctx.db
+    .query('entries')
+    .withIndex('by_parent', (q) =>
+      q.eq('collection', collection).eq('parentEntryId', parentEntryId),
+    )
+    .order('desc')
+    .take(1)
+  return rankAfter(siblings[0]?.orderRank)
+}
+
+async function resolveParent(
+  ctx: QueryOrMutationCtx,
+  collection: CmsCollection,
+  parentEntryId: string | undefined,
+): Promise<Id<'entries'> | null> {
+  if (!parentEntryId) return null
+  if (collection.type !== 'tree') {
+    throwCmsError('ENTRY_PARENT_NOT_ALLOWED', 'Flat collections cannot assign a parent entry.')
+  }
+  const id = ctx.db.normalizeId('entries', parentEntryId)
+  const parent = id ? await ctx.db.get(id) : null
+  if (!parent || parent.collection !== collection.slug || parent.lifecycle !== 'active') {
+    throwCmsError('ENTRY_PARENT_NOT_FOUND', 'Parent entry not found.', { parentEntryId })
+  }
+  return parent._id
 }
 
 export async function createCanonicalEntry(
-  ctx: Parameters<typeof refreshDraftAssetRefsForSave>[0],
+  ctx: WorkflowMutationCtx,
   args: {
     collection: string
     locale?: string
@@ -162,748 +175,395 @@ export async function createCanonicalEntry(
     appIdentity: string
   },
 ): Promise<Id<'entries'>> {
-  const now = Date.now()
+  await activeContractOrThrow(ctx)
   const collection = await getCollectionOrThrow(ctx, args.collection)
   const locale = args.locale ?? collection.locales[0] ?? 'en'
   assertValidLocaleCode(locale, 'ENTRY_LOCALE_INVALID')
+  assertCollectionSupportsLocale(collection, locale)
+  const slug = collection.routing.singleton ? collection.slug : args.slug
+  if (!collection.routing.singleton) assertValidSlug(slug)
+  const parentEntryId = await resolveParent(ctx, collection, args.parentEntryId)
+  const existing = await ctx.db
+    .query('entries')
+    .withIndex('by_collection_parent_slug', (q) =>
+      q.eq('collection', collection.slug).eq('parentEntryId', parentEntryId).eq('slug', slug),
+    )
+    .first()
+  if (existing) throwCmsError('ENTRY_SLUG_CONFLICT', `Slug "${slug}" already exists.`)
 
-  const baseSlug = collection.routing.singleton ? collection.slug : args.slug
-  if (!collection.routing.singleton) {
-    assertValidSlug(baseSlug)
+  const shared = args.shared ?? {}
+  const richtextKeys = new Set(
+    collection.fields.filter((field) => field.type === 'richtext').map((field) => field.key),
+  )
+  let bodyMdc = args.bodyMdc ?? ''
+  for (const key of richtextKeys) {
+    const value = args.localized?.[key]
+    if (!bodyMdc && typeof value === 'string') bodyMdc = value
   }
-  await ensureSharedSlugUnique(ctx, collection._id, baseSlug)
+  const localized = Object.fromEntries(
+    Object.entries(args.localized ?? {}).filter(([key]) => !richtextKeys.has(key)),
+  )
+  assertFieldDataValid(
+    collection.fields,
+    materializeFieldData(collection.fields, shared, localized),
+    { publish: false },
+  )
 
-  const placement = await resolveEntryPlacement(ctx, {
-    collection,
-    collectionId: collection._id,
-    parentEntryId: args.parentEntryId,
-    currentOrder: args.orderRank ?? null,
-  })
-  const stableId = await generateStableId(ctx, collection._id)
-  const shared = (args.shared ?? {}) as JsonObject
-  let localized = { ...((args.localized ?? {}) as JsonObject) }
-  // Rich-text content is canonical on the draft row's bodyMdc column, never in
-  // the values map. Lift a richtext value out of `localized` for callers that
-  // send it as a plain field (Studio create, MCP create) so the body is not
-  // silently stranded where no reader looks.
-  let bodyMdc = args.bodyMdc ?? null
-  for (const field of collection.fields) {
-    if (field.type !== 'richtext') continue
-    const { [field.key]: value, ...remainingLocalized } = localized
-    localized = remainingLocalized
-    if (bodyMdc === null && typeof value === 'string') bodyMdc = value
-  }
-  const mergedDraft = materializeFieldData(collection.fields, shared, localized)
-  assertFieldDataValid(collection.fields, mergedDraft, { publish: false })
-
+  const now = Date.now()
+  const orderRank = args.orderRank ?? (await nextOrderRank(ctx, collection.slug, parentEntryId))
   const entryId = await ctx.db.insert('entries', {
-    collectionId: collection._id,
-    baseSlug,
-    stableId,
-    status: 'draft',
-    dirtyLocales: [locale],
-    parentEntryId: placement.parentEntryId,
-    orderRank: placement.orderRank,
+    collection: collection.slug,
+    stableId: await generateStableId(ctx, collection.slug),
+    lifecycle: 'active',
+    slug,
+    parentEntryId,
+    orderRank,
     nodeKind: args.nodeKind ?? null,
-    sortCache: {},
+    shared,
     draftVersion: 1,
-    latestRevisionId: null,
+    sharedVersion: 1,
+    activePublications: [],
+    latestEditorialRevisionId: null,
     createdBy: args.appIdentity,
     updatedBy: args.appIdentity,
-    publishedBy: null,
     createdAt: now,
     updatedAt: now,
-    publishedAt: null,
-    firstPublishedAt: null,
   })
-
-  await ctx.db.insert('entryDrafts', {
-    entryId,
-    locale: null,
-    baseRevisionId: null,
-    parentEntryId: placement.parentEntryId,
-    orderRank: placement.orderRank,
-    slug: baseSlug,
-    shared,
-    updatedBy: args.appIdentity,
-    updatedAt: now,
-  })
-  await ctx.db.insert('entryDrafts', {
+  await ctx.db.insert('entryLocaleDrafts', {
     entryId,
     locale,
-    baseRevisionId: null,
-    ...(isLocalizedSlugMode(collection) ? { localeSlug: baseSlug } : {}),
+    slug: isLocalizedSlugMode(collection) ? slug : null,
     values: localized,
-    bodyMdc: bodyMdc ?? '',
+    bodyMdc,
+    version: 1,
     updatedBy: args.appIdentity,
     updatedAt: now,
   })
-
   await refreshDraftAssetRefsForSave(ctx, {
     entryId,
-    collectionId: collection._id,
+    collection: collection.slug,
     sharedUpdated: true,
     affectedLocales: [locale],
     now,
   })
   await logActivity(ctx, {
     kind: 'entry.created',
-    summary: `Created ${collection.slug} entry "${baseSlug}"`,
+    summary: `Created ${collection.slug} entry "${slug}"`,
     appIdentityId: args.appIdentity,
     entryId,
-    collectionId: collection._id,
+    collection: collection.slug,
     locale,
     detail: { locale },
     createdAt: now,
   })
-
   return entryId
 }
 
 export async function refreshDraftAssetRefsForSave(
-  ctx: Parameters<typeof replaceAssetRefs>[0],
+  ctx: WorkflowMutationCtx,
   args: {
     entryId: Id<'entries'>
-    collectionId: Id<'collections'>
+    collection: string
     sharedUpdated: boolean
     affectedLocales: string[]
     now: number
   },
 ): Promise<void> {
-  // Refresh contentAssetRefs for any locale this save touched. The
-  // shared row's `shared` field is treated as locale=null. Per-locale
-  // rows record their own asset refs scoped to that locale.
-  const draftRowsAfterSave = await readDraftRows(ctx, args.entryId)
+  const drafts = await readDraftRows(ctx, args.entryId)
   if (args.sharedUpdated) {
-    const sharedRow = draftRowsAfterSave.shared
-    const refs = extractAssetRefsFromValues((sharedRow?.shared ?? {}) as JsonObject, {
-      locale: null,
-    })
     await replaceAssetRefs(ctx, {
       sourceKind: 'draft',
       sourceId: `${args.entryId}:shared`,
       entryId: args.entryId,
-      collectionId: args.collectionId,
-      refs,
+      collection: args.collection,
+      refs: extractAssetRefsFromValues(drafts.shared?.shared ?? {}, { locale: null }),
       now: args.now,
     })
   }
-  for (const locale of args.affectedLocales) {
-    const localeRow = draftRowsAfterSave.byLocale[locale]
-    const refs = uniqueAssetRefs([
-      ...extractAssetRefsFromValues((localeRow?.values ?? {}) as JsonObject, {
-        locale,
-      }),
-      ...extractAssetRefsFromText(localeRow?.bodyMdc ?? '', {
-        fieldPath: 'bodyMdc',
-        locale,
-      }),
-    ])
+  for (const locale of [...new Set(args.affectedLocales)]) {
+    const row = drafts.byLocale[locale]
     await replaceAssetRefs(ctx, {
       sourceKind: 'draft',
       sourceId: `${args.entryId}:${locale}`,
       entryId: args.entryId,
-      collectionId: args.collectionId,
-      refs,
+      collection: args.collection,
+      refs: uniqueAssetRefs([
+        ...extractAssetRefsFromValues(row?.values ?? {}, { locale }),
+        ...extractAssetRefsFromText(row?.bodyMdc ?? '', { fieldPath: 'bodyMdc', locale }),
+      ]),
       now: args.now,
     })
   }
 }
 
 export async function computePublishDraftHash(
-  ctx: Parameters<typeof readDraftRows>[0],
+  ctx: QueryOrMutationCtx,
   args: { entryId: Id<'entries'>; locales: string[] },
 ): Promise<string> {
-  const drafts = await readDraftRows(ctx, args.entryId)
-  return stableHash(publishDraftHashPayload(drafts, args.locales))
+  const [entry, drafts, installed] = await Promise.all([
+    ctx.db.get(args.entryId),
+    readDraftRows(ctx, args.entryId),
+    readInstalledCmsContract(ctx),
+  ])
+  if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.')
+  return stableHash({
+    entryId: String(entry._id),
+    collection: entry.collection,
+    contract: installed?.record.contentHash ?? null,
+    draftVersion: entry.draftVersion,
+    sharedVersion: entry.sharedVersion,
+    shared: entry.shared,
+    slug: entry.slug,
+    parentEntryId: entry.parentEntryId ? String(entry.parentEntryId) : null,
+    orderRank: entry.orderRank,
+    locales: [...new Set(args.locales)].sort().map((locale) => {
+      const row = drafts.byLocale[locale]
+      return row
+        ? { locale, slug: row.slug, values: row.values, bodyMdc: row.bodyMdc, version: row.version }
+        : { locale, missing: true }
+    }),
+  })
 }
 
-function publishDraftHashPayload(
-  drafts: Awaited<ReturnType<typeof readDraftRows>>,
-  locales: string[],
-) {
-  return {
-    shared: drafts.shared
-      ? {
-          parentEntryId: drafts.shared.parentEntryId ?? null,
-          orderRank: drafts.shared.orderRank ?? null,
-          slug: drafts.shared.slug ?? null,
-          values: drafts.shared.shared ?? {},
-        }
-      : null,
-    locales: Object.fromEntries(
-      locales
-        .filter((locale) => drafts.byLocale[locale])
-        .map((locale) => {
-          const row = drafts.byLocale[locale]!
-          return [
-            locale,
-            {
-              slug: row.localeSlug ?? null,
-              values: row.values ?? {},
-              bodyMdc: row.bodyMdc ?? '',
-            },
-          ]
-        }),
-    ),
-  }
-}
-
-// ─── publish workflow helpers ────────────────────────────────────────────
-
-interface ParsedLocaleBody {
-  bodyMdc: string
-  bodyAst: MarkdownRoot
-  searchText: string
-  toc: Toc | null
-}
-
-interface PublishEntryRunInput {
-  entryId: Id<'entries'>
-  locales: string[]
-  expectedDraftVersion: number
-  expectedDraftHash: string
-  appIdentity: string
-  kind?: 'publish' | 'rollback'
-  message?: string | null
-  parsedLocales: Record<
-    string,
-    { bodyMdc: string; bodyAst: JsonObject; searchText: string; toc: JsonObject | null }
-  >
-}
-
-type PublishPlacementSnapshot = {
-  parentEntryId: Id<'entries'> | null
-  orderRank: string | null
-  slug: string | null
-  shared: JsonObject
-}
-
-function publishPlacementSnapshot(
+async function draftSnapshots(
+  ctx: QueryOrMutationCtx,
   entry: Doc<'entries'>,
-  drafts: Awaited<ReturnType<typeof readDraftRows>>,
-): PublishPlacementSnapshot {
-  const shared = drafts.shared
-  return {
-    parentEntryId: effectiveDraftParent(entry, shared),
-    orderRank:
-      shared && shared.orderRank !== undefined
-        ? (shared.orderRank ?? null)
-        : (entry.orderRank ?? null),
-    slug: effectiveDraftSlug(entry, shared, null),
-    shared: (shared?.shared as JsonObject) ?? {},
-  }
-}
-
-function mergeRevalidationState(
-  left: PublicRevalidationState,
-  right: PublicRevalidationState,
-): PublicRevalidationState {
-  return {
-    tags: uniqueContentTags([...left.tags, ...right.tags]),
-    paths: uniqueContentTags(
-      [...left.paths, ...right.paths].map((path) => normalizeContentPath(path)),
-    ),
-  }
-}
-
-async function executePublishEntryRun(
-  ctx: Parameters<typeof appendRevision>[0],
-  args: PublishEntryRunInput,
-): Promise<{ revisionId: Id<'entryRevisions'>; affectedLocales: string[] }> {
-  const now = Date.now()
-
-  const entry = await ctx.db.get(args.entryId)
-  if (!entry) {
-    throw new Error(`Publish rejected: entry ${args.entryId} no longer exists`)
-  }
-  if (entry.draftVersion !== args.expectedDraftVersion) {
-    throw new Error(
-      `Publish rejected: draft-version-drift expected=${args.expectedDraftVersion} actual=${entry.draftVersion}`,
-    )
-  }
-
-  const drafts = await readDraftRows(ctx, args.entryId)
-  const recomputedHash = stableHash(publishDraftHashPayload(drafts, args.locales))
-
-  if (recomputedHash !== args.expectedDraftHash) {
-    throw new Error(
-      `Publish rejected: draft-hash-drift expected=${args.expectedDraftHash} actual=${recomputedHash}`,
-    )
-  }
-
-  // Build the full per-locale revision snapshot. Start from the latest
-  // meaningful revision and replace only the locales this publish affects,
-  // so every publish revision can reconstruct the complete published state.
-  const priorSnapshot = await latestRevisionSnapshotOrEmpty(ctx, entry)
-  const collection = await ctx.db.get(entry.collectionId)
-  if (!collection) {
-    throw new Error(`Publish rejected: collection ${entry.collectionId} no longer exists`)
-  }
-  await assertCurrentDraftPublishable(ctx, {
-    collection,
-    entryId: args.entryId,
-    locales: args.locales,
-  })
-  const oldRevalidationState = await capturePublicRevalidationState(ctx, {
-    entryId: args.entryId,
-    locales: args.locales,
-  })
-  const localeSnapshots: Record<string, RevisionLocaleSnapshot | null> = {
-    ...(priorSnapshot.locales ?? {}),
-  }
-  const publishPlacement = publishPlacementSnapshot(entry, drafts)
-  for (const locale of args.locales) {
-    const row = drafts.byLocale[locale]
-    if (!row) {
-      throwCmsError('ENTRY_PUBLISH_LOCALE_NOT_FOUND', `Draft locale "${locale}" not found`, {
-        entryId: String(args.entryId),
-        locale,
-      })
-    }
-    const parsed = args.parsedLocales[locale]
-    const localeSlug = row.localeSlug ?? null
-    const sharedSlug = publishPlacement.slug
-    const slug = localeSlug ?? sharedSlug ?? entry.baseSlug
-    const mergedDraft = materializeFieldData(
-      collection.fields,
-      (drafts.shared?.shared as JsonObject) ?? {},
-      (row.values as JsonObject) ?? {},
-    )
-    assertFieldDataValid(collection.fields, mergedDraft, { publish: true })
-    assertCmsSchemaArtifactValid(collection.settings, mergedDraft)
-    const localeValues: JsonObject = { ...mergedDraft }
-    const rowValues = (row.values as JsonObject) ?? {}
-    if (rowValues.public !== undefined) localeValues.public = rowValues.public
-    if (rowValues.seo !== undefined) localeValues.seo = rowValues.seo
-    const ancestorSlugs = await computePublishedAncestorSlugs(ctx, {
-      collection,
-      parentEntryId: publishPlacement.parentEntryId,
-      locale,
-    })
-    const path = entrySnapshotPath(collection, {
+  collection: CmsCollection,
+  locales: string[],
+  parseBody: boolean,
+): Promise<RevisionSnapshots> {
+  const rows = await readDraftRows(ctx, entry._id)
+  const snapshots: RevisionSnapshots = {}
+  for (const locale of [...new Set(locales)]) {
+    assertCollectionSupportsLocale(collection, locale)
+    const row = rows.byLocale[locale]
+    if (!row) throwCmsError('ENTRY_LOCALE_DRAFT_MISSING', `No draft exists for locale "${locale}".`)
+    const slug = row.slug ?? entry.slug
+    assertValidSlug(slug)
+    const merged = materializeFieldData(collection.fields, entry.shared, row.values)
+    assertFieldDataValid(collection.fields, merged, { publish: parseBody })
+    const parsed = parseBody ? await parseMdcBody(row.bodyMdc) : null
+    snapshots[locale] = {
+      shared: entry.shared,
+      values: row.values,
+      bodyMdc: row.bodyMdc,
+      ...(parsed
+        ? {
+            bodyAst: parsed.body as unknown as JsonValue,
+            searchText: parsed.searchText,
+            toc: (parsed.toc as unknown as JsonValue | null) ?? null,
+          }
+        : {}),
       slug,
-      stableId: entry.stableId ?? null,
-      ancestorSlugs,
-    })
-    localeSnapshots[locale] = {
-      slug,
-      path,
-      values: localeValues,
-      bodyMdc: parsed?.bodyMdc ?? '',
-      searchText: parsed?.searchText ?? '',
-      toc: parsed?.toc ?? null,
+      parentEntryId: entry.parentEntryId,
+      orderRank: entry.orderRank,
+      sharedVersion: entry.sharedVersion,
+      localeVersion: row.version,
     }
   }
-  const descendantRebuilds = await collectDescendantProjectionRebuilds(ctx, {
-    collection,
-    rootEntry: entry,
-    localeSnapshots,
-    locales: args.locales,
-  })
-
-  const remainingDirtyLocales = (entry.dirtyLocales ?? []).filter(
-    (locale) => !args.locales.includes(locale),
-  )
-  const entryFirstPublishedAt = entry.firstPublishedAt ?? now
-  const revisionResult = await appendRevisionAndPatchEntry(
-    ctx,
-    {
-      entryId: args.entryId,
-      collectionId: entry.collectionId,
-      parentRevisionId: entry.latestRevisionId ?? null,
-      kind: args.kind ?? 'publish',
-      snapshot: {
-        parentEntryId: publishPlacement.parentEntryId,
-        orderRank: publishPlacement.orderRank,
-        slug: publishPlacement.slug,
-        shared: publishPlacement.shared,
-        locales: localeSnapshots,
-      },
-      affectedLocales: args.locales,
-      message: args.message ?? null,
-      appIdentity: args.appIdentity,
-      now,
-    },
-    {
-      status: 'published',
-      publishedAt: now,
-      firstPublishedAt: entryFirstPublishedAt,
-      publishedBy: args.appIdentity,
-      dirtyLocales: remainingDirtyLocales,
-      baseSlug: publishPlacement.slug ?? entry.baseSlug,
-      parentEntryId: publishPlacement.parentEntryId,
-      orderRank: publishPlacement.orderRank,
-    },
-  )
-
-  // Upsert publicEntries + publicRoutes per affected locale.
-  for (const locale of args.locales) {
-    const localeSnapshot = localeSnapshots[locale]
-    if (!localeSnapshot) continue
-    const projection = await buildPublicProjectionFromRevisionSnapshot(ctx, {
-      entry,
-      collection,
-      revisionId: revisionResult.revisionId,
-      locale,
-      snapshot: {
-        parentEntryId: publishPlacement.parentEntryId,
-        orderRank: publishPlacement.orderRank,
-      },
-      localeSnapshot,
-      now,
-    })
-    await upsertPublicProjection(ctx, projection.input)
-
-    // Asset refs: revision + public.
-    await replaceAssetRefs(ctx, {
-      sourceKind: 'revision',
-      sourceId: `${revisionResult.revisionId}:${locale}`,
-      entryId: args.entryId,
-      collectionId: entry.collectionId,
-      refs: projection.assetRefs,
-      now,
-    })
-    await replaceAssetRefs(ctx, {
-      sourceKind: 'public',
-      sourceId: `${args.entryId}:${locale}`,
-      entryId: args.entryId,
-      collectionId: entry.collectionId,
-      refs: projection.assetRefs,
-      now,
-    })
-  }
-
-  const descendantRevisionIds = await appendDescendantRouteRebuildRevisions(ctx, {
-    rebuilds: descendantRebuilds,
-    appIdentity: args.appIdentity,
-    now,
-  })
-
-  for (const rebuild of descendantRebuilds) {
-    const revisionId = descendantRevisionIds.get(String(rebuild.entry._id))
-    if (!revisionId) {
-      throw new Error(`Descendant route rebuild did not create a revision for ${rebuild.entry._id}`)
-    }
-    const projection = await buildPublicProjectionFromRevisionSnapshot(ctx, {
-      entry: rebuild.entry,
-      collection,
-      revisionId,
-      locale: rebuild.locale,
-      snapshot: rebuild.snapshot,
-      localeSnapshot: rebuild.localeSnapshot,
-      now,
-    })
-    await upsertPublicProjection(ctx, projection.input)
-    rebuild.cacheTags = uniqueContentTags([
-      ...rebuild.cacheTags,
-      ...(projection.input.cacheTags ?? []),
-    ])
-    await replaceAssetRefs(ctx, {
-      sourceKind: 'revision',
-      sourceId: `${revisionId}:${rebuild.locale}`,
-      entryId: rebuild.entry._id,
-      collectionId: rebuild.entry.collectionId,
-      refs: projection.assetRefs,
-      now,
-    })
-    await replaceAssetRefs(ctx, {
-      sourceKind: 'public',
-      sourceId: `${rebuild.entry._id}:${rebuild.locale}`,
-      entryId: rebuild.entry._id,
-      collectionId: rebuild.entry.collectionId,
-      refs: projection.assetRefs,
-      now,
-    })
-  }
-
-  await logActivity(ctx, {
-    kind: 'entry.published',
-    summary: 'Published entry',
-    appIdentityId: args.appIdentity,
-    entryId: entry._id,
-    collectionId: entry.collectionId,
-    detail: {
-      locales: args.locales,
-      revisionId: String(revisionResult.revisionId),
-    },
-    createdAt: now,
-  })
-  await insertRevalidationOutboxEvent(ctx, {
-    kind: 'publish',
-    collection,
-    entryId: entry._id,
-    appIdentityId: args.appIdentity,
-    versionId: revisionResult.revisionId,
-    now,
-    oldState: mergeRevalidationState(
-      oldRevalidationState,
-      descendantRevalidationState(descendantRebuilds),
-    ),
-  })
-  await scheduleRevalidationOutboxDelivery(ctx)
-
-  return {
-    revisionId: revisionResult.revisionId,
-    affectedLocales: args.locales,
-  }
+  return snapshots
 }
 
-async function assertCurrentDraftPublishable(
-  ctx: QueryOrMutationCtx,
+async function replaceRevisionAssetRefs(
+  ctx: WorkflowMutationCtx,
   args: {
-    collection: Doc<'collections'>
-    entryId: Id<'entries'>
-    locales: string[]
+    revisionId: Id<'entryRevisions'>
+    entry: Doc<'entries'>
+    snapshots: RevisionSnapshots
+    now: number
   },
-) {
-  const impact = await previewPublishImpactForEntry(ctx, {
-    collection: args.collection.slug,
-    entryId: String(args.entryId),
-    locales: args.locales,
-  })
-  const blockedLocales = impact.locales.filter(
-    (locale) => !PUBLISHABLE_IMPACT_STATUSES.has(locale.status),
-  )
-  if (
-    PUBLISHABLE_IMPACT_STATUSES.has(impact.status) &&
-    blockedLocales.length === 0 &&
-    impact.blockingDiagnostics.length === 0
-  ) {
-    return
-  }
-
-  throwCmsError('ENTRY_PUBLISH_NOT_READY', 'Publish rejected: current draft is not publishable.', {
-    entryId: String(args.entryId),
-    locales: args.locales,
-    status: impact.status,
-    blockedLocales: blockedLocales.map((locale) => locale.locale),
-    blockingDiagnostics: impact.blockingDiagnostics.map((diagnostic) => ({
-      code: diagnostic.code,
-      severity: diagnostic.severity,
-      locale: diagnostic.locale ?? null,
-      path: diagnostic.path ?? null,
-      href: diagnostic.href ?? null,
-      message: diagnostic.message,
-    })),
-  })
-}
-
-type SchemaArtifactNode =
-  | { kind: 'object'; required?: string[]; shape?: Record<string, SchemaArtifactNode> }
-  | { kind: 'array'; element?: SchemaArtifactNode }
-  | {
-      kind: 'string'
-      checks?: Array<
-        | { kind: 'min'; value: number }
-        | { kind: 'max'; value: number }
-        | { kind: 'email' }
-        | { kind: 'url' }
-      >
-    }
-  | { kind: 'number' }
-  | { kind: 'boolean' }
-  | { kind: 'date' }
-  | { kind: 'enum'; values?: string[] }
-  | { kind: 'optional'; inner?: SchemaArtifactNode }
-  | { kind: 'nullable'; inner?: SchemaArtifactNode }
-  | { kind: 'default'; inner?: SchemaArtifactNode; value?: unknown }
-
-function assertCmsSchemaArtifactValid(settings: unknown, value: JsonObject) {
-  const schemaRef = cmsSchemaRef(settings)
-  if (!schemaRef) return
-  if (!schemaRef.artifact) {
-    throwCmsError(
-      'ENTRY_PUBLISH_SCHEMA_ARTIFACT_MISSING',
-      'Publish rejected: schema artifact missing',
-    )
-  }
-  const actualChecksum = schemaArtifactChecksum(schemaRef.artifact)
-  if (schemaRef.checksum !== actualChecksum) {
-    throwCmsError(
-      'ENTRY_PUBLISH_SCHEMA_ARTIFACT_MISMATCH',
-      'Publish rejected: schema artifact checksum mismatch',
-      {
-        expected: schemaRef.checksum,
-        actual: actualChecksum,
-      },
-    )
-  }
-  const errors: string[] = []
-  let artifact: { root?: SchemaArtifactNode }
-  try {
-    artifact = JSON.parse(schemaRef.artifact) as { root?: SchemaArtifactNode }
-  } catch {
-    throwCmsError(
-      'ENTRY_PUBLISH_SCHEMA_ARTIFACT_INVALID',
-      'Publish rejected: schema artifact is not valid JSON',
-    )
-  }
-  validateSchemaNode(artifact.root, value, '<root>', errors)
-  if (errors.length > 0) {
-    throwCmsError(
-      'ENTRY_PUBLISH_SCHEMA_INVALID',
-      'Publish rejected: draft does not match collection schema',
-      {
-        errors,
-      },
-    )
+): Promise<void> {
+  for (const [locale, snapshot] of Object.entries(args.snapshots)) {
+    await replaceAssetRefs(ctx, {
+      sourceKind: 'revision',
+      sourceId: `${String(args.revisionId)}:${locale}`,
+      entryId: args.entry._id,
+      collection: args.entry.collection,
+      refs: uniqueAssetRefs([
+        ...extractAssetRefsFromValues(snapshot.shared, { locale: null }),
+        ...extractAssetRefsFromValues(snapshot.values, { locale }),
+        ...extractAssetRefsFromText(snapshot.bodyMdc, { fieldPath: 'bodyMdc', locale }),
+      ]),
+      now: args.now,
+    })
   }
 }
 
-function cmsSchemaRef(settings: unknown): {
-  checksum: string
-  artifact?: string
-} | null {
-  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return null
-  const ref = (settings as Record<string, unknown>).cmsSchema
-  if (!ref || typeof ref !== 'object' || Array.isArray(ref)) return null
-  const checksum = (ref as Record<string, unknown>).checksum
-  const artifact = (ref as Record<string, unknown>).artifact
-  return {
-    checksum: typeof checksum === 'string' ? checksum : '',
-    artifact: typeof artifact === 'string' ? artifact : undefined,
-  }
-}
-
-function validateSchemaNode(
-  node: SchemaArtifactNode | undefined,
-  value: unknown,
-  path: string,
-  errors: string[],
-): void {
-  if (!node) {
-    errors.push(`${path}: schema node missing`)
-    return
-  }
-  if (node.kind === 'optional') {
-    if (value === undefined) return
-    validateSchemaNode(node.inner, value, path, errors)
-    return
-  }
-  if (node.kind === 'nullable') {
-    if (value === null) return
-    validateSchemaNode(node.inner, value, path, errors)
-    return
-  }
-  if (node.kind === 'default') {
-    if (value === undefined) return
-    validateSchemaNode(node.inner, value, path, errors)
-    return
-  }
-  if (value === undefined || value === null) {
-    errors.push(`${path}: required value missing`)
-    return
-  }
-  if (node.kind === 'object') {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      errors.push(`${path}: expected object`)
-      return
-    }
-    const objectValue = value as Record<string, unknown>
-    for (const key of node.required ?? []) {
-      if (objectValue[key] === undefined) errors.push(`${path}.${key}: required value missing`)
-    }
-    for (const [key, child] of Object.entries(node.shape ?? {})) {
-      validateSchemaNode(child, objectValue[key], `${path}.${key}`, errors)
-    }
-    return
-  }
-  if (node.kind === 'array') {
-    if (!Array.isArray(value)) {
-      errors.push(`${path}: expected array`)
-      return
-    }
-    value.forEach((entry, index) =>
-      validateSchemaNode(node.element, entry, `${path}[${index}]`, errors),
-    )
-    return
-  }
-  if (node.kind === 'string') {
-    if (typeof value !== 'string') {
-      errors.push(`${path}: expected string`)
-      return
-    }
-    for (const check of node.checks ?? []) {
-      if (check.kind === 'min' && value.length < check.value) {
-        errors.push(`${path}: expected at least ${check.value} character(s)`)
-      }
-      if (check.kind === 'max' && value.length > check.value) {
-        errors.push(`${path}: expected at most ${check.value} character(s)`)
-      }
-      if (check.kind === 'email' && !looksLikeEmail(value)) {
-        errors.push(`${path}: expected email`)
-      }
-      if (check.kind === 'url' && !looksLikeUrl(value)) {
-        errors.push(`${path}: expected url`)
-      }
-    }
-    return
-  }
-  if (node.kind === 'number' && typeof value !== 'number') errors.push(`${path}: expected number`)
-  if (node.kind === 'boolean' && typeof value !== 'boolean')
-    errors.push(`${path}: expected boolean`)
-  if (node.kind === 'date' && !(value instanceof Date) && typeof value !== 'string') {
-    errors.push(`${path}: expected date`)
-  }
-  if (node.kind === 'enum' && !((node.values ?? []) as unknown[]).includes(value)) {
-    errors.push(`${path}: expected one of ${(node.values ?? []).join(', ')}`)
-  }
-}
-
-function looksLikeEmail(value: string): boolean {
-  const at = value.indexOf('@')
-  if (at <= 0 || at !== value.lastIndexOf('@')) return false
-  const domain = value.slice(at + 1)
-  return domain.includes('.') && !domain.startsWith('.') && !domain.endsWith('.')
-}
-
-function looksLikeUrl(value: string): boolean {
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
-function schemaArtifactChecksum(source: string): string {
-  let hash = 2166136261
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-  return `fnv1a32:${(hash >>> 0).toString(16).padStart(8, '0')}`
-}
-
-async function computePublishedAncestorSlugs(
-  ctx: QueryOrMutationCtx,
+async function upsertRedirectForPathChange(
+  ctx: WorkflowMutationCtx,
   args: {
-    collection: Doc<'collections'> | null
-    parentEntryId: Id<'entries'> | null
+    entry: Doc<'entries'>
+    collection: CmsCollection
     locale: string
+    oldPath: string | null
+    newPath: string
+    operationId: string
+    appIdentity: string
+    now: number
   },
-): Promise<string[]> {
-  if (!args.parentEntryId) return []
-
-  const parentPublic = await ctx.db
-    .query('publicEntries')
-    .withIndex('by_entry_locale', (q) =>
-      q.eq('entryId', args.parentEntryId!).eq('locale', args.locale),
+): Promise<void> {
+  if (!args.oldPath || args.oldPath === args.newPath) return
+  const existing = await ctx.db
+    .query('redirects')
+    .withIndex('by_collection_locale_state_from', (q) =>
+      q
+        .eq('collection', args.entry.collection)
+        .eq('locale', args.locale)
+        .eq('state', 'active')
+        .eq('fromPath', args.oldPath!),
     )
     .first()
-  if (!parentPublic) {
-    const parent = await ctx.db.get(args.parentEntryId)
-    return parent ? [parent.baseSlug] : []
+  if (existing && existing.targetEntryId !== args.entry._id) {
+    throwCmsError('REDIRECT_SOURCE_CONFLICT', 'An active redirect already owns the old path.')
   }
+  if (existing) return
+  const child = await ctx.db
+    .query('publicEntries')
+    .withIndex('by_collection_locale_parent_orderKey', (q) =>
+      q
+        .eq('collection', args.entry.collection)
+        .eq('locale', args.locale)
+        .eq('parentEntryId', args.entry._id),
+    )
+    .first()
+  const redirectKind = child ? 'prefix' : 'exact'
+  const validation = await validatePublicRedirectCandidate(ctx, {
+    collection: args.entry.collection,
+    locale: args.locale,
+    kind: redirectKind,
+    fromPath: args.oldPath,
+    targetEntryId: args.entry._id,
+    options: publicTreeOptions(args.collection, args.locale),
+  })
+  if (!validation.ok) {
+    throwCmsError('REDIRECT_INVALID', validation.issues[0]!.message, {
+      issues: validation.issues,
+    })
+  }
+  await ctx.db.insert('redirects', {
+    collection: args.entry.collection,
+    locale: args.locale,
+    kind: redirectKind,
+    fromPath: args.oldPath,
+    targetEntryId: args.entry._id,
+    state: 'active',
+    statusCode: 308,
+    source: 'publish',
+    operationId: args.operationId,
+    createdBy: args.appIdentity,
+    createdAt: args.now,
+    retiredBy: null,
+    retiredAt: null,
+    updatedAt: args.now,
+  })
+  await bumpRouteGeneration(ctx, args.entry.collection, args.locale, args.now)
+}
 
-  return pathSegments(
-    localeSnapshotPathFromPublicPath(args.collection, parentPublic.path, args.locale),
-  )
+async function enqueueWorkflowRevalidation(
+  ctx: WorkflowMutationCtx,
+  args: {
+    kind: 'publish' | 'unpublish' | 'archive' | 'rollback'
+    entry: Doc<'entries'>
+    revisionId: Id<'entryRevisions'>
+    tags: string[]
+    paths: string[]
+    appIdentity: string
+    now: number
+  },
+): Promise<void> {
+  await enqueueRevalidationEvent(ctx, {
+    idempotencyKey: `content.revalidate:${args.kind}:${String(args.entry._id)}:${String(args.revisionId)}`,
+    versionId: String(args.revisionId),
+    tags: uniqueContentTags(args.tags),
+    paths: uniqueContentTags(args.paths.map(normalizeContentPath)),
+    payload: {
+      reason: args.kind,
+      collection: args.entry.collection,
+      entryId: String(args.entry._id),
+      appIdentityId: args.appIdentity,
+      revisionId: String(args.revisionId),
+    },
+    now: args.now,
+  })
+  await scheduleRevalidationOutboxDelivery(ctx)
+}
+
+async function activateSnapshots(
+  ctx: WorkflowMutationCtx,
+  args: {
+    entry: Doc<'entries'>
+    collection: CmsCollection
+    snapshots: RevisionSnapshots
+    revisionId: Id<'entryRevisions'>
+    appIdentity: string
+    now: number
+    kind: 'publish' | 'rollback'
+    operationId: string
+  },
+): Promise<{ paths: string[]; tags: string[] }> {
+  const paths: string[] = []
+  const tags: string[] = []
+  for (const [locale, snapshot] of Object.entries(args.snapshots)) {
+    await assertPublicPlacementAvailable(ctx, {
+      entry: args.entry,
+      collection: args.collection,
+      locale,
+      snapshot,
+    })
+    const oldRow = await ctx.db
+      .query('publicEntries')
+      .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entry._id).eq('locale', locale))
+      .unique()
+    const oldPath = oldRow
+      ? await publicPathForEntry(ctx, oldRow, publicTreeOptions(args.collection, locale))
+      : null
+    if (oldRow) {
+      if (oldPath) paths.push(oldPath)
+      tags.push(...oldRow.cacheTags)
+    }
+    const publicPath = await publicPathForSnapshot(ctx, {
+      entry: args.entry,
+      collection: args.collection,
+      locale,
+      snapshot,
+    })
+    const built = await buildPublicProjectionFromRevisionSnapshot(ctx, {
+      entry: args.entry,
+      collection: args.collection,
+      revisionId: args.revisionId,
+      locale,
+      localeSnapshot: snapshot,
+      publicPath,
+      now: args.now,
+    })
+    built.input.slug = publicSegment(args.collection, args.entry, snapshot.slug)
+    await upsertPublicProjection(ctx, built.input)
+    await replaceAssetRefs(ctx, {
+      sourceKind: 'public',
+      sourceId: `${String(args.entry._id)}:${locale}`,
+      entryId: args.entry._id,
+      collection: args.entry.collection,
+      refs: built.assetRefs,
+      now: args.now,
+    })
+    await upsertRedirectForPathChange(ctx, {
+      entry: args.entry,
+      collection: args.collection,
+      locale,
+      oldPath,
+      newPath: publicPath,
+      operationId: args.operationId,
+      appIdentity: args.appIdentity,
+      now: args.now,
+    })
+    paths.push(publicPath)
+    tags.push(...built.input.cacheTags!)
+  }
+  return { paths, tags }
 }
 
 export async function publishCurrentDraft(
-  ctx: Parameters<typeof executePublishEntryRun>[0],
+  ctx: WorkflowMutationCtx,
   args: {
     entryId: Id<'entries'>
     locales: string[]
@@ -914,56 +574,97 @@ export async function publishCurrentDraft(
     message?: string | null
   },
 ): Promise<{ revisionId: Id<'entryRevisions'>; affectedLocales: string[] }> {
-  const draftRows = await readDraftRows(ctx, args.entryId)
+  const installed = await activeContractOrThrow(ctx)
   const entry = await ctx.db.get(args.entryId)
-  if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.', { entryId: args.entryId })
-  const collection = await ctx.db.get(entry.collectionId)
-  if (!collection) {
-    throwCmsError('COLLECTION_NOT_FOUND', 'Entry collection not found.', {
-      collectionId: entry.collectionId,
+  if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.')
+  if (entry.lifecycle !== 'active')
+    throwCmsError('ENTRY_ARCHIVED', 'Archived entries cannot publish.')
+  if (entry.draftVersion !== args.expectedDraftVersion) {
+    throwCmsError('ENTRY_DRAFT_STALE', 'The draft changed after preview.', {
+      expected: args.expectedDraftVersion,
+      actual: entry.draftVersion,
     })
   }
-
-  const parsedLocales: Record<string, ParsedLocaleBody> = {}
-  for (const locale of args.locales) {
-    const draft = draftRows.byLocale[locale]
-    const bodyMdc = draft?.bodyMdc ?? ''
-    const parsed = await parseMdcBody(bodyMdc)
-    await assertPublicBodySafe(ctx, parsed.body, collection)
-    parsedLocales[locale] = {
-      bodyMdc,
-      bodyAst: parsed.body,
-      searchText: parsed.searchText,
-      toc: parsed.toc ?? null,
-    }
+  const locales = [...new Set(args.locales)].sort()
+  if (!locales.length) throwCmsError('ENTRY_LOCALES_REQUIRED', 'Select at least one locale.')
+  const currentHash = await computePublishDraftHash(ctx, { entryId: entry._id, locales })
+  if (currentHash !== args.expectedDraftHash) {
+    throwCmsError('ENTRY_DRAFT_STALE', 'The publish preview no longer matches the draft.')
   }
-
-  return await executePublishEntryRun(ctx, {
-    entryId: args.entryId,
-    locales: args.locales,
-    expectedDraftVersion: args.expectedDraftVersion,
-    expectedDraftHash: args.expectedDraftHash,
-    appIdentity: args.appIdentity,
-    kind: args.kind,
+  const collection = await getCollectionOrThrow(ctx, entry.collection)
+  const snapshots = await draftSnapshots(ctx, entry, collection, locales, true)
+  const now = Date.now()
+  const kind = args.kind ?? 'publish'
+  const opId = operationId(kind, entry._id, now)
+  const revision = await appendRevision(ctx, {
+    entryId: entry._id,
+    collection: entry.collection,
+    parentRevisionId: entry.latestEditorialRevisionId,
+    kind,
+    snapshots,
+    affectedLocales: locales,
+    contentHash: installed.record.contentHash,
+    operationId: opId,
     message: args.message ?? null,
-    parsedLocales: Object.fromEntries(
-      Object.entries(parsedLocales).map(([locale, body]) => [
-        locale,
-        {
-          bodyMdc: body.bodyMdc,
-          bodyAst: body.bodyAst as unknown as JsonObject,
-          searchText: body.searchText,
-          toc: (body.toc as unknown as JsonObject | null) ?? null,
-        },
-      ]),
-    ) as Record<
-      string,
-      { bodyMdc: string; bodyAst: JsonObject; searchText: string; toc: JsonObject | null }
-    >,
+    appIdentity: args.appIdentity,
+    now,
   })
+  const publicationByLocale = new Map(entry.activePublications.map((row) => [row.locale, row]))
+  for (const locale of locales) {
+    const snapshot = snapshots[locale]!
+    publicationByLocale.set(locale, {
+      locale,
+      revisionId: revision.revisionId,
+      sharedVersion: snapshot.sharedVersion,
+      localeVersion: snapshot.localeVersion,
+      activatedAt: now,
+      activatedBy: args.appIdentity,
+    })
+  }
+  await ctx.db.patch(entry._id, {
+    activePublications: [...publicationByLocale.values()].sort((a, b) =>
+      a.locale.localeCompare(b.locale),
+    ),
+    latestEditorialRevisionId: revision.revisionId,
+    updatedBy: args.appIdentity,
+    updatedAt: now,
+  })
+  const effect = await activateSnapshots(ctx, {
+    entry,
+    collection,
+    snapshots,
+    revisionId: revision.revisionId,
+    appIdentity: args.appIdentity,
+    now,
+    kind,
+    operationId: opId,
+  })
+  await replaceRevisionAssetRefs(ctx, {
+    revisionId: revision.revisionId,
+    entry,
+    snapshots,
+    now,
+  })
+  await logActivity(ctx, {
+    kind: kind === 'rollback' ? 'entry.public-rolled-back' : 'entry.published',
+    summary: kind === 'rollback' ? 'Rolled back public output' : 'Published entry',
+    appIdentityId: args.appIdentity,
+    entryId: entry._id,
+    collection: entry.collection,
+    detail: { locales, revisionId: String(revision.revisionId) },
+    createdAt: now,
+  })
+  await enqueueWorkflowRevalidation(ctx, {
+    kind,
+    entry,
+    revisionId: revision.revisionId,
+    tags: effect.tags,
+    paths: effect.paths,
+    appIdentity: args.appIdentity,
+    now,
+  })
+  return { revisionId: revision.revisionId, affectedLocales: locales }
 }
-
-// ─── unpublishEntry / archiveEntry / restoreRevision ─────────────────────
 
 function assertExpectedPublicRevisionIds(
   current: Record<string, Id<'entryRevisions'>>,
@@ -971,60 +672,33 @@ function assertExpectedPublicRevisionIds(
   locales: string[],
 ): void {
   for (const locale of locales) {
-    const expectedRevisionId = expected[locale]
-    const currentRevisionId = current[locale]
-    if (!expectedRevisionId) {
-      throw new Error(
-        `Public state concurrency rejected: missing expected revision for locale ${locale}`,
-      )
-    }
-    if (!currentRevisionId) {
-      throw new Error(`Public state concurrency rejected: locale ${locale} is not published`)
-    }
-    if (currentRevisionId !== expectedRevisionId) {
-      throw new Error(
-        `Public state concurrency rejected: locale ${locale} moved from ${expectedRevisionId} to ${currentRevisionId}`,
-      )
+    if (!expected[locale] || current[locale] !== expected[locale]) {
+      throwCmsError('PUBLIC_STATE_STALE', `Public locale "${locale}" changed after preview.`)
     }
   }
 }
 
-function assertExactExpectedPublicRevisionIds(
-  current: Record<string, Id<'entryRevisions'>>,
-  expected: Record<string, Id<'entryRevisions'>>,
-): void {
-  const currentLocales = Object.keys(current).sort()
-  const expectedLocales = Object.keys(expected).sort()
-  if (currentLocales.length !== expectedLocales.length) {
-    throw new Error(
-      `Public state concurrency rejected: expected locales ${expectedLocales.join(',')} do not match current locales ${currentLocales.join(',')}`,
-    )
-  }
-  assertExpectedPublicRevisionIds(current, expected, currentLocales)
-}
-
-async function latestRevisionSnapshotOrEmpty(
-  ctx: Parameters<typeof appendRevision>[0],
-  entry: { latestRevisionId?: Id<'entryRevisions'> | null },
-) {
-  if (!entry.latestRevisionId) {
-    return {
-      parentEntryId: null,
-      orderRank: null,
-      slug: null,
-      shared: {},
-      locales: {},
+async function activeSnapshots(
+  ctx: QueryOrMutationCtx,
+  entry: Doc<'entries'>,
+  locales: string[],
+): Promise<RevisionSnapshots> {
+  const snapshots: RevisionSnapshots = {}
+  for (const locale of locales) {
+    const pointer = entry.activePublications.find((row) => row.locale === locale)
+    if (!pointer) continue
+    const revision = await ctx.db.get(pointer.revisionId)
+    const snapshot = revision?.snapshots[locale]
+    if (!snapshot) {
+      throw new Error(`Active publication ${pointer.revisionId} has no ${locale} snapshot`)
     }
+    snapshots[locale] = snapshot
   }
-  const latestRevision = await ctx.db.get(entry.latestRevisionId)
-  if (!latestRevision) {
-    throw new Error(`Latest revision not found: ${entry.latestRevisionId}`)
-  }
-  return latestRevision.snapshot
+  return snapshots
 }
 
 export async function unpublishCurrentPublic(
-  ctx: Parameters<typeof appendRevision>[0],
+  ctx: WorkflowMutationCtx,
   args: {
     entryId: Id<'entries'>
     locales: string[]
@@ -1036,176 +710,279 @@ export async function unpublishCurrentPublic(
   affectedLocales: string[]
   remainingLocales: string[]
 }> {
+  const installed = await activeContractOrThrow(ctx)
   const entry = await ctx.db.get(args.entryId)
-  if (!entry) throw new Error(`Entry not found: ${args.entryId}`)
-  const collection = await ctx.db.get(entry.collectionId)
-  if (!collection) throw new Error(`Collection not found: ${entry.collectionId}`)
-
-  const locales = [...new Set(args.locales)]
-  if (locales.length === 0) {
-    throw new Error('Unpublish rejected: at least one locale is required')
-  }
-
-  const currentPublicRevisionIds = await readPublicRevisionIdsByLocale(ctx, args.entryId)
-  assertExpectedPublicRevisionIds(currentPublicRevisionIds, args.expectedPublicRevisionIds, locales)
-
+  if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.')
+  const locales = [...new Set(args.locales)].sort()
+  if (!locales.length) throwCmsError('ENTRY_LOCALES_REQUIRED', 'Select at least one locale.')
+  const current = await readPublicRevisionIdsByLocale(ctx, entry._id)
+  assertExpectedPublicRevisionIds(current, args.expectedPublicRevisionIds, locales)
+  const snapshots = await activeSnapshots(ctx, entry, locales)
+  const oldRows = (
+    await Promise.all(
+      locales.map((locale) =>
+        ctx.db
+          .query('publicEntries')
+          .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id).eq('locale', locale))
+          .unique(),
+      ),
+    )
+  ).filter((row): row is Doc<'publicEntries'> => row !== null)
+  const collection = await getCollectionOrThrow(ctx, entry.collection)
+  const paths = (
+    await Promise.all(
+      oldRows.map((row) => publicPathForEntry(ctx, row, publicTreeOptions(collection, row.locale))),
+    )
+  ).filter((path): path is string => path !== null)
+  const tags = oldRows.flatMap((row) => row.cacheTags)
   const now = Date.now()
-  const oldRevalidationState = await capturePublicRevalidationState(ctx, {
-    entryId: args.entryId,
-    locales,
+  const opId = operationId('unpublish', entry._id, now)
+  const revision = await appendRevision(ctx, {
+    entryId: entry._id,
+    collection: entry.collection,
+    parentRevisionId: entry.latestEditorialRevisionId,
+    kind: 'unpublish',
+    snapshots,
+    affectedLocales: locales,
+    contentHash: installed.record.contentHash,
+    operationId: opId,
+    message: null,
+    appIdentity: args.appIdentity,
+    now,
   })
-  const priorSnapshot = await latestRevisionSnapshotOrEmpty(ctx, entry)
-  const nextSnapshot = {
-    ...priorSnapshot,
-    locales: { ...(priorSnapshot.locales ?? {}) },
-  }
   for (const locale of locales) {
-    nextSnapshot.locales[locale] = null
-  }
-  for (const locale of locales) {
-    await deletePublicProjection(ctx, { entryId: args.entryId, locale })
+    await deletePublicProjection(ctx, { entryId: entry._id, locale })
     await replaceAssetRefs(ctx, {
       sourceKind: 'public',
-      sourceId: `${args.entryId}:${locale}`,
-      entryId: args.entryId,
-      collectionId: entry.collectionId,
+      sourceId: `${String(entry._id)}:${locale}`,
+      entryId: entry._id,
+      collection: entry.collection,
       refs: [],
       now,
     })
   }
-
-  const remainingPublicRevisionIds = await readPublicRevisionIdsByLocale(ctx, args.entryId)
-  const remainingLocales = Object.keys(remainingPublicRevisionIds).sort()
-  const revisionResult = await appendRevisionAndPatchEntry(
-    ctx,
-    {
-      entryId: args.entryId,
-      collectionId: entry.collectionId,
-      parentRevisionId: entry.latestRevisionId ?? null,
-      kind: 'unpublish',
-      snapshot: nextSnapshot,
-      affectedLocales: locales,
-      message: null,
-      appIdentity: args.appIdentity,
-      now,
-    },
-    {
-      status: remainingLocales.length > 0 ? 'published' : 'draft',
-      ...(remainingLocales.length === 0 ? { publishedAt: null, publishedBy: null } : {}),
-    },
-  )
+  const remaining = entry.activePublications.filter((row) => !locales.includes(row.locale))
+  await ctx.db.patch(entry._id, {
+    activePublications: remaining,
+    latestEditorialRevisionId: revision.revisionId,
+    updatedBy: args.appIdentity,
+    updatedAt: now,
+  })
+  await replaceRevisionAssetRefs(ctx, { revisionId: revision.revisionId, entry, snapshots, now })
   await logActivity(ctx, {
     kind: 'entry.unpublished',
-    summary: 'Unpublished entry',
+    summary: 'Unpublished entry locales',
     appIdentityId: args.appIdentity,
-    entryId: args.entryId,
-    collectionId: entry.collectionId,
-    detail: {
-      locales,
-      revisionId: String(revisionResult.revisionId),
-    },
+    entryId: entry._id,
+    collection: entry.collection,
+    detail: { locales, revisionId: String(revision.revisionId) },
     createdAt: now,
   })
-  await insertRevalidationOutboxEvent(ctx, {
+  await enqueueWorkflowRevalidation(ctx, {
     kind: 'unpublish',
-    collection,
-    entryId: args.entryId,
-    appIdentityId: args.appIdentity,
-    versionId: revisionResult.revisionId,
+    entry,
+    revisionId: revision.revisionId,
+    tags,
+    paths,
+    appIdentity: args.appIdentity,
     now,
-    oldState: oldRevalidationState,
   })
-  await scheduleRevalidationOutboxDelivery(ctx)
-
   return {
-    revisionId: revisionResult.revisionId,
+    revisionId: revision.revisionId,
     affectedLocales: locales,
-    remainingLocales,
+    remainingLocales: remaining.map((row) => row.locale).sort(),
   }
 }
 
 export async function archiveCurrentEntry(
-  ctx: Parameters<typeof appendRevision>[0],
+  ctx: WorkflowMutationCtx,
   args: {
     entryId: Id<'entries'>
     expectedPublicRevisionIds: Record<string, Id<'entryRevisions'>>
     appIdentity: string
   },
 ): Promise<{ revisionId: Id<'entryRevisions'>; affectedLocales: string[] }> {
+  const installed = await activeContractOrThrow(ctx)
   const entry = await ctx.db.get(args.entryId)
-  if (!entry) throw new Error(`Entry not found: ${args.entryId}`)
-  const collection = await ctx.db.get(entry.collectionId)
-  if (!collection) throw new Error(`Collection not found: ${entry.collectionId}`)
-
-  const currentPublicRevisionIds = await readPublicRevisionIdsByLocale(ctx, args.entryId)
-  assertExactExpectedPublicRevisionIds(currentPublicRevisionIds, args.expectedPublicRevisionIds)
-
+  if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.')
+  const current = await readPublicRevisionIdsByLocale(ctx, entry._id)
+  const locales = Object.keys(current).sort()
+  if (Object.keys(args.expectedPublicRevisionIds).length !== locales.length) {
+    throwCmsError('PUBLIC_STATE_STALE', 'Public locales changed after preview.')
+  }
+  assertExpectedPublicRevisionIds(current, args.expectedPublicRevisionIds, locales)
+  const snapshots = await activeSnapshots(ctx, entry, locales)
+  const collection = await getCollectionOrThrow(ctx, entry.collection)
+  const oldRows = await ctx.db
+    .query('publicEntries')
+    .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
+    .collect()
+  const paths = (
+    await Promise.all(
+      oldRows.map((row) => publicPathForEntry(ctx, row, publicTreeOptions(collection, row.locale))),
+    )
+  ).filter((path): path is string => path !== null)
+  const tags = oldRows.flatMap((row) => row.cacheTags)
   const now = Date.now()
-  const oldRevalidationState = await capturePublicRevalidationState(ctx, { entryId: args.entryId })
-  const priorSnapshot = await latestRevisionSnapshotOrEmpty(ctx, entry)
-  const affectedLocales = Object.keys(currentPublicRevisionIds).sort()
-  const deletedLocales = await deleteAllPublicProjections(ctx, args.entryId)
-  for (const locale of deletedLocales) {
+  const revision = await appendRevision(ctx, {
+    entryId: entry._id,
+    collection: entry.collection,
+    parentRevisionId: entry.latestEditorialRevisionId,
+    kind: 'archive',
+    snapshots,
+    affectedLocales: locales,
+    contentHash: installed.record.contentHash,
+    operationId: operationId('archive', entry._id, now),
+    message: null,
+    appIdentity: args.appIdentity,
+    now,
+  })
+  await deleteAllPublicProjections(ctx, entry._id)
+  for (const locale of locales) {
     await replaceAssetRefs(ctx, {
       sourceKind: 'public',
-      sourceId: `${args.entryId}:${locale}`,
-      entryId: args.entryId,
-      collectionId: entry.collectionId,
+      sourceId: `${String(entry._id)}:${locale}`,
+      entryId: entry._id,
+      collection: entry.collection,
       refs: [],
       now,
     })
   }
-
-  const revisionResult = await appendRevisionAndPatchEntry(
-    ctx,
-    {
-      entryId: args.entryId,
-      collectionId: entry.collectionId,
-      parentRevisionId: entry.latestRevisionId ?? null,
-      kind: 'archive',
-      snapshot: priorSnapshot,
-      affectedLocales,
-      message: null,
-      appIdentity: args.appIdentity,
-      now,
-    },
-    {
-      status: 'archived',
-      publishedAt: null,
-      publishedBy: null,
-    },
-  )
+  await ctx.db.patch(entry._id, {
+    lifecycle: 'archived',
+    activePublications: [],
+    latestEditorialRevisionId: revision.revisionId,
+    updatedBy: args.appIdentity,
+    updatedAt: now,
+  })
+  await replaceRevisionAssetRefs(ctx, { revisionId: revision.revisionId, entry, snapshots, now })
   await logActivity(ctx, {
     kind: 'entry.archived',
     summary: 'Archived entry',
     appIdentityId: args.appIdentity,
-    entryId: args.entryId,
-    collectionId: entry.collectionId,
-    detail: {
-      locales: affectedLocales,
-      revisionId: String(revisionResult.revisionId),
-    },
+    entryId: entry._id,
+    collection: entry.collection,
+    detail: { locales, revisionId: String(revision.revisionId) },
     createdAt: now,
   })
-  await insertRevalidationOutboxEvent(ctx, {
+  await enqueueWorkflowRevalidation(ctx, {
     kind: 'archive',
-    collection,
-    entryId: args.entryId,
-    appIdentityId: args.appIdentity,
-    versionId: revisionResult.revisionId,
+    entry,
+    revisionId: revision.revisionId,
+    tags,
+    paths,
+    appIdentity: args.appIdentity,
     now,
-    oldState: oldRevalidationState,
   })
-  await scheduleRevalidationOutboxDelivery(ctx)
+  return { revisionId: revision.revisionId, affectedLocales: locales }
+}
 
-  return {
-    revisionId: revisionResult.revisionId,
-    affectedLocales,
+export async function restoreArchivedEntry(
+  ctx: WorkflowMutationCtx,
+  args: {
+    entryId: Id<'entries'>
+    expectedDraftVersion: number
+    appIdentity: string
+  },
+): Promise<{ revisionId: Id<'entryRevisions'> }> {
+  const installed = await activeContractOrThrow(ctx)
+  const entry = await ctx.db.get(args.entryId)
+  if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.')
+  if (entry.lifecycle !== 'archived') {
+    throwCmsError('ENTRY_RESTORE_NOT_ARCHIVED', 'Only archived entries can be restored.', {
+      entryId: String(entry._id),
+      status: entry.lifecycle,
+    })
   }
+  if (entry.draftVersion !== args.expectedDraftVersion) {
+    throwCmsError('ENTRY_DRAFT_STALE', 'The draft changed before restore.')
+  }
+
+  const collection = await getCollectionOrThrow(ctx, entry.collection)
+  const rows = await ctx.db
+    .query('entryLocaleDrafts')
+    .withIndex('by_entry', (q) => q.eq('entryId', entry._id))
+    .collect()
+  const locales = rows.map((row) => row.locale).sort()
+  const snapshots = await draftSnapshots(ctx, entry, collection, locales, false)
+  const now = Date.now()
+  const revision = await appendRevision(ctx, {
+    entryId: entry._id,
+    collection: entry.collection,
+    parentRevisionId: entry.latestEditorialRevisionId,
+    kind: 'restore',
+    snapshots,
+    affectedLocales: locales,
+    contentHash: installed.record.contentHash,
+    operationId: operationId('restore', entry._id, now),
+    message: 'Restored archived editorial record',
+    appIdentity: args.appIdentity,
+    now,
+  })
+  await ctx.db.patch(entry._id, {
+    lifecycle: 'active',
+    latestEditorialRevisionId: revision.revisionId,
+    updatedAt: now,
+    updatedBy: args.appIdentity,
+    draftVersion: entry.draftVersion + 1,
+  })
+  await replaceRevisionAssetRefs(ctx, { revisionId: revision.revisionId, entry, snapshots, now })
+  await logActivity(ctx, {
+    kind: 'entry.restored',
+    summary: 'Restored entry',
+    appIdentityId: args.appIdentity,
+    entryId: entry._id,
+    collection: entry.collection,
+    detail: { revisionId: String(revision.revisionId) },
+    createdAt: now,
+  })
+  return { revisionId: revision.revisionId }
+}
+
+export async function createDraftCheckpoint(
+  ctx: WorkflowMutationCtx,
+  args: { entryId: Id<'entries'>; appIdentity: string; message?: string | null },
+): Promise<Id<'entryRevisions'>> {
+  const installed = await activeContractOrThrow(ctx)
+  const entry = await ctx.db.get(args.entryId)
+  if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.')
+  const collection = await getCollectionOrThrow(ctx, entry.collection)
+  const rows = await ctx.db
+    .query('entryLocaleDrafts')
+    .withIndex('by_entry', (q) => q.eq('entryId', entry._id))
+    .collect()
+  const locales = rows.map((row) => row.locale).sort()
+  const snapshots = await draftSnapshots(ctx, entry, collection, locales, false)
+  const now = Date.now()
+  const revision = await appendRevision(ctx, {
+    entryId: entry._id,
+    collection: entry.collection,
+    parentRevisionId: entry.latestEditorialRevisionId,
+    kind: 'checkpoint',
+    snapshots,
+    affectedLocales: locales,
+    contentHash: installed.record.contentHash,
+    operationId: operationId('checkpoint', entry._id, now),
+    message: args.message ?? null,
+    appIdentity: args.appIdentity,
+    now,
+  })
+  await ctx.db.patch(entry._id, { latestEditorialRevisionId: revision.revisionId })
+  await replaceRevisionAssetRefs(ctx, { revisionId: revision.revisionId, entry, snapshots, now })
+  await logActivity(ctx, {
+    kind: 'entry.checkpointed',
+    summary: 'Created draft checkpoint',
+    appIdentityId: args.appIdentity,
+    entryId: entry._id,
+    collection: entry.collection,
+    detail: { revisionId: String(revision.revisionId) },
+    createdAt: now,
+  })
+  return revision.revisionId
 }
 
 export async function restoreRevisionSnapshotToDraft(
-  ctx: Parameters<typeof applyDraftPatch>[0],
+  ctx: WorkflowMutationCtx,
   args: {
     entry: Doc<'entries'>
     sourceRevision: Doc<'entryRevisions'>
@@ -1213,172 +990,188 @@ export async function restoreRevisionSnapshotToDraft(
     now: number
     expectedDraftVersion: number
   },
-): Promise<{ draftVersion: number; affectedLocales: string[] }> {
-  if (args.expectedDraftVersion !== args.entry.draftVersion) {
-    throw new Error(
-      `Restore rejected: expectedDraftVersion=${args.expectedDraftVersion} but entries.draftVersion=${args.entry.draftVersion}`,
-    )
+) {
+  if (args.entry.draftVersion !== args.expectedDraftVersion) {
+    throwCmsError('ENTRY_DRAFT_STALE', 'The draft changed before restore.')
   }
-
-  const existingDraftRows = await ctx.db
-    .query('entryDrafts')
-    .withIndex('by_entry', (q) => q.eq('entryId', args.entry._id))
-    .collect()
-  for (const row of existingDraftRows) {
-    await ctx.db.delete(row._id)
-  }
-  await deleteEntryAssetRefsBySourceKind(ctx, {
+  await createDraftCheckpoint(ctx, {
     entryId: args.entry._id,
-    sourceKind: 'draft',
+    appIdentity: args.appIdentity,
+    message: `Before restore of revision ${args.sourceRevision.revisionNumber}`,
   })
-
-  const localePatch: SaveDraftPatch['locales'] = {}
-  for (const [locale, localeSnapshot] of Object.entries(args.sourceRevision.snapshot.locales)) {
-    if (!localeSnapshot) continue
-    localePatch[locale] = {
-      slug: localeSnapshot.slug,
-      values: localeSnapshot.values,
-      bodyMdc: localeSnapshot.bodyMdc ?? '',
-    }
+  const locales = Object.keys(args.sourceRevision.snapshots).sort()
+  if (!locales.length)
+    throwCmsError('REVISION_SNAPSHOT_EMPTY', 'Revision contains no restorable locales.')
+  const first = args.sourceRevision.snapshots[locales[0]!]!
+  const patch: SaveDraftPatch = {
+    shared: {
+      shared: first.shared,
+      slug: first.slug,
+      parentEntryId: first.parentEntryId,
+      orderRank: first.orderRank,
+    },
+    locales: Object.fromEntries(
+      locales.map((locale) => {
+        const snapshot = args.sourceRevision.snapshots[locale]!
+        return [locale, { slug: snapshot.slug, values: snapshot.values, bodyMdc: snapshot.bodyMdc }]
+      }),
+    ),
   }
-
   const result = await applyDraftPatch(ctx, {
     entryId: args.entry._id,
-    expectedDraftVersion: args.entry.draftVersion,
-    patch: {
-      shared: {
-        parentEntryId: args.sourceRevision.snapshot.parentEntryId ?? null,
-        orderRank: args.sourceRevision.snapshot.orderRank ?? null,
-        slug: args.sourceRevision.snapshot.slug ?? null,
-        shared: args.sourceRevision.snapshot.shared,
-      },
-      locales: localePatch,
-    },
+    expectedDraftVersion: args.expectedDraftVersion,
+    patch,
     appIdentity: args.appIdentity,
     now: args.now,
   })
-
-  const draftRowsAfterRestore = await readDraftRows(ctx, args.entry._id)
-  const sharedRow = draftRowsAfterRestore.shared
-  const sharedRefs = extractAssetRefsFromValues((sharedRow?.shared as JsonObject) ?? {}, {
-    locale: null,
-  })
-  await replaceAssetRefs(ctx, {
-    sourceKind: 'draft',
-    sourceId: `${args.entry._id}:shared`,
+  await refreshDraftAssetRefsForSave(ctx, {
     entryId: args.entry._id,
-    collectionId: args.entry.collectionId,
-    refs: sharedRefs,
+    collection: args.entry.collection,
+    sharedUpdated: result.sharedUpdated,
+    affectedLocales: result.affectedLocales,
     now: args.now,
   })
-  for (const locale of result.affectedLocales) {
-    const localeRow = draftRowsAfterRestore.byLocale[locale]
-    const refs = uniqueAssetRefs([
-      ...extractAssetRefsFromValues((localeRow?.values as JsonObject) ?? {}, { locale }),
-      ...extractAssetRefsFromText(localeRow?.bodyMdc ?? '', {
-        fieldPath: 'bodyMdc',
-        locale,
-      }),
-    ])
-    await replaceAssetRefs(ctx, {
-      sourceKind: 'draft',
-      sourceId: `${args.entry._id}:${locale}`,
-      entryId: args.entry._id,
-      collectionId: args.entry.collectionId,
-      refs,
-      now: args.now,
-    })
-  }
-
+  const installed = await activeContractOrThrow(ctx)
+  const refreshed = await ctx.db.get(args.entry._id)
+  if (!refreshed) throwCmsError('ENTRY_NOT_FOUND', 'Entry disappeared during restore.')
+  const collection = await getCollectionOrThrow(ctx, refreshed.collection)
+  const snapshots = await draftSnapshots(ctx, refreshed, collection, locales, false)
+  const revision = await appendRevision(ctx, {
+    entryId: refreshed._id,
+    collection: refreshed.collection,
+    parentRevisionId: refreshed.latestEditorialRevisionId,
+    kind: 'restore',
+    snapshots,
+    affectedLocales: locales,
+    contentHash: installed.record.contentHash,
+    operationId: operationId('restore', refreshed._id, args.now),
+    message: `Restored revision ${args.sourceRevision.revisionNumber} to draft`,
+    appIdentity: args.appIdentity,
+    now: args.now,
+  })
+  await ctx.db.patch(refreshed._id, { latestEditorialRevisionId: revision.revisionId })
+  await replaceRevisionAssetRefs(ctx, {
+    revisionId: revision.revisionId,
+    entry: refreshed,
+    snapshots,
+    now: args.now,
+  })
+  await logActivity(ctx, {
+    kind: 'entry.draft-restored',
+    summary: 'Restored historical version to draft',
+    appIdentityId: args.appIdentity,
+    entryId: refreshed._id,
+    collection: refreshed.collection,
+    detail: {
+      sourceRevisionId: String(args.sourceRevision._id),
+      restoreRevisionId: String(revision.revisionId),
+    },
+    createdAt: args.now,
+  })
   return result
 }
 
-export async function createDraftCheckpoint(
-  ctx: Parameters<typeof appendRevision>[0],
+/** Activate compatible historical output without modifying the current draft. */
+export async function rollbackPublicToRevision(
+  ctx: WorkflowMutationCtx,
   args: {
     entryId: Id<'entries'>
+    sourceRevisionId: Id<'entryRevisions'>
+    locales?: string[]
+    expectedPublicRevisionIds: Record<string, Id<'entryRevisions'>>
     appIdentity: string
     message?: string | null
   },
-): Promise<Id<'entryRevisions'>> {
-  const now = Date.now()
-  const entry = await ctx.db.get(args.entryId)
-  if (!entry) throw new Error(`Entry not found: ${args.entryId}`)
-  const drafts = await readDraftRows(ctx, args.entryId)
-  const localeSnapshots: Record<string, RevisionLocaleSnapshot | null> = {}
-  for (const [locale, row] of Object.entries(drafts.byLocale)) {
-    const slug = row.localeSlug ?? drafts.shared?.slug ?? entry.baseSlug
-    localeSnapshots[locale] = {
-      slug,
-      path: slug,
-      values: (row.values as JsonObject) ?? {},
-      bodyMdc: row.bodyMdc ?? '',
-    }
+): Promise<{ revisionId: Id<'entryRevisions'>; affectedLocales: string[] }> {
+  const installed = await activeContractOrThrow(ctx)
+  const [entry, source] = await Promise.all([
+    ctx.db.get(args.entryId),
+    ctx.db.get(args.sourceRevisionId),
+  ])
+  if (!entry || !source || source.entryId !== args.entryId) {
+    throwCmsError('REVISION_NOT_FOUND', 'Historical publication not found.')
   }
-
-  const revisionResult = await appendRevisionAndPatchEntry(
-    ctx,
-    {
-      entryId: args.entryId,
-      collectionId: entry.collectionId,
-      parentRevisionId: entry.latestRevisionId ?? null,
-      kind: 'checkpoint',
-      snapshot: {
-        parentEntryId: drafts.shared?.parentEntryId ?? null,
-        orderRank: drafts.shared?.orderRank ?? null,
-        slug: drafts.shared?.slug ?? null,
-        shared: (drafts.shared?.shared as JsonObject) ?? {},
-        locales: localeSnapshots,
-      },
-      affectedLocales: Object.keys(localeSnapshots).sort(),
-      message: args.message ?? null,
-      appIdentity: args.appIdentity,
-      now,
-    },
-    {},
+  if (source.contentHash !== installed.record.contentHash) {
+    throwCmsError(
+      'REVISION_CONTRACT_MISMATCH',
+      'Historical output is incompatible with this contract.',
+    )
+  }
+  const locales = [...new Set(args.locales ?? Object.keys(source.snapshots))].sort()
+  const current = await readPublicRevisionIdsByLocale(ctx, entry._id)
+  const currentlyLive = locales.filter((locale) => current[locale])
+  assertExpectedPublicRevisionIds(current, args.expectedPublicRevisionIds, currentlyLive)
+  const snapshots = Object.fromEntries(
+    locales.map((locale) => {
+      const snapshot = source.snapshots[locale]
+      if (!snapshot) throwCmsError('REVISION_LOCALE_MISSING', `Revision has no ${locale} snapshot.`)
+      return [locale, snapshot]
+    }),
   )
-
-  const sharedRefs = extractAssetRefsFromValues((drafts.shared?.shared as JsonObject) ?? {}, {
-    locale: null,
-  })
-  await replaceAssetRefs(ctx, {
-    sourceKind: 'revision',
-    sourceId: `${revisionResult.revisionId}:shared`,
-    entryId: args.entryId,
-    collectionId: entry.collectionId,
-    refs: sharedRefs,
+  const collection = await getCollectionOrThrow(ctx, entry.collection)
+  const now = Date.now()
+  const opId = operationId('rollback', entry._id, now)
+  const revision = await appendRevision(ctx, {
+    entryId: entry._id,
+    collection: entry.collection,
+    parentRevisionId: entry.latestEditorialRevisionId,
+    kind: 'rollback',
+    snapshots,
+    affectedLocales: locales,
+    contentHash: installed.record.contentHash,
+    operationId: opId,
+    message: args.message ?? `Rolled back to revision ${source.revisionNumber}`,
+    appIdentity: args.appIdentity,
     now,
   })
-  for (const [locale, row] of Object.entries(drafts.byLocale)) {
-    const refs = uniqueAssetRefs([
-      ...extractAssetRefsFromValues((row.values as JsonObject) ?? {}, { locale }),
-      ...extractAssetRefsFromText(row.bodyMdc ?? '', {
-        fieldPath: 'bodyMdc',
-        locale,
-      }),
-    ])
-    await replaceAssetRefs(ctx, {
-      sourceKind: 'revision',
-      sourceId: `${revisionResult.revisionId}:${locale}`,
-      entryId: args.entryId,
-      collectionId: entry.collectionId,
-      refs,
-      now,
+  const publicationByLocale = new Map(entry.activePublications.map((row) => [row.locale, row]))
+  for (const locale of locales) {
+    const snapshot = snapshots[locale]!
+    publicationByLocale.set(locale, {
+      locale,
+      revisionId: revision.revisionId,
+      sharedVersion: snapshot.sharedVersion,
+      localeVersion: snapshot.localeVersion,
+      activatedAt: now,
+      activatedBy: args.appIdentity,
     })
   }
-
+  await ctx.db.patch(entry._id, {
+    activePublications: [...publicationByLocale.values()].sort((a, b) =>
+      a.locale.localeCompare(b.locale),
+    ),
+    latestEditorialRevisionId: revision.revisionId,
+    updatedBy: args.appIdentity,
+    updatedAt: now,
+  })
+  const effect = await activateSnapshots(ctx, {
+    entry,
+    collection,
+    snapshots,
+    revisionId: revision.revisionId,
+    appIdentity: args.appIdentity,
+    now,
+    kind: 'rollback',
+    operationId: opId,
+  })
+  await replaceRevisionAssetRefs(ctx, { revisionId: revision.revisionId, entry, snapshots, now })
   await logActivity(ctx, {
-    kind: 'entry.checkpointed',
-    summary: 'Saved version',
+    kind: 'entry.public-rolled-back',
+    summary: 'Rolled back public output',
     appIdentityId: args.appIdentity,
-    entryId: args.entryId,
-    collectionId: entry.collectionId,
-    detail: {
-      revisionId: String(revisionResult.revisionId),
-      message: args.message ?? null,
-    },
+    entryId: entry._id,
+    collection: entry.collection,
+    detail: { sourceRevisionId: String(source._id), locales },
     createdAt: now,
   })
-
-  return revisionResult.revisionId
+  await enqueueWorkflowRevalidation(ctx, {
+    kind: 'rollback',
+    entry,
+    revisionId: revision.revisionId,
+    tags: effect.tags,
+    paths: effect.paths,
+    appIdentity: args.appIdentity,
+    now,
+  })
+  return { revisionId: revision.revisionId, affectedLocales: locales }
 }

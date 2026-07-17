@@ -11,7 +11,7 @@ import { runDoctorCommand } from './doctor.js'
 import { readLocalEnv } from './env.js'
 import { runInitCommand } from './init.js'
 import { runMcpDoctor } from './mcp-doctor.js'
-import { runMigrateCommand } from './migrate.js'
+import { runContractCommand } from './migrate.js'
 import { runPushCommand } from './push.js'
 
 export async function runGinkoCmsCli(
@@ -56,8 +56,8 @@ export async function runGinkoCmsCli(
         options.convexClientFactory,
       )
     }
-    if (command === 'migrate') {
-      return await runMigrateCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    if (command === 'contract') {
+      return await runContractCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
     if (command === 'content') {
       return await runContentCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)

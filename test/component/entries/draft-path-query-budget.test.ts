@@ -7,6 +7,7 @@ function indexedResult(rows: unknown[]) {
   return {
     collect: async () => rows,
     first: async () => rows[0] ?? null,
+    unique: async () => rows[0] ?? null,
   }
 }
 
@@ -14,17 +15,17 @@ describe('draft sibling query budget', () => {
   it('loads one draft-row set per sibling regardless of locale count or unrelated entries', async () => {
     const moving = {
       _id: 'moving',
-      collectionId: 'collection',
-      baseSlug: 'moving',
+      collection: 'docs',
+      slug: 'moving',
       parentEntryId: null,
-      stableId: null,
+      stableId: 'move1',
     }
     const siblings = Array.from({ length: 3 }, (_, index) => ({
       _id: `sibling-${index}`,
-      collectionId: 'collection',
-      baseSlug: `sibling-${index}`,
+      collection: 'docs',
+      slug: `sibling-${index}`,
       parentEntryId: null,
-      stableId: null,
+      stableId: `sib0${index}`,
     }))
     const draftRows = new Map<string, unknown[]>([
       [
@@ -45,14 +46,8 @@ describe('draft sibling query budget', () => {
             [
               {
                 entryId: sibling._id,
-                locale: null,
-                parentEntryId: null,
-                slug: sibling.baseSlug,
-              },
-              {
-                entryId: sibling._id,
                 locale: 'de',
-                localeSlug: `geschwister-${index}`,
+                slug: `geschwister-${index}`,
               },
             ],
           ] as const,
@@ -71,10 +66,9 @@ describe('draft sibling query budget', () => {
         configure(q)
         queryCalls.push({ table, index, locale: conditions.get('locale') })
         if (table === 'entries') return indexedResult(siblings)
-        if (index === 'by_parent_override') return indexedResult([])
         return indexedResult(
           (draftRows.get(String(conditions.get('entryId'))) ?? []).filter(
-            (row) => (row as { locale?: string | null }).locale === conditions.get('locale'),
+            (row) => (row as { locale?: string }).locale === conditions.get('locale'),
           ),
         )
       },
@@ -90,7 +84,6 @@ describe('draft sibling query budget', () => {
       {
         entry: moving as never,
         collection: {
-          _id: 'collection',
           slug: 'docs',
           locales: ['en', 'de'],
           routing: {
@@ -109,21 +102,19 @@ describe('draft sibling query budget', () => {
 
     expect(queryCalls.filter((call) => call.table === 'entries')).toHaveLength(1)
     const placementCalls = queryCalls.filter((call) => call.index === 'by_entry_locale')
-    expect(placementCalls).toHaveLength((1 + siblings.length) * 3)
-    expect(new Set(placementCalls.map((call) => call.locale))).toEqual(new Set([null, 'en', 'de']))
+    expect(placementCalls).toHaveLength((1 + siblings.length) * 2)
+    expect(new Set(placementCalls.map((call) => call.locale))).toEqual(new Set(['en', 'de']))
     expect(queryCalls.filter((call) => call.index === 'by_entry')).toHaveLength(0)
     expect(queryCalls.some((call) => call.table === 'publicEntries')).toBe(false)
   })
 
   it('fails boundedly when legacy draft ancestry contains a cycle', async () => {
     const entries = new Map([
-      ['entry-a', { _id: 'entry-a', baseSlug: 'a', parentEntryId: null }],
-      ['entry-b', { _id: 'entry-b', baseSlug: 'b', parentEntryId: null }],
+      ['entry-a', { _id: 'entry-a', slug: 'a', parentEntryId: null }],
+      ['entry-b', { _id: 'entry-b', slug: 'b', parentEntryId: null }],
     ])
-    const sharedRows = new Map([
-      ['entry-a', { entryId: 'entry-a', locale: null, parentEntryId: 'entry-b', slug: 'a' }],
-      ['entry-b', { entryId: 'entry-b', locale: null, parentEntryId: 'entry-a', slug: 'b' }],
-    ])
+    entries.set('entry-a', { _id: 'entry-a', slug: 'a', parentEntryId: 'entry-b' })
+    entries.set('entry-b', { _id: 'entry-b', slug: 'b', parentEntryId: 'entry-a' })
     const ctx = {
       db: {
         get: vi.fn(async (entryId: string) => entries.get(entryId) ?? null),
@@ -137,11 +128,7 @@ describe('draft sibling query budget', () => {
               },
             }
             configure(q)
-            const row =
-              conditions.get('locale') === null
-                ? sharedRows.get(String(conditions.get('entryId')))
-                : null
-            return { first: async () => row ?? null }
+            return { unique: async () => null }
           },
         })),
       },
@@ -153,6 +140,6 @@ describe('draft sibling query budget', () => {
         locale: 'en',
       }),
     ).rejects.toThrow('Draft ancestry contains a cycle')
-    expect(ctx.db.get).toHaveBeenCalledTimes(2)
+    expect(ctx.db.get).toHaveBeenCalledTimes(4)
   })
 })

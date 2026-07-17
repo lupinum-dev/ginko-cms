@@ -5,7 +5,6 @@ import {
   applyImportBatch as applyImportBatchArgs,
   beginImportApply as beginImportApplyArgs,
   beginImportVerification as beginImportVerificationArgs,
-  countPortableImportFieldValues,
   createImportPlan as createImportPlanArgs,
   expireImport as expireImportArgs,
   finalizeImport as finalizeImportArgs,
@@ -15,10 +14,8 @@ import {
   sealImportPlan as sealImportPlanArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { assertResolvedContentContract } from '@lupinum/ginko-content/cms-contract'
 import {
   canonicalJsonBytes,
-  collectPortableReferences,
   hashCanonicalJson,
   IncrementalSha256,
   validatePortableDocument,
@@ -35,6 +32,8 @@ import {
   directInternalMutation,
   directInternalQuery,
 } from '../functions.js'
+import { getCollection } from '../lib/collections.js'
+import { readInstalledCmsContract } from '../lib/installedContract.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { isCmsStorageReferenced } from '../storageMaintenance.js'
 import { applyPortableDraft, portableDraftSha256 } from './items.js'
@@ -177,18 +176,16 @@ export const createImportPlan = callerMutation.protected({
     if ((await hashCanonicalJson(args.payload)) !== args.payloadSha256) {
       throw new Error('Portable plan payload hash mismatch.')
     }
-    const active = await ctx.db
-      .query('cmsPolicies')
-      .withIndex('by_key', (query) => query.eq('key', 'active'))
-      .first()
-    if (!active || active.contractSha256 !== payload.targetContractSha256) {
+    const installed = await readInstalledCmsContract(ctx)
+    if (
+      !installed ||
+      installed.record.contentHash !== payload.targetContractSha256 ||
+      installed.record.transitionState !== 'ready'
+    ) {
       throw new Error('Portable plan target contract does not match the installed contract.')
     }
     for (const collectionSlug of payload.scope.collections) {
-      const collection = await ctx.db
-        .query('collections')
-        .withIndex('by_slug', (query) => query.eq('slug', collectionSlug))
-        .first()
+      const collection = await getCollection(ctx, collectionSlug)
       if (!collection)
         throw new Error(`Portable plan collection "${collectionSlug}" is not installed.`)
     }
@@ -218,8 +215,6 @@ export const createImportPlan = callerMutation.protected({
       initializedAssetCount: 0,
       initializedAttachedAssetCount: 0,
       stagedLocales: [],
-      stagedFieldValueCount: 0,
-      stagedRelationEdgeCount: 0,
       createdAt,
       expiresAt,
     })
@@ -254,17 +249,14 @@ export const appendImportPlanItems = callerMutation.protected({
     if (run) throw new Error('Sealed portable plans are immutable.')
 
     const payload = assertImportPlanPayload(plan.payload)
-    const active = await ctx.db
-      .query('cmsPolicies')
-      .withIndex('by_key', (query) => query.eq('key', 'active'))
-      .first()
-    if (!active) throw new Error('Portable import requires an installed Content contract.')
-    const contract = assertResolvedContentContract(active.contract)
+    const installed = await readInstalledCmsContract(ctx)
+    if (!installed || installed.record.transitionState !== 'ready') {
+      throw new Error('Portable import writes are blocked while a contract transition is active.')
+    }
+    const contract = installed.content
     const seen = new Set<string>()
     const seenApplyOrders = new Set<number>()
     const stagedLocales = new Set(plan.stagedLocales)
-    let stagedFieldValueCount = plan.stagedFieldValueCount
-    let stagedRelationEdgeCount = plan.stagedRelationEdgeCount
     let inserted = 0
     for (const item of args.items) {
       if (seen.has(item.itemKey))
@@ -321,27 +313,9 @@ export const appendImportPlanItems = callerMutation.protected({
       ) {
         throw new Error('Portable plan document does not match its immutable item payload.')
       }
-      const collection = contract.collections[document.collection]!
-      const relationEdges =
-        collectPortableReferences(collection.fields, {
-          ...document.shared,
-          ...document.localized,
-        }).length + (document.parentCanonicalKey === null ? 0 : 1)
       stagedLocales.add(document.locale)
-      stagedFieldValueCount += countPortableImportFieldValues(document)
-      stagedRelationEdgeCount += relationEdges
       if (stagedLocales.size > PORTABLE_IMPORT_LIMITS.locales) {
         throw new Error(`Portable import locale count exceeds ${PORTABLE_IMPORT_LIMITS.locales}.`)
-      }
-      if (stagedFieldValueCount > PORTABLE_IMPORT_LIMITS.fieldValues) {
-        throw new Error(
-          `Portable import field value count exceeds ${PORTABLE_IMPORT_LIMITS.fieldValues}.`,
-        )
-      }
-      if (stagedRelationEdgeCount > PORTABLE_IMPORT_LIMITS.relationEdges) {
-        throw new Error(
-          `Portable import relation edge count exceeds ${PORTABLE_IMPORT_LIMITS.relationEdges}.`,
-        )
       }
       await ctx.db.insert('portableImportPlanItems', {
         planId: plan.planId,
@@ -360,8 +334,6 @@ export const appendImportPlanItems = callerMutation.protected({
       await ctx.db.patch(plan._id, {
         stagedItemCount: plan.stagedItemCount + inserted,
         stagedLocales: [...stagedLocales].sort(),
-        stagedFieldValueCount,
-        stagedRelationEdgeCount,
       })
     }
     return { accepted: args.items.length }
@@ -660,11 +632,12 @@ export const commitImportSeal = directInternalMutation({
     ) {
       throw new Error('Portable asset plan rows are incomplete.')
     }
-    const active = await ctx.db
-      .query('cmsPolicies')
-      .withIndex('by_key', (query) => query.eq('key', 'active'))
-      .first()
-    if (!active || active.contractSha256 !== payload.targetContractSha256) {
+    const installed = await readInstalledCmsContract(ctx)
+    if (
+      !installed ||
+      installed.record.contentHash !== payload.targetContractSha256 ||
+      installed.record.transitionState !== 'ready'
+    ) {
       throw new Error('Portable plan target contract changed before sealing.')
     }
     const now = Date.now()

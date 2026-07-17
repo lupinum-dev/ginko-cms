@@ -1,10 +1,16 @@
 # RFC: The Headless CMS Initiative
 
-- **Status:** Draft for implementation spikes
+- **Status:** Deferred proposal; not part of the accepted greenfield refactor
 - **Date:** 2026-07-15
 - **Owner:** Matthias
 - **Scope:** Ginko CMS management plane across Studio, API, SDK, and MCP
 - **Decision horizon:** Pre-1.0 architecture; compatibility promises begin with the stable v1 wire contract
+
+> This RFC is retained as a deferred design exploration. It is not current
+> product scope or acceptance evidence. The accepted v1 MCP surface permits
+> agents to read, edit drafts, preview impact, and request review only. Direct
+> agent publish/archive/restore remains the deferred CND-10 decision, and no
+> general management API or SDK is implied by the greenfield refactor.
 
 ---
 

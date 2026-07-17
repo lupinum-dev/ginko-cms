@@ -10,8 +10,9 @@ import { v } from 'convex/values'
 import { recordOwnedAgentRunWrite } from '../agentRuns.js'
 import { canCreateEntries, canEditEntries } from '../auth/checks.js'
 import { callerMutation } from '../functions.js'
-import { isLocalizedSlugMode } from '../lib/collections.js'
+import { getCollection, isLocalizedSlugMode } from '../lib/collections.js'
 import { asEntryId } from '../lib/ids.js'
+import { assertCmsContractWritable } from '../lib/installedContract.js'
 import type { MutationCtx } from '../lib/types.js'
 import { assertValidLocaleCode } from '../lib/validation.js'
 import {
@@ -22,13 +23,27 @@ import {
   previewResultValidator,
   definePreview,
 } from '../operationHelpers.js'
-import { loadEntryMutationContext, readStudioDraftView } from './context.js'
+import { deriveDirtyLocales, loadEntryMutationContext } from './context.js'
 import { assertNoDraftSiblingPathConflict } from './draftPathConflicts.js'
 import { getDraftVsPublishedDiffPreview } from './read.js'
 import { rewriteStoredRelationData } from './relations.js'
 import { refreshDraftAssetRefsForSave } from './workflow/commands.js'
 import { assertValidDraftParentChain } from './workflow/draftPlacement.js'
 import { applyDraftPatch, type SaveDraftPatch } from './workflow/drafts.js'
+import { stableHash } from './workflow/hashing.js'
+
+async function currentDirtyLocales(
+  ctx: MutationCtx,
+  entryId: Parameters<typeof applyDraftPatch>[1]['entryId'],
+) {
+  const entry = await ctx.db.get(entryId)
+  if (!entry) return []
+  const rows = await ctx.db
+    .query('entryLocaleDrafts')
+    .withIndex('by_entry', (q) => q.eq('entryId', entryId))
+    .collect()
+  return deriveDirtyLocales(entry, new Map(rows.map((row) => [row.locale, row.version])))
+}
 
 async function saveCanonicalDraft(
   ctx: MutationCtx,
@@ -46,17 +61,16 @@ async function saveCanonicalDraft(
     if (relationLookups.has(collectionSlug)) {
       return relationLookups.get(collectionSlug) ?? null
     }
-    const targetCollection = await ctx.db
-      .query('collections')
-      .withIndex('by_slug', (q) => q.eq('slug', collectionSlug))
-      .first()
+    const targetCollection = await getCollection(ctx, collectionSlug)
     if (!targetCollection) {
       relationLookups.set(collectionSlug, null)
       return null
     }
     const entries = await ctx.db
       .query('entries')
-      .withIndex('by_collection_status', (q) => q.eq('collectionId', targetCollection._id))
+      .withIndex('by_collection_lifecycle', (q) =>
+        q.eq('collection', targetCollection.slug).eq('lifecycle', 'active'),
+      )
       .collect()
     const lookup = {
       stableIds: new Set(entries.flatMap((entry) => (entry.stableId ? [entry.stableId] : []))),
@@ -133,15 +147,14 @@ async function saveCanonicalDraft(
   }
   await refreshDraftAssetRefsForSave(ctx, {
     entryId: args.entryId,
-    collectionId: result.entry.collectionId,
+    collection: result.entry.collection,
     sharedUpdated: result.sharedUpdated,
     affectedLocales: result.affectedLocales,
     now: args.now,
   })
-  const refreshed = await ctx.db.get(args.entryId)
   return {
     draftVersion: result.draftVersion,
-    dirtyLocales: refreshed?.dirtyLocales ?? result.entry.dirtyLocales ?? [],
+    dirtyLocales: await currentDirtyLocales(ctx, args.entryId),
   }
 }
 
@@ -154,86 +167,69 @@ async function revertCanonicalDraftToPublished(
     now: number
   },
 ) {
-  const publicRows = await ctx.db
-    .query('publicEntries')
-    .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entry._id))
-    .collect()
-  const publicLocales = new Set(publicRows.map((row) => row.locale))
-  const latestRevision = args.entry.latestRevisionId
-    ? await ctx.db.get(args.entry.latestRevisionId)
-    : null
-  const snapshot = latestRevision?.snapshot ?? null
-
-  const existingDrafts = await ctx.db
-    .query('entryDrafts')
-    .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entry._id))
-    .collect()
-  const sharedRow = existingDrafts.find((row) => row.locale === null)
-  const sharedPayload = {
+  if (!args.entry.activePublications.length) {
+    return { draftVersion: args.entry.draftVersion, dirtyLocales: [] }
+  }
+  const snapshots = await Promise.all(
+    args.entry.activePublications.map(async (publication) => {
+      const revision = await ctx.db.get(publication.revisionId)
+      const snapshot = revision?.snapshots[publication.locale]
+      if (!snapshot) throw new Error(`Missing active ${publication.locale} publication snapshot`)
+      return [publication.locale, snapshot] as const
+    }),
+  )
+  const sharedHashes = new Set(
+    snapshots.map(([, snapshot]) =>
+      stableHash({
+        shared: snapshot.shared,
+        slug: snapshot.slug,
+        parentEntryId: snapshot.parentEntryId ? String(snapshot.parentEntryId) : null,
+        orderRank: snapshot.orderRank,
+      }),
+    ),
+  )
+  if (sharedHashes.size !== 1) {
+    throw new Error(
+      'Published locales have different shared snapshots; revert locales individually instead.',
+    )
+  }
+  const first = snapshots[0]![1]
+  const result = await applyDraftPatch(ctx, {
     entryId: args.entry._id,
-    locale: null,
-    baseRevisionId: args.entry.latestRevisionId ?? null,
-    parentEntryId: snapshot?.parentEntryId ?? args.entry.parentEntryId ?? null,
-    orderRank: snapshot?.orderRank ?? args.entry.orderRank ?? '',
-    slug: snapshot?.slug ?? args.entry.baseSlug,
-    shared: (snapshot?.shared ?? {}) as JsonMap,
-    updatedBy: args.appIdentityId,
-    updatedAt: args.now,
-  }
-  if (sharedRow) {
-    await ctx.db.replace(sharedRow._id, sharedPayload)
-  } else {
-    await ctx.db.insert('entryDrafts', sharedPayload)
-  }
-  await assertValidDraftParentChain(ctx, {
-    entry: args.entry,
-    collection: args.collection,
+    expectedDraftVersion: args.entry.draftVersion,
+    appIdentity: args.appIdentityId,
+    now: args.now,
+    patch: {
+      shared: {
+        shared: first.shared,
+        slug: first.slug,
+        parentEntryId: first.parentEntryId,
+        orderRank: first.orderRank,
+      },
+      locales: Object.fromEntries(
+        snapshots.map(([locale, snapshot]) => [
+          locale,
+          { slug: snapshot.slug, values: snapshot.values, bodyMdc: snapshot.bodyMdc },
+        ]),
+      ),
+    },
   })
-
+  const publishedLocales = new Set(snapshots.map(([locale]) => locale))
+  const existingDrafts = await ctx.db
+    .query('entryLocaleDrafts')
+    .withIndex('by_entry', (q) => q.eq('entryId', args.entry._id))
+    .collect()
   for (const draft of existingDrafts) {
-    if (draft.locale !== null && !publicLocales.has(draft.locale)) {
-      await ctx.db.delete(draft._id)
-    }
+    if (!publishedLocales.has(draft.locale)) await ctx.db.delete(draft._id)
   }
-
-  for (const publicRow of publicRows) {
-    const existing = existingDrafts.find((row) => row.locale === publicRow.locale)
-    const payload = {
-      entryId: args.entry._id,
-      locale: publicRow.locale,
-      baseRevisionId: publicRow.revisionId,
-      localeSlug: publicRow.slug,
-      values: (publicRow.data ?? {}) as JsonMap,
-      bodyMdc: publicRow.bodyMdc ?? '',
-      updatedBy: args.appIdentityId,
-      updatedAt: args.now,
-    }
-    if (existing) {
-      await ctx.db.replace(existing._id, payload)
-    } else {
-      await ctx.db.insert('entryDrafts', payload)
-    }
-  }
-
-  if (publicRows.length > 0) {
-    await assertNoDraftSiblingPathConflict(ctx, {
-      entry: args.entry,
-      collection: args.collection,
-      locales: publicRows.map((row) => row.locale),
-    })
-  }
-
-  const nextDraftVersion = args.entry.draftVersion + 1
-  await ctx.db.patch(args.entry._id, {
-    dirtyLocales: [],
-    draftVersion: nextDraftVersion,
-    updatedBy: args.appIdentityId,
-    updatedAt: args.now,
+  await refreshDraftAssetRefsForSave(ctx, {
+    entryId: args.entry._id,
+    collection: args.entry.collection,
+    sharedUpdated: result.sharedUpdated,
+    affectedLocales: result.affectedLocales,
+    now: args.now,
   })
-  return {
-    draftVersion: nextDraftVersion,
-    dirtyLocales: [],
-  }
+  return { draftVersion: result.draftVersion, dirtyLocales: [] }
 }
 
 export const createLocaleVariant = callerMutation.protected({
@@ -242,26 +238,27 @@ export const createLocaleVariant = callerMutation.protected({
   guard: canCreateEntries,
   returns: v.string(),
   handler: async (ctx, args) => {
+    await assertCmsContractWritable(ctx)
     const { appIdentityId, collection, entry, now } = await loadEntryMutationContext(
       ctx,
       args.entryId,
     )
     assertValidLocaleCode(args.locale, 'ENTRY_LOCALE_INVALID')
     const existing = await ctx.db
-      .query('entryDrafts')
+      .query('entryLocaleDrafts')
       .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id).eq('locale', args.locale))
-      .first()
+      .unique()
     if (existing) return String(existing._id)
 
-    const slug = isLocalizedSlugMode(collection) ? entry.baseSlug : null
+    const slug = isLocalizedSlugMode(collection) ? entry.slug : null
 
-    const draftId = await ctx.db.insert('entryDrafts', {
+    const draftId = await ctx.db.insert('entryLocaleDrafts', {
       entryId: entry._id,
       locale: args.locale,
-      baseRevisionId: entry.latestRevisionId ?? null,
-      ...(slug ? { localeSlug: slug } : {}),
+      slug,
       values: {},
       bodyMdc: '',
+      version: 1,
       updatedBy: appIdentityId,
       updatedAt: now,
     })
@@ -272,9 +269,7 @@ export const createLocaleVariant = callerMutation.protected({
         locales: [args.locale],
       })
     }
-    const dirtyLocales = Array.from(new Set([...(entry.dirtyLocales ?? []), args.locale]))
     await ctx.db.patch(entry._id, {
-      dirtyLocales,
       draftVersion: entry.draftVersion + 1,
       updatedAt: now,
       updatedBy: appIdentityId,
@@ -289,6 +284,7 @@ const saveEntryDraftDefinition = defineCmsOperation({
   guard: canEditEntries,
   returns: draftSaveResultValidator,
   handler: async (ctx, args) => {
+    await assertCmsContractWritable(ctx)
     const { appIdentityId, collection, entry, now } = await loadEntryMutationContext(
       ctx,
       args.entryId,
@@ -313,6 +309,9 @@ const saveEntryDraftDefinition = defineCmsOperation({
           ...(args.patch.shared.shared !== undefined
             ? { shared: args.patch.shared.shared as JsonMap }
             : {}),
+          ...(args.patch.shared.nodeKind !== undefined
+            ? { nodeKind: args.patch.shared.nodeKind }
+            : {}),
         }
       : undefined
 
@@ -327,33 +326,6 @@ const saveEntryDraftDefinition = defineCmsOperation({
         ...(args.patch.locales ? { locales: args.patch.locales as SaveDraftPatch['locales'] } : {}),
       },
     })
-
-    const requestedNodeKind = args.patch.shared?.nodeKind
-    if (requestedNodeKind !== undefined && requestedNodeKind !== entry.nodeKind) {
-      const shouldBumpForNodeKind = result.draftVersion === entry.draftVersion
-      const nextDraftVersion = shouldBumpForNodeKind ? result.draftVersion + 1 : result.draftVersion
-      const current = await ctx.db.get(entry._id)
-      const view = await readStudioDraftView(ctx, current ?? entry, collection)
-      const dirtyLocales = shouldBumpForNodeKind
-        ? Array.from(
-            new Set([
-              ...(current?.dirtyLocales ?? entry.dirtyLocales ?? []),
-              ...view.locales.map((item) => item.locale),
-            ]),
-          )
-        : (current?.dirtyLocales ?? entry.dirtyLocales ?? [])
-      await ctx.db.patch(entry._id, {
-        nodeKind: requestedNodeKind,
-        draftVersion: nextDraftVersion,
-        dirtyLocales,
-        updatedAt: now,
-        updatedBy: appIdentityId,
-      })
-      return {
-        draftVersion: nextDraftVersion,
-        dirtyLocales,
-      }
-    }
 
     return result
   },
@@ -426,6 +398,7 @@ export const revertDraftToPublishedOperation = defineCmsOperation({
     })
   },
   handler: async (ctx, args) => {
+    await assertCmsContractWritable(ctx)
     const { appIdentityId, collection, entry, now } = await loadEntryMutationContext(
       ctx,
       args.entryId,

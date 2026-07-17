@@ -1,14 +1,13 @@
 import { contentTags, uniqueContentTags } from '@lupinum/ginko-cms-contract/shared/contentTags.js'
-import { renderGinkoHref } from '@lupinum/ginko-cms-contract/shared/routeDiagnostics.js'
+import { materializeFieldData } from '@lupinum/ginko-cms-contract/shared/fields/materialize.js'
 import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { parseMdcBody, type ParseMdcBodyResult } from '@lupinum/ginko-content/cms-contract'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
 import { getCollectionDefaultLocale } from '../../lib/collections.js'
 import { resolveEntryDescription, resolveEntryTitle } from '../../lib/fields.js'
-import { getRoutingLocales } from '../../lib/locale.js'
 import { buildPublicSearchText, filterPublicData } from '../../lib/publicData.js'
-import type { CmsField, QueryOrMutationCtx } from '../../lib/types.js'
+import type { CmsCollection, CmsField, QueryOrMutationCtx } from '../../lib/types.js'
 import { buildPublicAssetFacts } from '../../publicAssets.js'
 import { collectRelationReferences } from '../relations.js'
 import {
@@ -17,7 +16,6 @@ import {
   extractPublicFieldAssetRefs,
   uniqueAssetRefs,
 } from './assetRefs.js'
-import { publicPathForLocaleSnapshot } from './path.js'
 import type { PublicProjectionInput } from './projection.js'
 import { assertPublicBodySafe } from './renderSafety.js'
 import type { RevisionLocaleSnapshot } from './revisions.js'
@@ -116,7 +114,7 @@ async function applyPublicImageMetadataFallbacks(
 async function projectionBodyFromSnapshot(
   ctx: QueryOrMutationCtx,
   localeSnapshot: RevisionLocaleSnapshot,
-  collection: Doc<'collections'>,
+  collection: CmsCollection,
 ): Promise<{ bodyAst: MarkdownRoot; searchText: string; toc: Toc | null }> {
   if (localeSnapshot.bodyAst && typeof localeSnapshot.bodyAst === 'object') {
     const bodyAst = localeSnapshot.bodyAst as unknown as MarkdownRoot
@@ -138,7 +136,7 @@ async function projectionBodyFromSnapshot(
 }
 
 function buildWorkflowPublicCacheTags(args: {
-  collection: Doc<'collections'>
+  collection: CmsCollection
   entry: Doc<'entries'>
   locale: string
   path: string
@@ -183,52 +181,49 @@ export async function buildPublicProjectionFromRevisionSnapshot(
   ctx: QueryOrMutationCtx,
   args: {
     entry: Doc<'entries'>
-    collection: Doc<'collections'>
+    collection: CmsCollection
     revisionId: Id<'entryRevisions'>
-    snapshot: { parentEntryId?: Id<'entries'> | null; orderRank?: string | null }
     locale: string
     localeSnapshot: RevisionLocaleSnapshot
+    publicPath: string
+    firstPublishedAt?: number
     now: number
   },
 ): Promise<PublicProjectionBuildResult> {
-  const path = publicPathForLocaleSnapshot(args.collection, args.localeSnapshot.path, args.locale)
-  const href = renderGinkoHref(
-    { locale: args.locale, path },
-    await getRoutingLocales(
-      ctx,
-      args.collection.locales,
-      getCollectionDefaultLocale(args.collection, args.locale),
-    ),
+  const path = args.publicPath
+  const materialized = materializeFieldData(
+    args.collection.fields,
+    args.localeSnapshot.shared,
+    args.localeSnapshot.values,
   )
   const body = await projectionBodyFromSnapshot(ctx, args.localeSnapshot, args.collection)
   const publicData = await applyPublicImageMetadataFallbacks(
     ctx,
     args.collection.fields,
-    filterPublicData(args.collection.fields, args.localeSnapshot.values),
+    filterPublicData(args.collection.fields, materialized),
     args.locale,
     getCollectionDefaultLocale(args.collection, args.locale),
   )
   const title =
     resolveEntryTitle(publicData, args.collection.fields, args.collection.settings) ??
-    args.localeSnapshot.slug ??
-    ''
+    args.localeSnapshot.slug
   const description =
     resolveEntryDescription(publicData, args.collection.fields, args.collection.settings) ??
     resolveEntryDescription(
-      args.localeSnapshot.values,
+      materialized,
       args.collection.fields,
       args.collection.settings,
     )
-  const navIncluded = publicInclusionFlag(args.localeSnapshot.values, 'navigation')
-  const searchIncluded = publicInclusionFlag(args.localeSnapshot.values, 'search')
-  const sitemapIncluded = publicInclusionFlag(args.localeSnapshot.values, 'sitemap')
+  const navIncluded = publicInclusionFlag(materialized, 'navigation')
+  const searchIncluded = publicInclusionFlag(materialized, 'search')
+  const sitemapIncluded = publicInclusionFlag(materialized, 'sitemap')
 
   const existingPublic = await ctx.db
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entry._id).eq('locale', args.locale))
     .first()
   const firstPublishedAt =
-    existingPublic?.firstPublishedAt ?? args.entry.firstPublishedAt ?? args.now
+    existingPublic?.firstPublishedAt ?? args.firstPublishedAt ?? args.now
   const assetRefs = uniqueAssetRefs([
     ...extractPublicFieldAssetRefs(publicData, args.collection.fields, {
       fieldPathPrefix: 'data',
@@ -243,16 +238,13 @@ export async function buildPublicProjectionFromRevisionSnapshot(
   return {
     input: {
       entryId: args.entry._id,
-      collectionId: args.entry.collectionId,
+      collection: args.entry.collection,
       locale: args.locale,
       revisionId: args.revisionId,
-      routeBacked: (args.collection.routing.mode ?? 'route') === 'route',
-      stableId: args.entry.stableId ?? null,
-      parentEntryId: args.snapshot.parentEntryId ?? null,
-      orderKey: args.snapshot.orderRank ?? '',
-      slug: args.localeSnapshot.slug ?? '',
-      path,
-      href,
+      stableId: args.entry.stableId,
+      parentEntryId: args.localeSnapshot.parentEntryId,
+      orderKey: args.localeSnapshot.orderRank,
+      slug: args.localeSnapshot.slug,
       title,
       description,
       data: publicData,

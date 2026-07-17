@@ -1,5 +1,13 @@
 # Marketer Publishing Agent Task Packets
 
+> **Superseded architecture record.** These pre-greenfield task packets are
+> retained only as decision history. They are not current implementation
+> guidance or acceptance evidence. Use the [canonical content model](../../reference/content-model.md),
+> [Studio workflows](./workflows.md), [contract transition guide](../../guides/changing-collections.md),
+> and [recovery boundaries](../../maintenance/backup-and-recovery.md). References
+> below to `publicRoutes`, descendant route-row rewrites, Studio imports, legacy
+> content migrations, CMS backup tables, or old scale ceilings are obsolete.
+
 This file contains ready-to-run task packets for coding agents and reviewer
 agents.
 

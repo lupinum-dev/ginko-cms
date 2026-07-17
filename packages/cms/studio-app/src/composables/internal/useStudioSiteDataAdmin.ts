@@ -35,6 +35,11 @@ export function useStudioSiteDataAdmin() {
     localized: boolean
     visibility: 'private' | 'public'
   } | null>(null)
+  const visibilityTarget = ref<{
+    key: string
+    label: string
+    visibility: 'private' | 'public'
+  } | null>(null)
   const { t, dateLocale } = useCmsI18n()
   const showNewForm = ref(false)
   const newBlock = reactive({
@@ -57,18 +62,34 @@ export function useStudioSiteDataAdmin() {
     }
   })
 
+  const hydratedSnapshot: Record<string, string> = {}
+
+  function isDirty(key: string): boolean {
+    return (
+      blockData[key] !== undefined &&
+      hydratedSnapshot[key] !== undefined &&
+      JSON.stringify(blockData[key]) !== hydratedSnapshot[key]
+    )
+  }
+
   watch(
     [expandedBlockData, activeLocale],
-    ([value, locale]) => {
+    ([value, locale], previous) => {
       if (!value || !expandedBlock.value) return
+      const key = expandedBlock.value
+      // A background refetch (e.g. after a visibility change) must not clobber
+      // unsaved edits; an explicit locale switch re-hydrates as before.
+      if (locale === previous?.[1] && isDirty(key)) return
       const data = value.data
-      if (value.localized && typeof data === 'object' && data !== null) {
-        blockData[expandedBlock.value] = asRecord(
-          structuredClone((data as Record<string, unknown>)[locale] ?? {}),
-        )
-        return
-      }
-      blockData[expandedBlock.value] = asRecord(structuredClone(data ?? {}))
+      const source =
+        value.localized && typeof data === 'object' && data !== null
+          ? ((data as Record<string, unknown>)[locale] ?? {})
+          : (data ?? {})
+      // Query results are reactive proxies; site data is JSON by construction,
+      // so serialize-parse is the safe deep clone (structuredClone throws).
+      const serialized = JSON.stringify(asRecord(source))
+      blockData[key] = JSON.parse(serialized) as Record<string, unknown>
+      hydratedSnapshot[key] = serialized
     },
     { immediate: true },
   )
@@ -84,11 +105,13 @@ export function useStudioSiteDataAdmin() {
     try {
       const raw = blockData[key]
       const parsed = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw
+      const localized = blocks.value.find((block) => block.key === key)?.localized ?? false
       await saveDataMutation({
         key,
         data: parsed,
-        ...(locales.value.length > 1 ? { locale: activeLocale.value } : {}),
+        ...(localized ? { locale: activeLocale.value } : {}),
       })
+      hydratedSnapshot[key] = JSON.stringify(blockData[key])
     } catch (e) {
       error.value = getCmsErrorMessage(e, t('ginkoCms.studio.siteDataPage.saveError'))
     } finally {
@@ -182,6 +205,7 @@ export function useStudioSiteDataAdmin() {
     showNewForm,
     t,
     toggleBlock,
+    visibilityTarget,
   }
 }
 

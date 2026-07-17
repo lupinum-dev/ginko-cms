@@ -10,7 +10,7 @@ export async function logActivity(
     summary: string
     appIdentityId: string
     entryId?: Id<'entries'> | null
-    collectionId?: Id<'collections'> | null
+    collection?: string | null
     locale?: string | null
     detail?: Record<string, JsonValue> | null
     createdAt?: number
@@ -29,7 +29,7 @@ export async function logActivity(
     summary: args.summary,
     appIdentityId: args.appIdentityId,
     entryId: args.entryId ?? null,
-    collectionId: args.collectionId ?? null,
+    collection: args.collection ?? null,
     locale: args.locale ?? null,
     detail: args.detail ?? null,
     actorLabel: member?.displayName ?? member?.email ?? null,

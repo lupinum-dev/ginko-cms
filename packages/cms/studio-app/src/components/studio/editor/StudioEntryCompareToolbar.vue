@@ -87,7 +87,9 @@ function swapLocales() {
           @click="toggleMode(true)"
         >
           <Brackets class="ginko:size-3.5" />
-          <span class="studio-entry-compare-toolbar__mode-label">Compare</span>
+          <span class="studio-entry-compare-toolbar__mode-label">
+            {{ editor.loader.t('ginkoCms.studio.collectionEditor.compareLanguages') }}
+          </span>
         </Button>
       </div>
 

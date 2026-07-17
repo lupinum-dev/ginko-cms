@@ -251,7 +251,7 @@ These decisions remove ambiguity between stories and define what the checks must
 
 ### NAV-02: Move reliably between primary Studio areas
 
-**User story:** As a member, I want predictable navigation between Content, Assets, Reviews, Activity, Site Data, Content Model, Agents, Imports, and Settings.
+**User story:** As a member, I want predictable navigation between Content, Assets, Reviews, Activity, Site Data, Content Model, Agents, and Settings.
 
 **Dream experience:** The user always knows where they are, and the browser behaves like a normal application with working deep links, refresh, history, and bookmarks.
 
@@ -1638,16 +1638,15 @@ Unpublish and archive are separate operations. Unpublished content remains activ
 
 ## 13. Imports, migrations, backups, and recovery
 
-### V1 backup capability matrix
+### V1 recovery capability matrix
 
-| Export scope | Artifact can be created and verified | V1 restore preview                                      | V1 restore apply                                                                                  |
-| ------------ | ------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Full CMS     | Yes                                  | May report contained/affected scope and incompatibility | No full-table restore                                                                             |
-| Collection   | Yes                                  | May report contained/affected scope and incompatibility | No collection restore                                                                             |
-| Entry        | Yes                                  | May report contained/affected scope and incompatibility | No entry restore                                                                                  |
-| Asset        | Yes                                  | Yes, for the documented missing-asset recovery case     | Yes, only when the asset is missing and checksum, freshness, storage, and confirmation rules pass |
+| Recovery need        | Canonical mechanism                         | Apply support                                                                    |
+| -------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
+| Deployment/database  | Official Convex deployment snapshots        | Operated outside the CMS application                                             |
+| Content portability  | Verified owner-CLI portability export       | Bounded draft import under the installed contract; never publishes implicitly    |
+| Purged asset recovery| Verified asset-only recovery artifact       | Missing-asset restore after checksum, freshness, storage, and confirmation checks|
 
-The matrix describes product capability, not merely current UI visibility. Every backup screen, CLI command, and maintenance guide must use the same claims.
+The matrix describes product capability, not merely current UI visibility. Studio does not expose a general backup or restore screen.
 
 ### IMP-01: Preview a filesystem content import
 
@@ -1691,39 +1690,39 @@ The matrix describes product capability, not merely current UI visibility. Every
 
 **User story:** As an operator, I want to understand what an import did and safely continue after a problem.
 
-**Dream experience:** The run page connects every input item to a clear outcome and next action.
+**Dream experience:** CLI status connects every input item to a clear outcome and next action.
 
 **Steps:**
 
-1. Open Imports/history.
-2. Select a run.
+1. Run the owner CLI portability status command.
+2. Select or resume a run identifier.
 3. Filter failed/blocked/skipped items.
 4. Fix and retry through the supported workflow.
 
-**Should happen:** Run status, leases, receipts, and errors are translated into operator language with advanced details available.
+**Should happen:** CLI run status, generations, receipts, and errors are translated into operator language with advanced details available.
 
 **Should not happen:** The product must not encourage editing database rows, deleting receipts manually, or guessing whether retry duplicates work.
 
 **Checks:** Completed/failed/interrupted/expired lease; retry; item link; redacted error; large history; viewer visibility policy.
 
-### IMP-04: Export and verify a backup
+### IMP-04: Prepare and verify recovery before risky work
 
 **User story:** As an owner/operator, I want a usable backup before risky work.
 
-**Dream experience:** Scope, completion, checksum, download, retention, encryption/protection expectations, and restoration limits are explicit.
+**Dream experience:** The operator chooses the canonical recovery mechanism for the risk and sees its exact restoration boundary.
 
 **Steps:**
 
-1. Choose full, collection, entry, or asset backup where supported.
-2. Start export.
-3. Wait for completion and verify checksum/live-scope status.
-4. Download and store the artifact safely.
+1. Use an official Convex snapshot for deployment/database recovery.
+2. Use owner-CLI portability export for content transfer or recovery.
+3. Create a verified asset recovery artifact before permanent asset purge.
+4. Verify completion, hashes, freshness, retention, and restoration limits.
 
-**Should happen:** Backup artifacts are attributable, bounded, verifiable, and protected by owner authority. The UI shows a capability matrix stating what each artifact contains and whether any restore apply path exists for that scope.
+**Should happen:** CMS-owned artifacts are attributable, bounded, verifiable, and protected by owner authority. Documentation clearly separates official snapshots, content portability, and asset-only recovery.
 
-**Should not happen:** The UI must not equate export with recoverability, claim restore coverage broader than implemented, expose backup URLs publicly, or mark incomplete output as verified.
+**Should not happen:** Studio must not claim a general application backup/restore system, equate export with database recoverability, expose recovery URLs publicly, or mark incomplete output as verified.
 
-**Checks:** Each scope; checksum success/failure; stale live data; download; expiry; owner-only; secret/privacy handling.
+**Checks:** Snapshot guidance; portability checksum success/failure; asset artifact freshness; expiry; owner-only; secret/privacy handling.
 
 ### IMP-05: Preview a restore
 
@@ -1733,12 +1732,12 @@ The matrix describes product capability, not merely current UI visibility. Every
 
 **Steps:**
 
-1. Select a backup artifact.
+1. Select an asset recovery artifact.
 2. Verify checksum and freshness.
 3. Run restore preview.
 4. Review affected records and blockers.
 
-**Should happen:** Preview performs no restore writes and accurately reflects the narrow supported restore capabilities. Full, collection, and entry exports are labeled export/verification artifacts unless a separately implemented restore path exists.
+**Should happen:** Preview performs no restore writes and accurately reflects the narrow asset-only restore capability. Database snapshots and content portability remain separate operator workflows.
 
 **Should not happen:** The product must not imply full-table recovery when only asset-scoped restoration exists or accept stale/tampered artifacts.
 
@@ -2568,7 +2567,7 @@ These are important acceptance criteria because implementing them would violate 
 7. MCP does not expose raw table access, schema mutation, member/settings management, deploy/admin tools, or client-supplied authority.
 8. MCP does not directly publish, archive, restore, delete, or purge by default; public/destructive agent work is review-gated. Granting direct caller-parity publish/archive/restore authority is the explicit CND-10 decision, not a default.
 9. Imports do not create schema and do not silently publish.
-10. Backup UI does not claim restore capabilities the implementation does not provide.
+10. Studio does not claim a general backup/restore system; official snapshots, content portability, and asset recovery remain distinct.
 11. Ginko CMS does not create a second user, tenant, organization, or workspace source of truth beside Better Auth identity and CMS membership.
 12. Bridge/setup files do not contain CMS domain policy.
 13. Derived data does not exist without a canonical source, rebuild story, and invariant tests.

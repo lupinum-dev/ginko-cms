@@ -1,7 +1,8 @@
-import type { Editor } from '@tiptap/core'
+import { Editor } from '@tiptap/core'
 import type { JSONContent } from '@tiptap/vue-3'
 import { describe, expect, it, vi } from 'vitest'
 
+import { createEditorExtensions } from '../../../packages/cms/studio-app/src/editor/lib/config/editorConfig'
 import {
   applyMarkdownToEditor,
   applyTiptapDocToEditor,
@@ -43,22 +44,29 @@ describe('editor conversionPipeline', () => {
     expect(result.traceId).toBeTruthy()
   })
 
-  it('normalizes markdown into a schema-valid TipTap doc before setContent', async () => {
+  it('normalizes markdown into a schema-valid TipTap doc before applying it', async () => {
     const markdown = 'Before ![Icon](/content/blog/0/icon.png) after'
 
-    const editor = {
-      commands: {
-        setContent: vi.fn((doc: JSONContent) => {
-          if (hasBlockInsideParagraph(doc)) {
-            throw new RangeError('Invalid content for node paragraph')
-          }
-        }),
-      },
-    } as unknown as Editor
+    const editor = new Editor({
+      content: { content: [{ type: 'paragraph' }], type: 'doc' },
+      extensions: createEditorExtensions({
+        codeBlockTheme: 'github-dark',
+        enableDebug: false,
+        enableFiles: true,
+        enableVideo: true,
+        fileOutput: 'mdc',
+        imageOutput: 'mdc',
+        showMarkdownMarkers: false,
+        videoOutput: 'mdc',
+      }),
+    })
 
     const result = await applyMarkdownToEditor(editor, markdown)
     expect(result.ok).toBe(true)
-    expect(editor.commands.setContent).toHaveBeenCalledTimes(1)
+    expect(hasBlockInsideParagraph(editor.getJSON())).toBe(false)
+    expect(editor.getText()).toContain('Before')
+
+    editor.destroy()
   })
 
   it('returns typed failure when setContent throws', () => {

@@ -5,10 +5,8 @@ const MAX_ACTIVE_EXPORTS = 100
 
 export async function assertCollectionOutsidePortableExportLease(
   ctx: MutationCtx,
-  collectionId: Id<'collections'>,
+  collection: string,
 ) {
-  const collection = await ctx.db.get(collectionId)
-  if (!collection) return
   const now = Date.now()
   const active = await ctx.db
     .query('portableRuns')
@@ -23,11 +21,11 @@ export async function assertCollectionOutsidePortableExportLease(
         run.mode === 'export' &&
         run.leaseExpiresAt !== null &&
         run.leaseExpiresAt > now &&
-        run.scope.collections.includes(collection.slug),
+        run.scope.collections.includes(collection),
     )
   ) {
     throw new Error(
-      `A portable export capture is temporarily fencing collection "${collection.slug}"; retry the editorial write after capture completes.`,
+      `A portable export capture is temporarily fencing collection "${collection}"; retry the editorial write after capture completes.`,
     )
   }
 }

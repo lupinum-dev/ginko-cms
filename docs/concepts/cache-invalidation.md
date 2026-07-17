@@ -39,8 +39,8 @@ Rules:
 - Use immutable CMS `entryId` only as a fallback.
 - Never use title, slug, route path, or locale-specific translated slug as entry
   identity.
-- Old/internal tag forms are migration aliases only. New code must emit the
-  canonical vocabulary below.
+- Only the canonical vocabulary below is supported. Producers and consumers use
+  the same typed tag generator; there are no legacy tag aliases.
 
 ## Canonical Tags
 

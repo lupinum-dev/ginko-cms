@@ -193,21 +193,17 @@ describe('StudioEntryDetailsPanel context re-provide', () => {
 })
 
 describe('StudioEntryDetailsPanel publish trigger', () => {
-  it('opens the shared publish flow via the same useEntryPublishing entry point', async () => {
+  it('does not duplicate the publish CTA — the top bar owns the single publish action', () => {
+    // Say-it-once: the design review moved the one publish CTA to the entry
+    // top bar. The details panel reinforces state but must not offer a second
+    // Publish button, even for users with publish permission.
     const editor = createPanelEditor()
     const wrapper = mountPanel(editor)
 
     const publishButton = wrapper
       .findAll('button')
       .find((button) => button.text().trim() === 'Publish')
-    expect(publishButton).toBeTruthy()
-
-    await publishButton!.trigger('click')
-
-    // Same flow the top bar drives: handlePublish() opens the one shared dialog,
-    // and (returning truthy) a preview is kicked off for the current locale.
-    expect(editor.publishing.handlePublish).toHaveBeenCalledTimes(1)
-    expect(editor.workflow.previewPublishImpact).toHaveBeenCalledWith('en')
+    expect(publishButton).toBeUndefined()
     wrapper.unmount()
   })
 

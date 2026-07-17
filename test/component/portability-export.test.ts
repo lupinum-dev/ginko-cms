@@ -49,7 +49,13 @@ async function publishedFixture(options: { asset?: boolean } = {}) {
     validation: null,
   })
   const contractSha256 = await hashCanonicalJson(contract)
-  await ctx.raw.mutation(api.policy.installCmsPolicy, { contract, contractSha256 })
+  const presentation = { collections: {} }
+  await ctx.raw.mutation(api.contract.installCmsContract, {
+    content: contract,
+    contentHash: contractSha256,
+    presentation,
+    presentationHash: await hashCanonicalJson(presentation),
+  })
   const [collection] = (await ctx.readAll('collections')) as Array<{ _id: string }>
   const now = Date.now()
   let assetId: string | null = null

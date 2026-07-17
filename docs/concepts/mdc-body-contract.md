@@ -28,8 +28,8 @@ state. Those are editing aids. They must roundtrip back to valid MDC.
 ## Why
 
 Filesystem content already uses Markdown/MDC as the natural authoring format.
-Making MDC canonical keeps migration, export, editing, public rendering, and
-later editor changes aligned.
+Making MDC canonical keeps portability, editing, public rendering, and later
+editor changes aligned.
 
 Studio has an MDC workflow:
 
@@ -64,8 +64,8 @@ derived search text
 Only the MDC field value is canonical. Parsed body, plain text, table of
 contents, search sections, and rendered output are derived.
 
-The provider may tolerate legacy or alternate body keys while older data exists,
-but v1 docs and examples should prefer `bodyMdc`.
+The provider accepts the canonical `bodyMdc` shape. This greenfield cutover has
+no legacy or alternate body-key compatibility path.
 
 ## Filesystem Mapping
 
@@ -83,7 +83,7 @@ Content routing works across locales.
 ::
 ```
 
-Migration plan:
+Portability mapping:
 
 ```txt
 markdown body -> bodyMdc field
@@ -181,10 +181,10 @@ MDC source
   -> valid MDC source
 ```
 
-If structured blocks ever become canonical, that must be a separate schema
-migration with its own import/export story.
+If structured blocks ever become canonical, that must be an explicit
+content-incompatible contract transition with its own portability story.
 
 ## Related Pages
 
-- [Filesystem migration](../guides/filesystem-migration.md)
+- [Filesystem portability](../guides/filesystem-migration.md)
 - [Content model](../reference/content-model.md)

@@ -25,6 +25,26 @@ export const listPendingReviews = query({
     await ctx.runQuery(components.ginkoCms.reviewRequests.listPendingReviews, args as never),
 })
 
+export const listRecentReviewOutcomes = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.reviewRequests.listRecentReviewOutcomes, args as never),
+})
+
+export const listRecentReviewOutcomesForEntry = query({
+  args: {
+    entryId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(
+      components.ginkoCms.reviewRequests.listRecentReviewOutcomesForEntry,
+      args as never,
+    ),
+})
+
 export const getOwnReviewRequest = query({
   args: { reviewRequestId: v.string() },
   handler: async (ctx, args) =>
@@ -43,6 +63,7 @@ export const approveReview = mutation({
 export const rejectReview = mutation({
   args: {
     reviewRequestId: v.string(),
+    feedback: v.optional(v.string()),
   },
   handler: async (ctx, args) =>
     await ctx.runMutation(components.ginkoCms.reviewRequests.rejectReview, args as never),

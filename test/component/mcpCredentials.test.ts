@@ -57,6 +57,26 @@ describe('component: MCP credential settings', () => {
     })
   })
 
+  it('persists the credential expiry and returns it to the owner list', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+
+    const owner = ctx.asCmsUser('owner-1')
+    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000
+    await expect(
+      owner.mutation(api.mcpCredentials.upsertSettings, {
+        apiKeyId: 'ba_key_with_expiry',
+        ownerUserId: 'owner-1',
+        scopes: [cmsPermissionKeys.read],
+        expiresAt,
+      }),
+    ).resolves.toMatchObject({ apiKeyId: 'ba_key_with_expiry', expiresAt })
+
+    await expect(owner.query(api.mcpCredentials.listOwnSettings, {})).resolves.toEqual([
+      expect.objectContaining({ apiKeyId: 'ba_key_with_expiry', expiresAt }),
+    ])
+  })
+
   it('rejects an expired credential on the next direct Convex call', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
@@ -186,6 +206,43 @@ describe('component: MCP credential settings', () => {
     expect(updates.at(-1)?.detail?.scopes).toEqual([
       cmsPermissionKeys.read,
       cmsPermissionKeys.editEntries,
+    ])
+  })
+
+  it('never reactivates or reassigns an existing credential id', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'owner-2', role: 'owner' })
+    const owner = ctx.asCmsUser('owner-1')
+
+    await owner.mutation(api.mcpCredentials.upsertSettings, {
+      apiKeyId: 'ba_key_once',
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read],
+    })
+    await expect(
+      owner.mutation(api.mcpCredentials.upsertSettings, {
+        apiKeyId: 'ba_key_once',
+        ownerUserId: 'owner-2',
+        scopes: [cmsPermissionKeys.read],
+      }),
+    ).rejects.toThrow('cannot be reassigned')
+
+    await owner.mutation(api.mcpCredentials.revokeSettings, { apiKeyId: 'ba_key_once' })
+    await expect(
+      owner.mutation(api.mcpCredentials.upsertSettings, {
+        apiKeyId: 'ba_key_once',
+        ownerUserId: 'owner-1',
+        scopes: [cmsPermissionKeys.read],
+      }),
+    ).rejects.toThrow('cannot be reactivated')
+
+    expect(await ctx.readAll('mcpCredentialSettings')).toEqual([
+      expect.objectContaining({
+        apiKeyId: 'ba_key_once',
+        ownerUserId: 'owner-1',
+        status: 'revoked',
+      }),
     ])
   })
 

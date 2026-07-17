@@ -108,7 +108,19 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   }))
 
   // --- Hydrate form from entry data ---
+  // The draft version this form's content is based on. Unlike
+  // `entry.draftVersion` (a live query that advances when ANY session saves),
+  // this only moves on hydrate or our own successful save, so it is the
+  // correct optimistic-concurrency token for saves.
   const lastHydratedVersion = ref<number | null>(null)
+
+  function isDraftStale() {
+    return (
+      lastHydratedVersion.value != null &&
+      entry.value != null &&
+      entry.value.draftVersion !== lastHydratedVersion.value
+    )
+  }
 
   function readBodyMdc(value: StudioEntry): string {
     return typeof value.localeData?.draft?.bodyMdc === 'string'
@@ -144,6 +156,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
         field.type === 'richtext' ? readBodyMdc(value) : (data[field.key] ?? '')
     }
     isDirty.value = false
+    saveConflict.value = false
     lastPersistedEditSerial.value = editSerial.value
     lastHydratedVersion.value = value.draftVersion
     queueMicrotask(() => {
@@ -169,7 +182,6 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   // Called explicitly by the history composable after a successful mutation.
   let pendingHydrate = false
   function requestHydrate() {
-    pendingHydrate = true
     cancelAutoSave()
     studioDebug.debug('entry:requestHydrate', {
       collection: collection.value,
@@ -177,6 +189,14 @@ export function useEntryDraft(deps: EntryDraftDeps) {
       currentDraftVersion: entry.value?.draftVersion ?? null,
       lastHydratedVersion: lastHydratedVersion.value,
     })
+    // Save-conflict recovery: the live entry is already ahead of this form
+    // (the draftVersion watcher fired and will not fire again), so hydrate
+    // now instead of waiting for a version change that already happened.
+    if (initialized.value && entry.value && isDraftStale()) {
+      hydrateForm(entry.value, 'externalChange')
+      return
+    }
+    pendingHydrate = true
   }
   watch(
     () => entry.value?.draftVersion,
@@ -190,18 +210,31 @@ export function useEntryDraft(deps: EntryDraftDeps) {
         initialized: initialized.value,
         hasEntry: !!entry.value,
       })
-      if (!pendingHydrate || !initialized.value || !entry.value || nextVersion == null) return
-      pendingHydrate = false
+      if (!initialized.value || !entry.value || nextVersion == null) return
+      if (pendingHydrate) {
+        pendingHydrate = false
+        hydrateForm(entry.value, 'externalChange')
+        return
+      }
+      // Another session saved a newer draft (our own saves update
+      // lastHydratedVersion before the live query advances).
+      if (nextVersion === lastHydratedVersion.value || saveQueue.active || saving.value) return
+      if (isDirty.value) {
+        // Local unsaved edits would overwrite the newer draft: block instead.
+        cancelAutoSave()
+        saveConflict.value = true
+        return
+      }
       hydrateForm(entry.value, 'externalChange')
     },
   )
 
   // --- Dirty tracking ---
-  watch([() => form.slug, () => ({ ...dataFields })], () => {
+  watch([() => ({ ...form }), () => ({ ...dataFields })], () => {
     if (!initialized.value || hydrating.value) return
     editSerial.value += 1
     isDirty.value = true
-    saveConflict.value = false
+    if (!isDraftStale()) saveConflict.value = false
     scheduleAutoSave()
   })
 
@@ -291,6 +324,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
 
   function scheduleAutoSave() {
     if (!initialized.value || hydrating.value || !isDirty.value || !canEditEntries.value) return
+    if (saveConflict.value) return
     cancelAutoSave()
     autoSaveTimer = setTimeout(() => {
       void handleSaveDraft(true)
@@ -302,6 +336,18 @@ export function useEntryDraft(deps: EntryDraftDeps) {
     saveConflict.value = false
     const currentEntry = entry.value
     if (!currentEntry) return false
+    if (isDraftStale()) {
+      // A newer draft exists on the server; refuse to overwrite it.
+      cancelAutoSave()
+      saveConflict.value = true
+      studioDebug.debug('saveDraft:staleBlocked', {
+        collection: collection.value,
+        entryId: entryId.value,
+        baseVersion: lastHydratedVersion.value,
+        serverVersion: currentEntry.draftVersion,
+      })
+      return false
+    }
     if (!runSilent) {
       studioDebug.debug('saveDraft:start', {
         collection: collection.value,
@@ -366,7 +412,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
 
       const saveResult = await saveEntryDraftMutation({
         entryId: entryId.value,
-        expectedDraftVersion: currentEntry.draftVersion,
+        expectedDraftVersion: lastHydratedVersion.value ?? currentEntry.draftVersion,
         patch: {
           ...(Object.keys(sharedPatch).length > 0 ? { shared: sharedPatch } : {}),
           ...(Object.keys(localePatch).length > 0
@@ -375,9 +421,11 @@ export function useEntryDraft(deps: EntryDraftDeps) {
         } as FunctionArgs<typeof api.ginkoCms.editor.saveEntryDraft>['patch'],
       })
       const draftVersion = saveResult?.draftVersion ?? currentEntry.draftVersion
+      // Advance the base version before the live query catches up so the
+      // external-change watcher does not treat our own save as a conflict.
+      lastHydratedVersion.value = draftVersion
       await refreshEntry()
       lastSaved.value = new Date()
-      lastHydratedVersion.value = draftVersion
       offlineRetry.clear()
       offlineSavePending.value = false
       if (!runSilent) {
@@ -443,6 +491,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
     error,
     offlineSavePending,
     saveConflict,
+    lastHydratedVersion,
     lastSaved,
     form,
     dataFields,

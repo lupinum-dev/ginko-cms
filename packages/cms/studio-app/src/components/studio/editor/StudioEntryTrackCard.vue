@@ -170,15 +170,10 @@ function localeLabel(row: { published: boolean; hasUnpublishedChanges: boolean; 
     <template #icon>
       <Globe2 class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
     </template>
-    <template #action>
-      <StudioStatusPill
-        :label="trackState.label"
-        :tone="trackState.tone"
-        class="ginko:capitalize"
-      />
-    </template>
-
     <div class="ginko:space-y-4">
+      <!-- No status pill here: the Status section above already names the
+           state (say it once). This card adds the live-tracking explanation,
+           URL, and per-language deltas. -->
       <div class="ginko:flex ginko:items-start ginko:gap-2.5">
         <CheckCircle2
           v-if="trackState.tone === 'success'"
@@ -192,32 +187,12 @@ function localeLabel(row: { published: boolean; hasUnpublishedChanges: boolean; 
           v-else
           class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground"
         />
-        <div class="ginko:min-w-0">
-          <div class="ginko:text-sm ginko:font-medium ginko:text-foreground">
-            {{ trackState.label }}
-          </div>
-          <div class="ginko:mt-0.5 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground">
-            {{ trackState.message }}
-          </div>
+        <div class="ginko:min-w-0 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground">
+          {{ trackState.message }}
         </div>
       </div>
 
-      <div v-if="entry?.publishedAt" class="ginko:text-xs">
-        <div class="ginko:mb-1 ginko:font-medium ginko:text-muted-foreground">
-          {{ t('liveSince') }}
-        </div>
-        <div class="ginko:text-sm ginko:font-medium ginko:text-foreground">
-          <NuxtTime
-            :datetime="entry.publishedAt"
-            :locale="editor.loader.dateLocale"
-            month="short"
-            day="numeric"
-            hour="2-digit"
-            minute="2-digit"
-          />
-        </div>
-      </div>
-
+      <!-- "Live since" already renders in the Status section above. -->
       <div>
         <div class="ginko:mb-1 ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
           {{ t('livePage') }}

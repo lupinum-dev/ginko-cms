@@ -36,10 +36,10 @@ const value = computed({
     </FieldContent>
     <Switch
       :id="field.key"
-      :checked="!!value"
+      :model-value="!!value"
       :disabled="disabled"
       :aria-invalid="fieldError ? true : undefined"
-      @update:checked="value = $event"
+      @update:model-value="value = $event"
     />
   </Field>
 </template>

@@ -82,6 +82,10 @@ const publishDisabled = computed(
   () => !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
 )
 
+// Archived entries cannot publish (the banner says so); the primary action
+// becomes the banner's own verb, Restore draft.
+const isArchived = computed(() => entry.value?.status === 'archived')
+
 const publishAllDisabled = computed(
   () => !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
 )
@@ -232,8 +236,17 @@ function requestReview() {
           </span>
           <span class="studio-entry-topbar__label-short">Save</span>
         </Button>
+        <Button
+          v-if="isArchived && editor.loader.canArchiveEntries"
+          size="sm"
+          :disabled="editor.draft.saving"
+          @click="editor.publishing.handleRestore()"
+        >
+          <ArchiveRestore class="ginko:size-4" />
+          {{ editor.loader.t('ginkoCms.common.restoreDraft') }}
+        </Button>
         <div
-          v-if="editor.loader.canPublishEntries"
+          v-else-if="editor.loader.canPublishEntries && !isArchived"
           class="studio-entry-topbar__publish-action ginko:inline-flex ginko:min-w-0 ginko:items-stretch ginko:overflow-hidden ginko:rounded-lg"
         >
           <Button
@@ -309,17 +322,27 @@ function requestReview() {
               <Archive class="ginko:mr-2 ginko:size-3.5" />
               {{ editor.loader.t('ginkoCms.common.archive') }}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              v-if="entry?.status === 'archived' && editor.loader.canArchiveEntries"
-              :disabled="editor.draft.saving || !editor.loader.canArchiveEntries"
-              @click="editor.publishing.handleRestore()"
-            >
-              <ArchiveRestore class="ginko:mr-2 ginko:size-3.5" />
-              {{ editor.loader.t('ginkoCms.common.restoreDraft') }}
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+    </div>
+    <!-- Conflict recovery: the save indicator says "Save conflict", this row
+         explains it and offers the way out (reload the other session's draft)
+         so users don't need a full page refresh. -->
+    <div
+      v-if="mode !== 'new' && editor && saveState === 'conflict'"
+      class="studio-page-content ginko:px-6 ginko:pb-3"
+    >
+      <StudioNotice
+        tone="danger"
+        :description="editor.loader.t('ginkoCms.studio.collectionEditor.saveConflictNotice')"
+      >
+        <template #action>
+          <Button variant="outline" size="sm" @click="editor.draft.requestHydrate()">
+            {{ editor.loader.t('ginkoCms.studio.collectionEditor.saveConflictReload') }}
+          </Button>
+        </template>
+      </StudioNotice>
     </div>
   </header>
 </template>

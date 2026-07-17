@@ -1,7 +1,4 @@
-import {
-  countPortableImportFieldValues,
-  PORTABLE_IMPORT_LIMITS,
-} from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
+import { PORTABLE_IMPORT_LIMITS } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
 import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import {
   collectPortableAssetReferences,
@@ -78,6 +75,12 @@ export async function createPortableDraftImportPlan(
 ): Promise<PortableDraftImportPlan> {
   if (!options.deploymentId) throw new Error('Portable import requires a deployment ID.')
   assertSha256(options.targetContractSha256, 'target contract hash')
+  if (bundle.documents.length > PORTABLE_IMPORT_LIMITS.entries) {
+    throw new Error(`Portable import document count exceeds ${PORTABLE_IMPORT_LIMITS.entries}.`)
+  }
+  if (bundle.assets.length > PORTABLE_IMPORT_LIMITS.assets) {
+    throw new Error(`Portable import asset count exceeds ${PORTABLE_IMPORT_LIMITS.assets}.`)
+  }
 
   const documents = [...bundle.documents].sort((left, right) =>
     compareIdentity(left.document, right.document),
@@ -86,19 +89,12 @@ export async function createPortableDraftImportPlan(
   if (localeCount > PORTABLE_IMPORT_LIMITS.locales) {
     throw new Error(`Portable import locale count exceeds ${PORTABLE_IMPORT_LIMITS.locales}.`)
   }
-  let fieldValueCount = 0
   for (const { document } of documents) {
     if (
       canonicalJsonBytes(document as unknown as JsonValue).length >
       PORTABLE_IMPORT_LIMITS.documentBytes
     ) {
       throw new Error('Portable import document exceeds 256 KiB.')
-    }
-    fieldValueCount += countPortableImportFieldValues(document)
-    if (fieldValueCount > PORTABLE_IMPORT_LIMITS.fieldValues) {
-      throw new Error(
-        `Portable import field value count exceeds ${PORTABLE_IMPORT_LIMITS.fieldValues}.`,
-      )
     }
   }
   const identityKeys = new Map<string, string>()
@@ -108,7 +104,6 @@ export async function createPortableDraftImportPlan(
   }
 
   const items: PortableDraftImportPlan['items'] = []
-  let relationEdgeCount = 0
   const blockers: string[] = []
   const referencedAssets = new Map<string, Set<string>>()
   for (const { document } of documents) {
@@ -137,12 +132,6 @@ export async function createPortableDraftImportPlan(
       ...document.shared,
       ...document.localized,
     })
-    relationEdgeCount += references.length + (document.parentCanonicalKey === null ? 0 : 1)
-    if (relationEdgeCount > PORTABLE_IMPORT_LIMITS.relationEdges) {
-      throw new Error(
-        `Portable import relation edge count exceeds ${PORTABLE_IMPORT_LIMITS.relationEdges}.`,
-      )
-    }
     for (const reference of references) {
       const target = bundle.contract.collections[reference.collection]
       const dependency = target

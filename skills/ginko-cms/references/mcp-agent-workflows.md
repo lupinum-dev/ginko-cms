@@ -42,26 +42,24 @@ Default authoring loop:
 4. Write drafts with `save-entry-draft`; preserve current draft data when
    sending partial updates.
 5. Inspect `get-entry` with `compact: true` unless full state is needed.
-6. Verify public readiness with `page`, `list`, `search`, `nav`, `sitemap`, and
-   `explain-public-visibility`.
+6. Preview publish impact and request review when the draft is ready. Verify
+   already-public output with `page`, `list`, `search`, `nav`, and `sitemap`.
 
 Agents may inspect collection fields, route mode, locales, and public
 capability. They must not create, update, delete, import, or reorder collection
 contracts through MCP.
 
-## Publish And Destructive Safety
+## Publish Review Boundary
 
-Publishing, unpublishing, deleting, archiving, and other destructive actions are
-operation-backed. First call the tool without `_confirmationToken` to receive a
-preview. Read `allowed`, `blockers`, `warnings`, and `effects`.
+MCP agents may edit drafts, preview publish impact, and request review. They
+cannot directly publish, unpublish, archive, restore, delete, purge assets, or
+run content portability. No credential scope unlocks those tools.
 
-Execute only after explicit user approval by repeating the same arguments with
-`preview.confirmation.token`. Rerun the preview if arguments, draft state, target
-state, or caller changed.
+The review request pins draft versions and the preview hash. A publisher or
+owner approves it in Studio; approval re-checks current authority and all stale
+state, then uses the same canonical publication operation as a human publish.
 
-Permanent entry delete is backup-gated: call `export-backup` with
-`scope: "entry"` first, then pass the returned artifact id as
-`exportArtifactId` to `delete-entry`.
+An agent can inspect its own run and review status. Owners can inspect all runs.
 
 ## Public Diagnostics
 
@@ -69,8 +67,7 @@ Use diagnostics before changing or publishing content. Important tools:
 
 - `explain-public-visibility`: explains route, sitemap, search, and nav
   readiness for one entry and locale.
-- `publish-entry` without `_confirmationToken`: previews blockers and public
-  changes without publishing.
+- publish preview: reports blockers and public changes without publishing.
 - `get-entry` and `get-collection`: inspect draft state and capability.
 
 Data-only collections can be listed publicly, but agents must not call page,
@@ -79,8 +76,7 @@ nav, surround, search, or sitemap tools for them.
 ## Media Limits
 
 MCP cannot upload, fetch, or browse new media. Add files through Studio/browser
-upload or a trusted migration path, then use MCP to inspect and reuse registered
-assets.
+upload, then use MCP to inspect and reuse registered assets.
 
 Use `get-asset` and `resolve-asset-urls` when existing asset ids are known.
 Asset tools never edit entry drafts. Place asset ids with `save-entry-draft`.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { api } from '../../../boundary/api'
 import type { StudioAssetRecord } from '../../../composables/internal/types'
@@ -44,14 +44,21 @@ const filePickerOpen = ref(false)
 const editorRef = ref<InstanceType<typeof RichtextEditor> | null>(null)
 const maxResolvedAssetIds = 200
 
-const referencedAssetIds = computed(() => {
+const referencedAssetIds = computed<string[]>((previous) => {
   const ids = new Set<string>()
   const pattern = /[a-z0-9]{20,40}|[a-z0-9]+;[a-z_]+/gi
   for (const match of value.value.matchAll(pattern)) {
     ids.add(match[0])
     if (ids.size >= maxResolvedAssetIds) break
   }
-  return Array.from(ids)
+  const next = Array.from(ids)
+  // Keep the previous array identity when the id set is unchanged: `value`
+  // updates on every keystroke, and a fresh array here would restart
+  // assetUrlsQuery (a full Convex re-subscribe) mid-typing.
+  if (previous && previous.length === next.length && previous.every((id, i) => id === next[i])) {
+    return previous
+  }
+  return next
 })
 
 const assetUrlsQuery = useCmsStudioQuery(
@@ -63,12 +70,25 @@ const assetUrlsQuery = useCmsStudioQuery(
   ),
 )
 
+// The readiness gate exists so the FIRST paint waits for asset URLs. It must
+// latch: once the editor is live, a pending re-resolution (typing can extend
+// a word into the asset-id pattern above) unmounting the focused editor would
+// drop keystrokes and steal focus.
+const editorEverReady = ref(false)
 const editorReady = computed(() => {
+  if (editorEverReady.value) return true
   if (!props.assetContext) return true
   if (referencedAssetIds.value.length === 0) return true
   const status = assetUrlsQuery.status?.value
   return status === 'success' || status === 'error'
 })
+watch(
+  editorReady,
+  (ready) => {
+    if (ready) editorEverReady.value = true
+  },
+  { immediate: true },
+)
 
 const assetIdByUrl = computed(() => {
   const map = /* @__PURE__ */ new Map<string, string>()
@@ -227,7 +247,7 @@ function onConversionRecovered() {
         :open="imagePickerOpen"
         :show-trigger="false"
         kind="image"
-        :label="`${label} image`"
+        :label="t('ginkoCms.studio.assetPicker.insertImageTitle')"
         :asset-context="assetContext"
         :disabled="disabled"
         @update:open="setImagePickerOpen"
@@ -239,7 +259,7 @@ function onConversionRecovered() {
         :open="filePickerOpen"
         :show-trigger="false"
         kind="file"
-        :label="`${label} file`"
+        :label="t('ginkoCms.studio.assetPicker.insertFileTitle')"
         :asset-context="assetContext"
         :disabled="disabled"
         @update:open="filePickerOpen = $event"

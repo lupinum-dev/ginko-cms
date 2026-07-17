@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { AlertCircle, CheckCircle2, ExternalLink, Globe } from '@lucide/vue'
+import { AlertCircle, CheckCircle2, ExternalLink, Eye, Globe } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
+import { useCmsConfig } from '../../../composables/useCmsConfig'
 import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
 import {
   derivePublishConfirmationState,
+  draftPreviewPath,
   mapEntryReadinessDetail,
   readinessActionLabel,
   readinessIssueMessage,
@@ -26,8 +28,22 @@ const props = defineProps<{
 
 const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
+const cmsConfig = useCmsConfig()
 
 const entry = computed(() => editor.loader.entry)
+
+// EDT-10: "Preview reviewed" may only be claimed when the editor actually
+// opened the rendered draft preview for the current draft state. Optional
+// chaining: dialog tests mount with a partial editor context.
+const draftPreviewOpened = computed(() => editor.workflow?.draftPreviewOpened === true)
+const draftPreviewUrl = computed(() =>
+  draftPreviewPath({
+    previewRoute: cmsConfig.preview?.route,
+    collection: editor.loader.collection,
+    entryId: editor.loader.entryId,
+    locale: editor.loader.currentLocale,
+  }),
+)
 
 const isFirstPublish = computed(() => entry.value?.status === 'draft' && !entry.value?.publishedAt)
 const publishImpactLocales = computed(() => props.publishImpact?.locales ?? [])
@@ -103,6 +119,22 @@ const isBlocked = computed(
     editor.publishing.publishReadiness.state === 'blocked',
 )
 
+// Preview preparation failed (e.g. the entry changed in another session). The
+// dialog must never claim "Ready to publish" next to a failed preview.
+const previewFailed = computed(() => editor.publishing.publishReadiness.state === 'failed')
+const previewConcurrentEdit = computed(
+  () => previewFailed.value && editor.workflow?.previewConcurrentEdit === true,
+)
+const previewFailureMessage = computed(
+  () =>
+    editor.publishing.publishReadiness.message ||
+    editor.loader.t('ginkoCms.studio.workflow.preview.failed'),
+)
+
+function reloadLatestDraft() {
+  void editor.workflow?.reloadLatestDraftAndPreview()
+}
+
 const hasMultipleLocales = computed(() => editor.loader.locales.length > 1)
 
 function collectionEditorT(key: string, params?: Record<string, unknown>): string {
@@ -171,32 +203,52 @@ const publishImpactMessage = computed(
         <div
           class="ginko:flex ginko:items-start ginko:gap-2 ginko:rounded-lg ginko:border ginko:p-3 ginko:text-sm"
           :class="
-            isBlocked
+            isBlocked || previewFailed
               ? 'ginko:border-destructive/40 ginko:text-destructive-fg'
               : 'ginko:border-success/40 ginko:text-success-fg'
           "
         >
-          <AlertCircle v-if="isBlocked" class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0" />
+          <AlertCircle
+            v-if="isBlocked || previewFailed"
+            class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0"
+          />
           <CheckCircle2 v-else class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0" />
-          <div>
+          <div class="ginko:min-w-0">
             <div
               class="ginko:mb-1 ginko:text-xs ginko:font-medium ginko:uppercase"
-              :class="isBlocked ? 'ginko:text-destructive' : 'ginko:text-success-fg'"
+              :class="
+                isBlocked || previewFailed ? 'ginko:text-destructive' : 'ginko:text-success-fg'
+              "
             >
               {{
                 isBlocked
                   ? collectionEditorT('publishDialogIssuesBlocking')
-                  : collectionEditorT('publishDialogReadyToPublish')
+                  : previewFailed
+                    ? collectionEditorT('publishDialogPreviewFailed')
+                    : collectionEditorT('publishDialogReadyToPublish')
               }}
             </div>
-            <div class="ginko:font-medium">{{ issueLabel }}</div>
+            <div class="ginko:font-medium">
+              {{ !isBlocked && previewFailed ? previewFailureMessage : issueLabel }}
+            </div>
             <div
-              v-if="publishConfirmation.disabledReason"
+              v-if="publishConfirmation.disabledReason && !previewFailed"
               class="ginko:mt-1 ginko:text-xs"
               :class="isBlocked ? 'ginko:text-destructive' : 'ginko:text-muted-foreground'"
             >
               {{ publishConfirmation.disabledReason }}
             </div>
+            <!-- Same recovery the top bar's conflict notice offers: reload the
+                 other session's draft, then re-run the preview. -->
+            <Button
+              v-if="previewConcurrentEdit"
+              variant="outline"
+              size="sm"
+              class="ginko:mt-2"
+              @click="reloadLatestDraft"
+            >
+              {{ collectionEditorT('saveConflictReload') }}
+            </Button>
           </div>
         </div>
 
@@ -239,6 +291,7 @@ const publishImpactMessage = computed(
           </div>
           <div v-if="publishImpactReady" class="ginko:space-y-3">
             <div
+              v-if="isFirstPublish || draftPreviewOpened"
               class="ginko:flex ginko:items-start ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
             >
               <CheckCircle2
@@ -250,6 +303,27 @@ const publishImpactMessage = computed(
                     ? editor.loader.t('ginkoCms.studio.collectionEditor.publishDialogFirstPublish')
                     : collectionEditorT('publishDialogPreviewReviewed')
                 }}
+              </span>
+            </div>
+            <!-- Honest state (EDT-10): the rendered draft preview was not
+                 opened, so no "reviewed" claim — offer the preview instead. -->
+            <div
+              v-else
+              class="ginko:flex ginko:items-start ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
+            >
+              <Eye class="ginko:mt-0.5 ginko:size-3.5 ginko:shrink-0" />
+              <span>
+                {{ collectionEditorT('publishDialogPreviewNotOpened') }}
+                <a
+                  v-if="draftPreviewUrl"
+                  :href="draftPreviewUrl"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="ginko:underline ginko:underline-offset-2 ginko:text-foreground"
+                  @click="editor.workflow?.markDraftPreviewOpened()"
+                >
+                  {{ collectionEditorT('publishImpactOpenDraftPreview') }}
+                </a>
               </span>
             </div>
 
@@ -324,7 +398,10 @@ const publishImpactMessage = computed(
               </Badge>
             </div>
           </div>
-          <div v-else-if="isFirstPublish" class="ginko:text-xs ginko:text-muted-foreground">
+          <div
+            v-else-if="isFirstPublish && !previewFailed"
+            class="ginko:text-xs ginko:text-muted-foreground"
+          >
             {{ editor.loader.t('ginkoCms.studio.collectionEditor.publishDialogFirstPublish') }}
           </div>
           <div v-else class="ginko:text-xs ginko:text-muted-foreground">

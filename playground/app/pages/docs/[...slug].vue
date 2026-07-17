@@ -27,6 +27,8 @@
 const { page, status, error: loadError } = await useContentPage('docs')
 const pending = computed(() => status.value === 'pending')
 
+useCmsSeoAlternates(page)
+
 if (import.meta.server) {
   throwPublicContentFailure(loadError.value, 'This documentation page is temporarily unavailable.')
   if (!page.value) setResponseStatus(404)

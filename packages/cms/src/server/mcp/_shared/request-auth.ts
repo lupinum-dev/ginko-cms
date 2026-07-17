@@ -80,8 +80,13 @@ async function signedLimiterArgs(
     requestId: args.requestId,
     timestamp: args.timestamp,
   }
+  // The wire args must NOT include `operation`: the Convex limiter validator
+  // rejects unknown fields (ArgumentValidationError → 503 for every bearer
+  // request). The signature still covers it; the server reconstructs the
+  // operation from its own literal during verification.
+  const { operation: _operation, ...wireArgs } = payload
   return {
-    ...payload,
+    ...wireArgs,
     signature: await signMcpLimiterPayload(deps.limiterSecret, payload),
   }
 }

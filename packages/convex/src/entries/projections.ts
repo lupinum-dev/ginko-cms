@@ -1,9 +1,12 @@
+import { renderGinkoHref } from '@lupinum/ginko-cms-contract/shared/routeDiagnostics.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from '../_generated/dataModel.js'
-import type { getCollectionOrThrow } from '../lib/collections.js'
+import { getCollectionDefaultLocale, type getCollectionOrThrow } from '../lib/collections.js'
+import { getRoutingLocales } from '../lib/locale.js'
 import { compareOrderRank } from '../lib/ordering.js'
-import type { MutationCtx, ReadCtx } from '../lib/types.js'
+import { pathPrefixForLocale, rootSlugForLocale } from '../lib/paths.js'
+import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { decodePublicBodyAst } from './bodyAstStorage.js'
 import type { EntryDoc } from './context.js'
 import {
@@ -15,31 +18,37 @@ import {
   replaceAssetRefs,
   uniqueAssetRefs,
 } from './workflow/assetRefs.js'
+import { publicPathForEntry, resolvePublicRoute } from './workflow/publicTree.js'
 
 type CollectionDoc = Awaited<ReturnType<typeof getCollectionOrThrow>>
 type PublicEntryDoc = Doc<'publicEntries'>
 
-function collectionSlug(collection?: CollectionDoc | null) {
-  return collection?.slug ?? ''
-}
-
-export function mapActivePublicEntryRow(row: PublicEntryDoc, collection?: CollectionDoc | null) {
-  if (!row.stableId) {
-    throw new Error(
-      `Published entry ${String(row.entryId)} is missing its stableId. Republish it to rebuild the public projection.`,
-    )
-  }
+export async function mapActivePublicEntryRow(
+  ctx: QueryOrMutationCtx,
+  row: PublicEntryDoc,
+  collection: CollectionDoc,
+) {
+  const path = await publicPathForEntry(ctx, row, {
+    pathPrefix: pathPrefixForLocale(collection, row.locale),
+    rootSlug: rootSlugForLocale(collection, row.locale),
+  })
+  if (!path) throw new Error(`Published entry ${row.entryId} is unreachable from its public tree`)
+  const routingLocales = await getRoutingLocales(
+    ctx,
+    collection.locales,
+    getCollectionDefaultLocale(collection),
+  )
   return {
     _id: String(row.entryId),
-    collection: collectionSlug(collection) || String(row.collectionId),
+    collection: row.collection,
     slug: row.slug,
-    path: row.path,
-    href: row.href,
+    path,
+    href: renderGinkoHref({ locale: row.locale, path }, routingLocales),
     locale: row.locale,
     resolvedLocale: row.locale,
     title: row.title,
     data: {
-      ...((row.data ?? {}) as JsonMap),
+      ...(row.data as JsonMap),
       ...(typeof row.description === 'string' ? { description: row.description } : {}),
     },
     bodyAst: decodePublicBodyAst(row.bodyAst),
@@ -50,31 +59,25 @@ export function mapActivePublicEntryRow(row: PublicEntryDoc, collection?: Collec
 }
 
 export async function clearEntryProjectionRows(ctx: MutationCtx, entryId: Id<'entries'>) {
-  for (const table of ['publicEntries', 'publicRoutes'] as const) {
-    let deleted = 0
-    do {
-      const rows = await ctx.db
-        .query(table)
-        .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId))
-        .take(100)
-      deleted = rows.length
-      for (const row of rows) {
-        await ctx.db.delete(row._id)
-      }
-    } while (deleted === 100)
-  }
-
-  let contentRowsDeleted = 0
+  let deleted = 0
   do {
-    const contentRows = await ctx.db
+    const rows = await ctx.db
+      .query('publicEntries')
+      .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId))
+      .take(100)
+    deleted = rows.length
+    for (const row of rows) await ctx.db.delete(row._id)
+  } while (deleted === 100)
+
+  let refsDeleted = 0
+  do {
+    const rows = await ctx.db
       .query('contentAssetRefs')
       .withIndex('by_entry', (q) => q.eq('entryId', entryId))
       .take(100)
-    contentRowsDeleted = contentRows.length
-    for (const row of contentRows) {
-      await ctx.db.delete(row._id)
-    }
-  } while (contentRowsDeleted === 100)
+    refsDeleted = rows.length
+    for (const row of rows) await ctx.db.delete(row._id)
+  } while (refsDeleted === 100)
 }
 
 export async function rebuildContentAssetRefsForEntry(
@@ -84,47 +87,38 @@ export async function rebuildContentAssetRefsForEntry(
 ) {
   const entry = await ctx.db.get(entryId)
   if (!entry) return
-  await deleteEntryAssetRefsBySourceKind(ctx, {
-    entryId: entry._id,
-    sourceKind: 'revision',
-  })
-  await deleteEntryAssetRefsBySourceKind(ctx, {
-    entryId: entry._id,
-    sourceKind: 'public',
-  })
+  for (const sourceKind of ['draft', 'revision', 'public'] as const) {
+    await deleteEntryAssetRefsBySourceKind(ctx, { entryId, sourceKind })
+  }
   await refreshDraftAssetRefsForEntry(ctx, entry)
   await refreshRevisionAssetRefsForEntry(ctx, entry)
   await refreshPublicAssetRefsForEntry(ctx, entry, collection)
 }
 
 async function refreshDraftAssetRefsForEntry(ctx: MutationCtx, entry: EntryDoc) {
-  await deleteEntryAssetRefsBySourceKind(ctx, {
-    entryId: entry._id,
+  await replaceAssetRefs(ctx, {
     sourceKind: 'draft',
+    sourceId: `${String(entry._id)}:shared`,
+    entryId: entry._id,
+    collection: entry.collection,
+    refs: extractAssetRefsFromValues(entry.shared, { locale: null }),
+    now: entry.updatedAt,
   })
-
-  const draftRows = await ctx.db
-    .query('entryDrafts')
+  const rows = await ctx.db
+    .query('entryLocaleDrafts')
     .withIndex('by_entry', (q) => q.eq('entryId', entry._id))
     .collect()
-  for (const draft of draftRows) {
-    const refs = uniqueAssetRefs([
-      ...extractAssetRefsFromValues(draft.shared, { locale: draft.locale ?? null }),
-      ...extractAssetRefsFromValues(draft.values, { locale: draft.locale ?? null }),
-      ...extractAssetRefsFromText(draft.bodyMdc, {
-        fieldPath: 'bodyMdc',
-        locale: draft.locale ?? null,
-      }),
-    ])
+  for (const row of rows) {
     await replaceAssetRefs(ctx, {
       sourceKind: 'draft',
-      sourceId: draft.locale
-        ? `${String(entry._id)}:${draft.locale}`
-        : `${String(entry._id)}:shared`,
+      sourceId: `${String(entry._id)}:${row.locale}`,
       entryId: entry._id,
-      collectionId: entry.collectionId,
-      refs,
-      now: entry.updatedAt,
+      collection: entry.collection,
+      refs: uniqueAssetRefs([
+        ...extractAssetRefsFromValues(row.values, { locale: row.locale }),
+        ...extractAssetRefsFromText(row.bodyMdc, { fieldPath: 'bodyMdc', locale: row.locale }),
+      ]),
+      now: row.updatedAt,
     })
   }
 }
@@ -135,30 +129,17 @@ async function refreshRevisionAssetRefsForEntry(ctx: MutationCtx, entry: EntryDo
     .withIndex('by_entry_createdAt', (q) => q.eq('entryId', entry._id))
     .collect()
   for (const revision of revisions) {
-    const sharedRefs = extractAssetRefsFromValues(revision.snapshot.shared, { locale: null })
-    await replaceAssetRefs(ctx, {
-      sourceKind: 'revision',
-      sourceId: `${revision._id}:shared`,
-      entryId: entry._id,
-      collectionId: entry.collectionId,
-      refs: sharedRefs,
-      now: revision.createdAt,
-    })
-    for (const [locale, localeSnapshot] of Object.entries(revision.snapshot.locales)) {
-      if (!localeSnapshot) continue
-      const refs = uniqueAssetRefs([
-        ...extractAssetRefsFromValues(localeSnapshot.values, { locale }),
-        ...extractAssetRefsFromText(localeSnapshot.bodyMdc, {
-          fieldPath: 'bodyMdc',
-          locale,
-        }),
-      ])
+    for (const [locale, snapshot] of Object.entries(revision.snapshots)) {
       await replaceAssetRefs(ctx, {
         sourceKind: 'revision',
-        sourceId: `${revision._id}:${locale}`,
+        sourceId: `${String(revision._id)}:${locale}`,
         entryId: entry._id,
-        collectionId: entry.collectionId,
-        refs,
+        collection: entry.collection,
+        refs: uniqueAssetRefs([
+          ...extractAssetRefsFromValues(snapshot.shared, { locale: null }),
+          ...extractAssetRefsFromValues(snapshot.values, { locale }),
+          ...extractAssetRefsFromText(snapshot.bodyMdc, { fieldPath: 'bodyMdc', locale }),
+        ]),
         now: revision.createdAt,
       })
     }
@@ -175,21 +156,18 @@ async function refreshPublicAssetRefsForEntry(
     .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
     .collect()
   for (const row of rows) {
-    const refs = uniqueAssetRefs([
-      ...extractPublicFieldAssetRefs(row.data, collection.fields, {
-        fieldPathPrefix: 'data',
-        locale: row.locale,
-      }),
-      ...extractPublicBodyAssetRefs(decodePublicBodyAst(row.bodyAst), {
-        locale: row.locale,
-      }),
-    ])
     await replaceAssetRefs(ctx, {
       sourceKind: 'public',
-      sourceId: `${entry._id}:${row.locale}`,
+      sourceId: `${String(entry._id)}:${row.locale}`,
       entryId: entry._id,
-      collectionId: entry.collectionId,
-      refs,
+      collection: entry.collection,
+      refs: uniqueAssetRefs([
+        ...extractPublicFieldAssetRefs(row.data, collection.fields, {
+          fieldPathPrefix: 'data',
+          locale: row.locale,
+        }),
+        ...extractPublicBodyAssetRefs(decodePublicBodyAst(row.bodyAst), { locale: row.locale }),
+      ]),
       now: row.lastPublishedAt,
     })
   }
@@ -197,75 +175,55 @@ async function refreshPublicAssetRefsForEntry(
 
 export async function refreshDraftAssetRefsForEntrySubtree(
   ctx: MutationCtx,
-  args: {
-    collection?: CollectionDoc
-    entryId: Id<'entries'>
-    includeSubtree?: boolean
-  },
+  args: { collection?: CollectionDoc; entryId: Id<'entries'>; includeSubtree?: boolean },
 ) {
   const entry = await ctx.db.get(args.entryId)
   if (!entry) return
-
   await refreshDraftAssetRefsForEntry(ctx, entry)
-
-  if (args.includeSubtree === true) {
-    const children = await ctx.db
-      .query('entries')
-      .withIndex('by_parent', (q) =>
-        q.eq('collectionId', entry.collectionId).eq('parentEntryId', entry._id),
-      )
-      .collect()
-    children.sort((left, right) => {
-      const rank = compareOrderRank(left.orderRank ?? null, right.orderRank ?? null)
-      if (rank !== 0) return rank
-      return String(left._id).localeCompare(String(right._id))
-    })
-    for (const child of children) {
-      await refreshDraftAssetRefsForEntrySubtree(ctx, {
-        ...args,
-        entryId: child._id,
-      })
-    }
+  if (!args.includeSubtree) return
+  const children = await ctx.db
+    .query('entries')
+    .withIndex('by_parent', (q) =>
+      q.eq('collection', entry.collection).eq('parentEntryId', entry._id),
+    )
+    .collect()
+  children.sort((left, right) => {
+    const rank = compareOrderRank(left.orderRank, right.orderRank)
+    return rank || String(left._id).localeCompare(String(right._id))
+  })
+  for (const child of children) {
+    await refreshDraftAssetRefsForEntrySubtree(ctx, { ...args, entryId: child._id })
   }
 }
 
-export async function getActivePublicRouteByPath(
-  ctx: ReadCtx,
-  collectionId: Id<'collections'>,
-  locale: string,
-  path: string,
-) {
-  const row = await ctx.db
-    .query('publicRoutes')
-    .withIndex('by_locale_path', (q) => q.eq('locale', locale).eq('path', path))
-    .first()
-  return row && row.collectionId === collectionId ? row : null
-}
-
 export async function getActivePublicPageByPath(
-  ctx: ReadCtx,
-  collectionId: Id<'collections'>,
+  ctx: QueryOrMutationCtx,
+  collection: CollectionDoc,
   locale: string,
   path: string,
 ) {
-  const route = await getActivePublicRouteByPath(ctx, collectionId, locale, path)
-  if (!route) return null
-  return await ctx.db
-    .query('publicEntries')
-    .withIndex('by_entry_locale', (q) => q.eq('entryId', route.entryId).eq('locale', locale))
-    .first()
+  const route = await resolvePublicRoute(ctx, {
+    collection: collection.slug,
+    locale,
+    path,
+    options: {
+      pathPrefix: pathPrefixForLocale(collection, locale),
+      rootSlug: rootSlugForLocale(collection, locale),
+    },
+  })
+  return route.kind === 'entry' ? route.row : null
 }
 
 export async function getActivePublicPageByStableId(
-  ctx: ReadCtx,
-  collectionId: Id<'collections'>,
+  ctx: QueryOrMutationCtx,
+  collection: string,
   locale: string,
   stableId: string,
 ) {
   return await ctx.db
     .query('publicEntries')
     .withIndex('by_collection_locale_stableId', (q) =>
-      q.eq('collectionId', collectionId).eq('locale', locale).eq('stableId', stableId),
+      q.eq('collection', collection).eq('locale', locale).eq('stableId', stableId),
     )
     .first()
 }

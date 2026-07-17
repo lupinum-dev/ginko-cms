@@ -3,9 +3,10 @@
 > **Historical evidence only.** This document records the candidate tested on
 > 2026-07-11. It does not certify the current branch: the packed CMS artifact
 > predates commits `f0e449f6` and `125828d0`, and the recorded dependency tuple
-> is no longer the proposed release tuple. Generate new evidence only after the
-> authoritative [vNext implementation plan](../../ginko-cms-complete-migration-plan.md)
-> is complete. Do not reuse the hashes or readiness verdict below for a release.
+> is no longer the proposed release tuple. Current certification must come from
+> `verify:refactor`, the disposable live lane, and packed-consumer Browser proof
+> mapped to the accepted [user-story catalog](../../userstories.md). Do not reuse
+> the hashes or readiness verdict below for a release.
 
 Date: 2026-07-11
 

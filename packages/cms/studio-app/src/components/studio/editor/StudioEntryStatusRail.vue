@@ -12,6 +12,7 @@ import {
   readinessStateLabel,
   readinessStateTone,
 } from '../../../lib/publicWorkflow'
+import StudioEntryReviewOutcomeNotice from './StudioEntryReviewOutcomeNotice.vue'
 import StudioEntryTrackCard from './StudioEntryTrackCard.vue'
 import StudioWorkflowCard from './StudioWorkflowCard.vue'
 import type {
@@ -79,9 +80,19 @@ const publishedLocaleCount = computed(
 // because the live URL is primary information). Language machinery only
 // exists when there is more than one language.
 const isLive = computed(() => entry.value?.status === 'published')
+const isArchived = computed(() => entry.value?.status === 'archived')
 const hasMultipleLocales = computed(() => localeSummaries.value.length > 1)
 
-const nextActionHandled = computed(() => actionHandler.canHandle(readinessView.value.nextAction))
+// Publish-type next actions duplicate the top bar's canonical Publish CTA and
+// the "Ready to publish" pill above; archived entries get their Restore CTA
+// from the archived banner. Neither renders a second CTA here (say it once).
+const nextAction = computed(() => {
+  if (isArchived.value) return null
+  const action = readinessView.value.nextAction
+  return action?.target === 'publish' ? null : action
+})
+
+const nextActionHandled = computed(() => actionHandler.canHandle(nextAction.value))
 
 const blockingIssues = computed(() => {
   const issues: Array<{ key: string; message: string }> = []
@@ -112,6 +123,10 @@ const blockingIssues = computed(() => {
 
 <template>
   <div class="ginko:min-w-0">
+    <!-- PUB-06: reviewer feedback from a returned review request surfaces
+         here, right where the editor resumes work. -->
+    <StudioEntryReviewOutcomeNotice :readiness-detail="readinessDetail" />
+
     <StudioInspectorSection :title="t('status')">
       <template #icon>
         <Clock class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
@@ -119,22 +134,25 @@ const blockingIssues = computed(() => {
       <template #action>
         <StudioStatusPill
           :label="
-            readinessPending
-              ? t('statusChecking')
-              : readinessView.currentLocale
-                ? readinessStateLabel(editor.loader.t, readinessView.currentLocale.state)
-                : t('statusUnknown')
+            isArchived
+              ? editor.loader.t('ginkoCms.common.archived')
+              : readinessPending
+                ? t('statusChecking')
+                : readinessView.currentLocale
+                  ? readinessStateLabel(editor.loader.t, readinessView.currentLocale.state)
+                  : t('statusUnknown')
           "
           :tone="
-            readinessView.currentLocale
-              ? readinessStateTone(readinessView.currentLocale.state, {
-                  blocked: readinessView.blockers.length > 0,
-                })
-              : entry?.status === 'published'
-                ? 'success'
-                : 'neutral'
+            isArchived
+              ? 'danger'
+              : readinessView.currentLocale
+                ? readinessStateTone(readinessView.currentLocale.state, {
+                    blocked: readinessView.blockers.length > 0,
+                  })
+                : entry?.status === 'published'
+                  ? 'success'
+                  : 'neutral'
           "
-          class="ginko:capitalize"
         />
       </template>
       <div v-if="entry?.publishedAt" class="ginko:space-y-3 ginko:text-sm">
@@ -174,20 +192,21 @@ const blockingIssues = computed(() => {
            it (focus the field, switch locale, open the publish preview, …);
            unhandled kinds keep the label-only sentence. -->
       <div v-else-if="nextActionHandled" class="ginko:mt-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          @click="actionHandler.handle(readinessView.nextAction)"
-        >
-          {{ readinessActionLabel(editor.loader.t, readinessView.nextAction?.kind) }}
+        <Button variant="secondary" size="sm" @click="actionHandler.handle(nextAction)">
+          {{ readinessActionLabel(editor.loader.t, nextAction?.kind) }}
         </Button>
       </div>
-      <div v-else class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground">
-        {{
-          readinessView.nextAction
-            ? readinessActionLabel(editor.loader.t, readinessView.nextAction.kind)
-            : t('publishStatusUnknown')
-        }}
+      <div
+        v-else-if="nextAction"
+        class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground"
+      >
+        {{ readinessActionLabel(editor.loader.t, nextAction.kind) }}
+      </div>
+      <div
+        v-else-if="!isArchived && !readinessView.nextAction"
+        class="ginko:mt-2 ginko:text-xs ginko:leading-5 ginko:text-muted-foreground"
+      >
+        {{ t('publishStatusUnknown') }}
       </div>
     </StudioInspectorSection>
 

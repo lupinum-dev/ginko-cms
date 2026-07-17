@@ -138,30 +138,64 @@ describe('site data ownership shape', () => {
     )
   })
 
-  it('queues revalidation when public site data changes', async () => {
+  it('emits provider-matching tags for every public localized transition', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     const owner = ctx.asCmsUser('owner-1')
 
     await owner.mutation(api.siteData.createSiteDataBlock, {
       key: 'announcement',
-      localized: false,
+      localized: true,
+      locale: 'en',
       visibility: 'public',
       data: { text: 'One' },
     })
     await owner.mutation(api.siteData.saveSiteData, {
       key: 'announcement',
+      locale: 'de',
       data: { text: 'Two' },
+    })
+    await owner.mutation(api.siteData.updateSiteDataBlock, {
+      key: 'announcement',
+      visibility: 'private',
+    })
+    await owner.mutation(api.siteData.saveSiteData, {
+      key: 'announcement',
+      locale: 'de',
+      data: { text: 'Private edit' },
+    })
+    await owner.mutation(api.siteData.updateSiteDataBlock, {
+      key: 'announcement',
+      visibility: 'public',
+    })
+    const preview = await owner.mutation(api.siteData.previewDeleteSiteDataBlockOperation, {
+      key: 'announcement',
+    })
+    await owner.mutation(api.siteData.deleteSiteDataBlockOperationExecute, {
+      key: 'announcement',
+      _confirmationToken: preview.confirmation!.token,
     })
 
     const events = await ctx.readAll('outboxEvents')
-    expect(events).toEqual([
-      expect.objectContaining({
-        type: 'content.revalidate',
-        tags: ['site-data', 'site-data:announcement'],
-        paths: ['/'],
-      }),
+    expect(events).toHaveLength(5)
+    expect(events.map((event) => event.tags)).toEqual([
+      ['site-data:announcement', 'site-data:announcement:en'],
+      ['site-data:announcement', 'site-data:announcement:de'],
+      ['site-data:announcement', 'site-data:announcement:de', 'site-data:announcement:en'],
+      ['site-data:announcement', 'site-data:announcement:de', 'site-data:announcement:en'],
+      ['site-data:announcement', 'site-data:announcement:de', 'site-data:announcement:en'],
     ])
+    expect(new Set(events.map((event) => event.versionId)).size).toBe(events.length)
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'content.revalidate',
+          paths: ['/'],
+          deliveryGeneration: 0,
+          leaseId: null,
+        }),
+      ]),
+    )
   })
 
   it('allows read-only users to inspect site data without write access', async () => {

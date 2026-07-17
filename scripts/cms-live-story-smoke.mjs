@@ -344,7 +344,6 @@ try {
     ['studio-activity', '/studio/activity', 'Activity log'],
     ['studio-agents', '/studio/agents', 'AI work sessions'],
     ['studio-reviews', '/studio/reviews', 'Approvals'],
-    ['studio-imports', '/studio/imports', 'Content imports'],
     ['studio-site-data', '/studio/site-data', 'Site-wide content'],
     ['studio-settings', '/studio/settings', 'Settings'],
   ]

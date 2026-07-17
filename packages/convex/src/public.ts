@@ -21,15 +21,18 @@ import {
   ginkoSiteDataResultValidator,
   ginkoSurroundResultValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
+import { renderGinkoHref } from '@lupinum/ginko-cms-contract/shared/routeDiagnostics.js'
 import type { JsonMap, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from './_generated/dataModel.js'
+import { decodePublicBodyAst } from './entries/bodyAstStorage.js'
 import {
   getActivePublicPageByPath,
   getActivePublicPageByStableId,
   mapActivePublicEntryRow,
 } from './entries/projections.js'
-import { readPublicProjectionGeneration } from './entries/workflow/projection.js'
+import { publicPathForEntry, resolvePublicRoute } from './entries/workflow/publicTree.js'
+import { readRouteGeneration } from './entries/workflow/routeGeneration.js'
 import { throwCmsError } from './errors.js'
 import { callerQuery } from './functions.js'
 import {
@@ -39,11 +42,17 @@ import {
   isRouteBackedCollection,
   needsStableId,
 } from './lib/collections.js'
-import { getCmsSettings, getLocaleChain } from './lib/locale.js'
+import { getCmsSettings, getLocaleChain, getRoutingLocales } from './lib/locale.js'
 import { compareOrderRank } from './lib/ordering.js'
-import { parseStableIdFromPath } from './lib/paths.js'
+import {
+  normalizePathPrefix,
+  parseStableIdFromPath,
+  pathPrefixForLocale,
+  rootSlugForLocale,
+} from './lib/paths.js'
 import { orderTreeRows } from './lib/treeOrder.js'
-import type { QueryCtx, ReadCtx } from './lib/types.js'
+import type { QueryCtx } from './lib/types.js'
+import { paginatePublicRoutes, paginatePublicSearch } from './publicPagination.js'
 import { readTranslationsByEntryId } from './publicProjectionReads.js'
 import {
   toGinkoEntry,
@@ -77,10 +86,9 @@ const SEARCH_MAX_LIMIT = 50
 const SITEMAP_DEFAULT_LIMIT = 500
 /** Maximum page size for sitemap results. */
 const SITEMAP_MAX_LIMIT = 1000
-const NAV_MAX_ROWS = 1000
-const SEARCH_SCAN_MAX_ROWS = 500
 const PUBLIC_QUERY_MAX_LENGTH = 256
 const PUBLIC_STRING_MAX_LENGTH = 512
+const PUBLIC_CURSOR_MAX_LENGTH = 2048
 const PUBLIC_LOCALE_MAX_LENGTH = 32
 const PUBLIC_COLLECTION_MAX_LENGTH = 80
 
@@ -99,21 +107,6 @@ type PublicEntryCursor = {
   direction: 'asc' | 'desc'
   value: string | number
   entryId: string
-}
-type PublicSearchCursor = {
-  v: 1
-  kind: 'publicSearch'
-  offset: number
-}
-type PublicRoutesCursor = {
-  v: 1
-  kind: 'publicRoutes'
-  source: 'cms'
-  collection: string
-  locale: string
-  generation: number
-  canonicalKey: string
-  projectionId: string
 }
 
 async function getSiteDefaultLocale(ctx: Parameters<typeof getCmsSettings>[0], fallback: string) {
@@ -165,7 +158,7 @@ function validatePublicTextArgs(args: {
   validateLength(args.locale, 'locale', PUBLIC_LOCALE_MAX_LENGTH)
   validateLength(args.path, 'path', PUBLIC_STRING_MAX_LENGTH)
   validateLength(args.ref, 'ref', PUBLIC_STRING_MAX_LENGTH)
-  validateLength(args.cursor, 'cursor', PUBLIC_STRING_MAX_LENGTH)
+  validateLength(args.cursor, 'cursor', PUBLIC_CURSOR_MAX_LENGTH)
   validateLength(args.query, 'query', PUBLIC_QUERY_MAX_LENGTH)
   validateLength(args.pathPrefix, 'pathPrefix', PUBLIC_STRING_MAX_LENGTH)
 }
@@ -203,10 +196,6 @@ function validatePublicPathPrefix(args: { pathPrefix?: string | null; sort?: str
   }
 }
 
-function upperBoundForPrefix(prefix: string) {
-  return `${prefix}\uFFFF`
-}
-
 function assertPageLookup(args: { path?: string; ref?: string }) {
   if (args.path && args.ref) {
     throwCmsError('INVALID_QUERY', 'Provide either path or ref, not both.')
@@ -217,7 +206,7 @@ function assertPageLookup(args: { path?: string; ref?: string }) {
 }
 
 async function resolvePublicLocaleChain(
-  ctx: ReadCtx,
+  ctx: QueryCtx,
   args: { locale: string; fallback?: boolean | string[] },
 ) {
   if (args.fallback === false) return [args.locale]
@@ -226,15 +215,16 @@ async function resolvePublicLocaleChain(
 }
 
 async function paginatePublicEntriesForCollection(
-  ctx: ReadCtx,
+  ctx: QueryCtx,
   args: {
-    collectionId: Id<'collections'>
+    collection: CollectionDoc
     locale: string
     limit: number
     cursor?: string | null
     sortField?: PublicSortField
     direction?: 'asc' | 'desc'
     pathPrefix?: string | null
+    include?: (row: PublicEntryRow) => boolean
   },
 ) {
   const sortField = args.pathPrefix ? 'path' : (args.sortField ?? 'orderKey')
@@ -245,231 +235,255 @@ async function paginatePublicEntriesForCollection(
     direction,
     'Invalid pagination cursor.',
   )
-  let rows: PublicEntryRow[]
-  if (sortField === 'path' && args.pathPrefix) {
-    const upperBound = upperBoundForPrefix(args.pathPrefix)
-    if (!cursor) {
-      rows = await ctx.db
-        .query('publicEntries')
-        .withIndex('by_collection_locale_path_entry', (q) =>
-          q
-            .eq('collectionId', args.collectionId)
-            .eq('locale', args.locale)
-            .gte('path', args.pathPrefix!)
-            .lt('path', upperBound),
-        )
-        .order(direction)
-        .take(args.limit + 1)
-    } else {
-      const value = String(cursor.value)
-      rows = await takePublicEntryTuplePage(args.limit, async (remaining) => {
-        const sameValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_path_entry', (q) => {
-            const scoped = q
-              .eq('collectionId', args.collectionId)
-              .eq('locale', args.locale)
-              .eq('path', value)
-            return direction === 'asc'
-              ? scoped.gt('entryId', cursor.entryId as Id<'entries'>)
-              : scoped.lt('entryId', cursor.entryId as Id<'entries'>)
-          })
-          .order(direction)
-          .take(remaining)
-        if (sameValueRows.length >= remaining) return sameValueRows
-        const nextValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_path_entry', (q) => {
-            const scoped = q.eq('collectionId', args.collectionId).eq('locale', args.locale)
-            return scoped.gt('path', value).lt('path', upperBound)
-          })
-          .order('asc')
-          .take(remaining - sameValueRows.length)
-        return [...sameValueRows, ...nextValueRows]
-      })
-    }
-  } else if (sortField === 'orderKey') {
-    if (!cursor) {
-      rows = await ctx.db
-        .query('publicEntries')
-        .withIndex('by_collection_locale_orderKey_entry', (q) =>
-          q.eq('collectionId', args.collectionId).eq('locale', args.locale),
-        )
-        .order(direction)
-        .take(args.limit + 1)
-    } else {
-      const value = String(cursor.value)
-      rows = await takePublicEntryTuplePage(args.limit, async (remaining) => {
-        const sameValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_orderKey_entry', (q) => {
-            const scoped = q
-              .eq('collectionId', args.collectionId)
-              .eq('locale', args.locale)
-              .eq('orderKey', value)
-            return direction === 'asc'
-              ? scoped.gt('entryId', cursor.entryId as Id<'entries'>)
-              : scoped.lt('entryId', cursor.entryId as Id<'entries'>)
-          })
-          .order(direction)
-          .take(remaining)
-        if (sameValueRows.length >= remaining) return sameValueRows
-        const nextValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_orderKey_entry', (q) => {
-            const scoped = q.eq('collectionId', args.collectionId).eq('locale', args.locale)
-            return direction === 'asc' ? scoped.gt('orderKey', value) : scoped.lt('orderKey', value)
-          })
-          .order(direction)
-          .take(remaining - sameValueRows.length)
-        return [...sameValueRows, ...nextValueRows]
-      })
-    }
-  } else if (sortField === 'entryCreatedAt') {
-    if (!cursor) {
-      rows = await ctx.db
-        .query('publicEntries')
-        .withIndex('by_collection_locale_entryCreatedAt_entry', (q) =>
-          q.eq('collectionId', args.collectionId).eq('locale', args.locale),
-        )
-        .order(direction)
-        .take(args.limit + 1)
-    } else {
-      const value = Number(cursor.value)
-      rows = await takePublicEntryTuplePage(args.limit, async (remaining) => {
-        const sameValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_entryCreatedAt_entry', (q) => {
-            const scoped = q
-              .eq('collectionId', args.collectionId)
-              .eq('locale', args.locale)
-              .eq('entryCreatedAt', value)
-            return direction === 'asc'
-              ? scoped.gt('entryId', cursor.entryId as Id<'entries'>)
-              : scoped.lt('entryId', cursor.entryId as Id<'entries'>)
-          })
-          .order(direction)
-          .take(remaining)
-        if (sameValueRows.length >= remaining) return sameValueRows
-        const nextValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_entryCreatedAt_entry', (q) => {
-            const scoped = q.eq('collectionId', args.collectionId).eq('locale', args.locale)
-            return direction === 'asc'
-              ? scoped.gt('entryCreatedAt', value)
-              : scoped.lt('entryCreatedAt', value)
-          })
-          .order(direction)
-          .take(remaining - sameValueRows.length)
-        return [...sameValueRows, ...nextValueRows]
-      })
-    }
-  } else if (sortField === 'firstPublishedAt') {
-    if (!cursor) {
-      rows = await ctx.db
-        .query('publicEntries')
-        .withIndex('by_collection_locale_firstPublishedAt_entry', (q) =>
-          q.eq('collectionId', args.collectionId).eq('locale', args.locale),
-        )
-        .order(direction)
-        .take(args.limit + 1)
-    } else {
-      const value = Number(cursor.value)
-      rows = await takePublicEntryTuplePage(args.limit, async (remaining) => {
-        const sameValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_firstPublishedAt_entry', (q) => {
-            const scoped = q
-              .eq('collectionId', args.collectionId)
-              .eq('locale', args.locale)
-              .eq('firstPublishedAt', value)
-            return direction === 'asc'
-              ? scoped.gt('entryId', cursor.entryId as Id<'entries'>)
-              : scoped.lt('entryId', cursor.entryId as Id<'entries'>)
-          })
-          .order(direction)
-          .take(remaining)
-        if (sameValueRows.length >= remaining) return sameValueRows
-        const nextValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_firstPublishedAt_entry', (q) => {
-            const scoped = q.eq('collectionId', args.collectionId).eq('locale', args.locale)
-            return direction === 'asc'
-              ? scoped.gt('firstPublishedAt', value)
-              : scoped.lt('firstPublishedAt', value)
-          })
-          .order(direction)
-          .take(remaining - sameValueRows.length)
-        return [...sameValueRows, ...nextValueRows]
-      })
-    }
-  } else {
-    if (!cursor) {
-      rows = await ctx.db
-        .query('publicEntries')
-        .withIndex('by_collection_locale_lastPublishedAt_entry', (q) =>
-          q.eq('collectionId', args.collectionId).eq('locale', args.locale),
-        )
-        .order(direction)
-        .take(args.limit + 1)
-    } else {
-      const value = Number(cursor.value)
-      rows = await takePublicEntryTuplePage(args.limit, async (remaining) => {
-        const sameValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_lastPublishedAt_entry', (q) => {
-            const scoped = q
-              .eq('collectionId', args.collectionId)
-              .eq('locale', args.locale)
-              .eq('lastPublishedAt', value)
-            return direction === 'asc'
-              ? scoped.gt('entryId', cursor.entryId as Id<'entries'>)
-              : scoped.lt('entryId', cursor.entryId as Id<'entries'>)
-          })
-          .order(direction)
-          .take(remaining)
-        if (sameValueRows.length >= remaining) return sameValueRows
-        const nextValueRows = await ctx.db
-          .query('publicEntries')
-          .withIndex('by_collection_locale_lastPublishedAt_entry', (q) => {
-            const scoped = q.eq('collectionId', args.collectionId).eq('locale', args.locale)
-            return direction === 'asc'
-              ? scoped.gt('lastPublishedAt', value)
-              : scoped.lt('lastPublishedAt', value)
-          })
-          .order(direction)
-          .take(remaining - sameValueRows.length)
-        return [...sameValueRows, ...nextValueRows]
-      })
+  if (sortField !== 'path') {
+    const rawRows = await readIndexedPublicEntryPage(ctx, {
+      collection: args.collection.slug,
+      locale: args.locale,
+      limit: args.limit,
+      cursor,
+      sortField,
+      direction,
+    })
+    const batch = rawRows.slice(0, args.limit)
+    const pathPairs = await Promise.all(
+      batch.map(
+        async (row) =>
+          [
+            String(row.entryId),
+            await publicPathForEntry(ctx, row, {
+              pathPrefix: pathPrefixForLocale(args.collection, args.locale),
+              rootSlug: rootSlugForLocale(args.collection, args.locale),
+            }),
+          ] as const,
+      ),
+    )
+    const paths = new Map(pathPairs.filter((pair): pair is readonly [string, string] => !!pair[1]))
+    const page = batch
+      .filter((row) => paths.has(String(row.entryId)))
+      .filter((row) => args.include?.(row) ?? true)
+    const isDone = rawRows.length <= args.limit
+    return {
+      page,
+      paths,
+      isDone,
+      continueCursor:
+        isDone || batch.length === 0
+          ? null
+          : encodePublicEntryCursor(batch[batch.length - 1]!, sortField, direction),
     }
   }
 
-  return publicEntriesPage(rows, args.limit, sortField, direction)
-}
+  // A structural tree has no stored full-path index. Prefix listing therefore
+  // walks stable identities pagewise and derives each candidate path from its
+  // indexed ancestry. The cursor remains O(1) and correctness does not depend
+  // on collection size.
+  const requestedPrefix = normalizePathPrefix(args.pathPrefix ?? '')
+  const candidates: PublicEntryRow[] = []
+  const paths = new Map<string, string>()
+  let afterStableId = cursor ? String(cursor.value) : null
+  let exhausted = false
+  while (!exhausted && candidates.length <= args.limit) {
+    const remaining = args.limit + 1 - candidates.length
+    const batchSize = Math.max(32, Math.min(250, remaining * 2))
+    const rows = await ctx.db
+      .query('publicEntries')
+      .withIndex('by_collection_locale_stableId', (q) => {
+        const scope = q.eq('collection', args.collection.slug).eq('locale', args.locale)
+        return afterStableId ? scope.gt('stableId', afterStableId) : scope
+      })
+      .order('asc')
+      .take(batchSize)
+    exhausted = rows.length < batchSize
+    if (!rows.length) break
+    for (const row of rows) {
+      if (row.stableId === afterStableId) {
+        throwCmsError('PUBLIC_TREE_INVALID', 'Published stable identities must be unique.', {
+          collection: args.collection.slug,
+          locale: args.locale,
+          stableId: row.stableId,
+        })
+      }
+      const path = await publicPathForEntry(ctx, row, {
+        pathPrefix: pathPrefixForLocale(args.collection, args.locale),
+        rootSlug: rootSlugForLocale(args.collection, args.locale),
+      })
+      const inPrefix =
+        !!path &&
+        (!requestedPrefix || path === requestedPrefix || path.startsWith(`${requestedPrefix}/`))
+      if (inPrefix && (args.include?.(row) ?? true)) {
+        candidates.push(row)
+        paths.set(String(row.entryId), path)
+      }
+      afterStableId = row.stableId
+      if (candidates.length > args.limit) break
+    }
+  }
 
-async function takePublicEntryTuplePage(
-  limit: number,
-  readRows: (remaining: number) => Promise<PublicEntryRow[]>,
-) {
-  return await readRows(limit + 1)
-}
-
-function publicEntriesPage(
-  rows: PublicEntryRow[],
-  limit: number,
-  sortField: PublicSortField,
-  direction: 'asc' | 'desc',
-) {
-  const isDone = rows.length <= limit
-  const page = isDone ? rows : rows.slice(0, limit)
+  const page = candidates.slice(0, args.limit)
+  const isDone = candidates.length <= args.limit
   return {
     page,
+    paths,
     isDone,
     continueCursor:
       isDone || page.length === 0
         ? null
         : encodePublicEntryCursor(page[page.length - 1]!, sortField, direction),
   }
+}
+
+async function readIndexedPublicEntryPage(
+  ctx: QueryCtx,
+  args: {
+    collection: string
+    locale: string
+    limit: number
+    cursor: PublicEntryCursor | null
+    sortField: PublicExplicitSortField
+    direction: 'asc' | 'desc'
+  },
+): Promise<PublicEntryRow[]> {
+  if (args.sortField === 'orderKey') {
+    return await readStringTuplePage(ctx, {
+      ...args,
+      index: 'by_collection_locale_orderKey_entry',
+      field: 'orderKey',
+    })
+  }
+  if (args.sortField === 'entryCreatedAt') {
+    return await readNumberTuplePage(ctx, {
+      ...args,
+      index: 'by_collection_locale_entryCreatedAt_entry',
+      field: 'entryCreatedAt',
+    })
+  }
+  if (args.sortField === 'firstPublishedAt') {
+    return await readNumberTuplePage(ctx, {
+      ...args,
+      index: 'by_collection_locale_firstPublishedAt_entry',
+      field: 'firstPublishedAt',
+    })
+  }
+  return await readNumberTuplePage(ctx, {
+    ...args,
+    index: 'by_collection_locale_lastPublishedAt_entry',
+    field: 'lastPublishedAt',
+  })
+}
+
+async function readStringTuplePage(
+  ctx: QueryCtx,
+  args: {
+    collection: string
+    locale: string
+    limit: number
+    cursor: PublicEntryCursor | null
+    direction: 'asc' | 'desc'
+    index: 'by_collection_locale_orderKey_entry'
+    field: 'orderKey'
+  },
+) {
+  if (!args.cursor) {
+    return await ctx.db
+      .query('publicEntries')
+      .withIndex(args.index, (q) => q.eq('collection', args.collection).eq('locale', args.locale))
+      .order(args.direction)
+      .take(args.limit + 1)
+  }
+  const value = String(args.cursor.value)
+  const sameValueRows = await ctx.db
+    .query('publicEntries')
+    .withIndex(args.index, (q) => {
+      const scope = q
+        .eq('collection', args.collection)
+        .eq('locale', args.locale)
+        .eq(args.field, value)
+      return args.direction === 'asc'
+        ? scope.gt('entryId', args.cursor!.entryId as Id<'entries'>)
+        : scope.lt('entryId', args.cursor!.entryId as Id<'entries'>)
+    })
+    .order(args.direction)
+    .take(args.limit + 1)
+  if (sameValueRows.length > args.limit) return sameValueRows
+  const remaining = args.limit + 1 - sameValueRows.length
+  const nextValueRows = await ctx.db
+    .query('publicEntries')
+    .withIndex(args.index, (q) => {
+      const scope = q.eq('collection', args.collection).eq('locale', args.locale)
+      return args.direction === 'asc' ? scope.gt(args.field, value) : scope.lt(args.field, value)
+    })
+    .order(args.direction)
+    .take(remaining)
+  return [...sameValueRows, ...nextValueRows]
+}
+
+async function readNumberTuplePage(
+  ctx: QueryCtx,
+  args:
+    | {
+        collection: string
+        locale: string
+        limit: number
+        cursor: PublicEntryCursor | null
+        direction: 'asc' | 'desc'
+        index: 'by_collection_locale_entryCreatedAt_entry'
+        field: 'entryCreatedAt'
+      }
+    | {
+        collection: string
+        locale: string
+        limit: number
+        cursor: PublicEntryCursor | null
+        direction: 'asc' | 'desc'
+        index: 'by_collection_locale_firstPublishedAt_entry'
+        field: 'firstPublishedAt'
+      }
+    | {
+        collection: string
+        locale: string
+        limit: number
+        cursor: PublicEntryCursor | null
+        direction: 'asc' | 'desc'
+        index: 'by_collection_locale_lastPublishedAt_entry'
+        field: 'lastPublishedAt'
+      },
+) {
+  if (!args.cursor) {
+    return await ctx.db
+      .query('publicEntries')
+      .withIndex(args.index, (q) => q.eq('collection', args.collection).eq('locale', args.locale))
+      .order(args.direction)
+      .take(args.limit + 1)
+  }
+  const value = Number(args.cursor.value)
+  const sameValueRows = await ctx.db
+    .query('publicEntries')
+    .withIndex(args.index, (q) => {
+      const scope = q
+        .eq('collection', args.collection)
+        .eq('locale', args.locale)
+        .eq(args.field, value)
+      return args.direction === 'asc'
+        ? scope.gt('entryId', args.cursor!.entryId as Id<'entries'>)
+        : scope.lt('entryId', args.cursor!.entryId as Id<'entries'>)
+    })
+    .order(args.direction)
+    .take(args.limit + 1)
+  if (sameValueRows.length > args.limit) return sameValueRows
+  const remaining = args.limit + 1 - sameValueRows.length
+  const nextValueRows = await ctx.db
+    .query('publicEntries')
+    .withIndex(args.index, (q) => {
+      const scope = q.eq('collection', args.collection).eq('locale', args.locale)
+      return args.direction === 'asc' ? scope.gt(args.field, value) : scope.lt(args.field, value)
+    })
+    .order(args.direction)
+    .take(remaining)
+  return [...sameValueRows, ...nextValueRows]
+}
+
+function publicEntrySortValue(row: PublicEntryRow, field: PublicSortField): string | number {
+  return field === 'path' ? row.stableId : row[field]
 }
 
 function encodePublicEntryCursor(
@@ -482,7 +496,7 @@ function encodePublicEntryCursor(
     kind: 'publicEntries',
     field,
     direction,
-    value: row[field],
+    value: publicEntrySortValue(row, field),
     entryId: String(row.entryId),
   } satisfies PublicEntryCursor)
 }
@@ -525,93 +539,8 @@ function parsePublicEntryCursor(
   return parsed as PublicEntryCursor
 }
 
-function encodePublicRoutesCursor(args: {
-  row: PublicEntryRow
-  collection: string
-  locale: string
-  generation: number
-}) {
-  const canonicalKey = args.row.stableId
-  if (!canonicalKey) {
-    throwCmsError('INVALID_QUERY', 'Published route is missing its stable content identity.')
-  }
-  return JSON.stringify({
-    v: 1,
-    kind: 'publicRoutes',
-    source: 'cms',
-    collection: args.collection,
-    locale: args.locale,
-    generation: args.generation,
-    canonicalKey,
-    projectionId: String(args.row._id),
-  } satisfies PublicRoutesCursor)
-}
-
-function parsePublicRoutesCursor(args: {
-  cursor: string | null | undefined
-  collection: string
-  locale: string
-  generation: number
-}) {
-  if (!args.cursor) return null
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(args.cursor)
-  } catch {
-    throwCmsError('INVALID_CURSOR', 'Public route cursor is invalid.')
-  }
-  const cursor = parsed as Partial<PublicRoutesCursor>
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    cursor.v !== 1 ||
-    cursor.kind !== 'publicRoutes' ||
-    cursor.source !== 'cms' ||
-    cursor.collection !== args.collection ||
-    cursor.locale !== args.locale ||
-    cursor.generation !== args.generation ||
-    typeof cursor.canonicalKey !== 'string' ||
-    !cursor.canonicalKey ||
-    typeof cursor.projectionId !== 'string' ||
-    !cursor.projectionId
-  ) {
-    throwCmsError('INVALID_CURSOR', 'Public route cursor is invalid or expired.')
-  }
-  return cursor as PublicRoutesCursor
-}
-
-function encodePublicSearchCursor(offset: number) {
-  return JSON.stringify({
-    v: 1,
-    kind: 'publicSearch',
-    offset,
-  } satisfies PublicSearchCursor)
-}
-
-function parsePublicSearchCursor(cursor: string | null | undefined) {
-  if (!cursor) return 0
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(cursor)
-  } catch {
-    throwCmsError('INVALID_CURSOR', 'Invalid search pagination cursor.', { cursor })
-  }
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    (parsed as PublicSearchCursor).v !== 1 ||
-    (parsed as PublicSearchCursor).kind !== 'publicSearch' ||
-    !Number.isInteger((parsed as PublicSearchCursor).offset) ||
-    (parsed as PublicSearchCursor).offset < 0 ||
-    (parsed as PublicSearchCursor).offset >= SEARCH_SCAN_MAX_ROWS
-  ) {
-    throwCmsError('INVALID_CURSOR', 'Invalid search pagination cursor.', { cursor })
-  }
-  return (parsed as PublicSearchCursor).offset
-}
-
 async function mapPublicEntry(ctx: QueryCtx, row: PublicEntryRow, collection: CollectionDoc) {
-  const projected = mapActivePublicEntryRow(row, collection)
+  const projected = await mapActivePublicEntryRow(ctx, row, collection)
   if (!row.assetFacts) {
     throwCmsError(
       'PUBLIC_PROJECTION_REBUILD_REQUIRED',
@@ -620,6 +549,43 @@ async function mapPublicEntry(ctx: QueryCtx, row: PublicEntryRow, collection: Co
     )
   }
   return { ...projected, assetFacts: row.assetFacts } as PublicProjectionEntry
+}
+
+function mapPublicEntryAtKnownPath(
+  row: PublicEntryRow,
+  path: string,
+  routingLocales: Awaited<ReturnType<typeof getRoutingLocales>>,
+): PublicProjectionEntry {
+  if (!row.assetFacts) {
+    throwCmsError(
+      'PUBLIC_PROJECTION_REBUILD_REQUIRED',
+      'Published content predates projection-owned asset facts. Rebuild the public projection before serving it.',
+      { entryId: String(row.entryId), locale: row.locale },
+    )
+  }
+  return {
+    _id: String(row.entryId),
+    collection: row.collection,
+    slug: row.slug,
+    path,
+    href: renderGinkoHref({ locale: row.locale, path }, routingLocales),
+    locale: row.locale,
+    resolvedLocale: row.locale,
+    title: row.title,
+    data: {
+      ...(row.data as JsonMap),
+      ...(typeof row.description === 'string' ? { description: row.description } : {}),
+    },
+    bodyAst: decodePublicBodyAst(row.bodyAst),
+    toc: row.toc,
+    publishedAt: row.lastPublishedAt,
+    stableId: row.stableId,
+    assetFacts: row.assetFacts,
+  }
+}
+
+async function routingLocalesForCollection(ctx: QueryCtx, collection: CollectionDoc) {
+  return await getRoutingLocales(ctx, collection.locales, getCollectionDefaultLocale(collection))
 }
 
 function toNavigationEntry(
@@ -646,24 +612,17 @@ function publicFlag(row: PublicEntryRow, key: 'navigation' | 'search' | 'sitemap
 }
 
 async function getTranslationsForEntry(
-  ctx: ReadCtx,
+  ctx: QueryCtx,
+  collection: string,
   entryId: Id<'entries'>,
 ): Promise<PublicTranslationSummary[]> {
-  const rows = await ctx.db
-    .query('publicEntries')
-    .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId))
-    .collect()
-  return rows.map((row) => ({
-    locale: row.locale,
-    slug: row.slug,
-    path: row.path,
-    href: row.href,
-    published: true,
-  }))
+  return (
+    (await readTranslationsByEntryId(ctx, collection, [{ entryId }])).get(String(entryId)) ?? []
+  )
 }
 
 async function resolvePublicPage(
-  ctx: ReadCtx,
+  ctx: QueryCtx,
   args: {
     collection: Awaited<ReturnType<typeof getCollection>>
     collectionSlug: string
@@ -678,6 +637,7 @@ async function resolvePublicPage(
       requestedPath: args.path ?? args.ref ?? '',
       projected: null,
       translations: [] as PublicTranslationSummary[],
+      redirectTo: null as string | null,
     }
   }
 
@@ -685,21 +645,36 @@ async function resolvePublicPage(
   let requestedPath = args.path ?? args.ref ?? ''
   let projected = null
   let translations: PublicTranslationSummary[] = []
+  let redirectTo: string | null = null
 
   for (const locale of chain) {
     if (args.ref) {
-      projected = await getActivePublicPageByStableId(ctx, args.collection._id, locale, args.ref)
+      projected = await getActivePublicPageByStableId(ctx, args.collection.slug, locale, args.ref)
       if (projected) {
-        translations = await getTranslationsForEntry(ctx, projected.entryId)
+        translations = await getTranslationsForEntry(ctx, args.collection.slug, projected.entryId)
         break
       }
       continue
     }
 
     requestedPath = args.path!
-    projected = await getActivePublicPageByPath(ctx, args.collection._id, locale, args.path!)
+    const route = await resolvePublicRoute(ctx, {
+      collection: args.collection.slug,
+      locale,
+      path: args.path!,
+      options: {
+        pathPrefix: pathPrefixForLocale(args.collection, locale),
+        rootSlug: rootSlugForLocale(args.collection, locale),
+      },
+    })
+    if (route.kind === 'entry') {
+      projected = route.row
+    } else if (route.kind === 'redirect') {
+      projected = route.target.row
+      redirectTo = route.targetPath
+    }
     if (projected) {
-      translations = await getTranslationsForEntry(ctx, projected.entryId)
+      translations = await getTranslationsForEntry(ctx, args.collection.slug, projected.entryId)
       break
     }
 
@@ -709,15 +684,15 @@ async function resolvePublicPage(
 
     const stableId = parseStableIdFromPath(args.path!)
     if (stableId) {
-      projected = await getActivePublicPageByStableId(ctx, args.collection._id, locale, stableId)
+      projected = await getActivePublicPageByStableId(ctx, args.collection.slug, locale, stableId)
     }
     if (projected) {
-      translations = await getTranslationsForEntry(ctx, projected.entryId)
+      translations = await getTranslationsForEntry(ctx, args.collection.slug, projected.entryId)
       break
     }
   }
 
-  return { requestedPath, projected, translations }
+  return { requestedPath, projected, translations, redirectTo }
 }
 
 function buildSnippet(source: string | null | undefined, queryText?: string) {
@@ -778,7 +753,7 @@ export const page = callerQuery.public({
     assertRouteBackedCollection(collection)
     assertCollectionSupportsLocale(collection, args.locale)
 
-    const { requestedPath, projected, translations } = await resolvePublicPage(ctx, {
+    const { requestedPath, projected, translations, redirectTo } = await resolvePublicPage(ctx, {
       collection,
       collectionSlug: args.collection,
       locale: args.locale,
@@ -804,7 +779,7 @@ export const page = callerQuery.public({
       requestedPath,
       result: {
         page: mapped,
-        redirectTo: args.ref || mapped.path === requestedPath ? null : mapped.path,
+        redirectTo: redirectTo ?? (args.ref || mapped.path === requestedPath ? null : mapped.path),
       },
       translations,
       defaultLocale: getCollectionDefaultLocale(collection),
@@ -831,7 +806,7 @@ export const routeMeta = callerQuery.public({
     assertRouteBackedCollection(collection)
     assertCollectionSupportsLocale(collection, args.locale)
 
-    const { requestedPath, projected, translations } = await resolvePublicPage(ctx, {
+    const { requestedPath, projected, translations, redirectTo } = await resolvePublicPage(ctx, {
       collection,
       collectionSlug: args.collection,
       locale: args.locale,
@@ -861,7 +836,7 @@ export const routeMeta = callerQuery.public({
       requestedPath,
       result: {
         page: mapped,
-        redirectTo: args.ref || mapped.path === requestedPath ? null : mapped.path,
+        redirectTo: redirectTo ?? (args.ref || mapped.path === requestedPath ? null : mapped.path),
       },
       translations,
       defaultLocale: getCollectionDefaultLocale(collection),
@@ -890,7 +865,7 @@ export const list = callerQuery.public({
 
     const limit = validatePublicLimit(args.limit, LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT)
     const result = await paginatePublicEntriesForCollection(ctx, {
-      collectionId: collection._id,
+      collection,
       locale: args.locale,
       limit,
       cursor: args.cursor,
@@ -899,13 +874,16 @@ export const list = callerQuery.public({
       pathPrefix: args.pathPrefix,
     })
     const pageRows = result.page
-    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection._id, pageRows)
+    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection.slug, pageRows)
+    const routingLocales = await routingLocalesForCollection(ctx, collection)
 
     return toGinkoListResult({
       collection: args.collection,
       requestedLocale: args.locale,
       result: {
-        page: await Promise.all(pageRows.map((row) => mapPublicEntry(ctx, row, collection))),
+        page: pageRows.map((row) =>
+          mapPublicEntryAtKnownPath(row, result.paths.get(String(row.entryId))!, routingLocales),
+        ),
         isDone: result.isDone,
         continueCursor: result.isDone ? null : result.continueCursor,
       },
@@ -935,29 +913,38 @@ export const nav = callerQuery.public({
     }
     assertRouteBackedCollection(collection)
     assertCollectionSupportsLocale(collection, args.locale)
-    const scannedRows = await ctx.db
+    const publicRows = await ctx.db
       .query('publicEntries')
-      .withIndex('by_collection_locale_orderKey', (q) =>
-        q.eq('collectionId', collection._id).eq('locale', args.locale),
+      .withIndex('by_collection_locale_nav_orderKey', (q) =>
+        q.eq('collection', collection.slug).eq('locale', args.locale).eq('navIncluded', true),
       )
       .order('asc')
-      .take(NAV_MAX_ROWS + 1)
-    if (scannedRows.length > NAV_MAX_ROWS) {
-      throwCmsError(
-        'PUBLIC_NAV_TOO_LARGE',
-        `Public navigation tree for "${args.collection}" and locale "${args.locale}" exceeds ${NAV_MAX_ROWS} rows. Split the tree or exclude entries from navigation.`,
-        { collection: args.collection, locale: args.locale, maxRows: NAV_MAX_ROWS },
-      )
-    }
-    const rows = scannedRows.filter((row) => publicFlag(row, 'navigation'))
-    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection._id, rows)
+      .collect()
+    const pathPairs = await Promise.all(
+      publicRows.map(
+        async (row) =>
+          [
+            String(row.entryId),
+            await publicPathForEntry(ctx, row, {
+              pathPrefix: pathPrefixForLocale(collection, args.locale),
+              rootSlug: rootSlugForLocale(collection, args.locale),
+            }),
+          ] as const,
+      ),
+    )
+    const paths = new Map(pathPairs.filter((pair): pair is readonly [string, string] => !!pair[1]))
+    const rows = publicRows.filter(
+      (row) => paths.has(String(row.entryId)) && publicFlag(row, 'navigation'),
+    )
+    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection.slug, rows)
+    const routingLocales = await routingLocalesForCollection(ctx, collection)
     const nodes = new Map<string, { entry: ReturnType<typeof toGinkoEntry>; children: unknown[] }>()
     const roots: Array<{ entry: ReturnType<typeof toGinkoEntry>; children: unknown[] }> = []
 
     for (const row of rows) {
       if (row.navIncluded === false) continue
       const entry = toNavigationEntry(
-        await mapPublicEntry(ctx, row, collection),
+        mapPublicEntryAtKnownPath(row, paths.get(String(row.entryId))!, routingLocales),
         args.locale,
         translationsByEntryId.get(String(row.entryId)) ?? [],
       )
@@ -970,7 +957,8 @@ export const nav = callerQuery.public({
       compareSiblings: (left, right) => {
         const rank = compareOrderRank(left.orderKey, right.orderKey)
         if (rank !== 0) return rank
-        return left.path.localeCompare(right.path)
+        const slug = left.slug.localeCompare(right.slug)
+        return slug || String(left.entryId).localeCompare(String(right.entryId))
       },
     }).map(({ row }) => row)
 
@@ -1020,7 +1008,7 @@ export const surround = callerQuery.public({
     assertCollectionSupportsLocale(collection, args.locale)
     const previousLimit = validatePublicLimit(args.previous, 1, 10)
     const nextLimit = validatePublicLimit(args.next, 1, 10)
-    const current = await getActivePublicPageByPath(ctx, collection._id, args.locale, args.path)
+    const current = await getActivePublicPageByPath(ctx, collection, args.locale, args.path)
     if (!current) {
       return {
         previous: [],
@@ -1038,7 +1026,7 @@ export const surround = callerQuery.public({
       .query('publicEntries')
       .withIndex('by_collection_locale_parent_orderKey', (q) =>
         q
-          .eq('collectionId', collection._id)
+          .eq('collection', collection.slug)
           .eq('locale', args.locale)
           .eq('parentEntryId', current.parentEntryId ?? null)
           .lt('orderKey', current.orderKey),
@@ -1049,7 +1037,7 @@ export const surround = callerQuery.public({
       .query('publicEntries')
       .withIndex('by_collection_locale_parent_orderKey', (q) =>
         q
-          .eq('collectionId', collection._id)
+          .eq('collection', collection.slug)
           .eq('locale', args.locale)
           .eq('parentEntryId', current.parentEntryId ?? null)
           .gt('orderKey', current.orderKey),
@@ -1057,7 +1045,7 @@ export const surround = callerQuery.public({
       .order('asc')
       .take(nextLimit)
     const allRows = [...previousRows, ...nextRows]
-    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection._id, allRows)
+    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection.slug, allRows)
     const mapRow = async (row: (typeof allRows)[number]) =>
       toGinkoEntry(
         await mapPublicEntry(ctx, row, collection),
@@ -1098,39 +1086,43 @@ export const search = callerQuery.public({
     }
     assertRouteBackedCollection(collection)
     assertCollectionSupportsLocale(collection, args.locale)
-    const offset = parsePublicSearchCursor(args.cursor)
-    const scanLimit = Math.min(offset + limit + 1, SEARCH_SCAN_MAX_ROWS + 1)
-    const searchRows = await ctx.db
-      .query('publicEntries')
-      .withSearchIndex('search_locale', (q) =>
-        q
-          .search('searchText', args.query)
-          .eq('locale', args.locale)
-          .eq('collectionId', collection._id),
-      )
-      .take(scanLimit)
-    const resultRows = searchRows.slice(offset, offset + limit + 1)
-    const hasNextPage = resultRows.length > limit && offset + limit < SEARCH_SCAN_MAX_ROWS
-    const pageRows = hasNextPage ? resultRows.slice(0, limit) : resultRows
+    const generation = `${collection.contract.version}:${await readRouteGeneration(
+      ctx,
+      collection.slug,
+      args.locale,
+    )}`
+    const searchPage = await paginatePublicSearch(ctx, {
+      collection,
+      locale: args.locale,
+      query: args.query,
+      limit,
+      cursor: args.cursor,
+      generation,
+    })
+    const visibleRows = searchPage.page
+    const routingLocales = await routingLocalesForCollection(ctx, collection)
     const matches = []
-    for (const row of pageRows) {
-      if (!publicFlag(row, 'search')) continue
+    for (const { row, path } of visibleRows) {
       const snippet = buildSnippet(row.searchText, args.query)
-      const mapped = await mapPublicEntry(ctx, row, collection)
+      const mapped = mapPublicEntryAtKnownPath(row, path, routingLocales)
       matches.push({
         ...mapped,
         snippet: snippet.text,
         highlights: snippet.highlights,
       })
     }
-    const translationsByEntryId = await readTranslationsByEntryId(ctx, collection._id, pageRows)
+    const translationsByEntryId = await readTranslationsByEntryId(
+      ctx,
+      collection.slug,
+      visibleRows.map(({ row }) => row),
+    )
     return toGinkoSearchResult({
       requestedLocale: args.locale,
       results: matches as PublicProjectionEntry[],
       translationsByEntryId,
       pageInfo: {
-        hasNextPage,
-        endCursor: hasNextPage ? encodePublicSearchCursor(offset + pageRows.length) : null,
+        hasNextPage: searchPage.hasNextPage,
+        endCursor: searchPage.endCursor,
       },
     })
   },
@@ -1154,22 +1146,24 @@ export const sitemap = callerQuery.public({
     assertCollectionSupportsLocale(collection, args.locale)
     const limit = validatePublicLimit(args.limit, SITEMAP_DEFAULT_LIMIT, SITEMAP_MAX_LIMIT)
     const result = await paginatePublicEntriesForCollection(ctx, {
-      collectionId: collection._id,
+      collection,
       locale: args.locale,
       limit,
       cursor: args.cursor,
       sortField: 'orderKey',
       direction: 'asc',
+      include: (row) => publicFlag(row, 'sitemap'),
     })
 
-    const filteredRows = result.page.filter((row) => publicFlag(row, 'sitemap'))
-    const entries = await Promise.all(
-      filteredRows.map((row) => mapPublicEntry(ctx, row, collection)),
+    const filteredRows = result.page
+    const routingLocales = await routingLocalesForCollection(ctx, collection)
+    const entries = filteredRows.map((row) =>
+      mapPublicEntryAtKnownPath(row, result.paths.get(String(row.entryId))!, routingLocales),
     )
     const translationRows = filteredRows.map((row) => ({ entryId: row.entryId }))
     const translationsByEntryId = await readTranslationsByEntryId(
       ctx,
-      collection._id,
+      collection.slug,
       translationRows,
     )
 
@@ -1191,95 +1185,40 @@ export const routes = callerQuery.public({
   returns: ginkoRoutesResultValidator,
   handler: async (ctx, args) => {
     validatePublicTextArgs(args)
-    const generation = await readPublicProjectionGeneration(ctx)
-    const snapshot = String(generation)
     const collection = await getCollection(ctx, args.collection)
     if (!collection) {
-      return { routes: [], pageInfo: { hasNextPage: false, endCursor: null }, snapshot }
+      return { routes: [], pageInfo: { hasNextPage: false, endCursor: null }, snapshot: '0' }
     }
     assertRouteBackedCollection(collection)
     assertCollectionSupportsLocale(collection, args.locale)
     const limit = validatePublicLimit(args.limit, 250, 250)
-    const cursor = parsePublicRoutesCursor({
-      cursor: args.cursor,
-      collection: args.collection,
+    const generation = `${collection.contract.version}:${await readRouteGeneration(
+      ctx,
+      collection.slug,
+      args.locale,
+    )}`
+    const page = await paginatePublicRoutes(ctx, {
+      collection,
       locale: args.locale,
+      limit,
+      cursor: args.cursor,
       generation,
     })
-    if (cursor) {
-      const cursorRow = await ctx.db
-        .query('publicEntries')
-        .withIndex('by_collection_locale_stableId', (query) =>
-          query
-            .eq('collectionId', collection._id)
-            .eq('locale', args.locale)
-            .eq('stableId', cursor.canonicalKey),
-        )
-        .unique()
-      if (!cursorRow || String(cursorRow._id) !== cursor.projectionId) {
-        throwCmsError('INVALID_CURSOR', 'Public route cursor no longer identifies its projection.')
-      }
-    }
-    const rows = await ctx.db
-      .query('publicEntries')
-      .withIndex('by_collection_locale_stableId', (query) => {
-        const scope = query.eq('collectionId', collection._id).eq('locale', args.locale)
-        return cursor ? scope.gt('stableId', cursor.canonicalKey) : scope
-      })
-      .order('asc')
-      .take(limit + 1)
-    for (let index = 0; index < rows.length; index += 1) {
-      const row = rows[index]!
-      if (!row.stableId) {
-        throwCmsError('INVALID_QUERY', 'Published route is missing its stable content identity.', {
-          collection: args.collection,
-          entryId: String(row.entryId),
-          locale: row.locale,
-        })
-      }
-      if (index > 0 && rows[index - 1]?.stableId === row.stableId) {
-        throwCmsError('INVALID_QUERY', 'Published route identity is not unique.', {
-          collection: args.collection,
-          canonicalKey: row.stableId,
-          locale: row.locale,
-        })
-      }
-    }
-    const hasNextPage = rows.length > limit
-    const pageRows = hasNextPage ? rows.slice(0, limit) : rows
-    const records = []
-    for (const row of pageRows) {
-      if (!row.stableId) {
-        throwCmsError('INVALID_QUERY', 'Published route is missing its stable content identity.', {
-          collection: args.collection,
-          entryId: String(row.entryId),
-          locale: row.locale,
-        })
-      }
-      records.push({
-        collection: args.collection,
-        stableId: row.stableId,
-        locale: row.locale,
-        path: row.path,
-        sitemapIncluded: publicFlag(row, 'sitemap'),
-        lastmod: new Date(row.lastPublishedAt).toISOString(),
-      })
-    }
+    const records = page.page.map(({ row, path }) => ({
+      collection: args.collection,
+      stableId: row.stableId,
+      locale: row.locale,
+      path,
+      sitemapIncluded: publicFlag(row, 'sitemap'),
+      lastmod: new Date(row.lastPublishedAt).toISOString(),
+    }))
     return {
       routes: records,
       pageInfo: {
-        hasNextPage,
-        endCursor:
-          hasNextPage && pageRows.length
-            ? encodePublicRoutesCursor({
-                row: pageRows[pageRows.length - 1]!,
-                collection: args.collection,
-                locale: args.locale,
-                generation,
-              })
-            : null,
+        hasNextPage: page.hasNextPage,
+        endCursor: page.endCursor,
       },
-      snapshot,
+      snapshot: generation,
     }
   },
 })
@@ -1329,16 +1268,24 @@ export const singleton = callerQuery.public({
     const row = await ctx.db
       .query('publicEntries')
       .withIndex('by_collection_locale_orderKey', (q) =>
-        q.eq('collectionId', collection._id).eq('locale', args.locale!),
+        q.eq('collection', collection.slug).eq('locale', args.locale!),
       )
       .first()
+    const path = row
+      ? await publicPathForEntry(ctx, row, {
+          pathPrefix: pathPrefixForLocale(collection, args.locale),
+          rootSlug: rootSlugForLocale(collection, args.locale),
+        })
+      : null
+    const routingLocales = path ? await routingLocalesForCollection(ctx, collection) : []
 
     return toGinkoSingletonResult({
       name: args.name,
       requestedLocale: args.locale,
-      entry: row ? await mapPublicEntry(ctx, row, collection) : null,
-      translations: row ? await getTranslationsForEntry(ctx, row.entryId) : [],
-      failure: row ? null : 'no_published_entry',
+      entry: row && path ? mapPublicEntryAtKnownPath(row, path, routingLocales) : null,
+      translations:
+        row && path ? await getTranslationsForEntry(ctx, collection.slug, row.entryId) : [],
+      failure: row && path ? null : 'no_published_entry',
     })
   },
 })

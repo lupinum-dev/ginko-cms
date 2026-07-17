@@ -239,8 +239,8 @@
 - Keep `CONVEX_DEPLOY_KEY` server-only for setup and contract sync. MCP runtime
   needs Convex URL plus Better Auth base URL configuration, not deploy-key
   transport.
-- See `docs/guides/migrations/trellis-era-migration.md` for the host cleanup
-  checklist.
+- This migration note describes the pre-greenfield host cleanup. The former
+  Trellis transition guide is not part of the current fresh-deployment path.
 - Existing hosts may delete the old generated `users` table after confirming
   their application did not adopt it for host-owned data. Ginko CMS never read
   or wrote that table.

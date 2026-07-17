@@ -2,6 +2,12 @@
 
 Created: 2026-07-05
 
+> **Superseded route inventory and implementation record.** The editor-first
+> design principles remain useful history, but this file is not current product
+> architecture or acceptance evidence. The Imports page and its navigation were
+> removed; portability is owner CLI-only. Use `docs/concepts/studio/ux-model.md`,
+> `docs/concepts/studio/workflows.md`, and `userstories.md` for current behavior.
+
 ## Goal
 
 Make Ginko CMS feel like an easy editor for marketing and content people, while still giving developers and operators a reliable place to inspect advanced details when they deliberately need them.

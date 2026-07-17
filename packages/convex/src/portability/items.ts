@@ -1,9 +1,8 @@
 import type { CmsField, JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
-import {
-  assertResolvedContentContract,
-  type ResolvedContentCollectionV1,
-  type ResolvedContentContractV1,
-  type ResolvedContentFieldV1,
+import type {
+  ResolvedContentCollectionV1,
+  ResolvedContentContractV1,
+  ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
 import {
   hashCanonicalJson,
@@ -19,29 +18,34 @@ import type { Id } from '../_generated/dataModel.js'
 import { refreshDraftAssetRefsForSave } from '../entries/workflow/commands.js'
 import { applyDraftPatch } from '../entries/workflow/drafts.js'
 import { getCollectionOrThrow } from '../lib/collections.js'
+import { readInstalledCmsContract } from '../lib/installedContract.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { assertFieldDataValid } from '../lib/validation.js'
 import type { PortableImportPlanItemPayload } from './model.js'
 
-async function activeContract(ctx: QueryOrMutationCtx): Promise<ResolvedContentContractV1> {
-  const policy = await ctx.db
-    .query('cmsPolicies')
-    .withIndex('by_key', (query) => query.eq('key', 'active'))
-    .first()
-  if (!policy) throw new Error('Portable import requires an installed Content contract.')
-  return assertResolvedContentContract(policy.contract)
+async function activeContract(
+  ctx: QueryOrMutationCtx,
+  options: { requireWritable?: boolean } = {},
+): Promise<ResolvedContentContractV1> {
+  const installed = await readInstalledCmsContract(ctx)
+  if (!installed) throw new Error('Portable import requires an installed CMS contract.')
+  if (options.requireWritable && installed.record.transitionState !== 'ready') {
+    throw new Error('Portable import writes are blocked while a contract transition is active.')
+  }
+  return installed.content
 }
 
 async function resolveParentEntryId(
   ctx: QueryOrMutationCtx,
   document: PortableDocumentV1,
-  collectionId: Id<'collections'>,
+  collection: string,
 ): Promise<Id<'entries'> | null> {
   if (document.parentCanonicalKey === null) return null
+  const parentCanonicalKey = document.parentCanonicalKey
   const parent = await ctx.db
     .query('entries')
     .withIndex('by_collection_stableId', (query) =>
-      query.eq('collectionId', collectionId).eq('stableId', document.parentCanonicalKey),
+      query.eq('collection', collection).eq('stableId', parentCanonicalKey),
     )
     .first()
   if (!parent) throw new Error(`Portable parent "${document.parentCanonicalKey}" is not applied.`)
@@ -136,7 +140,7 @@ async function normalizeRelation(ctx: MutationCtx, field: CmsField, value: unkno
     .query('entries')
     .withIndex('by_collection_stableId', (query) =>
       query
-        .eq('collectionId', targetCollection._id)
+        .eq('collection', targetCollection.slug)
         .eq('stableId', reference.canonicalKey as string),
     )
     .first()
@@ -327,45 +331,42 @@ async function currentPortableDocument(
 ): Promise<PortableDocumentV1 | null> {
   const entry = await ctx.db.get(entryId)
   if (!entry) return null
-  const collection = await ctx.db.get(entry.collectionId)
-  if (!collection) return null
-  const rows = await ctx.db
-    .query('entryDrafts')
-    .withIndex('by_entry', (query) => query.eq('entryId', entryId))
-    .collect()
-  const shared = rows.find((row) => row.locale === null)
-  const localized = rows.find((row) => row.locale === locale)
-  if (!shared || !localized) return null
-  const values = { ...(localized.values ?? {}) } as JsonMap
+  const collection = await getCollectionOrThrow(ctx, entry.collection)
+  const localized = await ctx.db
+    .query('entryLocaleDrafts')
+    .withIndex('by_entry_locale', (query) => query.eq('entryId', entryId).eq('locale', locale))
+    .unique()
+  if (!localized) return null
+  const values = { ...localized.values } as JsonMap
   const publicValue = values.public
   delete values.public
   const visibility =
     publicValue && typeof publicValue === 'object' && !Array.isArray(publicValue)
       ? (publicValue as JsonMap)
       : {}
-  const parent = shared.parentEntryId ? await ctx.db.get(shared.parentEntryId) : null
+  const parent = entry.parentEntryId ? await ctx.db.get(entry.parentEntryId) : null
   const collectionContract = contract.collections[collection.slug]!
   return validatePortableDocument(
     {
       format: 'ginko-content-document',
       version: 1,
       collection: collection.slug,
-      canonicalKey: entry.stableId ?? entry.baseSlug,
+      canonicalKey: entry.stableId,
       locale,
-      slug: localized.localeSlug ?? shared.slug ?? entry.baseSlug,
+      slug: localized.slug ?? entry.slug,
       parentCanonicalKey: parent?.stableId ?? null,
-      order: shared.orderRank ?? entry.orderRank ?? null,
+      order: entry.orderRank || null,
       shared: await portableFields(
         ctx,
         collectionContract.fields.filter((field) => !field.localized),
-        shared.shared ?? {},
+        entry.shared,
       ),
       localized: await portableFields(
         ctx,
         collectionContract.fields.filter((field) => field.localized),
         values,
       ),
-      body: await portableBody(ctx, collectionContract, localized.bodyMdc ?? ''),
+      body: await portableBody(ctx, collectionContract, localized.bodyMdc),
       visibility: {
         navigation: visibility.navigation === true,
         search: visibility.search === true,
@@ -391,7 +392,7 @@ export async function portablePublishedDocument(
   const collectionContract = input.contract.collections[input.collection]
   if (!collectionContract)
     throw new Error('Portable export collection is absent from its contract.')
-  const localized = revision.snapshot.locales[input.locale]
+  const localized = revision.snapshots[input.locale]
   if (!localized) throw new Error('Portable export revision does not contain its rostered locale.')
   const values = { ...localized.values } as JsonMap
   const publicValue = values.public
@@ -400,9 +401,7 @@ export async function portablePublishedDocument(
     publicValue && typeof publicValue === 'object' && !Array.isArray(publicValue)
       ? (publicValue as JsonMap)
       : {}
-  const parent = revision.snapshot.parentEntryId
-    ? await ctx.db.get(revision.snapshot.parentEntryId)
-    : null
+  const parent = localized.parentEntryId ? await ctx.db.get(localized.parentEntryId) : null
   return validatePortableDocument(
     {
       format: 'ginko-content-document',
@@ -410,13 +409,13 @@ export async function portablePublishedDocument(
       collection: input.collection,
       canonicalKey: input.canonicalKey,
       locale: input.locale,
-      slug: localized.slug ?? revision.snapshot.slug ?? input.canonicalKey,
+      slug: localized.slug,
       parentCanonicalKey: parent?.stableId ?? null,
-      order: revision.snapshot.orderRank ?? null,
+      order: localized.orderRank || null,
       shared: await portableFields(
         ctx,
         collectionContract.fields.filter((field) => !field.localized),
-        revision.snapshot.shared,
+        localized.shared,
       ),
       localized: await portableFields(
         ctx,
@@ -443,7 +442,7 @@ export async function portableDraftSha256(
   const entry = await ctx.db
     .query('entries')
     .withIndex('by_collection_stableId', (query) =>
-      query.eq('collectionId', collection._id).eq('stableId', identity.canonicalKey),
+      query.eq('collection', collection.slug).eq('stableId', identity.canonicalKey),
     )
     .first()
   if (!entry) return null
@@ -461,7 +460,7 @@ export async function applyPortableDraft(
     now: number
   },
 ): Promise<{ effect: 'created-draft' | 'updated-draft' | 'skipped'; resultId: string }> {
-  const contract = await activeContract(ctx)
+  const contract = await activeContract(ctx, { requireWritable: true })
   const document = validatePortableDocument(args.documentValue, contract)
   if ((await hashCanonicalJson(document as unknown as JsonMap)) !== args.planItem.documentSha256) {
     throw new Error('Portable document hash mismatch.')
@@ -499,7 +498,7 @@ export async function applyPortableDraft(
   const existing = await ctx.db
     .query('entries')
     .withIndex('by_collection_stableId', (query) =>
-      query.eq('collectionId', collection._id).eq('stableId', document.canonicalKey),
+      query.eq('collection', collection.slug).eq('stableId', document.canonicalKey),
     )
     .first()
   const currentSha256 = existing ? await portableDraftSha256(ctx, args.planItem.identity) : null
@@ -519,51 +518,40 @@ export async function applyPortableDraft(
     return { effect: 'skipped', resultId: String(existing!._id) }
   }
 
-  const parentEntryId = await resolveParentEntryId(ctx, document, collection._id)
+  const parentEntryId = await resolveParentEntryId(ctx, document, collection.slug)
   const values = localeValues(document, normalizedLocalized)
   if (!existing) {
     const entryId = await ctx.db.insert('entries', {
-      collectionId: collection._id,
-      baseSlug: document.slug,
+      collection: collection.slug,
       stableId: document.canonicalKey,
-      status: 'draft',
-      dirtyLocales: [document.locale],
+      lifecycle: 'active',
+      slug: document.slug,
       parentEntryId,
-      orderRank: document.order,
+      orderRank: document.order ?? '',
       nodeKind: 'page',
-      sortCache: {},
+      shared: normalizedShared,
       draftVersion: 1,
-      latestRevisionId: null,
+      sharedVersion: 1,
+      activePublications: [],
+      latestEditorialRevisionId: null,
       createdBy: args.appIdentityId,
       updatedBy: args.appIdentityId,
-      publishedBy: null,
       createdAt: args.now,
       updatedAt: args.now,
-      publishedAt: null,
     })
-    await ctx.db.insert('entryDrafts', {
-      entryId,
-      locale: null,
-      baseRevisionId: null,
-      parentEntryId,
-      orderRank: document.order,
-      slug: document.slug,
-      shared: normalizedShared,
-      updatedBy: args.appIdentityId,
-      updatedAt: args.now,
-    })
-    await ctx.db.insert('entryDrafts', {
+    await ctx.db.insert('entryLocaleDrafts', {
       entryId,
       locale: document.locale,
-      baseRevisionId: null,
+      slug: document.slug,
       values,
       bodyMdc,
+      version: 1,
       updatedBy: args.appIdentityId,
       updatedAt: args.now,
     })
     await refreshDraftAssetRefsForSave(ctx, {
       entryId,
-      collectionId: collection._id,
+      collection: collection.slug,
       sharedUpdated: true,
       affectedLocales: [document.locale],
       now: args.now,
@@ -593,7 +581,7 @@ export async function applyPortableDraft(
   })
   await refreshDraftAssetRefsForSave(ctx, {
     entryId: existing._id,
-    collectionId: collection._id,
+    collection: collection.slug,
     sharedUpdated: result.sharedUpdated,
     affectedLocales: result.affectedLocales,
     now: args.now,

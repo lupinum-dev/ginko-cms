@@ -84,7 +84,13 @@ const documentFixture: PortableDocumentV1 = {
 async function installFixture(ctx: ReturnType<typeof createCtx>) {
   const contract = contractFixture()
   const contractSha256 = await hashCanonicalJson(contract)
-  await ctx.raw.mutation(api.policy.installCmsPolicy, { contract, contractSha256 })
+  const presentation = { collections: {} }
+  await ctx.raw.mutation(api.contract.installCmsContract, {
+    content: contract,
+    contentHash: contractSha256,
+    presentation,
+    presentationHash: await hashCanonicalJson(presentation),
+  })
   return { contract, contractSha256 }
 }
 
@@ -679,7 +685,7 @@ describe('portable draft import', () => {
       targetContractSha256: contractSha256,
       sourceManifestSha256: '1'.repeat(64),
       sourceContractSha256: contractSha256,
-      itemCount: 100_001,
+      itemCount: 5_001,
       itemRootSha256: await hashCanonicalJson([]),
       assetCount: 0,
       assetRootSha256: await hashCanonicalJson([]),

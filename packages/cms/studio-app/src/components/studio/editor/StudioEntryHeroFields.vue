@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import type { StudioField } from '../../../composables/internal/types'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
+import { fieldDisplayLabel } from '../../../lib/fieldLabel'
 import { getClientFieldError } from '../fields/useFieldCommon'
 
 // Dumb writing-surface header: the title as a large borderless heading, the
@@ -31,8 +32,10 @@ const descriptionId = computed(() =>
   props.descriptionField ? `${props.idPrefix ?? ''}${props.descriptionField.key}` : '',
 )
 
+// Writers must never see raw schema keys (DESIGN.md rule 6): shared echo-aware
+// humanizer covers sr-only labels and the required-error copy.
 function fieldLabel(field: StudioField): string {
-  return typeof field.label === 'string' && field.label ? field.label : field.key
+  return fieldDisplayLabel(field)
 }
 
 const titleValue = computed(() => {

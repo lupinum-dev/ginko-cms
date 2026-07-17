@@ -7,8 +7,14 @@ export async function runInitCommand(cwd: string, io: CliIo): Promise<number> {
   const checkResult = issues.length === 0 ? 0 : 1
   write(
     io.stdout,
-    `Ginko CMS initialized in ${cwd}: ${result.written.length} setup file(s) written, ${result.skipped.length} existing file(s) left untouched.\n`,
+    `Ginko CMS initialized in ${cwd}: ${result.written.length} setup file(s) written, ${result.updated.length} untouched generated file(s) updated, ${result.skipped.length} existing file(s) left untouched.\n`,
   )
+  for (const conflict of result.conflicts) {
+    write(
+      io.stderr,
+      `Refused to overwrite modified generated file ${conflict.path}. Merge the package template manually:\n${conflict.diff}\n`,
+    )
+  }
   if (checkResult === 0) {
     write(
       io.stdout,

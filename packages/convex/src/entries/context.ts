@@ -6,6 +6,7 @@ import { requireRecord } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
 import { getCollectionDefaultLocale, getCollectionOrThrow } from '../lib/collections.js'
 import { asEntryId, toOptionalStringId, toStringId } from '../lib/ids.js'
+import { pathPrefixForLocale, rootSlugForLocale } from '../lib/paths.js'
 import type { HandlerMutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { getFieldCompletionState } from '../lib/validation.js'
 import {
@@ -14,6 +15,7 @@ import {
   effectiveDraftSlug,
 } from './workflow/draftPlacement.js'
 import { readDraftRows } from './workflow/drafts.js'
+import { publicPathForEntry } from './workflow/publicTree.js'
 
 export type EntryDoc = Doc<'entries'>
 export type EntryRevisionDoc = Doc<'entryRevisions'>
@@ -28,8 +30,10 @@ export type StudioLocaleDraftView = {
   publishedPath: string | null
   draft: { values: JsonMap; bodyMdc?: string | null }
   published: { values: JsonMap; bodyMdc?: string | null } | null
+  publishedShared: JsonMap | null
   updatedBy: string
   updatedAt: number
+  draftVersion: number
   data: JsonMap
   publishedData: JsonMap
 }
@@ -57,9 +61,7 @@ export async function getEntryOrThrow(ctx: QueryOrMutationCtx, id: string): Prom
 }
 
 export async function getCollectionForEntry(ctx: QueryOrMutationCtx, entry: EntryDoc) {
-  const collectionDoc = await ctx.db.get(entry.collectionId)
-  requireRecord(collectionDoc, 'Collection')
-  return await getCollectionOrThrow(ctx, collectionDoc.slug)
+  return await getCollectionOrThrow(ctx, entry.collection)
 }
 
 export async function loadEntryMutationContext(
@@ -134,7 +136,7 @@ export async function readStudioDraftView(
   ])
   const publicByLocale = new Map(publicRows.map((row) => [row.locale, row]))
   const shared = (draftRows.shared?.shared ?? {}) as JsonMap
-  const publishedShared = await latestPublishedShared(ctx, publicRows)
+  const publishedSharedByLocale = await publishedSharedForRows(ctx, publicRows)
   const sharedSlug = effectiveDraftSlug(entry, draftRows.shared, null)
   const draftParentEntryId = effectiveDraftParent(entry, draftRows.shared)
   const localeCodes = localeCodesForDraftView({
@@ -158,6 +160,7 @@ export async function readStudioDraftView(
       })
       const publishedValues = publicRow ? ((publicRow.data ?? {}) as JsonMap) : null
       const publishedBodyMdc = publicRow?.bodyMdc ?? null
+      const publishedShared = publishedSharedByLocale.get(locale) ?? null
       const data = materializeFieldData(collection.fields, shared, values)
       const publishedData = publishedValues
         ? materializeFieldData(collection.fields, publishedShared ?? {}, publishedValues)
@@ -168,11 +171,18 @@ export async function readStudioDraftView(
         draftSlug: localeRow?.localeSlug ?? (draftRows.shared?.slug ? null : null),
         draftPath,
         publishedSlug: publicRow?.slug ?? null,
-        publishedPath: publicRow?.path ?? null,
+        publishedPath: publicRow
+          ? await publicPathForEntry(ctx, publicRow, {
+              pathPrefix: pathPrefixForLocale(collection, locale),
+              rootSlug: rootSlugForLocale(collection, locale),
+            })
+          : null,
         draft: { values, bodyMdc },
         published: publishedValues ? { values: publishedValues, bodyMdc: publishedBodyMdc } : null,
+        publishedShared,
         updatedBy: localeRow?.updatedBy ?? entry.updatedBy,
         updatedAt: localeRow?.updatedAt ?? entry.updatedAt,
+        draftVersion: localeRow?.version ?? 0,
         data,
         publishedData,
       }
@@ -181,7 +191,9 @@ export async function readStudioDraftView(
 
   return {
     shared,
-    publishedShared,
+    // There is intentionally no global published shared snapshot. Each
+    // locale exposes the shared values from its own active revision.
+    publishedShared: null,
     baseSlug: sharedSlug,
     parentEntryId: draftParentEntryId,
     orderRank: draftRows.shared?.orderRank ?? entry.orderRank ?? '',
@@ -189,26 +201,36 @@ export async function readStudioDraftView(
   }
 }
 
-async function latestPublishedShared(
+async function publishedSharedForRows(
   ctx: QueryOrMutationCtx,
   publicRows: Array<Doc<'publicEntries'>>,
-): Promise<JsonMap | null> {
-  if (publicRows.length === 0) return null
-  // `publicEntries` rows are locale-scoped and point at the `entryRevisions`
-  // snapshot they were projected from. The shared portion of that snapshot is
-  // the authoritative published shared state. After a partial publish or a
-  // partial unpublish, the surviving public rows may reference different
-  // revisions; we read the most recently created backing revision so the
-  // shared snapshot reflects the last write that still has a live public row.
-  const revisionIds = Array.from(new Set(publicRows.map((row) => String(row.revisionId))))
-  const revisions = (
-    await Promise.all(revisionIds.map((id) => ctx.db.get(id as Id<'entryRevisions'>)))
-  ).filter((revision): revision is EntryRevisionDoc => revision !== null)
-  if (revisions.length === 0) return null
-  const latest = revisions.reduce((acc, revision) =>
-    revision.createdAt > acc.createdAt ? revision : acc,
+): Promise<Map<string, JsonMap>> {
+  const byLocale = new Map<string, JsonMap>()
+  await Promise.all(
+    publicRows.map(async (row) => {
+      const revision = await ctx.db.get(row.revisionId)
+      const snapshot = revision?.snapshots[row.locale]
+      if (snapshot) byLocale.set(row.locale, snapshot.shared as JsonMap)
+    }),
   )
-  return (latest.snapshot.shared ?? {}) as JsonMap
+  return byLocale
+}
+
+export function deriveDirtyLocales(
+  entry: EntryDoc,
+  localeVersions: ReadonlyMap<string, number>,
+): string[] {
+  return entry.activePublications
+    .filter((publication) => {
+      const localeVersion = localeVersions.get(publication.locale)
+      return (
+        publication.sharedVersion !== entry.sharedVersion ||
+        localeVersion === undefined ||
+        publication.localeVersion !== localeVersion
+      )
+    })
+    .map((publication) => publication.locale)
+    .sort()
 }
 
 export async function buildStudioEntry(ctx: QueryOrMutationCtx, entry: EntryDoc, locale?: string) {
@@ -239,15 +261,27 @@ export async function buildStudioEntry(ctx: QueryOrMutationCtx, entry: EntryDoc,
   })
 
   const primaryData = primary ? primary.data : draftView.shared
+  const localeVersionByCode = new Map(
+    draftView.locales.map((item) => [item.locale, item.draftVersion]),
+  )
+  const dirtyLocales = deriveDirtyLocales(entry, localeVersionByCode)
+  const latestPublication = [...entry.activePublications].sort(
+    (left, right) => right.activatedAt - left.activatedAt,
+  )[0]
 
   return {
     _id: toStringId(entry._id),
     collection: collection.slug,
-    collectionId: toStringId(entry.collectionId),
+    collectionId: entry.collection,
     baseSlug: draftView.baseSlug,
     stableId: entry.stableId ?? null,
-    status: entry.status,
-    dirtyLocales: entry.dirtyLocales,
+    status:
+      entry.lifecycle === 'archived'
+        ? 'archived'
+        : entry.activePublications.length
+          ? 'published'
+          : 'draft',
+    dirtyLocales,
     parentEntryId: toOptionalStringId(draftView.parentEntryId),
     orderRank: draftView.orderRank,
     nodeKind: entry.nodeKind ?? 'page',
@@ -256,10 +290,10 @@ export async function buildStudioEntry(ctx: QueryOrMutationCtx, entry: EntryDoc,
     draftVersion: entry.draftVersion,
     createdBy: entry.createdBy,
     updatedBy: entry.updatedBy,
-    publishedBy: entry.publishedBy ?? null,
+    publishedBy: latestPublication?.activatedBy ?? null,
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
-    publishedAt: entry.publishedAt ?? null,
+    publishedAt: latestPublication?.activatedAt ?? null,
     locale: primary?.locale ?? primaryLocale,
     slug: primary?.draftSlug ?? draftView.baseSlug,
     path: primary?.draftPath ?? null,

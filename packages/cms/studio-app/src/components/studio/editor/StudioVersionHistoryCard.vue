@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Ellipsis, Flag } from '@lucide/vue'
+import { computed, ref } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 
@@ -10,17 +11,33 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
 type VersionListItem = {
   _id: string
   action?: string
+  createdAt?: number
   createdBy?: string
+  createdByLabel?: string | null
   displayAction?: string
+  isCurrentPublished?: boolean
+  message?: string | null
   publishedLocales?: string[]
   version?: number
 }
+
+const DEFAULT_VISIBLE_VERSIONS = 5
+const showAllVersions = ref(false)
+const visibleVersions = computed<VersionListItem[]>(() =>
+  showAllVersions.value
+    ? editor.history.versions
+    : editor.history.versions.slice(0, DEFAULT_VISIBLE_VERSIONS),
+)
+const latestVersionId = computed(() => editor.history.versions[0]?._id ?? null)
 
 function localeLabel(code: string) {
   const match = editor.loader.locales?.find((locale: { code: string; label?: string }) => {
     return locale.code === code
   })
-  return match?.label ?? code.toUpperCase()
+  const label = match?.label?.trim()
+  // A label that is just the bare locale code reads as a typo ("Published en");
+  // fall back to the uppercase code the rest of the UI uses.
+  return label && label.toLowerCase() !== code.toLowerCase() ? label : code.toUpperCase()
 }
 
 function formatVersionAction(version: VersionListItem) {
@@ -69,7 +86,7 @@ function formatVersionAction(version: VersionListItem) {
       class="ginko:mt-4 ginko:overflow-hidden ginko:rounded-md ginko:border ginko:border-border/40"
     >
       <Item
-        v-for="(version, idx) in editor.history.versions.slice(0, 3)"
+        v-for="(version, idx) in visibleVersions"
         :key="version._id"
         size="xs"
         :class="[Number(idx) > 0 && 'ginko:border-t ginko:border-border/30', 'ginko:flex-nowrap']"
@@ -86,6 +103,9 @@ function formatVersionAction(version: VersionListItem) {
               {{ formatVersionAction(version) }}
             </span>
             <span v-if="version.message"> · {{ version.message }}</span>
+            <span v-if="version.createdByLabel">
+              · {{ ce('versionBy', { name: version.createdByLabel }) }}
+            </span>
             <span> · </span>
             <NuxtTime
               :datetime="version.createdAt"
@@ -122,20 +142,71 @@ function formatVersionAction(version: VersionListItem) {
               </div>
             </dl>
           </StudioDeveloperDetails>
+          <StudioVersionDiffList v-if="editor.history.diffLeftVersionId === version._id" />
         </ItemContent>
         <ItemActions>
-          <Button
-            variant="ghost"
-            size="icon"
-            class="ginko:size-7"
-            :aria-label="ce('versionDetailsAria', { version: version.version })"
-            :aria-expanded="editor.history.previewVersionId === version._id"
-            @click="editor.history.toggleVersionPreview(version._id)"
-          >
-            <Ellipsis aria-hidden="true" class="ginko:size-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="ginko:size-7"
+                :aria-label="ce('versionActionsAria', { version: version.version })"
+              >
+                <Ellipsis aria-hidden="true" class="ginko:size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="ginko:w-64">
+              <DropdownMenuItem
+                v-if="version._id !== latestVersionId"
+                @click="editor.history.toggleDiff(version._id)"
+              >
+                {{
+                  editor.history.diffLeftVersionId === version._id
+                    ? ce('hideDiff')
+                    : ce('compareWithCurrent')
+                }}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                v-if="editor.loader.canEditEntries"
+                :disabled="editor.draft.saving"
+                @click="editor.history.handleRollback(version._id)"
+              >
+                {{ editor.loader.t('ginkoCms.common.restoreAsDraft') }}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                v-if="editor.loader.canEditEntries && editor.loader.canPublishEntries"
+                :disabled="editor.draft.saving"
+                @click="editor.history.handleRollback(version._id, true)"
+              >
+                {{ editor.loader.t('ginkoCms.common.restoreAndPublish') }}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator
+                v-if="editor.loader.canEditEntries || version._id !== latestVersionId"
+              />
+              <DropdownMenuItem
+                :aria-expanded="editor.history.previewVersionId === version._id"
+                @click="editor.history.toggleVersionPreview(version._id)"
+              >
+                {{ ce('versionDetails') }}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </ItemActions>
       </Item>
     </div>
+    <Button
+      v-if="editor.history.versions.length > DEFAULT_VISIBLE_VERSIONS"
+      variant="ghost"
+      size="sm"
+      class="ginko:mt-2 ginko:h-7 ginko:w-full ginko:text-xs"
+      @click="showAllVersions = !showAllVersions"
+    >
+      {{
+        showAllVersions
+          ? ce('versionsShowFewer')
+          : ce('versionsShowAll', { count: editor.history.versions.length })
+      }}
+    </Button>
   </StudioInspectorSection>
 </template>

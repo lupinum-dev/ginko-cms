@@ -87,7 +87,8 @@ publish path is:
 
 Approval re-checks the reviewer role and stale draft state, then calls the
 canonical backend publish operation. Direct agent publish, archive, restore,
-delete, backup export, asset ownership changes, and purge are not exposed.
+delete, content portability, asset ownership changes, and purge are not
+exposed.
 
 ## Current Runtime Boundary
 

@@ -17,7 +17,9 @@ const overview = vi.hoisted(() => ({
   },
   collections: [
     {
-      blocked: 0,
+      // Two blocker entries as the backend counts them; one is archived and
+      // must be subtracted client-side (destination lists exclude archived).
+      blocked: 2,
       changedDrafts: 2,
       entryCount: 4,
       label: 'Pages',
@@ -50,7 +52,27 @@ const overview = vi.hoisted(() => ({
       updatedAt: 11,
     },
   ],
-  blocked: [],
+  blocked: [
+    {
+      collection: 'pages',
+      entryId: 'entry-3',
+      path: '/archived-probe',
+      publicState: 'needs_attention',
+      status: 'archived',
+      title: 'Archived probe',
+      updatedAt: 14,
+    },
+    {
+      blockingIssueCount: 1,
+      collection: 'pages',
+      entryId: 'entry-4',
+      path: '/blocked-draft',
+      publicState: 'needs_attention',
+      status: 'draft',
+      title: 'Blocked draft',
+      updatedAt: 15,
+    },
+  ],
   missingTranslations: [],
   recentPublished: [
     {
@@ -281,12 +303,14 @@ describe('Studio dashboard page', () => {
     expect(wrapper.text()).toContain('Missing languages')
     expect(wrapper.text()).toContain('Ready for review')
     expect(wrapper.text()).toContain('AI prepared')
-    expect(wrapper.findAll('a').map((link) => link.attributes('href'))).toEqual(
-      expect.arrayContaining(['/studio/content', '/studio/reviews']),
-    )
+    const hrefs = wrapper.findAll('a').map((link) => link.attributes('href'))
+    expect(hrefs).toContain('/studio/reviews')
+    // Ready to preview has no list filter that reproduces its count, so the
+    // row stays unlinked; /studio/content is a dead route (NAV-01).
+    expect(hrefs).not.toContain('/studio/content')
   })
 
-  it('deep-links queue rows into the first entry-capable collection with the matching filter', () => {
+  it('deep-links queue rows per collection with the matching filter', () => {
     const wrapper = mount(StudioDashboardPage, {
       global: {
         stubs: stubs(),
@@ -301,8 +325,27 @@ describe('Studio dashboard page', () => {
         '/studio/content/pages?work=missing_translation',
       ]),
     )
+    // Rows carry the collection so the count matches the destination list.
+    expect(wrapper.text()).toContain('Continue editing · Pages')
     // Review queues keep pointing at the approvals page.
     expect(hrefs).toContain('/studio/reviews')
+  })
+
+  it('excludes archived entries from queue counts and the blocked card', () => {
+    const wrapper = mount(StudioDashboardPage, {
+      global: {
+        stubs: stubs(),
+      },
+    })
+
+    // Raw blocked count is 2, but one entry is archived: destination lists
+    // exclude archived, so the row must count 1 to match its link target.
+    const blockedRow = wrapper
+      .findAll('a')
+      .find((link) => link.attributes('href') === '/studio/content/pages?work=blocked')
+    expect(blockedRow?.text()).toContain('1')
+    expect(wrapper.text()).toContain('Blocked draft')
+    expect(wrapper.text()).not.toContain('Archived probe')
   })
 
   it('offers New content as the primary header action when entries can be created', () => {

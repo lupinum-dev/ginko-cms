@@ -35,12 +35,3 @@ export const revokeRun = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(components.ginkoCms.agentRuns.revokeRun, args as never),
 })
-
-export const recordWrite = mutation({
-  args: {
-    agentRunId: v.string(),
-    operationId: v.string(),
-  },
-  handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.agentRuns.recordWrite, args as never),
-})

@@ -14,7 +14,7 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
 
 <template>
   <div
-    class="ginko:rounded-md ginko:border ginko:bg-background ginko:p-3"
+    class="ginko:min-w-0 ginko:rounded-md ginko:border ginko:bg-background ginko:p-3"
     :class="localeState.current ? 'ginko:border-primary/50' : ''"
   >
     <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2">
@@ -30,7 +30,7 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
         </Badge>
       </div>
       <span
-        class="ginko:max-w-full ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
+        class="ginko:min-w-0 ginko:max-w-full ginko:break-all ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
       >
         {{
           localeState.href ||
@@ -44,25 +44,25 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
     <div
       class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:@2xl:grid-cols-3"
     >
-      <div>
+      <div class="ginko:min-w-0">
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
           {{ ce('localeVisibilityDraft') }}
         </div>
         <div class="ginko:mt-0.5 ginko:text-foreground">{{ localeState.draftState }}</div>
-        <div class="ginko:truncate ginko:font-mono ginko:text-xs">
+        <div class="ginko:break-all ginko:font-mono ginko:text-xs">
           {{ localeState.draftPath || localeState.path || ce('localeVisibilityNoUrl') }}
         </div>
       </div>
-      <div>
+      <div class="ginko:min-w-0">
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
           {{ ce('localeVisibilityLive') }}
         </div>
         <div class="ginko:mt-0.5 ginko:text-foreground">{{ localeState.publishedState }}</div>
-        <div class="ginko:truncate ginko:font-mono ginko:text-xs">
+        <div class="ginko:break-all ginko:font-mono ginko:text-xs">
           {{ localeState.href || localeState.publishedPath || ce('localeVisibilityNoUrl') }}
         </div>
       </div>
-      <div>
+      <div class="ginko:min-w-0">
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
           {{ ce('localeVisibilityWebsiteSurfaces') }}
         </div>

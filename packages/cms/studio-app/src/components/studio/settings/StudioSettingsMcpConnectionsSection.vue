@@ -6,6 +6,9 @@ import type { StudioSettingsAdminViewModel } from '../../../composables/internal
 
 const props = defineProps<{ admin: StudioSettingsAdminViewModel }>()
 const settings = props.admin
+// The /mcp route only exists when the host enables ginkoCms.mcp; without it,
+// minting keys would hand owners credentials that can never authenticate.
+const mcpRouteEnabled = computed(() => settings.config.mcp?.enabled === true)
 const showRevokedConnections = ref(false)
 type McpConnection = StudioSettingsAdminViewModel['mcpConnections'][number]
 type PendingRevokeConnection = Pick<McpConnection, 'apiKeyId' | 'label' | 'ownerUserId' | 'scopes'>
@@ -62,7 +65,18 @@ async function confirmRevokeConnection() {
         v-if="settings.mcpConnectionError"
         tone="danger"
         :description="settings.mcpConnectionError"
-      />
+      >
+        <StudioDeveloperDetails
+          v-if="settings.mcpConnectionErrorDetail"
+          class="ginko:mt-2"
+          :framed="false"
+        >
+          <code
+            class="ginko:block ginko:break-all ginko:rounded ginko:bg-background ginko:px-2 ginko:py-1 ginko:text-xs"
+            >{{ settings.mcpConnectionErrorDetail }}</code
+          >
+        </StudioDeveloperDetails>
+      </StudioNotice>
 
       <StudioNotice
         v-if="settings.mcpConnectionInfo"
@@ -88,7 +102,20 @@ async function confirmRevokeConnection() {
         </div>
       </StudioNotice>
 
-      <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-4">
+      <StudioNotice
+        v-if="!mcpRouteEnabled"
+        tone="neutral"
+        :title="settings.t('ginkoCms.studio.settingsPage.mcpDisabledTitle')"
+        :description="settings.t('ginkoCms.studio.settingsPage.mcpDisabledBody')"
+      >
+        <StudioDeveloperDetails class="ginko:mt-1" :framed="false">
+          <p class="ginko:mt-2 ginko:text-xs">
+            {{ settings.t('ginkoCms.studio.settingsPage.mcpDisabledDescription') }}
+          </p>
+        </StudioDeveloperDetails>
+      </StudioNotice>
+
+      <div v-else class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-4">
         <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@3xl:grid-cols-[1fr_10rem]">
           <div class="ginko:space-y-1.5">
             <Label class="ginko:text-xs ginko:text-muted-foreground">Name</Label>
@@ -196,7 +223,10 @@ async function confirmRevokeConnection() {
             </div>
             <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
               {{ connection.scopes.length }} permissions · Updated
-              {{ settings.formatTimestamp(connection.updatedAt) }}
+              {{ settings.formatTimestamp(connection.updatedAt)
+              }}<template v-if="connection.expiresAt">
+                · Expires {{ settings.formatTimestamp(connection.expiresAt) }}</template
+              >
             </div>
           </div>
           <Button

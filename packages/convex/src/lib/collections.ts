@@ -1,10 +1,14 @@
 import { normalizeFields } from '@lupinum/ginko-cms-contract/shared/fields/normalize.js'
 
-import type { Doc, Id } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'
+import {
+  listInstalledCollections,
+  projectContentCollection,
+  readInstalledCmsContract,
+} from './installedContract.js'
 import type { CmsCollection, CmsField, ReadCtx, SlugMode } from './types.js'
 
-export const MAX_EXACT_COLLECTION_ENTRY_COUNT = 1000
+export const MAX_EXACT_COLLECTION_ENTRY_COUNT = 1500
 
 export type CollectionEntryCountSnapshot = {
   count: number
@@ -68,17 +72,19 @@ export async function getCollectionOrThrow(ctx: ReadCtx, slug: string): Promise<
 }
 
 export async function getCollection(ctx: ReadCtx, slug: string): Promise<CmsCollection | null> {
-  const collection = await ctx.db
-    .query('collections')
-    .withIndex('by_slug', (q) => q.eq('slug', slug))
-    .first()
-
-  if (!collection) return null
-
-  return normalizeCollectionDoc(collection)
+  const installed = await readInstalledCmsContract(ctx)
+  const collection = installed?.content.collections[slug]
+  if (!installed || !collection) return null
+  return projectContentCollection(collection, {
+    contentHash: installed.record.contentHash,
+    presentation: installed.record.presentation,
+    installedAt: installed.record.installedAt,
+    installedBy: installed.record.installedBy,
+  })
 }
 
-export function normalizeCollectionDoc(collection: Doc<'collections'>): CmsCollection {
+/** Normalize a projected collection without consulting another source of truth. */
+export function normalizeCollectionDoc(collection: CmsCollection): CmsCollection {
   return {
     ...collection,
     fields: normalizeFields(collection.fields as Array<Partial<CmsField>>),
@@ -92,27 +98,26 @@ export function normalizeCollectionDoc(collection: Doc<'collections'>): CmsColle
   }
 }
 
-export async function collectionHasEntries(
-  ctx: ReadCtx,
-  collectionId: Id<'collections'>,
-): Promise<boolean> {
+export async function collectionHasEntries(ctx: ReadCtx, collection: string): Promise<boolean> {
   const entry = await ctx.db
     .query('entries')
-    .withIndex('by_collection_status', (q) => q.eq('collectionId', collectionId))
+    .withIndex('by_collection_lifecycle', (q) => q.eq('collection', collection))
     .first()
   return !!entry
 }
 
 export async function collectionEntryCountSnapshot(
   ctx: ReadCtx,
-  collectionId: Id<'collections'>,
+  collection: string,
 ): Promise<CollectionEntryCountSnapshot> {
   const entries = await ctx.db
     .query('entries')
-    .withIndex('by_collection_status', (q) => q.eq('collectionId', collectionId))
+    .withIndex('by_collection_lifecycle', (q) => q.eq('collection', collection))
     .take(MAX_EXACT_COLLECTION_ENTRY_COUNT + 1)
   if (entries.length > MAX_EXACT_COLLECTION_ENTRY_COUNT) {
     return { count: MAX_EXACT_COLLECTION_ENTRY_COUNT, exact: false }
   }
   return { count: entries.length, exact: true }
 }
+
+export { listInstalledCollections }

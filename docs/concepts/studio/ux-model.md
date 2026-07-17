@@ -21,16 +21,15 @@ facts stay available, but behind diagnostics disclosure.
 
 ## Navigation Model
 
-- Dashboard: work queue, blockers, translations, imports, revalidation, recent
+- Dashboard: work queue, blockers, translations, revalidation, recent
   publishing, and activity.
 - Content: collection inventory and entry lists with public-output readiness.
 - Entry editor: draft editing, locale readiness, website changes, publish, and
   verification.
 - Assets: managed assets with usage-aware destructive actions.
-- Imports: filesystem import runs under existing code-defined contracts.
 - Content model: read-only collection, field, routing, locale, and public
   behavior inspection.
-- Activity: editorial, publish, import, asset, and revalidation history.
+- Activity: editorial, publish, portability, asset, and revalidation history.
 - Settings: members, locales, revalidation targets, MCP, and project settings.
 
 ## Vocabulary
@@ -57,7 +56,7 @@ Studio may inspect code-defined content model state and operate content
 workflows. It must not create, update, delete, import, or reorder schema.
 
 The Nuxt app owns presentation. Studio owns content operations: drafts,
-localized content, routes, SEO, navigation placement, assets, imports, versions,
+localized content, routes, SEO, navigation placement, assets, versions,
 public-output readiness, publishing, revalidation visibility, and activity.
 
 ## Related Pages

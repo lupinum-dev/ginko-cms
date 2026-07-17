@@ -153,8 +153,8 @@ function updateCustomJson(nextValue: string) {
         </div>
         <label class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-xs">
           <Switch
-            :checked="!day.closed"
-            @update:checked="updateHoursDay(index, { closed: !$event })"
+            :model-value="!day.closed"
+            @update:model-value="updateHoursDay(index, { closed: !$event })"
           />
           {{ t('ginkoCms.studio.siteDataEditor.open') }}
         </label>
@@ -177,7 +177,10 @@ function updateCustomJson(nextValue: string) {
 
     <div v-else-if="blockType === 'banner'" class="ginko:space-y-3">
       <label class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm">
-        <Switch :checked="!!value.enabled" @update:checked="updateField('enabled', $event)" />
+        <Switch
+          :model-value="!!value.enabled"
+          @update:model-value="updateField('enabled', $event)"
+        />
         {{ t('ginkoCms.common.enabled') }}
       </label>
       <StudioFieldShell

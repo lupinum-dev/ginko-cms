@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
+import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import { createJiti } from 'jiti'
@@ -17,11 +18,14 @@ type PushArgs = {
   check: boolean
 }
 
-type CheckCmsPolicyResult = {
+type CheckCmsContractResult = {
   matches: boolean
-  installedContractSha256: string | null
-  expectedContractSha256: string
+  installedContentHash: string | null
+  installedPresentationHash: string | null
+  expectedContentHash: string
+  expectedPresentationHash: string
   drift: Array<{ path: string; installed?: unknown; expected?: unknown }>
+  presentationDrift: Array<{ path: string; installed?: unknown; expected?: unknown }>
 }
 
 function parsePushArgs(args: string[]): PushArgs {
@@ -32,11 +36,11 @@ function parsePushArgs(args: string[]): PushArgs {
 
 export async function loadContentConfig(
   cwd: string,
-): Promise<{ content?: ContentRuntimePolicyInput }> {
+): Promise<{ content?: ContentRuntimePolicyInput; presentation: JsonValue }> {
   const configPath = resolve(cwd, 'nuxt.config.ts')
   if (!existsSync(resolve(cwd, 'content.config.ts'))) {
     throw new Error(
-      'ginko-cms push requires content.config.ts as the canonical Content policy source.',
+      'ginko-cms push requires content.config.ts as the canonical Content contract source.',
     )
   }
   const importer = createJiti(import.meta.url, { interopDefault: true })
@@ -56,13 +60,19 @@ export async function loadContentConfig(
     }
   }
   const config = ((loaded as { default?: unknown }).default ?? loaded) as {
-    ginkoCms?: object | false
+    ginkoCms?: { editorialLayout?: JsonValue } | false
     content?: { i18n?: ContentRuntimePolicyInput }
   }
   if (config.ginkoCms === false) {
     throw new Error('ginko-cms is disabled in nuxt.config; no collection contracts can be pushed.')
   }
-  return { content: config.content?.i18n }
+  return {
+    content: config.content?.i18n,
+    presentation:
+      config.ginkoCms && typeof config.ginkoCms === 'object'
+        ? (config.ginkoCms.editorialLayout ?? { collections: {} })
+        : { collections: {} },
+  }
 }
 
 export async function runPushCommand(
@@ -73,8 +83,9 @@ export async function runPushCommand(
 ): Promise<number> {
   const push = parsePushArgs(args.slice(1))
   const config = await loadContentConfig(cwd)
-  const contract = await loadGinkoContentContract({ rootDir: cwd, content: config.content })
-  const contractSha256 = await hashCanonicalJson(contract)
+  const content = await loadGinkoContentContract({ rootDir: cwd, content: config.content })
+  const contentHash = await hashCanonicalJson(content as unknown as JsonValue)
+  const presentationHash = await hashCanonicalJson(config.presentation)
   const client = convexClientFactory(publicConvexUrl(cwd))
   const adminKey = deployKey(cwd)
   if (!client.setAdminAuth) {
@@ -83,30 +94,36 @@ export async function runPushCommand(
   client.setAdminAuth(adminKey)
 
   if (push.check) {
-    const result = (await client.query(anyApi.ginkoCms.policy.checkCmsPolicy, {
-      contract,
-      contractSha256,
-    })) as CheckCmsPolicyResult
+    const result = (await client.query(anyApi.ginkoCms.contract.checkCmsContract, {
+      content,
+      contentHash,
+      presentation: config.presentation,
+      presentationHash,
+    })) as CheckCmsContractResult
     if (!result.matches) {
-      write(io.stderr, `Ginko CMS policy drift detected (${result.drift.length} change(s)):\n`)
-      for (const change of result.drift) write(io.stderr, `  - ${change.path}\n`)
+      const drift = [...result.drift, ...result.presentationDrift]
+      write(io.stderr, `Ginko CMS contract drift detected (${drift.length} change(s)):\n`)
+      for (const change of drift) write(io.stderr, `  - ${change.path}\n`)
       return 1
     }
     write(
       io.stdout,
-      `Ginko CMS policy ${contractSha256} is installed for ${Object.keys(contract.collections).length} collection(s).\n`,
+      `Ginko CMS contract is installed for ${Object.keys(content.collections).length} collection(s) (content=${contentHash}, presentation=${presentationHash}).\n`,
     )
     return 0
   }
 
-  const result = (await client.mutation(anyApi.ginkoCms.policy.installCmsPolicy, {
-    contract,
-    contractSha256,
+  const result = (await client.mutation(anyApi.ginkoCms.contract.installCmsContract, {
+    content,
+    contentHash,
+    presentation: config.presentation,
+    presentationHash,
   })) as { created: number; updated: number; skipped: number; missingFromConfig: string[] }
   write(
     io.stdout,
-    `Ginko CMS collection contracts pushed: created=${result.created}, updated=${result.updated}, skipped=${result.skipped}, missingFromConfig=[${result.missingFromConfig.join(', ')}].\n`,
+    `Ginko CMS contract installed: created=${result.created}, updated=${result.updated}, skipped=${result.skipped}, missingFromConfig=[${result.missingFromConfig.join(', ')}].\n`,
   )
-  write(io.stdout, `Contract SHA-256: ${contractSha256}\n`)
+  write(io.stdout, `Content SHA-256: ${contentHash}\n`)
+  write(io.stdout, `Presentation SHA-256: ${presentationHash}\n`)
   return 0
 }

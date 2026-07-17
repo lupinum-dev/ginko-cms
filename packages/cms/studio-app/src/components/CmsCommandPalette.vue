@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { ArrowRight, FileText, History, Loader2, Search, Zap } from '@lucide/vue'
+import { ArrowRight, FileText, History, Layers, Loader2, Search, Zap } from '@lucide/vue'
 import { ListboxFilter } from 'reka-ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { api } from '../boundary/api'
 import { cmsPermissionKeys, type CmsPermissionKey } from '../composables/permissions'
+import { useCmsConfig } from '../composables/useCmsConfig'
 import { useCmsI18n } from '../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
+import { useCmsStudioQuery } from '../composables/useCmsStudioQuery'
 import { useStudioSearch } from '../composables/useStudioSearch'
+import {
+  codeDefinedCollectionList,
+  type StudioCollectionListItem,
+} from '../lib/codeDefinedCollections'
 import {
   studioRouteHref,
   studioStaticRoutes,
@@ -20,17 +27,18 @@ interface PaletteItem {
   id: string
   title: string
   subtitle?: string
+  /** Extra match-only text (e.g. collection slugs) that is never rendered. */
+  keywords?: string
   href?: string
   group: 'recent' | 'content' | 'links' | 'actions'
   action?: () => Promise<void> | void
 }
 
 interface SearchResultItem {
-  _id: string
+  id: string
   title?: string | null
-  slug: string
-  snippet?: string | null
   collection: string
+  route: { slug: string; href: string }
 }
 
 const props = defineProps<{
@@ -64,8 +72,12 @@ const cmsSearch = useStudioSearch(debouncedQuery, {
   ),
   limit: 10,
 })
+// Server content search runs everywhere: scoped to the collection inside a
+// collection route, across all route-backed collections elsewhere. Local items
+// still filter instantly; the spinner only fills the gap when nothing local
+// matches yet (see the template's v-if).
 const searchPending = computed(
-  () => query.value !== debouncedQuery.value || cmsSearch.pending?.value,
+  () => query.value !== debouncedQuery.value || cmsSearch.pending.value === true,
 )
 
 const capabilityAccess: Partial<Record<CmsPermissionKey, typeof canManageAssets>> = {
@@ -89,6 +101,54 @@ const staticLinks = computed<PaletteItem[]>(() =>
   })),
 )
 
+// Collection pages, resolved the same way as the sidebar: code-defined
+// collections win the list shape, server labels win the copy.
+const cmsConfig = useCmsConfig()
+const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
+const collectionLinks = computed<PaletteItem[]>(() => {
+  const fromConvex = (collectionsQuery.data.value ?? []) as StudioCollectionListItem[]
+  const hostCollections = codeDefinedCollectionList(cmsConfig.collections, cmsConfig.defaultLocale)
+  const bySlug = new Map(fromConvex.map((collection) => [collection.slug, collection]))
+  const merged = hostCollections.length
+    ? hostCollections.map((collection) => ({
+        ...collection,
+        label: bySlug.get(collection.slug)?.label || collection.label,
+      }))
+    : fromConvex
+  return merged.map((collection) => ({
+    id: `collection-${collection.slug}`,
+    title: collection.label,
+    keywords: collection.slug,
+    href: `${contentRoute.value}/${collection.slug}`,
+    group: 'links' as const,
+  }))
+})
+
+// Local, instant filter for the non-server groups: every whitespace-separated
+// token must appear in the item's title, subtitle, or keywords (case- and
+// diacritic-insensitive substring match).
+function normalizeForMatch(text: string): string {
+  return text
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036F]/g, '')
+    .toLowerCase()
+}
+const queryTokens = computed(() =>
+  normalizeForMatch(query.value.trim()).split(/\s+/).filter(Boolean),
+)
+function filterByQuery(items: PaletteItem[]): PaletteItem[] {
+  const tokens = queryTokens.value
+  if (!tokens.length) return items
+  return items.filter((item) => {
+    const haystack = normalizeForMatch(
+      [item.title, item.subtitle, item.keywords].filter(Boolean).join(' '),
+    )
+    return tokens.every((token) => haystack.includes(token))
+  })
+}
+const visibleCollections = computed(() => filterByQuery(collectionLinks.value))
+const visibleLinks = computed(() => filterByQuery(staticLinks.value))
+
 const actionItems = computed((): PaletteItem[] => {
   const items: PaletteItem[] = []
   if (collection.value) {
@@ -104,13 +164,14 @@ const actionItems = computed((): PaletteItem[] => {
   }
   return items
 })
+const visibleActions = computed(() => filterByQuery(actionItems.value))
 
 const searchItems = computed<PaletteItem[]>(() =>
   (cmsSearch.results.value as SearchResultItem[]).map((item) => ({
-    id: `content-${item._id}`,
-    title: item.title || item.slug,
-    subtitle: item.snippet ?? `${item.collection} content`,
-    href: `${contentRoute.value}/${item.collection}/${item._id}`,
+    id: `content-${item.id}`,
+    title: item.title || item.route.slug,
+    subtitle: item.route.href,
+    href: `${contentRoute.value}/${item.collection}/${item.id}`,
     group: 'content',
   })),
 )
@@ -123,15 +184,30 @@ const recentSection = computed<PaletteItem[]>(() =>
 // render; the refreshed reka-ui Command otherwise filters items client-side by
 // their rendered text against filterState.search. We deliberately keep the
 // Command's internal filter disabled (its search state is never populated — see
-// the ListboxFilter bound to `query` below) and drive visibility purely from the
-// server results + these v-if guards, so this custom empty state replaces the
-// self-gating <CommandEmpty>.
+// the ListboxFilter bound to `query` below) and drive visibility purely from
+// `filterByQuery` + the server results + these v-if guards, so this custom
+// empty state replaces the self-gating <CommandEmpty>. Highlight stays correct
+// because reka's ListboxFilter re-highlights the first item after every
+// keystroke (post-render), so Enter always opens the top visible result.
 const hasAnyItems = computed(
   () =>
     recentSection.value.length > 0 ||
     searchItems.value.length > 0 ||
-    staticLinks.value.length > 0 ||
-    actionItems.value.length > 0,
+    visibleCollections.value.length > 0 ||
+    visibleLinks.value.length > 0 ||
+    visibleActions.value.length > 0,
+)
+
+// Changes whenever the rendered lists change shape; drives the highlight-sync
+// helper so async result updates keep a valid highlighted item for Enter.
+const highlightSignal = computed(() =>
+  [
+    recentSection.value.length,
+    searchItems.value.length,
+    visibleCollections.value.length,
+    visibleLinks.value.length,
+    visibleActions.value.length,
+  ].join('-'),
 )
 
 watch(open, (value) => {
@@ -215,6 +291,7 @@ onBeforeUnmount(() => {
     :description="t('ginkoCms.studio.commandPalette.description')"
     @update:open="open = $event"
   >
+    <CmsCommandPaletteHighlightSync :signal="highlightSignal" />
     <!--
       Custom command input: bind reka's ListboxFilter to `query` (which drives
       the debounced server search) rather than the Command context's
@@ -237,7 +314,7 @@ onBeforeUnmount(() => {
     </div>
     <CommandList>
       <div
-        v-if="searchPending && query"
+        v-if="searchPending && query && !hasAnyItems"
         class="ginko:flex ginko:items-center ginko:justify-center ginko:py-8 ginko:text-sm ginko:text-muted-foreground"
       >
         <Loader2 class="ginko:mr-2 ginko:size-4 ginko:animate-spin" />
@@ -293,11 +370,34 @@ onBeforeUnmount(() => {
         </CommandItem>
       </CommandGroup>
 
-      <CommandSeparator v-if="(recentSection.length || searchItems.length) && staticLinks.length" />
+      <CommandSeparator
+        v-if="(recentSection.length || searchItems.length) && visibleCollections.length"
+      />
 
-      <CommandGroup :heading="t('ginkoCms.common.pages')">
+      <CommandGroup v-if="visibleCollections.length" :heading="t('ginkoCms.common.collections')">
         <CommandItem
-          v-for="item in staticLinks"
+          v-for="item in visibleCollections"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
+        >
+          <Layers class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+          </div>
+        </CommandItem>
+      </CommandGroup>
+
+      <CommandSeparator
+        v-if="
+          (recentSection.length || searchItems.length || visibleCollections.length) &&
+          visibleLinks.length
+        "
+      />
+
+      <CommandGroup v-if="visibleLinks.length" :heading="t('ginkoCms.common.pages')">
+        <CommandItem
+          v-for="item in visibleLinks"
           :key="item.id"
           :value="item.id"
           @select="selectItem(item)"
@@ -315,11 +415,11 @@ onBeforeUnmount(() => {
         </CommandItem>
       </CommandGroup>
 
-      <CommandSeparator v-if="actionItems.length" />
+      <CommandSeparator v-if="visibleActions.length" />
 
-      <CommandGroup v-if="actionItems.length" :heading="t('ginkoCms.common.actions')">
+      <CommandGroup v-if="visibleActions.length" :heading="t('ginkoCms.common.actions')">
         <CommandItem
-          v-for="item in actionItems"
+          v-for="item in visibleActions"
           :key="item.id"
           :value="item.id"
           @select="selectItem(item)"

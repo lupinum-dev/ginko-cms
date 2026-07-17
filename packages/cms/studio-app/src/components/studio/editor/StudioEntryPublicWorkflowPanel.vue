@@ -7,6 +7,7 @@ import StudioLocaleVisibilityRow from './StudioLocaleVisibilityRow.vue'
 import StudioPublishImpactSummary from './StudioPublishImpactSummary.vue'
 import StudioWorkflowDiagnosticsList from './StudioWorkflowDiagnosticsList.vue'
 import {
+  publishReviewStateLabelKey,
   statusToneClass,
   type StudioPublicVisibilityState,
   type StudioPublishImpactState,
@@ -56,10 +57,17 @@ const advancedEditor = useStudioAdvancedEditor()
 const { t } = useCmsI18n()
 const ce = (key: string, params?: Record<string, unknown>): string =>
   t(`ginkoCms.studio.collectionEditor.${key}`, params)
+
+const reviewBadgeLabel = computed(() => {
+  const key = publishReviewStateLabelKey(props.publishReview.state)
+  return key ? ce(key) : props.publishReview.label
+})
 </script>
 
 <template>
-  <section class="ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card ginko:p-5">
+  <section
+    class="ginko:min-w-0 ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card ginko:p-5"
+  >
     <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
       <div class="ginko:min-w-0">
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
@@ -79,7 +87,7 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
             variant="outline"
             :class="statusToneClass(publishReview.state)"
           >
-            {{ publishReview.label }}
+            {{ reviewBadgeLabel }}
           </Badge>
         </div>
       </div>
@@ -115,9 +123,11 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
       {{ publicVisibility.errorMessage }}
     </div>
     <div v-else class="ginko:mt-3 ginko:grid ginko:gap-3">
-      <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3">
+      <div
+        class="ginko:min-w-0 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3"
+      >
         <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
-          <div>
+          <div class="ginko:min-w-0">
             <div
               class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase"
             >

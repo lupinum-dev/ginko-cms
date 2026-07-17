@@ -1,188 +1,117 @@
-# Changing Collections During A Project
+# Changing The CMS Contract
 
-Use this guide when you change a collection, field, route, locale, or collection
-type after content already exists. Ginko CMS keeps one source of truth for
-content models: the host app's code. For Ginko Content apps, that is usually
-`content.config.ts`.
+`content.config.ts` is the code-owned input to the one installed `cmsContract`.
+The installed record contains the resolved collection schemas, locales, routing
+policy, and presentation metadata with separate content and presentation
+hashes. Studio never keeps a second editable copy.
 
-Studio, MCP, imports, and public reads inspect the synced collection contract,
-but they do not edit schema. Contract changes move in one direction:
-
-```text
-content.config.ts -> ginko-cms push -> synced CMS contract
-```
-
-`content.config.ts` is the only collection-policy source in Ginko CMS 0.2.
-Custom integrations must produce the same resolved Ginko Content contract;
-they cannot layer CMS-owned schema or routing overrides on top of it.
-
-Stored content is separate. If a contract change can invalidate existing
-entries, update the content explicitly before pushing the new contract.
-
-## The Short Version
-
-For every collection change, start with:
+Start every change with:
 
 ```bash
 pnpm exec ginko-cms push --check
 ```
 
-If the check reports only safe drift, run:
+Presentation-only changes can be installed directly with `ginko-cms push`.
+Content-compatible additions can also install directly when the drift report
+marks them safe. A content-incompatible change must use the bounded owner-only
+contract transition below.
+
+## Incompatible Contract Changes
+
+Examples include removing or renaming fields, changing field types or
+localization, removing locales, changing a populated collection between flat
+and tree structures, and removing a non-empty collection.
+
+Before staging:
+
+1. Create and verify an official Convex deployment backup.
+2. Explicitly unpublish every live entry in an affected collection. The CMS
+   refuses to begin while affected active publications exist.
+3. Test the transition against a disposable deployment.
+
+Create and edit a transition:
 
 ```bash
-pnpm exec ginko-cms push
+pnpm exec ginko-cms contract transition create <change-name>
+pnpm exec ginko-cms contract transition stage ginko/transitions/<file>.ts --yes
 ```
 
-If the check reports that a migration is required, stop before pushing the new
-contract:
+Staging locks Studio writes, reads affected drafts in bounded pages, runs the
+transform, validates every output under the exact target contract, and stores
+input/output hashes with draft-version fences. The command prints the durable
+run ID.
+
+Inspect and finish the run:
 
 ```bash
-pnpm exec ginko-cms migrate create <change-name>
-pnpm exec ginko-cms migrate plan ginko/migrations/<file>.ts
-pnpm exec ginko-cms migrate apply ginko/migrations/<file>.ts --yes
-pnpm exec ginko-cms push --check
+pnpm exec ginko-cms contract transition status <run-id>
+pnpm exec ginko-cms contract transition apply <run-id> --yes
+pnpm exec ginko-cms contract transition activate <run-id> --yes
 ```
 
-`migrate plan` reads live draft snapshots and shows counts plus sample changed
-paths. It writes nothing. `migrate apply` refuses to run without `--yes`, applies
-only changed entries, and uses `draftVersion` so entries edited after planning
-are not overwritten. It does not create an automatic backup or a migration
-history table.
+Apply is resumable after every page. Activation is atomic: it installs the
+target content hash and unlocks Studio only after every staged item was
+applied. Before apply begins, cancel with:
 
-The migration commands transform stored draft content under the active contract.
-They do not by themselves approve an incompatible code-defined contract change.
-After applying a migration, rerun `push --check` and push only when the check
-reports safe drift. If the guard still reports migration-required drift, the
-current product does not have a headless confirmation path for that hard cutover;
-plan an operator-owned rollout instead of forcing the contract through.
-
-## Safe Changes
-
-These changes are safe to push because they do not invalidate stored entry data:
-
-| Change                                         | Current handling |
-| ---------------------------------------------- | ---------------- |
-| Collection label change                        | Safe push        |
-| Collection icon change                         | Safe push        |
-| Non-schema collection settings change          | Safe push        |
-| Add a new collection                           | Safe push        |
-| Remove an empty collection                     | Safe push        |
-| Add an optional field                          | Safe push        |
-| Add a locale without removing existing locales | Safe push        |
-
-Safe does not mean no work happened. Ginko CMS may still refresh derived state
-so Studio lists, public projections, search, and navigation reflect the active
-contract.
-
-## When A Migration Is Required
-
-These changes can invalidate existing entries or public routes and require an
-explicit content migration when the collection already has entries:
-
-| Change                           | Why it is blocked                                             |
-| -------------------------------- | ------------------------------------------------------------- |
-| Add a required field             | Existing entries have no value                                |
-| Remove a field                   | Stored values would become orphaned                           |
-| Rename a field                   | The CMS cannot know whether this is rename or delete plus add |
-| Change a field type              | Existing values may not validate                              |
-| Change field localization        | Values must move between shared and locale state              |
-| Change the collection schema     | Existing entries may no longer validate on publish            |
-| Remove a locale                  | Locale-specific content must be archived, moved, or deleted   |
-| Change routing                   | Published URLs and redirects need an explicit decision        |
-| Change collection type           | Tree and flat entries have different invariants               |
-| Remove a collection with entries | Content must be archived, exported, or deleted first          |
-| Split or merge collections       | Entry identity, routes, relations, and public output change   |
-
-The guard is conservative on purpose. A blocked push means "write down the data
-change", not "clear tables until it works".
-
-## Recommended Production Flow
-
-1. Edit `content.config.ts`.
-2. Run `pnpm exec ginko-cms push --check`.
-3. If migration is required, create a migration scaffold:
-
-   ```bash
-   pnpm exec ginko-cms migrate create <change-name>
-   ```
-
-4. Export or otherwise preserve a verified backup through an owner-authenticated
-   operator workflow before changing shared data.
-
-5. Review the migration transform and plan it:
-
-   ```bash
-   pnpm exec ginko-cms migrate plan ginko/migrations/<file>.ts
-   ```
-
-6. Apply it explicitly:
-
-   ```bash
-   pnpm exec ginko-cms migrate apply ginko/migrations/<file>.ts --yes
-   ```
-
-7. Run `pnpm exec ginko-cms push --check`.
-8. If the check still reports migration-required drift, stop and plan the
-   operator cutover. Do not force a production contract update through table
-   edits.
-9. Run `pnpm exec ginko-cms push` only after the check reports safe drift.
-10. Run `pnpm exec ginko-cms doctor`.
-11. Run the host app's typecheck and build.
-12. Verify the changed public routes in the site.
-
-## Migration File Shape
-
-`ginko-cms migrate create <name>` creates a file under:
-
-```text
-ginko/migrations/
+```bash
+pnpm exec ginko-cms contract transition cancel <run-id> --yes
 ```
 
-The scaffold is intentionally plain TypeScript. It does not define schema. It
-only describes how one stored content entry should be transformed.
+After apply begins the run is resume-only; cancellation is deliberately
+rejected.
+
+## Transition File Shape
+
+Files live under `ginko/transitions/`. The generated scaffold shows the full
+input and output types. Output contains only canonical draft fields:
 
 ```ts
-type ContentMigrationEntry = {
-  collection: string
-  entryId: string
-  stableId: string | null
-  draftVersion: number
-  shared: Record<string, unknown>
-  locales: Record<string, { values: Record<string, unknown>; bodyMdc?: string | null } | null>
-}
-
 export default {
-  id: '2026-05-rename-post-badge-to-category',
-  collections: ['posts'],
+  id: '2026-07-rename-post-badge-to-category',
 
-  async up(entry: ContentMigrationEntry): Promise<ContentMigrationEntry> {
+  async up(entry) {
     const { badge, ...shared } = entry.shared
     return {
-      ...entry,
+      slug: entry.slug,
+      parentEntryId: entry.parentEntryId,
+      orderRank: entry.orderRank,
+      nodeKind: entry.nodeKind,
       shared: { ...shared, category: badge },
+      locales: Object.fromEntries(
+        Object.entries(entry.locales).map(([locale, value]) => [
+          locale,
+          { slug: value.slug, values: value.values, bodyMdc: value.bodyMdc },
+        ]),
+      ),
     }
   },
 }
 ```
 
-The runner treats `collection`, `entryId`, `stableId`, and `draftVersion` as
-identity fields. A migration may change `shared` values and locale values. It
-may create a missing locale row by changing a locale from `null` to an object,
-but it does not delete locale rows.
+The output cannot change entry identity or collection membership. It may change
+shared fields, localized values, slugs, placement, order, node kind, and the
+set of locale drafts when those changes validate under the target contract.
+Unknown output keys are rejected.
 
-Keep migrations direct. Do not add compatibility fields, runtime fallbacks, or
-parallel old/new models unless the product requirement is explicit.
+## Verification
 
-## Development Resets
+After activation:
 
-For disposable local data, a full CMS content reset can be acceptable after the
-team confirms the data can be discarded.
+```bash
+pnpm exec ginko-cms push --check
+pnpm exec ginko-cms doctor
+pnpm run typecheck
+pnpm run build
+```
 
-For shared staging or production data, reset is not a migration path. Export a
-backup and transform the content explicitly.
+Then republish deliberately and verify public routes, redirects, navigation,
+search, sitemap output, relations, assets, and locale alternates.
+
+For disposable greenfield data, abandoning the deployment is often simpler
+than transforming it. Never treat a shared production reset as a transition.
 
 ## Related Pages
 
-- [Migration recipes](./migrations/recipes.md)
-- [Migration recovery](./migrations/recovery.md)
-- [Filesystem migration](./filesystem-migration.md)
+- [Transition recipes](./migrations/recipes.md)
+- [Transition recovery](./migrations/recovery.md)
+- [Backup and recovery](../maintenance/backup-and-recovery.md)

@@ -67,8 +67,8 @@ export default defineContentConfig({
 })
 ```
 
-Data-only collections publish rows for list-style reads, but they do not create
-route rows, navigation entries, or sitemap URLs.
+Data-only collections publish rows for list-style reads, but they do not join
+the structural public route tree, navigation, or sitemap output.
 
 ## 4. Add A Relation
 

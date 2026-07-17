@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, Link2, Send } from '@lucide/vue'
+import { ChevronDown, Link2 } from '@lucide/vue'
 import { computed } from 'vue'
 
 import {
@@ -25,20 +25,10 @@ const workflow = computed(() => props.editor.workflow)
 const advancedEditor = useStudioAdvancedEditor()
 const { t } = useCmsI18n()
 
-const ready = computed(() => !editor.loader.pending && Boolean(editor.loader.entry))
-const canPublish = computed(() => editor.loader.canPublishEntries)
+// Gate on entry presence, not raw pending: background refreshes (post-save)
+// set pending while data is retained, and the panel must not flicker then.
+const ready = computed(() => Boolean(editor.loader.entry))
 const canPreview = computed(() => Boolean(workflow.value.currentReadinessView?.canPreview))
-
-// Contextual publish trigger (RFC D8): opens the SAME shared StudioPublishDialog
-// the top bar drives, backed by the same `useEntryPublishing` flow — two entry
-// points, one dialog, zero logic duplication. The canonical publish control stays
-// in StudioEntryTopBar; this is the review-side trigger next to blockers/impact.
-function openPublishDialog() {
-  if (!canPublish.value) return
-  if (editor.publishing.handlePublish()) {
-    workflow.value.previewPublishImpact(editor.loader.currentLocale)
-  }
-}
 </script>
 
 <template>
@@ -97,17 +87,10 @@ function openPublishDialog() {
         />
       </CollapsibleTrigger>
       <CollapsibleContent class="ginko:pb-4">
+        <!-- One primary action per screen (DESIGN principle 1): the canonical
+             Publish CTA lives in StudioEntryTopBar. The rail only offers the
+             supporting review actions. -->
         <div class="ginko:grid ginko:gap-2">
-          <Button
-            v-if="canPublish"
-            size="sm"
-            class="ginko:w-full"
-            :disabled="editor.loader.pending || editor.draft.saving"
-            @click="openPublishDialog"
-          >
-            <Send class="ginko:mr-1.5 ginko:size-3.5" />
-            {{ t('ginkoCms.common.publish') }}
-          </Button>
           <Button
             variant="outline"
             size="sm"

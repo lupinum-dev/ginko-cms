@@ -1,8 +1,5 @@
 import type { CmsPublicEntryWire } from '@lupinum/ginko-content/cms-contract'
-import {
-  normalizeProviderDocument,
-  type ProviderDocumentInput,
-} from '@lupinum/ginko-content/provider'
+import type { ProviderDocumentInput } from '@lupinum/ginko-content/provider'
 
 import { providerError } from './transport.js'
 
@@ -12,7 +9,6 @@ type ContentRuntime = {
 }
 
 type ParsedBodyOptions = { required?: boolean }
-type JsonContainer = Record<string, unknown> | unknown[]
 
 export const defaultLocale = (runtime: ContentRuntime = {}): string =>
   runtime?.defaultLocale ||
@@ -84,13 +80,13 @@ const applyAssetFacts = (entry: CmsPublicEntryWire) => {
           500,
         )
       }
-      current = (current as JsonContainer)[segment as never]
+      current = (current as Record<string | number, unknown>)[segment]
     }
     const terminal = segments.at(-1)!
     if (
       !current ||
       typeof current !== 'object' ||
-      (current as JsonContainer)[terminal as never] !== fact.assetId
+      (current as Record<string | number, unknown>)[terminal] !== fact.assetId
     ) {
       throw providerError(
         'provider_asset_fact_invalid',
@@ -98,7 +94,7 @@ const applyAssetFacts = (entry: CmsPublicEntryWire) => {
         500,
       )
     }
-    ;(current as JsonContainer)[terminal as never] = fact.url
+    ;(current as Record<string | number, unknown>)[terminal] = fact.url
   }
   return { data, bodyAst }
 }
@@ -138,7 +134,7 @@ const variantEntriesFor = (
 export const toContentEntry = async (
   entry: CmsPublicEntryWire,
   requestedLocale = defaultLocale(),
-) => {
+): Promise<ProviderDocumentInput> => {
   const resolvedAssets = applyAssetFacts(entry)
   const data = resolvedAssets.data
   const publicData = data
@@ -150,7 +146,7 @@ export const toContentEntry = async (
   const path = route.path
   const entryKey = publicEntryKey(entry)
 
-  return normalizeProviderDocument({
+  return {
     ...publicData,
     id: entry.id,
     collection: entry.collection,
@@ -175,7 +171,7 @@ export const toContentEntry = async (
     }) as ProviderDocumentInput['body'],
     stableId: entryKey,
     updatedAt: entry.updatedAt || entry.publishedAt,
-  })
+  }
 }
 
 export const routeFactFor = (entry: CmsPublicEntryWire) => ({

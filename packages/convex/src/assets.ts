@@ -35,7 +35,7 @@ import { logActivity } from './lib/activity.js'
 import { getCollection } from './lib/collections.js'
 import { toOptionalStringId, toStringId } from './lib/ids.js'
 import { sanitizeFilename, validateAssetUploadPolicy } from './lib/sanitize.js'
-import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
+import type { CmsCollection, MutationCtx, QueryOrMutationCtx } from './lib/types.js'
 import {
   blockedPreview,
   defineCmsOperation,
@@ -48,7 +48,6 @@ import {
 import { assertStorageOutsidePortableExportHold } from './portability/lease.js'
 
 type AssetDoc = Doc<'assets'>
-type CollectionDoc = Doc<'collections'>
 
 const MAX_RESOLVED_ASSET_URLS = 200
 const MAX_COLOCATED_GROUP_ASSETS = 200
@@ -97,8 +96,8 @@ type EntryCreatedAtCursor = {
   v: 1
   kind: 'entriesByCreatedAt'
   createdAt: number
-  collectionId: string
-  baseSlug: string
+  collection: string
+  slug: string
 }
 type CreatedAtCursor = AssetCreatedAtCursor | EntryCreatedAtCursor
 
@@ -112,14 +111,14 @@ function encodeAssetCreatedAtCursor(row: Pick<AssetDoc, 'createdAt' | 'storageId
 }
 
 function encodeEntryCreatedAtCursor(
-  row: Pick<Doc<'entries'>, 'createdAt' | 'collectionId' | 'baseSlug'>,
+  row: Pick<Doc<'entries'>, 'createdAt' | 'collection' | 'slug'>,
 ) {
   return JSON.stringify({
     v: 1,
     kind: 'entriesByCreatedAt',
     createdAt: row.createdAt,
-    collectionId: toStringId(row.collectionId),
-    baseSlug: row.baseSlug,
+    collection: row.collection,
+    slug: row.slug,
   } satisfies EntryCreatedAtCursor)
 }
 
@@ -153,8 +152,8 @@ function parseCreatedAtCursor(
   }
   if (
     kind === 'entriesByCreatedAt' &&
-    (typeof (parsed as EntryCreatedAtCursor).collectionId !== 'string' ||
-      typeof (parsed as EntryCreatedAtCursor).baseSlug !== 'string')
+    (typeof (parsed as EntryCreatedAtCursor).collection !== 'string' ||
+      typeof (parsed as EntryCreatedAtCursor).slug !== 'string')
   ) {
     throwCmsError('INVALID_CURSOR', message, { cursor })
   }
@@ -230,8 +229,8 @@ async function readEntriesByCreatedAt(
     .withIndex('by_createdAt_collection_slug', (q) =>
       q
         .eq('createdAt', cursor.createdAt)
-        .eq('collectionId', cursor.collectionId as Id<'collections'>)
-        .gt('baseSlug', cursor.baseSlug),
+        .eq('collection', cursor.collection)
+        .gt('slug', cursor.slug),
     )
     .order('asc')
     .take(limit)
@@ -240,9 +239,7 @@ async function readEntriesByCreatedAt(
   const nextCollections = await ctx.db
     .query('entries')
     .withIndex('by_createdAt_collection_slug', (q) =>
-      q
-        .eq('createdAt', cursor.createdAt)
-        .gt('collectionId', cursor.collectionId as Id<'collections'>),
+      q.eq('createdAt', cursor.createdAt).gt('collection', cursor.collection),
     )
     .order('asc')
     .take(limit - sameCollection.length)
@@ -297,16 +294,6 @@ function validateScope(args: {
   }
 }
 
-function normalizeCollectionId(ctx: QueryOrMutationCtx, collectionId: string): Id<'collections'> {
-  const normalized = ctx.db.normalizeId('collections', collectionId)
-  if (!normalized) {
-    throwCmsError('ASSET_SCOPE_INVALID', 'collectionId must be a valid CMS collection id.', {
-      collectionId,
-    })
-  }
-  return normalized
-}
-
 function normalizeEntryId(ctx: QueryOrMutationCtx, entryId: string): Id<'entries'> {
   const normalized = ctx.db.normalizeId('entries', entryId)
   if (!normalized) {
@@ -318,30 +305,26 @@ function normalizeEntryId(ctx: QueryOrMutationCtx, entryId: string): Id<'entries
 async function resolveCollectionForAssetScope(
   ctx: QueryOrMutationCtx,
   args: { collectionId?: string; collectionSlug?: string },
-): Promise<CollectionDoc> {
-  if (args.collectionId) {
-    const collectionId = normalizeCollectionId(ctx, args.collectionId)
-    const collection = await ctx.db.get(collectionId)
-    requireRecord(collection, 'Collection')
-    if (args.collectionSlug && collection.slug !== args.collectionSlug) {
+): Promise<CmsCollection> {
+  const slug = args.collectionSlug ?? args.collectionId
+  if (args.collectionId && args.collectionSlug && args.collectionId !== args.collectionSlug) {
+    throwCmsError(
+      'ASSET_SCOPE_INVALID',
+      'collectionId and collectionSlug must contain the same stable collection slug.',
+      { collectionId: args.collectionId, collectionSlug: args.collectionSlug },
+    )
+  }
+  if (slug) {
+    const collection = await getCollection(ctx, slug)
+    if (!collection) {
       throwCmsError(
         'ASSET_SCOPE_INVALID',
-        'collectionId and collectionSlug refer to different collections.',
-        {
-          collectionId: args.collectionId,
-          collectionSlug: args.collectionSlug,
-        },
+        `Collection "${slug}" is not present in the installed CMS contract.`,
+        { collection: slug },
       )
     }
     return collection
   }
-
-  if (args.collectionSlug) {
-    const collection = await getCollection(ctx, args.collectionSlug)
-    requireRecord(collection, 'Collection')
-    return collection
-  }
-
   throwCmsError('ASSET_SCOPE_INVALID', 'Collection scope requires collectionId or collectionSlug.')
 }
 
@@ -353,31 +336,35 @@ async function validateAssetScopeRelationships(
     collectionId?: string
     collectionSlug?: string
   },
-): Promise<{ entryId: Id<'entries'> | null; collectionId: Id<'collections'> | null }> {
+): Promise<{ entryId: Id<'entries'> | null; collection: string | null }> {
   validateScope(args)
 
   if (args.scope === 'global') {
-    return { entryId: null, collectionId: null }
+    return { entryId: null, collection: null }
   }
 
   const collection = await resolveCollectionForAssetScope(ctx, args)
-  const collectionId = collection._id
+  const collectionSlug = collection.slug
 
   if (args.scope === 'collection') {
-    return { entryId: null, collectionId }
+    return { entryId: null, collection: collectionSlug }
   }
 
   const entryId = normalizeEntryId(ctx, args.entryId!)
   const entry = await ctx.db.get(entryId)
   requireRecord(entry, 'Entry')
-  if (entry.collectionId !== collectionId) {
-    throwCmsError('ASSET_SCOPE_INVALID', 'Entry-scoped assets must use the entry collectionId.', {
-      entryId: args.entryId ?? null,
-      collectionId: args.collectionId ?? null,
-    })
+  if (entry.collection !== collectionSlug) {
+    throwCmsError(
+      'ASSET_SCOPE_INVALID',
+      'Entry-scoped assets must use the entry collection slug.',
+      {
+        entryId: args.entryId ?? null,
+        collection: collectionSlug,
+      },
+    )
   }
 
-  return { entryId, collectionId }
+  return { entryId, collection: collectionSlug }
 }
 
 async function deleteAssetReferenceRows(ctx: MutationCtx, assetId: string) {
@@ -399,7 +386,7 @@ async function mapAssetManagerAsset(
   asset: AssetDoc,
   relationships: AssetRelationships,
 ) {
-  const collectionId = toOptionalStringId(asset.collectionId)
+  const collectionId = asset.collection ?? null
   const entryId = toOptionalStringId(asset.entryId)
   const collectionMeta = collectionId ? relationships.collectionById.get(collectionId) : null
   const entryMeta = entryId ? relationships.entryById.get(entryId) : null
@@ -597,7 +584,7 @@ export async function registerVerifiedAssetRecord(
     createdBy: string
   },
 ) {
-  const { entryId, collectionId } = await validateAssetScopeRelationships(ctx, args)
+  const { entryId, collection } = await validateAssetScopeRelationships(ctx, args)
   const filename = sanitizeFilename(args.filename)
   const assetId = await ctx.db.insert('assets', {
     storageId: args.storageId,
@@ -612,7 +599,7 @@ export async function registerVerifiedAssetRecord(
     caption: args.caption ?? null,
     scope: args.scope,
     entryId,
-    collectionId,
+    collection,
     tags: [],
     createdBy: args.createdBy,
     updatedBy: null,
@@ -626,7 +613,7 @@ export async function registerVerifiedAssetRecord(
     summary: `Uploaded asset "${filename}"`,
     appIdentityId: args.createdBy,
     entryId,
-    collectionId,
+    collection,
     detail: { filename, mimeType: args.mimeType, scope: args.scope, sha256: args.sha256 },
   })
   return toStringId(assetId)
@@ -648,7 +635,7 @@ export const attachAssetsToEntry = callerMutation.protected({
       await ctx.db.patch(asset._id, {
         scope: 'entry',
         entryId: entry._id,
-        collectionId: entry.collectionId,
+        collection: entry.collection,
         updatedBy: appIdentity.userId,
         updatedAt: Date.now(),
       })
@@ -687,7 +674,7 @@ export const updateAsset = callerMutation.protected({
       summary: `Updated asset "${args.filename ?? asset.filename}"`,
       appIdentityId: appIdentity.userId,
       entryId: asset.entryId ?? null,
-      collectionId: asset.collectionId ?? null,
+      collection: asset.collection ?? null,
       detail: {
         fields: [
           args.alt !== undefined ? 'alt' : null,
@@ -709,14 +696,14 @@ export const moveAsset = callerMutation.protected({
   returns: v.null(),
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    const { entryId, collectionId } = await validateAssetScopeRelationships(ctx, args)
+    const { entryId, collection } = await validateAssetScopeRelationships(ctx, args)
     const asset = await ctx.db.get(args.assetId as Id<'assets'>)
     requireRecord(asset, 'Asset')
 
     await ctx.db.patch(asset._id, {
       scope: args.scope,
       entryId,
-      collectionId,
+      collection,
       updatedBy: appIdentity.userId,
       updatedAt: Date.now(),
     })
@@ -784,7 +771,7 @@ export const listColocatedAssets = callerQuery.protected({
     if (entryId) {
       const entry = await ctx.db.get(entryId)
       requireRecord(entry, 'Entry')
-      if (entry.collectionId !== collection._id) {
+      if (entry.collection !== collection.slug) {
         throwCmsError('ASSET_SCOPE_INVALID', 'entryId must belong to collectionSlug.', {
           collectionSlug: args.collectionSlug,
           entryId: args.entryId ?? null,
@@ -795,7 +782,7 @@ export const listColocatedAssets = callerQuery.protected({
     const currentCollectionAssets = (
       await ctx.db
         .query('assets')
-        .withIndex('by_collection', (q) => q.eq('collectionId', collection._id))
+        .withIndex('by_collection', (q) => q.eq('collection', collection.slug))
         .order('desc')
         .take(MAX_COLOCATED_GROUP_ASSETS)
     ).filter((asset) => asset.deletedAt == null)
@@ -812,7 +799,7 @@ export const listColocatedAssets = callerQuery.protected({
         .withIndex('by_scope', (q) => q.eq('scope', 'collection'))
         .order('desc')
         .take(MAX_COLOCATED_GROUP_ASSETS)
-    ).filter((asset) => asset.deletedAt == null && asset.collectionId !== collection._id)
+    ).filter((asset) => asset.deletedAt == null && asset.collection !== collection.slug)
 
     const byId = new Map<string, AssetDoc>()
     for (const asset of [...currentCollectionAssets, ...globalAssets, ...otherCollectionAssets]) {
@@ -947,9 +934,7 @@ export const rebuildContentAssetRefsPage = callerMutation.protected({
     const page = isDone ? rows : rows.slice(0, pageSize)
 
     for (const entry of page) {
-      const collectionDoc = await ctx.db.get(entry.collectionId)
-      if (!collectionDoc) continue
-      const collection = await getCollection(ctx, collectionDoc.slug)
+      const collection = await getCollection(ctx, entry.collection)
       if (!collection) continue
       await rebuildContentAssetRefsForEntry(ctx, entry._id, collection)
     }
@@ -1042,7 +1027,7 @@ export const deleteAssetOperation = defineCmsOperation({
       summary: `Moved asset "${asset.filename}" to trash`,
       appIdentityId: appIdentity.userId,
       entryId: asset.entryId ?? null,
-      collectionId: asset.collectionId ?? null,
+      collection: asset.collection ?? null,
       detail: { filename: asset.filename },
     })
 
@@ -1078,7 +1063,7 @@ export const restoreAsset = callerMutation.protected({
       summary: `Restored asset "${asset.filename}"`,
       appIdentityId: appIdentity.userId,
       entryId: asset.entryId ?? null,
-      collectionId: asset.collectionId ?? null,
+      collection: asset.collection ?? null,
       detail: { filename: asset.filename },
     })
 
@@ -1221,7 +1206,7 @@ export const purgeAssetOperation = defineCmsOperation({
       summary: `Deleted asset "${asset.filename}" permanently`,
       appIdentityId: appIdentity.userId,
       entryId: asset.entryId ?? null,
-      collectionId: asset.collectionId ?? null,
+      collection: asset.collection ?? null,
       detail: { filename: asset.filename },
     })
 

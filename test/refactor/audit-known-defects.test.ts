@@ -28,7 +28,7 @@ describe('known audit defects', () => {
     const body = section(
       source('packages/convex/src/entries/context.ts'),
       'export async function readStudioDraftView(',
-      'async function latestPublishedShared(',
+      'async function publishedSharedForRows(',
     )
 
     expect(body).toContain(".withIndex('by_entry_locale'")
@@ -46,8 +46,10 @@ describe('known audit defects', () => {
   it('checks draft path ownership through canonical siblings and explicit move-ins', () => {
     const body = source('packages/convex/src/entries/draftPathConflicts.ts')
     expect(body).toContain(".withIndex('by_parent'")
-    expect(body).toContain(".withIndex('by_parent_override'")
+    expect(body).toContain("q.eq('collection', args.collection.slug)")
+    expect(body).toContain('readDraftPlacementRows')
     expect(body).not.toContain("q.field('collectionId')")
+    expect(body).not.toContain(".withIndex('by_parent_override'")
     expect(body).not.toContain("query('publicEntries')")
     expect(body).not.toContain('readStudioDraftView')
     expect(body).not.toContain("from './context.js'")

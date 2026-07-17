@@ -33,6 +33,7 @@ import {
   type ReadinessAction,
   type ReadinessState,
 } from '@lupinum/ginko-cms-contract/shared/readiness.js'
+import { renderGinkoHref } from '@lupinum/ginko-cms-contract/shared/routeDiagnostics.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { v } from 'convex/values'
 
@@ -41,17 +42,24 @@ import { canRead } from '../auth/checks.js'
 import { attachEntryRecordAccess } from '../auth/recordAccess.js'
 import { throwCmsError } from '../errors.js'
 import { callerQuery } from '../functions.js'
-import { getCollectionOrThrow, isRouteBackedCollection } from '../lib/collections.js'
+import {
+  getCollectionDefaultLocale,
+  getCollectionOrThrow,
+  isRouteBackedCollection,
+  listInstalledCollections,
+} from '../lib/collections.js'
 import { isEqualJsonValue } from '../lib/data.js'
 import { toOptionalStringId, toStringId } from '../lib/ids.js'
-import { getLocaleChain } from '../lib/locale.js'
+import { getLocaleChain, getRoutingLocales } from '../lib/locale.js'
 import { compareOrderRank } from '../lib/ordering.js'
+import { pathPrefixForLocale, rootSlugForLocale } from '../lib/paths.js'
 import { buildSearchText } from '../lib/search.js'
 import { orderTreeRows } from '../lib/treeOrder.js'
 import type { ActivityDoc, HandlerQueryCtx } from '../lib/types.js'
 import type { EntryDoc, EntryRevisionDoc } from './context.js'
 import {
   buildStudioEntry,
+  deriveDirtyLocales,
   getCollectionForEntry,
   getEntryOrThrow,
   readStudioDraftView,
@@ -64,6 +72,7 @@ import {
   effectiveDraftSlug,
 } from './workflow/draftPlacement.js'
 import { readDraftRows } from './workflow/drafts.js'
+import { publicPathForEntry } from './workflow/publicTree.js'
 
 /** Default page size for the studio entry list. */
 const STUDIO_LIST_DEFAULT_LIMIT = 50
@@ -130,6 +139,32 @@ type PublicRoutePreview = {
   href: string
 }
 
+type StudioEntryStatus = 'draft' | 'published' | 'archived'
+
+function studioEntryStatus(entry: EntryDoc): StudioEntryStatus {
+  if (entry.lifecycle === 'archived') return 'archived'
+  return entry.activePublications.length > 0 ? 'published' : 'draft'
+}
+
+async function publicRoutePreview(
+  ctx: HandlerQueryCtx,
+  collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
+  row: Doc<'publicEntries'>,
+  routingLocales: Awaited<ReturnType<typeof getRoutingLocales>>,
+): Promise<PublicRoutePreview | null> {
+  const path = await publicPathForEntry(ctx, row, {
+    pathPrefix: pathPrefixForLocale(collection, row.locale),
+    rootSlug: rootSlugForLocale(collection, row.locale),
+  })
+  if (!path) return null
+  return {
+    entryId: toStringId(row.entryId),
+    locale: row.locale,
+    path,
+    href: renderGinkoHref({ locale: row.locale, path }, routingLocales),
+  }
+}
+
 function activityAppIdentityId(row: ActivityDoc): string {
   return row.appIdentityId ?? row.actorId ?? 'unknown'
 }
@@ -145,11 +180,11 @@ async function resolveActivityDisplayFields(
   entries: Map<string, string>
   actors: Map<string, string | null>
 }> {
-  const collectionIds = new Set<string>()
+  const collectionSlugs = new Set<string>()
   const entryIds = new Set<string>()
   const actorIds = new Set<string>()
   for (const row of page) {
-    if (row.collectionId) collectionIds.add(String(row.collectionId))
+    if (row.collection) collectionSlugs.add(row.collection)
     if (row.entryId) entryIds.add(String(row.entryId))
     // Rows written since the actorLabel column exists carry the name from
     // write time (even when it resolved to null) — only legacy rows need the
@@ -161,25 +196,22 @@ async function resolveActivityDisplayFields(
   const entries = new Map<string, string>()
   const actors = new Map<string, string | null>()
 
+  const installedCollections = await listInstalledCollections(ctx)
+  for (const collection of installedCollections) {
+    if (!collectionSlugs.has(collection.slug)) continue
+    const label =
+      typeof collection.label === 'string'
+        ? collection.label
+        : (Object.values(collection.label).find(Boolean) ?? null)
+    collections.set(collection.slug, { slug: collection.slug, label })
+  }
+
   await Promise.all([
-    ...Array.from(collectionIds, async (id) => {
-      const doc = await ctx.db.get(id as never)
-      if (doc && 'slug' in doc) {
-        const label = (doc as { label?: unknown }).label
-        const labelText =
-          typeof label === 'string'
-            ? label
-            : label && typeof label === 'object'
-              ? (Object.values(label as Record<string, string>).find(
-                  (value) => typeof value === 'string' && value,
-                ) ?? null)
-              : null
-        collections.set(id, { slug: (doc as { slug: string }).slug, label: labelText })
-      }
-    }),
     ...Array.from(entryIds, async (id) => {
-      const doc = await ctx.db.get(id as never)
-      if (doc && 'baseSlug' in doc) entries.set(id, (doc as { baseSlug: string }).baseSlug)
+      const entryId = ctx.db.normalizeId('entries', id)
+      if (!entryId) return
+      const doc = await ctx.db.get(entryId)
+      if (doc) entries.set(id, doc.slug)
     }),
     ...Array.from(actorIds, async (id) => {
       const member = await ctx.db
@@ -251,14 +283,20 @@ export async function previewDestructiveEntryOperation(ctx: HandlerQueryCtx, ent
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
     .collect()
-  const publicRoutes = await ctx.db
-    .query('publicRoutes')
-    .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
-    .collect()
+  const routingLocales = await getRoutingLocales(
+    ctx,
+    collection.locales,
+    getCollectionDefaultLocale(collection),
+  )
+  const publicRoutes = (
+    await Promise.all(
+      publicRows.map((row) => publicRoutePreview(ctx, collection, row, routingLocales)),
+    )
+  ).filter((route): route is PublicRoutePreview => route !== null)
   const publicDescendantRoutes = await readPublicDescendantRoutes(ctx, {
-    collectionId: collection._id,
-    locales: collection.locales,
+    collection,
     rootEntryId: entry._id,
+    routingLocales,
   })
   const publicRevisionIdsByLocale = Object.fromEntries(
     publicRows
@@ -268,33 +306,36 @@ export async function previewDestructiveEntryOperation(ctx: HandlerQueryCtx, ent
 
   return {
     entryId: toStringId(entry._id),
-    baseSlug: entry.baseSlug,
-    displayLabel: primaryTitle ?? primaryLocale?.draftSlug ?? draftView.baseSlug ?? entry.baseSlug,
-    status: entry.status,
+    baseSlug: entry.slug,
+    displayLabel: primaryTitle ?? primaryLocale?.draftSlug ?? draftView.baseSlug ?? entry.slug,
+    status: studioEntryStatus(entry),
     draftVersion: entry.draftVersion,
-    dirtyLocales: entry.dirtyLocales,
+    dirtyLocales: deriveDirtyLocales(
+      entry,
+      new Map(draftView.locales.map((locale) => [locale.locale, locale.draftVersion])),
+    ),
     publicRevisionIdsByLocale,
     publishedLocales: publicRoutes.map((route) => route.locale).sort(),
-    publicRoutes: publicRoutes
-      .map((route) => ({
-        entryId: toStringId(route.entryId),
-        locale: route.locale,
-        path: route.path,
-        href: route.href,
-      }))
-      .sort((left, right) =>
-        `${left.locale}:${left.path}`.localeCompare(`${right.locale}:${right.path}`),
-      ),
+    publicRoutes: publicRoutes.sort((left, right) =>
+      `${left.locale}:${left.path}`.localeCompare(`${right.locale}:${right.path}`),
+    ),
     publicDescendantRoutes,
   }
 }
 
 async function readPublicDescendantRoutes(
   ctx: HandlerQueryCtx,
-  args: { collectionId: Id<'collections'>; locales: string[]; rootEntryId: Id<'entries'> },
+  args: {
+    collection: Awaited<ReturnType<typeof getCollectionOrThrow>>
+    rootEntryId: Id<'entries'>
+    routingLocales: Awaited<ReturnType<typeof getRoutingLocales>>
+  },
 ): Promise<PublicRoutePreview[]> {
   const descendants: PublicRoutePreview[] = []
-  const queue = args.locales.map((locale) => ({ locale, parentEntryId: args.rootEntryId }))
+  const queue = args.collection.locales.map((locale) => ({
+    locale,
+    parentEntryId: args.rootEntryId,
+  }))
   const seen = new Set<string>()
 
   while (queue.length > 0) {
@@ -303,7 +344,7 @@ async function readPublicDescendantRoutes(
       .query('publicEntries')
       .withIndex('by_collection_locale_parent_orderKey', (q) =>
         q
-          .eq('collectionId', args.collectionId)
+          .eq('collection', args.collection.slug)
           .eq('locale', next.locale)
           .eq('parentEntryId', next.parentEntryId),
       )
@@ -312,12 +353,8 @@ async function readPublicDescendantRoutes(
       const key = `${row.locale}:${toStringId(row.entryId)}`
       if (seen.has(key)) continue
       seen.add(key)
-      descendants.push({
-        entryId: toStringId(row.entryId),
-        locale: row.locale,
-        path: row.path,
-        href: row.href,
-      })
+      const route = await publicRoutePreview(ctx, args.collection, row, args.routingLocales)
+      if (route) descendants.push(route)
       queue.push({ locale: row.locale, parentEntryId: row.entryId })
     }
   }
@@ -331,7 +368,7 @@ async function readPublicDescendantRoutes(
 
 type StudioEntryRowDoc = {
   entryId: Id<'entries'>
-  collectionId: Id<'collections'>
+  collection: string
   locale: string
   baseSlug: string
   stableId: string | null
@@ -379,16 +416,16 @@ async function buildSourceStudioRow(
   entry: EntryDoc,
   requestedLocale: string,
 ): Promise<StudioEntryRowDoc | null> {
-  const [draftRows, publicRoutes] = await Promise.all([
+  const [draftRows, publicRows] = await Promise.all([
     readDraftRows(ctx, entry._id),
     ctx.db
-      .query('publicRoutes')
+      .query('publicEntries')
       .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
       .collect(),
   ])
-  const routeByLocale = new Map(publicRoutes.map((route) => [route.locale, route]))
+  const publicByLocale = new Map(publicRows.map((row) => [row.locale, row]))
   const locales = Array.from(
-    new Set([...collection.locales, ...Object.keys(draftRows.byLocale), ...routeByLocale.keys()]),
+    new Set([...collection.locales, ...Object.keys(draftRows.byLocale), ...publicByLocale.keys()]),
   )
   const { chain } = await getLocaleChain(ctx, requestedLocale)
   const preferredLocale = selectStudioLocaleCode(locales, chain)
@@ -410,7 +447,7 @@ async function buildSourceStudioRow(
     locales.map(async (locale) => {
       const localeRow = draftRows.byLocale[locale] ?? null
       const slug = effectiveDraftSlug(entry, draftRows.shared, localeRow)
-      const publicRoute = routeByLocale.get(locale) ?? null
+      const publicRow = publicByLocale.get(locale) ?? null
       return {
         locale,
         draftPath: await computeDraftPath(ctx, {
@@ -421,23 +458,33 @@ async function buildSourceStudioRow(
           locale,
         }),
         draftExists: !!localeRow,
-        publishedPath: publicRoute?.path ?? null,
-        published: !!publicRoute,
+        publishedPath: publicRow
+          ? await publicPathForEntry(ctx, publicRow, {
+              pathPrefix: pathPrefixForLocale(collection, locale),
+              rootSlug: rootSlugForLocale(collection, locale),
+            })
+          : null,
+        published: !!publicRow,
         updatedAt: localeRow?.updatedAt ?? entry.updatedAt,
       }
     }),
   )
+  const localeVersions = new Map(
+    Object.values(draftRows.byLocale).map((localeRow) => [localeRow.locale, localeRow.version]),
+  )
   return {
     entryId: entry._id,
-    collectionId: collection._id,
+    collection: collection.slug,
     locale: preferredLocale,
     baseSlug: preferredSlug,
     stableId: entry.stableId ?? null,
-    status: entry.status,
-    dirtyLocales: entry.dirtyLocales ?? [],
+    status: studioEntryStatus(entry),
+    dirtyLocales: deriveDirtyLocales(entry, localeVersions),
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
-    publishedAt: entry.publishedAt ?? null,
+    publishedAt: publicRows.length
+      ? Math.max(...publicRows.map((row) => row.lastPublishedAt))
+      : null,
     parentEntryId: draftParentEntryId,
     orderRank: draftRows.shared?.orderRank ?? entry.orderRank ?? '',
     orderKey: buildStudioOrderKey(entry),
@@ -456,11 +503,11 @@ async function listSourceStudioRows(
 ) {
   const entries = (
     await Promise.all(
-      (['draft', 'published', 'archived'] as const).map((status) =>
+      (['active', 'archived'] as const).map((lifecycle) =>
         ctx.db
           .query('entries')
-          .withIndex('by_collection_status', (q) =>
-            q.eq('collectionId', collection._id).eq('status', status),
+          .withIndex('by_collection_lifecycle', (q) =>
+            q.eq('collection', collection.slug).eq('lifecycle', lifecycle),
           )
           .collect(),
       ),
@@ -474,29 +521,31 @@ async function listSourceStudioRows(
     .sort((left, right) => right.orderKey.localeCompare(left.orderKey))
 }
 
-function studioListStatuses(status?: EntryDoc['status']) {
-  return status ? [status] : (['draft', 'published'] as const)
+function studioListLifecycles(status?: StudioEntryStatus) {
+  return status === 'archived' ? (['archived'] as const) : (['active'] as const)
 }
 
 async function queryStudioEntryCandidates(
   ctx: HandlerQueryCtx,
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
-  status: EntryDoc['status'] | undefined,
+  status: StudioEntryStatus | undefined,
   scanLimit: number,
 ) {
   const entries = (
     await Promise.all(
-      studioListStatuses(status).map((entryStatus) =>
+      studioListLifecycles(status).map((lifecycle) =>
         ctx.db
           .query('entries')
-          .withIndex('by_collection_status', (q) =>
-            q.eq('collectionId', collection._id).eq('status', entryStatus),
+          .withIndex('by_collection_lifecycle', (q) =>
+            q.eq('collection', collection.slug).eq('lifecycle', lifecycle),
           )
           .order('desc')
           .take(scanLimit),
       ),
     )
-  ).flat()
+  )
+    .flat()
+    .filter((entry) => !status || studioEntryStatus(entry) === status)
 
   return entries.sort((left, right) =>
     buildStudioOrderKey(right).localeCompare(buildStudioOrderKey(left)),
@@ -538,6 +587,7 @@ function mapStudioSourceRow(
     nodeKind: row.nodeKind,
     localeSummaries: row.localeSummaries.map((locale) => ({
       locale: locale.locale,
+      draftExists: locale.draftExists,
       draftPath: locale.draftPath,
       publishedPath: locale.publishedPath,
       published: locale.published,
@@ -606,15 +656,17 @@ function workStateFromWorkflowSummary(args: {
       (state) => state === 'draft' || state === 'changed',
     )
   const blockingIssueCount = args.workflowSummary.issueCounts.blocker
+  // A live entry stays 'public' even with newer draft work; the combination of
+  // publicState + draftChangedSincePublish is the canonical "live with
+  // unpublished changes". 'draft_only' is reserved for entries with no public
+  // output at all.
   const publicState = !args.routeBacked
     ? ('data_only' as const)
     : blockingIssueCount > 0
       ? ('needs_attention' as const)
-      : draftChangedSincePublish
-        ? ('draft_only' as const)
-        : args.row.status === 'published'
-          ? ('public' as const)
-          : ('draft_only' as const)
+      : args.row.status === 'published'
+        ? ('public' as const)
+        : ('draft_only' as const)
 
   return {
     publicState,
@@ -653,7 +705,6 @@ function cheapReadinessStateForListLocale(args: {
 }): ReadinessState {
   const locale = args.locale
   if (!locale || (!locale.draftExists && !locale.published)) return 'missing'
-  if (args.row.status === 'archived') return 'needs_work'
   if (args.routeBacked && !locale.draftPath) return 'needs_work'
   if (locale.published && !args.row.dirtyLocales.includes(locale.locale)) return 'live'
   if (locale.published && args.row.dirtyLocales.includes(locale.locale)) {
@@ -774,18 +825,24 @@ function newestRows<T extends { updatedAt: number }>(rows: T[], limit = STUDIO_O
   return [...rows].sort((left, right) => right.updatedAt - left.updatedAt).slice(0, limit)
 }
 
+// Archived entries are intentionally out of normal work: they never count as
+// actionable in work queues, even when their locales would otherwise read as
+// draft, changed, blocked, or missing.
 function hasWorkflowChangedDraft(entry: ReturnType<typeof mapEntrySummary>) {
-  return Object.values(entry.workflowSummary.workStatesByLocale).some(
-    (state) => state === 'draft' || state === 'changed',
+  return (
+    entry.status !== 'archived' &&
+    Object.values(entry.workflowSummary.workStatesByLocale).some(
+      (state) => state === 'draft' || state === 'changed',
+    )
   )
 }
 
 function hasWorkflowBlocker(entry: ReturnType<typeof mapEntrySummary>) {
-  return entry.workflowSummary.issueCounts.blocker > 0
+  return entry.status !== 'archived' && entry.workflowSummary.issueCounts.blocker > 0
 }
 
 function hasWorkflowMissingLocale(entry: ReturnType<typeof mapEntrySummary>) {
-  return entry.workflowSummary.missingLocales.length > 0
+  return entry.status !== 'archived' && entry.workflowSummary.missingLocales.length > 0
 }
 
 function isReadyToPreviewCandidate(entry: ReturnType<typeof mapEntrySummary>) {
@@ -849,27 +906,25 @@ function treeCursorOffset(cursor: string | null | undefined): number {
   return Number(match[1])
 }
 
-function treeListStatuses(status?: EntryDoc['status']) {
-  return status ? [status] : (['draft', 'published'] as const)
-}
-
 async function queryStudioTreeEntryCandidates(
   ctx: HandlerQueryCtx,
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
-  status: EntryDoc['status'] | undefined,
+  status: StudioEntryStatus | undefined,
 ) {
   const entries = (
     await Promise.all(
-      treeListStatuses(status).map((entryStatus) =>
+      studioListLifecycles(status).map((lifecycle) =>
         ctx.db
           .query('entries')
-          .withIndex('by_collection_status', (q) =>
-            q.eq('collectionId', collection._id).eq('status', entryStatus),
+          .withIndex('by_collection_lifecycle', (q) =>
+            q.eq('collection', collection.slug).eq('lifecycle', lifecycle),
           )
           .take(STUDIO_TREE_LIST_MAX + 1),
       ),
     )
-  ).flat()
+  )
+    .flat()
+    .filter((entry) => !status || studioEntryStatus(entry) === status)
 
   if (entries.length > STUDIO_TREE_LIST_MAX) {
     throwCmsError(
@@ -885,7 +940,7 @@ async function queryStudioTreeEntryCandidates(
 async function listStudioTreeRows(
   ctx: HandlerQueryCtx,
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
-  args: { locale: string; status?: EntryDoc['status']; cursor?: string | null; limit: number },
+  args: { locale: string; status?: StudioEntryStatus; cursor?: string | null; limit: number },
 ) {
   const offset = treeCursorOffset(args.cursor)
   const candidates = await queryStudioTreeEntryCandidates(ctx, collection, args.status)
@@ -1058,13 +1113,12 @@ export const getStudioOverview = callerQuery.protected({
   returns: studioOverviewValidator,
   handler: async (ctx: HandlerQueryCtx, args) => {
     const appIdentity = await ctx.appIdentity()
-    const collections = await ctx.db.query('collections').collect()
+    const collections = await listInstalledCollections(ctx)
     const summaries = []
     const allEntrySummaries = []
     const publishedRows = []
 
-    for (const collectionDoc of collections) {
-      const collection = await getCollectionOrThrow(ctx, collectionDoc.slug)
+    for (const collection of collections) {
       const rows = await listSourceStudioRows(ctx, collection, args.locale)
       const routeBacked = isRouteBackedCollection(collection)
       const mapped = rows.map((row) => mapEntrySummary({ row, collection }))
@@ -1072,18 +1126,29 @@ export const getStudioOverview = callerQuery.protected({
       const publicRows = await ctx.db
         .query('publicEntries')
         .withIndex('by_collection_locale_orderKey', (q) =>
-          q.eq('collectionId', collection._id).eq('locale', args.locale),
+          q.eq('collection', collection.slug).eq('locale', args.locale),
         )
         .collect()
+      const publicRowsWithPaths = (
+        await Promise.all(
+          publicRows.map(async (row) => {
+            const path = await publicPathForEntry(ctx, row, {
+              pathPrefix: pathPrefixForLocale(collection, row.locale),
+              rootSlug: rootSlugForLocale(collection, row.locale),
+            })
+            return path ? { row, path } : null
+          }),
+        )
+      ).filter((item): item is { row: Doc<'publicEntries'>; path: string } => item !== null)
       publishedRows.push(
-        ...publicRows.map((row) => ({
+        ...publicRowsWithPaths.map(({ row, path }) => ({
           entryId: toStringId(row.entryId),
           collection: collection.slug,
           collectionLabel: collection.label,
           title: row.title,
-          path: row.path,
-          status: 'published',
-          publicState: 'public',
+          path,
+          status: 'published' as const,
+          publicState: 'public' as const,
           updatedAt: row.lastPublishedAt,
           publishedAt: row.lastPublishedAt,
           blockingIssueCount: 0,
@@ -1119,7 +1184,7 @@ export const getStudioOverview = callerQuery.protected({
     const blocked = newestRows(blockedEntries)
     const missingTranslationEntries = allEntrySummaries.filter(hasWorkflowMissingLocale)
     const missingTranslations = newestRows(missingTranslationEntries)
-    const failedRevalidation = revalidationJobs.filter((job) => job.status === 'failed')
+    const failedRevalidation = revalidationJobs.filter((job) => job.status === 'dead')
     const pendingRevalidation = revalidationJobs.filter(
       (job) => job.status === 'pending' || job.status === 'delivering',
     )
@@ -1148,7 +1213,7 @@ export const getStudioOverview = callerQuery.protected({
         .slice(0, STUDIO_OVERVIEW_LIMIT)
         .map((job) => ({
           id: toStringId(job._id),
-          status: job.status,
+          status: job.status === 'dead' ? ('failed' as const) : job.status,
           paths: job.paths,
           attempts: job.attempts,
           lastError: job.lastError,
@@ -1161,7 +1226,7 @@ export const getStudioOverview = callerQuery.protected({
         summary: row.summary,
         displaySummary: displayActivitySummary(row),
         entryId: toOptionalStringId(row.entryId),
-        collectionId: toOptionalStringId(row.collectionId),
+        collectionId: row.collection ?? null,
         locale: row.locale ?? null,
         appIdentityId: activityAppIdentityId(row),
         createdAt: row.createdAt,
@@ -1248,16 +1313,16 @@ export const listActivity = callerQuery.protected({
         summary: row.summary,
         displaySummary: displayActivitySummary(row),
         entryId: toOptionalStringId(row.entryId),
-        collectionId: toOptionalStringId(row.collectionId),
+        collectionId: row.collection ?? null,
         locale: row.locale ?? null,
         detail: row.detail ?? null,
         appIdentityId: activityAppIdentityId(row),
         createdAt: row.createdAt,
-        collectionSlug: row.collectionId
-          ? (display.collections.get(String(row.collectionId))?.slug ?? null)
+        collectionSlug: row.collection
+          ? (display.collections.get(row.collection)?.slug ?? row.collection)
           : null,
-        collectionLabel: row.collectionId
-          ? (display.collections.get(String(row.collectionId))?.label ?? null)
+        collectionLabel: row.collection
+          ? (display.collections.get(row.collection)?.label ?? null)
           : null,
         entrySlug: row.entryId ? (display.entries.get(String(row.entryId)) ?? null) : null,
         actorLabel:
@@ -1326,8 +1391,8 @@ export const getVersionDiff = callerQuery.protected({
       })
     }
 
-    const leftFlat = flattenRevisionSnapshot(left.snapshot)
-    const rightFlat = flattenRevisionSnapshot(right.snapshot)
+    const leftFlat = flattenRevisionSnapshot(left.snapshots)
+    const rightFlat = flattenRevisionSnapshot(right.snapshots)
     const keys = Array.from(new Set([...Object.keys(leftFlat), ...Object.keys(rightFlat)])).sort()
     return {
       leftVersionId: toStringId(left._id),
@@ -1370,28 +1435,28 @@ export const getEntryActivity = callerQuery.protected({
   },
 })
 
-function extractLocaleFromSnapshot(
-  snapshot: {
-    locales?: Record<
-      string,
-      {
-        slug?: string | null
-        path: string
-        values?: Record<string, unknown> | null
-      } | null
-    >
-  },
+async function extractLocaleFromRevision(
+  ctx: HandlerQueryCtx,
+  revision: EntryRevisionDoc,
   locale?: string,
 ) {
-  const locales = snapshot.locales ?? {}
-  const localeKey = locale ?? Object.keys(locales)[0]
+  const localeKey = locale ?? Object.keys(revision.snapshots).sort()[0]
   if (!localeKey) return null
-  const localeData = locales[localeKey]
+  const localeData = revision.snapshots[localeKey]
   if (!localeData) return null
+  const entry = await getEntryOrThrow(ctx, toStringId(revision.entryId))
+  const collection = await getCollectionForEntry(ctx, entry)
+  const path = await computeDraftPath(ctx, {
+    collection,
+    entry,
+    parentEntryId: localeData.parentEntryId,
+    slug: localeData.slug,
+    locale: localeKey,
+  })
   return {
-    slug: localeData.slug ?? null,
-    path: localeData.path,
-    values: (localeData.values as Record<string, unknown> | null) ?? null,
+    slug: localeData.slug,
+    path,
+    values: localeData.values as Record<string, unknown>,
   }
 }
 
@@ -1407,6 +1472,11 @@ export const getVersionSnapshot = callerQuery.protected({
       .query('entryRevisions')
       .withIndex('by_entry_createdAt', (q) => q.eq('entryId', revision.entryId))
       .collect()
+    const locale = await extractLocaleFromRevision(ctx, revision, args.locale)
+    const selectedSnapshot =
+      (args.locale ? revision.snapshots[args.locale] : undefined) ??
+      revision.snapshots[Object.keys(revision.snapshots).sort()[0] ?? ''] ??
+      null
 
     return {
       _id: toStringId(revision._id),
@@ -1415,9 +1485,9 @@ export const getVersionSnapshot = callerQuery.protected({
       message: revision.message ?? null,
       createdAt: revision.createdAt,
       snapshot: {
-        baseSlug: revision.snapshot.slug ?? '',
-        shared: (revision.snapshot.shared as Record<string, unknown>) ?? {},
-        locale: extractLocaleFromSnapshot(revision.snapshot, args.locale),
+        baseSlug: selectedSnapshot?.slug ?? '',
+        shared: (selectedSnapshot?.shared as Record<string, unknown>) ?? {},
+        locale,
       },
     }
   },
@@ -1428,16 +1498,10 @@ export async function getDraftVsPublishedDiffPreview(
   args: { entryId: string },
 ) {
   const entry = await getEntryOrThrow(ctx, args.entryId)
-  const collection = await ctx.db.get(entry.collectionId)
-  if (!collection) throw new Error('Collection not found')
+  const collection = await getCollectionForEntry(ctx, entry)
 
-  const draftSnapshot = await createSnapshotFromState(ctx, entry, collection as never, 'draft')
-  const publishedSnapshot = await createSnapshotFromState(
-    ctx,
-    entry,
-    collection as never,
-    'published',
-  )
+  const draftSnapshot = await createSnapshotFromState(ctx, entry, collection, 'draft')
+  const publishedSnapshot = await createSnapshotFromState(ctx, entry, collection, 'published')
 
   const draftFlat = flattenSnapshot(draftSnapshot)
   const publishedFlat = flattenSnapshot(publishedSnapshot)

@@ -135,6 +135,8 @@ useRightSidebarPanel({
 type LocaleSummary = {
   locale: string
   published: boolean
+  draftExists?: boolean
+  updatedAt?: number
 }
 
 type StudioEntryRow = {
@@ -154,6 +156,7 @@ type StudioEntryRow = {
   draftChangedSincePublish?: boolean
   blockingIssueCount?: number
   missingTranslationLocales?: string[]
+  localeReadinessStates?: Record<string, string>
   nextAction?: string
   workflowSummary?: {
     nextAction?: {
@@ -181,6 +184,9 @@ type StudioEntrySummaryRow = {
   blockingIssueCount: number
   missingTranslationLocales: string[]
   localeReadiness: Array<LocaleSummary & { state: string; changed: boolean; draftPath: string }>
+  workflowSummary?: {
+    readinessStatesByLocale?: Record<string, string>
+  }
   nextAction: string
   _can?: Record<string, boolean>
 }
@@ -288,6 +294,7 @@ const summaryRows = computed<StudioEntryRow[]>(() =>
       locale: item.locale,
       published: item.published,
     })),
+    localeReadinessStates: row.workflowSummary?.readinessStatesByLocale,
     publicState: row.publicState,
     draftChangedSincePublish: row.draftChangedSincePublish,
     blockingIssueCount: row.blockingIssueCount,
@@ -316,45 +323,49 @@ const visibleRows = computed(() => {
 const enrichedRows = computed<EnrichedRow[]>(() =>
   visibleRows.value.map((row) => {
     const treeRow = asTreeRow(row)
-    const publishedLocales = row.localeSummaries
-      .filter((summary) => summary.published)
-      .map((summary) => summary.locale)
+    const dirtyLocales = row.dirtyLocales ?? []
     const missingTranslationLocales =
       row.missingTranslationLocales ??
-      ((collectionConfig.value?.locales ?? []) as string[]).filter(
-        (localeCode: string) => !publishedLocales.includes(localeCode),
-      )
+      ((collectionConfig.value?.locales ?? []) as string[]).filter((localeCode: string) => {
+        const summary = row.localeSummaries.find((item) => item.locale === localeCode)
+        return (
+          localeChipState(row, summary ?? { locale: localeCode, published: false }) === 'missing'
+        )
+      })
     const draftChangedSincePublish =
-      row.draftChangedSincePublish ??
-      (row.status !== 'published' ||
-        (row.dirtyLocales?.length ?? 0) > 0 ||
-        row.localeSummaries.some((summary) => !summary.published))
+      row.draftChangedSincePublish ?? (row.status !== 'published' || dirtyLocales.length > 0)
     const blockingIssueCount = row.blockingIssueCount ?? 0
+    // The pill tells the entry-level truth (canonical editorial states): once
+    // any language is live the entry is Live, never "Draft only". Pending
+    // edits show as "Live · edited"; per-language detail lives in the chips.
     const publicState =
-      row.publicState ??
-      (collectionConfig.value?.mode === 'none'
+      row.publicState === 'data_only' || collectionConfig.value?.mode === 'none'
         ? 'data_only'
-        : blockingIssueCount > 0
+        : blockingIssueCount > 0 || row.publicState === 'needs_attention'
           ? 'needs_attention'
-          : draftChangedSincePublish
-            ? 'draft_only'
-            : row.status === 'published'
-              ? 'public'
-              : 'draft_only')
+          : row.status === 'published'
+            ? 'public'
+            : 'draft_only'
+    const liveWithEdits = publicState === 'public' && dirtyLocales.length > 0
     const workflowNextAction = row.workflowSummary?.nextAction?.kind
       ? readinessActionLabel(t, row.workflowSummary.nextAction.kind)
       : null
     return {
       ...treeRow,
       publicState,
-      publicStateLabel: row.status === 'archived' ? 'Archived' : publicStateLabel(t, publicState),
+      publicStateLabel:
+        row.status === 'archived'
+          ? t('ginkoCms.common.archived')
+          : liveWithEdits
+            ? t('ginkoCms.studio.collectionListPage.liveEdited')
+            : publicStateLabel(t, publicState),
       publicStateTone: row.status === 'archived' ? 'neutral' : publicStateTone(publicState),
       draftChangedSincePublish,
       blockingIssueCount,
       missingTranslationLocales,
       nextAction:
         row.status === 'archived'
-          ? 'Archived'
+          ? t('ginkoCms.common.archived')
           : (row.nextAction ?? workflowNextAction ?? 'Open entry'),
     }
   }),
@@ -524,6 +535,37 @@ async function dropToRoot() {
     endDrag()
   }
 }
+// Per-language chips use the canonical editorial states (userstories.md) so
+// the list tells the same story as the editor rail: a locale without any work
+// is "Missing language", not a fake amber "Draft". Live-and-edited locales
+// stay green; the "· edited" suffix carries the nuance.
+type LocaleChipState = 'live' | 'live_with_changes' | 'draft' | 'missing'
+function localeChipState(
+  row: Pick<StudioEntryRow, 'dirtyLocales' | 'localeReadinessStates'>,
+  variant: LocaleSummary,
+): LocaleChipState {
+  // Work-filtered rows carry the backend readiness projection; use it as-is.
+  const exact = row.localeReadinessStates?.[variant.locale]
+  if (exact === 'live' || exact === 'live_with_changes' || exact === 'missing') return exact
+  if (exact) return 'draft'
+  const dirty = (row.dirtyLocales ?? []).includes(variant.locale)
+  if (variant.published) return dirty ? 'live_with_changes' : 'live'
+  // The backend flag is the truth: a locale exists exactly when a draft row
+  // does, so the list tells the same story as the editor rail.
+  return (variant.draftExists ?? dirty) ? 'draft' : 'missing'
+}
+const localeChipLabels = computed<Record<LocaleChipState, string>>(() => ({
+  live: t('ginkoCms.studio.collectionListPage.localeLive'),
+  live_with_changes: t('ginkoCms.studio.collectionListPage.liveEdited'),
+  draft: t('ginkoCms.studio.collectionListPage.localeDraft'),
+  missing: t('ginkoCms.studio.workflow.states.missing'),
+}))
+const localeChipClasses: Record<LocaleChipState, string> = {
+  live: 'ginko:bg-success/10 ginko:text-success-fg ginko:dark:bg-success/20',
+  live_with_changes: 'ginko:bg-success/10 ginko:text-success-fg ginko:dark:bg-success/20',
+  draft: 'ginko:bg-muted ginko:text-muted-foreground',
+  missing: 'ginko:bg-warning/10 ginko:text-warning-fg ginko:dark:bg-warning/20',
+}
 const kindColors: Record<string, string> = {
   section: 'ginko:bg-warning/15 ginko:text-warning-fg ginko:dark:bg-warning/25',
   group: 'ginko:bg-primary/10 ginko:text-primary ginko:dark:bg-primary/20',
@@ -647,7 +689,24 @@ const kindColors: Record<string, string> = {
           </template>
         </StudioEmptyState>
 
-        <!-- Empty state -->
+        <!-- Filtered no-match state: content exists, the filters hide it, so
+             the honest next action is clearing them, not creating more. -->
+        <StudioEmptyState
+          v-else-if="enrichedRows.length === 0 && hasActiveFilters"
+          :title="t('ginkoCms.studio.collectionListPage.emptyFilteredTitle')"
+          :description="t('ginkoCms.studio.collectionListPage.emptyFilteredDescription')"
+        >
+          <template #icon>
+            <Search class="ginko:size-5" aria-hidden="true" />
+          </template>
+          <template #action>
+            <Button variant="outline" size="sm" @click="clearFilters">
+              {{ t('ginkoCms.studio.collectionListPage.clearFilters') }}
+            </Button>
+          </template>
+        </StudioEmptyState>
+
+        <!-- Truly empty collection -->
         <StudioEmptyState
           v-else-if="enrichedRows.length === 0"
           :title="t('ginkoCms.studio.collectionListPage.emptyTitle')"
@@ -747,18 +806,10 @@ const kindColors: Record<string, string> = {
                     v-for="variant in row.localeVariants"
                     :key="variant.locale"
                     class="ginko:rounded ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-xs"
-                    :class="
-                      variant.published
-                        ? 'ginko:bg-success/10 ginko:text-success-fg ginko:dark:bg-success/20'
-                        : 'ginko:bg-warning/10 ginko:text-warning-fg ginko:dark:bg-warning/20'
-                    "
+                    :class="localeChipClasses[localeChipState(row, variant)]"
                   >
                     {{ variant.locale.toUpperCase() }} ·
-                    {{
-                      variant.published
-                        ? t('ginkoCms.studio.collectionListPage.localeLive')
-                        : t('ginkoCms.studio.collectionListPage.localeDraft')
-                    }}
+                    {{ localeChipLabels[localeChipState(row, variant)] }}
                   </span>
                 </div>
 
@@ -846,18 +897,10 @@ const kindColors: Record<string, string> = {
                   v-for="variant in row.localeSummaries"
                   :key="variant.locale"
                   class="ginko:rounded ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-xs"
-                  :class="
-                    variant.published
-                      ? 'ginko:bg-success/10 ginko:text-success-fg ginko:dark:bg-success/20'
-                      : 'ginko:bg-warning/10 ginko:text-warning-fg ginko:dark:bg-warning/20'
-                  "
+                  :class="localeChipClasses[localeChipState(row, variant)]"
                 >
                   {{ variant.locale.toUpperCase() }} ·
-                  {{
-                    variant.published
-                      ? t('ginkoCms.studio.collectionListPage.localeLive')
-                      : t('ginkoCms.studio.collectionListPage.localeDraft')
-                  }}
+                  {{ localeChipLabels[localeChipState(row, variant)] }}
                 </span>
               </div>
 

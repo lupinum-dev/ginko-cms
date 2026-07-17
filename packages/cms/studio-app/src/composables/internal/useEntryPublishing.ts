@@ -35,6 +35,9 @@ type DestructivePreview = {
   blockers: Array<{ message: string }>
   warnings: Array<{ message: string }>
   confirmation?: { token: string; expiresAt: number }
+  details?: {
+    publicRoutes?: Array<{ locale: string; href: string; path?: string | null }>
+  } | null
 }
 
 function destructivePreviewBlocked(preview: DestructivePreview): boolean {
@@ -48,6 +51,25 @@ function destructivePreviewMessage(preview: DestructivePreview): string {
 function destructivePreviewDescription(preview: DestructivePreview, fallback: string): string {
   const warning = preview.warnings[0]?.message
   return warning ? `${preview.summary}\n\n${warning}` : preview.summary || fallback
+}
+
+/**
+ * Archive confirmation in the impact-preview shape the publish dialog uses:
+ * what happens, which public URLs go offline (one per line, per locale), and
+ * the restore path — instead of the backend's run-on route list.
+ */
+function archiveConfirmDescription(
+  preview: DestructivePreview,
+  fallback: string,
+  t: (key: string) => string,
+): string {
+  const routes = preview.details?.publicRoutes ?? []
+  const sections = [preview.summary || fallback]
+  if (routes.length > 0) {
+    sections.push(routes.map((route) => `${route.locale.toUpperCase()} · ${route.href}`).join('\n'))
+  }
+  sections.push(t('ginkoCms.studio.collectionEditor.archivedNoticeDescription'))
+  return sections.join('\n\n')
 }
 
 interface EntryPublishingDeps {
@@ -71,6 +93,16 @@ interface EntryPublishingDeps {
   dataFields: Record<string, unknown>
   studioDebug: ReturnType<typeof useStudioDebug>
   t: (key: string) => string
+  /**
+   * The draft version the editor form was hydrated from (useEntryDraft's
+   * `lastHydratedVersion`). Unlike `entry.draftVersion` — a live query that
+   * advances whenever ANY session saves — this only moves when THIS session
+   * hydrates or saves, so it is the version of the content the user is
+   * actually looking at and the correct optimistic-concurrency token for
+   * publish (mirror of the save path). Optional until the editor context
+   * wires it through; without it publish falls back to the live version.
+   */
+  hydratedDraftVersion?: Ref<number | null>
 }
 
 export function useEntryPublishing(deps: EntryPublishingDeps) {
@@ -212,7 +244,12 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       if (!token) {
         throw new Error('Preview website changes again before publishing.')
       }
-      const expectedVersion = _entry.value?.draftVersion
+      // Prefer the session-held hydrated version over the live query: a tab
+      // holding a stale draft must not publish content it has never seen —
+      // the backend rejects a stale expectedVersion with ENTRY_CONCURRENT_EDIT.
+      const expectedVersion = deps.hydratedDraftVersion
+        ? deps.hydratedDraftVersion.value
+        : _entry.value?.draftVersion
       if (typeof expectedVersion !== 'number') {
         throw new TypeError('The saved draft is not loaded. Reload before publishing.')
       }
@@ -337,7 +374,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       await new Promise((resolve) => window.setTimeout(resolve, 0))
       const ok = await studioConfirm({
         title: t('ginkoCms.common.archive'),
-        description: destructivePreviewDescription(
+        description: archiveConfirmDescription(
           preview,
           formatDestructiveConfirmationPrompt({
             kind: 'archive',
@@ -346,9 +383,12 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
             previewRequirement: 'target-summary',
             previewState: 'valid',
           }),
+          t,
         ),
         confirmLabel: t('ginkoCms.common.archive'),
-        confirmVariant: 'destructive',
+        // Archive is reversible (restore path in the description), so it gets
+        // the neutral primary action — red is reserved for irreversible deletes.
+        confirmVariant: 'default',
       })
       if (!ok) return
     }
@@ -383,15 +423,42 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     }
   }
 
-  // Restore is a plain non-destructive mutation (archived -> draft), so unlike
-  // archive/unpublish it needs no preview token and no confirmation dialog.
   async function handleRestore() {
     if (!canArchiveEntries.value) return
+    let preview: DestructivePreview | null = null
+    try {
+      preview = (await convexClient().mutation(api.ginkoCms.editor.previewRestoreEntryOperation, {
+        entryId: entryId.value,
+      })) as DestructivePreview
+      if (destructivePreviewBlocked(preview)) {
+        error.value = destructivePreviewMessage(preview)
+        return
+      }
+    } catch (e) {
+      error.value = getCmsErrorMessage(e, t('ginkoCms.studio.collectionEditor.rollbackError'))
+      return
+    }
+    if (typeof window !== 'undefined') {
+      await nextTick()
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+      const ok = await studioConfirm({
+        title: t('ginkoCms.common.restoreDraft'),
+        description: destructivePreviewDescription(
+          preview,
+          t('ginkoCms.studio.collectionEditor.archivedNoticeDescription'),
+        ),
+        confirmLabel: t('ginkoCms.common.restoreDraft'),
+        confirmVariant: 'default',
+      })
+      if (!ok) return
+    }
     saving.value = true
     error.value = ''
     studioDebug.debug('restore:start', { collection: collection.value, entryId: entryId.value })
     try {
-      await restoreMutation({ entryId: entryId.value })
+      const token = previewToken(preview)
+      if (!token) throw new Error('Preview restore again before continuing.')
+      await restoreMutation({ entryId: entryId.value, _confirmationToken: token })
       publishOutcome.value = null
       resetPublishReadiness()
       studioDebug.debug('restore:success', { collection: collection.value, entryId: entryId.value })

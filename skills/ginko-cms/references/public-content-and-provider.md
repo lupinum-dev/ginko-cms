@@ -89,7 +89,8 @@ the public visibility predicates above. Other fields fail with
 Provider sort accepts `orderKey`, `entryCreatedAt`, `firstPublishedAt`, and
 `lastPublishedAt` with `asc`, `desc`, `1`, or `-1`. `_stem` sort hints are
 ignored because they are filesystem ordering hints. Path-prefix list queries use
-path-index order and reject explicit public sort.
+stable-identity order while deriving structural paths and reject explicit
+public sort.
 
 Cursor pagination is supported. Positive numeric `skip`, `count`, and `without`
 projections are rejected. Use explicit select projections when the content
@@ -98,9 +99,12 @@ engine passes `only`.
 ## Current Public Limits
 
 - Public list default limit: 20. Max: 100.
-- Public search default limit: 10. Max: 50. Scan cap: 500 rows.
-- Sitemap default limit: 500. Max: 1000.
-- Navigation reads cap at 1000 rows and can fail with `PUBLIC_NAV_TOO_LARGE`.
+- Public search default limit: 10. Max: 50. Indexed cursor paging has no
+  first-500-row scan ceiling.
+- Sitemap default limit: 500. Max: 1000, with an indexed continuation cursor.
+- Navigation reads the indexed navigation-included scope; unrelated public rows
+  do not consume a global 1,000-row budget.
+- Public route enumeration uses generation-fenced keyset pages of at most 250.
 - Surround default is 1 sibling on each side. Max: 10.
 
 Public list sort supports only:
@@ -110,8 +114,9 @@ Public list sort supports only:
 - `firstPublishedAt`
 - `lastPublishedAt`
 
-Do not document `path` as an explicit public sort. Path-index order is internal
-to `pathPrefix` list queries.
+Do not document `path` as an explicit public sort. Full paths are not stored.
+Path-prefix queries derive effective paths from the structural `publicEntries`
+tree while paging by stable identity.
 
 ## Route-Backed Vs Data-Only
 

@@ -7,34 +7,33 @@ privacy notice or legal obligations.
 
 ## Operational Record Inventory
 
-| Record family                                          | Purpose and retained fields                                                                                                            | Visible to                                              | Default retention                                                              | CMS snapshot export        | Deletion rule                                                                                                  |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `activity`                                             | Editorial history: operation kind, summary, content scope, application identity, timestamp, and bounded detail                         | Authenticated Studio users with activity access         | 180 days                                                                       | Yes                        | Hourly indexed cleanup in batches of at most 100                                                               |
-| `destructiveAuditLog`                                  | Security evidence for a confirmed destructive action: operation, caller/scope keys, hashes, confirmation id, execution path, and time  | Restricted backend/operator evidence                    | Indefinite security hold                                                       | No                         | No automatic deletion; remove only under an application-owner policy that preserves required security evidence |
-| `agentRuns`                                            | Assisted-authoring evidence: credential id, delegated user, immutable scope snapshot, task, status, timestamps, and bounded error text | The delegated user and authorized Studio reviewers      | Active runs expire within 24 hours; ended runs remain for 180 days             | No                         | Hourly indexed cleanup in batches of at most 100; a run remains while a retained review references it          |
-| `reviewRequests`                                       | Human/agent publish-review evidence: entry/locales, preview and hashes, requester/reviewer, decision, message, and timestamps          | Authorized Studio reviewers and the requesting workflow | Approved or rejected reviews for 180 days; pending reviews are retained        | No                         | Hourly indexed cleanup in batches of at most 100                                                               |
-| `destructiveConfirmations`                             | One-use replay prevention: operation/caller/scope hashes, confirmation id, and expiry                                                  | Not user-visible                                        | Until expiry                                                                   | No                         | Indexed cleanup every ten minutes in batches of at most 100                                                    |
-| `mcpCreateEntryReceipts`                               | Lost-response idempotency for MCP entry creation                                                                                       | Not user-visible                                        | 24 hours                                                                       | No                         | Expired rows are removed in bounded batches on the next MCP create                                             |
-| `outboxEvents`                                         | Revalidation delivery evidence: paths/tags, status, bounded local error category, attempts, and timestamps                             | Operators through diagnostics                           | Delivered 30 days; terminal failures 90 days; pending/delivering rows retained | No                         | Hourly status/time-indexed cleanup in batches of at most 100                                                   |
-| `backupArtifacts`                                      | Owner-created recovery/comparison manifest, scope, checksum, storage reference, counts, creator, and timestamp                         | Owners                                                  | Until explicit owner deletion                                                  | The artifact is the export | Confirmed owner deletion removes both manifest and stored archive                                              |
-| portability plans, runs, stages, rosters, and receipts | Bounded import/export execution, restart, idempotency, and transfer capability state                                                   | Initiating owner/host workflow                          | Explicit run/plan expiry                                                       | No                         | Existing expiry indexes and bounded run-owned cleanup paths                                                    |
+| Record family                                          | Purpose and retained fields                                                                                                            | Visible to                                              | Default retention                                                              | Portability export | Deletion rule                                                                                                  |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `activity`                                             | Editorial history: operation kind, summary, content scope, application identity, timestamp, and bounded detail                         | Authenticated Studio users with activity access         | 180 days                                                                       | No                 | Hourly indexed cleanup in batches of at most 100                                                               |
+| `destructiveAuditLog`                                  | Security evidence for a confirmed destructive action: operation, caller/scope keys, hashes, confirmation id, execution path, and time  | Restricted backend/operator evidence                    | Indefinite security hold                                                       | No                 | No automatic deletion; remove only under an application-owner policy that preserves required security evidence |
+| `agentRuns`                                            | Assisted-authoring evidence: credential id, delegated user, immutable scope snapshot, task, status, timestamps, and bounded error text | The delegated user and authorized Studio reviewers      | Active runs expire within 24 hours; ended runs remain for 180 days             | No                 | Hourly indexed cleanup in batches of at most 100; a run remains while a retained review references it          |
+| `reviewRequests`                                       | Human/agent publish-review evidence: entry/locales, preview and hashes, requester/reviewer, decision, message, and timestamps          | Authorized Studio reviewers and the requesting workflow | Approved or rejected reviews for 180 days; pending reviews are retained        | No                 | Hourly indexed cleanup in batches of at most 100                                                               |
+| `destructiveConfirmations`                             | One-use replay prevention: operation/caller/scope hashes, confirmation id, and expiry                                                  | Not user-visible                                        | Until expiry                                                                   | No                 | Indexed cleanup every ten minutes in batches of at most 100                                                    |
+| `mcpCreateEntryReceipts`                               | Lost-response idempotency for MCP entry creation                                                                                       | Not user-visible                                        | 24 hours                                                                       | No                 | Expired rows are removed in bounded batches on the next MCP create                                             |
+| `outboxEvents`                                         | Revalidation delivery evidence: paths/tags, status, bounded local error category, attempts, and timestamps                             | Operators through diagnostics                           | Delivered 30 days; terminal failures 90 days; pending/delivering rows retained | No                 | Hourly status/time-indexed cleanup in batches of at most 100                                                   |
+| Asset recovery artifacts                               | Purge-bound asset manifest, exact bytes, byte length, checksums, creator, verification, and freshness                                  | Owners                                                  | Until explicit owner deletion or documented expiry                             | No                 | Confirmed owner deletion removes both manifest and stored bytes                                                |
+| portability plans, runs, stages, rosters, and receipts | Bounded import/export execution, restart, idempotency, and transfer capability state                                                   | Initiating owner CLI session                            | Explicit run/plan expiry                                                       | No                 | Existing expiry indexes and bounded run-owned cleanup paths                                                    |
 
-Content tables, revisions, members, assets, and policy are product state rather
-than operational history. Their lifecycle follows explicit editorial/member
-operations and the backup/recovery policy. Published revision history is not
-silently removed by the operational cleanup cron.
+The installed contract, canonical content, revisions, members, and assets are
+product state rather than operational history. Their lifecycle follows explicit
+editorial/member operations and the recovery policy. Published revision history
+is not silently removed by the operational cleanup cron.
 
 ## Sensitive Data Boundaries
 
 - Raw API keys, auth secrets, revalidation secrets, and upload capabilities are
-  never stored in CMS backup payloads.
+  never stored in portability or asset-recovery artifacts.
 - Operational records may contain stable user ids, API-key ids, paths, entry
   ids, and bounded error summaries. They must not contain bearer tokens or
   remote response bodies.
-- The bounded CMS `snapshot` export includes members and activity because it is
-  an owner-authenticated comparison/recovery artifact. It excludes MCP
-  credential settings, agent runs, review requests, destructive audit rows,
-  confirmations, and revalidation events.
+- Content portability includes content documents and referenced portable asset
+  payloads only. It excludes members, credential settings, agent runs, review
+  requests, security audit rows, confirmations, and revalidation events.
 - Official Convex deployment snapshots contain deployment data and must be
   protected, access-controlled, retained, and destroyed under the application
   owner's infrastructure policy.
@@ -64,12 +63,12 @@ person represented by a CMS member/user id:
    must be removed, record the legal/security decision and use an independently
    reviewed deployment maintenance procedure. Ginko CMS intentionally exposes
    no routine user-facing audit deletion path.
-7. Delete obsolete CMS backup artifacts through the confirmed owner operation,
-   and separately apply the infrastructure retention policy to official Convex
-   snapshots and external copies.
+7. Delete obsolete asset recovery artifacts through the confirmed owner
+   operation, and separately apply the infrastructure retention policy to
+   official Convex backups and external portability copies.
 
-After any deletion, run storage diagnostics and verify that no obsolete backup
-archive or unreferenced storage object remains. Never mutate Convex tables
+After any deletion, run storage diagnostics and verify that no obsolete recovery
+artifact or unreferenced storage object remains. Never mutate Convex tables
 directly as a normal application workflow.
 
 ## Verification

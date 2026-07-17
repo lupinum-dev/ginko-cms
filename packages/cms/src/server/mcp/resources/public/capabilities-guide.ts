@@ -27,7 +27,7 @@ export default defineMcpResource({
           '',
           'For translation prep, compare source and target locale data, check whether the target locale draft exists, inspect missing required fields and route blockers, and use `get-readiness-detail` as readiness context before publishing or requesting review.',
           '',
-          'Filesystem import execution is intentionally not part of the curated MCP surface. Imports operate under code-defined collections and should be handled through the owner-controlled Studio or CLI flow, then inspected through normal collection, entry, and public diagnostics tools.',
+          'Filesystem import execution is intentionally not part of Studio or the curated MCP surface. Portability runs operate under the installed contract and are handled through the owner-controlled CLI, then inspected through normal collection, entry, and public diagnostics tools.',
         ].join('\n'),
       },
     ],

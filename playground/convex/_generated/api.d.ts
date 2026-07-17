@@ -14,6 +14,7 @@ import type * as ginkoCms_assets from "../ginkoCms/assets.js";
 import type * as ginkoCms_backup from "../ginkoCms/backup.js";
 import type * as ginkoCms_collections from "../ginkoCms/collections.js";
 import type * as ginkoCms_diagnostics from "../ginkoCms/diagnostics.js";
+import type * as ginkoCms_draftPreview from "../ginkoCms/draftPreview.js";
 import type * as ginkoCms_editor from "../ginkoCms/editor.js";
 import type * as ginkoCms_mcpCredentials from "../ginkoCms/mcpCredentials.js";
 import type * as ginkoCms_members from "../ginkoCms/members.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   "ginkoCms/backup": typeof ginkoCms_backup;
   "ginkoCms/collections": typeof ginkoCms_collections;
   "ginkoCms/diagnostics": typeof ginkoCms_diagnostics;
+  "ginkoCms/draftPreview": typeof ginkoCms_draftPreview;
   "ginkoCms/editor": typeof ginkoCms_editor;
   "ginkoCms/mcpCredentials": typeof ginkoCms_mcpCredentials;
   "ginkoCms/members": typeof ginkoCms_members;

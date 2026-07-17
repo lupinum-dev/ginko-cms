@@ -1,5 +1,13 @@
 # Full Implementation Goal Prompt
 
+> **Superseded architecture record.** This pre-greenfield prompt is retained
+> only as decision history. Do not run it as current implementation guidance or
+> acceptance evidence. Use the [canonical content model](../../reference/content-model.md),
+> [Studio workflows](./workflows.md), [contract transition guide](../../guides/changing-collections.md),
+> and [recovery boundaries](../../maintenance/backup-and-recovery.md). References
+> below to `publicRoutes`, descendant route-row rewrites, Studio imports, legacy
+> content migrations, CMS backup tables, or old scale ceilings are obsolete.
+
 Use this prompt to start the full Ginko CMS marketer publishing refactor as a
 long-running Codex goal.
 

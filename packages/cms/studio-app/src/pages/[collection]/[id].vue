@@ -93,7 +93,17 @@ useRightSidebarPanel({
       </template>
     </StudioNotice>
 
-    <div v-if="editor.loader.pending" class="ginko:space-y-5">
+    <!-- The skeleton covers the FIRST load of a route only. `pending` also
+         flips during the background refreshEntry after every autosave; routing
+         that through the skeleton unmounted the whole form, which destroyed
+         the focused TipTap instance mid-typing (focus loss, dropped
+         keystrokes, undo history reset). `initialized` resets on entry/locale
+         navigation and turns true once the draft has hydrated, so it
+         distinguishes first load from background refresh. -->
+    <div
+      v-if="editor.loader.pending && (!editor.loader.initialized || !editor.loader.entry)"
+      class="ginko:space-y-5"
+    >
       <div
         class="ginko:space-y-4 ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card ginko:p-5 ginko:shadow-sm"
       >
@@ -174,15 +184,21 @@ useRightSidebarPanel({
       v-else
       :title="editor.loader.t('ginkoCms.studio.collectionEditor.entryNotFound')"
     />
-  </StudioEntryEditorShell>
 
-  <StudioCheckpointDialog />
-  <StudioPublishDialog
-    :readiness-detail="workflow.readinessDetail"
-    :publish-impact="workflow.publishImpact"
-    :publish-impact-requested="workflow.publishImpactRequested"
-    :publish-review="workflow.publishReview"
-  />
+    <!-- Inside the shell (not template siblings): App.vue wraps pages in
+         <Transition mode="out-in">, which needs a single-element root. With a
+         fragment root the leave never completes and the next page never
+         mounts — navigating out of the editor left a permanently blank
+         canvas. Both dialogs portal to <body> when open and render nothing
+         inline, so their placement in the canvas slot is inert. -->
+    <StudioCheckpointDialog />
+    <StudioPublishDialog
+      :readiness-detail="workflow.readinessDetail"
+      :publish-impact="workflow.publishImpact"
+      :publish-impact-requested="workflow.publishImpactRequested"
+      :publish-review="workflow.publishReview"
+    />
+  </StudioEntryEditorShell>
 </template>
 
 <style scoped>

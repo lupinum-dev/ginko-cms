@@ -12,7 +12,7 @@ import { useCmsStudioQuery } from '../composables/useCmsStudioQuery'
 import { useRightSidebar, useRightSidebarPanel } from '../composables/useRightSidebar'
 import { useConvexMutation } from '../composables/useStudioConvex'
 import { useStudioReviewPresentation } from '../composables/useStudioReviewPresentation'
-import type { StudioReviewRequest } from '../lib/studioReviewRequests'
+import type { StudioReviewOutcome, StudioReviewRequest } from '../lib/studioReviewRequests'
 
 type ReviewRequest = StudioReviewRequest
 
@@ -25,11 +25,22 @@ const reviewsQuery = useCmsStudioQuery(
   { limit: 50 },
   { requiredCapability: cmsPermissionKeys.publishEntries },
 )
+// Rejected and approved requests leave listPendingReviews; the recent-outcomes
+// query keeps their result (including reviewer feedback) visible instead of
+// letting decisions vanish silently (PUB-06).
+const outcomesQuery = useCmsStudioQuery(
+  api.ginkoCms.reviewRequests.listRecentReviewOutcomes,
+  { limit: 10 },
+  { requiredCapability: cmsPermissionKeys.publishEntries },
+)
+const recentOutcomes = computed<StudioReviewOutcome[]>(() => outcomesQuery.data.value ?? [])
 const approveReview = useConvexMutation(api.ginkoCms.reviewRequests.approveReview)
 const rejectReview = useConvexMutation(api.ginkoCms.reviewRequests.rejectReview)
 const decidingId = ref<string | null>(null)
 const decisionError = ref('')
 const approvalCandidate = ref<ReviewRequest | null>(null)
+const rejectionCandidate = ref<ReviewRequest | null>(null)
+const rejectionFeedback = ref('')
 
 const reviews = computed<ReviewRequest[]>(() => (reviewsQuery.data.value ?? []) as ReviewRequest[])
 const isLoading = computed(() => reviewsQuery.data.value === null && reviewsQuery.pending.value)
@@ -83,7 +94,7 @@ async function approve(request: ReviewRequest): Promise<boolean> {
       reviewRequestId: request._id,
       expectedVersionHash: request.versionHash,
     })
-    await reviewsQuery.refresh()
+    await Promise.all([reviewsQuery.refresh(), outcomesQuery.refresh()])
     return true
   } catch (error) {
     decisionError.value = getCmsErrorMessage(error, t('ginkoCms.studio.reviewsPage.approveError'))
@@ -103,12 +114,25 @@ async function confirmApproval() {
   if (approved) approvalCandidate.value = null
 }
 
-async function reject(request: ReviewRequest) {
+function requestRejectionConfirmation(request: ReviewRequest) {
+  rejectionFeedback.value = ''
+  rejectionCandidate.value = request
+}
+
+async function confirmRejection() {
+  const request = rejectionCandidate.value
+  if (!request) return
   decisionError.value = ''
   decidingId.value = request._id
   try {
-    await rejectReview({ reviewRequestId: request._id })
-    await reviewsQuery.refresh()
+    const feedback = rejectionFeedback.value.trim()
+    await rejectReview({
+      reviewRequestId: request._id,
+      ...(feedback ? { feedback } : {}),
+    })
+    await Promise.all([reviewsQuery.refresh(), outcomesQuery.refresh()])
+    rejectionCandidate.value = null
+    rejectionFeedback.value = ''
   } catch (error) {
     decisionError.value = getCmsErrorMessage(error, t('ginkoCms.studio.reviewsPage.rejectError'))
   } finally {
@@ -219,7 +243,7 @@ async function reject(request: ReviewRequest) {
                   variant="outline"
                   size="sm"
                   :disabled="decidingId === request._id"
-                  @click="reject(request)"
+                  @click="requestRejectionConfirmation(request)"
                 >
                   <Loader2
                     v-if="decidingId === request._id && rejectReview.pending.value"
@@ -278,6 +302,62 @@ async function reject(request: ReviewRequest) {
             <StudioReviewDetail :request="request" />
           </article>
         </div>
+
+        <!-- Recent decisions stay visible (secondary to the pending queue) so
+             a rejection does not simply vanish for the requester (PUB-06). -->
+        <section v-if="recentOutcomes.length > 0" class="ginko:mt-8">
+          <h2
+            class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground/80"
+          >
+            {{ t('ginkoCms.studio.reviewsPage.recentOutcomesTitle') }}
+          </h2>
+          <ul
+            class="ginko:mt-3 ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
+          >
+            <li
+              v-for="outcome in recentOutcomes"
+              :key="outcome._id"
+              class="ginko:border-b ginko:border-border/40 ginko:p-3.5 ginko:last:border-b-0"
+            >
+              <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
+                <Badge :variant="outcome.status === 'approved' ? 'success' : 'warning'">
+                  {{
+                    outcome.status === 'approved'
+                      ? t('ginkoCms.studio.reviewsPage.outcomeApproved')
+                      : t('ginkoCms.studio.reviewsPage.outcomeChangesRequested')
+                  }}
+                </Badge>
+                <span class="ginko:min-w-0 ginko:truncate ginko:text-sm ginko:font-medium">
+                  {{ outcome.title }}
+                </span>
+                <span class="ginko:ml-auto ginko:text-xs ginko:text-muted-foreground">
+                  <template v-if="outcome.reviewedByLabel">
+                    {{
+                      t('ginkoCms.studio.reviewsPage.outcomeReviewedBy', {
+                        name: outcome.reviewedByLabel,
+                      })
+                    }}
+                  </template>
+                  <NuxtTime
+                    v-if="outcome.reviewedAt"
+                    :datetime="outcome.reviewedAt"
+                    :locale="dateLocale"
+                    month="short"
+                    day="numeric"
+                    hour="2-digit"
+                    minute="2-digit"
+                  />
+                </span>
+              </div>
+              <p
+                v-if="outcome.reviewFeedback"
+                class="ginko:mt-1.5 ginko:text-sm ginko:text-muted-foreground"
+              >
+                {{ outcome.reviewFeedback }}
+              </p>
+            </li>
+          </ul>
+        </section>
 
         <Dialog
           :open="!!approvalCandidate"
@@ -399,6 +479,72 @@ async function reject(request: ReviewRequest) {
                 />
                 <Check v-else class="ginko:mr-2 ginko:size-3.5" />
                 {{ t('ginkoCms.studio.reviewsPage.approveButton') }}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          :open="!!rejectionCandidate"
+          @update:open="rejectionCandidate = $event ? rejectionCandidate : null"
+        >
+          <DialogContent class="ginko:sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{{ t('ginkoCms.studio.reviewsPage.rejectDialogTitle') }}</DialogTitle>
+              <DialogDescription>
+                {{ t('ginkoCms.studio.reviewsPage.rejectDialogDescription') }}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div v-if="rejectionCandidate" class="ginko:space-y-4">
+              <div
+                class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3"
+              >
+                <div class="ginko:text-sm ginko:font-medium">
+                  {{ rejectionCandidate.title }}
+                </div>
+                <p class="ginko:mt-1 ginko:text-sm ginko:text-muted-foreground">
+                  {{ rejectionCandidate.summary }}
+                </p>
+              </div>
+
+              <div class="ginko:space-y-2">
+                <Label for="rejection-feedback" class="ginko:text-xs ginko:text-muted-foreground">
+                  {{ t('ginkoCms.studio.reviewsPage.rejectFeedbackLabel') }}
+                </Label>
+                <Textarea
+                  id="rejection-feedback"
+                  v-model="rejectionFeedback"
+                  :placeholder="t('ginkoCms.studio.reviewsPage.rejectFeedbackPlaceholder')"
+                  class="ginko:min-h-[80px] ginko:text-sm"
+                />
+                <p class="ginko:text-xs ginko:text-muted-foreground">
+                  {{ t('ginkoCms.studio.reviewsPage.rejectFeedbackHint') }}
+                </p>
+              </div>
+
+              <StudioNotice v-if="decisionError" tone="danger" :description="decisionError" />
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" @click="rejectionCandidate = null">
+                {{ t('ginkoCms.common.cancel') }}
+              </Button>
+              <Button
+                variant="destructive"
+                :disabled="!rejectionCandidate || decidingId === rejectionCandidate._id"
+                @click="confirmRejection"
+              >
+                <Loader2
+                  v-if="
+                    rejectionCandidate &&
+                    decidingId === rejectionCandidate._id &&
+                    rejectReview.pending.value
+                  "
+                  class="ginko:mr-2 ginko:size-3.5 ginko:animate-spin"
+                />
+                <X v-else class="ginko:mr-2 ginko:size-3.5" />
+                {{ t('ginkoCms.studio.reviewsPage.rejectConfirmButton') }}
               </Button>
             </DialogFooter>
           </DialogContent>

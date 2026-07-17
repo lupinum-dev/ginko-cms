@@ -915,8 +915,32 @@ defineExpose({
   padding-left: 1.5rem;
 }
 
+.ginko-richtext-editor__surface :deep(.ProseMirror ul) {
+  list-style: disc;
+}
+
+.ginko-richtext-editor__surface :deep(.ProseMirror ul ul) {
+  list-style: circle;
+}
+
+.ginko-richtext-editor__surface :deep(.ProseMirror ul ul ul) {
+  list-style: square;
+}
+
+.ginko-richtext-editor__surface :deep(.ProseMirror ol) {
+  list-style: decimal;
+}
+
 .ginko-richtext-editor__surface :deep(.ProseMirror li) {
   margin: 0.25rem 0;
+}
+
+.ginko-richtext-editor__surface :deep(.ProseMirror li::marker) {
+  color: var(--muted-foreground);
+}
+
+.ginko-richtext-editor__surface :deep(.ProseMirror li > p) {
+  margin: 0;
 }
 
 .ginko-richtext-editor__surface :deep(.ProseMirror a) {

@@ -87,8 +87,8 @@ See the workspace docs for
 [MCP agent workflows](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/mcp-agent-workflows.md),
 [next collection steps](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/getting-started/next-collections.md),
 [collection changes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/changing-collections.md),
-[Trellis-era migration](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/migrations/trellis-era-migration.md),
-[migration recipes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/migrations/recipes.md),
+[contract transition recipes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/migrations/recipes.md),
+[recovery boundaries](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/maintenance/backup-and-recovery.md),
 [Tailwind/theming notes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/theming-the-studio.md),
 and
 [release-candidate validation](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/maintenance/release-candidate.md).

@@ -82,6 +82,13 @@ Route-backed capability is enforced at runtime. Ginko Content owns the typed
 website query surface and its sitemap/prerender integration; CMS does not
 generate a parallel website API contract.
 
+Path inputs remain URL-shaped, but the CMS does not store full-path route rows.
+It resolves indexed `collection + locale + parent + slug` segments through the
+active `publicEntries` tree. Page lookup, navigation, search, sitemap, and
+locale alternates therefore share the same structural route truth. Moving or
+renaming a live parent changes descendant effective URLs atomically and creates
+a validated prefix redirect without republishing descendant drafts.
+
 ## Provider Shape
 
 The CMS provider exposes the same website-shaped primitives to the content
@@ -169,17 +176,27 @@ Search returns `results` instead of `entries` and uses the same `pageInfo`
 shape. Raw empty search is invalid; callers should avoid submitting empty
 queries.
 
-Public limits and failure behavior:
+Public per-request limits and paging behavior:
 
 - `list`: default `20`, maximum `100`.
-- `search`: default `10`, maximum `50`; each request scans at most `500` rows.
-- `sitemap`: default `500`, maximum `1000`.
-- `nav`: scans at most `1000` rows before returning `PUBLIC_NAV_TOO_LARGE`.
+- `search`: default `10`, maximum `50`, with an indexed continuation cursor and
+  no first-500-row scan ceiling.
+- `sitemap`: default `500`, maximum `1000`, with an indexed continuation cursor.
+- `nav`: reads the indexed navigation-included scope; unrelated public rows do
+  not consume a global 1,000-row budget.
+- `routes`: maximum `250` per generation-fenced keyset page.
 - `surround`: `previous` and `next` default to `1` and max out at `10`.
 
+The certified content fixture is 1,500 entries across three locales, 500
+assets, a five-level tree, a large live subtree, and long MDC documents. Public
+route enumeration is also tested across 5,105 rows to prove it does not retain
+the former 5,000-row cliff. These are evidence boundaries, not a promise of a
+larger untested product envelope.
+
 Public list sorting supports `orderKey`, `entryCreatedAt`, `firstPublishedAt`,
-and `lastPublishedAt` with `:asc` or `:desc`. Path-prefix list queries use path
-index order and cannot be combined with explicit sort.
+and `lastPublishedAt` with `:asc` or `:desc`. Path-prefix list queries derive
+effective paths from the tree in stable-identity order and cannot be combined
+with explicit sort.
 
 ### Nav
 

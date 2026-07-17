@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,7 +11,15 @@ export type ConvexSetupIssue = {
 
 export type ConvexSetupWriteResult = {
   written: string[]
+  updated: string[]
   skipped: string[]
+  conflicts: Array<{ path: string; diff: string }>
+}
+
+type ConvexSetupManifest = {
+  schemaVersion: 1
+  generatedBy: '@lupinum/ginko-cms'
+  files: Record<string, { templateHash: string }>
 }
 
 type CompatibilityMatrix = {
@@ -29,14 +38,15 @@ const setupFiles = [
   'convex/schema.ts',
   'convex/ginkoCms/agentRuns.ts',
   'convex/ginkoCms/assets.ts',
-  'convex/ginkoCms/backup.ts',
+  'convex/ginkoCms/assetRecovery.ts',
   'convex/ginkoCms/collections.ts',
   'convex/ginkoCms/diagnostics.ts',
+  'convex/ginkoCms/draftPreview.ts',
   'convex/ginkoCms/editor.ts',
   'convex/ginkoCms/mcpCredentials.ts',
   'convex/ginkoCms/members.ts',
   'convex/ginkoCms/migrations.ts',
-  'convex/ginkoCms/policy.ts',
+  'convex/ginkoCms/contract.ts',
   'convex/ginkoCms/portability.ts',
   'convex/ginkoCms/public.ts',
   'convex/ginkoCms/revalidation.ts',
@@ -45,7 +55,11 @@ const setupFiles = [
   'convex/ginkoCms/siteData.ts',
 ] as const
 
-const staleBridgePaths = [['convex', `ginkoCms${'Mcp.ts'}`].join('/')] as const
+const staleBridgePaths = [
+  ['convex', `ginkoCms${'Mcp.ts'}`].join('/'),
+  'convex/ginkoCms/policy.ts',
+] as const
+const setupManifestPath = 'convex/.ginko-cms-setup.json'
 
 const staleConvexConfigImports = [
   {
@@ -100,6 +114,94 @@ function locatePackageRoot(): string {
 
 function templatePath(relativePath: string) {
   return resolve(locatePackageRoot(), 'templates', relativePath)
+}
+
+function contentHash(source: string) {
+  return createHash('sha256').update(source).digest('hex')
+}
+
+function emptySetupManifest(): ConvexSetupManifest {
+  return {
+    schemaVersion: 1,
+    generatedBy: '@lupinum/ginko-cms',
+    files: {},
+  }
+}
+
+function readSetupManifest(rootDir: string): ConvexSetupManifest | null {
+  const path = resolve(rootDir, setupManifestPath)
+  if (!existsSync(path)) return null
+  const value = JSON.parse(readFileSync(path, 'utf8')) as Partial<ConvexSetupManifest>
+  if (
+    value.schemaVersion !== 1 ||
+    value.generatedBy !== '@lupinum/ginko-cms' ||
+    !value.files ||
+    typeof value.files !== 'object'
+  ) {
+    throw new Error(`${setupManifestPath} is not a valid Ginko CMS setup manifest.`)
+  }
+  return value as ConvexSetupManifest
+}
+
+function safeTemplateDiff(relativePath: string, current: string, expected: string) {
+  const currentLines = current.replace(/\r\n/g, '\n').split('\n')
+  const expectedLines = expected.replace(/\r\n/g, '\n').split('\n')
+  const lines = [`--- host/${relativePath}`, `+++ package/${relativePath}`]
+  let changeCount = 0
+  const maxLines = Math.max(currentLines.length, expectedLines.length)
+  for (let index = 0; index < maxLines && changeCount < 20; index += 1) {
+    if (currentLines[index] === expectedLines[index]) continue
+    lines.push(`@@ line ${index + 1} @@`)
+    lines.push('- [user-modified line hidden to avoid leaking local values]')
+    lines.push(`+ ${expectedLines[index] ?? '[remove this host-only line]'}`)
+    changeCount += 1
+  }
+  if (changeCount === 20) lines.push('... additional differences omitted ...')
+  return lines.join('\n')
+}
+
+function checkSetupTemplateState(rootDir: string): ConvexSetupIssue[] {
+  const existingSetupFiles = setupFiles.filter((relativePath) =>
+    existsSync(resolve(rootDir, relativePath)),
+  )
+  if (existingSetupFiles.length === 0) return []
+
+  const manifest = readSetupManifest(rootDir)
+  if (!manifest) {
+    return [
+      {
+        name: 'missing generated setup provenance',
+        message: `${setupManifestPath} is missing, so generated setup files cannot be updated safely.`,
+        fix: 'Run pnpm exec ginko-cms init. Matching templates will be adopted; differing files will be preserved and reported for manual merge.',
+      },
+    ]
+  }
+
+  const issues: ConvexSetupIssue[] = []
+  for (const relativePath of existingSetupFiles) {
+    const recordedHash = manifest.files[relativePath]?.templateHash
+    const expected = readFileSync(templatePath(relativePath), 'utf8')
+    const expectedHash = contentHash(expected)
+    const current = readFileSync(resolve(rootDir, relativePath), 'utf8')
+    const currentHash = contentHash(current)
+    if (recordedHash === expectedHash || currentHash === expectedHash) continue
+
+    if (recordedHash && currentHash === recordedHash) {
+      issues.push({
+        name: `outdated generated setup ${relativePath}`,
+        message: `${relativePath} is an untouched generated file with a newer package template available.`,
+        fix: 'Run pnpm exec ginko-cms init to update the generated file.',
+      })
+      continue
+    }
+
+    issues.push({
+      name: `modified generated setup conflict ${relativePath}`,
+      message: `${relativePath} was modified after generation and its package template also changed.`,
+      fix: 'Run pnpm exec ginko-cms init, review the safe diff, and merge the new template deliberately. The command will not overwrite this file.',
+    })
+  }
+  return issues
 }
 
 function readCompatibilityMatrix(): CompatibilityMatrix {
@@ -179,6 +281,7 @@ export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[]
       fix: `Run pnpm exec ginko-cms init to create the Ginko CMS Convex setup file.`,
     })
   }
+  issues.push(...checkSetupTemplateState(rootDir))
 
   for (const stalePath of staleBridgePaths) {
     const issue = staleBridgePathIssue(rootDir, stalePath)
@@ -225,20 +328,53 @@ export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[]
 
 export function writeConvexSetupFiles(rootDir: string): ConvexSetupWriteResult {
   const written: string[] = []
+  const updated: string[] = []
   const skipped: string[] = []
+  const conflicts: Array<{ path: string; diff: string }> = []
+  const manifest = readSetupManifest(rootDir) ?? emptySetupManifest()
 
   for (const relativePath of setupFiles) {
     const target = resolve(rootDir, relativePath)
-    if (existsSync(target)) {
+    const expected = readFileSync(templatePath(relativePath), 'utf8')
+    const expectedHash = contentHash(expected)
+    if (!existsSync(target)) {
+      mkdirSync(dirname(target), { recursive: true })
+      writeFileSync(target, expected, 'utf8')
+      manifest.files[relativePath] = { templateHash: expectedHash }
+      written.push(relativePath)
+      continue
+    }
+
+    const current = readFileSync(target, 'utf8')
+    const currentHash = contentHash(current)
+    const recordedHash = manifest.files[relativePath]?.templateHash
+    if (currentHash === expectedHash) {
+      manifest.files[relativePath] = { templateHash: expectedHash }
       skipped.push(relativePath)
       continue
     }
-    mkdirSync(dirname(target), { recursive: true })
-    writeFileSync(target, readFileSync(templatePath(relativePath), 'utf8'), 'utf8')
-    written.push(relativePath)
+    if (recordedHash && currentHash === recordedHash) {
+      writeFileSync(target, expected, 'utf8')
+      manifest.files[relativePath] = { templateHash: expectedHash }
+      updated.push(relativePath)
+      continue
+    }
+    if (recordedHash === expectedHash) {
+      skipped.push(relativePath)
+      continue
+    }
+
+    conflicts.push({
+      path: relativePath,
+      diff: safeTemplateDiff(relativePath, current, expected),
+    })
   }
 
-  return { written, skipped }
+  const manifestTarget = resolve(rootDir, setupManifestPath)
+  mkdirSync(dirname(manifestTarget), { recursive: true })
+  writeFileSync(manifestTarget, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+
+  return { written, updated, skipped, conflicts }
 }
 
 function throwConvexSetupError(setupIssues: ConvexSetupIssue[]): never {

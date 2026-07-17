@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "groups": [
+    {
+      "stories": ["ACC-01", "ACC-02", "ACC-03", "ACC-04", "ACC-05"],
+      "evidence": [
+        "test/runtime/cms-auth-signin-signup.test.ts",
+        "test/component/auth/bootstrap-boundary.test.ts",
+        "test/component/auth/guard-contract.test.ts",
+        "scripts/cms-live-story-smoke.mjs"
+      ]
+    },
+    {
+      "stories": ["NAV-01", "NAV-02", "NAV-03", "NAV-04", "NAV-05"],
+      "evidence": [
+        "test/runtime/studio-dashboard-page.test.ts",
+        "test/runtime/studio-collection-list-page.test.ts",
+        "test/component/studio-search.test.ts",
+        "test/runtime/autosave-recovery.test.ts",
+        "scripts/cms-live-story-smoke.mjs"
+      ]
+    },
+    {
+      "stories": ["CON-01", "CON-02", "CON-03", "CON-04", "CON-05"],
+      "evidence": [
+        "test/component/entries/draft.test.ts",
+        "test/component/entries/read.test.ts",
+        "test/refactor/canonical-editorial-core.test.ts",
+        "test/runtime/studio-collection-list-page.test.ts",
+        "scripts/cms-live-story-smoke.mjs"
+      ]
+    },
+    {
+      "stories": [
+        "EDT-01",
+        "EDT-02",
+        "EDT-03",
+        "EDT-04",
+        "EDT-05",
+        "EDT-06",
+        "EDT-07",
+        "EDT-08",
+        "EDT-09",
+        "EDT-10"
+      ],
+      "evidence": [
+        "test/component/entries/draft.test.ts",
+        "test/component/entries/relations.test.ts",
+        "test/component/draftPreview.test.ts",
+        "test/runtime/editor/editor-workflows.test.ts",
+        "test/runtime/autosave-recovery.test.ts",
+        "test/runtime/entry-publishing.test.ts"
+      ]
+    },
+    {
+      "stories": ["DOC-01", "DOC-02", "DOC-03", "DOC-04", "DOC-05", "DOC-06"],
+      "evidence": [
+        "test/component/entries/tree.test.ts",
+        "test/component/entries/public-tree.test.ts",
+        "test/runtime/studio-tree.test.ts",
+        "test/component/studio-search.test.ts"
+      ]
+    },
+    {
+      "stories": ["LOC-01", "LOC-02", "LOC-03", "LOC-04", "LOC-05", "LOC-06", "LOC-07"],
+      "evidence": [
+        "test/component/entries/publish.test.ts",
+        "test/component/lib/locale-fallback.test.ts",
+        "test/component/contract.test.ts",
+        "test/refactor/canonical-editorial-core.test.ts",
+        "test/runtime/entry-publishing.test.ts"
+      ]
+    },
+    {
+      "stories": ["AST-01", "AST-02", "AST-03", "AST-04", "AST-05", "AST-06", "AST-07", "AST-08"],
+      "evidence": [
+        "test/component/assets.test.ts",
+        "test/component/asset-relationships.test.ts",
+        "test/component/backup.test.ts",
+        "test/runtime/asset-picker.test.ts",
+        "test/runtime/studio-asset-trash-dialog.test.ts"
+      ]
+    },
+    {
+      "stories": [
+        "PUB-01",
+        "PUB-02",
+        "PUB-03",
+        "PUB-04",
+        "PUB-05",
+        "PUB-06",
+        "PUB-07",
+        "PUB-08",
+        "PUB-09",
+        "PUB-10"
+      ],
+      "evidence": [
+        "test/component/entries/publish.test.ts",
+        "test/component/reviewRequests.test.ts",
+        "test/component/entries/versioning.test.ts",
+        "test/refactor/canonical-editorial-core.test.ts",
+        "test/runtime/entry-publishing.test.ts",
+        "test/runtime/studio-reviews-page.test.ts"
+      ]
+    },
+    {
+      "stories": ["LIF-01", "LIF-02", "LIF-03", "LIF-04", "LIF-05", "LIF-06", "LIF-07"],
+      "evidence": [
+        "test/component/entries/publish.test.ts",
+        "test/component/entries/versioning.test.ts",
+        "test/refactor/canonical-editorial-core.test.ts",
+        "test/runtime/studio-entry-details-panel.test.ts",
+        "scripts/cms-live-story-smoke.mjs"
+      ]
+    },
+    {
+      "stories": ["DAT-01", "DAT-02", "DAT-03"],
+      "evidence": [
+        "test/component/site-data.test.ts",
+        "test/shared/nuxt-provider.test.ts",
+        "test/runtime/site-data-editor.test.ts"
+      ]
+    },
+    {
+      "stories": ["COL-01", "COL-02", "COL-03", "COL-04"],
+      "evidence": [
+        "test/component/agentRuns.test.ts",
+        "test/component/entries/read.test.ts",
+        "test/runtime/studio-dashboard-page.test.ts"
+      ]
+    },
+    {
+      "stories": ["ADM-01", "ADM-02", "ADM-03", "ADM-04", "ADM-05", "ADM-06", "ADM-07"],
+      "evidence": [
+        "test/component/members-crud.test.ts",
+        "test/component/settings.test.ts",
+        "test/component/revalidation.test.ts",
+        "test/component/storage-maintenance.test.ts",
+        "test/component/diagnostics.test.ts"
+      ]
+    },
+    {
+      "stories": ["IMP-01", "IMP-02", "IMP-03", "IMP-04", "IMP-05", "IMP-06"],
+      "evidence": [
+        "test/component/portability-import.test.ts",
+        "test/component/portability-export.test.ts",
+        "test/component/portability-semantic-roundtrip.test.ts",
+        "test/component/backup.test.ts",
+        "test/module/ginko-cli-portability.test.ts"
+      ]
+    },
+    {
+      "stories": ["AGT-01", "AGT-02", "AGT-03", "AGT-04", "AGT-05", "AGT-06", "AGT-07"],
+      "evidence": [
+        "test/component/mcpCredentials.test.ts",
+        "test/component/agentRuns.test.ts",
+        "test/component/entries/mcp-operations.test.ts",
+        "test/runtime/mcp-request-publish-review.test.ts",
+        "test/shared/mcp-tools.test.ts"
+      ]
+    },
+    {
+      "stories": ["WEB-01", "WEB-02", "WEB-03", "WEB-04", "WEB-05", "WEB-06", "WEB-07"],
+      "evidence": [
+        "test/component/public-api.test.ts",
+        "test/component/entries/public-tree.test.ts",
+        "test/component/public-query-budget.test.ts",
+        "test/shared/nuxt-provider.test.ts",
+        "test/runtime/playground-public-blog-pages.test.ts"
+      ]
+    },
+    {
+      "stories": ["QUA-01", "QUA-02", "QUA-03", "QUA-04", "QUA-05", "QUA-06", "QUA-07", "QUA-08"],
+      "evidence": [
+        "test/runtime/studio-accessibility.test.ts",
+        "test/runtime/studio-browser-guards.test.ts",
+        "test/runtime/autosave-recovery.test.ts",
+        "test/runtime/mcp-response-redaction.test.ts",
+        "test/component/public-query-budget.test.ts",
+        "test/component/asset-metadata-query-budget.test.ts",
+        "scripts/cms-live-story-smoke.mjs"
+      ]
+    },
+    {
+      "stories": ["DEV-01", "DEV-02", "DEV-03", "DEV-04", "DEV-05", "DEV-06"],
+      "evidence": [
+        "test/module/e2e-package-consumer.test.ts",
+        "test/module/ginko-cli.test.ts",
+        "test/module/module-bridge.test.ts",
+        "test/module/candidate-release-contract.test.ts",
+        "scripts/package-e2e.mjs"
+      ]
+    }
+  ],
+  "deferred": [
+    "CND-01",
+    "CND-02",
+    "CND-03",
+    "CND-04",
+    "CND-05",
+    "CND-06",
+    "CND-07",
+    "CND-08",
+    "CND-09",
+    "CND-10",
+    "CND-11",
+    "CND-12"
+  ]
+}

@@ -21,6 +21,12 @@ export interface GinkoCmsPublicConfig {
   collections?: Record<string, CmsCollectionConfig>
   sidebar?: { dark?: boolean }
   mcp?: { enabled: boolean }
+  /**
+   * Draft preview route convention (EDT-10). Studio links "Preview draft" to
+   * `<route>/[collection]/[entryId]?locale=<code>` on the host origin; the
+   * host owns that page (session-guarded, noindex). `null` hides the links.
+   */
+  preview?: { route?: string | null }
   studio?: {
     assetBase?: string
     devServer?: string | null

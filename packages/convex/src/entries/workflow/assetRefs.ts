@@ -3,7 +3,7 @@
  *
  * This is the single asset-reference read model. It covers asset references in three
  * sources via a discriminator:
- *   - 'draft'    - assets referenced by entryDrafts rows
+ *   - 'draft'    - assets referenced by entries/entryLocaleDrafts
  *   - 'revision' - assets referenced by entryRevisions snapshots
  *   - 'public'   - assets referenced by publicEntries rows
  *
@@ -28,7 +28,7 @@ export interface ReplaceAssetRefsInput {
   sourceKind: AssetRefSourceKind
   sourceId: string
   entryId: Id<'entries'>
-  collectionId: Id<'collections'>
+  collection: string
   refs: AssetRef[]
   now: number
 }
@@ -59,7 +59,7 @@ export async function replaceAssetRefs(
       fieldPath: ref.fieldPath,
       locale: ref.locale,
       entryId: input.entryId,
-      collectionId: input.collectionId,
+      collection: input.collection,
       updatedAt: input.now,
     })
   }

@@ -7,29 +7,27 @@ import { v } from 'convex/values'
 
 import { canRead } from '../auth/checks.js'
 import { callerQuery } from '../functions.js'
-import { getCollectionOrThrow } from '../lib/collections.js'
-import { toStringId } from '../lib/ids.js'
-import { resolveLocaleText } from '../lib/locale.js'
+import {
+  collectionEntryCountSnapshot,
+  getCollection as readCollection,
+  listInstalledCollections,
+} from '../lib/collections.js'
+import { getCmsSettings, resolveLocaleText } from '../lib/locale.js'
 import type { QueryOrMutationCtx } from '../lib/types.js'
-import { mapCollectionListItem } from './sync.js'
 
 async function getDefaultLocale(ctx: QueryOrMutationCtx) {
-  const settings = await ctx.db
-    .query('cmsSettings')
-    .withIndex('by_key', (q) => q.eq('key', 'site'))
-    .first()
+  const settings = await getCmsSettings(ctx)
   return (
     settings?.locales.find((locale) => locale.isDefault)?.code ?? settings?.locales[0]?.code ?? 'en'
   )
 }
 
-async function mapCollectionDoc(
-  ctx: QueryOrMutationCtx,
-  collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
+function mapCollectionDoc(
+  collection: NonNullable<Awaited<ReturnType<typeof readCollection>>>,
   locale: string,
 ) {
   return {
-    _id: toStringId(collection._id),
+    _id: collection.slug,
     slug: collection.slug,
     label: resolveLocaleText(collection.label, locale),
     labelMap: collection.label,
@@ -51,6 +49,33 @@ async function mapCollectionDoc(
   }
 }
 
+function mapCollectionListItem(
+  collection: NonNullable<Awaited<ReturnType<typeof readCollection>>>,
+  defaultLocale: string,
+  entryCount: number,
+) {
+  return {
+    _id: collection.slug,
+    slug: collection.slug,
+    label: resolveLocaleText(collection.label, defaultLocale),
+    labelMap: collection.label,
+    type: collection.type,
+    icon: collection.icon ?? null,
+    routing: collection.routing,
+    pathPrefix: collection.routing.pathPrefix,
+    mode: collection.routing.mode ?? 'route',
+    slugMode: collection.routing.slugMode ?? 'shared',
+    rootSlug: collection.routing.rootSlug ?? null,
+    singleton: collection.routing.singleton ?? false,
+    locales: collection.locales,
+    fieldCount: collection.fields.length,
+    entryCount,
+    createdAt: collection.createdAt,
+    updatedAt: collection.updatedAt,
+    updatedBy: collection.updatedBy,
+  }
+}
+
 export const listCollections = callerQuery.protected({
   id: 'collections:listCollections',
   args: {},
@@ -59,16 +84,12 @@ export const listCollections = callerQuery.protected({
   handler: async (ctx) => {
     const defaultLocale = await getDefaultLocale(ctx)
 
-    const rawCollections = await ctx.db.query('collections').collect()
+    const collections = await listInstalledCollections(ctx)
     const result = []
 
-    for (const raw of rawCollections) {
-      const collection = await getCollectionOrThrow(ctx, raw.slug)
-      const entries = await ctx.db
-        .query('entries')
-        .withIndex('by_collection_status', (q) => q.eq('collectionId', collection._id))
-        .collect()
-      result.push(mapCollectionListItem(collection, defaultLocale, entries.length))
+    for (const collection of collections) {
+      const count = await collectionEntryCountSnapshot(ctx, collection.slug)
+      result.push(mapCollectionListItem(collection, defaultLocale, count.count))
     }
 
     return result
@@ -81,13 +102,8 @@ export const getCollection = callerQuery.protected({
   guard: canRead,
   returns: v.union(v.null(), collectionDocValidator),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query('collections')
-      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
-      .first()
-    if (!existing) return null
-
-    const collection = await getCollectionOrThrow(ctx, args.slug)
-    return mapCollectionDoc(ctx, collection, await getDefaultLocale(ctx))
+    const collection = await readCollection(ctx, args.slug)
+    if (!collection) return null
+    return mapCollectionDoc(collection, await getDefaultLocale(ctx))
   },
 })

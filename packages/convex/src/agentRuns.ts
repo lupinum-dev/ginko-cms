@@ -332,16 +332,3 @@ export const revokeRun = callerMutation.protected({
     return serializeRun(updated)
   },
 })
-
-export const recordWrite = callerMutation.protected({
-  id: 'agentRuns:recordWrite',
-  args: {
-    agentRunId: v.string(),
-    operationId: v.string(),
-  },
-  guard: canRead,
-  returns: agentRunValidator,
-  handler: async (ctx, args) => {
-    return await recordOwnedAgentRunWrite(ctx, args.agentRunId, args.operationId)
-  },
-})

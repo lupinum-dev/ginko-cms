@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { useOptionalStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
+import { useCmsConfig } from '../../../composables/useCmsConfig'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
+import { draftPreviewPath } from '../../../lib/publicWorkflow'
 import { groupWebsiteChanges } from '../../../lib/websiteChangePresenter'
 import StudioDeveloperDetails from '../StudioDeveloperDetails.vue'
 import StudioWorkflowDiagnosticsList from './StudioWorkflowDiagnosticsList.vue'
 import {
+  publishReviewStateLabelKey,
   statusToneClass,
   type StudioPublishImpactLocale,
   type StudioPublishImpactState,
@@ -20,9 +24,60 @@ const props = defineProps<{
   selectedPublishImpactLocale: string | null
 }>()
 
-const { t } = useCmsI18n()
+const { t, dateLocale } = useCmsI18n()
+const editor = useOptionalStudioEntryEditorContext()
+const cmsConfig = useCmsConfig()
 const ce = (key: string, params?: Record<string, unknown>): string =>
   t(`ginkoCms.studio.collectionEditor.${key}`, params)
+
+function languageDisplayName(code: string | null | undefined): string {
+  if (!code) return ''
+  try {
+    const name = new Intl.DisplayNames([dateLocale.value], { type: 'language' }).of(code)
+    if (name && name !== code) return name
+  } catch {
+    // fall through to the raw code
+  }
+  return code.toUpperCase()
+}
+
+// Editor-facing headline (PUB-02): the backend summary string carries the raw
+// entry id and reads like a log line, so it never renders here. Ready states
+// get marketer copy built from the affected page URL; blocked/error states
+// keep their diagnostic message.
+const impactHeadline = computed(() => {
+  if (props.publishImpact.state !== 'ready') return props.publishImpact.message
+  const targets = props.publishImpact.locales.filter(
+    (localeImpact) => localeImpact.nextPath || localeImpact.nextHref,
+  )
+  if (targets.length > 1) {
+    return ce('publishImpactReadyHeadlineMulti', { count: targets.length })
+  }
+  const target = targets[0]
+  if (target) {
+    return ce('publishImpactReadyHeadlineUrl', {
+      url: target.nextPath || target.nextHref,
+      language: languageDisplayName(target.locale),
+    })
+  }
+  return ce('publishImpactReadyHeadline')
+})
+
+// The review message repeats the same backend summary when everything is
+// fine; it only adds information when something blocks the publish AND it
+// says something the headline does not already say.
+const showReviewMessage = computed(
+  () =>
+    props.previewScope === 'publish' &&
+    Boolean(props.publishReview.message) &&
+    (props.publishReview.blocked || props.publishReview.stale || props.publishReview.failed) &&
+    props.publishReview.message !== impactHeadline.value,
+)
+
+const reviewBadgeLabel = computed(() => {
+  const key = publishReviewStateLabelKey(props.publishReview.state)
+  return key ? ce(key) : props.publishReview.label
+})
 
 function safeWebsiteUrl(value: string | null | undefined): string {
   const trimmed = value?.trim()
@@ -82,15 +137,39 @@ const liveComparisonUrl = computed(() =>
   safeWebsiteUrl(previewLocaleImpact.value?.currentHref ?? previewLocaleImpact.value?.currentPath),
 )
 
+// EDT-10: the rendered preview opens the guarded DRAFT preview route on the
+// host, never the prospective live URL (which 404s until publish). The mono
+// line keeps showing the future public address.
+const draftPreviewUrl = computed(() =>
+  editor
+    ? draftPreviewPath({
+        previewRoute: cmsConfig.preview?.route,
+        collection: editor.loader.collection,
+        entryId: editor.loader.entryId,
+        locale: previewLocaleImpact.value?.locale ?? editor.loader.currentLocale,
+      })
+    : null,
+)
+
+function handleDraftPreviewOpened() {
+  editor?.workflow?.markDraftPreviewOpened()
+}
+
 const showWebsitePreview = computed(
-  () => props.previewScope === 'publish' && Boolean(previewUrl.value),
+  () => props.previewScope === 'publish' && Boolean(draftPreviewUrl.value || previewUrl.value),
+)
+
+// States where no preview content exists to render: the headline carries the
+// failure/stale message, so the body must not fall through to the ready layout.
+const isFailureState = computed(() =>
+  ['error', 'failed', 'missing', 'stale'].includes(props.publishImpact.state),
 )
 </script>
 
 <template>
-  <div class="ginko:rounded-md ginko:border ginko:bg-background ginko:p-3">
+  <div class="ginko:min-w-0 ginko:rounded-md ginko:border ginko:bg-background ginko:p-3">
     <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2">
-      <div>
+      <div class="ginko:min-w-0">
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
           {{
             previewScope === 'workflow'
@@ -99,14 +178,14 @@ const showWebsitePreview = computed(
           }}
         </div>
         <div
-          class="ginko:mt-1 ginko:text-sm ginko:font-medium"
+          class="ginko:mt-1 ginko:break-words ginko:text-sm ginko:font-medium"
           :class="
-            publishImpact.state === 'blocked' || publishImpact.state === 'error'
+            ['blocked', 'error', 'failed', 'missing'].includes(publishImpact.state)
               ? 'ginko:text-destructive'
               : ''
           "
         >
-          {{ publishImpact.message }}
+          {{ impactHeadline }}
         </div>
       </div>
       <Badge
@@ -117,19 +196,11 @@ const showWebsitePreview = computed(
             : statusToneClass(publishReview.state || publishImpact.state)
         "
       >
-        {{ previewScope === 'workflow' ? ce('publishImpactReadOnly') : publishReview.label }}
+        {{ previewScope === 'workflow' ? ce('publishImpactReadOnly') : reviewBadgeLabel }}
       </Badge>
     </div>
 
-    <div
-      v-if="previewScope === 'publish' && publishReview.message"
-      class="ginko:mt-2 ginko:text-xs"
-      :class="
-        publishReview.blocked || publishReview.stale || publishReview.failed
-          ? 'ginko:text-destructive'
-          : 'ginko:text-muted-foreground'
-      "
-    >
+    <div v-if="showReviewMessage" class="ginko:mt-2 ginko:text-xs ginko:text-destructive">
       {{ publishReview.message }}
     </div>
     <div
@@ -138,16 +209,21 @@ const showWebsitePreview = computed(
     >
       {{ ce('publishImpactPreviewing') }}
     </div>
-    <div
-      v-else-if="
-        publishImpact.state === 'error' ||
-        publishImpact.state === 'missing' ||
-        publishImpact.state === 'stale'
-      "
-      class="ginko:mt-3 ginko:text-xs ginko:text-destructive"
-    >
-      {{ publishImpact.message }}
-    </div>
+    <template v-else-if="isFailureState">
+      <!-- The headline above already carries publishImpact.message. For a
+           concurrent-edit failure, add the same recovery the top bar's
+           conflict notice offers instead of leaving the editor without a way
+           out. -->
+      <div v-if="editor?.workflow?.previewConcurrentEdit" class="ginko:mt-3">
+        <Button
+          variant="outline"
+          size="sm"
+          @click="editor?.workflow?.reloadLatestDraftAndPreview()"
+        >
+          {{ ce('saveConflictReload') }}
+        </Button>
+      </div>
+    </template>
     <div v-else class="ginko:mt-3 ginko:space-y-3">
       <div v-if="previewScope === 'workflow'" class="ginko:text-xs ginko:text-muted-foreground">
         {{
@@ -157,12 +233,14 @@ const showWebsitePreview = computed(
         }}
       </div>
 
+      <!-- No inline iframe here: the rail is 320px wide and the live site
+           rendered inside it reads as a bug. The preview opens in a new tab. -->
       <div
         v-if="showWebsitePreview"
         class="ginko:overflow-hidden ginko:rounded-md ginko:border ginko:border-border/60"
       >
         <div
-          class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2 ginko:border-b ginko:border-border/60 ginko:bg-muted/25 ginko:px-3 ginko:py-2"
+          class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2 ginko:bg-muted/25 ginko:px-3 ginko:py-2"
         >
           <div class="ginko:min-w-0">
             <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-2">
@@ -190,26 +268,19 @@ const showWebsitePreview = computed(
                 ce('publishOutcomeOpenLivePage')
               }}</a>
             </Button>
-            <Button variant="outline" size="sm" as-child>
-              <a :href="previewUrl" target="_blank" rel="noreferrer">{{
-                ce('publishImpactOpenPreview')
-              }}</a>
+            <!-- The rendered preview is the guarded draft-preview route: it
+                 shows the SAVED DRAFT, works before first publish, and marks
+                 the draft as actually previewed for the publish dialog. -->
+            <Button v-if="draftPreviewUrl" variant="outline" size="sm" as-child>
+              <a
+                :href="draftPreviewUrl"
+                target="_blank"
+                rel="noreferrer"
+                @click="handleDraftPreviewOpened"
+                >{{ ce('publishImpactOpenDraftPreview') }}</a
+              >
             </Button>
           </div>
-        </div>
-        <div class="ginko:bg-background">
-          <iframe
-            :src="previewUrl"
-            :title="
-              ce('publishImpactWebsitePreviewFor', {
-                locale: previewLocaleImpact?.locale ?? ce('publishImpactSelectedLanguageShort'),
-              })
-            "
-            class="ginko:block ginko:h-80 ginko:w-full ginko:border-0 ginko:bg-background"
-            loading="lazy"
-            referrerpolicy="no-referrer"
-            sandbox="allow-forms allow-popups allow-scripts"
-          />
         </div>
       </div>
 
@@ -255,7 +326,7 @@ const showWebsitePreview = computed(
       <div
         v-for="localeImpact in publishImpact.locales"
         :key="localeImpact.locale"
-        class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:p-3"
+        class="ginko:min-w-0 ginko:rounded-md ginko:border ginko:border-border/40 ginko:p-3"
       >
         <div
           class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2"
@@ -269,7 +340,7 @@ const showWebsitePreview = computed(
             </Badge>
           </div>
           <span
-            class="ginko:max-w-full ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
+            class="ginko:min-w-0 ginko:max-w-full ginko:break-all ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
           >
             {{ localeImpact.nextHref || localeImpact.nextPath || ce('publishImpactNoPageUrl') }}
           </span>
@@ -278,11 +349,11 @@ const showWebsitePreview = computed(
         <div
           class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground ginko:@2xl:grid-cols-2"
         >
-          <div>
+          <div class="ginko:min-w-0">
             <div class="ginko:text-xs ginko:font-medium ginko:uppercase">
               {{ ce('publishDialogCurrentLivePage') }}
             </div>
-            <div class="ginko:mt-0.5 ginko:truncate ginko:font-mono">
+            <div class="ginko:mt-0.5 ginko:break-all ginko:font-mono">
               {{
                 displayAddress(
                   localeImpact.currentHref || localeImpact.currentPath,
@@ -291,11 +362,11 @@ const showWebsitePreview = computed(
               }}
             </div>
           </div>
-          <div>
+          <div class="ginko:min-w-0">
             <div class="ginko:text-xs ginko:font-medium ginko:uppercase">
               {{ ce('publishDialogAfterPublish') }}
             </div>
-            <div class="ginko:mt-0.5 ginko:truncate ginko:font-mono">
+            <div class="ginko:mt-0.5 ginko:break-all ginko:font-mono">
               {{
                 displayAddress(
                   localeImpact.nextHref || localeImpact.nextPath,

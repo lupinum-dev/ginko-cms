@@ -1,4 +1,8 @@
 import { cmsUserCaller, type CmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import {
+  buildResolvedContentContract,
+  hashCanonicalJson,
+} from '@lupinum/ginko-content/cms-contract'
 import { convexTest, type TestConvex } from 'convex-test'
 /// <reference types="vite/client" />
 import { anyApi } from 'convex/server'
@@ -77,8 +81,6 @@ function createCmsCallerClient(
       (await authed().mutation(api.entries.draft.saveEntryDraft, args as never)) as DraftSaveResult,
     moveAsset: async (args: Record<string, unknown>): Promise<null> =>
       (await authed().mutation(api.assets.moveAsset, args as never)) as null,
-    restoreEntry: async (args: Record<string, unknown>): Promise<null> =>
-      (await authed().mutation(api.entries.publish.restoreEntry, args as never)) as null,
   }
 }
 
@@ -263,7 +265,11 @@ export async function seedOwner(ctx: TestCtx, userId = 'owner-1') {
 
 export async function seedMember(
   ctx: TestCtx,
-  input: { userId: string; role: 'owner' | 'publisher' | 'editor' | 'viewer' },
+  input: {
+    userId: string
+    role: 'owner' | 'publisher' | 'editor' | 'viewer'
+    displayName?: string
+  },
 ) {
   const now = Date.now()
   await ctx.seed(
@@ -271,6 +277,7 @@ export async function seedMember(
     {
       userId: input.userId,
       role: input.role,
+      ...(input.displayName ? { displayName: input.displayName } : {}),
       createdAt: now,
       updatedAt: now,
       updatedBy: input.userId,
@@ -279,28 +286,71 @@ export async function seedMember(
 }
 
 export async function seedSettings(ctx: TestCtx) {
-  await ctx.seed(
-    'cmsSettings' as never,
-    {
-      key: 'site',
-      locales: [{ code: 'en', label: 'English', isDefault: true }],
-      updatedBy: 'owner-1',
-      updatedAt: Date.now(),
-    } as never,
-  )
+  await installTestContract(ctx, ['en'])
 }
 
 export async function seedMultiLocaleSettings(ctx: TestCtx) {
-  await ctx.seed(
-    'cmsSettings' as never,
+  await installTestContract(ctx, ['en', 'de'])
+}
+
+export async function installTestContract(ctx: TestCtx, locales: string[]) {
+  const route = (path: string, translatedPath: string) =>
+    Object.fromEntries(locales.map((locale) => [locale, locale === 'de' ? translatedPath : path]))
+  const contract = buildResolvedContentContract(
     {
-      key: 'site',
-      locales: [
-        { code: 'en', label: 'English', isDefault: true },
-        { code: 'de', label: 'Deutsch', isDefault: false },
-      ],
-      updatedBy: 'owner-1',
-      updatedAt: Date.now(),
-    } as never,
+      collections: {
+        posts: {
+          type: 'page',
+          source: 'content/posts/**/*.md',
+          i18n: true,
+          route: route('/posts', '/beitraege'),
+          cms: {
+            type: 'flat',
+            fields: {
+              featured: { type: 'toggle', localized: false },
+              hero: { type: 'image', localized: false },
+              author: {
+                type: 'relation',
+                localized: false,
+                relation: { collectionId: 'authors' },
+              },
+            },
+          },
+        },
+        docs: {
+          type: 'page',
+          source: 'content/docs/**/*.md',
+          i18n: true,
+          route: route('/docs', '/dokumentation'),
+          cms: { type: 'tree', settings: { maxDepth: 5 } },
+        },
+        authors: {
+          type: 'data',
+          source: 'content/authors/**/*.json',
+          i18n: true,
+          cms: {
+            type: 'flat',
+            route: { mode: 'none', pathPrefix: '' },
+            fields: { name: { type: 'text', localized: true, required: true } },
+          },
+        },
+      },
+    },
+    {
+      defaultLocale: 'en',
+      locales,
+      localeFallbacks: Object.fromEntries(
+        locales.map((locale) => [locale, locale === 'en' ? [] : ['en']]),
+      ),
+    },
   )
+  const contentHash = await hashCanonicalJson(contract)
+  const presentation = { collections: {} }
+  await ctx.raw.mutation(api.contract.installCmsContract, {
+    content: contract,
+    contentHash,
+    presentation,
+    presentationHash: await hashCanonicalJson(presentation),
+  })
+  return { contract, contentHash }
 }

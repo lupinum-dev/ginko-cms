@@ -1,7 +1,7 @@
-# Content Contracts And Migrations
+# Content Contracts, Transitions, And Portability
 
 Use this reference when changing collections, routes, locales, relation fields,
-MDC body handling, or filesystem imports. Canonical docs:
+MDC body handling, or owner-CLI portability. Canonical docs:
 
 - `docs/guides/changing-collections.md`
 - `docs/guides/migrations/recipes.md`
@@ -18,22 +18,24 @@ MDC body handling, or filesystem imports. Canonical docs:
 - [Drift Workflow](#drift-workflow)
 - [Safe Changes](#safe-changes)
 - [Blocked Changes](#blocked-changes)
-- [Migration Files](#migration-files)
-- [Filesystem Imports](#filesystem-imports)
+- [Contract Transition Files](#contract-transition-files)
+- [Filesystem Portability](#filesystem-portability)
 - [MDC Body Contract](#mdc-body-contract)
 - [Relation Discipline](#relation-discipline)
 
 ## Source Of Truth
 
 The content model has one source of truth: the host app code, usually
-`content.config.ts`. Contract changes move one way:
+`content.config.ts`. It resolves to one installed `cmsContract` with separate
+content and presentation hashes:
 
 ```text
-content.config.ts / ginkoCms.collections -> ginko-cms push -> synced CMS contract
+content.config.ts / ginkoCms.collections -> ginko-cms push -> installed cmsContract
 ```
 
-Studio, MCP, imports, and public reads inspect the synced contract. They do not
-own schema edits.
+Studio, MCP, owner-CLI portability, and public reads inspect the installed
+contract. They do not own schema edits. A hash mismatch remains readable and
+diagnosable but blocks editorial writes.
 
 ## Route-Backed Article Collection
 
@@ -90,7 +92,7 @@ export default defineNuxtConfig({
 Adding a collection is usually safe drift. Still start with
 `pnpm exec ginko-cms push --check`; if the report contains only the new
 collection, run `pnpm exec ginko-cms push` and check again. Do not create a
-content migration just because the collection is new.
+contract transition just because the collection is new.
 
 ## Drift Workflow
 
@@ -106,19 +108,20 @@ Safe drift can be pushed:
 pnpm exec ginko-cms push
 ```
 
-Migration-required drift needs explicit content transformation before pushing
-the new contract:
+Content-incompatible drift uses a bounded contract transition:
 
 ```bash
-pnpm exec ginko-cms migrate create <change-name>
-pnpm exec ginko-cms migrate plan ginko/migrations/<file>.ts
-pnpm exec ginko-cms migrate apply ginko/migrations/<file>.ts --yes
-pnpm exec ginko-cms push --check
+pnpm exec ginko-cms contract transition create <change-name>
+pnpm exec ginko-cms contract transition stage ginko/transitions/<file>.ts --yes
+pnpm exec ginko-cms contract transition status <run-id>
+pnpm exec ginko-cms contract transition apply <run-id> --yes
+pnpm exec ginko-cms contract transition activate <run-id> --yes
 ```
 
-Only run `ginko-cms push` after the check reports safe drift. Migrations update
-stored draft content under the active contract; they do not approve an unsafe
-contract change by themselves.
+Explicitly unpublish affected live entries first. Staging locks Studio writes,
+validates every transformed draft under the exact target contract, and records
+version/hash fences. Apply is pagewise and resumable; activation is atomic.
+Cancel only before apply starts. After apply begins, the run is resume-only.
 
 ## Safe Changes
 
@@ -133,8 +136,8 @@ These are usually safe to push:
 
 ## Blocked Changes
 
-These can invalidate content or public routes and require an explicit migration
-when entries exist:
+These can invalidate content or public routes and require an explicit contract
+transition when entries exist:
 
 - Add a required field
 - Remove, rename, or change a field type
@@ -148,31 +151,32 @@ when entries exist:
 The guard is conservative. Do not clear tables or force writes to make a blocked
 push pass.
 
-## Migration Files
+## Contract Transition Files
 
-`ginko-cms migrate create <name>` writes a TypeScript migration under
-`ginko/migrations/`. Keep migrations direct: transform `shared` values and
-locale values; preserve identity fields such as `entryId`, `stableId`, and
-`draftVersion`.
+`ginko-cms contract transition create <name>` writes a TypeScript transform
+under `ginko/transitions/`. Keep transforms direct: change canonical shared and
+locale draft values, slugs, placement, ordering, or node kind while preserving
+entry identity and collection membership.
 
-Do not add runtime compatibility fields, parallel old/new models, or shims
-unless the user explicitly asks and the product requirement is real.
+Do not add runtime compatibility fields, parallel old/new models, shims, or
+dual reads.
 
-## Filesystem Imports
+## Filesystem Portability
 
-Filesystem migration is a one-time import path from Markdown/content files into
-Ginko CMS. Use `createFilesystemMigrationPlan`, preview the plan, upload assets,
-then apply. The plan creation API is async:
+`ginko-cms content` is the owner-only portability path. Export captures
+published content deterministically. Import verifies and plans the portable
+directory, then applies drafts only:
 
-```ts
-const plan = await createFilesystemMigrationPlan({
-  rootDir: './content',
-  collections,
-})
+```bash
+pnpm exec ginko-cms content export --out ./portable-content
+pnpm exec ginko-cms content verify ./portable-content
+pnpm exec ginko-cms content import ./portable-content --plan ./import-plan.json
+pnpm exec ginko-cms content import --apply ./import-plan.json
 ```
 
-If asset URLs are rewritten after upload, pass the rewritten plan to apply. Do
-not leave an unused `rewrittenPlan` in examples.
+The total envelope is 5,000 localized documents, three locales, and 500 assets.
+The exact limits are accepted; limit-plus-one is rejected before work starts.
+Studio, MCP, and deploy keys do not expose alternate portability authority.
 
 ## MDC Body Contract
 

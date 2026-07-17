@@ -200,9 +200,15 @@ export const previewArchiveEntryOperation = mutation({
 })
 
 export const restoreEntry = mutation({
+  args: confirmedArgs(restoreEntryArgs.args),
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.editor.restoreEntryOperationExecute, args as never),
+})
+
+export const previewRestoreEntryOperation = mutation({
   args: restoreEntryArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.editor.restoreEntry, args as never),
+    await ctx.runMutation(components.ginkoCms.editor.previewRestoreEntryOperation, args as never),
 })
 
 export const revertDraftToPublished = mutation({

@@ -11,8 +11,8 @@ Use these docs by reader task:
   [Next collections](./getting-started/next-collections.md) and
   [Environment](./getting-started/environment.md).
 - Content model changes: use
-  [Changing collections](./guides/changing-collections.md), then the migration
-  [recipes](./guides/migrations/recipes.md) and
+  [Changing collections](./guides/changing-collections.md), then the contract
+  transition [recipes](./guides/migrations/recipes.md) and
   [recovery guide](./guides/migrations/recovery.md).
 - Website reads: use the
   [public content API reference](./reference/public-content-api.md) and
@@ -49,7 +49,6 @@ docs/
     migrations/
       recipes.md
       recovery.md
-      trellis-era-migration.md
   reference/
     auth-and-roles.md
     content-model.md
@@ -77,7 +76,7 @@ skills/
       openai.yaml
     references/
       setup-and-env.md
-      content-contracts-and-migrations.md
+      content-contracts-and-transitions.md
       public-content-and-provider.md
       mcp-agent-workflows.md
       operations-and-maintenance.md

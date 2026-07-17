@@ -653,3 +653,24 @@ export function derivePublishConfirmationState(input: {
     expiresAt,
   }
 }
+
+/**
+ * Draft preview link (EDT-10). The host app owns a session-guarded, noindex
+ * page at `<previewRoute>/[collection]/[entryId]?locale=<code>` (same origin
+ * as the Studio host) that renders the guarded draft-read query. `undefined`
+ * previewRoute means the default convention (`/preview`); `null` means the
+ * host opted out and no link should render.
+ */
+export function draftPreviewPath(input: {
+  previewRoute: string | null | undefined
+  collection: string
+  entryId: string
+  locale: string
+}): string | null {
+  if (input.previewRoute === null) return null
+  if (!input.collection || !input.entryId || !input.locale) return null
+  const base = (input.previewRoute ?? '/preview').replace(/\/$/, '')
+  return `${base}/${encodeURIComponent(input.collection)}/${encodeURIComponent(
+    input.entryId,
+  )}?locale=${encodeURIComponent(input.locale)}`
+}

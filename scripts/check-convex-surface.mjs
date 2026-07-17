@@ -23,6 +23,11 @@ const forbiddenPatterns = [
     message:
       'Query.paginate(); component functions must use explicit indexed cursors because Convex component functions do not support native pagination',
   },
+  {
+    pattern: /export\s+const\s+recordWrite\b/,
+    message:
+      'a public generic agent write recorder; agent evidence must be emitted by the transaction performing the real write',
+  },
 ]
 
 function walk(directory) {

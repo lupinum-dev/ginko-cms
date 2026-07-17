@@ -36,14 +36,18 @@ async function seedEvent(
     lockExpiresAt?: number | null
     lockedAt?: number | null
     targetId?: string | null
+    deliveryGeneration?: number
+    leaseId?: string | null
   },
 ) {
   const now = Date.now()
+  const requestedStatus = options?.status ?? 'pending'
+  const storedStatus = requestedStatus === 'failed' ? 'dead' : requestedStatus
   return await ctx.seed(
     'outboxEvents' as never,
     {
       type: 'content.revalidate',
-      status: options?.status ?? 'pending',
+      status: storedStatus,
       idempotencyKey: `test:${now}:${Math.random()}`,
       versionId: 'version-1',
       targetId: options?.targetId ?? null,
@@ -56,6 +60,8 @@ async function seedEvent(
         appIdentityId: 'owner-1',
       },
       attempts: options?.attempts ?? 0,
+      deliveryGeneration: options?.deliveryGeneration ?? (storedStatus === 'delivering' ? 1 : 0),
+      leaseId: options?.leaseId ?? (storedStatus === 'delivering' ? 'seed-lease' : null),
       nextAttemptAt: options?.nextAttemptAt ?? now - 1,
       lastError: options?.lastError ?? null,
       lockedAt: options?.lockedAt ?? null,
@@ -91,6 +97,8 @@ describe('revalidation outbox worker', () => {
     expect(claimed[0]).toMatchObject({
       id: dueEventId,
       attempts: 1,
+      deliveryGeneration: 1,
+      leaseId: expect.any(String),
       target: {
         id: targetId,
         endpoint: 'https://site.example/api/_content/revalidate',
@@ -101,6 +109,8 @@ describe('revalidation outbox worker', () => {
     expect(rows.find((row) => String(row._id) === dueEventId)).toMatchObject({
       status: 'delivering',
       attempts: 1,
+      deliveryGeneration: 1,
+      leaseId: expect.any(String),
       targetId,
     })
     expect(rows.find((row) => String(row._id) === futureEventId)).toMatchObject({
@@ -252,6 +262,58 @@ describe('revalidation outbox worker', () => {
       lockedAt: null,
       lockExpiresAt: null,
       lastError: 'Delivery lock expired before completion.',
+    })
+  })
+
+  it('rejects a stale worker completion after a newer lease is claimed', async () => {
+    const ctx = createCtx()
+    await seedTarget(ctx)
+    const eventId = await seedEvent(ctx)
+    const firstClaimedAt = Date.now()
+    const [firstLease] = await ctx.raw.mutation(api.revalidation.claimDueRevalidationEvents, {
+      now: firstClaimedAt,
+      limit: 1,
+    })
+
+    const recoveredAt = firstClaimedAt + 2 * 60 * 1000 + 1
+    await ctx.raw.mutation(api.revalidation.recoverExpiredDeliveries, { now: recoveredAt })
+    const [secondLease] = await ctx.raw.mutation(api.revalidation.claimDueRevalidationEvents, {
+      now: recoveredAt + 1,
+      limit: 1,
+    })
+
+    await expect(
+      ctx.raw.mutation(api.revalidation.recordRevalidationDelivery, {
+        eventId,
+        deliveryGeneration: firstLease.deliveryGeneration,
+        leaseId: firstLease.leaseId,
+        ok: true,
+        now: recoveredAt + 2,
+      }),
+    ).resolves.toBe(false)
+    expect(
+      (await ctx.readAll('outboxEvents')).find((row) => String(row._id) === eventId),
+    ).toMatchObject({
+      status: 'delivering',
+      deliveryGeneration: secondLease.deliveryGeneration,
+      leaseId: secondLease.leaseId,
+    })
+
+    await expect(
+      ctx.raw.mutation(api.revalidation.recordRevalidationDelivery, {
+        eventId,
+        deliveryGeneration: secondLease.deliveryGeneration,
+        leaseId: secondLease.leaseId,
+        ok: true,
+        now: recoveredAt + 3,
+      }),
+    ).resolves.toBe(true)
+    expect(
+      (await ctx.readAll('outboxEvents')).find((row) => String(row._id) === eventId),
+    ).toMatchObject({
+      status: 'delivered',
+      deliveryGeneration: secondLease.deliveryGeneration,
+      leaseId: null,
     })
   })
 
@@ -416,7 +478,7 @@ describe('revalidation outbox worker', () => {
       (item) => String(item._id) === missingSecretEventId,
     )
     expect(missingSecretRow).toMatchObject({
-      status: 'failed',
+      status: 'dead',
       attempts: 1,
       lastError: 'Missing revalidation secret env "GINKO_REVALIDATE_TOKEN_TEST".',
     })
@@ -436,7 +498,7 @@ describe('revalidation outbox worker', () => {
       (item) => String(item._id) === authFailureEventId,
     )
     expect(authFailureRow).toMatchObject({
-      status: 'failed',
+      status: 'dead',
       attempts: 1,
     })
     expect(authFailureRow?.lastError).toContain('HTTP 403')

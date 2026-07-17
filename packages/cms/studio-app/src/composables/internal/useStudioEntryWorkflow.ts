@@ -1,4 +1,4 @@
-import { getCmsErrorMessage } from '@public/utils/cmsErrors'
+import { getCmsErrorCode, getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, reactive, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
@@ -73,6 +73,16 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
   const selectedPublishImpactLocale = ref<string | null>(null)
   const publishImpactStale = ref(false)
   const requestReviewPending = ref(false)
+  // EDT-10: true once the editor actually opened the rendered draft preview
+  // for the current draft state. The publish dialog's "Preview reviewed"
+  // claim is honest only when this is set; any draft change resets it.
+  const draftPreviewOpened = ref(false)
+  // Stale-session presentation: true when the last publish-preview attempt
+  // failed because the entry was changed in another session (save conflict or
+  // ENTRY_CONCURRENT_EDIT from the backend). The dialog and impact summary use
+  // this to say exactly that and to offer the top bar's "Reload latest draft"
+  // recovery instead of a generic "fix the issue" message.
+  const previewConcurrentEdit = ref(false)
 
   const visibilityQuery = useCmsStudioQuery(
     api.ginkoCms.diagnostics.explainPublicVisibility,
@@ -105,6 +115,8 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     publishImpactStale.value = false
     requestReviewPending.value = false
     publishOperationPreview.value = null
+    draftPreviewOpened.value = false
+    previewConcurrentEdit.value = false
   })
 
   const readinessDetail = computed(() => {
@@ -303,6 +315,23 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         error: null,
       }
     }
+    // Preview preparation failed (e.g. the entry changed in another session):
+    // surface the failure itself instead of the generic "missing" copy — and
+    // never pretend a preview exists.
+    if (editor.publishing.publishReadiness.state === 'failed') {
+      return {
+        state: 'failed',
+        message:
+          editor.publishing.publishReadiness.message ||
+          editor.loader.t('ginkoCms.studio.workflow.preview.failed'),
+        cacheTags: [],
+        events: [],
+        locales: [],
+        status: null,
+        pending: false,
+        error: null,
+      }
+    }
     if (publishImpactStale.value) {
       return {
         state: 'stale',
@@ -487,6 +516,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         publishOperationPreview.value = null
         editor.publishing.markPublishReadinessStale()
         if (publishImpactRequested.value) publishImpactStale.value = true
+        draftPreviewOpened.value = false
       }
     },
   )
@@ -497,8 +527,39 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
       publishOperationPreview.value = null
       editor.publishing.markPublishReadinessStale('Publish scope changed after the last preview.')
       if (publishImpactRequested.value) publishImpactStale.value = true
+      draftPreviewOpened.value = false
     },
   )
+
+  function markDraftPreviewOpened() {
+    draftPreviewOpened.value = true
+  }
+
+  // The preview could not be prepared because another session changed the
+  // entry. Present it as exactly that — the recovery is the same "Reload
+  // latest draft" the top bar's conflict notice offers.
+  function failPreviewForConcurrentEdit() {
+    previewConcurrentEdit.value = true
+    editor.publishing.setPublishReadiness({
+      state: 'failed',
+      message: editor.loader.t('ginkoCms.studio.workflow.preview.concurrentEdit'),
+      locales: [],
+    })
+    publishImpactRequested.value = true
+  }
+
+  // Recovery action for the concurrent-edit failure: hydrate the latest draft
+  // (discarding this session's stale form state) and immediately re-run the
+  // publish preview so the dialog/panel show fresh, truthful state.
+  async function reloadLatestDraftAndPreview() {
+    editor.draft.requestHydrate()
+    previewConcurrentEdit.value = false
+    if (editor.publishing.publishMode === 'all') {
+      await previewPublishImpact()
+      return
+    }
+    await previewPublishImpact(editor.loader.currentLocale)
+  }
 
   async function validatePublicRoutes() {
     if (!isRouteBackedEntry.value) return
@@ -509,6 +570,13 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
   async function previewPublishImpact(locale?: string, options: { saveDraft?: boolean } = {}) {
     selectedPublishImpactLocale.value = locale ?? null
     publishImpactStale.value = false
+    previewConcurrentEdit.value = false
+    // Known-stale session: the entry already changed elsewhere, so preparing a
+    // preview from this form state can only fail. Say so up front.
+    if (editor.draft.saveConflict) {
+      failPreviewForConcurrentEdit()
+      return
+    }
     editor.publishing.setPublishReadiness({
       state: 'pending',
       message:
@@ -520,12 +588,18 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     if (options.saveDraft !== false && editor.draft.isDirty) {
       const saved = await editor.draft.handleSaveDraft(true)
       if (!saved) {
+        // The save was refused because another session already advanced the
+        // draft — the same conflict the top bar notice describes.
+        if (editor.draft.saveConflict) {
+          failPreviewForConcurrentEdit()
+          return
+        }
         editor.publishing.setPublishReadiness({
           state: 'failed',
           message: editor.draft.error || 'Draft could not be saved before preview.',
           locales: [],
         })
-        publishImpactRequested.value = false
+        publishImpactRequested.value = true
         return
       }
     }
@@ -541,15 +615,16 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         t: editor.loader.t,
         publishMode: editor.publishing.publishMode,
       })
-      const expectedVersion = (editor.loader.entry as { draftVersion?: unknown } | null)
-        ?.draftVersion
+      const expectedVersion =
+        editor.draft.lastHydratedVersion ??
+        (editor.loader.entry as { draftVersion?: unknown } | null)?.draftVersion
       if (typeof expectedVersion !== 'number') {
         editor.publishing.setPublishReadiness({
           state: 'failed',
           message: 'The saved draft is not loaded. Reload before previewing website changes.',
           locales: [],
         })
-        publishImpactRequested.value = false
+        publishImpactRequested.value = true
         return
       }
       const locales =
@@ -589,6 +664,10 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         locales: operationPreview.locales,
       })
     } catch (error) {
+      if (getCmsErrorCode(error) === 'ENTRY_CONCURRENT_EDIT') {
+        failPreviewForConcurrentEdit()
+        return
+      }
       editor.publishing.setPublishReadiness({
         state: 'failed',
         message:
@@ -597,7 +676,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
             : 'We could not prepare the website preview.',
         locales: [],
       })
-      publishImpactRequested.value = false
+      publishImpactRequested.value = true
       return
     }
     publishImpactRequested.value = true
@@ -625,8 +704,9 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
           return
         }
       }
-      const expectedVersion = (editor.loader.entry as { draftVersion?: unknown } | null)
-        ?.draftVersion
+      const expectedVersion =
+        editor.draft.lastHydratedVersion ??
+        (editor.loader.entry as { draftVersion?: unknown } | null)?.draftVersion
       if (typeof expectedVersion !== 'number') {
         throw new TypeError('The saved draft is not loaded. Reload before requesting review.')
       }
@@ -653,6 +733,8 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     publishImpactRequested,
     publishImpact,
     selectedPublishImpactLocale,
+    draftPreviewOpened,
+    previewConcurrentEdit,
     requestReviewPending,
     readinessDetail,
     readinessPending,
@@ -673,5 +755,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     previewPublishImpact,
     reviewTranslationReadiness,
     requestPublishReview,
+    markDraftPreviewOpened,
+    reloadLatestDraftAndPreview,
   })
 }

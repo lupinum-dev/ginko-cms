@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,6 +12,7 @@ const targetRoots = [
 const rootGeneratedFiles = ['auth.ts', 'convex.config.ts', 'http.ts']
 const generatedDirs = ['betterAuth', 'ginkoCms']
 const ignoredNames = new Set(['_generated'])
+const manifestName = '.ginko-cms-setup.json'
 
 function toRepoPath(filePath) {
   return relative(repoRoot, filePath).replaceAll('\\', '/')
@@ -35,6 +37,7 @@ const generatedFiles = [
   ...rootGeneratedFiles,
   ...generatedDirs.flatMap((dir) => collectGeneratedFiles(join(templateRoot, dir), dir)),
 ].sort()
+const manifestFiles = [...new Set([...generatedFiles, 'auth.config.ts', 'schema.ts'])].sort()
 
 const violations = []
 
@@ -59,6 +62,27 @@ for (const targetRoot of targetRoots) {
     if (templateSource !== targetSource) {
       violations.push(
         `${toRepoPath(targetPath)}: differs from generated template ${toRepoPath(templatePath)}`,
+      )
+    }
+  }
+
+  const manifestPath = join(targetRoot, manifestName)
+  if (!existsSync(manifestPath)) {
+    violations.push(`${toRepoPath(manifestPath)}: missing generated setup provenance manifest`)
+    continue
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  if (manifest.schemaVersion !== 1 || manifest.generatedBy !== '@lupinum/ginko-cms') {
+    violations.push(`${toRepoPath(manifestPath)}: invalid generated setup provenance manifest`)
+    continue
+  }
+  for (const relPath of manifestFiles) {
+    const templateSource = readFileSync(join(templateRoot, relPath), 'utf8')
+    const expectedHash = createHash('sha256').update(templateSource).digest('hex')
+    const recordedHash = manifest.files?.[`convex/${relPath}`]?.templateHash
+    if (recordedHash !== expectedHash) {
+      violations.push(
+        `${toRepoPath(manifestPath)}: stale or missing template hash for convex/${relPath}`,
       )
     }
   }

@@ -18,7 +18,6 @@ import { can, canArchiveEntries, canEditEntries, canPublishEntries } from '../au
 import { previewPublishImpactForEntry } from '../diagnostics.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
-import { logActivity } from '../lib/activity.js'
 import { asEntryId } from '../lib/ids.js'
 import type { QueryOrMutationCtx } from '../lib/types.js'
 import {
@@ -29,17 +28,21 @@ import {
   previewResultValidator,
   definePreview,
 } from '../operationHelpers.js'
-import { getCollectionForEntry, loadEntryMutationContext } from './context.js'
+import { deriveDirtyLocales, getCollectionForEntry, loadEntryMutationContext } from './context.js'
 import { previewDestructiveEntryOperation } from './read.js'
 import {
   archiveCurrentEntry,
   computePublishDraftHash,
   createDraftCheckpoint,
   publishCurrentDraft,
+  restoreArchivedEntry,
+  rollbackPublicToRevision,
   restoreRevisionSnapshotToDraft,
   unpublishCurrentPublic,
 } from './workflow/commands.js'
+import { readDraftRows } from './workflow/drafts.js'
 import { readPublicRevisionIdsByLocale } from './workflow/projection.js'
+import { readRouteGeneration } from './workflow/routeGeneration.js'
 
 function formatAffectedRoutes(
   routes: Array<{ locale: string; href: string; path?: string | null }>,
@@ -54,27 +57,18 @@ function archiveBlockers(result: Awaited<ReturnType<typeof previewDestructiveEnt
       operationIssue({ code: 'already-archived', message: 'Entry is already archived.' }),
     )
   }
-  if (result.publicDescendantRoutes.length > 0) {
-    blockers.push(
-      operationIssue({
-        code: 'published-descendants',
-        message: `Archive blocked: ${result.publicDescendantRoutes.length} published descendant route${result.publicDescendantRoutes.length === 1 ? '' : 's'} would remain live under this entry.`,
-      }),
-    )
-  }
   return blockers
 }
 
-function publishedDescendantBlockers(
+function descendantReachabilityWarning(
   result: Awaited<ReturnType<typeof previewDestructiveEntryOperation>>,
 ) {
-  if (result.publicDescendantRoutes.length === 0) return []
-  return [
-    operationIssue({
-      code: 'published-descendants',
-      message: `Operation blocked: ${result.publicDescendantRoutes.length} published descendant route${result.publicDescendantRoutes.length === 1 ? '' : 's'} would remain live under this entry.`,
-    }),
-  ]
+  return result.publicDescendantRoutes.length
+    ? operationIssue({
+        code: 'descendant-routes-unreachable',
+        message: `${result.publicDescendantRoutes.length} published descendant route${result.publicDescendantRoutes.length === 1 ? '' : 's'} will become unreachable without changing the descendants' editorial records.`,
+      })
+    : null
 }
 
 async function loadRevisionForRollback(
@@ -101,6 +95,35 @@ async function loadRevisionForRollback(
   }
 }
 
+const MONTH_LABELS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
+
+/**
+ * Human label for a revision in user-facing copy: version number plus the
+ * note (message) the history list already shows, falling back to the date.
+ * Never expose the raw Convex revision id to users.
+ */
+function humanVersionLabel(
+  revision: Awaited<ReturnType<typeof loadRevisionForRollback>>['revision'],
+  revisionNumber: number,
+): string {
+  if (revision.message) return `version ${revisionNumber} — ${revision.message}`
+  const date = new Date(revision.createdAt)
+  return `version ${revisionNumber} from ${MONTH_LABELS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`
+}
+
 async function runCanonicalRollbackVersion(
   ctx: Parameters<typeof restoreRevisionSnapshotToDraft>[0],
   args: {
@@ -111,35 +134,27 @@ async function runCanonicalRollbackVersion(
     publish: boolean
   },
 ) {
-  const now = Date.now()
-  const restoredDraft = await restoreRevisionSnapshotToDraft(ctx, {
-    entry: args.entry,
-    sourceRevision: args.revision,
-    appIdentity: args.appIdentityId,
-    now,
-    expectedDraftVersion: args.entry.draftVersion,
-  })
+  const locales = Object.keys(args.revision.snapshots).sort()
 
   if (!args.publish) {
-    return { versionId: String(args.revision._id) }
+    await restoreRevisionSnapshotToDraft(ctx, {
+      entry: args.entry,
+      sourceRevision: args.revision,
+      appIdentity: args.appIdentityId,
+      now: Date.now(),
+      expectedDraftVersion: args.entry.draftVersion,
+    })
+    const refreshed = await ctx.db.get(args.entry._id)
+    return { versionId: String(refreshed?.latestEditorialRevisionId ?? args.revision._id) }
   }
 
-  const locales = Object.entries(args.revision.snapshot.locales)
-    .filter(([, snapshot]) => snapshot !== null)
-    .map(([locale]) => locale)
-    .sort()
-  const expectedDraftHash = await computePublishDraftHash(ctx, {
+  const result = await rollbackPublicToRevision(ctx, {
     entryId: args.entry._id,
+    sourceRevisionId: args.revision._id,
     locales,
-  })
-  const result = await publishCurrentDraft(ctx, {
-    entryId: args.entry._id,
-    locales,
-    expectedDraftVersion: restoredDraft.draftVersion,
-    expectedDraftHash,
+    expectedPublicRevisionIds: await readPublicRevisionIdsByLocale(ctx, args.entry._id),
     appIdentity: args.appIdentityId,
-    kind: 'rollback',
-    message: `Restored and published version ${args.revisionNumber}`,
+    message: `Rolled back public output to version ${args.revisionNumber}`,
   })
 
   return { versionId: String(result.revisionId) }
@@ -189,9 +204,19 @@ export const publishEntryOperation = defineCmsOperation({
     const blockingMessages = result.blockingDiagnostics.map((item) => item.message).filter(Boolean)
     const warnings = result.warnings.map((item) => item.message).filter(Boolean)
     const affectedRoutes = result.changes.filter((change) => change.kind === 'route').length
-    const dirtyLocaleCount = (entry.dirtyLocales as string[]).filter((locale) =>
-      args.locales.includes(locale),
-    ).length
+    const draftRows = await readDraftRows(ctx, entry._id)
+    const dirtyLocaleCount = deriveDirtyLocales(
+      entry,
+      new Map(Object.values(draftRows.byLocale).map((row) => [row.locale, row.version])),
+    ).filter((locale) => args.locales.includes(locale)).length
+    const routeGenerations = Object.fromEntries(
+      await Promise.all(
+        args.locales.map(async (locale: string) => [
+          locale,
+          await readRouteGeneration(ctx, collection.slug, locale),
+        ]),
+      ),
+    )
     return buildPreview({
       summary: `Publish impact for entry ${args.entryId} (${args.locales.join(', ') || 'all requested locales'}): ${result.status}${localeStatuses.length ? ` - ${localeStatuses.join(', ')}` : ''}.`,
       allowed: !blocked,
@@ -238,7 +263,10 @@ export const publishEntryOperation = defineCmsOperation({
       },
       version: {
         draftVersion: entry.draftVersion,
-        latestRevisionId: entry.latestRevisionId ? String(entry.latestRevisionId) : null,
+        latestRevisionId: entry.latestEditorialRevisionId
+          ? String(entry.latestEditorialRevisionId)
+          : null,
+        routeGenerations,
       },
     })
   },
@@ -257,9 +285,18 @@ export const publishEntryOperation = defineCmsOperation({
       message: args.message ?? null,
     })
     const refreshed = (await ctx.db.get(entry._id)) as typeof entry | null
+    const refreshedDraftRows = refreshed ? await readDraftRows(ctx, refreshed._id) : null
     return {
       versionId: String(result.revisionId),
-      dirtyLocales: refreshed?.dirtyLocales ?? [],
+      dirtyLocales:
+        refreshed && refreshedDraftRows
+          ? deriveDirtyLocales(
+              refreshed,
+              new Map(
+                Object.values(refreshedDraftRows.byLocale).map((row) => [row.locale, row.version]),
+              ),
+            )
+          : [],
       draftVersion: refreshed?.draftVersion ?? args.expectedVersion,
     }
   },
@@ -314,20 +351,23 @@ export const unpublishEntryOperation = defineCmsOperation({
       ...(result.publicRoutes.length === 0
         ? [operationIssue({ code: 'not-public', message: 'Entry is not currently public.' })]
         : []),
-      ...publishedDescendantBlockers(result),
     ]
+    const descendantWarning = descendantReachabilityWarning(result)
     return buildPreview({
       summary: `Will unpublish "${result.displayLabel ?? result.baseSlug}" and remove ${result.publicRoutes.length} public route${result.publicRoutes.length === 1 ? '' : 's'}.`,
       allowed: blockers.length === 0,
       blockers,
-      warnings: result.publicRoutes.length
-        ? [
-            operationIssue({
-              code: 'affected-routes',
-              message: `Affected routes: ${formatAffectedRoutes(result.publicRoutes)}`,
-            }),
-          ]
-        : [],
+      warnings: [
+        ...(result.publicRoutes.length
+          ? [
+              operationIssue({
+                code: 'affected-routes',
+                message: `Affected routes: ${formatAffectedRoutes(result.publicRoutes)}`,
+              }),
+            ]
+          : []),
+        ...(descendantWarning ? [descendantWarning] : []),
+      ],
       effects: [
         operationEffect({
           kind: 'routes',
@@ -356,7 +396,9 @@ export const unpublishEntryOperation = defineCmsOperation({
       },
       version: {
         draftVersion: entry.draftVersion,
-        latestRevisionId: entry.latestRevisionId ? String(entry.latestRevisionId) : null,
+        latestRevisionId: entry.latestEditorialRevisionId
+          ? String(entry.latestEditorialRevisionId)
+          : null,
         publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
         publicDescendantRouteCount: result.publicDescendantRoutes.length,
       },
@@ -404,18 +446,22 @@ export const archiveEntryOperation = defineCmsOperation({
   },
   preview: async (_ctx, args, { entry, destructivePreview: result }) => {
     const blockers = archiveBlockers(result)
+    const descendantWarning = descendantReachabilityWarning(result)
     return buildPreview({
       summary: `Will archive "${result.displayLabel ?? result.baseSlug}" and remove ${result.publicRoutes.length} public route${result.publicRoutes.length === 1 ? '' : 's'}.`,
       allowed: blockers.length === 0,
       blockers,
-      warnings: result.publicRoutes.length
-        ? [
-            operationIssue({
-              code: 'affected-routes',
-              message: `Affected routes: ${formatAffectedRoutes(result.publicRoutes)}`,
-            }),
-          ]
-        : [],
+      warnings: [
+        ...(result.publicRoutes.length
+          ? [
+              operationIssue({
+                code: 'affected-routes',
+                message: `Affected routes: ${formatAffectedRoutes(result.publicRoutes)}`,
+              }),
+            ]
+          : []),
+        ...(descendantWarning ? [descendantWarning] : []),
+      ],
       effects: [
         operationEffect({
           kind: 'routes',
@@ -443,7 +489,7 @@ export const archiveEntryOperation = defineCmsOperation({
       },
       version: {
         draftVersion: entry.draftVersion,
-        status: entry.status,
+        status: entry.lifecycle,
         publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
         publicDescendantRouteCount: result.publicDescendantRoutes.length,
       },
@@ -468,36 +514,77 @@ export const previewArchiveEntryOperation = callerMutation.protected(
   }),
 )
 
-export const restoreEntry = callerMutation.protected({
+export const restoreEntryOperation = defineCmsOperation({
   id: 'ginko-cms.restore-entry',
+  kind: 'destructive',
+  executeFunctionRef: 'entries/publish:restoreEntryOperationExecute',
   args: restoreEntryArgs.args,
   guard: canArchiveEntries,
   returns: v.null(),
-  handler: async (ctx, args) => {
-    const { appIdentityId, entry, now } = await loadEntryMutationContext(ctx, args.entryId)
-    if (entry.status !== 'archived') {
-      throwCmsError('ENTRY_RESTORE_NOT_ARCHIVED', 'Only archived entries can be restored.', {
-        entryId: args.entryId,
-        status: entry.status,
-      })
-    }
-    await ctx.db.patch(entry._id, {
-      status: 'draft',
-      updatedAt: now,
-      updatedBy: appIdentityId,
-      draftVersion: entry.draftVersion + 1,
+  previewReturns: previewResultValidator(),
+  load: async (ctx, args) => {
+    const entry = await ctx.db.get(asEntryId(args.entryId))
+    if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.', { entryId: args.entryId })
+    return { entry }
+  },
+  preview: async (_ctx, args, { entry }) => {
+    const archived = entry.lifecycle === 'archived'
+    return buildPreview({
+      summary: archived
+        ? `Will restore "${entry.slug}" to the active editorial workspace without publishing it.`
+        : `Entry "${entry.slug}" is already active.`,
+      allowed: archived,
+      blockers: archived
+        ? []
+        : [
+            operationIssue({
+              code: 'not-archived',
+              message: 'Only archived entries can be restored.',
+            }),
+          ],
+      warnings: archived
+        ? [
+            operationIssue({
+              code: 'remains-unpublished',
+              message: 'Restoring the editorial record does not restore public output.',
+            }),
+          ]
+        : [],
+      effects: [
+        operationEffect({
+          kind: 'entries',
+          summary: 'Editorial records restored',
+          count: archived ? 1 : 0,
+        }),
+      ],
+      confirm: {
+        operationId: 'ginko-cms.restore-entry',
+        args,
+        lifecycle: entry.lifecycle,
+      },
+      version: {
+        draftVersion: entry.draftVersion,
+        lifecycle: entry.lifecycle,
+      },
     })
-    await logActivity(ctx, {
-      kind: 'entry.restored',
-      summary: 'Restored entry',
-      appIdentityId,
+  },
+  handler: async (ctx, _args, { entry }) => {
+    const appIdentity = await ctx.appIdentity()
+    await restoreArchivedEntry(ctx, {
       entryId: entry._id,
-      collectionId: entry.collectionId,
-      detail: {},
+      expectedDraftVersion: entry.draftVersion,
+      appIdentity: appIdentity.userId,
     })
     return null
   },
 })
+
+export const restoreEntryOperationExecute = callerMutation.protected(restoreEntryOperation)
+export const previewRestoreEntryOperation = callerMutation.protected(
+  Object.assign(definePreview(restoreEntryOperation), {
+    id: 'entries/publish:previewRestoreEntryOperation',
+  }),
+)
 
 export const rollbackVersionOperation = defineCmsOperation({
   id: 'ginko-cms.rollback-version',
@@ -523,13 +610,15 @@ export const rollbackVersionOperation = defineCmsOperation({
   },
   returns: rollbackResultValidator,
   previewReturns: previewResultValidator(),
-  preview: async (_ctx, args, { entry, revision, revisionNumber }) =>
-    buildPreview({
-      summary: `Will roll back "${revision.snapshot.slug ?? entry.baseSlug}" to version ${revisionNumber}${args.publish ? ' and publish it' : ''}.`,
+  preview: async (_ctx, args, { entry, revision, revisionNumber }) => {
+    const firstLocale = Object.keys(revision.snapshots)[0]
+    const firstSnapshot = firstLocale ? revision.snapshots[firstLocale] : null
+    return buildPreview({
+      summary: `Will ${args.publish ? 'roll back public output' : 'restore the draft'} for "${firstSnapshot?.slug ?? entry.slug}" to version ${revisionNumber}.`,
       warnings: [
         operationIssue({
           code: 'replace-current-state',
-          message: `Current draft${args.publish ? ' and published state' : ''} will be replaced by version "${args.versionId}".`,
+          message: `${args.publish ? 'Current public output' : 'Current draft'} will be replaced by ${humanVersionLabel(revision, revisionNumber)}.`,
         }),
       ],
       effects: [operationEffect({ kind: 'versions', summary: 'Version restored', count: 1 })],
@@ -542,16 +631,19 @@ export const rollbackVersionOperation = defineCmsOperation({
         args,
         effect: {
           version: revisionNumber,
-          snapshot: revision.snapshot,
+          snapshots: revision.snapshots,
           currentDraftVersion: entry.draftVersion,
         },
       },
       version: {
         entryDraftVersion: entry.draftVersion,
         versionId: String(revision._id),
-        latestRevisionId: entry.latestRevisionId ? String(entry.latestRevisionId) : null,
+        latestRevisionId: entry.latestEditorialRevisionId
+          ? String(entry.latestEditorialRevisionId)
+          : null,
       },
-    }),
+    })
+  },
   handler: async (ctx, args, { entry, collection, revision, revisionNumber }) => {
     const appIdentity = await ctx.appIdentity()
     void collection

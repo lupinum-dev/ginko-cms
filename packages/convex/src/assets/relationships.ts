@@ -1,12 +1,11 @@
 import type { Doc, Id } from '../_generated/dataModel.js'
 import { createDraftEntryTitleResolver } from '../entries/labels.js'
-import { normalizeCollectionDoc } from '../lib/collections.js'
+import { getCollection, getCollectionDefaultLocale } from '../lib/collections.js'
 import { toStringId } from '../lib/ids.js'
 import { resolveLocaleText } from '../lib/locale.js'
 import type { CmsCollection, QueryOrMutationCtx } from '../lib/types.js'
 
 type AssetDoc = Doc<'assets'>
-type CollectionDoc = Doc<'collections'>
 
 export type AssetRefUsage = {
   entryId: string
@@ -28,16 +27,15 @@ export type CollectionMeta = {
   label: string
 }
 
+/**
+ * Collection keys are stable slugs. The name is retained because the Studio
+ * asset response still calls the public field `collectionId`; it no longer
+ * denotes a Convex document id.
+ */
 export type AssetRelationships = {
   collectionById: Map<string, CollectionMeta>
   entryById: Map<string, EntryMeta>
   usagesByAssetId: Map<string, AssetRefUsage[]>
-}
-
-function getDefaultLocale(settings: Doc<'cmsSettings'> | null): string {
-  return (
-    settings?.locales.find((locale) => locale.isDefault)?.code ?? settings?.locales[0]?.code ?? 'en'
-  )
 }
 
 export function assetOwnerPathFromMeta(
@@ -56,18 +54,13 @@ export async function loadAssetRelationships(
   ctx: QueryOrMutationCtx,
   assetIds: Set<string>,
 ): Promise<AssetRelationships> {
-  const settings = await ctx.db
-    .query('cmsSettings')
-    .withIndex('by_key', (q) => q.eq('key', 'site'))
-    .first()
-  const defaultLocale = getDefaultLocale(settings)
   const assetIdList = [...assetIds]
   const [referenceGroups, assets] = await Promise.all([
     Promise.all(
       assetIdList.map((assetId) =>
         ctx.db
           .query('contentAssetRefs')
-          .withIndex('by_asset_source', (q) => q.eq('assetId', assetId))
+          .withIndex('by_asset_source', (query) => query.eq('assetId', assetId))
           .collect(),
       ),
     ),
@@ -83,28 +76,26 @@ export async function loadAssetRelationships(
     await Promise.all([...entryIds.values()].map((entryId) => ctx.db.get(entryId)))
   ).filter((entry): entry is Doc<'entries'> => entry !== null)
   const entriesById = new Map(entries.map((entry) => [toStringId(entry._id), entry]))
-  const collectionIds = new Map<string, Id<'collections'>>()
-  for (const row of referenceRows) {
-    collectionIds.set(toStringId(row.collectionId), row.collectionId)
-  }
-  for (const entry of entries) {
-    collectionIds.set(toStringId(entry.collectionId), entry.collectionId)
-  }
+
+  const collectionSlugs = new Set<string>()
+  for (const row of referenceRows) collectionSlugs.add(row.collection)
+  for (const entry of entries) collectionSlugs.add(entry.collection)
   for (const asset of assets) {
-    if (asset?.collectionId) {
-      collectionIds.set(toStringId(asset.collectionId), asset.collectionId)
-    }
+    if (asset?.collection) collectionSlugs.add(asset.collection)
   }
-  const collections = (
-    await Promise.all([...collectionIds.values()].map((collectionId) => ctx.db.get(collectionId)))
-  ).filter((collection): collection is CollectionDoc => collection !== null)
+  const resolvedCollections = await Promise.all(
+    [...collectionSlugs].map(async (slug) => [slug, await getCollection(ctx, slug)] as const),
+  )
+  const collections = new Map<string, CmsCollection>(
+    resolvedCollections.filter(
+      (entry): entry is readonly [string, CmsCollection] => entry[1] !== null,
+    ),
+  )
   const collectionById = new Map<string, CollectionMeta>()
-  const collectionRecordsById = new Map<string, CmsCollection>()
-  for (const collection of collections) {
-    collectionRecordsById.set(toStringId(collection._id), normalizeCollectionDoc(collection))
-    collectionById.set(toStringId(collection._id), {
-      slug: collection.slug,
-      label: resolveLocaleText(collection.label, defaultLocale),
+  for (const [slug, collection] of collections) {
+    collectionById.set(slug, {
+      slug,
+      label: resolveLocaleText(collection.label, getCollectionDefaultLocale(collection)),
     })
   }
 
@@ -115,37 +106,41 @@ export async function loadAssetRelationships(
     string,
     {
       entryId: Id<'entries'>
-      collectionId: Id<'collections'>
+      collection: string
       locale: string
       collectionMeta?: CollectionMeta
-      collection?: CmsCollection
+      collectionRecord?: CmsCollection
     }
   >()
   for (const row of referenceRows) {
-    const locale = row.locale ?? defaultLocale
+    const collection = collections.get(row.collection)
+    const locale = row.locale ?? (collection ? getCollectionDefaultLocale(collection) : 'en')
     metadataRequests.set(`${toStringId(row.entryId)}:${locale}`, {
       entryId: row.entryId,
-      collectionId: row.collectionId,
+      collection: row.collection,
       locale,
-      collectionMeta: collectionById.get(toStringId(row.collectionId)),
-      collection: collectionRecordsById.get(toStringId(row.collectionId)),
+      collectionMeta: collectionById.get(row.collection),
+      collectionRecord: collection,
     })
   }
   for (const asset of assets) {
     if (!asset?.entryId) continue
     const entry = entriesById.get(toStringId(asset.entryId))
     if (!entry) continue
-    const key = `${toStringId(entry._id)}:${defaultLocale}`
+    const collection = collections.get(entry.collection)
+    const locale = collection ? getCollectionDefaultLocale(collection) : 'en'
+    const key = `${toStringId(entry._id)}:${locale}`
     if (!metadataRequests.has(key)) {
       metadataRequests.set(key, {
         entryId: entry._id,
-        collectionId: entry.collectionId,
-        locale: defaultLocale,
-        collectionMeta: collectionById.get(toStringId(entry.collectionId)),
-        collection: collectionRecordsById.get(toStringId(entry.collectionId)),
+        collection: entry.collection,
+        locale,
+        collectionMeta: collectionById.get(entry.collection),
+        collectionRecord: collection,
       })
     }
   }
+
   const draftTitleResolver = createDraftEntryTitleResolver(ctx)
   const resolvedMetadata = new Map(
     await Promise.all(
@@ -164,8 +159,9 @@ export async function loadAssetRelationships(
   )
 
   for (const row of referenceRows) {
+    const collection = collections.get(row.collection)
+    const locale = row.locale ?? (collection ? getCollectionDefaultLocale(collection) : 'en')
     const entryId = toStringId(row.entryId)
-    const locale = row.locale ?? defaultLocale
     const entryMeta = resolvedMetadata.get(`${entryId}:${locale}`)
     const target = usagesByAssetId.get(row.assetId)
     if (!entryMeta || !target) continue
@@ -179,72 +175,65 @@ export async function loadAssetRelationships(
     })
   }
 
-  for (const assetId of assetIds) {
-    const usages = usagesByAssetId.get(assetId) ?? []
-    if (usages.length === 0) continue
+  for (const usages of usagesByAssetId.values()) {
     usages.sort((left, right) => {
       const entryOrder = left.entryTitle.localeCompare(right.entryTitle)
-      if (entryOrder !== 0) return entryOrder
-      return left.fieldPath.localeCompare(right.fieldPath)
+      return entryOrder !== 0 ? entryOrder : left.fieldPath.localeCompare(right.fieldPath)
     })
   }
 
   const entryById = new Map<string, EntryMeta>()
   for (const asset of assets) {
     if (!asset?.entryId) continue
-    const entryId = toStringId(asset.entryId)
-    const meta = resolvedMetadata.get(`${entryId}:${defaultLocale}`)
-    if (meta) entryById.set(entryId, meta)
+    const entry = entriesById.get(toStringId(asset.entryId))
+    if (!entry) continue
+    const collection = collections.get(entry.collection)
+    const locale = collection ? getCollectionDefaultLocale(collection) : 'en'
+    const meta = resolvedMetadata.get(`${toStringId(entry._id)}:${locale}`)
+    if (meta) entryById.set(toStringId(entry._id), meta)
   }
 
-  return {
-    collectionById,
-    entryById,
-    usagesByAssetId,
-  }
+  return { collectionById, entryById, usagesByAssetId }
 }
 
 async function resolveEntryMetaForAssetRef(
   ctx: QueryOrMutationCtx,
   args: {
     entryId: Id<'entries'>
-    collectionId: Id<'collections'>
+    collection: string
     locale: string
     collectionMeta?: CollectionMeta
-    collection?: CmsCollection
+    collectionRecord?: CmsCollection
     entry?: Doc<'entries'>
     draftTitleResolver: ReturnType<typeof createDraftEntryTitleResolver>
   },
 ): Promise<EntryMeta> {
-  const collectionSlug = args.collectionMeta?.slug ?? toStringId(args.collectionId)
-  const collectionLabel = args.collectionMeta?.label ?? collectionSlug
+  const collectionLabel = args.collectionMeta?.label ?? args.collection
   const publicRow = await ctx.db
     .query('publicEntries')
-    .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entryId).eq('locale', args.locale))
+    .withIndex('by_entry_locale', (query) =>
+      query.eq('entryId', args.entryId).eq('locale', args.locale),
+    )
     .first()
   if (publicRow) {
-    return {
-      title: publicRow.title,
-      collectionSlug,
-      collectionLabel,
-    }
+    return { title: publicRow.title, collectionSlug: args.collection, collectionLabel }
   }
 
   const entry = args.entry ?? (await ctx.db.get(args.entryId))
-  if (entry && args.collection) {
+  if (entry && args.collectionRecord) {
     return {
       title: await args.draftTitleResolver({
         entry,
-        collection: args.collection,
+        collection: args.collectionRecord,
         locale: args.locale,
       }),
-      collectionSlug,
+      collectionSlug: args.collection,
       collectionLabel,
     }
   }
   return {
-    title: entry?.baseSlug ?? toStringId(args.entryId),
-    collectionSlug,
+    title: entry?.slug ?? toStringId(args.entryId),
+    collectionSlug: args.collection,
     collectionLabel,
   }
 }

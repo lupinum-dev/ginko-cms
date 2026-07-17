@@ -1,5 +1,13 @@
 # Marketer Publishing Agent Success Protocol
 
+> **Superseded architecture record.** This pre-greenfield agent protocol is
+> retained only as decision history. It is not current implementation guidance
+> or acceptance evidence. Use the [canonical content model](../../reference/content-model.md),
+> [Studio workflows](./workflows.md), [contract transition guide](../../guides/changing-collections.md),
+> and [recovery boundaries](../../maintenance/backup-and-recovery.md). References
+> below to `publicRoutes`, descendant route-row rewrites, Studio imports, legacy
+> content migrations, CMS backup tables, or old scale ceilings are obsolete.
+
 This document explains how to run the marketer publishing refactor with coding
 agents while targeting roughly 95% implementation success.
 

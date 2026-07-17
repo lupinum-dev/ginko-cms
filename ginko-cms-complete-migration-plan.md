@@ -1,6 +1,6 @@
 # Ginko CMS vNext Coordinated Implementation Plan
 
-Status: authoritative implementation specification
+Status: superseded historical implementation specification
 
 Target: coordinated `0.2.0-rc.1`, followed by `0.2.0`
 
@@ -9,12 +9,18 @@ Last reviewed: 2026-07-13
 Owners: Ginko CMS maintainers, with coordinated changes in Ginko Content and
 Better Convex Nuxt where this document explicitly assigns them
 
+> **Superseded.** This coordinated pre-greenfield plan is retained for decision
+> history only. It is not current architecture, scope, scale, migration, or
+> release evidence. The accepted `userstories.md` catalog and the current
+> canonical content model, contract-transition, portability, and recovery docs
+> replace it. In particular, its `publicRoutes`, legacy migration, backup-table,
+> and large-scale portability claims are obsolete.
+
 ## 1. Purpose And Authority
 
-This document defines the coordinated Ginko CMS vNext architecture and the work
-required across Ginko Content, Ginko CMS, and Better Convex Nuxt integration to
-make it release-ready. It replaces the previous migration diary that used this
-filename.
+This document recorded the coordinated Ginko CMS vNext architecture and work
+that preceded the greenfield reliability refactor. It replaced an even older
+migration diary that used this filename.
 
 Repository-specific Ginko Content `0.4` implementation details live in
 [`../ginko-content/VNEXT-0.4.md`](../ginko-content/VNEXT-0.4.md). That document
@@ -26,11 +32,13 @@ records. They are not evidence that the current branch is release-ready. Current
 release approval must be based on artifacts produced after every work package in
 this document is complete.
 
-When implementation, documentation, and historical checklists disagree, use
-this priority order:
+For current work, executable evidence mapped to `userstories.md` and maintained
+docs take precedence over this file. The historical program used this priority
+order:
 
 1. Security invariants and executable tests.
-2. This implementation specification and accepted architecture decisions.
+2. This then-current implementation specification and accepted architecture
+   decisions.
 3. Public package contracts and migration guidance.
 4. Historical plans, logs, and release evidence.
 

@@ -7,11 +7,6 @@ describe('asset entry-title query budget', () => {
     const rows = [
       {
         entryId: 'entry-1',
-        locale: null,
-        shared: {},
-      },
-      {
-        entryId: 'entry-1',
         locale: 'en',
         values: { title: 'English title' },
       },
@@ -37,7 +32,7 @@ describe('asset entry-title query budget', () => {
             const locale = conditions.get('locale') as string | null
             queries.push(locale)
             return {
-              first: async () =>
+              unique: async () =>
                 rows.find(
                   (row) => row.entryId === conditions.get('entryId') && row.locale === locale,
                 ) ?? null,
@@ -47,7 +42,7 @@ describe('asset entry-title query budget', () => {
       },
     }
     const resolveTitle = createDraftEntryTitleResolver(ctx as never)
-    const entry = { _id: 'entry-1', baseSlug: 'fallback' }
+    const entry = { _id: 'entry-1', slug: 'fallback', shared: {} }
     const collection = {
       fields: [{ key: 'title', type: 'text', localized: true }],
       settings: {},
@@ -60,6 +55,6 @@ describe('asset entry-title query budget', () => {
         resolveTitle({ entry: entry as never, collection: collection as never, locale: 'de' }),
       ]),
     ).resolves.toEqual(['English title', 'English title', 'Deutscher Titel'])
-    expect(queries).toEqual([null, 'en', 'de'])
+    expect(queries).toEqual(['en', 'de'])
   })
 })

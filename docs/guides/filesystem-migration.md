@@ -74,6 +74,9 @@ workflow.
 
 ## Current Boundary
 
+- The CLI rejects more than 5,000 localized documents, more than three locales,
+  or more than 500 assets before starting a run. The exact limits are accepted;
+  limit-plus-one is rejected.
 - Only Ginko Content portable directories are accepted. The removed generic
   Markdown/JSON/YAML scanner and caller-provided apply adapter are not retained.
 - Imports create or update drafts. Publishing remains a separate normal CMS
@@ -92,5 +95,5 @@ workflow.
 ## Related Pages
 
 - [Changing collections](./changing-collections.md)
-- [Migration recipes](./migrations/recipes.md)
-- [Migration recovery](./migrations/recovery.md)
+- [Contract transition recipes](./migrations/recipes.md)
+- [Contract transition recovery](./migrations/recovery.md)

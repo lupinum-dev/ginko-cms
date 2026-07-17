@@ -156,19 +156,34 @@ export const upsertSettings = callerMutation.protected({
 
     const now = Date.now()
     const existing = await getCredentialSettings(ctx, args.apiKeyId)
-    const patch = {
-      ownerUserId: args.ownerUserId,
+    const mutableSettings = {
       label: args.label ?? null,
       scopes,
-      status: 'active' as const,
       expiresAt: args.expiresAt ?? null,
       updatedBy: appIdentity.userId,
       updatedAt: now,
-      revokedAt: null,
     }
 
     if (existing) {
-      await ctx.db.patch(existing._id, patch)
+      if (existing.status === 'revoked') {
+        throwCmsError(
+          'MCP_CREDENTIAL_REVOKED_PERMANENTLY',
+          'A revoked MCP credential cannot be reactivated. Create a new API key instead.',
+          { apiKeyId: args.apiKeyId },
+        )
+      }
+      if (existing.ownerUserId !== args.ownerUserId) {
+        throwCmsError(
+          'MCP_CREDENTIAL_OWNER_IMMUTABLE',
+          'An MCP credential cannot be reassigned to another member.',
+          {
+            apiKeyId: args.apiKeyId,
+            ownerUserId: existing.ownerUserId,
+            requestedOwnerUserId: args.ownerUserId,
+          },
+        )
+      }
+      await ctx.db.patch(existing._id, mutableSettings)
       const updated = await ctx.db.get(existing._id)
       if (!updated) throw new Error('Credential settings disappeared after update.')
       await logActivity(ctx, {
@@ -186,9 +201,12 @@ export const upsertSettings = callerMutation.protected({
 
     const id = await ctx.db.insert('mcpCredentialSettings', {
       apiKeyId: args.apiKeyId,
+      ownerUserId: args.ownerUserId,
+      status: 'active',
       createdBy: appIdentity.userId,
       createdAt: now,
-      ...patch,
+      revokedAt: null,
+      ...mutableSettings,
     })
     const created = await ctx.db.get(id)
     if (!created) throw new Error('Credential settings disappeared after create.')

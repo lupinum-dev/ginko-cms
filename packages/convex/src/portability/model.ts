@@ -5,7 +5,7 @@ import { canonicalJsonBytes, hashCanonicalJson } from '@lupinum/ginko-content/po
 export const PORTABLE_RUN_TTL_MS = PORTABLE_IMPORT_LIMITS.durationMs
 export const PORTABLE_PLAN_PAGE_LIMIT = 250
 export const PORTABLE_DOCUMENT_LIMIT = PORTABLE_IMPORT_LIMITS.entries
-export const PORTABLE_ASSET_LIMIT = 100_000
+export const PORTABLE_ASSET_LIMIT = PORTABLE_IMPORT_LIMITS.assets
 export const PORTABLE_ROW_BYTE_LIMIT = 256 * 1024
 export const PORTABLE_ASSET_BYTE_LIMIT = 25 * 1024 * 1024
 

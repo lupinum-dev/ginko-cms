@@ -1,15 +1,16 @@
 # vNext Implementation Ledger
 
-This file is chronological implementation evidence for the coordinated Ginko
-Content 0.4 and Ginko CMS 0.2 work. Architecture and acceptance requirements
-remain authoritative in:
+> **Superseded historical ledger.** This file records the retired coordinated
+> Ginko Content 0.4 / Ginko CMS 0.2 implementation program. It is not current
+> architecture, acceptance criteria, or certification. Use the
+> [canonical content model](../reference/content-model.md),
+> [contract transition guide](../guides/changing-collections.md), and
+> [recovery boundaries](./backup-and-recovery.md). In particular, old
+> `publicRoutes`, subtree-rewrite, migration, backup-table, and 100,000-item
+> claims below do not describe the greenfield system.
 
-- `ginko-content/VNEXT-0.4.md` at
-  `2402ff7aafd5cb22e2d856b96ee026a424c11218`;
-- `ginko-cms/ginko-cms-complete-migration-plan.md` at
-  `b05c7555b8f5383fa753cbe29ccac9cd25f5a787`.
-
-Historical release evidence is not current certification.
+The chronological entries remain unchanged where possible so that past
+decisions and evidence can still be audited.
 
 ## 2026-07-13 — Accepted starting state
 
@@ -322,8 +323,8 @@ mixed-generation reindex defect. The final suites cover:
   limits. Filesystem migration uses `lstat`, rejects symlinks and non-files,
   tracks real directories, and caps depth, file count, and bytes before parsing.
 - Portable draft import now has one CMS-owned operational envelope shared by
-  the CLI and Convex boundary: 100,000 entries, 100 locales, 1,000,000 nested
-  field values, 1,000,000 exact relation/parent edges, 256 KiB per staged
+  the CLI and Convex boundary: 5,000 localized documents, three locales, 500
+  assets, 250,000 nested field values, 100,000 exact relation/parent edges, 256 KiB per staged
   document, ten staged/applied items per request, and a two-hour total run
   deadline. Content's bounded directory reader remains the archive authority.
 - The unreleased per-item apply callable was deleted. Each validated document
@@ -332,7 +333,7 @@ mixed-generation reindex defect. The final suites cover:
   server action advances that order through the existing item receipts, so an
   interrupted action resumes from the committed count without client-owned
   document streaming or a second run ledger.
-- Hostile fixtures now reject the 100,001st entry, the 101st locale, and a
+- Hostile fixtures reject the 5,001st document, the fourth locale, the 501st asset, and a
   document above 256 KiB. Component evidence records locale/field/relation
   totals, applies a 251-item plan in bounded ten-item batches, and runtime
   orchestration retries after a simulated lost batch-two response.

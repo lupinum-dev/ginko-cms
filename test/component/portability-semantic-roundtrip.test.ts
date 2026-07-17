@@ -149,7 +149,13 @@ async function installCms() {
   await seedSettings(ctx)
   const { contract, documents } = fixture()
   const contractSha256 = await hashCanonicalJson(contract)
-  await ctx.raw.mutation(api.policy.installCmsPolicy, { contract, contractSha256 })
+  const presentation = { collections: {} }
+  await ctx.raw.mutation(api.contract.installCmsContract, {
+    content: contract,
+    contentHash: contractSha256,
+    presentation,
+    presentationHash: await hashCanonicalJson(presentation),
+  })
   return { ctx, owner: ctx.asCmsUser('owner-1'), contract, contractSha256, documents }
 }
 

@@ -10,6 +10,10 @@ import {
 } from '../mcp/_shared/request-auth'
 
 export default defineEventHandler(async (event) => {
+  // Global middleware: everything below (site-origin resolution, secret check)
+  // must only ever run for MCP requests, or a missing MCP setup 503s the whole
+  // host app. The downstream path guard in request-auth runs too late for that.
+  if (!event.path?.startsWith('/mcp')) return
   await authenticateMcpRequest(event)
 })
 

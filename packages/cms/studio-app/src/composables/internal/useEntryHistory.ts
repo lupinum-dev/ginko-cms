@@ -124,6 +124,9 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     }),
   )
   const versionDiff = computed(() => diffQuery.data?.value ?? null)
+  const versionDiffPending = computed(
+    () => diffLeftVersionId.value !== null && diffQuery.pending.value,
+  )
 
   function toggleDiff(versionId: string) {
     diffLeftVersionId.value = diffLeftVersionId.value === versionId ? null : versionId
@@ -160,7 +163,9 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     }
     if (typeof window !== 'undefined') {
       const ok = await studioConfirm({
-        title: publish ? 'Restore and publish this version?' : 'Restore this version as draft?',
+        title: publish
+          ? t('ginkoCms.studio.collectionEditor.rollbackPublishPrompt')
+          : t('ginkoCms.studio.collectionEditor.rollbackDraftPrompt'),
         description: destructivePreviewDescription(
           preview,
           formatDestructiveConfirmationPrompt({
@@ -171,11 +176,13 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
             previewState: 'valid',
             previewLabel: publish ? 'version diff and publish target' : 'version diff',
             warning: publish
-              ? t('ginkoCms.studio.collectionEditor.rollbackPublishPrompt')
-              : t('ginkoCms.studio.collectionEditor.rollbackDraftPrompt'),
+              ? t('ginkoCms.studio.collectionEditor.versionRestoreAndPublishHelp')
+              : t('ginkoCms.studio.collectionEditor.versionRestoreAsDraftHelp'),
           }),
         ),
-        confirmLabel: publish ? 'Restore & publish' : 'Restore as draft',
+        confirmLabel: publish
+          ? t('ginkoCms.common.restoreAndPublish')
+          : t('ginkoCms.common.restoreAsDraft'),
         confirmVariant: 'destructive',
       })
       if (!ok) return
@@ -254,6 +261,7 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     toggleVersionPreview,
     diffLeftVersionId,
     versionDiff,
+    versionDiffPending,
     toggleDiff,
     handleRollback,
     showCheckpointDialog,

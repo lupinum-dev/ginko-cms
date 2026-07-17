@@ -1,5 +1,5 @@
 import type { CmsRole } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { getCmsErrorMessage } from '@public/utils/cmsErrors'
+import { getCmsErrorData, getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { FunctionArgs } from 'convex/server'
 import type { ShallowUnwrapRef } from 'vue'
 import { computed, reactive, ref } from 'vue'
@@ -83,6 +83,7 @@ type McpCredentialSettings = {
   label: string | null
   scopes: string[]
   status: 'active' | 'revoked'
+  expiresAt: number | null
   createdBy: string
   createdAt: number
   updatedBy: string
@@ -203,6 +204,7 @@ export function useStudioSettingsAdmin() {
   const revalidationError = ref('')
   const revalidationInfo = ref('')
   const mcpConnectionError = ref('')
+  const mcpConnectionErrorDetail = ref('')
   const mcpConnectionInfo = ref('')
   const mcpCreatedToken = ref<{ id: string; key: string; name: string } | null>(null)
   const retryingRevalidationJobId = ref('')
@@ -390,6 +392,16 @@ export function useStudioSettingsAdmin() {
     await storageHygieneQuery.refresh()
   }
 
+  // MCP notices are editor-facing: show CMS-coded messages or the human
+  // fallback, and keep raw server errors behind the developer-details
+  // disclosure instead of the primary notice (PRODUCT.md anti-reference:
+  // implementation terminology as primary language).
+  function reportMcpConnectionError(e: unknown, fallback: string) {
+    const coded = getCmsErrorData(e)
+    mcpConnectionError.value = coded?.message ?? fallback
+    mcpConnectionErrorDetail.value = coded ? '' : e instanceof Error ? e.message : String(e)
+  }
+
   function toggleMcpScope(scope: McpScope, checked: boolean) {
     const next = new Set(mcpConnectionForm.scopes)
     if (checked) next.add(scope)
@@ -399,6 +411,7 @@ export function useStudioSettingsAdmin() {
 
   async function handleCreateMcpConnection() {
     mcpConnectionError.value = ''
+    mcpConnectionErrorDetail.value = ''
     mcpConnectionInfo.value = ''
     mcpCreatedToken.value = null
     const bridgeApi = studioHost.getBridge().mcpApiKeys
@@ -435,18 +448,18 @@ export function useStudioSettingsAdmin() {
         expiresIn: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : undefined,
         metadata: { purpose: 'mcp' },
       })
+      // The Better Auth key enforces the expiry; the settings record mirrors
+      // it so Studio can show when a connection lapses.
+      const expiresAt = created.expiresAt == null ? null : new Date(created.expiresAt).getTime()
       await upsertMcpCredentialMutation({
         apiKeyId: created.id,
         ownerUserId: userId,
         label: name,
         scopes,
-        expiresAt:
-          created.expiresAt === null || created.expiresAt === undefined
-            ? null
-            : new Date(created.expiresAt).getTime(),
+        expiresAt: typeof expiresAt === 'number' && Number.isFinite(expiresAt) ? expiresAt : null,
       })
       mcpCreatedToken.value = { id: created.id, key: created.key, name: created.name ?? name }
-      mcpConnectionInfo.value = 'MCP connection created.'
+      mcpConnectionInfo.value = t('ginkoCms.studio.settingsPage.mcpCreatedInfo')
       await mcpCredentialsQuery.refresh()
     } catch (e) {
       if (created) {
@@ -458,7 +471,7 @@ export function useStudioSettingsAdmin() {
           // has not been handed to the user yet.
         }
       }
-      mcpConnectionError.value = getCmsErrorMessage(e, 'Failed to create MCP connection.')
+      reportMcpConnectionError(e, t('ginkoCms.studio.settingsPage.mcpCreateError'))
     } finally {
       mcpConnectionSaving.value = false
     }
@@ -466,6 +479,7 @@ export function useStudioSettingsAdmin() {
 
   async function handleRevokeMcpConnection(apiKeyId: string) {
     mcpConnectionError.value = ''
+    mcpConnectionErrorDetail.value = ''
     mcpConnectionInfo.value = ''
     revokingMcpApiKeyId.value = apiKeyId
     try {
@@ -474,10 +488,10 @@ export function useStudioSettingsAdmin() {
       if (bridgeApi) {
         await bridgeApi.delete({ keyId: apiKeyId })
       }
-      mcpConnectionInfo.value = 'MCP connection revoked.'
+      mcpConnectionInfo.value = t('ginkoCms.studio.settingsPage.mcpRevokedInfo')
       await mcpCredentialsQuery.refresh()
     } catch (e) {
-      mcpConnectionError.value = getCmsErrorMessage(e, 'Failed to revoke MCP connection.')
+      reportMcpConnectionError(e, t('ginkoCms.studio.settingsPage.mcpRevokeError'))
     } finally {
       revokingMcpApiKeyId.value = ''
     }
@@ -551,6 +565,7 @@ export function useStudioSettingsAdmin() {
     members,
     membersQuery,
     mcpConnectionError,
+    mcpConnectionErrorDetail,
     mcpConnectionForm,
     mcpConnectionInfo,
     mcpConnectionSaving,

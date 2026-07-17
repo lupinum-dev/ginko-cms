@@ -34,10 +34,54 @@ function cleanupLimit(value: number | undefined) {
   )
 }
 
+type AgentRunCleanupCursor = {
+  updatedAt: number
+  creationTime: number
+  id: string
+}
+
+function parseAgentRunCleanupCursor(
+  value: string | null | undefined,
+): AgentRunCleanupCursor | null {
+  if (!value) return null
+  try {
+    const parsed = JSON.parse(value) as Partial<AgentRunCleanupCursor>
+    if (
+      typeof parsed.updatedAt !== 'number' ||
+      !Number.isFinite(parsed.updatedAt) ||
+      typeof parsed.creationTime !== 'number' ||
+      !Number.isFinite(parsed.creationTime) ||
+      typeof parsed.id !== 'string' ||
+      !parsed.id
+    ) {
+      throw new Error('invalid cursor payload')
+    }
+    return { updatedAt: parsed.updatedAt, creationTime: parsed.creationTime, id: parsed.id }
+  } catch {
+    throw new Error('STORAGE_MAINTENANCE_INVALID_CURSOR')
+  }
+}
+
+function encodeAgentRunCleanupCursor(row: {
+  updatedAt: number
+  _creationTime: number
+  _id: Id<'agentRuns'>
+}): string {
+  return JSON.stringify({
+    updatedAt: row.updatedAt,
+    creationTime: row._creationTime,
+    id: String(row._id),
+  })
+}
+
 export const cleanupStorageHygiene = internalMutation({
   args: {
     now: v.optional(v.number()),
     limit: v.optional(v.number()),
+    agentRunStatus: v.optional(
+      v.union(v.literal('completed'), v.literal('revoked'), v.literal('failed')),
+    ),
+    agentRunCursor: v.optional(v.union(v.string(), v.null())),
   },
   returns: cleanupResultValidator,
   handler: async (ctx, args) => {
@@ -55,7 +99,7 @@ export const cleanupStorageHygiene = internalMutation({
     const failedOutbox = await ctx.db
       .query('outboxEvents')
       .withIndex('by_status_updatedAt', (q) =>
-        q.eq('status', 'failed').lt('updatedAt', now - FAILED_OUTBOX_RETENTION_MS),
+        q.eq('status', 'dead').lt('updatedAt', now - FAILED_OUTBOX_RETENTION_MS),
       )
       .take(limit)
     for (const row of failedOutbox) await ctx.db.delete(row._id)
@@ -97,22 +141,37 @@ export const cleanupStorageHygiene = internalMutation({
         )
         .take(limit)
     ).filter((run) => run.expiresAt == null)
-    const completedRuns = await ctx.db
+    const terminalStatuses = ['completed', 'revoked', 'failed'] as const
+    const agentRunStatus = args.agentRunStatus ?? terminalStatuses[0]
+    const terminalCursor = parseAgentRunCleanupCursor(args.agentRunCursor)
+    const terminalRunRows = await ctx.db
       .query('agentRuns')
-      .withIndex('by_status_updated_at', (q) =>
-        q.eq('status', 'completed').lt('updatedAt', runCutoff),
+      .withIndex('by_status_updated_at', (q) => {
+        const status = q.eq('status', agentRunStatus)
+        return terminalCursor
+          ? status.gte('updatedAt', terminalCursor.updatedAt).lt('updatedAt', runCutoff)
+          : status.lt('updatedAt', runCutoff)
+      })
+      .filter((q) =>
+        terminalCursor
+          ? q.or(
+              q.gt(q.field('updatedAt'), terminalCursor.updatedAt),
+              q.and(
+                q.eq(q.field('updatedAt'), terminalCursor.updatedAt),
+                q.or(
+                  q.gt(q.field('_creationTime'), terminalCursor.creationTime),
+                  q.and(
+                    q.eq(q.field('_creationTime'), terminalCursor.creationTime),
+                    q.gt(q.field('_id'), terminalCursor.id),
+                  ),
+                ),
+              ),
+            )
+          : true,
       )
-      .take(limit)
-    const revokedRuns = await ctx.db
-      .query('agentRuns')
-      .withIndex('by_status_updated_at', (q) =>
-        q.eq('status', 'revoked').lt('updatedAt', runCutoff),
-      )
-      .take(limit)
-    const failedRuns = await ctx.db
-      .query('agentRuns')
-      .withIndex('by_status_updated_at', (q) => q.eq('status', 'failed').lt('updatedAt', runCutoff))
-      .take(limit)
+      .take(limit + 1)
+    const terminalRunPage = terminalRunRows.slice(0, limit)
+    const terminalRunPageDone = terminalRunRows.length <= limit
     let deletedRuns = 0
     for (const row of [...expiredActiveRuns, ...abandonedLegacyRuns]) {
       const retainedReview = await ctx.db
@@ -131,8 +190,7 @@ export const cleanupStorageHygiene = internalMutation({
         deletedRuns += 1
       }
     }
-    let deletedTerminalRuns = 0
-    for (const row of [...completedRuns, ...revokedRuns, ...failedRuns]) {
+    for (const row of terminalRunPage) {
       const retainedReview = await ctx.db
         .query('reviewRequests')
         .withIndex('by_agent_run', (q) => q.eq('agentRunId', row._id))
@@ -140,26 +198,49 @@ export const cleanupStorageHygiene = internalMutation({
       if (retainedReview) continue
       await ctx.db.delete(row._id)
       deletedRuns += 1
-      deletedTerminalRuns += 1
     }
     const activeRunPageFull =
       expiredActiveRuns.length === limit || abandonedLegacyRuns.length === limit
-    const terminalRunPageFull =
-      completedRuns.length === limit || revokedRuns.length === limit || failedRuns.length === limit
-
-    const remaining =
+    const nonTerminalRemaining =
       deliveredOutbox.length === limit ||
       failedOutbox.length === limit ||
       activity.length === limit ||
       approvedReviews.length === limit ||
       rejectedReviews.length === limit ||
-      activeRunPageFull ||
-      (deletedTerminalRuns > 0 && terminalRunPageFull)
+      activeRunPageFull
+
+    let nextAgentRunStatus: (typeof terminalStatuses)[number] | null = null
+    let nextAgentRunCursor: string | null = null
+    if (!terminalRunPageDone) {
+      nextAgentRunStatus = agentRunStatus
+      nextAgentRunCursor = encodeAgentRunCleanupCursor(terminalRunPage.at(-1)!)
+    } else {
+      const currentStatusIndex = terminalStatuses.indexOf(agentRunStatus)
+      for (const status of terminalStatuses.slice(currentStatusIndex + 1)) {
+        const nextRow = await ctx.db
+          .query('agentRuns')
+          .withIndex('by_status_updated_at', (q) =>
+            q.eq('status', status).lt('updatedAt', runCutoff),
+          )
+          .first()
+        if (nextRow) {
+          nextAgentRunStatus = status
+          break
+        }
+      }
+    }
+
+    const remaining = nextAgentRunStatus != null || nonTerminalRemaining
     if (remaining) {
       await ctx.scheduler.runAfter(
         0,
         internalApi.storageMaintenance.cleanupStorageHygiene as never,
-        { now, limit } as never,
+        {
+          now,
+          limit,
+          agentRunStatus: nextAgentRunStatus ?? terminalStatuses[0],
+          agentRunCursor: nextAgentRunCursor,
+        } as never,
       )
     }
 

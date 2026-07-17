@@ -1,3 +1,4 @@
+import { contentTags, uniqueContentTags } from '@lupinum/ginko-cms-contract/shared/contentTags.js'
 import {
   assertCmsRequestedFacts,
   parseCmsListWireResult,
@@ -8,6 +9,7 @@ import {
   parseCmsSiteDataWireResult,
   parseCmsSurroundWireResult,
 } from '@lupinum/ginko-content/cms-contract'
+import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import type {
   BoundedContentProviderQuery,
   ContentDataSource,
@@ -21,6 +23,7 @@ import {
   type ContentProvider,
   type ContentProviderNavigationItem,
   type ContentProviderNavigationOptions,
+  type ProviderDocumentInput,
   type ContentProviderQuery,
   type ContentProviderSiteDataRequest,
   type ContentProviderSurroundingsOptions,
@@ -85,50 +88,6 @@ const isRecord = (value: unknown): value is UnknownRecord =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
 const CMS_PUBLIC_SEARCH_MAX_LIMIT = 50
-
-const normalizeContentTagSegment = (value: unknown): string => {
-  const segment = String(value ?? '').trim()
-  if (!segment) {
-    throw new Error('Content cache tag segments must be non-empty.')
-  }
-  return segment.replace(/[:\s]+/g, '-')
-}
-
-const uniqueContentTags = (tags: unknown[]): string[] => [
-  ...new Set(tags.filter((tag): tag is string => typeof tag === 'string' && tag.length > 0)),
-]
-
-const contentTags = {
-  entry(collection: string, id: string, locale?: string) {
-    const base = `entry:${normalizeContentTagSegment(collection)}:${normalizeContentTagSegment(id)}`
-    return locale ? `${base}:${normalizeContentTagSegment(locale)}` : base
-  },
-
-  collection(collection: string) {
-    return `collection:${normalizeContentTagSegment(collection)}`
-  },
-
-  route(path: string) {
-    return `route:${normalizeContentPath(path)}`
-  },
-
-  nav(collection: string, locale: string) {
-    return `nav:${normalizeContentTagSegment(collection)}:${normalizeContentTagSegment(locale)}`
-  },
-
-  search(locale: string) {
-    return `search:${normalizeContentTagSegment(locale)}`
-  },
-
-  sitemap() {
-    return 'sitemap'
-  },
-
-  siteData(key: string, locale?: string) {
-    const base = `site-data:${normalizeContentTagSegment(key)}`
-    return locale ? `${base}:${normalizeContentTagSegment(locale)}` : base
-  },
-}
 
 export const __setGinkoNuxtProviderClientFactoryForTests = (
   factory: Parameters<typeof setClientFactoryForTests>[0],
@@ -245,7 +204,12 @@ const searchCacheHint = (locale: string, collection?: string): ContentCacheHint 
   })
 
 const siteDataCacheHint = (key: string, locale?: string): ContentCacheHint =>
-  normalizeCacheHint({ tags: [contentTags.siteData(key || '*', locale)] })
+  normalizeCacheHint({
+    tags: uniqueContentTags([
+      contentTags.siteData(key || '*'),
+      locale ? contentTags.siteData(key || '*', locale) : null,
+    ]),
+  })
 
 const sitemapCacheHint = () => normalizeCacheHint({ tags: [contentTags.sitemap()] })
 
@@ -306,9 +270,18 @@ const assertUnsupportedQueryShape = (condition: unknown, field: string, message:
   throw providerError('unsupported_query_shape', message, 400, { field })
 }
 
-const applyOnlyProjection = (entry: UnknownRecord, only: string[] = []): UnknownRecord => {
+const applyOnlyProjection = (
+  entry: ProviderDocumentInput,
+  only: string[] = [],
+): ProviderDocumentInput => {
   if (!only.length) return entry
-  const projected: UnknownRecord = {}
+  const projected: ProviderDocumentInput = {
+    collection: entry.collection,
+    locale: entry.locale,
+    contentPath: entry.contentPath,
+    canonicalKey: entry.canonicalKey,
+    body: entry.body,
+  }
   for (const field of only) {
     if (field in entry) projected[field] = entry[field]
   }
@@ -596,7 +569,7 @@ const contentDataSource = {
       )
       const entry =
         result.status === 'found' && result.page ? await toContentEntry(result.page, locale) : null
-      const data = { result: entry ? applyOnlyProjection(entry, plan.projection?.only) : null }
+      const data = { result: entry ? applyOnlyProjection(entry, plan.projection?.only) : undefined }
       return sourceResult(
         data,
         entry && result.page
@@ -606,6 +579,14 @@ const contentDataSource = {
     }
 
     assertPortableListPlan(input)
+    if (plan.mode === 'count') {
+      throw providerError(
+        'unsupported_query_shape',
+        'Ginko public queries do not support exact aggregate counts.',
+        400,
+        { field: 'mode' },
+      )
+    }
     const collection = input.collection
     assertQueryCollection(collection)
     const filterState = collectPlanFilter(plan.filter)
@@ -639,9 +620,9 @@ const contentDataSource = {
     const limit = plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit || entries.length
     const data =
       plan.mode === 'first'
-        ? { result: entries[0] || null }
+        ? { result: entries[0] }
         : {
-            mode: 'cursor',
+            mode: 'cursor' as const,
             result: entries,
             limit,
             pageInfo: {
@@ -763,7 +744,7 @@ const contentDataSource = {
         )
         return searchEntries.map((content, index) => {
           return {
-            title: content.title || '',
+            title: typeof content.title === 'string' ? content.title : '',
             excerpt: typeof content.description === 'string' ? content.description : '',
             score: Math.max(1, searchEntries.length - index),
             route: routeFactFor(result.results?.[index] || content),
@@ -799,7 +780,7 @@ const contentDataSource = {
       {
         key: result.key,
         locale: result.locale?.resolved || result.locale?.requested || locale,
-        data: result.data ?? null,
+        data: (result.data ?? null) as JsonValue | null,
         updatedAt: null,
       },
       siteDataCacheHint(result.key || request.key || '*', locale),

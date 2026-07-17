@@ -56,15 +56,11 @@ attachment, usage, deletion, and restoration safe and explicit.
 Deleting or purging assets should surface usage impact before destructive
 actions.
 
-## Imports
+## Portability
 
-Filesystem imports apply content under existing code-defined contracts. Studio
-may preview, confirm, apply, and inspect import runs, but it must not create or
-mutate schema.
-
-Import blockers should be actionable: unknown collection, unknown field,
-unresolved relation, missing asset upload, invalid route, invalid locale, or
-publish blocker.
+Filesystem portability is an owner-controlled CLI workflow. It validates,
+plans, applies, and resumes bounded draft imports under the installed contract;
+Studio and MCP intentionally expose no import execution surface.
 
 ## MCP Parity
 
@@ -76,7 +72,6 @@ Studio and MCP should expose the same truth:
 - public visibility explanation;
 - publish-impact preview;
 - route validation;
-- import blockers and run history.
 
 MCP is opt-in as an external server, but its operation model is part of the CMS
 architecture.

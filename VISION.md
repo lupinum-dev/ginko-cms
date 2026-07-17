@@ -53,9 +53,10 @@ claim that other tools are bad.
 
 ## Scale Target
 
-The v1 target is small to medium structured content sites: hundreds to low
-thousands of entries, multiple locales, Convex-backed assets, published read
-projections, and search suitable for editorial/site content.
+The certified v1 target is 1,500 entries across three locales, 500 assets, a
+five-level documentation tree, a large live subtree, and long MDC documents.
+Content portability is separately bounded at 5,000 localized documents and 500
+assets.
 
-Do not promise very large headless-CMS or DAM workloads until they are load
-tested and operationally proven.
+Do not extrapolate beyond those fixtures or promise very large headless-CMS or
+DAM workloads until a larger envelope is load tested and operationally proven.

@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { mimeKind } from '../../../composables/internal/assetFinderUtils'
 import { useStudioAssetBrowserContext } from '../../../composables/internal/studioAssetBrowserContext'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
+import { humanizeFieldPath } from '../../../lib/fieldLabel'
 import Sheet from '../../ui/sheet/Sheet.vue'
 import SheetContent from '../../ui/sheet/SheetContent.vue'
 import SheetDescription from '../../ui/sheet/SheetDescription.vue'
@@ -214,8 +215,8 @@ const usageCountLabel = computed(() =>
                   />
                   <div class="ginko:min-w-0">
                     <div class="ginko:truncate ginko:font-medium">{{ usage.entryTitle }}</div>
-                    <div class="ginko:font-mono ginko:text-xs ginko:text-muted-foreground/50">
-                      {{ usage.fieldPath }}
+                    <div class="ginko:text-xs ginko:text-muted-foreground/50">
+                      {{ humanizeFieldPath(usage.fieldPath) }}
                     </div>
                   </div>
                 </div>

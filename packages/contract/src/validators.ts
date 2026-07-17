@@ -791,6 +791,7 @@ export const entryListItemValidator = v.object({
 /** Locale summary for studio list items */
 const localeSummaryValidator = v.object({
   locale: v.string(),
+  draftExists: v.boolean(),
   draftPath: v.string(),
   publishedPath: v.union(v.string(), v.null()),
   published: v.boolean(),

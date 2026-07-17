@@ -19,7 +19,7 @@ import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
 import { canManageSettings, canRead } from './auth/checks.js'
-import { readStudioDraftView } from './entries/context.js'
+import { deriveDirtyLocales, readStudioDraftView } from './entries/context.js'
 import { collectRelationReferences } from './entries/relations.js'
 import { readDraftRows } from './entries/workflow/drafts.js'
 import {
@@ -28,10 +28,7 @@ import {
   pathSegments,
   publicPathForLocaleSnapshot,
 } from './entries/workflow/path.js'
-import {
-  collectPublishedDescendantRouteChanges,
-  type PublishedDescendantRouteChange,
-} from './entries/workflow/subtreeRoutes.js'
+import { publicPathForEntry } from './entries/workflow/publicTree.js'
 import { callerQuery } from './functions.js'
 import {
   assertCollectionSupportsLocale,
@@ -39,25 +36,24 @@ import {
   getCollectionDefaultLocale,
   getCollectionMode,
   isRouteBackedCollection,
+  listInstalledCollections,
 } from './lib/collections.js'
 import { isEqualJsonValue } from './lib/data.js'
-import { asEntryId, toStringId } from './lib/ids.js'
+import { toStringId } from './lib/ids.js'
 import { getRoutingLocales } from './lib/locale.js'
+import { pathPrefixForLocale, rootSlugForLocale } from './lib/paths.js'
 import type { CmsCollection, QueryOrMutationCtx } from './lib/types.js'
 import { collectPublishRequiredFieldIssues } from './lib/validation.js'
 
-type PublicRouteRow = Pick<
-  Doc<'publicEntries'>,
-  | 'entryId'
-  | 'collectionId'
-  | 'locale'
-  | 'path'
-  | 'href'
-  | 'parentEntryId'
-  | 'revisionId'
-  | 'title'
-  | 'data'
->
+type PublicRouteRow = Doc<'publicEntries'> & { path: string | null; href: string | null }
+type PublishedDescendantRouteChange = {
+  entryId: string
+  title: string
+  currentPath: string | null
+  nextPath: string
+  currentHref: string | null
+  nextHref: string
+}
 type VisibilityDiagnostic =
   (typeof ginkoPublicVisibilityExplanationValidator.type)['diagnostics'][number]
 type VisibilityStatus =
@@ -65,13 +61,6 @@ type VisibilityStatus =
 type PublishImpactResult = typeof ginkoPublishImpactResultValidator.type
 type PublishImpactLocale = PublishImpactResult['locales'][number]
 type PublishImpactChange = PublishImpactResult['changes'][number]
-
-function collectionSupportsStableRedirect(
-  collection: Pick<Doc<'collections'>, 'routing'>,
-): boolean {
-  const slugMode = collection.routing?.slugMode ?? 'shared'
-  return slugMode === 'stable' || slugMode === 'localizedStable'
-}
 
 const STATUS_PRIORITY: VisibilityStatus[] = [
   'archived',
@@ -92,13 +81,10 @@ function resolvePrimaryStatus(statuses: Set<VisibilityStatus>): VisibilityStatus
 }
 
 async function buildRouteClaims(ctx: QueryOrMutationCtx) {
-  const collections = await ctx.db.query('collections').collect()
+  const collections = await listInstalledCollections(ctx)
   const claims: GinkoRouteClaim[] = []
   const claimKeys = new Set<string>()
   const localeCodes: string[] = []
-  const collectionSlugById = new Map(
-    collections.map((collection) => [toStringId(collection._id), collection.slug]),
-  )
 
   const pushClaim = (claim: GinkoRouteClaim) => {
     const key = `${claim.kind}:${claim.collection}:${claim.entryId}:${claim.locale}:${claim.path}:${claim.targetPath ?? ''}`
@@ -107,54 +93,66 @@ async function buildRouteClaims(ctx: QueryOrMutationCtx) {
     claims.push(claim)
   }
 
-  for (const collectionDoc of collections) {
-    const collection = await getCollection(ctx, collectionDoc.slug)
-    if (!collection || !isRouteBackedCollection(collection)) continue
+  for (const collection of collections) {
+    if (!isRouteBackedCollection(collection)) continue
     for (const locale of collection.locales) {
       if (!localeCodes.includes(locale)) localeCodes.push(locale)
     }
     const rows = await Promise.all(
       collection.locales.map((locale) =>
         ctx.db
-          .query('publicRoutes')
-          .filter((q) =>
-            q.and(q.eq(q.field('collectionId'), collection._id), q.eq(q.field('locale'), locale)),
+          .query('publicEntries')
+          .withIndex('by_collection_locale_orderKey', (q) =>
+            q.eq('collection', collection.slug).eq('locale', locale),
           )
           .collect(),
       ),
     )
 
+    const routingLocales = await getRoutingLocales(
+      ctx,
+      collection.locales,
+      getCollectionDefaultLocale(collection),
+    )
     for (const row of rows.flat()) {
+      const path = await publicPathForEntry(ctx, row, {
+        pathPrefix: pathPrefixForLocale(collection, row.locale),
+        rootSlug: rootSlugForLocale(collection, row.locale),
+      })
+      if (!path) continue
       pushClaim({
         kind: 'route',
         collection: collection.slug,
         entryId: toStringId(row.entryId),
         locale: row.locale,
-        path: row.path,
-        href: row.href,
+        path,
+        href: renderGinkoHref({ locale: row.locale, path }, routingLocales),
       })
     }
   }
 
   const redirects = await ctx.db.query('redirects').collect()
   for (const redirect of redirects) {
-    const collection = redirect.collectionId ? await ctx.db.get(redirect.collectionId) : null
+    if (redirect.state !== 'active') continue
+    const collection = await getCollection(ctx, redirect.collection)
+    if (!collection) continue
     const routingLocales = await getRoutingLocales(
       ctx,
-      collection?.locales ?? localeCodes,
-      collection ? getCollectionDefaultLocale(collection) : undefined,
+      collection.locales,
+      getCollectionDefaultLocale(collection),
     )
+    const targetRow = await getPublicRowForEntryLocale(ctx, redirect.targetEntryId, redirect.locale)
+    const targetPath = targetRow?.path ?? null
+    if (!targetPath) continue
     pushClaim({
       kind: 'redirect',
-      collection: redirect.collectionId
-        ? (collectionSlugById.get(toStringId(redirect.collectionId)) ?? 'redirects')
-        : 'redirects',
-      entryId: redirect.entryId ? toStringId(redirect.entryId) : redirect.from,
+      collection: redirect.collection,
+      entryId: toStringId(redirect.targetEntryId),
       locale: redirect.locale,
-      path: redirect.from,
-      href: renderGinkoHref({ locale: redirect.locale, path: redirect.from }, routingLocales),
-      targetPath: redirect.to,
-      targetHref: renderGinkoHref({ locale: redirect.locale, path: redirect.to }, routingLocales),
+      path: redirect.fromPath,
+      href: renderGinkoHref({ locale: redirect.locale, path: redirect.fromPath }, routingLocales),
+      targetPath,
+      targetHref: renderGinkoHref({ locale: redirect.locale, path: targetPath }, routingLocales),
     })
     if (!localeCodes.includes(redirect.locale)) localeCodes.push(redirect.locale)
   }
@@ -183,14 +181,6 @@ function diagnostic(args: {
     href: args.href ?? null,
     details: args.details ?? null,
     message: args.message,
-  }
-}
-
-function parseEntryId(value: string): Id<'entries'> | null {
-  try {
-    return asEntryId(value)
-  } catch {
-    return null
   }
 }
 
@@ -254,12 +244,13 @@ async function relationDiagnosticsForData(args: {
     const target = await args.ctx.db
       .query('entries')
       .withIndex('by_collection_stableId', (q) =>
-        q.eq('collectionId', targetCollection._id).eq('stableId', reference.targetId),
+        q.eq('collection', targetCollection.slug).eq('stableId', reference.targetId),
       )
       .first()
     if (target) continue
-    const targetByEntryId = await args.ctx.db.get(asEntryId(reference.targetId))
-    if (targetByEntryId?.collectionId === targetCollection._id) continue
+    const targetEntryId = args.ctx.db.normalizeId('entries', reference.targetId)
+    const targetByEntryId = targetEntryId ? await args.ctx.db.get(targetEntryId) : null
+    if (targetByEntryId?.collection === targetCollection.slug) continue
     diagnostics.push(
       diagnostic({
         code: 'broken_relation',
@@ -286,10 +277,27 @@ async function getPublicRowForEntryLocale(
   entryId: Id<'entries'>,
   locale: string,
 ): Promise<PublicRouteRow | null> {
-  return await ctx.db
+  const row = await ctx.db
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId).eq('locale', locale))
     .first()
+  if (!row) return null
+  const collection = await getCollection(ctx, row.collection)
+  if (!collection) return { ...row, path: null, href: null }
+  const path = await publicPathForEntry(ctx, row, {
+    pathPrefix: pathPrefixForLocale(collection, locale),
+    rootSlug: rootSlugForLocale(collection, locale),
+  })
+  const routingLocales = await getRoutingLocales(
+    ctx,
+    collection.locales,
+    getCollectionDefaultLocale(collection),
+  )
+  return {
+    ...row,
+    path,
+    href: path ? renderGinkoHref({ locale, path }, routingLocales) : null,
+  }
 }
 
 function routeDiagnosticsForEntry(args: {
@@ -323,27 +331,78 @@ function change(args: PublishImpactChange): PublishImpactChange {
 async function computePublishedAncestorSlugsForPreview(
   ctx: QueryOrMutationCtx,
   args: {
-    collection: Doc<'collections'> | null
+    collection: CmsCollection | null
     parentEntryId: Id<'entries'> | null
     locale: string
   },
 ): Promise<string[]> {
   if (!args.parentEntryId) return []
 
-  const parentPublic = await ctx.db
-    .query('publicEntries')
-    .withIndex('by_entry_locale', (q) =>
-      q.eq('entryId', args.parentEntryId!).eq('locale', args.locale),
-    )
-    .first()
+  const parentPublic = await getPublicRowForEntryLocale(ctx, args.parentEntryId, args.locale)
   if (!parentPublic) {
     const parent = await ctx.db.get(args.parentEntryId)
-    return parent ? [parent.baseSlug] : []
+    return parent ? [parent.slug] : []
   }
 
+  if (!parentPublic.path) return []
   return pathSegments(
     localeSnapshotPathFromPublicPath(args.collection, parentPublic.path, args.locale),
   )
+}
+
+function appendPathSegment(parentPath: string, slug: string) {
+  return parentPath === '/' ? `/${slug}` : `${parentPath}/${slug}`
+}
+
+async function collectPublishedDescendantRouteChanges(
+  ctx: QueryOrMutationCtx,
+  args: {
+    collection: CmsCollection
+    rootEntry: Doc<'entries'>
+    locale: string
+    currentPath: string | null
+    nextPath: string
+    activeRoutingLocales: GinkoRoutingLocale[]
+  },
+): Promise<PublishedDescendantRouteChange[]> {
+  const result: PublishedDescendantRouteChange[] = []
+  const queue: Array<{ parentEntryId: Id<'entries'>; nextParentPath: string }> = [
+    { parentEntryId: args.rootEntry._id, nextParentPath: args.nextPath },
+  ]
+  while (queue.length) {
+    const parent = queue.shift()!
+    const children = await ctx.db
+      .query('publicEntries')
+      .withIndex('by_collection_locale_parent_orderKey', (q) =>
+        q
+          .eq('collection', args.collection.slug)
+          .eq('locale', args.locale)
+          .eq('parentEntryId', parent.parentEntryId),
+      )
+      .collect()
+    for (const child of children) {
+      const currentPath = await publicPathForEntry(ctx, child, {
+        pathPrefix: pathPrefixForLocale(args.collection, args.locale),
+        rootSlug: rootSlugForLocale(args.collection, args.locale),
+      })
+      const nextPath = appendPathSegment(parent.nextParentPath, child.slug)
+      result.push({
+        entryId: String(child.entryId),
+        title: child.title,
+        currentPath,
+        nextPath,
+        currentHref: currentPath
+          ? renderGinkoHref({ locale: args.locale, path: currentPath }, args.activeRoutingLocales)
+          : null,
+        nextHref: renderGinkoHref(
+          { locale: args.locale, path: nextPath },
+          args.activeRoutingLocales,
+        ),
+      })
+      queue.push({ parentEntryId: child.entryId, nextParentPath: nextPath })
+    }
+  }
+  return result
 }
 
 function cacheTagsFor(args: { collection: string; publicEntryKey: string; locales: string[] }) {
@@ -462,7 +521,7 @@ async function buildLocaleVisibility(args: {
   ctx: QueryOrMutationCtx
   collection: CmsCollection
   entryId: string
-  entryStatus: Doc<'entries'>['status']
+  entryLifecycle: Doc<'entries'>['lifecycle']
   locale: string
   draftLocale: Awaited<ReturnType<typeof readStudioDraftView>>['locales'][number] | undefined
   publicRow: PublicRouteRow | null
@@ -474,10 +533,11 @@ async function buildLocaleVisibility(args: {
   const statuses = new Set<VisibilityStatus>()
   const path = args.publicRow?.path ?? args.draftLocale?.publishedPath ?? null
   const href = path ? renderGinkoHref({ locale: args.locale, path }, args.locales) : null
-  const isPublished = !!args.publicRow
-  statuses.add(args.publicRow ? 'public' : 'excluded')
+  const hasProjection = !!args.publicRow
+  const isPublished = hasProjection && !!path
+  statuses.add(isPublished ? 'public' : 'excluded')
 
-  if (args.entryStatus === 'archived' && !isPublished) {
+  if (args.entryLifecycle === 'archived' && !isPublished) {
     statuses.add('archived')
     reasons.push('Entry is archived and intentionally excluded from public reads.')
     diagnostics.push(
@@ -507,7 +567,26 @@ async function buildLocaleVisibility(args: {
         message: `Entry has no "${args.locale}" locale variant.`,
       }),
     )
-  } else if (!isPublished) {
+  } else if (hasProjection && !path) {
+    statuses.add('parent_not_public')
+    reasons.push('The publication is unreachable because its public parent is unavailable.')
+    diagnostics.push(
+      diagnostic({
+        code: 'missing_parent_route',
+        severity: 'error',
+        collection: args.collection.slug,
+        entryId: args.entryId,
+        locale: args.locale,
+        details: {
+          parentEntryId: args.publicRow?.parentEntryId
+            ? toStringId(args.publicRow.parentEntryId)
+            : null,
+          parentPath: null,
+        },
+        message: `Locale "${args.locale}" has a publication row but is unreachable through the public tree.`,
+      }),
+    )
+  } else if (!hasProjection) {
     statuses.add(args.draftLocale.draftPath ? 'draft_only' : 'missing_route')
     reasons.push('Locale is not published.')
     diagnostics.push(
@@ -523,21 +602,6 @@ async function buildLocaleVisibility(args: {
           args.locales,
         ),
         message: `Locale "${args.locale}" is draft-only and is excluded from public reads.`,
-      }),
-    )
-  } else if (!args.publicRow) {
-    statuses.add('missing_route')
-    reasons.push('Published locale has no public route projection.')
-    diagnostics.push(
-      diagnostic({
-        code: 'missing_locale_route',
-        severity: 'error',
-        collection: args.collection.slug,
-        entryId: args.entryId,
-        locale: args.locale,
-        path,
-        href,
-        message: `Locale "${args.locale}" is published but has no public route row.`,
       }),
     )
   }
@@ -585,7 +649,7 @@ async function buildLocaleVisibility(args: {
       args.publicRow.parentEntryId,
       args.locale,
     )
-    if (!parentRow) {
+    if (!parentRow?.path) {
       statuses.add('parent_not_public')
       reasons.push('Parent entry is not public in this locale.')
       diagnostics.push(
@@ -635,7 +699,7 @@ async function buildLocaleVisibility(args: {
     )
   }
 
-  if (!args.publicRow) {
+  if (!isPublished) {
     for (const code of [
       'excluded_from_sitemap',
       'excluded_from_search',
@@ -664,9 +728,18 @@ async function buildLocaleVisibility(args: {
     published: isPublished,
     path,
     href,
-    sitemap: args.publicRow ? ('included' as const) : ('excluded' as const),
-    search: args.publicRow ? ('included' as const) : ('excluded' as const),
-    nav: args.publicRow ? ('included' as const) : ('excluded' as const),
+    sitemap:
+      isPublished && args.publicRow?.sitemapIncluded !== false
+        ? ('included' as const)
+        : ('excluded' as const),
+    search:
+      isPublished && args.publicRow?.searchIncluded !== false
+        ? ('included' as const)
+        : ('excluded' as const),
+    nav:
+      isPublished && args.publicRow?.navIncluded !== false
+        ? ('included' as const)
+        : ('excluded' as const),
     reasons,
     missingRequiredFields,
     secondaryStatuses: [...statuses].filter((item) => item !== status),
@@ -693,7 +766,7 @@ export const explainPublicVisibility = callerQuery.protected({
   handler: async (ctx, args) => {
     const collection = await getCollection(ctx, args.collection)
     const entryId = args.entryId
-    const parsedEntryId = parseEntryId(entryId)
+    const parsedEntryId = ctx.db.normalizeId('entries', entryId)
     const entry = parsedEntryId ? await ctx.db.get(parsedEntryId) : null
     const diagnostics: VisibilityDiagnostic[] = []
 
@@ -717,7 +790,7 @@ export const explainPublicVisibility = callerQuery.protected({
       }
     }
 
-    if (String(entry.collectionId) !== String(collection._id)) {
+    if (entry.collection !== collection.slug) {
       return {
         collection: collection.slug,
         entryId,
@@ -829,7 +902,7 @@ export const explainPublicVisibility = callerQuery.protected({
         ctx,
         collection,
         entryId,
-        entryStatus: entry.status,
+        entryLifecycle: entry.lifecycle,
         locale,
         draftLocale: draftView.locales.find((item) => item.locale === locale),
         publicRow,
@@ -873,7 +946,7 @@ export async function previewPublishImpactForEntry(
 ): Promise<PublishImpactResult> {
   const collection = await getCollection(ctx, args.collection)
   const entryId = args.entryId
-  const parsedEntryId = parseEntryId(entryId)
+  const parsedEntryId = ctx.db.normalizeId('entries', entryId)
   const entry = parsedEntryId ? await ctx.db.get(parsedEntryId) : null
   if (!collection || !entry) {
     const diagnostics = [
@@ -902,7 +975,7 @@ export async function previewPublishImpactForEntry(
   }
 
   const mode = getCollectionMode(collection)
-  if (String(entry.collectionId) !== String(collection._id)) {
+  if (entry.collection !== collection.slug) {
     const diagnostics = [
       diagnostic({
         code: 'entry_collection_mismatch',
@@ -928,6 +1001,10 @@ export async function previewPublishImpactForEntry(
 
   const draftRows = await readDraftRows(ctx, entry._id)
   const draftView = await readStudioDraftView(ctx, entry, collection)
+  const dirtyLocales = deriveDirtyLocales(
+    entry,
+    new Map(Object.values(draftRows.byLocale).map((row) => [row.locale, row.version])),
+  )
   const publishParentEntryId =
     draftRows.shared && draftRows.shared.parentEntryId !== undefined
       ? (draftRows.shared.parentEntryId ?? null)
@@ -1003,7 +1080,7 @@ export async function previewPublishImpactForEntry(
           }),
         )
       }
-      const dirty = entry.dirtyLocales.includes(locale)
+      const dirty = dirtyLocales.includes(locale)
       const noChanges =
         currentIncluded &&
         !dirty &&
@@ -1083,7 +1160,7 @@ export async function previewPublishImpactForEntry(
         parentEntryId: publishParentEntryId,
         locale,
       })
-      const slug = localeDraftRow.localeSlug ?? draftRows.shared?.slug ?? entry.baseSlug
+      const slug = localeDraftRow.localeSlug ?? draftRows.shared?.slug ?? entry.slug
       nextPath = publicPathForLocaleSnapshot(
         collection,
         entrySnapshotPath(collection, {
@@ -1197,12 +1274,7 @@ export async function previewPublishImpactForEntry(
         }),
       )
     }
-    if (
-      collectionSupportsStableRedirect(collection) &&
-      currentPath &&
-      nextPath &&
-      currentPath !== nextPath
-    ) {
+    if (currentPath && nextPath && currentPath !== nextPath) {
       changes.push(
         change({
           locale,
@@ -1238,7 +1310,7 @@ export async function previewPublishImpactForEntry(
       )
     }
 
-    const dirty = entry.dirtyLocales.includes(locale)
+    const dirty = dirtyLocales.includes(locale)
     const status: PublishImpactLocale['status'] = blockingDiagnostics.some(isBlockingDiagnostic)
       ? 'blocked'
       : !draftLocale || !nextPath
@@ -1361,7 +1433,7 @@ export const storageHygieneReport = callerQuery.protected({
   handler: async (ctx) => {
     const entries = boundedRows(await ctx.db.query('entries').take(STORAGE_REPORT_SCAN_LIMIT + 1))
     const entryDrafts = boundedRows(
-      await ctx.db.query('entryDrafts').take(STORAGE_REPORT_SCAN_LIMIT + 1),
+      await ctx.db.query('entryLocaleDrafts').take(STORAGE_REPORT_SCAN_LIMIT + 1),
     )
     const entryRevisions = boundedRows(
       await ctx.db.query('entryRevisions').take(STORAGE_REPORT_SCAN_LIMIT + 1),
@@ -1413,7 +1485,7 @@ export const storageHygieneReport = callerQuery.protected({
       assetRefsPerEntry: distribution(countByEntry(contentAssetRefs.rows), entries.rows.length),
       outbox: {
         delivered: outboxEvents.rows.filter((event) => event.status === 'delivered').length,
-        failed: outboxEvents.rows.filter((event) => event.status === 'failed').length,
+        failed: outboxEvents.rows.filter((event) => event.status === 'dead').length,
         pending: outboxEvents.rows.filter((event) => event.status === 'pending').length,
         delivering: outboxEvents.rows.filter((event) => event.status === 'delivering').length,
       },

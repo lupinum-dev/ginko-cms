@@ -1,12 +1,12 @@
 ---
 name: ginko-cms
-description: Use when Codex needs to install, configure, debug, document, test, or operate Ginko CMS in a Nuxt app, including @lupinum/ginko-cms, @lupinum/ginko-cms-convex, @lupinum/ginko-content provider setup, host-owned Convex setup files, Studio, collection contract sync, migrations, filesystem import, public content reads, backups, release checks, or changes inside the Ginko CMS repository itself.
+description: Use when Codex needs to install, configure, debug, document, test, or operate Ginko CMS in a Nuxt app, including @lupinum/ginko-cms, @lupinum/ginko-cms-convex, @lupinum/ginko-content provider setup, host-owned Convex setup files, Studio, installed-contract sync and transitions, owner-CLI content portability, public content reads, recovery boundaries, release checks, or changes inside the Ginko CMS repository itself.
 ---
 
 # Ginko CMS
 
 Use this skill to work with Ginko CMS without inventing setup, env vars, bridge
-contracts, migration behavior, or public API shape. Ginko CMS is a self-hosted
+contracts, transition behavior, or public API shape. Ginko CMS is a self-hosted
 CMS layer for Nuxt apps using Ginko Content. The host app owns rendering and
 code-defined content contracts; Ginko CMS owns Studio, Convex-backed content
 operations, publishing, assets, public projections, and MCP workflows.
@@ -16,7 +16,7 @@ operations, publishing, assets, public projections, and MCP workflows.
 1. Identify the reader/task before acting:
    - New app setup: read [references/setup-and-env.md](references/setup-and-env.md).
    - Collection/schema/content changes: read
-     [references/content-contracts-and-migrations.md](references/content-contracts-and-migrations.md).
+     [references/content-contracts-and-transitions.md](references/content-contracts-and-transitions.md).
    - Website reads or Nuxt provider behavior: read
      [references/public-content-and-provider.md](references/public-content-and-provider.md).
    - MCP agent workflows, content authoring, publishing, media, or diagnostics:
@@ -32,7 +32,7 @@ operations, publishing, assets, public projections, and MCP workflows.
      an unrelated `docs/` directory as Ginko CMS truth.
 3. Prefer existing commands and generated setup paths. Do not add a second
    source of truth for collection contracts, env vars, public API fields, or
-   migration state.
+   transition state.
 
 ## Non-Negotiable Model
 
@@ -49,8 +49,9 @@ operations, publishing, assets, public projections, and MCP workflows.
   Runtime identity comes from Better Auth through `better-convex-nuxt`.
 - Do not claim the Nuxt provider reads drafts. It reads published public Convex
   projections.
-- Do not claim backup CLI commands are headless deploy-key operations. Backup
-  actions require CMS owner identity.
+- Database disaster recovery uses official Convex Backup & Restore. Content
+  portability is an owner-session CLI workflow, and permanent asset purge uses
+  a separate verified recovery artifact.
 - Treat real sign-in provider configuration as host-owned Better Auth work in
   `convex/auth.config.ts`; do not invent OAuth or production auth details.
 
@@ -66,10 +67,11 @@ run `ginko-cms deploy` and `ginko-cms deploy --check`.
 ### Change Collections Or Routes
 
 Read
-[references/content-contracts-and-migrations.md](references/content-contracts-and-migrations.md).
+[references/content-contracts-and-transitions.md](references/content-contracts-and-transitions.md).
 Start with `ginko-cms push --check`. Push only after the check reports safe
-drift. If the guard reports migration-required drift, transform stored content
-first and rerun the check before pushing.
+drift. If the guard reports content-incompatible drift, use the owner-only
+`ginko-cms contract transition` stage/status/apply/activate workflow. Do not add
+an old/new compatibility path.
 
 ### Use Published Content In Nuxt
 
@@ -80,10 +82,10 @@ fallback. Missing URL config fails with `provider_config_missing`.
 
 ### Work Through MCP
 
-Treat MCP as a remote control over Studio-backed CMS operations. Use direct CMS
-tools, inspect collection capability first, preview publish/destructive actions
-before execution, and execute only after explicit user confirmation with the
-returned token.
+Treat MCP as supervised draft preparation. Agents may read content, edit drafts,
+preview impact, and request review; they cannot publish, archive, restore,
+delete, purge, or run content portability directly. A publisher or owner
+approves a pinned review through the canonical operation path.
 
 Read [references/mcp-agent-workflows.md](references/mcp-agent-workflows.md)
 before advising or changing MCP authoring, publishing, media, diagnostics, or
@@ -108,9 +110,9 @@ that delegates to Corepack, then rerun the same command.
 - Ground every docs claim in source, tests, generated files, or current docs.
 - Prefer linking to the canonical docs under `docs/` over copying long reference
   sections.
-- State limitations plainly: no backup import command, no provider draft reads,
-  no current public-query partition by `GINKO_CONTENT_PROVIDER_SITE`, and no
-  headless hard-cutover path when collection drift remains unsafe.
+- State limitations plainly: no application-level database restore, no provider
+  draft reads, no Studio or MCP portability writes, and no direct agent
+  public-output operations.
 - Keep examples runnable and include hidden setup: packages, env vars, host setup
   generation, Convex deploy/dev, push, and first-owner setup when relevant.
 

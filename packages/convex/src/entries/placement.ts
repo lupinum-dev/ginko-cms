@@ -4,30 +4,29 @@ import type { Id } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'
 import { logActivity } from '../lib/activity.js'
 import type { getCollectionOrThrow } from '../lib/collections.js'
-import { asEntryId, toStringId } from '../lib/ids.js'
+import { asEntryId } from '../lib/ids.js'
 import { compareOrderRank, rankAfter, rankBetween } from '../lib/ordering.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import type { EntryDoc } from './context.js'
-import { refreshDraftAssetRefsForEntrySubtree } from './projections.js'
 
 export async function resolveParentEntryId(
   ctx: QueryOrMutationCtx,
   collection: Awaited<ReturnType<typeof getCollectionOrThrow>>,
-  collectionId: Id<'collections'>,
+  collectionSlug: string,
   parentEntryId: string | undefined,
 ): Promise<Id<'entries'> | null> {
   if (!parentEntryId) return null
   if (collection.type !== 'tree') {
     throwCmsError('ENTRY_PARENT_NOT_ALLOWED', 'Flat collections cannot assign a parent entry', {
-      collectionId: toStringId(collectionId),
+      collection: collectionSlug,
       parentEntryId,
     })
   }
   const parent = await ctx.db.get(asEntryId(parentEntryId))
-  if (!parent || parent.collectionId !== collectionId) {
+  if (!parent || parent.collection !== collectionSlug) {
     throwCmsError('ENTRY_PARENT_NOT_FOUND', 'Parent entry not found', {
       parentEntryId,
-      collectionId: toStringId(collectionId),
+      collection: collectionSlug,
     })
   }
   return parent._id
@@ -74,14 +73,14 @@ export async function assertTreePlacement(
 
 async function getSiblingEntries(
   ctx: QueryOrMutationCtx,
-  collectionId: Id<'collections'>,
+  collection: string,
   parentEntryId: Id<'entries'> | null,
   excludeEntryId?: Id<'entries'>,
 ) {
   const entries = await ctx.db
     .query('entries')
     .withIndex('by_parent', (q) =>
-      q.eq('collectionId', collectionId).eq('parentEntryId', parentEntryId),
+      q.eq('collection', collection).eq('parentEntryId', parentEntryId),
     )
     .collect()
 
@@ -97,7 +96,7 @@ async function getSiblingEntries(
 async function resolveOrderRank(
   ctx: QueryOrMutationCtx,
   args: {
-    collectionId: Id<'collections'>
+    collection: string
     parentEntryId: Id<'entries'> | null
     beforeEntryId?: string
     afterEntryId?: string
@@ -111,7 +110,7 @@ async function resolveOrderRank(
 
   const siblings = await getSiblingEntries(
     ctx,
-    args.collectionId,
+    args.collection,
     args.parentEntryId,
     args.excludeEntryId,
   )
@@ -147,7 +146,7 @@ export async function resolveEntryPlacement(
   ctx: QueryOrMutationCtx,
   args: {
     collection: Awaited<ReturnType<typeof getCollectionOrThrow>>
-    collectionId: Id<'collections'>
+    collectionSlug: string
     parentEntryId?: string
     beforeEntryId?: string
     afterEntryId?: string
@@ -158,12 +157,12 @@ export async function resolveEntryPlacement(
   const resolvedParentEntryId = await resolveParentEntryId(
     ctx,
     args.collection,
-    args.collectionId,
+    args.collectionSlug,
     args.parentEntryId,
   )
   await assertTreePlacement(ctx, args.collection, resolvedParentEntryId, args.excludeEntryId)
   const orderRank = await resolveOrderRank(ctx, {
-    collectionId: args.collectionId,
+    collection: args.collectionSlug,
     parentEntryId: resolvedParentEntryId,
     beforeEntryId: args.beforeEntryId,
     afterEntryId: args.afterEntryId,
@@ -194,7 +193,7 @@ export async function moveEntryInTree(
 ) {
   const resolved = await resolveEntryPlacement(ctx, {
     collection: args.collection,
-    collectionId: args.entry.collectionId,
+    collectionSlug: args.entry.collection,
     parentEntryId: args.parentEntryId,
     beforeEntryId: args.beforeEntryId,
     afterEntryId: args.afterEntryId,
@@ -205,20 +204,10 @@ export async function moveEntryInTree(
   await ctx.db.patch(args.entry._id, {
     parentEntryId: resolved.parentEntryId,
     orderRank: resolved.orderRank,
+    sharedVersion: args.entry.sharedVersion + 1,
+    draftVersion: args.entry.draftVersion + 1,
     updatedAt: args.now,
     updatedBy: args.appIdentityId,
-  })
-  await syncSharedDraftPlacement(ctx, {
-    entry: args.entry,
-    parentEntryId: resolved.parentEntryId,
-    orderRank: resolved.orderRank,
-    appIdentityId: args.appIdentityId,
-    now: args.now,
-  })
-  await refreshDraftAssetRefsForEntrySubtree(ctx, {
-    collection: args.collection,
-    entryId: args.entry._id,
-    includeSubtree: true,
   })
 
   await logActivity(ctx, {
@@ -226,45 +215,7 @@ export async function moveEntryInTree(
     summary: args.activitySummary,
     appIdentityId: args.appIdentityId,
     entryId: args.entry._id,
-    collectionId: args.entry.collectionId,
+    collection: args.entry.collection,
     detail: args.detail(resolved),
-  })
-}
-
-async function syncSharedDraftPlacement(
-  ctx: MutationCtx,
-  args: {
-    entry: EntryDoc
-    parentEntryId: Id<'entries'> | null
-    orderRank: string
-    appIdentityId: string
-    now: number
-  },
-) {
-  const existing = await ctx.db
-    .query('entryDrafts')
-    .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entry._id).eq('locale', null))
-    .first()
-
-  if (existing) {
-    await ctx.db.patch(existing._id, {
-      parentEntryId: args.parentEntryId,
-      orderRank: args.orderRank,
-      updatedBy: args.appIdentityId,
-      updatedAt: args.now,
-    })
-    return
-  }
-
-  await ctx.db.insert('entryDrafts', {
-    entryId: args.entry._id,
-    locale: null,
-    baseRevisionId: args.entry.latestRevisionId ?? null,
-    parentEntryId: args.parentEntryId,
-    orderRank: args.orderRank,
-    slug: args.entry.baseSlug,
-    shared: {},
-    updatedBy: args.appIdentityId,
-    updatedAt: args.now,
   })
 }

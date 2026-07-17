@@ -102,6 +102,12 @@ const breadcrumb = computed<BreadcrumbEntry[]>(() => {
     return items
   }
 
+  // The catch-all route must not claim to be Home: Home stays a link back,
+  // the leaf names the actual state.
+  if (name === 'studio-not-found') {
+    return [home, { label: t('ginkoCms.studio.notFoundPage.title') }]
+  }
+
   const id = routeIdByName[name]
   if (!id || id === 'home') {
     return [home]

@@ -17,6 +17,7 @@ import { previewPublishImpactForEntry } from '../diagnostics.js'
 import { getCollectionMode, isRouteBackedCollection } from '../lib/collections.js'
 import { isEqualJsonValue } from '../lib/data.js'
 import { toStringId } from '../lib/ids.js'
+import { pathPrefixForLocale, rootSlugForLocale } from '../lib/paths.js'
 import { getCmsSettings } from '../lib/locale.js'
 import type { CmsCollection, HandlerQueryCtx } from '../lib/types.js'
 import { collectPublishRequiredFieldIssues } from '../lib/validation.js'
@@ -24,6 +25,7 @@ import { exactReviewStaleState } from '../reviewRequests.js'
 import { getCollectionForEntry, getEntryOrThrow, readStudioDraftView } from './context.js'
 import { readDraftRows } from './workflow/drafts.js'
 import { buildPublicProjectionFromRevisionSnapshot } from './workflow/projectionBuild.js'
+import { publicPathForEntry } from './workflow/publicTree.js'
 
 function configuredReadinessLocales(args: {
   collection: CmsCollection
@@ -201,18 +203,20 @@ async function detectAssetMetadataStale(
   },
 ) {
   const revision = await ctx.db.get(args.publicRow.revisionId)
-  const localeSnapshot = revision?.snapshot.locales[args.locale] ?? null
+  const localeSnapshot = revision?.snapshots[args.locale] ?? null
   if (!revision || !localeSnapshot) return false
+  const publicPath = await publicPathForEntry(ctx, args.publicRow, {
+    pathPrefix: pathPrefixForLocale(args.collection, args.locale),
+    rootSlug: rootSlugForLocale(args.collection, args.locale),
+  })
+  if (!publicPath) return false
   const rebuilt = await buildPublicProjectionFromRevisionSnapshot(ctx, {
     entry: args.entry,
     collection: args.collection,
     revisionId: revision._id,
-    snapshot: {
-      parentEntryId: revision.snapshot.parentEntryId ?? null,
-      orderRank: revision.snapshot.orderRank ?? null,
-    },
     locale: args.locale,
     localeSnapshot,
+    publicPath,
     now: args.publicRow.lastPublishedAt,
   })
   return !isEqualJsonValue(rebuilt.input.data, args.publicRow.data)
@@ -332,12 +336,17 @@ async function computeEntryReadiness(
     const warnings: ReadinessIssue[] = []
     const infos: ReadinessIssue[] = []
     let draftUrl: string | null = routeBacked && draftLocale ? draftLocale.draftPath : null
-    let publicUrl: string | null = publicRow?.href ?? publicRow?.path ?? null
+    let publicUrl: string | null = publicRow
+      ? await publicPathForEntry(ctx, publicRow, {
+          pathPrefix: pathPrefixForLocale(collection, locale),
+          rootSlug: rootSlugForLocale(collection, locale),
+        })
+      : null
     const affectedPublicUrls: AffectedPublicUrl[] = []
     let impactStatus: string | null = null
     let assetMetadataStale = false
 
-    if (entry.status === 'archived') {
+    if (entry.lifecycle === 'archived') {
       blockers.push(
         readinessIssue({
           code: 'entry_archived',
@@ -414,10 +423,15 @@ async function computeEntryReadiness(
           request.expectedVersion === entry.draftVersion &&
           request.status === 'pending',
       ) ?? null
+    const activePublication = entry.activePublications.find(
+      (publication) => publication.locale === locale,
+    )
     const hasUnpublishedChanges =
       draftExists &&
       (!published ||
-        entry.dirtyLocales.includes(locale) ||
+        !activePublication ||
+        activePublication.sharedVersion !== entry.sharedVersion ||
+        activePublication.localeVersion !== localeDraftRow?.version ||
         (!!draftLocale && !isEqualJsonValue(draftLocale.data, draftLocale.publishedData)) ||
         assetMetadataStale)
     const meaningfulDraft = draftLocale
@@ -474,7 +488,7 @@ async function computeEntryReadiness(
       canPublishEntriesNow &&
       cleanBlockers.length === 0 &&
       (state === 'ready' || state === 'live_with_changes')
-    const canArchive = canArchiveEntriesNow && entry.status !== 'archived'
+    const canArchive = canArchiveEntriesNow && entry.lifecycle !== 'archived'
     const nextAction = chooseNextReadinessAction({
       locale,
       state,

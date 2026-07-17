@@ -86,6 +86,10 @@ describe('ginko-content contract derivation', () => {
         }),
       ]),
     )
+    // Field labels are never derived from keys ('BodyMdc' for bodyMdc):
+    // absent labels let Studio render a properly humanized one instead.
+    expect(projected.posts?.fields?.some((field) => field.key === 'bodyMdc')).toBe(true)
+    expect(projected.posts?.fields?.every((field) => field.label === undefined)).toBe(true)
   })
 
   it('takes translated slug policy only from Content i18n config', async () => {
@@ -107,7 +111,7 @@ describe('ginko-content contract derivation', () => {
     expect(projectContractCollections(contract).docs?.routing.slugMode).toBe('localized')
   })
 
-  it('keeps presentation-only layout outside the canonical contract', async () => {
+  it('keeps presentation-only layout outside the canonical content hash', async () => {
     const rootDir = fixture(`
       import { defineCollection, defineContentConfig } from '${contentConfigImport}'
       const pages = defineCollection({ type: 'page', source: 'content/pages/**/*.md', route: '/' })
@@ -120,7 +124,10 @@ describe('ginko-content contract derivation', () => {
         pages: {
           label: 'Marketing Pages',
           icon: 'lucide:file',
-          fields: { title: { label: 'Page title', width: 'half' } },
+          fields: {
+            title: { label: 'Page title', width: 'half' },
+            description: { label: 'Description' },
+          },
         },
       },
     })
@@ -131,6 +138,11 @@ describe('ginko-content contract derivation', () => {
         expect.objectContaining({ key: 'title', label: 'Page title', width: 'half' }),
       ]),
     )
+    // A layout label that merely echoes the field key is dropped so Studio
+    // can humanize it, exactly like an absent label.
+    const description = projected.pages?.fields?.find((field) => field.key === 'description')
+    expect(description).toBeDefined()
+    expect(description?.label).toBeUndefined()
     expect(await hashCanonicalJson(contract)).toBe(before)
     expect(() =>
       projectContractCollections(contract, {

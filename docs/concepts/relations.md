@@ -209,8 +209,8 @@ Reasons:
 - the editor stays normalized
 - generated public types do not overpromise expanded objects
 - public reads stay predictable and cacheable
-- rollback and undo remain coherent after migration because draft and revision
-  snapshots are rewritten too
+- rollback and undo remain coherent after a contract transition because draft
+  and revision snapshots are transformed together
 
 ## What This Does Not Do
 

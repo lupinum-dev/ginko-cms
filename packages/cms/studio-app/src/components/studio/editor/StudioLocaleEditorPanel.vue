@@ -149,7 +149,7 @@ function updateField(fieldKey: string, value: unknown) {
           v-if="showStatusPill"
           :label="status"
           :tone="readinessStateTone(state, { blocked: blocked || isMissing })"
-          class="ginko:shrink-0 ginko:capitalize"
+          class="ginko:shrink-0"
         />
         <template v-if="lastUpdatedAt">
           <span

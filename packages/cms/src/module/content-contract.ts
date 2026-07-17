@@ -64,6 +64,16 @@ function titleize(value: string): string {
     .join(' ')
 }
 
+/**
+ * A label that merely restates the field key (ignoring case and separators,
+ * e.g. 'BodyMdc' for `bodyMdc`) carries no editorial intent. Omitting it lets
+ * Studio derive a properly humanized label ('Body') instead of echoing code.
+ */
+function isEchoOfKey(label: unknown, key: string): boolean {
+  const normalize = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase()
+  return typeof label === 'string' && normalize(label) === normalize(key)
+}
+
 function fieldFromContract(
   field: ResolvedContentFieldV1,
   layout: CmsEditorialLayout['collections'][string]['fields'][string] | undefined,
@@ -71,7 +81,9 @@ function fieldFromContract(
   return {
     key: field.key,
     type: field.type,
-    label: layout?.label ?? titleize(field.key),
+    ...(layout?.label !== undefined && !isEchoOfKey(layout.label, field.key)
+      ? { label: layout.label }
+      : {}),
     required: field.required,
     localized: field.localized,
     searchable: field.searchable,

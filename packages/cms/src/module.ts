@@ -88,6 +88,7 @@ const MODULE_OPTION_KEYS = new Set([
   'siteI18n',
   'sidebar',
   'mcp',
+  'preview',
 ])
 
 function assertModuleOptionKeys(input: object) {
@@ -270,6 +271,12 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       },
       mcp: {
         enabled: mcpEnabled,
+      },
+      // Draft preview convention (EDT-10): the host page renders guarded draft
+      // data at `<route>/[collection]/[entryId]?locale=…`; Studio builds its
+      // "Preview draft" links from this. `route: null` hides those links.
+      preview: {
+        route: options.preview?.route === undefined ? '/preview' : options.preview.route,
       },
       collections: buildPublicRuntimeCollections(options, localeSettings),
       // Where the host page (src/runtime/pages/studio-host.vue) loads the
