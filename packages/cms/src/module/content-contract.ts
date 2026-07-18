@@ -94,7 +94,7 @@ function fieldFromContract(
     ...(field.default.present ? { defaultValue: field.default.value as JsonValue } : {}),
     ...(field.options ? { options: field.options } : {}),
     ...(field.relation
-      ? { relation: { collectionId: field.relation.collection, multiple: field.relation.multiple } }
+      ? { relation: { collection: field.relation.collection, multiple: field.relation.multiple } }
       : {}),
     ...(field.media
       ? { media: { accept: field.media.mediaTypes, aspectRatio: field.media.aspectRatio } }
@@ -162,28 +162,28 @@ function validateEditorialLayout(
 ): void {
   if (!layout) return
   assertOnlyKeys(layout, ['collections'], 'Editorial layout')
-  for (const [collectionId, collectionLayout] of Object.entries(layout.collections)) {
-    const collection = contract.collections[collectionId]
+  for (const [collectionSlug, collectionLayout] of Object.entries(layout.collections)) {
+    const collection = contract.collections[collectionSlug]
     if (!collection)
       throw new Error(
-        `[ginko-cms] Editorial layout references unknown collection "${collectionId}".`,
+        `[ginko-cms] Editorial layout references unknown collection "${collectionSlug}".`,
       )
     assertOnlyKeys(
       collectionLayout,
       ['label', 'icon', 'fields'],
-      `Editorial layout collection "${collectionId}"`,
+      `Editorial layout collection "${collectionSlug}"`,
     )
     const fieldKeys = new Set(collection.fields.map((field) => field.key))
     for (const [fieldKey, fieldLayout] of Object.entries(collectionLayout.fields)) {
       if (!fieldKeys.has(fieldKey)) {
         throw new Error(
-          `[ginko-cms] Editorial layout references unknown field "${collectionId}.${fieldKey}".`,
+          `[ginko-cms] Editorial layout references unknown field "${collectionSlug}.${fieldKey}".`,
         )
       }
       assertOnlyKeys(
         fieldLayout,
         ['label', 'description', 'hidden', 'width'],
-        `Editorial layout field "${collectionId}.${fieldKey}"`,
+        `Editorial layout field "${collectionSlug}.${fieldKey}"`,
       )
     }
   }

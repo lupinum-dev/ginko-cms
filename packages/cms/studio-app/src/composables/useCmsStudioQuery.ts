@@ -1,7 +1,13 @@
 import { classifyGinkoError, type GinkoErrorCategory } from '@public/error-classification'
 import { normalizeConvexError } from 'better-convex-nuxt/errors'
 import { getFunctionName } from 'convex/server'
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type {
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+  FunctionType,
+  FunctionVisibility,
+} from 'convex/server'
 import {
   computed,
   onScopeDispose,
@@ -20,6 +26,7 @@ import { useCmsStudioAccess } from './useCmsStudioAccess'
 
 type CmsStudioQueryErrorCategory = GinkoErrorCategory
 export type CmsStudioOperation = 'query' | 'mutation' | 'action' | 'upload'
+type AnyFunctionReference = FunctionReference<FunctionType, FunctionVisibility>
 
 type CmsStudioQueryStatus = 'skipped' | 'pending' | 'success' | 'error'
 
@@ -41,9 +48,9 @@ type CmsStudioQueryOptions<RawT, DataT> = {
   requiredCapability?: CmsPermissionKey
 }
 
-function safeFunctionName(query: unknown): string {
+function safeFunctionName(query: AnyFunctionReference): string {
   try {
-    return getFunctionName(query as never)
+    return getFunctionName(query)
   } catch {
     return 'unknown'
   }
@@ -87,7 +94,7 @@ export class CmsStudioQueryError extends Error {
 
 export function normalizeCmsStudioQueryError(
   error: unknown,
-  query: unknown,
+  query: AnyFunctionReference,
   operation: CmsStudioOperation = 'query',
 ): CmsStudioQueryError {
   if (error instanceof CmsStudioQueryError) return error

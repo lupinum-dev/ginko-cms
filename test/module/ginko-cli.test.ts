@@ -11,9 +11,14 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
+import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { runGinkoCmsCli } from '../../packages/cms/src/cli/ginko-cms.js'
+import { loadContentConfig } from '../../packages/cms/src/cli/push.js'
+import { loadGinkoContentContract } from '../../packages/cms/src/module/content-contract.js'
+import { writeExpectedContractBinding } from '../../packages/cms/src/module/convex.js'
 
 const removedLegacyArg = ['_trellis', 'Forwarding'].join('')
 
@@ -33,9 +38,38 @@ function createOutput() {
 function writeContentConfig(rootDir: string, collection: string, pathPrefix: string) {
   writeFileSync(
     resolve(rootDir, 'content.config.ts'),
-    `export default { collections: { ${collection}: { type: 'page', source: 'content/${collection}/**/*.md', route: '${pathPrefix}' } } }\n`,
+    `export default { provider: 'cms', collections: { ${collection}: { type: 'page', source: 'content/${collection}/**/*.md', route: '${pathPrefix}' } } }\n`,
     'utf8',
   )
+}
+
+async function bindContractForTest(rootDir: string) {
+  const config = await loadContentConfig(rootDir)
+  const content = await loadGinkoContentContract({ rootDir, content: config.content })
+  const binding = {
+    contentHash: await hashCanonicalJson(content as unknown as JsonValue),
+    presentationHash: await hashCanonicalJson(config.presentation),
+  }
+  writeExpectedContractBinding(rootDir, binding)
+  return binding
+}
+
+async function prepareDoctorFixture(rootDir: string, extraEnvironment = '') {
+  writeContentConfig(rootDir, 'pages', '/')
+  await bindContractForTest(rootDir)
+  writeFileSync(
+    resolve(rootDir, '.env.local'),
+    `CONVEX_URL=https://example.convex.cloud\nBETTER_AUTH_SECRET=test-secret\n${extraEnvironment}`,
+    'utf8',
+  )
+}
+
+function readGeneratedContractBinding(rootDir: string) {
+  const source = readFileSync(resolve(rootDir, 'convex/ginkoCms/contractBinding.ts'), 'utf8')
+  return {
+    contentHash: source.match(/EXPECTED_CONTENT_HASH = '([a-f0-9]{64})'/u)?.[1],
+    presentationHash: source.match(/EXPECTED_PRESENTATION_HASH = '([a-f0-9]{64})'/u)?.[1],
+  }
 }
 
 async function runCli(args: string[], cwd: string) {
@@ -105,12 +139,27 @@ describe('ginko-cms CLI', () => {
     expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).toContain('registerRoutesLazy')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/contract.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/contractTransitions.ts'))).toBe(true)
+    const contractBinding = readFileSync(
+      resolve(rootDir, 'convex/ginkoCms/contractBinding.ts'),
+      'utf8',
+    )
+    expect(contractBinding).toContain("EXPECTED_CONTENT_HASH = 'unbound'")
+    expect(contractBinding).toContain('getExpectedCmsContractBinding')
+    expect(readFileSync(resolve(rootDir, 'convex/ginkoCms/editor.ts'), 'utf8')).toContain(
+      'bindExpectedCmsContract(args)',
+    )
+    const mcpFacade = readFileSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'), 'utf8')
+    expect(mcpFacade).toContain('components.ginkoCms.mcpCredentials.upsertSettings, args')
+    expect(mcpFacade).toContain('components.ginkoCms.mcpCredentials.revokeSettings, args')
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/maintenance.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/migrations.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/policy.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, staleMcpBridgeFile))).toBe(false)
 
-    writeFileSync(resolve(rootDir, '.env.local'), 'BETTER_AUTH_SECRET=test-secret\n')
+    await prepareDoctorFixture(rootDir)
     const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(0)
     expect(check.stdout).toContain('Ginko CMS doctor passed')
@@ -168,10 +217,26 @@ describe('ginko-cms CLI', () => {
     expect(update.stderr).not.toContain('super-secret-local-value')
   })
 
+  it('refuses to overwrite a manually edited generated contract binding', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-binding-conflict-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+    writeContentConfig(rootDir, 'posts', '/posts')
+    const bindingPath = resolve(rootDir, 'convex/ginkoCms/contractBinding.ts')
+    writeFileSync(bindingPath, `${readFileSync(bindingPath, 'utf8')}\n// host edit\n`, 'utf8')
+
+    await expect(bindContractForTest(rootDir)).rejects.toThrow(
+      'Refused to overwrite modified generated file convex/ginkoCms/contractBinding.ts',
+    )
+  })
+
   it('reports a missing Better Auth secret without printing a secret value', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-secret-'))
     tempDirs.push(rootDir)
     await runCli(['init'], rootDir)
+    writeContentConfig(rootDir, 'pages', '/')
+    await bindContractForTest(rootDir)
+    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_URL=https://example.convex.cloud\n')
 
     const check = await runCli(['doctor'], rootDir)
 
@@ -262,7 +327,8 @@ describe('ginko-cms CLI', () => {
               return { created: 1, updated: 0, skipped: 0, missingFromConfig: [] }
             },
             query: async () => {
-              throw new Error('deploy should not use query without --check')
+              calls.push({ kind: 'query' })
+              return readGeneratedContractBinding(rootDir)
             },
             action: async () => {
               throw new Error('deploy should not use public action')
@@ -273,7 +339,7 @@ describe('ginko-cms CLI', () => {
       expect(code).toBe(0)
       expect(stderr.read()).toBe('')
       expect(stdout.read()).toContain('Ginko CMS contract installed')
-      expect(calls.map((call) => call.kind)).toEqual(['convex', 'auth', 'mutation'])
+      expect(calls.map((call) => call.kind)).toEqual(['convex', 'auth', 'query', 'mutation'])
       expect(calls[0]?.args).toEqual([
         'dev',
         '--once',
@@ -283,7 +349,11 @@ describe('ginko-cms CLI', () => {
         'disable',
       ])
       expect(calls[1]).toEqual({ kind: 'auth', token: 'deploy-key-test' })
-      expect(calls[2]?.args).toMatchObject({
+      expect(readGeneratedContractBinding(rootDir)).toEqual({
+        contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        presentationHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      })
+      expect(calls[3]?.args).toMatchObject({
         content: { collections: { pages: expect.objectContaining({ id: 'pages' }) } },
         contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
         presentation: { collections: {} },
@@ -367,12 +437,63 @@ describe('ginko-cms CLI', () => {
     }
   })
 
+  it('deploys a target binding without direct installation for an incompatible transition', async () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    delete process.env.CONVEX_DEPLOY_KEY
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-deploy-transition-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      [
+        'CONVEX_URL=https://example.convex.cloud',
+        'CONVEX_DEPLOY_KEY=deploy-key-test',
+        'BETTER_AUTH_SECRET=test-secret',
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+    writeContentConfig(rootDir, 'pages', '/next')
+    const stdout = createOutput()
+    const stderr = createOutput()
+    let deployCalls = 0
+
+    try {
+      const code = await runGinkoCmsCli(['deploy', '--transition'], {
+        cwd: rootDir,
+        io: { stdout: stdout.stream, stderr: stderr.stream },
+        runner: async () => {
+          deployCalls += 1
+          return 0
+        },
+        convexClientFactory: () => {
+          throw new Error('transition binding deploy must not install the contract directly')
+        },
+      })
+
+      expect(code).toBe(0)
+      expect(stderr.read()).toBe('')
+      expect(deployCalls).toBe(1)
+      expect(stdout.read()).toContain('installation is deferred to contract transition activation')
+      expect(readGeneratedContractBinding(rootDir)).toEqual({
+        contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        presentationHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      })
+    } finally {
+      if (previousDeployKey === undefined) {
+        delete process.env.CONVEX_DEPLOY_KEY
+      } else {
+        process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      }
+    }
+  })
+
   it('prints cleanup guidance when stale generated bridge files remain', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-drift-'))
     tempDirs.push(rootDir)
 
     await runCli(['init'], rootDir)
-    writeFileSync(resolve(rootDir, '.env.local'), 'BETTER_AUTH_SECRET=test-secret\n', 'utf8')
+    await prepareDoctorFixture(rootDir)
     writeFileSync(resolve(rootDir, staleMcpBridgeFile), '// stale generated output\n', 'utf8')
 
     const check = await runCli(['doctor'], rootDir)
@@ -388,11 +509,7 @@ describe('ginko-cms CLI', () => {
     const legacySecretName = ['CONVEX', 'IDENTITY', 'FORWARDING', 'KEY'].join('_')
 
     await runCli(['init'], rootDir)
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      `BETTER_AUTH_SECRET=test-secret\n${legacySecretName}=old-secret\n`,
-      'utf8',
-    )
+    await prepareDoctorFixture(rootDir, `${legacySecretName}=old-secret\n`)
 
     const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(1)
@@ -405,6 +522,7 @@ describe('ginko-cms CLI', () => {
     tempDirs.push(rootDir)
 
     await runCli(['init'], rootDir)
+    await prepareDoctorFixture(rootDir)
     writeFileSync(
       resolve(rootDir, 'package.json'),
       JSON.stringify({
@@ -506,7 +624,7 @@ describe('ginko-cms CLI', () => {
     expect(doctor.stderr).toContain('Add "secure-exec": "^0.2.1" to dependencies')
   })
 
-  it('pushes canonical content and editorial presentation with Convex deploy-key admin auth', async () => {
+  it('[DEV-03] pushes canonical content and editorial presentation with Convex deploy-key admin auth', async () => {
     const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
     delete process.env.CONVEX_DEPLOY_KEY
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-'))
@@ -524,6 +642,7 @@ describe('ginko-cms CLI', () => {
       `export default { ginkoCms: { editorialLayout: { collections: { blog: { label: 'Stories', fields: {} } } } } }\n`,
       'utf8',
     )
+    const deployedBinding = await bindContractForTest(rootDir)
     const calls: Array<{ kind: string; args?: Record<string, unknown>; token?: string }> = []
 
     const stdout = createOutput()
@@ -543,7 +662,8 @@ describe('ginko-cms CLI', () => {
               return { created: 1, updated: 0, skipped: 0, missingFromConfig: [] }
             },
             query: async () => {
-              throw new Error('push should not use query without --check')
+              calls.push({ kind: 'query' })
+              return deployedBinding
             },
             action: async () => {
               throw new Error('push should not use public action')
@@ -556,8 +676,9 @@ describe('ginko-cms CLI', () => {
       expect(stdout.read()).toContain('Content SHA-256:')
       expect(stdout.read()).toContain('Presentation SHA-256:')
       expect(calls[0]).toEqual({ kind: 'auth', token: 'deploy-key-test' })
-      expect(calls[1]?.kind).toBe('mutation')
-      expect(calls[1]?.args).toMatchObject({
+      expect(calls[1]?.kind).toBe('query')
+      expect(calls[2]?.kind).toBe('mutation')
+      expect(calls[2]?.args).toMatchObject({
         content: { collections: { blog: expect.objectContaining({ id: 'blog' }) } },
         contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
         presentation: {
@@ -565,8 +686,8 @@ describe('ginko-cms CLI', () => {
         },
         presentationHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       })
-      expect(calls[1]?.args).not.toHaveProperty(removedLegacyArg)
-      expect(calls[1]?.args).not.toHaveProperty('caller')
+      expect(calls[2]?.args).not.toHaveProperty(removedLegacyArg)
+      expect(calls[2]?.args).not.toHaveProperty('caller')
       expect(JSON.stringify(calls)).not.toContain('GINKO_CMS_INSTALL_SECRET')
     } finally {
       if (previousDeployKey === undefined) {
@@ -594,6 +715,54 @@ describe('ginko-cms CLI', () => {
     expect(result.stderr).toContain('requires content.config.ts')
   })
 
+  it('refuses installation when the deployed host binding differs from the local contract', async () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    delete process.env.CONVEX_DEPLOY_KEY
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-deployed-binding-'))
+    tempDirs.push(rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+    writeContentConfig(rootDir, 'posts', '/posts')
+    const localBinding = await bindContractForTest(rootDir)
+    let mutationCalled = false
+    const stdout = createOutput()
+    const stderr = createOutput()
+
+    try {
+      const code = await runGinkoCmsCli(['push'], {
+        cwd: rootDir,
+        io: { stdout: stdout.stream, stderr: stderr.stream },
+        convexClientFactory: () =>
+          ({
+            setAdminAuth: () => {},
+            query: async () => ({
+              contentHash: '0'.repeat(64),
+              presentationHash: localBinding.presentationHash,
+            }),
+            mutation: async () => {
+              mutationCalled = true
+            },
+          }) as never,
+      })
+
+      expect(code).toBe(2)
+      expect(stdout.read()).toBe('')
+      expect(stderr.read()).toContain('deployed Convex host contract binding does not match')
+      expect(mutationCalled).toBe(false)
+    } finally {
+      if (previousDeployKey === undefined) {
+        delete process.env.CONVEX_DEPLOY_KEY
+      } else {
+        process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      }
+    }
+  })
+
   it('prints exact content and presentation paths when push check fails', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-check-'))
     tempDirs.push(rootDir)
@@ -605,7 +774,6 @@ describe('ginko-cms CLI', () => {
       'utf8',
     )
     writeContentConfig(rootDir, 'posts', '/posts')
-
     const stdout = createOutput()
     const stderr = createOutput()
     const code = await runGinkoCmsCli(['push', '--check'], {
@@ -692,7 +860,7 @@ describe('ginko-cms CLI', () => {
     expect(stderr.read()).not.toContain('mcp_abcdefghijklmnopqrstuvwxyz123456')
   })
 
-  it('reports a missing installed contract as root drift', async () => {
+  it('[DEV-02] reports a missing installed contract as root drift', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-check-legacy-'))
     tempDirs.push(rootDir)
     writeFileSync(
@@ -781,6 +949,12 @@ describe('ginko-cms CLI', () => {
     tempDirs.push(rootDir)
     writeContentConfig(rootDir, 'posts', '/posts')
     writeFileSync(
+      resolve(rootDir, 'nuxt.config.ts'),
+      `export default defineNuxtConfig({ ginkoCms: { editorialLayout: { collections: { posts: { label: 'Editorial posts' } } } } })\n`,
+      'utf8',
+    )
+    const deployedBinding = await bindContractForTest(rootDir)
+    writeFileSync(
       resolve(rootDir, '.env.local'),
       ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
         '\n',
@@ -833,7 +1007,8 @@ describe('ginko-cms CLI', () => {
               query: async (_ref, args) => {
                 calls.push({ kind: 'query', args: args as Record<string, unknown> })
                 queryCount += 1
-                if (queryCount === 2) {
+                if (queryCount === 1) return deployedBinding
+                if (queryCount === 3) {
                   return {
                     page: [
                       {
@@ -869,12 +1044,17 @@ describe('ginko-cms CLI', () => {
                 }
                 return {
                   runKey: 'run-key',
-                  state: queryCount === 1 ? 'staging' : 'ready',
+                  state: queryCount === 2 ? 'staging' : queryCount === 4 ? 'validating' : 'ready',
                   fromContentHash: 'b'.repeat(64),
                   toContentHash: 'c'.repeat(64),
-                  stagedCount: queryCount === 1 ? 0 : 1,
+                  fromPresentationHash: 'd'.repeat(64),
+                  toPresentationHash: 'e'.repeat(64),
+                  generation: queryCount === 2 ? 1 : queryCount === 4 ? 2 : 3,
+                  scannedCount: queryCount === 2 ? 0 : 1,
+                  stagedCount: queryCount === 2 ? 0 : 1,
+                  validatedCount: queryCount === 5 ? 1 : 0,
                   appliedCount: 0,
-                  pendingCount: queryCount === 1 ? 0 : 1,
+                  pendingCount: queryCount === 2 ? 0 : 1,
                   lockActive: true,
                   cursor: null,
                 }
@@ -882,9 +1062,17 @@ describe('ginko-cms CLI', () => {
               mutation: async (_ref, args) => {
                 calls.push({ kind: 'mutation', args: args as Record<string, unknown> })
                 mutationCount += 1
-                return mutationCount === 1
-                  ? { runId: 'run-1', state: 'staging' }
-                  : { state: 'ready', staged: 1, stagedCount: 1, continueCursor: null }
+                if (mutationCount === 1) return { runId: 'run-1', state: 'staging' }
+                if (mutationCount === 2) {
+                  return {
+                    state: 'validating',
+                    generation: 2,
+                    staged: 1,
+                    stagedCount: 1,
+                    continueCursor: null,
+                  }
+                }
+                return { state: 'ready', generation: 3, validated: 1, validatedCount: 1 }
               },
               action: async () => {
                 throw new Error('contract transition should not use public action')
@@ -901,24 +1089,33 @@ describe('ginko-cms CLI', () => {
       expect(calls[0]).toEqual({ kind: 'auth', token: 'deploy-key-test' })
       expect(calls.map((call) => call.kind)).toEqual([
         'auth',
+        'query',
         'mutation',
         'query',
+        'query',
+        'mutation',
         'query',
         'mutation',
         'query',
       ])
-      expect(calls[1]?.args).toMatchObject({
+      expect(calls[2]?.args).toMatchObject({
         runKey: expect.stringMatching(/^[a-f0-9]{64}$/),
         targetContentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        targetPresentation: {
+          collections: { posts: { label: 'Editorial posts' } },
+        },
+        targetPresentationHash: expect.stringMatching(/^[a-f0-9]{64}$/),
         actor: 'owner-cli',
       })
-      expect(calls[3]?.args).toEqual({
+      expect(calls[4]?.args).toEqual({
         runId: 'run-1',
+        generation: 1,
         cursor: null,
         limit: 50,
       })
-      expect(calls[4]?.args).toMatchObject({
+      expect(calls[5]?.args).toMatchObject({
         runId: 'run-1',
+        generation: 1,
         cursor: null,
         limit: 50,
         items: [
@@ -930,6 +1127,12 @@ describe('ginko-cms CLI', () => {
             output: expect.objectContaining({ shared: { badge: 'new' } }),
           }),
         ],
+      })
+      expect(calls[7]?.args).toEqual({
+        runId: 'run-1',
+        generation: 2,
+        cursor: null,
+        limit: 50,
       })
     } finally {
       if (previousDeployKey === undefined) {
@@ -975,14 +1178,42 @@ describe('ginko-cms CLI', () => {
         ({
           setAdminAuth: (token: string) => calls.push({ kind: 'auth', token }),
           query: async () => {
-            throw new Error('contract transition apply should not query')
+            calls.push({ kind: 'query' })
+            return {
+              runKey: 'run-key',
+              state: 'ready',
+              fromContentHash: 'a'.repeat(64),
+              toContentHash: 'b'.repeat(64),
+              fromPresentationHash: 'c'.repeat(64),
+              toPresentationHash: 'd'.repeat(64),
+              generation: 3,
+              scannedCount: 28,
+              stagedCount: 28,
+              validatedCount: 28,
+              appliedCount: 0,
+              pendingCount: 28,
+              lockActive: true,
+              cursor: null,
+            }
           },
           mutation: async (_ref, args) => {
             calls.push({ kind: 'mutation', args: args as Record<string, unknown> })
             page += 1
             return page === 1
-              ? { applied: 25, appliedCount: 25, readyToActivate: false }
-              : { applied: 3, appliedCount: 28, readyToActivate: true }
+              ? {
+                  generation: 4,
+                  cursor: 'item-25',
+                  applied: 25,
+                  appliedCount: 25,
+                  readyToActivate: false,
+                }
+              : {
+                  generation: 4,
+                  cursor: 'item-28',
+                  applied: 3,
+                  appliedCount: 28,
+                  readyToActivate: true,
+                }
           },
           action: async () => {
             throw new Error('contract transition apply should not use public action')
@@ -993,9 +1224,88 @@ describe('ginko-cms CLI', () => {
     expect(code).toBe(0)
     expect(stderr.read()).toBe('')
     expect(stdout.read()).toContain('Applied contract transition run-1: applied=28')
-    expect(calls.map((call) => call.kind)).toEqual(['auth', 'mutation', 'mutation'])
-    expect(calls[1]?.args).toEqual({ runId: 'run-1', limit: 25, actor: 'owner-cli' })
-    expect(calls[2]?.args).toEqual({ runId: 'run-1', limit: 25, actor: 'owner-cli' })
+    expect(calls.map((call) => call.kind)).toEqual(['auth', 'query', 'mutation', 'mutation'])
+    expect(calls[2]?.args).toEqual({
+      runId: 'run-1',
+      generation: 3,
+      cursor: null,
+      limit: 25,
+      actor: 'owner-cli',
+    })
+    expect(calls[3]?.args).toEqual({
+      runId: 'run-1',
+      generation: 4,
+      cursor: 'item-25',
+      limit: 25,
+      actor: 'owner-cli',
+    })
+  })
+
+  it('refuses transition activation when the deployed host binding is stale', async () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    delete process.env.CONVEX_DEPLOY_KEY
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-transition-activate-binding-'))
+    tempDirs.push(rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+    let queryCount = 0
+    let mutationCalled = false
+    const stdout = createOutput()
+    const stderr = createOutput()
+
+    try {
+      const code = await runGinkoCmsCli(['contract', 'transition', 'activate', 'run-1', '--yes'], {
+        cwd: rootDir,
+        io: { stdout: stdout.stream, stderr: stderr.stream },
+        convexClientFactory: () =>
+          ({
+            setAdminAuth: () => {},
+            query: async () => {
+              queryCount += 1
+              return queryCount === 1
+                ? {
+                    runKey: 'run-key',
+                    state: 'applying',
+                    fromContentHash: 'a'.repeat(64),
+                    toContentHash: 'b'.repeat(64),
+                    fromPresentationHash: 'c'.repeat(64),
+                    toPresentationHash: 'd'.repeat(64),
+                    generation: 4,
+                    scannedCount: 1,
+                    stagedCount: 1,
+                    validatedCount: 1,
+                    appliedCount: 1,
+                    pendingCount: 0,
+                    lockActive: true,
+                    cursor: 'item-1',
+                  }
+                : {
+                    contentHash: '0'.repeat(64),
+                    presentationHash: 'd'.repeat(64),
+                  }
+            },
+            mutation: async () => {
+              mutationCalled = true
+            },
+          }) as never,
+      })
+
+      expect(code).toBe(2)
+      expect(stdout.read()).toBe('')
+      expect(stderr.read()).toContain('deployed Convex host binding does not match')
+      expect(mutationCalled).toBe(false)
+    } finally {
+      if (previousDeployKey === undefined) {
+        delete process.env.CONVEX_DEPLOY_KEY
+      } else {
+        process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      }
+    }
   })
 
   it('does not expose owner-authenticated backup actions through the deploy-key CLI', async () => {

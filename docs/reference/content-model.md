@@ -58,7 +58,7 @@ entry shared draft + locale draft
   -> one backend readiness computation
   -> guarded publish preview bound to versions and route generation
   -> immutable complete revision
-  -> locale active-revision pointer + structural publicEntries row
+  -> locale active-revision pointer + one bounded, body-free publicEntries row
   -> activity + revalidation outbox in the same transaction
 ```
 
@@ -93,6 +93,21 @@ Upload sessions expire; finalization verifies the stored bytes before creating
 an asset. Permanent purge requires a current verified artifact containing the
 complete bytes, byte length, manifest, and checksums, and remains blocked while
 canonical content references the asset.
+
+Studio asset discovery applies filename search, kind, upload-time window,
+size, exact tag, deleted state, ownership location, usage certainty, and stable
+sorting on the backend before keyset pagination. The full supported 500-asset
+set is fenced into each cursor, so a changed result set returns a stale-cursor
+error instead of losing or duplicating rows across a page boundary. Sidebar
+counts come from the same bounded backend read; Studio never filters or sorts a
+partially loaded page.
+
+Usage is intentionally three-state. `used` means a concrete derived reference
+exists or the current verification proof includes the asset.
+`unused-verified` is available only when the latest zero-issue repair run proves
+the current canonical generation contains no reference. Missing or stale proof
+is `unknown-stale`, never “unused.” Trash and permanent purge fail closed when
+an asset has neither a known reference nor current unreferenced proof.
 
 Database recovery uses official Convex Backup & Restore. Content portability
 uses deterministic owner-CLI exports and draft-only imports. Neither introduces

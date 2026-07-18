@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 import { PORTABLE_IMPORT_LIMITS } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
-import type { ResolvedContentContractV1 } from '@lupinum/ginko-content/cms-contract'
+import type { JsonValue, ResolvedContentContractV1 } from '@lupinum/ginko-content/cms-contract'
 import { hashCanonicalJson, type PortableDocumentV1 } from '@lupinum/ginko-content/portability'
 import {
   writePortableDirectory,
@@ -22,6 +22,8 @@ import { createPortableDraftImportPlan, type PortableDraftImportPlan } from './p
 const api = anyApi
 const IMPORT_PAGE_SIZE = 250
 const EXPORT_PAGE_SIZE = 100
+const IMPORT_WORK_POLL_INTERVAL_MS = 25
+const IMPORT_WORK_POLL_LIMIT = 2_400
 
 type DirectCmsClient = Pick<ConvexHttpClient, 'query' | 'mutation' | 'action'>
 
@@ -48,14 +50,14 @@ export async function exportPortablePublishedContent(
   if (collections.length === 0 || new Set(collections).size !== collections.length) {
     throw new Error('Portable export requires a non-empty collection scope without duplicates.')
   }
-  const sourceContractSha256 = await hashCanonicalJson(options.contract as never)
+  const sourceContentHash = await hashPortableJson(options.contract)
   const runId = options.runId ?? randomUUID()
   const leaseTokenHash = createHash('sha256').update(randomBytes(32)).digest('hex')
-  const created = (await client.mutation(api.ginkoCms.portability.createExportRun, {
+  const created = (await client.action(api.ginkoCms.portability.createExportRun, {
     runId,
     deploymentId: options.deploymentId,
     scope: { collections },
-    sourceContractSha256,
+    sourceContentHash,
     leaseTokenHash,
   })) as { leaseGeneration: number }
   try {
@@ -79,7 +81,7 @@ export async function exportPortablePublishedContent(
       assets: exportAssets(client, runId, options.assetTransfer),
     })
     const verified = await verifyPortableDirectoryBounded(directory)
-    const manifestSha256 = await hashCanonicalJson(verified.manifest as never)
+    const manifestSha256 = await hashPortableJson(verified.manifest)
     const receipt = await client.mutation(api.ginkoCms.portability.completeExportRun, {
       runId,
       manifestSha256,
@@ -108,13 +110,17 @@ async function* exportDocuments(
       cursor: string | null
     }
     for (const row of page.documents) {
-      if ((await hashCanonicalJson(row.document as never)) !== row.documentSha256) {
+      if ((await hashPortableJson(row.document)) !== row.documentSha256) {
         throw new Error('Portable export document changed after roster capture.')
       }
       yield row.document
     }
     cursor = page.cursor
   } while (cursor !== null)
+}
+
+async function hashPortableJson(value: unknown): Promise<string> {
+  return await hashCanonicalJson(value as JsonValue)
 }
 
 async function* exportAssets(
@@ -151,7 +157,7 @@ export async function preparePortableDraftImport(
   directory: string,
   options: {
     deploymentId: string
-    targetContractSha256: string
+    targetContentHash: string
     planId?: string
   },
 ): Promise<PreparedPortableDraftImport> {
@@ -168,11 +174,19 @@ export async function preparePortableDraftImport(
   )
   identities.sort((left, right) => compare(left.itemKey, right.itemKey))
   const currentDraftSha256ByItemKey = new Map<string, string | null>()
+  const currentSharedSha256ByItemKey = new Map<string, string | null>()
   for (let offset = 0; offset < identities.length; offset += IMPORT_PAGE_SIZE) {
     const rows = (await client.query(api.ginkoCms.portability.inspectPortableDrafts, {
       items: identities.slice(offset, offset + IMPORT_PAGE_SIZE),
-    })) as Array<{ itemKey: string; currentDraftSha256: string | null }>
-    for (const row of rows) currentDraftSha256ByItemKey.set(row.itemKey, row.currentDraftSha256)
+    })) as Array<{
+      itemKey: string
+      currentDraftSha256: string | null
+      currentSharedSha256: string | null
+    }>
+    for (const row of rows) {
+      currentDraftSha256ByItemKey.set(row.itemKey, row.currentDraftSha256)
+      currentSharedSha256ByItemKey.set(row.itemKey, row.currentSharedSha256)
+    }
   }
   const currentAssetBySha256 = new Map<
     string,
@@ -198,8 +212,9 @@ export async function preparePortableDraftImport(
   }
   const plan = await createPortableDraftImportPlan(bundle, {
     deploymentId: options.deploymentId,
-    targetContractSha256: options.targetContractSha256,
+    targetContentHash: options.targetContentHash,
     currentDraftSha256ByItemKey,
+    currentSharedSha256ByItemKey,
     currentAssetBySha256,
   })
   if (plan.blockers.length > 0) {
@@ -229,11 +244,24 @@ export async function preparePortableDraftImport(
       assets: plan.assets.slice(offset, offset + IMPORT_PAGE_SIZE),
     })
   }
-  const sealed = (await client.action(api.ginkoCms.portability.sealImportPlan, {
-    planId,
-    payloadSha256: plan.payloadSha256,
-  })) as { runId: string }
-  return { ...plan, planId, runId: sealed.runId, directory }
+  let runId: string | null = null
+  for (let poll = 0; poll < IMPORT_WORK_POLL_LIMIT; poll += 1) {
+    const sealed = (await client.action(api.ginkoCms.portability.sealImportPlan, {
+      planId,
+      payloadSha256: plan.payloadSha256,
+    })) as { runId: string; state: string }
+    runId = sealed.runId
+    if (sealed.state === 'planned') {
+      return { ...plan, planId, runId, directory }
+    }
+    if (sealed.state !== 'sealing') {
+      throw new Error(`Portable import plan sealing stopped in state ${sealed.state}.`)
+    }
+    await waitForImportWork()
+  }
+  throw new Error(
+    `Portable import plan ${runId ?? planId} did not finish sealing within the bounded wait.`,
+  )
 }
 
 export async function applyPreparedPortableDraftImport(
@@ -252,12 +280,18 @@ export async function applyPreparedPortableDraftImport(
     payloadSha256: prepared.payloadSha256,
   })) as { state: string }
   if (started.state === 'applying') {
-    for (;;) {
+    for (let poll = 0; poll < IMPORT_WORK_POLL_LIMIT; poll += 1) {
       const batch = (await client.action(api.ginkoCms.portability.applyImportBatch, {
         runId: prepared.runId,
         payloadSha256: prepared.payloadSha256,
       })) as { complete: boolean }
       if (batch.complete) break
+      if (poll === IMPORT_WORK_POLL_LIMIT - 1) {
+        throw new Error(
+          `Portable import ${prepared.runId} did not finish applying within the bounded wait.`,
+        )
+      }
+      await waitForImportWork()
     }
   }
   if (started.state !== 'complete') {
@@ -270,6 +304,10 @@ export async function applyPreparedPortableDraftImport(
     runId: prepared.runId,
     payloadSha256: prepared.payloadSha256,
   })
+}
+
+async function waitForImportWork(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, IMPORT_WORK_POLL_INTERVAL_MS))
 }
 
 function compare(left: string, right: string) {

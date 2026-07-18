@@ -2,7 +2,8 @@
 
 Self-hosted CMS for Nuxt teams building structured websites with Ginko Content.
 It provides a Studio UI backed by Convex, Better Auth, managed assets, content
-publishing, filesystem migration, public-read projections, and MCP operations.
+publishing, owner-CLI content portability, public-read projections, and MCP
+operations.
 
 Use Ginko CMS when your Nuxt app already treats content as collections and you
 want an app-owned editing workflow instead of a hosted SaaS dependency.
@@ -32,6 +33,11 @@ pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
 
+Before the first deployment, `doctor` reports the generated contract binding as
+unbound and points to `pnpm exec ginko-cms deploy`. The deploy command reruns all
+other setup checks, writes the trusted hashes, and completes that fix. A later
+`doctor` run must pass.
+
 Contract sync through `ginko-cms deploy` or `ginko-cms push` needs Convex admin
 auth through `CONVEX_DEPLOY_KEY`. Create one before deploying:
 
@@ -45,16 +51,19 @@ Set the email allowed to claim the first Studio owner:
 pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
 ```
 
-Deploy the generated Convex functions and sync the collection contracts:
+Deploy the generated Convex functions and install the CMS contract:
 
 ```bash
 pnpm exec ginko-cms deploy
 ```
 
 `ginko-cms deploy` runs `ginko-cms doctor`, starts the default local Convex
-deploy command, then pushes collection contracts. For CI or read-only
+deploy command, then installs the CMS contract. For CI or read-only
 validation, run `pnpm exec ginko-cms deploy --check`; it skips the Convex deploy
-step and validates setup plus contract drift.
+and contract write while validating setup plus contract drift. For an
+incompatible contract transition, run
+`pnpm exec ginko-cms deploy --transition`; it deploys the target host hash
+binding but defers contract installation to transition activation.
 
 For the full setup path, see [Quickstart](./docs/getting-started/quickstart.md)
 and [Environment](./docs/getting-started/environment.md).
@@ -62,7 +71,8 @@ and [Environment](./docs/getting-started/environment.md).
 ## What You Get
 
 - Studio routes and layout mounted into the Nuxt app.
-- Convex-backed content, assets, members, settings, and public projections.
+- Convex-backed content, assets, members, the installed contract, and public
+  projections.
 - Better Auth integration through host-owned Convex files.
 - Public content reads for Ginko-powered Nuxt sites.
 - Owner-only CLI portability for deterministic content export and draft import.
@@ -111,8 +121,8 @@ Tailwind entry CSS for dev and build.
 
 ## Packages
 
-- `@lupinum/ginko-cms`: Nuxt module, Studio, CLI, migration helpers, and public
-  provider integration.
+- `@lupinum/ginko-cms`: Nuxt module, Studio, owner CLI portability and contract
+  transition commands, and public provider integration.
 - `@lupinum/ginko-cms-convex`: Convex component implementation.
 - `@lupinum/ginko-cms-contract`: framework-neutral CMS contracts, field
   metadata, public content types, and Convex validators.

@@ -4,10 +4,11 @@ import type { Id } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'
 import { logActivity } from '../lib/activity.js'
 import type { getCollectionOrThrow } from '../lib/collections.js'
-import { asEntryId } from '../lib/ids.js'
-import { compareOrderRank, rankAfter, rankBetween } from '../lib/ordering.js'
+import { rankAfter, rankBetween } from '../lib/ordering.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import type { EntryDoc } from './context.js'
+import { CMS_TREE_MAX_DEPTH } from './treePolicy.js'
+import { refreshDraftSearchEntriesForEntry } from './workflow/draftSearch.js'
 
 export async function resolveParentEntryId(
   ctx: QueryOrMutationCtx,
@@ -22,8 +23,9 @@ export async function resolveParentEntryId(
       parentEntryId,
     })
   }
-  const parent = await ctx.db.get(asEntryId(parentEntryId))
-  if (!parent || parent.collection !== collectionSlug) {
+  const parentId = ctx.db.normalizeId('entries', parentEntryId)
+  const parent = parentId ? await ctx.db.get(parentId) : null
+  if (!parent || parent.collection !== collectionSlug || parent.lifecycle !== 'active') {
     throwCmsError('ENTRY_PARENT_NOT_FOUND', 'Parent entry not found', {
       parentEntryId,
       collection: collectionSlug,
@@ -59,38 +61,43 @@ export async function assertTreePlacement(
     depth += 1
   }
 
-  const settings = collection.settings as Record<string, unknown> | undefined
-  const maxDepth = Number(settings?.maxDepth ?? 0)
-  if (!maxDepth || Number.isNaN(maxDepth)) return
-  if (depth > maxDepth) {
+  if (depth > CMS_TREE_MAX_DEPTH) {
     throwCmsError(
       'ENTRY_MAX_DEPTH_EXCEEDED',
-      `This move exceeds the collection max depth of ${maxDepth}`,
-      { maxDepth },
+      `This move exceeds the supported tree depth of ${CMS_TREE_MAX_DEPTH}`,
+      { maxDepth: CMS_TREE_MAX_DEPTH },
     )
   }
 }
 
-async function getSiblingEntries(
+async function placementAnchor(
   ctx: QueryOrMutationCtx,
-  collection: string,
-  parentEntryId: Id<'entries'> | null,
-  excludeEntryId?: Id<'entries'>,
+  args: {
+    collection: string
+    parentEntryId: Id<'entries'> | null
+    anchorId: string
+    excludeEntryId?: Id<'entries'>
+  },
 ) {
-  const entries = await ctx.db
-    .query('entries')
-    .withIndex('by_parent', (q) =>
-      q.eq('collection', collection).eq('parentEntryId', parentEntryId),
-    )
-    .collect()
-
-  return entries
-    .filter((entry: EntryDoc) => !excludeEntryId || entry._id !== excludeEntryId)
-    .sort((left: EntryDoc, right: EntryDoc) => {
-      const rank = compareOrderRank(left.orderRank ?? null, right.orderRank ?? null)
-      if (rank !== 0) return rank
-      return String(left._id).localeCompare(String(right._id))
+  const id = ctx.db.normalizeId('entries', args.anchorId)
+  const entry = id ? await ctx.db.get(id) : null
+  if (
+    !entry ||
+    entry.collection !== args.collection ||
+    entry.parentEntryId !== args.parentEntryId ||
+    entry._id === args.excludeEntryId
+  ) {
+    throwCmsError('ENTRY_PLACEMENT_ANCHOR_INVALID', 'Placement anchor is not a current sibling.', {
+      collection: args.collection,
+      parentEntryId: args.parentEntryId ? String(args.parentEntryId) : null,
+      anchorId: args.anchorId,
     })
+  }
+  return entry
+}
+
+function withoutExcluded(rows: EntryDoc[], excludeEntryId?: Id<'entries'>) {
+  return rows.find((entry) => !excludeEntryId || entry._id !== excludeEntryId) ?? null
 }
 
 async function resolveOrderRank(
@@ -108,38 +115,78 @@ async function resolveOrderRank(
     return args.currentOrder
   }
 
-  const siblings = await getSiblingEntries(
-    ctx,
-    args.collection,
-    args.parentEntryId,
-    args.excludeEntryId,
-  )
-
   const before = args.beforeEntryId
-    ? siblings.find((entry: EntryDoc) => String(entry._id) === args.beforeEntryId)
-    : undefined
+    ? await placementAnchor(ctx, {
+        collection: args.collection,
+        parentEntryId: args.parentEntryId,
+        anchorId: args.beforeEntryId,
+        excludeEntryId: args.excludeEntryId,
+      })
+    : null
   const after = args.afterEntryId
-    ? siblings.find((entry: EntryDoc) => String(entry._id) === args.afterEntryId)
-    : undefined
+    ? await placementAnchor(ctx, {
+        collection: args.collection,
+        parentEntryId: args.parentEntryId,
+        anchorId: args.afterEntryId,
+        excludeEntryId: args.excludeEntryId,
+      })
+    : null
 
   if (before && after) {
-    return rankBetween(after.orderRank ?? undefined, before.orderRank ?? undefined)
+    if (before._id === after._id || after.orderRank >= before.orderRank) {
+      throwCmsError(
+        'ENTRY_PLACEMENT_ANCHOR_INVALID',
+        'Placement anchors are not in ascending sibling order.',
+      )
+    }
+    return rankBetween(after.orderRank, before.orderRank)
   }
 
   if (before) {
-    const index = siblings.findIndex((entry: EntryDoc) => entry._id === before._id)
-    const prev = index > 0 ? siblings[index - 1] : null
-    return rankBetween(prev?.orderRank ?? undefined, before.orderRank ?? undefined)
+    const previous = withoutExcluded(
+      await ctx.db
+        .query('entries')
+        .withIndex('by_parent', (q) =>
+          q
+            .eq('collection', args.collection)
+            .eq('parentEntryId', args.parentEntryId)
+            .lt('orderRank', before.orderRank),
+        )
+        .order('desc')
+        .take(args.excludeEntryId ? 2 : 1),
+      args.excludeEntryId,
+    )
+    return rankBetween(previous?.orderRank, before.orderRank)
   }
 
   if (after) {
-    const index = siblings.findIndex((entry: EntryDoc) => entry._id === after._id)
-    const next = index >= 0 && index < siblings.length - 1 ? siblings[index + 1] : null
-    return rankBetween(after.orderRank ?? undefined, next?.orderRank ?? undefined)
+    const next = withoutExcluded(
+      await ctx.db
+        .query('entries')
+        .withIndex('by_parent', (q) =>
+          q
+            .eq('collection', args.collection)
+            .eq('parentEntryId', args.parentEntryId)
+            .gt('orderRank', after.orderRank),
+        )
+        .order('asc')
+        .take(args.excludeEntryId ? 2 : 1),
+      args.excludeEntryId,
+    )
+    return rankBetween(after.orderRank, next?.orderRank)
   }
 
-  const lastSibling = siblings[siblings.length - 1]
-  return rankAfter(lastSibling?.orderRank ?? undefined)
+  const lastSibling = withoutExcluded(
+    await ctx.db
+      .query('entries')
+      .withIndex('by_parent', (q) =>
+        q.eq('collection', args.collection).eq('parentEntryId', args.parentEntryId),
+      )
+      .order('desc')
+      .take(args.excludeEntryId ? 2 : 1),
+    args.excludeEntryId,
+  )
+  return rankAfter(lastSibling?.orderRank)
 }
 
 export async function resolveEntryPlacement(
@@ -209,6 +256,7 @@ export async function moveEntryInTree(
     updatedAt: args.now,
     updatedBy: args.appIdentityId,
   })
+  await refreshDraftSearchEntriesForEntry(ctx, args.entry._id, args.collection)
 
   await logActivity(ctx, {
     kind: args.activityKind,
@@ -218,4 +266,9 @@ export async function moveEntryInTree(
     collection: args.entry.collection,
     detail: args.detail(resolved),
   })
+
+  return {
+    ...resolved,
+    draftVersion: args.entry.draftVersion + 1,
+  }
 }

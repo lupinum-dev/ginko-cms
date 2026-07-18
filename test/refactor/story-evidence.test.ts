@@ -10,5 +10,15 @@ describe('accepted user-story evidence', () => {
     expect(report.deferred).toHaveLength(12)
     expect(Object.keys(report.mappings).sort()).toEqual(report.accepted)
     expect(report.evidenceFiles.length).toBeGreaterThan(50)
+    expect(report.mappings['QUA-07']).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ file: 'test/refactor/target-scale.test.ts' }),
+      ]),
+    )
+    expect(report.mappings['DEV-06']).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ file: 'test/module/candidate-release-contract.test.ts' }),
+      ]),
+    )
   })
 })

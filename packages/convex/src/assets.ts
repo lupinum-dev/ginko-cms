@@ -1,45 +1,94 @@
 import {
   attachAssetsToEntry as attachAssetsToEntryArgs,
+  claimAssetUploadSession as claimAssetUploadSessionArgs,
+  createAssetUploadSession as createAssetUploadSessionArgs,
   deleteAsset as deleteAssetArgs,
+  finalizeAssetUploadSession as finalizeAssetUploadSessionArgs,
   getAsset as getAssetArgs,
   getAssetManagerData as getAssetManagerDataArgs,
-  listColocatedAssets as listColocatedAssetsArgs,
+  listAssetsByOwner as listAssetsByOwnerArgs,
+  listAssetUsages as listAssetUsagesArgs,
   moveAsset as moveAssetArgs,
-  registerAsset as registerAssetArgs,
+  replaceAsset as replaceAssetArgs,
   resolveAssetUrls as resolveAssetUrlsArgs,
   updateAsset as updateAssetArgs,
+  verifyAssetReplacementUpload as verifyAssetReplacementUploadArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/assets.js'
 import {
-  assetColocationGroupsValidator,
   assetManagerAssetValidator,
   assetManagerPageValidator,
+  assetPageValidator,
+  assetUsagePageValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { verifyPublicImageBytes } from '@lupinum/ginko-content/cms-contract'
-import { anyApi } from 'convex/server'
-import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 
-import type { Doc, Id } from './_generated/dataModel.js'
-import { internalAction, internalMutation } from './_generated/server.js'
+import { internalAction, internalMutation, internalQuery } from './_generated/server.js'
 import {
-  assetOwnerPathFromMeta,
-  loadAssetRelationships,
-  type AssetRelationships,
-} from './assets/relationships.js'
-import { canManageAssets, canRead, requireRecord } from './auth/checks.js'
-import { assertBackupArtifactCoversPurge } from './backup.js'
-import { rebuildContentAssetRefsForEntry } from './entries/projections.js'
+  canDeleteAssetCleanupStorageHandler,
+  cleanupAssetStorageHandler,
+  failAssetStorageCleanupHandler,
+  finishAssetStorageCleanupHandler,
+  listTerminalAssetCleanupTasksHandler,
+  retryAssetCleanupOperation,
+  terminalAssetCleanupArgs,
+  terminalAssetCleanupPageValidator,
+} from './assets/cleanupOperations.js'
+import {
+  boundedPaginationOpts,
+  mapAsset,
+  mapAssetPage,
+  readAssetManagerPage,
+  readAssetsByOwnerSourcePage,
+  readAssetUsageSourcePage,
+} from './assets/listing.js'
+import {
+  executeVerifiedAssetPurgeHandler,
+  issueAssetPurgeVerificationFenceHandler,
+  purgeAssetHandler,
+  purgePreflightIssueValidator,
+  purgeVerificationValidator,
+} from './assets/purgeExecution.js'
+import { purgeAssetArgs, purgeAssetOperation } from './assets/purgeOperation.js'
+import { hasAssetReferences, mapAssetReferenceUsages } from './assets/relationships.js'
+import {
+  assetReplacementResultValidator,
+  executeVerifiedAssetReplacementArgs,
+  executeVerifiedAssetReplacementHandler,
+  readVerifiedAssetReplacementSessionHandler,
+  replaceAssetHandler,
+  replaceAssetOperation,
+  replacementExecuteResultValidator,
+  stagedReplacementValidator,
+  stageVerifiedAssetReplacementArgs,
+  stageVerifiedAssetReplacementHandler,
+  verifiedReplacementSessionValidator,
+  verifyAssetReplacementUploadHandler,
+} from './assets/replacement.js'
+import {
+  assetDiscoveryFields,
+  normalizeTags,
+  validateAssetScopeRelationships,
+} from './assets/scope.js'
+import {
+  claimAssetUploadSessionHandler,
+  createAssetUploadSessionHandler,
+  expireAssetUploadSessionHandler,
+  finalizeAssetUploadSessionHandler,
+  finalizeClaimedAssetUploadSessionHandler,
+  readAssetUploadSessionHandler,
+} from './assets/uploadSessions.js'
+import { canManageAssetRecovery, canManageAssets, canRead, requireRecord } from './auth/checks.js'
+import { readAssetReferenceProofStatus } from './entries/assetReferenceProof.js'
 import { throwCmsError } from './errors.js'
 import { callerAction, callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
-import { getCollection } from './lib/collections.js'
-import { toOptionalStringId, toStringId } from './lib/ids.js'
-import { sanitizeFilename, validateAssetUploadPolicy } from './lib/sanitize.js'
-import type { CmsCollection, MutationCtx, QueryOrMutationCtx } from './lib/types.js'
+import { cmsContractWriteTokenValidator } from './lib/installedContract.js'
+import { sanitizeFilename } from './lib/sanitize.js'
 import {
   blockedPreview,
   defineCmsOperation,
   operationEffect,
+  operationExecuteResultValidator,
   operationIssue,
   buildPreview,
   previewResultValidator,
@@ -47,507 +96,74 @@ import {
 } from './operationHelpers.js'
 import { assertStorageOutsidePortableExportHold } from './portability/lease.js'
 
-type AssetDoc = Doc<'assets'>
-
 const MAX_RESOLVED_ASSET_URLS = 200
-const MAX_COLOCATED_GROUP_ASSETS = 200
-const ASSET_MANAGER_SCAN_BATCH_SIZE = 50
-type RegisterVerifiedAssetRef = FunctionReference<
-  'mutation',
-  'internal',
-  Record<string, unknown>,
-  string
->
-type AssetInternalMutationRef = FunctionReference<
-  'mutation',
-  'internal',
-  Record<string, unknown>,
-  unknown
->
-type AssetInternalActionRef = FunctionReference<
-  'action',
-  'internal',
-  Record<string, unknown>,
-  unknown
->
-const assetsApi = anyApi as unknown as {
-  assets: {
-    registerVerifiedAsset: RegisterVerifiedAssetRef
-    queueInvalidUploadCleanup: AssetInternalMutationRef
-    finishInvalidUploadCleanup: AssetInternalMutationRef
-    failInvalidUploadCleanup: AssetInternalMutationRef
-    cleanupInvalidUpload: AssetInternalActionRef
-  }
-}
-const MAX_ASSET_CLEANUP_ATTEMPTS = 5
-
-const purgeAssetArgs = {
-  assetId: v.string(),
-  exportArtifactId: v.string(),
+const ASSET_LIST_DEFAULT_LIMIT = 50
+const ASSET_LIST_MAX_LIMIT = 100
+const ASSET_USAGE_DEFAULT_LIMIT = 20
+const ASSET_USAGE_MAX_LIMIT = 100
+const ASSET_SEARCH_MAX_LENGTH = 256
+const assetUploadMetadataArgs = {
+  filename: finalizeAssetUploadSessionArgs.args.filename,
+  alt: finalizeAssetUploadSessionArgs.args.alt,
+  caption: finalizeAssetUploadSessionArgs.args.caption,
+  scope: finalizeAssetUploadSessionArgs.args.scope,
+  entryId: finalizeAssetUploadSessionArgs.args.entryId,
+  collection: finalizeAssetUploadSessionArgs.args.collection,
 }
 
-type AssetCreatedAtCursor = {
-  v: 1
-  kind: 'assetsByCreatedAt'
-  createdAt: number
-  storageId: string
-}
-type EntryCreatedAtCursor = {
-  v: 1
-  kind: 'entriesByCreatedAt'
-  createdAt: number
-  collection: string
-  slug: string
-}
-type CreatedAtCursor = AssetCreatedAtCursor | EntryCreatedAtCursor
+export const createAssetUploadSession = callerMutation.protected({
+  id: 'assets:createAssetUploadSession',
+  args: createAssetUploadSessionArgs.args,
+  guard: canManageAssets,
+  returns: v.object({
+    sessionId: v.string(),
+    uploadUrl: v.string(),
+    token: v.string(),
+    expiresAt: v.number(),
+  }),
+  handler: createAssetUploadSessionHandler,
+})
 
-function encodeAssetCreatedAtCursor(row: Pick<AssetDoc, 'createdAt' | 'storageId'>) {
-  return JSON.stringify({
-    v: 1,
-    kind: 'assetsByCreatedAt',
-    createdAt: row.createdAt,
-    storageId: toStringId(row.storageId),
-  } satisfies AssetCreatedAtCursor)
-}
+export const claimAssetUploadSession = callerMutation.protected({
+  id: 'assets:claimAssetUploadSession',
+  args: claimAssetUploadSessionArgs.args,
+  guard: canManageAssets,
+  returns: v.object({ sessionId: v.string(), generation: v.number(), expiresAt: v.number() }),
+  handler: claimAssetUploadSessionHandler,
+})
 
-function encodeEntryCreatedAtCursor(
-  row: Pick<Doc<'entries'>, 'createdAt' | 'collection' | 'slug'>,
-) {
-  return JSON.stringify({
-    v: 1,
-    kind: 'entriesByCreatedAt',
-    createdAt: row.createdAt,
-    collection: row.collection,
-    slug: row.slug,
-  } satisfies EntryCreatedAtCursor)
-}
+export const readAssetUploadSession = internalQuery({
+  args: { sessionId: v.string(), ownerId: v.string(), tokenHash: v.string() },
+  returns: v.union(
+    v.object({
+      state: v.literal('uploaded'),
+      sessionId: v.string(),
+      storageId: v.id('_storage'),
+      generation: v.number(),
+      expiresAt: v.number(),
+    }),
+    v.object({ state: v.literal('finalized'), sessionId: v.string(), assetId: v.string() }),
+  ),
+  handler: readAssetUploadSessionHandler,
+})
 
-function parseCreatedAtCursor(
-  cursor: string | null | undefined,
-  kind: CreatedAtCursor['kind'],
-  message: string,
-) {
-  if (!cursor) return null
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(cursor)
-  } catch {
-    throwCmsError('INVALID_CURSOR', message, { cursor })
-  }
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    (parsed as CreatedAtCursor).v !== 1 ||
-    (parsed as CreatedAtCursor).kind !== kind ||
-    typeof (parsed as CreatedAtCursor).createdAt !== 'number' ||
-    !Number.isFinite((parsed as CreatedAtCursor).createdAt)
-  ) {
-    throwCmsError('INVALID_CURSOR', message, { cursor })
-  }
-  if (
-    kind === 'assetsByCreatedAt' &&
-    typeof (parsed as AssetCreatedAtCursor).storageId !== 'string'
-  ) {
-    throwCmsError('INVALID_CURSOR', message, { cursor })
-  }
-  if (
-    kind === 'entriesByCreatedAt' &&
-    (typeof (parsed as EntryCreatedAtCursor).collection !== 'string' ||
-      typeof (parsed as EntryCreatedAtCursor).slug !== 'string')
-  ) {
-    throwCmsError('INVALID_CURSOR', message, { cursor })
-  }
-  return parsed as CreatedAtCursor
-}
-
-function readCmsErrorData(error: unknown): { code: string; message: string } | null {
-  const data =
-    typeof error === 'object' && error !== null && 'data' in error
-      ? (error as { data?: unknown }).data
-      : null
-  if (
-    data &&
-    typeof data === 'object' &&
-    typeof (data as { code?: unknown }).code === 'string' &&
-    typeof (data as { message?: unknown }).message === 'string'
-  ) {
-    return data as { code: string; message: string }
-  }
-  return null
-}
-
-function cmsErrorOperationIssue(error: unknown) {
-  const data = readCmsErrorData(error)
-  if (!data) throw error
-  return operationIssue({
-    code: data.code.toLowerCase().replaceAll('_', '-'),
-    message: data.message,
-  })
-}
-
-async function readAssetsByCreatedAt(
-  ctx: QueryOrMutationCtx,
-  cursor: AssetCreatedAtCursor | null,
-  limit: number,
-) {
-  if (!cursor) {
-    return await ctx.db.query('assets').withIndex('by_created_storage').order('desc').take(limit)
-  }
-
-  const sameCreatedAt = await ctx.db
-    .query('assets')
-    .withIndex('by_created_storage', (q) =>
-      q.eq('createdAt', cursor.createdAt).lt('storageId', cursor.storageId as Id<'_storage'>),
-    )
-    .order('desc')
-    .take(limit)
-  if (sameCreatedAt.length >= limit) return sameCreatedAt
-
-  const older = await ctx.db
-    .query('assets')
-    .withIndex('by_created_storage', (q) => q.lt('createdAt', cursor.createdAt))
-    .order('desc')
-    .take(limit - sameCreatedAt.length)
-  return [...sameCreatedAt, ...older]
-}
-
-async function readEntriesByCreatedAt(
-  ctx: QueryOrMutationCtx,
-  cursor: EntryCreatedAtCursor | null,
-  limit: number,
-) {
-  if (!cursor) {
-    return await ctx.db
-      .query('entries')
-      .withIndex('by_createdAt_collection_slug')
-      .order('asc')
-      .take(limit)
-  }
-
-  const sameCollection = await ctx.db
-    .query('entries')
-    .withIndex('by_createdAt_collection_slug', (q) =>
-      q
-        .eq('createdAt', cursor.createdAt)
-        .eq('collection', cursor.collection)
-        .gt('slug', cursor.slug),
-    )
-    .order('asc')
-    .take(limit)
-  if (sameCollection.length >= limit) return sameCollection
-
-  const nextCollections = await ctx.db
-    .query('entries')
-    .withIndex('by_createdAt_collection_slug', (q) =>
-      q.eq('createdAt', cursor.createdAt).gt('collection', cursor.collection),
-    )
-    .order('asc')
-    .take(limit - sameCollection.length)
-  if (sameCollection.length + nextCollections.length >= limit) {
-    return [...sameCollection, ...nextCollections]
-  }
-
-  const newer = await ctx.db
-    .query('entries')
-    .withIndex('by_createdAt_collection_slug', (q) => q.gt('createdAt', cursor.createdAt))
-    .order('asc')
-    .take(limit - sameCollection.length - nextCollections.length)
-  return [...sameCollection, ...nextCollections, ...newer]
-}
-
-function normalizeTags(tags: string[]): string[] {
-  const next = new Set<string>()
-  for (const tag of tags) {
-    const normalized = tag.trim().toLowerCase()
-    if (normalized.length === 0) continue
-    next.add(normalized)
-  }
-  return Array.from(next)
-}
-
-function validateScope(args: {
-  scope: 'global' | 'collection' | 'entry'
-  entryId?: string
-  collectionId?: string
-  collectionSlug?: string
-}) {
-  if (args.scope === 'global' && (args.entryId || args.collectionId || args.collectionSlug)) {
-    throwCmsError(
-      'ASSET_SCOPE_INVALID',
-      'Global assets cannot include entryId, collectionId, or collectionSlug',
-    )
-  }
-  if (
-    args.scope === 'collection' &&
-    ((!args.collectionId && !args.collectionSlug) || args.entryId)
-  ) {
-    throwCmsError(
-      'ASSET_SCOPE_INVALID',
-      'Collection assets require collectionId or collectionSlug and no entryId',
-    )
-  }
-  if (args.scope === 'entry' && (!args.entryId || (!args.collectionId && !args.collectionSlug))) {
-    throwCmsError(
-      'ASSET_SCOPE_INVALID',
-      'Entry assets require entryId and collectionId or collectionSlug',
-    )
-  }
-}
-
-function normalizeEntryId(ctx: QueryOrMutationCtx, entryId: string): Id<'entries'> {
-  const normalized = ctx.db.normalizeId('entries', entryId)
-  if (!normalized) {
-    throwCmsError('ASSET_SCOPE_INVALID', 'entryId must be a valid CMS entry id.', { entryId })
-  }
-  return normalized
-}
-
-async function resolveCollectionForAssetScope(
-  ctx: QueryOrMutationCtx,
-  args: { collectionId?: string; collectionSlug?: string },
-): Promise<CmsCollection> {
-  const slug = args.collectionSlug ?? args.collectionId
-  if (args.collectionId && args.collectionSlug && args.collectionId !== args.collectionSlug) {
-    throwCmsError(
-      'ASSET_SCOPE_INVALID',
-      'collectionId and collectionSlug must contain the same stable collection slug.',
-      { collectionId: args.collectionId, collectionSlug: args.collectionSlug },
-    )
-  }
-  if (slug) {
-    const collection = await getCollection(ctx, slug)
-    if (!collection) {
-      throwCmsError(
-        'ASSET_SCOPE_INVALID',
-        `Collection "${slug}" is not present in the installed CMS contract.`,
-        { collection: slug },
-      )
-    }
-    return collection
-  }
-  throwCmsError('ASSET_SCOPE_INVALID', 'Collection scope requires collectionId or collectionSlug.')
-}
-
-async function validateAssetScopeRelationships(
-  ctx: QueryOrMutationCtx,
-  args: {
-    scope: 'global' | 'collection' | 'entry'
-    entryId?: string
-    collectionId?: string
-    collectionSlug?: string
-  },
-): Promise<{ entryId: Id<'entries'> | null; collection: string | null }> {
-  validateScope(args)
-
-  if (args.scope === 'global') {
-    return { entryId: null, collection: null }
-  }
-
-  const collection = await resolveCollectionForAssetScope(ctx, args)
-  const collectionSlug = collection.slug
-
-  if (args.scope === 'collection') {
-    return { entryId: null, collection: collectionSlug }
-  }
-
-  const entryId = normalizeEntryId(ctx, args.entryId!)
-  const entry = await ctx.db.get(entryId)
-  requireRecord(entry, 'Entry')
-  if (entry.collection !== collectionSlug) {
-    throwCmsError(
-      'ASSET_SCOPE_INVALID',
-      'Entry-scoped assets must use the entry collection slug.',
-      {
-        entryId: args.entryId ?? null,
-        collection: collectionSlug,
-      },
-    )
-  }
-
-  return { entryId, collection: collectionSlug }
-}
-
-async function deleteAssetReferenceRows(ctx: MutationCtx, assetId: string) {
-  let deleted = 0
-  do {
-    const rows = await ctx.db
-      .query('contentAssetRefs')
-      .withIndex('by_asset_source', (q) => q.eq('assetId', assetId))
-      .take(100)
-    deleted = rows.length
-    for (const row of rows) {
-      await ctx.db.delete(row._id)
-    }
-  } while (deleted === 100)
-}
-
-async function mapAssetManagerAsset(
-  ctx: QueryOrMutationCtx,
-  asset: AssetDoc,
-  relationships: AssetRelationships,
-) {
-  const collectionId = asset.collection ?? null
-  const entryId = toOptionalStringId(asset.entryId)
-  const collectionMeta = collectionId ? relationships.collectionById.get(collectionId) : null
-  const entryMeta = entryId ? relationships.entryById.get(entryId) : null
-  const url = await ctx.storage.getUrl(asset.storageId)
-  return {
-    id: toStringId(asset._id),
-    filename: asset.filename,
-    mimeType: asset.mimeType,
-    size: asset.size,
-    width: asset.width ?? null,
-    height: asset.height ?? null,
-    scope: asset.scope,
-    entryId,
-    collectionId,
-    collectionSlug: collectionMeta?.slug ?? entryMeta?.collectionSlug ?? null,
-    collectionLabel: collectionMeta?.label ?? entryMeta?.collectionLabel ?? null,
-    entryTitle: entryMeta?.title ?? null,
-    ownerPath: assetOwnerPathFromMeta(asset, collectionMeta, entryMeta),
-    url,
-    thumbnailUrl: url,
-    createdAt: asset.createdAt,
-    updatedAt: asset.updatedAt ?? null,
-    deletedAt: asset.deletedAt ?? null,
-    alt: asset.alt ?? null,
-    caption: asset.caption ?? null,
-    tags: asset.tags ?? [],
-    usages: relationships.usagesByAssetId.get(toStringId(asset._id)) ?? [],
-  }
-}
-
-export const generateUploadUrl = callerMutation.protected({
-  id: 'assets:generateUploadUrl',
-  args: {},
+export const finalizeAssetUploadSession = callerAction.protected({
+  id: 'assets:finalizeAssetUploadSession',
+  args: finalizeAssetUploadSessionArgs.args,
   guard: canManageAssets,
   returns: v.string(),
-  handler: async (ctx) => await ctx.storage.generateUploadUrl(),
+  handler: finalizeAssetUploadSessionHandler,
 })
 
-export const registerAsset = callerAction.protected({
-  id: 'assets:registerAsset',
-  args: registerAssetArgs.args,
-  guard: canManageAssets,
-  returns: v.string(),
-  handler: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
-    const storageId = args.storageId as Id<'_storage'>
-    let uploadedObjectExists = false
-
-    try {
-      const blob = await ctx.storage.get(storageId)
-      if (!blob) {
-        throwCmsError('ASSET_STORAGE_MISSING', 'Uploaded asset storage object was not found.', {
-          storageId: toStringId(storageId),
-        })
-      }
-      uploadedObjectExists = true
-      const claimed = validateAssetUploadPolicy({ mimeType: blob.type, size: blob.size })
-      const verified = await verifyPublicImageBytes(
-        new Uint8Array(await blob.arrayBuffer()),
-        claimed.mimeType,
-      )
-      const { mediaType, ...verifiedFacts } = verified
-      return await ctx.runMutation(assetsApi.assets.registerVerifiedAsset, {
-        ...args,
-        storageId,
-        createdBy: appIdentity.userId,
-        ...verifiedFacts,
-        mimeType: mediaType,
-      })
-    } catch (error) {
-      if (!uploadedObjectExists) throw error
-      try {
-        await ctx.storage.delete(storageId)
-      } catch {
-        const taskId = (await ctx.runMutation(assetsApi.assets.queueInvalidUploadCleanup, {
-          storageId,
-        })) as Id<'assetCleanupTasks'>
-        await ctx.scheduler.runAfter(0, assetsApi.assets.cleanupInvalidUpload, {
-          taskId,
-          storageId,
-          attempt: 1,
-        })
-        throwCmsError('ASSET_CLEANUP_QUEUED', 'Invalid upload cleanup was queued for retry.')
-      }
-      throw error
-    }
-  },
-})
-
-export const queueInvalidUploadCleanup = internalMutation({
-  args: { storageId: v.id('_storage') },
-  returns: v.id('assetCleanupTasks'),
-  handler: async (ctx, args) => {
-    const now = Date.now()
-    return await ctx.db.insert('assetCleanupTasks', {
-      storageId: args.storageId,
-      status: 'cleanup-required',
-      attempts: 0,
-      createdAt: now,
-      updatedAt: now,
-    })
-  },
-})
-
-export const finishInvalidUploadCleanup = internalMutation({
-  args: { taskId: v.id('assetCleanupTasks') },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    if (await ctx.db.get(args.taskId)) await ctx.db.delete(args.taskId)
-    return null
-  },
-})
-
-export const failInvalidUploadCleanup = internalMutation({
-  args: { taskId: v.id('assetCleanupTasks'), attempt: v.number() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId)
-    if (!task) return null
-    await ctx.db.patch(task._id, {
-      attempts: args.attempt,
-      status: args.attempt >= MAX_ASSET_CLEANUP_ATTEMPTS ? 'terminal-failure' : 'cleanup-required',
-      updatedAt: Date.now(),
-    })
-    return null
-  },
-})
-
-export const cleanupInvalidUpload = internalAction({
+export const finalizeClaimedAssetUploadSession = internalMutation({
   args: {
-    taskId: v.id('assetCleanupTasks'),
+    contractWriteToken: cmsContractWriteTokenValidator,
+    sessionId: v.string(),
+    ownerId: v.string(),
+    tokenHash: v.string(),
+    expectedGeneration: v.number(),
     storageId: v.id('_storage'),
-    attempt: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    try {
-      await ctx.storage.delete(args.storageId)
-      await ctx.runMutation(assetsApi.assets.finishInvalidUploadCleanup, { taskId: args.taskId })
-    } catch {
-      await ctx.runMutation(assetsApi.assets.failInvalidUploadCleanup, {
-        taskId: args.taskId,
-        attempt: args.attempt,
-      })
-      if (args.attempt < MAX_ASSET_CLEANUP_ATTEMPTS) {
-        await ctx.scheduler.runAfter(
-          1_000 * 2 ** (args.attempt - 1),
-          assetsApi.assets.cleanupInvalidUpload,
-          { ...args, attempt: args.attempt + 1 },
-        )
-      }
-    }
-    return null
-  },
-})
-
-export const registerVerifiedAsset = internalMutation({
-  args: {
-    ...registerAssetArgs.args,
-    storageId: v.id('_storage'),
-    createdBy: v.string(),
+    ...assetUploadMetadataArgs,
     mimeType: v.union(
       v.literal('image/gif'),
       v.literal('image/jpeg'),
@@ -561,63 +177,113 @@ export const registerVerifiedAsset = internalMutation({
     frames: v.number(),
   },
   returns: v.string(),
-  handler: async (ctx, args) => await registerVerifiedAssetRecord(ctx, args),
+  handler: finalizeClaimedAssetUploadSessionHandler,
 })
 
-export async function registerVerifiedAssetRecord(
-  ctx: MutationCtx,
+export const verifyAssetReplacementUpload = callerAction.protected({
+  id: 'assets:verifyAssetReplacementUpload',
+  args: verifyAssetReplacementUploadArgs.args,
+  guard: canManageAssets,
+  returns: stagedReplacementValidator,
+  handler: verifyAssetReplacementUploadHandler,
+})
+
+export const stageVerifiedAssetReplacement = internalMutation({
+  args: stageVerifiedAssetReplacementArgs,
+  returns: stagedReplacementValidator,
+  handler: stageVerifiedAssetReplacementHandler,
+})
+
+export const readVerifiedAssetReplacementSession = internalQuery({
+  args: { assetId: v.string(), sessionId: v.string(), ownerId: v.string() },
+  returns: verifiedReplacementSessionValidator,
+  handler: readVerifiedAssetReplacementSessionHandler,
+})
+
+export const executeVerifiedAssetReplacement = internalMutation({
+  args: executeVerifiedAssetReplacementArgs,
+  returns: replacementExecuteResultValidator,
+  handler: executeVerifiedAssetReplacementHandler,
+})
+
+export const replaceAsset = callerAction.protected({
+  id: 'assets:replaceAsset',
+  args: replaceAssetArgs.args,
+  guard: canManageAssets,
+  returns: replacementExecuteResultValidator,
+  handler: replaceAssetHandler,
+})
+
+export const previewReplaceAssetOperation = callerMutation.protected(
+  Object.assign(definePreview(replaceAssetOperation), {
+    id: 'assets:previewReplaceAssetOperation',
+  }),
+)
+
+export { replaceAssetOperation, assetReplacementResultValidator }
+
+export const expireAssetUploadSession = internalMutation({
+  args: { uploadSessionId: v.id('assetUploadSessions') },
+  returns: v.null(),
+  handler: expireAssetUploadSessionHandler,
+})
+
+export const canDeleteAssetCleanupStorage = internalQuery({
   args: {
-    storageId: Id<'_storage'>
-    filename: string
-    mimeType: 'image/gif' | 'image/jpeg' | 'image/png' | 'image/webp'
-    bytes: number
-    sha256: string
-    width: number
-    height: number
-    frames: number
-    alt?: string | Record<string, string> | null
-    caption?: string | Record<string, string> | null
-    scope: 'global' | 'collection' | 'entry'
-    entryId?: string
-    collectionId?: string
-    collectionSlug?: string
-    createdBy: string
+    taskId: v.id('assetCleanupTasks'),
+    storageId: v.id('_storage'),
+    generation: v.number(),
+    attempt: v.number(),
   },
-) {
-  const { entryId, collection } = await validateAssetScopeRelationships(ctx, args)
-  const filename = sanitizeFilename(args.filename)
-  const assetId = await ctx.db.insert('assets', {
-    storageId: args.storageId,
-    filename,
-    mimeType: args.mimeType,
-    size: args.bytes,
-    sha256: args.sha256,
-    width: args.width,
-    height: args.height,
-    frames: args.frames,
-    alt: args.alt ?? null,
-    caption: args.caption ?? null,
-    scope: args.scope,
-    entryId,
-    collection,
-    tags: [],
-    createdBy: args.createdBy,
-    updatedBy: null,
-    createdAt: Date.now(),
-    updatedAt: null,
-    deletedAt: null,
-    deletedBy: null,
-  })
-  await logActivity(ctx, {
-    kind: 'asset.uploaded',
-    summary: `Uploaded asset "${filename}"`,
-    appIdentityId: args.createdBy,
-    entryId,
-    collection,
-    detail: { filename, mimeType: args.mimeType, scope: args.scope, sha256: args.sha256 },
-  })
-  return toStringId(assetId)
-}
+  returns: v.boolean(),
+  handler: canDeleteAssetCleanupStorageHandler,
+})
+
+export const finishAssetStorageCleanup = internalMutation({
+  args: { taskId: v.id('assetCleanupTasks'), generation: v.number(), attempt: v.number() },
+  returns: v.null(),
+  handler: finishAssetStorageCleanupHandler,
+})
+
+export const failAssetStorageCleanup = internalMutation({
+  args: {
+    taskId: v.id('assetCleanupTasks'),
+    generation: v.number(),
+    attempt: v.number(),
+    error: v.string(),
+  },
+  returns: v.union(v.literal('retrying'), v.literal('terminal-failure'), v.literal('stale')),
+  handler: failAssetStorageCleanupHandler,
+})
+
+export const cleanupAssetStorage = internalAction({
+  args: {
+    taskId: v.id('assetCleanupTasks'),
+    storageId: v.id('_storage'),
+    generation: v.number(),
+    attempt: v.number(),
+  },
+  returns: v.null(),
+  handler: cleanupAssetStorageHandler,
+})
+
+export const listTerminalAssetCleanupTasks = callerQuery.protected({
+  id: 'assets:listTerminalAssetCleanupTasks',
+  args: terminalAssetCleanupArgs,
+  guard: canManageAssetRecovery,
+  returns: terminalAssetCleanupPageValidator,
+  handler: listTerminalAssetCleanupTasksHandler,
+})
+
+export const retryAssetCleanupOperationExecute = callerMutation.protected(
+  retryAssetCleanupOperation,
+)
+export const previewRetryAssetCleanupOperation = callerMutation.protected(
+  Object.assign(definePreview(retryAssetCleanupOperation), {
+    id: 'assets:previewRetryAssetCleanupOperation',
+  }),
+)
+export { insertVerifiedAssetRecord } from './assets/assetRecord.js'
 
 export const attachAssetsToEntry = callerMutation.protected({
   id: 'assets:attachAssetsToEntry',
@@ -626,18 +292,22 @@ export const attachAssetsToEntry = callerMutation.protected({
   returns: v.null(),
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    const entry = await ctx.db.get(args.entryId as Id<'entries'>)
+    const entryId = ctx.db.normalizeId('entries', args.entryId)
+    const entry = entryId ? await ctx.db.get(entryId) : null
     requireRecord(entry, 'Entry')
 
     for (const assetId of args.assetIds) {
-      const asset = await ctx.db.get(assetId as Id<'assets'>)
+      const normalizedAssetId = ctx.db.normalizeId('assets', assetId)
+      const asset = normalizedAssetId ? await ctx.db.get(normalizedAssetId) : null
       if (!asset) continue
+      const updatedAt = Date.now()
       await ctx.db.patch(asset._id, {
         scope: 'entry',
         entryId: entry._id,
         collection: entry.collection,
         updatedBy: appIdentity.userId,
-        updatedAt: Date.now(),
+        updatedAt,
+        effectiveUpdatedAt: updatedAt,
       })
     }
 
@@ -652,21 +322,33 @@ export const updateAsset = callerMutation.protected({
   returns: v.null(),
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    const asset = await ctx.db.get(args.assetId as Id<'assets'>)
+    const assetId = ctx.db.normalizeId('assets', args.assetId)
+    const asset = assetId ? await ctx.db.get(assetId) : null
     requireRecord(asset, 'Asset')
 
     if (args.filename !== undefined) {
       await assertStorageOutsidePortableExportHold(ctx, asset.storageId)
     }
 
+    const updatedAt = Date.now()
+    const filename = args.filename !== undefined ? sanitizeFilename(args.filename) : asset.filename
+    const tags = args.tags !== undefined ? normalizeTags(args.tags) : (asset.tags ?? [])
     const patch: Record<string, unknown> = {
       updatedBy: appIdentity.userId,
-      updatedAt: Date.now(),
+      updatedAt,
+      ...assetDiscoveryFields({
+        filename,
+        mimeType: asset.mimeType,
+        tags,
+        createdAt: asset.createdAt,
+        updatedAt,
+        deletedAt: asset.deletedAt,
+      }),
     }
     if (args.alt !== undefined) patch.alt = args.alt
     if (args.caption !== undefined) patch.caption = args.caption
-    if (args.filename !== undefined) patch.filename = sanitizeFilename(args.filename)
-    if (args.tags !== undefined) patch.tags = normalizeTags(args.tags)
+    if (args.filename !== undefined) patch.filename = filename
+    if (args.tags !== undefined) patch.tags = tags
     await ctx.db.patch(asset._id, patch)
 
     await logActivity(ctx, {
@@ -697,15 +379,18 @@ export const moveAsset = callerMutation.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const { entryId, collection } = await validateAssetScopeRelationships(ctx, args)
-    const asset = await ctx.db.get(args.assetId as Id<'assets'>)
+    const assetId = ctx.db.normalizeId('assets', args.assetId)
+    const asset = assetId ? await ctx.db.get(assetId) : null
     requireRecord(asset, 'Asset')
 
+    const updatedAt = Date.now()
     await ctx.db.patch(asset._id, {
       scope: args.scope,
       entryId,
       collection,
       updatedBy: appIdentity.userId,
-      updatedAt: Date.now(),
+      updatedAt,
+      effectiveUpdatedAt: updatedAt,
     })
 
     return null
@@ -722,8 +407,7 @@ export const getAsset = callerQuery.protected({
     if (!assetId) return null
     const asset = await ctx.db.get(assetId)
     if (!asset || asset.deletedAt != null) return null
-    const relationships = await loadAssetRelationships(ctx, new Set([toStringId(asset._id)]))
-    return await mapAssetManagerAsset(ctx, asset, relationships)
+    return await mapAsset(ctx, asset)
   },
 })
 
@@ -758,79 +442,54 @@ export const resolveAssetUrls = callerQuery.protected({
   },
 })
 
-export const listColocatedAssets = callerQuery.protected({
-  id: 'assets:listColocatedAssets',
-  args: listColocatedAssetsArgs.args,
+export const listAssetUsages = callerQuery.protected({
+  id: 'assets:listAssetUsages',
+  args: listAssetUsagesArgs.args,
   guard: canRead,
-  returns: assetColocationGroupsValidator,
+  returns: assetUsagePageValidator,
   handler: async (ctx, args) => {
-    const collection = await resolveCollectionForAssetScope(ctx, {
-      collectionSlug: args.collectionSlug,
+    const assetId = ctx.db.normalizeId('assets', args.assetId)
+    if (!assetId || !(await ctx.db.get(assetId))) {
+      throwCmsError('ASSET_NOT_FOUND', 'Asset not found.', { assetId: args.assetId })
+    }
+    const paginationOpts = boundedPaginationOpts(args.paginationOpts, {
+      numItems: ASSET_USAGE_DEFAULT_LIMIT,
+      maxItems: ASSET_USAGE_MAX_LIMIT,
     })
-    const entryId = args.entryId ? normalizeEntryId(ctx, args.entryId) : null
-    if (entryId) {
-      const entry = await ctx.db.get(entryId)
-      requireRecord(entry, 'Entry')
-      if (entry.collection !== collection.slug) {
-        throwCmsError('ASSET_SCOPE_INVALID', 'entryId must belong to collectionSlug.', {
-          collectionSlug: args.collectionSlug,
-          entryId: args.entryId ?? null,
-        })
-      }
-    }
-
-    const currentCollectionAssets = (
-      await ctx.db
-        .query('assets')
-        .withIndex('by_collection', (q) => q.eq('collection', collection.slug))
-        .order('desc')
-        .take(MAX_COLOCATED_GROUP_ASSETS)
-    ).filter((asset) => asset.deletedAt == null)
-    const globalAssets = (
-      await ctx.db
-        .query('assets')
-        .withIndex('by_scope', (q) => q.eq('scope', 'global'))
-        .order('desc')
-        .take(MAX_COLOCATED_GROUP_ASSETS)
-    ).filter((asset) => asset.deletedAt == null)
-    const otherCollectionAssets = (
-      await ctx.db
-        .query('assets')
-        .withIndex('by_scope', (q) => q.eq('scope', 'collection'))
-        .order('desc')
-        .take(MAX_COLOCATED_GROUP_ASSETS)
-    ).filter((asset) => asset.deletedAt == null && asset.collection !== collection.slug)
-
-    const byId = new Map<string, AssetDoc>()
-    for (const asset of [...currentCollectionAssets, ...globalAssets, ...otherCollectionAssets]) {
-      byId.set(toStringId(asset._id), asset)
-    }
-    const relationships = await loadAssetRelationships(ctx, new Set(byId.keys()))
-    const mapped = new Map<string, Awaited<ReturnType<typeof mapAssetManagerAsset>>>(
-      await Promise.all(
-        [...byId.entries()].map(
-          async ([assetId, asset]) =>
-            [assetId, await mapAssetManagerAsset(ctx, asset, relationships)] as const,
-        ),
-      ),
-    )
-    const mapGroup = async (assets: AssetDoc[]) =>
-      assets.map((asset) => mapped.get(toStringId(asset._id))).filter((asset) => asset != null)
-
+    const result = await readAssetUsageSourcePage(ctx, {
+      assetId: args.assetId,
+      cursor: paginationOpts.cursor,
+      limit: paginationOpts.numItems,
+    })
     return {
-      entry: entryId
-        ? await mapGroup(
-            currentCollectionAssets.filter(
-              (asset) => asset.scope === 'entry' && asset.entryId === entryId,
-            ),
-          )
-        : [],
-      collection: await mapGroup(
-        currentCollectionAssets.filter((asset) => asset.scope === 'collection'),
-      ),
-      global: await mapGroup(globalAssets),
-      otherCollections: await mapGroup(otherCollectionAssets),
+      page: await mapAssetReferenceUsages(ctx, result.page),
+      isDone: result.isDone,
+      continueCursor: result.isDone ? null : result.continueCursor,
     }
+  },
+})
+
+export const listAssetsByOwner = callerQuery.protected({
+  id: 'assets:listAssetsByOwner',
+  args: listAssetsByOwnerArgs.args,
+  guard: canRead,
+  returns: assetPageValidator,
+  handler: async (ctx, args) => {
+    const owner = await validateAssetScopeRelationships(ctx, args)
+    const paginationOpts = boundedPaginationOpts(args.paginationOpts, {
+      numItems: ASSET_LIST_DEFAULT_LIMIT,
+      maxItems: ASSET_LIST_MAX_LIMIT,
+    })
+
+    return await mapAssetPage(
+      ctx,
+      await readAssetsByOwnerSourcePage(ctx, {
+        scope: args.scope,
+        collection: owner.collection,
+        entryId: owner.entryId,
+        paginationOpts,
+      }),
+    )
   },
 })
 
@@ -840,111 +499,51 @@ export const getAssetManagerData = callerQuery.protected({
   guard: canManageAssets,
   returns: assetManagerPageValidator,
   handler: async (ctx, args) => {
-    const paginationOpts = args.paginationOpts ?? { cursor: null, numItems: 50 }
-    const limit = Math.max(1, Math.min(paginationOpts.numItems ?? 50, 100))
-    const search = args.search?.trim().toLowerCase() ?? ''
+    const paginationOpts = boundedPaginationOpts(args.paginationOpts, {
+      numItems: ASSET_LIST_DEFAULT_LIMIT,
+      maxItems: ASSET_LIST_MAX_LIMIT,
+    })
+    const search = args.search?.trim() ?? ''
+    if (search.length > ASSET_SEARCH_MAX_LENGTH) {
+      throwCmsError('INVALID_QUERY', 'Asset search query exceeds the maximum length.', {
+        maxLength: ASSET_SEARCH_MAX_LENGTH,
+      })
+    }
     const kind = args.kind ?? 'all'
     const deleted = args.deleted ?? 'all'
     const usage = args.usage ?? 'all'
-    let cursor = parseCreatedAtCursor(
-      paginationOpts.cursor,
-      'assetsByCreatedAt',
-      'Invalid asset pagination cursor.',
-    ) as AssetCreatedAtCursor | null
-    let nextCursor: string | null = null
-    const page = []
-    let scanned = 0
-    const scanLimit = Math.max(limit * 10, 200)
-    let exhausted = false
-
-    while (page.length < limit && scanned < scanLimit && !exhausted) {
-      const batchLimit = Math.min(ASSET_MANAGER_SCAN_BATCH_SIZE, scanLimit - scanned)
-      const batch = await readAssetsByCreatedAt(ctx, cursor, batchLimit + 1)
-      const hasMore = batch.length > batchLimit
-      const assets = hasMore ? batch.slice(0, batchLimit) : batch
-      if (!assets.length) {
-        exhausted = true
-        break
-      }
-      const assetIds = new Set(assets.map((asset) => toStringId(asset._id)))
-      const relationships = await loadAssetRelationships(ctx, assetIds)
-
-      for (const [index, asset] of assets.entries()) {
-        cursor = {
-          v: 1,
-          kind: 'assetsByCreatedAt',
-          createdAt: asset.createdAt,
-          storageId: toStringId(asset.storageId),
-        }
-        scanned += 1
-        const isDeleted = asset.deletedAt != null
-        if (deleted === 'active' && isDeleted) continue
-        if (deleted === 'trashed' && !isDeleted) continue
-        const isImage = asset.mimeType.startsWith('image/')
-        if (kind === 'image' && !isImage) continue
-        if (kind === 'document' && isImage) continue
-        if (search && !asset.filename.toLowerCase().includes(search)) continue
-
-        const usages = relationships.usagesByAssetId.get(toStringId(asset._id)) ?? []
-        if (usage === 'used' && usages.length === 0) continue
-        if (usage === 'unused' && usages.length > 0) continue
-
-        page.push(await mapAssetManagerAsset(ctx, asset, relationships))
-        if (page.length >= limit) {
-          const scannedLastKnownRow = index === assets.length - 1 && !hasMore
-          nextCursor = scannedLastKnownRow ? null : encodeAssetCreatedAtCursor(asset)
-          exhausted = scannedLastKnownRow
-          break
-        }
-      }
-      if (page.length >= limit) break
-      exhausted = !hasMore
-      nextCursor = exhausted || !cursor ? null : JSON.stringify(cursor)
+    const time = args.time ?? 'any'
+    const size = args.size ?? 'any'
+    const tag = args.tag?.trim().toLowerCase() ?? ''
+    const sort = args.sort ?? 'name'
+    const location = args.location ?? 'all'
+    const collection = args.collection?.trim() || null
+    const entryId = args.entryId?.trim() || null
+    if (tag.length > 64) {
+      throwCmsError('INVALID_QUERY', 'Asset tag filter exceeds the maximum length.', {
+        maxLength: 64,
+      })
     }
-
-    return {
-      page,
-      isDone: exhausted,
-      continueCursor: nextCursor,
+    if (location === 'collection' && !collection) {
+      throwCmsError('INVALID_QUERY', 'Collection asset discovery requires collection.')
     }
-  },
-})
-
-export const rebuildContentAssetRefsPage = callerMutation.protected({
-  id: 'assets:rebuildContentAssetRefsPage',
-  args: {
-    cursor: v.union(v.string(), v.null()),
-    numItems: v.number(),
-  },
-  guard: canManageAssets,
-  returns: v.object({
-    continueCursor: v.union(v.string(), v.null()),
-    isDone: v.boolean(),
-    processed: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    const pageSize = Math.max(1, Math.min(args.numItems, 100))
-    const cursor = parseCreatedAtCursor(
-      args.cursor,
-      'entriesByCreatedAt',
-      'Cursor no longer points to an entry',
-    ) as EntryCreatedAtCursor | null
-    const rows = await readEntriesByCreatedAt(ctx, cursor, pageSize + 1)
-    const isDone = rows.length <= pageSize
-    const page = isDone ? rows : rows.slice(0, pageSize)
-
-    for (const entry of page) {
-      const collection = await getCollection(ctx, entry.collection)
-      if (!collection) continue
-      await rebuildContentAssetRefsForEntry(ctx, entry._id, collection)
+    if (location === 'entry' && !entryId) {
+      throwCmsError('INVALID_QUERY', 'Entry asset discovery requires entryId.')
     }
-
-    return {
-      continueCursor:
-        isDone || page.length === 0 ? null : encodeEntryCreatedAtCursor(page[page.length - 1]!),
-      isDone,
-      processed: page.length,
-    }
+    return await readAssetManagerPage(ctx, {
+      search,
+      kind,
+      deleted,
+      usage,
+      time,
+      size,
+      tag,
+      sort,
+      location,
+      collection,
+      entryId,
+      paginationOpts,
+    })
   },
 })
 
@@ -957,7 +556,8 @@ export const deleteAssetOperation = defineCmsOperation({
   returns: v.null(),
   previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
-    const asset = await ctx.db.get(args.assetId as Id<'assets'>)
+    const assetId = ctx.db.normalizeId('assets', args.assetId)
+    const asset = assetId ? await ctx.db.get(assetId) : null
     return { asset: asset && asset.deletedAt == null ? asset : null }
   },
   preview: async (ctx, args, { asset }) => {
@@ -968,10 +568,62 @@ export const deleteAssetOperation = defineCmsOperation({
         confirm: { operationId: 'ginko-cms.delete-asset', args },
       })
     }
-    const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
-    const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
+    try {
+      await assertStorageOutsidePortableExportHold(ctx, asset.storageId)
+    } catch (error) {
+      return blockedPreview({
+        summary: `Asset "${asset.filename}" is temporarily protected by a portability export.`,
+        blockers: [
+          operationIssue({
+            code: 'asset-portability-hold',
+            message: error instanceof Error ? error.message : 'The asset is temporarily protected.',
+          }),
+        ],
+        details: { assetId: args.assetId, filename: asset.filename },
+        confirm: { operationId: 'ginko-cms.delete-asset', args },
+        version: { updatedAt: asset.updatedAt, deletedAt: asset.deletedAt ?? null },
+      })
+    }
+    const derivedReference = await hasAssetReferences(ctx, args.assetId)
+    const referenceProof = await readAssetReferenceProofStatus(ctx, args.assetId)
+    if (!derivedReference && !referenceProof.current) {
+      return blockedPreview({
+        summary: `Cannot prove that asset "${asset.filename}" is unreferenced.`,
+        blockers: [
+          operationIssue({
+            code: 'asset-reference-verification-required',
+            message:
+              'Run the complete projection/reference repair and verification before moving this asset to trash.',
+          }),
+        ],
+        details: {
+          assetId: args.assetId,
+          filename: asset.filename,
+          canonicalGeneration: referenceProof.canonicalGeneration,
+          verifiedRunId: referenceProof.verifiedRunId,
+        },
+        confirm: { operationId: 'ginko-cms.delete-asset', args },
+        version: {
+          updatedAt: asset.updatedAt,
+          deletedAt: asset.deletedAt ?? null,
+          referenceCanonicalGeneration: referenceProof.canonicalGeneration,
+          referenceVerifiedRunId: referenceProof.verifiedRunId,
+        },
+      })
+    }
+    const referenced = derivedReference || (referenceProof.current && referenceProof.referenced)
     return buildPreview({
       summary: `Will move asset "${asset.filename}" to trash.`,
+      allowed: !referenced || args.force === true,
+      blockers:
+        referenced && args.force !== true
+          ? [
+              operationIssue({
+                code: 'asset-in-use',
+                message: 'Cannot move an in-use asset to trash without force.',
+              }),
+            ]
+          : [],
       warnings: args.force
         ? [
             operationIssue({
@@ -982,19 +634,19 @@ export const deleteAssetOperation = defineCmsOperation({
         : [],
       effects: [
         operationEffect({
-          kind: 'asset-usages',
-          summary: 'Content references affected',
-          count: usageCount,
+          kind: 'assets',
+          summary: 'Assets moved to trash',
+          count: 1,
         }),
       ],
-      details: { assetId: args.assetId, filename: asset.filename, usageCount },
+      details: { assetId: args.assetId, filename: asset.filename, referenced },
       confirm: {
         operationId: 'ginko-cms.delete-asset',
         args,
         effect: {
           assetId: args.assetId,
           filename: asset.filename,
-          usageCount,
+          referenced,
         },
       },
       version: {
@@ -1007,19 +659,30 @@ export const deleteAssetOperation = defineCmsOperation({
     const appIdentity = await ctx.appIdentity()
     if (!asset) return null
     await assertStorageOutsidePortableExportHold(ctx, asset.storageId)
-    const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
-    const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
-    if (usageCount > 0 && !args.force) {
+    const derivedReference = await hasAssetReferences(ctx, args.assetId)
+    const referenceProof = await readAssetReferenceProofStatus(ctx, args.assetId)
+    if (!derivedReference && !referenceProof.current) {
+      throwCmsError(
+        'ASSET_REFERENCE_VERIFICATION_REQUIRED',
+        'A current complete projection/reference verification is required before moving an unreferenced asset to trash.',
+        { assetId: args.assetId, canonicalGeneration: referenceProof.canonicalGeneration },
+      )
+    }
+    const referenced = derivedReference || (referenceProof.current && referenceProof.referenced)
+    if (referenced && !args.force) {
       throwCmsError('ASSET_IN_USE', 'Cannot move an in-use asset to trash without force', {
         assetId: args.assetId,
-        usageCount,
+        referenced,
       })
     }
+    const updatedAt = Date.now()
     await ctx.db.patch(asset._id, {
-      deletedAt: Date.now(),
+      deletedAt: updatedAt,
       deletedBy: appIdentity.userId,
       updatedBy: appIdentity.userId,
-      updatedAt: Date.now(),
+      updatedAt,
+      effectiveUpdatedAt: updatedAt,
+      deletedState: 'trashed',
     })
 
     await logActivity(ctx, {
@@ -1049,13 +712,17 @@ export const restoreAsset = callerMutation.protected({
   returns: v.null(),
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    const asset = await ctx.db.get(args.assetId as Id<'assets'>)
+    const assetId = ctx.db.normalizeId('assets', args.assetId)
+    const asset = assetId ? await ctx.db.get(assetId) : null
     if (!asset) return null
+    const updatedAt = Date.now()
     await ctx.db.patch(asset._id, {
       deletedAt: null,
       deletedBy: null,
       updatedBy: appIdentity.userId,
-      updatedAt: Date.now(),
+      updatedAt,
+      effectiveUpdatedAt: updatedAt,
+      deletedState: 'active',
     })
 
     await logActivity(ctx, {
@@ -1071,150 +738,41 @@ export const restoreAsset = callerMutation.protected({
   },
 })
 
-export const purgeAssetOperation = defineCmsOperation({
-  id: 'ginko-cms.purge-asset',
-  kind: 'destructive',
-  executeFunctionRef: 'assets:purgeAsset',
-  args: purgeAssetArgs,
-  guard: canManageAssets,
-  returns: v.null(),
-  previewReturns: previewResultValidator(),
-  load: async (ctx, args) => {
-    const asset = await ctx.db.get(args.assetId as Id<'assets'>)
-    return { asset }
+export const issueAssetPurgeVerificationFence = internalMutation({
+  args: {
+    contractWriteToken: cmsContractWriteTokenValidator,
+    userId: v.string(),
+    verification: purgeVerificationValidator,
+    fenceTokenHash: v.string(),
   },
-  preview: async (ctx, args, { asset }) => {
-    if (!asset) {
-      return blockedPreview({
-        summary: 'Asset not found.',
-        blockers: [operationIssue({ code: 'asset-not-found', message: 'Asset not found.' })],
-        confirm: { operationId: 'ginko-cms.purge-asset', args },
-      })
-    }
-
-    try {
-      await assertBackupArtifactCoversPurge(ctx, args.exportArtifactId, {
-        scope: 'asset',
-        assetId: args.assetId,
-      })
-    } catch (error) {
-      return blockedPreview({
-        summary: `Cannot permanently delete asset "${asset.filename}" until the backup requirement passes.`,
-        blockers: [cmsErrorOperationIssue(error)],
-        details: { assetId: args.assetId, filename: asset.filename },
-        confirm: { operationId: 'ginko-cms.purge-asset', args },
-        version: {
-          updatedAt: asset.updatedAt,
-          deletedAt: asset.deletedAt ?? null,
-        },
-      })
-    }
-
-    const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
-    const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
-    if (usageCount > 0 && args.force !== true) {
-      return blockedPreview({
-        summary: `Asset "${asset.filename}" is still referenced.`,
-        blockers: [
-          operationIssue({
-            code: 'asset-in-use',
-            message: 'Referenced assets cannot be permanently deleted.',
-          }),
-        ],
-        effects: [
-          operationEffect({
-            kind: 'asset-usages',
-            summary: 'Content references affected',
-            count: usageCount,
-          }),
-        ],
-        details: { assetId: args.assetId, filename: asset.filename, usageCount },
-        confirm: {
-          operationId: 'ginko-cms.purge-asset',
-          args,
-          effect: {
-            assetId: args.assetId,
-            filename: asset.filename,
-            usageCount,
-          },
-        },
-        version: {
-          updatedAt: asset.updatedAt,
-          deletedAt: asset.deletedAt ?? null,
-        },
-      })
-    }
-
-    return buildPreview({
-      summary: `Will permanently delete asset "${asset.filename}".`,
-      warnings: [
-        operationIssue({
-          code: 'permanent-delete',
-          message: 'This permanently removes the asset record and stored file.',
-        }),
-      ],
-      effects: [
-        operationEffect({
-          kind: 'assets',
-          summary: 'Assets permanently deleted',
-          count: 1,
-        }),
-        operationEffect({
-          kind: 'asset-usages',
-          summary: 'Content references deleted',
-          count: usageCount,
-        }),
-      ],
-      details: { assetId: args.assetId, filename: asset.filename, usageCount },
-      confirm: {
-        operationId: 'ginko-cms.purge-asset',
-        args,
-        effect: {
-          assetId: args.assetId,
-          filename: asset.filename,
-          usageCount,
-        },
-      },
-      version: {
-        updatedAt: asset.updatedAt,
-        deletedAt: asset.deletedAt ?? null,
-      },
-    })
-  },
-  handler: async (ctx, args, { asset }) => {
-    const appIdentity = await ctx.appIdentity()
-    if (!asset) return null
-    await assertStorageOutsidePortableExportHold(ctx, asset.storageId)
-    await assertBackupArtifactCoversPurge(ctx, args.exportArtifactId, {
-      scope: 'asset',
-      assetId: args.assetId,
-    })
-    const { usagesByAssetId } = await loadAssetRelationships(ctx, new Set([args.assetId]))
-    const usageCount = usagesByAssetId.get(args.assetId)?.length ?? 0
-    if (usageCount > 0) {
-      throwCmsError('ASSET_IN_USE', 'Referenced assets cannot be permanently deleted', {
-        assetId: args.assetId,
-        usageCount,
-      })
-    }
-    await ctx.storage.delete(asset.storageId)
-    await deleteAssetReferenceRows(ctx, args.assetId)
-    await ctx.db.delete(asset._id)
-
-    await logActivity(ctx, {
-      kind: 'asset.deleted',
-      summary: `Deleted asset "${asset.filename}" permanently`,
-      appIdentityId: appIdentity.userId,
-      entryId: asset.entryId ?? null,
-      collection: asset.collection ?? null,
-      detail: { filename: asset.filename },
-    })
-
-    return null
-  },
+  returns: v.object({ generation: v.number(), expiresAt: v.number() }),
+  handler: issueAssetPurgeVerificationFenceHandler,
 })
 
-export const purgeAsset = callerMutation.protected(purgeAssetOperation)
+export const executeVerifiedAssetPurge = internalMutation({
+  args: {
+    contractWriteToken: cmsContractWriteTokenValidator,
+    assetId: v.string(),
+    recoveryArtifactId: v.string(),
+    confirmationToken: v.optional(v.string()),
+    fenceToken: v.optional(v.string()),
+    userId: v.string(),
+    verification: v.optional(purgeVerificationValidator),
+    preflightIssue: v.optional(purgePreflightIssueValidator),
+  },
+  returns: operationExecuteResultValidator(v.null()),
+  handler: executeVerifiedAssetPurgeHandler,
+})
+
+export const purgeAsset = callerAction.protected({
+  id: 'assets:purgeAsset',
+  args: { ...purgeAssetArgs, _confirmationToken: v.optional(v.string()) },
+  guard: canManageAssetRecovery,
+  returns: operationExecuteResultValidator(v.null()),
+  handler: purgeAssetHandler,
+})
+
+export { purgeAssetOperation }
 
 export const previewPurgeAssetOperation = callerMutation.protected(
   Object.assign(definePreview(purgeAssetOperation), {

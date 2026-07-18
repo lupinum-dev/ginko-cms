@@ -11,6 +11,7 @@ import type { ComponentApi as GinkoCmsComponentApi } from '@lupinum/ginko-cms-co
 import type { ConvexAuthStatus, ConvexClientHandle, ConvexUser } from 'better-convex-nuxt'
 import type { ComputedRef, Ref } from 'vue'
 
+import type { GinkoCmsExpectedContractHashes } from './contract-compatibility.js'
 import type { StudioApiFromSurface, studioApiSurface } from './studio-api-surface.js'
 
 export interface GinkoCmsPublicConfig {
@@ -21,6 +22,12 @@ export interface GinkoCmsPublicConfig {
   collections?: Record<string, CmsCollectionConfig>
   sidebar?: { dark?: boolean }
   mcp?: { enabled: boolean }
+  /**
+   * Build-time hashes of the Content contract and editorial presentation
+   * resolved by the host module. Studio compares these trusted host values to
+   * the installed contract before any write transport is allowed.
+   */
+  contract: GinkoCmsExpectedContractHashes
   /**
    * Draft preview route convention (EDT-10). Studio links "Preview draft" to
    * `<route>/[collection]/[entryId]?locale=<code>` on the host origin; the

@@ -6,10 +6,8 @@ import {
   formatDestructiveConfirmationPrompt,
 } from '../../packages/cms/studio-app/src/lib/destructiveWorkflow'
 import {
-  deriveDashboardCollectionSummary,
   deriveCapabilityWarnings,
   derivePublishConfirmationState,
-  deriveStudioWorkQueueSummary,
   mapPreviewPanelState,
   publicStateLabel,
   publicStateTone,
@@ -214,22 +212,6 @@ describe('canonical readiness vocabulary', () => {
 })
 
 describe('Studio public workflow helpers', () => {
-  it('summarizes dashboard collection capabilities without treating data-only as routed', () => {
-    expect(
-      deriveDashboardCollectionSummary([
-        { mode: 'route', entryCount: 4, locales: ['en', 'de'] },
-        { mode: 'none', entryCount: 2, locales: ['en'] },
-        { entryCount: null, locales: [] },
-      ]),
-    ).toEqual({
-      totalCollections: 3,
-      routeBackedCollections: 2,
-      dataOnlyCollections: 1,
-      localizedCollections: 2,
-      totalEntries: 6,
-    })
-  })
-
   it('derives actionable collection capability warnings', () => {
     expect(
       deriveCapabilityWarnings({ mode: 'route', pathPrefix: '', locales: [], t: testT }),
@@ -243,26 +225,6 @@ describe('Studio public workflow helpers', () => {
     expect(
       deriveCapabilityWarnings({ mode: 'none', pathPrefix: '', locales: [], t: testT }),
     ).toEqual([])
-  })
-
-  it('summarizes the editor-first Studio work queue', () => {
-    expect(
-      deriveStudioWorkQueueSummary({
-        changedDrafts: 5,
-        missingTranslations: 2,
-        failedRevalidation: 1,
-        pendingRevalidation: 3,
-      }),
-    ).toEqual({
-      needsAttention: 3,
-      changedDrafts: 5,
-      missingTranslations: 2,
-      failedRevalidation: 1,
-      pendingRevalidation: 3,
-      healthy: false,
-    })
-
-    expect(deriveStudioWorkQueueSummary({}).healthy).toBe(true)
   })
 
   it('labels live website state without exposing projection/cache language', () => {

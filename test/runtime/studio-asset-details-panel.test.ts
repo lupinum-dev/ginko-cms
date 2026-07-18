@@ -122,7 +122,7 @@ describe('StudioAssetDetailsPanel', () => {
     wrapper.unmount()
   })
 
-  it('shows the empty-state hint when nothing is selected', () => {
+  it('[QUA-05] shows the empty-state hint when nothing is selected', () => {
     const wrapper = mount(StudioAssetDetailsPanel, {
       props: { assetId: null },
       global: { stubs: panelStubs() },

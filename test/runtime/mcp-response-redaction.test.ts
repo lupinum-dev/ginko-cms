@@ -10,7 +10,7 @@ vi.mock('../../packages/cms/src/server/mcp/_shared/runtime.js', () => ({
 }))
 
 describe('MCP response redaction', () => {
-  it('redacts credential fields and internal metadata from successful structured output', async () => {
+  it('[QUA-06] redacts credential fields and internal metadata from successful structured output', async () => {
     const result = redactMcpResponse({
       visible: 'kept',
       publicMarkdown:

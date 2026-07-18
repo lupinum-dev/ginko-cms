@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Copy, GripVertical, MoreHorizontal } from '@lucide/vue'
+import { GripVertical, Pencil } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
@@ -31,6 +31,7 @@ const localeCode = computed(() =>
   props.side === 'primary' ? editor.loader.currentLocale : editor.locales.secondaryLocale,
 )
 const localeCodeLabel = computed(() => localeCode.value.toUpperCase())
+const isEditingTarget = computed(() => props.side === 'primary' && editor.loader.canEditEntries)
 const isSourceOfTruthLocale = computed(() => localeCode.value === editor.loader.defaultLocale)
 // Single-language sites get no translation vocabulary ("Source of truth",
 // locale chips) — design review S2, principle 6.
@@ -96,11 +97,8 @@ const localizedHeroDescriptionField = computed(() =>
 )
 
 function updateField(fieldKey: string, value: unknown) {
-  if (props.side === 'primary') {
-    editor.draft.dataFields[fieldKey] = value
-  } else {
-    editor.locales.secondaryDataFields[fieldKey] = value
-  }
+  if (!isEditingTarget.value) return
+  editor.draft.dataFields[fieldKey] = value
 }
 </script>
 
@@ -145,6 +143,13 @@ function updateField(fieldKey: string, value: unknown) {
             isSourceOfTruthLocale ? ce('localePanelSourceOfTruth') : ce('localePanelTranslation')
           }}
         </Badge>
+        <Badge
+          v-if="hasMultipleLocales"
+          :variant="isEditingTarget ? 'default' : 'outline'"
+          class="ginko:shrink-0 ginko:rounded-md ginko:text-xs ginko:font-semibold"
+        >
+          {{ isEditingTarget ? ce('localePanelEditing') : ce('localePanelReadOnly') }}
+        </Badge>
         <StudioStatusPill
           v-if="showStatusPill"
           :label="status"
@@ -176,36 +181,17 @@ function updateField(fieldKey: string, value: unknown) {
       <div class="ginko:flex ginko:shrink-0 ginko:items-center ginko:gap-1.5">
         <Button
           v-if="side === 'secondary' && editor.loader.canEditEntries"
-          variant="default"
+          variant="outline"
           size="sm"
           :disabled="editor.draft.saving"
-          @click="editor.locales.handleSaveSecondaryDraft()"
+          @click="editor.locales.handleSwitchLocale(localeCode)"
         >
+          <Pencil class="ginko:size-3.5" />
           <span class="studio-locale-panel__action-full">{{
-            ce('localePanelSaveTranslationDraft')
+            ce('localePanelEditLanguage', { locale: localeCodeLabel })
           }}</span>
-          <span class="studio-locale-panel__action-short">{{ ce('localePanelSaveDraft') }}</span>
+          <span class="studio-locale-panel__action-short">{{ ce('localePanelEdit') }}</span>
         </Button>
-        <DropdownMenu v-if="side === 'secondary' && editor.loader.canEditEntries">
-          <DropdownMenuTrigger as-child>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              :aria-label="ce('localePanelTranslationActions', { locale: localeCodeLabel })"
-            >
-              <MoreHorizontal class="ginko:size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" class="ginko:w-52">
-            <DropdownMenuItem
-              :disabled="editor.draft.saving"
-              @click="editor.copyPrimaryToSecondary()"
-            >
-              <Copy class="ginko:mr-2 ginko:size-3.5" />
-              {{ ce('localePanelCopyFrom', { locale: primaryLocaleLabel }) }}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </div>
 
@@ -217,6 +203,12 @@ function updateField(fieldKey: string, value: unknown) {
             : ce('localePanelMissingContentOther', { count: missingFields?.length })
         }}
       </StudioNotice>
+      <StudioNotice
+        v-if="side === 'secondary' && editor.loader.canEditEntries"
+        tone="info"
+        :title="ce('localePanelReadOnlyTitle', { locale: localeCodeLabel })"
+        :description="ce('localePanelReadOnlyDescription')"
+      />
 
       <!-- Writing surface: localized title/description render as the hero
            heading, the URL block moves below the content (metadata-last). -->
@@ -225,7 +217,7 @@ function updateField(fieldKey: string, value: unknown) {
         :title-field="localizedHeroTitleField"
         :description-field="localizedHeroDescriptionField"
         :values="side === 'primary' ? editor.draft.dataFields : editor.locales.secondaryDataFields"
-        :disabled="!editor.loader.canEditEntries"
+        :disabled="!isEditingTarget"
         :id-prefix="side === 'secondary' ? 'secondary-' : ''"
         show-validation
         @update="updateField"
@@ -233,7 +225,7 @@ function updateField(fieldKey: string, value: unknown) {
 
       <fieldset
         v-if="editor.loader.localizedDetailFields.length > 0"
-        :disabled="!editor.loader.canEditEntries"
+        :disabled="!isEditingTarget"
         class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-2"
       >
         <StudioFieldRenderer
@@ -252,7 +244,7 @@ function updateField(fieldKey: string, value: unknown) {
           :asset-context="
             side === 'primary' ? editor.draft.assetContext : editor.locales.secondaryAssetContext
           "
-          :disabled="!editor.loader.canEditEntries"
+          :disabled="!isEditingTarget"
           @update:model-value="updateField(field.key, $event)"
         />
       </fieldset>
@@ -269,7 +261,7 @@ function updateField(fieldKey: string, value: unknown) {
               v-if="side === 'primary'"
               :id="localizedSlugInputId"
               v-model="editor.draft.form.slug"
-              :disabled="!editor.loader.canEditEntries"
+              :disabled="!isEditingTarget"
               class="ginko:font-mono ginko:text-sm"
             />
             <Input

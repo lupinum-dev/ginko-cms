@@ -18,12 +18,13 @@ export function useRelationEntries(
   search: ComputedRef<string>,
 ) {
   const relatedEntriesArgs = computed(() => {
-    const relationCollection = field.value.relation?.collectionId
+    const relationCollection = field.value.relation?.collection
     if (!relationCollection) return null
     const query = search.value.trim()
     return {
       collection: relationCollection,
       locale: locale.value ?? 'en',
+      parentEntryId: null,
       ...(query ? { query } : {}),
     }
   })

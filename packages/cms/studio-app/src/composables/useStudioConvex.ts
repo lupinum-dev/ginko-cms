@@ -1,4 +1,5 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { GenericId } from 'convex/values'
 import {
   computed,
   onScopeDispose,
@@ -82,7 +83,7 @@ type UseConvexUploadOptions = {
   allowedTypes?: string[]
   maxSizeBytes?: number
   onProgress?: (progress: { loaded: number; total: number; percent: number }, file: File) => void
-  onSuccess?: (storageId: string, file: File) => void
+  onSuccess?: (upload: StudioUploadClaim, file: File) => void
   onError?: (error: Error, file: File) => void
   onQueueIdle?: () => void
 }
@@ -109,13 +110,36 @@ function validateUpload(file: File, options?: UseConvexUploadOptions): void {
   }
 }
 
-type StudioUploadReturn<Mutation extends FunctionReference<'mutation'>> = {
-  (input: File | File[], mutationArgs?: FunctionArgs<Mutation>): Promise<string | string[]>
-  upload: (
-    input: File | File[],
-    mutationArgs?: FunctionArgs<Mutation>,
-  ) => Promise<string | string[]>
-  data: Ref<string | undefined>
+type StudioUploadSession = {
+  sessionId: string
+  uploadUrl: string
+  token: string
+  expiresAt: number
+}
+
+export type StudioUploadClaim = StudioUploadSession & {
+  storageId: GenericId<'_storage'>
+  generation: number
+}
+
+type CreateUploadSessionMutation = FunctionReference<
+  'mutation',
+  'public',
+  Record<string, never>,
+  StudioUploadSession
+>
+
+type ClaimUploadSessionMutation = FunctionReference<
+  'mutation',
+  'public',
+  { sessionId: string; token: string; storageId: string },
+  { sessionId: string; generation: number; expiresAt: number }
+>
+
+type StudioUploadReturn = {
+  (input: File | File[]): Promise<StudioUploadClaim | StudioUploadClaim[]>
+  upload: (input: File | File[]) => Promise<StudioUploadClaim | StudioUploadClaim[]>
+  data: Ref<StudioUploadClaim | undefined>
   status: ComputedRef<'idle' | 'pending' | 'success' | 'error'>
   pending: ComputedRef<boolean>
   progress: ComputedRef<number>
@@ -123,7 +147,7 @@ type StudioUploadReturn<Mutation extends FunctionReference<'mutation'>> = {
   reset: () => void
 }
 
-async function uploadFile(postUrl: string, file: File): Promise<string> {
+async function uploadFile(postUrl: string, file: File): Promise<GenericId<'_storage'>> {
   const response = await fetch(postUrl, {
     method: 'POST',
     headers: file.type ? { 'Content-Type': file.type } : undefined,
@@ -136,7 +160,9 @@ async function uploadFile(postUrl: string, file: File): Promise<string> {
   if (typeof body.storageId !== 'string' || body.storageId.length === 0) {
     throw new Error('Upload endpoint response missing valid storageId')
   }
-  return body.storageId
+  // Convex's upload endpoint returns a storage id as JSON text. Runtime
+  // validation above is the transport boundary for restoring its branded type.
+  return body.storageId as GenericId<'_storage'>
 }
 
 export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
@@ -251,14 +277,13 @@ export function useConvexQuery<
   return useCmsStudioQuery<Query, DataT>(query, args)
 }
 
-export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
-  generateUploadUrlMutation: Mutation,
+export function useConvexUpload(
+  createUploadSessionMutation: CreateUploadSessionMutation,
+  claimUploadSessionMutation: ClaimUploadSessionMutation,
   options?: UseConvexUploadOptions,
-): StudioUploadReturn<Mutation> {
-  type Args = FunctionArgs<Mutation>
-
+): StudioUploadReturn {
   const studioHost = useStudioHostContext()
-  const data = ref<string | undefined>(undefined)
+  const data = ref<StudioUploadClaim | undefined>(undefined)
   const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
   const progress = ref(0)
   const error = ref<Error | null>(null)
@@ -273,40 +298,49 @@ export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
   const uploadOne = async (
     file: File,
     operation: { generation: number; principalKey: string },
-    mutationArgs?: Args,
-  ): Promise<string> => {
+  ): Promise<StudioUploadClaim> => {
     validateUpload(file, options)
-    const postUrl = await studioHost
-      .requireConvexClient()
-      .mutation(generateUploadUrlMutation, mutationArgs)
+    const session = await studioHost.requireConvexClient().mutation(createUploadSessionMutation, {})
     scope.assertCurrent(operation)
-    if (typeof postUrl !== 'string') {
-      throw new TypeError('generateUploadUrl mutation must return a string URL')
+    if (
+      typeof session?.sessionId !== 'string' ||
+      typeof session.uploadUrl !== 'string' ||
+      typeof session.token !== 'string' ||
+      typeof session.expiresAt !== 'number'
+    ) {
+      throw new TypeError('createAssetUploadSession mutation returned an invalid session')
     }
-    const storageId = await uploadFile(postUrl, file)
+    const storageId = await uploadFile(session.uploadUrl, file)
     scope.assertCurrent(operation)
-    data.value = storageId
+    const claimed = await studioHost.requireConvexClient().mutation(claimUploadSessionMutation, {
+      sessionId: session.sessionId,
+      token: session.token,
+      storageId,
+    })
+    scope.assertCurrent(operation)
+    const result = { ...session, storageId, generation: claimed.generation }
+    data.value = result
     progress.value = 100
     options?.onProgress?.({ loaded: file.size, total: file.size, percent: 100 }, file)
-    options?.onSuccess?.(storageId, file)
-    return storageId
+    options?.onSuccess?.(result, file)
+    return result
   }
 
-  const upload = (async (input: File | File[], mutationArgs?: Args) => {
+  const upload = (async (input: File | File[]) => {
     const operation = scope.begin()
     status.value = 'pending'
     error.value = null
     progress.value = 0
     try {
       const result = Array.isArray(input)
-        ? await Promise.all(input.map((file) => uploadOne(file, operation, mutationArgs)))
-        : await uploadOne(input, operation, mutationArgs)
+        ? await Promise.all(input.map((file) => uploadOne(file, operation)))
+        : await uploadOne(input, operation)
       if (!scope.isCurrent(operation)) return result
       status.value = 'success'
       options?.onQueueIdle?.()
       return result
     } catch (err) {
-      const normalized = normalizeCmsStudioQueryError(err, generateUploadUrlMutation, 'upload')
+      const normalized = normalizeCmsStudioQueryError(err, createUploadSessionMutation, 'upload')
       const firstFile = Array.isArray(input) ? input[0] : input
       if (scope.isCurrent(operation)) {
         error.value = normalized
@@ -315,7 +349,7 @@ export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
       }
       throw normalized
     }
-  }) as StudioUploadReturn<Mutation>
+  }) as StudioUploadReturn
 
   upload.upload = upload
   upload.data = data

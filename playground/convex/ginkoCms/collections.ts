@@ -7,21 +7,22 @@ import { query } from '../_generated/server.js'
 export const listCollections = query({
   args: {},
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.collections.listCollections, args as never),
+    await ctx.runQuery(components.ginkoCms.collections.listCollections, args),
 })
 
 export const getCollection = query({
   args: getCollectionArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.collections.getCollection, args as never),
+    await ctx.runQuery(components.ginkoCms.collections.getCollection, args),
 })
 
 export const searchStudioEntries = query({
   args: {
     query: v.string(),
     locale: v.string(),
+    collection: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.collections.searchStudioEntries, args as never),
+    await ctx.runQuery(components.ginkoCms.collections.searchStudioEntries, args),
 })

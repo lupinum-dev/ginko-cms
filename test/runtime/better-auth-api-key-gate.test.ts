@@ -59,7 +59,7 @@ async function createApiKeyProofInstance(plugin = apiKeyPlugin) {
 }
 
 describe('Gate 2: Better Auth API keys as MCP credentials', () => {
-  it('creates and verifies an authenticated user-owned API key through Bearer parsing', async () => {
+  it('[AGT-01] creates and verifies an authenticated user-owned API key through Bearer parsing', async () => {
     const instance = await createApiKeyProofInstance()
     const created = await instance.apiKeyClient.create({
       name: 'Codex MCP',
@@ -110,7 +110,7 @@ describe('Gate 2: Better Auth API keys as MCP credentials', () => {
     expect(plugin.id).toBe('api-key')
   })
 
-  it('rejects deleted and expired API keys', async () => {
+  it('[AGT-02] rejects deleted and expired API keys', async () => {
     const instance = await createApiKeyProofInstance()
     const created = await instance.apiKeyClient.create({
       name: 'Temporary MCP',

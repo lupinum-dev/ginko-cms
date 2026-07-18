@@ -35,7 +35,13 @@ function asset(overrides: Partial<FinderAssetRecord> = {}): FinderAssetRecord {
   return {
     id: 'asset_1',
     filename: 'hero.jpg',
-    usages: [],
+    referenceCertainty: {
+      state: 'unused-verified',
+      proofCurrent: true,
+      canonicalGeneration: 1,
+      verifiedRunId: 'repair-1',
+      verifiedAt: 1,
+    },
     ...overrides,
   } as unknown as FinderAssetRecord
 }
@@ -47,7 +53,12 @@ describe('StudioAssetTrashDialog', () => {
 
     await executePendingAssetTrash({ kind: 'trash', asset: target }, trashAssets)
     await executePendingAssetTrash(
-      { kind: 'bulk-trash', assetIds: ['a', 'b'], usageCount: 1 },
+      {
+        kind: 'bulk-trash',
+        assetIds: ['a', 'b'],
+        referencedAssetCount: 1,
+        unknownReferenceAssetCount: 0,
+      },
       trashAssets,
     )
 
@@ -63,7 +74,15 @@ describe('StudioAssetTrashDialog', () => {
   })
 
   it('renders the single-asset action and lists the affected asset', () => {
-    const target = asset({ usages: [{ entryId: 'e1' }] as unknown as FinderAssetRecord['usages'] })
+    const target = asset({
+      referenceCertainty: {
+        state: 'used',
+        proofCurrent: false,
+        canonicalGeneration: 1,
+        verifiedRunId: null,
+        verifiedAt: null,
+      },
+    })
     const wrapper = mount(StudioAssetTrashDialog, {
       props: { action: { kind: 'trash', asset: target }, assets: [target] },
       global: { stubs: stubs() },
@@ -71,7 +90,7 @@ describe('StudioAssetTrashDialog', () => {
 
     expect(wrapper.find('.dialog').exists()).toBe(true)
     expect(wrapper.find('.title').text()).toBe('ginkoCms.studio.assetBrowser.trashTitle')
-    // usageCount > 0 → warning tone.
+    // A referenced asset uses the warning tone.
     expect(wrapper.find('.notice').attributes('data-tone')).toBe('warning')
     expect(wrapper.text()).toContain('hero.jpg')
   })
@@ -90,19 +109,24 @@ describe('StudioAssetTrashDialog', () => {
     expect(wrapper.emitted('update:open')).toEqual([[false]])
   })
 
-  it('aggregates the affected assets for a bulk-trash action', () => {
+  it('[AST-07] aggregates the affected assets for a deliberate bulk-trash action', () => {
     const a = asset({ id: 'a', filename: 'a.png' })
     const b = asset({ id: 'b', filename: 'b.png' })
     const wrapper = mount(StudioAssetTrashDialog, {
       props: {
-        action: { kind: 'bulk-trash', assetIds: ['a', 'b'], usageCount: 0 },
+        action: {
+          kind: 'bulk-trash',
+          assetIds: ['a', 'b'],
+          referencedAssetCount: 0,
+          unknownReferenceAssetCount: 0,
+        },
         assets: [a, b],
       },
       global: { stubs: stubs() },
     })
 
     expect(wrapper.find('.title').text()).toBe('ginkoCms.studio.assetBrowser.bulkTrashTitle')
-    // usageCount === 0 → neutral tone.
+    // No referenced assets uses the neutral tone.
     expect(wrapper.find('.notice').attributes('data-tone')).toBe('neutral')
     expect(wrapper.text()).toContain('a.png')
     expect(wrapper.text()).toContain('b.png')

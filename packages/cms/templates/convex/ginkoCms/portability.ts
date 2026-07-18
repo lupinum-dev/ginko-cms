@@ -30,51 +30,67 @@ import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/sha
 
 import { components } from '../_generated/api'
 import { action, mutation, query } from '../_generated/server'
+import { bindExpectedCmsContract } from './contractBinding.js'
 
 export const inspectPortableDrafts = query({
   args: inspectPortableDraftsArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.portability.inspectPortableDrafts, args as never),
+    await ctx.runQuery(components.ginkoCms.portability.inspectPortableDrafts, args),
 })
 
 export const inspectPortableAssets = query({
   args: inspectPortableAssetsArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.portability.inspectPortableAssets, args as never),
+    await ctx.runQuery(components.ginkoCms.portability.inspectPortableAssets, args),
 })
 
 export const createImportPlan = mutation({
   args: createImportPlanArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.createImportPlan, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.createImportPlan,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const appendImportPlanItems = mutation({
   args: appendImportPlanItemsArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.appendImportPlanItems, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.appendImportPlanItems,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const appendImportPlanAssets = mutation({
   args: appendImportPlanAssetsArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.appendImportPlanAssets, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.appendImportPlanAssets,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const sealImportPlan = action({
   args: sealImportPlanArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.portability.sealImportPlan, {
-      ...args,
-      _trustedCaller:
-        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
-    } as never),
+    await ctx.runAction(
+      components.ginkoCms.portability.sealImportPlan,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller:
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      }),
+    ),
 })
 
 export const beginPortableAssetUpload = mutation({
   args: beginPortableAssetUploadArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.beginPortableAssetUpload, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.beginPortableAssetUpload,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const issuePortableAssetUploadUrl = mutation({
@@ -82,94 +98,131 @@ export const issuePortableAssetUploadUrl = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.portability.issuePortableAssetUploadUrl,
-      args as never,
+      bindExpectedCmsContract(args),
     ),
 })
 
 export const recordPortableAssetUpload = mutation({
   args: recordPortableAssetUploadArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.recordPortableAssetUpload, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.recordPortableAssetUpload,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const verifyPortableAssetUpload = action({
   args: verifyPortableAssetUploadArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.portability.verifyPortableAssetUpload, {
-      ...args,
-      _trustedCaller:
-        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
-    } as never),
+    await ctx.runAction(
+      components.ginkoCms.portability.verifyPortableAssetUpload,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller:
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      }),
+    ),
 })
 
 export const beginImportApply = mutation({
   args: beginImportApplyArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.beginImportApply, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.beginImportApply,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const applyImportBatch = action({
   args: applyImportBatchArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.portability.applyImportBatch, {
-      ...args,
-      _trustedCaller:
-        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
-    } as never),
+    await ctx.runAction(
+      components.ginkoCms.portability.applyImportBatch,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller:
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      }),
+    ),
 })
 
 export const beginImportVerification = mutation({
   args: beginImportVerificationArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.beginImportVerification, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.beginImportVerification,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const finalizeImport = mutation({
   args: finalizeImportArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.finalizeImport, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.finalizeImport,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const abortImport = mutation({
   args: abortImportArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.abortImport, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.abortImport,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const expireImport = mutation({
   args: expireImportArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.expireImport, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.expireImport,
+      bindExpectedCmsContract(args),
+    ),
 })
 
-export const createExportRun = mutation({
+export const createExportRun = action({
   args: createExportRunArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.createExportRun, args as never),
+    await ctx.runAction(
+      components.ginkoCms.portability.createExportRun,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller:
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      }),
+    ),
 })
 
 export const captureExportPage = mutation({
   args: captureExportPageArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.captureExportPage, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.captureExportPage,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const sealExportRun = mutation({
   args: sealExportRunArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.sealExportRun, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.sealExportRun,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const readExportDocuments = query({
   args: readExportDocumentsArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.portability.readExportDocuments, args as never),
+    await ctx.runQuery(components.ginkoCms.portability.readExportDocuments, args),
 })
 
 export const readExportAssets = query({
   args: readExportAssetsArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.portability.readExportAssets, args as never),
+    await ctx.runQuery(components.ginkoCms.portability.readExportAssets, args),
 })
 
 export const beginPortableAssetDownload = mutation({
@@ -177,7 +230,7 @@ export const beginPortableAssetDownload = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.portability.beginPortableAssetDownload,
-      args as never,
+      bindExpectedCmsContract(args),
     ),
 })
 
@@ -186,24 +239,33 @@ export const claimPortableAssetDownload = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.portability.claimPortableAssetDownload,
-      args as never,
+      bindExpectedCmsContract(args),
     ),
 })
 
 export const completeExportRun = mutation({
   args: completeExportRunArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.completeExportRun, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.completeExportRun,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const abortExportRun = mutation({
   args: abortExportRunArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.abortExportRun, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.abortExportRun,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const expireExportRun = mutation({
   args: expireExportRunArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.portability.expireExportRun, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.portability.expireExportRun,
+      bindExpectedCmsContract(args),
+    ),
 })

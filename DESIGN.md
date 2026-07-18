@@ -138,18 +138,19 @@ Sub-cards (a tinted-bg block inside an outer card) typically use **no border** �
 
 ## Radii
 
-Resolved from `--radius: 0.625rem` (10 px) via a **multiplicative scale**, so retuning the base radius reflows the whole system proportionally.
+Resolved from `--radius: 0.625rem` (10 px) via one additive scale. Retuning the
+base radius therefore moves every non-pill radius by the same visual cadence.
 
-| Class          | Multiplier | Resolved | Use                                                        |
-| -------------- | ---------- | -------- | ---------------------------------------------------------- |
-| `rounded-sm`   | 0.6×       | 6 px     | kbd chips, tiny chips                                      |
-| `rounded-md`   | 0.8×       | 8 px     | Buttons, badges, sub-controls                              |
-| `rounded-lg`   | 1.0×       | 10 px    | Inner sub-cards, view-toggle chassis                       |
-| `rounded-xl`   | 1.4×       | 14 px    | Outer cards (Section, ListFrame, EmptyState, Locale panel) |
-| `rounded-2xl`  | 1.8×       | 18 px    | Reserved (large surfaces, hero cards)                      |
-| `rounded-3xl`  | 2.2×       | 22 px    | Reserved                                                   |
-| `rounded-4xl`  | 2.6×       | 26 px    | Reserved                                                   |
-| `rounded-full` | —          | full     | Avatars, small status pills                                |
+| Class          | Formula          | Resolved | Use                                                        |
+| -------------- | ---------------- | -------- | ---------------------------------------------------------- |
+| `rounded-sm`   | base − 4 px      | 6 px     | kbd chips, tiny chips                                      |
+| `rounded-md`   | base − 2 px      | 8 px     | Buttons, badges, sub-controls                              |
+| `rounded-lg`   | base             | 10 px    | Inner sub-cards, view-toggle chassis                       |
+| `rounded-xl`   | base + 4 px      | 14 px    | Outer cards (Section, ListFrame, EmptyState, Locale panel) |
+| `rounded-2xl`  | base + 8 px      | 18 px    | Reserved (large surfaces, hero cards)                      |
+| `rounded-3xl`  | base + 12 px     | 22 px    | Reserved                                                   |
+| `rounded-4xl`  | base + 16 px     | 26 px    | Reserved                                                   |
+| `rounded-full` | independent pill | full     | Avatars, small status pills                                |
 
 ## Density
 
@@ -187,9 +188,9 @@ All three utility classes transition only color/border/box-shadow/opacity by def
 
 - 16 rem expanded; collapses to 3.5 rem (icon mode); mobile sheet is 18 rem.
 - White surface (`bg-sidebar`), border-right `border-border/40`.
-- Logo: emerald-filled rounded-lg `h-7 w-7` square with white pyramid SVG.
+- Logo: primary-filled rounded-lg `h-7 w-7` square with white pyramid SVG.
 - Title: "Ginko Studio" + small inline version chip.
-- Nav menu items: 2 rem height, `text-sm`, `border-radius: 0.375rem`. Active state = emerald solid pill (token-driven via `--sidebar-primary`).
+- Nav menu items: 2 rem height, `text-sm`, `border-radius: 0.375rem`. Active state = solid primary pill via `--sidebar-primary`.
 - Section labels: `studio-text-eyebrow` (12 px / 600 / uppercase), 60 % opacity.
 - Footer: user button with `h-7 w-7` avatar, name + email, ChevronDown trigger.
 

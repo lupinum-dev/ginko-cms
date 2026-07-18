@@ -11,11 +11,7 @@ import type {
   NodeKind,
 } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import {
-  buildCmsFieldData,
-  compareOrderRank,
-  getClientValidationErrors,
-} from '@public/utils/cmsFields'
+import { buildCmsFieldData, getClientValidationErrors } from '@public/utils/cmsFields'
 import type { FunctionArgs } from 'convex/server'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -23,6 +19,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../../boundary/api'
 import StudioEntryCreatePanel from '../../components/studio/editor/StudioEntryCreatePanel.vue'
 import StudioEntryHeroFields from '../../components/studio/editor/StudioEntryHeroFields.vue'
+import StudioEntryParentPicker from '../../components/studio/editor/StudioEntryParentPicker.vue'
 import type { StudioCollectionConfig } from '../../composables/internal/types'
 import { cmsPermissionKeys } from '../../composables/permissions'
 import { useCmsConfig } from '../../composables/useCmsConfig'
@@ -33,7 +30,6 @@ import { useCmsStudioSettings } from '../../composables/useCmsStudioSettings'
 import { useRightSidebarPanel } from '../../composables/useRightSidebar'
 import { useConvexMutation } from '../../composables/useStudioConvex'
 import { useStudioDebug } from '../../composables/useStudioDebug'
-import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
 import { slugifyStudioText } from '../../lib/slug'
 
 const { can } = useCmsStudioAccess()
@@ -83,13 +79,7 @@ const collectionSchemaQuery = useCmsStudioQuery(
   },
 )
 const collectionConfig = computed<StudioCollectionConfig | null>(
-  () =>
-    (collectionSchemaQuery.data.value as StudioCollectionConfig | null | undefined) ??
-    codeDefinedCollectionDetail(
-      collection.value,
-      cmsConfig.collections?.[collection.value],
-      defaultLocale.value,
-    ),
+  () => (collectionSchemaQuery.data.value as StudioCollectionConfig | null | undefined) ?? null,
 )
 const isSchemaLoading = computed(
   () =>
@@ -101,23 +91,8 @@ const isTree = computed(() => collectionConfig.value?.type === 'tree')
 const isRouteBackedCollection = computed(
   () => collectionConfig.value?.mode !== 'none' && collectionConfig.value?.routing?.mode !== 'none',
 )
-const parentEntriesArgs = computed(() =>
-  isTree.value
-    ? {
-        collection: collection.value,
-        locale: defaultLocale.value,
-      }
-    : null,
-)
-const parentEntriesQuery = useCmsStudioQuery(api.ginkoCms.editor.listEntries, parentEntriesArgs, {
-  requiredCapability: cmsPermissionKeys.createEntries,
-})
 studioDebug.watchQueryError('getCollection', collectionSchemaQuery, {
   collection,
-})
-studioDebug.watchQueryError('listEntries', parentEntriesQuery, {
-  collection,
-  isTree,
 })
 const fields = computed<CmsField[]>(() => (collectionConfig.value?.fields as CmsField[]) ?? [])
 const slugField = computed(() => fields.value.find((field) => field.type === 'slug'))
@@ -180,61 +155,11 @@ const usesLocalizedSlug = computed(
 )
 const activeSlugLocale = computed(() => (usesLocalizedSlug.value ? defaultLocale.value : null))
 
-type ParentEntry = {
-  _id: string
-  path: string
-  parentEntryId: string | null
-  order: string
-  title: string
+const parentPathById = ref(new Map<string, string>())
+function recordParentSelection(value: { id: string; path: string } | null) {
+  if (!value) return
+  parentPathById.value = new Map(parentPathById.value).set(value.id, value.path)
 }
-
-const existingEntries = computed<ParentEntry[]>(
-  () => (parentEntriesQuery.data.value as ParentEntry[] | null | undefined) ?? [],
-)
-
-type ParentNode = ParentEntry & {
-  children: ParentNode[]
-}
-
-type ParentOption = ParentEntry & {
-  indent: string
-}
-
-const parentPathById = computed(() => {
-  return new Map(existingEntries.value.map((entry) => [entry._id, entry.path]))
-})
-const parentOptions = computed<ParentOption[]>(() => {
-  if (!existingEntries.value) return []
-  const entries = existingEntries.value as ParentEntry[]
-  const map = new Map<string, ParentNode>()
-  const roots: ParentNode[] = []
-  for (const entry of entries) map.set(entry._id, { ...entry, children: [] })
-  for (const e of entries) {
-    const node = map.get(e._id)
-    if (!node) continue
-    if (e.parentEntryId && map.has(e.parentEntryId)) map.get(e.parentEntryId)?.children.push(node)
-    else roots.push(node)
-  }
-  const result: ParentOption[] = []
-  const walk = (items: ParentNode[], depth: number) => {
-    items.sort((a, b) => compareOrderRank(a.order, b.order))
-    for (const item of items) {
-      result.push({ ...item, indent: '\xA0\xA0'.repeat(depth) })
-      walk(item.children, depth + 1)
-    }
-  }
-  walk(roots, 0)
-  return result
-})
-// reka-ui SelectItem rejects empty-string values, so the "None (root)" option
-// carries a sentinel that maps back to the empty parentEntryId the form uses.
-const ROOT_PARENT_VALUE = '__root__'
-const parentSelectValue = computed({
-  get: () => (form.parentEntryId === '' ? ROOT_PARENT_VALUE : form.parentEntryId),
-  set: (value: string) => {
-    form.parentEntryId = value === ROOT_PARENT_VALUE ? '' : value
-  },
-})
 const slugSourceKey = computed(() => slugField.value?.slugFrom ?? null)
 
 function ensureLocalizedSlugState(locale: string) {
@@ -363,7 +288,7 @@ const editorContext = computed(() => ({
   ...dataFields,
 }))
 const assetContext = computed(() => ({
-  collectionSlug: collection.value,
+  collection: collection.value,
   locale: defaultLocale.value,
   onAssetRegistered: async (assetId: string) => {
     if (!stagedAssetIds.value.includes(assetId)) {
@@ -693,19 +618,12 @@ if (typeof window !== 'undefined') {
               </Select>
             </StudioFieldShell>
             <StudioFieldShell for="parent" :label="t('ginkoCms.studio.collectionEditor.parent')">
-              <Select v-model="parentSelectValue">
-                <SelectTrigger>
-                  <SelectValue :placeholder="t('ginkoCms.common.noneRoot')" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem :value="ROOT_PARENT_VALUE">{{
-                    t('ginkoCms.common.noneRoot')
-                  }}</SelectItem>
-                  <SelectItem v-for="e in parentOptions" :key="e._id" :value="e._id">
-                    {{ e.indent }}{{ e.title || e._id }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <StudioEntryParentPicker
+                v-model="form.parentEntryId"
+                :collection="collection"
+                :locale="defaultLocale"
+                @select="recordParentSelection"
+              />
             </StudioFieldShell>
             <StudioFieldShell for="icon" :label="t('ginkoCms.studio.collectionsPage.icon')">
               <Input

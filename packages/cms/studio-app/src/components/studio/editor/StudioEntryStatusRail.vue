@@ -20,9 +20,7 @@ import type {
   StudioPublishImpactState,
   StudioPublishReviewState,
   StudioPublicVisibilityState,
-  StudioRouteValidationState,
 } from './studioWorkflowTypes'
-import { diagnosticLabel } from './studioWorkflowTypes'
 
 const props = defineProps<{
   readinessDetail?: StudioEntryReadinessDetail | null
@@ -32,8 +30,6 @@ const props = defineProps<{
   publishReview?: StudioPublishReviewState
   publicVisibility?: StudioPublicVisibilityState
   requestReviewPending?: boolean
-  routeValidationRequested: boolean
-  routeValidationState: StudioRouteValidationState
 }>()
 
 const editor = useStudioEntryEditorContext()
@@ -103,17 +99,6 @@ const blockingIssues = computed(() => {
         key: `${row.locale}:${issue.code}:${issue.fieldPath ?? ''}`,
         message: `${row.locale.toUpperCase()}: ${readinessIssueMessage(editor.loader.t, issue)}`,
       })
-    }
-  }
-
-  if (props.routeValidationRequested) {
-    for (const diagnostic of props.routeValidationState.diagnostics) {
-      if (diagnostic.severity === 'error') {
-        issues.push({
-          key: `route-${diagnostic.code}-${diagnostic.path ?? ''}`,
-          message: diagnostic.message || diagnosticLabel(diagnostic.code),
-        })
-      }
     }
   }
 
@@ -214,8 +199,6 @@ const blockingIssues = computed(() => {
       v-if="advancedEditor"
       :readiness-detail="readinessDetail"
       :readiness-pending="readinessPending"
-      :route-validation-requested="routeValidationRequested"
-      :route-validation-state="routeValidationState"
       :publish-impact-requested="publishImpactRequested"
       :publish-impact="publishImpact"
       :publish-review="publishReview"

@@ -5,6 +5,7 @@ import {
   type ResolvedContentContractV1,
   type ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
+import { v } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'
@@ -15,6 +16,29 @@ type JsonRecord = Record<string, JsonValue>
 export type InstalledCmsContract = {
   record: Doc<'cmsContract'>
   content: ResolvedContentContractV1
+}
+
+export type ExpectedCmsContract = {
+  contentHash: string
+  presentationHash: string
+}
+
+export type CmsContractWriteToken = ExpectedCmsContract & {
+  generation: number
+}
+
+export const cmsContractWriteTokenValidator = v.object({
+  contentHash: v.string(),
+  presentationHash: v.string(),
+  generation: v.number(),
+})
+
+export function cmsContractWriteToken(installed: InstalledCmsContract): CmsContractWriteToken {
+  return {
+    contentHash: installed.record.contentHash,
+    presentationHash: installed.record.presentationHash,
+    generation: installed.record.writeGeneration,
+  }
 }
 
 function isJsonRecord(value: JsonValue | undefined): value is JsonRecord {
@@ -68,7 +92,7 @@ export function projectContentField(
     ...(field.default.present ? { defaultValue: field.default.value as JsonValue } : {}),
     ...(field.options ? { options: field.options } : {}),
     ...(field.relation
-      ? { relation: { collectionId: field.relation.collection, multiple: field.relation.multiple } }
+      ? { relation: { collection: field.relation.collection, multiple: field.relation.multiple } }
       : {}),
     ...(field.media
       ? { media: { accept: field.media.mediaTypes, aspectRatio: field.media.aspectRatio } }
@@ -162,13 +186,55 @@ export async function readInstalledCmsContract(ctx: ReadCtx): Promise<InstalledC
  * locked, so every Studio, MCP, operation, and portability write must pass this
  * guard before touching canonical entry state.
  */
-export async function assertCmsContractWritable(ctx: ReadCtx): Promise<InstalledCmsContract> {
+export async function assertCmsContractWritable(
+  ctx: ReadCtx,
+  expected?: ExpectedCmsContract,
+): Promise<InstalledCmsContract> {
   const installed = await readInstalledCmsContract(ctx)
   if (!installed) throwCmsError('CMS_CONTRACT_MISSING', 'No CMS contract is installed.')
   if (installed.record.transitionState !== 'ready') {
     throwCmsError(
       'CMS_CONTRACT_TRANSITION_LOCKED',
       'Editorial writes are locked by a contract transition.',
+    )
+  }
+  if (
+    expected &&
+    (installed.record.contentHash !== expected.contentHash ||
+      installed.record.presentationHash !== expected.presentationHash)
+  ) {
+    throwCmsError(
+      'CMS_CONTRACT_HOST_MISMATCH',
+      'The deployed host contract does not match the installed CMS contract.',
+      {
+        expectedContentHash: expected.contentHash,
+        installedContentHash: installed.record.contentHash,
+        expectedPresentationHash: expected.presentationHash,
+        installedPresentationHash: installed.record.presentationHash,
+      },
+    )
+  }
+  return installed
+}
+
+/**
+ * Rechecks an action's preflight token in the transaction that performs its
+ * write. The monotonically increasing generation closes the race where a
+ * transition starts (and may even be cancelled) after action preflight.
+ */
+export async function assertCmsContractWriteToken(
+  ctx: ReadCtx,
+  token: CmsContractWriteToken,
+): Promise<InstalledCmsContract> {
+  const installed = await assertCmsContractWritable(ctx, token)
+  if (installed.record.writeGeneration !== token.generation) {
+    throwCmsError(
+      'CMS_CONTRACT_WRITE_FENCE_STALE',
+      'The CMS contract changed after this operation started.',
+      {
+        expectedGeneration: token.generation,
+        installedGeneration: installed.record.writeGeneration,
+      },
     )
   }
   return installed

@@ -16,9 +16,7 @@ export async function ensureSharedSlugUnique(
 ) {
   const existing = await ctx.db
     .query('entries')
-    .withIndex('by_collection_slug', (q) =>
-      q.eq('collection', collection).eq('slug', slug),
-    )
+    .withIndex('by_collection_slug', (q) => q.eq('collection', collection).eq('slug', slug))
     .collect()
 
   const conflict = existing.find((entry: EntryDoc) => entry._id !== excludeEntryId)

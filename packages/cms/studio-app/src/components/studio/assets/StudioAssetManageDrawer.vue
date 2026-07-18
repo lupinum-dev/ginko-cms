@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { AlertTriangle, ArrowUp, Globe, Link, Trash2, Undo2, X } from '@lucide/vue'
+import { ArrowUp, Globe, RefreshCw, Trash2, Undo2, X } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { mimeKind } from '../../../composables/internal/assetFinderUtils'
 import { useStudioAssetBrowserContext } from '../../../composables/internal/studioAssetBrowserContext'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
-import { humanizeFieldPath } from '../../../lib/fieldLabel'
 import Sheet from '../../ui/sheet/Sheet.vue'
 import SheetContent from '../../ui/sheet/SheetContent.vue'
 import SheetDescription from '../../ui/sheet/SheetDescription.vue'
@@ -79,14 +78,6 @@ const locationRows = computed<StudioAssetInfoRow[]>(() => {
       : []),
   ]
 })
-
-const usageCountLabel = computed(() =>
-  countLabel(
-    selected.value?.usages.length ?? 0,
-    'ginkoCms.studio.assetBrowser.usedInOne',
-    'ginkoCms.studio.assetBrowser.usedInOther',
-  ),
-)
 </script>
 
 <template>
@@ -190,38 +181,7 @@ const usageCountLabel = computed(() =>
               <StudioAssetInfoList :rows="locationRows" />
             </div>
             <Separator />
-            <div class="ginko:space-y-2">
-              <h4
-                class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
-              >
-                {{ t('ginkoCms.studio.assetBrowser.usage') }}
-              </h4>
-              <div
-                v-if="selected.usages.length === 0"
-                class="ginko:flex ginko:items-center ginko:gap-1.5 ginko:text-xs ginko:text-warning-fg"
-              >
-                <AlertTriangle class="ginko:size-3.5" />
-                {{ t('ginkoCms.studio.assetBrowser.notUsedAnywhere') }}
-              </div>
-              <template v-else>
-                <p class="ginko:text-xs ginko:text-muted-foreground/60">{{ usageCountLabel }}</p>
-                <div
-                  v-for="(usage, i) in selected.usages.slice(0, 5)"
-                  :key="`${usage.entryId}:${usage.fieldPath}:${i}`"
-                  class="ginko:flex ginko:items-start ginko:gap-2 ginko:border-b ginko:border-border/30 ginko:py-1.5 ginko:text-xs ginko:last:border-0"
-                >
-                  <Link
-                    class="ginko:mt-0.5 ginko:size-3 ginko:shrink-0 ginko:text-muted-foreground/50"
-                  />
-                  <div class="ginko:min-w-0">
-                    <div class="ginko:truncate ginko:font-medium">{{ usage.entryTitle }}</div>
-                    <div class="ginko:text-xs ginko:text-muted-foreground/50">
-                      {{ humanizeFieldPath(usage.fieldPath) }}
-                    </div>
-                  </div>
-                </div>
-              </template>
-            </div>
+            <StudioAssetUsageList :asset="selected" />
             <Separator />
             <div class="ginko:space-y-1.5">
               <template v-if="selected.deletedAt">
@@ -238,7 +198,17 @@ const usageCountLabel = computed(() =>
               </template>
               <template v-else>
                 <Button
-                  v-if="selected.scope === 'entry' && selected.collectionId"
+                  variant="outline"
+                  size="sm"
+                  class="ginko:w-full ginko:justify-start ginko:text-xs"
+                  :disabled="finder.actionPending.value"
+                  @click="finder.requestReplaceSelectedAsset"
+                >
+                  <RefreshCw class="ginko:mr-2 ginko:size-3.5" aria-hidden="true" />
+                  {{ t('ginkoCms.studio.assetBrowser.replaceFile') }}
+                </Button>
+                <Button
+                  v-if="selected.scope === 'entry' && selected.collection"
                   variant="outline"
                   size="sm"
                   class="ginko:w-full ginko:justify-start ginko:text-xs"

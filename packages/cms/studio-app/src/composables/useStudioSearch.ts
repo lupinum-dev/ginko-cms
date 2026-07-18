@@ -1,7 +1,7 @@
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 
 import { api } from '../boundary/api'
-import { useCmsConfig } from './useCmsConfig'
+import { useCmsStudioSettings } from './useCmsStudioSettings'
 import { useConvexQuery } from './useStudioConvex'
 
 // Studio-local search helper for the command palette.
@@ -24,43 +24,29 @@ export function useStudioSearch(
   query: MaybeRefOrGetter<string>,
   options: UseStudioSearchOptions = {},
 ) {
-  const config = useCmsConfig()
-  const locale = options.locale ?? config.defaultLocale ?? 'en'
+  const studioSettings = useCmsStudioSettings()
+  const locale = computed(() => options.locale ?? studioSettings.defaultLocale.value)
   const limit = options.limit ?? 10
   const collection = computed(() => toValue(options.collection)?.trim() || undefined)
   const trimmedQuery = computed(() => toValue(query)?.trim() ?? '')
 
-  // Inside a collection route, search that collection through the public
-  // search surface; elsewhere, span every route-backed collection through the
-  // studio-scoped cross-collection query. Only one of the two runs at a time
-  // (the other gets null args and is skipped).
-  const collectionArgs = computed(() => {
-    if (!trimmedQuery.value || !collection.value) return null
-    return {
-      query: trimmedQuery.value,
-      locale,
-      collection: collection.value,
-      limit,
-    }
-  })
-  const globalArgs = computed(() => {
-    if (!trimmedQuery.value || collection.value) return null
-    return { query: trimmedQuery.value, locale, limit }
-  })
-
-  const collectionSearch = useConvexQuery(api.ginkoCms.public.search, collectionArgs)
-  const globalSearch = useConvexQuery(api.ginkoCms.collections.searchStudioEntries, globalArgs)
-  const active = computed(() => (collection.value ? collectionSearch : globalSearch))
+  const searchArgs = computed(() =>
+    trimmedQuery.value
+      ? {
+          query: trimmedQuery.value,
+          locale: locale.value,
+          collection: collection.value,
+          limit,
+        }
+      : null,
+  )
+  const search = useConvexQuery(api.ginkoCms.collections.searchStudioEntries, searchArgs)
 
   return {
-    pending: computed(() => active.value.pending.value),
-    error: computed(() => active.value.error.value),
-    // The public search returns a `GinkoSearchResult` envelope; the studio
-    // query returns the result array directly. Expose a plain array either way.
-    results: computed<StudioSearchResultItem[]>(() =>
-      collection.value
-        ? ((collectionSearch.data.value?.results ?? []) as StudioSearchResultItem[])
-        : ((globalSearch.data.value ?? []) as StudioSearchResultItem[]),
+    pending: computed(() => search.pending.value),
+    error: computed(() => search.error.value),
+    results: computed<StudioSearchResultItem[]>(
+      () => (search.data.value ?? []) as StudioSearchResultItem[],
     ),
   }
 }

@@ -18,7 +18,7 @@ export default defineMcpPrompt({
       '3. Call `get-readiness-detail` for exact readiness, then call `preview-publish` with the active `agentRunId`, observed draft version, entry, and target locale; treat blockers as authoritative.',
       '4. Summarize route, SEO, sitemap, search, nav, redirects, cache tags, revalidation impact, and blocking diagnostics from readiness and, when available, the operation preview.',
       '5. Call `request-publish-review` with the active `agentRunId`, then use `get-review-status` to follow the human decision.',
-      '6. If the draft changes, rerun readiness and any publish preview before publishing or requesting review.',
+      '6. If the draft changes, rerun readiness and the publish preview before requesting a new human review. MCP never publishes directly.',
     ].join('\n')
   },
 })

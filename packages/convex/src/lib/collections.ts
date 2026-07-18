@@ -8,13 +8,6 @@ import {
 } from './installedContract.js'
 import type { CmsCollection, CmsField, ReadCtx, SlugMode } from './types.js'
 
-export const MAX_EXACT_COLLECTION_ENTRY_COUNT = 1500
-
-export type CollectionEntryCountSnapshot = {
-  count: number
-  exact: boolean
-}
-
 export function getSlugMode(collection: CmsCollection): SlugMode {
   return collection.routing.slugMode ?? 'shared'
 }
@@ -104,20 +97,6 @@ export async function collectionHasEntries(ctx: ReadCtx, collection: string): Pr
     .withIndex('by_collection_lifecycle', (q) => q.eq('collection', collection))
     .first()
   return !!entry
-}
-
-export async function collectionEntryCountSnapshot(
-  ctx: ReadCtx,
-  collection: string,
-): Promise<CollectionEntryCountSnapshot> {
-  const entries = await ctx.db
-    .query('entries')
-    .withIndex('by_collection_lifecycle', (q) => q.eq('collection', collection))
-    .take(MAX_EXACT_COLLECTION_ENTRY_COUNT + 1)
-  if (entries.length > MAX_EXACT_COLLECTION_ENTRY_COUNT) {
-    return { count: MAX_EXACT_COLLECTION_ENTRY_COUNT, exact: false }
-  }
-  return { count: entries.length, exact: true }
 }
 
 export { listInstalledCollections }

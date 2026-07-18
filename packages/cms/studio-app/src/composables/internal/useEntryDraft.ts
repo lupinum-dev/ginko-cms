@@ -102,7 +102,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   }))
 
   const assetContext = computed(() => ({
-    collectionSlug: collection.value,
+    collection: collection.value,
     locale: currentLocale.value,
     entryId: entryId.value,
   }))
@@ -240,7 +240,10 @@ export function useEntryDraft(deps: EntryDraftDeps) {
 
   // --- Unsaved changes guards ---
   onBeforeRouteLeave((_to, _from, next) => {
-    if (isDirty.value && !saving.value && canEditEntries.value) {
+    // A write in flight is still unsaved until the backend acknowledges it.
+    // Keep the route blocked for both pending and failed local work; the
+    // successful save path clears `isDirty` only after mutation success.
+    if (isDirty.value && canEditEntries.value) {
       void studioConfirm({
         title: 'Leave with unsaved changes?',
         description: t('ginkoCms.studio.collectionEditor.unsavedChanges'),

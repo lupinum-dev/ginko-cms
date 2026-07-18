@@ -4,12 +4,15 @@ import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import {
+  archiveEntry,
   createCtx,
   publishEntry,
+  reparentEntry,
   rollbackVersion,
   seedEditorFixture,
   seedOwner,
   seedSettings,
+  seedTreeFixture,
 } from './helpers'
 
 const api = anyApi
@@ -19,12 +22,15 @@ function localeDraft(rows: Array<Record<string, unknown>>, entryId: string, loca
 }
 
 describe('immutable history, restore, and public rollback', () => {
-  it('creates explicit draft checkpoints without changing public output', async () => {
+  it('[LIF-04] lists immutable attributed editorial versions and marks the active public revision', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
     const owner = ctx.asCmsUser('owner-1')
+
+    const published = await publishEntry(owner, entryId)
+    const publicBeforeCheckpoint = structuredClone(await ctx.readAll('publicEntries'))
 
     const checkpointId = await owner.mutation(api.entries.publish.createCheckpoint, {
       entryId,
@@ -36,30 +42,52 @@ describe('immutable history, restore, and public rollback', () => {
       patch: { locales: { en: { values: { title: 'Later draft' } } } },
     })
 
-    expect(await ctx.readAll('publicEntries')).toEqual([])
-    expect(await ctx.readAll('entryRevisions')).toEqual([
-      expect.objectContaining({
-        _id: checkpointId,
-        kind: 'checkpoint',
-        message: 'Before structural rewrite',
-        snapshots: {
-          en: expect.objectContaining({
-            values: expect.objectContaining({ title: 'Hello world' }),
-          }),
-        },
+    expect(await ctx.readAll('publicEntries')).toEqual(publicBeforeCheckpoint)
+    expect(await ctx.readAll('entryRevisions')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          _id: published.versionId,
+          kind: 'publish',
+          createdBy: 'owner-1',
+        }),
+        expect.objectContaining({
+          _id: checkpointId,
+          kind: 'checkpoint',
+          createdBy: 'owner-1',
+          message: 'Before structural rewrite',
+          snapshots: {
+            en: expect.objectContaining({
+              values: expect.objectContaining({ title: 'Hello world' }),
+            }),
+          },
+        }),
+      ]),
+    )
+    await expect(
+      owner.query(api.editor.listVersions, {
+        entryId,
+        paginationOpts: { cursor: null, numItems: 25 },
       }),
-    ])
-    await expect(owner.query(api.editor.listVersions, { entryId })).resolves.toEqual([
-      expect.objectContaining({
-        _id: checkpointId,
-        action: 'checkpoint',
-        message: 'Before structural rewrite',
-        isCurrentPublished: false,
-      }),
-    ])
+    ).resolves.toMatchObject({
+      page: expect.arrayContaining([
+        expect.objectContaining({
+          _id: checkpointId,
+          action: 'checkpoint',
+          message: 'Before structural rewrite',
+          isCurrentPublished: false,
+        }),
+        expect.objectContaining({
+          _id: published.versionId,
+          action: 'publish',
+          createdBy: 'owner-1',
+          isCurrentPublished: true,
+        }),
+      ]),
+      isDone: true,
+    })
   })
 
-  it('restores a historical revision to draft while leaving public output untouched', async () => {
+  it('[LIF-06] restores a historical immutable revision as a new draft while leaving public output untouched', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
@@ -114,9 +142,19 @@ describe('immutable history, restore, and public rollback', () => {
         en: expect.objectContaining({ values: expect.objectContaining({ title: 'Hello world' }) }),
       },
     })
+    const versionPage = await owner.query(api.editor.listVersions, {
+      entryId,
+      paginationOpts: { cursor: null, numItems: 25 },
+    })
+    expect(versionPage.page[0]).toMatchObject({
+      _id: restored.versionId,
+      action: 'restore',
+      displayAction: 'restoredDraft',
+      isCurrentPublished: false,
+    })
   })
 
-  it('rolls public output back through a new revision without overwriting current draft work', async () => {
+  it('[LIF-07] rolls public output back through a new immutable revision without overwriting current draft work', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
@@ -167,5 +205,128 @@ describe('immutable history, restore, and public rollback', () => {
         en: expect.objectContaining({ values: expect.objectContaining({ title: 'Hello world' }) }),
       },
     })
+  })
+
+  it('blocks public rollback for archived entries and incompatible revisions', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const published = await publishEntry(owner, entryId)
+
+    await archiveEntry(owner, entryId)
+    const archivedPreview = await owner.mutation(
+      api.entries.publicationHistory.previewRollbackVersionOperation,
+      { entryId, versionId: published.versionId, publish: true },
+    )
+    expect(archivedPreview).toMatchObject({
+      allowed: false,
+      confirmation: null,
+      blockers: [expect.objectContaining({ code: 'entry-archived' })],
+    })
+    expect(await ctx.readAll('publicEntries')).toEqual([])
+    expect((await ctx.readAll('entries'))[0]).toMatchObject({
+      lifecycle: 'archived',
+      activePublications: [],
+    })
+
+    await ctx.raw.run(async (inner) => {
+      const revisionId = inner.db.normalizeId('entryRevisions', published.versionId)
+      if (!revisionId) throw new Error('Expected revision id.')
+      await inner.db.patch(revisionId, { contentHash: 'incompatible-contract' })
+      const entryDocId = inner.db.normalizeId('entries', entryId)
+      const entry = entryDocId ? await inner.db.get(entryDocId) : null
+      if (!entry) throw new Error('Expected entry.')
+      await inner.db.patch(entry._id, { lifecycle: 'active' })
+    })
+    const incompatiblePreview = await owner.mutation(
+      api.entries.publicationHistory.previewRollbackVersionOperation,
+      { entryId, versionId: published.versionId, publish: true },
+    )
+    expect(incompatiblePreview).toMatchObject({
+      allowed: false,
+      confirmation: null,
+      blockers: [expect.objectContaining({ code: 'revision-contract-mismatch' })],
+    })
+  })
+
+  it('fences public rollback against route-generation drift', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const first = await publishEntry(owner, entryId)
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: 1,
+      patch: { locales: { en: { values: { title: 'Second publication' } } } },
+    })
+    await publishEntry(owner, entryId)
+
+    const args = { entryId, versionId: first.versionId, publish: true }
+    const preview = await owner.mutation(
+      api.entries.publicationHistory.previewRollbackVersionOperation,
+      args,
+    )
+    expect(preview.confirmation).not.toBeNull()
+    await ctx.raw.run(async (inner) => {
+      const generation = await inner.db.query('routeGenerations').first()
+      if (!generation) throw new Error('Expected route generation.')
+      await inner.db.patch(generation._id, { generation: generation.generation + 1 })
+    })
+    await expect(
+      owner.mutation(api.entries.publicationHistory.rollbackVersionOperationExecute, {
+        ...args,
+        _confirmationToken: preview.confirmation!.token,
+      }),
+    ).resolves.toMatchObject({ status: 'stale', code: 'CONFIRMATION_VERSION_MISMATCH' })
+    expect((await ctx.readAll('entryRevisions')).at(-1)).not.toMatchObject({ kind: 'rollback' })
+  })
+
+  it('blocks draft restore when historical placement now collides', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { rootAId, rootBId, childId } = await seedTreeFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const checkpointId = await owner.mutation(api.entries.publish.createCheckpoint, {
+      entryId: childId,
+      message: 'Placement before move',
+    })
+    await reparentEntry(owner, {
+      entryId: childId,
+      expectedDraftVersion: 1,
+      parentEntryId: rootBId,
+    })
+    await owner.createEntry({
+      collection: 'docs',
+      slug: 'child',
+      parentEntryId: rootAId,
+      localized: { title: 'Replacement child' },
+    })
+
+    const before = {
+      entries: structuredClone(await ctx.readAll('entries')),
+      drafts: structuredClone(await ctx.readAll('entryLocaleDrafts')),
+      revisions: structuredClone(await ctx.readAll('entryRevisions')),
+    }
+    const preview = await owner.mutation(
+      api.entries.publicationHistory.previewRollbackVersionOperation,
+      {
+        entryId: childId,
+        versionId: checkpointId,
+        publish: false,
+      },
+    )
+    expect(preview).toMatchObject({
+      allowed: false,
+      confirmation: null,
+      blockers: [expect.objectContaining({ code: 'ENTRY_PATH_CONFLICT' })],
+    })
+    expect(await ctx.readAll('entries')).toEqual(before.entries)
+    expect(await ctx.readAll('entryLocaleDrafts')).toEqual(before.drafts)
+    expect(await ctx.readAll('entryRevisions')).toEqual(before.revisions)
   })
 })

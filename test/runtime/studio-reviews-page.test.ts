@@ -188,6 +188,8 @@ const pendingReviews = vi.hoisted(() => [
           afterHref: '/campaign',
         },
       ],
+      affectedPublicUrlCount: 1,
+      affectedPublicUrlsHasMore: false,
       changeCount: 4,
       blockerCount: 0,
       warningCount: 0,
@@ -450,7 +452,7 @@ function stubs() {
 }
 
 describe('Studio reviews page', () => {
-  it('surfaces AI-prepared website changes as a marketer approval summary', () => {
+  it('[PUB-04] presents the canonical proposed change as a marketer-readable review with guarded actions', () => {
     const wrapper = mountReviewsPage()
 
     expect(wrapper.text()).toContain('AI assistant prepared this')
@@ -490,7 +492,29 @@ describe('Studio reviews page', () => {
     )
   })
 
-  it('lists recent decisions with reviewer feedback below the pending queue (PUB-06)', () => {
+  it('labels incomplete descendant impact counts as lower bounds', () => {
+    const summary = pendingReviews[0]!.reviewSummary
+    const previous = {
+      affectedPublicUrlCount: summary.affectedPublicUrlCount,
+      affectedPublicUrlsHasMore: summary.affectedPublicUrlsHasMore,
+      changeCount: summary.changeCount,
+    }
+    Object.assign(summary, {
+      affectedPublicUrlCount: 25,
+      affectedPublicUrlsHasMore: true,
+      changeCount: 25,
+    })
+    try {
+      const wrapper = mountReviewsPage()
+      expect(wrapper.text()).toContain('Ready to publish · 25+ changes')
+      expect(wrapper.text()).toContain('25+ website changes prepared')
+      expect(wrapper.text()).toContain('25+ affected website pages')
+    } finally {
+      Object.assign(summary, previous)
+    }
+  })
+
+  it('[PUB-06] lists recent decisions with reviewer feedback below the pending queue', () => {
     const wrapper = mountReviewsPage()
 
     expect(wrapper.text()).toContain('Recent decisions')

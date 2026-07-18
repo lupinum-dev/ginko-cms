@@ -263,20 +263,20 @@ describe('Studio shadcn surface wrappers', () => {
   it('keeps list frame loading, empty, and row states distinct', () => {
     const loading = mount(StudioListFrame, {
       global: { stubs: studioStubs() },
-      props: { title: 'Imports', loading: true },
+      props: { title: 'Operations', loading: true },
     })
     const empty = mount(StudioListFrame, {
       global: { stubs: studioStubs() },
-      props: { title: 'Imports', empty: true },
+      props: { title: 'Operations', empty: true },
       slots: { empty: '<p>No imports</p>' },
     })
     const loaded = mount(StudioListFrame, {
       global: { stubs: studioStubs() },
-      props: { title: 'Imports', count: 2 },
+      props: { title: 'Operations', count: 2 },
       slots: { default: '<div>Run 1</div>' },
     })
 
-    expect(loading.text()).toContain('Imports')
+    expect(loading.text()).toContain('Operations')
     expect(empty.text()).toContain('No imports')
     expect(loaded.text()).toContain('Run 1')
     expect(loaded.text()).toContain('2')
@@ -358,11 +358,6 @@ function mountCollectionContractSection(overrides: Record<string, unknown> = {})
     props: {
       collectionDetail: {
         contract: { source: 'code', version: 'contract-v1' },
-        projectionStatus: {
-          activeCollectionProjectionRunId: 'collection-batch-1',
-          activeSiteProjectionRunId: 'site-batch-1',
-          activatedAt: Date.now(),
-        },
         routing: { slugMode: 'localized', rootSlug: 'index' },
         type: 'tree',
       },
@@ -398,7 +393,12 @@ function createLocalePanelEditor() {
         slugMode: 'localized',
       },
       currentLocale: 'en',
+      defaultLocale: 'en',
       dateLocale: 'en',
+      locales: [
+        { code: 'en', label: 'English' },
+        { code: 'de', label: 'Deutsch' },
+      ],
       entry: { publishedAt: '2026-05-21T12:52:50.899Z' },
       localizedFields: [{ key: 'title', label: 'Title', type: 'text', localized: true }],
       // Writing-surface split (W4): the hero absorbs title/description, the
@@ -417,13 +417,12 @@ function createLocalePanelEditor() {
       saving: false,
     },
     locales: {
-      handleSaveSecondaryDraft: vi.fn(),
+      handleSwitchLocale: vi.fn(),
       secondaryAssetContext: {},
       secondaryDataFields: { title: 'Sicherheitsverbesserungen' },
       secondaryEditorContext: {},
       secondaryLocale: 'de',
     },
-    copyPrimaryToSecondary: vi.fn(),
   })
 }
 
@@ -440,11 +439,12 @@ function mountLocalePanelComparison() {
     },
   })
 
-  return mount(Host, {
+  const wrapper = mount(Host, {
     global: {
       stubs: studioStubs(),
     },
   })
+  return { editor, wrapper }
 }
 
 function createSharedFieldsPanelEditor(locales: string[] = ['en']) {
@@ -532,13 +532,6 @@ const baseVisibility = {
   publishedLocales: ['en'],
   status: 'Visibility by locale',
   hiddenGlobalDiagnosticCount: 0,
-}
-
-const emptyRouteValidation = {
-  diagnostics: [],
-  hiddenDiagnosticCount: 0,
-  message: '',
-  state: 'idle',
 }
 
 const idleImpact = {
@@ -675,7 +668,7 @@ describe('Studio workflow components', () => {
   })
 
   it('keeps localized URL rows present in both compare columns', () => {
-    const wrapper = mountLocalePanelComparison()
+    const { wrapper } = mountLocalePanelComparison()
     const urlRows = wrapper.findAll('.studio-locale-panel__localized-url')
 
     expect(urlRows).toHaveLength(2)
@@ -685,7 +678,31 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).toContain('Title')
   })
 
-  it('renders page-backed content setup as developer-managed website capability', () => {
+  it('[LOC-03] keeps the comparison language read only until it becomes the editing target', async () => {
+    const { editor, wrapper } = mountLocalePanelComparison()
+    const panels = wrapper.findAll('section.studio-locale-panel')
+
+    expect(panels).toHaveLength(2)
+    expect(panels[0]!.text()).toContain('Editing')
+    expect(panels[1]!.text()).toContain('Read only')
+    expect(panels[1]!.text()).toContain('This language stays read only')
+    expect(
+      panels[1]!
+        .findAll('input, textarea, select, button[contenteditable="true"]')
+        .filter((control) => control.attributes('disabled') === undefined),
+    ).toHaveLength(0)
+
+    const editButton = panels[1]!
+      .findAll('button')
+      .find((button) => button.text().includes('Edit DE'))
+    expect(editButton).toBeTruthy()
+    await editButton!.trigger('click')
+
+    expect(editor.locales.handleSwitchLocale).toHaveBeenCalledWith('de')
+    expect(wrapper.text()).not.toContain('Save translation draft')
+  })
+
+  it('[ADM-03] renders the code-defined model with route, locale, public capability, and advanced contract details', () => {
     const wrapper = mountCollectionContractSection()
 
     expect(wrapper.text()).toContain('Content type details')
@@ -696,10 +713,10 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).not.toContain('Page routes')
     expect(wrapper.text()).toContain('sitemap/search/nav')
     expect(wrapper.text()).toContain('contract-v1')
-    expect(wrapper.text()).toContain('collection-batch-1')
+    expect(wrapper.text()).not.toContain('batch')
   })
 
-  it('renders shared-content setup without page controls and with actionable drift', () => {
+  it('[ADM-03] renders shared-content fields without unsupported model editing controls', () => {
     const wrapper = mountCollectionContractSection({
       collectionDetail: {
         contract: { source: 'code', version: 'authors-v1' },
@@ -727,14 +744,14 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).not.toContain('URL settings')
   })
 
-  it('shows missing contract and projection state honestly', () => {
+  it('[ADM-03] shows a missing installed contract honestly without persisted projection state', () => {
     const wrapper = mountCollectionContractSection({
       collectionDetail: null,
     })
 
     expect(wrapper.text()).toContain('unknown')
     expect(wrapper.text()).toContain('not synced')
-    expect(wrapper.text()).toContain('none active')
+    expect(wrapper.text()).not.toContain('batch')
   })
 
   it('shows stale publish impact without a confirmable preview', () => {
@@ -750,8 +767,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: true,
         publishReview: { ...publishReview, stale: true, state: 'stale' },
         previewScope: 'publish',
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: null,
       },
     })
@@ -798,8 +813,6 @@ describe('Studio workflow components', () => {
             publishImpactRequested: false,
             publishReview,
             previewScope: null,
-            routeValidationRequested: false,
-            routeValidationState: emptyRouteValidation,
             selectedPublishImpactLocale: null,
             translationReadiness: [],
           })
@@ -835,8 +848,6 @@ describe('Studio workflow components', () => {
         ...publishReview,
         message: 'Website changes are ready to review.',
       },
-      routeValidationRequested: false,
-      routeValidationState: emptyRouteValidation,
       translationReadiness: [],
     })
 
@@ -872,8 +883,6 @@ describe('Studio workflow components', () => {
       publishImpact: idleImpact,
       publishImpactRequested: false,
       publishReview,
-      routeValidationRequested: false,
-      routeValidationState: emptyRouteValidation,
       translationReadiness: [],
     })
 
@@ -958,8 +967,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: false,
         publishReview,
         previewScope: null,
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: null,
         translationReadiness: [],
       })
@@ -1002,8 +1009,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: true,
         publishReview,
         previewScope: 'workflow',
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: 'de',
       },
     })
@@ -1056,8 +1061,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: true,
         publishReview,
         previewScope: 'publish',
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: 'de',
       },
     )
@@ -1140,8 +1143,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: true,
         publishReview,
         previewScope: 'publish',
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: 'en',
       },
     })
@@ -1163,6 +1164,50 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).toContain('Included')
     expect(wrapper.text()).not.toContain('Old campaign title -> New campaign title')
     expect(wrapper.text()).not.toContain('false -> true')
+  })
+
+  it('loads paged descendant URL impact through the canonical publish session', async () => {
+    const loadMorePublishImpact = vi.fn()
+    const editor = railEditor(dictionaryT(en))
+    const wrapper = mountWithStudioContext(
+      StudioEntryPublicWorkflowPanel,
+      {
+        ...editor,
+        loader: { ...editor.loader, collection: 'pages' },
+        workflow: { loadMorePublishImpact },
+      },
+      {
+        publicVisibility: baseVisibility,
+        publishImpact: {
+          ...readyPublishImpact,
+          locales: [
+            {
+              ...readyPublishImpact.locales[0],
+              routeImpact: {
+                total: null,
+                listed: 25,
+                hasMore: true,
+                continueCursor: 'next-page',
+                routeGeneration: 7,
+                impactHash: 'routes:fixture',
+                loading: false,
+                error: null,
+              },
+            },
+          ],
+        },
+        publishImpactRequested: true,
+        publishReview,
+        previewScope: 'publish',
+        selectedPublishImpactLocale: 'en',
+      },
+    )
+
+    expect(wrapper.text()).toContain('Showing 25 of 25+ affected child-page URLs.')
+    const loadMore = wrapper.findAll('button').find((button) => button.text() === 'Load more')
+    expect(loadMore).toBeTruthy()
+    await loadMore!.trigger('click')
+    expect(loadMorePublishImpact).toHaveBeenCalledWith('en')
   })
 
   it('does not embed non-website publish preview URLs', () => {
@@ -1199,8 +1244,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: true,
         publishReview,
         previewScope: 'publish',
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: 'en',
       },
     })
@@ -1230,8 +1273,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: false,
         publishReview,
         previewScope: null,
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: null,
       },
     })
@@ -1268,8 +1309,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: false,
         publishReview,
         previewScope: null,
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: null,
       },
     })
@@ -1296,8 +1335,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: true,
         publishReview,
         previewScope: 'publish',
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: null,
       },
     })
@@ -1322,8 +1359,6 @@ describe('Studio workflow components', () => {
         publishImpactRequested: true,
         publishReview,
         previewScope: 'publish',
-        routeValidationRequested: false,
-        routeValidationState: emptyRouteValidation,
         selectedPublishImpactLocale: null,
         showPublishImpactSummary: false,
       },
@@ -1358,8 +1393,6 @@ describe('Studio workflow components', () => {
           publishImpactRequested: true,
           publishReview,
           previewScope: 'publish',
-          routeValidationRequested: false,
-          routeValidationState: emptyRouteValidation,
           selectedPublishImpactLocale: null,
         },
       })
@@ -1486,7 +1519,7 @@ describe('Studio workflow components', () => {
           type: 'relations',
           required: false,
           description: null,
-          relation: { collectionId: 'articles' },
+          relation: { collection: 'articles' },
         },
         modelValue: ['stable-1'],
         locale: 'en',
@@ -1527,7 +1560,7 @@ describe('Studio workflow components', () => {
           type: 'relations',
           required: false,
           description: null,
-          relation: { collectionId: 'articles' },
+          relation: { collection: 'articles' },
         },
         modelValue: ['stable-1'],
         locale: 'en',
@@ -1563,82 +1596,6 @@ describe('Studio workflow components', () => {
       expect(result.violations.map((violation) => violation.id)).toEqual([])
       wrapper.unmount()
     }
-  })
-
-  it.each([
-    [
-      'idle',
-      false,
-      { ...emptyRouteValidation, state: 'idle', message: '' },
-      'Run validation to check site-wide URL and redirect conflicts.',
-    ],
-    [
-      'pending',
-      true,
-      { ...emptyRouteValidation, state: 'pending', message: 'Validating public routes...' },
-      'Validating public routes...',
-    ],
-    [
-      'failed',
-      true,
-      { ...emptyRouteValidation, state: 'error', message: 'Route validation failed.' },
-      'Route validation failed.',
-    ],
-    [
-      'empty',
-      true,
-      {
-        ...emptyRouteValidation,
-        state: 'empty',
-        message: 'Site route validation: no diagnostics.',
-      },
-      'Site route validation: no diagnostics.',
-    ],
-    [
-      'malformed',
-      true,
-      {
-        ...emptyRouteValidation,
-        state: 'missing',
-        message: 'Route validation returned no usable result.',
-      },
-      'Route validation returned no usable result.',
-    ],
-    [
-      'diagnostics',
-      true,
-      {
-        diagnostics: [
-          {
-            code: 'route_collision',
-            href: '/docs',
-            message: 'Route collision found.',
-            path: '/docs',
-            severity: 'error',
-          },
-        ],
-        hiddenDiagnosticCount: 0,
-        message: 'Site route validation: 1 diagnostic.',
-        state: 'found',
-      },
-      'Route collision found.',
-    ],
-  ])('renders route validation state: %s', (_name, requested, routeValidationState, text) => {
-    const wrapper = mount(StudioEntryPublicWorkflowPanel, {
-      global: { stubs: studioStubs() },
-      props: {
-        publicVisibility: baseVisibility,
-        publishImpact: idleImpact,
-        publishImpactRequested: false,
-        publishReview,
-        previewScope: null,
-        routeValidationRequested: requested,
-        routeValidationState,
-        selectedPublishImpactLocale: null,
-      },
-    })
-
-    expect(wrapper.text()).toContain(text)
   })
 
   it('emits translation readiness review for the selected locale', async () => {
@@ -1713,19 +1670,28 @@ describe('Studio destructive dialogs', () => {
         locales: [{ code: 'en' }],
         t: dictionaryT(en),
       },
-      workflow: { draftPreviewOpened, markDraftPreviewOpened: vi.fn() },
+      workflow: { markDraftPreviewOpened: vi.fn() },
       publishing: {
         confirmPublish: vi.fn(),
-        publishMessage: '',
-        publishMode: 'single',
-        publishReadiness: {
-          confirmationExpiresAt: hasConfirmation ? Date.now() + 60_000 : null,
-          confirmationToken: hasConfirmation ? 'token' : null,
-          locales: ['en'],
-          message: `${readinessState} message`,
-          state: readinessState,
+        publishSession: {
+          open: true,
+          mode: 'single',
+          message: '',
+          preview: null,
+          impactRequested: true,
+          impactLocale: null,
+          impactStale: false,
+          draftPreviewOpened,
+          concurrentEdit: false,
+          outcome: null,
+          readiness: {
+            confirmationExpiresAt: hasConfirmation ? Date.now() + 60_000 : null,
+            confirmationToken: hasConfirmation ? 'token' : null,
+            locales: ['en'],
+            message: `${readinessState} message`,
+            state: readinessState,
+          },
         },
-        showPublishDialog: true,
       },
     }
   }
@@ -1799,7 +1765,7 @@ describe('Studio destructive dialogs', () => {
     expect(confirm.attributes('disabled')).toBeUndefined()
   })
 
-  it('claims a reviewed preview only after the draft preview was opened (EDT-10)', () => {
+  it('[EDT-10] claims a reviewed private draft preview only after the preview was opened', () => {
     const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('ready', true), {
       readinessDetail: baseReadinessDetail,
       publishImpact: readyPublishImpact,
@@ -1838,6 +1804,41 @@ describe('Studio destructive dialogs', () => {
     expect(wrapper.text()).not.toContain('fields changed since last publish')
     expect(wrapper.text()).not.toContain('Meta title')
     expect(wrapper.text()).not.toContain('Public route')
+  })
+
+  it('labels an unfinished descendant traversal as a lower bound in publish counts', () => {
+    const advanced = useStudioAdvancedEditor()
+    advanced.value = true
+    try {
+      const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('ready', true, true), {
+        readinessDetail: baseReadinessDetail,
+        publishImpact: {
+          ...readyPublishImpact,
+          locales: [
+            {
+              ...readyPublishImpact.locales[0],
+              routeImpact: {
+                total: null,
+                listed: 25,
+                hasMore: true,
+                continueCursor: 'next-page',
+                routeGeneration: 7,
+                impactHash: 'routes:fixture',
+                loading: false,
+                error: null,
+              },
+            },
+          ],
+        },
+        publishImpactRequested: true,
+        publishReview,
+      })
+
+      expect(wrapper.text()).toContain('25+ child-page URLs will change.')
+      expect(wrapper.text()).toMatch(/Page address\s+26\+/)
+    } finally {
+      advanced.value = false
+    }
   })
 })
 
@@ -1916,7 +1917,7 @@ describe('Studio version history copy', () => {
     return editor
   }
 
-  it('uses save-version language as the primary history action', () => {
+  it('[LIF-04] uses editorial save-version language and accessible actions in history', () => {
     const wrapper = mountWithStudioContext(StudioVersionHistoryCard, historyEditor())
 
     expect(wrapper.text()).toContain('Save version')
@@ -2087,7 +2088,7 @@ describe('Studio version diff list', () => {
     }
   }
 
-  it('renders field changes with writer-facing labels', () => {
+  it('[LIF-05] compares versions with explicit field, locale, added, removed, and changed semantics beyond color', () => {
     const wrapper = mountWithStudioContext(StudioVersionDiffList, diffEditor())
 
     expect(wrapper.text()).toContain('Compared with the current version')
@@ -2151,7 +2152,7 @@ describe('Studio entry top bar restore action', () => {
         handlePublishAll: vi.fn(),
         handleRestore: vi.fn(),
         handleUnpublish: vi.fn(),
-        publishReadiness: { state: 'not_previewed' },
+        publishSession: { readiness: { state: 'not_previewed' } },
       },
     })
   }

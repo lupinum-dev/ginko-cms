@@ -55,6 +55,62 @@ artifacts. Restore verifies the artifact again, stores a fresh object, and must
 reproduce the original bytes exactly. It does not overwrite an existing asset
 or restore unrelated content.
 
+Create the artifact while the source asset still exists, record its returned
+checksum, and download a locally rechecked copy before purge:
+
+```bash
+pnpm exec ginko-cms asset recovery create <asset-id>
+pnpm exec ginko-cms asset recovery verify <artifact-id>
+pnpm exec ginko-cms asset recovery download <artifact-id> --out ./asset-recovery.json
+```
+
+After the original asset is absent, preview the restore. Apply only the current
+preview checksum with explicit confirmation:
+
+```bash
+pnpm exec ginko-cms asset recovery preview <artifact-id>
+pnpm exec ginko-cms asset recovery restore <artifact-id> --checksum <sha256> --yes
+```
+
+The restore command previews again immediately before execution and refuses a
+blocked or changed receipt.
+
+## Derived State Repair
+
+Public/search projections and content-to-asset references are derived from the
+canonical contract, drafts, revisions, and active publications. Owners can run
+one bounded worker that repairs both kinds of derived state and then verifies
+the rebuilt rows:
+
+```bash
+pnpm exec ginko-cms repair start <run-id>
+pnpm exec ginko-cms repair status <run-id>
+pnpm exec ginko-cms repair resume <run-id>
+```
+
+Each page commits a durable cursor and generation. `--manual` disables automatic
+continuation for controlled failure testing; `--page-size` accepts 1 through 25.
+There is no second repair table or direct endpoint for reference mutations.
+Permanent asset purge fails closed until one complete, zero-issue verification
+run has scanned the current canonical drafts and immutable revisions. Any later
+canonical reference change makes that proof stale and requires another run.
+
+Abandoned upload storage is retried automatically with bounded backoff. A task
+that exhausts its retries remains visible to owners instead of disappearing:
+
+```bash
+pnpm exec ginko-cms asset cleanup list
+pnpm exec ginko-cms asset cleanup retry <task-id> --generation <n> --yes
+```
+
+Retry always uses the generation shown by the current inventory and a fresh
+guarded preview. Older confirmations and worker completions are rejected.
+
+For a read-only deployment check, run `ginko-cms doctor --deployment`. It verifies
+the current owner session, the installed content and presentation hashes against
+the host configuration, the contract transition state, and that terminal asset
+cleanup inventory is empty.
+
 ## Operational Rule
 
 Before risky work, record which of the three mechanisms covers the failure being
@@ -63,6 +119,6 @@ to force an operation through a blocker.
 
 ## Related Pages
 
-- [Contract transition recovery](../guides/migrations/recovery.md)
-- [Filesystem portability](../guides/filesystem-migration.md)
+- [Contract transition recovery](../guides/contract-transitions/recovery.md)
+- [Content portability](../guides/content-portability.md)
 - [Data retention and privacy](./data-retention-and-privacy.md)

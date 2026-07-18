@@ -3,7 +3,8 @@
 Convex component implementation for Ginko CMS.
 
 This package owns the backend implementation for CMS content, assets, members,
-settings, imports, projections, and operation surfaces used by Studio and MCP.
+the installed contract, projections, guarded operations, and owner-CLI
+portability. Studio and MCP do not expose portability execution.
 Most Nuxt apps install it next to `@lupinum/ginko-cms` and let
 `pnpm exec ginko-cms init` mount it through the host app's Convex config.
 

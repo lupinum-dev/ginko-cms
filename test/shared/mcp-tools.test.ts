@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 const mcpRoot = join(process.cwd(), 'packages/cms/src/server/mcp')
 const toolsRoot = join(mcpRoot, 'tools')
 const directRoot = join(mcpRoot, 'direct')
+const convexRoot = join(process.cwd(), 'packages/convex/src')
 const forbiddenGeneratedOpPath = ['operation', 'handles'].join('-')
 const forbiddenMcpBridgeRef = ['internal', ['ginkoCms', 'Mcp'].join('')].join('.')
 
@@ -297,7 +298,7 @@ describe('MCP tool safety contracts', () => {
     expect(mcpDoctor).toContain('Nuxt MCP code mode resolves it from the host app root')
   })
 
-  it('keeps public-output writes review gated and removes unrelated MCP authority', () => {
+  it('[AGT-07] keeps public-output writes review gated and removes unrelated MCP authority', () => {
     const sensitiveTools = ['preview-publish', 'request-publish-review']
 
     expect(
@@ -311,7 +312,7 @@ describe('MCP tool safety contracts', () => {
       'archive-entry',
       'restore-entry',
       'move-asset',
-      'export-backup',
+      'create-asset-recovery-artifact',
     ]) {
       expect(codeModeToolNames()).not.toContain(forbidden)
     }
@@ -394,6 +395,31 @@ describe('MCP tool safety contracts', () => {
     expect(combinedSource).toContain('api.ginkoCms.reviewRequests.requestPublishReview')
   })
 
+  it('has no generic activity recorder or MCP public-output write bridge', () => {
+    const agentRunsSource = readFileSync(join(convexRoot, 'agentRuns.ts'), 'utf8')
+    const mcpWriteSources = [
+      join(convexRoot, 'entries/tree.ts'),
+      join(convexRoot, 'entries/draft.ts'),
+      join(convexRoot, 'reviewRequests.ts'),
+    ]
+      .map((path) => readFileSync(path, 'utf8'))
+      .join('\n')
+    const serverMcpSources = tsFiles(mcpRoot)
+      .map((path) => readFileSync(path, 'utf8'))
+      .join('\n')
+
+    expect(agentRunsSource).not.toContain('recordOwnedAgentRunWrite')
+    expect(agentRunsSource).not.toContain("kind: 'agentRun.write'")
+    expect(mcpWriteSources).not.toContain('recordOwnedAgentRunWrite')
+    expect(mcpWriteSources).not.toContain("kind: 'agentRun.write'")
+    expect(serverMcpSources).not.toContain('recordAgentWrite')
+    expect(serverMcpSources).not.toContain('api.ginkoCms.activity')
+    expect(serverMcpSources).not.toContain('api.ginkoCms.editor.publishEntryOperationExecute')
+    expect(serverMcpSources).not.toContain('api.ginkoCms.editor.unpublishEntryOperationExecute')
+    expect(serverMcpSources).not.toContain('api.ginkoCms.editor.archiveEntryOperationExecute')
+    expect(serverMcpSources).not.toContain('api.ginkoCms.editor.restoreEntryOperationExecute')
+  })
+
   it('requires an explicit capability and never accepts authority overrides', () => {
     const sources = codeModeTools().map(({ path }) => readFileSync(path, 'utf8'))
     for (const source of sources) {
@@ -422,6 +448,9 @@ describe('MCP tool safety contracts', () => {
     expect(toolSources).not.toContain('readUploadSource')
     expect(toolSources).not.toContain('generateUploadUrl')
     expect(toolSources).not.toContain('registerAsset')
+    expect(toolSources).not.toContain('createAssetUploadSession')
+    expect(toolSources).not.toContain('claimAssetUploadSession')
+    expect(toolSources).not.toContain('finalizeAssetUploadSession')
     expect(toolSources).not.toContain('remoteUrl')
     expect(toolSources).not.toContain('localPath')
   })

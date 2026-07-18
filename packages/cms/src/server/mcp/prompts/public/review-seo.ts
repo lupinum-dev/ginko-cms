@@ -13,7 +13,7 @@ export default defineMcpPrompt({
     return [
       `Review SEO readiness for ${collection}/${entryId}${locale ? ` (${locale})` : ''}.`,
       '',
-      'Use public visibility diagnostics first, then call `get-readiness-detail` for exact draft readiness. Call `preview-publish` with the active `agentRunId` when draft SEO or route changes need publish-impact context. Inspect page data and translations. Report canonical route, hreflang/alternates, x-default availability, sitemap inclusion, title/description readiness, and blockers. Request human review before publishing.',
+      'Use public visibility diagnostics first, then call `get-readiness-detail` for exact draft readiness. Call `preview-publish` with the active `agentRunId` when draft SEO or route changes need publish-impact context. Inspect page data and translations. Report canonical route, hreflang/alternates, x-default availability, sitemap inclusion, title/description readiness, and blockers. Request human review; a human publisher owns publication.',
     ].join('\n')
   },
 })

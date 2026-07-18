@@ -10,20 +10,17 @@ import { createCtx, executeConfirmedOperation, seedMember, seedOwner } from '../
 const api = anyApi
 
 describe('component: members CRUD', () => {
-  it('adds and reads members through protected mutations', async () => {
+  it('reads existing members through the protected member API', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    const id = await owner.mutation(api.members.addMember, {
+    await seedMember(ctx, {
       userId: 'editor-1',
       role: 'editor',
       displayName: 'Editor One',
       email: 'editor@example.com',
     })
 
-    expect(typeof id).toBe('string')
+    const owner = ctx.asCmsUser('owner-1')
 
     const member = await owner.query(api.members.getMember, {
       userId: 'editor-1',
@@ -37,7 +34,7 @@ describe('component: members CRUD', () => {
     })
   })
 
-  it('updates member roles and removes members through protected mutations', async () => {
+  it('[ADM-01] updates member roles and removes access through protected operations with canonical audit evidence', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
@@ -70,9 +67,24 @@ describe('component: members CRUD', () => {
         userId: 'editor-1',
       }),
     ).resolves.toBeNull()
+
+    expect(await ctx.readAll('activity')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'member.roleChanged',
+          appIdentityId: 'owner-1',
+          detail: { userId: 'editor-1', from: 'editor', to: 'viewer' },
+        }),
+        expect.objectContaining({
+          kind: 'member.removed',
+          appIdentityId: 'owner-1',
+          detail: expect.objectContaining({ userId: 'editor-1' }),
+        }),
+      ]),
+    )
   })
 
-  it('rejects demoting the last remaining owner', async () => {
+  it('[ADM-01] rejects invented roles and demoting the last remaining owner', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
 
@@ -90,31 +102,32 @@ describe('component: members CRUD', () => {
         cmsError.message === 'Cannot demote the last owner'
       )
     })
+
+    await expect(
+      owner.mutation(api.members.updateMemberRole, {
+        userId: 'owner-1',
+        role: 'administrator',
+      } as never),
+    ).rejects.toThrow()
   })
 
-  it('rejects removing the last remaining owner', async () => {
+  it('[ADM-01] rejects removing the last remaining owner during canonical preview', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
 
     const owner = ctx.asCmsUser('owner-1')
 
-    await expect(
-      executeConfirmedOperation(owner, {
-        operationId: 'ginko-cms.remove-member',
-        preview: api.members.previewRemoveMemberOperation,
-        execute: api.members.removeMemberOperationExecute,
-        args: { userId: 'owner-1' },
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      const cmsError = getCmsErrorData(error)
-      return (
-        cmsError?.code === 'MEMBER_LAST_OWNER' &&
-        cmsError.message === 'Cannot remove the last owner'
-      )
+    const preview = await owner.mutation(api.members.previewRemoveMemberOperation, {
+      userId: 'owner-1',
+    })
+    expect(preview).toMatchObject({
+      allowed: false,
+      blockers: [expect.objectContaining({ code: 'member-last-owner' })],
+      confirmation: null,
     })
   })
 
-  it('revokes MCP credential settings when removing a member', async () => {
+  it('[ADM-01] revokes MCP credential settings when removing a member', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })

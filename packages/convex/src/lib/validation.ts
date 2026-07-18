@@ -566,12 +566,12 @@ export function assertFieldDefinitionsValid(fields: CmsField[], pathPrefix = '',
     }
 
     if (field.type === 'relation' || field.type === 'relations') {
-      const collectionId = field.relation?.collectionId
-      if (typeof collectionId !== 'string' || !CMS_SLUG_PATTERN.test(collectionId)) {
+      const relationCollection = field.relation?.collection
+      if (typeof relationCollection !== 'string' || !CMS_SLUG_PATTERN.test(relationCollection)) {
         assertFieldDefinitionInvalid(
           'FIELD_DEFINITION_INVALID_RELATION',
           path,
-          'must define a valid relation.collectionId',
+          'must define a valid relation.collection slug',
           { type: field.type },
         )
       }

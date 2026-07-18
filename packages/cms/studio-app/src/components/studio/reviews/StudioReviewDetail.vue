@@ -135,6 +135,7 @@ const {
                 request.reviewSummary.changeCount,
                 'ginkoCms.studio.reviewsPage.previewChangesOne',
                 'ginkoCms.studio.reviewsPage.previewChangesOther',
+                request.reviewSummary.affectedPublicUrlsHasMore,
               )
             }}
           </span>

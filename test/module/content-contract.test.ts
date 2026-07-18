@@ -77,7 +77,7 @@ describe('ginko-content contract derivation', () => {
         expect.objectContaining({
           key: 'authors',
           type: 'relations',
-          relation: { collectionId: 'authors', multiple: true },
+          relation: { collection: 'authors', multiple: true },
         }),
         expect.objectContaining({
           key: 'hero',

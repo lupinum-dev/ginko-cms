@@ -54,7 +54,11 @@ Assets are Convex-backed for v1. Studio should make upload, replacement,
 attachment, usage, deletion, and restoration safe and explicit.
 
 Deleting or purging assets should surface usage impact before destructive
-actions.
+actions. Reference status is `used`, `unused-verified`, or `unknown-stale`;
+Studio must never translate missing or stale derived-reference proof into an
+“unused” claim. Search, filters, location, sorting, sidebar counts, and keyset
+pagination are one backend query contract. Client-side filtering of a loaded
+page is not an asset-discovery path.
 
 ## Portability
 

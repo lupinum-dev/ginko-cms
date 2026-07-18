@@ -64,6 +64,11 @@ pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
 
+The first doctor run names the still-unbound generated contract binding and
+directs you to `pnpm exec ginko-cms deploy`. Deploy reruns every other setup
+check, binds the canonical hashes, and completes the fix. Rerun doctor after the
+deployment to confirm the setup is clean.
+
 `ginko-cms init` writes the host-owned Convex setup files:
 
 - `convex/auth.ts`

@@ -1,49 +1,14 @@
 /// <reference types="vite/client" />
 
-import {
-  buildResolvedContentContract,
-  hashCanonicalJson,
-} from '@lupinum/ginko-content/cms-contract'
 import { anyApi } from 'convex/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createCtx, seedEditorFixture, seedOwner } from './entries/helpers'
+import { classifyStorageDiagnosticFailure } from '#component/storageMaintenance.js'
+
+import { createCtx, seedMember, seedStorageObject } from './entries/helpers'
 
 const api = anyApi
 const DAY_MS = 24 * 60 * 60 * 1000
-
-async function installCanonicalContract(ctx: ReturnType<typeof createCtx>) {
-  const content = buildResolvedContentContract(
-    {
-      collections: {
-        posts: {
-          type: 'page',
-          source: 'content/posts/**/*.md',
-          route: '/posts',
-          cms: {
-            type: 'flat',
-            fields: { hero: { type: 'image', localized: false } },
-          },
-        },
-      },
-    },
-    { defaultLocale: 'en', locales: ['en'] },
-  )
-  const contentHash = await hashCanonicalJson(content)
-  const presentation = {}
-  await ctx.seed('cmsContract', {
-    key: 'active',
-    content,
-    presentation,
-    contentHash,
-    presentationHash: await hashCanonicalJson(presentation),
-    transitionState: 'ready',
-    transitionRunId: null,
-    installedAt: Date.UTC(2026, 4, 13),
-    installedBy: 'test',
-  })
-  return { contentHash }
-}
 
 afterEach(() => {
   vi.useRealTimers()
@@ -141,6 +106,115 @@ async function seedReview(
 }
 
 describe('storage maintenance', () => {
+  it('[ADM-06] reports bounded tracked usage, missing bytes, and upload cleanup health to owners', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const storageId = await seedStorageObject(ctx, { bytes: 'tracked bytes', type: 'image/png' })
+    await ctx.seed(
+      'assets' as never,
+      {
+        storageId,
+        filename: 'tracked.png',
+        mimeType: 'image/png',
+        size: 13,
+        sha256: 'sha256-tracked',
+        width: 1,
+        height: 1,
+        frames: 1,
+        alt: null,
+        caption: null,
+        scope: 'global',
+        entryId: null,
+        collection: null,
+        tags: [],
+        createdBy: 'owner-1',
+        updatedBy: null,
+        createdAt: 1,
+        updatedAt: null,
+        deletedAt: null,
+        deletedBy: null,
+        kind: 'image',
+        filenameSort: 'tracked.png',
+        discoveryText: 'tracked.png',
+        effectiveUpdatedAt: 1,
+        deletedState: 'active',
+      } as never,
+    )
+
+    await expect(
+      ctx.asCmsUser('owner-1').query(api.storageMaintenance.getStorageHealth, {}),
+    ).resolves.toMatchObject({
+      status: 'healthy',
+      usage: {
+        trackedAssets: 1,
+        trackedBytes: 13,
+        quotaBytes: null,
+        quotaSource: 'provider-managed',
+      },
+      constraints: { supportedAssets: 500, countComplete: true },
+      bytes: { checked: 1, missing: 0 },
+      issues: [],
+    })
+
+    await ctx.raw.run(async (innerCtx) => await innerCtx.storage.delete(storageId as never))
+    await expect(
+      ctx.asCmsUser('owner-1').query(api.storageMaintenance.getStorageHealth, {}),
+    ).resolves.toMatchObject({
+      status: 'attention',
+      bytes: { checked: 1, missing: 1 },
+      issues: [expect.objectContaining({ code: 'missing-bytes', count: 1 })],
+    })
+  })
+
+  it('[ADM-06] keeps storage health owner-only and diagnostics leave no CMS records or bytes', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    await seedMember(ctx, { userId: 'viewer-1', role: 'viewer' })
+
+    await expect(
+      ctx.asCmsUser('viewer-1').query(api.storageMaintenance.getStorageHealth, {}),
+    ).rejects.toThrow(/forbidden/i)
+    const beforeAssets = await ctx.readAll('assets')
+    const beforeSessions = await ctx.readAll('assetUploadSessions')
+    const beforeStorage = await ctx.raw.run(
+      async (innerCtx) => await innerCtx.db.system.query('_storage').collect(),
+    )
+    await expect(
+      ctx.asCmsUser('owner-1').mutation(api.storageMaintenance.runStorageDiagnostic, {}),
+    ).resolves.toMatchObject({
+      status: 'healthy',
+      code: 'STORAGE_UPLOAD_READY',
+      createdStorageObject: false,
+    })
+    expect(await ctx.readAll('assets')).toEqual(beforeAssets)
+    expect(await ctx.readAll('assetUploadSessions')).toEqual(beforeSessions)
+    expect(
+      await ctx.raw.run(async (innerCtx) => await innerCtx.db.system.query('_storage').collect()),
+    ).toEqual(beforeStorage)
+  })
+
+  it('[ADM-06] redacts provider diagnostics while distinguishing setup, quota, and transient failures', () => {
+    expect(
+      classifyStorageDiagnosticFailure(new Error('missing configuration SECRET=value')),
+    ).toEqual(expect.objectContaining({ status: 'missing-setup', code: 'STORAGE_SETUP_MISSING' }))
+    expect(classifyStorageDiagnosticFailure(new Error('quota exceeded SECRET=value'))).toEqual(
+      expect.objectContaining({ status: 'quota-or-limit', code: 'STORAGE_LIMIT_REACHED' }),
+    )
+    expect(classifyStorageDiagnosticFailure(new Error('provider SECRET=value failed'))).toEqual(
+      expect.objectContaining({
+        status: 'temporary-failure',
+        code: 'STORAGE_TEMPORARILY_UNAVAILABLE',
+      }),
+    )
+    for (const result of [
+      classifyStorageDiagnosticFailure(new Error('missing configuration SECRET=value')),
+      classifyStorageDiagnosticFailure(new Error('quota exceeded SECRET=value')),
+      classifyStorageDiagnosticFailure(new Error('provider SECRET=value failed')),
+    ]) {
+      expect(result.message).not.toContain('SECRET=value')
+    }
+  })
+
   it('retains live generation-fenced work while pruning expired operational history', async () => {
     const ctx = createCtx()
     const now = Date.UTC(2026, 4, 13)
@@ -183,12 +257,15 @@ describe('storage maintenance', () => {
       'activity' as never,
       {
         kind: 'entry.updated',
+        outcome: 'applied',
         summary: 'old activity',
+        retention: 'standard',
         entryId: null,
         collection: null,
         locale: null,
         detail: null,
         appIdentityId: 'owner-1',
+        actorLabel: null,
         createdAt: now - 181 * DAY_MS,
       } as never,
     )
@@ -196,12 +273,15 @@ describe('storage maintenance', () => {
       'activity' as never,
       {
         kind: 'entry.updated',
+        outcome: 'applied',
         summary: 'recent activity',
+        retention: 'standard',
         entryId: null,
         collection: null,
         locale: null,
         detail: null,
         appIdentityId: 'owner-1',
+        actorLabel: null,
         createdAt: now - 179 * DAY_MS,
       } as never,
     )
@@ -214,7 +294,10 @@ describe('storage maintenance', () => {
         scopeKey: 'scope',
         argsHash: 'args',
         previewHash: 'preview',
-        executedAt: now - 400 * DAY_MS,
+        status: 'applied',
+        code: null,
+        message: null,
+        recordedAt: now - 400 * DAY_MS,
         executePath: 'path',
       } as never,
     )
@@ -340,80 +423,5 @@ describe('storage maintenance', () => {
     const remainingRunIds = (await ctx.readAll('agentRuns')).map((row) => String(row._id))
     expect(remainingRunIds).not.toContain(deletableRun)
     expect(remainingRunIds).toHaveLength(2)
-  })
-
-  it('reports canonical contract, draft, revision, and asset-reference growth', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    const { contentHash } = await installCanonicalContract(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-    const owner = ctx.asCmsUser('owner-1')
-
-    await ctx.raw.run(async (innerCtx) => {
-      const entry = await innerCtx.db.get(entryId as never)
-      if (!entry) throw new Error('Expected canonical entry')
-      const localeDraft = await innerCtx.db
-        .query('entryLocaleDrafts')
-        .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id).eq('locale', 'en'))
-        .unique()
-      if (!localeDraft) throw new Error('Expected canonical locale draft')
-      const revisionId = await innerCtx.db.insert('entryRevisions', {
-        entryId: entry._id,
-        collection: entry.collection,
-        revisionNumber: 1,
-        operationId: 'storage-report-checkpoint',
-        parentRevisionId: null,
-        kind: 'checkpoint',
-        snapshots: {
-          en: {
-            shared: entry.shared,
-            values: localeDraft.values,
-            bodyMdc: localeDraft.bodyMdc,
-            slug: entry.slug,
-            parentEntryId: entry.parentEntryId,
-            orderRank: entry.orderRank,
-            sharedVersion: entry.sharedVersion,
-            localeVersion: localeDraft.version,
-          },
-        },
-        affectedLocales: ['en'],
-        contentHash,
-        message: null,
-        createdBy: 'owner-1',
-        createdAt: entry.updatedAt,
-      })
-      await innerCtx.db.patch(entry._id, { latestEditorialRevisionId: revisionId })
-      await innerCtx.db.insert('contentAssetRefs', {
-        sourceKind: 'revision',
-        sourceId: String(revisionId),
-        assetId: 'asset-one',
-        fieldPath: 'hero',
-        locale: 'en',
-        entryId: entry._id,
-        collection: entry.collection,
-        updatedAt: entry.updatedAt,
-      })
-    })
-    await seedOutboxEvent(ctx, {
-      key: 'report-delivered',
-      status: 'delivered',
-      updatedAt: Date.UTC(2026, 4, 13),
-      deliveredAt: Date.UTC(2026, 4, 13),
-    })
-
-    const report = await owner.query(api.diagnostics.storageHygieneReport, {})
-    expect(report.counts).toMatchObject({
-      entries: 1,
-      entryDrafts: 1,
-      entryRevisions: 1,
-      publicEntries: 0,
-      contentAssetRefs: 1,
-      outboxEvents: 1,
-      backupArtifacts: 0,
-    })
-    expect(report.revisionsPerEntry).toEqual({ max: 1, average: 1 })
-    expect(report.assetRefsPerEntry).toEqual({ max: 1, average: 1 })
-    expect(report.outbox.delivered).toBe(1)
-    expect(report.truncatedTables).toEqual([])
   })
 })

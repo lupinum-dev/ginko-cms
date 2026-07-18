@@ -9,15 +9,21 @@ export {
   deleteAssetOperation,
   previewDeleteAssetOperation,
   previewPurgeAssetOperation,
+  previewReplaceAssetOperation,
   purgeAssetOperation,
+  replaceAssetOperation,
 } from './assets.js'
-export { deleteBackupArtifactOperation, previewDeleteBackupArtifactOperation } from './backup.js'
+export {
+  deleteAssetRecoveryArtifactOperation,
+  previewDeleteAssetRecoveryArtifactOperation,
+} from './assetRecovery.js'
 export { removeMemberOperation, previewRemoveMemberOperation } from './members.js'
 export {
   retryRevalidationJobOperation,
   previewRetryRevalidationJobOperation,
 } from './revalidation.js'
 export { deleteSiteDataBlockOperation, previewDeleteSiteDataBlockOperation } from './siteData.js'
+export { retireRedirectOperation, previewRetireRedirectOperation } from './redirects.js'
 export {
   revertDraftToPublishedOperation,
   previewRevertDraftToPublishedOperation,
@@ -27,11 +33,17 @@ export {
   previewArchiveEntryOperation,
   publishEntryOperation,
   previewPublishEntryOperation,
-  rollbackVersionOperation,
-  previewRollbackVersionOperation,
   unpublishEntryOperation,
   previewUnpublishEntryOperation,
 } from './entries/publish.js'
+export {
+  rollbackVersionOperation,
+  previewRollbackVersionOperation,
+} from './entries/publicationHistory.js'
+export {
+  permanentlyDeleteEntryOperation,
+  previewPermanentlyDeleteEntryOperation,
+} from './entries/permanentDelete.js'
 
 export const cleanupExpiredConfirmations = internalMutation({
   args: {

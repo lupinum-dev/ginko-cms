@@ -1,21 +1,31 @@
 import {
   createEntry as createEntryArgs,
+  duplicateEntry as duplicateEntryArgs,
   reorderEntry as reorderEntryArgs,
   reparentEntry as reparentEntryArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
+import { duplicateEntryResultValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { v } from 'convex/values'
 
-import { getOwnActiveAgentRunOrThrow, recordOwnedAgentRunWrite } from '../agentRuns.js'
+import { getOwnActiveAgentRunOrThrow } from '../agentRuns.js'
 import { canCreateEntries, canEditEntries } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
 import { asEntryId } from '../lib/ids.js'
-import { defineCmsOperation, hashValue } from '../operationHelpers.js'
-import { getCollectionForEntry, getEntryOrThrow } from './context.js'
+import { assertCmsContractWritable } from '../lib/installedContract.js'
+import {
+  buildPreview,
+  defineCmsOperation,
+  definePreview,
+  hashValue,
+  operationEffect,
+  previewResultValidator,
+} from '../operationHelpers.js'
+import { loadEntryMutationContext } from './context.js'
 import { assertNoDraftSiblingPathConflict } from './draftPathConflicts.js'
-import { moveEntryInTree } from './placement.js'
-import { createCanonicalEntry } from './workflow/commands.js'
+import { moveEntryInTree, resolveEntryPlacement } from './placement.js'
+import { createCanonicalEntry, duplicateCanonicalEntry } from './workflow/commands.js'
 import { assertValidDraftParentChain } from './workflow/draftPlacement.js'
 
 const createEntryDefinition = defineCmsOperation({
@@ -44,6 +54,27 @@ const createEntryDefinition = defineCmsOperation({
 
 export const createEntry = callerMutation.protected(createEntryDefinition)
 
+const duplicateEntryDefinition = defineCmsOperation({
+  id: 'ginko-cms.duplicate-entry',
+  args: duplicateEntryArgs.args,
+  guard: canCreateEntries,
+  returns: duplicateEntryResultValidator,
+  load: async (ctx, args) =>
+    await loadEntryMutationContext(ctx, args.sourceEntryId, {
+      expectedVersion: args.expectedSourceDraftVersion,
+    }),
+  handler: async (_ctx, args, loaded) =>
+    await duplicateCanonicalEntry(_ctx, {
+      source: loaded.entry,
+      collection: loaded.collection,
+      appIdentityId: loaded.appIdentityId,
+      now: loaded.now,
+      variants: args.variants,
+    }),
+})
+
+export const duplicateEntry = callerMutation.protected(duplicateEntryDefinition)
+
 export const mcpCreateEntry = callerMutation.protected({
   id: 'editor:mcpCreateEntry',
   args: {
@@ -67,7 +98,7 @@ export const mcpCreateEntry = callerMutation.protected({
       throwCmsError('MCP_CREDENTIAL_REQUIRED', 'MCP create requires an API-key credential.')
     }
     const now = Date.now()
-    await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, now)
+    const agentRun = await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, now)
     const callerKey = `${appIdentity.audit.apiKeyId}:${appIdentity.userId}`
     const argsHash = await hashValue(input)
     const receipt = await ctx.db
@@ -100,29 +131,82 @@ export const mcpCreateEntry = callerMutation.protected({
       apiKeyId: appIdentity.audit.apiKeyId,
       requestId,
       argsHash,
-      entryId: asEntryId(entryId),
+      entryId: asEntryId(ctx, entryId),
       createdAt: now,
       expiresAt: now + 24 * 60 * 60_000,
     })
-    await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.create-entry')
+    await ctx.db.patch(agentRun._id, {
+      updatedAt: now,
+      lastWriteAt: now,
+    })
     return entryId
   },
 })
 
-export const reorderEntry = callerMutation.protected({
-  id: 'editor:reorderEntry',
+const treeMoveResultValidator = v.object({
+  draftVersion: v.number(),
+  parentEntryId: v.union(v.string(), v.null()),
+  orderRank: v.string(),
+})
+
+const reorderEntryOperation = defineCmsOperation({
+  id: 'ginko-cms.reorder-entry',
+  kind: 'destructive',
+  executeFunctionRef: 'entries/tree:reorderEntryOperationExecute',
   args: reorderEntryArgs.args,
   guard: canEditEntries,
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
-    const entry = await getEntryOrThrow(ctx, args.entryId)
-    const collection = await getCollectionForEntry(ctx, entry)
-    await moveEntryInTree(ctx, {
+  returns: treeMoveResultValidator,
+  previewReturns: previewResultValidator(),
+  load: async (ctx, args) =>
+    await loadEntryMutationContext(ctx, args.entryId, {
+      expectedVersion: args.expectedDraftVersion,
+    }),
+  preview: async (ctx, args, { entry, collection }) => {
+    const placement = await resolveEntryPlacement(ctx, {
+      collection,
+      collectionSlug: entry.collection,
+      parentEntryId: args.parentEntryId,
+      beforeEntryId: args.beforeEntryId,
+      afterEntryId: args.afterEntryId,
+      currentOrder: entry.orderRank,
+      excludeEntryId: entry._id,
+    })
+    await assertValidDraftParentChain(ctx, {
       entry,
       collection,
-      appIdentityId: appIdentity.userId,
-      now: Date.now(),
+      parentEntryId: placement.parentEntryId,
+    })
+    await assertNoDraftSiblingPathConflict(ctx, {
+      entry,
+      collection,
+      locales: collection.locales,
+      parentEntryId: placement.parentEntryId,
+    })
+    const effect = {
+      parentEntryId: placement.parentEntryId ? String(placement.parentEntryId) : null,
+      orderRank: placement.orderRank,
+    }
+    return buildPreview({
+      summary: `Reorder entry ${args.entryId}.`,
+      effects: [
+        operationEffect({
+          kind: 'entry-placement',
+          summary: 'Editorial tree placement updated',
+          count: 1,
+        }),
+      ],
+      details: effect,
+      confirm: { operationId: 'ginko-cms.reorder-entry', args, effect },
+      version: { draftVersion: entry.draftVersion },
+    })
+  },
+  handler: async (ctx, args, { appIdentityId, entry, collection, now }) => {
+    await assertCmsContractWritable(ctx)
+    const resolved = await moveEntryInTree(ctx, {
+      entry,
+      collection,
+      appIdentityId,
+      now,
       parentEntryId: args.parentEntryId,
       beforeEntryId: args.beforeEntryId,
       afterEntryId: args.afterEntryId,
@@ -130,37 +214,82 @@ export const reorderEntry = callerMutation.protected({
       activitySummary: 'Reordered entry',
       detail: ({ orderRank }) => ({ toRank: orderRank }),
     })
-    return null
+    return {
+      draftVersion: resolved.draftVersion,
+      parentEntryId: resolved.parentEntryId ? String(resolved.parentEntryId) : null,
+      orderRank: resolved.orderRank,
+    }
   },
 })
 
-export const reparentEntry = callerMutation.protected({
-  id: 'editor:reparentEntry',
+export const reorderEntryOperationExecute = callerMutation.protected(reorderEntryOperation)
+export const previewReorderEntryOperation = callerMutation.protected(
+  Object.assign(definePreview(reorderEntryOperation), {
+    id: 'entries/tree:previewReorderEntryOperation',
+  }),
+)
+
+const reparentEntryOperation = defineCmsOperation({
+  id: 'ginko-cms.reparent-entry',
+  kind: 'destructive',
+  executeFunctionRef: 'entries/tree:reparentEntryOperationExecute',
   args: reparentEntryArgs.args,
   guard: canEditEntries,
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
-    const entry = await getEntryOrThrow(ctx, args.entryId)
-    const collection = await getCollectionForEntry(ctx, entry)
+  returns: treeMoveResultValidator,
+  previewReturns: previewResultValidator(),
+  load: async (ctx, args) =>
+    await loadEntryMutationContext(ctx, args.entryId, {
+      expectedVersion: args.expectedDraftVersion,
+    }),
+  preview: async (ctx, args, { entry, collection }) => {
     const fromParent = entry.parentEntryId ? String(entry.parentEntryId) : null
-    const parentEntryId = args.parentEntryId ? asEntryId(args.parentEntryId) : null
+    const placement = await resolveEntryPlacement(ctx, {
+      collection,
+      collectionSlug: entry.collection,
+      parentEntryId: args.parentEntryId,
+      beforeEntryId: args.beforeEntryId,
+      afterEntryId: args.afterEntryId,
+      currentOrder: entry.orderRank,
+      excludeEntryId: entry._id,
+    })
     await assertValidDraftParentChain(ctx, {
       entry,
       collection,
-      parentEntryId,
+      parentEntryId: placement.parentEntryId,
     })
     await assertNoDraftSiblingPathConflict(ctx, {
       entry,
       collection,
       locales: collection.locales,
-      parentEntryId,
+      parentEntryId: placement.parentEntryId,
     })
-    await moveEntryInTree(ctx, {
+    const effect = {
+      fromParentEntryId: fromParent,
+      parentEntryId: placement.parentEntryId ? String(placement.parentEntryId) : null,
+      orderRank: placement.orderRank,
+    }
+    return buildPreview({
+      summary: `Move entry ${args.entryId} to a different parent.`,
+      effects: [
+        operationEffect({
+          kind: 'entry-placement',
+          summary: 'Editorial parent and order updated',
+          count: 1,
+        }),
+      ],
+      details: effect,
+      confirm: { operationId: 'ginko-cms.reparent-entry', args, effect },
+      version: { draftVersion: entry.draftVersion },
+    })
+  },
+  handler: async (ctx, args, { appIdentityId, entry, collection, now }) => {
+    await assertCmsContractWritable(ctx)
+    const fromParent = entry.parentEntryId ? String(entry.parentEntryId) : null
+    const resolved = await moveEntryInTree(ctx, {
       entry,
       collection,
-      appIdentityId: appIdentity.userId,
-      now: Date.now(),
+      appIdentityId,
+      now,
       parentEntryId: args.parentEntryId,
       beforeEntryId: args.beforeEntryId,
       afterEntryId: args.afterEntryId,
@@ -171,6 +300,17 @@ export const reparentEntry = callerMutation.protected({
         toParent: parentEntryId ? String(parentEntryId) : null,
       }),
     })
-    return null
+    return {
+      draftVersion: resolved.draftVersion,
+      parentEntryId: resolved.parentEntryId ? String(resolved.parentEntryId) : null,
+      orderRank: resolved.orderRank,
+    }
   },
 })
+
+export const reparentEntryOperationExecute = callerMutation.protected(reparentEntryOperation)
+export const previewReparentEntryOperation = callerMutation.protected(
+  Object.assign(definePreview(reparentEntryOperation), {
+    id: 'entries/tree:previewReparentEntryOperation',
+  }),
+)

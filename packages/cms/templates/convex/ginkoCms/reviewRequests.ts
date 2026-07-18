@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { mutation, query } from '../_generated/server.js'
+import { bindExpectedCmsContract } from './contractBinding.js'
 
 export const requestPublishReview = mutation({
   args: {
@@ -14,7 +15,10 @@ export const requestPublishReview = mutation({
     summary: v.string(),
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.reviewRequests.requestPublishReview, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.reviewRequests.requestPublishReview,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const listPendingReviews = query({
@@ -22,7 +26,7 @@ export const listPendingReviews = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.reviewRequests.listPendingReviews, args as never),
+    await ctx.runQuery(components.ginkoCms.reviewRequests.listPendingReviews, args),
 })
 
 export const listRecentReviewOutcomes = query({
@@ -30,7 +34,7 @@ export const listRecentReviewOutcomes = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.reviewRequests.listRecentReviewOutcomes, args as never),
+    await ctx.runQuery(components.ginkoCms.reviewRequests.listRecentReviewOutcomes, args),
 })
 
 export const listRecentReviewOutcomesForEntry = query({
@@ -39,16 +43,13 @@ export const listRecentReviewOutcomesForEntry = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) =>
-    await ctx.runQuery(
-      components.ginkoCms.reviewRequests.listRecentReviewOutcomesForEntry,
-      args as never,
-    ),
+    await ctx.runQuery(components.ginkoCms.reviewRequests.listRecentReviewOutcomesForEntry, args),
 })
 
 export const getOwnReviewRequest = query({
   args: { reviewRequestId: v.string() },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.reviewRequests.getOwnReviewRequest, args as never),
+    await ctx.runQuery(components.ginkoCms.reviewRequests.getOwnReviewRequest, args),
 })
 
 export const approveReview = mutation({
@@ -57,7 +58,10 @@ export const approveReview = mutation({
     expectedVersionHash: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.reviewRequests.approveReview, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.reviewRequests.approveReview,
+      bindExpectedCmsContract(args),
+    ),
 })
 
 export const rejectReview = mutation({
@@ -66,5 +70,8 @@ export const rejectReview = mutation({
     feedback: v.optional(v.string()),
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.reviewRequests.rejectReview, args as never),
+    await ctx.runMutation(
+      components.ginkoCms.reviewRequests.rejectReview,
+      bindExpectedCmsContract(args),
+    ),
 })

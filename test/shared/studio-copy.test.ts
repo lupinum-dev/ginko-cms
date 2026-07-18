@@ -52,6 +52,8 @@ const primaryStudioFiles = [
   'packages/cms/studio-app/src/components/studio/assets/StudioAssetPickDetails.vue',
   'packages/cms/studio-app/src/components/studio/assets/StudioAssetToolbar.vue',
   'packages/cms/studio-app/src/components/studio/assets/StudioAssetTrashDialog.vue',
+  'packages/cms/studio-app/src/components/studio/collections/StudioCollectionFlatList.vue',
+  'packages/cms/studio-app/src/components/studio/collections/StudioCollectionTreeList.vue',
   'packages/cms/studio-app/src/components/studio/StudioAssetMetadataDialog.vue',
   'packages/cms/studio-app/src/pages/[collection]/index.vue',
   'packages/cms/studio-app/src/pages/[collection]/new.vue',
@@ -145,9 +147,11 @@ describe('Studio copy guardrails', () => {
     expect(violations).toEqual([])
     // The list header is fully keyed now (design review F1a): the status
     // column uses the shared statusColumn locale key.
-    expect(readWorkspaceFile('packages/cms/studio-app/src/pages/[collection]/index.vue')).toContain(
-      'collectionListPage.statusColumn',
-    )
+    expect(
+      readWorkspaceFile(
+        'packages/cms/studio-app/src/components/studio/collections/StudioCollectionFlatList.vue',
+      ),
+    ).toContain('collectionListPage.statusColumn')
   })
 
   it('does not derive user-facing readiness copy from raw backend codes', () => {

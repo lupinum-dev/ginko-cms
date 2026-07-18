@@ -27,7 +27,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsI18n', () => ({
   useCmsI18n: () => ({
-    t: (key: string) => key,
+    t: (key: string) =>
+      key === 'ginkoCms.studio.assetMetadataDialog.description'
+        ? 'Update image text used by editors. Live pages keep their current image details until they are published again.'
+        : key,
   }),
 }))
 
@@ -83,13 +86,13 @@ function stubs() {
 }
 
 describe('StudioAssetMetadataDialog', () => {
-  it('edits metadata per configured locale without dropping other locale values', async () => {
+  it('[AST-03] edits metadata per configured locale without dropping values and explains immutable published-snapshot freshness', async () => {
     mocks.updateAsset.mockResolvedValue(null)
 
     const wrapper = mount(StudioAssetMetadataDialog, {
       props: {
         assetContext: {
-          collectionSlug: 'blog-posts',
+          collection: 'blog-posts',
           locale: 'en',
         },
         assetId: 'asset_1',
@@ -102,6 +105,9 @@ describe('StudioAssetMetadataDialog', () => {
 
     const inputs = wrapper.findAll('input')
     expect(inputs[0]!.element.value).toBe('Old EN')
+    expect(wrapper.text()).toContain(
+      'Live pages keep their current image details until they are published again.',
+    )
 
     await inputs[0]!.setValue('New EN')
     await wrapper
@@ -141,7 +147,7 @@ describe('StudioAssetMetadataDialog', () => {
     const wrapper = mount(StudioAssetMetadataDialog, {
       props: {
         assetContext: {
-          collectionSlug: 'blog-posts',
+          collection: 'blog-posts',
           locale: 'en',
         },
         assetId: 'asset_1',

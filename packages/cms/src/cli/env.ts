@@ -62,7 +62,7 @@ export function convexSiteOrigin(cwd: string): string {
   const configured = requiredEnvironment(
     cwd,
     ['GINKO_CMS_BETTER_AUTH_BASE_URL', 'CONVEX_SITE_URL', 'BETTER_AUTH_URL'],
-    'ginko-cms content commands require GINKO_CMS_BETTER_AUTH_BASE_URL, CONVEX_SITE_URL, or BETTER_AUTH_URL.',
+    'Ginko CMS owner commands require GINKO_CMS_BETTER_AUTH_BASE_URL, CONVEX_SITE_URL, or BETTER_AUTH_URL.',
   )
   const url = new URL(configured)
   const path = url.pathname.replace(/\/+$/, '')
@@ -98,6 +98,6 @@ export function operatorSessionCookie(cwd: string): string {
   return requiredEnvironment(
     cwd,
     ['GINKO_CMS_SESSION_COOKIE'],
-    'ginko-cms content commands require GINKO_CMS_SESSION_COOKIE with a current Better Auth session cookie.',
+    'Ginko CMS owner commands require GINKO_CMS_SESSION_COOKIE with a current Better Auth session cookie.',
   )
 }

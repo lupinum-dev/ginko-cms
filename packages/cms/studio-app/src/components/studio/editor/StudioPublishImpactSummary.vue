@@ -5,7 +5,7 @@ import { useOptionalStudioEntryEditorContext } from '../../../composables/intern
 import { useCmsConfig } from '../../../composables/useCmsConfig'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { draftPreviewPath } from '../../../lib/publicWorkflow'
-import { groupWebsiteChanges } from '../../../lib/websiteChangePresenter'
+import { formatBoundedCount, groupWebsiteChanges } from '../../../lib/websiteChangePresenter'
 import StudioDeveloperDetails from '../StudioDeveloperDetails.vue'
 import StudioWorkflowDiagnosticsList from './StudioWorkflowDiagnosticsList.vue'
 import {
@@ -214,7 +214,7 @@ const isFailureState = computed(() =>
            concurrent-edit failure, add the same recovery the top bar's
            conflict notice offers instead of leaving the editor without a way
            out. -->
-      <div v-if="editor?.workflow?.previewConcurrentEdit" class="ginko:mt-3">
+      <div v-if="editor?.publishing.publishSession.concurrentEdit" class="ginko:mt-3">
         <Button
           variant="outline"
           size="sm"
@@ -553,6 +553,38 @@ const isFailureState = computed(() =>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div
+          v-if="(localeImpact.routeImpact?.listed ?? 0) > 0"
+          class="ginko:mt-3 ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2 ginko:border-t ginko:border-border/60 ginko:pt-3"
+        >
+          <div class="ginko:text-xs ginko:text-muted-foreground">
+            {{
+              ce('publishImpactDescendantRoutesShown', {
+                listed: localeImpact.routeImpact?.listed ?? 0,
+                total: formatBoundedCount(
+                  localeImpact.routeImpact?.total ?? localeImpact.routeImpact?.listed ?? 0,
+                  localeImpact.routeImpact?.total === null,
+                ),
+              })
+            }}
+          </div>
+          <Button
+            v-if="localeImpact.routeImpact?.hasMore"
+            variant="outline"
+            size="sm"
+            :disabled="localeImpact.routeImpact?.loading"
+            @click="editor?.workflow?.loadMorePublishImpact(localeImpact.locale)"
+          >
+            {{ t('ginkoCms.common.loadMore') }}
+          </Button>
+          <div
+            v-if="localeImpact.routeImpact?.error"
+            class="ginko:basis-full ginko:text-xs ginko:text-destructive"
+          >
+            {{ localeImpact.routeImpact?.error }}
           </div>
         </div>
 

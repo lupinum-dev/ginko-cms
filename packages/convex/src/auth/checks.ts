@@ -96,13 +96,14 @@ export const canPublishEntries = defineCmsGuard(
 
 export const canArchiveEntries = defineCmsGuard(
   'Archive entries',
-  (appIdentity) => appIdentity?.audit.origin !== 'mcp' && hasRole('owner').check(appIdentity),
+  (appIdentity) =>
+    appIdentity?.audit.origin !== 'mcp' && hasRole('owner', 'publisher').check(appIdentity),
   cmsPermissionKeys.archiveEntries,
 )
 
 export const canDeleteEntries = defineCmsGuard(
   'Delete entries',
-  hasRole('owner').check,
+  (appIdentity) => appIdentity?.audit.origin === 'user' && hasRole('owner').check(appIdentity),
   cmsPermissionKeys.deleteEntries,
 )
 
@@ -130,10 +131,10 @@ export const canManageAssets = defineCmsGuard(
   cmsPermissionKeys.manageAssets,
 )
 
-export const canManageBackups = defineCmsGuard(
-  'Manage backups',
-  hasRole('owner').check,
-  cmsPermissionKeys.manageBackups,
+export const canManageAssetRecovery = defineCmsGuard(
+  'Manage asset recovery',
+  (appIdentity) => hasRole('owner').check(appIdentity) && appIdentity?.audit.origin === 'user',
+  cmsPermissionKeys.manageAssetRecovery,
 )
 
 export const canManagePortability = defineCmsGuard(
@@ -153,6 +154,6 @@ export const cmsPermissionGuards = [
   { key: cmsPermissionKeys.manageSettings, guard: canManageSettings },
   { key: cmsPermissionKeys.manageMembers, guard: canManageMembers },
   { key: cmsPermissionKeys.manageAssets, guard: canManageAssets },
-  { key: cmsPermissionKeys.manageBackups, guard: canManageBackups },
+  { key: cmsPermissionKeys.manageAssetRecovery, guard: canManageAssetRecovery },
   { key: cmsPermissionKeys.managePortability, guard: canManagePortability },
 ] satisfies Array<{ key: CmsPermissionKey; guard: CmsGuard }>

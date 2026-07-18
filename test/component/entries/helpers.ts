@@ -1,16 +1,25 @@
 /// <reference types="vite/client" />
 
+import type { createCtx } from '../../helpers'
+
 export {
   archiveEntry,
   createCtx,
   currentDraftVersion,
   installTestContract,
   previewArchiveEntry,
+  previewPermanentlyDeleteEntry,
   previewPublishEntryWithArgs,
+  previewReorderEntry,
+  previewReparentEntry,
   previewUnpublishEntry,
   publishEntry,
+  permanentlyDeleteEntry,
   publishEntryWithArgs,
+  readTestContractWriteToken,
   revertDraftToPublished,
+  reorderEntry,
+  reparentEntry,
   rollbackVersion,
   seedMember,
   seedMultiLocaleSettings,
@@ -18,8 +27,6 @@ export {
   seedSettings,
   unpublishEntry,
 } from '../../helpers'
-
-import { createCtx } from '../../helpers'
 
 export async function seedStorageObject(
   ctx: ReturnType<typeof createCtx>,
@@ -36,7 +43,7 @@ export async function seedEditorFixture(ctx: ReturnType<typeof createCtx>) {
     slug: 'hello-world',
     localized: { title: 'Hello world', description: 'A canonical test entry.' },
   })
-  return { collectionId: 'posts', entryId }
+  return { collection: 'posts', entryId }
 }
 
 export async function seedTreeFixture(ctx: ReturnType<typeof createCtx>) {
@@ -70,7 +77,7 @@ export async function seedTreeFixture(ctx: ReturnType<typeof createCtx>) {
     localized: { title: 'Grandchild' },
   })
   return {
-    collectionId: 'docs',
+    collection: 'docs',
     rootAId,
     rootBId,
     childId,

@@ -18,6 +18,6 @@ export default defineMcpPrompt({
       '3. Run `explain-public-visibility` for each target locale.',
       '4. Call `get-readiness-detail` for exact readiness, then call `preview-publish` with the active `agentRunId`, observed draft version, entry, and target locales. Treat preview blockers as authoritative.',
       '5. Call `request-publish-review` with the active `agentRunId`, then use `get-review-status` to follow the human decision.',
-      '6. After publish or approval, verify with `page`, `list`, `search`, `nav`, and `sitemap`.',
+      '6. After a human publisher approves and publishes, verify with `page`, `list`, `search`, `nav`, and `sitemap`. MCP never publishes directly.',
     ].join('\n'),
 })

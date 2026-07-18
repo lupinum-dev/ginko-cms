@@ -4,8 +4,8 @@ import { resolve } from 'node:path'
 import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
 import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import { verifyPortableDirectoryBounded } from '@lupinum/ginko-content/portability/node'
-import { exchangeConvexToken } from 'better-convex-nuxt/server'
 import { ConvexHttpClient } from 'convex/browser'
+import { anyApi } from 'convex/server'
 
 import { loadGinkoContentContract } from '../module/content-contract.js'
 import {
@@ -15,16 +15,41 @@ import {
   type PreparedPortableDraftImport,
 } from '../portability/commands.js'
 import { type CliIo, type ConvexClientFactory, readFlag, write } from './args.js'
-import {
-  cmsSiteOrigin,
-  convexDeploymentId,
-  convexSiteOrigin,
-  operatorSessionCookie,
-  publicConvexUrl,
-} from './env.js'
+import { cmsSiteOrigin, convexDeploymentId } from './env.js'
+import { createOperatorContext, type OperatorClient } from './operator.js'
 import { loadContentConfig } from './push.js'
 
-type OperatorClient = Pick<ConvexHttpClient, 'query' | 'mutation' | 'action'>
+const api = anyApi
+const PORTABLE_RECEIPT_PAGE_SIZE = 100
+const PORTABLE_RECEIPT_MAX_PAGES = 51
+type PortableReceiptFilter = 'all' | 'failed' | 'blocked' | 'skipped'
+type PortableItemReceipt = {
+  index: number
+  itemKey: string
+  outcome: 'applied' | 'blocked' | 'failed' | 'pending' | 'skipped'
+  state: string
+  effect: string | null
+  resultId: string | null
+  committedAt: number | null
+}
+type PortableRunStatus = {
+  runId: string
+  mode: 'import' | 'export'
+  state: string
+  phase: string | null
+  generation: number
+  leaseExpiresAt: number | null
+  attempts: number
+  nextAttemptAt: number | null
+  lastError: string | null
+  deadLetteredAt: number | null
+  itemCount: number
+  committedItemCount: number
+  assetCount: number
+  attachedAssetCount: number
+  completedAt: number | null
+  itemReceipts: PortableItemReceipt[]
+}
 
 export async function runContentCommand(
   args: string[],
@@ -34,10 +59,33 @@ export async function runContentCommand(
 ): Promise<number> {
   const command = args[1]
   if (command === 'verify') return await verifyCommand(args, cwd, io)
+  if (command === 'status') {
+    const runId = requiredRunId(args, 'status')
+    const receiptFilter = portableReceiptFilter(args)
+    const { client } = await createOperatorContext(cwd, convexClientFactory)
+    const status = (await client.query(api.ginkoCms.portability.getPortabilityRunStatus, {
+      runId,
+    })) as PortableRunStatus
+    writePortableRunStatus(io, status, receiptFilter === null)
+    if (receiptFilter !== null) {
+      await writeFilteredPortableReceipts(client, io, runId, receiptFilter)
+    }
+    return 0
+  }
+  if (command === 'resume') {
+    const runId = requiredRunId(args, 'resume')
+    const { client } = await createOperatorContext(cwd, convexClientFactory)
+    const status = (await client.action(api.ginkoCms.portability.resumePortabilityRun, {
+      runId,
+    })) as PortableRunStatus
+    write(io.stdout, `Portable run resume requested: ${runId}.\n`)
+    writePortableRunStatus(io, status)
+    return 0
+  }
   if (command === 'export') {
     const output = readFlag(args, '--out')
     if (!output) throw new Error('ginko-cms content export requires --out <directory>.')
-    const { client, transfer } = await operatorContext(cwd, convexClientFactory)
+    const { client, sessionCookie } = await createOperatorContext(cwd, convexClientFactory)
     const contract = await localContract(cwd)
     const requested = readFlag(args, '--collections')
     const collections = requested
@@ -54,7 +102,10 @@ export async function runContentCommand(
       deploymentId: convexDeploymentId(cwd),
       collections,
       contract,
-      assetTransfer: transfer,
+      assetTransfer: {
+        cmsOrigin: cmsSiteOrigin(cwd),
+        sessionCookie,
+      },
     })
     write(
       io.stdout,
@@ -68,11 +119,12 @@ export async function runContentCommand(
       if (readFlag(args, '--plan') || (args[2] && !args[2].startsWith('--'))) {
         throw new Error('ginko-cms content import --apply accepts only one plan file.')
       }
-      const { client, transfer } = await operatorContext(cwd, convexClientFactory)
+      const { client, sessionCookie } = await createOperatorContext(cwd, convexClientFactory)
       const prepared = await readPreparedPlan(resolve(cwd, applyFile))
-      const receipt = (await applyPreparedPortableDraftImport(client, prepared, transfer)) as {
-        state?: string
-      }
+      const receipt = (await applyPreparedPortableDraftImport(client, prepared, {
+        cmsOrigin: cmsSiteOrigin(cwd),
+        sessionCookie,
+      })) as { state?: string }
       write(io.stdout, `Import complete: state=${receipt.state ?? 'complete'}.\n`)
       return 0
     }
@@ -81,11 +133,11 @@ export async function runContentCommand(
     if (!directory || directory.startsWith('--') || !planFile) {
       throw new Error('ginko-cms content import requires <directory> --plan <file>.')
     }
-    const { client } = await operatorContext(cwd, convexClientFactory)
+    const { client } = await createOperatorContext(cwd, convexClientFactory)
     const contract = await localContract(cwd)
     const prepared = await preparePortableDraftImport(client, resolve(cwd, directory), {
       deploymentId: convexDeploymentId(cwd),
-      targetContractSha256: await hashJson(contract),
+      targetContentHash: await hashJson(contract),
     })
     const planPath = resolve(cwd, planFile)
     writeFileSync(planPath, `${JSON.stringify(prepared, null, 2)}\n`, {
@@ -100,7 +152,82 @@ export async function runContentCommand(
     )
     return 0
   }
-  throw new Error('ginko-cms content requires export, verify, or import.')
+  throw new Error('ginko-cms content requires export, verify, import, status, or resume.')
+}
+
+function requiredRunId(args: string[], command: 'status' | 'resume') {
+  const runId = args[2]
+  if (!runId || runId.startsWith('--')) {
+    throw new Error(`ginko-cms content ${command} requires <run-id>.`)
+  }
+  return runId
+}
+
+function portableReceiptFilter(args: string[]): PortableReceiptFilter | null {
+  const filter = readFlag(args, '--items')
+  if (filter === undefined) return null
+  if (filter === 'all' || filter === 'failed' || filter === 'blocked' || filter === 'skipped') {
+    return filter
+  }
+  throw new Error('ginko-cms content status --items requires failed, blocked, skipped, or all.')
+}
+
+function writePortableRunStatus(io: CliIo, status: PortableRunStatus, showRecentReceipts = true) {
+  const retry = status.lastError
+    ? ` attempts=${status.attempts}, next=${status.nextAttemptAt ?? 'none'}, dead-lettered=${status.deadLetteredAt ?? 'no'}, error=${status.lastError}`
+    : ` attempts=${status.attempts}`
+  write(
+    io.stdout,
+    `Portable run ${status.runId}: mode=${status.mode}, state=${status.state}, phase=${status.phase ?? 'none'}, generation=${status.generation}, lease=${status.leaseExpiresAt ?? 'none'}, items=${status.committedItemCount}/${status.itemCount}, assets=${status.attachedAssetCount}/${status.assetCount}, completed=${status.completedAt ?? 'no'},${retry}.\n`,
+  )
+  if (!showRecentReceipts) return
+  if (status.itemReceipts.length === 0) {
+    write(io.stdout, 'Item receipts: none.\n')
+    return
+  }
+  write(io.stdout, `Item receipts (latest ${status.itemReceipts.length}):\n`)
+  for (const receipt of status.itemReceipts) {
+    writePortableItemReceipt(io, receipt)
+  }
+}
+
+async function writeFilteredPortableReceipts(
+  client: OperatorClient,
+  io: CliIo,
+  runId: string,
+  filter: PortableReceiptFilter,
+) {
+  write(io.stdout, `Item receipts (${filter}):\n`)
+  let cursor: number | null = null
+  let count = 0
+  for (let page = 0; page < PORTABLE_RECEIPT_MAX_PAGES; page += 1) {
+    const result = (await client.query(api.ginkoCms.portability.listPortabilityItemReceipts, {
+      runId,
+      cursor,
+      limit: PORTABLE_RECEIPT_PAGE_SIZE,
+      filter,
+    })) as { receipts: PortableItemReceipt[]; cursor: number | null }
+    for (const receipt of result.receipts) {
+      writePortableItemReceipt(io, receipt)
+      count += 1
+    }
+    if (result.cursor === null) {
+      if (count === 0) write(io.stdout, '  none\n')
+      return
+    }
+    if (result.cursor <= (cursor ?? -1)) {
+      throw new Error('Portable receipt cursor did not advance.')
+    }
+    cursor = result.cursor
+  }
+  throw new Error(`Portable receipt history for ${runId} exceeded its bounded page count.`)
+}
+
+function writePortableItemReceipt(io: CliIo, receipt: PortableItemReceipt) {
+  write(
+    io.stdout,
+    `  ${receipt.index} ${receipt.itemKey} outcome=${receipt.outcome} state=${receipt.state} effect=${receipt.effect ?? 'none'} result=${receipt.resultId ?? 'none'} committed=${receipt.committedAt ?? 'no'}\n`,
+  )
 }
 
 async function verifyCommand(args: string[], cwd: string, io: CliIo) {
@@ -120,48 +247,6 @@ async function verifyCommand(args: string[], cwd: string, io: CliIo) {
 async function localContract(cwd: string) {
   const config = await loadContentConfig(cwd)
   return await loadGinkoContentContract({ rootDir: cwd, content: config.content })
-}
-
-async function operatorContext(cwd: string, convexClientFactory: ConvexClientFactory) {
-  const sessionCookie = operatorSessionCookie(cwd)
-  const siteOrigin = convexSiteOrigin(cwd)
-  const raw = convexClientFactory(publicConvexUrl(cwd))
-  if (!raw.setAuth) {
-    throw new Error('ginko-cms content commands require a Convex client with user auth support.')
-  }
-  const authorize = async () => {
-    const exchanged = await exchangeConvexToken({
-      siteUrl: siteOrigin,
-      credential: { type: 'cookie', value: sessionCookie },
-    })
-    if (!exchanged.token) {
-      throw new Error(
-        `Ginko CMS operator authentication failed${exchanged.status ? ` with HTTP ${exchanged.status}` : ''}.`,
-      )
-    }
-    raw.setAuth!(exchanged.token)
-  }
-  const client: OperatorClient = {
-    query: async (reference, value) => {
-      await authorize()
-      return await raw.query(reference, value)
-    },
-    mutation: async (reference, value) => {
-      await authorize()
-      return await raw.mutation(reference, value)
-    },
-    action: async (reference, value) => {
-      await authorize()
-      return await raw.action(reference, value)
-    },
-  }
-  return {
-    client,
-    transfer: {
-      cmsOrigin: cmsSiteOrigin(cwd),
-      sessionCookie,
-    },
-  }
 }
 
 async function readPreparedPlan(path: string): Promise<PreparedPortableDraftImport> {

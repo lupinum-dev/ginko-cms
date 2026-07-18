@@ -40,7 +40,7 @@ async function installLocalizedContract(ctx: ReturnType<typeof createCtx>) {
 }
 
 describe('locale fallback chain via the canonical public tree', () => {
-  it('reads the exact fallback chain from the installed contract', async () => {
+  it('[LOC-06] reads the exact fallback chain from the installed contract', async () => {
     const ctx = createCtx()
     await installLocalizedContract(ctx)
 
@@ -53,7 +53,7 @@ describe('locale fallback chain via the canonical public tree', () => {
     })
   })
 
-  it('never synthesizes a route-backed locale from field fallbacks', async () => {
+  it('[LOC-06] never synthesizes a route-backed locale or hreflang target from field fallbacks', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await installLocalizedContract(ctx)
@@ -92,8 +92,6 @@ describe('locale fallback chain via the canonical public tree', () => {
         path: '/pages/missing',
         locale: 'ja',
       }),
-    ).rejects.toSatisfy(
-      (error: unknown) => getCmsErrorData(error)?.code === 'UNSUPPORTED_LOCALE',
-    )
+    ).rejects.toSatisfy((error: unknown) => getCmsErrorData(error)?.code === 'UNSUPPORTED_LOCALE')
   })
 })

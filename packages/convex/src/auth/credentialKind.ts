@@ -69,6 +69,7 @@ export function ginkoCredentialKindPlugin() {
 type GinkoAuthUser = Record<string, unknown> & {
   name?: string | null
   email?: string | null
+  emailVerified?: boolean | null
   image?: string | null
 }
 
@@ -76,14 +77,18 @@ export function ginkoConvexJwtPayload(input: { session: GinkoAuthSession; user?:
   ginkoCredentialKind: GinkoCredentialKind
   name?: string
   email?: string
+  emailVerified?: boolean
   image?: string
 } {
   // Display claims: better-convex-nuxt's decodeUserFromJwt copies name/email/image
   // from the token into the client auth user, which Studio renders in the account
   // menu. Without them the sidebar shows an anonymous "?" avatar.
-  const display: { name?: string; email?: string; image?: string } = {}
+  const display: { name?: string; email?: string; emailVerified?: boolean; image?: string } = {}
   if (typeof input.user?.name === 'string' && input.user.name) display.name = input.user.name
   if (typeof input.user?.email === 'string' && input.user.email) display.email = input.user.email
+  if (typeof input.user?.emailVerified === 'boolean') {
+    display.emailVerified = input.user.emailVerified
+  }
   if (typeof input.user?.image === 'string' && input.user.image) display.image = input.user.image
   return {
     ginkoCredentialKind:

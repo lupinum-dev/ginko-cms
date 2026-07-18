@@ -72,7 +72,7 @@ const previewAssets = computed<StudioAssetRecord[]>(() => {
     alt: asset.alt,
     caption: asset.caption,
     entryId: asset.entryId,
-    collectionId: asset.collectionId,
+    collection: asset.collection,
     createdAt: asset.createdAt,
     updatedAt: asset.updatedAt,
   }))
@@ -89,6 +89,11 @@ const assetsById = computed(() => {
 function handleSelectAsset(asset: StudioAssetRecord) {
   if (props.disabled) return
   emit('select-asset', asset)
+}
+
+function handleModelUpdate(value: string | string[] | null) {
+  if (props.disabled) return
+  emit('update:modelValue', value)
 }
 
 function removeAsset(assetId: string) {
@@ -179,7 +184,7 @@ function removeAsset(assetId: string) {
           :aspect-ratio="aspectRatio"
           embedded
           class="ginko:min-h-0"
-          @update:model-value="emit('update:modelValue', $event)"
+          @update:model-value="handleModelUpdate"
           @select-asset="handleSelectAsset"
           @close="open = false"
         />

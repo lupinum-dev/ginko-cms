@@ -2,7 +2,13 @@ import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permission
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createCtx, executeConfirmedOperation, seedMember, seedOwner } from '../helpers'
+import {
+  createCtx,
+  executeConfirmedOperation,
+  installTestContract,
+  seedMember,
+  seedOwner,
+} from '../helpers'
 
 const api = anyApi
 
@@ -36,7 +42,7 @@ describe('component: MCP credential settings', () => {
     ).rejects.toThrow()
   })
 
-  it('limits owner credentials to explicitly granted scopes', async () => {
+  it('[AGT-01] limits owner credentials to explicitly granted scopes', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
 
@@ -97,9 +103,10 @@ describe('component: MCP credential settings', () => {
     ).rejects.toThrow('MCP credential is not active')
   })
 
-  it('denies scope-blind backup and owner-diagnostic calls through direct wrappers', async () => {
+  it('denies asset-recovery and owner-diagnostic calls through MCP wrappers', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await installTestContract(ctx, ['en'])
     const owner = ctx.asCmsUser('owner-1')
     await owner.mutation(api.mcpCredentials.upsertSettings, {
       apiKeyId: 'ba_key_read_only_owner',
@@ -108,25 +115,26 @@ describe('component: MCP credential settings', () => {
     })
     const mcp = ctx.asMcpApiKey('ba_key_read_only_owner', 'owner-1')
 
-    await expect(mcp.action(api.backup.exportBackup, { scope: 'snapshot' })).rejects.toThrow(
-      'Forbidden',
-    )
-    await expect(mcp.action(api.backup.downloadBackup, { artifactId: 'backup_1' })).rejects.toThrow(
-      'Forbidden',
-    )
     await expect(
-      mcp.action(api.backup.restoreBackup, {
-        artifactId: 'backup_1',
+      mcp.action(api.assetRecovery.createAssetRecoveryArtifact, { assetId: 'asset_1' }),
+    ).rejects.toThrow('Forbidden')
+    await expect(
+      mcp.action(api.assetRecovery.downloadAssetRecoveryArtifact, {
+        artifactId: 'asset_recovery_1',
+      }),
+    ).rejects.toThrow('Forbidden')
+    await expect(
+      mcp.action(api.assetRecovery.restoreAsset, {
+        artifactId: 'asset_recovery_1',
         expectedChecksum: 'sha256',
       }),
     ).rejects.toThrow('Forbidden')
     await expect(
-      mcp.mutation(api.backup.deleteBackupArtifactOperationExecute, {
-        artifactId: 'backup_1',
+      mcp.mutation(api.assetRecovery.deleteAssetRecoveryArtifactOperationExecute, {
+        artifactId: 'asset_recovery_1',
         _confirmationToken: 'confirmation',
       }),
-    ).rejects.toThrow('Forbidden')
-    await expect(mcp.query(api.diagnostics.storageHygieneReport, {})).rejects.toThrow('Forbidden')
+    ).resolves.toMatchObject({ status: 'blocked', code: 'OPERATION_FORBIDDEN' })
   })
 
   it('does not expose credential ownership through unauthenticated public access', async () => {
@@ -282,7 +290,7 @@ describe('component: MCP credential settings', () => {
     })
   })
 
-  it('revokes credential settings when the owner member is removed', async () => {
+  it('[AGT-02] revokes credential settings when the owner member is removed', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })

@@ -8,6 +8,7 @@ import { convexTest, type TestConvex } from 'convex-test'
 import { anyApi } from 'convex/server'
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 
+import { assetDiscoveryFields } from '#component/assets/scope'
 import schema from '#component/schema'
 import { modules } from '#component/test.setup'
 
@@ -33,15 +34,48 @@ const archiveEntryOperation: CmsOperationRef = {
   executeRef: api.entries.publish.archiveEntryOperationExecute,
   previewRef: api.entries.publish.previewArchiveEntryOperation,
 }
+const permanentlyDeleteEntryOperation: CmsOperationRef = {
+  id: 'ginko-cms.permanently-delete-entry',
+  executeRef: api.entries.permanentDelete.permanentlyDeleteEntryOperationExecute,
+  previewRef: api.entries.permanentDelete.previewPermanentlyDeleteEntryOperation,
+}
 const rollbackVersionOperation: CmsOperationRef = {
   id: 'ginko-cms.rollback-version',
-  executeRef: api.entries.publish.rollbackVersionOperationExecute,
-  previewRef: api.entries.publish.previewRollbackVersionOperation,
+  executeRef: api.entries.publicationHistory.rollbackVersionOperationExecute,
+  previewRef: api.entries.publicationHistory.previewRollbackVersionOperation,
 }
 const revertDraftToPublishedOperation: CmsOperationRef = {
   id: 'ginko-cms.revert-draft-to-published',
   executeRef: api.entries.draft.revertDraftToPublishedOperationExecute,
   previewRef: api.entries.draft.previewRevertDraftToPublishedOperation,
+}
+const reorderEntryOperation: CmsOperationRef = {
+  id: 'ginko-cms.reorder-entry',
+  executeRef: api.entries.tree.reorderEntryOperationExecute,
+  previewRef: api.entries.tree.previewReorderEntryOperation,
+}
+const reparentEntryOperation: CmsOperationRef = {
+  id: 'ginko-cms.reparent-entry',
+  executeRef: api.entries.tree.reparentEntryOperationExecute,
+  previewRef: api.entries.tree.previewReparentEntryOperation,
+}
+
+async function bindExpectedContractArgs(
+  ctx: TestConvex<typeof schema>,
+  args: Record<string, unknown>,
+) {
+  const installed = await ctx.run(
+    async (inner) =>
+      await inner.db
+        .query('cmsContract')
+        .withIndex('by_key', (query) => query.eq('key', 'active'))
+        .first(),
+  )
+  return {
+    ...args,
+    _expectedContentHash: installed?.contentHash ?? '0'.repeat(64),
+    _expectedPresentationHash: installed?.presentationHash ?? '0'.repeat(64),
+  }
 }
 
 function createCmsCallerClient(
@@ -52,6 +86,15 @@ function createCmsCallerClient(
     subject: caller.kind === 'user' ? caller.userId : caller.ownerUserId,
     ginkoCredentialKind: caller.kind === 'mcp' ? 'mcp-api-key' : 'user-session',
     ...(caller.kind === 'mcp' ? { sessionId: caller.apiKeyId } : { sessionId: 'test-session' }),
+    ...(caller.kind === 'user'
+      ? {
+          ...(caller.name ? { name: caller.name } : {}),
+          ...(caller.email ? { email: caller.email } : {}),
+          ...(typeof caller.emailVerified === 'boolean'
+            ? { emailVerified: caller.emailVerified }
+            : {}),
+        }
+      : {}),
   }
   const authed = () => ctx.withIdentity(identity)
   return {
@@ -65,33 +108,48 @@ function createCmsCallerClient(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
-      return await authed().mutation(fn, ...args)
+      const [input = {}] = args as unknown as [Record<string, unknown>?]
+      return await authed().mutation(fn, (await bindExpectedContractArgs(ctx, input)) as never)
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
-      return await authed().action(fn, ...args)
+      const [input = {}] = args as unknown as [Record<string, unknown>?]
+      return await authed().action(fn, (await bindExpectedContractArgs(ctx, input)) as never)
     },
     operation: <TOperation extends CmsOperationRef>(operation: TOperation) =>
-      createOperationClient(authed(), operation),
+      createOperationClient(ctx, authed(), operation),
     createEntry: async (args: Record<string, unknown>): Promise<string> =>
-      (await authed().mutation(api.entries.tree.createEntry, args as never)) as string,
+      (await authed().mutation(
+        api.entries.tree.createEntry,
+        (await bindExpectedContractArgs(ctx, args)) as never,
+      )) as string,
     saveEntryDraft: async (args: Record<string, unknown>): Promise<DraftSaveResult> =>
-      (await authed().mutation(api.entries.draft.saveEntryDraft, args as never)) as DraftSaveResult,
+      (await authed().mutation(
+        api.entries.draft.saveEntryDraft,
+        (await bindExpectedContractArgs(ctx, args)) as never,
+      )) as DraftSaveResult,
     moveAsset: async (args: Record<string, unknown>): Promise<null> =>
-      (await authed().mutation(api.assets.moveAsset, args as never)) as null,
+      (await authed().mutation(
+        api.assets.moveAsset,
+        (await bindExpectedContractArgs(ctx, args)) as never,
+      )) as null,
   }
 }
 
 function createOperationClient(
+  rootCtx: TestConvex<typeof schema>,
   ctx: ReturnType<TestConvex<typeof schema>['withIdentity']>,
   operation: CmsOperationRef,
 ) {
   return {
     preview: async (args: Record<string, unknown>) => {
       if (!operation.previewRef) throw new Error(`Operation ${operation.id} has no preview ref.`)
-      return await ctx.mutation(operation.previewRef, args as never)
+      return await ctx.mutation(
+        operation.previewRef,
+        (await bindExpectedContractArgs(rootCtx, args)) as never,
+      )
     },
     execute: async (
       args: Record<string, unknown>,
@@ -100,35 +158,59 @@ function createOperationClient(
       const executeArgs = options.confirmation?.token
         ? { ...args, _confirmationToken: options.confirmation.token }
         : args
-      return await ctx.mutation(operation.executeRef, executeArgs as never)
+      return await ctx.mutation(
+        operation.executeRef,
+        (await bindExpectedContractArgs(rootCtx, executeArgs)) as never,
+      )
     },
   }
 }
 
-export function createCtx() {
-  const ctx = convexTest({ schema, modules })
+export function createCtx(
+  options: {
+    transactionLimits?: boolean | { bytesRead?: number; documentsRead?: number }
+  } = {},
+) {
+  const ctx = convexTest({
+    schema,
+    modules,
+    ...(options.transactionLimits === undefined
+      ? {}
+      : { transactionLimits: options.transactionLimits }),
+  })
   ctx.registerComponent('ginkoCms', schema as never, modules as never)
+  const seedValue = (table: string, value: Record<string, unknown>) => {
+    if (table !== 'assets') return value
+    const filename = String(value.filename)
+    const mimeType = String(value.mimeType)
+    const createdAt = Number(value.createdAt)
+    const updatedAt = typeof value.updatedAt === 'number' ? value.updatedAt : null
+    const deletedAt = typeof value.deletedAt === 'number' ? value.deletedAt : null
+    const tags = Array.isArray(value.tags)
+      ? value.tags.filter((tag): tag is string => typeof tag === 'string')
+      : []
+    return {
+      sha256: '0'.repeat(64),
+      frames: 1,
+      ...value,
+      width: value.width ?? 1,
+      height: value.height ?? 1,
+      ...assetDiscoveryFields({ filename, mimeType, tags, createdAt, updatedAt, deletedAt }),
+    }
+  }
   return Object.assign(ctx, {
     raw: ctx,
     seed: async (table: string, value: Record<string, unknown>) =>
       await ctx.run(
         async (mutationCtx) =>
-          await mutationCtx.db.insert(
-            table as never,
-            (table === 'assets'
-              ? {
-                  sha256: '0'.repeat(64),
-                  frames: 1,
-                  ...value,
-                  width: value.width ?? 1,
-                  height: value.height ?? 1,
-                }
-              : value) as never,
-          ),
+          await mutationCtx.db.insert(table as never, seedValue(table, value) as never),
       ),
     readAll: async (table: string) =>
       await ctx.run(async (mutationCtx) => await mutationCtx.db.query(table as never).collect()),
-    asCmsUser: (userId: string) => createCmsCallerClient(ctx, cmsUserCaller(userId)),
+    asCmsUser: (
+      userId: string,
+      profile?: { name?: string; email?: string; emailVerified?: boolean },
+    ) => createCmsCallerClient(ctx, cmsUserCaller(userId, profile)),
     asMcpApiKey: (apiKeyId: string, ownerUserId: string) =>
       createCmsCallerClient(ctx, { kind: 'mcp', apiKeyId, ownerUserId }),
   })
@@ -136,7 +218,35 @@ export function createCtx() {
 
 export type TestCtx = ReturnType<typeof createCtx>
 type CmsCallerClient = ReturnType<typeof createCmsCallerClient>
+
+export async function readTestContractWriteToken(ctx: TestCtx) {
+  const [installed] = await ctx.readAll('cmsContract')
+  if (!installed) throw new Error('Expected an installed CMS contract.')
+  return {
+    contentHash: installed.contentHash,
+    presentationHash: installed.presentationHash,
+    generation: installed.writeGeneration,
+  }
+}
 type DraftSaveResult = { draftVersion: number; dirtyLocales: string[] }
+type PublishResult = DraftSaveResult & { versionId: string }
+type TreeMoveResult = {
+  draftVersion: number
+  parentEntryId: string | null
+  orderRank: string
+}
+
+function operationValue<T>(result: unknown): T {
+  if (!result || typeof result !== 'object' || !('status' in result)) {
+    throw new Error('Operation returned an invalid result.')
+  }
+  if (result.status !== 'applied') {
+    const message = 'message' in result ? String(result.message) : 'Operation was not applied.'
+    throw new Error(message)
+  }
+  if (!('value' in result)) throw new Error('Applied operation returned no value.')
+  return result.value as T
+}
 
 export async function currentDraftVersion(
   appIdentity: CmsCallerClient,
@@ -154,10 +264,15 @@ export async function currentDraftVersion(
 export async function publishEntryWithArgs(
   appIdentity: CmsCallerClient,
   args: { entryId: string; expectedVersion: number; locales: string[] },
-) {
+): Promise<PublishResult> {
   const operation = appIdentity.operation(publishEntryOperation)
   const preview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: preview.confirmation })
+  if (!preview.confirmation) {
+    throw new Error(`Publish preview was blocked: ${JSON.stringify(preview.blockers)}`)
+  }
+  return operationValue<PublishResult>(
+    await operation.execute(args, { confirmation: preview.confirmation }),
+  )
 }
 
 export async function previewPublishEntryWithArgs(
@@ -179,15 +294,23 @@ export async function publishEntry(
   })
 }
 
-export async function previewUnpublishEntry(appIdentity: CmsCallerClient, entryId: string) {
-  return await appIdentity.operation(unpublishEntryOperation).preview({ entryId })
+export async function previewUnpublishEntry(
+  appIdentity: CmsCallerClient,
+  entryId: string,
+  locales: string[] = ['en'],
+) {
+  return await appIdentity.operation(unpublishEntryOperation).preview({ entryId, locales })
 }
 
-export async function unpublishEntry(appIdentity: CmsCallerClient, entryId: string) {
+export async function unpublishEntry(
+  appIdentity: CmsCallerClient,
+  entryId: string,
+  locales: string[] = ['en'],
+) {
   const operation = appIdentity.operation(unpublishEntryOperation)
-  const args = { entryId }
+  const args = { entryId, locales }
   const preview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: preview.confirmation })
+  return operationValue<null>(await operation.execute(args, { confirmation: preview.confirmation }))
 }
 
 export async function previewArchiveEntry(appIdentity: CmsCallerClient, entryId: string) {
@@ -198,7 +321,32 @@ export async function archiveEntry(appIdentity: CmsCallerClient, entryId: string
   const operation = appIdentity.operation(archiveEntryOperation)
   const args = { entryId }
   const preview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: preview.confirmation })
+  return operationValue<null>(await operation.execute(args, { confirmation: preview.confirmation }))
+}
+
+export async function previewPermanentlyDeleteEntry(
+  appIdentity: CmsCallerClient,
+  args: { entryId: string; confirmationPhrase: string },
+) {
+  return await appIdentity.operation(permanentlyDeleteEntryOperation).preview(args)
+}
+
+export async function permanentlyDeleteEntry(
+  appIdentity: CmsCallerClient,
+  args: { entryId: string; confirmationPhrase: string },
+) {
+  const operation = appIdentity.operation(permanentlyDeleteEntryOperation)
+  const preview = await operation.preview(args)
+  return operationValue<{
+    entryId: string
+    collection: string
+    stableId: string
+    deleted: boolean
+    alreadyDeleted: boolean
+    activityRecordsRetainedAtDeletion: number
+    standardActivityRecordsRetainedAtDeletion: number
+    legalActivityRecordsRetained: number
+  }>(await operation.execute(args, { confirmation: preview.confirmation }))
 }
 
 export async function rollbackVersion(
@@ -207,14 +355,62 @@ export async function rollbackVersion(
 ) {
   const operation = appIdentity.operation(rollbackVersionOperation)
   const preview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: preview.confirmation })
+  return operationValue<{ versionId: string }>(
+    await operation.execute(args, { confirmation: preview.confirmation }),
+  )
 }
 
 export async function revertDraftToPublished(appIdentity: CmsCallerClient, entryId: string) {
   const operation = appIdentity.operation(revertDraftToPublishedOperation)
   const args = { entryId }
   const preview = await operation.preview(args)
-  return await operation.execute(args, { confirmation: preview.confirmation })
+  return operationValue<DraftSaveResult>(
+    await operation.execute(args, { confirmation: preview.confirmation }),
+  )
+}
+
+export type TreeMoveArgs = {
+  entryId: string
+  expectedDraftVersion: number
+  parentEntryId?: string
+  beforeEntryId?: string
+  afterEntryId?: string
+}
+
+export async function previewReorderEntry(appIdentity: CmsCallerClient, args: TreeMoveArgs) {
+  return await appIdentity.operation(reorderEntryOperation).preview(args)
+}
+
+export async function reorderEntry(
+  appIdentity: CmsCallerClient,
+  args: TreeMoveArgs,
+): Promise<TreeMoveResult> {
+  const operation = appIdentity.operation(reorderEntryOperation)
+  const preview = await operation.preview(args)
+  if (!preview.confirmation) {
+    throw new Error(`Reorder preview was blocked: ${JSON.stringify(preview.blockers)}`)
+  }
+  return operationValue<TreeMoveResult>(
+    await operation.execute(args, { confirmation: preview.confirmation }),
+  )
+}
+
+export async function previewReparentEntry(appIdentity: CmsCallerClient, args: TreeMoveArgs) {
+  return await appIdentity.operation(reparentEntryOperation).preview(args)
+}
+
+export async function reparentEntry(
+  appIdentity: CmsCallerClient,
+  args: TreeMoveArgs,
+): Promise<TreeMoveResult> {
+  const operation = appIdentity.operation(reparentEntryOperation)
+  const preview = await operation.preview(args)
+  if (!preview.confirmation) {
+    throw new Error(`Reparent preview was blocked: ${JSON.stringify(preview.blockers)}`)
+  }
+  return operationValue<TreeMoveResult>(
+    await operation.execute(args, { confirmation: preview.confirmation }),
+  )
 }
 
 export async function executeConfirmedOperation(
@@ -227,10 +423,15 @@ export async function executeConfirmedOperation(
     callerKey?: string
   },
 ) {
-  let preview: { allowed?: boolean; confirmation?: { token: string; expiresAt: number } }
+  let preview: {
+    allowed?: boolean
+    blockers?: Array<{ message?: string }>
+    confirmation?: { token: string; expiresAt: number }
+  }
   try {
     preview = (await appIdentity.mutation(input.preview, input.args as never)) as {
       allowed?: boolean
+      blockers?: Array<{ message?: string }>
       confirmation?: { token: string; expiresAt: number }
     }
   } catch (cause) {
@@ -240,13 +441,19 @@ export async function executeConfirmedOperation(
     preview.allowed !== false && preview.confirmation && preview.confirmation.expiresAt > Date.now()
       ? preview.confirmation.token
       : null
-  if (!token)
-    throw new Error(`Preview for ${input.operationId} did not return a confirmation token.`)
+  if (!token) {
+    throw new Error(
+      preview.blockers?.[0]?.message ??
+        `Preview for ${input.operationId} did not return a confirmation token.`,
+    )
+  }
 
-  return await appIdentity.mutation(input.execute, {
-    ...input.args,
-    _confirmationToken: token,
-  } as never)
+  return operationValue(
+    await appIdentity.mutation(input.execute, {
+      ...input.args,
+      _confirmationToken: token,
+    } as never),
+  )
 }
 
 export async function seedOwner(ctx: TestCtx, userId = 'owner-1') {
@@ -269,6 +476,7 @@ export async function seedMember(
     userId: string
     role: 'owner' | 'publisher' | 'editor' | 'viewer'
     displayName?: string
+    email?: string
   },
 ) {
   const now = Date.now()
@@ -278,6 +486,7 @@ export async function seedMember(
       userId: input.userId,
       role: input.role,
       ...(input.displayName ? { displayName: input.displayName } : {}),
+      ...(input.email ? { email: input.email } : {}),
       createdAt: now,
       updatedAt: now,
       updatedBy: input.userId,
@@ -307,6 +516,13 @@ export async function installTestContract(ctx: TestCtx, locales: string[]) {
           cms: {
             type: 'flat',
             fields: {
+              title: { type: 'text', localized: true, required: true, searchable: true },
+              description: { type: 'textarea', localized: true },
+              internalNote: {
+                type: 'text',
+                localized: true,
+                searchable: true,
+              },
               featured: { type: 'toggle', localized: false },
               hero: { type: 'image', localized: false },
               author: {
@@ -322,7 +538,13 @@ export async function installTestContract(ctx: TestCtx, locales: string[]) {
           source: 'content/docs/**/*.md',
           i18n: true,
           route: route('/docs', '/dokumentation'),
-          cms: { type: 'tree', settings: { maxDepth: 5 } },
+          cms: {
+            type: 'tree',
+            route: { slugMode: 'localized' },
+            fields: {
+              title: { type: 'text', localized: true, required: true, searchable: true },
+            },
+          },
         },
         authors: {
           type: 'data',
@@ -345,7 +567,11 @@ export async function installTestContract(ctx: TestCtx, locales: string[]) {
     },
   )
   const contentHash = await hashCanonicalJson(contract)
-  const presentation = { collections: {} }
+  const presentation = {
+    collections: {
+      posts: { fields: { internalNote: { hidden: true } } },
+    },
+  }
   await ctx.raw.mutation(api.contract.installCmsContract, {
     content: contract,
     contentHash,

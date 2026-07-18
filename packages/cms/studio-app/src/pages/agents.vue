@@ -4,9 +4,7 @@ import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref } from 'vue'
 
 import { api } from '../boundary/api'
-import { cmsPermissionKeys } from '../composables/permissions'
 import { useCmsI18n } from '../composables/useCmsI18n'
-import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../composables/useCmsStudioQuery'
 import { useConvexMutation } from '../composables/useStudioConvex'
 
@@ -27,13 +25,7 @@ type AgentRun = {
 }
 
 const { t, dateLocale } = useCmsI18n()
-const { ready, can } = useCmsStudioAccess()
-const canManageSettings = can(cmsPermissionKeys.manageSettings)
-const runsQuery = useCmsStudioQuery(
-  api.ginkoCms.agentRuns.listOwnRuns,
-  { limit: 50 },
-  { requiredCapability: cmsPermissionKeys.manageSettings },
-)
+const runsQuery = useCmsStudioQuery(api.ginkoCms.agentRuns.listRuns, { limit: 50 })
 const revokeRunMutation = useConvexMutation(api.ginkoCms.agentRuns.revokeRun)
 const runs = computed<AgentRun[]>(() => (runsQuery.data.value ?? []) as AgentRun[])
 const activeRuns = computed(() => runs.value.filter((run) => run.status === 'active').length)
@@ -99,18 +91,8 @@ async function revokeRun(run: AgentRun) {
           :description="pageError || revokeError"
         />
 
-        <StudioEmptyState
-          v-if="ready && !canManageSettings"
-          :title="t('ginkoCms.studio.agentsPage.accessRequired')"
-          :description="t('ginkoCms.studio.agentsPage.accessRequiredDescription')"
-        >
-          <template #icon>
-            <Bot class="ginko:size-5" aria-hidden="true" />
-          </template>
-        </StudioEmptyState>
-
         <div
-          v-else-if="runs.length === 0 && isLoading"
+          v-if="runs.length === 0 && isLoading"
           class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
         >
           <div

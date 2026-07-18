@@ -62,7 +62,12 @@ export interface UploadDestinationOption {
 
 export type PendingDestructiveAssetAction =
   | { kind: 'trash'; asset: FinderAssetRecord }
-  | { kind: 'bulk-trash'; assetIds: string[]; usageCount: number }
+  | {
+      kind: 'bulk-trash'
+      assetIds: string[]
+      referencedAssetCount: number
+      unknownReferenceAssetCount: number
+    }
   | null
 
 export async function executePendingAssetTrash(
@@ -144,7 +149,7 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
   const canBulkShareInCollection = computed(
     () =>
       selectedVisibleAssets.value.length > 0 &&
-      selectedVisibleAssets.value.every((asset) => asset.scope === 'entry' && asset.collectionId),
+      selectedVisibleAssets.value.every((asset) => asset.scope === 'entry' && asset.collection),
   )
   const canBulkMakeGlobal = computed(() =>
     selectedVisibleAssets.value.some((asset) => asset.scope !== 'global'),
@@ -164,19 +169,19 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
       value: 'context',
       label: props.assetContext?.entryId
         ? t('ginkoCms.studio.assetBrowser.destThisEntry')
-        : props.assetContext?.collectionSlug || props.assetContext?.collectionId
+        : props.assetContext?.collection
           ? t('ginkoCms.studio.assetBrowser.destThisCollection')
           : t('ginkoCms.studio.assetBrowser.destGlobal'),
       disabled: false,
     },
     {
       value: 'collection',
-      label: props.assetContext?.collectionSlug
+      label: props.assetContext?.collection
         ? t('ginkoCms.studio.assetBrowser.destCollectionNamed', {
-            slug: props.assetContext.collectionSlug,
+            slug: props.assetContext.collection,
           })
         : t('ginkoCms.studio.assetBrowser.destCollection'),
-      disabled: !props.assetContext?.collectionSlug && !props.assetContext?.collectionId,
+      disabled: !props.assetContext?.collection,
     },
     {
       value: 'global',
@@ -318,10 +323,18 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
     const ids = [...finder.selectedVisibleAssetIds.value]
     if (ids.length === 0) return
     const idSet = new Set(ids)
-    const usageCount = finder.assets.value
+    const referencedAssetCount = finder.assets.value
       .filter((asset) => idSet.has(asset.id))
-      .reduce((sum, asset) => sum + asset.usages.length, 0)
-    pendingDestructiveAssetAction.value = { kind: 'bulk-trash', assetIds: ids, usageCount }
+      .filter((asset) => asset.referenceCertainty.state === 'used').length
+    const unknownReferenceAssetCount = finder.assets.value
+      .filter((asset) => idSet.has(asset.id))
+      .filter((asset) => asset.referenceCertainty.state === 'unknown-stale').length
+    pendingDestructiveAssetAction.value = {
+      kind: 'bulk-trash',
+      assetIds: ids,
+      referencedAssetCount,
+      unknownReferenceAssetCount,
+    }
   }
 
   function requestTrashAsset(asset: FinderAssetRecord | null) {

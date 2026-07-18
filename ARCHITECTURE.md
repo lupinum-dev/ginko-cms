@@ -10,13 +10,13 @@ projections, and provider integration with Ginko core.
 The v1 architecture has three packages:
 
 - `@lupinum/ginko-cms`: Nuxt module, Studio host, auth pages, public API routes,
-  filesystem migration tooling, CMS provider integration, and host setup
-  templates.
+  owner-CLI content portability and contract-transition tooling, CMS provider
+  integration, and host setup templates.
 - `@lupinum/ginko-cms-contract`: framework-neutral shared domain contracts,
   public-content types, Convex validators, and schema helpers.
 - `@lupinum/ginko-cms-convex`: Convex component implementation for content,
-  assets, auth integration, public projections, members, settings, imports, and
-  MCP-backed operations.
+  assets, auth integration, public projections, members, the installed
+  contract, guarded operations, and MCP-backed operations.
 
 Keep domain contracts free of Nuxt, Vue, Studio, and package implementation
 details. Keep the Convex component free of Studio and Nuxt runtime dependencies.
@@ -33,13 +33,13 @@ flowchart LR
   Ops --> Convex["Convex CMS component"]
   Convex --> Projections
   Convex --> Assets["Convex-backed assets"]
-  Contract["Code-defined collection contracts"] --> Studio
+  Contract["Installed CMS contract"] --> Studio
   Contract --> Ops
 ```
 
-The app defines collections in code. Ginko CMS syncs those contracts into the
-CMS as read-only operational truth. Studio and MCP use the contracts to edit and
-publish content, but they do not mutate schema.
+The app defines one CMS contract in code. Ginko CMS installs it as operational
+truth, including collection schemas, locales, content policy, and editorial
+presentation. Studio and MCP inspect that contract; they do not mutate schema.
 
 ## Setup Boundary
 

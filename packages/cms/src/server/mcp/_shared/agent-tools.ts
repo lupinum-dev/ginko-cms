@@ -2,9 +2,16 @@ import type { CmsCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { McpToolCallbackResult } from '@nuxtjs/mcp-toolkit/server'
 import { normalizeConvexError, type ConvexCallErrorKind } from 'better-convex-nuxt/errors'
 import type { H3Event } from 'h3'
+import { useRuntimeConfig } from 'nitropack/runtime'
 
 import { api } from '#convex/api'
 
+import {
+  assertHostContractWritable,
+  GinkoCmsContractWriteBlockedError,
+  type GinkoCmsExpectedContractHashes,
+  type GinkoCmsInstalledContractStatus,
+} from '../../../public/contract-compatibility.js'
 import { classifyGinkoError } from '../../../public/error-classification.js'
 import { getMcpAuth, type McpConvexCaller } from './auth.js'
 import type { CmsMcpCapabilities } from './capabilities.js'
@@ -73,6 +80,71 @@ async function resolveCmsMcpCapabilities(
   )
 }
 
+function expectedMcpContractHashes(event: H3Event): GinkoCmsExpectedContractHashes {
+  const runtimeConfig = useRuntimeConfig(event) as {
+    public?: { ginkoCms?: { contract?: Partial<GinkoCmsExpectedContractHashes> } }
+  }
+  const expected = runtimeConfig.public?.ginkoCms?.contract
+  if (
+    typeof expected?.expectedContentHash !== 'string' ||
+    typeof expected.expectedPresentationHash !== 'string'
+  ) {
+    throwAgentToolError(
+      'CMS_EXPECTED_CONTRACT_MISSING',
+      'CMS writes are unavailable because the host did not provide expected contract hashes.',
+      { category: 'server' },
+    )
+  }
+  return {
+    expectedContentHash: expected.expectedContentHash,
+    expectedPresentationHash: expected.expectedPresentationHash,
+  }
+}
+
+export function createContractGuardedMcpCaller(
+  convex: McpConvexCaller,
+  getExpected: () => GinkoCmsExpectedContractHashes,
+): McpConvexCaller {
+  const assertWritable = async () => {
+    try {
+      await assertHostContractWritable(
+        getExpected(),
+        async (): Promise<GinkoCmsInstalledContractStatus> =>
+          await convex.query(api.ginkoCms.contract.getInstalledContractStatus, {}),
+      )
+    } catch (error) {
+      if (!(error instanceof GinkoCmsContractWriteBlockedError)) throw error
+      const compatibility = error.compatibility
+      throwAgentToolError(error.code, error.message, {
+        category: 'conflict',
+        details: {
+          blockers: compatibility.blockers,
+          installedContentHash: compatibility.installedContentHash,
+          installedPresentationHash: compatibility.installedPresentationHash,
+          expectedContentHash: compatibility.expectedContentHash,
+          expectedPresentationHash: compatibility.expectedPresentationHash,
+          transitionState: compatibility.transitionState,
+          transitionRunId: compatibility.transitionRunId,
+        },
+        suggestedAction: 'Ask an owner to run `ginko-cms push --check` and repair the contract.',
+      })
+    }
+  }
+  const mutation: McpConvexCaller['mutation'] = async (reference, args) => {
+    await assertWritable()
+    return await convex.mutation(reference, args)
+  }
+  const action: McpConvexCaller['action'] = async (reference, args) => {
+    await assertWritable()
+    return await convex.action(reference, args)
+  }
+  return {
+    query: convex.query,
+    mutation,
+    action,
+  }
+}
+
 export async function getMcpToolContext(event: H3Event): Promise<{
   capabilities: CmsMcpCapabilities
   convex: McpConvexCaller
@@ -80,8 +152,9 @@ export async function getMcpToolContext(event: H3Event): Promise<{
   runtime: Record<string, never>
 }> {
   const caller = getMcpCmsCaller(event)
-  const convex = getMcpConvexCaller(event, caller)
-  const capabilities = await resolveCmsMcpCapabilities(caller, convex)
+  const rawConvex = getMcpConvexCaller(event, caller)
+  const capabilities = await resolveCmsMcpCapabilities(caller, rawConvex)
+  const convex = createContractGuardedMcpCaller(rawConvex, () => expectedMcpContractHashes(event))
   return {
     capabilities,
     convex,

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { api } from './boundary/api'
 import { useAppearance } from './composables/useAppearance'
@@ -21,10 +22,12 @@ const { t } = useCmsI18n()
 // `route.meta.rightSidebar` so the header trigger shows before a page mounts.
 provideRightSidebar()
 const cmsConfig = useCmsConfig()
-const { user } = useCmsAuthState()
+const { user, isAuthenticated, pending: authPending } = useCmsAuthState()
+const route = useRoute()
+const isInvitationRoute = computed(() => route.meta.authenticatedPublic === true)
 
-// Appearance (D7): the color/type/radius theme classes that themes.css keys off
-// (`.ginko-cms.color-blue`, `.theme-mono`, …). These are bound declaratively
+// Appearance (D7): the accent class that themes.css keys off (for example
+// `.ginko-cms.color-blue`). It is bound declaratively
 // into the `.ginko-cms` root's `:class` below rather than mutated onto the DOM
 // imperatively — that keeps them reactive, avoids fighting Vue's class patching,
 // and re-applies automatically across the access-state branch swap. The Phase 6
@@ -43,6 +46,9 @@ const bootstrapError = ref('')
 const studioAccess = computed<{ status: string; reason: string | null }>(() => {
   if (bootstrapPending.value) {
     return { status: 'bootstrapping', reason: null }
+  }
+  if (isInvitationRoute.value && isAuthenticated.value && !authPending.value) {
+    return { status: 'invitation', reason: null }
   }
   // Must come BEFORE canRead — bootstrap users pass canRead but need to claim ownership first
   if (permissions.ready.value && canBootstrap.value && !isMember.value) {
@@ -110,8 +116,18 @@ async function claimCmsOwnership() {
 </script>
 
 <template>
+  <div
+    v-if="studioAccess.status === 'invitation'"
+    data-testid="cms-member-invitation-layout"
+    :class="[
+      studioClass,
+      'ginko:flex ginko:min-h-svh ginko:items-center ginko:justify-center ginko:bg-background ginko:px-6 ginko:py-12 ginko:text-foreground',
+    ]"
+  >
+    <slot />
+  </div>
   <SidebarProvider
-    v-if="studioAccess.status === 'ready'"
+    v-else-if="studioAccess.status === 'ready'"
     data-testid="cms-studio-ready"
     :class="[studioClass, 'studio-shell ginko:text-foreground']"
   >
@@ -143,6 +159,7 @@ async function claimCmsOwnership() {
       style="margin-left: auto"
     >
       <StudioHeader />
+      <StudioContractCompatibilityNotice />
       <!-- @container: in-card layouts key off THIS width (which shrinks when
            the right-sidebar panel opens), never off the viewport. Pages use
            @3xl/@5xl/@7xl variants (768/1024/1280px container equivalents). -->

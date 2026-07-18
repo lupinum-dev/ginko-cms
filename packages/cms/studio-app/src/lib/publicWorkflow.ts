@@ -16,77 +16,12 @@ export type StudioWorkflowTranslator = (
   defaultValue?: string,
 ) => string
 
-export type StudioWorkQueueCounts = {
-  needsAttention?: number | null
-  changedDrafts?: number | null
-  missingTranslations?: number | null
-  failedRevalidation?: number | null
-  pendingRevalidation?: number | null
-}
-
 export type WebsiteRefreshStatus = 'pending' | 'delivering' | 'delivered' | 'failed'
 
 export type WebsiteRefreshSummaryInput = {
   status: WebsiteRefreshStatus | string
   paths?: string[] | null
   lastError?: string | null
-}
-
-export type DashboardCollectionSummaryInput = {
-  mode?: CollectionCapabilityMode | null
-  entryCount?: number | null
-  locales?: string[] | null
-}
-
-export function deriveDashboardCollectionSummary(collections: DashboardCollectionSummaryInput[]) {
-  return collections.reduce(
-    (summary, collection) => {
-      const entryCount =
-        typeof collection.entryCount === 'number' && Number.isFinite(collection.entryCount)
-          ? collection.entryCount
-          : 0
-      summary.totalCollections += 1
-      summary.totalEntries += entryCount
-      if (collection.mode === 'none') {
-        summary.dataOnlyCollections += 1
-      } else {
-        summary.routeBackedCollections += 1
-      }
-      if (collection.locales?.length) {
-        summary.localizedCollections += 1
-      }
-      return summary
-    },
-    {
-      totalCollections: 0,
-      routeBackedCollections: 0,
-      dataOnlyCollections: 0,
-      localizedCollections: 0,
-      totalEntries: 0,
-    },
-  )
-}
-
-function countValue(value: number | null | undefined): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0
-}
-
-export function deriveStudioWorkQueueSummary(counts: StudioWorkQueueCounts) {
-  const changedDrafts = countValue(counts.changedDrafts)
-  const missingTranslations = countValue(counts.missingTranslations)
-  const failedRevalidation = countValue(counts.failedRevalidation)
-  const pendingRevalidation = countValue(counts.pendingRevalidation)
-  const needsAttention =
-    countValue(counts.needsAttention) || missingTranslations + failedRevalidation
-
-  return {
-    needsAttention,
-    changedDrafts,
-    missingTranslations,
-    failedRevalidation,
-    pendingRevalidation,
-    healthy: needsAttention === 0 && failedRevalidation === 0,
-  }
 }
 
 function translate(

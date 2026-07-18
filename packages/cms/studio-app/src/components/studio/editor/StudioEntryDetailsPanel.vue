@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, Link2 } from '@lucide/vue'
+import { ChevronDown } from '@lucide/vue'
 import { computed } from 'vue'
 
 import {
@@ -58,13 +58,11 @@ const canPreview = computed(() => Boolean(workflow.value.currentReadinessView?.c
         <StudioEntryStatusRail
           :readiness-detail="workflow.readinessDetail"
           :readiness-pending="workflow.readinessPending"
-          :publish-impact-requested="workflow.publishImpactRequested"
+          :publish-impact-requested="workflow.publishSession.impactRequested"
           :publish-impact="workflow.publishImpact"
           :publish-review="workflow.publishReview"
           :public-visibility="workflow.publicVisibility"
           :request-review-pending="workflow.requestReviewPending"
-          :route-validation-requested="workflow.routeValidationRequested"
-          :route-validation-state="workflow.routeValidationState"
         />
       </CollapsibleContent>
     </Collapsible>
@@ -100,27 +98,19 @@ const canPreview = computed(() => Boolean(workflow.value.currentReadinessView?.c
           >
             {{ t('ginkoCms.studio.entryDetails.previewChanges') }}
           </Button>
-          <Button
-            v-if="workflow.isRouteBackedEntry"
-            variant="outline"
-            size="sm"
-            class="ginko:w-full"
-            :disabled="editor.loader.pending"
-            @click="workflow.validatePublicRoutes"
-          >
-            <Link2 class="ginko:mr-1.5 ginko:size-3.5" />
-            {{ t('ginkoCms.studio.entryDetails.checkLinks') }}
-          </Button>
         </div>
 
         <StudioPublishOutcomeCard
-          v-if="editor.publishing.publishOutcome"
+          v-if="editor.publishing.publishSession.outcome"
           class="ginko:mt-4"
-          :outcome="editor.publishing.publishOutcome"
+          :outcome="editor.publishing.publishSession.outcome"
           :public-visibility="workflow.publicVisibility"
           :publish-impact="workflow.publishImpact"
         />
-        <div v-else-if="workflow.publishImpactRequested" class="ginko:mt-4 ginko:grid ginko:gap-2">
+        <div
+          v-else-if="workflow.publishSession.impactRequested"
+          class="ginko:mt-4 ginko:grid ginko:gap-2"
+        >
           <div class="ginko:px-1">
             <h3 class="studio-text-title ginko:text-foreground">
               {{ t('ginkoCms.studio.entryDetails.websiteChangesTitle') }}
@@ -133,23 +123,20 @@ const canPreview = computed(() => Boolean(workflow.value.currentReadinessView?.c
             preview-scope="publish"
             :publish-impact="workflow.publishImpact"
             :publish-review="workflow.publishReview"
-            :selected-publish-impact-locale="workflow.selectedPublishImpactLocale"
+            :selected-publish-impact-locale="workflow.publishSession.impactLocale"
           />
         </div>
 
         <div v-if="advancedEditor" class="ginko:mt-4 ginko:grid ginko:gap-4">
           <StudioEntryPublicWorkflowPanel
             :public-visibility="workflow.publicVisibility"
-            :route-validation-requested="workflow.routeValidationRequested"
-            :route-validation-state="workflow.routeValidationState"
-            :publish-impact-requested="workflow.publishImpactRequested"
+            :publish-impact-requested="workflow.publishSession.impactRequested"
             :publish-impact="workflow.publishImpact"
             preview-scope="publish"
             :publish-review="workflow.publishReview"
-            :selected-publish-impact-locale="workflow.selectedPublishImpactLocale"
+            :selected-publish-impact-locale="workflow.publishSession.impactLocale"
             :show-publish-impact-summary="false"
             @preview-publish-impact="workflow.previewPublishImpact(editor.loader.currentLocale)"
-            @validate-public-routes="workflow.validatePublicRoutes"
           />
           <StudioEntryTranslationReadinessPanel
             :current-locale="editor.loader.currentLocale"

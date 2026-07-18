@@ -12,6 +12,7 @@ import {
   readinessActionLabel,
   readinessIssueMessage,
 } from '../../../lib/publicWorkflow'
+import { formatBoundedCount } from '../../../lib/websiteChangePresenter'
 import type {
   StudioEntryReadinessDetail,
   StudioPublishImpactLocale,
@@ -35,7 +36,7 @@ const entry = computed(() => editor.loader.entry)
 // EDT-10: "Preview reviewed" may only be claimed when the editor actually
 // opened the rendered draft preview for the current draft state. Optional
 // chaining: dialog tests mount with a partial editor context.
-const draftPreviewOpened = computed(() => editor.workflow?.draftPreviewOpened === true)
+const draftPreviewOpened = computed(() => editor.publishing.publishSession.draftPreviewOpened)
 const draftPreviewUrl = computed(() =>
   draftPreviewPath({
     previewRoute: cmsConfig.preview?.route,
@@ -55,7 +56,7 @@ const publishImpactReady = computed(
 )
 
 const publishLabel = computed(() => {
-  if (editor.publishing.publishMode === 'all') {
+  if (editor.publishing.publishSession.mode === 'all') {
     return editor.loader.t('ginkoCms.common.publishAll')
   }
   const locale = editor.loader.currentLocale
@@ -66,15 +67,15 @@ const publishLabel = computed(() => {
 
 const publishConfirmation = computed(() =>
   derivePublishConfirmationState({
-    readinessState: editor.publishing.publishReadiness.state,
+    readinessState: editor.publishing.publishSession.readiness.state,
     t: editor.loader.t,
-    confirmationToken: editor.publishing.publishReadiness.confirmationToken,
-    confirmationExpiresAt: editor.publishing.publishReadiness.confirmationExpiresAt,
+    confirmationToken: editor.publishing.publishSession.readiness.confirmationToken,
+    confirmationExpiresAt: editor.publishing.publishSession.readiness.confirmationExpiresAt,
   }),
 )
 
 const publishScopeLabel = computed(() =>
-  editor.publishing.publishMode === 'all'
+  editor.publishing.publishSession.mode === 'all'
     ? collectionEditorT('publishDialogAllLanguages', {
         locales: editor.loader.localeVariants
           .map((variant: { locale: string }) => variant.locale.toUpperCase())
@@ -90,7 +91,7 @@ const readinessView = computed(() =>
     readinessDetail: props.readinessDetail,
     currentLocale: editor.loader.currentLocale,
     t: editor.loader.t,
-    publishMode: editor.publishing.publishMode,
+    publishMode: editor.publishing.publishSession.mode,
   }),
 )
 
@@ -101,8 +102,11 @@ const publicUrl = computed(
 const issueLabel = computed(() => {
   const blocker = readinessView.value.blockers[0]
   if (blocker) return readinessIssueMessage(editor.loader.t, blocker)
-  if (editor.publishing.publishReadiness.state === 'blocked') {
-    return editor.publishing.publishReadiness.message || collectionEditorT('publishDialogBlocked')
+  if (editor.publishing.publishSession.readiness.state === 'blocked') {
+    return (
+      editor.publishing.publishSession.readiness.message ||
+      collectionEditorT('publishDialogBlocked')
+    )
   }
   if (readinessView.value.canPublish) return collectionEditorT('publishDialogNoBlockingIssues')
   return readinessView.value.nextAction
@@ -116,18 +120,18 @@ const isBlocked = computed(
   () =>
     readinessView.value.blockers.length > 0 ||
     !readinessView.value.canPublish ||
-    editor.publishing.publishReadiness.state === 'blocked',
+    editor.publishing.publishSession.readiness.state === 'blocked',
 )
 
 // Preview preparation failed (e.g. the entry changed in another session). The
 // dialog must never claim "Ready to publish" next to a failed preview.
-const previewFailed = computed(() => editor.publishing.publishReadiness.state === 'failed')
+const previewFailed = computed(() => editor.publishing.publishSession.readiness.state === 'failed')
 const previewConcurrentEdit = computed(
-  () => previewFailed.value && editor.workflow?.previewConcurrentEdit === true,
+  () => previewFailed.value && editor.publishing.publishSession.concurrentEdit,
 )
 const previewFailureMessage = computed(
   () =>
-    editor.publishing.publishReadiness.message ||
+    editor.publishing.publishSession.readiness.message ||
     editor.loader.t('ginkoCms.studio.workflow.preview.failed'),
 )
 
@@ -162,17 +166,30 @@ function changeKindLabel(change: StudioPublishImpactLocale['changes'][number]): 
 }
 
 const changeKindSummary = computed(() => {
-  const counts = new Map<string, number>()
+  const counts = new Map<string, { count: number; isLowerBound: boolean }>()
+  const addCount = (label: string, count: number, isLowerBound = false) => {
+    const current = counts.get(label)
+    counts.set(label, {
+      count: (current?.count ?? 0) + count,
+      isLowerBound: Boolean(current?.isLowerBound || isLowerBound),
+    })
+  }
   for (const localeImpact of publishImpactLocales.value) {
-    for (const change of localeImpact.changes) {
-      const label = changeKindLabel(change)
-      counts.set(label, (counts.get(label) ?? 0) + 1)
+    for (const change of localeImpact.changes.filter((item) => item.scope !== 'descendant')) {
+      addCount(changeKindLabel(change), 1)
+    }
+    if ((localeImpact.routeImpact?.listed ?? 0) > 0) {
+      addCount(
+        collectionEditorT('publishDialogPageAddress'),
+        localeImpact.routeImpact?.listed ?? 0,
+        localeImpact.routeImpact?.total === null,
+      )
     }
   }
-  return Array.from(counts.entries()).map(([label, count]) => ({
+  return Array.from(counts.entries()).map(([label, value]) => ({
     key: label,
     label,
-    count,
+    ...value,
   }))
 })
 
@@ -186,8 +203,8 @@ const publishImpactMessage = computed(
 
 <template>
   <Dialog
-    :open="editor.publishing.showPublishDialog"
-    @update:open="editor.publishing.showPublishDialog = $event"
+    :open="editor.publishing.publishSession.open"
+    @update:open="editor.publishing.publishSession.open = $event"
   >
     <DialogContent class="ginko:sm:max-w-lg">
       <DialogHeader>
@@ -381,6 +398,19 @@ const publishImpactMessage = computed(
                   {{ collectionEditorT('publishDialogNavigation') }}:
                   {{ displayInclusion(localeImpact.nav.after).toLowerCase() }}
                 </div>
+                <div
+                  v-if="(localeImpact.routeImpact?.listed ?? 0) > 0"
+                  class="ginko:text-muted-foreground"
+                >
+                  {{
+                    collectionEditorT('publishImpactDescendantRoutesAffected', {
+                      total: formatBoundedCount(
+                        localeImpact.routeImpact?.total ?? localeImpact.routeImpact?.listed ?? 0,
+                        localeImpact.routeImpact?.total === null,
+                      ),
+                    })
+                  }}
+                </div>
               </div>
             </div>
 
@@ -394,7 +424,8 @@ const publishImpactMessage = computed(
                 variant="outline"
                 class="ginko:text-xs"
               >
-                {{ summary.label }} {{ summary.count }}
+                {{ summary.label }}
+                {{ formatBoundedCount(summary.count, summary.isLowerBound) }}
               </Badge>
             </div>
           </div>
@@ -427,7 +458,7 @@ const publishImpactMessage = computed(
           </Label>
           <Textarea
             id="publish-message"
-            v-model="editor.publishing.publishMessage"
+            v-model="editor.publishing.publishSession.message"
             :placeholder="
               editor.loader.t('ginkoCms.studio.collectionEditor.publishMessagePlaceholder')
             "
@@ -462,7 +493,7 @@ const publishImpactMessage = computed(
       </div>
 
       <DialogFooter>
-        <Button variant="outline" @click="editor.publishing.showPublishDialog = false">
+        <Button variant="outline" @click="editor.publishing.publishSession.open = false">
           {{ editor.loader.t('ginkoCms.studio.confirmDialog.cancel') }}
         </Button>
         <Button

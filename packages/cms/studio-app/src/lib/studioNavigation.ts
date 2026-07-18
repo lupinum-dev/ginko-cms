@@ -38,7 +38,6 @@ export const studioStaticRoutes: StudioStaticRoute[] = [
     section: 'editor',
     labelKey: 'ginkoCms.studio.siteDataPage.title',
     subtitleKey: 'ginkoCms.studio.commandPalette.siteDataSubtitle',
-    requiredCapability: cmsPermissionKeys.manageSettings,
   },
   {
     id: 'assets',
@@ -65,7 +64,6 @@ export const studioStaticRoutes: StudioStaticRoute[] = [
     section: 'operations',
     labelKey: 'ginkoCms.studio.collectionsPage.title',
     subtitleKey: 'ginkoCms.studio.commandPalette.collectionsSubtitle',
-    requiredCapability: cmsPermissionKeys.manageCollections,
   },
   {
     id: 'activity',
@@ -74,7 +72,7 @@ export const studioStaticRoutes: StudioStaticRoute[] = [
     section: 'operations',
     labelKey: 'ginkoCms.studio.activityPage.title',
     subtitleKey: 'ginkoCms.studio.activityPage.description',
-    requiredCapability: cmsPermissionKeys.manageSettings,
+    requiredCapability: cmsPermissionKeys.publishEntries,
   },
   {
     id: 'agents',
@@ -83,7 +81,6 @@ export const studioStaticRoutes: StudioStaticRoute[] = [
     section: 'operations',
     labelKey: 'ginkoCms.studio.agentsPage.title',
     subtitleKey: 'ginkoCms.studio.agentsPage.description',
-    requiredCapability: cmsPermissionKeys.manageSettings,
   },
   {
     id: 'settings',
@@ -92,7 +89,6 @@ export const studioStaticRoutes: StudioStaticRoute[] = [
     section: 'settings',
     labelKey: 'ginkoCms.studio.settingsPage.title',
     subtitleKey: 'ginkoCms.studio.commandPalette.settingsSubtitle',
-    requiredCapability: cmsPermissionKeys.manageSettings,
   },
 ]
 

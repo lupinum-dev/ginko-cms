@@ -3,10 +3,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Ported color/type themes (.color-*, .theme-mono/.theme-scaled), re-scoped
- * under .ginko-cms so theme classes applied on the Studio root cannot leak
- * into host apps. Imported after @custom-variant dark so the dark variant is
- * in scope. See D2 in the Studio shell-migration RFC. */
+/* Accent themes are scoped under .ginko-cms so Studio preferences cannot leak
+ * into host apps. */
 @import './themes.css';
 
 @theme inline {

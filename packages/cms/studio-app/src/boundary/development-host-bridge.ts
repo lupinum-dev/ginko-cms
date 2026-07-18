@@ -29,6 +29,10 @@ export function createDevelopmentHostBridge(): GinkoCmsStudioHostBridge {
       collections: {},
       sidebar: { dark: false },
       mcp: { enabled: false },
+      contract: {
+        expectedContentHash: '0'.repeat(64),
+        expectedPresentationHash: '0'.repeat(64),
+      },
     },
     api: apiProxy() as GinkoCmsStudioHostBridge['api'],
     auth: null,

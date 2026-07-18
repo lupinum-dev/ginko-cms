@@ -11,6 +11,7 @@ import {
   loadGinkoContentContract,
   type ContentRuntimePolicyInput,
 } from '../module/content-contract.js'
+import { readExpectedContractBinding } from '../module/convex.js'
 import { type CliIo, type ConvexClientFactory, write } from './args.js'
 import { deployKey, publicConvexUrl } from './env.js'
 
@@ -26,6 +27,11 @@ type CheckCmsContractResult = {
   expectedPresentationHash: string
   drift: Array<{ path: string; installed?: unknown; expected?: unknown }>
   presentationDrift: Array<{ path: string; installed?: unknown; expected?: unknown }>
+}
+
+type DeployedContractBinding = {
+  contentHash: string
+  presentationHash: string
 }
 
 function parsePushArgs(args: string[]): PushArgs {
@@ -111,6 +117,33 @@ export async function runPushCommand(
       `Ginko CMS contract is installed for ${Object.keys(content.collections).length} collection(s) (content=${contentHash}, presentation=${presentationHash}).\n`,
     )
     return 0
+  }
+
+  const binding = readExpectedContractBinding(cwd)
+  if (binding?.contentHash !== contentHash || binding.presentationHash !== presentationHash) {
+    throw new Error(
+      'The generated Convex host contract binding does not match this contract. Run `pnpm exec ginko-cms deploy` so the trusted hashes are deployed before installation.',
+    )
+  }
+  let deployedBinding: DeployedContractBinding
+  try {
+    deployedBinding = (await client.query(
+      anyApi.ginkoCms.contractBinding.getExpectedCmsContractBinding,
+      {},
+    )) as DeployedContractBinding
+  } catch (cause) {
+    throw new Error(
+      'The deployed Convex host does not expose its expected CMS contract binding. Run `pnpm exec ginko-cms deploy` before installation.',
+      { cause },
+    )
+  }
+  if (
+    deployedBinding.contentHash !== contentHash ||
+    deployedBinding.presentationHash !== presentationHash
+  ) {
+    throw new Error(
+      'The deployed Convex host contract binding does not match this contract. Run `pnpm exec ginko-cms deploy` before installation.',
+    )
   }
 
   const result = (await client.mutation(anyApi.ginkoCms.contract.installCmsContract, {

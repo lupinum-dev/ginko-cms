@@ -3,12 +3,14 @@ import {
   Archive,
   ArchiveRestore,
   ChevronDown,
+  Copy,
   EyeOff,
   Flag,
   Globe,
   Loader2,
   MoreHorizontal,
   Save,
+  Trash2,
 } from '@lucide/vue'
 import { resolveEntryTitle } from '@lupinum/ginko-cms-contract/shared/fields/title.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
@@ -36,6 +38,7 @@ const emit = defineEmits<{
 
 const editor = props.mode === 'new' ? null : useStudioEntryEditorContext()
 const mounted = ref(false)
+const showDuplicateDialog = ref(false)
 
 const displayTitle = computed(() => {
   if (props.mode === 'new') return props.title || 'New content'
@@ -79,15 +82,30 @@ const publishLabel = computed(() => {
 })
 
 const publishDisabled = computed(
-  () => !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
+  () =>
+    !editor ||
+    editor.draft.saving ||
+    editor.publishing.publishSession.readiness.state === 'pending',
 )
 
 // Archived entries cannot publish (the banner says so); the primary action
 // becomes the banner's own verb, Restore draft.
 const isArchived = computed(() => entry.value?.status === 'archived')
+const isSingleton = computed(
+  () =>
+    editor?.loader.collectionConfig?.routing?.singleton === true ||
+    editor?.loader.collectionConfig?.singleton === true,
+)
+const publishedLocaleCount = computed(
+  () =>
+    editor?.loader.localeVariants.filter((variant) => variant.publishedPath !== null).length ?? 0,
+)
 
 const publishAllDisabled = computed(
-  () => !editor || editor.draft.saving || editor.publishing.publishReadiness.state === 'pending',
+  () =>
+    !editor ||
+    editor.draft.saving ||
+    editor.publishing.publishSession.readiness.state === 'pending',
 )
 
 const canRequestReview = computed(
@@ -152,7 +170,8 @@ const showEntryActions = computed(
     !!editor &&
     (editor.loader.canEditEntries ||
       editor.loader.canPublishEntries ||
-      editor.loader.canArchiveEntries),
+      editor.loader.canArchiveEntries ||
+      editor.loader.canDeleteEntries),
 )
 
 onMounted(() => {
@@ -177,6 +196,16 @@ function requestReview() {
   if (!editor || !canRequestReview.value) return
   emit('requestPublishReview', editor.loader.currentLocale)
 }
+
+async function openDuplicateDialog() {
+  if (!editor || isSingleton.value) return
+  if (unref(editor.draft.isDirty)) {
+    const saved = await editor.draft.handleSaveDraft()
+    if (!saved) return
+    await editor.loader.refreshEntry()
+  }
+  showDuplicateDialog.value = true
+}
 </script>
 
 <template>
@@ -195,6 +224,9 @@ function requestReview() {
           <span
             class="studio-entry-topbar__save-indicator studio-text-caption ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-1.5"
             :class="saveIndicatorTone"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
           >
             <Loader2 v-if="saveState === 'saving'" class="ginko:size-3 ginko:animate-spin" />
             <span
@@ -300,6 +332,19 @@ function requestReview() {
           <DropdownMenuContent align="end" class="ginko:w-52">
             <DropdownMenuItem
               v-if="editor.loader.canEditEntries"
+              :disabled="editor.draft.saving || isSingleton"
+              :title="
+                isSingleton
+                  ? editor.loader.t('ginkoCms.studio.collectionEditor.duplicateSingletonBlocked')
+                  : undefined
+              "
+              @click="openDuplicateDialog"
+            >
+              <Copy class="ginko:mr-2 ginko:size-3.5" />
+              {{ editor.loader.t('ginkoCms.studio.collectionEditor.duplicateAction') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              v-if="editor.loader.canEditEntries"
               :disabled="editor.draft.saving || !editor.loader.canEditEntries"
               @click="editor.history.showCheckpointDialog = true"
             >
@@ -315,12 +360,32 @@ function requestReview() {
               {{ editor.loader.t('ginkoCms.common.unpublish') }}
             </DropdownMenuItem>
             <DropdownMenuItem
+              v-if="publishedLocaleCount > 1 && editor.loader.canPublishEntries"
+              :disabled="editor.draft.saving || !editor.loader.canPublishEntries"
+              @click="editor.publishing.handleUnpublishAll()"
+            >
+              <EyeOff class="ginko:mr-2 ginko:size-3.5" />
+              {{ editor.loader.t('ginkoCms.common.unpublishAll') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem
               v-if="entry?.status !== 'archived' && editor.loader.canArchiveEntries"
               :disabled="editor.draft.saving || !editor.loader.canArchiveEntries"
               @click="editor.publishing.handleArchive()"
             >
               <Archive class="ginko:mr-2 ginko:size-3.5" />
               {{ editor.loader.t('ginkoCms.common.archive') }}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator
+              v-if="entry?.status === 'archived' && editor.loader.canDeleteEntries"
+            />
+            <DropdownMenuItem
+              v-if="entry?.status === 'archived' && editor.loader.canDeleteEntries"
+              :disabled="editor.draft.saving || !editor.loader.canDeleteEntries"
+              class="ginko:text-destructive ginko:focus:text-destructive"
+              @click="editor.publishing.handlePermanentDelete()"
+            >
+              <Trash2 class="ginko:mr-2 ginko:size-3.5" />
+              {{ editor.loader.t('ginkoCms.studio.collectionEditor.permanentDeleteAction') }}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -345,6 +410,7 @@ function requestReview() {
       </StudioNotice>
     </div>
   </header>
+  <StudioDuplicateEntryDialog v-if="mode !== 'new' && editor" v-model:open="showDuplicateDialog" />
 </template>
 
 <style scoped>

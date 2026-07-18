@@ -5,7 +5,7 @@ Ginko, with first-class support for multilingual content.
 
 It provides the CMS/admin layer that Ginko core intentionally does not own:
 Studio, Convex-backed content storage, Better Auth, managed assets, published
-public projections, filesystem migration, and MCP operations.
+public projections, owner-CLI content portability, and MCP operations.
 
 ## Product Boundary
 

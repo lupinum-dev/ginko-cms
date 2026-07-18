@@ -1,23 +1,42 @@
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { Ref } from 'vue'
-import { nextTick, ref } from 'vue'
+import { nextTick, reactive } from 'vue'
 import type { useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
 import { useStudioHostContext } from '../../boundary/studio-host-context'
-import { formatDestructiveConfirmationPrompt } from '../../lib/destructiveWorkflow'
+import type { StudioPublishImpactResult } from '../../components/studio/editor/studioWorkflowTypes'
+import { formatDestructiveConfirmationPrompt, operationValue } from '../../lib/destructiveWorkflow'
 import { derivePublishConfirmationState, type PublishPreviewState } from '../../lib/publicWorkflow'
 import { useConvexMutation } from '../useStudioConvex'
 import type { useStudioDebug } from '../useStudioDebug'
 import type { StudioEntry, StudioField, StudioLocaleVariant } from './types'
 import { studioConfirm } from './useStudioConfirm'
+import { studioPrompt } from './useStudioPrompt'
 
-interface PublishOperationPreviewState {
+export interface PublishOperationPreviewState {
   state: PublishPreviewState
   message: string
   confirmationToken: string | null
   confirmationExpiresAt: number | null
   locales: string[]
+}
+
+export type PublishSessionPreview = {
+  allowed: boolean
+  summary: string
+  blockers: Array<{ code: string; message: string }>
+  warnings: Array<{ code: string; message: string }>
+  effects: Array<{
+    kind: string
+    summary: string
+    count?: number | null
+    minimumCount?: number
+    countLabel?: string
+  }>
+  details?: { publishImpact?: StudioPublishImpactResult } | null
+  confirm?: unknown
+  confirmation?: { token: string; expiresAt: number }
 }
 
 export interface PublishOutcomeState {
@@ -27,6 +46,30 @@ export interface PublishOutcomeState {
   message: string | null
   mode: 'single' | 'all'
   versionId: string | null
+}
+
+export interface PublishSessionState {
+  open: boolean
+  mode: 'single' | 'all'
+  message: string
+  readiness: PublishOperationPreviewState
+  preview: PublishSessionPreview | null
+  impactRequested: boolean
+  impactLocale: string | null
+  impactStale: boolean
+  draftPreviewOpened: boolean
+  concurrentEdit: boolean
+  outcome: PublishOutcomeState | null
+}
+
+function initialReadiness(message = 'Preview website changes before publishing.') {
+  return {
+    state: 'not_previewed' as const,
+    message,
+    confirmationToken: null,
+    confirmationExpiresAt: null,
+    locales: [],
+  }
 }
 
 type DestructivePreview = {
@@ -83,6 +126,7 @@ interface EntryPublishingDeps {
   currentLocale: Ref<string>
   canPublishEntries: Ref<boolean>
   canArchiveEntries: Ref<boolean>
+  canDeleteEntries: Ref<boolean>
   saving: Ref<boolean>
   error: Ref<string>
   isDirty: Ref<boolean>
@@ -92,7 +136,7 @@ interface EntryPublishingDeps {
   buildLocalizedData: (source: Record<string, unknown>) => Record<string, unknown> | undefined
   dataFields: Record<string, unknown>
   studioDebug: ReturnType<typeof useStudioDebug>
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, unknown>) => string
   /**
    * The draft version the editor form was hydrated from (useEntryDraft's
    * `lastHydratedVersion`). Unlike `entry.draftVersion` — a live query that
@@ -116,6 +160,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     currentLocale,
     canPublishEntries,
     canArchiveEntries,
+    canDeleteEntries,
     saving,
     error,
     isDirty,
@@ -126,22 +171,25 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
   } = deps
   const studioHost = useStudioHostContext()
 
-  const showPublishDialog = ref(false)
-  const publishMessage = ref('')
-  const publishMode = ref<'single' | 'all'>('single')
-  const publishOutcome = ref<PublishOutcomeState | null>(null)
-  const publishReadiness = ref<PublishOperationPreviewState>({
-    state: 'not_previewed',
-    message: 'Preview website changes before publishing.',
-    confirmationToken: null,
-    confirmationExpiresAt: null,
-    locales: [],
+  const publishSession = reactive<PublishSessionState>({
+    open: false,
+    mode: 'single',
+    message: '',
+    readiness: initialReadiness(),
+    preview: null,
+    impactRequested: false,
+    impactLocale: null,
+    impactStale: false,
+    draftPreviewOpened: false,
+    concurrentEdit: false,
+    outcome: null,
   })
 
   const publishMutation = useConvexMutation(api.ginkoCms.editor.publishEntry)
   const unpublishMutation = useConvexMutation(api.ginkoCms.editor.unpublishEntry)
   const archiveMutation = useConvexMutation(api.ginkoCms.editor.archiveEntry)
   const restoreMutation = useConvexMutation(api.ginkoCms.editor.restoreEntry)
+  const permanentlyDeleteMutation = useConvexMutation(api.ginkoCms.editor.permanentlyDeleteEntry)
 
   function convexClient() {
     return studioHost.requireConvexClient()
@@ -151,8 +199,8 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     next: Omit<PublishOperationPreviewState, 'confirmationToken' | 'confirmationExpiresAt'> &
       Partial<Pick<PublishOperationPreviewState, 'confirmationToken' | 'confirmationExpiresAt'>>,
   ) {
-    if (next.state === 'pending') publishOutcome.value = null
-    publishReadiness.value = {
+    if (next.state === 'pending') publishSession.outcome = null
+    publishSession.readiness = {
       ...next,
       confirmationToken: next.confirmationToken ?? null,
       confirmationExpiresAt: next.confirmationExpiresAt ?? null,
@@ -160,20 +208,33 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
   }
 
   function resetPublishReadiness(message = 'Preview website changes before publishing.') {
-    publishReadiness.value = {
-      state: 'not_previewed',
-      message,
-      confirmationToken: null,
-      confirmationExpiresAt: null,
-      locales: [],
-    }
+    publishSession.readiness = initialReadiness(message)
+  }
+
+  function resetPublishSession() {
+    Object.assign(publishSession, {
+      open: false,
+      mode: 'single',
+      message: '',
+      readiness: initialReadiness(),
+      preview: null,
+      impactRequested: false,
+      impactLocale: null,
+      impactStale: false,
+      draftPreviewOpened: false,
+      concurrentEdit: false,
+      outcome: null,
+    } satisfies PublishSessionState)
   }
 
   function markPublishReadinessStale(message = 'Draft changed after the last publish preview.') {
-    publishOutcome.value = null
-    if (publishReadiness.value.state === 'ready' || publishReadiness.value.state === 'blocked') {
-      publishReadiness.value = {
-        ...publishReadiness.value,
+    publishSession.outcome = null
+    if (
+      publishSession.readiness.state === 'ready' ||
+      publishSession.readiness.state === 'blocked'
+    ) {
+      publishSession.readiness = {
+        ...publishSession.readiness,
         state: 'stale',
         message,
         confirmationToken: null,
@@ -191,25 +252,25 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
 
   function handlePublish() {
     if (!canPublishEntries.value) return false
-    publishMode.value = 'single'
-    showPublishDialog.value = true
+    publishSession.mode = 'single'
+    publishSession.open = true
     return true
   }
 
   function handlePublishAll() {
     if (!canPublishEntries.value) return false
-    publishMode.value = 'all'
-    showPublishDialog.value = true
+    publishSession.mode = 'all'
+    publishSession.open = true
     return true
   }
 
   async function confirmPublish() {
     if (!canPublishEntries.value) return
     const publishConfirmation = derivePublishConfirmationState({
-      readinessState: publishReadiness.value.state,
+      readinessState: publishSession.readiness.state,
       t: deps.t,
-      confirmationToken: publishReadiness.value.confirmationToken,
-      confirmationExpiresAt: publishReadiness.value.confirmationExpiresAt,
+      confirmationToken: publishSession.readiness.confirmationToken,
+      confirmationExpiresAt: publishSession.readiness.confirmationExpiresAt,
     })
     if (!publishConfirmation.canConfirm) {
       error.value =
@@ -219,17 +280,17 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     saving.value = true
     error.value = ''
     const locales =
-      publishMode.value === 'all'
-        ? publishReadiness.value.locales.length > 0
-          ? publishReadiness.value.locales
+      publishSession.mode === 'all'
+        ? publishSession.readiness.locales.length > 0
+          ? publishSession.readiness.locales
           : localeVariants.value.map((variant) => variant.locale)
         : [currentLocale.value]
-    const message = publishMessage.value.trim() || undefined
+    const message = publishSession.message.trim() || undefined
     studioDebug.debug('publish:start', {
       collection: collection.value,
       entryId: entryId.value,
       slug: form.slug,
-      mode: publishMode.value,
+      mode: publishSession.mode,
     })
     try {
       if (isDirty.value) {
@@ -253,29 +314,35 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       if (typeof expectedVersion !== 'number') {
         throw new TypeError('The saved draft is not loaded. Reload before publishing.')
       }
-      const result = await publishMutation({
-        entryId: entryId.value,
-        locales,
-        message,
-        expectedVersion,
-        _confirmationToken: token,
-      })
-      publishOutcome.value = {
+      const result = operationValue<{
+        dirtyLocales: unknown
+        draftVersion: unknown
+        versionId: unknown
+      }>(
+        await publishMutation({
+          entryId: entryId.value,
+          locales,
+          message,
+          expectedVersion,
+          _confirmationToken: token,
+        }),
+      )
+      publishSession.outcome = {
         dirtyLocales: Array.isArray(result.dirtyLocales) ? result.dirtyLocales.map(String) : [],
         draftVersion: typeof result.draftVersion === 'number' ? result.draftVersion : null,
         locales,
         message: message ?? null,
-        mode: publishMode.value,
+        mode: publishSession.mode,
         versionId: typeof result.versionId === 'string' ? result.versionId : null,
       }
-      showPublishDialog.value = false
+      publishSession.open = false
       isDirty.value = false
-      publishMessage.value = ''
+      publishSession.message = ''
       resetPublishReadiness()
       studioDebug.debug('publish:success', { collection: collection.value, entryId: entryId.value })
     } catch (e) {
       const errorKey =
-        publishMode.value === 'all'
+        publishSession.mode === 'all'
           ? 'ginkoCms.studio.collectionEditor.publishAllError'
           : 'ginkoCms.studio.collectionEditor.publishError'
       error.value = getCmsErrorMessage(e, t(errorKey))
@@ -290,13 +357,19 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     }
   }
 
-  async function handleUnpublish() {
+  async function unpublishLocales(locales: string[]) {
     if (!canPublishEntries.value) return
+    const selectedLocales = [...new Set(locales)].sort()
+    if (selectedLocales.length === 0) {
+      error.value = 'No public locale is available to unpublish.'
+      return
+    }
     const targetLabel = _entry.value?.baseSlug ?? entryId.value
     let preview: DestructivePreview | null = null
     try {
       preview = (await convexClient().mutation(api.ginkoCms.editor.previewUnpublishEntryOperation, {
         entryId: entryId.value,
+        locales: selectedLocales,
       })) as DestructivePreview
       if (destructivePreviewBlocked(preview)) {
         error.value = destructivePreviewMessage(preview)
@@ -332,8 +405,14 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     try {
       const token = previewToken(preview)
       if (!token) throw new Error('Preview website changes again before unpublishing.')
-      await unpublishMutation({ entryId: entryId.value, _confirmationToken: token })
-      publishOutcome.value = null
+      operationValue<null>(
+        await unpublishMutation({
+          entryId: entryId.value,
+          locales: selectedLocales,
+          _confirmationToken: token,
+        }),
+      )
+      publishSession.outcome = null
       resetPublishReadiness(
         'Entry was unpublished. Preview website changes before publishing again.',
       )
@@ -351,6 +430,16 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     } finally {
       saving.value = false
     }
+  }
+
+  async function handleUnpublish() {
+    await unpublishLocales([currentLocale.value])
+  }
+
+  async function handleUnpublishAll() {
+    await unpublishLocales(
+      localeVariants.value.filter((variant) => variant.published).map((variant) => variant.locale),
+    )
   }
 
   async function handleArchive() {
@@ -398,8 +487,10 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     try {
       const token = previewToken(preview)
       if (!token) throw new Error('Preview website changes again before archiving.')
-      await archiveMutation({ entryId: entryId.value, _confirmationToken: token })
-      publishOutcome.value = null
+      operationValue<null>(
+        await archiveMutation({ entryId: entryId.value, _confirmationToken: token }),
+      )
+      publishSession.outcome = null
       resetPublishReadiness('Entry was archived. Restore it before publishing again.')
       studioDebug.debug('archive:success', { collection: collection.value, entryId: entryId.value })
       await studioDebug.pushWithLogging(
@@ -458,8 +549,10 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     try {
       const token = previewToken(preview)
       if (!token) throw new Error('Preview restore again before continuing.')
-      await restoreMutation({ entryId: entryId.value, _confirmationToken: token })
-      publishOutcome.value = null
+      operationValue<null>(
+        await restoreMutation({ entryId: entryId.value, _confirmationToken: token }),
+      )
+      publishSession.outcome = null
       resetPublishReadiness()
       studioDebug.debug('restore:success', { collection: collection.value, entryId: entryId.value })
     } catch (e) {
@@ -474,19 +567,120 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     }
   }
 
+  async function handlePermanentDelete() {
+    if (!canDeleteEntries.value || _entry.value?.status !== 'archived') return
+    const stableId = _entry.value.stableId
+    if (!stableId) {
+      error.value = t('ginkoCms.studio.collectionEditor.permanentDeleteMissingIdentity')
+      return
+    }
+    const confirmationPhrase = `DELETE ${stableId}`
+    const enteredPhrase = await studioPrompt({
+      title: t('ginkoCms.studio.collectionEditor.permanentDeleteTitle'),
+      description: t('ginkoCms.studio.collectionEditor.permanentDeletePhraseDescription', {
+        phrase: confirmationPhrase,
+      }),
+      label: t('ginkoCms.studio.collectionEditor.permanentDeletePhraseLabel'),
+      placeholder: confirmationPhrase,
+      confirmLabel: t('ginkoCms.studio.collectionEditor.permanentDeleteReview'),
+    })
+    if (enteredPhrase === null) return
+    if (enteredPhrase !== confirmationPhrase) {
+      error.value = t('ginkoCms.studio.collectionEditor.permanentDeletePhraseMismatch')
+      return
+    }
+
+    let preview: DestructivePreview | null = null
+    try {
+      preview = (await convexClient().mutation(
+        api.ginkoCms.editor.previewPermanentlyDeleteEntryOperation,
+        { entryId: entryId.value, confirmationPhrase },
+      )) as DestructivePreview
+      if (destructivePreviewBlocked(preview)) {
+        error.value = destructivePreviewMessage(preview)
+        return
+      }
+    } catch (e) {
+      error.value = getCmsErrorMessage(
+        e,
+        t('ginkoCms.studio.collectionEditor.permanentDeleteError'),
+      )
+      return
+    }
+
+    const confirmed = await studioConfirm({
+      title: t('ginkoCms.studio.collectionEditor.permanentDeleteTitle'),
+      description: destructivePreviewDescription(
+        preview,
+        formatDestructiveConfirmationPrompt({
+          kind: 'delete',
+          targetLabel: stableId,
+          targetId: entryId.value,
+          severity: 'critical',
+          previewRequirement: 'target-summary',
+          previewState: 'valid',
+        }),
+      ),
+      confirmLabel: t('ginkoCms.studio.collectionEditor.permanentDeleteConfirm'),
+      confirmVariant: 'destructive',
+    })
+    if (!confirmed) return
+
+    saving.value = true
+    error.value = ''
+    studioDebug.debug('permanent-delete:start', {
+      collection: collection.value,
+      entryId: entryId.value,
+      stableId,
+    })
+    try {
+      const token = previewToken(preview)
+      if (!token) throw new Error('Preview permanent deletion again before continuing.')
+      operationValue(
+        await permanentlyDeleteMutation({
+          entryId: entryId.value,
+          confirmationPhrase,
+          _confirmationToken: token,
+        }),
+      )
+      studioDebug.debug('permanent-delete:success', {
+        collection: collection.value,
+        entryId: entryId.value,
+        stableId,
+      })
+      await studioDebug.pushWithLogging(
+        router,
+        `${contentRoute}/${collection.value}`,
+        'permanently-delete-entry',
+        { collection: collection.value, entryId: entryId.value, stableId },
+      )
+    } catch (e) {
+      error.value = getCmsErrorMessage(
+        e,
+        t('ginkoCms.studio.collectionEditor.permanentDeleteError'),
+      )
+      studioDebug.error('permanent-delete:error', {
+        collection: collection.value,
+        entryId: entryId.value,
+        error: e,
+      })
+    } finally {
+      saving.value = false
+    }
+  }
+
   return {
-    showPublishDialog,
-    publishMessage,
-    publishMode,
-    publishOutcome,
-    publishReadiness,
+    publishSession,
+    resetPublishSession,
     setPublishReadiness,
     markPublishReadinessStale,
     handlePublish,
     handlePublishAll,
     confirmPublish,
     handleUnpublish,
+    handleUnpublishAll,
     handleArchive,
     handleRestore,
+    handlePermanentDelete,
   }
 }

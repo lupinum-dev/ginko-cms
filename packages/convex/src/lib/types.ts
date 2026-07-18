@@ -53,7 +53,6 @@ export type ValidationError = SharedValidationError
 export type CompletionState = SharedCompletionState
 
 export type EntryId = Id<'entries'>
-export type CollectionId = string
 
 export type ActivityDoc = Doc<'activity'>
 

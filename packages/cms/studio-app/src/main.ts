@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
 
 import App from './App.vue'
-import { hasHostBridge, readHostBridge } from './boundary/host-bridge'
+import { hasHostBridge } from './boundary/host-bridge'
 import { createStudioHostContext, studioHostContextKey } from './boundary/studio-host-context'
 import Icon from './components/Icon.vue'
 import NuxtTime from './components/NuxtTime.vue'
@@ -82,7 +82,6 @@ function prepareMountRoot(target: Element): Element {
 void Promise.all([waitForMountTarget(), waitForHostBridge()])
   .then(async ([target]) => {
     debugStudioMount('creating app', {
-      collectionCount: Object.keys(readHostBridge().config.collections ?? {}).length,
       hasHostBridge: hasHostBridge(),
       location: window.location.href,
     })

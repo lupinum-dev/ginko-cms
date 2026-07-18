@@ -59,6 +59,78 @@ const settings = props.admin
             >{{ settings.config.route }}</code
           >
         </div>
+        <template v-if="settings.contractCompatibility">
+          <div
+            class="ginko:mt-3 ginko:grid ginko:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] ginko:gap-x-4 ginko:gap-y-2 ginko:border-t ginko:border-border/40 ginko:pt-3 ginko:text-xs"
+          >
+            <span class="ginko:text-muted-foreground">{{
+              settings.t('ginkoCms.studio.settingsPage.contractWrites')
+            }}</span>
+            <strong
+              :class="
+                settings.contractCompatibility.writable
+                  ? 'ginko:text-emerald-600'
+                  : 'ginko:text-amber-600'
+              "
+            >
+              {{
+                settings.contractCompatibility.writable
+                  ? settings.t('ginkoCms.studio.settingsPage.contractReady')
+                  : settings.t('ginkoCms.studio.settingsPage.contractBlocked')
+              }}
+            </strong>
+            <span class="ginko:text-muted-foreground">{{
+              settings.t('ginkoCms.studio.settingsPage.contractTransition')
+            }}</span>
+            <code class="ginko:font-mono">{{
+              settings.contractCompatibility.transitionState ??
+              settings.t('ginkoCms.studio.settingsPage.contractNotInstalled')
+            }}</code>
+            <span class="ginko:text-muted-foreground">{{
+              settings.t('ginkoCms.studio.settingsPage.contractExpectedContent')
+            }}</span>
+            <code class="ginko:break-all ginko:font-mono">{{
+              settings.contractCompatibility.expectedContentHash
+            }}</code>
+            <span class="ginko:text-muted-foreground">{{
+              settings.t('ginkoCms.studio.settingsPage.contractInstalledContent')
+            }}</span>
+            <code class="ginko:break-all ginko:font-mono">{{
+              settings.contractCompatibility.installedContentHash ??
+              settings.t('ginkoCms.studio.settingsPage.contractNotInstalled')
+            }}</code>
+            <span class="ginko:text-muted-foreground">{{
+              settings.t('ginkoCms.studio.settingsPage.contractExpectedPresentation')
+            }}</span>
+            <code class="ginko:break-all ginko:font-mono">{{
+              settings.contractCompatibility.expectedPresentationHash
+            }}</code>
+            <span class="ginko:text-muted-foreground">{{
+              settings.t('ginkoCms.studio.settingsPage.contractInstalledPresentation')
+            }}</span>
+            <code class="ginko:break-all ginko:font-mono">{{
+              settings.contractCompatibility.installedPresentationHash ??
+              settings.t('ginkoCms.studio.settingsPage.contractNotInstalled')
+            }}</code>
+            <template v-if="settings.contractCompatibility.blockers.length">
+              <span class="ginko:text-muted-foreground">{{
+                settings.t('ginkoCms.studio.settingsPage.contractDiagnostics')
+              }}</span>
+              <code class="ginko:font-mono">{{
+                settings.contractCompatibility.blockers.join(', ')
+              }}</code>
+            </template>
+          </div>
+        </template>
+        <p
+          v-else
+          class="ginko:mt-3 ginko:border-t ginko:border-border/40 ginko:pt-3 ginko:text-xs ginko:text-muted-foreground"
+        >
+          {{
+            settings.contractQuery.error.value?.message ??
+            settings.t('ginkoCms.studio.settingsPage.contractStatusLoading')
+          }}
+        </p>
       </StudioDeveloperDetails>
     </div>
   </section>

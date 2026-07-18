@@ -5,9 +5,11 @@ import { ref } from 'vue'
 
 import { useEntryPublishing } from '../../packages/cms/studio-app/src/composables/internal/useEntryPublishing'
 import { useStudioConfirmState } from '../../packages/cms/studio-app/src/composables/internal/useStudioConfirm'
+import { useStudioPromptState } from '../../packages/cms/studio-app/src/composables/internal/useStudioPrompt'
 
 // useConvexMutation is called once per operation in declaration order:
-// publish, unpublish, archive, restore. Track the created mocks by index.
+// publish, unpublish, archive, restore, permanent delete. Track the created
+// mocks by index.
 const { mutationFns, previewMutation } = vi.hoisted(() => ({
   mutationFns: [] as Array<ReturnType<typeof vi.fn>>,
   previewMutation: vi.fn(),
@@ -15,7 +17,12 @@ const { mutationFns, previewMutation } = vi.hoisted(() => ({
 
 vi.mock('../../packages/cms/studio-app/src/composables/useStudioConvex', () => ({
   useConvexMutation: () => {
-    const fn = vi.fn(() => Promise.resolve({ dirtyLocales: [], draftVersion: 6, versionId: 'v-1' }))
+    const fn = vi.fn(() =>
+      Promise.resolve({
+        status: 'applied',
+        value: { dirtyLocales: [], draftVersion: 6, versionId: 'v-1' },
+      }),
+    )
     mutationFns.push(fn)
     return fn
   },
@@ -39,6 +46,7 @@ function createDeps(overrides: Record<string, unknown> = {}) {
     currentLocale: ref('en'),
     canPublishEntries: ref(true),
     canArchiveEntries: ref(true),
+    canDeleteEntries: ref(true),
     saving: ref(false),
     error: ref(''),
     isDirty: ref(false),
@@ -67,6 +75,81 @@ describe('useEntryPublishing', () => {
   beforeEach(() => {
     mutationFns.length = 0
     previewMutation.mockReset()
+  })
+
+  it('keeps the complete publish workflow in one resettable session', () => {
+    const publishing = useEntryPublishing(createDeps())
+
+    expect(publishing).not.toHaveProperty('showPublishDialog')
+    expect(publishing).not.toHaveProperty('publishReadiness')
+    expect(publishing).not.toHaveProperty('publishOutcome')
+
+    publishing.handlePublishAll()
+    markReadyToPublish(publishing)
+    Object.assign(publishing.publishSession, {
+      message: 'Ship both locales',
+      preview: {
+        allowed: true,
+        summary: 'Ready to publish.',
+        blockers: [],
+        warnings: [],
+        effects: [],
+      },
+      impactRequested: true,
+      impactLocale: 'en',
+      impactStale: false,
+      draftPreviewOpened: true,
+      concurrentEdit: true,
+      outcome: {
+        dirtyLocales: [],
+        draftVersion: 7,
+        locales: ['en', 'de'],
+        message: 'Ship both locales',
+        mode: 'all',
+        versionId: 'revision-7',
+      },
+    })
+
+    expect(publishing.publishSession).toMatchObject({
+      open: true,
+      mode: 'all',
+      message: 'Ship both locales',
+      impactRequested: true,
+      draftPreviewOpened: true,
+      concurrentEdit: true,
+      readiness: { state: 'ready', confirmationToken: 'publish-token' },
+    })
+
+    publishing.markPublishReadinessStale()
+
+    expect(publishing.publishSession.readiness).toMatchObject({
+      state: 'stale',
+      confirmationToken: null,
+      confirmationExpiresAt: null,
+    })
+    expect(publishing.publishSession.outcome).toBeNull()
+
+    publishing.resetPublishSession()
+
+    expect(publishing.publishSession).toEqual({
+      open: false,
+      mode: 'single',
+      message: '',
+      readiness: {
+        state: 'not_previewed',
+        message: 'Preview website changes before publishing.',
+        confirmationToken: null,
+        confirmationExpiresAt: null,
+        locales: [],
+      },
+      preview: null,
+      impactRequested: false,
+      impactLocale: null,
+      impactStale: false,
+      draftPreviewOpened: false,
+      concurrentEdit: false,
+      outcome: null,
+    })
   })
 
   it('publishes with the session-held hydrated draft version, not the live one', async () => {
@@ -143,6 +226,54 @@ describe('useEntryPublishing', () => {
     expect(mutationFns[2]).not.toHaveBeenCalled()
   })
 
+  it('binds current-locale and all-locale unpublish confirmations to the selected scope', async () => {
+    previewMutation.mockResolvedValue({
+      allowed: true,
+      summary: 'Will unpublish selected locales.',
+      blockers: [],
+      warnings: [],
+      confirmation: { token: 'unpublish-token', expiresAt: Date.now() + 60_000 },
+    })
+    const publishing = useEntryPublishing(
+      createDeps({
+        localeVariants: ref([
+          { locale: 'en', published: true },
+          { locale: 'de', published: true },
+          { locale: 'fr', published: false },
+        ]),
+      }),
+    )
+    const confirmState = useStudioConfirmState()
+
+    const currentPromise = publishing.handleUnpublish()
+    await vi.waitFor(() => expect(confirmState.activeRequest.value).not.toBeNull())
+    confirmState.confirm()
+    await currentPromise
+    expect(previewMutation).toHaveBeenLastCalledWith(expect.anything(), {
+      entryId: 'entry-1',
+      locales: ['en'],
+    })
+    expect(mutationFns[1]).toHaveBeenLastCalledWith({
+      entryId: 'entry-1',
+      locales: ['en'],
+      _confirmationToken: 'unpublish-token',
+    })
+
+    const allPromise = publishing.handleUnpublishAll()
+    await vi.waitFor(() => expect(confirmState.activeRequest.value).not.toBeNull())
+    confirmState.confirm()
+    await allPromise
+    expect(previewMutation).toHaveBeenLastCalledWith(expect.anything(), {
+      entryId: 'entry-1',
+      locales: ['de', 'en'],
+    })
+    expect(mutationFns[1]).toHaveBeenLastCalledWith({
+      entryId: 'entry-1',
+      locales: ['de', 'en'],
+      _confirmationToken: 'unpublish-token',
+    })
+  })
+
   it('restores an archived entry only with the backend preview token', async () => {
     previewMutation.mockResolvedValue({
       allowed: true,
@@ -171,5 +302,52 @@ describe('useEntryPublishing', () => {
       entryId: 'entry-1',
       _confirmationToken: 'restore-token',
     })
+  })
+
+  it('[LIF-03] requires the exact stable identity and a current preview before permanent deletion', async () => {
+    previewMutation.mockResolvedValue({
+      allowed: true,
+      summary: 'Will permanently delete archived entry "posts-0001".',
+      blockers: [],
+      warnings: [],
+      confirmation: { token: 'delete-token', expiresAt: Date.now() + 60_000 },
+    })
+    const deps = createDeps({
+      entry: ref({
+        baseSlug: 'hello-world',
+        draftVersion: 7,
+        stableId: 'posts-0001',
+        status: 'archived',
+      }),
+    })
+    const publishing = useEntryPublishing(deps)
+    const promptState = useStudioPromptState()
+    const confirmState = useStudioConfirmState()
+
+    const deletePromise = publishing.handlePermanentDelete()
+    await vi.waitFor(() => expect(promptState.activePromptRequest.value).not.toBeNull())
+    expect(promptState.activePromptRequest.value?.placeholder).toBe('DELETE posts-0001')
+    promptState.submit('DELETE posts-0001')
+
+    await vi.waitFor(() => expect(confirmState.activeRequest.value).not.toBeNull())
+    expect(previewMutation).toHaveBeenCalledWith(expect.anything(), {
+      entryId: 'entry-1',
+      confirmationPhrase: 'DELETE posts-0001',
+    })
+    expect(confirmState.activeRequest.value?.confirmVariant).toBe('destructive')
+    confirmState.confirm()
+    await deletePromise
+
+    expect(mutationFns[4]).toHaveBeenCalledWith({
+      entryId: 'entry-1',
+      confirmationPhrase: 'DELETE posts-0001',
+      _confirmationToken: 'delete-token',
+    })
+    expect(deps.studioDebug.pushWithLogging).toHaveBeenCalledWith(
+      deps.router,
+      '/studio/content/posts',
+      'permanently-delete-entry',
+      expect.objectContaining({ stableId: 'posts-0001' }),
+    )
   })
 })

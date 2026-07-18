@@ -207,6 +207,18 @@ describe('ginko mcp auth middleware', () => {
     expect([...buckets.values()].map((attempts) => attempts.length).sort()).toEqual([1, 1])
   })
 
+  it('returns 401 when an exchanged key has been revoked from CMS access', async () => {
+    exchangeOutcome = 'valid'
+    accessResult = null
+
+    await expect(authenticate({ token: 'revoked-key' })).rejects.toMatchObject({
+      statusCode: 401,
+      statusMessage: 'Invalid MCP credential settings',
+    })
+    expect(accessSpy).toHaveBeenCalledOnce()
+    expect([...buckets.values()].map((attempts) => attempts.length).sort()).toEqual([1, 1])
+  })
+
   it('signs a delayed failure record with a fresh timestamp', async () => {
     const timestamps: number[] = []
     const now = vi.fn().mockReturnValueOnce(1_000).mockReturnValueOnce(45_000)

@@ -189,7 +189,7 @@ Public per-request limits and paging behavior:
 
 The certified content fixture is 1,500 entries across three locales, 500
 assets, a five-level tree, a large live subtree, and long MDC documents. Public
-route enumeration is also tested across 5,105 rows to prove it does not retain
+route enumeration is separately tested across 5,105 rows to prove it does not retain
 the former 5,000-row cliff. These are evidence boundaries, not a promise of a
 larger untested product envelope.
 

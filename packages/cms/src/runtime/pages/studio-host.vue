@@ -71,6 +71,9 @@ const mainCss = computed(() =>
 useHead(() => ({
   title: 'Ginko CMS Studio',
   link: mainCss.value ? [{ rel: 'stylesheet', href: mainCss.value, crossorigin: 'anonymous' }] : [],
+  meta: route.path.endsWith('/invitations/accept')
+    ? [{ name: 'robots', content: 'noindex, nofollow, noarchive' }]
+    : [],
 }))
 
 function debugStudioHost(message: string, details: Record<string, unknown> = {}): void {

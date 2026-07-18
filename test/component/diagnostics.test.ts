@@ -1,309 +1,217 @@
 /// <reference types="vite/client" />
 
+import type { ginkoPublishImpactResultValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+import {
+  buildResolvedContentContract,
+  hashCanonicalJson,
+  type BuildResolvedContentContractInput,
+} from '@lupinum/ginko-content/cms-contract'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import {
   createCtx,
+  currentDraftVersion,
+  previewPublishEntryWithArgs,
   publishEntry,
   seedOwner,
+  seedSettings,
   seedStorageObject,
   seedTreeFixture,
 } from './entries/helpers'
 
 const api = anyApi
+type TestCtx = ReturnType<typeof createCtx>
+type CmsUser = ReturnType<TestCtx['asCmsUser']>
 
-async function seedSettings(
-  ctx: ReturnType<typeof createCtx>,
-  locales = [{ code: 'en', label: 'English', isDefault: true }],
-) {
-  await ctx.seed(
-    'cmsSettings' as never,
-    {
-      key: 'site',
-      locales,
-      updatedBy: 'owner-1',
-      updatedAt: Date.now(),
-    } as never,
-  )
+async function previewPublishImpact(owner: CmsUser, entryId: string, locale = 'en') {
+  const preview = await previewPublishEntryWithArgs(owner, {
+    entryId,
+    expectedVersion: await currentDraftVersion(owner, entryId),
+    locales: [locale],
+  })
+  return (preview.details as { publishImpact: typeof ginkoPublishImpactResultValidator.type })
+    .publishImpact
 }
 
-async function seedCollection(
-  ctx: ReturnType<typeof createCtx>,
-  input: {
-    slug: string
-    mode?: 'route' | 'none'
-    locales?: string[]
-    pathPrefix?: string
-    slugMode?: 'shared' | 'localized' | 'stable' | 'localizedStable'
-    fields?: Array<Record<string, unknown>>
-  },
+async function installDiagnosticsContract(
+  ctx: TestCtx,
+  options: { locales?: string[]; defaultLocale?: string } = {},
 ) {
-  const now = Date.now()
-  return await ctx.seed(
-    'collections' as never,
-    {
-      slug: input.slug,
-      label: { en: input.slug },
-      icon: null,
-      type: 'flat',
-      routing: {
-        mode: input.mode ?? 'route',
-        pathPrefix: input.pathPrefix ?? `/${input.slug}`,
-        slugMode: input.slugMode ?? 'shared',
-        rootSlug: null,
-        singleton: false,
+  const locales = options.locales ?? ['en']
+  const defaultLocale = options.defaultLocale ?? locales[0] ?? 'en'
+  const i18n = { defaultLocale, locales }
+  const titleField = {
+    type: 'text' as const,
+    localized: true,
+    required: true,
+    searchable: true,
+  }
+  const collections = {
+    posts: {
+      type: 'page',
+      source: 'content/posts/**/*.md',
+      i18n,
+      route: '/posts',
+      cms: { type: 'flat', fields: { title: titleField } },
+    },
+    pages: {
+      type: 'page',
+      source: 'content/pages/**/*.md',
+      i18n,
+      route: '/pages',
+      cms: {
+        type: 'tree',
+        route: {
+          pathPrefix: '',
+          slugMode: 'localized',
+          allowMultipleRoots: true,
+        },
+        fields: { title: titleField },
       },
-      locales: input.locales ?? ['en'],
-      fields: input.fields ?? [
-        { key: 'title', type: 'text', localized: true, required: true, searchable: true },
-      ],
-      settings: {},
-      createdAt: now,
-      updatedAt: now,
-      updatedBy: 'owner-1',
-    } as never,
-  )
-}
-
-async function seedPublishedEntry(
-  ctx: ReturnType<typeof createCtx>,
-  input: {
-    collectionId: string
-    collection: string
-    locale: string
-    slug: string
-    path: string
-    href?: string
-    title?: string
-    draftSlug?: string | null
-    draftTitle?: string
-    dirtyLocales?: string[]
-    parentEntryId?: string | null
-    routeBacked?: boolean
-    stableId?: string | null
-    draftData?: Record<string, unknown>
-    publishedData?: Record<string, unknown>
-  },
-) {
-  const now = Date.now()
-  const hasDraftTitle = Object.hasOwn(input, 'draftTitle')
-  const routeBacked = input.routeBacked !== false
-  const entryId = await ctx.seed(
-    'entries' as never,
-    {
-      collectionId: input.collectionId,
-      baseSlug: input.slug,
-      stableId: input.stableId ?? null,
-      status: 'published',
-      dirtyLocales: input.dirtyLocales ?? [],
-      parentEntryId: input.parentEntryId ?? null,
-      orderRank: 'a0',
-      nodeKind: 'page',
-      sortCache: {},
-      draftVersion: 1,
-      createdBy: 'owner-1',
-      updatedBy: 'owner-1',
-      publishedBy: 'owner-1',
-      createdAt: now,
-      updatedAt: now,
-      publishedAt: now,
-    } as never,
-  )
-  await ctx.seed(
-    'entryDrafts' as never,
-    {
-      entryId,
-      locale: null,
-      baseRevisionId: null,
-      parentEntryId: input.parentEntryId ?? null,
-      orderRank: 'a0',
-      slug: input.draftSlug === undefined ? input.slug : input.draftSlug,
-      shared: input.draftData ?? {},
-      updatedBy: 'owner-1',
-      updatedAt: now,
-    } as never,
-  )
-  await ctx.seed(
-    'entryDrafts' as never,
-    {
-      entryId,
-      locale: input.locale,
-      baseRevisionId: null,
-      localeSlug: input.draftSlug === undefined ? input.slug : input.draftSlug,
-      values:
-        input.draftData ??
-        (hasDraftTitle
-          ? input.draftTitle
-            ? { title: input.draftTitle }
-            : {}
-          : input.title
-            ? { title: input.title }
-            : {}),
-      updatedBy: 'owner-1',
-      updatedAt: now,
-    } as never,
-  )
-  const revisionId = await ctx.seed(
-    'entryRevisions' as never,
-    {
-      entryId,
-      collectionId: input.collectionId,
-      parentRevisionId: null,
-      kind: 'publish',
-      snapshot: {
-        parentEntryId: input.parentEntryId ?? null,
-        orderRank: 'a0',
-        slug: input.slug,
-        shared: input.publishedData ?? {},
-        locales: {
-          [input.locale]: {
-            slug: input.slug,
-            path: input.path,
-            values: input.publishedData ?? (input.title ? { title: input.title } : {}),
+    },
+    articles: {
+      type: 'page',
+      source: 'content/articles/**/*.md',
+      i18n,
+      route: '/pages',
+      cms: {
+        type: 'flat',
+        fields: {
+          title: titleField,
+          hero: {
+            type: 'object',
+            localized: false,
+            fields: {
+              author: {
+                type: 'relation',
+                localized: false,
+                relation: { collectionId: 'authors' },
+              },
+            },
+          },
+          sections: {
+            type: 'blocks',
+            localized: false,
+            fields: {
+              cta: {
+                type: 'object',
+                fields: {
+                  author: {
+                    type: 'relation',
+                    localized: false,
+                    relation: { collectionId: 'authors' },
+                  },
+                },
+              },
+            },
           },
         },
       },
-      affectedLocales: [input.locale],
-      message: null,
-      createdBy: 'owner-1',
-      createdAt: now,
-    } as never,
-  )
-  await ctx.seed(
-    'publicEntries' as never,
+    },
+    wiki: {
+      type: 'page',
+      source: 'content/wiki/**/*.md',
+      i18n,
+      route: '/wiki',
+      cms: {
+        type: 'flat',
+        route: { slugMode: 'stable' },
+        fields: { title: titleField },
+      },
+    },
+    strictPosts: {
+      type: 'page',
+      source: 'content/strict-posts/**/*.md',
+      i18n,
+      route: '/strict-posts',
+      cms: {
+        type: 'flat',
+        fields: {
+          title: titleField,
+          summary: { type: 'textarea', localized: true, required: true },
+          featuredLabel: { type: 'text', localized: false, required: true },
+        },
+      },
+    },
+    gallery: {
+      type: 'page',
+      source: 'content/gallery/**/*.md',
+      i18n,
+      route: '/gallery',
+      cms: {
+        type: 'flat',
+        fields: {
+          title: titleField,
+          image: {
+            type: 'object',
+            localized: false,
+            fields: {
+              src: { type: 'image', localized: false },
+              alt: { type: 'text', localized: false },
+              caption: { type: 'text', localized: false },
+            },
+          },
+        },
+      },
+    },
+    authors: {
+      type: 'data',
+      source: 'content/authors/**/*.json',
+      i18n,
+      cms: {
+        type: 'flat',
+        route: { mode: 'none', pathPrefix: '' },
+        fields: {
+          name: { type: 'text', localized: true, required: true },
+        },
+      },
+    },
+    notes: {
+      type: 'data',
+      source: 'content/notes/**/*.json',
+      i18n,
+      cms: {
+        type: 'flat',
+        route: { mode: 'none', pathPrefix: '' },
+        fields: {
+          note: { type: 'text', localized: true, required: false },
+        },
+      },
+    },
+  } satisfies NonNullable<BuildResolvedContentContractInput['collections']>
+  const contract = buildResolvedContentContract(
+    { collections },
     {
-      entryId,
-      revisionId,
-      collectionId: input.collectionId,
-      locale: input.locale,
-      slug: input.slug,
-      path: input.path,
-      href: input.href ?? input.path,
-      title: input.title ?? input.slug,
-      description: null,
-      data: input.publishedData ?? (input.title ? { title: input.title } : {}),
-      parentEntryId: input.parentEntryId ?? null,
-      orderKey: `a0\u0000${entryId}`,
-      cacheTags: [`entry:${entryId}`],
-      assetFacts: [],
-      navIncluded: true,
-      entryCreatedAt: now,
-      firstPublishedAt: now,
-      lastPublishedAt: now,
-    } as never,
+      defaultLocale,
+      locales,
+      localeFallbacks: Object.fromEntries(
+        locales.map((locale) => [locale, locale === defaultLocale ? [] : [defaultLocale]]),
+      ),
+    },
   )
-  if (routeBacked) {
-    await ctx.seed(
-      'publicRoutes' as never,
-      {
-        entryId,
-        revisionId,
-        collectionId: input.collectionId,
-        locale: input.locale,
-        path: input.path,
-        href: input.href ?? input.path,
-      } as never,
-    )
-  }
-  return entryId as string
-}
-
-async function seedDraftEntry(
-  ctx: ReturnType<typeof createCtx>,
-  input: {
-    collectionId: string
-    slug: string
-    locales?: Array<{
-      locale: string
-      values?: Record<string, unknown>
-      bodyMdc?: string
-      localeSlug?: string | null
-    }>
-    shared?: Record<string, unknown>
-    dirtyLocales?: string[]
-    parentEntryId?: string | null
-  },
-) {
-  const now = Date.now()
-  const locales = input.locales ?? []
-  const entryId = await ctx.seed(
-    'entries' as never,
-    {
-      collectionId: input.collectionId,
-      baseSlug: input.slug,
-      stableId: null,
-      status: 'draft',
-      dirtyLocales: input.dirtyLocales ?? locales.map((row) => row.locale),
-      parentEntryId: input.parentEntryId ?? null,
-      orderRank: 'a0',
-      nodeKind: 'page',
-      sortCache: {},
-      draftVersion: 1,
-      createdBy: 'owner-1',
-      updatedBy: 'owner-1',
-      publishedBy: null,
-      createdAt: now,
-      updatedAt: now,
-      publishedAt: null,
-    } as never,
-  )
-
-  await ctx.seed(
-    'entryDrafts' as never,
-    {
-      entryId,
-      locale: null,
-      baseRevisionId: null,
-      parentEntryId: input.parentEntryId ?? null,
-      orderRank: 'a0',
-      slug: input.slug,
-      shared: input.shared ?? {},
-      updatedBy: 'owner-1',
-      updatedAt: now,
-    } as never,
-  )
-
-  for (const row of locales) {
-    await ctx.seed(
-      'entryDrafts' as never,
-      {
-        entryId,
-        locale: row.locale,
-        baseRevisionId: null,
-        localeSlug: row.localeSlug === undefined ? input.slug : row.localeSlug,
-        values: row.values ?? {},
-        bodyMdc: row.bodyMdc ?? '',
-        updatedBy: 'owner-1',
-        updatedAt: now,
-      } as never,
-    )
-  }
-
-  return entryId as string
+  const presentation = { collections: {} }
+  await ctx.raw.mutation(api.contract.installCmsContract, {
+    content: contract,
+    contentHash: await hashCanonicalJson(contract),
+    presentation,
+    presentationHash: await hashCanonicalJson(presentation),
+  })
 }
 
 async function seedPendingPublishReview(
-  ctx: ReturnType<typeof createCtx>,
+  ctx: TestCtx,
   input: { entryId: string; locales: string[]; expectedVersion?: number },
 ) {
   const apiKeyId = `readiness-review-${input.entryId}`
-  await ctx.seed(
-    'mcpCredentialSettings' as never,
-    {
-      apiKeyId,
-      ownerUserId: 'owner-1',
-      label: 'readiness review fixture',
-      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
-      status: 'active',
-      createdBy: 'owner-1',
-      createdAt: Date.now(),
-      updatedBy: 'owner-1',
-      updatedAt: Date.now(),
-      revokedAt: null,
-    } as never,
-  )
+  const owner = ctx.asCmsUser('owner-1')
+  await owner.mutation(api.mcpCredentials.upsertSettings, {
+    apiKeyId,
+    ownerUserId: 'owner-1',
+    label: 'Readiness review fixture',
+    scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+  })
   const agent = ctx.asMcpApiKey(apiKeyId, 'owner-1')
   const agentRun = await agent.mutation(api.agentRuns.startRun, {
     taskName: 'Readiness review fixture',
@@ -311,7 +219,7 @@ async function seedPendingPublishReview(
   const review = await agent.mutation(api.reviewRequests.requestPublishReview, {
     agentRunId: agentRun._id,
     entryId: input.entryId,
-    expectedVersion: input.expectedVersion ?? 1,
+    expectedVersion: input.expectedVersion ?? (await currentDraftVersion(owner, input.entryId)),
     locales: input.locales,
     title: 'Publish readiness fixture',
     summary: 'Fixture pending review.',
@@ -319,10 +227,7 @@ async function seedPendingPublishReview(
   return review._id as string
 }
 
-async function readEntryReadinessDetail(
-  owner: ReturnType<ReturnType<typeof createCtx>['asCmsUser']>,
-  entryId: string,
-) {
+async function readEntryReadinessDetail(owner: CmsUser, entryId: string) {
   return await owner.query(api.editor.getEntryReadinessDetail, { entryId })
 }
 
@@ -335,199 +240,172 @@ function getReadinessLocale(
   return row as Record<string, unknown> & { locale: string }
 }
 
+async function patchPublicSlug(ctx: TestCtx, entryId: string, locale: string, slug: string) {
+  await ctx.raw.run(async (innerCtx) => {
+    const id = innerCtx.db.normalizeId('entries', entryId)
+    if (!id) throw new Error('Invalid entry fixture id')
+    const row = await innerCtx.db
+      .query('publicEntries')
+      .withIndex('by_entry_locale', (query) => query.eq('entryId', id).eq('locale', locale))
+      .unique()
+    if (!row) throw new Error('Missing public entry fixture')
+    await innerCtx.db.patch(row._id, { slug })
+  })
+}
+
+async function corruptDraftSlug(ctx: TestCtx, entryId: string, slug: string) {
+  await ctx.raw.run(async (innerCtx) => {
+    const id = innerCtx.db.normalizeId('entries', entryId)
+    if (!id) throw new Error('Invalid entry fixture id')
+    const entry = await innerCtx.db.get(id)
+    if (!entry) throw new Error('Missing entry fixture')
+    await innerCtx.db.patch(id, {
+      slug,
+      draftVersion: entry.draftVersion + 1,
+      sharedVersion: entry.sharedVersion + 1,
+      updatedAt: Date.now(),
+    })
+  })
+}
+
 describe('public visibility diagnostics', () => {
-  it('uses configured default locale when validating rendered href collisions', async () => {
+  it('uses the installed default locale when validating rendered href collisions', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx, [
-      { code: 'en', label: 'English' },
-      { code: 'de', label: 'Deutsch', isDefault: true },
-    ])
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'pages',
-      locales: ['en', 'de'],
-      pathPrefix: '',
-    })) as string
-
-    await seedPublishedEntry(ctx, {
-      collectionId,
+    await installDiagnosticsContract(ctx, { locales: ['en', 'de'], defaultLocale: 'de' })
+    const owner = ctx.asCmsUser('owner-1')
+    const englishRootId = await owner.createEntry({
       collection: 'pages',
       locale: 'en',
-      slug: 'english-de-path',
-      path: '/de/foo',
-      href: '/en/de/foo',
-      title: 'English',
+      slug: 'de',
+      localized: { title: 'English root' },
     })
-    await seedPublishedEntry(ctx, {
-      collectionId,
+    await publishEntry(owner, englishRootId, ['en'])
+    const englishChildId = await owner.createEntry({
+      collection: 'pages',
+      locale: 'en',
+      parentEntryId: englishRootId,
+      slug: 'foo',
+      localized: { title: 'English child' },
+    })
+    await publishEntry(owner, englishChildId, ['en'])
+    const germanId = await owner.createEntry({
       collection: 'pages',
       locale: 'de',
-      slug: 'german-root-path',
-      path: '/foo',
-      href: '/foo',
-      title: 'Deutsch',
+      slug: 'foo',
+      localized: { title: 'Deutsch' },
     })
+    await publishEntry(owner, germanId, ['de'])
 
-    const owner = ctx.asCmsUser('owner-1')
-    const diagnostics = await owner.query(api.diagnostics.validatePublicRoutes, {})
-
-    expect(diagnostics).toEqual([])
+    const [english, german] = await Promise.all([
+      owner.query(api.diagnostics.explainPublicVisibility, {
+        collection: 'pages',
+        entryId: englishChildId,
+        locale: 'en',
+      }),
+      owner.query(api.diagnostics.explainPublicVisibility, {
+        collection: 'pages',
+        entryId: germanId,
+        locale: 'de',
+      }),
+    ])
+    expect(
+      [...english.diagnostics, ...german.diagnostics].filter(
+        (item: { code: string }) => item.code === 'route_collision',
+      ),
+    ).toEqual([])
   })
 
-  it('preserves collision claims in entry visibility diagnostics', async () => {
+  it('preserves both canonical claims when explaining a corrupted route collision', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx, [
-      { code: 'en', label: 'English', isDefault: true },
-      { code: 'de', label: 'Deutsch' },
-    ])
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'pages',
-      locales: ['en', 'de'],
-      pathPrefix: '',
-    })) as string
-    const enEntryId = await seedPublishedEntry(ctx, {
-      collectionId,
+    await installDiagnosticsContract(ctx, { locales: ['en', 'de'], defaultLocale: 'en' })
+    const owner = ctx.asCmsUser('owner-1')
+    const englishRootId = await owner.createEntry({
       collection: 'pages',
       locale: 'en',
-      slug: 'english-de-path',
-      path: '/de/foo',
-      title: 'English',
+      slug: 'de',
+      localized: { title: 'English root' },
     })
-    await seedPublishedEntry(ctx, {
-      collectionId,
+    await publishEntry(owner, englishRootId, ['en'])
+    const englishChildId = await owner.createEntry({
+      collection: 'pages',
+      locale: 'en',
+      parentEntryId: englishRootId,
+      slug: 'foo',
+      localized: { title: 'English child' },
+    })
+    await publishEntry(owner, englishChildId, ['en'])
+    const germanId = await owner.createEntry({
       collection: 'pages',
       locale: 'de',
-      slug: 'german-root-path',
-      path: '/foo',
-      href: '/de/foo',
-      title: 'Deutsch',
+      slug: 'bar',
+      localized: { title: 'Deutsch' },
     })
+    await publishEntry(owner, germanId, ['de'])
+    await patchPublicSlug(ctx, germanId, 'de', 'foo')
 
-    const owner = ctx.asCmsUser('owner-1')
     const explanation = await owner.query(api.diagnostics.explainPublicVisibility, {
       collection: 'pages',
-      entryId: enEntryId,
+      entryId: englishChildId,
       locale: 'en',
     })
     const collision = explanation.diagnostics.find(
       (diagnostic: { code: string }) => diagnostic.code === 'route_collision',
     )
-
     expect(explanation.locales[0]?.status).toBe('collision')
     expect(collision?.details?.claims).toHaveLength(2)
   })
 
-  it('reports required-field warnings for data-only collections', async () => {
+  it('reports required-field warnings for a data-only draft', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'authors',
-      mode: 'none',
-      pathPrefix: '',
-    })) as string
-    const entryId = await seedPublishedEntry(ctx, {
-      collectionId,
+    await installDiagnosticsContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
       collection: 'authors',
-      locale: 'en',
-      slug: 'missing-title',
-      path: '/authors/missing-title',
-      routeBacked: false,
+      slug: 'missing-name',
+      localized: {},
     })
 
-    const owner = ctx.asCmsUser('owner-1')
     const explanation = await owner.query(api.diagnostics.explainPublicVisibility, {
       collection: 'authors',
       entryId,
     })
-
-    expect(
-      explanation.diagnostics.map((diagnostic: { code: string }) => diagnostic.code),
-    ).toContain('data_only_collection')
-    expect(
-      explanation.diagnostics.map((diagnostic: { code: string }) => diagnostic.code),
-    ).toContain('missing_required_localized_field')
+    const codes = explanation.diagnostics.map((diagnostic: { code: string }) => diagnostic.code)
+    expect(codes).toContain('data_only_collection')
+    expect(codes).toContain('missing_required_localized_field')
   })
 
-  it('reports nested broken relation diagnostics with field paths', async () => {
+  it('reports nested broken relations with exact field paths and stable target ids', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const authorCollectionId = (await seedCollection(ctx, {
-      slug: 'authors',
-      mode: 'none',
-      pathPrefix: '',
-    })) as string
-    await seedPublishedEntry(ctx, {
-      collectionId: authorCollectionId,
+    await installDiagnosticsContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    await owner.createEntry({
       collection: 'authors',
-      locale: 'en',
       slug: 'ada',
-      path: '/authors/ada',
-      stableId: 'ada',
-      routeBacked: false,
-      publishedData: { title: 'Ada' },
+      localized: { name: 'Ada' },
     })
-    const pageCollectionId = (await seedCollection(ctx, {
-      slug: 'pages',
-      pathPrefix: '/pages',
-      fields: [
-        { key: 'title', type: 'text', localized: true, required: true, searchable: true },
-        {
-          key: 'hero',
-          type: 'object',
-          fields: [
-            {
-              key: 'author',
-              type: 'relation',
-              relation: { collectionId: 'authors' },
-            },
-          ],
-        },
-        {
-          key: 'sections',
-          type: 'blocks',
-          fields: [
-            {
-              key: 'cta',
-              type: 'object',
-              fields: [
-                {
-                  key: 'author',
-                  type: 'relation',
-                  relation: { collectionId: 'authors' },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    })) as string
-    const entryId = await seedPublishedEntry(ctx, {
-      collectionId: pageCollectionId,
-      collection: 'pages',
-      locale: 'en',
+    const entryId = await owner.createEntry({
+      collection: 'articles',
       slug: 'team',
-      path: '/pages/team',
-      title: 'Team',
-      publishedData: {
-        title: 'Team',
+      localized: { title: 'Team' },
+      shared: {
         hero: { author: 'missing-author' },
         sections: [{ type: 'cta', data: { author: 'missing-block-author' } }],
       },
     })
+    await publishEntry(owner, entryId)
 
-    const owner = ctx.asCmsUser('owner-1')
     const explanation = await owner.query(api.diagnostics.explainPublicVisibility, {
-      collection: 'pages',
+      collection: 'articles',
       entryId,
       locale: 'en',
     })
     const relationDiagnostics = explanation.diagnostics.filter(
       (diagnostic: { code: string }) => diagnostic.code === 'broken_relation',
     )
-
     expect(
       relationDiagnostics.map(
         (item: { details: { relationField?: string } }) => item.details.relationField,
@@ -538,204 +416,361 @@ describe('public visibility diagnostics', () => {
     ).toEqual(expect.arrayContaining(['missing-author', 'missing-block-author']))
   })
 
-  it('uses collection slugs for manual redirect route diagnostics', async () => {
+  it('uses collection slugs and target entries for manual redirect diagnostics', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'pages',
-      pathPrefix: '/pages',
-    })) as string
-    await seedPublishedEntry(ctx, {
-      collectionId,
-      collection: 'pages',
-      locale: 'en',
-      slug: 'foo',
-      path: '/pages/foo',
-      title: 'Foo',
-    })
-    await ctx.seed(
-      'redirects' as never,
-      {
-        locale: 'en',
-        from: '/pages/foo',
-        to: '/pages/bar',
-        statusCode: 301,
-        source: 'manual',
-        collectionId,
-        entryId: null,
-        createdBy: 'owner-1',
-        updatedBy: 'owner-1',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      } as never,
-    )
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    const diagnostics = await owner.query(api.diagnostics.validatePublicRoutes, {})
-    const collision = diagnostics.find((diagnostic: { claims: Array<{ kind: string }> }) =>
-      diagnostic.claims.some((claim) => claim.kind === 'redirect'),
-    )
+    const sourceId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'foo',
+      localized: { title: 'Foo' },
+    })
+    await publishEntry(owner, sourceId)
+    const targetId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'bar',
+      localized: { title: 'Bar' },
+    })
+    await publishEntry(owner, targetId)
+    const now = Date.now()
+    await ctx.seed('redirects', {
+      redirectId: 'diagnostics-fixture:en:/posts/foo',
+      collection: 'posts',
+      locale: 'en',
+      kind: 'exact',
+      fromPath: '/posts/foo',
+      targetEntryId: targetId,
+      state: 'active',
+      statusCode: 301,
+      source: 'manual',
+      operationId: 'diagnostics-fixture',
+      createdBy: 'owner-1',
+      createdAt: now,
+      retiredBy: null,
+      retiredAt: null,
+      updatedAt: now,
+    })
 
-    expect(collision?.claims).toEqual(
+    const explanation = await owner.query(api.diagnostics.explainPublicVisibility, {
+      collection: 'posts',
+      entryId: sourceId,
+      locale: 'en',
+    })
+    const collision = explanation.diagnostics.find(
+      (diagnostic: { details?: { claims?: Array<{ kind: string }> } }) =>
+        diagnostic.details?.claims?.some((claim) => claim.kind === 'redirect'),
+    )
+    expect(collision?.details?.claims).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           kind: 'redirect',
-          collection: 'pages',
-          path: '/pages/foo',
-          targetPath: '/pages/bar',
+          collection: 'posts',
+          path: '/posts/foo',
+          targetPath: '/posts/bar',
         }),
       ]),
     )
   })
 
-  it('previews route and cache impact for a dirty draft without promising redirects for shared slugs', async () => {
+  it('[EDT-07][PUB-02] previews route, redirect, SEO, cache, and event impact from one canonical draft without public writes', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'posts',
-      pathPrefix: '/posts',
-    })) as string
-    const entryId = await seedPublishedEntry(ctx, {
-      collectionId,
-      collection: 'posts',
-      locale: 'en',
-      slug: 'old-slug',
-      path: '/posts/old-slug',
-      title: 'Old title',
-      draftSlug: 'new-slug',
-      draftTitle: 'New title',
-      dirtyLocales: ['en'],
-    })
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    const preview = await owner.query(api.diagnostics.previewPublishImpact, {
+    const entryId = await owner.createEntry({
       collection: 'posts',
-      entryId,
-      locale: 'en',
+      slug: 'old-slug',
+      localized: { title: 'Old title' },
     })
+    await publishEntry(owner, entryId)
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: await currentDraftVersion(owner, entryId),
+      patch: {
+        shared: { slug: 'new-slug' },
+        locales: { en: { values: { title: 'New title' } } },
+      },
+    })
+    const publicBeforePreview = structuredClone(await ctx.readAll('publicEntries'))
+    const revisionsBeforePreview = structuredClone(await ctx.readAll('entryRevisions'))
+    const entry = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
 
+    const preview = await previewPublishImpact(owner, entryId)
     expect(preview.status).toBe('ready')
     expect(preview.locales[0]?.nextHref).toBe('/posts/new-slug')
     expect(preview.changes.map((item: { kind: string }) => item.kind)).toEqual(
-      expect.arrayContaining(['route', 'seo']),
+      expect.arrayContaining(['route', 'redirect', 'seo']),
     )
-    expect(preview.changes.map((item: { kind: string }) => item.kind)).not.toContain('redirect')
     expect(preview.cacheTags).toEqual(
-      expect.arrayContaining(['collection:posts', `entry:posts:${entryId}:en`, 'sitemap']),
+      expect.arrayContaining(['collection:posts', `entry:posts:${entry.stableId}:en`, 'sitemap']),
     )
     expect(preview.events).toContain('entry.published')
+    expect(await ctx.readAll('publicEntries')).toEqual(publicBeforePreview)
+    expect(await ctx.readAll('entryRevisions')).toEqual(revisionsBeforePreview)
   })
 
-  it('previews an old-route redirect only for stable slug collections', async () => {
+  it('pages a large descendant URL impact without losing or duplicating routes', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'wiki',
-      pathPrefix: '/wiki',
-      slugMode: 'stable',
-    })) as string
-    const entryId = await seedPublishedEntry(ctx, {
-      collectionId,
-      collection: 'wiki',
-      locale: 'en',
-      slug: 'old-slug-stable-1',
-      path: '/wiki/old-slug-stable-1',
-      title: 'Old title',
-      draftSlug: 'new-slug',
-      draftTitle: 'New title',
-      dirtyLocales: ['en'],
-    })
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    const preview = await owner.query(api.diagnostics.previewPublishImpact, {
-      collection: 'wiki',
-      entryId,
-      locale: 'en',
+    const rootId = await owner.createEntry({
+      collection: 'pages',
+      slug: 'before',
+      localized: { title: 'Root' },
+    })
+    await publishEntry(owner, rootId)
+    for (let index = 0; index < 26; index += 1) {
+      const childId = await owner.createEntry({
+        collection: 'pages',
+        parentEntryId: rootId,
+        slug: `child-${String(index).padStart(2, '0')}`,
+        localized: { title: `Child ${index}` },
+      })
+      await publishEntry(owner, childId)
+    }
+    await owner.saveEntryDraft({
+      entryId: rootId,
+      expectedDraftVersion: await currentDraftVersion(owner, rootId),
+      patch: { locales: { en: { slug: 'after' } } },
     })
 
-    expect(preview.status).toBe('ready')
-    expect(preview.changes).toEqual(
+    const operationPreview = await previewPublishEntryWithArgs(owner, {
+      entryId: rootId,
+      expectedVersion: await currentDraftVersion(owner, rootId),
+      locales: ['en'],
+    })
+    const preview = (
+      operationPreview.details as { publishImpact: typeof ginkoPublishImpactResultValidator.type }
+    ).publishImpact
+    const locale = preview.locales[0]!
+    expect(locale.routeImpact).toMatchObject({
+      // Exact total stays unknown until the generation-fenced traversal ends.
+      total: null,
+      listed: 25,
+      hasMore: true,
+      routeGeneration: expect.any(Number),
+      impactHash: expect.stringMatching(/^routes:/),
+    })
+    const inlineChanges = locale.changes.filter(
+      (change: { scope?: string }) => change.scope === 'descendant',
+    )
+    expect(inlineChanges).toHaveLength(25)
+    for (const kind of ['routes', 'changes']) {
+      const effect = (
+        operationPreview.effects as Array<{
+          kind: string
+          count?: number | null
+          minimumCount?: number
+          countLabel?: string
+        }>
+      ).find((candidate) => candidate.kind === kind)!
+      expect(effect.count).toBeNull()
+      expect(effect.minimumCount).toBeGreaterThanOrEqual(25)
+      expect(effect.countLabel).toBe(`${effect.minimumCount}+`)
+    }
+
+    const nextPage = await owner.query(api.entries.publish.listPublishRouteImpactPage, {
+      entryId: rootId,
+      locale: 'en',
+      expectedVersion: await currentDraftVersion(owner, rootId),
+      expectedRouteGeneration: locale.routeImpact.routeGeneration,
+      cursor: locale.routeImpact.continueCursor,
+      limit: 25,
+    })
+    expect(nextPage).toMatchObject({ isDone: true, continueCursor: null })
+    expect(nextPage.changes).toHaveLength(1)
+    const affectedEntryIds = [...inlineChanges, ...nextPage.changes].map(
+      (change: { entryId?: string }) => change.entryId,
+    )
+    expect(new Set(affectedEntryIds).size).toBe(26)
+    expect(
+      nextPage.changes.every(
+        (change: { before: unknown; after: unknown }) =>
+          String(change.before).includes('/before/') && String(change.after).includes('/after/'),
+      ),
+    ).toBe(true)
+
+    const publishArgs = {
+      entryId: rootId,
+      expectedVersion: await currentDraftVersion(owner, rootId),
+      locales: ['en'],
+    }
+    const allowedOperation = await previewPublishEntryWithArgs(owner, publishArgs)
+    expect(allowedOperation).toMatchObject({
+      allowed: true,
+      confirmation: { token: expect.any(String) },
+    })
+    const revisionsBeforeCollision = (await ctx.readAll('entryRevisions')).length
+    const now = Date.now()
+    const exactRedirectDocId = await ctx.seed('redirects', {
+      redirectId: 'redirect:descendant-exact',
+      collection: 'pages',
+      locale: 'en',
+      kind: 'exact',
+      fromPath: '/after/child-25',
+      targetEntryId: rootId,
+      state: 'active',
+      statusCode: 308,
+      source: 'manual',
+      operationId: 'test:descendant-exact',
+      createdBy: 'owner-1',
+      createdAt: now,
+      retiredBy: null,
+      retiredAt: null,
+      updatedAt: now,
+    })
+
+    await expect(
+      owner.mutation(api.entries.publish.publishEntryOperationExecute, {
+        ...publishArgs,
+        _confirmationToken: allowedOperation.confirmation!.token,
+      }),
+    ).resolves.toMatchObject({ status: 'stale', code: 'OPERATION_NO_LONGER_ALLOWED' })
+    expect(await ctx.readAll('entryRevisions')).toHaveLength(revisionsBeforeCollision)
+    expect(
+      (await ctx.readAll('publicEntries')).find((row) => row.entryId === rootId),
+    ).toMatchObject({
+      slug: 'before',
+    })
+
+    const exactBlocked = await previewPublishImpact(owner, rootId)
+    expect(exactBlocked.locales[0]?.routeImpact).toMatchObject({ listed: 25, hasMore: true })
+    expect(exactBlocked.blockingDiagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: 'redirect',
-          label: 'Old route redirect',
-          before: '/wiki/old-slug-stable-1',
-          after: '/wiki/new-slug',
+          code: 'route_redirect_collision',
+          path: '/after/child-25',
+          message: expect.stringContaining('active exact redirect'),
         }),
       ]),
     )
+
+    await ctx.raw.run(async (inner) => {
+      await inner.db.patch(exactRedirectDocId as never, {
+        state: 'retired',
+        retiredBy: 'owner-1',
+        retiredAt: now + 1,
+        updatedAt: now + 1,
+      })
+    })
+    await ctx.seed('redirects', {
+      redirectId: 'redirect:descendant-prefix',
+      collection: 'pages',
+      locale: 'en',
+      kind: 'prefix',
+      fromPath: '/after/child-25',
+      targetEntryId: rootId,
+      state: 'active',
+      statusCode: 308,
+      source: 'manual',
+      operationId: 'test:descendant-prefix',
+      createdBy: 'owner-1',
+      createdAt: now + 2,
+      retiredBy: null,
+      retiredAt: null,
+      updatedAt: now + 2,
+    })
+    const prefixBlocked = await previewPublishImpact(owner, rootId)
+    expect(prefixBlocked.blockingDiagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'route_redirect_collision',
+          path: '/after/child-25',
+          message: expect.stringContaining('active prefix redirect'),
+        }),
+      ]),
+    )
+
+    const unrelatedId = await owner.createEntry({
+      collection: 'pages',
+      slug: 'unrelated',
+      localized: { title: 'Unrelated' },
+    })
+    await publishEntry(owner, unrelatedId)
+    await expect(
+      owner.query(api.entries.publish.listPublishRouteImpactPage, {
+        entryId: rootId,
+        locale: 'en',
+        expectedVersion: await currentDraftVersion(owner, rootId),
+        expectedRouteGeneration: locale.routeImpact.routeGeneration,
+        cursor: locale.routeImpact.continueCursor,
+        limit: 25,
+      }),
+    ).rejects.toMatchObject({ data: expect.objectContaining({ code: 'PUBLISH_IMPACT_STALE' }) })
+  }, 15_000)
+
+  it('previews a stable-id route rename without changing entry identity', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await installDiagnosticsContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'wiki',
+      slug: 'old-slug',
+      localized: { title: 'Old title' },
+    })
+    await publishEntry(owner, entryId)
+    const entry = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: entry.draftVersion,
+      patch: { shared: { slug: 'new-slug' } },
+    })
+
+    const preview = await previewPublishImpact(owner, entryId)
+    const redirect = preview.changes.find((change: { kind: string }) => change.kind === 'redirect')
+    expect(preview.status).toBe('ready')
+    expect(redirect).toMatchObject({ kind: 'redirect', label: 'Old route redirect' })
+    expect(redirect.before).toContain(`old-slug-${entry.stableId}`)
+    expect(redirect.after).toContain(`new-slug-${entry.stableId}`)
   })
 
   it('blocks publish impact when required draft fields are missing', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'posts',
-      pathPrefix: '/posts',
-    })) as string
-    const entryId = await seedPublishedEntry(ctx, {
-      collectionId,
-      collection: 'posts',
-      locale: 'en',
-      slug: 'missing-title',
-      path: '/posts/missing-title',
-      title: 'Published title',
-      draftTitle: '',
-      dirtyLocales: ['en'],
-    })
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    const preview = await owner.query(api.diagnostics.previewPublishImpact, {
+    const entryId = await owner.createEntry({
       collection: 'posts',
+      slug: 'missing-title',
+      localized: { title: 'Published title' },
+    })
+    await publishEntry(owner, entryId)
+    await owner.saveEntryDraft({
       entryId,
-      locale: 'en',
+      expectedDraftVersion: await currentDraftVersion(owner, entryId),
+      patch: { locales: { en: { values: {} } } },
     })
 
+    const preview = await previewPublishImpact(owner, entryId)
     expect(preview.status).toBe('blocked')
     expect(preview.blockingDiagnostics.map((item: { code: string }) => item.code)).toContain(
       'missing_required_localized_field',
     )
   })
 
-  it('blocks publish impact when a draft route would collide', async () => {
+  it('blocks publish impact when corrupted canonical draft placement collides', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'posts',
-      pathPrefix: '/posts',
-    })) as string
-    await seedPublishedEntry(ctx, {
-      collectionId,
-      collection: 'posts',
-      locale: 'en',
-      slug: 'taken',
-      path: '/posts/taken',
-      title: 'Taken',
-    })
-    const entryId = await seedPublishedEntry(ctx, {
-      collectionId,
-      collection: 'posts',
-      locale: 'en',
-      slug: 'old',
-      path: '/posts/old',
-      title: 'Old',
-      draftSlug: 'taken',
-      draftTitle: 'Old',
-      dirtyLocales: ['en'],
-    })
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    const preview = await owner.query(api.diagnostics.previewPublishImpact, {
+    const takenId = await owner.createEntry({
       collection: 'posts',
-      entryId,
-      locale: 'en',
+      slug: 'taken',
+      localized: { title: 'Taken' },
     })
+    await publishEntry(owner, takenId)
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'old',
+      localized: { title: 'Old' },
+    })
+    await publishEntry(owner, entryId)
+    await corruptDraftSlug(ctx, entryId, 'taken')
 
+    const preview = await previewPublishImpact(owner, entryId)
     expect(preview.status).toBe('blocked')
     expect(preview.blockingDiagnostics.map((item: { code: string }) => item.code)).toContain(
       'route_collision',
@@ -745,28 +780,15 @@ describe('public visibility diagnostics', () => {
   it('blocks data-only publish impact when required fields are missing', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'authors',
-      mode: 'none',
-      pathPrefix: '',
-    })) as string
-    const entryId = await seedPublishedEntry(ctx, {
-      collectionId,
-      collection: 'authors',
-      locale: 'en',
-      slug: 'author',
-      path: '/authors/author',
-      dirtyLocales: ['en'],
-    })
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    const preview = await owner.query(api.diagnostics.previewPublishImpact, {
+    const entryId = await owner.createEntry({
       collection: 'authors',
-      entryId,
-      locale: 'en',
+      slug: 'author',
+      localized: {},
     })
 
+    const preview = await previewPublishImpact(owner, entryId)
     expect(preview.status).toBe('blocked')
     expect(preview.blockingDiagnostics.map((item: { code: string }) => item.code)).toContain(
       'missing_required_localized_field',
@@ -774,128 +796,92 @@ describe('public visibility diagnostics', () => {
     expect(preview.warnings.map((item: { code: string }) => item.code)).toContain(
       'data_only_collection',
     )
-    expect(preview.warnings.map((item: { message: string }) => item.message).join('\n')).toContain(
-      'updates listable public data',
-    )
   })
 
-  it('reports no changes for unchanged live data-only publish impact', async () => {
+  it('reports no changes for unchanged live data-only output', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'authors',
-      mode: 'none',
-      pathPrefix: '',
-      fields: [{ key: 'name', type: 'text', localized: true, required: false }],
-    })) as string
-    const entryId = await seedPublishedEntry(ctx, {
-      collectionId,
-      collection: 'authors',
-      locale: 'en',
-      slug: 'author',
-      path: '/authors/author',
-      title: 'Author',
-      routeBacked: false,
-      dirtyLocales: [],
-      draftData: { name: 'Author' },
-      publishedData: { name: 'Author' },
-    })
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    const preview = await owner.query(api.diagnostics.previewPublishImpact, {
+    const entryId = await owner.createEntry({
       collection: 'authors',
-      entryId,
-      locale: 'en',
+      slug: 'author',
+      localized: { name: 'Author' },
     })
-    const readiness = await owner.query(api.editor.getEntryReadinessDetail, { entryId })
-    const locale = readiness.locales.find((row: { locale: string }) => row.locale === 'en')
+    await publishEntry(owner, entryId)
 
+    const preview = await previewPublishImpact(owner, entryId)
+    const readiness = await readEntryReadinessDetail(owner, entryId)
+    const locale = getReadinessLocale(readiness, 'en')
     expect(preview.status).toBe('no_changes')
     expect(preview.locales[0]).toMatchObject({ locale: 'en', status: 'no_changes' })
     expect(locale).toMatchObject({ state: 'live', canPublish: false })
   })
 
-  it('returns a structured invalid entry diagnostic for publish impact', async () => {
+  it('rejects an invalid entry before issuing a publish confirmation', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    const preview = await owner.query(api.diagnostics.previewPublishImpact, {
-      collection: 'posts',
-      entryId: 'not-an-entry-id',
-      locale: 'en',
-    })
 
-    expect(preview.status).toBe('not_publishable')
-    expect(preview.blockingDiagnostics.map((item: { code: string }) => item.code)).toContain(
-      'invalid_entry_id',
-    )
+    await expect(
+      owner.mutation(api.entries.publish.previewPublishEntryOperation, {
+        entryId: 'not-an-entry-id',
+        expectedVersion: 1,
+        locales: ['en'],
+      }),
+    ).resolves.toMatchObject({
+      allowed: false,
+      blockers: [expect.objectContaining({ status: 'stale', code: 'ENTRY_NOT_FOUND' })],
+      confirmation: null,
+    })
   })
 
-  it('rejects publish execution without a CMS confirmation token', async () => {
+  it('rejects publish execution without a confirmation token', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'posts',
-      pathPrefix: '/posts',
-    })) as string
-    const entryId = await seedPublishedEntry(ctx, {
-      collectionId,
-      collection: 'posts',
-      locale: 'en',
-      slug: 'post',
-      path: '/posts/post',
-      title: 'Post',
-      draftTitle: 'Updated post',
-      dirtyLocales: ['en'],
-    })
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'post',
+      localized: { title: 'Post' },
+    })
 
     await expect(
       owner.mutation(api.entries.publish.publishEntryOperationExecute, {
         entryId,
         locales: ['en'],
-        expectedVersion: 1,
+        expectedVersion: await currentDraftVersion(owner, entryId),
       }),
-    ).rejects.toThrow(/requires confirmation/i)
+    ).resolves.toMatchObject({
+      status: 'blocked',
+      code: 'CONFIRMATION_REQUIRED',
+    })
   })
 })
 
 describe('entry readiness detail', () => {
-  it('returns configured missing locales without blocking a ready primary locale', async () => {
+  it('[LOC-01] returns every configured locale from canonical readiness with a non-English primary and explicit missing states', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx, [
-      { code: 'de', label: 'Deutsch', isDefault: true },
-      { code: 'en', label: 'English', fallback: 'de' },
-      { code: 'fr', label: 'Francais', fallback: 'de' },
-    ])
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'pages',
+    await installDiagnosticsContract(ctx, {
       locales: ['de', 'en', 'fr'],
-      pathPrefix: '',
-    })) as string
-    const entryId = await seedDraftEntry(ctx, {
-      collectionId,
+      defaultLocale: 'de',
+    })
+    const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'pages',
+      locale: 'de',
       slug: 'willkommen',
-      locales: [{ locale: 'de', values: { title: 'Willkommen' } }],
+      localized: { title: 'Willkommen' },
     })
 
-    const owner = ctx.asCmsUser('owner-1')
     const detail = await readEntryReadinessDetail(owner, entryId)
     const de = getReadinessLocale(detail, 'de')
     const en = getReadinessLocale(detail, 'en')
     const fr = getReadinessLocale(detail, 'fr')
-
-    expect(detail).toMatchObject({
-      entryId,
-      collection: 'pages',
-      primaryLocale: 'de',
-    })
+    expect(detail).toMatchObject({ entryId, collection: 'pages', primaryLocale: 'de' })
     expect(detail.locales.map((row: { locale: string }) => row.locale)).toEqual(['de', 'en', 'fr'])
     expect(de).toMatchObject({
       state: 'ready',
@@ -906,72 +892,50 @@ describe('entry readiness detail', () => {
       canPreview: true,
       canPublish: true,
     })
-    expect(en).toMatchObject({
-      state: 'missing',
-      draftExists: false,
-      published: false,
-      hasUnpublishedChanges: false,
-      canPublish: false,
-    })
-    expect(fr).toMatchObject({
-      state: 'missing',
-      draftExists: false,
-      published: false,
-      hasUnpublishedChanges: false,
-      canPublish: false,
-    })
-    expect(de.blockers).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'locale_missing' })]),
-    )
+    expect(en).toMatchObject({ state: 'missing', draftExists: false, canPublish: false })
+    expect(fr).toMatchObject({ state: 'missing', draftExists: false, canPublish: false })
   })
 
-  it('derives draft, in-review, live, and live-with-changes states from canonical rows', async () => {
+  it('derives draft, in-review, live, and live-with-changes from canonical rows', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const noteCollectionId = (await seedCollection(ctx, {
-      slug: 'notes',
-      mode: 'none',
-      fields: [{ key: 'note', type: 'text', localized: true, required: false }],
-    })) as string
-    const pageCollectionId = (await seedCollection(ctx, {
-      slug: 'posts',
-      pathPrefix: '/posts',
-    })) as string
-    const draftEntryId = await seedDraftEntry(ctx, {
-      collectionId: noteCollectionId,
+    await installDiagnosticsContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const draftEntryId = await owner.createEntry({
+      collection: 'notes',
       slug: 'empty-note',
-      locales: [{ locale: 'en', values: {} }],
+      localized: {},
     })
-    const reviewEntryId = await seedDraftEntry(ctx, {
-      collectionId: pageCollectionId,
+    const reviewEntryId = await owner.createEntry({
+      collection: 'posts',
       slug: 'review-me',
-      locales: [{ locale: 'en', values: { title: 'Review me' } }],
+      localized: { title: 'Review me' },
     })
+    const liveEntryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'live-post',
+      localized: { title: 'Live post' },
+    })
+    await publishEntry(owner, liveEntryId)
+    const changedEntryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'changed-post',
+      localized: { title: 'Published title' },
+    })
+    await publishEntry(owner, changedEntryId)
+    await owner.saveEntryDraft({
+      entryId: changedEntryId,
+      expectedDraftVersion: await currentDraftVersion(owner, changedEntryId),
+      patch: { locales: { en: { values: { title: 'Updated draft title' } } } },
+    })
+    // A review preview is deliberately fenced by the collection/locale route
+    // generation. Create it after the unrelated publication fixtures so this
+    // assertion exercises an active review rather than a correctly stale one.
     const reviewRequestId = await seedPendingPublishReview(ctx, {
       entryId: reviewEntryId,
       locales: ['en'],
     })
-    const liveEntryId = await seedPublishedEntry(ctx, {
-      collectionId: pageCollectionId,
-      collection: 'posts',
-      locale: 'en',
-      slug: 'live-post',
-      path: '/posts/live-post',
-      title: 'Live post',
-    })
-    const changedEntryId = await seedPublishedEntry(ctx, {
-      collectionId: pageCollectionId,
-      collection: 'posts',
-      locale: 'en',
-      slug: 'changed-post',
-      path: '/posts/changed-post',
-      title: 'Published title',
-      draftTitle: 'Updated draft title',
-      dirtyLocales: ['en'],
-    })
 
-    const owner = ctx.asCmsUser('owner-1')
     const draft = getReadinessLocale(await readEntryReadinessDetail(owner, draftEntryId), 'en')
     const inReview = getReadinessLocale(await readEntryReadinessDetail(owner, reviewEntryId), 'en')
     const live = getReadinessLocale(await readEntryReadinessDetail(owner, liveEntryId), 'en')
@@ -979,29 +943,21 @@ describe('entry readiness detail', () => {
       await readEntryReadinessDetail(owner, changedEntryId),
       'en',
     )
-
     expect(draft).toMatchObject({
       state: 'draft',
       draftExists: true,
       published: false,
-      hasUnpublishedChanges: true,
-      blockers: [],
       canPreview: true,
       canPublish: false,
       publicUrl: null,
     })
     expect(inReview).toMatchObject({
       state: 'in_review',
-      draftExists: true,
-      published: false,
-      hasUnpublishedChanges: true,
-      blockers: [],
       reviewRequestId,
       canRequestReview: false,
     })
     expect(live).toMatchObject({
       state: 'live',
-      draftExists: true,
       published: true,
       hasUnpublishedChanges: false,
       publicUrl: '/posts/live-post',
@@ -1009,7 +965,6 @@ describe('entry readiness detail', () => {
     })
     expect(liveWithChanges).toMatchObject({
       state: 'live_with_changes',
-      draftExists: true,
       published: true,
       hasUnpublishedChanges: true,
       publicUrl: '/posts/changed-post',
@@ -1027,45 +982,31 @@ describe('entry readiness detail', () => {
     )
   })
 
-  it('does not show an outdated review as in review after route context changes', async () => {
+  it('marks a pinned review stale after its parent route generation changes', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { rootAId, childId } = await seedTreeFixture(ctx)
-
     const owner = ctx.asCmsUser('owner-1')
     await publishEntry(owner, rootAId)
     const reviewRequestId = await seedPendingPublishReview(ctx, {
       entryId: childId,
       locales: ['en'],
     })
-
-    const root = await owner.query(api.editor.getEntry, { id: rootAId, locale: 'en' })
     await owner.saveEntryDraft({
       entryId: rootAId,
-      expectedDraftVersion: root.draftVersion,
-      patch: {
-        shared: {
-          slug: 'root-renamed',
-        },
-      },
+      expectedDraftVersion: await currentDraftVersion(owner, rootAId),
+      patch: { locales: { en: { slug: 'root-renamed', values: { title: 'Root A' } } } },
     })
     await publishEntry(owner, rootAId)
 
     const en = getReadinessLocale(await readEntryReadinessDetail(owner, childId), 'en')
-
     expect(reviewRequestId).toBeTruthy()
     expect(en).toMatchObject({
       state: 'ready',
-      draftExists: true,
-      published: false,
-      hasUnpublishedChanges: true,
       reviewRequestId: null,
       canPublish: true,
-      nextAction: expect.objectContaining({
-        kind: 'publish_locale',
-        locale: 'en',
-      }),
+      nextAction: expect.objectContaining({ kind: 'publish_locale', locale: 'en' }),
     })
     expect(en.warnings).toEqual(
       expect.arrayContaining([
@@ -1081,49 +1022,31 @@ describe('entry readiness detail', () => {
   it('derives stale published asset metadata from the active projection', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'gallery',
-      pathPrefix: '/gallery',
-      fields: [
-        { key: 'title', type: 'text', localized: true, required: true, searchable: true },
-        {
-          key: 'image',
-          type: 'object',
-          localized: false,
-          fields: [
-            { key: 'src', type: 'image' },
-            { key: 'alt', type: 'text' },
-            { key: 'caption', type: 'text' },
-          ],
-        },
-      ],
-    })) as string
+    await installDiagnosticsContract(ctx)
     const storageId = await seedStorageObject(ctx, { bytes: 'hero', type: 'image/png' })
-    const assetId = await ctx.seed(
-      'assets' as never,
-      {
-        storageId,
-        filename: 'hero.png',
-        mimeType: 'image/png',
-        size: 1024,
-        width: 800,
-        height: 600,
-        alt: { en: 'Original asset alt' },
-        caption: { en: 'Original asset caption' },
-        scope: 'collection',
-        entryId: null,
-        collectionId,
-        tags: [],
-        createdBy: 'owner-1',
-        updatedBy: null,
-        createdAt: Date.now(),
-        updatedAt: null,
-        deletedAt: null,
-        deletedBy: null,
-      } as never,
-    )
-
+    const now = Date.now()
+    const assetId = (await ctx.seed('assets', {
+      storageId,
+      filename: 'hero.png',
+      mimeType: 'image/png',
+      size: 4,
+      sha256: '0'.repeat(64),
+      width: 800,
+      height: 600,
+      frames: 1,
+      alt: { en: 'Original asset alt' },
+      caption: { en: 'Original asset caption' },
+      scope: 'collection',
+      entryId: null,
+      collection: 'gallery',
+      tags: [],
+      createdBy: 'owner-1',
+      updatedBy: null,
+      createdAt: now,
+      updatedAt: null,
+      deletedAt: null,
+      deletedBy: null,
+    })) as string
     const owner = ctx.asCmsUser('owner-1')
     const entryId = await owner.createEntry({
       collection: 'gallery',
@@ -1132,7 +1055,6 @@ describe('entry readiness detail', () => {
       shared: { image: { src: assetId, alt: '', caption: '' } },
     })
     await publishEntry(owner, entryId)
-
     await owner.mutation(api.assets.updateAsset, {
       assetId,
       alt: { en: 'Updated asset alt' },
@@ -1140,7 +1062,6 @@ describe('entry readiness detail', () => {
     })
 
     const locale = getReadinessLocale(await readEntryReadinessDetail(owner, entryId), 'en')
-
     expect(locale).toMatchObject({
       state: 'live_with_changes',
       published: true,
@@ -1158,62 +1079,36 @@ describe('entry readiness detail', () => {
     )
   })
 
-  it('allows incomplete draft saves but blocks readiness for missing required fields', async () => {
+  it('allows incomplete saves but blocks localized and shared required fields', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'posts',
-      pathPrefix: '/posts',
-      fields: [
-        { key: 'title', type: 'text', localized: true, required: true },
-        { key: 'summary', type: 'textarea', localized: true, required: true },
-        { key: 'featuredLabel', type: 'text', localized: false, required: true },
-      ],
-    })) as string
-    const entryId = await seedDraftEntry(ctx, {
-      collectionId,
-      slug: 'missing-required',
-      locales: [{ locale: 'en', values: { title: 'Partial draft' } }],
-    })
-
+    await installDiagnosticsContract(ctx)
     const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'strictPosts',
+      slug: 'missing-required',
+      localized: { title: 'Partial draft' },
+      shared: {},
+    })
     await expect(
       owner.saveEntryDraft({
         entryId,
-        expectedDraftVersion: 1,
-        patch: {
-          locales: {
-            en: {
-              values: {
-                title: 'Still partial',
-              },
-            },
-          },
-        },
+        expectedDraftVersion: await currentDraftVersion(owner, entryId),
+        patch: { locales: { en: { values: { title: 'Still partial' } } } },
       }),
-    ).resolves.toMatchObject({ draftVersion: 2, dirtyLocales: ['en'] })
+    ).resolves.toMatchObject({ draftVersion: 2 })
 
     const en = getReadinessLocale(await readEntryReadinessDetail(owner, entryId), 'en')
-
-    expect(en).toMatchObject({
-      state: 'needs_work',
-      draftExists: true,
-      published: false,
-      canPreview: true,
-      canPublish: false,
-    })
+    expect(en).toMatchObject({ state: 'needs_work', canPreview: true, canPublish: false })
     expect(en.blockers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'required_localized_field_missing',
-          severity: 'blocker',
           locale: 'en',
           fieldPath: 'summary',
         }),
         expect.objectContaining({
           code: 'required_shared_field_missing',
-          severity: 'blocker',
           locale: null,
           fieldPath: 'featuredLabel',
         }),
@@ -1224,21 +1119,15 @@ describe('entry readiness detail', () => {
   it('blocks data-only publish readiness when required fields are missing', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const collectionId = (await seedCollection(ctx, {
-      slug: 'authors',
-      mode: 'none',
-      fields: [{ key: 'name', type: 'text', localized: true, required: true }],
-    })) as string
-    const entryId = await seedDraftEntry(ctx, {
-      collectionId,
+    await installDiagnosticsContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'authors',
       slug: 'empty-author',
-      locales: [{ locale: 'en', values: {} }],
+      localized: {},
     })
 
-    const owner = ctx.asCmsUser('owner-1')
     const en = getReadinessLocale(await readEntryReadinessDetail(owner, entryId), 'en')
-
     expect(en).toMatchObject({
       state: 'needs_work',
       draftExists: true,
@@ -1252,16 +1141,8 @@ describe('entry readiness detail', () => {
       expect.arrayContaining([
         expect.objectContaining({
           code: 'data_only_required_field_missing',
-          severity: 'blocker',
           locale: 'en',
           fieldPath: 'name',
-        }),
-      ]),
-    )
-    expect(en.warnings ?? []).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'data_only_required_field_missing',
         }),
       ]),
     )

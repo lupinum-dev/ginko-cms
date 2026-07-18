@@ -1,10 +1,7 @@
-import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { v } from 'convex/values'
 
-import type { Doc } from './_generated/dataModel.js'
 import { canRead } from './auth/checks.js'
-import { pathPrefixForLocale } from './entries/workflow/path.js'
-import { publicPathForEntry } from './entries/workflow/publicTree.js'
+import { computeDraftPath } from './entries/workflow/draftPlacement.js'
 import { throwCmsError } from './errors.js'
 import { callerQuery } from './functions.js'
 import { isRouteBackedCollection, listInstalledCollections } from './lib/collections.js'
@@ -26,28 +23,18 @@ const studioSearchResultValidator = v.object({
   route: v.object({ slug: v.string(), href: v.string() }),
 })
 
-/** Same opt-out semantics as `publicFlag(row, 'search')` in public.ts. */
-function includedInSearch(row: Doc<'publicEntries'>): boolean {
-  if (row.searchIncluded === false) return false
-  const publicValue = (row.data as JsonMap | undefined)?.public
-  if (!publicValue || typeof publicValue !== 'object' || Array.isArray(publicValue)) return true
-  const value = (publicValue as Record<string, unknown>).search
-  return typeof value === 'boolean' ? value : true
-}
-
 /**
  * Cross-collection content search for the Studio command palette.
  *
- * Searches the same `publicEntries.search_locale` index the public
- * `public:search` query uses, but spans every route-backed collection that
- * supports the requested locale, with a bounded per-collection scan. Results
- * are merged in collection order and capped at `limit`.
+ * Searches the authorized draft projection, so unpublished and divergent
+ * drafts remain discoverable without exposing them through public queries.
  */
 export const searchStudioEntries = callerQuery.protected({
   id: 'collections:searchStudioEntries',
   args: {
     query: v.string(),
     locale: v.string(),
+    collection: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   guard: canRead,
@@ -65,7 +52,10 @@ export const searchStudioEntries = callerQuery.protected({
       STUDIO_SEARCH_MAX_LIMIT,
     )
 
-    const collections = await listInstalledCollections(ctx)
+    const installedCollections = await listInstalledCollections(ctx)
+    const collections = args.collection
+      ? installedCollections.filter((collection) => collection.slug === args.collection)
+      : installedCollections
     const results: Array<(typeof studioSearchResultValidator)['type']> = []
 
     for (const collection of collections) {
@@ -74,21 +64,37 @@ export const searchStudioEntries = callerQuery.protected({
       if (!collection.locales.includes(args.locale)) continue
 
       const rows = await ctx.db
-        .query('publicEntries')
-        .withSearchIndex('search_locale', (q) =>
-          q.search('searchText', query).eq('locale', args.locale).eq('collection', collection.slug),
+        .query('draftSearchEntries')
+        .withSearchIndex('search_collection_locale', (q) =>
+          q.search('searchText', query).eq('collection', collection.slug).eq('locale', args.locale),
         )
         .take(limit)
 
       for (const row of rows) {
         if (results.length >= limit) break
-        if (!includedInSearch(row)) continue
-        const href = await publicPathForEntry(ctx, row, {
-          pathPrefix: pathPrefixForLocale(collection, row.locale),
-          rootSlug: collection.routing.rootSlug,
+        const entry = await ctx.db.get(row.entryId)
+        if (!entry || entry.lifecycle !== 'active') continue
+        const draft = await ctx.db
+          .query('entryLocaleDrafts')
+          .withIndex('by_entry_locale', (index) =>
+            index.eq('entryId', row.entryId).eq('locale', row.locale),
+          )
+          .unique()
+        if (
+          !draft ||
+          row.sourceDraftVersion !== entry.draftVersion ||
+          row.sourceSharedVersion !== entry.sharedVersion ||
+          row.sourceLocaleVersion !== draft.version
+        ) {
+          continue
+        }
+        const href = await computeDraftPath(ctx, {
+          collection,
+          entry,
+          parentEntryId: entry.parentEntryId,
+          slug: row.slug,
+          locale: row.locale,
         })
-        // Broken ancestor chains are not publicly discoverable.
-        if (!href) continue
         results.push({
           id: toStringId(row.entryId),
           title: row.title,

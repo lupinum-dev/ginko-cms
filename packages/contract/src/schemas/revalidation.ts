@@ -41,3 +41,9 @@ export const upsertRevalidationTarget = defineArgs({
     enabled: v.boolean(),
   },
 })
+
+export const testRevalidationTarget = defineArgs({
+  description:
+    'Run one bounded, redacted owner-only connectivity diagnostic against a saved revalidation target.',
+  args: { targetId: v.string() },
+})

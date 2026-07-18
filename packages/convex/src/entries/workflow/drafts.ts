@@ -10,13 +10,11 @@
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
+import { assertMdcBodyWithinLimit } from '../../lib/contentLimits.js'
 import { isEqualJsonValue } from '../../lib/data.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../../lib/types.js'
 
-export type EntryDraftDoc = Doc<'entryLocaleDrafts'> & {
-  /** Derived read alias while callers move to the canonical `slug` name. */
-  localeSlug: string | null
-}
+export type EntryDraftDoc = Doc<'entryLocaleDrafts'>
 
 export type SharedDraftView = Pick<
   Doc<'entries'>,
@@ -88,6 +86,11 @@ export async function applyDraftPatch(
   ctx: MutationCtx,
   input: ApplyDraftPatchInput,
 ): Promise<ApplyDraftPatchResult> {
+  for (const [locale, patch] of Object.entries(input.patch.locales ?? {})) {
+    if (patch.bodyMdc !== undefined) {
+      assertMdcBodyWithinLimit(patch.bodyMdc ?? '', { locale, field: 'bodyMdc' })
+    }
+  }
   const entry = await ctx.db.get(input.entryId)
   if (!entry) throw new EntryNotFoundError(input.entryId)
   if (entry.draftVersion !== input.expectedDraftVersion) {
@@ -154,7 +157,10 @@ async function upsertLocaleDraft(
     locale: args.locale,
     slug: args.patch.slug !== undefined ? args.patch.slug : (args.existing?.slug ?? null),
     values: args.patch.values ?? args.existing?.values ?? {},
-    bodyMdc: args.patch.bodyMdc ?? args.existing?.bodyMdc ?? '',
+    bodyMdc:
+      args.patch.bodyMdc !== undefined
+        ? (args.patch.bodyMdc ?? '')
+        : (args.existing?.bodyMdc ?? ''),
     version: (args.existing?.version ?? 0) + 1,
     updatedBy: args.appIdentity,
     updatedAt: args.now,
@@ -185,10 +191,6 @@ function localeDraftChanged(
   return false
 }
 
-function asLocaleView(row: Doc<'entryLocaleDrafts'>): EntryDraftDoc {
-  return { ...row, localeSlug: row.slug }
-}
-
 async function readLocaleDraftRows(
   ctx: QueryOrMutationCtx,
   entryId: Id<'entries'>,
@@ -211,7 +213,7 @@ export async function readDraftRows(
       .withIndex('by_entry', (q) => q.eq('entryId', entryId))
       .collect(),
   ])
-  const byLocale = Object.fromEntries(localeRows.map((row) => [row.locale, asLocaleView(row)]))
+  const byLocale = Object.fromEntries(localeRows.map((row) => [row.locale, row]))
   return { shared: entry, byLocale }
 }
 
@@ -233,7 +235,7 @@ export async function readDraftPlacementRows(
   const byLocale: Record<string, EntryDraftDoc> = {}
   localeCodes.forEach((locale, index) => {
     const row = rows[index]
-    if (row) byLocale[locale] = asLocaleView(row)
+    if (row) byLocale[locale] = row
   })
   return { shared: entry, byLocale }
 }

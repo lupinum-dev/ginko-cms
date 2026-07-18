@@ -3,8 +3,10 @@ import { resolveEntryTitle } from '@lupinum/ginko-cms-contract/shared/fields/tit
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { computed } from 'vue'
 
+import StudioCreateTranslationDialog from '../../components/studio/editor/StudioCreateTranslationDialog.vue'
 import StudioEntryDetailsPanel from '../../components/studio/editor/StudioEntryDetailsPanel.vue'
 import StudioEntryHeroFields from '../../components/studio/editor/StudioEntryHeroFields.vue'
+import StudioMissingLocalePanel from '../../components/studio/editor/StudioMissingLocalePanel.vue'
 import { provideStudioEntryEditorContext } from '../../composables/internal/studioEntryEditorContext'
 import { useStudioEntryEditor } from '../../composables/internal/useStudioEntryEditor'
 import { useCmsI18n } from '../../composables/useCmsI18n'
@@ -159,18 +161,33 @@ useRightSidebarPanel({
           "
         >
           <StudioLocaleEditorPanel
+            v-if="editor.locales.currentLocaleDraftExists"
             side="primary"
             :status="workflow.primaryLocaleStatus"
             :state="workflow.primaryLocaleState"
             :blocked="workflow.primaryLocaleBlocked"
           />
+          <StudioMissingLocalePanel
+            v-else
+            side="primary"
+            :locale="editor.loader.currentLocale"
+            :can-edit="editor.loader.canEditEntries"
+            @add="editor.locales.beginLocaleCreation(editor.loader.currentLocale)"
+          />
           <StudioLocaleEditorPanel
-            v-if="workflow.isCompareMode"
+            v-if="workflow.isCompareMode && editor.locales.secondaryLocaleDraftExists"
             side="secondary"
             :status="workflow.secondaryLocaleStatus"
             :state="workflow.secondaryLocaleState"
             :blocked="workflow.secondaryLocaleBlocked"
             :missing-fields="workflow.secondaryLocaleMissingFields"
+          />
+          <StudioMissingLocalePanel
+            v-else-if="workflow.isCompareMode"
+            side="secondary"
+            :locale="editor.locales.secondaryLocale"
+            :can-edit="editor.loader.canEditEntries"
+            @add="editor.locales.beginLocaleCreation(editor.locales.secondaryLocale)"
           />
         </div>
 
@@ -192,10 +209,18 @@ useRightSidebarPanel({
          canvas. Both dialogs portal to <body> when open and render nothing
          inline, so their placement in the canvas slot is inert. -->
     <StudioCheckpointDialog />
+    <StudioCreateTranslationDialog
+      :open="editor.locales.localeCreationOpen"
+      :target-locale="editor.locales.localeCreationTarget"
+      :source-locales="editor.locales.existingLocaleOptions"
+      :busy="editor.draft.saving"
+      @update:open="editor.locales.setLocaleCreationOpen"
+      @confirm="editor.locales.confirmLocaleCreation"
+    />
     <StudioPublishDialog
       :readiness-detail="workflow.readinessDetail"
       :publish-impact="workflow.publishImpact"
-      :publish-impact-requested="workflow.publishImpactRequested"
+      :publish-impact-requested="workflow.publishSession.impactRequested"
       :publish-review="workflow.publishReview"
     />
   </StudioEntryEditorShell>

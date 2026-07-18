@@ -9,7 +9,9 @@ export const cmsUserCallerValidator = v.object({
   kind: v.literal('user'),
   userId: v.string(),
   subject: v.string(),
+  name: v.optional(v.string()),
   email: v.optional(v.string()),
+  emailVerified: v.optional(v.boolean()),
 })
 
 export const cmsMcpCallerValidator = v.object({

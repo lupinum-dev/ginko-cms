@@ -5,13 +5,14 @@ import { pathToFileURL } from 'node:url'
 
 import { type CliRunner, type ConvexClientFactory, parseArgs, usage, write } from './args.js'
 import { runContentCommand } from './content.js'
+import { runContractCommand } from './contractTransitions.js'
 import { resolveConvexCliBin, runNodeScript } from './convex.js'
 import { runDeployCommand } from './deploy.js'
 import { runDoctorCommand } from './doctor.js'
 import { readLocalEnv } from './env.js'
 import { runInitCommand } from './init.js'
+import { runAssetCommand, runRepairCommand } from './maintenance.js'
 import { runMcpDoctor } from './mcp-doctor.js'
-import { runContractCommand } from './migrate.js'
 import { runPushCommand } from './push.js'
 
 export async function runGinkoCmsCli(
@@ -62,11 +63,19 @@ export async function runGinkoCmsCli(
     if (command === 'content') {
       return await runContentCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
+    if (command === 'repair') {
+      return await runRepairCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    }
+    if (command === 'asset') {
+      return await runAssetCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    }
     if (command === 'convex') {
       const runner = options.runner ?? runNodeScript
       return await runner(resolveConvexCliBin(), parsed.args.slice(1), { cwd: parsed.cwd })
     }
-    if (command === 'doctor') return await runDoctorCommand(parsed.cwd, io)
+    if (command === 'doctor') {
+      return await runDoctorCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    }
     if (command === 'mcp-doctor') return await runMcpDoctor(parsed.cwd, io)
 
     throw new Error(`Unknown command "${command}".`)

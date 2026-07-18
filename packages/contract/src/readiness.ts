@@ -261,9 +261,31 @@ export type PublishReviewPreviewLocale = {
   status: PublishImpactStatus
   currentHref: string | null
   nextHref: string | null
+  routeImpact: PublishRouteImpactPage
   blockingIssueCodes: string[]
   warningIssueCodes: string[]
   changeKinds: PublishImpactChangeKind[]
+}
+
+export type PublishRouteImpactPage = {
+  /** Exact once `hasMore` is false; otherwise the traversal is still paged. */
+  total: number | null
+  listed: number
+  hasMore: boolean
+  continueCursor: string | null
+  routeGeneration: number
+  impactHash: string
+}
+
+export type PublishRouteImpactPageResult = {
+  collection: string
+  entryId: string
+  locale: string
+  draftVersion: number
+  routeGeneration: number
+  changes: PublishReviewPreviewChange[]
+  isDone: boolean
+  continueCursor: string | null
 }
 
 export type PublishReviewPreviewAffectedUrl = {
@@ -307,6 +329,8 @@ export type ReviewSummary = {
     nextHref: string | null
   }>
   affectedPublicUrls: PublishReviewPreviewAffectedUrl[]
+  affectedPublicUrlCount: number
+  affectedPublicUrlsHasMore: boolean
   changeCount: number
   blockerCount: number
   warningCount: number

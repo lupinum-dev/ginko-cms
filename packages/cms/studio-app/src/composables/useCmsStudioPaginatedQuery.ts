@@ -25,8 +25,9 @@ type CmsStudioPaginatedStatus =
   | 'exhausted'
   | 'error'
 
-type UseCmsStudioPaginatedQueryData<DataT> = {
+type UseCmsStudioPaginatedQueryData<DataT, PageDataT> = {
   results: ComputedRef<DataT[]>
+  pageData: ComputedRef<PageDataT | null>
   status: ComputedRef<CmsStudioPaginatedStatus>
   isLoading: ComputedRef<boolean>
   isStale: ComputedRef<boolean>
@@ -38,7 +39,10 @@ type UseCmsStudioPaginatedQueryData<DataT> = {
   reset: () => Promise<void>
 }
 
-type UseCmsStudioPaginatedQueryReturn<DataT> = UseCmsStudioPaginatedQueryData<DataT>
+type UseCmsStudioPaginatedQueryReturn<DataT, PageDataT> = UseCmsStudioPaginatedQueryData<
+  DataT,
+  PageDataT
+>
 
 type PaginatedQueryArgs<Query extends FunctionReference<'query'>> = Omit<
   FunctionArgs<Query>,
@@ -47,6 +51,11 @@ type PaginatedQueryArgs<Query extends FunctionReference<'query'>> = Omit<
 
 type PaginatedQueryItem<Query extends FunctionReference<'query'>> =
   FunctionReturnType<Query> extends { page: Array<infer Item> } ? Item : never
+
+type PaginatedQueryPageData<Query extends FunctionReference<'query'>> = Omit<
+  FunctionReturnType<Query>,
+  'page' | 'isDone' | 'continueCursor'
+>
 
 type CmsStudioPaginatedQueryOptions<Item, DataT> = {
   initialNumItems?: number
@@ -64,7 +73,7 @@ export function useCmsStudioPaginatedQuery<
   query: Query,
   args: MaybeRefOrGetter<PaginatedQueryArgs<Query> | null | undefined>,
   options: CmsStudioPaginatedQueryOptions<PaginatedQueryItem<Query>, DataT>,
-): UseCmsStudioPaginatedQueryReturn<DataT> {
+): UseCmsStudioPaginatedQueryReturn<DataT, PaginatedQueryPageData<Query>> {
   const studioHost = useStudioHostContext()
   const auth = useCmsAuthState()
   const { ready, can } = useCmsStudioAccess()
@@ -72,6 +81,7 @@ export function useCmsStudioPaginatedQuery<
   const requiredCapability = options.requiredCapability
   const canRequired = requiredCapability ? can(requiredCapability) : computed(() => true)
   const rawResults = shallowRef<PaginatedQueryItem<Query>[]>([])
+  const rawPageData = shallowRef<PaginatedQueryPageData<Query> | null>(null)
   const error = ref<Error | null>(null)
   const isLoading = ref(false)
   const isRefreshingTail = ref(false)
@@ -97,17 +107,24 @@ export function useCmsStudioPaginatedQuery<
   const initialNumItems = queryOptions.initialNumItems ?? 50
   const transform = (items: PaginatedQueryItem<Query>[]): DataT[] =>
     queryOptions.transform ? queryOptions.transform(items) : (items as unknown as DataT[])
+  const extractPageData = (page: FunctionReturnType<Query>): PaginatedQueryPageData<Query> => {
+    const { page: _page, isDone: _isDone, continueCursor: _continueCursor, ...pageData } = page
+    return pageData
+  }
 
   const operationInput = computed(() => ({
     args: gatedArgs.value,
     principalKey: auth.principalKey.value,
   }))
 
-  const pageArgs = (baseArgs: PaginatedQueryArgs<Query>, cursor: string | null, numItems: number) =>
-    ({
-      ...(baseArgs as Record<string, unknown>),
-      paginationOpts: { cursor, numItems },
-    }) as PaginatedQueryArgs<Query>
+  const pageArgs = (
+    baseArgs: PaginatedQueryArgs<Query>,
+    cursor: string | null,
+    numItems: number,
+  ) => ({
+    ...baseArgs,
+    paginationOpts: { cursor, numItems },
+  })
 
   /**
    * Rebuilds the already-visible tail after the live first page changes.
@@ -142,11 +159,7 @@ export function useCmsStudioPaginatedQuery<
         )
           return
         if (!cursor) break
-        const page = (await convex.query(query, pageArgs(baseArgs, cursor, numItems) as never)) as {
-          page: PaginatedQueryItem<Query>[]
-          isDone: boolean
-          continueCursor: string | null
-        }
+        const page = await convex.query(query, pageArgs(baseArgs, cursor, numItems))
         if (
           disposed ||
           generation !== requestGeneration ||
@@ -194,6 +207,8 @@ export function useCmsStudioPaginatedQuery<
     const principalChanged = lastPrincipalKey !== null && lastPrincipalKey !== principalKey
     lastPrincipalKey = principalKey
     rawResults.value = queryOptions.keepPreviousData && !principalChanged ? rawResults.value : []
+    rawPageData.value =
+      queryOptions.keepPreviousData && !principalChanged ? rawPageData.value : null
     continueCursor.value = null
 
     if (baseArgs == null) {
@@ -214,12 +229,8 @@ export function useCmsStudioPaginatedQuery<
     isLoading.value = true
     unsubscribe = convex.onUpdate(
       query,
-      pageArgs(baseArgs as PaginatedQueryArgs<Query>, null, initialNumItems) as never,
-      (page: {
-        page: PaginatedQueryItem<Query>[]
-        isDone: boolean
-        continueCursor: string | null
-      }) => {
+      pageArgs(baseArgs, null, initialNumItems),
+      (page) => {
         if (
           disposed ||
           currentSubscription !== subscriptionGeneration ||
@@ -232,6 +243,7 @@ export function useCmsStudioPaginatedQuery<
         isRefreshingTail.value = false
         const tailPageSizes = [...loadedTailPageSizes]
         rawResults.value = page.page
+        rawPageData.value = extractPageData(page)
         continueCursor.value = page.continueCursor
         isExhausted.value = page.isDone
         error.value = null
@@ -242,7 +254,7 @@ export function useCmsStudioPaginatedQuery<
           tailPageSizes,
           nextGeneration,
           principalKey,
-          baseArgs as PaginatedQueryArgs<Query>,
+          baseArgs,
         )
       },
       (err: unknown) => {
@@ -268,6 +280,7 @@ export function useCmsStudioPaginatedQuery<
     unsubscribe = null
     inFlightCursor = null
     rawResults.value = []
+    rawPageData.value = null
     continueCursor.value = null
     error.value = null
     isLoading.value = false
@@ -285,26 +298,20 @@ export function useCmsStudioPaginatedQuery<
     inFlightCursor = cursor
     isLoading.value = true
     void convex
-      .query(query, pageArgs(baseArgs as PaginatedQueryArgs<Query>, cursor, numItems) as never)
-      .then(
-        (page: {
-          page: PaginatedQueryItem<Query>[]
-          isDone: boolean
-          continueCursor: string | null
-        }) => {
-          if (
-            disposed ||
-            generation !== requestGeneration ||
-            principalKey !== auth.principalKey.value
-          )
-            return
-          rawResults.value = [...rawResults.value, ...page.page]
-          loadedTailPageSizes.push(numItems)
-          continueCursor.value = page.continueCursor
-          isExhausted.value = page.isDone
-          error.value = null
-        },
-      )
+      .query(query, pageArgs(baseArgs, cursor, numItems))
+      .then((page) => {
+        if (
+          disposed ||
+          generation !== requestGeneration ||
+          principalKey !== auth.principalKey.value
+        )
+          return
+        rawResults.value = [...rawResults.value, ...page.page]
+        loadedTailPageSizes.push(numItems)
+        continueCursor.value = page.continueCursor
+        isExhausted.value = page.isDone
+        error.value = null
+      })
       .catch((err: unknown) => {
         if (
           !disposed &&
@@ -331,8 +338,9 @@ export function useCmsStudioPaginatedQuery<
     start()
   }
 
-  const resultData: UseCmsStudioPaginatedQueryData<DataT> = {
+  const resultData: UseCmsStudioPaginatedQueryData<DataT, PaginatedQueryPageData<Query>> = {
     results: computed(() => (disposed ? [] : transform(rawResults.value))),
+    pageData: computed(() => (disposed ? null : rawPageData.value)),
     status: computed(() => {
       if (gatedArgs.value == null) return 'skipped'
       if (error.value) return 'error'
@@ -344,7 +352,10 @@ export function useCmsStudioPaginatedQuery<
     isLoading: computed(() => isLoading.value || isRefreshingTail.value),
     isStale: computed(() => isRefreshingTail.value),
     isExhausted: computed(() => isExhausted.value),
-    hasNextPage: computed(() => rawResults.value.length > 0 && !isExhausted.value),
+    // Server-side work/readiness filters can legitimately yield an empty
+    // candidate page while still advancing an indexed cursor. The cursor, not
+    // the visible row count, is the authority for whether more work exists.
+    hasNextPage: computed(() => continueCursor.value !== null && !isExhausted.value),
     loadMore,
     error,
     refresh,

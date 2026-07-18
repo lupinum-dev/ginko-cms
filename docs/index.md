@@ -12,8 +12,8 @@ Use these docs by reader task:
   [Environment](./getting-started/environment.md).
 - Content model changes: use
   [Changing collections](./guides/changing-collections.md), then the contract
-  transition [recipes](./guides/migrations/recipes.md) and
-  [recovery guide](./guides/migrations/recovery.md).
+  transition [recipes](./guides/contract-transitions/recipes.md) and
+  [recovery guide](./guides/contract-transitions/recovery.md).
 - Website reads: use the
   [public content API reference](./reference/public-content-api.md) and
   [Nuxt content provider reference](./reference/nuxt-content-provider.md).
@@ -43,10 +43,10 @@ docs/
     environment.md
   guides/
     changing-collections.md
-    filesystem-migration.md
+    content-portability.md
     mcp-agent-workflows.md
     theming-the-studio.md
-    migrations/
+    contract-transitions/
       recipes.md
       recovery.md
   reference/

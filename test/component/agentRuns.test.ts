@@ -2,9 +2,16 @@ import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permission
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createCtx, seedMember, seedOwner } from '../helpers'
+import { createCtx, installTestContract, seedMember, seedOwner } from '../helpers'
 
 const api = anyApi
+
+async function createAgentCtx() {
+  const ctx = createCtx()
+  await seedOwner(ctx)
+  await installTestContract(ctx, ['en'])
+  return ctx
+}
 
 async function ownerAgent(ctx: ReturnType<typeof createCtx>, apiKeyId = 'ba_key_owner') {
   await ctx.seed('mcpCredentialSettings', {
@@ -23,8 +30,7 @@ async function ownerAgent(ctx: ReturnType<typeof createCtx>, apiKeyId = 'ba_key_
 
 describe('component: agent runs', () => {
   it('allows one credential to create multiple bounded runs', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
+    const ctx = await createAgentCtx()
 
     await ctx.seed('mcpCredentialSettings', {
       apiKeyId: 'ba_key_owner',
@@ -63,9 +69,8 @@ describe('component: agent runs', () => {
     })
   })
 
-  it('keeps the effective scope snapshot immutable after credential settings change', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
+  it('[AGT-03] keeps the effective scope snapshot immutable after credential settings change', async () => {
+    const ctx = await createAgentCtx()
     const owner = ctx.asCmsUser('owner-1')
     await owner.mutation(api.mcpCredentials.upsertSettings, {
       apiKeyId: 'ba_key_owner',
@@ -81,7 +86,7 @@ describe('component: agent runs', () => {
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
     })
 
-    await expect(agent.query(api.agentRuns.listOwnRuns, { limit: 10 })).resolves.toEqual([
+    await expect(agent.query(api.agentRuns.listRuns, { limit: 10 })).resolves.toEqual([
       expect.objectContaining({
         _id: run._id,
         scopeSnapshot: [cmsPermissionKeys.read],
@@ -89,47 +94,68 @@ describe('component: agent runs', () => {
     ])
   })
 
-  it('lists only the current user agent runs', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
+  it('shows members their own runs and owners every run', async () => {
+    const ctx = await createAgentCtx()
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
     const owner = ctx.asCmsUser('owner-1')
-    const agent = await ownerAgent(ctx)
+    const ownerCredential = await ownerAgent(ctx)
+    await ctx.seed('mcpCredentialSettings', {
+      apiKeyId: 'ba_key_editor',
+      ownerUserId: 'editor-1',
+      scopes: [cmsPermissionKeys.read],
+      status: 'active',
+      createdBy: 'owner-1',
+      createdAt: Date.now(),
+      updatedBy: 'owner-1',
+      updatedAt: Date.now(),
+      revokedAt: null,
+    })
+    const editorCredential = ctx.asMcpApiKey('ba_key_editor', 'editor-1')
+    const editor = ctx.asCmsUser('editor-1')
     const outsider = ctx.asCmsUser('outsider-1')
     const expiresAt = Date.now() + 60_000
-    const first = await agent.mutation(api.agentRuns.startRun, {
-      taskName: 'First visible run',
+    const ownerRun = await ownerCredential.mutation(api.agentRuns.startRun, {
+      taskName: 'Owner run',
       expiresAt,
     })
-    const second = await agent.mutation(api.agentRuns.startRun, {
-      taskName: 'Second visible run',
+    const editorRun = await editorCredential.mutation(api.agentRuns.startRun, {
+      taskName: 'Editor run',
     })
 
-    await expect(owner.query(api.agentRuns.listOwnRuns, { limit: 10 })).resolves.toEqual([
+    await expect(editor.query(api.agentRuns.listRuns, { limit: 10 })).resolves.toEqual([
       expect.objectContaining({
-        _id: second._id,
-        taskName: 'Second visible run',
-        delegatedUserId: 'owner-1',
+        _id: editorRun._id,
+        taskName: 'Editor run',
+        delegatedUserId: 'editor-1',
         scopeSnapshot: [cmsPermissionKeys.read],
         expiresAt: expect.any(Number),
         lastWriteAt: null,
       }),
+    ])
+    await expect(owner.query(api.agentRuns.listRuns, { limit: 10 })).resolves.toEqual([
       expect.objectContaining({
-        _id: first._id,
-        taskName: 'First visible run',
+        _id: editorRun._id,
+        delegatedUserId: 'editor-1',
+      }),
+      expect.objectContaining({
+        _id: ownerRun._id,
+        taskName: 'Owner run',
         delegatedUserId: 'owner-1',
         scopeSnapshot: [cmsPermissionKeys.read],
         expiresAt,
         lastWriteAt: null,
       }),
     ])
-    await expect(outsider.query(api.agentRuns.listOwnRuns, { limit: 10 })).rejects.toThrow(
+    await expect(outsider.query(api.agentRuns.listRuns, { limit: 10 })).rejects.toThrow(
       'Forbidden: Read CMS',
     )
+    await expect(
+      owner.mutation(api.agentRuns.revokeRun, { agentRunId: editorRun._id }),
+    ).resolves.toMatchObject({ _id: editorRun._id, status: 'revoked' })
   })
 
   it('blocks other members from completing or revoking a run', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
+    const ctx = await createAgentCtx()
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
 
     const editor = ctx.asCmsUser('editor-1')
@@ -147,8 +173,7 @@ describe('component: agent runs', () => {
   })
 
   it('does not create credential-free agent runs', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
+    const ctx = await createAgentCtx()
     await ctx.seed('mcpCredentialSettings', {
       apiKeyId: 'ba_key_owner',
       ownerUserId: 'owner-1',
@@ -169,8 +194,7 @@ describe('component: agent runs', () => {
   })
 
   it('enforces server-selected expiry and an active-run cap', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
+    const ctx = await createAgentCtx()
     const agent = await ownerAgent(ctx)
     const before = Date.now()
 
@@ -207,8 +231,7 @@ describe('component: agent runs', () => {
   })
 
   it('requires member access before starting runs', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
+    const ctx = await createAgentCtx()
     const outsider = ctx.asCmsUser('outsider-1')
 
     await expect(

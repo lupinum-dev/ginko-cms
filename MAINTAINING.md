@@ -167,7 +167,8 @@ normal checks resolve the installed package and do not read sibling source.
 ## Ownership Boundary
 
 Ginko CMS owns destructive operation previews, publish workflow integration,
-assets, members, backups, projections, host setup files, and Studio UX.
+assets, members, asset recovery, owner-CLI portability, projections, host setup
+files, and Studio UX.
 
 Ginko CMS must not own host app content, private canary scripts, frontend-owned
 backend authority, duplicate confirmation systems, public bridge exports without

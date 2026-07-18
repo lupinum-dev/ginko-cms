@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
     })
     await caller.mutation(api.ginkoCms.portability.recordPortableAssetUpload, {
       ...args,
-      storageId: uploaded.storageId as never,
+      storageId: uploaded.storageId,
     })
   }
   const result = await caller.action(api.ginkoCms.portability.verifyPortableAssetUpload, args)

@@ -35,7 +35,7 @@ export async function assertStorageOutsidePortableExportHold(
   storageId: Id<'_storage'>,
 ) {
   const holds = await ctx.db
-    .query('portableExportAssets')
+    .query('portableAssets')
     .withIndex('by_storage', (query) => query.eq('storageId', storageId))
     .take(101)
   if (holds.length > 100) {
@@ -43,7 +43,7 @@ export async function assertStorageOutsidePortableExportHold(
   }
   const now = Date.now()
   for (const hold of holds) {
-    if (hold.expiresAt <= now) continue
+    if (hold.mode !== 'export' || hold.expiresAt <= now) continue
     const run = await ctx.db
       .query('portableRuns')
       .withIndex('by_run_id', (query) => query.eq('runId', hold.runId))

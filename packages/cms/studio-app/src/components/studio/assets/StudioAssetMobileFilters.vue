@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { Grid3x3, List } from '@lucide/vue'
 
+import { useCmsI18n } from '../../../composables/useCmsI18n'
+
 const open = defineModel<boolean>('open', { required: true })
 const viewMode = defineModel<'list' | 'grid'>('viewMode', { required: true })
 const sortBy = defineModel<string>('sortBy', { required: true })
 const typeFilter = defineModel<string>('typeFilter', { required: true })
 const timeFilter = defineModel<string>('timeFilter', { required: true })
+const usageFilter = defineModel<string>('usageFilter', { required: true })
+const sizeFilter = defineModel<string>('sizeFilter', { required: true })
 defineEmits<{ clear: [] }>()
+
+const { t } = useCmsI18n()
 
 const viewSegments = [
   { value: 'list', label: 'List', icon: List },
@@ -70,6 +76,44 @@ const viewSegments = [
             <SelectItem value="7d">Last 7 days</SelectItem>
             <SelectItem value="30d">Last 30 days</SelectItem>
             <SelectItem value="90d">Last 90 days</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.usage') }}</Label>
+        <Select v-model="usageFilter">
+          <SelectTrigger
+            class="ginko:h-9 ginko:w-full ginko:text-sm"
+            :aria-label="t('ginkoCms.studio.assetBrowser.filterUsageAriaLabel')"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{{ t('ginkoCms.studio.assetBrowser.usageAll') }}</SelectItem>
+            <SelectItem value="used">{{ t('ginkoCms.studio.assetBrowser.usageUsed') }}</SelectItem>
+            <SelectItem value="unused-verified">{{
+              t('ginkoCms.studio.assetBrowser.usageUnusedVerified')
+            }}</SelectItem>
+            <SelectItem value="unknown-stale">{{
+              t('ginkoCms.studio.assetBrowser.usageUnknownStale')
+            }}</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Label class="ginko:text-xs">{{ t('ginkoCms.studio.assetBrowser.size') }}</Label>
+        <Select v-model="sizeFilter">
+          <SelectTrigger
+            class="ginko:h-9 ginko:w-full ginko:text-sm"
+            :aria-label="t('ginkoCms.studio.assetBrowser.filterSizeAriaLabel')"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">{{ t('ginkoCms.studio.assetBrowser.sizeAny') }}</SelectItem>
+            <SelectItem value="small">{{ t('ginkoCms.studio.assetBrowser.sizeSmall') }}</SelectItem>
+            <SelectItem value="medium">{{
+              t('ginkoCms.studio.assetBrowser.sizeMedium')
+            }}</SelectItem>
+            <SelectItem value="large">{{ t('ginkoCms.studio.assetBrowser.sizeLarge') }}</SelectItem>
           </SelectContent>
         </Select>
 

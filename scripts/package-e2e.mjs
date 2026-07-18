@@ -182,6 +182,32 @@ function consumerExec(command, args = []) {
   }
 }
 
+function consumerExecExpectFailure(command, args, expectedMessages) {
+  const executable = consumerPackageManager === 'pnpm' ? pnpmBin : 'npm'
+  const commandArgs =
+    consumerPackageManager === 'pnpm'
+      ? ['exec', command, ...args]
+      : ['exec', '--', command, ...args]
+  let result
+  try {
+    execFileSync(executable, commandArgs, {
+      cwd: tempDir,
+      env: packageE2eEnv(),
+      encoding: 'utf8',
+      stdio: 'pipe',
+    })
+    throw new Error(`${command} unexpectedly succeeded.`)
+  } catch (error) {
+    if (!error || typeof error !== 'object' || !('status' in error)) throw error
+    result = `${error.stdout ?? ''}${error.stderr ?? ''}`
+  }
+  for (const expected of expectedMessages) {
+    if (!result.includes(expected)) {
+      throw new Error(`${command} failure did not include ${JSON.stringify(expected)}:\n${result}`)
+    }
+  }
+}
+
 async function bootNitro() {
   const port = 41_000 + (process.pid % 10_000)
   const child = spawn(process.execPath, ['.output/server/index.mjs'], {
@@ -528,6 +554,12 @@ try {
   )
 
   writeFileSync(
+    join(tempDir, 'content.config.ts'),
+    "export default { provider: 'cms', collections: {} }\n",
+    'utf8',
+  )
+
+  writeFileSync(
     join(tempDir, 'convex.json'),
     JSON.stringify(
       {
@@ -543,7 +575,7 @@ try {
   if (!liveConvex) {
     writeFileSync(
       join(tempDir, '.env.local'),
-      'BETTER_AUTH_SECRET=package-e2e-only-secret\n',
+      'BETTER_AUTH_SECRET=package-e2e-only-secret\nCONVEX_URL=http://127.0.0.1:3210\n',
       'utf8',
     )
   }
@@ -686,7 +718,11 @@ try {
     }
   }
   consumerExec('ginko-cms', ['init'])
-  consumerExec('ginko-cms', ['doctor'])
+  consumerExecExpectFailure(
+    'ginko-cms',
+    ['doctor'],
+    ['convex/ginkoCms/contractBinding.ts is still unbound', 'pnpm exec ginko-cms deploy'],
+  )
   consumerExec('convex', ['codegen', '--system-udfs', '--typecheck', 'disable'])
   addOfflineComponentsStub(tempDir)
 
@@ -698,13 +734,14 @@ try {
     'convex/schema.ts',
     'convex/ginkoCms/agentRuns.ts',
     'convex/ginkoCms/assets.ts',
-    'convex/ginkoCms/backup.ts',
+    'convex/ginkoCms/assetRecovery.ts',
     'convex/ginkoCms/collections.ts',
     'convex/ginkoCms/diagnostics.ts',
     'convex/ginkoCms/editor.ts',
     'convex/ginkoCms/mcpCredentials.ts',
+    'convex/ginkoCms/maintenance.ts',
     'convex/ginkoCms/members.ts',
-    'convex/ginkoCms/migrations.ts',
+    'convex/ginkoCms/contractTransitions.ts',
     'convex/ginkoCms/portability.ts',
     'convex/ginkoCms/public.ts',
     'convex/ginkoCms/revalidation.ts',

@@ -12,14 +12,11 @@ import {
   type StudioPublicVisibilityState,
   type StudioPublishImpactState,
   type StudioPublishReviewState,
-  type StudioRouteValidationState,
 } from './studioWorkflowTypes'
 
 const props = withDefaults(
   defineProps<{
     publicVisibility: StudioPublicVisibilityState
-    routeValidationRequested: boolean
-    routeValidationState: StudioRouteValidationState
     publishImpactRequested: boolean
     publishImpact: StudioPublishImpactState
     previewScope: 'publish' | 'workflow' | null
@@ -50,7 +47,6 @@ const publicOutputSummary = computed(() => {
 
 const emit = defineEmits<{
   previewPublishImpact: []
-  validatePublicRoutes: []
 }>()
 const advancedEditor = useStudioAdvancedEditor()
 
@@ -100,15 +96,6 @@ const reviewBadgeLabel = computed(() => {
           @click="emit('previewPublishImpact')"
         >
           {{ ce('publicWorkflowWhatWillChange') }}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          class="ginko:h-8 ginko:text-xs"
-          :disabled="!publicVisibility.isRouteBacked"
-          @click="emit('validatePublicRoutes')"
-        >
-          {{ ce('publicWorkflowCheckLinks') }}
         </Button>
       </div>
     </div>
@@ -193,46 +180,6 @@ const reviewBadgeLabel = computed(() => {
       >
         {{ ce('publicWorkflowNoLanguageRows') }}
       </div>
-    </div>
-
-    <div
-      class="ginko:mt-3 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/20 ginko:p-3"
-    >
-      <div class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2">
-        <div>
-          <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-            {{ ce('publicWorkflowLinkChecks') }}
-          </div>
-          <div
-            class="ginko:mt-1 ginko:text-xs"
-            :class="
-              routeValidationState.state === 'error' || routeValidationState.state === 'missing'
-                ? 'ginko:text-destructive'
-                : 'ginko:text-muted-foreground'
-            "
-          >
-            {{
-              routeValidationRequested
-                ? routeValidationState.message
-                : ce('publicWorkflowRunValidation')
-            }}
-          </div>
-        </div>
-        <Badge
-          variant="outline"
-          :class="routeValidationRequested ? statusToneClass(routeValidationState.state) : ''"
-        >
-          {{ routeValidationRequested ? routeValidationState.state : ce('publicWorkflowNotRun') }}
-        </Badge>
-      </div>
-
-      <StudioWorkflowDiagnosticsList
-        class="ginko:mt-3"
-        :diagnostics="routeValidationState.diagnostics"
-        :hidden-count="routeValidationState.hiddenDiagnosticCount"
-        item-key-prefix="route-validation"
-        more-label-key="UrlIssue"
-      />
     </div>
 
     <StudioPublishImpactSummary

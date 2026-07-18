@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUp, Globe, Trash2, Undo2, X } from '@lucide/vue'
+import { ArrowUp, Globe, RefreshCw, Trash2, Undo2, X } from '@lucide/vue'
 import { useMediaQuery } from '@vueuse/core'
 import { computed } from 'vue'
 
@@ -124,6 +124,9 @@ const infoRows = computed<StudioAssetInfoRow[]>(() => {
 
             <template v-if="mode.mode.value === 'manage'">
               <Separator />
+              <StudioAssetUsageList :asset="detailAsset" />
+
+              <Separator />
               <div class="ginko:space-y-2">
                 <h4
                   class="ginko:text-xs ginko:font-semibold ginko:uppercase ginko:text-muted-foreground/60"
@@ -173,7 +176,17 @@ const infoRows = computed<StudioAssetInfoRow[]>(() => {
                 </template>
                 <template v-else>
                   <Button
-                    v-if="detailAsset.scope === 'entry' && detailAsset.collectionId"
+                    variant="outline"
+                    size="sm"
+                    class="ginko:w-full ginko:justify-start ginko:text-xs"
+                    :disabled="finder.actionPending.value"
+                    @click="finder.requestReplaceSelectedAsset"
+                  >
+                    <RefreshCw class="ginko:mr-2 ginko:size-3.5" aria-hidden="true" />
+                    {{ t('ginkoCms.studio.assetBrowser.replaceFile') }}
+                  </Button>
+                  <Button
+                    v-if="detailAsset.scope === 'entry' && detailAsset.collection"
                     variant="outline"
                     size="sm"
                     class="ginko:w-full ginko:justify-start ginko:text-xs"

@@ -22,6 +22,7 @@ type TestRow = {
 
 type TestRedirect = {
   _id: string
+  redirectId: string
   collection: string
   locale: string
   state: 'active' | 'retired'
@@ -159,10 +160,11 @@ describe('structural public tree', () => {
     )
   })
 
-  it('resolves exact and prefix redirects directly to the target tree without following chains', async () => {
+  it('[WEB-02] resolves exact and prefix redirects directly to the target tree without following chains', async () => {
     const redirects: TestRedirect[] = [
       {
         _id: 'exact-legacy',
+        redirectId: 'exact-legacy',
         collection: 'docs',
         locale: 'en',
         state: 'active',
@@ -173,6 +175,7 @@ describe('structural public tree', () => {
       },
       {
         _id: 'prefix-old',
+        redirectId: 'prefix-old',
         collection: 'docs',
         locale: 'en',
         state: 'active',
@@ -185,6 +188,7 @@ describe('structural public tree', () => {
       // still stops after the entry-ID target and never follows it.
       {
         _id: 'must-not-chain',
+        redirectId: 'must-not-chain',
         collection: 'docs',
         locale: 'en',
         state: 'active',
@@ -226,6 +230,7 @@ describe('structural public tree', () => {
     const redirects: TestRedirect[] = [
       {
         _id: 'existing',
+        redirectId: 'existing',
         collection: 'docs',
         locale: 'en',
         state: 'active',
@@ -258,6 +263,66 @@ describe('structural public tree', () => {
     })
     expect(loop.ok).toBe(false)
     expect(loop.issues.map((issue) => issue.code)).toContain('prefix-loop')
+  })
+
+  it('blocks placements owned by an active redirect source or ancestor prefix', async () => {
+    const redirects: TestRedirect[] = [
+      {
+        _id: 'exact-reservation',
+        redirectId: 'exact-reservation',
+        collection: 'docs',
+        locale: 'en',
+        state: 'active',
+        kind: 'exact',
+        fromPath: '/docs/reused',
+        targetEntryId: 'api',
+        statusCode: 308,
+      },
+      {
+        _id: 'prefix-reservation',
+        redirectId: 'prefix-reservation',
+        collection: 'docs',
+        locale: 'en',
+        state: 'active',
+        kind: 'prefix',
+        fromPath: '/legacy-tree',
+        targetEntryId: 'guide',
+        statusCode: 308,
+      },
+    ]
+    const { ctx } = createRoutingCtx({ rows: treeRows(), redirects })
+
+    await expect(
+      validatePublicPlacement(ctx, {
+        collection: 'docs',
+        locale: 'en',
+        parentEntryId: null,
+        slug: 'reused',
+        options: { pathPrefix: '/docs' },
+      }),
+    ).resolves.toContainEqual(
+      expect.objectContaining({
+        code: 'redirect-source-collision',
+        redirectId: 'exact-reservation',
+        fromPath: '/docs/reused',
+      }),
+    )
+
+    await expect(
+      validatePublicPlacement(ctx, {
+        collection: 'docs',
+        locale: 'en',
+        parentEntryId: null,
+        slug: 'child',
+        options: { pathPrefix: '/legacy-tree' },
+      }),
+    ).resolves.toContainEqual(
+      expect.objectContaining({
+        code: 'redirect-prefix-collision',
+        redirectId: 'prefix-reservation',
+        fromPath: '/legacy-tree',
+      }),
+    )
   })
 
   it('rejects ambiguous and traversal-like route spellings', () => {

@@ -56,15 +56,15 @@ function createReadContext(rows: PublicRow[]) {
 
       expect(table).toBe('publicEntries')
       publicIndexCalls.push({ index, values: { ...values } })
-      const matchingRows = rows.filter(
-        (row) =>
-          row.entryId === values.entryId &&
-          (values.locale === undefined || row.locale === values.locale),
+      const matchingRows = rows.filter((row) =>
+        Object.entries(values).every(([field, value]) => row[field as keyof PublicRow] === value),
       )
-      return {
+      const indexedQuery = {
+        order: (_direction: 'asc' | 'desc') => indexedQuery,
         collect: async () => matchingRows,
         take: async (limit: number) => matchingRows.slice(0, limit),
       }
+      return indexedQuery
     },
   }))
 
@@ -81,7 +81,7 @@ function createReadContext(rows: PublicRow[]) {
 
 describe('public projection query budgets', () => {
   it.each([1, 1000])(
-    'loads exact translation variants through entry-scoped indexes for %i entries',
+    'loads translation variants through bounded indexed queries for %i entries',
     async (count) => {
       const input = Array.from({ length: count }, (_, index) => ({
         entryId: `entry-${index}`,
@@ -109,17 +109,25 @@ describe('public projection query budgets', () => {
           published: true,
         },
       ])
-      // One exact alternate lookup plus one indexed tree lookup for each root
-      // entry. Collection size never enters either query.
-      expect(publicIndexCalls).toHaveLength(count * 2)
-      expect(publicIndexCalls).toEqual(
-        expect.arrayContaining(
-          input.flatMap(({ entryId }) => [
-            { index: 'by_entry_locale', values: { entryId } },
-            { index: 'by_entry_locale', values: { entryId, locale: 'en' } },
-          ]),
-        ),
-      )
+      if (count >= 400) {
+        expect(publicIndexCalls).toEqual([
+          {
+            index: 'by_collection_locale_orderKey_entry',
+            values: { collection: 'articles', locale: 'en' },
+          },
+        ])
+      } else {
+        // One exact alternate lookup plus one indexed tree lookup for each root.
+        expect(publicIndexCalls).toHaveLength(count * 2)
+        expect(publicIndexCalls).toEqual(
+          expect.arrayContaining(
+            input.flatMap(({ entryId }) => [
+              { index: 'by_entry_locale', values: { entryId } },
+              { index: 'by_entry_locale', values: { entryId, locale: 'en' } },
+            ]),
+          ),
+        )
+      }
     },
   )
 })

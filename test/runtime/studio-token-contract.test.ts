@@ -117,6 +117,16 @@ const PUBLIC_TOKENS = [
 ]
 
 describe('studio token contract', () => {
+  it('[QUA-03] keeps theme parity and collapses structural motion for reduced-motion users', () => {
+    expect(indexCss).toContain('@media (prefers-reduced-motion: reduce)')
+    expect(indexCss).toMatch(/--motion-fast:\s*1ms;/)
+    expect(indexCss).toMatch(/--motion-panel:\s*1ms;/)
+    expect(indexCss).toMatch(/\.AccordionContent\[data-state='open'\][\s\S]*animation:\s*none;/)
+    expect(indexCss).toContain('color-scheme: light')
+    expect(indexCss).toContain('color-scheme: dark')
+    expect(themesCss).toContain('.dark .ginko-cms.color-blue')
+  })
+
   it('parses both token blocks', () => {
     expect(Object.keys(light).length).toBeGreaterThan(50)
     expect(Object.keys(dark).length).toBeGreaterThan(30)
@@ -175,7 +185,7 @@ describe('studio token contract', () => {
 
   it('themes.css never emits an unscoped selector (no host-app leak)', () => {
     // Every rule selector must be scoped under .ginko-cms. Catch a bare
-    // `.theme-scaled {` / `.color-blue {` that would bleed into host markup.
+    // Catch a bare `.color-blue {` that would bleed into host markup.
     const offenders: string[] = []
     // Strip comments so `.color-*` mentions inside prose don't trip the check.
     const withoutComments = themesCss.replace(/\/\*[\s\S]*?\*\//g, '')

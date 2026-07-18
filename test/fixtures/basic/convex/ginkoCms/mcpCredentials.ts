@@ -68,14 +68,14 @@ export const upsertSettings = mutation({
         details: { expiresAt: args.expiresAt },
       })
     }
-    return await ctx.runMutation(components.ginkoCms.mcpCredentials.upsertSettings, args as never)
+    return await ctx.runMutation(components.ginkoCms.mcpCredentials.upsertSettings, args)
   },
 })
 
 export const listOwnSettings = query({
   args: {},
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.mcpCredentials.listOwnSettings, args as never),
+    await ctx.runQuery(components.ginkoCms.mcpCredentials.listOwnSettings, args),
 })
 
 export const revokeSettings = mutation({
@@ -83,7 +83,7 @@ export const revokeSettings = mutation({
     apiKeyId: v.string(),
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.mcpCredentials.revokeSettings, args as never),
+    await ctx.runMutation(components.ginkoCms.mcpCredentials.revokeSettings, args),
 })
 
 export const resolveAccess = query({
@@ -91,5 +91,5 @@ export const resolveAccess = query({
     apiKeyId: v.string(),
   },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.mcpCredentials.resolveAccess, args as never),
+    await ctx.runQuery(components.ginkoCms.mcpCredentials.resolveAccess, args),
 })

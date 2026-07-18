@@ -6,681 +6,420 @@ import { describe, expect, it } from 'vitest'
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
-  archiveEntry,
   createCtx,
   currentDraftVersion,
+  installTestContract,
   publishEntry,
+  seedMember,
+  seedMultiLocaleSettings,
   seedOwner,
   seedSettings,
-  seedEditorFixture,
-  seedMultiLocaleSettings,
   seedTreeFixture,
 } from './helpers'
 
 const api = anyApi
 
-describe('editor read queries', () => {
-  it('returns stableId in editor entry lists for relation pickers', async () => {
+describe('canonical editor reads', () => {
+  it('[CON-02] paginates flat inventory with opaque indexed cursors without loss or duplication', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
-    await seedEditorFixture(ctx)
-
     const owner = ctx.asCmsUser('owner-1')
-    const createdEntryId = await owner.createEntry({
-      collection: 'posts',
-      slug: 'entry-with-stable-id',
-      localized: { title: 'Entry with stableId' },
-    })
 
-    const entries = await owner.query(api.editor.listEntries, {
-      collection: 'posts',
-      locale: 'en',
-    })
+    for (let index = 0; index < 7; index += 1) {
+      await owner.createEntry({
+        collection: 'posts',
+        slug: `post-${index}`,
+        localized: { title: `Post ${index}` },
+      })
+    }
 
-    expect(entries).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          _id: createdEntryId,
-          stableId: expect.stringMatching(/^[0-9a-z]{5,6}$/),
-        }),
-      ]),
-    )
-  })
+    const seen: Array<{ _id: string; stableId: string; draftVersion: number }> = []
+    let cursor: string | null = null
+    let isDone = false
+    while (!isDone) {
+      const result = await owner.query(api.editor.listEntriesForStudio, {
+        collection: 'posts',
+        locale: 'en',
+        parentEntryId: null,
+        paginationOpts: { numItems: 2, cursor },
+      })
+      seen.push(...result.page)
+      cursor = result.continueCursor
+      isDone = result.isDone
+    }
 
-  it('rejects version diffs across different entries', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    const firstPublish = await publishEntry(owner, entryId)
-
-    const secondEntryId = await owner.createEntry({
-      collection: 'posts',
-      slug: 'second-post',
-      localized: { title: 'Second post' },
-    })
-    const secondPublish = await publishEntry(owner, secondEntryId)
-
-    await expect(
-      owner.query(api.editor.getVersionDiff, {
-        leftVersionId: firstPublish.versionId,
-        rightVersionId: secondPublish.versionId,
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_VERSION_MISMATCH'
-    })
-  })
-
-  it('rejects invalid studio list cursors', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
+    expect(seen).toHaveLength(7)
+    expect(new Set(seen.map((entry) => entry._id)).size).toBe(7)
+    expect(seen.every((entry) => /^[0-9a-z]{5,6}$/.test(entry.stableId))).toBe(true)
+    expect(seen.every((entry) => entry.draftVersion === 1)).toBe(true)
 
     await expect(
       owner.query(api.editor.listEntriesForStudio, {
         collection: 'posts',
         locale: 'en',
-        paginationOpts: { numItems: 20, cursor: 'missing-entry' },
+        parentEntryId: null,
+        paginationOpts: { numItems: 2, cursor: 'not-a-convex-cursor' },
       }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'INVALID_CURSOR'
-    })
+    ).rejects.toSatisfy((error: unknown) => getCmsErrorData(error)?.code === 'INVALID_CURSOR')
   })
 
-  it('paginates studio entry lists without collecting the full collection', async () => {
+  it('[LOC-02] creates an independent missing translation while shared relation identity and existing public output stay unchanged', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    await seedEditorFixture(ctx)
-
+    await seedMultiLocaleSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    for (const slug of ['second-post', 'third-post', 'fourth-post', 'fifth-post']) {
-      await owner.createEntry({
-        collection: 'posts',
-        slug,
-        localized: { title: slug },
-      })
-    }
 
-    const firstPage = await owner.query(api.editor.listEntriesForStudio, {
-      collection: 'posts',
+    const authorId = await owner.createEntry({
+      collection: 'authors',
       locale: 'en',
-      paginationOpts: { numItems: 2, cursor: null },
+      slug: 'ada',
+      localized: { name: 'Ada' },
     })
-    const secondPage = await owner.query(api.editor.listEntriesForStudio, {
-      collection: 'posts',
-      locale: 'en',
-      paginationOpts: { numItems: 2, cursor: firstPage.continueCursor },
+    const author = await owner.query(api.editor.getEntry, { id: authorId, locale: 'en' })
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
+      entryId: authorId,
+      locale: 'de',
+      source: { kind: 'blank' },
     })
-
-    expect(firstPage.page).toHaveLength(2)
-    expect(firstPage.isDone).toBe(false)
-    expect(secondPage.page).toHaveLength(2)
-    expect(new Set([...firstPage.page, ...secondPage.page].map((entry) => entry._id)).size).toBe(4)
-  })
-
-  it('uses indexed search for studio entry list queries', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    for (const slug of ['alpha-report', 'alpha-notes', 'beta-report']) {
-      await owner.createEntry({
-        collection: 'posts',
-        slug,
-        localized: { title: slug },
-      })
-    }
-
-    const result = await owner.query(api.editor.listEntriesForStudio, {
-      collection: 'posts',
-      locale: 'en',
-      query: 'alpha',
-      paginationOpts: { numItems: 10, cursor: null },
+    await owner.saveEntryDraft({
+      entryId: authorId,
+      expectedDraftVersion: await currentDraftVersion(owner, authorId),
+      patch: { locales: { de: { values: { name: 'Ada Deutsch' } } } },
     })
 
-    expect(result.page.map((entry) => entry.baseSlug).sort()).toEqual([
-      'alpha-notes',
-      'alpha-report',
+    const postId = await owner.createEntry({
+      collection: 'posts',
+      locale: 'en',
+      slug: 'exact-read',
+      shared: { author: author.stableId },
+      localized: { title: 'English title' },
+    })
+    await publishEntry(owner, postId, ['en'])
+    const publicBeforeTranslation = structuredClone(await ctx.readAll('publicEntries'))
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
+      entryId: postId,
+      locale: 'de',
+      source: { kind: 'blank' },
+    })
+    const blankGermanDraft = (await ctx.readAll('entryLocaleDrafts')).find(
+      (row) => String(row.entryId) === postId && row.locale === 'de',
+    )
+    expect(blankGermanDraft).toMatchObject({
+      slug: null,
+      values: {},
+      bodyMdc: '',
+      version: 1,
+    })
+    await owner.saveEntryDraft({
+      entryId: postId,
+      expectedDraftVersion: await currentDraftVersion(owner, postId),
+      patch: { locales: { de: { values: { title: 'Deutscher Titel' } } } },
+    })
+    expect(await ctx.readAll('publicEntries')).toEqual(publicBeforeTranslation)
+
+    const [english, german] = await Promise.all([
+      owner.query(api.editor.getEntry, { id: postId, locale: 'en' }),
+      owner.query(api.editor.getEntry, { id: postId, locale: 'de' }),
     ])
-    expect(result.isDone).toBe(true)
+
+    expect(english.data).toMatchObject({ title: 'English title', author: author.stableId })
+    expect(german.data).toMatchObject({ title: 'Deutscher Titel', author: author.stableId })
+    expect(german.path).toBe('/beitraege/exact-read')
+    expect(german.locales.map((locale: { locale: string }) => locale.locale).sort()).toEqual([
+      'de',
+      'en',
+    ])
   })
 
-  it('orders tree studio lists by parent-first sibling order', async () => {
+  it('[LOC-02] explicitly copies localized values, body, and slug without copying publication state', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    await seedTreeFixture(ctx)
-
+    await seedMember(ctx, {
+      userId: 'editor-1',
+      role: 'editor',
+      displayName: 'Mara Winter',
+    })
+    await seedMember(ctx, { userId: 'viewer-1', role: 'viewer' })
+    await installTestContract(ctx, ['en', 'de', 'fr'])
     const owner = ctx.asCmsUser('owner-1')
-    const result = await owner.query(api.editor.listEntriesForStudio, {
+    const editor = ctx.asCmsUser('editor-1')
+
+    const entryId = await owner.createEntry({
       collection: 'docs',
       locale: 'en',
-      paginationOpts: { numItems: 10, cursor: null },
+      slug: 'reliability',
+      localized: { title: 'Reliability' },
+      bodyMdc: '# Reliable\n\nEnglish source.',
+    })
+    await publishEntry(owner, entryId, ['en'])
+    const publicBeforeCopy = structuredClone(await ctx.readAll('publicEntries'))
+
+    await editor.mutation(api.entries.draft.createLocaleVariant, {
+      entryId,
+      locale: 'de',
+      source: { kind: 'locale', locale: 'en' },
     })
 
-    expect(result.page.map((entry) => entry.baseSlug)).toEqual([
-      'root-a',
-      'child',
-      'grandchild',
-      'sibling',
-      'root-b',
+    const copiedDraft = (await ctx.readAll('entryLocaleDrafts')).find(
+      (row) => String(row.entryId) === entryId && row.locale === 'de',
+    )
+    expect(copiedDraft).toMatchObject({
+      locale: 'de',
+      slug: 'reliability',
+      values: { title: 'Reliability' },
+      bodyMdc: '# Reliable\n\nEnglish source.',
+      version: 1,
+      updatedBy: 'editor-1',
+    })
+    expect(await ctx.readAll('publicEntries')).toEqual(publicBeforeCopy)
+
+    const german = await editor.query(api.editor.getEntry, { id: entryId, locale: 'de' })
+    expect(german.path).toBe('/dokumentation/reliability')
+    expect(german.localeData?.published).toBeNull()
+
+    const creationActivity = (await ctx.readAll('activity')).find(
+      (row) => row.kind === 'entry.translation-created' && row.locale === 'de',
+    )
+    expect(creationActivity).toMatchObject({
+      appIdentityId: 'editor-1',
+      actorLabel: 'Mara Winter',
+      entryId,
+      collection: 'docs',
+      locale: 'de',
+      detail: { sourceKind: 'locale', sourceLocale: 'en' },
+    })
+
+    const versionBeforeRepeat = await currentDraftVersion(editor, entryId)
+    await editor.mutation(api.entries.draft.createLocaleVariant, {
+      entryId,
+      locale: 'de',
+      source: { kind: 'blank' },
+    })
+    expect(await currentDraftVersion(editor, entryId)).toBe(versionBeforeRepeat)
+    expect(
+      (await ctx.readAll('activity')).filter(
+        (row) => row.kind === 'entry.translation-created' && row.locale === 'de',
+      ),
+    ).toHaveLength(1)
+    expect(
+      (await ctx.readAll('entryLocaleDrafts')).find(
+        (row) => String(row.entryId) === entryId && row.locale === 'de',
+      ),
+    ).toEqual(copiedDraft)
+
+    await editor.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: await currentDraftVersion(editor, entryId),
+      patch: {
+        locales: {
+          de: {
+            slug: 'zuverlaessigkeit',
+            values: { title: 'Zuverlässigkeit' },
+            bodyMdc: '# Zuverlässig\n\nEigenständige deutsche Fassung.',
+          },
+        },
+      },
+    })
+    const [englishAfterGermanEdit, germanAfterEdit] = await Promise.all([
+      editor.query(api.editor.getEntry, { id: entryId, locale: 'en' }),
+      editor.query(api.editor.getEntry, { id: entryId, locale: 'de' }),
     ])
-    expect(result.isDone).toBe(true)
+    expect(englishAfterGermanEdit.data).toMatchObject({ title: 'Reliability' })
+    expect(englishAfterGermanEdit.localeData?.draft.bodyMdc).toBe('# Reliable\n\nEnglish source.')
+    expect(germanAfterEdit.data).toMatchObject({ title: 'Zuverlässigkeit' })
+    expect(germanAfterEdit.slug).toBe('zuverlaessigkeit')
+    expect(germanAfterEdit.localeData?.draft.bodyMdc).toBe(
+      '# Zuverlässig\n\nEigenständige deutsche Fassung.',
+    )
+    expect(await ctx.readAll('publicEntries')).toEqual(publicBeforeCopy)
+
+    await expect(
+      ctx.asCmsUser('viewer-1').mutation(api.entries.draft.createLocaleVariant, {
+        entryId,
+        locale: 'fr',
+        source: { kind: 'blank' },
+      }),
+    ).rejects.toThrow(/Edit entries/i)
   })
 
-  it('orders tree studio lists from draft placement state', async () => {
+  it('[LOC-02] rejects a missing copy source and atomically rolls back a copied route collision', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { rootBId, childId } = await seedTreeFixture(ctx)
-
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
+    await installTestContract(ctx, ['en', 'de', 'fr'])
     const owner = ctx.asCmsUser('owner-1')
+    const editor = ctx.asCmsUser('editor-1')
+
+    const missingSourceEntryId = await owner.createEntry({
+      collection: 'docs',
+      locale: 'en',
+      slug: 'missing-source',
+      localized: { title: 'Missing source' },
+    })
+    await expect(
+      editor.mutation(api.entries.draft.createLocaleVariant, {
+        entryId: missingSourceEntryId,
+        locale: 'de',
+        source: { kind: 'locale', locale: 'fr' },
+      }),
+    ).rejects.toSatisfy(
+      (cause: unknown) => getCmsErrorData(cause)?.code === 'ENTRY_LOCALE_SOURCE_MISSING',
+    )
+
+    const copySourceEntryId = await owner.createEntry({
+      collection: 'docs',
+      locale: 'en',
+      slug: 'copy-source-original',
+      localized: { title: 'Copy source' },
+    })
     await owner.saveEntryDraft({
-      entryId: rootBId,
-      expectedDraftVersion: await currentDraftVersion(owner, rootBId),
+      entryId: copySourceEntryId,
+      expectedDraftVersion: await currentDraftVersion(owner, copySourceEntryId),
       patch: {
-        shared: {
-          parentEntryId: childId,
-          orderRank: 'b0',
+        locales: {
+          en: { slug: 'claimed-route' },
+        },
+      },
+    })
+    const routeOwnerEntryId = await owner.createEntry({
+      collection: 'docs',
+      locale: 'en',
+      slug: 'route-owner',
+      localized: { title: 'Route owner' },
+    })
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
+      entryId: routeOwnerEntryId,
+      locale: 'de',
+      source: { kind: 'blank' },
+    })
+    await owner.saveEntryDraft({
+      entryId: routeOwnerEntryId,
+      expectedDraftVersion: await currentDraftVersion(owner, routeOwnerEntryId),
+      patch: {
+        locales: {
+          de: { slug: 'claimed-route', values: { title: 'Route owner DE' } },
         },
       },
     })
 
-    const result = await owner.query(api.editor.listEntriesForStudio, {
-      collection: 'docs',
-      locale: 'en',
-      paginationOpts: { numItems: 10, cursor: null },
-    })
-
-    expect(result.page.map((entry) => entry.baseSlug)).toEqual([
-      'root-a',
-      'child',
-      'grandchild',
-      'root-b',
-      'sibling',
-    ])
+    const sourceVersion = await currentDraftVersion(editor, copySourceEntryId)
+    const activityCount = (await ctx.readAll('activity')).length
+    await expect(
+      editor.mutation(api.entries.draft.createLocaleVariant, {
+        entryId: copySourceEntryId,
+        locale: 'de',
+        source: { kind: 'locale', locale: 'en' },
+      }),
+    ).rejects.toSatisfy((cause: unknown) => getCmsErrorData(cause)?.code === 'ENTRY_PATH_CONFLICT')
+    expect(await currentDraftVersion(editor, copySourceEntryId)).toBe(sourceVersion)
+    expect(
+      (await ctx.readAll('entryLocaleDrafts')).some(
+        (row) => String(row.entryId) === copySourceEntryId && row.locale === 'de',
+      ),
+    ).toBe(false)
+    expect(await ctx.readAll('activity')).toHaveLength(activityCount)
   })
 
-  it('keeps tree studio lists coherent when filtered parents are absent', async () => {
+  it('[COL-01] lists only real writes with durable human actor identity and display attribution', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { rootAId } = await seedTreeFixture(ctx)
-
-    await ctx.raw.run(async (innerCtx) => {
-      await innerCtx.db.patch(rootAId as never, { status: 'archived' })
+    await seedMember(ctx, {
+      userId: 'editor-1',
+      role: 'editor',
+      displayName: 'Mara Winter',
     })
-
-    const owner = ctx.asCmsUser('owner-1')
-    const result = await owner.query(api.editor.listEntriesForStudio, {
-      collection: 'docs',
-      locale: 'en',
-      paginationOpts: { numItems: 10, cursor: null },
-    })
-
-    expect(result.page.map((entry) => entry.baseSlug)).toEqual([
-      'child',
-      'grandchild',
-      'sibling',
-      'root-b',
-    ])
-  })
-
-  it('paginates activity with opaque indexed cursors', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
     await seedSettings(ctx)
+    const editor = ctx.asCmsUser('editor-1')
 
     for (let index = 0; index < 5; index += 1) {
-      await ctx.seed(
-        'activity' as never,
-        {
-          kind: 'test.activity',
-          summary: `Activity ${index}`,
-          appIdentityId: 'owner-1',
-          createdAt: index,
-        } as never,
-      )
+      await editor.createEntry({
+        collection: 'posts',
+        slug: `editor-post-${index}`,
+        localized: { title: `Editor post ${index}` },
+      })
     }
 
     const owner = ctx.asCmsUser('owner-1')
-    const firstPage = await owner.query(api.editor.listActivity, {
-      paginationOpts: { numItems: 2, cursor: null },
-    })
-    const secondPage = await owner.query(api.editor.listActivity, {
-      paginationOpts: { numItems: 2, cursor: firstPage.continueCursor },
-    })
-
-    expect(firstPage.page.map((row) => row.summary)).toEqual(['Activity 4', 'Activity 3'])
-    expect(firstPage.isDone).toBe(false)
-    expect(secondPage.page.map((row) => row.summary)).toEqual(['Activity 2', 'Activity 1'])
-  })
-
-  it('paginates identical activity timestamps without loss or duplication', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-
-    for (let index = 0; index < 5; index += 1) {
-      await ctx.seed(
-        'activity' as never,
-        {
-          kind: 'test.activity',
-          summary: `Same-time activity ${index}`,
-          appIdentityId: 'owner-1',
-          createdAt: 42,
-        } as never,
-      )
-    }
-
-    const owner = ctx.asCmsUser('owner-1')
-    const seen: string[] = []
+    const seen: Array<{
+      _id: string
+      kind: string
+      appIdentityId: string
+      actorLabel: string
+    }> = []
     let cursor: string | null = null
     let isDone = false
     while (!isDone) {
       const result = await owner.query(api.editor.listActivity, {
         paginationOpts: { numItems: 2, cursor },
       })
-      seen.push(...result.page.map((row) => row._id))
+      seen.push(...result.page)
       cursor = result.continueCursor
       isDone = result.isDone
     }
 
     expect(seen).toHaveLength(5)
-    expect(new Set(seen).size).toBe(5)
+    expect(new Set(seen.map((activity) => activity._id)).size).toBe(5)
+    expect(
+      seen.every(
+        (activity) =>
+          activity.kind === 'entry.created' &&
+          activity.appIdentityId === 'editor-1' &&
+          activity.actorLabel === 'Mara Winter',
+      ),
+    ).toBe(true)
   })
 
-  it('captures actor labels at write time and still resolves legacy rows at read time', async () => {
+  it('[DOC-06] loads a large tree incrementally by exact parent with independent keyset cursors', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
-    await seedEditorFixture(ctx)
-    const now = Date.now()
-    await ctx.seed(
-      'members' as never,
-      {
-        userId: 'named-editor',
-        role: 'editor',
-        displayName: 'Mara Winter',
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: 'named-editor',
-      } as never,
-    )
-
-    // New rows: logActivity resolves the label when the row is written.
-    const editor = ctx.asCmsUser('named-editor')
-    await editor.mutation(api.editor.createEntry, {
-      collection: 'posts',
-      slug: 'actor-label-entry',
-      locale: 'en',
-      localized: { title: 'Actor label entry' },
-    })
-
-    // Legacy rows (written before the column existed) have no actorLabel and
-    // must fall back to the read-time member lookup.
-    await ctx.seed(
-      'activity' as never,
-      {
-        kind: 'test.legacy',
-        summary: 'Legacy row without stored label',
-        appIdentityId: 'named-editor',
-        createdAt: now + 1,
-      } as never,
-    )
-
+    const { rootAId, rootBId, childId, siblingId, grandchildId } = await seedTreeFixture(ctx)
     const owner = ctx.asCmsUser('owner-1')
-    const result = await owner.query(api.editor.listActivity, {
+
+    const roots = await owner.query(api.editor.listEntriesForStudio, {
+      collection: 'docs',
+      locale: 'en',
+      parentEntryId: null,
       paginationOpts: { numItems: 10, cursor: null },
     })
-    const created = result.page.find((row) => row.kind === 'entry.created')
-    const legacy = result.page.find((row) => row.kind === 'test.legacy')
-    expect(created?.actorLabel).toBe('Mara Winter')
-    expect(legacy?.actorLabel).toBe('Mara Winter')
-  })
+    expect(roots.page.map((entry: { _id: string }) => entry._id)).toEqual([rootAId, rootBId])
 
-  it('returns editor-safe activity display summaries without rewriting raw summaries', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
+    const firstChildrenPage = await owner.query(api.editor.listEntriesForStudio, {
+      collection: 'docs',
+      locale: 'en',
+      parentEntryId: rootAId,
+      paginationOpts: { numItems: 1, cursor: null },
+    })
+    const secondChildrenPage = await owner.query(api.editor.listEntriesForStudio, {
+      collection: 'docs',
+      locale: 'en',
+      parentEntryId: rootAId,
+      paginationOpts: { numItems: 1, cursor: firstChildrenPage.continueCursor },
+    })
+    expect(
+      [...firstChildrenPage.page, ...secondChildrenPage.page].map(
+        (entry: { _id: string }) => entry._id,
+      ),
+    ).toEqual([childId, siblingId])
 
-    await ctx.seed(
-      'activity' as never,
-      {
-        kind: 'member.invited',
-        summary: 'Invited member "user_secret_123"',
-        appIdentityId: 'owner-1',
-        createdAt: 1,
-      } as never,
-    )
-    await ctx.seed(
-      'activity' as never,
-      {
-        kind: 'mcpCredentialSettings.revoked',
-        summary: 'MCP credential settings revoked for "ba_secret_connection"',
-        appIdentityId: 'owner-1',
-        createdAt: 2,
-      } as never,
-    )
-    await ctx.seed(
-      'activity' as never,
-      {
-        kind: 'agentRun.write',
-        summary: 'Agent run "Draft German launch page" used ginko-cms.save-entry-draft',
-        appIdentityId: 'owner-1',
-        detail: {
-          agentRunId: 'agent-run-1',
-          operationId: 'ginko-cms.save-entry-draft',
-        },
-        createdAt: 3,
-      } as never,
-    )
-
-    const owner = ctx.asCmsUser('owner-1')
-    const result = await owner.query(api.editor.listActivity, {
+    const grandchildren = await owner.query(api.editor.listEntriesForStudio, {
+      collection: 'docs',
+      locale: 'en',
+      parentEntryId: childId,
       paginationOpts: { numItems: 10, cursor: null },
     })
+    expect(grandchildren.page.map((entry: { _id: string }) => entry._id)).toEqual([grandchildId])
 
-    expect(result.page).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'member.invited',
-          summary: 'Invited member "user_secret_123"',
-          displaySummary: 'Invited member',
-        }),
-        expect.objectContaining({
-          kind: 'mcpCredentialSettings.revoked',
-          summary: 'MCP credential settings revoked for "ba_secret_connection"',
-          displaySummary: 'AI agent connection revoked',
-        }),
-        expect.objectContaining({
-          kind: 'agentRun.write',
-          summary: 'Agent run "Draft German launch page" used ginko-cms.save-entry-draft',
-          displaySummary: 'AI updated content',
-        }),
-      ]),
-    )
-  })
-
-  it('returns cheap workflow summaries with list-only work states', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedMultiLocaleSettings(ctx)
-    const { collectionId, entryId } = await seedEditorFixture(ctx)
-    await ctx.raw.run(async (innerCtx) => {
-      await innerCtx.db.patch(collectionId as never, { locales: ['en', 'de', 'de-CH'] })
-    })
-
-    const owner = ctx.asCmsUser('owner-1')
-    const [summary] = await owner.query(api.editor.listEntrySummaries, {
-      collection: 'posts',
-      locale: 'en',
-    })
-
-    expect(summary?.workflowSummary).toMatchObject({
-      entryId,
-      collection: 'posts',
-      primaryLocale: 'en',
-      workStatesByLocale: {
-        en: 'draft',
-        de: 'missing_translation',
-        'de-CH': 'missing_translation',
-      },
-      issueCounts: {
-        blocker: 0,
-        warning: 0,
-        info: 0,
-      },
-      missingLocales: ['de', 'de-CH'],
-      publishedLocales: [],
-      nextAction: {
-        kind: 'add_locale',
-        locale: 'de',
-        target: 'locale',
-        params: {},
-      },
-    })
-  })
-
-  it('keeps workflow summaries conservative and does not claim exact ready in lists', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    await publishEntry(owner, entryId)
-    await owner.saveEntryDraft({
-      entryId,
-      expectedDraftVersion: await currentDraftVersion(owner, entryId),
-      patch: {
-        locales: {
-          en: {
-            values: {
-              title: 'Changed after publish',
-            },
-          },
-        },
-      },
-    })
-
-    const [summary] = await owner.query(api.editor.listEntrySummaries, {
-      collection: 'posts',
-      locale: 'en',
-    })
-
-    expect(summary?.workflowSummary).toMatchObject({
-      workStatesByLocale: {
-        en: 'changed',
-      },
-      publishedLocales: ['en'],
-      nextAction: {
-        kind: 'preview_publish',
+    await expect(
+      owner.query(api.editor.listEntriesForStudio, {
+        collection: 'docs',
         locale: 'en',
-        target: 'publish',
-        params: {},
-      },
-    })
-    expect(Object.values(summary?.workflowSummary.workStatesByLocale ?? {})).not.toContain('ready')
-  })
-
-  it('includes drafts that canonical readiness allows in Studio overview ready-to-preview', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
-
-    expect(overview.readyToPreview.map((entry: { entryId: string }) => entry.entryId)).toContain(
-      entryId,
+        parentEntryId: 'not-an-entry-id',
+        paginationOpts: { numItems: 10, cursor: null },
+      }),
+    ).rejects.toSatisfy(
+      (error: unknown) => getCmsErrorData(error)?.code === 'ENTRY_PARENT_NOT_FOUND',
     )
-    expect(overview.counts.readyToPreview).toBe(1)
-  })
-
-  it('excludes required-field-blocked drafts from Studio overview ready-to-preview', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { collectionId, entryId } = await seedEditorFixture(ctx)
-
-    await ctx.raw.run(async (innerCtx) => {
-      await innerCtx.db.patch(
-        collectionId as never,
-        {
-          fields: [
-            { key: 'title', type: 'text', localized: true, required: true, searchable: true },
-            { key: 'summary', type: 'textarea', localized: true, required: true },
-          ],
-        } as never,
-      )
-    })
-
-    const owner = ctx.asCmsUser('owner-1')
-    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
-
-    expect(
-      overview.readyToPreview.map((entry: { entryId: string }) => entry.entryId),
-    ).not.toContain(entryId)
-    expect(overview.counts.readyToPreview).toBe(0)
-  })
-
-  it('excludes route-impact-blocked drafts from Studio overview ready-to-preview', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    const takenEntryId = await owner.createEntry({
-      collection: 'posts',
-      slug: 'taken',
-      localized: { title: 'Taken' },
-    })
-    await publishEntry(owner, takenEntryId)
-    const entryId = await owner.createEntry({
-      collection: 'posts',
-      slug: 'old',
-      localized: { title: 'Old' },
-    })
-    await publishEntry(owner, entryId)
-    // Write validation prevents creating this state through saveEntryDraft.
-    // Seed a legacy-invalid draft directly so the overview diagnostic remains
-    // a defense for pre-existing corruption.
-    await ctx.raw.run(async (innerCtx) => {
-      const entry = await innerCtx.db.get(entryId as never)
-      const shared = await innerCtx.db
-        .query('entryDrafts')
-        .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId as never).eq('locale', null))
-        .first()
-      if (!entry || !shared) throw new Error('Missing route-impact fixture')
-      await innerCtx.db.patch(shared._id, { slug: 'taken' })
-      await innerCtx.db.patch(entry._id, {
-        draftVersion: entry.draftVersion + 1,
-        dirtyLocales: ['en'],
-      })
-    })
-
-    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
-
-    expect(
-      overview.readyToPreview.map((entry: { entryId: string }) => entry.entryId),
-    ).not.toContain(entryId)
-  })
-
-  it('excludes archived entries from Studio overview work queues', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedMultiLocaleSettings(ctx)
-    const { collectionId, entryId } = await seedEditorFixture(ctx)
-    await ctx.raw.run(async (innerCtx) => {
-      await innerCtx.db.patch(collectionId as never, { locales: ['en', 'de'] } as never)
-    })
-
-    const owner = ctx.asCmsUser('owner-1')
-    await archiveEntry(owner, entryId)
-
-    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
-
-    expect(overview.counts).toMatchObject({
-      needsAttention: 0,
-      changedDrafts: 0,
-      missingTranslations: 0,
-    })
-    expect(overview.blocked).toEqual([])
-    expect(overview.changedDrafts).toEqual([])
-    expect(overview.missingTranslations).toEqual([])
-    expect(
-      overview.collections.find((summary: { slug: string }) => summary.slug === 'posts'),
-    ).toMatchObject({
-      changedDrafts: 0,
-      blocked: 0,
-      missingTranslations: 0,
-    })
-  })
-
-  it('does not describe archived entries as blocked in workflow summaries', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    await archiveEntry(owner, entryId)
-
-    const [summary] = await owner.query(api.editor.listEntrySummaries, {
-      collection: 'posts',
-      locale: 'en',
-      status: 'archived',
-    })
-
-    expect(summary).toMatchObject({ _id: entryId, status: 'archived' })
-    expect(summary?.workflowSummary.issueCounts.blocker).toBe(0)
-    expect(summary?.workflowSummary.workStatesByLocale.en).not.toBe('blocked')
-  })
-
-  it('reports live entries with newer drafts as public, never draft_only', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    await publishEntry(owner, entryId)
-    await owner.saveEntryDraft({
-      entryId,
-      expectedDraftVersion: await currentDraftVersion(owner, entryId),
-      patch: {
-        locales: {
-          en: {
-            values: {
-              title: 'Changed after publish',
-            },
-          },
-        },
-      },
-    })
-
-    const [summary] = await owner.query(api.editor.listEntrySummaries, {
-      collection: 'posts',
-      locale: 'en',
-    })
-
-    expect(summary).toMatchObject({
-      status: 'published',
-      publicState: 'public',
-      draftChangedSincePublish: true,
-    })
-    expect(
-      summary?.localeReadiness.find((locale: { locale: string }) => locale.locale === 'en')?.state,
-    ).toBe('changed')
-  })
-
-  it('excludes missing-language drafts from Studio overview ready-to-preview', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedMultiLocaleSettings(ctx)
-    const { collectionId, entryId } = await seedEditorFixture(ctx)
-    await ctx.raw.run(async (innerCtx) => {
-      await innerCtx.db.patch(collectionId as never, { locales: ['en', 'de'] } as never)
-    })
-
-    const owner = ctx.asCmsUser('owner-1')
-    const overview = await owner.query(api.editor.getStudioOverview, { locale: 'en' })
-
-    expect(
-      overview.readyToPreview.map((entry: { entryId: string }) => entry.entryId),
-    ).not.toContain(entryId)
-    expect(overview.counts.readyToPreview).toBe(0)
   })
 })

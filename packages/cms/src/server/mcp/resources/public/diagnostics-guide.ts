@@ -13,7 +13,7 @@ export default defineMcpResource({
         text: [
           '# Ginko Public Diagnostics',
           '',
-          'Use diagnostics before changing or publishing content. The same diagnostic codes are used by Studio and MCP.',
+          'Use diagnostics before changing a draft or requesting publication. The same diagnostic codes are used by Studio and MCP.',
           '',
           'Studio public workflow rows are a UI over this same data: locale draft/published state, public visibility, sitemap/search/nav inclusion, translation readiness, and publish-impact preview.',
           '',
@@ -56,7 +56,7 @@ export default defineMcpResource({
           '4. Call `request-publish-review`. A preview is stale if the draft changes after it was generated.',
           '5. Call `get-review-status` to follow the human decision.',
           '',
-          'Diagnostics are read-only context. Publishing and destructive actions still require the normal CMS operation permissions and confirmation flow.',
+          'Diagnostics are read-only context. MCP cannot publish or run destructive actions; a human uses the guarded Studio operation flow for those changes.',
         ].join('\n'),
       },
     ],

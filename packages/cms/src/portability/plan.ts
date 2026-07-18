@@ -1,4 +1,9 @@
 import { PORTABLE_IMPORT_LIMITS } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
+import {
+  assertValidFinalPlacementGraph,
+  finalPlacementKey,
+  portableSharedDraftState,
+} from '@lupinum/ginko-cms-contract/shared/placementGraph.js'
 import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import {
   collectPortableAssetReferences,
@@ -13,8 +18,10 @@ import type { PortableDirectoryBundle } from '@lupinum/ginko-content/portability
 export type PortableImportPlanItemPayload = {
   identity: { collection: string; canonicalKey: string; locale: string }
   expectedDraftSha256: string | null
+  expectedSharedSha256: string | null
   effect: 'create' | 'update' | 'skip' | 'conflict'
   documentSha256: string
+  sharedSha256: string
   dependencyKeys: string[]
 }
 
@@ -33,9 +40,9 @@ export type PortableDraftImportPlan = {
     mode: 'import'
     deploymentId: string
     scope: { collections: string[] }
-    targetContractSha256: string
+    targetContentHash: string
     sourceManifestSha256: string
-    sourceContractSha256: string
+    sourceContentHash: string
     itemCount: number
     itemRootSha256: string
     assetCount: number
@@ -61,8 +68,9 @@ export async function createPortableDraftImportPlan(
   bundle: PortableDirectoryBundle,
   options: {
     deploymentId: string
-    targetContractSha256: string
+    targetContentHash: string
     currentDraftSha256ByItemKey: ReadonlyMap<string, string | null>
+    currentSharedSha256ByItemKey: ReadonlyMap<string, string | null>
     currentAssetBySha256?: ReadonlyMap<
       string,
       {
@@ -74,7 +82,7 @@ export async function createPortableDraftImportPlan(
   },
 ): Promise<PortableDraftImportPlan> {
   if (!options.deploymentId) throw new Error('Portable import requires a deployment ID.')
-  assertSha256(options.targetContractSha256, 'target contract hash')
+  assertSha256(options.targetContentHash, 'target content hash')
   if (bundle.documents.length > PORTABLE_IMPORT_LIMITS.entries) {
     throw new Error(`Portable import document count exceeds ${PORTABLE_IMPORT_LIMITS.entries}.`)
   }
@@ -90,10 +98,7 @@ export async function createPortableDraftImportPlan(
     throw new Error(`Portable import locale count exceeds ${PORTABLE_IMPORT_LIMITS.locales}.`)
   }
   for (const { document } of documents) {
-    if (
-      canonicalJsonBytes(document as unknown as JsonValue).length >
-      PORTABLE_IMPORT_LIMITS.documentBytes
-    ) {
+    if (canonicalJsonSize(document) > PORTABLE_IMPORT_LIMITS.documentBytes) {
       throw new Error('Portable import document exceeds 256 KiB.')
     }
   }
@@ -110,10 +115,15 @@ export async function createPortableDraftImportPlan(
     const identity = portableIdentity(document)
     const itemKey = await hashJson(identity)
     const documentSha256 = await hashJson(document)
+    const sharedSha256 = await hashJson(portableSharedDraftState(document))
     const hasCurrent = options.currentDraftSha256ByItemKey.has(itemKey)
     const currentDraftSha256 = options.currentDraftSha256ByItemKey.get(itemKey) ?? null
+    const hasCurrentShared = options.currentSharedSha256ByItemKey.has(itemKey)
+    const currentSharedSha256 = options.currentSharedSha256ByItemKey.get(itemKey) ?? null
     if (!hasCurrent) blockers.push(`Current draft hash was not inspected for ${itemKey}.`)
+    if (!hasCurrentShared) blockers.push(`Current shared hash was not inspected for ${itemKey}.`)
     if (currentDraftSha256 !== null) assertSha256(currentDraftSha256, 'current draft hash')
+    if (currentSharedSha256 !== null) assertSha256(currentSharedSha256, 'current shared hash')
     const collection = bundle.contract.collections[document.collection]
     if (!collection) throw new Error(`Portable collection "${document.collection}" is missing.`)
     const dependencies = new Set<string>()
@@ -170,6 +180,7 @@ export async function createPortableDraftImportPlan(
     const payload: PortableImportPlanItemPayload = {
       identity,
       expectedDraftSha256: currentDraftSha256,
+      expectedSharedSha256: currentSharedSha256,
       effect:
         !hasCurrent || currentDraftSha256 === null
           ? 'create'
@@ -177,10 +188,18 @@ export async function createPortableDraftImportPlan(
             ? 'skip'
             : 'update',
       documentSha256,
+      sharedSha256,
       dependencyKeys: [...dependencies].sort(compare),
     }
-    items.push({ applyOrder: -1, itemKey, inputSha256: await hashJson(payload), payload, document })
+    items.push({
+      applyOrder: -1,
+      itemKey,
+      inputSha256: await hashJson(payload),
+      payload,
+      document,
+    })
   }
+  assertPortableEntryGroups(items, bundle)
   items.sort((left, right) => compare(left.itemKey, right.itemKey))
   for (const [applyOrder, item] of dependencyOrder(items).entries()) item.applyOrder = applyOrder
 
@@ -219,9 +238,9 @@ export async function createPortableDraftImportPlan(
     scope: {
       collections: [...new Set(documents.map(({ document }) => document.collection))].sort(compare),
     },
-    targetContractSha256: options.targetContractSha256,
+    targetContentHash: options.targetContentHash,
     sourceManifestSha256: await hashJson(bundle.manifest),
-    sourceContractSha256: bundle.manifest.contract.sha256,
+    sourceContentHash: bundle.manifest.contract.sha256,
     itemCount: items.length,
     itemRootSha256: await hashJson(items.map((item) => item.payload)),
     assetCount: assets.length,
@@ -237,23 +256,91 @@ export async function createPortableDraftImportPlan(
 }
 
 function dependencyOrder(items: PortableDraftImportPlan['items']) {
-  const byKey = new Map(items.map((item) => [item.itemKey, item]))
+  const groups = new Map<string, typeof items>()
+  for (const item of items) {
+    const key = finalPlacementKey(
+      item.payload.identity.collection,
+      item.payload.identity.canonicalKey,
+    )
+    const group = groups.get(key) ?? []
+    group.push(item)
+    groups.set(key, group)
+  }
+  for (const group of groups.values())
+    group.sort((left, right) => compare(left.itemKey, right.itemKey))
+  const groupByItemKey = new Map<string, string>()
+  for (const [groupKey, group] of groups) {
+    for (const item of group) groupByItemKey.set(item.itemKey, groupKey)
+  }
   const permanent = new Set<string>()
   const active = new Set<string>()
   const ordered: typeof items = []
-  const visit = (itemKey: string) => {
-    if (permanent.has(itemKey)) return
-    if (active.has(itemKey)) throw new Error('Portable plan dependencies contain a cycle.')
-    const item = byKey.get(itemKey)
-    if (!item) return
-    active.add(itemKey)
-    for (const dependency of item.payload.dependencyKeys) visit(dependency)
-    active.delete(itemKey)
-    permanent.add(itemKey)
-    ordered.push(item)
+  const visit = (groupKey: string) => {
+    if (permanent.has(groupKey)) return
+    if (active.has(groupKey)) throw new Error('Portable plan dependencies contain a cycle.')
+    const group = groups.get(groupKey)
+    if (!group) return
+    active.add(groupKey)
+    const dependencies = new Set<string>()
+    for (const item of group) {
+      for (const dependency of item.payload.dependencyKeys) {
+        const dependencyGroup = groupByItemKey.get(dependency)
+        if (dependencyGroup && dependencyGroup !== groupKey) dependencies.add(dependencyGroup)
+      }
+    }
+    for (const dependency of [...dependencies].sort(compare)) visit(dependency)
+    active.delete(groupKey)
+    permanent.add(groupKey)
+    ordered.push(...group)
   }
-  for (const item of items) visit(item.itemKey)
+  for (const groupKey of [...groups.keys()].sort(compare)) visit(groupKey)
   return ordered
+}
+
+function assertPortableEntryGroups(
+  items: PortableDraftImportPlan['items'],
+  bundle: PortableDirectoryBundle,
+) {
+  const groups = new Map<string, typeof items>()
+  for (const item of items) {
+    const key = finalPlacementKey(
+      item.payload.identity.collection,
+      item.payload.identity.canonicalKey,
+    )
+    const group = groups.get(key) ?? []
+    group.push(item)
+    groups.set(key, group)
+  }
+
+  const nodes = []
+  for (const [key, group] of groups) {
+    const first = group[0]!
+    if (group.some((item) => item.payload.sharedSha256 !== first.payload.sharedSha256)) {
+      throw new Error(
+        `Portable entry "${first.payload.identity.canonicalKey}" has inconsistent shared state across locales.`,
+      )
+    }
+    if (
+      group.some((item) => item.payload.expectedSharedSha256 !== first.payload.expectedSharedSha256)
+    ) {
+      throw new Error(
+        `Portable entry "${first.payload.identity.canonicalKey}" was inspected from inconsistent shared states.`,
+      )
+    }
+    const collection = bundle.contract.collections[first.document.collection]
+    if (!collection)
+      throw new Error(`Portable collection "${first.document.collection}" is missing.`)
+    nodes.push({
+      key,
+      collection: first.document.collection,
+      parentKey:
+        first.document.parentCanonicalKey === null
+          ? null
+          : finalPlacementKey(first.document.collection, first.document.parentCanonicalKey),
+      structure: collection.structure,
+    })
+  }
+  assertValidFinalPlacementGraph(nodes)
 }
 
 function portableIdentity(document: PortableDocumentV1) {
@@ -278,6 +365,10 @@ function compare(left: string, right: string) {
 
 async function hashJson(value: unknown): Promise<string> {
   return await hashCanonicalJson(value as JsonValue)
+}
+
+function canonicalJsonSize(value: unknown): number {
+  return canonicalJsonBytes(value as JsonValue).length
 }
 
 function assertSha256(value: string, label: string) {

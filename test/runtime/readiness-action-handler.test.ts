@@ -11,7 +11,6 @@ function createEditorMock(overrides: { canPublishEntries?: boolean } = {}) {
   const handleSwitchLocale = vi.fn()
   const handlePublish = vi.fn(() => true)
   const previewPublishImpact = vi.fn()
-  const validatePublicRoutes = vi.fn()
   const editor = {
     loader: {
       router: { push: routerPush },
@@ -20,7 +19,7 @@ function createEditorMock(overrides: { canPublishEntries?: boolean } = {}) {
     },
     locales: { handleSwitchLocale },
     publishing: { handlePublish },
-    workflow: { previewPublishImpact, validatePublicRoutes },
+    workflow: { previewPublishImpact },
   } as unknown as StudioEntryEditorContext
   return {
     editor,
@@ -28,7 +27,6 @@ function createEditorMock(overrides: { canPublishEntries?: boolean } = {}) {
     handleSwitchLocale,
     handlePublish,
     previewPublishImpact,
-    validatePublicRoutes,
   }
 }
 
@@ -123,13 +121,13 @@ describe('createReadinessActionHandler', () => {
     expect(handler.canHandle(action)).toBe(false)
   })
 
-  it('runs route validation for route/diagnostics targets', async () => {
-    const { editor, validatePublicRoutes } = createEditorMock()
+  it('routes URL diagnostics through the canonical publish preview', async () => {
+    const { editor, previewPublishImpact } = createEditorMock()
     const handler = createReadinessActionHandler(editor)
     await handler.handle(
       createReadinessAction({ kind: 'check_routes', locale: null, target: 'route', params: {} }),
     )
-    expect(validatePublicRoutes).toHaveBeenCalledTimes(1)
+    expect(previewPublishImpact).toHaveBeenCalledWith('en')
   })
 
   it('falls back to label-only rendering for unhandled targets', () => {

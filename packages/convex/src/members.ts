@@ -1,18 +1,26 @@
 import {
-  addMember as addMemberArgs,
+  acceptMemberInvitation as acceptMemberInvitationArgs,
   bootstrapCmsOwnerComponent as bootstrapCmsOwnerArgs,
   getMember as getMemberArgs,
+  prepareMemberInvitationDelivery as prepareMemberInvitationDeliveryArgs,
+  prepareMemberInvitationResend as prepareMemberInvitationResendArgs,
+  recordMemberInvitationDelivery as recordMemberInvitationDeliveryArgs,
   removeMember as removeMemberArgs,
+  revokeMemberInvitation as revokeMemberInvitationArgs,
   updateMemberRole as updateMemberRoleArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/members.js'
 import {
   accessContextValidator,
+  memberInvitationValidator,
   memberValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+import { makeFunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
+import { internalMutation } from './_generated/server.js'
+import type { CmsAppIdentity } from './auth/appIdentity.js'
 import {
   can,
   cmsPermissionGuards,
@@ -21,10 +29,20 @@ import {
   isBootstrapUser,
 } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
-import { callerMutation, callerQuery } from './functions.js'
+import { callerAction, callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
 import type { MutationCtx } from './lib/types.js'
+import {
+  acceptMemberInvitation as acceptPendingInvitation,
+  listPendingMemberInvitations,
+  normalizeMemberEmail,
+  prepareMemberInvitation,
+  prepareMemberInvitationResend,
+  recordMemberInvitationDelivery as recordPendingInvitationDelivery,
+  revokeMemberInvitation as revokePendingInvitation,
+  serializeMemberInvitation,
+} from './members/invitations.js'
 import {
   blockedPreview,
   defineCmsOperation,
@@ -75,7 +93,7 @@ export async function bootstrapCmsOwnerRecord(
   const memberId = await ctx.db.insert('members', {
     userId,
     displayName: profile?.displayName ?? null,
-    email: profile?.email ?? null,
+    email: normalizeMemberEmail(profile?.email) ?? null,
     role: 'owner',
     createdAt: now,
     updatedAt: now,
@@ -110,11 +128,11 @@ const getAccessContextDefinition = {
   id: 'members:getAccessContext',
   args: {},
   returns: accessContextValidator,
-  handler: async (ctx: { appIdentity: () => Promise<unknown> }) => {
+  handler: async (ctx: { appIdentity: () => Promise<CmsAppIdentity> }) => {
     const appIdentity = await ctx.appIdentity()
     if (!appIdentity) return null
     const effectivePermissions = Object.fromEntries(
-      accessPermissionGuards.map(({ key, guard }) => [key, can(appIdentity as never, guard)]),
+      accessPermissionGuards.map(({ key, guard }) => [key, can(appIdentity, guard)]),
     )
     return {
       userId:
@@ -131,7 +149,7 @@ const getAccessContextDefinition = {
         typeof appIdentity === 'object' &&
         'kind' in appIdentity &&
         appIdentity.kind === 'member'
-          ? serializeMember((appIdentity as unknown as { member: MemberDoc }).member)
+          ? serializeMember(appIdentity.member)
           : null,
       canBootstrap:
         appIdentity && typeof appIdentity === 'object' && 'canBootstrap' in appIdentity
@@ -175,6 +193,7 @@ export function validateFirstOwnerEmail(
 
 export const bootstrapCmsOwner = callerMutation.protected({
   id: 'members:bootstrapCmsOwner',
+  contractWrite: 'bypass',
   args: bootstrapCmsOwnerArgs.args,
   guard: isAuthenticated,
   returns: memberValidator,
@@ -224,46 +243,163 @@ export const getMember = callerQuery.protected({
   },
 })
 
-export const addMember = callerMutation.protected({
-  id: 'members:addMember',
-  args: addMemberArgs.args,
+export const listMemberInvitations = callerQuery.protected({
+  id: 'members:listMemberInvitations',
+  args: {},
   guard: canManageMembers,
-  returns: v.string(),
+  returns: v.array(memberInvitationValidator),
+  handler: async (ctx) => await listPendingMemberInvitations(ctx),
+})
+
+const prepareMemberInvitationRecordRef = makeFunctionReference<
+  'mutation',
+  {
+    actorUserId: string
+    email: string
+    role: 'owner' | 'publisher' | 'editor' | 'viewer'
+    expiresInHours: number
+    tokenHash: string
+  },
+  (typeof memberInvitationValidator)['type']
+>('members:prepareMemberInvitationRecord')
+
+const prepareMemberInvitationResendRecordRef = makeFunctionReference<
+  'mutation',
+  {
+    actorUserId: string
+    invitationId: string
+    expiresInHours: number
+    tokenHash: string
+  },
+  (typeof memberInvitationValidator)['type']
+>('members:prepareMemberInvitationResendRecord')
+
+const recordMemberInvitationDeliveryRecordRef = makeFunctionReference<
+  'mutation',
+  {
+    actorUserId: string
+    invitationId: string
+    generation: number
+    delivered: boolean
+  },
+  (typeof memberInvitationValidator)['type']
+>('members:recordMemberInvitationDeliveryRecord')
+
+export const prepareMemberInvitationRecord = internalMutation({
+  args: {
+    actorUserId: v.string(),
+    ...prepareMemberInvitationDeliveryArgs.args,
+  },
+  returns: memberInvitationValidator,
+  handler: async (ctx, args) => serializeMemberInvitation(await prepareMemberInvitation(ctx, args)),
+})
+
+export const prepareMemberInvitationResendRecord = internalMutation({
+  args: {
+    actorUserId: v.string(),
+    ...prepareMemberInvitationResendArgs.args,
+  },
+  returns: memberInvitationValidator,
+  handler: async (ctx, args) =>
+    serializeMemberInvitation(await prepareMemberInvitationResend(ctx, args)),
+})
+
+export const recordMemberInvitationDeliveryRecord = internalMutation({
+  args: {
+    actorUserId: v.string(),
+    ...recordMemberInvitationDeliveryArgs.args,
+  },
+  returns: memberInvitationValidator,
+  handler: async (ctx, args) =>
+    serializeMemberInvitation(await recordPendingInvitationDelivery(ctx, args)),
+})
+
+export const prepareMemberInvitationDelivery = callerAction.protected({
+  id: 'members:prepareMemberInvitationDelivery',
+  contractWrite: 'bypass',
+  args: prepareMemberInvitationDeliveryArgs.args,
+  guard: canManageMembers,
+  returns: memberInvitationValidator,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    const existing = await ctx.db
-      .query('members')
-      .withIndex('by_userId', (q) => q.eq('userId', args.userId))
-      .first()
-    if (existing) {
-      throwCmsError('MEMBER_ALREADY_EXISTS', 'User is already a member', {
-        userId: args.userId,
-      })
+    return await ctx.runMutation(prepareMemberInvitationRecordRef, {
+      actorUserId: appIdentity.userId,
+      ...args,
+    })
+  },
+})
+
+export const prepareMemberInvitationResendDelivery = callerAction.protected({
+  id: 'members:prepareMemberInvitationResendDelivery',
+  contractWrite: 'bypass',
+  args: prepareMemberInvitationResendArgs.args,
+  guard: canManageMembers,
+  returns: memberInvitationValidator,
+  handler: async (ctx, args) => {
+    const appIdentity = await ctx.appIdentity()
+    return await ctx.runMutation(prepareMemberInvitationResendRecordRef, {
+      actorUserId: appIdentity.userId,
+      ...args,
+    })
+  },
+})
+
+export const recordMemberInvitationDelivery = callerAction.protected({
+  id: 'members:recordMemberInvitationDelivery',
+  contractWrite: 'bypass',
+  args: recordMemberInvitationDeliveryArgs.args,
+  guard: canManageMembers,
+  returns: memberInvitationValidator,
+  handler: async (ctx, args) => {
+    const appIdentity = await ctx.appIdentity()
+    return await ctx.runMutation(recordMemberInvitationDeliveryRecordRef, {
+      actorUserId: appIdentity.userId,
+      ...args,
+    })
+  },
+})
+
+export const revokeMemberInvitation = callerMutation.protected({
+  id: 'members:revokeMemberInvitation',
+  contractWrite: 'bypass',
+  args: revokeMemberInvitationArgs.args,
+  guard: canManageMembers,
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const appIdentity = await ctx.appIdentity()
+    await revokePendingInvitation(ctx, { actorUserId: appIdentity.userId, ...args })
+    return null
+  },
+})
+
+export const acceptMemberInvitation = callerMutation.public({
+  id: 'members:acceptMemberInvitation',
+  contractWrite: 'bypass',
+  args: acceptMemberInvitationArgs.args,
+  returns: memberValidator,
+  handler: async (ctx, args) => {
+    const caller = await ctx.cmsCaller()
+    if (caller.kind !== 'user') {
+      throwCmsError(
+        'MEMBER_INVITATION_INVALID',
+        'This invitation cannot be accepted. Ask the CMS owner for a new invitation.',
+      )
     }
-
-    const id = await ctx.db.insert('members', {
-      userId: args.userId,
-      displayName: args.displayName ?? null,
-      email: args.email ?? null,
-      role: args.role,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      updatedBy: appIdentity.userId,
-    })
-
-    await logActivity(ctx, {
-      kind: 'member.added',
-      summary: `Added member "${args.userId}"`,
-      appIdentityId: appIdentity.userId,
-      detail: { userId: args.userId, role: args.role },
-    })
-
-    return toStringId(id)
+    return serializeMember(
+      await acceptPendingInvitation(ctx, {
+        userId: caller.userId,
+        name: caller.name,
+        email: caller.email,
+        emailVerified: caller.emailVerified === true,
+        tokenProof: args.tokenProof,
+      }),
+    )
   },
 })
 
 export const updateMemberRole = callerMutation.protected({
   id: 'members:updateMemberRole',
+  contractWrite: 'bypass',
   args: updateMemberRoleArgs.args,
   guard: canManageMembers,
   returns: v.null(),
@@ -302,6 +438,7 @@ export const updateMemberRole = callerMutation.protected({
 export const removeMemberOperation = defineCmsOperation({
   id: 'ginko-cms.remove-member',
   kind: 'destructive',
+  contractWrite: 'bypass',
   executeFunctionRef: 'members:removeMemberOperationExecute',
   args: removeMemberArgs.args,
   guard: canManageMembers,
@@ -315,7 +452,7 @@ export const removeMemberOperation = defineCmsOperation({
         .first()) ?? null
     return { member }
   },
-  preview: async (_ctx, args, { member }) => {
+  preview: async (ctx, args, { member }) => {
     if (!member) {
       return blockedPreview({
         summary: 'Member not found.',
@@ -323,8 +460,18 @@ export const removeMemberOperation = defineCmsOperation({
         confirm: { operationId: 'ginko-cms.remove-member', args },
       })
     }
+    const lastOwner = member.role === 'owner' && (await countOwners(ctx)) <= 1
     return buildPreview({
       summary: `Will remove member "${member.displayName || args.userId}".`,
+      allowed: !lastOwner,
+      blockers: lastOwner
+        ? [
+            operationIssue({
+              code: 'member-last-owner',
+              message: 'Cannot remove the last owner.',
+            }),
+          ]
+        : [],
       warnings: [
         operationIssue({
           code: 'access-revoked',

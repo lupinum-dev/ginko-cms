@@ -13,6 +13,10 @@ const rootGeneratedFiles = ['auth.ts', 'convex.config.ts', 'http.ts']
 const generatedDirs = ['betterAuth', 'ginkoCms']
 const ignoredNames = new Set(['_generated'])
 const manifestName = '.ginko-cms-setup.json'
+const contractBindingPath = 'ginkoCms/contractBinding.ts'
+const contentHashToken = '__GINKO_CMS_EXPECTED_CONTENT_HASH__'
+const presentationHashToken = '__GINKO_CMS_EXPECTED_PRESENTATION_HASH__'
+const validBindingHash = /^(?:unbound|[a-f0-9]{64})$/u
 
 function toRepoPath(filePath) {
   return relative(repoRoot, filePath).replaceAll('\\', '/')
@@ -31,6 +35,18 @@ function collectGeneratedFiles(directory, prefix = '') {
     }
   }
   return files
+}
+
+function expectedGeneratedSource(relPath, templateSource, targetSource) {
+  if (relPath !== contractBindingPath) return templateSource
+  const contentHash = targetSource.match(/EXPECTED_CONTENT_HASH = '([^']+)'/u)?.[1]
+  const presentationHash = targetSource.match(/EXPECTED_PRESENTATION_HASH = '([^']+)'/u)?.[1]
+  if (!validBindingHash.test(contentHash ?? '') || !validBindingHash.test(presentationHash ?? '')) {
+    return templateSource
+  }
+  return templateSource
+    .replace(contentHashToken, contentHash)
+    .replace(presentationHashToken, presentationHash)
 }
 
 const generatedFiles = [
@@ -57,9 +73,10 @@ for (const targetRoot of targetRoots) {
       )
       continue
     }
-    const templateSource = readFileSync(templatePath, 'utf8')
     const targetSource = readFileSync(targetPath, 'utf8')
-    if (templateSource !== targetSource) {
+    const templateSource = readFileSync(templatePath, 'utf8')
+    const expectedSource = expectedGeneratedSource(relPath, templateSource, targetSource)
+    if (expectedSource !== targetSource) {
       violations.push(
         `${toRepoPath(targetPath)}: differs from generated template ${toRepoPath(templatePath)}`,
       )
@@ -77,8 +94,10 @@ for (const targetRoot of targetRoots) {
     continue
   }
   for (const relPath of manifestFiles) {
+    const targetSource = readFileSync(join(targetRoot, relPath), 'utf8')
     const templateSource = readFileSync(join(templateRoot, relPath), 'utf8')
-    const expectedHash = createHash('sha256').update(templateSource).digest('hex')
+    const expectedSource = expectedGeneratedSource(relPath, templateSource, targetSource)
+    const expectedHash = createHash('sha256').update(expectedSource).digest('hex')
     const recordedHash = manifest.files?.[`convex/${relPath}`]?.templateHash
     if (recordedHash !== expectedHash) {
       violations.push(

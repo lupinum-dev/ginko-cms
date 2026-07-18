@@ -7,11 +7,7 @@ import { v } from 'convex/values'
 
 import { canRead } from '../auth/checks.js'
 import { callerQuery } from '../functions.js'
-import {
-  collectionEntryCountSnapshot,
-  getCollection as readCollection,
-  listInstalledCollections,
-} from '../lib/collections.js'
+import { getCollection as readCollection, listInstalledCollections } from '../lib/collections.js'
 import { getCmsSettings, resolveLocaleText } from '../lib/locale.js'
 import type { QueryOrMutationCtx } from '../lib/types.js'
 
@@ -52,7 +48,6 @@ function mapCollectionDoc(
 function mapCollectionListItem(
   collection: NonNullable<Awaited<ReturnType<typeof readCollection>>>,
   defaultLocale: string,
-  entryCount: number,
 ) {
   return {
     _id: collection.slug,
@@ -69,7 +64,6 @@ function mapCollectionListItem(
     singleton: collection.routing.singleton ?? false,
     locales: collection.locales,
     fieldCount: collection.fields.length,
-    entryCount,
     createdAt: collection.createdAt,
     updatedAt: collection.updatedAt,
     updatedBy: collection.updatedBy,
@@ -88,8 +82,7 @@ export const listCollections = callerQuery.protected({
     const result = []
 
     for (const collection of collections) {
-      const count = await collectionEntryCountSnapshot(ctx, collection.slug)
-      result.push(mapCollectionListItem(collection, defaultLocale, count.count))
+      result.push(mapCollectionListItem(collection, defaultLocale))
     }
 
     return result

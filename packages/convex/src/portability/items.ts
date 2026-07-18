@@ -1,3 +1,4 @@
+import { portableSharedDraftState } from '@lupinum/ginko-cms-contract/shared/placementGraph.js'
 import type { CmsField, JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type {
   ResolvedContentCollectionV1,
@@ -5,8 +6,8 @@ import type {
   ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
 import {
-  hashCanonicalJson,
   collectPortableMdcAssetReferences,
+  hashCanonicalJson,
   rewritePortableMdcAssetReferencesForStorage,
   rewriteStoredMdcAssetReferences,
   validatePortableDocument,
@@ -14,23 +15,31 @@ import {
   type PortableDocumentV1,
 } from '@lupinum/ginko-content/portability'
 
-import type { Id } from '../_generated/dataModel.js'
+import type { Doc, Id } from '../_generated/dataModel.js'
 import { refreshDraftAssetRefsForSave } from '../entries/workflow/commands.js'
 import { applyDraftPatch } from '../entries/workflow/drafts.js'
 import { getCollectionOrThrow } from '../lib/collections.js'
+import { assertMdcBodyWithinLimit } from '../lib/contentLimits.js'
 import { readInstalledCmsContract } from '../lib/installedContract.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { assertFieldDataValid } from '../lib/validation.js'
 import type { PortableImportPlanItemPayload } from './model.js'
+import { hashPortableDocument } from './portableJson.js'
 
 async function activeContract(
   ctx: QueryOrMutationCtx,
-  options: { requireWritable?: boolean } = {},
+  options: { requireWritable?: boolean; expectedContentHash?: string } = {},
 ): Promise<ResolvedContentContractV1> {
   const installed = await readInstalledCmsContract(ctx)
   if (!installed) throw new Error('Portable import requires an installed CMS contract.')
   if (options.requireWritable && installed.record.transitionState !== 'ready') {
     throw new Error('Portable import writes are blocked while a contract transition is active.')
+  }
+  if (
+    options.expectedContentHash !== undefined &&
+    installed.record.contentHash !== options.expectedContentHash
+  ) {
+    throw new Error('Portable plan target content hash no longer matches the installed contract.')
   }
   return installed.content
 }
@@ -130,7 +139,7 @@ async function normalizeRelation(ctx: MutationCtx, field: CmsField, value: unkno
   const reference = value as { collection?: unknown; canonicalKey?: unknown }
   if (
     typeof reference.collection !== 'string' ||
-    reference.collection !== field.relation?.collectionId ||
+    reference.collection !== field.relation?.collection ||
     typeof reference.canonicalKey !== 'string'
   ) {
     throw new Error(`Portable relation ${field.key} targets the wrong collection.`)
@@ -164,12 +173,12 @@ async function normalizePortableAsset(ctx: MutationCtx, runId: string, value: un
     throw new Error('Portable asset reference is invalid.')
   }
   const stage = await ctx.db
-    .query('portableAssetStages')
+    .query('portableAssets')
     .withIndex('by_run_sha256', (query) =>
       query.eq('runId', runId).eq('sha256', reference.sha256 as string),
     )
     .unique()
-  if (!stage || stage.state !== 'attached' || !stage.assetId) {
+  if (!stage || stage.mode !== 'import' || stage.state !== 'attached' || !stage.assetId) {
     throw new Error('Portable local asset is not attached to the import run.')
   }
   return stage.assetId
@@ -184,12 +193,12 @@ async function rewritePortableBodyAssets(
   const assetIdBySha256 = new Map<string, string>()
   for (const reference of await collectPortableMdcAssetReferences(source, policy)) {
     const stage = await ctx.db
-      .query('portableAssetStages')
+      .query('portableAssets')
       .withIndex('by_run_sha256', (query) =>
         query.eq('runId', runId).eq('sha256', reference.sha256),
       )
       .unique()
-    if (!stage || stage.state !== 'attached' || !stage.assetId) {
+    if (!stage || stage.mode !== 'import' || stage.state !== 'attached' || !stage.assetId) {
       throw new Error('Portable MDC asset is not attached to the import run.')
     }
     assetIdBySha256.set(reference.sha256, stage.assetId)
@@ -355,7 +364,7 @@ async function currentPortableDocument(
       locale,
       slug: localized.slug ?? entry.slug,
       parentCanonicalKey: parent?.stableId ?? null,
-      order: entry.orderRank || null,
+      order: collectionContract.structure === 'tree' ? entry.orderRank || null : null,
       shared: await portableFields(
         ctx,
         collectionContract.fields.filter((field) => !field.localized),
@@ -409,9 +418,9 @@ export async function portablePublishedDocument(
       collection: input.collection,
       canonicalKey: input.canonicalKey,
       locale: input.locale,
-      slug: localized.slug,
+      slug: collectionContract.routing.mode === 'none' ? '' : localized.slug,
       parentCanonicalKey: parent?.stableId ?? null,
-      order: localized.orderRank || null,
+      order: collectionContract.structure === 'tree' ? localized.orderRank || null : null,
       shared: await portableFields(
         ctx,
         collectionContract.fields.filter((field) => !field.localized),
@@ -433,10 +442,33 @@ export async function portablePublishedDocument(
   )
 }
 
-export async function portableDraftSha256(
+async function currentPortableSharedSha256(
+  ctx: QueryOrMutationCtx,
+  entry: Doc<'entries'>,
+  contract: ResolvedContentContractV1,
+): Promise<string> {
+  const collection = contract.collections[entry.collection]
+  if (!collection) throw new Error(`Portable collection "${entry.collection}" is not installed.`)
+  const parent = entry.parentEntryId ? await ctx.db.get(entry.parentEntryId) : null
+  return await hashCanonicalJson(
+    portableSharedDraftState({
+      collection: entry.collection,
+      canonicalKey: entry.stableId,
+      parentCanonicalKey: parent?.stableId ?? null,
+      order: collection.structure === 'tree' ? entry.orderRank || null : null,
+      shared: await portableFields(
+        ctx,
+        collection.fields.filter((field) => !field.localized),
+        entry.shared,
+      ),
+    }),
+  )
+}
+
+export async function inspectPortableDraft(
   ctx: QueryOrMutationCtx,
   identity: { collection: string; canonicalKey: string; locale: string },
-): Promise<string | null> {
+): Promise<{ currentDraftSha256: string | null; currentSharedSha256: string | null }> {
   const contract = await activeContract(ctx)
   const collection = await getCollectionOrThrow(ctx, identity.collection)
   const entry = await ctx.db
@@ -445,91 +477,159 @@ export async function portableDraftSha256(
       query.eq('collection', collection.slug).eq('stableId', identity.canonicalKey),
     )
     .first()
-  if (!entry) return null
+  if (!entry) return { currentDraftSha256: null, currentSharedSha256: null }
   const document = await currentPortableDocument(ctx, entry._id, identity.locale, contract)
-  return document ? await hashCanonicalJson(document as unknown as JsonMap) : null
+  return {
+    currentDraftSha256: document ? await hashPortableDocument(document) : null,
+    currentSharedSha256: await currentPortableSharedSha256(ctx, entry, contract),
+  }
 }
 
-export async function applyPortableDraft(
+export async function portableDraftSha256(
+  ctx: QueryOrMutationCtx,
+  identity: { collection: string; canonicalKey: string; locale: string },
+): Promise<string | null> {
+  return (await inspectPortableDraft(ctx, identity)).currentDraftSha256
+}
+
+type PortableDraftGroupItem = {
+  documentValue: JsonMap
+  planItem: PortableImportPlanItemPayload
+}
+
+type PortableDraftApplyResult = {
+  effect: 'created-draft' | 'updated-draft' | 'skipped'
+  resultId: string
+}
+
+export async function applyPortableDraftGroup(
   ctx: MutationCtx,
   args: {
-    documentValue: JsonMap
-    planItem: PortableImportPlanItemPayload
+    items: PortableDraftGroupItem[]
     runId: string
+    targetContentHash: string
     appIdentityId: string
     now: number
   },
-): Promise<{ effect: 'created-draft' | 'updated-draft' | 'skipped'; resultId: string }> {
-  const contract = await activeContract(ctx, { requireWritable: true })
-  const document = validatePortableDocument(args.documentValue, contract)
-  if ((await hashCanonicalJson(document as unknown as JsonMap)) !== args.planItem.documentSha256) {
-    throw new Error('Portable document hash mismatch.')
-  }
-  if (
-    document.collection !== args.planItem.identity.collection ||
-    document.canonicalKey !== args.planItem.identity.canonicalKey ||
-    document.locale !== args.planItem.identity.locale
-  ) {
-    throw new Error('Portable document identity does not match its plan item.')
+): Promise<PortableDraftApplyResult[]> {
+  if (args.items.length === 0) throw new Error('Portable draft group is empty.')
+  const contract = await activeContract(ctx, {
+    requireWritable: true,
+    expectedContentHash: args.targetContentHash,
+  })
+  const documents = args.items.map(({ documentValue }) =>
+    validatePortableDocument(documentValue, contract),
+  )
+  const first = documents[0]!
+  const collection = await getCollectionOrThrow(ctx, first.collection)
+
+  for (let index = 0; index < args.items.length; index += 1) {
+    const { planItem } = args.items[index]!
+    const document = documents[index]!
+    assertMdcBodyWithinLimit(document.body?.source ?? '', {
+      locale: document.locale,
+      field: 'bodyMdc',
+    })
+    if ((await hashPortableDocument(document)) !== planItem.documentSha256) {
+      throw new Error('Portable document hash mismatch.')
+    }
+    if (
+      document.collection !== planItem.identity.collection ||
+      document.canonicalKey !== planItem.identity.canonicalKey ||
+      document.locale !== planItem.identity.locale
+    ) {
+      throw new Error('Portable document identity does not match its plan item.')
+    }
+    if (document.collection !== first.collection || document.canonicalKey !== first.canonicalKey) {
+      throw new Error('Portable draft group contains multiple canonical entries.')
+    }
+    if ((await hashCanonicalJson(portableSharedDraftState(document))) !== planItem.sharedSha256) {
+      throw new Error('Portable shared draft hash mismatch.')
+    }
+    if (
+      planItem.sharedSha256 !== args.items[0]!.planItem.sharedSha256 ||
+      planItem.expectedSharedSha256 !== args.items[0]!.planItem.expectedSharedSha256
+    ) {
+      throw new Error('Portable draft group has inconsistent shared-state fences.')
+    }
   }
 
-  const collection = await getCollectionOrThrow(ctx, document.collection)
-  const normalizedShared = await normalizePortableFields(
-    ctx,
-    collection.fields,
-    document.shared,
-    args.runId,
-  )
-  const normalizedLocalized = await normalizePortableFields(
-    ctx,
-    collection.fields,
-    document.localized,
-    args.runId,
-  )
-  const bodyMdc = document.body
-    ? await rewritePortableBodyAssets(
-        ctx,
-        args.runId,
-        document.body.source,
-        contract.collections[document.collection]!.componentPolicy,
-      )
-    : ''
-  assertFieldDataValid(collection.fields, { ...normalizedShared, ...normalizedLocalized })
   const existing = await ctx.db
     .query('entries')
     .withIndex('by_collection_stableId', (query) =>
-      query.eq('collection', collection.slug).eq('stableId', document.canonicalKey),
+      query.eq('collection', collection.slug).eq('stableId', first.canonicalKey),
     )
     .first()
-  const currentSha256 = existing ? await portableDraftSha256(ctx, args.planItem.identity) : null
-  if (currentSha256 !== args.planItem.expectedDraftSha256) {
-    throw new Error('Portable guarded update rejected: current draft hash mismatch.')
-  }
-  if (args.planItem.effect === 'conflict') {
-    throw new Error('Portable conflict items cannot be applied.')
-  }
-  if (args.planItem.effect === 'create' && existing) {
-    throw new Error('Portable create item already exists.')
-  }
-  if ((args.planItem.effect === 'update' || args.planItem.effect === 'skip') && !existing) {
-    throw new Error(`Portable ${args.planItem.effect} item no longer exists.`)
-  }
-  if (args.planItem.effect === 'skip') {
-    return { effect: 'skipped', resultId: String(existing!._id) }
+  const expectedSharedSha256 = args.items[0]!.planItem.expectedSharedSha256
+  const currentSharedSha256 = existing
+    ? await currentPortableSharedSha256(ctx, existing, contract)
+    : null
+  if (currentSharedSha256 !== expectedSharedSha256) {
+    throw new Error('Portable guarded update rejected: current shared draft hash mismatch.')
   }
 
-  const parentEntryId = await resolveParentEntryId(ctx, document, collection.slug)
-  const values = localeValues(document, normalizedLocalized)
+  for (let index = 0; index < args.items.length; index += 1) {
+    const { planItem } = args.items[index]!
+    const currentSha256 = existing ? await portableDraftSha256(ctx, planItem.identity) : null
+    if (currentSha256 !== planItem.expectedDraftSha256) {
+      throw new Error('Portable guarded update rejected: current locale draft hash mismatch.')
+    }
+    const expectedEffect =
+      currentSha256 === null
+        ? 'create'
+        : currentSha256 === planItem.documentSha256
+          ? 'skip'
+          : 'update'
+    if (planItem.effect === 'conflict') {
+      throw new Error('Portable conflict items cannot be applied.')
+    }
+    if (planItem.effect !== expectedEffect) {
+      throw new Error(`Portable plan item effect mismatch: expected ${expectedEffect}.`)
+    }
+  }
+
+  const normalized = await Promise.all(
+    documents.map(async (document) => {
+      const shared = await normalizePortableFields(
+        ctx,
+        collection.fields,
+        document.shared,
+        args.runId,
+      )
+      const localized = await normalizePortableFields(
+        ctx,
+        collection.fields,
+        document.localized,
+        args.runId,
+      )
+      const bodyMdc = document.body
+        ? await rewritePortableBodyAssets(
+            ctx,
+            args.runId,
+            document.body.source,
+            contract.collections[document.collection]!.componentPolicy,
+          )
+        : ''
+      assertMdcBodyWithinLimit(bodyMdc, { locale: document.locale, field: 'bodyMdc' })
+      assertFieldDataValid(collection.fields, { ...shared, ...localized })
+      return { shared, localized, bodyMdc }
+    }),
+  )
+  const parentEntryId = await resolveParentEntryId(ctx, first, collection.slug)
+
   if (!existing) {
+    const defaultLocale = contract.collections[first.collection]!.defaultLocale
+    const defaultIndex = documents.findIndex((document) => document.locale === defaultLocale)
+    const slug = documents[defaultIndex < 0 ? 0 : defaultIndex]!.slug
     const entryId = await ctx.db.insert('entries', {
       collection: collection.slug,
-      stableId: document.canonicalKey,
+      stableId: first.canonicalKey,
       lifecycle: 'active',
-      slug: document.slug,
+      slug,
       parentEntryId,
-      orderRank: document.order ?? '',
+      orderRank: first.order ?? '',
       nodeKind: 'page',
-      shared: normalizedShared,
+      shared: normalized[0]!.shared,
       draftVersion: 1,
       sharedVersion: 1,
       activePublications: [],
@@ -539,42 +639,49 @@ export async function applyPortableDraft(
       createdAt: args.now,
       updatedAt: args.now,
     })
-    await ctx.db.insert('entryLocaleDrafts', {
-      entryId,
-      locale: document.locale,
-      slug: document.slug,
-      values,
-      bodyMdc,
-      version: 1,
-      updatedBy: args.appIdentityId,
-      updatedAt: args.now,
-    })
+    for (let index = 0; index < documents.length; index += 1) {
+      const document = documents[index]!
+      const values = localeValues(document, normalized[index]!.localized)
+      await ctx.db.insert('entryLocaleDrafts', {
+        entryId,
+        locale: document.locale,
+        slug: document.slug,
+        values,
+        bodyMdc: normalized[index]!.bodyMdc,
+        version: 1,
+        updatedBy: args.appIdentityId,
+        updatedAt: args.now,
+      })
+    }
     await refreshDraftAssetRefsForSave(ctx, {
       entryId,
       collection: collection.slug,
       sharedUpdated: true,
-      affectedLocales: [document.locale],
-      now: args.now,
+      affectedLocales: documents.map((document) => document.locale),
     })
-    return { effect: 'created-draft', resultId: String(entryId) }
+    return args.items.map(() => ({ effect: 'created-draft', resultId: String(entryId) }))
   }
 
+  const locales: Record<string, { slug: string; values: JsonMap; bodyMdc: string }> = {}
+  for (let index = 0; index < documents.length; index += 1) {
+    if (args.items[index]!.planItem.effect === 'skip') continue
+    const document = documents[index]!
+    locales[document.locale] = {
+      slug: document.slug,
+      values: localeValues(document, normalized[index]!.localized),
+      bodyMdc: normalized[index]!.bodyMdc,
+    }
+  }
   const result = await applyDraftPatch(ctx, {
     entryId: existing._id,
     expectedDraftVersion: existing.draftVersion,
     patch: {
       shared: {
         parentEntryId,
-        orderRank: document.order,
-        slug: document.slug,
-        shared: normalizedShared,
+        orderRank: first.order,
+        shared: normalized[0]!.shared,
       },
-      locales: {
-        [document.locale]: {
-          values,
-          bodyMdc,
-        },
-      },
+      locales,
     },
     appIdentity: args.appIdentityId,
     now: args.now,
@@ -584,7 +691,14 @@ export async function applyPortableDraft(
     collection: collection.slug,
     sharedUpdated: result.sharedUpdated,
     affectedLocales: result.affectedLocales,
-    now: args.now,
   })
-  return { effect: 'updated-draft', resultId: String(existing._id) }
+  return args.items.map(({ planItem }) => ({
+    effect:
+      planItem.effect === 'create'
+        ? 'created-draft'
+        : planItem.effect === 'skip'
+          ? 'skipped'
+          : 'updated-draft',
+    resultId: String(existing._id),
+  }))
 }

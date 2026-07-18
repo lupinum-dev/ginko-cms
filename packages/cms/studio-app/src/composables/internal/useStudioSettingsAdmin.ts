@@ -6,14 +6,15 @@ import { computed, reactive, ref } from 'vue'
 
 import { api } from '../../boundary/api'
 import { useStudioHostContext } from '../../boundary/studio-host-context'
-import { codeDefinedCollectionList } from '../../lib/codeDefinedCollections'
+import { operationValue } from '../../lib/destructiveWorkflow'
 import { cmsPermissionKeys } from '../permissions'
 import { useCmsAuthState } from '../useCmsAuthState'
 import { useCmsConfig } from '../useCmsConfig'
+import { useCmsContractCompatibility } from '../useCmsContractCompatibility'
 import { useCmsI18n } from '../useCmsI18n'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
-import { useConvexMutation } from '../useStudioConvex'
+import { useConvexAction, useConvexMutation } from '../useStudioConvex'
 import { studioConfirm } from './useStudioConfirm'
 
 type SettingsMember = {
@@ -21,6 +22,19 @@ type SettingsMember = {
   displayName?: string | null
   email?: string | null
   role: CmsRole
+}
+
+type SettingsMemberInvitation = {
+  invitationId: string
+  email: string
+  role: CmsRole
+  status: 'pending' | 'expired' | 'delivery_failed'
+  deliveryState: 'prepared' | 'delivered' | 'failed'
+  generation: number
+  expiresAt: number
+  createdAt: number
+  updatedAt: number
+  deliveredAt: number | null
 }
 
 type RevalidationTarget = {
@@ -50,30 +64,12 @@ type RevalidationJob = {
   updatedAt: number
 }
 
-type StorageHygieneReport = {
-  counts: {
-    entries: number
-    entryDrafts: number
-    entryRevisions: number
-    publicEntries: number
-    contentAssetRefs: number
-    outboxEvents: number
-    activity: number
-    portableRuns: number
-    backupArtifacts: number
-    softDeletedAssets: number
-  }
-  revisionsPerEntry: { max: number; average: number }
-  assetRefsPerEntry: { max: number; average: number }
-  outbox: {
-    delivered: number
-    failed: number
-    pending: number
-    delivering: number
-  }
-  backupArtifacts: number
-  scanLimit: number
-  truncatedTables: string[]
+type RevalidationDiagnostic = {
+  status: 'passed' | 'failed'
+  code: string
+  statusCode: number | null
+  durationMs: number
+  message: string
 }
 
 type McpCredentialSettings = {
@@ -91,6 +87,29 @@ type McpCredentialSettings = {
   revokedAt: number | null
 }
 
+type StorageHealth = {
+  status: 'healthy' | 'attention'
+  checkedAt: number
+  usage: {
+    trackedAssets: number
+    trackedBytes: number
+    quotaBytes: null
+    quotaSource: 'provider-managed'
+  }
+  constraints: { supportedAssets: number; countComplete: boolean }
+  bytes: { checked: number; missing: number }
+  operations: { pendingUploads: number; terminalCleanupFailures: number }
+  issues: Array<{ code: string; count: number; message: string }>
+}
+
+type StorageDiagnostic = {
+  status: 'healthy' | 'missing-setup' | 'quota-or-limit' | 'temporary-failure'
+  checkedAt: number
+  code: string
+  message: string
+  createdStorageObject: false
+}
+
 const mcpScopeOptions = [
   { key: cmsPermissionKeys.read, label: 'Read content' },
   { key: cmsPermissionKeys.createEntries, label: 'Create entries' },
@@ -103,20 +122,21 @@ const mcpExpiryOptions = [
   { value: '2592000', label: '30 days' },
 ] as const
 
+const memberInvitationExpiryOptions = [
+  { value: '24', label: '1 day' },
+  { value: '168', label: '7 days' },
+  { value: '720', label: '30 days' },
+] as const
+
 export function useStudioSettingsAdmin() {
   const { can } = useCmsStudioAccess()
+  const config = useCmsConfig()
   const canManageMembers = can(cmsPermissionKeys.manageMembers)
   const canManageSettings = can(cmsPermissionKeys.manageSettings)
-  const config = useCmsConfig()
+  const contract = useCmsContractCompatibility()
   const studioHost = useStudioHostContext()
   const authState = useCmsAuthState()
-  const settingsQuery = useCmsStudioQuery(
-    api.ginkoCms.settings.getStudioSettings,
-    {},
-    {
-      requiredCapability: cmsPermissionKeys.manageSettings,
-    },
-  )
+  const settingsQuery = useCmsStudioQuery(api.ginkoCms.settings.getStudioSettings, {})
   const persistedSettings = computed(() => settingsQuery.data?.value ?? null)
   const locales = computed<
     Array<{ code: string; label: string; isDefault: boolean; fallback: string }>
@@ -131,7 +151,7 @@ export function useStudioSettingsAdmin() {
     ),
   )
   const defaultLocale = computed(
-    () => locales.value.find((locale) => locale.isDefault)?.code ?? config.defaultLocale ?? 'en',
+    () => locales.value.find((locale) => locale.isDefault)?.code ?? locales.value[0]?.code ?? 'en',
   )
   const membersQuery = useCmsStudioQuery(
     api.ginkoCms.members.listMembers,
@@ -141,12 +161,27 @@ export function useStudioSettingsAdmin() {
     },
   )
   const members = computed<SettingsMember[]>(() => membersQuery.data?.value ?? [])
+  const memberInvitationsQuery = useCmsStudioQuery(
+    api.ginkoCms.members.listMemberInvitations,
+    {},
+    {
+      requiredCapability: cmsPermissionKeys.manageMembers,
+    },
+  )
+  const memberInvitations = computed<SettingsMemberInvitation[]>(
+    () => memberInvitationsQuery.data?.value ?? [],
+  )
   const revalidationTargetsQuery = useCmsStudioQuery(
     api.ginkoCms.revalidation.listRevalidationTargets,
     {},
     {
       requiredCapability: cmsPermissionKeys.manageSettings,
     },
+  )
+  const storageHealthQuery = useCmsStudioQuery(
+    api.ginkoCms.maintenance.getStorageHealth,
+    {},
+    { requiredCapability: cmsPermissionKeys.manageSettings },
   )
   const revalidationJobsQuery = useCmsStudioQuery(
     api.ginkoCms.revalidation.listRevalidationJobs,
@@ -161,20 +196,7 @@ export function useStudioSettingsAdmin() {
   const revalidationJobs = computed<RevalidationJob[]>(
     () => revalidationJobsQuery.data?.value ?? [],
   )
-  const collectionsQuery = useCmsStudioQuery(
-    api.ginkoCms.collections.listCollections,
-    {},
-    {
-      requiredCapability: cmsPermissionKeys.manageSettings,
-    },
-  )
-  const storageHygieneQuery = useCmsStudioQuery(
-    api.ginkoCms.diagnostics.storageHygieneReport,
-    {},
-    {
-      requiredCapability: cmsPermissionKeys.manageSettings,
-    },
-  )
+  const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
   const mcpCredentialsQuery = useCmsStudioQuery(
     api.ginkoCms.mcpCredentials.listOwnSettings,
     {},
@@ -183,22 +205,31 @@ export function useStudioSettingsAdmin() {
     },
   )
   const collectionCount = computed(() => {
-    const hostCollections = codeDefinedCollectionList(config.collections, defaultLocale.value)
-    return hostCollections.length || (collectionsQuery.data?.value ?? []).length
+    return (collectionsQuery.data?.value ?? []).length
   })
-  const storageHygiene = computed<StorageHygieneReport | null>(
-    () => (storageHygieneQuery.data?.value as StorageHygieneReport | null | undefined) ?? null,
-  )
   const mcpConnections = computed<McpCredentialSettings[]>(
     () => (mcpCredentialsQuery.data?.value as McpCredentialSettings[] | null | undefined) ?? [],
   )
-  const addMemberMutation = useConvexMutation(api.ginkoCms.members.addMember)
+  const sendMemberInvitationAction = useConvexAction(api.ginkoCms.members.sendMemberInvitation)
+  const resendMemberInvitationAction = useConvexAction(api.ginkoCms.members.resendMemberInvitation)
+  const revokeMemberInvitationMutation = useConvexMutation(
+    api.ginkoCms.members.revokeMemberInvitation,
+  )
   const updateRoleMutation = useConvexMutation(api.ginkoCms.members.updateMemberRole)
   const removeMemberMutation = useConvexMutation(api.ginkoCms.members.removeMember)
   const upsertMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.upsertSettings)
   const revokeMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.revokeSettings)
   const retryRevalidationJobMutation = useConvexMutation(
     api.ginkoCms.revalidation.retryRevalidationJob,
+  )
+  const upsertRevalidationTargetMutation = useConvexMutation(
+    api.ginkoCms.revalidation.upsertRevalidationTarget,
+  )
+  const testRevalidationTargetAction = useConvexAction(
+    api.ginkoCms.revalidation.testRevalidationTarget,
+  )
+  const runStorageDiagnosticMutation = useConvexMutation(
+    api.ginkoCms.maintenance.runStorageDiagnostic,
   )
   const error = ref('')
   const revalidationError = ref('')
@@ -208,9 +239,32 @@ export function useStudioSettingsAdmin() {
   const mcpConnectionInfo = ref('')
   const mcpCreatedToken = ref<{ id: string; key: string; name: string } | null>(null)
   const retryingRevalidationJobId = ref('')
+  const testingRevalidationTargetId = ref('')
+  const revalidationTargetSaving = ref(false)
+  const showRevalidationTargetForm = ref(false)
+  const revalidationTargetForm = reactive<{
+    targetId: string
+    name: string
+    environment: RevalidationTarget['environment']
+    endpoint: string
+    secretEnv: string
+    enabled: boolean
+  }>({
+    targetId: '',
+    name: '',
+    environment: 'production',
+    endpoint: '',
+    secretEnv: '',
+    enabled: true,
+  })
+  const revalidationTestResults = reactive<Record<string, RevalidationDiagnostic>>({})
+  const storageDiagnostic = ref<StorageDiagnostic | null>(null)
+  const storageDiagnosticRunning = ref(false)
+  const storageError = ref('')
   const revokingMcpApiKeyId = ref('')
   const mcpConnectionSaving = ref(false)
-  const showAddMember = ref(false)
+  const showInviteMember = ref(false)
+  const invitationPendingId = ref('')
   const mcpConnectionForm = reactive<{
     name: string
     expiresIn: string
@@ -224,109 +278,68 @@ export function useStudioSettingsAdmin() {
       cmsPermissionKeys.editEntries,
     ],
   })
-  const newMember = reactive<{
-    userId: string
-    role: CmsRole
-    displayName: string
+  const newMemberInvitation = reactive<{
     email: string
-  }>({ userId: '', role: 'editor', displayName: '', email: '' })
+    role: CmsRole
+    expiresInHours: string
+  }>({ email: '', role: 'editor', expiresInHours: '168' })
   const { t, studioLocales, currentLocale, setStudioLocale } = useCmsI18n()
 
-  const numberFormatter = new Intl.NumberFormat()
-  const decimalFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 })
-  const storageHygieneRows = computed(() => {
-    const report = storageHygiene.value
-    if (!report) return []
-    return [
-      {
-        label: t('ginkoCms.studio.settingsPage.storageEntries'),
-        value: numberFormatter.format(report.counts.entries),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageDrafts'),
-        value: numberFormatter.format(report.counts.entryDrafts),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageRevisions'),
-        value: numberFormatter.format(report.counts.entryRevisions),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storagePublicRows'),
-        value: numberFormatter.format(report.counts.publicEntries),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageAssetRefs'),
-        value: numberFormatter.format(report.counts.contentAssetRefs),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageOutboxEvents'),
-        value: numberFormatter.format(report.counts.outboxEvents),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageActivity'),
-        value: numberFormatter.format(report.counts.activity),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageImportRuns'),
-        value: numberFormatter.format(report.counts.portableRuns),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageBackups'),
-        value: numberFormatter.format(report.counts.backupArtifacts),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageSoftDeletedAssets'),
-        value: numberFormatter.format(report.counts.softDeletedAssets),
-      },
-    ]
-  })
-  const storageRiskRows = computed(() => {
-    const report = storageHygiene.value
-    if (!report) return []
-    return [
-      {
-        label: t('ginkoCms.studio.settingsPage.storageRevisionRisk'),
-        detail: t('ginkoCms.studio.settingsPage.storageRiskMaxAverage', {
-          max: numberFormatter.format(report.revisionsPerEntry.max),
-          average: decimalFormatter.format(report.revisionsPerEntry.average),
-        }),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageAssetRefRisk'),
-        detail: t('ginkoCms.studio.settingsPage.storageRiskMaxAverage', {
-          max: numberFormatter.format(report.assetRefsPerEntry.max),
-          average: decimalFormatter.format(report.assetRefsPerEntry.average),
-        }),
-      },
-      {
-        label: t('ginkoCms.studio.settingsPage.storageOutboxRisk'),
-        detail: t('ginkoCms.studio.settingsPage.storageOutboxBreakdown', {
-          delivered: numberFormatter.format(report.outbox.delivered),
-          failed: numberFormatter.format(report.outbox.failed),
-          pending: numberFormatter.format(report.outbox.pending),
-          delivering: numberFormatter.format(report.outbox.delivering),
-        }),
-      },
-    ]
-  })
-
-  async function handleAddMember() {
-    if (!newMember.userId.trim()) return
+  async function handleSendMemberInvitation() {
+    if (!newMemberInvitation.email.trim()) return
     error.value = ''
+    invitationPendingId.value = 'new'
     try {
-      await addMemberMutation({
-        userId: newMember.userId,
-        role: newMember.role,
-        ...(newMember.displayName ? { displayName: newMember.displayName } : {}),
-        ...(newMember.email ? { email: newMember.email } : {}),
+      await sendMemberInvitationAction({
+        email: newMemberInvitation.email,
+        role: newMemberInvitation.role,
+        expiresInHours: Number(newMemberInvitation.expiresInHours),
       })
-      newMember.userId = ''
-      newMember.role = 'editor'
-      newMember.displayName = ''
-      newMember.email = ''
-      showAddMember.value = false
+      newMemberInvitation.email = ''
+      newMemberInvitation.role = 'editor'
+      newMemberInvitation.expiresInHours = '168'
+      showInviteMember.value = false
+      await memberInvitationsQuery.refresh()
     } catch (e) {
-      error.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.addMemberError'))
+      error.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.inviteMemberError'))
+    } finally {
+      invitationPendingId.value = ''
+    }
+  }
+
+  async function handleResendMemberInvitation(invitationId: string) {
+    error.value = ''
+    invitationPendingId.value = invitationId
+    try {
+      await resendMemberInvitationAction({ invitationId, expiresInHours: 168 })
+      await memberInvitationsQuery.refresh()
+    } catch (e) {
+      error.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.resendInviteError'))
+    } finally {
+      invitationPendingId.value = ''
+    }
+  }
+
+  async function handleRevokeMemberInvitation(invitationId: string) {
+    error.value = ''
+    const invitation = memberInvitations.value.find((item) => item.invitationId === invitationId)
+    const confirmed = await studioConfirm({
+      title: t('ginkoCms.studio.settingsPage.revokeInviteTitle'),
+      description: t('ginkoCms.studio.settingsPage.revokeInviteDescription', {
+        email: invitation?.email ?? '',
+      }),
+      confirmLabel: t('ginkoCms.studio.settingsPage.revokeInviteAction'),
+      confirmVariant: 'destructive',
+    })
+    if (!confirmed) return
+    invitationPendingId.value = invitationId
+    try {
+      await revokeMemberInvitationMutation({ invitationId })
+      await memberInvitationsQuery.refresh()
+    } catch (e) {
+      error.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.revokeInviteError'))
+    } finally {
+      invitationPendingId.value = ''
     }
   }
 
@@ -369,7 +382,7 @@ export function useStudioSettingsAdmin() {
           ? preview.confirmation.token
           : null
       if (!token) throw new Error('Preview this member change again before removing access.')
-      await removeMemberMutation({ userId, _confirmationToken: token })
+      operationValue<null>(await removeMemberMutation({ userId, _confirmationToken: token }))
     } catch (e) {
       error.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.removeMemberError'))
     }
@@ -388,8 +401,94 @@ export function useStudioSettingsAdmin() {
     await Promise.all([revalidationTargetsQuery.refresh(), revalidationJobsQuery.refresh()])
   }
 
-  async function refreshStorageHygiene() {
-    await storageHygieneQuery.refresh()
+  function resetRevalidationTargetForm(target?: RevalidationTarget) {
+    revalidationTargetForm.targetId = target?.id ?? ''
+    revalidationTargetForm.name = target?.name ?? ''
+    revalidationTargetForm.environment = target?.environment ?? 'production'
+    revalidationTargetForm.endpoint = target?.endpoint ?? ''
+    revalidationTargetForm.secretEnv = target?.secretEnv ?? ''
+    revalidationTargetForm.enabled = target?.enabled ?? true
+    showRevalidationTargetForm.value = true
+    revalidationError.value = ''
+    revalidationInfo.value = ''
+  }
+
+  function closeRevalidationTargetForm() {
+    showRevalidationTargetForm.value = false
+  }
+
+  async function handleSaveRevalidationTarget() {
+    revalidationError.value = ''
+    revalidationInfo.value = ''
+    revalidationTargetSaving.value = true
+    try {
+      await upsertRevalidationTargetMutation({
+        ...(revalidationTargetForm.targetId ? { targetId: revalidationTargetForm.targetId } : {}),
+        name: revalidationTargetForm.name,
+        environment: revalidationTargetForm.environment,
+        endpoint: revalidationTargetForm.endpoint,
+        secretEnv: revalidationTargetForm.secretEnv,
+        enabled: revalidationTargetForm.enabled,
+      })
+      showRevalidationTargetForm.value = false
+      revalidationInfo.value = t('ginkoCms.studio.settingsPage.revalidationTargetSaved')
+      await revalidationTargetsQuery.refresh()
+    } catch (e) {
+      revalidationError.value = getCmsErrorMessage(
+        e,
+        t('ginkoCms.studio.settingsPage.revalidationTargetSaveError'),
+      )
+    } finally {
+      revalidationTargetSaving.value = false
+    }
+  }
+
+  async function handleTestRevalidationTarget(targetId: string) {
+    revalidationError.value = ''
+    revalidationInfo.value = ''
+    testingRevalidationTargetId.value = targetId
+    try {
+      const result = (await testRevalidationTargetAction({ targetId })) as RevalidationDiagnostic
+      revalidationTestResults[targetId] = result
+      if (result.status === 'passed') {
+        revalidationInfo.value = t('ginkoCms.studio.settingsPage.revalidationTestPassed')
+      }
+    } catch (e) {
+      revalidationError.value = getCmsErrorMessage(
+        e,
+        t('ginkoCms.studio.settingsPage.revalidationTestError'),
+      )
+    } finally {
+      testingRevalidationTargetId.value = ''
+    }
+  }
+
+  async function refreshStorageHealth() {
+    storageError.value = ''
+    await storageHealthQuery.refresh()
+  }
+
+  async function handleRunStorageDiagnostic() {
+    storageError.value = ''
+    storageDiagnosticRunning.value = true
+    try {
+      storageDiagnostic.value = (await runStorageDiagnosticMutation({})) as StorageDiagnostic
+      await storageHealthQuery.refresh()
+    } catch (e) {
+      storageDiagnostic.value = null
+      storageError.value = getCmsErrorMessage(e, t('ginkoCms.studio.settingsPage.storageTestError'))
+    } finally {
+      storageDiagnosticRunning.value = false
+    }
+  }
+
+  function formatBytes(value: number) {
+    if (!Number.isFinite(value) || value <= 0) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB']
+    const exponent = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1)
+    return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(
+      value / 1024 ** exponent,
+    )} ${units[exponent]}`
   }
 
   // MCP notices are editor-facing: show CMS-coded messages or the human
@@ -443,6 +542,7 @@ export function useStudioSettingsAdmin() {
       expiresAt?: string | number | Date | null
     } | null = null
     try {
+      await studioHost.assertContractWritable()
       created = await bridgeApi.create({
         name,
         expiresIn: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : undefined,
@@ -526,10 +626,12 @@ export function useStudioSettingsAdmin() {
       if (!preview.confirmation?.token || preview.confirmation.expiresAt <= Date.now()) {
         throw new Error('Preview this website refresh again before retrying.')
       }
-      await retryRevalidationJobMutation({
-        eventId,
-        _confirmationToken: preview.confirmation.token,
-      })
+      operationValue<null>(
+        await retryRevalidationJobMutation({
+          eventId,
+          _confirmationToken: preview.confirmation.token,
+        }),
+      )
       revalidationInfo.value = 'Website refresh job queued for retry.'
       await revalidationJobsQuery.refresh()
     } catch (e) {
@@ -551,19 +653,31 @@ export function useStudioSettingsAdmin() {
     canManageMembers,
     canManageSettings,
     collectionCount,
+    contractCompatibility: contract.compatibility,
+    contractQuery: contract.query,
     currentLocale,
     defaultLocale,
     error,
-    handleAddMember,
+    handleSendMemberInvitation,
+    handleResendMemberInvitation,
+    handleRevokeMemberInvitation,
     handleRemoveMember,
     handleRetryRevalidationJob,
+    handleSaveRevalidationTarget,
+    handleTestRevalidationTarget,
+    handleRunStorageDiagnostic,
     handleUpdateRole,
     isLoading,
     config,
     locales,
     formatTimestamp,
+    formatBytes,
     members,
     membersQuery,
+    memberInvitations,
+    memberInvitationsQuery,
+    memberInvitationExpiryOptions,
+    invitationPendingId,
     mcpConnectionError,
     mcpConnectionErrorDetail,
     mcpConnectionForm,
@@ -576,30 +690,40 @@ export function useStudioSettingsAdmin() {
       typeof window === 'undefined' ? '/mcp' : new URL('/mcp', window.location.origin).toString(),
     mcpExpiryOptions,
     mcpScopeOptions,
-    newMember,
+    newMemberInvitation,
     handleCreateMcpConnection,
     handleRevokeMcpConnection,
     refreshRevalidationJobs,
+    resetRevalidationTargetForm,
+    closeRevalidationTargetForm,
+    refreshStorageHealth,
     revalidationError,
     revalidationInfo,
     revalidationJobs,
     revalidationJobsQuery,
     revalidationTargets,
     revalidationTargetsQuery,
-    refreshStorageHygiene,
+    revalidationTargetForm,
+    revalidationTargetSaving,
+    revalidationTestResults,
+    showRevalidationTargetForm,
     revokingMcpApiKeyId,
     retryingRevalidationJobId,
+    testingRevalidationTargetId,
+    storageDiagnostic,
+    storageDiagnosticRunning,
+    storageError,
+    storageHealth: computed<StorageHealth | null>(
+      () => (storageHealthQuery.data?.value as StorageHealth | null | undefined) ?? null,
+    ),
+    storageHealthQuery,
     copyMcpToken,
     formatRevalidationReason,
     persistedSettings,
     setStudioLocale,
     settingsQuery,
-    showAddMember,
+    showInviteMember,
     studioLocales,
-    storageHygiene,
-    storageHygieneQuery,
-    storageHygieneRows,
-    storageRiskRows,
     toggleMcpScope,
     t,
   }

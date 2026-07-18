@@ -88,6 +88,40 @@ type _ExactSaveEntryDraft = TypeAssert<
     FunctionReturnType<GeneratedGinkoCms['editor']['saveEntryDraft']>
   >
 >
+type _ExactInstalledContractStatusArgs = TypeAssert<
+  TypeEqual<
+    FunctionArgs<BridgeGinkoCms['contract']['getInstalledContractStatus']>,
+    FunctionArgs<GeneratedGinkoCms['contract']['getInstalledContractStatus']>
+  >
+>
+type _ExactAssetUsagePage = TypeAssert<
+  TypeEqual<
+    FunctionReturnType<BridgeGinkoCms['assets']['listAssetUsages']>,
+    FunctionReturnType<GeneratedGinkoCms['assets']['listAssetUsages']>
+  >
+>
+type _ExactPublishImpactPageArgs = TypeAssert<
+  TypeEqual<
+    FunctionArgs<BridgeGinkoCms['editor']['listPublishRouteImpactPage']>,
+    FunctionArgs<GeneratedGinkoCms['editor']['listPublishRouteImpactPage']>
+  >
+>
+
+type RequiredConfirmationToken<Args> =
+  Args extends Record<string, unknown>
+    ? Omit<Args, '_confirmationToken' | '_expectedContentHash' | '_expectedPresentationHash'> & {
+        _confirmationToken: string
+      }
+    : Args
+
+type _PublishExecuteArgsStayAligned = TypeAssert<
+  TypeEqual<
+    FunctionArgs<BridgeGinkoCms['editor']['publishEntry']>,
+    RequiredConfirmationToken<
+      FunctionArgs<GeneratedGinkoCms['editor']['publishEntryOperationExecute']>
+    >
+  >
+>
 
 // The bridge type is, by construction, `StudioApiFromSurface<typeof
 // studioApiSurface>` — so its per-function names and kinds cannot drift from the
@@ -108,10 +142,10 @@ type _NoGetAssetUrl = BridgeGinkoCms['assets']['getAssetUrl']
 type _NoStartRun = BridgeGinkoCms['agentRuns']['startRun']
 // @ts-expect-error `public.routeMeta` is not part of the Studio allowlist.
 type _NoRouteMeta = BridgeGinkoCms['public']['routeMeta']
-// @ts-expect-error the `backup` group is not part of the Studio allowlist.
-type _NoBackupGroup = BridgeGinkoCms['backup']
-// @ts-expect-error the `migrations` group is not part of the Studio allowlist.
-type _NoMigrationsGroup = BridgeGinkoCms['migrations']
+// @ts-expect-error the `assetRecovery` group is not part of the Studio allowlist.
+type _NoAssetRecoveryGroup = BridgeGinkoCms['assetRecovery']
+// @ts-expect-error the `contractTransitions` group is not part of the Studio allowlist.
+type _NoContractTransitionsGroup = BridgeGinkoCms['contractTransitions']
 
 // Reference the assertions so they are not flagged as unused.
 export type _StudioApiSurfaceTypeTest = [
@@ -119,10 +153,14 @@ export type _StudioApiSurfaceTypeTest = [
   _BridgeGroupsMatchDescriptor,
   _ExactGetAccessContext,
   _ExactSaveEntryDraft,
+  _ExactInstalledContractStatusArgs,
+  _ExactAssetUsagePage,
+  _ExactPublishImpactPageArgs,
+  _PublishExecuteArgsStayAligned,
   _NoMcpCreateEntry,
   _NoGetAssetUrl,
   _NoStartRun,
   _NoRouteMeta,
-  _NoBackupGroup,
-  _NoMigrationsGroup,
+  _NoAssetRecoveryGroup,
+  _NoContractTransitionsGroup,
 ]

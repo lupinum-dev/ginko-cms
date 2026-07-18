@@ -53,7 +53,7 @@ describe('shared contracts', () => {
       manageSettings: 'cms.settings.manage',
       manageMembers: 'cms.members.manage',
       manageAssets: 'cms.assets.manage',
-      manageBackups: 'cms.backups.manage',
+      manageAssetRecovery: 'cms.assetRecovery.manage',
       managePortability: 'cms.portability.manage',
     })
   })
@@ -100,6 +100,11 @@ describe('shared contracts', () => {
       expect(validator.kind).toBe('union')
       expect(validator.members?.some((member) => validatorShape(member).kind === 'null')).toBe(true)
     }
+
+    const relationObject = relationValidator.members?.find(
+      (member) => validatorShape(member).kind === 'object',
+    )
+    expect(Object.keys(validatorFields(relationObject)).sort()).toEqual(['collection', 'multiple'])
   })
 
   it('keeps route diagnostic codes accepted by visibility diagnostics', () => {

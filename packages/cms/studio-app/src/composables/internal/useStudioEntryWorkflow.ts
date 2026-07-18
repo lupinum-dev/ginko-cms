@@ -6,7 +6,6 @@ import { useStudioHostContext } from '../../boundary/studio-host-context'
 import type {
   StudioEntryReadinessDetail,
   StudioPublishImpactLocale,
-  StudioPublishImpactResult,
   StudioPublishImpactState,
   StudioReadinessLocale,
 } from '../../components/studio/editor/studioWorkflowTypes'
@@ -41,53 +40,29 @@ const IMPACT_STATUS_LABELS: Record<string, string> = {
 }
 const MAX_DIAGNOSTICS_PER_LOCALE = 3
 
+function clearReactiveRecord(record: Record<string, unknown>) {
+  for (const key of Object.keys(record)) Reflect.deleteProperty(record, key)
+}
+
 type PublishImpactLocaleDetails = Omit<
   StudioPublishImpactLocale,
   'hiddenBlockerCount' | 'label' | 'visibleBlockers' | 'visibleWarnings'
 >
-type PublishOperationPreview = {
-  allowed: boolean
-  summary: string
-  blockers: Array<{ code: string; message: string }>
-  warnings: Array<{ code: string; message: string }>
-  effects: Array<{ kind: string; summary: string; count?: number }>
-  details?: { publishImpact?: StudioPublishImpactResult } | null
-  confirm?: unknown
-  confirmation?: { token: string; expiresAt: number }
-}
-
 export type StudioEntryWorkflow = ReturnType<typeof useStudioEntryWorkflow>
 
 export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
   const studioHost = useStudioHostContext()
   const advancedEditor = useStudioAdvancedEditor()
+  const publishSession = editor.publishing.publishSession
 
-  const isRouteBackedEntry = computed(
-    () =>
-      editor.loader.collectionConfig?.mode !== 'none' &&
-      editor.loader.collectionConfig?.routing?.mode !== 'none',
-  )
-
-  const routeValidationRequested = ref(false)
-  const publishImpactRequested = ref(false)
-  const selectedPublishImpactLocale = ref<string | null>(null)
-  const publishImpactStale = ref(false)
   const requestReviewPending = ref(false)
-  // EDT-10: true once the editor actually opened the rendered draft preview
-  // for the current draft state. The publish dialog's "Preview reviewed"
-  // claim is honest only when this is set; any draft change resets it.
-  const draftPreviewOpened = ref(false)
-  // Stale-session presentation: true when the last publish-preview attempt
-  // failed because the entry was changed in another session (save conflict or
-  // ENTRY_CONCURRENT_EDIT from the backend). The dialog and impact summary use
-  // this to say exactly that and to offer the top bar's "Reload latest draft"
-  // recovery instead of a generic "fix the issue" message.
-  const previewConcurrentEdit = ref(false)
+  const publishImpactPagePending = reactive<Record<string, boolean>>({})
+  const publishImpactPageError = reactive<Record<string, string | null>>({})
 
   const visibilityQuery = useCmsStudioQuery(
     api.ginkoCms.diagnostics.explainPublicVisibility,
     computed(() =>
-      advancedEditor.value || routeValidationRequested.value
+      advancedEditor.value
         ? {
             collection: editor.loader.collection,
             entryId: editor.loader.entryId,
@@ -101,22 +76,12 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     computed(() => ({ entryId: editor.loader.entryId })),
     { keepPreviousData: true },
   )
-  const publishOperationPreview = ref<PublishOperationPreview | null>(null)
-  const routeValidationQuery = useCmsStudioQuery(
-    api.ginkoCms.diagnostics.validatePublicRoutes,
-    computed(() => (routeValidationRequested.value ? {} : null)),
-    { keepPreviousData: true },
-  )
   const entryScopeKey = computed(() => `${editor.loader.collection}:${editor.loader.entryId}`)
   watch(entryScopeKey, () => {
-    routeValidationRequested.value = false
-    publishImpactRequested.value = false
-    selectedPublishImpactLocale.value = null
-    publishImpactStale.value = false
     requestReviewPending.value = false
-    publishOperationPreview.value = null
-    draftPreviewOpened.value = false
-    previewConcurrentEdit.value = false
+    clearReactiveRecord(publishImpactPagePending)
+    clearReactiveRecord(publishImpactPageError)
+    editor.publishing.resetPublishSession()
   })
 
   const readinessDetail = computed(() => {
@@ -257,53 +222,8 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     }
   })
 
-  const routeValidationState = computed(() => {
-    if (!routeValidationRequested.value) {
-      return { state: 'idle', message: '', diagnostics: [], hiddenDiagnosticCount: 0 }
-    }
-    if (routeValidationQuery.pending.value) {
-      return {
-        state: 'pending',
-        message: 'Checking website URLs...',
-        diagnostics: [],
-        hiddenDiagnosticCount: 0,
-      }
-    }
-    if (routeValidationQuery.error.value) {
-      return {
-        state: 'error',
-        message: queryErrorMessage(routeValidationQuery.error.value, 'URL check failed.'),
-        diagnostics: [],
-        hiddenDiagnosticCount: 0,
-      }
-    }
-    const data = routeValidationQuery.data.value
-    if (!Array.isArray(data)) {
-      return {
-        state: 'missing',
-        message: 'URL check returned no usable result.',
-        diagnostics: [],
-        hiddenDiagnosticCount: 0,
-      }
-    }
-    if (data.length === 0) {
-      return {
-        state: 'empty',
-        message: 'Website URL check: no issues.',
-        diagnostics: [],
-        hiddenDiagnosticCount: 0,
-      }
-    }
-    return {
-      state: 'found',
-      message: `Website URL check: ${data.length} issue${data.length === 1 ? '' : 's'}.`,
-      diagnostics: data.slice(0, MAX_DIAGNOSTICS_PER_LOCALE),
-      hiddenDiagnosticCount: Math.max(data.length - MAX_DIAGNOSTICS_PER_LOCALE, 0),
-    }
-  })
-
   const publishImpact = computed<StudioPublishImpactState>(() => {
-    if (!publishImpactRequested.value) {
+    if (!publishSession.impactRequested) {
       return {
         state: 'idle',
         message: '',
@@ -318,11 +238,11 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     // Preview preparation failed (e.g. the entry changed in another session):
     // surface the failure itself instead of the generic "missing" copy — and
     // never pretend a preview exists.
-    if (editor.publishing.publishReadiness.state === 'failed') {
+    if (publishSession.readiness.state === 'failed') {
       return {
         state: 'failed',
         message:
-          editor.publishing.publishReadiness.message ||
+          publishSession.readiness.message ||
           editor.loader.t('ginkoCms.studio.workflow.preview.failed'),
         cacheTags: [],
         events: [],
@@ -332,7 +252,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         error: null,
       }
     }
-    if (publishImpactStale.value) {
+    if (publishSession.impactStale) {
       return {
         state: 'stale',
         message: 'This draft changed since the preview. Preview website changes again.',
@@ -344,7 +264,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         error: null,
       }
     }
-    const preview = publishOperationPreview.value
+    const preview = publishSession.preview
     const publishImpactDetails = preview?.details?.publishImpact
     if (!preview || !publishImpactDetails) {
       return {
@@ -376,6 +296,11 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         const warnings = locale.warnings
         return {
           ...locale,
+          routeImpact: {
+            ...locale.routeImpact,
+            loading: publishImpactPagePending[locale.locale] ?? false,
+            error: publishImpactPageError[locale.locale] ?? null,
+          },
           label: impactStatusLabel(locale.status),
           visibleBlockers: blockers.slice(0, MAX_DIAGNOSTICS_PER_LOCALE),
           hiddenBlockerCount: Math.max(blockers.length - MAX_DIAGNOSTICS_PER_LOCALE, 0),
@@ -490,7 +415,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
   )
 
   const publishReview = computed(() => {
-    const readiness = editor.publishing.publishReadiness
+    const readiness = publishSession.readiness
     const currentReadiness = findReadinessLocale(editor.loader.currentLocale)
     return {
       blocked: readiness.state === 'blocked',
@@ -513,39 +438,39 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     () => editor.draft.isDirty,
     (dirty) => {
       if (dirty) {
-        publishOperationPreview.value = null
+        publishSession.preview = null
         editor.publishing.markPublishReadinessStale()
-        if (publishImpactRequested.value) publishImpactStale.value = true
-        draftPreviewOpened.value = false
+        if (publishSession.impactRequested) publishSession.impactStale = true
+        publishSession.draftPreviewOpened = false
       }
     },
   )
 
   watch(
-    () => [editor.loader.currentLocale, editor.publishing.publishMode],
+    () => [editor.loader.currentLocale, publishSession.mode],
     () => {
-      publishOperationPreview.value = null
+      publishSession.preview = null
       editor.publishing.markPublishReadinessStale('Publish scope changed after the last preview.')
-      if (publishImpactRequested.value) publishImpactStale.value = true
-      draftPreviewOpened.value = false
+      if (publishSession.impactRequested) publishSession.impactStale = true
+      publishSession.draftPreviewOpened = false
     },
   )
 
   function markDraftPreviewOpened() {
-    draftPreviewOpened.value = true
+    publishSession.draftPreviewOpened = true
   }
 
   // The preview could not be prepared because another session changed the
   // entry. Present it as exactly that — the recovery is the same "Reload
   // latest draft" the top bar's conflict notice offers.
   function failPreviewForConcurrentEdit() {
-    previewConcurrentEdit.value = true
+    publishSession.concurrentEdit = true
     editor.publishing.setPublishReadiness({
       state: 'failed',
       message: editor.loader.t('ginkoCms.studio.workflow.preview.concurrentEdit'),
       locales: [],
     })
-    publishImpactRequested.value = true
+    publishSession.impactRequested = true
   }
 
   // Recovery action for the concurrent-edit failure: hydrate the latest draft
@@ -553,24 +478,20 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
   // publish preview so the dialog/panel show fresh, truthful state.
   async function reloadLatestDraftAndPreview() {
     editor.draft.requestHydrate()
-    previewConcurrentEdit.value = false
-    if (editor.publishing.publishMode === 'all') {
+    publishSession.concurrentEdit = false
+    if (publishSession.mode === 'all') {
       await previewPublishImpact()
       return
     }
     await previewPublishImpact(editor.loader.currentLocale)
   }
 
-  async function validatePublicRoutes() {
-    if (!isRouteBackedEntry.value) return
-    routeValidationRequested.value = true
-    await routeValidationQuery.refresh()
-  }
-
   async function previewPublishImpact(locale?: string, options: { saveDraft?: boolean } = {}) {
-    selectedPublishImpactLocale.value = locale ?? null
-    publishImpactStale.value = false
-    previewConcurrentEdit.value = false
+    clearReactiveRecord(publishImpactPagePending)
+    clearReactiveRecord(publishImpactPageError)
+    publishSession.impactLocale = locale ?? null
+    publishSession.impactStale = false
+    publishSession.concurrentEdit = false
     // Known-stale session: the entry already changed elsewhere, so preparing a
     // preview from this form state can only fail. Say so up front.
     if (editor.draft.saveConflict) {
@@ -599,7 +520,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
           message: editor.draft.error || 'Draft could not be saved before preview.',
           locales: [],
         })
-        publishImpactRequested.value = true
+        publishSession.impactRequested = true
         return
       }
     }
@@ -613,7 +534,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         readinessDetail: readinessForPreview,
         currentLocale: getCurrentLocale(),
         t: editor.loader.t,
-        publishMode: editor.publishing.publishMode,
+        publishMode: publishSession.mode,
       })
       const expectedVersion =
         editor.draft.lastHydratedVersion ??
@@ -624,11 +545,11 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
           message: 'The saved draft is not loaded. Reload before previewing website changes.',
           locales: [],
         })
-        publishImpactRequested.value = true
+        publishSession.impactRequested = true
         return
       }
       const locales =
-        editor.publishing.publishMode === 'all' && !locale
+        publishSession.mode === 'all' && !locale
           ? scopedReadinessView.publishLocales
           : [locale ?? editor.loader.currentLocale]
       if (locales.length === 0) {
@@ -639,7 +560,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
             : 'No languages are ready to publish.',
           locales: [],
         })
-        publishImpactRequested.value = false
+        publishSession.impactRequested = false
         return
       }
       const preview = (await convexClient().mutation(
@@ -649,8 +570,8 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
           locales,
           expectedVersion,
         },
-      )) as typeof publishOperationPreview.value
-      publishOperationPreview.value = preview
+      )) as typeof publishSession.preview
+      publishSession.preview = preview
       const operationPreview = derivePublishOperationPreviewState({
         preview,
         locales,
@@ -676,10 +597,65 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
             : 'We could not prepare the website preview.',
         locales: [],
       })
-      publishImpactRequested.value = true
+      publishSession.impactRequested = true
       return
     }
-    publishImpactRequested.value = true
+    publishSession.impactRequested = true
+  }
+
+  async function loadMorePublishImpact(locale: string) {
+    const impactResult = publishSession.preview?.details?.publishImpact
+    const localeImpact = impactResult?.locales.find((item) => item.locale === locale)
+    const routeImpact = localeImpact?.routeImpact
+    if (
+      !localeImpact ||
+      !routeImpact?.hasMore ||
+      !routeImpact.continueCursor ||
+      publishImpactPagePending[locale]
+    ) {
+      return
+    }
+    const expectedVersion = editor.draft.lastHydratedVersion
+    if (typeof expectedVersion !== 'number') {
+      publishSession.impactStale = true
+      publishImpactPageError[locale] = 'The draft changed. Preview website changes again.'
+      return
+    }
+
+    publishImpactPagePending[locale] = true
+    publishImpactPageError[locale] = null
+    try {
+      const page = (await studioHost
+        .requireConvexClient()
+        .query(api.ginkoCms.editor.listPublishRouteImpactPage, {
+          entryId: editor.loader.entryId,
+          locale,
+          expectedVersion,
+          expectedRouteGeneration: routeImpact.routeGeneration,
+          cursor: routeImpact.continueCursor,
+          limit: 25,
+        })) as {
+        changes: StudioPublishImpactLocale['changes']
+        isDone: boolean
+        continueCursor: string | null
+      }
+      localeImpact.changes.push(...page.changes)
+      routeImpact.listed += page.changes.length
+      routeImpact.hasMore = !page.isDone
+      routeImpact.continueCursor = page.continueCursor
+      routeImpact.total = page.isDone ? routeImpact.listed : null
+    } catch (error) {
+      const code = getCmsErrorCode(error)
+      if (code === 'PUBLISH_IMPACT_STALE' || code === 'INVALID_CURSOR') {
+        publishSession.impactStale = true
+      }
+      publishImpactPageError[locale] = getCmsErrorMessage(
+        error,
+        'More affected URLs could not be loaded.',
+      )
+    } finally {
+      publishImpactPagePending[locale] = false
+    }
   }
 
   async function reviewTranslationReadiness(_locale: string) {
@@ -727,14 +703,8 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
 
   return reactive({
     // derived state
-    isRouteBackedEntry,
-    routeValidationRequested,
-    routeValidationState,
-    publishImpactRequested,
+    publishSession,
     publishImpact,
-    selectedPublishImpactLocale,
-    draftPreviewOpened,
-    previewConcurrentEdit,
     requestReviewPending,
     readinessDetail,
     readinessPending,
@@ -751,8 +721,8 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     isCompareMode,
     publishReview,
     // handlers
-    validatePublicRoutes,
     previewPublishImpact,
+    loadMorePublishImpact,
     reviewTranslationReadiness,
     requestPublishReview,
     markDraftPreviewOpened,

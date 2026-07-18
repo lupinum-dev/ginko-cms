@@ -24,23 +24,20 @@
 
 ### Fixed
 
-- Asset uploads (and every other component action: backups, portability)
+- Asset uploads (and every other component action: asset recovery, portability)
   work again: Convex does not propagate user auth into component actions,
   so host-app facades now forward a `_trustedCaller` resolved from their own
   `ctx.auth`; component actions accept it only when `ctx.auth` is empty and
   MCP callers are still re-validated against stored credentials. Consumer
   facades regenerated from the templates pick this up automatically.
-- `ginko-cms push` works against fresh component builds again — the
-  component entrypoint list was missing `policy.js`, so
-  `checkCmsPolicy`/`installCmsPolicy` never deployed.
 - Tree collections: the "Parent" select on the new-entry page never opened
   (reka-ui rejects empty-string SelectItem values); nested entries can now
   be created through the UI.
 - Status pill tones derive from readiness state codes instead of comparing
   localized labels — non-English Studios show correct tones, and plain
   drafts render neutral instead of warning.
-- Activity rows store the actor's display name at write time (rename-stable
-  audit trail); legacy rows still resolve at read time.
+- Activity rows store the actor's display name at write time for a
+  rename-stable audit trail.
 - Playground public pages and live-story checks now use the Ginko Content
   engine instead of the removed `/api/ginko/v1` facade; CMS-backed navigation
   and search also honor the component's public argument and limit contracts.
@@ -135,8 +132,8 @@
 - Convex JWTs now carry a server-issued `ginkoCredentialKind` claim so browser
   sessions and Better Auth API-key sessions have disjoint, fail-closed CMS
   authority.
-- Added explicit backup and portability permission keys. Backup and owner
-  diagnostics now use permission-bearing guards on direct Convex callables.
+- Added explicit asset-recovery and portability permission keys. Asset-recovery
+  and owner diagnostics use permission-bearing guards on direct Convex callables.
 - Migrated the Nuxt provider and public Convex reads to Ginko Content Wire V2
   with `@lupinum/ginko-content@0.3.0`; V1 provider payloads are no longer
   accepted.
@@ -204,8 +201,8 @@
   build artifacts.
 - Destructive preview functions now validate their shared result envelope
   instead of accepting arbitrary return values.
-- Backup artifact storage is now represented by its only supported driver
-  instead of advertising hypothetical backend adapters.
+- Verified asset-recovery artifact storage is concrete instead of advertising
+  hypothetical backup adapters.
 - Removed completed root-level migration journals, comparison notes, and audit
   plans that contradicted current architecture. Durable behavior remains in the
   maintained docs and Git history.
@@ -223,27 +220,17 @@
   `createUserIfNeeded` export. Better Auth remains the identity source of truth
   and CMS membership remains component-owned.
 
-### Migration Notes
+### Fresh-install Notes
 
 - Set `BETTER_AUTH_SECRET`; runtime startup and `ginko-cms doctor` no longer
   accept an invented development fallback.
-- Regenerate the host member adapter. First-owner bootstrap no longer accepts a
-  caller-provided email; it authorizes only the verified JWT email against
-  `GINKO_FIRST_OWNER_EMAIL`.
 - Install the publishable package tuple directly:
   `@lupinum/ginko-content`, `@lupinum/ginko-cms`,
   `@lupinum/ginko-cms-convex`, `better-convex-nuxt`,
   `@convex-dev/better-auth`, `better-auth`, and `convex`.
-- Delete old Trellis aliases, `#trellis` imports, `_trellisForwarding`, legacy
-  generated operation bridge files, and custom MCP-key UI or docs.
 - Keep `CONVEX_DEPLOY_KEY` server-only for setup and contract sync. MCP runtime
   needs Convex URL plus Better Auth base URL configuration, not deploy-key
   transport.
-- This migration note describes the pre-greenfield host cleanup. The former
-  Trellis transition guide is not part of the current fresh-deployment path.
-- Existing hosts may delete the old generated `users` table after confirming
-  their application did not adopt it for host-owned data. Ginko CMS never read
-  or wrote that table.
 
 ### Fixed
 

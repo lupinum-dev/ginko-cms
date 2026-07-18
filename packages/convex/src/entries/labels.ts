@@ -33,8 +33,7 @@ export function createDraftEntryTitleResolver(ctx: QueryOrMutationCtx) {
       (localized?.values ?? {}) as JsonMap,
     )
     return (
-      resolveEntryTitle(data, args.collection.fields, args.collection.settings) ??
-      args.entry.slug
+      resolveEntryTitle(data, args.collection.fields, args.collection.settings) ?? args.entry.slug
     )
   }
 }

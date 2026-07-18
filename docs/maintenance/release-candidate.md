@@ -41,6 +41,12 @@ registry, also run:
 pnpm run release:verify:registry
 ```
 
+For the greenfield reliability refactor, the additional disposable-deployment,
+exact packed-consumer, role-account, target-scale, performance, and cleanup
+contract is documented in
+[Refactor reliability certification](./refactor-certification.md). The live
+lane fails if its Browser base URL cannot attest the exact tarball tuple.
+
 For a private consumer app drill, run the foundation gate with the consumer app
 root and browser smoke credentials in the same command:
 
@@ -137,6 +143,6 @@ unless the test requires a completely fresh deployment.
 For the user-facing workflow, safe/unsafe change matrix, transition recipes,
 and recovery notes, see
 [Changing collections](../guides/changing-collections.md),
-[Contract transition recipes](../guides/migrations/recipes.md), and
-[Contract transition recovery](../guides/migrations/recovery.md). For recovery boundaries,
+[Contract transition recipes](../guides/contract-transitions/recipes.md), and
+[Contract transition recovery](../guides/contract-transitions/recovery.md). For recovery boundaries,
 see [Backup and recovery](./backup-and-recovery.md).

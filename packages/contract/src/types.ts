@@ -31,6 +31,8 @@ export type AssetScope = 'global' | 'collection' | 'entry'
 
 export type SortDirection = 'asc' | 'desc'
 
+export type ActivityOutcome = 'applied' | 'failed' | 'blocked' | 'stale'
+
 export type FieldType =
   | 'text'
   | 'textarea'
@@ -64,7 +66,7 @@ export type FieldType =
   | 'section'
 
 export type RelationDefinition = {
-  collectionId: string
+  collection: string
   multiple?: boolean
 }
 

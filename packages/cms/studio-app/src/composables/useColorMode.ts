@@ -1,4 +1,4 @@
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 // SPA replacement for Nuxt's useColorMode composable. Studio code only uses
 // `colorMode.preference` (read + write 'system' | 'light' | 'dark'), so this
@@ -37,8 +37,21 @@ function applyToDocument(value: 'light' | 'dark') {
 }
 
 export function useColorMode() {
+  let systemMediaQuery: MediaQueryList | null = null
+  const applySystemPreference = () => {
+    if (preferenceRef.value === 'system') {
+      applyToDocument(systemPrefersDark() ? 'dark' : 'light')
+    }
+  }
+
   onMounted(() => {
+    systemMediaQuery = window.matchMedia?.('(prefers-color-scheme: dark)') ?? null
+    systemMediaQuery?.addEventListener?.('change', applySystemPreference)
     applyToDocument(effectiveValue(preferenceRef.value))
+  })
+
+  onBeforeUnmount(() => {
+    systemMediaQuery?.removeEventListener?.('change', applySystemPreference)
   })
 
   return {

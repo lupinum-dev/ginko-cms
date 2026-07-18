@@ -10,20 +10,18 @@ import type {
 import { v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel.js'
-import {
-  getOwnActiveAgentRunOrThrow,
-  getOwnAgentRunOrThrow,
-  recordOwnedAgentRunWrite,
-} from './agentRuns.js'
+import { getOwnActiveAgentRunOrThrow, getOwnAgentRunOrThrow } from './agentRuns.js'
 import { canEditEntries, canPublishEntries, canRead } from './auth/checks.js'
 import { previewPublishImpactForEntry } from './diagnostics.js'
 import { getCollectionForEntry } from './entries/context.js'
-import { computePublishDraftHash, publishCurrentDraft } from './entries/workflow/commands.js'
+import { canonicalPublishLocales } from './entries/publicationApproval.js'
+import { executeCanonicalPublish } from './entries/publish.js'
+import { computePublishDraftHash } from './entries/workflow/commands.js'
 import { stableHash } from './entries/workflow/hashing.js'
 import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
-import { asEntryId } from './lib/ids.js'
+import type { QueryOrMutationCtx } from './lib/types.js'
 
 const reviewRequestStatusValidator = v.union(
   v.literal('pending'),
@@ -86,6 +84,12 @@ const REVIEW_READY_STATUSES = new Set(['ready', 'no_changes'])
 const OUTDATED_REVIEW_PREVIEW_REASON =
   'Review request must be recreated because its publish preview is outdated.'
 
+function requireEntryId(ctx: QueryOrMutationCtx, value: string): Id<'entries'> {
+  const entryId = ctx.db.normalizeId('entries', value)
+  if (!entryId) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: value })
+  return entryId
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -117,6 +121,14 @@ function staleReviewPreview(request: ReviewRequestDoc): PublishReviewPreview {
       status: 'blocked',
       currentHref: null,
       nextHref: null,
+      routeImpact: {
+        total: 0,
+        listed: 0,
+        hasMore: false,
+        continueCursor: null,
+        routeGeneration: 0,
+        impactHash: 'routes:00000000',
+      },
       blockingIssueCodes: ['outdated_review_preview'],
       warningIssueCodes: [],
       changeKinds: [],
@@ -159,6 +171,17 @@ function reviewPreviewHash(preview: PublishReviewPreview) {
 }
 
 function reviewSummaryFromPreview(preview: PublishReviewPreview): ReviewSummary {
+  const descendantUrlCount = preview.locales.reduce(
+    (count, locale) => count + (locale.routeImpact.total ?? locale.routeImpact.listed),
+    0,
+  )
+  const listedDescendantUrlCount = preview.locales.reduce(
+    (count, locale) => count + locale.routeImpact.listed,
+    0,
+  )
+  const currentEntryUrlCount = preview.affectedPublicUrls.filter(
+    (url) => url.scope === 'current_entry',
+  ).length
   return {
     status: preview.status,
     localeStatuses: preview.locales.map((item) => ({
@@ -168,7 +191,9 @@ function reviewSummaryFromPreview(preview: PublishReviewPreview): ReviewSummary 
       nextHref: item.nextHref,
     })),
     affectedPublicUrls: preview.affectedPublicUrls,
-    changeCount: preview.changes.length,
+    affectedPublicUrlCount: currentEntryUrlCount + descendantUrlCount,
+    affectedPublicUrlsHasMore: preview.locales.some((locale) => locale.routeImpact.hasMore),
+    changeCount: preview.changes.length - listedDescendantUrlCount + descendantUrlCount,
     blockerCount: preview.blockingIssueCodes.length,
     warningCount: preview.warningIssueCodes.length,
     blockingIssueCodes: preview.blockingIssueCodes,
@@ -216,7 +241,8 @@ async function cheapReviewStaleState(
   request: ReviewRequestDoc,
 ) {
   if (request.status !== 'pending') return { isStale: false, staleReason: null }
-  const entry = await ctx.db.get(asEntryId(request.entryId))
+  const entryId = ctx.db.normalizeId('entries', request.entryId)
+  const entry = entryId ? await ctx.db.get(entryId) : null
   if (!entry) {
     return { isStale: true, staleReason: 'Entry no longer exists.' }
   }
@@ -252,7 +278,8 @@ export async function exactReviewStaleState(
       staleReason: 'This review is out of date. Ask for a new review.',
     }
   }
-  if (reviewPreviewHash(currentPreview) !== request.previewHash) {
+  const currentPreviewHash = reviewPreviewHash(currentPreview)
+  if (currentPreviewHash !== request.previewHash) {
     return {
       isStale: true,
       staleReason: 'This review is out of date. Ask for a new review.',
@@ -272,11 +299,9 @@ async function serializeReviewRequestWithStaleState(
   return serializeReviewRequest(request, stale)
 }
 
-async function getPendingReviewOrThrow(
-  ctx: { db: { get: (id: Id<'reviewRequests'>) => Promise<ReviewRequestDoc | null> } },
-  id: string,
-) {
-  const request = await ctx.db.get(id as Id<'reviewRequests'>)
+async function getPendingReviewOrThrow(ctx: QueryOrMutationCtx, id: string) {
+  const requestId = ctx.db.normalizeId('reviewRequests', id)
+  const request = requestId ? await ctx.db.get(requestId) : null
   if (!request) {
     throwCmsError('REVIEW_REQUEST_NOT_FOUND', 'Review request not found.', { reviewRequestId: id })
   }
@@ -289,65 +314,17 @@ async function getPendingReviewOrThrow(
   return request
 }
 
-async function executeApprovedPublishReview(
-  ctx: Parameters<typeof publishCurrentDraft>[0],
-  request: ReviewRequestDoc,
-  appIdentityId: string,
-) {
-  const entryId = asEntryId(request.entryId)
-  const entry = await ctx.db.get(entryId)
-  if (!entry) {
-    throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', {
-      reviewRequestId: String(request._id),
-      entryId: request.entryId,
-    })
-  }
-  if (entry.draftVersion !== request.expectedVersion) {
-    throwCmsError('REVIEW_REQUEST_STALE', 'Review request is stale.', {
-      reviewRequestId: String(request._id),
-      expectedVersion: request.expectedVersion,
-      actualVersion: entry.draftVersion,
-    })
-  }
-
-  const currentPreview = await computeReviewPreview(ctx, {
-    entryId: request.entryId,
-    locales: request.locales,
-    now: Date.now(),
-  })
-  if (!REVIEW_READY_STATUSES.has(currentPreview.status)) {
-    throwCmsError('REVIEW_PUBLISH_BLOCKED', 'Review request is no longer publishable.', {
-      reviewRequestId: String(request._id),
-      status: currentPreview.status,
-      blockingIssueCodes: currentPreview.blockingIssueCodes,
-    })
-  }
-
-  const expectedDraftHash = await computePublishDraftHash(ctx, {
-    entryId,
-    locales: request.locales,
-  })
-  return await publishCurrentDraft(ctx, {
-    entryId,
-    locales: request.locales,
-    expectedDraftVersion: request.expectedVersion,
-    expectedDraftHash,
-    appIdentity: appIdentityId,
-    message: request.message ?? null,
-  })
-}
-
 async function computeReviewPreview(
   ctx: Parameters<typeof previewPublishImpactForEntry>[0],
   args: { entryId: string; locales: string[]; now: number },
 ): Promise<PublishReviewPreview> {
-  const entryId = asEntryId(args.entryId)
+  const entryId = requireEntryId(ctx, args.entryId)
   const entry = await ctx.db.get(entryId)
   if (!entry) {
     throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: args.entryId })
   }
   const collection = await getCollectionForEntry(ctx, entry)
-  const locales = Array.from(new Set(args.locales))
+  const locales = canonicalPublishLocales(args.locales)
   const impact = await previewPublishImpactForEntry(ctx, {
     collection: collection.slug,
     entryId: args.entryId,
@@ -369,6 +346,7 @@ async function computeReviewPreview(
       status: locale.status,
       currentHref: locale.currentHref,
       nextHref: locale.nextHref,
+      routeImpact: locale.routeImpact,
       blockingIssueCodes: Array.from(
         new Set(locale.blockingDiagnostics.map((diagnostic) => diagnostic.code)),
       ),
@@ -411,16 +389,17 @@ export const requestPublishReview = callerMutation.protected({
     if (appIdentity.audit.origin === 'mcp' && !agentRunId) {
       throwCmsError('AGENT_RUN_REQUIRED', 'MCP publish review requires an active agent run.')
     }
-    if (agentRunId) {
-      await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, now)
-    }
+    const agentRun = agentRunId
+      ? await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, now)
+      : null
     if (args.locales.length === 0) {
       throwCmsError(
         'REVIEW_REQUEST_LOCALES_REQUIRED',
         'Publish review requires at least one locale.',
       )
     }
-    const entry = await ctx.db.get(asEntryId(args.entryId))
+    const entryId = requireEntryId(ctx, args.entryId)
+    const entry = await ctx.db.get(entryId)
     if (!entry) {
       throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: args.entryId })
     }
@@ -437,7 +416,7 @@ export const requestPublishReview = callerMutation.protected({
         },
       )
     }
-    const locales = Array.from(new Set(args.locales as string[]))
+    const locales = canonicalPublishLocales(args.locales)
     const preview = await computeReviewPreview(ctx, {
       entryId: args.entryId,
       locales,
@@ -456,13 +435,13 @@ export const requestPublishReview = callerMutation.protected({
       )
     }
     const versionHash = await computePublishDraftHash(ctx, {
-      entryId: asEntryId(args.entryId),
+      entryId,
       locales,
     })
     const previewHash = reviewPreviewHash(preview)
 
     const id = await ctx.db.insert('reviewRequests', {
-      agentRunId: agentRunId ? (agentRunId as Id<'agentRuns'>) : null,
+      agentRunId: agentRun?._id ?? null,
       entryId: args.entryId,
       locales,
       expectedVersion: args.expectedVersion,
@@ -482,8 +461,11 @@ export const requestPublishReview = callerMutation.protected({
     const request = await ctx.db.get(id)
     if (!request) throw new Error('Review request disappeared after create.')
 
-    if (agentRunId) {
-      await recordOwnedAgentRunWrite(ctx, agentRunId, 'ginko-cms.request-publish-review')
+    if (agentRun) {
+      await ctx.db.patch(agentRun._id, {
+        updatedAt: now,
+        lastWriteAt: now,
+      })
     }
     await logActivity(ctx, {
       kind: 'reviewRequest.created',
@@ -530,7 +512,8 @@ export const getOwnReviewRequest = callerQuery.protected({
   returns: reviewRequestValidator,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    const request = await ctx.db.get(args.reviewRequestId as Id<'reviewRequests'>)
+    const reviewRequestId = ctx.db.normalizeId('reviewRequests', args.reviewRequestId)
+    const request = reviewRequestId ? await ctx.db.get(reviewRequestId) : null
     if (!request) {
       throwCmsError('REVIEW_REQUEST_NOT_FOUND', 'Review request not found.', {
         reviewRequestId: args.reviewRequestId,
@@ -579,7 +562,30 @@ export const approveReview = callerMutation.protected({
       })
     }
 
-    const publishResult = await executeApprovedPublishReview(ctx, request, appIdentity.userId)
+    if (!request.versionHash || !request.previewHash) {
+      throwCmsError('REVIEW_REQUEST_STALE', OUTDATED_REVIEW_PREVIEW_REASON, {
+        reviewRequestId: args.reviewRequestId,
+      })
+    }
+    const publishExecution = await executeCanonicalPublish(
+      ctx,
+      {
+        entryId: request.entryId,
+        locales: request.locales,
+        expectedVersion: request.expectedVersion,
+        ...(request.message === null ? {} : { message: request.message }),
+      },
+      {
+        kind: 'review',
+        reviewRequestId: String(request._id),
+        versionHash: request.versionHash,
+        previewHash: request.previewHash,
+      },
+    )
+    if (publishExecution.status !== 'applied') {
+      throw new Error('Approved review publication returned a non-applied result.')
+    }
+    const publishResult = publishExecution.value
 
     await ctx.db.patch(request._id, {
       status: 'approved',
@@ -601,8 +607,8 @@ export const approveReview = callerMutation.protected({
         versionHash: request.versionHash ?? null,
         previewHash: request.previewHash ?? null,
         result: {
-          versionId: String(publishResult.revisionId),
-          affectedLocales: publishResult.affectedLocales,
+          versionId: publishResult.versionId,
+          affectedLocales: request.locales,
         },
       },
     })

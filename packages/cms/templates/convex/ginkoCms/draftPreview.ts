@@ -14,5 +14,5 @@ export const getDraftPreview = query({
     locale: v.string(),
   },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.draftPreview.getDraftPreview, args as never),
+    await ctx.runQuery(components.ginkoCms.draftPreview.getDraftPreview, args),
 })

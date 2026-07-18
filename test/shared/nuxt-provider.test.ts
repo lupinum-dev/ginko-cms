@@ -325,9 +325,7 @@ describe('Ginko Nuxt provider v2', () => {
                 docs: { route: { en: '/docs', de: '/dokumentation' } },
               },
             },
-            ginkoCms: {
-              collections: { docs: { collectionId: 'cms-docs' } },
-            },
+            ginkoCms: {},
           },
         },
       },
@@ -385,7 +383,7 @@ describe('Ginko Nuxt provider v2', () => {
     expect(convexMock.calls.at(-1)?.args.limit).toBe(10)
   })
 
-  it('returns raw route facts from navigation, surroundings, and search', async () => {
+  it('[DEV-04] returns raw route facts from navigation, surroundings, and search', async () => {
     const navigationWire = toContentProviderNavigationQuery({ collection: 'docs' })
     const navigation = unwrap(
       await contentProvider.navigation!(event, navigationWire.query, { locale: 'en' }),

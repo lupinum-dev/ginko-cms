@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { api, createCtx, seedMember } from '../helpers'
 
 describe('CMS settings visibility', () => {
-  it('returns the installed Content locale projection to a read-only viewer', async () => {
+  it('[LOC-07] returns the installed Content locale projection as read-only Studio truth', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'viewer-1', role: 'viewer' })
     const contract = buildResolvedContentContract(

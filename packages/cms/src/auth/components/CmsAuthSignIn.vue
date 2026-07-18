@@ -56,6 +56,11 @@ function toRegister(): string {
   }
   return `${props.redirectTo.replace(/\/$/, '')}/auth/register${query.size ? `?${query.toString()}` : ''}`
 }
+function toRecovery(): string {
+  const query = new URLSearchParams({ redirect: getRedirectTarget() })
+  if (email.value) query.set('email', email.value)
+  return `${props.redirectTo.replace(/\/$/, '')}/auth/recover?${query.toString()}`
+}
 async function onSubmit(event: Event) {
   event.preventDefault()
   if (!email.value || !password.value) {
@@ -122,9 +127,14 @@ async function onSubmit(event: Event) {
         />
       </div>
       <div class="cms-auth-field">
-        <label for="password" class="cms-auth-label">
-          {{ t('ginkoCms.common.password') }}
-        </label>
+        <div class="cms-auth-label-row">
+          <label for="password" class="cms-auth-label">
+            {{ t('ginkoCms.common.password') }}
+          </label>
+          <NuxtLink :to="toRecovery()" class="cms-auth-link">
+            {{ t('ginkoCms.auth.signIn.forgotPassword') }}
+          </NuxtLink>
+        </div>
         <CmsPasswordInput
           id="password"
           v-model="password"

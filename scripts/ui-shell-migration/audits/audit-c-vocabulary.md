@@ -2,8 +2,8 @@
 
 Repo: `/Users/matthias/Git/workspace/ginko-cms` · branch `studio-shadcn-shell` · READ-ONLY
 Scope: `packages/cms/studio-app/src` (pages + components/studio) and locale packs
-`packages/cms/src/public/locales/{en,de}.ts`. Reference: `UI-REVISION.md`
-(Goal §5–29, Terminology Replacements ~L860).
+`packages/cms/src/public/locales/{en,de}.ts`. References: `DESIGN.md` and
+`userstories.md`.
 
 Severity: **high** = user-visible untranslated block or wrong-persona internals in
 primary UI · **med** = terminology drift / partial i18n · **low** = tone, dead keys,
@@ -71,7 +71,7 @@ These import no `useCmsI18n`/`t`; every visible string is a literal:
 - `pages/[collection]/new.vue` — med — L522 `title="Publishing details"`, L556/710 “Reset to title”,
   L572/726 `label="URL slug"`, L589 `label="Entry key"`, L678 `label="Draft setup"`.
 - `pages/[collection]/index.vue` — med — L561 `aria-label="Publishing work"`, L562 `placeholder="Publishing work"`.
-- `pages/agents.vue` — low — L246 “Revoke” (UI-REVISION: agent revoke → “End session”).
+- `pages/agents.vue` — low — L246 “Revoke” (editor-facing copy should use “End session”).
 - `components/studio/StudioAssetMetadataForm.vue` (i18n=3) — med — L229 `label="Alt Text"`,
   L237 `label="Caption"`, L190 “Image details are not available.”, L252 “Cancel”, L256 “Save details”.
 - `components/studio/StudioAssetMetadataDialog.vue` — med — L32 “Update image text used by editors. Live pages keep their current image details until they …”.
@@ -93,19 +93,19 @@ labels via `t('ginkoCms.studio.layout.*')`. Collection labels come from config (
 
 ---
 
-## Class 2 — Terminology drift vs UI-REVISION.md
+## Class 2 — Terminology drift vs accepted product language
 
-| Location                                                                                                                      | Current string                                             | Issue                                                                                                                                         | Suggested                                               | Sev |
-| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --- |
-| `en.ts` L192-194 `studio.assetDetails.*` (used as **Media** page right-panel title `pages/assets.vue:24`)                     | “Asset details” / “No asset selected” / “Select an asset…” | `Assets`→`Media` cutover incomplete; user sees “Asset” on the Media page                                                                      | “Media details” / “No media selected” / “Select media…” | med |
-| `en.ts` L196-199 `studio.reviewDetails.*` (used on **Approvals** page `pages/reviews.vue:52`)                                 | “Review details” / “No review selected”                    | page is “Approvals”; noun “review” inconsistent with page title                                                                               | “Approval details” / align to Approvals                 | low |
-| `en.ts` L249 `assetsPage.scopeGlobal`, L835 `assetPicker.global`                                                              | “Global”                                                   | UI-REVISION: `Global` in media → `Shared library`                                                                                             | “Shared library”                                        | med |
-| `StudioSettingsMcpConnectionsSection.vue` L49/164/189 + `en.ts` L378-395 `mcp*` (primary)                                     | “MCP connections”, “Connect an MCP client”                 | UI-REVISION: `MCP connections`→`AI agent connections` in **primary**, keep `MCP` only in details                                              | “AI agent connections” (primary); MCP behind Advanced   | med |
-| `StudioCollectionContractSection.vue` L212                                                                                    | “Stale URL prefix:”                                        | UI-REVISION: `Stale`→`Out of date`                                                                                                            | “Out of date URL prefix”                                | med |
-| `StudioCollectionContractSection.vue` (component name + L346 `title="Review collection config"`)                              | “collection config” / “Contract”                           | `Collection contract`→`Content type details`; component/name still “Contract”                                                                 | “Content type details”                                  | med |
-| `en.ts` L155 `layout.entry`, L217-218 `entryCountOne/Other`, L893-902 agents, many `*.entry*`                                 | “Entry” / “{count} entries”                                | UI-REVISION leans editor language “content/document”; “entry” persists in editor-facing UI (breadcrumb `StudioHeader.vue:103`, `[id].vue:40`) | “content” / “document” where editor-facing              | low |
-| `en.ts` L893-902 `agentsPage.title` = “AI work sessions” vs doc `Agent sessions`; `agentSessionId` L987 vs doc `Agent run id` | “AI work sessions”                                         | impl went further than doc (fine, but doc drift — flag for alignment)                                                                         | confirm canonical term                                  | low |
-| `en.ts` L6 `common.manage` + L160 `layout.manage` = “Manage”                                                                  | “Manage”                                                   | UI-REVISION: `Manage`→`Operations`; **both keys unused in studio-app** (dead)                                                                 | remove or rename                                        | low |
+| Location                                                                                                                      | Current string                                             | Issue                                                                                                                                               | Suggested                                               | Sev |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --- |
+| `en.ts` L192-194 `studio.assetDetails.*` (used as **Media** page right-panel title `pages/assets.vue:24`)                     | “Asset details” / “No asset selected” / “Select an asset…” | `Assets`→`Media` cutover incomplete; user sees “Asset” on the Media page                                                                            | “Media details” / “No media selected” / “Select media…” | med |
+| `en.ts` L196-199 `studio.reviewDetails.*` (used on **Approvals** page `pages/reviews.vue:52`)                                 | “Review details” / “No review selected”                    | page is “Approvals”; noun “review” inconsistent with page title                                                                                     | “Approval details” / align to Approvals                 | low |
+| `en.ts` L249 `assetsPage.scopeGlobal`, L835 `assetPicker.global`                                                              | “Global”                                                   | Product language: `Global` in media → `Shared library`                                                                                              | “Shared library”                                        | med |
+| `StudioSettingsMcpConnectionsSection.vue` L49/164/189 + `en.ts` L378-395 `mcp*` (primary)                                     | “MCP connections”, “Connect an MCP client”                 | Product language: `MCP connections`→`AI agent connections` in **primary**, keep `MCP` only in details                                               | “AI agent connections” (primary); MCP behind Advanced   | med |
+| `StudioCollectionContractSection.vue` L212                                                                                    | “Stale URL prefix:”                                        | Product language: `Stale`→`Out of date`                                                                                                             | “Out of date URL prefix”                                | med |
+| `StudioCollectionContractSection.vue` (component name + L346 `title="Review collection config"`)                              | “collection config” / “Contract”                           | `Collection contract`→`Content type details`; component/name still “Contract”                                                                       | “Content type details”                                  | med |
+| `en.ts` L155 `layout.entry`, L217-218 `entryCountOne/Other`, L893-902 agents, many `*.entry*`                                 | “Entry” / “{count} entries”                                | Accepted stories prefer editor language “content/document”; “entry” persists in editor-facing UI (breadcrumb `StudioHeader.vue:103`, `[id].vue:40`) | “content” / “document” where editor-facing              | low |
+| `en.ts` L893-902 `agentsPage.title` = “AI work sessions” vs doc `Agent sessions`; `agentSessionId` L987 vs doc `Agent run id` | “AI work sessions”                                         | impl went further than doc (fine, but doc drift — flag for alignment)                                                                               | confirm canonical term                                  | low |
+| `en.ts` L6 `common.manage` + L160 `layout.manage` = “Manage”                                                                  | “Manage”                                                   | Product language: `Manage`→`Operations`; **both keys unused in studio-app** (dead)                                                                  | remove or rename                                        | low |
 
 Router still names routes `assets`/`reviews` (URLs `/studio/assets`, `/studio/reviews`)
 while labels read Media/Approvals. Labels are wired to locale, so **no visible-label
@@ -115,8 +115,8 @@ mismatch** — only the URL slug differs (IA note, out of vocabulary scope).
 
 ## Class 3 — Editor-safe language (internals leaking to default persona)
 
-Per UI-REVISION Goal L17-29 (“should not require understanding … MDC/JSON/collection
-contracts/config”).
+Per the accepted editor-first language contract, primary workflows should not require
+understanding MDC, JSON, or collection configuration.
 
 | Location                                                       | String                                                                      | Leak                                              | Suggested                               | Sev |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------- | --- |

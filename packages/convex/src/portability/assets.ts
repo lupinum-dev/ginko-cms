@@ -10,10 +10,15 @@ import { makeFunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from '../_generated/dataModel.js'
-import { internalAction, internalMutation } from '../_generated/server.js'
-import { registerVerifiedAssetRecord } from '../assets.js'
+import { internalAction, internalMutation, internalQuery } from '../_generated/server.js'
+import { insertVerifiedAssetRecord } from '../assets/assetRecord.js'
+import { isStorageClaimedByAnotherOwner } from '../assets/storageOwnership.js'
 import { canManagePortability } from '../auth/checks.js'
-import { callerAction, callerMutation } from '../functions.js'
+import { callerAction, callerMutation, requireCmsContractWriteToken } from '../functions.js'
+import {
+  assertCmsContractWriteToken,
+  cmsContractWriteTokenValidator,
+} from '../lib/installedContract.js'
 import type { MutationCtx } from '../lib/types.js'
 import { assertSha256 } from './model.js'
 
@@ -35,10 +40,10 @@ async function getRun(ctx: MutationCtx, runId: string): Promise<ImportRun> {
 
 async function getStage(ctx: MutationCtx, runId: string, sha256: string) {
   const stage = await ctx.db
-    .query('portableAssetStages')
+    .query('portableAssets')
     .withIndex('by_run_sha256', (query) => query.eq('runId', runId).eq('sha256', sha256))
     .unique()
-  if (!stage) throw new Error('Portable asset stage not found.')
+  if (!stage || stage.mode !== 'import') throw new Error('Portable asset stage not found.')
   return stage
 }
 
@@ -51,7 +56,7 @@ function requirePlannedRun(run: ImportRun, input: { callerId: string; payloadSha
 }
 
 function assertAttempt(
-  stage: Doc<'portableAssetStages'>,
+  stage: Extract<Doc<'portableAssets'>, { mode: 'import' }>,
   input: { tokenHash: string; generation: number },
 ) {
   assertSha256(input.tokenHash, 'attemptTokenHash')
@@ -217,6 +222,13 @@ export const recordPortableAssetUpload = callerMutation.protected({
       tokenHash: args.attemptTokenHash,
       generation: args.attemptGeneration,
     })
+    if (
+      await isStorageClaimedByAnotherOwner(ctx, args.storageId, {
+        portableAssetId: stage._id,
+      })
+    ) {
+      throw new Error('Portable uploaded storage object is already claimed.')
+    }
     if (stage.state === 'uploaded' && stage.storageId === args.storageId) {
       return { runId: run.runId, sha256: stage.sha256, state: 'uploaded' }
     }
@@ -236,6 +248,7 @@ export const recordPortableAssetUpload = callerMutation.protected({
 
 export const beginPortableAssetVerification = internalMutation({
   args: {
+    contractWriteToken: cmsContractWriteTokenValidator,
     runId: v.string(),
     callerId: v.string(),
     payloadSha256: v.string(),
@@ -255,6 +268,7 @@ export const beginPortableAssetVerification = internalMutation({
     storageOrigin: v.string(),
   }),
   handler: async (ctx, args) => {
+    await assertCmsContractWriteToken(ctx, args.contractWriteToken)
     const run = await getRun(ctx, args.runId)
     requirePlannedRun(run, { callerId: args.callerId, payloadSha256: args.payloadSha256 })
     const stage = await getStage(ctx, run.runId, args.sha256)
@@ -282,6 +296,7 @@ export const beginPortableAssetVerification = internalMutation({
 
 export const attachVerifiedPortableAsset = internalMutation({
   args: {
+    contractWriteToken: cmsContractWriteTokenValidator,
     runId: v.string(),
     callerId: v.string(),
     payloadSha256: v.string(),
@@ -302,6 +317,7 @@ export const attachVerifiedPortableAsset = internalMutation({
   },
   returns: v.object({ state: v.literal('attached'), assetId: v.string() }),
   handler: async (ctx, args) => {
+    await assertCmsContractWriteToken(ctx, args.contractWriteToken)
     const run = await getRun(ctx, args.runId)
     requirePlannedRun(run, { callerId: args.callerId, payloadSha256: args.payloadSha256 })
     const stage = await getStage(ctx, run.runId, args.sha256)
@@ -325,7 +341,7 @@ export const attachVerifiedPortableAsset = internalMutation({
     }
     const extension =
       args.mediaType === 'image/jpeg' ? 'jpg' : args.mediaType.slice('image/'.length)
-    const assetId = await registerVerifiedAssetRecord(ctx, {
+    const assetId = await insertVerifiedAssetRecord(ctx, {
       storageId: args.storageId,
       filename: `${args.sha256}.${extension}`,
       mimeType: args.mediaType,
@@ -338,6 +354,7 @@ export const attachVerifiedPortableAsset = internalMutation({
       caption: null,
       scope: 'global',
       createdBy: args.callerId,
+      storageOwner: { portableAssetId: stage._id },
     })
     const now = Date.now()
     await ctx.db.patch(stage._id, {
@@ -359,7 +376,7 @@ export const markPortableAssetCleanupRequired = internalMutation({
     sha256: v.string(),
     storageId: v.id('_storage'),
   },
-  returns: v.union(v.id('portableAssetStages'), v.null()),
+  returns: v.union(v.id('portableAssets'), v.null()),
   handler: async (ctx, args) => {
     const stage = await getStage(ctx, args.runId, args.sha256)
     if (stage.storageId !== args.storageId || stage.state === 'attached') return null
@@ -369,11 +386,15 @@ export const markPortableAssetCleanupRequired = internalMutation({
 })
 
 export const finishPortableAssetCleanup = internalMutation({
-  args: { stageId: v.id('portableAssetStages'), storageId: v.id('_storage') },
+  args: { stageId: v.id('portableAssets'), storageId: v.id('_storage') },
   returns: v.null(),
   handler: async (ctx, args) => {
     const stage = await ctx.db.get(args.stageId)
-    if (stage?.storageId === args.storageId && stage.state === 'cleanup-required') {
+    if (
+      stage?.mode === 'import' &&
+      stage.storageId === args.storageId &&
+      stage.state === 'cleanup-required'
+    ) {
       await ctx.db.patch(stage._id, {
         state: 'cleaned',
         storageId: null,
@@ -384,16 +405,38 @@ export const finishPortableAssetCleanup = internalMutation({
   },
 })
 
+export const canDeletePortableAssetStorage = internalQuery({
+  args: { stageId: v.id('portableAssets'), storageId: v.id('_storage') },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const stage = await ctx.db.get(args.stageId)
+    if (
+      stage?.mode !== 'import' ||
+      stage.storageId !== args.storageId ||
+      stage.state !== 'cleanup-required'
+    ) {
+      return false
+    }
+    return !(await isStorageClaimedByAnotherOwner(ctx, args.storageId, {
+      portableAssetId: stage._id,
+    }))
+  },
+})
+
 export const cleanupPortableAssetStage = internalAction({
   args: {
-    stageId: v.id('portableAssetStages'),
+    stageId: v.id('portableAssets'),
     storageId: v.id('_storage'),
     attempt: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      await ctx.storage.delete(args.storageId)
+      const canDelete = await ctx.runQuery(canDeletePortableAssetStorageRef, {
+        stageId: args.stageId,
+        storageId: args.storageId,
+      })
+      if (canDelete) await ctx.storage.delete(args.storageId)
       await ctx.runMutation(finishPortableAssetCleanupRef, {
         stageId: args.stageId,
         storageId: args.storageId,
@@ -415,7 +458,7 @@ const beginPortableAssetVerificationRef = makeFunctionReference<
   'mutation',
   Record<string, unknown>,
   {
-    storageId: string
+    storageId: Id<'_storage'>
     byteLength: number
     mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
     storageOrigin: string
@@ -428,17 +471,22 @@ const attachVerifiedPortableAssetRef = makeFunctionReference<
 >('portability/assets:attachVerifiedPortableAsset')
 const markPortableAssetCleanupRequiredRef = makeFunctionReference<
   'mutation',
-  { runId: string; sha256: string; storageId: string },
-  string | null
+  { runId: string; sha256: string; storageId: Id<'_storage'> },
+  Id<'portableAssets'> | null
 >('portability/assets:markPortableAssetCleanupRequired')
 const finishPortableAssetCleanupRef = makeFunctionReference<
   'mutation',
-  { stageId: string; storageId: string },
+  { stageId: Id<'portableAssets'>; storageId: Id<'_storage'> },
   null
 >('portability/assets:finishPortableAssetCleanup')
+const canDeletePortableAssetStorageRef = makeFunctionReference<
+  'query',
+  { stageId: Id<'portableAssets'>; storageId: Id<'_storage'> },
+  boolean
+>('portability/assets:canDeletePortableAssetStorage')
 const cleanupPortableAssetStageRef = makeFunctionReference<
   'action',
-  { stageId: string; storageId: string; attempt: number },
+  { stageId: Id<'portableAssets'>; storageId: Id<'_storage'>; attempt: number },
   null
 >('portability/assets:cleanupPortableAssetStage')
 
@@ -449,13 +497,15 @@ export const verifyPortableAssetUpload = callerAction.protected({
   returns: v.object({ state: v.literal('attached'), assetId: v.string() }),
   handler: async (ctx, args) => {
     const identity = await ctx.appIdentity()
+    const contractWriteToken = requireCmsContractWriteToken(ctx)
     const stage = await ctx.runMutation(beginPortableAssetVerificationRef, {
       ...args,
       callerId: identity.userId,
+      contractWriteToken,
     })
     let cleanup = true
     try {
-      const url = await ctx.storage.getUrl(stage.storageId as Id<'_storage'>)
+      const url = await ctx.storage.getUrl(stage.storageId)
       if (!url || new URL(url).origin !== stage.storageOrigin) {
         throw new Error('Portable storage URL has an unexpected origin.')
       }
@@ -467,6 +517,7 @@ export const verifyPortableAssetUpload = callerAction.protected({
       const result = await ctx.runMutation(attachVerifiedPortableAssetRef, {
         ...args,
         callerId: identity.userId,
+        contractWriteToken,
         storageId: stage.storageId,
         ...verified,
       })
@@ -474,6 +525,9 @@ export const verifyPortableAssetUpload = callerAction.protected({
       return result
     } finally {
       if (cleanup) {
+        // Cleanup is a remediation path, not an editorial write: it can only
+        // quarantine and delete unclaimed upload storage. It deliberately
+        // remains available when the action's editorial fence becomes stale.
         const stageId = await ctx.runMutation(markPortableAssetCleanupRequiredRef, {
           runId: args.runId,
           sha256: args.sha256,

@@ -6,7 +6,7 @@ let loaded = false
 
 // "More details" preference for the editor's details panel (workflow spine,
 // track card, technical receipt). This is a plain persisted user preference:
-// the panel toggle is itself the explicit path UI-REVISION requires for
+// the panel toggle is itself the explicit path required for
 // advanced information. It is deliberately NOT tied to the `?diagnostics=1`
 // URL flag — that gate previously made the visible toggle a no-op for normal
 // users (design review follow-up). The raw editor DebugPanel keeps its own

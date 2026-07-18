@@ -163,5 +163,23 @@ const { finder, mode, pick, presentation, metadata, flow } = useStudioAssetBrows
         </td>
       </tr>
     </tbody>
+    <tfoot v-if="finder.hasMoreAssets.value">
+      <tr>
+        <td colspan="5" class="ginko:py-4 ginko:text-center">
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="finder.isLoadingMoreAssets.value"
+            @click="finder.loadMoreAssets"
+          >
+            {{
+              finder.isLoadingMoreAssets.value
+                ? t('ginkoCms.studio.assetBrowser.loadingMore')
+                : t('ginkoCms.common.loadMore')
+            }}
+          </Button>
+        </td>
+      </tr>
+    </tfoot>
   </table>
 </template>

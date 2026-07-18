@@ -40,6 +40,11 @@ often needs them:
 NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 CONVEX_DEPLOYMENT=dev:your-deployment-name
 BETTER_AUTH_SECRET=long-random-secret
+GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL=https://mailer.example/hooks/password-recovery
+GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN=secret-manager-value
+GINKO_MEMBER_INVITATION_DELIVERY_URL=https://mailer.example/hooks/member-invitation
+GINKO_MEMBER_INVITATION_DELIVERY_SECRET=secret-manager-value
+GINKO_MEMBER_INVITATION_ACCEPT_URL=https://your-site.example/studio/invitations/accept
 SITE_URL=https://your-site.example
 NUXT_PUBLIC_SITE_URL=https://your-site.example
 ```
@@ -50,9 +55,35 @@ NUXT_PUBLIC_SITE_URL=https://your-site.example
   during project setup.
 - `BETTER_AUTH_SECRET`: required Better Auth session/signing secret. Runtime
   startup and `ginko-cms doctor` fail closed when it is missing.
+- `GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL`: approved HTTPS email-delivery webhook
+  for Better Auth password recovery. Embedded URL credentials are rejected.
+- `GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN`: bearer credential sent only to the
+  configured recovery webhook. Keep it in the Convex environment/secret store.
+- `GINKO_MEMBER_INVITATION_DELIVERY_URL`: approved host-owned HTTPS delivery
+  boundary for CMS member invitations. Localhost HTTP is accepted only for
+  development.
+- `GINKO_MEMBER_INVITATION_DELIVERY_SECRET`: bearer credential sent only to the
+  invitation delivery boundary. Keep it in the Convex environment/secret store.
+- `GINKO_MEMBER_INVITATION_ACCEPT_URL`: absolute Studio acceptance URL. Use
+  `<studio-route>/invitations/accept`; production values must use HTTPS.
 - `SITE_URL`: canonical site origin for auth redirects and public URLs.
 - `NUXT_PUBLIC_SITE_URL`: browser-visible canonical site origin when public
   runtime config needs it.
+
+Password recovery remains Better Auth-owned: its one-hour token is consumed
+once by Better Auth, existing sessions are revoked after reset, and CMS
+membership is checked again on the next sign-in. Ginko sends the provider URL
+to the configured webhook but never creates a password-reset table or writes
+the token to logs/activity.
+
+The invitation delivery boundary receives a JSON `POST` with
+`invitationId`, normalized `email`, reviewed `role`, `expiresAt`, and
+`acceptUrl`, authenticated by
+`Authorization: Bearer $GINKO_MEMBER_INVITATION_DELIVERY_SECRET`. The raw
+one-time token exists only in the URL fragment of `acceptUrl`, so it is not sent
+with the page request. It is never returned to Studio, persisted in CMS data, or
+included in activity. The acceptance page removes the fragment after capture,
+requires authentication, and is marked `noindex`.
 
 ## CMS Server And MCP Runtime
 
@@ -63,9 +94,10 @@ through `/api/auth/api-key/verify`; product authorization happens inside the
 Ginko CMS Convex component using `mcpCredentialSettings` plus the current member
 role.
 
-## Content Portability Operator Session
+## Owner Maintenance Session
 
-The `ginko-cms content export` and `ginko-cms content import` operator commands
+The `ginko-cms content`, `ginko-cms repair`, `ginko-cms asset cleanup`,
+`ginko-cms asset recovery`, and `ginko-cms doctor --deployment` operator commands
 also require:
 
 ```bash
@@ -84,7 +116,7 @@ The operator commands also use `CONVEX_DEPLOYMENT` to bind plans and runs,
 `NUXT_PUBLIC_SITE_URL`) for authenticated asset byte transfer. The CLI also
 accepts `GINKO_CMS_BETTER_AUTH_BASE_URL` as an explicit operator-only override;
 the Nuxt MCP runtime does not.
-See [Portable content export and import](../guides/filesystem-migration.md).
+See [Portable content export and import](../guides/content-portability.md).
 
 ## Maintainer Smoke Tests
 

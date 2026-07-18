@@ -18,7 +18,8 @@ Ginko CMS owns the CMS product layer:
 - Convex component implementation.
 - host-owned Convex setup files.
 - member/access workflows.
-- content publishing, assets, backups, migrations, and projections.
+- content publishing, assets, asset recovery, owner-CLI portability, contract
+  transitions, and projections.
 - MCP tools that operate on CMS operations.
 
 Do not move CMS policy into Ginko Content or host-app setup glue. Ginko Content

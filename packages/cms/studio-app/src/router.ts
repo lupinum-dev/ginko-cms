@@ -64,6 +64,12 @@ export function createStudioRouter() {
         component: () => import('./pages/settings.vue'),
       },
       {
+        path: '/invitations/accept',
+        name: 'studio-member-invitation-accept',
+        component: () => import('./pages/invitations/accept.vue'),
+        meta: { authenticatedPublic: true },
+      },
+      {
         path: '/site-data',
         name: 'studio-site-data',
         component: () => import('./pages/site-data.vue'),

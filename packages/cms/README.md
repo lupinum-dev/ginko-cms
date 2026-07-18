@@ -32,6 +32,11 @@ pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
 
+On a fresh install, the first doctor run reports the generated contract binding
+as unbound and names `pnpm exec ginko-cms deploy` as the fix. Deploy reruns the
+remaining checks before writing the trusted hashes; rerunning doctor afterward
+must pass.
+
 The CLI manages `convex/auth.ts`, `convex/auth.config.ts`, `convex/http.ts`,
 `convex/schema.ts` and the Ginko CMS component registration in `convex/convex.config.ts`.
 
@@ -50,9 +55,14 @@ pnpm exec ginko-cms deploy
 `pnpm exec ginko-cms deploy` runs `ginko-cms doctor`, the default local Convex
 deploy command, and collection contract sync in the required order. Use
 `pnpm exec ginko-cms deploy --check` for CI validation that must not run a Convex
-deploy.
+deploy. Use `pnpm exec ginko-cms deploy --transition` for an incompatible change;
+it deploys the target host hash binding and leaves installation to the bounded
+contract transition.
 
 `pnpm exec ginko-cms doctor` is the canonical local and CI validation command.
+`pnpm exec ginko-cms doctor --deployment` additionally verifies backend
+reachability, the current owner session, installed host contract hashes, and
+contract transition state.
 
 ## What It Owns
 
@@ -60,6 +70,8 @@ deploy.
 - CMS setup CLI commands.
 - Direct Convex setup validation.
 - Deterministic Content portability helpers.
+- Owner-only projection/reference repair, terminal upload-cleanup recovery, and
+  exact-byte asset recovery commands.
 - Public CMS provider integration.
 - Tailwind v4 integration for the CMS UI.
 
@@ -87,7 +99,7 @@ See the workspace docs for
 [MCP agent workflows](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/mcp-agent-workflows.md),
 [next collection steps](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/getting-started/next-collections.md),
 [collection changes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/changing-collections.md),
-[contract transition recipes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/migrations/recipes.md),
+[contract transition recipes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/contract-transitions/recipes.md),
 [recovery boundaries](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/maintenance/backup-and-recovery.md),
 [Tailwind/theming notes](https://github.com/lupinum-dev/ginko-cms/blob/main/docs/guides/theming-the-studio.md),
 and

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -13,9 +15,9 @@ function payload(itemCount: number, assetCount: number) {
     mode: 'import' as const,
     deploymentId: 'limits-test',
     scope: { collections: ['posts'] },
-    targetContractSha256: 'a'.repeat(64),
+    targetContentHash: 'a'.repeat(64),
     sourceManifestSha256: 'b'.repeat(64),
-    sourceContractSha256: 'c'.repeat(64),
+    sourceContentHash: 'c'.repeat(64),
     itemCount,
     itemRootSha256: 'd'.repeat(64),
     assetCount,
@@ -24,6 +26,18 @@ function payload(itemCount: number, assetCount: number) {
 }
 
 describe('CMS portability supported envelope', () => {
+  it('keeps one bounded run table, item table, and asset table', () => {
+    const schema = readFileSync(
+      new URL('../../packages/convex/src/schema.ts', import.meta.url),
+      'utf8',
+    )
+    const portabilityTables = [
+      ...schema.matchAll(/^ {2}(portable[A-Z][A-Za-z]+): defineTable/gm),
+    ].map(([, name]) => name)
+
+    expect(portabilityTables).toEqual(['portableRuns', 'portableItems', 'portableAssets'])
+  })
+
   it('accepts exactly 5,000 localized documents and rejects 5,001', () => {
     expect(assertImportPlanPayload(payload(PORTABLE_DOCUMENT_LIMIT, 0)).itemCount).toBe(5_000)
     expect(() => assertImportPlanPayload(payload(PORTABLE_DOCUMENT_LIMIT + 1, 0))).toThrow(

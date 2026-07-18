@@ -1,13 +1,41 @@
-import { unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 
 import { chromium } from 'playwright'
 
+import {
+  readDisposableRoleCredentials,
+  requiredEnvironmentValue,
+  validateCandidateArtifact,
+  validateCandidateAttestation,
+  validateLiveFixtureManifest,
+} from './live-proof-config.mjs'
+import { expectText, signIn as signInWithCredentials } from './live-proof/browser-auth.mjs'
+import { createBrowserObservability } from './live-proof/browser-observability.mjs'
+import { createMcpProof } from './live-proof/mcp-proof.mjs'
+import { createPerformanceProof } from './live-proof/performance-proof.mjs'
+import { runPublicJourneys } from './live-proof/public-journeys.mjs'
+import { runRoleJourneys } from './live-proof/role-journeys.mjs'
+import { runSiteDataProof } from './live-proof/site-data-proof.mjs'
+import { runStudioJourneys } from './live-proof/studio-journeys.mjs'
+
 const configuredBaseUrl = process.env.CMS_STORY_BASE_URL
-const email = process.env.GINKO_CMS_TEST_EMAIL
-const password = process.env.GINKO_CMS_TEST_PASSWORD
+const certification = process.env.CMS_STORY_CERTIFICATION === '1'
+const disposableRoles = certification
+  ? readDisposableRoleCredentials(process.env)
+  : {
+      owner: {
+        email: process.env.GINKO_CMS_TEST_EMAIL,
+        password: process.env.GINKO_CMS_TEST_PASSWORD,
+      },
+    }
+const email = disposableRoles.owner?.email
+const password = disposableRoles.owner?.password
 const outputPath = process.env.CMS_STORY_OUTPUT ? resolve(process.env.CMS_STORY_OUTPUT) : null
+const browserArtifactDir = process.env.CMS_STORY_BROWSER_DIR
+  ? resolve(process.env.CMS_STORY_BROWSER_DIR)
+  : null
 const publicOnly = process.argv.includes('--public-only')
 
 if (!configuredBaseUrl || (!publicOnly && (!email || !password))) {
@@ -15,22 +43,107 @@ if (!configuredBaseUrl || (!publicOnly && (!email || !password))) {
     'cms-live-story-smoke requires CMS_STORY_BASE_URL, plus GINKO_CMS_TEST_EMAIL and GINKO_CMS_TEST_PASSWORD unless --public-only is used.',
   )
 }
+if (certification && (!outputPath || !browserArtifactDir)) {
+  throw new Error('Certification requires CMS_STORY_OUTPUT and CMS_STORY_BROWSER_DIR artifacts.')
+}
 
 const baseUrl = configuredBaseUrl.replace(/\/+$/, '')
+const fixturePrefix = certification
+  ? requiredEnvironmentValue('GINKO_CMS_FIXTURE_PREFIX')
+  : (process.env.GINKO_CMS_FIXTURE_PREFIX ?? 'smoke')
+const candidateAttestationUrl = certification
+  ? requiredEnvironmentValue('CMS_STORY_CANDIDATE_ATTESTATION_URL')
+  : null
+if (
+  candidateAttestationUrl &&
+  new URL(candidateAttestationUrl).origin !== new URL(baseUrl).origin
+) {
+  throw new Error('Candidate attestation must use the exact browser-tested consumer origin.')
+}
+const fixtureManifest = certification
+  ? validateLiveFixtureManifest(
+      JSON.parse(
+        await readFile(resolve(requiredEnvironmentValue('CMS_STORY_FIXTURE_MANIFEST')), 'utf8'),
+      ),
+      fixturePrefix,
+    )
+  : null
+const candidate = certification
+  ? validateCandidateArtifact(
+      JSON.parse(
+        await readFile(resolve(requiredEnvironmentValue('CMS_STORY_CANDIDATE_ARTIFACT')), 'utf8'),
+      ),
+    )
+  : null
+const performanceSampleCount = certification
+  ? Number(process.env.CMS_STORY_PERFORMANCE_SAMPLES ?? '20')
+  : 0
+if (
+  certification &&
+  (!Number.isSafeInteger(performanceSampleCount) || performanceSampleCount < 20)
+) {
+  throw new Error('Certification requires at least 20 performance samples for p95 evidence.')
+}
 const collection = 'blog'
 const collectionLabel = 'Blog'
-const fixtureToken = Date.now().toString(36)
+const fixtureToken = `${fixturePrefix}-${Date.now().toString(36)}`
 const fixtureTitle = `V-next live smoke ${fixtureToken}`
 const uploadFilename = `vnext-live-smoke-${fixtureToken}.png`
 const uploadFixturePath = resolve(tmpdir(), uploadFilename)
 const results = []
-let activeMcpConnection = null
-let mcpRequestId = 2
 let fixtureEntryUrl = null
-let publicContentFixture = null
+let localUploadFixtureRemoved = false
+let invalidCredentialsInFlight = false
+const registeredSecrets = new Set()
+const performanceProof = createPerformanceProof(performanceSampleCount)
+const { evidence: performanceEvidence, samples: performanceSamples } = performanceProof
+const screenshotStoryIds = new Set([
+  'auth.sign-in-redirect',
+  'content.fixture-publish',
+  'nav.studio-home',
+  'content-model.contract-readonly',
+  'content.entry-list-state',
+  'content.entry-editor-state',
+  'assets.upload-and-trash',
+  'site-data.localized-public-lifecycle',
+  'public-page.blog',
+  'mcp.revoke',
+])
 
 function redact(value) {
-  return String(value).replace(/[\w-]{24,}/g, '[REDACTED]')
+  let redacted = String(value).replace(/[\w-]{24,}/g, '[REDACTED]')
+  const roleSecrets = Object.values(disposableRoles).flatMap((credentials) => [
+    credentials?.email,
+    credentials?.password,
+  ])
+  for (const secret of [...roleSecrets, ...registeredSecrets]) {
+    if (secret) redacted = redacted.replaceAll(secret, '[REDACTED]')
+  }
+  return redacted
+}
+
+function safeArtifactName(value) {
+  return value
+    .replace(/[^a-z0-9.-]+/gi, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase()
+}
+
+function expectedHttpFailure(url, status) {
+  return (
+    invalidCredentialsInFlight &&
+    url.includes('/api/auth/sign-in/email') &&
+    status >= 400 &&
+    status < 500
+  )
+}
+
+async function captureStoryScreenshot(id, suffix = '', targetPage = page) {
+  if (!browserArtifactDir || targetPage.isClosed()) return null
+  const filename = `${safeArtifactName(id)}${suffix}.png`
+  await targetPage.screenshot({ path: resolve(browserArtifactDir, filename), fullPage: false })
+  browserEvidence.screenshots.push(filename)
+  return filename
 }
 
 async function story(id, title, run) {
@@ -38,20 +151,23 @@ async function story(id, title, run) {
   const startedAt = Date.now()
   try {
     const evidence = await run()
+    const screenshot = screenshotStoryIds.has(id) ? await captureStoryScreenshot(id) : null
     results.push({
       id,
       title,
       status: 'passed',
       durationMs: Date.now() - startedAt,
-      evidence: evidence ?? null,
+      evidence: screenshot ? { ...(evidence ?? {}), screenshot } : (evidence ?? null),
     })
   } catch (error) {
+    const screenshot = await captureStoryScreenshot(id, '-failed').catch(() => null)
     results.push({
       id,
       title,
       status: 'failed',
       durationMs: Date.now() - startedAt,
       error: redact(error instanceof Error ? error.message : String(error)),
+      ...(screenshot ? { screenshot } : {}),
     })
     throw error
   }
@@ -69,145 +185,36 @@ async function fetchJson(path, init) {
   return { response, body, text }
 }
 
-function contentApiPath(endpoint, params) {
-  const encoded = Buffer.from(JSON.stringify(params))
-    .toString('base64')
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replaceAll('=', '')
-  const chunks = encoded.match(/.{1,100}/g) ?? []
-  return `/api/_content/${endpoint}/_/${chunks.join('/')}.json`
-}
-
-async function mcpInitialize(rawKey) {
-  return await fetch(`${baseUrl}/mcp`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      accept: 'application/json, text/event-stream',
-      ...(rawKey ? { authorization: `Bearer ${rawKey}` } : {}),
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: {
-        protocolVersion: '2025-03-26',
-        capabilities: {},
-        clientInfo: { name: 'ginko-live-story-smoke', version: '0.0.0' },
-      },
-    }),
-  })
-}
-
-function parseMcpEnvelope(text) {
-  const dataLines = text
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith('data: '))
-    .map((line) => line.slice('data: '.length))
-  const payload = dataLines.length ? dataLines.join('\n') : text
-  const envelope = JSON.parse(payload)
-  if (envelope.error) {
-    throw new Error(`MCP error ${envelope.error.code}: ${envelope.error.message}`)
-  }
-  return envelope
-}
-
-async function mcpRequest(rawKey, method, params = {}) {
-  const response = await fetch(`${baseUrl}/mcp`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      accept: 'application/json, text/event-stream',
-      authorization: `Bearer ${rawKey}`,
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: mcpRequestId++,
-      method,
-      params,
-    }),
-  })
-  const text = await response.text()
-  if (!response.ok) {
-    throw new Error(`MCP ${method} failed ${response.status}: ${redact(text).slice(0, 300)}`)
-  }
-  return parseMcpEnvelope(text)
-}
-
-async function mcpTool(rawKey, name, args = {}) {
-  const envelope = await mcpRequest(rawKey, 'tools/call', {
-    name,
-    arguments: args,
-  })
-  return envelope.result?.structuredContent
-}
-
-async function signIn(page, redirect = '/studio/settings') {
-  await page.goto(`${baseUrl}/studio/auth/signin?redirect=${encodeURIComponent(redirect)}`, {
-    waitUntil: 'domcontentloaded',
-  })
-  await page.locator('[data-testid="cms-auth-form"][data-auth-ready="true"]').waitFor({
-    timeout: 30000,
-  })
-  await page.getByTestId('cms-auth-email').fill(email)
-  await page.getByTestId('cms-auth-password').fill(password)
-  const responsePromise = page.waitForResponse(
-    (response) => response.url().includes('/api/auth/sign-in/email'),
-    { timeout: 30000 },
-  )
-  await page.getByTestId('cms-auth-submit').click()
-  const response = await responsePromise
-  if (!response.ok()) throw new Error(`sign-in failed with ${response.status()}`)
-  await page.waitForFunction((expectedPath) => location.pathname === expectedPath, redirect, {
-    timeout: 30000,
-  })
-}
-
-async function expectText(page, text, timeout = 30000) {
-  await page.getByText(text, { exact: false }).first().waitFor({ timeout })
-}
-
-async function revokeActiveMcpConnection(page, rawKey) {
-  if (!activeMcpConnection || activeMcpConnection.revoked) return null
-  await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
-  await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
-  const row = page
-    .getByText(activeMcpConnection.label)
-    .locator('xpath=ancestor::*[self::tr or self::li or self::div][.//button][1]')
-  await row
-    .getByRole('button', { name: /revoke/i })
-    .first()
-    .click()
-  const revokeDialog = page.getByRole('dialog', { name: 'Revoke MCP access?' })
-  await revokeDialog.waitFor({ timeout: 30000 })
-  await revokeDialog.getByRole('button', { name: 'Revoke access' }).click()
-  await page.getByText('MCP connection revoked.').waitFor({ timeout: 30000 })
-  activeMcpConnection.revoked = true
-  const revoked = await mcpInitialize(rawKey)
-  if (revoked.status !== 401) throw new Error(`revoked MCP key returned ${revoked.status}`)
-  return revoked.status
-}
-
-function summarizePublicEntries(body) {
-  const entries = body && typeof body === 'object' && Array.isArray(body.result) ? body.result : []
-  return {
-    count: entries.length,
-    firstPath: entries[0]?.route?.resolvedPath ?? null,
-    firstTitle: entries[0]?.title ?? null,
-  }
-}
-
-function assertNoDraftProjection(label, value) {
-  const raw = JSON.stringify(value)
-  if (raw.includes('draftData') || raw.includes('draftVersionId')) {
-    throw new Error(`${label} exposed draft-only fields`)
-  }
+async function signIn(
+  page,
+  redirect = '/studio/settings',
+  credentials = { email, password },
+  origin = baseUrl,
+) {
+  await signInWithCredentials(page, redirect, credentials, origin)
 }
 
 const browser = await chromium.launch()
-const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
+const browserRuntime = { engine: 'chromium', version: browser.version() }
+const observability = createBrowserObservability({ redact, expectedHttpFailure })
+const browserEvidence = observability.evidence
+const createObservedContext = (options) => observability.createObservedContext(browser, options)
+const context = await createObservedContext({ viewport: { width: 1440, height: 1000 } })
 const page = await context.newPage()
+
+const mcpProof = createMcpProof({
+  baseUrl,
+  page,
+  story,
+  redact,
+  registerSecret: (secret) => registeredSecrets.add(secret),
+  collection,
+  fixtureToken,
+  fixtureManifest,
+  certification,
+})
+
+if (browserArtifactDir) await mkdir(browserArtifactDir, { recursive: true })
 
 await writeFile(
   uploadFixturePath,
@@ -218,6 +225,32 @@ await writeFile(
 )
 
 try {
+  if (certification) {
+    await story(
+      'candidate.exact-packed-consumer',
+      'Browser target attests the exact packed candidate tuple',
+      async () => {
+        const response = await fetch(candidateAttestationUrl, {
+          headers: { accept: 'application/json' },
+        })
+        const body = await response.json().catch(() => null)
+        if (!response.ok) {
+          throw new Error(`candidate attestation returned ${response.status}`)
+        }
+        const attestation = validateCandidateAttestation(body, candidate)
+        return {
+          sourceCommit: attestation.sourceCommit,
+          packages: Object.fromEntries(
+            Object.entries(attestation.packages).map(([name, value]) => [
+              name,
+              { version: value.version, commit: value.commit, sha256: value.sha256 },
+            ]),
+          ),
+        }
+      },
+    )
+  }
+
   await story(
     'auth.signed-out-protected-route',
     'Signed-out users cannot access Studio settings',
@@ -267,8 +300,14 @@ try {
             timeout: 30000,
           })
           .catch(() => null)
-        await invalidPage.getByTestId('cms-auth-submit').click()
-        const response = await responsePromise
+        invalidCredentialsInFlight = true
+        let response
+        try {
+          await invalidPage.getByTestId('cms-auth-submit').click()
+          response = await responsePromise
+        } finally {
+          invalidCredentialsInFlight = false
+        }
         const errorVisible = await invalidPage
           .getByTestId('cms-auth-error')
           .isVisible()
@@ -286,6 +325,18 @@ try {
     },
   )
 
+  if (certification) {
+    await runRoleJourneys({
+      story,
+      createObservedContext,
+      signIn,
+      baseUrl,
+      fixtureManifest,
+      roles: disposableRoles,
+      captureScreenshot: (id, targetPage) => captureStoryScreenshot(id, '', targetPage),
+    })
+  }
+
   await story(
     'auth.sign-in-redirect',
     'Valid sign-in redirects to requested Studio route',
@@ -296,563 +347,88 @@ try {
     },
   )
 
-  await story(
-    'content.fixture-publish',
-    'Creates and publishes an isolated smoke entry',
-    async () => {
-      await page.goto(`${baseUrl}/studio/content/${collection}/new`, {
+  if (certification) {
+    await story('authority.owner', 'owner receives guarded administrative access', async () => {
+      for (const name of [/Settings/, /Activity log/]) {
+        const link = page.getByRole('link', { name }).first()
+        if (!(await link.isVisible().catch(() => false))) {
+          throw new Error(`owner navigation is missing ${String(name)}`)
+        }
+      }
+      await page.getByRole('heading', { name: 'Members' }).waitFor({ timeout: 30000 })
+      await page.getByRole('button', { name: 'Add member' }).waitFor({ timeout: 30000 })
+      await page.goto(`${baseUrl}${fixtureManifest.probes.roleEntry.path}`, {
         waitUntil: 'domcontentloaded',
       })
-      await page.getByRole('textbox', { name: 'Title *' }).waitFor({ timeout: 30000 })
-      await page.getByRole('textbox', { name: 'Title *' }).fill(fixtureTitle)
-      await page
-        .getByRole('textbox', { name: 'Description' })
-        .fill('Automated V-next release-candidate verification entry.')
-
-      const createDraftButtons = page.getByRole('button', { name: 'Create draft' })
-      if ((await createDraftButtons.count()) < 1) throw new Error('Create draft action is missing')
-      await createDraftButtons.first().click()
-      await page.waitForURL(
-        new RegExp(`/studio/content/${collection}/(?!new(?:[/?#]|$))[^/?#]+$`),
-        { timeout: 30000 },
-      )
-      fixtureEntryUrl = page.url()
-      await page
-        .locator('.studio-entry-topbar__save-indicator')
-        .getByText('Saved', { exact: true })
-        .waitFor({ timeout: 30000 })
-
-      await page.getByRole('button', { name: 'Preview website changes' }).click()
-      await page.getByRole('heading', { name: 'What will change on the website' }).waitFor({
-        timeout: 30000,
-      })
-      await page.getByRole('button', { name: 'Publish EN' }).click()
-      const publishDialog = page.getByRole('dialog', { name: 'Publish?' })
-      await publishDialog.waitFor({ timeout: 30000 })
-      await publishDialog.getByRole('button', { name: 'Publish', exact: true }).click()
-      await page.getByText('published', { exact: true }).waitFor({ timeout: 30000 })
-
-      return { url: fixtureEntryUrl, title: fixtureTitle }
-    },
-  )
-
-  const routes = [
-    ['studio-home', '/studio/', 'Ginko CMS Studio'],
-    ['studio-blog', `/studio/content/${collection}`, collectionLabel],
-    ['studio-assets', '/studio/assets', 'Media'],
-    ['studio-model', '/studio/model', 'Content setup'],
-    ['studio-activity', '/studio/activity', 'Activity log'],
-    ['studio-agents', '/studio/agents', 'AI work sessions'],
-    ['studio-reviews', '/studio/reviews', 'Approvals'],
-    ['studio-site-data', '/studio/site-data', 'Site-wide content'],
-    ['studio-settings', '/studio/settings', 'Settings'],
-  ]
-
-  for (const [id, route, expected] of routes) {
-    await story(`nav.${id}`, `Studio deep link loads ${route}`, async () => {
-      await page.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' })
-      await expectText(page, expected, 60000)
-      return { url: page.url(), expected }
+      const title = page.getByRole('textbox', { name: 'Title *' })
+      await title.waitFor({ timeout: 30000 })
+      if (await title.isDisabled()) throw new Error('owner cannot edit the role probe entry')
+      await page.getByRole('button', { name: /^Publish [A-Z]{2}$/ }).waitFor({ timeout: 30000 })
+      return { edit: true, publish: true, settings: true, members: true }
     })
   }
 
-  await story(
-    'content-model.contract-readonly',
-    'Content model shows code-defined read-only collection contracts',
-    async () => {
-      await page.goto(`${baseUrl}/studio/model`, { waitUntil: 'domcontentloaded' })
-      await expectText(page, 'Content setup', 60000)
-      const bodyText = await page.locator('body').textContent({ timeout: 30000 })
-      for (const expected of ['Managed by developers', 'Content type details', 'fields']) {
-        if (!bodyText.includes(expected)) {
-          throw new Error(`content model did not show ${expected}`)
-        }
-      }
-      for (const forbidden of ['Create collection', 'Add field', 'Save schema']) {
-        if (bodyText.includes(forbidden)) {
-          throw new Error(`content model exposed schema mutation control: ${forbidden}`)
-        }
-      }
-      return { readonly: true }
-    },
-  )
-
-  await story('site-data.view', 'Permitted user can view site data', async () => {
-    await page.goto(`${baseUrl}/studio/site-data`, { waitUntil: 'domcontentloaded' })
-    await expectText(page, 'Site-wide content', 60000)
-    const bodyText = await page.locator('body').textContent({ timeout: 30000 })
-    if (!bodyText.includes('No site-wide sections') && !bodyText.includes('New section')) {
-      throw new Error('site-wide content page did not show its list or empty state')
-    }
-    return { url: page.url() }
-  })
-
-  await story(
-    'nav.command-palette-assets',
-    'Command palette opens and navigates to Media',
-    async () => {
-      await page.goto(`${baseUrl}/studio/`, { waitUntil: 'domcontentloaded' })
-      await expectText(page, 'Ginko CMS Studio', 60000)
-      await page
-        .getByRole('button', { name: /Search|⌘\s*K/i })
-        .first()
-        .click()
-      await page.getByPlaceholder('Search content or Studio pages').waitFor({ timeout: 30000 })
-      const assetsSubtitle = page.getByText('Find and manage website assets')
-      await assetsSubtitle.waitFor({ timeout: 30000 })
-      await assetsSubtitle.evaluate((element) => {
-        const option = element.closest('[role="option"]')
-        if (!(option instanceof HTMLElement)) {
-          throw new TypeError('Media command option was not found.')
-        }
-        option.click()
-      })
-      await page.waitForURL(/\/studio\/assets$/, { timeout: 30000 })
-      await expectText(page, 'Media')
-      return { url: page.url() }
-    },
-  )
-
-  await story(
-    'content.entry-list-state',
-    'Entry list shows content status and locale state',
-    async () => {
-      await page.goto(`${baseUrl}/studio/content/${collection}`, { waitUntil: 'domcontentloaded' })
-      await expectText(page, collectionLabel, 60000)
-      await page.getByPlaceholder('Search title, slug, or path').waitFor({ timeout: 30000 })
-      const rows = page.getByTestId('cms-entry-row')
-      await rows.filter({ hasText: fixtureTitle }).waitFor({ timeout: 30000 })
-      const rowCount = await rows.count()
-      if (rowCount < 1) throw new Error(`${collection} entry list rendered no rows`)
-      const fixtureRow = rows.filter({ hasText: fixtureTitle })
-      if ((await fixtureRow.count()) !== 1) throw new Error('published fixture row is missing')
-      const rowText = await fixtureRow.textContent()
-      if (!/Live|Draft only|Needs attention|Data-only|Archived/.test(rowText)) {
-        throw new Error(`entry row did not expose public state: ${redact(rowText)}`)
-      }
-      if (!/[A-Z]{2}\s*·\s*(?:Live|Draft)/.test(rowText)) {
-        throw new Error(`entry row did not expose locale readiness: ${redact(rowText)}`)
-      }
-      return { url: page.url(), rows: rowCount }
-    },
-  )
-
-  await story(
-    'content.entry-list-search-filter',
-    'Entry list can filter entries by supported fields',
-    async () => {
-      await page.goto(`${baseUrl}/studio/content/${collection}`, { waitUntil: 'domcontentloaded' })
-      await expectText(page, collectionLabel, 60000)
-      const search = page.getByPlaceholder('Search title, slug, or path')
-      await search.waitFor({ timeout: 30000 })
-      const rows = page.getByTestId('cms-entry-row')
-      await rows.filter({ hasText: fixtureTitle }).waitFor({ timeout: 30000 })
-      const before = await rows.count()
-      if (before < 1) throw new Error(`entry list had no rows for filter proof: ${before}`)
-      await search.fill(fixtureToken)
-      await page.waitForFunction(
-        (expectedTitle) => {
-          const renderedRows = document.querySelectorAll('[data-testid="cms-entry-row"]')
-          return renderedRows.length === 1 && renderedRows[0]?.textContent?.includes(expectedTitle)
-        },
-        fixtureTitle,
-        { timeout: 30000 },
-      )
-      const after = await rows.count()
-      const filteredText = await rows.first().textContent()
-      if (!filteredText.includes(fixtureTitle)) {
-        throw new Error(`filtered row did not match expected content: ${redact(filteredText)}`)
-      }
-      return { before, after, query: fixtureToken }
-    },
-  )
-
-  await story(
-    'content.entry-editor-state',
-    'Entry editor shows draft/publish workflow state',
-    async () => {
-      if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
-      await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
-      const titleField = page.getByRole('textbox', { name: 'Title *' })
-      await titleField.waitFor({ timeout: 30000 })
-      const titleElement = await titleField.elementHandle()
-      await page.waitForFunction(
-        ({ element, expected }) =>
-          element instanceof HTMLInputElement && element.value === expected,
-        { element: titleElement, expected: fixtureTitle },
-        { timeout: 30000 },
-      )
-      const hasPublish = await page
-        .getByRole('button', { name: /publish/i })
-        .first()
-        .isVisible()
-        .catch(() => false)
-      const hasSaveDraft = await page
-        .getByRole('button', { name: /save draft/i })
-        .first()
-        .isVisible()
-        .catch(() => false)
-      if (!hasPublish && !hasSaveDraft)
-        throw new Error('entry editor did not expose publish or save draft controls')
-      return { url: page.url(), hasPublish, hasSaveDraft }
-    },
-  )
-
-  await story('assets.upload-and-trash', 'Uploads and retires a smoke image', async () => {
-    await page.goto(`${baseUrl}/studio/assets`, { waitUntil: 'domcontentloaded' })
-    await page.getByRole('heading', { name: 'Media' }).waitFor({ timeout: 30000 })
-    const uploadInput = page.locator('input[type="file"]')
-    if ((await uploadInput.count()) !== 1) throw new Error('Media upload input is missing')
-    await uploadInput.setInputFiles(uploadFixturePath)
-    const uploadedAssetRow = page.getByRole('row').filter({ hasText: uploadFilename })
-    await uploadedAssetRow.waitFor({ timeout: 30000 })
-    await uploadedAssetRow.getByRole('checkbox').check()
-
-    const trashButton = page.getByRole('button', { name: 'Move to Trash' })
-    await trashButton.waitFor({ timeout: 30000 })
-    await trashButton.click()
-    const trashDialog = page.getByRole('dialog', { name: 'Move selected assets to trash?' })
-    await trashDialog.waitFor({ timeout: 30000 })
-    await trashDialog.getByRole('button', { name: 'Move to trash' }).click()
-    await uploadedAssetRow.waitFor({ state: 'hidden', timeout: 30000 })
-
-    return { filename: uploadFilename, retired: true }
-  })
-
-  await story('public-api.list', 'Public API lists only published entries', async () => {
-    const path = contentApiPath('query', {
-      collection,
-      resolveLocale: { locale: 'en', exact: true },
-      sort: [{ lastPublishedAt: -1 }],
-      limit: 2,
-    })
-    const { response, body, text } = await fetchJson(path)
-    if (!response.ok)
-      throw new Error(`public list failed ${response.status}: ${redact(text).slice(0, 300)}`)
-    const summary = summarizePublicEntries(body)
-    if (summary.count < 1) throw new Error('public list returned no entries')
-    if (!summary.firstPath || !summary.firstTitle) {
-      throw new Error('public list entry did not include a route path and title')
-    }
-    publicContentFixture = summary
-    assertNoDraftProjection('public list', body)
-    return summary
-  })
-
-  await story('public-page.blog', 'Public blog renders the published list and detail', async () => {
-    if (!publicContentFixture) throw new Error('public list evidence is unavailable')
-    await page.goto(`${baseUrl}/blog`, { waitUntil: 'domcontentloaded' })
-    const postLink = page.getByRole('link', { name: publicContentFixture.firstTitle })
-    await postLink.waitFor({ timeout: 30000 })
-    const href = await postLink.getAttribute('href')
-    if (href !== publicContentFixture.firstPath) {
-      throw new Error(`public blog linked to ${href || 'no route'}`)
-    }
-    await postLink.click()
-    await page
-      .getByRole('heading', { level: 1, name: publicContentFixture.firstTitle })
-      .waitFor({ timeout: 30000 })
-    return { path: page.url().replace(baseUrl, ''), title: publicContentFixture.firstTitle }
-  })
-
-  await story(
-    'public-page.not-found',
-    'Public content pages preserve HTTP 404 status',
-    async () => {
-      const missingPath = `/blog/missing-${fixtureToken}`
-      const response = await fetch(`${baseUrl}${missingPath}`)
-      if (response.status !== 404) {
-        throw new Error(`missing public blog page returned ${response.status}`)
-      }
-      return { path: missingPath, status: response.status }
-    },
-  )
-
-  await story('public-api.nav', 'Public API navigation returns published routes only', async () => {
-    const { response, body, text } = await fetchJson(
-      `/api/_content/navigation?collection=${collection}&locale=en`,
-    )
-    if (!response.ok)
-      throw new Error(`public nav failed ${response.status}: ${redact(text).slice(0, 300)}`)
-    if (!Array.isArray(body) || body.length < 1) {
-      throw new Error('public nav returned no tree entries')
-    }
-    assertNoDraftProjection('public nav', body)
-    const firstRoute = body[0]?.path ?? null
-    if (!firstRoute) throw new Error('public nav entry did not include a route path')
-    return { count: body.length, firstRoute }
-  })
-
-  await story(
-    'public-api.search',
-    'Public API respects the collection search contract',
-    async () => {
-      if (!publicContentFixture) throw new Error('public list evidence is unavailable')
-      const { response, body, text } = await fetchJson(
-        `/api/_content/search?q=${encodeURIComponent(publicContentFixture.firstTitle)}&locale=en`,
-      )
-      if (!response.ok) {
-        throw new Error(`public search failed ${response.status}: ${redact(text).slice(0, 300)}`)
-      }
-      if (!Array.isArray(body)) throw new Error('public search returned an invalid shape')
-      if (!body.some((result) => result?.path === publicContentFixture.firstPath)) {
-        throw new Error('public search did not return the published entry from public list')
-      }
-      assertNoDraftProjection('public search', body)
-      return {
-        count: body.length,
-        firstPath: body[0]?.path ?? null,
-      }
-    },
-  )
-
-  await story('public-api.sitemap', 'Public API sitemap returns published URLs only', async () => {
-    const { response, body, text } = await fetchJson(`/api/_content/sitemap?include=${collection}`)
-    if (!response.ok)
-      throw new Error(`public sitemap failed ${response.status}: ${redact(text).slice(0, 300)}`)
-    if (!Array.isArray(body) || body.length < 1) {
-      throw new Error('public sitemap returned no URLs')
-    }
-    assertNoDraftProjection('public sitemap', body)
-    const firstRoute = body[0]?.loc ?? null
-    if (!firstRoute) throw new Error('public sitemap entry did not include a route path')
-    const sampleIndexes = [0, Math.floor(body.length / 2), body.length - 1]
-    const sampledRoutes = [
-      ...new Set([
-        publicContentFixture?.firstPath,
-        ...sampleIndexes.map((index) => body[index]?.loc),
-      ]),
-    ].filter((path) => typeof path === 'string' && path.length > 0)
-    const routeResponses = await Promise.all(
-      sampledRoutes.map(async (path) => ({
-        path,
-        status: (await fetch(`${baseUrl}${path}`)).status,
-      })),
-    )
-    const brokenRoute = routeResponses.find((entry) => entry.status !== 200)
-    if (brokenRoute) {
-      throw new Error(
-        `public sitemap route ${brokenRoute.path || '(missing)'} returned ${brokenRoute.status}`,
-      )
-    }
-    return { count: body.length, firstRoute, checkedRoutes: routeResponses.length }
-  })
-
-  await story(
-    'public-api.search-validation',
-    'Public API validates invalid search input',
-    async () => {
-      const { response, body } = await fetchJson(`/api/_content/search?locale=en`)
-      if (response.status !== 400)
-        throw new Error(`missing search query returned ${response.status}`)
-      return { status: response.status, code: body?.data?.code ?? body?.code ?? null }
-    },
-  )
-
-  await story(
-    'mcp.unauthenticated-rejected',
-    'Unauthenticated MCP initialize is rejected',
-    async () => {
-      const response = await mcpInitialize('')
-      if (response.status !== 401)
-        throw new Error(`unauthenticated MCP returned ${response.status}`)
-      return { status: response.status }
-    },
-  )
-
-  await story('mcp.malformed-auth-rejected', 'Malformed MCP auth shape is rejected', async () => {
-    const rawHeader = 'x-api-key not-a-valid-ginko-cms-story-key'
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json, text/event-stream',
-        authorization: rawHeader,
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-03-26',
-          capabilities: {},
-          clientInfo: { name: 'ginko-live-story-smoke', version: '0.0.0' },
-        },
+  const studioState = await runStudioJourneys({
+    story,
+    page,
+    baseUrl,
+    collection,
+    collectionLabel,
+    fixtureTitle,
+    fixtureToken,
+    certification,
+    fixtureManifest,
+    performanceSamples,
+    createObservedContext,
+    signIn,
+    roles: disposableRoles,
+    uploadFixturePath,
+    uploadFilename,
+    redact,
+    runSiteData: async () =>
+      await runSiteDataProof({
+        story,
+        page,
+        baseUrl,
+        certification,
+        fixtureToken,
+        fetchJson,
+        redact,
       }),
-    })
-    const text = await response.text()
-    if (response.status !== 401) throw new Error(`malformed MCP auth returned ${response.status}`)
-    if (text.includes(rawHeader)) throw new Error('malformed MCP auth was reflected in output')
-    return { status: response.status }
+  })
+  fixtureEntryUrl = studioState.fixtureEntryUrl
+
+  await runPublicJourneys({
+    story,
+    page,
+    baseUrl,
+    collection,
+    fixtureToken,
+    certification,
+    fixtureManifest,
+    fetchJson,
+    redact,
   })
 
-  await story('mcp.unknown-key-rejected', 'Unknown MCP bearer key is rejected', async () => {
-    const response = await mcpInitialize('not-a-valid-ginko-cms-story-key')
-    const text = await response.text()
-    if (response.status !== 401) throw new Error(`unknown MCP key returned ${response.status}`)
-    if (text.includes('not-a-valid-ginko-cms-story-key')) {
-      throw new Error('unknown MCP key was reflected in failure output')
-    }
-    return { status: response.status }
-  })
+  await mcpProof.runStories()
 
-  await story(
-    'mcp.create-authenticated',
-    'MCP connection can be created and used for initialize',
-    async () => {
-      await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
-      const label = `Story ${Date.now().toString().slice(-5)}`
-      await page.locator('input[placeholder="Preview client"]').fill(label)
-      const createResponsePromise = page.waitForResponse(
-        (response) => response.url().includes('/api/auth/api-key/create'),
-        { timeout: 30000 },
-      )
-      await page.getByRole('button', { name: 'Create MCP connection' }).click()
-      const createResponse = await createResponsePromise
-      const createBody = await createResponse.json().catch(() => null)
-      if (!createResponse.ok()) {
-        throw new Error(
-          `API key create failed ${createResponse.status()}: ${redact(JSON.stringify(createBody))}`,
-        )
-      }
-      const rawKey = createBody?.key ?? createBody?.data?.key
-      const keyId = createBody?.id ?? createBody?.data?.id
-      if (!rawKey || !keyId) throw new Error('API key create response did not include key/id')
-      activeMcpConnection = { label, rawKey, keyId, revoked: false }
-      await page.getByText('MCP connection created.').waitFor({ timeout: 30000 })
-      await page.getByText(label).waitFor({ timeout: 30000 })
-      await page.getByText(rawKey, { exact: true }).waitFor({ timeout: 30000 })
-
-      const auth = await mcpInitialize(rawKey)
-      const authText = await auth.text()
-      if (!auth.ok || !authText.includes('protocolVersion')) {
-        throw new Error(
-          `authenticated MCP initialize failed ${auth.status}: ${redact(authText).slice(0, 300)}`,
-        )
-      }
-
-      return {
-        apiKeyIdLength: keyId.length,
-        authenticatedStatus: auth.status,
-      }
-    },
-  )
-
-  await story(
-    'mcp.raw-key-one-time-visible',
-    'Raw MCP key is only visible at creation time',
-    async () => {
-      if (!activeMcpConnection?.rawKey) throw new Error('MCP connection was not created')
-      const rawKey = activeMcpConnection.rawKey
-      const visibleAtCreation = await page
-        .getByText(rawKey, { exact: true })
-        .isVisible()
-        .catch(() => false)
-      if (!visibleAtCreation) throw new Error('raw MCP key was not visible immediately at creation')
-      await page.reload({ waitUntil: 'domcontentloaded' })
-      await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
-      await page.getByText(activeMcpConnection.label).waitFor({ timeout: 30000 })
-      const visibleAfterReload = await page
-        .getByText(rawKey, { exact: true })
-        .isVisible()
-        .catch(() => false)
-      if (visibleAfterReload) throw new Error('raw MCP key remained visible after settings reload')
-      return { visibleAtCreation, visibleAfterReload }
-    },
-  )
-
-  await story('mcp.tools-list-and-read', 'MCP tools list and read published CMS data', async () => {
-    if (!activeMcpConnection?.rawKey) throw new Error('MCP connection was not created')
-    const rawKey = activeMcpConnection.rawKey
-    const toolsEnvelope = await mcpRequest(rawKey, 'tools/list')
-    const tools = toolsEnvelope.result?.tools
-    if (!Array.isArray(tools)) throw new Error('tools/list did not return a tool array')
-    const toolNames = tools.map((tool) => tool.name)
-    for (const name of [
-      'list-collections',
-      'get-collection',
-      'list-entries',
-      'get-entry',
-      'list',
-      'search',
-    ]) {
-      if (!toolNames.includes(name)) throw new Error(`tools/list missing ${name}`)
-    }
-
-    const collections = await mcpTool(rawKey, 'list-collections')
-    const collectionList = collections?.collections
-    if (
-      !Array.isArray(collectionList) ||
-      !collectionList.some((item) => item.slug === collection)
-    ) {
-      throw new Error(`list-collections did not include ${collection}`)
-    }
-
-    const collectionResult = await mcpTool(rawKey, 'get-collection', {
-      slug: collection,
-      compact: true,
-    })
-    if (collectionResult?.slug !== collection || collectionResult?.routing?.mode !== 'route') {
-      throw new Error(`get-collection did not return compact ${collection} route metadata`)
-    }
-
-    const cmsEntries = await mcpTool(rawKey, 'list-entries', {
-      collection,
-      locale: 'en',
-    })
-    const editableEntries = cmsEntries?.entries
-    if (!Array.isArray(editableEntries) || editableEntries.length < 1) {
-      throw new Error('list-entries did not return CMS entries')
-    }
-    const entryId = editableEntries[0]?._id ?? editableEntries[0]?.id
-    if (!entryId) throw new Error('list-entries did not return an entry id')
-
-    const cmsEntry = await mcpTool(rawKey, 'get-entry', {
-      entryId,
-      locale: 'en',
-      compact: true,
-    })
-    if (cmsEntry?.collection !== collection || cmsEntry?.entryId !== entryId) {
-      throw new Error('get-entry did not return the requested compact CMS entry')
-    }
-
-    const publicList = await mcpTool(rawKey, 'list', {
-      collection,
-      locale: 'en',
-      limit: 1,
-      compact: true,
-    })
-    if (!Array.isArray(publicList?.entries) || publicList.entries.length !== 1) {
-      throw new Error('public list tool did not return one compact entry')
-    }
-    const firstEntry = publicList.entries[0]
-    if (!firstEntry?.route?.path || JSON.stringify(firstEntry).includes('draftData')) {
-      throw new Error('public list tool returned invalid or draft-shaped entry data')
-    }
-
-    const search = await mcpTool(rawKey, 'search', {
-      collection,
-      locale: 'en',
-      query: fixtureToken,
-      limit: 2,
-      compact: true,
-    })
-    if (!Array.isArray(search?.results)) throw new Error('public search tool returned invalid data')
-    return {
-      toolCount: tools.length,
-      collectionCount: collectionList.length,
-      cmsEntryCount: editableEntries.length,
-      firstPublicPath: firstEntry.route.path,
-      searchResults: search.results.length,
-    }
-  })
-
-  await story('mcp.revoke', 'MCP connection can be revoked', async () => {
-    if (!activeMcpConnection?.rawKey) throw new Error('MCP connection was not created')
-    const revokedStatus = await revokeActiveMcpConnection(page, activeMcpConnection.rawKey)
-    return { revokedStatus }
-  })
+  if (certification) {
+    await story(
+      'quality.measured-performance-budgets',
+      'Target-scale performance budgets pass with repeated p95 evidence',
+      async () =>
+        await performanceProof.runJourney({
+          context,
+          page,
+          createObservedContext,
+          baseUrl,
+          collection,
+          collectionLabel,
+          fixtureToken,
+          fixtureManifest,
+        }),
+    )
+  }
 
   await story('content.fixture-cleanup', 'Unpublishes and archives the smoke entry', async () => {
     if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
@@ -910,24 +486,92 @@ try {
     },
   )
 } finally {
-  if (activeMcpConnection && !activeMcpConnection.revoked) {
-    await revokeActiveMcpConnection(page, activeMcpConnection.rawKey).catch((error) => {
-      results.push({
-        id: 'mcp.cleanup',
-        title: 'Cleanup active MCP connection after failure',
-        status: 'failed',
-        durationMs: 0,
-        error: redact(error instanceof Error ? error.message : String(error)),
-      })
+  const mcpCleanup = await mcpProof.cleanup()
+  results.push(...mcpCleanup.failures)
+  await browser.close()
+  localUploadFixtureRemoved = await unlink(uploadFixturePath).then(
+    () => true,
+    () => false,
+  )
+  const cleanup = {
+    fixturePrefix,
+    entryArchived: results.some(
+      (result) => result.id === 'content.fixture-cleanup' && result.status === 'passed',
+    ),
+    assetRetired: results.some(
+      (result) => result.id === 'assets.upload-and-trash' && result.status === 'passed',
+    ),
+    siteDataDeleted:
+      !certification ||
+      results.some(
+        (result) =>
+          result.id === 'site-data.localized-public-lifecycle' && result.status === 'passed',
+      ),
+    ...mcpCleanup.status,
+    localUploadFixtureRemoved,
+    deploymentDiscardStillRequired: true,
+  }
+  const unexpectedBrowserFailures =
+    browserEvidence.console.length +
+    browserEvidence.pageErrors.length +
+    browserEvidence.requestFailures.length +
+    browserEvidence.httpFailures.length
+  if (unexpectedBrowserFailures > 0) {
+    results.push({
+      id: 'browser.observability',
+      title: 'No unexpected console, page, request, or HTTP failures',
+      status: 'failed',
+      durationMs: 0,
+      error: `${unexpectedBrowserFailures} unexpected browser failure(s) were recorded.`,
     })
   }
-  await browser.close()
-  await unlink(uploadFixturePath).catch(() => undefined)
+  if (browserArtifactDir) {
+    await writeFile(
+      resolve(browserArtifactDir, 'console-network-summary.json'),
+      `${JSON.stringify({ browserRuntime, unexpectedBrowserFailures, ...browserEvidence }, null, 2)}\n`,
+    )
+    const journeyCleanupOutput = process.env.CMS_STORY_JOURNEY_CLEANUP_OUTPUT
+      ? resolve(process.env.CMS_STORY_JOURNEY_CLEANUP_OUTPUT)
+      : resolve(browserArtifactDir, 'journey-cleanup.json')
+    await writeFile(journeyCleanupOutput, `${JSON.stringify(cleanup, null, 2)}\n`)
+    if (certification) {
+      const metricResults = Object.values(performanceEvidence.metrics)
+      await writeFile(
+        resolve(browserArtifactDir, 'performance-summary.json'),
+        `${JSON.stringify(
+          {
+            ...performanceEvidence,
+            ok:
+              metricResults.length === 8 &&
+              metricResults.every((metric) => metric.passed === true) &&
+              performanceSampleCount >= 20,
+          },
+          null,
+          2,
+        )}\n`,
+      )
+    }
+  }
   if (outputPath) {
     const failed = results.filter((result) => result.status !== 'passed')
     await writeFile(
       outputPath,
-      `${JSON.stringify({ ok: failed.length === 0, baseUrl, stories: results.length, results }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          ok: failed.length === 0,
+          baseUrl,
+          stories: results.length,
+          cleanup,
+          browser: {
+            runtime: browserRuntime,
+            unexpectedFailures: unexpectedBrowserFailures,
+            screenshots: browserEvidence.screenshots,
+          },
+          results,
+        },
+        null,
+        2,
+      )}\n`,
     )
   }
 }

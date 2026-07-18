@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
@@ -92,6 +92,13 @@ const collectionDetail = vi.hoisted(() => ({
   locales: ['en'],
 }))
 
+const paginatedQueryState = vi.hoisted(() => ({
+  hasNextPage: false,
+  loadMore: vi.fn(),
+}))
+
+const accessState = vi.hoisted(() => ({ canCreateEntries: true }))
+
 vi.mock('../../packages/cms/studio-app/src/boundary/api', () => ({
   api: {
     ginkoCms: {
@@ -131,16 +138,17 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsI18n', () => ({
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () => ({
   useCmsStudioAccess: () => ({
-    can: () => ref(true),
+    can: (permission: string) =>
+      ref(permission === 'createEntries' ? accessState.canCreateEntries : true),
   }),
 }))
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuery', () => ({
   useCmsStudioPaginatedQuery: () => ({
     error: ref(null),
-    hasNextPage: ref(false),
+    hasNextPage: ref(paginatedQueryState.hasNextPage),
     isLoading: ref(false),
-    loadMore: vi.fn(),
+    loadMore: paginatedQueryState.loadMore,
     results: ref([]),
   }),
 }))
@@ -243,6 +251,24 @@ function stubs() {
 }
 
 describe('Studio collection list page', () => {
+  beforeEach(() => {
+    paginatedQueryState.hasNextPage = false
+    paginatedQueryState.loadMore.mockReset()
+    accessState.canCreateEntries = true
+  })
+
+  it('[CON-05] renders a role-aware empty collection action', async () => {
+    const editor = await mountListPage('/studio/content/pages')
+    expect(editor.wrapper.text()).toContain('ginkoCms.studio.collectionListPage.emptyTitle')
+    expect(editor.wrapper.text()).toContain('ginkoCms.studio.collectionListPage.newEntry')
+
+    editor.wrapper.unmount()
+    accessState.canCreateEntries = false
+    const viewer = await mountListPage('/studio/content/pages')
+    expect(viewer.wrapper.text()).toContain('ginkoCms.studio.collectionListPage.emptyTitle')
+    expect(viewer.wrapper.text()).not.toContain('ginkoCms.studio.collectionListPage.newEntry')
+  })
+
   it('initializes filters from ?status=, ?work=, and ?q= deep-link params', async () => {
     const { wrapper } = await mountListPage(
       '/studio/content/pages?status=published&work=blocked&q=campaign',
@@ -283,5 +309,17 @@ describe('Studio collection list page', () => {
     await vi.waitFor(() => {
       expect(router.currentRoute.value.query.status).toBeUndefined()
     })
+  })
+
+  it('keeps later filtered pages reachable when the current page is empty', async () => {
+    paginatedQueryState.hasNextPage = true
+    const { wrapper } = await mountListPage('/studio/content/pages?work=blocked')
+
+    const loadMore = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'ginkoCms.common.loadMore')
+    expect(loadMore).toBeTruthy()
+    await loadMore!.trigger('click')
+    expect(paginatedQueryState.loadMore).toHaveBeenCalledWith(50)
   })
 })

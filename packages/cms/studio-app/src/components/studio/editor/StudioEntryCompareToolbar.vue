@@ -34,6 +34,13 @@ function localeFlagName(code: string) {
   return localeFlag(code) ?? ''
 }
 
+function hasLocaleDraft(code: string) {
+  return editor.loader.localeVariants.some(
+    (locale: { locale: string; draftExists?: boolean }) =>
+      locale.locale === code && locale.draftExists === true,
+  )
+}
+
 function toggleMode(compare: boolean) {
   editor.locales.setTranslationMode(compare)
   if (compare && !editor.locales.secondaryLocale && secondaryLocale.value) {
@@ -130,6 +137,13 @@ function swapLocales() {
                 {{ locale.code.toUpperCase() }}
               </span>
               <span v-if="hasDistinctLocaleLabel(locale)">{{ locale.label }}</span>
+              <span v-if="!hasLocaleDraft(locale.code)" class="ginko:text-muted-foreground">
+                {{
+                  editor.loader.t(
+                    'ginkoCms.studio.collectionEditor.translationReadinessMissingLabel',
+                  )
+                }}
+              </span>
             </SelectItem>
           </SelectContent>
         </Select>
@@ -176,6 +190,13 @@ function swapLocales() {
                   {{ locale.code.toUpperCase() }}
                 </span>
                 <span v-if="hasDistinctLocaleLabel(locale)">{{ locale.label }}</span>
+                <span v-if="!hasLocaleDraft(locale.code)" class="ginko:text-muted-foreground">
+                  {{
+                    editor.loader.t(
+                      'ginkoCms.studio.collectionEditor.translationReadinessMissingLabel',
+                    )
+                  }}
+                </span>
               </SelectItem>
             </SelectContent>
           </Select>
@@ -227,6 +248,13 @@ function swapLocales() {
                   {{ locale.code.toUpperCase() }}
                 </span>
                 <span v-if="hasDistinctLocaleLabel(locale)">{{ locale.label }}</span>
+                <span v-if="!hasLocaleDraft(locale.code)" class="ginko:text-muted-foreground">
+                  {{
+                    editor.loader.t(
+                      'ginkoCms.studio.collectionEditor.translationReadinessMissingLabel',
+                    )
+                  }}
+                </span>
               </SelectItem>
             </SelectContent>
           </Select>

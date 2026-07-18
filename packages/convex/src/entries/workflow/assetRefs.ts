@@ -15,8 +15,10 @@ import type { CmsField, JsonValue } from '@lupinum/ginko-cms-contract/shared/typ
 
 import type { Id } from '../../_generated/dataModel.js'
 import type { MutationCtx } from '../../lib/types.js'
+import { invalidateAssetReferenceProof } from '../assetReferenceProof.js'
 
 export type AssetRefSourceKind = 'draft' | 'revision' | 'public'
+export type AssetRefWriteMode = 'canonical' | 'repair'
 
 export interface AssetRef {
   assetId: string
@@ -24,13 +26,54 @@ export interface AssetRef {
   locale: string | null
 }
 
-export interface ReplaceAssetRefsInput {
-  sourceKind: AssetRefSourceKind
+export type AssetRefSourceFence =
+  | { kind: 'draftVersion'; version: number }
+  | { kind: 'revision'; revisionId: Id<'entryRevisions'>; contentHash: string }
+  | { kind: 'publicRevision'; revisionId: Id<'entryRevisions'> }
+
+type AssetRefSourceInput = {
   sourceId: string
   entryId: Id<'entries'>
   collection: string
   refs: AssetRef[]
-  now: number
+}
+
+export type ReplaceAssetRefsInput = AssetRefSourceInput &
+  (
+    | {
+        sourceKind: 'draft'
+        sourceFence: Extract<AssetRefSourceFence, { kind: 'draftVersion' }>
+      }
+    | {
+        sourceKind: 'revision'
+        sourceFence: Extract<AssetRefSourceFence, { kind: 'revision' }>
+      }
+    | {
+        sourceKind: 'public'
+        sourceFence: Extract<AssetRefSourceFence, { kind: 'publicRevision' }>
+      }
+  )
+
+async function deleteAssetRefRowsForSource(
+  ctx: MutationCtx,
+  input: { sourceKind: AssetRefSourceKind; sourceId: string },
+): Promise<void> {
+  const existing = await ctx.db
+    .query('contentAssetRefs')
+    .withIndex('by_source', (q) =>
+      q.eq('sourceKind', input.sourceKind).eq('sourceId', input.sourceId),
+    )
+    .collect()
+  for (const row of existing) await ctx.db.delete(row._id)
+}
+
+export async function deleteAssetRefsForSource(
+  ctx: MutationCtx,
+  input: { sourceKind: AssetRefSourceKind; sourceId: string },
+  mode: AssetRefWriteMode,
+): Promise<void> {
+  await deleteAssetRefRowsForSource(ctx, input)
+  if (mode === 'canonical') await invalidateAssetReferenceProof(ctx)
 }
 
 /**
@@ -41,43 +84,27 @@ export interface ReplaceAssetRefsInput {
 export async function replaceAssetRefs(
   ctx: MutationCtx,
   input: ReplaceAssetRefsInput,
+  mode: AssetRefWriteMode,
 ): Promise<void> {
-  const existing = await ctx.db
-    .query('contentAssetRefs')
-    .withIndex('by_source', (q) =>
-      q.eq('sourceKind', input.sourceKind).eq('sourceId', input.sourceId),
-    )
-    .collect()
-  for (const row of existing) {
-    await ctx.db.delete(row._id)
-  }
-  for (const ref of input.refs) {
+  await deleteAssetRefRowsForSource(ctx, input)
+  const refs = uniqueAssetRefs(input.refs).sort((left, right) =>
+    [left.assetId, left.fieldPath, left.locale ?? '']
+      .join('\u0000')
+      .localeCompare([right.assetId, right.fieldPath, right.locale ?? ''].join('\u0000')),
+  )
+  for (const ref of refs) {
     await ctx.db.insert('contentAssetRefs', {
       sourceKind: input.sourceKind,
       sourceId: input.sourceId,
+      sourceFence: input.sourceFence,
       assetId: ref.assetId,
       fieldPath: ref.fieldPath,
       locale: ref.locale,
       entryId: input.entryId,
       collection: input.collection,
-      updatedAt: input.now,
     })
   }
-}
-
-export async function deleteEntryAssetRefsBySourceKind(
-  ctx: MutationCtx,
-  args: { entryId: Id<'entries'>; sourceKind: AssetRefSourceKind },
-): Promise<void> {
-  const rows = await ctx.db
-    .query('contentAssetRefs')
-    .withIndex('by_entry', (q) => q.eq('entryId', args.entryId))
-    .collect()
-  for (const row of rows) {
-    if (row.sourceKind === args.sourceKind) {
-      await ctx.db.delete(row._id)
-    }
-  }
+  if (mode === 'canonical') await invalidateAssetReferenceProof(ctx)
 }
 
 /**

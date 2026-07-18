@@ -10,16 +10,19 @@
 
 import type * as auth from "../auth.js";
 import type * as ginkoCms_agentRuns from "../ginkoCms/agentRuns.js";
+import type * as ginkoCms_assetRecovery from "../ginkoCms/assetRecovery.js";
 import type * as ginkoCms_assets from "../ginkoCms/assets.js";
-import type * as ginkoCms_backup from "../ginkoCms/backup.js";
 import type * as ginkoCms_collections from "../ginkoCms/collections.js";
+import type * as ginkoCms_contract from "../ginkoCms/contract.js";
+import type * as ginkoCms_contractBinding from "../ginkoCms/contractBinding.js";
+import type * as ginkoCms_contractTransitions from "../ginkoCms/contractTransitions.js";
 import type * as ginkoCms_diagnostics from "../ginkoCms/diagnostics.js";
 import type * as ginkoCms_draftPreview from "../ginkoCms/draftPreview.js";
 import type * as ginkoCms_editor from "../ginkoCms/editor.js";
+import type * as ginkoCms_maintenance from "../ginkoCms/maintenance.js";
 import type * as ginkoCms_mcpCredentials from "../ginkoCms/mcpCredentials.js";
 import type * as ginkoCms_members from "../ginkoCms/members.js";
-import type * as ginkoCms_migrations from "../ginkoCms/migrations.js";
-import type * as ginkoCms_policy from "../ginkoCms/policy.js";
+import type * as ginkoCms_passwordRecovery from "../ginkoCms/passwordRecovery.js";
 import type * as ginkoCms_portability from "../ginkoCms/portability.js";
 import type * as ginkoCms_public from "../ginkoCms/public.js";
 import type * as ginkoCms_revalidation from "../ginkoCms/revalidation.js";
@@ -37,16 +40,19 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   "ginkoCms/agentRuns": typeof ginkoCms_agentRuns;
+  "ginkoCms/assetRecovery": typeof ginkoCms_assetRecovery;
   "ginkoCms/assets": typeof ginkoCms_assets;
-  "ginkoCms/backup": typeof ginkoCms_backup;
   "ginkoCms/collections": typeof ginkoCms_collections;
+  "ginkoCms/contract": typeof ginkoCms_contract;
+  "ginkoCms/contractBinding": typeof ginkoCms_contractBinding;
+  "ginkoCms/contractTransitions": typeof ginkoCms_contractTransitions;
   "ginkoCms/diagnostics": typeof ginkoCms_diagnostics;
   "ginkoCms/draftPreview": typeof ginkoCms_draftPreview;
   "ginkoCms/editor": typeof ginkoCms_editor;
+  "ginkoCms/maintenance": typeof ginkoCms_maintenance;
   "ginkoCms/mcpCredentials": typeof ginkoCms_mcpCredentials;
   "ginkoCms/members": typeof ginkoCms_members;
-  "ginkoCms/migrations": typeof ginkoCms_migrations;
-  "ginkoCms/policy": typeof ginkoCms_policy;
+  "ginkoCms/passwordRecovery": typeof ginkoCms_passwordRecovery;
   "ginkoCms/portability": typeof ginkoCms_portability;
   "ginkoCms/public": typeof ginkoCms_public;
   "ginkoCms/revalidation": typeof ginkoCms_revalidation;

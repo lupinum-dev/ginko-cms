@@ -54,7 +54,7 @@ function createStudioEntryEditorContextBase() {
     form: draft.form,
     handleSaveDraft: draft.handleSaveDraft,
     cancelAutoSave: draft.cancelAutoSave,
-    buildLocalizedData: draft.buildLocalizedData,
+    refreshEntry: loader.refreshEntry,
     t: loader.t,
   })
 
@@ -83,6 +83,7 @@ function createStudioEntryEditorContextBase() {
     currentLocale: loader.currentLocale,
     canPublishEntries: loader.canPublishEntries,
     canArchiveEntries: loader.canArchiveEntries,
+    canDeleteEntries: loader.canDeleteEntries,
     saving: draft.saving,
     error: draft.error,
     hydratedDraftVersion: draft.lastHydratedVersion,
@@ -96,19 +97,12 @@ function createStudioEntryEditorContextBase() {
     t: loader.t,
   })
 
-  function copyPrimaryToSecondary() {
-    for (const field of loader.localizedFields.value) {
-      locales.secondaryDataFields[field.key] = draft.dataFields[field.key]
-    }
-  }
-
   return reactive({
     loader,
     draft,
     locales,
     history,
     publishing,
-    copyPrimaryToSecondary,
   })
 }
 

@@ -40,6 +40,10 @@ export type WebsiteChangeGroups = {
   hiddenChangeCount: number
 }
 
+export function formatBoundedCount(count: number, isLowerBound: boolean): string {
+  return isLowerBound ? `${count}+` : String(count)
+}
+
 export function displayWebsiteChangeValue(
   value: WebsiteChangeValue,
   labels: Pick<WebsiteChangeLabels, 'empty' | 'excluded' | 'included' | 'notSet'>,

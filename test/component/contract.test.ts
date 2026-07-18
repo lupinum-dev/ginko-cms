@@ -54,6 +54,61 @@ async function contractPayload(
 }
 
 describe('canonical CMS contract installation', () => {
+  it('[CON-01][ADM-03] exposes the installed content model and drift state to every read-capable role', async () => {
+    const ctx = createCtx()
+    const members = [
+      { userId: 'viewer-1', role: 'viewer' as const },
+      { userId: 'editor-1', role: 'editor' as const },
+      { userId: 'publisher-1', role: 'publisher' as const },
+      { userId: 'owner-1', role: 'owner' as const },
+    ]
+    for (const member of members) await seedMember(ctx, member)
+
+    for (const member of members) {
+      await expect(
+        ctx.asCmsUser(member.userId).query(api.contract.getInstalledContractStatus, {}),
+      ).resolves.toEqual({
+        installedContentHash: null,
+        installedPresentationHash: null,
+        transitionState: null,
+        transitionRunId: null,
+      })
+    }
+
+    const payload = await contractPayload(contractFixture())
+    await ctx.raw.mutation(api.contract.installCmsContract, payload)
+    for (const member of members) {
+      await expect(
+        ctx.asCmsUser(member.userId).query(api.contract.getInstalledContractStatus, {}),
+      ).resolves.toEqual({
+        installedContentHash: payload.contentHash,
+        installedPresentationHash: payload.presentationHash,
+        transitionState: 'ready',
+        transitionRunId: null,
+      })
+    }
+
+    await ctx.run(async (mutationCtx) => {
+      const installed = await mutationCtx.db
+        .query('cmsContract')
+        .withIndex('by_key', (query) => query.eq('key', 'active'))
+        .unique()
+      if (!installed) throw new Error('Expected installed contract fixture.')
+      await mutationCtx.db.patch(installed._id, {
+        transitionState: 'locked',
+        transitionRunId: 'transition-1',
+      })
+    })
+    await expect(
+      ctx.asCmsUser('viewer-1').query(api.contract.getInstalledContractStatus, {}),
+    ).resolves.toEqual({
+      installedContentHash: payload.contentHash,
+      installedPresentationHash: payload.presentationHash,
+      transitionState: 'locked',
+      transitionRunId: 'transition-1',
+    })
+  })
+
   it('rejects invalid content and presentation hashes without writing anything', async () => {
     const ctx = createCtx()
     const contract = contractFixture()
@@ -89,7 +144,7 @@ describe('canonical CMS contract installation', () => {
         posts: {
           label: { en: 'Articles', de: 'Artikel' },
           icon: 'newspaper',
-          fields: { title: { label: 'Headline', width: 'full' } },
+          fields: { title: { label: 'Headline', description: null, width: 'full' } },
         },
       },
     }
@@ -134,7 +189,6 @@ describe('canonical CMS contract installation', () => {
         label: 'Articles',
         labelMap: { en: 'Articles', de: 'Artikel' },
         icon: 'newspaper',
-        entryCount: 0,
       }),
     ])
     await expect(viewer.query(api.collections.getCollection, { slug: 'posts' })).resolves.toEqual(

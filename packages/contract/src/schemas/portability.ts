@@ -171,13 +171,39 @@ export const expireImport = defineArgs({
   args: runArgs,
 })
 
+export const getPortabilityRunStatus = defineArgs({
+  description: 'Inspect one owner-scoped durable portability run and its recent receipts.',
+  args: { runId: v.string() },
+})
+
+export const resumePortabilityRun = defineArgs({
+  description: 'Resume one failed or interrupted durable portability worker.',
+  args: { runId: v.string() },
+})
+
+export const listPortabilityItemReceipts = defineArgs({
+  description: 'Read one indexed keyset page of owner-scoped portability item receipts.',
+  args: {
+    runId: v.string(),
+    cursor: v.union(v.number(), v.null()),
+    limit: v.number(),
+    filter: v.union(
+      v.literal('all'),
+      v.literal('failed'),
+      v.literal('blocked'),
+      v.literal('skipped'),
+    ),
+  },
+})
+
 export const createExportRun = defineArgs({
-  description: 'Start one fenced immutable published-content export capture.',
+  description:
+    'Preflight the supported envelope, then start one fenced published-content export capture.',
   args: {
     runId: v.string(),
     deploymentId: v.string(),
     scope: v.object({ collections: v.array(v.string()) }),
-    sourceContractSha256: v.string(),
+    sourceContentHash: v.string(),
     leaseTokenHash: v.string(),
   },
 })

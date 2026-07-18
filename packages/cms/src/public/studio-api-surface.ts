@@ -28,7 +28,9 @@ export type StudioApiEntry =
   | {
       kind: StudioOperationKind
       component?: string
+      componentGroup?: string
       confirmation?: true
+      omitArgs?: readonly string[]
     }
 
 export type StudioApiSurface = Record<string, Record<string, StudioApiEntry>>
@@ -43,33 +45,41 @@ export type StudioApiSurface = Record<string, Record<string, StudioApiEntry>>
 export const studioApiSurface = {
   agentRuns: {
     completeRun: 'mutation',
-    listOwnRuns: 'query',
+    listRuns: 'query',
     revokeRun: 'mutation',
   },
   assets: {
     attachAssetsToEntry: 'mutation',
+    claimAssetUploadSession: 'mutation',
+    createAssetUploadSession: 'mutation',
     deleteAsset: {
       kind: 'mutation',
       component: 'deleteAssetOperationExecute',
       confirmation: true,
     },
-    generateUploadUrl: 'mutation',
+    finalizeAssetUploadSession: 'action',
     getAsset: 'query',
     getAssetManagerData: 'query',
-    listColocatedAssets: 'query',
+    listAssetsByOwner: 'query',
+    listAssetUsages: 'query',
     moveAsset: 'mutation',
     previewDeleteAssetOperation: 'mutation',
     previewPurgeAssetOperation: 'mutation',
-    purgeAsset: { kind: 'mutation', confirmation: true },
-    registerAsset: 'action',
+    previewReplaceAssetOperation: 'mutation',
+    purgeAsset: { kind: 'action', confirmation: true },
+    replaceAsset: { kind: 'action', confirmation: true },
     resolveAssetUrls: 'query',
     restoreAsset: 'mutation',
     updateAsset: 'mutation',
+    verifyAssetReplacementUpload: 'action',
   },
   collections: {
     getCollection: 'query',
     listCollections: 'query',
     searchStudioEntries: 'query',
+  },
+  contract: {
+    getInstalledContractStatus: 'query',
   },
   mcpCredentials: {
     listOwnSettings: 'query',
@@ -77,10 +87,7 @@ export const studioApiSurface = {
     upsertSettings: 'mutation',
   },
   diagnostics: {
-    validatePublicRoutes: 'query',
     explainPublicVisibility: 'query',
-    previewPublishImpact: 'query',
-    storageHygieneReport: 'query',
   },
   editor: {
     archiveEntry: {
@@ -90,6 +97,7 @@ export const studioApiSurface = {
     },
     createCheckpoint: 'mutation',
     createEntry: 'mutation',
+    duplicateEntry: 'mutation',
     createLocaleVariant: 'mutation',
     getDraftVsPublishedDiff: 'query',
     getEntry: 'query',
@@ -101,11 +109,17 @@ export const studioApiSurface = {
     getVersionSnapshot: 'query',
     listActivity: 'query',
     listEntrySummaries: 'query',
-    listEntries: 'query',
     listEntriesForStudio: 'query',
+    listPublishRouteImpactPage: 'query',
+    listRedirects: 'query',
+    listStudioWorkQueue: 'query',
     listVersions: 'query',
     previewArchiveEntryOperation: 'mutation',
+    previewPermanentlyDeleteEntryOperation: 'mutation',
     previewPublishEntryOperation: 'mutation',
+    previewReorderEntryOperation: 'mutation',
+    previewReparentEntryOperation: 'mutation',
+    previewRetireRedirectOperation: 'mutation',
     previewRestoreEntryOperation: 'mutation',
     previewRollbackVersionOperation: 'mutation',
     previewUnpublishEntryOperation: 'mutation',
@@ -114,8 +128,26 @@ export const studioApiSurface = {
       component: 'publishEntryOperationExecute',
       confirmation: true,
     },
-    reparentEntry: 'mutation',
-    reorderEntry: 'mutation',
+    permanentlyDeleteEntry: {
+      kind: 'mutation',
+      component: 'permanentlyDeleteEntryOperationExecute',
+      confirmation: true,
+    },
+    reparentEntry: {
+      kind: 'mutation',
+      component: 'reparentEntryOperationExecute',
+      confirmation: true,
+    },
+    reorderEntry: {
+      kind: 'mutation',
+      component: 'reorderEntryOperationExecute',
+      confirmation: true,
+    },
+    retireRedirect: {
+      kind: 'mutation',
+      component: 'retireRedirectOperationExecute',
+      confirmation: true,
+    },
     restoreEntry: {
       kind: 'mutation',
       component: 'restoreEntryOperationExecute',
@@ -134,9 +166,10 @@ export const studioApiSurface = {
     },
   },
   members: {
-    addMember: 'mutation',
+    acceptMemberInvitation: 'mutation',
     bootstrapCmsOwner: 'mutation',
     getAccessContext: 'query',
+    listMemberInvitations: 'query',
     listMembers: 'query',
     previewRemoveMemberOperation: 'mutation',
     removeMember: {
@@ -144,7 +177,28 @@ export const studioApiSurface = {
       component: 'removeMemberOperationExecute',
       confirmation: true,
     },
+    resendMemberInvitation: {
+      kind: 'action',
+      component: 'prepareMemberInvitationResendDelivery',
+      omitArgs: ['tokenHash', '_trustedCaller'],
+    },
+    revokeMemberInvitation: 'mutation',
+    sendMemberInvitation: {
+      kind: 'action',
+      component: 'prepareMemberInvitationDelivery',
+      omitArgs: ['tokenHash', '_trustedCaller'],
+    },
     updateMemberRole: 'mutation',
+  },
+  maintenance: {
+    getStorageHealth: {
+      kind: 'query',
+      componentGroup: 'storageMaintenance',
+    },
+    runStorageDiagnostic: {
+      kind: 'mutation',
+      componentGroup: 'storageMaintenance',
+    },
   },
   public: {
     list: 'query',
@@ -165,6 +219,7 @@ export const studioApiSurface = {
       component: 'retryRevalidationJobOperationExecute',
       confirmation: true,
     },
+    testRevalidationTarget: 'action',
     upsertRevalidationTarget: 'mutation',
   },
   reviewRequests: {
@@ -203,31 +258,36 @@ export const studioApiSurface = {
 export type StudioApiFromSurface<Surface extends StudioApiSurface, ComponentApi> = {
   ginkoCms: {
     [Group in keyof Surface]: {
-      [Name in keyof Surface[Group]]: Group extends keyof ComponentApi
-        ? StudioComponentName<Surface[Group][Name], Name> extends keyof ComponentApi[Group]
-          ? ComponentApi[Group][StudioComponentName<
-              Surface[Group][Name],
-              Name
-            >] extends FunctionReference<
-              infer Kind,
-              infer _Visibility,
-              infer Args,
-              infer Return,
-              infer ComponentPath
-            >
-            ? FunctionReference<
-                Kind,
-                'public',
-                StudioArgs<Surface[Group][Name], Args>,
-                Return,
-                ComponentPath
-              >
-            : never
-          : never
-        : never
+      [Name in keyof Surface[Group]]: StudioFunctionReference<
+        ComponentApi,
+        Group,
+        Name,
+        Surface[Group][Name]
+      >
     }
   }
 }
+
+type StudioFunctionReference<ComponentApi, Group, Name, Entry extends StudioApiEntry> =
+  StudioComponentGroup<Entry, Group> extends keyof ComponentApi
+    ? StudioComponentName<Entry, Name> extends keyof ComponentApi[StudioComponentGroup<
+        Entry,
+        Group
+      >]
+      ? ComponentApi[StudioComponentGroup<Entry, Group>][StudioComponentName<
+          Entry,
+          Name
+        >] extends FunctionReference<
+          infer Kind,
+          infer _Visibility,
+          infer Args,
+          infer Return,
+          infer ComponentPath
+        >
+        ? FunctionReference<Kind, 'public', StudioArgs<Entry, Args>, Return, ComponentPath>
+        : never
+      : never
+    : never
 
 export type StudioEntryKind<Entry> = Entry extends {
   kind: infer Kind extends StudioOperationKind
@@ -243,7 +303,30 @@ type StudioComponentName<Entry extends StudioApiEntry, Name> = Entry extends {
   ? ComponentName
   : Name
 
-type StudioArgs<Entry extends StudioApiEntry, Args> = Entry extends { confirmation: true }
+type StudioComponentGroup<Entry extends StudioApiEntry, Group> = Entry extends {
+  componentGroup: infer ComponentGroup
+}
+  ? ComponentGroup
+  : Group
+
+type StudioArgs<Entry extends StudioApiEntry, Args> = StudioConfirmationArgs<
+  Entry,
+  StudioOmittedArgs<Entry, Args>
+>
+
+type StudioOmittedArgs<Entry extends StudioApiEntry, Args> =
+  Args extends Record<string, unknown>
+    ? Omit<
+        Args,
+        | '_expectedContentHash'
+        | '_expectedPresentationHash'
+        | (Entry extends { omitArgs: readonly (infer Key extends string)[] } ? Key : never)
+      >
+    : Args
+
+type StudioConfirmationArgs<Entry extends StudioApiEntry, Args> = Entry extends {
+  confirmation: true
+}
   ? Args extends Record<string, unknown>
     ? Omit<Args, '_confirmationToken'> & { _confirmationToken: string }
     : Args

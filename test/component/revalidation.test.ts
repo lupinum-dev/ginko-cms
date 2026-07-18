@@ -3,7 +3,13 @@
 import { anyApi } from 'convex/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createCtx, executeConfirmedOperation, seedOwner } from '../helpers'
+import {
+  createCtx,
+  executeConfirmedOperation,
+  installTestContract,
+  seedMember,
+  seedOwner,
+} from '../helpers'
 
 const api = anyApi
 
@@ -122,6 +128,7 @@ describe('revalidation outbox worker', () => {
   it('rejects local revalidation targets unless explicitly allowed', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await installTestContract(ctx, ['en'])
     const owner = ctx.asCmsUser('owner-1')
 
     await expect(() =>
@@ -149,6 +156,7 @@ describe('revalidation outbox worker', () => {
   it('rejects public revalidation targets unless the host is explicitly allowed', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await installTestContract(ctx, ['en'])
     const owner = ctx.asCmsUser('owner-1')
 
     await expect(() =>
@@ -176,6 +184,7 @@ describe('revalidation outbox worker', () => {
   it('rejects target URLs containing credentials', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await installTestContract(ctx, ['en'])
     process.env.GINKO_CMS_REVALIDATION_ALLOWED_HOSTS = 'site.example'
 
     await expect(() =>
@@ -189,9 +198,98 @@ describe('revalidation outbox worker', () => {
     ).rejects.toThrow('REVALIDATION_ENDPOINT_CREDENTIALS_FORBIDDEN')
   })
 
+  it('[ADM-05] validates secret references before saving a target', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await installTestContract(ctx, ['en'])
+    process.env.GINKO_CMS_REVALIDATION_ALLOWED_HOSTS = 'site.example'
+
+    await expect(
+      ctx.asCmsUser('owner-1').mutation(api.revalidation.upsertRevalidationTarget, {
+        name: 'Production',
+        environment: 'production',
+        endpoint: 'https://site.example/api/revalidate',
+        secretEnv: 'literal secret value',
+        enabled: true,
+      }),
+    ).rejects.toThrow('REVALIDATION_SECRET_ENV_INVALID')
+  })
+
+  it('[ADM-05] runs a bounded signed target diagnostic without exposing the credential', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const targetId = await seedTarget(ctx)
+    process.env.GINKO_REVALIDATE_TOKEN_TEST = 'diagnostic-secret-never-returned'
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await ctx
+      .asCmsUser('owner-1')
+      .action(api.revalidation.testRevalidationTarget, { targetId: String(targetId) })
+
+    expect(result).toMatchObject({
+      status: 'passed',
+      code: 'REVALIDATION_TEST_PASSED',
+      statusCode: 204,
+      message: expect.not.stringContaining('diagnostic-secret-never-returned'),
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://site.example/api/_content/revalidate',
+      expect.objectContaining({
+        method: 'POST',
+        redirect: 'error',
+        signal: expect.any(AbortSignal),
+        headers: expect.objectContaining({
+          'x-ginko-revalidation-test': '1',
+          'x-ginko-signature': expect.stringMatching(/^sha256=[a-f0-9]{64}$/),
+        }),
+      }),
+    )
+    const request = fetchMock.mock.calls[0]![1] as RequestInit
+    expect(JSON.stringify(request)).not.toContain('diagnostic-secret-never-returned')
+    const activity = (await ctx.readAll('activity')).find(
+      (row) => row.kind === 'revalidation.tested',
+    )
+    expect(activity).toMatchObject({
+      appIdentityId: 'owner-1',
+      subjectKey: String(targetId),
+      detail: expect.objectContaining({ status: 'passed', code: 'REVALIDATION_TEST_PASSED' }),
+    })
+    expect(JSON.stringify(activity)).not.toContain('diagnostic-secret-never-returned')
+  })
+
+  it('[ADM-05] returns a redacted missing-secret result, records it, and denies viewers', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'viewer-1', role: 'viewer' })
+    const targetId = await seedTarget(ctx)
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      ctx
+        .asCmsUser('viewer-1')
+        .action(api.revalidation.testRevalidationTarget, { targetId: String(targetId) }),
+    ).rejects.toThrow(/forbidden/i)
+    await expect(
+      ctx
+        .asCmsUser('owner-1')
+        .action(api.revalidation.testRevalidationTarget, { targetId: String(targetId) }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      code: 'REVALIDATION_SECRET_MISSING',
+      statusCode: null,
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(
+      (await ctx.readAll('activity')).find((row) => row.kind === 'revalidation.tested'),
+    ).toMatchObject({ detail: expect.objectContaining({ code: 'REVALIDATION_SECRET_MISSING' }) })
+  })
+
   it('rejects a second enabled target in the same environment', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await installTestContract(ctx, ['en'])
     await seedTarget(ctx)
 
     await expect(() =>
@@ -366,7 +464,7 @@ describe('revalidation outbox worker', () => {
     expect(row?.deliveredAt).toEqual(expect.any(Number))
   })
 
-  it('retries temporary delivery failures with backoff', async () => {
+  it('[PUB-10] retries temporary public revalidation failures with backoff and preserves the delivery receipt', async () => {
     const ctx = createCtx()
     await seedTarget(ctx)
     const eventId = await seedEvent(ctx)
@@ -507,6 +605,7 @@ describe('revalidation outbox worker', () => {
   it('lets settings managers replay failed jobs', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await installTestContract(ctx, ['en'])
     const eventId = await seedEvent(ctx, {
       status: 'failed',
       lastError: 'bad token',

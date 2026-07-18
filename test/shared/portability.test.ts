@@ -71,7 +71,7 @@ describe('CMS portable draft import planning', () => {
     expect(verified).not.toHaveProperty('assets')
   })
 
-  it('reads through the Content directory authority and emits a deterministic immutable plan', async () => {
+  it('[IMP-01] verifies input and emits a deterministic immutable import preview without content writes', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ginko-cms-portability-'))
     roots.push(root)
     const directory = join(root, 'bundle')
@@ -86,8 +86,9 @@ describe('CMS portable draft import planning', () => {
     const itemKey = await hashCanonicalJson(identity)
     const options = {
       deploymentId: 'deployment-test',
-      targetContractSha256: await hashCanonicalJson(contract),
+      targetContentHash: await hashCanonicalJson(contract),
       currentDraftSha256ByItemKey: new Map([[itemKey, null]]),
+      currentSharedSha256ByItemKey: new Map([[itemKey, null]]),
     }
 
     const first = await createPortableDraftImportPlan(bundle, options)
@@ -126,17 +127,19 @@ describe('CMS portable draft import planning', () => {
     })
     const base = {
       deploymentId: 'deployment-test',
-      targetContractSha256: await hashCanonicalJson(contract),
+      targetContentHash: await hashCanonicalJson(contract),
     }
     const documentSha256 = await hashCanonicalJson(document)
 
     const skip = await createPortableDraftImportPlan(bundle, {
       ...base,
       currentDraftSha256ByItemKey: new Map([[itemKey, documentSha256]]),
+      currentSharedSha256ByItemKey: new Map([[itemKey, 'e'.repeat(64)]]),
     })
     const update = await createPortableDraftImportPlan(bundle, {
       ...base,
       currentDraftSha256ByItemKey: new Map([[itemKey, 'f'.repeat(64)]]),
+      currentSharedSha256ByItemKey: new Map([[itemKey, 'e'.repeat(64)]]),
     })
 
     expect(skip.items[0]?.payload.effect).toBe('skip')
@@ -157,8 +160,17 @@ describe('CMS portable draft import planning', () => {
       },
     }))
     const currentDraftSha256ByItemKey = new Map<string, null>()
+    const currentSharedSha256ByItemKey = new Map<string, null>()
     for (const { document: candidate } of documents) {
       currentDraftSha256ByItemKey.set(
+        await hashCanonicalJson({
+          collection: candidate.collection,
+          canonicalKey: candidate.canonicalKey,
+          locale: candidate.locale,
+        }),
+        null,
+      )
+      currentSharedSha256ByItemKey.set(
         await hashCanonicalJson({
           collection: candidate.collection,
           canonicalKey: candidate.canonicalKey,
@@ -187,11 +199,101 @@ describe('CMS portable draft import planning', () => {
         },
         {
           deploymentId: 'deployment-test',
-          targetContractSha256: await hashCanonicalJson(contract),
+          targetContentHash: await hashCanonicalJson(contract),
           currentDraftSha256ByItemKey,
+          currentSharedSha256ByItemKey,
         },
       ),
     ).rejects.toThrow(/locale count exceeds 3/i)
+  })
+
+  it('accepts an exact depth-five tree and rejects a depth-six final import graph', async () => {
+    const contract = buildResolvedContentContract(
+      {
+        collections: {
+          pages: {
+            type: 'page',
+            source: 'content/pages/**/*.md',
+            route: '/pages',
+            cms: { type: 'tree', route: { allowMultipleRoots: true } },
+            fields: { title: { type: 'text', required: true } },
+          },
+        },
+      },
+      { defaultLocale: 'en', locales: ['en'] },
+    )
+    const documents = Array.from({ length: 6 }, (_, index) => {
+      const canonicalKey = `page-${index + 1}`
+      return {
+        file: `content/pages/${canonicalKey}/en.md`,
+        bytes: new Uint8Array(),
+        document: {
+          format: 'ginko-content-document' as const,
+          version: 1 as const,
+          collection: 'pages',
+          canonicalKey,
+          locale: 'en',
+          slug: canonicalKey,
+          parentCanonicalKey: index === 0 ? null : `page-${index}`,
+          order: index.toString(16).toUpperCase().padStart(16, '0'),
+          shared: { title: canonicalKey },
+          localized: {},
+          body: { kind: 'mdc' as const, source: `# ${canonicalKey}` },
+          visibility: { navigation: true, search: true, sitemap: true },
+        },
+      }
+    })
+    const bundle = {
+      contract,
+      documents,
+      assets: [],
+      manifest: {
+        format: 'ginko-content-portable' as const,
+        version: 1 as const,
+        contract: {
+          file: '.ginko/content-contract.json' as const,
+          sha256: await hashCanonicalJson(contract),
+        },
+        documents: [],
+        assets: [],
+      },
+    }
+    const inspected = async (count: number) => {
+      const draft = new Map<string, null>()
+      const shared = new Map<string, null>()
+      for (const { document } of documents.slice(0, count)) {
+        const itemKey = await hashCanonicalJson({
+          collection: document.collection,
+          canonicalKey: document.canonicalKey,
+          locale: document.locale,
+        })
+        draft.set(itemKey, null)
+        shared.set(itemKey, null)
+      }
+      return { draft, shared }
+    }
+    const exact = await inspected(5)
+    await expect(
+      createPortableDraftImportPlan(
+        { ...bundle, documents: documents.slice(0, 5) },
+        {
+          deploymentId: 'deployment-test',
+          targetContentHash: await hashCanonicalJson(contract),
+          currentDraftSha256ByItemKey: exact.draft,
+          currentSharedSha256ByItemKey: exact.shared,
+        },
+      ),
+    ).resolves.toMatchObject({ payload: { itemCount: 5 } })
+
+    const tooDeep = await inspected(6)
+    await expect(
+      createPortableDraftImportPlan(bundle, {
+        deploymentId: 'deployment-test',
+        targetContentHash: await hashCanonicalJson(contract),
+        currentDraftSha256ByItemKey: tooDeep.draft,
+        currentSharedSha256ByItemKey: tooDeep.shared,
+      }),
+    ).rejects.toThrow(/tree depth of 5/i)
   })
 
   it('rejects document and asset limit-plus-one bundles before planning work begins', async () => {
@@ -208,8 +310,9 @@ describe('CMS portable draft import planning', () => {
     }
     const options = {
       deploymentId: 'deployment-test',
-      targetContractSha256: await hashCanonicalJson(contract),
+      targetContentHash: await hashCanonicalJson(contract),
       currentDraftSha256ByItemKey: new Map<string, null>(),
+      currentSharedSha256ByItemKey: new Map<string, null>(),
     }
 
     await expect(
@@ -284,8 +387,9 @@ describe('CMS portable draft import planning', () => {
     })
     const base = {
       deploymentId: 'deployment-test',
-      targetContractSha256: await hashCanonicalJson(contract),
+      targetContentHash: await hashCanonicalJson(contract),
       currentDraftSha256ByItemKey: new Map([[itemKey, null]]),
+      currentSharedSha256ByItemKey: new Map([[itemKey, null]]),
     }
 
     const upload = await createPortableDraftImportPlan(bundle, {

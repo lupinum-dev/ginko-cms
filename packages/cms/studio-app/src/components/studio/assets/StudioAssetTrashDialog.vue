@@ -6,7 +6,7 @@ import type { PendingDestructiveAssetAction } from '../../../composables/interna
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 
 // Self-contained confirm dialog for trashing one asset or a bulk selection.
-// Owns the pending-destructive presentation computeds (title / usage count /
+// Owns the pending-destructive presentation computeds (title / reference status /
 // affected list); the shell only wires the intent + resolves the outcome.
 const props = defineProps<{
   action: PendingDestructiveAssetAction
@@ -32,10 +32,16 @@ const description = computed(() =>
 
 const confirmLabel = computed(() => t('ginkoCms.studio.assetBrowser.moveToTrashConfirm'))
 
-const usageCount = computed(() => {
+const referencedAssetCount = computed(() => {
   if (!props.action) return 0
-  if (props.action.kind === 'bulk-trash') return props.action.usageCount
-  return props.action.asset.usages.length
+  if (props.action.kind === 'bulk-trash') return props.action.referencedAssetCount
+  return props.action.asset.referenceCertainty.state === 'used' ? 1 : 0
+})
+
+const unknownReferenceAssetCount = computed(() => {
+  if (!props.action) return 0
+  if (props.action.kind === 'bulk-trash') return props.action.unknownReferenceAssetCount
+  return props.action.asset.referenceCertainty.state === 'unknown-stale' ? 1 : 0
 })
 
 const affectedAssets = computed(() => {
@@ -60,21 +66,27 @@ const affectedAssets = computed(() => {
   >
     <div class="ginko:space-y-3 ginko:text-sm ginko:text-muted-foreground">
       <StudioNotice
-        :tone="usageCount > 0 ? 'warning' : 'neutral'"
+        :tone="referencedAssetCount > 0 || unknownReferenceAssetCount > 0 ? 'warning' : 'neutral'"
         :title="
-          usageCount > 0
+          referencedAssetCount > 0
             ? t(
-                usageCount === 1
-                  ? 'ginkoCms.studio.assetBrowser.usageAffectedOne'
-                  : 'ginkoCms.studio.assetBrowser.usageAffectedOther',
-                { count: usageCount },
+                referencedAssetCount === 1
+                  ? 'ginkoCms.studio.assetBrowser.referencedAssetsOne'
+                  : 'ginkoCms.studio.assetBrowser.referencedAssetsOther',
+                { count: referencedAssetCount },
               )
-            : t('ginkoCms.studio.assetBrowser.noUsageFound')
+            : unknownReferenceAssetCount > 0
+              ? t('ginkoCms.studio.assetBrowser.referenceCertaintyUnavailable', {
+                  count: unknownReferenceAssetCount,
+                })
+              : t('ginkoCms.studio.assetBrowser.noSelectedAssetsReferenced')
         "
         :description="
-          usageCount > 0
-            ? t('ginkoCms.studio.assetBrowser.reviewAffected')
-            : t('ginkoCms.studio.assetBrowser.noEntriesReference')
+          referencedAssetCount > 0
+            ? t('ginkoCms.studio.assetBrowser.reviewReferencedAssets')
+            : unknownReferenceAssetCount > 0
+              ? t('ginkoCms.studio.assetBrowser.runReferenceVerification')
+              : t('ginkoCms.studio.assetBrowser.noEntriesReference')
         "
       />
       <div class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3">
@@ -94,12 +106,11 @@ const affectedAssets = computed(() => {
             }}</span>
             <span class="ginko:shrink-0 ginko:text-muted-foreground">
               {{
-                t(
-                  asset.usages.length === 1
-                    ? 'ginkoCms.studio.assetBrowser.assetUsageOne'
-                    : 'ginkoCms.studio.assetBrowser.assetUsageOther',
-                  { count: asset.usages.length },
-                )
+                asset.referenceCertainty.state === 'used'
+                  ? t('ginkoCms.studio.assetBrowser.assetReferenced')
+                  : asset.referenceCertainty.state === 'unused-verified'
+                    ? t('ginkoCms.studio.assetBrowser.unusedVerifiedShort')
+                    : t('ginkoCms.studio.assetBrowser.usageUnknownStale')
               }}
             </span>
           </div>

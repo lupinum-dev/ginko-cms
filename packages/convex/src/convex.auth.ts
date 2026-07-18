@@ -1,7 +1,8 @@
 import { apiKey } from '@better-auth/api-key'
-import { createClient, type AuthFunctions, type GenericCtx } from '@convex-dev/better-auth'
+import { createClient, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth, type BetterAuthOptions } from 'better-auth'
+import type { AuthConfig, GenericSchema, SchemaDefinition } from 'convex/server'
 
 import {
   ginkoConvexJwtPayload,
@@ -20,17 +21,20 @@ type DefineGinkoAuthDeps = {
   components: Record<string, unknown> & {
     betterAuth: Parameters<typeof createClient>[0]
   }
-  internal?: Record<string, unknown> & {
-    auth?: AuthFunctions
-  }
-  authConfig: unknown
-  authSchema?: unknown
+  authConfig: AuthConfig
+  authSchema?: SchemaDefinition<GenericSchema, true>
 }
 
 export type GinkoAuthDeps = DefineGinkoAuthDeps
 export type GinkoAuthOptions = {
   emailPassword?: boolean
   trustedOrigins?: BetterAuthOptions['trustedOrigins']
+  passwordRecovery?: {
+    sendResetPassword: NonNullable<
+      NonNullable<BetterAuthOptions['emailAndPassword']>['sendResetPassword']
+    >
+    tokenExpiresInSeconds?: number
+  }
 }
 
 export function deny(message = 'Forbidden'): never {
@@ -67,8 +71,7 @@ function resolveTrustedOrigins(configured: BetterAuthOptions['trustedOrigins'] =
 export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOptions = {}) {
   const authComponent = createClient(deps.components.betterAuth, {
     ...(deps.authSchema ? { local: { schema: deps.authSchema } } : {}),
-    ...(deps.internal?.auth ? { authFunctions: deps.internal.auth } : {}),
-  } as never)
+  })
 
   const createAuthOptions = (ctx: GenericCtx) =>
     ({
@@ -77,6 +80,14 @@ export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOpt
       database: authComponent.adapter(ctx),
       emailAndPassword: {
         enabled: options.emailPassword ?? true,
+        ...(options.passwordRecovery
+          ? {
+              sendResetPassword: options.passwordRecovery.sendResetPassword,
+              resetPasswordTokenExpiresIn:
+                options.passwordRecovery.tokenExpiresInSeconds ?? 60 * 60,
+              revokeSessionsOnPasswordReset: true,
+            }
+          : {}),
       },
       plugins: [
         apiKey({
@@ -89,7 +100,7 @@ export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOpt
         }),
         ginkoCredentialKindPlugin(),
         convex({
-          authConfig: deps.authConfig as never,
+          authConfig: deps.authConfig,
           jwt: {
             definePayload: ginkoConvexJwtPayload,
           },

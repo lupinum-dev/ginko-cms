@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { Loader2, RadioTower, RefreshCw, RotateCcw, ShieldCheck } from '@lucide/vue'
+import {
+  FlaskConical,
+  Loader2,
+  Pencil,
+  Plus,
+  RadioTower,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+} from '@lucide/vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 import { websiteRefreshStatusLabel } from '../../../lib/publicWorkflow'
@@ -42,6 +51,88 @@ const st = (key: string, params?: Record<string, unknown>): string =>
         :description="settings.revalidationInfo"
       />
 
+      <div
+        v-if="settings.showRevalidationTargetForm"
+        class="ginko:space-y-4 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-4"
+      >
+        <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@2xl:grid-cols-2">
+          <div class="ginko:space-y-1.5">
+            <Label class="ginko:text-xs ginko:text-muted-foreground">{{
+              st('revalidationName')
+            }}</Label>
+            <Input v-model="settings.revalidationTargetForm.name" class="ginko:h-8" />
+          </div>
+          <div class="ginko:space-y-1.5">
+            <Label class="ginko:text-xs ginko:text-muted-foreground">{{
+              st('revalidationEnvironment')
+            }}</Label>
+            <Select v-model="settings.revalidationTargetForm.environment">
+              <SelectTrigger class="ginko:h-8"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="production">production</SelectItem>
+                <SelectItem value="preview">preview</SelectItem>
+                <SelectItem value="development">development</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div class="ginko:space-y-1.5">
+          <Label class="ginko:text-xs ginko:text-muted-foreground">{{
+            st('revalidationEndpoint')
+          }}</Label>
+          <Input
+            v-model="settings.revalidationTargetForm.endpoint"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            placeholder="https://site.example/api/_content/revalidate"
+            class="ginko:h-8 ginko:font-mono ginko:text-xs"
+          />
+        </div>
+        <div class="ginko:space-y-1.5">
+          <Label class="ginko:text-xs ginko:text-muted-foreground">{{
+            st('revalidationSecretEnv')
+          }}</Label>
+          <Input
+            v-model="settings.revalidationTargetForm.secretEnv"
+            autocomplete="off"
+            placeholder="GINKO_REVALIDATE_TOKEN"
+            class="ginko:h-8 ginko:font-mono ginko:text-xs"
+          />
+          <p class="ginko:text-xs ginko:text-muted-foreground">
+            {{ st('revalidationSecretEnvHelp') }}
+          </p>
+        </div>
+        <label class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm">
+          <Checkbox
+            :model-value="settings.revalidationTargetForm.enabled"
+            @update:model-value="settings.revalidationTargetForm.enabled = $event === true"
+          />
+          {{ st('revalidationEnabled') }}
+        </label>
+        <div class="ginko:flex ginko:flex-wrap ginko:justify-end ginko:gap-2">
+          <Button variant="ghost" size="sm" @click="settings.closeRevalidationTargetForm">
+            {{ settings.t('ginkoCms.common.cancel') }}
+          </Button>
+          <Button
+            size="sm"
+            :disabled="settings.revalidationTargetSaving"
+            @click="settings.handleSaveRevalidationTarget"
+          >
+            <Loader2
+              v-if="settings.revalidationTargetSaving"
+              class="ginko:size-3.5 ginko:animate-spin"
+            />
+            {{ st('revalidationSaveTarget') }}
+          </Button>
+        </div>
+      </div>
+
+      <Button v-else variant="outline" size="sm" @click="settings.resetRevalidationTargetForm()">
+        <Plus class="ginko:size-3.5" />
+        {{ st('revalidationAddTarget') }}
+      </Button>
+
       <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:divide-y">
         <div
           v-if="settings.revalidationTargets.length === 0"
@@ -73,8 +164,40 @@ const st = (key: string, params?: Record<string, unknown>): string =>
                 }}
               </div>
             </div>
-            <ShieldCheck class="ginko:size-4 ginko:text-muted-foreground ginko:shrink-0" />
+            <div class="ginko:flex ginko:shrink-0 ginko:items-center ginko:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                @click="settings.resetRevalidationTargetForm(target)"
+              >
+                <Pencil class="ginko:size-3.5" />
+                {{ st('revalidationEdit') }}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="settings.testingRevalidationTargetId === target.id"
+                @click="settings.handleTestRevalidationTarget(target.id)"
+              >
+                <Loader2
+                  v-if="settings.testingRevalidationTargetId === target.id"
+                  class="ginko:size-3.5 ginko:animate-spin"
+                />
+                <FlaskConical v-else class="ginko:size-3.5" />
+                {{ st('revalidationTest') }}
+              </Button>
+              <ShieldCheck class="ginko:size-4 ginko:text-muted-foreground" />
+            </div>
           </div>
+          <StudioNotice
+            v-if="settings.revalidationTestResults[target.id]"
+            :tone="
+              settings.revalidationTestResults[target.id]?.status === 'passed'
+                ? 'success'
+                : 'danger'
+            "
+            :description="settings.revalidationTestResults[target.id]?.message"
+          />
           <StudioDeveloperDetails>
             <div class="ginko:space-y-2">
               <div class="ginko:text-xs ginko:text-muted-foreground">

@@ -44,6 +44,27 @@ management controls access.
 Studio always requires Better Convex Nuxt authentication. `convex.auth: false`
 is not a supported CMS topology.
 
+## Member Invitations
+
+After bootstrap, owners grant access with bounded email invitations in Studio
+Settings. The owner reviews an initial CMS role and an expiry from one hour to
+30 days. At most 500 invitations may remain pending; expired rows still count
+until an owner resends or revokes them.
+
+The host Convex action generates a cryptographically random one-time token and
+sends the raw acceptance link only to the configured host-owned delivery
+boundary. The component stores only a double SHA-256 hash. Resending rotates the
+token and invalidates the earlier link before the replacement is delivered;
+revocation removes the pending invitation immediately.
+
+Acceptance is authenticated and bound server-side to the Better Auth user id
+and verified email claim. The browser supplies only a hash proof of the raw
+token—it cannot choose a user id, email, or role. A successful transaction adds
+the CMS member with the owner-reviewed role, consumes the invitation, and
+writes activity. Ginko does not create or copy a Better Auth user account.
+Invalid, expired, reused, revoked, duplicate-member, unverified-email, and
+wrong-email attempts all receive the same non-enumerating response.
+
 ## MCP Credentials
 
 External MCP bearer tokens are Better Auth API keys. Ginko CMS never stores the

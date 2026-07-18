@@ -41,18 +41,39 @@ export const createEntry = defineMcpTool({
 
 export const listEntries = defineMcpTool({
   name: 'list-entries',
-  description: 'List CMS entries for a collection and locale.',
+  description: 'List one bounded page of CMS entries or search a collection.',
   inputSchema: {
     collection: z.string(),
     locale: z.string(),
+    parentEntryId: z.string().nullable().optional(),
+    query: z.string().min(1).max(256).optional(),
+    status: z.enum(['draft', 'published', 'archived']).optional(),
+    cursor: z.string().nullable().optional(),
+    limit: z.number().int().min(1).max(100).optional(),
   },
   group: 'content',
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event, 'readCms')
-      const entries = await context.convex.query(api.ginkoCms.editor.listEntries, args)
-      const count = Array.isArray(entries) ? entries.length : 0
-      return ok({ entries }, `Listed ${count} entries in "${args.collection}".`)
+      const result = await context.convex.query(api.ginkoCms.editor.listEntriesForStudio, {
+        collection: args.collection,
+        locale: args.locale,
+        parentEntryId: args.parentEntryId ?? null,
+        paginationOpts: {
+          cursor: args.cursor ?? null,
+          numItems: args.limit ?? 50,
+        },
+        ...(args.query ? { query: args.query } : {}),
+        ...(args.status ? { status: args.status } : {}),
+      })
+      return ok(
+        {
+          entries: result.page,
+          cursor: result.continueCursor,
+          done: result.isDone,
+        },
+        `Listed ${result.page.length} entries in "${args.collection}".`,
+      )
     } catch (error) {
       return failFromError(error, 'Failed to list entries.')
     }

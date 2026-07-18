@@ -321,16 +321,17 @@ export const updateSiteDataBlock = callerMutation.protected({
       })
     }
 
+    const updatedAt = Math.max(Date.now(), row.updatedAt + 1)
     const patch: Record<string, unknown> = {
       updatedBy: appIdentity.userId,
-      updatedAt: Math.max(Date.now(), row.updatedAt + 1),
+      updatedAt,
     }
     if (args.label !== undefined) patch.label = args.label
     if (args.schemaType !== undefined) patch.schemaType = args.schemaType
     if (args.localized !== undefined && args.localized !== row.localized) {
       throwCmsError(
-        'SITE_DATA_LOCALIZATION_CHANGE_REQUIRES_MIGRATION',
-        'Changing site data localization would reinterpret the stored data shape.',
+        'SITE_DATA_LOCALIZATION_CHANGE_REQUIRES_CONTRACT_TRANSITION',
+        'Changing site data localization requires an explicit contract transition.',
         { key: args.key, currentLocalized: row.localized, requestedLocalized: args.localized },
       )
     }
@@ -344,7 +345,7 @@ export const updateSiteDataBlock = callerMutation.protected({
         blockId: toStringId(row._id),
         key: row.key,
         appIdentityId: appIdentity.userId,
-        now: patch.updatedAt as number,
+        now: updatedAt,
         locales: row.localized ? Object.keys(localeDataMap(row.data)) : [],
       })
     }

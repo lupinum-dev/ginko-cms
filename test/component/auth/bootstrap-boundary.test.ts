@@ -36,7 +36,7 @@ describe('first-owner callable boundary', () => {
     ).rejects.toThrow('must have an email address')
   })
 
-  it('normalizes the verified email and permits exactly one owner claim', async () => {
+  it('[ACC-02] normalizes the verified email and permits exactly one owner claim', async () => {
     const ctx = createCtx()
     const caller = bootstrapCaller(ctx, { subject: 'user_1', email: 'Owner@Example.com' })
 
@@ -45,7 +45,7 @@ describe('first-owner callable boundary', () => {
         displayName: 'Owner',
         configuredOwnerEmail: ' owner@example.com ',
       }),
-    ).resolves.toMatchObject({ userId: 'user_1', email: 'Owner@Example.com', role: 'owner' })
+    ).resolves.toMatchObject({ userId: 'user_1', email: 'owner@example.com', role: 'owner' })
 
     await expect(
       bootstrapCaller(ctx, { subject: 'user_2', email: 'owner@example.com' }).mutation(

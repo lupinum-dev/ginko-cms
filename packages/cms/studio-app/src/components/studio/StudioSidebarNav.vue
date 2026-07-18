@@ -8,10 +8,7 @@ import { useCmsConfig } from '../../composables/useCmsConfig'
 import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
-import {
-  codeDefinedCollectionList,
-  type StudioCollectionListItem,
-} from '../../lib/codeDefinedCollections'
+import type { StudioCollectionListItem } from '../../lib/installedCollections'
 import {
   studioRouteHref,
   studioRoutesForSection,
@@ -30,24 +27,11 @@ const canManageCollections = can(cmsPermissionKeys.manageCollections)
 const canManageSettings = can(cmsPermissionKeys.manageSettings)
 const canPublishEntries = can(cmsPermissionKeys.publishEntries)
 const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
-const hostCollections = computed(() =>
-  codeDefinedCollectionList(cmsConfig.collections, cmsConfig.defaultLocale),
+const collections = computed(
+  () => (collectionsQuery.data.value ?? []) as StudioCollectionListItem[],
 )
-const collections = computed(() => {
-  const fromConvex = (collectionsQuery.data.value ?? []) as StudioCollectionListItem[]
-  if (!hostCollections.value.length) return fromConvex
-  const bySlug = new Map(fromConvex.map((collection) => [collection.slug, collection]))
-  return hostCollections.value.map((hostCollection) => ({
-    ...hostCollection,
-    ...bySlug.get(hostCollection.slug),
-    label: bySlug.get(hostCollection.slug)?.label || hostCollection.label,
-  }))
-})
 const isCollectionsLoading = computed(
-  () =>
-    !hostCollections.value.length &&
-    collectionsQuery.data.value === null &&
-    collectionsQuery.pending.value,
+  () => collectionsQuery.data.value === null && collectionsQuery.pending.value,
 )
 const route = useRoute()
 const activeCollection = computed(() => route.params.collection)
@@ -77,8 +61,8 @@ function sectionLinks(section: 'home' | 'editor' | 'operations' | 'settings'): S
       }
     })
 }
-// The Home link is a discrete nav item again (UI-REVISION P0; the shell swap
-// had regressed it to logo-as-home only — design review, audit D).
+// The Home link is discrete navigation required by the accepted NAV workflow;
+// the shell swap had regressed it to logo-as-home only.
 const homeLinks = computed(() => sectionLinks('home'))
 const editorLinks = computed(() => sectionLinks('editor'))
 const operationLinks = computed(() => sectionLinks('operations'))

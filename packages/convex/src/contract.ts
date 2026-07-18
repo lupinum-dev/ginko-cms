@@ -8,8 +8,14 @@ import {
 } from '@lupinum/ginko-content/cms-contract'
 import { v } from 'convex/values'
 
-import { mutation, query } from './functions.js'
-import { readInstalledCmsContract } from './lib/installedContract.js'
+import { canRead } from './auth/checks.js'
+import { callerQuery, directInternalQuery, mutation, query } from './functions.js'
+import {
+  assertCmsContractWritable,
+  cmsContractWriteToken,
+  cmsContractWriteTokenValidator,
+  readInstalledCmsContract,
+} from './lib/installedContract.js'
 import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
 
 export const installCmsContractArgs = {
@@ -51,6 +57,28 @@ export const checkCmsContractReturns = v.object({
   presentationDrift: v.array(driftItemValidator),
 })
 
+export const installedCmsContractStatusReturns = v.object({
+  installedContentHash: v.union(v.string(), v.null()),
+  installedPresentationHash: v.union(v.string(), v.null()),
+  transitionState: v.union(v.literal('ready'), v.literal('locked'), v.null()),
+  transitionRunId: v.union(v.string(), v.null()),
+})
+
+export const assertExpectedCmsContract = directInternalQuery({
+  args: {
+    expectedContentHash: v.string(),
+    expectedPresentationHash: v.string(),
+  },
+  returns: cmsContractWriteTokenValidator,
+  handler: async (ctx, args) => {
+    const installed = await assertCmsContractWritable(ctx, {
+      contentHash: args.expectedContentHash,
+      presentationHash: args.expectedPresentationHash,
+    })
+    return cmsContractWriteToken(installed)
+  },
+})
+
 type InstallCmsContractArgs = {
   content: JsonValue
   contentHash: string
@@ -80,7 +108,10 @@ function assertOnlyKeys(value: JsonRecord, allowed: string[], path: string): voi
   if (unknown) throw new Error(`CMS_PRESENTATION_INVALID: ${path}.${unknown} is unsupported.`)
 }
 
-function assertPresentation(presentation: JsonValue, contract: ResolvedContentContractV1): void {
+export function assertCmsPresentation(
+  presentation: JsonValue,
+  contract: ResolvedContentContractV1,
+): void {
   if (!isJsonRecord(presentation)) {
     throw new Error('CMS_PRESENTATION_INVALID: presentation must be an object.')
   }
@@ -139,10 +170,11 @@ function assertPresentation(presentation: JsonValue, contract: ResolvedContentCo
       )
       if (
         fieldCandidate.description !== undefined &&
+        fieldCandidate.description !== null &&
         typeof fieldCandidate.description !== 'string'
       ) {
         throw new Error(
-          `CMS_PRESENTATION_INVALID: field "${slug}.${fieldKey}" description must be a string.`,
+          `CMS_PRESENTATION_INVALID: field "${slug}.${fieldKey}" description must be a string or null.`,
         )
       }
       if (fieldCandidate.hidden !== undefined && typeof fieldCandidate.hidden !== 'boolean') {
@@ -258,7 +290,7 @@ export async function installCmsContractHandler(ctx: MutationCtx, args: InstallC
   if (existing?.record.transitionState === 'locked') throw new Error('CMS_CONTRACT_LOCKED')
 
   const presentation = args.presentation
-  assertPresentation(presentation, contract)
+  assertCmsPresentation(presentation, contract)
   const computedPresentationHash = await hashCanonicalJson(presentation)
   if (computedPresentationHash !== args.presentationHash) {
     throw new Error('CMS_PRESENTATION_HASH_MISMATCH')
@@ -288,6 +320,7 @@ export async function installCmsContractHandler(ctx: MutationCtx, args: InstallC
         presentation,
         contentHash: computedContentHash,
         presentationHash: computedPresentationHash,
+        writeGeneration: existing.record.writeGeneration + 1,
         transitionState: 'ready',
         transitionRunId: null,
         installedAt: now,
@@ -300,6 +333,7 @@ export async function installCmsContractHandler(ctx: MutationCtx, args: InstallC
         presentation,
         contentHash: computedContentHash,
         presentationHash: computedPresentationHash,
+        writeGeneration: 1,
         transitionState: 'ready',
         transitionRunId: null,
         installedAt: now,
@@ -365,7 +399,7 @@ export async function checkCmsContractHandler(
   const computedContentHash = await hashCanonicalJson(args.content)
   if (computedContentHash !== args.contentHash) throw new Error('CMS_CONTENT_HASH_MISMATCH')
 
-  assertPresentation(args.presentation, contract)
+  assertCmsPresentation(args.presentation, contract)
   const expectedPresentationHash = await hashCanonicalJson(args.presentation)
   if (args.presentationHash !== expectedPresentationHash) {
     throw new Error('CMS_PRESENTATION_HASH_MISMATCH')
@@ -403,4 +437,24 @@ export const checkCmsContract = query({
   args: installCmsContractArgs,
   returns: checkCmsContractReturns,
   handler: async (ctx, args) => await checkCmsContractHandler(ctx, args),
+})
+
+/**
+ * Read-only Studio/MCP inspection surface. Expected hashes remain host-owned;
+ * this query reveals only the currently installed canonical contract state.
+ */
+export const getInstalledContractStatus = callerQuery.protected({
+  id: 'contract:getInstalledContractStatus',
+  args: {},
+  guard: canRead,
+  returns: installedCmsContractStatusReturns,
+  handler: async (ctx) => {
+    const installed = await readInstalledCmsContract(ctx)
+    return {
+      installedContentHash: installed?.record.contentHash ?? null,
+      installedPresentationHash: installed?.record.presentationHash ?? null,
+      transitionState: installed?.record.transitionState ?? null,
+      transitionRunId: installed?.record.transitionRunId ?? null,
+    }
+  },
 })

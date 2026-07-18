@@ -13,7 +13,7 @@ export default defineMcpResource({
         text: [
           '# Ginko Rich Media',
           '',
-          'MCP cannot upload or fetch new media. Add new files through Studio/browser upload or a trusted migration path, then use MCP to inspect and reuse registered assets.',
+          'MCP cannot upload or fetch new media. Add new files through Studio/browser upload, then use MCP to inspect and reuse registered assets.',
           '',
           'Asset ownership is explicit. Article-specific media should be entry-owned. Reusable media for one collection should be collection-owned. Site-wide media should be global. When `entryId` is present, uploads default to entry ownership; otherwise they default to collection ownership when `collection` is present, then global ownership.',
           '',

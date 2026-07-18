@@ -86,6 +86,8 @@ async function deleteExpiredFailureBuckets(ctx: MutationCtx, now: number, limit:
 }
 
 export const recordFailure = callerMutation.public({
+  id: 'mcpAuthLimiter:recordFailure',
+  contractWrite: 'bypass',
   args: {
     ipBucketKey: v.string(),
     credentialBucketKey: v.string(),

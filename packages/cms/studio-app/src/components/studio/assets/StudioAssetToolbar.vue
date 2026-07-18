@@ -243,8 +243,11 @@ const showFilterRow = computed(() => filtersOpen.value || finder.activeFilterCou
         <SelectContent>
           <SelectItem value="all">{{ t('ginkoCms.studio.assetBrowser.usageAll') }}</SelectItem>
           <SelectItem value="used">{{ t('ginkoCms.studio.assetBrowser.usageUsed') }}</SelectItem>
-          <SelectItem value="unused">{{
-            t('ginkoCms.studio.assetBrowser.usageUnused')
+          <SelectItem value="unused-verified">{{
+            t('ginkoCms.studio.assetBrowser.usageUnusedVerified')
+          }}</SelectItem>
+          <SelectItem value="unknown-stale">{{
+            t('ginkoCms.studio.assetBrowser.usageUnknownStale')
           }}</SelectItem>
         </SelectContent>
       </Select>

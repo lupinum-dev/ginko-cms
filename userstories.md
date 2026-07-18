@@ -1,8 +1,6 @@
 # Ginko CMS User Stories
 
-This document describes the dream end-to-end experience of using Ginko CMS from the perspective of the people doing the work. It is a product and acceptance catalog, not a claim that every story is implemented today.
-
-The intended follow-up is a separate assessment pass in which the team records evidence, gaps, severity, and ownership for every story. Stable story IDs are used so tests, issues, screenshots, and release evidence can refer to the same workflow over time.
+This document is the accepted product and acceptance catalog for the Ginko CMS greenfield cutover. Stable story IDs let tests, browser evidence, issues, and release evidence refer to one product contract. A story is not complete until current automated and browser evidence proves its required behavior.
 
 ## How to read and assess a story
 
@@ -14,12 +12,6 @@ Every story contains:
 - **Should happen**: required product behavior and invariants.
 - **Should not happen**: failures, unsafe shortcuts, confusing behavior, and boundary violations.
 - **Checks**: concrete functional, permission, data, public-output, accessibility, and failure-state verification.
-
-For the later gap-assessment work package, add one assessment row per story:
-
-| Current state                                     | Evidence                                              | Gap               | Severity                      | Owner          |
-| ------------------------------------------------- | ----------------------------------------------------- | ----------------- | ----------------------------- | -------------- |
-| Not assessed / absent / partial / meets / exceeds | Test, screenshot, recording, issue, or code reference | Short description | Blocker / high / medium / low | Team or person |
 
 ## Catalog coverage
 
@@ -37,7 +29,7 @@ For the later gap-assessment work package, add one assessment row per story:
 | Site data                                           | DAT |       3 |
 | Collaboration and activity                          | COL |       4 |
 | Members, settings, and operations                   | ADM |       7 |
-| Imports, migrations, backups, and recovery          | IMP |       6 |
+| Portability, contract transitions, and recovery     | IMP |       6 |
 | Agents and MCP                                      | AGT |       7 |
 | Public website and API behavior                     | WEB |       7 |
 | Reliability, accessibility, and responsive behavior | QUA |       8 |
@@ -73,7 +65,7 @@ Ginko CMS is a content operations system for code-defined Nuxt websites.
 
 Permission controls in the UI are a presentation of backend authority, not a second authorization system. Every protected operation must be enforced by the backend even when called outside Studio.
 
-“Operator” is a task hat, not another CMS role. In protected CMS workflows it means an **owner** performing imports, backups, restores, or destructive administration. In local non-mutating setup/check stories it may mean a **developer** running CLI verification without gaining CMS content authority.
+“Operator” is a task hat, not another CMS role. In protected CMS workflows it means an **owner** performing portability, contract-transition, asset-recovery, or destructive administration. In local non-mutating setup/check stories it may mean a **developer** running CLI verification without gaining CMS content authority.
 
 The backend roles are exactly **viewer**, **editor**, **publisher**, and **owner**, and each is site-wide. “Translator” is an editor-role persona, not a fifth role: a translator who must publish holds the publisher role for the whole site. Restricting a member’s authority to specific locales or collections is an open product decision ([CND-11](#cnd-11-scope-member-authority-to-locales-or-collections)), not an implied capability.
 
@@ -118,15 +110,15 @@ These decisions remove ambiguity between stories and define what the checks must
 | Locale configuration              | The installed code/content policy is the source of truth for configured locales, fallback, and default locale. Studio inspects and diagnoses that projection; it does not maintain a competing editable locale list.                                                                                                                                                                                                                                                                        |
 | Unpublish                         | Removes selected published locale output but keeps the entry in active editorial work, normally as Draft or Live with changes for remaining locales.                                                                                                                                                                                                                                                                                                                                        |
 | Archive                           | Is entry-wide across all locales. It removes the entry from normal active work and removes its public output while preserving identity, content, locales, and history for restoration. Descendant editorial states are not silently archived.                                                                                                                                                                                                                                               |
-| Permanent delete                  | Owner-only exceptional removal after archive, dependency resolution, confirmation, and any required backup/retention checks.                                                                                                                                                                                                                                                                                                                                                                |
+| Permanent delete                  | Owner-only exceptional removal after archive, dependency resolution, confirmation, retention checks, and a current verified asset-recovery artifact when asset bytes will be purged.                                                                                                                                                                                                                                                                                                        |
 | Single-entry multi-locale publish | Every locale included in one confirmed “Publish all ready” plan commits its content/public effects atomically or none of those locale effects commit. Revalidation delivery is tracked after content activation and may retry independently.                                                                                                                                                                                                                                                |
 | Subtree route change              | The moved/renamed published entry and all affected published descendant route/projection effects in the locale commit atomically or none commit. Descendant draft content is never published as a side effect.                                                                                                                                                                                                                                                                              |
 | Bulk inventory actions            | Each selected entry is an independently guarded item with a durable outcome receipt. The UI never implies cross-entry atomicity; retry targets only failed or stale items.                                                                                                                                                                                                                                                                                                                  |
-| Backup and restore                | Export scope and restore capability are separate facts. V1 may export full, collection, entry, and asset artifacts, but restore apply is limited to the documented missing-asset scope. Export must never be presented as proof of full disaster recovery.                                                                                                                                                                                                                                  |
+| Recovery boundaries               | Official Convex snapshots are the only database disaster-recovery mechanism. Owner-CLI portability exports contain content, not a restorable application/database snapshot. CMS recovery artifacts contain exact asset manifest and bytes only, and restore apply is limited to the documented missing-asset scope.                                                                                                                                                                         |
 | Readiness truth                   | The composite readiness/work state is derived on demand from canonical draft, entry lifecycle status, revision, public-output, review, and configuration rows by one backend readiness computation shared by the dashboard, entry lists, editor, reviews, MCP, and publish preview/execution. The composite readiness projection is never stored, and no surface computes competing readiness rules.                                                                                        |
 | Draft preview access              | In v1, rendered draft previews require an authenticated, authorized editor context. An implementation may use a short-lived session-bound credential, but it must not create a transferable anonymous share link. Stakeholder share links are the separate CND-06 decision.                                                                                                                                                                                                                 |
 | Agent public operations           | In the current v1 runtime, MCP public-output and destructive operations are review-gated; agents prepare drafts and request review. Granting a trusted agent direct caller-parity publish, archive, or restore authority is the explicit CND-10 decision. Until accepted, no MCP tool may expose those direct operations.                                                                                                                                                                   |
-| Performance target scale          | Checks that reference “target scale” mean the v1 scale target from VISION.md: hundreds to low thousands of entries, multiple locales, Convex-backed assets, and editorial/site-content search. The catalog makes no performance claims beyond that tested envelope.                                                                                                                                                                                                                         |
+| Performance target scale          | Checks that reference “target scale” mean 1,500 entries, three locales, 500 assets, a five-level tree, and long MDC documents. Portability supports at most 5,000 localized documents and 500 assets and rejects limit-plus-one before work begins. The catalog makes no 100,000-item claim.                                                                                                                                                                                                |
 
 ---
 
@@ -906,7 +898,7 @@ These decisions remove ambiguity between stories and define what the checks must
 
 **Should not happen:** The library must not reveal inaccessible assets, lose selection during pagination, or load full originals unnecessarily.
 
-**Checks:** Search; tags; type; used/unused; grid/list; pagination; large library; no results; mobile selection; keyboard navigation.
+**Checks:** Search; tags; type; used/verified-unused/unknown usage; grid/list; exact page boundaries; large library; no results; mobile selection; keyboard navigation.
 
 ### AST-03: Add and edit asset metadata
 
@@ -977,11 +969,11 @@ These decisions remove ambiguity between stories and define what the checks must
 3. Review affected uses and metadata behavior.
 4. Confirm and verify the new version.
 
-**Should happen:** Stable reference behavior is documented and consistent. The old file remains recoverable according to retention/backup policy. Public effects occur only through the defined freshness/revalidation path.
+**Should happen:** Stable reference behavior is documented and consistent. Any permanent purge is independently guarded by the verified asset-recovery policy. Public effects occur only through the defined freshness/revalidation path.
 
 **Should not happen:** Replacement must not silently break dimensions/type constraints, orphan references, or irreversibly destroy the previous file without warning.
 
-**Checks:** Same/different type; failed upload; referenced/unreferenced asset; cached public URL; metadata preservation; rollback/backup; concurrent use.
+**Checks:** Same/different type; failed upload; referenced/unreferenced asset; cached public URL; metadata preservation; rollback/asset recovery; concurrent use.
 
 ### AST-07: Move an asset to trash and restore it
 
@@ -1006,20 +998,20 @@ These decisions remove ambiguity between stories and define what the checks must
 
 **User story:** As an owner, I want to permanently remove an eligible trashed asset when policy or privacy requires it.
 
-**Dream experience:** Purge is rare, strongly gated, and explicit about irreversibility, backup requirements, and remaining references.
+**Dream experience:** Purge is rare, strongly gated, and explicit about irreversibility, verified asset-recovery requirements, and remaining references.
 
 **Steps:**
 
 1. Open a trashed asset.
 2. Request purge preview.
-3. Resolve blockers and verify the required backup artifact if policy applies.
+3. Resolve blockers and verify a current complete asset-recovery artifact containing the manifest and exact bytes.
 4. Enter explicit confirmation and execute.
 
-**Should happen:** The backend rechecks authority, usage, backup/checksum freshness, and confirmation token immediately before deletion. Audit evidence excludes sensitive storage credentials.
+**Should happen:** The backend rechecks authority, usage, artifact bytes, manifest, checksums, freshness, and confirmation token immediately before deletion. Audit evidence excludes sensitive storage credentials.
 
 **Should not happen:** Purge must not be available to agents by default, bypass active references, accept stale confirmation, or claim success while storage remains unintentionally public.
 
-**Checks:** Owner-only; active references; stale backup; checksum mismatch; expired confirmation; partial storage failure; retry/idempotency; audit.
+**Checks:** Owner-only; active references; stale recovery artifact; checksum mismatch; expired confirmation; partial storage failure; retry/idempotency; audit.
 
 ---
 
@@ -1281,14 +1273,14 @@ Unpublish and archive are separate operations. Unpublished content remains activ
 
 1. Archive the entry first unless policy defines an exceptional path.
 2. Request permanent-delete preview.
-3. Resolve inbound relations, descendants, public remnants, asset implications, retention, and backup requirements.
+3. Resolve inbound relations, descendants, public remnants, asset implications, and retention requirements.
 4. Enter explicit confirmation and execute.
 
 **Should happen:** Backend authority and all blockers are rechecked immediately before deletion. The operation is idempotent, audited, and honest about retained audit/legal records.
 
 **Should not happen:** Editors, publishers, viewers, or agents must not permanently delete by default. Deletion must not leave public rows/routes, orphan children, dangling required relations, or misleading success after partial failure.
 
-**Checks:** Owner-only; active/archived; related content; subtree; stale confirmation; backup policy; partial failure; repeated request; public absence.
+**Checks:** Owner-only; active/archived; related content; subtree; stale confirmation; retention policy; partial failure; repeated request; public absence.
 
 ### LIF-04: View version history
 
@@ -1457,7 +1449,7 @@ Unpublish and archive are separate operations. Unpublished content remains activ
 2. Filter by content, actor, operation type, result, or time.
 3. Open a relevant record.
 
-**Should happen:** Draft, publish, archive, import, backup, asset, member, MCP, review, and revalidation events appear where supported with useful links.
+**Should happen:** Draft, publish, archive, portability, asset-recovery, asset, member, MCP, review, and revalidation events appear where supported with useful links.
 
 **Should not happen:** Sensitive payloads, tokens, passwords, raw authorization inputs, or unbounded internal noise must not appear.
 
@@ -1505,22 +1497,22 @@ Unpublish and archive are separate operations. Unpublished content remains activ
 
 ### ADM-01: View and manage members
 
-**User story:** As an owner, I want to add members, change roles, and remove access safely.
+**User story:** As an owner, I want to view active members, change roles, and remove access safely.
 
 **Dream experience:** The member list explains each role in product terms and makes access changes deliberate.
 
 **Steps:**
 
 1. Open Settings > Members.
-2. Add or select a member.
+2. Select an active member.
 3. Assign viewer, editor, publisher, or owner as allowed.
-4. Confirm role change or removal.
+4. Confirm role change or removal. New access always starts through ADM-02 invitations.
 
 **Should happen:** Backend role state is canonical. Changes affect the next protected Studio and MCP operation and produce activity/audit evidence.
 
 **Should not happen:** Owners must not accidentally remove the last required owner, assign invented roles, or rely on UI hiding for enforcement.
 
-**Checks:** Add/update/remove; self-change; last-owner guard; active session downgrade; MCP authority refresh; duplicate identity; viewer denial.
+**Checks:** Update/remove; self-change; last-owner guard; active session downgrade; MCP authority refresh; viewer denial.
 
 ### ADM-02: Invite and onboard a new member
 
@@ -1636,15 +1628,15 @@ Unpublish and archive are separate operations. Unpublished content remains activ
 
 ---
 
-## 13. Imports, migrations, backups, and recovery
+## 13. Portability, contract transitions, and recovery
 
 ### V1 recovery capability matrix
 
-| Recovery need        | Canonical mechanism                         | Apply support                                                                    |
-| -------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
-| Deployment/database  | Official Convex deployment snapshots        | Operated outside the CMS application                                             |
-| Content portability  | Verified owner-CLI portability export       | Bounded draft import under the installed contract; never publishes implicitly    |
-| Purged asset recovery| Verified asset-only recovery artifact       | Missing-asset restore after checksum, freshness, storage, and confirmation checks|
+| Recovery need         | Canonical mechanism                   | Apply support                                                                     |
+| --------------------- | ------------------------------------- | --------------------------------------------------------------------------------- |
+| Deployment/database   | Official Convex deployment snapshots  | Operated outside the CMS application                                              |
+| Content portability   | Verified owner-CLI portability export | Bounded draft import under the installed contract; never publishes implicitly     |
+| Purged asset recovery | Verified asset-only recovery artifact | Missing-asset restore after checksum, freshness, storage, and confirmation checks |
 
 The matrix describes product capability, not merely current UI visibility. Studio does not expose a general backup or restore screen.
 
@@ -1707,7 +1699,7 @@ The matrix describes product capability, not merely current UI visibility. Studi
 
 ### IMP-04: Prepare and verify recovery before risky work
 
-**User story:** As an owner/operator, I want a usable backup before risky work.
+**User story:** As an owner/operator, I want a verified recovery path before risky work.
 
 **Dream experience:** The operator chooses the canonical recovery mechanism for the risk and sees its exact restoration boundary.
 
@@ -1745,7 +1737,7 @@ The matrix describes product capability, not merely current UI visibility. Studi
 
 ### IMP-06: Apply a supported restore
 
-**User story:** As an owner/operator, I want to restore a supported missing asset safely from a verified backup.
+**User story:** As an owner/operator, I want to restore a supported missing asset safely from a verified asset-recovery artifact.
 
 **Dream experience:** The operation is explicit about creating a fresh asset/storage object and what references will or will not reconnect.
 
@@ -2130,14 +2122,14 @@ The matrix describes product capability, not merely current UI visibility. Studi
 
 **Steps:**
 
-1. Exercise authentication, MCP creation/failure, revalidation, backup, upload, and denied operations.
+1. Exercise authentication, MCP creation/failure, revalidation, asset recovery, upload, and denied operations.
 2. Inspect visible responses, activity, URLs, logs, and public endpoints.
 
 **Should happen:** Keys/tokens/passwords/secret URLs are redacted or omitted. Raw MCP keys appear only at creation. Public output contains only contract-approved published fields.
 
 **Should not happen:** Header reflection, bearer echo, raw Convex creation metadata, stack traces, client-controlled role/member fields, or draft/private payload leakage.
 
-**Checks:** Automated secret-pattern scans; malformed/unknown/revoked key; errors; audit; browser URL/history; public APIs; backups; support diagnostics.
+**Checks:** Automated secret-pattern scans; malformed/unknown/revoked key; errors; audit; browser URL/history; public APIs; portability and recovery artifacts; support diagnostics.
 
 ### Experience quality contract
 
@@ -2282,16 +2274,16 @@ Initial interaction budgets (p95 on mid-range hardware against the target-scale 
 **Steps:**
 
 1. Propose a code-defined contract change.
-2. Run contract and migration check/dry-run.
+2. Run the contract-transition check/dry-run.
 3. Review affected drafts, published output, routes, locales, relations, and public shaping.
-4. Apply through the documented migration/sync workflow.
+4. Apply through the documented bounded contract-transition workflow.
 5. Verify Studio diagnostics and public reads.
 
-**Should happen:** Incompatible changes fail closed unless an explicitly authorized migration plan handles them. Derived data is rebuilt from named canonical sources where required.
+**Should happen:** Incompatible changes fail closed unless an explicitly authorized contract-transition plan handles them. Derived data is rebuilt from named canonical sources where required.
 
 **Should not happen:** A schema sync must not become an implicit data migration, leave old/new contract paths active together, or require direct table editing.
 
-**Checks:** Each incompatible-change class; dry-run no writes; backup/recovery prerequisite; interrupted migration; reindex; public-output stability; rollback documentation.
+**Checks:** Each incompatible-change class; dry-run no writes; official-snapshot/recovery prerequisite; interrupted transition; reindex; public-output stability; rollback documentation.
 
 ### DEV-06: Prepare a release or deployment without publishing from the agent session
 
@@ -2306,7 +2298,7 @@ Initial interaction budgets (p95 on mid-range hardware against the target-scale 
 3. Inspect package artifacts and release notes.
 4. Hand the verified candidate to the human release procedure.
 
-**Should happen:** Package metadata, generated bridges, auth, Studio workflows, MCP, migrations, and public provider contracts receive proportionate verification.
+**Should happen:** Package metadata, generated bridges, auth, Studio workflows, MCP, contract transitions, and public provider contracts receive proportionate verification.
 
 **Should not happen:** Agent sessions must not run live package publish, production deploy, or commit generated `.pack`, `dist`, `.nuxt`, `.output`, or tarball artifacts.
 
@@ -2508,11 +2500,13 @@ These workflows are common enough that the team should assess them, but they are
 
 **Should happen:** If accepted, every enabled direct agent operation uses the same canonical preview/confirm/execute/audit path and revalidation as its human equivalent. Publish produces identical readiness, revision, projection, and audit semantics. Archive/restore require the same owner authority and reversible lifecycle rules as human archive/restore. Effective authority remains the intersection of the verified credential, active operation scopes, a verified active agent run, the owning member’s current role, and safety mode; run expiry, revocation, or downgrade stops the operation on the next protected call.
 
-**Should not happen:** A run ID or historical scope snapshot must not confer public-operation authority. Default connections must not gain scopes silently. Direct agent operations must not bypass preview/confirmation semantics, skip review-gating for connections that were not explicitly granted, diverge from human output, or expand to permanent delete, purge, backup administration, member management, or settings management.
+**Should not happen:** A run ID or historical scope snapshot must not confer public-operation authority. Default connections must not gain scopes silently. Direct agent operations must not bypass preview/confirmation semantics, skip review-gating for connections that were not explicitly granted, diverge from human output, or expand to permanent delete, purge, asset-recovery administration, member management, or settings management.
 
 **Checks:** Default-deny for new connections; independent publish/archive/restore scope decisions; explicit grant; active-run requirement; required owning-member role; run expiry; role downgrade; revocation mid-run; output/audit/revalidation identical to the human operation; readiness/stale-state parity; permanent delete/purge remain unavailable; recorded accept/defer/reject decision.
 
-**Decision note:** `docs/concepts/studio/marketer-publishing-pipeline.md` names direct authorized agent publish and reversible archive/restore as product goals, while `docs/reference/auth-and-roles.md` and `docs/concepts/studio/workflows.md` describe the current runtime as review-gated with trusted-direct execution as a later, explicitly designed mode. The gap assessment must resolve the operation-specific conflict explicitly. This catalog treats review-gated as the v1 baseline until decisions are recorded.
+**Decision note:** Deferred. The accepted v1 contract is review-gated: agents may
+edit drafts and request review, but cannot publish, unpublish, archive, restore,
+delete, or purge public output directly.
 
 ### CND-11: Scope member authority to locales or collections
 
@@ -2579,7 +2573,7 @@ These are important acceptance criteria because implementing them would violate 
 
 ## Recommended assessment order
 
-The later team assessment should evaluate complete vertical workflows before isolated screens:
+Verification should evaluate complete vertical workflows before isolated screens:
 
 1. **Core editorial slice:** sign in, find content, create draft, edit, save, preview, request review, publish, verify public output.
 2. **Multilingual slice:** missing locale, create/copy translation, compare, readiness, publish one locale, verify alternates/search/nav/sitemap.
@@ -2587,9 +2581,9 @@ The later team assessment should evaluate complete vertical workflows before iso
 4. **Lifecycle slice:** edit live content, version compare, archive, restore, unpublish, rollback, permanent-delete guards.
 5. **Asset slice:** upload, metadata, attach, usage, replace, trash, restore, purge guards.
 6. **Collaboration slice:** agent draft, review request, stale review, approve/reject, activity/audit attribution.
-7. **Operations slice:** members, revalidation, imports, backup/verify, supported restore, diagnostics.
+7. **Operations slice:** members, revalidation, owner-CLI portability, asset-recovery verification, supported restore, diagnostics.
 8. **Quality slice:** permission matrix, keyboard/screen reader, mobile, failure recovery, secret redaction, public draft isolation, interaction performance budgets, structured taste/feel review.
-9. **Developer slice:** clean install, init/doctor, contract sync, provider integration, contract migration, release verification.
+9. **Developer slice:** clean install, init/doctor, contract install, provider integration, bounded contract transition, release verification.
 10. **Product-decision slice:** accept, defer, or reject each CND story with a named canonical source, lifecycle, permissions, retention, and testable acceptance boundary.
 
 ## Definition of “dream experience met”

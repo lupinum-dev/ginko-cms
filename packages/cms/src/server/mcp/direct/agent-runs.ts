@@ -36,7 +36,7 @@ export const listAgentRuns = defineMcpTool({
   handler: async (args, ctx) => {
     try {
       const context = await loadAgentContext(ctx.event, 'readCms')
-      const runs = await context.convex.query(api.ginkoCms.agentRuns.listOwnRuns, args)
+      const runs = await context.convex.query(api.ginkoCms.agentRuns.listRuns, args)
       return ok({ runs }, `Listed ${runs.length} agent run${runs.length === 1 ? '' : 's'}.`)
     } catch (error) {
       return failFromError(error, 'Failed to list agent runs.')

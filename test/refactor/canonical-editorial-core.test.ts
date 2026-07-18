@@ -13,6 +13,7 @@ import {
   createCtx,
   currentDraftVersion,
   publishEntry,
+  seedMember,
   seedOwner,
   unpublishEntry,
 } from '../helpers'
@@ -73,7 +74,11 @@ describe('canonical editorial core', () => {
       expect.objectContaining({ collection: 'posts', locale: 'en', title: 'Hello' }),
     ])
 
-    await owner.mutation(api.entries.draft.createLocaleVariant, { entryId, locale: 'de' })
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
+      entryId,
+      locale: 'de',
+      source: { kind: 'blank' },
+    })
     await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: await currentDraftVersion(owner, entryId),
@@ -105,7 +110,7 @@ describe('canonical editorial core', () => {
         expect.objectContaining({ locale: 'de', title: 'Hallo' }),
       ]),
     )
-    const divergence = await owner.query(api.entries.read.getDraftVsPublishedDiff, { entryId })
+    const divergence = await owner.query(api.entries.history.getDraftVsPublishedDiff, { entryId })
     expect(divergence.changes.map((change: { field: string }) => change.field)).toEqual(
       expect.arrayContaining(['locale.en.shared.eyebrow', 'locale.de.shared.eyebrow']),
     )
@@ -161,7 +166,146 @@ describe('canonical editorial core', () => {
     })
   })
 
-  it('restores an archived record only through a confirmed canonical operation', async () => {
+  it('[DOC-05] archives and restores one documentation section without silently archiving or republishing descendants', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await installContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+
+    const parentId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'operations',
+      localized: { title: 'Operations' },
+    })
+    const childId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'recovery',
+      parentEntryId: parentId,
+      localized: { title: 'Recovery' },
+    })
+    await publishEntry(owner, parentId)
+    await publishEntry(owner, childId)
+
+    await archiveEntry(owner, parentId)
+    const archivedRows = await ctx.readAll('publicEntries')
+    expect(archivedRows).not.toContainEqual(expect.objectContaining({ entryId: parentId }))
+    const archivedChild = archivedRows.find((row) => row.entryId === childId)!
+    expect(archivedChild).toBeTruthy()
+    await expect(
+      ctx.raw.run(async (innerCtx) =>
+        publicPathForEntry(innerCtx, archivedChild as never, { pathPrefix: '/posts' }),
+      ),
+    ).resolves.toBeNull()
+    expect((await ctx.readAll('entries')).find((entry) => entry._id === childId)).toMatchObject({
+      lifecycle: 'active',
+      activePublications: [expect.any(Object)],
+    })
+
+    const restore = owner.operation(restoreEntryOperation)
+    const preview = await restore.preview({ entryId: parentId })
+    expect(preview).toMatchObject({ allowed: true, confirmation: { token: expect.any(String) } })
+    await expect(
+      restore.execute({ entryId: parentId }, { confirmation: preview.confirmation }),
+    ).resolves.toMatchObject({ status: 'applied' })
+
+    expect((await ctx.readAll('entries')).find((entry) => entry._id === parentId)).toMatchObject({
+      lifecycle: 'active',
+      activePublications: [],
+    })
+    await expect(
+      ctx.raw.run(async (innerCtx) =>
+        publicPathForEntry(innerCtx, archivedChild as never, { pathPrefix: '/posts' }),
+      ),
+    ).resolves.toBeNull()
+
+    await publishEntry(owner, parentId)
+    await expect(
+      ctx.raw.query(api.public.page, {
+        collection: 'posts',
+        locale: 'en',
+        path: '/posts/operations/recovery',
+      }),
+    ).resolves.toMatchObject({ status: 'found', page: { id: childId } })
+  })
+
+  it('[LIF-01] previews archive effects across locales, assets, discovery, redirects, and revalidation before canonical removal', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await installContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const storageId = await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob(['archive-asset'], { type: 'image/png' })),
+    )
+    const assetId = await ctx.seed('assets', {
+      storageId,
+      filename: 'archive.png',
+      mimeType: 'image/png',
+      size: 13,
+      sha256: 'b'.repeat(64),
+      width: 1,
+      height: 1,
+      frames: 1,
+      alt: null,
+      caption: null,
+      scope: 'global',
+      entryId: null,
+      collection: null,
+      tags: [],
+      createdBy: 'owner-1',
+      updatedBy: null,
+      createdAt: Date.now(),
+      updatedAt: null,
+      deletedAt: null,
+      deletedBy: null,
+    })
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'archive-impact',
+      localized: { title: 'Archive impact' },
+      bodyMdc: `![Archive](${String(assetId)})`,
+    })
+    await publishEntry(owner, entryId)
+    await ctx.seed('redirects', {
+      redirectId: 'redirect_archive_impact',
+      collection: 'posts',
+      locale: 'en',
+      kind: 'exact',
+      fromPath: '/posts/old-archive-impact',
+      targetEntryId: entryId,
+      state: 'active',
+      statusCode: 308,
+      source: 'manual',
+      operationId: 'test-redirect',
+      createdBy: 'owner-1',
+      createdAt: Date.now(),
+      retiredBy: null,
+      retiredAt: null,
+      updatedAt: Date.now(),
+    })
+
+    const preview = await owner.mutation(api.entries.publish.previewArchiveEntryOperation, {
+      entryId,
+    })
+    expect(preview.allowed).toBe(true)
+    expect(preview.details).toMatchObject({
+      assetImpact: { minimumCount: 1 },
+      discoveryImpact: {
+        navigationLocales: ['en'],
+        searchLocales: ['en'],
+        sitemapLocales: ['en'],
+      },
+      redirects: { minimumCount: 1 },
+      revalidation: { eventCount: 1 },
+    })
+    expect(preview.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'redirect-target-temporarily-unavailable' }),
+        expect.objectContaining({ code: 'assets-retained-with-archive' }),
+      ]),
+    )
+  })
+
+  it('[LIF-02] restores an archived stable identity only through a current confirmed operation and never republishes it', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await installContract(ctx)
@@ -175,10 +319,15 @@ describe('canonical editorial core', () => {
     await archiveEntry(owner, entryId)
 
     const operation = owner.operation(restoreEntryOperation)
-    await expect(operation.execute({ entryId })).rejects.toThrow(/confirmation/i)
+    await expect(operation.execute({ entryId })).resolves.toMatchObject({
+      status: 'blocked',
+      code: 'CONFIRMATION_REQUIRED',
+    })
     const preview = await operation.preview({ entryId })
     expect(preview.allowed).toBe(true)
-    await operation.execute({ entryId }, { confirmation: preview.confirmation })
+    await expect(
+      operation.execute({ entryId }, { confirmation: preview.confirmation }),
+    ).resolves.toMatchObject({ status: 'applied', value: null })
 
     expect((await ctx.readAll('entries'))[0]).toMatchObject({
       lifecycle: 'active',
@@ -186,6 +335,136 @@ describe('canonical editorial core', () => {
     })
     expect(await ctx.readAll('publicEntries')).toEqual([])
     expect((await ctx.readAll('entryRevisions')).at(-1)).toMatchObject({ kind: 'restore' })
+  })
+
+  it('lets a publisher archive and restore while keeping MCP credentials out of lifecycle writes', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'publisher-1', role: 'publisher' })
+    await installContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const publisher = ctx.asCmsUser('publisher-1')
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'publisher-lifecycle',
+      localized: { title: 'Publisher lifecycle' },
+    })
+
+    await archiveEntry(publisher, entryId)
+    const operation = publisher.operation(restoreEntryOperation)
+    const preview = await operation.preview({ entryId })
+    expect(preview.allowed).toBe(true)
+    await expect(
+      operation.execute({ entryId }, { confirmation: preview.confirmation }),
+    ).resolves.toMatchObject({ status: 'applied', value: null })
+
+    expect((await ctx.readAll('entries'))[0]).toMatchObject({ lifecycle: 'active' })
+  })
+
+  it('rejects a restore confirmation when a sibling claims the archived route', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await installContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'reused-route',
+      localized: { title: 'Original' },
+    })
+    await archiveEntry(owner, entryId)
+    const operation = owner.operation(restoreEntryOperation)
+    const preview = await operation.preview({ entryId })
+    expect(preview.allowed).toBe(true)
+
+    await ctx.raw.run(async (innerCtx) => {
+      const now = Date.now()
+      const conflictId = await innerCtx.db.insert('entries', {
+        collection: 'posts',
+        stableId: 'posts-conflicting-route',
+        lifecycle: 'active',
+        slug: 'reused-route',
+        parentEntryId: null,
+        orderRank: 'conflict',
+        nodeKind: 'page',
+        shared: {},
+        draftVersion: 1,
+        sharedVersion: 1,
+        activePublications: [],
+        latestEditorialRevisionId: null,
+        createdBy: 'owner-1',
+        updatedBy: 'owner-1',
+        createdAt: now,
+        updatedAt: now,
+      })
+      await innerCtx.db.insert('entryLocaleDrafts', {
+        entryId: conflictId,
+        locale: 'en',
+        slug: null,
+        values: { title: 'Conflict' },
+        bodyMdc: '',
+        version: 1,
+        updatedBy: 'owner-1',
+        updatedAt: now,
+      })
+    })
+
+    await expect(
+      operation.execute({ entryId }, { confirmation: preview.confirmation }),
+    ).resolves.toMatchObject({ status: 'stale', code: 'OPERATION_NO_LONGER_ALLOWED' })
+    expect(
+      (await ctx.readAll('entries')).find(
+        (entry: { _id: string }) => String(entry._id) === entryId,
+      ),
+    ).toMatchObject({ lifecycle: 'archived' })
+  })
+
+  it('blocks restore when canonical draft content references missing asset bytes', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await installContract(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const storageId = await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob(['asset-bytes'], { type: 'image/png' })),
+    )
+    const assetId = await ctx.seed('assets', {
+      storageId,
+      filename: 'restore.png',
+      mimeType: 'image/png',
+      size: 11,
+      sha256: 'a'.repeat(64),
+      width: 1,
+      height: 1,
+      frames: 1,
+      alt: null,
+      caption: null,
+      scope: 'global',
+      entryId: null,
+      collection: null,
+      tags: [],
+      createdBy: 'owner-1',
+      updatedBy: null,
+      createdAt: Date.now(),
+      updatedAt: null,
+      deletedAt: null,
+      deletedBy: null,
+    })
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'missing-asset',
+      localized: { title: 'Missing asset' },
+      bodyMdc: `![Missing](${String(assetId)})`,
+    })
+    await archiveEntry(owner, entryId)
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.delete(assetId)
+      await innerCtx.storage.delete(storageId)
+    })
+
+    const preview = await owner.operation(restoreEntryOperation).preview({ entryId })
+    expect(preview.allowed).toBe(false)
+    expect(preview.blockers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'PUBLIC_ASSET_MISSING' })]),
+    )
   })
 
   it('blocks every Studio draft write while a contract transition owns canonical state', async () => {
@@ -214,7 +493,11 @@ describe('canonical editorial core', () => {
       }),
     ).rejects.toThrow(/locked/i)
     await expect(
-      owner.mutation(api.entries.draft.createLocaleVariant, { entryId, locale: 'de' }),
+      owner.mutation(api.entries.draft.createLocaleVariant, {
+        entryId,
+        locale: 'de',
+        source: { kind: 'blank' },
+      }),
     ).rejects.toThrow(/locked/i)
     await expect(
       owner.createEntry({
@@ -294,12 +577,13 @@ describe('canonical editorial core', () => {
     expect(firstPage.results).toHaveLength(2)
     expect(firstPage.pageInfo.hasNextPage).toBe(true)
     expect(JSON.parse(firstPage.pageInfo.endCursor!)).toMatchObject({
+      v: 2,
       kind: 'publicSearch',
       collection: 'posts',
       locale: 'en',
-      canonicalKey: expect.any(String),
+      query: 'Search Entry',
       generation: expect.any(String),
-      projectionId: expect.any(String),
+      offset: 2,
     })
 
     const secondPage = await ctx.raw.query(api.public.search, {

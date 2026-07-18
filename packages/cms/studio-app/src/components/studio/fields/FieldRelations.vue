@@ -53,25 +53,25 @@ const filteredRelatedEntries = computed(() => {
   return relatedEntries.value
 })
 
-const relationCollectionId = computed(() => props.field.relation?.collectionId ?? '')
+const relationCollection = computed(() => props.field.relation?.collection ?? '')
 const relationHelpText = computed(() => {
   if (props.field.description) return props.field.description
-  if (!relationCollectionId.value) return null
+  if (!relationCollection.value) return null
   return props.field.required
     ? t('ginkoCms.studio.fieldRenderer.requiredRelationsHelp', {
-        collection: relationCollectionId.value,
+        collection: relationCollection.value,
       })
     : t('ginkoCms.studio.fieldRenderer.optionalRelationsHelp', {
-        collection: relationCollectionId.value,
+        collection: relationCollection.value,
       })
 })
 
 const relationEmptyStateText = computed(() => {
-  if (filteredRelatedEntries.value.length > 0 || !relationCollectionId.value) return null
+  if (filteredRelatedEntries.value.length > 0 || !relationCollection.value) return null
   if (status.value === 'loading-first-page') return null
   if (relatedEntries.value.length === 0) {
     return t('ginkoCms.studio.fieldRenderer.noRelationEntries', {
-      collection: relationCollectionId.value,
+      collection: relationCollection.value,
     })
   }
   return t('ginkoCms.studio.fieldRenderer.noMatchingEntries')

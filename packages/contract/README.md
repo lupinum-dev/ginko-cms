@@ -26,6 +26,7 @@ validators used by the CMS module and Convex component.
 - `@lupinum/ginko-cms-contract/shared/types.js`
 - `@lupinum/ginko-cms-contract/shared/order.js`
 - `@lupinum/ginko-cms-contract/shared/permissions.js`
+- `@lupinum/ginko-cms-contract/shared/placementGraph.js`
 - `@lupinum/ginko-cms-contract/shared/readiness.js`
 - `@lupinum/ginko-cms-contract/shared/caller.js`
 - `@lupinum/ginko-cms-contract/shared/routeDiagnostics.js`
@@ -36,9 +37,11 @@ validators used by the CMS module and Convex component.
 - `@lupinum/ginko-cms-contract/convex/schemas/collections.js`
 - `@lupinum/ginko-cms-contract/convex/schemas/diagnostics.js`
 - `@lupinum/ginko-cms-contract/convex/schemas/editor.js`
+- `@lupinum/ginko-cms-contract/convex/schemas/maintenance.js`
 - `@lupinum/ginko-cms-contract/convex/schemas/members.js`
 - `@lupinum/ginko-cms-contract/convex/schemas/portability.js`
 - `@lupinum/ginko-cms-contract/convex/schemas/public.js`
+- `@lupinum/ginko-cms-contract/convex/schemas/redirects.js`
 - `@lupinum/ginko-cms-contract/convex/schemas/revalidation.js`
 - `@lupinum/ginko-cms-contract/convex/schemas/siteData.js`
 

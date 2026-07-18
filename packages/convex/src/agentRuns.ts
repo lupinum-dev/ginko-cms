@@ -1,13 +1,13 @@
 import { mcpCredentialScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { v } from 'convex/values'
 
-import type { Doc, Id } from './_generated/dataModel.js'
+import type { Doc } from './_generated/dataModel.js'
 import type { CmsMemberAppIdentity } from './auth/appIdentity.js'
 import { canRead } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
-import type { MutationCtx } from './lib/types.js'
+import type { QueryOrMutationCtx } from './lib/types.js'
 
 const agentRunStatusValidator = v.union(
   v.literal('active'),
@@ -57,15 +57,12 @@ function serializeRun(run: AgentRunDoc) {
 }
 
 export async function getActiveAgentRunOrThrow(
-  ctx: {
-    db: {
-      get: (id: Id<'agentRuns'>) => Promise<AgentRunDoc | null>
-    }
-  },
+  ctx: QueryOrMutationCtx,
   runId: string,
   now: number,
 ) {
-  const run = await ctx.db.get(runId as Id<'agentRuns'>)
+  const id = ctx.db.normalizeId('agentRuns', runId)
+  const run = id ? await ctx.db.get(id) : null
   if (!run) {
     throwCmsError('AGENT_RUN_NOT_FOUND', 'Agent run not found.', { agentRunId: runId })
   }
@@ -100,11 +97,7 @@ function assertRunBelongsToIdentity(run: AgentRunDoc, appIdentity: CmsMemberAppI
 }
 
 export async function getOwnActiveAgentRunOrThrow(
-  ctx: {
-    db: {
-      get: (id: Id<'agentRuns'>) => Promise<AgentRunDoc | null>
-    }
-  },
+  ctx: QueryOrMutationCtx,
   runId: string,
   appIdentity: CmsMemberAppIdentity,
   now: number,
@@ -115,48 +108,17 @@ export async function getOwnActiveAgentRunOrThrow(
 }
 
 export async function getOwnAgentRunOrThrow(
-  ctx: { db: { get: (id: Id<'agentRuns'>) => Promise<AgentRunDoc | null> } },
+  ctx: QueryOrMutationCtx,
   runId: string,
   appIdentity: CmsMemberAppIdentity,
 ) {
-  const run = await ctx.db.get(runId as Id<'agentRuns'>)
+  const id = ctx.db.normalizeId('agentRuns', runId)
+  const run = id ? await ctx.db.get(id) : null
   if (!run) {
     throwCmsError('AGENT_RUN_NOT_FOUND', 'Agent run not found.', { agentRunId: runId })
   }
   assertRunBelongsToIdentity(run, appIdentity)
   return run
-}
-
-export async function recordOwnedAgentRunWrite(
-  ctx: MutationCtx & {
-    appIdentity: () => Promise<CmsMemberAppIdentity>
-  },
-  agentRunId: string,
-  operationId: string,
-) {
-  const appIdentity = await ctx.appIdentity()
-  const now = Date.now()
-  const run = await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, now)
-  await ctx.db.patch(run._id, {
-    updatedAt: now,
-    lastWriteAt: now,
-  })
-  const updated = await ctx.db.get(run._id)
-  if (!updated) throw new Error('Agent run disappeared after write.')
-
-  await logActivity(ctx, {
-    kind: 'agentRun.write',
-    summary: `Agent run "${run.taskName}" used ${operationId}`,
-    appIdentityId: appIdentity.userId,
-    detail: {
-      agentRunId,
-      operationId,
-      credentialApiKeyId: run.credentialApiKeyId,
-      callerApiKeyId: appIdentity.audit.origin === 'mcp' ? appIdentity.audit.apiKeyId : null,
-    },
-  })
-
-  return serializeRun(updated)
 }
 
 export const startRun = callerMutation.protected({
@@ -240,8 +202,8 @@ export const startRun = callerMutation.protected({
   },
 })
 
-export const listOwnRuns = callerQuery.protected({
-  id: 'agentRuns:listOwnRuns',
+export const listRuns = callerQuery.protected({
+  id: 'agentRuns:listRuns',
   args: {
     limit: v.optional(v.number()),
   },
@@ -258,11 +220,17 @@ export const listOwnRuns = callerQuery.protected({
           .withIndex('by_credential', (q) => q.eq('credentialApiKeyId', credentialApiKeyId))
           .order('desc')
           .take(boundedLimit)
-      : await ctx.db
-          .query('agentRuns')
-          .withIndex('by_delegated_user', (q) => q.eq('delegatedUserId', appIdentity.userId))
-          .order('desc')
-          .take(boundedLimit)
+      : appIdentity.role === 'owner'
+        ? await ctx.db
+            .query('agentRuns')
+            .withIndex('by_created_at')
+            .order('desc')
+            .take(boundedLimit)
+        : await ctx.db
+            .query('agentRuns')
+            .withIndex('by_delegated_user', (q) => q.eq('delegatedUserId', appIdentity.userId))
+            .order('desc')
+            .take(boundedLimit)
 
     return runs.map(serializeRun)
   },
@@ -270,6 +238,7 @@ export const listOwnRuns = callerQuery.protected({
 
 export const completeRun = callerMutation.protected({
   id: 'agentRuns:completeRun',
+  contractWrite: 'bypass',
   args: {
     agentRunId: v.string(),
   },
@@ -300,6 +269,7 @@ export const completeRun = callerMutation.protected({
 
 export const revokeRun = callerMutation.protected({
   id: 'agentRuns:revokeRun',
+  contractWrite: 'bypass',
   args: {
     agentRunId: v.string(),
   },
@@ -309,7 +279,8 @@ export const revokeRun = callerMutation.protected({
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
     const run = await getActiveAgentRunOrThrow(ctx, args.agentRunId, now)
-    if (run.delegatedUserId !== appIdentity.userId) {
+    const ownerCanRevoke = appIdentity.audit.origin === 'user' && appIdentity.role === 'owner'
+    if (run.delegatedUserId !== appIdentity.userId && !ownerCanRevoke) {
       throwCmsError('AGENT_RUN_FORBIDDEN', 'Agent run belongs to a different user.', {
         agentRunId: args.agentRunId,
       })

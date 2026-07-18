@@ -51,7 +51,7 @@ describe('Studio executable accessibility contract', () => {
     document.body.replaceChildren()
   })
 
-  it('keeps the workspace landmarks accessible', async () => {
+  it('[QUA-01] keeps the workspace landmarks accessible', async () => {
     // The detail <aside> landmark moved from the workspace grid to the shell's
     // right sidebar (Phase L retired the in-card action rail); its a11y is
     // covered by the right-sidebar suite. The workspace keeps header + main.
@@ -71,7 +71,7 @@ describe('Studio executable accessibility contract', () => {
     const wrapper = mount(StudioAssetPicker, {
       attachTo: document.querySelector('#ginko-cms-studio') as HTMLElement,
       props: {
-        assetContext: { collectionSlug: 'authors', locale: 'en' },
+        assetContext: { collection: 'authors', locale: 'en' },
         kind: 'image',
         label: 'Avatar',
         modelValue: null,

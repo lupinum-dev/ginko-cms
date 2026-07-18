@@ -15,14 +15,14 @@ ladder + motion tokens, asset-browser decomposition, write-time activity actor l
 plus three product bugs the multilingual/tree/media walkthrough surfaced (tree parent
 select never opened; rich-text bodies stranded at create; asset upload broken by
 component-action auth loss).
-Method: live walkthrough of all 11 routes + overlays in the browser (1440×900 light/dark, 375×812 mobile), measured with JS probes, plus four code audits (tokens, primitives/patterns, vocabulary/i18n, UI-REVISION reconciliation).
+Method: live walkthrough of supported routes and overlays in the browser (1440×900 light/dark, 375×812 mobile), measured with JS probes, plus code audits for tokens, primitives/patterns, vocabulary/i18n, and the accepted user stories.
 
-This review judges the current branch against its own two constitutions — `DESIGN.md`
-(visual system) and `UI-REVISION.md` (editor-first IA, hard terminology cutover) — plus
+This review judges the current branch against `DESIGN.md` (visual system) and
+`userstories.md` (accepted editor workflows and terminology) — plus
 an Apple-HIG-style simplicity bar, per the agreed scope: **restructure allowed,
 content-editor persona, hybrid execution**.
 
-## Binding principles (addendum to DESIGN.md / UI-REVISION.md)
+## Binding principles (addendum to DESIGN.md / userstories.md)
 
 1. **One primary action per screen.** Everything else is secondary/ghost or in a `⋯` menu.
 2. **Say it once.** A status/fact appears in exactly one place per screen. Duplication is a bug.
@@ -57,7 +57,7 @@ Tags: **[fidelity]** mechanical, I fix without further approval · **[simplify]*
 ### Home `/studio` — the noisiest screen in the app
 
 - **P1 [simplify] Redundancy ×3**: queue rows, pipeline diagram, then per-queue sections ("Ready to preview", "Ready for review", "Continue editing") each with its own empty state — the page says the same thing three times, ~4 screens tall with only one real work item.
-- **P1 [fidelity] REGRESSED (audit D): no Home nav item** — the shell swap dropped the discrete Home link (logo-as-home only), which UI-REVISION P0 explicitly fixed once already.
+- **P1 [fidelity] REGRESSED: no Home nav item** — the shell swap dropped the discrete Home link (logo-as-home only), which violates the accepted reliable-navigation workflow.
 - **P2 [simplify] Zero-rows stay visible** (4 of 5 queues at 0). Show only non-empty queues + a single "All caught up" state.
 - **P2 [fidelity] REGRESSED (audit D)**: raw `collection.type` ("flat") printed in the Content overview table (`index.vue:788`).
 - **P2 [simplify]** Header quick links (Site-wide content / Media / Approvals) duplicate the sidebar 1:1.
@@ -66,7 +66,7 @@ Tags: **[fidelity]** mechanical, I fix without further approval · **[simplify]*
 
 ### Content list `/studio/content/blog`
 
-- **P1 [fidelity] Title column collapses to 0px.** Hand-rolled grid `[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem]`: the five fixed tracks total 764px — exactly the card width at 1440 with panel open — so the 1fr title track gets 0 and the header labels overlap ("CONTENT" over "LANGUAGES"). Violates UI-REVISION's "title-first rows" acceptance. Fix: real `Table` primitive or container-query column dropping; title track gets a min width, fixed tracks yield first.
+- **P1 [fidelity] Title column collapses to 0px.** Hand-rolled grid `[minmax(0,1fr)_12rem_9rem_minmax(12rem,16rem)_7rem_4rem]`: the five fixed tracks total 764px — exactly the card width at 1440 with panel open — so the 1fr title track gets 0 and the header labels overlap ("CONTENT" over "LANGUAGES"). Violates the title-first inventory workflow. Fix: real `Table` primitive or container-query column dropping; title track gets a min width, fixed tracks yield first.
 - **P2 [simplify]** NEXT ACTION column spends 16rem repeating "Open entry" on every row; EDIT pencil column duplicates row-click. Title + status + edited is enough; actions on hover/⋯.
 - **P2 [simplify]** Right panel duplicates the primary CTA ("New content" appears twice on screen) and shows zero-count Work queue rows; "Flat" pill leaks schema type into the panel header area.
 - **P3** "List" view toggle renders as a one-option segmented control.
@@ -140,7 +140,7 @@ Tags: **[fidelity]** mechanical, I fix without further approval · **[simplify]*
 - **Wave F1 — fidelity, no approval needed:** container-query migration for in-card layouts (A1), content-list table rebuild (title never collapses), i18n wiring for the rail family (A3), Media native selects → primitives, empty-state normalization (A6), active-state normalization, eyebrow/taxonomy alignment (A7), Saved-glyph collision, archived-state styling, DESIGN.md color-section update, P3 sweep (audit lists).
 - **Wave S1 — Home diet:** one queue (non-empty only) + one "Recent" block; delete pipeline diagram + per-queue empty sections + header quick links; restore Home nav item; fix `collection.type` leak.
 - **Wave S2 — Editor focus:** compact-by-default panel; one primary action in the top bar; say-it-once panel regrouping (Status → Next action → History, language block only when multilingual); publish-dialog blocker-first + chip prose.
-- **Wave S3 — Periphery:** Media taxonomy + filter collapse; Content setup regrouping; Activity actor/entry naming; Settings appearance reduction; diagnostics footer gating (A4); remaining UI-REVISION UNMET items.
+- **Wave S3 — Periphery:** Media taxonomy + filter collapse; Content setup regrouping; Activity actor/entry naming; Settings appearance reduction; diagnostics footer gating (A4); remaining accepted-story UX gaps.
 
 Each wave: own commit(s), suite + `ginkoify --check` + `vue-tsc` gates, live browser verification desktop/mobile/dark, side-by-side with the template on :4400.
 
@@ -149,4 +149,3 @@ Each wave: own commit(s), suite + `ginkoify --check` + `vue-tsc` gates, live bro
 - audit-a-tokens.md — 0 P1 / 6 P2 / ~20 P3 (DESIGN.md staleness is the headline)
 - audit-b-patterns.md — 2 P1 / 6 P2 / 17 P3 (drift concentrated in StudioAssetBrowser)
 - audit-c-vocabulary.md — ~120 hardcoded literals; en/de parity perfect; terminology drift list
-- audit-d-revision-reconcile.md — 2 REGRESSED, 3 UNMET, imports-revision OBSOLETE, rest MET

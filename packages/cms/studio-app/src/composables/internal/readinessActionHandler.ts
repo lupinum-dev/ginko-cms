@@ -79,7 +79,7 @@ export function createReadinessActionHandler(editor: StudioEntryEditorContext) {
         return
       case 'route':
       case 'diagnostics':
-        await editor.workflow?.validatePublicRoutes()
+        await editor.workflow?.previewPublishImpact(editor.loader.currentLocale)
         return
     }
   }

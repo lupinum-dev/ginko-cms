@@ -17,12 +17,13 @@ import { previewPublishImpactForEntry } from '../diagnostics.js'
 import { getCollectionMode, isRouteBackedCollection } from '../lib/collections.js'
 import { isEqualJsonValue } from '../lib/data.js'
 import { toStringId } from '../lib/ids.js'
-import { pathPrefixForLocale, rootSlugForLocale } from '../lib/paths.js'
 import { getCmsSettings } from '../lib/locale.js'
+import { pathPrefixForLocale, rootSlugForLocale } from '../lib/paths.js'
 import type { CmsCollection, HandlerQueryCtx } from '../lib/types.js'
 import { collectPublishRequiredFieldIssues } from '../lib/validation.js'
 import { exactReviewStaleState } from '../reviewRequests.js'
 import { getCollectionForEntry, getEntryOrThrow, readStudioDraftView } from './context.js'
+import { assertValidDraftParentChain } from './workflow/draftPlacement.js'
 import { readDraftRows } from './workflow/drafts.js'
 import { buildPublicProjectionFromRevisionSnapshot } from './workflow/projectionBuild.js'
 import { publicPathForEntry } from './workflow/publicTree.js'
@@ -315,6 +316,14 @@ async function computeEntryReadiness(
   const canEditEntriesNow = can(appIdentity, canEditEntries)
   const canArchiveEntriesNow = can(appIdentity, canArchiveEntries)
   const routeBacked = isRouteBackedCollection(collection)
+  let draftTreePlacementValid = true
+  if (collection.type === 'tree') {
+    try {
+      await assertValidDraftParentChain(ctx, { collection, entry })
+    } catch {
+      draftTreePlacementValid = false
+    }
+  }
   const publishImpact =
     routeBacked && args.exact
       ? await previewPublishImpactForEntry(ctx, {
@@ -350,6 +359,16 @@ async function computeEntryReadiness(
       blockers.push(
         readinessIssue({
           code: 'entry_archived',
+          severity: 'blocker',
+          locale,
+        }),
+      )
+    }
+
+    if (!draftTreePlacementValid) {
+      blockers.push(
+        readinessIssue({
+          code: 'route_parent_not_public',
           severity: 'blocker',
           locale,
         }),

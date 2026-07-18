@@ -46,10 +46,13 @@ describe('playground public blog failure semantics', () => {
   })
 
   it('keeps sitemap route verification to a bounded deterministic sample', async () => {
-    const smoke = await readFile(resolve(root, 'scripts/cms-live-story-smoke.mjs'), 'utf8')
-    const sitemapStory = smoke.slice(
-      smoke.indexOf("story('public-api.sitemap'"),
-      smoke.indexOf("story(\n    'public-api.search-validation'"),
+    const publicJourneys = await readFile(
+      resolve(root, 'scripts/live-proof/public-journeys.mjs'),
+      'utf8',
+    )
+    const sitemapStory = publicJourneys.slice(
+      publicJourneys.indexOf("story('public-api.sitemap'"),
+      publicJourneys.indexOf("'public-api.search-validation'"),
     )
 
     expect(sitemapStory).toContain(

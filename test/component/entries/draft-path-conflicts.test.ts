@@ -15,42 +15,21 @@ import {
 
 const api = anyApi
 
-async function seedLocalizedTree(ctx: ReturnType<typeof createCtx>) {
-  const now = Date.now()
-  await ctx.seed(
-    'collections' as never,
-    {
-      slug: 'localized-tree',
-      label: { en: 'Localized tree' },
-      icon: null,
-      type: 'tree',
-      routing: {
-        pathPrefix: '/localized-tree',
-        slugMode: 'localized',
-        rootSlug: null,
-        singleton: false,
-      },
-      locales: ['en', 'de'],
-      fields: [{ key: 'title', type: 'text', localized: true, searchable: true }],
-      settings: { maxDepth: 4 },
-      createdAt: now,
-      updatedAt: now,
-      updatedBy: 'owner-1',
-    } as never,
-  )
-}
-
 async function setGermanSlug(
   owner: ReturnType<ReturnType<typeof createCtx>['asCmsUser']>,
   entryId: string,
   slug: string,
 ) {
-  await owner.mutation(api.editor.createLocaleVariant, { entryId, locale: 'de' })
+  await owner.mutation(api.entries.draft.createLocaleVariant, {
+    entryId,
+    locale: 'de',
+    source: { kind: 'blank' },
+  })
   const entry = await owner.query(api.editor.getEntry, { id: entryId, locale: 'de' })
   await owner.saveEntryDraft({
     entryId,
     expectedDraftVersion: entry.draftVersion,
-    patch: { locales: { de: { slug } } },
+    patch: { locales: { de: { slug, values: { title: `German ${slug}` } } } },
   })
 }
 
@@ -59,25 +38,24 @@ describe('indexed draft sibling path conflicts', () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMultiLocaleSettings(ctx)
-    await seedLocalizedTree(ctx)
     const owner = ctx.asCmsUser('owner-1')
     const parentId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       slug: 'parent',
       localized: { title: 'Parent' },
     })
     const replacementParentId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       slug: 'replacement-parent',
       localized: { title: 'Replacement parent' },
     })
     const movingId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       slug: 'moving',
       localized: { title: 'Moving' },
     })
     const replacementId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       parentEntryId: replacementParentId,
       slug: 'replacement',
       localized: { title: 'Replacement' },
@@ -105,26 +83,25 @@ describe('indexed draft sibling path conflicts', () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMultiLocaleSettings(ctx)
-    await seedLocalizedTree(ctx)
     const owner = ctx.asCmsUser('owner-1')
     const parentAId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       slug: 'parent-a',
       localized: { title: 'Parent A' },
     })
     const parentBId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       slug: 'parent-b',
       localized: { title: 'Parent B' },
     })
     const leftId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       parentEntryId: parentAId,
       slug: 'left',
       localized: { title: 'Left' },
     })
     const rightId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       parentEntryId: parentBId,
       slug: 'right',
       localized: { title: 'Right' },
@@ -160,25 +137,24 @@ describe('indexed draft sibling path conflicts', () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMultiLocaleSettings(ctx)
-    await seedLocalizedTree(ctx)
     const owner = ctx.asCmsUser('owner-1')
     const parentAId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       slug: 'parent-a',
       localized: { title: 'Parent A' },
     })
     const parentBId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       slug: 'parent-b',
       localized: { title: 'Parent B' },
     })
     const originalId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       slug: 'original',
       localized: { title: 'Original' },
     })
     const replacementId = await owner.createEntry({
-      collection: 'localized-tree',
+      collection: 'docs',
       parentEntryId: parentBId,
       slug: 'replacement',
       localized: { title: 'Replacement' },

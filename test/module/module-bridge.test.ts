@@ -3,6 +3,10 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import {
+  buildResolvedContentContract,
+  hashCanonicalJson,
+} from '@lupinum/ginko-content/cms-contract'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { installConvexSetup } from './convex-setup-helpers.js'
@@ -138,11 +142,15 @@ describe('ginko-cms Convex setup validation', () => {
     expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain(
       './betterAuth/schema',
     )
+    expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain(
+      'sendGinkoPasswordResetEmail',
+    )
     expect(readFileSync(resolve(rootDir, 'convex/betterAuth/schema.ts'), 'utf8')).toContain(
       'apikey: defineTable',
     )
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/passwordRecovery.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
   })
 
@@ -191,6 +199,48 @@ describe('ginko-cms Convex setup validation', () => {
         process.env.CONVEX_DEPLOY_KEY = previousDeployKey
       }
     }
+  })
+
+  it('injects trusted expected hashes from the resolved content and presentation contracts', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-expected-contract-'))
+    tempDirs.push(rootDir)
+    await installConvexSetup(rootDir)
+    const content = buildResolvedContentContract(
+      {
+        collections: {
+          posts: {
+            type: 'page',
+            source: 'content/posts/**/*.md',
+            route: '/posts',
+          },
+        },
+      },
+      { defaultLocale: 'en', locales: ['en'] },
+    )
+    const presentation = {
+      collections: {
+        posts: { label: 'Editorial posts', fields: {} },
+      },
+    }
+    const nuxt = createNuxtMock(rootDir)
+    ;(
+      nuxt.options.runtimeConfig as typeof nuxt.options.runtimeConfig & {
+        content: { contract: typeof content }
+      }
+    ).content = { contract: content }
+    nuxt.options.runtimeConfig.public.ginkoCms = {
+      contract: {
+        expectedContentHash: 'host-config-must-not-override',
+        expectedPresentationHash: 'host-config-must-not-override',
+      },
+    }
+
+    await setupModule({ route: '/studio', editorialLayout: presentation }, nuxt)
+
+    expect(nuxt.options.runtimeConfig.public.ginkoCms.contract).toEqual({
+      expectedContentHash: await hashCanonicalJson(content),
+      expectedPresentationHash: await hashCanonicalJson(presentation),
+    })
   })
 
   it('rejects the removed CMS public facade and prerender options', async () => {

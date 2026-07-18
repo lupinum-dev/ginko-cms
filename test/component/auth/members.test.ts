@@ -12,7 +12,7 @@ import {
   canDeleteEntries,
   canEditEntries,
   canManageAssets,
-  canManageBackups,
+  canManageAssetRecovery,
   canManageCollections,
   canManageMembers,
   canManagePortability,
@@ -232,11 +232,11 @@ describe('cms guards', () => {
     expect(can(appIdentity, canManageSettings)).toBe(false)
     expect(can(appIdentity, canManageMembers)).toBe(false)
     expect(can(appIdentity, canManageAssets)).toBe(false)
-    expect(can(appIdentity, canManageBackups)).toBe(false)
+    expect(can(appIdentity, canManageAssetRecovery)).toBe(false)
     expect(can(appIdentity, canManagePortability)).toBe(false)
   })
 
-  it('maps owner, publisher, editor, and viewer roles to the expected permission matrix', () => {
+  it('[ACC-04] maps owner, publisher, editor, and viewer roles to the expected permission matrix', () => {
     const owner = memberAppIdentity('owner')
     const publisher = memberAppIdentity('publisher')
     const editor = memberAppIdentity('editor')
@@ -252,20 +252,20 @@ describe('cms guards', () => {
     expect(can(owner, canManageSettings)).toBe(true)
     expect(can(owner, canManageMembers)).toBe(true)
     expect(can(owner, canManageAssets)).toBe(true)
-    expect(can(owner, canManageBackups)).toBe(true)
+    expect(can(owner, canManageAssetRecovery)).toBe(true)
     expect(can(owner, canManagePortability)).toBe(true)
 
     expect(can(publisher, canRead)).toBe(true)
     expect(can(publisher, canCreateEntries)).toBe(true)
     expect(can(publisher, canEditEntries)).toBe(true)
     expect(can(publisher, canPublishEntries)).toBe(true)
-    expect(can(publisher, canArchiveEntries)).toBe(false)
+    expect(can(publisher, canArchiveEntries)).toBe(true)
     expect(can(publisher, canDeleteEntries)).toBe(false)
     expect(can(publisher, canManageCollections)).toBe(false)
     expect(can(publisher, canManageSettings)).toBe(false)
     expect(can(publisher, canManageMembers)).toBe(false)
     expect(can(publisher, canManageAssets)).toBe(true)
-    expect(can(publisher, canManageBackups)).toBe(false)
+    expect(can(publisher, canManageAssetRecovery)).toBe(false)
     expect(can(publisher, canManagePortability)).toBe(false)
 
     expect(can(editor, canRead)).toBe(true)

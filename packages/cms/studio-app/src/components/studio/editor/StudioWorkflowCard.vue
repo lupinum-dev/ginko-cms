@@ -13,14 +13,11 @@ import type {
   StudioEntryReadinessDetail,
   StudioPublishImpactState,
   StudioPublishReviewState,
-  StudioRouteValidationState,
 } from './studioWorkflowTypes'
 
 const props = defineProps<{
   readinessDetail?: StudioEntryReadinessDetail | null
   readinessPending?: boolean
-  routeValidationRequested?: boolean
-  routeValidationState?: StudioRouteValidationState
   publishImpactRequested?: boolean
   publishImpact?: StudioPublishImpactState
   publishReview?: StudioPublishReviewState
@@ -55,18 +52,9 @@ const readinessView = computed(() =>
 
 const currentLocaleReadiness = computed(() => readinessView.value.currentLocale)
 
-const routeHasBlocker = computed(
-  () =>
-    Boolean(props.routeValidationRequested) &&
-    Boolean(
-      props.routeValidationState?.diagnostics.some((diagnostic) => diagnostic.severity === 'error'),
-    ),
-)
-
 const firstBlockerMessage = computed(() => {
   const blocker = readinessView.value.blockers[0]
   if (blocker) return readinessIssueMessage(editor.loader.t, blocker)
-  if (routeHasBlocker.value) return t('routeBlockerFound')
   return null
 })
 

@@ -1,48 +1,84 @@
 import {
   archiveEntry as archiveEntryArgs,
   createCheckpoint as createCheckpointArgs,
+  listPublishRouteImpactPage as listPublishRouteImpactPageArgs,
   publishEntry as publishEntryArgs,
   restoreEntry as restoreEntryArgs,
-  rollbackVersion as rollbackVersionArgs,
   unpublishEntry as unpublishEntryArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
 import {
+  ginkoPublishRouteImpactPageResultValidator,
   publishResultValidator,
-  rollbackResultValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 
-import type { Id } from '../_generated/dataModel.js'
+import type { Doc, Id } from '../_generated/dataModel.js'
 import { getOwnActiveAgentRunOrThrow } from '../agentRuns.js'
-import { can, canArchiveEntries, canEditEntries, canPublishEntries } from '../auth/checks.js'
+import { canArchiveEntries, canEditEntries, canPublishEntries } from '../auth/checks.js'
 import { previewPublishImpactForEntry } from '../diagnostics.js'
 import { throwCmsError } from '../errors.js'
-import { callerMutation } from '../functions.js'
+import { callerMutation, callerQuery } from '../functions.js'
+import { assertCollectionSupportsLocale, getCollectionDefaultLocale } from '../lib/collections.js'
+import { MAX_CONVEX_DOCUMENT_BYTES, mdcBodySize } from '../lib/contentLimits.js'
 import { asEntryId } from '../lib/ids.js'
-import type { QueryOrMutationCtx } from '../lib/types.js'
+import { readInstalledCmsContract } from '../lib/installedContract.js'
+import { getRoutingLocales } from '../lib/locale.js'
 import {
   defineCmsOperation,
   operationEffect,
+  operationExecuteResultValidator,
   operationIssue,
   buildPreview,
   previewResultValidator,
   definePreview,
 } from '../operationHelpers.js'
 import { deriveDirtyLocales, getCollectionForEntry, loadEntryMutationContext } from './context.js'
-import { previewDestructiveEntryOperation } from './read.js'
+import { previewDestructiveEntryOperation } from './destructivePreview.js'
+import {
+  executeCanonicalPublish as executePublicationOperation,
+  type PublishAuthorization,
+  type PublishOperationArgs,
+} from './publicationApproval.js'
+import { inspectRestoreEligibility, type RestoreEligibilityIssue } from './restoreEligibility.js'
 import {
   archiveCurrentEntry,
   computePublishDraftHash,
   createDraftCheckpoint,
   publishCurrentDraft,
   restoreArchivedEntry,
-  rollbackPublicToRevision,
-  restoreRevisionSnapshotToDraft,
   unpublishCurrentPublic,
 } from './workflow/commands.js'
+import { buildDraftSnapshots } from './workflow/draftCommands.js'
 import { readDraftRows } from './workflow/drafts.js'
-import { readPublicRevisionIdsByLocale } from './workflow/projection.js'
+import {
+  validateRevisionSnapshotsForActivation,
+  workflowOperationId,
+} from './workflow/publicationCommands.js'
+import {
+  computeDraftPublicPathForLocale,
+  paginatePublishedDescendantRouteChanges,
+} from './workflow/publishImpact.js'
+import { measureNextRevisionDocument } from './workflow/revisions.js'
 import { readRouteGeneration } from './workflow/routeGeneration.js'
+
+const PUBLISH_OPERATION_ID = 'ginko-cms.publish-entry'
+const PUBLISH_EXECUTE_PATH = 'entries/publish:publishEntryOperationExecute'
+
+type UnpublishEntryInput = {
+  entryId: string
+  locales: string[]
+}
+
+type UnpublishEntryLoaded = {
+  entry: Doc<'entries'>
+  collection: Awaited<ReturnType<typeof getCollectionForEntry>>
+  locales: string[]
+  destructivePreview: Awaited<ReturnType<typeof previewDestructiveEntryOperation>>
+}
+
+function boundedEffectCount(count: number, exact: boolean) {
+  return exact ? { count } : { count: null, minimumCount: count, countLabel: `${count}+` }
+}
 
 function formatAffectedRoutes(
   routes: Array<{ locale: string; href: string; path?: string | null }>,
@@ -57,7 +93,32 @@ function archiveBlockers(result: Awaited<ReturnType<typeof previewDestructiveEnt
       operationIssue({ code: 'already-archived', message: 'Entry is already archived.' }),
     )
   }
+  if (result.inboundRelations.total > 0) {
+    blockers.push(
+      operationIssue({
+        code: 'entry-has-inbound-relations',
+        message: `${result.inboundRelations.total} current relation${result.inboundRelations.total === 1 ? '' : 's'} must be resolved before this entry can be archived.`,
+        details: result.inboundRelations,
+      }),
+    )
+  }
+  if (result.redirects.hasMore) {
+    blockers.push(
+      operationIssue({
+        code: 'redirect-impact-too-large',
+        message: 'Archive impact exceeds the supported limit of 100 active redirects.',
+      }),
+    )
+  }
   return blockers
+}
+
+function cmsOperationIssue(error: unknown) {
+  if (!error || typeof error !== 'object' || !('data' in error)) return null
+  const data = error.data
+  if (!data || typeof data !== 'object' || !('code' in data) || !('message' in data)) return null
+  if (typeof data.code !== 'string' || typeof data.message !== 'string') return null
+  return operationIssue({ code: data.code, message: data.message })
 }
 
 function descendantReachabilityWarning(
@@ -71,105 +132,16 @@ function descendantReachabilityWarning(
     : null
 }
 
-async function loadRevisionForRollback(
-  ctx: QueryOrMutationCtx,
-  args: { entryId: string; versionId: string },
-) {
-  const entry = await ctx.db.get(asEntryId(args.entryId))
-  if (!entry) {
-    throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', {
-      entryId: args.entryId,
-    })
-  }
-  const revision = await ctx.db.get(args.versionId as Id<'entryRevisions'>)
-  if (!revision || revision.entryId !== entry._id) {
-    throwCmsError('ENTRY_VERSION_NOT_FOUND', 'Version not found', {
-      entryId: args.entryId,
-      versionId: args.versionId,
-    })
-  }
-  return {
-    entry,
-    revision,
-    revisionNumber: revision.revisionNumber ?? 0,
-  }
-}
-
-const MONTH_LABELS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const
-
-/**
- * Human label for a revision in user-facing copy: version number plus the
- * note (message) the history list already shows, falling back to the date.
- * Never expose the raw Convex revision id to users.
- */
-function humanVersionLabel(
-  revision: Awaited<ReturnType<typeof loadRevisionForRollback>>['revision'],
-  revisionNumber: number,
-): string {
-  if (revision.message) return `version ${revisionNumber} — ${revision.message}`
-  const date = new Date(revision.createdAt)
-  return `version ${revisionNumber} from ${MONTH_LABELS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`
-}
-
-async function runCanonicalRollbackVersion(
-  ctx: Parameters<typeof restoreRevisionSnapshotToDraft>[0],
-  args: {
-    entry: Awaited<ReturnType<typeof loadRevisionForRollback>>['entry']
-    revision: Awaited<ReturnType<typeof loadRevisionForRollback>>['revision']
-    revisionNumber: number
-    appIdentityId: string
-    publish: boolean
-  },
-) {
-  const locales = Object.keys(args.revision.snapshots).sort()
-
-  if (!args.publish) {
-    await restoreRevisionSnapshotToDraft(ctx, {
-      entry: args.entry,
-      sourceRevision: args.revision,
-      appIdentity: args.appIdentityId,
-      now: Date.now(),
-      expectedDraftVersion: args.entry.draftVersion,
-    })
-    const refreshed = await ctx.db.get(args.entry._id)
-    return { versionId: String(refreshed?.latestEditorialRevisionId ?? args.revision._id) }
-  }
-
-  const result = await rollbackPublicToRevision(ctx, {
-    entryId: args.entry._id,
-    sourceRevisionId: args.revision._id,
-    locales,
-    expectedPublicRevisionIds: await readPublicRevisionIdsByLocale(ctx, args.entry._id),
-    appIdentity: args.appIdentityId,
-    message: `Rolled back public output to version ${args.revisionNumber}`,
-  })
-
-  return { versionId: String(result.revisionId) }
-}
-
 export const publishEntryOperation = defineCmsOperation({
-  id: 'ginko-cms.publish-entry',
+  id: PUBLISH_OPERATION_ID,
   kind: 'destructive',
-  executeFunctionRef: 'entries/publish:publishEntryOperationExecute',
+  executeFunctionRef: PUBLISH_EXECUTE_PATH,
   args: publishEntryArgs.args,
   guard: canPublishEntries,
   returns: publishResultValidator,
   previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
-    const entry = await ctx.db.get(asEntryId(args.entryId))
+    const entry = await ctx.db.get(asEntryId(ctx, args.entryId))
     if (!entry) {
       throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', {
         entryId: args.entryId,
@@ -200,11 +172,83 @@ export const publishEntryOperation = defineCmsOperation({
       locales: args.locales,
     })
     const localeStatuses = result.locales.map((item) => `${item.locale}: ${item.status}`)
-    const blocked = result.status === 'not_publishable' || result.status === 'blocked'
     const blockingMessages = result.blockingDiagnostics.map((item) => item.message).filter(Boolean)
     const warnings = result.warnings.map((item) => item.message).filter(Boolean)
-    const affectedRoutes = result.changes.filter((change) => change.kind === 'route').length
+    const descendantRoutes = result.locales.reduce(
+      (count, locale) => count + (locale.routeImpact.total ?? locale.routeImpact.listed),
+      0,
+    )
+    const listedDescendantRoutes = result.locales.reduce(
+      (count, locale) => count + locale.routeImpact.listed,
+      0,
+    )
+    const affectedRoutes =
+      result.changes.filter((change) => change.kind === 'route' && change.scope !== 'descendant')
+        .length + descendantRoutes
+    const totalChanges = result.changes.length - listedDescendantRoutes + descendantRoutes
+    const descendantRoutesExact = result.locales.every(
+      (locale) => locale.routeImpact.total !== null,
+    )
     const draftRows = await readDraftRows(ctx, entry._id)
+    const publishBlockers = blockingMessages.map((message) =>
+      operationIssue({ code: 'publish-blocker', message }),
+    )
+    for (const locale of args.locales) {
+      const row = draftRows.byLocale[locale]
+      if (!row) continue
+      const size = mdcBodySize(row.bodyMdc)
+      if (!size.allowed) {
+        publishBlockers.push(
+          operationIssue({
+            code: 'ENTRY_BODY_TOO_LARGE',
+            message: `Rich content for ${locale} exceeds the 64 KiB publish limit.`,
+          }),
+        )
+      }
+    }
+    if (publishBlockers.length === 0) {
+      try {
+        const snapshots = await buildDraftSnapshots(ctx, entry, collection, args.locales, true)
+        const installed = await readInstalledCmsContract(ctx)
+        const identity = await ctx.appIdentity()
+        const now = Date.now()
+        const revisionInput = {
+          entryId: entry._id,
+          collection: entry.collection,
+          parentRevisionId: entry.latestEditorialRevisionId,
+          kind: 'publish' as const,
+          snapshots,
+          affectedLocales: args.locales,
+          contentHash: installed?.record.contentHash ?? '',
+          operationId: workflowOperationId('publish', entry._id, now),
+          message: args.message ?? null,
+          appIdentity: identity.userId,
+          now,
+        }
+        const revisionSize = await measureNextRevisionDocument(ctx, revisionInput)
+        if (revisionSize.actualBytes > MAX_CONVEX_DOCUMENT_BYTES) {
+          publishBlockers.push(
+            operationIssue({
+              code: 'REVISION_DOCUMENT_TOO_LARGE',
+              message: 'The immutable publication revision exceeds the Convex document limit.',
+            }),
+          )
+        } else {
+          await validateRevisionSnapshotsForActivation(ctx, {
+            entry,
+            collection,
+            revisionId: (entry.latestEditorialRevisionId ??
+              entry._id) as unknown as Id<'entryRevisions'>,
+            snapshots,
+            stableNow: now,
+          })
+        }
+      } catch (error) {
+        const issue = cmsOperationIssue(error)
+        if (!issue) throw error
+        publishBlockers.push(issue)
+      }
+    }
     const dirtyLocaleCount = deriveDirtyLocales(
       entry,
       new Map(Object.values(draftRows.byLocale).map((row) => [row.locale, row.version])),
@@ -219,10 +263,8 @@ export const publishEntryOperation = defineCmsOperation({
     )
     return buildPreview({
       summary: `Publish impact for entry ${args.entryId} (${args.locales.join(', ') || 'all requested locales'}): ${result.status}${localeStatuses.length ? ` - ${localeStatuses.join(', ')}` : ''}.`,
-      allowed: !blocked,
-      blockers: blockingMessages.map((message) =>
-        operationIssue({ code: 'publish-blocker', message }),
-      ),
+      allowed: publishBlockers.length === 0,
+      blockers: publishBlockers,
       warnings: warnings.map((message) => operationIssue({ code: 'publish-warning', message })),
       effects: [
         operationEffect({
@@ -238,12 +280,12 @@ export const publishEntryOperation = defineCmsOperation({
         operationEffect({
           kind: 'routes',
           summary: 'Public routes affected',
-          count: affectedRoutes,
+          ...boundedEffectCount(affectedRoutes, descendantRoutesExact),
         }),
         operationEffect({
           kind: 'changes',
           summary: 'Public output changes',
-          count: result.changes.length,
+          ...boundedEffectCount(totalChanges, descendantRoutesExact),
         }),
         operationEffect({
           kind: 'events',
@@ -255,10 +297,14 @@ export const publishEntryOperation = defineCmsOperation({
         publishImpact: result,
       },
       confirm: {
-        operationId: 'ginko-cms.publish-entry',
+        operationId: PUBLISH_OPERATION_ID,
         args,
         status: result.status,
         changes: result.changes,
+        routeImpact: result.locales.map((locale) => ({
+          locale: locale.locale,
+          ...locale.routeImpact,
+        })),
         events: result.events,
       },
       version: {
@@ -302,12 +348,138 @@ export const publishEntryOperation = defineCmsOperation({
   },
 })
 
-export const publishEntryOperationExecute = callerMutation.protected(publishEntryOperation)
+type PublishOperationCtx = Parameters<typeof publishEntryOperation.handler>[0]
+
+export async function executeCanonicalPublish(
+  ctx: PublishOperationCtx,
+  args: PublishOperationArgs,
+  authorization: PublishAuthorization,
+) {
+  return await executePublicationOperation(ctx, publishEntryOperation, args, authorization)
+}
+
+export const publishEntryOperationExecute = callerMutation.protected({
+  id: PUBLISH_EXECUTE_PATH,
+  args: {
+    ...publishEntryArgs.args,
+    _confirmationToken: v.optional(v.string()),
+  },
+  returns: operationExecuteResultValidator(publishResultValidator),
+  handler: async (ctx, args) => {
+    const { _confirmationToken, ...operationArgs } = args
+    return await executeCanonicalPublish(ctx, operationArgs, {
+      kind: 'confirmation',
+      token: _confirmationToken,
+    })
+  },
+})
 export const previewPublishEntryOperation = callerMutation.protected(
   Object.assign(definePreview(publishEntryOperation), {
     id: 'entries/publish:previewPublishEntryOperation',
   }),
 )
+
+export const listPublishRouteImpactPage = callerQuery.protected({
+  id: 'entries/publish:listPublishRouteImpactPage',
+  args: listPublishRouteImpactPageArgs.args,
+  guard: canPublishEntries,
+  returns: ginkoPublishRouteImpactPageResultValidator,
+  handler: async (ctx, args) => {
+    const parsedEntryId = ctx.db.normalizeId('entries', args.entryId)
+    const entry = parsedEntryId ? await ctx.db.get(parsedEntryId) : null
+    if (!entry) {
+      throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.', { entryId: args.entryId })
+    }
+    if (entry.draftVersion !== args.expectedVersion) {
+      throwCmsError(
+        'PUBLISH_IMPACT_STALE',
+        'The draft changed after this publish impact was prepared.',
+        {
+          entryId: args.entryId,
+          expectedVersion: args.expectedVersion,
+          actualVersion: entry.draftVersion,
+        },
+      )
+    }
+    if (args.cursor && args.cursor.length > 8_192) {
+      throwCmsError('INVALID_CURSOR', 'Publish impact cursor is too long.')
+    }
+    const limit = args.limit ?? 25
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throwCmsError('INVALID_LIMIT', 'Publish impact page size must be an integer from 1 to 100.')
+    }
+
+    const collection = await getCollectionForEntry(ctx, entry)
+    assertCollectionSupportsLocale(collection, args.locale)
+    const routeGeneration = await readRouteGeneration(ctx, collection.slug, args.locale)
+    if (routeGeneration !== args.expectedRouteGeneration) {
+      throwCmsError(
+        'PUBLISH_IMPACT_STALE',
+        'Public routes changed after this publish impact was prepared.',
+        {
+          collection: collection.slug,
+          locale: args.locale,
+          expectedRouteGeneration: args.expectedRouteGeneration,
+          actualRouteGeneration: routeGeneration,
+        },
+      )
+    }
+
+    const draftRows = await readDraftRows(ctx, entry._id)
+    const localeDraftRow = draftRows.byLocale[args.locale]
+    if (!localeDraftRow) {
+      throwCmsError('PUBLISH_IMPACT_STALE', 'The locale draft no longer exists.', {
+        entryId: args.entryId,
+        locale: args.locale,
+      })
+    }
+    const parentEntryId =
+      draftRows.shared?.parentEntryId !== undefined
+        ? (draftRows.shared.parentEntryId ?? null)
+        : (entry.parentEntryId ?? null)
+    const nextRootPath = await computeDraftPublicPathForLocale(ctx, {
+      collection,
+      entry,
+      locale: args.locale,
+      parentEntryId,
+      slug: localeDraftRow.slug ?? draftRows.shared?.slug ?? entry.slug,
+    })
+    const activeRoutingLocales = await getRoutingLocales(
+      ctx,
+      collection.locales,
+      getCollectionDefaultLocale(collection),
+    )
+    const page = await paginatePublishedDescendantRouteChanges(ctx, {
+      collection,
+      entryId: entry._id,
+      locale: args.locale,
+      nextRootPath,
+      activeRoutingLocales,
+      draftVersion: entry.draftVersion,
+      routeGeneration,
+      cursor: args.cursor,
+      limit,
+    })
+    return {
+      collection: collection.slug,
+      entryId: args.entryId,
+      locale: args.locale,
+      draftVersion: entry.draftVersion,
+      routeGeneration,
+      changes: page.page.map((change) => ({
+        locale: args.locale,
+        entryId: change.entryId,
+        scope: 'descendant' as const,
+        kind: 'route' as const,
+        label: `Descendant public route: ${change.title}`,
+        before: change.currentHref,
+        after: change.nextHref,
+      })),
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    }
+  },
+})
 
 export const mcpPreviewPublishEntry = callerMutation.protected({
   id: 'entries/publish:mcpPreviewPublishEntry',
@@ -335,21 +507,45 @@ export const unpublishEntryOperation = defineCmsOperation({
   guard: canPublishEntries,
   returns: v.null(),
   previewReturns: previewResultValidator(),
-  load: async (ctx, args) => {
-    const entry = await ctx.db.get(asEntryId(args.entryId))
+  load: async (ctx, args: UnpublishEntryInput) => {
+    const entry = await ctx.db.get(asEntryId(ctx, args.entryId))
     if (!entry) {
       throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: args.entryId })
     }
+    if (args.locales.length === 0) {
+      throwCmsError('ENTRY_LOCALES_REQUIRED', 'Select at least one locale to unpublish.')
+    }
+    const locales = [...new Set(args.locales)].sort()
+    if (locales.length !== args.locales.length) {
+      throwCmsError('ENTRY_LOCALES_DUPLICATED', 'Each locale may be selected only once.')
+    }
+    const collection = await getCollectionForEntry(ctx, entry)
+    for (const locale of locales) assertCollectionSupportsLocale(collection, locale)
     return {
       entry,
-      collection: await getCollectionForEntry(ctx, entry),
+      collection,
+      locales,
+      destructivePreview: await previewDestructiveEntryOperation(ctx, args.entryId, { locales }),
     }
   },
-  preview: async (ctx, args, { entry }) => {
-    const result = await previewDestructiveEntryOperation(ctx, args.entryId)
+  preview: async (_ctx, args: UnpublishEntryInput, loaded: UnpublishEntryLoaded) => {
+    const { entry, locales, destructivePreview: result } = loaded
+    const publishedLocales = new Set(Object.keys(result.publicRevisionIdsByLocale))
+    const missingLocales = locales.filter((locale) => !publishedLocales.has(locale))
     const blockers = [
-      ...(result.publicRoutes.length === 0
-        ? [operationIssue({ code: 'not-public', message: 'Entry is not currently public.' })]
+      ...missingLocales.map((locale) =>
+        operationIssue({
+          code: 'locale-not-public',
+          message: `Locale "${locale}" is not currently public.`,
+        }),
+      ),
+      ...(result.redirects.hasMore
+        ? [
+            operationIssue({
+              code: 'redirect-impact-too-large',
+              message: 'Unpublish impact exceeds the supported limit of 100 active redirects.',
+            }),
+          ]
         : []),
     ]
     const descendantWarning = descendantReachabilityWarning(result)
@@ -367,6 +563,22 @@ export const unpublishEntryOperation = defineCmsOperation({
             ]
           : []),
         ...(descendantWarning ? [descendantWarning] : []),
+        ...(result.redirects.minimumCount > 0
+          ? [
+              operationIssue({
+                code: 'redirect-target-temporarily-unavailable',
+                message: `${result.redirects.minimumCount}${result.redirects.hasMore ? '+' : ''} active redirect${result.redirects.minimumCount === 1 && !result.redirects.hasMore ? '' : 's'} will remain recorded but cannot resolve for the selected locale until it is republished.`,
+              }),
+            ]
+          : []),
+        ...(result.assetImpact.minimumCount > 0
+          ? [
+              operationIssue({
+                code: 'assets-retained-after-unpublish',
+                message: 'Referenced assets remain retained by the draft and immutable history.',
+              }),
+            ]
+          : []),
       ],
       effects: [
         operationEffect({
@@ -379,11 +591,42 @@ export const unpublishEntryOperation = defineCmsOperation({
           summary: 'Published descendant routes checked',
           count: result.publicDescendantRoutes.length,
         }),
+        operationEffect({
+          kind: 'navigation',
+          summary: 'Navigation records removed',
+          count: result.discoveryImpact.navigationLocales.length,
+        }),
+        operationEffect({
+          kind: 'search',
+          summary: 'Search records removed',
+          count: result.discoveryImpact.searchLocales.length,
+        }),
+        operationEffect({
+          kind: 'sitemap',
+          summary: 'Sitemap records removed',
+          count: result.discoveryImpact.sitemapLocales.length,
+        }),
+        operationEffect({
+          kind: 'alternates',
+          summary: 'Remaining locale alternate sets refreshed',
+          count: entry.activePublications.filter((row) => !locales.includes(row.locale)).length,
+        }),
+        operationEffect({
+          kind: 'revalidation',
+          summary: 'Revalidation events enqueued',
+          count: result.revalidation.eventCount,
+        }),
       ],
       details: {
         publicRoutes: result.publicRoutes,
         publicDescendantRoutes: result.publicDescendantRoutes,
         publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+        inboundRelations: result.inboundRelations,
+        assetImpact: result.assetImpact,
+        discoveryImpact: result.discoveryImpact,
+        redirects: result.redirects,
+        revalidation: result.revalidation,
+        locales,
       },
       confirm: {
         operationId: 'ginko-cms.unpublish-entry',
@@ -392,6 +635,9 @@ export const unpublishEntryOperation = defineCmsOperation({
           publicRoutes: result.publicRoutes,
           publicDescendantRoutes: result.publicDescendantRoutes,
           publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+          discoveryImpact: result.discoveryImpact,
+          redirects: result.redirects,
+          revalidation: result.revalidation,
         },
       },
       version: {
@@ -401,16 +647,21 @@ export const unpublishEntryOperation = defineCmsOperation({
           : null,
         publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
         publicDescendantRouteCount: result.publicDescendantRoutes.length,
+        inboundRelationCount: result.inboundRelations.total,
+        locales,
+        assetFence: result.assetImpact.fence,
+        redirectFence: result.redirects.fence,
+        revalidationFence: result.revalidation.fence,
       },
     })
   },
-  handler: async (ctx, args, { entry, collection }) => {
+  handler: async (ctx, _args, loaded: UnpublishEntryLoaded) => {
+    const { entry, collection, locales, destructivePreview } = loaded
     const appIdentity = await ctx.appIdentity()
-    const expectedPublicRevisionIds = await readPublicRevisionIdsByLocale(ctx, entry._id)
     await unpublishCurrentPublic(ctx, {
       entryId: entry._id,
-      locales: Object.keys(expectedPublicRevisionIds),
-      expectedPublicRevisionIds,
+      locales,
+      expectedPublicRevisionIds: destructivePreview.publicRevisionIdsByLocale,
       appIdentity: appIdentity.userId,
     })
     void collection
@@ -434,7 +685,7 @@ export const archiveEntryOperation = defineCmsOperation({
   returns: v.null(),
   previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
-    const entry = await ctx.db.get(asEntryId(args.entryId))
+    const entry = await ctx.db.get(asEntryId(ctx, args.entryId))
     if (!entry) {
       throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: args.entryId })
     }
@@ -461,6 +712,22 @@ export const archiveEntryOperation = defineCmsOperation({
             ]
           : []),
         ...(descendantWarning ? [descendantWarning] : []),
+        ...(result.redirects.minimumCount > 0
+          ? [
+              operationIssue({
+                code: 'redirect-target-temporarily-unavailable',
+                message: `${result.redirects.minimumCount}${result.redirects.hasMore ? '+' : ''} active redirect${result.redirects.minimumCount === 1 && !result.redirects.hasMore ? '' : 's'} will remain recorded but cannot resolve until this entry is restored and republished.`,
+              }),
+            ]
+          : []),
+        ...(result.assetImpact.minimumCount > 0
+          ? [
+              operationIssue({
+                code: 'assets-retained-with-archive',
+                message: 'Referenced assets remain retained by the archived drafts and history.',
+              }),
+            ]
+          : []),
       ],
       effects: [
         operationEffect({
@@ -473,11 +740,47 @@ export const archiveEntryOperation = defineCmsOperation({
           summary: 'Published descendant routes checked',
           count: result.publicDescendantRoutes.length,
         }),
+        operationEffect({
+          kind: 'navigation',
+          summary: 'Navigation records removed',
+          count: result.discoveryImpact.navigationLocales.length,
+        }),
+        operationEffect({
+          kind: 'search',
+          summary: 'Search records removed',
+          count: result.discoveryImpact.searchLocales.length,
+        }),
+        operationEffect({
+          kind: 'sitemap',
+          summary: 'Sitemap records removed',
+          count: result.discoveryImpact.sitemapLocales.length,
+        }),
+        operationEffect({
+          kind: 'assets',
+          summary: 'Referenced assets retained with archived content',
+          ...(result.assetImpact.count === null
+            ? {
+                count: null,
+                minimumCount: result.assetImpact.minimumCount,
+                countLabel: `${result.assetImpact.minimumCount}+`,
+              }
+            : { count: result.assetImpact.count }),
+        }),
+        operationEffect({
+          kind: 'revalidation',
+          summary: 'Revalidation events enqueued',
+          count: result.revalidation.eventCount,
+        }),
       ],
       details: {
         publicRoutes: result.publicRoutes,
         publicDescendantRoutes: result.publicDescendantRoutes,
         publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+        inboundRelations: result.inboundRelations,
+        assetImpact: result.assetImpact,
+        discoveryImpact: result.discoveryImpact,
+        redirects: result.redirects,
+        revalidation: result.revalidation,
       },
       confirm: {
         operationId: 'ginko-cms.archive-entry',
@@ -485,6 +788,10 @@ export const archiveEntryOperation = defineCmsOperation({
         effect: {
           publicRoutes: result.publicRoutes,
           publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
+          discoveryImpact: result.discoveryImpact,
+          redirects: result.redirects,
+          assetImpact: result.assetImpact,
+          revalidation: result.revalidation,
         },
       },
       version: {
@@ -492,6 +799,9 @@ export const archiveEntryOperation = defineCmsOperation({
         status: entry.lifecycle,
         publicRevisionIdsByLocale: result.publicRevisionIdsByLocale,
         publicDescendantRouteCount: result.publicDescendantRoutes.length,
+        assetFence: result.assetImpact.fence,
+        redirectFence: result.redirects.fence,
+        revalidationFence: result.revalidation.fence,
       },
     })
   },
@@ -523,25 +833,36 @@ export const restoreEntryOperation = defineCmsOperation({
   returns: v.null(),
   previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
-    const entry = await ctx.db.get(asEntryId(args.entryId))
+    const entry = await ctx.db.get(asEntryId(ctx, args.entryId))
     if (!entry) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found.', { entryId: args.entryId })
-    return { entry }
+    const collection = await getCollectionForEntry(ctx, entry)
+    return {
+      entry,
+      eligibility: await inspectRestoreEligibility(ctx, entry, collection),
+    }
   },
-  preview: async (_ctx, args, { entry }) => {
+  preview: async (_ctx, args, { entry, eligibility }) => {
     const archived = entry.lifecycle === 'archived'
-    return buildPreview({
-      summary: archived
-        ? `Will restore "${entry.slug}" to the active editorial workspace without publishing it.`
-        : `Entry "${entry.slug}" is already active.`,
-      allowed: archived,
-      blockers: archived
+    const blockers = [
+      ...(archived
         ? []
         : [
             operationIssue({
               code: 'not-archived',
               message: 'Only archived entries can be restored.',
             }),
-          ],
+          ]),
+      ...eligibility.blockers.map((issue: RestoreEligibilityIssue) => operationIssue(issue)),
+    ]
+    return buildPreview({
+      summary:
+        archived && blockers.length === 0
+          ? `Will restore "${entry.slug}" to the active editorial workspace without publishing it.`
+          : archived
+            ? `Entry "${entry.slug}" cannot be restored until its conflicts are resolved.`
+            : `Entry "${entry.slug}" is already active.`,
+      allowed: archived && blockers.length === 0,
+      blockers,
       warnings: archived
         ? [
             operationIssue({
@@ -557,6 +878,11 @@ export const restoreEntryOperation = defineCmsOperation({
           count: archived ? 1 : 0,
         }),
       ],
+      details: {
+        locales: eligibility.locales,
+        relationCount: eligibility.relationCount,
+        assetCount: eligibility.assetCount,
+      },
       confirm: {
         operationId: 'ginko-cms.restore-entry',
         args,
@@ -565,6 +891,7 @@ export const restoreEntryOperation = defineCmsOperation({
       version: {
         draftVersion: entry.draftVersion,
         lifecycle: entry.lifecycle,
+        eligibility,
       },
     })
   },
@@ -583,89 +910,6 @@ export const restoreEntryOperationExecute = callerMutation.protected(restoreEntr
 export const previewRestoreEntryOperation = callerMutation.protected(
   Object.assign(definePreview(restoreEntryOperation), {
     id: 'entries/publish:previewRestoreEntryOperation',
-  }),
-)
-
-export const rollbackVersionOperation = defineCmsOperation({
-  id: 'ginko-cms.rollback-version',
-  kind: 'destructive',
-  executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute',
-  args: rollbackVersionArgs.args,
-  guard: canEditEntries,
-  load: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
-    if (args.publish === true && !can(appIdentity, canPublishEntries)) {
-      throwCmsError(
-        'ROLLBACK_PUBLISH_FORBIDDEN',
-        'Publishing a restored version requires publish permission.',
-        {
-          entryId: args.entryId,
-          versionId: args.versionId,
-        },
-      )
-    }
-    const { entry, revision, revisionNumber } = await loadRevisionForRollback(ctx, args)
-    const collection = await getCollectionForEntry(ctx, entry)
-    return { entry, collection, revision, revisionNumber }
-  },
-  returns: rollbackResultValidator,
-  previewReturns: previewResultValidator(),
-  preview: async (_ctx, args, { entry, revision, revisionNumber }) => {
-    const firstLocale = Object.keys(revision.snapshots)[0]
-    const firstSnapshot = firstLocale ? revision.snapshots[firstLocale] : null
-    return buildPreview({
-      summary: `Will ${args.publish ? 'roll back public output' : 'restore the draft'} for "${firstSnapshot?.slug ?? entry.slug}" to version ${revisionNumber}.`,
-      warnings: [
-        operationIssue({
-          code: 'replace-current-state',
-          message: `${args.publish ? 'Current public output' : 'Current draft'} will be replaced by ${humanVersionLabel(revision, revisionNumber)}.`,
-        }),
-      ],
-      effects: [operationEffect({ kind: 'versions', summary: 'Version restored', count: 1 })],
-      details: {
-        version: revisionNumber,
-        publish: args.publish === true,
-      },
-      confirm: {
-        operationId: 'ginko-cms.rollback-version',
-        args,
-        effect: {
-          version: revisionNumber,
-          snapshots: revision.snapshots,
-          currentDraftVersion: entry.draftVersion,
-        },
-      },
-      version: {
-        entryDraftVersion: entry.draftVersion,
-        versionId: String(revision._id),
-        latestRevisionId: entry.latestEditorialRevisionId
-          ? String(entry.latestEditorialRevisionId)
-          : null,
-      },
-    })
-  },
-  handler: async (ctx, args, { entry, collection, revision, revisionNumber }) => {
-    const appIdentity = await ctx.appIdentity()
-    void collection
-    return await runCanonicalRollbackVersion(ctx, {
-      entry,
-      revision,
-      revisionNumber,
-      appIdentityId: appIdentity.userId,
-      publish: args.publish === true,
-    })
-  },
-})
-
-export const rollbackVersionOperationExecute = callerMutation.protected(
-  Object.assign(rollbackVersionOperation, {
-    id: 'ginko-cms.rollback-version',
-    guard: canEditEntries,
-  }),
-)
-export const previewRollbackVersionOperation = callerMutation.protected(
-  Object.assign(definePreview(rollbackVersionOperation), {
-    id: 'entries/publish:previewRollbackVersionOperation',
   }),
 )
 

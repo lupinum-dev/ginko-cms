@@ -35,7 +35,7 @@ function pathOf(reference: unknown) {
 }
 
 describe('ginko-cms content operator CLI', () => {
-  it('exports, verifies, plans, and explicitly applies through one operator session', async () => {
+  it('[IMP-03] reports, filters, and resumes durable portability history through one redacted owner CLI session', async () => {
     const root = mkdtempSync(join(tmpdir(), 'ginko-cms-content-cli-'))
     temporaryDirectories.push(root)
     writeFileSync(
@@ -86,6 +86,34 @@ describe('ginko-cms content operator CLI', () => {
     const documentSha256 = await hashCanonicalJson(document)
     const source = resolve(root, 'source')
     await writePortableDirectory(source, { contract, documents: [document], assets: [] })
+    const runStatus = {
+      runId: 'import-run-1',
+      mode: 'import' as const,
+      state: 'applying',
+      phase: 'apply',
+      generation: 7,
+      leaseExpiresAt: 123_456,
+      attempts: 2,
+      nextAttemptAt: 123_000,
+      lastError: 'injected page crash Bearer [redacted]',
+      deadLetteredAt: null,
+      itemCount: 1,
+      committedItemCount: 1,
+      assetCount: 0,
+      attachedAssetCount: 0,
+      completedAt: null,
+      itemReceipts: [
+        {
+          index: 0,
+          itemKey: 'item-1',
+          outcome: 'applied' as const,
+          state: 'committed',
+          effect: 'created-draft',
+          resultId: 'entry-1',
+          committedAt: 122_000,
+        },
+      ],
+    }
 
     const calls: Array<{ kind: string; path?: string; args?: Record<string, unknown> }> = []
     const client = {
@@ -101,14 +129,29 @@ describe('ginko-cms content operator CLI', () => {
           return (args.items as Array<{ itemKey: string }>).map(({ itemKey }) => ({
             itemKey,
             currentDraftSha256: null,
+            currentSharedSha256: null,
           }))
+        }
+        if (path.endsWith(':getPortabilityRunStatus')) return runStatus
+        if (path.endsWith(':listPortabilityItemReceipts')) {
+          const receipt = (index: number) => ({
+            index,
+            itemKey: `skipped-${index}`,
+            outcome: 'skipped',
+            state: 'committed',
+            effect: 'skipped',
+            resultId: `entry-${index}`,
+            committedAt: 122_000 + index,
+          })
+          return args.cursor === null
+            ? { receipts: [receipt(0)], cursor: 99 }
+            : { receipts: [receipt(100)], cursor: null }
         }
         throw new Error(`Unexpected query ${path}`)
       },
       mutation: async (reference: unknown, args: Record<string, unknown>) => {
         const path = pathOf(reference)
         calls.push({ kind: 'mutation', path, args })
-        if (path.endsWith(':createExportRun')) return { leaseGeneration: 1 }
         if (path.endsWith(':captureExportPage')) return { captured: 1, complete: true }
         if (path.endsWith(':sealExportRun')) return { documentCount: 1, assetCount: 0 }
         if (path.endsWith(':completeExportRun')) return { state: 'complete' }
@@ -124,8 +167,10 @@ describe('ginko-cms content operator CLI', () => {
       action: async (reference: unknown, args: Record<string, unknown>) => {
         const path = pathOf(reference)
         calls.push({ kind: 'action', path, args })
-        if (path.endsWith(':sealImportPlan')) return { runId: 'import-run-1' }
+        if (path.endsWith(':createExportRun')) return { leaseGeneration: 1 }
+        if (path.endsWith(':sealImportPlan')) return { runId: 'import-run-1', state: 'planned' }
         if (path.endsWith(':applyImportBatch')) return { committed: 1, complete: true }
+        if (path.endsWith(':resumePortabilityRun')) return runStatus
         throw new Error(`Unexpected action ${path}`)
       },
     }
@@ -173,6 +218,34 @@ describe('ginko-cms content operator CLI', () => {
     const applyResult = await run(['content', 'import', '--apply', planFile])
     expect(applyResult).toMatchObject({ code: 0, stderr: '' })
     expect(applyResult.stdout).toContain('Import complete')
+
+    const statusResult = await run(['content', 'status', 'import-run-1'])
+    expect(statusResult).toMatchObject({ code: 0, stderr: '' })
+    expect(statusResult.stdout).toContain('phase=apply, generation=7')
+    expect(statusResult.stdout).toContain('attempts=2')
+    expect(statusResult.stdout).toContain('injected page crash Bearer [redacted]')
+    expect(statusResult.stdout).toContain('outcome=applied state=committed effect=created-draft')
+
+    const filteredStatus = await run(['content', 'status', 'import-run-1', '--items', 'skipped'])
+    expect(filteredStatus).toMatchObject({ code: 0, stderr: '' })
+    expect(filteredStatus.stdout).toContain('Item receipts (skipped)')
+    expect(filteredStatus.stdout).toContain('0 skipped-0 outcome=skipped')
+    expect(filteredStatus.stdout).toContain('100 skipped-100 outcome=skipped')
+    expect(calls.filter((call) => call.path?.endsWith(':listPortabilityItemReceipts'))).toEqual([
+      expect.objectContaining({
+        args: expect.objectContaining({ cursor: null, filter: 'skipped' }),
+      }),
+      expect.objectContaining({ args: expect.objectContaining({ cursor: 99, filter: 'skipped' }) }),
+    ])
+
+    const invalidFilter = await run(['content', 'status', 'import-run-1', '--items', 'pending'])
+    expect(invalidFilter.code).toBe(2)
+    expect(invalidFilter.stderr).toMatch(/requires failed, blocked, skipped, or all/i)
+
+    const resumeResult = await run(['content', 'resume', 'import-run-1'])
+    expect(resumeResult).toMatchObject({ code: 0, stderr: '' })
+    expect(resumeResult.stdout).toContain('Portable run resume requested: import-run-1')
+    expect(resumeResult.stdout).toContain('items=1/1')
 
     const tampered = JSON.parse(readFileSync(planFile, 'utf8')) as {
       payload: { deploymentId: string }

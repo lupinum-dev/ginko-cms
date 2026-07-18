@@ -56,10 +56,10 @@ Do not re-open these unless a concrete product requirement changes:
 - Do not add a readiness table or projection.
 - Do not make the public provider consume draft readiness.
 - Do not make diagnostics the primary marketer workflow model again.
-- Do not wrap MCP restore in destructive confirmation; keep it as a guarded
-  bounded write.
-- Do not remove deprecated public aliases unless release status confirms a hard
-  cutover is safe.
+- Do not expose MCP publish, archive, restore, delete, or purge while CND-10 is
+  deferred; agents edit drafts and request human review.
+- Do not add deprecated aliases or compatibility shims to the greenfield
+  contract.
 
 Important deferred work:
 

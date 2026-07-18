@@ -13,6 +13,12 @@ const { finder, mode, pick, presentation, selection } = useStudioAssetBrowserCon
 
 const asset = selection.selectedAssetForDetails
 
+function referenceStatusLabel(state: 'used' | 'unused-verified' | 'unknown-stale') {
+  if (state === 'used') return t('ginkoCms.studio.assetBrowser.assetReferenced')
+  if (state === 'unused-verified') return t('ginkoCms.studio.assetBrowser.unusedVerifiedShort')
+  return t('ginkoCms.studio.assetBrowser.usageUnknownStale')
+}
+
 const infoRows = computed<StudioAssetInfoRow[]>(() => {
   const current = asset.value
   if (!current) return []
@@ -61,12 +67,7 @@ const infoRows = computed<StudioAssetInfoRow[]>(() => {
   }
   rows.push({
     label: t('ginkoCms.studio.assetBrowser.usage'),
-    value: t(
-      current.usages.length === 1
-        ? 'ginkoCms.studio.assetBrowser.usagePlacesOne'
-        : 'ginkoCms.studio.assetBrowser.usagePlacesOther',
-      { count: current.usages.length },
-    ),
+    value: referenceStatusLabel(current.referenceCertainty.state),
   })
   return rows
 })

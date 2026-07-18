@@ -1,5 +1,7 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto'
 
+import type { GenericId } from 'convex/values'
+
 const MAX_PORTABLE_ASSET_BYTES = 25 * 1024 * 1024
 const PORTABLE_ASSET_IDLE_TIMEOUT_MS = 30_000
 const PORTABLE_ASSET_TOTAL_TIMEOUT_MS = 2 * 60_000
@@ -172,7 +174,7 @@ export async function uploadPortableAssetStream(input: {
   fetch?: typeof globalThis.fetch
   idleTimeoutMs?: number
   totalTimeoutMs?: number
-}): Promise<{ storageId: string; bytes: number }> {
+}): Promise<{ storageId: GenericId<'_storage'>; bytes: number }> {
   if (!Number.isSafeInteger(input.expectedBytes) || input.expectedBytes < 1) {
     throw new Error('Portable asset byte length is invalid.')
   }
@@ -244,7 +246,7 @@ export async function uploadPortableAssetStream(input: {
     if (typeof storageId !== 'string' || !storageId) {
       throw new Error('Portable asset storage upload returned no storage ID.')
     }
-    return { storageId, bytes: receivedBytes }
+    return { storageId: storageId as GenericId<'_storage'>, bytes: receivedBytes }
   } finally {
     clearTimeout(totalTimer)
     if (idleTimer) clearTimeout(idleTimer)

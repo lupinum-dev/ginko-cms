@@ -15,9 +15,9 @@ export type PortablePlanPayload = {
   mode: 'import'
   deploymentId: string
   scope: { collections: string[] }
-  targetContractSha256: string
+  targetContentHash: string
   sourceManifestSha256: string
-  sourceContractSha256: string
+  sourceContentHash: string
   itemCount: number
   itemRootSha256: string
   assetCount: number
@@ -27,8 +27,10 @@ export type PortablePlanPayload = {
 export type PortableImportPlanItemPayload = {
   identity: { collection: string; canonicalKey: string; locale: string }
   expectedDraftSha256: string | null
+  expectedSharedSha256: string | null
   effect: 'create' | 'update' | 'skip' | 'conflict'
   documentSha256: string
+  sharedSha256: string
   dependencyKeys: string[]
 }
 
@@ -68,9 +70,9 @@ export function assertImportPlanPayload(value: JsonMap): PortablePlanPayload {
     throw new Error('Portable import plan payload is invalid.')
   }
   for (const [label, hash] of [
-    ['targetContractSha256', payload.targetContractSha256],
+    ['targetContentHash', payload.targetContentHash],
     ['sourceManifestSha256', payload.sourceManifestSha256],
-    ['sourceContractSha256', payload.sourceContractSha256],
+    ['sourceContentHash', payload.sourceContentHash],
     ['itemRootSha256', payload.itemRootSha256],
     ['assetRootSha256', payload.assetRootSha256],
   ] as const) {
@@ -87,9 +89,9 @@ export function assertImportPlanPayload(value: JsonMap): PortablePlanPayload {
       'itemRootSha256',
       'mode',
       'scope',
-      'sourceContractSha256',
+      'sourceContentHash',
       'sourceManifestSha256',
-      'targetContractSha256',
+      'targetContentHash',
       'version',
     ].join(',')
   ) {
@@ -116,7 +118,15 @@ export function assertImportPlanItemPayload(value: JsonMap): PortableImportPlanI
   const identity = payload.identity
   if (
     Object.keys(value).sort().join(',') !==
-      ['dependencyKeys', 'documentSha256', 'effect', 'expectedDraftSha256', 'identity'].join(',') ||
+      [
+        'dependencyKeys',
+        'documentSha256',
+        'effect',
+        'expectedDraftSha256',
+        'expectedSharedSha256',
+        'identity',
+        'sharedSha256',
+      ].join(',') ||
     Object.keys(identity ?? {})
       .sort()
       .join(',') !== ['canonicalKey', 'collection', 'locale'].join(',') ||
@@ -129,6 +139,7 @@ export function assertImportPlanItemPayload(value: JsonMap): PortableImportPlanI
     !identity.locale ||
     !['create', 'update', 'skip', 'conflict'].includes(String(payload.effect)) ||
     (payload.expectedDraftSha256 !== null && typeof payload.expectedDraftSha256 !== 'string') ||
+    (payload.expectedSharedSha256 !== null && typeof payload.expectedSharedSha256 !== 'string') ||
     !Array.isArray(payload.dependencyKeys) ||
     payload.dependencyKeys.length > 256 ||
     payload.dependencyKeys.some((key) => typeof key !== 'string') ||
@@ -142,8 +153,12 @@ export function assertImportPlanItemPayload(value: JsonMap): PortableImportPlanI
     throw new Error('Portable import plan item exceeds 256 KiB.')
   }
   assertSha256(payload.documentSha256, 'documentSha256')
+  assertSha256(payload.sharedSha256, 'sharedSha256')
   if (payload.expectedDraftSha256 !== null) {
     assertSha256(payload.expectedDraftSha256, 'expectedDraftSha256')
+  }
+  if (payload.expectedSharedSha256 !== null) {
+    assertSha256(payload.expectedSharedSha256, 'expectedSharedSha256')
   }
   return payload as PortableImportPlanItemPayload
 }

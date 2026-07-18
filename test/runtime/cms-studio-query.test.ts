@@ -373,6 +373,48 @@ describe('useCmsStudioQuery', () => {
     host.convex = undefined
   })
 
+  it('exposes first-page metadata without mixing it into paginated rows', async () => {
+    let onResult:
+      | ((value: {
+          page: string[]
+          isDone: boolean
+          continueCursor: string | null
+          facets: { activeCount: number }
+        }) => void)
+      | null = null
+    host.convex = {
+      onUpdate: vi.fn((_query, _args, next) => {
+        onResult = next
+        return vi.fn()
+      }),
+      query: vi.fn(),
+    }
+    const Host = defineComponent({
+      setup() {
+        return {
+          result: useCmsStudioPaginatedQuery(query as never, {}, { initialNumItems: 2 }),
+        }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+    onResult?.({
+      page: ['A'],
+      isDone: true,
+      continueCursor: null,
+      facets: { activeCount: 41 },
+    })
+    await nextTick()
+
+    expect(wrapper.vm.result.results.value).toEqual(['A'])
+    expect(wrapper.vm.result.pageData.value).toEqual({ facets: { activeCount: 41 } })
+
+    wrapper.unmount()
+    expect(wrapper.vm.result.pageData.value).toBeNull()
+    host.convex = undefined
+  })
+
   it('deduplicates concurrent requests for the same pagination cursor', async () => {
     let onResult:
       | ((value: { page: string[]; isDone: boolean; continueCursor: string | null }) => void)
@@ -415,6 +457,43 @@ describe('useCmsStudioQuery', () => {
 
     resolvePage({ page: ['B'], isDone: true, continueCursor: null })
     await vi.waitFor(() => expect(wrapper.vm.result.results.value).toEqual(['A', 'B']))
+    wrapper.unmount()
+    host.convex = undefined
+  })
+
+  it('continues after an empty server-filtered page when a keyset cursor remains', async () => {
+    let onResult:
+      | ((value: { page: string[]; isDone: boolean; continueCursor: string | null }) => void)
+      | null = null
+    host.convex = {
+      onUpdate: vi.fn((_query, _args, next) => {
+        onResult = next
+        return vi.fn()
+      }),
+      query: vi.fn().mockResolvedValue({ page: ['match'], isDone: true, continueCursor: null }),
+    }
+    const Host = defineComponent({
+      setup() {
+        return {
+          result: useCmsStudioPaginatedQuery(query as never, {}, { initialNumItems: 2 }),
+        }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+    onResult?.({ page: [], isDone: false, continueCursor: 'sparse-page-cursor' })
+    await nextTick()
+
+    expect(wrapper.vm.result.hasNextPage.value).toBe(true)
+    wrapper.vm.result.loadMore(2)
+    await vi.waitFor(() => expect(wrapper.vm.result.results.value).toEqual(['match']))
+    expect(host.convex.query).toHaveBeenCalledWith(
+      query,
+      expect.objectContaining({
+        paginationOpts: { cursor: 'sparse-page-cursor', numItems: 2 },
+      }),
+    )
     wrapper.unmount()
     host.convex = undefined
   })

@@ -4,11 +4,13 @@ import { computed, ref } from 'vue'
 
 import { api } from '../../boundary/api'
 import { useStudioHostContext } from '../../boundary/studio-host-context'
-import { formatDestructiveConfirmationPrompt } from '../../lib/destructiveWorkflow'
+import { formatDestructiveConfirmationPrompt, operationValue } from '../../lib/destructiveWorkflow'
+import { useCmsStudioPaginatedQuery } from '../useCmsStudioPaginatedQuery'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
 import { useConvexMutation } from '../useStudioConvex'
 import type { useStudioDebug } from '../useStudioDebug'
-import type { StudioAssetRecord, StudioEntry } from './types'
+import { finderAssetToStudioAsset } from './assetFinderUtils'
+import type { StudioEntry } from './types'
 import { studioConfirm } from './useStudioConfirm'
 
 type DestructivePreview = {
@@ -70,39 +72,35 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
   } = deps
 
   const versionsQueryArgs = computed(() => (entry.value ? { entryId: entryId.value } : null))
-  const versionsQuery = useCmsStudioQuery(api.ginkoCms.editor.listVersions, versionsQueryArgs)
-  const versions = computed(() => versionsQuery.data?.value ?? [])
+  const versionsQuery = useCmsStudioPaginatedQuery(
+    api.ginkoCms.editor.listVersions,
+    versionsQueryArgs,
+    { initialNumItems: 25 },
+  )
+  const versions = computed(() => versionsQuery.results.value)
 
-  const entryAssetsQuery = useCmsStudioQuery(
-    api.ginkoCms.assets.listColocatedAssets,
-    computed(() =>
+  const entryAssetsQuery = useCmsStudioPaginatedQuery(
+    api.ginkoCms.assets.listAssetsByOwner,
+    () =>
       entry.value
         ? {
-            collectionSlug: collection.value,
+            scope: 'entry' as const,
+            collection: collection.value,
             entryId: entryId.value,
           }
         : null,
-    ),
+    { initialNumItems: 100 },
   )
-  const entryAssets = computed<StudioAssetRecord[]>(
-    () =>
-      (
-        (entryAssetsQuery.data?.value as { entry?: Array<Record<string, unknown>> } | undefined)
-          ?.entry ?? []
-      ).map((asset) => ({
-        ...asset,
-        _id: String(asset.id ?? asset._id ?? ''),
-        filename: String(asset.filename ?? ''),
-        mimeType: String(asset.mimeType ?? 'application/octet-stream'),
-        size: typeof asset.size === 'number' ? asset.size : 0,
-      })) as StudioAssetRecord[],
+  const entryAssets = computed(() =>
+    entryAssetsQuery.results.value.map((asset) => finderAssetToStudioAsset(asset)),
   )
 
-  const entryActivityQuery = useCmsStudioQuery(
+  const entryActivityQuery = useCmsStudioPaginatedQuery(
     api.ginkoCms.editor.getEntryActivity,
     computed(() => (entry.value ? { entryId: entryId.value } : null)),
+    { initialNumItems: 25 },
   )
-  const entryActivity = computed(() => entryActivityQuery.data?.value ?? [])
+  const entryActivity = computed(() => entryActivityQuery.results.value)
 
   const previewVersionId = ref<string | null>(null)
 
@@ -201,12 +199,14 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
       studioDebug.debug(`version:${target}:requestingHydrateBefore`, { entryId: entryId.value })
       const token = previewToken(preview)
       if (!token) throw new Error('Preview this saved version again before restoring it.')
-      const result = await rollbackVersionMutation({
-        entryId: entryId.value,
-        versionId,
-        ...(publish ? { publish: true } : {}),
-        _confirmationToken: token,
-      })
+      const result = operationValue<{ versionId: string }>(
+        await rollbackVersionMutation({
+          entryId: entryId.value,
+          versionId,
+          ...(publish ? { publish: true } : {}),
+          _confirmationToken: token,
+        }),
+      )
       previewVersionId.value = null
       diffLeftVersionId.value = null
       studioDebug.debug(`version:${target}:success`, {
@@ -255,8 +255,14 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
 
   return {
     versions,
+    hasMoreVersions: versionsQuery.hasNextPage,
+    loadMoreVersions: () => versionsQuery.loadMore(25),
     entryAssets,
+    hasMoreEntryAssets: entryAssetsQuery.hasNextPage,
+    loadMoreEntryAssets: () => entryAssetsQuery.loadMore(100),
     entryActivity,
+    hasMoreEntryActivity: entryActivityQuery.hasNextPage,
+    loadMoreEntryActivity: () => entryActivityQuery.loadMore(25),
     previewVersionId,
     toggleVersionPreview,
     diffLeftVersionId,

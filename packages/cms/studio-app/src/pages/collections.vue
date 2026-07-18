@@ -12,7 +12,6 @@ const {
   defaultLocale,
   error,
   isLoading,
-  missingContractSync,
   selectedCollection,
   selectedFieldKey,
   studioSettings,
@@ -35,17 +34,8 @@ const {
       </StudioPageHeader>
     </template>
 
-    <div
-      v-if="error || missingContractSync"
-      class="studio-page-content ginko:px-4 ginko:pt-2 ginko:lg:px-6"
-    >
-      <StudioNotice v-if="error" tone="danger" :description="error" />
-      <StudioNotice
-        v-else
-        tone="warning"
-        :title="t('ginkoCms.studio.collectionsPage.installingTitle')"
-        :description="t('ginkoCms.studio.collectionsPage.installingDescription')"
-      />
+    <div v-if="error" class="studio-page-content ginko:px-4 ginko:pt-2 ginko:lg:px-6">
+      <StudioNotice tone="danger" :description="error" />
     </div>
 
     <div

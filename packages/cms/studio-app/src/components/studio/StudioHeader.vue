@@ -9,10 +9,7 @@ import { useCmsConfig } from '../../composables/useCmsConfig'
 import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
 import { useRightSidebar } from '../../composables/useRightSidebar'
-import {
-  codeDefinedCollectionList,
-  type StudioCollectionListItem,
-} from '../../lib/codeDefinedCollections'
+import type { StudioCollectionListItem } from '../../lib/installedCollections'
 import { studioStaticRoutes, type StudioStaticRouteId } from '../../lib/studioNavigation'
 
 const { t } = useCmsI18n()
@@ -30,22 +27,11 @@ const {
 } = useRightSidebar()
 const studioRoute = cmsConfig.route.replace(/\/$/, '')
 
-// Collections resolve their human label the same way the sidebar does, so the
-// `/content/:collection` breadcrumb reads "Blog" rather than the raw slug.
+// Collection labels come from the installed contract used by every Studio read.
 const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
-const hostCollections = computed(() =>
-  codeDefinedCollectionList(cmsConfig.collections, cmsConfig.defaultLocale),
+const collections = computed(
+  () => (collectionsQuery.data.value ?? []) as StudioCollectionListItem[],
 )
-const collections = computed(() => {
-  const fromConvex = (collectionsQuery.data.value ?? []) as StudioCollectionListItem[]
-  if (!hostCollections.value.length) return fromConvex
-  const bySlug = new Map(fromConvex.map((collection) => [collection.slug, collection]))
-  return hostCollections.value.map((hostCollection) => ({
-    ...hostCollection,
-    ...bySlug.get(hostCollection.slug),
-    label: bySlug.get(hostCollection.slug)?.label || hostCollection.label,
-  }))
-})
 
 function formatSegment(value: string) {
   return value.replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())

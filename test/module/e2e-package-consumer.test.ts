@@ -173,7 +173,7 @@ describe('ginko-cms package-first consumer fixture', () => {
     }
   })
 
-  it('loads the published module entrypoint and validates host-owned setup files', () => {
+  it('[DEV-01] loads the published module entrypoint and validates host-owned setup files', () => {
     expect(nuxt).toBeDefined()
     if (!nuxt) throw new Error('Nuxt test instance was not loaded.')
     expect(nuxt.options.runtimeConfig.public.ginkoCms.route).toBe('/studio')

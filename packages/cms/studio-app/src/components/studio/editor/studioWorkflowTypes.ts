@@ -48,13 +48,6 @@ export interface StudioPublicVisibilityState {
   status: string
 }
 
-export interface StudioRouteValidationState {
-  diagnostics: StudioWorkflowDiagnostic[]
-  hiddenDiagnosticCount: number
-  message: string
-  state: string
-}
-
 export interface StudioPublishImpactLocale {
   blockingDiagnostics: StudioWorkflowDiagnostic[]
   changes: Array<{
@@ -74,6 +67,16 @@ export interface StudioPublishImpactLocale {
   nav: { before: boolean; after: boolean }
   nextHref: string | null
   nextPath: string | null
+  routeImpact: {
+    total: number | null
+    listed: number
+    hasMore: boolean
+    continueCursor: string | null
+    routeGeneration: number
+    impactHash: string
+    loading?: boolean
+    error?: string | null
+  }
   search: { before: boolean; after: boolean }
   sitemap: { before: boolean; after: boolean }
   status: string

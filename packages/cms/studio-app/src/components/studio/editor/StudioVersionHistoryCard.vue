@@ -44,6 +44,9 @@ function formatVersionAction(version: VersionListItem) {
   if (version.action === 'checkpoint' || version.displayAction === 'checkpoint') {
     return editor.loader.t('ginkoCms.studio.collectionEditor.versionCheckpoint')
   }
+  if (version.action === 'restore' || version.displayAction === 'restoredDraft') {
+    return editor.loader.t('ginkoCms.studio.collectionEditor.versionRestoredDraft')
+  }
   if (version.action === 'rollback' || version.displayAction === 'restoredPublished') {
     return editor.loader.t('ginkoCms.studio.collectionEditor.versionRestoredPublished')
   }
@@ -207,6 +210,15 @@ function formatVersionAction(version: VersionListItem) {
           ? ce('versionsShowFewer')
           : ce('versionsShowAll', { count: editor.history.versions.length })
       }}
+    </Button>
+    <Button
+      v-if="editor.history.hasMoreVersions"
+      variant="outline"
+      size="sm"
+      class="ginko:mt-2 ginko:h-8 ginko:w-full ginko:text-xs"
+      @click="editor.history.loadMoreVersions()"
+    >
+      {{ editor.loader.t('ginkoCms.common.loadMore') }}
     </Button>
   </StudioInspectorSection>
 </template>

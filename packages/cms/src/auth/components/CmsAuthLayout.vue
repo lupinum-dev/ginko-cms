@@ -216,6 +216,22 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
   user-select: none;
 }
 
+.cms-auth-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cms-auth-message {
+  border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
+  border-radius: calc(var(--radius) * 0.8);
+  background: color-mix(in oklch, var(--primary) 7%, var(--background));
+  padding: 0.75rem;
+  color: var(--foreground);
+  line-height: 1.5;
+}
+
 .cms-auth-input {
   width: 100%;
   min-width: 0;

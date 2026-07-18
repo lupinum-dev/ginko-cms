@@ -25,11 +25,6 @@ type CollectionDetail = {
     source: 'code'
     version: string
   }
-  projectionStatus?: {
-    activeCollectionProjectionRunId: string | null
-    activeSiteProjectionRunId: string | null
-    activatedAt: number | null
-  }
 }
 
 type CollectionDraft = {
@@ -87,18 +82,6 @@ const routeFacts = computed(() => [
   ['Root slug', props.collectionDetail?.routing?.rootSlug ?? 'none'],
   ['Singleton', collectionDraft.value.singleton ? 'yes' : 'no'],
   ['Tree depth', collectionDraft.value.maxDepth || 'unlimited'],
-])
-
-const projectionFacts = computed(() => [
-  [
-    'Collection batch',
-    props.collectionDetail?.projectionStatus?.activeCollectionProjectionRunId ??
-      (collectionDraft.value.mode === 'route' ? 'none active' : 'not route-backed'),
-  ],
-  [
-    'Site batch',
-    props.collectionDetail?.projectionStatus?.activeSiteProjectionRunId ?? 'none active',
-  ],
 ])
 </script>
 
@@ -233,39 +216,8 @@ const projectionFacts = computed(() => [
           </p>
         </div>
       </div>
-      <div class="ginko:grid ginko:gap-3 ginko:@5xl:grid-cols-2">
-        <div class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-3">
-          <div class="ginko:flex ginko:items-start ginko:justify-between ginko:gap-3">
-            <div>
-              <Label class="ginko:text-xs ginko:text-muted-foreground">{{
-                t('ginkoCms.studio.collectionContract.liveWebsiteContent')
-              }}</Label>
-              <p class="ginko:mt-1 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-                {{ t('ginkoCms.studio.collectionContract.liveContentDescription') }}
-              </p>
-            </div>
-            <Badge
-              variant="outline"
-              :class="
-                collectionDetail?.projectionStatus?.activeCollectionProjectionRunId ||
-                collectionDetail?.projectionStatus?.activeSiteProjectionRunId
-                  ? 'ginko:border-success/40 ginko:bg-success/10 ginko:dark:bg-success/15 ginko:text-success-fg'
-                  : ''
-              "
-            >
-              {{
-                collectionDetail?.projectionStatus?.activeCollectionProjectionRunId ||
-                collectionDetail?.projectionStatus?.activeSiteProjectionRunId
-                  ? t('ginkoCms.studio.collectionContract.active')
-                  : t('ginkoCms.studio.collectionContract.none')
-              }}
-            </Badge>
-          </div>
-        </div>
-      </div>
       <!-- One Advanced-details surface per screen (design review S3): slug,
-           schema, routing, and projection facts live together behind a single
-           disclosure instead of three scattered ones. -->
+           schema and routing facts live together behind a single disclosure. -->
       <StudioDeveloperDetails>
         <div class="ginko:space-y-3">
           <dl class="ginko:grid ginko:gap-2 ginko:text-xs ginko:@2xl:grid-cols-2">
@@ -280,7 +232,6 @@ const projectionFacts = computed(() => [
                 ],
                 ['Model version', collectionDetail?.contract?.version ?? 'not synced'],
                 ...(collectionDraft.mode === 'route' ? routeFacts : []),
-                ...projectionFacts,
               ]"
               :key="String(label)"
               class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-3 ginko:rounded-md ginko:bg-muted/30 ginko:px-2 ginko:py-1.5"

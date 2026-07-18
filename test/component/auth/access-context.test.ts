@@ -70,7 +70,7 @@ describe('cms permission context', () => {
     expect(accessCtx?.can[cmsPermissionKeys.read]).toBe(true)
   })
 
-  it('derives MCP permission context from API-key settings and the current member role', async () => {
+  it('[ADM-01] applies an active member downgrade to the next Studio and MCP authority check', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })

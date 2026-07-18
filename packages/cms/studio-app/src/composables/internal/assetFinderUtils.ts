@@ -33,16 +33,6 @@ export function mimeIcon(mimeType: string): string {
   return 'lucide:file'
 }
 
-export function latestAssetTimestamp(assets: FinderAssetRecord[]): number | null {
-  if (assets.length === 0) return null
-  let max = 0
-  for (const asset of assets) {
-    const timestamp = asset.updatedAt ?? asset.createdAt
-    if (timestamp > max) max = timestamp
-  }
-  return max
-}
-
 export function normalizeAssetTags(tags: string[]): string[] {
   const next = new Set<string>()
   for (const tag of tags) {
@@ -99,7 +89,7 @@ export function finderAssetToStudioAsset(asset: FinderAssetRecord): StudioAssetR
     alt: asset.alt,
     caption: asset.caption,
     entryId: asset.entryId,
-    collectionId: asset.collectionId,
+    collection: asset.collection,
     ownerPath: asset.ownerPath,
     createdAt: asset.createdAt,
     updatedAt: asset.updatedAt,

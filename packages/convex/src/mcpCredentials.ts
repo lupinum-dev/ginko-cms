@@ -133,6 +133,7 @@ async function currentAuthOwnsCredential(
 
 export const upsertSettings = callerMutation.protected({
   id: 'mcpCredentials:upsertSettings',
+  contractWrite: 'bypass',
   args: {
     apiKeyId: v.string(),
     ownerUserId: v.string(),
@@ -246,6 +247,7 @@ export const listOwnSettings = callerQuery.protected({
 
 export const revokeSettings = callerMutation.protected({
   id: 'mcpCredentials:revokeSettings',
+  contractWrite: 'bypass',
   args: {
     apiKeyId: v.string(),
   },

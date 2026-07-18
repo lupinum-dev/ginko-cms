@@ -8,8 +8,12 @@ import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
   createCtx,
-  seedEditorFixture,
-  seedMultiLocaleSettings,
+  currentDraftVersion,
+  previewReorderEntry,
+  previewReparentEntry,
+  publishEntry,
+  reorderEntry,
+  reparentEntry,
   seedOwner,
   seedSettings,
   seedTreeFixture,
@@ -17,481 +21,306 @@ import {
 
 const api = anyApi
 
-describe('editor tree mutations', () => {
-  it('rejects assigning a parent inside flat collections', async () => {
+function hasCmsError(code: string) {
+  return (error: unknown) => getCmsErrorData(error)?.code === code
+}
+
+describe('canonical editorial tree operations', () => {
+  it('[CON-03] creates a stable private draft and rejects route conflicts and viewer creation', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
     const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'private-draft',
+      localized: { title: 'Private draft' },
+    })
+
+    const entry = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
+    expect(entry).toMatchObject({
+      _id: entryId,
+      collection: 'posts',
+      slug: 'private-draft',
+      status: 'draft',
+    })
+    expect(entry.stableId).toEqual(expect.any(String))
+    expect(await ctx.readAll('publicEntries')).toEqual([])
+    expect(await ctx.readAll('entryRevisions')).toEqual([])
+    await expect(
+      owner.createEntry({
+        collection: 'posts',
+        slug: 'private-draft',
+        localized: { title: 'Conflict' },
+      }),
+    ).rejects.toSatisfy(hasCmsError('ENTRY_SLUG_CONFLICT'))
+
+    await ctx.seed('members', {
+      userId: 'viewer-1',
+      role: 'viewer',
+      createdAt: 1,
+      updatedAt: 1,
+      updatedBy: 'owner-1',
+    })
+    await expect(
+      ctx.asCmsUser('viewer-1').createEntry({
+        collection: 'posts',
+        slug: 'forbidden',
+        localized: { title: 'Forbidden' },
+      }),
+    ).rejects.toThrow('Forbidden')
+  })
+
+  it('rejects parents in flat collections', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const parentId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'flat-parent',
+      localized: { title: 'Flat parent' },
+    })
 
     await expect(
       owner.createEntry({
         collection: 'posts',
-        parentEntryId: entryId,
-        slug: 'child-in-flat',
-        localized: { title: 'Child in flat collection' },
+        parentEntryId: parentId,
+        slug: 'flat-child',
+        localized: { title: 'Flat child' },
       }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_PARENT_NOT_ALLOWED'
-    })
+    ).rejects.toSatisfy(hasCmsError('ENTRY_PARENT_NOT_ALLOWED'))
 
     await expect(
-      owner.mutation(api.editor.reparentEntry, {
-        entryId,
-        parentEntryId: entryId,
+      previewReparentEntry(owner, {
+        entryId: parentId,
+        expectedDraftVersion: await currentDraftVersion(owner, parentId),
+        parentEntryId: parentId,
       }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_PARENT_NOT_ALLOWED'
+    ).resolves.toMatchObject({
+      allowed: false,
+      confirmation: null,
+      blockers: [expect.objectContaining({ code: 'ENTRY_PARENT_NOT_ALLOWED', status: 'blocked' })],
     })
   })
 
-  it('creates a tree entry with resolved placement and draft path', async () => {
+  it('[DOC-02] reorders through preview/confirmation and fences a stale draft version', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
-    const { rootAId } = await seedTreeFixture(ctx)
-
+    const { rootAId, childId, siblingId } = await seedTreeFixture(ctx)
     const owner = ctx.asCmsUser('owner-1')
-
-    const entryId = await owner.createEntry({
-      collection: 'docs',
-      parentEntryId: rootAId,
-      slug: 'new-child',
-      localized: { title: 'New child' },
-    })
-
-    const entry = await owner.query(api.editor.getEntry, {
-      id: entryId,
-      locale: 'en',
-    })
-    expect(entry?.parentEntryId).toBe(rootAId)
-    expect(entry?.path).toBe('/docs/root-a/new-child')
-    expect(entry?.data.title).toBe('New child')
-    expect(entry?.stableId).toMatch(/^[0-9a-z]{5,6}$/)
-  })
-
-  it('reorders sibling entries through the shared movement flow', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { childId, siblingId, rootAId } = await seedTreeFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    await owner.mutation(api.editor.reorderEntry, {
+    const expectedDraftVersion = await currentDraftVersion(owner, siblingId)
+    const staleArgs = {
       entryId: siblingId,
+      expectedDraftVersion,
       parentEntryId: rootAId,
       beforeEntryId: childId,
-    })
-
-    const sibling = await owner.query(api.editor.getEntry, {
-      id: siblingId,
-      locale: 'en',
-    })
-    const child = await owner.query(api.editor.getEntry, {
-      id: childId,
-      locale: 'en',
-    })
-    expect(sibling?.parentEntryId).toBe(child?.parentEntryId)
-    expect(compareOrderRank(sibling?.orderRank ?? null, child?.orderRank ?? null)).toBeLessThan(0)
-  })
-
-  it('reparents an entry and recomputes descendant paths', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { childId, grandchildId, rootBId } = await seedTreeFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    await owner.mutation(api.editor.reparentEntry, {
-      entryId: childId,
-      parentEntryId: rootBId,
-    })
-
-    const child = await owner.query(api.editor.getEntry, {
-      id: childId,
-      locale: 'en',
-    })
-    const grandchild = await owner.query(api.editor.getEntry, {
-      id: grandchildId,
-      locale: 'en',
-    })
-    expect(child?.parentEntryId).toBe(rootBId)
-    expect(child?.path).toBe('/docs/root-b/child')
-    expect(grandchild?.path).toBe('/docs/root-b/child/grandchild')
-  })
-
-  it('rejects reparenting when recursive localized paths would conflict', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedMultiLocaleSettings(ctx)
-
-    const now = Date.now()
-    await ctx.seed(
-      'collections' as never,
-      {
-        slug: 'docs',
-        label: { en: 'Docs' },
-        icon: null,
-        type: 'tree',
-        routing: {
-          pathPrefix: '/docs',
-          slugMode: 'localized',
-          rootSlug: null,
-          singleton: false,
-        },
-        locales: ['en', 'de'],
-        fields: [{ key: 'title', type: 'text', localized: true, searchable: true }],
-        settings: { maxDepth: 4 },
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: 'owner-1',
-      } as never,
-    )
-
-    const owner = ctx.asCmsUser('owner-1')
-    const rootAId = await owner.createEntry({
-      collection: 'docs',
-      slug: 'root-a',
-      localized: { title: 'Root A' },
-    })
-    const rootBId = await owner.createEntry({
-      collection: 'docs',
-      slug: 'root-b',
-      localized: { title: 'Root B' },
-    })
-    const leftId = await owner.createEntry({
-      collection: 'docs',
-      parentEntryId: rootAId,
-      slug: 'left',
-      localized: { title: 'Left' },
-    })
-    const rightId = await owner.createEntry({
-      collection: 'docs',
-      parentEntryId: rootBId,
-      slug: 'right',
-      localized: { title: 'Right' },
-    })
-
-    await owner.mutation(api.editor.createLocaleVariant, {
-      entryId: leftId,
-      locale: 'de',
-    })
-    await owner.mutation(api.editor.createLocaleVariant, {
-      entryId: rightId,
-      locale: 'de',
-    })
-
-    const leftDe = await owner.query(api.editor.getEntry, {
-      id: leftId,
-      locale: 'de',
-    })
-    await owner.saveEntryDraft({
-      entryId: leftId,
-      expectedDraftVersion: leftDe.draftVersion,
-      patch: {
-        locales: {
-          de: {
-            slug: 'gemeinsam',
-          },
-        },
-      },
-    })
-
-    const rightDe = await owner.query(api.editor.getEntry, {
-      id: rightId,
-      locale: 'de',
-    })
-    await owner.saveEntryDraft({
-      entryId: rightId,
-      expectedDraftVersion: rightDe.draftVersion,
-      patch: {
-        locales: {
-          de: {
-            slug: 'gemeinsam',
-          },
-        },
-      },
-    })
-
-    await expect(
-      owner.mutation(api.editor.reparentEntry, {
-        entryId: rightId,
-        parentEntryId: rootAId,
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_PATH_CONFLICT'
-    })
-
-    const [leftEntry, rightEntry] = await Promise.all([
-      owner.query(api.editor.getEntry, { id: leftId, locale: 'de' }),
-      owner.query(api.editor.getEntry, { id: rightId, locale: 'de' }),
-    ])
-    expect(leftEntry?.path).toBe('/docs/root-a/gemeinsam')
-    expect(rightEntry?.path).toBe('/docs/root-b/gemeinsam')
-  })
-
-  it('distinguishes an omitted parent override from an explicit move to root', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedMultiLocaleSettings(ctx)
-    const now = Date.now()
-    await ctx.seed(
-      'collections' as never,
-      {
-        slug: 'localized-docs',
-        label: { en: 'Localized docs' },
-        icon: null,
-        type: 'tree',
-        routing: {
-          pathPrefix: '/localized-docs',
-          slugMode: 'localized',
-          rootSlug: null,
-          singleton: false,
-        },
-        locales: ['en', 'de'],
-        fields: [{ key: 'title', type: 'text', localized: true, searchable: true }],
-        settings: { maxDepth: 4 },
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: 'owner-1',
-      } as never,
-    )
-
-    const owner = ctx.asCmsUser('owner-1')
-    const rootConflictId = await owner.createEntry({
-      collection: 'localized-docs',
-      slug: 'root-conflict',
-      localized: { title: 'Root conflict' },
-    })
-    const parentId = await owner.createEntry({
-      collection: 'localized-docs',
-      slug: 'parent',
-      localized: { title: 'Parent' },
-    })
-    const nestedId = await owner.createEntry({
-      collection: 'localized-docs',
-      parentEntryId: parentId,
-      slug: 'nested',
-      localized: { title: 'Nested' },
-    })
-    for (const entryId of [rootConflictId, nestedId]) {
-      await owner.mutation(api.editor.createLocaleVariant, { entryId, locale: 'de' })
-      const entry = await owner.query(api.editor.getEntry, { id: entryId, locale: 'de' })
-      await owner.saveEntryDraft({
-        entryId,
-        expectedDraftVersion: entry.draftVersion,
-        patch: { locales: { de: { slug: 'gemeinsam' } } },
-      })
     }
+    const stalePreview = await previewReorderEntry(owner, staleArgs)
+    expect(stalePreview.confirmation?.token).toEqual(expect.any(String))
 
-    // Simulate the canonical "no draft parent override" state by replacing the
-    // shared row without the optional field. It must still resolve to the
-    // canonical nested parent, not to root.
-    await ctx.raw.run(async (mutationCtx) => {
-      const shared = await mutationCtx.db
-        .query('entryDrafts')
-        .withIndex('by_entry_locale', (q) => q.eq('entryId', nestedId).eq('locale', null))
-        .first()
-      if (!shared) throw new Error('Missing shared draft row')
-      const {
-        _id,
-        _creationTime: _ignoredCreationTime,
-        parentEntryId: _removed,
-        ...withoutParentOverride
-      } = shared
-      await mutationCtx.db.replace(_id, withoutParentOverride)
+    await owner.saveEntryDraft({
+      entryId: siblingId,
+      expectedDraftVersion,
+      patch: { locales: { en: { values: { title: 'Changed concurrently' } } } },
     })
-
-    const nested = await owner.query(api.editor.getEntry, { id: nestedId, locale: 'de' })
-    expect(nested?.parentEntryId).toBe(parentId)
     await expect(
-      owner.saveEntryDraft({
-        entryId: nestedId,
-        expectedDraftVersion: nested.draftVersion,
-        patch: { shared: { parentEntryId: null } },
+      owner.mutation(api.entries.tree.reorderEntryOperationExecute, {
+        ...staleArgs,
+        _confirmationToken: stalePreview.confirmation?.token,
       }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_PATH_CONFLICT'
+    ).resolves.toMatchObject({ status: 'stale', code: 'ENTRY_CONCURRENT_EDIT' })
+
+    const result = await reorderEntry(owner, {
+      ...staleArgs,
+      expectedDraftVersion: await currentDraftVersion(owner, siblingId),
     })
-
-    const sharedRows = (await ctx.readAll('entryDrafts')) as Array<{
-      entryId: string
-      locale: string | null
-      parentEntryId?: string | null
-    }>
-    const nestedShared = sharedRows.find((row) => row.entryId === nestedId && row.locale === null)
-    expect(nestedShared).not.toHaveProperty('parentEntryId')
-  })
-})
-
-describe('tree cycle detection', () => {
-  it('rejects a draft-only parent override that would create an effective cycle', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { rootAId, childId } = await seedTreeFixture(ctx)
-    const owner = ctx.asCmsUser('owner-1')
-    const root = await owner.query(api.editor.getEntry, { id: rootAId, locale: 'en' })
-
-    await expect(
-      owner.saveEntryDraft({
-        entryId: rootAId,
-        expectedDraftVersion: root.draftVersion,
-        patch: { shared: { parentEntryId: childId } },
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_INVALID_TREE_MOVE'
+    const [sibling, child] = await Promise.all([
+      owner.query(api.editor.getEntry, { id: siblingId, locale: 'en' }),
+      owner.query(api.editor.getEntry, { id: childId, locale: 'en' }),
+    ])
+    expect(result).toMatchObject({
+      draftVersion: sibling.draftVersion,
+      parentEntryId: rootAId,
     })
-  })
+    expect(compareOrderRank(sibling.orderRank, child.orderRank)).toBeLessThan(0)
 
-  it('rejects draft parents from another collection', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { rootAId } = await seedTreeFixture(ctx)
-    const now = Date.now()
-    await ctx.seed(
-      'collections' as never,
-      {
-        slug: 'other-docs',
-        label: { en: 'Other docs' },
-        icon: null,
-        type: 'tree',
-        routing: {
-          pathPrefix: '/other-docs',
-          slugMode: 'shared',
-          rootSlug: null,
-          singleton: false,
-        },
-        locales: ['en'],
-        fields: [{ key: 'title', type: 'text', localized: true, searchable: true }],
-        settings: { maxDepth: 4 },
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: 'owner-1',
-      } as never,
+    const activity = await owner.query(api.editor.getEntryActivity, {
+      entryId: siblingId,
+      paginationOpts: { cursor: null, numItems: 25 },
+    })
+    expect(activity.page).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'entry.reordered',
+          appIdentityId: 'owner-1',
+        }),
+      ]),
     )
-    const owner = ctx.asCmsUser('owner-1')
-    const foreignParentId = await owner.createEntry({
-      collection: 'other-docs',
-      slug: 'foreign-parent',
-      localized: { title: 'Foreign parent' },
-    })
-    const root = await owner.query(api.editor.getEntry, { id: rootAId, locale: 'en' })
-
-    await expect(
-      owner.saveEntryDraft({
-        entryId: rootAId,
-        expectedDraftVersion: root.draftVersion,
-        patch: { shared: { parentEntryId: foreignParentId } },
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_PARENT_NOT_FOUND'
-    })
   })
 
-  it('rejects draft parent overrides beyond the collection depth limit', async () => {
+  it('[DOC-03] moves one canonical subtree while public routes stay atomic and descendants keep their revisions', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
-    const { rootBId, grandchildId } = await seedTreeFixture(ctx)
+    const { rootAId, childId, grandchildId, rootBId } = await seedTreeFixture(ctx)
     const owner = ctx.asCmsUser('owner-1')
+
+    await publishEntry(owner, rootAId)
+    await publishEntry(owner, rootBId)
+    await publishEntry(owner, childId)
+    await publishEntry(owner, grandchildId)
+    const grandchildRevisionBeforeMove = (await ctx.readAll('publicEntries')).find(
+      (row) => row.entryId === grandchildId && row.locale === 'en',
+    )!.revisionId
+
+    const result = await reparentEntry(owner, {
+      entryId: childId,
+      expectedDraftVersion: await currentDraftVersion(owner, childId),
+      parentEntryId: rootBId,
+    })
+    const [child, grandchild] = await Promise.all([
+      owner.query(api.editor.getEntry, { id: childId, locale: 'en' }),
+      owner.query(api.editor.getEntry, { id: grandchildId, locale: 'en' }),
+    ])
+
+    expect(result).toMatchObject({ parentEntryId: rootBId })
+    expect(child).toMatchObject({ parentEntryId: rootBId, path: '/docs/root-b/child' })
+    expect(grandchild.path).toBe('/docs/root-b/child/grandchild')
+
+    await expect(
+      ctx.raw.query(api.public.page, {
+        collection: 'docs',
+        locale: 'en',
+        path: '/docs/root-a/child/grandchild',
+      }),
+    ).resolves.toMatchObject({ status: 'found', page: { id: grandchildId } })
+    await expect(
+      ctx.raw.query(api.public.page, {
+        collection: 'docs',
+        locale: 'en',
+        path: '/docs/root-b/child/grandchild',
+      }),
+    ).resolves.toMatchObject({ status: 'not-found' })
+
+    await publishEntry(owner, childId)
+    await expect(
+      ctx.raw.query(api.public.page, {
+        collection: 'docs',
+        locale: 'en',
+        path: '/docs/root-b/child/grandchild',
+      }),
+    ).resolves.toMatchObject({ status: 'found', page: { id: grandchildId } })
+    await expect(
+      ctx.raw.query(api.public.page, {
+        collection: 'docs',
+        locale: 'en',
+        path: '/docs/root-a/child/grandchild',
+      }),
+    ).resolves.toMatchObject({
+      status: 'redirect',
+      redirectTo: { path: '/docs/root-b/child/grandchild' },
+    })
+    expect(
+      (await ctx.readAll('publicEntries')).find(
+        (row) => row.entryId === grandchildId && row.locale === 'en',
+      )!.revisionId,
+    ).toBe(grandchildRevisionBeforeMove)
+  })
+
+  it('rejects cycles and sibling route collisions before issuing confirmation', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { rootAId, rootBId, childId, grandchildId } = await seedTreeFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+
+    await expect(
+      previewReparentEntry(owner, {
+        entryId: rootAId,
+        expectedDraftVersion: await currentDraftVersion(owner, rootAId),
+        parentEntryId: grandchildId,
+      }),
+    ).resolves.toMatchObject({
+      allowed: false,
+      confirmation: null,
+      blockers: [expect.objectContaining({ code: 'ENTRY_INVALID_TREE_MOVE', status: 'blocked' })],
+    })
+
+    await owner.createEntry({
+      collection: 'docs',
+      parentEntryId: rootBId,
+      slug: 'child',
+      localized: { title: 'Conflicting child' },
+    })
+    await expect(
+      previewReparentEntry(owner, {
+        entryId: childId,
+        expectedDraftVersion: await currentDraftVersion(owner, childId),
+        parentEntryId: rootBId,
+      }),
+    ).resolves.toMatchObject({
+      allowed: false,
+      confirmation: null,
+      blockers: [expect.objectContaining({ code: 'ENTRY_PATH_CONFLICT', status: 'blocked' })],
+    })
+  })
+
+  it('[DOC-01] creates stable root and child drafts through five supported tree levels and rejects a sixth', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { rootAId, rootBId, grandchildId } = await seedTreeFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+
     const levelFourId = await owner.createEntry({
       collection: 'docs',
       parentEntryId: grandchildId,
       slug: 'level-four',
       localized: { title: 'Level four' },
     })
-    const root = await owner.query(api.editor.getEntry, { id: rootBId, locale: 'en' })
-
-    await expect(
-      owner.saveEntryDraft({
-        entryId: rootBId,
-        expectedDraftVersion: root.draftVersion,
-        patch: { shared: { parentEntryId: levelFourId } },
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_MAX_DEPTH_EXCEEDED'
+    const levelFiveId = await owner.createEntry({
+      collection: 'docs',
+      parentEntryId: levelFourId,
+      slug: 'level-five',
+      localized: { title: 'Level five' },
     })
-  })
-
-  it('rejects creating an entry with a nonexistent parentEntryId (prevents self-reference at creation)', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    await seedTreeFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
+    expect(await owner.query(api.editor.getEntry, { id: levelFiveId, locale: 'en' })).toMatchObject(
+      { path: '/docs/root-a/child/grandchild/level-four/level-five' },
+    )
 
     await expect(
       owner.createEntry({
         collection: 'docs',
-        parentEntryId: 'nonexistent_id_that_cannot_exist',
-        slug: 'will-fail',
-        localized: { title: 'Should fail' },
+        parentEntryId: levelFiveId,
+        slug: 'level-six',
+        localized: { title: 'Level six' },
       }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_PARENT_NOT_FOUND'
+    ).rejects.toSatisfy(hasCmsError('ENTRY_MAX_DEPTH_EXCEEDED'))
+
+    const branchTwoId = await owner.createEntry({
+      collection: 'docs',
+      parentEntryId: rootBId,
+      slug: 'branch-two',
+      localized: { title: 'Branch two' },
     })
-  })
-
-  it('rejects reparenting an entry under itself (A->A cycle)', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { rootAId } = await seedTreeFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    await expect(
-      owner.mutation(api.editor.reparentEntry, {
-        entryId: rootAId,
-        parentEntryId: rootAId,
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_INVALID_TREE_MOVE'
+    const branchThreeId = await owner.createEntry({
+      collection: 'docs',
+      parentEntryId: branchTwoId,
+      slug: 'branch-three',
+      localized: { title: 'Branch three' },
     })
-  })
-
-  it('rejects reparenting an entry under its child (A->B->A cycle)', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { rootAId, childId } = await seedTreeFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    // rootA is parent of child; moving rootA under child would create A->B->A
     await expect(
-      owner.mutation(api.editor.reparentEntry, {
+      previewReparentEntry(owner, {
         entryId: rootAId,
-        parentEntryId: childId,
+        expectedDraftVersion: await currentDraftVersion(owner, rootAId),
+        parentEntryId: branchThreeId,
       }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_INVALID_TREE_MOVE'
-    })
-  })
-
-  it('rejects reparenting an entry under its own grandchild (A->B->C->A cycle)', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { rootAId, grandchildId } = await seedTreeFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    // rootA -> child -> grandchild; moving rootA under grandchild would create A->B->C->A
-    await expect(
-      owner.mutation(api.editor.reparentEntry, {
-        entryId: rootAId,
-        parentEntryId: grandchildId,
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'ENTRY_INVALID_TREE_MOVE'
+    ).resolves.toMatchObject({
+      allowed: false,
+      confirmation: null,
+      blockers: [expect.objectContaining({ code: 'ENTRY_MAX_DEPTH_EXCEEDED', status: 'blocked' })],
     })
   })
 })

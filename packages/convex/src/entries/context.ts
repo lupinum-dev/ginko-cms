@@ -24,6 +24,7 @@ type CollectionForEntry = Awaited<ReturnType<typeof getCollectionForEntry>>
 
 export type StudioLocaleDraftView = {
   locale: string
+  draftExists: boolean
   draftSlug: string | null
   draftPath: string
   publishedSlug: string | null
@@ -55,7 +56,7 @@ export type LoadedEntryMutation = {
 }
 
 export async function getEntryOrThrow(ctx: QueryOrMutationCtx, id: string): Promise<EntryDoc> {
-  const entry = await ctx.db.get(asEntryId(id))
+  const entry = await ctx.db.get(asEntryId(ctx, id))
   requireRecord(entry, 'Entry')
   return entry
 }
@@ -136,7 +137,7 @@ export async function readStudioDraftView(
   ])
   const publicByLocale = new Map(publicRows.map((row) => [row.locale, row]))
   const shared = (draftRows.shared?.shared ?? {}) as JsonMap
-  const publishedSharedByLocale = await publishedSharedForRows(ctx, publicRows)
+  const publishedSnapshotsByLocale = await publishedSnapshotsForRows(ctx, publicRows)
   const sharedSlug = effectiveDraftSlug(entry, draftRows.shared, null)
   const draftParentEntryId = effectiveDraftParent(entry, draftRows.shared)
   const localeCodes = localeCodesForDraftView({
@@ -158,9 +159,10 @@ export async function readStudioDraftView(
         slug,
         locale,
       })
-      const publishedValues = publicRow ? ((publicRow.data ?? {}) as JsonMap) : null
-      const publishedBodyMdc = publicRow?.bodyMdc ?? null
-      const publishedShared = publishedSharedByLocale.get(locale) ?? null
+      const publishedSnapshot = publishedSnapshotsByLocale.get(locale) ?? null
+      const publishedValues = publishedSnapshot ? (publishedSnapshot.values as JsonMap) : null
+      const publishedBodyMdc = publishedSnapshot?.bodyMdc ?? null
+      const publishedShared = publishedSnapshot ? (publishedSnapshot.shared as JsonMap) : null
       const data = materializeFieldData(collection.fields, shared, values)
       const publishedData = publishedValues
         ? materializeFieldData(collection.fields, publishedShared ?? {}, publishedValues)
@@ -168,7 +170,8 @@ export async function readStudioDraftView(
 
       return {
         locale,
-        draftSlug: localeRow?.localeSlug ?? (draftRows.shared?.slug ? null : null),
+        draftExists: localeRow !== null,
+        draftSlug: localeRow?.slug ?? null,
         draftPath,
         publishedSlug: publicRow?.slug ?? null,
         publishedPath: publicRow
@@ -201,16 +204,18 @@ export async function readStudioDraftView(
   }
 }
 
-async function publishedSharedForRows(
+async function publishedSnapshotsForRows(
   ctx: QueryOrMutationCtx,
   publicRows: Array<Doc<'publicEntries'>>,
-): Promise<Map<string, JsonMap>> {
-  const byLocale = new Map<string, JsonMap>()
+): Promise<Map<string, Doc<'entryRevisions'>['snapshots'][string]>> {
+  const byLocale = new Map<string, Doc<'entryRevisions'>['snapshots'][string]>()
   await Promise.all(
     publicRows.map(async (row) => {
       const revision = await ctx.db.get(row.revisionId)
       const snapshot = revision?.snapshots[row.locale]
-      if (snapshot) byLocale.set(row.locale, snapshot.shared as JsonMap)
+      if (revision?.entryId === row.entryId && revision.collection === row.collection && snapshot) {
+        byLocale.set(row.locale, snapshot)
+      }
     }),
   )
   return byLocale
@@ -245,6 +250,7 @@ export async function buildStudioEntry(ctx: QueryOrMutationCtx, entry: EntryDoc,
 
     return {
       locale: item.locale,
+      draftExists: item.draftExists,
       entryId: toStringId(entry._id),
       draftSlug: item.draftSlug ?? null,
       draftPath: item.draftPath,
@@ -272,7 +278,6 @@ export async function buildStudioEntry(ctx: QueryOrMutationCtx, entry: EntryDoc,
   return {
     _id: toStringId(entry._id),
     collection: collection.slug,
-    collectionId: entry.collection,
     baseSlug: draftView.baseSlug,
     stableId: entry.stableId ?? null,
     status:
@@ -315,6 +320,7 @@ export async function buildStudioEntry(ctx: QueryOrMutationCtx, entry: EntryDoc,
       entryId: toStringId(entry._id),
       label: item.locale,
       isCurrent: item.locale === (primary?.locale ?? primaryLocale),
+      draftExists: item.draftExists,
       filledRequired: item.completion.filledRequired,
       totalRequired: item.completion.totalRequired,
       complete: item.completion.complete,

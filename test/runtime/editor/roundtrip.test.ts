@@ -5,7 +5,7 @@ import { mdcToTiptap } from '../../../packages/cms/studio-app/src/editor/lib/mdc
 import { tiptapToMDC } from '../../../packages/cms/studio-app/src/editor/lib/tiptapToMdc'
 
 describe('editor roundtrip', () => {
-  it('round-trips headings, lists, and code blocks through the extracted converters', async () => {
+  it('[EDT-02] round-trips headings, lists, and code blocks through the extracted converters', async () => {
     const markdown = [
       '# Title',
       '',

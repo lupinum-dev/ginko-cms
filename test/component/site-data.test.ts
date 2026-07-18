@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import { createCtx, seedMember } from '../helpers'
-import { seedOwner } from './entries/helpers'
+import { seedOwner, seedSettings } from './entries/helpers'
 
 const api = anyApi
 
@@ -14,6 +14,7 @@ describe('site data ownership shape', () => {
   it('stores localized writes only under locale keys', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await seedSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
 
     await owner.mutation(api.siteData.createSiteDataBlock, {
@@ -38,6 +39,7 @@ describe('site data ownership shape', () => {
   it('rejects ambiguous localized and nonlocalized writes', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await seedSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
 
     await expect(
@@ -70,6 +72,7 @@ describe('site data ownership shape', () => {
   it('rejects non-JSON Convex values at public site data boundaries', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await seedSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
 
     await expect(
@@ -84,6 +87,7 @@ describe('site data ownership shape', () => {
   it('drops legacy root keys on the next localized write while preserving locale entries', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await seedSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
     const now = Date.now()
     await ctx.seed(
@@ -119,6 +123,7 @@ describe('site data ownership shape', () => {
   it('rejects localization flag changes that would reinterpret stored data', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await seedSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
 
     await owner.mutation(api.siteData.createSiteDataBlock, {
@@ -134,13 +139,15 @@ describe('site data ownership shape', () => {
       }),
     ).rejects.toSatisfy(
       (error: unknown) =>
-        getCmsErrorData(error)?.code === 'SITE_DATA_LOCALIZATION_CHANGE_REQUIRES_MIGRATION',
+        getCmsErrorData(error)?.code ===
+        'SITE_DATA_LOCALIZATION_CHANGE_REQUIRES_CONTRACT_TRANSITION',
     )
   })
 
-  it('emits provider-matching tags for every public localized transition', async () => {
+  it('[DAT-01][DAT-02] saves canonical localized site data immediately with truthful public/private revalidation and redacted activity', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await seedSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
 
     await owner.mutation(api.siteData.createSiteDataBlock, {
@@ -196,11 +203,29 @@ describe('site data ownership shape', () => {
         }),
       ]),
     )
+    const activity = await ctx.readAll('activity')
+    expect(activity).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'siteData.saved',
+          appIdentityId: 'owner-1',
+          locale: 'de',
+          detail: { key: 'announcement' },
+        }),
+        expect.objectContaining({
+          kind: 'siteData.deleted',
+          appIdentityId: 'owner-1',
+          detail: { key: 'announcement' },
+        }),
+      ]),
+    )
+    expect(JSON.stringify(activity)).not.toContain('Private edit')
   })
 
   it('allows read-only users to inspect site data without write access', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await seedSettings(ctx)
     await seedMember(ctx, { userId: 'viewer-1', role: 'viewer' })
     const owner = ctx.asCmsUser('owner-1')
     const viewer = ctx.asCmsUser('viewer-1')
@@ -254,6 +279,7 @@ describe('site data ownership shape', () => {
   it('binds destructive confirmations to one caller, args, and one redemption', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
+    await seedSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
 
     await owner.mutation(api.siteData.createSiteDataBlock, {
@@ -278,11 +304,9 @@ describe('site data ownership shape', () => {
         ...wrongArgs,
         _confirmationToken: preview.confirmation.token,
       }),
-    ).rejects.toThrow(/arguments mismatch/)
-
-    await owner.mutation(api.siteData.deleteSiteDataBlockOperationExecute, {
-      ...args,
-      _confirmationToken: preview.confirmation.token,
+    ).resolves.toMatchObject({
+      status: 'stale',
+      code: 'CONFIRMATION_ARGUMENT_MISMATCH',
     })
 
     await expect(
@@ -290,17 +314,46 @@ describe('site data ownership shape', () => {
         ...args,
         _confirmationToken: preview.confirmation.token,
       }),
-    ).rejects.toThrow(/already used/)
+    ).resolves.toEqual({ status: 'applied', value: null })
+
+    await expect(
+      owner.mutation(api.siteData.deleteSiteDataBlockOperationExecute, {
+        ...args,
+        _confirmationToken: preview.confirmation.token,
+      }),
+    ).resolves.toMatchObject({
+      status: 'stale',
+      code: 'CONFIRMATION_ALREADY_USED',
+    })
 
     expect(await owner.query(api.siteData.getSiteDataBlock, { key: 'deleteMe' })).toBeNull()
     expect(await owner.query(api.siteData.getSiteDataBlock, { key: 'keepMe' })).not.toBeNull()
-    expect(await ctx.readAll('destructiveAuditLog')).toEqual([
-      expect.objectContaining({
-        operationId: 'ginko-cms.delete-site-data-block',
-        callerKey: 'user:owner-1',
-        scopeKey: 'ginko-cms',
-        executePath: 'siteData:deleteSiteDataBlockOperationExecute',
-      }),
-    ])
+    expect(await ctx.readAll('destructiveAuditLog')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'stale',
+          code: 'CONFIRMATION_ARGUMENT_MISMATCH',
+        }),
+        expect.objectContaining({
+          status: 'applied',
+          code: null,
+          message: null,
+        }),
+        expect.objectContaining({
+          status: 'stale',
+          code: 'CONFIRMATION_ALREADY_USED',
+        }),
+      ]),
+    )
+    expect(await ctx.readAll('destructiveAuditLog')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationId: 'ginko-cms.delete-site-data-block',
+          callerKey: 'user:owner-1',
+          scopeKey: 'ginko-cms',
+          executePath: 'siteData:deleteSiteDataBlockOperationExecute',
+        }),
+      ]),
+    )
   })
 })

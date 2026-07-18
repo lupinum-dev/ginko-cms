@@ -14,7 +14,9 @@ export type CmsUserCaller = {
   kind: 'user'
   userId: string
   subject: `user:${string}`
+  name?: string
   email?: string
+  emailVerified?: boolean
 }
 
 export type CmsMcpCaller = {
@@ -72,14 +74,20 @@ export function cmsAnonymousCaller(): CmsAnonymousCaller {
 export function cmsUserCaller(
   userId: string,
   profile?: {
+    name?: string | null
     email?: string | null
+    emailVerified?: boolean | null
   },
 ): CmsUserCaller {
   return {
     kind: 'user',
     userId,
     subject: subject.user(userId),
+    ...(profile?.name ? { name: profile.name } : {}),
     ...(profile?.email ? { email: profile.email } : {}),
+    ...(typeof profile?.emailVerified === 'boolean'
+      ? { emailVerified: profile.emailVerified }
+      : {}),
   }
 }
 
@@ -93,9 +101,15 @@ export function cmsMcpCaller(apiKeyId: string): CmsMcpCaller {
 
 export function cmsCallerFromConvexAuthIdentity(identity: {
   subject?: string | null
+  name?: string | null
   email?: string | null
+  emailVerified?: boolean | null
 }): CmsUserCaller {
-  return cmsUserCaller(identity.subject ?? '', { email: identity.email })
+  return cmsUserCaller(identity.subject ?? '', {
+    name: identity.name,
+    email: identity.email,
+    emailVerified: identity.emailVerified,
+  })
 }
 
 /**
@@ -109,7 +123,9 @@ export function cmsCallerFromConvexAuthIdentity(identity: {
 export function cmsCallerFromActionAuthIdentity(
   identity: {
     subject?: string | null
+    name?: string | null
     email?: string | null
+    emailVerified?: boolean | null
     sessionId?: unknown
     ginkoCredentialKind?: unknown
   } | null,

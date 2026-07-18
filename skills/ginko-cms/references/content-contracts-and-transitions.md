@@ -4,9 +4,9 @@ Use this reference when changing collections, routes, locales, relation fields,
 MDC body handling, or owner-CLI portability. Canonical docs:
 
 - `docs/guides/changing-collections.md`
-- `docs/guides/migrations/recipes.md`
-- `docs/guides/migrations/recovery.md`
-- `docs/guides/filesystem-migration.md`
+- `docs/guides/contract-transitions/recipes.md`
+- `docs/guides/contract-transitions/recovery.md`
+- `docs/guides/content-portability.md`
 - `docs/reference/content-model.md`
 - `docs/concepts/relations.md`
 - `docs/concepts/mdc-body-contract.md`
@@ -30,12 +30,15 @@ The content model has one source of truth: the host app code, usually
 content and presentation hashes:
 
 ```text
-content.config.ts / ginkoCms.collections -> ginko-cms push -> installed cmsContract
+content.config.ts / ginkoCms.collections -> ginko-cms deploy -> bound host hashes -> installed cmsContract
 ```
 
 Studio, MCP, owner-CLI portability, and public reads inspect the installed
 contract. They do not own schema edits. A hash mismatch remains readable and
-diagnosable but blocks editorial writes.
+diagnosable but blocks editorial writes. Backend mutations compare both bound
+host hashes and the transition lock transactionally; frontend checks are only
+early feedback. Only the centralized access/security and diagnostic bypass
+allowlist may write while the editorial contract is blocked.
 
 ## Route-Backed Article Collection
 
@@ -112,6 +115,7 @@ Content-incompatible drift uses a bounded contract transition:
 
 ```bash
 pnpm exec ginko-cms contract transition create <change-name>
+pnpm exec ginko-cms deploy --transition
 pnpm exec ginko-cms contract transition stage ginko/transitions/<file>.ts --yes
 pnpm exec ginko-cms contract transition status <run-id>
 pnpm exec ginko-cms contract transition apply <run-id> --yes
@@ -119,9 +123,11 @@ pnpm exec ginko-cms contract transition activate <run-id> --yes
 ```
 
 Explicitly unpublish affected live entries first. Staging locks Studio writes,
-validates every transformed draft under the exact target contract, and records
-version/hash fences. Apply is pagewise and resumable; activation is atomic.
-Cancel only before apply starts. After apply begins, the run is resume-only.
+records every transformed draft in bounded pages, and then validates the staged
+route/placement graph in bounded pages under the exact target contract. Both
+phases use durable generation/cursor and count/hash fences. Apply is pagewise
+and resumable; activation is atomic. Cancel only before apply starts. After
+apply begins, the run is resume-only.
 
 ## Safe Changes
 

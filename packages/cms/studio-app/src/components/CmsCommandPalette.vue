@@ -6,15 +6,11 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '../boundary/api'
 import { cmsPermissionKeys, type CmsPermissionKey } from '../composables/permissions'
-import { useCmsConfig } from '../composables/useCmsConfig'
 import { useCmsI18n } from '../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../composables/useCmsStudioQuery'
 import { useStudioSearch } from '../composables/useStudioSearch'
-import {
-  codeDefinedCollectionList,
-  type StudioCollectionListItem,
-} from '../lib/codeDefinedCollections'
+import type { StudioCollectionListItem } from '../lib/installedCollections'
 import {
   studioRouteHref,
   studioStaticRoutes,
@@ -101,28 +97,16 @@ const staticLinks = computed<PaletteItem[]>(() =>
   })),
 )
 
-// Collection pages, resolved the same way as the sidebar: code-defined
-// collections win the list shape, server labels win the copy.
-const cmsConfig = useCmsConfig()
 const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
-const collectionLinks = computed<PaletteItem[]>(() => {
-  const fromConvex = (collectionsQuery.data.value ?? []) as StudioCollectionListItem[]
-  const hostCollections = codeDefinedCollectionList(cmsConfig.collections, cmsConfig.defaultLocale)
-  const bySlug = new Map(fromConvex.map((collection) => [collection.slug, collection]))
-  const merged = hostCollections.length
-    ? hostCollections.map((collection) => ({
-        ...collection,
-        label: bySlug.get(collection.slug)?.label || collection.label,
-      }))
-    : fromConvex
-  return merged.map((collection) => ({
+const collectionLinks = computed<PaletteItem[]>(() =>
+  ((collectionsQuery.data.value ?? []) as StudioCollectionListItem[]).map((collection) => ({
     id: `collection-${collection.slug}`,
     title: collection.label,
     keywords: collection.slug,
     href: `${contentRoute.value}/${collection.slug}`,
     group: 'links' as const,
-  }))
-})
+  })),
+)
 
 // Local, instant filter for the non-server groups: every whitespace-separated
 // token must appear in the item's title, subtitle, or keywords (case- and

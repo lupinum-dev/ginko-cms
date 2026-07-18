@@ -59,6 +59,10 @@
       "types": "./dist/order.d.ts",
       "import": "./dist/order.js"
     },
+    "./shared/placementGraph.js": {
+      "types": "./dist/placementGraph.d.ts",
+      "import": "./dist/placementGraph.js"
+    },
     "./shared/permissions.js": {
       "types": "./dist/permissions.d.ts",
       "import": "./dist/permissions.js"
@@ -107,6 +111,10 @@
       "types": "./dist/schemas/members.d.ts",
       "import": "./dist/schemas/members.js"
     },
+    "./convex/schemas/maintenance.js": {
+      "types": "./dist/schemas/maintenance.d.ts",
+      "import": "./dist/schemas/maintenance.js"
+    },
     "./convex/schemas/portability.js": {
       "types": "./dist/schemas/portability.d.ts",
       "import": "./dist/schemas/portability.js"
@@ -118,6 +126,10 @@
     "./convex/schemas/revalidation.js": {
       "types": "./dist/schemas/revalidation.d.ts",
       "import": "./dist/schemas/revalidation.js"
+    },
+    "./convex/schemas/redirects.js": {
+      "types": "./dist/schemas/redirects.d.ts",
+      "import": "./dist/schemas/redirects.js"
     },
     "./convex/schemas/siteData.js": {
       "types": "./dist/schemas/siteData.d.ts",

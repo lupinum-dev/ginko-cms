@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 import {
   assertResolvedContentContract,
+  hashCanonicalJson,
+  type JsonValue,
   type ResolvedContentContractV1,
 } from '@lupinum/ginko-content/cms-contract'
 import {
@@ -215,6 +217,11 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       fallback: contentContract.localeFallbacks[code]?.[0],
     }))
     options.collections = projectContractCollections(contentContract, options.editorialLayout)
+    const presentationContract = (options.editorialLayout ?? {
+      collections: {},
+    }) as unknown as JsonValue
+    const expectedContentHash = await hashCanonicalJson(contentContract as unknown as JsonValue)
+    const expectedPresentationHash = await hashCanonicalJson(presentationContract)
     const localeSettings = resolveLocaleSettings(options)
     const cmsRuntimeDir = moduleResolve('./runtime')
     const cmsPublicDir = moduleResolve('./public')
@@ -261,7 +268,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const studioAssetBase = studioAssetVersion
       ? `/_ginko-cms-studio/${studioAssetVersion}`
       : '/_ginko-cms-studio'
-    nuxt.options.runtimeConfig.public.ginkoCms = defu(moduleOptions.runtimeConfig.public.ginkoCms, {
+    const publicCmsConfig = defu(moduleOptions.runtimeConfig.public.ginkoCms, {
       route: options.route,
       debugStudio: options.debugStudio,
       defaultLocale: localeSettings.defaultLocale,
@@ -288,7 +295,15 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         assetBase: studioAssetBase,
         devServer: studioDevServer,
       },
-    }) as typeof nuxt.options.runtimeConfig.public.ginkoCms
+    }) as Record<string, unknown>
+    // These hashes must describe the contract resolved above. Public runtime
+    // config may customize presentation-independent host settings, but it may
+    // not replace the write-gate identity with a second source of truth.
+    publicCmsConfig.contract = {
+      expectedContentHash,
+      expectedPresentationHash,
+    }
+    nuxt.options.runtimeConfig.public.ginkoCms = publicCmsConfig
 
     // Serve the SPA bundle (built by `pnpm studio:build`) as a Nitro public
     // asset under a versioned /_ginko-cms-studio/<hash> base. The host page
@@ -422,6 +437,18 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
           name: 'studio-auth-register',
           path: `${options.route.replace(/\/$/, '')}/auth/register`,
           file: resolve(cmsAuthDir, 'pages/register.vue'),
+          meta: { layout: false },
+        },
+        {
+          name: 'studio-auth-recover',
+          path: `${options.route.replace(/\/$/, '')}/auth/recover`,
+          file: resolve(cmsAuthDir, 'pages/recover.vue'),
+          meta: { layout: false },
+        },
+        {
+          name: 'studio-auth-reset-password',
+          path: `${options.route.replace(/\/$/, '')}/auth/reset-password`,
+          file: resolve(cmsAuthDir, 'pages/reset-password.vue'),
           meta: { layout: false },
         },
         {

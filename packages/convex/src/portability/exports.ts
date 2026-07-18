@@ -1,13 +1,10 @@
 import {
-  abortExportRun as abortExportRunArgs,
   beginPortableAssetDownload as beginPortableAssetDownloadArgs,
   captureExportPage as captureExportPageArgs,
   claimPortableAssetDownload as claimPortableAssetDownloadArgs,
-  completeExportRun as completeExportRunArgs,
   createExportRun as createExportRunArgs,
-  expireExportRun as expireExportRunArgs,
-  readExportDocuments as readExportDocumentsArgs,
   readExportAssets as readExportAssetsArgs,
+  readExportDocuments as readExportDocumentsArgs,
   sealExportRun as sealExportRunArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
 import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
@@ -17,7 +14,6 @@ import {
   type ResolvedContentContractV1,
 } from '@lupinum/ginko-content/cms-contract'
 import {
-  canonicalJsonBytes,
   collectPortableAssetReferences,
   collectPortableMdcAssetReferences,
   hashCanonicalJson,
@@ -27,13 +23,35 @@ import {
 import { makeFunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 
-import type { Doc } from '../_generated/dataModel.js'
 import { internalMutation } from '../_generated/server.js'
 import { canManagePortability } from '../auth/checks.js'
 import { callerMutation, callerQuery } from '../functions.js'
 import { getCollection } from '../lib/collections.js'
-import { readInstalledCmsContract } from '../lib/installedContract.js'
-import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
+import {
+  assertCmsContractWriteToken,
+  cmsContractWriteTokenValidator,
+} from '../lib/installedContract.js'
+import type { MutationCtx } from '../lib/types.js'
+import {
+  defineAbortExportRun,
+  defineCompleteExportRun,
+  defineEnsureExportCleanupWork,
+  defineExpireExportCleanupLease,
+  defineExpireExportLeaseInternal,
+  defineExpireExportRun,
+  defineExpireExportRunInternal,
+  defineProcessExportCleanupPage,
+  defineRecordExportCleanupFailure,
+  defineRunExportCleanupPage,
+} from './exportCleanup.js'
+import { requireExportRun as exportRun, requireOwnedExport, type ExportRun } from './exportModel.js'
+import {
+  assertCurrentExportPreflight,
+  type CreateExportRunResult,
+  createExportRunResultValidator,
+  EXPORT_PAGE_SIZE,
+  readPublishedExportPage,
+} from './exportPreflight.js'
 import { portablePublishedDocument } from './items.js'
 import {
   assertSha256,
@@ -42,54 +60,25 @@ import {
   PORTABLE_ROW_BYTE_LIMIT,
   PORTABLE_RUN_TTL_MS,
 } from './model.js'
+import { encodePortableDocument } from './portableJson.js'
 
-const CAPTURE_PAGE_SIZE = 100
 const EXPORT_LEASE_MS = 60_000
+
 const DOWNLOAD_CAPABILITY_MS = 60_000
+
 const MAX_ACTIVE_EXPORTS = 100
-const CLEANUP_PAGE_SIZE = 100
+
 const expireExportRunInternalRef = makeFunctionReference<
   'mutation',
   { runId: string; expiresAt: number },
   null
 >('portability/exports:expireExportRunInternal')
-const cleanupExportRowsRef = makeFunctionReference<
-  'mutation',
-  { runId: string },
-  { deleted: number; complete: boolean }
->('portability/exports:cleanupExportRows')
+
 const expireExportLeaseInternalRef = makeFunctionReference<
   'mutation',
   { runId: string; leaseGeneration: number; leaseExpiresAt: number },
   null
 >('portability/exports:expireExportLeaseInternal')
-
-type ExportRun = Extract<Doc<'portableRuns'>, { mode: 'export' }>
-type CallerCtx = QueryOrMutationCtx & {
-  appIdentity: () => Promise<{ userId: string }>
-}
-
-function exportRun(run: Doc<'portableRuns'> | null): ExportRun {
-  if (!run || run.mode !== 'export') throw new Error('Portable export run not found.')
-  return run
-}
-
-async function getExportRun(ctx: QueryOrMutationCtx, runId: string): Promise<ExportRun> {
-  return exportRun(
-    await ctx.db
-      .query('portableRuns')
-      .withIndex('by_run_id', (query) => query.eq('runId', runId))
-      .unique(),
-  )
-}
-
-async function requireOwnedExport(ctx: CallerCtx, runId: string): Promise<ExportRun> {
-  const identity = await ctx.appIdentity()
-  const run = await getExportRun(ctx, runId)
-  if (run.callerId !== identity.userId)
-    throw new Error('Portable export belongs to another caller.')
-  return run
-}
 
 function requireCaptureLease(
   run: ExportRun,
@@ -121,50 +110,36 @@ async function scheduleLeaseExpiry(
   })
 }
 
-export const createExportRun = callerMutation.protected({
-  id: 'portability:createExportRun',
-  args: createExportRunArgs.args,
-  guard: canManagePortability,
-  returns: v.object({
-    runId: v.string(),
-    state: v.literal('capturing'),
-    payloadSha256: v.string(),
-    leaseGeneration: v.number(),
-    expiresAt: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    const identity = await ctx.appIdentity()
-    assertSha256(args.sourceContractSha256, 'sourceContractSha256')
+export const createExportRunInternal = internalMutation({
+  args: {
+    ...createExportRunArgs.args,
+    callerId: v.string(),
+    preflightToken: v.string(),
+    contractWriteToken: cmsContractWriteTokenValidator,
+  },
+  returns: createExportRunResultValidator,
+  handler: async (ctx, args): Promise<CreateExportRunResult> => {
+    await assertCmsContractWriteToken(ctx, args.contractWriteToken)
     assertSha256(args.leaseTokenHash, 'leaseTokenHash')
-    if (
-      !args.runId ||
-      !args.deploymentId ||
-      args.scope.collections.length === 0 ||
-      args.scope.collections.length > 100 ||
-      args.scope.collections.some(
-        (slug, index) => !slug || (index > 0 && args.scope.collections[index - 1]! >= slug),
-      )
-    ) {
+    if (!args.runId || !args.deploymentId) {
       throw new Error('Portable export scope is invalid.')
     }
-    const installed = await readInstalledCmsContract(ctx)
-    if (!installed || installed.record.contentHash !== args.sourceContractSha256) {
-      throw new Error('Portable export source contract does not match the installed contract.')
-    }
-    const contract = installed.content
-    for (const slug of args.scope.collections) {
-      if (!contract.collections[slug]) {
-        throw new Error(`Portable export collection "${slug}" is absent from the contract.`)
-      }
-      const collection = await getCollection(ctx, slug)
-      if (!collection) throw new Error(`Portable export collection "${slug}" is not installed.`)
-    }
+    const { installed, preflight } = await assertCurrentExportPreflight(
+      ctx,
+      args,
+      args.preflightToken,
+    )
     const payload = {
       format: 'ginko-cms-portability-export',
       version: 1,
       deploymentId: args.deploymentId,
       scope: args.scope,
-      sourceContractSha256: args.sourceContractSha256,
+      sourceContentHash: args.sourceContentHash,
+      preflight: {
+        documentCount: preflight.documentCount,
+        assetSha256s: preflight.assetSha256s,
+        generations: preflight.generations,
+      },
     } as const
     const payloadSha256 = await hashCanonicalJson(payload)
     const existing = await ctx.db
@@ -174,7 +149,7 @@ export const createExportRun = callerMutation.protected({
     if (existing) {
       const run = exportRun(existing)
       if (
-        run.callerId !== identity.userId ||
+        run.callerId !== args.callerId ||
         run.payloadSha256 !== payloadSha256 ||
         run.leaseTokenHash !== args.leaseTokenHash ||
         run.state !== 'capturing'
@@ -187,6 +162,10 @@ export const createExportRun = callerMutation.protected({
         payloadSha256: run.payloadSha256,
         leaseGeneration: run.leaseGeneration,
         expiresAt: run.expiresAt,
+        preflight: {
+          documentCount: preflight.documentCount,
+          assetCount: preflight.assetSha256s.length,
+        },
       }
     }
     const now = Date.now()
@@ -224,10 +203,10 @@ export const createExportRun = callerMutation.protected({
       mode: 'export',
       state: 'capturing',
       payloadSha256,
-      callerId: identity.userId,
+      callerId: args.callerId,
       deploymentId: args.deploymentId,
       scope: args.scope,
-      sourceContractSha256: args.sourceContractSha256,
+      sourceContentHash: args.sourceContentHash,
       sourceContract: installed.record.content as JsonMap,
       documentCount: 0,
       assetCount: 0,
@@ -241,6 +220,17 @@ export const createExportRun = callerMutation.protected({
       leaseTokenHash: args.leaseTokenHash,
       leaseGeneration,
       leaseExpiresAt: now + EXPORT_LEASE_MS,
+      workPhase: null,
+      workCursor: null,
+      workGeneration: 0,
+      workToken: null,
+      workLeaseExpiresAt: null,
+      workAttempts: 0,
+      workNextAttemptAt: null,
+      workLastError: null,
+      workDeadLetteredAt: null,
+      manifestSha256: null,
+      completedAt: null,
       createdAt: now,
       updatedAt: now,
       expiresAt,
@@ -256,6 +246,10 @@ export const createExportRun = callerMutation.protected({
       payloadSha256,
       leaseGeneration,
       expiresAt,
+      preflight: {
+        documentCount: preflight.documentCount,
+        assetCount: preflight.assetSha256s.length,
+      },
     }
   },
 })
@@ -303,70 +297,92 @@ export const captureExportPage = callerMutation.protected({
       await scheduleLeaseExpiry(ctx, run.runId, run.leaseGeneration, leaseExpiresAt)
       return { captured: 0, complete }
     }
-    const ordered = ctx.db
-      .query('publicEntries')
-      .withIndex('by_collection_locale_orderKey_entry', (query) =>
-        query.eq('collection', collection.slug).eq('locale', locale),
-      )
-    const fetched = await (position.orderKey !== null && position.entryId !== null
-      ? ordered
-          .filter((query) =>
-            query.or(
-              query.gt(query.field('orderKey'), position.orderKey!),
-              query.and(
-                query.eq(query.field('orderKey'), position.orderKey!),
-                query.gt(query.field('entryId'), position.entryId!),
-              ),
-            ),
-          )
-          .take(CAPTURE_PAGE_SIZE + 1)
-      : ordered.take(CAPTURE_PAGE_SIZE + 1))
-    const page = fetched.slice(0, CAPTURE_PAGE_SIZE)
+    const fetched = await readPublishedExportPage(
+      ctx,
+      { collection: collection.slug, locale },
+      { orderKey: position.orderKey, entryId: position.entryId },
+    )
+    const page = fetched.slice(0, EXPORT_PAGE_SIZE)
     let documentCount = run.documentCount
     let assetCount = run.assetCount
-    for (const row of page) {
-      if (documentCount >= PORTABLE_DOCUMENT_LIMIT) {
-        throw new Error('Portable export exceeds the document limit.')
-      }
-      const entry = await ctx.db.get(row.entryId)
-      if (!entry) throw new Error('Portable export entry disappeared during capture.')
-      const canonicalKey = entry.stableId
-      const document = await portablePublishedDocument(ctx, {
-        revisionId: row.revisionId,
-        collection: collectionSlug,
-        canonicalKey,
-        locale,
-        contract,
-      })
-      const documentSha256 = await hashCanonicalJson(document as unknown as JsonMap)
-      if (canonicalJsonBytes(document as unknown as JsonMap).length > PORTABLE_ROW_BYTE_LIMIT) {
-        throw new Error('Portable export document exceeds the 256 KiB roster row limit.')
-      }
-      const duplicate = await ctx.db
-        .query('portableExportRoster')
-        .withIndex('by_run_identity', (query) =>
-          query
-            .eq('runId', run.runId)
-            .eq('collection', collectionSlug)
-            .eq('canonicalKey', canonicalKey)
-            .eq('locale', locale),
-        )
-        .unique()
-      if (duplicate) throw new Error('Portable export roster identity is duplicated.')
-      await ctx.db.insert('portableExportRoster', {
-        runId: run.runId,
-        index: documentCount,
-        collection: collectionSlug,
-        canonicalKey,
-        locale,
-        revisionId: row.revisionId,
-        document: document as unknown as JsonMap,
-        documentSha256,
-      })
-      documentCount += 1
+    if (documentCount + page.length > PORTABLE_DOCUMENT_LIMIT) {
+      throw new Error('Portable export exceeds the document limit.')
+    }
+    const prepared = await Promise.all(
+      page.map(async (row) => {
+        const entry = await ctx.db.get(row.entryId)
+        if (!entry) throw new Error('Portable export entry disappeared during capture.')
+        const canonicalKey = entry.stableId
+        const document = await portablePublishedDocument(ctx, {
+          revisionId: row.revisionId,
+          collection: collectionSlug,
+          canonicalKey,
+          locale,
+          contract,
+        })
+        const encodedDocument = await encodePortableDocument(document)
+        const documentSha256 = encodedDocument.sha256
+        if (encodedDocument.bytes.length > PORTABLE_ROW_BYTE_LIMIT) {
+          throw new Error('Portable export document exceeds the 256 KiB roster row limit.')
+        }
+        return {
+          row,
+          canonicalKey,
+          document,
+          documentJson: encodedDocument.json,
+          documentSha256,
+        }
+      }),
+    )
+    const duplicates = await Promise.all(
+      prepared.map(
+        async ({ canonicalKey }) =>
+          await ctx.db
+            .query('portableItems')
+            .withIndex('by_run_identity', (query) =>
+              query
+                .eq('runId', run.runId)
+                .eq('collection', collectionSlug)
+                .eq('canonicalKey', canonicalKey)
+                .eq('locale', locale),
+            )
+            .unique(),
+      ),
+    )
+    if (duplicates.some(Boolean)) {
+      throw new Error('Portable export roster identity is duplicated.')
+    }
+    await Promise.all(
+      prepared.map(
+        async ({ row, canonicalKey, documentJson, documentSha256 }, index) =>
+          await ctx.db.insert('portableItems', {
+            mode: 'export',
+            runId: run.runId,
+            index: documentCount + index,
+            itemKey: await hashCanonicalJson({
+              collection: collectionSlug,
+              canonicalKey,
+              locale,
+            }),
+            inputSha256: documentSha256,
+            payload: documentJson,
+            collection: collectionSlug,
+            canonicalKey,
+            locale,
+            revisionId: row.revisionId,
+            document: documentJson,
+            state: 'captured',
+            effect: null,
+            resultId: null,
+            committedAt: null,
+          }),
+      ),
+    )
+    documentCount += prepared.length
+    for (const { document } of prepared) {
       assetCount = await holdDocumentAssets(ctx, run, contract, document, assetCount)
     }
-    const hasMore = fetched.length > CAPTURE_PAGE_SIZE
+    const hasMore = fetched.length > EXPORT_PAGE_SIZE
     const last = page.at(-1)
     const nextLocaleIndex = hasMore ? position.localeIndex : position.localeIndex + 1
     const nextCollectionIndex = position.collectionIndex
@@ -439,7 +455,7 @@ async function holdDocumentAssets(
   for (const reference of references) {
     if (reference.kind !== 'local') continue
     const existing = await ctx.db
-      .query('portableExportAssets')
+      .query('portableAssets')
       .withIndex('by_run_sha256', (query) =>
         query.eq('runId', run.runId).eq('sha256', reference.sha256),
       )
@@ -459,19 +475,32 @@ async function holdDocumentAssets(
         candidate.mimeType === reference.mediaType,
     )
     if (!asset) throw new Error('Portable export asset is unavailable or corrupt.')
-    await ctx.db.insert('portableExportAssets', {
+    const now = Date.now()
+    await ctx.db.insert('portableAssets', {
+      mode: 'export',
       holdId: await hashCanonicalJson({ runId: run.runId, sha256: asset.sha256 }),
       runId: run.runId,
+      callerId: null,
       sha256: asset.sha256,
+      inputSha256: null,
+      payload: {},
       storageId: asset.storageId,
-      bytes: asset.size,
+      byteLength: asset.size,
       mediaType: asset.mimeType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+      state: 'held',
+      assetId: null,
+      attemptTokenHash: null,
+      attemptGeneration: 0,
+      leaseExpiresAt: null,
+      storageOrigin: null,
       originalFilename: asset.filename,
       expiresAt: run.expiresAt,
       downloadTokenHash: null,
       downloadGeneration: 0,
       downloadAttempts: 0,
       downloadExpiresAt: null,
+      createdAt: now,
+      updatedAt: now,
     })
     count += 1
   }
@@ -493,7 +522,7 @@ export const sealExportRun = callerMutation.protected({
     if (!run.captureComplete) throw new Error('Portable export capture is not complete.')
     if (run.documentCount > 0) {
       const last = await ctx.db
-        .query('portableExportRoster')
+        .query('portableItems')
         .withIndex('by_run_index', (query) =>
           query.eq('runId', run.runId).eq('index', run.documentCount - 1),
         )
@@ -528,26 +557,28 @@ export const readExportDocuments = callerQuery.protected({
     if (run.state !== 'ready' && run.state !== 'complete') {
       throw new Error('Portable export roster is not sealed.')
     }
-    if (!Number.isSafeInteger(args.limit) || args.limit < 1 || args.limit > CAPTURE_PAGE_SIZE) {
-      throw new Error(`Portable export document pages contain 1-${CAPTURE_PAGE_SIZE} rows.`)
+    if (!Number.isSafeInteger(args.limit) || args.limit < 1 || args.limit > EXPORT_PAGE_SIZE) {
+      throw new Error(`Portable export document pages contain 1-${EXPORT_PAGE_SIZE} rows.`)
     }
     const after = parseRosterCursor(args.cursor)
-    const ordered = ctx.db
-      .query('portableExportRoster')
-      .withIndex('by_run_index', (query) => query.eq('runId', run.runId))
-    const fetched = await (after === null
-      ? ordered.take(args.limit + 1)
-      : ordered.filter((query) => query.gt(query.field('index'), after)).take(args.limit + 1))
+    const fetched = await ctx.db
+      .query('portableItems')
+      .withIndex('by_run_index', (query) =>
+        after === null
+          ? query.eq('runId', run.runId)
+          : query.eq('runId', run.runId).gt('index', after),
+      )
+      .take(args.limit + 1)
     const rows = fetched.slice(0, args.limit)
     const documents = []
     for (const row of rows) {
       const document = row.document
-      if ((await hashCanonicalJson(document as unknown as JsonMap)) !== row.documentSha256) {
+      if ((await hashCanonicalJson(document)) !== row.inputSha256) {
         throw new Error('Portable export document no longer matches its sealed roster hash.')
       }
       documents.push({
         document,
-        documentSha256: row.documentSha256,
+        documentSha256: row.inputSha256,
       })
     }
     return {
@@ -581,26 +612,26 @@ export const readExportAssets = callerQuery.protected({
     if (run.state !== 'ready' && run.state !== 'complete') {
       throw new Error('Portable export asset roster is not sealed.')
     }
-    if (!Number.isSafeInteger(args.limit) || args.limit < 1 || args.limit > CAPTURE_PAGE_SIZE) {
-      throw new Error(`Portable export asset pages contain 1-${CAPTURE_PAGE_SIZE} rows.`)
+    if (!Number.isSafeInteger(args.limit) || args.limit < 1 || args.limit > EXPORT_PAGE_SIZE) {
+      throw new Error(`Portable export asset pages contain 1-${EXPORT_PAGE_SIZE} rows.`)
     }
     if (args.cursor !== null) assertSha256(args.cursor, 'asset cursor')
-    const ordered = ctx.db
-      .query('portableExportAssets')
-      .withIndex('by_run_sha256', (query) => query.eq('runId', run.runId))
-    const fetched = await (args.cursor === null
-      ? ordered.take(args.limit + 1)
-      : ordered
-          .filter((query) => query.gt(query.field('sha256'), args.cursor!))
-          .take(args.limit + 1))
+    const fetched = await ctx.db
+      .query('portableAssets')
+      .withIndex('by_run_sha256', (query) =>
+        args.cursor === null
+          ? query.eq('runId', run.runId)
+          : query.eq('runId', run.runId).gt('sha256', args.cursor),
+      )
+      .take(args.limit + 1)
     const rows = fetched.slice(0, args.limit)
     return {
       assets: rows.map((row) => ({
-        holdId: row.holdId,
+        holdId: row.holdId!,
         sha256: row.sha256,
-        bytes: row.bytes,
+        bytes: row.byteLength,
         mediaType: row.mediaType,
-        originalFilename: row.originalFilename,
+        originalFilename: row.originalFilename!,
       })),
       cursor: fetched.length > args.limit && rows.length > 0 ? rows[rows.length - 1]!.sha256 : null,
     }
@@ -623,10 +654,15 @@ export const beginPortableAssetDownload = callerMutation.protected({
       throw new Error('Portable export is not ready for asset download.')
     }
     const hold = await ctx.db
-      .query('portableExportAssets')
+      .query('portableAssets')
       .withIndex('by_hold_id', (query) => query.eq('holdId', args.holdId))
       .unique()
-    if (!hold || hold.runId !== run.runId || hold.expiresAt <= Date.now()) {
+    if (
+      !hold ||
+      hold.mode !== 'export' ||
+      hold.runId !== run.runId ||
+      hold.expiresAt <= Date.now()
+    ) {
       throw new Error('Portable export asset hold is unavailable.')
     }
     const now = Date.now()
@@ -660,11 +696,12 @@ export const claimPortableAssetDownload = callerMutation.protected({
       throw new Error('Portable export is not ready for asset download.')
     }
     const hold = await ctx.db
-      .query('portableExportAssets')
+      .query('portableAssets')
       .withIndex('by_hold_id', (query) => query.eq('holdId', args.holdId))
       .unique()
     if (
       !hold ||
+      hold.mode !== 'export' ||
       hold.runId !== run.runId ||
       hold.downloadTokenHash !== args.downloadTokenHash ||
       hold.downloadGeneration !== args.downloadGeneration ||
@@ -683,7 +720,7 @@ export const claimPortableAssetDownload = callerMutation.protected({
     return {
       storageUrl,
       sha256: hold.sha256,
-      bytes: hold.bytes,
+      bytes: hold.byteLength,
       mediaType: hold.mediaType,
       attempt,
     }
@@ -698,199 +735,13 @@ function parseRosterCursor(value: string | null) {
   return parsed
 }
 
-export const completeExportRun = callerMutation.protected({
-  id: 'portability:completeExportRun',
-  args: completeExportRunArgs.args,
-  guard: canManagePortability,
-  returns: v.object({
-    state: v.literal('complete'),
-    manifestSha256: v.string(),
-    documentCount: v.number(),
-    assetCount: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    const run = await requireOwnedExport(ctx, args.runId)
-    assertSha256(args.manifestSha256, 'manifestSha256')
-    const existing = await ctx.db
-      .query('portableExportReceipts')
-      .withIndex('by_run', (query) => query.eq('runId', run.runId))
-      .unique()
-    if (existing) {
-      if (
-        existing.manifestSha256 !== args.manifestSha256 ||
-        existing.documentCount !== args.documentCount ||
-        existing.assetCount !== args.assetCount
-      ) {
-        throw new Error('Portable export completion conflicts with its existing receipt.')
-      }
-      return {
-        state: 'complete',
-        manifestSha256: args.manifestSha256,
-        documentCount: args.documentCount,
-        assetCount: args.assetCount,
-      }
-    }
-    if (run.state !== 'ready') throw new Error('Portable export is not ready for completion.')
-    if (args.documentCount !== run.documentCount || args.assetCount !== run.assetCount) {
-      throw new Error('Portable export completion counts do not match the sealed roster.')
-    }
-    await ctx.db.insert('portableExportReceipts', {
-      runId: run.runId,
-      manifestSha256: args.manifestSha256,
-      documentCount: args.documentCount,
-      assetCount: args.assetCount,
-      completedAt: Date.now(),
-    })
-    await ctx.db.patch(run._id, { state: 'complete', updatedAt: Date.now() })
-    await ctx.scheduler.runAfter(0, cleanupExportRowsRef, { runId: run.runId })
-    return {
-      state: 'complete',
-      manifestSha256: args.manifestSha256,
-      documentCount: args.documentCount,
-      assetCount: args.assetCount,
-    }
-  },
-})
-
-export const abortExportRun = callerMutation.protected({
-  id: 'portability:abortExportRun',
-  args: abortExportRunArgs.args,
-  guard: canManagePortability,
-  returns: v.object({ state: v.literal('aborted') }),
-  handler: async (ctx, args) => {
-    const run = await requireOwnedExport(ctx, args.runId)
-    if (run.state === 'complete' || run.state === 'expired') {
-      throw new Error(`Terminal portable export state ${run.state} cannot be aborted.`)
-    }
-    if (run.state !== 'aborted') {
-      await ctx.db.patch(run._id, {
-        state: 'aborted',
-        leaseTokenHash: null,
-        leaseExpiresAt: null,
-        updatedAt: Date.now(),
-      })
-    }
-    await ctx.scheduler.runAfter(0, cleanupExportRowsRef, { runId: run.runId })
-    return { state: 'aborted' }
-  },
-})
-
-export const expireExportRun = callerMutation.protected({
-  id: 'portability:expireExportRun',
-  args: expireExportRunArgs.args,
-  guard: canManagePortability,
-  returns: v.object({ state: v.literal('expired') }),
-  handler: async (ctx, args) => {
-    const run = await requireOwnedExport(ctx, args.runId)
-    if (run.state === 'complete' || run.state === 'aborted') {
-      throw new Error(`Terminal portable export state ${run.state} cannot expire.`)
-    }
-    if (run.expiresAt > Date.now()) throw new Error('Portable export has not reached its deadline.')
-    if (run.state !== 'expired') {
-      await ctx.db.patch(run._id, {
-        state: 'expired',
-        leaseTokenHash: null,
-        leaseExpiresAt: null,
-        updatedAt: Date.now(),
-      })
-    }
-    await ctx.scheduler.runAfter(0, cleanupExportRowsRef, { runId: run.runId })
-    return { state: 'expired' }
-  },
-})
-
-export const expireExportLeaseInternal = internalMutation({
-  args: {
-    runId: v.string(),
-    leaseGeneration: v.number(),
-    leaseExpiresAt: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const row = await ctx.db
-      .query('portableRuns')
-      .withIndex('by_run_id', (query) => query.eq('runId', args.runId))
-      .unique()
-    if (
-      row?.mode !== 'export' ||
-      row.state !== 'capturing' ||
-      row.leaseGeneration !== args.leaseGeneration ||
-      row.leaseExpiresAt !== args.leaseExpiresAt ||
-      row.leaseExpiresAt > Date.now()
-    ) {
-      return null
-    }
-    await ctx.db.patch(row._id, {
-      state: 'expired',
-      leaseTokenHash: null,
-      leaseExpiresAt: null,
-      updatedAt: Date.now(),
-    })
-    await ctx.scheduler.runAfter(0, cleanupExportRowsRef, { runId: row.runId })
-    return null
-  },
-})
-
-export const expireExportRunInternal = internalMutation({
-  args: { runId: v.string(), expiresAt: v.number() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const row = await ctx.db
-      .query('portableRuns')
-      .withIndex('by_run_id', (query) => query.eq('runId', args.runId))
-      .unique()
-    if (
-      row?.mode !== 'export' ||
-      row.expiresAt !== args.expiresAt ||
-      row.expiresAt > Date.now() ||
-      row.state === 'complete' ||
-      row.state === 'aborted' ||
-      row.state === 'expired'
-    ) {
-      return null
-    }
-    await ctx.db.patch(row._id, {
-      state: 'expired',
-      leaseTokenHash: null,
-      leaseExpiresAt: null,
-      updatedAt: Date.now(),
-    })
-    await ctx.scheduler.runAfter(0, cleanupExportRowsRef, { runId: row.runId })
-    return null
-  },
-})
-
-export const cleanupExportRows = internalMutation({
-  args: { runId: v.string() },
-  returns: v.object({ deleted: v.number(), complete: v.boolean() }),
-  handler: async (ctx, args) => {
-    const run = await ctx.db
-      .query('portableRuns')
-      .withIndex('by_run_id', (query) => query.eq('runId', args.runId))
-      .unique()
-    if (
-      run?.mode !== 'export' ||
-      (run.state !== 'complete' && run.state !== 'aborted' && run.state !== 'expired')
-    ) {
-      return { deleted: 0, complete: true }
-    }
-    const roster = await ctx.db
-      .query('portableExportRoster')
-      .withIndex('by_run_index', (query) => query.eq('runId', run.runId))
-      .take(CLEANUP_PAGE_SIZE)
-    for (const row of roster) await ctx.db.delete(row._id)
-    const remaining = CLEANUP_PAGE_SIZE - roster.length
-    const assets =
-      remaining > 0
-        ? await ctx.db
-            .query('portableExportAssets')
-            .withIndex('by_run', (query) => query.eq('runId', run.runId))
-            .take(remaining)
-        : []
-    for (const row of assets) await ctx.db.delete(row._id)
-    const deleted = roster.length + assets.length
-    const complete = deleted < CLEANUP_PAGE_SIZE
-    if (!complete) await ctx.scheduler.runAfter(0, cleanupExportRowsRef, { runId: run.runId })
-    return { deleted, complete }
-  },
-})
+export const completeExportRun = defineCompleteExportRun()
+export const abortExportRun = defineAbortExportRun()
+export const expireExportRun = defineExpireExportRun()
+export const expireExportLeaseInternal = defineExpireExportLeaseInternal()
+export const expireExportRunInternal = defineExpireExportRunInternal()
+export const ensureExportCleanupWork = defineEnsureExportCleanupWork()
+export const processExportCleanupPage = defineProcessExportCleanupPage()
+export const runExportCleanupPage = defineRunExportCleanupPage()
+export const recordExportCleanupFailure = defineRecordExportCleanupFailure()
+export const expireExportCleanupLease = defineExpireExportCleanupLease()

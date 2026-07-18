@@ -51,7 +51,7 @@ describe('Studio asset metadata controller', () => {
     expect(harness.localError.value).toBe('')
   })
 
-  it('surfaces save errors and always clears the saving state', async () => {
+  it('[AST-03] keeps metadata save failures visible and always clears the saving state', async () => {
     const harness = controller(vi.fn(async () => Promise.reject(new Error('save failed'))))
     await harness.metadata.saveMetadata()
     expect(harness.localError.value).toContain('save failed')

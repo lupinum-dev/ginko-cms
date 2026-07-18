@@ -8,8 +8,11 @@ export {
   createImportPlan,
   expireImport,
   finalizeImport,
+  getPortabilityRunStatus,
   inspectPortableAssets,
   inspectPortableDrafts,
+  listPortabilityItemReceipts,
+  resumePortabilityRun,
   sealImportPlan,
 } from './portability/runs.js'
 export {
@@ -24,9 +27,9 @@ export {
   captureExportPage,
   claimPortableAssetDownload,
   completeExportRun,
-  createExportRun,
   expireExportRun,
   readExportDocuments,
   readExportAssets,
   sealExportRun,
 } from './portability/exports.js'
+export { createExportRun } from './portability/exportPreflight.js'

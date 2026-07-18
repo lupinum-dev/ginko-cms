@@ -14,7 +14,7 @@ type FieldItem = {
   sortable?: boolean
   width?: string
   options?: string[] | null
-  relation?: { collectionId: string; multiple?: boolean } | null
+  relation?: { collection: string; multiple?: boolean } | null
   validation?: Record<string, unknown> | null
 }
 
@@ -156,7 +156,7 @@ const selectedFieldBadges = computed(() => {
           >
             <dt class="ginko:text-muted-foreground">Relation</dt>
             <dd class="ginko:mt-0.5 ginko:text-foreground">
-              {{ selectedField.relation.collectionId }}
+              {{ selectedField.relation.collection }}
               {{ selectedField.relation.multiple ? '(many)' : '(one)' }}
             </dd>
           </div>

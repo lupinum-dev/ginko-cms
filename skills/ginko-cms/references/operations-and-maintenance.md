@@ -6,7 +6,7 @@ component diagnostics, and release-candidate work. Canonical docs:
 - `docs/maintenance/backup-and-recovery.md`
 - `docs/maintenance/convex-component-diagnostics-issue.md`
 - `docs/maintenance/release-candidate.md`
-- `docs/guides/migrations/recovery.md`
+- `docs/guides/contract-transitions/recovery.md`
 - `MAINTAINING.md`
 
 ## Recovery Boundaries
@@ -42,6 +42,15 @@ verified asset recovery artifact. The expected shape is:
    asset is unreferenced.
 
 Do not write direct table edits as a workaround for product operation guards.
+
+Before permanent asset purge, finish a zero-issue `ginko-cms repair` run. Purge
+uses its canonical asset-reference proof and rejects missing or stale proof even
+when the derived reference rows look empty.
+
+If `ginko-cms doctor --deployment` reports terminal abandoned-upload cleanup,
+inspect it with `ginko-cms asset cleanup list`. Resume one task only through
+`ginko-cms asset cleanup retry <task-id> --generation <n> --yes`; never delete
+the task or storage row directly.
 
 ## Component Diagnostics Recovery
 

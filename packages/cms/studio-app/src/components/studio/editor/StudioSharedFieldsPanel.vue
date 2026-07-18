@@ -3,7 +3,6 @@ import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 
-const EMPTY_PARENT_VALUE = '__ginko_root__'
 const editor = useStudioEntryEditorContext()
 // "Shared / applies to all languages" is schema vocabulary that only earns
 // its place when there are several languages (design review S2, principle 6).
@@ -56,32 +55,17 @@ const hasContent = computed(
           for="parent"
           :label="editor.loader.t('ginkoCms.studio.collectionEditor.parent')"
         >
-          <Select
-            :model-value="editor.draft.form.parentEntryId || EMPTY_PARENT_VALUE"
+          <StudioEntryParentPicker
+            :model-value="editor.draft.form.parentEntryId"
+            :collection="editor.loader.collection"
+            :locale="editor.loader.defaultLocale"
+            :exclude-entry-id="editor.loader.entryId"
             :disabled="!editor.loader.canEditEntries"
             @update:model-value="
-              (value: string) => {
-                editor.draft.form.parentEntryId = value === EMPTY_PARENT_VALUE ? '' : String(value)
-              }
+              (value: string) => (editor.draft.form.parentEntryId = String(value))
             "
-          >
-            <SelectTrigger class="ginko:h-9">
-              <SelectValue :placeholder="editor.loader.t('ginkoCms.common.noneRoot')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="EMPTY_PARENT_VALUE">
-                {{ editor.loader.t('ginkoCms.common.noneRoot') }}
-              </SelectItem>
-              <SelectItem
-                v-for="parent in editor.loader.parentOptions"
-                :key="parent._id"
-                :value="parent._id"
-                :disabled="parent._id === editor.loader.entryId"
-              >
-                {{ parent.indent }}{{ parent.title }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+            @select="editor.loader.recordParentSelection"
+          />
         </StudioFieldShell>
         <StudioFieldShell
           for="icon"

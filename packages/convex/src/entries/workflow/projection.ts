@@ -2,16 +2,21 @@
 
 import type { GinkoPublicAssetFact } from '@lupinum/ginko-cms-contract/shared/publicContent.js'
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
-import type { ParseMdcBodyResult } from '@lupinum/ginko-content/cms-contract'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
+import {
+  assertConvexDocumentWithinLimit,
+  assertPublicPayloadWithinLimit,
+  boundedSearchText,
+  MAX_PUBLIC_LIST_PAYLOAD_BYTES,
+  MAX_PUBLIC_SEARCH_DOCUMENT_BYTES,
+  MAX_PUBLIC_STRUCTURAL_BYTES,
+  PUBLIC_SEARCH_SHARD_COUNT,
+} from '../../lib/contentLimits.js'
 import type { MutationCtx, QueryCtx } from '../../lib/types.js'
 import { assertCollectionOutsidePortableExportLease } from '../../portability/lease.js'
-import { encodePublicBodyAst, encodePublicToc } from '../bodyAstStorage.js'
+import { stableHash } from './hashing.js'
 import { bumpRouteGeneration } from './routeGeneration.js'
-
-type MarkdownRoot = ParseMdcBodyResult['body']
-type Toc = NonNullable<ParseMdcBodyResult['toc']>
 
 export type PublicEntryDoc = Doc<'publicEntries'>
 
@@ -27,10 +32,7 @@ export interface PublicProjectionInput {
   title: string
   description?: string | null
   data: JsonObject
-  bodyMdc?: string
-  bodyAst?: MarkdownRoot
   searchText?: string
-  toc?: Toc | null
   cacheTags?: string[]
   assetFacts: GinkoPublicAssetFact[]
   navIncluded?: boolean
@@ -39,6 +41,96 @@ export interface PublicProjectionInput {
   entryCreatedAt: number
   firstPublishedAt: number
   lastPublishedAt: number
+}
+
+export function buildPublicProjectionPayload(input: PublicProjectionInput) {
+  const structural = {
+    entryId: input.entryId,
+    collection: input.collection,
+    locale: input.locale,
+    revisionId: input.revisionId,
+    stableId: input.stableId,
+    parentEntryId: input.parentEntryId,
+    orderKey: input.orderKey,
+    slug: input.slug,
+    title: input.title,
+    description: input.description ?? null,
+    navIncluded: input.navIncluded ?? true,
+    sitemapIncluded: input.sitemapIncluded ?? true,
+    entryCreatedAt: input.entryCreatedAt,
+    firstPublishedAt: input.firstPublishedAt,
+    lastPublishedAt: input.lastPublishedAt,
+  }
+  assertConvexDocumentWithinLimit(structural, {
+    code: 'PUBLIC_PROJECTION_TOO_LARGE',
+    label: 'Public structural projection',
+    entryId: String(input.entryId),
+    locale: input.locale,
+    maxBytes: MAX_PUBLIC_STRUCTURAL_BYTES,
+  })
+  const payloadFields = {
+    data: input.data,
+    cacheTags: input.cacheTags ?? [],
+    assetFacts: input.assetFacts,
+  }
+  assertPublicPayloadWithinLimit(
+    {
+      entryId: input.entryId,
+      collection: input.collection,
+      locale: input.locale,
+      revisionId: input.revisionId,
+      ...payloadFields,
+    },
+    {
+      entryId: String(input.entryId),
+      locale: input.locale,
+    },
+  )
+  const publicEntry = {
+    ...structural,
+    ...payloadFields,
+  }
+  assertConvexDocumentWithinLimit(publicEntry, {
+    code: 'PUBLIC_PROJECTION_TOO_LARGE',
+    label: 'Public projection',
+    entryId: String(input.entryId),
+    locale: input.locale,
+    maxBytes: MAX_PUBLIC_STRUCTURAL_BYTES + MAX_PUBLIC_LIST_PAYLOAD_BYTES,
+  })
+  return publicEntry
+}
+
+export function buildPublicSearchProjectionPayload(input: PublicProjectionInput) {
+  const searchShard =
+    Number.parseInt(stableHash([String(input.entryId), input.locale]), 16) %
+    PUBLIC_SEARCH_SHARD_COUNT
+  return {
+    entryId: input.entryId,
+    collection: input.collection,
+    locale: input.locale,
+    revisionId: input.revisionId,
+    stableId: input.stableId,
+    searchShard,
+    searchText: boundedSearchText(
+      [input.title, input.slug, input.stableId, input.searchText ?? ''].filter(Boolean).join(' '),
+    ),
+    lastPublishedAt: input.lastPublishedAt,
+  }
+}
+
+export function buildCheckedPublicProjectionDocuments(input: PublicProjectionInput) {
+  const publicEntry = buildPublicProjectionPayload(input)
+  const search = input.searchIncluded === false ? null : buildPublicSearchProjectionPayload(input)
+  if (search) {
+    assertConvexDocumentWithinLimit(search, {
+      code: 'PUBLIC_SEARCH_PROJECTION_TOO_LARGE',
+      label: 'Public search projection',
+      entryId: String(input.entryId),
+      locale: input.locale,
+      maxBytes: MAX_PUBLIC_SEARCH_DOCUMENT_BYTES,
+    })
+  }
+  return { publicEntry, search }
 }
 
 export async function upsertPublicProjection(
@@ -50,33 +142,21 @@ export async function upsertPublicProjection(
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', input.entryId).eq('locale', input.locale))
     .unique()
-  const payload = {
-    entryId: input.entryId,
-    collection: input.collection,
-    locale: input.locale,
-    revisionId: input.revisionId,
-    stableId: input.stableId,
-    parentEntryId: input.parentEntryId,
-    orderKey: input.orderKey,
-    slug: input.slug,
-    title: input.title,
-    description: input.description ?? null,
-    data: input.data,
-    ...(input.bodyMdc !== undefined ? { bodyMdc: input.bodyMdc } : {}),
-    ...(input.bodyAst ? { bodyAst: encodePublicBodyAst(input.bodyAst) } : {}),
-    ...(input.searchText !== undefined ? { searchText: input.searchText } : {}),
-    ...(input.toc !== undefined ? { toc: encodePublicToc(input.toc) } : {}),
-    cacheTags: input.cacheTags ?? [],
-    assetFacts: input.assetFacts,
-    navIncluded: input.navIncluded ?? true,
-    sitemapIncluded: input.sitemapIncluded ?? true,
-    searchIncluded: input.searchIncluded ?? true,
-    entryCreatedAt: input.entryCreatedAt,
-    firstPublishedAt: input.firstPublishedAt,
-    lastPublishedAt: input.lastPublishedAt,
+  const documents = buildCheckedPublicProjectionDocuments(input)
+  if (existing) await ctx.db.replace(existing._id, documents.publicEntry)
+  else await ctx.db.insert('publicEntries', documents.publicEntry)
+
+  const existingSearch = await ctx.db
+    .query('publicSearchEntries')
+    .withIndex('by_entry_locale', (q) => q.eq('entryId', input.entryId).eq('locale', input.locale))
+    .unique()
+  if (input.searchIncluded === false) {
+    if (existingSearch) await ctx.db.delete(existingSearch._id)
+  } else {
+    const searchPayload = documents.search!
+    if (existingSearch) await ctx.db.replace(existingSearch._id, searchPayload)
+    else await ctx.db.insert('publicSearchEntries', searchPayload)
   }
-  if (existing) await ctx.db.replace(existing._id, payload)
-  else await ctx.db.insert('publicEntries', payload)
   await bumpRouteGeneration(ctx, input.collection, input.locale, input.lastPublishedAt)
 }
 
@@ -88,10 +168,18 @@ export async function deletePublicProjection(
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entryId).eq('locale', args.locale))
     .unique()
-  if (!row) return
-  await assertCollectionOutsidePortableExportLease(ctx, row.collection)
-  await ctx.db.delete(row._id)
-  await bumpRouteGeneration(ctx, row.collection, row.locale)
+  const searchRow = await ctx.db
+    .query('publicSearchEntries')
+    .withIndex('by_entry_locale', (query) =>
+      query.eq('entryId', args.entryId).eq('locale', args.locale),
+    )
+    .unique()
+  const collection = row?.collection ?? searchRow?.collection
+  if (!collection) return
+  await assertCollectionOutsidePortableExportLease(ctx, collection)
+  if (row) await ctx.db.delete(row._id)
+  if (searchRow) await ctx.db.delete(searchRow._id)
+  await bumpRouteGeneration(ctx, collection, args.locale)
 }
 
 export async function deleteAllPublicProjections(
@@ -102,10 +190,16 @@ export async function deleteAllPublicProjections(
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', entryId))
     .collect()
-  if (rows[0]) await assertCollectionOutsidePortableExportLease(ctx, rows[0].collection)
-  for (const row of rows) await ctx.db.delete(row._id)
-  for (const row of rows) await bumpRouteGeneration(ctx, row.collection, row.locale)
-  return rows.map((row) => row.locale).sort()
+  const searchRows = await ctx.db
+    .query('publicSearchEntries')
+    .withIndex('by_entry_locale', (query) => query.eq('entryId', entryId))
+    .collect()
+  const allRows = [...rows, ...searchRows]
+  if (allRows[0]) await assertCollectionOutsidePortableExportLease(ctx, allRows[0].collection)
+  for (const row of allRows) await ctx.db.delete(row._id)
+  const scopes = new Map(allRows.map((row) => [`${row.collection}\0${row.locale}`, row]))
+  for (const row of scopes.values()) await bumpRouteGeneration(ctx, row.collection, row.locale)
+  return [...new Set(allRows.map((row) => row.locale))].sort()
 }
 
 /** Read active revision pointers from canonical entry state, never the projection. */

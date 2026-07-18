@@ -1,127 +1,168 @@
 <script setup lang="ts">
-import { AlertCircle, Database, RefreshCw } from '@lucide/vue'
+import {
+  CircleCheck,
+  FlaskConical,
+  HardDrive,
+  Loader2,
+  RefreshCw,
+  TriangleAlert,
+} from '@lucide/vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 
 const props = defineProps<{ admin: StudioSettingsAdminViewModel }>()
 const settings = props.admin
+const st = (key: string, params?: Record<string, unknown>): string =>
+  settings.t(`ginkoCms.studio.settingsPage.${key}`, params)
 </script>
 
 <template>
-  <!-- ─── Storage diagnostics ─── -->
   <section
     v-if="settings.canManageSettings"
-    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8"
+    class="ginko:flex ginko:flex-col ginko:gap-4 ginko:py-8 ginko:@3xl:flex-row ginko:@3xl:gap-10"
   >
     <div class="ginko:space-y-1 ginko:@3xl:w-64 ginko:@3xl:shrink-0">
       <h2 class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground">
-        <Database class="ginko:size-4 ginko:text-muted-foreground" />
-        {{ settings.t('ginkoCms.studio.settingsPage.storageHygiene') }}
+        <HardDrive class="ginko:size-4 ginko:text-muted-foreground" />
+        {{ st('storageTitle') }}
       </h2>
-      <p class="ginko:text-xs ginko:text-muted-foreground ginko:leading-relaxed">
-        {{ settings.t('ginkoCms.studio.settingsPage.storageHygieneDescription') }}
+      <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
+        {{ st('storageDescription') }}
       </p>
     </div>
 
-    <div class="ginko:flex-1 ginko:min-w-0 ginko:space-y-4">
-      <div class="ginko:rounded-lg ginko:border ginko:border-border/40">
+    <div class="ginko:min-w-0 ginko:flex-1 ginko:space-y-4">
+      <StudioNotice
+        v-if="settings.storageError"
+        tone="danger"
+        :description="settings.storageError"
+      />
+
+      <div
+        v-if="settings.storageHealth"
+        class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:divide-y"
+      >
         <div
-          class="ginko:flex ginko:flex-col ginko:gap-3 ginko:border-b ginko:border-border/40 ginko:px-4 ginko:py-3 ginko:@2xl:flex-row ginko:@2xl:items-center ginko:@2xl:justify-between"
+          class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-3 ginko:px-4 ginko:py-3"
         >
-          <div class="ginko:min-w-0">
-            <div class="ginko:text-sm ginko:font-medium">
-              {{ settings.t('ginkoCms.studio.settingsPage.storageFootprint') }}
-            </div>
-            <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
+          <div class="ginko:flex ginko:items-center ginko:gap-2">
+            <CircleCheck
+              v-if="settings.storageHealth.status === 'healthy'"
+              class="ginko:size-4 ginko:text-success"
+            />
+            <TriangleAlert v-else class="ginko:size-4 ginko:text-warning" />
+            <span class="ginko:text-sm ginko:font-medium">
               {{
-                settings.storageHygiene
-                  ? settings.t('ginkoCms.studio.settingsPage.storageScanLimit', {
-                      count: String(settings.storageHygiene.scanLimit),
-                    })
-                  : settings.t('ginkoCms.studio.settingsPage.storageLoading')
+                settings.storageHealth.status === 'healthy'
+                  ? st('storageHealthy')
+                  : st('storageAttention')
               }}
-            </p>
+            </span>
           </div>
           <Button
             variant="outline"
             size="sm"
-            :disabled="settings.storageHygieneQuery.pending.value"
-            @click="settings.refreshStorageHygiene"
+            :disabled="settings.storageHealthQuery.pending.value"
+            @click="settings.refreshStorageHealth"
           >
             <RefreshCw
               class="ginko:size-3.5"
-              :class="{ 'ginko:animate-spin': settings.storageHygieneQuery.pending.value }"
+              :class="{ 'ginko:animate-spin': settings.storageHealthQuery.pending.value }"
             />
-            {{ settings.t('ginkoCms.studio.settingsPage.storageRefresh') }}
+            {{ st('storageRefresh') }}
           </Button>
         </div>
 
-        <div
-          v-if="settings.storageHygieneQuery.error.value"
-          class="ginko:flex ginko:items-center ginko:gap-2 ginko:px-4 ginko:py-4 ginko:text-sm ginko:text-destructive"
+        <dl
+          class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:px-4 ginko:py-4 ginko:@xl:grid-cols-2"
         >
-          <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-          {{ settings.t('ginkoCms.studio.settingsPage.storageLoadError') }}
-        </div>
-
-        <div
-          v-else-if="!settings.storageHygiene"
-          class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:p-4 ginko:@2xl:grid-cols-2"
-        >
-          <Skeleton
-            v-for="i in 6"
-            :key="`storage-skeleton-${i}`"
-            class="ginko:h-10 ginko:rounded-md"
-          />
-        </div>
-
-        <div v-else class="ginko:space-y-4 ginko:p-4">
-          <div class="ginko:space-y-2">
-            <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
-              {{ settings.t('ginkoCms.studio.settingsPage.storageGrowthRisks') }}
-            </div>
-            <div class="ginko:space-y-2">
-              <div
-                v-for="risk in settings.storageRiskRows"
-                :key="risk.label"
-                class="ginko:rounded-md ginko:bg-muted/30 ginko:px-3 ginko:py-2"
-              >
-                <div class="ginko:text-xs ginko:font-medium ginko:text-foreground">
-                  {{ risk.label }}
-                </div>
-                <div class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground">
-                  {{ risk.detail }}
-                </div>
-              </div>
-            </div>
+          <div>
+            <dt class="ginko:text-xs ginko:text-muted-foreground">
+              {{ st('storageTrackedUsage') }}
+            </dt>
+            <dd class="ginko:mt-1 ginko:text-sm ginko:font-medium">
+              {{ settings.formatBytes(settings.storageHealth.usage.trackedBytes) }} ·
+              {{ st('storageAssetCount', { count: settings.storageHealth.usage.trackedAssets }) }}
+            </dd>
           </div>
+          <div>
+            <dt class="ginko:text-xs ginko:text-muted-foreground">{{ st('storageQuota') }}</dt>
+            <dd class="ginko:mt-1 ginko:text-sm ginko:font-medium">
+              {{ st('storageQuotaProviderManaged') }}
+            </dd>
+          </div>
+          <div>
+            <dt class="ginko:text-xs ginko:text-muted-foreground">{{ st('storageBytesCheck') }}</dt>
+            <dd class="ginko:mt-1 ginko:text-sm ginko:font-medium">
+              {{
+                st('storageBytesResult', {
+                  checked: settings.storageHealth.bytes.checked,
+                  missing: settings.storageHealth.bytes.missing,
+                })
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt class="ginko:text-xs ginko:text-muted-foreground">
+              {{ st('storageSupportedScale') }}
+            </dt>
+            <dd class="ginko:mt-1 ginko:text-sm ginko:font-medium">
+              {{
+                st('storageSupportedAssets', {
+                  count: settings.storageHealth.constraints.supportedAssets,
+                })
+              }}
+            </dd>
+          </div>
+        </dl>
 
+        <div
+          v-if="settings.storageHealth.issues.length"
+          class="ginko:space-y-2 ginko:px-4 ginko:py-3"
+        >
           <div
-            v-if="settings.storageHygiene.truncatedTables.length"
-            class="ginko:rounded-md ginko:bg-warning/15 ginko:dark:bg-warning/25 ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-warning-fg"
+            v-for="issue in settings.storageHealth.issues"
+            :key="issue.code"
+            class="ginko:flex ginko:items-start ginko:gap-2 ginko:text-sm"
           >
-            {{
-              settings.t('ginkoCms.studio.settingsPage.storageTruncated', {
-                tables: settings.storageHygiene.truncatedTables.join(', '),
-              })
-            }}
+            <TriangleAlert class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-warning" />
+            <span>{{ issue.message }}</span>
           </div>
-
-          <StudioDeveloperDetails>
-            <div class="ginko:grid ginko:grid-cols-1 ginko:gap-x-4 ginko:@2xl:grid-cols-2">
-              <div
-                v-for="row in settings.storageHygieneRows"
-                :key="row.label"
-                class="ginko:flex ginko:items-center ginko:justify-between ginko:gap-4 ginko:border-b ginko:border-border/30 ginko:py-2 ginko:text-sm"
-              >
-                <span class="ginko:text-muted-foreground">{{ row.label }}</span>
-                <span class="ginko:font-mono ginko:text-xs ginko:text-foreground">{{
-                  row.value
-                }}</span>
-              </div>
-            </div>
-          </StudioDeveloperDetails>
         </div>
+      </div>
+
+      <div
+        v-else
+        class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:px-4 ginko:py-6 ginko:text-sm ginko:text-muted-foreground"
+      >
+        {{ st('storageHealthLoading') }}
+      </div>
+
+      <StudioNotice
+        v-if="settings.storageDiagnostic"
+        :tone="settings.storageDiagnostic.status === 'healthy' ? 'success' : 'danger'"
+        :title="st(`storageDiagnosticStatus_${settings.storageDiagnostic.status}`)"
+        :description="settings.storageDiagnostic.message"
+      />
+
+      <div
+        class="ginko:flex ginko:flex-col ginko:items-start ginko:gap-2 ginko:@xl:flex-row ginko:@xl:items-center ginko:@xl:justify-between"
+      >
+        <p class="ginko:max-w-2xl ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
+          {{ st('storageDiagnosticDescription') }}
+        </p>
+        <Button
+          variant="outline"
+          :disabled="settings.storageDiagnosticRunning"
+          @click="settings.handleRunStorageDiagnostic"
+        >
+          <Loader2
+            v-if="settings.storageDiagnosticRunning"
+            class="ginko:size-4 ginko:animate-spin"
+          />
+          <FlaskConical v-else class="ginko:size-4" />
+          {{ st('storageRunDiagnostic') }}
+        </Button>
       </div>
     </div>
   </section>

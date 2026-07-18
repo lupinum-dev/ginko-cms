@@ -26,7 +26,7 @@ import {
   exportPortablePublishedContent,
   preparePortableDraftImport,
 } from '../../packages/cms/src/portability/commands.js'
-import { createCtx, publishEntry, seedMember, seedSettings } from './entries/helpers'
+import { createCtx, publishEntry, seedMember } from './entries/helpers'
 
 const api = anyApi
 const functionName = Symbol.for('functionName')
@@ -99,7 +99,7 @@ function fixture(): { contract: ResolvedContentContractV1; documents: PortableDo
     collection,
     canonicalKey,
     locale: 'en',
-    slug: canonicalKey,
+    slug: canonicalKey.replaceAll('.', '-'),
     parentCanonicalKey: null,
     order: null,
     shared: { title: collection === 'markdown' ? 'Markdown café' : 'MDC 東京' },
@@ -146,28 +146,27 @@ function fixture(): { contract: ResolvedContentContractV1; documents: PortableDo
 async function installCms() {
   const ctx = createCtx()
   await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
-  await seedSettings(ctx)
   const { contract, documents } = fixture()
-  const contractSha256 = await hashCanonicalJson(contract)
+  const contentHash = await hashCanonicalJson(contract)
   const presentation = { collections: {} }
   await ctx.raw.mutation(api.contract.installCmsContract, {
     content: contract,
-    contentHash: contractSha256,
+    contentHash,
     presentation,
     presentationHash: await hashCanonicalJson(presentation),
   })
-  return { ctx, owner: ctx.asCmsUser('owner-1'), contract, contractSha256, documents }
+  return { ctx, owner: ctx.asCmsUser('owner-1'), contract, contentHash, documents }
 }
 
 async function importDirectory(
   owner: ReturnType<ReturnType<typeof createCtx>['asCmsUser']>,
   directory: string,
-  contractSha256: string,
+  contentHash: string,
 ) {
   const client = portabilityClient(owner)
   const prepared = await preparePortableDraftImport(client as never, directory, {
     deploymentId: 'test-deployment',
-    targetContractSha256: contractSha256,
+    targetContentHash: contentHash,
   })
   await applyPreparedPortableDraftImport(client as never, prepared)
   return prepared
@@ -210,7 +209,7 @@ describe('bidirectional filesystem and CMS semantic portability', () => {
       assets: [],
     })
 
-    await importDirectory(first.owner, source, first.contractSha256)
+    await importDirectory(first.owner, source, first.contentHash)
     await publishAll(first.ctx, first.owner)
     await exportPortablePublishedContent(portabilityClient(first.owner) as never, exported, {
       deploymentId: 'test-deployment',
@@ -239,7 +238,7 @@ describe('bidirectional filesystem and CMS semantic portability', () => {
     ).toBe(true)
 
     const second = await installCms()
-    const imported = await importDirectory(second.owner, exported, second.contractSha256)
+    const imported = await importDirectory(second.owner, exported, second.contentHash)
     expect(imported.items.map(({ payload }) => payload.effect)).toEqual([
       'create',
       'create',
@@ -251,7 +250,7 @@ describe('bidirectional filesystem and CMS semantic portability', () => {
       exported,
       {
         deploymentId: 'test-deployment',
-        targetContractSha256: second.contractSha256,
+        targetContentHash: second.contentHash,
       },
     )
     expect(replay.items.map(({ payload }) => payload.effect)).toEqual([

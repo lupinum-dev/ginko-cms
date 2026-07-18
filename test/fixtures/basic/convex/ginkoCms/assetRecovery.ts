@@ -1,97 +1,112 @@
+import {
+  createAssetRecoveryArtifact as createAssetRecoveryArtifactArgs,
+  downloadAssetRecoveryArtifact as downloadAssetRecoveryArtifactArgs,
+  previewRestoreAsset as previewRestoreAssetArgs,
+  restoreAsset as restoreAssetArgs,
+  verifyAssetRecoveryArtifact as verifyAssetRecoveryArtifactArgs,
+} from '@lupinum/ginko-cms-contract/convex/schemas/maintenance.js'
 import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { action, mutation } from '../_generated/server.js'
+import { bindExpectedCmsContract } from './contractBinding.js'
 
-const backupScopeValidator = v.union(
-  v.literal('snapshot'),
-  v.literal('collection'),
-  v.literal('entry'),
-  v.literal('asset'),
-)
-
-const backupScopeArgs = {
-  scope: backupScopeValidator,
-  collectionId: v.optional(v.string()),
-  entryId: v.optional(v.string()),
-  assetId: v.optional(v.string()),
+function trustedCaller(identity: Awaited<ReturnType<typeof cmsCallerFromActionAuthIdentity>>) {
+  return identity ?? undefined
 }
 
 function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
   return {
     ...args,
-    _confirmationToken: v.string(),
+    _confirmationToken: v.optional(v.string()),
   }
 }
 
-export const exportBackup = action({
-  args: backupScopeArgs,
+export const createAssetRecoveryArtifact = action({
+  args: createAssetRecoveryArtifactArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.exportBackup, {
-      ...args,
-      _trustedCaller:
-        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
-    } as never),
-})
-
-export const downloadBackup = action({
-  args: { artifactId: v.string() },
-  handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.downloadBackup, {
-      ...args,
-      _trustedCaller:
-        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
-    } as never),
-})
-
-export const verifyBackup = action({
-  args: { artifactId: v.string() },
-  handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.verifyBackup, {
-      ...args,
-      _trustedCaller:
-        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
-    } as never),
-})
-
-export const previewRestoreBackup = action({
-  args: { artifactId: v.string() },
-  handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.previewRestoreBackup, {
-      ...args,
-      _trustedCaller:
-        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
-    } as never),
-})
-
-export const restoreBackup = action({
-  args: {
-    artifactId: v.string(),
-    expectedChecksum: v.string(),
-  },
-  handler: async (ctx, args) =>
-    await ctx.runAction(components.ginkoCms.backup.restoreBackup, {
-      ...args,
-      _trustedCaller:
-        cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
-    } as never),
-})
-
-export const deleteBackupArtifact = mutation({
-  args: confirmedArgs({ artifactId: v.string() }),
-  handler: async (ctx, args) =>
-    await ctx.runMutation(
-      components.ginkoCms.backup.deleteBackupArtifactOperationExecute,
-      args as never,
+    await ctx.runAction(
+      components.ginkoCms.assetRecovery.createAssetRecoveryArtifact,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller: trustedCaller(
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()),
+        ),
+      }),
     ),
 })
 
-export const previewDeleteBackupArtifactOperation = mutation({
+export const downloadAssetRecoveryArtifact = action({
+  args: downloadAssetRecoveryArtifactArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runAction(
+      components.ginkoCms.assetRecovery.downloadAssetRecoveryArtifact,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller: trustedCaller(
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()),
+        ),
+      }),
+    ),
+})
+
+export const verifyAssetRecoveryArtifact = action({
+  args: verifyAssetRecoveryArtifactArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runAction(
+      components.ginkoCms.assetRecovery.verifyAssetRecoveryArtifact,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller: trustedCaller(
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()),
+        ),
+      }),
+    ),
+})
+
+export const previewRestoreAsset = action({
+  args: previewRestoreAssetArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runAction(
+      components.ginkoCms.assetRecovery.previewRestoreAsset,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller: trustedCaller(
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()),
+        ),
+      }),
+    ),
+})
+
+export const restoreAsset = action({
+  args: restoreAssetArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runAction(
+      components.ginkoCms.assetRecovery.restoreAsset,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller: trustedCaller(
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()),
+        ),
+      }),
+    ),
+})
+
+export const deleteAssetRecoveryArtifact = mutation({
+  args: confirmedArgs({ artifactId: v.string() }),
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.assetRecovery.deleteAssetRecoveryArtifactOperationExecute,
+      bindExpectedCmsContract(args),
+    ),
+})
+
+export const previewDeleteAssetRecoveryArtifactOperation = mutation({
   args: { artifactId: v.string() },
   handler: async (ctx, args) =>
     await ctx.runMutation(
-      components.ginkoCms.backup.previewDeleteBackupArtifactOperation,
-      args as never,
+      components.ginkoCms.assetRecovery.previewDeleteAssetRecoveryArtifactOperation,
+      bindExpectedCmsContract(args),
     ),
 })

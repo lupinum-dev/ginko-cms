@@ -6,15 +6,18 @@ import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
+import { operationValue } from '../../lib/destructiveWorkflow'
 import { useCmsI18n } from '../useCmsI18n'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
 import { useCmsStudioPaginatedQuery } from '../useCmsStudioPaginatedQuery'
 import { useConvexAction, useConvexMutation, useConvexUpload } from '../useStudioConvex'
+import { buildAssetFinderItems } from './assetFinderItems'
 import type {
   BreadcrumbSegment,
+  FinderAssetFacets,
   FinderAssetItem,
   FinderAssetRecord,
-  FinderFolder,
+  FinderAssetUsage,
   FinderItem,
   SidebarMode,
   StudioAssetBrowserMode,
@@ -24,7 +27,6 @@ import {
   formatDate,
   formatFileSize,
   getImageDimensions,
-  latestAssetTimestamp,
   mimeIcon,
   mimeTypeMatches,
   normalizeAssetTags,
@@ -32,6 +34,7 @@ import {
   withoutKey,
 } from './assetFinderUtils'
 import type { StudioAssetContext } from './types'
+import { useStudioAssetReplacement } from './useStudioAssetReplacement'
 
 export type {
   FinderAssetRecord,
@@ -55,10 +58,15 @@ export function useStudioAssetFinder(
   const { t } = useCmsI18n()
 
   const ASSET_PAGE_SIZE = 100
-  const upload = useConvexUpload(api.ginkoCms.assets.generateUploadUrl, {
-    allowedTypes: [...ALLOWED_ASSET_MIME_TYPES],
-    maxSizeBytes: MAX_ASSET_SIZE_BYTES,
-  })
+  const ASSET_USAGE_PAGE_SIZE = 20
+  const upload = useConvexUpload(
+    api.ginkoCms.assets.createAssetUploadSession,
+    api.ginkoCms.assets.claimAssetUploadSession,
+    {
+      allowedTypes: [...ALLOWED_ASSET_MIME_TYPES],
+      maxSizeBytes: MAX_ASSET_SIZE_BYTES,
+    },
+  )
   const updateAssetMutation = useConvexMutation(api.ginkoCms.assets.updateAsset)
   const trashAssetMutation = useConvexMutation(api.ginkoCms.assets.deleteAsset)
   const restoreAssetMutation = useConvexMutation(api.ginkoCms.assets.restoreAsset)
@@ -66,7 +74,9 @@ export function useStudioAssetFinder(
   const previewTrashAssetMutation = useConvexMutation(
     api.ginkoCms.assets.previewDeleteAssetOperation,
   )
-  const registerAssetAction = useConvexAction(api.ginkoCms.assets.registerAsset)
+  const finalizeAssetUploadSessionAction = useConvexAction(
+    api.ginkoCms.assets.finalizeAssetUploadSession,
+  )
 
   async function previewTrashAsset(asset: FinderAssetRecord, force: boolean) {
     const preview = await previewTrashAssetMutation({
@@ -93,7 +103,7 @@ export function useStudioAssetFinder(
   const selectedAssetId = ref<string | null>(null)
   const typeFilter = ref<'all' | 'image' | 'document'>(options.initialTypeFilter ?? 'all')
   const timeFilter = ref<'any' | '24h' | '7d' | '30d' | '90d'>('any')
-  const usageFilter = ref<'all' | 'used' | 'unused'>('all')
+  const usageFilter = ref<'all' | 'used' | 'unused-verified' | 'unknown-stale'>('all')
   const sizeFilter = ref<'any' | 'small' | 'medium' | 'large'>('any')
   const uploadInput = ref<HTMLInputElement | null>(null)
   const uploadDestination = ref<'context' | 'collection' | 'global'>('context')
@@ -102,6 +112,22 @@ export function useStudioAssetFinder(
   const error = ref('')
   const selectedAssetIds = ref<string[]>([])
   const localTagOverrides = ref<Record<string, string[]>>({})
+  const discoveryLocation = computed(() => {
+    if (
+      options.mode === 'pick' &&
+      sidebarMode.value === 'collections' &&
+      sidebarKey.value === 'global'
+    ) {
+      return 'accessible' as const
+    }
+    if (sidebarMode.value === 'tags' || sidebarMode.value === 'trash') return 'all' as const
+    if (sidebarMode.value === 'full') {
+      if (sidebarKey.value === 'all') return 'all' as const
+      if (sidebarKey.value === 'global') return 'global' as const
+      return 'collection' as const
+    }
+    return sidebarKey.value === 'global' ? ('global' as const) : ('collection' as const)
+  })
   const assetsQuery = useCmsStudioPaginatedQuery(
     api.ginkoCms.assets.getAssetManagerData,
     () => ({
@@ -109,21 +135,38 @@ export function useStudioAssetFinder(
       kind: typeFilter.value,
       deleted: sidebarMode.value === 'trash' ? ('trashed' as const) : ('active' as const),
       usage: usageFilter.value,
+      time: timeFilter.value,
+      size: sizeFilter.value,
+      sort: sortBy.value,
+      location: discoveryLocation.value,
+      tag: sidebarMode.value === 'tags' ? sidebarKey.value : undefined,
+      collection:
+        discoveryLocation.value === 'collection'
+          ? sidebarKey.value
+          : options.assetContext?.collection,
+      entryId: options.assetContext?.entryId,
     }),
     { initialNumItems: ASSET_PAGE_SIZE },
   )
 
-  const rawAssets = computed<FinderAssetRecord[]>(
-    () => (assetsQuery.results.value as FinderAssetRecord[]) ?? [],
-  )
+  const rawAssets = computed<FinderAssetRecord[]>(() => assetsQuery.results.value)
   const assets = computed<FinderAssetRecord[]>(() =>
     rawAssets.value.map((asset) => {
       const override = localTagOverrides.value[asset.id]
       return override ? { ...asset, tags: override } : asset
     }),
   )
-  const activeAssets = computed(() => assets.value.filter((asset) => asset.deletedAt == null))
-  const trashedAssets = computed(() => assets.value.filter((asset) => asset.deletedAt != null))
+  const facets = computed<FinderAssetFacets>(() =>
+    assetsQuery.pageData.value?.facets
+      ? assetsQuery.pageData.value.facets
+      : {
+          activeCount: 0,
+          trashedCount: 0,
+          globalActiveCount: 0,
+          collections: [],
+          tags: [],
+        },
+  )
   const isLoading = computed(() => assetsQuery.status.value === 'loading-first-page')
   const isLoadingMoreAssets = computed(() => assetsQuery.status.value === 'loading-more')
   const hasMoreAssets = computed(() => assetsQuery.hasNextPage.value)
@@ -151,51 +194,36 @@ export function useStudioAssetFinder(
 
   const tagMap = computed(() => {
     const next = new Map<string, { key: string; label: string; color: string }>()
-    for (const asset of assets.value) {
-      for (const tag of asset.tags) {
-        if (next.has(tag)) continue
-        next.set(tag, {
-          key: tag,
-          label: tag,
-          color: tagPalette[next.size % tagPalette.length] ?? '#888888',
-        })
-      }
+    for (const facet of facets.value.tags) {
+      next.set(facet.key, {
+        key: facet.key,
+        label: facet.key,
+        color: tagPalette[next.size % tagPalette.length] ?? '#888888',
+      })
     }
     return next
   })
 
-  const sidebarCollections = computed(() => {
-    const byCollection = new Map<string, { label: string; count: number }>()
-    for (const asset of activeAssets.value) {
-      if (!asset.collectionSlug || !asset.collectionLabel) continue
-      const current = byCollection.get(asset.collectionSlug)
-      if (current) current.count += 1
-      else byCollection.set(asset.collectionSlug, { label: asset.collectionLabel, count: 1 })
-    }
-
-    return [
-      {
-        key: 'global',
-        label: t('ginkoCms.studio.assetBrowser.sharedLibrary'),
-        icon: 'lucide:globe',
-        count: activeAssets.value.filter((asset) => asset.scope === 'global').length,
-      },
-      ...Array.from(byCollection.entries())
-        .sort((left, right) => left[1].label.localeCompare(right[1].label))
-        .map(([key, value]) => ({
-          key,
-          label: value.label,
-          icon: 'lucide:folder',
-          count: value.count,
-        })),
-    ]
-  })
+  const sidebarCollections = computed(() => [
+    {
+      key: 'global',
+      label: t('ginkoCms.studio.assetBrowser.sharedLibrary'),
+      icon: 'lucide:globe',
+      count: facets.value.globalActiveCount,
+    },
+    ...facets.value.collections.map((collection) => ({
+      key: collection.key,
+      label: collection.label,
+      icon: 'lucide:folder',
+      count: collection.count,
+    })),
+  ])
 
   const sidebarTags = computed(() =>
     Array.from(tagMap.value.values())
       .map((tag) => ({
         ...tag,
-        count: activeAssets.value.filter((asset) => asset.tags.includes(tag.key)).length,
+        count: facets.value.tags.find((facet) => facet.key === tag.key)?.count ?? 0,
       }))
       .sort((left, right) => left.label.localeCompare(right.label)),
   )
@@ -205,13 +233,13 @@ export function useStudioAssetFinder(
       key: 'all',
       label: t('ginkoCms.studio.assetBrowser.allMedia'),
       icon: 'lucide:layers',
-      count: activeAssets.value.length,
+      count: facets.value.activeCount,
     },
     {
       key: 'global',
       label: t('ginkoCms.studio.assetBrowser.sharedLibrary'),
       icon: 'lucide:globe',
-      count: activeAssets.value.filter((asset) => asset.scope === 'global').length,
+      count: facets.value.globalActiveCount,
     },
     ...sidebarCollections.value
       .filter((item) => item.key !== 'global')
@@ -223,7 +251,7 @@ export function useStudioAssetFinder(
       })),
   ])
 
-  const trashCount = computed(() => trashedAssets.value.length)
+  const trashCount = computed(() => facets.value.trashedCount)
 
   function selectSidebar(mode: SidebarMode, key: string) {
     sidebarMode.value = mode
@@ -297,291 +325,44 @@ export function useStudioAssetFinder(
       return [{ label: collection?.label ?? sidebarKey.value, drillPath: [] }]
     }
 
-    if (sidebarKey.value === 'global') {
-      const segments: BreadcrumbSegment[] = [
-        { label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] },
-      ]
-      for (let index = 0; index < drillPath.value.length; index++) {
-        const segment = drillPath.value[index]!
-        const path = drillPath.value.slice(0, index + 1)
-        if (index === 0) {
-          const collection = sidebarCollections.value.find((item) => item.key === segment)
-          segments.push({ label: collection?.label ?? segment, drillPath: path })
-          continue
-        }
-        const entryTitle =
-          activeAssets.value.find((asset) => asset.entryId === segment)?.entryTitle ??
-          trashedAssets.value.find((asset) => asset.entryId === segment)?.entryTitle ??
-          segment
-        segments.push({ label: entryTitle, drillPath: path })
-      }
-      return segments
-    }
+    if (sidebarKey.value === 'global')
+      return [{ label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] }]
 
     const collection = sidebarCollections.value.find((item) => item.key === sidebarKey.value)
-    const segments: BreadcrumbSegment[] = [
-      { label: collection?.label ?? sidebarKey.value, drillPath: [] },
-    ]
-    for (let index = 0; index < drillPath.value.length; index++) {
-      const segment = drillPath.value[index]!
-      const path = drillPath.value.slice(0, index + 1)
-      const entryTitle =
-        activeAssets.value.find((asset) => asset.entryId === segment)?.entryTitle ??
-        trashedAssets.value.find((asset) => asset.entryId === segment)?.entryTitle ??
-        segment
-      segments.push({ label: entryTitle, drillPath: path })
-    }
-    return segments
+    return [{ label: collection?.label ?? sidebarKey.value, drillPath: [] }]
   })
 
-  function buildCollectionItems(): FinderItem[] {
-    const items: FinderItem[] = []
-    const path = drillPath.value
-
-    if (sidebarKey.value === 'global') {
-      if (path.length === 0) {
-        if (options.mode === 'pick') {
-          const context = options.assetContext
-          const seenAssetIds = new Set<string>()
-          const pushAssets = (assetsToPush: FinderAssetRecord[]) => {
-            for (const asset of assetsToPush) {
-              if (seenAssetIds.has(asset.id)) continue
-              seenAssetIds.add(asset.id)
-              items.push({ type: 'asset', asset, tags: asset.tags })
-            }
-          }
-
-          if (context?.entryId) {
-            pushAssets(activeAssets.value.filter((asset) => asset.entryId === context.entryId))
-          }
-          if (context?.collectionId || context?.collectionSlug) {
-            pushAssets(
-              activeAssets.value.filter(
-                (asset) =>
-                  asset.scope === 'collection' &&
-                  ((context.collectionId && asset.collectionId === context.collectionId) ||
-                    (context.collectionSlug && asset.collectionSlug === context.collectionSlug)),
-              ),
-            )
-          }
-          pushAssets(activeAssets.value.filter((asset) => asset.scope === 'global'))
-
-          for (const collection of sidebarCollections.value.filter(
-            (item) => item.key !== 'global',
-          )) {
-            const collectionAssets = activeAssets.value.filter(
-              (asset) => asset.collectionSlug === collection.key,
-            )
-            items.push({
-              type: 'folder',
-              id: collection.key,
-              label: collection.label,
-              icon: 'lucide:folder',
-              count: collectionAssets.length,
-              modifiedAt: latestAssetTimestamp(collectionAssets),
-            })
-          }
-          return items
-        }
-
-        for (const collection of sidebarCollections.value.filter((item) => item.key !== 'global')) {
-          const collectionAssets = activeAssets.value.filter(
-            (asset) => asset.collectionSlug === collection.key,
-          )
-          items.push({
-            type: 'folder',
-            id: collection.key,
-            label: collection.label,
-            icon: 'lucide:folder',
-            count: collectionAssets.length,
-            modifiedAt: latestAssetTimestamp(collectionAssets),
-          })
-        }
-        for (const asset of activeAssets.value.filter((asset) => asset.scope === 'global')) {
-          items.push({ type: 'asset', asset, tags: asset.tags })
-        }
-        return items
-      }
-
-      if (path.length === 1) {
-        const collectionSlug = path[0]!
-        const entryAssets = activeAssets.value.filter(
-          (asset) => asset.collectionSlug === collectionSlug && asset.entryId,
-        )
-        const seenEntries = new Set<string>()
-        for (const asset of entryAssets) {
-          if (!asset.entryId || seenEntries.has(asset.entryId)) continue
-          const assetsForEntry = entryAssets.filter(
-            (candidate) => candidate.entryId === asset.entryId,
-          )
-          seenEntries.add(asset.entryId)
-          items.push({
-            type: 'folder',
-            id: asset.entryId,
-            label: asset.entryTitle ?? asset.entryId,
-            icon: 'lucide:file-text',
-            count: assetsForEntry.length,
-            modifiedAt: latestAssetTimestamp(assetsForEntry),
-          })
-        }
-        for (const asset of activeAssets.value.filter(
-          (candidate) =>
-            candidate.scope === 'collection' && candidate.collectionSlug === collectionSlug,
-        )) {
-          items.push({ type: 'asset', asset, tags: asset.tags })
-        }
-        return items
-      }
-
-      const entryId = path[1]!
-      for (const asset of activeAssets.value.filter((candidate) => candidate.entryId === entryId)) {
-        items.push({ type: 'asset', asset, tags: asset.tags })
-      }
-      return items
-    }
-
-    if (path.length === 0) {
-      const entryAssets = activeAssets.value.filter(
-        (asset) => asset.collectionSlug === sidebarKey.value && asset.entryId,
-      )
-      const seenEntries = new Set<string>()
-      for (const asset of entryAssets) {
-        if (!asset.entryId || seenEntries.has(asset.entryId)) continue
-        const assetsForEntry = entryAssets.filter(
-          (candidate) => candidate.entryId === asset.entryId,
-        )
-        seenEntries.add(asset.entryId)
-        items.push({
-          type: 'folder',
-          id: asset.entryId,
-          label: asset.entryTitle ?? asset.entryId,
-          icon: 'lucide:file-text',
-          count: assetsForEntry.length,
-          modifiedAt: latestAssetTimestamp(assetsForEntry),
-        })
-      }
-      for (const asset of activeAssets.value.filter(
-        (candidate) =>
-          candidate.scope === 'collection' && candidate.collectionSlug === sidebarKey.value,
-      )) {
-        items.push({ type: 'asset', asset, tags: asset.tags })
-      }
-      return items
-    }
-
-    const entryId = path[0]!
-    for (const asset of activeAssets.value.filter((candidate) => candidate.entryId === entryId)) {
-      items.push({ type: 'asset', asset, tags: asset.tags })
-    }
-    return items
-  }
-
-  function buildTagItems(): FinderItem[] {
-    return activeAssets.value
-      .filter((asset) => asset.tags.includes(sidebarKey.value))
-      .map((asset) => ({ type: 'asset' as const, asset, tags: asset.tags }))
-  }
-
-  function buildFullItems(): FinderItem[] {
-    let scopedAssets = activeAssets.value
-    if (sidebarKey.value === 'global') {
-      scopedAssets = activeAssets.value.filter((asset) => asset.scope === 'global')
-    } else if (sidebarKey.value !== 'all') {
-      scopedAssets = activeAssets.value.filter((asset) => asset.collectionSlug === sidebarKey.value)
-    }
-    return scopedAssets.map((asset) => ({ type: 'asset' as const, asset, tags: asset.tags }))
-  }
-
-  function sortItems(items: FinderItem[]): FinderItem[] {
-    const folders = items.filter((item): item is FinderFolder => item.type === 'folder')
-    const assetItems = items.filter((item): item is FinderAssetItem => item.type === 'asset')
-
-    folders.sort((left, right) => left.label.localeCompare(right.label))
-    assetItems.sort((left, right) => {
-      switch (sortBy.value) {
-        case 'name':
-          return left.asset.filename.localeCompare(right.asset.filename)
-        case 'date':
-          return (
-            (right.asset.updatedAt ?? right.asset.createdAt) -
-            (left.asset.updatedAt ?? left.asset.createdAt)
-          )
-        case 'size':
-          return right.asset.size - left.asset.size
-        case 'kind':
-          return left.asset.mimeType.localeCompare(right.asset.mimeType)
-        default:
-          return 0
-      }
-    })
-
-    return [...folders, ...assetItems]
-  }
-
-  const currentItems = computed<FinderItem[]>(() => {
-    let items: FinderItem[]
-
-    if (sidebarMode.value === 'trash') {
-      items = trashedAssets.value.map((asset) => ({
-        type: 'asset' as const,
-        asset,
-        tags: asset.tags,
-      }))
-    } else if (sidebarMode.value === 'tags') {
-      items = buildTagItems()
-    } else if (sidebarMode.value === 'full') {
-      items = buildFullItems()
-    } else {
-      items = buildCollectionItems()
-    }
-
-    if (timeFilter.value !== 'any') {
-      const now = Date.now()
-      const windows: Record<string, number> = {
-        '24h': 86_400_000,
-        '7d': 604_800_000,
-        '30d': 2_592_000_000,
-        '90d': 7_776_000_000,
-      }
-      const cutoff = now - (windows[timeFilter.value] ?? 0)
-      items = items.filter((item) => {
-        if (item.type === 'folder') return true
-        return item.asset.createdAt >= cutoff
-      })
-    }
-
-    if (sizeFilter.value !== 'any') {
-      items = items.filter((item) => {
-        if (item.type === 'folder') return true
-        switch (sizeFilter.value) {
-          case 'small':
-            return item.asset.size < 102_400
-          case 'medium':
-            return item.asset.size >= 102_400 && item.asset.size < 1_048_576
-          case 'large':
-            return item.asset.size >= 1_048_576
-          default:
-            return true
-        }
-      })
-    }
-
-    if (
-      options.mode === 'pick' &&
-      sidebarMode.value === 'collections' &&
-      sidebarKey.value === 'global' &&
-      drillPath.value.length === 0
-    ) {
-      return items
-    }
-    return sortItems(items)
-  })
+  const currentItems = computed<FinderItem[]>(() => buildAssetFinderItems(assets.value))
 
   const selectedAsset = computed(() =>
     selectedAssetId.value
       ? (assets.value.find((asset) => asset.id === selectedAssetId.value) ?? null)
       : null,
   )
+  const assetReplacement = useStudioAssetReplacement({
+    selectedAsset,
+    actionPending,
+    error,
+  })
+  const selectedAssetUsagesQuery = useCmsStudioPaginatedQuery(
+    api.ginkoCms.assets.listAssetUsages,
+    () =>
+      selectedAsset.value?.referenceCertainty.state === 'used'
+        ? { assetId: selectedAsset.value.id }
+        : null,
+    { initialNumItems: ASSET_USAGE_PAGE_SIZE },
+  )
+  const selectedAssetUsages = computed<FinderAssetUsage[]>(
+    () => selectedAssetUsagesQuery.results.value,
+  )
+  const selectedAssetUsagesLoading = computed(
+    () => selectedAssetUsagesQuery.status.value === 'loading-first-page',
+  )
+  const selectedAssetUsagesLoadingMore = computed(
+    () => selectedAssetUsagesQuery.status.value === 'loading-more',
+  )
+  const hasMoreSelectedAssetUsages = computed(() => selectedAssetUsagesQuery.hasNextPage.value)
+  const loadMoreSelectedAssetUsages = () => selectedAssetUsagesQuery.loadMore(ASSET_USAGE_PAGE_SIZE)
 
   const selectedAssetTags = computed(() => selectedAsset.value?.tags ?? [])
 
@@ -625,11 +406,6 @@ export function useStudioAssetFinder(
     selectedAssetIds.value.filter((id) => visibleAssetIds.value.includes(id)),
   )
 
-  watch(visibleAssetIds, (ids) => {
-    const visible = new Set(ids)
-    selectedAssetIds.value = selectedAssetIds.value.filter((id) => visible.has(id))
-  })
-
   function toggleAllVisibleAssets() {
     if (allVisibleAssetsSelected.value) {
       clearAssetSelection()
@@ -665,28 +441,28 @@ export function useStudioAssetFinder(
             throw new Error(`Image must use a ${options.aspectRatio} aspect ratio.`)
           }
         }
-        const storageId = await upload.upload(file)
-        if (typeof storageId !== 'string') {
-          throw new TypeError('Upload did not return a storage id.')
+        const uploaded = await upload.upload(file)
+        if (Array.isArray(uploaded)) {
+          throw new TypeError('Single-file upload returned multiple sessions.')
         }
         const context = options.assetContext
-        const scope =
+        const scope: 'global' | 'collection' | 'entry' =
           uploadDestination.value === 'global'
             ? 'global'
             : uploadDestination.value === 'collection'
               ? 'collection'
               : context?.entryId
                 ? 'entry'
-                : context?.collectionId || context?.collectionSlug
+                : context?.collection
                   ? 'collection'
                   : 'global'
-        const assetId = await registerAssetAction({
-          storageId,
+        const assetId = await finalizeAssetUploadSessionAction({
+          sessionId: uploaded.sessionId,
+          token: uploaded.token,
           filename: file.name,
           scope,
           ...(scope === 'entry' ? { entryId: context?.entryId } : {}),
-          ...(scope !== 'global' ? { collectionId: context?.collectionId } : {}),
-          ...(scope !== 'global' ? { collectionSlug: context?.collectionSlug } : {}),
+          ...(scope !== 'global' ? { collection: context?.collection } : {}),
         })
         if (typeof assetId === 'string') await context?.onAssetRegistered?.(assetId)
         if (typeof assetId === 'string') options.onAssetUploaded?.(assetId)
@@ -694,6 +470,7 @@ export function useStudioAssetFinder(
     } catch (cause) {
       error.value = getCmsErrorMessage(cause, 'Failed to upload asset.')
     } finally {
+      upload.reset()
       uploading.value = false
       if (uploadInput.value) uploadInput.value.value = ''
     }
@@ -779,13 +556,15 @@ export function useStudioAssetFinder(
     error.value = ''
     try {
       for (const asset of selectedAssets) {
-        const assetForce = asset.usages.length > 0
+        const assetForce = asset.referenceCertainty.state === 'used'
         const token = await previewTrashAsset(asset, assetForce)
-        await trashAssetMutation({
-          assetId: asset.id,
-          force: assetForce ? true : undefined,
-          _confirmationToken: token,
-        })
+        operationValue<null>(
+          await trashAssetMutation({
+            assetId: asset.id,
+            force: assetForce ? true : undefined,
+            _confirmationToken: token,
+          }),
+        )
       }
       selectedAssetIds.value = selectedAssetIds.value.filter((id) => !assetIds.includes(id))
       if (
@@ -817,14 +596,14 @@ export function useStudioAssetFinder(
   }
 
   async function moveSelectedAssetToCollection() {
-    if (!selectedAsset.value?.collectionId) return
+    if (!selectedAsset.value?.collection) return
     actionPending.value = true
     error.value = ''
     try {
       await moveAssetMutation({
         assetId: selectedAsset.value.id,
         scope: 'collection',
-        collectionId: selectedAsset.value.collectionId,
+        collection: selectedAsset.value.collection,
       })
     } catch (cause) {
       error.value = getCmsErrorMessage(cause, 'Failed to move asset to collection scope.')
@@ -855,7 +634,7 @@ export function useStudioAssetFinder(
       .filter((asset): asset is FinderAssetRecord => !!asset)
     if (selectedAssets.length === 0) return
     const incompatible = selectedAssets.filter(
-      (asset) => asset.scope !== 'entry' || !asset.collectionId,
+      (asset) => asset.scope !== 'entry' || !asset.collection,
     )
     if (incompatible.length > 0) {
       error.value = 'Only entry-owned assets with a collection can be shared in collection.'
@@ -865,11 +644,11 @@ export function useStudioAssetFinder(
     error.value = ''
     try {
       for (const asset of selectedAssets) {
-        if (!asset.collectionId) continue
+        if (!asset.collection) continue
         await moveAssetMutation({
           assetId: asset.id,
           scope: 'collection',
-          collectionId: asset.collectionId,
+          collection: asset.collection,
         })
       }
     } catch (cause) {
@@ -930,6 +709,11 @@ export function useStudioAssetFinder(
     assetCount,
 
     selectedAsset,
+    selectedAssetUsages,
+    selectedAssetUsagesLoading,
+    selectedAssetUsagesLoadingMore,
+    hasMoreSelectedAssetUsages,
+    loadMoreSelectedAssetUsages,
     selectedAssetTags,
     selectAsset,
     selectedAssetIds,
@@ -953,6 +737,7 @@ export function useStudioAssetFinder(
     uploadDestination,
     uploading,
     handleUpload,
+    ...assetReplacement,
     error,
     actionPending,
     addTagToSelectedAsset,

@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
 import { useStudioHostContext } from '../../boundary/studio-host-context'
+import { operationValue } from '../../lib/destructiveWorkflow'
 import { cmsPermissionKeys } from '../permissions'
 import { useCmsI18n } from '../useCmsI18n'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
@@ -29,6 +30,7 @@ export function useStudioSiteDataAdmin() {
   const blockData = reactive<Record<string, Record<string, unknown>>>({})
   const saving = ref<string | null>(null)
   const error = ref('')
+  const info = ref('')
   const deleteTarget = ref<{
     key: string
     label: string
@@ -102,6 +104,7 @@ export function useStudioSiteDataAdmin() {
     if (!canManageSettings.value) return
     saving.value = key
     error.value = ''
+    info.value = ''
     try {
       const raw = blockData[key]
       const parsed = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw
@@ -112,6 +115,12 @@ export function useStudioSiteDataAdmin() {
         ...(localized ? { locale: activeLocale.value } : {}),
       })
       hydratedSnapshot[key] = JSON.stringify(blockData[key])
+      const visibility = blocks.value.find((block) => block.key === key)?.visibility ?? 'private'
+      info.value = t(
+        visibility === 'public'
+          ? 'ginkoCms.studio.siteDataPage.saveSuccessPublic'
+          : 'ginkoCms.studio.siteDataPage.saveSuccessPrivate',
+      )
     } catch (e) {
       error.value = getCmsErrorMessage(e, t('ginkoCms.studio.siteDataPage.saveError'))
     } finally {
@@ -123,6 +132,7 @@ export function useStudioSiteDataAdmin() {
     if (!canManageSettings.value) return
     if (!newBlock.key.trim()) return
     error.value = ''
+    info.value = ''
     try {
       await createBlockMutation({
         key: newBlock.key,
@@ -143,6 +153,7 @@ export function useStudioSiteDataAdmin() {
   async function handleVisibilityChange(key: string, visibility: 'private' | 'public') {
     if (!canManageSettings.value) return
     error.value = ''
+    info.value = ''
     try {
       await updateBlockMutation({ key, visibility })
     } catch (e) {
@@ -153,6 +164,7 @@ export function useStudioSiteDataAdmin() {
   async function handleDeleteBlock(key: string) {
     if (!canManageSettings.value) return
     error.value = ''
+    info.value = ''
     try {
       const preview = (await studioHost
         .requireConvexClient()
@@ -173,7 +185,7 @@ export function useStudioSiteDataAdmin() {
           ? preview.confirmation.token
           : null
       if (!token) throw new Error('Preview this deletion again before removing the data.')
-      await deleteBlockMutation({ key, _confirmationToken: token })
+      operationValue<null>(await deleteBlockMutation({ key, _confirmationToken: token }))
       if (expandedBlock.value === key) expandedBlock.value = null
     } catch (e) {
       error.value = getCmsErrorMessage(e, t('ginkoCms.studio.siteDataPage.deleteError'))
@@ -198,6 +210,7 @@ export function useStudioSiteDataAdmin() {
     handleDeleteBlock,
     handleSave,
     handleVisibilityChange,
+    info,
     isLoading,
     locales,
     newBlock,

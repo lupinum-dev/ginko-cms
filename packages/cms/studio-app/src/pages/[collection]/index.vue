@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileText, FolderX, GripVertical, Loader2, Pencil, Plus, Search } from '@lucide/vue'
+import { FileText, FolderX, Loader2, Plus, Search } from '@lucide/vue'
 import type { EntryStatus } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { FunctionArgs } from 'convex/server'
@@ -8,6 +8,8 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
 import StudioCollectionDetailsPanel from '../../components/studio/collections/StudioCollectionDetailsPanel.vue'
+import StudioCollectionFlatList from '../../components/studio/collections/StudioCollectionFlatList.vue'
+import StudioCollectionTreeList from '../../components/studio/collections/StudioCollectionTreeList.vue'
 import { cmsPermissionKeys } from '../../composables/permissions'
 import { useCmsConfig } from '../../composables/useCmsConfig'
 import { useCmsI18n } from '../../composables/useCmsI18n'
@@ -18,13 +20,23 @@ import { useCmsStudioSettings } from '../../composables/useCmsStudioSettings'
 import { useRightSidebarPanel } from '../../composables/useRightSidebar'
 import { useConvexMutation } from '../../composables/useStudioConvex'
 import { useStudioDebug } from '../../composables/useStudioDebug'
-import { codeDefinedCollectionDetail } from '../../lib/codeDefinedCollections'
+import { operationValue } from '../../lib/destructiveWorkflow'
 import { publicStateLabel, publicStateTone, readinessActionLabel } from '../../lib/publicWorkflow'
+import {
+  asTreeRow,
+  canEditCollectionEntry,
+  localeChipState,
+  type DropHint,
+  type EnrichedRow,
+  type LocaleChipState,
+  type StudioEntryRow,
+  type StudioEntrySummaryRow,
+  type TreeRow,
+} from '../../lib/studioCollectionRows'
 import { orderStudioTreeRows } from '../../lib/studioTree'
 
 const { can } = useCmsStudioAccess()
 const canCreateEntries = can(cmsPermissionKeys.createEntries)
-const canManageCollections = can(cmsPermissionKeys.manageCollections)
 const route = useRoute()
 const router = useRouter()
 const collection = computed(() => String(route.params.collection))
@@ -34,7 +46,6 @@ const contentRoute = `${studioRoute}/content`
 const studioSettings = useCmsStudioSettings()
 const locale = computed(() => studioSettings.defaultLocale.value)
 const studioDebug = useStudioDebug('collection:list')
-const configuredCollection = computed(() => cmsConfig.collections?.[collection.value] ?? null)
 const collectionQuery = useCmsStudioQuery(
   api.ginkoCms.collections.getCollection,
   computed(() => ({
@@ -42,18 +53,12 @@ const collectionQuery = useCmsStudioQuery(
   })),
 )
 studioDebug.watchQueryError('getCollection', collectionQuery, { collection })
-const collectionConfig = computed(
-  () =>
-    collectionQuery.data.value ??
-    codeDefinedCollectionDetail(collection.value, configuredCollection.value, locale.value),
-)
+const collectionConfig = computed(() => collectionQuery.data.value ?? null)
 const collectionLabel = computed(() => {
-  const label = collectionConfig.value?.label ?? configuredCollection.value?.label
+  const label = collectionConfig.value?.label
   return typeof label === 'string' ? label : collection.value
 })
-const collectionType = computed(
-  () => collectionConfig.value?.type ?? configuredCollection.value?.type ?? 'flat',
-)
+const collectionType = computed(() => collectionConfig.value?.type ?? 'flat')
 const isTree = computed(() => collectionType.value === 'tree')
 // Language machinery stays invisible on single-locale sites (design review
 // principle 6): the Languages column only exists when there is something to
@@ -70,9 +75,7 @@ const listGridClass = computed(() =>
     ? 'ginko:@3xl:grid-cols-[minmax(0,1fr)_9rem_7rem] ginko:@5xl:grid-cols-[minmax(0,1fr)_minmax(9rem,12rem)_9rem_7rem]'
     : 'ginko:@3xl:grid-cols-[minmax(0,1fr)_9rem_7rem]',
 )
-const isSingleton = computed(() =>
-  Boolean(collectionConfig.value?.singleton ?? configuredCollection.value?.routing?.singleton),
-)
+const isSingleton = computed(() => Boolean(collectionConfig.value?.singleton))
 const collectionExists = computed(() => collectionConfig.value !== null)
 // Work-queue deep links: filters initialize from the URL (?status=, ?work=,
 // ?q=) so Home queue rows can land on a pre-filtered list. Only valid union
@@ -132,108 +135,15 @@ useRightSidebarPanel({
   compact: true,
 })
 
-type LocaleSummary = {
-  locale: string
-  published: boolean
-  draftExists?: boolean
-  updatedAt?: number
-}
-
-type StudioEntryRow = {
-  _id: string
-  slug: string
-  path: string
-  title: string
-  status: EntryStatus
-  dirtyLocales?: string[]
-  updatedAt: number
-  parentEntryId: string | null
-  orderRank: string
-  nodeKind: string
-  data: Record<string, unknown>
-  localeSummaries: LocaleSummary[]
-  publicState?: 'public' | 'draft_only' | 'needs_attention' | 'data_only'
-  draftChangedSincePublish?: boolean
-  blockingIssueCount?: number
-  missingTranslationLocales?: string[]
-  localeReadinessStates?: Record<string, string>
-  nextAction?: string
-  workflowSummary?: {
-    nextAction?: {
-      kind: string
-    } | null
-  }
-  _can?: Record<string, boolean>
-}
-
-type StudioEntrySummaryRow = {
-  _id: string
-  entryId: string
-  collection: string
-  title: string
-  slug: string
-  path: string
-  status: EntryStatus
-  routeMode: 'route' | 'none'
-  nodeKind: string
-  parentEntryId: string | null
-  updatedAt: number
-  publishedAt: number | null
-  publicState: 'public' | 'draft_only' | 'needs_attention' | 'data_only'
-  draftChangedSincePublish: boolean
-  blockingIssueCount: number
-  missingTranslationLocales: string[]
-  localeReadiness: Array<LocaleSummary & { state: string; changed: boolean; draftPath: string }>
-  workflowSummary?: {
-    readinessStatesByLocale?: Record<string, string>
-  }
-  nextAction: string
-  _can?: Record<string, boolean>
-}
-
-type TreeRow = StudioEntryRow & {
-  depth: number
-  kind: string
-  order: string
-  localeVariants: LocaleSummary[]
-}
-
-type EnrichedRow = TreeRow & {
-  publicState: 'public' | 'draft_only' | 'needs_attention' | 'data_only'
-  publicStateLabel: string
-  publicStateTone: 'success' | 'warning' | 'danger' | 'neutral'
-  draftChangedSincePublish: boolean
-  blockingIssueCount: number
-  missingTranslationLocales: string[]
-  nextAction: string
-}
-
-function asTreeRow(row: StudioEntryRow | TreeRow): TreeRow {
-  if (
-    typeof (row as Partial<TreeRow>).depth === 'number' &&
-    typeof (row as Partial<TreeRow>).kind === 'string' &&
-    typeof (row as Partial<TreeRow>).order === 'string' &&
-    Array.isArray((row as Partial<TreeRow>).localeVariants)
-  ) {
-    return row as TreeRow
-  }
-  return {
-    ...row,
-    depth: 0,
-    kind: row.nodeKind,
-    order: row.orderRank,
-    localeVariants: row.localeSummaries,
-  }
-}
-
 const pageSize = computed(() => (isTree.value ? 100 : 50))
 const listArgs = computed(() => {
-  if (!collectionExists.value) {
+  if (!collectionExists.value || workStateFilter.value !== 'all') {
     return null
   }
   return {
     collection: collection.value,
     locale: locale.value,
+    parentEntryId: null,
     ...(statusFilter.value !== 'all' ? { status: statusFilter.value } : {}),
     ...(searchQuery.value.trim() ? { query: searchQuery.value.trim() } : {}),
   }
@@ -242,20 +152,24 @@ const listQuery = useCmsStudioPaginatedQuery(api.ginkoCms.editor.listEntriesForS
   initialNumItems: pageSize.value,
 })
 studioDebug.watchQueryError('listEntriesForStudio', listQuery, { collection })
-const summaryArgs = computed<FunctionArgs<typeof api.ginkoCms.editor.listEntrySummaries> | null>(
-  () => {
-    if (!collectionExists.value || workStateFilter.value === 'all') return null
-    return {
-      collection: collection.value,
-      locale: locale.value,
-      workState: workStateFilter.value === 'blocked' ? 'needs_attention' : workStateFilter.value,
-      ...(statusFilter.value !== 'all' ? { status: statusFilter.value } : {}),
-      ...(searchQuery.value.trim() ? { query: searchQuery.value.trim() } : {}),
-      limit: 150,
-    }
-  },
+const summaryArgs = computed<Omit<
+  FunctionArgs<typeof api.ginkoCms.editor.listEntrySummaries>,
+  'paginationOpts'
+> | null>(() => {
+  if (!collectionExists.value || workStateFilter.value === 'all') return null
+  return {
+    collection: collection.value,
+    locale: locale.value,
+    workState: workStateFilter.value === 'blocked' ? 'needs_attention' : workStateFilter.value,
+    ...(statusFilter.value !== 'all' ? { status: statusFilter.value } : {}),
+    ...(searchQuery.value.trim() ? { query: searchQuery.value.trim() } : {}),
+  }
+})
+const summaryQuery = useCmsStudioPaginatedQuery(
+  api.ginkoCms.editor.listEntrySummaries,
+  summaryArgs,
+  { initialNumItems: pageSize.value },
 )
-const summaryQuery = useCmsStudioQuery(api.ginkoCms.editor.listEntrySummaries, summaryArgs)
 studioDebug.watchQueryError('listEntrySummaries', summaryQuery, { collection })
 const rows = computed<StudioEntryRow[]>(() =>
   listQuery.results.value.map((item) => {
@@ -278,7 +192,7 @@ watchEffect(async () => {
 })
 const flatRows = computed(() => [...rows.value])
 const summaryRows = computed<StudioEntryRow[]>(() =>
-  ((summaryQuery.data.value ?? []) as StudioEntrySummaryRow[]).map((row) => ({
+  (summaryQuery.results.value as StudioEntrySummaryRow[]).map((row) => ({
     _id: row.entryId,
     slug: row.slug,
     path: row.path,
@@ -394,7 +308,9 @@ const activeFilterLabel = computed(() => {
 })
 const actionError = ref('')
 const { t, dateLocale } = useCmsI18n()
-const queryError = computed(() => collectionQuery.error.value ?? listQuery.error.value)
+const queryError = computed(
+  () => collectionQuery.error.value ?? listQuery.error.value ?? summaryQuery.error.value,
+)
 const pageError = computed(
   () =>
     actionError.value ||
@@ -402,41 +318,33 @@ const pageError = computed(
       ? getCmsErrorMessage(queryError.value, t('ginkoCms.studio.collectionListPage.loadError'))
       : ''),
 )
-const isCollectionSyncing = computed(
-  () =>
-    configuredCollection.value !== null &&
-    canManageCollections.value &&
-    !collectionExists.value &&
-    !collectionQuery.pending.value &&
-    !collectionQuery.error.value,
-)
 const isLoadingList = computed(
   () =>
     !queryError.value &&
     visibleRows.value.length === 0 &&
-    (collectionQuery.pending.value || listQuery.isLoading.value || isCollectionSyncing.value),
+    (collectionQuery.pending.value ||
+      (workStateFilter.value === 'all' ? listQuery.isLoading.value : summaryQuery.isLoading.value)),
 )
-const isLoadingMore = computed(() => visibleRows.value.length > 0 && listQuery.isLoading.value)
-const hasMore = computed(() => listQuery.hasNextPage.value)
-const isMissingCollection = computed(
+const isLoadingMore = computed(
   () =>
-    !collectionQuery.pending.value &&
-    !collectionExists.value &&
-    !isCollectionSyncing.value &&
-    !queryError.value,
+    visibleRows.value.length > 0 &&
+    (workStateFilter.value === 'all' ? listQuery.isLoading.value : summaryQuery.isLoading.value),
+)
+const hasMore = computed(() =>
+  workStateFilter.value === 'all' ? listQuery.hasNextPage.value : summaryQuery.hasNextPage.value,
+)
+const isMissingCollection = computed(
+  () => !collectionQuery.pending.value && !collectionExists.value && !queryError.value,
 )
 const reorderMutation = useConvexMutation(api.ginkoCms.editor.reorderEntry)
+const previewReorderMutation = useConvexMutation(api.ginkoCms.editor.previewReorderEntryOperation)
+const reparentMutation = useConvexMutation(api.ginkoCms.editor.reparentEntry)
+const previewReparentMutation = useConvexMutation(api.ginkoCms.editor.previewReparentEntryOperation)
 const draggingId = ref<string | null>(null)
-const dropHint = ref<{
-  targetId: string
-  mode: 'before' | 'after' | 'inside'
-} | null>(null)
-function canEditRow(row: StudioEntryRow | undefined): boolean {
-  const can = row?._can
-  return can?.edit === true
-}
+const dropHint = ref<DropHint | null>(null)
 function loadMore() {
-  listQuery.loadMore(pageSize.value)
+  if (workStateFilter.value === 'all') listQuery.loadMore(pageSize.value)
+  else summaryQuery.loadMore(pageSize.value)
 }
 function clearFilters() {
   searchQuery.value = ''
@@ -448,7 +356,7 @@ function setWorkStateFilter(state: 'missing_translation' | 'blocked') {
 }
 function startDrag(id: string): void {
   const row = rows.value.find((candidate) => candidate._id === id)
-  if (!canEditRow(row)) return
+  if (!canEditCollectionEntry(row)) return
   draggingId.value = id
   dropHint.value = null
 }
@@ -470,8 +378,8 @@ function detectDropMode(event: DragEvent, _target: StudioEntryRow): 'before' | '
 function onDragOver(event: DragEvent, target: StudioEntryRow): void {
   const source = rows.value.find((candidate) => candidate._id === draggingId.value)
   if (
-    !canEditRow(source) ||
-    !canEditRow(target) ||
+    !canEditCollectionEntry(source) ||
+    !canEditCollectionEntry(target) ||
     !draggingId.value ||
     draggingId.value === target._id
   )
@@ -485,10 +393,11 @@ function onDragOver(event: DragEvent, target: StudioEntryRow): void {
 async function onDrop(event: DragEvent, target: StudioEntryRow): Promise<void> {
   const source = rows.value.find((candidate) => candidate._id === draggingId.value)
   if (
-    !canEditRow(source) ||
-    !canEditRow(target) ||
+    !canEditCollectionEntry(source) ||
+    !canEditCollectionEntry(target) ||
     !draggingId.value ||
-    draggingId.value === target._id
+    draggingId.value === target._id ||
+    typeof source.draftVersion !== 'number'
   )
     return
   event.preventDefault()
@@ -496,13 +405,17 @@ async function onDrop(event: DragEvent, target: StudioEntryRow): Promise<void> {
   const mode = detectDropMode(event, target)
   const payload: {
     entryId: string
+    expectedDraftVersion: number
     parentEntryId?: string
     beforeEntryId?: string
     afterEntryId?: string
-  } = { entryId: draggingId.value }
+  } = { entryId: draggingId.value, expectedDraftVersion: source.draftVersion }
+  let targetParentEntryId: string | null
   if (mode === 'inside' && isTree.value) {
     payload.parentEntryId = target._id
+    targetParentEntryId = target._id
   } else {
+    targetParentEntryId = target.parentEntryId
     if (target.parentEntryId) {
       payload.parentEntryId = target.parentEntryId
     }
@@ -513,7 +426,10 @@ async function onDrop(event: DragEvent, target: StudioEntryRow): Promise<void> {
     }
   }
   try {
-    await reorderMutation(payload)
+    await executeTreeMove(
+      source.parentEntryId === targetParentEntryId ? 'reorder' : 'reparent',
+      payload,
+    )
   } catch (error) {
     actionError.value = getCmsErrorMessage(
       error,
@@ -525,34 +441,49 @@ async function onDrop(event: DragEvent, target: StudioEntryRow): Promise<void> {
 }
 async function dropToRoot() {
   const source = rows.value.find((candidate) => candidate._id === draggingId.value)
-  if (!canEditRow(source) || !draggingId.value || !isTree.value) return
+  if (
+    !canEditCollectionEntry(source) ||
+    !draggingId.value ||
+    !isTree.value ||
+    typeof source.draftVersion !== 'number'
+  )
+    return
   actionError.value = ''
   try {
-    await reorderMutation({ entryId: draggingId.value, parentEntryId: void 0 })
+    await executeTreeMove(source.parentEntryId === null ? 'reorder' : 'reparent', {
+      entryId: draggingId.value,
+      expectedDraftVersion: source.draftVersion,
+    })
   } catch (error) {
     actionError.value = getCmsErrorMessage(error, t('ginkoCms.studio.collectionListPage.moveError'))
   } finally {
     endDrag()
   }
 }
-// Per-language chips use the canonical editorial states (userstories.md) so
-// the list tells the same story as the editor rail: a locale without any work
-// is "Missing language", not a fake amber "Draft". Live-and-edited locales
-// stay green; the "· edited" suffix carries the nuance.
-type LocaleChipState = 'live' | 'live_with_changes' | 'draft' | 'missing'
-function localeChipState(
-  row: Pick<StudioEntryRow, 'dirtyLocales' | 'localeReadinessStates'>,
-  variant: LocaleSummary,
-): LocaleChipState {
-  // Work-filtered rows carry the backend readiness projection; use it as-is.
-  const exact = row.localeReadinessStates?.[variant.locale]
-  if (exact === 'live' || exact === 'live_with_changes' || exact === 'missing') return exact
-  if (exact) return 'draft'
-  const dirty = (row.dirtyLocales ?? []).includes(variant.locale)
-  if (variant.published) return dirty ? 'live_with_changes' : 'live'
-  // The backend flag is the truth: a locale exists exactly when a draft row
-  // does, so the list tells the same story as the editor rail.
-  return (variant.draftExists ?? dirty) ? 'draft' : 'missing'
+
+type TreeMovePayload = {
+  entryId: string
+  expectedDraftVersion: number
+  parentEntryId?: string
+  beforeEntryId?: string
+  afterEntryId?: string
+}
+
+async function executeTreeMove(
+  kind: 'reorder' | 'reparent',
+  payload: TreeMovePayload,
+): Promise<void> {
+  const preview =
+    kind === 'reorder'
+      ? await previewReorderMutation(payload)
+      : await previewReparentMutation(payload)
+  const confirmation = preview.confirmation
+  if (!confirmation?.token) {
+    throw new Error(`Tree move preview was blocked: ${JSON.stringify(preview.blockers ?? [])}`)
+  }
+  const executePayload = { ...payload, _confirmationToken: confirmation.token }
+  if (kind === 'reorder') operationValue(await reorderMutation(executePayload))
+  else operationValue(await reparentMutation(executePayload))
 }
 const localeChipLabels = computed<Record<LocaleChipState, string>>(() => ({
   live: t('ginkoCms.studio.collectionListPage.localeLive'),
@@ -560,18 +491,6 @@ const localeChipLabels = computed<Record<LocaleChipState, string>>(() => ({
   draft: t('ginkoCms.studio.collectionListPage.localeDraft'),
   missing: t('ginkoCms.studio.workflow.states.missing'),
 }))
-const localeChipClasses: Record<LocaleChipState, string> = {
-  live: 'ginko:bg-success/10 ginko:text-success-fg ginko:dark:bg-success/20',
-  live_with_changes: 'ginko:bg-success/10 ginko:text-success-fg ginko:dark:bg-success/20',
-  draft: 'ginko:bg-muted ginko:text-muted-foreground',
-  missing: 'ginko:bg-warning/10 ginko:text-warning-fg ginko:dark:bg-warning/20',
-}
-const kindColors: Record<string, string> = {
-  section: 'ginko:bg-warning/15 ginko:text-warning-fg ginko:dark:bg-warning/25',
-  group: 'ginko:bg-primary/10 ginko:text-primary ginko:dark:bg-primary/20',
-  folder: 'ginko:bg-success/15 ginko:text-success-fg ginko:dark:bg-success/25',
-  page: 'ginko:bg-muted ginko:text-muted-foreground',
-}
 </script>
 
 <template>
@@ -700,9 +619,14 @@ const kindColors: Record<string, string> = {
             <Search class="ginko:size-5" aria-hidden="true" />
           </template>
           <template #action>
-            <Button variant="outline" size="sm" @click="clearFilters">
-              {{ t('ginkoCms.studio.collectionListPage.clearFilters') }}
-            </Button>
+            <div class="ginko:flex ginko:flex-wrap ginko:justify-center ginko:gap-2">
+              <Button v-if="hasMore" variant="outline" size="sm" @click="loadMore">
+                {{ t('ginkoCms.common.loadMore') }}
+              </Button>
+              <Button variant="outline" size="sm" @click="clearFilters">
+                {{ t('ginkoCms.studio.collectionListPage.clearFilters') }}
+              </Button>
+            </div>
           </template>
         </StudioEmptyState>
 
@@ -737,190 +661,38 @@ const kindColors: Record<string, string> = {
             {{ t('ginkoCms.studio.collectionListPage.dropToRoot') }}
           </div>
 
-          <!-- Tree view -->
-          <div
+          <StudioCollectionTreeList
             v-if="showTreeView"
-            class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
-          >
-            <div
-              v-for="row in enrichedRows"
-              :key="row._id"
-              :draggable="canEditRow(row)"
-              class="ginko:group ginko:border-b ginko:border-border/60 ginko:px-3 ginko:py-2.5 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30"
-              :class="[
-                draggingId === row._id ? 'ginko:opacity-40' : '',
-                dropHint && dropHint.targetId === row._id
-                  ? dropHint.mode === 'inside'
-                    ? 'ginko:ring-2 ginko:ring-primary ginko:bg-primary/5'
-                    : dropHint.mode === 'before'
-                      ? 'ginko:border-t-2 ginko:border-primary'
-                      : 'ginko:border-b-2 ginko:border-primary'
-                  : '',
-              ]"
-              @dragstart="startDrag(row._id)"
-              @dragend="endDrag"
-              @dragover="onDragOver($event, row)"
-              @drop="onDrop($event, row)"
-            >
-              <div
-                class="ginko:flex ginko:items-center ginko:gap-2.5"
-                :style="{ paddingLeft: `${row.depth * 20}px` }"
-              >
-                <button
-                  type="button"
-                  class="ginko:cursor-grab ginko:text-muted-foreground/40 ginko:hover:text-muted-foreground ginko:opacity-0 ginko:group-hover:opacity-100 ginko:transition-opacity"
-                  @mousedown.stop
-                  @click.stop
-                >
-                  <GripVertical class="ginko:size-3.5" />
-                </button>
+            :collection="collection"
+            :content-route="contentRoute"
+            :dragging-id="draggingId"
+            :drop-hint="dropHint"
+            :has-multiple-locales="hasMultipleLocales"
+            :locale-chip-labels="localeChipLabels"
+            :rows="enrichedRows"
+            @drag-end="endDrag"
+            @drag-over="onDragOver"
+            @drag-start="startDrag"
+            @drop="onDrop"
+          />
 
-                <span
-                  class="ginko:rounded-md ginko:px-1.5 ginko:py-0.5 ginko:text-xs ginko:font-medium ginko:uppercase ginko:tracking-wide"
-                  :class="kindColors[row.kind] ?? kindColors.page"
-                >
-                  {{ row.kind }}
-                </span>
-
-                <div class="ginko:min-w-0 ginko:flex-1">
-                  <RouterLink
-                    :to="`${contentRoute}/${collection}/${row._id}`"
-                    class="ginko:block ginko:rounded-sm ginko:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring"
-                  >
-                    <div class="ginko:truncate ginko:text-sm ginko:font-medium">
-                      {{ row.title || row.slug }}
-                    </div>
-                    <div
-                      class="ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground/60"
-                    >
-                      {{ row.path }}
-                    </div>
-                  </RouterLink>
-                </div>
-
-                <div
-                  v-if="hasMultipleLocales"
-                  class="ginko:hidden ginko:items-center ginko:gap-1 ginko:@3xl:flex"
-                >
-                  <span
-                    v-for="variant in row.localeVariants"
-                    :key="variant.locale"
-                    class="ginko:rounded ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-xs"
-                    :class="localeChipClasses[localeChipState(row, variant)]"
-                  >
-                    {{ variant.locale.toUpperCase() }} ·
-                    {{ localeChipLabels[localeChipState(row, variant)] }}
-                  </span>
-                </div>
-
-                <StudioStatusPill
-                  :label="row.publicStateLabel"
-                  :tone="row.publicStateTone"
-                  class="ginko:hidden ginko:@3xl:inline-flex"
-                />
-
-                <div class="ginko:flex ginko:items-center ginko:gap-0.5">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    class="ginko:size-7 ginko:p-0 ginko:text-muted-foreground ginko:hover:text-foreground"
-                    as-child
-                    @click.stop
-                  >
-                    <RouterLink
-                      :to="`${contentRoute}/${collection}/${row._id}`"
-                      :aria-label="`Edit ${row.title || row.slug}`"
-                    >
-                      <Pencil class="ginko:size-3.5" />
-                    </RouterLink>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Flat list view -->
-          <div
+          <StudioCollectionFlatList
             v-else
-            class="ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
-          >
-            <div
-              class="ginko:hidden ginko:gap-3 ginko:border-b ginko:border-border/40 ginko:bg-muted/30 ginko:px-5 ginko:py-2 ginko:text-xs ginko:font-medium ginko:uppercase ginko:text-muted-foreground ginko:@3xl:grid"
-              :class="listGridClass"
-            >
-              <div>{{ t('ginkoCms.studio.collectionListPage.titleColumn') }}</div>
-              <div v-if="hasMultipleLocales" class="ginko:hidden ginko:@5xl:block">
-                {{ t('ginkoCms.studio.collectionListPage.localesColumn') }}
-              </div>
-              <div>{{ t('ginkoCms.studio.collectionListPage.statusColumn') }}</div>
-              <div class="ginko:text-right">
-                {{ t('ginkoCms.studio.collectionListPage.updatedColumn') }}
-              </div>
-            </div>
-            <div
-              v-for="row in enrichedRows"
-              :key="row._id"
-              :draggable="!isTree && canEditRow(row)"
-              data-testid="cms-entry-row"
-              :data-entry-slug="row.slug"
-              class="ginko:group ginko:grid ginko:cursor-pointer ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-5 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30 ginko:@3xl:items-center"
-              :class="[listGridClass, dropHint?.targetId === row._id ? 'ginko:bg-primary/5' : '']"
-              @click="router.push(`${contentRoute}/${collection}/${row._id}`)"
-              @dragstart="startDrag(row._id)"
-              @dragend="endDrag"
-              @dragover.prevent="onDragOver($event, row)"
-              @drop.prevent="onDrop($event, row)"
-            >
-              <!-- Title & path -->
-              <div class="ginko:min-w-0 ginko:flex-1">
-                <RouterLink
-                  :to="`${contentRoute}/${collection}/${row._id}`"
-                  class="ginko:block ginko:rounded-sm ginko:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring"
-                >
-                  <div class="ginko:truncate ginko:text-sm ginko:font-medium">
-                    {{ row.title || row.slug }}
-                  </div>
-                  <div
-                    class="ginko:mt-0.5 ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground/60"
-                  >
-                    {{ row.path || row.slug }}
-                  </div>
-                </RouterLink>
-              </div>
-
-              <!-- Languages: only when the collection actually has several -->
-              <div
-                v-if="hasMultipleLocales"
-                class="ginko:flex ginko:flex-wrap ginko:items-center ginko:gap-1 ginko:@3xl:hidden ginko:@5xl:flex"
-              >
-                <span
-                  v-for="variant in row.localeSummaries"
-                  :key="variant.locale"
-                  class="ginko:rounded ginko:px-1.5 ginko:py-0.5 ginko:font-mono ginko:text-xs"
-                  :class="localeChipClasses[localeChipState(row, variant)]"
-                >
-                  {{ variant.locale.toUpperCase() }} ·
-                  {{ localeChipLabels[localeChipState(row, variant)] }}
-                </span>
-              </div>
-
-              <div>
-                <StudioStatusPill :label="row.publicStateLabel" :tone="row.publicStateTone" />
-              </div>
-
-              <!-- Updated -->
-              <div
-                class="ginko:hidden ginko:text-right ginko:text-xs ginko:text-muted-foreground ginko:@3xl:block"
-              >
-                <NuxtTime
-                  :datetime="row.updatedAt"
-                  :locale="dateLocale"
-                  month="short"
-                  day="numeric"
-                />
-              </div>
-            </div>
-          </div>
+            :collection="collection"
+            :content-route="contentRoute"
+            :date-locale="dateLocale"
+            :drop-hint="dropHint"
+            :has-multiple-locales="hasMultipleLocales"
+            :is-tree="isTree"
+            :list-grid-class="listGridClass"
+            :locale-chip-labels="localeChipLabels"
+            :rows="enrichedRows"
+            @drag-end="endDrag"
+            @drag-over="onDragOver"
+            @drag-start="startDrag"
+            @drop="onDrop"
+            @open="(id) => router.push(`${contentRoute}/${collection}/${id}`)"
+          />
 
           <!-- Load more -->
           <div class="ginko:flex ginko:justify-center ginko:py-4">

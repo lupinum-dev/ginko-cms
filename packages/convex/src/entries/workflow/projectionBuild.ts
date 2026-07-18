@@ -4,6 +4,7 @@ import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/t
 import { parseMdcBody, type ParseMdcBodyResult } from '@lupinum/ginko-content/cms-contract'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
+import { throwCmsError } from '../../errors.js'
 import { getCollectionDefaultLocale } from '../../lib/collections.js'
 import { resolveEntryDescription, resolveEntryTitle } from '../../lib/fields.js'
 import { buildPublicSearchText, filterPublicData } from '../../lib/publicData.js'
@@ -116,22 +117,43 @@ async function projectionBodyFromSnapshot(
   localeSnapshot: RevisionLocaleSnapshot,
   collection: CmsCollection,
 ): Promise<{ bodyAst: MarkdownRoot; searchText: string; toc: Toc | null }> {
-  if (localeSnapshot.bodyAst && typeof localeSnapshot.bodyAst === 'object') {
-    const bodyAst = localeSnapshot.bodyAst as unknown as MarkdownRoot
-    await assertPublicBodySafe(ctx, bodyAst, collection)
-    return {
-      bodyAst,
-      searchText: localeSnapshot.searchText ?? '',
-      toc: (localeSnapshot.toc as unknown as Toc | null) ?? null,
-    }
-  }
-
   const parsed = await parseMdcBody(localeSnapshot.bodyMdc ?? '')
   await assertPublicBodySafe(ctx, parsed.body, collection)
   return {
     bodyAst: parsed.body,
-    searchText: localeSnapshot.searchText ?? parsed.searchText,
-    toc: (localeSnapshot.toc as unknown as Toc | null) ?? parsed.toc ?? null,
+    searchText: parsed.searchText,
+    toc: parsed.toc ?? null,
+  }
+}
+
+export async function readPublicBodyFromRevision(
+  ctx: QueryOrMutationCtx,
+  row: Doc<'publicEntries'>,
+  collection: CmsCollection,
+) {
+  const revision = await ctx.db.get(row.revisionId)
+  const snapshot = revision?.snapshots[row.locale]
+  if (
+    !revision ||
+    revision.entryId !== row.entryId ||
+    revision.collection !== row.collection ||
+    !snapshot
+  ) {
+    return throwCmsError(
+      'PUBLIC_PROJECTION_REBUILD_REQUIRED',
+      'Published body source is missing or does not match its active structural projection.',
+      {
+        entryId: String(row.entryId),
+        locale: row.locale,
+        revisionId: String(row.revisionId),
+      },
+    )
+  }
+  const body = await projectionBodyFromSnapshot(ctx, snapshot, collection)
+  return {
+    bodyAst: body.bodyAst as unknown as JsonValue,
+    searchText: body.searchText,
+    toc: (body.toc as unknown as JsonValue | null) ?? null,
   }
 }
 
@@ -209,11 +231,7 @@ export async function buildPublicProjectionFromRevisionSnapshot(
     args.localeSnapshot.slug
   const description =
     resolveEntryDescription(publicData, args.collection.fields, args.collection.settings) ??
-    resolveEntryDescription(
-      materialized,
-      args.collection.fields,
-      args.collection.settings,
-    )
+    resolveEntryDescription(materialized, args.collection.fields, args.collection.settings)
   const navIncluded = publicInclusionFlag(materialized, 'navigation')
   const searchIncluded = publicInclusionFlag(materialized, 'search')
   const sitemapIncluded = publicInclusionFlag(materialized, 'sitemap')
@@ -222,8 +240,7 @@ export async function buildPublicProjectionFromRevisionSnapshot(
     .query('publicEntries')
     .withIndex('by_entry_locale', (q) => q.eq('entryId', args.entry._id).eq('locale', args.locale))
     .first()
-  const firstPublishedAt =
-    existingPublic?.firstPublishedAt ?? args.firstPublishedAt ?? args.now
+  const firstPublishedAt = args.firstPublishedAt ?? existingPublic?.firstPublishedAt ?? args.now
   const assetRefs = uniqueAssetRefs([
     ...extractPublicFieldAssetRefs(publicData, args.collection.fields, {
       fieldPathPrefix: 'data',
@@ -248,8 +265,6 @@ export async function buildPublicProjectionFromRevisionSnapshot(
       title,
       description,
       data: publicData,
-      bodyMdc: args.localeSnapshot.bodyMdc ?? '',
-      bodyAst: body.bodyAst,
       searchText: searchIncluded
         ? uniqueContentTags([
             buildPublicSearchText({ values: publicData, fields: args.collection.fields }),
@@ -258,18 +273,20 @@ export async function buildPublicProjectionFromRevisionSnapshot(
             .join(' ')
             .trim()
         : '',
-      toc: body.toc,
-      cacheTags: buildWorkflowPublicCacheTags({
-        collection: args.collection,
-        entry: args.entry,
-        locale: args.locale,
-        path,
-        data: publicData,
-        fields: args.collection.fields,
-        navIncluded,
-        searchIncluded,
-        sitemapIncluded,
-      }),
+      cacheTags: uniqueContentTags([
+        ...buildWorkflowPublicCacheTags({
+          collection: args.collection,
+          entry: args.entry,
+          locale: args.locale,
+          path,
+          data: publicData,
+          fields: args.collection.fields,
+          navIncluded,
+          searchIncluded,
+          sitemapIncluded,
+        }),
+        ...assetFacts.map((fact) => contentTags.asset(fact.assetId)),
+      ]),
       assetFacts,
       navIncluded,
       sitemapIncluded,

@@ -36,6 +36,7 @@ export async function assertNoDraftSiblingPathConflict(
     collection: CollectionDoc
     locales: string[]
     parentEntryId?: Id<'entries'> | null
+    slugByLocale?: Record<string, string>
   },
 ) {
   const movingRows = await readDraftPlacementRows(ctx, args.entry._id, args.locales)
@@ -67,11 +68,9 @@ export async function assertNoDraftSiblingPathConflict(
     if (!sameId(effectiveDraftParent(candidate, draftRows.shared), targetParent)) continue
 
     for (const locale of args.locales) {
-      const movingSlug = effectiveDraftSlug(
-        args.entry,
-        movingShared,
-        movingRows.byLocale[locale] ?? null,
-      )
+      const movingSlug =
+        args.slugByLocale?.[locale] ??
+        effectiveDraftSlug(args.entry, movingShared, movingRows.byLocale[locale] ?? null)
       const candidateSlug = effectiveDraftSlug(
         candidate,
         draftRows.shared,

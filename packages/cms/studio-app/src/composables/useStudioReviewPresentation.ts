@@ -1,4 +1,5 @@
 import type { StudioReviewRequest } from '../lib/studioReviewRequests'
+import { formatBoundedCount } from '../lib/websiteChangePresenter'
 import { useCmsI18n } from './useCmsI18n'
 
 type ReviewRequest = StudioReviewRequest
@@ -26,8 +27,15 @@ export function useStudioReviewPresentation() {
     return JSON.stringify(value, null, 2)
   }
 
-  function countMessage(count: number, oneKey: string, otherKey: string): string {
-    return t(count === 1 ? oneKey : otherKey, { count })
+  function countMessage(
+    count: number,
+    oneKey: string,
+    otherKey: string,
+    isLowerBound = false,
+  ): string {
+    return t(!isLowerBound && count === 1 ? oneKey : otherKey, {
+      count: formatBoundedCount(count, isLowerBound),
+    })
   }
 
   function statusLabel(status: string) {
@@ -47,6 +55,7 @@ export function useStudioReviewPresentation() {
           summary.changeCount,
           'ginkoCms.studio.reviewsPage.previewChangesOne',
           'ginkoCms.studio.reviewsPage.previewChangesOther',
+          summary.affectedPublicUrlsHasMore,
         ),
       )
     if (summary.blockerCount)
@@ -132,6 +141,7 @@ export function useStudioReviewPresentation() {
           request.reviewSummary.changeCount,
           'ginkoCms.studio.reviewsPage.preparedChangesOne',
           'ginkoCms.studio.reviewsPage.preparedChangesOther',
+          request.reviewSummary.affectedPublicUrlsHasMore,
         ),
         tone: 'neutral',
       })
@@ -142,12 +152,13 @@ export function useStudioReviewPresentation() {
       })
     }
 
-    if (request.reviewSummary.affectedPublicUrls.length) {
+    if (request.reviewSummary.affectedPublicUrlCount) {
       items.push({
         message: countMessage(
-          request.reviewSummary.affectedPublicUrls.length,
+          request.reviewSummary.affectedPublicUrlCount,
           'ginkoCms.studio.reviewsPage.preparedPagesOne',
           'ginkoCms.studio.reviewsPage.preparedPagesOther',
+          request.reviewSummary.affectedPublicUrlsHasMore,
         ),
         tone: 'neutral',
       })

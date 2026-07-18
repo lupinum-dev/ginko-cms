@@ -17,6 +17,7 @@ const {
   handleDeleteBlock,
   handleSave,
   handleVisibilityChange,
+  info,
   isLoading,
   locales,
   newBlock,
@@ -101,6 +102,7 @@ function formatBlockData(value: unknown): string {
       <StudioPageBody>
         <!-- Error -->
         <StudioNotice v-if="error" tone="danger" class="ginko:mb-4" :description="error" />
+        <StudioNotice v-else-if="info" tone="info" class="ginko:mb-4" :description="info" />
 
         <!-- New block form -->
         <StudioListFrame
@@ -303,6 +305,23 @@ function formatBlockData(value: unknown): string {
               :id="`site-data-block-${block.key}`"
               class="ginko:space-y-3 ginko:border-t ginko:px-4 ginko:py-4"
             >
+              <StudioNotice
+                :tone="block.visibility === 'public' ? 'warning' : 'info'"
+                :title="
+                  t(
+                    block.visibility === 'public'
+                      ? 'ginkoCms.studio.siteDataPage.publicSaveImpactTitle'
+                      : 'ginkoCms.studio.siteDataPage.privateSaveImpactTitle',
+                  )
+                "
+                :description="
+                  t(
+                    block.visibility === 'public'
+                      ? 'ginkoCms.studio.siteDataPage.publicSaveImpactDescription'
+                      : 'ginkoCms.studio.siteDataPage.privateSaveImpactDescription',
+                  )
+                "
+              />
               <StudioSiteDataEditor
                 v-if="canManageSettings"
                 :schema="expandedBlockSchema"

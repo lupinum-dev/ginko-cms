@@ -16,6 +16,26 @@ Content-compatible additions can also install directly when the drift report
 marks them safe. A content-incompatible change must use the bounded owner-only
 contract transition below.
 
+`ginko-cms deploy` writes the canonical content and presentation hashes into a
+generated host-only binding, deploys that binding, verifies the deployed pair,
+and only then installs the contract. A direct `ginko-cms push` refuses to write
+unless both the local generated binding and the deployed binding match the
+contract being installed. Host facade arguments cannot override this pair.
+
+Every caller-visible backend mutation checks the bound pair and the transition
+lock in the same database transaction as its write. Reads remain available for
+diagnosis. The audited exceptions are control-plane operations that cannot
+change content, public output, assets, site data, reviews, or portability state:
+
+- owner bootstrap and member invitation/role/removal administration;
+- MCP authentication failure accounting and credential administration;
+- termination or revocation of an active agent run;
+- storage and revalidation diagnostics.
+
+The exact allowlist lives in `CONTRACT_WRITE_BYPASS_IDS` in the Convex component.
+Adding a bypass requires an invariant test proving that the operation is
+control-plane-only and remains necessary while editorial writes are locked.
+
 ## Incompatible Contract Changes
 
 Examples include removing or renaming fields, changing field types or
@@ -25,9 +45,12 @@ and tree structures, and removing a non-empty collection.
 Before staging:
 
 1. Create and verify an official Convex deployment backup.
-2. Explicitly unpublish every live entry in an affected collection. The CMS
-   refuses to begin while affected active publications exist.
-3. Test the transition against a disposable deployment.
+2. Explicitly unpublish every live entry in an affected collection. The bounded
+   staging scan reports any remaining publication and retains the cancellable
+   write lock until it is fixed or the transition is cancelled.
+3. Deploy the target host hash binding without attempting a direct install:
+   `pnpm exec ginko-cms deploy --transition`.
+4. Test the transition against a disposable deployment.
 
 Create and edit a transition:
 
@@ -37,9 +60,10 @@ pnpm exec ginko-cms contract transition stage ginko/transitions/<file>.ts --yes
 ```
 
 Staging locks Studio writes, reads affected drafts in bounded pages, runs the
-transform, validates every output under the exact target contract, and stores
-input/output hashes with draft-version fences. The command prints the durable
-run ID.
+transform, and stores input/output hashes with draft-version fences. A second
+bounded validation phase checks current inputs, route claims, placement, and
+every output under the exact target contract. Both phases resume from durable
+generation/cursor fences. The command prints the durable run ID.
 
 Inspect and finish the run:
 
@@ -112,6 +136,6 @@ than transforming it. Never treat a shared production reset as a transition.
 
 ## Related Pages
 
-- [Transition recipes](./migrations/recipes.md)
-- [Transition recovery](./migrations/recovery.md)
+- [Transition recipes](./contract-transitions/recipes.md)
+- [Transition recovery](./contract-transitions/recovery.md)
 - [Backup and recovery](../maintenance/backup-and-recovery.md)

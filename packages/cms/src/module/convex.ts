@@ -22,6 +22,11 @@ type ConvexSetupManifest = {
   files: Record<string, { templateHash: string }>
 }
 
+export type ExpectedContractBinding = {
+  contentHash: string
+  presentationHash: string
+}
+
 type CompatibilityMatrix = {
   tracked?: Record<string, string[]>
 }
@@ -40,12 +45,15 @@ const setupFiles = [
   'convex/ginkoCms/assets.ts',
   'convex/ginkoCms/assetRecovery.ts',
   'convex/ginkoCms/collections.ts',
+  'convex/ginkoCms/contractBinding.ts',
   'convex/ginkoCms/diagnostics.ts',
   'convex/ginkoCms/draftPreview.ts',
   'convex/ginkoCms/editor.ts',
   'convex/ginkoCms/mcpCredentials.ts',
+  'convex/ginkoCms/maintenance.ts',
   'convex/ginkoCms/members.ts',
-  'convex/ginkoCms/migrations.ts',
+  'convex/ginkoCms/passwordRecovery.ts',
+  'convex/ginkoCms/contractTransitions.ts',
   'convex/ginkoCms/contract.ts',
   'convex/ginkoCms/portability.ts',
   'convex/ginkoCms/public.ts',
@@ -57,9 +65,14 @@ const setupFiles = [
 
 const staleBridgePaths = [
   ['convex', `ginkoCms${'Mcp.ts'}`].join('/'),
+  'convex/ginkoCms/migrations.ts',
   'convex/ginkoCms/policy.ts',
 ] as const
 const setupManifestPath = 'convex/.ginko-cms-setup.json'
+const contractBindingPath = 'convex/ginkoCms/contractBinding.ts'
+const CONTENT_HASH_TOKEN = '__GINKO_CMS_EXPECTED_CONTENT_HASH__'
+const PRESENTATION_HASH_TOKEN = '__GINKO_CMS_EXPECTED_PRESENTATION_HASH__'
+const UNBOUND_CONTRACT_HASH = 'unbound'
 
 const staleConvexConfigImports = [
   {
@@ -118,6 +131,29 @@ function templatePath(relativePath: string) {
 
 function contentHash(source: string) {
   return createHash('sha256').update(source).digest('hex')
+}
+
+function readContractBinding(source: string): ExpectedContractBinding {
+  const content = source.match(/EXPECTED_CONTENT_HASH = '([^']+)'/u)?.[1]
+  const presentation = source.match(/EXPECTED_PRESENTATION_HASH = '([^']+)'/u)?.[1]
+  return {
+    contentHash: content ?? UNBOUND_CONTRACT_HASH,
+    presentationHash: presentation ?? UNBOUND_CONTRACT_HASH,
+  }
+}
+
+function renderSetupTemplate(
+  relativePath: string,
+  source: string,
+  binding: ExpectedContractBinding = {
+    contentHash: UNBOUND_CONTRACT_HASH,
+    presentationHash: UNBOUND_CONTRACT_HASH,
+  },
+) {
+  if (relativePath !== contractBindingPath) return source
+  return source
+    .replace(CONTENT_HASH_TOKEN, binding.contentHash)
+    .replace(PRESENTATION_HASH_TOKEN, binding.presentationHash)
 }
 
 function emptySetupManifest(): ConvexSetupManifest {
@@ -180,9 +216,10 @@ function checkSetupTemplateState(rootDir: string): ConvexSetupIssue[] {
   const issues: ConvexSetupIssue[] = []
   for (const relativePath of existingSetupFiles) {
     const recordedHash = manifest.files[relativePath]?.templateHash
-    const expected = readFileSync(templatePath(relativePath), 'utf8')
-    const expectedHash = contentHash(expected)
+    const template = readFileSync(templatePath(relativePath), 'utf8')
     const current = readFileSync(resolve(rootDir, relativePath), 'utf8')
+    const expected = renderSetupTemplate(relativePath, template, readContractBinding(current))
+    const expectedHash = contentHash(expected)
     const currentHash = contentHash(current)
     if (recordedHash === expectedHash || currentHash === expectedHash) continue
 
@@ -335,7 +372,11 @@ export function writeConvexSetupFiles(rootDir: string): ConvexSetupWriteResult {
 
   for (const relativePath of setupFiles) {
     const target = resolve(rootDir, relativePath)
-    const expected = readFileSync(templatePath(relativePath), 'utf8')
+    const template = readFileSync(templatePath(relativePath), 'utf8')
+    const currentBinding = existsSync(target)
+      ? readContractBinding(readFileSync(target, 'utf8'))
+      : undefined
+    const expected = renderSetupTemplate(relativePath, template, currentBinding)
     const expectedHash = contentHash(expected)
     if (!existsSync(target)) {
       mkdirSync(dirname(target), { recursive: true })
@@ -375,6 +416,44 @@ export function writeConvexSetupFiles(rootDir: string): ConvexSetupWriteResult {
   writeFileSync(manifestTarget, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
 
   return { written, updated, skipped, conflicts }
+}
+
+export function writeExpectedContractBinding(
+  rootDir: string,
+  binding: ExpectedContractBinding,
+): string {
+  const sha256 = /^[a-f0-9]{64}$/u
+  if (!sha256.test(binding.contentHash) || !sha256.test(binding.presentationHash)) {
+    throw new Error('Expected CMS contract bindings must be canonical SHA-256 hashes.')
+  }
+  const target = resolve(rootDir, contractBindingPath)
+  const manifest = readSetupManifest(rootDir) ?? emptySetupManifest()
+  const template = readFileSync(templatePath(contractBindingPath), 'utf8')
+  const rendered = renderSetupTemplate(contractBindingPath, template, binding)
+  const renderedHash = contentHash(rendered)
+  if (existsSync(target)) {
+    const current = readFileSync(target, 'utf8')
+    const currentHash = contentHash(current)
+    const recordedHash = manifest.files[contractBindingPath]?.templateHash
+    if (!recordedHash || currentHash !== recordedHash) {
+      throw new Error(
+        `Refused to overwrite modified generated file ${contractBindingPath}. Run \`pnpm exec ginko-cms init\` and merge its safe diff first.`,
+      )
+    }
+  } else {
+    mkdirSync(dirname(target), { recursive: true })
+  }
+  writeFileSync(target, rendered, 'utf8')
+  manifest.files[contractBindingPath] = { templateHash: renderedHash }
+  const manifestTarget = resolve(rootDir, setupManifestPath)
+  mkdirSync(dirname(manifestTarget), { recursive: true })
+  writeFileSync(manifestTarget, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+  return contractBindingPath
+}
+
+export function readExpectedContractBinding(rootDir: string): ExpectedContractBinding | null {
+  const target = resolve(rootDir, contractBindingPath)
+  return existsSync(target) ? readContractBinding(readFileSync(target, 'utf8')) : null
 }
 
 function throwConvexSetupError(setupIssues: ConvexSetupIssue[]): never {

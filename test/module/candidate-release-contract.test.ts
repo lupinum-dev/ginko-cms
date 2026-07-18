@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T
 
 describe('coordinated CMS candidate release contract', () => {
-  it('has one RC tuple authority and a deterministic pack command', () => {
+  it('[DEV-06] has one RC tuple authority and a deterministic pack command', () => {
     const workspace = readJson<{ scripts: Record<string, string> }>('package.json')
     const compatibility = readJson<{
       releaseStack: Record<string, string>

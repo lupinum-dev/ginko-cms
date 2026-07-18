@@ -72,7 +72,6 @@ describe('published portability export orchestration', () => {
       mutation: async (reference: unknown, args: Record<string, unknown>) => {
         const path = pathOf(reference)
         calls.push({ path, args })
-        if (path.endsWith(':createExportRun')) return { leaseGeneration: 7 }
         if (path.endsWith(':captureExportPage')) return { captured: 1, complete: true }
         if (path.endsWith(':sealExportRun')) return { documentCount: 1, assetCount: 0 }
         if (path.endsWith(':completeExportRun')) return { state: 'complete' }
@@ -92,8 +91,11 @@ describe('published portability export orchestration', () => {
         }
         throw new Error(`Unexpected query ${path}`)
       },
-      action: async () => {
-        throw new Error('Published export does not use actions.')
+      action: async (reference: unknown, args: Record<string, unknown>) => {
+        const path = pathOf(reference)
+        calls.push({ path, args })
+        if (path.endsWith(':createExportRun')) return { leaseGeneration: 7 }
+        throw new Error(`Unexpected action ${path}`)
       },
     }
 
@@ -132,7 +134,6 @@ describe('published portability export orchestration', () => {
       mutation: async (reference: unknown) => {
         const path = pathOf(reference)
         calls.push(path)
-        if (path.endsWith(':createExportRun')) return { leaseGeneration: 1 }
         if (path.endsWith(':captureExportPage')) return { captured: 1, complete: true }
         if (path.endsWith(':sealExportRun')) return { documentCount: 1, assetCount: 0 }
         if (path.endsWith(':abortExportRun')) return { state: 'aborted' }
@@ -146,7 +147,12 @@ describe('published portability export orchestration', () => {
         if (path.endsWith(':readExportAssets')) return { assets: [], cursor: null }
         throw new Error(`Unexpected query ${path}`)
       },
-      action: async () => null,
+      action: async (reference: unknown) => {
+        const path = pathOf(reference)
+        calls.push(path)
+        if (path.endsWith(':createExportRun')) return { leaseGeneration: 1 }
+        throw new Error(`Unexpected action ${path}`)
+      },
     }
 
     await expect(
@@ -188,6 +194,7 @@ describe('draft portability import orchestration', () => {
           return (args.items as Array<{ itemKey: string }>).map(({ itemKey }) => ({
             itemKey,
             currentDraftSha256: null,
+            currentSharedSha256: null,
           }))
         }
         if (path.endsWith(':inspectPortableAssets')) return []
@@ -227,7 +234,9 @@ describe('draft portability import orchestration', () => {
       action: async (reference: unknown) => {
         const path = pathOf(reference)
         calls.push(path)
-        if (path.endsWith(':sealImportPlan')) return { runId: 'import-retry-run' }
+        if (path.endsWith(':sealImportPlan')) {
+          return { runId: 'import-retry-run', state: 'planned' }
+        }
         if (path.endsWith(':applyImportBatch')) {
           committedBatches += 1
           if (committedBatches === 2 && loseBatchTwoResponse) {
@@ -241,7 +250,7 @@ describe('draft portability import orchestration', () => {
     }
     const prepared = await preparePortableDraftImport(client as never, source, {
       deploymentId: 'deployment-1',
-      targetContractSha256: await hashCanonicalJson(contract),
+      targetContentHash: await hashCanonicalJson(contract),
       planId: 'import-retry-plan',
     })
 

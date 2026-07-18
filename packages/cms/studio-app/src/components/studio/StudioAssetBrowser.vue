@@ -22,6 +22,7 @@ import StudioAssetMobileFilters from './assets/StudioAssetMobileFilters.vue'
 import StudioAssetMobileScopes from './assets/StudioAssetMobileScopes.vue'
 import StudioAssetNav from './assets/StudioAssetNav.vue'
 import StudioAssetPickDetails from './assets/StudioAssetPickDetails.vue'
+import StudioAssetReplaceDialog from './assets/StudioAssetReplaceDialog.vue'
 import StudioAssetToolbar from './assets/StudioAssetToolbar.vue'
 import StudioAssetTrashDialog from './assets/StudioAssetTrashDialog.vue'
 
@@ -79,7 +80,7 @@ const finder = useStudioAssetFinder({
   },
 })
 
-const { uploadInput, uploading, handleUpload } = finder
+const { uploadInput, replacementInput, uploading, handleUpload, handleReplacementUpload } = finder
 
 const context = createStudioAssetBrowserContext({
   finder,
@@ -115,6 +116,13 @@ defineExpose({
       class="ginko:hidden"
       :accept="inputAccept"
       @change="handleUpload"
+    />
+    <input
+      ref="replacementInput"
+      type="file"
+      class="ginko:hidden"
+      :accept="finder.selectedAsset.value?.mimeType"
+      @change="handleReplacementUpload"
     />
     <div
       v-if="!props.embedded"
@@ -216,6 +224,8 @@ defineExpose({
         v-model:sort-by="finder.sortBy.value"
         v-model:type-filter="finder.typeFilter.value"
         v-model:time-filter="finder.timeFilter.value"
+        v-model:usage-filter="finder.usageFilter.value"
+        v-model:size-filter="finder.sizeFilter.value"
         @clear="finder.clearFilters"
       />
 
@@ -230,5 +240,11 @@ defineExpose({
     :assets="finder.assets.value"
     @update:open="trash.handleDestructiveDialogOpen"
     @confirm="trash.confirmDestructiveAssetAction"
+  />
+  <StudioAssetReplaceDialog
+    :replacement="finder.pendingAssetReplacement.value"
+    :pending="finder.replacing.value"
+    @update:open="finder.handleReplacementDialogOpen"
+    @confirm="finder.confirmAssetReplacement"
   />
 </template>

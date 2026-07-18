@@ -101,7 +101,7 @@ vi.mock('../../packages/cms/src/server/mcp/_shared/agent-tools.js', () => {
 })
 
 describe('request-publish-review MCP tool', () => {
-  it('creates a review request from publish diagnostics without changing public output', async () => {
+  it('[AGT-06] creates a review request from publish diagnostics without changing public output', async () => {
     mocks.calls.length = 0
     mocks.reviewMutationError = null
     const tool = (

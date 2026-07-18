@@ -106,7 +106,7 @@ function refreshIconClass(tone: TrackTone) {
     :description="collectionEditorT('publishOutcomeDescription')"
     :badge="collectionEditorT('publishOutcomeBadge')"
   >
-    <div class="ginko:grid ginko:gap-5">
+    <div class="ginko:grid ginko:gap-5" role="status" aria-live="polite" aria-atomic="true">
       <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
         <div class="ginko:flex ginko:items-start ginko:gap-2.5">
           <CheckCircle2 class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0 ginko:text-success-fg" />

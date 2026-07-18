@@ -4,5 +4,5 @@ import { query } from '../_generated/server.js'
 export const getStudioSettings = query({
   args: {},
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.settings.getStudioSettings, args as never),
+    await ctx.runQuery(components.ginkoCms.settings.getStudioSettings, args),
 })

@@ -21,7 +21,7 @@ export default defineMcpPrompt({
       '4. Check target locale public visibility diagnostics.',
       '5. Use `get-readiness-detail` as readiness context and `preview-publish` with the active `agentRunId` when route, SEO, sitemap, search, nav, or publish blockers matter. It does not save or publish content.',
       '6. Preserve translated slug/path rules and required localized fields.',
-      '7. Produce a translation plan with exact field changes. Do not save or publish unless the user explicitly asks for a write tool and the normal confirmation flow is satisfied.',
+      '7. Produce a translation plan with exact field changes. Only save draft changes when explicitly asked. MCP cannot publish; request human review when the draft is ready.',
     ].join('\n')
   },
 })

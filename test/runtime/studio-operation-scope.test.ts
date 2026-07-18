@@ -34,7 +34,7 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () =
 }))
 
 const mutation = { [Symbol.for('functionName')]: 'ginkoCms.editor.saveEntryDraft' }
-const action = { [Symbol.for('functionName')]: 'ginkoCms.assets.registerAsset' }
+const action = { [Symbol.for('functionName')]: 'ginkoCms.assets.finalizeAssetUploadSession' }
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -116,12 +116,17 @@ describe('Studio operation scopes', () => {
   })
 
   it('stops upload work after disposal before dispatching bytes', async () => {
-    const uploadUrl = deferred<string>()
-    host.convex = { mutation: vi.fn(() => uploadUrl.promise) }
+    const uploadSession = deferred<{
+      sessionId: string
+      uploadUrl: string
+      token: string
+      expiresAt: number
+    }>()
+    host.convex = { mutation: vi.fn(() => uploadSession.promise) }
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     const Host = defineComponent({
       setup() {
-        return { upload: useConvexUpload(mutation as never) }
+        return { upload: useConvexUpload(mutation as never, mutation as never) }
       },
       render: () => h('div'),
     })
@@ -129,7 +134,12 @@ describe('Studio operation scopes', () => {
     const upload = wrapper.vm.upload
     const promise = upload(new File(['bytes'], 'asset.png', { type: 'image/png' }))
     wrapper.unmount()
-    uploadUrl.resolve('https://storage.example.test/upload')
+    uploadSession.resolve({
+      sessionId: 'session-1',
+      uploadUrl: 'https://storage.example.test/upload',
+      token: 'shown-once-token',
+      expiresAt: Date.now() + 60_000,
+    })
 
     await expect(promise).rejects.toThrow('scope was disposed')
     expect(fetchSpy).not.toHaveBeenCalled()

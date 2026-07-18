@@ -90,7 +90,11 @@ describe('integration: canonical entry lifecycle', () => {
       slug: 'welcome',
       localized: { title: 'Welcome' },
     })
-    await owner.mutation(api.entries.draft.createLocaleVariant, { entryId, locale: 'de' })
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
+      entryId,
+      locale: 'de',
+      source: { kind: 'blank' },
+    })
     await owner.saveEntryDraft({
       entryId,
       expectedDraftVersion: await currentDraftVersion(owner, entryId),

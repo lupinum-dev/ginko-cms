@@ -1,8 +1,0 @@
-{
-  "label": "Contract transitions",
-  "position": 3,
-  "link": {
-    "type": "generated-index",
-    "description": "Stage, apply, activate, and recover bounded CMS contract transitions."
-  }
-}

@@ -17,7 +17,7 @@ export default defineMcpPrompt({
       '2. Call `explain-public-visibility` with the collection, entry id, and locale if provided.',
       '3. If diagnostics mention collection mode, route collisions, missing fields, or parent routes, inspect the collection and entry before recommending changes.',
       '4. Explain the public impact in plain language: route, sitemap, search, nav, redirects, and the concrete fix.',
-      '5. Do not publish or mutate content unless explicitly asked and the normal confirmation flow is satisfied.',
+      '5. MCP cannot publish or run destructive operations. Only save draft changes when explicitly asked; send public-output changes through human review.',
     ].join('\n')
   },
 })
