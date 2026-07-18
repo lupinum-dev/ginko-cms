@@ -316,6 +316,22 @@ function checkStaleBridgeMarkers(rootDir: string): ConvexSetupIssue[] {
   return issues
 }
 
+function fileDependencyHasSupportedInstalledVersion(
+  rootDir: string,
+  dependencyName: string,
+  range: string,
+  allowedRanges: string[],
+): boolean {
+  if (!range.startsWith('file:')) return false
+  const installedPackage = readJsonIfExists(
+    resolve(rootDir, 'node_modules', ...dependencyName.split('/'), 'package.json'),
+  )
+  return (
+    typeof installedPackage?.version === 'string' &&
+    allowedRanges.includes(installedPackage.version)
+  )
+}
+
 export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[] {
   const issues: ConvexSetupIssue[] = []
   const configPath = resolve(rootDir, 'convex/convex.config.ts')
@@ -363,7 +379,12 @@ export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[]
     }
 
     const allowedRanges = trackedCompatibility[dependency.name]
-    if (!allowedRanges || allowedRanges.includes(range)) continue
+    if (
+      !allowedRanges ||
+      allowedRanges.includes(range) ||
+      fileDependencyHasSupportedInstalledVersion(rootDir, dependency.name, range, allowedRanges)
+    )
+      continue
     issues.push({
       name: `unsupported dependency ${dependency.name}`,
       message: `package.json declares "${dependency.name}" as "${range}", which is outside the supported Ginko CMS compatibility tuple.`,

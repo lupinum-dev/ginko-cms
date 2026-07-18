@@ -49,9 +49,12 @@ const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
   : existsSync(siblingContentRoot)
     ? siblingContentRoot
     : undefined
+const siblingBetterConvexNuxtRoot = resolve(repoRoot, '../../convex/better-convex-nuxt')
 const betterConvexNuxtRoot = process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT
   ? resolve(process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT)
-  : undefined
+  : existsSync(siblingBetterConvexNuxtRoot)
+    ? siblingBetterConvexNuxtRoot
+    : undefined
 const liveConvex = process.argv.includes('--live')
 const registryContent = registryDependencies || (developmentMode && !contentRoot)
 const registryBetterConvexNuxt = registryDependencies || (developmentMode && !betterConvexNuxtRoot)
@@ -512,6 +515,7 @@ try {
       '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
       '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
       '@lupinum/ginko-content': contentDependency(installedContentTarball),
+      '@nuxt/kit': consumerCompatibility.dependencies['@nuxt/kit'],
       '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
       'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
       convex: consumerCompatibility.dependencies.convex,
@@ -543,6 +547,9 @@ try {
       '    global: true,',
       "    ignore: ['Prose/**', 'internal/**'],",
       '  }],',
+      '  content: {',
+      "    search: { engine: 'provider' },",
+      '  },',
       '  ginkoCms: {',
       '    mcp: false,',
       '  },',

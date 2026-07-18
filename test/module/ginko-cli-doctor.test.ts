@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -84,6 +84,31 @@ async function completeFixture(
 }
 
 describe('ginko-cms setup doctor', () => {
+  it('[ADM-07] accepts a local candidate tarball when its installed version is supported', async () => {
+    const root = await completeFixture()
+    const packageJsonPath = resolve(root, 'package.json')
+    const packageJson = {
+      dependencies: {
+        '@lupinum/ginko-cms-convex': '0.2.0-rc.1',
+        'better-auth': '1.7.0-rc.1',
+        'better-convex-nuxt': 'file:./better-convex-nuxt.tgz',
+      },
+    }
+    writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8')
+    const installedPackageRoot = resolve(root, 'node_modules/better-convex-nuxt')
+    mkdirSync(installedPackageRoot, { recursive: true })
+    writeFileSync(
+      resolve(installedPackageRoot, 'package.json'),
+      JSON.stringify({ name: 'better-convex-nuxt', version: '0.7.0-beta.0' }),
+      'utf8',
+    )
+
+    const result = await run(root, ['doctor'])
+
+    expect(result.stderr).not.toContain('unsupported dependency better-convex-nuxt')
+    expect(result.stderr).not.toContain('outside the supported Ginko CMS compatibility tuple')
+  })
+
   it('[ADM-07] names missing Convex, auth, contract, provider, and environment setup with safe exact fixes', async () => {
     const root = createRoot()
     const result = await run(root, ['doctor'])

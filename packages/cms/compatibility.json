@@ -20,6 +20,7 @@
   },
   "tracked": {
     "@nuxtjs/mcp-toolkit": ["^0.16.1", "0.16.1", ">=0.16.1"],
+    "@nuxt/kit": ["4.4.8"],
     "better-auth": ["1.7.0-rc.1", ">=1.7.0-rc.1 <1.8.0"],
     "better-convex-nuxt": ["0.7.0-beta.0", "^0.7.0-beta.0"],
     "convex": ["1.42.2", "^1.42.2"],
@@ -33,10 +34,11 @@
   },
   "consumer": {
     "dependencies": {
+      "@nuxt/kit": "4.4.8",
       "better-auth": "1.7.0-rc.1",
       "better-convex-nuxt": "0.7.0-beta.0",
       "convex": "1.42.2",
-      "nuxt": "^4.4.8"
+      "nuxt": "4.4.8"
     },
     "devDependencies": {
       "@types/node": "^25.8.0",
