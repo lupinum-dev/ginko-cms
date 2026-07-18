@@ -351,7 +351,10 @@ function assertCandidateLockfile(lockfileText, expectedSpecifiers) {
 
   for (const [name, expectedSpecifier] of Object.entries(expectedSpecifiers)) {
     const dependency = rootImporter.dependencies?.[name] ?? rootImporter.devDependencies?.[name]
-    if (dependency?.specifier !== expectedSpecifier) {
+    const normalizeFileSpecifier = (value) => value?.replace(/^file:\.\//, 'file:')
+    if (
+      normalizeFileSpecifier(dependency?.specifier) !== normalizeFileSpecifier(expectedSpecifier)
+    ) {
       throw new Error(
         `Candidate lockfile resolves ${name} from ${dependency?.specifier ?? 'missing'}; expected ${expectedSpecifier}.`,
       )
