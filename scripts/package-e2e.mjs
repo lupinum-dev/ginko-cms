@@ -12,7 +12,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { basename, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { parse as parseYaml } from 'yaml'
@@ -218,8 +218,10 @@ async function bootNitro() {
     env: {
       ...packageE2eEnv(),
       CONVEX_URL: 'http://127.0.0.1:3210',
+      CONVEX_SITE_URL: 'http://127.0.0.1:3211',
       HOST: '127.0.0.1',
       NUXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3210',
+      NUXT_PUBLIC_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
       PORT: String(port),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -304,7 +306,8 @@ function findTarball(packageName) {
 }
 
 function fileDependency(path) {
-  return `file:${path}`
+  const localPath = relative(tempDir, path)
+  return localPath && !localPath.startsWith('..') ? `file:./${localPath}` : `file:${path}`
 }
 
 function contentAddressedCopy(path) {
@@ -530,7 +533,8 @@ try {
       "import ginkoCms from '@lupinum/ginko-cms'",
       '',
       'const contentRendererHarness = defineNuxtModule({',
-      '  setup() {',
+      '  setup(_options, nuxt) {',
+      "    Object.assign(nuxt.options, { content: { search: { engine: 'provider' }, sitemap: false } })",
       '    addTemplate({',
       "      filename: 'content-i18n.mjs',",
       "      getContents: () => \"export const useLocalePath = () => (route) => typeof route === 'string' ? route : ''\",",
@@ -547,9 +551,8 @@ try {
       '    global: true,',
       "    ignore: ['Prose/**', 'internal/**'],",
       '  }],',
-      '  content: {',
-      "    search: { engine: 'provider' },",
-      '  },',
+      "  convex: { url: 'http://127.0.0.1:3210', siteUrl: 'http://127.0.0.1:3211', auth: { publicOrigin: 'http://localhost:3000' } },",
+      "  nitro: { externals: { inline: ['@lupinum/ginko-cms'] } },",
       '  ginkoCms: {',
       '    mcp: false,',
       '  },',
@@ -561,7 +564,7 @@ try {
 
   writeFileSync(
     join(tempDir, 'content.config.ts'),
-    "export default { provider: 'cms', collections: {} }\n",
+    "export default { provider: 'cms', collections: { pages: { type: 'page', source: 'content/**/*.md' } } }\n",
     'utf8',
   )
 
@@ -579,7 +582,11 @@ try {
   )
 
   if (!liveConvex) {
-    writeFileSync(join(tempDir, '.env.local'), 'CONVEX_URL=http://127.0.0.1:3210\n', 'utf8')
+    writeFileSync(
+      join(tempDir, '.env.local'),
+      'CONVEX_URL=http://127.0.0.1:3210\nCONVEX_SITE_URL=http://127.0.0.1:3211\n',
+      'utf8',
+    )
   }
 
   if (liveConvex) {
