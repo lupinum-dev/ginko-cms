@@ -20,6 +20,7 @@ import {
   type ProjectionSearchResultItem,
 } from '../publicReadAdapter.js'
 import {
+  countPublicEntriesForCollection,
   mapPublicEntryAtKnownPath,
   mapPublicEntrySummaryAtKnownPath,
   paginatePublicEntriesForCollection,
@@ -142,6 +143,22 @@ export async function listHandler(ctx: QueryCtx, args: ListArgs) {
       continueCursor: result.isDone ? null : result.continueCursor,
     },
     translationsByEntryId,
+  })
+}
+
+export async function countHandler(
+  ctx: QueryCtx,
+  args: { collection: string; locale: string; pathPrefix?: string },
+) {
+  validatePublicTextArgs(args)
+  validatePublicPathPrefix(args)
+  const collection = await getCollection(ctx, args.collection)
+  if (!collection) return 0
+  assertCollectionSupportsLocale(collection, args.locale)
+  return await countPublicEntriesForCollection(ctx, {
+    collection,
+    locale: args.locale,
+    pathPrefix: args.pathPrefix,
   })
 }
 

@@ -123,6 +123,11 @@ function packSet(temporaryRoot, runIndex) {
 
 function requireUpstream(name, root, tarball) {
   const expected = compatibility.releaseArtifacts[name]
+  if (expected.provisionalWorktree === true) {
+    throw new Error(
+      `${name} compatibility is based on provisional worktree bytes. Commit and repack the upstream release before creating a CMS candidate.`,
+    )
+  }
   assertClean(root, name)
   const commit = assertCommit(root, name, expected.sourceCommit)
   const actualHash = sha256(tarball)

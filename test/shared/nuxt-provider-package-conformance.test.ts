@@ -85,7 +85,7 @@ describe('built ginko-cms Nuxt provider package output', () => {
     delete process.env.NUXT_PUBLIC_CONVEX_URL
   })
 
-  it('ships the same v2 raw-document and cursor contracts as the source adapter', async () => {
+  it('ships the same v3 raw-document and cursor contracts as the source adapter', async () => {
     const pageQuery = toContentProviderQuery({ collection: 'docs', first: true })
     pageQuery.plan.variantSelector = {
       by: 'route',

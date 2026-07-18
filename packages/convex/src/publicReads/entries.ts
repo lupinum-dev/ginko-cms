@@ -18,6 +18,9 @@ import type { CollectionDoc, PublicExplicitSortField, PublicSortField } from './
 
 export type PublicEntryRow = Doc<'publicEntries'>
 
+const PUBLIC_COUNT_PAGE_SIZE = 100
+const PUBLIC_COUNT_MAX_ENTRIES = 5_000
+
 type PublicEntryCursor = {
   v: 1
   kind: 'publicEntries'
@@ -103,6 +106,36 @@ export async function paginatePublicEntriesForCollection(
         ? null
         : encodePublicEntryCursor(batch[batch.length - 1]!, sortField, direction),
   }
+}
+
+export async function countPublicEntriesForCollection(
+  ctx: QueryCtx,
+  args: {
+    collection: CollectionDoc
+    locale: string
+    pathPrefix?: string | null
+  },
+): Promise<number> {
+  let cursor: string | null = null
+  let total = 0
+  do {
+    const page = await paginatePublicEntriesForCollection(ctx, {
+      collection: args.collection,
+      locale: args.locale,
+      pathPrefix: args.pathPrefix,
+      limit: PUBLIC_COUNT_PAGE_SIZE,
+      cursor,
+    })
+    total += page.page.length
+    if (total > PUBLIC_COUNT_MAX_ENTRIES) {
+      return throwCmsError(
+        'LIMIT_EXCEEDED',
+        `Public count exceeds the supported ${PUBLIC_COUNT_MAX_ENTRIES}-entry scope.`,
+      )
+    }
+    cursor = page.isDone ? null : page.continueCursor
+  } while (cursor)
+  return total
 }
 
 async function readIndexedPublicEntryPage(

@@ -16,6 +16,15 @@ export const list = defineArgs({
   },
 })
 
+export const count = defineArgs({
+  description: 'Count structurally reachable published CMS entries for one locale.',
+  args: {
+    collection: v.string(),
+    locale: v.string(),
+    pathPrefix: v.optional(v.string()),
+  },
+})
+
 export const page = defineArgs({
   description: 'Load a published CMS page with the locked public content contract.',
   args: {

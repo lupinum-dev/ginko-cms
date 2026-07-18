@@ -102,6 +102,7 @@ const convexMock = vi.hoisted(() => {
         locale: localeResult(String(args.locale || 'en')),
       }
     }
+    if (operation === 'count') return 1
     if (operation === 'nav') {
       return {
         tree: [{ entry: entry(String(args.locale || 'en')), children: [] }],
@@ -172,7 +173,7 @@ const event = {
 
 const unwrap = <T>(value: T) => (isContentProviderResult(value) ? value.data : value)
 
-describe('Ginko Nuxt provider v2', () => {
+describe('Ginko Nuxt provider v3', () => {
   beforeEach(async () => {
     vi.resetModules()
     convexMock.calls.length = 0
@@ -199,15 +200,80 @@ describe('Ginko Nuxt provider v2', () => {
     operatorProbes: {
       $eq: {
         positive: toContentProviderQuery({ collection: 'docs', where: { locale: { $eq: 'en' } } }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({ result: [expect.objectContaining({ locale: 'en' })] })
+        },
       },
       $ne: {
         positive: toContentProviderQuery({ collection: 'docs', where: { draft: { $ne: true } } }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({
+            result: [expect.objectContaining({ title: 'Content Routing' })],
+          })
+          expect((result as { result: unknown[] }).result[0]).not.toHaveProperty('draft', true)
+        },
       },
       $prefix: {
         positive: toContentProviderQuery({
           collection: 'docs',
           where: { path: { $prefix: '/docs' } },
         }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({
+            result: [expect.objectContaining({ title: 'Content Routing' })],
+          })
+        },
+      },
+    },
+    logicalProbes: {
+      and: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          where: { $and: [{ draft: { $ne: true } }, { locale: { $eq: 'en' } }] },
+        }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({ result: [expect.objectContaining({ locale: 'en' })] })
+        },
+      },
+      or: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          where: { $or: [{ draft: { $eq: false } }, { draft: { $eq: true } }] },
+        }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({
+            result: [expect.objectContaining({ title: 'Content Routing' })],
+          })
+        },
+      },
+      not: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          where: { $not: { draft: { $eq: true } } },
+        }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({
+            result: [expect.objectContaining({ title: 'Content Routing' })],
+          })
+        },
+      },
+    },
+    sortProbe: {
+      positive: toContentProviderQuery({ collection: 'docs', sort: [{ orderKey: 1 }] }),
+      assertResult: (result) => {
+        expect(result).toMatchObject({
+          result: [expect.objectContaining({ title: 'Content Routing' })],
+        })
+      },
+    },
+    terminalProbes: {
+      first: {
+        positive: toContentProviderQuery({ collection: 'docs', first: true }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({
+            result: expect.objectContaining({ title: 'Content Routing' }),
+          })
+        },
       },
     },
     paginationProbes: {
@@ -216,6 +282,12 @@ describe('Ginko Nuxt provider v2', () => {
           collection: 'docs',
           paging: { mode: 'cursor', after: null, limit: 10 },
         }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({
+            mode: 'cursor',
+            result: [expect.objectContaining({ title: 'Content Routing' })],
+          })
+        },
       },
     },
   })
@@ -420,7 +492,7 @@ describe('Ginko Nuxt provider v2', () => {
   it('rejects empty provider searches before calling Convex', async () => {
     await expect(
       contentProvider.search!(event, { term: '   ', locale: 'en', collections: ['docs'] }),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'INVALID_QUERY' })
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'BACKEND_FAILURE' })
     expect(convexMock.query).not.toHaveBeenCalled()
   })
 
@@ -523,17 +595,17 @@ describe('Ginko Nuxt provider v2', () => {
     expect(isContentProviderResult(response)).toBe(true)
   })
 
-  it('rejects the removed v1 wire before dispatch', async () => {
+  it('rejects the removed v2 wire before dispatch', async () => {
     await expect(
       contentProvider.query(event, {
         ...toContentProviderQuery({ collection: 'docs' }),
-        v: 1 as 2,
+        v: 2 as 3,
       }),
-    ).rejects.toMatchObject({ statusMessage: 'unsupported_query_shape' })
+    ).rejects.toMatchObject({ statusMessage: 'BACKEND_FAILURE' })
     expect(convexMock.query).not.toHaveBeenCalled()
   })
 
-  it('rejects a malformed page response with a stable provider error', async () => {
+  it('normalizes a malformed page response at the data-source boundary', async () => {
     convexMock.query.mockResolvedValueOnce({ status: 'found', page: null })
     const query = toContentProviderQuery({ collection: 'docs', first: true })
     query.plan.variantSelector = {
@@ -543,21 +615,21 @@ describe('Ginko Nuxt provider v2', () => {
     }
 
     await expect(contentProvider.query(event, query)).rejects.toMatchObject({
-      statusCode: 502,
-      statusMessage: 'provider_response_invalid',
-      data: { code: 'provider_response_invalid' },
+      statusCode: 500,
+      statusMessage: 'BACKEND_FAILURE',
+      data: { code: 'BACKEND_FAILURE' },
     })
   })
 
-  it('rejects a malformed list response with a stable provider error', async () => {
+  it('normalizes a malformed list response at the data-source boundary', async () => {
     convexMock.query.mockResolvedValueOnce({ entries: null })
 
     await expect(
       contentProvider.query(event, toContentProviderQuery({ collection: 'docs' })),
     ).rejects.toMatchObject({
-      statusCode: 502,
-      statusMessage: 'provider_response_invalid',
-      data: { code: 'provider_response_invalid' },
+      statusCode: 500,
+      statusMessage: 'BACKEND_FAILURE',
+      data: { code: 'BACKEND_FAILURE' },
     })
   })
 
@@ -573,9 +645,9 @@ describe('Ginko Nuxt provider v2', () => {
     }
 
     await expect(contentProvider.query(event, query)).rejects.toMatchObject({
-      statusCode: 502,
-      statusMessage: 'provider_response_invalid',
-      data: { code: 'provider_response_invalid' },
+      statusCode: 500,
+      statusMessage: 'BACKEND_FAILURE',
+      data: { code: 'BACKEND_FAILURE' },
     })
   })
 
@@ -588,14 +660,14 @@ describe('Ginko Nuxt provider v2', () => {
     ['search', () => contentProvider.search!(event, { term: 'routing', collections: ['docs'] })],
     ['site data', () => contentProvider.siteData!(event, { key: 'announcement', locale: 'en' })],
     ['routes', () => contentProvider.routes!(event)],
-  ])('rejects a malformed %s envelope before shaping', async (_operation, invoke) => {
+  ])('normalizes a malformed %s envelope before shaping', async (_operation, invoke) => {
     convexMock.query.mockResolvedValueOnce({ malformed: true })
 
     const error = await invoke().catch((cause) => cause)
     expect(error).toMatchObject({
-      statusCode: 502,
-      statusMessage: 'provider_response_invalid',
-      data: { code: 'provider_response_invalid' },
+      statusCode: 500,
+      statusMessage: 'BACKEND_FAILURE',
+      data: { code: 'BACKEND_FAILURE' },
     })
     expect(error.data).not.toHaveProperty('operation')
   })

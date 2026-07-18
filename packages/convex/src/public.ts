@@ -1,4 +1,5 @@
 import {
+  count as countArgs,
   list as listArgs,
   nav as navArgs,
   page as pageArgs,
@@ -21,9 +22,11 @@ import {
   ginkoSiteDataResultValidator,
   ginkoSurroundResultValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
+import { v } from 'convex/values'
 
 import { callerQuery } from './functions.js'
 import {
+  countHandler,
   listHandler,
   routesHandler,
   searchHandler,
@@ -55,6 +58,13 @@ export const list = callerQuery.public({
   args: listArgs.args,
   returns: ginkoListResultValidator,
   handler: listHandler,
+})
+
+export const count = callerQuery.public({
+  id: 'public:count',
+  args: countArgs.args,
+  returns: v.number(),
+  handler: countHandler,
 })
 
 export const nav = callerQuery.public({

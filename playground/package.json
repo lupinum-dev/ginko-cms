@@ -11,7 +11,7 @@
     "@lupinum/ginko-cms": "workspace:*",
     "@lupinum/ginko-cms-contract": "workspace:*",
     "@lupinum/ginko-cms-convex": "workspace:*",
-    "@lupinum/ginko-content": "^0.3.0-rc.1",
+    "@lupinum/ginko-content": "^0.3.0-rc.4",
     "@nuxtjs/sitemap": "^8.0.15",
     "@tailwindcss/vite": "^4.3.0",
     "better-auth": "1.6.23",

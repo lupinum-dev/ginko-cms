@@ -1,4 +1,5 @@
 import {
+  count as countArgs,
   list as listArgs,
   nav as navArgs,
   page as pageArgs,
@@ -27,6 +28,11 @@ export const routeMeta = query({
 export const list = query({
   args: listArgs.args,
   handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.public.list, args),
+})
+
+export const count = query({
+  args: countArgs.args,
+  handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.public.count, args),
 })
 
 export const nav = query({

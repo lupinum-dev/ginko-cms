@@ -158,6 +158,9 @@ describe('canonical editorial core', () => {
         publicPathForEntry(innerCtx, child as never, { pathPrefix: '/posts' }),
       ),
     ).resolves.toBeNull()
+    await expect(
+      ctx.raw.query(api.public.count, { collection: 'posts', locale: 'en' }),
+    ).resolves.toBe(0)
     expect(
       (await ctx.readAll('entries')).find((entry: { _id: string }) => entry._id === childId),
     ).toMatchObject({
@@ -219,6 +222,9 @@ describe('canonical editorial core', () => {
     ).resolves.toBeNull()
 
     await publishEntry(owner, parentId)
+    await expect(
+      ctx.raw.query(api.public.count, { collection: 'posts', locale: 'en' }),
+    ).resolves.toBe(2)
     await expect(
       ctx.raw.query(api.public.page, {
         collection: 'posts',

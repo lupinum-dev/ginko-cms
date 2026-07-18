@@ -100,6 +100,9 @@ describe('canonical public content API', () => {
 
     expect(seen).toHaveLength(5)
     expect(new Set(seen)).toEqual(new Set(ids))
+    await expect(
+      ctx.raw.query(api.public.count, { collection: 'posts', locale: 'en' }),
+    ).resolves.toBe(5)
 
     const cursorPage = await ctx.raw.query(api.public.list, {
       collection: 'posts',

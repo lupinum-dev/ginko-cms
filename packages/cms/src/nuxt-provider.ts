@@ -19,6 +19,7 @@ import type {
 } from '@lupinum/ginko-content/data-source'
 import {
   bindContentProvider,
+  PROVIDER_QUERY_VERSION,
   type ContentCacheHint,
   type ContentProvider,
   type ContentProviderNavigationItem,
@@ -67,7 +68,7 @@ type RuntimeConfig = {
   public?: { content?: ContentRuntime }
   content?: ContentRuntime
 }
-type FilterState = { locale?: string; pathPrefix?: string }
+type FilterState = { locale?: string; pathPrefix?: string; impossible?: true }
 type PlanFilter = ContentProviderQuery['plan']['filter']
 type PlanCompare = Extract<PlanFilter, { type: 'compare' }>
 type PlanSort = ContentProviderQuery['plan']['sort']
@@ -289,10 +290,10 @@ const applyOnlyProjection = (
 }
 
 function assertProviderQuery(input: unknown): asserts input is ContentProviderQuery {
-  if (!isRecord(input) || input.v !== 2 || !isRecord(input.plan)) {
+  if (!isRecord(input) || input.v !== PROVIDER_QUERY_VERSION || !isRecord(input.plan)) {
     throw providerError(
       'unsupported_query_shape',
-      'Ginko CMS provider requires the ginko-content provider query wire v2.',
+      `Ginko CMS provider requires the ginko-content provider query wire v${PROVIDER_QUERY_VERSION}.`,
       400,
       { field: 'query' },
     )
@@ -354,33 +355,78 @@ const assertSupportedPlanOperator = (operator: string): void => {
   )
 }
 
-const applyPlanCompare = (state: FilterState, clause: PlanCompare): void => {
+const applyPlanCompare = (state: FilterState, clause: PlanCompare): FilterState => {
   assertSupportedPlanOperator(clause.operator)
   const { field, operator, value } = clause
-  if ((field === 'draft' || field === 'partial') && operator === 'ne' && value === true) return
-  if ((field === 'draft' || field === 'partial') && operator === 'eq' && value === false) return
+  if (field === 'draft' || field === 'partial') {
+    if ((operator === 'ne' && value === true) || (operator === 'eq' && value === false)) {
+      return state
+    }
+    if ((operator === 'eq' && value === true) || (operator === 'ne' && value === false)) {
+      return { impossible: true }
+    }
+    return unsupportedFilter('where')
+  }
   if (field === 'locale' && operator === 'eq' && typeof value === 'string') {
-    state.locale = value
-    return
+    if (state.locale && state.locale !== value) return { impossible: true }
+    return { ...state, locale: value }
   }
   if (field === 'path' && operator === 'prefix' && typeof value === 'string' && value) {
-    state.pathPrefix = value
-    return
+    if (!state.pathPrefix) return { ...state, pathPrefix: value }
+    if (value === state.pathPrefix || value.startsWith(`${state.pathPrefix}/`)) {
+      return { ...state, pathPrefix: value }
+    }
+    if (state.pathPrefix.startsWith(`${value}/`)) return state
+    return { impossible: true }
   }
   return unsupportedFilter('where')
 }
 
-const collectPlanFilter = (filter: PlanFilter, state: FilterState = {}): FilterState => {
-  if (!filter || filter.type === 'true') return state
+const sameFilterState = (left: FilterState, right: FilterState): boolean =>
+  left.impossible === right.impossible &&
+  left.locale === right.locale &&
+  left.pathPrefix === right.pathPrefix
+
+const collectPlanFilter = (filter: PlanFilter): FilterState => {
+  if (!filter || filter.type === 'true') return {}
   if (filter.type === 'and') {
-    for (const clause of filter.clauses || []) collectPlanFilter(clause, state)
+    let state: FilterState = {}
+    for (const clause of filter.clauses || []) {
+      const next = collectPlanFilter(clause)
+      if (state.impossible || next.impossible) return { impossible: true }
+      if (next.locale) {
+        if (state.locale && state.locale !== next.locale) return { impossible: true }
+        state = { ...state, locale: next.locale }
+      }
+      if (next.pathPrefix) {
+        state = applyPlanCompare(state, {
+          type: 'compare',
+          field: 'path',
+          operator: 'prefix',
+          value: next.pathPrefix,
+        })
+      }
+    }
     return state
   }
   if (filter.type === 'compare') {
-    applyPlanCompare(state, filter)
-    return state
+    return applyPlanCompare({}, filter)
   }
-  unsupportedFilter('where')
+  if (filter.type === 'or') {
+    const branches = filter.clauses.map(collectPlanFilter)
+    const possible = branches.filter((branch) => !branch.impossible)
+    if (!possible.length) return { impossible: true }
+    if (possible.length === 1) return possible[0]!
+    if (possible.every((branch) => sameFilterState(branch, possible[0]!))) return possible[0]!
+    return unsupportedFilter('where')
+  }
+  if (filter.type === 'not') {
+    const child = collectPlanFilter(filter.clause)
+    if (child.impossible) return {}
+    if (sameFilterState(child, {})) return { impossible: true }
+    return unsupportedFilter('where')
+  }
+  return unsupportedFilter('where')
 }
 
 const sortFromPlan = (sort: PlanSort = []): string | undefined => {
@@ -590,6 +636,20 @@ const contentDataSource = {
     const collection = input.collection
     assertQueryCollection(collection)
     const filterState = collectPlanFilter(plan.filter)
+    if (filterState.impossible) {
+      const limit = plan.paging?.mode === 'cursor' ? plan.paging.limit : (plan.limit ?? 100)
+      return sourceResult(
+        plan.mode === 'first'
+          ? { result: undefined }
+          : {
+              mode: 'cursor' as const,
+              result: [],
+              limit,
+              pageInfo: { endCursor: null, hasNext: false },
+            },
+        collectionCacheHint(collection),
+      )
+    }
     const locale = localeFromQuery(input, filterState, contentRuntime)
     const pathPrefix = filterState.pathPrefix
       ? canonicalFromRoute(filterState.pathPrefix, locale)
@@ -600,19 +660,35 @@ const contentDataSource = {
       'Ginko public path prefix queries use path-index order and cannot be combined with public sort.',
     )
     const sort = sortFromPlan(plan.sort)
-    const result = decodeRequested(
-      'list',
-      parseCmsListWireResult,
-      { collection, locale },
-      await callGinko(context.caller, 'list', {
-        collection,
-        locale,
-        limit: plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit,
-        cursor: plan.paging?.mode === 'cursor' ? plan.paging.after : undefined,
-        ...(pathPrefix ? { pathPrefix } : {}),
-        ...(sort ? { sort } : {}),
-      }),
-    )
+    const listArgs = {
+      collection,
+      locale,
+      limit: plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit,
+      cursor: plan.paging?.mode === 'cursor' ? plan.paging.after : undefined,
+      ...(pathPrefix ? { pathPrefix } : {}),
+      ...(sort ? { sort } : {}),
+    }
+    const [rawList, total] = await Promise.all([
+      callGinko(context.caller, 'list', listArgs),
+      plan.paging?.mode === 'cursor'
+        ? Promise.resolve<number | null>(null)
+        : callGinko(context.caller, 'count', {
+            collection,
+            locale,
+            ...(pathPrefix ? { pathPrefix } : {}),
+          }).then((value) => {
+            if (!Number.isSafeInteger(value) || (value as number) < 0) {
+              throw providerError(
+                'provider_response_invalid',
+                'Ginko public count returned an invalid total.',
+                502,
+                { operation: 'count' },
+              )
+            }
+            return value as number
+          }),
+    ])
+    const result = decodeRequested('list', parseCmsListWireResult, { collection, locale }, rawList)
     const rawEntries = result.entries || []
     const entries = (
       await Promise.all(rawEntries.map((entry) => toContentEntry(entry, locale)))
@@ -621,15 +697,22 @@ const contentDataSource = {
     const data =
       plan.mode === 'first'
         ? { result: entries[0] }
-        : {
-            mode: 'cursor' as const,
-            result: entries,
-            limit,
-            pageInfo: {
-              endCursor: result.pageInfo?.endCursor ?? null,
-              hasNext: result.pageInfo?.hasNextPage === true,
-            },
-          }
+        : plan.paging?.mode === 'cursor'
+          ? {
+              mode: 'cursor' as const,
+              result: entries,
+              limit,
+              pageInfo: {
+                endCursor: result.pageInfo?.endCursor ?? null,
+                hasNext: result.pageInfo?.hasNextPage === true,
+              },
+            }
+          : {
+              result: entries,
+              skip: 0,
+              limit,
+              total: total!,
+            }
     const entryHints = rawEntries.map((entry, index) => cacheHintForEntry(entry, entries[index]))
     return sourceResult(data, mergeCacheHints(collectionCacheHint(collection), ...entryHints))
   },
