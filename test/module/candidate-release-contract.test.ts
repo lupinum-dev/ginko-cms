@@ -61,6 +61,8 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).not.toContain('GINKO_CONTENT_SHA256')
     expect(source).not.toContain('BETTER_CONVEX_NUXT_SHA256')
     expect(source).toContain('compatibilityMatrix.releaseArtifacts')
+    expect(source).toContain("resolve(packDir, 'candidate-artifact.json')")
+    expect(source).toContain(': resolve(packDir, recorded.tarball)')
     expect(source).toContain("consumerPackageManager === 'npm'")
     expect(source).toContain("npm_config_legacy_peer_deps: 'false'")
     expect(source).toContain("'    mcp: false,'")

@@ -76,17 +76,30 @@ function declaredExportSpecifiers(packageManifest) {
 }
 
 function requireCandidateArtifact(pathVariable, packageName) {
-  const artifact = process.env[pathVariable]
   const expected = compatibilityMatrix.releaseArtifacts[packageName]
-  if (!artifact) {
-    throw new Error(`Candidate verification requires ${pathVariable}.`)
-  }
   if (!expected?.sha256 || !expected?.sourceCommit) {
     throw new Error(`Compatibility is missing immutable release evidence for ${packageName}.`)
   }
-  const resolvedArtifact = resolve(artifact)
+  const evidencePath = resolve(packDir, 'candidate-artifact.json')
+  if (!existsSync(evidencePath)) {
+    throw new Error(
+      'Candidate artifacts are missing candidate-artifact.json; run pnpm candidate:pack.',
+    )
+  }
+  const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
+  const recorded = evidence.artifacts?.[packageName]
+  if (
+    recorded?.sha256 !== expected.sha256 ||
+    recorded?.commit !== expected.sourceCommit ||
+    typeof recorded?.tarball !== 'string'
+  ) {
+    throw new Error(`Candidate evidence does not match compatibility for ${packageName}.`)
+  }
+  const resolvedArtifact = process.env[pathVariable]
+    ? resolve(process.env[pathVariable])
+    : resolve(packDir, recorded.tarball)
   if (!existsSync(resolvedArtifact) || !resolvedArtifact.endsWith('.tgz')) {
-    throw new Error(`${pathVariable} must reference an existing .tgz file.`)
+    throw new Error(`${pathVariable} must reference the recorded ${packageName} .tgz file.`)
   }
   const actualHash = sha256(resolvedArtifact)
   if (actualHash !== expected.sha256) {
