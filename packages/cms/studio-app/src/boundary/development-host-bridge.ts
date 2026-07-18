@@ -36,10 +36,6 @@ export function createDevelopmentHostBridge(): GinkoCmsStudioHostBridge {
     },
     api: apiProxy() as GinkoCmsStudioHostBridge['api'],
     auth: null,
-    mcpApiKeys: {
-      create: unavailable,
-      delete: unavailable,
-    },
     onSignOut: unavailable,
   }
 }

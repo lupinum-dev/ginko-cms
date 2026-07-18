@@ -398,6 +398,7 @@ export const moveAsset = callerMutation.protected({
 })
 
 export const getAsset = callerQuery.protected({
+  acceptsTrustedCaller: true,
   id: 'assets:getAsset',
   args: getAssetArgs.args,
   guard: canRead,
@@ -412,6 +413,7 @@ export const getAsset = callerQuery.protected({
 })
 
 export const resolveAssetUrls = callerQuery.protected({
+  acceptsTrustedCaller: true,
   id: 'assets:resolveAssetUrls',
   args: resolveAssetUrlsArgs.args,
   guard: canRead,

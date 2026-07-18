@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
   })
   const holdId = requiredSha256(getRouterParam(event, 'holdId'))
   const runId = requiredHeader(event, 'x-ginko-portability-run', 256)
-  const secret = process.env.BETTER_AUTH_SECRET?.trim()
+  const secret = process.env.GINKO_CMS_PORTABILITY_SECRET?.trim()
   if (!secret) throw unavailable('Portability token sealing is not configured.')
   const attempt = createPortableAssetDownloadAttempt(secret)
   const caller = serverConvex(event, { auth: 'required' })

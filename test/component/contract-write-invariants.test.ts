@@ -15,7 +15,7 @@ function directOwner(ctx: ReturnType<typeof createCtx>) {
   return ctx.raw.withIdentity({
     subject: 'owner-1',
     sessionId: 'direct-component-test',
-    ginkoCredentialKind: 'user-session',
+    token_use: 'convex-session',
   })
 }
 
@@ -26,8 +26,8 @@ describe('transactional CMS contract write invariants', () => {
       'agentRuns:revokeRun',
       'ginko-cms.remove-member',
       'mcpAuthLimiter:recordFailure',
+      'mcpCredentials:createCredential',
       'mcpCredentials:revokeSettings',
-      'mcpCredentials:upsertSettings',
       'members:acceptMemberInvitation',
       'members:bootstrapCmsOwner',
       'members:prepareMemberInvitationDelivery',

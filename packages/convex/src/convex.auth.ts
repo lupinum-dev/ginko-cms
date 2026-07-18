@@ -1,17 +1,13 @@
-import { apiKey } from '@better-auth/api-key'
-import { createClient, type GenericCtx } from '@convex-dev/better-auth'
-import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth, type BetterAuthOptions } from 'better-auth'
-import type { AuthConfig, GenericSchema, SchemaDefinition } from 'convex/server'
-
+import { jwt } from 'better-auth/plugins'
 import {
-  ginkoConvexJwtPayload,
-  ginkoCredentialKindPlugin,
-  parseBearerApiKey,
-  resolveBetterAuthSecret,
-} from './auth/credentialKind.js'
-
-export { requireBetterAuthSecret } from './auth/credentialKind.js'
+  convexAuth,
+  createAuthComponent,
+  getConvexAuthProvider,
+  requireAuthOrigin,
+  type AuthCtx,
+} from 'better-convex-nuxt/convex-auth'
+import type { GenericDataModel } from 'convex/server'
 
 declare const process: {
   env: Record<string, string | undefined>
@@ -19,22 +15,27 @@ declare const process: {
 
 type DefineGinkoAuthDeps = {
   components: Record<string, unknown> & {
-    betterAuth: Parameters<typeof createClient>[0]
+    betterAuth: Parameters<typeof createAuthComponent>[0]
   }
-  authConfig: AuthConfig
-  authSchema?: SchemaDefinition<GenericSchema, true>
 }
 
 export type GinkoAuthDeps = DefineGinkoAuthDeps
 export type GinkoAuthOptions = {
   emailPassword?: boolean
-  trustedOrigins?: BetterAuthOptions['trustedOrigins']
   passwordRecovery?: {
     sendResetPassword: NonNullable<
       NonNullable<BetterAuthOptions['emailAndPassword']>['sendResetPassword']
     >
     tokenExpiresInSeconds?: number
   }
+}
+
+export type GinkoAuthSetup<DataModel extends GenericDataModel> = {
+  authComponent: ReturnType<typeof createAuthComponent<DataModel>>
+  createAuth: (ctx: AuthCtx<DataModel>) => Promise<{
+    $context: Promise<unknown>
+    handler: (request: Request) => Promise<Response>
+  }>
 }
 
 export function deny(message = 'Forbidden'): never {
@@ -51,33 +52,47 @@ export async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<
   return identity
 }
 
-function resolveTrustedOrigins(configured: BetterAuthOptions['trustedOrigins'] = []) {
-  const origins = [
-    process.env.SITE_URL,
-    process.env.NUXT_PUBLIC_SITE_URL,
-    process.env.BETTER_AUTH_URL,
-    ...(Array.isArray(configured) ? configured : []),
-  ].filter((origin): origin is string => typeof origin === 'string' && origin.length > 0)
-
-  return Array.from(new Set(origins.map((origin) => origin.replace(/\/+$/, ''))))
+function assertAuthSecretsConfigured(): void {
+  if (!process.env.BETTER_AUTH_SECRETS) {
+    throw new Error('BETTER_AUTH_SECRETS is required.')
+  }
 }
 
 /**
- * Ginko-owned auth bootstrap for Convex apps.
+ * Ginko's single Better Convex Nuxt auth composition.
  *
- * Consumers configure providers in `convex/auth.config.ts`; the CMS owns the
- * direct Better Auth component setup.
+ * Better Convex Nuxt owns the component schema, adapter, session JWT, proxy
+ * trust boundary, and JWKS lifecycle. Ginko supplies only the product's
+ * email/password and recovery policy.
  */
-export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOptions = {}) {
-  const authComponent = createClient(deps.components.betterAuth, {
-    ...(deps.authSchema ? { local: { schema: deps.authSchema } } : {}),
-  })
+export function defineGinkoAuth<DataModel extends GenericDataModel = GenericDataModel>(
+  deps: DefineGinkoAuthDeps,
+  options: GinkoAuthOptions = {},
+): GinkoAuthSetup<DataModel> {
+  const authComponent = createAuthComponent<DataModel>(deps.components.betterAuth)
 
-  const createAuthOptions = (ctx: GenericCtx) =>
-    ({
-      secret: resolveBetterAuthSecret(),
-      trustedOrigins: resolveTrustedOrigins(options.trustedOrigins),
+  const createAuth: GinkoAuthSetup<DataModel>['createAuth'] = async (ctx) => {
+    const siteUrl = requireAuthOrigin('SITE_URL')
+    const convexSiteUrl = requireAuthOrigin('CONVEX_SITE_URL')
+    const authIssuer = `${siteUrl}/api/auth`
+    assertAuthSecretsConfigured()
+
+    const auth = betterAuth({
+      account: { encryptOAuthTokens: true, storeAccountCookie: false },
+      advanced: { ipAddress: { ipAddressHeaders: ['x-bcn-verified-client-ip'] } },
+      basePath: '/api/auth',
+      baseURL: siteUrl,
       database: authComponent.adapter(ctx),
+      disabledPaths: [
+        '/token',
+        '/get-access-token',
+        '/refresh-token',
+        '/.well-known/openid-configuration',
+        '/oauth2/register',
+        '/oauth2/introspect',
+        '/oauth2/userinfo',
+        '/oauth2/end-session',
+      ],
       emailAndPassword: {
         enabled: options.emailPassword ?? true,
         ...(options.passwordRecovery
@@ -90,29 +105,27 @@ export function defineGinkoAuth(deps: DefineGinkoAuthDeps, options: GinkoAuthOpt
           : {}),
       },
       plugins: [
-        apiKey({
-          customAPIKeyGetter: (ctx) => parseBearerApiKey(ctx.headers?.get('authorization')),
-          enableMetadata: true,
-          enableSessionForAPIKeys: true,
-          rateLimit: {
-            enabled: false,
+        jwt({
+          disableSettingJwtHeader: true,
+          jwks: {
+            disablePrivateKeyEncryption: false,
+            gracePeriod: 21 * 60,
+            keyPairConfig: { alg: 'RS256' },
           },
+          jwt: { audience: authIssuer, expirationTime: '10m', issuer: authIssuer },
         }),
-        ginkoCredentialKindPlugin(),
-        convex({
-          authConfig: deps.authConfig,
-          jwt: {
-            definePayload: ginkoConvexJwtPayload,
-          },
+        convexAuth({
+          authConfig: { providers: [getConvexAuthProvider()] },
+          sessionJwt: { audience: 'convex', expirationTime: '15m', issuer: convexSiteUrl },
         }),
       ],
-    }) satisfies BetterAuthOptions
-
-  const createAuth = (ctx: GenericCtx) => betterAuth(createAuthOptions(ctx))
-
-  return {
-    authComponent,
-    createAuth,
-    createAuthOptions,
+      rateLimit: { enabled: true, modelName: 'rateLimit', storage: 'database' },
+      trustedOrigins: [siteUrl],
+      verification: { storeIdentifier: 'hashed' },
+    })
+    await auth.$context
+    return auth
   }
+
+  return { authComponent, createAuth }
 }

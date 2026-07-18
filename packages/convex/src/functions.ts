@@ -3,7 +3,6 @@ import {
   assertCmsCallerConsistency,
   cmsAnonymousCaller,
   cmsCallerFromConvexAuthIdentity,
-  cmsMcpCaller,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { CmsCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type {
@@ -58,8 +57,7 @@ type BetterAuthConvexIdentity = {
   name?: string | null
   email?: string | null
   emailVerified?: boolean | null
-  sessionId?: unknown
-  ginkoCredentialKind?: unknown
+  token_use?: unknown
 }
 
 type HandlerCtx<TCtx> = TCtx & {
@@ -89,7 +87,7 @@ export const CONTRACT_WRITE_BYPASS_IDS: ReadonlySet<string> = new Set([
   'ginko-cms.remove-member',
   'mcpAuthLimiter:recordFailure',
   'mcpCredentials:revokeSettings',
-  'mcpCredentials:upsertSettings',
+  'mcpCredentials:createCredential',
   'members:acceptMemberInvitation',
   'members:bootstrapCmsOwner',
   'members:prepareMemberInvitationDelivery',
@@ -143,28 +141,13 @@ export async function resolveCmsCaller(ctx: RootCtx): Promise<CmsCaller> {
   const auth = (await ctx.auth.getUserIdentity()) as BetterAuthConvexIdentity | null
   if (!auth?.subject) return cmsAnonymousCaller()
 
-  switch (auth.ginkoCredentialKind) {
-    case 'user-session':
-      return assertCmsCallerConsistency(cmsCallerFromConvexAuthIdentity(auth))
-
-    case 'mcp-api-key': {
-      const apiKeyId = typeof auth.sessionId === 'string' ? auth.sessionId : null
-      if (apiKeyId) {
-        const mcpCaller = cmsMcpCaller(apiKeyId)
-        const mcpIdentity = await getAppIdentity(ctx, mcpCaller)
-        if (mcpIdentity?.kind === 'member' && mcpIdentity.userId === auth.subject) {
-          return assertCmsCallerConsistency(mcpCaller)
-        }
-      }
-      return throwCmsError('MCP_CREDENTIAL_REJECTED', 'MCP credential is not active.')
-    }
-
-    default:
-      return throwCmsError(
-        'CMS_CREDENTIAL_KIND_INVALID',
-        'Authenticated identity has no supported credential kind.',
-      )
+  if (auth.token_use === 'convex-session') {
+    return assertCmsCallerConsistency(cmsCallerFromConvexAuthIdentity(auth))
   }
+  return throwCmsError(
+    'CMS_CREDENTIAL_KIND_INVALID',
+    'Authenticated identity has no supported credential kind.',
+  )
 }
 
 export async function resolveCmsAppIdentity(
@@ -406,8 +389,13 @@ function protectedMutationHandler<
       )
     }
 
-    const handlerCtx = await createHandlerCtx(ctx, definition.guard)
-    const handlerArgs = args as ArgsFor<TArgsValidator>
+    const trustedCaller = definition.acceptsTrustedCaller
+      ? (args._trustedCaller as CmsCaller | null)
+      : null
+    const handlerCtx = await createHandlerCtx(ctx, definition.guard, trustedCaller)
+    const handlerArgs = Object.fromEntries(
+      Object.entries(args).filter(([key]) => key !== '_trustedCaller'),
+    ) as ArgsFor<TArgsValidator>
     const loaded = (
       definition.load ? await definition.load(handlerCtx, handlerArgs) : undefined
     ) as TLoaded

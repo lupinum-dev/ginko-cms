@@ -14,11 +14,6 @@ export type McpAuthErrorFactory = (input: {
   statusMessage: string
 }) => Error & { statusCode: number; statusMessage: string }
 
-type ResolvedMcpCredentialAccess = {
-  apiKeyId: string
-  ownerUserId: string
-}
-
 type SignedLimiterArgs = {
   ipBucketKey: string
   credentialBucketKey: string
@@ -38,11 +33,7 @@ export type AuthenticateDeps = {
   limiterSecret: string
   checkFailureBudget: (args: SignedLimiterArgs) => Promise<{ limited: boolean }>
   recordFailure: (args: SignedLimiterArgs) => Promise<{ limited: boolean }>
-  exchangeCredential: (credential: string) => Promise<ExchangedMcpCredential | null>
-  resolveCredentialAccess: (
-    apiKeyId: string,
-    caller: ExchangedMcpCredential['caller'],
-  ) => Promise<ResolvedMcpCredentialAccess | null>
+  authenticateCredential: (credential: string) => Promise<ExchangedMcpCredential | null>
   now?: () => number
   requestId?: () => string
 }
@@ -161,7 +152,7 @@ export async function authenticateMcpRequestContext(
 
   let exchanged: ExchangedMcpCredential | null
   try {
-    exchanged = await deps.exchangeCredential(token)
+    exchanged = await deps.authenticateCredential(token)
   } catch (error) {
     if (statusCode(error) === 429) {
       throw deps.createError({
@@ -182,30 +173,6 @@ export async function authenticateMcpRequestContext(
       statusMessage: limited
         ? 'Too many invalid MCP authentication attempts'
         : 'Invalid MCP authentication token',
-    })
-  }
-
-  let access: ResolvedMcpCredentialAccess | null
-  try {
-    access = await deps.resolveCredentialAccess(exchanged.apiKeyId, exchanged.caller)
-  } catch {
-    throw deps.createError({
-      statusCode: 503,
-      statusMessage: 'MCP authentication temporarily unavailable',
-    })
-  }
-
-  if (
-    !access ||
-    access.apiKeyId !== exchanged.apiKeyId ||
-    access.ownerUserId !== exchanged.ownerUserId
-  ) {
-    const limited = await limiter.recordFailure()
-    throw deps.createError({
-      statusCode: limited ? 429 : 401,
-      statusMessage: limited
-        ? 'Too many invalid MCP authentication attempts'
-        : 'Invalid MCP credential settings',
     })
   }
 

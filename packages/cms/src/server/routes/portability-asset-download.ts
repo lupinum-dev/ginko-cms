@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   if (!Number.isSafeInteger(downloadGeneration) || downloadGeneration < 1) {
     throw badRequest('Invalid portability attempt generation.')
   }
-  const secret = process.env.BETTER_AUTH_SECRET?.trim()
+  const secret = process.env.GINKO_CMS_PORTABILITY_SECRET?.trim()
   if (!secret) throw unavailable('Portability token sealing is not configured.')
   const runtimeConfig = useRuntimeConfig(event) as { public?: { convex?: { url?: string } } }
   const convexUrl = runtimeConfig.public?.convex?.url

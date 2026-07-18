@@ -118,7 +118,7 @@ describe('cms permission context', () => {
     })
   })
 
-  it('does not grant MCP permissions when the token subject does not own the API key', async () => {
+  it('derives MCP ownership from canonical credential state, not caller metadata', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
@@ -140,9 +140,10 @@ describe('cms permission context', () => {
 
     const spoofedAgent = ctx.asMcpApiKey('ba_key_editor', 'outsider-1')
 
-    await expect(spoofedAgent.query(api.members.getAccessContext, {})).rejects.toThrow(
-      'MCP credential is not active',
-    )
+    await expect(spoofedAgent.query(api.members.getAccessContext, {})).resolves.toMatchObject({
+      userId: 'editor-1',
+      role: 'editor',
+    })
   })
 
   it('reports only effective scoped permissions for owner MCP credentials', async () => {

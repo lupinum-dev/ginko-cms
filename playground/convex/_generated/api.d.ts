@@ -20,6 +20,7 @@ import type * as ginkoCms_diagnostics from "../ginkoCms/diagnostics.js";
 import type * as ginkoCms_draftPreview from "../ginkoCms/draftPreview.js";
 import type * as ginkoCms_editor from "../ginkoCms/editor.js";
 import type * as ginkoCms_maintenance from "../ginkoCms/maintenance.js";
+import type * as ginkoCms_mcpCaller from "../ginkoCms/mcpCaller.js";
 import type * as ginkoCms_mcpCredentials from "../ginkoCms/mcpCredentials.js";
 import type * as ginkoCms_members from "../ginkoCms/members.js";
 import type * as ginkoCms_passwordRecovery from "../ginkoCms/passwordRecovery.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   "ginkoCms/draftPreview": typeof ginkoCms_draftPreview;
   "ginkoCms/editor": typeof ginkoCms_editor;
   "ginkoCms/maintenance": typeof ginkoCms_maintenance;
+  "ginkoCms/mcpCaller": typeof ginkoCms_mcpCaller;
   "ginkoCms/mcpCredentials": typeof ginkoCms_mcpCredentials;
   "ginkoCms/members": typeof ginkoCms_members;
   "ginkoCms/passwordRecovery": typeof ginkoCms_passwordRecovery;
@@ -89,6 +91,6 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
-  betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
+  betterAuth: import("better-convex-nuxt/convex-auth/_generated/component.js").ComponentApi<"betterAuth">;
   ginkoCms: import("@lupinum/ginko-cms-convex/_generated/component.js").ComponentApi<"ginkoCms">;
 };

@@ -13,6 +13,7 @@ import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { action, mutation, query } from '../_generated/server.js'
+import { bindMcpCaller, mcpCallerArgs } from './mcpCaller.js'
 
 declare const process: {
   env: Record<string, string | undefined>
@@ -125,9 +126,12 @@ async function deliverPreparedInvitation(
 }
 
 export const getAccessContext = query({
-  args: {},
+  args: { ...mcpCallerArgs },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.members.getAccessContext, args),
+    await ctx.runQuery(
+      components.ginkoCms.members.getAccessContext,
+      await bindMcpCaller(ctx, args),
+    ),
 })
 
 export const bootstrapCmsOwner = mutation({

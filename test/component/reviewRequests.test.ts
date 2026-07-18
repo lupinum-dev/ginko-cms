@@ -4,7 +4,7 @@ import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permission
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createCtx, seedMember, seedOwner } from '../helpers'
+import { createCtx, seedMcpCredential, seedMember, seedOwner } from '../helpers'
 import {
   currentDraftVersion,
   publishEntry,
@@ -16,7 +16,7 @@ import {
 const api = anyApi
 
 async function createEditorAgent(ctx: ReturnType<typeof createCtx>) {
-  await ctx.asCmsUser('owner-1').mutation(api.mcpCredentials.upsertSettings, {
+  await seedMcpCredential(ctx, {
     apiKeyId: 'ba_key_editor',
     ownerUserId: 'editor-1',
     scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
@@ -203,7 +203,7 @@ describe('canonical publish reviews', () => {
         reviewRequestId: review._id,
         expectedVersionHash: review.versionHash,
       }),
-    ).rejects.toThrow(/Publish entries/i)
+    ).rejects.toThrow(/Unexpected field `_trustedCaller`/)
     await expect(
       viewer.mutation(api.reviewRequests.approveReview, {
         reviewRequestId: review._id,

@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   const sha256 = requiredSha256(getRouterParam(event, 'sha256'))
   const runId = requiredHeader(event, 'x-ginko-portability-run', 256)
   const payloadSha256 = requiredSha256(requiredHeader(event, 'x-ginko-portability-payload', 64))
-  const secret = process.env.BETTER_AUTH_SECRET?.trim()
+  const secret = process.env.GINKO_CMS_PORTABILITY_SECRET?.trim()
   if (!secret) throw unavailable('Portability token sealing is not configured.')
   const runtimeConfig = useRuntimeConfig(event) as { public?: { convex?: { url?: string } } }
   const convexUrl = runtimeConfig.public?.convex?.url

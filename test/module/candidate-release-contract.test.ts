@@ -22,14 +22,14 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms': '0.2.0-rc.1',
       '@lupinum/ginko-cms-convex': '0.2.0-rc.1',
       '@lupinum/ginko-cms-contract': '0.2.0-rc.1',
-      '@lupinum/ginko-content': '0.3.0-rc.1',
-      'better-convex-nuxt': '0.6.1',
+      '@lupinum/ginko-content': '0.3.0-rc.5',
+      'better-convex-nuxt': '0.7.0-beta.0',
     })
     expect(
       readJson<{ consumer: { dependencies: Record<string, string> } }>(
         'packages/cms/compatibility.json',
       ).consumer.dependencies.convex,
-    ).toBe('1.42.1')
+    ).toBe('1.42.2')
     expect(Object.keys(compatibility.releaseArtifacts).sort()).toEqual([
       '@lupinum/ginko-content',
       'better-convex-nuxt',

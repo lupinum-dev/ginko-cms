@@ -35,6 +35,7 @@ import { v } from 'convex/values'
 import { components } from '../_generated/api.js'
 import { mutation, query } from '../_generated/server.js'
 import { bindExpectedCmsContract } from './contractBinding.js'
+import { bindMcpCaller, mcpCallerArgs } from './mcpCaller.js'
 
 function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
   return {
@@ -44,9 +45,12 @@ function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
 }
 
 export const listEntriesForStudio = query({
-  args: listEntriesForStudioArgs.args,
+  args: { ...listEntriesForStudioArgs.args, ...mcpCallerArgs },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.editor.listEntriesForStudio, args),
+    await ctx.runQuery(
+      components.ginkoCms.editor.listEntriesForStudio,
+      await bindMcpCaller(ctx, args),
+    ),
 })
 
 export const listEntrySummaries = query({
@@ -68,16 +72,21 @@ export const listStudioWorkQueue = query({
 })
 
 export const getEntry = query({
-  args: getEntryArgs.args,
-  handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.editor.getEntry, args),
+  args: { ...getEntryArgs.args, ...mcpCallerArgs },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.editor.getEntry, await bindMcpCaller(ctx, args)),
 })
 
 export const getEntryReadinessDetail = query({
   args: {
     entryId: v.string(),
+    ...mcpCallerArgs,
   },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.editor.getEntryReadinessDetail, args),
+    await ctx.runQuery(
+      components.ginkoCms.editor.getEntryReadinessDetail,
+      await bindMcpCaller(ctx, args),
+    ),
 })
 
 export const getEntryReadinessSummary = query({
@@ -143,9 +152,13 @@ export const mcpCreateEntry = mutation({
     agentRunId: v.string(),
     requestId: v.string(),
     ...createEntryArgs.args,
+    ...mcpCallerArgs,
   },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.editor.mcpCreateEntry, bindExpectedCmsContract(args)),
+    await ctx.runMutation(
+      components.ginkoCms.editor.mcpCreateEntry,
+      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
+    ),
 })
 
 export const createLocaleVariant = mutation({
@@ -167,11 +180,12 @@ export const mcpSaveEntryDraft = mutation({
   args: {
     agentRunId: v.string(),
     ...saveEntryDraftArgs.args,
+    ...mcpCallerArgs,
   },
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.editor.mcpSaveEntryDraft,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
     ),
 })
 
@@ -203,11 +217,12 @@ export const mcpPreviewPublishEntry = mutation({
   args: {
     agentRunId: v.string(),
     ...publishEntryArgs.args,
+    ...mcpCallerArgs,
   },
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.editor.mcpPreviewPublishEntry,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
     ),
 })
 

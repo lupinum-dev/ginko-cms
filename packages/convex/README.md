@@ -13,7 +13,7 @@ Most Nuxt apps install it next to `@lupinum/ginko-cms` and let
 Host apps install the component with the CMS module:
 
 ```bash
-pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt @convex-dev/better-auth better-auth
+pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt better-auth
 pnpm add -D convex
 ```
 

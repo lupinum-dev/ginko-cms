@@ -1109,7 +1109,9 @@ describe('portable draft import', () => {
     )
     const mcp = ctx.asMcpApiKey('portability-key', 'owner-1')
 
-    await expect(createPlan(ctx, mcp, contentHash)).rejects.toThrow('Manage portability')
+    await expect(createPlan(ctx, mcp, contentHash)).rejects.toThrow(
+      /Unexpected field `_trustedCaller`/,
+    )
     expect(await ctx.readAll('portableRuns' as never)).toEqual([])
   })
 

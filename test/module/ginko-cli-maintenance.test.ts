@@ -88,7 +88,6 @@ describe('ginko-cms owner maintenance CLI', () => {
         'CONVEX_URL=https://example.convex.cloud',
         'CONVEX_SITE_URL=https://example.convex.site',
         'GINKO_CMS_SESSION_COOKIE=better-auth.session_token=owner-session-token',
-        'BETTER_AUTH_SECRET=test-better-auth-secret',
         '',
       ].join('\n'),
       'utf8',

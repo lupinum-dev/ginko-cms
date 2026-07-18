@@ -60,9 +60,9 @@ describe('ginko-cms module e2e boot', () => {
         name: 'e2e-boot-fixture',
         type: 'module',
         dependencies: {
-          '@convex-dev/better-auth': '0.12.5',
           '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': '1.6.23',
+          'better-auth': '1.7.0-rc.1',
+          'better-convex-nuxt': '0.7.0-beta.0',
         },
       }),
       'utf-8',

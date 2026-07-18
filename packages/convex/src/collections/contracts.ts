@@ -71,6 +71,7 @@ function mapCollectionListItem(
 }
 
 export const listCollections = callerQuery.protected({
+  acceptsTrustedCaller: true,
   id: 'collections:listCollections',
   args: {},
   guard: canRead,
@@ -90,6 +91,7 @@ export const listCollections = callerQuery.protected({
 })
 
 export const getCollection = callerQuery.protected({
+  acceptsTrustedCaller: true,
   id: 'collections:getCollection',
   args: getCollectionArgs.args,
   guard: canRead,

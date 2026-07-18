@@ -218,7 +218,6 @@ describe('package boundary contracts', () => {
     expect(Object.keys(cmsPackage.exports ?? {}).sort()).toEqual([
       '.',
       './convex/auth',
-      './convex/auth-config',
       './nuxt-provider',
       './portability',
       './public',
@@ -394,7 +393,7 @@ describe('package boundary contracts', () => {
     expect(contractPackage.dependencies?.['@lupinum/ginko-cms']).toBeUndefined()
     expect(contractPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBeUndefined()
     expect(contractPackage.dependencies?.convex).toBeUndefined()
-    expect(contractPackage.peerDependencies?.convex).toBe('^1.42.1')
+    expect(contractPackage.peerDependencies?.convex).toBe('^1.42.2')
 
     const convexDeps = {
       ...convexPackage.dependencies,

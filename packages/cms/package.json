@@ -33,10 +33,6 @@
       "types": "./dist/convex/auth.d.ts",
       "import": "./dist/convex/auth.js"
     },
-    "./convex/auth-config": {
-      "types": "./dist/convex/auth-config.d.ts",
-      "import": "./dist/convex/auth-config.js"
-    },
     "./portability": {
       "types": "./dist/portability/index.d.ts",
       "import": "./dist/portability/index.js"
@@ -63,8 +59,6 @@
     "typecheck": "pnpm run build && pnpm --dir ../.. run prepare:playground && pnpm exec vue-tsc -p tsconfig.runtime.json --noEmit && pnpm run studio:typecheck"
   },
   "dependencies": {
-    "@better-auth/api-key": "1.6.23",
-    "@convex-dev/better-auth": "0.12.5",
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@lucide/vue": "^1.24.0",
@@ -73,8 +67,8 @@
     "@nuxt/kit": "^4.4.8",
     "@nuxtjs/color-mode": "^4.0.0",
     "@tailwindcss/vite": "^4.3.0",
-    "better-convex-nuxt": "^0.6.1",
-    "convex": "1.42.1",
+    "better-convex-nuxt": "^0.7.0-beta.0",
+    "convex": "1.42.2",
     "defu": "^6.1.4",
     "h3": "1.15.11",
     "jiti": "^2.7.0",
@@ -135,7 +129,7 @@
   },
   "peerDependencies": {
     "@lupinum/ginko-content": "^0.3.0-rc.4",
-    "better-auth": ">=1.6.13 <1.7.0",
+    "better-auth": ">=1.7.0-rc.1 <1.8.0",
     "nuxt": "^4.4.8",
     "vue": "^3.5.0"
   },

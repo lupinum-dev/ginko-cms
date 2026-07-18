@@ -2,7 +2,6 @@ import type { GinkoAuthOptions } from '../../packages/convex/src/convex.auth.js'
 
 const supportedOptions = {
   emailPassword: false,
-  trustedOrigins: ['https://cms.example.com'],
 } satisfies GinkoAuthOptions
 
 // @ts-expect-error Ginko owns the fixed Better Auth plugin and schema tuple.

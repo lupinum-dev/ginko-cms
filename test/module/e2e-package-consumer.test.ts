@@ -132,7 +132,6 @@ describe('ginko-cms package-first consumer fixture', () => {
         type: 'module',
         dependencies: {
           nuxt: workspacePackageJson.devDependencies.nuxt,
-          '@convex-dev/better-auth': cmsPackageJson.dependencies['@convex-dev/better-auth'],
           '@lupinum/ginko-content': `file:${contentTarball}`,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-contract': `file:${contractTarball}`,

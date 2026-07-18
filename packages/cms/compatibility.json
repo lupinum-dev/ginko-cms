@@ -5,7 +5,7 @@
     "@lupinum/ginko-cms-convex": "0.2.0-rc.1",
     "@lupinum/ginko-cms-contract": "0.2.0-rc.1",
     "@lupinum/ginko-content": "0.3.0-rc.5",
-    "better-convex-nuxt": "0.6.1"
+    "better-convex-nuxt": "0.7.0-beta.0"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
@@ -14,19 +14,15 @@
       "provisionalWorktree": true
     },
     "better-convex-nuxt": {
-      "sourceCommit": "dda45f962153601d8cbc4c645ad0cfd14fe39d8e",
-      "sha256": "46043aef29efc6087e4aa3fe90d88862fb6d57ac9fb96677adeff5672c4676fb"
+      "sourceCommit": "7b3e73d6a210f333f635d1ab95c2b7935b7c939d",
+      "sha256": "f45255c56b41f6dcc2609ca8603ac25e0733378bfb5ddb10e8f230485e5f9d27"
     }
   },
   "tracked": {
-    "@better-auth/api-key": ["1.6.23"],
-    "@better-auth/core": ["1.6.23"],
-    "@better-auth/utils": ["0.4.2"],
-    "@convex-dev/better-auth": ["0.12.5"],
     "@nuxtjs/mcp-toolkit": ["^0.16.1", "0.16.1", ">=0.16.1"],
-    "better-auth": ["1.6.23", ">=1.6.13 <1.7.0"],
-    "better-convex-nuxt": ["0.6.1", "^0.6.1"],
-    "convex": ["1.42.1", "^1.42.1"],
+    "better-auth": ["1.7.0-rc.1", ">=1.7.0-rc.1 <1.8.0"],
+    "better-convex-nuxt": ["0.7.0-beta.0", "^0.7.0-beta.0"],
+    "convex": ["1.42.2", "^1.42.2"],
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
     "nuxt": ["^4.4.8", "4.4.8"],
@@ -37,10 +33,9 @@
   },
   "consumer": {
     "dependencies": {
-      "@convex-dev/better-auth": "0.12.5",
-      "better-auth": "1.6.23",
-      "better-convex-nuxt": "0.6.1",
-      "convex": "1.42.1",
+      "better-auth": "1.7.0-rc.1",
+      "better-convex-nuxt": "0.7.0-beta.0",
+      "convex": "1.42.2",
       "nuxt": "^4.4.8"
     },
     "devDependencies": {

@@ -116,9 +116,8 @@ export function cmsCallerFromConvexAuthIdentity(identity: {
  * Builds a caller from raw Convex auth claims inside a HOST-APP function so it
  * can be forwarded into a component ACTION, where `ctx.auth` yields nothing
  * (Convex does not propagate user auth into component actions). The result is
- * only as trusted as the app-side `ctx.auth` identity it came from; MCP
- * callers are additionally re-validated against stored credentials when the
- * component resolves the app identity.
+ * only as trusted as the app-side `ctx.auth` identity it came from. MCP callers
+ * use the separate host-server assertion path and never enter Convex auth.
  */
 export function cmsCallerFromActionAuthIdentity(
   identity: {
@@ -126,16 +125,12 @@ export function cmsCallerFromActionAuthIdentity(
     name?: string | null
     email?: string | null
     emailVerified?: boolean | null
-    sessionId?: unknown
-    ginkoCredentialKind?: unknown
+    token_use?: unknown
   } | null,
 ): CmsUserCaller | CmsMcpCaller | null {
   if (!identity?.subject) return null
-  if (identity.ginkoCredentialKind === 'user-session') {
+  if (identity.token_use === 'convex-session') {
     return cmsCallerFromConvexAuthIdentity(identity)
-  }
-  if (identity.ginkoCredentialKind === 'mcp-api-key' && typeof identity.sessionId === 'string') {
-    return cmsMcpCaller(identity.sessionId)
   }
   return null
 }

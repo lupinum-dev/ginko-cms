@@ -27,7 +27,6 @@ import type * as assets_storageOwnership from "../assets/storageOwnership.js";
 import type * as assets_uploadSessions from "../assets/uploadSessions.js";
 import type * as auth_appIdentity from "../auth/appIdentity.js";
 import type * as auth_checks from "../auth/checks.js";
-import type * as auth_credentialKind from "../auth/credentialKind.js";
 import type * as auth_recordAccess from "../auth/recordAccess.js";
 import type * as collections from "../collections.js";
 import type * as collections_contracts from "../collections/contracts.js";
@@ -208,7 +207,6 @@ const fullApi: ApiFromModules<{
   "assets/uploadSessions": typeof assets_uploadSessions;
   "auth/appIdentity": typeof auth_appIdentity;
   "auth/checks": typeof auth_checks;
-  "auth/credentialKind": typeof auth_credentialKind;
   "auth/recordAccess": typeof auth_recordAccess;
   collections: typeof collections;
   "collections/contracts": typeof collections_contracts;

@@ -159,7 +159,8 @@ const getAccessContextDefinition = {
   },
 }
 
-export const getAccessContext = callerQuery.public({
+export const getAccessContext = callerQuery.protected({
+  acceptsTrustedCaller: true,
   ...getAccessContextDefinition,
 })
 

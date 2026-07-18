@@ -370,6 +370,7 @@ async function computeReviewPreview(
 }
 
 export const requestPublishReview = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'reviewRequests:requestPublishReview',
   args: {
     agentRunId: v.optional(v.union(v.string(), v.null())),
@@ -506,6 +507,7 @@ export const listPendingReviews = callerQuery.protected({
 })
 
 export const getOwnReviewRequest = callerQuery.protected({
+  acceptsTrustedCaller: true,
   id: 'reviewRequests:getOwnReviewRequest',
   args: { reviewRequestId: v.string() },
   guard: canRead,

@@ -9,7 +9,6 @@ const requiredInstallTokens = [
   '@lupinum/ginko-cms',
   '@lupinum/ginko-cms-convex',
   'better-convex-nuxt',
-  '@convex-dev/better-auth',
   'better-auth',
 ]
 
@@ -128,7 +127,7 @@ const cliSource = [
   readFileSync(resolve(repoRoot, 'packages/cms/src/cli/ginko-cms.ts'), 'utf8'),
   readFileSync(resolve(repoRoot, 'packages/cms/src/cli/init.ts'), 'utf8'),
 ].join('\n')
-const cliRequiredTokens = ['@convex-dev/better-auth', 'better-auth', '@lupinum/ginko-cms-convex']
+const cliRequiredTokens = ['better-convex-nuxt', 'better-auth', '@lupinum/ginko-cms-convex']
 for (const token of cliRequiredTokens) {
   if (!cliSource.includes(token)) {
     errors.push(`packages/cms/src/cli: CLI output must mention \`${token}\``)

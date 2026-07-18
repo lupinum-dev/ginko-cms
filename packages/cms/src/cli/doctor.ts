@@ -120,13 +120,6 @@ export async function runDoctorCommand(
 
 function inspectEnvironment(env: Record<string, string | undefined>, deployment: boolean) {
   const issues: DoctorIssue[] = []
-  if (!env.BETTER_AUTH_SECRET?.trim()) {
-    issues.push({
-      name: 'missing env BETTER_AUTH_SECRET',
-      message: 'BETTER_AUTH_SECRET is required for Better Auth and CMS server authentication.',
-      fix: 'Set BETTER_AUTH_SECRET in the host environment, then run `pnpm exec convex env set BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET"` for the target deployment.',
-    })
-  }
   if (!env.CONVEX_URL?.trim() && !env.NUXT_PUBLIC_CONVEX_URL?.trim()) {
     issues.push({
       name: 'missing Convex URL',

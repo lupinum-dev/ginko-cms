@@ -48,7 +48,7 @@ type RevalidationTarget = {
   updatedAt: number
 }
 
-type McpScope = FunctionArgs<typeof api.ginkoCms.mcpCredentials.upsertSettings>['scopes'][number]
+type McpScope = FunctionArgs<typeof api.ginkoCms.mcpCredentials.createCredential>['scopes'][number]
 
 type RevalidationJob = {
   id: string
@@ -217,7 +217,9 @@ export function useStudioSettingsAdmin() {
   )
   const updateRoleMutation = useConvexMutation(api.ginkoCms.members.updateMemberRole)
   const removeMemberMutation = useConvexMutation(api.ginkoCms.members.removeMember)
-  const upsertMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.upsertSettings)
+  const createMcpCredentialMutation = useConvexMutation(
+    api.ginkoCms.mcpCredentials.createCredential,
+  )
   const revokeMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.revokeSettings)
   const retryRevalidationJobMutation = useConvexMutation(
     api.ginkoCms.revalidation.retryRevalidationJob,
@@ -513,15 +515,10 @@ export function useStudioSettingsAdmin() {
     mcpConnectionErrorDetail.value = ''
     mcpConnectionInfo.value = ''
     mcpCreatedToken.value = null
-    const bridgeApi = studioHost.getBridge().mcpApiKeys
     const userId = authState.user.value?.id
     const name = mcpConnectionForm.name.trim()
     const expiresIn = Number(mcpConnectionForm.expiresIn)
     const scopes = Array.from(new Set(mcpConnectionForm.scopes))
-    if (!bridgeApi) {
-      mcpConnectionError.value = 'Better Auth API-key management is unavailable in this host.'
-      return
-    }
     if (!userId) {
       mcpConnectionError.value = 'Sign in before creating an MCP connection.'
       return
@@ -535,42 +532,24 @@ export function useStudioSettingsAdmin() {
       return
     }
     mcpConnectionSaving.value = true
-    let created: {
-      id: string
-      key: string
-      name?: string | null
-      expiresAt?: string | number | Date | null
-    } | null = null
     try {
       await studioHost.assertContractWritable()
-      created = await bridgeApi.create({
-        name,
-        expiresIn: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : undefined,
-        metadata: { purpose: 'mcp' },
-      })
-      // The Better Auth key enforces the expiry; the settings record mirrors
-      // it so Studio can show when a connection lapses.
-      const expiresAt = created.expiresAt == null ? null : new Date(created.expiresAt).getTime()
-      await upsertMcpCredentialMutation({
-        apiKeyId: created.id,
+      const expiresAt =
+        Number.isFinite(expiresIn) && expiresIn > 0 ? Date.now() + expiresIn * 1000 : null
+      const created = await createMcpCredentialMutation({
         ownerUserId: userId,
         label: name,
         scopes,
-        expiresAt: typeof expiresAt === 'number' && Number.isFinite(expiresAt) ? expiresAt : null,
+        expiresAt,
       })
-      mcpCreatedToken.value = { id: created.id, key: created.key, name: created.name ?? name }
+      mcpCreatedToken.value = {
+        id: created.settings.apiKeyId,
+        key: created.bearerToken,
+        name: created.settings.label ?? name,
+      }
       mcpConnectionInfo.value = t('ginkoCms.studio.settingsPage.mcpCreatedInfo')
       await mcpCredentialsQuery.refresh()
     } catch (e) {
-      if (created) {
-        try {
-          await bridgeApi.delete({ keyId: created.id })
-        } catch {
-          // The Convex settings write failed. The UI reports the original error,
-          // and the Better Auth key cleanup is best-effort because the raw key
-          // has not been handed to the user yet.
-        }
-      }
       reportMcpConnectionError(e, t('ginkoCms.studio.settingsPage.mcpCreateError'))
     } finally {
       mcpConnectionSaving.value = false
@@ -584,10 +563,6 @@ export function useStudioSettingsAdmin() {
     revokingMcpApiKeyId.value = apiKeyId
     try {
       await revokeMcpCredentialMutation({ apiKeyId })
-      const bridgeApi = studioHost.getBridge().mcpApiKeys
-      if (bridgeApi) {
-        await bridgeApi.delete({ keyId: apiKeyId })
-      }
       mcpConnectionInfo.value = t('ginkoCms.studio.settingsPage.mcpRevokedInfo')
       await mcpCredentialsQuery.refresh()
     } catch (e) {

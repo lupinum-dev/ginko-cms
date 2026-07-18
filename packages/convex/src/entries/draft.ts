@@ -392,6 +392,7 @@ const saveEntryDraftDefinition = defineCmsOperation({
 export const saveEntryDraft = callerMutation.protected(saveEntryDraftDefinition)
 
 export const mcpSaveEntryDraft = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'editor:mcpSaveEntryDraft',
   args: {
     agentRunId: v.string(),

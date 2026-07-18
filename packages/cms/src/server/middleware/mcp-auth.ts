@@ -1,6 +1,7 @@
-import { exchangeConvexToken, normalizeSiteUrl, serverConvex } from 'better-convex-nuxt/server'
+import { createHash } from 'node:crypto'
+
+import { serverConvex } from 'better-convex-nuxt/server'
 import { createError, defineEventHandler, getRequestHeader, getRequestIP, type H3Event } from 'h3'
-import { useRuntimeConfig } from 'nitropack/runtime'
 
 import { api } from '#convex/api'
 
@@ -18,12 +19,16 @@ export default defineEventHandler(async (event) => {
 })
 
 export async function authenticateMcpRequest(event: H3Event) {
-  const siteOrigin = resolveMcpSiteOrigin(event)
-  const limiterSecret = process.env.BETTER_AUTH_SECRET?.trim()
-  if (!limiterSecret) {
+  const mcpServerSecret = process.env.GINKO_CMS_MCP_SERVER_SECRET
+  if (
+    !mcpServerSecret ||
+    mcpServerSecret.length < 32 ||
+    mcpServerSecret.trim() !== mcpServerSecret
+  ) {
     throw createError({
       statusCode: 503,
-      statusMessage: 'BETTER_AUTH_SECRET is required for MCP authentication.',
+      statusMessage:
+        'GINKO_CMS_MCP_SERVER_SECRET must be at least 32 characters with no surrounding whitespace.',
     })
   }
   const limiterCaller = serverConvex(event, { auth: 'none' })
@@ -40,104 +45,49 @@ export async function authenticateMcpRequest(event: H3Event) {
           statusCode: input.statusCode,
           statusMessage: input.statusMessage,
         }),
-      limiterSecret,
+      limiterSecret: mcpServerSecret,
       checkFailureBudget: async (args) =>
         await limiterCaller.query(api.ginkoCms.mcpCredentials.checkFailureBudget, args),
       recordFailure: async (args) =>
         await limiterCaller.mutation(api.ginkoCms.mcpCredentials.recordFailure, args),
-      exchangeCredential: (credential) => exchangeMcpCredential(event, siteOrigin, credential),
-      resolveCredentialAccess: async (apiKeyId, caller) => {
-        return await caller.query(api.ginkoCms.mcpCredentials.resolveAccess, {
-          apiKeyId,
-        })
-      },
+      authenticateCredential: (credential) =>
+        authenticateMcpCredential(event, mcpServerSecret, credential),
     },
   )
 }
 
 /**
- * Exchange a bearer API key for a Convex JWT exactly once, decode its claims
- * once, and return a narrow `serverConvex` caller — never the raw JWT.
- *
- * A definitive upstream rejection (401/403) resolves to `null` so the caller
- * consumes the failure budget. A transport failure, or a malformed / claim-less
- * JWT, throws so the caller returns 503 without charging the bad-secret budget.
+ * Resolve a CMS-owned service credential by hash, then return an anonymous
+ * Convex caller that attaches the private server assertion to every call. Host
+ * facades validate that assertion and the component re-checks credential,
+ * membership, role, expiry, and scopes on every protected operation.
  */
-async function exchangeMcpCredential(
+async function authenticateMcpCredential(
   event: H3Event,
-  siteOrigin: string,
+  serverSecret: string,
   credential: string,
 ): Promise<ExchangedMcpCredential | null> {
-  const result = await exchangeConvexToken({
-    siteUrl: siteOrigin,
-    credential: { type: 'bearer', value: credential },
+  const secretHash = createHash('sha256').update(credential).digest('hex')
+  const caller = serverConvex(event, { auth: 'none' })
+  const access = await caller.query(api.ginkoCms.mcpCredentials.resolveAccessBySecretHash, {
+    serverSecret,
+    secretHash,
   })
-
-  if (!result.token) {
-    // Only a definitive upstream rejection is a bad secret; anything else is a
-    // transport/infrastructure failure and must not charge the budget.
-    if (result.status === 401 || result.status === 403) return null
-    if (result.status === 429) {
-      throw Object.assign(new Error('MCP token exchange rate limited.'), { statusCode: 429 })
-    }
-    throw new Error('MCP token exchange transport failure')
+  if (!access) return null
+  const assertion = { _mcpServerSecret: serverSecret, _mcpCredentialHash: secretHash }
+  const assertedCaller: ExchangedMcpCredential['caller'] = {
+    query: async (reference, args) => await caller.query(reference, { ...args, ...assertion }),
+    mutation: async (reference, args) =>
+      await caller.mutation(reference, { ...args, ...assertion }),
+    action: async (reference, args) => await caller.action(reference, { ...args, ...assertion }),
   }
-
-  const claims = decodeJwtPayload(result.token)
-  const apiKeyId = claims.sessionId
-  const ownerUserId = claims.sub
-  if (typeof apiKeyId !== 'string' || typeof ownerUserId !== 'string') {
-    throw new TypeError('MCP token exchange returned a JWT without the expected claims.')
-  }
-
-  const caller = serverConvex(event, { authToken: result.token })
   return {
-    apiKeyId,
-    ownerUserId,
-    caller: {
-      query: caller.query,
-      mutation: caller.mutation,
-      action: caller.action,
-    },
+    apiKeyId: access.apiKeyId,
+    ownerUserId: access.ownerUserId,
+    caller: assertedCaller,
   }
 }
 
 export function resolveMcpClientIp(event: H3Event): string | null {
   return getRequestIP(event) ?? null
-}
-
-/**
- * Resolve the Convex site origin used for the Better Auth token exchange.
- *
- * `better-convex-nuxt` owns this normalized runtime value and the security
- * validation applied before token exchange. Ginko must not independently
- * resolve a second auth origin from process environment fallbacks.
- */
-export function resolveMcpSiteOrigin(event: H3Event): string {
-  const runtimeConfig = useRuntimeConfig(event) as {
-    public?: { convex?: { siteUrl?: string } }
-  }
-  const configured = runtimeConfig.public?.convex?.siteUrl
-
-  if (!configured) {
-    throw createError({
-      statusCode: 503,
-      statusMessage: 'Convex site URL is not configured for MCP token exchange.',
-    })
-  }
-
-  try {
-    return normalizeSiteUrl(configured)
-  } catch {
-    throw createError({
-      statusCode: 503,
-      statusMessage: 'Convex site URL is not valid for MCP token exchange.',
-    })
-  }
-}
-
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  const payload = token.split('.')[1]
-  if (!payload) throw new Error('MCP Convex token payload is missing.')
-  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>
 }

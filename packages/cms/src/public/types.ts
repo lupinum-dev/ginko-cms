@@ -81,33 +81,12 @@ export type GinkoCmsStudioHostApi = StudioApiFromSurface<
   GinkoCmsComponentApi
 >
 
-export interface GinkoCmsStudioMcpApiKeyCreateInput {
-  name: string
-  expiresIn?: number
-  metadata?: Record<string, unknown>
-}
-
-export interface GinkoCmsStudioMcpApiKeyCreateResult {
-  id: string
-  key: string
-  name?: string | null
-  expiresAt?: string | number | Date | null
-}
-
-export interface GinkoCmsStudioMcpApiKeys {
-  create: (
-    input: GinkoCmsStudioMcpApiKeyCreateInput,
-  ) => Promise<GinkoCmsStudioMcpApiKeyCreateResult>
-  delete: (input: { keyId: string }) => Promise<void>
-}
-
 export interface GinkoCmsStudioHostBridge {
   /** The stable, replacement-safe Convex client handle from `useConvex()`. */
   convexClient: GinkoCmsConvexClientHandle
   config: GinkoCmsPublicConfig
   api: GinkoCmsStudioHostApi
   auth: GinkoCmsStudioHostBridgeAuth | null
-  mcpApiKeys: GinkoCmsStudioMcpApiKeys
   onSignOut: () => void | Promise<void>
 }
 

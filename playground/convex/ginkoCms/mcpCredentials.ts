@@ -1,10 +1,10 @@
 import { mcpCredentialScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { runVerifiedMcpLimiterRequest } from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
-import { requireBetterAuthSecret } from '@lupinum/ginko-cms/convex/auth'
 import { ConvexError, v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { mutation, query } from '../_generated/server.js'
+import { requireMcpServerSecret } from './mcpCaller.js'
 
 const mcpCredentialScopeValidator = v.union(
   ...mcpCredentialScopeKeys.map((scope) => v.literal(scope)),
@@ -22,7 +22,7 @@ export const checkFailureBudget = query({
   args: limiterArgs,
   handler: async (ctx, args) => {
     return await runVerifiedMcpLimiterRequest(
-      requireBetterAuthSecret(),
+      requireMcpServerSecret(),
       'check',
       args,
       async () =>
@@ -39,7 +39,7 @@ export const recordFailure = mutation({
   args: limiterArgs,
   handler: async (ctx, args) => {
     return await runVerifiedMcpLimiterRequest(
-      requireBetterAuthSecret(),
+      requireMcpServerSecret(),
       'record',
       args,
       async () =>
@@ -52,9 +52,8 @@ export const recordFailure = mutation({
   },
 })
 
-export const upsertSettings = mutation({
+export const createCredential = mutation({
   args: {
-    apiKeyId: v.string(),
     ownerUserId: v.string(),
     label: v.optional(v.union(v.string(), v.null())),
     scopes: v.array(mcpCredentialScopeValidator),
@@ -68,7 +67,7 @@ export const upsertSettings = mutation({
         details: { expiresAt: args.expiresAt },
       })
     }
-    return await ctx.runMutation(components.ginkoCms.mcpCredentials.upsertSettings, args)
+    return await ctx.runMutation(components.ginkoCms.mcpCredentials.createCredential, args)
   },
 })
 
@@ -86,10 +85,17 @@ export const revokeSettings = mutation({
     await ctx.runMutation(components.ginkoCms.mcpCredentials.revokeSettings, args),
 })
 
-export const resolveAccess = query({
+export const resolveAccessBySecretHash = query({
   args: {
-    apiKeyId: v.string(),
+    serverSecret: v.string(),
+    secretHash: v.string(),
   },
-  handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.mcpCredentials.resolveAccess, args),
+  handler: async (ctx, args) => {
+    if (args.serverSecret !== requireMcpServerSecret()) {
+      throw new ConvexError({ code: 'MCP_AUTH_INVALID', message: 'MCP authentication failed.' })
+    }
+    return await ctx.runQuery(components.ginkoCms.mcpCredentials.resolveAccessBySecretHash, {
+      secretHash: args.secretHash,
+    })
+  },
 })

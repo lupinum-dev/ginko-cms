@@ -49,7 +49,6 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
         name: 'ginko-cms-convex-dev-smoke',
         type: 'module',
         dependencies: {
-          '@convex-dev/better-auth': cmsPackageJson.dependencies['@convex-dev/better-auth'],
           '@lupinum/ginko-content': `file:${contentTarball}`,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,

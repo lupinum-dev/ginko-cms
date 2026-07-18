@@ -2,12 +2,10 @@
 import { defineGinkoAuth } from '@lupinum/ginko-cms/convex/auth'
 
 import { components } from './_generated/api'
-import authConfig from './auth.config'
-import authSchema from './betterAuth/schema'
 import { sendGinkoPasswordResetEmail } from './ginkoCms/passwordRecovery'
 
-export const { authComponent, createAuth, createAuthOptions } = defineGinkoAuth(
-  { components, authConfig, authSchema },
+export const { authComponent, createAuth } = defineGinkoAuth(
+  { components },
   {
     emailPassword: true,
     passwordRecovery: {
@@ -16,3 +14,5 @@ export const { authComponent, createAuth, createAuthOptions } = defineGinkoAuth(
     },
   },
 )
+
+export const { rotateSigningKey } = authComponent.jwksOperatorFunctions(createAuth)

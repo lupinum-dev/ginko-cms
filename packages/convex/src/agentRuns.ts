@@ -122,6 +122,7 @@ export async function getOwnAgentRunOrThrow(
 }
 
 export const startRun = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'agentRuns:startRun',
   args: {
     taskName: v.string(),
@@ -203,6 +204,7 @@ export const startRun = callerMutation.protected({
 })
 
 export const listRuns = callerQuery.protected({
+  acceptsTrustedCaller: true,
   id: 'agentRuns:listRuns',
   args: {
     limit: v.optional(v.number()),
@@ -237,6 +239,7 @@ export const listRuns = callerQuery.protected({
 })
 
 export const completeRun = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'agentRuns:completeRun',
   contractWrite: 'bypass',
   args: {

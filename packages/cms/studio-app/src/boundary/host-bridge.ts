@@ -30,7 +30,7 @@ export function readHostBridge(): HostBridge {
     if (import.meta.env.DEV) return createDevelopmentHostBridge()
     throw new Error('Ginko CMS Studio host bridge is missing.')
   }
-  for (const key of ['convexClient', 'config', 'api', 'auth', 'mcpApiKeys', 'onSignOut'] as const) {
+  for (const key of ['convexClient', 'config', 'api', 'auth', 'onSignOut'] as const) {
     if (!(key in fromHost)) {
       throw new Error(`Ginko CMS Studio host bridge is missing ${key}.`)
     }

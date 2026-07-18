@@ -10,6 +10,7 @@ import {
   publishEntry,
   seedEditorFixture,
   seedMultiLocaleSettings,
+  seedMcpCredential,
   seedOwner,
   seedSettings,
 } from './helpers'
@@ -22,7 +23,7 @@ describe('component: MCP publish boundary', () => {
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
-    await ctx.asCmsUser('owner-1').mutation(api.mcpCredentials.upsertSettings, {
+    await seedMcpCredential(ctx, {
       apiKeyId: 'ba_key_owner_ops',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
@@ -48,7 +49,7 @@ describe('component: MCP publish boundary', () => {
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
-    await ctx.asCmsUser('owner-1').mutation(api.mcpCredentials.upsertSettings, {
+    await seedMcpCredential(ctx, {
       apiKeyId: 'ba_key_owner_ops',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
@@ -62,22 +63,22 @@ describe('component: MCP publish boundary', () => {
         expectedVersion,
         locales: ['en'],
       }),
-    ).rejects.toThrow('Forbidden: Publish entries')
+    ).rejects.toThrow(/Unexpected field `_trustedCaller`/)
     await expect(
       agent.mutation(api.editor.previewArchiveEntryOperation, { entryId }),
-    ).rejects.toThrow('Forbidden: Archive entries')
+    ).rejects.toThrow(/Unexpected field `_trustedCaller`/)
     await expect(
       agent.mutation(api.editor.previewUnpublishEntryOperation, { entryId, locales: ['en'] }),
-    ).rejects.toThrow('Forbidden: Publish entries')
+    ).rejects.toThrow(/Unexpected field `_trustedCaller`/)
     await expect(
       agent.mutation(api.editor.previewRestoreEntryOperation, { entryId }),
-    ).rejects.toThrow('Forbidden: Archive entries')
+    ).rejects.toThrow(/Unexpected field `_trustedCaller`/)
     await expect(
       agent.mutation(api.editor.previewPermanentlyDeleteEntryOperation, {
         entryId,
         confirmationPhrase: 'DELETE unreachable',
       }),
-    ).rejects.toThrow('Forbidden: Delete entries')
+    ).rejects.toThrow(/Unexpected field `_trustedCaller`/)
     expect(await ctx.readAll('publicEntries')).toEqual([])
   })
 
@@ -86,7 +87,7 @@ describe('component: MCP publish boundary', () => {
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
-    await ctx.asCmsUser('owner-1').mutation(api.mcpCredentials.upsertSettings, {
+    await seedMcpCredential(ctx, {
       apiKeyId: 'ba_key_activity',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
@@ -138,7 +139,7 @@ describe('component: MCP publish boundary', () => {
       (entry: { _id: string }) => String(entry._id) === entryId,
     )!
 
-    await owner.mutation(api.mcpCredentials.upsertSettings, {
+    await seedMcpCredential(ctx, {
       apiKeyId: 'ba_key_translator',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],

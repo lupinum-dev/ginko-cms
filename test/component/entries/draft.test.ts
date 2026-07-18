@@ -12,6 +12,7 @@ import {
   revertDraftToPublished,
   seedEditorFixture,
   seedMember,
+  seedMcpCredential,
   seedOwner,
   seedSettings,
   seedMultiLocaleSettings,
@@ -186,7 +187,7 @@ describe('canonical draft lifecycle', () => {
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
-    await ctx.asCmsUser('owner-1').mutation(api.mcpCredentials.upsertSettings, {
+    await seedMcpCredential(ctx, {
       apiKeyId: 'ba_key_editor',
       ownerUserId: 'editor-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],

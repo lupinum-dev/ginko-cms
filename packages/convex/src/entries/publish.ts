@@ -482,6 +482,7 @@ export const listPublishRouteImpactPage = callerQuery.protected({
 })
 
 export const mcpPreviewPublishEntry = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'entries/publish:mcpPreviewPublishEntry',
   args: {
     agentRunId: v.string(),

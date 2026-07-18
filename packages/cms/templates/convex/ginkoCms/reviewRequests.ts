@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import { components } from '../_generated/api.js'
 import { mutation, query } from '../_generated/server.js'
 import { bindExpectedCmsContract } from './contractBinding.js'
+import { bindMcpCaller, mcpCallerArgs } from './mcpCaller.js'
 
 export const requestPublishReview = mutation({
   args: {
@@ -13,11 +14,12 @@ export const requestPublishReview = mutation({
     message: v.optional(v.union(v.string(), v.null())),
     title: v.string(),
     summary: v.string(),
+    ...mcpCallerArgs,
   },
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.reviewRequests.requestPublishReview,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
     ),
 })
 
@@ -47,9 +49,12 @@ export const listRecentReviewOutcomesForEntry = query({
 })
 
 export const getOwnReviewRequest = query({
-  args: { reviewRequestId: v.string() },
+  args: { reviewRequestId: v.string(), ...mcpCallerArgs },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.reviewRequests.getOwnReviewRequest, args),
+    await ctx.runQuery(
+      components.ginkoCms.reviewRequests.getOwnReviewRequest,
+      await bindMcpCaller(ctx, args),
+    ),
 })
 
 export const approveReview = mutation({

@@ -1,4 +1,9 @@
-import { cmsUserCaller, type CmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import {
+  cmsMcpCaller,
+  cmsUserCaller,
+  type CmsMcpCaller,
+  type CmsUserCaller,
+} from '@lupinum/ginko-cms-contract/shared/caller.js'
 import {
   buildResolvedContentContract,
   hashCanonicalJson,
@@ -80,43 +85,50 @@ async function bindExpectedContractArgs(
 
 function createCmsCallerClient(
   ctx: TestConvex<typeof schema>,
-  caller: CmsUserCaller | { kind: 'mcp'; apiKeyId: string; ownerUserId: string },
+  caller: CmsUserCaller | CmsMcpCaller,
 ) {
-  const identity = {
-    subject: caller.kind === 'user' ? caller.userId : caller.ownerUserId,
-    ginkoCredentialKind: caller.kind === 'mcp' ? 'mcp-api-key' : 'user-session',
-    ...(caller.kind === 'mcp' ? { sessionId: caller.apiKeyId } : { sessionId: 'test-session' }),
-    ...(caller.kind === 'user'
+  const identity =
+    caller.kind === 'user'
       ? {
+          subject: caller.userId,
+          token_use: 'convex-session',
           ...(caller.name ? { name: caller.name } : {}),
           ...(caller.email ? { email: caller.email } : {}),
           ...(typeof caller.emailVerified === 'boolean'
             ? { emailVerified: caller.emailVerified }
             : {}),
         }
-      : {}),
-  }
-  const authed = () => ctx.withIdentity(identity)
+      : null
+  const authed = () => (identity ? ctx.withIdentity(identity) : ctx)
+  const bindCaller = (input: Record<string, unknown>) =>
+    caller.kind === 'mcp' ? { ...input, _trustedCaller: caller } : input
   return {
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
-      return await authed().query(fn, ...args)
+      const [input = {}] = args as unknown as [Record<string, unknown>?]
+      return await authed().query(fn, bindCaller(input) as never)
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
       const [input = {}] = args as unknown as [Record<string, unknown>?]
-      return await authed().mutation(fn, (await bindExpectedContractArgs(ctx, input)) as never)
+      return await authed().mutation(
+        fn,
+        bindCaller(await bindExpectedContractArgs(ctx, input)) as never,
+      )
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
       const [input = {}] = args as unknown as [Record<string, unknown>?]
-      return await authed().action(fn, (await bindExpectedContractArgs(ctx, input)) as never)
+      return await authed().action(
+        fn,
+        bindCaller(await bindExpectedContractArgs(ctx, input)) as never,
+      )
     },
     operation: <TOperation extends CmsOperationRef>(operation: TOperation) =>
       createOperationClient(ctx, authed(), operation),
@@ -180,6 +192,14 @@ export function createCtx(
   })
   ctx.registerComponent('ginkoCms', schema as never, modules as never)
   const seedValue = (table: string, value: Record<string, unknown>) => {
+    if (table === 'mcpCredentialSettings') {
+      return {
+        secretHash: String(value.apiKeyId ?? 'test')
+          .padEnd(64, '0')
+          .slice(0, 64),
+        ...value,
+      }
+    }
     if (table !== 'assets') return value
     const filename = String(value.filename)
     const mimeType = String(value.mimeType)
@@ -211,13 +231,39 @@ export function createCtx(
       userId: string,
       profile?: { name?: string; email?: string; emailVerified?: boolean },
     ) => createCmsCallerClient(ctx, cmsUserCaller(userId, profile)),
-    asMcpApiKey: (apiKeyId: string, ownerUserId: string) =>
-      createCmsCallerClient(ctx, { kind: 'mcp', apiKeyId, ownerUserId }),
+    asMcpApiKey: (apiKeyId: string, _ownerUserId: string) =>
+      createCmsCallerClient(ctx, cmsMcpCaller(apiKeyId)),
   })
 }
 
 export type TestCtx = ReturnType<typeof createCtx>
 type CmsCallerClient = ReturnType<typeof createCmsCallerClient>
+
+export async function seedMcpCredential(
+  ctx: TestCtx,
+  args: {
+    apiKeyId: string
+    ownerUserId: string
+    scopes: string[]
+    status?: 'active' | 'revoked'
+    expiresAt?: number | null
+  },
+) {
+  const now = Date.now()
+  await ctx.seed('mcpCredentialSettings', {
+    apiKeyId: args.apiKeyId,
+    secretHash: `${args.apiKeyId.padEnd(64, '0').slice(0, 64)}`,
+    ownerUserId: args.ownerUserId,
+    scopes: args.scopes,
+    status: args.status ?? 'active',
+    expiresAt: args.expiresAt ?? null,
+    createdBy: 'test',
+    createdAt: now,
+    updatedBy: 'test',
+    updatedAt: now,
+    revokedAt: args.status === 'revoked' ? now : null,
+  })
+}
 
 export async function readTestContractWriteToken(ctx: TestCtx) {
   const [installed] = await ctx.readAll('cmsContract')

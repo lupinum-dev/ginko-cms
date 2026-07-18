@@ -16,6 +16,7 @@ import {
   previewPublishEntryWithArgs,
   publishEntry,
   seedOwner,
+  seedMcpCredential,
   seedSettings,
   seedStorageObject,
   seedTreeFixture,
@@ -206,10 +207,9 @@ async function seedPendingPublishReview(
 ) {
   const apiKeyId = `readiness-review-${input.entryId}`
   const owner = ctx.asCmsUser('owner-1')
-  await owner.mutation(api.mcpCredentials.upsertSettings, {
+  await seedMcpCredential(ctx, {
     apiKeyId,
     ownerUserId: 'owner-1',
-    label: 'Readiness review fixture',
     scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
   })
   const agent = ctx.asMcpApiKey(apiKeyId, 'owner-1')

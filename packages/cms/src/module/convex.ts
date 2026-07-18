@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -35,10 +35,6 @@ const setupFiles = [
   'convex/convex.config.ts',
   'convex/auth.ts',
   'convex/auth.config.ts',
-  'convex/betterAuth/adapter.ts',
-  'convex/betterAuth/auth.ts',
-  'convex/betterAuth/convex.config.ts',
-  'convex/betterAuth/schema.ts',
   'convex/http.ts',
   'convex/schema.ts',
   'convex/ginkoCms/agentRuns.ts',
@@ -50,6 +46,7 @@ const setupFiles = [
   'convex/ginkoCms/draftPreview.ts',
   'convex/ginkoCms/editor.ts',
   'convex/ginkoCms/mcpCredentials.ts',
+  'convex/ginkoCms/mcpCaller.ts',
   'convex/ginkoCms/maintenance.ts',
   'convex/ginkoCms/members.ts',
   'convex/ginkoCms/passwordRecovery.ts',
@@ -65,6 +62,14 @@ const setupFiles = [
 
 const staleBridgePaths = [
   ['convex', `ginkoCms${'Mcp.ts'}`].join('/'),
+  'convex/betterAuth/adapter.ts',
+  'convex/betterAuth/auth.ts',
+  'convex/betterAuth/convex.config.ts',
+  'convex/betterAuth/schema.ts',
+  'convex/betterAuth/_generated/api.ts',
+  'convex/betterAuth/_generated/component.ts',
+  'convex/betterAuth/_generated/dataModel.ts',
+  'convex/betterAuth/_generated/server.ts',
   'convex/ginkoCms/migrations.ts',
   'convex/ginkoCms/policy.ts',
 ] as const
@@ -77,7 +82,7 @@ const UNBOUND_CONTRACT_HASH = 'unbound'
 const staleConvexConfigImports = [
   {
     bad: '@convex-dev/better-auth/convex.config',
-    replacement: './betterAuth/convex.config',
+    replacement: 'better-convex-nuxt/convex-auth/convex.config',
   },
   {
     bad: '@lupinum/ginko-cms/convex/config',
@@ -85,19 +90,18 @@ const staleConvexConfigImports = [
   },
   {
     bad: '@lupinum/ginko-cms/convex/better-auth',
-    replacement: './betterAuth/convex.config',
+    replacement: 'better-convex-nuxt/convex-auth/convex.config',
   },
 ] as const
 
 const requiredHostDependencies = [
   {
-    name: '@convex-dev/better-auth',
-    reason:
-      'convex/auth.ts and convex/betterAuth/adapter.ts use the Better Auth Convex client APIs.',
+    name: 'better-convex-nuxt',
+    reason: 'convex/auth.ts and convex/convex.config.ts use the packaged auth component.',
   },
   {
     name: 'better-auth',
-    reason: '@convex-dev/better-auth requires the Better Auth runtime in the host app.',
+    reason: 'convex/auth.ts composes the Better Auth runtime through Ginko CMS.',
   },
   {
     name: '@lupinum/ginko-cms-convex',
@@ -162,6 +166,13 @@ function emptySetupManifest(): ConvexSetupManifest {
     generatedBy: '@lupinum/ginko-cms',
     files: {},
   }
+}
+
+function withoutManifestFile(
+  files: ConvexSetupManifest['files'],
+  relativePath: string,
+): ConvexSetupManifest['files'] {
+  return Object.fromEntries(Object.entries(files).filter(([path]) => path !== relativePath))
 }
 
 function readSetupManifest(rootDir: string): ConvexSetupManifest | null {
@@ -369,6 +380,24 @@ export function writeConvexSetupFiles(rootDir: string): ConvexSetupWriteResult {
   const skipped: string[] = []
   const conflicts: Array<{ path: string; diff: string }> = []
   const manifest = readSetupManifest(rootDir) ?? emptySetupManifest()
+
+  for (const relativePath of staleBridgePaths) {
+    const target = resolve(rootDir, relativePath)
+    if (!existsSync(target)) {
+      manifest.files = withoutManifestFile(manifest.files, relativePath)
+      continue
+    }
+    const current = readFileSync(target, 'utf8')
+    const recordedHash = manifest.files[relativePath]?.templateHash
+    const generatedBinding = relativePath.startsWith('convex/betterAuth/_generated/')
+    if (generatedBinding || (recordedHash && contentHash(current) === recordedHash)) {
+      unlinkSync(target)
+      manifest.files = withoutManifestFile(manifest.files, relativePath)
+      updated.push(relativePath)
+      continue
+    }
+    conflicts.push({ path: relativePath, diff: safeTemplateDiff(relativePath, current, '') })
+  }
 
   for (const relativePath of setupFiles) {
     const target = resolve(rootDir, relativePath)

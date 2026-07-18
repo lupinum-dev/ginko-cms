@@ -13,7 +13,7 @@ function bootstrapCaller(
     subject: input.subject,
     email: input.email,
     sessionId: `session_${input.subject}`,
-    ginkoCredentialKind: 'user-session',
+    token_use: 'convex-session',
   })
 }
 

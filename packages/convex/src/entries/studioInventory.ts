@@ -202,6 +202,7 @@ async function listIndexedStudioRows(
 }
 
 export const listEntriesForStudio = callerQuery.protected({
+  acceptsTrustedCaller: true,
   id: 'editor:listEntriesForStudio',
   args: listEntriesForStudioArgs.args,
   guard: canRead,

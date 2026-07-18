@@ -100,8 +100,8 @@ function ensureConvexPackageLinks(cwd: string): () => void {
     ensurePackageLink(cwd, 'convex', findPackageRoot(require.resolve('convex/server'))),
     ensurePackageLink(
       cwd,
-      '@convex-dev/better-auth',
-      resolveInstalledDependencyRoot('@convex-dev/better-auth', cwd),
+      'better-convex-nuxt',
+      resolveInstalledDependencyRoot('better-convex-nuxt', cwd),
     ),
     ensurePackageLink(
       cwd,

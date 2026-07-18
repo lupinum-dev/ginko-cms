@@ -20,7 +20,7 @@ or doctor output, or writing setup docs. Canonical docs:
 Install:
 
 ```bash
-pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt @convex-dev/better-auth better-auth
+pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt better-auth
 pnpm add -D convex
 ```
 
@@ -84,7 +84,9 @@ NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 CONVEX_URL=https://your-deployment.convex.cloud
 CONVEX_SITE_URL=https://your-deployment.convex.site
 CONVEX_DEPLOY_KEY=prod:...
-BETTER_AUTH_SECRET=long-random-secret
+BETTER_AUTH_SECRETS=0:long-random-secret
+BCN_AUTH_PROXY_IP_SECRET=independent-proxy-secret
+GINKO_CMS_MCP_SERVER_SECRET=independent-mcp-secret
 GINKO_FIRST_OWNER_EMAIL=owner@example.com
 ```
 
@@ -95,8 +97,12 @@ Rules:
   `NUXT_PUBLIC_CONVEX_URL`.
 - Keep `CONVEX_DEPLOY_KEY` server-side only. Do not expose it through
   `NUXT_PUBLIC_*`.
-- Set `BETTER_AUTH_SECRET` to the same strong secret in the host and Convex
-  deployment. Never expose it through `NUXT_PUBLIC_*`.
+- Keep versioned `BETTER_AUTH_SECRETS` in Convex only. Never copy it into the
+  Nuxt process or expose it through `NUXT_PUBLIC_*`.
+- Set the same independent `BCN_AUTH_PROXY_IP_SECRET` in Nuxt and Convex when a
+  trusted client-IP header is configured.
+- Set the same independent `GINKO_CMS_MCP_SERVER_SECRET` in Nuxt and Convex
+  when private MCP credentials are enabled.
 - Use `CONVEX_SITE_URL` for the Better Auth HTTP action origin used by MCP and
   authenticated operator commands.
 - Set `GINKO_FIRST_OWNER_EMAIL` until the first Studio owner has claimed
@@ -111,9 +117,7 @@ pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.l
 Better Auth secret:
 
 ```bash
-BETTER_AUTH_SECRET="$(openssl rand -base64 32)"
-printf "\nBETTER_AUTH_SECRET=%s\n" "$BETTER_AUTH_SECRET" >> .env.local
-pnpm exec convex env set BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET"
+printf '0:%s' "$(openssl rand -base64 32)" | pnpm exec better-convex-nuxt-convex env set BETTER_AUTH_SECRETS
 ```
 
 First owner:
@@ -136,15 +140,15 @@ drift, follow `docs/guides/changing-collections.md` before changing shared data.
 
 ## Common Setup Failures
 
-- Missing `@lupinum/ginko-cms-convex`, `@convex-dev/better-auth`, or
+- Missing `@lupinum/ginko-cms-convex`, `better-convex-nuxt`, or
   `better-auth`: install them in the host app; generated Convex files mount from
   direct dependencies.
 - Missing `better-convex-nuxt`: install the supported integration foundation in
   the host app.
 - Missing Convex URL: set `NUXT_PUBLIC_CONVEX_URL` or `CONVEX_URL`.
 - Missing deploy key: create `CONVEX_DEPLOY_KEY`; contract sync uses it.
-- Missing Better Auth secret: set the same strong `BETTER_AUTH_SECRET` in the
-  host and Convex deployment.
+- Missing Better Auth secrets: set versioned `BETTER_AUTH_SECRETS` in Convex;
+  do not put them in Nuxt.
 - Missing auth origin: set `CONVEX_SITE_URL` or the documented Better Auth URL
   override.
 - Studio owner cannot claim: verify `GINKO_FIRST_OWNER_EMAIL`.

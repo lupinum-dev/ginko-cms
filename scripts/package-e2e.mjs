@@ -214,7 +214,6 @@ async function bootNitro() {
     cwd: tempDir,
     env: {
       ...packageE2eEnv(),
-      BETTER_AUTH_SECRET: 'package-e2e-only-secret',
       CONVEX_URL: 'http://127.0.0.1:3210',
       HOST: '127.0.0.1',
       NUXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3210',
@@ -573,11 +572,7 @@ try {
   )
 
   if (!liveConvex) {
-    writeFileSync(
-      join(tempDir, '.env.local'),
-      'BETTER_AUTH_SECRET=package-e2e-only-secret\nCONVEX_URL=http://127.0.0.1:3210\n',
-      'utf8',
-    )
+    writeFileSync(join(tempDir, '.env.local'), 'CONVEX_URL=http://127.0.0.1:3210\n', 'utf8')
   }
 
   if (liveConvex) {

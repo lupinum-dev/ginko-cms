@@ -22,6 +22,7 @@ export {
   reparentEntry,
   rollbackVersion,
   seedMember,
+  seedMcpCredential,
   seedMultiLocaleSettings,
   seedOwner,
   seedSettings,

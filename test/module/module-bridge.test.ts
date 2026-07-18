@@ -140,14 +140,12 @@ describe('ginko-cms Convex setup validation', () => {
     )
     expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain('defineGinkoAuth')
     expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain(
-      './betterAuth/schema',
+      'authComponent.jwksOperatorFunctions',
     )
     expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain(
       'sendGinkoPasswordResetEmail',
     )
-    expect(readFileSync(resolve(rootDir, 'convex/betterAuth/schema.ts'), 'utf8')).toContain(
-      'apikey: defineTable',
-    )
+    expect(existsSync(resolve(rootDir, 'convex/betterAuth/schema.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/passwordRecovery.ts'))).toBe(true)

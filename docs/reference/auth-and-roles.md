@@ -1,8 +1,8 @@
 # Auth And Roles
 
-Ginko CMS uses Better Auth for identity and API-key lifecycle. The CMS Convex
-component owns only CMS product roles, delegated MCP scope settings, and the
-authorization checks around content operations.
+Ginko CMS uses Better Auth for human identity and sessions. The CMS Convex
+component owns CMS product roles and the complete private MCP service-credential
+lifecycle.
 
 ## Identity Ownership
 
@@ -11,7 +11,6 @@ Better Auth owns:
 - users;
 - sessions;
 - accounts;
-- API-key creation, verification, expiry, and revocation.
 
 Ginko CMS stores the stable Better Auth `user.id` on CMS member rows. It does
 not create a second user, team, organization, or tenant system.
@@ -67,15 +66,16 @@ wrong-email attempts all receive the same non-enumerating response.
 
 ## MCP Credentials
 
-External MCP bearer tokens are Better Auth API keys. Ginko CMS never stores the
-raw API key. After Better Auth verifies a bearer token, its Convex JWT carries
-the server-issued `mcp-api-key` credential kind and the CMS resolves the key id
-through `mcpCredentialSettings`. A browser `sessionId` is never interpreted as
-an API-key discriminator.
+External private MCP bearer tokens are CMS-owned service credentials. Convex
+generates 256 random bits, returns the bearer once, and stores only its SHA-256
+hash. Better Auth sessions and browser `sessionId` values never enter this path.
+Nuxt and Convex authenticate their private bridge with the independent
+`GINKO_CMS_MCP_SERVER_SECRET`; Convex still makes the final authorization
+decision for each operation.
 
 `mcpCredentialSettings` stores:
 
-- the Better Auth API-key id;
+- the CMS credential id and secret hash;
 - the owning Better Auth user id;
 - CMS scopes;
 - API-key expiry when configured;
@@ -83,13 +83,32 @@ an API-key discriminator.
 
 Effective MCP authority is the intersection of:
 
-- the verified Better Auth API key;
+- the verified CMS credential hash and private server assertion;
 - active `mcpCredentialSettings`;
 - the owner's current CMS member role;
 - the credential's configured scopes.
 
 Role downgrades and member removal take effect on the next protected CMS call
 because the component re-reads the current member state.
+
+## OAuth Roadmap
+
+Better Convex Nuxt 0.7 provides the primitives, but OAuth is intentionally not
+enabled by this release. Enabling it is product and security work, not a config
+toggle:
+
+1. Add human social sign-in provider-by-provider, with deployment-owned
+   secrets, verified-email and account-linking policy, invitation/first-owner
+   tests, and recovery behavior. The CMS member row remains the only product
+   role source of truth.
+2. Design delegated MCP OAuth as a separate interactive consent topology using
+   short-lived access tokens, explicit CMS scopes, fixed resource metadata,
+   PKCE, and revocation evidence. It must not reuse private service-credential
+   hashes or `GINKO_CMS_MCP_SERVER_SECRET`.
+3. Keep dynamic registration, refresh tokens, client credentials, DPoP, and
+   direct agent publication deferred until each has an accepted user story and
+   failure-injection proof. Private service credentials remain the supported
+   automation path meanwhile.
 
 ## Agent Runs And Review Requests
 

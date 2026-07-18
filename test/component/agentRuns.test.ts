@@ -2,7 +2,13 @@ import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permission
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createCtx, installTestContract, seedMember, seedOwner } from '../helpers'
+import {
+  createCtx,
+  installTestContract,
+  seedMcpCredential,
+  seedMember,
+  seedOwner,
+} from '../helpers'
 
 const api = anyApi
 
@@ -14,16 +20,11 @@ async function createAgentCtx() {
 }
 
 async function ownerAgent(ctx: ReturnType<typeof createCtx>, apiKeyId = 'ba_key_owner') {
-  await ctx.seed('mcpCredentialSettings', {
+  await seedMcpCredential(ctx, {
     apiKeyId,
     ownerUserId: 'owner-1',
     scopes: [cmsPermissionKeys.read],
     status: 'active',
-    createdBy: 'owner-1',
-    createdAt: Date.now(),
-    updatedBy: 'owner-1',
-    updatedAt: Date.now(),
-    revokedAt: null,
   })
   return ctx.asMcpApiKey(apiKeyId, 'owner-1')
 }
@@ -32,16 +33,11 @@ describe('component: agent runs', () => {
   it('allows one credential to create multiple bounded runs', async () => {
     const ctx = await createAgentCtx()
 
-    await ctx.seed('mcpCredentialSettings', {
+    await seedMcpCredential(ctx, {
       apiKeyId: 'ba_key_owner',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read],
       status: 'active',
-      createdBy: 'owner-1',
-      createdAt: Date.now(),
-      updatedBy: 'owner-1',
-      updatedAt: Date.now(),
-      revokedAt: null,
     })
 
     const ownerAgent = ctx.asMcpApiKey('ba_key_owner', 'owner-1')
@@ -71,8 +67,7 @@ describe('component: agent runs', () => {
 
   it('[AGT-03] keeps the effective scope snapshot immutable after credential settings change', async () => {
     const ctx = await createAgentCtx()
-    const owner = ctx.asCmsUser('owner-1')
-    await owner.mutation(api.mcpCredentials.upsertSettings, {
+    await seedMcpCredential(ctx, {
       apiKeyId: 'ba_key_owner',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read],
@@ -80,10 +75,16 @@ describe('component: agent runs', () => {
     const agent = ctx.asMcpApiKey('ba_key_owner', 'owner-1')
     const run = await agent.mutation(api.agentRuns.startRun, { taskName: 'Historical scope' })
 
-    await owner.mutation(api.mcpCredentials.upsertSettings, {
-      apiKeyId: 'ba_key_owner',
-      ownerUserId: 'owner-1',
-      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+    await ctx.raw.run(async (inner) => {
+      const row = await inner.db
+        .query('mcpCredentialSettings')
+        .withIndex('by_api_key_id', (q) => q.eq('apiKeyId', 'ba_key_owner'))
+        .unique()
+      if (row) {
+        await inner.db.patch(row._id, {
+          scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+        })
+      }
     })
 
     await expect(agent.query(api.agentRuns.listRuns, { limit: 10 })).resolves.toEqual([
@@ -99,16 +100,11 @@ describe('component: agent runs', () => {
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
     const owner = ctx.asCmsUser('owner-1')
     const ownerCredential = await ownerAgent(ctx)
-    await ctx.seed('mcpCredentialSettings', {
+    await seedMcpCredential(ctx, {
       apiKeyId: 'ba_key_editor',
       ownerUserId: 'editor-1',
       scopes: [cmsPermissionKeys.read],
       status: 'active',
-      createdBy: 'owner-1',
-      createdAt: Date.now(),
-      updatedBy: 'owner-1',
-      updatedAt: Date.now(),
-      revokedAt: null,
     })
     const editorCredential = ctx.asMcpApiKey('ba_key_editor', 'editor-1')
     const editor = ctx.asCmsUser('editor-1')

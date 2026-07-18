@@ -1,5 +1,7 @@
-import { exchangeConvexToken } from 'better-convex-nuxt/server'
+import { normalizeConvexError } from 'better-convex-nuxt/errors'
+import { serverConvex } from 'better-convex-nuxt/server'
 import type { ConvexHttpClient } from 'convex/browser'
+import type { H3Event } from 'h3'
 
 import type { ConvexClientFactory } from './args.js'
 import { convexSiteOrigin, operatorSessionCookie, publicConvexUrl } from './env.js'
@@ -17,22 +19,41 @@ export async function createOperatorContext(
 ): Promise<{ client: OperatorClient; sessionCookie: string }> {
   const sessionCookie = operatorSessionCookie(cwd)
   const siteOrigin = convexSiteOrigin(cwd)
-  const raw = convexClientFactory(publicConvexUrl(cwd))
+  const convexUrl = publicConvexUrl(cwd)
+  const raw = convexClientFactory(convexUrl)
   if (!raw.setAuth) {
     throw new Error('Ginko CMS owner commands require a Convex client with user auth support.')
   }
 
   const authorize = async () => {
-    const exchanged = await exchangeConvexToken({
-      siteUrl: siteOrigin,
-      credential: { type: 'cookie', value: sessionCookie },
-    })
-    if (!exchanged.token) {
-      throw new Error(
-        `Ginko CMS operator authentication failed${exchanged.status ? ` with HTTP ${exchanged.status}` : ''}.`,
-      )
+    const event = {
+      context: {
+        nitro: {
+          runtimeConfig: {
+            public: {
+              convex: { url: convexUrl, siteUrl: siteOrigin },
+            },
+          },
+        },
+      },
+      headers: new Headers(),
+    } as unknown as H3Event
+    let token: string | null
+    try {
+      token = await serverConvex(event, {
+        credential: { type: 'cookie', value: sessionCookie },
+      }).getToken()
+    } catch (error) {
+      const normalized = normalizeConvexError(error)
+      if (normalized.kind === 'authentication') {
+        throw new Error(
+          `Ginko CMS operator authentication failed${normalized.status ? ` with HTTP ${normalized.status}` : ''}.`,
+        )
+      }
+      throw error
     }
-    raw.setAuth!(exchanged.token)
+    if (!token) throw new Error('Ginko CMS operator authentication failed.')
+    raw.setAuth!(token)
   }
 
   return {

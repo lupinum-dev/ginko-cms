@@ -60,6 +60,17 @@ function serializeCredentialSettings(settings: CredentialSettingsDoc) {
   }
 }
 
+function generateBearerSecret() {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function hashBearerSecret(secret: string) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret))
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
 function memberIdentity(member: MemberDoc): CmsMemberAppIdentity {
   return {
     kind: 'member',
@@ -113,36 +124,20 @@ async function getCredentialSettings(ctx: QueryCtx | MutationCtx, apiKeyId: stri
     .first()
 }
 
-type BetterAuthConvexIdentity = {
-  subject?: unknown
-  sessionId?: unknown
-  ginkoCredentialKind?: unknown
-}
-
-async function currentAuthOwnsCredential(
-  ctx: QueryCtx,
-  args: { apiKeyId: string; ownerUserId: string },
-) {
-  const identity = (await ctx.auth.getUserIdentity()) as BetterAuthConvexIdentity | null
-  return (
-    identity?.ginkoCredentialKind === 'mcp-api-key' &&
-    identity.subject === args.ownerUserId &&
-    identity.sessionId === args.apiKeyId
-  )
-}
-
-export const upsertSettings = callerMutation.protected({
-  id: 'mcpCredentials:upsertSettings',
+export const createCredential = callerMutation.protected({
+  id: 'mcpCredentials:createCredential',
   contractWrite: 'bypass',
   args: {
-    apiKeyId: v.string(),
     ownerUserId: v.string(),
     label: v.optional(v.union(v.string(), v.null())),
     scopes: v.array(mcpCredentialScopeValidator),
     expiresAt: v.optional(v.union(v.number(), v.null())),
   },
   guard: canManageSettings,
-  returns: mcpCredentialSettingsValidator,
+  returns: v.object({
+    settings: mcpCredentialSettingsValidator,
+    bearerToken: v.string(),
+  }),
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const member = await getMemberByUserId(ctx, args.ownerUserId)
@@ -155,75 +150,55 @@ export const upsertSettings = callerMutation.protected({
     const scopes = normalizeScopes(args.scopes)
     assertScopesFitRole(member, scopes)
 
+    if (typeof args.expiresAt === 'number' && args.expiresAt <= Date.now()) {
+      throwCmsError(
+        'MCP_CREDENTIAL_EXPIRY_IN_PAST',
+        'The MCP connection expiry must be in the future.',
+        { expiresAt: args.expiresAt },
+      )
+    }
+
+    const bearerToken = generateBearerSecret()
+    const secretHash = await hashBearerSecret(bearerToken)
+    const apiKeyId = `mcp_${crypto.randomUUID()}`
+    const existingHash = await ctx.db
+      .query('mcpCredentialSettings')
+      .withIndex('by_secret_hash', (q) => q.eq('secretHash', secretHash))
+      .first()
+    if (existingHash) {
+      throwCmsError('MCP_CREDENTIAL_HASH_COLLISION', 'Credential generation must be retried.')
+    }
+
     const now = Date.now()
-    const existing = await getCredentialSettings(ctx, args.apiKeyId)
-    const mutableSettings = {
-      label: args.label ?? null,
-      scopes,
-      expiresAt: args.expiresAt ?? null,
-      updatedBy: appIdentity.userId,
-      updatedAt: now,
-    }
-
-    if (existing) {
-      if (existing.status === 'revoked') {
-        throwCmsError(
-          'MCP_CREDENTIAL_REVOKED_PERMANENTLY',
-          'A revoked MCP credential cannot be reactivated. Create a new API key instead.',
-          { apiKeyId: args.apiKeyId },
-        )
-      }
-      if (existing.ownerUserId !== args.ownerUserId) {
-        throwCmsError(
-          'MCP_CREDENTIAL_OWNER_IMMUTABLE',
-          'An MCP credential cannot be reassigned to another member.',
-          {
-            apiKeyId: args.apiKeyId,
-            ownerUserId: existing.ownerUserId,
-            requestedOwnerUserId: args.ownerUserId,
-          },
-        )
-      }
-      await ctx.db.patch(existing._id, mutableSettings)
-      const updated = await ctx.db.get(existing._id)
-      if (!updated) throw new Error('Credential settings disappeared after update.')
-      await logActivity(ctx, {
-        kind: 'mcpCredentialSettings.updated',
-        summary: `Updated MCP credential settings for "${args.ownerUserId}"`,
-        appIdentityId: appIdentity.userId,
-        detail: {
-          apiKeyId: args.apiKeyId,
-          ownerUserId: args.ownerUserId,
-          scopes,
-        },
-      })
-      return serializeCredentialSettings(updated)
-    }
-
     const id = await ctx.db.insert('mcpCredentialSettings', {
-      apiKeyId: args.apiKeyId,
+      apiKeyId,
+      secretHash,
       ownerUserId: args.ownerUserId,
       status: 'active',
       createdBy: appIdentity.userId,
       createdAt: now,
       revokedAt: null,
-      ...mutableSettings,
+      label: args.label ?? null,
+      scopes,
+      expiresAt: args.expiresAt ?? null,
+      updatedBy: appIdentity.userId,
+      updatedAt: now,
     })
     const created = await ctx.db.get(id)
     if (!created) throw new Error('Credential settings disappeared after create.')
 
     await logActivity(ctx, {
       kind: 'mcpCredentialSettings.updated',
-      summary: `Updated MCP credential settings for "${args.ownerUserId}"`,
+      summary: `Created MCP credential for "${args.ownerUserId}"`,
       appIdentityId: appIdentity.userId,
       detail: {
-        apiKeyId: args.apiKeyId,
+        apiKeyId,
         ownerUserId: args.ownerUserId,
         scopes,
       },
     })
 
-    return serializeCredentialSettings(created)
+    return { settings: serializeCredentialSettings(created), bearerToken }
   },
 })
 
@@ -279,25 +254,19 @@ export const revokeSettings = callerMutation.protected({
   },
 })
 
-export const resolveAccess = callerQuery.public({
-  id: 'mcpCredentials:resolveAccess',
+export const resolveAccessBySecretHash = callerQuery.public({
+  id: 'mcpCredentials:resolveAccessBySecretHash',
   args: {
-    apiKeyId: v.string(),
+    secretHash: v.string(),
   },
   returns: resolvedCredentialAccessValidator,
   handler: async (ctx, args) => {
-    const settings = await getCredentialSettings(ctx, args.apiKeyId)
+    const settings = await ctx.db
+      .query('mcpCredentialSettings')
+      .withIndex('by_secret_hash', (q) => q.eq('secretHash', args.secretHash))
+      .first()
     if (!settings || settings.status !== 'active') return null
     if (settings.expiresAt != null && settings.expiresAt <= Date.now()) return null
-    if (
-      !(await currentAuthOwnsCredential(ctx, {
-        apiKeyId: settings.apiKeyId,
-        ownerUserId: settings.ownerUserId,
-      }))
-    ) {
-      return null
-    }
-
     const member = await getMemberByUserId(ctx, settings.ownerUserId)
     if (!member) return null
 

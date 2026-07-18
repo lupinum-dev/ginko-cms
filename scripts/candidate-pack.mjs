@@ -164,7 +164,7 @@ const contentTarball = resolve(
 )
 const betterConvexNuxtTarball = resolve(
   process.env.BETTER_CONVEX_NUXT_TARBALL ??
-    resolve(repoRoot, '.pack/upstream/better-convex-nuxt-0.6.1.tgz'),
+    resolve(repoRoot, '.pack/upstream/better-convex-nuxt-0.7.0-beta.0.tgz'),
 )
 const upstream = {
   '@lupinum/ginko-content': requireUpstream('@lupinum/ginko-content', contentRoot, contentTarball),

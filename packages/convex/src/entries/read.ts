@@ -13,6 +13,7 @@ import { buildStudioEntry } from './context.js'
 import { computeEntryReadinessDetail, computeEntryReadinessSummary } from './readiness.js'
 
 export const getEntry = callerQuery.protected({
+  acceptsTrustedCaller: true,
   id: 'editor:getEntry',
   args: getEntryArgs.args,
   guard: canRead,
@@ -29,6 +30,7 @@ export const getEntry = callerQuery.protected({
 })
 
 export const getEntryReadinessDetail = callerQuery.protected({
+  acceptsTrustedCaller: true,
   id: 'editor:getEntryReadinessDetail',
   args: { entryId: v.string() },
   guard: canRead,

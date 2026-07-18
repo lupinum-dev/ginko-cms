@@ -59,7 +59,7 @@ async function prepareDoctorFixture(rootDir: string, extraEnvironment = '') {
   await bindContractForTest(rootDir)
   writeFileSync(
     resolve(rootDir, '.env.local'),
-    `CONVEX_URL=https://example.convex.cloud\nBETTER_AUTH_SECRET=test-secret\n${extraEnvironment}`,
+    `CONVEX_URL=https://example.convex.cloud\n${extraEnvironment}`,
     'utf8',
   )
 }
@@ -108,21 +108,19 @@ describe('ginko-cms CLI', () => {
     expect(init.stdout).toContain('Ginko CMS initialized')
     expect(init.stdout).toContain('Next: run `pnpm exec ginko-cms doctor`')
     expect(init.stdout).toContain('configure the required environment')
-    expect(init.stdout).toContain('Set `BETTER_AUTH_SECRET`')
+    expect(init.stdout).toContain('Set versioned `BETTER_AUTH_SECRETS`')
     expect(init.stdout).toContain('run `pnpm exec ginko-cms deploy`')
     expect(init.stdout).toContain(
-      'Host apps must depend directly on `@convex-dev/better-auth`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
+      'Host apps must depend directly on `better-convex-nuxt`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
     )
     expect(init.stdout).toContain('host apps must also depend directly on `secure-exec`')
     expect(init.stdout).toContain(
       'pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com',
     )
     const convexConfig = readFileSync(resolve(rootDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('./betterAuth/convex.config')
+    expect(convexConfig).toContain('better-convex-nuxt/convex-auth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
-    expect(readFileSync(resolve(rootDir, 'convex/betterAuth/schema.ts'), 'utf8')).toContain(
-      'apikey: defineTable',
-    )
+    expect(existsSync(resolve(rootDir, 'convex/betterAuth/schema.ts'))).toBe(false)
     const setupManifest = JSON.parse(
       readFileSync(resolve(rootDir, 'convex/.ginko-cms-setup.json'), 'utf8'),
     )
@@ -136,7 +134,7 @@ describe('ginko-cms CLI', () => {
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/better-auth')
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/config')
     expect(readFileSync(resolve(rootDir, 'convex/schema.ts'), 'utf8')).toContain('defineSchema({})')
-    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).toContain('registerRoutesLazy')
+    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).toContain('registerRoutes')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/contract.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/contractTransitions.ts'))).toBe(true)
@@ -150,7 +148,7 @@ describe('ginko-cms CLI', () => {
       'bindExpectedCmsContract(args)',
     )
     const mcpFacade = readFileSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'), 'utf8')
-    expect(mcpFacade).toContain('components.ginkoCms.mcpCredentials.upsertSettings, args')
+    expect(mcpFacade).toContain('components.ginkoCms.mcpCredentials.createCredential, args')
     expect(mcpFacade).toContain('components.ginkoCms.mcpCredentials.revokeSettings, args')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/maintenance.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/migrations.ts'))).toBe(false)
@@ -230,7 +228,7 @@ describe('ginko-cms CLI', () => {
     )
   })
 
-  it('reports a missing Better Auth secret without printing a secret value', async () => {
+  it('does not require Convex-only Better Auth secrets in the Nuxt environment', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-secret-'))
     tempDirs.push(rootDir)
     await runCli(['init'], rootDir)
@@ -240,9 +238,7 @@ describe('ginko-cms CLI', () => {
 
     const check = await runCli(['doctor'], rootDir)
 
-    expect(check.code).toBe(1)
-    expect(check.stderr).toContain('BETTER_AUTH_SECRET is required')
-    expect(check.stderr).not.toContain('ginko-cms-dev-secret')
+    expect(check.code).toBe(0)
   })
 
   it('rejects the removed setup alias with init guidance', async () => {
@@ -291,12 +287,9 @@ describe('ginko-cms CLI', () => {
     await runCli(['init'], rootDir)
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      [
-        'CONVEX_URL=https://example.convex.cloud',
-        'CONVEX_DEPLOY_KEY=deploy-key-test',
-        'BETTER_AUTH_SECRET=test-secret',
-        '',
-      ].join('\n'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
       'utf8',
     )
     writeContentConfig(rootDir, 'pages', '/')
@@ -377,12 +370,9 @@ describe('ginko-cms CLI', () => {
     await runCli(['init'], rootDir)
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      [
-        'CONVEX_URL=https://example.convex.cloud',
-        'CONVEX_DEPLOY_KEY=deploy-key-test',
-        'BETTER_AUTH_SECRET=test-secret',
-        '',
-      ].join('\n'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
       'utf8',
     )
     writeContentConfig(rootDir, 'pages', '/')
@@ -445,12 +435,9 @@ describe('ginko-cms CLI', () => {
     await runCli(['init'], rootDir)
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      [
-        'CONVEX_URL=https://example.convex.cloud',
-        'CONVEX_DEPLOY_KEY=deploy-key-test',
-        'BETTER_AUTH_SECRET=test-secret',
-        '',
-      ].join('\n'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
       'utf8',
     )
     writeContentConfig(rootDir, 'pages', '/next')
@@ -535,7 +522,10 @@ describe('ginko-cms CLI', () => {
     )
     const configPath = resolve(rootDir, 'convex/convex.config.ts')
     const staleConfig = readFileSync(configPath, 'utf8')
-      .replace('./betterAuth/convex.config', '@lupinum/ginko-cms/convex/better-auth')
+      .replace(
+        'better-convex-nuxt/convex-auth/convex.config',
+        '@lupinum/ginko-cms/convex/better-auth',
+      )
       .replace('@lupinum/ginko-cms-convex/convex.config', '@lupinum/ginko-cms/convex/config')
     writeFileSync(configPath, staleConfig, 'utf8')
 
@@ -545,10 +535,10 @@ describe('ginko-cms CLI', () => {
       'Replace @lupinum/ginko-cms/convex/config with @lupinum/ginko-cms-convex/convex.config.',
     )
     expect(doctor.stderr).toContain(
-      'Replace @lupinum/ginko-cms/convex/better-auth with ./betterAuth/convex.config.',
+      'Replace @lupinum/ginko-cms/convex/better-auth with better-convex-nuxt/convex-auth/convex.config.',
     )
     expect(doctor.stderr).toContain(
-      'package.json is missing direct dependency "@convex-dev/better-auth"',
+      'package.json is missing direct dependency "better-convex-nuxt"',
     )
     expect(doctor.stderr).toContain('package.json is missing direct dependency "better-auth"')
     expect(doctor.stderr).toContain(
@@ -566,11 +556,11 @@ describe('ginko-cms CLI', () => {
       JSON.stringify({
         private: true,
         dependencies: {
-          '@convex-dev/better-auth': '0.12.5',
           '@lupinum/ginko-cms': 'workspace:*',
           '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': '1.6.23',
-          convex: '1.42.1',
+          'better-auth': '1.7.0-rc.1',
+          'better-convex-nuxt': '0.7.0-beta.0',
+          convex: '1.42.2',
           'secure-exec': '^0.2.1',
         },
       }),
@@ -578,7 +568,11 @@ describe('ginko-cms CLI', () => {
     )
     writeFileSync(
       resolve(rootDir, '.env.local'),
-      ['CONVEX_URL=https://example.convex.cloud', ''].join('\n'),
+      [
+        'CONVEX_URL=https://example.convex.cloud',
+        'CONVEX_SITE_URL=https://example.convex.site',
+        '',
+      ].join('\n'),
       'utf8',
     )
 
@@ -599,11 +593,11 @@ describe('ginko-cms CLI', () => {
       JSON.stringify({
         private: true,
         dependencies: {
-          '@convex-dev/better-auth': '0.12.5',
           '@lupinum/ginko-cms': 'workspace:*',
           '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': '1.6.23',
-          convex: '1.42.1',
+          'better-auth': '1.7.0-rc.1',
+          'better-convex-nuxt': '0.7.0-beta.0',
+          convex: '1.42.2',
         },
       }),
       'utf8',

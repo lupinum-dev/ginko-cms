@@ -50,7 +50,6 @@ function createRoot() {
 async function completeFixture(
   options: {
     provider?: string | null
-    betterAuthSecret?: string | null
     bindContract?: boolean
   } = {},
 ) {
@@ -71,17 +70,12 @@ async function completeFixture(
       presentationHash: await hashCanonicalJson(config.presentation),
     })
   }
-  const secret =
-    options.betterAuthSecret === null
-      ? ''
-      : `BETTER_AUTH_SECRET=${options.betterAuthSecret ?? 'doctor-test-secret'}\n`
   writeFileSync(
     resolve(root, '.env.local'),
     [
       'CONVEX_URL=https://doctor-test.convex.cloud',
       'CONVEX_SITE_URL=https://doctor-test.convex.site',
       'GINKO_CMS_SESSION_COOKIE=better-auth.session_token=owner-cookie-value',
-      secret.trimEnd(),
       '',
     ].join('\n'),
     'utf8',
@@ -98,7 +92,6 @@ describe('ginko-cms setup doctor', () => {
     expect(result.stderr).toContain('convex/convex.config.ts is missing')
     expect(result.stderr).toContain('convex/auth.config.ts is missing')
     expect(result.stderr).toContain('content.config.ts is missing')
-    expect(result.stderr).toContain('BETTER_AUTH_SECRET is required')
     expect(result.stderr).toContain('CONVEX_URL or NUXT_PUBLIC_CONVEX_URL is required')
     expect(result.stderr).toContain('Fix: Run pnpm exec ginko-cms init')
     expect(result.stderr).toContain("`provider: 'cms'`")
@@ -106,8 +99,8 @@ describe('ginko-cms setup doctor', () => {
     expect(result.stderr).not.toMatch(/stack|trellis|release:publish|npm publish/iu)
   })
 
-  it('[ADM-07] distinguishes missing auth configuration and secret without exposing secret values', async () => {
-    const root = await completeFixture({ betterAuthSecret: null })
+  it('[ADM-07] distinguishes missing auth configuration without requiring Convex secrets in Nuxt', async () => {
+    const root = await completeFixture()
     rmSync(resolve(root, 'convex/auth.config.ts'))
 
     const result = await run(root, ['doctor'])
@@ -115,10 +108,6 @@ describe('ginko-cms setup doctor', () => {
     expect(result.code).toBe(1)
     expect(result.stderr).toContain('convex/auth.config.ts is missing')
     expect(result.stderr).toContain('Run pnpm exec ginko-cms init')
-    expect(result.stderr).toContain(
-      '`pnpm exec convex env set BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET"`',
-    )
-    expect(result.stderr).not.toContain('doctor-test-secret')
     expect(result.stderr).not.toContain('owner-cookie-value')
   })
 
@@ -165,7 +154,7 @@ describe('ginko-cms setup doctor', () => {
   })
 
   it('[ADM-07] turns backend and stale-deployment failures into redacted diagnoses with retry commands', async () => {
-    const root = await completeFixture({ betterAuthSecret: 'super-secret-doctor-value' })
+    const root = await completeFixture()
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -182,7 +171,7 @@ describe('ginko-cms setup doctor', () => {
         ({
           setAuth: () => undefined,
           query: async () => {
-            throw new Error('ECONNREFUSED super-secret-doctor-value owner-cookie-value')
+            throw new Error('ECONNREFUSED owner-cookie-value')
           },
         }) as never,
     )
@@ -192,7 +181,6 @@ describe('ginko-cms setup doctor', () => {
       'configured Convex or Better Auth backend could not be reached',
     )
     expect(unreachable.stderr).toContain('`pnpm exec ginko-cms doctor --deployment`')
-    expect(unreachable.stderr).not.toContain('super-secret-doctor-value')
     expect(unreachable.stderr).not.toContain('owner-cookie-value')
     expect(unreachable.stderr).not.toContain('ECONNREFUSED')
     expect(unreachable.stderr).not.toContain('Usage:')

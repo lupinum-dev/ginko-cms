@@ -14,10 +14,12 @@ import {
 
 import { components } from '../_generated/api.js'
 import { query } from '../_generated/server.js'
+import { mcpCallerArgs, stripMcpCallerArgs } from './mcpCaller.js'
 
 export const page = query({
-  args: pageArgs.args,
-  handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.public.page, args),
+  args: { ...pageArgs.args, ...mcpCallerArgs },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.public.page, stripMcpCallerArgs(args)),
 })
 
 export const routeMeta = query({
@@ -26,8 +28,9 @@ export const routeMeta = query({
 })
 
 export const list = query({
-  args: listArgs.args,
-  handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.public.list, args),
+  args: { ...listArgs.args, ...mcpCallerArgs },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.public.list, stripMcpCallerArgs(args)),
 })
 
 export const count = query({
@@ -36,8 +39,9 @@ export const count = query({
 })
 
 export const nav = query({
-  args: navArgs.args,
-  handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.public.nav, args),
+  args: { ...navArgs.args, ...mcpCallerArgs },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.public.nav, stripMcpCallerArgs(args)),
 })
 
 export const surround = query({
@@ -46,18 +50,21 @@ export const surround = query({
 })
 
 export const search = query({
-  args: searchArgs.args,
-  handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.public.search, args),
+  args: { ...searchArgs.args, ...mcpCallerArgs },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.public.search, stripMcpCallerArgs(args)),
 })
 
 export const sitemap = query({
-  args: sitemapArgs.args,
-  handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.public.sitemap, args),
+  args: { ...sitemapArgs.args, ...mcpCallerArgs },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.public.sitemap, stripMcpCallerArgs(args)),
 })
 
 export const routes = query({
-  args: routesArgs.args,
-  handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.public.routes, args),
+  args: { ...routesArgs.args, ...mcpCallerArgs },
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.public.routes, stripMcpCallerArgs(args)),
 })
 
 export const singleton = query({

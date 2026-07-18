@@ -49,7 +49,7 @@ function routeFetch(
 
 describe('portability asset Nitro routes', () => {
   beforeEach(() => {
-    process.env.BETTER_AUTH_SECRET = 'test-server-secret'
+    process.env.GINKO_CMS_PORTABILITY_SECRET = 'test-server-secret'
     setTestRuntimeConfig({ public: { convex: { url: 'https://storage.example.test' } } })
     mutation.mockReset()
     action.mockReset()
@@ -58,7 +58,7 @@ describe('portability asset Nitro routes', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
-    delete process.env.BETTER_AUTH_SECRET
+    delete process.env.GINKO_CMS_PORTABILITY_SECRET
   })
 
   it('creates one sealed attempt through a required cookie caller', async () => {

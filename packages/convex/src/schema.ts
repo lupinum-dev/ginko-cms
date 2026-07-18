@@ -730,6 +730,7 @@ export default defineSchema({
 
   mcpCredentialSettings: defineTable({
     apiKeyId: v.string(),
+    secretHash: v.string(),
     ownerUserId: v.string(),
     label: v.optional(v.union(v.string(), v.null())),
     scopes: v.array(v.string()),
@@ -742,6 +743,7 @@ export default defineSchema({
     revokedAt: v.optional(v.union(v.number(), v.null())),
   })
     .index('by_api_key_id', ['apiKeyId'])
+    .index('by_secret_hash', ['secretHash'])
     .index('by_owner_user', ['ownerUserId'])
     .index('by_status', ['status']),
 

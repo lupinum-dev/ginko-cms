@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import { api } from '#convex/api'
-import type {
-  GinkoCmsPublicConfig,
-  GinkoCmsStudioMcpApiKeyCreateInput,
-  GinkoCmsStudioMcpApiKeyCreateResult,
-  GinkoCmsStudioHostBridge,
-} from '#ginko-cms-public/types.js'
+import type { GinkoCmsPublicConfig, GinkoCmsStudioHostBridge } from '#ginko-cms-public/types.js'
 // Catchall host page for /studio/* (everything except auth/signin and
 // auth/register, which are Nuxt-shipped pages registered before this).
 //
@@ -38,7 +33,6 @@ import {
   useRuntimeConfig,
 } from '#imports'
 
-import { requireGinkoApiKeyClient } from '../api-key-client'
 import { buildStudioHostApi } from './studio-host-api'
 
 const runtimeConfig = useRuntimeConfig()
@@ -82,43 +76,6 @@ function debugStudioHost(message: string, details: Record<string, unknown> = {})
     .map(([key, value]) => `${key}=${String(value)}`)
     .join(' ')
   console.debug(`[ginko-cms] Studio host ${message}${summary ? ` ${summary}` : ''}.`, details)
-}
-
-// MCP API-key management goes through the single typed Better Auth client
-// exposed by `useConvexAuth().client` (vNext §10.5). No hand-rolled
-// `/api-key/*` HTTP, route derivation, or response-envelope parsing: the
-// api-key client plugin owns transport and typing. `requireGinkoApiKeyClient`
-// narrows the possibly host-defined client to the `apiKey` surface and reports
-// the exact actionable capability error when the plugin is missing.
-async function createMcpApiKey(
-  input: GinkoCmsStudioMcpApiKeyCreateInput,
-): Promise<GinkoCmsStudioMcpApiKeyCreateResult> {
-  const client = requireGinkoApiKeyClient(convexAuth.client)
-  const result = await client.apiKey.create({
-    name: input.name,
-    expiresIn: input.expiresIn,
-    metadata: input.metadata,
-  })
-  if (result.error) {
-    throw new Error(result.error.message ?? 'Better Auth API-key creation failed')
-  }
-  if (!result.data?.id || !result.data.key) {
-    throw new Error('Better Auth API-key creation returned an incomplete result')
-  }
-  return {
-    id: result.data.id,
-    key: result.data.key,
-    name: result.data.name ?? null,
-    expiresAt: result.data.expiresAt ?? null,
-  }
-}
-
-async function deleteMcpApiKey(input: { keyId: string }): Promise<void> {
-  const client = requireGinkoApiKeyClient(convexAuth.client)
-  const result = await client.apiKey.delete({ keyId: input.keyId })
-  if (result.error) {
-    throw new Error(result.error.message ?? 'Better Auth API-key deletion failed')
-  }
 }
 
 // Populate the host bridge synchronously during client setup. The Studio SPA
@@ -209,10 +166,6 @@ function populateBridge(includeAuth: boolean): void {
           user: convexAuth.user,
         }
       : null,
-    mcpApiKeys: {
-      create: createMcpApiKey,
-      delete: deleteMcpApiKey,
-    },
     onSignOut: async () => {
       try {
         await convexAuth.signOut()

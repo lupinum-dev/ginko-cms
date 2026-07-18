@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   if (!Number.isSafeInteger(attemptGeneration) || attemptGeneration < 1) {
     throw badRequest('Invalid portability attempt generation.')
   }
-  const secret = process.env.BETTER_AUTH_SECRET?.trim()
+  const secret = process.env.GINKO_CMS_PORTABILITY_SECRET?.trim()
   if (!secret) throw unavailable('Portability token sealing is not configured.')
   const attemptTokenHash = hashPortableAssetAttemptToken(secret, token)
   const caller = serverConvex(event, { auth: 'required' })

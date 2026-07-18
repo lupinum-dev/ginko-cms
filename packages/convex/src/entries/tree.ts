@@ -76,6 +76,7 @@ const duplicateEntryDefinition = defineCmsOperation({
 export const duplicateEntry = callerMutation.protected(duplicateEntryDefinition)
 
 export const mcpCreateEntry = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'editor:mcpCreateEntry',
   args: {
     agentRunId: v.string(),

@@ -22,7 +22,6 @@ const narrowCaller: ExchangedMcpCredential['caller'] = {
 
 type ExchangeOutcome = 'valid' | 'invalid' | 'transport' | 'rate-limited'
 let exchangeOutcome: ExchangeOutcome = 'invalid'
-let accessResult: { apiKeyId: string; ownerUserId: string } | null = null
 
 const exchangeSpy = vi.fn(async (): Promise<ExchangedMcpCredential | null> => {
   if (exchangeOutcome === 'valid') {
@@ -34,7 +33,6 @@ const exchangeSpy = vi.fn(async (): Promise<ExchangedMcpCredential | null> => {
   }
   return null
 })
-const accessSpy = vi.fn(async () => accessResult)
 
 function active(key: string, now: number, windowMs: number) {
   return (buckets.get(key) ?? []).filter((attempt) => now - attempt.timestamp < windowMs)
@@ -73,8 +71,7 @@ function authDeps(overrides: Partial<AuthenticateDeps> = {}): AuthenticateDeps {
       await recordQueue
       return result
     },
-    exchangeCredential: async (credential) => exchangeSpy(credential),
-    resolveCredentialAccess: async () => accessSpy(),
+    authenticateCredential: async (credential) => exchangeSpy(credential),
     ...overrides,
   }
 }
@@ -101,15 +98,12 @@ describe('ginko mcp auth middleware', () => {
     buckets.clear()
     recordQueue = Promise.resolve()
     exchangeOutcome = 'invalid'
-    accessResult = null
     exchangeSpy.mockClear()
-    accessSpy.mockClear()
     callerQuery.mockClear()
   })
 
   it('stores validated claims and the narrow caller, never the raw JWT', async () => {
     exchangeOutcome = 'valid'
-    accessResult = { apiKeyId: 'ba_key_valid', ownerUserId: 'user-1' }
     const context: Record<string, unknown> = {}
     await authenticate({ token: 'ba_raw_valid', context })
 
@@ -169,7 +163,6 @@ describe('ginko mcp auth middleware', () => {
 
   it('does not charge successful or transport-failed authentication', async () => {
     exchangeOutcome = 'valid'
-    accessResult = { apiKeyId: 'ba_key_valid', ownerUserId: 'user-1' }
     await authenticate({ token: 'valid-token' })
     expect(buckets.size).toBe(0)
 
@@ -200,22 +193,12 @@ describe('ginko mcp auth middleware', () => {
     ).rejects.toMatchObject({ statusCode: 503 })
   })
 
-  it('records access mismatches exactly once', async () => {
-    exchangeOutcome = 'valid'
-    accessResult = { apiKeyId: 'ba_key_valid', ownerUserId: 'other-user' }
-    await expect(authenticate({ token: 'valid-token' })).rejects.toMatchObject({ statusCode: 401 })
-    expect([...buckets.values()].map((attempts) => attempts.length).sort()).toEqual([1, 1])
-  })
-
-  it('returns 401 when an exchanged key has been revoked from CMS access', async () => {
-    exchangeOutcome = 'valid'
-    accessResult = null
-
+  it('returns 401 when a credential has been revoked or is unknown', async () => {
+    exchangeOutcome = 'invalid'
     await expect(authenticate({ token: 'revoked-key' })).rejects.toMatchObject({
       statusCode: 401,
-      statusMessage: 'Invalid MCP credential settings',
+      statusMessage: 'Invalid MCP authentication token',
     })
-    expect(accessSpy).toHaveBeenCalledOnce()
     expect([...buckets.values()].map((attempts) => attempts.length).sort()).toEqual([1, 1])
   })
 
