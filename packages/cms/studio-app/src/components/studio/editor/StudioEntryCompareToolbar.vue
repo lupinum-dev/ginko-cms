@@ -71,6 +71,7 @@ function swapLocales() {
         <Button
           variant="ghost"
           size="sm"
+          aria-label="Single language view"
           class="studio-entry-compare-toolbar__mode-button ginko:h-6 ginko:gap-1.5 ginko:px-2.5"
           :class="
             !editor.locales.translationMode
@@ -85,6 +86,7 @@ function swapLocales() {
         <Button
           variant="ghost"
           size="sm"
+          :aria-label="editor.loader.t('ginkoCms.studio.collectionEditor.compareLanguages')"
           class="studio-entry-compare-toolbar__mode-button ginko:h-6 ginko:gap-1.5 ginko:px-2.5"
           :class="
             editor.locales.translationMode
@@ -110,6 +112,7 @@ function swapLocales() {
         >
           <SelectTrigger
             class="studio-entry-compare-toolbar__locale-trigger ginko:border-border/60"
+            :aria-label="`Select language. Current ${currentLocaleLabel}`"
           >
             <Icon
               v-if="localeFlag(editor.loader.currentLocale)"
@@ -158,6 +161,7 @@ function swapLocales() {
           >
             <SelectTrigger
               class="studio-entry-compare-toolbar__locale-trigger ginko:border-border/60"
+              :aria-label="`Select source language. Current ${currentLocaleLabel}`"
             >
               <Icon
                 v-if="localeFlag(editor.loader.currentLocale)"
@@ -216,6 +220,7 @@ function swapLocales() {
           >
             <SelectTrigger
               class="studio-entry-compare-toolbar__locale-trigger ginko:border-border/60"
+              :aria-label="`Select comparison language. Current ${secondaryLocaleLabel}`"
             >
               <Icon
                 v-if="localeFlag(secondaryLocale)"

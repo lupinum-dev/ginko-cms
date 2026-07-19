@@ -97,6 +97,7 @@ function choose(candidate: ParentCandidate | null) {
       <Button
         variant="outline"
         role="combobox"
+        :aria-label="t('ginkoCms.studio.collectionEditor.parent')"
         :aria-expanded="open"
         :disabled="disabled"
         class="ginko:h-9 ginko:w-full ginko:justify-between ginko:gap-2 ginko:px-3 ginko:font-normal"

@@ -40,7 +40,11 @@ const hasContent = computed(
           :label="editor.loader.t('ginkoCms.studio.collectionEditor.kind')"
         >
           <Select v-model="editor.draft.form.kind" :disabled="!editor.loader.canEditEntries">
-            <SelectTrigger class="ginko:h-9">
+            <SelectTrigger
+              id="kind"
+              class="ginko:h-9"
+              :aria-label="editor.loader.t('ginkoCms.studio.collectionEditor.kind')"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -143,7 +143,7 @@ const saveIndicatorTone = computed(() => {
   if (saveState.value === 'conflict') return 'ginko:text-destructive'
   if (saveState.value === 'offline-pending') return 'ginko:text-warning-fg'
   if (saveState.value === 'dirty') return 'ginko:text-muted-foreground'
-  return 'ginko:text-muted-foreground/80'
+  return 'ginko:text-muted-foreground'
 })
 const saveIndicatorLabel = computed(() => {
   if (!editor) return ''

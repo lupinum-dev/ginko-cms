@@ -24,6 +24,27 @@ function section(contents: string, start: string, end?: string) {
  * query-count regressions; they are not substitutes for those tests.
  */
 describe('known audit defects', () => {
+  it('[QUA-01] keeps narrow editor controls named and saved-state text AA-readable', () => {
+    const toolbar = source(
+      'packages/cms/studio-app/src/components/studio/editor/StudioEntryCompareToolbar.vue',
+    )
+    const sharedFields = source(
+      'packages/cms/studio-app/src/components/studio/editor/StudioSharedFieldsPanel.vue',
+    )
+    const parentPicker = source(
+      'packages/cms/studio-app/src/components/studio/editor/StudioEntryParentPicker.vue',
+    )
+    const topBar = source(
+      'packages/cms/studio-app/src/components/studio/editor/StudioEntryTopBar.vue',
+    )
+
+    expect(toolbar).toContain('aria-label="Single language view"')
+    expect(toolbar).toContain('Select language. Current ${currentLocaleLabel}')
+    expect(sharedFields).toContain(':aria-label="editor.loader.t(')
+    expect(parentPicker).toContain(':aria-label="t(\'ginkoCms.studio.collectionEditor.parent\')"')
+    expect(topBar).not.toContain("return 'ginko:text-muted-foreground/80'")
+  })
+
   it('reads an entry draft public projection through the existing entry index', () => {
     const body = section(
       source('packages/convex/src/entries/context.ts'),
