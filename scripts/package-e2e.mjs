@@ -622,7 +622,7 @@ try {
       '    global: true,',
       "    ignore: ['Prose/**', 'internal/**'],",
       '  }],',
-      "  convex: { url: process.env.CONVEX_URL || 'http://127.0.0.1:3210', siteUrl: process.env.CONVEX_SITE_URL || 'http://127.0.0.1:3211', auth: { publicOrigin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000' } },",
+      "  convex: { url: process.env.CONVEX_URL || 'http://127.0.0.1:3210', siteUrl: process.env.CONVEX_SITE_URL || 'http://127.0.0.1:3211', auth: { publicOrigin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000', proxy: { trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER } } },",
       ...(liveConvex
         ? [
             "  site: { url: process.env.CMS_STORY_SITE_URL || 'https://candidate.ginko.invalid' },",

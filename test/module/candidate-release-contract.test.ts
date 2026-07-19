@@ -73,6 +73,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain("consumerPackageManager === 'npm'")
     expect(source).toContain("npm_config_legacy_peer_deps: 'false'")
     expect(source).toContain("`    mcp: ${liveConvex ? 'true' : 'false'},`")
+    expect(source).toContain('trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER')
     expect(source).toContain("consumerExec('ginko-cms', ['deploy'])")
     expect(source).toContain("assertPnpmDependencyVersion(consumerLockfile, 'kysely', '0.28.17')")
     expect(source).toContain('npm candidate lockfile must contain only kysely@0.28.17.')
