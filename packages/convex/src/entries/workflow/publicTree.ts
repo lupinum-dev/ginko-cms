@@ -1,5 +1,6 @@
 export { MAX_PUBLIC_TREE_DEPTH, PublicTreeInvariantError } from './publicTree/model.js'
 export type { PublicTreeInvariantCode, PublicTreePathOptions } from './publicTree/model.js'
+export { publicPathsForEntries } from './publicTree/pathBatch.js'
 export {
   currentPublicPathForEntry,
   inspectPublicEntryReachability,

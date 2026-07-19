@@ -2,6 +2,7 @@ import type { Doc } from './_generated/dataModel.js'
 import {
   MAX_PUBLIC_TREE_DEPTH,
   publicPathForEntry,
+  publicPathsForEntries,
   resolvePublicTreePath,
 } from './entries/workflow/publicTree.js'
 import { throwCmsError } from './errors.js'
@@ -560,6 +561,10 @@ export async function paginatePublicRoutes(
       .take(batchSize)
     exhausted = batch.length < batchSize
     if (!batch.length) break
+    const paths = await publicPathsForEntries(ctx, batch, {
+      pathPrefix: pathPrefixForLocale(args.collection, args.locale),
+      rootSlug: rootSlugForLocale(args.collection, args.locale),
+    })
     for (const row of batch) {
       if (!row.stableId) {
         throwCmsError('INVALID_QUERY', 'Published route is missing its stable content identity.', {
@@ -575,10 +580,7 @@ export async function paginatePublicRoutes(
           locale: row.locale,
         })
       }
-      const path = await publicPathForEntry(ctx, row, {
-        pathPrefix: pathPrefixForLocale(args.collection, args.locale),
-        rootSlug: rootSlugForLocale(args.collection, args.locale),
-      })
+      const path = paths.get(String(row.entryId)) ?? null
       if (path) candidates.push({ row, path })
       afterStableId = row.stableId
       if (candidates.length > args.limit) break

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   inspectPublicEntryReachability,
   publicPathForPlacement,
+  publicPathsForEntries,
   resolvePublicRedirect,
   resolvePublicRoute,
   resolvePublicTreePath,
@@ -93,6 +94,22 @@ function treeRows(): TestRow[] {
 }
 
 describe('structural public tree', () => {
+  it('shares ancestor reads while resolving a route page', async () => {
+    const rows = treeRows()
+    const { ctx, calls } = createRoutingCtx({ rows })
+    const paths = await publicPathsForEntries(ctx, rows.slice(1) as never, {
+      pathPrefix: '/docs',
+    })
+
+    expect(paths).toEqual(
+      new Map([
+        ['install', '/docs/guide/install'],
+        ['api', '/docs/guide/api'],
+      ]),
+    )
+    expect(calls.filter((call) => call.index === 'by_entry_locale')).toHaveLength(1)
+  })
+
   it('walks the indexed parent/slug tree and computes the same current path from ancestry', async () => {
     const { ctx, calls } = createRoutingCtx({ rows: treeRows() })
     const route = await resolvePublicTreePath(ctx, {

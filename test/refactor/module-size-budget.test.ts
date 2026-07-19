@@ -64,6 +64,7 @@ const budgets = {
   // placement/collision policy, and redirect validation have focused owners.
   'packages/convex/src/entries/workflow/publicTree.ts': 60,
   'packages/convex/src/entries/workflow/publicTree/model.ts': 40,
+  'packages/convex/src/entries/workflow/publicTree/pathBatch.ts': 100,
   'packages/convex/src/entries/workflow/publicTree/pathResolution.ts': 420,
   'packages/convex/src/entries/workflow/publicTree/placement.ts': 160,
   'packages/convex/src/entries/workflow/publicTree/redirectPlacement.ts': 180,
