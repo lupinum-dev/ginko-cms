@@ -9,25 +9,26 @@
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "bceede1e2f6dce4ee70e3bf8dac17c9c4dce4770",
-      "sha256": "54d6fdac8e779545de29e09cd8d87957a8a9f19a91db0cc64c12726cfd25f56a"
+      "sourceCommit": "fd7e8fda6e60c61244424941c4811c09d626be6f",
+      "sha256": "cd89fcbac6b7beeee8b5aefa87f2b7cbad1e2cccba1de4fe07626566b6fbd89f"
     },
     "better-convex-nuxt": {
-      "sourceCommit": "2dc6bade3900238f15974d864f0db0284cfede24",
-      "sha256": "42f3c088d1d7742883c81e6d974d191c3f71dc47495f9b3ea37a7a407c34176c"
+      "sourceCommit": "8cc1a16b654388d23c88c71347336852ecb6031b",
+      "sha256": "a76894d29a1565ffae0062377339e9d76fba8217688e5b9162756b457844ddfa",
+      "runtimeFingerprint": "bcn-release-v1-de7d280e6d6501de1cfbb29bb3ee231ff8a57180093297107aefab08014ba28f"
     }
   },
   "tracked": {
     "@nuxtjs/mcp-toolkit": ["^0.16.1", "0.16.1", ">=0.16.1"],
     "@nuxtjs/sitemap": ["^8.0.15", "8.0.15"],
     "@nuxt/kit": ["4.4.8"],
-    "better-auth": ["1.7.0-rc.1", ">=1.7.0-rc.1 <1.8.0"],
-    "better-convex-nuxt": ["0.7.0-beta.0", "^0.7.0-beta.0"],
+    "better-auth": ["1.7.0-rc.1"],
+    "better-convex-nuxt": ["0.7.0-beta.0"],
     "convex": ["1.42.2", "^1.42.2"],
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
     "kysely": ["0.28.17"],
-    "nuxt": ["^4.4.8", "4.4.8"],
+    "nuxt": ["4.4.8"],
     "secure-exec": ["^0.2.1", "0.2.1"],
     "typescript": ["~5.9.3", "^5.9.3", "5.9.3"],
     "vite": ["^7.3.6", "7.3.6"],

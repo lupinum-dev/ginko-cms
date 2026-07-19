@@ -9,7 +9,10 @@ describe('coordinated CMS candidate release contract', () => {
     const workspace = readJson<{ scripts: Record<string, string> }>('package.json')
     const compatibility = readJson<{
       releaseStack: Record<string, string>
-      releaseArtifacts: Record<string, { sourceCommit: string; sha256: string }>
+      releaseArtifacts: Record<
+        string,
+        { sourceCommit: string; sha256: string; runtimeFingerprint?: string }
+      >
     }>('packages/cms/compatibility.json')
 
     expect(workspace.scripts['candidate:pack']).toBe('node scripts/candidate-pack.mjs')
@@ -41,6 +44,18 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-content',
       'better-convex-nuxt',
     ])
+    expect(compatibility.releaseArtifacts['better-convex-nuxt']?.runtimeFingerprint).toBe(
+      'bcn-release-v1-de7d280e6d6501de1cfbb29bb3ee231ff8a57180093297107aefab08014ba28f',
+    )
+    expect(
+      readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
+    ).toMatchObject({
+      'better-auth': '1.7.0-rc.1',
+      'better-convex-nuxt': '0.7.0-beta.0',
+      convex: '1.42.2',
+      kysely: '0.28.17',
+      nuxt: '4.4.8',
+    })
 
     for (const path of [
       'packages/cms/package.json',
@@ -68,6 +83,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).not.toContain('GINKO_CONTENT_SHA256')
     expect(source).not.toContain('BETTER_CONVEX_NUXT_SHA256')
     expect(source).toContain('compatibilityMatrix.releaseArtifacts')
+    expect(source).toContain('/api/_better-convex-nuxt/release-fingerprint')
     expect(source).toContain("resolve(packDir, 'candidate-artifact.json')")
     expect(source).toContain(': resolve(packDir, recorded.tarball)')
     expect(source).toContain("consumerPackageManager === 'npm'")

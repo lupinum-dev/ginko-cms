@@ -1,5 +1,8 @@
 import { mcpCredentialScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
-import { runVerifiedMcpLimiterRequest } from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
+import {
+  assertMcpCallerSignedRequest,
+  runVerifiedMcpLimiterRequest,
+} from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
 import { ConvexError, v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
@@ -87,15 +90,28 @@ export const revokeSettings = mutation({
 
 export const resolveAccessBySecretHash = query({
   args: {
-    serverSecret: v.string(),
-    secretHash: v.string(),
+    _mcpCredentialHash: v.string(),
+    _mcpRequestId: v.string(),
+    _mcpTimestamp: v.number(),
+    _mcpSignature: v.string(),
   },
   handler: async (ctx, args) => {
-    if (args.serverSecret !== requireMcpServerSecret()) {
+    try {
+      await assertMcpCallerSignedRequest(
+        requireMcpServerSecret(),
+        'query:ginkoCms/mcpCredentials:resolveAccessBySecretHash',
+        {
+          credentialHash: args._mcpCredentialHash,
+          requestId: args._mcpRequestId,
+          timestamp: args._mcpTimestamp,
+          signature: args._mcpSignature,
+        },
+      )
+    } catch {
       throw new ConvexError({ code: 'MCP_AUTH_INVALID', message: 'MCP authentication failed.' })
     }
     return await ctx.runQuery(components.ginkoCms.mcpCredentials.resolveAccessBySecretHash, {
-      secretHash: args.secretHash,
+      secretHash: args._mcpCredentialHash,
     })
   },
 })

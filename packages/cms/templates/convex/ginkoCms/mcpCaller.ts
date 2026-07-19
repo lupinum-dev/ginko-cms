@@ -1,4 +1,5 @@
 import { cmsMcpCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import { assertMcpCallerSignedRequest } from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
 import { ConvexError, v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
@@ -7,8 +8,10 @@ import type { ActionCtx, MutationCtx, QueryCtx } from '../_generated/server.js'
 declare const process: { env: Record<string, string | undefined> }
 
 export const mcpCallerArgs = {
-  _mcpServerSecret: v.optional(v.string()),
   _mcpCredentialHash: v.optional(v.string()),
+  _mcpRequestId: v.optional(v.string()),
+  _mcpTimestamp: v.optional(v.number()),
+  _mcpSignature: v.optional(v.string()),
 }
 
 export function requireMcpServerSecret() {
@@ -22,14 +25,18 @@ export function requireMcpServerSecret() {
 }
 
 type McpCallerArgs = {
-  _mcpServerSecret?: string
   _mcpCredentialHash?: string
+  _mcpRequestId?: string
+  _mcpTimestamp?: number
+  _mcpSignature?: string
 }
 
 export function stripMcpCallerArgs<TArgs extends McpCallerArgs>(args: TArgs) {
   const {
-    _mcpServerSecret: _serverSecret,
     _mcpCredentialHash: _credentialHash,
+    _mcpRequestId: _requestId,
+    _mcpTimestamp: _timestamp,
+    _mcpSignature: _signature,
     ...domainArgs
   } = args
   return domainArgs
@@ -37,12 +44,38 @@ export function stripMcpCallerArgs<TArgs extends McpCallerArgs>(args: TArgs) {
 
 type McpHostCtx = Pick<QueryCtx | MutationCtx | ActionCtx, 'runQuery'>
 
-export async function bindMcpCaller<TArgs extends McpCallerArgs>(ctx: McpHostCtx, args: TArgs) {
-  const { _mcpServerSecret, _mcpCredentialHash, ...domainArgs } = args
-  if (_mcpServerSecret === undefined && _mcpCredentialHash === undefined) return domainArgs
+export async function bindMcpCaller<TArgs extends McpCallerArgs>(
+  ctx: McpHostCtx,
+  args: TArgs,
+  operation: string,
+) {
+  const { _mcpCredentialHash, _mcpRequestId, _mcpTimestamp, _mcpSignature, ...domainArgs } = args
+  if (
+    _mcpCredentialHash === undefined &&
+    _mcpRequestId === undefined &&
+    _mcpTimestamp === undefined &&
+    _mcpSignature === undefined
+  ) {
+    return domainArgs
+  }
 
   const configuredSecret = requireMcpServerSecret()
-  if (_mcpServerSecret !== configuredSecret || typeof _mcpCredentialHash !== 'string') {
+  if (
+    typeof _mcpCredentialHash !== 'string' ||
+    typeof _mcpRequestId !== 'string' ||
+    typeof _mcpTimestamp !== 'number' ||
+    typeof _mcpSignature !== 'string'
+  ) {
+    throw new ConvexError({ code: 'MCP_AUTH_INVALID', message: 'MCP authentication failed.' })
+  }
+  try {
+    await assertMcpCallerSignedRequest(configuredSecret, operation, {
+      credentialHash: _mcpCredentialHash,
+      requestId: _mcpRequestId,
+      timestamp: _mcpTimestamp,
+      signature: _mcpSignature,
+    })
+  } catch {
     throw new ConvexError({ code: 'MCP_AUTH_INVALID', message: 'MCP authentication failed.' })
   }
 

@@ -185,4 +185,26 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     })
     expect((thrown as { data: object }).data).not.toHaveProperty('operation')
   })
+
+  it('maps only recognized backend cursor failures to the public cursor error', async () => {
+    serverConvexMock.mockReturnValue({
+      query: vi.fn(async () => {
+        throw Object.assign(new Error('Backend cursor details must stay private.'), {
+          data: { code: 'CURSOR_INVALID', cursor: 'private-backend-cursor' },
+        })
+      }),
+    })
+
+    const request = toContentProviderQuery({
+      collection: 'docs',
+      paging: { mode: 'cursor', after: 'opaque-public-cursor', limit: 10 },
+    })
+
+    await expect(
+      contentProvider.query({ context: { runtimeConfig: { public: {} } } }, request),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      data: { code: 'QUERY_CURSOR_INVALID' },
+    })
+  })
 })

@@ -12,16 +12,16 @@
       "templateHash": "982d55a2f8ae706900fea70841af4b5a7a3edc423a9106a530b7c06ebb1f1a86"
     },
     "convex/ginkoCms/agentRuns.ts": {
-      "templateHash": "c52e43289219f7dcaf8bb202322e7078101b6b417bd2db7dcde8efa41fae1fee"
+      "templateHash": "2cfd9e65b6e3468027727ededa26e6fa39ddb3662acfbc958a44b27f7491ddd4"
     },
     "convex/ginkoCms/assets.ts": {
-      "templateHash": "0fa9e895fa715490093e7426c5ab7a406a6b2168c0a39d3d8489f7303873130a"
+      "templateHash": "71169f2cc94297c3ea967b1e629a9c6f804f8da31043992e2e41fc839f297130"
     },
     "convex/ginkoCms/assetRecovery.ts": {
       "templateHash": "1b8a4e8b95320ed78b69f25f37aa9c505f89938007742b5d4fd9112e9c029f9e"
     },
     "convex/ginkoCms/collections.ts": {
-      "templateHash": "5f8bf6789720b27980bcd53873f51e090dfd1e3aeaa2193b867fe17369ebffbd"
+      "templateHash": "dd5a8d76160186999b43a1c8b7479ff5963dcf3151ebc01b050fcd2194d1ee9e"
     },
     "convex/ginkoCms/diagnostics.ts": {
       "templateHash": "30accfcd2748433fb2e181f5c1718f937e8088c4bd4cd7bbc1c8d73964322e67"
@@ -30,13 +30,13 @@
       "templateHash": "2369e09a9f0001676f3123cf76e1a94972b1fbf74d0877a0f80e2b459bad8258"
     },
     "convex/ginkoCms/editor.ts": {
-      "templateHash": "970e17810bd9428c6ac3b2a48be4d36b91c47585ba19873448a3b5f008ce2544"
+      "templateHash": "d209755ec78543c921d68e42cb21f434998d1942d134fdc2a8d2ec0649b8489a"
     },
     "convex/ginkoCms/mcpCredentials.ts": {
-      "templateHash": "fe3bcf6bf0a8e822fe8724169e927073b3475d42a5eee0fc6a2c686ffe0ac933"
+      "templateHash": "f4c41f681885066c3baadb30f2f24394c340231a54c6d378a29a4cb981e63c51"
     },
     "convex/ginkoCms/members.ts": {
-      "templateHash": "4f6874d401bba9222fa6c957c0b8254afe5e66c93a2fa5c67fbe613b8fd88ad9"
+      "templateHash": "33de62f07f4d252011af63a1c56fe6c3e7efa933ba09f60b8c7285ead47660b1"
     },
     "convex/ginkoCms/contractTransitions.ts": {
       "templateHash": "7e58990bbb1cbed0fc903eff67f7bf6a165b7e63bc9d4c85f6f2188f68521a54"
@@ -54,7 +54,7 @@
       "templateHash": "ddb99d864b6600d74c96c5e759e26446d4b40b7d46992eebfcf3f2f5dee232f9"
     },
     "convex/ginkoCms/reviewRequests.ts": {
-      "templateHash": "9152b11844a98784561940ea7e1f7ebf67b15757959107b2a263bdabaefc5ff8"
+      "templateHash": "b16b97207aff0e9049821840f7e4e7526f25cc96f34b4e668d18be13ee791f22"
     },
     "convex/ginkoCms/settings.ts": {
       "templateHash": "2d1d949c8c3298f6149de465e17ea08760f1f15982368f27990d090c4068c1ca"
@@ -78,7 +78,7 @@
       "templateHash": "1d8fda8c7c9a91b42083b84efe162de13fe452717d19ddd83e31dae71c31ae0a"
     },
     "convex/ginkoCms/mcpCaller.ts": {
-      "templateHash": "c09b006917be269784ef8f058062ae9c488bbcc22e5f8ac54b85eb9ee29a8c39"
+      "templateHash": "2d6a53c055a474b58726360b7a3f2d6dd5eba0e2dc24ba57f983a14d74c7de23"
     }
   }
 }

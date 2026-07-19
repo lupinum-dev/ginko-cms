@@ -130,7 +130,7 @@ export const getAccessContext = query({
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.members.getAccessContext,
-      await bindMcpCaller(ctx, args),
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/members:getAccessContext'),
     ),
 })
 

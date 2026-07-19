@@ -14,7 +14,9 @@ export const startRun = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.agentRuns.startRun,
-      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
+      bindExpectedCmsContract(
+        await bindMcpCaller(ctx, args, 'mutation:ginkoCms/agentRuns:startRun'),
+      ),
     ),
 })
 
@@ -24,7 +26,10 @@ export const listRuns = query({
     ...mcpCallerArgs,
   },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.agentRuns.listRuns, await bindMcpCaller(ctx, args)),
+    await ctx.runQuery(
+      components.ginkoCms.agentRuns.listRuns,
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/agentRuns:listRuns'),
+    ),
 })
 
 export const completeRun = mutation({
@@ -35,7 +40,9 @@ export const completeRun = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.agentRuns.completeRun,
-      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
+      bindExpectedCmsContract(
+        await bindMcpCaller(ctx, args, 'mutation:ginkoCms/agentRuns:completeRun'),
+      ),
     ),
 })
 

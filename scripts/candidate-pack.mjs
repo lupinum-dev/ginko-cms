@@ -146,7 +146,15 @@ function requireUpstream(name, root, tarball) {
   } finally {
     rmSync(temporaryRoot, { recursive: true, force: true })
   }
-  return { version: compatibility.releaseStack[name], commit, sha256: actualHash, path: tarball }
+  return {
+    version: compatibility.releaseStack[name],
+    commit,
+    sha256: actualHash,
+    path: tarball,
+    ...(typeof expected.runtimeFingerprint === 'string'
+      ? { runtimeFingerprint: expected.runtimeFingerprint }
+      : {}),
+  }
 }
 
 assertClean(repoRoot, 'Ginko CMS')
@@ -216,6 +224,9 @@ try {
           commit: artifact.commit,
           sha256: artifact.sha256,
           tarball: basename(artifact.path),
+          ...(artifact.runtimeFingerprint
+            ? { runtimeFingerprint: artifact.runtimeFingerprint }
+            : {}),
         },
       ]),
     ),

@@ -1,4 +1,4 @@
-export function parseMcpBearerApiKey(authorizationHeader?: string | null): string | null {
+export function parseMcpBearerCredential(authorizationHeader?: string | null): string | null {
   const prefix = 'Bearer '
   if (!authorizationHeader?.startsWith(prefix)) return null
 

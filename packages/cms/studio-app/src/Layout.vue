@@ -22,7 +22,7 @@ const { t } = useCmsI18n()
 // `route.meta.rightSidebar` so the header trigger shows before a page mounts.
 provideRightSidebar()
 const cmsConfig = useCmsConfig()
-const { user, isAuthenticated } = useCmsAuthState()
+const { user, isAuthenticated, error: authError } = useCmsAuthState()
 const route = useRoute()
 const isInvitationRoute = computed(() => route.meta.authenticatedPublic === true)
 
@@ -44,6 +44,9 @@ const bootstrapCmsOwner = useConvexMutation(api.ginkoCms.members.bootstrapCmsOwn
 const bootstrapPending = ref(false)
 const bootstrapError = ref('')
 const studioAccess = computed<{ status: string; reason: string | null }>(() => {
+  if (authError.value) {
+    return { status: 'auth_error', reason: 'auth_unavailable' }
+  }
   if (bootstrapPending.value) {
     return { status: 'bootstrapping', reason: null }
   }
@@ -112,6 +115,10 @@ async function claimCmsOwnership() {
   } finally {
     bootstrapPending.value = false
   }
+}
+
+function retryAuthentication(): void {
+  window.location.reload()
 }
 </script>
 
@@ -199,6 +206,12 @@ async function claimCmsOwnership() {
           {{ t('ginkoCms.studio.layout.claimOwnerDescription') }}
         </CardDescription>
       </CardHeader>
+      <CardHeader v-else-if="studioAccess.status === 'auth_error'">
+        <CardTitle>{{ t('ginkoCms.studio.layout.authUnavailableTitle') }}</CardTitle>
+        <CardDescription>
+          {{ t('ginkoCms.studio.layout.authUnavailableDescription') }}
+        </CardDescription>
+      </CardHeader>
       <CardHeader v-else-if="studioAccess.status === 'forbidden'">
         <CardTitle>{{ t('ginkoCms.studio.layout.forbiddenTitle') }}</CardTitle>
         <CardDescription>
@@ -223,6 +236,11 @@ async function claimCmsOwnership() {
           @click="claimCmsOwnership"
         >
           {{ t('ginkoCms.studio.layout.claimOwnerAction') }}
+        </Button>
+      </CardContent>
+      <CardContent v-if="studioAccess.status === 'auth_error'" class="ginko:pt-0">
+        <Button class="ginko:w-full" data-testid="cms-auth-retry" @click="retryAuthentication">
+          {{ t('ginkoCms.studio.layout.authUnavailableAction') }}
         </Button>
       </CardContent>
       <CardContent v-if="bootstrapError" class="ginko:text-sm ginko:text-destructive">

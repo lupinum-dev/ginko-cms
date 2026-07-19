@@ -7,7 +7,7 @@ import {
 } from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
 import type { ServerConvexCaller } from 'better-convex-nuxt/server'
 
-import { parseMcpBearerApiKey } from './better-auth-api-key.js'
+import { parseMcpBearerCredential } from './bearer-credential.js'
 
 export type McpAuthErrorFactory = (input: {
   statusCode: number
@@ -136,7 +136,7 @@ export async function authenticateMcpRequestContext(
 ) {
   if (!input.path?.startsWith('/mcp')) return
 
-  const token = parseMcpBearerApiKey(input.authorizationHeader)
+  const token = parseMcpBearerCredential(input.authorizationHeader)
   if (!token) {
     throw deps.createError({
       statusCode: 401,

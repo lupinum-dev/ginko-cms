@@ -10,7 +10,7 @@ export const listCollections = query({
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.collections.listCollections,
-      await bindMcpCaller(ctx, args),
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/collections:listCollections'),
     ),
 })
 
@@ -19,7 +19,7 @@ export const getCollection = query({
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.collections.getCollection,
-      await bindMcpCaller(ctx, args),
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/collections:getCollection'),
     ),
 })
 

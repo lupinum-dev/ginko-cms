@@ -1,5 +1,6 @@
 import type { GinkoCmsStudioHostBridgeAuth } from '@public/types'
 import type { ConvexAuthStatus } from 'better-convex-nuxt'
+import type { ConvexCallError } from 'better-convex-nuxt/errors'
 import { computed, type ComputedRef } from 'vue'
 
 import { useStudioHostContext } from '../boundary/studio-host-context'
@@ -26,7 +27,7 @@ export interface CmsAuthUser {
 }
 
 // The auth subset the host bridge exposes (vNext §10.6): the
-// `status | isPending | isAuthenticated | user` slice of `UseConvexAuthReturn`.
+// `status | isPending | isAuthenticated | user | error` slice of `UseConvexAuthReturn`.
 // No `token`/`isAnonymous`/`getJwt` — the Studio never receives the Convex JWT.
 type BridgeAuth = GinkoCmsStudioHostBridgeAuth
 
@@ -57,6 +58,7 @@ interface UseCmsAuthStateReturn {
   user: ComputedRef<CmsAuthUser | null>
   isAuthenticated: ComputedRef<boolean>
   pending: ComputedRef<boolean>
+  error: ComputedRef<ConvexCallError | null>
   principalKey: ComputedRef<string>
   signOut: () => Promise<void>
 }
@@ -76,6 +78,7 @@ export function useCmsAuthState(): UseCmsAuthStateReturn {
   const status = computed<ConvexAuthStatus>(() => auth.value?.status.value ?? 'disabled')
   const pending = computed(() => auth.value?.isPending.value === true)
   const user = computed(() => normalizeUser(auth.value?.user.value))
+  const error = computed(() => auth.value?.error.value ?? null)
   const principalKey = computed(() => {
     if (status.value === 'loading') return 'pending'
     return isAuthenticated.value && user.value ? `user:${user.value.id}` : 'anonymous'
@@ -87,6 +90,7 @@ export function useCmsAuthState(): UseCmsAuthStateReturn {
     user,
     isAuthenticated,
     pending,
+    error,
     principalKey,
     async signOut(): Promise<void> {
       const onSignOut = studioHost.getBridge().onSignOut

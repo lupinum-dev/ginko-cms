@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  assertMcpCallerSignedRequest,
   assertMcpLimiterSignedRequest,
   deriveMcpLimiterBucketKey,
   runVerifiedMcpLimiterRequest,
   signMcpLimiterPayload,
+  signMcpCallerPayload,
   verifyMcpLimiterPayloadSignature,
 } from '../src/mcpLimiterProtocol.js'
 
@@ -103,5 +105,47 @@ describe('MCP limiter signatures', () => {
       runVerifiedMcpLimiterRequest(secret, 'record', { ...payload, signature }, execute),
     ).resolves.toEqual({ limited: false })
     expect(execute).toHaveBeenCalledOnce()
+  })
+})
+
+describe('MCP caller assertions', () => {
+  it('binds a short-lived assertion to one function and credential hash', async () => {
+    const secret = 'test-secret'
+    const payload = {
+      operation: 'mutation:ginkoCms/editor:mcpSaveEntryDraft',
+      credentialHash: 'a'.repeat(64),
+      requestId: 'request-1',
+      timestamp: 10_000,
+    }
+    const signature = await signMcpCallerPayload(secret, payload)
+    const args = {
+      credentialHash: payload.credentialHash,
+      requestId: payload.requestId,
+      timestamp: payload.timestamp,
+      signature,
+    }
+
+    await expect(
+      assertMcpCallerSignedRequest(secret, payload.operation, args, payload.timestamp),
+    ).resolves.toBeUndefined()
+    await expect(
+      assertMcpCallerSignedRequest(
+        secret,
+        'mutation:ginkoCms/editor:mcpCreateEntry',
+        args,
+        payload.timestamp,
+      ),
+    ).rejects.toThrow('signature')
+    await expect(
+      assertMcpCallerSignedRequest(
+        secret,
+        payload.operation,
+        { ...args, credentialHash: 'b'.repeat(64) },
+        payload.timestamp,
+      ),
+    ).rejects.toThrow('signature')
+    await expect(
+      assertMcpCallerSignedRequest(secret, payload.operation, args, payload.timestamp + 30_001),
+    ).rejects.toThrow('stale')
   })
 })

@@ -125,7 +125,10 @@ export const moveAsset = mutation({
 export const getAsset = query({
   args: { ...getAssetArgs.args, ...mcpCallerArgs },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.assets.getAsset, await bindMcpCaller(ctx, args)),
+    await ctx.runQuery(
+      components.ginkoCms.assets.getAsset,
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/assets:getAsset'),
+    ),
 })
 
 export const listAssetsByOwner = query({
@@ -143,7 +146,10 @@ export const listAssetUsages = query({
 export const resolveAssetUrls = query({
   args: { ...resolveAssetUrlsArgs.args, ...mcpCallerArgs },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.assets.resolveAssetUrls, await bindMcpCaller(ctx, args)),
+    await ctx.runQuery(
+      components.ginkoCms.assets.resolveAssetUrls,
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/assets:resolveAssetUrls'),
+    ),
 })
 
 export const getAssetManagerData = query({

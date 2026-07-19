@@ -19,7 +19,9 @@ export const requestPublishReview = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.reviewRequests.requestPublishReview,
-      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
+      bindExpectedCmsContract(
+        await bindMcpCaller(ctx, args, 'mutation:ginkoCms/reviewRequests:requestPublishReview'),
+      ),
     ),
 })
 
@@ -53,7 +55,7 @@ export const getOwnReviewRequest = query({
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.reviewRequests.getOwnReviewRequest,
-      await bindMcpCaller(ctx, args),
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/reviewRequests:getOwnReviewRequest'),
     ),
 })
 

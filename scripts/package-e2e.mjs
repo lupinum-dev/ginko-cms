@@ -95,6 +95,7 @@ function requireCandidateArtifact(pathVariable, packageName) {
   if (
     recorded?.sha256 !== expected.sha256 ||
     recorded?.commit !== expected.sourceCommit ||
+    (expected.runtimeFingerprint && recorded?.runtimeFingerprint !== expected.runtimeFingerprint) ||
     typeof recorded?.tarball !== 'string'
   ) {
     throw new Error(`Candidate evidence does not match compatibility for ${packageName}.`)
@@ -288,10 +289,26 @@ async function bootNitro() {
         if (
           actual?.version !== artifact.version ||
           actual?.commit !== artifact.commit ||
-          actual?.sha256 !== artifact.sha256
+          actual?.sha256 !== artifact.sha256 ||
+          actual?.runtimeFingerprint !== artifact.runtimeFingerprint
         ) {
           throw new Error(`Packed candidate attestation does not match ${name}.`)
         }
+      }
+      const expectedFingerprint =
+        compatibilityMatrix.releaseArtifacts['better-convex-nuxt'].runtimeFingerprint
+      const fingerprintResponse = await fetch(
+        `http://127.0.0.1:${port}/api/_better-convex-nuxt/release-fingerprint`,
+      )
+      const fingerprint = await fingerprintResponse.json()
+      if (
+        !fingerprintResponse.ok ||
+        fingerprint?.schemaVersion !== 1 ||
+        fingerprint?.runtimeFingerprint !== expectedFingerprint
+      ) {
+        throw new Error(
+          `Packed Better Convex Nuxt runtime fingerprint is invalid (${fingerprintResponse.status}): ${JSON.stringify(fingerprint)}`,
+        )
       }
     }
 
@@ -775,6 +792,9 @@ try {
             version: artifact.version,
             commit: artifact.commit,
             sha256: artifact.sha256,
+            ...(artifact.runtimeFingerprint
+              ? { runtimeFingerprint: artifact.runtimeFingerprint }
+              : {}),
           },
         ]),
       ),

@@ -23,6 +23,7 @@ const { t } = useCmsI18n()
 const email = ref(typeof route.query.email === 'string' ? route.query.email : '')
 const password = ref('')
 const error = ref<string | null>(null)
+const displayError = computed(() => error.value ?? auth.error?.value?.message ?? null)
 const authFormReady = ref(false)
 const isLoading = computed(() => isSubmitting.value)
 const isRedirecting = computed(
@@ -107,8 +108,8 @@ async function onSubmit(event: Event) {
       :data-auth-ready="authFormReady ? 'true' : 'false'"
       @submit.prevent="onSubmit"
     >
-      <div v-if="error" class="cms-auth-error" data-testid="cms-auth-error">
-        {{ error }}
+      <div v-if="displayError" class="cms-auth-error" data-testid="cms-auth-error">
+        {{ displayError }}
       </div>
       <div class="cms-auth-field">
         <label for="email" class="cms-auth-label">

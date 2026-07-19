@@ -1,6 +1,8 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 
+import { signMcpCallerPayload } from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
 import { serverConvex } from 'better-convex-nuxt/server'
+import type { FunctionReference } from 'convex/server'
 import { createError, defineEventHandler, getRequestHeader, getRequestIP, type H3Event } from 'h3'
 
 import { api } from '#convex/api'
@@ -69,22 +71,62 @@ async function authenticateMcpCredential(
 ): Promise<ExchangedMcpCredential | null> {
   const secretHash = createHash('sha256').update(credential).digest('hex')
   const caller = serverConvex(event, { auth: 'none' })
+  const resolveReference = api.ginkoCms.mcpCredentials.resolveAccessBySecretHash
   const access = await caller.query(api.ginkoCms.mcpCredentials.resolveAccessBySecretHash, {
-    serverSecret,
-    secretHash,
+    ...(await signedCallerAssertion(serverSecret, secretHash, 'query', resolveReference)),
   })
   if (!access) return null
-  const assertion = { _mcpServerSecret: serverSecret, _mcpCredentialHash: secretHash }
   const assertedCaller: ExchangedMcpCredential['caller'] = {
-    query: async (reference, args) => await caller.query(reference, { ...args, ...assertion }),
+    query: async (reference, args) =>
+      await caller.query(reference, {
+        ...args,
+        ...(await signedCallerAssertion(serverSecret, secretHash, 'query', reference)),
+      }),
     mutation: async (reference, args) =>
-      await caller.mutation(reference, { ...args, ...assertion }),
-    action: async (reference, args) => await caller.action(reference, { ...args, ...assertion }),
+      await caller.mutation(reference, {
+        ...args,
+        ...(await signedCallerAssertion(serverSecret, secretHash, 'mutation', reference)),
+      }),
+    action: async (reference, args) =>
+      await caller.action(reference, {
+        ...args,
+        ...(await signedCallerAssertion(serverSecret, secretHash, 'action', reference)),
+      }),
   }
   return {
     apiKeyId: access.apiKeyId,
     ownerUserId: access.ownerUserId,
     caller: assertedCaller,
+  }
+}
+
+function functionReferenceName(reference: FunctionReference<'query' | 'mutation' | 'action'>) {
+  const name = (reference as unknown as Record<symbol, unknown>)[Symbol.for('functionName')]
+  if (typeof name !== 'string' || !name) {
+    throw new Error('MCP function reference is invalid.')
+  }
+  return name
+}
+
+async function signedCallerAssertion(
+  serverSecret: string,
+  credentialHash: string,
+  kind: 'query' | 'mutation' | 'action',
+  reference: FunctionReference<'query' | 'mutation' | 'action'>,
+) {
+  const operation = `${kind}:${functionReferenceName(reference)}`
+  const requestId = randomUUID()
+  const timestamp = Date.now()
+  return {
+    _mcpCredentialHash: credentialHash,
+    _mcpRequestId: requestId,
+    _mcpTimestamp: timestamp,
+    _mcpSignature: await signMcpCallerPayload(serverSecret, {
+      operation,
+      credentialHash,
+      requestId,
+      timestamp,
+    }),
   }
 }
 

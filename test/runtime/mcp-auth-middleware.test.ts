@@ -125,6 +125,9 @@ describe('ginko mcp auth middleware', () => {
     expect(source).toContain("serverConvex(event, { auth: 'none' })")
     expect(source).not.toContain('xForwardedFor: true')
     expect(source).not.toContain('useStorage')
+    expect(source).toContain('signMcpCallerPayload')
+    expect(source).not.toContain('_mcpServerSecret')
+    expect(source).not.toContain('serverSecret,\n    secretHash')
   })
 
   it('atomically records five concurrent invalid attempts and limits the next request', async () => {

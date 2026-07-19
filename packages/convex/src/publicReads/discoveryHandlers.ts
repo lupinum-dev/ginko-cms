@@ -6,7 +6,10 @@ import type {
 } from '@lupinum/ginko-cms-contract/convex/schemas/public.js'
 import type { ObjectType } from 'convex/values'
 
-import { readRouteGeneration } from '../entries/workflow/routeGeneration.js'
+import {
+  readRouteGeneration,
+  readRouteInventoryGeneration,
+} from '../entries/workflow/routeGeneration.js'
 import { throwCmsError } from '../errors.js'
 import { assertCollectionSupportsLocale, getCollection } from '../lib/collections.js'
 import { getCmsSettings } from '../lib/locale.js'
@@ -262,9 +265,10 @@ export async function sitemapHandler(ctx: QueryCtx, args: SitemapArgs) {
 
 export async function routesHandler(ctx: QueryCtx, args: RoutesArgs) {
   validatePublicTextArgs(args)
+  const snapshot = `routes:${await readRouteInventoryGeneration(ctx)}`
   const collection = await getCollection(ctx, args.collection)
   if (!collection) {
-    return { routes: [], pageInfo: { hasNextPage: false, endCursor: null }, snapshot: '0' }
+    return { routes: [], pageInfo: { hasNextPage: false, endCursor: null }, snapshot }
   }
   assertRouteBackedCollection(collection)
   assertCollectionSupportsLocale(collection, args.locale)
@@ -294,6 +298,6 @@ export async function routesHandler(ctx: QueryCtx, args: RoutesArgs) {
       hasNextPage: page.hasNextPage,
       endCursor: page.endCursor,
     },
-    snapshot: generation,
+    snapshot,
   }
 }

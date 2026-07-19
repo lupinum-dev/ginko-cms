@@ -52,12 +52,12 @@
   },
   "dependencies": {
     "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.1",
-    "@lupinum/ginko-content": "^0.3.0-rc.4",
-    "better-convex-nuxt": "^0.7.0-beta.0",
+    "@lupinum/ginko-content": "^0.3.0-rc.5",
+    "better-convex-nuxt": "0.7.0-beta.0",
     "convex": "1.42.2"
   },
   "peerDependencies": {
-    "better-auth": ">=1.7.0-rc.1 <1.8.0"
+    "better-auth": "1.7.0-rc.1"
   },
   "engines": {
     "node": ">=22.0.0"

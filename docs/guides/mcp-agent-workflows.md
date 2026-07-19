@@ -5,13 +5,10 @@ It is not a raw database, schema, member, or settings API.
 
 ## Current Connection Model
 
-MCP bearer tokens are Better Auth API keys. The raw key is shown only by Better
-Auth at creation time and is not stored by Ginko CMS.
-
-For a key to use CMS tools, an owner creates active `mcpCredentialSettings` for
-the Better Auth API-key id. Those settings bind the key to a CMS member,
-supported MCP scopes, expiry, and active status. The generated secret is shown
-once, stored hashed at rest, and can be revoked by an owner.
+MCP bearer tokens are Ginko-owned credentials. An owner creates a connection
+that binds the generated secret to a CMS member, supported MCP scopes, expiry,
+and active status. The secret is shown once, only its hash is stored, and an
+owner can revoke it immediately.
 
 Owners manage the connection lifecycle in Studio settings. Verify the deployed
 runtime and generated host boundary with:
@@ -72,6 +69,7 @@ role plus stale draft state. Rejection has no public-output effect.
 
 ## Server Environment
 
-MCP bearer identity is Better Auth plus CMS credential settings. The server
-requests a Better Auth Convex token for the verified API key and uses that token
-for Convex calls. Keep raw MCP bearer tokens in external client config only.
+MCP bearer identity is resolved from the Ginko credential hash and current CMS
+state. The server signs a short-lived assertion bound to the exact Convex
+function instead of forwarding the long-lived bridge secret. Keep raw MCP
+bearer tokens in external client config only.

@@ -11,6 +11,7 @@ const auth = {
     email: 'member@example.com',
     image: null,
   }),
+  error: ref<Error | null>(null),
 }
 const bridgeState = {
   auth,
@@ -39,6 +40,7 @@ describe('Studio session boundary', () => {
       email: 'member@example.com',
       image: null,
     }
+    auth.error.value = null
   })
 
   it('[ACC-03] signs out through the host session and clears reactive member state', async () => {
@@ -52,5 +54,16 @@ describe('Studio session boundary', () => {
     expect(state.isAuthenticated.value).toBe(false)
     expect(state.user.value).toBeNull()
     expect(state.principalKey.value).toBe('anonymous')
+  })
+
+  it('preserves authentication infrastructure failures as a distinct bridge state', () => {
+    auth.error.value = new Error('authentication unavailable')
+    auth.isAuthenticated.value = false
+    auth.status.value = 'unauthenticated'
+    auth.user.value = null
+
+    const state = useCmsAuthState()
+    expect(state.error.value?.message).toBe('authentication unavailable')
+    expect(state.isAuthenticated.value).toBe(false)
   })
 })

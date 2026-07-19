@@ -3,11 +3,14 @@ import {
   toContentProviderNavigationQuery,
   toContentProviderQuery,
 } from '@lupinum/ginko-content/provider'
+import { runContentDataSourceContractSuite } from '@lupinum/ginko-content/testing/data-source-contract'
 import {
   expectProviderCapabilities,
   runProviderContractSuite,
 } from '@lupinum/ginko-content/testing/provider-contract'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { contentDataSource } from '../../packages/cms/src/nuxt-provider/data-source'
 
 const entry = (locale = 'en') => ({
   id: `entry-docs-routing-${locale}`,
@@ -206,6 +209,60 @@ describe('Ginko Nuxt provider v3', () => {
   afterEach(() => {
     setClientFactory(undefined)
     delete process.env.NUXT_PUBLIC_CONVEX_URL
+  })
+
+  const firstQuery = (path: string) => {
+    const query = toContentProviderQuery({ collection: 'docs', first: true })
+    query.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'en',
+      candidates: [{ locale: 'en', contentPath: path }],
+    }
+    return query
+  }
+
+  runContentDataSourceContractSuite({
+    name: 'CMS data source',
+    loadSource: async () => contentDataSource,
+    createContext: () => ({ event, caller: { query: convexMock.query } }),
+    firstFound: {
+      query: firstQuery('/docs/content-routing'),
+      assertResult: (result) => {
+        expect(result).toMatchObject({
+          result: expect.objectContaining({ canonicalKey: 'docs-routing' }),
+        })
+      },
+    },
+    firstMissing: {
+      query: firstQuery('/missing'),
+      assertResult: (result) => {
+        expect(result).toEqual({ result: undefined })
+      },
+    },
+    list: {
+      query: toContentProviderQuery({ collection: 'docs', limit: 10 }),
+      assertResult: (result) => {
+        expect(result).toMatchObject({
+          result: [expect.objectContaining({ canonicalKey: 'docs-routing' })],
+          skip: 0,
+          limit: 10,
+          total: 1,
+        })
+      },
+    },
+    cursor: {
+      query: toContentProviderQuery({
+        collection: 'docs',
+        paging: { mode: 'cursor', after: null, limit: 10 },
+      }),
+      assertResult: (result) => {
+        expect(result).toMatchObject({
+          mode: 'cursor',
+          result: [expect.objectContaining({ canonicalKey: 'docs-routing' })],
+          pageInfo: { endCursor: 'next', hasNext: true },
+        })
+      },
+    },
   })
 
   runProviderContractSuite({
@@ -533,7 +590,7 @@ describe('Ginko Nuxt provider v3', () => {
   it('rejects empty provider searches before calling Convex', async () => {
     await expect(
       contentProvider.search!(event, { term: '   ', locale: 'en', collections: ['docs'] }),
-    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'BACKEND_FAILURE' })
+    ).rejects.toMatchObject({ statusCode: 502, statusMessage: 'BACKEND_FAILURE' })
     expect(convexMock.query).not.toHaveBeenCalled()
   })
 
@@ -680,7 +737,7 @@ describe('Ginko Nuxt provider v3', () => {
     }
 
     await expect(contentProvider.query(event, query)).rejects.toMatchObject({
-      statusCode: 500,
+      statusCode: 502,
       statusMessage: 'BACKEND_FAILURE',
       data: { code: 'BACKEND_FAILURE' },
     })
@@ -692,7 +749,7 @@ describe('Ginko Nuxt provider v3', () => {
     await expect(
       contentProvider.query(event, toContentProviderQuery({ collection: 'docs' })),
     ).rejects.toMatchObject({
-      statusCode: 500,
+      statusCode: 502,
       statusMessage: 'BACKEND_FAILURE',
       data: { code: 'BACKEND_FAILURE' },
     })
@@ -710,7 +767,7 @@ describe('Ginko Nuxt provider v3', () => {
     }
 
     await expect(contentProvider.query(event, query)).rejects.toMatchObject({
-      statusCode: 500,
+      statusCode: 502,
       statusMessage: 'BACKEND_FAILURE',
       data: { code: 'BACKEND_FAILURE' },
     })
@@ -730,7 +787,7 @@ describe('Ginko Nuxt provider v3', () => {
 
     const error = await invoke().catch((cause) => cause)
     expect(error).toMatchObject({
-      statusCode: 500,
+      statusCode: 502,
       statusMessage: 'BACKEND_FAILURE',
       data: { code: 'BACKEND_FAILURE' },
     })

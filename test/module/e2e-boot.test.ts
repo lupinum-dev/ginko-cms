@@ -173,7 +173,10 @@ describe('ginko-cms module e2e boot', () => {
         expect.objectContaining({
           name: 'studio-host',
           path: '/studio/:slug(.*)*',
-          meta: { layout: false, convexAuth: true },
+          meta: {
+            layout: false,
+            convexAuth: { redirectTo: '/studio/auth/signin' },
+          },
         }),
       ]),
     )

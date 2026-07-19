@@ -1,5 +1,6 @@
 const SIGNATURE_DOMAIN = 'ginko-cms:mcp-auth-limiter:v1'
 const BUCKET_DOMAIN = 'ginko-cms:mcp-auth-limiter:bucket:v1'
+const CALLER_SIGNATURE_DOMAIN = 'ginko-cms:mcp-caller:v1'
 
 export type McpLimiterOperation = 'check' | 'record'
 
@@ -7,6 +8,13 @@ export type McpLimiterSignedPayload = {
   operation: McpLimiterOperation
   ipBucketKey: string
   credentialBucketKey: string
+  requestId: string
+  timestamp: number
+}
+
+export type McpCallerSignedPayload = {
+  operation: string
+  credentialHash: string
   requestId: string
   timestamp: number
 }
@@ -44,6 +52,53 @@ export async function signMcpLimiterPayload(secret: string, payload: McpLimiterS
       String(payload.timestamp),
     ].join('\n'),
   )
+}
+
+export async function signMcpCallerPayload(secret: string, payload: McpCallerSignedPayload) {
+  return await hmacHex(
+    secret,
+    [
+      CALLER_SIGNATURE_DOMAIN,
+      payload.operation,
+      payload.credentialHash,
+      payload.requestId,
+      String(payload.timestamp),
+    ].join('\n'),
+  )
+}
+
+export async function assertMcpCallerSignedRequest(
+  secret: string,
+  expectedOperation: string,
+  args: Omit<McpCallerSignedPayload, 'operation'> & { signature: string },
+  now = Date.now(),
+) {
+  if (Math.abs(now - args.timestamp) > 30_000) {
+    throw new Error('MCP caller assertion is stale.')
+  }
+  if (!/^(?:query|mutation|action):[\w./:-]{1,240}$/.test(expectedOperation)) {
+    throw new Error('MCP caller operation is invalid.')
+  }
+  if (!/^[a-f0-9]{64}$/.test(args.credentialHash)) {
+    throw new Error('MCP credential hash is invalid.')
+  }
+  if (!/^[\w.:-]{1,128}$/.test(args.requestId)) {
+    throw new Error('MCP caller request ID is invalid.')
+  }
+  const expected = await signMcpCallerPayload(secret, {
+    operation: expectedOperation,
+    credentialHash: args.credentialHash,
+    requestId: args.requestId,
+    timestamp: args.timestamp,
+  })
+  if (expected.length !== args.signature.length) {
+    throw new Error('MCP caller signature is invalid.')
+  }
+  let mismatch = 0
+  for (let index = 0; index < expected.length; index += 1) {
+    mismatch |= expected.charCodeAt(index) ^ args.signature.charCodeAt(index)
+  }
+  if (mismatch !== 0) throw new Error('MCP caller signature is invalid.')
 }
 
 export async function verifyMcpLimiterPayloadSignature(

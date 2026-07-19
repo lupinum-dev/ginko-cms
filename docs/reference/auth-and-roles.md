@@ -69,16 +69,17 @@ wrong-email attempts all receive the same non-enumerating response.
 External private MCP bearer tokens are CMS-owned service credentials. Convex
 generates 256 random bits, returns the bearer once, and stores only its SHA-256
 hash. Better Auth sessions and browser `sessionId` values never enter this path.
-Nuxt and Convex authenticate their private bridge with the independent
-`GINKO_CMS_MCP_SERVER_SECRET`; Convex still makes the final authorization
-decision for each operation.
+Nuxt signs short-lived, function-bound bridge assertions with the independent
+`GINKO_CMS_MCP_SERVER_SECRET`; the raw secret never travels in a Convex function
+argument. Convex still makes the final authorization decision for each
+operation.
 
 `mcpCredentialSettings` stores:
 
 - the CMS credential id and secret hash;
 - the owning Better Auth user id;
 - CMS scopes;
-- API-key expiry when configured;
+- credential expiry when configured;
 - active or revoked status.
 
 Effective MCP authority is the intersection of:
@@ -132,7 +133,9 @@ exposed.
 
 ## Current Runtime Boundary
 
-MCP product identity comes from Better Auth API keys and CMS credential
-settings. Server-side MCP calls request a Better Auth Convex token for the
-verified API key and use that token as Convex transport. Do not expose raw MCP
-tokens to clients that should not act as the corresponding external agent.
+MCP product identity comes from Ginko-owned bearer credentials and current CMS
+credential settings. Only a SHA-256 hash of the generated secret is stored. The
+Nuxt bridge exchanges a valid bearer secret for short-lived, function-bound HMAC
+assertions; Convex rechecks the credential, member, role, expiry, and scope for
+every protected operation. Do not expose raw MCP credentials to clients that
+should not act as the corresponding external agent.

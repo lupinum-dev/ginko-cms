@@ -455,7 +455,10 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
           name: 'studio-host',
           path: `${options.route.replace(/\/$/, '')}/:slug(.*)*`,
           file: resolve(cmsRuntimeDir, 'pages/studio-host.vue'),
-          meta: { layout: false, convexAuth: true },
+          meta: {
+            layout: false,
+            convexAuth: { redirectTo: `${options.route.replace(/\/$/, '')}/auth/signin` },
+          },
         },
       ]
 
@@ -571,6 +574,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       const authDefaults: Record<string, unknown> = {
         routeProtection: {
           redirectTo: `${studioRoute}/auth/signin`,
+          preserveReturnTo: true,
         },
       }
       if (useGinkoClientFallback) {

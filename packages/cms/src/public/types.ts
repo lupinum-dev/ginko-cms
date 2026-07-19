@@ -9,6 +9,7 @@ import type {
 } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type { ComponentApi as GinkoCmsComponentApi } from '@lupinum/ginko-cms-convex/component'
 import type { ConvexAuthStatus, ConvexClientHandle, ConvexUser } from 'better-convex-nuxt'
+import type { ConvexCallError } from 'better-convex-nuxt/errors'
 import type { ComputedRef, Ref } from 'vue'
 
 import type { GinkoCmsExpectedContractHashes } from './contract-compatibility.js'
@@ -54,7 +55,7 @@ export type GinkoCmsConvexClientHandle = ConvexClientHandle
 
 /**
  * The auth subset the Studio host bridge carries: the
- * `status | isPending | isAuthenticated | user` slice of better-convex-nuxt's
+ * `status | isPending | isAuthenticated | user | error` slice of better-convex-nuxt's
  * `UseConvexAuthReturn` (vNext §5.3, §10.6). No Convex JWT crosses the bridge.
  *
  * Built from library-exported primitives (`ConvexAuthStatus`, `ConvexUser`) so
@@ -65,6 +66,7 @@ export interface GinkoCmsStudioHostBridgeAuth {
   isPending: ComputedRef<boolean>
   isAuthenticated: ComputedRef<boolean>
   user: Readonly<Ref<ConvexUser | null>>
+  error: Readonly<Ref<ConvexCallError | null>>
 }
 
 /**

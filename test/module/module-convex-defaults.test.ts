@@ -71,7 +71,10 @@ describe('ginko-cms better-convex-nuxt dependency defaults (vNext §10.2 / decis
     const dep = convexDep(undefined, freshSrcDir())
     const auth = dep?.defaults?.auth as Record<string, unknown>
     expect(auth.client).toEqual(expect.stringContaining('convex-auth'))
-    expect(auth.routeProtection).toEqual({ redirectTo: '/studio/auth/signin' })
+    expect(auth.routeProtection).toEqual({
+      redirectTo: '/studio/auth/signin',
+      preserveReturnTo: true,
+    })
     // Removed vocabulary must not reappear.
     expect(auth).not.toHaveProperty('enabled')
     expect(dep?.defaults).not.toHaveProperty('permissions')
@@ -81,7 +84,10 @@ describe('ginko-cms better-convex-nuxt dependency defaults (vNext §10.2 / decis
     const dep = convexDep({ auth: { client: '~/my-auth' } }, freshSrcDir())
     const auth = dep?.defaults?.auth as Record<string, unknown>
     expect(auth).not.toHaveProperty('client')
-    expect(auth.routeProtection).toEqual({ redirectTo: '/studio/auth/signin' })
+    expect(auth.routeProtection).toEqual({
+      redirectTo: '/studio/auth/signin',
+      preserveReturnTo: true,
+    })
   })
 
   it('does not supply the client fallback when the host has a convex-auth.ts convention file', () => {
@@ -90,7 +96,10 @@ describe('ginko-cms better-convex-nuxt dependency defaults (vNext §10.2 / decis
     const dep = convexDep(undefined, srcDir)
     const auth = dep?.defaults?.auth as Record<string, unknown>
     expect(auth).not.toHaveProperty('client')
-    expect(auth.routeProtection).toEqual({ redirectTo: '/studio/auth/signin' })
+    expect(auth.routeProtection).toEqual({
+      redirectTo: '/studio/auth/signin',
+      preserveReturnTo: true,
+    })
   })
 
   // ---- Decision 12: the executable merge check, both cases ----

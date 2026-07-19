@@ -272,7 +272,8 @@ describe('immutable history, restore, and public rollback', () => {
     )
     expect(preview.confirmation).not.toBeNull()
     await ctx.raw.run(async (inner) => {
-      const generation = await inner.db.query('routeGenerations').first()
+      const generations = await inner.db.query('routeGenerations').collect()
+      const generation = generations.find((row) => row.collection !== '*')
       if (!generation) throw new Error('Expected route generation.')
       await inner.db.patch(generation._id, { generation: generation.generation + 1 })
     })

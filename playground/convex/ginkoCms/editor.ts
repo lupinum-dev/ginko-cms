@@ -49,7 +49,7 @@ export const listEntriesForStudio = query({
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.editor.listEntriesForStudio,
-      await bindMcpCaller(ctx, args),
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/editor:listEntriesForStudio'),
     ),
 })
 
@@ -74,7 +74,10 @@ export const listStudioWorkQueue = query({
 export const getEntry = query({
   args: { ...getEntryArgs.args, ...mcpCallerArgs },
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.ginkoCms.editor.getEntry, await bindMcpCaller(ctx, args)),
+    await ctx.runQuery(
+      components.ginkoCms.editor.getEntry,
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/editor:getEntry'),
+    ),
 })
 
 export const getEntryReadinessDetail = query({
@@ -85,7 +88,7 @@ export const getEntryReadinessDetail = query({
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.editor.getEntryReadinessDetail,
-      await bindMcpCaller(ctx, args),
+      await bindMcpCaller(ctx, args, 'query:ginkoCms/editor:getEntryReadinessDetail'),
     ),
 })
 
@@ -157,7 +160,9 @@ export const mcpCreateEntry = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.editor.mcpCreateEntry,
-      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
+      bindExpectedCmsContract(
+        await bindMcpCaller(ctx, args, 'mutation:ginkoCms/editor:mcpCreateEntry'),
+      ),
     ),
 })
 
@@ -185,7 +190,9 @@ export const mcpSaveEntryDraft = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.editor.mcpSaveEntryDraft,
-      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
+      bindExpectedCmsContract(
+        await bindMcpCaller(ctx, args, 'mutation:ginkoCms/editor:mcpSaveEntryDraft'),
+      ),
     ),
 })
 
@@ -222,7 +229,9 @@ export const mcpPreviewPublishEntry = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.editor.mcpPreviewPublishEntry,
-      bindExpectedCmsContract(await bindMcpCaller(ctx, args)),
+      bindExpectedCmsContract(
+        await bindMcpCaller(ctx, args, 'mutation:ginkoCms/editor:mcpPreviewPublishEntry'),
+      ),
     ),
 })
 

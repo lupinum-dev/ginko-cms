@@ -186,6 +186,10 @@ const de = {
         singletonBadge: 'single',
         loadingTitle: 'Studio wird vorbereitet',
         loadingDescription: 'Dein CMS-Zugriff wird geprüft.',
+        authUnavailableTitle: 'Authentifizierung nicht verfügbar',
+        authUnavailableDescription:
+          'Das Studio konnte deine Sitzung nicht verifizieren. Deine Inhalte wurden nicht geändert.',
+        authUnavailableAction: 'Erneut versuchen',
         claimOwnerTitle: 'CMS-Ownership übernehmen',
         claimOwnerDescription:
           'Es gibt noch keinen CMS-Owner. Übernimm die Ownership explizit, um die Ersteinrichtung dieses Projekts abzuschließen.',
@@ -631,7 +635,7 @@ const de = {
         mcpEndpointLabel: 'MCP-Endpoint',
         mcpCurlLabel: 'Smoke-Test',
         mcpConnectionHelp:
-          'Verwende Better-Auth-API-Keys mit CMS-Zugangseinstellungen. Lege Tokens nur in externer Client-Konfiguration ab. Auf dem Server müssen Convex- und Better-Auth-URLs konfiguriert sein.',
+          'Ginko-Zugriffsschlüssel werden nur einmal angezeigt und ausschließlich gehasht gespeichert. Lege sie nur in externer Client-Konfiguration ab; jede Anfrage prüft Mitgliedschaft, Rolle, Scope und Ablaufzeit erneut.',
         mcpHealthRoute: 'MCP-Route',
         mcpHealthRouteEnabled: 'Für diese Nuxt-App aktiviert.',
         mcpHealthRouteDisabled: 'In der öffentlichen Studio-Konfiguration deaktiviert.',

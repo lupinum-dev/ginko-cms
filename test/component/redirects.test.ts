@@ -3,12 +3,48 @@
 import { anyApi } from 'convex/server'
 import { describe, expect, it, vi } from 'vitest'
 
+import {
+  bumpRouteGeneration,
+  readRouteGeneration,
+  readRouteInventoryGeneration,
+} from '../../packages/convex/src/entries/workflow/routeGeneration'
 import { readRedirectInventorySourcePage } from '../../packages/convex/src/redirects/inventory'
 import { createCtx, publishEntry, seedMember, seedOwner, seedSettings } from '../helpers'
 
 const api = anyApi
 
 describe('redirect inventory and guarded retirement', () => {
+  it('keeps one inventory generation across independently changing collection/locale scopes', async () => {
+    const ctx = createCtx()
+    const expected = [
+      { collection: 'blog', locale: 'en', generation: 4 },
+      { collection: 'blog', locale: 'de', generation: 3 },
+      { collection: 'docs', locale: 'en', generation: 9 },
+      { collection: 'docs', locale: 'de', generation: 7 },
+    ]
+
+    const result = await ctx.raw.run(async (inner) => {
+      for (const scope of expected) {
+        for (let value = 0; value < scope.generation; value++) {
+          await bumpRouteGeneration(inner, scope.collection, scope.locale, value + 1)
+        }
+      }
+      return {
+        scopes: await Promise.all(
+          expected.map(async (scope) => ({
+            collection: scope.collection,
+            locale: scope.locale,
+            generation: await readRouteGeneration(inner, scope.collection, scope.locale),
+          })),
+        ),
+        inventory: await readRouteInventoryGeneration(inner),
+      }
+    })
+
+    expect(result.scopes).toEqual(expected)
+    expect(result.inventory).toBe(23)
+  })
+
   it('[WEB-07] blocks path reuse until retirement and records actor, route fence, activity, and old/new revalidation', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
@@ -119,6 +155,7 @@ describe('redirect inventory and guarded retirement', () => {
     expect(await ctx.readAll('routeGenerations')).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ collection: 'docs', locale: 'en', generation: 2 }),
+        expect.objectContaining({ collection: '*', locale: '*', generation: 2 }),
       ]),
     )
     expect(await ctx.readAll('activity')).toEqual(

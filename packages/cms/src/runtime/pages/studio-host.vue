@@ -23,7 +23,6 @@ import type { GinkoCmsPublicConfig, GinkoCmsStudioHostBridge } from '#ginko-cms-
 // `pnpm --filter @lupinum/ginko-cms studio:dev` alongside the consumer).
 import {
   computed,
-  navigateTo,
   onMounted,
   useConvex,
   useConvexAuth,
@@ -111,20 +110,17 @@ function loadStudioScript(src: string): void {
   document.head.appendChild(script)
 }
 
-// Auth guard and SPA loader. We intentionally append the Studio script only
-// after the host bridge is populated. A static head script can execute before
-// this component hydrates, causing the SPA to bind to inert fallback API
-// proxies instead of the consumer's generated Convex API.
+// BCN's global middleware is the single navigation guard. This hook only waits
+// for the client auth engine, then loads the Studio when it has a usable
+// identity or a real auth failure that Studio must render distinctly.
 onMounted(async () => {
   if (typeof window === 'undefined') return
-  // Wait for auth to settle once (vNext §5.3 `ready()` replaces the pre-vNext
-  // "await auth ready" gate). Never throws for us — resolve or ignore.
   try {
     await convexAuth.ready()
   } catch {
-    // ignore — fall through to the authenticated-state check
+    // The reactive error ref below is the canonical failure state.
   }
-  if (convexAuth.isAuthenticated.value === true) {
+  if (convexAuth.isAuthenticated.value === true || convexAuth.error.value !== null) {
     const user = convexAuth.user.value
     debugStudioHost('auth ready', {
       user: user?.email ?? user?.id ?? null,
@@ -132,14 +128,7 @@ onMounted(async () => {
     })
     populateBridge(true)
     loadStudioScript(mainJs.value)
-    return
   }
-  const target = route.fullPath || studioRoute.value
-  const redirectQuery =
-    target.startsWith(studioRoute.value) && target !== `${studioRoute.value}/auth/signin`
-      ? `?redirect=${encodeURIComponent(target)}`
-      : ''
-  await navigateTo(`${studioRoute.value}/auth/signin${redirectQuery}`)
 })
 
 function populateBridge(includeAuth: boolean): void {
@@ -164,6 +153,7 @@ function populateBridge(includeAuth: boolean): void {
           isPending: convexAuth.isPending,
           isAuthenticated: convexAuth.isAuthenticated,
           user: convexAuth.user,
+          error: convexAuth.error,
         }
       : null,
     onSignOut: async () => {
