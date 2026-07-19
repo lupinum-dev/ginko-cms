@@ -488,6 +488,19 @@ export const inspect = internalQuery({
   },
 })
 
+export const findAssetStorageId = internalQuery({
+  args: { prefix: v.string() },
+  handler: async (ctx, args) => {
+    assertFixturePrefix(args.prefix)
+    const asset = await ctx.db
+      .query('assets')
+      .withIndex('by_filename', (q) =>
+        q.gte('filenameSort', args.prefix).lt('filenameSort', `${args.prefix}\uFFFF`),
+      )
+      .first()
+    return asset?.storageId ?? null
+  },
+})
 export const countPublicLocale = internalQuery({
   args: { prefix: v.string(), locale: v.string() },
   handler: async (ctx, args) => {

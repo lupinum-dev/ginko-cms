@@ -134,19 +134,23 @@ async function setup() {
   for (let start = 0; start < targetScale.entries; start += 100) {
     await runComponent('ginkoCms', 'liveFixtures:setupEntriesPage', { prefix, start, count: 100 })
   }
-  const storageIds = []
-  for (let start = 0; start < targetScale.assets; start += 100) {
-    const pageStorageIds = await runComponent('ginkoCms', 'liveFixtures:createStoragePage', {
+  let storageId = await runComponent('ginkoCms', 'liveFixtures:findAssetStorageId', { prefix })
+  if (!storageId) {
+    const createdStorageIds = await runComponent('ginkoCms', 'liveFixtures:createStoragePage', {
       prefix,
-      start,
-      count: Math.min(100, targetScale.assets - start),
+      start: 0,
+      count: 1,
     })
-    storageIds.push(...pageStorageIds)
+    storageId = createdStorageIds[0] ?? null
+  }
+  if (!storageId) throw new Error('Disposable fixture storage object was not created.')
+  for (let start = 0; start < targetScale.assets; start += 100) {
+    const count = Math.min(100, targetScale.assets - start)
     await runComponent('ginkoCms', 'liveFixtures:setupAssetsPage', {
       prefix,
       start,
-      count: pageStorageIds.length,
-      storageIds: pageStorageIds,
+      count,
+      storageIds: Array(count).fill(storageId),
     })
   }
   const probes = await runComponent('ginkoCms', 'liveFixtures:setupProbes', { prefix })
@@ -222,7 +226,7 @@ async function setup() {
           },
           contractMismatchUrl: mismatchUrl,
         },
-        cleanupExpected: { storageIds },
+        cleanupExpected: { storageIds: [storageId] },
       },
       null,
       2,
