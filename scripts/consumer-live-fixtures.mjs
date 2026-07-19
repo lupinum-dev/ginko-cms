@@ -281,6 +281,14 @@ async function cleanup() {
   if (beforeMemberCleanup.mcpConnections !== 0) {
     throw new Error('Disposable MCP credentials remain after fixture cleanup.')
   }
+  const bootstrapOwnerCleanup = await runComponent(
+    'ginkoCms',
+    'liveFixtures/finalize:cleanupBootstrapOwner',
+    {
+      prefix,
+      configuredOwnerEmail: readDeploymentEnv('GINKO_FIRST_OWNER_EMAIL'),
+    },
+  )
   while (true) {
     const result = await runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupControlPage', {
       prefix,
@@ -289,7 +297,12 @@ async function cleanup() {
     })
     if (result.complete) break
   }
-  const remaining = await runComponent('ginkoCms', 'liveFixtures/cleanup:counts', { prefix })
+  const fixtureRemaining = await runComponent('ginkoCms', 'liveFixtures/cleanup:counts', {
+    prefix,
+  })
+  const globalRemaining = await runComponent('ginkoCms', 'liveFixtures/finalize:globalCounts', {
+    prefix,
+  })
   writeFileSync(
     output,
     `${JSON.stringify(
@@ -297,15 +310,17 @@ async function cleanup() {
         schemaVersion: 1,
         fixturePrefix: prefix,
         deploymentDiscarded: false,
-        remaining,
-        removed: { storageObjects: storageIds.size },
+        remaining: globalRemaining,
+        fixtureRemaining,
+        globalRemaining,
+        removed: { storageObjects: storageIds.size, bootstrapOwner: bootstrapOwnerCleanup },
       },
       null,
       2,
     )}\n`,
     { mode: 0o600 },
   )
-  if (Object.values(remaining).every((count) => count === 0)) removeFixtureGate()
+  if (Object.values(globalRemaining).every((count) => count === 0)) removeFixtureGate()
 }
 
 if (command === 'setup') await setup()

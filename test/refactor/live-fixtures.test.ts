@@ -10,6 +10,7 @@ import {
   cleanupControlPageHandler,
   cleanupEntriesPageHandler,
 } from '../../packages/convex/src/liveFixtures/cleanup'
+import { cleanupBootstrapOwnerHandler } from '../../packages/convex/src/liveFixtures/finalize'
 import { seedStorageObject } from '../component/entries/helpers'
 import { createCtx } from '../helpers'
 
@@ -139,6 +140,39 @@ describe('deployment-admin live fixtures', () => {
       cleanupControlPageHandler(inner, { prefix, phase: 'members', count: 100 }),
     )
     expect(await ctx.readAll('members')).toHaveLength(0)
+  })
+
+  it('removes only the configured bootstrap owner while a disposable owner remains', async () => {
+    const ctx = createCtx()
+    await ctx.seed('members', {
+      userId: 'bootstrap-user',
+      email: 'bootstrap@example.test',
+      displayName: 'Bootstrap',
+      role: 'owner',
+      createdAt: 1,
+      updatedAt: null,
+      updatedBy: null,
+    })
+    await ctx.seed('members', {
+      userId: `${prefix}-owner`,
+      email: `${prefix}-owner@example.test`,
+      displayName: 'Fixture owner',
+      role: 'owner',
+      createdAt: 2,
+      updatedAt: null,
+      updatedBy: prefix,
+    })
+    expect(
+      await ctx.raw.run((inner) =>
+        cleanupBootstrapOwnerHandler(inner, {
+          prefix,
+          configuredOwnerEmail: 'BOOTSTRAP@example.test',
+        }),
+      ),
+    ).toMatchObject({ deleted: 1 })
+    expect((await ctx.readAll('members')).map(({ email }) => email)).toEqual([
+      `${prefix}-owner@example.test`,
+    ])
   })
 
   it('removes canonical and derived fixture rows in bounded idempotent pages', async () => {

@@ -904,10 +904,10 @@ try {
     }
   }
 
+  consumerExec('nuxt', ['prepare'])
   if (liveConvex) {
     consumerExec('ginko-cms', ['deploy'])
   }
-  consumerExec('nuxt', ['prepare'])
   consumerExec('nuxt', ['typecheck'])
   consumerExec('nuxt', ['build'])
   await bootNitro()

@@ -133,6 +133,10 @@ export function validateLiveProofPreflight(env = process.env, options = {}) {
     )
   }
   const baseUrl = exactOriginUrl(env.CMS_STORY_BASE_URL, 'CMS_STORY_BASE_URL')
+  if (!['127.0.0.1', 'localhost', '::1'].includes(baseUrl.hostname)) {
+    requiredString(env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER, 'BCN_AUTH_TRUSTED_CLIENT_IP_HEADER')
+    requiredString(env.BCN_AUTH_PROXY_IP_SECRET, 'BCN_AUTH_PROXY_IP_SECRET')
+  }
   const attestationUrl = exactOriginUrl(
     env.CMS_STORY_CANDIDATE_ATTESTATION_URL,
     'CMS_STORY_CANDIDATE_ATTESTATION_URL',
@@ -520,9 +524,9 @@ export function validateCleanupLedger(value, expectedPrefix) {
   if (value.fixturePrefix !== expectedPrefix) {
     throw new Error('Fixture cleanup prefix does not match this proof run.')
   }
-  const remaining = value.remaining
+  const remaining = value.globalRemaining
   if (!remaining || typeof remaining !== 'object' || Array.isArray(remaining)) {
-    throw new Error('Fixture cleanup ledger must report remaining fixture records.')
+    throw new Error('Fixture cleanup ledger must report global remaining CMS records.')
   }
   const remainingCounts = Object.fromEntries(
     ['entries', 'assets', 'reviews', 'redirects', 'siteData', 'mcpConnections', 'members'].map(
@@ -540,6 +544,7 @@ export function validateCleanupLedger(value, expectedPrefix) {
     deploymentDiscarded,
     fullyCleaned,
     remaining: remainingCounts,
+    fixtureRemaining: value.fixtureRemaining ?? null,
     removed: value.removed ?? null,
   }
 }

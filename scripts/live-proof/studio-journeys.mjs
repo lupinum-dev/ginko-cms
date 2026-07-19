@@ -306,7 +306,8 @@ export async function runStudioJourneys({
       const titleElement = await titleField.elementHandle()
       await page.waitForFunction(
         ({ element, expected }) =>
-          element instanceof HTMLInputElement && element.value === expected,
+          (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) &&
+          element.value === expected,
         { element: titleElement, expected: fixtureTitle },
         { timeout: 30000 },
       )

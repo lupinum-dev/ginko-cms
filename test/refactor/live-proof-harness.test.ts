@@ -48,6 +48,8 @@ function preflightEnvironment() {
     CMS_STORY_CANDIDATE_ATTESTATION_URL:
       'https://candidate.example.test/.well-known/ginko-cms-candidate.json',
     CMS_STORY_CONTRACT_MISMATCH_URL: 'https://mismatch.example.test',
+    BCN_AUTH_TRUSTED_CLIENT_IP_HEADER: 'x-forwarded-for',
+    BCN_AUTH_PROXY_IP_SECRET: 'fixture-proxy-secret',
     ...roleEnvironment(),
   }
 }
@@ -185,6 +187,18 @@ describe('live refactor proof contract', () => {
         { existsSync: () => true },
       ),
     ).toThrow(/exact browser-tested consumer origin/i)
+    expect(() =>
+      validateLiveProofPreflight(
+        { ...preflightEnvironment(), BCN_AUTH_TRUSTED_CLIENT_IP_HEADER: '' },
+        { existsSync: () => true },
+      ),
+    ).toThrow(/BCN_AUTH_TRUSTED_CLIENT_IP_HEADER is required/i)
+    expect(() =>
+      validateLiveProofPreflight(
+        { ...preflightEnvironment(), BCN_AUTH_PROXY_IP_SECRET: '' },
+        { existsSync: () => true },
+      ),
+    ).toThrow(/BCN_AUTH_PROXY_IP_SECRET is required/i)
   })
 
   it('matches the remote Browser target to every packed candidate artifact', () => {
@@ -300,13 +314,25 @@ describe('live refactor proof contract', () => {
         mcpConnections: 0,
         members: 0,
       },
+      globalRemaining: {
+        entries: 0,
+        assets: 0,
+        reviews: 0,
+        redirects: 0,
+        siteData: 0,
+        mcpConnections: 0,
+        members: 0,
+      },
     }
     expect(validateCleanupLedger(complete, 'refactor-proof-abc123')).toMatchObject({
       fullyCleaned: true,
     })
     expect(() =>
       validateCleanupLedger(
-        { ...complete, remaining: { ...complete.remaining, assets: 1 } },
+        {
+          ...complete,
+          globalRemaining: { ...complete.globalRemaining, assets: 1 },
+        },
         'refactor-proof-abc123',
       ),
     ).toThrow(/neither discarded nor fully cleaned/i)

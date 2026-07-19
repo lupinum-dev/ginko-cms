@@ -132,6 +132,7 @@ import type * as lib_utils from "../lib/utils.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as liveFixtures from "../liveFixtures.js";
 import type * as liveFixtures_cleanup from "../liveFixtures/cleanup.js";
+import type * as liveFixtures_finalize from "../liveFixtures/finalize.js";
 import type * as mcpAuthLimiter from "../mcpAuthLimiter.js";
 import type * as mcpCredentials from "../mcpCredentials.js";
 import type * as mcpLimiterProtocol from "../mcpLimiterProtocol.js";
@@ -314,6 +315,7 @@ const fullApi: ApiFromModules<{
   "lib/validation": typeof lib_validation;
   liveFixtures: typeof liveFixtures;
   "liveFixtures/cleanup": typeof liveFixtures_cleanup;
+  "liveFixtures/finalize": typeof liveFixtures_finalize;
   mcpAuthLimiter: typeof mcpAuthLimiter;
   mcpCredentials: typeof mcpCredentials;
   mcpLimiterProtocol: typeof mcpLimiterProtocol;
