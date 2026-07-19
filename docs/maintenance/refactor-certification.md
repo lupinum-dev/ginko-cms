@@ -28,12 +28,17 @@ GINKO_CMS_TEST_OWNER_PASSWORD=secret-manager-value
 CMS_STORY_BASE_URL=https://packed-candidate.example.test
 CMS_STORY_CANDIDATE_ATTESTATION_URL=https://packed-candidate.example.test/.well-known/ginko-cms-candidate.json
 GINKO_CMS_CANDIDATE_ARTIFACT=/absolute/path/to/.pack/candidate/candidate-artifact.json
+# Optional override; defaults to scripts/consumer-live-fixtures.mjs.
 GINKO_CMS_LIVE_FIXTURE_MODULE=/absolute/path/to/consumer-live-fixtures.mjs
+CMS_STORY_CONTRACT_MISMATCH_URL=https://mismatched-packed-candidate.example.test
 ```
 
 The legacy single-account `GINKO_CMS_TEST_EMAIL` and
 `GINKO_CMS_TEST_PASSWORD` variables are rejected in certification mode. They
 remain available only to the smaller, non-certification smoke command.
+Every disposable role email must contain the exact fixture prefix so setup can
+bind and cleanup can prove the four CMS memberships without scanning unrelated
+identity data. Create the Better Auth accounts before the fixture hook runs.
 
 ## Exact packed-consumer attestation
 
@@ -79,6 +84,12 @@ described above. It writes an ignored `.pack/live-candidate.json` pointer and
 refuses to serve if the candidate manifest bytes or source commit change. After
 finalization, remove only that validated temporary consumer with
 `pnpm run candidate:live:cleanup`.
+
+The serve command starts the matching candidate on port 3000 and a second build
+from the same exact package tuple on port 3001. The latter deliberately changes
+only the host content contract after deploying the canonical contract, so its
+Studio is read-capable but write-blocked by a real hash mismatch. For the local
+lane set `CMS_STORY_CONTRACT_MISMATCH_URL=http://localhost:3001`.
 
 ## Fixture hook contract
 

@@ -142,22 +142,37 @@ export function validateLiveProofPreflight(env = process.env, options = {}) {
       'Candidate attestation must be served by the exact browser-tested consumer origin.',
     )
   }
+  const mismatchUrl = exactOriginUrl(
+    env.CMS_STORY_CONTRACT_MISMATCH_URL,
+    'CMS_STORY_CONTRACT_MISMATCH_URL',
+  )
+  if (mismatchUrl.origin === baseUrl.origin) {
+    throw new Error('Contract mismatch proof requires a distinct packed-consumer origin.')
+  }
   const exists = options.existsSync ?? existsSync
+  const roles = readDisposableRoleCredentials(env)
+  for (const [role, credentials] of Object.entries(roles)) {
+    if (!credentials.email.toLowerCase().includes(fixturePrefix.toLowerCase())) {
+      throw new Error(`${role} disposable account email must contain ${fixturePrefix}.`)
+    }
+  }
   return {
     fixturePrefix,
     baseUrl: baseUrl.toString().replace(/\/$/, ''),
     candidateAttestationUrl: attestationUrl.toString(),
+    contractMismatchUrl: mismatchUrl.toString().replace(/\/$/u, ''),
     candidateArtifactPath: requireFile(
       env.GINKO_CMS_CANDIDATE_ARTIFACT,
       'GINKO_CMS_CANDIDATE_ARTIFACT',
       exists,
     ),
     fixtureModulePath: requireFile(
-      env.GINKO_CMS_LIVE_FIXTURE_MODULE,
+      env.GINKO_CMS_LIVE_FIXTURE_MODULE ??
+        resolve(import.meta.dirname, 'consumer-live-fixtures.mjs'),
       'GINKO_CMS_LIVE_FIXTURE_MODULE',
       exists,
     ),
-    roles: readDisposableRoleCredentials(env),
+    roles,
   }
 }
 

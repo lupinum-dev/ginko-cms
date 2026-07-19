@@ -86,6 +86,7 @@ function fixtureHookEnvironment(commandEnv) {
     'CONVEX_DEPLOY_KEY',
     'CONVEX_SELF_HOSTED_URL',
     'CONVEX_SELF_HOSTED_ADMIN_KEY',
+    'CMS_STORY_CONTRACT_MISMATCH_URL',
     'HOME',
     'LANG',
     'LC_ALL',
@@ -365,6 +366,11 @@ async function main() {
     ? [
         { name: 'automated refactor proof', args: ['run', 'verify:refactor'] },
         { name: 'packed consumer live gate', args: ['run', 'package:e2e:live'] },
+        {
+          name: 'provision disposable role accounts',
+          executable: process.execPath,
+          args: [resolve(repoRoot, 'scripts/live-proof/provision-accounts.mjs')],
+        },
         {
           name: 'seed disposable target-scale fixtures',
           executable: process.execPath,

@@ -27,7 +27,10 @@ const candidatePackageNames = [
 function roleEnvironment() {
   return Object.fromEntries(
     ['VIEWER', 'EDITOR', 'PUBLISHER', 'OWNER'].flatMap((role) => [
-      [`GINKO_CMS_TEST_${role}_EMAIL`, `${role.toLowerCase()}@fixture.invalid`],
+      [
+        `GINKO_CMS_TEST_${role}_EMAIL`,
+        `refactor-proof-abc123-${role.toLowerCase()}@fixture.invalid`,
+      ],
       [`GINKO_CMS_TEST_${role}_PASSWORD`, `${role.toLowerCase()}-password`],
     ]),
   )
@@ -44,6 +47,7 @@ function preflightEnvironment() {
     CMS_STORY_BASE_URL: 'https://candidate.example.test',
     CMS_STORY_CANDIDATE_ATTESTATION_URL:
       'https://candidate.example.test/.well-known/ginko-cms-candidate.json',
+    CMS_STORY_CONTRACT_MISMATCH_URL: 'https://mismatch.example.test',
     ...roleEnvironment(),
   }
 }
@@ -151,8 +155,8 @@ describe('live refactor proof contract', () => {
       fixturePrefix: 'refactor-proof-abc123',
       baseUrl: 'https://candidate.example.test',
       roles: {
-        viewer: { email: 'viewer@fixture.invalid' },
-        owner: { email: 'owner@fixture.invalid' },
+        viewer: { email: 'refactor-proof-abc123-viewer@fixture.invalid' },
+        owner: { email: 'refactor-proof-abc123-owner@fixture.invalid' },
       },
     })
 
@@ -166,7 +170,7 @@ describe('live refactor proof contract', () => {
       validateLiveProofPreflight(
         {
           ...preflightEnvironment(),
-          GINKO_CMS_TEST_EDITOR_EMAIL: 'viewer@fixture.invalid',
+          GINKO_CMS_TEST_EDITOR_EMAIL: 'refactor-proof-abc123-viewer@fixture.invalid',
         },
         { existsSync: () => true },
       ),
@@ -304,26 +308,43 @@ describe('live refactor proof contract', () => {
   })
 
   it('[QUA-07] keeps live certification fail-closed and based on measured repeated samples', async () => {
-    const [runner, smoke, performance, roles, observability, mcp, studio, publicProof, siteData] =
-      await Promise.all([
-        readFile(resolve(root, 'scripts/refactor-proof.mjs'), 'utf8'),
-        readFile(resolve(root, 'scripts/cms-live-story-smoke.mjs'), 'utf8'),
-        readFile(resolve(root, 'scripts/live-proof/performance-proof.mjs'), 'utf8'),
-        readFile(resolve(root, 'scripts/live-proof/role-journeys.mjs'), 'utf8'),
-        readFile(resolve(root, 'scripts/live-proof/browser-observability.mjs'), 'utf8'),
-        readFile(resolve(root, 'scripts/live-proof/mcp-proof.mjs'), 'utf8'),
-        readFile(resolve(root, 'scripts/live-proof/studio-journeys.mjs'), 'utf8'),
-        readFile(resolve(root, 'scripts/live-proof/public-journeys.mjs'), 'utf8'),
-        readFile(resolve(root, 'scripts/live-proof/site-data-proof.mjs'), 'utf8'),
-      ])
+    const [
+      runner,
+      fixtureDriver,
+      smoke,
+      performance,
+      roles,
+      observability,
+      mcp,
+      studio,
+      publicProof,
+      siteData,
+    ] = await Promise.all([
+      readFile(resolve(root, 'scripts/refactor-proof.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/consumer-live-fixtures.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/cms-live-story-smoke.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/live-proof/performance-proof.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/live-proof/role-journeys.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/live-proof/browser-observability.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/live-proof/mcp-proof.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/live-proof/studio-journeys.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/live-proof/public-journeys.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/live-proof/site-data-proof.mjs'), 'utf8'),
+    ])
     expect(runner).toContain('validateLiveProofPreflight()')
     expect(runner).toContain("'seed disposable target-scale fixtures'")
+    expect(runner).toContain("'provision disposable role accounts'")
     expect(runner).toContain("'clean disposable target-scale fixtures'")
     expect(runner).toContain("status: 'retained-for-in-app-browser'")
     expect(runner).toContain('validateInAppBrowserEvidence')
     expect(runner).toContain('validateCleanupLedger')
     expect(runner).toContain('journeyCleanup?.siteDataDeleted === true')
     expect(runner).toContain("status: browserGreen ? 'automated-green-in-app-browser-pending'")
+    expect(fixtureDriver).toContain("'liveFixtures:setupEntriesPage'")
+    expect(fixtureDriver).toContain("'liveFixtures:setupAssetsPage'")
+    expect(fixtureDriver).toContain("'liveFixtures/cleanup:cleanupEntriesPage'")
+    expect(fixtureDriver).toContain("'liveFixtures/cleanup:cleanupAssetsPage'")
+    expect(fixtureDriver).toContain("'GINKO_CMS_LIVE_FIXTURES'")
     expect(smoke).toContain("'candidate.exact-packed-consumer'")
     expect(smoke).toContain('validateCandidateAttestation')
     expect(smoke).toContain('performanceSampleCount < 20')

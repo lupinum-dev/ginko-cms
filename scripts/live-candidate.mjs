@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -36,6 +36,12 @@ function readMaterializedCandidate() {
   if (!existsSync(resolve(manifest.consumerDirectory, '.output/server/index.mjs'))) {
     throw new Error('Materialized consumer production server is missing.')
   }
+  if (
+    !manifest.mismatchServer ||
+    !existsSync(resolve(manifest.consumerDirectory, '.output-mismatch/server/index.mjs'))
+  ) {
+    throw new Error('Materialized consumer mismatch server is missing.')
+  }
   return manifest
 }
 
@@ -59,6 +65,7 @@ if (command === 'materialize') {
       env: {
         ...process.env,
         GINKO_KEEP_PACKAGE_E2E: '1',
+        GINKO_BUILD_MISMATCH_CANDIDATE: '1',
         GINKO_PACKAGE_E2E_OUTPUT: manifestPath,
       },
       stdio: 'inherit',
@@ -68,15 +75,31 @@ if (command === 'materialize') {
   console.log(`Exact packed consumer materialized at ${manifest.consumerDirectory}.`)
 } else if (command === 'serve') {
   const manifest = readMaterializedCandidate()
-  execFileSync(process.execPath, ['.output/server/index.mjs'], {
+  const host = process.env.HOST || '127.0.0.1'
+  const main = spawn(process.execPath, ['.output/server/index.mjs'], {
     cwd: manifest.consumerDirectory,
-    env: {
-      ...process.env,
-      HOST: process.env.HOST || '127.0.0.1',
-      PORT: process.env.PORT || '3000',
-    },
+    env: { ...process.env, HOST: host, PORT: process.env.PORT || '3000' },
     stdio: 'inherit',
   })
+  const mismatch = spawn(process.execPath, ['.output-mismatch/server/index.mjs'], {
+    cwd: manifest.consumerDirectory,
+    env: { ...process.env, HOST: host, PORT: process.env.MISMATCH_PORT || '3001' },
+    stdio: 'inherit',
+  })
+  const stop = () => {
+    main.kill('SIGTERM')
+    mismatch.kill('SIGTERM')
+  }
+  process.once('SIGINT', stop)
+  process.once('SIGTERM', stop)
+  const result = await Promise.race(
+    [main, mismatch].map(
+      (child) =>
+        new Promise((resolveExit) => child.once('close', (code) => resolveExit(code ?? 1))),
+    ),
+  )
+  stop()
+  if (result !== 0) process.exitCode = result
 } else if (command === 'cleanup') {
   const manifest = readMaterializedCandidate()
   assertDisposableConsumerPath(manifest.consumerDirectory)

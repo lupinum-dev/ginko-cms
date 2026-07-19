@@ -2,12 +2,14 @@ import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   appendFileSync,
+  cpSync,
   copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -587,7 +589,9 @@ try {
       '})',
       '',
       'export default defineNuxtConfig({',
-      '  modules: [contentRendererHarness, ginkoCms],',
+      liveConvex
+        ? "  modules: ['@lupinum/ginko-content', ginkoCms],"
+        : '  modules: [contentRendererHarness, ginkoCms],',
       '  components: [{',
       "    path: './node_modules/@lupinum/ginko-content/dist/runtime/app/components',",
       '    pathPrefix: false,',
@@ -595,10 +599,15 @@ try {
       '    global: true,',
       "    ignore: ['Prose/**', 'internal/**'],",
       '  }],',
-      "  convex: { url: 'http://127.0.0.1:3210', siteUrl: 'http://127.0.0.1:3211', auth: { publicOrigin: 'http://localhost:3000' } },",
+      "  convex: { url: process.env.CONVEX_URL || 'http://127.0.0.1:3210', siteUrl: process.env.CONVEX_SITE_URL || 'http://127.0.0.1:3211', auth: { publicOrigin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000' } },",
+      ...(liveConvex
+        ? [
+            "  content: { i18n: { defaultLocale: 'en', locales: ['en', 'de', 'fr'] }, search: { engine: 'provider', collections: ['blog', 'docs'] } },",
+          ]
+        : []),
       "  nitro: { externals: { inline: ['@lupinum/ginko-cms'] } },",
       '  ginkoCms: {',
-      '    mcp: false,',
+      `    mcp: ${liveConvex ? 'true' : 'false'},`,
       '  },',
       '})',
       '',
@@ -608,7 +617,16 @@ try {
 
   writeFileSync(
     join(tempDir, 'content.config.ts'),
-    "export default { provider: 'cms', collections: { pages: { type: 'page', source: 'content/**/*.md' } } }\n",
+    liveConvex
+      ? [
+          "import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'",
+          "const blog = defineCollection({ type: 'page', source: 'content/blog/**/*.md', route: '/blog', i18n: true, cms: { fields: { featured: { type: 'toggle', localized: false } } } })",
+          "const docs = defineCollection({ type: 'page', source: 'content/docs/**/*.md', route: '/docs', i18n: true, cms: { type: 'tree', fields: { description: { type: 'textarea' } } } })",
+          "const authors = defineCollection({ type: 'data', source: 'content/authors/**/*.yml', cms: { route: { mode: 'none' }, fields: { name: { type: 'text', required: true }, bio: { type: 'textarea' } } } })",
+          "export default defineContentConfig({ provider: 'cms', collections: { blog, docs, authors } })",
+          '',
+        ].join('\n')
+      : "export default { provider: 'cms', collections: { pages: { type: 'page', source: 'content/**/*.md' } } }\n",
     'utf8',
   )
 
@@ -677,6 +695,10 @@ try {
     'utf8',
   )
 
+  if (liveConvex) {
+    cpSync(resolve(repoRoot, 'playground/app'), join(tempDir, 'app'), { recursive: true })
+    copyFileSync(resolve(repoRoot, 'playground/app.vue'), join(tempDir, 'app.vue'))
+  }
   mkdirSync(join(tempDir, 'pages'), { recursive: true })
   writeFileSync(
     join(tempDir, 'pages/render-safety.vue'),
@@ -842,30 +864,13 @@ try {
     }
   }
 
+  if (liveConvex) {
+    consumerExec('ginko-cms', ['deploy'])
+  }
   consumerExec('nuxt', ['prepare'])
   consumerExec('nuxt', ['typecheck'])
   consumerExec('nuxt', ['build'])
   await bootNitro()
-  if (liveConvex) {
-    run(
-      'pnpm',
-      [
-        'exec',
-        'convex',
-        'dev',
-        '--once',
-        '--env-file',
-        '.env.local',
-        '--typecheck',
-        'disable',
-        '--tail-logs',
-        'disable',
-      ],
-      {
-        cwd: tempDir,
-      },
-    )
-  }
 
   const exportSpecifiers = coordinatedPackageManifests.flatMap(declaredExportSpecifiers)
   const importCheck = [
@@ -916,6 +921,34 @@ try {
   ].join(';')
   run('node', ['--input-type=module', '--eval', portabilityCheck], { cwd: tempDir })
   consumerExec('ginko-cms', ['content', 'verify', 'portable-check'])
+
+  if (liveConvex && process.env.GINKO_BUILD_MISMATCH_CANDIDATE === '1') {
+    const contentConfigPath = join(tempDir, 'content.config.ts')
+    const bindingPath = join(tempDir, 'convex/ginkoCms/contractBinding.ts')
+    const setupManifestPath = join(tempDir, 'convex/.ginko-cms-setup.json')
+    const originalContentConfig = readFileSync(contentConfigPath, 'utf8')
+    const originalBinding = readFileSync(bindingPath, 'utf8')
+    const originalSetupManifest = readFileSync(setupManifestPath, 'utf8')
+    const mainOutput = join(tempDir, '.output-main')
+    const mismatchOutput = join(tempDir, '.output-mismatch')
+    rmSync(mainOutput, { recursive: true, force: true })
+    rmSync(mismatchOutput, { recursive: true, force: true })
+    cpSync(join(tempDir, '.output'), mainOutput, { recursive: true })
+    const mismatchContentConfig = originalContentConfig.replace(
+      "fields: { description: { type: 'textarea' } }",
+      "fields: { description: { type: 'textarea' }, mismatchMarker: { type: 'text' } }",
+    )
+    if (mismatchContentConfig === originalContentConfig) {
+      throw new Error('Could not introduce the deliberate packed-host contract mismatch.')
+    }
+    writeFileSync(contentConfigPath, mismatchContentConfig, 'utf8')
+    consumerExec('nuxt', ['build'])
+    renameSync(join(tempDir, '.output'), mismatchOutput)
+    renameSync(mainOutput, join(tempDir, '.output'))
+    writeFileSync(contentConfigPath, originalContentConfig, 'utf8')
+    writeFileSync(bindingPath, originalBinding, 'utf8')
+    writeFileSync(setupManifestPath, originalSetupManifest, 'utf8')
+  }
 
   console.log(
     [
@@ -973,6 +1006,7 @@ try {
                 sourceCommit: candidateArtifact.source.commit,
               }
             : null,
+          mismatchServer: existsSync(resolve(tempDir, '.output-mismatch/server/index.mjs')),
         },
         null,
         2,
