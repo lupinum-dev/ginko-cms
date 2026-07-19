@@ -361,7 +361,8 @@ describe('live refactor proof contract', () => {
     expect(siteData).toContain('/api/_content/site-data?key=')
     expect(packedHost).toContain(`modules: ['@nuxtjs/sitemap', '@lupinum/ginko-content', ginkoCms]`)
     expect(packedHost).toContain("i18n: { defaultLocale: 'en'")
-    expect(packedHost).toContain('site: { url: process.env.CMS_STORY_BASE_URL')
+    expect(packedHost).toContain('site: { url: process.env.CMS_STORY_SITE_URL')
+    expect(packedHost).toContain("liveConvex ? 'app/pages' : 'pages'")
     for (const metric of [
       'studioColdInteractive',
       'primaryNavigation',

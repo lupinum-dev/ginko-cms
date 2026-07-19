@@ -625,7 +625,7 @@ try {
       "  convex: { url: process.env.CONVEX_URL || 'http://127.0.0.1:3210', siteUrl: process.env.CONVEX_SITE_URL || 'http://127.0.0.1:3211', auth: { publicOrigin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000' } },",
       ...(liveConvex
         ? [
-            "  site: { url: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000' },",
+            "  site: { url: process.env.CMS_STORY_SITE_URL || 'https://candidate.ginko.invalid' },",
             "  i18n: { defaultLocale: 'en', locales: [{ code: 'en', seo: false }, { code: 'de', seo: false }, { code: 'fr', seo: false }], localeCookie: null, redirects: false },",
           ]
         : []),
@@ -728,9 +728,10 @@ try {
     cpSync(resolve(repoRoot, 'playground/app'), join(tempDir, 'app'), { recursive: true })
     copyFileSync(resolve(repoRoot, 'playground/app.vue'), join(tempDir, 'app.vue'))
   }
-  mkdirSync(join(tempDir, 'pages'), { recursive: true })
+  const pageDirectory = join(tempDir, liveConvex ? 'app/pages' : 'pages')
+  mkdirSync(pageDirectory, { recursive: true })
   writeFileSync(
-    join(tempDir, 'pages/render-safety.vue'),
+    join(pageDirectory, 'render-safety.vue'),
     [
       '<script setup lang="ts">',
       "const value = { collection: 'posts', locale: 'en', body: { type: 'root', children: [{ type: 'element', tag: 'script', props: {}, children: [{ type: 'text', value: 'packed-render-exploit' }] }] } }",
