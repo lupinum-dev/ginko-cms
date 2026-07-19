@@ -1,4 +1,4 @@
-import { expectText } from './browser-auth.mjs'
+import { expectText, waitForStudioInteractive } from './browser-auth.mjs'
 
 export async function runStudioJourneys({
   story,
@@ -25,6 +25,7 @@ export async function runStudioJourneys({
       await page.goto(`${baseUrl}/studio/content/${collection}/new`, {
         waitUntil: 'domcontentloaded',
       })
+      await waitForStudioInteractive(page)
       await page.getByRole('textbox', { name: 'Title', exact: true }).waitFor({ timeout: 30000 })
       await page.getByRole('textbox', { name: 'Title', exact: true }).fill(fixtureTitle)
       await page
@@ -81,6 +82,7 @@ export async function runStudioJourneys({
     'Content model shows code-defined read-only collection contracts',
     async () => {
       await page.goto(`${baseUrl}/studio/model`, { waitUntil: 'domcontentloaded' })
+      await waitForStudioInteractive(page)
       await expectText(page, 'Content setup', 60000)
       // The page header is part of the static shell; the installed-contract
       // collection list arrives through Convex and selects its first item

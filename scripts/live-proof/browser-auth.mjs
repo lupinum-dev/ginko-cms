@@ -22,3 +22,7 @@ export async function signIn(page, redirect, credentials, origin) {
 export async function expectText(page, text, timeout = 30000) {
   await page.getByText(text, { exact: false }).first().waitFor({ timeout })
 }
+
+export async function waitForStudioInteractive(page, timeout = 30000) {
+  await page.locator('[data-testid="cms-studio-ready"][data-hydrated="true"]').waitFor({ timeout })
+}

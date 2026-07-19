@@ -1,4 +1,5 @@
 import { LIVE_PROOF_VIEWPORTS } from '../live-proof-config.mjs'
+import { waitForStudioInteractive } from './browser-auth.mjs'
 import {
   assertKeyboardNavigation,
   assertNoPageOverflow,
@@ -38,7 +39,7 @@ export async function runRoleJourneys({
             `/studio/content/${fixtureManifest.probes.deepSearch.collection}`,
             roles[role],
           )
-          await page.getByTestId('cms-studio-ready').waitFor({ timeout: 30000 })
+          await waitForStudioInteractive(page)
           await page.getByPlaceholder('Search title, slug, or path').waitFor({ timeout: 60000 })
 
           // Capability assertions use DOM availability instead of viewport
@@ -89,6 +90,7 @@ export async function runRoleJourneys({
             ['/studio/settings', 'Settings'],
           ]) {
             await page.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' })
+            await waitForStudioInteractive(page)
             await page.getByRole('heading', { name: heading }).waitFor({ timeout: 30000 })
             const inspectionText = await page.locator('body').textContent()
             for (const forbidden of [
@@ -110,6 +112,7 @@ export async function runRoleJourneys({
           if (role === 'publisher') {
             const reviewProbe = fixtureManifest.probes.pendingReview
             await page.goto(`${baseUrl}/studio/reviews`, { waitUntil: 'domcontentloaded' })
+            await waitForStudioInteractive(page)
             const review = page.locator('article').filter({ hasText: reviewProbe.title })
             await review.waitFor({ timeout: 30000 })
             const reviewText = await review.textContent()
@@ -143,6 +146,7 @@ export async function runRoleJourneys({
           await page.goto(`${baseUrl}${fixtureManifest.probes.roleEntry.path}`, {
             waitUntil: 'domcontentloaded',
           })
+          await waitForStudioInteractive(page)
           const title = page.getByRole('textbox', { name: 'Title', exact: true })
           await title.waitFor({ timeout: 30000 })
           const titleDisabled = await title.isDisabled()

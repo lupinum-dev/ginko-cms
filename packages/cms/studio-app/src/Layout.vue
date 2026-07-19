@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { api } from './boundary/api'
@@ -43,6 +43,10 @@ const { studioRoute, pending, permissions, isMember, canRead, canBootstrap } = u
 const bootstrapCmsOwner = useConvexMutation(api.ginkoCms.members.bootstrapCmsOwner)
 const bootstrapPending = ref(false)
 const bootstrapError = ref('')
+const studioHydrated = ref(false)
+onMounted(() => {
+  studioHydrated.value = true
+})
 const studioAccess = computed<{ status: string; reason: string | null }>(() => {
   if (authError.value) {
     return { status: 'auth_error', reason: 'auth_unavailable' }
@@ -136,6 +140,7 @@ function retryAuthentication(): void {
   <SidebarProvider
     v-else-if="studioAccess.status === 'ready'"
     data-testid="cms-studio-ready"
+    :data-hydrated="studioHydrated ? 'true' : 'false'"
     :class="[studioClass, 'studio-shell ginko:text-foreground']"
   >
     <CmsCommandPalette :studio-route="studioRoute" />
