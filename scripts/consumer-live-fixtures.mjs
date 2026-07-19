@@ -271,7 +271,7 @@ async function setup() {
   )
 }
 
-async function cleanup() {
+async function cleanup({ removeBootstrapOwner }) {
   const output = resolve(requiredOption('output'))
   const prefix = requiredOption('prefix')
   setFixtureGate(prefix)
@@ -310,14 +310,12 @@ async function cleanup() {
   if (beforeMemberCleanup.mcpConnections !== 0) {
     throw new Error('Disposable MCP credentials remain after fixture cleanup.')
   }
-  const bootstrapOwnerCleanup = await runComponent(
-    'ginkoCms',
-    'liveFixtures/finalize:cleanupBootstrapOwner',
-    {
-      prefix,
-      configuredOwnerEmail: readDeploymentEnv('GINKO_FIRST_OWNER_EMAIL'),
-    },
-  )
+  const bootstrapOwnerCleanup = removeBootstrapOwner
+    ? await runComponent('ginkoCms', 'liveFixtures/finalize:cleanupBootstrapOwner', {
+        prefix,
+        configuredOwnerEmail: readDeploymentEnv('GINKO_FIRST_OWNER_EMAIL'),
+      })
+    : { deleted: 0, credentials: 0, agentRuns: 0 }
   while (true) {
     const result = await runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupControlPage', {
       prefix,
@@ -353,5 +351,6 @@ async function cleanup() {
 }
 
 if (command === 'setup') await setup()
-else if (command === 'cleanup') await cleanup()
-else throw new Error('Fixture command must be setup or cleanup.')
+else if (command === 'cleanup') await cleanup({ removeBootstrapOwner: false })
+else if (command === 'cleanup-final') await cleanup({ removeBootstrapOwner: true })
+else throw new Error('Fixture command must be setup, cleanup, or cleanup-final.')

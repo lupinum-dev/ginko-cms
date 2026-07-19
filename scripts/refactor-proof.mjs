@@ -214,6 +214,7 @@ async function cleanupLiveFixtures({
   cleanupPath,
   seed,
   commandIndex,
+  removeBootstrapOwner = false,
 }) {
   return await runCommand(
     {
@@ -221,7 +222,7 @@ async function cleanupLiveFixtures({
       executable: process.execPath,
       args: [
         livePreflight.fixtureModulePath,
-        'cleanup',
+        removeBootstrapOwner ? 'cleanup-final' : 'cleanup',
         '--manifest',
         fixtureManifestPath,
         '--output',
@@ -297,6 +298,7 @@ async function finalizeLiveCertification({
     cleanupPath,
     seed,
     commandIndex: report.commands.length,
+    removeBootstrapOwner: true,
   })
   report.commands.push(cleanupResult)
   if (cleanupResult.exitCode !== 0) {
