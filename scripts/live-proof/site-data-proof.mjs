@@ -86,9 +86,10 @@ export async function runSiteDataProof({
       const save = editor.getByRole('button', { name: 'Save', exact: true })
       const saveEditor = async () => {
         await save.click()
-        await page.waitForTimeout(50)
-        const element = await save.elementHandle()
-        await page.waitForFunction((button) => !button.disabled, element, { timeout: 30000 })
+        await editor
+          .locator('button:not([disabled])')
+          .filter({ hasText: /^Save$/u })
+          .waitFor({ timeout: 30000 })
       }
       await json.waitFor({ timeout: 30000 })
       await json.fill(JSON.stringify({ message: values.en }))
