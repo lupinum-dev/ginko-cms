@@ -64,15 +64,7 @@ function ensurePackageLink(
         lstatSync(linkPath).isSymbolicLink() &&
         realpathSync(linkPath) === realpathSync(dependencyRoot)
       ) {
-        return () => {
-          try {
-            if (lstatSync(linkPath).isSymbolicLink()) {
-              rmSync(linkPath, { force: true })
-            }
-          } catch {
-            // Best-effort cleanup only.
-          }
-        }
+        return null
       }
     } catch {
       return null
