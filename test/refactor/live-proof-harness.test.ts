@@ -320,6 +320,7 @@ describe('live refactor proof contract', () => {
       publicProof,
       siteData,
       packedHost,
+      accountProvisioner,
     ] = await Promise.all([
       readFile(resolve(root, 'scripts/refactor-proof.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/consumer-live-fixtures.mjs'), 'utf8'),
@@ -332,6 +333,7 @@ describe('live refactor proof contract', () => {
       readFile(resolve(root, 'scripts/live-proof/public-journeys.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/live-proof/site-data-proof.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/package-e2e.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/live-proof/provision-accounts.mjs'), 'utf8'),
     ])
     expect(runner).toContain('validateLiveProofPreflight()')
     expect(runner).toContain("'seed disposable target-scale fixtures'")
@@ -365,6 +367,9 @@ describe('live refactor proof contract', () => {
     expect(packedHost).toContain("i18n: { defaultLocale: 'en'")
     expect(packedHost).toContain('site: { url: process.env.CMS_STORY_SITE_URL')
     expect(packedHost).toContain("liveConvex ? 'app/pages' : 'pages'")
+    expect(accountProvisioner).toContain('origin: baseUrl')
+    expect(accountProvisioner).toContain('response.status !== 429')
+    expect(accountProvisioner).toContain('1_000 * 2 ** attempt')
     for (const metric of [
       'studioColdInteractive',
       'primaryNavigation',

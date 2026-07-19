@@ -8,12 +8,18 @@ function required(name) {
 }
 
 async function authRequest(path, body) {
-  return await fetch(`${baseUrl}${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-    redirect: 'manual',
-  })
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify(body),
+      redirect: 'manual',
+    })
+    if (response.status !== 429 || attempt === 4) return response
+    await response.arrayBuffer()
+    await new Promise((resolve) => setTimeout(resolve, 1_000 * 2 ** attempt))
+  }
+  throw new Error('Unreachable account provisioning retry state.')
 }
 
 for (const role of ['viewer', 'editor', 'publisher', 'owner']) {
