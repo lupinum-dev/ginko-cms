@@ -31,6 +31,7 @@ useCmsSeoAlternates(page)
 
 if (import.meta.server) {
   throwPublicContentFailure(loadError.value, 'This documentation page is temporarily unavailable.')
+  await redirectPublicContentAlias(page.value)
   if (!page.value) setResponseStatus(404)
 }
 </script>

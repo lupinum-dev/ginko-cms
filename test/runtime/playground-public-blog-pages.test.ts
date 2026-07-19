@@ -38,14 +38,13 @@ describe('playground public blog failure semantics', () => {
     expect(detailPage.indexOf('throwPublicContentFailure(loadError.value')).toBeLessThan(
       detailPage.indexOf('setResponseStatus(404)'),
     )
-    expect(detailPage).toContain(
-      'await navigateTo(post.value.route.resolvedPath, { redirectCode: 308',
-    )
+    expect(detailPage).toContain('await redirectPublicContentAlias(post.value)')
 
     expect(docsPage).toContain('error: loadError')
     expect(docsPage.indexOf('throwPublicContentFailure(loadError.value')).toBeLessThan(
       docsPage.indexOf('setResponseStatus(404)'),
     )
+    expect(docsPage).toContain('await redirectPublicContentAlias(page.value)')
   })
 
   it('keeps sitemap route verification to a bounded deterministic sample', async () => {
