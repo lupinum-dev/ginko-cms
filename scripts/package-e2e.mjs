@@ -28,6 +28,10 @@ const coordinatedPackageManifests = ['packages/cms', 'packages/contract', 'packa
 const consumerCompatibility = compatibilityMatrix.consumer
 const candidateMode = process.argv.includes('--candidate')
 const packDir = resolve(repoRoot, candidateMode ? '.pack/candidate' : '.pack')
+const candidateArtifactPath = resolve(packDir, 'candidate-artifact.json')
+const candidateArtifact = candidateMode
+  ? JSON.parse(readFileSync(candidateArtifactPath, 'utf8'))
+  : undefined
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
 const pnpmBin = process.env.npm_execpath ?? 'pnpm'
 const packageManagerOption = process.argv.indexOf('--package-manager')
@@ -80,14 +84,12 @@ function requireCandidateArtifact(pathVariable, packageName) {
   if (!expected?.sha256 || !expected?.sourceCommit) {
     throw new Error(`Compatibility is missing immutable release evidence for ${packageName}.`)
   }
-  const evidencePath = resolve(packDir, 'candidate-artifact.json')
-  if (!existsSync(evidencePath)) {
+  if (!existsSync(candidateArtifactPath)) {
     throw new Error(
       'Candidate artifacts are missing candidate-artifact.json; run pnpm candidate:pack.',
     )
   }
-  const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
-  const recorded = evidence.artifacts?.[packageName]
+  const recorded = candidateArtifact?.artifacts?.[packageName]
   if (
     recorded?.sha256 !== expected.sha256 ||
     recorded?.commit !== expected.sourceCommit ||
@@ -263,6 +265,32 @@ async function bootNitro() {
     }
     if (!ready) {
       throw new Error(`Timed out waiting for packed Nitro server:\n${output}`)
+    }
+
+    if (candidateMode) {
+      const attestationResponse = await fetch(
+        `http://127.0.0.1:${port}/.well-known/ginko-cms-candidate.json`,
+      )
+      const attestation = await attestationResponse.json()
+      if (
+        !attestationResponse.ok ||
+        attestation?.schemaVersion !== 1 ||
+        attestation?.sourceCommit !== candidateArtifact.source.commit
+      ) {
+        throw new Error(
+          `Packed candidate attestation is invalid (${attestationResponse.status}): ${JSON.stringify(attestation)}`,
+        )
+      }
+      for (const [name, artifact] of Object.entries(candidateArtifact.artifacts)) {
+        const actual = attestation.packages?.[name]
+        if (
+          actual?.version !== artifact.version ||
+          actual?.commit !== artifact.commit ||
+          actual?.sha256 !== artifact.sha256
+        ) {
+          throw new Error(`Packed candidate attestation does not match ${name}.`)
+        }
+      }
     }
 
     const renderResponse = await fetch(`http://127.0.0.1:${port}/render-safety`)
@@ -682,6 +710,30 @@ try {
     'utf8',
   )
 
+  if (candidateMode) {
+    const attestation = {
+      schemaVersion: 1,
+      sourceCommit: candidateArtifact.source.commit,
+      packages: Object.fromEntries(
+        Object.entries(candidateArtifact.artifacts).map(([name, artifact]) => [
+          name,
+          {
+            version: artifact.version,
+            commit: artifact.commit,
+            sha256: artifact.sha256,
+          },
+        ]),
+      ),
+    }
+    const routeDir = join(tempDir, 'server/routes/.well-known')
+    mkdirSync(routeDir, { recursive: true })
+    writeFileSync(
+      join(routeDir, 'ginko-cms-candidate.json.get.ts'),
+      `const attestation = ${JSON.stringify(attestation, null, 2)} as const\n\nexport default defineEventHandler(() => attestation)\n`,
+      'utf8',
+    )
+  }
+
   if (consumerPackageManager === 'pnpm') {
     run('pnpm', ['install', '--ignore-scripts'], { cwd: tempDir })
   } else {
@@ -904,6 +956,29 @@ try {
     join(packDir, `release-evidence-${consumerPackageManager}.json`),
     `${JSON.stringify(releaseEvidence, null, 2)}\n`,
   )
+  if (process.env.GINKO_PACKAGE_E2E_OUTPUT) {
+    if (process.env.GINKO_KEEP_PACKAGE_E2E !== '1') {
+      throw new Error('GINKO_PACKAGE_E2E_OUTPUT requires GINKO_KEEP_PACKAGE_E2E=1.')
+    }
+    writeFileSync(
+      resolve(process.env.GINKO_PACKAGE_E2E_OUTPUT),
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          consumerDirectory: tempDir,
+          candidateArtifact: candidateMode
+            ? {
+                path: candidateArtifactPath,
+                sha256: sha256(candidateArtifactPath),
+                sourceCommit: candidateArtifact.source.commit,
+              }
+            : null,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+  }
 } finally {
   if (process.env.GINKO_KEEP_PACKAGE_E2E !== '1') {
     rmSync(tempDir, { force: true, recursive: true })

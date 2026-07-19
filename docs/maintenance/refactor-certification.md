@@ -65,6 +65,21 @@ The endpoint shape is:
 
 Serving a working-tree build or a different packed tuple fails the lane.
 
+Materialize the exact candidate into a retained temporary consumer, then serve
+that consumer in a dedicated terminal for the automated and in-app Browser
+lanes:
+
+```bash
+pnpm run candidate:live:materialize
+pnpm run candidate:live:serve
+```
+
+`candidate:live:materialize` requires the isolated Convex deployment variables
+described above. It writes an ignored `.pack/live-candidate.json` pointer and
+refuses to serve if the candidate manifest bytes or source commit change. After
+finalization, remove only that validated temporary consumer with
+`pnpm run candidate:live:cleanup`.
+
 ## Fixture hook contract
 
 The fixture module is invoked as a Node program twice. Setup must create the

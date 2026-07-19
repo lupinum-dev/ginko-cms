@@ -13,6 +13,10 @@ describe('coordinated CMS candidate release contract', () => {
     }>('packages/cms/compatibility.json')
 
     expect(workspace.scripts['candidate:pack']).toBe('node scripts/candidate-pack.mjs')
+    expect(workspace.scripts['candidate:live:materialize']).toBe(
+      'node scripts/live-candidate.mjs materialize',
+    )
+    expect(workspace.scripts['candidate:live:serve']).toBe('node scripts/live-candidate.mjs serve')
     expect(workspace.scripts['dev:pack']).toBe('node scripts/dev-pack.mjs')
     expect(workspace.scripts['package:e2e:npm']).toBe(
       'node scripts/package-e2e.mjs --candidate --package-manager npm',
@@ -66,6 +70,19 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain("consumerPackageManager === 'npm'")
     expect(source).toContain("npm_config_legacy_peer_deps: 'false'")
     expect(source).toContain("'    mcp: false,'")
+    expect(source).toContain("'ginko-cms-candidate.json.get.ts'")
+    expect(source).toContain('GINKO_PACKAGE_E2E_OUTPUT')
+  })
+
+  it('retains an exact candidate consumer only through the explicit live command', () => {
+    const source = readFileSync('scripts/live-candidate.mjs', 'utf8')
+
+    expect(source).toContain("GINKO_KEEP_PACKAGE_E2E: '1'")
+    expect(source).toContain('GINKO_PACKAGE_E2E_OUTPUT: manifestPath')
+    expect(source).toContain("relativePath.startsWith('ginko-cms-package-e2e-')")
+    expect(source).toContain(
+      'Materialized consumer no longer matches the exact candidate artifact.',
+    )
   })
 
   it('keeps committed workspace resolution machine-independent', () => {
