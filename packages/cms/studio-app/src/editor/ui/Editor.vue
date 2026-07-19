@@ -53,6 +53,7 @@ const props = withDefaults(
     fileOutput?: 'markdown' | 'mdc'
     imageOutput?: 'markdown' | 'mdc'
     modelValue: string
+    ariaLabel?: string
     placeholder?: string
     showMarkdownMarkers?: boolean
     videoOutput?: 'html' | 'mdc'
@@ -188,6 +189,11 @@ const handleEditorUpdate = async (editor: TiptapEditor, docChanged: boolean) => 
 const editor = useEditor({
   content: { content: [{ type: 'paragraph' }], type: 'doc' },
   editable: !props.disabled,
+  editorProps: {
+    attributes: {
+      'aria-label': props.ariaLabel ?? 'Content',
+    },
+  },
   extensions: createEditorExtensions({
     assetProvider: assetProvider.value,
     codeBlockTheme: settings.value.codeBlockTheme,
@@ -539,10 +545,11 @@ defineExpose({
           <button
             type="button"
             class="ginko:h-7 ginko:rounded-md ginko:px-3 ginko:text-xs ginko:font-medium ginko:transition-colors"
+            :aria-pressed="viewMode === 'visual'"
             :class="
               viewMode === 'visual'
                 ? 'ginko:bg-background ginko:text-foreground'
-                : 'ginko:text-muted-foreground ginko:hover:text-foreground ginko:hover:bg-muted'
+                : 'ginko:text-foreground ginko:hover:bg-muted'
             "
             @click="switchToVisual"
           >
@@ -551,10 +558,11 @@ defineExpose({
           <button
             type="button"
             class="ginko:h-7 ginko:rounded-md ginko:px-3 ginko:text-xs ginko:font-medium ginko:transition-colors"
+            :aria-pressed="viewMode === 'raw'"
             :class="
               viewMode === 'raw'
                 ? 'ginko:bg-background ginko:text-foreground'
-                : 'ginko:text-muted-foreground ginko:hover:text-foreground ginko:hover:bg-muted'
+                : 'ginko:text-foreground ginko:hover:bg-muted'
             "
             @click="viewMode = 'raw'"
           >
@@ -675,6 +683,7 @@ defineExpose({
         <Textarea
           :model-value="rawContent"
           :disabled="disabled"
+          :aria-label="`${ariaLabel ?? 'Content'} Markdown source`"
           class="ginko:min-h-[260px] ginko:resize-y ginko:rounded-none ginko:border-0 ginko:font-mono ginko:text-sm ginko:shadow-none ginko:focus-visible:ring-0"
           @update:model-value="onRawChange"
         />

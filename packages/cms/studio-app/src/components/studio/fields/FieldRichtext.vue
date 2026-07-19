@@ -219,6 +219,7 @@ function onConversionRecovered() {
         ref="editorRef"
         v-model="value"
         :asset-provider="assetProvider"
+        :aria-label="label"
         :placeholder="field.description || t('ginkoCms.studio.fieldRenderer.richtextPlaceholder')"
         :enable-files="!!assetContext"
         :enable-video="true"

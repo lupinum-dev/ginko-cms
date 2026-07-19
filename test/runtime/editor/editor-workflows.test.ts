@@ -203,6 +203,21 @@ describe('editor mounted workflows', () => {
     expect(wrapper.get('[data-testid="update-count"]').text()).toBe('1')
   })
 
+  it('gives both editing modes stable accessible names and pressed state', async () => {
+    const wrapper = mountHost()
+    await flushPromises()
+
+    expect(wrapper.get('[contenteditable="true"]').attributes('aria-label')).toBe('Content')
+    expect(wrapper.get('button:nth-of-type(1)').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('button:nth-of-type(2)').attributes('aria-pressed')).toBe('false')
+
+    await wrapper.get('button:nth-of-type(2)').trigger('click')
+
+    expect(wrapper.get('textarea').attributes('aria-label')).toBe('Content Markdown source')
+    expect(wrapper.get('button:nth-of-type(1)').attributes('aria-pressed')).toBe('false')
+    expect(wrapper.get('button:nth-of-type(2)').attributes('aria-pressed')).toBe('true')
+  })
+
   it('parses raw markdown back into structured visual content', async () => {
     const wrapper = mountHost()
     await flushPromises()
