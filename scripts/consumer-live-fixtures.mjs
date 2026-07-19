@@ -11,8 +11,9 @@ const convexCwd = resolve(repoRoot, 'playground')
 const adminKey =
   process.env.CONVEX_DEPLOY_KEY?.trim() || process.env.CONVEX_SELF_HOSTED_ADMIN_KEY?.trim()
 const convexUrl = process.env.CONVEX_URL?.trim() || process.env.CONVEX_SELF_HOSTED_URL?.trim()
-if (!adminKey || !convexUrl) {
-  throw new Error('A disposable Convex URL and deployment admin key are required.')
+const deployment = process.env.CONVEX_DEPLOYMENT?.trim()
+if ((!adminKey || !convexUrl) && !deployment) {
+  throw new Error('A disposable Convex deployment or URL plus deployment admin key is required.')
 }
 const command = process.argv[2]
 const options = parseArgs(process.argv.slice(3))
@@ -59,7 +60,6 @@ function readDeploymentEnv(name) {
 }
 
 async function runComponent(component, functionName, args, identity) {
-  const client = new ConvexHttpClient(convexUrl)
   const actingAs = identity
     ? {
         issuer: 'https://convex.test',
@@ -67,8 +67,27 @@ async function runComponent(component, functionName, args, identity) {
         ...identity,
       }
     : undefined
-  client.setAdminAuth(adminKey, actingAs)
-  return await client.function(functionName, component, args)
+  if (adminKey && convexUrl) {
+    const client = new ConvexHttpClient(convexUrl)
+    client.setAdminAuth(adminKey, actingAs)
+    return await client.function(functionName, component, args)
+  }
+  const cliArgs = [
+    'run',
+    functionName,
+    JSON.stringify(args),
+    '--deployment',
+    deployment.replace(/^[^:]+:/u, ''),
+  ]
+  if (component) cliArgs.push('--component', component)
+  if (actingAs) cliArgs.push('--identity', JSON.stringify(actingAs))
+  const output = execFileSync(convexBin, cliArgs, {
+    cwd: convexCwd,
+    env: { ...process.env, FORCE_COLOR: '0' },
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
+  return JSON.parse(output)
 }
 
 function setFixtureGate(prefix) {
