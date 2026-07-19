@@ -60,7 +60,14 @@ function readDeploymentEnv(name) {
 
 async function runComponent(component, functionName, args, identity) {
   const client = new ConvexHttpClient(convexUrl)
-  client.setAdminAuth(adminKey, identity)
+  const actingAs = identity
+    ? {
+        issuer: 'https://convex.test',
+        tokenIdentifier: `https://convex.test|${identity.subject}`,
+        ...identity,
+      }
+    : undefined
+  client.setAdminAuth(adminKey, actingAs)
   return await client.function(functionName, component, args)
 }
 
@@ -105,8 +112,8 @@ async function ensureReview(prefix, owner, probes) {
   })
   if (existing) return existing
   return await runComponent(
-    'ginkoCms',
-    'reviewRequests:requestPublishReview',
+    undefined,
+    'ginkoCms/reviewRequests:requestPublishReview',
     {
       entryId: probes.reviewEntryId,
       locales: ['en', 'de'],

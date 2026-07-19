@@ -355,6 +355,7 @@ describe('live refactor proof contract', () => {
     expect(fixtureDriver).toContain('process.env.CONVEX_SELF_HOSTED_ADMIN_KEY?.trim()')
     expect(fixtureDriver).toContain('new ConvexHttpClient(convexUrl)')
     expect(fixtureDriver).toContain('client.function(functionName, component, args)')
+    expect(fixtureDriver).toContain('tokenIdentifier: `https://convex.test|${identity.subject}`')
     expect(fixtureDriver).toContain("readDeploymentEnv('GINKO_CMS_LIVE_FIXTURES')")
     expect(smoke).toContain("'candidate.exact-packed-consumer'")
     expect(smoke).toContain('validateCandidateAttestation')
