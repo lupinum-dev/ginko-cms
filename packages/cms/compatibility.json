@@ -13,8 +13,8 @@
       "sha256": "dd0ef7a71dcc23aa0f08674eb0af9ff4d857a8b40f5e1decd02cb2dc71e9127f"
     },
     "better-convex-nuxt": {
-      "sourceCommit": "03e106340c8f069392bf6095fba3938806eb73a0",
-      "sha256": "710661e49a3744c34640b135c8dd5bd719aa99eb4b27b2a5ffedfe46029cd5c7"
+      "sourceCommit": "2dc6bade3900238f15974d864f0db0284cfede24",
+      "sha256": "42f3c088d1d7742883c81e6d974d191c3f71dc47495f9b3ea37a7a407c34176c"
     }
   },
   "tracked": {
