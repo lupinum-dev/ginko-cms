@@ -307,7 +307,7 @@ async function confirmRejection() {
              a rejection does not simply vanish for the requester (PUB-06). -->
         <section v-if="recentOutcomes.length > 0" class="ginko:mt-8">
           <h2
-            class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground/80"
+            class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
           >
             {{ t('ginkoCms.studio.reviewsPage.recentOutcomesTitle') }}
           </h2>

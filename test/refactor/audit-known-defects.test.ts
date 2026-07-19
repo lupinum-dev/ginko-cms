@@ -37,12 +37,23 @@ describe('known audit defects', () => {
     const topBar = source(
       'packages/cms/studio-app/src/components/studio/editor/StudioEntryTopBar.vue',
     )
+    const detailsPanel = source(
+      'packages/cms/studio-app/src/components/studio/editor/StudioEntryDetailsPanel.vue',
+    )
+    const statusRail = source(
+      'packages/cms/studio-app/src/components/studio/editor/StudioEntryStatusRail.vue',
+    )
 
     expect(toolbar).toContain('aria-label="Single language view"')
     expect(toolbar).toContain('Select language. Current ${currentLocaleLabel}')
     expect(sharedFields).toContain(':aria-label="editor.loader.t(')
     expect(parentPicker).toContain(':aria-label="t(\'ginkoCms.studio.collectionEditor.parent\')"')
     expect(topBar).not.toContain("return 'ginko:text-muted-foreground/80'")
+    expect(detailsPanel).not.toMatch(/text-muted-foreground\/(?:60|70|80)/)
+    expect(statusRail).not.toMatch(/text-muted-foreground\/(?:60|70|80)/)
+    expect(statusRail).toContain(
+      'ginko:font-mono ginko:text-xs ginko:font-semibold ginko:text-foreground',
+    )
   })
 
   it('reads an entry draft public projection through the existing entry index', () => {

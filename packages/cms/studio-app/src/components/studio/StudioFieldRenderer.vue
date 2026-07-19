@@ -79,7 +79,7 @@ const fieldError = computed(
   <div v-if="isVisible" :class="normalizedField.width === 'half' ? '' : 'ginko:col-span-2'">
     <p
       v-if="conditionHint"
-      class="ginko:text-xs ginko:text-muted-foreground/60 ginko:italic ginko:mb-0.5"
+      class="ginko:text-xs ginko:text-muted-foreground ginko:italic ginko:mb-0.5"
     >
       {{ conditionHint }}
     </p>

@@ -46,12 +46,12 @@ const canPreview = computed(() => Boolean(workflow.value.currentReadinessView?.c
         class="studio-entry-details-panel__trigger ginko:group ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-2 ginko:py-3 ginko:text-left"
       >
         <span
-          class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground/80"
+          class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
         >
           {{ t('ginkoCms.studio.entryDetails.status') }}
         </span>
         <ChevronDown
-          class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/60 ginko:transition-transform ginko:group-data-[state=open]:rotate-180"
+          class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground ginko:transition-transform ginko:group-data-[state=open]:rotate-180"
         />
       </CollapsibleTrigger>
       <CollapsibleContent>
@@ -76,12 +76,12 @@ const canPreview = computed(() => Boolean(workflow.value.currentReadinessView?.c
         class="studio-entry-details-panel__trigger ginko:group ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-2 ginko:py-3 ginko:text-left"
       >
         <span
-          class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground/80"
+          class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
         >
           {{ t('ginkoCms.studio.entryDetails.workflow') }}
         </span>
         <ChevronDown
-          class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/60 ginko:transition-transform ginko:group-data-[state=open]:rotate-180"
+          class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground ginko:transition-transform ginko:group-data-[state=open]:rotate-180"
         />
       </CollapsibleTrigger>
       <CollapsibleContent class="ginko:pb-4">
@@ -157,12 +157,12 @@ const canPreview = computed(() => Boolean(workflow.value.currentReadinessView?.c
         class="studio-entry-details-panel__trigger ginko:group ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-2 ginko:py-3 ginko:text-left"
       >
         <span
-          class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground/80"
+          class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
         >
           {{ t('ginkoCms.studio.entryDetails.history') }}
         </span>
         <ChevronDown
-          class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/60 ginko:transition-transform ginko:group-data-[state=open]:rotate-180"
+          class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground ginko:transition-transform ginko:group-data-[state=open]:rotate-180"
         />
       </CollapsibleTrigger>
       <CollapsibleContent class="ginko:pb-4">

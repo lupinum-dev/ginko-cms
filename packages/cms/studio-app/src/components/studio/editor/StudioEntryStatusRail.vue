@@ -114,7 +114,7 @@ const blockingIssues = computed(() => {
 
     <StudioInspectorSection :title="t('status')">
       <template #icon>
-        <Clock class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
+        <Clock class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground" />
       </template>
       <template #action>
         <StudioStatusPill
@@ -142,7 +142,7 @@ const blockingIssues = computed(() => {
       </template>
       <div v-if="entry?.publishedAt" class="ginko:space-y-3 ginko:text-sm">
         <div>
-          <div class="ginko:mb-0.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground/70">
+          <div class="ginko:mb-0.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
             {{ t('liveSince') }}
           </div>
           <div class="ginko:font-medium ginko:text-foreground">
@@ -157,7 +157,7 @@ const blockingIssues = computed(() => {
           </div>
         </div>
         <div v-if="hasMultipleLocales">
-          <div class="ginko:mb-1.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground/70">
+          <div class="ginko:mb-1.5 ginko:text-xs ginko:font-medium ginko:text-muted-foreground">
             {{ t('currentLanguage') }}
           </div>
           <div
@@ -214,7 +214,7 @@ const blockingIssues = computed(() => {
 
     <StudioInspectorSection v-if="hasMultipleLocales" :title="t('translations')">
       <template #icon>
-        <Globe class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
+        <Globe class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground" />
       </template>
       <div v-if="localeSummaries.length > 0">
         <div class="ginko:mb-4 ginko:flex ginko:items-center ginko:gap-2.5">
@@ -237,7 +237,7 @@ const blockingIssues = computed(() => {
           <span
             v-for="locale in localeSummaries"
             :key="locale.label"
-            class="ginko:inline-flex ginko:items-center ginko:rounded-md ginko:bg-muted/50 ginko:px-2 ginko:py-0.5 ginko:font-mono ginko:text-xs ginko:font-semibold ginko:text-muted-foreground"
+            class="ginko:inline-flex ginko:items-center ginko:rounded-md ginko:bg-muted/50 ginko:px-2 ginko:py-0.5 ginko:font-mono ginko:text-xs ginko:font-semibold ginko:text-foreground"
           >
             {{ locale.label }}
           </span>
@@ -249,7 +249,7 @@ const blockingIssues = computed(() => {
             class="ginko:flex ginko:items-center ginko:justify-between ginko:rounded-md ginko:px-2 ginko:py-2 ginko:transition-colors ginko:hover:bg-muted/30"
           >
             <span
-              class="ginko:w-5 ginko:font-mono ginko:text-xs ginko:font-semibold ginko:text-muted-foreground/70"
+              class="ginko:w-5 ginko:font-mono ginko:text-xs ginko:font-semibold ginko:text-muted-foreground"
             >
               {{ locale.label }}
             </span>
@@ -288,12 +288,12 @@ const blockingIssues = computed(() => {
 
     <StudioInspectorSection :title="t('moreDetails')">
       <template #icon>
-        <Sparkles class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground/70" />
+        <Sparkles class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground" />
       </template>
       <template #action>
         <Switch v-model="advancedEditor" class="ginko:scale-90" :aria-label="t('toggleDetails')" />
       </template>
-      <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground/80">
+      <p class="ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
         {{ t('moreDetailsHint') }}
       </p>
     </StudioInspectorSection>
