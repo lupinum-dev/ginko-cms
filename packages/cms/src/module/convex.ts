@@ -104,6 +104,10 @@ const requiredHostDependencies = [
     reason: 'convex/auth.ts composes the Better Auth runtime through Ginko CMS.',
   },
   {
+    name: 'kysely',
+    reason: 'Better Auth 1.7 requires the Kysely 0.28 migration exports in Convex bundles.',
+  },
+  {
     name: '@lupinum/ginko-cms-convex',
     reason: 'convex/convex.config.ts imports the Ginko CMS Convex component directly.',
   },

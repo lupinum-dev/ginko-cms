@@ -16,7 +16,7 @@ source.
 Install the CMS-facing packages in the host app:
 
 ```bash
-pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt better-auth
+pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt better-auth kysely@0.28.17
 pnpm add -D convex
 ```
 

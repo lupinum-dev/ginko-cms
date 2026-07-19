@@ -92,6 +92,7 @@ describe('ginko-cms setup doctor', () => {
         '@lupinum/ginko-cms-convex': '0.2.0-rc.1',
         'better-auth': '1.7.0-rc.1',
         'better-convex-nuxt': 'file:./better-convex-nuxt.tgz',
+        kysely: '0.28.17',
       },
     }
     writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8')

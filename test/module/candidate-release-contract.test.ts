@@ -32,8 +32,11 @@ describe('coordinated CMS candidate release contract', () => {
     expect(
       readJson<{ consumer: { dependencies: Record<string, string> } }>(
         'packages/cms/compatibility.json',
-      ).consumer.dependencies.convex,
-    ).toBe('1.42.2')
+      ).consumer.dependencies,
+    ).toMatchObject({
+      convex: '1.42.2',
+      kysely: '0.28.17',
+    })
     expect(Object.keys(compatibility.releaseArtifacts).sort()).toEqual([
       '@lupinum/ginko-content',
       'better-convex-nuxt',
@@ -71,6 +74,8 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain("npm_config_legacy_peer_deps: 'false'")
     expect(source).toContain("`    mcp: ${liveConvex ? 'true' : 'false'},`")
     expect(source).toContain("consumerExec('ginko-cms', ['deploy'])")
+    expect(source).toContain("assertPnpmDependencyVersion(consumerLockfile, 'kysely', '0.28.17')")
+    expect(source).toContain('npm candidate lockfile must contain only kysely@0.28.17.')
     expect(source).toContain("'ginko-cms-candidate.json.get.ts'")
     expect(source).toContain('GINKO_PACKAGE_E2E_OUTPUT')
   })

@@ -196,6 +196,9 @@ importers:
       jiti:
         specifier: ^2.7.0
         version: 2.7.0
+      kysely:
+        specifier: 0.28.17
+        version: 0.28.17
       magic-string:
         specifier: ^0.30.21
         version: 0.30.21

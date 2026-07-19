@@ -111,7 +111,7 @@ describe('ginko-cms CLI', () => {
     expect(init.stdout).toContain('Set versioned `BETTER_AUTH_SECRETS`')
     expect(init.stdout).toContain('run `pnpm exec ginko-cms deploy`')
     expect(init.stdout).toContain(
-      'Host apps must depend directly on `better-convex-nuxt`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
+      'Host apps must depend directly on `better-convex-nuxt`, `better-auth`, `kysely`, and `@lupinum/ginko-cms-convex`.',
     )
     expect(init.stdout).toContain('host apps must also depend directly on `secure-exec`')
     expect(init.stdout).toContain(
@@ -541,6 +541,7 @@ describe('ginko-cms CLI', () => {
       'package.json is missing direct dependency "better-convex-nuxt"',
     )
     expect(doctor.stderr).toContain('package.json is missing direct dependency "better-auth"')
+    expect(doctor.stderr).toContain('package.json is missing direct dependency "kysely"')
     expect(doctor.stderr).toContain(
       'package.json is missing direct dependency "@lupinum/ginko-cms-convex"',
     )
@@ -560,6 +561,7 @@ describe('ginko-cms CLI', () => {
           '@lupinum/ginko-cms-convex': 'workspace:*',
           'better-auth': '1.7.0-rc.1',
           'better-convex-nuxt': '0.7.0-beta.0',
+          kysely: '0.28.17',
           convex: '1.42.2',
           'secure-exec': '^0.2.1',
         },
@@ -597,6 +599,7 @@ describe('ginko-cms CLI', () => {
           '@lupinum/ginko-cms-convex': 'workspace:*',
           'better-auth': '1.7.0-rc.1',
           'better-convex-nuxt': '0.7.0-beta.0',
+          kysely: '0.28.17',
           convex: '1.42.2',
         },
       }),

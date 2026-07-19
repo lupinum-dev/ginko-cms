@@ -402,6 +402,23 @@ function assertCandidateLockfile(lockfileText, expectedSpecifiers) {
   }
 }
 
+function assertPnpmDependencyVersion(lockfileText, name, expectedVersion) {
+  const lockfile = parseYaml(lockfileText)
+  const dependency = lockfile?.importers?.['.']?.dependencies?.[name]
+  if (dependency?.specifier !== expectedVersion) {
+    throw new Error(
+      `Candidate lockfile resolves ${name} from ${dependency?.specifier ?? 'missing'}; expected ${expectedVersion}.`,
+    )
+  }
+  for (const sectionName of ['packages', 'snapshots']) {
+    for (const key of Object.keys(lockfile?.[sectionName] ?? {})) {
+      if (key.startsWith(`${name}@`) && key !== `${name}@${expectedVersion}`) {
+        throw new Error(`Candidate lockfile contains unsupported ${name} resolution: ${key}.`)
+      }
+    }
+  }
+}
+
 function yamlQuote(value) {
   return `'${value.replaceAll("'", "''")}'`
 }
@@ -795,6 +812,7 @@ try {
       '@lupinum/ginko-content': fileDependency(installedContentTarball),
       'better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
     })
+    assertPnpmDependencyVersion(consumerLockfile, 'kysely', '0.28.17')
   }
   if (candidateMode && consumerPackageManager === 'npm') {
     const lockfile = JSON.parse(consumerLockfile)
@@ -814,6 +832,15 @@ try {
           `npm candidate lockfile does not contain one exact file resolution for ${name}.`,
         )
       }
+    }
+    const kyselyPackages = Object.entries(lockfile.packages ?? {}).filter(
+      ([path]) => path === 'node_modules/kysely' || path.endsWith('/node_modules/kysely'),
+    )
+    if (
+      kyselyPackages.length !== 1 ||
+      kyselyPackages[0]?.[1]?.version !== compatibilityMatrix.consumer.dependencies.kysely
+    ) {
+      throw new Error('npm candidate lockfile must contain only kysely@0.28.17.')
     }
   }
   consumerExec('ginko-cms', ['init'])

@@ -424,6 +424,7 @@ describe('package boundary contracts', () => {
     expect(cmsPackage.dependencies?.[trellisPackageName]).toBeUndefined()
     expect(cmsPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
     expect(cmsPackage.dependencies?.['better-convex-nuxt']).toBeDefined()
+    expect(cmsPackage.peerDependencies?.kysely).toBe('0.28.17')
   })
 
   it('does not reintroduce Nuxt-package Convex host artifacts', () => {
