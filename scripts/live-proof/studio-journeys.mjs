@@ -345,10 +345,10 @@ export async function runStudioJourneys({
     const sort = page.getByRole('combobox', { name: 'Sort' })
     await sort.click()
     await page.getByRole('option', { name: 'Date', exact: true }).click()
-    // Uploading selects the new asset and opens its details drawer. Close the
-    // modal with the same keyboard interaction a user has before targeting the
-    // now-inert table by accessible role.
-    await page.keyboard.press('Escape')
+    // Uploading selects the new asset and opens its details sheet. Close the
+    // sheet through its accessible control before targeting the now-inert
+    // table by role.
+    await page.getByRole('button', { name: 'Close', exact: true }).click()
     const uploadedAssetRow = page.getByRole('row').filter({ hasText: uploadFilename })
     await uploadedAssetRow.waitFor({ timeout: 30000 })
     await uploadedAssetRow.getByRole('checkbox').check()
