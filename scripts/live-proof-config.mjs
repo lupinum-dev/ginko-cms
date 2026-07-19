@@ -388,13 +388,12 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
   ]) {
     requireFixtureMarker(value, label, expectedPrefix)
   }
-  if (
-    !probes.deepSearch.expectedTitle
-      .toLocaleLowerCase()
-      .split(/\s+/u)
-      .includes(probes.deepSearch.query.toLocaleLowerCase())
-  ) {
-    throw new Error('Deep-search query must be an exact unique token in its expected title.')
+  const deepSearchTitleTokens = new Set(
+    probes.deepSearch.expectedTitle.toLocaleLowerCase().split(/\s+/u),
+  )
+  const deepSearchQueryTokens = probes.deepSearch.query.toLocaleLowerCase().split(/\s+/u)
+  if (!deepSearchQueryTokens.every((token) => deepSearchTitleTokens.has(token))) {
+    throw new Error('Every deep-search query token must occur exactly in its expected title.')
   }
   if (
     probes.pendingReview.localeCodes.length !== 2 ||

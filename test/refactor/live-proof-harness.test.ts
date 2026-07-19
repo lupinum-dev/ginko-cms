@@ -82,8 +82,8 @@ function fixtureManifest() {
       },
       deepSearch: {
         collection: 'scale-posts',
-        query: 'ultraviolet',
-        expectedTitle: 'refactor-proof-abc123 ultraviolet',
+        query: 'review terminal',
+        expectedTitle: 'refactor-proof-abc123 review terminal',
       },
       assetSearch: {
         query: 'refactor-proof-abc123-asset-500',
@@ -298,7 +298,7 @@ describe('live refactor proof contract', () => {
     const unisolated = fixtureManifest()
     unisolated.probes.deepSearch.query = 'shared-deployment-row'
     expect(() => validateLiveFixtureManifest(unisolated, 'refactor-proof-abc123')).toThrow(
-      /exact unique token/i,
+      /every deep-search query token/i,
     )
     const invalidRoleRoute = fixtureManifest()
     invalidRoleRoute.probes.roleEntry.path = '/studio/content/scale-posts'

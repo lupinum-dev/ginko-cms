@@ -86,10 +86,17 @@ export async function runSiteDataProof({
       const save = editor.getByRole('button', { name: 'Save', exact: true })
       const saveEditor = async () => {
         await save.click()
-        await editor
-          .locator('button:not([disabled])')
-          .filter({ hasText: /^Save$/u })
-          .waitFor({ timeout: 30000 })
+        await page.waitForFunction(
+          ({ id }) => {
+            const root = document.getElementById(id)
+            const button = [...(root?.querySelectorAll('button') ?? [])].find(
+              (candidate) => candidate.textContent?.trim() === 'Save',
+            )
+            return button instanceof HTMLButtonElement && !button.disabled
+          },
+          { id: `site-data-block-${key}` },
+          { timeout: 30000 },
+        )
       }
       await json.waitFor({ timeout: 30000 })
       await json.fill(JSON.stringify({ message: values.en }))

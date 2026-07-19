@@ -252,7 +252,7 @@ async function setup() {
           },
           deepSearch: {
             collection: inspection.collection,
-            query: 'ultraviolet',
+            query: 'review terminal',
             expectedTitle: inspection.deepSearchTitle,
           },
           assetSearch: { query: prefix, expectedFilename: inspection.assetTerminalFilename },
