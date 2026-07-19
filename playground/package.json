@@ -17,7 +17,9 @@
     "better-convex-nuxt": "^0.7.0-beta.0",
     "convex": "1.42.2",
     "h3": "1.15.11",
+    "kysely": "0.28.17",
     "nuxt": "^4.4.8",
+    "secure-exec": "^0.2.1",
     "tailwindcss": "^4.3.0"
   }
 }
