@@ -45,16 +45,27 @@ export async function runRoleJourneys({
           // visibility. At tablet and narrow widths the responsive sidebar can
           // legitimately hide an authorized link until its trigger is opened;
           // the dedicated responsive checks below prove that interaction path.
-          const newEntryAvailable =
-            (await page.getByRole('link', { name: 'New entry', exact: true }).count()) > 0
-          const mediaAvailable = (await page.getByRole('link', { name: /Media/ }).count()) > 0
+          const newContentLink = page.locator(
+            `a[href$="/content/${fixtureManifest.probes.deepSearch.collection}/new"]`,
+          )
+          if (role !== 'viewer') {
+            // The collection-scoped action is gated on the asynchronously
+            // installed contract, so wait for that domain state rather than
+            // sampling immediately after the page shell becomes ready.
+            await newContentLink
+              .first()
+              .waitFor({ timeout: 30000 })
+              .catch(() => null)
+          }
+          const newEntryAvailable = (await newContentLink.count()) > 0
+          const mediaAvailable =
+            (await page.locator('a[href="/assets"], a[href="/studio/assets"]').count()) > 0
           const approvalsAvailable =
-            (await page.getByRole('link', { name: /Approvals/ }).count()) > 0
-          const settingsAvailable = (await page.getByRole('link', { name: /Settings/ }).count()) > 0
+            (await page.locator('a[href="/reviews"], a[href="/studio/reviews"]').count()) > 0
 
           if (role === 'viewer') {
-            if (newEntryAvailable || mediaAvailable || approvalsAvailable || settingsAvailable) {
-              throw new Error('viewer received a create, asset, publish, or settings action')
+            if (newEntryAvailable || mediaAvailable || approvalsAvailable) {
+              throw new Error('viewer received a create, asset, or publish action')
             }
             const reducedMotion = await page.evaluate(
               () => matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -70,12 +81,12 @@ export async function runRoleJourneys({
             if (approvalsAvailable !== (role === 'publisher')) {
               throw new Error(`${role} publish-review navigation did not match its role`)
             }
-            if (settingsAvailable) throw new Error(`${role} received owner-only settings access`)
           }
 
           for (const [route, heading] of [
             ['/studio/model', 'Content setup'],
             ['/studio/site-data', 'Site-wide content'],
+            ['/studio/settings', 'Settings'],
           ]) {
             await page.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' })
             await page.getByRole('heading', { name: heading }).waitFor({ timeout: 30000 })
@@ -85,6 +96,9 @@ export async function runRoleJourneys({
               'Add field',
               'Save schema',
               'New section',
+              'Invite member',
+              'Add refresh target',
+              'MCP connections for AI tools',
             ]) {
               if (inspectionText?.includes(forbidden)) {
                 throw new Error(`${role} read-only inspection exposed ${forbidden}`)
@@ -153,7 +167,6 @@ export async function runRoleJourneys({
             newEntryAvailable,
             mediaAvailable,
             approvalsAvailable,
-            settingsAvailable,
             titleDisabled,
             publishVisible,
             approvedReview,

@@ -436,7 +436,18 @@ describe('live refactor proof contract', () => {
       "publisher: LIVE_PROOF_VIEWPORTS.find(({ name }) => name === 'desktop')",
     )
     expect(roles).toContain('const newEntryAvailable =')
+    expect(roles).toContain(
+      'a[href$="/content/${fixtureManifest.probes.deepSearch.collection}/new"]',
+    )
+    expect(roles).toContain("if (role !== 'viewer')")
+    expect(roles).not.toContain("name: 'New entry'")
     expect(roles).toContain('const mediaAvailable =')
+    expect(roles).toContain('a[href="/assets"], a[href="/studio/assets"]')
+    expect(roles).toContain('a[href="/reviews"], a[href="/studio/reviews"]')
+    expect(roles).toContain("['/studio/settings', 'Settings']")
+    expect(roles).toContain("'Invite member'")
+    expect(roles).toContain("'Add refresh target'")
+    expect(roles).toContain("'MCP connections for AI tools'")
     expect(roles).not.toContain('const mediaVisible =')
     expect(roles).not.toContain('newEntryVisible,')
     expect(observability).toContain("if (!['warning', 'error'].includes(message.type())) return")
@@ -444,6 +455,7 @@ describe('live refactor proof contract', () => {
     expect(observability).toContain('expectedHttpFailure(url, status)')
     expect(smoke).toContain('invalidCredentialsExpectedUntil = Date.now() + 5_000')
     expect(smoke).toContain('Date.now() + 1_000')
+    expect(smoke).toContain("'--host-resolver-rules=MAP localhost 127.0.0.1'")
     expect(mcp).toContain("'request-publish-review'")
 
     const lineCounts = Object.fromEntries(

@@ -194,7 +194,12 @@ async function signIn(
   await signInWithCredentials(page, redirect, credentials, origin)
 }
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({
+  args:
+    certification && new URL(baseUrl).hostname === 'localhost'
+      ? ['--host-resolver-rules=MAP localhost 127.0.0.1']
+      : [],
+})
 const browserRuntime = { engine: 'chromium', version: browser.version() }
 const observability = createBrowserObservability({ redact, expectedHttpFailure })
 const browserEvidence = observability.evidence
