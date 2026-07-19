@@ -104,6 +104,10 @@ const budgets = {
   'packages/convex/src/entries/publish.ts': 950,
   'packages/convex/src/entries/publicationApproval.ts': 150,
   'packages/convex/src/reviewRequests.ts': 750,
+  // Disposable certification setup and cleanup are deployment-admin-only,
+  // page-bounded modules. Keep their data construction and teardown owners separate.
+  'packages/convex/src/liveFixtures.ts': 520,
+  'packages/convex/src/liveFixtures/cleanup.ts': 320,
   'packages/convex/src/operationHelpers.ts': 700,
   'packages/convex/src/operationHash.ts': 40,
   // Asset Convex registrations remain stable in the two public modules while
