@@ -95,8 +95,8 @@ function fixtureManifest() {
         expectedTitle: 'refactor-proof-abc123 review terminal',
       },
       assetSearch: {
-        query: 'refactor-proof-abc123-asset-500',
-        expectedFilename: 'refactor-proof-abc123-asset-500.png',
+        query: '499',
+        expectedFilename: 'refactor-proof-abc123-asset-499.png',
       },
       roleEntry: {
         path: '/studio/content/scale-posts/refactor-proof-abc123-entry-1',

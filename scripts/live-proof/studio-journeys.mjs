@@ -342,9 +342,9 @@ export async function runStudioJourneys({
       uploadInputElement,
       { timeout: 30000 },
     )
-    const uploadSearchQuery = fixtureToken.split('-').at(-1)
-    if (!uploadSearchQuery) throw new Error('asset upload proof has no unique search token')
-    await page.getByPlaceholder('Search...', { exact: true }).fill(uploadSearchQuery)
+    const sort = page.getByRole('combobox', { name: 'Sort' })
+    await sort.click()
+    await page.getByRole('option', { name: 'Date', exact: true }).click()
     const uploadedAssetRow = page.getByRole('row').filter({ hasText: uploadFilename })
     await uploadedAssetRow.waitFor({ timeout: 30000 })
     await uploadedAssetRow.getByRole('checkbox').check()

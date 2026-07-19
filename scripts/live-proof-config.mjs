@@ -383,7 +383,6 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
   for (const [label, value] of [
     ['probes.entryPagination.terminalTitle', probes.entryPagination.terminalTitle],
     ['probes.deepSearch.expectedTitle', probes.deepSearch.expectedTitle],
-    ['probes.assetSearch.query', probes.assetSearch.query],
     ['probes.assetSearch.expectedFilename', probes.assetSearch.expectedFilename],
     ['probes.roleEntry.title', probes.roleEntry.title],
     ['probes.routeRedirect.sourcePath', probes.routeRedirect.sourcePath],
@@ -406,6 +405,9 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
   const deepSearchQueryTokens = probes.deepSearch.query.toLocaleLowerCase().split(/\s+/u)
   if (!deepSearchQueryTokens.every((token) => deepSearchTitleTokens.has(token))) {
     throw new Error('Every deep-search query token must occur exactly in its expected title.')
+  }
+  if (!probes.assetSearch.expectedFilename.includes(probes.assetSearch.query)) {
+    throw new Error('The asset-search query must occur exactly in its expected filename.')
   }
   if (
     probes.pendingReview.localeCodes.length !== 2 ||

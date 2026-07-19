@@ -321,7 +321,10 @@ async function setup() {
             query: 'review terminal',
             expectedTitle: inspection.deepSearchTitle,
           },
-          assetSearch: { query: prefix, expectedFilename: inspection.assetTerminalFilename },
+          assetSearch: {
+            query: String(targetScale.assets - 1).padStart(3, '0'),
+            expectedFilename: inspection.assetTerminalFilename,
+          },
           roleEntry: {
             path: `/studio/content/${inspection.collection}/${inspection.roleEntryId}`,
             title: `${prefix} page 0000 en`,
