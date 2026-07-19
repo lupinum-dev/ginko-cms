@@ -116,7 +116,16 @@ export function defineGinkoAuth<DataModel extends GenericDataModel = GenericData
         }),
         convexAuth({
           authConfig: { providers: [getConvexAuthProvider()] },
-          sessionJwt: { audience: 'convex', expirationTime: '15m', issuer: convexSiteUrl },
+          sessionJwt: {
+            audience: 'convex',
+            definePayload: ({ user }) => ({
+              email: user.email,
+              emailVerified: user.emailVerified,
+              name: user.name,
+            }),
+            expirationTime: '15m',
+            issuer: convexSiteUrl,
+          },
         }),
       ],
       rateLimit: { enabled: true, modelName: 'rateLimit', storage: 'database' },
