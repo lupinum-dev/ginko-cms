@@ -94,8 +94,8 @@ export async function runSiteDataProof({
       await json.fill(JSON.stringify({ message: values.en }))
       await saveEditor()
 
-      const localePicker = page.getByRole('group', { name: 'Locale' })
-      await localePicker.getByRole('button', { name: /Deutsch|German|DE/ }).click()
+      const localePicker = page.getByRole('group', { name: 'Language' })
+      await localePicker.getByRole('button', { name: 'de', exact: true }).click()
       await page.waitForFunction(
         ({ selector, previous }) => !document.querySelector(selector)?.value.includes(previous),
         { selector: '#site-data-custom-json', previous: values.en },

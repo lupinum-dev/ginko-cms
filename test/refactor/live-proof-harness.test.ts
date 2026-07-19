@@ -423,6 +423,8 @@ describe('live refactor proof contract', () => {
     expect(publicProof).toContain("'scale.public-routes-target-fixture'")
     expect(siteData).toContain("'site-data.localized-public-lifecycle'")
     expect(siteData).toContain('/api/_content/site-data?key=')
+    expect(siteData).toContain("getByRole('group', { name: 'Language' })")
+    expect(siteData).toContain("getByRole('button', { name: 'de', exact: true })")
     expect(packedHost).toContain(`modules: ['@nuxtjs/sitemap', '@lupinum/ginko-content', ginkoCms]`)
     expect(packedHost).toContain("i18n: { defaultLocale: 'en'")
     expect(packedHost).toContain('site: { url: process.env.CMS_STORY_SITE_URL')
