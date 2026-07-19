@@ -280,6 +280,21 @@ async function setup() {
       })}`,
     )
   }
+  const uploadSlot = await runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupAssetsPage', {
+    prefix,
+    count: 1,
+  })
+  if (
+    uploadSlot.deleted !== 1 ||
+    uploadSlot.complete ||
+    !uploadSlot.storageIds.includes(String(storageId))
+  ) {
+    throw new Error('Disposable fixture could not reserve exactly one browser upload slot.')
+  }
+  const journeyCounts = await runComponent('ginkoCms', 'liveFixtures/cleanup:counts', { prefix })
+  if (journeyCounts.assets !== targetScale.assets - 1) {
+    throw new Error('Disposable fixture browser baseline must reserve one asset slot.')
+  }
   const mismatchUrl = requiredEnv('CMS_STORY_CONTRACT_MISMATCH_URL')
   const deepestPath = `/docs/${inspection.deepestSlugPath.join('/')}`
   writeFileSync(
@@ -289,6 +304,10 @@ async function setup() {
         schemaVersion: 1,
         fixturePrefix: prefix,
         targetScale,
+        journeyBaseline: {
+          assets: journeyCounts.assets,
+          reservedUploadSlots: 1,
+        },
         localeCodes: ['en', 'de', 'fr'],
         probes: {
           entryPagination: {

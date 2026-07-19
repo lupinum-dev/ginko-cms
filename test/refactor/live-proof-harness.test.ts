@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
+import { verifyPublicImageBytes } from '@lupinum/ginko-content/cms-contract'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -23,6 +24,10 @@ const candidatePackageNames = [
   '@lupinum/ginko-cms',
   'better-convex-nuxt',
 ]
+const liveUploadPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+)
 
 function roleEnvironment() {
   return Object.fromEntries(
@@ -72,6 +77,10 @@ function fixtureManifest() {
     schemaVersion: 1,
     fixturePrefix: 'refactor-proof-abc123',
     targetScale: { ...LIVE_PROOF_TARGET_SCALE },
+    journeyBaseline: {
+      assets: LIVE_PROOF_TARGET_SCALE.assets - 1,
+      reservedUploadSlots: 1,
+    },
     localeCodes: ['en', 'de', 'fr'],
     probes: {
       entryPagination: {
@@ -151,6 +160,16 @@ function inAppBrowserEvidence() {
 }
 
 describe('live refactor proof contract', () => {
+  it('[AST-02] keeps the browser upload fixture valid under public image byte verification', async () => {
+    const smoke = await readFile(resolve(root, 'scripts/cms-live-story-smoke.mjs'), 'utf8')
+    expect(smoke).toContain(liveUploadPng.toString('base64'))
+    await expect(verifyPublicImageBytes(liveUploadPng, 'image/png')).resolves.toMatchObject({
+      mediaType: 'image/png',
+      width: 1,
+      height: 1,
+      frames: 1,
+    })
+  })
   it('requires unique disposable role accounts and exact same-origin candidate attestation', () => {
     expect(
       validateLiveProofPreflight(preflightEnvironment(), { existsSync: () => true }),
@@ -290,6 +309,11 @@ describe('live refactor proof contract', () => {
     expect(() => validateLiveFixtureManifest(inflated, 'refactor-proof-abc123')).toThrow(
       /must be exactly 1500/i,
     )
+    const withoutUploadSlot = fixtureManifest()
+    withoutUploadSlot.journeyBaseline.assets = LIVE_PROOF_TARGET_SCALE.assets
+    expect(() => validateLiveFixtureManifest(withoutUploadSlot, 'refactor-proof-abc123')).toThrow(
+      /reserve exactly one asset slot/i,
+    )
     const singleLocaleReview = fixtureManifest()
     singleLocaleReview.probes.pendingReview.localeCodes = ['en']
     expect(() => validateLiveFixtureManifest(singleLocaleReview, 'refactor-proof-abc123')).toThrow(
@@ -387,6 +411,9 @@ describe('live refactor proof contract', () => {
     expect(runner).toContain("status: browserGreen ? 'automated-green-in-app-browser-pending'")
     expect(fixtureDriver).toContain("'liveFixtures:setupEntriesPage'")
     expect(fixtureDriver).toContain("'liveFixtures:setupAssetsPage'")
+    expect(fixtureDriver).toContain('uploadSlot.deleted !== 1')
+    expect(fixtureDriver).toContain('journeyCounts.assets !== targetScale.assets - 1')
+    expect(fixtureDriver).toContain('reservedUploadSlots: 1')
     expect(fixtureDriver).toContain('terminalPageStart')
     expect(fixtureDriver).toContain('waitForStudioSearchIndex')
     expect(fixtureDriver).toContain("'ginkoCms/editor:listEntriesForStudio'")

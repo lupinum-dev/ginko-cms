@@ -269,6 +269,16 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
       return [key, actual]
     }),
   )
+  const journeyBaseline = {
+    assets: requiredInteger(value.journeyBaseline?.assets, 'journeyBaseline.assets'),
+    reservedUploadSlots: requiredInteger(
+      value.journeyBaseline?.reservedUploadSlots,
+      'journeyBaseline.reservedUploadSlots',
+    ),
+  }
+  if (journeyBaseline.assets !== scale.assets - 1 || journeyBaseline.reservedUploadSlots !== 1) {
+    throw new Error('Live fixture must reserve exactly one asset slot for the browser journey.')
+  }
   if (!Array.isArray(value.localeCodes) || value.localeCodes.length !== scale.locales) {
     throw new Error(`localeCodes must contain exactly ${scale.locales} locales.`)
   }
@@ -412,6 +422,7 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
     schemaVersion: 1,
     fixturePrefix: expectedPrefix,
     targetScale: scale,
+    journeyBaseline,
     localeCodes,
     probes: { ...probes, contractMismatchUrl: mismatchUrl },
     cleanupExpected: value.cleanupExpected ?? null,

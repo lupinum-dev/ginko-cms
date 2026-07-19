@@ -1,10 +1,15 @@
 import axe from 'axe-core'
 
-export function createBrowserObservability({ redact, expectedHttpFailure }) {
+export function createBrowserObservability({
+  redact,
+  expectedHttpFailure,
+  expectedRequestFailure = () => false,
+}) {
   const evidence = {
     console: [],
     pageErrors: [],
     requestFailures: [],
+    expectedRequestFailures: [],
     httpFailures: [],
     expectedConsoleFailures: [],
     expectedHttpFailures: [],
@@ -34,11 +39,16 @@ export function createBrowserObservability({ redact, expectedHttpFailure }) {
       })
     })
     page.on('requestfailed', (request) => {
-      evidence.requestFailures.push({
+      const failure = {
         method: request.method(),
         url: redact(request.url()),
         error: redact(request.failure()?.errorText ?? 'request failed'),
-      })
+      }
+      if (expectedRequestFailure(request, request.failure()?.errorText ?? 'request failed')) {
+        evidence.expectedRequestFailures.push(failure)
+      } else {
+        evidence.requestFailures.push(failure)
+      }
     })
     page.on('response', (response) => {
       if (response.status() < 400) return

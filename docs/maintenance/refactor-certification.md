@@ -116,6 +116,10 @@ node consumer-live-fixtures.mjs cleanup \
 The setup manifest must declare the exact supported fixture counts (1,500
 entries, three locales, 500 assets, depth five, 1,205 paginated rows, 4,500
 live entry/locale rows, and the 5,000-document/500-asset portability boundary).
+Setup first verifies all 500 seeded assets, then removes one disposable seed
+row through the gated fixture cleanup path. The Browser upload journey must
+recreate that reserved slot, returning discovery to exactly 500 assets without
+ever crossing the supported boundary.
 The deterministic non-live scale suite separately exercises 5,105 public rows
 to cross the former 5,000-row boundary. The live manifest also
 provides uniquely prefixed probe records for deep search, pagination, assets,

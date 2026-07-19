@@ -88,7 +88,7 @@ const collection = 'blog'
 const collectionLabel = 'Blog'
 const fixtureToken = `${fixturePrefix}-${Date.now().toString(36)}`
 const fixtureTitle = `V-next live smoke ${fixtureToken}`
-const uploadFilename = `vnext-live-smoke-${fixtureToken}.png`
+const uploadFilename = `${fixtureToken.split('-').at(-1)}-vnext-live-smoke.png`
 const uploadFixturePath = resolve(tmpdir(), uploadFilename)
 const results = []
 let fixtureEntryUrl = null
@@ -135,6 +135,13 @@ function expectedHttpFailure(url, status) {
     url.includes('/api/auth/sign-in/email') &&
     status >= 400 &&
     status < 500
+  )
+}
+
+function expectedRequestFailure(request, errorText) {
+  if (request.method() !== 'GET' || errorText !== 'net::ERR_ABORTED') return false
+  return (
+    request.resourceType() === 'image' || new URL(request.url()).origin === new URL(baseUrl).origin
   )
 }
 
@@ -201,7 +208,11 @@ const browser = await chromium.launch({
       : [],
 })
 const browserRuntime = { engine: 'chromium', version: browser.version() }
-const observability = createBrowserObservability({ redact, expectedHttpFailure })
+const observability = createBrowserObservability({
+  redact,
+  expectedHttpFailure,
+  expectedRequestFailure,
+})
 const browserEvidence = observability.evidence
 const createObservedContext = (options) => observability.createObservedContext(browser, options)
 const context = await createObservedContext({ viewport: { width: 1440, height: 1000 } })
@@ -224,7 +235,7 @@ if (browserArtifactDir) await mkdir(browserArtifactDir, { recursive: true })
 await writeFile(
   uploadFixturePath,
   Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nH0AAAAASUVORK5CYII=',
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
     'base64',
   ),
 )

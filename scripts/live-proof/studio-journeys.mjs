@@ -196,7 +196,9 @@ export async function runStudioJourneys({
       await rows.filter({ hasText: fixtureTitle }).waitFor({ timeout: 30000 })
       const before = await rows.count()
       if (before < 1) throw new Error(`entry list had no rows for filter proof: ${before}`)
-      await search.fill(fixtureToken)
+      const uniqueQuery = fixtureToken.split('-').at(-1)
+      if (!uniqueQuery) throw new Error('entry filter proof has no unique query token')
+      await search.fill(uniqueQuery)
       await page.waitForFunction(
         (expectedTitle) => {
           const renderedRows = document.querySelectorAll('[data-testid="cms-entry-row"]')
@@ -210,7 +212,7 @@ export async function runStudioJourneys({
       if (!filteredText.includes(fixtureTitle)) {
         throw new Error(`filtered row did not match expected content: ${redact(filteredText)}`)
       }
-      return { before, after, query: fixtureToken }
+      return { before, after, query: uniqueQuery }
     },
   )
 
@@ -331,9 +333,18 @@ export async function runStudioJourneys({
   await story('assets.upload-and-trash', 'Uploads and retires a smoke image', async () => {
     await page.goto(`${baseUrl}/studio/assets`, { waitUntil: 'domcontentloaded' })
     await page.getByRole('heading', { name: 'Media' }).waitFor({ timeout: 30000 })
-    const uploadInput = page.locator('input[type="file"]')
-    if ((await uploadInput.count()) !== 1) throw new Error('Media upload input is missing')
+    const uploadInput = page.locator('input[type="file"][multiple]')
+    await uploadInput.waitFor({ state: 'attached', timeout: 30000 })
     await uploadInput.setInputFiles(uploadFixturePath)
+    const uploadInputElement = await uploadInput.elementHandle()
+    await page.waitForFunction(
+      (element) => element instanceof HTMLInputElement && element.value === '',
+      uploadInputElement,
+      { timeout: 30000 },
+    )
+    const uploadSearchQuery = fixtureToken.split('-').at(-1)
+    if (!uploadSearchQuery) throw new Error('asset upload proof has no unique search token')
+    await page.getByPlaceholder('Search...', { exact: true }).fill(uploadSearchQuery)
     const uploadedAssetRow = page.getByRole('row').filter({ hasText: uploadFilename })
     await uploadedAssetRow.waitFor({ timeout: 30000 })
     await uploadedAssetRow.getByRole('checkbox').check()
@@ -354,7 +365,7 @@ export async function runStudioJourneys({
       async () => {
         const probe = fixtureManifest.probes.assetSearch
         await page.goto(`${baseUrl}/studio/assets`, { waitUntil: 'domcontentloaded' })
-        const search = page.getByPlaceholder(/Search assets/i)
+        const search = page.getByPlaceholder('Search...', { exact: true })
         await search.waitFor({ timeout: 30000 })
         await search.fill(probe.query)
         await page.getByText(probe.expectedFilename, { exact: true }).waitFor({ timeout: 30000 })
