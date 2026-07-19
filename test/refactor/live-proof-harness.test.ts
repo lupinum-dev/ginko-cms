@@ -319,6 +319,7 @@ describe('live refactor proof contract', () => {
       studio,
       publicProof,
       siteData,
+      packedHost,
     ] = await Promise.all([
       readFile(resolve(root, 'scripts/refactor-proof.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/consumer-live-fixtures.mjs'), 'utf8'),
@@ -330,6 +331,7 @@ describe('live refactor proof contract', () => {
       readFile(resolve(root, 'scripts/live-proof/studio-journeys.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/live-proof/public-journeys.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/live-proof/site-data-proof.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/package-e2e.mjs'), 'utf8'),
     ])
     expect(runner).toContain('validateLiveProofPreflight()')
     expect(runner).toContain("'seed disposable target-scale fixtures'")
@@ -357,6 +359,9 @@ describe('live refactor proof contract', () => {
     expect(publicProof).toContain("'scale.public-routes-target-fixture'")
     expect(siteData).toContain("'site-data.localized-public-lifecycle'")
     expect(siteData).toContain('/api/_content/site-data?key=')
+    expect(packedHost).toContain(`modules: ['@nuxtjs/sitemap', '@lupinum/ginko-content', ginkoCms]`)
+    expect(packedHost).toContain("i18n: { defaultLocale: 'en'")
+    expect(packedHost).toContain('site: { url: process.env.CMS_STORY_BASE_URL')
     for (const metric of [
       'studioColdInteractive',
       'primaryNavigation',

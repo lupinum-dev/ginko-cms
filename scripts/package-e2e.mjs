@@ -559,6 +559,9 @@ try {
         type: 'module',
         dependencies: {
           ...consumerCompatibility.dependencies,
+          ...(liveConvex
+            ? { '@nuxtjs/sitemap': compatibilityMatrix.tracked['@nuxtjs/sitemap'][1] }
+            : {}),
           '@lupinum/ginko-cms': fileDependency(cmsTarball),
           '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
           '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
@@ -583,6 +586,9 @@ try {
       '@lupinum/ginko-content': contentDependency(installedContentTarball),
       '@nuxt/kit': consumerCompatibility.dependencies['@nuxt/kit'],
       '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
+      ...(liveConvex
+        ? { '@nuxtjs/sitemap': compatibilityMatrix.tracked['@nuxtjs/sitemap'][1] }
+        : {}),
       'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
       convex: consumerCompatibility.dependencies.convex,
       'secure-exec': compatibilityMatrix.tracked['secure-exec'][1],
@@ -607,7 +613,7 @@ try {
       '',
       'export default defineNuxtConfig({',
       liveConvex
-        ? "  modules: ['@lupinum/ginko-content', ginkoCms],"
+        ? "  modules: ['@nuxtjs/sitemap', '@lupinum/ginko-content', ginkoCms],"
         : '  modules: [contentRendererHarness, ginkoCms],',
       '  components: [{',
       "    path: './node_modules/@lupinum/ginko-content/dist/runtime/app/components',",
@@ -617,6 +623,12 @@ try {
       "    ignore: ['Prose/**', 'internal/**'],",
       '  }],',
       "  convex: { url: process.env.CONVEX_URL || 'http://127.0.0.1:3210', siteUrl: process.env.CONVEX_SITE_URL || 'http://127.0.0.1:3211', auth: { publicOrigin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000' } },",
+      ...(liveConvex
+        ? [
+            "  site: { url: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000' },",
+            "  i18n: { defaultLocale: 'en', locales: [{ code: 'en', seo: false }, { code: 'de', seo: false }, { code: 'fr', seo: false }], localeCookie: null, redirects: false },",
+          ]
+        : []),
       ...(liveConvex
         ? [
             "  content: { i18n: { defaultLocale: 'en', locales: ['en', 'de', 'fr'] }, search: { engine: 'provider', collections: ['blog', 'docs'] } },",
