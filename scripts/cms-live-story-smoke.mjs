@@ -94,6 +94,8 @@ const results = []
 let fixtureEntryUrl = null
 let localUploadFixtureRemoved = false
 let invalidCredentialsExpectedUntil = 0
+let authAttemptsInWindow = 0
+let lastAuthAttemptAt = 0
 const registeredSecrets = new Set()
 const performanceProof = createPerformanceProof(performanceSampleCount)
 const { evidence: performanceEvidence, samples: performanceSamples } = performanceProof
@@ -198,7 +200,25 @@ async function signIn(
   credentials = { email, password },
   origin = baseUrl,
 ) {
+  await paceAuthAttempt()
   await signInWithCredentials(page, redirect, credentials, origin)
+}
+
+async function paceAuthAttempt() {
+  const authenticationWindowMs = 10_000
+  const authenticationWindowMax = 3
+  const now = Date.now()
+  if (now - lastAuthAttemptAt >= authenticationWindowMs) {
+    authAttemptsInWindow = 0
+  }
+  if (authAttemptsInWindow >= authenticationWindowMax) {
+    const remaining = authenticationWindowMs - (now - lastAuthAttemptAt)
+    if (remaining > 0)
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, remaining + 100))
+    authAttemptsInWindow = 0
+  }
+  authAttemptsInWindow += 1
+  lastAuthAttemptAt = Date.now()
 }
 
 const browser = await chromium.launch({
@@ -316,6 +336,7 @@ try {
             timeout: 30000,
           })
           .catch(() => null)
+        await paceAuthAttempt()
         invalidCredentialsExpectedUntil = Date.now() + 5_000
         let response
         try {
