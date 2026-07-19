@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import type { Id } from '../_generated/dataModel.js'
+import type { Doc, Id } from '../_generated/dataModel.js'
 import { internalAction, internalMutation, internalQuery } from '../_generated/server.js'
 import type { MutationCtx, QueryCtx } from '../lib/types.js'
 import {
@@ -12,6 +12,20 @@ import {
 
 async function fixtureMembers(ctx: MutationCtx | QueryCtx, prefix: string) {
   return (await ctx.db.query('members').collect()).filter((member) => member.updatedBy === prefix)
+}
+
+async function fixtureSiteData(ctx: MutationCtx | QueryCtx, prefix: string, count = 100) {
+  const rows: Doc<'siteData'>[] = []
+  for (const keyPrefix of [prefix, `proof-${prefix}`]) {
+    if (rows.length >= count) break
+    rows.push(
+      ...(await ctx.db
+        .query('siteData')
+        .withIndex('by_key', (q) => q.gte('key', keyPrefix).lt('key', `${keyPrefix}\uFFFF`))
+        .take(count - rows.length)),
+    )
+  }
+  return rows
 }
 
 async function deleteEntryDependents(ctx: MutationCtx, entryId: Id<'entries'>) {
@@ -164,10 +178,7 @@ export async function cleanupControlPageHandler(
     return { deleted: rows.length, complete: rows.length === 0 }
   }
   if (args.phase === 'siteData') {
-    const rows = await ctx.db
-      .query('siteData')
-      .withIndex('by_key', (q) => q.gte('key', args.prefix).lt('key', `${args.prefix}\uFFFF`))
-      .take(count)
+    const rows = await fixtureSiteData(ctx, args.prefix, count)
     for (const row of rows) await ctx.db.delete(row._id)
     return { deleted: rows.length, complete: rows.length === 0 }
   }
@@ -253,10 +264,7 @@ export const counts = internalQuery({
           q.gte('redirectId', args.prefix).lt('redirectId', `${args.prefix}\uFFFF`),
         )
         .collect(),
-      ctx.db
-        .query('siteData')
-        .withIndex('by_key', (q) => q.gte('key', args.prefix).lt('key', `${args.prefix}\uFFFF`))
-        .collect(),
+      fixtureSiteData(ctx, args.prefix),
       fixtureMembers(ctx, args.prefix),
     ])
     const fixtureReviews = reviews.filter((row) =>

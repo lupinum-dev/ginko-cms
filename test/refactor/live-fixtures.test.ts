@@ -184,6 +184,26 @@ describe('deployment-admin live fixtures', () => {
     expect(await ctx.readAll('members')).toHaveLength(0)
   })
 
+  it('cleans both direct and proof-prefixed disposable site data', async () => {
+    const ctx = createCtx()
+    for (const key of [`${prefix}-direct`, `proof-${prefix}-journey`, 'unrelated']) {
+      await ctx.seed('siteData', {
+        key,
+        label: key,
+        schemaType: null,
+        localized: false,
+        visibility: 'private',
+        data: null,
+        updatedBy: prefix,
+        updatedAt: 1,
+      })
+    }
+    await ctx.raw.run((inner) =>
+      cleanupControlPageHandler(inner, { prefix, phase: 'siteData', count: 100 }),
+    )
+    expect((await ctx.readAll('siteData')).map(({ key }) => key)).toEqual(['unrelated'])
+  })
+
   it('removes only the configured bootstrap owner while a disposable owner remains', async () => {
     const ctx = createCtx()
     await ctx.seed('members', {
