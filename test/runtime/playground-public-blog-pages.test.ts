@@ -38,6 +38,9 @@ describe('playground public blog failure semantics', () => {
     expect(detailPage.indexOf('throwPublicContentFailure(loadError.value')).toBeLessThan(
       detailPage.indexOf('setResponseStatus(404)'),
     )
+    expect(detailPage).toContain(
+      'await navigateTo(post.value.route.resolvedPath, { redirectCode: 308',
+    )
 
     expect(docsPage).toContain('error: loadError')
     expect(docsPage.indexOf('throwPublicContentFailure(loadError.value')).toBeLessThan(

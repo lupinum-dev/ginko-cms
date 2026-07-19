@@ -32,6 +32,13 @@ useCmsSeoAlternates(post)
 
 if (import.meta.server) {
   throwPublicContentFailure(loadError.value, 'This post is temporarily unavailable.')
+  if (
+    post.value?.route.requestedPath &&
+    post.value.route.resolvedPath &&
+    post.value.route.requestedPath !== post.value.route.resolvedPath
+  ) {
+    await navigateTo(post.value.route.resolvedPath, { redirectCode: 308, replace: true })
+  }
   if (!post.value) setResponseStatus(404)
 }
 </script>

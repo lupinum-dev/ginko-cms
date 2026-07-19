@@ -93,6 +93,23 @@ const convexMock = vi.hoisted(() => {
 
     if (operation === 'page') {
       if (args.path === '/missing') return pageResult(args, null)
+      if (args.path === '/docs/old-content-routing') {
+        return {
+          status: 'redirect',
+          page: null,
+          collection: String(args.collection),
+          locale: localeResult(String(args.locale || 'en')),
+          breadcrumbs: [],
+          seo: null,
+          redirectTo: {
+            locale: String(args.locale || 'en'),
+            path: '/docs/content-routing',
+            slug: 'content-routing',
+            source: 'published',
+          },
+          redirectedFrom: '/docs/old-content-routing',
+        }
+      }
       return pageResult(args, entry(String(args.locale || 'en')))
     }
     if (operation === 'list') {
@@ -379,6 +396,28 @@ describe('Ginko Nuxt provider v3', () => {
     expect(pageCalls.map(({ args }) => [args.locale, args.path])).toEqual([
       ['de', '/missing'],
       ['en', '/docs/content-routing'],
+    ])
+  })
+
+  it('resolves one validated redirect target for the route-aware content page', async () => {
+    const query = toContentProviderQuery({ collection: 'docs', first: true })
+    query.plan.variantSelector = {
+      by: 'route',
+      requestedLocale: 'en',
+      candidates: [{ locale: 'en', contentPath: '/docs/old-content-routing' }],
+    }
+
+    const response = unwrap(await contentProvider.query(event, query))
+    const pageCalls = convexMock.calls.filter(({ operation }) => operation === 'page')
+
+    expect(response.result).toMatchObject({
+      locale: 'en',
+      canonicalKey: 'docs-routing',
+      contentPath: '/docs/content-routing',
+    })
+    expect(pageCalls.map(({ args }) => args.path)).toEqual([
+      '/docs/old-content-routing',
+      '/docs/content-routing',
     ])
   })
 

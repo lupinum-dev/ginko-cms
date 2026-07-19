@@ -534,7 +534,7 @@ const resolveVariant = async (
   // Route selectors are already closed and ordered by ginko-content. Trying them
   // in order keeps locale fallback policy in the content engine, not this adapter.
   for (const candidate of selector.candidates || []) {
-    const result = decodeRequested(
+    let result = decodeRequested(
       'page',
       parseCmsPageWireResult,
       { collection, locale: candidate.locale },
@@ -549,6 +549,18 @@ const resolveVariant = async (
         ),
       }),
     )
+    if (result.status === 'redirect') {
+      result = decodeRequested(
+        'page',
+        parseCmsPageWireResult,
+        { collection, locale: candidate.locale },
+        await callGinko(caller, 'page', {
+          collection,
+          locale: candidate.locale,
+          path: result.redirectTo.path,
+        }),
+      )
+    }
     if (result.status === 'found' && result.page) return { locale: candidate.locale, result }
   }
   return {
