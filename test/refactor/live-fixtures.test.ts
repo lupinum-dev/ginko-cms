@@ -142,6 +142,20 @@ describe('deployment-admin live fixtures', () => {
     expect(await ctx.readAll('members')).toHaveLength(0)
   })
 
+  it('tracks disposable members by the fixture marker when the prefix is not first in the email', async () => {
+    const ctx = createCtx()
+    const members = ['owner', 'publisher', 'editor', 'viewer'].map((role) => ({
+      userId: `${prefix}-${role}`,
+      email: `${role}-${prefix}@example.test`,
+      role: role as 'owner' | 'publisher' | 'editor' | 'viewer',
+    }))
+    await ctx.raw.run((inner) => setupMembersHandler(inner, { prefix, members }))
+    await ctx.raw.run((inner) =>
+      cleanupControlPageHandler(inner, { prefix, phase: 'members', count: 100 }),
+    )
+    expect(await ctx.readAll('members')).toHaveLength(0)
+  })
+
   it('removes only the configured bootstrap owner while a disposable owner remains', async () => {
     const ctx = createCtx()
     await ctx.seed('members', {

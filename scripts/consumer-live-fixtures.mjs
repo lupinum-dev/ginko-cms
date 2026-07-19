@@ -200,7 +200,17 @@ async function setup() {
     counts.members !== 4 ||
     publicRows !== targetScale.publicRows
   ) {
-    throw new Error('Disposable live fixture counts do not match the requested target scale.')
+    throw new Error(
+      `Disposable live fixture counts do not match the requested target scale: ${JSON.stringify({
+        actual: { ...counts, publicRows },
+        expected: {
+          entries: targetScale.entries,
+          assets: targetScale.assets,
+          members: 4,
+          publicRows: targetScale.publicRows,
+        },
+      })}`,
+    )
   }
   const mismatchUrl = requiredEnv('CMS_STORY_CONTRACT_MISMATCH_URL')
   const deepestPath = `/docs/${inspection.deepestSlugPath.join('/')}`

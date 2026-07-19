@@ -2,13 +2,17 @@ import { v } from 'convex/values'
 
 import type { Id } from '../_generated/dataModel.js'
 import { internalAction, internalMutation, internalQuery } from '../_generated/server.js'
-import type { MutationCtx } from '../lib/types.js'
+import type { MutationCtx, QueryCtx } from '../lib/types.js'
 import {
   assertFixturePrefix,
   boundedPage,
   FIXTURE_COLLECTION,
   FIXTURE_LOCALES,
 } from '../liveFixtures.js'
+
+async function fixtureMembers(ctx: MutationCtx | QueryCtx, prefix: string) {
+  return (await ctx.db.query('members').collect()).filter((member) => member.updatedBy === prefix)
+}
 
 async function deleteEntryDependents(ctx: MutationCtx, entryId: Id<'entries'>) {
   for (const state of ['active', 'retired'] as const) {
@@ -168,10 +172,7 @@ export async function cleanupControlPageHandler(
     return { deleted: rows.length, complete: rows.length === 0 }
   }
   if (args.phase === 'mcp') {
-    const members = await ctx.db
-      .query('members')
-      .withIndex('by_email', (q) => q.gte('email', args.prefix).lt('email', `${args.prefix}\uFFFF`))
-      .take(4)
+    const members = await fixtureMembers(ctx, args.prefix)
     let deleted = 0
     for (const member of members) {
       const credentials = await ctx.db
@@ -191,10 +192,7 @@ export async function cleanupControlPageHandler(
     }
     return { deleted, complete: deleted === 0 }
   }
-  const rows = await ctx.db
-    .query('members')
-    .withIndex('by_email', (q) => q.gte('email', args.prefix).lt('email', `${args.prefix}\uFFFF`))
-    .take(count)
+  const rows = (await fixtureMembers(ctx, args.prefix)).slice(0, count)
   for (const row of rows) await ctx.db.delete(row._id)
   return { deleted: rows.length, complete: rows.length === 0 }
 }
@@ -259,12 +257,7 @@ export const counts = internalQuery({
         .query('siteData')
         .withIndex('by_key', (q) => q.gte('key', args.prefix).lt('key', `${args.prefix}\uFFFF`))
         .collect(),
-      ctx.db
-        .query('members')
-        .withIndex('by_email', (q) =>
-          q.gte('email', args.prefix).lt('email', `${args.prefix}\uFFFF`),
-        )
-        .collect(),
+      fixtureMembers(ctx, args.prefix),
     ])
     const fixtureReviews = reviews.filter((row) =>
       row.title.toLowerCase().includes(args.prefix.toLowerCase()),

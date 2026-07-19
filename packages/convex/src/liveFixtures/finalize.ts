@@ -12,10 +12,9 @@ export async function cleanupBootstrapOwnerHandler(
   if (!configuredOwnerEmail || configuredOwnerEmail.includes(args.prefix.toLowerCase())) {
     throw new Error('Configured bootstrap owner email is invalid for fixture cleanup.')
   }
-  const fixtureOwners = await ctx.db
-    .query('members')
-    .withIndex('by_email', (q) => q.gte('email', args.prefix).lt('email', `${args.prefix}\uFFFF`))
-    .collect()
+  const fixtureOwners = (await ctx.db.query('members').collect()).filter(
+    (member) => member.updatedBy === args.prefix,
+  )
   if (!fixtureOwners.some((member) => member.role === 'owner')) {
     throw new Error('Bootstrap owner cleanup requires a remaining disposable fixture owner.')
   }
