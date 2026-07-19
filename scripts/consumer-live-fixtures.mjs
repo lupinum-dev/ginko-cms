@@ -124,6 +124,19 @@ async function roleAccounts(prefix) {
   return accounts
 }
 
+async function resetDisposableAuthState(accounts) {
+  for (const account of accounts) {
+    await runComponent('betterAuth', 'adapter:deleteMany', {
+      model: 'session',
+      where: [{ field: 'userId', value: account.userId }],
+    })
+  }
+  await runComponent('betterAuth', 'adapter:deleteMany', {
+    model: 'rateLimit',
+    where: [],
+  })
+}
+
 async function ensureReview(prefix, owner, probes) {
   const existing = await runComponent('ginkoCms', 'liveFixtures/cleanup:findPendingReview', {
     prefix,
@@ -156,6 +169,7 @@ async function setup() {
   const targetScale = JSON.parse(requiredOption('target-scale'))
   setFixtureGate(prefix)
   const members = await roleAccounts(prefix)
+  await resetDisposableAuthState(members)
   await runComponent('ginkoCms', 'liveFixtures:setupMembers', { prefix, members })
   for (let start = 0; start < targetScale.entries; start += 100) {
     await runComponent('ginkoCms', 'liveFixtures:setupEntriesPage', { prefix, start, count: 100 })

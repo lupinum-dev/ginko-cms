@@ -399,6 +399,9 @@ describe('live refactor proof contract', () => {
     expect(fixtureDriver).toContain("cliArgs.push('--identity', JSON.stringify(actingAs))")
     expect(fixtureDriver).toContain('tokenIdentifier: `https://convex.test|${identity.subject}`')
     expect(fixtureDriver).toContain("readDeploymentEnv('GINKO_CMS_LIVE_FIXTURES')")
+    expect(fixtureDriver).toContain("model: 'session'")
+    expect(fixtureDriver).toContain("model: 'rateLimit'")
+    expect(fixtureDriver).toContain('await resetDisposableAuthState(members)')
     expect(fixtureDriver).toContain(
       'Disposable live fixture did not produce the required pending review.',
     )
