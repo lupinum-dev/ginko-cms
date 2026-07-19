@@ -480,6 +480,8 @@ describe('package boundary contracts', () => {
       'entries/publish.js',
       'entries/read.js',
       'entries/tree.js',
+      'liveFixtures.js',
+      'liveFixtures/cleanup.js',
       'mcpAuthLimiter.js',
       'mcpCredentials.js',
       'members.js',
