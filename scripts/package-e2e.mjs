@@ -681,13 +681,15 @@ try {
   }
 
   if (liveConvex) {
-    const hasConfiguredDeployment = Boolean(process.env.CONVEX_DEPLOYMENT && process.env.CONVEX_URL)
+    const hasConfiguredDeployment = Boolean(
+      process.env.CONVEX_DEPLOYMENT && process.env.CONVEX_URL && process.env.CONVEX_DEPLOY_KEY,
+    )
     const hasSelfHostedDeployment = Boolean(
       process.env.CONVEX_SELF_HOSTED_URL && process.env.CONVEX_SELF_HOSTED_ADMIN_KEY,
     )
     if (!hasConfiguredDeployment && !hasSelfHostedDeployment) {
       throw new Error(
-        'package:e2e --live requires either CONVEX_DEPLOYMENT plus CONVEX_URL, or CONVEX_SELF_HOSTED_URL plus CONVEX_SELF_HOSTED_ADMIN_KEY, for a disposable deployment.',
+        'package:e2e --live requires either CONVEX_DEPLOYMENT plus CONVEX_URL and CONVEX_DEPLOY_KEY, or CONVEX_SELF_HOSTED_URL plus CONVEX_SELF_HOSTED_ADMIN_KEY, for a disposable deployment.',
       )
     }
     writeFileSync(

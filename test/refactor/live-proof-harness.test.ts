@@ -44,6 +44,7 @@ function preflightEnvironment() {
     GINKO_CMS_LIVE_FIXTURE_MODULE: '/tmp/live-fixture.mjs',
     CONVEX_DEPLOYMENT: 'dev:disposable-proof',
     CONVEX_URL: 'https://disposable.convex.cloud',
+    CONVEX_DEPLOY_KEY: 'dev:disposable-proof|fixture-key',
     CMS_STORY_BASE_URL: 'https://candidate.example.test',
     CMS_STORY_CANDIDATE_ATTESTATION_URL:
       'https://candidate.example.test/.well-known/ginko-cms-candidate.json',
@@ -187,6 +188,12 @@ describe('live refactor proof contract', () => {
         { existsSync: () => true },
       ),
     ).toThrow(/exact browser-tested consumer origin/i)
+    expect(() =>
+      validateLiveProofPreflight(
+        { ...preflightEnvironment(), CONVEX_DEPLOY_KEY: '' },
+        { existsSync: () => true },
+      ),
+    ).toThrow(/CONVEX_DEPLOY_KEY is required/i)
     expect(() =>
       validateLiveProofPreflight(
         { ...preflightEnvironment(), BCN_AUTH_TRUSTED_CLIENT_IP_HEADER: '' },

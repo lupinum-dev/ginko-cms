@@ -121,6 +121,7 @@ export function validateLiveProofPreflight(env = process.env, options = {}) {
   }
   requiredString(env.CONVEX_DEPLOYMENT, 'CONVEX_DEPLOYMENT')
   requiredString(env.CONVEX_URL, 'CONVEX_URL')
+  requiredString(env.CONVEX_DEPLOY_KEY, 'CONVEX_DEPLOY_KEY')
   const fixturePrefix = requiredString(env.GINKO_CMS_FIXTURE_PREFIX, 'GINKO_CMS_FIXTURE_PREFIX')
   if (!/^refactor-[a-z0-9][a-z0-9-]{5,}$/i.test(fixturePrefix)) {
     throw new Error(
