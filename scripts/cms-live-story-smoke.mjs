@@ -394,6 +394,7 @@ try {
     uploadFixturePath,
     uploadFilename,
     redact,
+    signIn,
     runSiteData: async () =>
       await runSiteDataProof({
         story,

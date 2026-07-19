@@ -15,6 +15,7 @@ export async function runStudioJourneys({
   uploadFilename,
   redact,
   runSiteData,
+  signIn,
 }) {
   let fixtureEntryUrl = null
   await story(
@@ -105,6 +106,9 @@ export async function runStudioJourneys({
           await mismatchPage.goto(`${mismatchUrl.origin}/studio/model`, {
             waitUntil: 'domcontentloaded',
           })
+          if (new URL(mismatchPage.url()).pathname === '/studio/auth/signin') {
+            await signIn(mismatchPage, '/studio/model', undefined, mismatchUrl.origin)
+          }
           await mismatchPage.getByTestId('cms-studio-ready').waitFor({ timeout: 30000 })
           await mismatchPage.getByTestId('cms-contract-write-blocked').waitFor({ timeout: 30000 })
           await expectText(mismatchPage, 'Content setup', 60000)
