@@ -2,12 +2,13 @@ import type { Doc } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'
 import type { HandlerQueryCtx } from '../lib/types.js'
 import type { StudioEntryStatus } from './studioRows.js'
-import type { IndexedStudioWorkState } from './studioSearchCursor.js'
 
 export type StudioSearchPosition = {
   updatedAt: number
   entryId: string
 }
+
+export type IndexedStudioWorkState = 'changed' | 'missing_translation' | null
 
 function matchesQuery(row: Doc<'draftSearchEntries'>, normalizedQuery: string) {
   const haystack = row.searchText.toLocaleLowerCase()
@@ -22,11 +23,10 @@ export async function readStudioSearchRows(
     status: StudioEntryStatus | null
     workState: IndexedStudioWorkState
     query: string
-    cursor: string | null
     take: number
   },
 ) {
-  const result = await ctx.db
+  const rows = await ctx.db
     .query('draftSearchEntries')
     .withSearchIndex('search_collection_locale', (query) => {
       const scoped = query
@@ -42,8 +42,16 @@ export async function readStudioSearchRows(
       }
       return visible
     })
-    .paginate({ cursor: args.cursor, numItems: args.take })
-  return { ...result, page: result.page.filter((row) => matchesQuery(row, args.query)) }
+    .take(args.take + 1)
+
+  if (rows.length > args.take) {
+    throwCmsError(
+      'STUDIO_SEARCH_TOO_BROAD',
+      `Studio search matched more than ${args.take} entries. Refine the query to continue.`,
+      { collection: args.collection, locale: args.locale, limit: args.take },
+    )
+  }
+  return rows.filter((row) => matchesQuery(row, args.query))
 }
 
 export async function readStudioFacetRows(

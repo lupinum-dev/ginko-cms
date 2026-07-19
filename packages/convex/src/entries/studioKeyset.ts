@@ -3,11 +3,10 @@ import { throwCmsError } from '../errors.js'
 import type { HandlerQueryCtx } from '../lib/types.js'
 import type { StudioEntryStatus } from './studioRows.js'
 import {
-  encodeStudioSearchCursor,
-  parseStudioSearchCursor,
+  readStudioFacetRows,
+  readStudioSearchRows,
   type IndexedStudioWorkState,
-} from './studioSearchCursor.js'
-import { readStudioFacetRows, readStudioSearchRows } from './studioSearchIndex.js'
+} from './studioSearchIndex.js'
 
 type DraftSearchCursor = {
   v: 1
@@ -174,19 +173,21 @@ export async function readDraftSearchCandidatePage(
     query: normalizeQuery(args.query),
   }
   if (expected.query) {
-    const cursor = parseStudioSearchCursor(args.cursor, expected)
-    const result = await readStudioSearchRows(ctx, {
+    if (args.cursor) {
+      throwCmsError(
+        'INVALID_CURSOR',
+        'Studio search results are a bounded relevance page and do not accept a cursor.',
+      )
+    }
+    const rows = await readStudioSearchRows(ctx, {
       ...expected,
-      cursor,
       take: args.limit,
     })
     return {
-      page: result.page,
-      scannedCount: result.page.length,
-      isDone: result.isDone,
-      continueCursor: result.isDone
-        ? null
-        : encodeStudioSearchCursor(expected, result.continueCursor),
+      page: rows,
+      scannedCount: rows.length,
+      isDone: true,
+      continueCursor: null,
     }
   }
 
