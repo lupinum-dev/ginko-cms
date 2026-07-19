@@ -27,8 +27,8 @@ export async function runStudioJourneys({
       await page.goto(`${baseUrl}/studio/content/${collection}/new`, {
         waitUntil: 'domcontentloaded',
       })
-      await page.getByRole('textbox', { name: 'Title *' }).waitFor({ timeout: 30000 })
-      await page.getByRole('textbox', { name: 'Title *' }).fill(fixtureTitle)
+      await page.getByRole('textbox', { name: 'Title', exact: true }).waitFor({ timeout: 30000 })
+      await page.getByRole('textbox', { name: 'Title', exact: true }).fill(fixtureTitle)
       await page
         .getByRole('textbox', { name: 'Description' })
         .fill('Automated V-next release-candidate verification entry.')
@@ -301,7 +301,7 @@ export async function runStudioJourneys({
     async () => {
       if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
       await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
-      const titleField = page.getByRole('textbox', { name: 'Title *' })
+      const titleField = page.getByRole('textbox', { name: 'Title', exact: true })
       await titleField.waitFor({ timeout: 30000 })
       const titleElement = await titleField.elementHandle()
       await page.waitForFunction(

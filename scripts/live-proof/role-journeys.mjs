@@ -137,7 +137,7 @@ export async function runRoleJourneys({
           await page.goto(`${baseUrl}${fixtureManifest.probes.roleEntry.path}`, {
             waitUntil: 'domcontentloaded',
           })
-          const title = page.getByRole('textbox', { name: 'Title *' })
+          const title = page.getByRole('textbox', { name: 'Title', exact: true })
           await title.waitFor({ timeout: 30000 })
           const titleDisabled = await title.isDisabled()
           const publishVisible = await page

@@ -68,6 +68,7 @@ function onInput(field: StudioField, event: Event) {
       :id="titleId"
       :value="titleValue"
       :disabled="disabled"
+      :required="titleField.required"
       :placeholder="t('ginkoCms.common.untitled')"
       :aria-invalid="titleError ? 'true' : undefined"
       rows="1"

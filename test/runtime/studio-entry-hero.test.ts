@@ -34,6 +34,7 @@ describe('StudioEntryHeroFields', () => {
     }
     const title = wrapper.find('#title')
     expect(title.element.tagName).toBe('TEXTAREA')
+    expect(title.attributes('required')).toBe('')
     expect((title.element as HTMLTextAreaElement).value).toBe('Hello')
     expect((wrapper.find('#description').element as HTMLTextAreaElement).value).toBe('World')
   })

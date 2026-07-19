@@ -6,6 +6,7 @@ export function createBrowserObservability({ redact, expectedHttpFailure }) {
     pageErrors: [],
     requestFailures: [],
     httpFailures: [],
+    expectedConsoleFailures: [],
     expectedHttpFailures: [],
     screenshots: [],
   }
@@ -13,11 +14,18 @@ export function createBrowserObservability({ redact, expectedHttpFailure }) {
   function observePage(page) {
     page.on('console', (message) => {
       if (!['warning', 'error'].includes(message.type())) return
-      evidence.console.push({
+      const url = message.location().url || page.url()
+      const status = Number(/status of (\d{3})/u.exec(message.text())?.[1])
+      const failure = {
         type: message.type(),
         text: redact(message.text()),
-        url: redact(message.location().url || page.url()),
-      })
+        url: redact(url),
+      }
+      if (Number.isInteger(status) && expectedHttpFailure(url, status)) {
+        evidence.expectedConsoleFailures.push(failure)
+      } else {
+        evidence.console.push(failure)
+      }
     })
     page.on('pageerror', (error) => {
       evidence.pageErrors.push({

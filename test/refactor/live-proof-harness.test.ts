@@ -398,6 +398,8 @@ describe('live refactor proof contract', () => {
       "publisher: LIVE_PROOF_VIEWPORTS.find(({ name }) => name === 'desktop')",
     )
     expect(observability).toContain("if (!['warning', 'error'].includes(message.type())) return")
+    expect(observability).toContain('expectedConsoleFailures')
+    expect(observability).toContain('expectedHttpFailure(url, status)')
     expect(mcp).toContain("'request-publish-review'")
 
     const lineCounts = Object.fromEntries(

@@ -360,7 +360,7 @@ try {
       await page.goto(`${baseUrl}${fixtureManifest.probes.roleEntry.path}`, {
         waitUntil: 'domcontentloaded',
       })
-      const title = page.getByRole('textbox', { name: 'Title *' })
+      const title = page.getByRole('textbox', { name: 'Title', exact: true })
       await title.waitFor({ timeout: 30000 })
       if (await title.isDisabled()) throw new Error('owner cannot edit the role probe entry')
       await page.getByRole('button', { name: /^Publish [A-Z]{2}$/ }).waitFor({ timeout: 30000 })
