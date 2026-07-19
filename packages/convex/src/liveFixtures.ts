@@ -3,12 +3,12 @@ import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel.js'
 import { internalAction, internalMutation, internalQuery } from './_generated/server.js'
 import { assetDiscoveryFields } from './assets/scope.js'
+import { draftSearchPublicationHash } from './entries/workflow/draftSearch.js'
 import {
   buildPublicProjectionPayload,
   buildPublicSearchProjectionPayload,
 } from './entries/workflow/projection.js'
 import type { MutationCtx, QueryCtx } from './lib/types.js'
-
 export const FIXTURE_COLLECTION = 'docs'
 export const FIXTURE_LOCALES = ['en', 'de', 'fr'] as const
 const LIVE_MDC_BYTES = 65_408
@@ -18,13 +18,11 @@ const FIXTURE_PNG_BASE64 =
 const FIXTURE_PNG_BYTES = 68
 const FIXTURE_PNG_SHA256 = '431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460'
 type FixtureRole = 'owner' | 'publisher' | 'editor' | 'viewer'
-
 export function assertFixturePrefix(prefix: string) {
   if (!/^refactor-[a-z0-9][a-z0-9-]{5,}$/i.test(prefix)) {
     throw new Error('Live fixture prefix is invalid.')
   }
 }
-
 export function boundedPage(start: number, count: number, maximum: number) {
   if (!Number.isSafeInteger(start) || start < 0 || start > maximum) {
     throw new Error('Live fixture page start is invalid.')
@@ -34,7 +32,6 @@ export function boundedPage(start: number, count: number, maximum: number) {
   }
   return { start, end: Math.min(maximum, start + count) }
 }
-
 function entryStableId(prefix: string, index: number) {
   return `${prefix}-docs-${String(index).padStart(4, '0')}`
 }
@@ -177,6 +174,9 @@ export async function setupEntriesPageHandler(
       })),
       latestEditorialRevisionId: revisionId,
     })
+    const publishedEntry = await ctx.db.get(entryId)
+    if (!publishedEntry) throw new Error('Live fixture publication was not persisted.')
+    const sourcePublicationHash = draftSearchPublicationHash(publishedEntry)
     for (const locale of FIXTURE_LOCALES) {
       const snapshot = snapshots[locale]!
       const title = snapshot.values.title
@@ -217,7 +217,7 @@ export async function setupEntriesPageHandler(
         sourceDraftVersion: 1,
         sourceSharedVersion: 1,
         sourceLocaleVersion: 1,
-        sourcePublicationHash: `${contentHash}:${String(revisionId)}:${locale}`,
+        sourcePublicationHash,
         hasUnpublishedChanges: false,
         hasMissingTranslations: false,
       })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { draftSearchPublicationHash } from '../../packages/convex/src/entries/workflow/draftSearch'
 import {
   setupAssetsPageHandler,
   setupEntriesPageHandler,
@@ -91,6 +92,12 @@ describe('deployment-admin live fixtures', () => {
     expect(firstEnglishSearch.searchText).toContain(`${prefix}-docs-0001`)
     expect(firstEnglishSearch.searchText).toContain(`${prefix} fixture 1`)
     expect(firstEnglishSearch.searchText.split(firstEnglishSearch.title)).toHaveLength(4)
+    const firstEnglishEntry = entries.find(
+      (entry) => String(entry._id) === String(firstEnglishSearch.entryId),
+    )!
+    expect(firstEnglishSearch.sourcePublicationHash).toBe(
+      draftSearchPublicationHash(firstEnglishEntry),
+    )
 
     const byId = new Map(entries.map((entry) => [String(entry._id), entry]))
     let depth = 0
