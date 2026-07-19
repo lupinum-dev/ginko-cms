@@ -282,7 +282,7 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
     entryPagination: {
       ...requireProbe(value.probes?.entryPagination, 'probes.entryPagination', [
         'collection',
-        'query',
+        'workState',
         'terminalTitle',
       ]),
       expectedRows: requiredInteger(
@@ -355,6 +355,9 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
   if (probes.entryPagination.expectedRows !== scale.paginationRows) {
     throw new Error('Entry pagination probe must cover exactly 1,205 rows.')
   }
+  if (probes.entryPagination.workState !== 'changed') {
+    throw new Error('Entry pagination probe must use the indexed changed-work filter.')
+  }
   if (probes.roleEntry.bodyBytes !== scale.longMdcBytes) {
     throw new Error('Role-entry probe must contain the exact near-limit MDC fixture.')
   }
@@ -368,7 +371,6 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
     throw new Error('Public-route probe requires at least one fixture-only path prefix.')
   }
   for (const [label, value] of [
-    ['probes.entryPagination.query', probes.entryPagination.query],
     ['probes.entryPagination.terminalTitle', probes.entryPagination.terminalTitle],
     ['probes.deepSearch.expectedTitle', probes.deepSearch.expectedTitle],
     ['probes.assetSearch.query', probes.assetSearch.query],

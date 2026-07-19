@@ -293,7 +293,7 @@ async function setup() {
         probes: {
           entryPagination: {
             collection: inspection.collection,
-            query: `${prefix} page`,
+            workState: 'changed',
             terminalTitle: inspection.terminalPaginationTitle,
             expectedRows: targetScale.paginationRows,
           },

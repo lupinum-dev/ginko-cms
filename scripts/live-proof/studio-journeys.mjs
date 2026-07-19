@@ -244,12 +244,9 @@ export async function runStudioJourneys({
       'Keyset pagination returns 1,205 rows without loss or duplication',
       async () => {
         const probe = fixtureManifest.probes.entryPagination
-        await page.goto(`${baseUrl}/studio/content/${probe.collection}`, {
+        await page.goto(`${baseUrl}/studio/content/${probe.collection}?work=${probe.workState}`, {
           waitUntil: 'domcontentloaded',
         })
-        const search = page.getByPlaceholder('Search title, slug, or path')
-        await search.waitFor({ timeout: 30000 })
-        await search.fill(probe.query)
         const rows = page.getByTestId('cms-entry-row')
         await rows.first().waitFor({ timeout: 30000 })
         let previousCount = await rows.count()
@@ -289,7 +286,7 @@ export async function runStudioJourneys({
           throw new Error('entry pagination claimed more rows after the exact fixture count')
         }
         return {
-          query: probe.query,
+          workState: probe.workState,
           rows: previousCount,
           uniqueRows: new Set(slugs).size,
           pagingSamples: performanceSamples.listPaging.length,

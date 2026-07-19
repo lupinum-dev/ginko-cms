@@ -35,7 +35,6 @@ export function boundedPage(start: number, count: number, maximum: number) {
 function entryStableId(prefix: string, index: number) {
   return `${prefix}-docs-${String(index).padStart(4, '0')}`
 }
-
 function entrySlug(prefix: string, index: number) {
   return `${prefix}-${String(index).padStart(4, '0')}`
 }
@@ -92,6 +91,7 @@ export async function setupEntriesPageHandler(
     const stableId = entryStableId(args.prefix, index)
     const slug = entrySlug(args.prefix, index)
     const createdAt = 1_780_000_000_000 + index
+    const draftVersion = index < 1_205 ? 2 : 1
     const entryId = await ctx.db.insert('entries', {
       collection: FIXTURE_COLLECTION,
       stableId,
@@ -101,7 +101,7 @@ export async function setupEntriesPageHandler(
       orderRank: String(index).padStart(8, '0'),
       nodeKind: 'page',
       shared: {},
-      draftVersion: 1,
+      draftVersion,
       sharedVersion: 1,
       activePublications: [],
       latestEditorialRevisionId: null,
@@ -133,7 +133,7 @@ export async function setupEntriesPageHandler(
         slug: null,
         values,
         bodyMdc,
-        version: 1,
+        version: draftVersion,
         updatedBy: args.prefix,
         updatedAt: createdAt,
       })
@@ -214,11 +214,11 @@ export async function setupEntriesPageHandler(
         lifecycle: 'active',
         status: 'published',
         updatedAt: createdAt,
-        sourceDraftVersion: 1,
+        sourceDraftVersion: draftVersion,
         sourceSharedVersion: 1,
-        sourceLocaleVersion: 1,
+        sourceLocaleVersion: draftVersion,
         sourcePublicationHash,
-        hasUnpublishedChanges: false,
+        hasUnpublishedChanges: draftVersion === 2,
         hasMissingTranslations: false,
       })
     }

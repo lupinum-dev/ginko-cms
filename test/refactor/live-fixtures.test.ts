@@ -141,6 +141,19 @@ describe('deployment-admin live fixtures', () => {
     expect(await ctx.readAll('assets')).toHaveLength(500)
   })
 
+  it('marks exactly the first 1,205 entries as indexed unpublished work', async () => {
+    const ctx = createCtx({ transactionLimits: true })
+    await seedContract(ctx)
+    await ctx.raw.run((inner) =>
+      setupEntriesPageHandler(inner, { prefix, start: 1_200, count: 10 }),
+    )
+    const entries = await ctx.readAll('entries')
+    const searchRows = await ctx.readAll('draftSearchEntries')
+    expect(entries.filter((entry) => entry.draftVersion === 2)).toHaveLength(5)
+    expect(searchRows.filter((row) => row.hasUnpublishedChanges)).toHaveLength(15)
+    expect(searchRows.filter((row) => row.sourceDraftVersion === 1)).toHaveLength(15)
+  })
+
   it('binds exactly one disposable identity to every role idempotently', async () => {
     const ctx = createCtx()
     const members = ['owner', 'publisher', 'editor', 'viewer'].map((role) => ({

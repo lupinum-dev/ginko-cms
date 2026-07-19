@@ -76,7 +76,7 @@ function fixtureManifest() {
     probes: {
       entryPagination: {
         collection: 'scale-posts',
-        query: 'refactor-proof-abc123-scale-page-',
+        workState: 'changed',
         terminalTitle: 'refactor-proof-abc123 Scale page 1205',
         expectedRows: 1205,
       },
