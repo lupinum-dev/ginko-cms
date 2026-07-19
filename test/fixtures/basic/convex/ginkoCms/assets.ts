@@ -21,7 +21,7 @@ import { v } from 'convex/values'
 import { components } from '../_generated/api.js'
 import { action, mutation, query } from '../_generated/server.js'
 import { bindExpectedCmsContract } from './contractBinding.js'
-import { bindMcpCaller, mcpCallerArgs } from './mcpCaller.js'
+import { bindCmsCaller, bindMcpCaller, mcpCallerArgs } from './mcpCaller.js'
 
 function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
   return {
@@ -40,7 +40,7 @@ export const createAssetUploadSession = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.assets.createAssetUploadSession,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 
@@ -49,7 +49,7 @@ export const claimAssetUploadSession = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.assets.claimAssetUploadSession,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 
@@ -84,7 +84,7 @@ export const previewReplaceAssetOperation = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.assets.previewReplaceAssetOperation,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 
@@ -106,20 +106,26 @@ export const attachAssetsToEntry = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.assets.attachAssetsToEntry,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 
 export const updateAsset = mutation({
   args: updateAssetArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.assets.updateAsset, bindExpectedCmsContract(args)),
+    await ctx.runMutation(
+      components.ginkoCms.assets.updateAsset,
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
+    ),
 })
 
 export const moveAsset = mutation({
   args: moveAssetArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.assets.moveAsset, bindExpectedCmsContract(args)),
+    await ctx.runMutation(
+      components.ginkoCms.assets.moveAsset,
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
+    ),
 })
 
 export const getAsset = query({
@@ -163,7 +169,7 @@ export const deleteAsset = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.assets.deleteAssetOperationExecute,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 
@@ -172,14 +178,17 @@ export const previewDeleteAssetOperation = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.assets.previewDeleteAssetOperation,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 
 export const restoreAsset = mutation({
   args: { assetId: v.string() },
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.assets.restoreAsset, bindExpectedCmsContract(args)),
+    await ctx.runMutation(
+      components.ginkoCms.assets.restoreAsset,
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
+    ),
 })
 
 export const purgeAsset = action({
@@ -200,6 +209,6 @@ export const previewPurgeAssetOperation = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.assets.previewPurgeAssetOperation,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })

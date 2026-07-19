@@ -112,6 +112,7 @@ const assetUploadMetadataArgs = {
 }
 
 export const createAssetUploadSession = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'assets:createAssetUploadSession',
   args: createAssetUploadSessionArgs.args,
   guard: canManageAssets,
@@ -125,6 +126,7 @@ export const createAssetUploadSession = callerMutation.protected({
 })
 
 export const claimAssetUploadSession = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'assets:claimAssetUploadSession',
   args: claimAssetUploadSessionArgs.args,
   guard: canManageAssets,
@@ -216,6 +218,7 @@ export const replaceAsset = callerAction.protected({
 
 export const previewReplaceAssetOperation = callerMutation.protected(
   Object.assign(definePreview(replaceAssetOperation), {
+    acceptsTrustedCaller: true,
     id: 'assets:previewReplaceAssetOperation',
   }),
 )
@@ -286,6 +289,7 @@ export const previewRetryAssetCleanupOperation = callerMutation.protected(
 export { insertVerifiedAssetRecord } from './assets/assetRecord.js'
 
 export const attachAssetsToEntry = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'assets:attachAssetsToEntry',
   args: attachAssetsToEntryArgs.args,
   guard: canManageAssets,
@@ -316,6 +320,7 @@ export const attachAssetsToEntry = callerMutation.protected({
 })
 
 export const updateAsset = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'assets:updateAsset',
   args: updateAssetArgs.args,
   guard: canManageAssets,
@@ -372,6 +377,7 @@ export const updateAsset = callerMutation.protected({
 })
 
 export const moveAsset = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'ginko-cms.move-asset',
   args: moveAssetArgs.args,
   guard: canManageAssets,
@@ -700,14 +706,18 @@ export const deleteAssetOperation = defineCmsOperation({
   },
 })
 
-export const deleteAssetOperationExecute = callerMutation.protected(deleteAssetOperation)
+export const deleteAssetOperationExecute = callerMutation.protected(
+  Object.assign(deleteAssetOperation, { acceptsTrustedCaller: true }),
+)
 export const previewDeleteAssetOperation = callerMutation.protected(
   Object.assign(definePreview(deleteAssetOperation), {
+    acceptsTrustedCaller: true,
     id: 'assets:previewDeleteAssetOperation',
   }),
 )
 
 export const restoreAsset = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'assets:restoreAsset',
   args: { assetId: v.string() },
   guard: canManageAssets,
@@ -778,6 +788,7 @@ export { purgeAssetOperation }
 
 export const previewPurgeAssetOperation = callerMutation.protected(
   Object.assign(definePreview(purgeAssetOperation), {
+    acceptsTrustedCaller: true,
     id: 'assets:previewPurgeAssetOperation',
   }),
 )

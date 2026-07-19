@@ -375,12 +375,15 @@ function protectedMutationHandler<
 ) {
   return async (ctx: GenericMutationCtx<DataModel>, args: DefaultFunctionArgs) => {
     if (definition.kind === 'destructive') {
+      const trustedCaller = (args._trustedCaller as CmsCaller | null) ?? null
       const handlerArgs = Object.fromEntries(
-        Object.entries(args).filter(([key]) => key !== '_confirmationToken'),
+        Object.entries(args).filter(
+          ([key]) => key !== '_confirmationToken' && key !== '_trustedCaller',
+        ),
       ) as ArgsFor<TArgsValidator>
       // Guard evaluation is part of execution so authorization changes become a
       // durable blocked result instead of an unstructured transport failure.
-      const handlerCtx = await createHandlerCtx(ctx)
+      const handlerCtx = await createHandlerCtx(ctx, undefined, trustedCaller)
       return await executeDestructiveOperation<TArgsValidator, TLoaded, TResult>(
         handlerCtx,
         definition,

@@ -10,6 +10,7 @@ import { v } from 'convex/values'
 import { components } from '../_generated/api.js'
 import { mutation, query } from '../_generated/server.js'
 import { bindExpectedCmsContract } from './contractBinding.js'
+import { bindCmsCaller } from './mcpCaller.js'
 
 function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
   return {
@@ -34,14 +35,17 @@ export const createSiteDataBlock = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.siteData.createSiteDataBlock,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 
 export const saveSiteData = mutation({
   args: saveSiteDataArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.ginkoCms.siteData.saveSiteData, bindExpectedCmsContract(args)),
+    await ctx.runMutation(
+      components.ginkoCms.siteData.saveSiteData,
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
+    ),
 })
 
 export const updateSiteDataBlock = mutation({
@@ -49,7 +53,7 @@ export const updateSiteDataBlock = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.siteData.updateSiteDataBlock,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 
@@ -58,7 +62,7 @@ export const deleteSiteDataBlock = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.siteData.deleteSiteDataBlockOperationExecute,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 
@@ -67,6 +71,6 @@ export const previewDeleteSiteDataBlockOperation = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.siteData.previewDeleteSiteDataBlockOperation,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })

@@ -320,6 +320,7 @@ type StudioOmittedArgs<Entry extends StudioApiEntry, Args> =
         Args,
         | '_expectedContentHash'
         | '_expectedPresentationHash'
+        | '_trustedCaller'
         | (Entry extends { omitArgs: readonly (infer Key extends string)[] } ? Key : never)
       >
     : Args

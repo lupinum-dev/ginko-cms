@@ -15,7 +15,7 @@
       "templateHash": "2cfd9e65b6e3468027727ededa26e6fa39ddb3662acfbc958a44b27f7491ddd4"
     },
     "convex/ginkoCms/assets.ts": {
-      "templateHash": "71169f2cc94297c3ea967b1e629a9c6f804f8da31043992e2e41fc839f297130"
+      "templateHash": "ae861280de6c75577b4602ff353392576f210bc117086931b9a1062dee0efdea"
     },
     "convex/ginkoCms/assetRecovery.ts": {
       "templateHash": "1b8a4e8b95320ed78b69f25f37aa9c505f89938007742b5d4fd9112e9c029f9e"
@@ -54,13 +54,13 @@
       "templateHash": "ddb99d864b6600d74c96c5e759e26446d4b40b7d46992eebfcf3f2f5dee232f9"
     },
     "convex/ginkoCms/reviewRequests.ts": {
-      "templateHash": "ce42219b7dcc419265382ee9ae4ac70e359d9bbf11997ab2b2d6b9fcb0b346c5"
+      "templateHash": "c55d17571c36427ede5b07fe19629f3360b8a529ca13e28b4b6493fdfa34279a"
     },
     "convex/ginkoCms/settings.ts": {
       "templateHash": "2d1d949c8c3298f6149de465e17ea08760f1f15982368f27990d090c4068c1ca"
     },
     "convex/ginkoCms/siteData.ts": {
-      "templateHash": "bc8c2c9c7d090f34deb545dccc4311912fd25f85325f4678b457256640c1b7ec"
+      "templateHash": "5056cd7a62771370ccd1c9b1bd372999c8703f88465059be5ffd21732c233113"
     },
     "convex/http.ts": {
       "templateHash": "15d9a6ad681ee60ceda35d561323fa044eac5441755502934e0fb3d80bea1950"
@@ -78,7 +78,10 @@
       "templateHash": "1d8fda8c7c9a91b42083b84efe162de13fe452717d19ddd83e31dae71c31ae0a"
     },
     "convex/ginkoCms/mcpCaller.ts": {
-      "templateHash": "2d6a53c055a474b58726360b7a3f2d6dd5eba0e2dc24ba57f983a14d74c7de23"
+      "templateHash": "6d51b2cb092d010477ecb4fd9d0aa8f3ef576c89e222e766fbb4ddfe919e4cca"
+    },
+    "convex/ginkoCms/hostFunctions.ts": {
+      "templateHash": "e023b19c6c2f88c6c88a5a879948932c1fe3517c8eba109500b8667a2dee1b82"
     }
   }
 }

@@ -79,7 +79,7 @@ type _BridgeGroupsMatchDescriptor = TypeAssert<TypeEqual<keyof BridgeGinkoCms, k
 type _ExactGetAccessContext = TypeAssert<
   TypeEqual<
     FunctionArgs<BridgeGinkoCms['members']['getAccessContext']>,
-    FunctionArgs<GeneratedGinkoCms['members']['getAccessContext']>
+    Omit<FunctionArgs<GeneratedGinkoCms['members']['getAccessContext']>, '_trustedCaller'>
   >
 >
 type _ExactSaveEntryDraft = TypeAssert<

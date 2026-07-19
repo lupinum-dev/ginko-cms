@@ -1,4 +1,7 @@
-import { cmsMcpCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import {
+  cmsCallerFromActionAuthIdentity,
+  cmsMcpCaller,
+} from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { assertMcpCallerSignedRequest } from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
 import { ConvexError, v } from 'convex/values'
 
@@ -42,23 +45,28 @@ export function stripMcpCallerArgs<TArgs extends McpCallerArgs>(args: TArgs) {
   return domainArgs
 }
 
-type McpHostCtx = Pick<QueryCtx | MutationCtx | ActionCtx, 'runQuery'>
+type CmsCallerHostCtx = Pick<QueryCtx | MutationCtx | ActionCtx, 'auth' | 'runQuery'>
 
-export async function bindMcpCaller<TArgs extends McpCallerArgs>(
-  ctx: McpHostCtx,
+export async function bindCmsCaller<TArgs extends Record<string, unknown>>(
+  ctx: CmsCallerHostCtx,
   args: TArgs,
-  operation: string,
+  operation?: string,
 ) {
-  const { _mcpCredentialHash, _mcpRequestId, _mcpTimestamp, _mcpSignature, ...domainArgs } = args
+  const { _mcpCredentialHash, _mcpRequestId, _mcpTimestamp, _mcpSignature, ...domainArgs } =
+    args as TArgs & McpCallerArgs
   if (
     _mcpCredentialHash === undefined &&
     _mcpRequestId === undefined &&
     _mcpTimestamp === undefined &&
     _mcpSignature === undefined
   ) {
-    return domainArgs
+    const caller = cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity())
+    return caller ? { ...domainArgs, _trustedCaller: caller } : domainArgs
   }
 
+  if (!operation) {
+    throw new ConvexError({ code: 'MCP_AUTH_INVALID', message: 'MCP authentication failed.' })
+  }
   const configuredSecret = requireMcpServerSecret()
   if (
     typeof _mcpCredentialHash !== 'string' ||
@@ -87,3 +95,5 @@ export async function bindMcpCaller<TArgs extends McpCallerArgs>(
   }
   return { ...domainArgs, _trustedCaller: cmsMcpCaller(access.apiKeyId) }
 }
+
+export const bindMcpCaller = bindCmsCaller

@@ -95,7 +95,7 @@ export type DestructiveCmsOperationDefinition<
 > = CmsOperationDefinition<TArgsValidator, TLoaded, TResult> & {
   kind: 'destructive'
   returns: GenericValidator
-  acceptsTrustedCaller?: never
+  acceptsTrustedCaller?: boolean
 }
 
 type PreviewInput = {

@@ -99,6 +99,7 @@ import type * as entries_workflow_projection from "../entries/workflow/projectio
 import type * as entries_workflow_projectionBuild from "../entries/workflow/projectionBuild.js";
 import type * as entries_workflow_publicTree from "../entries/workflow/publicTree.js";
 import type * as entries_workflow_publicTree_model from "../entries/workflow/publicTree/model.js";
+import type * as entries_workflow_publicTree_pathBatch from "../entries/workflow/publicTree/pathBatch.js";
 import type * as entries_workflow_publicTree_pathResolution from "../entries/workflow/publicTree/pathResolution.js";
 import type * as entries_workflow_publicTree_placement from "../entries/workflow/publicTree/placement.js";
 import type * as entries_workflow_publicTree_redirectPlacement from "../entries/workflow/publicTree/redirectPlacement.js";
@@ -282,6 +283,7 @@ const fullApi: ApiFromModules<{
   "entries/workflow/projectionBuild": typeof entries_workflow_projectionBuild;
   "entries/workflow/publicTree": typeof entries_workflow_publicTree;
   "entries/workflow/publicTree/model": typeof entries_workflow_publicTree_model;
+  "entries/workflow/publicTree/pathBatch": typeof entries_workflow_publicTree_pathBatch;
   "entries/workflow/publicTree/pathResolution": typeof entries_workflow_publicTree_pathResolution;
   "entries/workflow/publicTree/placement": typeof entries_workflow_publicTree_placement;
   "entries/workflow/publicTree/redirectPlacement": typeof entries_workflow_publicTree_redirectPlacement;

@@ -158,6 +158,7 @@ export const getSiteDataBlock = callerQuery.protected({
 })
 
 export const createSiteDataBlock = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'siteData:createSiteDataBlock',
   args: createSiteDataBlockArgs.args,
   guard: canManageSettings,
@@ -236,6 +237,7 @@ export const createSiteDataBlock = callerMutation.protected({
 })
 
 export const saveSiteData = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'siteData:saveSiteData',
   args: saveSiteDataArgs.args,
   guard: canManageSettings,
@@ -304,6 +306,7 @@ export const saveSiteData = callerMutation.protected({
 })
 
 export const updateSiteDataBlock = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'siteData:updateSiteDataBlock',
   args: updateSiteDataBlockArgs.args,
   guard: canManageSettings,
@@ -432,10 +435,11 @@ export const deleteSiteDataBlockOperation = defineCmsOperation({
 })
 
 export const deleteSiteDataBlockOperationExecute = callerMutation.protected(
-  deleteSiteDataBlockOperation,
+  Object.assign(deleteSiteDataBlockOperation, { acceptsTrustedCaller: true }),
 )
 export const previewDeleteSiteDataBlockOperation = callerMutation.protected(
   Object.assign(definePreview(deleteSiteDataBlockOperation), {
+    acceptsTrustedCaller: true,
     id: 'siteData:previewDeleteSiteDataBlockOperation',
   }),
 )
