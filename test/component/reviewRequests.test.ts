@@ -203,7 +203,7 @@ describe('canonical publish reviews', () => {
         reviewRequestId: review._id,
         expectedVersionHash: review.versionHash,
       }),
-    ).rejects.toThrow(/Unexpected field `_trustedCaller`/)
+    ).rejects.toThrow(/Publish entries/i)
     await expect(
       viewer.mutation(api.reviewRequests.approveReview, {
         reviewRequestId: review._id,

@@ -1,9 +1,18 @@
+import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
-import { mutation, query } from '../_generated/server.js'
+import { mutation, query, type MutationCtx } from '../_generated/server.js'
 import { bindExpectedCmsContract } from './contractBinding.js'
 import { bindMcpCaller, mcpCallerArgs } from './mcpCaller.js'
+
+async function bindUserCaller<TArgs extends Record<string, unknown>>(
+  ctx: Pick<MutationCtx, 'auth'>,
+  args: TArgs,
+) {
+  const caller = cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity())
+  return caller ? { ...args, _trustedCaller: caller } : args
+}
 
 export const requestPublishReview = mutation({
   args: {
@@ -67,7 +76,7 @@ export const approveReview = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.reviewRequests.approveReview,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindUserCaller(ctx, args)),
     ),
 })
 
@@ -79,6 +88,6 @@ export const rejectReview = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.reviewRequests.rejectReview,
-      bindExpectedCmsContract(args),
+      bindExpectedCmsContract(await bindUserCaller(ctx, args)),
     ),
 })

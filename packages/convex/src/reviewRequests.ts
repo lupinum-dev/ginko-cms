@@ -534,6 +534,7 @@ export const getOwnReviewRequest = callerQuery.protected({
 
 export const approveReview = callerMutation.protected({
   id: 'reviewRequests:approveReview',
+  acceptsTrustedCaller: true,
   args: {
     reviewRequestId: v.string(),
     expectedVersionHash: v.optional(v.union(v.string(), v.null())),
@@ -703,6 +704,7 @@ const MAX_REVIEW_FEEDBACK_LENGTH = 2000
 
 export const rejectReview = callerMutation.protected({
   id: 'reviewRequests:rejectReview',
+  acceptsTrustedCaller: true,
   args: {
     reviewRequestId: v.string(),
     feedback: v.optional(v.string()),
