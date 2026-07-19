@@ -392,8 +392,6 @@ try {
     fixtureManifest,
     performanceSamples,
     createObservedContext,
-    signIn,
-    roles: disposableRoles,
     uploadFixturePath,
     uploadFilename,
     redact,

@@ -12,8 +12,6 @@ export async function runStudioJourneys({
   fixtureManifest,
   performanceSamples,
   createObservedContext,
-  signIn,
-  roles,
   uploadFixturePath,
   uploadFilename,
   redact,
@@ -105,10 +103,10 @@ export async function runStudioJourneys({
         const mismatchUrl = new URL(fixtureManifest.probes.contractMismatchUrl)
         const mismatchContext = await createObservedContext({
           viewport: { width: 1280, height: 900 },
+          storageState: await page.context().storageState(),
         })
         const mismatchPage = await mismatchContext.newPage()
         try {
-          await signIn(mismatchPage, '/studio/model', roles.owner, new URL(baseUrl).origin)
           await mismatchPage.goto(`${mismatchUrl.origin}/studio/model`, {
             waitUntil: 'domcontentloaded',
           })

@@ -416,9 +416,8 @@ describe('live refactor proof contract', () => {
     expect(studio).toContain("name: 'Publish (EN)', exact: true")
     expect(studio).toContain(".locator('.studio-entry-topbar')")
     expect(studio).toContain(".getByText('Live', { exact: true })")
-    expect(studio).toContain(
-      "signIn(mismatchPage, '/studio/model', roles.owner, new URL(baseUrl).origin)",
-    )
+    expect(studio).toContain('storageState: await page.context().storageState()')
+    expect(studio).not.toContain('signIn(mismatchPage')
     expect(studio).toContain('`${mismatchUrl.origin}/studio/model`')
     expect(publicProof).toContain("'scale.public-routes-target-fixture'")
     expect(siteData).toContain("'site-data.localized-public-lifecycle'")
