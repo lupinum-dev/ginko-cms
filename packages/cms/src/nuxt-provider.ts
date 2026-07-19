@@ -170,27 +170,6 @@ const cacheHintForEntry = (
   })
 }
 
-const mergeCacheHints = (...hints: Array<ContentCacheHint | false>): ContentCacheHint | false => {
-  if (hints.includes(false)) return false
-  const activeHints = hints.filter((hint): hint is ContentCacheHint => hint !== false)
-  return normalizeCacheHint({
-    tags: activeHints.flatMap((hint) => hint.tags || []),
-    paths: activeHints.flatMap((hint) => hint.paths || []),
-    maxAge: activeHints
-      .map((hint) => hint.maxAge)
-      .filter((value) => typeof value === 'number')
-      .sort((left, right) => left - right)[0],
-    swr: activeHints
-      .map((hint) => hint.swr)
-      .filter((value) => typeof value === 'number')
-      .sort((left, right) => left - right)[0],
-    lastModified: activeHints
-      .map((hint) => hint.lastModified)
-      .filter(Boolean)
-      .sort((left, right) => Number(right) - Number(left))[0],
-  })
-}
-
 const collectionCacheHint = (collection: string): ContentCacheHint =>
   normalizeCacheHint({ tags: [contentTags.collection(collection)] })
 
@@ -713,8 +692,7 @@ const contentDataSource = {
               limit,
               total: total!,
             }
-    const entryHints = rawEntries.map((entry, index) => cacheHintForEntry(entry, entries[index]))
-    return sourceResult(data, mergeCacheHints(collectionCacheHint(collection), ...entryHints))
+    return sourceResult(data, collectionCacheHint(collection))
   },
   navigation: async (
     context: GinkoCmsDataSourceContext,

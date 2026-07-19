@@ -82,6 +82,7 @@ const pageResult = (args: Record<string, unknown>, page: ReturnType<typeof entry
 
 const convexMock = vi.hoisted(() => {
   const calls: Array<{ operation: string; args: Record<string, unknown> }> = []
+  const state: { listEntries: ReturnType<typeof entry>[] | null } = { listEntries: null }
   const query = vi.fn(async (reference: Record<symbol, string>, rawArgs: unknown) => {
     const operation =
       String(reference[Symbol.for('functionName')] || '')
@@ -96,7 +97,7 @@ const convexMock = vi.hoisted(() => {
     }
     if (operation === 'list') {
       return {
-        entries: [entry(String(args.locale || 'en'))],
+        entries: state.listEntries ?? [entry(String(args.locale || 'en'))],
         pageInfo: { hasNextPage: args.cursor !== 'next', endCursor: args.cursor ? null : 'next' },
         collection: args.collection,
         locale: localeResult(String(args.locale || 'en')),
@@ -150,7 +151,7 @@ const convexMock = vi.hoisted(() => {
     }
     throw new Error(`Unexpected Convex operation: ${operation}`)
   })
-  return { calls, query }
+  return { calls, query, state }
 })
 
 type ProviderModule = typeof import('../../packages/cms/src/nuxt-provider.ts')
@@ -177,6 +178,7 @@ describe('Ginko Nuxt provider v3', () => {
   beforeEach(async () => {
     vi.resetModules()
     convexMock.calls.length = 0
+    convexMock.state.listEntries = null
     convexMock.query.mockClear()
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
     ;({ contentProvider, __setGinkoNuxtProviderClientFactoryForTests: setClientFactory } =
@@ -593,6 +595,30 @@ describe('Ginko Nuxt provider v3', () => {
       toContentProviderQuery({ collection: 'docs' }),
     )
     expect(isContentProviderResult(response)).toBe(true)
+  })
+
+  it('keeps maximum-size list cache hints bounded to the canonical collection tag', async () => {
+    convexMock.state.listEntries = Array.from({ length: 100 }, (_, index) => {
+      const value = entry('en')
+      const stableId = `docs-${String(index).padStart(3, '0')}`
+      return {
+        ...value,
+        id: `entry-${stableId}`,
+        stableId,
+        revision: stableId,
+        title: `Document ${index}`,
+        route: { ...value.route, path: `/docs/${stableId}`, slug: stableId },
+      }
+    })
+
+    const response = await contentProvider.query(
+      event,
+      toContentProviderQuery({ collection: 'docs', limit: 100 }),
+    )
+
+    expect(isContentProviderResult(response)).toBe(true)
+    if (!isContentProviderResult(response)) throw new Error('Provider cache wrapper is missing.')
+    expect(response.cache).toMatchObject({ tags: ['collection:docs'] })
   })
 
   it('rejects the removed v2 wire before dispatch', async () => {
