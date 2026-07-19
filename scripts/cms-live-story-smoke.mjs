@@ -391,7 +391,6 @@ try {
     certification,
     fixtureManifest,
     performanceSamples,
-    createObservedContext,
     uploadFixturePath,
     uploadFilename,
     redact,

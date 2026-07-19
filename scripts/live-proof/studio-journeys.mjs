@@ -11,7 +11,6 @@ export async function runStudioJourneys({
   certification,
   fixtureManifest,
   performanceSamples,
-  createObservedContext,
   uploadFixturePath,
   uploadFilename,
   redact,
@@ -101,11 +100,7 @@ export async function runStudioJourneys({
       'Contract mismatch remains diagnosable but blocks Studio writes',
       async () => {
         const mismatchUrl = new URL(fixtureManifest.probes.contractMismatchUrl)
-        const mismatchContext = await createObservedContext({
-          viewport: { width: 1280, height: 900 },
-          storageState: await page.context().storageState(),
-        })
-        const mismatchPage = await mismatchContext.newPage()
+        const mismatchPage = await page.context().newPage()
         try {
           await mismatchPage.goto(`${mismatchUrl.origin}/studio/model`, {
             waitUntil: 'domcontentloaded',
@@ -128,7 +123,7 @@ export async function runStudioJourneys({
           }
           return { readsAllowed: true, writesBlocked: true, diagnosticsVisible: true }
         } finally {
-          await mismatchContext.close()
+          await mismatchPage.close()
         }
       },
     )
