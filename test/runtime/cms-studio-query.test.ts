@@ -177,6 +177,43 @@ describe('useCmsStudioQuery', () => {
     host.convex = undefined
   })
 
+  it('keeps normal and paginated reads active during authenticated background auth work', async () => {
+    const isPending = ref(false)
+    host.bridge.auth = {
+      status: computed(() => 'authenticated'),
+      isPending: computed(() => isPending.value),
+      isAuthenticated: computed(() => true),
+      user: ref({ id: 'user-a' }),
+    }
+    host.convex = {
+      onUpdate: vi.fn(() => vi.fn()),
+      query: vi.fn(async () => ({ page: [], continueCursor: null, isDone: true })),
+    }
+
+    const Host = defineComponent({
+      setup() {
+        return {
+          query: useCmsStudioQuery(query as never, {}),
+          paginated: useCmsStudioPaginatedQuery(query as never, {}, { initialNumItems: 25 }),
+        }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+    expect(host.convex.onUpdate).toHaveBeenCalledTimes(2)
+
+    isPending.value = true
+    await nextTick()
+    expect(host.convex.onUpdate).toHaveBeenCalledTimes(2)
+    expect(wrapper.vm.query.status.value).toBe('pending')
+    expect(wrapper.vm.paginated.status.value).toBe('loading-first-page')
+
+    wrapper.unmount()
+    host.bridge.auth = null
+    host.convex = undefined
+  })
+
   it('does not reacquire or commit after scope disposal and is not promise-like', async () => {
     let onResult: ((value: unknown) => void) | null = null
     const transform = vi.fn((value: unknown) => value)

@@ -97,7 +97,12 @@ export function useCmsStudioPaginatedQuery<
 
   const gatedArgs = computed(() => {
     const value = toValue(args)
-    if (auth.pending.value || !ready.value || !canRead.value || !canRequired.value) {
+    if (
+      (auth.authEnabled.value && !auth.isAuthenticated.value) ||
+      !ready.value ||
+      !canRead.value ||
+      !canRequired.value
+    ) {
       return null
     }
     return value ?? null

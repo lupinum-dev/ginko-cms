@@ -22,7 +22,7 @@ const { t } = useCmsI18n()
 // `route.meta.rightSidebar` so the header trigger shows before a page mounts.
 provideRightSidebar()
 const cmsConfig = useCmsConfig()
-const { user, isAuthenticated, pending: authPending } = useCmsAuthState()
+const { user, isAuthenticated } = useCmsAuthState()
 const route = useRoute()
 const isInvitationRoute = computed(() => route.meta.authenticatedPublic === true)
 
@@ -47,7 +47,7 @@ const studioAccess = computed<{ status: string; reason: string | null }>(() => {
   if (bootstrapPending.value) {
     return { status: 'bootstrapping', reason: null }
   }
-  if (isInvitationRoute.value && isAuthenticated.value && !authPending.value) {
+  if (isInvitationRoute.value && isAuthenticated.value) {
     return { status: 'invitation', reason: null }
   }
   // Must come BEFORE canRead — bootstrap users pass canRead but need to claim ownership first
