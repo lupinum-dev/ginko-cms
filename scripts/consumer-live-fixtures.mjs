@@ -163,16 +163,67 @@ async function ensureReview(prefix, owner, probes) {
   )
 }
 
+async function waitForStudioSearchIndex(owner, expectedTitle) {
+  const query = 'review terminal'
+  const deadline = Date.now() + 10 * 60_000
+  let attempts = 0
+  do {
+    attempts += 1
+    const result = await runComponent(
+      undefined,
+      'ginkoCms/editor:listEntriesForStudio',
+      {
+        collection: 'docs',
+        locale: 'en',
+        parentEntryId: null,
+        query,
+        paginationOpts: { numItems: 25, cursor: null },
+      },
+      {
+        subject: owner.userId,
+        email: owner.email,
+        emailVerified: true,
+        token_use: 'convex-session',
+      },
+    )
+    if (result.page.some((row) => row.title === expectedTitle)) {
+      return { attempts, query }
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 2_000))
+  } while (Date.now() < deadline)
+  throw new Error(
+    `Studio search index did not expose the terminal fixture after ${attempts} reads.`,
+  )
+}
+
 async function setup() {
   const output = resolve(requiredOption('output'))
   const prefix = requiredOption('prefix')
   const targetScale = JSON.parse(requiredOption('target-scale'))
   setFixtureGate(prefix)
   const members = await roleAccounts(prefix)
+  const owner = members.find(({ role }) => role === 'owner')
+  if (!owner) throw new Error('Disposable owner account is missing.')
   await resetDisposableAuthState(members)
   await runComponent('ginkoCms', 'liveFixtures:setupMembers', { prefix, members })
-  for (let start = 0; start < targetScale.entries; start += 100) {
-    await runComponent('ginkoCms', 'liveFixtures:setupEntriesPage', { prefix, start, count: 100 })
+  const entryPageStarts = Array.from(
+    { length: Math.ceil(targetScale.entries / 100) },
+    (_, index) => index * 100,
+  )
+  const terminalPageStart = entryPageStarts.at(-1)
+  if (terminalPageStart === undefined) throw new Error('Target-scale fixture requires entries.')
+  await runComponent('ginkoCms', 'liveFixtures:setupEntriesPage', {
+    prefix,
+    start: terminalPageStart,
+    count: Math.min(100, targetScale.entries - terminalPageStart),
+  })
+  await waitForStudioSearchIndex(owner, `${prefix} review terminal en`)
+  for (const start of entryPageStarts.slice(0, -1)) {
+    await runComponent('ginkoCms', 'liveFixtures:setupEntriesPage', {
+      prefix,
+      start,
+      count: Math.min(100, targetScale.entries - start),
+    })
   }
   let storageId = await runComponent('ginkoCms', 'liveFixtures:findAssetStorageId', { prefix })
   if (!storageId) {
@@ -195,11 +246,7 @@ async function setup() {
   }
   const probes = await runComponent('ginkoCms', 'liveFixtures:setupProbes', { prefix })
   const inspection = await runComponent('ginkoCms', 'liveFixtures:inspect', { prefix })
-  await ensureReview(
-    prefix,
-    members.find(({ role }) => role === 'owner'),
-    probes,
-  )
+  await ensureReview(prefix, owner, probes)
   const pendingReview = await runComponent('ginkoCms', 'liveFixtures/cleanup:findPendingReview', {
     prefix,
     title: probes.reviewTitle,

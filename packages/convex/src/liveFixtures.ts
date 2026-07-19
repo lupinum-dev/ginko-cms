@@ -17,7 +17,6 @@ const FIXTURE_PNG_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
 const FIXTURE_PNG_BYTES = 68
 const FIXTURE_PNG_SHA256 = '431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460'
-
 type FixtureRole = 'owner' | 'publisher' | 'editor' | 'viewer'
 
 export function assertFixturePrefix(prefix: string) {
@@ -179,7 +178,8 @@ export async function setupEntriesPageHandler(
       latestEditorialRevisionId: revisionId,
     })
     for (const locale of FIXTURE_LOCALES) {
-      const title = snapshots[locale]!.values.title
+      const snapshot = snapshots[locale]!
+      const title = snapshot.values.title
       const projection = {
         entryId,
         collection: FIXTURE_COLLECTION,
@@ -210,7 +210,7 @@ export async function setupEntriesPageHandler(
         locale,
         slug,
         title,
-        searchText: `${title} ${slug}`,
+        searchText: `${title} ${slug} ${stableId} ${title} ${snapshot.values.description} ${snapshot.bodyMdc}`,
         lifecycle: 'active',
         status: 'published',
         updatedAt: createdAt,

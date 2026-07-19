@@ -80,9 +80,17 @@ describe('deployment-admin live fixtures', () => {
     expect(entries).toHaveLength(5)
     expect(revisions).toHaveLength(5)
     expect(await ctx.readAll('entryLocaleDrafts')).toHaveLength(15)
-    expect(await ctx.readAll('draftSearchEntries')).toHaveLength(15)
+    const searchRows = await ctx.readAll('draftSearchEntries')
+    expect(searchRows).toHaveLength(15)
     expect(await ctx.readAll('publicEntries')).toHaveLength(15)
     expect(await ctx.readAll('publicSearchEntries')).toHaveLength(15)
+
+    const firstEnglishSearch = searchRows.find(
+      (row) => row.locale === 'en' && row.slug.endsWith('0001'),
+    )!
+    expect(firstEnglishSearch.searchText).toContain(`${prefix}-docs-0001`)
+    expect(firstEnglishSearch.searchText).toContain(`${prefix} fixture 1`)
+    expect(firstEnglishSearch.searchText.split(firstEnglishSearch.title)).toHaveLength(4)
 
     const byId = new Map(entries.map((entry) => [String(entry._id), entry]))
     let depth = 0
