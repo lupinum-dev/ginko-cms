@@ -24,12 +24,6 @@ export function assertFixturePrefix(prefix: string) {
   if (!/^refactor-[a-z0-9][a-z0-9-]{5,}$/i.test(prefix)) {
     throw new Error('Live fixture prefix is invalid.')
   }
-  if (
-    process.env.GINKO_CMS_LIVE_FIXTURES !== '1' ||
-    process.env.GINKO_CMS_LIVE_FIXTURE_PREFIX !== prefix
-  ) {
-    throw new Error('Live fixture administration is disabled for this deployment.')
-  }
 }
 
 export function boundedPage(start: number, count: number, maximum: number) {

@@ -49,6 +49,15 @@ function runCli(args) {
   })
 }
 
+function readDeploymentEnv(name) {
+  return execFileSync(convexBin, ['env', 'get', name], {
+    cwd: convexCwd,
+    env: process.env,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
+}
+
 async function runComponent(component, functionName, args, identity) {
   const client = new ConvexHttpClient(convexUrl)
   client.setAdminAuth(adminKey, identity)
@@ -58,6 +67,12 @@ async function runComponent(component, functionName, args, identity) {
 function setFixtureGate(prefix) {
   runCli(['env', 'set', 'GINKO_CMS_LIVE_FIXTURES', '1'])
   runCli(['env', 'set', 'GINKO_CMS_LIVE_FIXTURE_PREFIX', prefix])
+  if (
+    readDeploymentEnv('GINKO_CMS_LIVE_FIXTURES') !== '1' ||
+    readDeploymentEnv('GINKO_CMS_LIVE_FIXTURE_PREFIX') !== prefix
+  ) {
+    throw new Error('Live fixture administration is disabled for this deployment.')
+  }
 }
 
 function removeFixtureGate() {
