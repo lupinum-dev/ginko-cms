@@ -91,6 +91,7 @@ const budgets = {
   'packages/convex/src/entries/studioInventory.ts': 350,
   'packages/convex/src/entries/studioOverview.ts': 260,
   'packages/convex/src/entries/studioKeyset.ts': 300,
+  'packages/convex/src/entries/studioSearchCursor.ts': 60,
   'packages/convex/src/entries/studioSearchIndex.ts': 160,
   'packages/convex/src/entries/history.ts': 300,
   'packages/convex/src/entries/activity.ts': 280,

@@ -366,6 +366,25 @@ describe('collections: searchStudioEntries', () => {
     expect(page).toHaveLength(25)
     expect(new Set(page.map((row: { id: string }) => row.id)).size).toBe(page.length)
 
+    const searchedIds: string[] = []
+    let searchCursor: string | null = null
+    let searchDone = false
+    while (!searchDone) {
+      const result = await viewer.query(api.editor.listEntriesForStudio, {
+        collection: 'docs',
+        locale: 'en',
+        parentEntryId: null,
+        query: 'Catalog',
+        paginationOpts: { cursor: searchCursor, numItems: 25 },
+      })
+      searchedIds.push(...result.page.map((row: { _id: string }) => row._id))
+      searchCursor = result.continueCursor
+      searchDone = result.isDone
+    }
+    expect(searchedIds).toHaveLength(rowCount)
+    expect(new Set(searchedIds).size).toBe(rowCount)
+    expect(searchedIds).toEqual(expect.arrayContaining(ids))
+
     const filteredIds: string[] = []
     let cursor: string | null = null
     let isDone = false
@@ -501,7 +520,7 @@ describe('collections: searchStudioEntries', () => {
     expect(seen).toEqual(expect.arrayContaining(expected))
   })
 
-  it('keeps facet pages inside a bounded read budget and rejects broad search truthfully', async () => {
+  it('keeps facet and broad-search pages inside a bounded read budget', async () => {
     const { ctx, contentHash } = await setupSearchContext({
       transactionLimits: { documentsRead: 250 },
     })
@@ -529,16 +548,35 @@ describe('collections: searchStudioEntries', () => {
       continueCursor: expect.any(String),
     })
 
+    const firstSearchPage = await viewer.query(api.editor.listEntriesForStudio, {
+      collection: 'docs',
+      locale: 'en',
+      parentEntryId: null,
+      query: 'Budget',
+      paginationOpts: { cursor: null, numItems: 5 },
+    })
     await expect(
       viewer.query(api.editor.listEntriesForStudio, {
         collection: 'docs',
         locale: 'en',
         parentEntryId: null,
         query: 'Budget',
-        paginationOpts: { cursor: null, numItems: 5 },
+        paginationOpts: { cursor: firstSearchPage.continueCursor, numItems: 5 },
       }),
-    ).rejects.toMatchObject({
-      data: expect.objectContaining({ code: 'STUDIO_SEARCH_TOO_BROAD' }),
+    ).resolves.toMatchObject({ page: expect.any(Array) })
+    expect(firstSearchPage).toMatchObject({
+      page: expect.arrayContaining([expect.objectContaining({ _id: expect.any(String) })]),
+      isDone: false,
+      continueCursor: expect.any(String),
     })
+    await expect(
+      viewer.query(api.editor.listEntriesForStudio, {
+        collection: 'docs',
+        locale: 'en',
+        parentEntryId: null,
+        query: 'Other',
+        paginationOpts: { cursor: firstSearchPage.continueCursor, numItems: 5 },
+      }),
+    ).rejects.toMatchObject({ data: expect.objectContaining({ code: 'INVALID_CURSOR' }) })
   })
 })
