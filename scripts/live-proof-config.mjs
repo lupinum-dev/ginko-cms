@@ -353,6 +353,9 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
   if (probes.roleEntry.bodyBytes !== scale.longMdcBytes) {
     throw new Error('Role-entry probe must contain the exact near-limit MDC fixture.')
   }
+  if (!/^\/studio\/content\/[^/]+\/[^/?#]+$/.test(probes.roleEntry.path)) {
+    throw new Error('Role-entry probe must use an exact Studio entry route.')
+  }
   if (probes.publicRoutes.expectedRows !== scale.publicRows) {
     throw new Error(`Public-route probe must cover exactly ${scale.publicRows} rows.`)
   }
@@ -366,7 +369,6 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
     ['probes.deepSearch.expectedTitle', probes.deepSearch.expectedTitle],
     ['probes.assetSearch.query', probes.assetSearch.query],
     ['probes.assetSearch.expectedFilename', probes.assetSearch.expectedFilename],
-    ['probes.roleEntry.path', probes.roleEntry.path],
     ['probes.roleEntry.title', probes.roleEntry.title],
     ['probes.routeRedirect.sourcePath', probes.routeRedirect.sourcePath],
     ['probes.routeRedirect.targetPath', probes.routeRedirect.targetPath],

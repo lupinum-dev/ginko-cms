@@ -279,6 +279,11 @@ describe('live refactor proof contract', () => {
     expect(() => validateLiveFixtureManifest(unisolated, 'refactor-proof-abc123')).toThrow(
       /unique fixture prefix/i,
     )
+    const invalidRoleRoute = fixtureManifest()
+    invalidRoleRoute.probes.roleEntry.path = '/studio/content/scale-posts'
+    expect(() => validateLiveFixtureManifest(invalidRoleRoute, 'refactor-proof-abc123')).toThrow(
+      /exact Studio entry route/i,
+    )
   })
 
   it('rejects cleanup claims while disposable fixture records remain', () => {
