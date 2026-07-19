@@ -435,9 +435,15 @@ describe('live refactor proof contract', () => {
     expect(roles).toContain(
       "publisher: LIVE_PROOF_VIEWPORTS.find(({ name }) => name === 'desktop')",
     )
+    expect(roles).toContain('const newEntryAvailable =')
+    expect(roles).toContain('const mediaAvailable =')
+    expect(roles).not.toContain('const mediaVisible =')
+    expect(roles).not.toContain('newEntryVisible,')
     expect(observability).toContain("if (!['warning', 'error'].includes(message.type())) return")
     expect(observability).toContain('expectedConsoleFailures')
     expect(observability).toContain('expectedHttpFailure(url, status)')
+    expect(smoke).toContain('invalidCredentialsExpectedUntil = Date.now() + 5_000')
+    expect(smoke).toContain('Date.now() + 1_000')
     expect(mcp).toContain("'request-publish-review'")
 
     const lineCounts = Object.fromEntries(

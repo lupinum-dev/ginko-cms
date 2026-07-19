@@ -93,7 +93,7 @@ const uploadFixturePath = resolve(tmpdir(), uploadFilename)
 const results = []
 let fixtureEntryUrl = null
 let localUploadFixtureRemoved = false
-let invalidCredentialsInFlight = false
+let invalidCredentialsExpectedUntil = 0
 const registeredSecrets = new Set()
 const performanceProof = createPerformanceProof(performanceSampleCount)
 const { evidence: performanceEvidence, samples: performanceSamples } = performanceProof
@@ -131,7 +131,7 @@ function safeArtifactName(value) {
 
 function expectedHttpFailure(url, status) {
   return (
-    invalidCredentialsInFlight &&
+    Date.now() <= invalidCredentialsExpectedUntil &&
     url.includes('/api/auth/sign-in/email') &&
     status >= 400 &&
     status < 500
@@ -300,13 +300,20 @@ try {
             timeout: 30000,
           })
           .catch(() => null)
-        invalidCredentialsInFlight = true
+        invalidCredentialsExpectedUntil = Date.now() + 5_000
         let response
         try {
           await invalidPage.getByTestId('cms-auth-submit').click()
           response = await responsePromise
         } finally {
-          invalidCredentialsInFlight = false
+          // Chromium can dispatch the generic failed-resource console event
+          // just after the response promise resolves. Keep a narrow grace
+          // window so that the same deliberate 4xx is classified consistently
+          // in both response and console evidence.
+          invalidCredentialsExpectedUntil = Math.max(
+            invalidCredentialsExpectedUntil,
+            Date.now() + 1_000,
+          )
         }
         const errorVisible = await invalidPage
           .getByTestId('cms-auth-error')

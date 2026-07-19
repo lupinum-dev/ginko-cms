@@ -41,29 +41,19 @@ export async function runRoleJourneys({
           await page.getByTestId('cms-studio-ready').waitFor({ timeout: 30000 })
           await page.getByPlaceholder('Search title, slug, or path').waitFor({ timeout: 60000 })
 
-          const newEntryVisible = await page
-            .getByRole('link', { name: 'New entry', exact: true })
-            .first()
-            .isVisible()
-            .catch(() => false)
-          const mediaVisible = await page
-            .getByRole('link', { name: /Media/ })
-            .first()
-            .isVisible()
-            .catch(() => false)
-          const approvalsVisible = await page
-            .getByRole('link', { name: /Approvals/ })
-            .first()
-            .isVisible()
-            .catch(() => false)
-          const settingsVisible = await page
-            .getByRole('link', { name: /Settings/ })
-            .first()
-            .isVisible()
-            .catch(() => false)
+          // Capability assertions use DOM availability instead of viewport
+          // visibility. At tablet and narrow widths the responsive sidebar can
+          // legitimately hide an authorized link until its trigger is opened;
+          // the dedicated responsive checks below prove that interaction path.
+          const newEntryAvailable =
+            (await page.getByRole('link', { name: 'New entry', exact: true }).count()) > 0
+          const mediaAvailable = (await page.getByRole('link', { name: /Media/ }).count()) > 0
+          const approvalsAvailable =
+            (await page.getByRole('link', { name: /Approvals/ }).count()) > 0
+          const settingsAvailable = (await page.getByRole('link', { name: /Settings/ }).count()) > 0
 
           if (role === 'viewer') {
-            if (newEntryVisible || mediaVisible || approvalsVisible || settingsVisible) {
+            if (newEntryAvailable || mediaAvailable || approvalsAvailable || settingsAvailable) {
               throw new Error('viewer received a create, asset, publish, or settings action')
             }
             const reducedMotion = await page.evaluate(
@@ -72,13 +62,15 @@ export async function runRoleJourneys({
             if (!reducedMotion)
               throw new Error('viewer quality context did not honor reduced motion')
           } else {
-            if (!newEntryVisible || !mediaVisible) {
-              throw new Error(`${role} did not receive draft and asset actions`)
+            if (!newEntryAvailable || !mediaAvailable) {
+              throw new Error(
+                `${role} did not receive draft and asset actions: ${JSON.stringify({ newEntryAvailable, mediaAvailable })}`,
+              )
             }
-            if (approvalsVisible !== (role === 'publisher')) {
+            if (approvalsAvailable !== (role === 'publisher')) {
               throw new Error(`${role} publish-review navigation did not match its role`)
             }
-            if (settingsVisible) throw new Error(`${role} received owner-only settings access`)
+            if (settingsAvailable) throw new Error(`${role} received owner-only settings access`)
           }
 
           for (const [route, heading] of [
@@ -158,10 +150,10 @@ export async function runRoleJourneys({
           return {
             role,
             viewport,
-            newEntryVisible,
-            mediaVisible,
-            approvalsVisible,
-            settingsVisible,
+            newEntryAvailable,
+            mediaAvailable,
+            approvalsAvailable,
+            settingsAvailable,
             titleDisabled,
             publishVisible,
             approvedReview,
