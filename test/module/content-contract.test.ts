@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 
 import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -11,8 +11,7 @@ import {
   projectContractCollections,
 } from '../../packages/cms/src/module/content-contract'
 
-const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const contentConfigImport = resolve(packageRoot, '../ginko-content/packages/content/src/config')
+const contentConfigImport = createRequire(import.meta.url).resolve('@lupinum/ginko-content/config')
 
 describe('ginko-content contract derivation', () => {
   const tempDirs: string[] = []
