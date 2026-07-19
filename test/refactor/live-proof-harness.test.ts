@@ -351,6 +351,8 @@ describe('live refactor proof contract', () => {
     expect(fixtureDriver).toContain("'liveFixtures/cleanup:cleanupEntriesPage'")
     expect(fixtureDriver).toContain("'liveFixtures/cleanup:cleanupAssetsPage'")
     expect(fixtureDriver).toContain("'GINKO_CMS_LIVE_FIXTURES'")
+    expect(fixtureDriver).toContain('process.env.CONVEX_DEPLOY_KEY?.trim()')
+    expect(fixtureDriver).toContain('[...args, ...deploymentArgs]')
     expect(smoke).toContain("'candidate.exact-packed-consumer'")
     expect(smoke).toContain('validateCandidateAttestation')
     expect(smoke).toContain('performanceSampleCount < 20')

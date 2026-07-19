@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const convexBin = resolve(repoRoot, 'node_modules/.bin/convex')
 const convexCwd = resolve(repoRoot, 'playground')
-const deployment = requiredEnv('CONVEX_DEPLOYMENT')
+const deploymentArgs = process.env.CONVEX_DEPLOY_KEY?.trim()
+  ? []
+  : ['--deployment', requiredEnv('CONVEX_DEPLOYMENT')]
 const command = process.argv[2]
 const options = parseArgs(process.argv.slice(3))
 
@@ -35,7 +37,7 @@ function requiredOption(name) {
 }
 
 function runCli(args, { capture = true } = {}) {
-  return execFileSync(convexBin, [...args, '--deployment', deployment], {
+  return execFileSync(convexBin, [...args, ...deploymentArgs], {
     cwd: convexCwd,
     env: process.env,
     encoding: capture ? 'utf8' : undefined,
