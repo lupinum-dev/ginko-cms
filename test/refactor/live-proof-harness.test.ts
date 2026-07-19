@@ -82,8 +82,8 @@ function fixtureManifest() {
       },
       deepSearch: {
         collection: 'scale-posts',
-        query: 'deepterminalprobe1499',
-        expectedTitle: 'refactor-proof-abc123 deepterminalprobe1499',
+        query: 'ultraviolet',
+        expectedTitle: 'refactor-proof-abc123 ultraviolet',
       },
       assetSearch: {
         query: 'refactor-proof-abc123-asset-500',

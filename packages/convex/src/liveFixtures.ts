@@ -46,7 +46,7 @@ function entrySlug(prefix: string, index: number) {
 
 function fixtureTitle(prefix: string, index: number, locale: string) {
   if (index < 1_205) return `${prefix} page ${String(index).padStart(4, '0')} ${locale}`
-  if (index === 1_499) return `${prefix} deepterminalprobe1499 ${locale}`
+  if (index === 1_499) return `${prefix} ultraviolet ${locale}`
   return `${prefix} other ${String(index).padStart(4, '0')} ${locale}`
 }
 

@@ -252,7 +252,7 @@ async function setup() {
           },
           deepSearch: {
             collection: inspection.collection,
-            query: 'deepterminalprobe1499',
+            query: 'ultraviolet',
             expectedTitle: inspection.deepSearchTitle,
           },
           assetSearch: { query: prefix, expectedFilename: inspection.assetTerminalFilename },
