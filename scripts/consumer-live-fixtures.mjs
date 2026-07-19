@@ -3,12 +3,17 @@ import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { ConvexHttpClient } from 'convex/browser'
+
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const convexBin = resolve(repoRoot, 'node_modules/.bin/convex')
 const convexCwd = resolve(repoRoot, 'playground')
-const deploymentArgs = process.env.CONVEX_DEPLOY_KEY?.trim()
-  ? []
-  : ['--deployment', requiredEnv('CONVEX_DEPLOYMENT')]
+const adminKey =
+  process.env.CONVEX_DEPLOY_KEY?.trim() || process.env.CONVEX_SELF_HOSTED_ADMIN_KEY?.trim()
+const convexUrl = process.env.CONVEX_URL?.trim() || process.env.CONVEX_SELF_HOSTED_URL?.trim()
+if (!adminKey || !convexUrl) {
+  throw new Error('A disposable Convex URL and deployment admin key are required.')
+}
 const command = process.argv[2]
 const options = parseArgs(process.argv.slice(3))
 
@@ -36,67 +41,55 @@ function requiredOption(name) {
   return value
 }
 
-function runCli(args, { capture = true } = {}) {
-  return execFileSync(convexBin, [...args, ...deploymentArgs], {
+function runCli(args) {
+  execFileSync(convexBin, args, {
     cwd: convexCwd,
     env: process.env,
-    encoding: capture ? 'utf8' : undefined,
-    stdio: capture ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'ignore', 'ignore'],
-    maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'ignore', 'ignore'],
   })
 }
 
-function runComponent(component, functionName, args, identity) {
-  const commandArgs = [
-    'run',
-    '--component',
-    component,
-    functionName,
-    JSON.stringify(args),
-    ...(identity ? ['--identity', JSON.stringify(identity)] : []),
-  ]
-  const output = runCli(commandArgs).trim()
-  return output ? JSON.parse(output) : null
-}
-
-function runInlineQuery(component, source) {
-  const output = runCli(['run', '--component', component, '--inline-query', source]).trim()
-  return output ? JSON.parse(output) : null
+async function runComponent(component, functionName, args, identity) {
+  const client = new ConvexHttpClient(convexUrl)
+  client.setAdminAuth(adminKey, identity)
+  return await client.function(functionName, component, args)
 }
 
 function setFixtureGate(prefix) {
-  runCli(['env', 'set', 'GINKO_CMS_LIVE_FIXTURES', '1'], { capture: false })
-  runCli(['env', 'set', 'GINKO_CMS_LIVE_FIXTURE_PREFIX', prefix], { capture: false })
+  runCli(['env', 'set', 'GINKO_CMS_LIVE_FIXTURES', '1'])
+  runCli(['env', 'set', 'GINKO_CMS_LIVE_FIXTURE_PREFIX', prefix])
 }
 
 function removeFixtureGate() {
-  runCli(['env', 'remove', 'GINKO_CMS_LIVE_FIXTURES'], { capture: false })
-  runCli(['env', 'remove', 'GINKO_CMS_LIVE_FIXTURE_PREFIX'], { capture: false })
+  runCli(['env', 'remove', 'GINKO_CMS_LIVE_FIXTURES'])
+  runCli(['env', 'remove', 'GINKO_CMS_LIVE_FIXTURE_PREFIX'])
 }
 
-function roleAccounts(prefix) {
-  return ['viewer', 'editor', 'publisher', 'owner'].map((role) => {
+async function roleAccounts(prefix) {
+  const accounts = []
+  for (const role of ['viewer', 'editor', 'publisher', 'owner']) {
     const envPrefix = `GINKO_CMS_TEST_${role.toUpperCase()}`
     const email = requiredEnv(`${envPrefix}_EMAIL`).toLowerCase()
     if (!email.includes(prefix.toLowerCase())) {
       throw new Error(`${envPrefix}_EMAIL must contain the unique fixture prefix.`)
     }
-    const user = runInlineQuery(
-      'betterAuth',
-      `await ctx.db.query("user").withIndex("email", q => q.eq("email", ${JSON.stringify(email)})).unique()`,
-    )
+    const user = await runComponent('betterAuth', 'adapter:findOne', {
+      model: 'user',
+      where: [{ field: 'email', value: email }],
+    })
     if (!user?.id) throw new Error(`Disposable Better Auth account is missing for ${role}.`)
-    return { role, email, userId: user.id }
-  })
+    accounts.push({ role, email, userId: user.id })
+  }
+  return accounts
 }
 
-function ensureReview(prefix, owner, probes) {
-  const existing = runInlineQuery(
-    'ginkoCms',
-    `const rows = await ctx.db.query("reviewRequests").withIndex("by_status", q => q.eq("status", "pending")).collect(); return rows.find(row => row.title === ${JSON.stringify(probes.reviewTitle)}) ?? null`,
-  )
+async function ensureReview(prefix, owner, probes) {
+  const existing = await runComponent('ginkoCms', 'liveFixtures/cleanup:findPendingReview', {
+    prefix,
+    title: probes.reviewTitle,
+  })
   if (existing) return existing
-  return runComponent(
+  return await runComponent(
     'ginkoCms',
     'reviewRequests:requestPublishReview',
     {
@@ -116,44 +109,46 @@ function ensureReview(prefix, owner, probes) {
   )
 }
 
-function setup() {
+async function setup() {
   const output = resolve(requiredOption('output'))
   const prefix = requiredOption('prefix')
   const targetScale = JSON.parse(requiredOption('target-scale'))
   setFixtureGate(prefix)
-  const members = roleAccounts(prefix)
-  runComponent('ginkoCms', 'liveFixtures:setupMembers', { prefix, members })
+  const members = await roleAccounts(prefix)
+  await runComponent('ginkoCms', 'liveFixtures:setupMembers', { prefix, members })
   for (let start = 0; start < targetScale.entries; start += 100) {
-    runComponent('ginkoCms', 'liveFixtures:setupEntriesPage', { prefix, start, count: 100 })
+    await runComponent('ginkoCms', 'liveFixtures:setupEntriesPage', { prefix, start, count: 100 })
   }
   const storageIds = []
   for (let start = 0; start < targetScale.assets; start += 100) {
-    const pageStorageIds = runComponent('ginkoCms', 'liveFixtures:createStoragePage', {
+    const pageStorageIds = await runComponent('ginkoCms', 'liveFixtures:createStoragePage', {
       prefix,
       start,
       count: Math.min(100, targetScale.assets - start),
     })
     storageIds.push(...pageStorageIds)
-    runComponent('ginkoCms', 'liveFixtures:setupAssetsPage', {
+    await runComponent('ginkoCms', 'liveFixtures:setupAssetsPage', {
       prefix,
       start,
       count: pageStorageIds.length,
       storageIds: pageStorageIds,
     })
   }
-  const probes = runComponent('ginkoCms', 'liveFixtures:setupProbes', { prefix })
-  const inspection = runComponent('ginkoCms', 'liveFixtures:inspect', { prefix })
-  ensureReview(
+  const probes = await runComponent('ginkoCms', 'liveFixtures:setupProbes', { prefix })
+  const inspection = await runComponent('ginkoCms', 'liveFixtures:inspect', { prefix })
+  await ensureReview(
     prefix,
     members.find(({ role }) => role === 'owner'),
     probes,
   )
-  const counts = runComponent('ginkoCms', 'liveFixtures/cleanup:counts', { prefix })
-  const publicRows = ['en', 'de', 'fr'].reduce(
-    (total, locale) =>
-      total + runComponent('ginkoCms', 'liveFixtures:countPublicLocale', { prefix, locale }),
-    0,
-  )
+  const counts = await runComponent('ginkoCms', 'liveFixtures/cleanup:counts', { prefix })
+  let publicRows = 0
+  for (const locale of ['en', 'de', 'fr']) {
+    publicRows += await runComponent('ginkoCms', 'liveFixtures:countPublicLocale', {
+      prefix,
+      locale,
+    })
+  }
   if (
     counts.entries !== targetScale.entries ||
     counts.assets !== targetScale.assets ||
@@ -221,13 +216,13 @@ function setup() {
   )
 }
 
-function cleanup() {
+async function cleanup() {
   const output = resolve(requiredOption('output'))
   const prefix = requiredOption('prefix')
   setFixtureGate(prefix)
   for (const phase of ['mcp', 'redirects', 'siteData']) {
     while (true) {
-      const result = runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupControlPage', {
+      const result = await runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupControlPage', {
         prefix,
         phase,
         count: 100,
@@ -236,7 +231,7 @@ function cleanup() {
     }
   }
   while (true) {
-    const result = runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupEntriesPage', {
+    const result = await runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupEntriesPage', {
       prefix,
       count: 50,
     })
@@ -244,7 +239,7 @@ function cleanup() {
   }
   const storageIds = new Set()
   while (true) {
-    const result = runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupAssetsPage', {
+    const result = await runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupAssetsPage', {
       prefix,
       count: 100,
     })
@@ -252,21 +247,23 @@ function cleanup() {
     if (result.complete) break
   }
   for (const storageId of storageIds) {
-    runComponent('ginkoCms', 'liveFixtures/cleanup:deleteStorage', { prefix, storageId })
+    await runComponent('ginkoCms', 'liveFixtures/cleanup:deleteStorage', { prefix, storageId })
   }
-  const beforeMemberCleanup = runComponent('ginkoCms', 'liveFixtures/cleanup:counts', { prefix })
+  const beforeMemberCleanup = await runComponent('ginkoCms', 'liveFixtures/cleanup:counts', {
+    prefix,
+  })
   if (beforeMemberCleanup.mcpConnections !== 0) {
     throw new Error('Disposable MCP credentials remain after fixture cleanup.')
   }
   while (true) {
-    const result = runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupControlPage', {
+    const result = await runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupControlPage', {
       prefix,
       phase: 'members',
       count: 100,
     })
     if (result.complete) break
   }
-  const remaining = runComponent('ginkoCms', 'liveFixtures/cleanup:counts', { prefix })
+  const remaining = await runComponent('ginkoCms', 'liveFixtures/cleanup:counts', { prefix })
   writeFileSync(
     output,
     `${JSON.stringify(
@@ -285,6 +282,6 @@ function cleanup() {
   if (Object.values(remaining).every((count) => count === 0)) removeFixtureGate()
 }
 
-if (command === 'setup') setup()
-else if (command === 'cleanup') cleanup()
+if (command === 'setup') await setup()
+else if (command === 'cleanup') await cleanup()
 else throw new Error('Fixture command must be setup or cleanup.')

@@ -216,6 +216,18 @@ export const cleanupControlPage = internalMutation({
   },
 })
 
+export const findPendingReview = internalQuery({
+  args: { prefix: v.string(), title: v.string() },
+  handler: async (ctx, args) => {
+    assertFixturePrefix(args.prefix)
+    const reviews = await ctx.db
+      .query('reviewRequests')
+      .withIndex('by_status', (q) => q.eq('status', 'pending'))
+      .collect()
+    return reviews.find((review) => review.title === args.title) ?? null
+  },
+})
+
 export const counts = internalQuery({
   args: { prefix: v.string() },
   handler: async (ctx, args) => {

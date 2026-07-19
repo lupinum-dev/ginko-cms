@@ -15,6 +15,8 @@ const componentModules = [
   'entries/publish',
   'entries/read',
   'entries/tree',
+  'liveFixtures',
+  'liveFixtures/cleanup',
   'members',
   'contractTransitions',
   'mcpCredentials',
