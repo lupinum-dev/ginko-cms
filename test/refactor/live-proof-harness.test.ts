@@ -82,8 +82,8 @@ function fixtureManifest() {
       },
       deepSearch: {
         collection: 'scale-posts',
-        query: 'refactor-proof-abc123-deep-terminal',
-        expectedTitle: 'refactor-proof-abc123 Scale page 1205',
+        query: 'deepterminalprobe1499',
+        expectedTitle: 'refactor-proof-abc123 deepterminalprobe1499',
       },
       assetSearch: {
         query: 'refactor-proof-abc123-asset-500',
@@ -298,7 +298,7 @@ describe('live refactor proof contract', () => {
     const unisolated = fixtureManifest()
     unisolated.probes.deepSearch.query = 'shared-deployment-row'
     expect(() => validateLiveFixtureManifest(unisolated, 'refactor-proof-abc123')).toThrow(
-      /unique fixture prefix/i,
+      /exact unique token/i,
     )
     const invalidRoleRoute = fixtureManifest()
     invalidRoleRoute.probes.roleEntry.path = '/studio/content/scale-posts'

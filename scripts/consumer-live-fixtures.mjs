@@ -252,7 +252,7 @@ async function setup() {
           },
           deepSearch: {
             collection: inspection.collection,
-            query: `${prefix} deep terminal`,
+            query: 'deepterminalprobe1499',
             expectedTitle: inspection.deepSearchTitle,
           },
           assetSearch: { query: prefix, expectedFilename: inspection.assetTerminalFilename },

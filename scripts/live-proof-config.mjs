@@ -370,7 +370,6 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
   for (const [label, value] of [
     ['probes.entryPagination.query', probes.entryPagination.query],
     ['probes.entryPagination.terminalTitle', probes.entryPagination.terminalTitle],
-    ['probes.deepSearch.query', probes.deepSearch.query],
     ['probes.deepSearch.expectedTitle', probes.deepSearch.expectedTitle],
     ['probes.assetSearch.query', probes.assetSearch.query],
     ['probes.assetSearch.expectedFilename', probes.assetSearch.expectedFilename],
@@ -388,6 +387,14 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
     ]),
   ]) {
     requireFixtureMarker(value, label, expectedPrefix)
+  }
+  if (
+    !probes.deepSearch.expectedTitle
+      .toLocaleLowerCase()
+      .split(/\s+/u)
+      .includes(probes.deepSearch.query.toLocaleLowerCase())
+  ) {
+    throw new Error('Deep-search query must be an exact unique token in its expected title.')
   }
   if (
     probes.pendingReview.localeCodes.length !== 2 ||
