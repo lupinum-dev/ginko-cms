@@ -172,6 +172,15 @@ describe('known audit defects', () => {
     expect(localeState).not.toMatch(/config\.(?:locales|defaultLocale)/)
   })
 
+  it('fails closed on draft creation while the installed contract is incompatible', () => {
+    const createPage = source('packages/cms/studio-app/src/pages/[collection]/new.vue')
+
+    expect(createPage).toContain('useCmsContractCompatibility()')
+    expect(createPage).toContain('contract.compatibility.value?.writable === true')
+    expect(createPage).toContain('if (!contractWritable.value) return')
+    expect(createPage).toContain(':saving="saving || !contractWritable"')
+  })
+
   it('[ADM-04] keeps model, site-data, and browser-local appearance settings visible to every CMS reader', () => {
     const navigation = source('packages/cms/studio-app/src/lib/studioNavigation.ts')
     const routeBlock = (id: string) =>

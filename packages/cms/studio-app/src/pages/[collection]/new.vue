@@ -23,6 +23,7 @@ import StudioEntryParentPicker from '../../components/studio/editor/StudioEntryP
 import type { StudioCollectionConfig } from '../../composables/internal/types'
 import { cmsPermissionKeys } from '../../composables/permissions'
 import { useCmsConfig } from '../../composables/useCmsConfig'
+import { useCmsContractCompatibility } from '../../composables/useCmsContractCompatibility'
 import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
@@ -38,6 +39,8 @@ const router = useRouter()
 const route = useRoute()
 const collection = computed(() => String(route.params.collection))
 const cmsConfig = useCmsConfig()
+const contract = useCmsContractCompatibility()
+const contractWritable = computed(() => contract.compatibility.value?.writable === true)
 const studioRoute = cmsConfig.route.replace(/\/$/, '')
 const contentRoute = `${studioRoute}/content`
 const studioSettings = useCmsStudioSettings()
@@ -392,6 +395,7 @@ function buildLocalizedData(source: Record<string, unknown>): JsonObject | undef
 const createMutation = useConvexMutation(api.ginkoCms.editor.createEntry)
 const attachAssetsMutation = useConvexMutation(api.ginkoCms.assets.attachAssetsToEntry)
 async function handleCreate(publish = false) {
+  if (!contractWritable.value) return
   submitted.value = true
   if (validationErrors.value.length > 0) {
     for (const fieldError of validationErrors.value) {
@@ -481,7 +485,7 @@ if (typeof window !== 'undefined') {
       <StudioEntryTopBar
         mode="new"
         :title="`${collectionConfig?.label ?? collection} / ${t('ginkoCms.studio.collectionEditor.newEntry')}`"
-        :saving="saving"
+        :saving="saving || !contractWritable"
         :can-publish="canPublishEntries"
         @create-draft="handleCreate(false)"
         @create-publish="handleCreate(true)"

@@ -186,6 +186,13 @@ async function setup() {
     members.find(({ role }) => role === 'owner'),
     probes,
   )
+  const pendingReview = await runComponent('ginkoCms', 'liveFixtures/cleanup:findPendingReview', {
+    prefix,
+    title: probes.reviewTitle,
+  })
+  if (!pendingReview) {
+    throw new Error('Disposable live fixture did not produce the required pending review.')
+  }
   const counts = await runComponent('ginkoCms', 'liveFixtures/cleanup:counts', { prefix })
   let publicRows = 0
   for (const locale of ['en', 'de', 'fr']) {

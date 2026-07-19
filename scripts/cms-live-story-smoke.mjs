@@ -367,8 +367,8 @@ try {
           throw new Error(`owner navigation is missing ${String(name)}`)
         }
       }
-      await page.getByRole('heading', { name: 'Members' }).waitFor({ timeout: 30000 })
-      await page.getByRole('button', { name: 'Add member' }).waitFor({ timeout: 30000 })
+      await page.getByRole('heading', { name: /^Members(?:\s+\d+)?$/ }).waitFor({ timeout: 30000 })
+      await page.getByRole('button', { name: 'Invite member' }).waitFor({ timeout: 30000 })
       await page.goto(`${baseUrl}${fixtureManifest.probes.roleEntry.path}`, {
         waitUntil: 'domcontentloaded',
       })
@@ -455,7 +455,10 @@ try {
       const dialog = page.getByRole('dialog', { name: 'Unpublish' })
       await dialog.waitFor({ timeout: 30000 })
       await dialog.getByRole('button', { name: 'Unpublish' }).click()
-      await page.getByText('draft', { exact: true }).waitFor({ timeout: 30000 })
+      await page
+        .locator('.studio-entry-topbar')
+        .getByText('Draft', { exact: true })
+        .waitFor({ timeout: 30000 })
     }
 
     await entryActions.click()

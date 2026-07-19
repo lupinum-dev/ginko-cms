@@ -49,10 +49,13 @@ export async function runStudioJourneys({
         timeout: 30000,
       })
       await page.getByRole('button', { name: 'Publish EN' }).click()
-      const publishDialog = page.getByRole('dialog', { name: 'Publish?' })
+      const publishDialog = page.getByRole('dialog', { name: 'Publish (EN)?' })
       await publishDialog.waitFor({ timeout: 30000 })
-      await publishDialog.getByRole('button', { name: 'Publish', exact: true }).click()
-      await page.getByText('published', { exact: true }).waitFor({ timeout: 30000 })
+      await publishDialog.getByRole('button', { name: 'Publish (EN)', exact: true }).click()
+      await page
+        .locator('.studio-entry-topbar')
+        .getByText('Live', { exact: true })
+        .waitFor({ timeout: 30000 })
       return { url: fixtureEntryUrl, title: fixtureTitle }
     },
   )
@@ -105,7 +108,10 @@ export async function runStudioJourneys({
         })
         const mismatchPage = await mismatchContext.newPage()
         try {
-          await signIn(mismatchPage, '/studio/model', roles.owner, mismatchUrl.origin)
+          await signIn(mismatchPage, '/studio/model', roles.owner, new URL(baseUrl).origin)
+          await mismatchPage.goto(`${mismatchUrl.origin}/studio/model`, {
+            waitUntil: 'domcontentloaded',
+          })
           await mismatchPage.getByTestId('cms-studio-ready').waitFor({ timeout: 30000 })
           await mismatchPage.getByTestId('cms-contract-write-blocked').waitFor({ timeout: 30000 })
           await expectText(mismatchPage, 'Content setup', 60000)

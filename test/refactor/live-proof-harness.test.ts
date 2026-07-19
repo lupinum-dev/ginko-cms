@@ -399,6 +399,9 @@ describe('live refactor proof contract', () => {
     expect(fixtureDriver).toContain("cliArgs.push('--identity', JSON.stringify(actingAs))")
     expect(fixtureDriver).toContain('tokenIdentifier: `https://convex.test|${identity.subject}`')
     expect(fixtureDriver).toContain("readDeploymentEnv('GINKO_CMS_LIVE_FIXTURES')")
+    expect(fixtureDriver).toContain(
+      'Disposable live fixture did not produce the required pending review.',
+    )
     expect(fixtureDriver).toContain("command === 'cleanup-final'")
     expect(smoke).toContain("'candidate.exact-packed-consumer'")
     expect(smoke).toContain('validateCandidateAttestation')
@@ -409,6 +412,14 @@ describe('live refactor proof contract', () => {
     expect(performance).toContain('[data-testid="cms-richtext-editor"]')
     expect(performance).toContain('fixtureManifest.probes.roleEntry.bodyBytes')
     expect(studio).toContain("'scale.entry-pagination-1205'")
+    expect(studio).toContain("name: 'Publish (EN)?'")
+    expect(studio).toContain("name: 'Publish (EN)', exact: true")
+    expect(studio).toContain(".locator('.studio-entry-topbar')")
+    expect(studio).toContain(".getByText('Live', { exact: true })")
+    expect(studio).toContain(
+      "signIn(mismatchPage, '/studio/model', roles.owner, new URL(baseUrl).origin)",
+    )
+    expect(studio).toContain('`${mismatchUrl.origin}/studio/model`')
     expect(publicProof).toContain("'scale.public-routes-target-fixture'")
     expect(siteData).toContain("'site-data.localized-public-lifecycle'")
     expect(siteData).toContain('/api/_content/site-data?key=')
@@ -456,6 +467,10 @@ describe('live refactor proof contract', () => {
     expect(smoke).toContain('invalidCredentialsExpectedUntil = Date.now() + 5_000')
     expect(smoke).toContain('Date.now() + 1_000')
     expect(smoke).toContain("'--host-resolver-rules=MAP localhost 127.0.0.1'")
+    expect(smoke).toContain('name: /^Members(?:\\s+\\d+)?$/')
+    expect(smoke).toContain("name: 'Invite member'")
+    expect(smoke).toContain(".getByText('Draft', { exact: true })")
+    expect(smoke).not.toContain("name: 'Add member'")
     expect(mcp).toContain("'request-publish-review'")
 
     const lineCounts = Object.fromEntries(
