@@ -160,6 +160,10 @@ export async function runRoleJourneys({
             throw new Error('publisher edit/publish access was incorrect')
           }
 
+          // Exercise focus and the command palette before capturing the role
+          // surface. This also proves the responsive shell has fully settled
+          // after the preceding authenticated route changes.
+          const focus = await assertKeyboardNavigation(page)
           const screenshot = await captureScreenshot(`authority.${role}`, page)
           return {
             role,
@@ -173,7 +177,7 @@ export async function runRoleJourneys({
             screenshot,
             accessibility: await auditAccessibility(page, `${role} ${viewport.name}`),
             overflow: await assertNoPageOverflow(page, `${role} ${viewport.name}`),
-            focus: await assertKeyboardNavigation(page),
+            focus,
           }
         } catch (error) {
           await captureScreenshot(`authority.${role}-failed`, page).catch(() => null)

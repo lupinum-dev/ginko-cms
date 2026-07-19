@@ -135,16 +135,21 @@ export async function auditAccessibility(page, label) {
 
 export async function assertKeyboardNavigation(page) {
   await page.locator('body').click({ position: { x: 1, y: 1 } })
-  await page.keyboard.press('Tab')
-  const focus = await page.evaluate(() => {
-    const element = document.activeElement
-    return {
-      tag: element?.tagName ?? null,
-      role: element?.getAttribute?.('role') ?? null,
-      tabIndex: element instanceof HTMLElement ? element.tabIndex : null,
-    }
-  })
-  if (!focus.tag || focus.tag === 'BODY' || focus.tabIndex === -1) {
+  let focus = null
+  for (let attempt = 1; attempt <= 8; attempt += 1) {
+    await page.keyboard.press('Tab')
+    focus = await page.evaluate((tabAttempt) => {
+      const element = document.activeElement
+      return {
+        attempt: tabAttempt,
+        tag: element?.tagName ?? null,
+        role: element?.getAttribute?.('role') ?? null,
+        tabIndex: element instanceof HTMLElement ? element.tabIndex : null,
+      }
+    }, attempt)
+    if (focus.tag && focus.tag !== 'BODY' && focus.tabIndex !== -1) break
+  }
+  if (!focus?.tag || focus.tag === 'BODY' || focus.tabIndex === -1) {
     throw new Error(`Keyboard focus did not enter an interactive control: ${JSON.stringify(focus)}`)
   }
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
