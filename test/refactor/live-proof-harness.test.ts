@@ -335,6 +335,8 @@ describe('live refactor proof contract', () => {
     ])
     expect(runner).toContain('validateLiveProofPreflight()')
     expect(runner).toContain("'seed disposable target-scale fixtures'")
+    expect(runner).toContain('isolatedProofEnvironment(commandEnv)')
+    expect(runner).toContain('isolated: true')
     expect(runner).toContain("'provision disposable role accounts'")
     expect(runner).toContain("'clean disposable target-scale fixtures'")
     expect(runner).toContain("status: 'retained-for-in-app-browser'")

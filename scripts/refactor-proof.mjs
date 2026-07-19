@@ -114,6 +114,36 @@ function fixtureHookEnvironment(commandEnv) {
   return { ...inherited, ...commandEnv }
 }
 
+function isolatedProofEnvironment(commandEnv) {
+  const allowed = new Set([
+    'COREPACK_HOME',
+    'FORCE_COLOR',
+    'HOME',
+    'LANG',
+    'LC_ALL',
+    'LOGNAME',
+    'NO_COLOR',
+    'NODE_OPTIONS',
+    'PATH',
+    'PNPM_HOME',
+    'SHELL',
+    'TEMP',
+    'TERM',
+    'TMP',
+    'TMPDIR',
+    'USER',
+    'XDG_CACHE_HOME',
+    'XDG_CONFIG_HOME',
+    'XDG_DATA_HOME',
+  ])
+  const inherited = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key, value]) => typeof value === 'string' && allowed.has(key),
+    ),
+  )
+  return { ...inherited, ...commandEnv }
+}
+
 async function runCommand(command, artifactRoot, index, seed) {
   const startedAt = new Date()
   const logPath = resolve(
@@ -128,14 +158,16 @@ async function runCommand(command, artifactRoot, index, seed) {
   console.log(`\n=== ${command.name} ===`)
   console.log(`cmd: ${executable} ${args.join(' ')}`)
 
-  const baseEnv = {
-    ...process.env,
+  const commandEnv = {
     CI: 'true',
     GINKO_CMS_TEST_SEED: String(seed),
     VITEST_MAX_RETRIES: '0',
     npm_config_verify_deps_before_run: 'false',
     ...command.env,
   }
+  const baseEnv = command.isolated
+    ? isolatedProofEnvironment(commandEnv)
+    : { ...process.env, ...commandEnv }
   const child = spawn(executable, args, {
     cwd: repoRoot,
     env: command.fixtureHook
@@ -364,7 +396,11 @@ async function main() {
   }
   const commands = live
     ? [
-        { name: 'automated refactor proof', args: ['run', 'verify:refactor'] },
+        {
+          name: 'automated refactor proof',
+          args: ['run', 'verify:refactor'],
+          isolated: true,
+        },
         { name: 'packed consumer live gate', args: ['run', 'package:e2e:live'] },
         {
           name: 'provision disposable role accounts',
