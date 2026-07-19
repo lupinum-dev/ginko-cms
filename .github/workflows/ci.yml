@@ -87,9 +87,9 @@ jobs:
 
       - name: Pack immutable Better Convex Nuxt
         run: |
-          pnpm --dir ../better-convex-nuxt install --frozen-lockfile
+          corepack pnpm@10.30.3 --dir ../better-convex-nuxt install --frozen-lockfile
           mkdir -p .pack/upstream
-          pnpm --dir ../better-convex-nuxt pack --pack-destination "$PWD/.pack/upstream"
+          corepack pnpm@10.30.3 --dir ../better-convex-nuxt pack --pack-destination "$PWD/.pack/upstream"
 
       - name: Install frozen CMS workspace
         run: pnpm install --frozen-lockfile

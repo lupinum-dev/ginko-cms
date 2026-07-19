@@ -10,7 +10,9 @@ const targetRoots = [
   join(repoRoot, 'test/fixtures/basic/convex'),
 ]
 const rootGeneratedFiles = ['auth.ts', 'convex.config.ts', 'http.ts']
-const generatedDirs = ['betterAuth', 'ginkoCms']
+// Better Convex Nuxt owns its component files. Ginko only generates its CMS
+// component bridge into the host application.
+const generatedDirs = ['ginkoCms']
 const ignoredNames = new Set(['_generated'])
 const manifestName = '.ginko-cms-setup.json'
 const contractBindingPath = 'ginkoCms/contractBinding.ts'
