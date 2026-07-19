@@ -82,6 +82,11 @@ export async function runStudioJourneys({
     async () => {
       await page.goto(`${baseUrl}/studio/model`, { waitUntil: 'domcontentloaded' })
       await expectText(page, 'Content setup', 60000)
+      // The page header is part of the static shell; the installed-contract
+      // collection list arrives through Convex and selects its first item
+      // asynchronously. Wait for the selected collection's detail section so
+      // this assertion measures the resolved model rather than its skeleton.
+      await expectText(page, 'Content type details', 60000)
       const bodyText = await page.locator('body').textContent({ timeout: 30000 })
       for (const expected of ['Managed by developers', 'Content type details', 'fields']) {
         if (!bodyText.includes(expected)) throw new Error(`content model did not show ${expected}`)
