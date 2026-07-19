@@ -482,6 +482,7 @@ describe('package boundary contracts', () => {
       'entries/tree.js',
       'liveFixtures.js',
       'liveFixtures/cleanup.js',
+      'liveFixtures/finalize.js',
       'mcpAuthLimiter.js',
       'mcpCredentials.js',
       'members.js',

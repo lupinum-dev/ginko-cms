@@ -112,6 +112,7 @@ describe('package exports', () => {
       'packages/convex/dist/component/crons.js',
       'packages/convex/dist/component/agentRuns.js',
       'packages/convex/dist/component/assets.js',
+      'packages/convex/dist/component/liveFixtures/finalize.js',
       'packages/convex/dist/component/mcpCredentials.js',
       'packages/convex/dist/component/reviewRequests.js',
       'packages/convex/dist/convex.auth.js',
