@@ -776,7 +776,7 @@ export const contentDataSource = {
     const locale = request.locale || defaultLocale(contentRuntime)
     const query = (request.query || request.term || '').trim()
     if (!query) {
-      throw providerError('INVALID_QUERY', 'Search query must not be empty.', 400)
+      return sourceResult([], searchCacheHint(locale))
     }
     const collections = request.collections?.length
       ? request.collections

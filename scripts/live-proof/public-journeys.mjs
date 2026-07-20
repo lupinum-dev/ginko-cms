@@ -188,12 +188,15 @@ export async function runPublicJourneys({
 
   await story(
     'public-api.search-validation',
-    'Public API validates invalid search input',
+    'Public API treats an omitted search term as an empty search',
     async () => {
       const { response, body } = await fetchJson('/api/_content/search?locale=en')
-      if (response.status !== 400)
+      if (response.status !== 200)
         throw new Error(`missing search query returned ${response.status}`)
-      return { status: response.status, code: body?.data?.code ?? body?.code ?? null }
+      if (!Array.isArray(body) || body.length !== 0) {
+        throw new Error('missing search query did not return an empty result')
+      }
+      return { status: response.status, rows: body.length }
     },
   )
 }

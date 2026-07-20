@@ -595,10 +595,16 @@ describe('Ginko Nuxt provider v3', () => {
     })
   })
 
-  it('rejects empty provider searches before calling Convex', async () => {
-    await expect(
-      contentProvider.search!(event, { term: '   ', locale: 'en', collections: ['docs'] }),
-    ).rejects.toMatchObject({ statusCode: 502, statusMessage: 'BACKEND_FAILURE' })
+  it('returns an empty result for empty provider searches without calling Convex', async () => {
+    expect(
+      unwrap(
+        await contentProvider.search!(event, {
+          term: '   ',
+          locale: 'en',
+          collections: ['docs'],
+        }),
+      ),
+    ).toEqual([])
     expect(convexMock.query).not.toHaveBeenCalled()
   })
 
