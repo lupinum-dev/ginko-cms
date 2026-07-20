@@ -44,6 +44,7 @@ type StudioActionReturn<Action extends FunctionReference<'action'>> = ((
 }
 
 function useStudioOperationScope(onRetire: () => void) {
+  const studioHost = useStudioHostContext()
   const auth = useCmsAuthState()
   const { principalKey } = auth
   let disposed = false
@@ -59,31 +60,53 @@ function useStudioOperationScope(onRetire: () => void) {
     retire()
   })
 
+  const readBridgeAuth = () => studioHost.getBridge().auth
+  const readPrincipalKey = () => {
+    const bridgeAuth = readBridgeAuth()
+    if (!bridgeAuth) return auth.principalKey.value
+    if (bridgeAuth.status.value === 'loading') return 'pending'
+    if (!bridgeAuth.isAuthenticated.value) return 'anonymous'
+    const rawUser = bridgeAuth.user.value
+    if (!rawUser || typeof rawUser !== 'object') return 'anonymous'
+    const user = rawUser as Record<string, unknown>
+    const id =
+      (typeof user.id === 'string' ? user.id : null) ??
+      (typeof user._id === 'string' ? user._id : null) ??
+      (typeof user.userId === 'string' ? user.userId : null)
+    return id ? `user:${id}` : 'anonymous'
+  }
+
   const isCurrent = (operation: { generation: number; principalKey: string }) =>
     !disposed &&
     operation.generation === generation &&
-    operation.principalKey === principalKey.value
+    operation.principalKey === readPrincipalKey()
 
   return {
     authenticationSettlement(): Promise<void> | null {
-      if (!auth.authEnabled.value) return null
-      if (!auth.pending.value) {
-        if (auth.error.value) throw auth.error.value
-        if (!auth.isAuthenticated.value) {
+      const initialAuth = readBridgeAuth()
+      if (!initialAuth) return null
+      if (!initialAuth.isPending.value) {
+        if (initialAuth.error.value) throw initialAuth.error.value
+        if (!initialAuth.isAuthenticated.value) {
           throw new Error('Authentication is required before the Studio write.')
         }
         return null
       }
       return (async () => {
         const deadline = Date.now() + 30_000
-        while (auth.pending.value && Date.now() < deadline) {
+        let currentAuth = readBridgeAuth()
+        while (currentAuth?.isPending.value === true && Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, 25))
+          currentAuth = readBridgeAuth()
         }
-        if (auth.error.value) throw auth.error.value
-        if (auth.pending.value) {
+        if (!currentAuth) {
+          throw new Error('Authentication became unavailable before the Studio write.')
+        }
+        if (currentAuth.error.value) throw currentAuth.error.value
+        if (currentAuth.isPending.value) {
           throw new Error('Authentication did not settle before the Studio write.')
         }
-        if (!auth.isAuthenticated.value) {
+        if (!currentAuth.isAuthenticated.value) {
           throw new Error('Authentication is required before the Studio write.')
         }
       })()
@@ -91,7 +114,7 @@ function useStudioOperationScope(onRetire: () => void) {
     begin() {
       if (disposed) throw new Error('Studio operation scope was disposed.')
       generation += 1
-      return { generation, principalKey: principalKey.value }
+      return { generation, principalKey: readPrincipalKey() }
     },
     isCurrent,
     assertCurrent(operation: { generation: number; principalKey: string }) {

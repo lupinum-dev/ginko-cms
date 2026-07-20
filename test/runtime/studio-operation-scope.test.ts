@@ -46,13 +46,18 @@ function deferred<T>() {
 
 describe('Studio operation scopes', () => {
   it('waits for BCN authentication settlement before dispatching a write', async () => {
-    const pending = ref(true)
+    // The host and packed Studio can use different Vue runtimes. Plain ref-shaped
+    // values reproduce that boundary without letting Studio computed refs subscribe
+    // to host reactivity; writes must poll the authoritative bridge values directly.
+    const pending = { value: true }
+    const status = { value: 'loading' }
+    const isAuthenticated = { value: false }
     host.bridge.auth = {
-      status: computed(() => (pending.value ? 'loading' : 'authenticated')),
+      status,
       isPending: pending,
-      isAuthenticated: computed(() => !pending.value),
-      user: ref({ id: 'publisher-1' }),
-      error: ref(null),
+      isAuthenticated,
+      user: { value: { id: 'publisher-1' } },
+      error: { value: null },
     }
     host.convex = { mutation: vi.fn(async () => 'applied') }
     const Host = defineComponent({
@@ -66,6 +71,8 @@ describe('Studio operation scopes', () => {
     expect(host.convex.mutation).not.toHaveBeenCalled()
 
     pending.value = false
+    status.value = 'authenticated'
+    isAuthenticated.value = true
     await expect(result).resolves.toBe('applied')
     expect(host.convex.mutation).toHaveBeenCalledTimes(1)
 
