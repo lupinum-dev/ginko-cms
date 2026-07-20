@@ -68,7 +68,7 @@ function useStudioOperationScope(onRetire: () => void) {
     if (!bridgeAuth.isAuthenticated.value) return 'anonymous'
     const rawUser = bridgeAuth.user.value
     if (!rawUser || typeof rawUser !== 'object') return 'anonymous'
-    const user = rawUser as Record<string, unknown>
+    const user = rawUser as unknown as Record<string, unknown>
     const id =
       (typeof user.id === 'string' ? user.id : null) ??
       (typeof user._id === 'string' ? user._id : null) ??

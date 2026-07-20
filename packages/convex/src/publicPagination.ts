@@ -28,14 +28,10 @@ type PublicSearchCursor = {
   offset: number
 }
 type PublicRoutesCursor = {
-  v: 1
-  kind: 'publicRoutes'
-  source: 'cms'
-  collection: string
-  locale: string
-  generation: string
-  canonicalKey: string
-  projectionId: string
+  v: 2
+  g: string
+  s: string
+  p: string
 }
 type PublicSubtreeFrame = {
   parentEntryId: string | null
@@ -526,8 +522,6 @@ export async function paginatePublicRoutes(
 ) {
   const cursor = parsePublicRoutesCursor({
     cursor: args.cursor,
-    collection: args.collection.slug,
-    locale: args.locale,
     generation: args.generation,
   })
   if (cursor) {
@@ -537,16 +531,16 @@ export async function paginatePublicRoutes(
         query
           .eq('collection', args.collection.slug)
           .eq('locale', args.locale)
-          .eq('stableId', cursor.canonicalKey),
+          .eq('stableId', cursor.s),
       )
       .unique()
-    if (!cursorRow || String(cursorRow._id) !== cursor.projectionId) {
+    if (!cursorRow || String(cursorRow._id) !== cursor.p) {
       throwCmsError('INVALID_CURSOR', 'Public route cursor no longer identifies its projection.')
     }
   }
 
   const candidates: Array<{ row: PublicEntryRow; path: string }> = []
-  let afterStableId = cursor?.canonicalKey ?? null
+  let afterStableId = cursor?.s ?? null
   let exhausted = false
   while (!exhausted && candidates.length <= args.limit) {
     const remaining = args.limit + 1 - candidates.length
@@ -596,42 +590,26 @@ export async function paginatePublicRoutes(
       hasNextPage && page.length
         ? encodePublicRoutesCursor({
             row: page[page.length - 1]!.row,
-            collection: args.collection.slug,
-            locale: args.locale,
             generation: args.generation,
           })
         : null,
   }
 }
 
-function encodePublicRoutesCursor(args: {
-  row: PublicEntryRow
-  collection: string
-  locale: string
-  generation: string
-}) {
+function encodePublicRoutesCursor(args: { row: PublicEntryRow; generation: string }) {
   const canonicalKey = args.row.stableId
   if (!canonicalKey) {
     throwCmsError('INVALID_QUERY', 'Published route is missing its stable content identity.')
   }
   return JSON.stringify({
-    v: 1,
-    kind: 'publicRoutes',
-    source: 'cms',
-    collection: args.collection,
-    locale: args.locale,
-    generation: args.generation,
-    canonicalKey,
-    projectionId: String(args.row._id),
+    v: 2,
+    g: args.generation,
+    s: canonicalKey,
+    p: String(args.row._id),
   } satisfies PublicRoutesCursor)
 }
 
-function parsePublicRoutesCursor(args: {
-  cursor: string | null | undefined
-  collection: string
-  locale: string
-  generation: string
-}) {
+function parsePublicRoutesCursor(args: { cursor: string | null | undefined; generation: string }) {
   if (!args.cursor) return null
   let parsed: unknown
   try {
@@ -643,16 +621,12 @@ function parsePublicRoutesCursor(args: {
   if (
     !parsed ||
     typeof parsed !== 'object' ||
-    cursor.v !== 1 ||
-    cursor.kind !== 'publicRoutes' ||
-    cursor.source !== 'cms' ||
-    cursor.collection !== args.collection ||
-    cursor.locale !== args.locale ||
-    cursor.generation !== args.generation ||
-    typeof cursor.canonicalKey !== 'string' ||
-    !cursor.canonicalKey ||
-    typeof cursor.projectionId !== 'string' ||
-    !cursor.projectionId
+    cursor.v !== 2 ||
+    cursor.g !== args.generation ||
+    typeof cursor.s !== 'string' ||
+    !cursor.s ||
+    typeof cursor.p !== 'string' ||
+    !cursor.p
   ) {
     throwCmsError('INVALID_CURSOR', 'Public route cursor is invalid or expired.')
   }

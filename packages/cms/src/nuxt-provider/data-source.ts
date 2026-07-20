@@ -199,27 +199,29 @@ const sourceResult = <T>(data: T, cache: ContentCacheHint | false): ContentDataS
   cache: dataSourceCacheHint(cache),
 })
 
-type RoutesCursor = {
-  source: 'cms'
-  scope: number
-  backend: string | null
-  snapshot: string | null
-}
+type RoutesCursor = readonly [
+  version: 1,
+  scope: number,
+  backend: string | null,
+  snapshot: string | null,
+]
 
 const parseRoutesCursor = (cursor: string | null): RoutesCursor => {
-  if (cursor === null) return { source: 'cms', scope: 0, backend: null, snapshot: null }
+  if (cursor === null) return [1, 0, null, null]
   try {
-    const parsed = JSON.parse(cursor) as Partial<RoutesCursor>
+    const parsed = JSON.parse(cursor) as unknown
     if (
-      parsed.source !== 'cms' ||
-      !Number.isSafeInteger(parsed.scope) ||
-      (parsed.scope as number) < 0 ||
-      (parsed.backend !== null && typeof parsed.backend !== 'string') ||
-      (parsed.snapshot !== null && typeof parsed.snapshot !== 'string')
+      !Array.isArray(parsed) ||
+      parsed.length !== 4 ||
+      parsed[0] !== 1 ||
+      !Number.isSafeInteger(parsed[1]) ||
+      parsed[1] < 0 ||
+      (parsed[2] !== null && typeof parsed[2] !== 'string') ||
+      (parsed[3] !== null && typeof parsed[3] !== 'string')
     ) {
       throw new Error('invalid')
     }
-    return parsed as RoutesCursor
+    return parsed as unknown as RoutesCursor
   } catch {
     throw providerError('CURSOR_INVALID', 'CMS route cursor is invalid.', 400, {
       operation: 'routes',
@@ -862,14 +864,14 @@ export const contentDataSource = {
       })),
     )
     let position = parseRoutesCursor(request.cursor)
-    while (position.scope < scopes.length) {
-      const scope = scopes[position.scope]!
+    while (position[1] < scopes.length) {
+      const scope = scopes[position[1]]!
       const result: RoutesResult = decodeResult(
         'routes',
         parseCmsRoutesWireResult,
         await callGinko(context.caller, 'routes', {
           ...scope,
-          cursor: position.backend,
+          cursor: position[2],
           limit: request.limit,
         }),
       )
@@ -885,7 +887,7 @@ export const contentDataSource = {
           { operation: 'routes', ...scope },
         )
       }
-      if (position.snapshot !== null && result.snapshot !== position.snapshot) {
+      if (position[3] !== null && result.snapshot !== position[3]) {
         throw providerError(
           'CURSOR_INVALID',
           'CMS route snapshot changed during enumeration.',
@@ -896,14 +898,9 @@ export const contentDataSource = {
         )
       }
       const backend = result.pageInfo?.endCursor ?? null
-      const next = backend
-        ? { source: 'cms' as const, scope: position.scope, backend, snapshot: result.snapshot }
-        : {
-            source: 'cms' as const,
-            scope: position.scope + 1,
-            backend: null,
-            snapshot: result.snapshot,
-          }
+      const next: RoutesCursor = backend
+        ? [1, position[1], backend, result.snapshot]
+        : [1, position[1] + 1, null, result.snapshot]
       const records = result.routes.map(
         (route): ContentRouteRecord => ({
           collection: route.collection,
@@ -913,11 +910,11 @@ export const contentDataSource = {
           ...(route.sitemapIncluded ? { sitemap: { lastmod: route.lastmod } } : { sitemap: false }),
         }),
       )
-      if (records.length || next.scope >= scopes.length) {
+      if (records.length || next[1] >= scopes.length) {
         return sourceResult(
           {
             items: records,
-            nextCursor: next.scope >= scopes.length ? null : encodeRoutesCursor(next),
+            nextCursor: next[1] >= scopes.length ? null : encodeRoutesCursor(next),
             snapshot: result.snapshot,
           },
           sitemapCacheHint(),
@@ -926,7 +923,7 @@ export const contentDataSource = {
       position = next
     }
     return sourceResult(
-      { items: [], nextCursor: null, snapshot: position.snapshot ?? '0' },
+      { items: [], nextCursor: null, snapshot: position[3] ?? '0' },
       sitemapCacheHint(),
     )
   },

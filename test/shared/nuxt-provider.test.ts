@@ -85,7 +85,10 @@ const pageResult = (args: Record<string, unknown>, page: ReturnType<typeof entry
 
 const convexMock = vi.hoisted(() => {
   const calls: Array<{ operation: string; args: Record<string, unknown> }> = []
-  const state: { listEntries: ReturnType<typeof entry>[] | null } = { listEntries: null }
+  const state: {
+    listEntries: ReturnType<typeof entry>[] | null
+    routeContinuationCursor: string | null
+  } = { listEntries: null, routeContinuationCursor: null }
   const query = vi.fn(async (reference: Record<symbol, string>, rawArgs: unknown) => {
     const operation =
       String(reference[Symbol.for('functionName')] || '')
@@ -154,6 +157,7 @@ const convexMock = vi.hoisted(() => {
       }
     }
     if (operation === 'routes') {
+      const hasNextPage = state.routeContinuationCursor !== null && args.cursor === null
       return {
         routes: [
           {
@@ -165,7 +169,10 @@ const convexMock = vi.hoisted(() => {
             lastmod: '2026-05-28T20:28:20.000Z',
           },
         ],
-        pageInfo: { hasNextPage: false, endCursor: null },
+        pageInfo: {
+          hasNextPage,
+          endCursor: hasNextPage ? state.routeContinuationCursor : null,
+        },
         snapshot: '1',
       }
     }
@@ -199,6 +206,7 @@ describe('Ginko Nuxt provider v3', () => {
     vi.resetModules()
     convexMock.calls.length = 0
     convexMock.state.listEntries = null
+    convexMock.state.routeContinuationCursor = null
     convexMock.query.mockClear()
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
     ;({ contentProvider, __setGinkoNuxtProviderClientFactoryForTests: setClientFactory } =
@@ -614,6 +622,25 @@ describe('Ginko Nuxt provider v3', () => {
       },
     ])
     expect(convexMock.calls.filter((call) => call.operation === 'routes')).toHaveLength(2)
+  })
+
+  it('keeps composed route cursors within the RC5 transport ceiling', async () => {
+    convexMock.state.routeContinuationCursor = JSON.stringify({
+      v: 2,
+      g: '1:14',
+      s: 'refactor-proof-review-terminal-en-0000000000000000',
+      p: 'kx7bzjpwjt5wjmeahptx696tnd8aw4zb',
+    })
+
+    const firstPage = await contentDataSource.routes!(
+      { event, caller: { query: convexMock.query } },
+      { cursor: null, limit: 250 },
+      {} as never,
+    )
+    expect(firstPage.data.nextCursor).not.toBeNull()
+    expect(new TextEncoder().encode(firstPage.data.nextCursor!).byteLength).toBeLessThanOrEqual(256)
+
+    await expect(contentProvider.routes!(event)).resolves.toBeDefined()
   })
 
   it('uses only the canonical Content locale policy for route enumeration', async () => {

@@ -185,6 +185,7 @@ describe('canonical public content API', () => {
       limit: 1,
       cursor: first.pageInfo.endCursor,
     })
+    expect(new TextEncoder().encode(first.pageInfo.endCursor!).byteLength).toBeLessThanOrEqual(192)
     expect(first.snapshot).toBe(second.snapshot)
     expect(first.routes[0]?.stableId).not.toBe(second.routes[0]?.stableId)
 
