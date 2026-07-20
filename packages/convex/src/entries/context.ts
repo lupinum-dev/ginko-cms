@@ -127,17 +127,26 @@ export async function readStudioDraftView(
   ctx: QueryOrMutationCtx,
   entry: EntryDoc,
   collection: CollectionForEntry,
+  options: {
+    draftRows?: Awaited<ReturnType<typeof readDraftRows>>
+    publicRows?: Array<Doc<'publicEntries'>>
+    includePublishedSnapshots?: boolean
+  } = {},
 ): Promise<StudioDraftView> {
   const [draftRows, publicRows] = await Promise.all([
-    readDraftRows(ctx, entry._id),
-    ctx.db
-      .query('publicEntries')
-      .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
-      .collect(),
+    options.draftRows ?? readDraftRows(ctx, entry._id),
+    options.publicRows ??
+      ctx.db
+        .query('publicEntries')
+        .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
+        .collect(),
   ])
   const publicByLocale = new Map(publicRows.map((row) => [row.locale, row]))
   const shared = (draftRows.shared?.shared ?? {}) as JsonMap
-  const publishedSnapshotsByLocale = await publishedSnapshotsForRows(ctx, publicRows)
+  const publishedSnapshotsByLocale =
+    options.includePublishedSnapshots === false
+      ? new Map<string, Doc<'entryRevisions'>['snapshots'][string]>()
+      : await publishedSnapshotsForRows(ctx, publicRows)
   const sharedSlug = effectiveDraftSlug(entry, draftRows.shared, null)
   const draftParentEntryId = effectiveDraftParent(entry, draftRows.shared)
   const localeCodes = localeCodesForDraftView({

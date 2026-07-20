@@ -167,7 +167,7 @@ export async function assertDraftParentDepthForCreate(
   await draftParentDepth(ctx, args)
 }
 
-export async function assertValidDraftParentChain(
+export async function assertCurrentDraftParentChain(
   ctx: QueryOrMutationCtx,
   args: {
     collection: DraftCollection
@@ -190,14 +190,26 @@ export async function assertValidDraftParentChain(
         parentEntryId: String(targetParent),
       })
     }
-    return
+    return 1
   }
 
-  const depth = await draftParentDepth(ctx, {
+  return await draftParentDepth(ctx, {
     collection: args.collection,
     parentEntryId: targetParent,
     movingEntryId: args.entry._id,
   })
+}
+
+export async function assertValidDraftParentChain(
+  ctx: QueryOrMutationCtx,
+  args: {
+    collection: DraftCollection
+    entry: Doc<'entries'>
+    parentEntryId?: Id<'entries'> | null
+  },
+) {
+  const depth = await assertCurrentDraftParentChain(ctx, args)
+  if (args.collection.type !== 'tree') return
   const subtreeHeight = await draftSubtreeHeight(ctx, args.collection.slug, args.entry._id)
   if (depth + subtreeHeight - 1 > CMS_TREE_MAX_DEPTH) {
     throwCmsError(

@@ -55,7 +55,7 @@ defineEmits<{
       :draggable="!isTree && canEditCollectionEntry(row)"
       data-testid="cms-entry-row"
       :data-entry-slug="row.slug"
-      class="ginko:group ginko:grid ginko:cursor-pointer ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-5 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30 ginko:@3xl:items-center"
+      class="studio-collection-row ginko:group ginko:grid ginko:cursor-pointer ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-5 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30 ginko:@3xl:items-center"
       :class="[listGridClass, dropHint?.targetId === row._id ? 'ginko:bg-primary/5' : '']"
       @click="$emit('open', row._id)"
       @dragstart="$emit('dragStart', row._id)"
@@ -106,3 +106,10 @@ defineEmits<{
     </div>
   </div>
 </template>
+
+<style scoped>
+.studio-collection-row {
+  content-visibility: auto;
+  contain-intrinsic-block-size: 64px;
+}
+</style>

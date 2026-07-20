@@ -79,6 +79,7 @@ describe('Studio collection list renderers', () => {
     })
 
     const entry = wrapper.get('[data-testid="cms-entry-row"]')
+    expect(entry.classes()).toContain('studio-collection-row')
     expect(entry.text()).toContain('About')
     expect(entry.text()).toContain('/about')
     expect(entry.text()).toContain('EN · Live')

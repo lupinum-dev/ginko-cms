@@ -91,7 +91,7 @@ const settingsLinks = computed(() => sectionLinks('settings'))
       {{ t('ginkoCms.studio.layout.content') }}
     </SidebarGroupLabel>
     <SidebarGroupContent>
-      <SidebarMenu>
+      <SidebarMenu class="ginko:min-h-40">
         <template v-if="isCollectionsLoading">
           <li role="status" aria-busy="true" aria-live="polite" class="ginko:contents">
             <span class="ginko:sr-only">Loading collections</span>

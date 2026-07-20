@@ -8,6 +8,7 @@ import type { Doc, Id } from '../_generated/dataModel.js'
 import { attachEntryRecordAccess } from '../auth/recordAccess.js'
 import { isRouteBackedCollection } from '../lib/collections.js'
 import { toOptionalStringId, toStringId } from '../lib/ids.js'
+import type { getCmsSettings } from '../lib/locale.js'
 import type { CmsCollection, HandlerQueryCtx } from '../lib/types.js'
 import type { EntryDoc } from './context.js'
 import { computeEntryReadinessSummary } from './readiness.js'
@@ -168,8 +169,15 @@ export async function buildIndexedEntrySummary(
   entry: EntryDoc,
   searchRow: Doc<'draftSearchEntries'>,
   collection: CmsCollection,
+  source?: {
+    appIdentity?: Awaited<ReturnType<HandlerQueryCtx['appIdentity']>>
+    settings?: Awaited<ReturnType<typeof getCmsSettings>>
+  },
 ) {
-  const readiness = await computeEntryReadinessSummary(ctx, { entryId: toStringId(entry._id) })
+  const readiness = await computeEntryReadinessSummary(ctx, {
+    entryId: toStringId(entry._id),
+    source: { ...source, entry, collection },
+  })
   const preferredLocale =
     readiness.locales.find((locale) => locale.locale === readiness.primaryLocale) ??
     readiness.locales[0]

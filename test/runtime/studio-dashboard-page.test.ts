@@ -69,6 +69,7 @@ const collectionList = vi.hoisted(() => [
 
 const pendingReviews = vi.hoisted(() => [{ _id: 'review-1', requestSource: 'agent' }])
 const access = vi.hoisted(() => ({ allowed: true }))
+const workQueueStatus = vi.hoisted(() => ({ value: 'ready' }))
 
 vi.mock('../../packages/cms/studio-app/src/boundary/api', () => ({
   api: {
@@ -127,6 +128,7 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuer
     isLoading: ref(false),
     loadMore: vi.fn(),
     results: ref(query === 'listStudioWorkQueue' ? workQueue : activity),
+    status: query === 'listStudioWorkQueue' ? workQueueStatus : ref('ready'),
   }),
 }))
 
@@ -182,6 +184,7 @@ function stubs() {
 describe('Studio dashboard page', () => {
   beforeEach(() => {
     access.allowed = true
+    workQueueStatus.value = 'ready'
   })
 
   it('[NAV-01] renders bounded actionable entries without partial category counts', () => {
@@ -217,5 +220,14 @@ describe('Studio dashboard page', () => {
     expect(
       wrapper.findAll('a').some((link) => link.attributes('href') === '/studio/content/pages/new'),
     ).toBe(false)
+  })
+
+  it('reserves the work-queue footprint while its first page is settling', () => {
+    workQueueStatus.value = 'loading-first-page'
+    const wrapper = mount(StudioDashboardPage, { global: { stubs: stubs() } })
+    const status = wrapper.get('[role="status"]')
+    expect(status.attributes('aria-busy')).toBe('true')
+    expect(status.findAll('[aria-hidden="true"]')).toHaveLength(8)
+    expect(wrapper.text()).not.toContain('Blocked draft')
   })
 })

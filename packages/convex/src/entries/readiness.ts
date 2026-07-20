@@ -23,7 +23,7 @@ import type { CmsCollection, HandlerQueryCtx } from '../lib/types.js'
 import { collectPublishRequiredFieldIssues } from '../lib/validation.js'
 import { exactReviewStaleState } from '../reviewRequests.js'
 import { getCollectionForEntry, getEntryOrThrow, readStudioDraftView } from './context.js'
-import { assertValidDraftParentChain } from './workflow/draftPlacement.js'
+import { assertCurrentDraftParentChain } from './workflow/draftPlacement.js'
 import { readDraftRows } from './workflow/drafts.js'
 import { buildPublicProjectionFromRevisionSnapshot } from './workflow/projectionBuild.js'
 import { publicPathForEntry } from './workflow/publicTree.js'
@@ -294,21 +294,38 @@ async function readActiveReviewRequests(ctx: HandlerQueryCtx, entryId: string) {
 
 async function computeEntryReadiness(
   ctx: HandlerQueryCtx,
-  args: { entryId: string; exact: boolean },
+  args: {
+    entryId: string
+    exact: boolean
+    source?: {
+      appIdentity?: Awaited<ReturnType<HandlerQueryCtx['appIdentity']>>
+      entry?: Awaited<ReturnType<typeof getEntryOrThrow>>
+      collection?: CmsCollection
+      settings?: Awaited<ReturnType<typeof getCmsSettings>>
+    }
+  },
 ): Promise<EntryReadinessDetail> {
-  const appIdentity = await ctx.appIdentity()
-  const entry = await getEntryOrThrow(ctx, args.entryId)
-  const collection = await getCollectionForEntry(ctx, entry)
-  const [settings, draftRows, draftView, publicRows, reviewRequests] = await Promise.all([
-    getCmsSettings(ctx),
+  const [appIdentity, entry] = await Promise.all([
+    args.source?.appIdentity ?? ctx.appIdentity(),
+    args.source?.entry ?? getEntryOrThrow(ctx, args.entryId),
+  ])
+  const [collection, settings] = await Promise.all([
+    args.source?.collection ?? getCollectionForEntry(ctx, entry),
+    args.source?.settings ?? getCmsSettings(ctx),
+  ])
+  const [draftRows, publicRows, reviewRequests] = await Promise.all([
     readDraftRows(ctx, entry._id),
-    readStudioDraftView(ctx, entry, collection),
     ctx.db
       .query('publicEntries')
       .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
       .collect(),
     readActiveReviewRequests(ctx, args.entryId),
   ])
+  const draftView = await readStudioDraftView(ctx, entry, collection, {
+    draftRows,
+    publicRows,
+    includePublishedSnapshots: args.exact,
+  })
   const publicByLocale = new Map(publicRows.map((row) => [row.locale, row]))
   const configuredLocales = configuredReadinessLocales({ collection, settings })
   const primaryLocale = primaryReadinessLocale({ locales: configuredLocales, settings })
@@ -319,7 +336,7 @@ async function computeEntryReadiness(
   let draftTreePlacementValid = true
   if (collection.type === 'tree') {
     try {
-      await assertValidDraftParentChain(ctx, { collection, entry })
+      await assertCurrentDraftParentChain(ctx, { collection, entry })
     } catch {
       draftTreePlacementValid = false
     }
@@ -345,12 +362,7 @@ async function computeEntryReadiness(
     const warnings: ReadinessIssue[] = []
     const infos: ReadinessIssue[] = []
     let draftUrl: string | null = routeBacked && draftLocale ? draftLocale.draftPath : null
-    let publicUrl: string | null = publicRow
-      ? await publicPathForEntry(ctx, publicRow, {
-          pathPrefix: pathPrefixForLocale(collection, locale),
-          rootSlug: rootSlugForLocale(collection, locale),
-        })
-      : null
+    let publicUrl: string | null = draftLocale?.publishedPath ?? null
     const affectedPublicUrls: AffectedPublicUrl[] = []
     let impactStatus: string | null = null
     let assetMetadataStale = false
@@ -451,7 +463,9 @@ async function computeEntryReadiness(
         !activePublication ||
         activePublication.sharedVersion !== entry.sharedVersion ||
         activePublication.localeVersion !== localeDraftRow?.version ||
-        (!!draftLocale && !isEqualJsonValue(draftLocale.data, draftLocale.publishedData)) ||
+        (args.exact &&
+          !!draftLocale &&
+          !isEqualJsonValue(draftLocale.data, draftLocale.publishedData)) ||
         assetMetadataStale)
     const meaningfulDraft = draftLocale
       ? isMeaningfulDraftData({
@@ -550,9 +564,21 @@ async function computeEntryReadiness(
 
 export async function computeEntryReadinessSummary(
   ctx: HandlerQueryCtx,
-  args: { entryId: string },
+  args: {
+    entryId: string
+    source?: {
+      appIdentity?: Awaited<ReturnType<HandlerQueryCtx['appIdentity']>>
+      entry?: Awaited<ReturnType<typeof getEntryOrThrow>>
+      collection?: CmsCollection
+      settings?: Awaited<ReturnType<typeof getCmsSettings>>
+    }
+  },
 ): Promise<EntryReadinessDetail> {
-  return await computeEntryReadiness(ctx, { entryId: args.entryId, exact: false })
+  return await computeEntryReadiness(ctx, {
+    entryId: args.entryId,
+    exact: false,
+    source: args.source,
+  })
 }
 
 export async function computeEntryReadinessDetail(

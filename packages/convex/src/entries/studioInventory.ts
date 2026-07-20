@@ -13,6 +13,7 @@ import { attachEntryRecordAccess } from '../auth/recordAccess.js'
 import { throwCmsError } from '../errors.js'
 import { callerQuery } from '../functions.js'
 import { getCollectionOrThrow } from '../lib/collections.js'
+import { getCmsSettings } from '../lib/locale.js'
 import type { CmsCollection, HandlerQueryCtx } from '../lib/types.js'
 import type { EntryDoc } from './context.js'
 import { readDraftSearchCandidatePage, readStudioTreeCandidatePage } from './studioKeyset.js'
@@ -263,6 +264,7 @@ export const listEntrySummaries = callerQuery.protected({
   handler: async (ctx: HandlerQueryCtx, args) => {
     const appIdentity = await ctx.appIdentity()
     const collection = await getCollectionOrThrow(ctx, args.collection)
+    const settings = await getCmsSettings(ctx)
     const limit = Math.max(
       1,
       Math.min(args.paginationOpts.numItems ?? STUDIO_LIST_DEFAULT_LIMIT, STUDIO_LIST_MAX_LIMIT),
@@ -305,7 +307,7 @@ export const listEntrySummaries = callerQuery.protected({
         .map(({ candidate }) => candidate)
       const candidates = await Promise.all(
         potentiallyMatching.map(({ entry, row }) =>
-          buildIndexedEntrySummary(ctx, entry, row, collection),
+          buildIndexedEntrySummary(ctx, entry, row, collection, { appIdentity, settings }),
         ),
       )
       summaries.push(

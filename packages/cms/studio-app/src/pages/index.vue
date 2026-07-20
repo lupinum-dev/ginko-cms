@@ -105,6 +105,12 @@ const queueIsEmpty = computed(
     (!canPublishEntries.value || pendingReviews.value.length === 0) &&
     failedRevalidation.value.length === 0,
 )
+const queueIsSettling = computed(
+  () =>
+    workQueueQuery.status.value === 'loading-first-page' ||
+    overviewQuery.pending.value ||
+    (canPublishEntries.value && reviewsQuery.pending.value),
+)
 
 function entryHref(entry: QueueEntry) {
   return `${contentRoute}/${entry.collection}/${entry.entryId}`
@@ -166,8 +172,29 @@ function queueKindIcon(kind: QueueKind) {
             </p>
           </div>
 
+          <div
+            v-if="queueIsSettling"
+            role="status"
+            aria-busy="true"
+            class="ginko:divide-y ginko:divide-border/70"
+          >
+            <span class="ginko:sr-only">{{ t('ginkoCms.common.loading') }}</span>
+            <div
+              v-for="index in 8"
+              :key="index"
+              aria-hidden="true"
+              class="ginko:flex ginko:h-16 ginko:items-center ginko:justify-between ginko:gap-6 ginko:px-4"
+            >
+              <div class="ginko:flex-1 ginko:space-y-2">
+                <Skeleton class="ginko:h-4 ginko:w-2/5" />
+                <Skeleton class="ginko:h-3 ginko:w-1/4" />
+              </div>
+              <Skeleton class="ginko:h-5 ginko:w-24" />
+            </div>
+          </div>
+
           <StudioEmptyState
-            v-if="queueIsEmpty"
+            v-else-if="queueIsEmpty"
             :title="t('ginkoCms.studio.dashboard.allCaughtUpTitle')"
             :description="t('ginkoCms.studio.dashboard.allCaughtUpDescription')"
             class="ginko:m-4"
