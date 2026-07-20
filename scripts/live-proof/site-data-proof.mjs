@@ -64,15 +64,16 @@ export async function runSiteDataProof({
       await page.goto(`${baseUrl}/studio/site-data`, { waitUntil: 'domcontentloaded' })
       await page.getByRole('heading', { name: 'Site-wide content' }).waitFor({ timeout: 60000 })
       await page
+        .locator('[data-testid="cms-site-data-ready"][data-hydrated="true"]')
+        .waitFor({ timeout: 60000 })
+      await page
         .getByRole('button', { name: /New section|Create section/ })
         .first()
         .click()
       await page.locator('#new-key').fill(key)
       await page.locator('#new-label').fill(label)
-      const localized = page
-        .getByText('Localized', { exact: true })
-        .locator('xpath=ancestor::label[1]')
-        .getByRole('switch')
+      const localized = page.locator('#new-localized')
+      await localized.waitFor({ timeout: 30000 })
       await localized.click()
       await page.getByRole('button', { name: 'Create', exact: true }).click()
       const blockToggle = page

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Database, Loader2, Plus, Trash2 } from '@lucide/vue'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import { useStudioSiteDataAdmin } from '../composables/internal/useStudioSiteDataAdmin'
 const {
@@ -37,6 +37,11 @@ const localeItems = computed(() =>
 const expandedBlockSchema = computed(() =>
   expandedBlockData.value?.schemaType ? { type: expandedBlockData.value.schemaType } : undefined,
 )
+const pageHydrated = ref(false)
+
+onMounted(() => {
+  pageHydrated.value = true
+})
 
 function resolveBlockLabel(
   label: string | Record<string, string> | null | undefined,
@@ -59,7 +64,11 @@ function formatBlockData(value: unknown): string {
 </script>
 
 <template>
-  <StudioWorkspace class="ginko:h-full">
+  <StudioWorkspace
+    class="ginko:h-full"
+    data-testid="cms-site-data-ready"
+    :data-hydrated="pageHydrated ? 'true' : 'false'"
+  >
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.siteDataPage.title')"
@@ -141,6 +150,7 @@ function formatBlockData(value: unknown): string {
             >
               <label class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm">
                 <Switch
+                  id="new-localized"
                   :model-value="newBlock.localized"
                   @update:model-value="newBlock.localized = $event"
                 />
