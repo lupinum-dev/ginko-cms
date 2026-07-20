@@ -448,6 +448,8 @@ describe('live refactor proof contract', () => {
     expect(performance).toContain('Number.isFinite(globalThis.__ginkoKeystrokeMeasurement?.value)')
     expect(performance).toContain('{ timeout: 5000 }')
     expect(performance).not.toContain('const measurement = page.evaluate(')
+    expect(performance).toContain("name: 'Publish (EN)?'")
+    expect(performance).not.toContain("name: 'Publish?'")
     expect(studio).toContain("'scale.entry-pagination-1205'")
     expect(studio).toContain("name: 'Publish (EN)?'")
     expect(studio).toContain("name: 'Publish (EN)', exact: true")

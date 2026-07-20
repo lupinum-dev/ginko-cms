@@ -164,7 +164,7 @@ export function createPerformanceProof(sampleCount) {
       await publish.waitFor({ timeout: 30000 })
       const startedAt = performance.now()
       await publish.click()
-      const dialog = page.getByRole('dialog', { name: 'Publish?' })
+      const dialog = page.getByRole('dialog', { name: 'Publish (EN)?' })
       await dialog.waitFor({ timeout: 30000 })
       samples.publishPreview.push(performance.now() - startedAt)
       await dialog.getByRole('button', { name: 'Cancel' }).click()
