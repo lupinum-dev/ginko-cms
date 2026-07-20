@@ -3,6 +3,7 @@ import { computed, onScopeDispose, ref, watchEffect } from 'vue'
 
 import { api } from '../boundary/api'
 import { useStudioHostContext } from '../boundary/studio-host-context'
+import { useCmsAuthState } from './useCmsAuthState'
 
 // Mirrors the host-side CMS permission map,
 // but configured inside the
@@ -31,6 +32,7 @@ interface UseAccessReturn {
 
 export function useAccess(): UseAccessReturn {
   const studioHost = useStudioHostContext()
+  const auth = useCmsAuthState()
   const ctx = ref<{
     role?: string | null
     userId?: string | null
@@ -61,6 +63,17 @@ export function useAccess(): UseAccessReturn {
           can?: Record<string, boolean>
         } | null,
       ) => {
+        // The replacement-safe Convex handle can briefly emit an anonymous
+        // result while BCN installs a refreshed authenticated client. BCN keeps
+        // the authenticated identity usable during that handoff, so retain the
+        // last canonical access context instead of tearing down the Studio and
+        // destroying in-progress dialogs. A settled anonymous identity still
+        // clears access immediately.
+        if (next === null && auth.isAuthenticated.value) {
+          error.value = null
+          pending.value = ctx.value === null
+          return
+        }
         ctx.value = next
         error.value = null
         pending.value = false
