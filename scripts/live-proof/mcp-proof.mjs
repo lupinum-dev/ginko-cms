@@ -151,9 +151,9 @@ export function createMcpProof({
         await page.getByText('MCP connection created.').waitFor({ timeout: 30000 })
         await page.getByText(label).waitFor({ timeout: 30000 })
         const token = page
+          .getByRole('alert')
+          .filter({ hasText: 'Your MCP access key is ready' })
           .locator('code')
-          .filter({ hasText: /^[a-f0-9]{64}$/ })
-          .first()
         await token.waitFor({ timeout: 30000 })
         const rawKey = (await token.textContent())?.trim()
         if (!rawKey || !/^[a-f0-9]{64}$/.test(rawKey)) {
