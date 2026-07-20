@@ -2188,4 +2188,12 @@ describe('Studio entry top bar restore action', () => {
     expect(menuLabels(published)).not.toContain('Restore draft')
     published.unmount()
   })
+
+  it('exposes the locale-independent save state for automation and assistive diagnostics', () => {
+    const wrapper = mountWithStudioContext(StudioEntryTopBar, topBarEditor('draft'))
+    expect(wrapper.find('.studio-entry-topbar__save-indicator').attributes('data-save-state')).toBe(
+      'saved',
+    )
+    wrapper.unmount()
+  })
 })

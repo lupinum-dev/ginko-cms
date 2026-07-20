@@ -224,6 +224,7 @@ async function openDuplicateDialog() {
           <span
             class="studio-entry-topbar__save-indicator studio-text-caption ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-1.5"
             :class="saveIndicatorTone"
+            :data-save-state="saveState"
             role="status"
             aria-live="polite"
             aria-atomic="true"

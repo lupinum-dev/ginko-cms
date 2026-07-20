@@ -146,8 +146,7 @@ export function createPerformanceProof(sampleCount) {
     }
     await page.waitForTimeout(750)
     await page
-      .locator('.studio-entry-topbar__save-indicator')
-      .getByText('Saved', { exact: true })
+      .locator('.studio-entry-topbar__save-indicator[data-save-state="saved"]')
       .waitFor({ timeout: 30000 })
 
     for (let index = 0; index < sampleCount; index += 1) {

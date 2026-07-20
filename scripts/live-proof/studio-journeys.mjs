@@ -40,8 +40,7 @@ export async function runStudioJourneys({
       )
       fixtureEntryUrl = page.url()
       await page
-        .locator('.studio-entry-topbar__save-indicator')
-        .getByText('Saved', { exact: true })
+        .locator('.studio-entry-topbar__save-indicator[data-save-state="saved"]')
         .waitFor({ timeout: 30000 })
       await page.getByRole('button', { name: 'Preview website changes' }).click()
       await page.getByRole('heading', { name: 'What will change on the website' }).waitFor({
