@@ -122,26 +122,36 @@ export function createPerformanceProof(sampleCount) {
         `long-editor probe loaded only ${bodyBytes} rendered body bytes; expected the near-limit fixture`,
       )
     }
-    const bodyElement = await bodyEditor.elementHandle()
     for (let index = 0; index < sampleCount; index += 1) {
       await bodyEditor.focus()
-      const measurement = page.evaluate(
-        (element) =>
-          new Promise((resolve) => {
-            let startedAt = 0
-            element.addEventListener('keydown', () => (startedAt = performance.now()), {
-              once: true,
-            })
-            element.addEventListener(
-              'input',
-              () => requestAnimationFrame(() => resolve(performance.now() - startedAt)),
-              { once: true },
-            )
-          }),
-        bodyElement,
-      )
+      await bodyEditor.evaluate((element) => {
+        const measurement = { startedAt: 0, value: null }
+        globalThis.__ginkoKeystrokeMeasurement = measurement
+        element.addEventListener('keydown', () => (measurement.startedAt = performance.now()), {
+          once: true,
+        })
+        element.addEventListener(
+          'input',
+          () =>
+            requestAnimationFrame(
+              () => (measurement.value = performance.now() - measurement.startedAt),
+            ),
+          { once: true },
+        )
+      })
       await page.keyboard.type('x')
-      samples.keystroke.push(await measurement)
+      await page.waitForFunction(
+        () => Number.isFinite(globalThis.__ginkoKeystrokeMeasurement?.value),
+        null,
+        { timeout: 5000 },
+      )
+      samples.keystroke.push(
+        await page.evaluate(() => {
+          const value = globalThis.__ginkoKeystrokeMeasurement.value
+          delete globalThis.__ginkoKeystrokeMeasurement
+          return value
+        }),
+      )
       await page.keyboard.press('Backspace')
     }
     await page.waitForTimeout(750)
