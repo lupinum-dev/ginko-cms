@@ -44,7 +44,8 @@ type StudioActionReturn<Action extends FunctionReference<'action'>> = ((
 }
 
 function useStudioOperationScope(onRetire: () => void) {
-  const { principalKey } = useCmsAuthState()
+  const auth = useCmsAuthState()
+  const { principalKey } = auth
   let disposed = false
   let generation = 0
 
@@ -64,6 +65,29 @@ function useStudioOperationScope(onRetire: () => void) {
     operation.principalKey === principalKey.value
 
   return {
+    authenticationSettlement(): Promise<void> | null {
+      if (!auth.authEnabled.value) return null
+      if (!auth.pending.value) {
+        if (auth.error.value) throw auth.error.value
+        if (!auth.isAuthenticated.value) {
+          throw new Error('Authentication is required before the Studio write.')
+        }
+        return null
+      }
+      return (async () => {
+        const deadline = Date.now() + 30_000
+        while (auth.pending.value && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 25))
+        }
+        if (auth.error.value) throw auth.error.value
+        if (auth.pending.value) {
+          throw new Error('Authentication did not settle before the Studio write.')
+        }
+        if (!auth.isAuthenticated.value) {
+          throw new Error('Authentication is required before the Studio write.')
+        }
+      })()
+    },
     begin() {
       if (disposed) throw new Error('Studio operation scope was disposed.')
       generation += 1
@@ -184,10 +208,13 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const scope = useStudioOperationScope(clearState)
 
   const execute = (async (args: Args): Promise<Result> => {
-    const operation = scope.begin()
+    let operation: ReturnType<typeof scope.begin> | null = null
     status.value = 'pending'
     error.value = null
     try {
+      const settlement = scope.authenticationSettlement()
+      if (settlement) await settlement
+      operation = scope.begin()
       const result = await studioHost.requireConvexClient().mutation(mutation, args)
       if (!scope.isCurrent(operation)) return result
       data.value = result
@@ -196,7 +223,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       return result
     } catch (err) {
       const normalized = normalizeCmsStudioQueryError(err, mutation, 'mutation')
-      if (scope.isCurrent(operation)) {
+      if (operation ? scope.isCurrent(operation) : scope.canReset()) {
         error.value = normalized
         status.value = 'error'
         options?.onError?.(normalized, args)
@@ -235,10 +262,13 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   const scope = useStudioOperationScope(clearState)
 
   const execute = (async (args: Args): Promise<Result> => {
-    const operation = scope.begin()
+    let operation: ReturnType<typeof scope.begin> | null = null
     status.value = 'pending'
     error.value = null
     try {
+      const settlement = scope.authenticationSettlement()
+      if (settlement) await settlement
+      operation = scope.begin()
       const result = await studioHost.requireConvexClient().action(action, args)
       if (!scope.isCurrent(operation)) return result
       data.value = result
@@ -247,7 +277,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
       return result
     } catch (err) {
       const normalized = normalizeCmsStudioQueryError(err, action, 'action')
-      if (scope.isCurrent(operation)) {
+      if (operation ? scope.isCurrent(operation) : scope.canReset()) {
         error.value = normalized
         status.value = 'error'
         options?.onError?.(normalized, args)
@@ -327,22 +357,26 @@ export function useConvexUpload(
   }
 
   const upload = (async (input: File | File[]) => {
-    const operation = scope.begin()
+    let operation: ReturnType<typeof scope.begin> | null = null
     status.value = 'pending'
     error.value = null
     progress.value = 0
     try {
+      const settlement = scope.authenticationSettlement()
+      if (settlement) await settlement
+      operation = scope.begin()
+      const activeOperation = operation
       const result = Array.isArray(input)
-        ? await Promise.all(input.map((file) => uploadOne(file, operation)))
-        : await uploadOne(input, operation)
-      if (!scope.isCurrent(operation)) return result
+        ? await Promise.all(input.map((file) => uploadOne(file, activeOperation)))
+        : await uploadOne(input, activeOperation)
+      if (!scope.isCurrent(activeOperation)) return result
       status.value = 'success'
       options?.onQueueIdle?.()
       return result
     } catch (err) {
       const normalized = normalizeCmsStudioQueryError(err, createUploadSessionMutation, 'upload')
       const firstFile = Array.isArray(input) ? input[0] : input
-      if (scope.isCurrent(operation)) {
+      if (operation ? scope.isCurrent(operation) : scope.canReset()) {
         error.value = normalized
         status.value = 'error'
         if (firstFile) options?.onError?.(normalized, firstFile)

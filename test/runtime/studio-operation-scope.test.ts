@@ -45,6 +45,35 @@ function deferred<T>() {
 }
 
 describe('Studio operation scopes', () => {
+  it('waits for BCN authentication settlement before dispatching a write', async () => {
+    const pending = ref(true)
+    host.bridge.auth = {
+      status: computed(() => (pending.value ? 'loading' : 'authenticated')),
+      isPending: pending,
+      isAuthenticated: computed(() => !pending.value),
+      user: ref({ id: 'publisher-1' }),
+      error: ref(null),
+    }
+    host.convex = { mutation: vi.fn(async () => 'applied') }
+    const Host = defineComponent({
+      setup: () => ({ mutate: useConvexMutation(mutation as never) }),
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+
+    const result = wrapper.vm.mutate({} as never)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(host.convex.mutation).not.toHaveBeenCalled()
+
+    pending.value = false
+    await expect(result).resolves.toBe('applied')
+    expect(host.convex.mutation).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
+    host.bridge.auth = null
+    host.convex = undefined
+  })
+
   it('does not commit mutation or action completion after disposal', async () => {
     const mutationResult = deferred<{ id: string }>()
     const actionResult = deferred<{ id: string }>()
@@ -91,6 +120,7 @@ describe('Studio operation scopes', () => {
       isPending: computed(() => false),
       isAuthenticated: computed(() => user.value !== null),
       user,
+      error: ref(null),
     }
     const result = deferred<string>()
     const onSuccess = vi.fn()
