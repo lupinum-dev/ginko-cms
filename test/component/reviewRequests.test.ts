@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
@@ -39,6 +40,31 @@ async function requestAgentReview(
 }
 
 describe('canonical publish reviews', () => {
+  it('uses the host-forwarded caller instead of a component transport identity', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'publisher-1', role: 'publisher' })
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const review = await owner.mutation(api.reviewRequests.requestPublishReview, {
+      entryId,
+      expectedVersion: 1,
+      locales: ['en'],
+      title: 'Forwarded publisher identity',
+      summary: 'The host facade resolved the publisher.',
+    })
+
+    const componentTransport = ctx.asCmsUser('component-transport-subject')
+    await expect(
+      componentTransport.mutation(api.reviewRequests.approveReview, {
+        reviewRequestId: review._id,
+        expectedVersionHash: review.versionHash,
+        _trustedCaller: cmsUserCaller('publisher-1'),
+      }),
+    ).resolves.toMatchObject({ status: 'approved', reviewedBy: 'publisher-1' })
+  })
+
   it('stores one sorted locale set and authorizes that canonical publish scope', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

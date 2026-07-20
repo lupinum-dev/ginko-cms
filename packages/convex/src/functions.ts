@@ -174,17 +174,16 @@ async function createHandlerCtx<TCtx extends RootCtx>(
   trustedCaller?: CmsCaller | null,
   contractWriteToken?: CmsContractWriteToken | null,
 ): Promise<HandlerCtx<TCtx>> {
-  // Convex does not propagate user auth into component ACTIONS (ctx.auth is
-  // empty there), so host-app action facades forward the caller they resolved
-  // from their own ctx.auth as `_trustedCaller`. Component functions are only
-  // callable by the host app — never directly by clients — so this argument
-  // carries exactly the trust of the app's own auth resolution. It is used
-  // only when ctx.auth yields nothing, and MCP callers are still re-validated
-  // against stored credentials during app-identity resolution.
-  let caller = await resolveCmsCaller(ctx)
-  if (caller.kind === 'anonymous' && trustedCaller) {
-    caller = assertCmsCallerConsistency(trustedCaller)
-  }
+  // Host facades resolve the caller from their own authenticated context and
+  // forward it as `_trustedCaller`. A component invocation can retain a
+  // transport identity that is not the host application's Better Auth subject,
+  // so an explicitly enabled trusted caller is authoritative rather than only
+  // an anonymous fallback. Component functions are callable by the host app,
+  // not directly by clients. MCP callers are still resolved against canonical
+  // credential and membership state below.
+  const caller = trustedCaller
+    ? assertCmsCallerConsistency(trustedCaller)
+    : await resolveCmsCaller(ctx)
   let identityPromise: Promise<CmsAppIdentity> | null = null
 
   const handlerCtx = Object.assign(ctx, {
