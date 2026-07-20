@@ -126,8 +126,31 @@ describe('ginko mcp auth middleware', () => {
     expect(source).not.toContain('xForwardedFor: true')
     expect(source).not.toContain('useStorage')
     expect(source).toContain('signMcpCallerPayload')
+    expect(source).toContain("'[ginko-cms:mcp-convex-call-failed]'")
+    expect(source).toContain('hasStructuredData: normalized.data !== undefined')
+    expect(source).not.toContain('message: normalized.message')
+    expect(source).not.toContain('cause: normalized.cause')
     expect(source).not.toContain('_mcpServerSecret')
     expect(source).not.toContain('serverSecret,\n    secretHash')
+  })
+
+  it('keeps the protected contract write preflight on the signed caller path', async () => {
+    const templatePath = fileURLToPath(
+      new URL('../../packages/cms/templates/convex/ginkoCms/contract.ts', import.meta.url),
+    )
+    const playgroundPath = fileURLToPath(
+      new URL('../../playground/convex/ginkoCms/contract.ts', import.meta.url),
+    )
+    const fixturePath = fileURLToPath(
+      new URL('../../test/fixtures/basic/convex/ginkoCms/contract.ts', import.meta.url),
+    )
+    const template = await readFile(templatePath, 'utf8')
+
+    expect(template).toContain('bindMcpCaller')
+    expect(template).toContain("'query:ginkoCms/contract:getInstalledContractStatus'")
+    expect(template).not.toContain('stripMcpCallerArgs')
+    await expect(readFile(playgroundPath, 'utf8')).resolves.toBe(template)
+    await expect(readFile(fixturePath, 'utf8')).resolves.toBe(template)
   })
 
   it('atomically records five concurrent invalid attempts and limits the next request', async () => {

@@ -105,4 +105,25 @@ describe('MCP response redaction', () => {
       },
     })
   })
+
+  it('uses the fixed tool fallback for unstructured unknown errors', async () => {
+    const { failFromError } = await import('../../packages/cms/src/server/mcp/_shared/agent-tools')
+    const result = failFromError(
+      new Error('upstream response contained bearer-secret-and-private-data'),
+      'Failed to start agent run.',
+    )
+
+    expect(result).toMatchObject({
+      content: [{ type: 'text', text: 'Failed to start agent run.' }],
+      isError: true,
+      structuredContent: {
+        error: {
+          category: 'unknown',
+          message: 'Failed to start agent run.',
+          retryable: false,
+        },
+      },
+    })
+    expect(JSON.stringify(result)).not.toContain('bearer-secret-and-private-data')
+  })
 })

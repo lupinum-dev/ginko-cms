@@ -66,7 +66,13 @@ export function createMcpProof({
 
   async function tool(rawKey, name, args = {}) {
     const envelope = await request(rawKey, 'tools/call', { name, arguments: args })
-    return envelope.result?.structuredContent
+    const result = envelope.result
+    if (result?.isError) {
+      throw new Error(
+        `MCP tool ${name} failed: ${redact(JSON.stringify(result.structuredContent)).slice(0, 500)}`,
+      )
+    }
+    return result?.structuredContent
   }
 
   async function revoke() {

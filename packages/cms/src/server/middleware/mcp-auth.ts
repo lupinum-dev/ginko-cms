@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 
 import { signMcpCallerPayload } from '@lupinum/ginko-cms-convex/mcp-limiter-protocol'
+import { normalizeConvexError } from 'better-convex-nuxt/errors'
 import { serverConvex } from 'better-convex-nuxt/server'
 import type { FunctionReference } from 'convex/server'
 import { createError, defineEventHandler, getRequestHeader, getRequestIP, type H3Event } from 'h3'
@@ -78,26 +79,55 @@ async function authenticateMcpCredential(
   if (!access) return null
   const assertedCaller: ExchangedMcpCredential['caller'] = {
     query: async (reference, args) =>
-      await caller.query(reference, {
-        ...args,
-        ...(await signedCallerAssertion(serverSecret, secretHash, 'query', reference)),
-      }),
+      await callWithSignedAssertion(serverSecret, secretHash, 'query', reference, (assertion) =>
+        caller.query(reference, { ...args, ...assertion }),
+      ),
     mutation: async (reference, args) =>
-      await caller.mutation(reference, {
-        ...args,
-        ...(await signedCallerAssertion(serverSecret, secretHash, 'mutation', reference)),
-      }),
+      await callWithSignedAssertion(serverSecret, secretHash, 'mutation', reference, (assertion) =>
+        caller.mutation(reference, { ...args, ...assertion }),
+      ),
     action: async (reference, args) =>
-      await caller.action(reference, {
-        ...args,
-        ...(await signedCallerAssertion(serverSecret, secretHash, 'action', reference)),
-      }),
+      await callWithSignedAssertion(serverSecret, secretHash, 'action', reference, (assertion) =>
+        caller.action(reference, { ...args, ...assertion }),
+      ),
   }
   return {
     apiKeyId: access.apiKeyId,
     ownerUserId: access.ownerUserId,
     caller: assertedCaller,
   }
+}
+
+async function callWithSignedAssertion<TResult>(
+  serverSecret: string,
+  credentialHash: string,
+  kind: 'query' | 'mutation' | 'action',
+  reference: FunctionReference<'query' | 'mutation' | 'action'>,
+  invoke: (assertion: Awaited<ReturnType<typeof signedCallerAssertion>>) => Promise<TResult>,
+) {
+  const assertion = await signedCallerAssertion(serverSecret, credentialHash, kind, reference)
+  try {
+    return await invoke(assertion)
+  } catch (error) {
+    reportAssertedCallerFailure(kind, reference, assertion._mcpRequestId, error)
+    throw error
+  }
+}
+
+function reportAssertedCallerFailure(
+  kind: 'query' | 'mutation' | 'action',
+  reference: FunctionReference<'query' | 'mutation' | 'action'>,
+  requestId: string,
+  error: unknown,
+) {
+  const normalized = normalizeConvexError(error)
+  console.error('[ginko-cms:mcp-convex-call-failed]', {
+    operation: kind,
+    functionName: functionReferenceName(reference),
+    requestId,
+    kind: normalized.kind,
+    hasStructuredData: normalized.data !== undefined,
+  })
 }
 
 function functionReferenceName(reference: FunctionReference<'query' | 'mutation' | 'action'>) {

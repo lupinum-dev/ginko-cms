@@ -273,7 +273,11 @@ export function failFromError(error: unknown, fallback: string): McpToolCallback
   const data = readGinkoErrorData(normalized.data)
   const code = typeof data?.code === 'string' ? data.code : (normalized.code ?? null)
   const message =
-    (typeof data?.message === 'string' ? data.message : null) ?? normalized.message ?? fallback
+    normalized.kind === 'unknown'
+      ? fallback
+      : ((typeof data?.message === 'string' ? data.message : null) ??
+        normalized.message ??
+        fallback)
   const details =
     data?.details && typeof data.details === 'object' && !Array.isArray(data.details)
       ? (data.details as JsonRecord)

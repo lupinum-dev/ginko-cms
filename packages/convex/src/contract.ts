@@ -445,6 +445,7 @@ export const checkCmsContract = query({
  */
 export const getInstalledContractStatus = callerQuery.protected({
   id: 'contract:getInstalledContractStatus',
+  acceptsTrustedCaller: true,
   args: {},
   guard: canRead,
   returns: installedCmsContractStatusReturns,
