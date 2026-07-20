@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Check, Inbox, Loader2, PanelRight, X } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { api } from '../boundary/api'
 import StudioReviewDetail from '../components/studio/reviews/StudioReviewDetail.vue'
@@ -41,6 +41,10 @@ const decisionError = ref('')
 const approvalCandidate = ref<ReviewRequest | null>(null)
 const rejectionCandidate = ref<ReviewRequest | null>(null)
 const rejectionFeedback = ref('')
+const pageHydrated = ref(false)
+onMounted(() => {
+  pageHydrated.value = true
+})
 
 const reviews = computed<ReviewRequest[]>(() => (reviewsQuery.data.value ?? []) as ReviewRequest[])
 const isLoading = computed(() => reviewsQuery.data.value === null && reviewsQuery.pending.value)
@@ -142,7 +146,11 @@ async function confirmRejection() {
 </script>
 
 <template>
-  <StudioWorkspace class="ginko:h-full">
+  <StudioWorkspace
+    data-testid="cms-reviews-ready"
+    :data-hydrated="pageHydrated ? 'true' : 'false'"
+    class="ginko:h-full"
+  >
     <template #header>
       <StudioPageHeader
         :title="t('ginkoCms.studio.reviewsPage.title')"

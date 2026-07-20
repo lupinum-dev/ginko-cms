@@ -113,6 +113,9 @@ export async function runRoleJourneys({
             const reviewProbe = fixtureManifest.probes.pendingReview
             await page.goto(`${baseUrl}/studio/reviews`, { waitUntil: 'domcontentloaded' })
             await waitForStudioInteractive(page)
+            await page
+              .locator('[data-testid="cms-reviews-ready"][data-hydrated="true"]')
+              .waitFor({ timeout: 30000 })
             const review = page.locator('article').filter({ hasText: reviewProbe.title })
             await review.waitFor({ timeout: 30000 })
             const reviewText = await review.textContent()
