@@ -410,6 +410,66 @@ describe('useCmsStudioQuery', () => {
     host.convex = undefined
   })
 
+  it('replays an in-flight tail page when the live first page changes', async () => {
+    let onResult:
+      | ((value: { page: string[]; isDone: boolean; continueCursor: string | null }) => void)
+      | null = null
+    let resolveStalePage!: (value: {
+      page: string[]
+      isDone: boolean
+      continueCursor: string | null
+    }) => void
+    const stalePage = new Promise<{
+      page: string[]
+      isDone: boolean
+      continueCursor: string | null
+    }>((resolve) => {
+      resolveStalePage = resolve
+    })
+    const queryPage = vi.fn((_query, args: { paginationOpts: { cursor: string } }) =>
+      args.paginationOpts.cursor === 'cursor-1'
+        ? stalePage
+        : Promise.resolve({ page: ['B', 'C'], isDone: false, continueCursor: 'cursor-new-2' }),
+    )
+    host.convex = {
+      onUpdate: vi.fn((_query, _args, next) => {
+        onResult = next
+        return vi.fn()
+      }),
+      query: queryPage,
+    }
+    const Host = defineComponent({
+      setup() {
+        return {
+          result: useCmsStudioPaginatedQuery(query as never, {}, { initialNumItems: 2 }),
+        }
+      },
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host)
+    await nextTick()
+    onResult?.({ page: ['A', 'B'], isDone: false, continueCursor: 'cursor-1' })
+    await nextTick()
+
+    wrapper.vm.result.loadMore(2)
+    onResult?.({ page: ['X', 'A'], isDone: false, continueCursor: 'cursor-new-1' })
+
+    await vi.waitFor(() => {
+      expect(wrapper.vm.result.results.value).toEqual(['X', 'A', 'B', 'C'])
+    })
+    expect(queryPage).toHaveBeenCalledWith(
+      query,
+      expect.objectContaining({ paginationOpts: { cursor: 'cursor-new-1', numItems: 2 } }),
+    )
+
+    resolveStalePage({ page: ['stale'], isDone: true, continueCursor: null })
+    await nextTick()
+    expect(wrapper.vm.result.results.value).toEqual(['X', 'A', 'B', 'C'])
+
+    wrapper.unmount()
+    host.convex = undefined
+  })
+
   it('exposes first-page metadata without mixing it into paginated rows', async () => {
     let onResult:
       | ((value: {

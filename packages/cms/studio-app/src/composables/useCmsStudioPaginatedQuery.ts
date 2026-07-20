@@ -93,6 +93,7 @@ export function useCmsStudioPaginatedQuery<
   let subscriptionGeneration = 0
   let disposed = false
   let inFlightCursor: string | null = null
+  let inFlightPageSize: number | null = null
   let lastPrincipalKey: string | null = null
 
   const gatedArgs = computed(() => {
@@ -208,6 +209,7 @@ export function useCmsStudioPaginatedQuery<
     unsubscribe?.()
     unsubscribe = null
     inFlightCursor = null
+    inFlightPageSize = null
     loadedTailPageSizes.length = 0
     const principalChanged = lastPrincipalKey !== null && lastPrincipalKey !== principalKey
     lastPrincipalKey = principalKey
@@ -242,9 +244,13 @@ export function useCmsStudioPaginatedQuery<
           principalKey !== auth.principalKey.value
         )
           return
+        if (inFlightCursor !== null && inFlightPageSize !== null) {
+          loadedTailPageSizes.push(inFlightPageSize)
+        }
         requestGeneration += 1
         const nextGeneration = requestGeneration
         inFlightCursor = null
+        inFlightPageSize = null
         isRefreshingTail.value = false
         const tailPageSizes = [...loadedTailPageSizes]
         rawResults.value = page.page
@@ -284,6 +290,7 @@ export function useCmsStudioPaginatedQuery<
     unsubscribe?.()
     unsubscribe = null
     inFlightCursor = null
+    inFlightPageSize = null
     rawResults.value = []
     rawPageData.value = null
     continueCursor.value = null
@@ -301,6 +308,7 @@ export function useCmsStudioPaginatedQuery<
     if (!convex || baseArgs == null || !cursor || inFlightCursor === cursor) return
     const generation = requestGeneration
     inFlightCursor = cursor
+    inFlightPageSize = numItems
     isLoading.value = true
     void convex
       .query(query, pageArgs(baseArgs, cursor, numItems))
@@ -313,6 +321,8 @@ export function useCmsStudioPaginatedQuery<
           return
         rawResults.value = [...rawResults.value, ...page.page]
         loadedTailPageSizes.push(numItems)
+        inFlightCursor = null
+        inFlightPageSize = null
         continueCursor.value = page.continueCursor
         isExhausted.value = page.isDone
         error.value = null
@@ -327,12 +337,15 @@ export function useCmsStudioPaginatedQuery<
         }
       })
       .finally(() => {
+        if (!disposed && inFlightCursor === cursor && principalKey === auth.principalKey.value) {
+          inFlightCursor = null
+          inFlightPageSize = null
+        }
         if (
           !disposed &&
           generation === requestGeneration &&
           principalKey === auth.principalKey.value
         ) {
-          inFlightCursor = null
           isLoading.value = false
         }
       })
