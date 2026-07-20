@@ -147,25 +147,20 @@ export function createMcpProof({
         await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
         const label = `Proof ${fixtureToken}`.slice(0, 80)
         await page.locator('input[placeholder="Preview client"]').fill(label)
-        const responsePromise = page.waitForResponse(
-          (response) => response.url().includes('/api/auth/api-key/create'),
-          { timeout: 30000 },
-        )
         await page.getByRole('button', { name: 'Create MCP connection' }).click()
-        const response = await responsePromise
-        const body = await response.json().catch(() => null)
-        if (!response.ok()) {
-          throw new Error(
-            `API key create failed ${response.status()}: ${redact(JSON.stringify(body))}`,
-          )
-        }
-        const rawKey = body?.key ?? body?.data?.key
-        const keyId = body?.id ?? body?.data?.id
-        if (!rawKey || !keyId) throw new Error('API key create response did not include key/id')
-        activeConnection = { label, rawKey, keyId, revoked: false }
-        registerSecret(rawKey)
         await page.getByText('MCP connection created.').waitFor({ timeout: 30000 })
         await page.getByText(label).waitFor({ timeout: 30000 })
+        const token = page
+          .locator('code')
+          .filter({ hasText: /^[a-f0-9]{64}$/ })
+          .first()
+        await token.waitFor({ timeout: 30000 })
+        const rawKey = (await token.textContent())?.trim()
+        if (!rawKey || !/^[a-f0-9]{64}$/.test(rawKey)) {
+          throw new Error('MCP create result did not expose one canonical one-time bearer token')
+        }
+        activeConnection = { label, rawKey, revoked: false }
+        registerSecret(rawKey)
         await page.getByText(rawKey, { exact: true }).waitFor({ timeout: 30000 })
 
         const auth = await initialize(rawKey)
@@ -175,7 +170,7 @@ export function createMcpProof({
             `authenticated MCP initialize failed ${auth.status}: ${redact(authText).slice(0, 300)}`,
           )
         }
-        return { apiKeyIdLength: keyId.length, authenticatedStatus: auth.status }
+        return { tokenLength: rawKey.length, authenticatedStatus: auth.status }
       },
     )
 

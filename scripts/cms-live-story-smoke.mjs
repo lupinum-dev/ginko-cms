@@ -112,6 +112,13 @@ const screenshotStoryIds = new Set([
   'mcp.revoke',
 ])
 
+// These journeys intentionally expose a one-time credential in the page while
+// they verify it. A failure must never persist those pixels as evidence.
+const screenshotSensitiveStoryIds = new Set([
+  'mcp.create-authenticated',
+  'mcp.raw-key-one-time-visible',
+])
+
 function redact(value) {
   let redacted = String(value).replace(/[\w-]{24,}/g, '[REDACTED]')
   const roleSecrets = Object.values(disposableRoles).flatMap((credentials) => [
@@ -169,7 +176,9 @@ async function story(id, title, run) {
       evidence: screenshot ? { ...(evidence ?? {}), screenshot } : (evidence ?? null),
     })
   } catch (error) {
-    const screenshot = await captureStoryScreenshot(id, '-failed').catch(() => null)
+    const screenshot = screenshotSensitiveStoryIds.has(id)
+      ? null
+      : await captureStoryScreenshot(id, '-failed').catch(() => null)
     results.push({
       id,
       title,
