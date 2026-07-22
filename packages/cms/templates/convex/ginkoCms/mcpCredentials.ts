@@ -13,6 +13,16 @@ const mcpCredentialScopeValidator = v.union(
   ...mcpCredentialScopeKeys.map((scope) => v.literal(scope)),
 )
 
+const resolvedCredentialAccessValidator = v.union(
+  v.object({
+    apiKeyId: v.string(),
+    ownerUserId: v.string(),
+    scopes: v.array(mcpCredentialScopeValidator),
+    expiresAt: v.union(v.number(), v.null()),
+  }),
+  v.null(),
+)
+
 const limiterArgs = {
   ipBucketKey: v.string(),
   credentialBucketKey: v.string(),
@@ -95,6 +105,7 @@ export const resolveAccessBySecretHash = query({
     _mcpTimestamp: v.number(),
     _mcpSignature: v.string(),
   },
+  returns: resolvedCredentialAccessValidator,
   handler: async (ctx, args) => {
     try {
       await assertMcpCallerSignedRequest(

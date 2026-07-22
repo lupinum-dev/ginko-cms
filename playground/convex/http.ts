@@ -2,9 +2,13 @@
 import { httpRouter } from 'convex/server'
 
 import { authComponent, createAuth } from './auth'
+import { handle as mcpPilot } from './ginkoCms/mcpPilot'
 
 const http = httpRouter()
 
 authComponent.registerRoutes(http, createAuth)
+http.route({ path: '/mcp-pilot', method: 'GET', handler: mcpPilot })
+http.route({ path: '/mcp-pilot', method: 'POST', handler: mcpPilot })
+http.route({ path: '/mcp-pilot', method: 'DELETE', handler: mcpPilot })
 
 export default http

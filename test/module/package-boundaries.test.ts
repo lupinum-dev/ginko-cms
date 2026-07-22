@@ -211,6 +211,7 @@ describe('package boundary contracts', () => {
       './component',
       './convex.auth',
       './convex.config',
+      './mcp',
       './mcp-limiter-protocol',
       './operations',
     ])

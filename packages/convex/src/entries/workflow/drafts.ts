@@ -10,6 +10,7 @@
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
+import { throwCmsError } from '../../errors.js'
 import { assertMdcBodyWithinLimit } from '../../lib/contentLimits.js'
 import { isEqualJsonValue } from '../../lib/data.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../../lib/types.js'
@@ -48,18 +49,6 @@ export interface SaveDraftPatch {
   locales?: Record<string, LocaleDraftPatch>
 }
 
-export class DraftConcurrencyError extends Error {
-  constructor(
-    public readonly expected: number,
-    public readonly actual: number,
-  ) {
-    super(
-      `Draft save rejected: expectedDraftVersion=${expected} but entries.draftVersion=${actual}`,
-    )
-    this.name = 'DraftConcurrencyError'
-  }
-}
-
 export class EntryNotFoundError extends Error {
   constructor(public readonly entryId: Id<'entries'>) {
     super(`Entry not found: ${entryId}`)
@@ -94,7 +83,10 @@ export async function applyDraftPatch(
   const entry = await ctx.db.get(input.entryId)
   if (!entry) throw new EntryNotFoundError(input.entryId)
   if (entry.draftVersion !== input.expectedDraftVersion) {
-    throw new DraftConcurrencyError(input.expectedDraftVersion, entry.draftVersion)
+    throwCmsError('ENTRY_DRAFT_VERSION_CONFLICT', 'The draft changed before it was saved.', {
+      expectedDraftVersion: input.expectedDraftVersion,
+      actualDraftVersion: entry.draftVersion,
+    })
   }
 
   const sharedUpdated = Boolean(input.patch.shared && sharedDraftChanged(entry, input.patch.shared))

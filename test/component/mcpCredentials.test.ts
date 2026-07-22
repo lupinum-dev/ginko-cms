@@ -54,7 +54,12 @@ describe('component: CMS-owned MCP credentials', () => {
       ctx.raw.query(api.mcpCredentials.resolveAccessBySecretHash, {
         secretHash: secretHash(created.bearerToken),
       }),
-    ).resolves.toEqual({ apiKeyId: created.settings.apiKeyId, ownerUserId: 'owner-1' })
+    ).resolves.toEqual({
+      apiKeyId: created.settings.apiKeyId,
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read],
+      expiresAt: null,
+    })
     expect(JSON.stringify(await owner.query(api.mcpCredentials.listOwnSettings, {}))).not.toContain(
       secretHash(created.bearerToken),
     )

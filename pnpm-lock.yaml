@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@better-convex/mcp': github:lupinum-dev/better-convex-nuxt#83b7f3f91901caececc356c078f2eb8c80ec710e
   '@babel/core': 7.29.6
   '@vitest/browser': 4.1.10
   '@vitest/browser-playwright': 4.1.10
@@ -377,12 +378,18 @@ importers:
 
   packages/convex:
     dependencies:
+      '@better-convex/mcp':
+        specifier: github:lupinum-dev/better-convex-nuxt#83b7f3f91901caececc356c078f2eb8c80ec710e
+        version: https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e
       '@lupinum/ginko-cms-contract':
         specifier: workspace:^0.2.0-rc.1
         version: link:../contract
       '@lupinum/ginko-content':
         specifier: github:lupinum-dev/ginko-content#fd7e8fda6e60c61244424941c4811c09d626be6f&path:/packages/content
         version: https://codeload.github.com/lupinum-dev/ginko-content/tar.gz/fd7e8fda6e60c61244424941c4811c09d626be6f#path:/packages/content(53c00b12c1620c221777edbc706b2ab1)
+      '@modelcontextprotocol/server':
+        specifier: 2.0.0-beta.5
+        version: 2.0.0-beta.5
       better-auth:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
@@ -392,9 +399,15 @@ importers:
       convex:
         specifier: 1.42.2
         version: 1.42.2(react@19.2.6)
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   playground:
     dependencies:
+      '@better-convex/mcp':
+        specifier: github:lupinum-dev/better-convex-nuxt#83b7f3f91901caececc356c078f2eb8c80ec710e
+        version: https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e
       '@lupinum/ginko-cms':
         specifier: workspace:*
         version: link:../packages/cms
@@ -407,6 +420,9 @@ importers:
       '@lupinum/ginko-content':
         specifier: github:lupinum-dev/ginko-content#fd7e8fda6e60c61244424941c4811c09d626be6f&path:/packages/content
         version: https://codeload.github.com/lupinum-dev/ginko-content/tar.gz/fd7e8fda6e60c61244424941c4811c09d626be6f#path:/packages/content(53c00b12c1620c221777edbc706b2ab1)
+      '@modelcontextprotocol/server':
+        specifier: 2.0.0-beta.5
+        version: 2.0.0-beta.5
       '@nuxtjs/sitemap':
         specifier: ^8.0.15
         version: 8.0.15(@nuxt/schema@4.4.8)(magicast@0.5.2)(nuxt@4.4.8(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.1)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.1)(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.15)(terser@5.47.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.3.7(typescript@5.9.3))(yaml@2.9.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))(zod@4.4.3)
@@ -437,8 +453,16 @@ importers:
       tailwindcss:
         specifier: ^4.3.0
         version: 4.3.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
 packages:
+
+  '@better-convex/mcp@https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e':
+    resolution: {gitHosted: true, integrity: sha512-CxtZfoAvkoZxcD+UPJX7P1qTPGYeCpr6nIrQNHtwsDIKsokOHumFQoIIEPYGmuDWyHtHUrpdm5p0ZhkJm1rfNA==, tarball: https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e}
+    version: 0.1.0-beta.0
+    engines: {node: '>=22.14.0'}
 
   '@antfu/install-pkg@1.1.0':
     resolution: {integrity: sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==}
@@ -1200,6 +1224,10 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  '@modelcontextprotocol/core@2.0.0-beta.5':
+    resolution: {integrity: sha512-HKbY9XTbsDy1Y6r2I55TGE3JEapM0vg96e1MUmBIF9LGjos5gjhcIrTz1yvBPLg2aFKHjwhUAQfRdrCEnPxNew==}
+    engines: {node: '>=20'}
+
   '@modelcontextprotocol/sdk@1.29.0':
     resolution: {integrity: sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==}
     engines: {node: '>=18'}
@@ -1209,6 +1237,10 @@ packages:
     peerDependenciesMeta:
       '@cfworker/json-schema':
         optional: true
+
+  '@modelcontextprotocol/server@2.0.0-beta.5':
+    resolution: {integrity: sha512-i1E5l75rQKsgY/AKAIspgMBH1vEL7dqiK7tHr0L+raYcb0SWOziqNGJXGIG6NY4AlXDWIKGJQGB7Nqfs3oUi5g==}
+    engines: {node: '>=20'}
 
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
@@ -7511,6 +7543,10 @@ packages:
 
 snapshots:
 
+  '@better-convex/mcp@https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e':
+    dependencies:
+      '@modelcontextprotocol/server': 2.0.0-beta.5
+
   '@antfu/install-pkg@1.1.0':
     dependencies:
       package-manager-detector: 1.6.0
@@ -8268,6 +8304,10 @@ snapshots:
       - encoding
       - supports-color
 
+  '@modelcontextprotocol/core@2.0.0-beta.5':
+    dependencies:
+      zod: 4.4.3
+
   '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.25)
@@ -8289,6 +8329,11 @@ snapshots:
       zod-to-json-schema: 3.25.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
+
+  '@modelcontextprotocol/server@2.0.0-beta.5':
+    dependencies:
+      '@modelcontextprotocol/core': 2.0.0-beta.5
+      zod: 4.4.3
 
   '@napi-rs/wasm-runtime@0.2.12':
     dependencies:

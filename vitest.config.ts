@@ -56,6 +56,7 @@ export default defineConfig({
         __dirname,
         'packages/convex/src/mcpLimiterProtocol.ts',
       ),
+      '@lupinum/ginko-cms-convex/mcp': resolve(__dirname, 'packages/convex/src/mcpHandler.ts'),
       '@lupinum/ginko-cms-convex': resolve(__dirname, 'packages/convex/src'),
       '@lupinum/ginko-cms': resolve(__dirname, 'packages/cms/src/module.ts'),
       vue: resolve(__dirname, 'node_modules/vue'),

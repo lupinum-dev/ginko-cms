@@ -1,0 +1,189 @@
+import { describe, expect, it } from 'vitest'
+
+import { createGinkoMcpPilotHandler } from '../../playground/convex/ginkoCms/mcpPilot'
+
+const resource = new URL('https://ginko.example.test/mcp-pilot')
+const bearer = 'ginko-pilot-bearer-sentinel'
+
+function functionName(reference: unknown) {
+  return (reference as Record<symbol, unknown>)[Symbol.for('functionName')]
+}
+
+function createFixture() {
+  let credentialActive = true
+  let applicationAccess: 'allowed' | 'revoked-member' | 'cross-tenant' = 'allowed'
+  let scopes = ['readCms', 'editEntries']
+  let draftVersion = 1
+  const calls: Array<{ functionName: unknown; args: unknown }> = []
+  const ctx = {
+    async runQuery(reference: unknown, args: unknown) {
+      const name = functionName(reference)
+      calls.push({ functionName: name, args })
+      if (name === 'ginkoCms/mcpPilotOperations:getEntry') {
+        if (applicationAccess !== 'allowed') {
+          throw new Error(`private application denial: ${applicationAccess}`)
+        }
+        return { _id: 'entry-1', draftVersion }
+      }
+      return credentialActive
+        ? {
+            apiKeyId: 'mcp_credential_1',
+            ownerUserId: 'owner-1',
+            scopes,
+            expiresAt: null,
+          }
+        : null
+    },
+    async runMutation(reference: unknown, args: Record<string, unknown>) {
+      const name = functionName(reference)
+      calls.push({ functionName: name, args })
+      if (applicationAccess !== 'allowed') {
+        throw new Error(`private application denial: ${applicationAccess}`)
+      }
+      if (args.expectedDraftVersion !== draftVersion) {
+        const error = new Error('opaque') as Error & { data: unknown }
+        error.data = { code: 'ENTRY_DRAFT_VERSION_CONFLICT' }
+        throw error
+      }
+      draftVersion += 1
+      return { draftVersion, affectedLocales: [], sharedUpdated: true }
+    },
+  }
+  return {
+    calls,
+    ctx,
+    revoke: () => {
+      credentialActive = false
+    },
+    denyApplication: (reason: 'revoked-member' | 'cross-tenant') => {
+      applicationAccess = reason
+    },
+    setScopes: (next: string[]) => {
+      scopes = next
+    },
+  }
+}
+
+async function callTool(
+  fixture: ReturnType<typeof createFixture>,
+  name: string,
+  args: Record<string, unknown>,
+  token = bearer,
+) {
+  const handler = createGinkoMcpPilotHandler(fixture.ctx as never, new URL(resource.origin))
+  const response = await handler.fetch(
+    fixture.ctx as never,
+    new Request(resource, {
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name,
+          arguments: args,
+          _meta: {
+            'io.modelcontextprotocol/clientInfo': {
+              name: 'ginko-pilot-test',
+              version: '0.1.0',
+            },
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+            'io.modelcontextprotocol/clientCapabilities': {},
+          },
+        },
+      }),
+      headers: {
+        accept: 'application/json, text/event-stream',
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'mcp-method': 'tools/call',
+        'mcp-name': name,
+        'mcp-protocol-version': '2026-07-28',
+      },
+      method: 'POST',
+    }),
+  )
+  const text = await response.text()
+  return {
+    response,
+    text,
+    body: JSON.parse(text.startsWith('data: ') ? text.slice(6).trim() : text) as Record<
+      string,
+      unknown
+    >,
+  }
+}
+
+describe('Ginko Convex-native MCP pilot', () => {
+  it('maps one read and ordinary draft write without passing the bearer into Convex args', async () => {
+    const fixture = createFixture()
+    const read = await callTool(fixture, 'get_entry', { entryId: 'entry-1' })
+    expect(read.response.status).toBe(200)
+    expect(read.body).toMatchObject({
+      result: { structuredContent: { entry: { _id: 'entry-1', draftVersion: 1 } } },
+    })
+
+    const write = await callTool(fixture, 'save_entry_draft', {
+      agentRunId: 'run-1',
+      entryId: 'entry-1',
+      expectedDraftVersion: 1,
+      patch: { shared: { slug: 'updated' } },
+    })
+    expect(write.body).toMatchObject({
+      result: { structuredContent: { result: { draftVersion: 2 } } },
+    })
+    expect(JSON.stringify(fixture.calls)).not.toContain(bearer)
+    expect(JSON.stringify(read.body)).not.toContain(bearer)
+    expect(JSON.stringify(write.body)).not.toContain(bearer)
+  })
+
+  it('fails current credential, scope, and optimistic-concurrency checks safely', async () => {
+    const fixture = createFixture()
+    const conflict = await callTool(fixture, 'save_entry_draft', {
+      agentRunId: 'run-1',
+      entryId: 'entry-1',
+      expectedDraftVersion: 0,
+      patch: {},
+    })
+    expect(conflict.body).toMatchObject({
+      result: {
+        isError: true,
+        structuredContent: {
+          error: { category: 'conflict', code: 'ENTRY_DRAFT_VERSION_CONFLICT', retryable: true },
+        },
+      },
+    })
+
+    fixture.setScopes(['readCms'])
+    const denied = await callTool(fixture, 'save_entry_draft', {
+      agentRunId: 'run-1',
+      entryId: 'entry-1',
+      expectedDraftVersion: 1,
+      patch: {},
+    })
+    expect(denied.body).toMatchObject({
+      result: { isError: true, structuredContent: { error: { code: 'MCP_CAPABILITY_REQUIRED' } } },
+    })
+
+    fixture.revoke()
+    const revoked = await callTool(fixture, 'get_entry', { entryId: 'entry-1' })
+    expect(revoked.response.status).toBe(401)
+    expect(revoked.response.headers.get('www-authenticate')).not.toContain('resource_metadata')
+    expect(revoked.text).not.toContain(bearer)
+  })
+
+  it.each(['revoked-member', 'cross-tenant'] as const)(
+    'keeps current application denial opaque for %s access',
+    async (reason) => {
+      const fixture = createFixture()
+      fixture.denyApplication(reason)
+
+      const denied = await callTool(fixture, 'get_entry', { entryId: 'entry-foreign' })
+
+      expect(denied.response.status).toBe(200)
+      expect(denied.body).toMatchObject({ result: { isError: true } })
+      expect(denied.text).not.toContain('private application denial')
+      expect(denied.text).not.toContain(reason)
+      expect(denied.text).not.toContain(bearer)
+    },
+  )
+})

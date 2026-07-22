@@ -3,12 +3,14 @@ packages:
   - 'playground'
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
+  - '@better-convex/mcp'
   - '@lupinum/ginko-content'
   - '@nuxt/*'
   - better-convex-nuxt
   - better-convex-vue
   - nuxt
 allowBuilds:
+  '@better-convex/mcp@https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e': true
   '@parcel/watcher': true
   '@lupinum/ginko-content@https://codeload.github.com/lupinum-dev/ginko-content/tar.gz/fd7e8fda6e60c61244424941c4811c09d626be6f#path:/packages/content': true
   better-sqlite3: true
@@ -17,6 +19,7 @@ allowBuilds:
   unrs-resolver: true
   vue-demi: true
 overrides:
+  '@better-convex/mcp': 'github:lupinum-dev/better-convex-nuxt#83b7f3f91901caececc356c078f2eb8c80ec710e'
   # Release audit overrides. These affect local workspace resolution only; packed
   # package manifests must not ship override policy. Remove a line when
   # `pnpm why <name>` shows all upstream owners resolve the patched version

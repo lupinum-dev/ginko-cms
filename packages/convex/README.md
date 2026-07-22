@@ -32,9 +32,15 @@ import betterAuth from './betterAuth/convex.config'
 
 - `@lupinum/ginko-cms-convex/convex.config`
 - `@lupinum/ginko-cms-convex/convex.auth`
+- `@lupinum/ginko-cms-convex/mcp`
 - `@lupinum/ginko-cms-convex/mcp-limiter-protocol`
 - `@lupinum/ginko-cms-convex/component`
 - `@lupinum/ginko-cms-convex/operations`
+
+The experimental `mcp` subpath provides the Ginko-owned tool catalog and
+schemas on top of `@better-convex/mcp`. Generated host setup binds those tools
+to current component operations; it does not forward bearer credentials into
+Convex arguments or move CMS authorization into the transport layer.
 
 ## Scope
 

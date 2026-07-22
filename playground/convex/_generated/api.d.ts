@@ -22,6 +22,8 @@ import type * as ginkoCms_editor from "../ginkoCms/editor.js";
 import type * as ginkoCms_maintenance from "../ginkoCms/maintenance.js";
 import type * as ginkoCms_mcpCaller from "../ginkoCms/mcpCaller.js";
 import type * as ginkoCms_mcpCredentials from "../ginkoCms/mcpCredentials.js";
+import type * as ginkoCms_mcpPilot from "../ginkoCms/mcpPilot.js";
+import type * as ginkoCms_mcpPilotOperations from "../ginkoCms/mcpPilotOperations.js";
 import type * as ginkoCms_members from "../ginkoCms/members.js";
 import type * as ginkoCms_passwordRecovery from "../ginkoCms/passwordRecovery.js";
 import type * as ginkoCms_portability from "../ginkoCms/portability.js";
@@ -53,6 +55,8 @@ declare const fullApi: ApiFromModules<{
   "ginkoCms/maintenance": typeof ginkoCms_maintenance;
   "ginkoCms/mcpCaller": typeof ginkoCms_mcpCaller;
   "ginkoCms/mcpCredentials": typeof ginkoCms_mcpCredentials;
+  "ginkoCms/mcpPilot": typeof ginkoCms_mcpPilot;
+  "ginkoCms/mcpPilotOperations": typeof ginkoCms_mcpPilotOperations;
   "ginkoCms/members": typeof ginkoCms_members;
   "ginkoCms/passwordRecovery": typeof ginkoCms_passwordRecovery;
   "ginkoCms/portability": typeof ginkoCms_portability;

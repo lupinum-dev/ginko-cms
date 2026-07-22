@@ -39,6 +39,8 @@ const resolvedCredentialAccessValidator = v.union(
   v.object({
     apiKeyId: v.string(),
     ownerUserId: v.string(),
+    scopes: v.array(mcpCredentialScopeValidator),
+    expiresAt: v.union(v.number(), v.null()),
   }),
   v.null(),
 )
@@ -273,6 +275,8 @@ export const resolveAccessBySecretHash = callerQuery.public({
     return {
       apiKeyId: settings.apiKeyId,
       ownerUserId: settings.ownerUserId,
+      scopes: settings.scopes,
+      expiresAt: settings.expiresAt ?? null,
     }
   },
 })

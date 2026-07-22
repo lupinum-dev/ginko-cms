@@ -31,6 +31,10 @@
       "types": "./dist/mcpLimiterProtocol.d.ts",
       "import": "./dist/mcpLimiterProtocol.js"
     },
+    "./mcp": {
+      "types": "./dist/mcpHandler.d.ts",
+      "import": "./dist/mcpHandler.js"
+    },
     "./component": {
       "types": "./dist/_generated/component.d.ts",
       "import": "./dist/_generated/component.js"
@@ -51,10 +55,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json"
   },
   "dependencies": {
+    "@better-convex/mcp": "0.1.0-beta.0",
     "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.1",
     "@lupinum/ginko-content": "^0.3.0-rc.5",
+    "@modelcontextprotocol/server": "2.0.0-beta.5",
     "better-convex-nuxt": "0.8.0-beta.4",
-    "convex": "1.42.2"
+    "convex": "1.42.2",
+    "zod": "4.4.3"
   },
   "peerDependencies": {
     "better-auth": "1.7.0-rc.1"
