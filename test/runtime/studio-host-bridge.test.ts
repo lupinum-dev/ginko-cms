@@ -91,19 +91,26 @@ describe('Studio host bridge allowlist (buildStudioHostApi, vNext §10.7)', () =
     )
   })
 
-  it('keeps the bridge type free of nuxtApp, convexUrl, getAuthToken, and isAnonymous', () => {
+  it('keeps the bridge surface limited to the token-free attachment and presentation observer', () => {
     const bridgeKeys: Array<keyof GinkoCmsStudioHostBridge> = [
-      'convexClient',
+      'runtime',
       'config',
       'api',
       'auth',
-      'mcpApiKeys',
       'onSignOut',
     ]
     // Type-level: this line fails to compile if the bridge interface ever grows
     // a `nuxtApp`, `convexUrl`, `getAuthToken`, or `isAnonymous` member again,
     // because such a key would not be assignable to `keyof GinkoCmsStudioHostBridge`.
-    const forbidden = ['nuxtApp', 'convexUrl', 'getAuthToken', 'isAnonymous']
+    const forbidden = [
+      'nuxtApp',
+      'convexUrl',
+      'getAuthToken',
+      'isAnonymous',
+      'convexClient',
+      'token',
+      'cookie',
+    ]
     expect(bridgeKeys.map(String)).not.toEqual(expect.arrayContaining(forbidden))
     expect(forbidden.some((key) => bridgeKeys.map(String).includes(key))).toBe(false)
   })

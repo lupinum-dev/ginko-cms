@@ -1,3 +1,4 @@
+import { createBetterConvex } from 'better-convex-vue'
 import { createApp } from 'vue'
 
 import App from './App.vue'
@@ -88,7 +89,9 @@ void Promise.all([waitForMountTarget(), waitForHostBridge()])
     const mountRoot = prepareMountRoot(target)
     const app = createApp(App)
     const router = createStudioRouter()
-    app.provide(studioHostContextKey, createStudioHostContext())
+    const studioHost = createStudioHostContext()
+    app.provide(studioHostContextKey, studioHost)
+    app.use(createBetterConvex({ runtime: studioHost.runtime }))
     // These names used to come from Nuxt auto-imports in the host app. Register
     // them explicitly so the standalone Studio SPA owns its Nuxt-compat surface.
     app.component('Icon', Icon)

@@ -1,3 +1,7 @@
+import {
+  useConvexAction as useBetterConvexAction,
+  useConvexMutation as useBetterConvexMutation,
+} from 'better-convex-vue'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { GenericId } from 'convex/values'
 import {
@@ -10,7 +14,6 @@ import {
   watch,
 } from 'vue'
 
-import { useStudioHostContext } from '../boundary/studio-host-context'
 import { useCmsAuthState } from './useCmsAuthState'
 import {
   normalizeCmsStudioQueryError,
@@ -24,7 +27,7 @@ type StudioMutationReturn<Mutation extends FunctionReference<'mutation'>> = ((
   data: Ref<FunctionReturnType<Mutation> | undefined>
   status: ComputedRef<'idle' | 'pending' | 'success' | 'error'>
   pending: ComputedRef<boolean>
-  error: Ref<Error | null>
+  error: ComputedRef<Error | null>
   reset: () => void
 }
 
@@ -39,12 +42,11 @@ type StudioActionReturn<Action extends FunctionReference<'action'>> = ((
   data: Ref<FunctionReturnType<Action> | undefined>
   status: ComputedRef<'idle' | 'pending' | 'success' | 'error'>
   pending: ComputedRef<boolean>
-  error: Ref<Error | null>
+  error: ComputedRef<Error | null>
   reset: () => void
 }
 
-function useStudioOperationScope(onRetire: () => void) {
-  const studioHost = useStudioHostContext()
+function useStudioUploadScope(onRetire: () => void) {
   const auth = useCmsAuthState()
   const { principalKey } = auth
   let disposed = false
@@ -60,21 +62,7 @@ function useStudioOperationScope(onRetire: () => void) {
     retire()
   })
 
-  const readBridgeAuth = () => studioHost.getBridge().auth
-  const readPrincipalKey = () => {
-    const bridgeAuth = readBridgeAuth()
-    if (!bridgeAuth) return auth.principalKey.value
-    if (bridgeAuth.status.value === 'loading') return 'pending'
-    if (!bridgeAuth.isAuthenticated.value) return 'anonymous'
-    const rawUser = bridgeAuth.user.value
-    if (!rawUser || typeof rawUser !== 'object') return 'anonymous'
-    const user = rawUser as unknown as Record<string, unknown>
-    const id =
-      (typeof user.id === 'string' ? user.id : null) ??
-      (typeof user._id === 'string' ? user._id : null) ??
-      (typeof user.userId === 'string' ? user.userId : null)
-    return id ? `user:${id}` : 'anonymous'
-  }
+  const readPrincipalKey = () => auth.principalKey.value
 
   const isCurrent = (operation: { generation: number; principalKey: string }) =>
     !disposed &&
@@ -83,30 +71,24 @@ function useStudioOperationScope(onRetire: () => void) {
 
   return {
     authenticationSettlement(): Promise<void> | null {
-      const initialAuth = readBridgeAuth()
-      if (!initialAuth) return null
-      if (!initialAuth.isPending.value) {
-        if (initialAuth.error.value) throw initialAuth.error.value
-        if (!initialAuth.isAuthenticated.value) {
+      if (!auth.authEnabled.value) return null
+      if (!auth.pending.value) {
+        if (auth.error.value) throw auth.error.value
+        if (!auth.isAuthenticated.value) {
           throw new Error('Authentication is required before the Studio write.')
         }
         return null
       }
       return (async () => {
         const deadline = Date.now() + 30_000
-        let currentAuth = readBridgeAuth()
-        while (currentAuth?.isPending.value === true && Date.now() < deadline) {
+        while (auth.pending.value && Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, 25))
-          currentAuth = readBridgeAuth()
         }
-        if (!currentAuth) {
-          throw new Error('Authentication became unavailable before the Studio write.')
-        }
-        if (currentAuth.error.value) throw currentAuth.error.value
-        if (currentAuth.isPending.value) {
+        if (auth.error.value) throw auth.error.value
+        if (auth.pending.value) {
           throw new Error('Authentication did not settle before the Studio write.')
         }
-        if (!currentAuth.isAuthenticated.value) {
+        if (!auth.isAuthenticated.value) {
           throw new Error('Authentication is required before the Studio write.')
         }
       })()
@@ -219,49 +201,30 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   type Args = FunctionArgs<Mutation>
   type Result = FunctionReturnType<Mutation>
 
-  const studioHost = useStudioHostContext()
-  const data = ref<Result | undefined>(undefined)
-  const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
-  const error = ref<Error | null>(null)
-  const clearState = () => {
-    data.value = undefined
-    status.value = 'idle'
-    error.value = null
-  }
-  const scope = useStudioOperationScope(clearState)
+  const callable = useBetterConvexMutation(mutation, {
+    onSuccess: options?.onSuccess,
+    onError: (error, args) =>
+      options?.onError?.(normalizeCmsStudioQueryError(error, mutation, 'mutation'), args),
+  })
 
   const execute = (async (args: Args): Promise<Result> => {
-    let operation: ReturnType<typeof scope.begin> | null = null
-    status.value = 'pending'
-    error.value = null
     try {
-      const settlement = scope.authenticationSettlement()
-      if (settlement) await settlement
-      operation = scope.begin()
-      const result = await studioHost.requireConvexClient().mutation(mutation, args)
-      if (!scope.isCurrent(operation)) return result
-      data.value = result
-      status.value = 'success'
-      options?.onSuccess?.(result, args)
-      return result
+      return await callable(args)
     } catch (err) {
       const normalized = normalizeCmsStudioQueryError(err, mutation, 'mutation')
-      if (operation ? scope.isCurrent(operation) : scope.canReset()) {
-        error.value = normalized
-        status.value = 'error'
-        options?.onError?.(normalized, args)
-      }
       throw normalized
     }
   }) as StudioMutationReturn<Mutation>
 
-  execute.data = data
-  execute.status = computed(() => status.value)
-  execute.pending = computed(() => status.value === 'pending')
-  execute.error = error
-  execute.reset = () => {
-    if (scope.canReset()) clearState()
-  }
+  execute.data = callable.data
+  execute.status = callable.status
+  execute.pending = callable.pending
+  execute.error = computed(() =>
+    callable.error.value
+      ? normalizeCmsStudioQueryError(callable.error.value, mutation, 'mutation')
+      : null,
+  )
+  execute.reset = callable.reset
 
   return execute
 }
@@ -273,49 +236,30 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   type Args = FunctionArgs<Action>
   type Result = FunctionReturnType<Action>
 
-  const studioHost = useStudioHostContext()
-  const data = ref<Result | undefined>(undefined)
-  const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
-  const error = ref<Error | null>(null)
-  const clearState = () => {
-    data.value = undefined
-    status.value = 'idle'
-    error.value = null
-  }
-  const scope = useStudioOperationScope(clearState)
+  const callable = useBetterConvexAction(action, {
+    onSuccess: options?.onSuccess,
+    onError: (error, args) =>
+      options?.onError?.(normalizeCmsStudioQueryError(error, action, 'action'), args),
+  })
 
   const execute = (async (args: Args): Promise<Result> => {
-    let operation: ReturnType<typeof scope.begin> | null = null
-    status.value = 'pending'
-    error.value = null
     try {
-      const settlement = scope.authenticationSettlement()
-      if (settlement) await settlement
-      operation = scope.begin()
-      const result = await studioHost.requireConvexClient().action(action, args)
-      if (!scope.isCurrent(operation)) return result
-      data.value = result
-      status.value = 'success'
-      options?.onSuccess?.(result, args)
-      return result
+      return await callable(args)
     } catch (err) {
       const normalized = normalizeCmsStudioQueryError(err, action, 'action')
-      if (operation ? scope.isCurrent(operation) : scope.canReset()) {
-        error.value = normalized
-        status.value = 'error'
-        options?.onError?.(normalized, args)
-      }
       throw normalized
     }
   }) as StudioActionReturn<Action>
 
-  execute.data = data
-  execute.status = computed(() => status.value)
-  execute.pending = computed(() => status.value === 'pending')
-  execute.error = error
-  execute.reset = () => {
-    if (scope.canReset()) clearState()
-  }
+  execute.data = callable.data
+  execute.status = callable.status
+  execute.pending = callable.pending
+  execute.error = computed(() =>
+    callable.error.value
+      ? normalizeCmsStudioQueryError(callable.error.value, action, 'action')
+      : null,
+  )
+  execute.reset = callable.reset
 
   return execute
 }
@@ -335,7 +279,8 @@ export function useConvexUpload(
   claimUploadSessionMutation: ClaimUploadSessionMutation,
   options?: UseConvexUploadOptions,
 ): StudioUploadReturn {
-  const studioHost = useStudioHostContext()
+  const createUploadSession = useBetterConvexMutation(createUploadSessionMutation)
+  const claimUploadSession = useBetterConvexMutation(claimUploadSessionMutation)
   const data = ref<StudioUploadClaim | undefined>(undefined)
   const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
   const progress = ref(0)
@@ -346,14 +291,14 @@ export function useConvexUpload(
     progress.value = 0
     error.value = null
   }
-  const scope = useStudioOperationScope(clearState)
+  const scope = useStudioUploadScope(clearState)
 
   const uploadOne = async (
     file: File,
     operation: { generation: number; principalKey: string },
   ): Promise<StudioUploadClaim> => {
     validateUpload(file, options)
-    const session = await studioHost.requireConvexClient().mutation(createUploadSessionMutation, {})
+    const session = await createUploadSession({})
     scope.assertCurrent(operation)
     if (
       typeof session?.sessionId !== 'string' ||
@@ -365,7 +310,7 @@ export function useConvexUpload(
     }
     const storageId = await uploadFile(session.uploadUrl, file)
     scope.assertCurrent(operation)
-    const claimed = await studioHost.requireConvexClient().mutation(claimUploadSessionMutation, {
+    const claimed = await claimUploadSession({
       sessionId: session.sessionId,
       token: session.token,
       storageId,

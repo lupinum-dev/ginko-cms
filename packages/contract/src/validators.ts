@@ -40,6 +40,7 @@ export {
 } from './validators/readiness.js'
 export {
   assetManagerAssetValidator,
+  assetManagerFacetsValidator,
   assetManagerPageValidator,
   assetPageValidator,
   assetRefUsageValidator,

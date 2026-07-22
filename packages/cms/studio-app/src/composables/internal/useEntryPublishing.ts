@@ -4,7 +4,6 @@ import { nextTick, reactive } from 'vue'
 import type { useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
-import { useStudioHostContext } from '../../boundary/studio-host-context'
 import type { StudioPublishImpactResult } from '../../components/studio/editor/studioWorkflowTypes'
 import { formatDestructiveConfirmationPrompt, operationValue } from '../../lib/destructiveWorkflow'
 import { derivePublishConfirmationState, type PublishPreviewState } from '../../lib/publicWorkflow'
@@ -169,7 +168,6 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     studioDebug,
     t,
   } = deps
-  const studioHost = useStudioHostContext()
 
   const publishSession = reactive<PublishSessionState>({
     open: false,
@@ -190,10 +188,14 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
   const archiveMutation = useConvexMutation(api.ginkoCms.editor.archiveEntry)
   const restoreMutation = useConvexMutation(api.ginkoCms.editor.restoreEntry)
   const permanentlyDeleteMutation = useConvexMutation(api.ginkoCms.editor.permanentlyDeleteEntry)
-
-  function convexClient() {
-    return studioHost.requireConvexClient()
-  }
+  const previewUnpublishMutation = useConvexMutation(
+    api.ginkoCms.editor.previewUnpublishEntryOperation,
+  )
+  const previewArchiveMutation = useConvexMutation(api.ginkoCms.editor.previewArchiveEntryOperation)
+  const previewRestoreMutation = useConvexMutation(api.ginkoCms.editor.previewRestoreEntryOperation)
+  const previewPermanentlyDeleteMutation = useConvexMutation(
+    api.ginkoCms.editor.previewPermanentlyDeleteEntryOperation,
+  )
 
   function setPublishReadiness(
     next: Omit<PublishOperationPreviewState, 'confirmationToken' | 'confirmationExpiresAt'> &
@@ -367,7 +369,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     const targetLabel = _entry.value?.baseSlug ?? entryId.value
     let preview: DestructivePreview | null = null
     try {
-      preview = (await convexClient().mutation(api.ginkoCms.editor.previewUnpublishEntryOperation, {
+      preview = (await previewUnpublishMutation({
         entryId: entryId.value,
         locales: selectedLocales,
       })) as DestructivePreview
@@ -447,7 +449,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     const targetLabel = _entry.value?.baseSlug ?? entryId.value
     let preview: DestructivePreview | null = null
     try {
-      preview = (await convexClient().mutation(api.ginkoCms.editor.previewArchiveEntryOperation, {
+      preview = (await previewArchiveMutation({
         entryId: entryId.value,
       })) as DestructivePreview
       if (destructivePreviewBlocked(preview)) {
@@ -518,7 +520,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     if (!canArchiveEntries.value) return
     let preview: DestructivePreview | null = null
     try {
-      preview = (await convexClient().mutation(api.ginkoCms.editor.previewRestoreEntryOperation, {
+      preview = (await previewRestoreMutation({
         entryId: entryId.value,
       })) as DestructivePreview
       if (destructivePreviewBlocked(preview)) {
@@ -592,10 +594,10 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
 
     let preview: DestructivePreview | null = null
     try {
-      preview = (await convexClient().mutation(
-        api.ginkoCms.editor.previewPermanentlyDeleteEntryOperation,
-        { entryId: entryId.value, confirmationPhrase },
-      )) as DestructivePreview
+      preview = (await previewPermanentlyDeleteMutation({
+        entryId: entryId.value,
+        confirmationPhrase,
+      })) as DestructivePreview
       if (destructivePreviewBlocked(preview)) {
         error.value = destructivePreviewMessage(preview)
         return

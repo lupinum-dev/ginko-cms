@@ -12,12 +12,28 @@ const apiProxy = (): unknown =>
 
 /** Explicit standalone-development fixture; production never merges with it. */
 export function createDevelopmentHostBridge(): GinkoCmsStudioHostBridge {
+  const client = {
+    query: unavailable,
+    mutation: unavailable,
+    action: unavailable,
+    onUpdate: unavailable,
+  }
   return {
-    convexClient: {
-      query: unavailable,
-      mutation: unavailable,
-      action: unavailable,
-      onUpdate: unavailable,
+    runtime: {
+      client,
+      anonymousClient: client,
+      identity: {
+        snapshot: () => ({
+          authEnabled: false,
+          settled: true,
+          identityKey: 'anonymous',
+          authEpoch: 0,
+          identityGeneration: 0,
+          error: null,
+        }),
+        waitForInitialSettlement: async () => {},
+        subscribe: () => () => {},
+      },
     },
     config: {
       route: '/studio',

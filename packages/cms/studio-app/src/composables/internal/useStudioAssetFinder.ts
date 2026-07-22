@@ -10,6 +10,7 @@ import { operationValue } from '../../lib/destructiveWorkflow'
 import { useCmsI18n } from '../useCmsI18n'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
 import { useCmsStudioPaginatedQuery } from '../useCmsStudioPaginatedQuery'
+import { useCmsStudioQuery } from '../useCmsStudioQuery'
 import { useConvexAction, useConvexMutation, useConvexUpload } from '../useStudioConvex'
 import { buildAssetFinderItems } from './assetFinderItems'
 import type {
@@ -148,6 +149,7 @@ export function useStudioAssetFinder(
     }),
     { initialNumItems: ASSET_PAGE_SIZE },
   )
+  const assetFacetsQuery = useCmsStudioQuery(api.ginkoCms.assets.getAssetManagerFacets)
 
   const rawAssets = computed<FinderAssetRecord[]>(() => assetsQuery.results.value)
   const assets = computed<FinderAssetRecord[]>(() =>
@@ -157,8 +159,8 @@ export function useStudioAssetFinder(
     }),
   )
   const facets = computed<FinderAssetFacets>(() =>
-    assetsQuery.pageData.value?.facets
-      ? assetsQuery.pageData.value.facets
+    assetFacetsQuery.data.value
+      ? assetFacetsQuery.data.value
       : {
           activeCount: 0,
           trashedCount: 0,

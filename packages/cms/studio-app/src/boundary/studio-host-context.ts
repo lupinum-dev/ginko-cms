@@ -3,16 +3,18 @@ import {
   type GinkoCmsExpectedContractHashes,
   type GinkoCmsInstalledContractStatus,
 } from '@public/contract-compatibility'
-import type { GinkoCmsConvexClientHandle } from '@public/types'
+import {
+  createBetterConvexAttachment,
+  type BetterConvexAttachedRuntime,
+} from 'better-convex-vue/embedded'
 import { hasInjectionContext, inject, type InjectionKey } from 'vue'
 
 import { readHostBridge, type HostBridge } from './host-bridge'
 
 export interface StudioHostContext {
   getBridge: () => HostBridge
-  getConvexClient: () => Pick<GinkoCmsConvexClientHandle, 'query' | 'onUpdate'>
   assertContractWritable: () => Promise<void>
-  requireConvexClient: () => GinkoCmsConvexClientHandle
+  runtime: BetterConvexAttachedRuntime
 }
 
 export const studioHostContextKey: InjectionKey<StudioHostContext> = Symbol('ginko-cms.studioHost')
@@ -33,7 +35,7 @@ function expectedContractHashes(bridge: HostBridge): GinkoCmsExpectedContractHas
 
 async function assertStudioContractWritable(
   bridge: HostBridge,
-  convex: GinkoCmsConvexClientHandle,
+  convex: BetterConvexAttachedRuntime['client'],
 ): Promise<void> {
   // Expected hashes come from the host bridge and are never forwarded as
   // caller-supplied mutation arguments. The component remains authoritative
@@ -48,13 +50,17 @@ async function assertStudioContractWritable(
 
 function guardedConvexClient(
   assertContractWritable: () => Promise<void>,
-  convex: GinkoCmsConvexClientHandle,
-): GinkoCmsConvexClientHandle {
-  const mutation: GinkoCmsConvexClientHandle['mutation'] = async (reference, args) => {
+  convex: BetterConvexAttachedRuntime['client'],
+): BetterConvexAttachedRuntime['client'] {
+  const mutation: BetterConvexAttachedRuntime['client']['mutation'] = async (
+    reference,
+    args,
+    options,
+  ) => {
     await assertContractWritable()
-    return await convex.mutation(reference, args)
+    return await convex.mutation(reference, args, options)
   }
-  const action: GinkoCmsConvexClientHandle['action'] = async (reference, args) => {
+  const action: BetterConvexAttachedRuntime['client']['action'] = async (reference, args) => {
     await assertContractWritable()
     return await convex.action(reference, args)
   }
@@ -67,33 +73,22 @@ function guardedConvexClient(
 }
 
 export function createStudioHostContext(getBridge: () => HostBridge = readHostBridge) {
-  // The host attaches the stable replacement-safe handle (useConvex()) directly
-  // as `bridge.convexClient` (vNext §10.6). We no longer reach `$convex` through
-  // a passed-through `nuxtApp`.
-  const getConvexClient = () => getBridge().convexClient
   const assertContractWritable = async () => {
-    const convex = getConvexClient()
-    if (!convex) {
-      throw new Error(
-        'Studio Convex client is unavailable. Refresh after the host finishes loading.',
-      )
-    }
+    const convex = getBridge().runtime.client
     await assertStudioContractWritable(getBridge(), convex)
   }
+  const bridgeRuntime = getBridge().runtime
+  const runtime = createBetterConvexAttachment({
+    client: guardedConvexClient(assertContractWritable, bridgeRuntime.client),
+    anonymousClient: bridgeRuntime.anonymousClient,
+    identity: bridgeRuntime.identity,
+    connection: bridgeRuntime.connection,
+  })
 
   return {
     getBridge,
-    getConvexClient,
     assertContractWritable,
-    requireConvexClient() {
-      const convex = getConvexClient()
-      if (!convex) {
-        throw new Error(
-          'Studio Convex client is unavailable. Refresh after the host finishes loading.',
-        )
-      }
-      return guardedConvexClient(assertContractWritable, convex)
-    },
+    runtime,
   } satisfies StudioHostContext
 }
 

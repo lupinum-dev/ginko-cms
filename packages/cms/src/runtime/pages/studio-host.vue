@@ -24,12 +24,13 @@ import type { GinkoCmsPublicConfig, GinkoCmsStudioHostBridge } from '#ginko-cms-
 import {
   computed,
   onMounted,
-  useConvex,
+  useConvexAttachment,
   useConvexAuth,
   useHead,
   useRequestURL,
   useRoute,
   useRuntimeConfig,
+  watch,
 } from '#imports'
 
 import { buildStudioHostApi } from './studio-host-api'
@@ -38,6 +39,44 @@ const runtimeConfig = useRuntimeConfig()
 const requestUrl = useRequestURL()
 const route = useRoute()
 const convexAuth = useConvexAuth()
+const convexRuntime = import.meta.client ? useConvexAttachment() : null
+const authListeners = new Set<() => void>()
+
+function readAuthSnapshot() {
+  const error = convexAuth.error.value
+  const user = convexAuth.user.value
+  return {
+    status: convexAuth.status.value,
+    isPending: convexAuth.isPending.value,
+    isAuthenticated: convexAuth.isAuthenticated.value,
+    user: user ? { ...user } : null,
+    error: error
+      ? {
+          kind: error.kind,
+          message: error.message,
+          code: error.code,
+          status: error.status,
+          data: error.data,
+        }
+      : null,
+  }
+}
+
+if (import.meta.client) {
+  watch(
+    [
+      convexAuth.status,
+      convexAuth.isPending,
+      convexAuth.isAuthenticated,
+      convexAuth.user,
+      convexAuth.error,
+    ],
+    () => {
+      for (const listener of authListeners) listener()
+    },
+    { flush: 'sync' },
+  )
+}
 
 const cmsConfig = computed(() => runtimeConfig.public.ginkoCms as unknown as GinkoCmsPublicConfig)
 const studioRoute = computed(() =>
@@ -138,22 +177,19 @@ function populateBridge(includeAuth: boolean): void {
     route: studioRoute.value,
   })
   const bridge: GinkoCmsStudioHostBridge = {
-    // The stable replacement-safe handle (useConvex()). It survives primary
-    // client replacement across sign-in/out; the SPA never holds the raw client.
-    convexClient: useConvex(),
+    runtime: convexRuntime!,
     config: cmsConfig.value,
     // The generated Convex api is per-consumer.
     api: buildStudioHostApi(api),
-    // Auth-state subset so the SPA's useCmsAuthState mirrors sign-in / sign-out
-    // without subscribing separately. Refs stay live across the boundary
-    // because both sides share the same module instance. No Convex JWT crosses.
+    // Plain presentation observer. The separately bundled SPA owns its Vue
+    // refs; no cross-bundle refs, cookies, or Convex JWT cross this boundary.
     auth: includeAuth
       ? {
-          status: convexAuth.status,
-          isPending: convexAuth.isPending,
-          isAuthenticated: convexAuth.isAuthenticated,
-          user: convexAuth.user,
-          error: convexAuth.error,
+          snapshot: readAuthSnapshot,
+          subscribe(listener) {
+            authListeners.add(listener)
+            return () => authListeners.delete(listener)
+          },
         }
       : null,
     onSignOut: async () => {

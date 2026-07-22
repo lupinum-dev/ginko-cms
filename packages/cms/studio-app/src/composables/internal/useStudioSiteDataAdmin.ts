@@ -2,7 +2,6 @@ import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, reactive, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
-import { useStudioHostContext } from '../../boundary/studio-host-context'
 import { operationValue } from '../../lib/destructiveWorkflow'
 import { cmsPermissionKeys } from '../permissions'
 import { useCmsI18n } from '../useCmsI18n'
@@ -15,7 +14,6 @@ export function useStudioSiteDataAdmin() {
   const { can } = useCmsStudioAccess()
   const canManageSettings = can(cmsPermissionKeys.manageSettings)
 
-  const studioHost = useStudioHostContext()
   const studioSettings = useCmsStudioSettings()
   const locales = computed(() => studioSettings.locales.value)
   const defaultLocale = computed(() => studioSettings.defaultLocale.value)
@@ -26,6 +24,9 @@ export function useStudioSiteDataAdmin() {
   const updateBlockMutation = useConvexMutation(api.ginkoCms.siteData.updateSiteDataBlock)
   const saveDataMutation = useConvexMutation(api.ginkoCms.siteData.saveSiteData)
   const deleteBlockMutation = useConvexMutation(api.ginkoCms.siteData.deleteSiteDataBlock)
+  const previewDeleteBlockMutation = useConvexMutation(
+    api.ginkoCms.siteData.previewDeleteSiteDataBlockOperation,
+  )
   const expandedBlock = ref<string | null>(null)
   const blockData = reactive<Record<string, Record<string, unknown>>>({})
   const saving = ref<string | null>(null)
@@ -166,9 +167,7 @@ export function useStudioSiteDataAdmin() {
     error.value = ''
     info.value = ''
     try {
-      const preview = (await studioHost
-        .requireConvexClient()
-        .mutation(api.ginkoCms.siteData.previewDeleteSiteDataBlockOperation, { key })) as {
+      const preview = (await previewDeleteBlockMutation({ key })) as {
         allowed: boolean
         blockers: Array<{ message: string }>
         warnings: Array<{ message: string }>

@@ -3,7 +3,6 @@ import type { Ref } from 'vue'
 import { computed, ref } from 'vue'
 
 import { api } from '../../boundary/api'
-import { useStudioHostContext } from '../../boundary/studio-host-context'
 import { formatDestructiveConfirmationPrompt, operationValue } from '../../lib/destructiveWorkflow'
 import { useCmsStudioPaginatedQuery } from '../useCmsStudioPaginatedQuery'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
@@ -56,7 +55,6 @@ interface EntryHistoryDeps {
 }
 
 export function useEntryHistory(deps: EntryHistoryDeps) {
-  const studioHost = useStudioHostContext()
   const {
     entry,
     entryId,
@@ -132,10 +130,9 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
 
   const rollbackVersionMutation = useConvexMutation(api.ginkoCms.editor.rollbackVersion)
   const checkpointMutation = useConvexMutation(api.ginkoCms.editor.createCheckpoint)
-
-  function convexClient() {
-    return studioHost.requireConvexClient()
-  }
+  const previewRollbackMutation = useConvexMutation(
+    api.ginkoCms.editor.previewRollbackVersionOperation,
+  )
 
   async function handleRollback(versionId: string, publish = false) {
     if (!canEditEntries.value || (publish && !canPublishEntries.value)) {
@@ -143,14 +140,11 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     }
     let preview: DestructivePreview | null = null
     try {
-      preview = (await convexClient().mutation(
-        api.ginkoCms.editor.previewRollbackVersionOperation,
-        {
-          entryId: entryId.value,
-          versionId,
-          ...(publish ? { publish: true } : {}),
-        },
-      )) as DestructivePreview
+      preview = (await previewRollbackMutation({
+        entryId: entryId.value,
+        versionId,
+        ...(publish ? { publish: true } : {}),
+      })) as DestructivePreview
       if (destructivePreviewBlocked(preview)) {
         error.value = destructivePreviewMessage(preview)
         return

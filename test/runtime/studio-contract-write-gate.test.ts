@@ -1,14 +1,13 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
+import { createBetterConvex } from 'better-convex-vue'
+import { createBetterConvexAttachment } from 'better-convex-vue/embedded'
 import { describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, h } from 'vue'
 
 import type { GinkoCmsInstalledContractStatus } from '../../packages/cms/src/public/contract-compatibility'
-import type {
-  GinkoCmsConvexClientHandle,
-  GinkoCmsStudioHostBridge,
-} from '../../packages/cms/src/public/types'
+import type { GinkoCmsStudioHostBridge } from '../../packages/cms/src/public/types'
 import {
   createStudioHostContext,
   studioHostContextKey,
@@ -47,7 +46,21 @@ function fixture(status: GinkoCmsInstalledContractStatus) {
     onUpdate: vi.fn(),
   }
   const bridge = {
-    convexClient: raw as unknown as GinkoCmsConvexClientHandle,
+    runtime: createBetterConvexAttachment({
+      client: raw as never,
+      identity: {
+        snapshot: () => ({
+          authEnabled: false,
+          settled: true,
+          identityKey: 'anonymous',
+          authEpoch: 0,
+          identityGeneration: 0,
+          error: null,
+        }),
+        waitForInitialSettlement: async () => {},
+        subscribe: () => () => {},
+      },
+    }),
     config: {
       route: '/studio',
       defaultLocale: 'en',
@@ -104,7 +117,7 @@ describe('Studio host contract write gate', () => {
   ])('blocks mutations for $label without dispatching the write', async ({ status, blocker }) => {
     const { context, raw } = fixture(status)
 
-    const write = context.requireConvexClient().mutation(mutationReference as never, {})
+    const write = context.runtime.client.mutation(mutationReference as never, {})
 
     await expect(write).rejects.toMatchObject({
       code: 'CMS_CONTRACT_WRITE_BLOCKED',
@@ -119,11 +132,11 @@ describe('Studio host contract write gate', () => {
       installedContentHash: 'c'.repeat(64),
     })
 
-    await expect(context.getConvexClient().query(readReference as never, {})).resolves.toEqual({
+    await expect(context.runtime.client.query(readReference as never, {})).resolves.toEqual({
       id: 'read-result',
     })
     await expect(
-      context.requireConvexClient().mutation(mutationReference as never, {}),
+      context.runtime.client.mutation(mutationReference as never, {}),
     ).rejects.toMatchObject({ code: 'CMS_CONTRACT_WRITE_BLOCKED' })
     expect(raw.query).toHaveBeenCalledWith(readReference, {})
     expect(raw.mutation).not.toHaveBeenCalled()
@@ -132,12 +145,12 @@ describe('Studio host contract write gate', () => {
   it('dispatches mutations and actions only after both hashes and transition state match', async () => {
     const { context, raw } = fixture(readyStatus)
 
-    await expect(
-      context.requireConvexClient().mutation(mutationReference as never, {}),
-    ).resolves.toEqual({ id: 'mutation-result' })
-    await expect(
-      context.requireConvexClient().action(actionReference as never, {}),
-    ).resolves.toEqual({ id: 'action-result' })
+    await expect(context.runtime.client.mutation(mutationReference as never, {})).resolves.toEqual({
+      id: 'mutation-result',
+    })
+    await expect(context.runtime.client.action(actionReference as never, {})).resolves.toEqual({
+      id: 'action-result',
+    })
 
     expect(raw.query).toHaveBeenCalledTimes(2)
     expect(raw.mutation).toHaveBeenCalledTimes(1)
@@ -159,7 +172,10 @@ describe('Studio host contract write gate', () => {
       render: () => h('div'),
     })
     const wrapper = mount(Host, {
-      global: { provide: { [studioHostContextKey as symbol]: context } },
+      global: {
+        plugins: [createBetterConvex({ runtime: context.runtime })],
+        provide: { [studioHostContextKey as symbol]: context },
+      },
     })
 
     await expect(

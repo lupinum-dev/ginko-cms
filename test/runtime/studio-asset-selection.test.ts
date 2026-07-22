@@ -23,6 +23,21 @@ vi.mock('../../packages/cms/studio-app/src/composables/useStudioConvex', () => (
   useConvexUpload: () => ({ upload: vi.fn(), reset: vi.fn() }),
 }))
 
+vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', async () => {
+  const { shallowRef } = await import('vue')
+  return {
+    useCmsStudioQuery: () => ({
+      data: shallowRef({
+        activeCount: 0,
+        trashedCount: 0,
+        globalActiveCount: 0,
+        collections: [],
+        tags: [],
+      }),
+    }),
+  }
+})
+
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuery', async () => {
   const { ref: vueRef, shallowRef } = await import('vue')
   return {
@@ -32,19 +47,6 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuer
       if (isManagerQuery) mocks.managerResults = results
       return {
         results,
-        pageData: vueRef(
-          isManagerQuery
-            ? {
-                facets: {
-                  activeCount: 0,
-                  trashedCount: 0,
-                  globalActiveCount: 0,
-                  collections: [],
-                  tags: [],
-                },
-              }
-            : null,
-        ),
         status: vueRef('ready'),
         hasNextPage: vueRef(false),
         loadMore: vi.fn(),

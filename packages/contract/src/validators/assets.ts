@@ -64,16 +64,18 @@ export const assetManagerAssetValidator = v.object({
   }),
 })
 
+export const assetManagerFacetsValidator = v.object({
+  activeCount: v.number(),
+  trashedCount: v.number(),
+  globalActiveCount: v.number(),
+  collections: v.array(v.object({ key: v.string(), label: v.string(), count: v.number() })),
+  tags: v.array(v.object({ key: v.string(), count: v.number() })),
+})
+
 export const assetManagerPageValidator = v.object({
   page: v.array(assetManagerAssetValidator),
   ...assetPaginationFields,
-  facets: v.object({
-    activeCount: v.number(),
-    trashedCount: v.number(),
-    globalActiveCount: v.number(),
-    collections: v.array(v.object({ key: v.string(), label: v.string(), count: v.number() })),
-    tags: v.array(v.object({ key: v.string(), count: v.number() })),
-  }),
+  facets: assetManagerFacetsValidator,
 })
 
 export const assetPageValidator = v.object({

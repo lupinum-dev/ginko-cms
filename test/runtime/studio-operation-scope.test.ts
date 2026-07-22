@@ -1,40 +1,37 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
+import { createBetterConvex } from 'better-convex-vue'
+import { createBetterConvexAttachment } from 'better-convex-vue/embedded'
 import { describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent, h, nextTick, ref } from 'vue'
+import { defineComponent, h } from 'vue'
 
-import {
-  useConvexAction,
-  useConvexMutation,
-  useConvexUpload,
-} from '../../packages/cms/studio-app/src/composables/useStudioConvex'
+import { useConvexUpload } from '../../packages/cms/studio-app/src/composables/useStudioConvex'
 
 const host = vi.hoisted(() => ({
-  bridge: { auth: null as null | Record<string, unknown> },
-  convex: undefined as Record<string, ReturnType<typeof vi.fn>> | undefined,
+  bridge: {
+    auth: {
+      snapshot: () => ({
+        status: 'authenticated',
+        isPending: false,
+        isAuthenticated: true,
+        user: { id: 'publisher-1' },
+        error: null,
+      }),
+      subscribe: () => () => {},
+    },
+  },
 }))
 
 vi.mock('../../packages/cms/studio-app/src/boundary/studio-host-context', () => ({
-  useStudioHostContext: () => ({
-    getBridge: () => host.bridge,
-    requireConvexClient: () => host.convex,
-  }),
+  useStudioHostContext: () => ({ getBridge: () => host.bridge }),
 }))
 
 vi.mock('../../packages/cms/studio-app/src/composables/permissions', () => ({
   cmsPermissionKeys: { read: 'read' },
 }))
 
-vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () => ({
-  useCmsStudioAccess: () => ({
-    ready: computed(() => true),
-    can: () => computed(() => true),
-  }),
-}))
-
-const mutation = { [Symbol.for('functionName')]: 'ginkoCms.editor.saveEntryDraft' }
-const action = { [Symbol.for('functionName')]: 'ginkoCms.assets.finalizeAssetUploadSession' }
+const mutation = { [Symbol.for('functionName')]: 'ginkoCms.assets.createAssetUploadSession' }
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -44,114 +41,7 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-describe('Studio operation scopes', () => {
-  it('waits for BCN authentication settlement before dispatching a write', async () => {
-    // The host and packed Studio can use different Vue runtimes. Plain ref-shaped
-    // values reproduce that boundary without letting Studio computed refs subscribe
-    // to host reactivity; writes must poll the authoritative bridge values directly.
-    const pending = { value: true }
-    const status = { value: 'loading' }
-    const isAuthenticated = { value: false }
-    host.bridge.auth = {
-      status,
-      isPending: pending,
-      isAuthenticated,
-      user: { value: { id: 'publisher-1' } },
-      error: { value: null },
-    }
-    host.convex = { mutation: vi.fn(async () => 'applied') }
-    const Host = defineComponent({
-      setup: () => ({ mutate: useConvexMutation(mutation as never) }),
-      render: () => h('div'),
-    })
-    const wrapper = mount(Host)
-
-    const result = wrapper.vm.mutate({} as never)
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    expect(host.convex.mutation).not.toHaveBeenCalled()
-
-    pending.value = false
-    status.value = 'authenticated'
-    isAuthenticated.value = true
-    await expect(result).resolves.toBe('applied')
-    expect(host.convex.mutation).toHaveBeenCalledTimes(1)
-
-    wrapper.unmount()
-    host.bridge.auth = null
-    host.convex = undefined
-  })
-
-  it('does not commit mutation or action completion after disposal', async () => {
-    const mutationResult = deferred<{ id: string }>()
-    const actionResult = deferred<{ id: string }>()
-    const onMutationSuccess = vi.fn()
-    const onActionSuccess = vi.fn()
-    host.convex = {
-      mutation: vi.fn(() => mutationResult.promise),
-      action: vi.fn(() => actionResult.promise),
-    }
-    const Host = defineComponent({
-      setup() {
-        return {
-          mutate: useConvexMutation(mutation as never, { onSuccess: onMutationSuccess }),
-          act: useConvexAction(action as never, { onSuccess: onActionSuccess }),
-        }
-      },
-      render: () => h('div'),
-    })
-    const wrapper = mount(Host)
-    const mutate = wrapper.vm.mutate
-    const act = wrapper.vm.act
-    const mutationPromise = mutate({} as never)
-    const actionPromise = act({} as never)
-    wrapper.unmount()
-
-    mutationResult.resolve({ id: 'mutation-result' })
-    actionResult.resolve({ id: 'action-result' })
-    await expect(mutationPromise).resolves.toEqual({ id: 'mutation-result' })
-    await expect(actionPromise).resolves.toEqual({ id: 'action-result' })
-
-    expect(mutate.status.value).toBe('idle')
-    expect(act.status.value).toBe('idle')
-    expect(mutate.data.value).toBeUndefined()
-    expect(act.data.value).toBeUndefined()
-    expect(onMutationSuccess).not.toHaveBeenCalled()
-    expect(onActionSuccess).not.toHaveBeenCalled()
-    host.convex = undefined
-  })
-
-  it('retires an in-flight operation when the authenticated identity changes', async () => {
-    const user = ref<{ id: string } | null>({ id: 'user-a' })
-    host.bridge.auth = {
-      status: computed(() => 'authenticated'),
-      isPending: computed(() => false),
-      isAuthenticated: computed(() => user.value !== null),
-      user,
-      error: ref(null),
-    }
-    const result = deferred<string>()
-    const onSuccess = vi.fn()
-    host.convex = { mutation: vi.fn(() => result.promise) }
-    const Host = defineComponent({
-      setup() {
-        return { mutate: useConvexMutation(mutation as never, { onSuccess }) }
-      },
-      render: () => h('div'),
-    })
-    const wrapper = mount(Host)
-    const promise = wrapper.vm.mutate({} as never)
-    user.value = { id: 'user-b' }
-    await nextTick()
-    result.resolve('retired')
-    await expect(promise).resolves.toBe('retired')
-
-    expect(wrapper.vm.mutate.status.value).toBe('idle')
-    expect(onSuccess).not.toHaveBeenCalled()
-    wrapper.unmount()
-    host.bridge.auth = null
-    host.convex = undefined
-  })
-
+describe('Studio upload scope', () => {
   it('stops upload work after disposal before dispatching bytes', async () => {
     const uploadSession = deferred<{
       sessionId: string
@@ -159,7 +49,27 @@ describe('Studio operation scopes', () => {
       token: string
       expiresAt: number
     }>()
-    host.convex = { mutation: vi.fn(() => uploadSession.promise) }
+    const client = {
+      query: vi.fn(),
+      mutation: vi.fn(() => uploadSession.promise),
+      action: vi.fn(),
+      onUpdate: vi.fn(),
+    }
+    const runtime = createBetterConvexAttachment({
+      client: client as never,
+      identity: {
+        snapshot: () => ({
+          authEnabled: true,
+          settled: true,
+          identityKey: 'user:publisher-1',
+          authEpoch: 1,
+          identityGeneration: 1,
+          error: null,
+        }),
+        waitForInitialSettlement: async () => {},
+        subscribe: () => () => {},
+      },
+    })
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     const Host = defineComponent({
       setup() {
@@ -167,7 +77,7 @@ describe('Studio operation scopes', () => {
       },
       render: () => h('div'),
     })
-    const wrapper = mount(Host)
+    const wrapper = mount(Host, { global: { plugins: [createBetterConvex({ runtime })] } })
     const upload = wrapper.vm.upload
     const promise = upload(new File(['bytes'], 'asset.png', { type: 'image/png' }))
     wrapper.unmount()
@@ -183,6 +93,5 @@ describe('Studio operation scopes', () => {
     expect(upload.status.value).toBe('idle')
     expect(upload.data.value).toBeUndefined()
     fetchSpy.mockRestore()
-    host.convex = undefined
   })
 })

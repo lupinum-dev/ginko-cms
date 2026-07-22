@@ -53,7 +53,7 @@
   "dependencies": {
     "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.1",
     "@lupinum/ginko-content": "^0.3.0-rc.5",
-    "better-convex-nuxt": "0.7.0-beta.0",
+    "better-convex-nuxt": "0.8.0-beta.4",
     "convex": "1.42.2"
   },
   "peerDependencies": {

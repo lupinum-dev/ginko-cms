@@ -91,7 +91,10 @@ type _ExactSaveEntryDraft = TypeAssert<
 type _ExactInstalledContractStatusArgs = TypeAssert<
   TypeEqual<
     FunctionArgs<BridgeGinkoCms['contract']['getInstalledContractStatus']>,
-    FunctionArgs<GeneratedGinkoCms['contract']['getInstalledContractStatus']>
+    Omit<
+      FunctionArgs<GeneratedGinkoCms['contract']['getInstalledContractStatus']>,
+      '_trustedCaller'
+    >
   >
 >
 type _ExactAssetUsagePage = TypeAssert<

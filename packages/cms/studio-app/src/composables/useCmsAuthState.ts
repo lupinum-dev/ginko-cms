@@ -1,7 +1,7 @@
 import type { GinkoCmsStudioHostBridgeAuth } from '@public/types'
 import type { ConvexAuthStatus } from 'better-convex-nuxt'
-import type { ConvexCallError } from 'better-convex-nuxt/errors'
-import { computed, type ComputedRef } from 'vue'
+import { ConvexCallError } from 'better-convex-vue'
+import { computed, onScopeDispose, shallowRef, type ComputedRef } from 'vue'
 
 import { useStudioHostContext } from '../boundary/studio-host-context'
 
@@ -65,27 +65,28 @@ interface UseCmsAuthStateReturn {
 
 export function useCmsAuthState(): UseCmsAuthStateReturn {
   const studioHost = useStudioHostContext()
-  const readBridgeAuth = () =>
-    (studioHost.getBridge().auth as BridgeAuth | null | undefined) ?? null
+  const auth = (studioHost.getBridge().auth as BridgeAuth | null | undefined) ?? null
+  const snapshot = shallowRef(auth?.snapshot() ?? null)
+  const stop = auth?.subscribe(() => {
+    snapshot.value = auth.snapshot()
+  })
+  if (stop) onScopeDispose(stop)
 
-  // Read on every getter call — refs from the consumer-side Convex auth
-  // engine survive across the boundary, but `bridge.auth` itself can be
-  // null until the host page's onBeforeMount hook runs. Lazy access keeps
-  // the SPA tolerant of host-bridge timing variations.
-  const auth = computed<BridgeAuth | null>(() => readBridgeAuth())
-
-  const isAuthenticated = computed(() => auth.value?.isAuthenticated.value === true)
-  const status = computed<ConvexAuthStatus>(() => auth.value?.status.value ?? 'disabled')
-  const pending = computed(() => auth.value?.isPending.value === true)
-  const user = computed(() => normalizeUser(auth.value?.user.value))
-  const error = computed(() => auth.value?.error.value ?? null)
+  const isAuthenticated = computed(() => snapshot.value?.isAuthenticated === true)
+  const status = computed<ConvexAuthStatus>(() => snapshot.value?.status ?? 'disabled')
+  const pending = computed(() => snapshot.value?.isPending === true)
+  const user = computed(() => normalizeUser(snapshot.value?.user))
+  const error = computed(() => {
+    const current = snapshot.value?.error
+    return current ? new ConvexCallError(current) : null
+  })
   const principalKey = computed(() => {
     if (status.value === 'loading') return 'pending'
     return isAuthenticated.value && user.value ? `user:${user.value.id}` : 'anonymous'
   })
 
   return {
-    authEnabled: computed(() => auth.value !== null),
+    authEnabled: computed(() => auth !== null),
     status,
     user,
     isAuthenticated,

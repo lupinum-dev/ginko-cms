@@ -8,9 +8,8 @@ import type {
   SlugMode,
 } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type { ComponentApi as GinkoCmsComponentApi } from '@lupinum/ginko-cms-convex/component'
-import type { ConvexAuthStatus, ConvexClientHandle, ConvexUser } from 'better-convex-nuxt'
-import type { ConvexCallError } from 'better-convex-nuxt/errors'
-import type { ComputedRef, Ref } from 'vue'
+import type { ConvexAuthStatus, ConvexUser } from 'better-convex-nuxt'
+import type { BetterConvexAttachedRuntime } from 'better-convex-vue/embedded'
 
 import type { GinkoCmsExpectedContractHashes } from './contract-compatibility.js'
 import type { StudioApiFromSurface, studioApiSurface } from './studio-api-surface.js'
@@ -51,22 +50,24 @@ export interface GinkoCmsPublicConfig {
  * This public alias keeps Ginko's bridge vocabulary stable while using the
  * canonical handle exported by better-convex-nuxt.
  */
-export type GinkoCmsConvexClientHandle = ConvexClientHandle
+export interface GinkoCmsStudioAuthSnapshot {
+  status: ConvexAuthStatus
+  isPending: boolean
+  isAuthenticated: boolean
+  user: ConvexUser | null
+  error: {
+    kind: 'authentication' | 'transport' | 'server' | 'unknown'
+    message: string
+    code?: string
+    status?: number
+    data?: unknown
+  } | null
+}
 
-/**
- * The auth subset the Studio host bridge carries: the
- * `status | isPending | isAuthenticated | user | error` slice of better-convex-nuxt's
- * `UseConvexAuthReturn` (vNext §5.3, §10.6). No Convex JWT crosses the bridge.
- *
- * Built from library-exported primitives (`ConvexAuthStatus`, `ConvexUser`) so
- * it stays assignable from the real `useConvexAuth()` return.
- */
+/** Plain observer boundary; never carries Vue refs, cookies, or tokens. */
 export interface GinkoCmsStudioHostBridgeAuth {
-  status: ComputedRef<ConvexAuthStatus>
-  isPending: ComputedRef<boolean>
-  isAuthenticated: ComputedRef<boolean>
-  user: Readonly<Ref<ConvexUser | null>>
-  error: Readonly<Ref<ConvexCallError | null>>
+  snapshot: () => GinkoCmsStudioAuthSnapshot
+  subscribe: (listener: () => void) => () => void
 }
 
 /**
@@ -84,8 +85,8 @@ export type GinkoCmsStudioHostApi = StudioApiFromSurface<
 >
 
 export interface GinkoCmsStudioHostBridge {
-  /** The stable, replacement-safe Convex client handle from `useConvex()`. */
-  convexClient: GinkoCmsConvexClientHandle
+  /** Frozen, token-free Better Convex attachment for the separately bundled SPA. */
+  runtime: BetterConvexAttachedRuntime
   config: GinkoCmsPublicConfig
   api: GinkoCmsStudioHostApi
   auth: GinkoCmsStudioHostBridgeAuth | null

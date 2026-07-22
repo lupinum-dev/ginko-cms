@@ -6,6 +6,7 @@ import {
   finalizeAssetUploadSession as finalizeAssetUploadSessionArgs,
   getAsset as getAssetArgs,
   getAssetManagerData as getAssetManagerDataArgs,
+  getAssetManagerFacets as getAssetManagerFacetsArgs,
   listAssetsByOwner as listAssetsByOwnerArgs,
   listAssetUsages as listAssetUsagesArgs,
   moveAsset as moveAssetArgs,
@@ -162,6 +163,12 @@ export const getAssetManagerData = query({
   args: getAssetManagerDataArgs.args,
   handler: async (ctx, args) =>
     await ctx.runQuery(components.ginkoCms.assets.getAssetManagerData, args),
+})
+
+export const getAssetManagerFacets = query({
+  args: getAssetManagerFacetsArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.assets.getAssetManagerFacets, args),
 })
 
 export const deleteAsset = mutation({

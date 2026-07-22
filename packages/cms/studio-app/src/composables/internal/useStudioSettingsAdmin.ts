@@ -5,7 +5,6 @@ import type { ShallowUnwrapRef } from 'vue'
 import { computed, reactive, ref } from 'vue'
 
 import { api } from '../../boundary/api'
-import { useStudioHostContext } from '../../boundary/studio-host-context'
 import { operationValue } from '../../lib/destructiveWorkflow'
 import { cmsPermissionKeys } from '../permissions'
 import { useCmsAuthState } from '../useCmsAuthState'
@@ -134,7 +133,6 @@ export function useStudioSettingsAdmin() {
   const canManageMembers = can(cmsPermissionKeys.manageMembers)
   const canManageSettings = can(cmsPermissionKeys.manageSettings)
   const contract = useCmsContractCompatibility()
-  const studioHost = useStudioHostContext()
   const authState = useCmsAuthState()
   const settingsQuery = useCmsStudioQuery(api.ginkoCms.settings.getStudioSettings, {})
   const persistedSettings = computed(() => settingsQuery.data?.value ?? null)
@@ -217,12 +215,18 @@ export function useStudioSettingsAdmin() {
   )
   const updateRoleMutation = useConvexMutation(api.ginkoCms.members.updateMemberRole)
   const removeMemberMutation = useConvexMutation(api.ginkoCms.members.removeMember)
+  const previewRemoveMemberMutation = useConvexMutation(
+    api.ginkoCms.members.previewRemoveMemberOperation,
+  )
   const createMcpCredentialMutation = useConvexMutation(
     api.ginkoCms.mcpCredentials.createCredential,
   )
   const revokeMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.revokeSettings)
   const retryRevalidationJobMutation = useConvexMutation(
     api.ginkoCms.revalidation.retryRevalidationJob,
+  )
+  const previewRetryRevalidationJobMutation = useConvexMutation(
+    api.ginkoCms.revalidation.previewRetryRevalidationJobOperation,
   )
   const upsertRevalidationTargetMutation = useConvexMutation(
     api.ginkoCms.revalidation.upsertRevalidationTarget,
@@ -357,9 +361,7 @@ export function useStudioSettingsAdmin() {
   async function handleRemoveMember(userId: string) {
     error.value = ''
     try {
-      const preview = (await studioHost
-        .requireConvexClient()
-        .mutation(api.ginkoCms.members.previewRemoveMemberOperation, { userId })) as {
+      const preview = (await previewRemoveMemberMutation({ userId })) as {
         allowed: boolean
         blockers: Array<{ message: string }>
         warnings: Array<{ message: string }>
@@ -533,7 +535,6 @@ export function useStudioSettingsAdmin() {
     }
     mcpConnectionSaving.value = true
     try {
-      await studioHost.assertContractWritable()
       const expiresAt =
         Number.isFinite(expiresIn) && expiresIn > 0 ? Date.now() + expiresIn * 1000 : null
       const created = await createMcpCredentialMutation({
@@ -584,9 +585,7 @@ export function useStudioSettingsAdmin() {
     revalidationInfo.value = ''
     retryingRevalidationJobId.value = eventId
     try {
-      const preview = (await studioHost
-        .requireConvexClient()
-        .mutation(api.ginkoCms.revalidation.previewRetryRevalidationJobOperation, { eventId })) as {
+      const preview = (await previewRetryRevalidationJobMutation({ eventId })) as {
         allowed: boolean
         blockers: Array<{ message: string }>
         warnings: Array<{ message: string }>

@@ -13,12 +13,29 @@ const auth = {
   }),
   error: ref<Error | null>(null),
 }
+const authListeners = new Set<() => void>()
+const bridgeAuth = {
+  snapshot: () => ({
+    status: auth.status.value,
+    isPending: auth.isPending.value,
+    isAuthenticated: auth.isAuthenticated.value,
+    user: auth.user.value,
+    error: auth.error.value
+      ? { kind: 'authentication' as const, message: auth.error.value.message }
+      : null,
+  }),
+  subscribe(listener: () => void) {
+    authListeners.add(listener)
+    return () => authListeners.delete(listener)
+  },
+}
 const bridgeState = {
-  auth,
+  auth: bridgeAuth,
   onSignOut: vi.fn(async () => {
     auth.isAuthenticated.value = false
     auth.status.value = 'unauthenticated'
     auth.user.value = null
+    for (const listener of authListeners) listener()
   }),
 }
 

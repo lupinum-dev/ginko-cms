@@ -6,12 +6,12 @@ minimumReleaseAgeExclude:
   - '@lupinum/ginko-content'
   - '@nuxt/*'
   - better-convex-nuxt
+  - better-convex-vue
   - nuxt
 allowBuilds:
   '@parcel/watcher': true
   '@lupinum/ginko-content@https://codeload.github.com/lupinum-dev/ginko-content/tar.gz/fd7e8fda6e60c61244424941c4811c09d626be6f#path:/packages/content': true
   better-sqlite3: true
-  better-convex-nuxt@https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/8cc1a16b654388d23c88c71347336852ecb6031b: true
   cbor-extract: true
   esbuild: true
   unrs-resolver: true
@@ -27,9 +27,6 @@ overrides:
   # Remove after 0.3.0-rc.5 is published. Package manifests require RC5 while
   # the workspace pins the reviewed clean source commit for reproducibility.
   '@lupinum/ginko-content': 'github:lupinum-dev/ginko-content#fd7e8fda6e60c61244424941c4811c09d626be6f&path:/packages/content'
-  # Remove after 0.7.0-beta.0 is published. Package manifests keep the release
-  # semver; the workspace pins the reviewed upstream commit for reproducibility.
-  better-convex-nuxt: github:lupinum-dev/better-convex-nuxt#8cc1a16b654388d23c88c71347336852ecb6031b
   brace-expansion: 5.0.6
   convex: 1.42.2
   devalue: 5.8.1

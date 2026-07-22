@@ -14,7 +14,7 @@
     "@nuxtjs/sitemap": "^8.0.15",
     "@tailwindcss/vite": "^4.3.0",
     "better-auth": "1.7.0-rc.1",
-    "better-convex-nuxt": "0.7.0-beta.0",
+    "better-convex-nuxt": "0.8.0-beta.4",
     "convex": "1.42.2",
     "h3": "1.15.11",
     "kysely": "0.28.17",

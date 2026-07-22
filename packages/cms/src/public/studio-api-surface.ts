@@ -60,6 +60,7 @@ export const studioApiSurface = {
     finalizeAssetUploadSession: 'action',
     getAsset: 'query',
     getAssetManagerData: 'query',
+    getAssetManagerFacets: 'query',
     listAssetsByOwner: 'query',
     listAssetUsages: 'query',
     moveAsset: 'mutation',

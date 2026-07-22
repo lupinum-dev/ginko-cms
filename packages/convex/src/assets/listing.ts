@@ -398,6 +398,12 @@ function buildAssetFacets(
   }
 }
 
+export async function readAssetManagerFacets(ctx: QueryOrMutationCtx) {
+  const allAssets = await readAllDiscoveryAssets(ctx, 'name')
+  const collectionMetadata = await loadAssetCollectionMetadata(ctx, allAssets)
+  return buildAssetFacets(allAssets, collectionMetadata)
+}
+
 export async function readAssetManagerPage(ctx: QueryOrMutationCtx, args: AssetManagerFilters) {
   const parsed = asManagerCursor(parseCursor(args.paginationOpts.cursor))
   const queryHash = await hashValue({

@@ -1,5 +1,6 @@
 import { classifyGinkoError, type GinkoErrorCategory } from '@public/error-classification'
-import { normalizeConvexError } from 'better-convex-nuxt/errors'
+import { useConvexQuery as useBetterConvexQuery } from 'better-convex-vue'
+import { normalizeConvexError } from 'better-convex-vue/errors'
 import { getFunctionName } from 'convex/server'
 import type {
   FunctionArgs,
@@ -8,18 +9,8 @@ import type {
   FunctionType,
   FunctionVisibility,
 } from 'convex/server'
-import {
-  computed,
-  onScopeDispose,
-  ref,
-  type ComputedRef,
-  type MaybeRefOrGetter,
-  type Ref,
-  toValue,
-  watch,
-} from 'vue'
+import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
 
-import { useStudioHostContext } from '../boundary/studio-host-context'
 import { cmsPermissionKeys, type CmsPermissionKey } from './permissions'
 import { useCmsAuthState } from './useCmsAuthState'
 import { useCmsStudioAccess } from './useCmsStudioAccess'
@@ -32,7 +23,7 @@ type CmsStudioQueryStatus = 'skipped' | 'pending' | 'success' | 'error'
 
 export type UseCmsStudioQueryData<DataT> = {
   data: ComputedRef<DataT | null>
-  error: Ref<Error | null>
+  error: ComputedRef<Error | null>
   refresh: () => Promise<void>
   clear: () => void
   pending: ComputedRef<boolean>
@@ -135,21 +126,11 @@ export function useCmsStudioQuery<
   args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
   options?: CmsStudioQueryOptions<FunctionReturnType<Query>, DataT>,
 ): UseCmsStudioQueryReturn<DataT> {
-  const studioHost = useStudioHostContext()
   const auth = useCmsAuthState()
   const { ready, can } = useCmsStudioAccess()
   const canRead = can(cmsPermissionKeys.read)
   const requiredCapability = options?.requiredCapability
   const canRequired = requiredCapability ? can(requiredCapability) : computed(() => true)
-  const data = ref<DataT | null>(null)
-  const error = ref<Error | null>(null)
-  const pending = ref(false)
-  const isStale = ref(false)
-  let unsubscribe: (() => void) | null = null
-  let disposed = false
-  let operationId = 0
-  let lastPrincipalKey: string | null = null
-
   const gatedArgs = computed(() => {
     const value = toValue(args)
     if (
@@ -158,115 +139,31 @@ export function useCmsStudioQuery<
       !canRead.value ||
       !canRequired.value
     ) {
-      return null
+      return 'skip' as const
     }
-    return value ?? null
+    return value ?? ('skip' as const)
+  })
+  const queryOptions = options ?? {}
+  const result = useBetterConvexQuery(query, gatedArgs, {
+    auth: 'required',
+    transform: queryOptions.transform,
+    keepPreviousData: queryOptions.keepPreviousData,
   })
 
-  const { requiredCapability: _requiredCapability, ...queryOptions } = options ?? {}
-  const applyTransform = (raw: FunctionReturnType<Query>): DataT =>
-    queryOptions.transform ? queryOptions.transform(raw) : (raw as unknown as DataT)
-
-  const operationInput = computed(() => ({
-    args: gatedArgs.value,
-    principalKey: auth.principalKey.value,
-  }))
-
-  const start = () => {
-    if (disposed) return
-    const currentOperationId = ++operationId
-    const { args: inputArgs, principalKey } = operationInput.value
-    unsubscribe?.()
-    unsubscribe = null
-
-    if (lastPrincipalKey !== null && lastPrincipalKey !== principalKey) {
-      data.value = null
-      error.value = null
-      isStale.value = false
-    }
-    lastPrincipalKey = principalKey
-
-    const isCurrent = () =>
-      !disposed && currentOperationId === operationId && principalKey === auth.principalKey.value
-
-    const nextArgs = inputArgs as FunctionArgs<Query> | null | undefined
-    if (nextArgs == null) {
-      error.value = null
-      pending.value = false
-      isStale.value = false
-      if (!queryOptions.keepPreviousData) data.value = null
-      return
-    }
-
-    const convex = studioHost.getConvexClient()
-    if (!convex) {
-      if (!queryOptions.keepPreviousData) data.value = null
-      error.value = new Error(
-        'Studio query host is unavailable. Refresh after the Studio host finishes loading.',
-      )
-      pending.value = false
-      isStale.value = false
-      return
-    }
-
-    pending.value = true
-    isStale.value = Boolean(queryOptions.keepPreviousData && data.value !== null)
-    unsubscribe = convex.onUpdate(
-      query,
-      nextArgs,
-      (raw: FunctionReturnType<Query>) => {
-        if (!isCurrent()) return
-        data.value = applyTransform(raw)
-        error.value = null
-        pending.value = false
-        isStale.value = false
-      },
-      (err: unknown) => {
-        if (!isCurrent()) return
-        error.value = normalizeCmsStudioQueryError(err, query)
-        pending.value = false
-        isStale.value = false
-      },
-    )
-  }
-
-  const stop = watch(operationInput, start, { immediate: true, deep: true })
-  onScopeDispose(() => {
-    disposed = true
-    operationId += 1
-    stop()
-    unsubscribe?.()
-    unsubscribe = null
-    data.value = null
-    error.value = null
-    pending.value = false
-    isStale.value = false
-  })
-
-  const refresh = async () => {
-    if (disposed) return
-    error.value = null
-    start()
-  }
-
-  const resultData: UseCmsStudioQueryData<DataT> = {
-    data: computed(() => data.value),
-    error,
-    refresh,
-    clear: () => {
-      if (disposed) return
-      data.value = null
-      error.value = null
-    },
-    pending: computed(() => pending.value),
+  return {
+    data: result.data,
+    error: computed(() =>
+      result.error.value ? normalizeCmsStudioQueryError(result.error.value, query) : null,
+    ),
+    refresh: result.refresh,
+    clear: result.clear,
+    pending: result.pending,
     status: computed(() => {
-      if (gatedArgs.value == null) return 'skipped'
-      if (error.value) return 'error'
-      if (pending.value) return 'pending'
+      if (gatedArgs.value === 'skip') return 'skipped'
+      if (result.status.value === 'error') return 'error'
+      if (result.status.value === 'pending' || result.status.value === 'idle') return 'pending'
       return 'success'
     }),
-    isStale: computed(() => isStale.value),
+    isStale: result.isStale,
   }
-
-  return resultData
 }

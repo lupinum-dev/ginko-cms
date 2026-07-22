@@ -81,6 +81,11 @@ export const getAssetManagerData = defineArgs({
   },
 })
 
+export const getAssetManagerFacets = defineArgs({
+  description: 'Load canonical Studio asset discovery counts and labels.',
+  args: {},
+})
+
 export const createAssetUploadSession = defineArgs({
   description: 'Create one expiring, owner-bound asset upload session.',
   args: {},

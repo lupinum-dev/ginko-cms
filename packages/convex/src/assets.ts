@@ -6,6 +6,7 @@ import {
   finalizeAssetUploadSession as finalizeAssetUploadSessionArgs,
   getAsset as getAssetArgs,
   getAssetManagerData as getAssetManagerDataArgs,
+  getAssetManagerFacets as getAssetManagerFacetsArgs,
   listAssetsByOwner as listAssetsByOwnerArgs,
   listAssetUsages as listAssetUsagesArgs,
   moveAsset as moveAssetArgs,
@@ -16,6 +17,7 @@ import {
 } from '@lupinum/ginko-cms-contract/convex/schemas/assets.js'
 import {
   assetManagerAssetValidator,
+  assetManagerFacetsValidator,
   assetManagerPageValidator,
   assetPageValidator,
   assetUsagePageValidator,
@@ -38,6 +40,7 @@ import {
   mapAsset,
   mapAssetPage,
   readAssetManagerPage,
+  readAssetManagerFacets,
   readAssetsByOwnerSourcePage,
   readAssetUsageSourcePage,
 } from './assets/listing.js'
@@ -553,6 +556,14 @@ export const getAssetManagerData = callerQuery.protected({
       paginationOpts,
     })
   },
+})
+
+export const getAssetManagerFacets = callerQuery.protected({
+  id: 'assets:getAssetManagerFacets',
+  args: getAssetManagerFacetsArgs.args,
+  guard: canManageAssets,
+  returns: assetManagerFacetsValidator,
+  handler: async (ctx) => await readAssetManagerFacets(ctx),
 })
 
 export const deleteAssetOperation = defineCmsOperation({

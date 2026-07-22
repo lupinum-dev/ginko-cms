@@ -1,8 +1,8 @@
 import { getCmsErrorCode, getCmsErrorMessage } from '@public/utils/cmsErrors'
+import { useConvex } from 'better-convex-vue'
 import { computed, reactive, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
-import { useStudioHostContext } from '../../boundary/studio-host-context'
 import type {
   StudioEntryReadinessDetail,
   StudioPublishImpactLocale,
@@ -18,6 +18,7 @@ import {
 } from '../../lib/publicWorkflow'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
 import { useStudioAdvancedEditor } from '../useStudioAdvancedEditor'
+import { useConvexMutation } from '../useStudioConvex'
 import type { StudioEntryEditorContextBase } from './useStudioEntryEditor'
 
 // Public-workflow orchestration for the entry editor (RFC Phase 5 / D8).
@@ -51,7 +52,11 @@ type PublishImpactLocaleDetails = Omit<
 export type StudioEntryWorkflow = ReturnType<typeof useStudioEntryWorkflow>
 
 export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
-  const studioHost = useStudioHostContext()
+  const convex = useConvex()
+  const previewPublishMutation = useConvexMutation(api.ginkoCms.editor.previewPublishEntryOperation)
+  const requestPublishReviewMutation = useConvexMutation(
+    api.ginkoCms.reviewRequests.requestPublishReview,
+  )
   const advancedEditor = useStudioAdvancedEditor()
   const publishSession = editor.publishing.publishSession
 
@@ -122,10 +127,6 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
 
   function queryErrorMessage(error: Error | null | undefined, fallback: string) {
     return error?.message ? `${fallback} ${error.message}` : fallback
-  }
-
-  function convexClient() {
-    return studioHost.requireConvexClient()
   }
 
   function findLocaleVariant(locale: string) {
@@ -525,10 +526,9 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
       }
     }
     try {
-      const readinessForPreview = (await convexClient().query(
-        api.ginkoCms.editor.getEntryReadinessDetail,
-        { entryId: editor.loader.entryId },
-      )) as StudioEntryReadinessDetail
+      const readinessForPreview = (await convex.query(api.ginkoCms.editor.getEntryReadinessDetail, {
+        entryId: editor.loader.entryId,
+      })) as StudioEntryReadinessDetail
       await readinessDetailQuery.refresh()
       const scopedReadinessView = mapEntryReadinessDetail({
         readinessDetail: readinessForPreview,
@@ -563,14 +563,11 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         publishSession.impactRequested = false
         return
       }
-      const preview = (await convexClient().mutation(
-        api.ginkoCms.editor.previewPublishEntryOperation,
-        {
-          entryId: editor.loader.entryId,
-          locales,
-          expectedVersion,
-        },
-      )) as typeof publishSession.preview
+      const preview = (await previewPublishMutation({
+        entryId: editor.loader.entryId,
+        locales,
+        expectedVersion,
+      })) as typeof publishSession.preview
       publishSession.preview = preview
       const operationPreview = derivePublishOperationPreviewState({
         preview,
@@ -625,16 +622,14 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     publishImpactPagePending[locale] = true
     publishImpactPageError[locale] = null
     try {
-      const page = (await studioHost
-        .requireConvexClient()
-        .query(api.ginkoCms.editor.listPublishRouteImpactPage, {
-          entryId: editor.loader.entryId,
-          locale,
-          expectedVersion,
-          expectedRouteGeneration: routeImpact.routeGeneration,
-          cursor: routeImpact.continueCursor,
-          limit: 25,
-        })) as {
+      const page = (await convex.query(api.ginkoCms.editor.listPublishRouteImpactPage, {
+        entryId: editor.loader.entryId,
+        locale,
+        expectedVersion,
+        expectedRouteGeneration: routeImpact.routeGeneration,
+        cursor: routeImpact.continueCursor,
+        limit: 25,
+      })) as {
         changes: StudioPublishImpactLocale['changes']
         isDone: boolean
         continueCursor: string | null
@@ -686,7 +681,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
       if (typeof expectedVersion !== 'number') {
         throw new TypeError('The saved draft is not loaded. Reload before requesting review.')
       }
-      await convexClient().mutation(api.ginkoCms.reviewRequests.requestPublishReview, {
+      await requestPublishReviewMutation({
         entryId: editor.loader.entryId,
         locales: [locale],
         expectedVersion,

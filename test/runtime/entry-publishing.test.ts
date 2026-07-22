@@ -8,30 +8,29 @@ import { useStudioConfirmState } from '../../packages/cms/studio-app/src/composa
 import { useStudioPromptState } from '../../packages/cms/studio-app/src/composables/internal/useStudioPrompt'
 
 // useConvexMutation is called once per operation in declaration order:
-// publish, unpublish, archive, restore, permanent delete. Track the created
-// mocks by index.
-const { mutationFns, previewMutation } = vi.hoisted(() => ({
+// five effects followed by four application-owned previews. Track the created
+// mocks by index so this test exercises the same public callable boundary.
+const { mutationFns, previewResult } = vi.hoisted(() => ({
   mutationFns: [] as Array<ReturnType<typeof vi.fn>>,
-  previewMutation: vi.fn(),
+  previewResult: { value: null as unknown },
 }))
 
 vi.mock('../../packages/cms/studio-app/src/composables/useStudioConvex', () => ({
   useConvexMutation: () => {
+    const isPreview = mutationFns.length >= 5
     const fn = vi.fn(() =>
-      Promise.resolve({
-        status: 'applied',
-        value: { dirtyLocales: [], draftVersion: 6, versionId: 'v-1' },
-      }),
+      Promise.resolve(
+        isPreview && previewResult.value
+          ? previewResult.value
+          : {
+              status: 'applied',
+              value: { dirtyLocales: [], draftVersion: 6, versionId: 'v-1' },
+            },
+      ),
     )
     mutationFns.push(fn)
     return fn
   },
-}))
-
-vi.mock('../../packages/cms/studio-app/src/boundary/studio-host-context', () => ({
-  useStudioHostContext: () => ({
-    requireConvexClient: () => ({ mutation: previewMutation }),
-  }),
 }))
 
 function createDeps(overrides: Record<string, unknown> = {}) {
@@ -74,7 +73,7 @@ function markReadyToPublish(publishing: ReturnType<typeof useEntryPublishing>) {
 describe('useEntryPublishing', () => {
   beforeEach(() => {
     mutationFns.length = 0
-    previewMutation.mockReset()
+    previewResult.value = null
   })
 
   it('keeps the complete publish workflow in one resettable session', () => {
@@ -183,7 +182,7 @@ describe('useEntryPublishing', () => {
   })
 
   it('shows archive impact per locale with the restore path and a non-destructive confirm', async () => {
-    previewMutation.mockResolvedValue({
+    previewResult.value = {
       allowed: true,
       summary: 'Will archive "hello-world" and remove 2 public routes.',
       blockers: [],
@@ -200,7 +199,7 @@ describe('useEntryPublishing', () => {
           { locale: 'de', href: 'https://site.test/de/blog/hallo', path: '/blog/hallo' },
         ],
       },
-    })
+    }
     const publishing = useEntryPublishing(createDeps())
     const confirmState = useStudioConfirmState()
 
@@ -227,13 +226,13 @@ describe('useEntryPublishing', () => {
   })
 
   it('binds current-locale and all-locale unpublish confirmations to the selected scope', async () => {
-    previewMutation.mockResolvedValue({
+    previewResult.value = {
       allowed: true,
       summary: 'Will unpublish selected locales.',
       blockers: [],
       warnings: [],
       confirmation: { token: 'unpublish-token', expiresAt: Date.now() + 60_000 },
-    })
+    }
     const publishing = useEntryPublishing(
       createDeps({
         localeVariants: ref([
@@ -249,7 +248,7 @@ describe('useEntryPublishing', () => {
     await vi.waitFor(() => expect(confirmState.activeRequest.value).not.toBeNull())
     confirmState.confirm()
     await currentPromise
-    expect(previewMutation).toHaveBeenLastCalledWith(expect.anything(), {
+    expect(mutationFns[5]).toHaveBeenLastCalledWith({
       entryId: 'entry-1',
       locales: ['en'],
     })
@@ -263,7 +262,7 @@ describe('useEntryPublishing', () => {
     await vi.waitFor(() => expect(confirmState.activeRequest.value).not.toBeNull())
     confirmState.confirm()
     await allPromise
-    expect(previewMutation).toHaveBeenLastCalledWith(expect.anything(), {
+    expect(mutationFns[5]).toHaveBeenLastCalledWith({
       entryId: 'entry-1',
       locales: ['de', 'en'],
     })
@@ -275,13 +274,13 @@ describe('useEntryPublishing', () => {
   })
 
   it('restores an archived entry only with the backend preview token', async () => {
-    previewMutation.mockResolvedValue({
+    previewResult.value = {
       allowed: true,
       summary: 'Will restore "hello-world" as an unpublished draft.',
       blockers: [],
       warnings: [],
       confirmation: { token: 'restore-token', expiresAt: Date.now() + 60_000 },
-    })
+    }
     const publishing = useEntryPublishing(createDeps())
     const confirmState = useStudioConfirmState()
 
@@ -294,10 +293,7 @@ describe('useEntryPublishing', () => {
     confirmState.confirm()
     await restorePromise
 
-    expect(previewMutation).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ entryId: 'entry-1' }),
-    )
+    expect(mutationFns[7]).toHaveBeenCalledWith(expect.objectContaining({ entryId: 'entry-1' }))
     expect(mutationFns[3]).toHaveBeenCalledWith({
       entryId: 'entry-1',
       _confirmationToken: 'restore-token',
@@ -305,13 +301,13 @@ describe('useEntryPublishing', () => {
   })
 
   it('[LIF-03] requires the exact stable identity and a current preview before permanent deletion', async () => {
-    previewMutation.mockResolvedValue({
+    previewResult.value = {
       allowed: true,
       summary: 'Will permanently delete archived entry "posts-0001".',
       blockers: [],
       warnings: [],
       confirmation: { token: 'delete-token', expiresAt: Date.now() + 60_000 },
-    })
+    }
     const deps = createDeps({
       entry: ref({
         baseSlug: 'hello-world',
@@ -330,7 +326,7 @@ describe('useEntryPublishing', () => {
     promptState.submit('DELETE posts-0001')
 
     await vi.waitFor(() => expect(confirmState.activeRequest.value).not.toBeNull())
-    expect(previewMutation).toHaveBeenCalledWith(expect.anything(), {
+    expect(mutationFns[8]).toHaveBeenCalledWith({
       entryId: 'entry-1',
       confirmationPhrase: 'DELETE posts-0001',
     })
