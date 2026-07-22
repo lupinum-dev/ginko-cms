@@ -11,7 +11,7 @@
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
       "sourceCommit": "fd7e8fda6e60c61244424941c4811c09d626be6f",
-      "sha256": "cd89fcbac6b7beeee8b5aefa87f2b7cbad1e2cccba1de4fe07626566b6fbd89f"
+      "sha256": "dffa7b7b49da19d28180a2ea61e53de92dc350818e32fe8a5e623f8ffe7e25a1"
     },
     "better-convex-nuxt": {
       "sourceCommit": "1f74055692cf671bc26cfb50ce8bf48f80067b23",
