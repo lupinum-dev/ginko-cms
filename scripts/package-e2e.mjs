@@ -61,10 +61,14 @@ const betterConvexNuxtRoot = process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT
   : existsSync(siblingBetterConvexNuxtRoot)
     ? siblingBetterConvexNuxtRoot
     : undefined
+const betterConvexMcpRoot = betterConvexNuxtRoot
+  ? resolve(betterConvexNuxtRoot, 'packages/mcp')
+  : undefined
 const liveConvex = process.argv.includes('--live')
 const registryContent = registryDependencies || (developmentMode && !contentRoot)
 const registryBetterConvexNuxt = registryDependencies || (developmentMode && !betterConvexNuxtRoot)
 const registryBetterConvexVue = registryBetterConvexNuxt
+const registryBetterConvexMcp = registryDependencies || (developmentMode && !betterConvexMcpRoot)
 const contentRegistryVersion =
   process.env.GINKO_CONTENT_PACKAGE_VERSION ||
   compatibilityMatrix.releaseStack['@lupinum/ginko-content']
@@ -74,6 +78,9 @@ const betterConvexNuxtRegistryVersion =
 const betterConvexVueRegistryVersion =
   process.env.BETTER_CONVEX_VUE_PACKAGE_VERSION ||
   compatibilityMatrix.releaseStack['better-convex-vue']
+const betterConvexMcpRegistryVersion = betterConvexMcpRoot
+  ? JSON.parse(readFileSync(resolve(betterConvexMcpRoot, 'package.json'), 'utf8')).version
+  : '0.1.0-beta.0'
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
@@ -195,7 +202,8 @@ function packageE2eEnv() {
 
 function run(command, args, options = {}) {
   const resolvedCommand = command === 'pnpm' ? pnpmBin : command
-  execFileSync(resolvedCommand, args, {
+  const resolvedArgs = command === 'pnpm' ? ['--config.verify-deps-before-run=warn', ...args] : args
+  execFileSync(resolvedCommand, resolvedArgs, {
     cwd: options.cwd ?? repoRoot,
     env: packageE2eEnv(),
     stdio: 'inherit',
@@ -521,6 +529,7 @@ try {
     if (developmentMode && !registryBetterConvexNuxt) {
       packPackage(betterConvexNuxtRoot)
       packPackage(resolve(betterConvexNuxtRoot, 'packages/vue'))
+      packPackage(betterConvexMcpRoot)
     }
   }
 
@@ -538,6 +547,9 @@ try {
     registryBetterConvexVue || candidateBetterConvexVue
       ? undefined
       : findTarball('better-convex-vue')
+  const betterConvexMcpTarball = registryBetterConvexMcp
+    ? undefined
+    : findTarball('better-convex-mcp')
 
   if (candidateMode) {
     const evidencePath = resolve(packDir, 'candidate-artifact.json')
@@ -581,6 +593,9 @@ try {
   const convexTarball = contentAddressedCopy(packedConvexTarball)
   const cmsTarball = contentAddressedCopy(packedCmsTarball)
   const installedContentTarball = contentTarball ? contentAddressedCopy(contentTarball) : undefined
+  const installedBetterConvexMcpTarball = betterConvexMcpTarball
+    ? contentAddressedCopy(betterConvexMcpTarball)
+    : undefined
 
   writeFileSync(
     join(tempDir, 'package.json'),
@@ -602,6 +617,9 @@ try {
           '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
           '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
           '@lupinum/ginko-content': contentDependency(installedContentTarball),
+          '@better-convex/mcp': registryBetterConvexMcp
+            ? betterConvexMcpRegistryVersion
+            : fileDependency(installedBetterConvexMcpTarball),
           '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
           'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
           'better-convex-vue': betterConvexVueDependency(betterConvexVueTarball),
@@ -621,6 +639,9 @@ try {
       '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
       '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
       '@lupinum/ginko-content': contentDependency(installedContentTarball),
+      '@better-convex/mcp': registryBetterConvexMcp
+        ? betterConvexMcpRegistryVersion
+        : fileDependency(installedBetterConvexMcpTarball),
       '@nuxt/kit': consumerCompatibility.dependencies['@nuxt/kit'],
       '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
       ...(liveConvex
@@ -838,12 +859,14 @@ try {
   const installedVersions = Object.fromEntries(
     [
       ['@lupinum/ginko-content', 'node_modules/@lupinum/ginko-content/package.json'],
+      ['@better-convex/mcp', 'node_modules/@better-convex/mcp/package.json'],
       ['better-convex-nuxt', 'node_modules/better-convex-nuxt/package.json'],
       ['better-convex-vue', 'node_modules/better-convex-vue/package.json'],
     ].map(([name, path]) => [name, JSON.parse(readFileSync(join(tempDir, path), 'utf8')).version]),
   )
   const expectedInstalledVersions = {
     '@lupinum/ginko-content': contentRegistryVersion,
+    '@better-convex/mcp': betterConvexMcpRegistryVersion,
     'better-convex-nuxt': betterConvexNuxtRegistryVersion,
     'better-convex-vue': betterConvexVueRegistryVersion,
   }
@@ -854,6 +877,83 @@ try {
       )
     }
   }
+
+  writeFileSync(
+    join(tempDir, 'packed-mcp-smoke.mjs'),
+    `import { createGinkoMcpHandler } from '@lupinum/ginko-cms-convex/mcp'
+
+const bearer = 'packed-ginko-mcp-bearer-sentinel'
+const calls = []
+const handler = createGinkoMcpHandler({
+  issuer: new URL('https://packed.example.test/mcp-credentials/'),
+  resource: new URL('https://packed.example.test/mcp-pilot'),
+  operations: {
+    async resolveCredential(secretHash) {
+      calls.push({ operation: 'credential', secretHash })
+      return { apiKeyId: 'packed-key', scopes: ['readCms', 'editEntries'], expiresAt: null }
+    },
+    async getEntry(args) {
+      calls.push({ operation: 'query', args })
+      return { _id: args.id, draftVersion: 1 }
+    },
+    async saveEntryDraft(args) {
+      calls.push({ operation: 'mutation', args })
+      return { draftVersion: args.expectedDraftVersion + 1 }
+    },
+  },
+})
+
+async function callTool(name, args) {
+  const response = await handler.fetch({}, new Request('https://packed.example.test/mcp-pilot', {
+    method: 'POST',
+    headers: {
+      accept: 'application/json, text/event-stream',
+      authorization: \`Bearer \${bearer}\`,
+      'content-type': 'application/json',
+      'mcp-method': 'tools/call',
+      'mcp-name': name,
+      'mcp-protocol-version': '2026-07-28',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: name,
+      method: 'tools/call',
+      params: {
+        name,
+        arguments: args,
+        _meta: {
+          'io.modelcontextprotocol/clientInfo': { name: 'packed-ginko-proof', version: '1' },
+          'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          'io.modelcontextprotocol/clientCapabilities': {},
+        },
+      },
+    }),
+  }))
+  if (!response.ok) throw new Error(\`Packed MCP \${name} returned \${response.status}.\`)
+  const text = await response.text()
+  const body = JSON.parse(text.startsWith('data: ') ? text.slice(6).trim() : text)
+  if (body.result?.isError) throw new Error(\`Packed MCP \${name} returned a tool error.\`)
+  return body
+}
+
+const read = await callTool('get-entry', { entryId: 'packed-entry' })
+const write = await callTool('save-entry-draft', {
+  agentRunId: 'packed-run',
+  entryId: 'packed-entry',
+  expectedDraftVersion: 1,
+  patch: {},
+})
+const serialized = JSON.stringify({ calls, read, write })
+if (!serialized.includes('packed-entry') || !serialized.includes('"draftVersion":2')) {
+  throw new Error('Packed MCP read/write results were not preserved.')
+}
+if (serialized.includes(bearer)) throw new Error('Packed MCP bearer escaped its verifier boundary.')
+console.log('packed MCP read/write behavior ok')
+`,
+    'utf8',
+  )
+  run('node', ['packed-mcp-smoke.mjs'], { cwd: tempDir })
+
   const lockfilePath = join(
     tempDir,
     consumerPackageManager === 'pnpm' ? 'pnpm-lock.yaml' : 'package-lock.json',
