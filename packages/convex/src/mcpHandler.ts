@@ -109,7 +109,7 @@ export function createGinkoMcpHandler(options: {
     createServer(_context, access) {
       const server = new McpServer({ name: 'ginko-cms', version: '0.1.0' })
       server.registerTool(
-        'get_entry',
+        'get-entry',
         {
           description: 'Load one CMS entry.',
           inputSchema: z.object({ entryId: z.string(), locale: z.string().optional() }),
@@ -137,13 +137,13 @@ export function createGinkoMcpHandler(options: {
             {
               operation: 'query',
               functionName: 'ginkoCms/mcpPilotOperations:getEntry',
-              toolName: 'get_entry',
+              toolName: 'get-entry',
             },
           )
         },
       )
       server.registerTool(
-        'save_entry_draft',
+        'save-entry-draft',
         {
           description: 'Save ordinary draft fields. This does not publish content.',
           inputSchema: z.object({
@@ -196,7 +196,7 @@ export function createGinkoMcpHandler(options: {
             {
               operation: 'mutation',
               functionName: 'ginkoCms/mcpPilotOperations:saveEntryDraft',
-              toolName: 'save_entry_draft',
+              toolName: 'save-entry-draft',
             },
           )
         },

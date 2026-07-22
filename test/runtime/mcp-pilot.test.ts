@@ -116,13 +116,13 @@ async function callTool(
 describe('Ginko Convex-native MCP pilot', () => {
   it('maps one read and ordinary draft write without passing the bearer into Convex args', async () => {
     const fixture = createFixture()
-    const read = await callTool(fixture, 'get_entry', { entryId: 'entry-1' })
+    const read = await callTool(fixture, 'get-entry', { entryId: 'entry-1' })
     expect(read.response.status).toBe(200)
     expect(read.body).toMatchObject({
       result: { structuredContent: { entry: { _id: 'entry-1', draftVersion: 1 } } },
     })
 
-    const write = await callTool(fixture, 'save_entry_draft', {
+    const write = await callTool(fixture, 'save-entry-draft', {
       agentRunId: 'run-1',
       entryId: 'entry-1',
       expectedDraftVersion: 1,
@@ -138,7 +138,7 @@ describe('Ginko Convex-native MCP pilot', () => {
 
   it('fails current credential, scope, and optimistic-concurrency checks safely', async () => {
     const fixture = createFixture()
-    const conflict = await callTool(fixture, 'save_entry_draft', {
+    const conflict = await callTool(fixture, 'save-entry-draft', {
       agentRunId: 'run-1',
       entryId: 'entry-1',
       expectedDraftVersion: 0,
@@ -154,7 +154,7 @@ describe('Ginko Convex-native MCP pilot', () => {
     })
 
     fixture.setScopes(['readCms'])
-    const denied = await callTool(fixture, 'save_entry_draft', {
+    const denied = await callTool(fixture, 'save-entry-draft', {
       agentRunId: 'run-1',
       entryId: 'entry-1',
       expectedDraftVersion: 1,
@@ -165,7 +165,7 @@ describe('Ginko Convex-native MCP pilot', () => {
     })
 
     fixture.revoke()
-    const revoked = await callTool(fixture, 'get_entry', { entryId: 'entry-1' })
+    const revoked = await callTool(fixture, 'get-entry', { entryId: 'entry-1' })
     expect(revoked.response.status).toBe(401)
     expect(revoked.response.headers.get('www-authenticate')).not.toContain('resource_metadata')
     expect(revoked.text).not.toContain(bearer)
@@ -177,7 +177,7 @@ describe('Ginko Convex-native MCP pilot', () => {
       const fixture = createFixture()
       fixture.denyApplication(reason)
 
-      const denied = await callTool(fixture, 'get_entry', { entryId: 'entry-foreign' })
+      const denied = await callTool(fixture, 'get-entry', { entryId: 'entry-foreign' })
 
       expect(denied.response.status).toBe(200)
       expect(denied.body).toMatchObject({ result: { isError: true } })
