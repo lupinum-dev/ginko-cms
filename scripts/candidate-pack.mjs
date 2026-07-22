@@ -172,7 +172,17 @@ const contentTarball = resolve(
 )
 const betterConvexNuxtTarball = resolve(
   process.env.BETTER_CONVEX_NUXT_TARBALL ??
-    resolve(repoRoot, '.pack/upstream/better-convex-nuxt-0.7.0-beta.0.tgz'),
+    resolve(
+      betterConvexNuxtRoot,
+      `.release-artifacts/nuxt/${compatibility.releaseStack['better-convex-nuxt']}/better-convex-nuxt-${compatibility.releaseStack['better-convex-nuxt']}.tgz`,
+    ),
+)
+const betterConvexVueTarball = resolve(
+  process.env.BETTER_CONVEX_VUE_TARBALL ??
+    resolve(
+      betterConvexNuxtRoot,
+      `.release-artifacts/vue/${compatibility.releaseStack['better-convex-vue']}/better-convex-vue-${compatibility.releaseStack['better-convex-vue']}.tgz`,
+    ),
 )
 const upstream = {
   '@lupinum/ginko-content': requireUpstream('@lupinum/ginko-content', contentRoot, contentTarball),
@@ -180,6 +190,11 @@ const upstream = {
     'better-convex-nuxt',
     betterConvexNuxtRoot,
     betterConvexNuxtTarball,
+  ),
+  'better-convex-vue': requireUpstream(
+    'better-convex-vue',
+    betterConvexNuxtRoot,
+    betterConvexVueTarball,
   ),
 }
 
