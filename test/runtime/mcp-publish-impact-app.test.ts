@@ -8,6 +8,15 @@ const resource = new URL('https://ginko.example.test/mcp-pilot')
 const issuer = new URL('https://ginko.example.test/mcp-credentials/')
 const bearer = 'ginko-app-bearer-sentinel'
 const rawClient = 'ginko-app-raw-client-sentinel'
+const secretSentinels = Object.freeze([
+  bearer,
+  rawClient,
+  'ginko-app-cookie-sentinel',
+  'ginko-app-convex-jwt-sentinel',
+  'ginko-app-service-proof-sentinel',
+  'ginko-app-provider-reference-sentinel',
+  'ginko-app-raw-cause-sentinel',
+])
 const input = {
   agentRunId: 'run-1',
   entryId: 'entry-1',
@@ -123,6 +132,7 @@ function hostHtml(code: string) {
     '<!doctype html><html><head>',
     "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; connect-src 'self'; frame-src 'self'; style-src 'unsafe-inline'; object-src 'none'; base-uri 'none'\">",
     '</head><body>',
+    `<script>Object.defineProperty(window,'__GINKO_HOST_ONLY_SECRETS__',{value:Object.freeze(${JSON.stringify(secretSentinels)}),enumerable:false})</script>`,
     `<script>${code.replaceAll('</script', '<\\/script')}</script>`,
     '</body></html>',
   ].join('')
@@ -197,9 +207,24 @@ describe('Ginko publish-impact MCP App', () => {
     const context = await browser.newContext()
     const page = await context.newPage()
     const consoleErrors: string[] = []
+    const consoleMessages: string[] = []
+    const consoleCaptures: Promise<void>[] = []
     const pageErrors: string[] = []
     page.on('console', (message) => {
       if (message.type() === 'error') consoleErrors.push(message.text())
+      consoleCaptures.push(
+        Promise.all(
+          message.args().map(async (argument) => {
+            try {
+              return JSON.stringify(await argument.jsonValue())
+            } catch {
+              return '<unserializable>'
+            }
+          }),
+        ).then((values) => {
+          consoleMessages.push([message.type(), message.text(), ...values].join('\n'))
+        }),
+      )
     })
     page.on('pageerror', (error) => pageErrors.push(error.message))
     try {
@@ -267,11 +292,23 @@ describe('Ginko publish-impact MCP App', () => {
       const snapshot = await page.evaluate(() => window.__GINKO_APP_HOST__.snapshot())
       expect(snapshot.toolCalls).toEqual([{ arguments: input, name: 'preview-publish' }])
       expect(snapshot.messages).not.toContain(bearer)
-      expect(snapshot.messages).not.toContain(rawClient)
-      expect(build.appHtml).not.toContain(bearer)
-      expect(build.appHtml).not.toContain(rawClient)
       expect(build.appHtml).not.toContain('request-publish-review')
       expect(build.appHtml).not.toContain('publish-entry')
+
+      await Promise.all(consoleCaptures)
+      const iframeHtml = await frame.locator('html').evaluate((element) => element.outerHTML)
+      const leakSurfaces = [
+        build.appHtml,
+        iframeHtml,
+        snapshot.messages,
+        JSON.stringify(fallback.result),
+        JSON.stringify(resourceResult.result),
+        consoleMessages.join('\n'),
+        pageErrors.join('\n'),
+      ]
+      for (const sentinel of secretSentinels) {
+        expect(leakSurfaces.every((surface) => !surface.includes(sentinel))).toBe(true)
+      }
 
       await page.evaluate(async () => window.__GINKO_APP_HOST__.teardown())
       expect(
