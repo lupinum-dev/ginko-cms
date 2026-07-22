@@ -28,10 +28,12 @@ function siteUrl() {
 export function createGinkoMcpPilotHandler(
   ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>,
   site: URL,
+  publishImpactAppHtml?: string,
 ) {
   return createGinkoMcpHandler({
     issuer: new URL(credentialIssuerPath, site),
     resource: new URL(mcpPath, site),
+    ...(publishImpactAppHtml === undefined ? {} : { publishImpactAppHtml }),
     operations: {
       async resolveCredential(secretHash) {
         return await ctx.runQuery(components.ginkoCms.mcpCredentials.resolveAccessBySecretHash, {
@@ -43,6 +45,9 @@ export function createGinkoMcpPilotHandler(
       },
       async saveEntryDraft(args) {
         return await ctx.runMutation(internal.ginkoCms.mcpPilotOperations.saveEntryDraft, args)
+      },
+      async previewPublish(args) {
+        return await ctx.runMutation(internal.ginkoCms.mcpPilotOperations.previewPublish, args)
       },
     },
   })

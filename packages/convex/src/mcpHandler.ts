@@ -40,6 +40,30 @@ export type GinkoMcpOperations = {
       >
     }
   }): Promise<unknown>
+  previewPublish(args: {
+    apiKeyId: string
+    agentRunId: string
+    entryId: string
+    locales: string[]
+    expectedVersion: number
+    message?: string
+  }): Promise<unknown>
+}
+
+const publishImpactResourceUri = 'ui://ginko/publish-impact.html'
+const publishImpactResourceMimeType = 'text/html;profile=mcp-app'
+const maximumPublishImpactAppBytes = 512 * 1024
+const publishImpactResourceMeta = {
+  ui: {
+    csp: {
+      baseUriDomains: [] as string[],
+      connectDomains: [] as string[],
+      frameDomains: [] as string[],
+      resourceDomains: [] as string[],
+    },
+    permissions: {},
+    prefersBorder: true,
+  },
 }
 
 async function hashCredential(token: string) {
@@ -77,9 +101,17 @@ function expectedApplicationFailure(error: unknown) {
 export function createGinkoMcpHandler(options: {
   issuer: URL
   operations: GinkoMcpOperations
+  publishImpactAppHtml?: string
   resource: URL
 }) {
-  const { issuer, operations, resource } = options
+  const { issuer, operations, publishImpactAppHtml, resource } = options
+  if (
+    publishImpactAppHtml !== undefined &&
+    (publishImpactAppHtml.trim().length === 0 ||
+      new TextEncoder().encode(publishImpactAppHtml).byteLength > maximumPublishImpactAppBytes)
+  ) {
+    throw new Error('The publish-impact MCP App must be non-empty and no larger than 512 KiB.')
+  }
   const verifier: McpAccessVerifier = {
     async verifyAccessToken(token, expectedResource) {
       if (expectedResource.href !== resource.href) throw new Error('Unexpected MCP resource.')
@@ -201,6 +233,77 @@ export function createGinkoMcpHandler(options: {
           )
         },
       )
+      server.registerTool(
+        'preview-publish',
+        {
+          description: 'Preview publish blockers and public-impact changes without publishing.',
+          inputSchema: z
+            .object({
+              agentRunId: z.string(),
+              entryId: z.string(),
+              locales: z.array(z.string()).min(1),
+              expectedVersion: z.number(),
+              message: z.string().optional(),
+            })
+            .strict(),
+          outputSchema: z.object({ preview: z.unknown(), publicChanged: z.literal(false) }),
+          ...(publishImpactAppHtml
+            ? {
+                _meta: {
+                  ui: {
+                    resourceUri: publishImpactResourceUri,
+                    visibility: ['model', 'app'],
+                  },
+                },
+              }
+            : {}),
+        },
+        async (args) => {
+          if (!access.scopes.includes(writeScope)) return requiredScopeResult(writeScope)
+          return await runMcpTool(
+            async () => ({
+              content: [
+                {
+                  type: 'text',
+                  text: 'Previewed publish impact without changing public content.',
+                },
+              ],
+              structuredContent: {
+                preview: await operations.previewPublish({
+                  apiKeyId: access.subject,
+                  ...args,
+                }),
+                publicChanged: false as const,
+              },
+            }),
+            {
+              operation: 'mutation',
+              functionName: 'ginkoCms/mcpPilotOperations:previewPublish',
+              toolName: 'preview-publish',
+            },
+          )
+        },
+      )
+      if (publishImpactAppHtml) {
+        server.registerResource(
+          'ginko-publish-impact',
+          publishImpactResourceUri,
+          {
+            _meta: publishImpactResourceMeta,
+            mimeType: publishImpactResourceMimeType,
+          },
+          async (uri) => ({
+            contents: [
+              {
+                _meta: publishImpactResourceMeta,
+                mimeType: publishImpactResourceMimeType,
+                text: publishImpactAppHtml,
+                uri: uri.href,
+              },
+            ],
+          }),
+        )
+      }
       return server
     },
   })

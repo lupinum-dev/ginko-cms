@@ -40,10 +40,24 @@ function createFixture() {
       if (applicationAccess !== 'allowed') {
         throw new Error(`private application denial: ${applicationAccess}`)
       }
-      if (args.expectedDraftVersion !== draftVersion) {
+      const expectedVersion =
+        name === 'ginkoCms/mcpPilotOperations:previewPublish'
+          ? args.expectedVersion
+          : args.expectedDraftVersion
+      if (expectedVersion !== draftVersion) {
         const error = new Error('opaque') as Error & { data: unknown }
         error.data = { code: 'ENTRY_DRAFT_VERSION_CONFLICT' }
         throw error
+      }
+      if (name === 'ginkoCms/mcpPilotOperations:previewPublish') {
+        return {
+          allowed: true,
+          blockers: [],
+          confirmation: null,
+          effects: [{ count: 1, kind: 'routes', summary: 'Public routes affected' }],
+          summary: 'Publish impact for entry entry-1 (en): ready.',
+          warnings: [],
+        }
       }
       draftVersion += 1
       return { draftVersion, affectedLocales: [], sharedUpdated: true }
@@ -131,9 +145,26 @@ describe('Ginko Convex-native MCP pilot', () => {
     expect(write.body).toMatchObject({
       result: { structuredContent: { result: { draftVersion: 2 } } },
     })
+    const preview = await callTool(fixture, 'preview-publish', {
+      agentRunId: 'run-1',
+      entryId: 'entry-1',
+      expectedVersion: 2,
+      locales: ['en'],
+    })
+    expect(preview.body).toMatchObject({
+      result: {
+        structuredContent: {
+          preview: {
+            effects: [{ count: 1, kind: 'routes', summary: 'Public routes affected' }],
+          },
+          publicChanged: false,
+        },
+      },
+    })
     expect(JSON.stringify(fixture.calls)).not.toContain(bearer)
     expect(JSON.stringify(read.body)).not.toContain(bearer)
     expect(JSON.stringify(write.body)).not.toContain(bearer)
+    expect(JSON.stringify(preview.body)).not.toContain(bearer)
   })
 
   it('fails current credential, scope, and optimistic-concurrency checks safely', async () => {
