@@ -345,8 +345,7 @@ function existingEntryBlockers(state: Awaited<ReturnType<typeof loadExistingEntr
       operationIssue({
         code: 'entry-delete-inventory-limit-exceeded',
         message: `Permanent-delete inventory "${overflow.name}" exceeds the atomic limit of ${overflow.limit} records. Reduce retained history or dependencies before retrying.`,
-        inventory: overflow.name,
-        limit: overflow.limit,
+        details: { inventory: overflow.name, limit: overflow.limit },
       }),
     )
   }
@@ -375,7 +374,7 @@ function existingEntryBlockers(state: Awaited<ReturnType<typeof loadExistingEntr
         code: 'entry-has-children',
         message: `${state.children.length} editorial child entr${state.children.length === 1 ? 'y' : 'ies'} must be moved or deleted first.`,
         count: state.children.length,
-        entryIds: listedIds(state.children),
+        details: { entryIds: listedIds(state.children) },
       }),
     )
   }
@@ -394,7 +393,7 @@ function existingEntryBlockers(state: Awaited<ReturnType<typeof loadExistingEntr
         code: 'entry-has-scoped-assets',
         message: `${state.assets.length} entry-scoped asset${state.assets.length === 1 ? '' : 's'} must be moved or purged first.`,
         count: state.assets.length,
-        assetIds: listedIds(state.assets),
+        details: { assetIds: listedIds(state.assets) },
       }),
     )
   }
@@ -404,7 +403,9 @@ function existingEntryBlockers(state: Awaited<ReturnType<typeof loadExistingEntr
         code: 'entry-has-recovery-artifacts',
         message: `${state.recoveryArtifacts.length} retained asset recovery artifact${state.recoveryArtifacts.length === 1 ? '' : 's'} must be resolved first.`,
         count: state.recoveryArtifacts.length,
-        artifactIds: state.recoveryArtifacts.slice(0, 25).map((row) => row.artifactId),
+        details: {
+          artifactIds: state.recoveryArtifacts.slice(0, 25).map((row) => row.artifactId),
+        },
       }),
     )
   }
@@ -415,7 +416,9 @@ function existingEntryBlockers(state: Awaited<ReturnType<typeof loadExistingEntr
         code: 'entry-has-active-redirects',
         message: `${activeRedirects.length} active redirect${activeRedirects.length === 1 ? '' : 's'} must be retired first.`,
         count: activeRedirects.length,
-        redirectIds: activeRedirects.slice(0, 25).map((row) => row.redirectId),
+        details: {
+          redirectIds: activeRedirects.slice(0, 25).map((row) => row.redirectId),
+        },
       }),
     )
   }
@@ -426,7 +429,7 @@ function existingEntryBlockers(state: Awaited<ReturnType<typeof loadExistingEntr
         code: 'entry-has-pending-reviews',
         message: `${pendingReviews.length} pending review request${pendingReviews.length === 1 ? '' : 's'} must be resolved first.`,
         count: pendingReviews.length,
-        reviewIds: listedIds(pendingReviews),
+        details: { reviewIds: listedIds(pendingReviews) },
       }),
     )
   }
@@ -436,7 +439,9 @@ function existingEntryBlockers(state: Awaited<ReturnType<typeof loadExistingEntr
         code: 'entry-retained-by-portability',
         message: `${state.retainedPortableItems.length} current portability artifact${state.retainedPortableItems.length === 1 ? '' : 's'} retain this entry. Wait for expiry or clean up the run first.`,
         count: state.retainedPortableItems.length,
-        runIds: [...new Set(state.retainedPortableItems.map((item) => item.runId))].slice(0, 25),
+        details: {
+          runIds: [...new Set(state.retainedPortableItems.map((item) => item.runId))].slice(0, 25),
+        },
       }),
     )
   }
@@ -446,7 +451,9 @@ function existingEntryBlockers(state: Awaited<ReturnType<typeof loadExistingEntr
         code: 'entry-retained-by-contract-transition',
         message: `${state.activeTransitionItems.length} active contract transition item${state.activeTransitionItems.length === 1 ? '' : 's'} retain this entry. Complete or cancel the transition first.`,
         count: state.activeTransitionItems.length,
-        runIds: state.activeTransitionItems.slice(0, 25).map(({ item }) => String(item.runId)),
+        details: {
+          runIds: state.activeTransitionItems.slice(0, 25).map(({ item }) => String(item.runId)),
+        },
       }),
     )
   }

@@ -22,7 +22,7 @@ describe('Studio Vue hard-cut source boundary', () => {
     for (const path of [
       'composables/useCmsStudioQuery.ts',
       'composables/useCmsStudioPaginatedQuery.ts',
-      'composables/useAccess.ts',
+      'composables/useCmsStudioAccess.ts',
     ]) {
       const source = studio(path)
       expect(source).not.toContain('.onUpdate(')
