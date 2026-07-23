@@ -529,7 +529,9 @@ describe('asset management', () => {
       },
     ])
 
-    const browserAssets = await owner.query(api.assets.getAssetManagerData, {})
+    const browserAssets = await owner.query(api.assets.getAssetManagerData, {
+      paginationOpts: { cursor: null, numItems: 100 },
+    })
     expect(browserAssets.page).toHaveLength(1)
     expect(browserAssets.page[0]?.referenceCertainty).toMatchObject({
       state: 'used',
@@ -589,7 +591,9 @@ describe('asset management', () => {
     const activeAssets = await listManagerAssets(owner, { deleted: 'active' })
     expect(activeAssets).toHaveLength(0)
 
-    const trashedAssets = await owner.query(api.assets.getAssetManagerData, {})
+    const trashedAssets = await owner.query(api.assets.getAssetManagerData, {
+      paginationOpts: { cursor: null, numItems: 100 },
+    })
     expect(trashedAssets.page[0]?.deletedAt).toBeTypeOf('number')
     await expect(
       ctx.raw.run(async (innerCtx) => (await innerCtx.storage.get(storageId as never)) !== null),
@@ -1435,10 +1439,13 @@ describe('asset management', () => {
       } as never,
     )
 
-    await expect(owner.query(api.assets.getAssetManagerData, {})).resolves.toMatchObject({
+    const pageArgs = { paginationOpts: { cursor: null, numItems: 100 } }
+    await expect(owner.query(api.assets.getAssetManagerData, pageArgs)).resolves.toMatchObject({
       page: [expect.objectContaining({ filename: 'hero.png' })],
     })
-    await expect(viewer.query(api.assets.getAssetManagerData, {})).rejects.toThrow(/forbidden/i)
+    await expect(viewer.query(api.assets.getAssetManagerData, pageArgs)).rejects.toThrow(
+      /forbidden/i,
+    )
   })
 
   it('rejects missing storage objects during asset registration', async () => {
@@ -1737,12 +1744,14 @@ describe('asset management', () => {
         scope: 'collection',
         entryId: 'not-an-entry',
         collection: 'posts',
+        paginationOpts: { cursor: null, numItems: 10 },
       }),
     ).rejects.toThrow(/scope|collection/i)
     await expect(
       owner.query(api.assets.listAssetsByOwner, {
         scope: 'global',
         collection: 'posts',
+        paginationOpts: { cursor: null, numItems: 10 },
       }),
     ).rejects.toThrow(/global|scope/i)
   })

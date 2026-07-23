@@ -184,7 +184,7 @@ export function useStudioAssetFinder(
     }),
     { initialNumItems: ASSET_PAGE_SIZE },
   )
-  const assetFacetsQuery = useCmsStudioQuery(api.ginkoCms.assets.getAssetManagerFacets)
+  const assetFacetsQuery = useCmsStudioQuery(api.ginkoCms.assets.getAssetManagerFacets, {})
 
   const rawAssets = computed<FinderAssetRecord[]>(() => assetsQuery.results.value)
   const assets = computed<FinderAssetRecord[]>(() =>

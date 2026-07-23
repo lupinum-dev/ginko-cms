@@ -21,7 +21,7 @@ export const resolveAssetUrls = defineArgs({
 export const listAssetsByOwner = defineArgs({
   description: 'Page through active CMS assets owned by one exact scope.',
   args: {
-    paginationOpts: v.optional(paginationOptsValidator),
+    paginationOpts: paginationOptsValidator,
     scope: assetScopeValidator,
     collection: v.optional(v.string()),
     entryId: v.optional(v.string()),
@@ -32,14 +32,14 @@ export const listAssetUsages = defineArgs({
   description: 'Page through canonical content references for one CMS asset.',
   args: {
     assetId: v.string(),
-    paginationOpts: v.optional(paginationOptsValidator),
+    paginationOpts: paginationOptsValidator,
   },
 })
 
 export const getAssetManagerData = defineArgs({
   description: 'Search and page CMS assets through the exact Studio discovery contract.',
   args: {
-    paginationOpts: v.optional(paginationOptsValidator),
+    paginationOpts: paginationOptsValidator,
     search: v.optional(v.string()),
     kind: v.optional(v.union(v.literal('all'), v.literal('image'), v.literal('document'))),
     deleted: v.optional(v.union(v.literal('active'), v.literal('trashed'), v.literal('all'))),

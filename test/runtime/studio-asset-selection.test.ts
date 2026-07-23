@@ -7,6 +7,7 @@ import { useStudioAssetFinder } from '../../packages/cms/studio-app/src/composab
 const mocks = vi.hoisted(() => ({
   paginatedCall: 0,
   managerResults: null as ShallowRef<FinderAssetRecord[]> | null,
+  queryArgs: [] as unknown[],
 }))
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsI18n', () => ({
@@ -26,15 +27,18 @@ vi.mock('../../packages/cms/studio-app/src/composables/useStudioConvex', () => (
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', async () => {
   const { shallowRef } = await import('vue')
   return {
-    useCmsStudioQuery: () => ({
-      data: shallowRef({
-        activeCount: 0,
-        trashedCount: 0,
-        globalActiveCount: 0,
-        collections: [],
-        tags: [],
-      }),
-    }),
+    useCmsStudioQuery: (_query: unknown, args: unknown) => {
+      mocks.queryArgs.push(args)
+      return {
+        data: shallowRef({
+          activeCount: 0,
+          trashedCount: 0,
+          globalActiveCount: 0,
+          collections: [],
+          tags: [],
+        }),
+      }
+    },
   }
 })
 
@@ -90,9 +94,18 @@ function asset(id: string): FinderAssetRecord {
 beforeEach(() => {
   mocks.paginatedCall = 0
   mocks.managerResults = null
+  mocks.queryArgs = []
 })
 
 describe('Studio asset finder selection', () => {
+  it('executes the no-argument facets query with an explicit empty argument object', () => {
+    const scope = effectScope()
+    scope.run(() => useStudioAssetFinder())
+
+    expect(mocks.queryArgs).toEqual([{}])
+    scope.stop()
+  })
+
   it('[AST-02] keeps explicit selection when a page or filter replaces visible results', async () => {
     const scope = effectScope()
     const finder = scope.run(() => useStudioAssetFinder())!

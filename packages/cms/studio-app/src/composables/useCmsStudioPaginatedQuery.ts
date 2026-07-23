@@ -4,6 +4,7 @@ import {
   type PaginatedQueryItem,
   type PaginatedQueryReference,
 } from 'better-convex-vue'
+import type { FunctionArgs } from 'convex/server'
 import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
 
 import { cmsPermissionKeys, type CmsPermissionKey } from './permissions'
@@ -26,6 +27,9 @@ type CmsStudioPaginatedQueryOptions<Item, Data> = {
   requiredCapability?: CmsPermissionKey
 }
 
+type CheckedPaginatedQuery<Query extends PaginatedQueryReference> =
+  FunctionArgs<Query> extends { paginationOpts: unknown } ? Query : never
+
 export interface UseCmsStudioPaginatedQueryReturn<Data> {
   results: ComputedRef<Data[]>
   status: ComputedRef<CmsStudioPaginatedStatus>
@@ -44,7 +48,7 @@ export function useCmsStudioPaginatedQuery<
   Query extends PaginatedQueryReference,
   Data = PaginatedQueryItem<Query>,
 >(
-  query: Query,
+  query: CheckedPaginatedQuery<Query>,
   args: MaybeRefOrGetter<PaginatedQueryArgs<Query> | null | undefined>,
   options: CmsStudioPaginatedQueryOptions<PaginatedQueryItem<Query>, Data>,
 ): UseCmsStudioPaginatedQueryReturn<Data> {

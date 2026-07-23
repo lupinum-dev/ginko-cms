@@ -19,6 +19,7 @@ import {
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
 import { useStudioAdvancedEditor } from '../useStudioAdvancedEditor'
 import { useConvexMutation } from '../useStudioConvex'
+import type { PublishSessionPreview } from './useEntryPublishing'
 import type { StudioEntryEditorContextBase } from './useStudioEntryEditor'
 
 // Public-workflow orchestration for the entry editor (RFC Phase 5 / D8).
@@ -233,6 +234,18 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         locales: [],
         status: null,
         pending: false,
+        error: null,
+      }
+    }
+    if (publishSession.readiness.state === 'pending') {
+      return {
+        state: 'pending',
+        message: publishSession.readiness.message,
+        cacheTags: [],
+        events: [],
+        locales: [],
+        status: null,
+        pending: true,
         error: null,
       }
     }
@@ -490,6 +503,8 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
   async function previewPublishImpact(locale?: string, options: { saveDraft?: boolean } = {}) {
     clearReactiveRecord(publishImpactPagePending)
     clearReactiveRecord(publishImpactPageError)
+    publishSession.preview = null
+    publishSession.impactRequested = true
     publishSession.impactLocale = locale ?? null
     publishSession.impactStale = false
     publishSession.concurrentEdit = false
@@ -521,7 +536,6 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
           message: editor.draft.error || 'Draft could not be saved before preview.',
           locales: [],
         })
-        publishSession.impactRequested = true
         return
       }
     }
@@ -545,7 +559,6 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
           message: 'The saved draft is not loaded. Reload before previewing website changes.',
           locales: [],
         })
-        publishSession.impactRequested = true
         return
       }
       const locales =
@@ -567,7 +580,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         entryId: editor.loader.entryId,
         locales,
         expectedVersion,
-      })) as typeof publishSession.preview
+      })) as PublishSessionPreview
       publishSession.preview = preview
       const operationPreview = derivePublishOperationPreviewState({
         preview,
@@ -594,10 +607,8 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
             : 'We could not prepare the website preview.',
         locales: [],
       })
-      publishSession.impactRequested = true
       return
     }
-    publishSession.impactRequested = true
   }
 
   async function loadMorePublishImpact(locale: string) {
