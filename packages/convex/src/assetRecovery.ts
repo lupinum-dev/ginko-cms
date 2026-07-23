@@ -1,3 +1,4 @@
+import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { makeFunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -27,7 +28,13 @@ import { assetDiscoveryFields } from './assets/scope.js'
 import { isStorageClaimedByAnotherOwner } from './assets/storageOwnership.js'
 import { canManageAssetRecovery } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
-import { callerAction, callerMutation, requireCmsContractWriteToken } from './functions.js'
+import {
+  callerAction,
+  callerMutation,
+  requireCms,
+  requireCmsContractWriteToken,
+  resolveCmsAppIdentity,
+} from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { getCollection } from './lib/collections.js'
 import {
@@ -75,9 +82,16 @@ export type RecordAssetRecoveryArtifactArgs = {
   now: number
 }
 
+type RecordAssetRecoveryArtifactMutationArgs = Omit<
+  RecordAssetRecoveryArtifactArgs,
+  'appIdentityId'
+> & {
+  userId: string
+}
+
 const recordAssetRecoveryArtifactRef = makeFunctionReference<
   'mutation',
-  RecordAssetRecoveryArtifactArgs,
+  RecordAssetRecoveryArtifactMutationArgs,
   null
 >('assetRecovery:recordAssetRecoveryArtifact')
 const restoreAssetFromRecoveryRef = makeFunctionReference<
@@ -87,7 +101,7 @@ const restoreAssetFromRecoveryRef = makeFunctionReference<
     artifactId: string
     asset: AssetSnapshot
     restoredStorageRef: Id<'_storage'>
-    appIdentityId: string
+    userId: string
     now: number
   },
   { assetId: string; originalAssetId: string }
@@ -124,6 +138,17 @@ const restorePreviewValidator = v.object({
   blockers: v.array(v.object({ code: v.string(), message: v.string() })),
   warnings: v.array(v.object({ code: v.string(), message: v.string() })),
 })
+
+async function requireCurrentAssetRecoveryManager(ctx: MutationCtx, userId: string) {
+  const identity = requireCms(
+    await resolveCmsAppIdentity(ctx, cmsUserCaller(userId)),
+    canManageAssetRecovery,
+  )
+  if (identity.kind !== 'member') {
+    throw new Error('Asset recovery requires a current CMS member.')
+  }
+  return identity
+}
 
 export const readAssetForRecovery = internalQuery({
   args: { assetId: v.string() },
@@ -213,11 +238,18 @@ export const recordAssetRecoveryArtifact = internalMutation({
     bytesSha256: v.string(),
     assetFactsHash: v.string(),
     assetUpdatedAt: v.number(),
-    appIdentityId: v.string(),
+    userId: v.string(),
     now: v.number(),
   },
   returns: v.null(),
-  handler: recordAssetRecoveryArtifactHandler,
+  handler: async (ctx, args) => {
+    const { userId, ...record } = args
+    const appIdentity = await requireCurrentAssetRecoveryManager(ctx, userId)
+    return await recordAssetRecoveryArtifactHandler(ctx, {
+      ...record,
+      appIdentityId: appIdentity.userId,
+    })
+  },
 })
 
 export const restoreAssetFromRecovery = internalMutation({
@@ -226,12 +258,13 @@ export const restoreAssetFromRecovery = internalMutation({
     artifactId: v.string(),
     asset: assetSnapshotValidator,
     restoredStorageRef: v.id('_storage'),
-    appIdentityId: v.string(),
+    userId: v.string(),
     now: v.number(),
   },
   returns: v.object({ assetId: v.string(), originalAssetId: v.string() }),
   handler: async (ctx, args) => {
     await assertCmsContractWriteToken(ctx, args.contractWriteToken)
+    const appIdentity = await requireCurrentAssetRecoveryManager(ctx, args.userId)
     const originalId = ctx.db.normalizeId('assets', args.asset.originalAssetId)
     if (originalId && (await ctx.db.get(originalId))) {
       throwCmsError('ASSET_RECOVERY_RESTORE_TARGET_EXISTS', 'The original asset still exists.', {
@@ -280,7 +313,7 @@ export const restoreAssetFromRecovery = internalMutation({
       collection: args.asset.collection,
       tags: args.asset.tags,
       createdBy: args.asset.createdBy,
-      updatedBy: args.appIdentityId,
+      updatedBy: appIdentity.userId,
       createdAt: args.asset.createdAt,
       updatedAt: args.now,
       deletedAt: null,
@@ -297,7 +330,7 @@ export const restoreAssetFromRecovery = internalMutation({
     await logActivity(ctx, {
       kind: 'asset.recovered',
       summary: 'Restored asset bytes from verified recovery artifact',
-      appIdentityId: args.appIdentityId,
+      appIdentityId: appIdentity.userId,
       collection: args.asset.collection,
       entryId,
       detail: {
@@ -416,7 +449,7 @@ export const createAssetRecoveryArtifact = callerAction.protected({
       await ctx.runMutation(recordAssetRecoveryArtifactRef, {
         contractWriteToken: requireCmsContractWriteToken(ctx),
         ...record,
-        appIdentityId: appIdentity.userId,
+        userId: appIdentity.userId,
         now: createdAt,
       })
       return {
@@ -546,7 +579,7 @@ export const restoreAsset = callerAction.protected({
         artifactId: args.artifactId,
         asset: verified.archive.asset,
         restoredStorageRef: storageRef,
-        appIdentityId: appIdentity.userId,
+        userId: appIdentity.userId,
         now: Date.now(),
       })
       return {

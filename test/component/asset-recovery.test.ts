@@ -6,6 +6,7 @@ import { anyApi } from 'convex/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { decodeAssetRecoveryArchive } from '../../packages/convex/src/assetRecovery'
+import { assetSnapshot } from '../../packages/convex/src/assetRecovery/archive'
 import { assetDiscoveryFields } from '../../packages/convex/src/assets/scope'
 import {
   createCtx,
@@ -136,6 +137,15 @@ async function seedAsset(ctx: ReturnType<typeof createCtx>, bytes: string, now =
   return { assetId: String(assetId), storageId }
 }
 
+async function contractWriteToken(ctx: ReturnType<typeof createCtx>) {
+  const installed = (await ctx.readAll('cmsContract'))[0]!
+  return {
+    contentHash: installed.contentHash,
+    presentationHash: installed.presentationHash,
+    generation: installed.writeGeneration,
+  }
+}
+
 async function createRecoveryArtifact(ctx: ReturnType<typeof createCtx>, assetId: string) {
   const artifact = await ctx
     .asCmsUser('owner-1')
@@ -227,6 +237,80 @@ async function expectStalePurgeReceipt(
 }
 
 describe('verified asset recovery', () => {
+  it('reauthorizes artifact creation in the terminal mutation after an owner is demoted', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const source = await seedAsset(ctx, 'terminal artifact authorization')
+    const recoveryStorage = await ctx.raw.run(
+      async (innerCtx) => await innerCtx.storage.store(new Blob(['recovery archive'])),
+    )
+    await ctx.raw.run(async (innerCtx) => {
+      const member = await innerCtx.db
+        .query('members')
+        .withIndex('by_userId', (query) => query.eq('userId', 'owner-1'))
+        .unique()
+      await innerCtx.db.patch(member!._id, { role: 'viewer' })
+    })
+
+    await expect(
+      ctx.raw.mutation(api.assetRecovery.recordAssetRecoveryArtifact, {
+        contractWriteToken: await contractWriteToken(ctx),
+        artifactId: 'terminal-auth-artifact',
+        assetId: source.assetId,
+        collection: null,
+        entryId: null,
+        checksum: sha256('recovery archive'),
+        storageRef: recoveryStorage,
+        byteSize: 16,
+        bytesSha256: sha256('terminal artifact authorization'),
+        assetFactsHash: 'a'.repeat(64),
+        assetUpdatedAt: 1,
+        userId: 'owner-1',
+        now: 2,
+      }),
+    ).rejects.toThrow(/forbidden/i)
+
+    expect(await ctx.readAll('assetRecoveryArtifacts')).toEqual([])
+    expect(await ctx.readAll('activity')).toEqual([])
+  })
+
+  it('reauthorizes restore in the terminal mutation after membership removal', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const source = await seedAsset(ctx, 'terminal restore authorization')
+    const snapshot = await ctx.raw.run(async (innerCtx) => {
+      const asset = await innerCtx.db.get(source.assetId as never)
+      if (!asset) throw new Error('Expected source asset')
+      await innerCtx.db.delete(asset._id)
+      return assetSnapshot(asset)
+    })
+    const restoredStorage = await ctx.raw.run(
+      async (innerCtx) =>
+        await innerCtx.storage.store(new Blob(['terminal restore authorization'])),
+    )
+    await ctx.raw.run(async (innerCtx) => {
+      const member = await innerCtx.db
+        .query('members')
+        .withIndex('by_userId', (query) => query.eq('userId', 'owner-1'))
+        .unique()
+      await innerCtx.db.delete(member!._id)
+    })
+
+    await expect(
+      ctx.raw.mutation(api.assetRecovery.restoreAssetFromRecovery, {
+        contractWriteToken: await contractWriteToken(ctx),
+        artifactId: 'terminal-restore-artifact',
+        asset: snapshot,
+        restoredStorageRef: restoredStorage,
+        userId: 'owner-1',
+        now: 3,
+      }),
+    ).rejects.toThrow(/forbidden/i)
+
+    expect(await ctx.readAll('assets')).toEqual([])
+    expect(await ctx.readAll('activity')).toEqual([])
+  })
+
   it('[AST-08] keeps permanent purge owner-only and unavailable to agents', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
