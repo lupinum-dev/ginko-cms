@@ -41,7 +41,6 @@ NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 CONVEX_DEPLOYMENT=dev:your-deployment-name
 BETTER_AUTH_SECRETS=0:long-random-secret
 BCN_AUTH_PROXY_IP_SECRET=independent-proxy-signature-secret
-GINKO_CMS_MCP_SERVER_SECRET=independent-mcp-server-secret
 GINKO_CMS_PORTABILITY_SECRET=independent-portability-token-secret
 GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL=https://mailer.example/hooks/password-recovery
 GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN=secret-manager-value
@@ -61,8 +60,6 @@ NUXT_PUBLIC_SITE_URL=https://your-site.example
   ciphertext still depends on them. Never expose this value to Nuxt.
 - `BCN_AUTH_PROXY_IP_SECRET`: separate secret shared by Nuxt and Convex for the
   Better Convex Nuxt trusted-client-IP assertion.
-- `GINKO_CMS_MCP_SERVER_SECRET`: separate secret shared by Nuxt and Convex when
-  private MCP service credentials are enabled. Minimum 32 characters.
 - `GINKO_CMS_PORTABILITY_SECRET`: Nuxt-only secret that seals owner-CLI asset
   transfer attempts. Do not reuse an auth or MCP secret.
 - `GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL`: approved HTTPS email-delivery webhook
@@ -97,12 +94,12 @@ requires authentication, and is marked `noindex`.
 
 ## CMS Server And MCP Runtime
 
-Server-side MCP tools use CMS-owned private service credentials. Studio creates
-a random bearer once, Convex stores only its SHA-256 hash, and the Nuxt MCP
-boundary sends only that hash plus the private server assertion to Convex. The
-component re-checks credential status, expiry, owner membership, role, and
-scopes on every protected tool call. This path does not exchange a Better Auth
-session token and does not require `CONVEX_DEPLOY_KEY`.
+The optional MCP endpoint is a Convex-native `/mcp` HTTP action. Studio creates
+a random CMS-owned bearer once and Convex stores only its SHA-256 hash. The sole
+ingress admits the hash and applies abuse limits atomically. Each protected tool
+then re-checks credential status, expiry, owner membership, role, scope, tenant,
+and contract state. This path uses neither a Better Auth session token nor
+`CONVEX_DEPLOY_KEY` and requires no shared Nuxt/Convex MCP secret.
 
 ## Owner Maintenance Session
 
@@ -184,16 +181,9 @@ If you need a different Convex command, pass the Convex CLI arguments after
 pnpm exec ginko-cms deploy -- deploy
 ```
 
-For MCP installations, also run:
-
-```bash
-pnpm exec ginko-cms mcp-doctor
-```
-
-`ginko-cms mcp-doctor` expects the MCP runtime prerequisites, including
-`secure-exec`, a Convex URL, and a Better Auth base URL source. It reads
-`.env.local` as well as the process environment. The MCP runtime itself needs
-the same values in the actual server environment.
+For MCP installations, run `ginko-cms init --mcp` before deployment and enable
+the matching `ginkoCms.mcp` Nuxt module option. The normal setup doctor rejects
+a source/module mode mismatch.
 
 ## Revalidation Egress
 

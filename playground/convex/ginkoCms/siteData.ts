@@ -9,8 +9,8 @@ import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { mutation, query } from '../_generated/server.js'
+import { bindCmsCaller } from './caller.js'
 import { bindExpectedCmsContract } from './contractBinding.js'
-import { bindCmsCaller } from './mcpCaller.js'
 
 function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
   return {

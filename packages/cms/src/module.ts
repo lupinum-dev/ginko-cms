@@ -246,7 +246,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     }
 
     // Convex backend wiring
-    assertConvexSetupInstalled(nuxt.options.rootDir)
+    assertConvexSetupInstalled(nuxt.options.rootDir, { mcp: mcpEnabled })
 
     const colorModeOptions =
       typeof moduleOptions.colorMode === 'object' && moduleOptions.colorMode !== null
@@ -360,57 +360,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     // auth pages still ship from this Nuxt module but they reuse the
     // consumer's own theme tokens, so nothing needs to be pushed onto
     // nuxt.options.css here.
-
-    if (mcpEnabled) {
-      addServerHandler({
-        middleware: true,
-        handler: resolve(cmsServerDir, 'middleware/mcp-auth'),
-      })
-
-      const mcpDiscoveryRoot = resolve(cmsServerDir, 'mcp')
-      ;(
-        nuxt as {
-          hook: (
-            name: string,
-            handler: (paths: {
-              tools: string[]
-              resources: string[]
-              prompts: string[]
-              handlers?: string[]
-            }) => void,
-          ) => void
-        }
-      ).hook(
-        'mcp:definitions:paths',
-        (paths: {
-          tools: string[]
-          resources: string[]
-          prompts: string[]
-          handlers?: string[]
-        }) => {
-          const handlers = (paths.handlers ??= [])
-          const toolDir = resolve(mcpDiscoveryRoot, 'tools')
-          const resourceDir = resolve(mcpDiscoveryRoot, 'resources')
-          const promptDir = resolve(mcpDiscoveryRoot, 'prompts')
-
-          if (!paths.tools.includes(toolDir)) {
-            paths.tools.push(toolDir)
-          }
-          if (!paths.resources.includes(resourceDir)) {
-            paths.resources.push(resourceDir)
-          }
-          if (!paths.prompts.includes(promptDir)) {
-            paths.prompts.push(promptDir)
-          }
-          if (!handlers.includes(mcpDiscoveryRoot)) {
-            handlers.push(mcpDiscoveryRoot)
-          }
-        },
-      )
-      const nitroOptions = ((nuxt.options as { nitro?: NitroOptionsExt }).nitro ??= {})
-      nitroOptions.experimental ??= {}
-      nitroOptions.experimental.asyncContext = true
-    }
 
     // The website read API is provided by @lupinum/ginko-content through the active
     // content provider. ginko-cms does not auto-import public website-reader
@@ -595,12 +544,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
           redirects: false,
           translationDir: 'node_modules/.cache/ginko-cms/i18n-micro',
         },
-      }
-    }
-    if (userOptions.mcp === true) {
-      dependencies['@nuxtjs/mcp-toolkit'] = {
-        version: '>=0.16.1',
-        defaults: {},
       }
     }
     return dependencies

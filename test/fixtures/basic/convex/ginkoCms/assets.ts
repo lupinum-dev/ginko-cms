@@ -21,8 +21,8 @@ import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { action, mutation, query } from '../_generated/server.js'
+import { bindCmsCaller } from './caller.js'
 import { bindExpectedCmsContract } from './contractBinding.js'
-import { bindCmsCaller, bindMcpCaller, mcpCallerArgs } from './mcpCaller.js'
 
 function confirmedArgs<TArgs extends Record<string, unknown>>(args: TArgs) {
   return {
@@ -130,12 +130,9 @@ export const moveAsset = mutation({
 })
 
 export const getAsset = query({
-  args: { ...getAssetArgs.args, ...mcpCallerArgs },
+  args: getAssetArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runQuery(
-      components.ginkoCms.assets.getAsset,
-      await bindMcpCaller(ctx, args, 'query:ginkoCms/assets:getAsset'),
-    ),
+    await ctx.runQuery(components.ginkoCms.assets.getAsset, await bindCmsCaller(ctx, args)),
 })
 
 export const listAssetsByOwner = query({
@@ -151,12 +148,9 @@ export const listAssetUsages = query({
 })
 
 export const resolveAssetUrls = query({
-  args: { ...resolveAssetUrlsArgs.args, ...mcpCallerArgs },
+  args: resolveAssetUrlsArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runQuery(
-      components.ginkoCms.assets.resolveAssetUrls,
-      await bindMcpCaller(ctx, args, 'query:ginkoCms/assets:resolveAssetUrls'),
-    ),
+    await ctx.runQuery(components.ginkoCms.assets.resolveAssetUrls, await bindCmsCaller(ctx, args)),
 })
 
 export const getAssetManagerData = query({

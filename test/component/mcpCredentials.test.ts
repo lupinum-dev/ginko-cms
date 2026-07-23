@@ -12,6 +12,15 @@ function secretHash(secret: string) {
   return createHash('sha256').update(secret).digest('hex')
 }
 
+function admissionArgs(secret: string, requestId: string) {
+  return {
+    secretHash: secretHash(secret),
+    ipBucketKey: 'a'.repeat(64),
+    credentialBucketKey: secretHash(`credential:${secret}`),
+    requestId,
+  }
+}
+
 describe('component: CMS-owned MCP credentials', () => {
   it('[AGT-01] generates a secret once and persists only its hash', async () => {
     const ctx = createCtx()
@@ -41,7 +50,7 @@ describe('component: CMS-owned MCP credentials', () => {
     expect(JSON.stringify(await ctx.readAll('activity'))).not.toContain(created.bearerToken)
   })
 
-  it('resolves active credentials by hash without exposing the hash in owner views', async () => {
+  it('admits active credentials without exposing the hash in owner views', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     const owner = ctx.asCmsUser('owner-1')
@@ -51,14 +60,18 @@ describe('component: CMS-owned MCP credentials', () => {
     })
 
     await expect(
-      ctx.raw.query(api.mcpCredentials.resolveAccessBySecretHash, {
-        secretHash: secretHash(created.bearerToken),
-      }),
+      ctx.raw.mutation(
+        api.mcpCredentials.admitAccessBySecretHash,
+        admissionArgs(created.bearerToken, 'active-request'),
+      ),
     ).resolves.toEqual({
-      apiKeyId: created.settings.apiKeyId,
-      ownerUserId: 'owner-1',
-      scopes: [cmsPermissionKeys.read],
-      expiresAt: null,
+      kind: 'access',
+      access: {
+        apiKeyId: created.settings.apiKeyId,
+        ownerUserId: 'owner-1',
+        scopes: [cmsPermissionKeys.read],
+        expiresAt: null,
+      },
     })
     expect(JSON.stringify(await owner.query(api.mcpCredentials.listOwnSettings, {}))).not.toContain(
       secretHash(created.bearerToken),
@@ -153,10 +166,11 @@ describe('component: CMS-owned MCP credentials', () => {
     })
 
     await expect(
-      ctx.raw.query(api.mcpCredentials.resolveAccessBySecretHash, {
-        secretHash: secretHash(created.bearerToken),
-      }),
-    ).resolves.toBeNull()
+      ctx.raw.mutation(
+        api.mcpCredentials.admitAccessBySecretHash,
+        admissionArgs(created.bearerToken, 'revoked-request'),
+      ),
+    ).resolves.toEqual({ kind: 'invalid' })
     await expect(
       ctx.asMcpApiKey(created.settings.apiKeyId, 'owner-1').query(api.members.getAccessContext, {}),
     ).resolves.toBeNull()
@@ -187,9 +201,10 @@ describe('component: CMS-owned MCP credentials', () => {
       revokedAt: null,
     })
     await expect(
-      ctx.raw.query(api.mcpCredentials.resolveAccessBySecretHash, {
-        secretHash: secretHash('expired-secret'),
-      }),
-    ).resolves.toBeNull()
+      ctx.raw.mutation(
+        api.mcpCredentials.admitAccessBySecretHash,
+        admissionArgs('expired-secret', 'expired-request'),
+      ),
+    ).resolves.toEqual({ kind: 'invalid' })
   })
 })

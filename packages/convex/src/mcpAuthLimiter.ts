@@ -1,15 +1,12 @@
 import { v } from 'convex/values'
 
 import { internalMutation } from './_generated/server.js'
-import { callerMutation, callerQuery } from './functions.js'
 import type { MutationCtx, QueryCtx } from './lib/types.js'
 
 const IP_LIMIT = { max: 30, windowMs: 60_000 }
 const CREDENTIAL_LIMIT = { max: 5, windowMs: 5 * 60_000 }
 const CLEANUP_BATCH_SIZE = 100
 const OPPORTUNISTIC_CLEANUP_BATCH_SIZE = 2
-
-const limiterResult = v.object({ limited: v.boolean() })
 
 function activeAttempts(
   attempts: Array<{ requestId: string; timestamp: number }>,
@@ -31,16 +28,6 @@ async function bucketIsLimited(
     .first()
   return bucket ? activeAttempts(bucket.attempts, now, config.windowMs).length >= config.max : false
 }
-
-export const checkFailureBudget = callerQuery.public({
-  args: {
-    ipBucketKey: v.string(),
-    credentialBucketKey: v.string(),
-    now: v.number(),
-  },
-  returns: limiterResult,
-  handler: checkFailureBudgetHandler,
-})
 
 export async function checkFailureBudgetHandler(
   ctx: QueryCtx | MutationCtx,
@@ -90,12 +77,6 @@ async function deleteExpiredFailureBuckets(ctx: MutationCtx, now: number, limit:
   return expired.length
 }
 
-const recordFailureArgs = {
-  ipBucketKey: v.string(),
-  credentialBucketKey: v.string(),
-  requestId: v.string(),
-}
-
 export async function recordFailureHandler(
   ctx: MutationCtx,
   args: {
@@ -141,14 +122,6 @@ export async function recordFailureHandler(
   ])
   return { limited: false }
 }
-
-export const recordFailure = callerMutation.public({
-  id: 'mcpAuthLimiter:recordFailure',
-  contractWrite: 'bypass',
-  args: recordFailureArgs,
-  returns: limiterResult,
-  handler: async (ctx, args) => await recordFailureHandler(ctx, args),
-})
 
 export const cleanupExpiredFailureBuckets = internalMutation({
   args: {

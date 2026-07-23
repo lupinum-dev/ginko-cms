@@ -14,7 +14,6 @@ const requiredPackageOutputs = [
   'packages/contract/dist/fields/index.js',
   'packages/convex/dist/component/convex.config.js',
   'packages/convex/dist/convex.auth.js',
-  'packages/convex/dist/mcpLimiterProtocol.js',
   'packages/convex/dist/_generated/component.js',
   'packages/cms/dist/module.mjs',
   'packages/cms/dist/types.d.mts',
@@ -212,7 +211,6 @@ describe('package boundary contracts', () => {
       './convex.auth',
       './convex.config',
       './mcp',
-      './mcp-limiter-protocol',
       './operations',
     ])
 
@@ -511,7 +509,6 @@ describe('package boundary contracts', () => {
       contractFields,
       convexConfig,
       convexAuth,
-      mcpLimiterProtocol,
       cmsModule,
     ] = await Promise.all([
       import('../../packages/contract/dist/validators.js'),
@@ -519,7 +516,6 @@ describe('package boundary contracts', () => {
       import('../../packages/contract/dist/fields/index.js'),
       import('../../packages/convex/dist/component/convex.config.js'),
       import('../../packages/convex/dist/convex.auth.js'),
-      import('../../packages/convex/dist/mcpLimiterProtocol.js'),
       import('../../packages/cms/dist/module.mjs'),
     ])
 
@@ -528,7 +524,6 @@ describe('package boundary contracts', () => {
     expect(contractFields.normalizeFields).toBeTypeOf('function')
     expect(convexConfig.default).toBeDefined()
     expect(convexAuth.defineGinkoAuth).toBeTypeOf('function')
-    expect(mcpLimiterProtocol.signMcpLimiterPayload).toBeTypeOf('function')
     expect(cmsModule.default).toBeTypeOf('function')
   })
 

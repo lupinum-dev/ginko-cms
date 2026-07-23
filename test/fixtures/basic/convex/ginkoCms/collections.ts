@@ -3,23 +3,23 @@ import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { query } from '../_generated/server.js'
-import { bindMcpCaller, mcpCallerArgs } from './mcpCaller.js'
+import { bindCmsCaller } from './caller.js'
 
 export const listCollections = query({
-  args: { ...mcpCallerArgs },
+  args: {},
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.collections.listCollections,
-      await bindMcpCaller(ctx, args, 'query:ginkoCms/collections:listCollections'),
+      await bindCmsCaller(ctx, args),
     ),
 })
 
 export const getCollection = query({
-  args: { ...getCollectionArgs.args, ...mcpCallerArgs },
+  args: getCollectionArgs.args,
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.collections.getCollection,
-      await bindMcpCaller(ctx, args, 'query:ginkoCms/collections:getCollection'),
+      await bindCmsCaller(ctx, args),
     ),
 })
 

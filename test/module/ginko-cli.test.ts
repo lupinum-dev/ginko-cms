@@ -113,7 +113,7 @@ describe('ginko-cms CLI', () => {
     expect(init.stdout).toContain(
       'Host apps must depend directly on `better-convex-nuxt`, `better-auth`, `kysely`, and `@lupinum/ginko-cms-convex`.',
     )
-    expect(init.stdout).toContain('host apps must also depend directly on `secure-exec`')
+    expect(init.stdout).toContain('MCP is disabled')
     expect(init.stdout).toContain(
       'pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com',
     )
@@ -127,6 +127,7 @@ describe('ginko-cms CLI', () => {
     expect(setupManifest).toMatchObject({
       schemaVersion: 1,
       generatedBy: '@lupinum/ginko-cms',
+      mcp: false,
       files: {
         'convex/convex.config.ts': { templateHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
       },
@@ -147,13 +148,13 @@ describe('ginko-cms CLI', () => {
     expect(readFileSync(resolve(rootDir, 'convex/ginkoCms/editor.ts'), 'utf8')).toContain(
       'bindExpectedCmsContract(args)',
     )
-    const mcpFacade = readFileSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'), 'utf8')
-    expect(mcpFacade).toContain('components.ginkoCms.mcpCredentials.createCredential, args')
-    expect(mcpFacade).toContain('components.ginkoCms.mcpCredentials.revokeSettings, args')
+    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).not.toContain('/mcp')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/maintenance.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/migrations.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/policy.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, staleMcpBridgeFile))).toBe(false)
 
@@ -161,6 +162,36 @@ describe('ginko-cms CLI', () => {
     const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(0)
     expect(check.stdout).toContain('Ginko CMS doctor passed')
+  })
+
+  it('generates exactly one Convex-native MCP route only when explicitly enabled', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-mcp-'))
+    tempDirs.push(rootDir)
+
+    const init = await runCli(['init', '--mcp'], rootDir)
+    expect(init.code).toBe(0)
+    expect(init.stdout).toContain('provider-neutral MCP endpoint at `/mcp`')
+
+    const http = readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')
+    expect(http.match(/path: '[\\/]mcp'/gu)).toHaveLength(3)
+    expect(http).not.toContain('/mcp-pilot')
+    expect(http).not.toContain('/mcp/code')
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCaller.ts'))).toBe(false)
+
+    const manifest = JSON.parse(
+      readFileSync(resolve(rootDir, 'convex/.ginko-cms-setup.json'), 'utf8'),
+    )
+    expect(manifest.mcp).toBe(true)
+
+    const disable = await runCli(['init'], rootDir)
+    expect(disable.code).toBe(0)
+    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).not.toContain('/mcp')
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
   })
 
   it('updates an untouched generated setup file when its recorded template changes', async () => {
@@ -545,80 +576,6 @@ describe('ginko-cms CLI', () => {
     expect(doctor.stderr).toContain(
       'package.json is missing direct dependency "@lupinum/ginko-cms-convex"',
     )
-  })
-
-  it('loads local env files for MCP doctor checks', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-mcp-doctor-'))
-    tempDirs.push(rootDir)
-
-    await runCli(['init'], rootDir)
-    writeFileSync(
-      resolve(rootDir, 'package.json'),
-      JSON.stringify({
-        private: true,
-        dependencies: {
-          '@lupinum/ginko-cms': 'workspace:*',
-          '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': '1.7.0-rc.1',
-          'better-convex-nuxt': '0.7.0-beta.0',
-          kysely: '0.28.17',
-          convex: '1.42.2',
-          'secure-exec': '^0.2.1',
-        },
-      }),
-      'utf8',
-    )
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      [
-        'CONVEX_URL=https://example.convex.cloud',
-        'CONVEX_SITE_URL=https://example.convex.site',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
-
-    const doctor = await runCli(['mcp-doctor'], rootDir)
-    expect(doctor.code).toBe(0)
-    expect(doctor.stdout).toContain('ok - Convex URL')
-    expect(doctor.stdout).toContain('ok - Convex site URL')
-    expect(doctor.stdout).toContain('ok - secure-exec host dependency')
-  })
-
-  it('reports missing secure-exec in MCP doctor because code mode resolves it from the host app', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-mcp-secure-exec-'))
-    tempDirs.push(rootDir)
-
-    await runCli(['init'], rootDir)
-    writeFileSync(
-      resolve(rootDir, 'package.json'),
-      JSON.stringify({
-        private: true,
-        dependencies: {
-          '@lupinum/ginko-cms': 'workspace:*',
-          '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': '1.7.0-rc.1',
-          'better-convex-nuxt': '0.7.0-beta.0',
-          kysely: '0.28.17',
-          convex: '1.42.2',
-        },
-      }),
-      'utf8',
-    )
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      [
-        'CONVEX_URL=https://example.convex.cloud',
-        'CONVEX_SITE_URL=https://example.convex.site',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
-
-    const doctor = await runCli(['mcp-doctor'], rootDir)
-    expect(doctor.code).toBe(1)
-    expect(doctor.stdout).toContain('missing - secure-exec host dependency')
-    expect(doctor.stderr).toContain('Add "secure-exec": "^0.2.1" to dependencies')
   })
 
   it('[DEV-03] pushes canonical content and editorial presentation with Convex deploy-key admin auth', async () => {

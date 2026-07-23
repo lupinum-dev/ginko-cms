@@ -1,9 +1,12 @@
 import { checkConvexComponentInstall, writeConvexSetupFiles } from '../module/convex.js'
-import { type CliIo, write } from './args.js'
+import { type CliIo, hasFlag, write } from './args.js'
 
-export async function runInitCommand(cwd: string, io: CliIo): Promise<number> {
-  const result = writeConvexSetupFiles(cwd)
-  const issues = checkConvexComponentInstall(cwd)
+export async function runInitCommand(args: string[], cwd: string, io: CliIo): Promise<number> {
+  const mcp = hasFlag(args, '--mcp')
+  const unknown = args.slice(1).filter((arg) => arg !== '--mcp')
+  if (unknown.length > 0) throw new Error(`Unknown init option "${unknown[0]}".`)
+  const result = writeConvexSetupFiles(cwd, { mcp })
+  const issues = checkConvexComponentInstall(cwd, { mcp })
   const checkResult = issues.length === 0 ? 0 : 1
   write(
     io.stdout,
@@ -21,11 +24,12 @@ export async function runInitCommand(cwd: string, io: CliIo): Promise<number> {
       [
         `Next: run \`pnpm exec ginko-cms doctor\`, configure the required environment, then run \`pnpm exec ginko-cms deploy\`.`,
         `Host apps must depend directly on \`better-convex-nuxt\`, \`better-auth\`, \`kysely\`, and \`@lupinum/ginko-cms-convex\`.`,
-        `If MCP code mode is enabled, host apps must also depend directly on \`secure-exec\`.`,
+        mcp
+          ? `The generated Convex deployment exposes the provider-neutral MCP endpoint at \`/mcp\`.`
+          : `MCP is disabled. Re-run \`pnpm exec ginko-cms init --mcp\` to generate the endpoint.`,
         `Set \`CONVEX_URL\` or \`NUXT_PUBLIC_CONVEX_URL\` in the Nuxt app environment.`,
         `Set \`CONVEX_DEPLOY_KEY\` in the Nuxt app/server environment before contract sync.`,
         `Set versioned \`BETTER_AUTH_SECRETS\` in Convex; do not expose it to the Nuxt process.`,
-        `Set the same independent \`GINKO_CMS_MCP_SERVER_SECRET\` in Nuxt and Convex when MCP is enabled.`,
         `Set \`GINKO_FIRST_OWNER_EMAIL\` in the Convex deployment with \`pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com\`.`,
         '',
       ].join('\n'),

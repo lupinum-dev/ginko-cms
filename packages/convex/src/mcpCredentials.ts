@@ -36,16 +36,6 @@ const mcpCredentialSettingsValidator = v.object({
   revokedAt: v.union(v.number(), v.null()),
 })
 
-const resolvedCredentialAccessValidator = v.union(
-  v.object({
-    apiKeyId: v.string(),
-    ownerUserId: v.string(),
-    scopes: v.array(mcpCredentialScopeValidator),
-    expiresAt: v.union(v.number(), v.null()),
-  }),
-  v.null(),
-)
-
 const credentialAdmissionValidator = v.union(
   v.object({
     kind: v.literal('access'),
@@ -287,15 +277,6 @@ export const revokeSettings = callerMutation.protected({
 
     return null
   },
-})
-
-export const resolveAccessBySecretHash = callerQuery.public({
-  id: 'mcpCredentials:resolveAccessBySecretHash',
-  args: {
-    secretHash: v.string(),
-  },
-  returns: resolvedCredentialAccessValidator,
-  handler: async (ctx, args) => await resolveCredentialAccess(ctx, args.secretHash),
 })
 
 export const admitAccessBySecretHash = callerMutation.public({

@@ -3,7 +3,7 @@ import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
 import { internalMutation, internalQuery, query } from '../_generated/server.js'
-import { bindMcpCaller, mcpCallerArgs } from './mcpCaller.js'
+import { bindCmsCaller } from './caller.js'
 
 const contractArgs = {
   content: jsonValueValidator,
@@ -25,10 +25,10 @@ export const installCmsContract = internalMutation({
 })
 
 export const getInstalledContractStatus = query({
-  args: { ...mcpCallerArgs },
+  args: {},
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.contract.getInstalledContractStatus,
-      await bindMcpCaller(ctx, args, 'query:ginkoCms/contract:getInstalledContractStatus'),
+      await bindCmsCaller(ctx, args),
     ),
 })

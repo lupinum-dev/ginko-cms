@@ -27,10 +27,6 @@
       "types": "./dist/convex.auth.d.ts",
       "import": "./dist/convex.auth.js"
     },
-    "./mcp-limiter-protocol": {
-      "types": "./dist/mcpLimiterProtocol.d.ts",
-      "import": "./dist/mcpLimiterProtocol.js"
-    },
     "./mcp": {
       "types": "./dist/mcpHandler.d.ts",
       "import": "./dist/mcpHandler.js"

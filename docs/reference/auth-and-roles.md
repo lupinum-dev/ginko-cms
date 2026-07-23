@@ -69,10 +69,9 @@ wrong-email attempts all receive the same non-enumerating response.
 External private MCP bearer tokens are CMS-owned service credentials. Convex
 generates 256 random bits, returns the bearer once, and stores only its SHA-256
 hash. Better Auth sessions and browser `sessionId` values never enter this path.
-Nuxt signs short-lived, function-bound bridge assertions with the independent
-`GINKO_CMS_MCP_SERVER_SECRET`; the raw secret never travels in a Convex function
-argument. Convex still makes the final authorization decision for each
-operation.
+The optional MCP endpoint runs as one Convex-native `/mcp` HTTP action; there is
+no Nuxt bridge secret or second MCP identity protocol. Convex makes the final
+authorization decision for every operation.
 
 `mcpCredentialSettings` stores:
 
@@ -84,7 +83,7 @@ operation.
 
 Effective MCP authority is the intersection of:
 
-- the verified CMS credential hash and private server assertion;
+- the atomically admitted CMS credential hash;
 - active `mcpCredentialSettings`;
 - the owner's current CMS member role;
 - the credential's configured scopes.
@@ -105,7 +104,7 @@ toggle:
 2. Design delegated MCP OAuth as a separate interactive consent topology using
    short-lived access tokens, explicit CMS scopes, fixed resource metadata,
    PKCE, and revocation evidence. It must not reuse private service-credential
-   hashes or `GINKO_CMS_MCP_SERVER_SECRET`.
+   hashes.
 3. Keep dynamic registration, refresh tokens, client credentials, DPoP, and
    direct agent publication deferred until each has an accepted user story and
    failure-injection proof. Private service credentials remain the supported

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { createGinkoMcpHandler } from '../../packages/convex/src/mcpHandler'
 import { buildGinkoPublishImpactApp } from '../fixtures/mcp-publish-impact-app/build'
 
-const resource = new URL('https://ginko.example.test/mcp-pilot')
+const resource = new URL('https://ginko.example.test/mcp')
 const issuer = new URL('https://ginko.example.test/mcp-credentials/')
 const bearer = 'ginko-app-bearer-sentinel'
 const rawClient = 'ginko-app-raw-client-sentinel'
@@ -60,6 +60,12 @@ function createFixture(appHtml: string) {
             scopes: ['readCms', 'editEntries'],
           },
         }
+      },
+      async startAgentRun() {
+        return { _id: 'run-1' }
+      },
+      async completeAgentRun() {
+        return { _id: 'run-1', status: 'completed' }
       },
       async getEntry() {
         return { _id: 'entry-1' }
@@ -153,6 +159,8 @@ describe('Ginko publish-impact MCP App', () => {
         async admitCredential() {
           return { kind: 'invalid' as const }
         },
+        async startAgentRun() {},
+        async completeAgentRun() {},
         async getEntry() {},
         async saveEntryDraft() {},
         async previewPublish() {},

@@ -52,10 +52,6 @@ export default defineConfig({
         'packages/contract/src/fields',
       ),
       '@lupinum/ginko-cms-contract': resolve(__dirname, 'packages/contract/src'),
-      '@lupinum/ginko-cms-convex/mcp-limiter-protocol': resolve(
-        __dirname,
-        'packages/convex/src/mcpLimiterProtocol.ts',
-      ),
       '@lupinum/ginko-cms-convex/mcp': resolve(__dirname, 'packages/convex/src/mcpHandler.ts'),
       '@lupinum/ginko-cms-convex': resolve(__dirname, 'packages/convex/src'),
       '@lupinum/ginko-cms': resolve(__dirname, 'packages/cms/src/module.ts'),

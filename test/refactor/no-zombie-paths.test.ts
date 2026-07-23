@@ -14,6 +14,12 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('release-clean backend has no old-system zombie paths', () => {
+  it('contains no legacy Nuxt MCP server implementation', () => {
+    const legacyMcpRoot = join(root, 'packages/cms/src/server/mcp')
+    expect(existsSync(legacyMcpRoot) ? sourceFiles(legacyMcpRoot) : []).toEqual([])
+    expect(existsSync(join(root, 'packages/cms/src/server/middleware/mcp-auth.ts'))).toBe(false)
+  })
+
   it('imports the Content CMS contract directly without a vendored copy', () => {
     const oldVendorRoot = join(root, 'packages/convex/src/lib/cmsContract')
     expect(existsSync(oldVendorRoot) ? readdirSync(oldVendorRoot) : []).toEqual([])
@@ -78,24 +84,6 @@ describe('release-clean backend has no old-system zombie paths', () => {
     expect(convexSource).not.toMatch(/\bBACKUP_[A-Z_]+\b/)
     expect(convexSource).not.toContain('collectionId')
     expect(convexSource).not.toContain('SITE_DATA_LOCALIZATION_CHANGE_REQUIRES_MIGRATION')
-  })
-
-  it('does not expose generic activity recording or destructive MCP tools', () => {
-    const mcpRoot = join(root, 'packages/cms/src/server/mcp')
-    const mcpSource = sourceFiles(mcpRoot)
-      .map((path) => readFileSync(path, 'utf8'))
-      .join('\n')
-
-    expect(mcpSource).not.toContain('recordAgentWrite')
-    for (const tool of [
-      'publish-entry',
-      'archive-entry',
-      'restore-entry',
-      'delete-entry',
-      'purge-asset',
-    ]) {
-      expect(mcpSource).not.toContain(`name: '${tool}'`)
-    }
   })
 
   it('keeps generated Convex function types intact across host facades', () => {

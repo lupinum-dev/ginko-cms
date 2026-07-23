@@ -33,7 +33,6 @@ import betterAuth from './betterAuth/convex.config'
 - `@lupinum/ginko-cms-convex/convex.config`
 - `@lupinum/ginko-cms-convex/convex.auth`
 - `@lupinum/ginko-cms-convex/mcp`
-- `@lupinum/ginko-cms-convex/mcp-limiter-protocol`
 - `@lupinum/ginko-cms-convex/component`
 - `@lupinum/ginko-cms-convex/operations`
 

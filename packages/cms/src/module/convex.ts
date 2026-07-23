@@ -19,6 +19,7 @@ export type ConvexSetupWriteResult = {
 type ConvexSetupManifest = {
   schemaVersion: 1
   generatedBy: '@lupinum/ginko-cms'
+  mcp: boolean
   files: Record<string, { templateHash: string }>
 }
 
@@ -31,7 +32,7 @@ type CompatibilityMatrix = {
   tracked?: Record<string, string[]>
 }
 
-const setupFiles = [
+const coreSetupFiles = [
   'convex/convex.config.ts',
   'convex/auth.ts',
   'convex/auth.config.ts',
@@ -45,11 +46,9 @@ const setupFiles = [
   'convex/ginkoCms/diagnostics.ts',
   'convex/ginkoCms/draftPreview.ts',
   'convex/ginkoCms/editor.ts',
-  'convex/ginkoCms/mcpCredentials.ts',
-  'convex/ginkoCms/mcpPilot.ts',
-  'convex/ginkoCms/mcpPilotOperations.ts',
-  'convex/ginkoCms/mcpCaller.ts',
+  'convex/ginkoCms/caller.ts',
   'convex/ginkoCms/maintenance.ts',
+  'convex/ginkoCms/mcpCredentials.ts',
   'convex/ginkoCms/members.ts',
   'convex/ginkoCms/passwordRecovery.ts',
   'convex/ginkoCms/contractTransitions.ts',
@@ -61,6 +60,12 @@ const setupFiles = [
   'convex/ginkoCms/settings.ts',
   'convex/ginkoCms/siteData.ts',
 ] as const
+
+const mcpSetupFiles = ['convex/ginkoCms/mcp.ts', 'convex/ginkoCms/mcpOperations.ts'] as const
+
+function setupFilesFor(mcp: boolean): readonly string[] {
+  return mcp ? [...coreSetupFiles, ...mcpSetupFiles] : coreSetupFiles
+}
 
 const staleBridgePaths = [
   ['convex', `ginkoCms${'Mcp.ts'}`].join('/'),
@@ -74,12 +79,16 @@ const staleBridgePaths = [
   'convex/betterAuth/_generated/server.ts',
   'convex/ginkoCms/migrations.ts',
   'convex/ginkoCms/policy.ts',
+  'convex/ginkoCms/mcpCaller.ts',
+  'convex/ginkoCms/mcpPilot.ts',
+  'convex/ginkoCms/mcpPilotOperations.ts',
 ] as const
 const setupManifestPath = 'convex/.ginko-cms-setup.json'
 const contractBindingPath = 'convex/ginkoCms/contractBinding.ts'
 const CONTENT_HASH_TOKEN = '__GINKO_CMS_EXPECTED_CONTENT_HASH__'
 const PRESENTATION_HASH_TOKEN = '__GINKO_CMS_EXPECTED_PRESENTATION_HASH__'
 const UNBOUND_CONTRACT_HASH = 'unbound'
+const MCP_BLOCK = /\/\/ GINKO_MCP_BEGIN\n([\s\S]*?)\/\/ GINKO_MCP_END\n?/gu
 
 const staleConvexConfigImports = [
   {
@@ -159,17 +168,22 @@ function renderSetupTemplate(
     contentHash: UNBOUND_CONTRACT_HASH,
     presentationHash: UNBOUND_CONTRACT_HASH,
   },
+  mcp = false,
 ) {
+  if (relativePath === 'convex/http.ts') {
+    return source.replace(MCP_BLOCK, mcp ? '$1' : '')
+  }
   if (relativePath !== contractBindingPath) return source
   return source
     .replace(CONTENT_HASH_TOKEN, binding.contentHash)
     .replace(PRESENTATION_HASH_TOKEN, binding.presentationHash)
 }
 
-function emptySetupManifest(): ConvexSetupManifest {
+function emptySetupManifest(mcp = false): ConvexSetupManifest {
   return {
     schemaVersion: 1,
     generatedBy: '@lupinum/ginko-cms',
+    mcp,
     files: {},
   }
 }
@@ -193,7 +207,10 @@ function readSetupManifest(rootDir: string): ConvexSetupManifest | null {
   ) {
     throw new Error(`${setupManifestPath} is not a valid Ginko CMS setup manifest.`)
   }
-  return value as ConvexSetupManifest
+  return {
+    ...(value as ConvexSetupManifest),
+    mcp: value.mcp === true,
+  }
 }
 
 function safeTemplateDiff(relativePath: string, current: string, expected: string) {
@@ -213,8 +230,8 @@ function safeTemplateDiff(relativePath: string, current: string, expected: strin
   return lines.join('\n')
 }
 
-function checkSetupTemplateState(rootDir: string): ConvexSetupIssue[] {
-  const existingSetupFiles = setupFiles.filter((relativePath) =>
+function checkSetupTemplateState(rootDir: string, mcp: boolean): ConvexSetupIssue[] {
+  const existingSetupFiles = setupFilesFor(mcp).filter((relativePath) =>
     existsSync(resolve(rootDir, relativePath)),
   )
   if (existingSetupFiles.length === 0) return []
@@ -235,7 +252,7 @@ function checkSetupTemplateState(rootDir: string): ConvexSetupIssue[] {
     const recordedHash = manifest.files[relativePath]?.templateHash
     const template = readFileSync(templatePath(relativePath), 'utf8')
     const current = readFileSync(resolve(rootDir, relativePath), 'utf8')
-    const expected = renderSetupTemplate(relativePath, template, readContractBinding(current))
+    const expected = renderSetupTemplate(relativePath, template, readContractBinding(current), mcp)
     const expectedHash = contentHash(expected)
     const currentHash = contentHash(current)
     if (recordedHash === expectedHash || currentHash === expectedHash) continue
@@ -338,12 +355,17 @@ function fileDependencyHasSupportedInstalledVersion(
   )
 }
 
-export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[] {
+export function checkConvexComponentInstall(
+  rootDir: string,
+  options: { mcp?: boolean } = {},
+): ConvexSetupIssue[] {
   const issues: ConvexSetupIssue[] = []
+  const manifest = readSetupManifest(rootDir)
+  const mcp = options.mcp ?? manifest?.mcp ?? false
   const configPath = resolve(rootDir, 'convex/convex.config.ts')
   const configSource = existsSync(configPath) ? readFileSync(configPath, 'utf8') : ''
 
-  for (const relativePath of setupFiles) {
+  for (const relativePath of setupFilesFor(mcp)) {
     if (existsSync(resolve(rootDir, relativePath))) continue
     issues.push({
       name: `missing setup file ${relativePath}`,
@@ -351,7 +373,18 @@ export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[]
       fix: `Run pnpm exec ginko-cms init to create the Ginko CMS Convex setup file.`,
     })
   }
-  issues.push(...checkSetupTemplateState(rootDir))
+  issues.push(...checkSetupTemplateState(rootDir, mcp))
+
+  if (!mcp) {
+    for (const relativePath of mcpSetupFiles) {
+      if (!existsSync(resolve(rootDir, relativePath))) continue
+      issues.push({
+        name: `unexpected MCP setup file ${relativePath}`,
+        message: `${relativePath} exposes MCP while the generated setup has MCP disabled.`,
+        fix: 'Run pnpm exec ginko-cms init without --mcp to remove untouched generated MCP files.',
+      })
+    }
+  }
 
   for (const stalePath of staleBridgePaths) {
     const issue = staleBridgePathIssue(rootDir, stalePath)
@@ -401,12 +434,18 @@ export function checkConvexComponentInstall(rootDir: string): ConvexSetupIssue[]
   return issues
 }
 
-export function writeConvexSetupFiles(rootDir: string): ConvexSetupWriteResult {
+export function writeConvexSetupFiles(
+  rootDir: string,
+  options: { mcp?: boolean } = {},
+): ConvexSetupWriteResult {
   const written: string[] = []
   const updated: string[] = []
   const skipped: string[] = []
   const conflicts: Array<{ path: string; diff: string }> = []
-  const manifest = readSetupManifest(rootDir) ?? emptySetupManifest()
+  const previousManifest = readSetupManifest(rootDir)
+  const mcp = options.mcp ?? previousManifest?.mcp ?? false
+  const manifest = previousManifest ?? emptySetupManifest(mcp)
+  manifest.mcp = mcp
 
   for (const relativePath of staleBridgePaths) {
     const target = resolve(rootDir, relativePath)
@@ -426,13 +465,32 @@ export function writeConvexSetupFiles(rootDir: string): ConvexSetupWriteResult {
     conflicts.push({ path: relativePath, diff: safeTemplateDiff(relativePath, current, '') })
   }
 
-  for (const relativePath of setupFiles) {
+  if (!mcp) {
+    for (const relativePath of mcpSetupFiles) {
+      const target = resolve(rootDir, relativePath)
+      if (!existsSync(target)) {
+        manifest.files = withoutManifestFile(manifest.files, relativePath)
+        continue
+      }
+      const current = readFileSync(target, 'utf8')
+      const recordedHash = manifest.files[relativePath]?.templateHash
+      if (recordedHash && contentHash(current) === recordedHash) {
+        unlinkSync(target)
+        manifest.files = withoutManifestFile(manifest.files, relativePath)
+        updated.push(relativePath)
+        continue
+      }
+      conflicts.push({ path: relativePath, diff: safeTemplateDiff(relativePath, current, '') })
+    }
+  }
+
+  for (const relativePath of setupFilesFor(mcp)) {
     const target = resolve(rootDir, relativePath)
     const template = readFileSync(templatePath(relativePath), 'utf8')
     const currentBinding = existsSync(target)
       ? readContractBinding(readFileSync(target, 'utf8'))
       : undefined
-    const expected = renderSetupTemplate(relativePath, template, currentBinding)
+    const expected = renderSetupTemplate(relativePath, template, currentBinding, mcp)
     const expectedHash = contentHash(expected)
     if (!existsSync(target)) {
       mkdirSync(dirname(target), { recursive: true })
@@ -518,8 +576,8 @@ function throwConvexSetupError(setupIssues: ConvexSetupIssue[]): never {
   throw new Error(lines.join('\n'))
 }
 
-export function assertConvexSetupInstalled(rootDir: string) {
-  const setupIssues = checkConvexComponentInstall(rootDir)
+export function assertConvexSetupInstalled(rootDir: string, options: { mcp?: boolean } = {}) {
+  const setupIssues = checkConvexComponentInstall(rootDir, options)
   if (setupIssues.length === 0) return
   throwConvexSetupError(setupIssues)
 }

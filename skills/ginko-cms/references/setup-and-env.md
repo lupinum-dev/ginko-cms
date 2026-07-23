@@ -86,7 +86,6 @@ CONVEX_SITE_URL=https://your-deployment.convex.site
 CONVEX_DEPLOY_KEY=prod:...
 BETTER_AUTH_SECRETS=0:long-random-secret
 BCN_AUTH_PROXY_IP_SECRET=independent-proxy-secret
-GINKO_CMS_MCP_SERVER_SECRET=independent-mcp-secret
 GINKO_FIRST_OWNER_EMAIL=owner@example.com
 ```
 
@@ -101,8 +100,6 @@ Rules:
   Nuxt process or expose it through `NUXT_PUBLIC_*`.
 - Set the same independent `BCN_AUTH_PROXY_IP_SECRET` in Nuxt and Convex when a
   trusted client-IP header is configured.
-- Set the same independent `GINKO_CMS_MCP_SERVER_SECRET` in Nuxt and Convex
-  when private MCP credentials are enabled.
 - Use `CONVEX_SITE_URL` for the Better Auth HTTP action origin used by MCP and
   authenticated operator commands.
 - Set `GINKO_FIRST_OWNER_EMAIL` until the first Studio owner has claimed
@@ -152,5 +149,5 @@ drift, follow `docs/guides/changing-collections.md` before changing shared data.
 - Missing auth origin: set `CONVEX_SITE_URL` or the documented Better Auth URL
   override.
 - Studio owner cannot claim: verify `GINKO_FIRST_OWNER_EMAIL`.
-- MCP doctor fails: install `secure-exec` when MCP code mode is enabled and make
-  the same env values available to the MCP runtime.
+- MCP mode mismatch: enable `ginkoCms.mcp` and run `ginko-cms init --mcp`, or
+  disable the option and run `ginko-cms init` to remove the endpoint.

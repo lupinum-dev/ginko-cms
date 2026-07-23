@@ -91,10 +91,7 @@ describe('package exports', () => {
       types: './dist/convex.auth.d.ts',
       import: './dist/convex.auth.js',
     })
-    expect(convexPackage.exports?.['./mcp-limiter-protocol']).toEqual({
-      types: './dist/mcpLimiterProtocol.d.ts',
-      import: './dist/mcpLimiterProtocol.js',
-    })
+    expect(convexPackage.exports?.['./mcp-limiter-protocol']).toBeUndefined()
     expect(convexPackage.exports?.['./component']).toEqual({
       types: './dist/_generated/component.d.ts',
       import: './dist/_generated/component.js',

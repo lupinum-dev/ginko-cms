@@ -620,10 +620,8 @@ try {
           '@better-convex/mcp': registryBetterConvexMcp
             ? betterConvexMcpRegistryVersion
             : fileDependency(installedBetterConvexMcpTarball),
-          '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
           'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
           'better-convex-vue': betterConvexVueDependency(betterConvexVueTarball),
-          'secure-exec': compatibilityMatrix.tracked['secure-exec'][1],
         },
         devDependencies: consumerCompatibility.devDependencies,
       },
@@ -643,14 +641,12 @@ try {
         ? betterConvexMcpRegistryVersion
         : fileDependency(installedBetterConvexMcpTarball),
       '@nuxt/kit': consumerCompatibility.dependencies['@nuxt/kit'],
-      '@nuxtjs/mcp-toolkit': compatibilityMatrix.tracked['@nuxtjs/mcp-toolkit'][1],
       ...(liveConvex
         ? { '@nuxtjs/sitemap': compatibilityMatrix.tracked['@nuxtjs/sitemap'][1] }
         : {}),
       'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
       'better-convex-vue': betterConvexVueDependency(betterConvexVueTarball),
       convex: consumerCompatibility.dependencies.convex,
-      'secure-exec': compatibilityMatrix.tracked['secure-exec'][1],
     })
   }
 
@@ -886,7 +882,7 @@ const bearer = 'packed-ginko-mcp-bearer-sentinel'
 const calls = []
 const handler = createGinkoMcpHandler({
   issuer: new URL('https://packed.example.test/mcp-credentials/'),
-  resource: new URL('https://packed.example.test/mcp-pilot'),
+  resource: new URL('https://packed.example.test/mcp'),
   operations: {
     async admitCredential(secretHash) {
       calls.push({ operation: 'credential', secretHash })
@@ -894,6 +890,14 @@ const handler = createGinkoMcpHandler({
         kind: 'access',
         access: { apiKeyId: 'packed-key', scopes: ['readCms', 'editEntries'], expiresAt: null },
       }
+    },
+    async startAgentRun(args) {
+      calls.push({ operation: 'start-run', args })
+      return { _id: 'packed-run', status: 'active' }
+    },
+    async completeAgentRun(args) {
+      calls.push({ operation: 'complete-run', args })
+      return { _id: args.agentRunId, status: 'completed' }
     },
     async getEntry(args) {
       calls.push({ operation: 'query', args })
@@ -903,11 +907,15 @@ const handler = createGinkoMcpHandler({
       calls.push({ operation: 'mutation', args })
       return { draftVersion: args.expectedDraftVersion + 1 }
     },
+    async previewPublish(args) {
+      calls.push({ operation: 'preview', args })
+      return { allowed: true, blockers: [], effects: [], summary: 'Ready', warnings: [] }
+    },
   },
 })
 
 async function callTool(name, args) {
-  const response = await handler.fetch({}, new Request('https://packed.example.test/mcp-pilot', {
+  const response = await handler.fetch({}, new Request('https://packed.example.test/mcp', {
     method: 'POST',
     headers: {
       accept: 'application/json, text/event-stream',
@@ -940,13 +948,15 @@ async function callTool(name, args) {
 }
 
 const read = await callTool('get-entry', { entryId: 'packed-entry' })
+const started = await callTool('start-agent-run', { taskName: 'Packed write' })
 const write = await callTool('save-entry-draft', {
   agentRunId: 'packed-run',
   entryId: 'packed-entry',
   expectedDraftVersion: 1,
   patch: {},
 })
-const serialized = JSON.stringify({ calls, read, write })
+const completed = await callTool('complete-agent-run', { agentRunId: 'packed-run' })
+const serialized = JSON.stringify({ calls, read, started, write, completed })
 if (!serialized.includes('packed-entry') || !serialized.includes('"draftVersion":2')) {
   throw new Error('Packed MCP read/write results were not preserved.')
 }
@@ -1006,7 +1016,7 @@ console.log('packed MCP read/write behavior ok')
       throw new Error('npm candidate lockfile must contain only kysely@0.28.17.')
     }
   }
-  consumerExec('ginko-cms', ['init'])
+  consumerExec('ginko-cms', liveConvex ? ['init', '--mcp'] : ['init'])
   consumerExecExpectFailure(
     'ginko-cms',
     ['doctor'],

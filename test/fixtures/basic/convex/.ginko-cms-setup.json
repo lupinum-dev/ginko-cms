@@ -12,16 +12,16 @@
       "templateHash": "982d55a2f8ae706900fea70841af4b5a7a3edc423a9106a530b7c06ebb1f1a86"
     },
     "convex/ginkoCms/agentRuns.ts": {
-      "templateHash": "2cfd9e65b6e3468027727ededa26e6fa39ddb3662acfbc958a44b27f7491ddd4"
+      "templateHash": "82c67b4e51e37d08d553af0303e82ae19cb40d135d32214b8921f50636ee086a"
     },
     "convex/ginkoCms/assets.ts": {
-      "templateHash": "06a597c75af3cbc27e19c91eafadff4bb9f33407ef28a43094568aa263779ea1"
+      "templateHash": "a1e202565fff8b981f55f949b2f375039c299f393fbdb2a4bf5f5b696e76ae13"
     },
     "convex/ginkoCms/assetRecovery.ts": {
       "templateHash": "1b8a4e8b95320ed78b69f25f37aa9c505f89938007742b5d4fd9112e9c029f9e"
     },
     "convex/ginkoCms/collections.ts": {
-      "templateHash": "dd5a8d76160186999b43a1c8b7479ff5963dcf3151ebc01b050fcd2194d1ee9e"
+      "templateHash": "4b09c5dce9664e4868b788eea146bbf97effc17d7b31a8eee193cd23451e204c"
     },
     "convex/ginkoCms/diagnostics.ts": {
       "templateHash": "30accfcd2748433fb2e181f5c1718f937e8088c4bd4cd7bbc1c8d73964322e67"
@@ -30,46 +30,40 @@
       "templateHash": "2369e09a9f0001676f3123cf76e1a94972b1fbf74d0877a0f80e2b459bad8258"
     },
     "convex/ginkoCms/editor.ts": {
-      "templateHash": "d209755ec78543c921d68e42cb21f434998d1942d134fdc2a8d2ec0649b8489a"
+      "templateHash": "4efe1f7cca140be0df2d3bd099482df7b433102159140e6d5cc6d4182ba335c2"
     },
     "convex/ginkoCms/mcpCredentials.ts": {
-      "templateHash": "c9f8cd56e20152b9eedf664ea87b9dd1a3c090d478154d7e04341d2233f5bb70"
-    },
-    "convex/ginkoCms/mcpPilot.ts": {
-      "templateHash": "fcffe69ee135bcb6e1de8f24f336ce1e5485409dc3a2d5f734f659f378a4bb85"
-    },
-    "convex/ginkoCms/mcpPilotOperations.ts": {
-      "templateHash": "fa1df221a2df703ed2df1091535308c2193db1315e09e626bd63fd7c8c7c5dfd"
+      "templateHash": "028ab3781004b57f507413fba58f858403145f7dba2c896f8add8fb0e970279a"
     },
     "convex/ginkoCms/members.ts": {
-      "templateHash": "33de62f07f4d252011af63a1c56fe6c3e7efa933ba09f60b8c7285ead47660b1"
+      "templateHash": "8cec2a4bbcf9706c54cc9e4517457cb07c41492c89e25d1dce9de488bdd41154"
     },
     "convex/ginkoCms/contractTransitions.ts": {
       "templateHash": "7e58990bbb1cbed0fc903eff67f7bf6a165b7e63bc9d4c85f6f2188f68521a54"
     },
     "convex/ginkoCms/contract.ts": {
-      "templateHash": "c14e1a8eb3882368d40866406577e3223242afa8a44ea87d76dbd54a59587887"
+      "templateHash": "ebe0395e44d63790252e752f609476834cfafbd79f8d6e537d3d405671c3d58e"
     },
     "convex/ginkoCms/portability.ts": {
       "templateHash": "74d4c39232c609759ef56663edc2479da8847b2b571e9706a86ae14a24f48347"
     },
     "convex/ginkoCms/public.ts": {
-      "templateHash": "4e5197e986e5fb6c0e83d10d2d93c9974314f4022bf7508da90b9af88167a00d"
+      "templateHash": "a30c5b0d21df5e46317b40ba9b074fd538be9378ea0c03d692c7edce4ce5ed9e"
     },
     "convex/ginkoCms/revalidation.ts": {
       "templateHash": "ddb99d864b6600d74c96c5e759e26446d4b40b7d46992eebfcf3f2f5dee232f9"
     },
     "convex/ginkoCms/reviewRequests.ts": {
-      "templateHash": "c55d17571c36427ede5b07fe19629f3360b8a529ca13e28b4b6493fdfa34279a"
+      "templateHash": "96bcd2579aca0a30bdfb330c0ca43bf01b66eda1ac9870841f649bcd726a6d05"
     },
     "convex/ginkoCms/settings.ts": {
       "templateHash": "2d1d949c8c3298f6149de465e17ea08760f1f15982368f27990d090c4068c1ca"
     },
     "convex/ginkoCms/siteData.ts": {
-      "templateHash": "5056cd7a62771370ccd1c9b1bd372999c8703f88465059be5ffd21732c233113"
+      "templateHash": "585e8399e8f2cd755754d4d3933193487339d1cb7d4265ceda1cfc899de246e9"
     },
     "convex/http.ts": {
-      "templateHash": "219ab6eb8d848a74258196f761501c8d5ef564b2068d09c30a755bf85afdb912"
+      "templateHash": "7e379e6990a4a9af320538ce84a3fc08fb00498bd321e2d8c971a046f04a9bc9"
     },
     "convex/schema.ts": {
       "templateHash": "e83dc3aecfdc78a9da07228f7de7a5c8d71d143fe6b96a921a2c0b8735fd2c48"
@@ -83,11 +77,18 @@
     "convex/ginkoCms/passwordRecovery.ts": {
       "templateHash": "1d8fda8c7c9a91b42083b84efe162de13fe452717d19ddd83e31dae71c31ae0a"
     },
-    "convex/ginkoCms/mcpCaller.ts": {
-      "templateHash": "6d51b2cb092d010477ecb4fd9d0aa8f3ef576c89e222e766fbb4ddfe919e4cca"
-    },
     "convex/ginkoCms/hostFunctions.ts": {
       "templateHash": "e023b19c6c2f88c6c88a5a879948932c1fe3517c8eba109500b8667a2dee1b82"
+    },
+    "convex/ginkoCms/caller.ts": {
+      "templateHash": "c8e1af28bfa5e818d02f4fbfc539377a78134d159cc9cf9f9e5eab21215dc203"
+    },
+    "convex/ginkoCms/mcp.ts": {
+      "templateHash": "1b04a5469af917d8aae24af4e157d4e97b5832939805aa8eb1c8e57830aaae0e"
+    },
+    "convex/ginkoCms/mcpOperations.ts": {
+      "templateHash": "d6ad613cb4cbb32fbc57d8f74a10cbeaa3e425866344798c3b1be00162fb55ec"
     }
-  }
+  },
+  "mcp": true
 }

@@ -2216,7 +2216,7 @@ Initial interaction budgets (p95 on mid-range hardware against the target-scale 
 
 **Steps:**
 
-1. Run `ginko-cms doctor`, `ginko-cms mcp-doctor`, and relevant `push --check` commands.
+1. Run `ginko-cms doctor` and relevant `push --check` commands.
 2. Review pass/fail output.
 3. Apply the documented fix.
 4. Rerun the check.

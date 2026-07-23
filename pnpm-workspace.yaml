@@ -56,10 +56,3 @@ overrides:
   vitest: 4.1.10
   vue: 3.5.39
   ws: 8.21.0
-auditConfig:
-  # `elliptic` is pulled through @nuxtjs/mcp-toolkit -> secure-exec ->
-  # node-stdlib-browser and npm reports no patched version.
-  # Remove this when the upstream chain stops resolving elliptic or npm lists a
-  # fixable version.
-  ignoreGhsas:
-    - GHSA-848j-6mx2-7j84

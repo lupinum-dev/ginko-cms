@@ -21,6 +21,12 @@ export type GinkoMcpCredentialAdmission =
 
 export type GinkoMcpOperations = {
   admitCredential(secretHash: string): Promise<GinkoMcpCredentialAdmission>
+  startAgentRun(args: {
+    apiKeyId: string
+    taskName: string
+    expiresAt?: number | null
+  }): Promise<unknown>
+  completeAgentRun(args: { apiKeyId: string; agentRunId: string }): Promise<unknown>
   getEntry(args: { apiKeyId: string; id: string; locale?: string }): Promise<unknown>
   saveEntryDraft(args: {
     apiKeyId: string
@@ -147,6 +153,38 @@ export function createGinkoMcpHandler(options: {
     createServer(_context, access) {
       const server = new McpServer({ name: 'ginko-cms', version: '0.1.0' })
       server.registerTool(
+        'start-agent-run',
+        {
+          description: 'Start a bounded work session for subsequent CMS writes.',
+          inputSchema: z
+            .object({
+              taskName: z.string().min(1).max(200),
+              expiresAt: z.number().nullable().optional(),
+            })
+            .strict(),
+          outputSchema: z.object({ run: z.unknown() }),
+        },
+        async (args) => {
+          if (!access.scopes.includes(readScope)) return requiredScopeResult(readScope)
+          return await runMcpTool(
+            async () => ({
+              content: [{ type: 'text', text: 'Started the agent run.' }],
+              structuredContent: {
+                run: await operations.startAgentRun({
+                  apiKeyId: access.subject,
+                  ...args,
+                }),
+              },
+            }),
+            {
+              operation: 'mutation',
+              functionName: 'ginkoCms/mcpOperations:startAgentRun',
+              toolName: 'start-agent-run',
+            },
+          )
+        },
+      )
+      server.registerTool(
         'get-entry',
         {
           description: 'Load one CMS entry.',
@@ -174,7 +212,7 @@ export function createGinkoMcpHandler(options: {
             },
             {
               operation: 'query',
-              functionName: 'ginkoCms/mcpPilotOperations:getEntry',
+              functionName: 'ginkoCms/mcpOperations:getEntry',
               toolName: 'get-entry',
             },
           )
@@ -233,7 +271,7 @@ export function createGinkoMcpHandler(options: {
             },
             {
               operation: 'mutation',
-              functionName: 'ginkoCms/mcpPilotOperations:saveEntryDraft',
+              functionName: 'ginkoCms/mcpOperations:saveEntryDraft',
               toolName: 'save-entry-draft',
             },
           )
@@ -284,8 +322,35 @@ export function createGinkoMcpHandler(options: {
             }),
             {
               operation: 'mutation',
-              functionName: 'ginkoCms/mcpPilotOperations:previewPublish',
+              functionName: 'ginkoCms/mcpOperations:previewPublish',
               toolName: 'preview-publish',
+            },
+          )
+        },
+      )
+      server.registerTool(
+        'complete-agent-run',
+        {
+          description: 'Complete a previously started CMS work session.',
+          inputSchema: z.object({ agentRunId: z.string() }).strict(),
+          outputSchema: z.object({ run: z.unknown() }),
+        },
+        async (args) => {
+          if (!access.scopes.includes(readScope)) return requiredScopeResult(readScope)
+          return await runMcpTool(
+            async () => ({
+              content: [{ type: 'text', text: 'Completed the agent run.' }],
+              structuredContent: {
+                run: await operations.completeAgentRun({
+                  apiKeyId: access.subject,
+                  ...args,
+                }),
+              },
+            }),
+            {
+              operation: 'mutation',
+              functionName: 'ginkoCms/mcpOperations:completeAgentRun',
+              toolName: 'complete-agent-run',
             },
           )
         },

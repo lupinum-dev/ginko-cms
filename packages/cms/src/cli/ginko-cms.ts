@@ -12,7 +12,6 @@ import { runDoctorCommand } from './doctor.js'
 import { readLocalEnv } from './env.js'
 import { runInitCommand } from './init.js'
 import { runAssetCommand, runRepairCommand } from './maintenance.js'
-import { runMcpDoctor } from './mcp-doctor.js'
 import { runPushCommand } from './push.js'
 
 export async function runGinkoCmsCli(
@@ -44,7 +43,7 @@ export async function runGinkoCmsCli(
     if (command === 'setup') {
       throw new Error('`ginko-cms setup` was removed. Use `pnpm exec ginko-cms init`.')
     }
-    if (command === 'init') return await runInitCommand(parsed.cwd, io)
+    if (command === 'init') return await runInitCommand(parsed.args, parsed.cwd, io)
     if (command === 'push') {
       return await runPushCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
@@ -76,7 +75,6 @@ export async function runGinkoCmsCli(
     if (command === 'doctor') {
       return await runDoctorCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
-    if (command === 'mcp-doctor') return await runMcpDoctor(parsed.cwd, io)
 
     throw new Error(`Unknown command "${command}".`)
   } catch (error) {

@@ -152,6 +152,22 @@ describe('ginko-cms Convex setup validation', () => {
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
   })
 
+  it('accepts the explicit Convex-native MCP setup without registering a Nuxt MCP route', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-convex-mcp-'))
+    tempDirs.push(rootDir)
+    await installConvexSetup(rootDir, { mcp: true })
+    const nuxt = createNuxtMock(rootDir)
+
+    await setupModule({ route: '/studio', mcp: true }, nuxt)
+
+    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).toContain("path: '/mcp'")
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(true)
+    expect(addServerHandler).not.toHaveBeenCalledWith(
+      expect.objectContaining({ route: expect.stringContaining('/mcp') }),
+    )
+  })
+
   it('blocks stale generated bridge files during Nuxt prepare', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prepare-stale-bridge-'))
     tempDirs.push(rootDir)
