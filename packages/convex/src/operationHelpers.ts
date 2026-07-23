@@ -98,12 +98,28 @@ export type DestructiveCmsOperationDefinition<
   acceptsTrustedCaller?: boolean
 }
 
+export type OperationPreviewIssue = {
+  code: string
+  message: string
+  status?: 'blocked' | 'stale'
+  count?: number
+  details?: unknown
+}
+
+export type OperationPreviewEffect = {
+  kind: string
+  summary: string
+  count?: number | null
+  minimumCount?: number
+  countLabel?: string
+}
+
 type PreviewInput = {
   allowed?: boolean
   summary?: string
-  blockers?: unknown[]
-  warnings?: unknown[]
-  effects?: unknown[]
+  blockers?: OperationPreviewIssue[]
+  warnings?: OperationPreviewIssue[]
+  effects?: OperationPreviewEffect[]
   details?: unknown
   confirm?: unknown
   version?: unknown
@@ -111,9 +127,9 @@ type PreviewInput = {
 
 type PreviewResult = {
   allowed: boolean
-  blockers: unknown[]
-  warnings: unknown[]
-  effects: unknown[]
+  blockers: OperationPreviewIssue[]
+  warnings: OperationPreviewIssue[]
+  effects: OperationPreviewEffect[]
   summary: string
   details: unknown
   confirm: unknown
@@ -222,11 +238,11 @@ export function definePreview<
   }
 }
 
-export function operationIssue<TIssue extends Record<string, unknown>>(issue: TIssue): TIssue {
+export function operationIssue<TIssue extends OperationPreviewIssue>(issue: TIssue): TIssue {
   return issue
 }
 
-export function operationEffect<TEffect extends Record<string, unknown>>(effect: TEffect): TEffect {
+export function operationEffect<TEffect extends OperationPreviewEffect>(effect: TEffect): TEffect {
   return effect
 }
 
@@ -245,7 +261,7 @@ export function buildPreview<TPreview extends PreviewInput>(preview: TPreview): 
   }
 }
 
-export function blockedPreview(input: PreviewInput & { blocker?: unknown }) {
+export function blockedPreview(input: PreviewInput & { blocker?: OperationPreviewIssue }) {
   return buildPreview({
     ...input,
     allowed: false,
@@ -254,11 +270,25 @@ export function blockedPreview(input: PreviewInput & { blocker?: unknown }) {
 }
 
 export function previewResultValidator() {
+  const issue = v.object({
+    code: v.string(),
+    message: v.string(),
+    status: v.optional(v.union(v.literal('blocked'), v.literal('stale'))),
+    count: v.optional(v.number()),
+    details: v.optional(v.any()),
+  })
+  const effect = v.object({
+    kind: v.string(),
+    summary: v.string(),
+    count: v.optional(v.union(v.number(), v.null())),
+    minimumCount: v.optional(v.number()),
+    countLabel: v.optional(v.string()),
+  })
   return v.object({
     allowed: v.boolean(),
-    blockers: v.array(v.any()),
-    warnings: v.array(v.any()),
-    effects: v.array(v.any()),
+    blockers: v.array(issue),
+    warnings: v.array(issue),
+    effects: v.array(effect),
     summary: v.string(),
     details: v.any(),
     confirm: v.any(),
