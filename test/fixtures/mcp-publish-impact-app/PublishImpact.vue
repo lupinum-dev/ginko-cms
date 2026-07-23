@@ -21,7 +21,6 @@ type ImpactEffect = {
 
 const { callServerTool, hostCapabilities, hostContext, openLink, phase, toolInput, toolResult } =
   useMcpApp({
-    autoResize: false,
     capabilities: {},
     implementation: { name: 'ginko-publish-impact', version: '0.0.0' },
   })

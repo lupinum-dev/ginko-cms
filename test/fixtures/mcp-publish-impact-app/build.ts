@@ -1,11 +1,13 @@
-import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
 import vue from '@vitejs/plugin-vue'
 import { build, type Rollup } from 'vite'
 
-const bcnRoot = fileURLToPath(new URL('../../../../../convex/better-convex-nuxt/', import.meta.url))
-const bcnRequire = createRequire(new URL('package.json', `file://${bcnRoot}/`))
+const extAppsEntry = fileURLToPath(import.meta.resolve('@modelcontextprotocol/ext-apps'))
+const extAppsBridgeEntry = fileURLToPath(
+  import.meta.resolve('@modelcontextprotocol/ext-apps/app-bridge'),
+)
+const mcpAppEntry = fileURLToPath(import.meta.resolve('better-convex-vue/mcp-app'))
 
 function outputs(value: Rollup.RollupOutput | Rollup.RollupOutput[]) {
   return (Array.isArray(value) ? value : [value]).flatMap((result) => result.output)
@@ -29,11 +31,9 @@ async function bundle(entry: string, withVue: boolean) {
     plugins: withVue ? [vue()] : [],
     resolve: {
       alias: {
-        '@modelcontextprotocol/ext-apps/app-bridge': bcnRequire.resolve(
-          '@modelcontextprotocol/ext-apps/app-bridge',
-        ),
-        '@modelcontextprotocol/ext-apps': bcnRequire.resolve('@modelcontextprotocol/ext-apps'),
-        'better-convex-vue/mcp-app': `${bcnRoot}/packages/vue/src/mcp-app.ts`,
+        '@modelcontextprotocol/ext-apps/app-bridge': extAppsBridgeEntry,
+        '@modelcontextprotocol/ext-apps': extAppsEntry,
+        'better-convex-vue/mcp-app': mcpAppEntry,
       },
       dedupe: ['vue'],
     },
@@ -73,5 +73,6 @@ export async function buildGinkoPublishImpactApp() {
     appHtml: html(app.code, app.css),
     appModules: app.modules,
     hostCode: host.code,
+    mcpAppEntry,
   }
 }

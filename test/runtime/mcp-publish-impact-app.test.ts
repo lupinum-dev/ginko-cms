@@ -1,3 +1,5 @@
+import { realpathSync } from 'node:fs'
+
 import { chromium } from 'playwright'
 import { describe, expect, it } from 'vitest'
 
@@ -177,6 +179,8 @@ describe('Ginko publish-impact MCP App', () => {
 
   it('projects canonical impact without granting publish or review authority', async () => {
     const build = await buildGinkoPublishImpactApp()
+    expect(build.appModules).toContain(realpathSync(build.mcpAppEntry))
+    expect(build.appModules.some((moduleId) => moduleId.includes('/packages/vue/src/'))).toBe(false)
     const fixture = createFixture(build.appHtml)
     const listed = await protocolRequest(fixture.handler, 'tools/list', {})
     expect(listed.result).toMatchObject({
