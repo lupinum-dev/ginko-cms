@@ -11,7 +11,7 @@ import {
   createStudioHostContext,
   studioHostContextKey,
 } from '../../packages/cms/studio-app/src/boundary/studio-host-context'
-import { useAccess } from '../../packages/cms/studio-app/src/composables/useAccess'
+import { useCmsStudioAccess } from '../../packages/cms/studio-app/src/composables/useCmsStudioAccess'
 
 const accessReference = vi.hoisted(() => ({
   [Symbol.for('functionName')]: 'ginkoCms.members.getAccessContext',
@@ -19,6 +19,13 @@ const accessReference = vi.hoisted(() => ({
 
 vi.mock('../../packages/cms/studio-app/src/boundary/api', () => ({
   api: { ginkoCms: { members: { getAccessContext: accessReference } } },
+}))
+
+vi.mock('../../packages/cms/studio-app/src/composables/permissions', () => ({
+  cmsPermissionKeys: {
+    read: 'cms.read',
+    bootstrap: 'cms.bootstrap',
+  },
 }))
 
 describe('Studio access during BCN client replacement', () => {
@@ -62,7 +69,7 @@ describe('Studio access during BCN client replacement', () => {
     } as unknown as GinkoCmsStudioHostBridge
     const context = createStudioHostContext(() => bridge)
     const Host = defineComponent({
-      setup: () => ({ access: useAccess() }),
+      setup: () => ({ access: useCmsStudioAccess() }),
       render: () => h('div'),
     })
     const wrapper = mount(Host, {

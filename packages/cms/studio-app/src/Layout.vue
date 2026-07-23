@@ -39,7 +39,7 @@ const studioClass = computed(() => [
   cmsConfig.sidebar?.dark && 'ginko-cms--sidebar-dark',
   ...appearanceClasses.value,
 ])
-const { studioRoute, pending, permissions, isMember, canRead, canBootstrap } = useCmsStudioAccess()
+const { studioRoute, pending, ready, role, isMember, canRead, canBootstrap } = useCmsStudioAccess()
 const bootstrapCmsOwner = useConvexMutation(api.ginkoCms.members.bootstrapCmsOwner)
 const bootstrapPending = ref(false)
 const bootstrapError = ref('')
@@ -58,19 +58,19 @@ const studioAccess = computed<{ status: string; reason: string | null }>(() => {
     return { status: 'invitation', reason: null }
   }
   // Must come BEFORE canRead — bootstrap users pass canRead but need to claim ownership first
-  if (permissions.ready.value && canBootstrap.value && !isMember.value) {
+  if (ready.value && canBootstrap.value && !isMember.value) {
     return {
       status: 'claimable',
       reason: bootstrapError.value ? 'bootstrap_error' : null,
     }
   }
-  if (permissions.ready.value && canRead.value) {
+  if (ready.value && canRead.value) {
     return { status: 'ready', reason: null }
   }
   if (pending.value) {
     return { status: 'loading', reason: null }
   }
-  if (permissions.ready.value) {
+  if (ready.value) {
     return { status: 'forbidden', reason: 'membership' }
   }
   if (!pending.value) {
@@ -92,12 +92,12 @@ watch(
         ts: Date.now(),
         status,
         reason: studioAccess.value.reason,
-        ready: permissions.ready.value,
+        ready: ready.value,
         pending: pending.value,
         canRead: canRead.value,
         canBootstrap: canBootstrap.value,
         isMember: isMember.value,
-        role: permissions.role?.value,
+        role: role.value,
       })
     }
   },
