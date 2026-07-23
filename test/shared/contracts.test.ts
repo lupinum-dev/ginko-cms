@@ -69,6 +69,7 @@ describe('shared contracts', () => {
       'parentEntryId',
       'shared',
       'slug',
+      'stagedAssetIds',
     ])
     expect(Object.keys(validatorFields(publishEntry.args)).sort()).toEqual([
       'entryId',

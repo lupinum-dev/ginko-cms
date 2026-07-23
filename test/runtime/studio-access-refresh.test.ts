@@ -85,8 +85,8 @@ describe('Studio access during BCN client replacement', () => {
     for (const listener of identityListeners) listener()
     await nextTick()
     expect(wrapper.vm.access.role.value).toBe('publisher')
-    expect(wrapper.vm.access.ready.value).toBe(false)
-    expect(wrapper.vm.access.pending.value).toBe(true)
+    expect(wrapper.vm.access.ready.value).toBe(true)
+    expect(wrapper.vm.access.pending.value).toBe(false)
 
     update?.({
       userId: 'publisher-1',
