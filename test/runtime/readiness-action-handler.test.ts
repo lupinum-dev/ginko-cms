@@ -121,22 +121,27 @@ describe('createReadinessActionHandler', () => {
     expect(handler.canHandle(action)).toBe(false)
   })
 
-  it('routes URL diagnostics through the canonical publish preview', async () => {
+  it('does not turn a route-collision suggestion into an unrelated preview action', async () => {
     const { editor, previewPublishImpact } = createEditorMock()
     const handler = createReadinessActionHandler(editor)
-    await handler.handle(
-      createReadinessAction({ kind: 'check_routes', locale: null, target: 'route', params: {} }),
-    )
-    expect(previewPublishImpact).toHaveBeenCalledWith('en')
+    const action = createReadinessAction({
+      kind: 'resolve_route_collision',
+      locale: 'en',
+      target: 'route',
+      params: {},
+    })
+    expect(handler.canHandle(action)).toBe(false)
+    await handler.handle(action)
+    expect(previewPublishImpact).not.toHaveBeenCalled()
   })
 
-  it('falls back to label-only rendering for unhandled targets', () => {
+  it('keeps non-executable backend suggestions label-only', () => {
     const { editor } = createEditorMock()
     const handler = createReadinessActionHandler(editor)
     const action = createReadinessAction({
-      kind: 'edit_asset_metadata',
+      kind: 'request_review',
       locale: 'en',
-      target: 'asset',
+      target: 'review',
       params: {},
     })
     expect(handler.canHandle(action)).toBe(false)

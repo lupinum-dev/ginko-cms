@@ -11,7 +11,7 @@ import type {
 const state: ReadinessState = 'draft'
 const severity: ReadinessSeverity = 'blocker'
 const issueCode: ReadinessIssueCode = 'required_field_missing'
-const actionKind: ReadinessActionKind = 'preview_publish'
+const actionKind: ReadinessActionKind = 'publish_locale'
 const actionTarget: ReadinessActionTarget = 'publish'
 
 const issue: ReadinessIssue = {

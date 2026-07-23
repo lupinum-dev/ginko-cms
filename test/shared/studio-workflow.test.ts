@@ -94,27 +94,23 @@ describe('canonical readiness vocabulary', () => {
       'editor',
       'field',
       'locale',
-      'asset',
       'route',
       'review',
       'publish',
-      'settings',
-      'diagnostics',
     ])
     expect(validatorLiteralValues(readinessActionTargetValidator)).toEqual(readinessActionTargets)
-    expect(readinessActionKinds).toEqual(
-      expect.arrayContaining([
-        'continue_editing',
-        'fill_required_field',
-        'add_locale',
-        'ask_ai_to_translate',
-        'preview_subtree_rebuild',
-        'request_review',
-        'confirm_publish',
-        'agent_publish',
-        'save_version',
-      ]),
-    )
+    expect(readinessActionKinds).toEqual([
+      'continue_editing',
+      'fill_required_field',
+      'fill_required_localized_field',
+      'fill_required_shared_field',
+      'add_locale',
+      'publish_locale',
+      'resolve_route_collision',
+      'request_review',
+      'open_review',
+      'view_public_page',
+    ])
     expect(validatorLiteralValues(readinessActionKindValidator)).toEqual(readinessActionKinds)
   })
 
@@ -148,7 +144,7 @@ describe('canonical readiness vocabulary', () => {
     expect(() => assertReadinessIssueCode('missingRequiredField')).toThrow(
       /Unknown readiness issue code/,
     )
-    expect(() => assertReadinessActionKind('preview_publish')).not.toThrow()
+    expect(() => assertReadinessActionKind('publish_locale')).not.toThrow()
     expect(() => assertReadinessActionKind('preview website changes')).toThrow(
       /Unknown readiness action kind/,
     )

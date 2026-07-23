@@ -7,9 +7,9 @@ import type { StudioEntryEditorContext } from './studioEntryEditorContext'
 // or other setup-scoped APIs. Everything it needs travels on the context:
 // router via editor.loader.router, publish preview via editor.workflow.
 //
-// The dispatcher turns the readiness "next action" sentence into a real
-// button: anything it canHandle gets a click handler, everything else keeps
-// the label-only fallback rendering.
+// Readiness may suggest backend-produced next steps that are not executable
+// from this surface. Only exact kinds with a truthful Studio operation get a
+// click handler; suggestions remain label-only.
 export function createReadinessActionHandler(editor: StudioEntryEditorContext) {
   function focusField(action: ReadinessAction): boolean {
     const fieldPath = typeof action.params.fieldPath === 'string' ? action.params.fieldPath : null
@@ -36,20 +36,19 @@ export function createReadinessActionHandler(editor: StudioEntryEditorContext) {
 
   function canHandle(action: ReadinessAction | null | undefined): boolean {
     if (!action) return false
-    switch (action.target) {
-      case 'field':
+    switch (action.kind) {
+      case 'fill_required_field':
+      case 'fill_required_localized_field':
+      case 'fill_required_shared_field':
         return typeof action.params.fieldPath === 'string'
-      case 'editor':
+      case 'continue_editing':
         return true
-      case 'locale':
+      case 'add_locale':
         return typeof action.locale === 'string' && action.locale.length > 0
-      case 'review':
+      case 'open_review':
         return true
-      case 'publish':
+      case 'publish_locale':
         return editor.loader.canPublishEntries
-      case 'route':
-      case 'diagnostics':
-        return true
       default:
         return false
     }
@@ -57,29 +56,27 @@ export function createReadinessActionHandler(editor: StudioEntryEditorContext) {
 
   async function handle(action: ReadinessAction | null | undefined): Promise<void> {
     if (!action || !canHandle(action)) return
-    switch (action.target) {
-      case 'field':
+    switch (action.kind) {
+      case 'fill_required_field':
+      case 'fill_required_localized_field':
+      case 'fill_required_shared_field':
         focusField(action)
         return
-      case 'editor':
+      case 'continue_editing':
         focusEditor()
         return
-      case 'locale':
+      case 'add_locale':
         await editor.locales.handleSwitchLocale(action.locale as string)
         return
-      case 'review':
+      case 'open_review':
         await editor.loader.router.push('/reviews')
         return
-      case 'publish':
+      case 'publish_locale':
         // Mirrors StudioEntryDetailsPanel.openPublishDialog — all publish
         // paths must run through the preview/readiness flow.
         if (editor.publishing.handlePublish()) {
           void editor.workflow?.previewPublishImpact(editor.loader.currentLocale)
         }
-        return
-      case 'route':
-      case 'diagnostics':
-        await editor.workflow?.previewPublishImpact(editor.loader.currentLocale)
         return
     }
   }
