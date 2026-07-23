@@ -231,6 +231,39 @@ function requireBetterConvexSet(manifestPath) {
   return result
 }
 
+function requireBetterConvexMcp(manifestPath) {
+  const name = '@better-convex/mcp'
+  const expected = compatibility.releaseArtifacts[name]
+  const evidence = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  if (
+    evidence.schemaVersion !== 3 ||
+    evidence.packageId !== 'mcp' ||
+    evidence.packageName !== name ||
+    evidence.version !== compatibility.releaseStack[name] ||
+    evidence.sourceCommit !== expected.sourceCommit ||
+    evidence.tarball?.sha256 !== expected.sha256 ||
+    evidence.tarball?.integrity !== expected.integrity ||
+    typeof evidence.tarball?.file !== 'string' ||
+    basename(evidence.tarball.file) !== evidence.tarball.file
+  ) {
+    throw new Error('@better-convex/mcp artifact evidence does not match compatibility.json.')
+  }
+  const artifactRoot = dirname(manifestPath)
+  const tarball = resolve(artifactRoot, evidence.tarball.file)
+  assertContained(artifactRoot, tarball, `${name} tarball`)
+  const actualHash = sha256(tarball)
+  if (actualHash !== expected.sha256) {
+    throw new Error(`${name} hash is ${actualHash}; compatibility requires ${expected.sha256}.`)
+  }
+  inspectUpstreamTarball(name, tarball)
+  return {
+    version: compatibility.releaseStack[name],
+    commit: evidence.sourceCommit,
+    sha256: actualHash,
+    path: tarball,
+  }
+}
+
 assertClean(repoRoot, 'Ginko CMS')
 const cmsCommit = run('git', ['rev-parse', 'HEAD'], repoRoot, 'pipe').trim()
 const contentManifest = resolve(
@@ -244,10 +277,18 @@ const betterConvexSetManifest = resolve(
       `../../convex/better-convex-nuxt/.release-artifacts/set/${compatibility.releaseStack['better-convex-nuxt']}/artifact-set.json`,
     ),
 )
+const betterConvexMcpManifest = resolve(
+  process.env.BETTER_CONVEX_MCP_ARTIFACT_MANIFEST ??
+    resolve(
+      repoRoot,
+      `../../convex/better-convex-nuxt/.release-artifacts/mcp/${compatibility.releaseStack['@better-convex/mcp']}/artifact.json`,
+    ),
+)
 const betterConvex = requireBetterConvexSet(betterConvexSetManifest)
 const upstream = {
   '@lupinum/ginko-content': requireContentArtifact(contentManifest),
   ...betterConvex,
+  '@better-convex/mcp': requireBetterConvexMcp(betterConvexMcpManifest),
 }
 
 run('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'])

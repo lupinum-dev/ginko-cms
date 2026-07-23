@@ -51,11 +51,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json"
   },
   "dependencies": {
-    "@better-convex/mcp": "0.1.0-beta.0",
+    "@better-convex/mcp": "0.1.0-beta.2",
     "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.1",
     "@lupinum/ginko-content": "^0.3.0-rc.5",
     "@modelcontextprotocol/server": "2.0.0-beta.5",
-    "better-convex-nuxt": "0.8.0-beta.4",
+    "better-convex-nuxt": "0.8.0-beta.11",
     "convex": "1.42.2",
     "zod": "4.4.3"
   },

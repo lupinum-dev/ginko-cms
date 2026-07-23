@@ -5,7 +5,6 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@better-convex/mcp': github:lupinum-dev/better-convex-nuxt#83b7f3f91901caececc356c078f2eb8c80ec710e
   '@babel/core': 7.29.6
   '@vitest/browser': 4.1.10
   '@vitest/browser-playwright': 4.1.10
@@ -87,11 +86,11 @@ importers:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: 0.8.0-beta.4
-        version: 0.8.0-beta.4(3bf756a14ecbc711426c58856bc963d3)
+        specifier: 0.8.0-beta.11
+        version: 0.8.0-beta.11(3bf756a14ecbc711426c58856bc963d3)
       better-convex-vue:
-        specifier: 0.8.0-beta.4
-        version: 0.8.0-beta.4(convex@1.42.2(react@19.2.6))(vue@3.5.39(typescript@5.9.3))
+        specifier: 0.8.0-beta.11
+        version: 0.8.0-beta.11(convex@1.42.2(react@19.2.6))(vue@3.5.39(typescript@5.9.3))
       changelogen:
         specifier: ^0.6.2
         version: 0.6.2(magicast@0.5.2)
@@ -183,11 +182,11 @@ importers:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: 0.8.0-beta.4
-        version: 0.8.0-beta.4(3bf756a14ecbc711426c58856bc963d3)
+        specifier: 0.8.0-beta.11
+        version: 0.8.0-beta.11(3bf756a14ecbc711426c58856bc963d3)
       better-convex-vue:
-        specifier: 0.8.0-beta.4
-        version: 0.8.0-beta.4(convex@1.42.2(react@19.2.6))(vue@3.5.39(typescript@5.9.3))
+        specifier: 0.8.0-beta.11
+        version: 0.8.0-beta.11(convex@1.42.2(react@19.2.6))(vue@3.5.39(typescript@5.9.3))
       convex:
         specifier: 1.42.2
         version: 1.42.2(react@19.2.6)
@@ -376,8 +375,8 @@ importers:
   packages/convex:
     dependencies:
       '@better-convex/mcp':
-        specifier: github:lupinum-dev/better-convex-nuxt#83b7f3f91901caececc356c078f2eb8c80ec710e
-        version: https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e
+        specifier: 0.1.0-beta.2
+        version: 0.1.0-beta.2
       '@lupinum/ginko-cms-contract':
         specifier: workspace:^0.2.0-rc.1
         version: link:../contract
@@ -391,8 +390,8 @@ importers:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: 0.8.0-beta.4
-        version: 0.8.0-beta.4(3bf756a14ecbc711426c58856bc963d3)
+        specifier: 0.8.0-beta.11
+        version: 0.8.0-beta.11(3bf756a14ecbc711426c58856bc963d3)
       convex:
         specifier: 1.42.2
         version: 1.42.2(react@19.2.6)
@@ -403,8 +402,8 @@ importers:
   playground:
     dependencies:
       '@better-convex/mcp':
-        specifier: github:lupinum-dev/better-convex-nuxt#83b7f3f91901caececc356c078f2eb8c80ec710e
-        version: https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e
+        specifier: 0.1.0-beta.2
+        version: 0.1.0-beta.2
       '@lupinum/ginko-cms':
         specifier: workspace:*
         version: link:../packages/cms
@@ -430,8 +429,8 @@ importers:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: 0.8.0-beta.4
-        version: 0.8.0-beta.4(3bf756a14ecbc711426c58856bc963d3)
+        specifier: 0.8.0-beta.11
+        version: 0.8.0-beta.11(3bf756a14ecbc711426c58856bc963d3)
       convex:
         specifier: 1.42.2
         version: 1.42.2(react@19.2.6)
@@ -453,9 +452,8 @@ importers:
 
 packages:
 
-  '@better-convex/mcp@https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e':
-    resolution: {gitHosted: true, integrity: sha512-CxtZfoAvkoZxcD+UPJX7P1qTPGYeCpr6nIrQNHtwsDIKsokOHumFQoIIEPYGmuDWyHtHUrpdm5p0ZhkJm1rfNA==, tarball: https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e}
-    version: 0.1.0-beta.0
+  '@better-convex/mcp@0.1.0-beta.2':
+    resolution: {integrity: sha512-QgW6eliYqtQbobgFOVWwbzkrpqQ2VSDAIG/SD8PCzjgD2K8Grxo7s511qDJ1LNf+/Ih1jIoBs0wjYfX5rY6ZEw==}
     engines: {node: '>=22.14.0'}
 
   '@antfu/install-pkg@1.1.0':
@@ -3569,8 +3567,8 @@ packages:
       zod:
         optional: true
 
-  better-convex-nuxt@0.8.0-beta.4:
-    resolution: {integrity: sha512-zJ+tGb8BIOMwbB1VLKds62DS1SaIfJjLK6yynSYkQDkB+Ke92nk58pT/WlnElvlCDVd5btbE9pvENLuKNql49Q==}
+  better-convex-nuxt@0.8.0-beta.11:
+    resolution: {integrity: sha512-9+zc/3yMHRr0ShZ4A5e9nmy9NIsDeUhWXci4Hogm09ILIJ/zkGrg14FNc/PXJVUgLqVqGXbBg0ETzLp7rYdGYA==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     hasBin: true
     peerDependencies:
@@ -3579,12 +3577,16 @@ packages:
       kysely: 0.28.17
       nuxt: 4.4.8
 
-  better-convex-vue@0.8.0-beta.4:
-    resolution: {integrity: sha512-s1tKnPlwSKudGL1DyJXYJuVh3oBPmMd7bQBw1D6n5NGnzoI/BMiz14IFDn/QpmkvkmoQ18UkDdcx1XZrRNQIaA==}
+  better-convex-vue@0.8.0-beta.11:
+    resolution: {integrity: sha512-KWmGzHUcqYCQJse4cpIc6iGr+LDfNRg6MR4DKkVtlO2WNscumJ7SL5dxMjgdO3JjxieojsSup75vKbDLd7OM1w==}
     engines: {node: '>=22.14.0'}
     peerDependencies:
+      '@modelcontextprotocol/ext-apps': 1.7.4
       convex: 1.42.2
-      vue: 3.5.39
+      vue: ^3.5.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/ext-apps':
+        optional: true
 
   better-sqlite3@12.10.0:
     resolution: {integrity: sha512-CyzaZRQKyHkB2ZInfTTl2nvT33EbDpjkLEbE8/Zck3Ll6O0qqvuGdrJ45HgtH+HykRg88ITY3AdreBGN70aBSQ==}
@@ -7537,7 +7539,7 @@ packages:
 
 snapshots:
 
-  '@better-convex/mcp@https://codeload.github.com/lupinum-dev/better-convex-nuxt/tar.gz/83b7f3f91901caececc356c078f2eb8c80ec710e':
+  '@better-convex/mcp@0.1.0-beta.2':
     dependencies:
       '@modelcontextprotocol/server': 2.0.0-beta.5
 
@@ -10573,12 +10575,12 @@ snapshots:
     optionalDependencies:
       zod: 4.4.3
 
-  better-convex-nuxt@0.8.0-beta.4(3bf756a14ecbc711426c58856bc963d3):
+  better-convex-nuxt@0.8.0-beta.11(3bf756a14ecbc711426c58856bc963d3):
     dependencies:
       '@better-auth/oauth-provider': 1.7.0-rc.1(@better-auth/core@1.7.0-rc.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.0-rc.1(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(better-call@1.3.7(zod@4.4.3))
       '@nuxt/kit': 4.4.8(magicast@0.5.2)
       better-auth: 1.7.0-rc.1(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
-      better-convex-vue: 0.8.0-beta.4(convex@1.42.2(react@19.2.6))(vue@3.5.39(typescript@5.9.3))
+      better-convex-vue: 0.8.0-beta.11(convex@1.42.2(react@19.2.6))(vue@3.5.39(typescript@5.9.3))
       convex: 1.42.2(react@19.2.6)
       convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.2(react@19.2.6))(hono@4.12.25)(react@19.2.6)(typescript@5.9.3)(zod@4.4.3)
       defu: 6.1.7
@@ -10600,7 +10602,7 @@ snapshots:
       - vue
       - zod
 
-  better-convex-vue@0.8.0-beta.4(convex@1.42.2(react@19.2.6))(vue@3.5.39(typescript@5.9.3)):
+  better-convex-vue@0.8.0-beta.11(convex@1.42.2(react@19.2.6))(vue@3.5.39(typescript@5.9.3)):
     dependencies:
       convex: 1.42.2(react@19.2.6)
       ohash: 2.0.11

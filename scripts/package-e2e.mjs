@@ -78,9 +78,9 @@ const betterConvexNuxtRegistryVersion =
 const betterConvexVueRegistryVersion =
   process.env.BETTER_CONVEX_VUE_PACKAGE_VERSION ||
   compatibilityMatrix.releaseStack['better-convex-vue']
-const betterConvexMcpRegistryVersion = betterConvexMcpRoot
-  ? JSON.parse(readFileSync(resolve(betterConvexMcpRoot, 'package.json'), 'utf8')).version
-  : '0.1.0-beta.0'
+const betterConvexMcpRegistryVersion =
+  process.env.BETTER_CONVEX_MCP_PACKAGE_VERSION ||
+  compatibilityMatrix.releaseStack['@better-convex/mcp']
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
@@ -141,6 +141,9 @@ const candidateBetterConvexNuxt = candidateMode
   : undefined
 const candidateBetterConvexVue = candidateMode
   ? requireCandidateArtifact('BETTER_CONVEX_VUE_TARBALL', 'better-convex-vue')
+  : undefined
+const candidateBetterConvexMcp = candidateMode
+  ? requireCandidateArtifact('BETTER_CONVEX_MCP_TARBALL', '@better-convex/mcp')
   : undefined
 
 function packageE2eEnv() {
@@ -547,9 +550,10 @@ try {
     registryBetterConvexVue || candidateBetterConvexVue
       ? undefined
       : findTarball('better-convex-vue')
-  const betterConvexMcpTarball = registryBetterConvexMcp
-    ? undefined
-    : findTarball('better-convex-mcp')
+  const betterConvexMcpTarball =
+    registryBetterConvexMcp || candidateBetterConvexMcp
+      ? undefined
+      : findTarball('better-convex-mcp')
 
   if (candidateMode) {
     const evidencePath = resolve(packDir, 'candidate-artifact.json')
@@ -593,9 +597,10 @@ try {
   const convexTarball = contentAddressedCopy(packedConvexTarball)
   const cmsTarball = contentAddressedCopy(packedCmsTarball)
   const installedContentTarball = contentTarball ? contentAddressedCopy(contentTarball) : undefined
-  const installedBetterConvexMcpTarball = betterConvexMcpTarball
-    ? contentAddressedCopy(betterConvexMcpTarball)
-    : undefined
+  const installedBetterConvexMcpTarball =
+    (candidateBetterConvexMcp?.path ?? betterConvexMcpTarball)
+      ? contentAddressedCopy(candidateBetterConvexMcp?.path ?? betterConvexMcpTarball)
+      : undefined
 
   writeFileSync(
     join(tempDir, 'package.json'),
@@ -981,6 +986,7 @@ console.log('packed MCP read/write behavior ok')
       '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
       '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
       '@lupinum/ginko-content': fileDependency(installedContentTarball),
+      '@better-convex/mcp': fileDependency(candidateBetterConvexMcp.path),
       'better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
       'better-convex-vue': fileDependency(candidateBetterConvexVue.path),
     })
@@ -993,6 +999,7 @@ console.log('packed MCP read/write behavior ok')
       '@lupinum/ginko-cms-contract',
       '@lupinum/ginko-cms-convex',
       '@lupinum/ginko-content',
+      '@better-convex/mcp',
       'better-convex-nuxt',
       'better-convex-vue',
     ]) {
