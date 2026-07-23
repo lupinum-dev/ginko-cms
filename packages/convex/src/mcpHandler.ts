@@ -1,6 +1,5 @@
 import { createConvexMcpHandler, runMcpTool, type McpAccessVerifier } from '@better-convex/mcp'
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 
 const readScope = 'readCms'
@@ -147,11 +146,11 @@ export function createGinkoMcpHandler(options: {
   }
 
   return createConvexMcpHandler({
+    serverInfo: { name: 'ginko-cms', version: '0.1.0' },
     resource,
     verifier,
     authorization: { mode: 'preconfigured-bearer', issuer: issuer.href },
-    createServer(_context, access) {
-      const server = new McpServer({ name: 'ginko-cms', version: '0.1.0' })
+    configureServer(_context, access, _request, server) {
       server.registerTool(
         'start-agent-run',
         {
@@ -375,7 +374,6 @@ export function createGinkoMcpHandler(options: {
           }),
         )
       }
-      return server
     },
   })
 }

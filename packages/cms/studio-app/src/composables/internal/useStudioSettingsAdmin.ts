@@ -130,6 +130,7 @@ const memberInvitationExpiryOptions = [
 export function useStudioSettingsAdmin() {
   const { can } = useCmsStudioAccess()
   const config = useCmsConfig()
+  const mcpEnabled = config.mcp?.enabled === true
   const canManageMembers = can(cmsPermissionKeys.manageMembers)
   const canManageSettings = can(cmsPermissionKeys.manageSettings)
   const contract = useCmsContractCompatibility()
@@ -197,7 +198,7 @@ export function useStudioSettingsAdmin() {
   const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
   const mcpCredentialsQuery = useCmsStudioQuery(
     api.ginkoCms.mcpCredentials.listOwnSettings,
-    {},
+    computed(() => (mcpEnabled ? {} : null)),
     {
       requiredCapability: cmsPermissionKeys.manageSettings,
     },
@@ -517,6 +518,10 @@ export function useStudioSettingsAdmin() {
     mcpConnectionErrorDetail.value = ''
     mcpConnectionInfo.value = ''
     mcpCreatedToken.value = null
+    if (!mcpEnabled) {
+      mcpConnectionError.value = 'MCP is disabled for this application.'
+      return
+    }
     const userId = authState.user.value?.id
     const name = mcpConnectionForm.name.trim()
     const expiresIn = Number(mcpConnectionForm.expiresIn)
@@ -561,6 +566,10 @@ export function useStudioSettingsAdmin() {
     mcpConnectionError.value = ''
     mcpConnectionErrorDetail.value = ''
     mcpConnectionInfo.value = ''
+    if (!mcpEnabled) {
+      mcpConnectionError.value = 'MCP is disabled for this application.'
+      return
+    }
     revokingMcpApiKeyId.value = apiKeyId
     try {
       await revokeMcpCredentialMutation({ apiKeyId })
