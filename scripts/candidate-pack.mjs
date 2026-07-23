@@ -28,7 +28,11 @@ function run(command, args, cwd = repoRoot, stdio = 'inherit') {
   return execFileSync(command, args, {
     cwd,
     encoding: stdio === 'pipe' ? 'utf8' : undefined,
-    env: { ...process.env, npm_config_verify_deps_before_run: 'false' },
+    env: {
+      ...process.env,
+      npm_config_verify_deps_before_run: 'false',
+      PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: 'false',
+    },
     stdio,
   })
 }

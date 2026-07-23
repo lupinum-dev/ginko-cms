@@ -3,6 +3,7 @@ packages:
   - 'playground'
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
+  - '@better-convex/mcp'
   - '@lupinum/ginko-content'
   - '@nuxt/*'
   - better-convex-nuxt
