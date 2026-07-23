@@ -61,6 +61,41 @@ async function finalizeStoredAsset(
   })
 }
 
+async function seedCollectionAsset(
+  ctx: ReturnType<typeof createCtx>,
+  input: { createdBy?: string; collection?: string; filename?: string } = {},
+) {
+  const filename = input.filename ?? 'staged.png'
+  const createdAt = Date.now()
+  const storageId = await seedStorageObject(ctx, { bytes: filename, type: 'image/png' })
+  return await ctx.seed(
+    'assets' as never,
+    {
+      storageId,
+      filename,
+      mimeType: 'image/png',
+      size: filename.length,
+      sha256: 'a'.repeat(64),
+      width: 1,
+      height: 1,
+      frames: 1,
+      alt: null,
+      caption: null,
+      scope: 'collection',
+      entryId: null,
+      collection: input.collection ?? 'posts',
+      tags: [],
+      createdBy: input.createdBy ?? 'owner-1',
+      updatedBy: null,
+      createdAt,
+      updatedAt: null,
+      deletedAt: null,
+      deletedBy: null,
+      ...testAssetDiscovery(filename, createdAt),
+    } as never,
+  )
+}
+
 type CmsUserClient = ReturnType<ReturnType<typeof createCtx>['asCmsUser']>
 
 async function listManagerAssets(owner: CmsUserClient, args: Record<string, unknown> = {}) {
@@ -98,6 +133,81 @@ async function verifyCanonicalAssetReferences(ctx: ReturnType<typeof createCtx>,
 }
 
 describe('asset management', () => {
+  it('claims staged collection assets in the entry-creation transaction', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const assetId = await seedCollectionAsset(ctx)
+
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'atomic-assets',
+      localized: { title: 'Atomic assets' },
+      stagedAssetIds: [assetId],
+    })
+
+    const storedAsset = (await ctx.readAll('assets')).find((row) => row._id === assetId)
+    expect(storedAsset).toMatchObject({
+      scope: 'entry',
+      collection: 'posts',
+      entryId,
+      updatedBy: 'owner-1',
+    })
+  })
+
+  it('rolls back entry creation and every staged claim when one asset is invalid', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const validAssetId = await seedCollectionAsset(ctx, { filename: 'valid.png' })
+    const invalidAssetId = await seedCollectionAsset(ctx, {
+      filename: 'foreign.png',
+      createdBy: 'another-user',
+    })
+    const entriesBefore = await ctx.readAll('entries')
+
+    await expect(
+      owner.createEntry({
+        collection: 'posts',
+        slug: 'must-roll-back',
+        localized: { title: 'Must roll back' },
+        stagedAssetIds: [validAssetId, invalidAssetId],
+      }),
+    ).rejects.toThrow(/staged asset/i)
+
+    expect(await ctx.readAll('entries')).toEqual(entriesBefore)
+    expect((await ctx.readAll('assets')).find((row) => row._id === validAssetId)).toMatchObject({
+      scope: 'collection',
+      collection: 'posts',
+      entryId: null,
+    })
+  })
+
+  it('rejects a staged asset from another collection', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const assetId = await seedCollectionAsset(ctx, { collection: 'docs' })
+
+    await expect(
+      owner.createEntry({
+        collection: 'posts',
+        slug: 'wrong-collection',
+        localized: { title: 'Wrong collection' },
+        stagedAssetIds: [assetId],
+      }),
+    ).rejects.toThrow(/staged asset/i)
+
+    expect((await ctx.readAll('assets')).find((row) => row._id === assetId)).toMatchObject({
+      scope: 'collection',
+      collection: 'docs',
+      entryId: null,
+    })
+  })
+
   it('seeds and lists a global asset with correct metadata', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

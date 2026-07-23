@@ -1,5 +1,4 @@
 import {
-  attachAssetsToEntry as attachAssetsToEntryArgs,
   claimAssetUploadSession as claimAssetUploadSessionArgs,
   createAssetUploadSession as createAssetUploadSessionArgs,
   deleteAsset as deleteAssetArgs,
@@ -99,15 +98,6 @@ export const replaceAsset = action({
         _trustedCaller:
           cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
       }),
-    ),
-})
-
-export const attachAssetsToEntry = mutation({
-  args: attachAssetsToEntryArgs.args,
-  handler: async (ctx, args) =>
-    await ctx.runMutation(
-      components.ginkoCms.assets.attachAssetsToEntry,
-      bindExpectedCmsContract(await bindCmsCaller(ctx, args)),
     ),
 })
 

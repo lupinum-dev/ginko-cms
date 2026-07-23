@@ -237,7 +237,6 @@ defineExpose({
 
   <StudioAssetTrashDialog
     :action="trash.pendingDestructiveAssetAction.value"
-    :assets="finder.assets.value"
     @update:open="trash.handleDestructiveDialogOpen"
     @confirm="trash.confirmDestructiveAssetAction"
   />

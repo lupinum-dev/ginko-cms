@@ -17,7 +17,7 @@ import type {
 } from './assetFinderTypes'
 import { finderAssetToStudioAsset, mimeTypeMatches, parseAspectRatio } from './assetFinderUtils'
 import type { StudioAssetContext, StudioAssetRecord } from './types'
-import type { useStudioAssetFinder } from './useStudioAssetFinder'
+import type { PreparedAssetTrash, useStudioAssetFinder } from './useStudioAssetFinder'
 import { useStudioAssetMetadata } from './useStudioAssetMetadata'
 
 /**
@@ -60,21 +60,13 @@ export interface UploadDestinationOption {
   disabled: boolean
 }
 
-export type PendingDestructiveAssetAction =
-  | { kind: 'trash'; asset: FinderAssetRecord }
-  | {
-      kind: 'bulk-trash'
-      assetIds: string[]
-      referencedAssetCount: number
-      unknownReferenceAssetCount: number
-    }
-  | null
+export type PendingDestructiveAssetAction = PreparedAssetTrash | null
 
 export async function executePendingAssetTrash(
   action: Exclude<PendingDestructiveAssetAction, null>,
-  trashAssets: (assetIds: string[]) => Promise<unknown>,
+  executeAssetTrash: (prepared: PreparedAssetTrash) => Promise<boolean>,
 ) {
-  await trashAssets(action.kind === 'bulk-trash' ? action.assetIds : [action.asset.id])
+  return await executeAssetTrash(action)
 }
 
 export interface CreateStudioAssetBrowserContextOptions {
@@ -319,34 +311,18 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
   }
 
   // ── destructive flow ─────────────────────────────────────────────────────
-  function requestTrashSelectedAssets() {
-    const ids = [...finder.selectedVisibleAssetIds.value]
-    if (ids.length === 0) return
-    const idSet = new Set(ids)
-    const referencedAssetCount = finder.assets.value
-      .filter((asset) => idSet.has(asset.id))
-      .filter((asset) => asset.referenceCertainty.state === 'used').length
-    const unknownReferenceAssetCount = finder.assets.value
-      .filter((asset) => idSet.has(asset.id))
-      .filter((asset) => asset.referenceCertainty.state === 'unknown-stale').length
-    pendingDestructiveAssetAction.value = {
-      kind: 'bulk-trash',
-      assetIds: ids,
-      referencedAssetCount,
-      unknownReferenceAssetCount,
-    }
-  }
-
-  function requestTrashAsset(asset: FinderAssetRecord | null) {
+  async function requestTrashAsset(asset: FinderAssetRecord | null) {
     if (!asset) return
-    pendingDestructiveAssetAction.value = { kind: 'trash', asset }
+    const prepared = await finder.prepareAssetTrash(asset)
+    if (prepared) pendingDestructiveAssetAction.value = prepared
   }
 
   async function confirmDestructiveAssetAction() {
     const action = pendingDestructiveAssetAction.value
     if (!action) return
-    await executePendingAssetTrash(action, finder.trashAssets)
-    pendingDestructiveAssetAction.value = null
+    if (await executePendingAssetTrash(action, finder.executeAssetTrash)) {
+      pendingDestructiveAssetAction.value = null
+    }
   }
 
   function handleDestructiveDialogOpen(open: boolean) {
@@ -441,7 +417,6 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
       handleItemDoubleClick,
       selectMobileSidebar,
       requestTrashAsset,
-      requestTrashSelectedAssets,
     },
     trash: {
       pendingDestructiveAssetAction,

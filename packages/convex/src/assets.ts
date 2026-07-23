@@ -1,5 +1,4 @@
 import {
-  attachAssetsToEntry as attachAssetsToEntryArgs,
   claimAssetUploadSession as claimAssetUploadSessionArgs,
   createAssetUploadSession as createAssetUploadSessionArgs,
   deleteAsset as deleteAssetArgs,
@@ -290,37 +289,6 @@ export const previewRetryAssetCleanupOperation = callerMutation.protected(
   }),
 )
 export { insertVerifiedAssetRecord } from './assets/assetRecord.js'
-
-export const attachAssetsToEntry = callerMutation.protected({
-  acceptsTrustedCaller: true,
-  id: 'assets:attachAssetsToEntry',
-  args: attachAssetsToEntryArgs.args,
-  guard: canManageAssets,
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
-    const entryId = ctx.db.normalizeId('entries', args.entryId)
-    const entry = entryId ? await ctx.db.get(entryId) : null
-    requireRecord(entry, 'Entry')
-
-    for (const assetId of args.assetIds) {
-      const normalizedAssetId = ctx.db.normalizeId('assets', assetId)
-      const asset = normalizedAssetId ? await ctx.db.get(normalizedAssetId) : null
-      if (!asset) continue
-      const updatedAt = Date.now()
-      await ctx.db.patch(asset._id, {
-        scope: 'entry',
-        entryId: entry._id,
-        collection: entry.collection,
-        updatedBy: appIdentity.userId,
-        updatedAt,
-        effectiveUpdatedAt: updatedAt,
-      })
-    }
-
-    return null
-  },
-})
 
 export const updateAsset = callerMutation.protected({
   acceptsTrustedCaller: true,

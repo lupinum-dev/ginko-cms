@@ -2,10 +2,10 @@
 import { useStudioAssetBrowserContext } from '../../../composables/internal/studioAssetBrowserContext'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 
-// Manage-mode bulk action bar (tag, share, trash, clear) for the current
+// Manage-mode bulk action bar (tag, share, clear) for the current
 // visible selection. The shell mounts it only when a selection exists.
 const { t } = useCmsI18n()
-const { finder, tags, selection, flow } = useStudioAssetBrowserContext()
+const { finder, tags, selection } = useStudioAssetBrowserContext()
 </script>
 
 <template>
@@ -60,15 +60,6 @@ const { finder, tags, selection, flow } = useStudioAssetBrowserContext()
       @click="finder.moveAssetsToGlobal([...finder.selectedVisibleAssetIds.value])"
     >
       {{ t('ginkoCms.studio.assetBrowser.makeAvailableEverywhere') }}
-    </Button>
-    <Button
-      size="sm"
-      variant="outline"
-      class="ginko:h-8 ginko:text-xs ginko:text-destructive ginko:hover:text-destructive"
-      :disabled="finder.actionPending.value"
-      @click="flow.requestTrashSelectedAssets"
-    >
-      {{ t('ginkoCms.studio.assetBrowser.moveToTrash') }}
     </Button>
     <Button
       size="sm"

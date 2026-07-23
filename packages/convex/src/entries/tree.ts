@@ -35,20 +35,56 @@ const createEntryDefinition = defineCmsOperation({
   returns: v.string(),
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    return String(
-      await createCanonicalEntry(ctx, {
-        collection: args.collection,
-        appIdentity: appIdentity.userId,
-        locale: args.locale,
-        slug: args.slug,
-        shared: (args.shared as JsonMap | undefined) ?? {},
-        localized: (args.localized as JsonMap | undefined) ?? {},
-        bodyMdc: args.bodyMdc,
-        parentEntryId: args.parentEntryId,
-        orderRank: args.orderRank,
-        nodeKind: args.nodeKind ?? null,
-      }),
-    )
+    const stagedAssetIds = Array.from(new Set((args.stagedAssetIds ?? []) as string[]))
+    if (stagedAssetIds.length > 100) {
+      throwCmsError(
+        'STAGED_ASSET_LIMIT_EXCEEDED',
+        'Create an entry with at most 100 staged assets.',
+      )
+    }
+    const stagedAssets = []
+    for (const stagedAssetId of stagedAssetIds) {
+      const assetId = ctx.db.normalizeId('assets', stagedAssetId)
+      const asset = assetId ? await ctx.db.get(assetId) : null
+      if (
+        !asset ||
+        asset.deletedAt != null ||
+        asset.createdBy !== appIdentity.userId ||
+        asset.scope !== 'collection' ||
+        asset.collection !== args.collection ||
+        asset.entryId != null
+      ) {
+        throwCmsError(
+          'STAGED_ASSET_INVALID',
+          'A staged asset is missing or no longer belongs to this entry draft.',
+          { assetId: stagedAssetId },
+        )
+      }
+      stagedAssets.push(asset)
+    }
+    const entryId = await createCanonicalEntry(ctx, {
+      collection: args.collection,
+      appIdentity: appIdentity.userId,
+      locale: args.locale,
+      slug: args.slug,
+      shared: (args.shared as JsonMap | undefined) ?? {},
+      localized: (args.localized as JsonMap | undefined) ?? {},
+      bodyMdc: args.bodyMdc,
+      parentEntryId: args.parentEntryId,
+      orderRank: args.orderRank,
+      nodeKind: args.nodeKind ?? null,
+    })
+    const now = Date.now()
+    for (const asset of stagedAssets) {
+      await ctx.db.patch(asset._id, {
+        scope: 'entry',
+        entryId,
+        updatedBy: appIdentity.userId,
+        updatedAt: now,
+        effectiveUpdatedAt: now,
+      })
+    }
+    return String(entryId)
   },
 })
 

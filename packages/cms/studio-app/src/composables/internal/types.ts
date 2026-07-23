@@ -97,5 +97,8 @@ export interface StudioAssetContext {
   locale?: string
   entryId?: string
   collection?: string
-  onAssetRegistered?: (assetId: string) => Promise<void> | void
+  onAssetRegistered?: (
+    assetId: string,
+    scope: 'global' | 'collection' | 'entry',
+  ) => Promise<void> | void
 }

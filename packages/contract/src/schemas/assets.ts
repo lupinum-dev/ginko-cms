@@ -156,14 +156,6 @@ export const replaceAsset = defineArgs({
   },
 })
 
-export const attachAssetsToEntry = defineArgs({
-  description: 'Attach existing assets to an entry.',
-  args: {
-    entryId: v.string(),
-    assetIds: v.array(v.string()),
-  },
-})
-
 export const updateAsset = defineArgs({
   description: 'Update asset metadata.',
   args: {

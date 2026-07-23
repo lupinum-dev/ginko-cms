@@ -18,6 +18,12 @@ export async function hashValue(value: unknown): Promise<string> {
 }
 
 export function createToken(): string {
-  if (typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID()
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  const platformCrypto = globalThis.crypto
+  if (typeof platformCrypto?.randomUUID === 'function') return platformCrypto.randomUUID()
+  if (typeof platformCrypto?.getRandomValues !== 'function') {
+    throw new Error('Secure platform randomness is required for operation confirmations.')
+  }
+  const bytes = new Uint8Array(32)
+  platformCrypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }

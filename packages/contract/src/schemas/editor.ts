@@ -157,6 +157,7 @@ export const createEntry = defineArgs({
     parentEntryId: v.optional(v.string()),
     orderRank: v.optional(v.string()),
     nodeKind: v.optional(nodeKindValidator),
+    stagedAssetIds: v.optional(v.array(v.string())),
   },
   meta: {
     collection: {

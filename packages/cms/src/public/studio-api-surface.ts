@@ -49,7 +49,6 @@ export const studioApiSurface = {
     revokeRun: 'mutation',
   },
   assets: {
-    attachAssetsToEntry: 'mutation',
     claimAssetUploadSession: 'mutation',
     createAssetUploadSession: 'mutation',
     deleteAsset: {

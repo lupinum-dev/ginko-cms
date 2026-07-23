@@ -293,7 +293,8 @@ const editorContext = computed(() => ({
 const assetContext = computed(() => ({
   collection: collection.value,
   locale: defaultLocale.value,
-  onAssetRegistered: async (assetId: string) => {
+  onAssetRegistered: async (assetId: string, scope: 'global' | 'collection' | 'entry') => {
+    if (scope !== 'collection') return
     if (!stagedAssetIds.value.includes(assetId)) {
       stagedAssetIds.value.push(assetId)
     }
@@ -393,7 +394,6 @@ function buildLocalizedData(source: Record<string, unknown>): JsonObject | undef
   return Object.keys(d).length > 0 ? d : void 0
 }
 const createMutation = useConvexMutation(api.ginkoCms.editor.createEntry)
-const attachAssetsMutation = useConvexMutation(api.ginkoCms.assets.attachAssetsToEntry)
 async function handleCreate(publish = false) {
   if (!contractWritable.value) return
   submitted.value = true
@@ -429,16 +429,11 @@ async function handleCreate(publish = false) {
         typeof api.ginkoCms.editor.createEntry
       >['localized'],
       bodyMdc: buildBodyMdc(),
+      stagedAssetIds: stagedAssetIds.value,
       ...(isTree.value ? { nodeKind: form.kind as NodeKind } : {}),
       ...(isTree.value && form.parentEntryId ? { parentEntryId: form.parentEntryId } : {}),
     })
-    if (stagedAssetIds.value.length > 0) {
-      await attachAssetsMutation({
-        entryId,
-        assetIds: stagedAssetIds.value,
-      })
-      stagedAssetIds.value = []
-    }
+    stagedAssetIds.value = []
     studioDebug.debug('create:success', { collection: collection.value, publish, entryId })
     // Per Gate -1: create-and-publish previously bypassed the preview/readiness
     // flow used by the edit route by calling publishMutation directly with

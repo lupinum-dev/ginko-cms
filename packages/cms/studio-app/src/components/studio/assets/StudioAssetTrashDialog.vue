@@ -1,16 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-
-import type { FinderAssetRecord } from '../../../composables/internal/assetFinderTypes'
 import type { PendingDestructiveAssetAction } from '../../../composables/internal/studioAssetBrowserContext'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 
-// Self-contained confirm dialog for trashing one asset or a bulk selection.
-// Owns the pending-destructive presentation computeds (title / reference status /
-// affected list); the shell only wires the intent + resolves the outcome.
 const props = defineProps<{
   action: PendingDestructiveAssetAction
-  assets: FinderAssetRecord[]
 }>()
 
 const emit = defineEmits<{
@@ -19,75 +12,26 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useCmsI18n()
-
-const title = computed(() => {
-  if (!props.action) return ''
-  if (props.action.kind === 'bulk-trash') return t('ginkoCms.studio.assetBrowser.bulkTrashTitle')
-  return t('ginkoCms.studio.assetBrowser.trashTitle')
-})
-
-const description = computed(() =>
-  props.action ? t('ginkoCms.studio.assetBrowser.trashDescription') : '',
-)
-
-const confirmLabel = computed(() => t('ginkoCms.studio.assetBrowser.moveToTrashConfirm'))
-
-const referencedAssetCount = computed(() => {
-  if (!props.action) return 0
-  if (props.action.kind === 'bulk-trash') return props.action.referencedAssetCount
-  return props.action.asset.referenceCertainty.state === 'used' ? 1 : 0
-})
-
-const unknownReferenceAssetCount = computed(() => {
-  if (!props.action) return 0
-  if (props.action.kind === 'bulk-trash') return props.action.unknownReferenceAssetCount
-  return props.action.asset.referenceCertainty.state === 'unknown-stale' ? 1 : 0
-})
-
-const affectedAssets = computed(() => {
-  const action = props.action
-  if (!action) return []
-  if (action.kind === 'bulk-trash') {
-    const ids = new Set(action.assetIds)
-    return props.assets.filter((asset) => ids.has(asset.id))
-  }
-  return [action.asset]
-})
 </script>
 
 <template>
   <StudioConfirmDialog
     :open="!!props.action"
-    :title="title"
-    :description="description"
-    :confirm-label="confirmLabel"
+    :title="t('ginkoCms.studio.assetBrowser.trashTitle')"
+    :description="t('ginkoCms.studio.assetBrowser.trashDescription')"
+    :confirm-label="t('ginkoCms.studio.assetBrowser.moveToTrashConfirm')"
     @update:open="emit('update:open', $event)"
     @confirm="emit('confirm')"
   >
     <div class="ginko:space-y-3 ginko:text-sm ginko:text-muted-foreground">
+      <p class="ginko:font-medium ginko:text-foreground">
+        {{ props.action?.preview.summary }}
+      </p>
       <StudioNotice
-        :tone="referencedAssetCount > 0 || unknownReferenceAssetCount > 0 ? 'warning' : 'neutral'"
-        :title="
-          referencedAssetCount > 0
-            ? t(
-                referencedAssetCount === 1
-                  ? 'ginkoCms.studio.assetBrowser.referencedAssetsOne'
-                  : 'ginkoCms.studio.assetBrowser.referencedAssetsOther',
-                { count: referencedAssetCount },
-              )
-            : unknownReferenceAssetCount > 0
-              ? t('ginkoCms.studio.assetBrowser.referenceCertaintyUnavailable', {
-                  count: unknownReferenceAssetCount,
-                })
-              : t('ginkoCms.studio.assetBrowser.noSelectedAssetsReferenced')
-        "
-        :description="
-          referencedAssetCount > 0
-            ? t('ginkoCms.studio.assetBrowser.reviewReferencedAssets')
-            : unknownReferenceAssetCount > 0
-              ? t('ginkoCms.studio.assetBrowser.runReferenceVerification')
-              : t('ginkoCms.studio.assetBrowser.noEntriesReference')
-        "
+        v-for="warning in props.action?.preview.warnings ?? []"
+        :key="warning.code"
+        tone="warning"
+        :title="warning.message"
       />
       <div class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/30 ginko:p-3">
         <div
@@ -97,27 +41,14 @@ const affectedAssets = computed(() => {
         </div>
         <div class="ginko:space-y-2">
           <div
-            v-for="asset in affectedAssets.slice(0, 6)"
-            :key="asset.id"
+            v-for="effect in props.action?.preview.effects ?? []"
+            :key="`${effect.kind}:${effect.summary}`"
             class="ginko:flex ginko:min-w-0 ginko:items-center ginko:justify-between ginko:gap-3 ginko:text-xs"
           >
-            <span class="ginko:truncate ginko:font-medium ginko:text-foreground">{{
-              asset.filename
-            }}</span>
-            <span class="ginko:shrink-0 ginko:text-muted-foreground">
-              {{
-                asset.referenceCertainty.state === 'used'
-                  ? t('ginkoCms.studio.assetBrowser.assetReferenced')
-                  : asset.referenceCertainty.state === 'unused-verified'
-                    ? t('ginkoCms.studio.assetBrowser.unusedVerifiedShort')
-                    : t('ginkoCms.studio.assetBrowser.usageUnknownStale')
-              }}
+            <span class="ginko:truncate ginko:font-medium ginko:text-foreground">
+              {{ effect.summary }}
             </span>
-          </div>
-          <div v-if="affectedAssets.length > 6" class="ginko:text-xs ginko:text-muted-foreground">
-            {{
-              t('ginkoCms.studio.assetBrowser.moreAffected', { count: affectedAssets.length - 6 })
-            }}
+            <span class="ginko:shrink-0 ginko:text-muted-foreground">{{ effect.count }}</span>
           </div>
         </div>
       </div>

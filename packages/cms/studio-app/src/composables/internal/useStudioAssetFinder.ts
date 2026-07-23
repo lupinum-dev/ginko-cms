@@ -45,6 +45,18 @@ export type {
 } from './assetFinderTypes'
 export { finderAssetToStudioAsset, mimeKind } from './assetFinderUtils'
 
+export type PreparedAssetTrash = {
+  kind: 'trash'
+  asset: FinderAssetRecord
+  force: boolean
+  preview: {
+    summary: string
+    warnings: Array<{ code: string; message: string }>
+    effects: Array<{ kind: string; summary: string; count: number }>
+    confirmation: { token: string; expiresAt: number }
+  }
+}
+
 export function useStudioAssetFinder(
   options: {
     allowedTypes?: string[]
@@ -79,20 +91,43 @@ export function useStudioAssetFinder(
     api.ginkoCms.assets.finalizeAssetUploadSession,
   )
 
-  async function previewTrashAsset(asset: FinderAssetRecord, force: boolean) {
-    const preview = await previewTrashAssetMutation({
-      assetId: asset.id,
-      ...(force ? { force: true } : {}),
-    })
-    if (preview.allowed === false || preview.blockers.length > 0) {
-      throw new Error(
-        preview.blockers[0]?.message ?? preview.warnings[0]?.message ?? preview.summary,
-      )
+  async function prepareAssetTrash(asset: FinderAssetRecord): Promise<PreparedAssetTrash | null> {
+    actionPending.value = true
+    error.value = ''
+    try {
+      const force = asset.referenceCertainty.state === 'used'
+      const preview = await previewTrashAssetMutation({
+        assetId: asset.id,
+        ...(force ? { force: true } : {}),
+      })
+      if (preview.allowed === false || preview.blockers.length > 0) {
+        throw new Error(
+          preview.blockers[0]?.message ?? preview.warnings[0]?.message ?? preview.summary,
+        )
+      }
+      if (!preview.confirmation?.token || preview.confirmation.expiresAt <= Date.now()) {
+        throw new Error('Preview this deletion again before removing the file.')
+      }
+      return {
+        kind: 'trash',
+        asset,
+        force,
+        preview: {
+          summary: preview.summary,
+          warnings: preview.warnings as Array<{ code: string; message: string }>,
+          effects: preview.effects as Array<{ kind: string; summary: string; count: number }>,
+          confirmation: {
+            token: preview.confirmation.token,
+            expiresAt: preview.confirmation.expiresAt,
+          },
+        },
+      }
+    } catch (cause) {
+      error.value = getCmsErrorMessage(cause, 'Failed to preview moving the asset to trash.')
+      return null
+    } finally {
+      actionPending.value = false
     }
-    if (!preview.confirmation?.token || preview.confirmation.expiresAt <= Date.now()) {
-      throw new Error('Preview this deletion again before removing the file.')
-    }
-    return preview.confirmation.token
   }
 
   const sidebarMode = ref<SidebarMode>('collections')
@@ -466,7 +501,7 @@ export function useStudioAssetFinder(
           ...(scope === 'entry' ? { entryId: context?.entryId } : {}),
           ...(scope !== 'global' ? { collection: context?.collection } : {}),
         })
-        if (typeof assetId === 'string') await context?.onAssetRegistered?.(assetId)
+        if (typeof assetId === 'string') await context?.onAssetRegistered?.(assetId, scope)
         if (typeof assetId === 'string') options.onAssetUploaded?.(assetId)
       }
     } catch (cause) {
@@ -548,36 +583,25 @@ export function useStudioAssetFinder(
     }
   }
 
-  async function trashAssets(assetIds: string[]) {
-    const selectedAssets = assetIds
-      .map((id) => assets.value.find((asset) => asset.id === id) ?? null)
-      .filter((asset): asset is FinderAssetRecord => asset !== null)
-    if (selectedAssets.length === 0) return
-
+  async function executeAssetTrash(prepared: PreparedAssetTrash) {
     actionPending.value = true
     error.value = ''
     try {
-      for (const asset of selectedAssets) {
-        const assetForce = asset.referenceCertainty.state === 'used'
-        const token = await previewTrashAsset(asset, assetForce)
-        operationValue<null>(
-          await trashAssetMutation({
-            assetId: asset.id,
-            force: assetForce ? true : undefined,
-            _confirmationToken: token,
-          }),
-        )
-      }
-      selectedAssetIds.value = selectedAssetIds.value.filter((id) => !assetIds.includes(id))
-      if (
-        selectedAsset.value &&
-        assetIds.includes(selectedAsset.value.id) &&
-        sidebarMode.value !== 'trash'
-      ) {
+      operationValue<null>(
+        await trashAssetMutation({
+          assetId: prepared.asset.id,
+          force: prepared.force ? true : undefined,
+          _confirmationToken: prepared.preview.confirmation.token,
+        }),
+      )
+      selectedAssetIds.value = selectedAssetIds.value.filter((id) => id !== prepared.asset.id)
+      if (selectedAsset.value?.id === prepared.asset.id && sidebarMode.value !== 'trash') {
         selectedAssetId.value = null
       }
+      return true
     } catch (cause) {
-      error.value = getCmsErrorMessage(cause, 'Failed to move assets to trash.')
+      error.value = getCmsErrorMessage(cause, 'Failed to move the asset to trash.')
+      return false
     } finally {
       actionPending.value = false
     }
@@ -746,7 +770,8 @@ export function useStudioAssetFinder(
     removeTagFromSelectedAsset,
     applyTagToSelection,
     setSelectedAssetTags,
-    trashAssets,
+    prepareAssetTrash,
+    executeAssetTrash,
     restoreSelectedAsset,
     moveSelectedAssetToCollection,
     moveSelectedAssetToGlobal,
