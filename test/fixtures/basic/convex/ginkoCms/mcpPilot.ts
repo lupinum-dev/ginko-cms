@@ -26,7 +26,7 @@ function siteUrl() {
 }
 
 export function createGinkoMcpPilotHandler(
-  ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>,
+  ctx: Pick<ActionCtx, 'meta' | 'runQuery' | 'runMutation'>,
   site: URL,
   publishImpactAppHtml?: string,
 ) {
@@ -35,9 +35,13 @@ export function createGinkoMcpPilotHandler(
     resource: new URL(mcpPath, site),
     ...(publishImpactAppHtml === undefined ? {} : { publishImpactAppHtml }),
     operations: {
-      async resolveCredential(secretHash) {
-        return await ctx.runQuery(components.ginkoCms.mcpCredentials.resolveAccessBySecretHash, {
+      async admitCredential(secretHash) {
+        const metadata = await ctx.meta.getRequestMetadata()
+        return await ctx.runMutation(components.ginkoCms.mcpCredentials.admitAccessBySecretHash, {
           secretHash,
+          ipBucketKey: await admissionBucketKey('ip', metadata.ip ?? 'unknown'),
+          credentialBucketKey: await admissionBucketKey('credential', secretHash),
+          requestId: metadata.requestId,
         })
       },
       async getEntry(args) {
@@ -51,6 +55,14 @@ export function createGinkoMcpPilotHandler(
       },
     },
   })
+}
+
+async function admissionBucketKey(kind: 'credential' | 'ip', value: string) {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(`ginko-mcp:${kind}:${value}`),
+  )
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export const handle = httpAction(async (ctx, request) => {

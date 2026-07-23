@@ -20,7 +20,7 @@ function activeAttempts(
 }
 
 async function bucketIsLimited(
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   bucketKey: string,
   now: number,
   config: typeof IP_LIMIT,
@@ -39,14 +39,19 @@ export const checkFailureBudget = callerQuery.public({
     now: v.number(),
   },
   returns: limiterResult,
-  handler: async (ctx, args) => {
-    const [ipLimited, credentialLimited] = await Promise.all([
-      bucketIsLimited(ctx, args.ipBucketKey, args.now, IP_LIMIT),
-      bucketIsLimited(ctx, args.credentialBucketKey, args.now, CREDENTIAL_LIMIT),
-    ])
-    return { limited: ipLimited || credentialLimited }
-  },
+  handler: checkFailureBudgetHandler,
 })
+
+export async function checkFailureBudgetHandler(
+  ctx: QueryCtx | MutationCtx,
+  args: { ipBucketKey: string; credentialBucketKey: string; now: number },
+) {
+  const [ipLimited, credentialLimited] = await Promise.all([
+    bucketIsLimited(ctx, args.ipBucketKey, args.now, IP_LIMIT),
+    bucketIsLimited(ctx, args.credentialBucketKey, args.now, CREDENTIAL_LIMIT),
+  ])
+  return { limited: ipLimited || credentialLimited }
+}
 
 async function readBucket(ctx: MutationCtx, bucketKey: string) {
   return await ctx.db
@@ -85,53 +90,64 @@ async function deleteExpiredFailureBuckets(ctx: MutationCtx, now: number, limit:
   return expired.length
 }
 
+const recordFailureArgs = {
+  ipBucketKey: v.string(),
+  credentialBucketKey: v.string(),
+  requestId: v.string(),
+}
+
+export async function recordFailureHandler(
+  ctx: MutationCtx,
+  args: {
+    ipBucketKey: string
+    credentialBucketKey: string
+    requestId: string
+  },
+  now = Date.now(),
+) {
+  await deleteExpiredFailureBuckets(ctx, now, OPPORTUNISTIC_CLEANUP_BATCH_SIZE)
+
+  const [ipBucket, credentialBucket] = await Promise.all([
+    readBucket(ctx, args.ipBucketKey),
+    readBucket(ctx, args.credentialBucketKey),
+  ])
+  const ipAttempts = activeAttempts(ipBucket?.attempts ?? [], now, IP_LIMIT.windowMs)
+  const credentialAttempts = activeAttempts(
+    credentialBucket?.attempts ?? [],
+    now,
+    CREDENTIAL_LIMIT.windowMs,
+  )
+  const limited =
+    ipAttempts.length >= IP_LIMIT.max || credentialAttempts.length >= CREDENTIAL_LIMIT.max
+  const replayed =
+    ipAttempts.some((attempt) => attempt.requestId === args.requestId) ||
+    credentialAttempts.some((attempt) => attempt.requestId === args.requestId)
+  if (limited || replayed) return { limited }
+
+  const attempt = { requestId: args.requestId, timestamp: now }
+  await Promise.all([
+    writeBucket(ctx, {
+      existing: ipBucket,
+      bucketKey: args.ipBucketKey,
+      attempts: [...ipAttempts, attempt],
+      expiresAt: now + IP_LIMIT.windowMs,
+    }),
+    writeBucket(ctx, {
+      existing: credentialBucket,
+      bucketKey: args.credentialBucketKey,
+      attempts: [...credentialAttempts, attempt],
+      expiresAt: now + CREDENTIAL_LIMIT.windowMs,
+    }),
+  ])
+  return { limited: false }
+}
+
 export const recordFailure = callerMutation.public({
   id: 'mcpAuthLimiter:recordFailure',
   contractWrite: 'bypass',
-  args: {
-    ipBucketKey: v.string(),
-    credentialBucketKey: v.string(),
-    requestId: v.string(),
-  },
+  args: recordFailureArgs,
   returns: limiterResult,
-  handler: async (ctx, args) => {
-    const now = Date.now()
-    await deleteExpiredFailureBuckets(ctx, now, OPPORTUNISTIC_CLEANUP_BATCH_SIZE)
-
-    const [ipBucket, credentialBucket] = await Promise.all([
-      readBucket(ctx, args.ipBucketKey),
-      readBucket(ctx, args.credentialBucketKey),
-    ])
-    const ipAttempts = activeAttempts(ipBucket?.attempts ?? [], now, IP_LIMIT.windowMs)
-    const credentialAttempts = activeAttempts(
-      credentialBucket?.attempts ?? [],
-      now,
-      CREDENTIAL_LIMIT.windowMs,
-    )
-    const limited =
-      ipAttempts.length >= IP_LIMIT.max || credentialAttempts.length >= CREDENTIAL_LIMIT.max
-    const replayed =
-      ipAttempts.some((attempt) => attempt.requestId === args.requestId) ||
-      credentialAttempts.some((attempt) => attempt.requestId === args.requestId)
-    if (limited || replayed) return { limited }
-
-    const attempt = { requestId: args.requestId, timestamp: now }
-    await Promise.all([
-      writeBucket(ctx, {
-        existing: ipBucket,
-        bucketKey: args.ipBucketKey,
-        attempts: [...ipAttempts, attempt],
-        expiresAt: now + IP_LIMIT.windowMs,
-      }),
-      writeBucket(ctx, {
-        existing: credentialBucket,
-        bucketKey: args.credentialBucketKey,
-        attempts: [...credentialAttempts, attempt],
-        expiresAt: now + CREDENTIAL_LIMIT.windowMs,
-      }),
-    ])
-    return { limited: false }
-  },
+  handler: async (ctx, args) => await recordFailureHandler(ctx, args),
 })
 
 export const cleanupExpiredFailureBuckets = internalMutation({

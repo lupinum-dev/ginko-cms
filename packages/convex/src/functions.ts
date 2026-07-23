@@ -85,6 +85,7 @@ export const CONTRACT_WRITE_BYPASS_IDS: ReadonlySet<string> = new Set([
   'agentRuns:completeRun',
   'agentRuns:revokeRun',
   'ginko-cms.remove-member',
+  'mcpCredentials:admitAccessBySecretHash',
   'mcpAuthLimiter:recordFailure',
   'mcpCredentials:revokeSettings',
   'mcpCredentials:createCredential',

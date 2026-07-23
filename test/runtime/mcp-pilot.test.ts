@@ -1,3 +1,4 @@
+import { getFunctionAddress } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import { createGinkoMcpPilotHandler } from '../../playground/convex/ginkoCms/mcpPilot'
@@ -6,7 +7,8 @@ const resource = new URL('https://ginko.example.test/mcp-pilot')
 const bearer = 'ginko-pilot-bearer-sentinel'
 
 function functionName(reference: unknown) {
-  return (reference as Record<symbol, unknown>)[Symbol.for('functionName')]
+  const address = getFunctionAddress(reference as never)
+  return 'name' in address ? address.name : address.reference
 }
 
 function createFixture() {
@@ -16,6 +18,11 @@ function createFixture() {
   let draftVersion = 1
   const calls: Array<{ functionName: unknown; args: unknown }> = []
   const ctx = {
+    meta: {
+      async getRequestMetadata() {
+        return { ip: '203.0.113.10', requestId: crypto.randomUUID() }
+      },
+    },
     async runQuery(reference: unknown, args: unknown) {
       const name = functionName(reference)
       calls.push({ functionName: name, args })
@@ -25,18 +32,24 @@ function createFixture() {
         }
         return { _id: 'entry-1', draftVersion }
       }
-      return credentialActive
-        ? {
-            apiKeyId: 'mcp_credential_1',
-            ownerUserId: 'owner-1',
-            scopes,
-            expiresAt: null,
-          }
-        : null
+      throw new Error(`Unexpected query: ${String(name)}`)
     },
     async runMutation(reference: unknown, args: Record<string, unknown>) {
       const name = functionName(reference)
       calls.push({ functionName: name, args })
+      if (typeof name === 'string' && name.endsWith('/mcpCredentials/admitAccessBySecretHash')) {
+        return credentialActive
+          ? {
+              kind: 'access',
+              access: {
+                apiKeyId: 'mcp_credential_1',
+                ownerUserId: 'owner-1',
+                scopes,
+                expiresAt: null,
+              },
+            }
+          : { kind: 'invalid' }
+      }
       if (applicationAccess !== 'allowed') {
         throw new Error(`private application denial: ${applicationAccess}`)
       }

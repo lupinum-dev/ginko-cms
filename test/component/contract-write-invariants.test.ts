@@ -26,6 +26,7 @@ describe('transactional CMS contract write invariants', () => {
       'agentRuns:revokeRun',
       'ginko-cms.remove-member',
       'mcpAuthLimiter:recordFailure',
+      'mcpCredentials:admitAccessBySecretHash',
       'mcpCredentials:createCredential',
       'mcpCredentials:revokeSettings',
       'members:acceptMemberInvitation',

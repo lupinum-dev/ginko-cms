@@ -888,9 +888,12 @@ const handler = createGinkoMcpHandler({
   issuer: new URL('https://packed.example.test/mcp-credentials/'),
   resource: new URL('https://packed.example.test/mcp-pilot'),
   operations: {
-    async resolveCredential(secretHash) {
+    async admitCredential(secretHash) {
       calls.push({ operation: 'credential', secretHash })
-      return { apiKeyId: 'packed-key', scopes: ['readCms', 'editEntries'], expiresAt: null }
+      return {
+        kind: 'access',
+        access: { apiKeyId: 'packed-key', scopes: ['readCms', 'editEntries'], expiresAt: null },
+      }
     },
     async getEntry(args) {
       calls.push({ operation: 'query', args })

@@ -136,6 +136,7 @@ import type * as liveFixtures_cleanup from "../liveFixtures/cleanup.js";
 import type * as liveFixtures_finalize from "../liveFixtures/finalize.js";
 import type * as mcpAuthLimiter from "../mcpAuthLimiter.js";
 import type * as mcpCredentials from "../mcpCredentials.js";
+import type * as mcpHandler from "../mcpHandler.js";
 import type * as mcpLimiterProtocol from "../mcpLimiterProtocol.js";
 import type * as members from "../members.js";
 import type * as members_invitations from "../members/invitations.js";
@@ -320,6 +321,7 @@ const fullApi: ApiFromModules<{
   "liveFixtures/finalize": typeof liveFixtures_finalize;
   mcpAuthLimiter: typeof mcpAuthLimiter;
   mcpCredentials: typeof mcpCredentials;
+  mcpHandler: typeof mcpHandler;
   mcpLimiterProtocol: typeof mcpLimiterProtocol;
   members: typeof members;
   "members/invitations": typeof members_invitations;

@@ -19,11 +19,12 @@ type ImpactEffect = {
   countLabel?: string
 }
 
-const { app, hostCapabilities, hostContext, phase, toolInput, toolResult } = useMcpApp({
-  autoResize: false,
-  capabilities: {},
-  implementation: { name: 'ginko-publish-impact', version: '0.0.0' },
-})
+const { callServerTool, hostCapabilities, hostContext, openLink, phase, toolInput, toolResult } =
+  useMcpApp({
+    autoResize: false,
+    capabilities: {},
+    implementation: { name: 'ginko-publish-impact', version: '0.0.0' },
+  })
 const input = ref<PublishInput>()
 const allowed = ref<boolean>()
 const summary = ref('Waiting for publish impact')
@@ -139,7 +140,7 @@ async function refresh(): Promise<void> {
   status.value = 'refreshing'
   try {
     receiveResult(
-      await app.callServerTool({
+      await callServerTool({
         arguments: structuredClone(toRaw(input.value)),
         name: 'preview-publish',
       }),
@@ -152,7 +153,7 @@ async function refresh(): Promise<void> {
 async function openStudio(): Promise<void> {
   if (!canOpenStudio.value) return
   try {
-    const result = await app.openLink({ url: 'https://ginko.example.test/studio/reviews' })
+    const result = await openLink({ url: 'https://ginko.example.test/studio/reviews' })
     status.value = result.isError ? 'denied' : 'error'
   } catch {
     status.value = 'denied'

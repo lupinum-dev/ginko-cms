@@ -12,6 +12,7 @@ import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import type { MutationCtx, QueryCtx } from './lib/types.js'
+import { checkFailureBudgetHandler, recordFailureHandler } from './mcpAuthLimiter.js'
 
 type MemberDoc = Doc<'members'>
 type CredentialSettingsDoc = Doc<'mcpCredentialSettings'>
@@ -43,6 +44,20 @@ const resolvedCredentialAccessValidator = v.union(
     expiresAt: v.union(v.number(), v.null()),
   }),
   v.null(),
+)
+
+const credentialAdmissionValidator = v.union(
+  v.object({
+    kind: v.literal('access'),
+    access: v.object({
+      apiKeyId: v.string(),
+      ownerUserId: v.string(),
+      scopes: v.array(mcpCredentialScopeValidator),
+      expiresAt: v.union(v.number(), v.null()),
+    }),
+  }),
+  v.object({ kind: v.literal('invalid') }),
+  v.object({ kind: v.literal('limited') }),
 )
 
 function serializeCredentialSettings(settings: CredentialSettingsDoc) {
@@ -124,6 +139,24 @@ async function getCredentialSettings(ctx: QueryCtx | MutationCtx, apiKeyId: stri
     .query('mcpCredentialSettings')
     .withIndex('by_api_key_id', (q) => q.eq('apiKeyId', apiKeyId))
     .first()
+}
+
+async function resolveCredentialAccess(ctx: QueryCtx | MutationCtx, secretHash: string) {
+  const settings = await ctx.db
+    .query('mcpCredentialSettings')
+    .withIndex('by_secret_hash', (q) => q.eq('secretHash', secretHash))
+    .first()
+  if (!settings || settings.status !== 'active') return null
+  if (settings.expiresAt != null && settings.expiresAt <= Date.now()) return null
+  const member = await getMemberByUserId(ctx, settings.ownerUserId)
+  if (!member) return null
+
+  return {
+    apiKeyId: settings.apiKeyId,
+    ownerUserId: settings.ownerUserId,
+    scopes: settings.scopes as CmsPermissionKey[],
+    expiresAt: settings.expiresAt ?? null,
+  }
 }
 
 export const createCredential = callerMutation.protected({
@@ -262,21 +295,40 @@ export const resolveAccessBySecretHash = callerQuery.public({
     secretHash: v.string(),
   },
   returns: resolvedCredentialAccessValidator,
-  handler: async (ctx, args) => {
-    const settings = await ctx.db
-      .query('mcpCredentialSettings')
-      .withIndex('by_secret_hash', (q) => q.eq('secretHash', args.secretHash))
-      .first()
-    if (!settings || settings.status !== 'active') return null
-    if (settings.expiresAt != null && settings.expiresAt <= Date.now()) return null
-    const member = await getMemberByUserId(ctx, settings.ownerUserId)
-    if (!member) return null
+  handler: async (ctx, args) => await resolveCredentialAccess(ctx, args.secretHash),
+})
 
-    return {
-      apiKeyId: settings.apiKeyId,
-      ownerUserId: settings.ownerUserId,
-      scopes: settings.scopes,
-      expiresAt: settings.expiresAt ?? null,
-    }
+export const admitAccessBySecretHash = callerMutation.public({
+  id: 'mcpCredentials:admitAccessBySecretHash',
+  contractWrite: 'bypass',
+  args: {
+    secretHash: v.string(),
+    ipBucketKey: v.string(),
+    credentialBucketKey: v.string(),
+    requestId: v.string(),
+  },
+  returns: credentialAdmissionValidator,
+  handler: async (ctx, args) => {
+    const now = Date.now()
+    const budget = await checkFailureBudgetHandler(ctx, {
+      ipBucketKey: args.ipBucketKey,
+      credentialBucketKey: args.credentialBucketKey,
+      now,
+    })
+    if (budget.limited) return { kind: 'limited' as const }
+
+    const access = await resolveCredentialAccess(ctx, args.secretHash)
+    if (access) return { kind: 'access' as const, access }
+
+    const recorded = await recordFailureHandler(
+      ctx,
+      {
+        ipBucketKey: args.ipBucketKey,
+        credentialBucketKey: args.credentialBucketKey,
+        requestId: args.requestId,
+      },
+      now,
+    )
+    return recorded.limited ? ({ kind: 'limited' } as const) : ({ kind: 'invalid' } as const)
   },
 })

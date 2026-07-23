@@ -51,8 +51,15 @@ function createFixture(appHtml: string) {
     publishImpactAppHtml: appHtml,
     resource,
     operations: {
-      async resolveCredential() {
-        return { apiKeyId: 'credential-1', expiresAt: null, scopes: ['readCms', 'editEntries'] }
+      async admitCredential() {
+        return {
+          kind: 'access',
+          access: {
+            apiKeyId: 'credential-1',
+            expiresAt: null,
+            scopes: ['readCms', 'editEntries'],
+          },
+        }
       },
       async getEntry() {
         return { _id: 'entry-1' }
@@ -143,8 +150,8 @@ describe('Ginko publish-impact MCP App', () => {
     const base = {
       issuer,
       operations: {
-        async resolveCredential() {
-          return null
+        async admitCredential() {
+          return { kind: 'invalid' as const }
         },
         async getEntry() {},
         async saveEntryDraft() {},

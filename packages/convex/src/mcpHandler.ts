@@ -14,8 +14,13 @@ export type GinkoMcpCredentialAccess = {
   expiresAt: number | null
 }
 
+export type GinkoMcpCredentialAdmission =
+  | { kind: 'access'; access: GinkoMcpCredentialAccess }
+  | { kind: 'invalid' }
+  | { kind: 'limited' }
+
 export type GinkoMcpOperations = {
-  resolveCredential(secretHash: string): Promise<GinkoMcpCredentialAccess | null>
+  admitCredential(secretHash: string): Promise<GinkoMcpCredentialAdmission>
   getEntry(args: { apiKeyId: string; id: string; locale?: string }): Promise<unknown>
   saveEntryDraft(args: {
     apiKeyId: string
@@ -115,8 +120,9 @@ export function createGinkoMcpHandler(options: {
   const verifier: McpAccessVerifier = {
     async verifyAccessToken(token, expectedResource) {
       if (expectedResource.href !== resource.href) throw new Error('Unexpected MCP resource.')
-      const access = await operations.resolveCredential(await hashCredential(token))
-      if (!access) throw new Error('Invalid MCP credential.')
+      const admission = await operations.admitCredential(await hashCredential(token))
+      if (admission.kind !== 'access') throw new Error('Invalid MCP credential.')
+      const { access } = admission
       const now = Math.floor(Date.now() / 1_000)
       return {
         access: {

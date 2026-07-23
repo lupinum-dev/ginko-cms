@@ -65,6 +65,61 @@ describe('component: CMS-owned MCP credentials', () => {
     )
   })
 
+  it('atomically admits valid credentials and bounds synchronized invalid attempts', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const created = await ctx.asCmsUser('owner-1').mutation(api.mcpCredentials.createCredential, {
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read],
+    })
+    const ipBucketKey = 'a'.repeat(64)
+    const credentialBucketKey = 'b'.repeat(64)
+
+    await expect(
+      ctx.raw.mutation(api.mcpCredentials.admitAccessBySecretHash, {
+        secretHash: secretHash(created.bearerToken),
+        ipBucketKey,
+        credentialBucketKey,
+        requestId: 'valid-request',
+      }),
+    ).resolves.toEqual({
+      kind: 'access',
+      access: {
+        apiKeyId: created.settings.apiKeyId,
+        ownerUserId: 'owner-1',
+        scopes: [cmsPermissionKeys.read],
+        expiresAt: null,
+      },
+    })
+    expect(await ctx.readAll('mcpAuthFailureBuckets')).toEqual([])
+
+    const invalid = await Promise.all(
+      Array.from({ length: 5 }, (_, index) =>
+        ctx.raw.mutation(api.mcpCredentials.admitAccessBySecretHash, {
+          secretHash: secretHash('invalid-bearer'),
+          ipBucketKey,
+          credentialBucketKey,
+          requestId: `invalid-${index}`,
+        }),
+      ),
+    )
+    expect(invalid).toEqual(Array.from({ length: 5 }, () => ({ kind: 'invalid' })))
+    await expect(
+      ctx.raw.mutation(api.mcpCredentials.admitAccessBySecretHash, {
+        secretHash: secretHash('invalid-bearer'),
+        ipBucketKey,
+        credentialBucketKey,
+        requestId: 'limited-request',
+      }),
+    ).resolves.toEqual({ kind: 'limited' })
+
+    const buckets = (await ctx.readAll('mcpAuthFailureBuckets')) as Array<{
+      attempts: Array<{ requestId: string }>
+    }>
+    expect(buckets).toHaveLength(2)
+    expect(buckets.map((bucket) => bucket.attempts.length).sort()).toEqual([5, 5])
+  })
+
   it('re-checks current scopes for every trusted MCP call', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
