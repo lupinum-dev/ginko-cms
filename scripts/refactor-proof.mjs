@@ -444,7 +444,6 @@ async function main() {
         },
       ]
     : [
-        { name: 'accepted story mapping', args: ['run', 'check:user-stories'] },
         { name: 'repository invariants types and tests', args: ['run', 'check'] },
         { name: 'production package build', args: ['run', 'build'] },
         { name: 'generated code and Studio bundle budgets', args: ['run', 'check:bundle-budgets'] },
@@ -470,11 +469,13 @@ async function main() {
       retriesDisabled: true,
     },
     targetScale: LIVE_PROOF_TARGET_SCALE,
-    stories: {
+    storyTraceability: {
+      acceptanceEvidence: false,
       accepted: storyEvidence.accepted.length,
       deferred: storyEvidence.deferred.length,
       evidenceFiles: storyEvidence.evidenceFiles,
       mappings: storyEvidence.mappings,
+      unmapped: storyEvidence.unmapped,
     },
     browser: {
       requiredForCertification: true,

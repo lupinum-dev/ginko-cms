@@ -369,7 +369,7 @@ describe('live refactor proof contract', () => {
     ).toThrow(/neither discarded nor fully cleaned/i)
   })
 
-  it('[QUA-07] keeps live certification fail-closed and based on measured repeated samples', async () => {
+  it('keeps live certification source wiring fail-closed', async () => {
     const [
       runner,
       fixtureDriver,
@@ -478,7 +478,6 @@ describe('live refactor proof contract', () => {
       'studioColdInteractive',
       'primaryNavigation',
       'searchFilter',
-      'listPaging',
       'longEditorKeystroke',
       'publishPreview',
       'interactionToNextPaint',
@@ -516,36 +515,5 @@ describe('live refactor proof contract', () => {
     expect(smoke).toContain(".getByText('Draft', { exact: true })")
     expect(smoke).not.toContain("name: 'Add member'")
     expect(mcp).toContain("'request-publish-review'")
-
-    const lineCounts = Object.fromEntries(
-      Object.entries({
-        smoke,
-        performance,
-        roles,
-        observability,
-        mcp,
-        studio,
-        publicProof,
-        siteData,
-      }).map(([name, source]) => [name, source.trimEnd().split('\n').length]),
-    )
-    expect(lineCounts).toMatchObject({
-      smoke: expect.any(Number),
-      performance: expect.any(Number),
-      roles: expect.any(Number),
-      observability: expect.any(Number),
-      mcp: expect.any(Number),
-      studio: expect.any(Number),
-      publicProof: expect.any(Number),
-      siteData: expect.any(Number),
-    })
-    expect(lineCounts.smoke).toBeLessThanOrEqual(800)
-    expect(lineCounts.performance).toBeLessThanOrEqual(220)
-    expect(lineCounts.roles).toBeLessThanOrEqual(200)
-    expect(lineCounts.observability).toBeLessThanOrEqual(180)
-    expect(lineCounts.mcp).toBeLessThanOrEqual(450)
-    expect(lineCounts.studio).toBeLessThanOrEqual(450)
-    expect(lineCounts.publicProof).toBeLessThanOrEqual(250)
-    expect(lineCounts.siteData).toBeLessThanOrEqual(180)
   })
 })

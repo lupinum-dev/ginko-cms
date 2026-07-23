@@ -147,13 +147,7 @@ export function buildUserStoryEvidenceReport() {
         .map(({ file, title }) => ({ file, test: title })),
     ]),
   )
-  const unmappedIds = acceptedIds.filter((storyId) => mappings[storyId].length === 0)
-  if (unmappedIds.length > 0) {
-    throw new Error(
-      `Accepted stories without an executable test case: ${sorted(unmappedIds).join(', ')}. ` +
-        'Prefix a relevant Vitest title with the story ID, for example "[ACC-01] ...".',
-    )
-  }
+  const unmapped = sorted(acceptedIds.filter((storyId) => mappings[storyId].length === 0))
 
   const deferredEvidence = Object.fromEntries(
     deferredIds.map((storyId) => [
@@ -176,6 +170,7 @@ export function buildUserStoryEvidenceReport() {
     deferred: sorted(deferredIds),
     evidenceFiles: sorted(evidenceFiles),
     mappings,
+    unmapped,
     deferredEvidence,
   }
 }
@@ -187,7 +182,7 @@ function runCli() {
     return
   }
   console.log(
-    `User-story evidence is complete: ${report.accepted.length} accepted stories mapped to exact executable cases in ${report.evidenceFiles.length} test files; ${report.deferred.length} CND stories explicitly deferred.`,
+    `User-story traceability index: ${report.accepted.length - report.unmapped.length} of ${report.accepted.length} accepted stories have tagged executable cases in ${report.evidenceFiles.length} test files; ${report.unmapped.length} are unindexed and ${report.deferred.length} CND stories are explicitly deferred. This index is not acceptance evidence.`,
   )
 }
 

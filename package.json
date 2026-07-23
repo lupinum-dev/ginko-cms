@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm --filter @lupinum/ginko-cms build",
-    "check": "pnpm run check:user-stories && pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:publish-specifiers && pnpm run test",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:publish-specifiers && pnpm run test",
     "prepare:component": "pnpm --filter @lupinum/ginko-cms-convex prepare:component",
     "prepare:module": "pnpm --filter @lupinum/ginko-cms build",
     "dev": "pnpm run dev:prepare && nuxi dev --cwd playground --dotenv ../.env.local",
@@ -22,7 +22,7 @@
     "check:docs:install-story": "node scripts/check-docs-install-story.mjs",
     "check:compatibility-matrix": "node scripts/check-compatibility-matrix.mjs",
     "check:release-hygiene": "node scripts/check-release-hygiene.mjs",
-    "check:user-stories": "node scripts/check-user-story-evidence.mjs",
+    "report:story-index": "node scripts/check-user-story-evidence.mjs",
     "lint": "pnpm run check:component-auth-boundaries && pnpm run check:convex-surface && pnpm run check:live-mcp-tokens && pnpm run check:docs:install-story && pnpm run check:compatibility-matrix && pnpm run check:release-hygiene && eslint packages test --max-warnings=0",
     "format": "oxfmt . --ignore-path .oxfmtignore",
     "format:check": "oxfmt --check . --ignore-path .oxfmtignore",

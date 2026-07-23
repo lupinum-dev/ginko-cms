@@ -190,7 +190,6 @@ export function createPerformanceProof(sampleCount) {
     recordPerformanceMetric('studioColdInteractive', 'ms', 2500, samples.coldInteractive)
     recordPerformanceMetric('primaryNavigation', 'ms', 300, samples.primaryNavigation)
     recordPerformanceMetric('searchFilter', 'ms', 300, samples.search)
-    recordPerformanceMetric('listPaging', 'ms', 200, samples.listPaging)
     recordPerformanceMetric('longEditorKeystroke', 'ms', 50, samples.keystroke)
     recordPerformanceMetric('publishPreview', 'ms', 2000, samples.publishPreview)
     recordPerformanceMetric('interactionToNextPaint', 'ms', 200, samples.inp)

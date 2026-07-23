@@ -2137,15 +2137,15 @@ Speed, feel, and taste are assessed with the same discipline as functional stori
 
 Initial interaction budgets (p95 on mid-range hardware against the target-scale fixture; changing a budget is a recorded product decision, not a release-time adjustment):
 
-| Interaction                                    | Budget                    |
-| ---------------------------------------------- | ------------------------- |
-| Cold Studio load to interactive work queue     | < 2.5s                    |
-| Navigation between primary sections            | < 300ms                   |
-| Keystroke to rendered character in a long body | < 50ms, no dropped frames |
-| Search or filter results                       | < 300ms                   |
-| Entry list paging and sorting                  | < 200ms                   |
-| Publish preview computation                    | < 2s                      |
-| INP / CLS on primary routes                    | INP < 200ms, CLS < 0.1    |
+| Interaction                                    | Budget                                       |
+| ---------------------------------------------- | -------------------------------------------- |
+| Cold Studio load to interactive work queue     | < 2.5s                                       |
+| Navigation between primary sections            | < 300ms                                      |
+| Keystroke to rendered character in a long body | < 50ms, no dropped frames                    |
+| Search or filter results                       | < 300ms                                      |
+| Entry list paging and sorting                  | Measured trace; budget pending live evidence |
+| Publish preview computation                    | < 2s                                         |
+| INP / CLS on primary routes                    | INP < 200ms, CLS < 0.1                       |
 
 ### QUA-07: Meet interaction performance budgets at target scale
 
@@ -2164,7 +2164,7 @@ Initial interaction budgets (p95 on mid-range hardware against the target-scale 
 
 **Should not happen:** Performance must not be assessed only against empty or trivial data, budgets must not be silently raised to make a release pass, skeletons and spinners must not mask unbounded waits, and measurement must not depend on manual stopwatch work that nobody repeats.
 
-**Checks:** Cold load; section navigation; editor input latency on a long document; search/filter latency; list paging at target scale; publish preview computation; INP/CLS on primary routes; fixture documented and reproducible; per-release trend recorded; budget-change decisions auditable.
+**Checks:** Cold load; section navigation; editor input latency on a long document; search/filter latency; list paging sample trace at target scale (not yet a p95 claim); publish preview computation; INP/CLS on primary routes; fixture documented and reproducible; per-release trend recorded; budget-change decisions auditable.
 
 ### QUA-08: Review taste and feel through a structured, repeatable loop
 

@@ -40,11 +40,13 @@ Every disposable role email must contain the exact fixture prefix so setup can
 bind and cleanup can prove the four CMS memberships without scanning unrelated
 identity data. Create the Better Auth accounts before the fixture hook runs.
 
-## Exact packed-consumer attestation
+## Same-origin packed-artifact declaration
 
 The long-lived app at `CMS_STORY_BASE_URL` must expose a same-origin JSON
-attestation. The source commit, version, commit, and SHA-256 for each of these
-packages must match `candidate-artifact.json` byte for byte:
+declaration. This is application self-attestation used to bind the automated
+journey to expected package bytes; it is not independent browser certification.
+The source commit, version, commit, and SHA-256 for each of these packages must
+match `candidate-artifact.json` byte for byte:
 
 - `@lupinum/ginko-content`
 - `@lupinum/ginko-cms-contract`
@@ -146,7 +148,6 @@ The enforced budgets are:
 
 - Studio cold interactive: `< 2,500 ms p95`
 - primary navigation and search/filter: `< 300 ms p95`
-- list paging: `< 200 ms p95`
 - long-editor keystroke response: `< 50 ms p95`
 - publish preview: `< 2,000 ms p95`
 - INP/Event Timing: `< 200 ms p95`
@@ -157,6 +158,11 @@ narrow layouts, keyboard navigation, reduced motion, serious/critical axe
 violations, page-level horizontal overflow, and unexpected console, page,
 request, or HTTP failures. Expected wrong-password failure is scoped to that
 single request; broad HTTP allowlists are not used.
+
+The target-scale journey records each `Load more` duration and the number of
+pagination samples in its structured story result. That trace is not currently
+promoted to a p95 performance claim; promotion requires a retained live sample
+set and an evidence-backed budget.
 
 It also creates localized EN/DE site data privately, exposes and updates it
 through public reads, makes it private again, and permanently deletes the
