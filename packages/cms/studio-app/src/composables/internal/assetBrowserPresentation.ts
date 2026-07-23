@@ -1,4 +1,4 @@
-import type { FinderAssetRecord, FinderItem } from './assetFinderTypes'
+import type { FinderAssetRecord } from './assetFinderTypes'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
@@ -25,6 +25,6 @@ export function assetPreviewKey(asset: Pick<FinderAssetRecord, 'id' | 'thumbnail
   return `${asset.id}:${asset.thumbnailUrl ?? ''}`
 }
 
-export function assetFinderItemKey(item: FinderItem): string {
-  return item.type === 'folder' ? `f:${item.id}` : `a:${item.asset.id}`
+export function assetFinderItemKey(asset: FinderAssetRecord): string {
+  return asset.id
 }

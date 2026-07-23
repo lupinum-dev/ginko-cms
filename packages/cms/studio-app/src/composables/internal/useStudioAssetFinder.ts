@@ -12,14 +12,10 @@ import { useCmsStudioAccess } from '../useCmsStudioAccess'
 import { useCmsStudioPaginatedQuery } from '../useCmsStudioPaginatedQuery'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
 import { useConvexAction, useConvexMutation, useConvexUpload } from '../useStudioConvex'
-import { buildAssetFinderItems } from './assetFinderItems'
 import type {
-  BreadcrumbSegment,
   FinderAssetFacets,
-  FinderAssetItem,
   FinderAssetRecord,
   FinderAssetUsage,
-  FinderItem,
   SidebarMode,
   StudioAssetBrowserMode,
 } from './assetFinderTypes'
@@ -37,12 +33,7 @@ import {
 import type { StudioAssetContext } from './types'
 import { useStudioAssetReplacement } from './useStudioAssetReplacement'
 
-export type {
-  FinderAssetRecord,
-  FinderItem,
-  SidebarMode,
-  StudioAssetBrowserMode,
-} from './assetFinderTypes'
+export type { FinderAssetRecord, SidebarMode, StudioAssetBrowserMode } from './assetFinderTypes'
 export { finderAssetToStudioAsset, mimeKind } from './assetFinderUtils'
 
 export type PreparedAssetTrash = {
@@ -132,7 +123,6 @@ export function useStudioAssetFinder(
 
   const sidebarMode = ref<SidebarMode>('collections')
   const sidebarKey = ref('global')
-  const drillPath = ref<string[]>([])
   const viewMode = ref<'list' | 'grid'>('list')
   const searchQuery = ref('')
   const sortBy = ref<'name' | 'date' | 'size' | 'kind'>('name')
@@ -293,32 +283,10 @@ export function useStudioAssetFinder(
   function selectSidebar(mode: SidebarMode, key: string) {
     sidebarMode.value = mode
     sidebarKey.value = key
-    drillPath.value = []
     selectedAssetId.value = null
     selectedAssetIds.value = []
     error.value = ''
   }
-
-  function drillInto(folderId: string) {
-    drillPath.value = [...drillPath.value, folderId]
-    selectedAssetId.value = null
-    selectedAssetIds.value = []
-  }
-
-  function navigateTo(targetPath: string[]) {
-    drillPath.value = [...targetPath]
-    selectedAssetId.value = null
-    selectedAssetIds.value = []
-  }
-
-  function goBack() {
-    if (drillPath.value.length === 0) return
-    drillPath.value = drillPath.value.slice(0, -1)
-    selectedAssetId.value = null
-    selectedAssetIds.value = []
-  }
-
-  const canGoBack = computed(() => drillPath.value.length > 0)
 
   const activeFilterCount = computed(() => {
     let count = 0
@@ -336,40 +304,32 @@ export function useStudioAssetFinder(
     sizeFilter.value = 'any'
   }
 
-  const breadcrumb = computed<BreadcrumbSegment[]>(() => {
+  const locationLabel = computed(() => {
     if (sidebarMode.value === 'trash') {
-      return [{ label: t('ginkoCms.studio.assetBrowser.trash'), drillPath: [] }]
+      return t('ginkoCms.studio.assetBrowser.trash')
     }
 
     if (sidebarMode.value === 'tags') {
       const tag = tagMap.value.get(sidebarKey.value)
-      return [
-        {
-          label: t('ginkoCms.studio.assetBrowser.tagBreadcrumb', {
-            tag: tag?.label ?? sidebarKey.value,
-          }),
-          drillPath: [],
-        },
-      ]
+      return t('ginkoCms.studio.assetBrowser.tagBreadcrumb', {
+        tag: tag?.label ?? sidebarKey.value,
+      })
     }
 
     if (sidebarMode.value === 'full') {
-      if (sidebarKey.value === 'all')
-        return [{ label: t('ginkoCms.studio.assetBrowser.allMedia'), drillPath: [] }]
-      if (sidebarKey.value === 'global')
-        return [{ label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] }]
+      if (sidebarKey.value === 'all') return t('ginkoCms.studio.assetBrowser.allMedia')
+      if (sidebarKey.value === 'global') return t('ginkoCms.studio.assetBrowser.sharedLibrary')
       const collection = sidebarCollections.value.find((item) => item.key === sidebarKey.value)
-      return [{ label: collection?.label ?? sidebarKey.value, drillPath: [] }]
+      return collection?.label ?? sidebarKey.value
     }
 
-    if (sidebarKey.value === 'global')
-      return [{ label: t('ginkoCms.studio.assetBrowser.sharedLibrary'), drillPath: [] }]
+    if (sidebarKey.value === 'global') return t('ginkoCms.studio.assetBrowser.sharedLibrary')
 
     const collection = sidebarCollections.value.find((item) => item.key === sidebarKey.value)
-    return [{ label: collection?.label ?? sidebarKey.value, drillPath: [] }]
+    return collection?.label ?? sidebarKey.value
   })
 
-  const currentItems = computed<FinderItem[]>(() => buildAssetFinderItems(assets.value))
+  const currentItems = assets
 
   const selectedAsset = computed(() =>
     selectedAssetId.value
@@ -422,17 +382,8 @@ export function useStudioAssetFinder(
     selectedAssetIds.value = [...new Set(assetIds)]
   }
 
-  const folderCount = computed(
-    () => currentItems.value.filter((item) => item.type === 'folder').length,
-  )
-  const assetCount = computed(
-    () => currentItems.value.filter((item) => item.type === 'asset').length,
-  )
-  const visibleAssetIds = computed(() =>
-    currentItems.value
-      .filter((item): item is FinderAssetItem => item.type === 'asset')
-      .map((item) => item.asset.id),
-  )
+  const assetCount = computed(() => currentItems.value.length)
+  const visibleAssetIds = computed(() => currentItems.value.map((asset) => asset.id))
   const allVisibleAssetsSelected = computed(
     () =>
       visibleAssetIds.value.length > 0 &&
@@ -724,14 +675,8 @@ export function useStudioAssetFinder(
     trashCount,
 
     selectSidebar,
-    drillInto,
-    navigateTo,
-    goBack,
-    canGoBack,
-
-    breadcrumb,
+    locationLabel,
     currentItems,
-    folderCount,
     assetCount,
 
     selectedAsset,

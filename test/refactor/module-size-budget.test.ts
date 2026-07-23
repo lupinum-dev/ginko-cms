@@ -17,7 +17,6 @@ const budgets = {
   // Finder orchestration keeps reactive state and mutations; deterministic
   // browsing/filtering/sorting lives in the pure item builder.
   'packages/cms/studio-app/src/composables/internal/useStudioAssetFinder.ts': 800,
-  'packages/cms/studio-app/src/composables/internal/assetFinderItems.ts': 250,
   // Collection orchestration stays in the route while the flat and tree row
   // renderers share one typed presentation model. The editor keeps lifecycle
   // and conversion synchronization in its shell; media commands and scoped

@@ -3,15 +3,6 @@ import type { LocaleText } from '@lupinum/ginko-cms-contract/shared/types.js'
 export type SidebarMode = 'collections' | 'tags' | 'full' | 'trash'
 export type StudioAssetBrowserMode = 'manage' | 'pick'
 
-export interface FinderFolder {
-  type: 'folder'
-  id: string
-  label: string
-  icon: string
-  count: number
-  modifiedAt: number | null
-}
-
 export interface FinderAssetRecord {
   id: string
   filename: string
@@ -59,17 +50,4 @@ export interface FinderAssetUsage {
   locale: string
   collection: string
   collectionLabel: string
-}
-
-export interface FinderAssetItem {
-  type: 'asset'
-  asset: FinderAssetRecord
-  tags: string[]
-}
-
-export type FinderItem = FinderFolder | FinderAssetItem
-
-export interface BreadcrumbSegment {
-  label: string
-  drillPath: string[]
 }

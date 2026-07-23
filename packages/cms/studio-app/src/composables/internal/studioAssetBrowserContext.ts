@@ -9,12 +9,7 @@ import {
   assetOwnershipLabel,
   assetPreviewKey,
 } from './assetBrowserPresentation'
-import type {
-  FinderAssetRecord,
-  FinderItem,
-  SidebarMode,
-  StudioAssetBrowserMode,
-} from './assetFinderTypes'
+import type { FinderAssetRecord, SidebarMode, StudioAssetBrowserMode } from './assetFinderTypes'
 import { finderAssetToStudioAsset, mimeTypeMatches, parseAspectRatio } from './assetFinderUtils'
 import type { StudioAssetContext, StudioAssetRecord } from './types'
 import type { PreparedAssetTrash, useStudioAssetFinder } from './useStudioAssetFinder'
@@ -185,15 +180,6 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
   // ── status bar ───────────────────────────────────────────────────────────
   const statusText = computed(() => {
     const parts: string[] = []
-    if (finder.folderCount.value > 0)
-      parts.push(
-        t(
-          finder.folderCount.value === 1
-            ? 'ginkoCms.studio.assetBrowser.statusFoldersOne'
-            : 'ginkoCms.studio.assetBrowser.statusFoldersOther',
-          { count: finder.folderCount.value },
-        ),
-      )
     if (finder.assetCount.value > 0)
       parts.push(
         t(
@@ -261,21 +247,13 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
   }
 
   // ── item flow ────────────────────────────────────────────────────────────
-  function handleItemClick(item: FinderItem) {
-    if (item.type === 'folder') {
-      finder.drillInto(item.id)
-      return
-    }
-    finder.selectAsset(item.asset.id)
+  function handleItemClick(asset: FinderAssetRecord) {
+    finder.selectAsset(asset.id)
     mobileDetailsOpen.value = true
   }
 
-  function handleItemDoubleClick(item: FinderItem) {
-    if (item.type === 'folder') {
-      finder.drillInto(item.id)
-      return
-    }
-    if (isPickMode.value) chooseAsset(item.asset)
+  function handleItemDoubleClick(asset: FinderAssetRecord) {
+    if (isPickMode.value) chooseAsset(asset)
   }
 
   function selectMobileSidebar(mode: SidebarMode, key: string) {
@@ -443,5 +421,5 @@ export function useStudioAssetBrowserContext(): StudioAssetBrowserContext {
 }
 
 // Re-exported for consumers that only need the presentation-facing types.
-export type { FinderAssetRecord, FinderItem, StudioAssetBrowserMode }
+export type { FinderAssetRecord, StudioAssetBrowserMode }
 export type StudioAssetBrowserContextComputed = ComputedRef<StudioAssetBrowserContext>

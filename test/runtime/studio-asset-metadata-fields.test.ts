@@ -49,7 +49,6 @@ function buildContext(overrides: HarnessOverrides = {}) {
     selectedAsset: ref<FinderAssetRecord | null>(null),
     assets,
     selectedVisibleAssetIds: ref<string[]>([]),
-    folderCount: ref(0),
     assetCount: ref(0),
     selectAsset: vi.fn(),
   } as ContextOptions['finder']

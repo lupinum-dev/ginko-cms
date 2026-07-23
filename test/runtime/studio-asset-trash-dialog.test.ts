@@ -77,7 +77,6 @@ describe('StudioAssetTrashDialog', () => {
       selectedAsset: ref<FinderAssetRecord | null>(null),
       assets: ref<FinderAssetRecord[]>([]),
       selectedVisibleAssetIds: ref<string[]>([]),
-      folderCount: ref(0),
       assetCount: ref(0),
       selectAsset: vi.fn(),
       prepareAssetTrash,

@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import {
-  ChevronLeft,
-  ChevronRight,
   Grid3x3,
   List,
   Loader2,
@@ -47,36 +45,12 @@ const showFilterRow = computed(() => filtersOpen.value || finder.activeFilterCou
         <Menu class="ginko:size-4" />
       </Button>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        class="ginko:h-7 ginko:w-7 ginko:p-0"
-        :disabled="!finder.canGoBack.value"
-        @click="finder.goBack"
-      >
-        <ChevronLeft class="ginko:size-4" />
-      </Button>
-
       <div
         class="ginko:flex ginko:min-w-32 ginko:flex-1 ginko:items-center ginko:gap-1 ginko:text-sm"
       >
-        <template v-for="(seg, i) in finder.breadcrumb.value" :key="i">
-          <ChevronRight
-            v-if="i > 0"
-            class="ginko:size-3 ginko:shrink-0 ginko:text-muted-foreground/50"
-          />
-          <button
-            class="ginko:truncate ginko:transition-colors"
-            :class="
-              i === finder.breadcrumb.value.length - 1
-                ? 'ginko:font-semibold ginko:text-foreground'
-                : 'ginko:text-muted-foreground ginko:hover:text-foreground'
-            "
-            @click="finder.navigateTo(seg.drillPath)"
-          >
-            {{ seg.label }}
-          </button>
-        </template>
+        <span class="ginko:truncate ginko:font-semibold ginko:text-foreground">
+          {{ finder.locationLabel.value }}
+        </span>
       </div>
 
       <StudioSegmentedControl

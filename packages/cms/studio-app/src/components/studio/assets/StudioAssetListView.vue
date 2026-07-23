@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, Folder } from '@lucide/vue'
+import { Check } from '@lucide/vue'
 
 import { mimeKind } from '../../../composables/internal/assetFinderUtils'
 import { useStudioAssetBrowserContext } from '../../../composables/internal/studioAssetBrowserContext'
@@ -48,8 +48,7 @@ const { finder, mode, pick, presentation, metadata, flow } = useStudioAssetBrows
         :key="presentation.itemKey(item)"
         class="ginko:cursor-pointer ginko:border-b ginko:border-border/30 studio-motion-fast"
         :class="
-          item.type === 'asset' &&
-          (finder.selectedAssetId.value === item.asset.id || pick.isChosen(item.asset.id))
+          finder.selectedAssetId.value === item.id || pick.isChosen(item.id)
             ? 'ginko:bg-primary/8'
             : 'ginko:hover:bg-muted/40'
         "
@@ -57,109 +56,80 @@ const { finder, mode, pick, presentation, metadata, flow } = useStudioAssetBrows
         @dblclick="flow.handleItemDoubleClick(item)"
       >
         <td class="ginko:py-1.5 ginko:pl-4 ginko:pr-2" @click.stop>
-          <template v-if="item.type === 'asset'">
-            <input
-              v-if="mode.mode.value === 'manage'"
-              type="checkbox"
-              class="ginko:size-4 ginko:rounded ginko:border-border ginko:align-middle"
-              :checked="finder.selectedAssetIds.value.includes(item.asset.id)"
-              @change="finder.toggleAssetSelection(item.asset.id)"
-            />
-            <button
-              v-else
-              class="ginko:inline-flex ginko:size-5 ginko:items-center ginko:justify-center ginko:rounded-full ginko:border ginko:text-xs"
-              :class="
-                pick.isChosen(item.asset.id)
-                  ? 'ginko:border-primary ginko:bg-primary ginko:text-primary-foreground'
-                  : 'ginko:border-border ginko:text-muted-foreground'
-              "
-              @click="pick.togglePickerSelection(item.asset)"
-            >
-              <Check v-if="pick.isChosen(item.asset.id)" class="ginko:size-3" />
-            </button>
-          </template>
+          <input
+            v-if="mode.mode.value === 'manage'"
+            type="checkbox"
+            class="ginko:size-4 ginko:rounded ginko:border-border ginko:align-middle"
+            :checked="finder.selectedAssetIds.value.includes(item.id)"
+            @change="finder.toggleAssetSelection(item.id)"
+          />
+          <button
+            v-else
+            class="ginko:inline-flex ginko:size-5 ginko:items-center ginko:justify-center ginko:rounded-full ginko:border ginko:text-xs"
+            :class="
+              pick.isChosen(item.id)
+                ? 'ginko:border-primary ginko:bg-primary ginko:text-primary-foreground'
+                : 'ginko:border-border ginko:text-muted-foreground'
+            "
+            @click="pick.togglePickerSelection(item)"
+          >
+            <Check v-if="pick.isChosen(item.id)" class="ginko:size-3" />
+          </button>
         </td>
         <td class="ginko:px-4 ginko:py-1.5">
           <div class="ginko:flex ginko:items-center ginko:gap-2.5">
-            <template v-if="item.type === 'folder'">
-              <Folder class="ginko:size-5 ginko:shrink-0 ginko:text-muted-foreground" />
-              <span class="ginko:truncate ginko:font-medium">{{ item.label }}</span>
-            </template>
-            <template v-else>
-              <div
-                class="ginko:flex ginko:size-10 ginko:shrink-0 ginko:items-center ginko:justify-center ginko:overflow-hidden ginko:rounded-lg ginko:border ginko:border-border/50 ginko:bg-muted/60"
+            <div
+              class="ginko:flex ginko:size-10 ginko:shrink-0 ginko:items-center ginko:justify-center ginko:overflow-hidden ginko:rounded-lg ginko:border ginko:border-border/50 ginko:bg-muted/60"
+            >
+              <img
+                v-if="presentation.canShowPreview(item)"
+                :src="item.thumbnailUrl ?? undefined"
+                alt=""
+                class="ginko:size-full ginko:object-cover"
+                @error="presentation.markPreviewFailed(item)"
+              />
+              <Icon
+                v-else
+                :name="finder.mimeIcon(item.mimeType)"
+                class="ginko:size-4 ginko:text-muted-foreground"
+              />
+            </div>
+            <span class="ginko:min-w-0">
+              <span
+                class="ginko:block ginko:truncate"
+                :class="item.deletedAt ? 'ginko:line-through ginko:text-muted-foreground' : ''"
               >
-                <img
-                  v-if="presentation.canShowPreview(item.asset)"
-                  :src="item.asset.thumbnailUrl ?? undefined"
-                  alt=""
-                  class="ginko:size-full ginko:object-cover"
-                  @error="presentation.markPreviewFailed(item.asset)"
-                />
-                <Icon
-                  v-else
-                  :name="finder.mimeIcon(item.asset.mimeType)"
-                  class="ginko:size-4 ginko:text-muted-foreground"
-                />
-              </div>
-              <span class="ginko:min-w-0">
-                <span
-                  class="ginko:block ginko:truncate"
-                  :class="
-                    item.asset.deletedAt ? 'ginko:line-through ginko:text-muted-foreground' : ''
-                  "
-                >
-                  {{ item.asset.filename }}
-                </span>
-                <span
-                  class="ginko:block ginko:truncate ginko:text-xs ginko:text-muted-foreground/60"
-                >
-                  {{ presentation.ownerPathLabel(item.asset) }}
-                </span>
-                <span
-                  v-if="item.asset.mimeType.startsWith('image/')"
-                  class="ginko:block ginko:truncate ginko:text-xs"
-                  :class="
-                    metadata.coverage(item.asset).complete
-                      ? 'ginko:text-success-fg/80'
-                      : 'ginko:text-warning-fg'
-                  "
-                >
-                  {{ metadata.coverageLabel(item.asset) }}
-                </span>
+                {{ item.filename }}
               </span>
-            </template>
+              <span class="ginko:block ginko:truncate ginko:text-xs ginko:text-muted-foreground/60">
+                {{ presentation.ownerPathLabel(item) }}
+              </span>
+              <span
+                v-if="item.mimeType.startsWith('image/')"
+                class="ginko:block ginko:truncate ginko:text-xs"
+                :class="
+                  metadata.coverage(item).complete
+                    ? 'ginko:text-success-fg/80'
+                    : 'ginko:text-warning-fg'
+                "
+              >
+                {{ metadata.coverageLabel(item) }}
+              </span>
+            </span>
           </div>
         </td>
         <td
           class="ginko:whitespace-nowrap ginko:px-3 ginko:py-1.5 ginko:tabular-nums ginko:text-muted-foreground"
         >
-          <template v-if="item.type === 'asset'">{{
-            finder.formatDate(item.asset.updatedAt ?? item.asset.createdAt)
-          }}</template>
-          <template v-else>{{
-            item.modifiedAt ? finder.formatDate(item.modifiedAt) : '-'
-          }}</template>
+          {{ finder.formatDate(item.updatedAt ?? item.createdAt) }}
         </td>
         <td
           class="ginko:whitespace-nowrap ginko:px-3 ginko:py-1.5 ginko:text-right ginko:tabular-nums ginko:text-muted-foreground"
         >
-          <template v-if="item.type === 'folder'">{{
-            t(
-              item.count === 1
-                ? 'ginkoCms.studio.assetBrowser.folderItemsOne'
-                : 'ginkoCms.studio.assetBrowser.folderItemsOther',
-              { count: item.count },
-            )
-          }}</template>
-          <template v-else>{{ finder.formatFileSize(item.asset.size) }}</template>
+          {{ finder.formatFileSize(item.size) }}
         </td>
         <td class="ginko:whitespace-nowrap ginko:px-3 ginko:py-1.5 ginko:text-muted-foreground">
-          {{
-            item.type === 'folder'
-              ? t('ginkoCms.studio.assetBrowser.folderKind')
-              : mimeKind(item.asset.mimeType)
-          }}
+          {{ mimeKind(item.mimeType) }}
         </td>
       </tr>
     </tbody>
