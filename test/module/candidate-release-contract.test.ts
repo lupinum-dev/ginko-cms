@@ -100,6 +100,26 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain('GINKO_PACKAGE_E2E_OUTPUT')
   })
 
+  it('accepts upstream candidate bytes only through their immutable evidence manifests', () => {
+    const source = readFileSync('scripts/candidate-pack.mjs', 'utf8')
+
+    expect(source).toContain('GINKO_CONTENT_ARTIFACT_MANIFEST')
+    expect(source).toContain('BETTER_CONVEX_CANDIDATE_SET')
+    expect(source).toContain('manifest.releaseEligible !== true')
+    expect(source).toContain('manifest.reproduciblePacks !== 2')
+    expect(source).toContain('set.schemaVersion !== 1')
+    expect(source).toContain("const expectedIds = ['vue', 'nuxt']")
+    expect(source).toContain('evidence.runtimeFingerprint !== expected.runtimeFingerprint')
+    expect(source).toContain('actualHash !== expected.sha256')
+    expect(source).not.toContain('GINKO_CONTENT_ROOT')
+    expect(source).not.toContain('BETTER_CONVEX_NUXT_ROOT')
+    expect(source).not.toContain('GINKO_CONTENT_TARBALL')
+    expect(source).not.toContain('BETTER_CONVEX_NUXT_TARBALL')
+    expect(source).not.toContain("['rev-parse', 'HEAD'], root")
+    expect(source).not.toContain('assertClean(content')
+    expect(source).not.toContain('assertClean(betterConvex')
+  })
+
   it('retains an exact candidate consumer only through the explicit live command', () => {
     const source = readFileSync('scripts/live-candidate.mjs', 'utf8')
 
@@ -122,16 +142,26 @@ describe('coordinated CMS candidate release contract', () => {
     expect(() => readFileSync('.npmrc', 'utf8')).toThrow()
   })
 
-  it('keeps CI on immutable compatibility commits without legacy sibling setup', () => {
+  it('keeps untrusted CI read-only, pinned, and free of upstream source substitution', () => {
     const workflow = readFileSync('.github/workflows/ci.yml', 'utf8')
 
-    expect(workflow).not.toContain('lupinum-dev/trellis')
-    expect(workflow).not.toContain('TRELLIS_CI_REF')
-    expect(workflow).not.toContain('GINKO_CONTENT_CI_REF')
-    expect(workflow).not.toContain('--lockfile-only')
-    expect(workflow).toContain('steps.compatibility.outputs.content_commit')
-    expect(workflow).toContain('steps.compatibility.outputs.better_convex_nuxt_commit')
-    expect(workflow).toContain('pnpm run candidate:pack')
-    expect(workflow).toContain('pnpm run release:verify:candidate')
+    expect(workflow).toContain('permissions:\n  contents: read')
+    expect(workflow).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0')
+    expect(workflow).toContain('actions/setup-node@820762786026740c76f36085b0efc47a31fe5020')
+    expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a')
+    expect(workflow).toContain('persist-credentials: false')
+    expect(workflow).toContain("GINKO_COREPACK_VERSION: '0.34.5'")
+    expect(workflow).toContain("GINKO_NODE_VERSION: '24.18.0'")
+    expect(workflow).toContain('corepack@"$GINKO_COREPACK_VERSION"')
+    expect(workflow).toContain('pnpm install --frozen-lockfile')
+    expect(workflow).not.toMatch(/uses:\s+\S+@v\d/u)
+    expect(workflow).not.toContain('corepack@latest')
+    expect(workflow).not.toContain('LUPINUM_CI_REPO_READ_TOKEN')
+    expect(workflow).not.toContain('secrets.')
+    expect(workflow).not.toContain('repository:')
+    expect(workflow).not.toContain('candidate:pack')
+    expect(workflow).not.toContain('release:verify:candidate')
+    expect(workflow).not.toContain('BETTER_CONVEX_NUXT_ROOT')
+    expect(workflow).not.toContain('GINKO_CONTENT_ROOT')
   })
 })

@@ -9,6 +9,13 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+env:
+  GINKO_COREPACK_VERSION: '0.34.5'
+  GINKO_NODE_VERSION: '24.18.0'
+
 jobs:
   foundation:
     runs-on: ubuntu-latest
@@ -17,15 +24,18 @@ jobs:
         working-directory: ginko-cms
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: ginko-cms
+          persist-credentials: false
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          package-manager-cache: false
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - name: Install pinned package-manager launcher
+        run: npm install --global corepack@"$GINKO_COREPACK_VERSION" && corepack enable
 
       - name: Install frozen standalone workspace
         run: pnpm install --frozen-lockfile
@@ -33,7 +43,7 @@ jobs:
       - name: Refactor reliability proof
         run: pnpm run verify:refactor
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() }}
         with:
           name: refactor-proof-${{ github.sha }}
@@ -43,113 +53,3 @@ jobs:
 
       - name: Production audit
         run: pnpm run audit:prod
-
-  package-smoke:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ginko-cms
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          path: ginko-cms
-
-      - name: Read immutable compatibility commits
-        id: compatibility
-        run: node -e "const fs=require('node:fs');const c=require('./packages/cms/compatibility.json');fs.appendFileSync(process.env.GITHUB_OUTPUT, 'content_commit='+c.releaseArtifacts['@lupinum/ginko-content'].sourceCommit+'\ncontent_version='+c.releaseStack['@lupinum/ginko-content']+'\nbetter_convex_nuxt_commit='+c.releaseArtifacts['better-convex-nuxt'].sourceCommit+'\nbetter_convex_nuxt_version='+c.releaseStack['better-convex-nuxt']+'\n')"
-
-      - uses: actions/checkout@v6
-        with:
-          repository: lupinum-dev/ginko-content
-          path: ginko-content
-          ref: ${{ steps.compatibility.outputs.content_commit }}
-          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
-
-      - uses: actions/checkout@v6
-        with:
-          repository: lupinum-dev/better-convex-nuxt
-          path: better-convex-nuxt
-          ref: ${{ steps.compatibility.outputs.better_convex_nuxt_commit }}
-          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - run: npm i -g --force corepack@latest && corepack enable
-
-      - name: Pack immutable Ginko Content
-        working-directory: ginko-content
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run release:pack
-
-      - name: Pack immutable Better Convex Nuxt
-        run: |
-          corepack pnpm@10.30.3 --dir ../better-convex-nuxt install --frozen-lockfile
-          mkdir -p .pack/upstream
-          corepack pnpm@10.30.3 --dir ../better-convex-nuxt pack --pack-destination "$PWD/.pack/upstream"
-
-      - name: Install frozen CMS workspace
-        run: pnpm install --frozen-lockfile
-
-      - name: Build deterministic candidate
-        run: pnpm run candidate:pack
-        env:
-          GINKO_CONTENT_ROOT: ${{ github.workspace }}/ginko-content
-          GINKO_CONTENT_TARBALL: ${{ github.workspace }}/ginko-content/.pack/lupinum-ginko-content-${{ steps.compatibility.outputs.content_version }}.tgz
-          BETTER_CONVEX_NUXT_ROOT: ${{ github.workspace }}/better-convex-nuxt
-          BETTER_CONVEX_NUXT_TARBALL: ${{ github.workspace }}/ginko-cms/.pack/upstream/better-convex-nuxt-${{ steps.compatibility.outputs.better_convex_nuxt_version }}.tgz
-
-      - name: Verify exact pnpm and npm consumers
-        run: pnpm run release:verify:candidate
-        env:
-          GINKO_CONTENT_TARBALL: ${{ github.workspace }}/ginko-content/.pack/lupinum-ginko-content-${{ steps.compatibility.outputs.content_version }}.tgz
-          BETTER_CONVEX_NUXT_TARBALL: ${{ github.workspace }}/ginko-cms/.pack/upstream/better-convex-nuxt-${{ steps.compatibility.outputs.better_convex_nuxt_version }}.tgz
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: exact-candidate-tuple
-          path: ginko-cms/.pack/candidate
-          if-no-files-found: error
-          retention-days: 1
-
-  live-release-smoke:
-    runs-on: ubuntu-latest
-    needs: package-smoke
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    defaults:
-      run:
-        working-directory: ginko-cms
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          path: ginko-cms
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - run: npm i -g --force corepack@latest && corepack enable
-
-      - name: Install frozen CMS workspace
-        run: pnpm install --frozen-lockfile
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: exact-candidate-tuple
-          path: ginko-cms/.pack/candidate
-
-      - name: Live packed Convex package E2E
-        run: |
-          content_tarball="$(find "$PWD/.pack/candidate" -maxdepth 1 -name 'lupinum-ginko-content-*.tgz' -print -quit)"
-          better_convex_nuxt_tarball="$(find "$PWD/.pack/candidate" -maxdepth 1 -name 'better-convex-nuxt-*.tgz' -print -quit)"
-          test -n "$content_tarball"
-          test -n "$better_convex_nuxt_tarball"
-          GINKO_CONTENT_TARBALL="$content_tarball" BETTER_CONVEX_NUXT_TARBALL="$better_convex_nuxt_tarball" pnpm run package:e2e:live
-        env:
-          CONVEX_DEPLOYMENT: ${{ secrets.CONVEX_DEPLOYMENT }}
-          CONVEX_URL: ${{ secrets.CONVEX_URL }}
-          CONVEX_SITE_URL: ${{ secrets.CONVEX_SITE_URL }}
