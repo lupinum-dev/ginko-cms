@@ -10,7 +10,7 @@ describe('operation confirmation randomness', () => {
   it('uses secure random bytes when randomUUID is unavailable', () => {
     vi.stubGlobal('crypto', {
       getRandomValues(bytes: Uint8Array) {
-        bytes.fill(0xab)
+        bytes.fill(171)
         return bytes
       },
     })

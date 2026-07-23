@@ -21,7 +21,7 @@ export function createToken(): string {
   const platformCrypto = globalThis.crypto
   if (typeof platformCrypto?.randomUUID === 'function') return platformCrypto.randomUUID()
   if (typeof platformCrypto?.getRandomValues !== 'function') {
-    throw new Error('Secure platform randomness is required for operation confirmations.')
+    throw new TypeError('Secure platform randomness is required for operation confirmations.')
   }
   const bytes = new Uint8Array(32)
   platformCrypto.getRandomValues(bytes)
