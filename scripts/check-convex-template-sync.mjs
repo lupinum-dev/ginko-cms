@@ -19,6 +19,7 @@ const contractBindingPath = 'ginkoCms/contractBinding.ts'
 const contentHashToken = '__GINKO_CMS_EXPECTED_CONTENT_HASH__'
 const presentationHashToken = '__GINKO_CMS_EXPECTED_PRESENTATION_HASH__'
 const validBindingHash = /^(?:unbound|[a-f0-9]{64})$/u
+const mcpBlock = /\/\/ GINKO_MCP_BEGIN\n([\s\S]*?)\/\/ GINKO_MCP_END\n?/gu
 
 function toRepoPath(filePath) {
   return relative(repoRoot, filePath).replaceAll('\\', '/')
@@ -39,7 +40,10 @@ function collectGeneratedFiles(directory, prefix = '') {
   return files
 }
 
-function expectedGeneratedSource(relPath, templateSource, targetSource) {
+function expectedGeneratedSource(relPath, templateSource, targetSource, mcp) {
+  if (relPath === 'http.ts') {
+    return templateSource.replace(mcpBlock, mcp ? '$1' : '')
+  }
   if (relPath !== contractBindingPath) return templateSource
   const contentHash = targetSource.match(/EXPECTED_CONTENT_HASH = '([^']+)'/u)?.[1]
   const presentationHash = targetSource.match(/EXPECTED_PRESENTATION_HASH = '([^']+)'/u)?.[1]
@@ -60,6 +64,19 @@ const manifestFiles = [...new Set([...generatedFiles, 'auth.config.ts', 'schema.
 const violations = []
 
 for (const targetRoot of targetRoots) {
+  const manifestPath = join(targetRoot, manifestName)
+  let manifest
+  if (!existsSync(manifestPath)) {
+    violations.push(`${toRepoPath(manifestPath)}: missing generated setup provenance manifest`)
+  } else {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    if (manifest.schemaVersion !== 1 || manifest.generatedBy !== '@lupinum/ginko-cms') {
+      violations.push(`${toRepoPath(manifestPath)}: invalid generated setup provenance manifest`)
+      manifest = undefined
+    }
+  }
+  const mcp = manifest?.mcp === true
+
   for (const relPath of generatedFiles) {
     const templatePath = join(templateRoot, relPath)
     const targetPath = join(targetRoot, relPath)
@@ -77,7 +94,7 @@ for (const targetRoot of targetRoots) {
     }
     const targetSource = readFileSync(targetPath, 'utf8')
     const templateSource = readFileSync(templatePath, 'utf8')
-    const expectedSource = expectedGeneratedSource(relPath, templateSource, targetSource)
+    const expectedSource = expectedGeneratedSource(relPath, templateSource, targetSource, mcp)
     if (expectedSource !== targetSource) {
       violations.push(
         `${toRepoPath(targetPath)}: differs from generated template ${toRepoPath(templatePath)}`,
@@ -85,20 +102,11 @@ for (const targetRoot of targetRoots) {
     }
   }
 
-  const manifestPath = join(targetRoot, manifestName)
-  if (!existsSync(manifestPath)) {
-    violations.push(`${toRepoPath(manifestPath)}: missing generated setup provenance manifest`)
-    continue
-  }
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  if (manifest.schemaVersion !== 1 || manifest.generatedBy !== '@lupinum/ginko-cms') {
-    violations.push(`${toRepoPath(manifestPath)}: invalid generated setup provenance manifest`)
-    continue
-  }
+  if (!manifest) continue
   for (const relPath of manifestFiles) {
     const targetSource = readFileSync(join(targetRoot, relPath), 'utf8')
     const templateSource = readFileSync(join(templateRoot, relPath), 'utf8')
-    const expectedSource = expectedGeneratedSource(relPath, templateSource, targetSource)
+    const expectedSource = expectedGeneratedSource(relPath, templateSource, targetSource, mcp)
     const expectedHash = createHash('sha256').update(expectedSource).digest('hex')
     const recordedHash = manifest.files?.[`convex/${relPath}`]?.templateHash
     if (recordedHash !== expectedHash) {
