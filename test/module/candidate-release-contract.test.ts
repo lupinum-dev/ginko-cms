@@ -91,6 +91,9 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain('/api/_better-convex-nuxt/release-fingerprint')
     expect(source).toContain("resolve(packDir, 'candidate-artifact.json')")
     expect(source).toContain(': resolve(packDir, recorded.tarball)')
+    expect(source).toContain(
+      "'@better-convex/mcp': fileDependency(installedBetterConvexMcpTarball)",
+    )
     expect(source).toContain("consumerPackageManager === 'npm'")
     expect(source).toContain("npm_config_legacy_peer_deps: 'false'")
     expect(source).toContain("`    mcp: ${liveConvex ? 'true' : 'false'},`")

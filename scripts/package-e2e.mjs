@@ -986,7 +986,7 @@ console.log('packed MCP read/write behavior ok')
       '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
       '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
       '@lupinum/ginko-content': fileDependency(installedContentTarball),
-      '@better-convex/mcp': fileDependency(candidateBetterConvexMcp.path),
+      '@better-convex/mcp': fileDependency(installedBetterConvexMcpTarball),
       'better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
       'better-convex-vue': fileDependency(candidateBetterConvexVue.path),
     })
