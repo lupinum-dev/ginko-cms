@@ -16,6 +16,10 @@ export async function getCmsSettings(ctx: ReadCtx) {
     })),
     updatedAt: record.installedAt,
     updatedBy: record.installedBy,
+    installedContentHash: record.contentHash,
+    installedPresentationHash: record.presentationHash,
+    transitionState: record.transitionState,
+    transitionRunId: record.transitionRunId ?? null,
   }
 }
 

@@ -30,6 +30,10 @@ describe('CMS settings visibility', () => {
       locales: [{ code: 'en', label: 'en', isDefault: true }],
       updatedAt: expect.any(Number),
       updatedBy: 'deployment',
+      installedContentHash: await hashCanonicalJson(contract),
+      installedPresentationHash: await hashCanonicalJson(presentation),
+      transitionState: 'ready',
+      transitionRunId: null,
     })
   })
 })

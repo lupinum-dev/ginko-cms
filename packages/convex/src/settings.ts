@@ -16,6 +16,10 @@ export const getStudioSettings = callerQuery.protected({
       locales: settings.locales ?? [],
       updatedAt: settings.updatedAt,
       updatedBy: settings.updatedBy ?? null,
+      installedContentHash: settings.installedContentHash,
+      installedPresentationHash: settings.installedPresentationHash,
+      transitionState: settings.transitionState,
+      transitionRunId: settings.transitionRunId,
     }
   },
 })

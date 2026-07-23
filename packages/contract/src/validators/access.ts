@@ -45,6 +45,10 @@ export const studioSettingsValidator = v.union(
     locales: v.array(localeConfigValidator),
     updatedAt: v.number(),
     updatedBy: v.union(v.string(), v.null()),
+    installedContentHash: v.string(),
+    installedPresentationHash: v.string(),
+    transitionState: v.union(v.literal('ready'), v.literal('locked')),
+    transitionRunId: v.union(v.string(), v.null()),
   }),
   v.null(),
 )

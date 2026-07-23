@@ -95,6 +95,10 @@ export interface GinkoCmsStudioHostBridge {
 
 export interface CmsStudioSettingsQueryResult {
   locales?: LocaleConfig[]
+  installedContentHash: string
+  installedPresentationHash: string
+  transitionState: 'ready' | 'locked'
+  transitionRunId: string | null
 }
 
 export interface CmsCollectionRouting {
