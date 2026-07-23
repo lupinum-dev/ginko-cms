@@ -13,6 +13,14 @@ export const listRuns = query({
     await ctx.runQuery(components.ginkoCms.agentRuns.listRuns, await bindCmsCaller(ctx, args)),
 })
 
+export const completeRun = mutation({
+  args: {
+    agentRunId: v.string(),
+  },
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.agentRuns.completeRun, bindExpectedCmsContract(args)),
+})
+
 export const revokeRun = mutation({
   args: {
     agentRunId: v.string(),
