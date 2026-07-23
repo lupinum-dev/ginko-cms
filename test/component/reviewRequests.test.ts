@@ -137,7 +137,7 @@ describe('canonical publish reviews', () => {
     expect(await ctx.readAll('reviewRequests')).toEqual([])
   })
 
-  it('[COL-03][PUB-03] pins the canonical draft and preview when requesting review, blocks stale approval, and preserves recoverable work', async () => {
+  it('[AGT-06][COL-03][PUB-03] pins the canonical draft and preview when requesting review, blocks stale approval, and preserves recoverable work', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })

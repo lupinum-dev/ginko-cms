@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { redactDebugValue } from '../../../packages/cms/studio-app/src/editor/model/useDebugExport'
 
 describe('debug export redaction', () => {
-  it('redacts token-like and credential-like diagnostic values recursively', () => {
+  it('[QUA-06] redacts token-like and credential-like diagnostic values recursively', () => {
     const jwtLike = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZWJ1Zy1leHBvcnQifQ.signaturePart0123456789'
     const redacted = redactDebugValue({
       authorization: 'Bearer secret-token-value',
