@@ -291,6 +291,22 @@ describe('Ginko Convex-native MCP endpoint', () => {
       },
     })
 
+    for (const action of ['decline', 'cancel'] as const) {
+      const dismissedByHost = await callTool(fixture, 'request-publish-review', args, bearer, {
+        supportsUrl: true,
+        requestState: operationKey,
+        inputResponses: { review: { action } },
+      })
+      expect(dismissedByHost.body).toMatchObject({
+        result: {
+          structuredContent: {
+            interaction: 'pending_external_review',
+            review: { id: 'review-1', isStale: false, status: 'pending' },
+          },
+        },
+      })
+    }
+
     const status = await callTool(fixture, 'get-review-status', {
       reviewRequestId: 'review-1',
     })
@@ -311,6 +327,13 @@ describe('Ginko Convex-native MCP endpoint', () => {
         structuredContent: { error: { code: 'MCP_INTERACTION_STATE_INVALID' } },
       },
     })
+
+    fixture.revoke()
+    const revokedStatus = await callTool(fixture, 'get-review-status', {
+      reviewRequestId: 'review-1',
+    })
+    expect(revokedStatus.response.status).toBe(401)
+    expect(revokedStatus.text).not.toContain('review-1')
     expect(JSON.stringify(fixture.calls)).not.toContain(bearer)
     expect(JSON.stringify([unsupported.body, pending.body, acceptedByHostOnly.body])).not.toContain(
       bearer,

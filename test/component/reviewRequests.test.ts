@@ -193,6 +193,34 @@ describe('canonical publish reviews', () => {
         reviewedBy: expect.stringMatching(/^publisher-[12]$/),
       }),
     ])
+
+    const downgraded = createCtx()
+    await seedOwner(downgraded)
+    await seedMember(downgraded, { userId: 'publisher-1', role: 'publisher' })
+    await seedSettings(downgraded)
+    const downgradedEntry = await seedEditorFixture(downgraded)
+    const downgradedPublisher = downgraded.asCmsUser('publisher-1')
+    const pending = await downgradedPublisher.mutation(api.reviewRequests.requestPublishReview, {
+      entryId: downgradedEntry.entryId,
+      expectedVersion: 1,
+      locales: ['en'],
+      title: 'Reviewer authority changed',
+      summary: 'Current authority must be checked at decision time.',
+    })
+    const publisherMember = (await downgraded.readAll('members')).find(
+      (member) => member.userId === 'publisher-1',
+    )
+    if (!publisherMember) throw new Error('Publisher member fixture is missing.')
+    await downgraded.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(publisherMember._id, { role: 'viewer' })
+    })
+    await expect(
+      downgradedPublisher.mutation(api.reviewRequests.approveReview, {
+        reviewRequestId: pending._id,
+        expectedVersionHash: pending.versionHash,
+      }),
+    ).rejects.toThrow(/Publish entries/i)
+    expect(await downgraded.readAll('publicEntries')).toEqual([])
   })
 
   it('requires an owned active agent run for MCP review requests', async () => {
