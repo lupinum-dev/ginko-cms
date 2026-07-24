@@ -41,9 +41,9 @@ function redactQuotedIdentifier(summary: string): string {
 
 function displayActivitySummary(row: Pick<ActivityDoc, 'kind' | 'summary' | 'detail'>) {
   if (row.kind.startsWith('member.')) return redactQuotedIdentifier(row.summary)
-  if (row.kind.startsWith('mcpCredentialSettings.')) {
+  if (row.kind.startsWith('mcpOAuthDelegation.')) {
     return redactQuotedIdentifier(
-      row.summary.replace(/MCP credential settings/g, 'AI agent connection'),
+      row.summary.replace(/MCP OAuth delegation/g, 'AI agent connection'),
     )
   }
   if (row.kind === 'entry.checkpointed') return row.summary.replace(/checkpoint/gi, 'version')

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createCtx,
   installTestContract,
-  seedMcpCredential,
+  seedMcpDelegation,
   seedMember,
   seedOwner,
 } from '../helpers'
@@ -19,28 +19,28 @@ async function createAgentCtx() {
   return ctx
 }
 
-async function ownerAgent(ctx: ReturnType<typeof createCtx>, apiKeyId = 'ba_key_owner') {
-  await seedMcpCredential(ctx, {
-    apiKeyId,
+async function ownerAgent(ctx: ReturnType<typeof createCtx>, oauthClientId = 'client-owner') {
+  await seedMcpDelegation(ctx, {
+    oauthClientId,
     ownerUserId: 'owner-1',
     scopes: [cmsPermissionKeys.read],
     status: 'active',
   })
-  return ctx.asMcpApiKey(apiKeyId, 'owner-1')
+  return ctx.asMcpOAuth(oauthClientId, 'owner-1')
 }
 
 describe('component: agent runs', () => {
-  it('allows one credential to create multiple bounded runs', async () => {
+  it('allows one OAuth delegation to create multiple bounded runs', async () => {
     const ctx = await createAgentCtx()
 
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'ba_key_owner',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-owner',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read],
       status: 'active',
     })
 
-    const ownerAgent = ctx.asMcpApiKey('ba_key_owner', 'owner-1')
+    const ownerAgent = ctx.asMcpOAuth('client-owner', 'owner-1')
     const first = await ownerAgent.mutation(api.agentRuns.startRun, {
       taskName: 'Draft launch post',
     })
@@ -50,14 +50,14 @@ describe('component: agent runs', () => {
 
     expect(first._id).not.toBe(second._id)
     expect(first).toMatchObject({
-      credentialApiKeyId: 'ba_key_owner',
+      oauthClientId: 'client-owner',
       delegatedUserId: 'owner-1',
       scopeSnapshot: [cmsPermissionKeys.read],
       status: 'active',
       expiresAt: expect.any(Number),
     })
     expect(second).toMatchObject({
-      credentialApiKeyId: 'ba_key_owner',
+      oauthClientId: 'client-owner',
       delegatedUserId: 'owner-1',
       scopeSnapshot: [cmsPermissionKeys.read],
       status: 'active',
@@ -65,20 +65,22 @@ describe('component: agent runs', () => {
     })
   })
 
-  it('[AGT-03] keeps the effective scope snapshot immutable after credential settings change', async () => {
+  it('[AGT-03] keeps the effective scope snapshot immutable after delegation changes', async () => {
     const ctx = await createAgentCtx()
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'ba_key_owner',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-owner',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read],
     })
-    const agent = ctx.asMcpApiKey('ba_key_owner', 'owner-1')
+    const agent = ctx.asMcpOAuth('client-owner', 'owner-1')
     const run = await agent.mutation(api.agentRuns.startRun, { taskName: 'Historical scope' })
 
     await ctx.raw.run(async (inner) => {
       const row = await inner.db
-        .query('mcpCredentialSettings')
-        .withIndex('by_api_key_id', (q) => q.eq('apiKeyId', 'ba_key_owner'))
+        .query('mcpOAuthDelegations')
+        .withIndex('by_owner_client_status', (q) =>
+          q.eq('ownerUserId', 'owner-1').eq('oauthClientId', 'client-owner').eq('status', 'active'),
+        )
         .unique()
       if (row) {
         await inner.db.patch(row._id, {
@@ -100,13 +102,13 @@ describe('component: agent runs', () => {
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
     const owner = ctx.asCmsUser('owner-1')
     const ownerCredential = await ownerAgent(ctx)
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'ba_key_editor',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-editor',
       ownerUserId: 'editor-1',
       scopes: [cmsPermissionKeys.read],
       status: 'active',
     })
-    const editorCredential = ctx.asMcpApiKey('ba_key_editor', 'editor-1')
+    const editorCredential = ctx.asMcpOAuth('client-editor', 'editor-1')
     const editor = ctx.asCmsUser('editor-1')
     const outsider = ctx.asCmsUser('outsider-1')
     const expiresAt = Date.now() + 60_000
@@ -168,10 +170,10 @@ describe('component: agent runs', () => {
     )
   })
 
-  it('does not create credential-free agent runs', async () => {
+  it('does not create OAuth-delegation-free agent runs', async () => {
     const ctx = await createAgentCtx()
-    await ctx.seed('mcpCredentialSettings', {
-      apiKeyId: 'ba_key_owner',
+    await ctx.seed('mcpOAuthDelegations', {
+      oauthClientId: 'client-owner',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read],
       status: 'active',
@@ -186,7 +188,7 @@ describe('component: agent runs', () => {
       ctx.asCmsUser('owner-1').mutation(api.agentRuns.startRun, {
         taskName: 'Human run',
       }),
-    ).rejects.toThrow('Only MCP credentials can start agent runs.')
+    ).rejects.toThrow('Only delegated MCP OAuth callers can start agent runs.')
   })
 
   it('enforces server-selected expiry and an active-run cap', async () => {
@@ -218,7 +220,7 @@ describe('component: agent runs', () => {
     }
     await expect(
       agent.mutation(api.agentRuns.startRun, { taskName: 'One too many' }),
-    ).rejects.toThrow('A credential can have at most 10 active agent runs.')
+    ).rejects.toThrow('An OAuth delegation can have at most 10 active agent runs.')
 
     await agent.mutation(api.agentRuns.completeRun, { agentRunId: defaulted._id })
     await expect(

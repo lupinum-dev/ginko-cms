@@ -16,7 +16,7 @@ import {
   previewPublishEntryWithArgs,
   publishEntry,
   seedOwner,
-  seedMcpCredential,
+  seedMcpDelegation,
   seedSettings,
   seedStorageObject,
   seedTreeFixture,
@@ -205,14 +205,14 @@ async function seedPendingPublishReview(
   ctx: TestCtx,
   input: { entryId: string; locales: string[]; expectedVersion?: number },
 ) {
-  const apiKeyId = `readiness-review-${input.entryId}`
+  const oauthClientId = `client-readiness-review-${input.entryId}`
   const owner = ctx.asCmsUser('owner-1')
-  await seedMcpCredential(ctx, {
-    apiKeyId,
+  await seedMcpDelegation(ctx, {
+    oauthClientId,
     ownerUserId: 'owner-1',
     scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
   })
-  const agent = ctx.asMcpApiKey(apiKeyId, 'owner-1')
+  const agent = ctx.asMcpOAuth(oauthClientId, 'owner-1')
   const agentRun = await agent.mutation(api.agentRuns.startRun, {
     taskName: 'Readiness review fixture',
   })

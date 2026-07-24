@@ -1,7 +1,7 @@
 import type { CmsPermissionKey } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import {
   cmsPermissionKeys,
-  mcpCredentialScopeKeys,
+  mcpDelegatedScopeKeys,
 } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import type { CmsRole } from '@lupinum/ginko-cms-contract/shared/types.js'
 
@@ -37,9 +37,7 @@ export function can(appIdentity: CmsAppIdentity, guard: CmsGuard): boolean {
     return true
   }
   if (!guard.permission) return false
-  if (
-    !mcpCredentialScopeKeys.includes(guard.permission as (typeof mcpCredentialScopeKeys)[number])
-  ) {
+  if (!mcpDelegatedScopeKeys.includes(guard.permission as (typeof mcpDelegatedScopeKeys)[number])) {
     return false
   }
   return appIdentity.mcpEffectivePermissions?.[guard.permission] === true

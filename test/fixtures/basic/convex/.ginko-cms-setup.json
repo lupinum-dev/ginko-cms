@@ -32,9 +32,6 @@
     "convex/ginkoCms/editor.ts": {
       "templateHash": "4efe1f7cca140be0df2d3bd099482df7b433102159140e6d5cc6d4182ba335c2"
     },
-    "convex/ginkoCms/mcpCredentials.ts": {
-      "templateHash": "028ab3781004b57f507413fba58f858403145f7dba2c896f8add8fb0e970279a"
-    },
     "convex/ginkoCms/members.ts": {
       "templateHash": "8cec2a4bbcf9706c54cc9e4517457cb07c41492c89e25d1dce9de488bdd41154"
     },
@@ -84,10 +81,13 @@
       "templateHash": "c8e1af28bfa5e818d02f4fbfc539377a78134d159cc9cf9f9e5eab21215dc203"
     },
     "convex/ginkoCms/mcp.ts": {
-      "templateHash": "c51b68b2cc00d1aedc8cea5370057f526c83c8d1bf8fae6d55de13abe97412cb"
+      "templateHash": "2f7b1633f349c4ea0ddfbcf71c58e703cb5fcfbfa3a91db16380f36eaea2a5fc"
     },
     "convex/ginkoCms/mcpOperations.ts": {
-      "templateHash": "dd8a53c4ffb00ef746a66104cfd8f3755f6bf3a59f1d7c1af2e41c75cbb31f93"
+      "templateHash": "aafa9254e5d20f1aff6bc00104f98569d7df56b7f67e1eba5ca89d2e7ca7db71"
+    },
+    "convex/ginkoCms/mcpOAuthDelegations.ts": {
+      "templateHash": "4e18734699ddac647cf0568bd50d6d41df8aab230e8db1720a342cf0e1c4cc0b"
     }
   },
   "mcp": true

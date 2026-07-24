@@ -62,9 +62,10 @@ async function seedAgentRun(
   return await ctx.seed(
     'agentRuns' as never,
     {
-      credentialApiKeyId: `${input.key}-credential`,
+      oauthDelegationId: `mcpd_${input.key}`,
+      oauthClientId: `client-${input.key}`,
       delegatedUserId: 'owner-1',
-      scopeSnapshot: ['read'],
+      scopeSnapshot: ['cms.read'],
       taskName: input.key,
       status: input.status,
       createdBy: 'owner-1',

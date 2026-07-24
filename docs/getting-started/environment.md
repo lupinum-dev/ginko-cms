@@ -94,12 +94,17 @@ requires authentication, and is marked `noindex`.
 
 ## CMS Server And MCP Runtime
 
-The optional MCP endpoint is a Convex-native `/mcp` HTTP action. Studio creates
-a random CMS-owned bearer once and Convex stores only its SHA-256 hash. The sole
-ingress admits the hash and applies abuse limits atomically. Each protected tool
-then re-checks credential status, expiry, owner membership, role, scope, tenant,
-and contract state. This path uses neither a Better Auth session token nor
-`CONVEX_DEPLOY_KEY` and requires no shared Nuxt/Convex MCP secret.
+The optional MCP endpoint is a Convex-native `/mcp` HTTP action. Its fixed
+resource is `<CONVEX_SITE_URL>/mcp`; the authorization server is the host's
+`<SITE_URL>/api/auth` Better Auth endpoint. Clients use Authorization Code with
+PKCE and short-lived resource-bound access tokens. Studio stores only the
+application delegation between a registered OAuth client and a CMS member.
+
+Every request verifies the OAuth token and then rechecks the current Better Auth
+session, user, client, resource link and consent plus the Ginko delegation,
+membership, role, scope, tenant, and contract state. This path does not accept a
+Better Auth browser session token or `CONVEX_DEPLOY_KEY`, mint a second CMS
+bearer, or require a shared Nuxt/Convex MCP secret.
 
 ## Owner Maintenance Session
 

@@ -5,7 +5,7 @@ import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permission
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createCtx, seedMcpCredential, seedMember, seedOwner } from '../helpers'
+import { createCtx, seedMcpDelegation, seedMember, seedOwner } from '../helpers'
 import {
   currentDraftVersion,
   publishEntry,
@@ -17,16 +17,16 @@ import {
 const api = anyApi
 
 async function createEditorAgent(ctx: ReturnType<typeof createCtx>) {
-  await seedMcpCredential(ctx, {
-    apiKeyId: 'ba_key_editor',
+  await seedMcpDelegation(ctx, {
+    oauthClientId: 'client-editor',
     ownerUserId: 'editor-1',
     scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
   })
-  return ctx.asMcpApiKey('ba_key_editor', 'editor-1')
+  return ctx.asMcpOAuth('client-editor', 'editor-1')
 }
 
 async function requestAgentReview(
-  agent: ReturnType<ReturnType<typeof createCtx>['asMcpApiKey']>,
+  agent: ReturnType<ReturnType<typeof createCtx>['asMcpOAuth']>,
   args: { runId: string; entryId: string; expectedVersion: number; title: string },
 ) {
   return await agent.mutation(api.reviewRequests.requestPublishReview, {
@@ -41,7 +41,7 @@ async function requestAgentReview(
 }
 
 async function requestAgentReviewWithOperationKey(
-  agent: ReturnType<ReturnType<typeof createCtx>['asMcpApiKey']>,
+  agent: ReturnType<ReturnType<typeof createCtx>['asMcpOAuth']>,
   args: {
     operationKey: string
     runId: string
@@ -306,12 +306,12 @@ describe('canonical publish reviews', () => {
     expect(await ctx.readAll('reviewRequests')).toHaveLength(1)
 
     await seedMember(ctx, { userId: 'editor-2', role: 'editor' })
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'ba_key_editor_2',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-editor-2',
       ownerUserId: 'editor-2',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
     })
-    const otherAgent = ctx.asMcpApiKey('ba_key_editor_2', 'editor-2')
+    const otherAgent = ctx.asMcpOAuth('client-editor-2', 'editor-2')
     await expect(
       otherAgent.query(api.reviewRequests.getOwnReviewRequest, {
         reviewRequestId: first._id,

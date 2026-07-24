@@ -152,7 +152,7 @@ describe('ginko-cms CLI', () => {
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/maintenance.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/migrations.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/policy.ts'))).toBe(false)
-    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOAuthDelegations.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
@@ -178,7 +178,7 @@ describe('ginko-cms CLI', () => {
     expect(http).not.toContain('/mcp/code')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(true)
-    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOAuthDelegations.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCaller.ts'))).toBe(false)
 
     const manifest = JSON.parse(
@@ -191,7 +191,7 @@ describe('ginko-cms CLI', () => {
     expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).not.toContain('/mcp')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(false)
-    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOAuthDelegations.ts'))).toBe(true)
   })
 
   it('updates an untouched generated setup file when its recorded template changes', async () => {

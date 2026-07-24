@@ -19,10 +19,20 @@ describe('cms caller helpers', () => {
       userId: 'user_123',
       subject: 'user:user_123',
     })
-    expect(cmsMcpCaller('key_123')).toEqual({
+    expect(
+      cmsMcpCaller({
+        issuer: 'https://auth.example.test',
+        userId: 'user_123',
+        clientId: 'client_123',
+        scopes: ['cms.read'],
+      }),
+    ).toEqual({
       kind: 'mcp',
-      apiKeyId: 'key_123',
-      subject: 'agent:key_123',
+      issuer: 'https://auth.example.test',
+      userId: 'user_123',
+      clientId: 'client_123',
+      scopes: ['cms.read'],
+      subject: 'agent:https%3A%2F%2Fauth.example.test:user_123:client_123',
     })
   })
 
@@ -38,10 +48,13 @@ describe('cms caller helpers', () => {
     expect(
       getExpectedCmsCallerSubject({
         kind: 'mcp',
-        apiKeyId: 'key_123',
-        subject: 'agent:key_123',
+        issuer: 'https://auth.example.test',
+        userId: 'user_123',
+        clientId: 'client_123',
+        scopes: ['cms.read'],
+        subject: 'agent:https%3A%2F%2Fauth.example.test:user_123:client_123',
       }),
-    ).toBe('agent:key_123')
+    ).toBe('agent:https%3A%2F%2Fauth.example.test:user_123:client_123')
   })
 
   it('rejects callers whose subject does not match their identity fields', () => {
@@ -56,10 +69,13 @@ describe('cms caller helpers', () => {
     expect(() =>
       assertCmsCallerConsistency({
         kind: 'mcp',
-        apiKeyId: 'key_123',
+        issuer: 'https://auth.example.test',
+        userId: 'user_123',
+        clientId: 'client_123',
+        scopes: ['cms.read'],
         subject: 'agent:other_key',
       }),
-    ).toThrow('CMS MCP caller subject must match the apiKeyId.')
+    ).toThrow('CMS MCP caller subject must match its verified OAuth identity.')
   })
 
   it('maps Convex auth identities to user callers', () => {

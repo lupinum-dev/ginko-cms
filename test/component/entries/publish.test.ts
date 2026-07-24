@@ -342,14 +342,14 @@ describe('canonical publication lifecycle', () => {
     expect(await ctx.readAll('publicEntries')).toEqual([])
   })
 
-  it('does not expose public-output mutations to MCP credentials', async () => {
+  it('does not expose public-output mutations to MCP OAuth callers', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
     const now = Date.now()
-    await ctx.seed('mcpCredentialSettings', {
-      apiKeyId: 'ba_key_legacy_publish',
+    await ctx.seed('mcpOAuthDelegations', {
+      oauthClientId: 'client-legacy-publish',
       ownerUserId: 'owner-1',
       label: 'legacy publish scope',
       scopes: [
@@ -364,7 +364,7 @@ describe('canonical publication lifecycle', () => {
       updatedAt: now,
       revokedAt: null,
     })
-    const agent = ctx.asMcpApiKey('ba_key_legacy_publish', 'owner-1')
+    const agent = ctx.asMcpOAuth('client-legacy-publish', 'owner-1')
 
     await expect(publishEntry(agent, entryId)).rejects.toThrow(/Publish entries/i)
     expect(await ctx.readAll('entryRevisions')).toEqual([])

@@ -3,7 +3,7 @@
 import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { describe, expect, it } from 'vitest'
 
-import { api, createCtx, seedMember } from '../../helpers'
+import { api, createCtx, seedMcpDelegation, seedMember } from '../../helpers'
 
 describe('cms permission context', () => {
   it('returns null for unauthenticated callers', async () => {
@@ -74,24 +74,14 @@ describe('cms permission context', () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
-    await ctx.seed(
-      'mcpCredentialSettings' as never,
-      {
-        apiKeyId: 'ba_key_editor',
-        ownerUserId: 'editor-1',
-        label: 'editor agent',
-        scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
-        status: 'active',
-        createdBy: 'owner-1',
-        createdAt: Date.now(),
-        updatedBy: 'owner-1',
-        updatedAt: Date.now(),
-        revokedAt: null,
-      } as never,
-    )
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-editor',
+      ownerUserId: 'editor-1',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+    })
 
     const owner = ctx.asCmsUser('owner-1')
-    const editorAgent = ctx.asMcpApiKey('ba_key_editor', 'editor-1')
+    const editorAgent = ctx.asMcpOAuth('client-editor', 'editor-1')
 
     await expect(editorAgent.query(api.members.getAccessContext, {})).resolves.toMatchObject({
       userId: 'editor-1',
@@ -118,54 +108,31 @@ describe('cms permission context', () => {
     })
   })
 
-  it('derives MCP ownership from canonical credential state, not caller metadata', async () => {
+  it('binds MCP delegation lookup to the verified OAuth subject and client', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
-    await ctx.seed(
-      'mcpCredentialSettings' as never,
-      {
-        apiKeyId: 'ba_key_editor',
-        ownerUserId: 'editor-1',
-        label: 'editor agent',
-        scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
-        status: 'active',
-        createdBy: 'owner-1',
-        createdAt: Date.now(),
-        updatedBy: 'owner-1',
-        updatedAt: Date.now(),
-        revokedAt: null,
-      } as never,
-    )
-
-    const spoofedAgent = ctx.asMcpApiKey('ba_key_editor', 'outsider-1')
-
-    await expect(spoofedAgent.query(api.members.getAccessContext, {})).resolves.toMatchObject({
-      userId: 'editor-1',
-      role: 'editor',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-editor',
+      ownerUserId: 'editor-1',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
     })
+
+    const spoofedAgent = ctx.asMcpOAuth('client-editor', 'outsider-1')
+
+    await expect(spoofedAgent.query(api.members.getAccessContext, {})).resolves.toBeNull()
   })
 
-  it('reports only effective scoped permissions for owner MCP credentials', async () => {
+  it('reports only effective permissions shared by OAuth token and delegation scopes', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
-    await ctx.seed(
-      'mcpCredentialSettings' as never,
-      {
-        apiKeyId: 'ba_key_owner_edit_only',
-        ownerUserId: 'owner-1',
-        label: 'owner edit agent',
-        scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
-        status: 'active',
-        createdBy: 'owner-1',
-        createdAt: Date.now(),
-        updatedBy: 'owner-1',
-        updatedAt: Date.now(),
-        revokedAt: null,
-      } as never,
-    )
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-owner-edit-only',
+      ownerUserId: 'owner-1',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+    })
 
-    const ownerAgent = ctx.asMcpApiKey('ba_key_owner_edit_only', 'owner-1')
+    const ownerAgent = ctx.asMcpOAuth('client-owner-edit-only', 'owner-1')
 
     await expect(ownerAgent.query(api.members.getAccessContext, {})).resolves.toMatchObject({
       userId: 'owner-1',

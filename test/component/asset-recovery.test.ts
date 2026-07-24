@@ -322,8 +322,9 @@ describe('verified asset recovery', () => {
       updatedAt: now,
       updatedBy: 'owner-1',
     })
-    await ctx.seed('mcpCredentialSettings', {
-      apiKeyId: 'owner-asset-recovery-agent',
+    await ctx.seed('mcpOAuthDelegations', {
+      delegationId: 'mcpd_owner-asset-recovery-agent',
+      oauthClientId: 'client-owner-asset-recovery-agent',
       ownerUserId: 'owner-1',
       label: 'Asset recovery must remain user-only',
       scopes: ['cms.assetRecovery.manage'],
@@ -350,7 +351,7 @@ describe('verified asset recovery', () => {
     ).rejects.toThrow()
     await expect(
       ctx
-        .asMcpApiKey('owner-asset-recovery-agent', 'owner-1')
+        .asMcpOAuth('client-owner-asset-recovery-agent', 'owner-1')
         .mutation(api.assets.previewPurgeAssetOperation, args),
     ).rejects.toThrow()
     expect(

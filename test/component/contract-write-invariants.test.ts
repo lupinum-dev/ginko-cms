@@ -25,9 +25,8 @@ describe('transactional CMS contract write invariants', () => {
       'agentRuns:completeRun',
       'agentRuns:revokeRun',
       'ginko-cms.remove-member',
-      'mcpCredentials:admitAccessBySecretHash',
-      'mcpCredentials:createCredential',
-      'mcpCredentials:revokeSettings',
+      'mcpOAuthDelegations:createDelegation',
+      'mcpOAuthDelegations:revokeDelegation',
       'members:acceptMemberInvitation',
       'members:bootstrapCmsOwner',
       'members:prepareMemberInvitationDelivery',
@@ -170,17 +169,18 @@ describe('transactional CMS contract write invariants', () => {
     expect(await ctx.readAll('assetRecoveryArtifacts')).toEqual([])
   })
 
-  it('keeps credential revocation available under a transition lock without opening content writes', async () => {
+  it('keeps OAuth delegation revocation available under a transition lock without opening content writes', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await installTestContract(ctx, ['en'])
     const installed = (await ctx.readAll('cmsContract'))[0]!
     const now = Date.now()
-    await ctx.seed('mcpCredentialSettings', {
-      apiKeyId: 'credential-1',
+    await ctx.seed('mcpOAuthDelegations', {
+      delegationId: 'mcpd_contract-lock',
+      oauthClientId: 'client-contract-lock',
       ownerUserId: 'owner-1',
       label: null,
-      scopes: ['content:read'],
+      scopes: ['cms.read'],
       status: 'active',
       expiresAt: null,
       createdBy: 'owner-1',
@@ -197,12 +197,16 @@ describe('transactional CMS contract write invariants', () => {
     })
 
     await expect(
-      directOwner(ctx).mutation(api.mcpCredentials.revokeSettings, {
-        apiKeyId: 'credential-1',
+      directOwner(ctx).mutation(api.mcpOAuthDelegations.revokeDelegation, {
+        delegationId: 'mcpd_contract-lock',
       }),
     ).resolves.toBeNull()
-    expect(await ctx.readAll('mcpCredentialSettings')).toEqual([
-      expect.objectContaining({ apiKeyId: 'credential-1', status: 'revoked' }),
+    expect(await ctx.readAll('mcpOAuthDelegations')).toEqual([
+      expect.objectContaining({
+        delegationId: 'mcpd_contract-lock',
+        oauthClientId: 'client-contract-lock',
+        status: 'revoked',
+      }),
     ])
     await expect(
       directOwner(ctx).mutation(api.entries.tree.createEntry, {

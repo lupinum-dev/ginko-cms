@@ -22,28 +22,28 @@ export async function cleanupBootstrapOwnerHandler(
     .query('members')
     .withIndex('by_email', (q) => q.eq('email', configuredOwnerEmail))
     .unique()
-  if (!member) return { deleted: 0, credentials: 0, agentRuns: 0 }
+  if (!member) return { deleted: 0, delegations: 0, agentRuns: 0 }
   if (member.role !== 'owner') {
     throw new Error('Configured bootstrap identity is not a CMS owner.')
   }
-  let credentials = 0
+  let delegations = 0
   let agentRuns = 0
-  for (const credential of await ctx.db
-    .query('mcpCredentialSettings')
+  for (const delegation of await ctx.db
+    .query('mcpOAuthDelegations')
     .withIndex('by_owner_user', (q) => q.eq('ownerUserId', member.userId))
-    .collect()) {
+    .take(100)) {
     for (const run of await ctx.db
       .query('agentRuns')
-      .withIndex('by_credential', (q) => q.eq('credentialApiKeyId', credential.apiKeyId))
-      .collect()) {
+      .withIndex('by_delegation', (q) => q.eq('oauthDelegationId', delegation.delegationId))
+      .take(100)) {
       await ctx.db.delete(run._id)
       agentRuns += 1
     }
-    await ctx.db.delete(credential._id)
-    credentials += 1
+    await ctx.db.delete(delegation._id)
+    delegations += 1
   }
   await ctx.db.delete(member._id)
-  return { deleted: 1, credentials, agentRuns }
+  return { deleted: 1, delegations, agentRuns }
 }
 
 export const cleanupBootstrapOwner = internalMutation({
@@ -65,7 +65,7 @@ export const globalCounts = internalQuery({
         ctx.db.query('reviewRequests').collect(),
         ctx.db.query('redirects').collect(),
         ctx.db.query('siteData').collect(),
-        ctx.db.query('mcpCredentialSettings').collect(),
+        ctx.db.query('mcpOAuthDelegations').take(100),
         ctx.db.query('members').collect(),
       ])
     return {

@@ -23,22 +23,22 @@ pnpm exec ginko-cms deploy
 ```
 
 With `mcp: false`, Ginko generates no MCP route. Re-running `ginko-cms init`
-removes untouched generated MCP endpoint files. Credential administration
-remains available so an owner can revoke existing credentials before or after
-disabling the endpoint.
+removes untouched generated MCP endpoint files. Owners can still revoke stored
+application delegations before or after disabling the endpoint.
 
-## Credentials And Admission
+## OAuth And Application Delegation
 
-An owner creates a CMS-owned bearer credential in Studio. Convex returns the
-secret once and stores only its SHA-256 hash. The sole `/mcp` ingress hashes the
-presented bearer and performs admission atomically: it checks the abuse budget,
-resolves the active credential, records invalid attempts, and returns
-`access`, `invalid`, or `limited`.
+An owner registers the MCP client and fixed resource through Better Auth's
+owner-protected OAuth administration endpoints, then creates a Ginko delegation
+for the registered client id and CMS member. Ginko stores no bearer token or
+secret hash. The client uses Authorization Code with PKCE to obtain a short-lived
+token for the exact Convex MCP resource.
 
 There is no Nuxt MCP server, bridge assertion, shared MCP server secret, or
 Better Auth session-token exchange in this path. Every accepted tool call
-re-reads current credential, member, role, scope, tenant, and contract state in
-the canonical Convex operation before an effect.
+rechecks the current Better Auth session, user, client, resource link, consent,
+Ginko delegation, member, role, scope, tenant, and contract state before an
+effect.
 
 ## Tool Surface
 
@@ -63,10 +63,10 @@ restore, delete, purge, or bulk destructive actions.
 
 - Tools never accept a user id, member id, role, token hash, or other caller
   authority from the MCP client.
-- Bearer values and hashes never enter tool arguments, results, diagnostics, or
-  activity payloads.
+- OAuth tokens, cookies, provider-private session ids, and authorization headers
+  never enter tool arguments, results, diagnostics, or activity payloads.
 - Completed, revoked, failed, or expired agent runs cannot keep writing.
-- Member removal, role downgrade, credential revocation, scope removal, tenant
+- Member removal, role downgrade, session/client/consent/delegation revocation, scope removal, tenant
   mismatch, and contract mismatch are enforced from current canonical state.
 - Client-facing failures remain allowlisted and opaque; raw Convex causes and
   application denial details are not returned.

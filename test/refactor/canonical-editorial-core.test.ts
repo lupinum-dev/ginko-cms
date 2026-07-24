@@ -343,7 +343,7 @@ describe('canonical editorial core', () => {
     expect((await ctx.readAll('entryRevisions')).at(-1)).toMatchObject({ kind: 'restore' })
   })
 
-  it('lets a publisher archive and restore while keeping MCP credentials out of lifecycle writes', async () => {
+  it('lets a publisher archive and restore without coupling lifecycle writes to MCP authority', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'publisher-1', role: 'publisher' })

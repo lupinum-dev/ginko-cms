@@ -8,17 +8,14 @@ import { duplicateEntryResultValidator } from '@lupinum/ginko-cms-contract/conve
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { v } from 'convex/values'
 
-import { getOwnActiveAgentRunOrThrow } from '../agentRuns.js'
 import { canCreateEntries, canEditEntries } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation } from '../functions.js'
-import { asEntryId } from '../lib/ids.js'
 import { assertCmsContractWritable } from '../lib/installedContract.js'
 import {
   buildPreview,
   defineCmsOperation,
   definePreview,
-  hashValue,
   operationEffect,
   previewResultValidator,
 } from '../operationHelpers.js'
@@ -110,75 +107,6 @@ const duplicateEntryDefinition = defineCmsOperation({
 })
 
 export const duplicateEntry = callerMutation.protected(duplicateEntryDefinition)
-
-export const mcpCreateEntry = callerMutation.protected({
-  acceptsTrustedCaller: true,
-  id: 'editor:mcpCreateEntry',
-  args: {
-    agentRunId: v.string(),
-    requestId: v.string(),
-    ...createEntryArgs.args,
-  },
-  guard: canCreateEntries,
-  returns: v.string(),
-  handler: async (ctx, args) => {
-    const { agentRunId, requestId, ...input } = args
-    if (!/^[\w.:-]{1,128}$/.test(requestId)) {
-      throwCmsError(
-        'MCP_REQUEST_ID_INVALID',
-        'requestId must be 1-128 letters, numbers, dots, underscores, colons, or hyphens.',
-      )
-    }
-
-    const appIdentity = await ctx.appIdentity()
-    if (appIdentity.audit.origin !== 'mcp') {
-      throwCmsError('MCP_CREDENTIAL_REQUIRED', 'MCP create requires an API-key credential.')
-    }
-    const now = Date.now()
-    const agentRun = await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, now)
-    const callerKey = `${appIdentity.audit.apiKeyId}:${appIdentity.userId}`
-    const argsHash = await hashValue(input)
-    const receipt = await ctx.db
-      .query('mcpCreateEntryReceipts')
-      .withIndex('by_caller_request', (q) =>
-        q.eq('callerKey', callerKey).eq('requestId', requestId),
-      )
-      .first()
-    if (receipt && receipt.expiresAt > now) {
-      if (receipt.argsHash !== argsHash) {
-        throwCmsError(
-          'MCP_REQUEST_ID_CONFLICT',
-          'requestId was already used with different create arguments.',
-          { requestId },
-        )
-      }
-      return String(receipt.entryId)
-    }
-    if (receipt) await ctx.db.delete(receipt._id)
-
-    const expiredReceipts = await ctx.db
-      .query('mcpCreateEntryReceipts')
-      .withIndex('by_expires_at', (q) => q.lte('expiresAt', now))
-      .take(25)
-    await Promise.all(expiredReceipts.map((expired) => ctx.db.delete(expired._id)))
-
-    const entryId = await createEntryDefinition.handler(ctx, input)
-    await ctx.db.insert('mcpCreateEntryReceipts', {
-      callerKey,
-      apiKeyId: appIdentity.audit.apiKeyId,
-      requestId,
-      argsHash,
-      entryId: asEntryId(ctx, entryId),
-      createdAt: now,
-      expiresAt: now + 24 * 60 * 60_000,
-    })
-    await ctx.db.patch(agentRun._id, {
-      updatedAt: now,
-      lastWriteAt: now,
-    })
-    return entryId
-  },
-})
 
 const treeMoveResultValidator = v.object({
   draftVersion: v.number(),

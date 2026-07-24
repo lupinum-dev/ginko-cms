@@ -147,12 +147,19 @@ describe('ginko-cms Convex setup validation', () => {
     )
     expect(existsSync(resolve(rootDir, 'convex/betterAuth/schema.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
-    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOAuthDelegations.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/passwordRecovery.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
     expect(addServerHandler).not.toHaveBeenCalledWith(
       expect.objectContaining({ route: '/api/_ginko/reviews/:reviewRequestId' }),
     )
+    const extendWithoutMcp = extendPages.mock.calls.at(-1)?.[0] as
+      | ((pages: Array<{ name?: string; path?: string }>) => void)
+      | undefined
+    const pagesWithoutMcp: Array<{ name?: string; path?: string }> = []
+    extendWithoutMcp?.(pagesWithoutMcp)
+    expect(pagesWithoutMcp.map((page) => page.path)).not.toContain('/oauth/login')
+    expect(pagesWithoutMcp.map((page) => page.path)).not.toContain('/oauth/consent')
   })
 
   it('accepts the explicit Convex-native MCP setup without registering a Nuxt MCP route', async () => {
@@ -174,6 +181,17 @@ describe('ginko-cms Convex setup validation', () => {
         route: '/api/_ginko/reviews/:reviewRequestId',
         method: 'get',
       }),
+    )
+    const extendWithMcp = extendPages.mock.calls.at(-1)?.[0] as
+      | ((pages: Array<{ name?: string; path?: string }>) => void)
+      | undefined
+    const pagesWithMcp: Array<{ name?: string; path?: string }> = []
+    extendWithMcp?.(pagesWithMcp)
+    expect(pagesWithMcp).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'ginko-mcp-oauth-login', path: '/oauth/login' }),
+        expect.objectContaining({ name: 'ginko-mcp-oauth-consent', path: '/oauth/consent' }),
+      ]),
     )
   })
 

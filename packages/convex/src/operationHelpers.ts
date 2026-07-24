@@ -620,7 +620,7 @@ async function attachConfirmation(
 
 async function resolveCallerKey(ctx: HandlerCtx): Promise<string> {
   const caller = ctx.cmsCaller ? await ctx.cmsCaller() : null
-  if (caller?.kind === 'mcp') return `mcp:${caller.apiKeyId}`
+  if (caller?.kind === 'mcp') return `mcp:${caller.issuer}:${caller.userId}:${caller.clientId}`
   if (caller?.kind === 'user') return `user:${caller.userId}`
 
   const identity = ctx.appIdentity ? await ctx.appIdentity() : null

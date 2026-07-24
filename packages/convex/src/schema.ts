@@ -728,9 +728,9 @@ export default defineSchema({
     .index('by_token_hash', ['tokenHash'])
     .index('by_expires_at', ['expiresAt']),
 
-  mcpCredentialSettings: defineTable({
-    apiKeyId: v.string(),
-    secretHash: v.string(),
+  mcpOAuthDelegations: defineTable({
+    delegationId: v.string(),
+    oauthClientId: v.string(),
     ownerUserId: v.string(),
     label: v.optional(v.union(v.string(), v.null())),
     scopes: v.array(v.string()),
@@ -742,13 +742,15 @@ export default defineSchema({
     updatedAt: v.number(),
     revokedAt: v.optional(v.union(v.number(), v.null())),
   })
-    .index('by_api_key_id', ['apiKeyId'])
-    .index('by_secret_hash', ['secretHash'])
+    .index('by_delegation_id', ['delegationId'])
+    .index('by_owner_client_status', ['ownerUserId', 'oauthClientId', 'status'])
     .index('by_owner_user', ['ownerUserId'])
-    .index('by_status', ['status']),
+    .index('by_status', ['status'])
+    .index('by_updated_at', ['updatedAt']),
 
   agentRuns: defineTable({
-    credentialApiKeyId: v.string(),
+    oauthDelegationId: v.string(),
+    oauthClientId: v.string(),
     delegatedUserId: v.string(),
     scopeSnapshot: v.array(v.string()),
     taskName: v.string(),
@@ -766,26 +768,14 @@ export default defineSchema({
     lastWriteAt: v.optional(v.union(v.number(), v.null())),
     lastError: v.optional(v.union(v.string(), v.null())),
   })
-    .index('by_credential', ['credentialApiKeyId'])
-    .index('by_credential_status_expires_at', ['credentialApiKeyId', 'status', 'expiresAt'])
+    .index('by_delegation', ['oauthDelegationId'])
+    .index('by_delegation_status_expires_at', ['oauthDelegationId', 'status', 'expiresAt'])
+    .index('by_oauth_client', ['oauthClientId'])
     .index('by_delegated_user', ['delegatedUserId'])
     .index('by_created_at', ['createdAt'])
     .index('by_status', ['status'])
     .index('by_status_expires_at', ['status', 'expiresAt'])
     .index('by_status_updated_at', ['status', 'updatedAt']),
-
-  mcpCreateEntryReceipts: defineTable({
-    callerKey: v.string(),
-    apiKeyId: v.string(),
-    requestId: v.string(),
-    argsHash: v.string(),
-    entryId: v.id('entries'),
-    createdAt: v.number(),
-    expiresAt: v.number(),
-  })
-    .index('by_caller_request', ['callerKey', 'requestId'])
-    .index('by_entry', ['entryId'])
-    .index('by_expires_at', ['expiresAt']),
 
   reviewRequests: defineTable({
     agentRunId: v.optional(v.union(v.id('agentRuns'), v.null())),
@@ -1083,19 +1073,6 @@ export default defineSchema({
     .index('by_asset_source', ['assetId', 'sourceKind'])
     .index('by_source', ['sourceKind', 'sourceId'])
     .index('by_entry', ['entryId']),
-
-  mcpAuthFailureBuckets: defineTable({
-    bucketKey: v.string(),
-    attempts: v.array(
-      v.object({
-        requestId: v.string(),
-        timestamp: v.number(),
-      }),
-    ),
-    expiresAt: v.number(),
-  })
-    .index('by_key', ['bucketKey'])
-    .index('by_expires_at', ['expiresAt']),
 
   assetRecoveryArtifacts: defineTable({
     artifactId: v.string(),

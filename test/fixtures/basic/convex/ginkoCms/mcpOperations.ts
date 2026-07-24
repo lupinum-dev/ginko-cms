@@ -1,9 +1,9 @@
+import { cmsMcpCallerValidator } from '@lupinum/ginko-cms-contract/convex/caller.js'
 import {
   getEntry as getEntryArgs,
   publishEntry as publishEntryArgs,
   saveEntryDraft as saveEntryDraftArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
-import { cmsMcpCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
@@ -12,17 +12,17 @@ import { bindExpectedCmsContract } from './contractBinding.js'
 
 export const startAgentRun = internalMutation({
   args: {
-    apiKeyId: v.string(),
+    caller: cmsMcpCallerValidator,
     taskName: v.string(),
     expiresAt: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
-    const { apiKeyId, ...runArgs } = args
+    const { caller, ...runArgs } = args
     return await ctx.runMutation(
       components.ginkoCms.agentRuns.startRun,
       bindExpectedCmsContract({
         ...runArgs,
-        _trustedCaller: cmsMcpCaller(apiKeyId),
+        _trustedCaller: caller,
       }),
     )
   },
@@ -30,16 +30,16 @@ export const startAgentRun = internalMutation({
 
 export const completeAgentRun = internalMutation({
   args: {
-    apiKeyId: v.string(),
+    caller: cmsMcpCallerValidator,
     agentRunId: v.string(),
   },
   handler: async (ctx, args) => {
-    const { apiKeyId, ...runArgs } = args
+    const { caller, ...runArgs } = args
     return await ctx.runMutation(
       components.ginkoCms.agentRuns.completeRun,
       bindExpectedCmsContract({
         ...runArgs,
-        _trustedCaller: cmsMcpCaller(apiKeyId),
+        _trustedCaller: caller,
       }),
     )
   },
@@ -47,31 +47,31 @@ export const completeAgentRun = internalMutation({
 
 export const getEntry = internalQuery({
   args: {
-    apiKeyId: v.string(),
+    caller: cmsMcpCallerValidator,
     ...getEntryArgs.args,
   },
   handler: async (ctx, args) => {
-    const { apiKeyId, ...entryArgs } = args
+    const { caller, ...entryArgs } = args
     return await ctx.runQuery(components.ginkoCms.editor.getEntry, {
       ...entryArgs,
-      _trustedCaller: cmsMcpCaller(apiKeyId),
+      _trustedCaller: caller,
     })
   },
 })
 
 export const saveEntryDraft = internalMutation({
   args: {
-    apiKeyId: v.string(),
+    caller: cmsMcpCallerValidator,
     agentRunId: v.string(),
     ...saveEntryDraftArgs.args,
   },
   handler: async (ctx, args) => {
-    const { apiKeyId, ...draftArgs } = args
+    const { caller, ...draftArgs } = args
     return await ctx.runMutation(
       components.ginkoCms.editor.mcpSaveEntryDraft,
       bindExpectedCmsContract({
         ...draftArgs,
-        _trustedCaller: cmsMcpCaller(apiKeyId),
+        _trustedCaller: caller,
       }),
     )
   },
@@ -79,17 +79,17 @@ export const saveEntryDraft = internalMutation({
 
 export const previewPublish = internalMutation({
   args: {
-    apiKeyId: v.string(),
+    caller: cmsMcpCallerValidator,
     agentRunId: v.string(),
     ...publishEntryArgs.args,
   },
   handler: async (ctx, args) => {
-    const { apiKeyId, ...previewArgs } = args
+    const { caller, ...previewArgs } = args
     return await ctx.runMutation(
       components.ginkoCms.editor.mcpPreviewPublishEntry,
       bindExpectedCmsContract({
         ...previewArgs,
-        _trustedCaller: cmsMcpCaller(apiKeyId),
+        _trustedCaller: caller,
       }),
     )
   },
@@ -97,7 +97,7 @@ export const previewPublish = internalMutation({
 
 export const requestPublishReview = internalMutation({
   args: {
-    apiKeyId: v.string(),
+    caller: cmsMcpCallerValidator,
     agentRunId: v.string(),
     operationKey: v.string(),
     entryId: v.string(),
@@ -108,12 +108,12 @@ export const requestPublishReview = internalMutation({
     summary: v.string(),
   },
   handler: async (ctx, args) => {
-    const { apiKeyId, ...reviewArgs } = args
+    const { caller, ...reviewArgs } = args
     return await ctx.runMutation(
       components.ginkoCms.reviewRequests.requestPublishReview,
       bindExpectedCmsContract({
         ...reviewArgs,
-        _trustedCaller: cmsMcpCaller(apiKeyId),
+        _trustedCaller: caller,
       }),
     )
   },
@@ -121,14 +121,14 @@ export const requestPublishReview = internalMutation({
 
 export const getReviewStatus = internalQuery({
   args: {
-    apiKeyId: v.string(),
+    caller: cmsMcpCallerValidator,
     reviewRequestId: v.string(),
   },
   handler: async (ctx, args) => {
-    const { apiKeyId, reviewRequestId } = args
+    const { caller, reviewRequestId } = args
     return await ctx.runQuery(components.ginkoCms.reviewRequests.getOwnReviewRequest, {
       reviewRequestId,
-      _trustedCaller: cmsMcpCaller(apiKeyId),
+      _trustedCaller: caller,
     })
   },
 })

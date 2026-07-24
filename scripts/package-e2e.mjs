@@ -885,18 +885,39 @@ try {
 
 const bearer = 'packed-ginko-mcp-bearer-sentinel'
 const calls = []
+const issuer = 'https://packed.example.test/api/auth'
 const handler = createGinkoMcpHandler({
-  issuer: new URL('https://packed.example.test/mcp-credentials/'),
+  authorizationMetadata: {
+    authorization_endpoint: issuer + '/oauth2/authorize',
+    authorization_response_iss_parameter_supported: true,
+    code_challenge_methods_supported: ['S256'],
+    grant_types_supported: ['authorization_code'],
+    issuer,
+    jwks_uri: issuer + '/jwks',
+    response_types_supported: ['code'],
+    revocation_endpoint: issuer + '/oauth2/revoke',
+    scopes_supported: ['cms.read', 'cms.entries.edit'],
+    token_endpoint: issuer + '/oauth2/token',
+    token_endpoint_auth_methods_supported: ['none'],
+  },
   reviewInteractionBase: new URL('https://packed.example.test/api/_ginko/reviews/'),
   resource: new URL('https://packed.example.test/mcp'),
-  operations: {
-    async admitCredential(secretHash) {
-      calls.push({ operation: 'credential', secretHash })
+  verifier: {
+    async verifyAccessToken(token, expectedResource) {
+      if (token !== bearer) throw new Error('invalid token')
       return {
-        kind: 'access',
-        access: { apiKeyId: 'packed-key', scopes: ['readCms', 'editEntries'], expiresAt: null },
+        access: {
+          clientId: 'packed-client',
+          issuer,
+          resource: expectedResource.href,
+          scopes: ['cms.read', 'cms.entries.edit'],
+          subject: 'packed-user',
+        },
+        expiresAt: Date.now() + 60_000,
       }
     },
+  },
+  operations: {
     async startAgentRun(args) {
       calls.push({ operation: 'start-run', args })
       return { _id: 'packed-run', status: 'active' }
@@ -990,6 +1011,9 @@ if (!serialized.includes('packed-entry') || !serialized.includes('"draftVersion"
   throw new Error('Packed MCP read/write results were not preserved.')
 }
 if (serialized.includes(bearer)) throw new Error('Packed MCP bearer escaped its verifier boundary.')
+if (!serialized.includes('packed-client') || !serialized.includes('packed-user')) {
+  throw new Error('Packed MCP verified OAuth provenance did not reach application operations.')
+}
 const publicReviewResults = JSON.stringify({ review, reviewStatus })
 if (!publicReviewResults.includes('packed-review') || publicReviewResults.includes('must-not-cross')) {
   throw new Error('Packed MCP review projection was not preserved or leaked canonical fields.')
@@ -1072,7 +1096,7 @@ console.log('packed MCP read/write behavior ok')
     'convex/ginkoCms/collections.ts',
     'convex/ginkoCms/diagnostics.ts',
     'convex/ginkoCms/editor.ts',
-    'convex/ginkoCms/mcpCredentials.ts',
+    'convex/ginkoCms/mcpOAuthDelegations.ts',
     'convex/ginkoCms/maintenance.ts',
     'convex/ginkoCms/members.ts',
     'convex/ginkoCms/contractTransitions.ts',

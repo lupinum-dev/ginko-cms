@@ -5,7 +5,7 @@ directory format. Export reads published revisions only. Import writes drafts
 only: it never creates collection definitions and never publishes content.
 
 The local resolved Content contract must match the contract installed in the
-deployment. Run these commands as an authenticated CMS owner. MCP credentials
+deployment. Run these commands as an authenticated CMS owner. MCP OAuth callers
 and deploy keys cannot use the bulk portability operations.
 
 ## Operator Environment

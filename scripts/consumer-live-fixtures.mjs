@@ -398,14 +398,14 @@ async function cleanup({ removeBootstrapOwner }) {
     prefix,
   })
   if (beforeMemberCleanup.mcpConnections !== 0) {
-    throw new Error('Disposable MCP credentials remain after fixture cleanup.')
+    throw new Error('Disposable MCP OAuth delegations remain after fixture cleanup.')
   }
   const bootstrapOwnerCleanup = removeBootstrapOwner
     ? await runComponent('ginkoCms', 'liveFixtures/finalize:cleanupBootstrapOwner', {
         prefix,
         configuredOwnerEmail: readDeploymentEnv('GINKO_FIRST_OWNER_EMAIL'),
       })
-    : { deleted: 0, credentials: 0, agentRuns: 0 }
+    : { deleted: 0, delegations: 0, agentRuns: 0 }
   while (true) {
     const result = await runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupControlPage', {
       prefix,

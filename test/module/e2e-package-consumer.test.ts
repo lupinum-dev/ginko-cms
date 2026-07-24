@@ -188,7 +188,7 @@ describe('ginko-cms package-first consumer fixture', () => {
     })
     expect(existsSync(join(tempDir, 'convex/auth.config.ts'))).toBe(true)
     expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'collections.ts'))).toBe(true)
-    expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'mcpCredentials.ts'))).toBe(true)
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'mcpOAuthDelegations.ts'))).toBe(true)
     expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'mcp.ts'))).toBe(false)
     expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'mcpOperations.ts'))).toBe(false)
     expect(readFileSync(join(tempDir, 'convex/http.ts'), 'utf8')).not.toContain('/mcp')

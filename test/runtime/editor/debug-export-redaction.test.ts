@@ -21,7 +21,7 @@ describe('debug export redaction', () => {
         {
           payload: {
             apiKey: 'cms_abcdefghijklmnopqrstuvwxyz',
-            apiKeyId: 'ba_key_public_identifier',
+            clientId: 'oauth_public_client_identifier',
             nested: {
               secretEnv: 'CMS_SECRET',
             },
@@ -42,7 +42,7 @@ describe('debug export redaction', () => {
         {
           payload: {
             apiKey: '[redacted]',
-            apiKeyId: 'ba_key_public_identifier',
+            clientId: 'oauth_public_client_identifier',
             nested: {
               secretEnv: '[redacted]',
             },

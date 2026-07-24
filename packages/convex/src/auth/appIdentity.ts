@@ -17,7 +17,7 @@ import { can, cmsPermissionGuards } from './checks.js'
 type CmsCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 type AnyCmsCtx = CmsCtx | GenericActionCtx<DataModel>
 type MemberDoc = Doc<'members'>
-type McpCredentialSettingsDoc = Doc<'mcpCredentialSettings'>
+type McpOAuthDelegationDoc = Doc<'mcpOAuthDelegations'>
 
 const appIdentityMemberValidator = v.object({
   _id: v.string(),
@@ -57,7 +57,9 @@ export type CmsMemberAppIdentity = {
       }
     | {
         origin: 'mcp'
-        apiKeyId: string
+        delegationId: string
+        issuer: string
+        clientId: string
       }
 }
 
@@ -89,7 +91,9 @@ const cmsAppIdentityValidator = v.union(
       }),
       v.object({
         origin: v.literal('mcp'),
-        apiKeyId: v.string(),
+        delegationId: v.string(),
+        issuer: v.string(),
+        clientId: v.string(),
       }),
     ),
   }),
@@ -103,18 +107,22 @@ async function getCmsMember(ctx: CmsCtx, userId: string): Promise<MemberDoc | nu
     .first()
 }
 
-async function getMcpCredentialSettings(ctx: CmsCtx, apiKeyId: string) {
+async function getMcpOAuthDelegation(ctx: CmsCtx, userId: string, clientId: string) {
   return await ctx.db
-    .query('mcpCredentialSettings')
-    .withIndex('by_api_key_id', (q) => q.eq('apiKeyId', apiKeyId))
-    .first()
+    .query('mcpOAuthDelegations')
+    .withIndex('by_owner_client_status', (query) =>
+      query.eq('ownerUserId', userId).eq('oauthClientId', clientId).eq('status', 'active'),
+    )
+    .unique()
 }
 
 function effectiveMcpPermissions(
   member: MemberDoc,
-  settings: McpCredentialSettingsDoc,
+  delegation: McpOAuthDelegationDoc,
+  tokenScopes: readonly string[],
 ): Record<string, boolean> {
-  const scopes = new Set(settings.scopes)
+  const delegatedScopes = new Set(delegation.scopes)
+  const tokenScopeSet = new Set(tokenScopes)
   const identity: CmsMemberAppIdentity = {
     kind: 'member',
     userId: member.userId,
@@ -125,7 +133,10 @@ function effectiveMcpPermissions(
     audit: { origin: 'user' },
   }
   return Object.fromEntries(
-    cmsPermissionGuards.map(({ key, guard }) => [key, scopes.has(key) && can(identity, guard)]),
+    cmsPermissionGuards.map(({ key, guard }) => [
+      key,
+      delegatedScopes.has(key) && tokenScopeSet.has(key) && can(identity, guard),
+    ]),
   )
 }
 
@@ -172,18 +183,17 @@ async function resolveMcpAppIdentity(
   ctx: CmsCtx,
   caller: Extract<CmsCaller, { kind: 'mcp' }>,
 ): Promise<CmsAppIdentity> {
-  const settings = await getMcpCredentialSettings(ctx, caller.apiKeyId)
+  const delegation = await getMcpOAuthDelegation(ctx, caller.userId, caller.clientId)
   if (
-    !settings ||
-    settings.status !== 'active' ||
-    (settings.expiresAt !== undefined &&
-      settings.expiresAt !== null &&
-      settings.expiresAt <= Date.now())
+    !delegation ||
+    (delegation.expiresAt !== undefined &&
+      delegation.expiresAt !== null &&
+      delegation.expiresAt <= Date.now())
   ) {
     return null
   }
 
-  const member = await getCmsMember(ctx, settings.ownerUserId)
+  const member = await getCmsMember(ctx, caller.userId)
   if (!member) return null
 
   return {
@@ -193,10 +203,12 @@ async function resolveMcpAppIdentity(
     member,
     canBootstrap: false,
     caller,
-    mcpEffectivePermissions: effectiveMcpPermissions(member, settings),
+    mcpEffectivePermissions: effectiveMcpPermissions(member, delegation, caller.scopes),
     audit: {
       origin: 'mcp',
-      apiKeyId: caller.apiKeyId,
+      delegationId: delegation.delegationId,
+      issuer: caller.issuer,
+      clientId: caller.clientId,
     },
   }
 }

@@ -47,7 +47,9 @@ type RevalidationTarget = {
   updatedAt: number
 }
 
-type McpScope = FunctionArgs<typeof api.ginkoCms.mcpCredentials.createCredential>['scopes'][number]
+type McpScope = FunctionArgs<
+  typeof api.ginkoCms.mcpOAuthDelegations.createDelegation
+>['scopes'][number]
 
 type RevalidationJob = {
   id: string
@@ -71,9 +73,10 @@ type RevalidationDiagnostic = {
   message: string
 }
 
-type McpCredentialSettings = {
+type McpOAuthDelegation = {
   _id: string
-  apiKeyId: string
+  delegationId: string
+  oauthClientId: string
   ownerUserId: string
   label: string | null
   scopes: string[]
@@ -196,8 +199,8 @@ export function useStudioSettingsAdmin() {
     () => revalidationJobsQuery.data?.value ?? [],
   )
   const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
-  const mcpCredentialsQuery = useCmsStudioQuery(
-    api.ginkoCms.mcpCredentials.listOwnSettings,
+  const mcpDelegationsQuery = useCmsStudioQuery(
+    api.ginkoCms.mcpOAuthDelegations.listDelegations,
     computed(() => (mcpEnabled ? {} : null)),
     {
       requiredCapability: cmsPermissionKeys.manageSettings,
@@ -206,8 +209,8 @@ export function useStudioSettingsAdmin() {
   const collectionCount = computed(() => {
     return (collectionsQuery.data?.value ?? []).length
   })
-  const mcpConnections = computed<McpCredentialSettings[]>(
-    () => (mcpCredentialsQuery.data?.value as McpCredentialSettings[] | null | undefined) ?? [],
+  const mcpConnections = computed<McpOAuthDelegation[]>(
+    () => (mcpDelegationsQuery.data?.value as McpOAuthDelegation[] | null | undefined) ?? [],
   )
   const sendMemberInvitationAction = useConvexAction(api.ginkoCms.members.sendMemberInvitation)
   const resendMemberInvitationAction = useConvexAction(api.ginkoCms.members.resendMemberInvitation)
@@ -219,10 +222,12 @@ export function useStudioSettingsAdmin() {
   const previewRemoveMemberMutation = useConvexMutation(
     api.ginkoCms.members.previewRemoveMemberOperation,
   )
-  const createMcpCredentialMutation = useConvexMutation(
-    api.ginkoCms.mcpCredentials.createCredential,
+  const createMcpDelegationMutation = useConvexMutation(
+    api.ginkoCms.mcpOAuthDelegations.createDelegation,
   )
-  const revokeMcpCredentialMutation = useConvexMutation(api.ginkoCms.mcpCredentials.revokeSettings)
+  const revokeMcpDelegationMutation = useConvexMutation(
+    api.ginkoCms.mcpOAuthDelegations.revokeDelegation,
+  )
   const retryRevalidationJobMutation = useConvexMutation(
     api.ginkoCms.revalidation.retryRevalidationJob,
   )
@@ -244,7 +249,6 @@ export function useStudioSettingsAdmin() {
   const mcpConnectionError = ref('')
   const mcpConnectionErrorDetail = ref('')
   const mcpConnectionInfo = ref('')
-  const mcpCreatedToken = ref<{ id: string; key: string; name: string } | null>(null)
   const retryingRevalidationJobId = ref('')
   const testingRevalidationTargetId = ref('')
   const revalidationTargetSaving = ref(false)
@@ -268,16 +272,18 @@ export function useStudioSettingsAdmin() {
   const storageDiagnostic = ref<StorageDiagnostic | null>(null)
   const storageDiagnosticRunning = ref(false)
   const storageError = ref('')
-  const revokingMcpApiKeyId = ref('')
+  const revokingMcpDelegationId = ref('')
   const mcpConnectionSaving = ref(false)
   const showInviteMember = ref(false)
   const invitationPendingId = ref('')
   const mcpConnectionForm = reactive<{
     name: string
+    oauthClientId: string
     expiresIn: string
     scopes: McpScope[]
   }>({
     name: 'Codex MCP',
+    oauthClientId: '',
     expiresIn: '604800',
     scopes: [
       cmsPermissionKeys.read,
@@ -517,13 +523,13 @@ export function useStudioSettingsAdmin() {
     mcpConnectionError.value = ''
     mcpConnectionErrorDetail.value = ''
     mcpConnectionInfo.value = ''
-    mcpCreatedToken.value = null
     if (!mcpEnabled) {
       mcpConnectionError.value = 'MCP is disabled for this application.'
       return
     }
     const userId = authState.user.value?.id
     const name = mcpConnectionForm.name.trim()
+    const oauthClientId = mcpConnectionForm.oauthClientId.trim()
     const expiresIn = Number(mcpConnectionForm.expiresIn)
     const scopes = Array.from(new Set(mcpConnectionForm.scopes))
     if (!userId) {
@@ -534,6 +540,10 @@ export function useStudioSettingsAdmin() {
       mcpConnectionError.value = 'Name the MCP connection before creating it.'
       return
     }
+    if (!oauthClientId) {
+      mcpConnectionError.value = 'Enter the registered OAuth client ID.'
+      return
+    }
     if (scopes.length === 0) {
       mcpConnectionError.value = 'Select at least one MCP scope.'
       return
@@ -542,19 +552,16 @@ export function useStudioSettingsAdmin() {
     try {
       const expiresAt =
         Number.isFinite(expiresIn) && expiresIn > 0 ? Date.now() + expiresIn * 1000 : null
-      const created = await createMcpCredentialMutation({
+      await createMcpDelegationMutation({
         ownerUserId: userId,
+        oauthClientId,
         label: name,
         scopes,
         expiresAt,
       })
-      mcpCreatedToken.value = {
-        id: created.settings.apiKeyId,
-        key: created.bearerToken,
-        name: created.settings.label ?? name,
-      }
       mcpConnectionInfo.value = t('ginkoCms.studio.settingsPage.mcpCreatedInfo')
-      await mcpCredentialsQuery.refresh()
+      mcpConnectionForm.oauthClientId = ''
+      await mcpDelegationsQuery.refresh()
     } catch (e) {
       reportMcpConnectionError(e, t('ginkoCms.studio.settingsPage.mcpCreateError'))
     } finally {
@@ -562,7 +569,7 @@ export function useStudioSettingsAdmin() {
     }
   }
 
-  async function handleRevokeMcpConnection(apiKeyId: string) {
+  async function handleRevokeMcpConnection(delegationId: string) {
     mcpConnectionError.value = ''
     mcpConnectionErrorDetail.value = ''
     mcpConnectionInfo.value = ''
@@ -570,23 +577,16 @@ export function useStudioSettingsAdmin() {
       mcpConnectionError.value = 'MCP is disabled for this application.'
       return
     }
-    revokingMcpApiKeyId.value = apiKeyId
+    revokingMcpDelegationId.value = delegationId
     try {
-      await revokeMcpCredentialMutation({ apiKeyId })
+      await revokeMcpDelegationMutation({ delegationId })
       mcpConnectionInfo.value = t('ginkoCms.studio.settingsPage.mcpRevokedInfo')
-      await mcpCredentialsQuery.refresh()
+      await mcpDelegationsQuery.refresh()
     } catch (e) {
       reportMcpConnectionError(e, t('ginkoCms.studio.settingsPage.mcpRevokeError'))
     } finally {
-      revokingMcpApiKeyId.value = ''
+      revokingMcpDelegationId.value = ''
     }
-  }
-
-  async function copyMcpToken() {
-    const token = mcpCreatedToken.value?.key
-    if (!token) return
-    await navigator.clipboard.writeText(token)
-    mcpConnectionInfo.value = 'MCP access key copied.'
   }
 
   async function handleRetryRevalidationJob(eventId: string) {
@@ -667,8 +667,7 @@ export function useStudioSettingsAdmin() {
     mcpConnectionInfo,
     mcpConnectionSaving,
     mcpConnections,
-    mcpCredentialsQuery,
-    mcpCreatedToken,
+    mcpDelegationsQuery,
     mcpEndpoint:
       typeof window === 'undefined' ? '/mcp' : new URL('/mcp', window.location.origin).toString(),
     mcpExpiryOptions,
@@ -690,7 +689,7 @@ export function useStudioSettingsAdmin() {
     revalidationTargetSaving,
     revalidationTestResults,
     showRevalidationTargetForm,
-    revokingMcpApiKeyId,
+    revokingMcpDelegationId,
     retryingRevalidationJobId,
     testingRevalidationTargetId,
     storageDiagnostic,
@@ -700,7 +699,6 @@ export function useStudioSettingsAdmin() {
       () => (storageHealthQuery.data?.value as StorageHealth | null | undefined) ?? null,
     ),
     storageHealthQuery,
-    copyMcpToken,
     formatRevalidationReason,
     persistedSettings,
     setStudioLocale,

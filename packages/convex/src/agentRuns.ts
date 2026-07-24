@@ -1,4 +1,4 @@
-import { mcpCredentialScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
@@ -17,7 +17,8 @@ const agentRunStatusValidator = v.union(
 )
 const agentRunValidator = v.object({
   _id: v.string(),
-  credentialApiKeyId: v.string(),
+  oauthDelegationId: v.string(),
+  oauthClientId: v.string(),
   delegatedUserId: v.string(),
   scopeSnapshot: v.array(v.string()),
   taskName: v.string(),
@@ -41,7 +42,8 @@ const MAX_TASK_NAME_LENGTH = 200
 function serializeRun(run: AgentRunDoc) {
   return {
     _id: String(run._id),
-    credentialApiKeyId: run.credentialApiKeyId,
+    oauthDelegationId: run.oauthDelegationId,
+    oauthClientId: run.oauthClientId,
     delegatedUserId: run.delegatedUserId,
     scopeSnapshot: run.scopeSnapshot,
     taskName: run.taskName,
@@ -85,12 +87,12 @@ function assertRunBelongsToIdentity(run: AgentRunDoc, appIdentity: CmsMemberAppI
     })
   }
   if (appIdentity.audit.origin !== 'mcp') {
-    throwCmsError('AGENT_RUN_FORBIDDEN', 'Agent run requires its MCP credential.', {
+    throwCmsError('AGENT_RUN_FORBIDDEN', 'Agent run requires its MCP OAuth delegation.', {
       agentRunId: String(run._id),
     })
   }
-  if (run.credentialApiKeyId !== appIdentity.audit.apiKeyId) {
-    throwCmsError('AGENT_RUN_FORBIDDEN', 'Agent run belongs to a different MCP credential.', {
+  if (run.oauthDelegationId !== appIdentity.audit.delegationId) {
+    throwCmsError('AGENT_RUN_FORBIDDEN', 'Agent run belongs to a different MCP OAuth delegation.', {
       agentRunId: String(run._id),
     })
   }
@@ -134,9 +136,13 @@ export const startRun = callerMutation.protected({
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
     if (appIdentity.audit.origin !== 'mcp') {
-      throwCmsError('MCP_CREDENTIAL_REQUIRED', 'Only MCP credentials can start agent runs.')
+      throwCmsError(
+        'MCP_OAUTH_DELEGATION_REQUIRED',
+        'Only delegated MCP OAuth callers can start agent runs.',
+      )
     }
-    const credentialApiKeyId = appIdentity.audit.apiKeyId
+    const oauthDelegationId = appIdentity.audit.delegationId
+    const oauthClientId = appIdentity.audit.clientId
     const taskName = args.taskName.trim()
     if (!taskName || taskName.length > MAX_TASK_NAME_LENGTH) {
       throwCmsError(
@@ -154,26 +160,30 @@ export const startRun = callerMutation.protected({
     }
     const activeRuns = await ctx.db
       .query('agentRuns')
-      .withIndex('by_credential_status_expires_at', (q) =>
-        q.eq('credentialApiKeyId', credentialApiKeyId).eq('status', 'active').gt('expiresAt', now),
+      .withIndex('by_delegation_status_expires_at', (query) =>
+        query
+          .eq('oauthDelegationId', oauthDelegationId)
+          .eq('status', 'active')
+          .gt('expiresAt', now),
       )
       .take(MAX_ACTIVE_AGENT_RUNS_PER_CREDENTIAL)
     if (activeRuns.length === MAX_ACTIVE_AGENT_RUNS_PER_CREDENTIAL) {
       throwCmsError(
         'AGENT_RUN_LIMIT_REACHED',
-        `A credential can have at most ${MAX_ACTIVE_AGENT_RUNS_PER_CREDENTIAL} active agent runs.`,
+        `An OAuth delegation can have at most ${MAX_ACTIVE_AGENT_RUNS_PER_CREDENTIAL} active agent runs.`,
       )
     }
     const scopeSnapshot = Object.entries(appIdentity.mcpEffectivePermissions ?? {})
       .filter(
         ([permission, enabled]) =>
           enabled &&
-          mcpCredentialScopeKeys.includes(permission as (typeof mcpCredentialScopeKeys)[number]),
+          mcpDelegatedScopeKeys.includes(permission as (typeof mcpDelegatedScopeKeys)[number]),
       )
       .map(([permission]) => permission)
       .sort()
     const id = await ctx.db.insert('agentRuns', {
-      credentialApiKeyId,
+      oauthDelegationId,
+      oauthClientId,
       delegatedUserId: appIdentity.userId,
       scopeSnapshot,
       taskName,
@@ -195,7 +205,8 @@ export const startRun = callerMutation.protected({
       appIdentityId: appIdentity.userId,
       detail: {
         agentRunId: String(id),
-        credentialApiKeyId,
+        oauthDelegationId,
+        oauthClientId,
       },
     })
 
@@ -214,12 +225,12 @@ export const listRuns = callerQuery.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const boundedLimit = Math.max(1, Math.min(MAX_AGENT_RUNS, args.limit ?? 50))
-    const credentialApiKeyId =
-      appIdentity.audit.origin === 'mcp' ? appIdentity.audit.apiKeyId : null
-    const runs = credentialApiKeyId
+    const oauthDelegationId =
+      appIdentity.audit.origin === 'mcp' ? appIdentity.audit.delegationId : null
+    const runs = oauthDelegationId
       ? await ctx.db
           .query('agentRuns')
-          .withIndex('by_credential', (q) => q.eq('credentialApiKeyId', credentialApiKeyId))
+          .withIndex('by_delegation', (query) => query.eq('oauthDelegationId', oauthDelegationId))
           .order('desc')
           .take(boundedLimit)
       : appIdentity.role === 'owner'

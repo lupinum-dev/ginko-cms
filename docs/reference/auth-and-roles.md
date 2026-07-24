@@ -1,8 +1,8 @@
 # Auth And Roles
 
-Ginko CMS uses Better Auth for human identity and sessions. The CMS Convex
-component owns CMS product roles and the complete private MCP service-credential
-lifecycle.
+Ginko CMS uses Better Auth for human identity, sessions, and delegated MCP
+OAuth issuance. The CMS Convex component owns product roles and the
+application delegation applied to a verified OAuth subject and client.
 
 ## Identity Ownership
 
@@ -64,58 +64,46 @@ writes activity. Ginko does not create or copy a Better Auth user account.
 Invalid, expired, reused, revoked, duplicate-member, unverified-email, and
 wrong-email attempts all receive the same non-enumerating response.
 
-## MCP Credentials
+## MCP OAuth Delegations
 
-External private MCP bearer tokens are CMS-owned service credentials. Convex
-generates 256 random bits, returns the bearer once, and stores only its SHA-256
-hash. Better Auth sessions and browser `sessionId` values never enter this path.
-The optional MCP endpoint runs as one Convex-native `/mcp` HTTP action; there is
-no Nuxt bridge secret or second MCP identity protocol. Convex makes the final
-authorization decision for every operation.
+The optional MCP endpoint is one Convex-native `/mcp` HTTP action protected by
+the fixed Better Auth OAuth authorization-server profile. It uses Authorization
+Code with PKCE, short-lived access tokens, one fixed resource, and explicit CMS
+scopes. Ginko does not issue a second bearer credential, store an MCP secret
+hash, or forward a token into a Convex function argument.
 
-`mcpCredentialSettings` stores:
+`mcpOAuthDelegations` stores only application authority:
 
-- the CMS credential id and secret hash;
-- the owning Better Auth user id;
-- CMS scopes;
-- credential expiry when configured;
-- active or revoked status.
+- a random delegation generation id;
+- the verified Better Auth user id and registered OAuth client id;
+- the CMS scope ceiling and optional expiry;
+- active or revoked status and audit fields.
 
 Effective MCP authority is the intersection of:
 
-- the atomically admitted CMS credential hash;
-- active `mcpCredentialSettings`;
-- the owner's current CMS member role;
-- the credential's configured scopes.
+- the freshly verified OAuth token scopes and subject/client provenance;
+- the current Better Auth session, user, client, resource link, and consent;
+- the current active Ginko OAuth delegation generation; and
+- the user's current CMS member role.
 
-Role downgrades and member removal take effect on the next protected CMS call
-because the component re-reads the current member state.
+Session deletion, client disablement, consent removal, delegation revocation,
+role downgrade, and member removal take effect on the next protected call. A
+revoked delegation may be recreated for the same client, but its new random
+generation cannot resume agent runs created under the revoked generation.
 
-## OAuth Roadmap
-
-Better Convex Nuxt 0.7 provides the primitives, but OAuth is intentionally not
-enabled by this release. Enabling it is product and security work, not a config
-toggle:
-
-1. Add human social sign-in provider-by-provider, with deployment-owned
-   secrets, verified-email and account-linking policy, invitation/first-owner
-   tests, and recovery behavior. The CMS member row remains the only product
-   role source of truth.
-2. Design delegated MCP OAuth as a separate interactive consent topology using
-   short-lived access tokens, explicit CMS scopes, fixed resource metadata,
-   PKCE, and revocation evidence. It must not reuse private service-credential
-   hashes.
-3. Keep dynamic registration, refresh tokens, client credentials, DPoP, and
-   direct agent publication deferred until each has an accepted user story and
-   failure-injection proof. Private service credentials remain the supported
-   automation path meanwhile.
+Dynamic registration, refresh tokens, client credentials, DPoP, and direct
+agent publication remain disabled. Owners register clients and the MCP resource
+through the Better Auth OAuth administration endpoints; Ginko's mandatory
+owner callback protects those endpoints. Enabling social login remains a
+separate host decision and does not change MCP resource-server authority.
 
 ## Agent Runs And Review Requests
 
 MCP writes must be linked to an active `agentRun`. The run records the delegated
-user, credential id, immutable effective-scope snapshot, expiry, and write
-timestamps. Current member access and credential settings are still re-checked
-on every operation; the snapshot is historical audit data, not authorization.
+user, OAuth client and delegation generation, immutable effective-scope
+snapshot, expiry, and write timestamps. Current member and delegation state are
+still re-checked on every operation; the snapshot is historical audit data, not
+authorization.
 
 Public or destructive agent work is review-gated by default. The current MCP
 publish path is:
@@ -132,9 +120,10 @@ exposed.
 
 ## Current Runtime Boundary
 
-MCP product identity comes from Ginko-owned bearer credentials and current CMS
-credential settings. Only a SHA-256 hash of the generated secret is stored. The
-Nuxt bridge exchanges a valid bearer secret for short-lived, function-bound HMAC
-assertions; Convex rechecks the credential, member, role, expiry, and scope for
-every protected operation. Do not expose raw MCP credentials to clients that
-should not act as the corresponding external agent.
+The MCP client obtains a short-lived OAuth access token from the host's Better
+Auth authorization server. The Convex-native MCP endpoint verifies the token's
+signature, issuer, resource, client, subject, token class, lifetime, and scopes,
+then rechecks the live provider records and Ginko delegation before every call.
+Only the resulting allowlisted access context enters the application operation;
+the token, provider-private session id, cookies, and authorization headers do
+not enter Convex function arguments, results, diagnostics, or activity records.

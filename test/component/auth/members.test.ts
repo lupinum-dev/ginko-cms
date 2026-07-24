@@ -2,7 +2,7 @@ import {
   bootstrapCmsOwner,
   bootstrapCmsOwnerComponent,
 } from '@lupinum/ginko-cms-contract/convex/schemas/members.js'
-import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import { cmsMcpCaller, cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { describe, expect, it } from 'vitest'
 
 import type { CmsAppIdentity, CmsMemberAppIdentity } from '#component/auth/appIdentity.js'
@@ -202,9 +202,19 @@ describe('cms guards', () => {
     const owner = memberAppIdentity('owner') as CmsMemberAppIdentity
     const mcpOwner: CmsMemberAppIdentity = {
       ...owner,
-      caller: { kind: 'mcp', apiKeyId: 'key_1' },
+      caller: cmsMcpCaller({
+        issuer: 'https://ginko.example.test/api/auth',
+        userId: 'owner-1',
+        clientId: 'client-owner',
+        scopes: ['cms.read'],
+      }),
       mcpEffectivePermissions: {},
-      audit: { origin: 'mcp', apiKeyId: 'key_1' },
+      audit: {
+        origin: 'mcp',
+        delegationId: 'mcpd_owner',
+        issuer: 'https://ginko.example.test/api/auth',
+        clientId: 'client-owner',
+      },
     }
 
     expect(can(mcpOwner, hasRole('owner'))).toBe(false)
@@ -299,9 +309,21 @@ describe('cms guards', () => {
       const noScopes = Object.fromEntries(cmsPermissionGuards.map(({ key }) => [key, false]))
       const mcp = (scopes: Record<string, boolean>): CmsMemberAppIdentity => ({
         ...user,
-        caller: { kind: 'mcp', apiKeyId: `${role}_key` },
+        caller: cmsMcpCaller({
+          issuer: 'https://ginko.example.test/api/auth',
+          userId: `${role}-1`,
+          clientId: `client-${role}`,
+          scopes: Object.entries(scopes)
+            .filter(([, allowed]) => allowed)
+            .map(([permission]) => permission),
+        }),
         mcpEffectivePermissions: scopes,
-        audit: { origin: 'mcp', apiKeyId: `${role}_key` },
+        audit: {
+          origin: 'mcp',
+          delegationId: `mcpd_${role}`,
+          issuer: 'https://ginko.example.test/api/auth',
+          clientId: `client-${role}`,
+        },
       })
       const callableMcpGuards = new Set([canRead, canCreateEntries, canEditEntries])
 

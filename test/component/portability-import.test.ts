@@ -1089,14 +1089,14 @@ describe('portable draft import', () => {
     },
   )
 
-  it('does not grant bulk portability to an MCP credential', async () => {
+  it('does not grant bulk portability to an MCP OAuth caller', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
     const { contentHash } = await installFixture(ctx)
     await ctx.seed(
-      'mcpCredentialSettings' as never,
+      'mcpOAuthDelegations' as never,
       {
-        apiKeyId: 'portability-key',
+        oauthClientId: 'client-portability',
         ownerUserId: 'owner-1',
         label: 'Portability test',
         scopes: ['cms.portability.manage'],
@@ -1107,7 +1107,7 @@ describe('portable draft import', () => {
         updatedAt: Date.now(),
       } as never,
     )
-    const mcp = ctx.asMcpApiKey('portability-key', 'owner-1')
+    const mcp = ctx.asMcpOAuth('client-portability', 'owner-1')
 
     await expect(createPlan(ctx, mcp, contentHash)).rejects.toThrow(
       /Unexpected field `_trustedCaller`/,

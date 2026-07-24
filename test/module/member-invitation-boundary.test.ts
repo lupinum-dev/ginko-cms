@@ -51,7 +51,7 @@ describe('[ADM-02] host-owned member invitation boundary', () => {
     const schema = read('packages/convex/src/schema.ts')
     const invitationTable = schema.slice(
       schema.indexOf('memberInvitations: defineTable'),
-      schema.indexOf('mcpCredentialSettings: defineTable'),
+      schema.indexOf('mcpOAuthDelegations: defineTable'),
     )
     expect(invitationTable).toContain('tokenHash: v.string()')
     expect(invitationTable).not.toMatch(/\btoken:\s*v\./u)

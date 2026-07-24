@@ -383,6 +383,22 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     nuxt.options.pages = true
     extendPages((pages) => {
       const routes = [
+        ...(mcpEnabled
+          ? [
+              {
+                name: 'ginko-mcp-oauth-login',
+                path: '/oauth/login',
+                file: resolve(cmsAuthDir, 'pages/oauth-login.vue'),
+                meta: { layout: false },
+              },
+              {
+                name: 'ginko-mcp-oauth-consent',
+                path: '/oauth/consent',
+                file: resolve(cmsAuthDir, 'pages/oauth-consent.vue'),
+                meta: { layout: false },
+              },
+            ]
+          : []),
         {
           name: 'studio-auth-signin',
           path: `${options.route.replace(/\/$/, '')}/auth/signin`,

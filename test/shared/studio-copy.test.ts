@@ -173,8 +173,10 @@ describe('Studio copy guardrails', () => {
     const agentsCopy = readWorkspaceFile('packages/cms/studio-app/src/pages/agents.vue')
 
     expect(setupCopy).toContain('MCP connections for AI tools')
-    expect(setupCopy).toContain('ginkoCms.studio.settingsPage.mcpTokenReady')
-    expect(setupCopy).toContain('Copy access key')
+    expect(setupCopy).toContain('OAuth client ID')
+    expect(setupCopy).toContain('Create MCP connection')
+    expect(setupCopy).not.toContain('Copy access key')
+    expect(setupCopy).not.toContain('mcpTokenReady')
     expect(agentsCopy).toContain('ginkoCms.studio.agentsPage.title')
     expect(agentsCopy).not.toContain('Agent sessions')
   })

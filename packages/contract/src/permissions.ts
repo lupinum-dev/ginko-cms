@@ -16,7 +16,7 @@ export const cmsPermissionKeys = {
 
 export type CmsPermissionKey = (typeof cmsPermissionKeys)[keyof typeof cmsPermissionKeys]
 
-export const mcpCredentialScopeKeys = [
+export const mcpDelegatedScopeKeys = [
   cmsPermissionKeys.read,
   cmsPermissionKeys.createEntries,
   cmsPermissionKeys.editEntries,

@@ -42,7 +42,6 @@ const DELETE_LIMITS = {
   recoveryArtifacts: 500,
   redirects: 500,
   reviews: 500,
-  createReceipts: 100,
   transitionItems: 100,
   portableItems: 100,
   localeDrafts: 10,
@@ -146,7 +145,6 @@ async function loadExistingEntryState(ctx: MutationCtx, entry: Doc<'entries'>) {
     recoveryArtifacts,
     redirects,
     reviews,
-    createReceipts,
     transitionItems,
     portableItems,
     localeDrafts,
@@ -187,10 +185,6 @@ async function loadExistingEntryState(ctx: MutationCtx, entry: Doc<'entries'>) {
       .withIndex('by_entry', (query) => query.eq('entryId', String(entry._id)))
       .take(DELETE_LIMITS.reviews + 1),
     ctx.db
-      .query('mcpCreateEntryReceipts')
-      .withIndex('by_entry', (query) => query.eq('entryId', entry._id))
-      .take(DELETE_LIMITS.createReceipts + 1),
-    ctx.db
       .query('contractTransitionItems')
       .withIndex('by_entry', (query) => query.eq('entryId', entry._id))
       .take(DELETE_LIMITS.transitionItems + 1),
@@ -229,7 +223,6 @@ async function loadExistingEntryState(ctx: MutationCtx, entry: Doc<'entries'>) {
     recoveryArtifacts: boundedInventory('recoveryArtifacts', recoveryArtifacts),
     redirects: boundedInventory('redirects', redirects),
     reviews: boundedInventory('reviews', reviews),
-    createReceipts: boundedInventory('createReceipts', createReceipts),
     transitionItems: boundedInventory('transitionItems', transitionItems),
     portableItems: boundedInventory('portableItems', portableItems),
     localeDrafts: boundedInventory('localeDrafts', localeDrafts),
@@ -296,7 +289,6 @@ async function loadExistingEntryState(ctx: MutationCtx, entry: Doc<'entries'>) {
     recoveryArtifacts: inventories.recoveryArtifacts.rows,
     redirects: inventories.redirects.rows,
     reviews: inventories.reviews.rows,
-    createReceipts: inventories.createReceipts.rows,
     activeTransitionItems,
     terminalTransitionItems,
     retainedPortableItems,
@@ -470,7 +462,6 @@ async function deleteExistingEntry(
   for (const row of state.expiredPortableItems) await ctx.db.delete(row._id)
   for (const row of state.terminalTransitionItems) await ctx.db.delete(row._id)
   for (const row of state.reviews) await ctx.db.delete(row._id)
-  for (const row of state.createReceipts) await ctx.db.delete(row._id)
   for (const row of state.redirects) await ctx.db.delete(row._id)
   for (const row of state.draftSearchRows) await ctx.db.delete(row._id)
   for (const row of state.localeDrafts) await ctx.db.delete(row._id)
@@ -662,7 +653,6 @@ export const permanentlyDeleteEntryOperation = defineCmsOperation({
           draftSearchRows: state.draftSearchRows.length,
           contentAssetRefs: state.assetRefs.length,
           reviews: state.reviews.length,
-          mcpCreateReceipts: state.createReceipts.length,
           expiredPortableItems: state.expiredPortableItems.length,
           terminalTransitionItems: state.terminalTransitionItems.length,
           retiredRedirects: removableRedirects.length,

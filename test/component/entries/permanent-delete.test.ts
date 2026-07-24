@@ -176,7 +176,6 @@ describe('LIF-03 permanent entry deletion', () => {
       'publicSearchEntries',
       'contentAssetRefs',
       'reviewRequests',
-      'mcpCreateEntryReceipts',
     ]) {
       expect(await ctx.readAll(table), table).toEqual([])
     }

@@ -54,7 +54,7 @@ import {
 } from './operationHelpers.js'
 
 type MemberDoc = Doc<'members'>
-type McpCredentialSettingsDoc = Doc<'mcpCredentialSettings'>
+type McpOAuthDelegationDoc = Doc<'mcpOAuthDelegations'>
 const MEMBER_LIST_MAX = 500
 
 async function countOwners(ctx: MutationCtx): Promise<number> {
@@ -501,13 +501,14 @@ export const removeMemberOperation = defineCmsOperation({
     }
 
     const now = Date.now()
-    const credentialSettings: McpCredentialSettingsDoc[] = await ctx.db
-      .query('mcpCredentialSettings')
+    const delegations: McpOAuthDelegationDoc[] = await ctx.db
+      .query('mcpOAuthDelegations')
       .withIndex('by_owner_user', (q) => q.eq('ownerUserId', member.userId))
-      .collect()
-    for (const settings of credentialSettings) {
-      if (settings.status !== 'active') continue
-      await ctx.db.patch(settings._id, {
+      .take(101)
+    if (delegations.length > 100) throw new Error('MCP_DELEGATION_BOUND_EXCEEDED')
+    for (const delegation of delegations) {
+      if (delegation.status !== 'active') continue
+      await ctx.db.patch(delegation._id, {
         status: 'revoked',
         revokedAt: now,
         updatedAt: now,
@@ -523,7 +524,7 @@ export const removeMemberOperation = defineCmsOperation({
       appIdentityId: appIdentity.userId,
       detail: {
         userId: args.userId,
-        revokedMcpCredentials: credentialSettings.filter((settings) => settings.status === 'active')
+        revokedMcpDelegations: delegations.filter((delegation) => delegation.status === 'active')
           .length,
       },
     })

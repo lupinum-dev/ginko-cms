@@ -7,7 +7,7 @@ import { createGinkoMcpHandler } from '../../packages/convex/src/mcpHandler'
 import { buildGinkoPublishImpactApp } from '../fixtures/mcp-publish-impact-app/build'
 
 const resource = new URL('https://ginko.example.test/mcp')
-const issuer = new URL('https://ginko.example.test/mcp-credentials/')
+const issuer = 'https://app.example.test/api/auth'
 const bearer = 'ginko-app-bearer-sentinel'
 const rawClient = 'ginko-app-raw-client-sentinel'
 const secretSentinels = Object.freeze([
@@ -24,6 +24,34 @@ const input = {
   entryId: 'entry-1',
   expectedVersion: 7,
   locales: ['en'],
+}
+const authorizationMetadata = {
+  authorization_endpoint: `${issuer}/oauth2/authorize`,
+  authorization_response_iss_parameter_supported: true,
+  code_challenge_methods_supported: ['S256'],
+  grant_types_supported: ['authorization_code'],
+  issuer,
+  jwks_uri: `${issuer}/jwks`,
+  response_types_supported: ['code'],
+  revocation_endpoint: `${issuer}/oauth2/revoke`,
+  scopes_supported: ['cms.read', 'cms.entries.edit'],
+  token_endpoint: `${issuer}/oauth2/token`,
+  token_endpoint_auth_methods_supported: ['none'],
+} as const
+const verifier = {
+  async verifyAccessToken(token: string, expectedResource: URL) {
+    if (token !== bearer) throw new Error('access rejected')
+    return {
+      access: {
+        clientId: 'client-app-test',
+        issuer,
+        resource: expectedResource.href,
+        scopes: ['cms.entries.edit', 'cms.read'],
+        subject: 'owner-1',
+      },
+      expiresAt: Date.now() + 60_000,
+    }
+  },
 }
 
 function impact() {
@@ -48,22 +76,13 @@ function impact() {
 
 function createFixture(appHtml: string) {
   let previewExecutions = 0
+  let latestPreviewArgs: unknown = null
   const handler = createGinkoMcpHandler({
-    issuer,
+    authorizationMetadata,
     publishImpactAppHtml: appHtml,
     reviewInteractionBase: new URL('https://app.example.test/api/_ginko/reviews/'),
     resource,
     operations: {
-      async admitCredential() {
-        return {
-          kind: 'access',
-          access: {
-            apiKeyId: 'credential-1',
-            expiresAt: null,
-            scopes: ['readCms', 'editEntries'],
-          },
-        }
-      },
       async startAgentRun() {
         return { _id: 'run-1' }
       },
@@ -77,7 +96,7 @@ function createFixture(appHtml: string) {
         return { draftVersion: 8 }
       },
       async previewPublish(args) {
-        expect(args).toEqual({ apiKeyId: 'credential-1', ...input })
+        latestPreviewArgs = args
         previewExecutions += 1
         return impact()
       },
@@ -88,8 +107,13 @@ function createFixture(appHtml: string) {
         return { _id: 'review-1', isStale: false, status: 'pending' }
       },
     },
+    verifier,
   })
-  return { handler, previewExecutions: () => previewExecutions }
+  return {
+    handler,
+    latestPreviewArgs: () => latestPreviewArgs,
+    previewExecutions: () => previewExecutions,
+  }
 }
 
 async function protocolRequest(
@@ -163,12 +187,9 @@ function hostHtml(code: string) {
 describe('Ginko publish-impact MCP App', () => {
   it('rejects empty and oversized App documents before serving MCP', () => {
     const base = {
-      issuer,
+      authorizationMetadata,
       reviewInteractionBase: new URL('https://app.example.test/api/_ginko/reviews/'),
       operations: {
-        async admitCredential() {
-          return { kind: 'invalid' as const }
-        },
         async startAgentRun() {},
         async completeAgentRun() {},
         async getEntry() {},
@@ -178,6 +199,7 @@ describe('Ginko publish-impact MCP App', () => {
         async getReviewStatus() {},
       },
       resource,
+      verifier,
     }
     expect(() => createGinkoMcpHandler({ ...base, publishImpactAppHtml: '  ' })).toThrow(
       'must be non-empty and no larger than 512 KiB',
@@ -230,6 +252,17 @@ describe('Ginko publish-impact MCP App', () => {
         },
       ],
       structuredContent: { preview: impact(), publicChanged: false },
+    })
+    expect(fixture.latestPreviewArgs()).toEqual({
+      caller: {
+        clientId: 'client-app-test',
+        issuer,
+        kind: 'mcp',
+        scopes: ['cms.entries.edit', 'cms.read'],
+        subject: 'agent:https%3A%2F%2Fapp.example.test%2Fapi%2Fauth:owner-1:client-app-test',
+        userId: 'owner-1',
+      },
+      ...input,
     })
 
     const browser = await chromium.launch({ headless: true })

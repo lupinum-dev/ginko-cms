@@ -1,16 +1,18 @@
 import { createConvexMcpHandler, runMcpTool, type McpAccessVerifier } from '@better-convex/mcp'
+import { cmsMcpCaller, type CmsMcpCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   CLIENT_CAPABILITIES_META_KEY,
   inputRequired,
   type CallToolResult,
   type InputRequiredResult,
+  type OAuthMetadata,
   type ServerContext,
 } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 
-const readScope = 'readCms'
-const writeScope = 'editEntries'
+const readScope = 'cms.read'
+const writeScope = 'cms.entries.edit'
 const jsonRecord = z.record(z.string(), z.json())
 const nodeKind = z.enum(['page', 'folder', 'group', 'section'])
 const operationKeySchema = z
@@ -30,32 +32,20 @@ const projectedReviewSchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected']),
 })
 
-export type GinkoMcpCredentialAccess = {
-  apiKeyId: string
-  scopes: string[]
-  expiresAt: number | null
-}
-
-export type GinkoMcpCredentialAdmission =
-  | { kind: 'access'; access: GinkoMcpCredentialAccess }
-  | { kind: 'invalid' }
-  | { kind: 'limited' }
-
 type GinkoMcpHandler = {
   fetch(context: unknown, request: Request): Promise<Response>
 }
 
 export type GinkoMcpOperations = {
-  admitCredential(secretHash: string): Promise<GinkoMcpCredentialAdmission>
   startAgentRun(args: {
-    apiKeyId: string
+    caller: CmsMcpCaller
     taskName: string
     expiresAt?: number | null
   }): Promise<unknown>
-  completeAgentRun(args: { apiKeyId: string; agentRunId: string }): Promise<unknown>
-  getEntry(args: { apiKeyId: string; id: string; locale?: string }): Promise<unknown>
+  completeAgentRun(args: { caller: CmsMcpCaller; agentRunId: string }): Promise<unknown>
+  getEntry(args: { caller: CmsMcpCaller; id: string; locale?: string }): Promise<unknown>
   saveEntryDraft(args: {
-    apiKeyId: string
+    caller: CmsMcpCaller
     agentRunId: string
     entryId: string
     expectedDraftVersion: number
@@ -78,7 +68,7 @@ export type GinkoMcpOperations = {
     }
   }): Promise<unknown>
   previewPublish(args: {
-    apiKeyId: string
+    caller: CmsMcpCaller
     agentRunId: string
     entryId: string
     locales: string[]
@@ -86,7 +76,7 @@ export type GinkoMcpOperations = {
     message?: string
   }): Promise<unknown>
   requestPublishReview(args: {
-    apiKeyId: string
+    caller: CmsMcpCaller
     agentRunId: string
     operationKey: string
     entryId: string
@@ -96,7 +86,7 @@ export type GinkoMcpOperations = {
     title: string
     summary: string
   }): Promise<unknown>
-  getReviewStatus(args: { apiKeyId: string; reviewRequestId: string }): Promise<unknown>
+  getReviewStatus(args: { caller: CmsMcpCaller; reviewRequestId: string }): Promise<unknown>
 }
 
 const publishImpactResourceUri = 'ui://ginko/publish-impact.html'
@@ -113,11 +103,6 @@ const publishImpactResourceMeta = {
     permissions: {},
     prefersBorder: true,
   },
-}
-
-async function hashCredential(token: string) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 function requiredScopeResult(scope: string) {
@@ -252,13 +237,21 @@ async function runRcReviewTool(
 }
 
 export function createGinkoMcpHandler(options: {
-  issuer: URL
+  authorizationMetadata: OAuthMetadata
   operations: GinkoMcpOperations
   publishImpactAppHtml?: string
   reviewInteractionBase: URL
   resource: URL
+  verifier: McpAccessVerifier
 }): GinkoMcpHandler {
-  const { issuer, operations, publishImpactAppHtml, resource, reviewInteractionBase } = options
+  const {
+    authorizationMetadata,
+    operations,
+    publishImpactAppHtml,
+    resource,
+    reviewInteractionBase,
+    verifier,
+  } = options
   if (
     reviewInteractionBase.protocol !== 'https:' ||
     reviewInteractionBase.username ||
@@ -276,35 +269,23 @@ export function createGinkoMcpHandler(options: {
   ) {
     throw new Error('The publish-impact MCP App must be non-empty and no larger than 512 KiB.')
   }
-  const verifier: McpAccessVerifier = {
-    async verifyAccessToken(token, expectedResource) {
-      if (expectedResource.href !== resource.href) throw new Error('Unexpected MCP resource.')
-      const admission = await operations.admitCredential(await hashCredential(token))
-      if (admission.kind !== 'access') throw new Error('Invalid MCP credential.')
-      const { access } = admission
-      const now = Math.floor(Date.now() / 1_000)
-      return {
-        access: {
-          issuer: issuer.href,
-          subject: access.apiKeyId,
-          clientId: 'ginko-preconfigured-client',
-          resource: resource.href,
-          scopes: access.scopes,
-        },
-        expiresAt:
-          access.expiresAt === null
-            ? now + 60
-            : Math.min(Math.floor(access.expiresAt / 1_000), now + 60),
-      }
-    },
-  }
-
   return createConvexMcpHandler({
     serverInfo: { name: 'ginko-cms', version: '0.1.0' },
     resource,
     verifier,
-    authorization: { mode: 'preconfigured-bearer', issuer: issuer.href },
+    authorization: {
+      mode: 'oauth',
+      metadata: authorizationMetadata,
+      resourceName: 'Ginko CMS MCP',
+      scopesSupported: [readScope, writeScope],
+    },
     configureServer(_context, access, _request, server) {
+      const caller = cmsMcpCaller({
+        issuer: access.issuer,
+        userId: access.subject,
+        clientId: access.clientId,
+        scopes: access.scopes,
+      })
       server.registerTool(
         'start-agent-run',
         {
@@ -324,7 +305,7 @@ export function createGinkoMcpHandler(options: {
               content: [{ type: 'text', text: 'Started the agent run.' }],
               structuredContent: {
                 run: await operations.startAgentRun({
-                  apiKeyId: access.subject,
+                  caller,
                   ...args,
                 }),
               },
@@ -349,7 +330,7 @@ export function createGinkoMcpHandler(options: {
           return await runMcpTool(
             async () => {
               const entry = await operations.getEntry({
-                apiKeyId: access.subject,
+                caller,
                 id: entryId,
                 ...(locale === undefined ? {} : { locale }),
               })
@@ -409,7 +390,7 @@ export function createGinkoMcpHandler(options: {
             async () => {
               try {
                 const result = await operations.saveEntryDraft({
-                  apiKeyId: access.subject,
+                  caller,
                   ...args,
                 })
                 return {
@@ -467,7 +448,7 @@ export function createGinkoMcpHandler(options: {
               ],
               structuredContent: {
                 preview: await operations.previewPublish({
-                  apiKeyId: access.subject,
+                  caller,
                   ...args,
                 }),
                 publicChanged: false as const,
@@ -495,7 +476,7 @@ export function createGinkoMcpHandler(options: {
               content: [{ type: 'text', text: 'Completed the agent run.' }],
               structuredContent: {
                 run: await operations.completeAgentRun({
-                  apiKeyId: access.subject,
+                  caller,
                   ...args,
                 }),
               },
@@ -546,7 +527,7 @@ export function createGinkoMcpHandler(options: {
             }
             const supportsInteraction = supportsUrlInteraction(context)
             const review = await operations.requestPublishReview({
-              apiKeyId: access.subject,
+              caller,
               ...args,
             })
             if (!supportsInteraction) return projectReviewResult(review, false)
@@ -572,7 +553,7 @@ export function createGinkoMcpHandler(options: {
             async () =>
               projectReviewResult(
                 await operations.getReviewStatus({
-                  apiKeyId: access.subject,
+                  caller,
                   reviewRequestId,
                 }),
                 false,

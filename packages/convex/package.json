@@ -51,6 +51,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "1.7.0-rc.1",
     "@better-convex/mcp": "0.1.0-beta.6",
     "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.1",
     "@lupinum/ginko-content": "^0.3.0-rc.5",

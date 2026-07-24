@@ -10,7 +10,7 @@ import {
   publishEntry,
   seedEditorFixture,
   seedMultiLocaleSettings,
-  seedMcpCredential,
+  seedMcpDelegation,
   seedOwner,
   seedSettings,
 } from './helpers'
@@ -23,12 +23,12 @@ describe('component: MCP publish boundary', () => {
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'ba_key_owner_ops',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-owner-ops',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
     })
-    const agent = ctx.asMcpApiKey('ba_key_owner_ops', 'owner-1')
+    const agent = ctx.asMcpOAuth('client-owner-ops', 'owner-1')
     const run = await agent.mutation(api.agentRuns.startRun, { taskName: 'Preview publish' })
     const expectedVersion = await currentDraftVersion(agent, entryId)
 
@@ -49,12 +49,12 @@ describe('component: MCP publish boundary', () => {
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'ba_key_owner_ops',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-owner-ops',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
     })
-    const agent = ctx.asMcpApiKey('ba_key_owner_ops', 'owner-1')
+    const agent = ctx.asMcpOAuth('client-owner-ops', 'owner-1')
     const expectedVersion = await currentDraftVersion(agent, entryId)
 
     await expect(
@@ -87,12 +87,12 @@ describe('component: MCP publish boundary', () => {
     await seedOwner(ctx)
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'ba_key_activity',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-activity',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
     })
-    const agent = ctx.asMcpApiKey('ba_key_activity', 'owner-1')
+    const agent = ctx.asMcpOAuth('client-activity', 'owner-1')
     const run = await agent.mutation(api.agentRuns.startRun, { taskName: 'Edit draft' })
     const expectedDraftVersion = await currentDraftVersion(agent, entryId)
 
@@ -120,7 +120,7 @@ describe('component: MCP publish boundary', () => {
     await expect(agent.query(api.agentRuns.listRuns, { limit: 10 })).resolves.toEqual([
       expect.objectContaining({
         _id: run._id,
-        credentialApiKeyId: 'ba_key_activity',
+        oauthClientId: 'client-activity',
         delegatedUserId: 'owner-1',
         lastWriteAt: expect.any(Number),
       }),
@@ -139,12 +139,12 @@ describe('component: MCP publish boundary', () => {
       (entry: { _id: string }) => String(entry._id) === entryId,
     )!
 
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'ba_key_translator',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-translator',
       ownerUserId: 'owner-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
     })
-    const agent = ctx.asMcpApiKey('ba_key_translator', 'owner-1')
+    const agent = ctx.asMcpOAuth('client-translator', 'owner-1')
     const run = await agent.mutation(api.agentRuns.startRun, { taskName: 'Translate to German' })
     await agent.mutation(api.editor.mcpSaveEntryDraft, {
       agentRunId: run._id,

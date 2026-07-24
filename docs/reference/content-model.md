@@ -28,7 +28,7 @@ settings store.
 - `reviewRequests` pins exact draft versions and a publish-preview hash.
 - `redirects` owns exact or prefix redirects, target entry, locale, origin,
   lifecycle, and audit facts.
-- `siteData`, `assets`, `members`, MCP credential settings, agent runs, and
+- `siteData`, `assets`, `members`, MCP OAuth delegations, agent runs, and
   activity each own their respective product facts.
 - Guarded operation, contract-transition, portability, and recovery runs own
   durable cursors, generations, item receipts, and outcomes for work that cannot

@@ -4,6 +4,7 @@ import {
   type CmsMcpCaller,
   type CmsUserCaller,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import {
   buildResolvedContentContract,
   hashCanonicalJson,
@@ -192,11 +193,9 @@ export function createCtx(
   })
   ctx.registerComponent('ginkoCms', schema as never, modules as never)
   const seedValue = (table: string, value: Record<string, unknown>) => {
-    if (table === 'mcpCredentialSettings') {
+    if (table === 'mcpOAuthDelegations') {
       return {
-        secretHash: String(value.apiKeyId ?? 'test')
-          .padEnd(64, '0')
-          .slice(0, 64),
+        delegationId: `mcpd_${String(value.oauthClientId ?? 'test')}`,
         ...value,
       }
     }
@@ -231,18 +230,30 @@ export function createCtx(
       userId: string,
       profile?: { name?: string; email?: string; emailVerified?: boolean },
     ) => createCmsCallerClient(ctx, cmsUserCaller(userId, profile)),
-    asMcpApiKey: (apiKeyId: string, _ownerUserId: string) =>
-      createCmsCallerClient(ctx, cmsMcpCaller(apiKeyId)),
+    asMcpOAuth: (
+      oauthClientId: string,
+      userId: string,
+      scopes: readonly string[] = mcpDelegatedScopeKeys,
+    ) =>
+      createCmsCallerClient(
+        ctx,
+        cmsMcpCaller({
+          issuer: 'https://ginko.example.test/api/auth',
+          userId,
+          clientId: oauthClientId,
+          scopes,
+        }),
+      ),
   })
 }
 
 export type TestCtx = ReturnType<typeof createCtx>
 type CmsCallerClient = ReturnType<typeof createCmsCallerClient>
 
-export async function seedMcpCredential(
+export async function seedMcpDelegation(
   ctx: TestCtx,
   args: {
-    apiKeyId: string
+    oauthClientId: string
     ownerUserId: string
     scopes: string[]
     status?: 'active' | 'revoked'
@@ -250,9 +261,9 @@ export async function seedMcpCredential(
   },
 ) {
   const now = Date.now()
-  await ctx.seed('mcpCredentialSettings', {
-    apiKeyId: args.apiKeyId,
-    secretHash: `${args.apiKeyId.padEnd(64, '0').slice(0, 64)}`,
+  await ctx.seed('mcpOAuthDelegations', {
+    delegationId: `mcpd_${args.oauthClientId}`,
+    oauthClientId: args.oauthClientId,
     ownerUserId: args.ownerUserId,
     scopes: args.scopes,
     status: args.status ?? 'active',

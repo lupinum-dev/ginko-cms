@@ -81,10 +81,10 @@ export const studioApiSurface = {
   contract: {
     getInstalledContractStatus: 'query',
   },
-  mcpCredentials: {
-    createCredential: 'mutation',
-    listOwnSettings: 'query',
-    revokeSettings: 'mutation',
+  mcpOAuthDelegations: {
+    createDelegation: 'mutation',
+    listDelegations: 'query',
+    revokeDelegation: 'mutation',
   },
   diagnostics: {
     explainPublicVisibility: 'query',

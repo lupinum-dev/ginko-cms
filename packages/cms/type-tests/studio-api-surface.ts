@@ -137,8 +137,6 @@ type _PublishExecuteArgsStayAligned = TypeAssert<
 // bridge type. If any of these becomes allowed, delete the matching line and add
 // it to `studioApiSurface`.
 
-// @ts-expect-error `editor.mcpCreateEntry` is an MCP-only backend function, not part of the Studio allowlist.
-type _NoMcpCreateEntry = BridgeGinkoCms['editor']['mcpCreateEntry']
 // @ts-expect-error `assets.getAssetUrl` is not part of the Studio allowlist.
 type _NoGetAssetUrl = BridgeGinkoCms['assets']['getAssetUrl']
 // @ts-expect-error `agentRuns.startRun` is not part of the Studio allowlist.
@@ -160,7 +158,6 @@ export type _StudioApiSurfaceTypeTest = [
   _ExactAssetUsagePage,
   _ExactPublishImpactPageArgs,
   _PublishExecuteArgsStayAligned,
-  _NoMcpCreateEntry,
   _NoGetAssetUrl,
   _NoStartRun,
   _NoRouteMeta,

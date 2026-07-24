@@ -85,9 +85,8 @@ export const CONTRACT_WRITE_BYPASS_IDS: ReadonlySet<string> = new Set([
   'agentRuns:completeRun',
   'agentRuns:revokeRun',
   'ginko-cms.remove-member',
-  'mcpCredentials:admitAccessBySecretHash',
-  'mcpCredentials:revokeSettings',
-  'mcpCredentials:createCredential',
+  'mcpOAuthDelegations:revokeDelegation',
+  'mcpOAuthDelegations:createDelegation',
   'members:acceptMemberInvitation',
   'members:bootstrapCmsOwner',
   'members:prepareMemberInvitationDelivery',
@@ -179,8 +178,8 @@ async function createHandlerCtx<TCtx extends RootCtx>(
   // transport identity that is not the host application's Better Auth subject,
   // so an explicitly enabled trusted caller is authoritative rather than only
   // an anonymous fallback. Component functions are callable by the host app,
-  // not directly by clients. MCP callers are still resolved against canonical
-  // credential and membership state below.
+  // not directly by clients. MCP callers are still resolved against the current
+  // OAuth delegation and membership state below.
   const caller = trustedCaller
     ? assertCmsCallerConsistency(trustedCaller)
     : await resolveCmsCaller(ctx)

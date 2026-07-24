@@ -134,9 +134,8 @@ import type * as lib_validation from "../lib/validation.js";
 import type * as liveFixtures from "../liveFixtures.js";
 import type * as liveFixtures_cleanup from "../liveFixtures/cleanup.js";
 import type * as liveFixtures_finalize from "../liveFixtures/finalize.js";
-import type * as mcpAuthLimiter from "../mcpAuthLimiter.js";
-import type * as mcpCredentials from "../mcpCredentials.js";
 import type * as mcpHandler from "../mcpHandler.js";
+import type * as mcpOAuthDelegations from "../mcpOAuthDelegations.js";
 import type * as members from "../members.js";
 import type * as members_invitations from "../members/invitations.js";
 import type * as operationHash from "../operationHash.js";
@@ -181,6 +180,7 @@ import type * as revalidation_retryOperation from "../revalidation/retryOperatio
 import type * as revalidation_targets from "../revalidation/targets.js";
 import type * as revalidation_worker from "../revalidation/worker.js";
 import type * as reviewRequests from "../reviewRequests.js";
+import type * as reviewRequests_mcpOperation from "../reviewRequests/mcpOperation.js";
 import type * as settings from "../settings.js";
 import type * as siteData from "../siteData.js";
 import type * as storageMaintenance from "../storageMaintenance.js";
@@ -319,9 +319,8 @@ const fullApi: ApiFromModules<{
   liveFixtures: typeof liveFixtures;
   "liveFixtures/cleanup": typeof liveFixtures_cleanup;
   "liveFixtures/finalize": typeof liveFixtures_finalize;
-  mcpAuthLimiter: typeof mcpAuthLimiter;
-  mcpCredentials: typeof mcpCredentials;
   mcpHandler: typeof mcpHandler;
+  mcpOAuthDelegations: typeof mcpOAuthDelegations;
   members: typeof members;
   "members/invitations": typeof members_invitations;
   operationHash: typeof operationHash;
@@ -366,6 +365,7 @@ const fullApi: ApiFromModules<{
   "revalidation/targets": typeof revalidation_targets;
   "revalidation/worker": typeof revalidation_worker;
   reviewRequests: typeof reviewRequests;
+  "reviewRequests/mcpOperation": typeof reviewRequests_mcpOperation;
   settings: typeof settings;
   siteData: typeof siteData;
   storageMaintenance: typeof storageMaintenance;

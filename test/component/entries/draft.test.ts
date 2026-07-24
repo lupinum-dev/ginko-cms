@@ -12,7 +12,7 @@ import {
   revertDraftToPublished,
   seedEditorFixture,
   seedMember,
-  seedMcpCredential,
+  seedMcpDelegation,
   seedOwner,
   seedSettings,
   seedMultiLocaleSettings,
@@ -187,12 +187,12 @@ describe('canonical draft lifecycle', () => {
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
     await seedSettings(ctx)
     const { entryId } = await seedEditorFixture(ctx)
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'ba_key_editor',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-editor',
       ownerUserId: 'editor-1',
       scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
     })
-    const agent = ctx.asMcpApiKey('ba_key_editor', 'editor-1')
+    const agent = ctx.asMcpOAuth('client-editor', 'editor-1')
     const run = await agent.mutation(api.agentRuns.startRun, { taskName: 'Edit draft' })
 
     await expect(

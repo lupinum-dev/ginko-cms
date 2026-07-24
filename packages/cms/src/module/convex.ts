@@ -48,7 +48,7 @@ const coreSetupFiles = [
   'convex/ginkoCms/editor.ts',
   'convex/ginkoCms/caller.ts',
   'convex/ginkoCms/maintenance.ts',
-  'convex/ginkoCms/mcpCredentials.ts',
+  'convex/ginkoCms/mcpOAuthDelegations.ts',
   'convex/ginkoCms/members.ts',
   'convex/ginkoCms/passwordRecovery.ts',
   'convex/ginkoCms/contractTransitions.ts',
@@ -317,7 +317,7 @@ function staleBridgePathIssue(rootDir: string, relativePath: string): ConvexSetu
   return {
     name: `stale bridge ${relativePath}`,
     message: `${relativePath} is a stale generated bridge ${stat.isDirectory() ? 'directory' : 'file'}.`,
-    fix: `Delete ${relativePath}; current Ginko CMS setup uses convex/ginkoCms root adapters and Better Auth API-key MCP credentials.`,
+    fix: `Delete ${relativePath}; current Ginko CMS setup uses convex/ginkoCms root adapters and Better Auth OAuth for MCP access.`,
   }
 }
 

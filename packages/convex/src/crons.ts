@@ -14,13 +14,6 @@ crons.interval(
 )
 
 crons.interval(
-  'cleanup expired MCP authentication buckets',
-  { minutes: 10 },
-  internal.mcpAuthLimiter.cleanupExpiredFailureBuckets,
-  {},
-)
-
-crons.interval(
   'cleanup storage hygiene rows',
   { hours: 1 },
   internal.storageMaintenance.cleanupStorageHygiene,

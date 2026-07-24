@@ -10,7 +10,8 @@ import { useConvexMutation } from '../composables/useStudioConvex'
 
 type AgentRun = {
   _id: string
-  credentialApiKeyId: string | null
+  oauthDelegationId: string
+  oauthClientId: string
   delegatedUserId: string
   scopeSnapshot: string[]
   taskName: string
@@ -146,7 +147,7 @@ async function revokeRun(run: AgentRun) {
               <div
                 class="ginko:mt-1 ginko:flex ginko:flex-wrap ginko:gap-2 ginko:text-xs ginko:text-muted-foreground"
               >
-                <span>{{ run.credentialApiKeyId ? 'review required' : 'human-controlled' }}</span>
+                <span>OAuth delegated</span>
                 <span>{{ scopeSummary(run.scopeSnapshot) }}</span>
                 <span v-if="run.expiresAt">
                   expires
@@ -168,11 +169,11 @@ async function revokeRun(run: AgentRun) {
                   <code class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1">{{
                     shortId(run._id)
                   }}</code>
-                  <code
-                    v-if="run.credentialApiKeyId"
-                    class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1"
-                  >
-                    key {{ shortId(run.credentialApiKeyId) }}
+                  <code class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1">
+                    client {{ shortId(run.oauthClientId) }}
+                  </code>
+                  <code class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1">
+                    delegation {{ shortId(run.oauthDelegationId) }}
                   </code>
                   <code class="ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1">
                     user {{ shortId(run.delegatedUserId) }}

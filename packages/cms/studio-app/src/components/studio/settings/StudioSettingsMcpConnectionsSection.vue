@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { Copy, KeyRound, Loader2, Plus, Trash2 } from '@lucide/vue'
+import { KeyRound, Loader2, Plus, Trash2 } from '@lucide/vue'
 import { computed, ref } from 'vue'
 
 import type { StudioSettingsAdminViewModel } from '../../../composables/internal/useStudioSettingsAdmin'
 
 const props = defineProps<{ admin: StudioSettingsAdminViewModel }>()
 const settings = props.admin
-// The /mcp route only exists when the host enables ginkoCms.mcp; without it,
-// minting keys would hand owners credentials that can never authenticate.
+// The /mcp route only exists when the host enables ginkoCms.mcp.
 const mcpRouteEnabled = computed(() => settings.config.mcp?.enabled === true)
 const showRevokedConnections = ref(false)
 type McpConnection = StudioSettingsAdminViewModel['mcpConnections'][number]
-type PendingRevokeConnection = Pick<McpConnection, 'apiKeyId' | 'label' | 'ownerUserId' | 'scopes'>
+type PendingRevokeConnection = Pick<
+  McpConnection,
+  'delegationId' | 'oauthClientId' | 'label' | 'ownerUserId' | 'scopes'
+>
 const pendingRevokeConnection = ref<PendingRevokeConnection | null>(null)
 const revokedConnectionCount = computed(
   () => settings.mcpConnections.filter((connection) => connection.status !== 'active').length,
@@ -24,7 +26,8 @@ const visibleConnections = computed(() =>
 
 function requestRevokeConnection(connection: McpConnection) {
   pendingRevokeConnection.value = {
-    apiKeyId: connection.apiKeyId,
+    delegationId: connection.delegationId,
+    oauthClientId: connection.oauthClientId,
     label: connection.label,
     ownerUserId: connection.ownerUserId,
     scopes: connection.scopes,
@@ -33,7 +36,7 @@ function requestRevokeConnection(connection: McpConnection) {
 
 async function confirmRevokeConnection() {
   if (!pendingRevokeConnection.value) return
-  await settings.handleRevokeMcpConnection(pendingRevokeConnection.value.apiKeyId)
+  await settings.handleRevokeMcpConnection(pendingRevokeConnection.value.delegationId)
   pendingRevokeConnection.value = null
 }
 </script>
@@ -85,24 +88,6 @@ async function confirmRevokeConnection() {
       />
 
       <StudioNotice
-        v-if="settings.mcpCreatedToken"
-        tone="warning"
-        :title="settings.t('ginkoCms.studio.settingsPage.mcpTokenReady')"
-        :description="settings.t('ginkoCms.studio.settingsPage.mcpTokenReadyDescription')"
-      >
-        <div class="ginko:mt-3 ginko:space-y-3">
-          <code
-            class="ginko:block ginko:break-all ginko:rounded-md ginko:bg-background ginko:px-3 ginko:py-2 ginko:text-xs"
-            >{{ settings.mcpCreatedToken.key }}</code
-          >
-          <Button variant="outline" size="sm" @click="settings.copyMcpToken">
-            <Copy class="ginko:size-3.5" />
-            Copy access key
-          </Button>
-        </div>
-      </StudioNotice>
-
-      <StudioNotice
         v-if="!mcpRouteEnabled"
         tone="neutral"
         :title="settings.t('ginkoCms.studio.settingsPage.mcpDisabledTitle')"
@@ -116,13 +101,22 @@ async function confirmRevokeConnection() {
       </StudioNotice>
 
       <div v-else class="ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-4">
-        <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@3xl:grid-cols-[1fr_10rem]">
+        <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@3xl:grid-cols-[1fr_1fr_10rem]">
           <div class="ginko:space-y-1.5">
             <Label class="ginko:text-xs ginko:text-muted-foreground">Name</Label>
             <Input
               v-model="settings.mcpConnectionForm.name"
               class="ginko:h-8 ginko:text-sm"
               :placeholder="settings.t('ginkoCms.studio.settingsPage.apiKeyNamePlaceholder')"
+            />
+          </div>
+          <div class="ginko:space-y-1.5">
+            <Label class="ginko:text-xs ginko:text-muted-foreground">OAuth client ID</Label>
+            <Input
+              v-model="settings.mcpConnectionForm.oauthClientId"
+              class="ginko:h-8 ginko:text-sm"
+              autocomplete="off"
+              placeholder="Registered client ID"
             />
           </div>
           <div class="ginko:space-y-1.5">
@@ -209,7 +203,7 @@ async function confirmRevokeConnection() {
         </div>
         <div
           v-for="connection in visibleConnections"
-          :key="connection.apiKeyId"
+          :key="connection.delegationId"
           class="ginko:flex ginko:flex-col ginko:gap-3 ginko:px-4 ginko:py-3 ginko:@2xl:flex-row ginko:@2xl:items-center ginko:@2xl:justify-between"
         >
           <div class="ginko:min-w-0">
@@ -233,12 +227,13 @@ async function confirmRevokeConnection() {
             variant="outline"
             size="sm"
             :disabled="
-              connection.status !== 'active' || settings.revokingMcpApiKeyId === connection.apiKeyId
+              connection.status !== 'active' ||
+              settings.revokingMcpDelegationId === connection.delegationId
             "
             @click="requestRevokeConnection(connection)"
           >
             <Loader2
-              v-if="settings.revokingMcpApiKeyId === connection.apiKeyId"
+              v-if="settings.revokingMcpDelegationId === connection.delegationId"
               class="ginko:size-3.5 ginko:animate-spin"
             />
             <Trash2 v-else class="ginko:size-3.5" />
@@ -247,7 +242,7 @@ async function confirmRevokeConnection() {
           <StudioDeveloperDetails class="ginko:w-full ginko:@2xl:basis-full" :framed="false">
             <code
               class="ginko:mt-2 ginko:block ginko:break-all ginko:rounded ginko:bg-muted ginko:px-2 ginko:py-1 ginko:text-xs"
-              >{{ connection.apiKeyId }}</code
+              >client {{ connection.oauthClientId }}</code
             >
           </StudioDeveloperDetails>
         </div>
@@ -257,7 +252,7 @@ async function confirmRevokeConnection() {
     <StudioConfirmDialog
       :open="!!pendingRevokeConnection"
       title="Revoke MCP access?"
-      description="This ends the selected MCP connection. Existing AI work sessions using this key will no longer be able to access CMS operations."
+      description="This ends the selected OAuth delegation. Existing AI work sessions using it will no longer be able to access CMS operations."
       confirm-label="Revoke access"
       confirm-variant="destructive"
       @update:open="pendingRevokeConnection = $event ? pendingRevokeConnection : null"
@@ -276,7 +271,7 @@ async function confirmRevokeConnection() {
         <StudioDeveloperDetails class="ginko:mt-2" :framed="false">
           <div class="ginko:mt-2 ginko:grid ginko:gap-2 ginko:text-xs">
             <code class="ginko:block ginko:break-all">
-              {{ pendingRevokeConnection.apiKeyId }}
+              client {{ pendingRevokeConnection.oauthClientId }}
             </code>
             <code class="ginko:block ginko:break-all">
               owner {{ pendingRevokeConnection.ownerUserId }}

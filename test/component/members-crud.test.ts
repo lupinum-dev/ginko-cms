@@ -127,16 +127,17 @@ describe('component: members CRUD', () => {
     })
   })
 
-  it('[ADM-01] revokes MCP credential settings when removing a member', async () => {
+  it('[ADM-01] revokes MCP OAuth delegations when removing a member', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
     const settingsId = await ctx.seed(
-      'mcpCredentialSettings' as never,
+      'mcpOAuthDelegations' as never,
       {
-        apiKeyId: 'ba_key_editor',
+        delegationId: 'mcpd_editor',
+        oauthClientId: 'client-editor',
         ownerUserId: 'editor-1',
-        label: 'Editor key',
+        label: 'Editor delegation',
         scopes: ['cms.entries.edit'],
         status: 'active',
         createdBy: 'owner-1',

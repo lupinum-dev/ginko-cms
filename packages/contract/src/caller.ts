@@ -21,7 +21,10 @@ export type CmsUserCaller = {
 
 export type CmsMcpCaller = {
   kind: 'mcp'
-  apiKeyId: string
+  issuer: string
+  userId: string
+  clientId: string
+  scopes: string[]
   subject: `agent:${string}`
 }
 
@@ -40,7 +43,9 @@ export function getExpectedCmsCallerSubject(caller: CmsCaller): CmsCaller['subje
     case 'user':
       return subject.user(caller.userId)
     case 'mcp':
-      return subject.agent(caller.apiKeyId)
+      return subject.agent(
+        [caller.issuer, caller.userId, caller.clientId].map(encodeURIComponent).join(':'),
+      )
     case 'deploy':
       return subject.deploy(caller.deployId)
   }
@@ -55,7 +60,7 @@ export function assertCmsCallerConsistency(caller: CmsCaller): CmsCaller {
       case 'user':
         throw new Error('CMS user caller subject must match the userId.')
       case 'mcp':
-        throw new Error('CMS MCP caller subject must match the apiKeyId.')
+        throw new Error('CMS MCP caller subject must match its verified OAuth identity.')
       case 'deploy':
         throw new Error('CMS deploy caller subject must match the deployId.')
     }
@@ -91,11 +96,20 @@ export function cmsUserCaller(
   }
 }
 
-export function cmsMcpCaller(apiKeyId: string): CmsMcpCaller {
+export function cmsMcpCaller(input: {
+  issuer: string
+  userId: string
+  clientId: string
+  scopes: readonly string[]
+}): CmsMcpCaller {
+  const identity = [input.issuer, input.userId, input.clientId].map(encodeURIComponent).join(':')
   return {
     kind: 'mcp',
-    apiKeyId,
-    subject: subject.agent(apiKeyId),
+    issuer: input.issuer,
+    userId: input.userId,
+    clientId: input.clientId,
+    scopes: [...input.scopes],
+    subject: subject.agent(identity),
   }
 }
 
@@ -117,7 +131,8 @@ export function cmsCallerFromConvexAuthIdentity(identity: {
  * can be forwarded into a component ACTION, where `ctx.auth` yields nothing
  * (Convex does not propagate user auth into component actions). The result is
  * only as trusted as the app-side `ctx.auth` identity it came from. MCP callers
- * use the separate host-server assertion path and never enter Convex auth.
+ * are constructed separately from a verified OAuth access context and never
+ * enter Convex user auth.
  */
 export function cmsCallerFromActionAuthIdentity(
   identity: {

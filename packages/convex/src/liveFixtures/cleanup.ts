@@ -48,12 +48,6 @@ async function deleteEntryDependents(ctx: MutationCtx, entryId: Id<'entries'>) {
     .collect()) {
     await ctx.db.delete(row._id)
   }
-  for (const row of await ctx.db
-    .query('mcpCreateEntryReceipts')
-    .withIndex('by_entry', (q) => q.eq('entryId', entryId))
-    .collect()) {
-    await ctx.db.delete(row._id)
-  }
   for (const locale of FIXTURE_LOCALES) {
     for (const table of ['draftSearchEntries', 'publicSearchEntries', 'publicEntries'] as const) {
       const row = await ctx.db
@@ -186,18 +180,18 @@ export async function cleanupControlPageHandler(
     const members = await fixtureMembers(ctx, args.prefix)
     let deleted = 0
     for (const member of members) {
-      const credentials = await ctx.db
-        .query('mcpCredentialSettings')
+      const delegations = await ctx.db
+        .query('mcpOAuthDelegations')
         .withIndex('by_owner_user', (q) => q.eq('ownerUserId', member.userId))
         .take(count)
-      for (const credential of credentials) {
+      for (const delegation of delegations) {
         for (const run of await ctx.db
           .query('agentRuns')
-          .withIndex('by_credential', (q) => q.eq('credentialApiKeyId', credential.apiKeyId))
-          .collect()) {
+          .withIndex('by_delegation', (q) => q.eq('oauthDelegationId', delegation.delegationId))
+          .take(100)) {
           await ctx.db.delete(run._id)
         }
-        await ctx.db.delete(credential._id)
+        await ctx.db.delete(delegation._id)
         deleted += 1
       }
     }
@@ -274,9 +268,9 @@ export const counts = internalQuery({
     for (const member of members) {
       mcpConnections += (
         await ctx.db
-          .query('mcpCredentialSettings')
+          .query('mcpOAuthDelegations')
           .withIndex('by_owner_user', (q) => q.eq('ownerUserId', member.userId))
-          .collect()
+          .take(100)
       ).length
     }
     return {

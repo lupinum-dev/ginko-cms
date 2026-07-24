@@ -21,7 +21,7 @@ Use these docs by reader task:
   [Content model](./reference/content-model.md), and
   [Studio workflows](./concepts/studio/workflows.md).
 - Auth and roles: use [Auth and roles](./reference/auth-and-roles.md) for the
-  Better Auth, CMS member, MCP credential, agent-run, and review-request model.
+  Better Auth, CMS member, MCP OAuth delegation, agent-run, and review-request model.
 - Agent workflows: use [MCP agent workflows](./guides/mcp-agent-workflows.md)
   for the current supervised MCP tool surface.
 - Release and recovery work: use the

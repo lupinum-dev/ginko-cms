@@ -9,7 +9,7 @@ import {
 import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import { describe, expect, it } from 'vitest'
 
-import { api, createCtx, seedMcpCredential, seedMember } from '../helpers'
+import { api, createCtx, seedMcpDelegation, seedMember } from '../helpers'
 
 function contractFixture(options: { path?: string; includePages?: boolean } = {}) {
   return buildResolvedContentContract(
@@ -59,15 +59,20 @@ describe('canonical CMS contract installation', () => {
   it('accepts the host-verified MCP caller used by write preflight', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
-    await seedMcpCredential(ctx, {
-      apiKeyId: 'mcp-contract-preflight',
+    await seedMcpDelegation(ctx, {
+      oauthClientId: 'client-contract-preflight',
       ownerUserId: 'editor-1',
       scopes: [cmsPermissionKeys.read],
     })
 
     await expect(
       ctx.raw.query(api.contract.getInstalledContractStatus, {
-        _trustedCaller: cmsMcpCaller('mcp-contract-preflight'),
+        _trustedCaller: cmsMcpCaller({
+          issuer: 'https://ginko.example.test/api/auth',
+          userId: 'editor-1',
+          clientId: 'client-contract-preflight',
+          scopes: [cmsPermissionKeys.read],
+        }),
       }),
     ).resolves.toEqual({
       installedContentHash: null,

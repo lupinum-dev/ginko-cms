@@ -1,116 +1,138 @@
-import { getFunctionAddress } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createGinkoMcpHandler } from '../../playground/convex/ginkoCms/mcp'
+import { createGinkoMcpHandler } from '../../packages/convex/src/mcpHandler'
 
 const resource = new URL('https://ginko.example.test/mcp')
 const application = new URL('https://app.example.test')
 const bearer = 'ginko-mcp-bearer-sentinel'
-
-function functionName(reference: unknown) {
-  const address = getFunctionAddress(reference as never)
-  return 'name' in address ? address.name : address.reference
-}
+const issuer = `${application.origin}/api/auth`
+const authorizationMetadata = {
+  authorization_endpoint: `${issuer}/oauth2/authorize`,
+  authorization_response_iss_parameter_supported: true,
+  code_challenge_methods_supported: ['S256'],
+  grant_types_supported: ['authorization_code'],
+  issuer,
+  jwks_uri: `${issuer}/jwks`,
+  response_types_supported: ['code'],
+  revocation_endpoint: `${issuer}/oauth2/revoke`,
+  scopes_supported: ['cms.read', 'cms.entries.edit'],
+  token_endpoint: `${issuer}/oauth2/token`,
+  token_endpoint_auth_methods_supported: ['none'],
+} as const
 
 function createFixture() {
-  let credentialActive = true
+  let accessActive = true
   let applicationAccess: 'allowed' | 'revoked-member' | 'cross-tenant' = 'allowed'
-  let scopes = ['readCms', 'editEntries']
+  let scopes = ['cms.read', 'cms.entries.edit']
   let draftVersion = 1
   let review: Record<string, unknown> | null = null
-  const calls: Array<{ functionName: unknown; args: unknown }> = []
-  const ctx = {
-    meta: {
-      async getRequestMetadata() {
-        return { ip: '203.0.113.10', requestId: crypto.randomUUID() }
-      },
-    },
-    async runQuery(reference: unknown, args: unknown) {
-      const name = functionName(reference)
-      calls.push({ functionName: name, args })
-      if (name === 'ginkoCms/mcpOperations:getEntry') {
-        if (applicationAccess !== 'allowed') {
-          throw new Error(`private application denial: ${applicationAccess}`)
-        }
-        return { _id: 'entry-1', draftVersion }
-      }
-      if (name === 'ginkoCms/mcpOperations:getReviewStatus') {
-        if (applicationAccess !== 'allowed') {
-          throw new Error(`private application denial: ${applicationAccess}`)
-        }
-        if (!review || review._id !== (args as { reviewRequestId?: unknown }).reviewRequestId) {
-          throw new Error('private application denial: unknown review')
-        }
-        return review
-      }
-      throw new Error(`Unexpected query: ${String(name)}`)
-    },
-    async runMutation(reference: unknown, args: Record<string, unknown>) {
-      const name = functionName(reference)
-      calls.push({ functionName: name, args })
-      if (typeof name === 'string' && name.endsWith('/mcpCredentials/admitAccessBySecretHash')) {
-        return credentialActive
-          ? {
-              kind: 'access',
-              access: {
-                apiKeyId: 'mcp_credential_1',
-                ownerUserId: 'owner-1',
-                scopes,
-                expiresAt: null,
-              },
-            }
-          : { kind: 'invalid' }
-      }
-      if (name === 'ginkoCms/mcpOperations:startAgentRun') {
-        return { _id: 'run-1', status: 'active', taskName: args.taskName }
-      }
-      if (name === 'ginkoCms/mcpOperations:completeAgentRun') {
-        return { _id: args.agentRunId, status: 'completed', taskName: 'Update entry' }
-      }
+  const calls: Array<{ operation: string; args: unknown }> = []
+  const caller = {
+    clientId: 'client-ginko-test',
+    issuer,
+    scopes,
+    subject: 'owner-1',
+  }
+  const operations = {
+    async getEntry(args: unknown) {
+      calls.push({ operation: 'get-entry', args })
       if (applicationAccess !== 'allowed') {
         throw new Error(`private application denial: ${applicationAccess}`)
       }
-      if (name === 'ginkoCms/mcpOperations:requestPublishReview') {
-        if (!review) {
-          review = {
-            _id: 'review-1',
-            isStale: false,
-            status: 'pending',
-            operationKey: args.operationKey,
-          }
-        } else if (review.operationKey !== args.operationKey) {
-          throw new Error('private operation conflict')
-        }
-        return review
+      return { _id: 'entry-1', draftVersion }
+    },
+    async getReviewStatus(args: Record<string, unknown>) {
+      calls.push({ operation: 'review-status', args })
+      if (applicationAccess !== 'allowed') {
+        throw new Error(`private application denial: ${applicationAccess}`)
       }
-      const expectedVersion =
-        name === 'ginkoCms/mcpOperations:previewPublish'
-          ? args.expectedVersion
-          : args.expectedDraftVersion
-      if (expectedVersion !== draftVersion) {
+      if (!review || review._id !== args.reviewRequestId) {
+        throw new Error('private application denial: unknown review')
+      }
+      return review
+    },
+    async startAgentRun(args: Record<string, unknown>) {
+      calls.push({ operation: 'start-run', args })
+      return { _id: 'run-1', status: 'active', taskName: args.taskName }
+    },
+    async completeAgentRun(args: Record<string, unknown>) {
+      calls.push({ operation: 'complete-run', args })
+      return { _id: args.agentRunId, status: 'completed', taskName: 'Update entry' }
+    },
+    async requestPublishReview(args: Record<string, unknown>) {
+      calls.push({ operation: 'request-review', args })
+      if (applicationAccess !== 'allowed') {
+        throw new Error(`private application denial: ${applicationAccess}`)
+      }
+      if (!review) {
+        review = {
+          _id: 'review-1',
+          isStale: false,
+          status: 'pending',
+          operationKey: args.operationKey,
+        }
+      } else if (review.operationKey !== args.operationKey) {
+        throw new Error('private operation conflict')
+      }
+      return review
+    },
+    async saveEntryDraft(args: Record<string, unknown>) {
+      calls.push({ operation: 'save-draft', args })
+      if (applicationAccess !== 'allowed') {
+        throw new Error(`private application denial: ${applicationAccess}`)
+      }
+      if (args.expectedDraftVersion !== draftVersion) {
         const error = new Error('opaque') as Error & { data: unknown }
         error.data = { code: 'ENTRY_DRAFT_VERSION_CONFLICT' }
         throw error
       }
-      if (name === 'ginkoCms/mcpOperations:previewPublish') {
-        return {
-          allowed: true,
-          blockers: [],
-          confirmation: null,
-          effects: [{ count: 1, kind: 'routes', summary: 'Public routes affected' }],
-          summary: 'Publish impact for entry entry-1 (en): ready.',
-          warnings: [],
-        }
-      }
       draftVersion += 1
       return { draftVersion, affectedLocales: [], sharedUpdated: true }
     },
+    async previewPublish(args: Record<string, unknown>) {
+      calls.push({ operation: 'preview-publish', args })
+      if (applicationAccess !== 'allowed') {
+        throw new Error(`private application denial: ${applicationAccess}`)
+      }
+      if (args.expectedVersion !== draftVersion) {
+        const error = new Error('opaque') as Error & { data: unknown }
+        error.data = { code: 'ENTRY_DRAFT_VERSION_CONFLICT' }
+        throw error
+      }
+      return {
+        allowed: true,
+        blockers: [],
+        confirmation: null,
+        effects: [{ count: 1, kind: 'routes', summary: 'Public routes affected' }],
+        summary: 'Publish impact for entry entry-1 (en): ready.',
+        warnings: [],
+      }
+    },
   }
+  const handler = createGinkoMcpHandler({
+    authorizationMetadata,
+    operations: operations as never,
+    resource,
+    reviewInteractionBase: new URL('/api/_ginko/reviews/', application),
+    verifier: {
+      async verifyAccessToken(token: string, expectedResource: URL) {
+        if (!accessActive || token !== bearer) throw new Error('access rejected')
+        return {
+          access: {
+            ...caller,
+            resource: expectedResource.href,
+            scopes: [...scopes],
+          },
+          expiresAt: Date.now() + 60_000,
+        }
+      },
+    },
+  })
   return {
     calls,
-    ctx,
+    handler,
     revoke: () => {
-      credentialActive = false
+      accessActive = false
     },
     denyApplication: (reason: 'revoked-member' | 'cross-tenant') => {
       applicationAccess = reason
@@ -132,9 +154,8 @@ async function callTool(
     supportsUrl?: boolean
   },
 ) {
-  const handler = createGinkoMcpHandler(fixture.ctx as never, new URL(resource.origin), application)
-  const response = await handler.fetch(
-    fixture.ctx as never,
+  const response = await fixture.handler.fetch(
+    {},
     new Request(resource, {
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -184,15 +205,32 @@ async function callTool(
 }
 
 describe('Ginko Convex-native MCP endpoint', () => {
+  it('serves exact OAuth resource and authorization-server discovery', async () => {
+    const fixture = createFixture()
+    const protectedResource = await fixture.handler.fetch(
+      {},
+      new Request('https://ginko.example.test/.well-known/oauth-protected-resource/mcp'),
+    )
+    expect(protectedResource.status).toBe(200)
+    await expect(protectedResource.json()).resolves.toEqual({
+      authorization_servers: [issuer],
+      resource: resource.href,
+      resource_name: 'Ginko CMS MCP',
+      scopes_supported: ['cms.read', 'cms.entries.edit'],
+    })
+
+    const authorizationServer = await fixture.handler.fetch(
+      {},
+      new Request('https://ginko.example.test/.well-known/oauth-authorization-server'),
+    )
+    expect(authorizationServer.status).toBe(200)
+    await expect(authorizationServer.json()).resolves.toEqual(authorizationMetadata)
+  })
+
   it('advertises one explicit finite tool inventory', async () => {
     const fixture = createFixture()
-    const handler = createGinkoMcpHandler(
-      fixture.ctx as never,
-      new URL(resource.origin),
-      application,
-    )
-    const response = await handler.fetch(
-      fixture.ctx as never,
+    const response = await fixture.handler.fetch(
+      {},
       new Request(resource, {
         body: JSON.stringify({
           jsonrpc: '2.0',
@@ -387,7 +425,7 @@ describe('Ginko Convex-native MCP endpoint', () => {
     expect(JSON.stringify(preview.body)).not.toContain(bearer)
   })
 
-  it('fails current credential, scope, and optimistic-concurrency checks safely', async () => {
+  it('fails current OAuth access, scope, and optimistic-concurrency checks safely', async () => {
     const fixture = createFixture()
     const conflict = await callTool(fixture, 'save-entry-draft', {
       agentRunId: 'run-1',
@@ -404,7 +442,7 @@ describe('Ginko Convex-native MCP endpoint', () => {
       },
     })
 
-    fixture.setScopes(['readCms'])
+    fixture.setScopes(['cms.read'])
     const denied = await callTool(fixture, 'save-entry-draft', {
       agentRunId: 'run-1',
       entryId: 'entry-1',
@@ -418,7 +456,9 @@ describe('Ginko Convex-native MCP endpoint', () => {
     fixture.revoke()
     const revoked = await callTool(fixture, 'get-entry', { entryId: 'entry-1' })
     expect(revoked.response.status).toBe(401)
-    expect(revoked.response.headers.get('www-authenticate')).not.toContain('resource_metadata')
+    expect(revoked.response.headers.get('www-authenticate')).toContain(
+      'resource_metadata="https://ginko.example.test/.well-known/oauth-protected-resource/mcp"',
+    )
     expect(revoked.text).not.toContain(bearer)
   })
 
