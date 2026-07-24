@@ -127,6 +127,74 @@ describe('canonical publish reviews', () => {
     )
   })
 
+  it('keeps reviewer policy application-owned and serializes competing publisher decisions', async () => {
+    async function approveAs(reviewerId: 'publisher-1' | 'publisher-2') {
+      const ctx = createCtx()
+      await seedOwner(ctx)
+      await seedMember(ctx, { userId: 'publisher-1', role: 'publisher' })
+      await seedMember(ctx, { userId: 'publisher-2', role: 'publisher' })
+      await seedSettings(ctx)
+      const { entryId } = await seedEditorFixture(ctx)
+      const requester = ctx.asCmsUser('publisher-1')
+      const review = await requester.mutation(api.reviewRequests.requestPublishReview, {
+        entryId,
+        expectedVersion: 1,
+        locales: ['en'],
+        title: 'Application-owned reviewer policy',
+        summary: 'The current publisher policy chooses who may decide.',
+      })
+
+      const approved = await ctx.asCmsUser(reviewerId).mutation(api.reviewRequests.approveReview, {
+        reviewRequestId: review._id,
+        expectedVersionHash: review.versionHash,
+      })
+
+      expect(approved).toMatchObject({
+        _id: review._id,
+        status: 'approved',
+        reviewedBy: reviewerId,
+      })
+    }
+
+    await approveAs('publisher-1')
+    await approveAs('publisher-2')
+
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'publisher-1', role: 'publisher' })
+    await seedMember(ctx, { userId: 'publisher-2', role: 'publisher' })
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const review = await ctx
+      .asCmsUser('publisher-1')
+      .mutation(api.reviewRequests.requestPublishReview, {
+        entryId,
+        expectedVersion: 1,
+        locales: ['en'],
+        title: 'Competing publisher decisions',
+        summary: 'Only one current publisher decision may commit.',
+      })
+    const decide = (reviewerId: 'publisher-1' | 'publisher-2') =>
+      ctx.asCmsUser(reviewerId).mutation(api.reviewRequests.approveReview, {
+        reviewRequestId: review._id,
+        expectedVersionHash: review.versionHash,
+      })
+
+    const decisions = await Promise.allSettled([decide('publisher-1'), decide('publisher-2')])
+    expect(decisions.filter((decision) => decision.status === 'fulfilled')).toHaveLength(1)
+    expect(decisions.filter((decision) => decision.status === 'rejected')).toHaveLength(1)
+    expect(await ctx.readAll('entryRevisions')).toHaveLength(1)
+    expect(await ctx.readAll('publicEntries')).toHaveLength(1)
+    expect(await ctx.readAll('destructiveAuditLog')).toHaveLength(1)
+    expect(await ctx.readAll('reviewRequests')).toEqual([
+      expect.objectContaining({
+        _id: review._id,
+        status: 'approved',
+        reviewedBy: expect.stringMatching(/^publisher-[12]$/),
+      }),
+    ])
+  })
+
   it('requires an owned active agent run for MCP review requests', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
