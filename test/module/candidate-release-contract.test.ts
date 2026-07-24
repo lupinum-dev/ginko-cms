@@ -30,9 +30,9 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms-convex': '0.2.0-rc.1',
       '@lupinum/ginko-cms-contract': '0.2.0-rc.1',
       '@lupinum/ginko-content': '0.3.0-rc.5',
-      '@better-convex/mcp': '0.1.0-beta.5',
-      'better-convex-nuxt': '0.8.0-beta.15',
-      'better-convex-vue': '0.8.0-beta.15',
+      '@better-convex/mcp': '0.1.0-beta.6',
+      'better-convex-nuxt': '0.8.0-beta.18',
+      'better-convex-vue': '0.8.0-beta.18',
     })
     expect(
       readJson<{ consumer: { dependencies: Record<string, string> } }>(
@@ -49,14 +49,14 @@ describe('coordinated CMS candidate release contract', () => {
       'better-convex-vue',
     ])
     expect(compatibility.releaseArtifacts['better-convex-nuxt']?.runtimeFingerprint).toBe(
-      'bcn-release-v1-53f22482645ee2593d415fee01735197250780fec2f50f7d91b088f107a99d6a',
+      'bcn-release-v1-bc9b69a7706849733c43d6284c385aa4c63c1cf4493da187d0e305b2a5843caf',
     )
     expect(
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
       'better-auth': '1.7.0-rc.1',
-      'better-convex-nuxt': '0.8.0-beta.15',
-      'better-convex-vue': '0.8.0-beta.15',
+      'better-convex-nuxt': '0.8.0-beta.18',
+      'better-convex-vue': '0.8.0-beta.18',
       convex: '1.42.2',
       kysely: '0.28.17',
       nuxt: '4.4.8',
