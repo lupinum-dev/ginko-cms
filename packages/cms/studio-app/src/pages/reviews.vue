@@ -2,6 +2,7 @@
 import { Check, Inbox, Loader2, PanelRight, X } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { api } from '../boundary/api'
 import StudioReviewDetail from '../components/studio/reviews/StudioReviewDetail.vue'
@@ -59,6 +60,8 @@ const pageError = computed(() =>
 // tree, not this page subtree — can reach it through the props getter. The same
 // StudioReviewDetail component still renders inline in each list card.
 const selectedReviewId = ref<string | null>(null)
+const route = useRoute()
+const consumedReviewLink = ref<string | null>(null)
 const selectedReview = computed<ReviewRequest | null>(
   () => reviews.value.find((review) => review._id === selectedReviewId.value) ?? null,
 )
@@ -89,6 +92,19 @@ function selectReview(request: ReviewRequest) {
     rightSidebar.setOpen(true)
   }
 }
+
+watch(
+  [() => route.query.review, reviews],
+  ([rawReviewId, availableReviews]) => {
+    const reviewId = typeof rawReviewId === 'string' ? rawReviewId : null
+    if (!reviewId || consumedReviewLink.value === reviewId) return
+    const review = availableReviews.find((candidate) => candidate._id === reviewId)
+    if (!review) return
+    consumedReviewLink.value = reviewId
+    selectReview(review)
+  },
+  { immediate: true },
+)
 
 async function approve(request: ReviewRequest): Promise<boolean> {
   decisionError.value = ''

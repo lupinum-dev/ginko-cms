@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -49,7 +49,7 @@ function installMatchMedia() {
   })
 }
 
-function mountReviewsPage() {
+function mountReviewsPage(path = '/reviews') {
   installLocalStorage()
   installMatchMedia()
   const router = createRouter({
@@ -63,7 +63,6 @@ function mountReviewsPage() {
       },
     ],
   })
-  router.push('/reviews')
   // Layout harness that provides the right-sidebar controller the page registers into.
   const Harness = defineComponent({
     setup() {
@@ -71,12 +70,14 @@ function mountReviewsPage() {
       return () => h(StudioReviewsPage)
     },
   })
-  return mount(Harness, {
+  const wrapper = mount(Harness, {
     global: {
       plugins: [router],
       stubs: stubs(),
     },
   })
+  void router.push(path)
+  return wrapper
 }
 
 const pendingReviews = vi.hoisted(() => [
@@ -452,6 +453,15 @@ function stubs() {
 }
 
 describe('Studio reviews page', () => {
+  it('opens one explicit pending review from an inert application deep link', async () => {
+    const wrapper = mountReviewsPage('/reviews?review=review-1')
+    await flushPromises()
+
+    expect(wrapper.find('button[aria-pressed="true"]').text()).toContain('Details')
+    expect(mutationMocks.approveReview).not.toHaveBeenCalled()
+    expect(mutationMocks.rejectReview).not.toHaveBeenCalled()
+  })
+
   it('[PUB-04] presents the canonical proposed change as a marketer-readable review with guarded actions', () => {
     const wrapper = mountReviewsPage()
 

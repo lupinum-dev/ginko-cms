@@ -31,6 +31,28 @@ async function requestAgentReview(
 ) {
   return await agent.mutation(api.reviewRequests.requestPublishReview, {
     agentRunId: args.runId,
+    operationKey: crypto.randomUUID(),
+    entryId: args.entryId,
+    expectedVersion: args.expectedVersion,
+    locales: ['en'],
+    title: args.title,
+    summary: 'Ready for a publisher decision.',
+  })
+}
+
+async function requestAgentReviewWithOperationKey(
+  agent: ReturnType<ReturnType<typeof createCtx>['asMcpApiKey']>,
+  args: {
+    operationKey: string
+    runId: string
+    entryId: string
+    expectedVersion: number
+    title: string
+  },
+) {
+  return await agent.mutation(api.reviewRequests.requestPublishReview, {
+    agentRunId: args.runId,
+    operationKey: args.operationKey,
     entryId: args.entryId,
     expectedVersion: args.expectedVersion,
     locales: ['en'],
@@ -135,6 +157,77 @@ describe('canonical publish reviews', () => {
       }),
     ).rejects.toThrow(/not active/i)
     expect(await ctx.readAll('reviewRequests')).toEqual([])
+  })
+
+  it('binds one MCP operation key to one canonical review across retries and concurrency', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const agent = await createEditorAgent(ctx)
+    const run = await agent.mutation(api.agentRuns.startRun, { taskName: 'Retry-safe review' })
+    const operationKey = 'publish-review-operation-000000000001'
+    const request = () =>
+      requestAgentReviewWithOperationKey(agent, {
+        operationKey,
+        runId: run._id,
+        entryId,
+        expectedVersion: 1,
+        title: 'Retry-safe publish review',
+      })
+
+    const [first, concurrent] = await Promise.all([request(), request()])
+    const retry = await request()
+    expect(first._id).toBe(concurrent._id)
+    expect(retry._id).toBe(first._id)
+    expect(await ctx.readAll('reviewRequests')).toEqual([
+      expect.objectContaining({
+        _id: first._id,
+        mcpOperationKey: operationKey,
+        status: 'pending',
+      }),
+    ])
+
+    await expect(
+      requestAgentReviewWithOperationKey(agent, {
+        operationKey,
+        runId: run._id,
+        entryId,
+        expectedVersion: 1,
+        title: 'Conflicting publish review',
+      }),
+    ).rejects.toThrow(/different review request/i)
+    expect(await ctx.readAll('reviewRequests')).toHaveLength(1)
+
+    await agent.mutation(api.editor.mcpSaveEntryDraft, {
+      agentRunId: run._id,
+      entryId,
+      expectedDraftVersion: 1,
+      patch: { locales: { en: { values: { title: 'Changed after request' } } } },
+    })
+    await expect(request()).resolves.toMatchObject({ _id: first._id, isStale: true })
+    expect(await ctx.readAll('reviewRequests')).toHaveLength(1)
+
+    await seedMember(ctx, { userId: 'editor-2', role: 'editor' })
+    await seedMcpCredential(ctx, {
+      apiKeyId: 'ba_key_editor_2',
+      ownerUserId: 'editor-2',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+    })
+    const otherAgent = ctx.asMcpApiKey('ba_key_editor_2', 'editor-2')
+    await expect(
+      otherAgent.query(api.reviewRequests.getOwnReviewRequest, {
+        reviewRequestId: first._id,
+      }),
+    ).rejects.toThrow(/different caller|different user|does not belong/i)
+
+    const editorMember = (await ctx.readAll('members')).find((row) => row.userId === 'editor-1')
+    if (!editorMember) throw new Error('Editor member fixture is missing.')
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(editorMember._id, { role: 'viewer' })
+    })
+    await expect(request()).rejects.toThrow(/Edit entries/i)
   })
 
   it('[AGT-06][COL-03][PUB-03] pins the canonical draft and preview when requesting review, blocks stale approval, and preserves recoverable work', async () => {

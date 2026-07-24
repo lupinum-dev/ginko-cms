@@ -150,6 +150,9 @@ describe('ginko-cms Convex setup validation', () => {
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCredentials.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/passwordRecovery.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
+    expect(addServerHandler).not.toHaveBeenCalledWith(
+      expect.objectContaining({ route: '/api/_ginko/reviews/:reviewRequestId' }),
+    )
   })
 
   it('accepts the explicit Convex-native MCP setup without registering a Nuxt MCP route', async () => {
@@ -165,6 +168,12 @@ describe('ginko-cms Convex setup validation', () => {
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(true)
     expect(addServerHandler).not.toHaveBeenCalledWith(
       expect.objectContaining({ route: expect.stringContaining('/mcp') }),
+    )
+    expect(addServerHandler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: '/api/_ginko/reviews/:reviewRequestId',
+        method: 'get',
+      }),
     )
   })
 

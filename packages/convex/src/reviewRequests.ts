@@ -9,7 +9,7 @@ import type {
 } from '@lupinum/ginko-cms-contract/shared/readiness.js'
 import { v } from 'convex/values'
 
-import type { Doc, Id } from './_generated/dataModel.js'
+import type { Doc } from './_generated/dataModel.js'
 import { getOwnActiveAgentRunOrThrow, getOwnAgentRunOrThrow } from './agentRuns.js'
 import { canEditEntries, canPublishEntries, canRead } from './auth/checks.js'
 import { previewPublishImpactForEntry } from './diagnostics.js'
@@ -21,7 +21,9 @@ import { stableHash } from './entries/workflow/hashing.js'
 import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
+import { asEntryId } from './lib/ids.js'
 import type { QueryOrMutationCtx } from './lib/types.js'
+import { resolveMcpReviewRetry } from './reviewRequests/mcpOperation.js'
 
 const reviewRequestStatusValidator = v.union(
   v.literal('pending'),
@@ -54,9 +56,6 @@ const reviewRequestValidator = v.object({
   reviewSummary: reviewSummaryValidator,
 })
 
-// Slim outcome shape for closed (non-pending) review requests. Rejections
-// carry the reviewer feedback so the editor sees it where work resumes
-// (PUB-06); the heavy publish preview stays out of this payload.
 const reviewOutcomeValidator = v.object({
   _id: v.string(),
   entryId: v.string(),
@@ -83,12 +82,6 @@ const MAX_REVIEW_OUTCOMES = 20
 const REVIEW_READY_STATUSES = new Set(['ready', 'no_changes'])
 const OUTDATED_REVIEW_PREVIEW_REASON =
   'Review request must be recreated because its publish preview is outdated.'
-
-function requireEntryId(ctx: QueryOrMutationCtx, value: string): Id<'entries'> {
-  const entryId = ctx.db.normalizeId('entries', value)
-  if (!entryId) throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: value })
-  return entryId
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -318,7 +311,7 @@ async function computeReviewPreview(
   ctx: Parameters<typeof previewPublishImpactForEntry>[0],
   args: { entryId: string; locales: string[]; now: number },
 ): Promise<PublishReviewPreview> {
-  const entryId = requireEntryId(ctx, args.entryId)
+  const entryId = asEntryId(ctx, args.entryId)
   const entry = await ctx.db.get(entryId)
   if (!entry) {
     throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: args.entryId })
@@ -374,6 +367,7 @@ export const requestPublishReview = callerMutation.protected({
   id: 'reviewRequests:requestPublishReview',
   args: {
     agentRunId: v.optional(v.union(v.string(), v.null())),
+    operationKey: v.optional(v.string()),
     entryId: v.string(),
     locales: v.array(v.string()),
     expectedVersion: v.number(),
@@ -399,7 +393,24 @@ export const requestPublishReview = callerMutation.protected({
         'Publish review requires at least one locale.',
       )
     }
-    const entryId = requireEntryId(ctx, args.entryId)
+    const locales = canonicalPublishLocales(args.locales)
+    const mcpRetry = await resolveMcpReviewRetry(ctx, {
+      origin: appIdentity.audit.origin,
+      operationKey: args.operationKey,
+      request: {
+        agentRunId: agentRun?._id ?? null,
+        entryId: args.entryId,
+        expectedVersion: args.expectedVersion,
+        locales,
+        message: args.message ?? null,
+        requestedBy: appIdentity.userId,
+        summary: args.summary,
+        title: args.title,
+      },
+    })
+    if (mcpRetry?.existing)
+      return await serializeReviewRequestWithStaleState(ctx, mcpRetry.existing)
+    const entryId = asEntryId(ctx, args.entryId)
     const entry = await ctx.db.get(entryId)
     if (!entry) {
       throwCmsError('ENTRY_NOT_FOUND', 'Entry not found', { entryId: args.entryId })
@@ -417,7 +428,6 @@ export const requestPublishReview = callerMutation.protected({
         },
       )
     }
-    const locales = canonicalPublishLocales(args.locales)
     const preview = await computeReviewPreview(ctx, {
       entryId: args.entryId,
       locales,
@@ -443,6 +453,7 @@ export const requestPublishReview = callerMutation.protected({
 
     const id = await ctx.db.insert('reviewRequests', {
       agentRunId: agentRun?._id ?? null,
+      ...(mcpRetry ? { mcpOperationKey: mcpRetry.operationKey } : {}),
       entryId: args.entryId,
       locales,
       expectedVersion: args.expectedVersion,
@@ -624,11 +635,10 @@ async function serializeReviewOutcome(
   ctx: Parameters<typeof cheapReviewStaleState>[0],
   request: ReviewOutcomeDoc,
 ) {
-  const reviewedBy = request.reviewedBy ?? null
-  const member = reviewedBy
+  const member = request.reviewedBy
     ? await ctx.db
         .query('members')
-        .withIndex('by_userId', (q) => q.eq('userId', reviewedBy))
+        .withIndex('by_userId', (q) => q.eq('userId', request.reviewedBy!))
         .first()
     : null
   return {
@@ -639,7 +649,7 @@ async function serializeReviewOutcome(
     locales: request.locales,
     expectedVersion: request.expectedVersion,
     createdAt: request.createdAt,
-    reviewedBy,
+    reviewedBy: request.reviewedBy ?? null,
     reviewedByLabel: member?.displayName ?? member?.email ?? null,
     reviewedAt: request.reviewedAt ?? null,
     reviewFeedback: request.reviewFeedback ?? null,
@@ -700,8 +710,6 @@ export const listRecentReviewOutcomes = callerQuery.protected({
   },
 })
 
-const MAX_REVIEW_FEEDBACK_LENGTH = 2000
-
 export const rejectReview = callerMutation.protected({
   id: 'reviewRequests:rejectReview',
   acceptsTrustedCaller: true,
@@ -714,7 +722,7 @@ export const rejectReview = callerMutation.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
-    const feedback = args.feedback?.trim().slice(0, MAX_REVIEW_FEEDBACK_LENGTH) || null
+    const feedback = args.feedback?.trim().slice(0, 2000) || null
     const request = await getPendingReviewOrThrow(ctx, args.reviewRequestId)
     await ctx.db.patch(request._id, {
       status: 'rejected',

@@ -338,6 +338,13 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       method: 'get',
       handler: resolve(cmsServerDir, 'routes/portability-asset-download'),
     })
+    if (mcpEnabled) {
+      addServerHandler({
+        route: '/api/_ginko/reviews/:reviewRequestId',
+        method: 'get',
+        handler: resolve(cmsServerDir, 'routes/review-interaction'),
+      })
+    }
 
     // Tailwind source injection
     nuxt.options.vite ??= {}

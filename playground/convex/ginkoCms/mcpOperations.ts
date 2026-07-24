@@ -94,3 +94,41 @@ export const previewPublish = internalMutation({
     )
   },
 })
+
+export const requestPublishReview = internalMutation({
+  args: {
+    apiKeyId: v.string(),
+    agentRunId: v.string(),
+    operationKey: v.string(),
+    entryId: v.string(),
+    locales: v.array(v.string()),
+    expectedVersion: v.number(),
+    message: v.optional(v.string()),
+    title: v.string(),
+    summary: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { apiKeyId, ...reviewArgs } = args
+    return await ctx.runMutation(
+      components.ginkoCms.reviewRequests.requestPublishReview,
+      bindExpectedCmsContract({
+        ...reviewArgs,
+        _trustedCaller: cmsMcpCaller(apiKeyId),
+      }),
+    )
+  },
+})
+
+export const getReviewStatus = internalQuery({
+  args: {
+    apiKeyId: v.string(),
+    reviewRequestId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { apiKeyId, reviewRequestId } = args
+    return await ctx.runQuery(components.ginkoCms.reviewRequests.getOwnReviewRequest, {
+      reviewRequestId,
+      _trustedCaller: cmsMcpCaller(apiKeyId),
+    })
+  },
+})

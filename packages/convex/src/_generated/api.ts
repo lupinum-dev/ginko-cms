@@ -141,6 +141,7 @@ import type * as members from "../members.js";
 import type * as members_invitations from "../members/invitations.js";
 import type * as operationHash from "../operationHash.js";
 import type * as operationHelpers from "../operationHelpers.js";
+import type * as operationPreview from "../operationPreview.js";
 import type * as operations from "../operations.js";
 import type * as portability from "../portability.js";
 import type * as portability_assets from "../portability/assets.js";
@@ -325,6 +326,7 @@ const fullApi: ApiFromModules<{
   "members/invitations": typeof members_invitations;
   operationHash: typeof operationHash;
   operationHelpers: typeof operationHelpers;
+  operationPreview: typeof operationPreview;
   operations: typeof operations;
   portability: typeof portability;
   "portability/assets": typeof portability_assets;

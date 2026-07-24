@@ -887,6 +887,7 @@ const bearer = 'packed-ginko-mcp-bearer-sentinel'
 const calls = []
 const handler = createGinkoMcpHandler({
   issuer: new URL('https://packed.example.test/mcp-credentials/'),
+  reviewInteractionBase: new URL('https://packed.example.test/api/_ginko/reviews/'),
   resource: new URL('https://packed.example.test/mcp'),
   operations: {
     async admitCredential(secretHash) {
@@ -915,6 +916,19 @@ const handler = createGinkoMcpHandler({
     async previewPublish(args) {
       calls.push({ operation: 'preview', args })
       return { allowed: true, blockers: [], effects: [], summary: 'Ready', warnings: [] }
+    },
+    async requestPublishReview(args) {
+      calls.push({ operation: 'request-review', args })
+      return {
+        _id: 'packed-review',
+        isStale: false,
+        requestedBy: 'must-not-cross-mcp-result',
+        status: 'pending',
+      }
+    },
+    async getReviewStatus(args) {
+      calls.push({ operation: 'review-status', args })
+      return { _id: args.reviewRequestId, isStale: false, status: 'pending' }
     },
   },
 })
@@ -961,11 +975,25 @@ const write = await callTool('save-entry-draft', {
   patch: {},
 })
 const completed = await callTool('complete-agent-run', { agentRunId: 'packed-run' })
-const serialized = JSON.stringify({ calls, read, started, write, completed })
+const review = await callTool('request-publish-review', {
+  operationKey: 'packed-review-operation-000000000001',
+  agentRunId: 'packed-run',
+  entryId: 'packed-entry',
+  locales: ['en'],
+  expectedVersion: 2,
+  title: 'Packed review',
+  summary: 'Exact packed review interaction proof.',
+})
+const reviewStatus = await callTool('get-review-status', { reviewRequestId: 'packed-review' })
+const serialized = JSON.stringify({ calls, read, started, write, completed, review, reviewStatus })
 if (!serialized.includes('packed-entry') || !serialized.includes('"draftVersion":2')) {
   throw new Error('Packed MCP read/write results were not preserved.')
 }
 if (serialized.includes(bearer)) throw new Error('Packed MCP bearer escaped its verifier boundary.')
+const publicReviewResults = JSON.stringify({ review, reviewStatus })
+if (!publicReviewResults.includes('packed-review') || publicReviewResults.includes('must-not-cross')) {
+  throw new Error('Packed MCP review projection was not preserved or leaked canonical fields.')
+}
 console.log('packed MCP read/write behavior ok')
 `,
     'utf8',

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { createGinkoMcpHandler } from '../../playground/convex/ginkoCms/mcp'
 
 const resource = new URL('https://ginko.example.test/mcp')
+const application = new URL('https://app.example.test')
 const bearer = 'ginko-mcp-bearer-sentinel'
 
 function functionName(reference: unknown) {
@@ -16,6 +17,7 @@ function createFixture() {
   let applicationAccess: 'allowed' | 'revoked-member' | 'cross-tenant' = 'allowed'
   let scopes = ['readCms', 'editEntries']
   let draftVersion = 1
+  let review: Record<string, unknown> | null = null
   const calls: Array<{ functionName: unknown; args: unknown }> = []
   const ctx = {
     meta: {
@@ -31,6 +33,15 @@ function createFixture() {
           throw new Error(`private application denial: ${applicationAccess}`)
         }
         return { _id: 'entry-1', draftVersion }
+      }
+      if (name === 'ginkoCms/mcpOperations:getReviewStatus') {
+        if (applicationAccess !== 'allowed') {
+          throw new Error(`private application denial: ${applicationAccess}`)
+        }
+        if (!review || review._id !== (args as { reviewRequestId?: unknown }).reviewRequestId) {
+          throw new Error('private application denial: unknown review')
+        }
+        return review
       }
       throw new Error(`Unexpected query: ${String(name)}`)
     },
@@ -58,6 +69,19 @@ function createFixture() {
       }
       if (applicationAccess !== 'allowed') {
         throw new Error(`private application denial: ${applicationAccess}`)
+      }
+      if (name === 'ginkoCms/mcpOperations:requestPublishReview') {
+        if (!review) {
+          review = {
+            _id: 'review-1',
+            isStale: false,
+            status: 'pending',
+            operationKey: args.operationKey,
+          }
+        } else if (review.operationKey !== args.operationKey) {
+          throw new Error('private operation conflict')
+        }
+        return review
       }
       const expectedVersion =
         name === 'ginkoCms/mcpOperations:previewPublish'
@@ -102,8 +126,13 @@ async function callTool(
   name: string,
   args: Record<string, unknown>,
   token = bearer,
+  interaction?: {
+    inputResponses?: Record<string, unknown>
+    requestState?: string
+    supportsUrl?: boolean
+  },
 ) {
-  const handler = createGinkoMcpHandler(fixture.ctx as never, new URL(resource.origin))
+  const handler = createGinkoMcpHandler(fixture.ctx as never, new URL(resource.origin), application)
   const response = await handler.fetch(
     fixture.ctx as never,
     new Request(resource, {
@@ -120,8 +149,16 @@ async function callTool(
               version: '0.1.0',
             },
             'io.modelcontextprotocol/protocolVersion': '2026-07-28',
-            'io.modelcontextprotocol/clientCapabilities': {},
+            'io.modelcontextprotocol/clientCapabilities': interaction?.supportsUrl
+              ? { elicitation: { url: {} } }
+              : {},
           },
+          ...(interaction?.inputResponses === undefined
+            ? {}
+            : { inputResponses: interaction.inputResponses }),
+          ...(interaction?.requestState === undefined
+            ? {}
+            : { requestState: interaction.requestState }),
         },
       }),
       headers: {
@@ -149,7 +186,11 @@ async function callTool(
 describe('Ginko Convex-native MCP endpoint', () => {
   it('advertises one explicit finite tool inventory', async () => {
     const fixture = createFixture()
-    const handler = createGinkoMcpHandler(fixture.ctx as never, new URL(resource.origin))
+    const handler = createGinkoMcpHandler(
+      fixture.ctx as never,
+      new URL(resource.origin),
+      application,
+    )
     const response = await handler.fetch(
       fixture.ctx as never,
       new Request(resource, {
@@ -186,10 +227,94 @@ describe('Ginko Convex-native MCP endpoint', () => {
     expect(body.result.tools.map((tool) => tool.name).sort()).toEqual([
       'complete-agent-run',
       'get-entry',
+      'get-review-status',
       'preview-publish',
+      'request-publish-review',
       'save-entry-draft',
       'start-agent-run',
     ])
+  })
+
+  it('projects one canonical review through optional RC URL interaction without granting approval', async () => {
+    const fixture = createFixture()
+    const operationKey = 'publish-review-operation-000000000001'
+    const args = {
+      operationKey,
+      agentRunId: 'run-1',
+      entryId: 'entry-1',
+      locales: ['en'],
+      expectedVersion: 1,
+      title: 'Publish entry',
+      summary: 'Ready for publisher review.',
+    }
+
+    const unsupported = await callTool(fixture, 'request-publish-review', args)
+    expect(unsupported.body).toMatchObject({
+      result: {
+        structuredContent: {
+          interaction: 'client_interaction_unsupported',
+          review: { id: 'review-1', isStale: false, status: 'pending' },
+        },
+      },
+    })
+    expect(unsupported.text).not.toContain('/api/_ginko/reviews/')
+
+    const pending = await callTool(fixture, 'request-publish-review', args, bearer, {
+      supportsUrl: true,
+    })
+    expect(pending.body).toMatchObject({
+      result: {
+        resultType: 'input_required',
+        requestState: operationKey,
+        inputRequests: {
+          review: {
+            params: {
+              mode: 'url',
+              url: 'https://app.example.test/api/_ginko/reviews/review-1',
+            },
+          },
+        },
+      },
+    })
+
+    const acceptedByHostOnly = await callTool(fixture, 'request-publish-review', args, bearer, {
+      supportsUrl: true,
+      requestState: operationKey,
+      inputResponses: { review: { action: 'accept' } },
+    })
+    expect(acceptedByHostOnly.body).toMatchObject({
+      result: {
+        structuredContent: {
+          interaction: 'pending_external_review',
+          review: { id: 'review-1', isStale: false, status: 'pending' },
+        },
+      },
+    })
+
+    const status = await callTool(fixture, 'get-review-status', {
+      reviewRequestId: 'review-1',
+    })
+    expect(status.body).toMatchObject({
+      result: {
+        structuredContent: { review: { id: 'review-1', isStale: false, status: 'pending' } },
+      },
+    })
+
+    const tampered = await callTool(fixture, 'request-publish-review', args, bearer, {
+      supportsUrl: true,
+      requestState: 'forged-review-operation-000000000001',
+      inputResponses: { review: { action: 'accept' } },
+    })
+    expect(tampered.body).toMatchObject({
+      result: {
+        isError: true,
+        structuredContent: { error: { code: 'MCP_INTERACTION_STATE_INVALID' } },
+      },
+    })
+    expect(JSON.stringify(fixture.calls)).not.toContain(bearer)
+    expect(JSON.stringify([unsupported.body, pending.body, acceptedByHostOnly.body])).not.toContain(
+      bearer,
+    )
   })
 
   it('maps one read and ordinary draft write without passing the bearer into Convex args', async () => {

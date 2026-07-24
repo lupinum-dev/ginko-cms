@@ -51,6 +51,7 @@ function createFixture(appHtml: string) {
   const handler = createGinkoMcpHandler({
     issuer,
     publishImpactAppHtml: appHtml,
+    reviewInteractionBase: new URL('https://app.example.test/api/_ginko/reviews/'),
     resource,
     operations: {
       async admitCredential() {
@@ -79,6 +80,12 @@ function createFixture(appHtml: string) {
         expect(args).toEqual({ apiKeyId: 'credential-1', ...input })
         previewExecutions += 1
         return impact()
+      },
+      async requestPublishReview() {
+        return { _id: 'review-1', isStale: false, status: 'pending' }
+      },
+      async getReviewStatus() {
+        return { _id: 'review-1', isStale: false, status: 'pending' }
       },
     },
   })
@@ -157,6 +164,7 @@ describe('Ginko publish-impact MCP App', () => {
   it('rejects empty and oversized App documents before serving MCP', () => {
     const base = {
       issuer,
+      reviewInteractionBase: new URL('https://app.example.test/api/_ginko/reviews/'),
       operations: {
         async admitCredential() {
           return { kind: 'invalid' as const }
@@ -166,6 +174,8 @@ describe('Ginko publish-impact MCP App', () => {
         async getEntry() {},
         async saveEntryDraft() {},
         async previewPublish() {},
+        async requestPublishReview() {},
+        async getReviewStatus() {},
       },
       resource,
     }

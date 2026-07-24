@@ -789,6 +789,7 @@ export default defineSchema({
 
   reviewRequests: defineTable({
     agentRunId: v.optional(v.union(v.id('agentRuns'), v.null())),
+    mcpOperationKey: v.optional(v.string()),
     entryId: v.string(),
     locales: v.array(v.string()),
     expectedVersion: v.number(),
@@ -807,6 +808,7 @@ export default defineSchema({
     previewHash: v.optional(v.string()),
   })
     .index('by_agent_run', ['agentRunId'])
+    .index('by_mcp_operation_key', ['mcpOperationKey'])
     .index('by_status', ['status'])
     .index('by_status_updated_at', ['status', 'updatedAt'])
     .index('by_entry', ['entryId']),

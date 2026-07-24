@@ -7,6 +7,7 @@ declare const process: { env: Record<string, string | undefined> }
 
 const credentialIssuerPath = '/mcp-credentials/'
 const mcpPath = '/mcp'
+const reviewInteractionPath = '/api/_ginko/reviews/'
 
 function siteUrl() {
   const raw = process.env.CONVEX_SITE_URL
@@ -25,14 +26,33 @@ function siteUrl() {
   return new URL(url.origin)
 }
 
+function applicationUrl() {
+  const raw = process.env.SITE_URL
+  if (!raw) throw new Error('SITE_URL is required for MCP review interactions.')
+  const url = new URL(raw)
+  if (
+    url.protocol !== 'https:' ||
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error('SITE_URL must be a canonical HTTPS origin.')
+  }
+  return new URL(url.origin)
+}
+
 export function createGinkoMcpHandler(
   ctx: Pick<ActionCtx, 'meta' | 'runQuery' | 'runMutation'>,
   site: URL,
+  application: URL,
   publishImpactAppHtml?: string,
 ) {
   return createMcpHandler({
     issuer: new URL(credentialIssuerPath, site),
     resource: new URL(mcpPath, site),
+    reviewInteractionBase: new URL(reviewInteractionPath, application),
     ...(publishImpactAppHtml === undefined ? {} : { publishImpactAppHtml }),
     operations: {
       async admitCredential(secretHash) {
@@ -59,6 +79,12 @@ export function createGinkoMcpHandler(
       async previewPublish(args) {
         return await ctx.runMutation(internal.ginkoCms.mcpOperations.previewPublish, args)
       },
+      async requestPublishReview(args) {
+        return await ctx.runMutation(internal.ginkoCms.mcpOperations.requestPublishReview, args)
+      },
+      async getReviewStatus(args) {
+        return await ctx.runQuery(internal.ginkoCms.mcpOperations.getReviewStatus, args)
+      },
     },
   })
 }
@@ -72,5 +98,5 @@ async function admissionBucketKey(kind: 'credential' | 'ip', value: string) {
 }
 
 export const handle = httpAction(async (ctx, request) => {
-  return await createGinkoMcpHandler(ctx, siteUrl()).fetch(ctx, request)
+  return await createGinkoMcpHandler(ctx, siteUrl(), applicationUrl()).fetch(ctx, request)
 })

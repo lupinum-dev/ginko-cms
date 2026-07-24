@@ -218,6 +218,7 @@ async function seedPendingPublishReview(
   })
   const review = await agent.mutation(api.reviewRequests.requestPublishReview, {
     agentRunId: agentRun._id,
+    operationKey: crypto.randomUUID(),
     entryId: input.entryId,
     expectedVersion: input.expectedVersion ?? (await currentDraftVersion(owner, input.entryId)),
     locales: input.locales,
