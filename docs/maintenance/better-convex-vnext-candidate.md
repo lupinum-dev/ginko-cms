@@ -1,6 +1,6 @@
 # Better Convex vNext candidate evidence
 
-Date: 2026-07-23
+Date: 2026-07-24
 
 This record binds the Ginko CMS stabilization branch to the unpublished Better
 Convex candidate set used for the vNext R0 re-entry review. It is evidence for a
@@ -8,19 +8,19 @@ local candidate only; it does not authorize publication.
 
 ## Source and package tuple
 
-- Ginko CMS source: `5c589ff64e179f0e6fd0ba74d1f442ea7aebd4d5`
+- Ginko CMS source: `1f124cef3bbe7a92c046b6d5a28e5c5f3003b10f`
 - Better Convex Vue/Nuxt source:
-  `db5127cdfeb294d003c9ec3d4b712b89d4589319`
+  `c53e50fd020aefe3255aad5e380740dea891a6fa`
 - Better Convex MCP source:
-  `f4fd5d02b814ce8ee46bbaec8c38c40ec1a80d12`
-- `better-convex-vue@0.8.0-beta.15`:
-  `dd96a27fe097b6537fd28cc56a2e77580c0fe2c9086633ae77f0bfac3560b835`
-- `better-convex-nuxt@0.8.0-beta.15`:
-  `4855b990e3f016ee88b4f283e685480caa659fb983578c5568296ad28e6f80e3`
-- `@better-convex/mcp@0.1.0-beta.5`:
-  `cc45a4c9848bb17212f6c1795752bb725fa4ceec3fd15e59b0d42b03e83a2783`
+  `fb4609af33be546507760d682947a66bce17b189`
+- `better-convex-vue@0.8.0-beta.18`:
+  `c66feb7629af679147c106fd2df3b964b523a5d7f5ed87be779eb64724b862f2`
+- `better-convex-nuxt@0.8.0-beta.18`:
+  `13889283dfca70a9ae24a694c3bc636fbb9d2cf6182814f7496fe136bf41c041`
+- `@better-convex/mcp@0.1.0-beta.6`:
+  `67c8843a8066554082a21f5fa0454db397bcfa111683fc7839445e11375ca90e`
 - Nuxt runtime fingerprint:
-  `bcn-release-v1-53f22482645ee2593d415fee01735197250780fec2f50f7d91b088f107a99d6a`
+  `bcn-release-v1-bc9b69a7706849733c43d6284c385aa4c63c1cf4493da187d0e305b2a5843caf`
 
 The committed manifests and lockfile use exact registry versions and integrity
 values. They contain no workspace, Git, source-alias, or local-file path for a
@@ -33,11 +33,11 @@ The clean source commit was packed twice and both runs produced identical
 archives:
 
 - `@lupinum/ginko-cms-contract@0.2.0-rc.1`:
-  `cd770fcc7f0e14d46c4bfd617c82034f1b491e0253b4665523e8e08ca88ca2f2`
+  `d3ff52d533b6fffbf744515995185385884347a91dcac6352d166bf5c5dbc158`
 - `@lupinum/ginko-cms-convex@0.2.0-rc.1`:
-  `a380d220014b84e7e250130dfce1d869529e7d90e1f10bf9b505692b2b28ce9a`
+  `d871b4a8c7e98242ac61941f9e85a31ef64fc143ac333c561e71c33683259eef`
 - `@lupinum/ginko-cms@0.2.0-rc.1`:
-  `32b3369210660a94c78788aec1b85b6aab98ea94b52be6fa8ed2d75342fe9c36`
+  `1af558381490d187e59c546714e01a04907d99221634e62b3b108c97d0407b76`
 
 The retained `@lupinum/ginko-content@0.3.0-rc.5` artifact remained byte exact:
 `dffa7b7b49da19d28180a2ea61e53de92dc350818e32fe8a5e623f8ffe7e25a1`.
@@ -46,10 +46,10 @@ the already-certified immutable archive rather than repacking dirty source.
 
 ## Executed proof
 
-- Focused stabilization matrix: 11 files, 85 tests passed.
+- Focused candidate-contract matrix: 3 files, 27 tests passed.
 - Full repository check: formatting, lint, release hygiene, compatibility
   matrix, all typechecks, package builds, production Studio Vite build, and
-  182 test files / 1,202 tests passed; one explicitly skipped test remained.
+  182 test files / 1,209 tests passed; one explicitly skipped test remained.
 - Isolated pnpm consumer: exact candidate install, MCP read/write behavior,
   package imports, production Nuxt/Nitro build, content safety probes, and
   portable-content verification passed.
