@@ -119,6 +119,14 @@ tag actor, source commit, and commit author; it does not invent a deputy,
 independent reviewer, or notification test.
 
 - GitHub Actions must use the tag-restricted `ginko-release` environment.
+- `ginko-release` must contain the non-secret variables `CONVEX_DEPLOYMENT`,
+  `CONVEX_URL`, and `CONVEX_SITE_URL`, plus only the deployment-scoped
+  `CONVEX_DEPLOY_KEY` secret. The deployment must be a dedicated empty
+  development deployment whose key and URLs match its `dev:<name>` identity.
+  Do not use a personal development or production deployment. Delete the
+  dedicated deployment after the prerelease evidence is retained.
+- The protected proof needs no CMS test-account credentials; do not add unused
+  `GINKO_CMS_TEST_EMAIL` or `GINKO_CMS_TEST_PASSWORD` secrets.
 - The release job must use Node 24 or newer and npm 11.15 or newer.
 - Do not use package-manager caches in release jobs.
 - Use OIDC trusted publishing instead of long-lived npm publish tokens.

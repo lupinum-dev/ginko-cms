@@ -19,6 +19,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { parse as parseYaml } from 'yaml'
 
+import { validateDisposableConvexDeployment } from './disposable-convex-deployment.mjs'
+
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const compatibilityMatrix = JSON.parse(
   readFileSync(resolve(repoRoot, 'packages/cms/compatibility.json'), 'utf8'),
@@ -760,6 +762,9 @@ try {
       throw new Error(
         'package:e2e --live requires either CONVEX_DEPLOYMENT plus CONVEX_URL and CONVEX_DEPLOY_KEY, or CONVEX_SELF_HOSTED_URL plus CONVEX_SELF_HOSTED_ADMIN_KEY, for a disposable deployment.',
       )
+    }
+    if (hasConfiguredDeployment) {
+      validateDisposableConvexDeployment(process.env)
     }
     writeFileSync(
       join(tempDir, '.env.local'),

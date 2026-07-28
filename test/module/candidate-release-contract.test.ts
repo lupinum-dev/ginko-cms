@@ -45,7 +45,7 @@ describe('coordinated CMS candidate release contract', () => {
       'better-convex-vue': '0.8.0-beta.21',
     })
     expect(compatibility.sourceRehearsal.betterConvexCommit).toBe(
-      '20c5d43ec014beac19751a1c4242912c7d6355d4',
+      '03fc33e4b0835545e20b0ba0f00c9969dd01fb8c',
     )
     expect(
       readJson<{ consumer: { dependencies: Record<string, string> } }>(
@@ -192,6 +192,13 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain("governanceMode:'solo-maintainer'")
     expect(workflow).toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
     expect(workflow).toContain('pnpm --config.verify-deps-before-run=warn run package:e2e:live')
+    expect(workflow).toContain('CONVEX_DEPLOYMENT: ${{ vars.CONVEX_DEPLOYMENT }}')
+    expect(workflow).toContain('CONVEX_SITE_URL: ${{ vars.CONVEX_SITE_URL }}')
+    expect(workflow).toContain('CONVEX_URL: ${{ vars.CONVEX_URL }}')
+    expect(workflow).toContain('CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}')
+    expect(workflow).toContain("GINKO_CMS_DISPOSABLE_DEPLOYMENT: '1'")
+    expect(workflow).not.toContain('GINKO_CMS_TEST_EMAIL')
+    expect(workflow).not.toContain('GINKO_CMS_TEST_PASSWORD')
     expect(workflow).not.toContain('NPM_TOKEN')
   })
 })

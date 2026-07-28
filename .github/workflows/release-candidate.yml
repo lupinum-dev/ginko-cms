@@ -224,9 +224,11 @@ jobs:
 
       - name: Run the disposable Convex staging proof
         env:
+          CONVEX_DEPLOYMENT: ${{ vars.CONVEX_DEPLOYMENT }}
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-          GINKO_CMS_TEST_EMAIL: ${{ secrets.GINKO_CMS_TEST_EMAIL }}
-          GINKO_CMS_TEST_PASSWORD: ${{ secrets.GINKO_CMS_TEST_PASSWORD }}
+          CONVEX_SITE_URL: ${{ vars.CONVEX_SITE_URL }}
+          CONVEX_URL: ${{ vars.CONVEX_URL }}
+          GINKO_CMS_DISPOSABLE_DEPLOYMENT: '1'
         run: pnpm --config.verify-deps-before-run=warn run package:e2e:live
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
