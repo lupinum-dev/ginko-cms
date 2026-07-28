@@ -10,7 +10,7 @@
     "better-convex-vue": "0.8.0-beta.21"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "f2e278a66efb58b4228538d68051a3bba34071a9"
+    "betterConvexCommit": "95ef0b81d82e843a351477cdf5e5f2685e1ff44d"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
@@ -23,7 +23,7 @@
     "@modelcontextprotocol/ext-apps": ["1.7.5"],
     "@modelcontextprotocol/server": ["2.0.0"],
     "@nuxtjs/sitemap": ["^8.0.15", "8.0.15"],
-    "@nuxt/kit": ["4.4.8"],
+    "@nuxt/kit": ["4.5.1"],
     "@better-auth/oauth-provider": ["1.7.0-rc.2"],
     "@better-convex/mcp": ["0.1.0-beta.9"],
     "@lupinum/ginko-content": ["0.3.2"],
@@ -34,15 +34,15 @@
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
     "kysely": ["0.28.17"],
-    "nuxt": ["4.4.8"],
+    "nuxt": ["4.5.1"],
     "typescript": ["~5.9.3", "^5.9.3", "5.9.3"],
-    "vite": ["^7.3.6", "7.3.6"],
-    "vue": ["3.5.39"],
+    "vite": ["8.1.5"],
+    "vue": ["3.5.40"],
     "vue-tsc": ["^3.3.7", "3.3.7"]
   },
   "consumer": {
     "dependencies": {
-      "@nuxt/kit": "4.4.8",
+      "@nuxt/kit": "4.5.1",
       "@better-convex/mcp": "0.1.0-beta.9",
       "@lupinum/ginko-content": "0.3.2",
       "better-auth": "1.7.0-rc.2",
@@ -50,8 +50,8 @@
       "better-convex-vue": "0.8.0-beta.21",
       "convex": "1.42.2",
       "kysely": "0.28.17",
-      "nuxt": "4.4.8",
-      "vue": "3.5.39"
+      "nuxt": "4.5.1",
+      "vue": "3.5.40"
     },
     "devDependencies": {
       "@types/node": "^25.8.0",
@@ -60,9 +60,10 @@
     }
   },
   "intentionalHolds": [
-    "Strict npm remains blocked on Nuxt 4.4.8 because oxc-minify 0.133.0's optional WASM binding selects incompatible @emnapi/core requirements; do not use force, legacy peer resolution, or an override.",
+    "Strict pnpm remains blocked on Nuxt 4.5.1 because Nuxt DevTools 3.3.1 subpackages publish Vite peer ranges capped at Vite 7; do not relax peer checks or add an override.",
+    "Strict pnpm remains blocked because nuxt-i18n-micro 3.21.4 supports @nuxt/kit 4 but installs @nuxt/devtools-kit 2.7.0 and unplugin 1.16.1, leaving @nuxt/kit 4.5.1's unctx 3.0.0 optional peer below its required unplugin ^3.3.0; do not inject a consumer dependency or override.",
+    "Strict npm remains blocked on Nuxt 4.5.1 because oxc-parser 0.140.0's optional WASM binding selects incompatible @emnapi/core requirements; do not use force, legacy peer resolution, or an override.",
     "h3 stays on 1.15.11 until h3 2 leaves release-candidate status and Nuxt ecosystem peers accept it.",
-    "Vite stays on 7.x until the Nuxt and Vitest peer ecosystem is ready for Vite 8.",
-    "Nuxt DevTools stays on 3.2.4 while 4.x is alpha."
+    "Nuxt DevTools stays on the patched 3.3.1 stable line while 4.x is alpha."
   ]
 }

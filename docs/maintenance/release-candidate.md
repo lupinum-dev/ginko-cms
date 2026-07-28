@@ -24,12 +24,20 @@ The current beta.21/beta.9 source rehearsal is superseded for release purposes.
 `candidate:pack` must remain blocked until compatibility records certified
 beta.22/beta.10 registry bytes and the Nuxt runtime fingerprint.
 
-Strict npm installation is also a release gate. Nuxt 4.4.8 currently reaches
-`oxc-minify@0.133.0`, whose optional WASM dependency graph requests incompatible
-`@emnapi/core` versions under npm's strict peer resolver. Do not use
-`--legacy-peer-deps`, `--force`, relaxed peer checks, or an override. Advance
-only through a compatible published Nuxt 4.4 patch or a separately certified
-Nuxt 4.5/Vite 8 stack.
+Strict pnpm and npm installation remain release gates. The coordinated runtime
+uses the patched Nuxt `4.5.1`, Vite `8.1.5`, and Vue `3.5.40` stack; Nuxt owns
+its DevTools dependency. Do not use `--legacy-peer-deps`, `--force`, relaxed
+peer checks, or an override if a clean consumer fails. The current upstream
+blockers are:
+
+- Nuxt DevTools `3.3.1` subpackages whose published peer ranges still stop at
+  Vite 7;
+- `nuxt-i18n-micro@3.21.4`, which supports `@nuxt/kit` 4 but still installs
+  `@nuxt/devtools-kit@2.7.0` and `unplugin@1.16.1`; that gives Nuxt Kit 4.5.1's
+  optional `unctx@3.0.0` peer a provider below its required `unplugin ^3.3.0`
+  under pnpm's strict resolver; and
+- `oxc-parser@0.140.0`'s optional WASM dependency graph, which requests
+  incompatible `@emnapi/core` versions under npm's strict resolver.
 
 ## Maintainer Release Gate
 

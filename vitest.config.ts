@@ -1,10 +1,7 @@
-import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
-
-const tsconfigRaw = readFileSync('tsconfig.json', 'utf-8')
 
 export default defineConfig({
   plugins: [vue()],
@@ -21,6 +18,10 @@ export default defineConfig({
     name: 'ginko-cms',
   },
   resolve: {
+    // Boundary tests mock these package owners. Resolve their root and
+    // package-local peer-context instances to one test identity so the mock
+    // cannot miss imports made from packages/cms.
+    dedupe: ['@nuxt/kit', 'better-convex-nuxt'],
     alias: {
       '#imports': resolve(__dirname, 'test/helpers/nuxt-imports-shim.ts'),
       '#convex/api': resolve(__dirname, 'test/helpers/convex-api-shim.ts'),
@@ -61,8 +62,5 @@ export default defineConfig({
       // it directly (or transitively via a Studio composable) resolve it here.
       'vue-router': resolve(__dirname, 'packages/cms/node_modules/vue-router'),
     },
-  },
-  esbuild: {
-    tsconfigRaw,
   },
 })

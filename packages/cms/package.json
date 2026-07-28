@@ -64,7 +64,7 @@
     "@lucide/vue": "^1.24.0",
     "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.2",
     "@lupinum/ginko-cms-convex": "workspace:^0.2.0-rc.2",
-    "@nuxt/kit": "4.4.8",
+    "@nuxt/kit": "4.5.1",
     "@nuxtjs/color-mode": "^4.0.0",
     "@tailwindcss/vite": "^4.3.0",
     "better-convex-nuxt": "0.8.0-beta.21",
@@ -125,15 +125,15 @@
     "shiki": "^4.0.2",
     "tailwind-merge": "^3.6.0",
     "unplugin-vue-components": "^32.0.0",
-    "vite": "^7.3.6",
+    "vite": "8.1.5",
     "vue-router": "^5.0.7"
   },
   "peerDependencies": {
     "@lupinum/ginko-content": "0.3.2",
     "better-auth": "1.7.0-rc.2",
     "kysely": "0.28.17",
-    "nuxt": "4.4.8",
-    "vue": "3.5.39"
+    "nuxt": "4.5.1",
+    "vue": "3.5.40"
   },
   "engines": {
     "node": ">=22.0.0"

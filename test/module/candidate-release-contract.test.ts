@@ -45,7 +45,7 @@ describe('coordinated CMS candidate release contract', () => {
       'better-convex-vue': '0.8.0-beta.21',
     })
     expect(compatibility.sourceRehearsal.betterConvexCommit).toBe(
-      'f2e278a66efb58b4228538d68051a3bba34071a9',
+      '95ef0b81d82e843a351477cdf5e5f2685e1ff44d',
     )
     expect(
       readJson<{ consumer: { dependencies: Record<string, string> } }>(
@@ -64,8 +64,8 @@ describe('coordinated CMS candidate release contract', () => {
       'better-convex-vue': '0.8.0-beta.21',
       convex: '1.42.2',
       kysely: '0.28.17',
-      nuxt: '4.4.8',
-      vue: '3.5.39',
+      nuxt: '4.5.1',
+      vue: '3.5.40',
     })
 
     for (const path of [
