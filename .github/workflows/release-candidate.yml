@@ -58,7 +58,7 @@ jobs:
         run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
 
       - name: Install the pinned Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
+        run: ./node_modules/.bin/playwright install --with-deps chromium
 
       - name: Verify source
         run: pnpm --config.verify-deps-before-run=warn run check
