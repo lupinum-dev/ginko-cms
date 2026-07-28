@@ -6,20 +6,6 @@ const resource = new URL('https://ginko.example.test/mcp')
 const application = new URL('https://app.example.test')
 const bearer = 'ginko-mcp-bearer-sentinel'
 const issuer = `${application.origin}/api/auth`
-const authorizationMetadata = {
-  authorization_endpoint: `${issuer}/oauth2/authorize`,
-  authorization_response_iss_parameter_supported: true,
-  code_challenge_methods_supported: ['S256'],
-  grant_types_supported: ['authorization_code'],
-  issuer,
-  jwks_uri: `${issuer}/jwks`,
-  response_types_supported: ['code'],
-  revocation_endpoint: `${issuer}/oauth2/revoke`,
-  scopes_supported: ['cms.read', 'cms.entries.edit'],
-  token_endpoint: `${issuer}/oauth2/token`,
-  token_endpoint_auth_methods_supported: ['none'],
-} as const
-
 function createFixture() {
   let accessActive = true
   let applicationAccess: 'allowed' | 'revoked-member' | 'cross-tenant' = 'allowed'
@@ -110,7 +96,7 @@ function createFixture() {
     },
   }
   const handler = createGinkoMcpHandler({
-    authorizationMetadata,
+    authorizationIssuer: issuer,
     operations: operations as never,
     resource,
     reviewInteractionBase: new URL('/api/_ginko/reviews/', application),
@@ -205,7 +191,7 @@ async function callTool(
 }
 
 describe('Ginko Convex-native MCP endpoint', () => {
-  it('serves exact OAuth resource and authorization-server discovery', async () => {
+  it('serves exact OAuth resource discovery without projecting authorization metadata', async () => {
     const fixture = createFixture()
     const protectedResource = await fixture.handler.fetch(
       {},
@@ -223,8 +209,8 @@ describe('Ginko Convex-native MCP endpoint', () => {
       {},
       new Request('https://ginko.example.test/.well-known/oauth-authorization-server'),
     )
-    expect(authorizationServer.status).toBe(200)
-    await expect(authorizationServer.json()).resolves.toEqual(authorizationMetadata)
+    expect(authorizationServer.status).toBe(404)
+    expect(await authorizationServer.text()).toBe('')
   })
 
   it('advertises one explicit finite tool inventory', async () => {

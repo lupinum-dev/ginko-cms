@@ -221,7 +221,7 @@ describe('Ginko Nuxt provider v3', () => {
 
   const firstQuery = (path: string) => {
     const query = toContentProviderQuery({ collection: 'docs', first: true })
-    query.plan.variantSelector = {
+    query.plan.variant = {
       by: 'route',
       requestedLocale: 'en',
       candidates: [{ locale: 'en', contentPath: path }],
@@ -412,7 +412,7 @@ describe('Ginko Nuxt provider v3', () => {
 
   it('returns a raw provider document for a closed route selector', async () => {
     const query = toContentProviderQuery({ collection: 'docs', first: true })
-    query.plan.variantSelector = {
+    query.plan.variant = {
       by: 'route',
       requestedLocale: 'de',
       candidates: [{ locale: 'de', contentPath: '/dokumentation/inhaltsrouting' }],
@@ -445,7 +445,7 @@ describe('Ginko Nuxt provider v3', () => {
 
   it('tries closed route candidates in order until a published variant is found', async () => {
     const query = toContentProviderQuery({ collection: 'docs', first: true })
-    query.plan.variantSelector = {
+    query.plan.variant = {
       by: 'route',
       requestedLocale: 'de',
       candidates: [
@@ -466,7 +466,7 @@ describe('Ginko Nuxt provider v3', () => {
 
   it('resolves one validated redirect target for the route-aware content page', async () => {
     const query = toContentProviderQuery({ collection: 'docs', first: true })
-    query.plan.variantSelector = {
+    query.plan.variant = {
       by: 'route',
       requestedLocale: 'en',
       candidates: [{ locale: 'en', contentPath: '/docs/old-content-routing' }],
@@ -488,7 +488,7 @@ describe('Ginko Nuxt provider v3', () => {
 
   it('reapplies the collection mount to mount-agnostic route candidates', async () => {
     const query = toContentProviderQuery({ collection: 'docs', first: true })
-    query.plan.variantSelector = {
+    query.plan.variant = {
       by: 'route',
       requestedLocale: 'en',
       candidates: [{ locale: 'en', contentPath: '/content-routing' }],
@@ -519,7 +519,7 @@ describe('Ginko Nuxt provider v3', () => {
 
   it('does not duplicate a collection mount already present in a route candidate', async () => {
     const query = toContentProviderQuery({ collection: 'docs', first: true })
-    query.plan.variantSelector = {
+    query.plan.variant = {
       by: 'route',
       requestedLocale: 'en',
       candidates: [{ locale: 'en', contentPath: '/docs/content-routing' }],
@@ -563,9 +563,7 @@ describe('Ginko Nuxt provider v3', () => {
 
   it('[DEV-04] returns raw route facts from navigation, surroundings, and search', async () => {
     const navigationWire = toContentProviderNavigationQuery({ collection: 'docs' })
-    const navigation = unwrap(
-      await contentProvider.navigation!(event, navigationWire.query, { locale: 'en' }),
-    )
+    const navigation = unwrap(await contentProvider.navigation!(event, navigationWire))
     const surroundings = unwrap(
       await contentProvider.surroundings!(event, 'docs', '/docs/content-routing', { locale: 'en' }),
     )
@@ -763,7 +761,7 @@ describe('Ginko Nuxt provider v3', () => {
   it('normalizes a malformed page response at the data-source boundary', async () => {
     convexMock.query.mockResolvedValueOnce({ status: 'found', page: null })
     const query = toContentProviderQuery({ collection: 'docs', first: true })
-    query.plan.variantSelector = {
+    query.plan.variant = {
       by: 'route',
       requestedLocale: 'en',
       candidates: [{ locale: 'en', contentPath: '/docs/content-routing' }],
@@ -793,7 +791,7 @@ describe('Ginko Nuxt provider v3', () => {
       pageResult({ collection: 'docs', locale: 'en' }, { ...entry('fr'), collection: 'other' }),
     )
     const query = toContentProviderQuery({ collection: 'docs', first: true })
-    query.plan.variantSelector = {
+    query.plan.variant = {
       by: 'route',
       requestedLocale: 'en',
       candidates: [{ locale: 'en', contentPath: '/docs/content-routing' }],

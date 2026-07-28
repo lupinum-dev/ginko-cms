@@ -53,19 +53,7 @@ export function createGinkoMcpHandler(
   const issuer = `${application.origin}/api/auth`
   const resource = new URL(mcpPath, site)
   return createMcpHandler({
-    authorizationMetadata: {
-      authorization_endpoint: `${issuer}/oauth2/authorize`,
-      authorization_response_iss_parameter_supported: true,
-      code_challenge_methods_supported: ['S256'],
-      grant_types_supported: ['authorization_code'],
-      issuer,
-      jwks_uri: `${issuer}/jwks`,
-      response_types_supported: ['code'],
-      revocation_endpoint: `${issuer}/oauth2/revoke`,
-      scopes_supported: [...mcpScopes],
-      token_endpoint: `${issuer}/oauth2/token`,
-      token_endpoint_auth_methods_supported: ['none', 'client_secret_basic'],
-    },
+    authorizationIssuer: issuer,
     resource,
     reviewInteractionBase: new URL(reviewInteractionPath, application),
     ...(publishImpactAppHtml === undefined ? {} : { publishImpactAppHtml }),

@@ -22,7 +22,6 @@ import {
   type ContentCacheHint,
   type ContentProvider,
   type ContentProviderNavigationItem,
-  type ContentProviderNavigationOptions,
   type ProviderDocumentInput,
   type ContentProviderQuery,
   type ContentProviderSiteDataRequest,
@@ -456,12 +455,8 @@ const localeFromOptions = (
   contentRuntime: ContentRuntime = {},
 ): string => options.locale || defaultLocale(contentRuntime)
 
-const localeFromQuery = (
-  query: ContentProviderQuery,
-  filterState: FilterState,
-  contentRuntime: ContentRuntime = {},
-): string =>
-  query.plan?.resolveLocale?.locale || filterState.locale || defaultLocale(contentRuntime)
+const localeFromQuery = (filterState: FilterState, contentRuntime: ContentRuntime = {}): string =>
+  filterState.locale || defaultLocale(contentRuntime)
 
 const decodeRequested = <T extends ReturnedFacts>(
   operation: string,
@@ -576,7 +571,7 @@ export const contentDataSource = {
     assertProviderQuery(input)
     const contentRuntime = await contentRuntimeFromEvent(context.event)
     const plan = input.plan
-    if (plan.variantSelector) {
+    if (plan.variant) {
       if (!input.collection) {
         throw providerError(
           'unknown_collection',
@@ -590,7 +585,7 @@ export const contentDataSource = {
       const { locale, result } = await resolveVariant(
         context.caller,
         input.collection,
-        plan.variantSelector,
+        plan.variant,
         contentRuntime,
       )
       const entry =
@@ -617,7 +612,7 @@ export const contentDataSource = {
     assertQueryCollection(collection)
     const filterState = collectPlanFilter(plan.filter)
     if (filterState.impossible) {
-      const limit = plan.paging?.mode === 'cursor' ? plan.paging.limit : (plan.limit ?? 100)
+      const limit = plan.pagination.limit ?? 100
       return sourceResult(
         plan.mode === 'first'
           ? { result: undefined }
@@ -630,7 +625,7 @@ export const contentDataSource = {
         collectionCacheHint(collection),
       )
     }
-    const locale = localeFromQuery(input, filterState, contentRuntime)
+    const locale = localeFromQuery(filterState, contentRuntime)
     const pathPrefix = filterState.pathPrefix
       ? canonicalFromRoute(filterState.pathPrefix, locale)
       : undefined
@@ -643,14 +638,14 @@ export const contentDataSource = {
     const listArgs = {
       collection,
       locale,
-      limit: plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit,
-      cursor: plan.paging?.mode === 'cursor' ? plan.paging.after : undefined,
+      limit: plan.pagination.limit,
+      cursor: plan.pagination.mode === 'cursor' ? plan.pagination.after : undefined,
       ...(pathPrefix ? { pathPrefix } : {}),
       ...(sort ? { sort } : {}),
     }
     const [rawList, total] = await Promise.all([
       callGinko(context.caller, 'list', listArgs),
-      plan.paging?.mode === 'cursor'
+      plan.pagination.mode === 'cursor'
         ? Promise.resolve<number | null>(null)
         : callGinko(context.caller, 'count', {
             collection,
@@ -673,11 +668,11 @@ export const contentDataSource = {
     const entries = (
       await Promise.all(rawEntries.map((entry) => toContentEntry(entry, locale)))
     ).map((entry) => applyOnlyProjection(entry, plan.projection?.only))
-    const limit = plan.paging?.mode === 'cursor' ? plan.paging.limit : plan.limit || entries.length
+    const limit = plan.pagination.limit || entries.length
     const data =
       plan.mode === 'first'
         ? { result: entries[0] }
-        : plan.paging?.mode === 'cursor'
+        : plan.pagination.mode === 'cursor'
           ? {
               mode: 'cursor' as const,
               result: entries,
@@ -698,14 +693,14 @@ export const contentDataSource = {
   navigation: async (
     context: GinkoCmsDataSourceContext,
     input: BoundedContentProviderQuery,
-    options: ContentProviderNavigationOptions & { limit: number },
+    _options: { readonly limit: number },
     _control: ContentDataSourceControl,
   ) => {
     assertProviderQuery(input)
     const collection = input.collection
     assertQueryCollection(collection)
     const contentRuntime = await contentRuntimeFromEvent(context.event)
-    const locale = options.locale || defaultLocale(contentRuntime)
+    const locale = localeFromQuery(collectPlanFilter(input.plan.filter), contentRuntime)
     const fields = input.plan?.projection?.only || []
     const result = decodeRequested(
       'navigation',

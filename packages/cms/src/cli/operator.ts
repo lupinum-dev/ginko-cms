@@ -48,6 +48,7 @@ export async function createOperatorContext(
       if (normalized.kind === 'authentication') {
         throw new Error(
           `Ginko CMS operator authentication failed${normalized.status ? ` with HTTP ${normalized.status}` : ''}.`,
+          { cause: error },
         )
       }
       throw error

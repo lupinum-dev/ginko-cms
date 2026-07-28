@@ -282,7 +282,9 @@ async function deliverClaimedEvent(ctx: ActionCtx, job: ClaimedEvent) {
         signal: controller.signal,
       })
     } catch (error) {
-      if (controller.signal.aborted) throw new Error('Revalidation endpoint timed out.')
+      if (controller.signal.aborted) {
+        throw new Error('Revalidation endpoint timed out.', { cause: error })
+      }
       throw error
     } finally {
       clearTimeout(timeout)

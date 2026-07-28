@@ -138,7 +138,7 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     if (!canEditEntries.value || (publish && !canPublishEntries.value)) {
       return
     }
-    let preview: DestructivePreview | null = null
+    let preview: DestructivePreview
     try {
       preview = (await previewRollbackMutation({
         entryId: entryId.value,

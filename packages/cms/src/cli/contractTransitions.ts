@@ -362,7 +362,7 @@ async function beginAndStage(
         try {
           output = assertTransitionOutput(await transition.up(cloneInput(item.current)), context)
         } catch (error) {
-          throw new Error(`${context} failed: ${errorMessage(error)}`)
+          throw new Error(`${context} failed: ${errorMessage(error)}`, { cause: error })
         }
         counts.scanned += 1
         if (

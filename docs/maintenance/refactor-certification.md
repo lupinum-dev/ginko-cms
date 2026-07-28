@@ -62,7 +62,7 @@ The endpoint shape is:
   "sourceCommit": "git-commit",
   "packages": {
     "@lupinum/ginko-cms": {
-      "version": "0.2.0-rc.1",
+      "version": "0.2.0-rc.2",
       "commit": "git-commit",
       "sha256": "64-character-tarball-digest"
     }

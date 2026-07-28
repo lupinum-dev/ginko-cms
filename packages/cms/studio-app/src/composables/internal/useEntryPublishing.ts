@@ -367,7 +367,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       return
     }
     const targetLabel = _entry.value?.baseSlug ?? entryId.value
-    let preview: DestructivePreview | null = null
+    let preview: DestructivePreview
     try {
       preview = (await previewUnpublishMutation({
         entryId: entryId.value,
@@ -447,7 +447,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
   async function handleArchive() {
     if (!canArchiveEntries.value) return
     const targetLabel = _entry.value?.baseSlug ?? entryId.value
-    let preview: DestructivePreview | null = null
+    let preview: DestructivePreview
     try {
       preview = (await previewArchiveMutation({
         entryId: entryId.value,
@@ -518,7 +518,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
 
   async function handleRestore() {
     if (!canArchiveEntries.value) return
-    let preview: DestructivePreview | null = null
+    let preview: DestructivePreview
     try {
       preview = (await previewRestoreMutation({
         entryId: entryId.value,
@@ -592,7 +592,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       return
     }
 
-    let preview: DestructivePreview | null = null
+    let preview: DestructivePreview
     try {
       preview = (await previewPermanentlyDeleteMutation({
         entryId: entryId.value,

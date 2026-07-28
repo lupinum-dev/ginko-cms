@@ -29,6 +29,19 @@ jobs:
           path: ginko-cms
           persist-credentials: false
 
+      - name: Resolve the exact Better Convex rehearsal source
+        id: better_convex
+        working-directory: ginko-cms
+        run: |
+          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name] of [['commit','better-convex-nuxt'],['nuxt_version','better-convex-nuxt'],['vue_version','better-convex-vue'],['mcp_version','@better-convex/mcp']]) process.stdout.write(key+'='+(key==='commit' ? matrix.sourceRehearsal.betterConvexCommit : matrix.releaseStack[name])+'\n')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: lupinum-dev/better-convex-nuxt
+          ref: ${{ steps.better_convex.outputs.commit }}
+          path: better-convex-nuxt
+          persist-credentials: false
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.GINKO_NODE_VERSION }}
@@ -37,19 +50,29 @@ jobs:
       - name: Install pinned package-manager launcher
         run: npm install --global corepack@"$GINKO_COREPACK_VERSION" && corepack enable
 
-      - name: Install frozen standalone workspace
-        run: pnpm install --frozen-lockfile
+      - name: Pack temporary Better Convex source-rehearsal tarballs
+        working-directory: better-convex-nuxt
+        run: |
+          pnpm install --frozen-lockfile
+          mkdir -p .source-rehearsal
+          npm pack ./packages/mcp --pack-destination .source-rehearsal
+          npm pack ./packages/vue --pack-destination .source-rehearsal
+          npm pack . --pack-destination .source-rehearsal
 
-      - name: Refactor reliability proof
-        run: pnpm run verify:refactor
+      - name: Install the exact Better Convex rehearsal artifacts
+        env:
+          BETTER_CONVEX_MCP_TARBALL: ${{ github.workspace }}/better-convex-nuxt/.source-rehearsal/better-convex-mcp-${{ steps.better_convex.outputs.mcp_version }}.tgz
+          BETTER_CONVEX_NUXT_TARBALL: ${{ github.workspace }}/better-convex-nuxt/.source-rehearsal/better-convex-nuxt-${{ steps.better_convex.outputs.nuxt_version }}.tgz
+          BETTER_CONVEX_VUE_TARBALL: ${{ github.workspace }}/better-convex-nuxt/.source-rehearsal/better-convex-vue-${{ steps.better_convex.outputs.vue_version }}.tgz
+        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal:source
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ always() }}
-        with:
-          name: refactor-proof-${{ github.sha }}
-          path: ginko-cms/reports/refactor-proof
-          if-no-files-found: error
-          retention-days: 14
+      - name: Repository check
+        run: pnpm --config.verify-deps-before-run=warn run check
+
+      - name: Current-source packed consumer
+        env:
+          BETTER_CONVEX_NUXT_PACKAGE_ROOT: ${{ github.workspace }}/better-convex-nuxt
+        run: pnpm --config.verify-deps-before-run=warn run package:e2e:dev
 
       - name: Production audit
-        run: pnpm run audit:prod
+        run: pnpm --config.verify-deps-before-run=warn run audit:prod

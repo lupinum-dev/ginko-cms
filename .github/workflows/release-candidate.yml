@@ -1,0 +1,235 @@
+name: release-candidate
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*-*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ginko-release-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GINKO_COREPACK_VERSION: '0.34.5'
+  GINKO_NODE_VERSION: '24.18.0'
+
+jobs:
+  verify-source:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ginko-cms
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: ginko-cms
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned package-manager launcher
+        run: npm install --global corepack@"$GINKO_COREPACK_VERSION" && corepack enable
+
+      - name: Resolve the canonical package tuple
+        id: tuple
+        run: |
+          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name] of [['content','@lupinum/ginko-content'],['mcp','@better-convex/mcp'],['nuxt','better-convex-nuxt'],['vue','better-convex-vue']]) process.stdout.write(key+'='+matrix.releaseStack[name]+'\n')" >> "$GITHUB_OUTPUT"
+
+      - name: Download the exact registry artifacts
+        run: |
+          mkdir -p .pack/upstream
+          npm pack "@lupinum/ginko-content@${{ steps.tuple.outputs.content }}" --pack-destination .pack/upstream
+          npm pack "@better-convex/mcp@${{ steps.tuple.outputs.mcp }}" --pack-destination .pack/upstream
+          npm pack "better-convex-nuxt@${{ steps.tuple.outputs.nuxt }}" --pack-destination .pack/upstream
+          npm pack "better-convex-vue@${{ steps.tuple.outputs.vue }}" --pack-destination .pack/upstream
+
+      - name: Install the exact upstream artifacts
+        env:
+          BETTER_CONVEX_MCP_TARBALL: ${{ github.workspace }}/ginko-cms/.pack/upstream/better-convex-mcp-${{ steps.tuple.outputs.mcp }}.tgz
+          BETTER_CONVEX_NUXT_TARBALL: ${{ github.workspace }}/ginko-cms/.pack/upstream/better-convex-nuxt-${{ steps.tuple.outputs.nuxt }}.tgz
+          BETTER_CONVEX_VUE_TARBALL: ${{ github.workspace }}/ginko-cms/.pack/upstream/better-convex-vue-${{ steps.tuple.outputs.vue }}.tgz
+        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+
+      - name: Verify source
+        run: pnpm --config.verify-deps-before-run=warn run check
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: approved-upstream-${{ github.sha }}
+          path: ginko-cms/.pack/upstream
+          if-no-files-found: error
+          retention-days: 14
+
+  pack-candidate:
+    needs: verify-source
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ginko-cms
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: ginko-cms
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned package-manager launcher
+        run: npm install --global corepack@"$GINKO_COREPACK_VERSION" && corepack enable
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: approved-upstream-${{ github.sha }}
+          path: ginko-cms/.pack/upstream
+
+      - name: Resolve artifact paths
+        id: artifacts
+        run: |
+          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name,file] of [['content','@lupinum/ginko-content','lupinum-ginko-content-'],['mcp','@better-convex/mcp','better-convex-mcp-'],['nuxt','better-convex-nuxt','better-convex-nuxt-'],['vue','better-convex-vue','better-convex-vue-']]) process.stdout.write(key+'='+process.cwd()+'/.pack/upstream/'+file+matrix.releaseStack[name]+'.tgz\n')" >> "$GITHUB_OUTPUT"
+
+      - name: Install the exact upstream artifacts
+        env:
+          BETTER_CONVEX_MCP_TARBALL: ${{ steps.artifacts.outputs.mcp }}
+          BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
+          BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
+        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+
+      - name: Pack the coordinated Ginko candidate once
+        env:
+          BETTER_CONVEX_MCP_TARBALL: ${{ steps.artifacts.outputs.mcp }}
+          BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
+          BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
+          GINKO_CONTENT_TARBALL: ${{ steps.artifacts.outputs.content }}
+        run: pnpm --config.verify-deps-before-run=warn run candidate:pack
+
+      - name: Record solo-maintainer governance
+        env:
+          RELEASE_OWNER: ${{ github.actor }}
+        run: |
+          node -e "const fs=require('node:fs'); const cp=require('node:child_process'); const evidence={schemaVersion:1,governanceMode:'solo-maintainer',releaseOwner:process.env.RELEASE_OWNER,sourceCommit:process.env.GITHUB_SHA,commitAuthor:cp.execFileSync('git',['show','-s','--format=%an <%ae>',process.env.GITHUB_SHA],{encoding:'utf8'}).trim(),ref:process.env.GITHUB_REF,runId:process.env.GITHUB_RUN_ID}; fs.writeFileSync('.pack/candidate/release-governance.json',JSON.stringify(evidence,null,2)+'\n')"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ginko-candidate-${{ github.sha }}
+          path: ginko-cms/.pack/candidate
+          if-no-files-found: error
+          retention-days: 14
+
+  verify-candidate:
+    needs: pack-candidate
+    strategy:
+      fail-fast: false
+      matrix:
+        package-manager: [pnpm, npm]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ginko-cms
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: ginko-cms
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned package-manager launcher
+        run: npm install --global corepack@"$GINKO_COREPACK_VERSION" && corepack enable
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ginko-candidate-${{ github.sha }}
+          path: ginko-cms/.pack/candidate
+
+      - name: Resolve candidate artifact paths
+        id: artifacts
+        run: |
+          node -e "const evidence=require('./.pack/candidate/candidate-artifact.json'); for (const [key,name] of [['content','@lupinum/ginko-content'],['mcp','@better-convex/mcp'],['nuxt','better-convex-nuxt'],['vue','better-convex-vue']]) process.stdout.write(key+'='+process.cwd()+'/.pack/candidate/'+evidence.artifacts[name].tarball+'\n')" >> "$GITHUB_OUTPUT"
+
+      - name: Install the exact upstream artifacts
+        env:
+          BETTER_CONVEX_MCP_TARBALL: ${{ steps.artifacts.outputs.mcp }}
+          BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
+          BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
+        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+
+      - name: Verify the uploaded candidate with pnpm without repacking
+        if: matrix.package-manager == 'pnpm'
+        run: pnpm --config.verify-deps-before-run=warn run package:e2e
+
+      - name: Verify the uploaded candidate with npm without repacking
+        if: matrix.package-manager == 'npm'
+        run: pnpm --config.verify-deps-before-run=warn run package:e2e:npm
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ginko-consumer-${{ matrix.package-manager }}-${{ github.sha }}
+          path: ginko-cms/.pack/candidate/release-evidence-${{ matrix.package-manager }}.json
+          if-no-files-found: error
+          retention-days: 14
+
+  protected-staging:
+    needs: verify-candidate
+    runs-on: ubuntu-latest
+    environment: ginko-release
+    defaults:
+      run:
+        working-directory: ginko-cms
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: ginko-cms
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned package-manager launcher
+        run: npm install --global corepack@"$GINKO_COREPACK_VERSION" && corepack enable
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ginko-candidate-${{ github.sha }}
+          path: ginko-cms/.pack/candidate
+
+      - name: Resolve candidate artifact paths
+        id: artifacts
+        run: |
+          node -e "const evidence=require('./.pack/candidate/candidate-artifact.json'); for (const [key,name] of [['mcp','@better-convex/mcp'],['nuxt','better-convex-nuxt'],['vue','better-convex-vue']]) process.stdout.write(key+'='+process.cwd()+'/.pack/candidate/'+evidence.artifacts[name].tarball+'\n')" >> "$GITHUB_OUTPUT"
+
+      - name: Install the exact upstream artifacts
+        env:
+          BETTER_CONVEX_MCP_TARBALL: ${{ steps.artifacts.outputs.mcp }}
+          BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
+          BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
+        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+
+      - name: Run the disposable Convex staging proof
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          GINKO_CMS_TEST_EMAIL: ${{ secrets.GINKO_CMS_TEST_EMAIL }}
+          GINKO_CMS_TEST_PASSWORD: ${{ secrets.GINKO_CMS_TEST_PASSWORD }}
+        run: pnpm --config.verify-deps-before-run=warn run package:e2e:live
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: ginko-protected-staging-${{ github.sha }}
+          path: ginko-cms/.pack/candidate/release-evidence-pnpm.json
+          if-no-files-found: error
+          retention-days: 14

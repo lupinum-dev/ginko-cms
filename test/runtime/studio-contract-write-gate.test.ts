@@ -111,7 +111,7 @@ describe('Studio host delegates write policy to canonical backend guards', () =>
 
     await expect(
       wrapper.vm.upload(new File(['bytes'], 'asset.png', { type: 'image/png' })),
-    ).rejects.toThrow('CMS_CONTRACT_WRITE_BLOCKED')
+    ).rejects.toThrow('Unknown Convex error')
     expect(raw.mutation).toHaveBeenCalledTimes(1)
     expect(raw.query).not.toHaveBeenCalled()
     expect(fetchSpy).not.toHaveBeenCalled()

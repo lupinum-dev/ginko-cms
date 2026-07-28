@@ -182,6 +182,7 @@ function readStudioAssetVersion(studioBundleDir: string): string {
       `[ginko-cms] Studio bundle entry "${mainJsPath}" is missing. Run \`pnpm --filter @lupinum/ginko-cms build\` before using the CMS module.${
         error instanceof Error ? ` ${error.message}` : ''
       }`,
+      { cause: error },
     )
   }
 

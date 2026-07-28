@@ -6,7 +6,6 @@ import {
   inputRequired,
   type CallToolResult,
   type InputRequiredResult,
-  type OAuthMetadata,
   type ServerContext,
 } from '@modelcontextprotocol/server'
 import { z } from 'zod'
@@ -237,7 +236,7 @@ async function runRcReviewTool(
 }
 
 export function createGinkoMcpHandler(options: {
-  authorizationMetadata: OAuthMetadata
+  authorizationIssuer: string
   operations: GinkoMcpOperations
   publishImpactAppHtml?: string
   reviewInteractionBase: URL
@@ -245,7 +244,7 @@ export function createGinkoMcpHandler(options: {
   verifier: McpAccessVerifier
 }): GinkoMcpHandler {
   const {
-    authorizationMetadata,
+    authorizationIssuer,
     operations,
     publishImpactAppHtml,
     resource,
@@ -275,11 +274,11 @@ export function createGinkoMcpHandler(options: {
     verifier,
     authorization: {
       mode: 'oauth',
-      metadata: authorizationMetadata,
+      issuer: authorizationIssuer,
       resourceName: 'Ginko CMS MCP',
       scopesSupported: [readScope, writeScope],
     },
-    configureServer(_context, access, _request, server) {
+    configureServer(_context, access, server) {
       const caller = cmsMcpCaller({
         issuer: access.issuer,
         userId: access.subject,
@@ -300,22 +299,15 @@ export function createGinkoMcpHandler(options: {
         },
         async (args) => {
           if (!access.scopes.includes(readScope)) return requiredScopeResult(readScope)
-          return await runMcpTool(
-            async () => ({
-              content: [{ type: 'text', text: 'Started the agent run.' }],
-              structuredContent: {
-                run: await operations.startAgentRun({
-                  caller,
-                  ...args,
-                }),
-              },
-            }),
-            {
-              operation: 'mutation',
-              functionName: 'ginkoCms/mcpOperations:startAgentRun',
-              toolName: 'start-agent-run',
+          return await runMcpTool(async () => ({
+            content: [{ type: 'text', text: 'Started the agent run.' }],
+            structuredContent: {
+              run: await operations.startAgentRun({
+                caller,
+                ...args,
+              }),
             },
-          )
+          }))
         },
       )
       server.registerTool(
@@ -327,29 +319,22 @@ export function createGinkoMcpHandler(options: {
         },
         async ({ entryId, locale }) => {
           if (!access.scopes.includes(readScope)) return requiredScopeResult(readScope)
-          return await runMcpTool(
-            async () => {
-              const entry = await operations.getEntry({
-                caller,
-                id: entryId,
-                ...(locale === undefined ? {} : { locale }),
-              })
-              return {
-                content: [
-                  {
-                    type: 'text',
-                    text: entry === null ? 'Entry was not found.' : 'Loaded the CMS entry.',
-                  },
-                ],
-                structuredContent: { entry },
-              }
-            },
-            {
-              operation: 'query',
-              functionName: 'ginkoCms/mcpOperations:getEntry',
-              toolName: 'get-entry',
-            },
-          )
+          return await runMcpTool(async () => {
+            const entry = await operations.getEntry({
+              caller,
+              id: entryId,
+              ...(locale === undefined ? {} : { locale }),
+            })
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: entry === null ? 'Entry was not found.' : 'Loaded the CMS entry.',
+                },
+              ],
+              structuredContent: { entry },
+            }
+          })
         },
       )
       server.registerTool(
@@ -386,29 +371,22 @@ export function createGinkoMcpHandler(options: {
         },
         async (args) => {
           if (!access.scopes.includes(writeScope)) return requiredScopeResult(writeScope)
-          return await runMcpTool(
-            async () => {
-              try {
-                const result = await operations.saveEntryDraft({
-                  caller,
-                  ...args,
-                })
-                return {
-                  content: [{ type: 'text', text: 'Saved the entry draft.' }],
-                  structuredContent: { result },
-                }
-              } catch (error) {
-                const expected = expectedApplicationFailure(error)
-                if (expected) return expected
-                throw error
+          return await runMcpTool(async () => {
+            try {
+              const result = await operations.saveEntryDraft({
+                caller,
+                ...args,
+              })
+              return {
+                content: [{ type: 'text', text: 'Saved the entry draft.' }],
+                structuredContent: { result },
               }
-            },
-            {
-              operation: 'mutation',
-              functionName: 'ginkoCms/mcpOperations:saveEntryDraft',
-              toolName: 'save-entry-draft',
-            },
-          )
+            } catch (error) {
+              const expected = expectedApplicationFailure(error)
+              if (expected) return expected
+              throw error
+            }
+          })
         },
       )
       server.registerTool(
@@ -438,28 +416,21 @@ export function createGinkoMcpHandler(options: {
         },
         async (args) => {
           if (!access.scopes.includes(writeScope)) return requiredScopeResult(writeScope)
-          return await runMcpTool(
-            async () => ({
-              content: [
-                {
-                  type: 'text',
-                  text: 'Previewed publish impact without changing public content.',
-                },
-              ],
-              structuredContent: {
-                preview: await operations.previewPublish({
-                  caller,
-                  ...args,
-                }),
-                publicChanged: false as const,
+          return await runMcpTool(async () => ({
+            content: [
+              {
+                type: 'text',
+                text: 'Previewed publish impact without changing public content.',
               },
-            }),
-            {
-              operation: 'mutation',
-              functionName: 'ginkoCms/mcpOperations:previewPublish',
-              toolName: 'preview-publish',
+            ],
+            structuredContent: {
+              preview: await operations.previewPublish({
+                caller,
+                ...args,
+              }),
+              publicChanged: false as const,
             },
-          )
+          }))
         },
       )
       server.registerTool(
@@ -471,22 +442,15 @@ export function createGinkoMcpHandler(options: {
         },
         async (args) => {
           if (!access.scopes.includes(readScope)) return requiredScopeResult(readScope)
-          return await runMcpTool(
-            async () => ({
-              content: [{ type: 'text', text: 'Completed the agent run.' }],
-              structuredContent: {
-                run: await operations.completeAgentRun({
-                  caller,
-                  ...args,
-                }),
-              },
-            }),
-            {
-              operation: 'mutation',
-              functionName: 'ginkoCms/mcpOperations:completeAgentRun',
-              toolName: 'complete-agent-run',
+          return await runMcpTool(async () => ({
+            content: [{ type: 'text', text: 'Completed the agent run.' }],
+            structuredContent: {
+              run: await operations.completeAgentRun({
+                caller,
+                ...args,
+              }),
             },
-          )
+          }))
         },
       )
       server.registerTool(
@@ -549,20 +513,14 @@ export function createGinkoMcpHandler(options: {
         },
         async ({ reviewRequestId }) => {
           if (!access.scopes.includes(readScope)) return requiredScopeResult(readScope)
-          return await runMcpTool(
-            async () =>
-              projectReviewResult(
-                await operations.getReviewStatus({
-                  caller,
-                  reviewRequestId,
-                }),
-                false,
-              ),
-            {
-              operation: 'query',
-              functionName: 'ginkoCms/mcpOperations:getReviewStatus',
-              toolName: 'get-review-status',
-            },
+          return await runMcpTool(async () =>
+            projectReviewResult(
+              await operations.getReviewStatus({
+                caller,
+                reviewRequestId,
+              }),
+              false,
+            ),
           )
         },
       )

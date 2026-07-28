@@ -65,7 +65,7 @@ export function useDebugExport(options: UseDebugExportOptions) {
     const currentTiptapJson = options.editor.value?.getJSON() || null
     const currentMarkdown = options.modelValue.value || ''
 
-    let mdcAst: MDCRoot | { error: string } | null = null
+    let mdcAst: MDCRoot | { error: string }
     let reconvertedTiptap: unknown = null
     let reconvertedMarkdown: null | string = null
     let tiptapToMdcAst: MDCRoot | { error: string } | null = null

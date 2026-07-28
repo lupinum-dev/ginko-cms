@@ -87,7 +87,7 @@ describe('built ginko-cms Nuxt provider package output', () => {
 
   it('ships the same v3 raw-document and cursor contracts as the source adapter', async () => {
     const pageQuery = toContentProviderQuery({ collection: 'docs', first: true })
-    pageQuery.plan.variantSelector = {
+    pageQuery.plan.variant = {
       by: 'route',
       requestedLocale: 'en',
       candidates: [{ locale: 'en', contentPath: '/docs/content-routing' }],

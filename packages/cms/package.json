@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-cms",
-  "version": "0.2.0-rc.1",
+  "version": "0.2.0-rc.2",
   "description": "Self-hosted CMS for Nuxt teams building structured websites with Ginko",
   "homepage": "https://github.com/lupinum-dev/ginko-cms#readme",
   "bugs": {
@@ -62,13 +62,13 @@
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@lucide/vue": "^1.24.0",
-    "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.1",
-    "@lupinum/ginko-cms-convex": "workspace:^0.2.0-rc.1",
+    "@lupinum/ginko-cms-contract": "workspace:^0.2.0-rc.2",
+    "@lupinum/ginko-cms-convex": "workspace:^0.2.0-rc.2",
     "@nuxt/kit": "4.4.8",
     "@nuxtjs/color-mode": "^4.0.0",
     "@tailwindcss/vite": "^4.3.0",
-    "better-convex-nuxt": "0.8.0-beta.18",
-    "better-convex-vue": "0.8.0-beta.18",
+    "better-convex-nuxt": "0.8.0-beta.21",
+    "better-convex-vue": "0.8.0-beta.21",
     "convex": "1.42.2",
     "defu": "^6.1.4",
     "h3": "1.15.11",
@@ -129,8 +129,8 @@
     "vue-router": "^5.0.7"
   },
   "peerDependencies": {
-    "@lupinum/ginko-content": "^0.3.0-rc.5",
-    "better-auth": "1.7.0-rc.1",
+    "@lupinum/ginko-content": "0.3.2",
+    "better-auth": "1.7.0-rc.2",
     "kysely": "0.28.17",
     "nuxt": "4.4.8",
     "vue": "^3.5.0"

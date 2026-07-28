@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, join, relative, resolve } from 'node:path'
 
 const repoRoot = resolve(import.meta.dirname, '..')
 const outputRoot = resolve(repoRoot, '.pack/candidate')
@@ -39,6 +39,10 @@ function run(command, args, cwd = repoRoot, stdio = 'inherit') {
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
+}
+
+function integrity(path) {
+  return `sha512-${createHash('sha512').update(readFileSync(path)).digest('base64')}`
 }
 
 function assertClean(root, name) {
@@ -118,13 +122,6 @@ function packSet(temporaryRoot, runIndex) {
   return result
 }
 
-function assertContained(parent, child, label) {
-  const path = relative(parent, child)
-  if (path === '..' || path.startsWith(`..${sep}`)) {
-    throw new Error(`${label} escapes its reviewed artifact root.`)
-  }
-}
-
 function inspectUpstreamTarball(name, tarball) {
   const temporaryRoot = mkdtempSync(join(tmpdir(), 'ginko-cms-upstream-inspect-'))
   try {
@@ -135,134 +132,34 @@ function inspectUpstreamTarball(name, tarball) {
     ) {
       throw new Error(`Packed ${name} manifest does not match the compatibility release stack.`)
     }
+    return packageManifest
   } finally {
     rmSync(temporaryRoot, { recursive: true, force: true })
   }
 }
 
-function requireContentArtifact(manifestPath) {
-  const name = '@lupinum/ginko-content'
+function requireUpstreamTarball(name, tarballPath) {
   const expected = compatibility.releaseArtifacts[name]
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  if (
-    manifest.packageName !== name ||
-    manifest.packageVersion !== compatibility.releaseStack[name] ||
-    manifest.commit !== expected.sourceCommit ||
-    manifest.sha256 !== expected.sha256 ||
-    manifest.worktreeDirty !== false ||
-    manifest.releaseEligible !== true ||
-    manifest.reproduciblePacks !== 2 ||
-    typeof manifest.tarball !== 'string' ||
-    basename(manifest.tarball) !== manifest.tarball
-  ) {
-    throw new Error(`${name} release evidence does not match compatibility.json.`)
+  if (typeof expected.integrity !== 'string' || typeof expected.sha256 !== 'string') {
+    throw new Error(`${name} release evidence is incomplete in compatibility.json.`)
   }
-  const tarball = resolve(dirname(manifestPath), manifest.tarball)
+  const tarball = resolve(tarballPath)
   const actualHash = sha256(tarball)
   if (actualHash !== expected.sha256) {
     throw new Error(`${name} hash is ${actualHash}; compatibility requires ${expected.sha256}.`)
   }
-  inspectUpstreamTarball(name, tarball)
-  return {
-    version: compatibility.releaseStack[name],
-    commit: manifest.commit,
-    sha256: actualHash,
-    path: tarball,
-  }
-}
-
-function requireBetterConvexSet(manifestPath) {
-  const set = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  const expectedIds = ['vue', 'nuxt']
-  if (
-    set.schemaVersion !== 1 ||
-    set.version !== compatibility.releaseStack['better-convex-nuxt'] ||
-    set.version !== compatibility.releaseStack['better-convex-vue'] ||
-    !Array.isArray(set.packages) ||
-    set.packages.length !== expectedIds.length ||
-    set.packages.some((entry, index) => entry.packageId !== expectedIds[index])
-  ) {
-    throw new Error('Better Convex candidate-set evidence does not match compatibility.json.')
-  }
-
-  const artifactRoot = resolve(dirname(manifestPath), '../../..')
-  const result = {}
-  for (const entry of set.packages) {
-    const name = entry.packageName
-    const expected = compatibility.releaseArtifacts[name]
-    if (
-      !expected ||
-      set.sourceCommit !== expected.sourceCommit ||
-      entry.sha256 !== expected.sha256 ||
-      typeof entry.tarball !== 'string' ||
-      typeof entry.evidence !== 'string'
-    ) {
-      throw new Error(`${name} candidate-set evidence does not match compatibility.json.`)
-    }
-    const tarball = resolve(artifactRoot, entry.tarball)
-    const evidencePath = resolve(artifactRoot, entry.evidence)
-    assertContained(artifactRoot, tarball, `${name} tarball`)
-    assertContained(artifactRoot, evidencePath, `${name} evidence`)
-    const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
-    const actualHash = sha256(tarball)
-    if (
-      evidence.packageName !== name ||
-      evidence.packageId !== entry.packageId ||
-      evidence.sourceCommit !== expected.sourceCommit ||
-      evidence.version !== compatibility.releaseStack[name] ||
-      evidence.tarball?.sha256 !== expected.sha256 ||
-      actualHash !== expected.sha256
-    ) {
-      throw new Error(`${name} package evidence does not match compatibility.json.`)
-    }
-    if (
-      name === 'better-convex-nuxt' &&
-      evidence.runtimeFingerprint !== expected.runtimeFingerprint
-    ) {
-      throw new Error('better-convex-nuxt runtime fingerprint does not match compatibility.json.')
-    }
-    inspectUpstreamTarball(name, tarball)
-    result[name] = {
-      version: compatibility.releaseStack[name],
-      commit: evidence.sourceCommit,
-      sha256: actualHash,
-      path: tarball,
-      ...(typeof evidence.runtimeFingerprint === 'string'
-        ? { runtimeFingerprint: evidence.runtimeFingerprint }
-        : {}),
-    }
-  }
-  return result
-}
-
-function requireBetterConvexMcp(manifestPath) {
-  const name = '@better-convex/mcp'
-  const expected = compatibility.releaseArtifacts[name]
-  const evidence = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  if (
-    evidence.schemaVersion !== 3 ||
-    evidence.packageId !== 'mcp' ||
-    evidence.packageName !== name ||
-    evidence.version !== compatibility.releaseStack[name] ||
-    evidence.sourceCommit !== expected.sourceCommit ||
-    evidence.tarball?.sha256 !== expected.sha256 ||
-    evidence.tarball?.integrity !== expected.integrity ||
-    typeof evidence.tarball?.file !== 'string' ||
-    basename(evidence.tarball.file) !== evidence.tarball.file
-  ) {
-    throw new Error('@better-convex/mcp artifact evidence does not match compatibility.json.')
-  }
-  const artifactRoot = dirname(manifestPath)
-  const tarball = resolve(artifactRoot, evidence.tarball.file)
-  assertContained(artifactRoot, tarball, `${name} tarball`)
-  const actualHash = sha256(tarball)
-  if (actualHash !== expected.sha256) {
-    throw new Error(`${name} hash is ${actualHash}; compatibility requires ${expected.sha256}.`)
+  const actualIntegrity = integrity(tarball)
+  if (actualIntegrity !== expected.integrity) {
+    throw new Error(
+      `${name} integrity is ${actualIntegrity}; compatibility requires ${expected.integrity}.`,
+    )
   }
   inspectUpstreamTarball(name, tarball)
   return {
     version: compatibility.releaseStack[name],
-    commit: evidence.sourceCommit,
+    ...(expected.sourceCommit ? { commit: expected.sourceCommit } : {}),
+    ...(expected.registry ? { registry: expected.registry } : {}),
+    integrity: actualIntegrity,
     sha256: actualHash,
     path: tarball,
   }
@@ -270,29 +167,42 @@ function requireBetterConvexMcp(manifestPath) {
 
 assertClean(repoRoot, 'Ginko CMS')
 const cmsCommit = run('git', ['rev-parse', 'HEAD'], repoRoot, 'pipe').trim()
-const contentManifest = resolve(
-  process.env.GINKO_CONTENT_ARTIFACT_MANIFEST ??
-    resolve(repoRoot, '../ginko-content/.pack/release-artifact.json'),
-)
-const betterConvexSetManifest = resolve(
-  process.env.BETTER_CONVEX_CANDIDATE_SET ??
-    resolve(
-      repoRoot,
-      `../../convex/better-convex-nuxt/.release-artifacts/set/${compatibility.releaseStack['better-convex-nuxt']}/artifact-set.json`,
-    ),
-)
-const betterConvexMcpManifest = resolve(
-  process.env.BETTER_CONVEX_MCP_ARTIFACT_MANIFEST ??
-    resolve(
-      repoRoot,
-      `../../convex/better-convex-nuxt/.release-artifacts/mcp/${compatibility.releaseStack['@better-convex/mcp']}/artifact.json`,
-    ),
-)
-const betterConvex = requireBetterConvexSet(betterConvexSetManifest)
+const upstreamTarball = (name, variable) =>
+  resolve(
+    process.env[variable] ??
+      resolve(
+        repoRoot,
+        `.pack/upstream/${name.replace('@', '').replace('/', '-')}-${compatibility.releaseStack[name]}.tgz`,
+      ),
+  )
+const nuxtEvidence = compatibility.releaseArtifacts['better-convex-nuxt']
+if (typeof nuxtEvidence?.runtimeFingerprint !== 'string') {
+  throw new Error(
+    'better-convex-nuxt release evidence is pending in compatibility.json; candidate packing is blocked.',
+  )
+}
 const upstream = {
-  '@lupinum/ginko-content': requireContentArtifact(contentManifest),
-  ...betterConvex,
-  '@better-convex/mcp': requireBetterConvexMcp(betterConvexMcpManifest),
+  '@lupinum/ginko-content': requireUpstreamTarball(
+    '@lupinum/ginko-content',
+    upstreamTarball('@lupinum/ginko-content', 'GINKO_CONTENT_TARBALL'),
+  ),
+  'better-convex-vue': {
+    ...requireUpstreamTarball(
+      'better-convex-vue',
+      upstreamTarball('better-convex-vue', 'BETTER_CONVEX_VUE_TARBALL'),
+    ),
+  },
+  'better-convex-nuxt': {
+    ...requireUpstreamTarball(
+      'better-convex-nuxt',
+      upstreamTarball('better-convex-nuxt', 'BETTER_CONVEX_NUXT_TARBALL'),
+    ),
+    runtimeFingerprint: nuxtEvidence.runtimeFingerprint,
+  },
+  '@better-convex/mcp': requireUpstreamTarball(
+    '@better-convex/mcp',
+    upstreamTarball('@better-convex/mcp', 'BETTER_CONVEX_MCP_TARBALL'),
+  ),
 }
 
 run('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'])
@@ -333,9 +243,11 @@ try {
         name,
         {
           version: artifact.version,
-          commit: artifact.commit,
           sha256: artifact.sha256,
           tarball: basename(artifact.path),
+          ...(artifact.commit ? { commit: artifact.commit } : {}),
+          ...(artifact.registry ? { registry: artifact.registry } : {}),
+          ...(artifact.integrity ? { integrity: artifact.integrity } : {}),
           ...(artifact.runtimeFingerprint
             ? { runtimeFingerprint: artifact.runtimeFingerprint }
             : {}),
@@ -356,7 +268,7 @@ try {
     ),
   }
   const evidence = {
-    candidate: '0.2.0-rc.1',
+    candidate: compatibility.releaseStack['@lupinum/ginko-cms'],
     source: { commit: cmsCommit, dirty: false },
     toolchain: {
       node: process.version,

@@ -143,7 +143,7 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
 
     const event = { context: { runtimeConfig: { public: {} } } }
     const request = toContentProviderQuery({ collection: 'pages' })
-    request.plan.variantSelector = {
+    request.plan.variant = {
       by: 'route',
       requestedLocale: 'en',
       candidates: [{ locale: 'en', contentPath: '/' }],

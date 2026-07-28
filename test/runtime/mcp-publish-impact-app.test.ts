@@ -25,19 +25,6 @@ const input = {
   expectedVersion: 7,
   locales: ['en'],
 }
-const authorizationMetadata = {
-  authorization_endpoint: `${issuer}/oauth2/authorize`,
-  authorization_response_iss_parameter_supported: true,
-  code_challenge_methods_supported: ['S256'],
-  grant_types_supported: ['authorization_code'],
-  issuer,
-  jwks_uri: `${issuer}/jwks`,
-  response_types_supported: ['code'],
-  revocation_endpoint: `${issuer}/oauth2/revoke`,
-  scopes_supported: ['cms.read', 'cms.entries.edit'],
-  token_endpoint: `${issuer}/oauth2/token`,
-  token_endpoint_auth_methods_supported: ['none'],
-} as const
 const verifier = {
   async verifyAccessToken(token: string, expectedResource: URL) {
     if (token !== bearer) throw new Error('access rejected')
@@ -78,7 +65,7 @@ function createFixture(appHtml: string) {
   let previewExecutions = 0
   let latestPreviewArgs: unknown = null
   const handler = createGinkoMcpHandler({
-    authorizationMetadata,
+    authorizationIssuer: issuer,
     publishImpactAppHtml: appHtml,
     reviewInteractionBase: new URL('https://app.example.test/api/_ginko/reviews/'),
     resource,
@@ -187,7 +174,7 @@ function hostHtml(code: string) {
 describe('Ginko publish-impact MCP App', () => {
   it('rejects empty and oversized App documents before serving MCP', () => {
     const base = {
-      authorizationMetadata,
+      authorizationIssuer: issuer,
       reviewInteractionBase: new URL('https://app.example.test/api/_ginko/reviews/'),
       operations: {
         async startAgentRun() {},

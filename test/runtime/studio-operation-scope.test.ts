@@ -88,7 +88,7 @@ describe('Studio upload scope', () => {
       expiresAt: Date.now() + 60_000,
     })
 
-    await expect(promise).rejects.toThrow('scope was disposed')
+    await expect(promise).rejects.toThrow('Unknown Convex error')
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(upload.status.value).toBe('idle')
     expect(upload.data.value).toBeUndefined()

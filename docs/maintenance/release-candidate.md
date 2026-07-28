@@ -11,13 +11,28 @@ file as the canonical package tuple; do not copy version tables by hand into
 release notes.
 
 Publish order is fixed: Content, CMS Contract, CMS Convex, then CMS.
-`better-convex-nuxt` must already be available at the compatibility-matrix
-version. Do not use recursive workspace publishing from this repo; the workspace
-includes sibling checkouts for local development.
+The complete Better Convex Nuxt, Vue, and MCP family must already be available
+at the compatibility-matrix versions. Do not use recursive workspace publishing
+from this repo; the workspace includes sibling checkouts for local development.
+
+Ordinary CI separately checks out the exact `sourceRehearsal` Better Convex
+commit, packs temporary tarballs, and deletes them with the runner. That proves
+current-source compatibility only. It does not create, approve, or replace an
+immutable release candidate.
+
+The current beta.21/beta.9 source rehearsal is superseded for release purposes.
+`candidate:pack` must remain blocked until compatibility records certified
+beta.22/beta.10 registry bytes and the Nuxt runtime fingerprint.
 
 ## Maintainer Release Gate
 
-Run the package release gates from the Ginko CMS workspace:
+The canonical hosted gate is `.github/workflows/release-candidate.yml`, triggered
+manually or by a `v*-*` prerelease tag. It downloads upstream registry artifacts,
+packs Ginko once, verifies the uploaded bytes with pnpm and npm, and then enters
+the tag-restricted `ginko-release` environment for disposable Convex staging.
+
+For an equivalent local rehearsal, run the package release gates from the Ginko
+CMS workspace:
 
 ```bash
 pnpm run release:notes

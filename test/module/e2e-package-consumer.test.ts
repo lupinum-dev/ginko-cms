@@ -56,6 +56,8 @@ function writeConsumerWorkspaceConfig(cwd: string, overrides: Record<string, str
     'minimumReleaseAge: 1440',
     'minimumReleaseAgeExclude:',
     "  - '@lupinum/*'",
+    "  - '@modelcontextprotocol/core'",
+    "  - '@modelcontextprotocol/server'",
     "  - '@nuxt/*'",
     "  - 'nuxt'",
     'allowBuilds:',

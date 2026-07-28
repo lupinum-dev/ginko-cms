@@ -427,7 +427,6 @@ export async function previewPublishImpactForEntry(
     }
 
     if (nextPath) {
-      let listedDescendantRoutePreviews: PublishedDescendantRouteChange[] = []
       if (currentHref !== nextHref) {
         const firstPage = await paginatePublishedDescendantRouteChanges(ctx, {
           collection,
@@ -440,10 +439,9 @@ export async function previewPublishImpactForEntry(
           limit: 25,
         })
         descendantRoutePreviews = firstPage.page
-        listedDescendantRoutePreviews = firstPage.page
         routeImpact = {
           total: firstPage.isDone ? descendantRoutePreviews.length : null,
-          listed: listedDescendantRoutePreviews.length,
+          listed: firstPage.page.length,
           hasMore: !firstPage.isDone,
           continueCursor: firstPage.continueCursor,
           routeGeneration,

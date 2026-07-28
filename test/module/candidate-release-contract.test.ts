@@ -9,13 +9,23 @@ describe('coordinated CMS candidate release contract', () => {
     const workspace = readJson<{ scripts: Record<string, string> }>('package.json')
     const compatibility = readJson<{
       releaseStack: Record<string, string>
+      sourceRehearsal: { betterConvexCommit: string }
       releaseArtifacts: Record<
         string,
-        { sourceCommit: string; sha256: string; runtimeFingerprint?: string }
+        {
+          sourceCommit?: string
+          registry?: string
+          sha256: string
+          integrity?: string
+          runtimeFingerprint?: string
+        }
       >
     }>('packages/cms/compatibility.json')
 
     expect(workspace.scripts['candidate:pack']).toBe('node scripts/candidate-pack.mjs')
+    expect(workspace.scripts['install:rehearsal:source']).toBe(
+      'node scripts/install-rehearsal-dependencies.mjs --source',
+    )
     expect(workspace.scripts['candidate:live:materialize']).toBe(
       'node scripts/live-candidate.mjs materialize',
     )
@@ -26,14 +36,17 @@ describe('coordinated CMS candidate release contract', () => {
     )
     expect(workspace.scripts['release:verify:candidate']).toContain('pnpm run package:e2e:npm')
     expect(compatibility.releaseStack).toMatchObject({
-      '@lupinum/ginko-cms': '0.2.0-rc.1',
-      '@lupinum/ginko-cms-convex': '0.2.0-rc.1',
-      '@lupinum/ginko-cms-contract': '0.2.0-rc.1',
-      '@lupinum/ginko-content': '0.3.0-rc.5',
-      '@better-convex/mcp': '0.1.0-beta.6',
-      'better-convex-nuxt': '0.8.0-beta.18',
-      'better-convex-vue': '0.8.0-beta.18',
+      '@lupinum/ginko-cms': '0.2.0-rc.2',
+      '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
+      '@lupinum/ginko-cms-contract': '0.2.0-rc.2',
+      '@lupinum/ginko-content': '0.3.2',
+      '@better-convex/mcp': '0.1.0-beta.9',
+      'better-convex-nuxt': '0.8.0-beta.21',
+      'better-convex-vue': '0.8.0-beta.21',
     })
+    expect(compatibility.sourceRehearsal.betterConvexCommit).toBe(
+      'eee6a9be9747375fbe50d61c9fe1501ea6804d3b',
+    )
     expect(
       readJson<{ consumer: { dependencies: Record<string, string> } }>(
         'packages/cms/compatibility.json',
@@ -42,21 +55,13 @@ describe('coordinated CMS candidate release contract', () => {
       convex: '1.42.2',
       kysely: '0.28.17',
     })
-    expect(Object.keys(compatibility.releaseArtifacts).sort()).toEqual([
-      '@better-convex/mcp',
-      '@lupinum/ginko-content',
-      'better-convex-nuxt',
-      'better-convex-vue',
-    ])
-    expect(compatibility.releaseArtifacts['better-convex-nuxt']?.runtimeFingerprint).toBe(
-      'bcn-release-v1-bc9b69a7706849733c43d6284c385aa4c63c1cf4493da187d0e305b2a5843caf',
-    )
+    expect(Object.keys(compatibility.releaseArtifacts).sort()).toEqual(['@lupinum/ginko-content'])
     expect(
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
-      'better-auth': '1.7.0-rc.1',
-      'better-convex-nuxt': '0.8.0-beta.18',
-      'better-convex-vue': '0.8.0-beta.18',
+      'better-auth': '1.7.0-rc.2',
+      'better-convex-nuxt': '0.8.0-beta.21',
+      'better-convex-vue': '0.8.0-beta.21',
       convex: '1.42.2',
       kysely: '0.28.17',
       nuxt: '4.4.8',
@@ -67,7 +72,7 @@ describe('coordinated CMS candidate release contract', () => {
       'packages/contract/package.json',
       'packages/convex/package.json',
     ]) {
-      expect(readJson<{ version: string }>(path).version).toBe('0.2.0-rc.1')
+      expect(readJson<{ version: string }>(path).version).toBe('0.2.0-rc.2')
     }
   })
 
@@ -105,22 +110,21 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain('GINKO_PACKAGE_E2E_OUTPUT')
   })
 
-  it('accepts upstream candidate bytes only through their immutable evidence manifests', () => {
+  it('accepts upstream candidate bytes only through the immutable compatibility authority', () => {
     const source = readFileSync('scripts/candidate-pack.mjs', 'utf8')
 
-    expect(source).toContain('GINKO_CONTENT_ARTIFACT_MANIFEST')
-    expect(source).toContain('BETTER_CONVEX_CANDIDATE_SET')
-    expect(source).toContain('BETTER_CONVEX_MCP_ARTIFACT_MANIFEST')
-    expect(source).toContain('manifest.releaseEligible !== true')
-    expect(source).toContain('manifest.reproduciblePacks !== 2')
-    expect(source).toContain('set.schemaVersion !== 1')
-    expect(source).toContain("const expectedIds = ['vue', 'nuxt']")
-    expect(source).toContain('evidence.runtimeFingerprint !== expected.runtimeFingerprint')
+    expect(source).toContain('GINKO_CONTENT_TARBALL')
+    expect(source).toContain('BETTER_CONVEX_NUXT_TARBALL')
+    expect(source).toContain('BETTER_CONVEX_VUE_TARBALL')
+    expect(source).toContain('BETTER_CONVEX_MCP_TARBALL')
+    expect(source).toContain('expected.registry')
+    expect(source).toContain('expected.integrity')
     expect(source).toContain('actualHash !== expected.sha256')
+    expect(source).toContain('actualIntegrity !== expected.integrity')
+    expect(source).toContain('candidate packing is blocked')
     expect(source).not.toContain('GINKO_CONTENT_ROOT')
     expect(source).not.toContain('BETTER_CONVEX_NUXT_ROOT')
-    expect(source).not.toContain('GINKO_CONTENT_TARBALL')
-    expect(source).not.toContain('BETTER_CONVEX_NUXT_TARBALL')
+    expect(source).not.toContain('GINKO_CONTENT_ARTIFACT_MANIFEST')
     expect(source).not.toContain("['rev-parse', 'HEAD'], root")
     expect(source).not.toContain('assertClean(content')
     expect(source).not.toContain('assertClean(betterConvex')
@@ -148,26 +152,46 @@ describe('coordinated CMS candidate release contract', () => {
     expect(() => readFileSync('.npmrc', 'utf8')).toThrow()
   })
 
-  it('keeps untrusted CI read-only, pinned, and free of upstream source substitution', () => {
+  it('keeps untrusted CI read-only and binds its source rehearsal to compatibility', () => {
     const workflow = readFileSync('.github/workflows/ci.yml', 'utf8')
 
     expect(workflow).toContain('permissions:\n  contents: read')
     expect(workflow).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0')
     expect(workflow).toContain('actions/setup-node@820762786026740c76f36085b0efc47a31fe5020')
-    expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a')
     expect(workflow).toContain('persist-credentials: false')
     expect(workflow).toContain("GINKO_COREPACK_VERSION: '0.34.5'")
     expect(workflow).toContain("GINKO_NODE_VERSION: '24.18.0'")
     expect(workflow).toContain('corepack@"$GINKO_COREPACK_VERSION"')
     expect(workflow).toContain('pnpm install --frozen-lockfile')
+    expect(workflow).toContain('matrix.sourceRehearsal.betterConvexCommit')
+    expect(workflow).toContain('repository: lupinum-dev/better-convex-nuxt')
+    expect(workflow).toContain('npm pack ./packages/mcp --pack-destination .source-rehearsal')
+    expect(workflow).toContain(
+      'pnpm --config.verify-deps-before-run=warn run install:rehearsal:source',
+    )
+    expect(workflow).toContain('pnpm --config.verify-deps-before-run=warn run package:e2e:dev')
     expect(workflow).not.toMatch(/uses:\s+\S+@v\d/u)
     expect(workflow).not.toContain('corepack@latest')
     expect(workflow).not.toContain('LUPINUM_CI_REPO_READ_TOKEN')
     expect(workflow).not.toContain('secrets.')
-    expect(workflow).not.toContain('repository:')
     expect(workflow).not.toContain('candidate:pack')
     expect(workflow).not.toContain('release:verify:candidate')
+    expect(workflow).not.toContain('release:prepare')
     expect(workflow).not.toContain('BETTER_CONVEX_NUXT_ROOT')
     expect(workflow).not.toContain('GINKO_CONTENT_ROOT')
+  })
+
+  it('packs once and verifies uploaded candidates in the protected release workflow', () => {
+    const workflow = readFileSync('.github/workflows/release-candidate.yml', 'utf8')
+
+    expect(workflow).toContain("tags:\n      - 'v*-*'")
+    expect(workflow).toContain('environment: ginko-release')
+    expect(
+      workflow.match(/pnpm --config\.verify-deps-before-run=warn run candidate:pack/gu),
+    ).toHaveLength(1)
+    expect(workflow).toContain("governanceMode:'solo-maintainer'")
+    expect(workflow).toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
+    expect(workflow).toContain('pnpm --config.verify-deps-before-run=warn run package:e2e:live')
+    expect(workflow).not.toContain('NPM_TOKEN')
   })
 })

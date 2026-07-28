@@ -21,29 +21,45 @@ the CMS packages are published.
 
 ## Daily Maintenance
 
-Use these commands while working:
+The Better Convex beta.21/beta.9 coordinates are current-source rehearsal
+versions, not release candidates. Pack the three packages from the exact
+`sourceRehearsal.betterConvexCommit`, then install those temporary tarballs
+before running source checks:
 
 ```bash
+BETTER_CONVEX_NUXT_TARBALL=/absolute/path/to/better-convex-nuxt.tgz \
+BETTER_CONVEX_VUE_TARBALL=/absolute/path/to/better-convex-vue.tgz \
+BETTER_CONVEX_MCP_TARBALL=/absolute/path/to/better-convex-mcp.tgz \
+pnpm run install:rehearsal:source
 pnpm run check
 pnpm run release:verify
 ```
 
-`release:verify` is the development lane: it runs local checks, source-package
-consumer verification, and the production audit. It is not release evidence.
+`install:rehearsal:source` verifies package names and tuple versions, temporarily
+overrides dependency resolution against the committed lock, and restores both
+the lockfile and workspace configuration byte-for-byte in `finally`. These
+tarballs are temporary CI inputs and are never candidate or publishable
+artifacts. Delete this source-rehearsal path after the final Better Convex
+packages are available from the registry.
 
-The release-candidate lane consumes approved dependency tarballs without
-rebuilding them:
+The release-candidate lane consumes four approved dependency tarballs without
+rebuilding them. Put the exact registry downloads in `.pack/upstream`, run the
+single pack command, then verify the uploaded result:
 
 ```bash
-GINKO_CONTENT_TARBALL=/absolute/path/to/ginko-content.tgz \
-GINKO_CONTENT_SHA256=<sha256> \
-BETTER_CONVEX_NUXT_TARBALL=/absolute/path/to/better-convex-nuxt.tgz \
-BETTER_CONVEX_NUXT_SHA256=<sha256> \
+pnpm run candidate:pack
 pnpm run release:verify:candidate
 ```
 
-It rejects mismatched hashes, wrong installed versions, and workspace/link
-dependencies. The uncommitted result is `.pack/release-evidence.json`.
+`candidate:pack` verifies package names, versions, SHA-256, SRI, the Nuxt
+runtime fingerprint binding, and reproducible Ginko packs against the single
+compatibility authority. Candidate verification rejects wrong installed
+versions and workspace/link dependencies.
+
+Candidate packing currently fails closed because the superseded
+beta.21/beta.9 hashes were removed. Add the coordinated final Better Convex
+beta.22/beta.10 versions and immutable registry evidence only after their final
+MCP reconciliation and certification succeed.
 
 For a real release candidate, also run the registry dependency lane after
 Ginko Content is published:
@@ -52,9 +68,9 @@ Ginko Content is published:
 pnpm run release:verify:registry
 ```
 
-That proves the CMS packages can consume the already-published Ginko Content and
-`better-convex-nuxt` versions from `packages/cms/compatibility.json` instead of
-accidentally relying on sibling workspaces.
+That lane can become green only after every Better Convex coordinate in
+`packages/cms/compatibility.json` is published. It must fail closed while the
+rehearsal coordinates remain unpublished.
 
 ## Release Runbook
 
@@ -62,7 +78,7 @@ Publishing is intentionally manual. The `release:publish` script exits with a
 failure message so nobody, human or agent, can accidentally push packages to
 npm.
 
-1. Confirm Ginko Content and `better-convex-nuxt` are released at the
+1. Confirm Ginko Content and the complete Better Convex family are released at the
    versions in `packages/cms/compatibility.json`.
 2. Start from a clean working tree on the release branch.
 3. Update package versions and compatibility docs intentionally.
@@ -73,41 +89,36 @@ pnpm run release:notes
 ```
 
 5. Review `CHANGELOG.md`; changelogen is a draft generator, not an authority.
-6. Run local release verification:
+6. Trigger `.github/workflows/release-candidate.yml` manually or push the exact
+   prerelease tag. It downloads upstream registry bytes, packs once, verifies
+   pnpm and npm consumers, and runs protected disposable Convex staging.
+7. Download the `ginko-candidate-<commit>` artifact produced by that workflow.
+8. Inspect the exact candidate tarballs before publishing:
 
 ```bash
-pnpm run release:verify
-```
-
-7. Run registry dependency verification:
-
-```bash
-pnpm run release:verify:registry
-```
-
-8. Inspect `.pack/*.tgz` before publishing:
-
-```bash
-tar -tzf .pack/lupinum-ginko-cms-contract-*.tgz | less
-tar -tzf .pack/lupinum-ginko-cms-convex-*.tgz | less
-tar -tzf .pack/lupinum-ginko-cms-*.tgz | less
+tar -tzf .pack/candidate/lupinum-ginko-cms-contract-*.tgz | less
+tar -tzf .pack/candidate/lupinum-ginko-cms-convex-*.tgz | less
+tar -tzf .pack/candidate/lupinum-ginko-cms-*.tgz | less
 pnpm run check:packs:no-local-specifiers
-npm publish .pack/lupinum-ginko-cms-contract-0.1.1.tgz --access public --otp <code>
-npm publish .pack/lupinum-ginko-cms-convex-0.1.2.tgz --access public --otp <code>
-npm publish .pack/lupinum-ginko-cms-0.1.3.tgz --access public --otp <code>
+npm publish .pack/candidate/lupinum-ginko-cms-contract-0.2.0-rc.2.tgz --access public --otp <code>
+npm publish .pack/candidate/lupinum-ginko-cms-convex-0.2.0-rc.2.tgz --access public --otp <code>
+npm publish .pack/candidate/lupinum-ginko-cms-0.2.0-rc.2.tgz --access public --otp <code>
 ```
 
-9. Commit the release prep. Do not commit `.pack/` artifacts.
-10. Publish only after the owner has reviewed the tarballs and npm package
-    settings.
+9. Publish only after the owner has reviewed the candidate manifest, protected
+   staging evidence, tarballs, and npm package settings.
 
 For the first public release of a package, npm staged publishing cannot be used
 because staged publishing requires the package to already exist on the registry.
 Use an owner-controlled manual publish with 2FA.
 
-For later releases, prefer npm trusted publishing plus staged publishing:
+For later releases, prefer npm trusted publishing plus staged publishing. While
+the project has one maintainer, `ginko-release` uses tag restrictions without a
+required reviewer. The evidence records `governanceMode: solo-maintainer`, the
+tag actor, source commit, and commit author; it does not invent a deputy,
+independent reviewer, or notification test.
 
-- GitHub Actions must use a protected environment with human approval.
+- GitHub Actions must use the tag-restricted `ginko-release` environment.
 - The release job must use Node 24 or newer and npm 11.15 or newer.
 - Do not use package-manager caches in release jobs.
 - Use OIDC trusted publishing instead of long-lived npm publish tokens.
@@ -115,9 +126,6 @@ For later releases, prefer npm trusted publishing plus staged publishing:
 - Stage the tarballs in package order with `npm stage publish .pack/<name>.tgz`,
   download and inspect each staged package with `npm stage download <stage-id>`,
   then approve with `npm stage approve <stage-id>` and 2FA.
-- CI sibling checkouts require `LUPINUM_CI_REPO_READ_TOKEN` when Ginko Content
-  is private. Set `GINKO_CONTENT_CI_REF` when CI must test a release branch or
-  tag instead of `main`.
 
 ## Supply-Chain Policy
 
@@ -134,14 +142,15 @@ For later releases, prefer npm trusted publishing plus staged publishing:
 Current temporary overrides are for audit and ecosystem compatibility:
 
 - `brace-expansion`, `devalue`, `fast-uri`, `fast-xml-builder`, `hono`,
-  `ip-address`, `kysely`, `mermaid`, `nitropack`, `postcss`, `simple-git`, and
-  `ws` keep transitive production audit clean.
+  `ip-address`, `kysely`, `mermaid`, `nitropack`, `oxc-parser`, `postcss`,
+  `simple-git`, `vue-sfc-transformer`, and `ws` keep transitive production
+  resolution and audit clean.
 - `qs` is held at the patched `6.15.2` line for the transitive Express parser
   chain currently pulled in by MCP tooling.
 - `auditConfig.ignoreGhsas` contains the current unfixable `elliptic` advisory
   from the MCP tooling chain. Remove it as soon as upstream stops resolving
   `elliptic` or npm publishes a patched range.
-- `convex@1.38.0` is the release tuple pin.
+- `convex@1.42.2` is the release tuple pin.
 - `h3@1.15.11` is held until h3 2 is stable and Nuxt ecosystem peers accept it.
 - Vite 7 and Nuxt DevTools 3 are held until their next major lines are stable
   across Nuxt, Vitest, and the Studio build.

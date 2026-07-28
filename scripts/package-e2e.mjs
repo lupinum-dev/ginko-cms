@@ -94,7 +94,7 @@ function declaredExportSpecifiers(packageManifest) {
 
 function requireCandidateArtifact(pathVariable, packageName) {
   const expected = compatibilityMatrix.releaseArtifacts[packageName]
-  if (!expected?.sha256 || !expected?.sourceCommit) {
+  if (!expected?.sha256 || (!expected?.sourceCommit && !expected?.registry)) {
     throw new Error(`Compatibility is missing immutable release evidence for ${packageName}.`)
   }
   if (!existsSync(candidateArtifactPath)) {
@@ -105,7 +105,9 @@ function requireCandidateArtifact(pathVariable, packageName) {
   const recorded = candidateArtifact?.artifacts?.[packageName]
   if (
     recorded?.sha256 !== expected.sha256 ||
-    recorded?.commit !== expected.sourceCommit ||
+    (expected.sourceCommit && recorded?.commit !== expected.sourceCommit) ||
+    (expected.registry && recorded?.registry !== expected.registry) ||
+    (expected.integrity && recorded?.integrity !== expected.integrity) ||
     (expected.runtimeFingerprint && recorded?.runtimeFingerprint !== expected.runtimeFingerprint) ||
     typeof recorded?.tarball !== 'string'
   ) {
@@ -123,7 +125,12 @@ function requireCandidateArtifact(pathVariable, packageName) {
       `${pathVariable} SHA-256 mismatch: expected ${expected.sha256}, received ${actualHash}.`,
     )
   }
-  return { path: resolvedArtifact, sha256: actualHash, commit: expected.sourceCommit }
+  return {
+    path: resolvedArtifact,
+    sha256: actualHash,
+    ...(expected.sourceCommit ? { commit: expected.sourceCommit } : {}),
+    ...(expected.registry ? { registry: expected.registry } : {}),
+  }
 }
 
 const candidateContent = candidateMode
@@ -472,6 +479,8 @@ function writeConsumerWorkspaceConfig(cwd, overrides) {
     'minimumReleaseAge: 1440',
     'minimumReleaseAgeExclude:',
     "  - '@lupinum/*'",
+    "  - '@modelcontextprotocol/core'",
+    "  - '@modelcontextprotocol/server'",
     "  - '@nuxt/*'",
     "  - 'better-convex-nuxt'",
     "  - 'nuxt'",
@@ -887,19 +896,7 @@ const bearer = 'packed-ginko-mcp-bearer-sentinel'
 const calls = []
 const issuer = 'https://packed.example.test/api/auth'
 const handler = createGinkoMcpHandler({
-  authorizationMetadata: {
-    authorization_endpoint: issuer + '/oauth2/authorize',
-    authorization_response_iss_parameter_supported: true,
-    code_challenge_methods_supported: ['S256'],
-    grant_types_supported: ['authorization_code'],
-    issuer,
-    jwks_uri: issuer + '/jwks',
-    response_types_supported: ['code'],
-    revocation_endpoint: issuer + '/oauth2/revoke',
-    scopes_supported: ['cms.read', 'cms.entries.edit'],
-    token_endpoint: issuer + '/oauth2/token',
-    token_endpoint_auth_methods_supported: ['none'],
-  },
+  authorizationIssuer: issuer,
   reviewInteractionBase: new URL('https://packed.example.test/api/_ginko/reviews/'),
   resource: new URL('https://packed.example.test/mcp'),
   verifier: {

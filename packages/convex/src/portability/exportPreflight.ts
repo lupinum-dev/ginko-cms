@@ -393,7 +393,7 @@ export const createExportRun = callerAction.protected({
     const identity = await ctx.appIdentity()
     let cursor: string | null = null
     const seen = new Set<string>()
-    let preflightToken: string | null = null
+    let preflightToken: string | null
     for (;;) {
       const page: ExportPreflightPageResult = await ctx.runQuery(preflightPageRef, {
         scope: args.scope,
