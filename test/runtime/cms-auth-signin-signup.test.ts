@@ -25,12 +25,15 @@ const authState = vi.hoisted(() => ({
 
 vi.mock('#imports', async () => {
   const vue = await import('vue')
+  authState.isAuthenticated = vue.ref(authState.isAuthenticated.value)
+  authState.isPending = vue.ref(authState.isPending.value)
   return {
     computed: vue.computed,
     navigateTo: navigateToMock,
     onMounted: vue.onMounted,
     ref: vue.ref,
     useAttrs: vue.useAttrs,
+    watch: vue.watch,
     useConvexAuth: () => ({
       isAuthenticated: authState.isAuthenticated,
       isPending: authState.isPending,
@@ -90,6 +93,33 @@ describe('CmsAuthSignIn (vNext §10.3, no manual refresh)', () => {
     expect(authState.refreshAuth).not.toHaveBeenCalled()
     expect(navigateToMock).toHaveBeenCalledTimes(1)
     expect(navigateToMock).toHaveBeenCalledWith('/studio/reviews?locale=de', { replace: true })
+  })
+
+  it('does not re-enter protected navigation while atomic sign-in is pending', async () => {
+    let resolveSignIn!: (result: { error: null }) => void
+    authState.signInEmail.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSignIn = resolve
+      }),
+    )
+    const wrapper = mount(CmsAuthSignIn, {
+      props: { redirectTo: '/studio' },
+      global: { stubs: globalStubs },
+    })
+    await nextTick()
+
+    await wrapper.find('[data-testid="cms-auth-email"]').setValue('user@example.com')
+    await wrapper.find('[data-testid="cms-auth-password"]').setValue('correct horse battery')
+    await wrapper.find('[data-testid="cms-auth-form"]').trigger('submit')
+    await vi.waitFor(() => expect(authState.signInEmail).toHaveBeenCalledTimes(1))
+
+    authState.isAuthenticated.value = true
+    await nextTick()
+    expect(navigateToMock).not.toHaveBeenCalled()
+
+    resolveSignIn({ error: null })
+    await vi.waitFor(() => expect(navigateToMock).toHaveBeenCalledTimes(1))
+    expect(navigateToMock).toHaveBeenCalledWith('/studio', { replace: true })
   })
 
   it('surfaces a sign-in error without navigating or refreshing', async () => {

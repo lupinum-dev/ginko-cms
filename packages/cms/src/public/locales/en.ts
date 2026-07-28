@@ -710,6 +710,7 @@ const en = {
         revalidationTestPassed: 'Signed website refresh diagnostic passed.',
         revalidationTestError: 'Website refresh diagnostic could not run.',
         revalidationRecent: 'Recent refreshes',
+        storageRefresh: 'Refresh',
         revalidationNoJobs: 'No website refreshes have been recorded yet.',
         revalidationPagesOne: '{count} page',
         revalidationPagesOther: '{count} pages',

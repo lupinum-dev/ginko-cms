@@ -114,7 +114,6 @@ function createOAuthOptions<DataModel extends GenericDataModel>(
     },
     resourcePrivileges: (identity) => hasOAuthAdminPrivilege(ctx, deps, identity),
     scopes: [...MCP_OAUTH_SCOPES],
-    silenceWarnings: { oauthAuthServerConfig: true },
     storeClientSecret: 'hashed',
     storeTokens: 'hashed',
   }
@@ -170,6 +169,12 @@ export function defineGinkoAuth<DataModel extends GenericDataModel = GenericData
         '/oauth2/introspect',
         '/oauth2/userinfo',
         '/oauth2/end-session',
+        '/oauth2/create-client',
+        '/oauth2/get-client',
+        '/oauth2/get-clients',
+        '/oauth2/update-client',
+        '/oauth2/client/rotate-secret',
+        '/oauth2/delete-client',
       ],
       emailAndPassword: {
         enabled: options.emailPassword ?? true,

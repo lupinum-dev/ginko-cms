@@ -39,6 +39,16 @@ awk -F= '/^[A-Za-z_][A-Za-z0-9_]*=/{print $1}' .env.local | sort
 Use the same `localhost` origin configured by `SITE_URL`. Better Auth rejects a
 different hostname or port as an invalid origin.
 
+After the first deploy to a fresh Convex deployment, bootstrap its signing key
+once before opening Studio:
+
+```bash
+corepack pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'
+```
+
+This operator action is intentional: public JWKS reads never create signing
+state. Run it again only for a planned key rotation.
+
 ## Start the authenticated HMR stack
 
 ```bash

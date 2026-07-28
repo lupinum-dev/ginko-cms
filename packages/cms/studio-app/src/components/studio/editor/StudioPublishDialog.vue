@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { AlertCircle, CheckCircle2, ExternalLink, Eye, Globe } from '@lucide/vue'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import { useCmsConfig } from '../../../composables/useCmsConfig'
@@ -72,6 +72,16 @@ const publishConfirmation = computed(() =>
     confirmationToken: editor.publishing.publishSession.readiness.confirmationToken,
     confirmationExpiresAt: editor.publishing.publishSession.readiness.confirmationExpiresAt,
   }),
+)
+
+watch(
+  () => editor.publishing.publishSession.message,
+  (message, previousMessage) => {
+    if (message === previousMessage) return
+    editor.publishing.markPublishReadinessStale(
+      'The publish note changed. Preview website changes again before publishing.',
+    )
+  },
 )
 
 const publishScopeLabel = computed(() =>
@@ -493,6 +503,16 @@ const publishImpactMessage = computed(
       </div>
 
       <DialogFooter>
+        <Button
+          variant="outline"
+          :disabled="
+            editor.loader.pending || editor.publishing.publishSession.readiness.state === 'pending'
+          "
+          @click="editor.workflow?.previewPublishImpact(editor.loader.currentLocale)"
+        >
+          <Eye class="ginko:size-3.5 ginko:mr-1.5" />
+          {{ editor.loader.t('ginkoCms.studio.entryDetails.previewChanges') }}
+        </Button>
         <Button variant="outline" @click="editor.publishing.publishSession.open = false">
           {{ editor.loader.t('ginkoCms.studio.confirmDialog.cancel') }}
         </Button>

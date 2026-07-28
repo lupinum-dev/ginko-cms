@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { Loader2 } from '@lucide/vue'
-
 import { useCmsI18n } from '#ginko-cms-public/composables/useCmsI18n.js'
 import { resolveRedirectTarget } from '#ginko-cms-public/utils/redirectSafety.js'
-import { computed, navigateTo, onMounted, ref, useConvexAuth, useRoute } from '#imports'
+import { computed, navigateTo, onMounted, ref, useConvexAuth, useRoute, watch } from '#imports'
 
 import CmsAuthInput from './CmsAuthInput.vue'
 import CmsPasswordInput from './CmsPasswordInput.vue'
@@ -25,6 +23,7 @@ const password = ref('')
 const error = ref<string | null>(null)
 const displayError = computed(() => error.value ?? auth.error?.value?.message ?? null)
 const authFormReady = ref(false)
+let authRedirectStarted = false
 const isLoading = computed(() => isSubmitting.value)
 const isRedirecting = computed(
   // Auth state is client-owned and may start pending after SSR. Keep the
@@ -46,6 +45,21 @@ function getRedirectTarget() {
     `${props.redirectTo.replace(/\/$/, '')}/auth/signin`,
   )
 }
+async function redirectAuthenticatedUser() {
+  if (authRedirectStarted) return
+  authRedirectStarted = true
+  await navigateTo(getRedirectTarget(), { replace: true })
+}
+watch(
+  [isAuthenticated, isSubmitting],
+  ([authenticated, submitting]) => {
+    // A submitted sign-in owns its post-operation navigation below. Navigating
+    // while the atomic auth operation is pending re-enters protected-route
+    // readiness and deadlocks the operation that is establishing the identity.
+    if (authenticated && !submitting) void redirectAuthenticatedUser()
+  },
+  { immediate: true },
+)
 function toRegister(): string {
   const query = new URLSearchParams()
   const redirect = getRedirectTarget()
@@ -84,7 +98,7 @@ async function onSubmit(event: Event) {
       error.value = message
       return
     }
-    await navigateTo(getRedirectTarget(), { replace: true })
+    await redirectAuthenticatedUser()
   } catch (caught) {
     const message =
       caught instanceof Error ? caught.message : t('ginkoCms.auth.signIn.errorFallback')
@@ -98,7 +112,7 @@ async function onSubmit(event: Event) {
 
 <template>
   <div v-if="isRedirecting" class="cms-auth-loader">
-    <Loader2 class="cms-auth-spinner" />
+    <span class="cms-auth-spinner" aria-hidden="true" />
   </div>
 
   <template v-else>
@@ -149,7 +163,7 @@ async function onSubmit(event: Event) {
         data-testid="cms-auth-submit"
         :disabled="isLoading"
       >
-        <Loader2 v-if="isLoading" class="cms-auth-spinner cms-auth-spinner--sm" />
+        <span v-if="isLoading" class="cms-auth-spinner cms-auth-spinner--sm" aria-hidden="true" />
         {{ t('ginkoCms.auth.signIn.submit') }}
       </button>
     </form>

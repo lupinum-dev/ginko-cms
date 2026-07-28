@@ -111,6 +111,9 @@ describe('ginko-cms CLI', () => {
     expect(init.stdout).toContain('Set versioned `BETTER_AUTH_SECRETS`')
     expect(init.stdout).toContain('run `pnpm exec ginko-cms deploy`')
     expect(init.stdout).toContain(
+      "pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'",
+    )
+    expect(init.stdout).toContain(
       'Host apps must depend directly on `better-convex-nuxt`, `better-auth`, `kysely`, and `@lupinum/ginko-cms-convex`.',
     )
     expect(init.stdout).toContain('MCP is disabled')

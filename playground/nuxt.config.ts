@@ -28,10 +28,20 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    optimizeDeps: {
+      include: ['convex/server'],
+    },
+    resolve: {
+      dedupe: ['vue'],
+    },
   },
 
   convex: {
     url: process.env.CONVEX_URL,
+    siteUrl: process.env.CONVEX_SITE_URL,
+    auth: {
+      publicOrigin: process.env.SITE_URL ?? 'http://localhost:3000',
+    },
   },
 
   content: {

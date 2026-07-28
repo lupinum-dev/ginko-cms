@@ -117,6 +117,7 @@ describe('Studio copy guardrails', () => {
       'Review what will change on the website before this goes live.',
     )
     expect(en.ginkoCms.studio.collectionEditor.publishMessageLabel).toBe('Publish note')
+    expect(en.ginkoCms.studio.settingsPage.storageRefresh).toBe('Refresh')
     expect(en.ginkoCms.studio.reviewsPage.approveButton).toBe('Approve and publish')
     expect(en.ginkoCms.studio.reviewsPage.affectedLocales).toBe('Languages')
     expect(en.ginkoCms.studio.agentsPage.title).toBe('AI work sessions')
@@ -128,6 +129,7 @@ describe('Studio copy guardrails', () => {
     expect(de.ginkoCms.common.locale).toBe('Sprache')
     expect(de.ginkoCms.studio.collectionListPage.localesColumn).toBe('Sprachen')
     expect(de.ginkoCms.studio.collectionEditor.publishMessageLabel).toBe('Veröffentlichungsnotiz')
+    expect(de.ginkoCms.studio.settingsPage.storageRefresh).toBe('Aktualisieren')
     expect(de.ginkoCms.studio.reviewsPage.affectedLocales).toBe('Betroffene Sprachen')
     expect(de.ginkoCms.studio.reviewsPage.approveButton).toBe('Freigeben und veröffentlichen')
     expect(de.ginkoCms.studio.agentsPage.title).toBe('KI-Arbeitssitzungen')

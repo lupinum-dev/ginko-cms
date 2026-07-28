@@ -303,6 +303,11 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
   opacity: 0.5;
 }
 
+.cms-auth-password__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
 .cms-auth-submit,
 .cms-auth-button {
   display: inline-flex;
@@ -394,8 +399,12 @@ const { t, availableLocales, currentLocale, switchLocale } = useCmsI18n()
 }
 
 .cms-auth-spinner {
+  display: inline-block;
   width: 2rem;
   height: 2rem;
+  border: 2px solid currentcolor;
+  border-right-color: transparent;
+  border-radius: 9999px;
   animation: cms-auth-spin 1s linear infinite;
 }
 

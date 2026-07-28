@@ -129,6 +129,7 @@ Deploy generated Convex files and sync contracts through the canonical command:
 
 ```bash
 pnpm exec ginko-cms deploy
+pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'
 pnpm exec ginko-cms deploy --check
 ```
 

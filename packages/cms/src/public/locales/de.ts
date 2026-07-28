@@ -736,6 +736,7 @@ const de = {
         revalidationTestPassed: 'Signierte Website-Aktualisierungsdiagnose erfolgreich.',
         revalidationTestError: 'Website-Aktualisierungsdiagnose konnte nicht ausgeführt werden.',
         revalidationRecent: 'Letzte Aktualisierungen',
+        storageRefresh: 'Aktualisieren',
         revalidationNoJobs: 'Es wurden noch keine Website-Aktualisierungen aufgezeichnet.',
         revalidationPagesOne: '{count} Seite',
         revalidationPagesOther: '{count} Seiten',

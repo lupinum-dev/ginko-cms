@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { Loader2 } from '@lucide/vue'
-
 import { useCmsI18n } from '#ginko-cms-public/composables/useCmsI18n.js'
 import { computed, ref, useConvexAuth, useRoute } from '#imports'
 
@@ -79,7 +77,7 @@ async function onSubmit() {
         />
       </div>
       <button type="submit" class="cms-auth-submit" :disabled="disabled">
-        <Loader2 v-if="submitting" class="cms-auth-spinner cms-auth-spinner--sm" />
+        <span v-if="submitting" class="cms-auth-spinner cms-auth-spinner--sm" aria-hidden="true" />
         {{ t('ginkoCms.auth.recovery.submit') }}
       </button>
     </form>

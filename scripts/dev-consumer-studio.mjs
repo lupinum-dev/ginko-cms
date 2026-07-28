@@ -130,6 +130,7 @@ children.push(
     'studio',
     'pnpm',
     [
+      '--config.verify-deps-before-run=warn',
       'exec',
       'vite',
       '--config',
@@ -148,7 +149,7 @@ children.push(
 
 if (!studioOnly) {
   children.push(
-    run('consumer', 'pnpm', ['dev'], {
+    run('consumer', 'pnpm', ['--config.verify-deps-before-run=warn', 'dev'], {
       cwd: consumerDir,
       env: {
         ...process.env,

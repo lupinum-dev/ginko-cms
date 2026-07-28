@@ -579,6 +579,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
       const preview = (await previewPublishMutation({
         entryId: editor.loader.entryId,
         locales,
+        message: publishSession.message.trim() || undefined,
         expectedVersion,
       })) as PublishSessionPreview
       publishSession.preview = preview

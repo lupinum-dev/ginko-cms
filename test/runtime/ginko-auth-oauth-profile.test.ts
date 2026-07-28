@@ -78,8 +78,19 @@ describe('Ginko fixed MCP OAuth provider profile', () => {
       storeTokens: 'hashed',
     })
     expect(capturedConvexOptions?.oauthProvider).toBe(capturedOAuthOptions)
+    expect(capturedOAuthOptions).not.toHaveProperty('silenceWarnings')
     expect(capturedAuthOptions?.disabledPaths).toEqual(
-      expect.arrayContaining(['/oauth2/register', '/oauth2/introspect', '/oauth2/userinfo']),
+      expect.arrayContaining([
+        '/oauth2/register',
+        '/oauth2/introspect',
+        '/oauth2/userinfo',
+        '/oauth2/create-client',
+        '/oauth2/get-client',
+        '/oauth2/get-clients',
+        '/oauth2/update-client',
+        '/oauth2/client/rotate-secret',
+        '/oauth2/delete-client',
+      ]),
     )
 
     const clientPrivileges = capturedOAuthOptions?.clientPrivileges as (
