@@ -57,6 +57,9 @@ jobs:
           BETTER_CONVEX_VUE_TARBALL: ${{ github.workspace }}/ginko-cms/.pack/upstream/better-convex-vue-${{ steps.tuple.outputs.vue }}.tgz
         run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
 
+      - name: Install the pinned Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Verify source
         run: pnpm --config.verify-deps-before-run=warn run check
 

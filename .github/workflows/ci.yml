@@ -66,6 +66,9 @@ jobs:
           BETTER_CONVEX_VUE_TARBALL: ${{ github.workspace }}/better-convex-nuxt/.source-rehearsal/better-convex-vue-${{ steps.better_convex.outputs.vue_version }}.tgz
         run: pnpm --config.verify-deps-before-run=warn run install:rehearsal:source
 
+      - name: Install the pinned Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Repository check
         run: pnpm --config.verify-deps-before-run=warn run check
 
