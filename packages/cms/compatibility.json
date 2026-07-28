@@ -37,6 +37,7 @@
     "nuxt": ["4.4.8"],
     "typescript": ["~5.9.3", "^5.9.3", "5.9.3"],
     "vite": ["^7.3.6", "7.3.6"],
+    "vue": ["3.5.39"],
     "vue-tsc": ["^3.3.7", "3.3.7"]
   },
   "consumer": {
@@ -49,7 +50,8 @@
       "better-convex-vue": "0.8.0-beta.21",
       "convex": "1.42.2",
       "kysely": "0.28.17",
-      "nuxt": "4.4.8"
+      "nuxt": "4.4.8",
+      "vue": "3.5.39"
     },
     "devDependencies": {
       "@types/node": "^25.8.0",
@@ -58,6 +60,7 @@
     }
   },
   "intentionalHolds": [
+    "Strict npm remains blocked on Nuxt 4.4.8 because oxc-minify 0.133.0's optional WASM binding selects incompatible @emnapi/core requirements; do not use force, legacy peer resolution, or an override.",
     "h3 stays on 1.15.11 until h3 2 leaves release-candidate status and Nuxt ecosystem peers accept it.",
     "Vite stays on 7.x until the Nuxt and Vitest peer ecosystem is ready for Vite 8.",
     "Nuxt DevTools stays on 3.2.4 while 4.x is alpha."

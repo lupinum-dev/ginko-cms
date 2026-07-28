@@ -31,9 +31,6 @@ export default defineNuxtConfig({
     optimizeDeps: {
       include: ['convex/server'],
     },
-    resolve: {
-      dedupe: ['vue'],
-    },
   },
 
   convex: {

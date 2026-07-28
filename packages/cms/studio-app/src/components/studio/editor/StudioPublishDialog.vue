@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { AlertCircle, CheckCircle2, ExternalLink, Eye, Globe } from '@lucide/vue'
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import { useCmsConfig } from '../../../composables/useCmsConfig'
@@ -72,16 +72,6 @@ const publishConfirmation = computed(() =>
     confirmationToken: editor.publishing.publishSession.readiness.confirmationToken,
     confirmationExpiresAt: editor.publishing.publishSession.readiness.confirmationExpiresAt,
   }),
-)
-
-watch(
-  () => editor.publishing.publishSession.message,
-  (message, previousMessage) => {
-    if (message === previousMessage) return
-    editor.publishing.markPublishReadinessStale(
-      'The publish note changed. Preview website changes again before publishing.',
-    )
-  },
 )
 
 const publishScopeLabel = computed(() =>

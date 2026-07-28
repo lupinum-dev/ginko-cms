@@ -6,7 +6,6 @@ describe('local Studio consumer contract', () => {
   it('binds Better Convex auth and HTTP actions to the documented local origin', () => {
     const config = readFileSync('playground/nuxt.config.ts', 'utf8')
 
-    expect(config).toContain("dedupe: ['vue']")
     expect(config).toContain("include: ['convex/server']")
     expect(config).toContain('siteUrl: process.env.CONVEX_SITE_URL')
     expect(config).toContain("publicOrigin: process.env.SITE_URL ?? 'http://localhost:3000'")

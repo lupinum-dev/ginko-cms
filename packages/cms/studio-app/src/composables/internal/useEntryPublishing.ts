@@ -1,6 +1,6 @@
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { Ref } from 'vue'
-import { nextTick, reactive } from 'vue'
+import { nextTick, reactive, watch } from 'vue'
 import type { useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
@@ -244,6 +244,15 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       }
     }
   }
+
+  watch(
+    () => publishSession.message,
+    () => {
+      markPublishReadinessStale(
+        'The publish note changed. Preview website changes again before publishing.',
+      )
+    },
+  )
 
   function previewToken(preview: DestructivePreview | null): string | null {
     if (!preview || destructivePreviewBlocked(preview)) return null

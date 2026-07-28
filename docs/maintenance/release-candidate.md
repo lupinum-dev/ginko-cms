@@ -24,6 +24,13 @@ The current beta.21/beta.9 source rehearsal is superseded for release purposes.
 `candidate:pack` must remain blocked until compatibility records certified
 beta.22/beta.10 registry bytes and the Nuxt runtime fingerprint.
 
+Strict npm installation is also a release gate. Nuxt 4.4.8 currently reaches
+`oxc-minify@0.133.0`, whose optional WASM dependency graph requests incompatible
+`@emnapi/core` versions under npm's strict peer resolver. Do not use
+`--legacy-peer-deps`, `--force`, relaxed peer checks, or an override. Advance
+only through a compatible published Nuxt 4.4 patch or a separately certified
+Nuxt 4.5/Vite 8 stack.
+
 ## Maintainer Release Gate
 
 The canonical hosted gate is `.github/workflows/release-candidate.yml`, triggered

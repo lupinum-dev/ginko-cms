@@ -8,11 +8,13 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { basename, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -869,6 +871,28 @@ try {
     run('pnpm', ['install', '--ignore-scripts'], { cwd: tempDir })
   } else {
     run('npm', ['install', '--ignore-scripts', '--strict-peer-deps'], { cwd: tempDir })
+  }
+
+  const vuePackagePath = join(tempDir, 'node_modules/vue/package.json')
+  const vueRequire = createRequire(realpathSync(vuePackagePath))
+  const vueOwners = new Map([
+    ['consumer', join(tempDir, 'package.json')],
+    ['nuxt', join(tempDir, 'node_modules/nuxt/package.json')],
+    ['better-convex-nuxt', join(tempDir, 'node_modules/better-convex-nuxt/package.json')],
+    ['better-convex-vue', join(tempDir, 'node_modules/better-convex-vue/package.json')],
+    ['@lupinum/ginko-cms', join(tempDir, 'node_modules/@lupinum/ginko-cms/package.json')],
+    ['@vue/server-renderer', vueRequire.resolve('@vue/server-renderer')],
+  ])
+  const vueResolutions = new Map(
+    [...vueOwners].map(([owner, ownerPath]) => [
+      owner,
+      realpathSync(createRequire(realpathSync(ownerPath)).resolve('vue')),
+    ]),
+  )
+  if (new Set(vueResolutions.values()).size !== 1) {
+    throw new Error(
+      `The packed consumer resolved multiple physical Vue runtimes: ${JSON.stringify(Object.fromEntries(vueResolutions))}`,
+    )
   }
 
   const installedVersions = Object.fromEntries(

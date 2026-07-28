@@ -65,6 +65,7 @@ describe('coordinated CMS candidate release contract', () => {
       convex: '1.42.2',
       kysely: '0.28.17',
       nuxt: '4.4.8',
+      vue: '3.5.39',
     })
 
     for (const path of [

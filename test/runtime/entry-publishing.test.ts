@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 
 import { useEntryPublishing } from '../../packages/cms/studio-app/src/composables/internal/useEntryPublishing'
 import { useStudioConfirmState } from '../../packages/cms/studio-app/src/composables/internal/useStudioConfirm'
@@ -148,6 +148,21 @@ describe('useEntryPublishing', () => {
       draftPreviewOpened: false,
       concurrentEdit: false,
       outcome: null,
+    })
+  })
+
+  it('invalidates a reviewed preview when the canonical publish note changes', async () => {
+    const publishing = useEntryPublishing(createDeps())
+    markReadyToPublish(publishing)
+
+    publishing.publishSession.message = 'Include the corrected launch note'
+    await nextTick()
+
+    expect(publishing.publishSession.readiness).toMatchObject({
+      state: 'stale',
+      message: 'The publish note changed. Preview website changes again before publishing.',
+      confirmationToken: null,
+      confirmationExpiresAt: null,
     })
   })
 
