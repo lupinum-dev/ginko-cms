@@ -10,7 +10,7 @@
     "better-convex-vue": "0.8.0-beta.21"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "eee6a9be9747375fbe50d61c9fe1501ea6804d3b"
+    "betterConvexCommit": "30d44e224fce784d797001a1edbd74e623e50aad"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
