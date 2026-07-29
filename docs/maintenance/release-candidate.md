@@ -20,31 +20,37 @@ commit, packs temporary tarballs, and deletes them with the runner. That proves
 current-source compatibility only. It does not create, approve, or replace an
 immutable release candidate.
 
-The current beta.21/beta.9 source rehearsal is superseded for release purposes.
-`candidate:pack` must remain blocked until compatibility records certified
-beta.22/beta.10 registry bytes and the Nuxt runtime fingerprint.
+The beta.21/beta.9 source rehearsal is superseded. RC.2 consumes the immutable
+beta.22/beta.10 candidate bytes and Nuxt runtime fingerprint recorded in the
+compatibility authority. Those Better packages must be published under
+`next-staging` before the Ginko tag workflow starts.
 
-Strict pnpm and npm installation remain release gates. The coordinated runtime
-uses the patched Nuxt `4.5.1`, Vite `8.1.5`, and Vue `3.5.40` stack; Nuxt owns
-its DevTools dependency. Do not use `--legacy-peer-deps`, `--force`, relaxed
-peer checks, or an override if a clean consumer fails. The current upstream
-blockers are:
+The coordinated runtime uses exactly Nuxt `4.5.1`, Vite `8.1.5`, and Vue
+`3.5.40`. RC.2 support is pnpm-first. The clean pnpm consumer remains mandatory.
+The strict npm consumer is observational for RC.2: success is accepted, and
+only the already reproduced Oxc/`@emnapi` resolution failure is accepted as a
+known limitation. Any other npm failure blocks publication. Never use
+`--legacy-peer-deps`, `--force`, relaxed peer checks, or an override.
 
-- Nuxt DevTools `3.3.1` subpackages whose published peer ranges still stop at
-  Vite 7;
-- `nuxt-i18n-micro@3.21.4`, which supports `@nuxt/kit` 4 but still installs
-  `@nuxt/devtools-kit@2.7.0` and `unplugin@1.16.1`; that gives Nuxt Kit 4.5.1's
-  optional `unctx@3.0.0` peer a provider below its required `unplugin ^3.3.0`
-  under pnpm's strict resolver; and
-- `oxc-parser@0.140.0`'s optional WASM dependency graph, which requests
-  incompatible `@emnapi/core` versions under npm's strict resolver.
+Publication is currently blocked by the mandatory strict pnpm consumer:
+`@nuxt/devtools@3.4.0` still depends on Vite helper/plugin ranges whose
+published peer declarations stop at Vite 7. Nuxt is fixed at `4.5.1` and Vite
+at `8.1.5`, so wait for a compatible Nuxt DevTools dependency graph. Do not
+inject consumer dependencies, override peers, or weaken strict resolution.
+
+The exact `structured-clone-es@2.0.1` dependency has a same-day age waiver only.
+Remove it from `minimumReleaseAgeExclude` after `2026-07-30T00:00:00Z`.
 
 ## Maintainer Release Gate
 
 The canonical hosted gate is `.github/workflows/release-candidate.yml`, triggered
 manually or by a `v*-*` prerelease tag. It downloads upstream registry artifacts,
-packs Ginko once, verifies the uploaded bytes with pnpm and npm, and then enters
-the tag-restricted `ginko-release` environment for disposable Convex staging.
+packs Ginko once, verifies the uploaded bytes with mandatory pnpm and
+observational strict npm, and then enters the tag-restricted `ginko-release`
+environment for disposable Convex staging. Tag runs publish the original
+contract, Convex, and CMS archives sequentially through OIDC under
+`next-staging`, then download and compare all three registry archives byte for
+byte. No job repacks.
 
 For an equivalent local rehearsal, run the package release gates from the Ginko
 CMS workspace:

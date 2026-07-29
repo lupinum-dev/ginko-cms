@@ -15,8 +15,10 @@ Its `sourceRehearsal` commit is a temporary, non-publishable CI input used to
 prove Ginko against current Better Convex source. `releaseArtifacts` remains the
 only authority for immutable candidate bytes; source-rehearsal tarballs are
 never uploaded, promoted, or accepted by the release-candidate workflow.
-The superseded Better Convex beta.21/beta.9 evidence is absent, so candidate
-packing fails closed until final beta.22/beta.10 evidence replaces it.
+The superseded Better Convex beta.21/beta.9 evidence is absent. The active
+compatibility authority now records the immutable experimental
+beta.22/beta.10 candidate evidence. This is support for the 2026-07-28 MCP
+draft/RC, not a final-spec claim.
 Current rehearsal and release procedures are documented in
 [`release-candidate.md`](release-candidate.md) and
 [`MAINTAINING.md`](../../MAINTAINING.md).

@@ -21,8 +21,8 @@ the CMS packages are published.
 
 ## Daily Maintenance
 
-The Better Convex beta.21/beta.9 coordinates are current-source rehearsal
-versions, not release candidates. Pack the three packages from the exact
+The Better Convex beta.22/beta.10 coordinates are the approved experimental
+release candidates. Pack the three packages from the exact
 `sourceRehearsal.betterConvexCommit`, then install those temporary tarballs
 before running source checks:
 
@@ -39,8 +39,8 @@ pnpm run release:verify
 overrides dependency resolution against the committed lock, and restores both
 the lockfile and workspace configuration byte-for-byte in `finally`. These
 tarballs are temporary CI inputs and are never candidate or publishable
-artifacts. Delete this source-rehearsal path after the final Better Convex
-packages are available from the registry.
+artifacts. Delete this source-rehearsal path after the Better Convex
+prereleases are available from the registry.
 
 The release-candidate lane consumes four approved dependency tarballs without
 rebuilding them. Put the exact registry downloads in `.pack/upstream`, run the
@@ -56,10 +56,10 @@ runtime fingerprint binding, and reproducible Ginko packs against the single
 compatibility authority. Candidate verification rejects wrong installed
 versions and workspace/link dependencies.
 
-Candidate packing currently fails closed because the superseded
-beta.21/beta.9 hashes were removed. Add the coordinated final Better Convex
-beta.22/beta.10 versions and immutable registry evidence only after their final
-MCP reconciliation and certification succeed.
+Candidate packing accepts only the beta.22/beta.10 hashes, integrity values,
+source commit, and Nuxt runtime fingerprint recorded in the compatibility
+authority. MCP support is experimental support for the 2026-07-28 draft/RC;
+this release makes no final-spec or real-host claim.
 
 For a real release candidate, also run the registry dependency lane after
 Ginko Content is published:
@@ -89,34 +89,31 @@ pnpm run release:notes
 ```
 
 5. Review `CHANGELOG.md`; changelogen is a draft generator, not an authority.
-6. Trigger `.github/workflows/release-candidate.yml` manually or push the exact
-   prerelease tag. It downloads upstream registry bytes, packs once, verifies
-   pnpm and npm consumers, and runs protected disposable Convex staging.
+6. Trigger `.github/workflows/release-candidate.yml` manually to rehearse, or
+   push the exact prerelease tag to publish. It downloads upstream registry
+   bytes, packs once, requires the pnpm consumer, records the strict npm result,
+   and runs protected disposable Convex staging.
 7. Download the `ginko-candidate-<commit>` artifact produced by that workflow.
-8. Inspect the exact candidate tarballs before publishing:
+8. Inspect the exact candidate tarballs:
 
 ```bash
 tar -tzf .pack/candidate/lupinum-ginko-cms-contract-*.tgz | less
 tar -tzf .pack/candidate/lupinum-ginko-cms-convex-*.tgz | less
 tar -tzf .pack/candidate/lupinum-ginko-cms-*.tgz | less
 pnpm run check:packs:no-local-specifiers
-npm publish .pack/candidate/lupinum-ginko-cms-contract-0.2.0-rc.2.tgz --access public --otp <code>
-npm publish .pack/candidate/lupinum-ginko-cms-convex-0.2.0-rc.2.tgz --access public --otp <code>
-npm publish .pack/candidate/lupinum-ginko-cms-0.2.0-rc.2.tgz --access public --otp <code>
 ```
 
 9. Publish only after the owner has reviewed the candidate manifest, protected
-   staging evidence, tarballs, and npm package settings.
+   staging evidence, tarballs, and npm package settings. The tag workflow
+   publishes the original contract, Convex, and CMS archives in order through
+   trusted publishing with provenance and the `next-staging` tag. It downloads
+   all three registry versions and requires byte equality. It never repacks and
+   never moves `latest` or shared `next`.
 
-For the first public release of a package, npm staged publishing cannot be used
-because staged publishing requires the package to already exist on the registry.
-Use an owner-controlled manual publish with 2FA.
-
-For later releases, prefer npm trusted publishing plus staged publishing. While
-the project has one maintainer, `ginko-release` uses tag restrictions without a
-required reviewer. The evidence records `governanceMode: solo-maintainer`, the
-tag actor, source commit, and commit author; it does not invent a deputy,
-independent reviewer, or notification test.
+While the project has one maintainer, `ginko-release` uses tag restrictions
+without a required reviewer. The evidence records `governanceMode:
+solo-maintainer`, the tag actor, source commit, and commit author; it does not
+invent a deputy, independent reviewer, or notification test.
 
 - GitHub Actions must use the tag-restricted `ginko-release` environment.
 - `ginko-release` must contain the non-secret variables `CONVEX_DEPLOYMENT`,
@@ -131,14 +128,15 @@ independent reviewer, or notification test.
 - Do not use package-manager caches in release jobs.
 - Use OIDC trusted publishing instead of long-lived npm publish tokens.
 - Configure npm package settings to require 2FA and disallow traditional tokens.
-- Stage the tarballs in package order with `npm stage publish .pack/<name>.tgz`,
-  download and inspect each staged package with `npm stage download <stage-id>`,
-  then approve with `npm stage approve <stage-id>` and 2FA.
+- Publish only the workflow-downloaded candidate archives; never run a local
+  `npm publish` or repack an archive.
 
 ## Supply-Chain Policy
 
 - `pnpm-workspace.yaml` sets `minimumReleaseAge: 1440` so new dependency
   versions must sit on the registry for 24 hours before fresh resolution.
+- `structured-clone-es@2.0.1` has one exact same-day waiver through
+  `2026-07-30T00:00:00Z`; remove that entry after the package is 24 hours old.
 - Release jobs must use the committed lockfile. Do not delete and regenerate the
   lockfile as a casual fix.
 - Temporary `overrides` are local workspace policy only. Packed packages must

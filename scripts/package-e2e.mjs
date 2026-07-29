@@ -463,6 +463,7 @@ function writeConsumerWorkspaceConfig(cwd, overrides) {
     "  - '@nuxt/*'",
     "  - 'better-convex-nuxt'",
     "  - 'nuxt'",
+    "  - 'structured-clone-es@2.0.1'",
     'strictPeerDependencies: true',
     'overrides:',
   ]

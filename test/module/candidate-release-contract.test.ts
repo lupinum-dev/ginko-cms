@@ -34,15 +34,17 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workspace.scripts['package:e2e:npm']).toBe(
       'node scripts/package-e2e.mjs --candidate --package-manager npm',
     )
-    expect(workspace.scripts['release:verify:candidate']).toContain('pnpm run package:e2e:npm')
+    expect(workspace.scripts['release:verify:candidate']).toContain(
+      'pnpm run package:e2e:npm:observational',
+    )
     expect(compatibility.releaseStack).toMatchObject({
       '@lupinum/ginko-cms': '0.2.0-rc.2',
       '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
       '@lupinum/ginko-cms-contract': '0.2.0-rc.2',
       '@lupinum/ginko-content': '0.3.2',
-      '@better-convex/mcp': '0.1.0-beta.9',
-      'better-convex-nuxt': '0.8.0-beta.21',
-      'better-convex-vue': '0.8.0-beta.21',
+      '@better-convex/mcp': '0.1.0-beta.10',
+      'better-convex-nuxt': '0.8.0-beta.22',
+      'better-convex-vue': '0.8.0-beta.22',
     })
     expect(compatibility.sourceRehearsal.betterConvexCommit).toMatch(/^[0-9a-f]{40}$/u)
     expect(
@@ -53,13 +55,18 @@ describe('coordinated CMS candidate release contract', () => {
       convex: '1.42.2',
       kysely: '0.28.17',
     })
-    expect(Object.keys(compatibility.releaseArtifacts).sort()).toEqual(['@lupinum/ginko-content'])
+    expect(Object.keys(compatibility.releaseArtifacts).sort()).toEqual([
+      '@better-convex/mcp',
+      '@lupinum/ginko-content',
+      'better-convex-nuxt',
+      'better-convex-vue',
+    ])
     expect(
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
       'better-auth': '1.7.0-rc.2',
-      'better-convex-nuxt': '0.8.0-beta.21',
-      'better-convex-vue': '0.8.0-beta.21',
+      'better-convex-nuxt': '0.8.0-beta.22',
+      'better-convex-vue': '0.8.0-beta.22',
       convex: '1.42.2',
       kysely: '0.28.17',
       nuxt: '4.5.1',
@@ -182,6 +189,7 @@ describe('coordinated CMS candidate release contract', () => {
 
   it('packs once and verifies uploaded candidates in the protected release workflow', () => {
     const workflow = readFileSync('.github/workflows/release-candidate.yml', 'utf8')
+    const publisher = readFileSync('scripts/publish-candidate-package.mjs', 'utf8')
 
     expect(workflow).toContain("tags:\n      - 'v*-*'")
     expect(workflow).toContain('environment: ginko-release')
@@ -196,6 +204,18 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain('CONVEX_URL: ${{ vars.CONVEX_URL }}')
     expect(workflow).toContain('CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}')
     expect(workflow).toContain("GINKO_CMS_DISPOSABLE_DEPLOYMENT: '1'")
+    expect(workflow).toContain('needs: [verify-candidate-pnpm, verify-candidate-npm]')
+    expect(workflow).toContain(
+      'node scripts/publish-candidate-package.mjs @lupinum/ginko-cms-contract',
+    )
+    expect(workflow).toContain(
+      'node scripts/publish-candidate-package.mjs @lupinum/ginko-cms-convex',
+    )
+    expect(workflow).toContain('node scripts/publish-candidate-package.mjs @lupinum/ginko-cms')
+    expect(workflow).toContain('node scripts/verify-registry-candidate.mjs')
+    expect(publisher).toContain("'next-staging'")
+    expect(publisher).toContain("'--provenance'")
+    expect(workflow).not.toContain("'latest'")
     expect(workflow).not.toContain('GINKO_CMS_TEST_EMAIL')
     expect(workflow).not.toContain('GINKO_CMS_TEST_PASSWORD')
     expect(workflow).not.toContain('NPM_TOKEN')

@@ -412,14 +412,12 @@ describe('package boundary contracts', () => {
         `${forbidden} must not be a Convex package dependency`,
       ).toBeUndefined()
     }
-    expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe(
-      'workspace:^0.2.0-rc.2',
-    )
+    expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:0.2.0-rc.2')
     expect(convexPackage.dependencies?.[trellisPackageName]).toBeUndefined()
     expect(convexPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
 
-    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^0.2.0-rc.2')
-    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:^0.2.0-rc.2')
+    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:0.2.0-rc.2')
+    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:0.2.0-rc.2')
     expect(cmsPackage.dependencies?.[trellisPackageName]).toBeUndefined()
     expect(cmsPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
     expect(cmsPackage.dependencies?.['better-convex-nuxt']).toBeDefined()

@@ -55,6 +55,7 @@ function writeConsumerWorkspaceConfig(cwd: string, overrides: Record<string, str
     '  - .',
     'minimumReleaseAge: 1440',
     'minimumReleaseAgeExclude:',
+    "  - 'structured-clone-es@2.0.1'",
     "  - '@lupinum/*'",
     "  - '@modelcontextprotocol/core'",
     "  - '@modelcontextprotocol/server'",

@@ -128,12 +128,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  verify-candidate:
+  verify-candidate-pnpm:
     needs: pack-candidate
-    strategy:
-      fail-fast: false
-      matrix:
-        package-manager: [pnpm, npm]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -170,22 +166,64 @@ jobs:
         run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
 
       - name: Verify the uploaded candidate with pnpm without repacking
-        if: matrix.package-manager == 'pnpm'
         run: pnpm --config.verify-deps-before-run=warn run package:e2e
-
-      - name: Verify the uploaded candidate with npm without repacking
-        if: matrix.package-manager == 'npm'
-        run: pnpm --config.verify-deps-before-run=warn run package:e2e:npm
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ginko-consumer-${{ matrix.package-manager }}-${{ github.sha }}
-          path: ginko-cms/.pack/candidate/release-evidence-${{ matrix.package-manager }}.json
+          name: ginko-consumer-pnpm-${{ github.sha }}
+          path: ginko-cms/.pack/candidate/release-evidence-pnpm.json
+          if-no-files-found: error
+          retention-days: 14
+
+  verify-candidate-npm:
+    needs: pack-candidate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ginko-cms
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: ginko-cms
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned package-manager launcher
+        run: npm install --global corepack@"$GINKO_COREPACK_VERSION" && corepack enable
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ginko-candidate-${{ github.sha }}
+          path: ginko-cms/.pack/candidate
+
+      - name: Resolve candidate artifact paths
+        id: artifacts
+        run: |
+          node -e "const evidence=require('./.pack/candidate/candidate-artifact.json'); for (const [key,name] of [['mcp','@better-convex/mcp'],['nuxt','better-convex-nuxt'],['vue','better-convex-vue']]) process.stdout.write(key+'='+process.cwd()+'/.pack/candidate/'+evidence.artifacts[name].tarball+'\n')" >> "$GITHUB_OUTPUT"
+
+      - name: Install the exact upstream artifacts
+        env:
+          BETTER_CONVEX_MCP_TARBALL: ${{ steps.artifacts.outputs.mcp }}
+          BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
+          BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
+        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+
+      - name: Observe strict npm without bypasses
+        run: pnpm --config.verify-deps-before-run=warn run package:e2e:npm:observational
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ginko-consumer-npm-${{ github.sha }}
+          path: ginko-cms/.pack/candidate/release-evidence-npm.json
           if-no-files-found: error
           retention-days: 14
 
   protected-staging:
-    needs: verify-candidate
+    needs: [verify-candidate-pnpm, verify-candidate-npm]
     runs-on: ubuntu-latest
     environment: ginko-release
     defaults:
@@ -238,3 +276,111 @@ jobs:
           path: ginko-cms/.pack/candidate/release-evidence-pnpm.json
           if-no-files-found: error
           retention-days: 14
+
+  publish-contract:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: protected-staging
+    runs-on: ubuntu-latest
+    environment: ginko-release
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ginko-cms
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: ginko-cms
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ginko-candidate-${{ github.sha }}
+          path: ginko-cms/.pack/candidate
+      - name: Publish the approved contract archive
+        run: node scripts/publish-candidate-package.mjs @lupinum/ginko-cms-contract
+
+  publish-convex:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publish-contract
+    runs-on: ubuntu-latest
+    environment: ginko-release
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ginko-cms
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: ginko-cms
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ginko-candidate-${{ github.sha }}
+          path: ginko-cms/.pack/candidate
+      - name: Publish the approved Convex archive
+        run: node scripts/publish-candidate-package.mjs @lupinum/ginko-cms-convex
+
+  publish-cms:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publish-convex
+    runs-on: ubuntu-latest
+    environment: ginko-release
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ginko-cms
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: ginko-cms
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ginko-candidate-${{ github.sha }}
+          path: ginko-cms/.pack/candidate
+      - name: Publish the approved CMS archive
+        run: node scripts/publish-candidate-package.mjs @lupinum/ginko-cms
+
+  verify-registry:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publish-cms
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ginko-cms
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: ginko-cms
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ginko-candidate-${{ github.sha }}
+          path: ginko-cms/.pack/candidate
+      - name: Require registry bytes to equal all approved archives
+        run: node scripts/verify-registry-candidate.mjs
