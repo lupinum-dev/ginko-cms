@@ -39,7 +39,7 @@ const candidateArtifact = candidateMode
   ? JSON.parse(readFileSync(candidateArtifactPath, 'utf8'))
   : undefined
 const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-package-e2e-'))
-const pnpmBin = process.env.npm_execpath ?? 'pnpm'
+const pnpmBin = 'pnpm'
 const packageManagerOption = process.argv.indexOf('--package-manager')
 const consumerPackageManager =
   packageManagerOption === -1 ? 'pnpm' : process.argv[packageManagerOption + 1]
@@ -53,12 +53,6 @@ if ([candidateMode, developmentMode, registryDependencies].filter(Boolean).lengt
     'Choose exactly one package dependency lane: --candidate, --dev-sources, or --registry-deps.',
   )
 }
-const siblingContentRoot = resolve(repoRoot, '../ginko-content/packages/content')
-const contentRoot = process.env.GINKO_CONTENT_PACKAGE_ROOT
-  ? resolve(process.env.GINKO_CONTENT_PACKAGE_ROOT)
-  : existsSync(siblingContentRoot)
-    ? siblingContentRoot
-    : undefined
 const siblingBetterConvexNuxtRoot = resolve(repoRoot, '../../convex/better-convex-nuxt')
 const betterConvexNuxtRoot = process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT
   ? resolve(process.env.BETTER_CONVEX_NUXT_PACKAGE_ROOT)
@@ -69,7 +63,7 @@ const betterConvexMcpRoot = betterConvexNuxtRoot
   ? resolve(betterConvexNuxtRoot, 'packages/mcp')
   : undefined
 const liveConvex = process.argv.includes('--live')
-const registryContent = registryDependencies || (developmentMode && !contentRoot)
+const registryContent = registryDependencies || developmentMode
 const registryBetterConvexNuxt = registryDependencies || (developmentMode && !betterConvexNuxtRoot)
 const registryBetterConvexVue = registryBetterConvexNuxt
 const registryBetterConvexMcp = registryDependencies || (developmentMode && !betterConvexMcpRoot)
@@ -140,13 +134,6 @@ function requireCandidateArtifact(pathVariable, packageName) {
 const candidateContent = candidateMode
   ? requireCandidateArtifact('GINKO_CONTENT_TARBALL', '@lupinum/ginko-content')
   : undefined
-const developmentContent =
-  developmentMode && process.env.GINKO_CONTENT_TARBALL
-    ? {
-        path: resolve(process.env.GINKO_CONTENT_TARBALL),
-        sha256: sha256(resolve(process.env.GINKO_CONTENT_TARBALL)),
-      }
-    : undefined
 const candidateBetterConvexNuxt = candidateMode
   ? requireCandidateArtifact('BETTER_CONVEX_NUXT_TARBALL', 'better-convex-nuxt')
   : undefined
@@ -358,25 +345,13 @@ async function bootNitro() {
 }
 
 function packPackage(packageDir) {
-  run('pnpm', [
-    '--dir',
-    packageDir,
-    'pack',
-    '--config.ignore-scripts=true',
-    '--pack-destination',
-    packDir,
-  ])
-}
-
-function buildPackage(packageDir) {
-  run('pnpm', ['--dir', packageDir, 'run', 'build'])
+  run('pnpm', ['pack', '--config.ignore-scripts=true', '--pack-destination', packDir], {
+    cwd: resolve(repoRoot, packageDir),
+  })
 }
 
 function buildPackedPackages() {
   run('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'])
-  if (developmentMode && !registryContent && !developmentContent) {
-    buildPackage(contentRoot)
-  }
 }
 
 function findTarball(packageName) {
@@ -539,9 +514,6 @@ try {
     packPackage('packages/contract')
     packPackage('packages/convex')
     packPackage('packages/cms')
-    if (developmentMode && !registryContent && !developmentContent) {
-      packPackage(contentRoot)
-    }
     if (developmentMode && !registryBetterConvexNuxt) {
       packPackage(betterConvexNuxtRoot)
       packPackage(resolve(betterConvexNuxtRoot, 'packages/vue'))
@@ -552,9 +524,7 @@ try {
   const packedContractTarball = findTarball('lupinum/ginko-cms-contract')
   const packedConvexTarball = findTarball('lupinum/ginko-cms-convex')
   const packedCmsTarball = findTarball('lupinum/ginko-cms')
-  const contentTarball = registryContent
-    ? undefined
-    : (candidateContent?.path ?? developmentContent?.path ?? findTarball('lupinum/ginko-content'))
+  const contentTarball = registryContent ? undefined : candidateContent?.path
   const betterConvexNuxtTarball =
     registryBetterConvexNuxt || candidateBetterConvexNuxt
       ? undefined
@@ -1265,8 +1235,7 @@ console.log('packed MCP read/write behavior ok')
     packageManager: consumerPackageManager,
     lockfileSha256: sha256(lockfilePath),
     dependencies: {
-      '@lupinum/ginko-content': candidateContent ??
-        developmentContent ?? { version: contentRegistryVersion },
+      '@lupinum/ginko-content': candidateContent ?? { version: contentRegistryVersion },
       'better-convex-nuxt':
         candidateBetterConvexNuxt ??
         (betterConvexNuxtTarball
