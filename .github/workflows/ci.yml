@@ -63,10 +63,10 @@ jobs:
       - name: Repository check
         run: pnpm --config.verify-deps-before-run=warn run check
 
+      - name: Production audit
+        run: pnpm --config.verify-deps-before-run=warn run audit:prod
+
       - name: Current-source packed consumer
         env:
           BETTER_CONVEX_NUXT_PACKAGE_ROOT: ${{ github.workspace }}/better-convex-nuxt
         run: pnpm --config.verify-deps-before-run=warn run package:e2e:dev
-
-      - name: Production audit
-        run: pnpm --config.verify-deps-before-run=warn run audit:prod

@@ -168,6 +168,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain('repository: lupinum-dev/better-convex-nuxt')
     expect(workflow).toContain('Install the frozen Better Convex source graph')
     expect(workflow).toContain('pnpm --config.verify-deps-before-run=warn run package:e2e:dev')
+    expect(workflow.indexOf('run audit:prod')).toBeLessThan(workflow.indexOf('run package:e2e:dev'))
     expect(workflow).not.toContain('install:rehearsal')
     expect(workflow).not.toContain('.source-rehearsal')
     expect(workflow).not.toMatch(/uses:\s+\S+@v\d/u)
