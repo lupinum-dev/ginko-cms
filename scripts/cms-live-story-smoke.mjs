@@ -113,12 +113,9 @@ const screenshotStoryIds = new Set([
   'mcp.revoke',
 ])
 
-// These journeys intentionally expose a one-time credential in the page while
-// they verify it. A failure must never persist those pixels as evidence.
-const screenshotSensitiveStoryIds = new Set([
-  'mcp.create-authenticated',
-  'mcp.raw-key-one-time-visible',
-])
+// OAuth authorization may render account context while a failure is being
+// diagnosed. Never persist those pixels as evidence.
+const screenshotSensitiveStoryIds = new Set(['mcp.create-authenticated'])
 
 function redact(value) {
   let redacted = String(value).replace(/[\w-]{24,}/g, '[REDACTED]')

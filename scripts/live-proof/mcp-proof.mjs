@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 
 export function createMcpProof({
   baseUrl,
@@ -15,14 +15,15 @@ export function createMcpProof({
   let activeAgentRun = null
   let reviewRequest = null
   let requestId = 2
+  const oauthScopes = ['cms.read', 'cms.entries.edit']
 
-  async function initialize(rawKey) {
+  async function initialize(accessToken) {
     return await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         accept: 'application/json, text/event-stream',
-        ...(rawKey ? { authorization: `Bearer ${rawKey}` } : {}),
+        ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -49,13 +50,13 @@ export function createMcpProof({
     return envelope
   }
 
-  async function request(rawKey, method, params = {}) {
+  async function request(accessToken, method, params = {}) {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         accept: 'application/json, text/event-stream',
-        authorization: `Bearer ${rawKey}`,
+        authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ jsonrpc: '2.0', id: requestId++, method, params }),
     })
@@ -66,8 +67,8 @@ export function createMcpProof({
     return parseEnvelope(text)
   }
 
-  async function tool(rawKey, name, args = {}) {
-    const envelope = await request(rawKey, 'tools/call', { name, arguments: args })
+  async function tool(accessToken, name, args = {}) {
+    const envelope = await request(accessToken, 'tools/call', { name, arguments: args })
     const result = envelope.result
     if (result?.isError) {
       throw new Error(
@@ -77,25 +78,113 @@ export function createMcpProof({
     return result?.structuredContent
   }
 
+  async function authenticatedAuthPost(path, body) {
+    return await page.evaluate(
+      async ({ body, path }) => {
+        const response = await fetch(path, {
+          body: JSON.stringify(body),
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        })
+        return {
+          body: await response.json().catch(() => null),
+          status: response.status,
+        }
+      },
+      { body, path },
+    )
+  }
+
+  async function discoverAuthorizationServer() {
+    const challenge = await initialize('')
+    if (challenge.status !== 401) {
+      throw new Error(`unauthenticated MCP discovery returned ${challenge.status}`)
+    }
+    const authenticate = challenge.headers.get('www-authenticate') ?? ''
+    const metadataMatch = authenticate.match(/\bresource_metadata="([^"]+)"/u)
+    if (!metadataMatch?.[1]) {
+      throw new Error('MCP challenge omitted OAuth protected-resource metadata.')
+    }
+    const resourceResponse = await fetch(metadataMatch[1], {
+      headers: { accept: 'application/json' },
+    })
+    const resourceMetadata = await resourceResponse.json().catch(() => null)
+    const resource = resourceMetadata?.resource
+    const issuer = resourceMetadata?.authorization_servers?.[0]
+    if (!resourceResponse.ok || typeof resource !== 'string' || typeof issuer !== 'string') {
+      throw new Error('MCP protected-resource metadata is invalid.')
+    }
+    const issuerUrl = new URL(issuer)
+    const metadataUrls = [
+      new URL(`/.well-known/oauth-authorization-server${issuerUrl.pathname}`, issuerUrl.origin),
+      new URL(
+        `${issuerUrl.pathname.replace(/\/$/u, '')}/.well-known/oauth-authorization-server`,
+        issuerUrl.origin,
+      ),
+    ]
+    let authorizationMetadata = null
+    let authorizationMetadataUrl = null
+    for (const metadataUrl of metadataUrls) {
+      const response = await fetch(metadataUrl, { headers: { accept: 'application/json' } })
+      if (!response.ok) continue
+      authorizationMetadata = await response.json().catch(() => null)
+      authorizationMetadataUrl = metadataUrl.href
+      break
+    }
+    if (
+      authorizationMetadata?.issuer !== issuer ||
+      typeof authorizationMetadata?.authorization_endpoint !== 'string' ||
+      typeof authorizationMetadata?.token_endpoint !== 'string' ||
+      !authorizationMetadata?.code_challenge_methods_supported?.includes('S256')
+    ) {
+      throw new Error('OAuth authorization-server metadata is invalid.')
+    }
+    return {
+      authorizationMetadata,
+      authorizationMetadataUrl,
+      resource,
+      resourceMetadataUrl: metadataMatch[1],
+    }
+  }
+
   async function revoke() {
-    if (!activeConnection || activeConnection.revoked) return null
-    await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
-    await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
-    const row = page
-      .getByText(activeConnection.label)
-      .locator('xpath=ancestor::*[self::tr or self::li or self::div][.//button][1]')
-    await row
-      .getByRole('button', { name: /revoke/i })
-      .first()
-      .click()
-    const dialog = page.getByRole('dialog', { name: 'Revoke MCP access?' })
-    await dialog.waitFor({ timeout: 30000 })
-    await dialog.getByRole('button', { name: 'Revoke access' }).click()
-    await page.getByText('MCP connection revoked.').waitFor({ timeout: 30000 })
-    activeConnection.revoked = true
-    const revoked = await initialize(activeConnection.rawKey)
-    if (revoked.status !== 401) throw new Error(`revoked MCP key returned ${revoked.status}`)
-    return revoked.status
+    if (!activeConnection) return null
+    let revokedStatus = null
+    if (!activeConnection.revoked) {
+      await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
+      const row = page
+        .getByText(activeConnection.label)
+        .locator('xpath=ancestor::*[self::tr or self::li or self::div][.//button][1]')
+      await row
+        .getByRole('button', { name: /revoke/i })
+        .first()
+        .click()
+      const dialog = page.getByRole('dialog', { name: 'Revoke MCP access?' })
+      await dialog.waitFor({ timeout: 30000 })
+      await dialog.getByRole('button', { name: 'Revoke access' }).click()
+      await page.getByText('MCP connection revoked.').waitFor({ timeout: 30000 })
+      activeConnection.revoked = true
+      if (activeConnection.accessToken) {
+        const revoked = await initialize(activeConnection.accessToken)
+        if (revoked.status !== 401) {
+          throw new Error(`revoked MCP OAuth token returned ${revoked.status}`)
+        }
+        revokedStatus = revoked.status
+      }
+    }
+    if (!activeConnection.clientDeleted) {
+      await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
+      const deleted = await authenticatedAuthPost('/api/auth/oauth2/delete-client', {
+        client_id: activeConnection.clientId,
+      })
+      if (deleted.status < 200 || deleted.status >= 300) {
+        throw new Error(`OAuth client cleanup returned ${deleted.status}`)
+      }
+      activeConnection.clientDeleted = true
+    }
+    return revokedStatus
   }
 
   async function runStories() {
@@ -125,7 +214,7 @@ export function createMcpProof({
           id: 1,
           method: 'initialize',
           params: {
-            protocolVersion: '2025-03-26',
+            protocolVersion: '2026-07-28',
             capabilities: {},
             clientInfo: { name: 'ginko-live-story-smoke', version: '0.0.0' },
           },
@@ -149,60 +238,136 @@ export function createMcpProof({
 
     await story(
       'mcp.create-authenticated',
-      'MCP connection can be created and used for initialize',
+      'MCP OAuth completes PKCE authorization and initializes with delegated access',
       async () => {
+        const discovery = await discoverAuthorizationServer()
         await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
         await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
         const label = `Proof ${fixtureToken}`.slice(0, 80)
+        const redirectUri = `${baseUrl}/oauth-proof/callback`
+        const created = await authenticatedAuthPost('/api/auth/oauth2/create-client', {
+          client_name: label,
+          grant_types: ['authorization_code'],
+          redirect_uris: [redirectUri],
+          response_types: ['code'],
+          scope: oauthScopes.join(' '),
+          token_endpoint_auth_method: 'none',
+          type: 'native',
+        })
+        const clientId = created.body?.client_id
+        if (created.status < 200 || created.status >= 300 || typeof clientId !== 'string') {
+          throw new Error(`OAuth client creation returned ${created.status}`)
+        }
+        activeConnection = {
+          accessToken: null,
+          clientDeleted: false,
+          clientId,
+          label,
+          revoked: true,
+        }
         await page.locator('input[placeholder="Preview client"]').fill(label)
+        await page.locator('input[placeholder="Registered client ID"]').fill(clientId)
+        const createScope = page.getByRole('checkbox', { name: 'Create entries' })
+        if (await createScope.isChecked()) await createScope.click()
+        if (await createScope.isChecked()) {
+          throw new Error('MCP delegation retained an unrequested create scope.')
+        }
         await page.getByRole('button', { name: 'Create MCP connection' }).click()
         await page.getByText('MCP connection created.').waitFor({ timeout: 30000 })
         await page.getByText(label).waitFor({ timeout: 30000 })
-        const token = page
-          .getByRole('alert')
-          .filter({ hasText: 'Your MCP access key is ready' })
-          .locator('code')
-        await token.waitFor({ timeout: 30000 })
-        const rawKey = (await token.textContent())?.trim()
-        if (!rawKey || !/^[a-f0-9]{64}$/.test(rawKey)) {
-          throw new Error('MCP create result did not expose one canonical one-time bearer token')
-        }
-        activeConnection = { label, rawKey, revoked: false }
-        registerSecret(rawKey)
-        await page.getByText(rawKey, { exact: true }).waitFor({ timeout: 30000 })
+        activeConnection.revoked = false
 
-        const auth = await initialize(rawKey)
+        const verifier = randomBytes(48).toString('base64url')
+        const challenge = createHash('sha256').update(verifier).digest('base64url')
+        const state = randomBytes(24).toString('base64url')
+        const authorizationUrl = new URL(discovery.authorizationMetadata.authorization_endpoint)
+        for (const [name, value] of [
+          ['client_id', clientId],
+          ['code_challenge', challenge],
+          ['code_challenge_method', 'S256'],
+          ['redirect_uri', redirectUri],
+          ['resource', discovery.resource],
+          ['response_type', 'code'],
+          ['scope', oauthScopes.join(' ')],
+          ['state', state],
+        ]) {
+          authorizationUrl.searchParams.set(name, value)
+        }
+        await page.goto(authorizationUrl.href, { waitUntil: 'domcontentloaded' })
+        await page.getByRole('heading', { name: 'Authorize MCP access' }).waitFor({
+          timeout: 30000,
+        })
+        await page.getByTestId('oauth-approve').click()
+        await page.waitForURL((url) => url.href.startsWith(redirectUri), { timeout: 30000 })
+        const callback = new URL(page.url())
+        const code = callback.searchParams.get('code')
+        if (!code || callback.searchParams.get('state') !== state) {
+          throw new Error('OAuth authorization callback did not preserve code and state.')
+        }
+        const tokenResponse = await fetch(discovery.authorizationMetadata.token_endpoint, {
+          body: new URLSearchParams({
+            client_id: clientId,
+            code,
+            code_verifier: verifier,
+            grant_type: 'authorization_code',
+            redirect_uri: redirectUri,
+            resource: discovery.resource,
+          }),
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          method: 'POST',
+        })
+        const tokenBody = await tokenResponse.json().catch(() => null)
+        const accessToken = tokenBody?.access_token
+        const grantedScopes =
+          typeof tokenBody?.scope === 'string' ? tokenBody.scope.split(/\s+/u).filter(Boolean) : []
+        if (
+          !tokenResponse.ok ||
+          typeof accessToken !== 'string' ||
+          tokenBody?.token_type?.toLowerCase() !== 'bearer' ||
+          !Number.isFinite(tokenBody?.expires_in) ||
+          tokenBody.expires_in > 600 ||
+          grantedScopes.length !== oauthScopes.length ||
+          oauthScopes.some((scope) => !grantedScopes.includes(scope))
+        ) {
+          throw new Error(`OAuth token exchange returned ${tokenResponse.status}`)
+        }
+        activeConnection.accessToken = accessToken
+        registerSecret(accessToken)
+
+        const auth = await initialize(accessToken)
         const authText = await auth.text()
         if (!auth.ok || !authText.includes('protocolVersion')) {
           throw new Error(
             `authenticated MCP initialize failed ${auth.status}: ${redact(authText).slice(0, 300)}`,
           )
         }
-        return { tokenLength: rawKey.length, authenticatedStatus: auth.status }
+        return {
+          authenticatedStatus: auth.status,
+          authorizationMetadataUrl: discovery.authorizationMetadataUrl,
+          clientId,
+          pkce: 'S256',
+          resource: discovery.resource,
+          resourceMetadataUrl: discovery.resourceMetadataUrl,
+          scopes: grantedScopes,
+          tokenLifetimeSeconds: tokenBody.expires_in,
+        }
       },
     )
 
     await story(
-      'mcp.raw-key-one-time-visible',
-      'Raw MCP key is only visible at creation time',
+      'mcp.oauth-token-not-rendered',
+      'OAuth bearer credentials are never rendered in Studio',
       async () => {
-        if (!activeConnection?.rawKey) throw new Error('MCP connection was not created')
-        const visibleAtCreation = await page
-          .getByText(activeConnection.rawKey, { exact: true })
-          .isVisible()
-          .catch(() => false)
-        if (!visibleAtCreation)
-          throw new Error('raw MCP key was not visible immediately at creation')
-        await page.reload({ waitUntil: 'domcontentloaded' })
+        if (!activeConnection?.accessToken) throw new Error('MCP OAuth was not completed')
+        await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
         await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
         await page.getByText(activeConnection.label).waitFor({ timeout: 30000 })
-        const visibleAfterReload = await page
-          .getByText(activeConnection.rawKey, { exact: true })
+        const visible = await page
+          .getByText(activeConnection.accessToken, { exact: true })
           .isVisible()
           .catch(() => false)
-        if (visibleAfterReload)
-          throw new Error('raw MCP key remained visible after settings reload')
-        return { visibleAtCreation, visibleAfterReload }
+        if (visible) throw new Error('OAuth bearer token was rendered in Studio')
+        return { rendered: false }
       },
     )
 
@@ -210,9 +375,9 @@ export function createMcpProof({
       'mcp.tools-list-and-read',
       'MCP tools list and read published CMS data',
       async () => {
-        if (!activeConnection?.rawKey) throw new Error('MCP connection was not created')
-        const rawKey = activeConnection.rawKey
-        const toolsEnvelope = await request(rawKey, 'tools/list')
+        if (!activeConnection?.accessToken) throw new Error('MCP OAuth was not completed')
+        const accessToken = activeConnection.accessToken
+        const toolsEnvelope = await request(accessToken, 'tools/list')
         const tools = toolsEnvelope.result?.tools
         if (!Array.isArray(tools)) throw new Error('tools/list did not return a tool array')
         const toolNames = tools.map((item) => item.name)
@@ -244,7 +409,7 @@ export function createMcpProof({
           }
         }
 
-        const collections = await tool(rawKey, 'list-collections')
+        const collections = await tool(accessToken, 'list-collections')
         const collectionList = collections?.collections
         if (
           !Array.isArray(collectionList) ||
@@ -252,26 +417,26 @@ export function createMcpProof({
         ) {
           throw new Error(`list-collections did not include ${collection}`)
         }
-        const collectionResult = await tool(rawKey, 'get-collection', {
+        const collectionResult = await tool(accessToken, 'get-collection', {
           slug: collection,
           compact: true,
         })
         if (collectionResult?.slug !== collection || collectionResult?.routing?.mode !== 'route') {
           throw new Error(`get-collection did not return compact ${collection} route metadata`)
         }
-        const cmsEntries = await tool(rawKey, 'list-entries', { collection, locale: 'en' })
+        const cmsEntries = await tool(accessToken, 'list-entries', { collection, locale: 'en' })
         const editableEntries = cmsEntries?.entries
         if (!Array.isArray(editableEntries) || editableEntries.length < 1) {
           throw new Error('list-entries did not return CMS entries')
         }
         const entryId = editableEntries[0]?._id ?? editableEntries[0]?.id
         if (!entryId) throw new Error('list-entries did not return an entry id')
-        const cmsEntryResult = await tool(rawKey, 'get-entry', { entryId, locale: 'en' })
+        const cmsEntryResult = await tool(accessToken, 'get-entry', { entryId, locale: 'en' })
         const cmsEntry = cmsEntryResult?.entry
         if (cmsEntry?.collection !== collection || cmsEntry?._id !== entryId) {
           throw new Error('get-entry did not return the requested CMS entry')
         }
-        const publicList = await tool(rawKey, 'list', {
+        const publicList = await tool(accessToken, 'list', {
           collection,
           locale: 'en',
           limit: 1,
@@ -284,7 +449,7 @@ export function createMcpProof({
         if (!firstEntry?.route?.path || JSON.stringify(firstEntry).includes('draftData')) {
           throw new Error('public list tool returned invalid or draft-shaped entry data')
         }
-        const search = await tool(rawKey, 'search', {
+        const search = await tool(accessToken, 'search', {
           collection,
           locale: 'en',
           query: fixtureToken,
@@ -308,16 +473,16 @@ export function createMcpProof({
         'mcp.draft-review-gated',
         'MCP can preview and request human review but cannot publish directly',
         async () => {
-          if (!activeConnection?.rawKey) throw new Error('MCP connection was not created')
+          if (!activeConnection?.accessToken) throw new Error('MCP OAuth was not completed')
           const probe = fixtureManifest.probes.mcpReview
-          const rawKey = activeConnection.rawKey
-          const run = await tool(rawKey, 'start-agent-run', {
+          const accessToken = activeConnection.accessToken
+          const run = await tool(accessToken, 'start-agent-run', {
             taskName: `Live proof ${fixtureToken}`,
           })
           const agentRunId = run?.run?._id ?? run?.run?.id
           if (!agentRunId) throw new Error('start-agent-run did not return a run id')
           activeAgentRun = { id: agentRunId, completed: false }
-          const preview = await tool(rawKey, 'preview-publish', {
+          const preview = await tool(accessToken, 'preview-publish', {
             agentRunId,
             entryId: probe.entryId,
             locales: [probe.locale],
@@ -337,12 +502,12 @@ export function createMcpProof({
             title: probe.reviewTitle,
             summary: 'Automated MCP review-gating certification.',
           }
-          const requested = await tool(rawKey, 'request-publish-review', reviewArgs)
+          const requested = await tool(accessToken, 'request-publish-review', reviewArgs)
           const reviewRequestId = requested?.review?.id
           if (requested?.interaction !== 'client_interaction_unsupported' || !reviewRequestId) {
             throw new Error('MCP review request did not remain review-gated')
           }
-          const replayed = await tool(rawKey, 'request-publish-review', reviewArgs)
+          const replayed = await tool(accessToken, 'request-publish-review', reviewArgs)
           if (
             replayed?.interaction !== 'client_interaction_unsupported' ||
             replayed?.review?.id !== reviewRequestId
@@ -350,7 +515,7 @@ export function createMcpProof({
             throw new Error('MCP review request replay created a second effect')
           }
           reviewRequest = { id: reviewRequestId, title: probe.reviewTitle, approved: false }
-          const status = await tool(rawKey, 'get-review-status', { reviewRequestId })
+          const status = await tool(accessToken, 'get-review-status', { reviewRequestId })
           if (!status || status.review?.status !== 'pending') {
             throw new Error(`new MCP review was not pending: ${redact(JSON.stringify(status))}`)
           }
@@ -379,13 +544,13 @@ export function createMcpProof({
           await dialog.getByRole('button', { name: 'Approve and publish' }).click()
           await page.getByText('Approved', { exact: true }).first().waitFor({ timeout: 30000 })
           reviewRequest.approved = true
-          const status = await tool(activeConnection.rawKey, 'get-review-status', {
+          const status = await tool(activeConnection.accessToken, 'get-review-status', {
             reviewRequestId: reviewRequest.id,
           })
           if (status?.review?.status !== 'approved') {
             throw new Error(`approved MCP review returned ${String(status?.review?.status)}`)
           }
-          await tool(activeConnection.rawKey, 'complete-agent-run', {
+          await tool(activeConnection.accessToken, 'complete-agent-run', {
             agentRunId: activeAgentRun.id,
           })
           activeAgentRun.completed = true
@@ -405,8 +570,10 @@ export function createMcpProof({
 
   async function cleanup() {
     const failures = []
-    if (activeAgentRun && !activeAgentRun.completed && activeConnection?.rawKey) {
-      await tool(activeConnection.rawKey, 'complete-agent-run', { agentRunId: activeAgentRun.id })
+    if (activeAgentRun && !activeAgentRun.completed && activeConnection?.accessToken) {
+      await tool(activeConnection.accessToken, 'complete-agent-run', {
+        agentRunId: activeAgentRun.id,
+      })
         .then(() => (activeAgentRun.completed = true))
         .catch((error) => {
           failures.push({
@@ -418,7 +585,7 @@ export function createMcpProof({
           })
         })
     }
-    if (activeConnection && !activeConnection.revoked) {
+    if (activeConnection && (!activeConnection.revoked || !activeConnection.clientDeleted)) {
       await revoke().catch((error) => {
         failures.push({
           id: 'mcp.cleanup',
@@ -433,6 +600,7 @@ export function createMcpProof({
       failures,
       status: {
         mcpConnectionRevoked: activeConnection === null || activeConnection.revoked === true,
+        mcpOAuthClientDeleted: activeConnection === null || activeConnection.clientDeleted === true,
         mcpAgentRunCompleted: activeAgentRun === null || activeAgentRun.completed === true,
         mcpReviewApproved: reviewRequest === null || reviewRequest.approved === true,
       },

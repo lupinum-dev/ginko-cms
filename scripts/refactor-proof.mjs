@@ -250,6 +250,7 @@ function journeyCleanupIsGreen(journeyCleanup) {
     journeyCleanup?.assetRetired === true &&
     journeyCleanup?.siteDataDeleted === true &&
     journeyCleanup?.mcpConnectionRevoked === true &&
+    journeyCleanup?.mcpOAuthClientDeleted === true &&
     journeyCleanup?.mcpAgentRunCompleted === true &&
     journeyCleanup?.mcpReviewApproved === true &&
     journeyCleanup?.localUploadFixtureRemoved === true
