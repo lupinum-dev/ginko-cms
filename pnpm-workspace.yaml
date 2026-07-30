@@ -2,6 +2,7 @@ packages:
   - 'packages/*'
   - 'playground'
 minimumReleaseAge: 1440
+strictPeerDependencies: true
 minimumReleaseAgeExclude:
   - better-convex-mcp
   - better-convex-nuxt

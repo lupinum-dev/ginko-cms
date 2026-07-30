@@ -75,7 +75,10 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
       `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT}\n`,
     )
 
-    execFileSync('pnpm', ['install'], { cwd: tempDir, stdio: 'inherit' })
+    execFileSync('pnpm', ['install', '--strict-peer-dependencies'], {
+      cwd: tempDir,
+      stdio: 'inherit',
+    })
     execFileSync('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir, stdio: 'inherit' })
     execFileSync(
       'pnpm',

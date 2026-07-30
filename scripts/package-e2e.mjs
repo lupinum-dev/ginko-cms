@@ -892,7 +892,7 @@ try {
   }
 
   if (consumerPackageManager === 'pnpm') {
-    run('pnpm', ['install', '--ignore-scripts'], { cwd: tempDir })
+    run('pnpm', ['install', '--ignore-scripts', '--strict-peer-dependencies'], { cwd: tempDir })
   } else {
     run('npm', ['install', '--ignore-scripts', '--strict-peer-deps'], { cwd: tempDir })
   }

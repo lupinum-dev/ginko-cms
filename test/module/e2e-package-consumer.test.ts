@@ -54,6 +54,7 @@ function writeConsumerWorkspaceConfig(cwd: string, overrides: Record<string, str
     'packages:',
     '  - .',
     'minimumReleaseAge: 1440',
+    'strictPeerDependencies: true',
     'minimumReleaseAgeExclude:',
     "  - 'better-convex-mcp'",
     "  - 'better-convex-nuxt'",
