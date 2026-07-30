@@ -3,7 +3,7 @@ packages:
   - 'playground'
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
-  - '@better-convex/mcp'
+  - better-convex-mcp
   - '@lupinum/ginko-content'
   - '@modelcontextprotocol/core'
   - '@modelcontextprotocol/server'
@@ -11,8 +11,6 @@ minimumReleaseAgeExclude:
   - better-convex-nuxt
   - better-convex-vue
   - nuxt
-  # Same-day RC.2 release waiver. Remove after 2026-07-30T00:00:00Z.
-  - structured-clone-es@2.0.1
 allowBuilds:
   '@parcel/watcher': true
   better-sqlite3: true

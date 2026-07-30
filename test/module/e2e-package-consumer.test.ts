@@ -55,11 +55,13 @@ function writeConsumerWorkspaceConfig(cwd: string, overrides: Record<string, str
     '  - .',
     'minimumReleaseAge: 1440',
     'minimumReleaseAgeExclude:',
-    "  - 'structured-clone-es@2.0.1'",
     "  - '@lupinum/*'",
     "  - '@modelcontextprotocol/core'",
     "  - '@modelcontextprotocol/server'",
     "  - '@nuxt/*'",
+    "  - 'better-convex-mcp'",
+    "  - 'better-convex-nuxt'",
+    "  - 'better-convex-vue'",
     "  - 'nuxt'",
     'allowBuilds:',
     "  '@parcel/watcher': true",
@@ -198,11 +200,10 @@ describe('ginko-cms package-first consumer fixture', () => {
     expect(existsSync(join(tempDir, 'convex', 'ginkoCms.ts'))).toBe(false)
     expect(existsSync(join(tempDir, 'convex', `ginkoCms${'Mcp.ts'}`))).toBe(false)
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('./betterAuth/convex.config')
+    expect(convexConfig).toContain('better-convex-nuxt/convex-auth/convex.config')
+    expect(convexConfig).not.toContain('./betterAuth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
-    expect(readFileSync(join(tempDir, 'convex/betterAuth/schema.ts'), 'utf8')).toContain(
-      'apikey: defineTable',
-    )
+    expect(existsSync(join(tempDir, 'convex/betterAuth'))).toBe(false)
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/config')
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/better-auth')
   })

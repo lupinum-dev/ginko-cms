@@ -17,15 +17,13 @@ pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex bet
 pnpm add -D convex
 ```
 
-The generated `convex/convex.config.ts` mounts a local Better Auth component so
-Ginko's API-key schema is deployed with the host app, then mounts the Ginko CMS
-component from this package:
+The generated `convex/convex.config.ts` mounts Better Convex's packaged auth
+component, then mounts the Ginko CMS component from this package:
 
 ```ts
+import betterAuth from 'better-convex-nuxt/convex-auth/convex.config'
 import ginkoCms from '@lupinum/ginko-cms-convex/convex.config'
 import { defineApp } from 'convex/server'
-
-import betterAuth from './betterAuth/convex.config'
 ```
 
 ## Public Subpaths
@@ -37,7 +35,7 @@ import betterAuth from './betterAuth/convex.config'
 - `@lupinum/ginko-cms-convex/operations`
 
 The experimental `mcp` subpath provides the Ginko-owned tool catalog and
-schemas on top of `@better-convex/mcp`. Generated host setup binds those tools
+schemas on top of `better-convex-mcp`. Generated host setup binds those tools
 to current component operations; it does not forward bearer credentials into
 Convex arguments or move CMS authorization into the transport layer.
 

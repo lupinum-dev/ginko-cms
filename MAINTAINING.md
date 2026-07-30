@@ -21,7 +21,7 @@ the CMS packages are published.
 
 ## Daily Maintenance
 
-The Better Convex beta.22/beta.10 coordinates are the approved experimental
+The Better Convex beta.28/beta.16 coordinates are the approved experimental
 release candidates. Pack the three packages from the exact
 `sourceRehearsal.betterConvexCommit`, then install those temporary tarballs
 before running source checks:
@@ -56,7 +56,7 @@ runtime fingerprint binding, and reproducible Ginko packs against the single
 compatibility authority. Candidate verification rejects wrong installed
 versions and workspace/link dependencies.
 
-Candidate packing accepts only the beta.22/beta.10 hashes, integrity values,
+Candidate packing accepts only the beta.28/beta.16 hashes, integrity values,
 source commit, and Nuxt runtime fingerprint recorded in the compatibility
 authority. MCP support is experimental support for the 2026-07-28 draft/RC;
 this release makes no final-spec or real-host claim.
@@ -135,8 +135,6 @@ invent a deputy, independent reviewer, or notification test.
 
 - `pnpm-workspace.yaml` sets `minimumReleaseAge: 1440` so new dependency
   versions must sit on the registry for 24 hours before fresh resolution.
-- `structured-clone-es@2.0.1` has one exact same-day waiver through
-  `2026-07-30T00:00:00Z`; remove that entry after the package is 24 hours old.
 - Release jobs must use the committed lockfile. Do not delete and regenerate the
   lockfile as a casual fix.
 - Temporary `overrides` are local workspace policy only. Packed packages must

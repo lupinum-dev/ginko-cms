@@ -42,9 +42,9 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
       '@lupinum/ginko-cms-contract': '0.2.0-rc.2',
       '@lupinum/ginko-content': '0.3.2',
-      '@better-convex/mcp': '0.1.0-beta.10',
-      'better-convex-nuxt': '0.8.0-beta.22',
-      'better-convex-vue': '0.8.0-beta.22',
+      'better-convex-mcp': '0.1.0-beta.16',
+      'better-convex-nuxt': '0.8.0-beta.28',
+      'better-convex-vue': '0.8.0-beta.28',
     })
     expect(compatibility.sourceRehearsal.betterConvexCommit).toMatch(/^[0-9a-f]{40}$/u)
     expect(
@@ -56,8 +56,8 @@ describe('coordinated CMS candidate release contract', () => {
       kysely: '0.28.17',
     })
     expect(Object.keys(compatibility.releaseArtifacts).sort()).toEqual([
-      '@better-convex/mcp',
       '@lupinum/ginko-content',
+      'better-convex-mcp',
       'better-convex-nuxt',
       'better-convex-vue',
     ])
@@ -65,8 +65,8 @@ describe('coordinated CMS candidate release contract', () => {
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
       'better-auth': '1.7.0-rc.2',
-      'better-convex-nuxt': '0.8.0-beta.22',
-      'better-convex-vue': '0.8.0-beta.22',
+      'better-convex-nuxt': '0.8.0-beta.28',
+      'better-convex-vue': '0.8.0-beta.28',
       convex: '1.42.2',
       kysely: '0.28.17',
       nuxt: '4.5.1',
@@ -102,9 +102,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain('/api/_better-convex-nuxt/release-fingerprint')
     expect(source).toContain("resolve(packDir, 'candidate-artifact.json')")
     expect(source).toContain(': resolve(packDir, recorded.tarball)')
-    expect(source).toContain(
-      "'@better-convex/mcp': fileDependency(installedBetterConvexMcpTarball)",
-    )
+    expect(source).toContain("'better-convex-mcp': fileDependency(installedBetterConvexMcpTarball)")
     expect(source).toContain("consumerPackageManager === 'npm'")
     expect(source).toContain("npm_config_legacy_peer_deps: 'false'")
     expect(source).toContain("`    mcp: ${liveConvex ? 'true' : 'false'},`")

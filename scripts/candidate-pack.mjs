@@ -199,9 +199,9 @@ const upstream = {
     ),
     runtimeFingerprint: nuxtEvidence.runtimeFingerprint,
   },
-  '@better-convex/mcp': requireUpstreamTarball(
-    '@better-convex/mcp',
-    upstreamTarball('@better-convex/mcp', 'BETTER_CONVEX_MCP_TARBALL'),
+  'better-convex-mcp': requireUpstreamTarball(
+    'better-convex-mcp',
+    upstreamTarball('better-convex-mcp', 'BETTER_CONVEX_MCP_TARBALL'),
   ),
 }
 

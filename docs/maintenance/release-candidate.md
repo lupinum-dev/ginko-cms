@@ -20,8 +20,8 @@ commit, packs temporary tarballs, and deletes them with the runner. That proves
 current-source compatibility only. It does not create, approve, or replace an
 immutable release candidate.
 
-The beta.21/beta.9 source rehearsal is superseded. RC.2 consumes the immutable
-beta.22/beta.10 candidate bytes and Nuxt runtime fingerprint recorded in the
+The earlier Better Convex rehearsal tuples are superseded. RC.2 consumes the immutable
+beta.28/beta.16 candidate bytes and Nuxt runtime fingerprint recorded in the
 compatibility authority. Those Better packages must be published under
 `next-staging` before the Ginko tag workflow starts.
 
@@ -32,14 +32,14 @@ only the already reproduced Oxc/`@emnapi` resolution failure is accepted as a
 known limitation. Any other npm failure blocks publication. Never use
 `--legacy-peer-deps`, `--force`, relaxed peer checks, or an override.
 
-Publication is currently blocked by the mandatory strict pnpm consumer:
-`@nuxt/devtools@3.4.0` still depends on Vite helper/plugin ranges whose
-published peer declarations stop at Vite 7. Nuxt is fixed at `4.5.1` and Vite
-at `8.1.5`, so wait for a compatible Nuxt DevTools dependency graph. Do not
-inject consumer dependencies, override peers, or weaken strict resolution.
-
-The exact `structured-clone-es@2.0.1` dependency has a same-day age waiver only.
-Remove it from `minimumReleaseAgeExclude` after `2026-07-30T00:00:00Z`.
+Publication is blocked by the mandatory strict pnpm consumer. With Nuxt `4.5.1`
+and Vite `8.1.5`, the fresh graph resolves `@napi-rs/wasm-runtime@1.2.0` beside
+the incompatible `@emnapi/*@1.11.x` versions pinned by Rolldown/Oxc. A separate
+isolated `@nuxt/kit` context resolves `unctx@3.0.0` beside
+`unplugin@1.16.1`, outside its `^3.3.0` peer range. Upstream has published the
+corrected wasm runtime `1.2.1`, but the 24-hour supply-chain policy does not
+select it yet. Do not inject consumer dependencies, override peers, or weaken
+strict resolution to make this gate pass.
 
 ## Maintainer Release Gate
 

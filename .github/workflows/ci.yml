@@ -33,7 +33,7 @@ jobs:
         id: better_convex
         working-directory: ginko-cms
         run: |
-          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name] of [['commit','better-convex-nuxt'],['nuxt_version','better-convex-nuxt'],['vue_version','better-convex-vue'],['mcp_version','@better-convex/mcp']]) process.stdout.write(key+'='+(key==='commit' ? matrix.sourceRehearsal.betterConvexCommit : matrix.releaseStack[name])+'\n')" >> "$GITHUB_OUTPUT"
+          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name] of [['commit','better-convex-nuxt'],['nuxt_version','better-convex-nuxt'],['vue_version','better-convex-vue'],['mcp_version','better-convex-mcp']]) process.stdout.write(key+'='+(key==='commit' ? matrix.sourceRehearsal.betterConvexCommit : matrix.releaseStack[name])+'\n')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:

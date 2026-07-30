@@ -75,7 +75,7 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
       `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT}\n`,
     )
 
-    execFileSync('pnpm', ['install', '--force'], { cwd: tempDir, stdio: 'inherit' })
+    execFileSync('pnpm', ['install'], { cwd: tempDir, stdio: 'inherit' })
     execFileSync('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir, stdio: 'inherit' })
     execFileSync(
       'pnpm',
@@ -84,10 +84,9 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
     )
 
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('./betterAuth/convex.config')
+    expect(convexConfig).toContain('better-convex-nuxt/convex-auth/convex.config')
+    expect(convexConfig).not.toContain('./betterAuth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
-    expect(readFileSync(join(tempDir, 'convex/betterAuth/schema.ts'), 'utf8')).toContain(
-      'apikey: defineTable',
-    )
+    expect(existsSync(join(tempDir, 'convex/betterAuth'))).toBe(false)
   })
 })

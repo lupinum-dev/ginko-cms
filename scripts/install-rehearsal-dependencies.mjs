@@ -12,7 +12,7 @@ const compatibility = JSON.parse(
 const candidates = [
   ['better-convex-nuxt', 'BETTER_CONVEX_NUXT_TARBALL'],
   ['better-convex-vue', 'BETTER_CONVEX_VUE_TARBALL'],
-  ['@better-convex/mcp', 'BETTER_CONVEX_MCP_TARBALL'],
+  ['better-convex-mcp', 'BETTER_CONVEX_MCP_TARBALL'],
 ]
 const sourceMode = process.argv.includes('--source')
 
