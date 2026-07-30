@@ -129,5 +129,8 @@ describe('ginko-cms i18n setup', () => {
     await expect(
       moduleDefinition.setup({ route: '/studio', collections: {} }, nuxt),
     ).rejects.toThrow('Unknown ginkoCms option "collections"')
+    await expect(moduleDefinition.setup({ route: '/studio', siteI18n: {} }, nuxt)).rejects.toThrow(
+      'Unknown ginkoCms option "siteI18n"',
+    )
   })
 })

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
@@ -87,7 +87,6 @@ const MODULE_OPTION_KEYS = new Set([
   'route',
   'editorialLayout',
   'debugStudio',
-  'siteI18n',
   'sidebar',
   'mcp',
   'preview',
@@ -430,58 +429,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         pages.push(route)
       }
     })
-
-    // Only inject site-level i18n defaults when the host app already opted into
-    // translated site locales and explicitly provided CMS siteI18n overrides.
-    // The CMS should not turn a monolingual site into a translated app by default.
-    type SiteOpts = { name?: string; description?: string }
-    const nuxtOptsUnknown: unknown = nuxt.options
-    const nuxtSite = (nuxtOptsUnknown as Record<string, unknown>).site as SiteOpts | undefined
-    const defaultSiteName = nuxtSite?.name ?? ''
-    const defaultSiteDesc = nuxtSite?.description ?? ''
-    const siteI18nOverrides = options.siteI18n ?? {}
-
-    const shouldInjectSiteI18nDefaults =
-      appHasConfiguredLocales && Object.keys(siteI18nOverrides).length > 0
-
-    if (shouldInjectSiteI18nDefaults) {
-      nuxt.hook('build:before', () => {
-        const localesDir = join(nuxt.options.buildDir, 'ginko-cms', 'locales')
-        mkdirSync(localesDir, { recursive: true })
-
-        for (const locale of localeSettings.locales) {
-          const override = siteI18nOverrides[locale.code] ?? {}
-          const name = override.name ?? defaultSiteName
-          const description = override.description ?? defaultSiteDesc
-          if (!name && !description) continue
-          const messages: Record<string, string> = {}
-          if (name) messages.name = name
-          if (description) messages.description = description
-          writeFileSync(
-            join(localesDir, `${locale.code}.json`),
-            JSON.stringify({ nuxtSiteConfig: messages }, null, 2),
-          )
-        }
-
-        // Push as lowest-priority layer so app locale files always win.
-        // nuxt-i18n-micro reverses _layers before merging, so push() = lowest priority.
-        type MutableLayer = {
-          config: { rootDir: string }
-          configFile: string
-          cwd: string
-        }
-        const layersUnknown: unknown = nuxt.options._layers
-        const layers = layersUnknown as MutableLayer[]
-        const ginkoDefaultsDir = join(nuxt.options.buildDir, 'ginko-cms')
-        if (!layers.some((l) => l.config.rootDir === ginkoDefaultsDir)) {
-          layers.push({
-            config: { rootDir: ginkoDefaultsDir },
-            configFile: '',
-            cwd: ginkoDefaultsDir,
-          })
-        }
-      })
-    }
   },
   moduleDependencies(nuxt) {
     const nuxtOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt

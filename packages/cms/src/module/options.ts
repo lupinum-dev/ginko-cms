@@ -45,11 +45,6 @@ export interface CollectionConfig {
   settings?: JsonValue
 }
 
-export interface SiteI18nEntry {
-  name?: string
-  description?: string
-}
-
 export interface CmsEditorialLayout {
   collections: Record<
     string,
@@ -76,15 +71,6 @@ export interface ModuleOptions {
   editorialLayout?: CmsEditorialLayout
   /** Enable client-side studio debug logging (defaults to dev only when unset) */
   debugStudio?: boolean
-  /**
-   * Per-locale overrides for nuxt-site-config i18n keys (`nuxtSiteConfig.name`,
-   * `nuxtSiteConfig.description`). Falls back to `site.name` / `site.description`
-   * from `nuxt.config.ts` when a locale has no entry here.
-   *
-   * @example
-   * siteI18n: { de: { name: 'Acme', description: 'Schneller entwickeln.' } }
-   */
-  siteI18n?: Record<string, SiteI18nEntry>
   /** Studio sidebar appearance */
   sidebar?: {
     /**

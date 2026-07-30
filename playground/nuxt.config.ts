@@ -11,6 +11,8 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   compatibilityDate: 'latest',
   site: {
+    name: 'Ginko CMS Playground',
+    description: 'A self-hosted CMS playground powered by Convex.',
     url: 'https://playground.ginko.local',
   },
 
@@ -26,13 +28,13 @@ export default defineNuxtConfig({
     // alternates via `useCmsSeoAlternates`. Canonical, og:url, og:locale and
     // <html lang/dir> are still managed by the i18n module.
     locales: [
-      { code: 'en', name: 'English', seo: false },
-      { code: 'de', name: 'Deutsch', seo: false },
+      { code: 'en', iso: 'en-US', name: 'English', seo: false },
+      { code: 'de', iso: 'de-DE', name: 'Deutsch', seo: false },
     ],
     localeCookie: 'playground-locale',
     metaBaseUrl: 'https://playground.ginko.local',
     redirects: false,
-    translationDir: 'node_modules/.cache/ginko-cms/i18n-micro',
+    translationDir: 'locales',
   },
 
   vite: {
