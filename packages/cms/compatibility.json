@@ -81,6 +81,7 @@
   "intentionalHolds": [
     "RC.2 cannot publish until its mandatory strict pnpm consumer passes. The only remaining packed-consumer failure is @napi-rs/wasm-runtime 1.2.0 requiring @emnapi/core and @emnapi/runtime 2 alpha while Rolldown/Oxc require 1.11.x. Upstream 1.2.1 fixes the peer ranges but remains ineligible until 24 hours after its 2026-07-30T03:22:18.905Z publication; do not use force, relaxed peers, dependency injection, or an override.",
     "Strict npm is mandatory for RC.2 and passes without a peer exception after selecting corrected @napi-rs/wasm-runtime 1.2.1.",
+    "npm reports GHSA-mh99-v99m-4gvg in the Nuxt 4.5.1/Nitropack 2 build-time archive graph because the advisory only patches brace-expansion 5 while upstream minimatch ranges still select 2.x. The exact packed consumer must prove that brace-expansion, minimatch, glob, archiver, archiver-utils, and readdir-glob are absent from the deployed Nitro server output. Remove this hold when Nuxt publishes a compatible Nitro dependency graph; do not force or override the consumer graph.",
     "h3 stays on 1.15.11 until h3 2 leaves release-candidate status and Nuxt ecosystem peers accept it.",
     "Nuxt DevTools stays on the 3.x stable line while 4.x is alpha."
   ]

@@ -90,6 +90,49 @@ function declaredExportSpecifiers(packageManifest) {
   )
 }
 
+function assertBuildOnlyArchiveGraphIsAbsent(outputRoot) {
+  const serverRoot = resolve(outputRoot, 'server')
+  const buildOnlyPackages = [
+    'archiver',
+    'archiver-utils',
+    'brace-expansion',
+    'glob',
+    'minimatch',
+    'readdir-glob',
+  ]
+  const manifest = JSON.parse(readFileSync(resolve(serverRoot, 'package.json'), 'utf8'))
+  for (const packageName of buildOnlyPackages) {
+    if (manifest.dependencies?.[packageName]) {
+      throw new Error(`Built server retains build-only dependency ${packageName}.`)
+    }
+  }
+
+  const directories = [serverRoot]
+  while (directories.length) {
+    const directory = directories.pop()
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = resolve(directory, entry.name)
+      if (entry.isDirectory()) {
+        directories.push(path)
+        continue
+      }
+      if (!entry.isFile() || !/\.(?:c?js|json|map|mjs)$/u.test(entry.name)) continue
+      const contents = readFileSync(path, 'utf8')
+      const retainedPackage = buildOnlyPackages.find((packageName) =>
+        [`"${packageName}"`, `'${packageName}'`, `node_modules/${packageName}/`].some((marker) =>
+          contents.includes(marker),
+        ),
+      )
+      if (retainedPackage) {
+        throw new Error(
+          `Built server retains build-only package marker ${retainedPackage} in ${relative(outputRoot, path)}.`,
+        )
+      }
+    }
+  }
+  console.log('built server excludes the Nitro build-only glob/archive dependency graph')
+}
+
 function requireCandidateArtifact(pathVariable, packageName) {
   const expected = compatibilityMatrix.releaseArtifacts[packageName]
   if (!expected?.sha256 || (!expected?.sourceCommit && !expected?.registry)) {
@@ -1124,6 +1167,7 @@ console.log('packed MCP read/write behavior ok')
   }
   consumerExec('nuxt', ['typecheck'])
   consumerExec('nuxt', ['build'])
+  assertBuildOnlyArchiveGraphIsAbsent(resolve(tempDir, '.output'))
   await bootNitro()
 
   const exportSpecifiers = coordinatedPackageManifests.flatMap(declaredExportSpecifiers)
