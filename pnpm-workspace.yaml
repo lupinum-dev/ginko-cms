@@ -4,13 +4,8 @@ packages:
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - better-convex-mcp
-  - '@lupinum/ginko-content'
-  - '@modelcontextprotocol/core'
-  - '@modelcontextprotocol/server'
-  - '@nuxt/*'
   - better-convex-nuxt
   - better-convex-vue
-  - nuxt
 allowBuilds:
   '@parcel/watcher': true
   better-sqlite3: true

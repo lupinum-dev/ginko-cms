@@ -462,13 +462,6 @@ function writeConsumerWorkspaceConfig(cwd, overrides) {
     'packages:',
     '  - .',
     'minimumReleaseAge: 1440',
-    'minimumReleaseAgeExclude:',
-    "  - '@lupinum/*'",
-    "  - '@modelcontextprotocol/core'",
-    "  - '@modelcontextprotocol/server'",
-    "  - '@nuxt/*'",
-    "  - 'better-convex-nuxt'",
-    "  - 'nuxt'",
     'strictPeerDependencies: true',
     'overrides:',
   ]
