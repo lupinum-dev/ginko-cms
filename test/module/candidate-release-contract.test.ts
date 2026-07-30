@@ -212,6 +212,8 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain('node scripts/verify-registry-candidate.mjs')
     expect(publisher).toContain("'next-staging'")
     expect(publisher).toContain("'--provenance'")
+    expect(publisher).toContain("'dist.attestations'")
+    expect(publisher).toContain("'https://slsa.dev/provenance/v1'")
     expect(registryVerifier).toContain("'dist.attestations'")
     expect(registryVerifier).toContain("'https://slsa.dev/provenance/v1'")
     expect(workflow).not.toContain("'latest'")

@@ -78,7 +78,17 @@ if (publishedVersion === artifact.version) {
     if (JSON.parse(stagedVersion) !== artifact.version) {
       throw new Error(`${packageName}@${artifact.version} exists but is not tagged next-staging.`)
     }
-    console.log(`${packageName}@${artifact.version} is already published with approved bytes.`)
+    const packageSpec = `${packageName}@${artifact.version}`
+    const attestationOutput = execFileSync(
+      'npm',
+      ['view', packageSpec, 'dist.attestations', '--json'],
+      { cwd: repoRoot, encoding: 'utf8' },
+    ).trim()
+    const attestations = attestationOutput ? JSON.parse(attestationOutput) : undefined
+    if (attestations?.provenance?.predicateType !== 'https://slsa.dev/provenance/v1') {
+      throw new Error(`${packageSpec} is missing its npm SLSA provenance attestation.`)
+    }
+    console.log(`${packageSpec} is already published with approved bytes and npm provenance.`)
     process.exit(0)
   } finally {
     rmSync(temporaryRoot, { recursive: true, force: true })
