@@ -78,6 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          fetch-depth: 0
           path: ginko-cms
           persist-credentials: false
 
@@ -109,6 +110,10 @@ jobs:
           BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
           GINKO_CONTENT_TARBALL: ${{ steps.artifacts.outputs.content }}
         run: pnpm --config.verify-deps-before-run=warn run candidate:pack
+
+      - name: Require the annotated full-proof approval for a release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node scripts/verify-candidate-approval-tag.mjs
 
       - name: Record solo-maintainer governance
         env:
@@ -259,6 +264,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          fetch-depth: 0
           path: ginko-cms
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -287,6 +293,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          fetch-depth: 0
           path: ginko-cms
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -315,6 +322,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          fetch-depth: 0
           path: ginko-cms
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

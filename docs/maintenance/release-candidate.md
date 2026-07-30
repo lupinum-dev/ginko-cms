@@ -61,6 +61,27 @@ contract, Convex, and CMS archives sequentially through OIDC under
 `next-staging`, then download and compare all three registry archives byte for
 byte. No job repacks.
 
+Use the manual workflow first. Download its `ginko-candidate-<commit>`
+artifact, run and finalize the full disposable live proof against those exact
+bytes, and retain the resulting proof directory. Publication tags must be
+annotated and bind both files:
+
+```bash
+candidate_sha256="$(shasum -a 256 .pack/candidate/candidate-artifact.json | awk '{print $1}')"
+proof_path="reports/refactor-proof/$(git rev-parse --short=12 HEAD)/live/proof.json"
+proof_sha256="$(shasum -a 256 "$proof_path" | awk '{print $1}')"
+git tag -a v0.2.0-rc.2 -m "Ginko RC.2 approval
+
+candidate-artifact-sha256: ${candidate_sha256}
+live-proof-sha256: ${proof_sha256}"
+git push origin v0.2.0-rc.2
+```
+
+The tag workflow deterministically recreates the candidate and refuses to
+publish unless its complete candidate manifest matches the approved hash.
+Lightweight tags, changed candidate bytes, or missing live-proof bindings fail
+closed.
+
 For an equivalent local rehearsal, run the package release gates from the Ginko
 CMS workspace:
 

@@ -196,6 +196,9 @@ describe('coordinated CMS candidate release contract', () => {
       workflow.match(/pnpm --config\.verify-deps-before-run=warn run candidate:pack/gu),
     ).toHaveLength(1)
     expect(workflow).toContain("governanceMode:'solo-maintainer'")
+    expect(workflow).toContain('node scripts/verify-candidate-approval-tag.mjs')
+    expect(publisher).toContain('verifyCandidateApproval({ repoRoot, candidatePath })')
+    expect(publisher).toContain("'.pack/candidate/release-approval.json'")
     expect(workflow).toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
     expect(workflow).toContain('run: pnpm --config.verify-deps-before-run=warn run audit:prod')
     expect(workflow).toContain('pnpm --config.verify-deps-before-run=warn run package:e2e:live')

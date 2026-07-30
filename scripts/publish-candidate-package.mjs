@@ -4,6 +4,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { verifyCandidateApproval } from './verify-candidate-approval-tag.mjs'
+
 const repoRoot = resolve(import.meta.dirname, '..')
 const candidatePath = resolve(repoRoot, '.pack/candidate/candidate-artifact.json')
 const allowedPackages = new Set([
@@ -21,6 +23,15 @@ if (!existsSync(candidatePath)) {
 }
 
 const evidence = JSON.parse(readFileSync(candidatePath, 'utf8'))
+const recordedApprovalPath = resolve(repoRoot, '.pack/candidate/release-approval.json')
+if (!existsSync(recordedApprovalPath)) {
+  throw new Error('Annotated full-proof release approval is missing.')
+}
+const recordedApproval = JSON.parse(readFileSync(recordedApprovalPath, 'utf8'))
+const verifiedApproval = verifyCandidateApproval({ repoRoot, candidatePath })
+if (JSON.stringify(recordedApproval) !== JSON.stringify(verifiedApproval)) {
+  throw new Error('Recorded release approval does not match the tag and candidate bytes.')
+}
 const artifact = evidence.artifacts[packageName]
 if (!artifact) throw new Error(`${packageName} is absent from candidate evidence.`)
 if (process.env.GITHUB_SHA && evidence.source.commit !== process.env.GITHUB_SHA) {
