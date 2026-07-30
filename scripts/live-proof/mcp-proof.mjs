@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 export function createMcpProof({
   baseUrl,
   page,
@@ -27,7 +29,7 @@ export function createMcpProof({
         id: 1,
         method: 'initialize',
         params: {
-          protocolVersion: '2025-03-26',
+          protocolVersion: '2026-07-28',
           capabilities: {},
           clientInfo: { name: 'ginko-live-story-smoke', version: '0.0.0' },
         },
@@ -264,9 +266,10 @@ export function createMcpProof({
         }
         const entryId = editableEntries[0]?._id ?? editableEntries[0]?.id
         if (!entryId) throw new Error('list-entries did not return an entry id')
-        const cmsEntry = await tool(rawKey, 'get-entry', { entryId, locale: 'en', compact: true })
-        if (cmsEntry?.collection !== collection || cmsEntry?.entryId !== entryId) {
-          throw new Error('get-entry did not return the requested compact CMS entry')
+        const cmsEntryResult = await tool(rawKey, 'get-entry', { entryId, locale: 'en' })
+        const cmsEntry = cmsEntryResult?.entry
+        if (cmsEntry?.collection !== collection || cmsEntry?._id !== entryId) {
+          throw new Error('get-entry did not return the requested CMS entry')
         }
         const publicList = await tool(rawKey, 'list', {
           collection,
@@ -311,7 +314,7 @@ export function createMcpProof({
           const run = await tool(rawKey, 'start-agent-run', {
             taskName: `Live proof ${fixtureToken}`,
           })
-          const agentRunId = run?._id ?? run?.id
+          const agentRunId = run?.run?._id ?? run?.run?.id
           if (!agentRunId) throw new Error('start-agent-run did not return a run id')
           activeAgentRun = { id: agentRunId, completed: false }
           const preview = await tool(rawKey, 'preview-publish', {
@@ -324,30 +327,40 @@ export function createMcpProof({
           if (preview?.publicChanged !== false || !preview?.preview) {
             throw new Error('MCP preview did not prove unchanged public output')
           }
-          const requested = await tool(rawKey, 'request-publish-review', {
+          const operationKey = createHash('sha256').update(`review:${fixtureToken}`).digest('hex')
+          const reviewArgs = {
+            operationKey,
             agentRunId,
             entryId: probe.entryId,
             locales: [probe.locale],
             expectedVersion: probe.expectedVersion,
             title: probe.reviewTitle,
             summary: 'Automated MCP review-gating certification.',
-          })
-          const review = requested?.reviewRequest
-          const reviewRequestId = review?._id ?? review?.id
-          if (requested?.publicChanged !== false || !reviewRequestId) {
+          }
+          const requested = await tool(rawKey, 'request-publish-review', reviewArgs)
+          const reviewRequestId = requested?.review?.id
+          if (requested?.interaction !== 'client_interaction_unsupported' || !reviewRequestId) {
             throw new Error('MCP review request did not remain review-gated')
+          }
+          const replayed = await tool(rawKey, 'request-publish-review', reviewArgs)
+          if (
+            replayed?.interaction !== 'client_interaction_unsupported' ||
+            replayed?.review?.id !== reviewRequestId
+          ) {
+            throw new Error('MCP review request replay created a second effect')
           }
           reviewRequest = { id: reviewRequestId, title: probe.reviewTitle, approved: false }
           const status = await tool(rawKey, 'get-review-status', { reviewRequestId })
-          if (!status || status.status !== 'pending') {
+          if (!status || status.review?.status !== 'pending') {
             throw new Error(`new MCP review was not pending: ${redact(JSON.stringify(status))}`)
           }
           return {
             agentRunId,
             reviewRequestId,
-            status: status.status,
+            status: status.review.status,
             publicChanged: false,
             directPublishToolAvailable: false,
+            exactlyOnceReplay: true,
           }
         },
       )
@@ -369,14 +382,18 @@ export function createMcpProof({
           const status = await tool(activeConnection.rawKey, 'get-review-status', {
             reviewRequestId: reviewRequest.id,
           })
-          if (status?.status !== 'approved') {
-            throw new Error(`approved MCP review returned ${String(status?.status)}`)
+          if (status?.review?.status !== 'approved') {
+            throw new Error(`approved MCP review returned ${String(status?.review?.status)}`)
           }
           await tool(activeConnection.rawKey, 'complete-agent-run', {
             agentRunId: activeAgentRun.id,
           })
           activeAgentRun.completed = true
-          return { reviewRequestId: reviewRequest.id, status: status.status, runCompleted: true }
+          return {
+            reviewRequestId: reviewRequest.id,
+            status: status.review.status,
+            runCompleted: true,
+          }
         },
       )
     }
