@@ -192,6 +192,7 @@ describe('coordinated CMS candidate release contract', () => {
     ).toHaveLength(1)
     expect(workflow).toContain("governanceMode:'solo-maintainer'")
     expect(workflow).toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
+    expect(workflow).toContain('run: pnpm --config.verify-deps-before-run=warn run audit:prod')
     expect(workflow).toContain('pnpm --config.verify-deps-before-run=warn run package:e2e:live')
     expect(workflow).toContain('CONVEX_DEPLOYMENT: ${{ vars.CONVEX_DEPLOYMENT }}')
     expect(workflow).toContain('CONVEX_SITE_URL: ${{ vars.CONVEX_SITE_URL }}')
