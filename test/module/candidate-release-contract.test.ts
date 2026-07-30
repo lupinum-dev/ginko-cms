@@ -209,6 +209,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain('CONVEX_URL: ${{ vars.CONVEX_URL }}')
     expect(workflow).toContain('CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}')
     expect(workflow).toContain("GINKO_CMS_DISPOSABLE_DEPLOYMENT: '1'")
+    expect(workflow).toContain("protected-staging:\n    if: startsWith(github.ref, 'refs/tags/v')")
     expect(workflow).toContain('needs: [verify-candidate-pnpm, verify-candidate-npm]')
     expect(workflow).toContain(
       'node scripts/publish-candidate-package.mjs @lupinum/ginko-cms-contract',

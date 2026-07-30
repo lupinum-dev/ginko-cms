@@ -55,11 +55,12 @@ make the remaining gate pass.
 The canonical hosted gate is `.github/workflows/release-candidate.yml`, triggered
 manually or by a `v*-*` prerelease tag. It downloads upstream registry artifacts,
 packs Ginko once, verifies the uploaded bytes with mandatory pnpm and strict
-npm, and then enters the tag-restricted `ginko-release`
-environment for disposable Convex staging. Tag runs publish the original
-contract, Convex, and CMS archives sequentially through OIDC under
-`next-staging`, then download and compare all three registry archives byte for
-byte. No job repacks.
+npm. Manual runs stop there so their immutable artifact can undergo the full
+local live proof. Only an approved annotated tag enters the tag-restricted
+`ginko-release` environment for disposable Convex staging. Tag runs then
+publish the original contract, Convex, and CMS archives sequentially through
+OIDC under `next-staging`, download them again, and compare all three registry
+archives byte for byte. No job repacks.
 
 Use the manual workflow first. Download its `ginko-candidate-<commit>`
 artifact, run and finalize the full disposable live proof against those exact
