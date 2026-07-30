@@ -63,6 +63,7 @@ const betterConvexMcpRoot = betterConvexNuxtRoot
   ? resolve(betterConvexNuxtRoot, 'packages/mcp')
   : undefined
 const liveConvex = process.argv.includes('--live')
+let liveDeploymentEvidence = null
 const registryContent = registryDependencies || developmentMode
 const registryBetterConvexNuxt = registryDependencies || (developmentMode && !betterConvexNuxtRoot)
 const registryBetterConvexVue = registryBetterConvexNuxt
@@ -778,7 +779,18 @@ try {
       )
     }
     if (hasConfiguredDeployment) {
-      validateDisposableConvexDeployment(process.env)
+      const { deployment, deploymentName } = validateDisposableConvexDeployment(process.env)
+      liveDeploymentEvidence = {
+        provider: 'convex-cloud',
+        kind: 'development',
+        deploymentName,
+        fingerprint: createHash('sha256').update(deployment).digest('hex').slice(0, 16),
+      }
+    } else {
+      liveDeploymentEvidence = {
+        provider: 'self-hosted',
+        origin: new URL(process.env.CONVEX_SELF_HOSTED_URL).origin,
+      }
     }
     writeFileSync(
       join(tempDir, '.env.local'),
@@ -1274,9 +1286,18 @@ console.log('packed MCP read/write behavior ok')
   )
 
   const releaseEvidence = {
+    schemaVersion: 1,
     lane: candidateMode ? 'candidate' : registryDependencies ? 'registry' : 'development',
+    live: liveConvex,
     packageManager: consumerPackageManager,
     lockfileSha256: sha256(lockfilePath),
+    candidate: candidateMode
+      ? {
+          sourceCommit: candidateArtifact.source.commit,
+          candidateArtifactSha256: sha256(candidateArtifactPath),
+        }
+      : null,
+    deployment: liveDeploymentEvidence,
     dependencies: {
       '@lupinum/ginko-content': candidateContent ?? { version: contentRegistryVersion },
       'better-convex-nuxt':

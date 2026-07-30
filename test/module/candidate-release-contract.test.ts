@@ -109,6 +109,9 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain('npm candidate lockfile must contain only kysely@0.28.17.')
     expect(source).toContain("'ginko-cms-candidate.json.get.ts'")
     expect(source).toContain('GINKO_PACKAGE_E2E_OUTPUT')
+    expect(source).toContain('live: liveConvex')
+    expect(source).toContain('candidateArtifactSha256')
+    expect(source).toContain('deployment: liveDeploymentEvidence')
   })
 
   it('accepts upstream candidate bytes only through the immutable compatibility authority', () => {
