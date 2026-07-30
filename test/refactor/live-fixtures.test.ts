@@ -272,4 +272,65 @@ describe('deployment-admin live fixtures', () => {
     expect(await ctx.readAll('publicSearchEntries')).toHaveLength(0)
     expect(await ctx.readAll('assets')).toHaveLength(0)
   })
+
+  it('removes browser-created smoke entries by their fixture-prefixed slug', async () => {
+    const ctx = createCtx({ transactionLimits: true })
+    const browserEntryId = await ctx.seed('entries', {
+      collection: 'blog',
+      stableId: 'browser-generated-stable-id',
+      lifecycle: 'archived',
+      slug: `v-next-live-smoke-${prefix}-browser`,
+      parentEntryId: null,
+      orderRank: '00000000',
+      nodeKind: 'page',
+      shared: {},
+      draftVersion: 1,
+      sharedVersion: 1,
+      activePublications: [],
+      latestEditorialRevisionId: null,
+      createdBy: prefix,
+      updatedBy: prefix,
+      createdAt: 1,
+      updatedAt: 1,
+    })
+    await ctx.seed('entryLocaleDrafts', {
+      entryId: browserEntryId,
+      locale: 'en',
+      slug: null,
+      values: { title: 'Browser smoke' },
+      bodyMdc: '# Browser smoke',
+      version: 1,
+      updatedBy: prefix,
+      updatedAt: 1,
+    })
+    await ctx.seed('entries', {
+      collection: 'blog',
+      stableId: 'unrelated-stable-id',
+      lifecycle: 'archived',
+      slug: 'unrelated-browser-entry',
+      parentEntryId: null,
+      orderRank: '00000001',
+      nodeKind: 'page',
+      shared: {},
+      draftVersion: 1,
+      sharedVersion: 1,
+      activePublications: [],
+      latestEditorialRevisionId: null,
+      createdBy: 'unrelated',
+      updatedBy: 'unrelated',
+      createdAt: 2,
+      updatedAt: 2,
+    })
+
+    expect(
+      await ctx.raw.run((inner) => cleanupEntriesPageHandler(inner, { prefix, count: 25 })),
+    ).toMatchObject({ deleted: 1, complete: false })
+    expect(
+      await ctx.raw.run((inner) => cleanupEntriesPageHandler(inner, { prefix, count: 25 })),
+    ).toMatchObject({ deleted: 0, complete: true })
+    expect((await ctx.readAll('entries')).map(({ slug }) => slug)).toEqual([
+      'unrelated-browser-entry',
+    ])
+    expect(await ctx.readAll('entryLocaleDrafts')).toHaveLength(0)
+  })
 })

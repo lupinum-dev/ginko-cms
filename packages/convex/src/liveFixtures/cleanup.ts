@@ -77,7 +77,7 @@ export async function cleanupEntriesPageHandler(
 ) {
   boundedPage(0, args.count, 100)
   const count = Math.min(args.count, 50)
-  const rows = await ctx.db
+  const fixtureRows = await ctx.db
     .query('entries')
     .withIndex('by_collection_stableId', (q) =>
       q
@@ -86,6 +86,20 @@ export async function cleanupEntriesPageHandler(
         .lt('stableId', `${args.prefix}\uFFFF`),
     )
     .take(count)
+  const browserSlugPrefix = `v-next-live-smoke-${args.prefix}`
+  const browserRows =
+    fixtureRows.length < count
+      ? await ctx.db
+          .query('entries')
+          .withIndex('by_collection_slug', (q) =>
+            q
+              .eq('collection', 'blog')
+              .gte('slug', browserSlugPrefix)
+              .lt('slug', `${browserSlugPrefix}\uFFFF`),
+          )
+          .take(count - fixtureRows.length)
+      : []
+  const rows = [...fixtureRows, ...browserRows]
   for (const row of rows) {
     await deleteEntryDependents(ctx, row._id)
     await ctx.db.delete(row._id)

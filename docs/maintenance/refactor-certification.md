@@ -166,8 +166,9 @@ set and an evidence-backed budget.
 
 It also creates localized EN/DE site data privately, exposes and updates it
 through public reads, makes it private again, and permanently deletes the
-fixture. Journey cleanup must prove that deletion alongside the archived smoke
-entry, retired asset, completed MCP run, approved review, and revoked key.
+fixture. Journey cleanup must prove that deletion alongside the smoke entry's
+archive and permanent deletion, retired asset, completed MCP run, approved
+review, and revoked key.
 
 Automated success is recorded as
 `automated-live-green-in-app-browser-pending`. Final certification still

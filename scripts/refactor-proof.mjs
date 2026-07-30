@@ -246,6 +246,7 @@ async function cleanupLiveFixtures({
 function journeyCleanupIsGreen(journeyCleanup) {
   return (
     journeyCleanup?.entryArchived === true &&
+    journeyCleanup?.entryDeleted === true &&
     journeyCleanup?.assetRetired === true &&
     journeyCleanup?.siteDataDeleted === true &&
     journeyCleanup?.mcpConnectionRevoked === true &&

@@ -481,33 +481,58 @@ try {
     )
   }
 
-  await story('content.fixture-cleanup', 'Unpublishes and archives the smoke entry', async () => {
-    if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
-    await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
-    await page.getByText(fixtureTitle, { exact: true }).first().waitFor({ timeout: 30000 })
+  await story(
+    'content.fixture-cleanup',
+    'Unpublishes, archives, and permanently deletes the smoke entry',
+    async () => {
+      if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
+      await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
+      await page.getByText(fixtureTitle, { exact: true }).first().waitFor({ timeout: 30000 })
 
-    const entryActions = page.getByRole('button', { name: `Entry actions for ${fixtureTitle}` })
-    await entryActions.click()
-    const unpublish = page.getByRole('menuitem', { name: 'Unpublish' })
-    if ((await unpublish.count()) === 1) {
-      await unpublish.click()
-      const dialog = page.getByRole('dialog', { name: 'Unpublish' })
-      await dialog.waitFor({ timeout: 30000 })
-      await dialog.getByRole('button', { name: 'Unpublish' }).click()
-      await page
-        .locator('.studio-entry-topbar')
-        .getByText('Draft', { exact: true })
-        .waitFor({ timeout: 30000 })
-    }
+      const entryActions = page.getByRole('button', { name: `Entry actions for ${fixtureTitle}` })
+      await entryActions.click()
+      const unpublish = page.getByRole('menuitem', { name: 'Unpublish' })
+      if ((await unpublish.count()) === 1) {
+        await unpublish.click()
+        const dialog = page.getByRole('dialog', { name: 'Unpublish' })
+        await dialog.waitFor({ timeout: 30000 })
+        await dialog.getByRole('button', { name: 'Unpublish' }).click()
+        await page
+          .locator('.studio-entry-topbar')
+          .getByText('Draft', { exact: true })
+          .waitFor({ timeout: 30000 })
+      }
 
-    await entryActions.click()
-    await page.getByRole('menuitem', { name: 'Archive' }).click()
-    const archiveDialog = page.getByRole('dialog', { name: 'Archive' })
-    await archiveDialog.waitFor({ timeout: 30000 })
-    await archiveDialog.getByRole('button', { name: 'Archive' }).click()
-    await page.waitForURL(new RegExp(`/studio/content/${collection}/?$`), { timeout: 30000 })
-    return { archived: true }
-  })
+      await entryActions.click()
+      await page.getByRole('menuitem', { name: 'Archive' }).click()
+      const archiveDialog = page.getByRole('dialog', { name: 'Archive' })
+      await archiveDialog.waitFor({ timeout: 30000 })
+      await archiveDialog.getByRole('button', { name: 'Archive' }).click()
+      await page.waitForURL(new RegExp(`/studio/content/${collection}/?$`), { timeout: 30000 })
+
+      await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
+      await page.getByText(fixtureTitle, { exact: true }).first().waitFor({ timeout: 30000 })
+      await page.getByRole('button', { name: `Entry actions for ${fixtureTitle}` }).click()
+      await page.getByRole('menuitem', { name: 'Permanently delete entry' }).click()
+
+      const prompt = page.getByRole('dialog', { name: 'Permanently delete archived entry' })
+      await prompt.waitFor({ timeout: 30000 })
+      const confirmationInput = prompt.getByRole('textbox', { name: 'Confirmation phrase' })
+      const confirmationPhrase = await confirmationInput.getAttribute('placeholder')
+      if (!confirmationPhrase?.startsWith('DELETE ')) {
+        throw new Error('Permanent-delete confirmation phrase is unavailable.')
+      }
+      await confirmationInput.fill(confirmationPhrase)
+      await prompt.getByRole('button', { name: 'Review deletion' }).click()
+      await prompt.waitFor({ state: 'hidden', timeout: 30000 })
+
+      const confirm = page.getByRole('dialog', { name: 'Permanently delete archived entry' })
+      await confirm.waitFor({ timeout: 30000 })
+      await confirm.getByTestId('cms-confirm-dialog-confirm').click()
+      await page.waitForURL(new RegExp(`/studio/content/${collection}/?$`), { timeout: 30000 })
+      return { archived: true, permanentlyDeleted: true }
+    },
+  )
 
   await story(
     'auth.sign-out-protected-access-lost',
@@ -547,11 +572,13 @@ try {
     () => true,
     () => false,
   )
+  const entryCleanupEvidence = results.find(
+    (result) => result.id === 'content.fixture-cleanup' && result.status === 'passed',
+  )?.evidence
   const cleanup = {
     fixturePrefix,
-    entryArchived: results.some(
-      (result) => result.id === 'content.fixture-cleanup' && result.status === 'passed',
-    ),
+    entryArchived: entryCleanupEvidence?.archived === true,
+    entryDeleted: entryCleanupEvidence?.permanentlyDeleted === true,
     assetRetired: results.some(
       (result) => result.id === 'assets.upload-and-trash' && result.status === 'passed',
     ),
