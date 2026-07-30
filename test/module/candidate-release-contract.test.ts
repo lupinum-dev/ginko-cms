@@ -199,6 +199,8 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain('node scripts/verify-candidate-approval-tag.mjs')
     expect(publisher).toContain('verifyCandidateApproval({ repoRoot, candidatePath })')
     expect(publisher).toContain("'.pack/candidate/release-approval.json'")
+    expect(registryVerifier).toContain('verifyCandidateApproval({')
+    expect(registryVerifier).toContain('tagName: recordedApproval.tag')
     expect(workflow).toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
     expect(workflow).toContain('run: pnpm --config.verify-deps-before-run=warn run audit:prod')
     expect(workflow).toContain('pnpm --config.verify-deps-before-run=warn run package:e2e:live')

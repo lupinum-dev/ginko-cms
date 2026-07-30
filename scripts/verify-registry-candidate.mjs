@@ -4,10 +4,21 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { verifyCandidateApproval } from './verify-candidate-approval-tag.mjs'
+
 const repoRoot = resolve(import.meta.dirname, '..')
-const candidate = JSON.parse(
-  readFileSync(resolve(repoRoot, '.pack/candidate/candidate-artifact.json'), 'utf8'),
-)
+const candidatePath = resolve(repoRoot, '.pack/candidate/candidate-artifact.json')
+const candidate = JSON.parse(readFileSync(candidatePath, 'utf8'))
+const approvalPath = resolve(repoRoot, '.pack/candidate/release-approval.json')
+const recordedApproval = JSON.parse(readFileSync(approvalPath, 'utf8'))
+const verifiedApproval = verifyCandidateApproval({
+  repoRoot,
+  candidatePath,
+  tagName: recordedApproval.tag,
+})
+if (JSON.stringify(recordedApproval) !== JSON.stringify(verifiedApproval)) {
+  throw new Error('Registry verification approval does not match the tag and candidate bytes.')
+}
 const packageNames = [
   '@lupinum/ginko-cms-contract',
   '@lupinum/ginko-cms-convex',
