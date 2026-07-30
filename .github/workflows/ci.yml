@@ -50,21 +50,8 @@ jobs:
       - name: Install pinned package-manager launcher
         run: npm install --global corepack@"$GINKO_COREPACK_VERSION" && corepack enable
 
-      - name: Pack temporary Better Convex source-rehearsal tarballs
-        working-directory: better-convex-nuxt
-        run: |
-          pnpm install --frozen-lockfile
-          mkdir -p .source-rehearsal
-          npm pack ./packages/mcp --pack-destination .source-rehearsal
-          npm pack ./packages/vue --pack-destination .source-rehearsal
-          npm pack . --pack-destination .source-rehearsal
-
-      - name: Install the exact Better Convex rehearsal artifacts
-        env:
-          BETTER_CONVEX_MCP_TARBALL: ${{ github.workspace }}/better-convex-nuxt/.source-rehearsal/better-convex-mcp-${{ steps.better_convex.outputs.mcp_version }}.tgz
-          BETTER_CONVEX_NUXT_TARBALL: ${{ github.workspace }}/better-convex-nuxt/.source-rehearsal/better-convex-nuxt-${{ steps.better_convex.outputs.nuxt_version }}.tgz
-          BETTER_CONVEX_VUE_TARBALL: ${{ github.workspace }}/better-convex-nuxt/.source-rehearsal/better-convex-vue-${{ steps.better_convex.outputs.vue_version }}.tgz
-        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal:source
+      - name: Install the frozen Ginko dependency graph
+        run: pnpm install --frozen-lockfile
 
       - name: Install the pinned Playwright browser
         run: ./node_modules/.bin/playwright install --with-deps chromium

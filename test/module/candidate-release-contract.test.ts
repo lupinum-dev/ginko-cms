@@ -23,9 +23,8 @@ describe('coordinated CMS candidate release contract', () => {
     }>('packages/cms/compatibility.json')
 
     expect(workspace.scripts['candidate:pack']).toBe('node scripts/candidate-pack.mjs')
-    expect(workspace.scripts['install:rehearsal:source']).toBe(
-      'node scripts/install-rehearsal-dependencies.mjs --source',
-    )
+    expect(workspace.scripts['install:rehearsal']).toBeUndefined()
+    expect(workspace.scripts['install:rehearsal:source']).toBeUndefined()
     expect(workspace.scripts['candidate:live:materialize']).toBe(
       'node scripts/live-candidate.mjs materialize',
     )
@@ -169,11 +168,9 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain('pnpm install --frozen-lockfile')
     expect(workflow).toContain('matrix.sourceRehearsal.betterConvexCommit')
     expect(workflow).toContain('repository: lupinum-dev/better-convex-nuxt')
-    expect(workflow).toContain('npm pack ./packages/mcp --pack-destination .source-rehearsal')
-    expect(workflow).toContain(
-      'pnpm --config.verify-deps-before-run=warn run install:rehearsal:source',
-    )
     expect(workflow).toContain('pnpm --config.verify-deps-before-run=warn run package:e2e:dev')
+    expect(workflow).not.toContain('install:rehearsal')
+    expect(workflow).not.toContain('.source-rehearsal')
     expect(workflow).not.toMatch(/uses:\s+\S+@v\d/u)
     expect(workflow).not.toContain('corepack@latest')
     expect(workflow).not.toContain('LUPINUM_CI_REPO_READ_TOKEN')

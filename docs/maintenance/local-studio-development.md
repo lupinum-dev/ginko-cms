@@ -64,9 +64,9 @@ This one command:
 - injects the Vite URL into the Nuxt host so Studio source edits use HMR.
 
 The launcher keeps pnpm's dependency auto-verifier in warning mode because this
-workflow intentionally runs exact unpublished source-rehearsal tarballs. It does
-not relax peer resolution or alter candidate manifests; clean packed consumers
-still install from scratch and enforce the compatibility tuple.
+workflow runs the source-linked local workspace during active development. It
+does not relax peer resolution or alter candidate manifests; clean packed
+consumers still install from scratch and enforce the compatibility tuple.
 
 Open:
 

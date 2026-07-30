@@ -13,8 +13,9 @@ The sole active dependency and artifact authority is
 [`packages/cms/compatibility.json`](../../packages/cms/compatibility.json).
 Its `sourceRehearsal` commit is a temporary, non-publishable CI input used to
 prove Ginko against current Better Convex source. `releaseArtifacts` remains the
-only authority for immutable candidate bytes; source-rehearsal tarballs are
-never uploaded, promoted, or accepted by the release-candidate workflow.
+only authority for immutable candidate bytes; the packed-source consumer never
+uploads, promotes, or substitutes its temporary archives into Ginko's root
+dependency graph.
 The superseded Better Convex rehearsal evidence is absent. The active
 compatibility authority now records the immutable experimental
 beta.28/beta.16 candidate evidence. This is support for the 2026-07-28 MCP

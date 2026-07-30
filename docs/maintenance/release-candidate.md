@@ -16,9 +16,10 @@ at the compatibility-matrix versions. Do not use recursive workspace publishing
 from this repo; the workspace includes sibling checkouts for local development.
 
 Ordinary CI separately checks out the exact `sourceRehearsal` Better Convex
-commit, packs temporary tarballs, and deletes them with the runner. That proves
-current-source compatibility only. It does not create, approve, or replace an
-immutable release candidate.
+commit for the packed-source consumer. The root install stays frozen against
+the registry-backed lockfile. That proves current-source compatibility without
+an install override; it does not create, approve, or replace an immutable
+release candidate.
 
 The earlier Better Convex rehearsal tuples are superseded. RC.2 consumes the immutable
 beta.28/beta.16 candidate bytes and Nuxt runtime fingerprint recorded in the

@@ -22,25 +22,18 @@ the CMS packages are published.
 ## Daily Maintenance
 
 The Better Convex beta.28/beta.16 coordinates are the approved experimental
-release candidates. Pack the three packages from the exact
-`sourceRehearsal.betterConvexCommit`, then install those temporary tarballs
-before running source checks:
+release candidates. Install the committed registry-backed lockfile, then run
+the source and packed-source checks:
 
 ```bash
-BETTER_CONVEX_NUXT_TARBALL=/absolute/path/to/better-convex-nuxt.tgz \
-BETTER_CONVEX_VUE_TARBALL=/absolute/path/to/better-convex-vue.tgz \
-BETTER_CONVEX_MCP_TARBALL=/absolute/path/to/better-convex-mcp.tgz \
-pnpm run install:rehearsal:source
+pnpm install --frozen-lockfile
 pnpm run check
 pnpm run release:verify
 ```
 
-`install:rehearsal:source` verifies package names and tuple versions, temporarily
-overrides dependency resolution against the committed lock, and restores both
-the lockfile and workspace configuration byte-for-byte in `finally`. These
-tarballs are temporary CI inputs and are never candidate or publishable
-artifacts. Delete this source-rehearsal path after the Better Convex
-prereleases are available from the registry.
+Ordinary CI checks out `sourceRehearsal.betterConvexCommit` only for the
+packed-source consumer. It does not inject an override into Ginko's dependency
+graph. The committed lockfile remains the sole source-install authority.
 
 The release-candidate lane consumes four approved dependency tarballs without
 rebuilding them. Put the exact registry downloads in `.pack/upstream`, run the

@@ -50,12 +50,8 @@ jobs:
           npm pack "better-convex-nuxt@${{ steps.tuple.outputs.nuxt }}" --pack-destination .pack/upstream
           npm pack "better-convex-vue@${{ steps.tuple.outputs.vue }}" --pack-destination .pack/upstream
 
-      - name: Install the exact upstream artifacts
-        env:
-          BETTER_CONVEX_MCP_TARBALL: ${{ github.workspace }}/ginko-cms/.pack/upstream/better-convex-mcp-${{ steps.tuple.outputs.mcp }}.tgz
-          BETTER_CONVEX_NUXT_TARBALL: ${{ github.workspace }}/ginko-cms/.pack/upstream/better-convex-nuxt-${{ steps.tuple.outputs.nuxt }}.tgz
-          BETTER_CONVEX_VUE_TARBALL: ${{ github.workspace }}/ginko-cms/.pack/upstream/better-convex-vue-${{ steps.tuple.outputs.vue }}.tgz
-        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+      - name: Install the frozen Ginko dependency graph
+        run: pnpm install --frozen-lockfile
 
       - name: Install the pinned Playwright browser
         run: ./node_modules/.bin/playwright install --with-deps chromium
@@ -100,12 +96,8 @@ jobs:
         run: |
           node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name,file] of [['content','@lupinum/ginko-content','lupinum-ginko-content-'],['mcp','better-convex-mcp','better-convex-mcp-'],['nuxt','better-convex-nuxt','better-convex-nuxt-'],['vue','better-convex-vue','better-convex-vue-']]) process.stdout.write(key+'='+process.cwd()+'/.pack/upstream/'+file+matrix.releaseStack[name]+'.tgz\n')" >> "$GITHUB_OUTPUT"
 
-      - name: Install the exact upstream artifacts
-        env:
-          BETTER_CONVEX_MCP_TARBALL: ${{ steps.artifacts.outputs.mcp }}
-          BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
-          BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
-        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+      - name: Install the frozen Ginko dependency graph
+        run: pnpm install --frozen-lockfile
 
       - name: Pack the coordinated Ginko candidate once
         env:
@@ -153,17 +145,8 @@ jobs:
           name: ginko-candidate-${{ github.sha }}
           path: ginko-cms/.pack/candidate
 
-      - name: Resolve candidate artifact paths
-        id: artifacts
-        run: |
-          node -e "const evidence=require('./.pack/candidate/candidate-artifact.json'); for (const [key,name] of [['content','@lupinum/ginko-content'],['mcp','better-convex-mcp'],['nuxt','better-convex-nuxt'],['vue','better-convex-vue']]) process.stdout.write(key+'='+process.cwd()+'/.pack/candidate/'+evidence.artifacts[name].tarball+'\n')" >> "$GITHUB_OUTPUT"
-
-      - name: Install the exact upstream artifacts
-        env:
-          BETTER_CONVEX_MCP_TARBALL: ${{ steps.artifacts.outputs.mcp }}
-          BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
-          BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
-        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+      - name: Install the frozen Ginko dependency graph
+        run: pnpm install --frozen-lockfile
 
       - name: Verify the uploaded candidate with pnpm without repacking
         run: pnpm --config.verify-deps-before-run=warn run package:e2e
@@ -200,17 +183,8 @@ jobs:
           name: ginko-candidate-${{ github.sha }}
           path: ginko-cms/.pack/candidate
 
-      - name: Resolve candidate artifact paths
-        id: artifacts
-        run: |
-          node -e "const evidence=require('./.pack/candidate/candidate-artifact.json'); for (const [key,name] of [['mcp','better-convex-mcp'],['nuxt','better-convex-nuxt'],['vue','better-convex-vue']]) process.stdout.write(key+'='+process.cwd()+'/.pack/candidate/'+evidence.artifacts[name].tarball+'\n')" >> "$GITHUB_OUTPUT"
-
-      - name: Install the exact upstream artifacts
-        env:
-          BETTER_CONVEX_MCP_TARBALL: ${{ steps.artifacts.outputs.mcp }}
-          BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
-          BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
-        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+      - name: Install the frozen Ginko dependency graph
+        run: pnpm install --frozen-lockfile
 
       - name: Observe strict npm without bypasses
         run: pnpm --config.verify-deps-before-run=warn run package:e2e:npm:observational
@@ -248,17 +222,8 @@ jobs:
           name: ginko-candidate-${{ github.sha }}
           path: ginko-cms/.pack/candidate
 
-      - name: Resolve candidate artifact paths
-        id: artifacts
-        run: |
-          node -e "const evidence=require('./.pack/candidate/candidate-artifact.json'); for (const [key,name] of [['mcp','better-convex-mcp'],['nuxt','better-convex-nuxt'],['vue','better-convex-vue']]) process.stdout.write(key+'='+process.cwd()+'/.pack/candidate/'+evidence.artifacts[name].tarball+'\n')" >> "$GITHUB_OUTPUT"
-
-      - name: Install the exact upstream artifacts
-        env:
-          BETTER_CONVEX_MCP_TARBALL: ${{ steps.artifacts.outputs.mcp }}
-          BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
-          BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
-        run: pnpm --config.verify-deps-before-run=warn run install:rehearsal
+      - name: Install the frozen Ginko dependency graph
+        run: pnpm install --frozen-lockfile
 
       - name: Run the disposable Convex staging proof
         env:
