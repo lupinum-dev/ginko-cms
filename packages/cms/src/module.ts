@@ -102,20 +102,6 @@ function assertModuleOptionKeys(input: object) {
   }
 }
 
-function hasNuxtI18nModule(modules: unknown[] = []): boolean {
-  return modules.some((entry) => {
-    if (typeof entry === 'string') {
-      return entry === '@nuxtjs/i18n' || entry === 'nuxt-i18n-micro'
-    }
-
-    if (Array.isArray(entry) && typeof entry[0] === 'string') {
-      return entry[0] === '@nuxtjs/i18n' || entry[0] === 'nuxt-i18n-micro'
-    }
-
-    return false
-  })
-}
-
 async function assertGinkoContentSearchBoundary(rootDir: string, nuxtOptions: NuxtOptionsExt) {
   const provider = await loadGinkoContentProviderName(rootDir)
   if (provider === 'ginko') {
@@ -499,7 +485,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   },
   moduleDependencies(nuxt) {
     const nuxtOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
-    const appHasConfiguredLocales = hasConfiguredI18nLocales(nuxtOptions.i18n ?? {})
     const userOptions: Partial<ModuleOptions> =
       nuxtOptions.ginkoCms && typeof nuxtOptions.ginkoCms === 'object' ? nuxtOptions.ginkoCms : {}
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
@@ -558,18 +543,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         Object.keys(convexDefaults).length > 0 ? { defaults: convexDefaults } : {}
     }
 
-    if (appHasConfiguredLocales && !hasNuxtI18nModule(nuxt.options.modules)) {
-      dependencies['nuxt-i18n-micro'] = {
-        version: '>=3.17.0',
-        defaults: {
-          autoDetectLanguage: false,
-          disablePageLocales: true,
-          localeCookie: null,
-          redirects: false,
-          translationDir: 'node_modules/.cache/ginko-cms/i18n-micro',
-        },
-      }
-    }
     return dependencies
   },
 })

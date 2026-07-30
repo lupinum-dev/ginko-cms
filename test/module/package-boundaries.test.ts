@@ -421,6 +421,7 @@ describe('package boundary contracts', () => {
     expect(cmsPackage.dependencies?.[trellisPackageName]).toBeUndefined()
     expect(cmsPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
     expect(cmsPackage.dependencies?.['better-convex-nuxt']).toBeDefined()
+    expect(cmsPackage.dependencies?.['nuxt-i18n-micro']).toBeUndefined()
     expect(cmsPackage.peerDependencies?.kysely).toBe('0.28.17')
   })
 

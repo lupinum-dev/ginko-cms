@@ -203,25 +203,14 @@ describe('ginko-cms tailwind registration', () => {
     expect(transformed?.code).toContain(`@source "${expectedSource}";`)
   })
 
-  it('installs the i18n runtime only for a host with configured locales', () => {
+  it('leaves the host in control of its i18n runtime when locales are configured', () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-i18n-dependency-'))
     tempDirs.push(rootDir)
     const nuxt = createNuxtMock(rootDir)
     nuxt.options.modules = []
     ;(nuxt.options.i18n as Record<string, unknown>).locales = [{ code: 'en' }]
 
-    expect(getModuleDependencies(nuxt)).toMatchObject({
-      'nuxt-i18n-micro': {
-        version: '>=3.17.0',
-        defaults: {
-          autoDetectLanguage: false,
-          disablePageLocales: true,
-          localeCookie: null,
-          redirects: false,
-          translationDir: 'node_modules/.cache/ginko-cms/i18n-micro',
-        },
-      },
-    })
+    expect(getModuleDependencies(nuxt)).not.toHaveProperty('nuxt-i18n-micro')
   })
 
   it('initializes css registration when the nuxt mock omits css', async () => {

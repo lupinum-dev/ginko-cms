@@ -79,9 +79,8 @@
     }
   },
   "intentionalHolds": [
-    "Strict pnpm remains blocked on Nuxt 4.5.1 because @nuxt/devtools 3.4.0 depends on vite-plugin-inspect ^11.3.3, vite-plugin-vue-tracer ^1.3.0, and their Vite helpers whose published peer ranges stop at Vite 7; do not relax strict peers, inject consumer dependencies, or override the graph.",
-    "RC.2 targets pnpm support and cannot publish until its strict pnpm gate passes. Strict npm is observational because oxc-parser 0.140.0's optional WASM binding selects @napi-rs/wasm-runtime 1.2.0, whose @emnapi/core 2 alpha peer conflicts with oxc-parser's exact @emnapi/core 1.11.2; do not use force, legacy peer resolution, or an override.",
-    "structured-clone-es@2.0.1 has an exact same-day minimum-release-age waiver through 2026-07-30T00:00:00Z; remove the pnpm-workspace.yaml entry after it is at least 24 hours old.",
+    "RC.2 cannot publish until its mandatory strict pnpm consumer passes. The only remaining packed-consumer failure is @napi-rs/wasm-runtime 1.2.0 requiring @emnapi/core and @emnapi/runtime 2 alpha while Rolldown/Oxc require 1.11.x. Upstream 1.2.1 fixes the peer ranges but remains ineligible until 24 hours after its 2026-07-30T03:22:18.905Z publication; do not use force, relaxed peers, dependency injection, or an override.",
+    "Strict npm is observational for RC.2. The known @napi-rs/wasm-runtime 1.2.0 peer failure is temporarily accepted only in that observational lane; any different npm failure blocks publication.",
     "h3 stays on 1.15.11 until h3 2 leaves release-candidate status and Nuxt ecosystem peers accept it.",
     "Nuxt DevTools stays on the 3.x stable line while 4.x is alpha."
   ]

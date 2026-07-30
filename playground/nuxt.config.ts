@@ -1,7 +1,12 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
-  modules: ['@lupinum/ginko-content', '../packages/cms/src/module', '@nuxtjs/sitemap'],
+  modules: [
+    '@lupinum/ginko-content',
+    'nuxt-i18n-micro',
+    '../packages/cms/src/module',
+    '@nuxtjs/sitemap',
+  ],
 
   devtools: { enabled: true },
   compatibilityDate: 'latest',
@@ -12,7 +17,9 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   i18n: {
+    autoDetectLanguage: false,
     defaultLocale: 'en',
+    disablePageLocales: true,
     // `seo: false` stops nuxt-i18n-micro from emitting hreflang alternates
     // (and x-default) for every configured locale regardless of whether the
     // translation is published. Content pages emit their own published-only
@@ -24,6 +31,8 @@ export default defineNuxtConfig({
     ],
     localeCookie: 'playground-locale',
     metaBaseUrl: 'https://playground.ginko.local',
+    redirects: false,
+    translationDir: 'node_modules/.cache/ginko-cms/i18n-micro',
   },
 
   vite: {
