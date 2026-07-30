@@ -352,6 +352,12 @@ function packPackage(packageDir) {
 
 function buildPackedPackages() {
   run('pnpm', ['--filter', '@lupinum/ginko-cms', 'build'])
+  if (developmentMode && betterConvexNuxtRoot) {
+    run('pnpm', ['run', 'build:package'], { cwd: betterConvexNuxtRoot })
+  }
+  if (developmentMode && betterConvexMcpRoot) {
+    run('pnpm', ['run', 'build'], { cwd: betterConvexMcpRoot })
+  }
 }
 
 function findTarball(packageName) {
