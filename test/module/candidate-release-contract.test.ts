@@ -185,6 +185,7 @@ describe('coordinated CMS candidate release contract', () => {
   it('packs once and verifies uploaded candidates in the protected release workflow', () => {
     const workflow = readFileSync('.github/workflows/release-candidate.yml', 'utf8')
     const publisher = readFileSync('scripts/publish-candidate-package.mjs', 'utf8')
+    const registryVerifier = readFileSync('scripts/verify-registry-candidate.mjs', 'utf8')
 
     expect(workflow).toContain("tags:\n      - 'v*-*'")
     expect(workflow).toContain('environment: ginko-release')
@@ -211,6 +212,8 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain('node scripts/verify-registry-candidate.mjs')
     expect(publisher).toContain("'next-staging'")
     expect(publisher).toContain("'--provenance'")
+    expect(registryVerifier).toContain("'dist.attestations'")
+    expect(registryVerifier).toContain("'https://slsa.dev/provenance/v1'")
     expect(workflow).not.toContain("'latest'")
     expect(workflow).not.toContain('GINKO_CMS_TEST_EMAIL')
     expect(workflow).not.toContain('GINKO_CMS_TEST_PASSWORD')
