@@ -12,9 +12,14 @@ export function summarizePublicEntries(body) {
   const entries = body && typeof body === 'object' && Array.isArray(body.result) ? body.result : []
   return {
     count: entries.length,
+    firstData: entries[0]?.data ?? null,
     firstPath: entries[0]?.route?.resolvedPath ?? null,
     firstTitle: entries[0]?.title ?? null,
   }
+}
+
+export function liveProofRichBodyMarker(fixtureToken) {
+  return `Rich body ${fixtureToken}`
 }
 
 export function assertNoDraftProjection(label, value) {

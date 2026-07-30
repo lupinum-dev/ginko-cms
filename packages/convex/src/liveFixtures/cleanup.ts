@@ -9,11 +9,9 @@ import {
   FIXTURE_COLLECTION,
   FIXTURE_LOCALES,
 } from '../liveFixtures.js'
-
 function browserEntrySlugPrefix(prefix: string) {
   return `v-next-live-smoke-${prefix}`
 }
-
 async function fixtureMembers(ctx: MutationCtx | QueryCtx, prefix: string) {
   return (await ctx.db.query('members').collect()).filter((member) => member.updatedBy === prefix)
 }

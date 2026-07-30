@@ -8,6 +8,11 @@ const blog = defineCollection({
   cms: {
     fields: {
       featured: { type: 'toggle', localized: false },
+      relatedDoc: {
+        type: 'relation',
+        localized: false,
+        relation: { collectionId: 'docs', multiple: false },
+      },
     },
   },
 })

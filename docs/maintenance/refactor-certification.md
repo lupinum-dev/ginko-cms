@@ -159,6 +159,10 @@ violations, page-level horizontal overflow, and unexpected console, page,
 request, or HTTP failures. Expected wrong-password failure is scoped to that
 single request; broad HTTP allowlists are not used.
 
+The browser-created blog entry selects a fixture-backed relation, writes a
+structured rich body, waits for autosave, reopens both values, publishes them,
+and verifies the rendered body plus stable relation ID through public output.
+
 The target-scale journey records each `Load more` duration and the number of
 pagination samples in its structured story result. That trace is not currently
 promoted to a p95 performance claim; promotion requires a retained live sample

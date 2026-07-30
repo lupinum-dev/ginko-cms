@@ -1,4 +1,9 @@
-import { assertNoDraftProjection, contentApiPath, summarizePublicEntries } from './public-api.mjs'
+import {
+  assertNoDraftProjection,
+  contentApiPath,
+  liveProofRichBodyMarker,
+  summarizePublicEntries,
+} from './public-api.mjs'
 
 export async function runPublicJourneys({
   story,
@@ -28,6 +33,12 @@ export async function runPublicJourneys({
     if (!summary.firstPath || !summary.firstTitle) {
       throw new Error('public list entry did not include a route path and title')
     }
+    if (
+      certification &&
+      summary.firstData?.relatedDoc !== fixtureManifest.probes.relationEntry.stableId
+    ) {
+      throw new Error('public list did not preserve the smoke entry relation stable ID')
+    }
     publicContentFixture = summary
     assertNoDraftProjection('public list', body)
     return summary
@@ -46,7 +57,18 @@ export async function runPublicJourneys({
     await page
       .getByRole('heading', { level: 1, name: publicContentFixture.firstTitle })
       .waitFor({ timeout: 30000 })
-    return { path: page.url().replace(baseUrl, ''), title: publicContentFixture.firstTitle }
+    const richBodyMarker = liveProofRichBodyMarker(fixtureToken)
+    if (certification) {
+      await page.getByRole('heading', { level: 2, name: richBodyMarker }).waitFor({
+        timeout: 30000,
+      })
+    }
+    return {
+      path: page.url().replace(baseUrl, ''),
+      title: publicContentFixture.firstTitle,
+      relationStableId: publicContentFixture.firstData?.relatedDoc ?? null,
+      richBodyMarker: certification ? richBodyMarker : null,
+    }
   })
 
   await story(

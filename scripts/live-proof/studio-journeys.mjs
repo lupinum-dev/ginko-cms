@@ -1,4 +1,5 @@
 import { expectText, waitForStudioInteractive } from './browser-auth.mjs'
+import { liveProofRichBodyMarker } from './public-api.mjs'
 
 export async function runStudioJourneys({
   story,
@@ -42,6 +43,57 @@ export async function runStudioJourneys({
       await page
         .locator('.studio-entry-topbar__save-indicator[data-save-state="saved"]')
         .waitFor({ timeout: 30000 })
+      let persistedRelation = null
+      let persistedRichBody = null
+      if (certification) {
+        const relationProbe = fixtureManifest.probes.relationEntry
+        const relation = page.locator('#relatedDoc')
+        await relation.waitFor({ timeout: 30000 })
+        await relation.click()
+        const relationSearch = page.getByPlaceholder('Search entries')
+        await relationSearch.waitFor({ timeout: 30000 })
+        await relationSearch.fill(relationProbe.title)
+        const relationOption = page
+          .getByRole('button')
+          .filter({ hasText: relationProbe.title })
+          .last()
+        await relationOption.waitFor({ timeout: 30000 })
+        await relationOption.click()
+
+        const richBodyMarker = liveProofRichBodyMarker(fixtureToken)
+        const richBodySource = `## ${richBodyMarker}\n\nThis **rich body** survives autosave, reopening, and publication.\n`
+        await page.getByRole('button', { name: 'Markdown', exact: true }).click()
+        const markdownSource = page.getByRole('textbox', { name: 'Content Markdown source' })
+        await markdownSource.waitFor({ timeout: 30000 })
+        await markdownSource.fill(richBodySource)
+        await page.getByRole('button', { name: 'Visual', exact: true }).click()
+        await page.getByRole('heading', { level: 2, name: richBodyMarker }).waitFor({
+          timeout: 30000,
+        })
+        await page
+          .locator('.studio-entry-topbar__save-indicator[data-save-state="saved"]')
+          .waitFor({ timeout: 30000 })
+
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        await page.getByText(fixtureTitle, { exact: true }).first().waitFor({ timeout: 30000 })
+        const reopenedRelation = page.locator('#relatedDoc')
+        await reopenedRelation.waitFor({ timeout: 30000 })
+        if (!(await reopenedRelation.textContent())?.includes(relationProbe.title)) {
+          throw new Error('Reopened smoke entry did not preserve its relation.')
+        }
+        await page.getByRole('button', { name: 'Markdown', exact: true }).click()
+        const reopenedSource = page.getByRole('textbox', { name: 'Content Markdown source' })
+        await reopenedSource.waitFor({ timeout: 30000 })
+        if ((await reopenedSource.inputValue()) !== richBodySource) {
+          throw new Error('Reopened smoke entry did not preserve its rich body.')
+        }
+        await page.getByRole('button', { name: 'Visual', exact: true }).click()
+        await page.getByRole('heading', { level: 2, name: richBodyMarker }).waitFor({
+          timeout: 30000,
+        })
+        persistedRelation = relationProbe.stableId
+        persistedRichBody = richBodyMarker
+      }
       await page.getByRole('button', { name: 'Preview website changes' }).click()
       await page.getByRole('heading', { name: 'What will change on the website' }).waitFor({
         timeout: 30000,
@@ -54,7 +106,12 @@ export async function runStudioJourneys({
         .locator('.studio-entry-topbar')
         .getByText('Live', { exact: true })
         .waitFor({ timeout: 30000 })
-      return { url: fixtureEntryUrl, title: fixtureTitle }
+      return {
+        url: fixtureEntryUrl,
+        title: fixtureTitle,
+        persistedRelation,
+        persistedRichBody,
+      }
     },
   )
 

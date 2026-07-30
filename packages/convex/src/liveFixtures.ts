@@ -452,7 +452,6 @@ export async function setupProbesHandler(ctx: MutationCtx, args: { prefix: strin
     reviewPublicPath: `/docs/${reviewEntry.slug}`,
   }
 }
-
 export const setupProbes = internalMutation({
   args: { prefix: v.string() },
   handler: async (ctx, args) => {
@@ -476,6 +475,7 @@ export const inspect = internalQuery({
     return {
       collection: FIXTURE_COLLECTION,
       roleEntryId: String(roleEntry._id),
+      roleEntryStableId: roleEntry.stableId,
       reviewEntryId: String(reviewEntry._id),
       reviewDraftVersion: reviewEntry.draftVersion,
       mcpEntryId: String(mcpEntry._id),

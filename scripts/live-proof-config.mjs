@@ -313,6 +313,11 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
       ...requireProbe(value.probes?.roleEntry, 'probes.roleEntry', ['path', 'title']),
       bodyBytes: requiredInteger(value.probes?.roleEntry?.bodyBytes, 'probes.roleEntry.bodyBytes'),
     },
+    relationEntry: requireProbe(value.probes?.relationEntry, 'probes.relationEntry', [
+      'collection',
+      'stableId',
+      'title',
+    ]),
     routeRedirect: requireProbe(value.probes?.routeRedirect, 'probes.routeRedirect', [
       'sourcePath',
       'targetPath',
@@ -385,6 +390,8 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
     ['probes.deepSearch.expectedTitle', probes.deepSearch.expectedTitle],
     ['probes.assetSearch.expectedFilename', probes.assetSearch.expectedFilename],
     ['probes.roleEntry.title', probes.roleEntry.title],
+    ['probes.relationEntry.stableId', probes.relationEntry.stableId],
+    ['probes.relationEntry.title', probes.relationEntry.title],
     ['probes.routeRedirect.sourcePath', probes.routeRedirect.sourcePath],
     ['probes.routeRedirect.targetPath', probes.routeRedirect.targetPath],
     ['probes.pendingReview.title', probes.pendingReview.title],

@@ -103,6 +103,11 @@ function fixtureManifest() {
         title: 'refactor-proof-abc123 Role probe',
         bodyBytes: LIVE_PROOF_TARGET_SCALE.longMdcBytes,
       },
+      relationEntry: {
+        collection: 'scale-posts',
+        stableId: 'refactor-proof-abc123-docs-0000',
+        title: 'refactor-proof-abc123 page 0000 en',
+      },
       routeRedirect: {
         sourcePath: '/refactor-proof-abc123/old/tree/page',
         targetPath: '/refactor-proof-abc123/new/tree/page',
@@ -302,6 +307,7 @@ describe('live refactor proof contract', () => {
         entryPagination: { expectedRows: 1205 },
         publicRoutes: { expectedRows: 4500 },
         pendingReview: { localeCodes: ['en', 'de'] },
+        relationEntry: { stableId: 'refactor-proof-abc123-docs-0000' },
       },
     })
     const inflated = fixtureManifest()
@@ -468,6 +474,9 @@ describe('live refactor proof contract', () => {
     expect(siteData).toContain("getByRole('group', { name: 'Language' })")
     expect(siteData).toContain("getByRole('button', { name: 'de', exact: true })")
     expect(packedHost).toContain(`modules: ['@nuxtjs/sitemap', '@lupinum/ginko-content', ginkoCms]`)
+    expect(packedHost).toContain(
+      "relatedDoc: { type: 'relation', localized: false, relation: { collectionId: 'docs', multiple: false } }",
+    )
     expect(packedHost).toContain("i18n: { defaultLocale: 'en'")
     expect(packedHost).toContain('site: { url: process.env.CMS_STORY_SITE_URL')
     expect(packedHost).toContain("liveConvex ? 'app/pages' : 'pages'")

@@ -330,6 +330,11 @@ async function setup() {
             title: `${prefix} page 0000 en`,
             bodyBytes: targetScale.longMdcBytes,
           },
+          relationEntry: {
+            collection: inspection.collection,
+            stableId: inspection.roleEntryStableId,
+            title: `${prefix} page 0000 en`,
+          },
           routeRedirect: {
             sourcePath: probes.redirectSourcePath,
             targetPath: probes.redirectTargetPath,
