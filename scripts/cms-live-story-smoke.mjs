@@ -106,6 +106,7 @@ const screenshotStoryIds = new Set([
   'content-model.contract-readonly',
   'content.entry-list-state',
   'content.entry-editor-state',
+  'content.history-rollback-publish',
   'assets.upload-and-trash',
   'site-data.localized-public-lifecycle',
   'public-page.blog',
@@ -483,7 +484,7 @@ try {
 
   await story(
     'content.fixture-cleanup',
-    'Unpublishes, archives, and permanently deletes the smoke entry',
+    'Unpublishes, archives, restores, rearchives, and permanently deletes the smoke entry',
     async () => {
       if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
       await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
@@ -512,6 +513,24 @@ try {
 
       await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
       await page.getByText(fixtureTitle, { exact: true }).first().waitFor({ timeout: 30000 })
+      await page.getByRole('button', { name: 'Restore draft' }).click()
+      const restoreDialog = page.getByRole('dialog', { name: 'Restore draft' })
+      await restoreDialog.waitFor({ timeout: 30000 })
+      await restoreDialog.getByRole('button', { name: 'Restore draft' }).click()
+      await page
+        .locator('.studio-entry-topbar')
+        .getByText('Draft', { exact: true })
+        .waitFor({ timeout: 30000 })
+
+      await page.getByRole('button', { name: `Entry actions for ${fixtureTitle}` }).click()
+      await page.getByRole('menuitem', { name: 'Archive' }).click()
+      const rearchiveDialog = page.getByRole('dialog', { name: 'Archive' })
+      await rearchiveDialog.waitFor({ timeout: 30000 })
+      await rearchiveDialog.getByRole('button', { name: 'Archive' }).click()
+      await page.waitForURL(new RegExp(`/studio/content/${collection}/?$`), { timeout: 30000 })
+
+      await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
+      await page.getByText(fixtureTitle, { exact: true }).first().waitFor({ timeout: 30000 })
       await page.getByRole('button', { name: `Entry actions for ${fixtureTitle}` }).click()
       await page.getByRole('menuitem', { name: 'Permanently delete entry' }).click()
 
@@ -530,7 +549,7 @@ try {
       await confirm.waitFor({ timeout: 30000 })
       await confirm.getByTestId('cms-confirm-dialog-confirm').click()
       await page.waitForURL(new RegExp(`/studio/content/${collection}/?$`), { timeout: 30000 })
-      return { archived: true, permanentlyDeleted: true }
+      return { archived: true, restored: true, permanentlyDeleted: true }
     },
   )
 

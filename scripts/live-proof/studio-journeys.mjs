@@ -19,6 +19,7 @@ export async function runStudioJourneys({
   signIn,
 }) {
   let fixtureEntryUrl = null
+  const fixtureDescription = 'Automated V-next release-candidate verification entry.'
   await story(
     'content.fixture-publish',
     'Creates and publishes an isolated smoke entry',
@@ -29,9 +30,7 @@ export async function runStudioJourneys({
       await waitForStudioInteractive(page)
       await page.getByRole('textbox', { name: 'Title', exact: true }).waitFor({ timeout: 30000 })
       await page.getByRole('textbox', { name: 'Title', exact: true }).fill(fixtureTitle)
-      await page
-        .getByRole('textbox', { name: 'Description' })
-        .fill('Automated V-next release-candidate verification entry.')
+      await page.getByRole('textbox', { name: 'Description' }).fill(fixtureDescription)
       const createDraftButtons = page.getByRole('button', { name: 'Create draft' })
       if ((await createDraftButtons.count()) < 1) throw new Error('Create draft action is missing')
       await createDraftButtons.first().click()
@@ -111,6 +110,71 @@ export async function runStudioJourneys({
         title: fixtureTitle,
         persistedRelation,
         persistedRichBody,
+      }
+    },
+  )
+
+  await story(
+    'content.history-rollback-publish',
+    'Publishes a changed revision and restores an older version to public output',
+    async () => {
+      if (!fixtureEntryUrl) throw new Error('fixture entry URL is unavailable')
+      const transientDescription = `Transient rollback proof ${fixtureToken}`
+
+      await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
+      const description = page.getByRole('textbox', { name: 'Description' })
+      await description.waitFor({ timeout: 30000 })
+      if ((await description.inputValue()) !== fixtureDescription) {
+        throw new Error('Published fixture did not preserve its original description.')
+      }
+      await description.fill(transientDescription)
+      await page
+        .locator('.studio-entry-topbar__save-indicator[data-save-state="saved"]')
+        .waitFor({ timeout: 30000 })
+
+      await page.getByRole('button', { name: 'Preview website changes' }).click()
+      await page.getByRole('heading', { name: 'What will change on the website' }).waitFor({
+        timeout: 30000,
+      })
+      await page.getByRole('button', { name: 'Publish EN' }).click()
+      const publishDialog = page.getByRole('dialog', { name: 'Publish (EN)?' })
+      await publishDialog.waitFor({ timeout: 30000 })
+      await publishDialog.getByRole('button', { name: 'Publish (EN)', exact: true }).click()
+      await page
+        .locator('.studio-entry-topbar')
+        .getByText('Live', { exact: true })
+        .waitFor({ timeout: 30000 })
+
+      const versionActions = page.getByRole('button', { name: /^Actions for version \d+$/ })
+      await versionActions.last().waitFor({ timeout: 30000 })
+      if ((await versionActions.count()) < 2) {
+        throw new Error('Historical rollback requires at least two published versions.')
+      }
+      await versionActions.last().click()
+      await page.getByRole('menuitem', { name: 'Restore and publish' }).click()
+      const rollbackDialog = page.getByRole('dialog', {
+        name: 'Restore this version and publish it live?',
+      })
+      await rollbackDialog.waitFor({ timeout: 30000 })
+      await rollbackDialog.getByRole('button', { name: 'Restore and publish' }).click()
+      await page
+        .locator('.studio-entry-topbar__save-indicator[data-save-state="saved"]')
+        .waitFor({ timeout: 30000 })
+
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      const restoredDescription = page.getByRole('textbox', { name: 'Description' })
+      await restoredDescription.waitFor({ timeout: 30000 })
+      if ((await restoredDescription.inputValue()) !== fixtureDescription) {
+        throw new Error('Historical rollback did not restore the original description.')
+      }
+      await page
+        .locator('.studio-entry-topbar')
+        .getByText('Live', { exact: true })
+        .waitFor({ timeout: 30000 })
+      return {
+        originalDescription: fixtureDescription,
+        transientDescriptionRemoved: true,
+        restoredAndPublished: true,
       }
     },
   )
