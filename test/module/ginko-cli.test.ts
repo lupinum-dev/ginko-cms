@@ -68,7 +68,7 @@ function readGeneratedContractBinding(rootDir: string) {
   const source = readFileSync(resolve(rootDir, 'convex/ginkoCms/contractBinding.ts'), 'utf8')
   return {
     contentHash: source.match(/EXPECTED_CONTENT_HASH = '([a-f0-9]{64})'/u)?.[1],
-    presentationHash: source.match(/EXPECTED_PRESENTATION_HASH = '([a-f0-9]{64})'/u)?.[1],
+    presentationHash: source.match(/PRESENTATION_HASH = '([a-f0-9]{64})'/u)?.[1],
   }
 }
 

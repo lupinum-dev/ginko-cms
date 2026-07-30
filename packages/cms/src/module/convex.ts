@@ -154,7 +154,7 @@ function contentHash(source: string) {
 
 function readContractBinding(source: string): ExpectedContractBinding {
   const content = source.match(/EXPECTED_CONTENT_HASH = '([^']+)'/u)?.[1]
-  const presentation = source.match(/EXPECTED_PRESENTATION_HASH = '([^']+)'/u)?.[1]
+  const presentation = source.match(/PRESENTATION_HASH = '([^']+)'/u)?.[1]
   return {
     contentHash: content ?? UNBOUND_CONTRACT_HASH,
     presentationHash: presentation ?? UNBOUND_CONTRACT_HASH,
