@@ -27,10 +27,7 @@ compatibility authority. Those Better packages must be published under
 `next-staging` before the Ginko tag workflow starts.
 
 The coordinated runtime uses exactly Nuxt `4.5.1`, Vite `8.1.5`, and Vue
-`3.5.40`. RC.2 support is pnpm-first. The clean pnpm consumer remains mandatory.
-The strict npm consumer is observational for RC.2: success is accepted, and
-only the already reproduced Oxc/`@emnapi` resolution failure is accepted as a
-known limitation. Any other npm failure blocks publication. Never use
+`3.5.40`. Clean pnpm and strict npm consumers are both mandatory. Never use
 `--legacy-peer-deps`, `--force`, relaxed peer checks, or an override.
 
 Publication is blocked by the mandatory strict pnpm consumer. With Nuxt `4.5.1`
@@ -40,11 +37,16 @@ published the corrected wasm runtime `1.2.1` at
 `2026-07-30T03:22:18.905Z`, but the 24-hour supply-chain policy does not select
 it yet.
 
+The strict npm consumer already selects corrected
+`@napi-rs/wasm-runtime@1.2.1` and passes without a peer exception. The pnpm
+consumer will be rerun after the same release has aged through its mandatory
+24-hour policy.
+
 The former `unctx@3.0.0` / `unplugin@1.16.1` failure was traced to Ginko
 implicitly installing `nuxt-i18n-micro` as a production dependency. That hidden
 host-runtime ownership was deleted: Ginko bundles its Studio dictionaries, and
 host apps explicitly install any optional site localization module they choose.
-The strict packed consumer now reports only the WASM-runtime issue. Do not
+The pnpm packed consumer now reports only the age-gated WASM-runtime issue. Do not
 inject consumer dependencies, override peers, or weaken strict resolution to
 make the remaining gate pass.
 
@@ -52,8 +54,8 @@ make the remaining gate pass.
 
 The canonical hosted gate is `.github/workflows/release-candidate.yml`, triggered
 manually or by a `v*-*` prerelease tag. It downloads upstream registry artifacts,
-packs Ginko once, verifies the uploaded bytes with mandatory pnpm and
-observational strict npm, and then enters the tag-restricted `ginko-release`
+packs Ginko once, verifies the uploaded bytes with mandatory pnpm and strict
+npm, and then enters the tag-restricted `ginko-release`
 environment for disposable Convex staging. Tag runs publish the original
 contract, Convex, and CMS archives sequentially through OIDC under
 `next-staging`, then download and compare all three registry archives byte for

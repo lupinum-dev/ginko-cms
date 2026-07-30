@@ -84,7 +84,7 @@ pnpm run release:notes
 5. Review `CHANGELOG.md`; changelogen is a draft generator, not an authority.
 6. Trigger `.github/workflows/release-candidate.yml` manually to rehearse, or
    push the exact prerelease tag to publish. It downloads upstream registry
-   bytes, packs once, requires the pnpm consumer, records the strict npm result,
+   bytes, packs once, requires both pnpm and strict npm consumers,
    and runs protected disposable Convex staging.
 7. Download the `ginko-candidate-<commit>` artifact produced by that workflow.
 8. Inspect the exact candidate tarballs:

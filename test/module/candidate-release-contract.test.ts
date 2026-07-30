@@ -33,9 +33,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workspace.scripts['package:e2e:npm']).toBe(
       'node scripts/package-e2e.mjs --candidate --package-manager npm',
     )
-    expect(workspace.scripts['release:verify:candidate']).toContain(
-      'pnpm run package:e2e:npm:observational',
-    )
+    expect(workspace.scripts['release:verify:candidate']).toContain('pnpm run package:e2e:npm')
     expect(compatibility.releaseStack).toMatchObject({
       '@lupinum/ginko-cms': '0.2.0-rc.2',
       '@lupinum/ginko-cms-convex': '0.2.0-rc.2',

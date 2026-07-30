@@ -80,7 +80,7 @@
   },
   "intentionalHolds": [
     "RC.2 cannot publish until its mandatory strict pnpm consumer passes. The only remaining packed-consumer failure is @napi-rs/wasm-runtime 1.2.0 requiring @emnapi/core and @emnapi/runtime 2 alpha while Rolldown/Oxc require 1.11.x. Upstream 1.2.1 fixes the peer ranges but remains ineligible until 24 hours after its 2026-07-30T03:22:18.905Z publication; do not use force, relaxed peers, dependency injection, or an override.",
-    "Strict npm is observational for RC.2. The known @napi-rs/wasm-runtime 1.2.0 peer failure is temporarily accepted only in that observational lane; any different npm failure blocks publication.",
+    "Strict npm is mandatory for RC.2 and passes without a peer exception after selecting corrected @napi-rs/wasm-runtime 1.2.1.",
     "h3 stays on 1.15.11 until h3 2 leaves release-candidate status and Nuxt ecosystem peers accept it.",
     "Nuxt DevTools stays on the 3.x stable line while 4.x is alpha."
   ]

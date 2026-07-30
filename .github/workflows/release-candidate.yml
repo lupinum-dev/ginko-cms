@@ -186,8 +186,8 @@ jobs:
       - name: Install the frozen Ginko dependency graph
         run: pnpm install --frozen-lockfile
 
-      - name: Observe strict npm without bypasses
-        run: pnpm --config.verify-deps-before-run=warn run package:e2e:npm:observational
+      - name: Verify the uploaded candidate with strict npm without bypasses
+        run: pnpm --config.verify-deps-before-run=warn run package:e2e:npm
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
