@@ -10,6 +10,7 @@ import {
   cleanupAssetsPageHandler,
   cleanupControlPageHandler,
   cleanupEntriesPageHandler,
+  fixtureEntryCountHandler,
 } from '../../packages/convex/src/liveFixtures/cleanup'
 import { cleanupBootstrapOwnerHandler } from '../../packages/convex/src/liveFixtures/finalize'
 import { seedStorageObject } from '../component/entries/helpers'
@@ -322,6 +323,7 @@ describe('deployment-admin live fixtures', () => {
       updatedAt: 2,
     })
 
+    expect(await ctx.raw.run((inner) => fixtureEntryCountHandler(inner, prefix))).toBe(1)
     expect(
       await ctx.raw.run((inner) => cleanupEntriesPageHandler(inner, { prefix, count: 25 })),
     ).toMatchObject({ deleted: 1, complete: false })
@@ -331,6 +333,7 @@ describe('deployment-admin live fixtures', () => {
     expect((await ctx.readAll('entries')).map(({ slug }) => slug)).toEqual([
       'unrelated-browser-entry',
     ])
+    expect(await ctx.raw.run((inner) => fixtureEntryCountHandler(inner, prefix))).toBe(0)
     expect(await ctx.readAll('entryLocaleDrafts')).toHaveLength(0)
   })
 })

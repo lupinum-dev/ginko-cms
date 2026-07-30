@@ -10,6 +10,10 @@ import {
   FIXTURE_LOCALES,
 } from '../liveFixtures.js'
 
+function browserEntrySlugPrefix(prefix: string) {
+  return `v-next-live-smoke-${prefix}`
+}
+
 async function fixtureMembers(ctx: MutationCtx | QueryCtx, prefix: string) {
   return (await ctx.db.query('members').collect()).filter((member) => member.updatedBy === prefix)
 }
@@ -86,7 +90,7 @@ export async function cleanupEntriesPageHandler(
         .lt('stableId', `${args.prefix}\uFFFF`),
     )
     .take(count)
-  const browserSlugPrefix = `v-next-live-smoke-${args.prefix}`
+  const browserSlugPrefix = browserEntrySlugPrefix(args.prefix)
   const browserRows =
     fixtureRows.length < count
       ? await ctx.db
@@ -105,6 +109,31 @@ export async function cleanupEntriesPageHandler(
     await ctx.db.delete(row._id)
   }
   return { deleted: rows.length, complete: rows.length === 0 }
+}
+
+export async function fixtureEntryCountHandler(ctx: QueryCtx, prefix: string) {
+  const browserSlugPrefix = browserEntrySlugPrefix(prefix)
+  const [fixtureRows, browserRows] = await Promise.all([
+    ctx.db
+      .query('entries')
+      .withIndex('by_collection_stableId', (q) =>
+        q
+          .eq('collection', FIXTURE_COLLECTION)
+          .gte('stableId', prefix)
+          .lt('stableId', `${prefix}\uFFFF`),
+      )
+      .take(1_501),
+    ctx.db
+      .query('entries')
+      .withIndex('by_collection_slug', (q) =>
+        q
+          .eq('collection', 'blog')
+          .gte('slug', browserSlugPrefix)
+          .lt('slug', `${browserSlugPrefix}\uFFFF`),
+      )
+      .take(101),
+  ])
+  return fixtureRows.length + browserRows.length
 }
 
 export const cleanupEntriesPage = internalMutation({
@@ -249,16 +278,8 @@ export const counts = internalQuery({
   args: { prefix: v.string() },
   handler: async (ctx, args) => {
     assertFixturePrefix(args.prefix)
-    const [entries, assets, reviews, redirects, siteData, members] = await Promise.all([
-      ctx.db
-        .query('entries')
-        .withIndex('by_collection_stableId', (q) =>
-          q
-            .eq('collection', FIXTURE_COLLECTION)
-            .gte('stableId', args.prefix)
-            .lt('stableId', `${args.prefix}\uFFFF`),
-        )
-        .collect(),
+    const [entryCount, assets, reviews, redirects, siteData, members] = await Promise.all([
+      fixtureEntryCountHandler(ctx, args.prefix),
       ctx.db
         .query('assets')
         .withIndex('by_filename', (q) =>
@@ -288,7 +309,7 @@ export const counts = internalQuery({
       ).length
     }
     return {
-      entries: entries.length,
+      entries: entryCount,
       assets: assets.length,
       reviews: fixtureReviews.length,
       redirects: redirects.length,
