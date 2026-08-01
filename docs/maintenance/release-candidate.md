@@ -30,25 +30,17 @@ The coordinated runtime uses exactly Nuxt `4.5.1`, Vite `8.1.5`, and Vue
 `3.5.40`. Clean pnpm and strict npm consumers are both mandatory. Never use
 `--legacy-peer-deps`, `--force`, relaxed peer checks, or an override.
 
-Publication is blocked by the mandatory strict pnpm consumer. With Nuxt `4.5.1`
-and Vite `8.1.5`, the fresh graph resolves `@napi-rs/wasm-runtime@1.2.0` beside
-the incompatible `@emnapi/*@1.11.x` versions pinned by Rolldown/Oxc. Upstream
-published the corrected wasm runtime `1.2.1` at
-`2026-07-30T03:22:18.905Z`, but the 24-hour supply-chain policy does not select
-it yet.
-
-The strict npm consumer already selects corrected
-`@napi-rs/wasm-runtime@1.2.1` and passes without a peer exception. The pnpm
-consumer will be rerun after the same release has aged through its mandatory
-24-hour policy.
+The corrected `@napi-rs/wasm-runtime@1.2.1` has aged through the mandatory
+24-hour supply-chain policy. No release-age exclusion is retained for Better
+Convex or the WASM runtime. Both clean consumers must resolve the corrected
+graph under their ordinary strict policies.
 
 The former `unctx@3.0.0` / `unplugin@1.16.1` failure was traced to Ginko
 implicitly installing `nuxt-i18n-micro` as a production dependency. That hidden
 host-runtime ownership was deleted: Ginko bundles its Studio dictionaries, and
 host apps explicitly install any optional site localization module they choose.
-The pnpm packed consumer now reports only the age-gated WASM-runtime issue. Do not
-inject consumer dependencies, override peers, or weaken strict resolution to
-make the remaining gate pass.
+Do not inject consumer dependencies, override peers, or weaken strict resolution
+to make either consumer gate pass.
 
 ## Maintainer Release Gate
 
