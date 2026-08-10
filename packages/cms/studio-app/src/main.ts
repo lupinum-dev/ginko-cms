@@ -91,7 +91,7 @@ void Promise.all([waitForMountTarget(), waitForHostBridge()])
     const router = createStudioRouter()
     const studioHost = createStudioHostContext()
     app.provide(studioHostContextKey, studioHost)
-    app.use(createBetterConvex({ runtime: studioHost.runtime }))
+    app.use(createBetterConvex({ attachment: studioHost.attachment }))
     // These names used to come from Nuxt auto-imports in the host app. Register
     // them explicitly so the standalone Studio SPA owns its Nuxt-compat surface.
     app.component('Icon', Icon)

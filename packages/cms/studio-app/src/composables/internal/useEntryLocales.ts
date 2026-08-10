@@ -87,7 +87,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     computed(() =>
       translationMode.value && secondaryLocale.value
         ? { id: entryId.value, locale: secondaryLocale.value }
-        : null,
+        : ('skip' as const),
     ),
   )
   const secondaryEntry = computed(() => secondaryEntryQuery.data?.value ?? null)

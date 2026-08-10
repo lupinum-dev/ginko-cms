@@ -87,7 +87,7 @@ const collectionConfig = computed<StudioCollectionConfig | null>(
 const isSchemaLoading = computed(
   () =>
     !collectionConfig.value &&
-    collectionSchemaQuery.data.value === null &&
+    collectionSchemaQuery.data.value === undefined &&
     collectionSchemaQuery.pending.value,
 )
 const isTree = computed(() => collectionConfig.value?.type === 'tree')

@@ -122,12 +122,11 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () =
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuery', () => ({
   useCmsStudioPaginatedQuery: (query: string) => ({
+    canLoadMore: ref(false),
+    data: ref(query === 'listStudioWorkQueue' ? workQueue : activity),
     error: ref(null),
-    hasNextPage: ref(false),
-    isExhausted: ref(true),
     isLoading: ref(false),
     loadMore: vi.fn(),
-    results: ref(query === 'listStudioWorkQueue' ? workQueue : activity),
     status: query === 'listStudioWorkQueue' ? workQueueStatus : ref('ready'),
   }),
 }))

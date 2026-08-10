@@ -40,8 +40,9 @@ async function onSubmit() {
   }
   submitting.value = true
   try {
-    const result = await auth.client?.resetPassword({ newPassword: password.value, token })
-    if (!result || result.error) {
+    if (!auth.client) throw new TypeError('Ginko CMS authentication client is unavailable.')
+    const result = await auth.client.resetPassword({ newPassword: password.value, token })
+    if (result.error) {
       error.value = t('ginkoCms.auth.recovery.invalidToken')
       return
     }

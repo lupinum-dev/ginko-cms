@@ -1,5 +1,8 @@
 import { classifyGinkoError, type GinkoErrorCategory } from '@public/error-classification'
-import { useConvexQuery as useBetterConvexQuery } from 'better-convex-vue'
+import {
+  useConvexQuery as useBetterConvexQuery,
+  type UseConvexQueryParameters,
+} from 'better-convex-vue'
 import { normalizeConvexError } from 'better-convex-vue/errors'
 import { getFunctionName } from 'convex/server'
 import type {
@@ -9,7 +12,7 @@ import type {
   FunctionType,
   FunctionVisibility,
 } from 'convex/server'
-import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
+import { computed, type ComputedRef, toValue } from 'vue'
 
 import { cmsPermissionKeys, type CmsPermissionKey } from './permissions'
 import { useCmsAuthState } from './useCmsAuthState'
@@ -21,20 +24,16 @@ type AnyFunctionReference = FunctionReference<FunctionType, FunctionVisibility>
 
 type CmsStudioQueryStatus = 'skipped' | 'pending' | 'success' | 'error'
 
-export type UseCmsStudioQueryData<DataT> = {
-  data: ComputedRef<DataT | null>
+export type UseCmsStudioQueryReturn<DataT> = {
+  data: ComputedRef<DataT | undefined>
   error: ComputedRef<Error | null>
   refresh: () => Promise<void>
-  clear: () => void
   pending: ComputedRef<boolean>
   status: ComputedRef<CmsStudioQueryStatus>
   isStale: ComputedRef<boolean>
 }
 
-export type UseCmsStudioQueryReturn<DataT> = UseCmsStudioQueryData<DataT>
-
-type CmsStudioQueryOptions<RawT, DataT> = {
-  transform?: (input: RawT) => DataT
+type CmsStudioQueryOptions = {
   keepPreviousData?: boolean
   requiredCapability?: CmsPermissionKey
 }
@@ -118,21 +117,18 @@ export function normalizeCmsStudioQueryError(
 
 // Studio-side Convex query helper. It reads the host bridge explicitly so the
 // Vite SPA stays independent from Nuxt auto-imports.
-export function useCmsStudioQuery<
-  Query extends FunctionReference<'query'>,
-  DataT = FunctionReturnType<Query>,
->(
+export function useCmsStudioQuery<Query extends FunctionReference<'query'>>(
   query: Query,
-  args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
-  options?: CmsStudioQueryOptions<FunctionReturnType<Query>, DataT>,
-): UseCmsStudioQueryReturn<DataT> {
+  ...parameters: UseConvexQueryParameters<Query, CmsStudioQueryOptions>
+): UseCmsStudioQueryReturn<FunctionReturnType<Query>> {
+  const [args, options] = parameters
   const auth = useCmsAuthState()
   const { ready, can } = useCmsStudioAccess()
   const canRead = can(cmsPermissionKeys.read)
   const requiredCapability = options?.requiredCapability
   const canRequired = requiredCapability ? can(requiredCapability) : computed(() => true)
   const gatedArgs = computed(() => {
-    const value = toValue(args)
+    const value = args === undefined ? ({} as FunctionArgs<Query>) : toValue(args)
     if (
       (auth.authEnabled.value && !auth.isAuthenticated.value) ||
       !ready.value ||
@@ -141,13 +137,11 @@ export function useCmsStudioQuery<
     ) {
       return 'skip' as const
     }
-    return value ?? ('skip' as const)
+    return value
   })
-  const queryOptions = options ?? {}
   const result = useBetterConvexQuery(query, gatedArgs, {
     auth: 'required',
-    transform: queryOptions.transform,
-    keepPreviousData: queryOptions.keepPreviousData,
+    keepPreviousData: options?.keepPreviousData,
   })
 
   return {
@@ -156,7 +150,6 @@ export function useCmsStudioQuery<
       result.error.value ? normalizeCmsStudioQueryError(result.error.value, query) : null,
     ),
     refresh: result.refresh,
-    clear: result.clear,
     pending: result.pending,
     status: computed(() => {
       if (gatedArgs.value === 'skip') return 'skipped'

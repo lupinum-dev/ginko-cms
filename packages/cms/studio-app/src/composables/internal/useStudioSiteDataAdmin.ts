@@ -52,7 +52,7 @@ export function useStudioSiteDataAdmin() {
     visibility: 'private' as 'private' | 'public',
   })
   const expandedBlockQuery = computed(() =>
-    expandedBlock.value ? { key: expandedBlock.value } : null,
+    expandedBlock.value ? { key: expandedBlock.value } : ('skip' as const),
   )
   const { data: expandedBlockData } = useCmsStudioQuery(
     api.ginkoCms.siteData.getSiteDataBlock,
@@ -192,7 +192,7 @@ export function useStudioSiteDataAdmin() {
   }
 
   const isLoading = computed(
-    () => siteDataQuery.data?.value === null && siteDataQuery.pending.value,
+    () => siteDataQuery.data?.value === undefined && siteDataQuery.pending.value,
   )
 
   return {

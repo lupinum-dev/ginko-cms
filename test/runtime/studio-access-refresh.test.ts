@@ -49,8 +49,9 @@ describe('Studio access during BCN client replacement', () => {
         return () => undefined
       }),
     }
-    const runtime = createBetterConvexAttachment({
+    const attachment = createBetterConvexAttachment({
       client: convexClient as never,
+      anonymousClient: convexClient as never,
       identity: {
         snapshot: () => identity,
         waitForInitialSettlement: async () => {},
@@ -61,7 +62,7 @@ describe('Studio access during BCN client replacement', () => {
       },
     })
     const bridge = {
-      runtime,
+      attachment,
       config: { route: '/studio', locales: [], collections: {} },
       api: { ginkoCms: { members: { getAccessContext: {} } } },
       auth: null,
@@ -74,7 +75,7 @@ describe('Studio access during BCN client replacement', () => {
     })
     const wrapper = mount(Host, {
       global: {
-        plugins: [createBetterConvex({ runtime: context.runtime })],
+        plugins: [createBetterConvex({ attachment: context.attachment })],
         provide: { [studioHostContextKey as symbol]: context },
       },
     })

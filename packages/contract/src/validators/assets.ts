@@ -32,7 +32,7 @@ export const assetRefUsageValidator = v.object({
   collectionLabel: v.string(),
 })
 
-const assetPaginationFields = { isDone: v.boolean(), continueCursor: v.union(v.string(), v.null()) }
+const assetPaginationFields = { isDone: v.boolean(), continueCursor: v.string() }
 
 export const assetManagerAssetValidator = v.object({
   id: v.string(),

@@ -355,7 +355,7 @@ describe('collections: searchStudioEntries', () => {
     expect(collectionSearch).toMatchObject({
       page: [expect.objectContaining({ _id: ids[targetIndex] })],
       isDone: true,
-      continueCursor: null,
+      continueCursor: '',
     })
 
     const page = await viewer.query(api.collections.searchStudioEntries, {
@@ -384,6 +384,7 @@ describe('collections: searchStudioEntries', () => {
     expect(filteredIds).toHaveLength(rowCount)
     expect(new Set(filteredIds).size).toBe(rowCount)
     expect(filteredIds).toEqual(expect.arrayContaining(ids))
+    expect(cursor).toBe('')
 
     const changedIds: string[] = []
     cursor = null
@@ -402,6 +403,7 @@ describe('collections: searchStudioEntries', () => {
     }
     expect(performance.now() - filterStartedAt).toBeLessThan(300)
     expect(changedIds).toEqual([ids[targetIndex]])
+    expect(cursor).toBe('')
   }, 45_000)
 
   it('pages equal-timestamp work facets without loss or duplication', async () => {
@@ -438,6 +440,7 @@ describe('collections: searchStudioEntries', () => {
     expect(seen).toHaveLength(rowCount)
     expect(new Set(seen).size).toBe(rowCount)
     expect(seen).toEqual(expect.arrayContaining(ids))
+    expect(cursor).toBe('')
   })
 
   it('refills past a stale first projection page so later canonical rows stay reachable', async () => {
@@ -499,6 +502,7 @@ describe('collections: searchStudioEntries', () => {
     expect(seen).toHaveLength(expected.length)
     expect(new Set(seen).size).toBe(expected.length)
     expect(seen).toEqual(expect.arrayContaining(expected))
+    expect(cursor).toBe('')
   })
 
   it('keeps facet pages inside a bounded read budget and rejects broad search truthfully', async () => {

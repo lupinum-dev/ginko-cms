@@ -47,12 +47,12 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuer
   return {
     useCmsStudioPaginatedQuery: () => {
       const isManagerQuery = mocks.paginatedCall++ === 0
-      const results = shallowRef([])
-      if (isManagerQuery) mocks.managerResults = results
+      const data = shallowRef([])
+      if (isManagerQuery) mocks.managerResults = data
       return {
-        results,
+        data,
         status: vueRef('ready'),
-        hasNextPage: vueRef(false),
+        canLoadMore: vueRef(false),
         loadMore: vi.fn(),
       }
     },

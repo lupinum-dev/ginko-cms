@@ -1,30 +1,19 @@
-import {
-  createBetterConvexAttachment,
-  type BetterConvexAttachedRuntime,
-} from 'better-convex-vue/embedded'
+import type { BetterConvexAttachment } from 'better-convex-vue/embedded'
 import { hasInjectionContext, inject, type InjectionKey } from 'vue'
 
 import { readHostBridge, type HostBridge } from './host-bridge'
 
 export interface StudioHostContext {
   getBridge: () => HostBridge
-  runtime: BetterConvexAttachedRuntime
+  attachment: BetterConvexAttachment
 }
 
 export const studioHostContextKey: InjectionKey<StudioHostContext> = Symbol('ginko-cms.studioHost')
 
 export function createStudioHostContext(getBridge: () => HostBridge = readHostBridge) {
-  const bridgeRuntime = getBridge().runtime
-  const runtime = createBetterConvexAttachment({
-    client: bridgeRuntime.client,
-    anonymousClient: bridgeRuntime.anonymousClient,
-    identity: bridgeRuntime.identity,
-    connection: bridgeRuntime.connection,
-  })
-
   return {
     getBridge,
-    runtime,
+    attachment: getBridge().attachment,
   } satisfies StudioHostContext
 }
 

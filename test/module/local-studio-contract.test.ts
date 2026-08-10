@@ -8,7 +8,7 @@ describe('local Studio consumer contract', () => {
 
     expect(config).toContain("include: ['convex/server']")
     expect(config).toContain('siteUrl: process.env.CONVEX_SITE_URL')
-    expect(config).toContain("publicOrigin: process.env.SITE_URL ?? 'http://localhost:3000'")
+    expect(config).toContain("origin: process.env.SITE_URL ?? 'http://localhost:3000'")
   })
 
   it('keeps source-linked Nuxt auth components independent of Lucide runtime injection', () => {

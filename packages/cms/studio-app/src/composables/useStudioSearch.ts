@@ -1,8 +1,8 @@
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 
 import { api } from '../boundary/api'
+import { useCmsStudioQuery } from './useCmsStudioQuery'
 import { useCmsStudioSettings } from './useCmsStudioSettings'
-import { useConvexQuery } from './useStudioConvex'
 
 // Studio-local search helper for the command palette.
 
@@ -38,9 +38,9 @@ export function useStudioSearch(
           collection: collection.value,
           limit,
         }
-      : null,
+      : ('skip' as const),
   )
-  const search = useConvexQuery(api.ginkoCms.collections.searchStudioEntries, searchArgs)
+  const search = useCmsStudioQuery(api.ginkoCms.collections.searchStudioEntries, searchArgs)
 
   return {
     pending: computed(() => search.pending.value),

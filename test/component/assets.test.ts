@@ -938,6 +938,7 @@ describe('asset management', () => {
     } while (cursor)
 
     expect(seen.size).toBe(500)
+    expect(cursor).toBe('')
 
     const searchSeen = new Set<string>()
     cursor = null
@@ -955,6 +956,7 @@ describe('asset management', () => {
     } while (cursor)
 
     expect(searchSeen.size).toBe(500)
+    expect(cursor).toBe('')
   })
 
   it('rejects discovery above the documented 500-asset envelope before paging', async () => {
@@ -1058,6 +1060,7 @@ describe('asset management', () => {
     } while (cursor)
 
     expect(seen.size).toBe(205)
+    expect(cursor).toBe('')
   })
 
   it('[AST-02] finds an asset beyond the first manager page through the filename index', async () => {
@@ -1205,7 +1208,7 @@ describe('asset management', () => {
 
     expect(page).toMatchObject({
       isDone: true,
-      continueCursor: null,
+      continueCursor: '',
       page: [expect.objectContaining({ filename: 'referenced-deep.png' })],
     })
   })

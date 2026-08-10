@@ -48,7 +48,7 @@ export default defineNuxtConfig({
     url: process.env.CONVEX_URL,
     siteUrl: process.env.CONVEX_SITE_URL,
     auth: {
-      publicOrigin: process.env.SITE_URL ?? 'http://localhost:3000',
+      origin: process.env.SITE_URL ?? 'http://localhost:3000',
     },
   },
 

@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
 const auth = {
-  isAuthenticated: ref(true),
   isPending: ref(false),
   status: ref('authenticated'),
   user: ref<{ id: string; name: string; email: string; image: null } | null>({
@@ -18,7 +17,6 @@ const bridgeAuth = {
   snapshot: () => ({
     status: auth.status.value,
     isPending: auth.isPending.value,
-    isAuthenticated: auth.isAuthenticated.value,
     user: auth.user.value,
     error: auth.error.value
       ? { kind: 'authentication' as const, message: auth.error.value.message }
@@ -32,8 +30,7 @@ const bridgeAuth = {
 const bridgeState = {
   auth: bridgeAuth,
   onSignOut: vi.fn(async () => {
-    auth.isAuthenticated.value = false
-    auth.status.value = 'unauthenticated'
+    auth.status.value = 'anonymous'
     auth.user.value = null
     for (const listener of authListeners) listener()
   }),
@@ -49,7 +46,6 @@ const { useCmsAuthState } =
 describe('Studio session boundary', () => {
   afterEach(() => {
     bridgeState.onSignOut.mockClear()
-    auth.isAuthenticated.value = true
     auth.status.value = 'authenticated'
     auth.user.value = {
       id: 'member-1',
@@ -75,8 +71,7 @@ describe('Studio session boundary', () => {
 
   it('preserves authentication infrastructure failures as a distinct bridge state', () => {
     auth.error.value = new Error('authentication unavailable')
-    auth.isAuthenticated.value = false
-    auth.status.value = 'unauthenticated'
+    auth.status.value = 'error'
     auth.user.value = null
 
     const state = useCmsAuthState()

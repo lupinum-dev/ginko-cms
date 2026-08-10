@@ -86,11 +86,11 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuer
     queryCapture.args = args
     queryCapture.options = options
     return {
+      canLoadMore: ref(false),
+      data: ref([]),
       error: ref(null),
-      hasNextPage: ref(false),
       isLoading: ref(false),
       loadMore: vi.fn(),
-      results: ref([]),
     }
   },
 }))

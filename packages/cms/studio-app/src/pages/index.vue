@@ -74,8 +74,8 @@ const reviewsQuery = useCmsStudioQuery(
 )
 
 const overview = computed(() => (overviewQuery.data.value ?? null) as Overview | null)
-const workItems = computed(() => workQueueQuery.results.value as WorkQueueItem[])
-const recentActivity = computed(() => activityQuery.results.value as ActivityItem[])
+const workItems = computed(() => (workQueueQuery.data.value ?? []) as readonly WorkQueueItem[])
+const recentActivity = computed(() => (activityQuery.data.value ?? []) as readonly ActivityItem[])
 const pendingReviews = computed(() => reviewsQuery.data.value ?? [])
 const failedRevalidation = computed(
   () => overview.value?.revalidationJobs.filter((job) => job.status === 'failed') ?? [],
@@ -100,7 +100,7 @@ const newContentTo = computed(() =>
 )
 const queueIsEmpty = computed(
   () =>
-    workQueueQuery.isExhausted.value &&
+    workQueueQuery.status.value === 'exhausted' &&
     workItems.value.length === 0 &&
     (!canPublishEntries.value || pendingReviews.value.length === 0) &&
     failedRevalidation.value.length === 0,
@@ -246,7 +246,7 @@ function queueKindIcon(kind: QueueKind) {
               </div>
             </div>
 
-            <div v-if="workQueueQuery.hasNextPage.value" class="ginko:p-3">
+            <div v-if="workQueueQuery.canLoadMore.value" class="ginko:p-3">
               <Button
                 variant="outline"
                 size="sm"

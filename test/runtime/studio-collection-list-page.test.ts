@@ -93,7 +93,7 @@ const collectionDetail = vi.hoisted(() => ({
 }))
 
 const paginatedQueryState = vi.hoisted(() => ({
-  hasNextPage: false,
+  canLoadMore: false,
   loadMore: vi.fn(),
 }))
 
@@ -146,10 +146,10 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () =
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuery', () => ({
   useCmsStudioPaginatedQuery: () => ({
     error: ref(null),
-    hasNextPage: ref(paginatedQueryState.hasNextPage),
+    canLoadMore: ref(paginatedQueryState.canLoadMore),
+    data: ref([]),
     isLoading: ref(false),
     loadMore: paginatedQueryState.loadMore,
-    results: ref([]),
   }),
 }))
 
@@ -252,7 +252,7 @@ function stubs() {
 
 describe('Studio collection list page', () => {
   beforeEach(() => {
-    paginatedQueryState.hasNextPage = false
+    paginatedQueryState.canLoadMore = false
     paginatedQueryState.loadMore.mockReset()
     accessState.canCreateEntries = true
   })
@@ -312,7 +312,7 @@ describe('Studio collection list page', () => {
   })
 
   it('keeps later filtered pages reachable when the current page is empty', async () => {
-    paginatedQueryState.hasNextPage = true
+    paginatedQueryState.canLoadMore = true
     const { wrapper } = await mountListPage('/studio/content/pages?work=blocked')
 
     const loadMore = wrapper

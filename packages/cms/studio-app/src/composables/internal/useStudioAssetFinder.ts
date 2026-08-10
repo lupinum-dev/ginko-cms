@@ -176,7 +176,7 @@ export function useStudioAssetFinder(
   )
   const assetFacetsQuery = useCmsStudioQuery(api.ginkoCms.assets.getAssetManagerFacets, {})
 
-  const rawAssets = computed<FinderAssetRecord[]>(() => assetsQuery.results.value)
+  const rawAssets = computed<FinderAssetRecord[]>(() => [...(assetsQuery.data.value ?? [])])
   const assets = computed<FinderAssetRecord[]>(() =>
     rawAssets.value.map((asset) => {
       const override = localTagOverrides.value[asset.id]
@@ -196,7 +196,7 @@ export function useStudioAssetFinder(
   )
   const isLoading = computed(() => assetsQuery.status.value === 'loading-first-page')
   const isLoadingMoreAssets = computed(() => assetsQuery.status.value === 'loading-more')
-  const hasMoreAssets = computed(() => assetsQuery.hasNextPage.value)
+  const hasMoreAssets = computed(() => assetsQuery.canLoadMore.value)
   const loadMoreAssets = () => assetsQuery.loadMore(ASSET_PAGE_SIZE)
 
   watch(
@@ -346,19 +346,19 @@ export function useStudioAssetFinder(
     () =>
       selectedAsset.value?.referenceCertainty.state === 'used'
         ? { assetId: selectedAsset.value.id }
-        : null,
+        : ('skip' as const),
     { initialNumItems: ASSET_USAGE_PAGE_SIZE },
   )
-  const selectedAssetUsages = computed<FinderAssetUsage[]>(
-    () => selectedAssetUsagesQuery.results.value,
-  )
+  const selectedAssetUsages = computed<FinderAssetUsage[]>(() => [
+    ...(selectedAssetUsagesQuery.data.value ?? []),
+  ])
   const selectedAssetUsagesLoading = computed(
     () => selectedAssetUsagesQuery.status.value === 'loading-first-page',
   )
   const selectedAssetUsagesLoadingMore = computed(
     () => selectedAssetUsagesQuery.status.value === 'loading-more',
   )
-  const hasMoreSelectedAssetUsages = computed(() => selectedAssetUsagesQuery.hasNextPage.value)
+  const hasMoreSelectedAssetUsages = computed(() => selectedAssetUsagesQuery.canLoadMore.value)
   const loadMoreSelectedAssetUsages = () => selectedAssetUsagesQuery.loadMore(ASSET_USAGE_PAGE_SIZE)
 
   const selectedAssetTags = computed(() => selectedAsset.value?.tags ?? [])

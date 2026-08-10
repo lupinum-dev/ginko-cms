@@ -23,7 +23,9 @@ const t = (key: string, params?: Record<string, unknown>): string =>
 
 const outcomesQuery = useCmsStudioQuery(
   api.ginkoCms.reviewRequests.listRecentReviewOutcomesForEntry,
-  computed(() => (editor.loader.entryId ? { entryId: editor.loader.entryId, limit: 1 } : null)),
+  computed(() =>
+    editor.loader.entryId ? { entryId: editor.loader.entryId, limit: 1 } : ('skip' as const),
+  ),
   { keepPreviousData: true },
 )
 

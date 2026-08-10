@@ -31,7 +31,8 @@ async function onSubmit() {
       redirect: props.redirectTo,
     }).toString()}`
     const redirectTo = new URL(callbackPath, window.location.origin).toString()
-    await auth.client?.requestPasswordReset({ email: email.value, redirectTo })
+    if (!auth.client) throw new TypeError('Ginko CMS authentication client is unavailable.')
+    await auth.client.requestPasswordReset({ email: email.value, redirectTo })
   } catch {
     // Recovery is deliberately enumeration-safe. Known/unknown identities and
     // delivery failures receive the same browser response; operators diagnose

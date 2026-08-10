@@ -43,10 +43,12 @@ const candidatesQuery = useCmsStudioPaginatedQuery(
   { initialNumItems: 30, keepPreviousData: true },
 )
 const candidateStatus = candidatesQuery.status
-const hasMoreCandidates = candidatesQuery.hasNextPage
+const hasMoreCandidates = candidatesQuery.canLoadMore
 const selectedQuery = useCmsStudioQuery(
   api.ginkoCms.editor.getEntry,
-  computed(() => (props.modelValue ? { id: props.modelValue, locale: props.locale } : null)),
+  computed(() =>
+    props.modelValue ? { id: props.modelValue, locale: props.locale } : ('skip' as const),
+  ),
 )
 
 function asCandidate(value: unknown): ParentCandidate | null {
@@ -67,7 +69,7 @@ function asCandidate(value: unknown): ParentCandidate | null {
 
 const selected = computed(() => asCandidate(selectedQuery.data.value))
 const candidates = computed(() => {
-  const rows = candidatesQuery.results.value
+  const rows = (candidatesQuery.data.value ?? [])
     .map(asCandidate)
     .filter((row): row is ParentCandidate => row !== null)
   const current = selected.value

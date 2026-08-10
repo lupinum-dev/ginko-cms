@@ -5,14 +5,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
 // §10.3 / "Ginko tests": sign-in and sign-up must resolve atomically off
-// `useConvexAuth().signIn`/`signUp` alone — no manual `refreshAuth()` call and
+// `useConvexAuth().client` alone — no manual `refreshAuth()` call and
 // no separate `watch`-based redirect racing the post-submit navigation
 // (vNext §5.3: `signIn`/`signUp` synchronize Convex automatically).
 
 const navigateToMock = vi.hoisted(() => vi.fn())
 const routeQuery = vi.hoisted(() => ({}) as Record<string, string>)
 const authState = vi.hoisted(() => ({
-  isAuthenticated: { value: false },
+  status: { value: 'anonymous' as 'anonymous' | 'authenticated' },
   isPending: { value: false },
   signInEmail: vi.fn(),
   signUpEmail: vi.fn(),
@@ -25,7 +25,7 @@ const authState = vi.hoisted(() => ({
 
 vi.mock('#imports', async () => {
   const vue = await import('vue')
-  authState.isAuthenticated = vue.ref(authState.isAuthenticated.value)
+  authState.status = vue.ref(authState.status.value)
   authState.isPending = vue.ref(authState.isPending.value)
   return {
     computed: vue.computed,
@@ -35,11 +35,11 @@ vi.mock('#imports', async () => {
     useAttrs: vue.useAttrs,
     watch: vue.watch,
     useConvexAuth: () => ({
-      isAuthenticated: authState.isAuthenticated,
+      status: authState.status,
       isPending: authState.isPending,
-      signIn: { email: authState.signInEmail },
-      signUp: { email: authState.signUpEmail },
       client: {
+        signIn: { email: authState.signInEmail },
+        signUp: { email: authState.signUpEmail },
         requestPasswordReset: authState.requestPasswordReset,
         resetPassword: authState.resetPassword,
       },
@@ -68,7 +68,7 @@ const { default: CmsAuthResetPassword } =
 describe('CmsAuthSignIn (vNext §10.3, no manual refresh)', () => {
   afterEach(() => {
     vi.clearAllMocks()
-    authState.isAuthenticated.value = false
+    authState.status.value = 'anonymous'
     authState.isPending.value = false
     for (const key of Object.keys(routeQuery)) Reflect.deleteProperty(routeQuery, key)
   })
@@ -113,7 +113,7 @@ describe('CmsAuthSignIn (vNext §10.3, no manual refresh)', () => {
     await wrapper.find('[data-testid="cms-auth-form"]').trigger('submit')
     await vi.waitFor(() => expect(authState.signInEmail).toHaveBeenCalledTimes(1))
 
-    authState.isAuthenticated.value = true
+    authState.status.value = 'authenticated'
     await nextTick()
     expect(navigateToMock).not.toHaveBeenCalled()
 
@@ -145,7 +145,7 @@ describe('CmsAuthSignIn (vNext §10.3, no manual refresh)', () => {
 describe('CmsAuthSignUp (vNext §10.3, no manual refresh)', () => {
   afterEach(() => {
     vi.clearAllMocks()
-    authState.isAuthenticated.value = false
+    authState.status.value = 'anonymous'
     authState.isPending.value = false
     for (const key of Object.keys(routeQuery)) Reflect.deleteProperty(routeQuery, key)
   })

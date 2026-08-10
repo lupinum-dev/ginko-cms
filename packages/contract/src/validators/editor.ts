@@ -142,7 +142,7 @@ export const studioEntryListItemValidator = v.object({
 export const studioEntryListResultValidator = v.object({
   page: v.array(studioEntryListItemValidator),
   isDone: v.boolean(),
-  continueCursor: v.union(v.string(), v.null()),
+  continueCursor: v.string(),
 })
 
 const studioPublicStateValidator = v.union(
@@ -206,7 +206,7 @@ export const entrySummaryValidator = v.object({
 export const entrySummaryListResultValidator = v.object({
   page: v.array(entrySummaryValidator),
   isDone: v.boolean(),
-  continueCursor: v.union(v.string(), v.null()),
+  continueCursor: v.string(),
 })
 
 export const studioWorkQueueItemValidator = v.object({
@@ -219,7 +219,7 @@ export const studioWorkQueueItemValidator = v.object({
 export const studioWorkQueueResultValidator = v.object({
   page: v.array(studioWorkQueueItemValidator),
   isDone: v.boolean(),
-  continueCursor: v.union(v.string(), v.null()),
+  continueCursor: v.string(),
 })
 
 const overviewEntryValidator = v.object({
@@ -311,7 +311,7 @@ export const activityItemValidator = v.object({
 export const activityListResultValidator = v.object({
   page: v.array(activityItemValidator),
   isDone: v.boolean(),
-  continueCursor: v.union(v.string(), v.null()),
+  continueCursor: v.string(),
 })
 
 export const entryActivityItemValidator = v.object({
@@ -329,7 +329,7 @@ export const entryActivityItemValidator = v.object({
 export const entryActivityListResultValidator = v.object({
   page: v.array(entryActivityItemValidator),
   isDone: v.boolean(),
-  continueCursor: v.union(v.string(), v.null()),
+  continueCursor: v.string(),
 })
 
 export const versionListItemValidator = v.object({
@@ -355,7 +355,7 @@ export const versionListItemValidator = v.object({
 export const versionListResultValidator = v.object({
   page: v.array(versionListItemValidator),
   isDone: v.boolean(),
-  continueCursor: v.union(v.string(), v.null()),
+  continueCursor: v.string(),
 })
 
 const snapshotLocalePreviewValidator = v.object({

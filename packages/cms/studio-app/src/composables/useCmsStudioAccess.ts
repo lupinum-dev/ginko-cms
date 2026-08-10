@@ -19,7 +19,7 @@ export function useCmsStudioAccess() {
   const loginPath = `${studioRoute}/auth/signin`
 
   const query = useConvexQuery(api.ginkoCms.members.getAccessContext, {}, { auth: 'required' })
-  const ctx = computed<AccessContext | null>(() => query.data.value)
+  const ctx = computed<AccessContext | null>(() => query.data.value ?? null)
   const role = computed(() => ctx.value?.role ?? null)
   const ready = computed(() => query.status.value === 'success')
 

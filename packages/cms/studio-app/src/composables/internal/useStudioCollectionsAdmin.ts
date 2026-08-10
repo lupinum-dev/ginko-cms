@@ -50,7 +50,7 @@ export function useStudioCollectionsAdmin() {
   const { t } = useCmsI18n()
 
   const selectedCollectionArgs = computed(() =>
-    selectedCollection.value ? { slug: selectedCollection.value } : null,
+    selectedCollection.value ? { slug: selectedCollection.value } : ('skip' as const),
   )
   const {
     data: collectionDetail,

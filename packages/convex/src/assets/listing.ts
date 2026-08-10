@@ -254,7 +254,7 @@ export async function mapAssetPage(
       ),
     ),
     isDone: result.isDone,
-    continueCursor: result.isDone ? null : result.continueCursor,
+    continueCursor: result.isDone ? '' : result.continueCursor,
   }
 }
 
@@ -467,7 +467,7 @@ export async function readAssetManagerPage(ctx: QueryOrMutationCtx, args: AssetM
     isDone,
     continueCursor:
       isDone || !last
-        ? null
+        ? ''
         : JSON.stringify({
             v: 2,
             kind: 'asset-manager',
@@ -710,13 +710,14 @@ export async function readAssetUsageSourcePage(
   return {
     page,
     isDone,
-    continueCursor: last
-      ? JSON.stringify({
-          v: 1,
-          kind: 'asset-usage',
-          assetId: args.assetId,
-          referenceId: toStringId(last._id),
-        } satisfies AssetUsageCursor)
-      : null,
+    continueCursor:
+      isDone || !last
+        ? ''
+        : JSON.stringify({
+            v: 1,
+            kind: 'asset-usage',
+            assetId: args.assetId,
+            referenceId: toStringId(last._id),
+          } satisfies AssetUsageCursor),
   }
 }

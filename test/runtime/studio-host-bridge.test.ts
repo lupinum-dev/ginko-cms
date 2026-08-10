@@ -93,7 +93,7 @@ describe('Studio host bridge allowlist (buildStudioHostApi, vNext §10.7)', () =
 
   it('keeps the bridge surface limited to the token-free attachment and presentation observer', () => {
     const bridgeKeys: Array<keyof GinkoCmsStudioHostBridge> = [
-      'runtime',
+      'attachment',
       'config',
       'api',
       'auth',

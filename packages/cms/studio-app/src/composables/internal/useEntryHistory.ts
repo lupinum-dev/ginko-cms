@@ -69,13 +69,15 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     t,
   } = deps
 
-  const versionsQueryArgs = computed(() => (entry.value ? { entryId: entryId.value } : null))
+  const versionsQueryArgs = computed(() =>
+    entry.value ? { entryId: entryId.value } : ('skip' as const),
+  )
   const versionsQuery = useCmsStudioPaginatedQuery(
     api.ginkoCms.editor.listVersions,
     versionsQueryArgs,
     { initialNumItems: 25 },
   )
-  const versions = computed(() => versionsQuery.results.value)
+  const versions = computed(() => versionsQuery.data.value ?? [])
 
   const entryAssetsQuery = useCmsStudioPaginatedQuery(
     api.ginkoCms.assets.listAssetsByOwner,
@@ -86,19 +88,19 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
             collection: collection.value,
             entryId: entryId.value,
           }
-        : null,
+        : ('skip' as const),
     { initialNumItems: 100 },
   )
   const entryAssets = computed(() =>
-    entryAssetsQuery.results.value.map((asset) => finderAssetToStudioAsset(asset)),
+    (entryAssetsQuery.data.value ?? []).map((asset) => finderAssetToStudioAsset(asset)),
   )
 
   const entryActivityQuery = useCmsStudioPaginatedQuery(
     api.ginkoCms.editor.getEntryActivity,
-    computed(() => (entry.value ? { entryId: entryId.value } : null)),
+    computed(() => (entry.value ? { entryId: entryId.value } : ('skip' as const))),
     { initialNumItems: 25 },
   )
-  const entryActivity = computed(() => entryActivityQuery.results.value)
+  const entryActivity = computed(() => entryActivityQuery.data.value ?? [])
 
   const previewVersionId = ref<string | null>(null)
 
@@ -110,9 +112,9 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
   const diffQuery = useCmsStudioQuery(
     api.ginkoCms.editor.getVersionDiff,
     computed(() => {
-      if (!diffLeftVersionId.value || versions.value.length < 1) return null
+      if (!diffLeftVersionId.value || versions.value.length < 1) return 'skip' as const
       const latest = versions.value[0]
-      if (!latest) return null
+      if (!latest) return 'skip' as const
       return {
         leftVersionId: diffLeftVersionId.value,
         rightVersionId: latest._id,
@@ -249,13 +251,13 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
 
   return {
     versions,
-    hasMoreVersions: versionsQuery.hasNextPage,
+    hasMoreVersions: versionsQuery.canLoadMore,
     loadMoreVersions: () => versionsQuery.loadMore(25),
     entryAssets,
-    hasMoreEntryAssets: entryAssetsQuery.hasNextPage,
+    hasMoreEntryAssets: entryAssetsQuery.canLoadMore,
     loadMoreEntryAssets: () => entryAssetsQuery.loadMore(100),
     entryActivity,
-    hasMoreEntryActivity: entryActivityQuery.hasNextPage,
+    hasMoreEntryActivity: entryActivityQuery.canLoadMore,
     loadMoreEntryActivity: () => entryActivityQuery.loadMore(25),
     previewVersionId,
     toggleVersionPreview,

@@ -91,6 +91,7 @@ describe('bounded Studio history and activity reads', () => {
     expect(seenVersions).toHaveLength(ROW_COUNT)
     expect(new Set(seenVersions).size).toBe(ROW_COUNT)
     expect(seenVersions).toEqual(expect.arrayContaining(revisionIds))
+    expect(cursor).toBe('')
 
     const seenActivity: string[] = []
     cursor = null
@@ -108,5 +109,14 @@ describe('bounded Studio history and activity reads', () => {
     expect(seenActivity).toHaveLength(expectedActivityIds.length)
     expect(new Set(seenActivity).size).toBe(expectedActivityIds.length)
     expect(seenActivity).toEqual(expect.arrayContaining(expectedActivityIds))
+
+    expect(cursor).toBe('')
+
+    const workQueue = await owner.query(api.editor.listStudioWorkQueue, {
+      locale: 'en',
+      paginationOpts: { cursor: null, numItems: 100 },
+    })
+    expect(workQueue.isDone).toBe(true)
+    expect(workQueue.continueCursor).toBe('')
   }, 20_000)
 })

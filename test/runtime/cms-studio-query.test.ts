@@ -42,7 +42,7 @@ function runtimeFixture() {
   }
   const subscriptions: Array<(value: unknown) => void> = []
   const client = {
-    query: vi.fn(async () => ({ page: [], isDone: true, continueCursor: null })),
+    query: vi.fn(async () => ({ page: [], isDone: true, continueCursor: '' })),
     mutation: vi.fn(),
     action: vi.fn(),
     onUpdate: vi.fn((_reference, _args, next) => {
@@ -50,8 +50,9 @@ function runtimeFixture() {
       return vi.fn()
     }),
   }
-  const runtime = createBetterConvexAttachment({
+  const attachment = createBetterConvexAttachment({
     client: client as never,
+    anonymousClient: client as never,
     identity: {
       snapshot: () => identity,
       waitForInitialSettlement: async () => {},
@@ -64,7 +65,7 @@ function runtimeFixture() {
   return {
     client,
     subscriptions,
-    plugin: createBetterConvex({ runtime }),
+    plugin: createBetterConvex({ attachment }),
     replaceIdentity(next: typeof identity) {
       identity = next
       for (const listener of identityListeners) listener()
@@ -93,7 +94,7 @@ describe('Ginko Studio Better Convex adapters', () => {
       identityGeneration: 2,
       error: null,
     })
-    expect(wrapper.vm.result.data.value).toBeNull()
+    expect(wrapper.vm.result.data.value).toBeUndefined()
     await nextTick()
     expect(fixture.client.onUpdate).toHaveBeenCalledTimes(2)
     wrapper.unmount()
@@ -110,10 +111,10 @@ describe('Ginko Studio Better Convex adapters', () => {
     })
     const wrapper = mount(Host, { global: { plugins: [fixture.plugin] } })
     await nextTick()
-    fixture.subscriptions[0]?.({ page: [{ id: 'v1' }], isDone: true, continueCursor: null })
+    fixture.subscriptions[0]?.({ page: [{ id: 'v1' }], isDone: true, continueCursor: '' })
     await nextTick()
-    expect(wrapper.vm.result.results.value).toEqual([{ id: 'v1' }])
-    expect(wrapper.vm.result.hasNextPage.value).toBe(false)
+    expect(wrapper.vm.result.data.value).toEqual([{ id: 'v1' }])
+    expect(wrapper.vm.result.canLoadMore.value).toBe(false)
     expect(wrapper.vm.result.status.value).toBe('exhausted')
     wrapper.unmount()
   })

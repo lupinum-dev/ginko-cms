@@ -40,8 +40,19 @@ only an optional display name; authorization and the persisted email come from
 the verified JWT identity. After an owner row exists, normal CMS member
 management controls access.
 
-Studio always requires Better Convex Nuxt authentication. `convex.auth: false`
-is not a supported CMS topology.
+Studio always requires Better Convex Nuxt authentication. The host must opt in
+with its exact public Nuxt origin; Ginko cannot safely infer a deployment
+origin:
+
+```ts
+convex: {
+  auth: {
+    origin: process.env.SITE_URL ?? 'http://localhost:3000',
+  },
+}
+```
+
+Omitting `convex.auth` or setting it to `false` is not a supported CMS topology.
 
 ## Member Invitations
 

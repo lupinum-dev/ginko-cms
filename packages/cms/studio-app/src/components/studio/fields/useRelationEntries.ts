@@ -19,7 +19,7 @@ export function useRelationEntries(
 ) {
   const relatedEntriesArgs = computed(() => {
     const relationCollection = field.value.relation?.collection
-    if (!relationCollection) return null
+    if (!relationCollection) return 'skip' as const
     const query = search.value.trim()
     return {
       collection: relationCollection,
@@ -35,7 +35,7 @@ export function useRelationEntries(
     { initialNumItems: 50, keepPreviousData: true },
   )
   const relatedEntries = computed<RelatedEntry[]>(() =>
-    relatedEntriesQuery.results.value.flatMap((entry: unknown) => {
+    (relatedEntriesQuery.data.value ?? []).flatMap((entry: unknown) => {
       const record = asFieldContext(entry)
       if (
         typeof record._id !== 'string' ||
@@ -62,7 +62,7 @@ export function useRelationEntries(
   return {
     relatedEntries,
     entryByStableId,
-    hasMoreEntries: relatedEntriesQuery.hasNextPage,
+    hasMoreEntries: relatedEntriesQuery.canLoadMore,
     status: relatedEntriesQuery.status,
   }
 }

@@ -39,7 +39,7 @@ const runtimeConfig = useRuntimeConfig()
 const requestUrl = useRequestURL()
 const route = useRoute()
 const convexAuth = useConvexAuth()
-const convexRuntime = import.meta.client ? useConvexAttachment() : null
+const convexAttachment = import.meta.client ? useConvexAttachment() : null
 const authListeners = new Set<() => void>()
 
 function readAuthSnapshot() {
@@ -48,8 +48,14 @@ function readAuthSnapshot() {
   return {
     status: convexAuth.status.value,
     isPending: convexAuth.isPending.value,
-    isAuthenticated: convexAuth.isAuthenticated.value,
-    user: user ? { ...user } : null,
+    user: user
+      ? {
+          id: user.id,
+          name: user.name ?? null,
+          email: user.email ?? null,
+          image: user.image ?? null,
+        }
+      : null,
     error: error
       ? {
           kind: error.kind,
@@ -64,13 +70,7 @@ function readAuthSnapshot() {
 
 if (import.meta.client) {
   watch(
-    [
-      convexAuth.status,
-      convexAuth.isPending,
-      convexAuth.isAuthenticated,
-      convexAuth.user,
-      convexAuth.error,
-    ],
+    [convexAuth.status, convexAuth.isPending, convexAuth.user, convexAuth.error],
     () => {
       for (const listener of authListeners) listener()
     },
@@ -121,7 +121,7 @@ function debugStudioHost(message: string, details: Record<string, unknown> = {})
 // lets the SPA capture inert fallback proxies before the real generated API is
 // available.
 if (import.meta.client) {
-  populateBridge(true)
+  populateBridge()
 }
 
 function loadStudioScript(src: string): void {
@@ -159,42 +159,42 @@ onMounted(async () => {
   } catch {
     // The reactive error ref below is the canonical failure state.
   }
-  if (convexAuth.isAuthenticated.value === true || convexAuth.error.value !== null) {
+  if (convexAuth.status.value === 'authenticated' || convexAuth.error.value !== undefined) {
     const user = convexAuth.user.value
     debugStudioHost('auth ready', {
       user: user?.email ?? user?.id ?? null,
       script: mainJs.value,
     })
-    populateBridge(true)
+    populateBridge()
     loadStudioScript(mainJs.value)
   }
 })
 
-function populateBridge(includeAuth: boolean): void {
+function populateBridge(): void {
   debugStudioHost('bridge populated', {
-    auth: includeAuth,
     collections: Object.keys(cmsConfig.value.collections ?? {}).length,
     route: studioRoute.value,
   })
   const bridge: GinkoCmsStudioHostBridge = {
-    runtime: convexRuntime!,
+    attachment: convexAttachment!,
     config: cmsConfig.value,
     // The generated Convex api is per-consumer.
     api: buildStudioHostApi(api),
     // Plain presentation observer. The separately bundled SPA owns its Vue
     // refs; no cross-bundle refs, cookies, or Convex JWT cross this boundary.
-    auth: includeAuth
-      ? {
-          snapshot: readAuthSnapshot,
-          subscribe(listener) {
-            authListeners.add(listener)
-            return () => authListeners.delete(listener)
-          },
-        }
-      : null,
+    auth: {
+      snapshot: readAuthSnapshot,
+      subscribe(listener) {
+        authListeners.add(listener)
+        return () => authListeners.delete(listener)
+      },
+    },
     onSignOut: async () => {
       try {
-        await convexAuth.signOut()
+        if (!convexAuth.client) {
+          throw new TypeError('Ginko CMS authentication client is unavailable.')
+        }
+        await convexAuth.client.signOut()
       } finally {
         const { href, origin } = requestUrl
         window.location.href = new URL(

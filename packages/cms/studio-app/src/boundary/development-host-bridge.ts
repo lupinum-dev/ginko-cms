@@ -19,7 +19,7 @@ export function createDevelopmentHostBridge(): GinkoCmsStudioHostBridge {
     onUpdate: unavailable,
   }
   return {
-    runtime: {
+    attachment: {
       client,
       anonymousClient: client,
       identity: {

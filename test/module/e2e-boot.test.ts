@@ -44,6 +44,9 @@ describe('ginko-cms module e2e boot', () => {
         ``,
         `export default defineNuxtConfig({`,
         `  modules: [MyModule],`,
+        `  convex: {`,
+        `    auth: { origin: 'http://localhost:3000' },`,
+        `  },`,
         `})`,
       ].join('\n'),
       'utf-8',
@@ -147,7 +150,7 @@ describe('ginko-cms module e2e boot', () => {
 
     const hasComponentDir = dirs.some((entry) => {
       const path = typeof entry === 'string' ? entry : entry?.path
-      return path?.includes('runtime/components')
+      return path?.includes('auth/components')
     })
     expect(hasComponentDir).toBe(true)
   })
@@ -186,11 +189,11 @@ describe('ginko-cms module e2e boot', () => {
 
   it('wires studio route protection through better-convex-nuxt', () => {
     const options = getNuxt(nuxt).options as {
-      convex?: { auth?: { routeProtection?: { redirectTo?: string } }; permissions?: unknown }
+      convex?: { auth?: { redirectTo?: string }; permissions?: unknown }
       trellis?: unknown
     }
     expect(options.trellis).toBeUndefined()
-    expect(options.convex?.auth?.routeProtection?.redirectTo).toBe('/studio/auth/signin')
+    expect(options.convex?.auth?.redirectTo).toBe('/studio/auth/signin')
     // The removed `permissions` vocabulary (vNext §10.2 / decision 12) must
     // never reappear on the better-convex-nuxt dependency defaults.
     expect(options.convex).not.toHaveProperty('permissions')

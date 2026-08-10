@@ -31,7 +31,7 @@ const collections = computed(
   () => (collectionsQuery.data.value ?? []) as StudioCollectionListItem[],
 )
 const isCollectionsLoading = computed(
-  () => collectionsQuery.data.value === null && collectionsQuery.pending.value,
+  () => collectionsQuery.data.value === undefined && collectionsQuery.pending.value,
 )
 const route = useRoute()
 const activeCollection = computed(() => route.params.collection)

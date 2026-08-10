@@ -10,11 +10,12 @@ const host = (path: string) => readFileSync(resolve(root, 'packages/cms/src', pa
 
 describe('Studio Vue hard-cut source boundary', () => {
   it('mounts the shared runtime and never carries a raw client or foreign Vue refs', () => {
-    expect(studio('main.ts')).toContain('createBetterConvex({ runtime: studioHost.runtime })')
-    expect(studio('boundary/studio-host-context.ts')).toContain('createBetterConvexAttachment')
+    expect(studio('main.ts')).toContain('createBetterConvex({ attachment: studioHost.attachment })')
+    expect(studio('boundary/studio-host-context.ts')).not.toContain('createBetterConvexAttachment')
     const publicTypes = host('public/types.ts')
-    expect(publicTypes).toContain('BetterConvexAttachedRuntime')
+    expect(publicTypes).toContain('BetterConvexAttachment')
     expect(publicTypes).not.toContain('GinkoCmsConvexClientHandle')
+    expect(publicTypes).not.toContain('isAuthenticated: boolean')
     expect(publicTypes).not.toMatch(/ComputedRef<.*ConvexAuth|Ref<.*ConvexAuth/u)
   })
 
@@ -28,7 +29,19 @@ describe('Studio Vue hard-cut source boundary', () => {
       expect(source).not.toContain('.onUpdate(')
       expect(source).not.toMatch(/requestGeneration|subscriptionGeneration|loadedTailPageSizes/u)
     }
-    expect(studio('composables/useStudioConvex.ts')).not.toContain('useStudioOperationScope')
+    const calls = studio('composables/useStudioConvex.ts')
+    expect(calls).toContain(
+      "export { useConvexAction, useConvexMutation } from 'better-convex-vue'",
+    )
+    expect(calls).not.toMatch(/StudioMutationReturn|StudioActionReturn|\.safe\b|Object\.assign/u)
+    const pagination = studio('composables/useCmsStudioPaginatedQuery.ts')
+    expect(pagination).not.toMatch(
+      /\bresults\b|hasNextPage|isExhausted|\breset\b|CheckedPaginatedQuery/u,
+    )
+    expect(pagination).toContain('initialNumItems: number')
+    const query = studio('composables/useCmsStudioQuery.ts')
+    expect(query).toContain('UseConvexQueryParameters')
+    expect(query).not.toMatch(/\bclear\b|transform:|args\?: MaybeRefOrGetter/u)
   })
 
   it('keeps CMS facets in a dedicated application query', () => {

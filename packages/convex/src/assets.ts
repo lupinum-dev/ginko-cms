@@ -443,7 +443,7 @@ export const listAssetUsages = callerQuery.protected({
     return {
       page: await mapAssetReferenceUsages(ctx, result.page),
       isDone: result.isDone,
-      continueCursor: result.isDone ? null : result.continueCursor,
+      continueCursor: result.continueCursor,
     }
   },
 })

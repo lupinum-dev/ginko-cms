@@ -42,8 +42,9 @@ function fixture() {
     onUpdate: vi.fn(),
   }
   const bridge = {
-    runtime: createBetterConvexAttachment({
+    attachment: createBetterConvexAttachment({
       client: raw as never,
+      anonymousClient: raw as never,
       identity: {
         snapshot: () => ({
           authEnabled: false,
@@ -75,13 +76,15 @@ describe('Studio host delegates write policy to canonical backend guards', () =>
   it('does not add a blanket contract-status query before reads or writes', async () => {
     const { context, raw } = fixture()
 
-    await expect(context.runtime.client.query(readReference as never, {})).resolves.toEqual({
+    await expect(context.attachment.client.query(readReference as never, {})).resolves.toEqual({
       id: 'read-result',
     })
-    await expect(context.runtime.client.mutation(mutationReference as never, {})).resolves.toEqual({
+    await expect(
+      context.attachment.client.mutation(mutationReference as never, {}),
+    ).resolves.toEqual({
       id: 'mutation-result',
     })
-    await expect(context.runtime.client.action(actionReference as never, {})).resolves.toEqual({
+    await expect(context.attachment.client.action(actionReference as never, {})).resolves.toEqual({
       id: 'action-result',
     })
 
@@ -104,7 +107,7 @@ describe('Studio host delegates write policy to canonical backend guards', () =>
     })
     const wrapper = mount(Host, {
       global: {
-        plugins: [createBetterConvex({ runtime: context.runtime })],
+        plugins: [createBetterConvex({ attachment: context.attachment })],
         provide: { [studioHostContextKey as symbol]: context },
       },
     })

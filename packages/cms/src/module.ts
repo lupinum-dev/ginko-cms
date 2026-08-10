@@ -49,7 +49,11 @@ interface NuxtOptionsExt {
   convex?:
     | false
     | (Record<string, unknown> & {
-        auth?: false | (Record<string, unknown> & { client?: unknown })
+        auth?:
+          | false
+          | (Record<string, unknown> & {
+              origin?: unknown
+            })
       })
   colorMode?: {
     classSuffix?: string
@@ -435,10 +439,9 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const userOptions: Partial<ModuleOptions> =
       nuxtOptions.ginkoCms && typeof nuxtOptions.ginkoCms === 'object' ? nuxtOptions.ginkoCms : {}
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
-    const { resolve: moduleResolve } = createResolver(import.meta.url)
 
-    // The host owns the single Better Auth client definition. Studio always
-    // requires authenticated Convex access.
+    // Better Convex auth is off by default. Ginko cannot safely infer the
+    // deployment's public origin, so the host must opt in explicitly.
     const hostConvex = nuxtOptions.convex
     if (hostConvex === false) {
       throw new Error(
@@ -446,18 +449,16 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       )
     }
     const hostAuth = hostConvex && typeof hostConvex === 'object' ? hostConvex.auth : undefined
-    if (hostAuth === false) {
+    if (!hostAuth || typeof hostAuth !== 'object') {
       throw new Error(
-        'Ginko CMS Studio requires authentication. Remove `convex.auth: false` and configure Better Convex Nuxt authentication.',
+        'Ginko CMS Studio requires an explicit `convex.auth` object with the public Nuxt `origin`.',
       )
     }
-    const hasExplicitClient =
-      hostAuth !== null &&
-      typeof hostAuth === 'object' &&
-      typeof hostAuth.client === 'string' &&
-      hostAuth.client.length > 0
-    const hasHostConvention = existsSync(resolve(nuxtOptions.srcDir, 'convex-auth.ts'))
-    const useGinkoClientFallback = !hasExplicitClient && !hasHostConvention
+    if (typeof hostAuth.origin !== 'string' || hostAuth.origin.trim().length === 0) {
+      throw new Error(
+        'Ginko CMS Studio requires `convex.auth.origin` to be the exact public Nuxt origin.',
+      )
+    }
 
     const dependencies: Record<
       string,
@@ -474,20 +475,12 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       },
     }
 
-    {
-      const convexDefaults: Record<string, unknown> = {}
-      const authDefaults: Record<string, unknown> = {
-        routeProtection: {
+    dependencies['better-convex-nuxt'] = {
+      defaults: {
+        auth: {
           redirectTo: `${studioRoute}/auth/signin`,
-          preserveReturnTo: true,
         },
-      }
-      if (useGinkoClientFallback) {
-        authDefaults.client = moduleResolve('./runtime/convex-auth')
-      }
-      convexDefaults.auth = authDefaults
-      dependencies['better-convex-nuxt'] =
-        Object.keys(convexDefaults).length > 0 ? { defaults: convexDefaults } : {}
+      },
     }
 
     return dependencies

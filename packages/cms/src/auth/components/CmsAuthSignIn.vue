@@ -9,10 +9,8 @@ import CmsPasswordInput from './CmsPasswordInput.vue'
 const props = defineProps<{
   redirectTo: string
 }>()
-// `useConvexAuth()` is called unconditionally (vNext §5.3/§10.3): it is
-// auto-imported, SSR-safe, and independent of any runtime-config auth flag.
 const auth = useConvexAuth()
-const isAuthenticated = auth.isAuthenticated
+const isAuthenticated = computed(() => auth.status.value === 'authenticated')
 const isPending = auth.isPending
 const isSubmitting = ref(false)
 const authError = ref<Error | null>(null)
@@ -88,7 +86,8 @@ async function onSubmit(event: Event) {
   try {
     // Sign-in resolves atomically after the Convex identity is synced (vNext
     // §5.3): no manual refresh, no watch-based redirect — navigate on success.
-    const result = await auth.signIn.email({
+    if (!auth.client) throw new TypeError('Ginko CMS authentication client is unavailable.')
+    const result = await auth.client.signIn.email({
       email: email.value,
       password: password.value,
     })

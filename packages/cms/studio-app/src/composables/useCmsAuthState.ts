@@ -9,11 +9,9 @@ import { useStudioHostContext } from '../boundary/studio-host-context'
 // (StudioSidebarUser, Layout's bootstrap branch, etc.) destructures `user`,
 // `signOut`, etc. without touching the call sites.
 //
-// Reads the Convex auth refs that the host page puts on the typed
-// host bridge. Refs are shared
-// across the host/SPA boundary because both run in the same JS context;
-// `auth.user.value`, `auth.isAuthenticated.value`, etc. update reactively as
-// better-auth signs the user in or out. No Convex JWT crosses the bridge.
+// Reads the host's token-free snapshot observer and recreates refs owned by the
+// Studio's Vue bundle. No foreign refs, Better Auth controls, or Convex JWT
+// cross the bridge.
 //
 // Falls back to "no user, auth disabled" when the bridge isn't populated
 // (studio:dev standalone with no host attached) so Layout still renders
@@ -27,7 +25,7 @@ export interface CmsAuthUser {
 }
 
 // The auth subset the host bridge exposes (vNext §10.6): the
-// `status | isPending | isAuthenticated | user | error` slice of `UseConvexAuthReturn`.
+// `status | isPending | user | error` slice of `UseConvexAuthReturn`.
 // No `token`/`isAnonymous`/`getJwt` — the Studio never receives the Convex JWT.
 type BridgeAuth = GinkoCmsStudioHostBridgeAuth
 
@@ -72,8 +70,8 @@ export function useCmsAuthState(): UseCmsAuthStateReturn {
   })
   if (stop) onScopeDispose(stop)
 
-  const isAuthenticated = computed(() => snapshot.value?.isAuthenticated === true)
-  const status = computed<ConvexAuthStatus>(() => snapshot.value?.status ?? 'disabled')
+  const status = computed<ConvexAuthStatus>(() => snapshot.value?.status ?? 'anonymous')
+  const isAuthenticated = computed(() => status.value === 'authenticated')
   const pending = computed(() => snapshot.value?.isPending === true)
   const user = computed(() => normalizeUser(snapshot.value?.user))
   const error = computed(() => {

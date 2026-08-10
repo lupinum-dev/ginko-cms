@@ -187,7 +187,7 @@ export async function readDraftSearchCandidatePage(
       page: rows,
       scannedCount: rows.length,
       isDone: true,
-      continueCursor: null,
+      continueCursor: '',
     }
   }
 
@@ -209,7 +209,7 @@ export async function readDraftSearchCandidatePage(
     isDone,
     continueCursor:
       isDone || !last
-        ? null
+        ? ''
         : JSON.stringify({
             v: 1,
             kind: 'draftSearch',
@@ -278,7 +278,7 @@ export async function readStudioTreeCandidatePage(
     isDone,
     continueCursor:
       isDone || !last
-        ? null
+        ? ''
         : JSON.stringify({
             v: 1,
             kind: 'studioTree',

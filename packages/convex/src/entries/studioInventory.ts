@@ -160,7 +160,7 @@ async function listIndexedStudioRows(
   },
 ) {
   const pageRows: Awaited<ReturnType<typeof buildStudioRowsForEntries>> = []
-  let cursor = args.cursor ?? null
+  let cursor = args.cursor ?? ''
   let isDone = false
   let scanned = 0
 
@@ -198,7 +198,7 @@ async function listIndexedStudioRows(
   return {
     pageRows,
     isDone,
-    continueCursor: isDone ? null : cursor,
+    continueCursor: isDone ? '' : cursor,
   }
 }
 
@@ -270,7 +270,7 @@ export const listEntrySummaries = callerQuery.protected({
       Math.min(args.paginationOpts.numItems ?? STUDIO_LIST_DEFAULT_LIMIT, STUDIO_LIST_MAX_LIMIT),
     )
     const summaries: Awaited<ReturnType<typeof buildIndexedEntrySummary>>[] = []
-    let cursor = args.paginationOpts.cursor
+    let cursor = args.paginationOpts.cursor ?? ''
     let isDone = false
     let scanned = 0
     while (!isDone && summaries.length < limit) {
@@ -319,7 +319,7 @@ export const listEntrySummaries = callerQuery.protected({
     return {
       page: attachSummaryAccess(appIdentity, summaries),
       isDone,
-      continueCursor: isDone ? null : cursor,
+      continueCursor: isDone ? '' : cursor,
     }
   },
 })

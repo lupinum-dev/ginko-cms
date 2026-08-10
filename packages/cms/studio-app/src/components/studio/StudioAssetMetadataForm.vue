@@ -36,7 +36,7 @@ const error = ref('')
 
 const assetQuery = useCmsStudioQuery(
   api.ginkoCms.assets.getAsset,
-  computed(() => (props.assetId ? { assetId: props.assetId } : null)),
+  computed(() => (props.assetId ? { assetId: props.assetId } : ('skip' as const))),
 )
 
 const selectedAsset = computed<StudioAssetRecord | null>(() => {

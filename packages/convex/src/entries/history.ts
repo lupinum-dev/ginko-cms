@@ -144,7 +144,7 @@ export const listVersions = callerQuery.protected({
       isDone,
       continueCursor:
         isDone || !last
-          ? null
+          ? ''
           : JSON.stringify({
               v: 1,
               kind: 'entryVersions',

@@ -81,6 +81,9 @@ function createNuxtMock(rootDir: string) {
         localeCookie: null,
       },
       modules: ['nuxt-i18n-micro'],
+      convex: {
+        auth: { origin: 'http://localhost:3000' },
+      },
       rootDir,
       srcDir: rootDir,
       runtimeConfig: {
@@ -156,22 +159,18 @@ describe('ginko-cms tailwind registration', () => {
     const moduleDependencies = getModuleDependencies(nuxt)
     const convexDependency = moduleDependencies['better-convex-nuxt']
 
-    // vNext §10.2: `auth.enabled` and top-level `permissions` are removed
-    // vocabulary. With no host auth-client and no convention file, Ginko
-    // supplies its fallback client plus route protection.
+    // Ginko supplies only its product route. The host owns the explicit auth
+    // origin and optional Better Auth client definition.
     expect(convexDependency).toMatchObject({
       defaults: {
         auth: {
-          routeProtection: {
-            redirectTo: '/studio/auth/signin',
-          },
-          client: expect.stringContaining('convex-auth') as unknown as string,
+          redirectTo: '/studio/auth/signin',
         },
       },
     })
     expect(
       (convexDependency.defaults as { auth: Record<string, unknown> }).auth,
-    ).not.toHaveProperty('enabled')
+    ).not.toHaveProperty('client')
     expect(convexDependency.defaults).not.toHaveProperty('permissions')
 
     expect(moduleDependencies).toMatchObject({

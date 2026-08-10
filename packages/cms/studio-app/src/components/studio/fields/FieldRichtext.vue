@@ -66,7 +66,7 @@ const assetUrlsQuery = useCmsStudioQuery(
   computed(() =>
     props.assetContext && referencedAssetIds.value.length > 0
       ? { assetIds: referencedAssetIds.value }
-      : null,
+      : ('skip' as const),
   ),
 )
 

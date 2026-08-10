@@ -30,7 +30,7 @@ const runsQuery = useCmsStudioQuery(api.ginkoCms.agentRuns.listRuns, { limit: 50
 const revokeRunMutation = useConvexMutation(api.ginkoCms.agentRuns.revokeRun)
 const runs = computed<AgentRun[]>(() => (runsQuery.data.value ?? []) as AgentRun[])
 const activeRuns = computed(() => runs.value.filter((run) => run.status === 'active').length)
-const isLoading = computed(() => runsQuery.data.value === null && runsQuery.pending.value)
+const isLoading = computed(() => runsQuery.data.value === undefined && runsQuery.pending.value)
 const revokingRunId = ref<string | null>(null)
 const revokeError = ref('')
 const pageError = computed(() =>

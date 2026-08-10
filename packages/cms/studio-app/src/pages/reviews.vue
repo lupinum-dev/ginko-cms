@@ -48,7 +48,9 @@ onMounted(() => {
 })
 
 const reviews = computed<ReviewRequest[]>(() => (reviewsQuery.data.value ?? []) as ReviewRequest[])
-const isLoading = computed(() => reviewsQuery.data.value === null && reviewsQuery.pending.value)
+const isLoading = computed(
+  () => reviewsQuery.data.value === undefined && reviewsQuery.pending.value,
+)
 const pageError = computed(() =>
   reviewsQuery.error.value
     ? getCmsErrorMessage(reviewsQuery.error.value, t('ginkoCms.studio.reviewsPage.loadError'))

@@ -1,50 +1,12 @@
-import {
-  useConvexAction as useBetterConvexAction,
-  useConvexMutation as useBetterConvexMutation,
-} from 'better-convex-vue'
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import { useConvexMutation as useBetterConvexMutation } from 'better-convex-vue'
+import type { FunctionReference } from 'convex/server'
 import type { GenericId } from 'convex/values'
-import {
-  computed,
-  onScopeDispose,
-  ref,
-  type ComputedRef,
-  type MaybeRefOrGetter,
-  type Ref,
-  watch,
-} from 'vue'
+import { computed, onScopeDispose, ref, type ComputedRef, type Ref, watch } from 'vue'
 
 import { useCmsAuthState } from './useCmsAuthState'
-import {
-  normalizeCmsStudioQueryError,
-  useCmsStudioQuery,
-  type UseCmsStudioQueryReturn,
-} from './useCmsStudioQuery'
+import { normalizeCmsStudioQueryError } from './useCmsStudioQuery'
 
-type StudioMutationReturn<Mutation extends FunctionReference<'mutation'>> = ((
-  args: FunctionArgs<Mutation>,
-) => Promise<FunctionReturnType<Mutation>>) & {
-  data: Ref<FunctionReturnType<Mutation> | undefined>
-  status: ComputedRef<'idle' | 'pending' | 'success' | 'error'>
-  pending: ComputedRef<boolean>
-  error: ComputedRef<Error | null>
-  reset: () => void
-}
-
-type StudioMutationOptions<Args, Result> = {
-  onSuccess?: (result: Result, args: Args) => void
-  onError?: (error: Error, args: Args) => void
-}
-
-type StudioActionReturn<Action extends FunctionReference<'action'>> = ((
-  args: FunctionArgs<Action>,
-) => Promise<FunctionReturnType<Action>>) & {
-  data: Ref<FunctionReturnType<Action> | undefined>
-  status: ComputedRef<'idle' | 'pending' | 'success' | 'error'>
-  pending: ComputedRef<boolean>
-  error: ComputedRef<Error | null>
-  reset: () => void
-}
+export { useConvexAction, useConvexMutation } from 'better-convex-vue'
 
 function useStudioUploadScope(onRetire: () => void) {
   const auth = useCmsAuthState()
@@ -192,86 +154,6 @@ async function uploadFile(postUrl: string, file: File): Promise<GenericId<'_stor
   // Convex's upload endpoint returns a storage id as JSON text. Runtime
   // validation above is the transport boundary for restoring its branded type.
   return body.storageId as GenericId<'_storage'>
-}
-
-export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
-  mutation: Mutation,
-  options?: StudioMutationOptions<FunctionArgs<Mutation>, FunctionReturnType<Mutation>>,
-): StudioMutationReturn<Mutation> {
-  type Args = FunctionArgs<Mutation>
-  type Result = FunctionReturnType<Mutation>
-
-  const callable = useBetterConvexMutation(mutation, {
-    onSuccess: options?.onSuccess,
-    onError: (error, args) =>
-      options?.onError?.(normalizeCmsStudioQueryError(error, mutation, 'mutation'), args),
-  })
-
-  const execute = (async (args: Args): Promise<Result> => {
-    try {
-      return await callable(args)
-    } catch (err) {
-      const normalized = normalizeCmsStudioQueryError(err, mutation, 'mutation')
-      throw normalized
-    }
-  }) as StudioMutationReturn<Mutation>
-
-  execute.data = callable.data
-  execute.status = callable.status
-  execute.pending = callable.pending
-  execute.error = computed(() =>
-    callable.error.value
-      ? normalizeCmsStudioQueryError(callable.error.value, mutation, 'mutation')
-      : null,
-  )
-  execute.reset = callable.reset
-
-  return execute
-}
-
-export function useConvexAction<Action extends FunctionReference<'action'>>(
-  action: Action,
-  options?: StudioMutationOptions<FunctionArgs<Action>, FunctionReturnType<Action>>,
-): StudioActionReturn<Action> {
-  type Args = FunctionArgs<Action>
-  type Result = FunctionReturnType<Action>
-
-  const callable = useBetterConvexAction(action, {
-    onSuccess: options?.onSuccess,
-    onError: (error, args) =>
-      options?.onError?.(normalizeCmsStudioQueryError(error, action, 'action'), args),
-  })
-
-  const execute = (async (args: Args): Promise<Result> => {
-    try {
-      return await callable(args)
-    } catch (err) {
-      const normalized = normalizeCmsStudioQueryError(err, action, 'action')
-      throw normalized
-    }
-  }) as StudioActionReturn<Action>
-
-  execute.data = callable.data
-  execute.status = callable.status
-  execute.pending = callable.pending
-  execute.error = computed(() =>
-    callable.error.value
-      ? normalizeCmsStudioQueryError(callable.error.value, action, 'action')
-      : null,
-  )
-  execute.reset = callable.reset
-
-  return execute
-}
-
-export function useConvexQuery<
-  Query extends FunctionReference<'query'>,
-  DataT = FunctionReturnType<Query>,
->(
-  query: Query,
-  args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
-): UseCmsStudioQueryReturn<DataT> {
-  return useCmsStudioQuery<Query, DataT>(query, args)
 }
 
 export function useConvexUpload(

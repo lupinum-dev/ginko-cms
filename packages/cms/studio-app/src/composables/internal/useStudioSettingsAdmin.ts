@@ -201,7 +201,7 @@ export function useStudioSettingsAdmin() {
   const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
   const mcpDelegationsQuery = useCmsStudioQuery(
     api.ginkoCms.mcpOAuthDelegations.listDelegations,
-    computed(() => (mcpEnabled ? {} : null)),
+    computed(() => (mcpEnabled ? {} : ('skip' as const))),
     {
       requiredCapability: cmsPermissionKeys.manageSettings,
     },
@@ -629,7 +629,7 @@ export function useStudioSettingsAdmin() {
   }
 
   const isLoading = computed(
-    () => settingsQuery.data?.value === null && settingsQuery.pending.value,
+    () => settingsQuery.data?.value === undefined && settingsQuery.pending.value,
   )
 
   return {

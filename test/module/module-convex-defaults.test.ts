@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -8,9 +8,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const moduleDir = resolve(packageRoot, 'packages/cms/src')
 
-// The module reads these Nuxt Kit helpers at import/eval time. `createResolver`
-// mirrors the real resolver: `resolve('./runtime/convex-auth')` yields an
-// absolute path under the module's runtime dir.
 vi.mock('@nuxt/kit', () => ({
   addComponentsDir: vi.fn(),
   addImportsDir: vi.fn(),
@@ -54,7 +51,7 @@ function convexDep(convex: ConvexOption, srcDir: string) {
   return moduleDefinition.moduleDependencies(nuxtWith(convex, srcDir))['better-convex-nuxt']
 }
 
-describe('ginko-cms better-convex-nuxt dependency defaults (vNext §10.2 / decision 12)', () => {
+describe('ginko-cms better-convex-nuxt dependency defaults', () => {
   const tempDirs: string[] = []
 
   function freshSrcDir() {
@@ -67,46 +64,34 @@ describe('ginko-cms better-convex-nuxt dependency defaults (vNext §10.2 / decis
     for (const dir of tempDirs.splice(0)) rmSync(dir, { force: true, recursive: true })
   })
 
-  it('supplies the Ginko fallback client and route protection when nothing overrides it', () => {
-    const dep = convexDep(undefined, freshSrcDir())
+  it('rejects omitted auth because Better Convex authentication is default-off', () => {
+    expect(() => convexDep(undefined, freshSrcDir())).toThrow(
+      'requires an explicit `convex.auth` object',
+    )
+  })
+
+  it('requires the exact public origin even when the host configures a client', () => {
+    expect(() => convexDep({ auth: { client: '~/my-auth' } }, freshSrcDir())).toThrow(
+      'requires `convex.auth.origin`',
+    )
+  })
+
+  it('supplies only the Studio redirect default for explicit host auth', () => {
+    const dep = convexDep(
+      { auth: { origin: 'http://localhost:3000', client: '~/my-auth' } },
+      freshSrcDir(),
+    )
     const auth = dep?.defaults?.auth as Record<string, unknown>
-    expect(auth.client).toEqual(expect.stringContaining('convex-auth'))
-    expect(auth.routeProtection).toEqual({
-      redirectTo: '/studio/auth/signin',
-      preserveReturnTo: true,
-    })
-    // Removed vocabulary must not reappear.
-    expect(auth).not.toHaveProperty('enabled')
+    expect(auth).not.toHaveProperty('client')
+    expect(auth).toEqual({ redirectTo: '/studio/auth/signin' })
     expect(dep?.defaults).not.toHaveProperty('permissions')
-  })
-
-  it('does not supply the client fallback when the host configures auth.client, but still provides route protection', () => {
-    const dep = convexDep({ auth: { client: '~/my-auth' } }, freshSrcDir())
-    const auth = dep?.defaults?.auth as Record<string, unknown>
-    expect(auth).not.toHaveProperty('client')
-    expect(auth.routeProtection).toEqual({
-      redirectTo: '/studio/auth/signin',
-      preserveReturnTo: true,
-    })
-  })
-
-  it('does not supply the client fallback when the host has a convex-auth.ts convention file', () => {
-    const srcDir = freshSrcDir()
-    writeFileSync(join(srcDir, 'convex-auth.ts'), 'export default {}\n')
-    const dep = convexDep(undefined, srcDir)
-    const auth = dep?.defaults?.auth as Record<string, unknown>
-    expect(auth).not.toHaveProperty('client')
-    expect(auth.routeProtection).toEqual({
-      redirectTo: '/studio/auth/signin',
-      preserveReturnTo: true,
-    })
   })
 
   // ---- Decision 12: the executable merge check, both cases ----
 
   it('rejects nested `auth: false` because Studio requires authentication', () => {
     expect(() => convexDep({ auth: false }, freshSrcDir())).toThrow(
-      'Ginko CMS Studio requires authentication',
+      'requires an explicit `convex.auth` object',
     )
   })
 

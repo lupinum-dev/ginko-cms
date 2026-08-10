@@ -39,8 +39,7 @@ export const listActivity = callerQuery.protected({
     return {
       page: await presentActivityRows(ctx, page),
       isDone,
-      continueCursor:
-        isDone || page.length === 0 ? null : encodeActivityCursor(page.at(-1)!, scope),
+      continueCursor: isDone || page.length === 0 ? '' : encodeActivityCursor(page.at(-1)!, scope),
     }
   },
 })
@@ -61,7 +60,7 @@ export const getEntryActivity = callerQuery.protected({
     return {
       page: presentEntryActivityRows(page),
       isDone,
-      continueCursor: isDone || !last ? null : encodeEntryActivityCursor(last, args.entryId),
+      continueCursor: isDone || !last ? '' : encodeEntryActivityCursor(last, args.entryId),
     }
   },
 })

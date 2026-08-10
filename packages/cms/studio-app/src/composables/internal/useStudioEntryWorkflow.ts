@@ -73,7 +73,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
             collection: editor.loader.collection,
             entryId: editor.loader.entryId,
           }
-        : null,
+        : ('skip' as const),
     ),
     { keepPreviousData: true },
   )

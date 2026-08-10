@@ -8,8 +8,8 @@ import type {
   SlugMode,
 } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type { ComponentApi as GinkoCmsComponentApi } from '@lupinum/ginko-cms-convex/component'
-import type { ConvexAuthStatus, ConvexUser } from 'better-convex-nuxt'
-import type { BetterConvexAttachedRuntime } from 'better-convex-vue/embedded'
+import type { ConvexAuthStatus } from 'better-convex-nuxt'
+import type { BetterConvexAttachment } from 'better-convex-vue/embedded'
 
 import type { GinkoCmsExpectedContractHashes } from './contract-compatibility.js'
 import type { StudioApiFromSurface, studioApiSurface } from './studio-api-surface.js'
@@ -53,8 +53,12 @@ export interface GinkoCmsPublicConfig {
 export interface GinkoCmsStudioAuthSnapshot {
   status: ConvexAuthStatus
   isPending: boolean
-  isAuthenticated: boolean
-  user: ConvexUser | null
+  user: {
+    id: string
+    name: string | null
+    email: string | null
+    image: string | null
+  } | null
   error: {
     kind: 'authentication' | 'transport' | 'server' | 'unknown'
     message: string
@@ -64,7 +68,7 @@ export interface GinkoCmsStudioAuthSnapshot {
   } | null
 }
 
-/** Plain observer boundary; never carries Vue refs, cookies, or tokens. */
+/** Plain observer boundary; never carries Vue refs, cookies, auth controls, or tokens. */
 export interface GinkoCmsStudioHostBridgeAuth {
   snapshot: () => GinkoCmsStudioAuthSnapshot
   subscribe: (listener: () => void) => () => void
@@ -86,7 +90,7 @@ export type GinkoCmsStudioHostApi = StudioApiFromSurface<
 
 export interface GinkoCmsStudioHostBridge {
   /** Frozen, token-free Better Convex attachment for the separately bundled SPA. */
-  runtime: BetterConvexAttachedRuntime
+  attachment: BetterConvexAttachment
   config: GinkoCmsPublicConfig
   api: GinkoCmsStudioHostApi
   auth: GinkoCmsStudioHostBridgeAuth | null

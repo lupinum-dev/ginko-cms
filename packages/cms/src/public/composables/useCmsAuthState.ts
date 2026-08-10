@@ -1,6 +1,6 @@
 import type { ComputedRef } from 'vue'
 
-import { computed, useConvexAuth, useConvexConfig } from '#imports'
+import { computed, useConvexAuth } from '#imports'
 
 interface CmsAuthUser {
   name?: string | null
@@ -9,23 +9,16 @@ interface CmsAuthUser {
 }
 
 interface CmsAuthState {
-  authEnabled: ComputedRef<boolean>
   user: ComputedRef<CmsAuthUser | null>
   signOut: () => Promise<void>
 }
 
 export function useCmsAuthState(): CmsAuthState {
-  // `useConvexAuth()` is called unconditionally (vNext §5.3/§10.3); disabled
-  // auth is read from the normalized config (`auth === false`, vNext §5.7/§10.4)
-  // rather than a raw `runtimeConfig.public.convex` cast.
-  const convexConfig = useConvexConfig()
-  const authEnabled = convexConfig.auth !== false
-  const { user: convexUser, signOut } = useConvexAuth()
+  const auth = useConvexAuth()
 
   return {
-    authEnabled: computed(() => authEnabled),
     user: computed(() => {
-      const current = convexUser.value
+      const current = auth.user.value
       if (!current) {
         return null
       }
@@ -36,7 +29,8 @@ export function useCmsAuthState(): CmsAuthState {
       }
     }),
     signOut: async () => {
-      await signOut()
+      if (!auth.client) throw new TypeError('Ginko CMS authentication client is unavailable.')
+      await auth.client.signOut()
     },
   }
 }

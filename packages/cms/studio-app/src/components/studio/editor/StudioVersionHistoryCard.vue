@@ -23,7 +23,7 @@ type VersionListItem = {
 
 const DEFAULT_VISIBLE_VERSIONS = 5
 const showAllVersions = ref(false)
-const visibleVersions = computed<VersionListItem[]>(() =>
+const visibleVersions = computed<readonly VersionListItem[]>(() =>
   showAllVersions.value
     ? editor.history.versions
     : editor.history.versions.slice(0, DEFAULT_VISIBLE_VERSIONS),

@@ -138,7 +138,7 @@ useRightSidebarPanel({
 const pageSize = computed(() => (isTree.value ? 100 : 50))
 const listArgs = computed(() => {
   if (!collectionExists.value || workStateFilter.value !== 'all') {
-    return null
+    return 'skip' as const
   }
   return {
     collection: collection.value,
@@ -152,11 +152,10 @@ const listQuery = useCmsStudioPaginatedQuery(api.ginkoCms.editor.listEntriesForS
   initialNumItems: pageSize.value,
 })
 studioDebug.watchQueryError('listEntriesForStudio', listQuery, { collection })
-const summaryArgs = computed<Omit<
-  FunctionArgs<typeof api.ginkoCms.editor.listEntrySummaries>,
-  'paginationOpts'
-> | null>(() => {
-  if (!collectionExists.value || workStateFilter.value === 'all') return null
+const summaryArgs = computed<
+  Omit<FunctionArgs<typeof api.ginkoCms.editor.listEntrySummaries>, 'paginationOpts'> | 'skip'
+>(() => {
+  if (!collectionExists.value || workStateFilter.value === 'all') return 'skip'
   return {
     collection: collection.value,
     locale: locale.value,
@@ -172,7 +171,7 @@ const summaryQuery = useCmsStudioPaginatedQuery(
 )
 studioDebug.watchQueryError('listEntrySummaries', summaryQuery, { collection })
 const rows = computed<StudioEntryRow[]>(() =>
-  listQuery.results.value.map((item) => {
+  (listQuery.data.value ?? []).map((item) => {
     const row = item as unknown as StudioEntryRow & { baseSlug?: string }
     return { ...row, slug: row.baseSlug ?? row.slug }
   }),
@@ -192,7 +191,7 @@ watchEffect(async () => {
 })
 const flatRows = computed(() => [...rows.value])
 const summaryRows = computed<StudioEntryRow[]>(() =>
-  (summaryQuery.results.value as StudioEntrySummaryRow[]).map((row) => ({
+  ((summaryQuery.data.value ?? []) as readonly StudioEntrySummaryRow[]).map((row) => ({
     _id: row.entryId,
     slug: row.slug,
     path: row.path,
@@ -331,7 +330,7 @@ const isLoadingMore = computed(
     (workStateFilter.value === 'all' ? listQuery.isLoading.value : summaryQuery.isLoading.value),
 )
 const hasMore = computed(() =>
-  workStateFilter.value === 'all' ? listQuery.hasNextPage.value : summaryQuery.hasNextPage.value,
+  workStateFilter.value === 'all' ? listQuery.canLoadMore.value : summaryQuery.canLoadMore.value,
 )
 const isMissingCollection = computed(
   () => !collectionQuery.pending.value && !collectionExists.value && !queryError.value,

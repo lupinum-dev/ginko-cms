@@ -358,6 +358,8 @@ describe('canonical editor reads', () => {
       isDone = result.isDone
     }
 
+    expect(cursor).toBe('')
+
     expect(seen).toHaveLength(5)
     expect(new Set(seen.map((activity) => activity._id)).size).toBe(5)
     expect(

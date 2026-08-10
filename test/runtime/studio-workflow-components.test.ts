@@ -77,8 +77,8 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () =>
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuery', () => ({
   useCmsStudioPaginatedQuery: () => ({
-    hasNextPage: ref(false),
-    results: ref([
+    canLoadMore: ref(false),
+    data: ref([
       {
         _id: 'entry-1',
         slug: 'first-entry',
@@ -86,7 +86,7 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuer
         title: 'First entry',
       },
     ]),
-    status: ref('loaded'),
+    status: ref('exhausted'),
   }),
 }))
 

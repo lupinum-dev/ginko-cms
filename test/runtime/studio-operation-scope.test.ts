@@ -14,7 +14,6 @@ const host = vi.hoisted(() => ({
       snapshot: () => ({
         status: 'authenticated',
         isPending: false,
-        isAuthenticated: true,
         user: { id: 'publisher-1' },
         error: null,
       }),
@@ -55,8 +54,9 @@ describe('Studio upload scope', () => {
       action: vi.fn(),
       onUpdate: vi.fn(),
     }
-    const runtime = createBetterConvexAttachment({
+    const attachment = createBetterConvexAttachment({
       client: client as never,
+      anonymousClient: client as never,
       identity: {
         snapshot: () => ({
           authEnabled: true,
@@ -77,7 +77,9 @@ describe('Studio upload scope', () => {
       },
       render: () => h('div'),
     })
-    const wrapper = mount(Host, { global: { plugins: [createBetterConvex({ runtime })] } })
+    const wrapper = mount(Host, {
+      global: { plugins: [createBetterConvex({ attachment })] },
+    })
     const upload = wrapper.vm.upload
     const promise = upload(new File(['bytes'], 'asset.png', { type: 'image/png' }))
     wrapper.unmount()
