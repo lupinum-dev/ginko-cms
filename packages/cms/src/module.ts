@@ -35,6 +35,7 @@ import type { I18nModuleOptions } from './module/i18n.js'
 import type { ModuleOptions, ResolvedModuleOptions } from './module/options.js'
 import { buildPublicRuntimeCollections } from './module/runtime-config.js'
 import { createTailwindPlugin } from './module/tailwind.js'
+import { OPERATOR_CONVEX_TOKEN_ROUTE } from './server/utils/operator-token-contract.js'
 
 export type {
   FieldConfig,
@@ -308,6 +309,11 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       })
     }
 
+    addServerHandler({
+      route: OPERATOR_CONVEX_TOKEN_ROUTE,
+      method: 'post',
+      handler: resolve(cmsServerDir, 'routes/operator-convex-token'),
+    })
     addServerHandler({
       route: '/api/_ginko/portability/assets/:sha256/attempt',
       method: 'post',

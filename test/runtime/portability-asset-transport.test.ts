@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto'
 
 import { describe, expect, it, vi } from 'vitest'
 
+import { assertCliOperatorRequest } from '#ginko-cms-server/utils/operator-token-contract'
 import {
-  assertPortableOperatorRequest,
   createPortableAssetDownloadAttempt,
   createPortableAssetAttempt,
   downloadPortableAssetStream,
@@ -142,13 +142,11 @@ describe('portability asset host transport', () => {
   })
 
   it('accepts CLI cookie transport but rejects browser-originated Studio requests', () => {
-    expect(() => assertPortableOperatorRequest({})).not.toThrow()
-    expect(() => assertPortableOperatorRequest({ origin: 'https://cms.example.test' })).toThrow(
+    expect(() => assertCliOperatorRequest({})).not.toThrow()
+    expect(() => assertCliOperatorRequest({ origin: 'https://cms.example.test' })).toThrow(
       /CLI operator/i,
     )
-    expect(() => assertPortableOperatorRequest({ secFetchSite: 'same-origin' })).toThrow(
-      /CLI operator/i,
-    )
+    expect(() => assertCliOperatorRequest({ secFetchSite: 'same-origin' })).toThrow(/CLI operator/i)
   })
 
   it('derives one exact storage origin from the configured Convex deployment URL', () => {

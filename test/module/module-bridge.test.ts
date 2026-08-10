@@ -332,6 +332,10 @@ describe('ginko-cms Convex setup validation', () => {
     expect(addServerHandler.mock.calls.map(([handler]) => handler)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          route: '/api/_ginko/operator/convex-token',
+          method: 'post',
+        }),
+        expect.objectContaining({
           route: '/api/_ginko/portability/assets/:sha256/attempt',
           method: 'post',
         }),

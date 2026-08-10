@@ -10,14 +10,14 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 
 import { api } from '#convex/api'
 
+import { assertCliOperatorRequest } from '../utils/operator-token-contract.js'
 import {
-  assertPortableOperatorRequest,
   createPortableAssetAttempt,
   resolvePortableStorageOrigin,
 } from '../utils/portability-asset-transport.js'
 
 export default defineEventHandler(async (event) => {
-  assertPortableOperatorRequest({
+  assertCliOperatorRequest({
     origin: getRequestHeader(event, 'origin'),
     secFetchSite: getRequestHeader(event, 'sec-fetch-site'),
   })

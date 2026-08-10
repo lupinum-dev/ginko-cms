@@ -11,18 +11,6 @@ const DOWNLOAD_TOKEN_HASH_DOMAIN = 'ginko-cms:portability-asset-download:v1\0'
 
 type PortableMediaType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
 
-export function assertPortableOperatorRequest(input: {
-  origin?: string | null
-  secFetchSite?: string | null
-}) {
-  if (input.origin || input.secFetchSite) {
-    throw Object.assign(new Error('Portability transfer requires a CLI operator request.'), {
-      statusCode: 403,
-      statusMessage: 'Portability transfer requires a CLI operator request.',
-    })
-  }
-}
-
 export function resolvePortableStorageOrigin(convexUrl: string) {
   let url: URL
   try {
