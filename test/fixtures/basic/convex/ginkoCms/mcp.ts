@@ -1,4 +1,5 @@
 import { createGinkoMcpHandler as createMcpHandler } from '@lupinum/ginko-cms-convex/mcp'
+import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { createBetterAuthMcpAccessVerifier } from 'better-convex-nuxt/convex-auth'
 
 import { components, internal } from '../_generated/api.js'
@@ -8,7 +9,7 @@ declare const process: { env: Record<string, string | undefined> }
 
 const mcpPath = '/mcp'
 const reviewInteractionPath = '/api/_ginko/reviews/'
-const mcpScopes = ['cms.read', 'cms.entries.create', 'cms.entries.edit'] as const
+const mcpScopes = mcpDelegatedScopeKeys
 
 function siteUrl() {
   const raw = process.env.CONVEX_SITE_URL

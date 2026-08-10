@@ -1,4 +1,6 @@
-const allowedScopes = new Set(['cms.read', 'cms.entries.create', 'cms.entries.edit'])
+import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+
+const allowedScopes = new Set<string>(mcpDelegatedScopeKeys)
 const maximumSignedQueryLength = 16 * 1024
 
 export interface PendingOAuthTransaction {

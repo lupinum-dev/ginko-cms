@@ -73,7 +73,7 @@ describe('Ginko fixed MCP OAuth provider profile', () => {
       enforcePerClientResources: true,
       grantTypes: ['authorization_code'],
       loginPage: '/oauth/login',
-      scopes: ['cms.read', 'cms.entries.create', 'cms.entries.edit'],
+      scopes: ['cms.read', 'cms.entries.edit'],
       storeClientSecret: 'hashed',
       storeTokens: 'hashed',
     })

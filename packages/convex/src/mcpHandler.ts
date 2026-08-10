@@ -1,4 +1,5 @@
 import { cmsMcpCaller, type CmsMcpCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
+import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   CLIENT_CAPABILITIES_META_KEY,
@@ -276,7 +277,7 @@ export function createGinkoMcpHandler(options: {
       mode: 'oauth',
       issuer: authorizationIssuer,
       resourceName: 'Ginko CMS MCP',
-      scopesSupported: [readScope, writeScope],
+      scopesSupported: [...mcpDelegatedScopeKeys],
     },
     configureServer(_context, access, server) {
       const caller = cmsMcpCaller({

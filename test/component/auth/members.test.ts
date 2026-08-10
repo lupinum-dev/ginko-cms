@@ -325,7 +325,7 @@ describe('cms guards', () => {
           clientId: `client-${role}`,
         },
       })
-      const callableMcpGuards = new Set([canRead, canCreateEntries, canEditEntries])
+      const callableMcpGuards = new Set([canRead, canEditEntries])
 
       for (const { guard } of cmsPermissionGuards) {
         expect(can(mcp(allScopes), guard)).toBe(callableMcpGuards.has(guard) && can(user, guard))

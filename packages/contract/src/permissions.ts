@@ -18,7 +18,6 @@ export type CmsPermissionKey = (typeof cmsPermissionKeys)[keyof typeof cmsPermis
 
 export const mcpDelegatedScopeKeys = [
   cmsPermissionKeys.read,
-  cmsPermissionKeys.createEntries,
   cmsPermissionKeys.editEntries,
 ] as const
 

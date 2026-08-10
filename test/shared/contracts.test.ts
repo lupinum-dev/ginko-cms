@@ -8,7 +8,10 @@ import {
   jsonObjectValidator,
   jsonValueValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+import {
+  cmsPermissionKeys,
+  mcpDelegatedScopeKeys,
+} from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { describe, expect, it } from 'vitest'
 
 function validatorFields(validator: unknown): Record<string, unknown> {
@@ -56,6 +59,7 @@ describe('shared contracts', () => {
       manageAssetRecovery: 'cms.assetRecovery.manage',
       managePortability: 'cms.portability.manage',
     })
+    expect(mcpDelegatedScopeKeys).toEqual(['cms.read', 'cms.entries.edit'])
   })
 
   it('exports shared editor schemas with explicit public args and MCP labels', () => {

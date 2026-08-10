@@ -31,6 +31,7 @@ describe('Ginko MCP OAuth transaction projection', () => {
     ['/oauth/consent', siteUrl],
     [transactionPath({ resource: 'https://other.example.test/mcp' }), siteUrl],
     [transactionPath({ scope: 'cms.read cms.read' }), siteUrl],
+    [transactionPath({ scope: 'cms.read cms.entries.create' }), siteUrl],
     [transactionPath({ scope: 'cms.read cms.admin' }), siteUrl],
     [transactionPath(), 'http://ginko.example.test'],
     [transactionPath(), `${siteUrl}/nested`],

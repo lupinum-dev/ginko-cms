@@ -1,4 +1,5 @@
 import { oauthProvider, type OAuthOptions, type Scope } from '@better-auth/oauth-provider'
+import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { betterAuth, type BetterAuthOptions } from 'better-auth'
 import { jwt } from 'better-auth/plugins'
 import {
@@ -69,8 +70,6 @@ function assertAuthSecretsConfigured(): void {
   }
 }
 
-const MCP_OAUTH_SCOPES = ['cms.read', 'cms.entries.create', 'cms.entries.edit'] as const
-
 async function hasOAuthAdminPrivilege<DataModel extends GenericDataModel>(
   ctx: AuthCtx<DataModel>,
   deps: DefineGinkoAuthDeps,
@@ -113,7 +112,7 @@ function createOAuthOptions<DataModel extends GenericDataModel>(
       token: { max: 20, window: 60 },
     },
     resourcePrivileges: (identity) => hasOAuthAdminPrivilege(ctx, deps, identity),
-    scopes: [...MCP_OAUTH_SCOPES],
+    scopes: [...mcpDelegatedScopeKeys],
     storeClientSecret: 'hashed',
     storeTokens: 'hashed',
   }
