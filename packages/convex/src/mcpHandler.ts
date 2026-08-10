@@ -8,7 +8,7 @@ import {
   type InputRequiredResult,
   type ServerContext,
 } from '@modelcontextprotocol/server'
-import { createConvexMcpHandler, runMcpTool, type McpAccessVerifier } from 'better-convex-mcp'
+import { handleMcpRequest, runMcpTool, type McpAccessVerifier } from 'better-convex-mcp'
 import { z } from 'zod'
 
 const readScope = 'cms.read'
@@ -31,10 +31,6 @@ const projectedReviewSchema = z.object({
   isStale: z.boolean(),
   status: z.enum(['pending', 'approved', 'rejected']),
 })
-
-type GinkoMcpHandler = {
-  fetch(context: unknown, request: Request): Promise<Response>
-}
 
 export type GinkoMcpOperations = {
   startAgentRun(args: {
@@ -87,22 +83,6 @@ export type GinkoMcpOperations = {
     summary: string
   }): Promise<unknown>
   getReviewStatus(args: { caller: CmsMcpCaller; reviewRequestId: string }): Promise<unknown>
-}
-
-const publishImpactResourceUri = 'ui://ginko/publish-impact.html'
-const publishImpactResourceMimeType = 'text/html;profile=mcp-app'
-const maximumPublishImpactAppBytes = 512 * 1024
-const publishImpactResourceMeta = {
-  ui: {
-    csp: {
-      baseUriDomains: [] as string[],
-      connectDomains: [] as string[],
-      frameDomains: [] as string[],
-      resourceDomains: [] as string[],
-    },
-    permissions: {},
-    prefersBorder: true,
-  },
 }
 
 function requiredScopeResult(scope: string) {
@@ -220,38 +200,19 @@ function projectReviewInput(
   })
 }
 
-async function runRcReviewTool(
-  operation: () =>
-    | CallToolResult
-    | InputRequiredResult
-    | Promise<CallToolResult | InputRequiredResult>,
-) {
-  try {
-    return await operation()
-  } catch {
-    return {
-      content: [{ type: 'text' as const, text: 'Tool execution failed' }],
-      isError: true,
+export async function handleGinkoMcpRequest(
+  request: Request,
+  options: {
+    authorization: {
+      issuer: string
+      verifier: McpAccessVerifier
     }
-  }
-}
-
-export function createGinkoMcpHandler(options: {
-  authorizationIssuer: string
-  operations: GinkoMcpOperations
-  publishImpactAppHtml?: string
-  reviewInteractionBase: URL
-  resource: URL
-  verifier: McpAccessVerifier
-}): GinkoMcpHandler {
-  const {
-    authorizationIssuer,
-    operations,
-    publishImpactAppHtml,
-    resource,
-    reviewInteractionBase,
-    verifier,
-  } = options
+    operations: GinkoMcpOperations
+    reviewInteractionBase: URL
+    resource: URL
+  },
+): Promise<Response> {
+  const { authorization, operations, resource, reviewInteractionBase } = options
   if (
     reviewInteractionBase.protocol !== 'https:' ||
     reviewInteractionBase.username ||
@@ -262,24 +223,17 @@ export function createGinkoMcpHandler(options: {
   ) {
     throw new Error('The review interaction base must be a canonical HTTPS URL ending in a slash.')
   }
-  if (
-    publishImpactAppHtml !== undefined &&
-    (publishImpactAppHtml.trim().length === 0 ||
-      new TextEncoder().encode(publishImpactAppHtml).byteLength > maximumPublishImpactAppBytes)
-  ) {
-    throw new Error('The publish-impact MCP App must be non-empty and no larger than 512 KiB.')
-  }
-  return createConvexMcpHandler({
+  return await handleMcpRequest(request, {
     serverInfo: { name: 'ginko-cms', version: '0.1.0' },
     resource,
-    verifier,
     authorization: {
       mode: 'oauth',
-      issuer: authorizationIssuer,
+      issuer: authorization.issuer,
       resourceName: 'Ginko CMS MCP',
       scopesSupported: [...mcpDelegatedScopeKeys],
+      verifier: authorization.verifier,
     },
-    configureServer(_context, access, server) {
+    configureServer(access, server) {
       const caller = cmsMcpCaller({
         issuer: access.issuer,
         userId: access.subject,
@@ -404,16 +358,6 @@ export function createGinkoMcpHandler(options: {
             })
             .strict(),
           outputSchema: z.object({ preview: z.unknown(), publicChanged: z.literal(false) }),
-          ...(publishImpactAppHtml
-            ? {
-                _meta: {
-                  ui: {
-                    resourceUri: publishImpactResourceUri,
-                    visibility: ['model', 'app'],
-                  },
-                },
-              }
-            : {}),
         },
         async (args) => {
           if (!access.scopes.includes(writeScope)) return requiredScopeResult(writeScope)
@@ -477,7 +421,7 @@ export function createGinkoMcpHandler(options: {
           }),
         },
         async (args, context) =>
-          await runRcReviewTool(async () => {
+          await runMcpTool(async () => {
             if (!access.scopes.includes(writeScope)) return requiredScopeResult(writeScope)
             const echoedState = context.mcpReq.requestState<string>()
             if (echoedState !== undefined && echoedState !== args.operationKey) {
@@ -525,26 +469,6 @@ export function createGinkoMcpHandler(options: {
           )
         },
       )
-      if (publishImpactAppHtml) {
-        server.registerResource(
-          'ginko-publish-impact',
-          publishImpactResourceUri,
-          {
-            _meta: publishImpactResourceMeta,
-            mimeType: publishImpactResourceMimeType,
-          },
-          async (uri) => ({
-            contents: [
-              {
-                _meta: publishImpactResourceMeta,
-                mimeType: publishImpactResourceMimeType,
-                text: publishImpactAppHtml,
-                uri: uri.href,
-              },
-            ],
-          }),
-        )
-      }
     },
   })
 }

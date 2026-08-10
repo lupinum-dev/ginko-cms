@@ -18,6 +18,8 @@ describe('release-clean backend has no old-system zombie paths', () => {
     const legacyMcpRoot = join(root, 'packages/cms/src/server/mcp')
     expect(existsSync(legacyMcpRoot) ? sourceFiles(legacyMcpRoot) : []).toEqual([])
     expect(existsSync(join(root, 'packages/cms/src/server/middleware/mcp-auth.ts'))).toBe(false)
+    expect(existsSync(join(root, 'test/fixtures/mcp-publish-impact-app'))).toBe(false)
+    expect(existsSync(join(root, 'test/runtime/mcp-publish-impact-app.test.ts'))).toBe(false)
   })
 
   it('imports the Content CMS contract directly without a vendored copy', () => {

@@ -170,7 +170,19 @@ describe('ginko-cms Convex setup validation', () => {
 
     await setupModule({ route: '/studio', mcp: true }, nuxt)
 
-    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).toContain("path: '/mcp'")
+    const httpSource = readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')
+    const mcpSource = readFileSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'), 'utf8')
+    expect(httpSource).toContain("path: '/mcp'")
+    expect(httpSource.match(/path: '\/mcp'/gu)).toHaveLength(3)
+    expect(
+      httpSource.match(/path: '\/\.well-known\/oauth-protected-resource\/mcp'/gu),
+    ).toHaveLength(2)
+    expect(httpSource).toContain("method: 'OPTIONS'")
+    expect(httpSource).not.toContain("method: 'HEAD'")
+    expect(mcpSource).toContain('handleGinkoMcpRequest(request, {')
+    expect(mcpSource).toContain('authComponent.validateOAuthAccess(ctx, access)')
+    expect(mcpSource).not.toContain('adapter.findOne')
+    expect(mcpSource).not.toContain('validateLiveProviderAccess')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(true)
     expect(addServerHandler).not.toHaveBeenCalledWith(

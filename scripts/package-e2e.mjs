@@ -943,30 +943,33 @@ try {
 
   writeFileSync(
     join(tempDir, 'packed-mcp-smoke.mjs'),
-    `import { createGinkoMcpHandler } from '@lupinum/ginko-cms-convex/mcp'
+    `import { handleGinkoMcpRequest } from '@lupinum/ginko-cms-convex/mcp'
 
 const bearer = 'packed-ginko-mcp-bearer-sentinel'
 const calls = []
 const issuer = 'https://packed.example.test/api/auth'
-const handler = createGinkoMcpHandler({
-  authorizationIssuer: issuer,
-  reviewInteractionBase: new URL('https://packed.example.test/api/_ginko/reviews/'),
-  resource: new URL('https://packed.example.test/mcp'),
-  verifier: {
-    async verifyAccessToken(token, expectedResource) {
-      if (token !== bearer) throw new Error('invalid token')
-      return {
-        access: {
-          clientId: 'packed-client',
-          issuer,
-          resource: expectedResource.href,
-          scopes: ['cms.read', 'cms.entries.edit'],
-          subject: 'packed-user',
-        },
-        expiresAt: Date.now() + 60_000,
-      }
+const options = {
+  authorization: {
+    issuer,
+    verifier: {
+      async verifyAccessToken(token, expected) {
+        if (token !== bearer) throw new Error('invalid token')
+        if (expected.issuer !== issuer) throw new Error('invalid issuer')
+        return {
+          access: {
+            clientId: 'packed-client',
+            issuer,
+            resource: expected.resource.href,
+            scopes: ['cms.read', 'cms.entries.edit'],
+            subject: 'packed-user',
+          },
+          expiresAt: Date.now() + 60_000,
+        }
+      },
     },
   },
+  reviewInteractionBase: new URL('https://packed.example.test/api/_ginko/reviews/'),
+  resource: new URL('https://packed.example.test/mcp'),
   operations: {
     async startAgentRun(args) {
       calls.push({ operation: 'start-run', args })
@@ -1002,10 +1005,10 @@ const handler = createGinkoMcpHandler({
       return { _id: args.reviewRequestId, isStale: false, status: 'pending' }
     },
   },
-})
+}
 
 async function callTool(name, args) {
-  const response = await handler.fetch({}, new Request('https://packed.example.test/mcp', {
+  const response = await handleGinkoMcpRequest(new Request('https://packed.example.test/mcp', {
     method: 'POST',
     headers: {
       accept: 'application/json, text/event-stream',
@@ -1029,7 +1032,7 @@ async function callTool(name, args) {
         },
       },
     }),
-  }))
+  }), options)
   if (!response.ok) throw new Error(\`Packed MCP \${name} returned \${response.status}.\`)
   const text = await response.text()
   const body = JSON.parse(text.startsWith('data: ') ? text.slice(6).trim() : text)

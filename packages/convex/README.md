@@ -34,10 +34,12 @@ import { defineApp } from 'convex/server'
 - `@lupinum/ginko-cms-convex/component`
 - `@lupinum/ginko-cms-convex/operations`
 
-The experimental `mcp` subpath provides the Ginko-owned tool catalog and
-schemas on top of `better-convex-mcp`. Generated host setup binds those tools
-to current component operations; it does not forward bearer credentials into
-Convex arguments or move CMS authorization into the transport layer.
+The `mcp` subpath handles one request through Better Convex's request-local
+transport and Ginko's fixed tool catalog. Generated host setup binds those
+tools to current component operations and asks the Better Auth component to
+revalidate provider-owned access on every request. Bearer credentials never
+enter Convex arguments, and current membership, role, delegation, review, and
+operation authorization remain application-owned.
 
 ## Scope
 

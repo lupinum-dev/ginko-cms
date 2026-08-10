@@ -13,6 +13,8 @@ authComponent.registerRoutes(http, createAuth)
 http.route({ path: '/mcp', method: 'GET', handler: mcp })
 http.route({ path: '/mcp', method: 'POST', handler: mcp })
 http.route({ path: '/mcp', method: 'DELETE', handler: mcp })
+http.route({ path: '/.well-known/oauth-protected-resource/mcp', method: 'GET', handler: mcp })
+http.route({ path: '/.well-known/oauth-protected-resource/mcp', method: 'OPTIONS', handler: mcp })
 // GINKO_MCP_END
 
 export default http

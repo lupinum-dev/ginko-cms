@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createGinkoMcpHandler } from '../../packages/convex/src/mcpHandler'
+import { handleGinkoMcpRequest } from '../../packages/convex/src/mcpHandler'
 
 const resource = new URL('https://ginko.example.test/mcp')
 const application = new URL('https://app.example.test')
@@ -95,28 +95,34 @@ function createFixture() {
       }
     },
   }
-  const handler = createGinkoMcpHandler({
-    authorizationIssuer: issuer,
+  const options = {
+    authorization: {
+      issuer,
+      verifier: {
+        async verifyAccessToken(
+          token: string,
+          expected: { readonly issuer: string; readonly resource: URL },
+        ) {
+          if (!accessActive || token !== bearer) throw new Error('access rejected')
+          if (expected.issuer !== issuer) throw new Error('issuer mismatch')
+          return {
+            access: {
+              ...caller,
+              resource: expected.resource.href,
+              scopes: [...scopes],
+            },
+            expiresAt: Date.now() + 60_000,
+          }
+        },
+      },
+    },
     operations: operations as never,
     resource,
     reviewInteractionBase: new URL('/api/_ginko/reviews/', application),
-    verifier: {
-      async verifyAccessToken(token: string, expectedResource: URL) {
-        if (!accessActive || token !== bearer) throw new Error('access rejected')
-        return {
-          access: {
-            ...caller,
-            resource: expectedResource.href,
-            scopes: [...scopes],
-          },
-          expiresAt: Date.now() + 60_000,
-        }
-      },
-    },
-  })
+  }
   return {
     calls,
-    handler,
+    handle: async (request: Request) => await handleGinkoMcpRequest(request, options),
     revoke: () => {
       accessActive = false
     },
@@ -140,8 +146,7 @@ async function callTool(
     supportsUrl?: boolean
   },
 ) {
-  const response = await fixture.handler.fetch(
-    {},
+  const response = await fixture.handle(
     new Request(resource, {
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -193,20 +198,31 @@ async function callTool(
 describe('Ginko Convex-native MCP endpoint', () => {
   it('serves exact OAuth resource discovery without projecting authorization metadata', async () => {
     const fixture = createFixture()
-    const protectedResource = await fixture.handler.fetch(
-      {},
-      new Request('https://ginko.example.test/.well-known/oauth-protected-resource/mcp'),
-    )
+    const metadataUrl = 'https://ginko.example.test/.well-known/oauth-protected-resource/mcp'
+    const protectedResource = await fixture.handle(new Request(metadataUrl))
     expect(protectedResource.status).toBe(200)
     await expect(protectedResource.json()).resolves.toEqual({
       authorization_servers: [issuer],
       resource: resource.href,
       resource_name: 'Ginko CMS MCP',
-      scopes_supported: ['cms.read', 'cms.entries.edit'],
+      scopes_supported: ['cms.entries.edit', 'cms.read'],
     })
 
-    const authorizationServer = await fixture.handler.fetch(
-      {},
+    const preflight = await fixture.handle(new Request(metadataUrl, { method: 'OPTIONS' }))
+    expect(preflight.status).toBe(204)
+    expect(preflight.headers.get('access-control-allow-methods')).toBe('GET, HEAD, OPTIONS')
+
+    const head = await fixture.handle(new Request(metadataUrl, { method: 'HEAD' }))
+    expect(head.status).toBe(200)
+    expect(await head.text()).toBe('')
+
+    for (const method of ['GET', 'DELETE']) {
+      const unsupported = await fixture.handle(new Request(resource, { method }))
+      expect(unsupported.status).toBe(405)
+      expect(await unsupported.text()).toBe('')
+    }
+
+    const authorizationServer = await fixture.handle(
       new Request('https://ginko.example.test/.well-known/oauth-authorization-server'),
     )
     expect(authorizationServer.status).toBe(404)
@@ -215,8 +231,7 @@ describe('Ginko Convex-native MCP endpoint', () => {
 
   it('advertises one explicit finite tool inventory', async () => {
     const fixture = createFixture()
-    const response = await fixture.handler.fetch(
-      {},
+    const response = await fixture.handle(
       new Request(resource, {
         body: JSON.stringify({
           jsonrpc: '2.0',
