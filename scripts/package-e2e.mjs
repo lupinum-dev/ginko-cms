@@ -480,23 +480,6 @@ function assertCandidateLockfile(lockfileText, expectedSpecifiers) {
   }
 }
 
-function assertPnpmDependencyVersion(lockfileText, name, expectedVersion) {
-  const lockfile = parseYaml(lockfileText)
-  const dependency = lockfile?.importers?.['.']?.dependencies?.[name]
-  if (dependency?.specifier !== expectedVersion) {
-    throw new Error(
-      `Candidate lockfile resolves ${name} from ${dependency?.specifier ?? 'missing'}; expected ${expectedVersion}.`,
-    )
-  }
-  for (const sectionName of ['packages', 'snapshots']) {
-    for (const key of Object.keys(lockfile?.[sectionName] ?? {})) {
-      if (key.startsWith(`${name}@`) && key !== `${name}@${expectedVersion}`) {
-        throw new Error(`Candidate lockfile contains unsupported ${name} resolution: ${key}.`)
-      }
-    }
-  }
-}
-
 function yamlQuote(value) {
   return `'${value.replaceAll("'", "''")}'`
 }
@@ -708,7 +691,7 @@ try {
       '    global: true,',
       "    ignore: ['Prose/**', 'internal/**'],",
       '  }],',
-      "  convex: { url: process.env.CONVEX_URL || 'http://127.0.0.1:3210', siteUrl: process.env.CONVEX_SITE_URL || 'http://127.0.0.1:3211', auth: { publicOrigin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000', proxy: { trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER } } },",
+      "  convex: { url: process.env.CONVEX_URL || 'http://127.0.0.1:3210', siteUrl: process.env.CONVEX_SITE_URL || 'http://127.0.0.1:3211', auth: { origin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000', trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER } },",
       ...(liveConvex
         ? [
             "  site: { url: process.env.CMS_STORY_SITE_URL || 'https://candidate.ginko.invalid' },",
@@ -1095,7 +1078,9 @@ console.log('packed MCP read/write behavior ok')
       'better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
       'better-convex-vue': fileDependency(candidateBetterConvexVue.path),
     })
-    assertPnpmDependencyVersion(consumerLockfile, 'kysely', '0.28.17')
+    if (parseYaml(consumerLockfile)?.importers?.['.']?.dependencies?.kysely) {
+      throw new Error('pnpm candidate consumer must not declare Kysely directly.')
+    }
   }
   if (candidateMode && consumerPackageManager === 'npm') {
     const lockfile = JSON.parse(consumerLockfile)
@@ -1118,14 +1103,8 @@ console.log('packed MCP read/write behavior ok')
         )
       }
     }
-    const kyselyPackages = Object.entries(lockfile.packages ?? {}).filter(
-      ([path]) => path === 'node_modules/kysely' || path.endsWith('/node_modules/kysely'),
-    )
-    if (
-      kyselyPackages.length !== 1 ||
-      kyselyPackages[0]?.[1]?.version !== compatibilityMatrix.consumer.dependencies.kysely
-    ) {
-      throw new Error('npm candidate lockfile must contain only kysely@0.28.17.')
+    if (lockfile.packages?.['']?.dependencies?.kysely) {
+      throw new Error('npm candidate consumer must not declare Kysely directly.')
     }
   }
   consumerExec('ginko-cms', liveConvex ? ['init', '--mcp'] : ['init'])

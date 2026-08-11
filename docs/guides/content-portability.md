@@ -15,7 +15,6 @@ Auth session:
 
 ```bash
 export CONVEX_URL=https://your-deployment.convex.cloud
-export CONVEX_SITE_URL=https://your-deployment.convex.site
 export CONVEX_DEPLOYMENT=prod:your-deployment-name
 export SITE_URL=https://your-cms.example
 export GINKO_CMS_SESSION_COOKIE='better-auth.session_token=...'
@@ -23,10 +22,11 @@ export GINKO_CMS_SESSION_COOKIE='better-auth.session_token=...'
 
 Set `GINKO_CMS_SESSION_COOKIE` in the invoking shell or a secret manager-backed
 process environment. Do not commit it or copy it into the portable directory or
-plan. The CLI exchanges it for a fresh Convex token before every JSON operation,
-so session revocation and current membership permissions are rechecked while a
-run is in progress. Asset byte transfers use the same session through the CMS
-host origin.
+plan. The CLI lazily exchanges it once per operator context through the exact
+`SITE_URL` host origin. Current CMS membership and capabilities remain
+authoritative for every operation; Better Auth session revocation is observed
+when the next operator context performs its exchange. Asset byte transfers use
+the same authorized context through the CMS host origin.
 
 ## Export And Verify
 

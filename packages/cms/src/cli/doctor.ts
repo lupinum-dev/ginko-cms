@@ -128,17 +128,12 @@ function inspectEnvironment(env: Record<string, string | undefined>, deployment:
       fix: 'Set CONVEX_URL or NUXT_PUBLIC_CONVEX_URL in .env.local or the host environment, then rerun `pnpm exec ginko-cms doctor`.',
     })
   }
-  if (
-    deployment &&
-    !env.GINKO_CMS_BETTER_AUTH_BASE_URL?.trim() &&
-    !env.CONVEX_SITE_URL?.trim() &&
-    !env.BETTER_AUTH_URL?.trim()
-  ) {
+  if (deployment && !env.SITE_URL?.trim() && !env.NUXT_PUBLIC_SITE_URL?.trim()) {
     issues.push({
-      name: 'missing Better Auth site URL',
+      name: 'missing CMS site URL',
       message:
-        'CONVEX_SITE_URL, BETTER_AUTH_URL, or GINKO_CMS_BETTER_AUTH_BASE_URL is required to authenticate deployment checks.',
-      fix: 'Set CONVEX_SITE_URL to the target Convex HTTP-actions origin, then rerun `pnpm exec ginko-cms doctor --deployment`.',
+        'SITE_URL or NUXT_PUBLIC_SITE_URL is required to authenticate deployment checks through the host application.',
+      fix: 'Set SITE_URL to the exact deployed Nuxt application origin, then rerun `pnpm exec ginko-cms doctor --deployment`.',
     })
   }
   if (deployment && !env.GINKO_CMS_SESSION_COOKIE?.trim()) {
@@ -250,8 +245,8 @@ function classifyDeploymentFailure(cause: unknown): DoctorIssue {
   }
   return {
     name: 'backend unreachable',
-    message: 'The configured Convex or Better Auth backend could not be reached.',
-    fix: 'Check CONVEX_URL and CONVEX_SITE_URL, run `pnpm exec ginko-cms deploy`, then retry `pnpm exec ginko-cms doctor --deployment`.',
+    message: 'The configured Convex or Ginko CMS host could not be reached.',
+    fix: 'Check CONVEX_URL and SITE_URL, run `pnpm exec ginko-cms deploy`, then retry `pnpm exec ginko-cms doctor --deployment`.',
   }
 }
 

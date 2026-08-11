@@ -7,7 +7,7 @@
     "build": "nuxt build"
   },
   "dependencies": {
-    "better-convex-mcp": "0.1.0-beta.16",
+    "better-convex-mcp": "0.1.0-beta.22",
     "@lupinum/ginko-cms": "workspace:*",
     "@lupinum/ginko-cms-contract": "workspace:*",
     "@lupinum/ginko-cms-convex": "workspace:*",
@@ -16,10 +16,9 @@
     "@nuxtjs/sitemap": "^8.0.15",
     "@tailwindcss/vite": "^4.3.0",
     "better-auth": "1.7.0-rc.2",
-    "better-convex-nuxt": "0.8.0-beta.28",
+    "better-convex-nuxt": "0.8.0-beta.34",
     "convex": "1.42.2",
     "h3": "1.15.11",
-    "kysely": "0.28.17",
     "nuxt": "4.5.1",
     "nuxt-i18n-micro": "3.28.0",
     "tailwindcss": "^4.3.0",

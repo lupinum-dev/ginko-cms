@@ -11,7 +11,7 @@ content provider, handles Tailwind v4 source registration, and exposes the
 Install the CMS-facing packages in the Nuxt host app:
 
 ```bash
-pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt better-auth kysely@0.28.17
+pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt better-auth
 pnpm add -D convex
 ```
 

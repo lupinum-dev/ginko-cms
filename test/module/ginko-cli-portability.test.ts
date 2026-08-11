@@ -267,14 +267,17 @@ describe('ginko-cms content operator CLI', () => {
 
     expect(calls.filter((call) => call.kind === 'auth').length).toBeGreaterThan(4)
     expect(tokenExchange).toHaveBeenCalledWith(
-      'https://example.convex.site/api/auth/convex/token',
+      new URL('https://cms.example.test/api/_ginko/operator/convex-token'),
       expect.objectContaining({
-        method: 'GET',
+        method: 'POST',
         redirect: 'error',
         headers: expect.objectContaining({
-          Cookie: 'better-auth.session_token=test-session-token',
+          cookie: 'better-auth.session_token=test-session-token',
         }),
       }),
+    )
+    expect(tokenExchange.mock.calls.map(([url]) => String(url))).not.toContain(
+      'https://example.convex.site/api/auth/convex/token',
     )
   })
 })

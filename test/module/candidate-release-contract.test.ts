@@ -39,33 +39,40 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
       '@lupinum/ginko-cms-contract': '0.2.0-rc.2',
       '@lupinum/ginko-content': '0.3.2',
-      'better-convex-mcp': '0.1.0-beta.16',
-      'better-convex-nuxt': '0.8.0-beta.28',
-      'better-convex-vue': '0.8.0-beta.28',
+      'better-convex-mcp': '0.1.0-beta.22',
+      'better-convex-nuxt': '0.8.0-beta.34',
+      'better-convex-vue': '0.8.0-beta.34',
     })
     expect(compatibility.sourceRehearsal.betterConvexCommit).toMatch(/^[0-9a-f]{40}$/u)
     expect(
       readJson<{ consumer: { dependencies: Record<string, string> } }>(
         'packages/cms/compatibility.json',
       ).consumer.dependencies,
-    ).toMatchObject({
-      convex: '1.42.2',
-      kysely: '0.28.17',
-    })
+    ).toMatchObject({ convex: '1.42.2' })
+    expect(
+      readJson<{ consumer: { dependencies: Record<string, string> } }>(
+        'packages/cms/compatibility.json',
+      ).consumer.dependencies.kysely,
+    ).toBeUndefined()
     expect(Object.keys(compatibility.releaseArtifacts).sort()).toEqual([
       '@lupinum/ginko-content',
       'better-convex-mcp',
       'better-convex-nuxt',
       'better-convex-vue',
     ])
+    for (const name of ['better-convex-mcp', 'better-convex-nuxt', 'better-convex-vue']) {
+      expect(compatibility.releaseArtifacts[name]?.sourceCommit).toBe(
+        compatibility.sourceRehearsal.betterConvexCommit,
+      )
+      expect(compatibility.releaseArtifacts[name]?.registry).toBeUndefined()
+    }
     expect(
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
       'better-auth': '1.7.0-rc.2',
-      'better-convex-nuxt': '0.8.0-beta.28',
-      'better-convex-vue': '0.8.0-beta.28',
+      'better-convex-nuxt': '0.8.0-beta.34',
+      'better-convex-vue': '0.8.0-beta.34',
       convex: '1.42.2',
-      kysely: '0.28.17',
       nuxt: '4.5.1',
       vue: '3.5.40',
     })
@@ -103,10 +110,14 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain("consumerPackageManager === 'npm'")
     expect(source).toContain("npm_config_legacy_peer_deps: 'false'")
     expect(source).toContain("`    mcp: ${liveConvex ? 'true' : 'false'},`")
-    expect(source).toContain('trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER')
+    expect(source).toContain(
+      "auth: { origin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000', trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER }",
+    )
+    expect(source).not.toContain('publicOrigin')
+    expect(source).not.toContain('proxy: { trustedClientIpHeader')
     expect(source).toContain("consumerExec('ginko-cms', ['deploy'])")
-    expect(source).toContain("assertPnpmDependencyVersion(consumerLockfile, 'kysely', '0.28.17')")
-    expect(source).toContain('npm candidate lockfile must contain only kysely@0.28.17.')
+    expect(source).toContain('pnpm candidate consumer must not declare Kysely directly.')
+    expect(source).toContain('npm candidate consumer must not declare Kysely directly.')
     expect(source).toContain("'ginko-cms-candidate.json.get.ts'")
     expect(source).toContain('GINKO_PACKAGE_E2E_OUTPUT')
     expect(source).toContain('live: liveConvex')

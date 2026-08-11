@@ -135,7 +135,6 @@ describe('ginko-cms package-first consumer fixture', () => {
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
           'better-convex-nuxt': betterConvexNuxtDependency,
-          kysely: workspacePackageJson.devDependencies.kysely,
         },
       }),
       'utf8',
@@ -147,7 +146,6 @@ describe('ginko-cms package-first consumer fixture', () => {
       '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
       '@lupinum/ginko-content': `file:${contentTarball}`,
       'better-convex-nuxt': betterConvexNuxtDependency,
-      kysely: workspacePackageJson.devDependencies.kysely,
     })
 
     execFileSync(pnpmBin, ['install'], { cwd: tempDir, env: fixtureEnv, stdio: 'inherit' })

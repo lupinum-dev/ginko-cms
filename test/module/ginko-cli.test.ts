@@ -114,7 +114,7 @@ describe('ginko-cms CLI', () => {
       "pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'",
     )
     expect(init.stdout).toContain(
-      'Host apps must depend directly on `better-convex-nuxt`, `better-auth`, `kysely`, and `@lupinum/ginko-cms-convex`.',
+      'Host apps must depend directly on `better-convex-nuxt`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
     )
     expect(init.stdout).toContain('MCP is disabled')
     expect(init.stdout).toContain(
@@ -583,7 +583,7 @@ describe('ginko-cms CLI', () => {
       'package.json is missing direct dependency "better-convex-nuxt"',
     )
     expect(doctor.stderr).toContain('package.json is missing direct dependency "better-auth"')
-    expect(doctor.stderr).toContain('package.json is missing direct dependency "kysely"')
+    expect(doctor.stderr).not.toContain('package.json is missing direct dependency "kysely"')
     expect(doctor.stderr).toContain(
       'package.json is missing direct dependency "@lupinum/ginko-cms-convex"',
     )

@@ -60,7 +60,7 @@
       "templateHash": "585e8399e8f2cd755754d4d3933193487339d1cb7d4265ceda1cfc899de246e9"
     },
     "convex/http.ts": {
-      "templateHash": "7e379e6990a4a9af320538ce84a3fc08fb00498bd321e2d8c971a046f04a9bc9"
+      "templateHash": "dc9a012fcf84f6630215f3a3cf7a0d869845de4eb2997b39002b8b1640493c3c"
     },
     "convex/schema.ts": {
       "templateHash": "e83dc3aecfdc78a9da07228f7de7a5c8d71d143fe6b96a921a2c0b8735fd2c48"
@@ -81,7 +81,7 @@
       "templateHash": "c8e1af28bfa5e818d02f4fbfc539377a78134d159cc9cf9f9e5eab21215dc203"
     },
     "convex/ginkoCms/mcp.ts": {
-      "templateHash": "8ec75d7da6874bb3252b826161b2f405cf32a0b9c4f14a8afa2438d90156ab8a"
+      "templateHash": "07dd48efadb35b27286d0db56ff3bb9dbd07945806f031eb014e949b2567553c"
     },
     "convex/ginkoCms/mcpOperations.ts": {
       "templateHash": "aafa9254e5d20f1aff6bc00104f98569d7df56b7f67e1eba5ca89d2e7ca7db71"

@@ -58,31 +58,11 @@ function requiredEnvironment(cwd: string, names: string[], message: string): str
   throw new Error(message)
 }
 
-export function convexSiteOrigin(cwd: string): string {
-  const configured = requiredEnvironment(
-    cwd,
-    ['GINKO_CMS_BETTER_AUTH_BASE_URL', 'CONVEX_SITE_URL', 'BETTER_AUTH_URL'],
-    'Ginko CMS owner commands require GINKO_CMS_BETTER_AUTH_BASE_URL, CONVEX_SITE_URL, or BETTER_AUTH_URL.',
-  )
-  const url = new URL(configured)
-  const path = url.pathname.replace(/\/+$/, '')
-  if (
-    (path !== '' && path !== '/api/auth') ||
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash
-  ) {
-    throw new Error('The configured Better Auth URL must be an exact origin or end in /api/auth.')
-  }
-  return url.origin
-}
-
 export function cmsSiteOrigin(cwd: string): string {
   return requiredEnvironment(
     cwd,
     ['SITE_URL', 'NUXT_PUBLIC_SITE_URL'],
-    'ginko-cms content commands require SITE_URL or NUXT_PUBLIC_SITE_URL for host asset transfer.',
+    'Ginko CMS owner and content commands require SITE_URL or NUXT_PUBLIC_SITE_URL for the host application.',
   )
 }
 

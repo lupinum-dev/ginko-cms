@@ -118,16 +118,18 @@ GINKO_CMS_SESSION_COOKIE='better-auth.session_token=...'
 
 Provide this short-lived Better Auth session cookie in the invoking shell or a
 secret manager-backed process environment. Do not commit it to `.env.local`, a
-portable directory, or an import plan. The commands exchange the cookie for a
-fresh Convex token before each JSON operation and send it only to the configured
-Better Auth and CMS origins. `CONVEX_DEPLOY_KEY` is not an alternative product
-identity for these commands.
+portable directory, or an import plan. Each operator context lazily exchanges
+the cookie once for a fresh Convex token by posting to
+`<SITE_URL>/api/_ginko/operator/convex-token`. The CLI binds that request to the
+exact `SITE_URL` (or `NUXT_PUBLIC_SITE_URL`) origin, disables redirects, bounds
+the cookie, response, and deadline, and never sends it to the Convex deployment
+origin. `CONVEX_DEPLOY_KEY` is not an alternative product identity for these
+commands.
 
 The operator commands also use `CONVEX_DEPLOYMENT` to bind plans and runs,
-`CONVEX_SITE_URL` for token exchange, and `SITE_URL` (or
-`NUXT_PUBLIC_SITE_URL`) for authenticated asset byte transfer. The CLI also
-accepts `GINKO_CMS_BETTER_AUTH_BASE_URL` as an explicit operator-only override;
-the Nuxt MCP runtime does not.
+and `SITE_URL` (or `NUXT_PUBLIC_SITE_URL`) for the token exchange. Content
+portability commands additionally use authenticated asset-transfer routes on
+that same host origin.
 See [Portable content export and import](../guides/content-portability.md).
 
 ## Maintainer Smoke Tests

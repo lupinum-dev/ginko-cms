@@ -75,7 +75,7 @@ describe('disabled Studio MCP settings', () => {
     const credentialQueryArgs = mocks.queries.at(-1)
 
     expect(mocks.queries).toHaveLength(8)
-    expect(toValue(credentialQueryArgs)).toBeNull()
+    expect(toValue(credentialQueryArgs)).toBe('skip')
     await admin.handleCreateMcpConnection()
     expect(admin.mcpConnectionError.value).toBe('MCP is disabled for this application.')
     await admin.handleRevokeMcpConnection('credential-id')

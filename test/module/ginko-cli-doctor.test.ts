@@ -75,6 +75,7 @@ async function completeFixture(
     [
       'CONVEX_URL=https://doctor-test.convex.cloud',
       'CONVEX_SITE_URL=https://doctor-test.convex.site',
+      'SITE_URL=https://doctor-host.example.test',
       'GINKO_CMS_SESSION_COOKIE=better-auth.session_token=owner-cookie-value',
       '',
     ].join('\n'),
@@ -92,7 +93,6 @@ describe('ginko-cms setup doctor', () => {
         '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
         'better-auth': '1.7.0-rc.2',
         'better-convex-nuxt': 'file:./better-convex-nuxt.tgz',
-        kysely: '0.28.17',
       },
     }
     writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8')
@@ -203,9 +203,7 @@ describe('ginko-cms setup doctor', () => {
     )
 
     expect(unreachable.code).toBe(1)
-    expect(unreachable.stderr).toContain(
-      'configured Convex or Better Auth backend could not be reached',
-    )
+    expect(unreachable.stderr).toContain('configured Convex or Ginko CMS host could not be reached')
     expect(unreachable.stderr).toContain('`pnpm exec ginko-cms doctor --deployment`')
     expect(unreachable.stderr).not.toContain('owner-cookie-value')
     expect(unreachable.stderr).not.toContain('ECONNREFUSED')

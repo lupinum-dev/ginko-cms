@@ -54,7 +54,6 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
           'better-convex-nuxt': cmsPackageJson.dependencies['better-convex-nuxt'],
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
-          kysely: workspacePackageJson.devDependencies.kysely,
           nuxt: workspacePackageJson.devDependencies.nuxt,
         },
         pnpm: {

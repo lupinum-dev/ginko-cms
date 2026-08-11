@@ -197,7 +197,7 @@ describe('known audit defects', () => {
 
     expect(search).toContain('api.ginkoCms.collections.searchStudioEntries')
     expect(search).not.toContain('api.ginkoCms.public.search')
-    expect(search.match(/useConvexQuery\(/g)).toHaveLength(1)
+    expect(search.match(/useCmsStudioQuery\(/g)).toHaveLength(1)
   })
 
   it('[NAV-02] keeps primary navigation and routable Studio areas on one canonical inventory', () => {

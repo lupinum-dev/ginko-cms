@@ -23,7 +23,7 @@ export async function runInitCommand(args: string[], cwd: string, io: CliIo): Pr
       io.stdout,
       [
         `Next: run \`pnpm exec ginko-cms doctor\`, configure the required environment, then run \`pnpm exec ginko-cms deploy\`.`,
-        `Host apps must depend directly on \`better-convex-nuxt\`, \`better-auth\`, \`kysely\`, and \`@lupinum/ginko-cms-convex\`.`,
+        `Host apps must depend directly on \`better-convex-nuxt\`, \`better-auth\`, and \`@lupinum/ginko-cms-convex\`.`,
         mcp
           ? `The generated Convex deployment exposes the provider-neutral MCP endpoint at \`/mcp\`.`
           : `MCP is disabled. Re-run \`pnpm exec ginko-cms init --mcp\` to generate the endpoint.`,

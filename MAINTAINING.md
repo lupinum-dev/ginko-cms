@@ -21,9 +21,9 @@ the CMS packages are published.
 
 ## Daily Maintenance
 
-The Better Convex beta.28/beta.16 coordinates are the approved experimental
-release candidates. Install the committed registry-backed lockfile, then run
-the source and packed-source checks:
+The Better Convex beta.34/beta.22 source tuple is the validated migration
+target. Install the committed dependency graph, then run the source and
+packed-source checks:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -49,10 +49,14 @@ runtime fingerprint binding, and reproducible Ginko packs against the single
 compatibility authority. Candidate verification rejects wrong installed
 versions and workspace/link dependencies.
 
-Candidate packing accepts only the beta.28/beta.16 hashes, integrity values,
-source commit, and Nuxt runtime fingerprint recorded in the compatibility
-authority. MCP support is experimental support for the 2026-07-28 draft/RC;
-this release makes no final-spec or real-host claim.
+The compatibility authority records the exact immutable artifacts produced by
+a certified clean rehearsal of Better Convex's canonical release-artifact
+workflow, bound to the source commit and Nuxt runtime fingerprint. Those bytes
+support local candidate packing but do not substitute for protected release or
+registry provenance. Registry verification
+remains fail-closed until beta.34/beta.22 are published byte-for-byte. The MCP
+package remains experimental while its transport targets the final 2026-07-28
+protocol.
 
 For a real release candidate, also run the registry dependency lane after
 Ginko Content is published:

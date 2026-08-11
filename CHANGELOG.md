@@ -9,8 +9,8 @@
 - This release explicitly waives four gates rather than claiming they pass:
   final MCP maturity, real MCP host interoperability, strict Ginko npm
   compatibility, and Better Convex protected cloud staging. RC.2 targets pnpm
-  support and uses Better Convex's experimental 2026-07-28 MCP draft/RC
-  support.
+  support and uses Better Convex's experimental implementation of the final
+  2026-07-28 MCP protocol.
 - RC.2 publication remains blocked until Nuxt 4.5.1's DevTools dependency graph
   declares Vite 8-compatible peers and the mandatory strict pnpm packed
   consumer passes.
