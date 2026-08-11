@@ -7,6 +7,7 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 
 import StudioAssetPicker from '../../packages/cms/studio-app/src/components/studio/StudioAssetPicker.vue'
 import StudioConfirmDialog from '../../packages/cms/studio-app/src/components/studio/StudioConfirmDialog.vue'
+import StudioGlobalPrompt from '../../packages/cms/studio-app/src/components/studio/StudioGlobalPrompt.vue'
 import StudioWorkspace from '../../packages/cms/studio-app/src/components/studio/StudioWorkspace.vue'
 import Button from '../../packages/cms/studio-app/src/components/ui/button/Button.vue'
 import Dialog from '../../packages/cms/studio-app/src/components/ui/dialog/Dialog.vue'
@@ -15,6 +16,11 @@ import DialogDescription from '../../packages/cms/studio-app/src/components/ui/d
 import DialogFooter from '../../packages/cms/studio-app/src/components/ui/dialog/DialogFooter.vue'
 import DialogHeader from '../../packages/cms/studio-app/src/components/ui/dialog/DialogHeader.vue'
 import DialogTitle from '../../packages/cms/studio-app/src/components/ui/dialog/DialogTitle.vue'
+import Input from '../../packages/cms/studio-app/src/components/ui/input/Input.vue'
+import {
+  studioPrompt,
+  useStudioPromptState,
+} from '../../packages/cms/studio-app/src/composables/internal/useStudioPrompt'
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () => ({
   useCmsStudioQuery: () => ({ data: ref([]) }),
@@ -29,6 +35,8 @@ function dialogComponents() {
     DialogFooter,
     DialogHeader,
     DialogTitle,
+    Input,
+    Label: { template: '<label v-bind="$attrs"><slot /></label>' },
     StudioAssetBrowser: { template: '<section aria-label="Asset results">No assets.</section>' },
   }
 }
@@ -48,7 +56,33 @@ describe('Studio executable accessibility contract', () => {
   })
 
   afterEach(() => {
+    useStudioPromptState().cancel()
     document.body.replaceChildren()
+  })
+
+  it('focuses and selects the real global prompt input without crossing the component ref', async () => {
+    mount(StudioGlobalPrompt, {
+      attachTo: document.querySelector('#ginko-cms-studio') as HTMLElement,
+      global: { components: dialogComponents() },
+    })
+
+    const result = studioPrompt({
+      title: 'Delete permanently?',
+      description: 'This cannot be undone.',
+      defaultValue: 'DELETE',
+    })
+    await flushPromises()
+    await nextTick()
+
+    const input = document.querySelector<HTMLInputElement>('#ginko-studio-global-prompt-input')
+    expect(input).not.toBeNull()
+    expect(document.activeElement).toBe(input)
+    expect(input?.selectionStart).toBe(0)
+    expect(input?.selectionEnd).toBe('DELETE'.length)
+
+    document.querySelector<HTMLButtonElement>('button[type="button"]')?.click()
+    await flushPromises()
+    await expect(result).resolves.toBeNull()
   })
 
   it('[QUA-01] keeps the workspace landmarks accessible', async () => {

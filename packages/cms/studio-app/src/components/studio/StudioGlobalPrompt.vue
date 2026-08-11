@@ -8,7 +8,7 @@ const { activePromptRequest, submit, cancel } = useStudioPromptState()
 const { t } = useCmsI18n()
 const open = computed(() => activePromptRequest.value !== null)
 const value = ref('')
-const input = ref<HTMLInputElement | null>(null)
+const input = ref<{ focus: () => void; select: () => void } | null>(null)
 
 watch(
   activePromptRequest,

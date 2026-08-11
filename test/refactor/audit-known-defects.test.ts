@@ -237,6 +237,7 @@ describe('known audit defects', () => {
 
   it('[EDT-04] keeps pending and failed draft work guarded until backend save success', () => {
     const draft = source('packages/cms/studio-app/src/composables/internal/useEntryDraft.ts')
+    const initialHydration = section(draft, '// Initial load', '// Re-hydrate')
     const routeGuard = section(draft, 'onBeforeRouteLeave(', 'const offlineRetry')
     const browserGuard = section(
       draft,
@@ -247,12 +248,35 @@ describe('known audit defects', () => {
 
     expect(routeGuard).toContain('if (isDirty.value && canEditEntries.value)')
     expect(routeGuard).not.toContain('!saving.value')
-    expect(routeGuard).toContain('next(answer ? undefined : false)')
+    expect(routeGuard).toContain('return studioConfirm({')
+    expect(routeGuard).toContain('return true')
+    expect(routeGuard).not.toContain('next(')
     expect(browserGuard).toContain('if (isDirty.value)')
     expect(browserGuard).toContain('event.preventDefault()')
     expect(saveResult).toContain('const succeeded = await saveQueue.enqueue({ silent })')
     expect(saveResult).toContain('if (succeeded)')
     expect(saveResult).toContain('isDirty.value = false')
+    expect(initialHydration).toContain('watch(')
+    expect(initialHydration).toContain('[entry, collectionConfig]')
+    expect(initialHydration).toContain('if (value && config && !initialized.value)')
+  })
+
+  it('keeps standalone Studio components on direct, warning-free Vue contracts', () => {
+    const fields = source('packages/cms/studio-app/src/components/studio/fields/index.ts')
+    const assets = source('packages/cms/studio-app/src/components/studio/StudioAssetBrowser.vue')
+    const collections = source(
+      'packages/cms/studio-app/src/composables/internal/useStudioCollectionsAdmin.ts',
+    )
+    const activity = source('packages/cms/studio-app/src/pages/activity.vue')
+
+    expect(fields).toContain("import FieldRichtext from './FieldRichtext.vue'")
+    expect(fields).toContain('richtext: FieldRichtext')
+    expect(fields).not.toContain('defineAsyncComponent')
+    expect(assets).toContain('defineOptions({ inheritAttrs: false })')
+    expect(assets).toContain('v-bind="$attrs"')
+    expect(collections).toContain('collectionDetail: selectedCollectionDetail')
+    expect(activity).toContain("import { RouterLink } from 'vue-router'")
+    expect(activity).not.toContain('NuxtLink')
   })
 
   it('[IMP-04] keeps database snapshots, content portability, and asset-only recovery as explicit non-interchangeable boundaries', () => {

@@ -2,6 +2,7 @@
 import { Activity, Loader2 } from '@lucide/vue'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import { api } from '../boundary/api'
 import { cmsPermissionKeys } from '../composables/permissions'
@@ -367,13 +368,13 @@ function collectionBadge(item: ActivityItem): string | null {
               class="ginko:grid ginko:gap-3 ginko:border-b ginko:border-border/60 ginko:px-4 ginko:py-3 ginko:transition-colors ginko:last:border-b-0 ginko:hover:bg-muted/30 ginko:@3xl:grid-cols-[minmax(0,1fr)_12rem] ginko:@3xl:items-center"
             >
               <div class="ginko:min-w-0 ginko:flex-1">
-                <NuxtLink
+                <RouterLink
                   v-if="entryLink(item)"
                   :to="entryLink(item) || ''"
                   class="ginko:text-sm ginko:font-medium ginko:hover:underline"
                 >
                   {{ item.displaySummary }}
-                </NuxtLink>
+                </RouterLink>
                 <div v-else class="ginko:text-sm ginko:font-medium">
                   {{ item.displaySummary }}
                 </div>

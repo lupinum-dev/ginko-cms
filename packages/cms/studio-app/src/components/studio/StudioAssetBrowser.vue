@@ -26,6 +26,8 @@ import StudioAssetReplaceDialog from './assets/StudioAssetReplaceDialog.vue'
 import StudioAssetToolbar from './assets/StudioAssetToolbar.vue'
 import StudioAssetTrashDialog from './assets/StudioAssetTrashDialog.vue'
 
+defineOptions({ inheritAttrs: false })
+
 // Shell for the asset browser: owns props/defineExpose, the finder call, the
 // context assembly + provide, the hidden upload input, the in-card header, the
 // split-pane skeleton, and the loading/empty/view dispatch. Every focused
@@ -106,6 +108,7 @@ defineExpose({
 
 <template>
   <div
+    v-bind="$attrs"
     class="ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col ginko:overflow-hidden"
     :class="props.embedded ? 'ginko:h-full' : ''"
   >

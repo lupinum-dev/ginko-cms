@@ -128,7 +128,7 @@ function stubs() {
     Button: ButtonStub,
     Input: InputStub,
     Label: { template: '<label v-bind="$attrs"><slot /></label>' },
-    NuxtLink: { props: { to: String }, template: '<a :href="to"><slot /></a>' },
+    RouterLink: { props: { to: String }, template: '<a :href="to"><slot /></a>' },
     NuxtTime: { props: { datetime: [Number, String] }, template: '<time>{{ datetime }}</time>' },
     ScrollArea: { template: '<div><slot /></div>' },
     Select: SelectStub,

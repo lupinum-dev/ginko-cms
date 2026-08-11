@@ -1,6 +1,5 @@
 import type { FieldType } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type { Component } from 'vue'
-import { defineAsyncComponent } from 'vue'
 
 import FieldArray from './FieldArray.vue'
 import FieldAsset from './FieldAsset.vue'
@@ -20,6 +19,7 @@ import FieldRadio from './FieldRadio.vue'
 import FieldRange from './FieldRange.vue'
 import FieldRelation from './FieldRelation.vue'
 import FieldRelations from './FieldRelations.vue'
+import FieldRichtext from './FieldRichtext.vue'
 import FieldSection from './FieldSection.vue'
 import FieldSelect from './FieldSelect.vue'
 import FieldText from './FieldText.vue'
@@ -34,7 +34,7 @@ export const fieldComponents = {
   email: FieldText,
   url: FieldText,
   textarea: FieldTextarea,
-  richtext: defineAsyncComponent(() => import('./FieldRichtext.vue')),
+  richtext: FieldRichtext,
   number: FieldNumber,
   range: FieldRange,
   select: FieldSelect,

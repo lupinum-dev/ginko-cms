@@ -166,9 +166,12 @@ export function useEntryDraft(deps: EntryDraftDeps) {
 
   // Initial load
   watch(
-    entry,
-    (value) => {
-      if (value && !initialized.value) {
+    [entry, collectionConfig],
+    ([value, config]) => {
+      // The entry query often settles before the collection contract. Fields
+      // are derived from that contract, so hydrating earlier permanently
+      // initializes an empty form even though the entry data is present.
+      if (value && config && !initialized.value) {
         hydrateForm(value, 'loaded')
         queueMicrotask(() => {
           initialized.value = true
@@ -239,22 +242,19 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   })
 
   // --- Unsaved changes guards ---
-  onBeforeRouteLeave((_to, _from, next) => {
+  onBeforeRouteLeave(async () => {
     // A write in flight is still unsaved until the backend acknowledges it.
     // Keep the route blocked for both pending and failed local work; the
     // successful save path clears `isDirty` only after mutation success.
     if (isDirty.value && canEditEntries.value) {
-      void studioConfirm({
+      return studioConfirm({
         title: 'Leave with unsaved changes?',
         description: t('ginkoCms.studio.collectionEditor.unsavedChanges'),
         confirmLabel: 'Leave page',
         confirmVariant: 'destructive',
-      }).then((answer) => {
-        next(answer ? undefined : false)
       })
-      return
     }
-    next()
+    return true
   })
 
   const offlineRetry = new OfflineSaveRetry()

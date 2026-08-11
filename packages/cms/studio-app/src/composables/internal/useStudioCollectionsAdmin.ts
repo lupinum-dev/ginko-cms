@@ -139,7 +139,7 @@ export function useStudioCollectionsAdmin() {
   const isLoading = computed(() => !collectionsQuery.data?.value && collectionsQuery.pending.value)
 
   return {
-    collectionDetail,
+    collectionDetail: selectedCollectionDetail,
     collectionDetailError,
     collectionDetailPending,
     collectionDraft,
