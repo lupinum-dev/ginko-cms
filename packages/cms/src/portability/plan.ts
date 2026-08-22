@@ -13,7 +13,7 @@ import {
   hashCanonicalJson,
   type PortableDocumentV1,
 } from '@lupinum/ginko-content/portability'
-import type { PortableDirectoryBundle } from '@lupinum/ginko-content/portability/node'
+import type { PortableDirectoryMetadata } from '@lupinum/ginko-content/portability/node'
 
 export type PortableImportPlanItemPayload = {
   identity: { collection: string; canonicalKey: string; locale: string }
@@ -65,7 +65,7 @@ export type PortableDraftImportPlan = {
 }
 
 export async function createPortableDraftImportPlan(
-  bundle: PortableDirectoryBundle,
+  bundle: PortableDirectoryMetadata,
   options: {
     deploymentId: string
     targetContentHash: string

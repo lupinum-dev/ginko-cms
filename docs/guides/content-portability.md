@@ -50,6 +50,10 @@ downloaded or converted into managed assets.
 Planning has no draft effects. It verifies the directory, inspects exact current
 draft hashes, and seals an immutable server-side plan:
 
+Planning validates managed images one bounded file at a time and retains only
+their hash, size, and media type in memory. Asset bytes are read again only
+when an approved apply uploads that specific image.
+
 ```bash
 pnpm exec ginko-cms content import ./portable-content --plan ./import-plan.json
 ```
