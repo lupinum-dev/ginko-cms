@@ -64,6 +64,7 @@ const betterConvexMcpRoot = betterConvexNuxtRoot
   : undefined
 const liveConvex = process.argv.includes('--live')
 let liveDeploymentEvidence = null
+let livePublishedReadEvidence = null
 const registryContent = registryDependencies || developmentMode
 const registryBetterConvexNuxt = registryDependencies || (developmentMode && !betterConvexNuxtRoot)
 const registryBetterConvexVue = registryBetterConvexNuxt
@@ -291,15 +292,24 @@ function consumerExecExpectFailure(command, args, expectedMessages) {
 
 async function bootNitro() {
   const port = 41_000 + (process.pid % 10_000)
+  const convexUrl = liveConvex
+    ? process.env.CONVEX_URL || process.env.CONVEX_SELF_HOSTED_URL
+    : 'http://127.0.0.1:3210'
+  const convexSiteUrl = liveConvex
+    ? process.env.CONVEX_SITE_URL || process.env.CONVEX_SELF_HOSTED_URL
+    : 'http://127.0.0.1:3211'
+  if (!convexUrl || !convexSiteUrl) {
+    throw new Error('Packed Nitro live verification requires real Convex runtime URLs.')
+  }
   const child = spawn(process.execPath, ['.output/server/index.mjs'], {
     cwd: tempDir,
     env: {
       ...packageE2eEnv(),
-      CONVEX_URL: 'http://127.0.0.1:3210',
-      CONVEX_SITE_URL: 'http://127.0.0.1:3211',
+      CONVEX_URL: convexUrl,
+      CONVEX_SITE_URL: convexSiteUrl,
       HOST: '127.0.0.1',
-      NUXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3210',
-      NUXT_PUBLIC_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
+      NUXT_PUBLIC_CONVEX_URL: convexUrl,
+      NUXT_PUBLIC_CONVEX_SITE_URL: convexSiteUrl,
       PORT: String(port),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -328,6 +338,32 @@ async function bootNitro() {
     }
     if (!ready) {
       throw new Error(`Timed out waiting for packed Nitro server:\n${output}`)
+    }
+
+    if (liveConvex) {
+      const publishedReadResponse = await fetch(
+        `http://127.0.0.1:${port}/api/_content/navigation?collection=posts&locale=en`,
+      )
+      const publishedReadText = await publishedReadResponse.text()
+      let publishedRead
+      try {
+        publishedRead = JSON.parse(publishedReadText)
+      } catch {
+        throw new Error(
+          `Packed live Content read returned non-JSON (${publishedReadResponse.status}): ${publishedReadText.slice(0, 300)}`,
+        )
+      }
+      if (!publishedReadResponse.ok || !Array.isArray(publishedRead)) {
+        throw new Error(
+          `Packed live Content read failed (${publishedReadResponse.status}): ${publishedReadText.slice(0, 300)}`,
+        )
+      }
+      livePublishedReadEvidence = {
+        collection: 'posts',
+        locale: 'en',
+        resultCount: publishedRead.length,
+        status: publishedReadResponse.status,
+      }
     }
 
     if (candidateMode) {
@@ -1205,11 +1241,16 @@ console.log('packed MCP read/write behavior ok')
   run('node', ['--input-type=module', '--eval', privateImportCheck], { cwd: tempDir })
 
   const portabilityCheck = [
+    "import { createHash } from 'node:crypto'",
     "import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'",
     "import { writePortableDirectory } from '@lupinum/ginko-content/portability/node'",
-    "const contract = buildResolvedContentContract({ collections: { posts: { type: 'page', source: 'content/posts/**/*.md', route: '/posts', fields: { title: { type: 'text', required: true } } } } }, { defaultLocale: 'en', locales: ['en'] })",
-    "const document = { format: 'ginko-content-document', version: 1, collection: 'posts', canonicalKey: 'packed-check', locale: 'en', slug: 'packed-check', parentCanonicalKey: null, order: null, shared: { title: 'Packed check' }, localized: {}, body: { kind: 'mdc', source: '# Packed check\\n' }, visibility: { navigation: true, search: true, ['site' + 'map']: true } }",
-    "await writePortableDirectory('portable-check', { contract, documents: [document], assets: [] })",
+    "const contract = buildResolvedContentContract({ collections: { posts: { type: 'page', source: 'content/posts/**/*.md', route: '/posts', fields: { title: { type: 'text', required: true }, hero: { type: 'image', required: true } } } } }, { defaultLocale: 'en', locales: ['en'] })",
+    "const content = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')",
+    "const sha256 = createHash('sha256').update(content).digest('hex')",
+    "const asset = { sha256, file: `public/ginko-assets/${sha256}.png`, bytes: content.byteLength, mediaType: 'image/png', content }",
+    "const hero = { kind: 'local', path: `/ginko-assets/${sha256}.png`, sha256, bytes: content.byteLength, mediaType: 'image/png', originalFilename: 'packed-pixel.png' }",
+    "const document = { format: 'ginko-content-document', version: 1, collection: 'posts', canonicalKey: 'packed-check', locale: 'en', slug: 'packed-check', parentCanonicalKey: null, order: null, shared: { title: 'Packed check', hero }, localized: {}, body: { kind: 'mdc', source: '# Packed check\\n' }, visibility: { navigation: true, search: true, ['site' + 'map']: true } }",
+    "await writePortableDirectory('portable-check', { contract, documents: [document], assets: [asset] })",
   ].join(';')
   run('node', ['--input-type=module', '--eval', portabilityCheck], { cwd: tempDir })
   consumerExec('ginko-cms', ['content', 'verify', 'portable-check'])
@@ -1280,6 +1321,7 @@ console.log('packed MCP read/write behavior ok')
         }
       : null,
     deployment: liveDeploymentEvidence,
+    publishedRead: livePublishedReadEvidence,
     dependencies: {
       '@lupinum/ginko-content': candidateContent ?? { version: contentRegistryVersion },
       'better-convex-nuxt':
