@@ -1153,6 +1153,15 @@ console.log('packed MCP read/write behavior ok')
   consumerExecExpectFailure(
     'ginko-cms',
     ['doctor'],
+    [
+      '.ginko/content-contract.json is missing or invalid',
+      'Run Nuxt prepare to regenerate the Content artifact',
+    ],
+  )
+  consumerExec('nuxt', ['prepare'])
+  consumerExecExpectFailure(
+    'ginko-cms',
+    ['doctor'],
     ['convex/ginkoCms/contractBinding.ts is still unbound', 'pnpm exec ginko-cms deploy'],
   )
   consumerExec('convex', ['codegen', '--system-udfs', '--typecheck', 'disable'])
@@ -1197,7 +1206,6 @@ console.log('packed MCP read/write behavior ok')
     }
   }
 
-  consumerExec('nuxt', ['prepare'])
   if (liveConvex) {
     consumerExec('ginko-cms', ['deploy'])
   }
