@@ -165,7 +165,6 @@ async function inspectLocalContract(cwd: string, options: DoctorOptions) {
     ])
     const expectedContent = await loadGinkoContentContract({
       rootDir: cwd,
-      content: config.content,
     })
     const [contentHash, presentationHash] = await Promise.all([
       hashCanonicalJson(expectedContent as unknown as JsonValue),
@@ -196,7 +195,7 @@ async function inspectLocalContract(cwd: string, options: DoctorOptions) {
         issues.push({
           name: 'stale generated contract',
           message:
-            'convex/ginkoCms/contractBinding.ts does not match content.config.ts and nuxt.config.ts.',
+            'convex/ginkoCms/contractBinding.ts does not match the generated Content artifact and Nuxt presentation config.',
           fix: 'Run `pnpm exec ginko-cms deploy` for a compatible contract update, or start a contract transition for an incompatible live change.',
         })
       }
@@ -207,8 +206,8 @@ async function inspectLocalContract(cwd: string, options: DoctorOptions) {
       {
         name: 'invalid content contract configuration',
         message:
-          'content.config.ts or nuxt.config.ts could not be evaluated as the canonical CMS contract.',
-        fix: 'Correct the configuration files, then rerun `pnpm exec ginko-cms doctor`.',
+          '.ginko/content-contract.json is missing or invalid, or nuxt.config.ts could not be evaluated.',
+        fix: 'Run Nuxt prepare to regenerate the Content artifact, correct any configuration errors, then rerun `pnpm exec ginko-cms doctor`.',
       },
     ] satisfies DoctorIssue[]
   }
@@ -258,7 +257,6 @@ async function inspectReachableDeployment(
   const config = await loadContentConfig(cwd)
   const expectedContent = await loadGinkoContentContract({
     rootDir: cwd,
-    content: config.content,
   })
   const [expectedContentHash, expectedPresentationHash] = await Promise.all([
     hashCanonicalJson(expectedContent as unknown as JsonValue),
@@ -311,7 +309,8 @@ async function inspectReachableDeployment(
     if (contract.installedContentHash !== expectedContentHash) {
       issues.push({
         name: 'installed content contract drift',
-        message: 'The installed content contract hash does not match content.config.ts.',
+        message:
+          'The installed content contract hash does not match the generated Content artifact.',
         fix: 'Run `pnpm exec ginko-cms deploy` for a compatible update, or use the contract transition commands for an incompatible live change.',
       })
     }

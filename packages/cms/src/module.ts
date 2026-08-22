@@ -199,7 +199,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       ? assertResolvedContentContract(moduleOptions.runtimeConfig.content.contract)
       : await loadGinkoContentContract({
           rootDir: nuxt.options.rootDir,
-          content: moduleOptions.content?.i18n,
         })
     options.defaultLocale = contentContract.defaultLocale
     options.locales = contentContract.locales.map((code) => ({

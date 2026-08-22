@@ -10,10 +10,7 @@ import {
   type ResolvedContentContractV1,
   type ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
-import {
-  portableModelsSemanticallyEqual,
-  type PortableDocumentV1,
-} from '@lupinum/ginko-content/portability'
+import { normalizePortableModel, type PortableDocumentV1 } from '@lupinum/ginko-content/portability'
 import {
   readPortableDirectory,
   writePortableDirectory,
@@ -136,7 +133,11 @@ function fixture(): { contract: ResolvedContentContractV1; documents: PortableDo
         'markdown.article',
         '# Heading\n\nParagraph with **strong**, [link](https://example.test), and `code`.\n',
       ),
-      page('mdc', 'mdc.article', '::callout{tone="info"}\nNamed portable component content.\n::\n'),
+      page(
+        'mdc',
+        'mdc.article',
+        '::callout\n---\ntone: info\n---\nNamed portable component content.\n::\n',
+      ),
       data('yaml'),
       data('json'),
     ],
@@ -225,17 +226,16 @@ describe('bidirectional filesystem and CMS semantic portability', () => {
     const sourceBundle = await readPortableDirectory(source)
     const exportedBundle = await readPortableDirectory(exported)
     expect(
-      portableModelsSemanticallyEqual(
-        {
-          documents: sourceBundle.documents.map(({ document }) => document),
-          assets: sourceBundle.assets,
-        },
-        {
-          documents: exportedBundle.documents.map(({ document }) => document),
-          assets: exportedBundle.assets,
-        },
-      ),
-    ).toBe(true)
+      normalizePortableModel({
+        documents: exportedBundle.documents.map(({ document }) => document),
+        assets: exportedBundle.assets,
+      }),
+    ).toEqual(
+      normalizePortableModel({
+        documents: sourceBundle.documents.map(({ document }) => document),
+        assets: sourceBundle.assets,
+      }),
+    )
 
     const second = await installCms()
     const imported = await importDirectory(second.owner, exported, second.contentHash)

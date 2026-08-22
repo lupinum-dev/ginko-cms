@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -68,6 +68,12 @@ describe('ginko-cms content operator CLI', () => {
         },
       },
       { defaultLocale: 'en', locales: ['en'] },
+    )
+    mkdirSync(resolve(root, '.ginko'))
+    writeFileSync(
+      resolve(root, '.ginko/content-contract.json'),
+      `${JSON.stringify(contract)}\n`,
+      'utf8',
     )
     const document: PortableDocumentV1 = {
       format: 'ginko-content-document',

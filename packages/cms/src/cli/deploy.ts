@@ -52,7 +52,7 @@ export async function runDeployCommand(
     return 0
   }
   const config = await loadContentConfig(cwd)
-  const content = await loadGinkoContentContract({ rootDir: cwd, content: config.content })
+  const content = await loadGinkoContentContract({ rootDir: cwd })
   writeExpectedContractBinding(cwd, {
     contentHash: await hashCanonicalJson(content as unknown as JsonValue),
     presentationHash: await hashCanonicalJson(config.presentation),

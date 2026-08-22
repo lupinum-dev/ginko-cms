@@ -2,6 +2,7 @@ import { isContentProviderResult, toContentProviderQuery } from '@lupinum/ginko-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const convexMock = vi.hoisted(() => {
+  const wire = <T>(result: T) => ({ protocol: 'ginko-content-cms/v1' as const, result })
   const calls: Array<{ operation: string; args: unknown }> = []
   const page = {
     id: 'entry-docs-routing',
@@ -35,7 +36,7 @@ const convexMock = vi.hoisted(() => {
         .pop() ?? ''
     calls.push({ operation, args })
     if (operation === 'page') {
-      return {
+      return wire({
         status: 'found',
         page,
         collection: 'docs',
@@ -48,15 +49,15 @@ const convexMock = vi.hoisted(() => {
           alternates: [],
           xDefault: null,
         },
-      }
+      })
     }
     if (operation === 'list') {
-      return {
+      return wire({
         entries: [page],
         pageInfo: { hasNextPage: false, endCursor: null },
         collection: 'docs',
         locale: page.locale,
-      }
+      })
     }
     throw new Error(`Unhandled package provider test operation: ${operation}`)
   })
@@ -85,7 +86,7 @@ describe('built ginko-cms Nuxt provider package output', () => {
     delete process.env.NUXT_PUBLIC_CONVEX_URL
   })
 
-  it('ships the same v3 raw-document and cursor contracts as the source adapter', async () => {
+  it('ships the same v5 raw-document and cursor contracts as the source adapter', async () => {
     const pageQuery = toContentProviderQuery({ collection: 'docs', first: true })
     pageQuery.plan.variant = {
       by: 'route',

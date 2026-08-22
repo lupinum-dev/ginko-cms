@@ -11,8 +11,12 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
+import {
+  buildResolvedContentContract,
+  hashCanonicalJson,
+} from '@lupinum/ginko-content/cms-contract'
 import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
+import { defineCollection } from '@lupinum/ginko-content/config'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { runGinkoCmsCli } from '../../packages/cms/src/cli/ginko-cms.js'
@@ -41,11 +45,29 @@ function writeContentConfig(rootDir: string, collection: string, pathPrefix: str
     `export default { provider: 'cms', collections: { ${collection}: { type: 'page', source: 'content/${collection}/**/*.md', route: '${pathPrefix}' } } }\n`,
     'utf8',
   )
+  mkdirSync(resolve(rootDir, '.ginko'), { recursive: true })
+  const contract = buildResolvedContentContract(
+    {
+      collections: {
+        [collection]: defineCollection({
+          type: 'page',
+          source: `content/${collection}/**/*.md`,
+          route: pathPrefix,
+        }),
+      },
+    },
+    { defaultLocale: 'en', locales: ['en'] },
+  )
+  writeFileSync(
+    resolve(rootDir, '.ginko/content-contract.json'),
+    `${JSON.stringify(contract)}\n`,
+    'utf8',
+  )
 }
 
 async function bindContractForTest(rootDir: string) {
   const config = await loadContentConfig(rootDir)
-  const content = await loadGinkoContentContract({ rootDir, content: config.content })
+  const content = await loadGinkoContentContract({ rootDir })
   const binding = {
     contentHash: await hashCanonicalJson(content as unknown as JsonValue),
     presentationHash: await hashCanonicalJson(config.presentation),
@@ -663,7 +685,7 @@ describe('ginko-cms CLI', () => {
     }
   })
 
-  it('refuses to push when the canonical Content contract source is missing', async () => {
+  it('refuses to push when the generated Content contract artifact is missing', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-missing-contract-'))
     tempDirs.push(rootDir)
     writeFileSync(
@@ -677,7 +699,7 @@ describe('ginko-cms CLI', () => {
     const result = await runCli(['push'], rootDir)
 
     expect(result.code).toBe(2)
-    expect(result.stderr).toContain('requires content.config.ts')
+    expect(result.stderr).toContain('Resolved Content contract artifact is missing or invalid')
   })
 
   it('refuses installation when the deployed host binding differs from the local contract', async () => {

@@ -13,9 +13,12 @@ import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import type {
   BoundedContentProviderQuery,
   ContentDataSource,
-  ContentDataSourceCacheHint,
   ContentDataSourceControl,
   ContentDataSourceResult,
+} from '@lupinum/ginko-content/data-source'
+import {
+  createContentDataSourceCacheHint,
+  createContentDataSourceError,
 } from '@lupinum/ginko-content/data-source'
 import {
   PROVIDER_QUERY_VERSION,
@@ -32,7 +35,6 @@ import {
 import type { H3Event } from 'h3'
 
 import {
-  canonicalFromRoute,
   defaultLocale,
   normalizeContentPath,
   publicEntryKey,
@@ -181,16 +183,16 @@ const sitemapCacheHint = () => normalizeCacheHint({ tags: [contentTags.sitemap()
 
 const dataSourceCacheHint = (
   hint: ContentCacheHint | false,
-): ContentDataSourceCacheHint | false => {
+): ReturnType<typeof createContentDataSourceCacheHint> | false => {
   if (hint === false) return false
-  return {
+  return createContentDataSourceCacheHint({
     tags: [...(hint.tags || [])],
     paths: [...(hint.paths || [])],
     maxAge: hint.maxAge ?? null,
     swr: hint.swr ?? null,
     etag: hint.etag ?? null,
     lastModified: hint.lastModified ? hint.lastModified.valueOf() : null,
-  }
+  })
 }
 
 const sourceResult = <T>(data: T, cache: ContentCacheHint | false): ContentDataSourceResult<T> => ({
@@ -230,17 +232,19 @@ const parseRoutesCursor = (cursor: string | null): RoutesCursor => {
 
 const encodeRoutesCursor = (cursor: RoutesCursor): string => JSON.stringify(cursor)
 
-const pickNavFields = (entry: UnknownRecord, fields: string[] = []): UnknownRecord =>
+const pickNavFields = (entry: UnknownRecord, fields: readonly string[] = []): UnknownRecord =>
   Object.fromEntries(fields.filter((field) => field in entry).map((field) => [field, entry[field]]))
 
 const assertUnsupportedQueryShape = (condition: unknown, field: string, message: string): void => {
   if (!condition) return
-  throw providerError('unsupported_query_shape', message, 400, { field })
+  void field
+  void message
+  throw createContentDataSourceError('QUERY_UNSUPPORTED')
 }
 
 const applyOnlyProjection = (
   entry: ProviderDocumentInput,
-  only: string[] = [],
+  only: readonly string[] = [],
 ): ProviderDocumentInput => {
   if (!only.length) return entry
   const projected: ProviderDocumentInput = {
@@ -258,12 +262,7 @@ const applyOnlyProjection = (
 
 function assertProviderQuery(input: unknown): asserts input is ContentProviderQuery {
   if (!isRecord(input) || input.v !== PROVIDER_QUERY_VERSION || !isRecord(input.plan)) {
-    throw providerError(
-      'unsupported_query_shape',
-      `Ginko CMS provider requires the ginko-content provider query wire v${PROVIDER_QUERY_VERSION}.`,
-      400,
-      { field: 'query' },
-    )
+    throw createContentDataSourceError('QUERY_UNSUPPORTED')
   }
 }
 
@@ -284,11 +283,6 @@ const assertPortableListPlan = (query: ContentProviderQuery): void => {
   assertQueryCollection(query.collection)
   const plan = query.plan || {}
   assertUnsupportedQueryShape(
-    typeof plan.skip === 'number' && plan.skip > 0,
-    'skip',
-    'Ginko public list queries do not support numeric skip.',
-  )
-  assertUnsupportedQueryShape(
     plan.mode === 'count',
     'count',
     'Ginko public list queries do not support count yet.',
@@ -301,25 +295,13 @@ const assertPortableListPlan = (query: ContentProviderQuery): void => {
 }
 
 function unsupportedFilter(field = 'where'): never {
-  throw providerError(
-    'unsupported_query_shape',
-    'Ginko public list queries only support public visibility predicates.',
-    400,
-    { field },
-  )
+  void field
+  throw createContentDataSourceError('QUERY_UNSUPPORTED')
 }
 
 const assertSupportedPlanOperator = (operator: string): void => {
   if (['eq', 'ne', 'prefix'].includes(operator)) return
-  throw providerError(
-    'unsupported_query_operator',
-    `Unsupported Ginko query operator: $${operator}`,
-    400,
-    {
-      operator: `$${operator}`,
-      path: 'plan.filter',
-    },
-  )
+  throw createContentDataSourceError('QUERY_UNSUPPORTED')
 }
 
 const applyPlanCompare = (state: FilterState, clause: PlanCompare): FilterState => {
@@ -408,44 +390,13 @@ const sortFromPlan = (sort: PlanSort = []): string | undefined => {
     // The CMS projection persists that same source order as `orderKey`.
     const field = item.field === 'file.stem' ? 'orderKey' : item.field
     if (!supportedFields.has(field)) {
-      throw providerError(
-        'unsupported_sort',
-        'Ginko public sort supports orderKey, entryCreatedAt, firstPublishedAt, and lastPublishedAt.',
-        400,
-        { field },
-      )
+      throw createContentDataSourceError('QUERY_UNSUPPORTED')
     }
     if (item.direction === 1) return `${field}:asc`
     if (item.direction === -1) return `${field}:desc`
-    throw providerError(
-      'unsupported_sort',
-      'Ginko public sort direction must be asc or desc.',
-      400,
-      {
-        field,
-        direction: item.direction,
-      },
-    )
+    throw createContentDataSourceError('QUERY_UNSUPPORTED')
   }
   return undefined
-}
-
-const mountedContentPath = (
-  contentRuntime: ContentRuntime,
-  collection: string,
-  locale: string,
-  contentPath: string,
-): string => {
-  const route = contentRuntime?.collections?.[collection]?.route
-  const mount = typeof route === 'string' ? route : route?.[locale]
-  const normalizedPath = canonicalFromRoute(contentPath, locale)
-  const normalizedMount = normalizeContentPath(mount)
-  if (!mount || normalizedMount === '/') return normalizedPath
-  if (normalizedPath === normalizedMount || normalizedPath.startsWith(`${normalizedMount}/`)) {
-    return normalizedPath
-  }
-  if (normalizedPath === '/') return normalizedMount
-  return normalizeContentPath(`${normalizedMount}/${normalizedPath.replace(/^\/+/, '')}`)
 }
 
 const hasExplicitPublicSort = (sort: PlanSort = []): boolean => sort.some((item) => item.field)
@@ -497,6 +448,23 @@ const resolveVariant = async (
   selector: ContentProviderVariantSelector,
   contentRuntime: ContentRuntime,
 ) => {
+  if (selector.by === 'path') {
+    const locale = selector.locale || defaultLocale(contentRuntime)
+    return {
+      locale,
+      result: decodeRequested(
+        'page',
+        parseCmsPageWireResult,
+        { collection, locale },
+        await callGinko(caller, 'page', {
+          collection,
+          locale,
+          path: selector.path,
+          fallback: selector.fallback,
+        }),
+      ),
+    }
+  }
   if (selector.by === 'ref') {
     const locale = selector.requestedLocale || defaultLocale(contentRuntime)
     return {
@@ -508,7 +476,7 @@ const resolveVariant = async (
         await callGinko(caller, 'page', {
           collection,
           locale,
-          ref: selector.ref,
+          ref: selector.requestedRef,
           fallback: selector.localeChain?.slice(1),
         }),
       ),
@@ -525,12 +493,7 @@ const resolveVariant = async (
       await callGinko(caller, 'page', {
         collection,
         locale: candidate.locale,
-        path: mountedContentPath(
-          contentRuntime,
-          collection,
-          candidate.locale,
-          candidate.contentPath,
-        ),
+        path: candidate.contentPath,
       }),
     )
     if (result.status === 'redirect') {
@@ -601,12 +564,7 @@ export const contentDataSource = {
 
     assertPortableListPlan(input)
     if (plan.mode === 'count') {
-      throw providerError(
-        'unsupported_query_shape',
-        'Ginko public queries do not support exact aggregate counts.',
-        400,
-        { field: 'mode' },
-      )
+      throw createContentDataSourceError('QUERY_UNSUPPORTED')
     }
     const collection = input.collection
     assertQueryCollection(collection)
@@ -627,8 +585,6 @@ export const contentDataSource = {
     }
     const locale = localeFromQuery(filterState, contentRuntime)
     const pathPrefix = filterState.pathPrefix
-      ? canonicalFromRoute(filterState.pathPrefix, locale)
-      : undefined
     assertUnsupportedQueryShape(
       Boolean(pathPrefix && hasExplicitPublicSort(plan.sort)),
       'sort',
@@ -737,7 +693,7 @@ export const contentDataSource = {
       await callGinko(context.caller, 'surround', {
         collection,
         locale,
-        path: canonicalFromRoute(path, locale),
+        path,
         previous: 1,
         next: 1,
       }),

@@ -1,9 +1,13 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
+import {
+  buildResolvedContentContract,
+  hashCanonicalJson,
+} from '@lupinum/ginko-content/cms-contract'
+import { defineCollection } from '@lupinum/ginko-content/config'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { runGinkoCmsCli } from '../../packages/cms/src/cli/ginko-cms.js'
@@ -82,6 +86,25 @@ describe('ginko-cms owner maintenance CLI', () => {
       'utf8',
     )
     writeFileSync(resolve(root, 'nuxt.config.ts'), 'export default { content: {} }\n', 'utf8')
+    mkdirSync(resolve(root, '.ginko'), { recursive: true })
+    writeFileSync(
+      resolve(root, '.ginko/content-contract.json'),
+      `${JSON.stringify(
+        buildResolvedContentContract(
+          {
+            collections: {
+              posts: defineCollection({
+                type: 'page',
+                source: 'content/posts/**/*.md',
+                route: '/posts',
+              }),
+            },
+          },
+          { defaultLocale: 'en', locales: ['en'] },
+        ),
+      )}\n`,
+      'utf8',
+    )
     writeFileSync(
       resolve(root, '.env.local'),
       [
@@ -97,10 +120,7 @@ describe('ginko-cms owner maintenance CLI', () => {
     const archiveJson = '{"format":"ginko-cms-asset-recovery","version":1}'
     const artifactChecksum = createHash('sha256').update(archiveJson).digest('hex')
     const config = await loadContentConfig(root)
-    const expectedContent = await loadGinkoContentContract({
-      rootDir: root,
-      content: config.content,
-    })
+    const expectedContent = await loadGinkoContentContract({ rootDir: root })
     const expectedContentHash = await hashCanonicalJson(expectedContent)
     const expectedPresentationHash = await hashCanonicalJson(config.presentation)
     writeExpectedContractBinding(root, {
@@ -408,7 +428,7 @@ describe('ginko-cms owner maintenance CLI', () => {
     const driftedDoctor = await run(['doctor', '--deployment'])
     expect(driftedDoctor.code).toBe(1)
     expect(driftedDoctor.stderr).toContain(
-      'installed content contract hash does not match content.config.ts',
+      'installed content contract hash does not match the generated Content artifact',
     )
   })
 

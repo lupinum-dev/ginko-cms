@@ -190,14 +190,14 @@ describe('canonical editorial tree operations', () => {
     expect(grandchild.path).toBe('/docs/root-b/child/grandchild')
 
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'docs',
         locale: 'en',
         path: '/docs/root-a/child/grandchild',
       }),
     ).resolves.toMatchObject({ status: 'found', page: { id: grandchildId } })
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'docs',
         locale: 'en',
         path: '/docs/root-b/child/grandchild',
@@ -206,14 +206,14 @@ describe('canonical editorial tree operations', () => {
 
     await publishEntry(owner, childId)
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'docs',
         locale: 'en',
         path: '/docs/root-b/child/grandchild',
       }),
     ).resolves.toMatchObject({ status: 'found', page: { id: grandchildId } })
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'docs',
         locale: 'en',
         path: '/docs/root-a/child/grandchild',

@@ -2,19 +2,17 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
-import {
-  buildResolvedContentContract,
-  type BuildResolvedContentContractInput,
-  type ResolvedContentCollectionV1,
-  type ResolvedContentContractV1,
-  type ResolvedContentFieldV1,
+import type {
+  ResolvedContentCollectionV1,
+  ResolvedContentContractV1,
+  ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
+import { readResolvedContentContract } from '@lupinum/ginko-content/cms-contract/node'
 import { createJiti } from 'jiti'
 
 import type { CmsEditorialLayout, CollectionConfig, FieldConfig } from './options.js'
 
-type ContentConfigLike = BuildResolvedContentContractInput & {
-  collections?: BuildResolvedContentContractInput['collections']
+type ContentConfigLike = {
   provider?: string
 }
 
@@ -27,7 +25,7 @@ export type ContentRuntimePolicyInput = {
 
 async function loadContentConfig(rootDir: string): Promise<ContentConfigLike> {
   const configPath = resolve(rootDir, 'content.config.ts')
-  if (!existsSync(configPath)) return { collections: {} }
+  if (!existsSync(configPath)) return {}
   const importer = createJiti(import.meta.url, { interopDefault: true })
   const loaded = await importer.import(configPath)
   return ((loaded as { default?: unknown }).default ?? loaded) as ContentConfigLike
@@ -35,20 +33,8 @@ async function loadContentConfig(rootDir: string): Promise<ContentConfigLike> {
 
 export async function loadGinkoContentContract(options: {
   rootDir: string
-  content?: ContentRuntimePolicyInput
 }): Promise<ResolvedContentContractV1> {
-  const contentConfig = await loadContentConfig(options.rootDir)
-  const defaultLocale = options.content?.defaultLocale ?? 'en'
-  const locales = options.content?.locales?.length ? options.content.locales : [defaultLocale]
-  return buildResolvedContentContract(
-    { collections: contentConfig.collections ?? {} },
-    {
-      defaultLocale,
-      locales,
-      localeFallbacks: options.content?.fallback,
-      translatedSlugs: options.content?.translatedSlugs,
-    },
-  )
+  return (await readResolvedContentContract({ root: options.rootDir })).contract
 }
 
 export async function loadGinkoContentProviderName(rootDir: string): Promise<string | null> {

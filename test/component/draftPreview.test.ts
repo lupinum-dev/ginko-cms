@@ -75,7 +75,7 @@ describe('draftPreview.getDraftPreview', () => {
     expect(JSON.stringify(preview.bodyAst)).toContain('Draft-only paragraph.')
 
     // The draft stays invisible to the public provider.
-    const page = await ctx.raw.query(api.public.page, {
+    const page = await ctx.published.query(api.public.page, {
       collection: 'posts',
       locale: 'en',
       path: '/posts/preview-me',
@@ -112,7 +112,7 @@ describe('draftPreview.getDraftPreview', () => {
     expect(preview.publishedPath).toBe('/posts/preview-me')
 
     // Public output still serves the published revision.
-    const page = await ctx.raw.query(api.public.page, {
+    const page = await ctx.published.query(api.public.page, {
       collection: 'posts',
       locale: 'en',
       path: '/posts/preview-me',

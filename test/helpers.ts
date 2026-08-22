@@ -19,6 +19,36 @@ import schema from '#component/schema'
 import { modules } from '#component/test.setup'
 
 export const api = anyApi
+const cmsProviderWireProtocol = 'ginko-content-cms/v1'
+
+type CmsWirePayload<T> = T extends {
+  protocol: typeof cmsProviderWireProtocol
+  result: infer Result
+}
+  ? Result
+  : never
+
+function createPublishedReadClient(ctx: TestConvex<typeof schema>) {
+  return {
+    query: async <Query extends FunctionReference<'query'>>(
+      fn: Query,
+      ...args: OptionalRestArgs<Query>
+    ): Promise<CmsWirePayload<FunctionReturnType<Query>>> => {
+      const envelope = await ctx.query(fn, ...args)
+      if (
+        !envelope ||
+        typeof envelope !== 'object' ||
+        Array.isArray(envelope) ||
+        !('protocol' in envelope) ||
+        envelope.protocol !== cmsProviderWireProtocol ||
+        !('result' in envelope)
+      ) {
+        throw new TypeError('Expected a versioned Ginko CMS published-read envelope.')
+      }
+      return envelope.result as CmsWirePayload<FunctionReturnType<Query>>
+    },
+  }
+}
 type CmsOperationRef = {
   id: string
   executeRef: FunctionReference<'mutation'>
@@ -219,6 +249,7 @@ export function createCtx(
   }
   return Object.assign(ctx, {
     raw: ctx,
+    published: createPublishedReadClient(ctx),
     seed: async (table: string, value: Record<string, unknown>) =>
       await ctx.run(
         async (mutationCtx) =>

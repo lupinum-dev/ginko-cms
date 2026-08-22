@@ -1,59 +1,64 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
+import {
+  buildResolvedContentContract,
+  hashCanonicalJson,
+} from '@lupinum/ginko-content/cms-contract'
+import { defineCollection, fields, reference } from '@lupinum/ginko-content/config'
 import { afterEach, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   loadGinkoContentContract,
   projectContractCollections,
 } from '../../packages/cms/src/module/content-contract'
 
-const contentConfigImport = createRequire(import.meta.url).resolve('@lupinum/ginko-content/config')
-
-describe('ginko-content contract derivation', () => {
+describe('ginko-content contract artifact consumption', () => {
   const tempDirs: string[] = []
 
   afterEach(() => {
     for (const dir of tempDirs.splice(0)) rmSync(dir, { force: true, recursive: true })
   })
 
-  function fixture(source: string) {
+  function fixture(contract: ReturnType<typeof buildResolvedContentContract>) {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-content-contract-'))
     tempDirs.push(rootDir)
-    writeFileSync(join(rootDir, 'content.config.ts'), source, 'utf8')
+    mkdirSync(join(rootDir, '.ginko'))
+    writeFileSync(join(rootDir, '.ginko/content-contract.json'), `${JSON.stringify(contract)}\n`)
+    // This deliberately conflicts with the artifact. CMS tools must consume
+    // the exact contract resolved by Ginko Content, not reconstruct config.
+    writeFileSync(join(rootDir, 'content.config.ts'), 'export default { collections: {} }\n')
     return rootDir
   }
 
   it('loads the exact semantic contract and projects CMS operations from it', async () => {
-    const rootDir = fixture(`
-      import { z } from 'zod'
-      import { defineCollection, defineContentConfig, fields, reference } from '${contentConfigImport}'
-
-      const posts = defineCollection({
-        type: 'page',
-        source: 'content/posts/**/*.md',
-        i18n: true,
-        route: { en: '/posts', de: '/beitraege' },
-        schema: z.object({
-          authors: z.array(reference('authors')),
-          hero: fields.image({ aspectRatio: '16:9', accept: ['image/webp'] }),
-        }),
-      })
-      const authors = defineCollection({ type: 'page', source: 'content/authors/**/*.md', route: '/authors' })
-      export default defineContentConfig({ collections: { posts, authors } })
-    `)
-
-    const contract = await loadGinkoContentContract({
-      rootDir,
-      content: {
+    const posts = defineCollection({
+      type: 'page',
+      source: 'content/posts/**/*.md',
+      i18n: true,
+      route: { en: '/posts', de: '/beitraege' },
+      schema: z.object({
+        authors: z.array(reference('authors')),
+        hero: fields.image({ aspectRatio: '16:9', accept: ['image/webp'] }),
+      }),
+    })
+    const authors = defineCollection({
+      type: 'page',
+      source: 'content/authors/**/*.md',
+      route: '/authors',
+    })
+    const expected = buildResolvedContentContract(
+      { collections: { posts, authors } },
+      {
         defaultLocale: 'en',
         locales: ['en', 'de'],
-        fallback: { de: ['en'] },
+        localeFallbacks: { de: ['en'] },
       },
-    })
+    )
+    const rootDir = fixture(expected)
+    const contract = await loadGinkoContentContract({ rootDir })
     const projected = projectContractCollections(contract)
 
     expect(contract).toMatchObject({
@@ -92,30 +97,31 @@ describe('ginko-content contract derivation', () => {
   })
 
   it('takes translated slug policy only from Content i18n config', async () => {
-    const rootDir = fixture(`
-      import { defineCollection, defineContentConfig } from '${contentConfigImport}'
-      const docs = defineCollection({
-        type: 'page', source: 'content/docs/**/*.md', i18n: true,
-        route: { en: '/docs', de: '/dokumentation' }, cms: { type: 'tree' }
-      })
-      export default defineContentConfig({ collections: { docs } })
-    `)
-
-    const contract = await loadGinkoContentContract({
-      rootDir,
-      content: { defaultLocale: 'en', locales: ['en', 'de'], translatedSlugs: true },
+    const docs = defineCollection({
+      type: 'page',
+      source: 'content/docs/**/*.md',
+      i18n: true,
+      route: { en: '/docs', de: '/dokumentation' },
+      cms: { type: 'tree' },
     })
+    const expected = buildResolvedContentContract(
+      { collections: { docs } },
+      { defaultLocale: 'en', locales: ['en', 'de'], translatedSlugs: true },
+    )
+    const contract = await loadGinkoContentContract({ rootDir: fixture(expected) })
 
     expect(contract.collections.docs?.routing.slugMode).toBe('localized')
     expect(projectContractCollections(contract).docs?.routing.slugMode).toBe('localized')
   })
 
   it('keeps presentation-only layout outside the canonical content hash', async () => {
-    const rootDir = fixture(`
-      import { defineCollection, defineContentConfig } from '${contentConfigImport}'
-      const pages = defineCollection({ type: 'page', source: 'content/pages/**/*.md', route: '/' })
-      export default defineContentConfig({ collections: { pages } })
-    `)
+    const pages = defineCollection({ type: 'page', source: 'content/pages/**/*.md', route: '/' })
+    const rootDir = fixture(
+      buildResolvedContentContract(
+        { collections: { pages } },
+        { defaultLocale: 'en', locales: ['en'] },
+      ),
+    )
     const contract = await loadGinkoContentContract({ rootDir })
     const before = await hashCanonicalJson(contract)
     const projected = projectContractCollections(contract, {

@@ -79,6 +79,12 @@ function createNuxtMock(rootDir: string) {
       },
       css: [] as string[],
       runtimeConfig: {
+        content: {
+          contract: buildResolvedContentContract(
+            { collections: {} },
+            { defaultLocale: 'en', locales: ['en'] },
+          ),
+        },
         public: {},
       },
       serverHandlers: [],

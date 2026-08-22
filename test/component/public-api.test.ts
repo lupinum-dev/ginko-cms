@@ -56,6 +56,23 @@ async function seedPosts(ctx: TestCtx, titles: string[]) {
 }
 
 describe('canonical public content API', () => {
+  it('versions the separately deployed published-read wire', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+
+    await expect(
+      ctx.raw.query(api.public.page, {
+        collection: 'posts',
+        locale: 'en',
+        path: '/posts/missing',
+      }),
+    ).resolves.toMatchObject({
+      protocol: 'ginko-content-cms/v1',
+      result: { status: 'not-found', page: null },
+    })
+  })
+
   it('resolves structural pages and keyset-pages stable sort ties without loss', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
@@ -63,7 +80,7 @@ describe('canonical public content API', () => {
     const ids = await seedPosts(ctx, ['First', 'Second', 'Third', 'Fourth', 'Fifth'])
 
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'posts',
         locale: 'en',
         path: '/posts/post-03',
@@ -87,7 +104,7 @@ describe('canonical public content API', () => {
     const seen: string[] = []
     let cursor: string | null = null
     do {
-      const result = await ctx.raw.query(api.public.list, {
+      const result = await ctx.published.query(api.public.list, {
         collection: 'posts',
         locale: 'en',
         sort: 'lastPublishedAt:asc',
@@ -104,7 +121,7 @@ describe('canonical public content API', () => {
       ctx.raw.query(api.public.count, { collection: 'posts', locale: 'en' }),
     ).resolves.toBe(5)
 
-    const cursorPage = await ctx.raw.query(api.public.list, {
+    const cursorPage = await ctx.published.query(api.public.list, {
       collection: 'posts',
       locale: 'en',
       sort: 'lastPublishedAt:asc',
@@ -114,7 +131,7 @@ describe('canonical public content API', () => {
     if (!cursorPage.pageInfo.endCursor) throw new Error('Expected a second public list page.')
     const cursorPayload = JSON.parse(cursorPage.pageInfo.endCursor) as Record<string, unknown>
     await expect(
-      ctx.raw.query(api.public.list, {
+      ctx.published.query(api.public.list, {
         collection: 'posts',
         locale: 'en',
         sort: 'lastPublishedAt:asc',
@@ -124,7 +141,7 @@ describe('canonical public content API', () => {
     ).rejects.toSatisfy((error: unknown) => getCmsErrorData(error)?.code === 'INVALID_CURSOR')
 
     await expect(
-      ctx.raw.query(api.public.surround, {
+      ctx.published.query(api.public.surround, {
         collection: 'posts',
         locale: 'en',
         path: '/posts/post-03',
@@ -150,7 +167,7 @@ describe('canonical public content API', () => {
     const currentId = orderedIds[2]!
     const currentIndex = ids.indexOf(currentId)
     const path = `/posts/post-${String(currentIndex + 1).padStart(2, '0')}`
-    const surround = await ctx.raw.query(api.public.surround, {
+    const surround = await ctx.published.query(api.public.surround, {
       collection: 'posts',
       locale: 'en',
       path,
@@ -160,7 +177,7 @@ describe('canonical public content API', () => {
     expect(surround.previous.map((entry) => entry.id)).toEqual(orderedIds.slice(0, 2).reverse())
     expect(surround.next.map((entry) => entry.id)).toEqual(orderedIds.slice(3))
 
-    const navigation = await ctx.raw.query(api.public.nav, {
+    const navigation = await ctx.published.query(api.public.nav, {
       collection: 'posts',
       locale: 'en',
     })
@@ -173,13 +190,13 @@ describe('canonical public content API', () => {
     await seedSettings(ctx)
     await seedPosts(ctx, ['One', 'Two', 'Three'])
 
-    const first = await ctx.raw.query(api.public.routes, {
+    const first = await ctx.published.query(api.public.routes, {
       collection: 'posts',
       locale: 'en',
       limit: 1,
       cursor: null,
     })
-    const second = await ctx.raw.query(api.public.routes, {
+    const second = await ctx.published.query(api.public.routes, {
       collection: 'posts',
       locale: 'en',
       limit: 1,
@@ -192,7 +209,7 @@ describe('canonical public content API', () => {
     await createPost(ctx, { slug: 'post-04', title: 'Four' })
 
     await expect(
-      ctx.raw.query(api.public.routes, {
+      ctx.published.query(api.public.routes, {
         collection: 'posts',
         locale: 'en',
         limit: 1,
@@ -229,7 +246,7 @@ describe('canonical public content API', () => {
     })
 
     await expect(
-      ctx.raw.query(api.public.search, {
+      ctx.published.query(api.public.search, {
         collection: 'posts',
         locale: 'en',
         query: 'Needleword',
@@ -244,7 +261,7 @@ describe('canonical public content API', () => {
     const seen = new Set<string>()
     let cursor: string | null = null
     do {
-      const result = await ctx.raw.query(api.public.search, {
+      const result = await ctx.published.query(api.public.search, {
         collection: 'posts',
         locale: 'en',
         query: 'Indexed',
@@ -256,7 +273,7 @@ describe('canonical public content API', () => {
     } while (cursor)
     expect(seen.size).toBe(7)
 
-    const stale = await ctx.raw.query(api.public.search, {
+    const stale = await ctx.published.query(api.public.search, {
       collection: 'posts',
       locale: 'en',
       query: 'Indexed',
@@ -265,7 +282,7 @@ describe('canonical public content API', () => {
     })
     await createPost(ctx, { slug: 'indexed-late', title: 'Indexed late result' })
     await expect(
-      ctx.raw.query(api.public.search, {
+      ctx.published.query(api.public.search, {
         collection: 'posts',
         locale: 'en',
         query: 'Indexed',
@@ -295,12 +312,12 @@ describe('canonical public content API', () => {
       author: author?.stableId,
     })
 
-    const page = await ctx.raw.query(api.public.page, {
+    const page = await ctx.published.query(api.public.page, {
       collection: 'posts',
       locale: 'en',
       path: '/posts/relation-post',
     })
-    const list = await ctx.raw.query(api.public.list, {
+    const list = await ctx.published.query(api.public.list, {
       collection: 'posts',
       locale: 'en',
       limit: 10,
@@ -313,7 +330,7 @@ describe('canonical public content API', () => {
     expect(page.page?.data).not.toHaveProperty('internalNote')
     expect(list.entries[0]?.data).not.toHaveProperty('internalNote')
     await expect(
-      ctx.raw.query(api.public.search, {
+      ctx.published.query(api.public.search, {
         collection: 'posts',
         locale: 'en',
         query: 'classifiedneedle',
@@ -321,7 +338,7 @@ describe('canonical public content API', () => {
     ).resolves.toMatchObject({ results: [] })
 
     await expect(
-      ctx.raw.query(api.public.list, {
+      ctx.published.query(api.public.list, {
         collection: 'authors',
         locale: 'en',
         limit: 10,
@@ -331,21 +348,21 @@ describe('canonical public content API', () => {
 
     const routeOnlyReads = [
       () =>
-        ctx.raw.query(api.public.page, {
+        ctx.published.query(api.public.page, {
           collection: 'authors',
           locale: 'en',
           path: '/authors/ada',
         }),
-      () => ctx.raw.query(api.public.nav, { collection: 'authors', locale: 'en' }),
+      () => ctx.published.query(api.public.nav, { collection: 'authors', locale: 'en' }),
       () =>
-        ctx.raw.query(api.public.search, {
+        ctx.published.query(api.public.search, {
           collection: 'authors',
           locale: 'en',
           query: 'Ada',
         }),
       () => ctx.raw.query(api.public.sitemap, { collection: 'authors', locale: 'en' }),
       () =>
-        ctx.raw.query(api.public.surround, {
+        ctx.published.query(api.public.surround, {
           collection: 'authors',
           locale: 'en',
           path: '/authors/ada',
@@ -414,7 +431,7 @@ describe('canonical public content API', () => {
     expect(preview).toMatchObject({ allowed: true })
     await publishEntry(owner, rootId, ['en'])
 
-    const page = await ctx.raw.query(api.public.page, {
+    const page = await ctx.published.query(api.public.page, {
       collection: 'docs',
       locale: 'en',
       path: '/docs/handbook/install',
@@ -436,7 +453,7 @@ describe('canonical public content API', () => {
       },
     })
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'docs',
         locale: 'en',
         path: '/docs/guide/install',
@@ -446,7 +463,7 @@ describe('canonical public content API', () => {
       redirectTo: { path: '/docs/handbook/install' },
     })
 
-    const nav = await ctx.raw.query(api.public.nav, { collection: 'docs', locale: 'en' })
+    const nav = await ctx.published.query(api.public.nav, { collection: 'docs', locale: 'en' })
     expect(nav.tree).toEqual([
       expect.objectContaining({
         entry: expect.objectContaining({
@@ -488,10 +505,12 @@ describe('canonical public content API', () => {
       data: { message: 'Draft notice' },
     })
     await expect(
-      ctx.raw.query(api.public.siteData, { key: 'announcement' }),
+      ctx.published.query(api.public.siteData, { key: 'announcement' }),
     ).resolves.toMatchObject({ data: null })
 
-    await expect(ctx.raw.query(api.public.siteData, { key: 'missing' })).resolves.toMatchObject({
+    await expect(
+      ctx.published.query(api.public.siteData, { key: 'missing' }),
+    ).resolves.toMatchObject({
       key: 'missing',
       data: null,
     })
@@ -504,7 +523,7 @@ describe('canonical public content API', () => {
       data: { message: 'English fallback' },
     })
     await expect(
-      ctx.raw.query(api.public.siteData, { key: 'localizedFooter', locale: 'de' }),
+      ctx.published.query(api.public.siteData, { key: 'localizedFooter', locale: 'de' }),
     ).resolves.toMatchObject({
       key: 'localizedFooter',
       data: { message: 'English fallback' },
@@ -521,7 +540,7 @@ describe('canonical public content API', () => {
       visibility: 'public',
     })
     await expect(
-      ctx.raw.query(api.public.siteData, { key: 'announcement' }),
+      ctx.published.query(api.public.siteData, { key: 'announcement' }),
     ).resolves.toMatchObject({ data: { message: 'Draft notice' } })
 
     await owner.mutation(api.siteData.saveSiteData, {
@@ -529,7 +548,7 @@ describe('canonical public content API', () => {
       data: { message: 'Live notice' },
     })
     await expect(
-      ctx.raw.query(api.public.siteData, { key: 'announcement' }),
+      ctx.published.query(api.public.siteData, { key: 'announcement' }),
     ).resolves.toMatchObject({ data: { message: 'Live notice' } })
 
     await owner.mutation(api.siteData.updateSiteDataBlock, {
@@ -537,7 +556,7 @@ describe('canonical public content API', () => {
       visibility: 'private',
     })
     await expect(
-      ctx.raw.query(api.public.siteData, { key: 'announcement' }),
+      ctx.published.query(api.public.siteData, { key: 'announcement' }),
     ).resolves.toMatchObject({ data: null })
   })
 })

@@ -17,7 +17,6 @@ import {
 import { type CliIo, type ConvexClientFactory, readFlag, write } from './args.js'
 import { cmsSiteOrigin, convexDeploymentId } from './env.js'
 import { createOperatorContext, type OperatorClient } from './operator.js'
-import { loadContentConfig } from './push.js'
 
 const api = anyApi
 const PORTABLE_RECEIPT_PAGE_SIZE = 100
@@ -245,8 +244,7 @@ async function verifyCommand(args: string[], cwd: string, io: CliIo) {
 }
 
 async function localContract(cwd: string) {
-  const config = await loadContentConfig(cwd)
-  return await loadGinkoContentContract({ rootDir: cwd, content: config.content })
+  return await loadGinkoContentContract({ rootDir: cwd })
 }
 
 async function readPreparedPlan(path: string): Promise<PreparedPortableDraftImport> {

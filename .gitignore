@@ -10,6 +10,8 @@ node_modules
 .tmp
 .cache
 .fallow
+/.candidate/
+**/.ginko/content-contract.json
 
 # Yarn
 **/.yarn/cache

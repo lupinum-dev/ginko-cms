@@ -16,6 +16,7 @@ type ContentProvider = {
 }
 
 let contentProvider: ContentProvider
+const wire = <T>(result: T) => ({ protocol: 'ginko-content-cms/v1' as const, result })
 
 function containsValue(root: unknown, expected: unknown): boolean {
   const seen = new Set<object>()
@@ -44,16 +45,18 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
   })
 
   it('routes a supplied H3 event through exactly one anonymous serverConvex caller', async () => {
-    const query = vi.fn(async () => ({
-      key: 'announcement',
-      locale: {
-        requested: 'en',
-        resolved: 'en',
-        policy: 'strict',
-        fallbacks: { fields: [] },
-      },
-      data: { message: 'hi' },
-    }))
+    const query = vi.fn(async () =>
+      wire({
+        key: 'announcement',
+        locale: {
+          requested: 'en',
+          resolved: 'en',
+          policy: 'strict',
+          fallbacks: { fields: [] },
+        },
+        data: { message: 'hi' },
+      }),
+    )
     serverConvexMock.mockReturnValue({ query })
 
     const event = { context: { runtimeConfig: { public: {} } } }
@@ -65,16 +68,18 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
   })
 
   it('shares one request caller across concurrent provider operations', async () => {
-    const query = vi.fn(async () => ({
-      key: 'announcement',
-      locale: {
-        requested: 'en',
-        resolved: 'en',
-        policy: 'strict',
-        fallbacks: { fields: [] },
-      },
-      data: null,
-    }))
+    const query = vi.fn(async () =>
+      wire({
+        key: 'announcement',
+        locale: {
+          requested: 'en',
+          resolved: 'en',
+          policy: 'strict',
+          fallbacks: { fields: [] },
+        },
+        data: null,
+      }),
+    )
     serverConvexMock.mockReturnValue({ query })
 
     const event = { context: { runtimeConfig: { public: {} } } }
@@ -91,7 +96,7 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
     const query = vi.fn(async (reference: unknown) => {
       const path = String((reference as Record<symbol, unknown>)[Symbol.for('functionName')])
       if (path.endsWith('page')) {
-        return {
+        return wire({
           status: 'found',
           page: {
             id: 'entry-1',
@@ -135,7 +140,7 @@ describe('nuxt-provider.mjs event-backed serverConvex adoption', () => {
           },
           breadcrumbs: [],
           seo: { title: 'Home', description: '', canonical: '/', alternates: [], xDefault: null },
-        }
+        })
       }
       throw new Error(`Unexpected provider query: ${path}`)
     })

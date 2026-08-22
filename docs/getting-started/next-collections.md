@@ -109,5 +109,7 @@ Ginko Content provider. Keep provider setup out of the first model change; use
 the [Nuxt content provider reference](../reference/nuxt-content-provider.md)
 when you need read-path details.
 
-Ginko CMS reads the resolved Ginko Content contract from `content.config.ts`.
+Ginko Content resolves `content.config.ts` during Nuxt prepare and atomically writes
+`.ginko/content-contract.json`. Ginko CMS reads that generated artifact, so Studio,
+CLI tools, and the Nuxt runtime all use the exact same resolved contract.
 Do not duplicate collection, route, field, or locale policy in `nuxt.config.ts`.

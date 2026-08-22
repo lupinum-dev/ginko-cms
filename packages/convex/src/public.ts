@@ -35,6 +35,7 @@ import {
 import { navHandler, surroundHandler } from './publicReads/navigationHandlers.js'
 import { pageHandler, routeMetaHandler } from './publicReads/pageHandlers.js'
 import { singletonHandler, siteDataHandler } from './publicReads/siteHandlers.js'
+import { cmsProviderWireResult, cmsProviderWireValidator } from './publicReads/wire.js'
 
 // AUTH-AUDIT: all exports in this module are intentionally unguarded. The
 // handlers are read-only and consume published projections or public site data.
@@ -42,8 +43,8 @@ import { singletonHandler, siteDataHandler } from './publicReads/siteHandlers.js
 export const page = callerQuery.public({
   id: 'public:page',
   args: pageArgs.args,
-  returns: ginkoPageResultValidator,
-  handler: pageHandler,
+  returns: cmsProviderWireValidator(ginkoPageResultValidator),
+  handler: async (ctx, args) => cmsProviderWireResult(await pageHandler(ctx, args)),
 })
 
 export const routeMeta = callerQuery.public({
@@ -56,8 +57,8 @@ export const routeMeta = callerQuery.public({
 export const list = callerQuery.public({
   id: 'public:list',
   args: listArgs.args,
-  returns: ginkoListResultValidator,
-  handler: listHandler,
+  returns: cmsProviderWireValidator(ginkoListResultValidator),
+  handler: async (ctx, args) => cmsProviderWireResult(await listHandler(ctx, args)),
 })
 
 export const count = callerQuery.public({
@@ -70,22 +71,22 @@ export const count = callerQuery.public({
 export const nav = callerQuery.public({
   id: 'public:nav',
   args: navArgs.args,
-  returns: ginkoNavResultValidator,
-  handler: navHandler,
+  returns: cmsProviderWireValidator(ginkoNavResultValidator),
+  handler: async (ctx, args) => cmsProviderWireResult(await navHandler(ctx, args)),
 })
 
 export const surround = callerQuery.public({
   id: 'public:surround',
   args: surroundArgs.args,
-  returns: ginkoSurroundResultValidator,
-  handler: surroundHandler,
+  returns: cmsProviderWireValidator(ginkoSurroundResultValidator),
+  handler: async (ctx, args) => cmsProviderWireResult(await surroundHandler(ctx, args)),
 })
 
 export const search = callerQuery.public({
   id: 'public:search',
   args: searchArgs.args,
-  returns: ginkoSearchResultValidator,
-  handler: searchHandler,
+  returns: cmsProviderWireValidator(ginkoSearchResultValidator),
+  handler: async (ctx, args) => cmsProviderWireResult(await searchHandler(ctx, args)),
 })
 
 export const sitemap = callerQuery.public({
@@ -98,8 +99,8 @@ export const sitemap = callerQuery.public({
 export const routes = callerQuery.public({
   id: 'public:routes',
   args: routesArgs.args,
-  returns: ginkoRoutesResultValidator,
-  handler: routesHandler,
+  returns: cmsProviderWireValidator(ginkoRoutesResultValidator),
+  handler: async (ctx, args) => cmsProviderWireResult(await routesHandler(ctx, args)),
 })
 
 export const singleton = callerQuery.public({
@@ -112,6 +113,6 @@ export const singleton = callerQuery.public({
 export const siteData = callerQuery.public({
   id: 'public:siteData',
   args: siteDataArgs.args,
-  returns: ginkoSiteDataResultValidator,
-  handler: siteDataHandler,
+  returns: cmsProviderWireValidator(ginkoSiteDataResultValidator),
+  handler: async (ctx, args) => cmsProviderWireResult(await siteDataHandler(ctx, args)),
 })

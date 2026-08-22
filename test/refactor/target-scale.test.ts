@@ -148,7 +148,7 @@ describe('greenfield target-scale evidence', () => {
       ),
     ).toBe(true)
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'docs',
         locale: 'en',
         path: '/docs/long-document',
@@ -368,7 +368,7 @@ describe('greenfield target-scale evidence', () => {
       })
     }
 
-    const result = await ctx.raw.query(api.public.nav, {
+    const result = await ctx.published.query(api.public.nav, {
       collection: 'navigation',
       locale: 'en',
     })
@@ -379,7 +379,7 @@ describe('greenfield target-scale evidence', () => {
       )
     expect(countNodes(result.tree)).toBe(499)
 
-    const list = await ctx.raw.query(api.public.list, {
+    const list = await ctx.published.query(api.public.list, {
       collection: 'navigation',
       locale: 'en',
       limit: 100,
@@ -398,7 +398,7 @@ describe('greenfield target-scale evidence', () => {
     expect(sitemap.urls).toHaveLength(1_000)
     expect(sitemap.pageInfo.hasNextPage).toBe(true)
 
-    const firstSearchPage = await ctx.raw.query(api.public.search, {
+    const firstSearchPage = await ctx.published.query(api.public.search, {
       collection: 'navigation',
       locale: 'en',
       query: 'navigation',
@@ -410,7 +410,7 @@ describe('greenfield target-scale evidence', () => {
     expect(firstSearchPage.results.every((entry) => !('bodyAst' in entry))).toBe(true)
     expect(firstSearchPage.pageInfo.endCursor).not.toBeNull()
 
-    const secondSearchPage = await ctx.raw.query(api.public.search, {
+    const secondSearchPage = await ctx.published.query(api.public.search, {
       collection: 'navigation',
       locale: 'en',
       query: 'navigation',
@@ -532,7 +532,7 @@ describe('greenfield target-scale evidence', () => {
     const paths: string[] = []
     let cursor: string | null = null
     do {
-      const page = await ctx.raw.query(api.public.routes, {
+      const page = await ctx.published.query(api.public.routes, {
         collection: 'pages',
         locale: 'en',
         limit: 250,
@@ -550,7 +550,7 @@ describe('greenfield target-scale evidence', () => {
     const subtreePaths: string[] = []
     let subtreeCursor: string | null = null
     do {
-      const page = await ctx.raw.query(api.public.list, {
+      const page = await ctx.published.query(api.public.list, {
         collection: 'pages',
         locale: 'en',
         pathPrefix: '/pages/needle',

@@ -44,11 +44,6 @@ export async function loadContentConfig(
   cwd: string,
 ): Promise<{ content?: ContentRuntimePolicyInput; presentation: JsonValue }> {
   const configPath = resolve(cwd, 'nuxt.config.ts')
-  if (!existsSync(resolve(cwd, 'content.config.ts'))) {
-    throw new Error(
-      'ginko-cms push requires content.config.ts as the canonical Content contract source.',
-    )
-  }
   const importer = createJiti(import.meta.url, { interopDefault: true })
   const globalWithNuxtConfig = globalThis as typeof globalThis & {
     defineNuxtConfig?: (config: unknown) => unknown
@@ -89,7 +84,7 @@ export async function runPushCommand(
 ): Promise<number> {
   const push = parsePushArgs(args.slice(1))
   const config = await loadContentConfig(cwd)
-  const content = await loadGinkoContentContract({ rootDir: cwd, content: config.content })
+  const content = await loadGinkoContentContract({ rootDir: cwd })
   const contentHash = await hashCanonicalJson(content as unknown as JsonValue)
   const presentationHash = await hashCanonicalJson(config.presentation)
   const client = convexClientFactory(publicConvexUrl(cwd))

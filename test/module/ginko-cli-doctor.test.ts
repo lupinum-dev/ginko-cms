@@ -3,8 +3,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { hashCanonicalJson } from '@lupinum/ginko-content/cms-contract'
+import {
+  buildResolvedContentContract,
+  hashCanonicalJson,
+} from '@lupinum/ginko-content/cms-contract'
 import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
+import { defineCollection } from '@lupinum/ginko-content/config'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ConvexClientFactory } from '../../packages/cms/src/cli/args.js'
@@ -62,9 +66,28 @@ async function completeFixture(
     'utf8',
   )
   writeFileSync(resolve(root, 'nuxt.config.ts'), 'export default {}\n', 'utf8')
+  mkdirSync(resolve(root, '.ginko'), { recursive: true })
+  writeFileSync(
+    resolve(root, '.ginko/content-contract.json'),
+    `${JSON.stringify(
+      buildResolvedContentContract(
+        {
+          collections: {
+            pages: defineCollection({
+              type: 'page',
+              source: 'content/pages/**/*.md',
+              route: '/',
+            }),
+          },
+        },
+        { defaultLocale: 'en', locales: ['en'] },
+      ),
+    )}\n`,
+    'utf8',
+  )
   if (options.bindContract !== false) {
     const config = await loadContentConfig(root)
-    const contract = await loadGinkoContentContract({ rootDir: root, content: config.content })
+    const contract = await loadGinkoContentContract({ rootDir: root })
     writeExpectedContractBinding(root, {
       contentHash: await hashCanonicalJson(contract as unknown as JsonValue),
       presentationHash: await hashCanonicalJson(config.presentation),
@@ -161,7 +184,7 @@ describe('ginko-cms setup doctor', () => {
     )
     expect(result.stderr).toContain('Run pnpm exec ginko-cms init to update the generated file')
     expect(result.stderr).toContain(
-      'convex/ginkoCms/contractBinding.ts does not match content.config.ts and nuxt.config.ts',
+      'convex/ginkoCms/contractBinding.ts does not match the generated Content artifact and Nuxt presentation config',
     )
     expect(result.stderr).toContain('Run `pnpm exec ginko-cms deploy`')
   })

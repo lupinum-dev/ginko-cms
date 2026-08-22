@@ -226,7 +226,7 @@ describe('canonical editorial core', () => {
       ctx.raw.query(api.public.count, { collection: 'posts', locale: 'en' }),
     ).resolves.toBe(2)
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'posts',
         locale: 'en',
         path: '/posts/operations/recovery',
@@ -532,7 +532,7 @@ describe('canonical editorial core', () => {
     await publishEntry(owner, firstId)
     await publishEntry(owner, secondId)
 
-    const firstPage = await ctx.raw.query(api.public.routes, {
+    const firstPage = await ctx.published.query(api.public.routes, {
       collection: 'posts',
       locale: 'en',
       limit: 1,
@@ -549,7 +549,7 @@ describe('canonical editorial core', () => {
     await publishEntry(owner, firstId)
 
     await expect(
-      ctx.raw.query(api.public.routes, {
+      ctx.published.query(api.public.routes, {
         collection: 'posts',
         locale: 'en',
         limit: 1,
@@ -573,7 +573,7 @@ describe('canonical editorial core', () => {
       await publishEntry(owner, entryId)
     }
 
-    const firstPage = await ctx.raw.query(api.public.search, {
+    const firstPage = await ctx.published.query(api.public.search, {
       collection: 'posts',
       locale: 'en',
       query: 'Search Entry',
@@ -592,14 +592,14 @@ describe('canonical editorial core', () => {
       offset: 2,
     })
 
-    const secondPage = await ctx.raw.query(api.public.search, {
+    const secondPage = await ctx.published.query(api.public.search, {
       collection: 'posts',
       locale: 'en',
       query: 'Search Entry',
       limit: 2,
       cursor: firstPage.pageInfo.endCursor,
     })
-    const thirdPage = await ctx.raw.query(api.public.search, {
+    const thirdPage = await ctx.published.query(api.public.search, {
       collection: 'posts',
       locale: 'en',
       query: 'Search Entry',

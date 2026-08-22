@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { installConvexSetup } from './convex-setup-helpers.js'
@@ -87,6 +88,12 @@ function createNuxtMock(rootDir: string) {
       rootDir,
       srcDir: rootDir,
       runtimeConfig: {
+        content: {
+          contract: buildResolvedContentContract(
+            { collections: {} },
+            { defaultLocale: 'en', locales: ['en'] },
+          ),
+        },
         public: {},
       },
       vite: {

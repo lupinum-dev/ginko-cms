@@ -41,7 +41,7 @@ describe('integration: canonical entry lifecycle', () => {
     })
 
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'posts',
         path: '/posts/my-first-article',
         locale: 'en',
@@ -50,7 +50,7 @@ describe('integration: canonical entry lifecycle', () => {
 
     await publishEntry(owner, entryId)
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'posts',
         path: '/posts/my-first-article',
         locale: 'en',
@@ -64,7 +64,7 @@ describe('integration: canonical entry lifecycle', () => {
       },
     })
     await expect(
-      ctx.raw.query(api.public.list, {
+      ctx.published.query(api.public.list, {
         collection: 'posts',
         locale: 'en',
         limit: 10,
@@ -103,7 +103,7 @@ describe('integration: canonical entry lifecycle', () => {
 
     await publishEntry(owner, entryId, ['en'])
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'posts',
         path: '/beitraege/welcome',
         locale: 'de',
@@ -112,14 +112,14 @@ describe('integration: canonical entry lifecycle', () => {
 
     await publishEntry(owner, entryId, ['de'])
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'posts',
         path: '/posts/welcome',
         locale: 'en',
       }),
     ).resolves.toMatchObject({ status: 'found', page: { title: 'Welcome' } })
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'posts',
         path: '/beitraege/welcome',
         locale: 'de',

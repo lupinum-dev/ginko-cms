@@ -84,6 +84,7 @@ const pageResult = (args: Record<string, unknown>, page: ReturnType<typeof entry
 })
 
 const convexMock = vi.hoisted(() => {
+  const wire = <T>(result: T) => ({ protocol: 'ginko-content-cms/v1' as const, result })
   const calls: Array<{ operation: string; args: Record<string, unknown> }> = []
   const state: {
     listEntries: ReturnType<typeof entry>[] | null
@@ -98,9 +99,9 @@ const convexMock = vi.hoisted(() => {
     calls.push({ operation, args })
 
     if (operation === 'page') {
-      if (args.path === '/missing') return pageResult(args, null)
+      if (args.path === '/missing') return wire(pageResult(args, null))
       if (args.path === '/docs/old-content-routing') {
-        return {
+        return wire({
           status: 'redirect',
           page: null,
           collection: String(args.collection),
@@ -114,51 +115,51 @@ const convexMock = vi.hoisted(() => {
             source: 'published',
           },
           redirectedFrom: '/docs/old-content-routing',
-        }
+        })
       }
-      return pageResult(args, entry(String(args.locale || 'en')))
+      return wire(pageResult(args, entry(String(args.locale || 'en'))))
     }
     if (operation === 'list') {
-      return {
+      return wire({
         entries: state.listEntries ?? [entry(String(args.locale || 'en'))],
         pageInfo: { hasNextPage: args.cursor !== 'next', endCursor: args.cursor ? null : 'next' },
         collection: args.collection,
         locale: localeResult(String(args.locale || 'en')),
-      }
+      })
     }
     if (operation === 'count') return 1
     if (operation === 'nav') {
-      return {
+      return wire({
         tree: [{ entry: entry(String(args.locale || 'en')), children: [] }],
         collection: args.collection,
         locale: localeResult(String(args.locale || 'en')),
-      }
+      })
     }
     if (operation === 'surround') {
-      return {
+      return wire({
         previous: [entry(String(args.locale || 'en'))],
         next: [],
         collection: args.collection,
         locale: localeResult(String(args.locale || 'en')),
-      }
+      })
     }
     if (operation === 'search') {
-      return {
+      return wire({
         results: [entry(String(args.locale || 'en'))],
         pageInfo: { hasNextPage: false, endCursor: null },
         locale: localeResult(String(args.locale || 'en')),
-      }
+      })
     }
     if (operation === 'siteData') {
-      return {
+      return wire({
         key: args.key,
         locale: localeResult(String(args.locale || 'en')),
         data: { message: 'Hello' },
-      }
+      })
     }
     if (operation === 'routes') {
       const hasNextPage = state.routeContinuationCursor !== null && args.cursor === null
-      return {
+      return wire({
         routes: [
           {
             collection: args.collection,
@@ -174,7 +175,7 @@ const convexMock = vi.hoisted(() => {
           endCursor: hasNextPage ? state.routeContinuationCursor : null,
         },
         snapshot: '1',
-      }
+      })
     }
     throw new Error(`Unexpected Convex operation: ${operation}`)
   })
@@ -201,7 +202,7 @@ const event = {
 
 const unwrap = <T>(value: T) => (isContentProviderResult(value) ? value.data : value)
 
-describe('Ginko Nuxt provider v3', () => {
+describe('Ginko Nuxt provider v5', () => {
   beforeEach(async () => {
     vi.resetModules()
     convexMock.calls.length = 0
@@ -259,16 +260,53 @@ describe('Ginko Nuxt provider v3', () => {
       },
     },
     cursor: {
-      query: toContentProviderQuery({
-        collection: 'docs',
-        paging: { mode: 'cursor', after: null, limit: 10 },
+      first: {
+        query: toContentProviderQuery({
+          collection: 'docs',
+          paging: { mode: 'cursor', after: null, limit: 10 },
+        }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({
+            mode: 'cursor',
+            result: [expect.objectContaining({ canonicalKey: 'docs-routing' })],
+            pageInfo: { endCursor: 'next', hasNext: true },
+          })
+        },
+      },
+      next: (cursor) => ({
+        query: toContentProviderQuery({
+          collection: 'docs',
+          paging: { mode: 'cursor', after: cursor, limit: 10 },
+        }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({
+            mode: 'cursor',
+            pageInfo: { endCursor: null, hasNext: false },
+          })
+        },
       }),
-      assertResult: (result) => {
-        expect(result).toMatchObject({
-          mode: 'cursor',
-          result: [expect.objectContaining({ canonicalKey: 'docs-routing' })],
-          pageInfo: { endCursor: 'next', hasNext: true },
-        })
+    },
+    operations: {
+      navigation: {
+        query: toContentProviderNavigationQuery({ collection: 'docs' }),
+        assertResult: (result) => expect(result).toEqual(expect.any(Array)),
+      },
+      surroundings: {
+        collection: 'docs',
+        contentPath: '/docs/content-routing',
+        options: { locale: 'en' },
+        assertResult: (result) => expect(result).toEqual(expect.any(Array)),
+      },
+      search: {
+        request: { term: 'routing', locale: 'en', collections: ['docs'] },
+        assertResult: (result) => expect(result).toEqual(expect.any(Array)),
+      },
+      siteData: {
+        request: { key: 'announcement', locale: 'en' },
+        assertResult: (result) => expect(result).toEqual({ data: { message: 'Hello' } }),
+      },
+      routes: {
+        assertResult: (result) => expect(result).toEqual(expect.any(Array)),
       },
     },
   })
@@ -372,6 +410,29 @@ describe('Ginko Nuxt provider v3', () => {
             result: [expect.objectContaining({ title: 'Content Routing' })],
           })
         },
+      },
+    },
+    operationProbes: {
+      navigation: {
+        query: toContentProviderNavigationQuery({ collection: 'docs' }),
+        assertResult: (result) => expect(result).toEqual(expect.any(Array)),
+      },
+      surroundings: {
+        collection: 'docs',
+        contentPath: '/docs/content-routing',
+        options: { locale: 'en' },
+        assertResult: (result) => expect(result).toEqual(expect.any(Array)),
+      },
+      search: {
+        request: { term: 'routing', locale: 'en', collections: ['docs'] },
+        assertResult: (result) => expect(result).toEqual(expect.any(Array)),
+      },
+      siteData: {
+        request: { key: 'announcement', locale: 'en' },
+        assertResult: (result) => expect(result).toEqual({ data: { message: 'Hello' } }),
+      },
+      routes: {
+        assertResult: (result) => expect(result).toEqual(expect.any(Array)),
       },
     },
   })
@@ -486,7 +547,7 @@ describe('Ginko Nuxt provider v3', () => {
     ])
   })
 
-  it('reapplies the collection mount to mount-agnostic route candidates', async () => {
+  it('passes mounted route candidates through without changing coordinates', async () => {
     const query = toContentProviderQuery({ collection: 'docs', first: true })
     query.plan.variant = {
       by: 'route',
@@ -513,7 +574,7 @@ describe('Ginko Nuxt provider v3', () => {
 
     expect(convexMock.calls.find(({ operation }) => operation === 'page')?.args).toMatchObject({
       locale: 'en',
-      path: '/docs/content-routing',
+      path: '/content-routing',
     })
   })
 
@@ -752,9 +813,9 @@ describe('Ginko Nuxt provider v3', () => {
     await expect(
       contentProvider.query(event, {
         ...toContentProviderQuery({ collection: 'docs' }),
-        v: 2 as 3,
+        v: 2 as 5,
       }),
-    ).rejects.toMatchObject({ statusMessage: 'BACKEND_FAILURE' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'QUERY_UNSUPPORTED' })
     expect(convexMock.query).not.toHaveBeenCalled()
   })
 
@@ -787,9 +848,13 @@ describe('Ginko Nuxt provider v3', () => {
   })
 
   it('rejects collection and locale substitution inside a decoded page', async () => {
-    convexMock.query.mockResolvedValueOnce(
-      pageResult({ collection: 'docs', locale: 'en' }, { ...entry('fr'), collection: 'other' }),
-    )
+    convexMock.query.mockResolvedValueOnce({
+      protocol: 'ginko-content-cms/v1',
+      result: pageResult(
+        { collection: 'docs', locale: 'en' },
+        { ...entry('fr'), collection: 'other' },
+      ),
+    })
     const query = toContentProviderQuery({ collection: 'docs', first: true })
     query.plan.variant = {
       by: 'route',

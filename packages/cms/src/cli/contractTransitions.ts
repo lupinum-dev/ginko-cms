@@ -311,7 +311,7 @@ async function beginAndStage(
   client: ReturnType<typeof createTransitionClient>,
 ) {
   const config = await loadContentConfig(cwd)
-  const targetContent = await loadGinkoContentContract({ rootDir: cwd, content: config.content })
+  const targetContent = await loadGinkoContentContract({ rootDir: cwd })
   if (!isRecord(targetContent))
     throw new TypeError('content.config.ts did not resolve to an object.')
   const targetContentHash = await hashCanonicalJson(targetContent as unknown as JsonValue)
@@ -505,11 +505,6 @@ export async function runContractCommand(
     if (!hasFlag(args, '--yes')) {
       throw new Error(
         'ginko-cms contract transition stage requires --yes because it locks Studio writes.',
-      )
-    }
-    if (!existsSync(resolve(cwd, 'content.config.ts'))) {
-      throw new Error(
-        'Contract transition staging requires content.config.ts as the target contract.',
       )
     }
     const client = createTransitionClient(cwd, convexClientFactory)

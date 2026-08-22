@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { installConvexSetup } from './convex-setup-helpers.js'
@@ -42,6 +43,10 @@ const moduleDefinition = (await import('../../packages/cms/src/module')).default
 }
 
 function createNuxtMock(rootDir: string, contentI18n: Record<string, unknown>) {
+  const defaultLocale = String(contentI18n.defaultLocale ?? 'en')
+  const locales = Array.isArray(contentI18n.locales)
+    ? contentI18n.locales.map(String)
+    : [defaultLocale]
   return {
     hook: vi.fn(),
     options: {
@@ -56,7 +61,19 @@ function createNuxtMock(rootDir: string, contentI18n: Record<string, unknown>) {
       } as Record<string, unknown>,
       modules: ['nuxt-i18n-micro'],
       rootDir,
-      runtimeConfig: { public: {} as Record<string, unknown> },
+      runtimeConfig: {
+        content: {
+          contract: buildResolvedContentContract(
+            { collections: {} },
+            {
+              defaultLocale,
+              locales,
+              localeFallbacks: contentI18n.fallback as Record<string, string[]> | undefined,
+            },
+          ),
+        },
+        public: {} as Record<string, unknown>,
+      },
       vite: { plugins: [] },
     },
   }

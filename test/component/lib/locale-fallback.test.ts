@@ -66,7 +66,7 @@ describe('locale fallback chain via the canonical public tree', () => {
     await publishEntry(owner, entryId, ['en'])
 
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'pages',
         path: '/siite/about',
         locale: 'de-CH',
@@ -87,7 +87,7 @@ describe('locale fallback chain via the canonical public tree', () => {
     await installLocalizedContract(ctx)
 
     await expect(
-      ctx.raw.query(api.public.page, {
+      ctx.published.query(api.public.page, {
         collection: 'pages',
         path: '/pages/missing',
         locale: 'ja',

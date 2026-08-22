@@ -9,11 +9,12 @@
  * Convex setup files so validation-only module setup can succeed without
  * mutating repo fixtures.
  */
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'
 import { loadNuxt } from '@nuxt/kit'
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 
@@ -72,6 +73,14 @@ describe('ginko-cms module e2e boot', () => {
     )
 
     await installConvexSetup(tempDir)
+    mkdirSync(join(tempDir, '.ginko'))
+    writeFileSync(
+      join(tempDir, '.ginko/content-contract.json'),
+      `${JSON.stringify(
+        buildResolvedContentContract({ collections: {} }, { defaultLocale: 'en', locales: ['en'] }),
+      )}\n`,
+      'utf8',
+    )
 
     // Symlink node_modules from project root so loadNuxt can resolve dependencies
     symlinkSync(resolve(projectRoot, 'node_modules'), join(tempDir, 'node_modules'))
