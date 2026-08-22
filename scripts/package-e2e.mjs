@@ -264,6 +264,17 @@ function consumerExec(command, args = []) {
   }
 }
 
+function materializeOfflineContentContract() {
+  const script = [
+    "import { mkdir, writeFile } from 'node:fs/promises'",
+    "import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'",
+    "const contract = buildResolvedContentContract({ collections: { pages: { type: 'page', source: 'content/**/*.md' } } }, { defaultLocale: 'en', locales: ['en'] })",
+    "await mkdir('.ginko', { recursive: true })",
+    "await writeFile('.ginko/content-contract.json', JSON.stringify(contract) + '\\n')",
+  ].join(';')
+  run('node', ['--input-type=module', '--eval', script], { cwd: tempDir })
+}
+
 function consumerExecExpectFailure(command, args, expectedMessages) {
   const executable = consumerPackageManager === 'pnpm' ? pnpmBin : 'npm'
   const commandArgs =
@@ -408,16 +419,18 @@ async function bootNitro() {
       }
     }
 
-    const renderResponse = await fetch(`http://127.0.0.1:${port}/render-safety`)
-    const renderBody = await renderResponse.text()
-    if (
-      renderResponse.status < 500 ||
-      renderBody.includes('packed-render-exploit') ||
-      !renderBody.includes('Public Markdown AST is not render-safe.')
-    ) {
-      throw new Error(
-        `Packed Content renderer did not fail closed (${renderResponse.status}): ${renderBody}`,
-      )
+    if (liveConvex) {
+      const renderResponse = await fetch(`http://127.0.0.1:${port}/render-safety`)
+      const renderBody = await renderResponse.text()
+      if (
+        renderResponse.status < 500 ||
+        renderBody.includes('packed-render-exploit') ||
+        !renderBody.includes('Public Markdown AST is not render-safe.')
+      ) {
+        throw new Error(
+          `Packed Content renderer did not fail closed (${renderResponse.status}): ${renderBody}`,
+        )
+      }
     }
   } finally {
     child.kill('SIGTERM')
@@ -703,30 +716,19 @@ try {
   writeFileSync(
     join(tempDir, 'nuxt.config.ts'),
     [
-      "import { addTemplate, defineNuxtModule } from 'nuxt/kit'",
+      "import { defineNuxtModule } from 'nuxt/kit'",
       "import ginkoCms from '@lupinum/ginko-cms'",
       '',
-      'const contentRendererHarness = defineNuxtModule({',
+      'const contentOptionsHarness = defineNuxtModule({',
       '  setup(_options, nuxt) {',
       "    Object.assign(nuxt.options, { content: { search: { engine: 'provider' }, sitemap: false } })",
-      '    addTemplate({',
-      "      filename: 'content-i18n.mjs',",
-      "      getContents: () => \"export const useLocalePath = () => (route) => typeof route === 'string' ? route : ''\",",
-      '    })',
       '  },',
       '})',
       '',
       'export default defineNuxtConfig({',
       liveConvex
         ? "  modules: ['@nuxtjs/sitemap', '@lupinum/ginko-content', ginkoCms],"
-        : '  modules: [contentRendererHarness, ginkoCms],',
-      '  components: [{',
-      "    path: './node_modules/@lupinum/ginko-content/dist/runtime/app/components',",
-      '    pathPrefix: false,',
-      "    prefix: '',",
-      '    global: true,',
-      "    ignore: ['Prose/**', 'internal/**'],",
-      '  }],',
+        : '  modules: [contentOptionsHarness, ginkoCms],',
       "  convex: { url: process.env.CONVEX_URL || 'http://127.0.0.1:3210', siteUrl: process.env.CONVEX_SITE_URL || 'http://127.0.0.1:3211', auth: { origin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000', trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER } },",
       ...(liveConvex
         ? [
@@ -849,19 +851,21 @@ try {
     cpSync(resolve(repoRoot, 'playground/app'), join(tempDir, 'app'), { recursive: true })
     copyFileSync(resolve(repoRoot, 'playground/app.vue'), join(tempDir, 'app.vue'))
   }
-  const pageDirectory = join(tempDir, liveConvex ? 'app/pages' : 'pages')
-  mkdirSync(pageDirectory, { recursive: true })
-  writeFileSync(
-    join(pageDirectory, 'render-safety.vue'),
-    [
-      '<script setup lang="ts">',
-      "const value = { collection: 'posts', locale: 'en', body: { type: 'root', children: [{ type: 'element', tag: 'script', props: {}, children: [{ type: 'text', value: 'packed-render-exploit' }] }] } }",
-      '</script>',
-      '<template><ContentRenderer :value="value" /></template>',
-      '',
-    ].join('\n'),
-    'utf8',
-  )
+  if (liveConvex) {
+    const pageDirectory = join(tempDir, 'app/pages')
+    mkdirSync(pageDirectory, { recursive: true })
+    writeFileSync(
+      join(pageDirectory, 'render-safety.vue'),
+      [
+        '<script setup lang="ts">',
+        "const value = { collection: 'posts', locale: 'en', body: { type: 'root', children: [{ type: 'element', tag: 'script', props: {}, children: [{ type: 'text', value: 'packed-render-exploit' }] }] } }",
+        '</script>',
+        '<template><ContentRenderer :value="value" /></template>',
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+  }
 
   mkdirSync(join(tempDir, 'server/api'), { recursive: true })
   writeFileSync(
@@ -1158,7 +1162,8 @@ console.log('packed MCP read/write behavior ok')
       'Run Nuxt prepare to regenerate the Content artifact',
     ],
   )
-  consumerExec('nuxt', ['prepare'])
+  if (liveConvex) consumerExec('nuxt', ['prepare'])
+  else materializeOfflineContentContract()
   consumerExecExpectFailure(
     'ginko-cms',
     ['doctor'],
@@ -1206,6 +1211,7 @@ console.log('packed MCP read/write behavior ok')
     }
   }
 
+  consumerExec('nuxt', ['prepare'])
   if (liveConvex) {
     consumerExec('ginko-cms', ['deploy'])
   }
@@ -1258,7 +1264,7 @@ console.log('packed MCP read/write behavior ok')
     "import { createHash } from 'node:crypto'",
     "import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'",
     "import { writePortableDirectory } from '@lupinum/ginko-content/portability/node'",
-    "const contract = buildResolvedContentContract({ collections: { posts: { type: 'page', source: 'content/posts/**/*.md', route: '/posts', fields: { title: { type: 'text', required: true }, hero: { type: 'image', required: true } } } } }, { defaultLocale: 'en', locales: ['en'] })",
+    "const contract = buildResolvedContentContract({ collections: { posts: { type: 'page', source: 'content/posts/**/*.md', route: '/posts', cms: { fields: { hero: { type: 'image', required: true } } } } } }, { defaultLocale: 'en', locales: ['en'] })",
     "const content = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')",
     "const sha256 = createHash('sha256').update(content).digest('hex')",
     "const asset = { sha256, file: `public/ginko-assets/${sha256}.png`, bytes: content.byteLength, mediaType: 'image/png', content }",
