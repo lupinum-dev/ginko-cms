@@ -41,9 +41,9 @@ not pass a locale, the provider uses `en`.
 - The public Convex operation is `surround`; `surroundings` is only the Ginko
   Content provider method name. The provider maps CMS `previous` / `next`
   results into the provider contract.
-- `query` receives the Ginko Content 0.3 provider wire (`{ v: 2, collection,
-plan }`) and pattern-matches the closed query plan AST. It no longer accepts
-  legacy builder-param objects at the provider boundary.
+- `query` receives the Ginko Content provider v5 query envelope. `collection`
+  has one authority on the envelope; the closed plan contains filters, sorting,
+  selection, and pagination. Legacy provider wires are rejected.
 - Public list reads support route-backed and data-only collections.
   Page, navigation, surroundings, search, and sitemap reads are route-backed
   surfaces and reject data-only collections deliberately.
@@ -60,7 +60,7 @@ plan }`) and pattern-matches the closed query plan AST. It no longer accepts
 - Public sort supports `orderKey`, `entryCreatedAt`, `firstPublishedAt`, and
   `lastPublishedAt`.
 - Positive numeric `skip`, `count`, and `without` projections are rejected.
-- Query results are raw Ginko Content 0.3 provider documents. They expose one
+- Query results are raw Ginko Content provider documents. They expose one
   structural route model through `contentPath`, `canonicalKey`, and
   `routeVariants`; route resolution and locale policy remain owned by the
   content engine.

@@ -65,6 +65,9 @@ const publicContentDocs = [
 const stalePublicContentPatterns = [
   /useContentSearchResults\(/,
   /content\.search\.engine\s*=\s*['"]cms['"]/,
+  /Ginko Content 0\.3 provider wire/,
+  /\{\s*v:\s*2,\s*collection/,
+  /Supports `page`, `query`, `navigation`, `navigationQuery`/,
 ]
 
 const oldSetupOrderPattern =
@@ -112,6 +115,34 @@ for (const docPath of canonicalDeployDocs) {
   if (oldSetupOrderPattern.test(contents)) {
     errors.push(`${docPath}: canonical setup path must not document convex-dev-then-push`)
   }
+}
+
+const quickstart = readFileSync(resolve(repoRoot, 'docs/getting-started/quickstart.md'), 'utf8')
+for (const command of [
+  'pnpm exec nuxt prepare',
+  'pnpm exec convex env set BETTER_AUTH_SECRETS',
+  "pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'",
+  'pnpm exec ginko-cms doctor',
+]) {
+  if (!quickstart.includes(command)) {
+    errors.push(
+      `docs/getting-started/quickstart.md: missing required first-run command \`${command}\``,
+    )
+  }
+}
+
+const cmsPackage = JSON.parse(readFileSync(resolve(repoRoot, 'packages/cms/package.json'), 'utf8'))
+const cmsReadme = readFileSync(resolve(repoRoot, 'packages/cms/README.md'), 'utf8')
+for (const subpath of Object.keys(cmsPackage.exports ?? {})) {
+  const specifier = subpath === '.' ? cmsPackage.name : `${cmsPackage.name}/${subpath.slice(2)}`
+  if (!cmsReadme.includes(`\`${specifier}\``)) {
+    errors.push(`packages/cms/README.md: missing public subpath \`${specifier}\``)
+  }
+}
+if (cmsReadme.includes('`@lupinum/ginko-cms/convex/auth-config`')) {
+  errors.push(
+    'packages/cms/README.md: advertises nonexistent public subpath `@lupinum/ginko-cms/convex/auth-config`',
+  )
 }
 
 for (const docPath of publicContentDocs) {

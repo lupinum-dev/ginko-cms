@@ -60,8 +60,10 @@ provider path.
 
 - Reads published public Convex projections.
 - Does not read draft/editor tables.
-- Supports `page`, `query`, `navigation`, `navigationQuery`, `surroundings`,
-  `search`, `siteData`, `routeMeta`, and `sitemapEntries`.
+- Implements the required Ginko Content `query` method and the optional
+  `navigation`, `surroundings`, `search`, `siteData`, and `routes` methods.
+- Website helpers such as page resolution and sitemap generation call those
+  provider methods; they are not additional CMS provider operations.
 - The public Convex operation is `surround`; `surroundings` is only the Ginko
   Content provider method name. The provider maps CMS `previous` / `next`
   results into the provider contract.
@@ -71,7 +73,7 @@ provider path.
 
 ## Public Query Shape
 
-Provider `query` is intentionally limited to public list reads. Supported
+Provider `query` serves bounded published reads. Supported
 `where` clauses are:
 
 - `_draft: false` or `_draft: { $ne: true }`

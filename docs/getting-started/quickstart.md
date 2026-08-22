@@ -57,12 +57,17 @@ export default defineContentConfig({
 
 ## Generate Convex Setup Files
 
-Run the init command from the Nuxt app root:
+Generate the resolved Ginko Content contract, then run the init command from the
+Nuxt app root:
 
 ```bash
+pnpm exec nuxt prepare
 pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
+
+`nuxt prepare` writes `.ginko/content-contract.json`, the exact contract used by
+the Nuxt runtime and CMS. Do not edit or commit that generated file.
 
 The first doctor run names the still-unbound generated contract binding and
 directs you to `pnpm exec ginko-cms deploy`. Deploy reruns every other setup
@@ -101,8 +106,12 @@ Then ensure `.env.local` includes either `CONVEX_URL` or
 Set the email allowed to claim the first Studio owner:
 
 ```bash
+pnpm exec convex env set BETTER_AUTH_SECRETS '0:replace-with-a-long-random-secret'
 pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
 ```
+
+Keep `BETTER_AUTH_SECRETS` in Convex only. Use a secret manager or a generated
+high-entropy value; do not reuse the example text or expose the value to Nuxt.
 
 See [Environment](./environment.md) for the full runtime and CI environment
 contract.
@@ -114,11 +123,15 @@ contracts with one command:
 
 ```bash
 pnpm exec ginko-cms deploy
+pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'
+pnpm exec ginko-cms doctor
 ```
 
 `ginko-cms deploy` runs `ginko-cms doctor`, the default local Convex deploy command
 (`convex dev --once --tail-logs disable --typecheck disable`), then contract
-sync. Successful setup prints that the collection contracts are installed.
+sync. Successful setup prints that the collection contracts are installed. A
+fresh deployment needs one explicit signing-key rotation before authentication
+traffic; the final doctor run confirms the complete setup.
 
 For CI or read-only validation after the first deploy, run:
 
