@@ -1,7 +1,6 @@
 import type { CmsPublicEntryWire } from '@lupinum/ginko-content/cms-contract'
+import { createContentDataSourceError } from '@lupinum/ginko-content/data-source'
 import type { ProviderDocumentInput } from '@lupinum/ginko-content/provider'
-
-import { providerError } from './transport.js'
 
 type ContentRuntime = {
   defaultLocale?: string
@@ -44,12 +43,7 @@ export const canonicalFromRoute = (path = '/', locale = defaultLocale()): string
 
 export const publicEntryKey = (entry: CmsPublicEntryWire): string => {
   if (typeof entry?.stableId === 'string' && entry.stableId.length > 0) return entry.stableId
-  throw providerError(
-    'provider_stable_id_missing',
-    'Published content is missing its stable identity. Republish the entry to rebuild its public projection.',
-    500,
-    { collection: entry?.collection, entryId: entry?.id },
-  )
+  throw createContentDataSourceError('BACKEND_FAILURE')
 }
 
 const publishedTranslations = (entry: CmsPublicEntryWire) =>
@@ -74,11 +68,7 @@ const applyAssetFacts = (entry: CmsPublicEntryWire) => {
     for (let index = 0; index < segments.length - 1; index++) {
       const segment = segments[index]!
       if (!current || typeof current !== 'object') {
-        throw providerError(
-          'provider_asset_fact_invalid',
-          'Published asset path does not exist.',
-          500,
-        )
+        throw createContentDataSourceError('BACKEND_FAILURE')
       }
       current = (current as Record<string | number, unknown>)[segment]
     }
@@ -88,11 +78,7 @@ const applyAssetFacts = (entry: CmsPublicEntryWire) => {
       typeof current !== 'object' ||
       (current as Record<string | number, unknown>)[terminal] !== fact.assetId
     ) {
-      throw providerError(
-        'provider_asset_fact_invalid',
-        'Published asset identity does not match its structured field path.',
-        500,
-      )
+      throw createContentDataSourceError('BACKEND_FAILURE')
     }
     ;(current as Record<string | number, unknown>)[terminal] = fact.url
   }
@@ -107,11 +93,7 @@ const parsedBodyFromData = (
   const value = entry.bodyAst || data.bodyAst
   if (value && typeof value === 'object') return value
   if (options.required === false) return emptyBody()
-  throw providerError(
-    'provider_body_ast_missing',
-    'Published content is missing its parsed Comark body AST.',
-    500,
-  )
+  throw createContentDataSourceError('BACKEND_FAILURE')
 }
 
 const hasStoredParsedBody = (entry: CmsPublicEntryWire, data: Record<string, unknown>): boolean =>

@@ -830,14 +830,25 @@ describe('Ginko Nuxt provider v5', () => {
     expect(response.cache).toMatchObject({ tags: ['collection:docs'] })
   })
 
-  it('rejects the removed v2 wire before dispatch', async () => {
-    await expect(
-      contentProvider.query(event, {
-        ...toContentProviderQuery({ collection: 'docs' }),
-        v: 2 as 5,
-      }),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'QUERY_UNSUPPORTED' })
+  it('rejects old and future provider query versions before dispatch', async () => {
+    for (const version of [2, 6]) {
+      await expect(
+        contentProvider.query(event, {
+          ...toContentProviderQuery({ collection: 'docs' }),
+          v: version as 5,
+        }),
+      ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'QUERY_UNSUPPORTED' })
+    }
     expect(convexMock.query).not.toHaveBeenCalled()
+  })
+
+  it('rejects old and future deployed response envelopes', async () => {
+    for (const protocol of ['ginko-content-cms/v0', 'ginko-content-cms/v2']) {
+      convexMock.query.mockResolvedValueOnce({ protocol, result: { entries: [] } })
+      await expect(
+        contentProvider.query(event, toContentProviderQuery({ collection: 'docs' })),
+      ).rejects.toMatchObject({ statusCode: 502, statusMessage: 'BACKEND_FAILURE' })
+    }
   })
 
   it('normalizes a malformed page response at the data-source boundary', async () => {

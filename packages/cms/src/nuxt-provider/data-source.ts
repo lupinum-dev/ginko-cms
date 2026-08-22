@@ -1,4 +1,3 @@
-import { contentTags, uniqueContentTags } from '@lupinum/ginko-cms-contract/shared/contentTags.js'
 import {
   assertCmsRequestedFacts,
   parseCmsListWireResult,
@@ -14,19 +13,11 @@ import type {
   BoundedContentProviderQuery,
   ContentDataSource,
   ContentDataSourceControl,
-  ContentDataSourceResult,
 } from '@lupinum/ginko-content/data-source'
+import { createContentDataSourceError } from '@lupinum/ginko-content/data-source'
 import {
-  createContentDataSourceCacheHint,
-  createContentDataSourceError,
-} from '@lupinum/ginko-content/data-source'
-import {
-  PROVIDER_QUERY_VERSION,
-  type ContentCacheHint,
-  type ContentProvider,
   type ContentProviderNavigationItem,
-  type ProviderDocumentInput,
-  type ContentProviderQuery,
+  type ContentProviderSearchRequest,
   type ContentProviderSiteDataRequest,
   type ContentProviderSurroundingsOptions,
   type ContentProviderVariantSelector,
@@ -35,13 +26,26 @@ import {
 import type { H3Event } from 'h3'
 
 import {
-  defaultLocale,
-  normalizeContentPath,
-  publicEntryKey,
-  routeFactFor,
-  toContentEntry,
-} from './content-shaping.js'
-import { callGinko, providerError, type ConvexQueryCaller } from './transport.js'
+  cacheHintForEntry,
+  collectionCacheHint,
+  navigationCacheHint,
+  searchCacheHint,
+  siteDataCacheHint,
+  sitemapCacheHint,
+  sourceResult,
+} from './cache-hints.js'
+import { defaultLocale, routeFactFor, toContentEntry } from './content-shaping.js'
+import {
+  applyOnlyProjection,
+  assertPortableListPlan,
+  assertProviderQuery,
+  assertQueryCollection,
+  collectPlanFilter,
+  hasExplicitPublicSort,
+  sortFromPlan,
+  type FilterState,
+} from './query-plan.js'
+import { callGinko, type ConvexQueryCaller } from './transport.js'
 
 type ProviderEvent = H3Event
 type UnknownRecord = Record<string, unknown>
@@ -62,18 +66,11 @@ type RuntimeConfig = {
   public?: { content?: ContentRuntime }
   content?: ContentRuntime
 }
-type FilterState = { locale?: string; pathPrefix?: string; impossible?: true }
-type PlanFilter = ContentProviderQuery['plan']['filter']
-type PlanCompare = Extract<PlanFilter, { type: 'compare' }>
-type PlanSort = ContentProviderQuery['plan']['sort']
 type RequestedFacts = Parameters<typeof assertCmsRequestedFacts>[0]['requested']
 type ReturnedFacts = Parameters<typeof assertCmsRequestedFacts>[0]['returned']
 type RoutesResult = ReturnType<typeof parseCmsRoutesWireResult>
-type CmsSearchRequest = Partial<Parameters<NonNullable<ContentProvider['search']>>[1]> & {
-  query?: string
-  collection?: string
-}
-type CmsSiteDataRequest = Partial<ContentProviderSiteDataRequest>
+type CmsSearchRequest = ContentProviderSearchRequest & { limit: number }
+type CmsSiteDataRequest = ContentProviderSiteDataRequest
 interface GinkoCmsDataSourceContext {
   event: H3Event
   caller: ConvexQueryCaller
@@ -125,81 +122,6 @@ const sitemapLocalesForCollection = (
   return [defaultLocale(contentRuntime)]
 }
 
-const normalizeCacheHint = (hint: ContentCacheHint = {}): ContentCacheHint => ({
-  ...hint,
-  tags: uniqueContentTags(hint.tags || []),
-  paths: uniqueContentTags((hint.paths || []).map((path) => normalizeContentPath(path))),
-})
-
-const cacheHintForEntry = (
-  entry: Parameters<typeof publicEntryKey>[0],
-  content: UnknownRecord,
-): ContentCacheHint => {
-  const locale = entry.locale.resolved || entry.locale.requested || defaultLocale()
-  const routePath =
-    typeof content.unprefixedPath === 'string'
-      ? content.unprefixedPath
-      : typeof content.path === 'string'
-        ? content.path
-        : entry.route.path
-  const updatedAt = entry?.updatedAt || content?.updatedAt
-  return normalizeCacheHint({
-    tags: [
-      contentTags.collection(entry.collection),
-      contentTags.entry(entry.collection, publicEntryKey(entry)),
-      contentTags.entry(entry.collection, publicEntryKey(entry), locale),
-      contentTags.route(routePath),
-    ],
-    paths: [routePath],
-    lastModified:
-      typeof updatedAt === 'string' || typeof updatedAt === 'number'
-        ? new Date(updatedAt)
-        : undefined,
-  })
-}
-
-const collectionCacheHint = (collection: string): ContentCacheHint =>
-  normalizeCacheHint({ tags: [contentTags.collection(collection)] })
-
-const navigationCacheHint = (collection: string, locale: string): ContentCacheHint =>
-  normalizeCacheHint({
-    tags: [contentTags.collection(collection), contentTags.nav(collection, locale)],
-  })
-
-const searchCacheHint = (locale: string, collection?: string): ContentCacheHint =>
-  normalizeCacheHint({
-    tags: [...(collection ? [contentTags.collection(collection)] : []), contentTags.search(locale)],
-  })
-
-const siteDataCacheHint = (key: string, locale?: string): ContentCacheHint =>
-  normalizeCacheHint({
-    tags: uniqueContentTags([
-      contentTags.siteData(key || '*'),
-      locale ? contentTags.siteData(key || '*', locale) : null,
-    ]),
-  })
-
-const sitemapCacheHint = () => normalizeCacheHint({ tags: [contentTags.sitemap()] })
-
-const dataSourceCacheHint = (
-  hint: ContentCacheHint | false,
-): ReturnType<typeof createContentDataSourceCacheHint> | false => {
-  if (hint === false) return false
-  return createContentDataSourceCacheHint({
-    tags: [...(hint.tags || [])],
-    paths: [...(hint.paths || [])],
-    maxAge: hint.maxAge ?? null,
-    swr: hint.swr ?? null,
-    etag: hint.etag ?? null,
-    lastModified: hint.lastModified ? hint.lastModified.valueOf() : null,
-  })
-}
-
-const sourceResult = <T>(data: T, cache: ContentCacheHint | false): ContentDataSourceResult<T> => ({
-  data,
-  cache: dataSourceCacheHint(cache),
-})
-
 type RoutesCursor = readonly [
   version: 1,
   scope: number,
@@ -224,9 +146,7 @@ const parseRoutesCursor = (cursor: string | null): RoutesCursor => {
     }
     return parsed as unknown as RoutesCursor
   } catch {
-    throw providerError('CURSOR_INVALID', 'CMS route cursor is invalid.', 400, {
-      operation: 'routes',
-    })
+    throw createContentDataSourceError('QUERY_CURSOR_INVALID')
   }
 }
 
@@ -234,172 +154,6 @@ const encodeRoutesCursor = (cursor: RoutesCursor): string => JSON.stringify(curs
 
 const pickNavFields = (entry: UnknownRecord, fields: readonly string[] = []): UnknownRecord =>
   Object.fromEntries(fields.filter((field) => field in entry).map((field) => [field, entry[field]]))
-
-const assertUnsupportedQueryShape = (condition: unknown, field: string, message: string): void => {
-  if (!condition) return
-  void field
-  void message
-  throw createContentDataSourceError('QUERY_UNSUPPORTED')
-}
-
-const applyOnlyProjection = (
-  entry: ProviderDocumentInput,
-  only: readonly string[] = [],
-): ProviderDocumentInput => {
-  if (!only.length) return entry
-  const projected: ProviderDocumentInput = {
-    collection: entry.collection,
-    locale: entry.locale,
-    contentPath: entry.contentPath,
-    canonicalKey: entry.canonicalKey,
-    body: entry.body,
-  }
-  for (const field of only) {
-    if (field in entry) projected[field] = entry[field]
-  }
-  return projected
-}
-
-function assertProviderQuery(input: unknown): asserts input is ContentProviderQuery {
-  if (!isRecord(input) || input.v !== PROVIDER_QUERY_VERSION || !isRecord(input.plan)) {
-    throw createContentDataSourceError('QUERY_UNSUPPORTED')
-  }
-}
-
-function assertQueryCollection(collection: string | null): asserts collection is string {
-  if (!collection) {
-    throw providerError(
-      'unknown_collection',
-      'A collection is required for Ginko public queries.',
-      400,
-      {
-        collection,
-      },
-    )
-  }
-}
-
-const assertPortableListPlan = (query: ContentProviderQuery): void => {
-  assertQueryCollection(query.collection)
-  const plan = query.plan || {}
-  assertUnsupportedQueryShape(
-    plan.mode === 'count',
-    'count',
-    'Ginko public list queries do not support count yet.',
-  )
-  assertUnsupportedQueryShape(
-    Boolean(plan.projection?.without?.length),
-    'without',
-    'Ginko public list queries support explicit select projections, not without projections.',
-  )
-}
-
-function unsupportedFilter(field = 'where'): never {
-  void field
-  throw createContentDataSourceError('QUERY_UNSUPPORTED')
-}
-
-const assertSupportedPlanOperator = (operator: string): void => {
-  if (['eq', 'ne', 'prefix'].includes(operator)) return
-  throw createContentDataSourceError('QUERY_UNSUPPORTED')
-}
-
-const applyPlanCompare = (state: FilterState, clause: PlanCompare): FilterState => {
-  assertSupportedPlanOperator(clause.operator)
-  const { field, operator, value } = clause
-  if (field === 'draft' || field === 'partial') {
-    if ((operator === 'ne' && value === true) || (operator === 'eq' && value === false)) {
-      return state
-    }
-    if ((operator === 'eq' && value === true) || (operator === 'ne' && value === false)) {
-      return { impossible: true }
-    }
-    return unsupportedFilter('where')
-  }
-  if (field === 'locale' && operator === 'eq' && typeof value === 'string') {
-    if (state.locale && state.locale !== value) return { impossible: true }
-    return { ...state, locale: value }
-  }
-  if (field === 'path' && operator === 'prefix' && typeof value === 'string' && value) {
-    if (!state.pathPrefix) return { ...state, pathPrefix: value }
-    if (value === state.pathPrefix || value.startsWith(`${state.pathPrefix}/`)) {
-      return { ...state, pathPrefix: value }
-    }
-    if (state.pathPrefix.startsWith(`${value}/`)) return state
-    return { impossible: true }
-  }
-  return unsupportedFilter('where')
-}
-
-const sameFilterState = (left: FilterState, right: FilterState): boolean =>
-  left.impossible === right.impossible &&
-  left.locale === right.locale &&
-  left.pathPrefix === right.pathPrefix
-
-const collectPlanFilter = (filter: PlanFilter): FilterState => {
-  if (!filter || filter.type === 'true') return {}
-  if (filter.type === 'and') {
-    let state: FilterState = {}
-    for (const clause of filter.clauses || []) {
-      const next = collectPlanFilter(clause)
-      if (state.impossible || next.impossible) return { impossible: true }
-      if (next.locale) {
-        if (state.locale && state.locale !== next.locale) return { impossible: true }
-        state = { ...state, locale: next.locale }
-      }
-      if (next.pathPrefix) {
-        state = applyPlanCompare(state, {
-          type: 'compare',
-          field: 'path',
-          operator: 'prefix',
-          value: next.pathPrefix,
-        })
-      }
-    }
-    return state
-  }
-  if (filter.type === 'compare') {
-    return applyPlanCompare({}, filter)
-  }
-  if (filter.type === 'or') {
-    const branches = filter.clauses.map(collectPlanFilter)
-    const possible = branches.filter((branch) => !branch.impossible)
-    if (!possible.length) return { impossible: true }
-    if (possible.length === 1) return possible[0]!
-    if (possible.every((branch) => sameFilterState(branch, possible[0]!))) return possible[0]!
-    return unsupportedFilter('where')
-  }
-  if (filter.type === 'not') {
-    const child = collectPlanFilter(filter.clause)
-    if (child.impossible) return {}
-    if (sameFilterState(child, {})) return { impossible: true }
-    return unsupportedFilter('where')
-  }
-  return unsupportedFilter('where')
-}
-
-const sortFromPlan = (sort: PlanSort = []): string | undefined => {
-  const supportedFields = new Set([
-    'orderKey',
-    'entryCreatedAt',
-    'firstPublishedAt',
-    'lastPublishedAt',
-  ])
-  for (const item of sort) {
-    // Ginko Content normalizes an omitted sort to numeric `file.stem` order.
-    // The CMS projection persists that same source order as `orderKey`.
-    const field = item.field === 'file.stem' ? 'orderKey' : item.field
-    if (!supportedFields.has(field)) {
-      throw createContentDataSourceError('QUERY_UNSUPPORTED')
-    }
-    if (item.direction === 1) return `${field}:asc`
-    if (item.direction === -1) return `${field}:desc`
-    throw createContentDataSourceError('QUERY_UNSUPPORTED')
-  }
-  return undefined
-}
-
-const hasExplicitPublicSort = (sort: PlanSort = []): boolean => sort.some((item) => item.field)
 
 const localeFromOptions = (
   options: ContentProviderSurroundingsOptions = {},
@@ -419,26 +173,16 @@ const decodeRequested = <T extends ReturnedFacts>(
     const returned = parser(raw)
     assertCmsRequestedFacts({ operation, requested, returned })
     return returned
-  } catch (error) {
-    throw providerError(
-      'provider_response_invalid',
-      error instanceof Error ? error.message : `Invalid CMS ${operation} response.`,
-      502,
-      { operation },
-    )
+  } catch {
+    throw createContentDataSourceError('BACKEND_FAILURE')
   }
 }
 
 const decodeResult = <T>(operation: string, parser: (raw: unknown) => T, raw: unknown): T => {
   try {
     return parser(raw)
-  } catch (error) {
-    throw providerError(
-      'provider_response_invalid',
-      error instanceof Error ? error.message : `Invalid CMS ${operation} response.`,
-      502,
-      { operation },
-    )
+  } catch {
+    throw createContentDataSourceError('BACKEND_FAILURE')
   }
 }
 
@@ -557,14 +301,7 @@ export const contentDataSource = {
     const plan = input.plan
     if (plan.variant) {
       if (!input.collection) {
-        throw providerError(
-          'unknown_collection',
-          'A collection is required for Ginko route variant queries.',
-          400,
-          {
-            collection: input.collection,
-          },
-        )
+        throw createContentDataSourceError('QUERY_UNSUPPORTED')
       }
       const { locale, result } = await resolveVariant(
         context.caller,
@@ -607,11 +344,9 @@ export const contentDataSource = {
     }
     const locale = localeFromQuery(filterState, contentRuntime)
     const pathPrefix = filterState.pathPrefix
-    assertUnsupportedQueryShape(
-      Boolean(pathPrefix && hasExplicitPublicSort(plan.sort)),
-      'sort',
-      'Ginko public path prefix queries use path-index order and cannot be combined with public sort.',
-    )
+    if (pathPrefix && hasExplicitPublicSort(plan.sort)) {
+      throw createContentDataSourceError('QUERY_UNSUPPORTED')
+    }
     const sort = sortFromPlan(plan.sort)
     const listArgs = {
       collection,
@@ -636,12 +371,7 @@ export const contentDataSource = {
             control,
           ).then((value) => {
             if (!Number.isSafeInteger(value) || (value as number) < 0) {
-              throw providerError(
-                'provider_response_invalid',
-                'Ginko public count returned an invalid total.',
-                502,
-                { operation: 'count' },
-              )
+              throw createContentDataSourceError('BACKEND_FAILURE')
             }
             return value as number
           }),
@@ -757,19 +487,15 @@ export const contentDataSource = {
   ) => {
     const contentRuntime = await contentRuntimeFromEvent(context.event)
     const locale = request.locale || defaultLocale(contentRuntime)
-    const query = (request.query || request.term || '').trim()
+    const query = request.term.trim()
     if (!query) {
       return sourceResult([], searchCacheHint(locale))
     }
     const collections = request.collections?.length
       ? request.collections
-      : request.collection
-        ? [request.collection]
-        : []
+      : Object.keys(contentRuntime.collections || {})
     if (!collections.length) {
-      throw providerError('unknown_collection', 'A collection is required for Ginko search.', 400, {
-        collection: request.collection,
-      })
+      throw createContentDataSourceError('QUERY_UNSUPPORTED')
     }
     const collectionResults = await Promise.all(
       collections.map(async (collection) => {
@@ -819,12 +545,7 @@ export const contentDataSource = {
       await callGinko(context.caller, 'siteData', { key: request.key, locale }, control),
     )
     if (result.key !== request.key) {
-      throw providerError(
-        'provider_response_invalid',
-        'Ginko site data returned a different key than requested.',
-        502,
-        { operation: 'siteData', field: 'key' },
-      )
+      throw createContentDataSourceError('BACKEND_FAILURE')
     }
     return sourceResult(
       {
@@ -873,22 +594,10 @@ export const contentDataSource = {
           (route) => route.collection !== scope.collection || route.locale !== scope.locale,
         )
       ) {
-        throw providerError(
-          'provider_response_invalid',
-          'Ginko routes substituted a different collection or locale.',
-          502,
-          { operation: 'routes', ...scope },
-        )
+        throw createContentDataSourceError('BACKEND_FAILURE')
       }
       if (position[3] !== null && result.snapshot !== position[3]) {
-        throw providerError(
-          'CURSOR_INVALID',
-          'CMS route snapshot changed during enumeration.',
-          400,
-          {
-            operation: 'routes',
-          },
-        )
+        throw createContentDataSourceError('QUERY_CURSOR_INVALID')
       }
       const backend = result.pageInfo?.endCursor ?? null
       const next: RoutesCursor = backend

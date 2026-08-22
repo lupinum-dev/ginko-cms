@@ -16,27 +16,10 @@ export const setClientFactoryForTests = (factory: ClientFactory | undefined) => 
   testClientFactory = factory
 }
 
-export const providerError = (
-  code: string,
-  _message: string,
-  _statusCode = 400,
-  _details: PublicErrorData = {},
-): Error =>
-  createContentDataSourceError(
-    ['CURSOR_INVALID', 'INVALID_CURSOR', 'QUERY_CURSOR_INVALID'].includes(code)
-      ? 'QUERY_CURSOR_INVALID'
-      : 'BACKEND_FAILURE',
-  )
-
 const requiredEnv = (name: string): string => {
   const value = process.env[name]
   if (value) return value
-  throw providerError(
-    'provider_config_missing',
-    `${name} is required for the CMS content provider.`,
-    500,
-    { env: name },
-  )
+  throw createContentDataSourceError('BACKEND_FAILURE')
 }
 
 const convexUrl = () =>
@@ -47,7 +30,7 @@ const convexUrl = () =>
 const functionReference = (name: string): FunctionReference<'query'> =>
   ({ [Symbol.for('functionName')]: name }) as unknown as FunctionReference<'query'>
 
-const normalizeRemoteError = (error: unknown, _operation: string): Error => {
+const normalizeRemoteError = (error: unknown): Error => {
   const remote =
     error && typeof error === 'object'
       ? (error as {
@@ -88,7 +71,7 @@ export const callerForEvent = async (event: ProviderEvent): Promise<ConvexQueryC
     const { serverConvex } = await import('better-convex-nuxt/server')
     return serverConvex(event, { auth: 'none' }) as ConvexQueryCaller
   } catch (error) {
-    throw normalizeRemoteError(error, 'context')
+    throw normalizeRemoteError(error)
   }
 }
 
@@ -104,7 +87,7 @@ export const callGinko = async (
     assertControlActive(control)
     return result
   } catch (error) {
-    throw normalizeRemoteError(error, operation)
+    throw normalizeRemoteError(error)
   }
 }
 
