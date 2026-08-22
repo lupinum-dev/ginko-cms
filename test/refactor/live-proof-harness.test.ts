@@ -22,7 +22,7 @@ const candidatePackageNames = [
   '@lupinum/ginko-cms-contract',
   '@lupinum/ginko-cms-convex',
   '@lupinum/ginko-cms',
-  'better-convex-nuxt',
+  '@lupinum/better-convex-nuxt',
 ]
 const liveUploadPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',

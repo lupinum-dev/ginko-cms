@@ -34,7 +34,7 @@ pnpm run check
 pnpm run release:verify
 ```
 
-For release candidates after Ginko Content and `better-convex-nuxt` are
+For release candidates after Ginko Content and `@lupinum/better-convex-nuxt` are
 published:
 
 ```bash

@@ -93,7 +93,7 @@ const MCP_BLOCK = /\/\/ GINKO_MCP_BEGIN\n([\s\S]*?)\/\/ GINKO_MCP_END\n?/gu
 const staleConvexConfigImports = [
   {
     bad: '@convex-dev/better-auth/convex.config',
-    replacement: 'better-convex-nuxt/convex-auth/convex.config',
+    replacement: '@lupinum/better-convex-nuxt/better-auth/convex.config',
   },
   {
     bad: '@lupinum/ginko-cms/convex/config',
@@ -101,13 +101,13 @@ const staleConvexConfigImports = [
   },
   {
     bad: '@lupinum/ginko-cms/convex/better-auth',
-    replacement: 'better-convex-nuxt/convex-auth/convex.config',
+    replacement: '@lupinum/better-convex-nuxt/better-auth/convex.config',
   },
 ] as const
 
 const requiredHostDependencies = [
   {
-    name: 'better-convex-nuxt',
+    name: '@lupinum/better-convex-nuxt',
     reason: 'convex/auth.ts and convex/convex.config.ts use the packaged auth component.',
   },
   {

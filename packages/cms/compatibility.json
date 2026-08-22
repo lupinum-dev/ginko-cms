@@ -4,51 +4,51 @@
     "@lupinum/ginko-cms": "0.2.0-rc.2",
     "@lupinum/ginko-cms-convex": "0.2.0-rc.2",
     "@lupinum/ginko-cms-contract": "0.2.0-rc.2",
-    "@lupinum/ginko-content": "0.3.2",
-    "better-convex-mcp": "0.1.0-beta.22",
-    "better-convex-nuxt": "0.8.0-beta.34",
-    "better-convex-vue": "0.8.0-beta.34"
+    "@lupinum/ginko-content": "1.0.0-beta.4",
+    "@lupinum/better-convex-mcp": "1.0.0-beta.1",
+    "@lupinum/better-convex-nuxt": "1.0.0-beta.1",
+    "@lupinum/better-convex-vue": "1.0.0-beta.1"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "e93ec0a1b3032c193f3851f01fddafe20286319d"
+    "betterConvexCommit": "5613fcff882f6a6131b1137ee54813e0782eff5b"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "registry": "https://registry.npmjs.org/@lupinum/ginko-content/-/ginko-content-0.3.2.tgz",
-      "sha256": "307044f3dfaa04ceddb0b1c1de369fe238e86214e6a1c78db0edbaec67a92de4",
-      "integrity": "sha512-0Ynn1+ZB5HUECcFkZi96IsUD2mjpcslYmoP2XasDK2KTJWQ60FKJeAbiaGb/MwpBDQjTLQXFkQIdAPyHleXwvQ=="
+      "sourceCommit": "394a144d5580f15d0abcf8a59acfaac2a710a5a9",
+      "sha256": "c516c86ecc7d571e54692b8c921137e96701755c3c8e58cce52b99808221b5cf",
+      "integrity": "sha512-IJiQPGW+QvKiQdNL0iZjHecy0ZnQ4IWr0zl5UMQts30GuKJ/XQ8nxyBrnanuMspczlq1yK77cWTZYIqItcj33w=="
     },
-    "better-convex-mcp": {
-      "sourceCommit": "e93ec0a1b3032c193f3851f01fddafe20286319d",
-      "sha256": "d9076ebc7d2b5aadfe74658913f75f2476f76f0dcd3437762cdec8a02cac151e",
-      "integrity": "sha512-5R33Mjf4lARpPkEy/UDX6K4hln8BXG4ELBorOalaXWbav9EYOzGGZfVOKqvzI/cFzuSCvnlLrT4OI4yl5ZXBPg=="
+    "@lupinum/better-convex-mcp": {
+      "sourceCommit": "5613fcff882f6a6131b1137ee54813e0782eff5b",
+      "sha256": "89ea9f66e07143f95e802ffc4ceaa74ecfecddeaab51994b3f96fb91f496b447",
+      "integrity": "sha512-VALZ1yGueDgjMi5BFX3fRg19Jri+x/CGTQQl6kEsYgrgizmV4HOc5BhSyrirhNmRd7Wt8Okuh1Aonh/pADk7lg=="
     },
-    "better-convex-nuxt": {
-      "sourceCommit": "e93ec0a1b3032c193f3851f01fddafe20286319d",
-      "sha256": "94c4d1b7e645402a89449b9d8d17c9001556480980b710d17330ba9bb466a763",
-      "integrity": "sha512-R6H/x06xct3qQC052fTYvIKv3/oaVXN9mtCMxsHeh8sZL5zemxixB5YGal/FLrapOnzuWg2xDzQe/jkHhCmE/A==",
-      "runtimeFingerprint": "bcn-release-v1-1d727d8f060aa798c629193ff927e1e8c05d7beb7a54272e1cdf8173b85ee357"
+    "@lupinum/better-convex-nuxt": {
+      "sourceCommit": "5613fcff882f6a6131b1137ee54813e0782eff5b",
+      "sha256": "c62e6b431f12c26366de1e618d601ba9071571ce18598db3cb4db1dfc5798633",
+      "integrity": "sha512-sfrCDaOYiQXZbNy0hfCHU8fCnX9+k7iHvfd91NbbFIeKUuP6oskM+ahI/tfRiDV5CrNU9jovo6pf07B8gKSMSg==",
+      "runtimeFingerprint": "bcn-release-v1-70b891f40432e1c4d7c10c5acf046a16f5cb7e8883b93fef5f416e20aeef6f2b"
     },
-    "better-convex-vue": {
-      "sourceCommit": "e93ec0a1b3032c193f3851f01fddafe20286319d",
-      "sha256": "c3e10572a0d9b5d96a36092e89c9ec62f36bb9c7459cf911e6416d48bbacb7bd",
-      "integrity": "sha512-HeUeJ8+8bpui/pTd1kkf2QQb9lr2uwGZ6628sDdUqJLos5GIvfgujPAxD7byyjgS/bf7ksuMav0cLWXa63A75w=="
+    "@lupinum/better-convex-vue": {
+      "sourceCommit": "5613fcff882f6a6131b1137ee54813e0782eff5b",
+      "sha256": "6326f12d8ffa9d1633bda63be070e41102b23cbb785a8c1d5f6b49c1794d1b11",
+      "integrity": "sha512-uvKXZEGZWH3k/Fyg5htto01/UQbV8W8sbqdkPZI9k0nVph3uwKN9zbz4IYHSgdl8D1UHI1L2iawtEHie/7tcNA=="
     }
   },
   "tracked": {
     "@modelcontextprotocol/server": ["2.0.0"],
     "@nuxtjs/sitemap": ["^8.0.15", "8.0.15"],
-    "@nuxt/kit": ["4.5.1"],
+    "@nuxt/kit": ["4.5.2"],
     "@better-auth/oauth-provider": ["1.7.0-rc.2"],
-    "better-convex-mcp": ["0.1.0-beta.22"],
-    "@lupinum/ginko-content": ["0.3.2"],
+    "@lupinum/better-convex-mcp": ["1.0.0-beta.1"],
+    "@lupinum/ginko-content": ["1.0.0-beta.4"],
     "better-auth": ["1.7.0-rc.2"],
-    "better-convex-nuxt": ["0.7.0-beta.0", "0.8.0-beta.34"],
-    "better-convex-vue": ["0.8.0-beta.34"],
+    "@lupinum/better-convex-nuxt": ["1.0.0-beta.1"],
+    "@lupinum/better-convex-vue": ["1.0.0-beta.1"],
     "convex": ["1.42.2", "^1.42.2"],
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
-    "nuxt": ["4.5.1"],
+    "nuxt": ["4.5.2"],
     "typescript": ["~5.9.3", "^5.9.3", "5.9.3"],
     "vite": ["8.1.5"],
     "vue": ["3.5.40"],
@@ -56,14 +56,14 @@
   },
   "consumer": {
     "dependencies": {
-      "@nuxt/kit": "4.5.1",
-      "better-convex-mcp": "0.1.0-beta.22",
-      "@lupinum/ginko-content": "0.3.2",
+      "@nuxt/kit": "4.5.2",
+      "@lupinum/better-convex-mcp": "1.0.0-beta.1",
+      "@lupinum/ginko-content": "1.0.0-beta.4",
       "better-auth": "1.7.0-rc.2",
-      "better-convex-nuxt": "0.8.0-beta.34",
-      "better-convex-vue": "0.8.0-beta.34",
+      "@lupinum/better-convex-nuxt": "1.0.0-beta.1",
+      "@lupinum/better-convex-vue": "1.0.0-beta.1",
       "convex": "1.42.2",
-      "nuxt": "4.5.1",
+      "nuxt": "4.5.2",
       "vue": "3.5.40"
     },
     "devDependencies": {
@@ -74,7 +74,7 @@
   },
   "intentionalHolds": [
     "Strict npm is mandatory for RC.2 and passes without a peer exception after selecting corrected @napi-rs/wasm-runtime 1.2.1.",
-    "npm reports GHSA-mh99-v99m-4gvg in the Nuxt 4.5.1/Nitropack 2 build-time archive graph because the advisory only patches brace-expansion 5 while upstream minimatch ranges still select 2.x. The exact packed consumer must prove that brace-expansion, minimatch, glob, archiver, archiver-utils, and readdir-glob are absent from the deployed Nitro server output. Remove this hold when Nuxt publishes a compatible Nitro dependency graph; do not force or override the consumer graph.",
+    "npm reports GHSA-mh99-v99m-4gvg in the Nuxt 4.5.2/Nitropack 2 build-time archive graph because the advisory only patches brace-expansion 5 while upstream minimatch ranges still select 2.x. The exact packed consumer must prove that brace-expansion, minimatch, glob, archiver, archiver-utils, and readdir-glob are absent from the deployed Nitro server output. Remove this hold when Nuxt publishes a compatible Nitro dependency graph; do not force or override the consumer graph.",
     "h3 stays on 1.15.11 until h3 2 leaves release-candidate status and Nuxt ecosystem peers accept it.",
     "Nuxt DevTools stays on the 3.x stable line while 4.x is alpha."
   ]

@@ -3,7 +3,7 @@ import {
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
   type PaginatedQueryReference,
-} from 'better-convex-vue'
+} from '@lupinum/better-convex-vue'
 import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
 
 import { cmsPermissionKeys, type CmsPermissionKey } from './permissions'
@@ -28,7 +28,7 @@ type CmsStudioPaginatedQueryOptions = {
 export interface UseCmsStudioPaginatedQueryReturn<Data> {
   data: ComputedRef<readonly Data[] | undefined>
   status: ComputedRef<CmsStudioPaginatedStatus>
-  isLoading: ComputedRef<boolean>
+  pending: ComputedRef<boolean>
   isStale: ComputedRef<boolean>
   canLoadMore: ComputedRef<boolean>
   loadMore: (numItems: number) => void
@@ -71,14 +71,14 @@ export function useCmsStudioPaginatedQuery<Query extends PaginatedQueryReference
     status: computed(() => {
       if (gatedArgs.value === 'skip') return 'skipped'
       if (result.error.value) return 'error'
-      if (result.isLoading.value && (result.data.value?.length ?? 0) === 0) {
+      if (result.pending.value && (result.data.value?.length ?? 0) === 0) {
         return 'loading-first-page'
       }
-      if (result.isLoading.value) return 'loading-more'
+      if (result.pending.value) return 'loading-more'
       if (!result.canLoadMore.value) return 'exhausted'
       return 'ready'
     }),
-    isLoading: result.isLoading,
+    pending: result.pending,
     isStale: result.isStale,
     canLoadMore: result.canLoadMore,
     loadMore: result.loadMore,

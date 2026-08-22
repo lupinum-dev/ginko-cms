@@ -1,5 +1,5 @@
+import betterAuth from '@lupinum/better-convex-nuxt/better-auth/convex.config'
 import ginkoCms from '@lupinum/ginko-cms-convex/convex.config'
-import betterAuth from 'better-convex-nuxt/convex-auth/convex.config'
 import { defineApp } from 'convex/server'
 
 const app = defineApp()

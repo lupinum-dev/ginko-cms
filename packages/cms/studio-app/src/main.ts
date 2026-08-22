@@ -1,4 +1,4 @@
-import { createBetterConvex } from 'better-convex-vue'
+import { createBetterConvex } from '@lupinum/better-convex-vue'
 import { createApp } from 'vue'
 
 import App from './App.vue'

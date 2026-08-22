@@ -1,5 +1,5 @@
-import { normalizeConvexError } from 'better-convex-nuxt/errors'
-import { serverConvex } from 'better-convex-nuxt/server'
+import { normalizeConvexError } from '@lupinum/better-convex-nuxt/errors'
+import { serverConvex } from '@lupinum/better-convex-nuxt/server'
 import {
   createError,
   defineEventHandler,

@@ -1,3 +1,4 @@
+import { handleMcpRequest, runMcpTool, type McpAccessVerifier } from '@lupinum/better-convex-mcp'
 import { cmsMcpCaller, type CmsMcpCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
@@ -8,7 +9,6 @@ import {
   type InputRequiredResult,
   type ServerContext,
 } from '@modelcontextprotocol/server'
-import { handleMcpRequest, runMcpTool, type McpAccessVerifier } from 'better-convex-mcp'
 import { z } from 'zod'
 
 const readScope = 'cms.read'

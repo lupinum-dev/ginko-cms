@@ -175,7 +175,7 @@ const upstreamTarball = (name, variable) =>
         `.pack/upstream/${name.replace('@', '').replace('/', '-')}-${compatibility.releaseStack[name]}.tgz`,
       ),
   )
-const nuxtEvidence = compatibility.releaseArtifacts['better-convex-nuxt']
+const nuxtEvidence = compatibility.releaseArtifacts['@lupinum/better-convex-nuxt']
 if (typeof nuxtEvidence?.runtimeFingerprint !== 'string') {
   throw new Error(
     'better-convex-nuxt release evidence is pending in compatibility.json; candidate packing is blocked.',
@@ -186,22 +186,22 @@ const upstream = {
     '@lupinum/ginko-content',
     upstreamTarball('@lupinum/ginko-content', 'GINKO_CONTENT_TARBALL'),
   ),
-  'better-convex-vue': {
+  '@lupinum/better-convex-vue': {
     ...requireUpstreamTarball(
-      'better-convex-vue',
-      upstreamTarball('better-convex-vue', 'BETTER_CONVEX_VUE_TARBALL'),
+      '@lupinum/better-convex-vue',
+      upstreamTarball('@lupinum/better-convex-vue', 'BETTER_CONVEX_VUE_TARBALL'),
     ),
   },
-  'better-convex-nuxt': {
+  '@lupinum/better-convex-nuxt': {
     ...requireUpstreamTarball(
-      'better-convex-nuxt',
-      upstreamTarball('better-convex-nuxt', 'BETTER_CONVEX_NUXT_TARBALL'),
+      '@lupinum/better-convex-nuxt',
+      upstreamTarball('@lupinum/better-convex-nuxt', 'BETTER_CONVEX_NUXT_TARBALL'),
     ),
     runtimeFingerprint: nuxtEvidence.runtimeFingerprint,
   },
-  'better-convex-mcp': requireUpstreamTarball(
-    'better-convex-mcp',
-    upstreamTarball('better-convex-mcp', 'BETTER_CONVEX_MCP_TARBALL'),
+  '@lupinum/better-convex-mcp': requireUpstreamTarball(
+    '@lupinum/better-convex-mcp',
+    upstreamTarball('@lupinum/better-convex-mcp', 'BETTER_CONVEX_MCP_TARBALL'),
   ),
 }
 

@@ -92,8 +92,8 @@ function ensureConvexPackageLinks(cwd: string): () => void {
     ensurePackageLink(cwd, 'convex', findPackageRoot(require.resolve('convex/server'))),
     ensurePackageLink(
       cwd,
-      'better-convex-nuxt',
-      resolveInstalledDependencyRoot('better-convex-nuxt', cwd),
+      '@lupinum/better-convex-nuxt',
+      resolveInstalledDependencyRoot('@lupinum/better-convex-nuxt', cwd),
     ),
     ensurePackageLink(
       cwd,

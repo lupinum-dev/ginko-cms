@@ -22,4 +22,4 @@ than as a separate product users need to understand.
 
 Superseded note: Trellis is no longer an internal implementation dependency for
 Ginko CMS. The current architecture uses direct Convex, Better Auth, and
-`better-convex-nuxt` wiring.
+`@lupinum/better-convex-nuxt` wiring.

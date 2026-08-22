@@ -148,7 +148,7 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuer
     error: ref(null),
     canLoadMore: ref(paginatedQueryState.canLoadMore),
     data: ref([]),
-    isLoading: ref(false),
+    pending: ref(false),
     loadMore: paginatedQueryState.loadMore,
   }),
 }))

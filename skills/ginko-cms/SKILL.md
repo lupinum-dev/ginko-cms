@@ -46,7 +46,7 @@ operations, publishing, assets, public projections, and MCP workflows.
 - Treat generated Convex setup files and root adapters as host-owned glue after
   `ginko-cms init`; do not move CMS policy into those files.
 - Use `CONVEX_DEPLOY_KEY` only for contract sync and other admin CLI transport.
-  Runtime identity comes from Better Auth through `better-convex-nuxt`.
+  Runtime identity comes from Better Auth through `@lupinum/better-convex-nuxt`.
 - Do not claim the Nuxt provider reads drafts. It reads published public Convex
   projections.
 - Database disaster recovery uses official Convex Backup & Restore. Content

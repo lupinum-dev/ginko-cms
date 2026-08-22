@@ -10,10 +10,10 @@ const mocks = vi.hoisted(() => ({
   serverConvex: vi.fn(),
 }))
 
-vi.mock('better-convex-nuxt/server', () => ({
+vi.mock('@lupinum/better-convex-nuxt/server', () => ({
   serverConvex: mocks.serverConvex,
 }))
-vi.mock('better-convex-nuxt/errors', () => ({
+vi.mock('@lupinum/better-convex-nuxt/errors', () => ({
   normalizeConvexError: (error: unknown) =>
     error && typeof error === 'object' && 'kind' in error ? error : { kind: 'unknown' },
 }))

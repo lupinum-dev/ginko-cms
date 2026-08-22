@@ -1,5 +1,5 @@
+import { useConvex } from '@lupinum/better-convex-vue'
 import { getCmsErrorCode, getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { useConvex } from 'better-convex-vue'
 import { computed, reactive, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'

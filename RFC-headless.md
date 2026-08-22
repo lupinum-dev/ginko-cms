@@ -433,7 +433,7 @@ The run ID is not added to `CmsCaller` speculatively. If repeated wrappers prove
 Reasons:
 
 - it reuses the existing Better Auth boundary;
-- it reuses request-scoped `serverConvex` and token exchange from `better-convex-nuxt`;
+- it reuses request-scoped `serverConvex` and token exchange from `@lupinum/better-convex-nuxt`;
 - it keeps Convex deployment topology private;
 - it provides one place for HTTP limits, rate limiting, request IDs, OAuth discovery, and signed upload orchestration;
 - it avoids maintaining parallel Nitro and Convex HTTP transports.

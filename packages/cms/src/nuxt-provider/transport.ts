@@ -68,7 +68,7 @@ export const callerForEvent = async (event: ProviderEvent): Promise<ConvexQueryC
     if (testClientFactory) {
       return testClientFactory(convexUrl())
     }
-    const { serverConvex } = await import('better-convex-nuxt/server')
+    const { serverConvex } = await import('@lupinum/better-convex-nuxt/server')
     return serverConvex(event, { auth: 'none' }) as ConvexQueryCaller
   } catch (error) {
     throw normalizeRemoteError(error)

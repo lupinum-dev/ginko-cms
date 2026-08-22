@@ -65,7 +65,7 @@ const activityQuery = useCmsStudioPaginatedQuery(api.ginkoCms.editor.listActivit
 })
 const rows = computed<ActivityItem[]>(() => [...(activityQuery.data.value ?? [])])
 const hasMore = computed(() => activityQuery.canLoadMore.value)
-const isLoading = computed(() => activityQuery.isLoading.value)
+const isLoading = computed(() => activityQuery.pending.value)
 const isLoadingMore = computed(() => rows.value.length > 0 && isLoading.value)
 const pageError = computed(() =>
   activityQuery.error.value

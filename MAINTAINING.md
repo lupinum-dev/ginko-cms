@@ -2,7 +2,7 @@
 
 Ginko CMS is the integration package. It owns CMS domain rules, Studio, the
 Convex component, host Convex setup files, MCP tools, package e2e, and release
-compatibility with Ginko Content and `better-convex-nuxt`.
+compatibility with Ginko Content and `@lupinum/better-convex-nuxt`.
 
 ## Package Surface
 

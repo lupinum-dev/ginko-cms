@@ -3,13 +3,13 @@
   "generatedBy": "@lupinum/ginko-cms",
   "files": {
     "convex/auth.config.ts": {
-      "templateHash": "c1c60ad940a9fb1d30328baeae366c717806f66197dfdc3eb99ed429a23f9a81"
+      "templateHash": "c824e109eed133d8fe1667facb9721313868eec08ea05bfa7a039218addfb008"
     },
     "convex/auth.ts": {
-      "templateHash": "581af4597dbe5269cc053e2055a6b09a38a6c11594b9cccaf0907c42b5bd454f"
+      "templateHash": "4625b0e700cd849521739682dbb1f3cf9bb5fbf1c4faf3db8d5b748dce58b189"
     },
     "convex/convex.config.ts": {
-      "templateHash": "982d55a2f8ae706900fea70841af4b5a7a3edc423a9106a530b7c06ebb1f1a86"
+      "templateHash": "ab7a11b0aa86e432f658a1df4bb0ce7f5552f88c9fb63fba28d7aa217252737b"
     },
     "convex/ginkoCms/agentRuns.ts": {
       "templateHash": "fe49ba0b58e55cd875d465325b071814315a1410c825fa32cba20d05be1ab611"
@@ -60,7 +60,7 @@
       "templateHash": "585e8399e8f2cd755754d4d3933193487339d1cb7d4265ceda1cfc899de246e9"
     },
     "convex/http.ts": {
-      "templateHash": "dc9a012fcf84f6630215f3a3cf7a0d869845de4eb2997b39002b8b1640493c3c"
+      "templateHash": "2897f24e85fba4355f0a43b5ae50bb7abfe7d2c1fc35c89d03e62ffac90e9b68"
     },
     "convex/schema.ts": {
       "templateHash": "e83dc3aecfdc78a9da07228f7de7a5c8d71d143fe6b96a921a2c0b8735fd2c48"
@@ -81,7 +81,7 @@
       "templateHash": "c8e1af28bfa5e818d02f4fbfc539377a78134d159cc9cf9f9e5eab21215dc203"
     },
     "convex/ginkoCms/mcp.ts": {
-      "templateHash": "07dd48efadb35b27286d0db56ff3bb9dbd07945806f031eb014e949b2567553c"
+      "templateHash": "ab4c056b90f1b9e47308369704fdcdd6a6fd3c68b2b6d25b4f716047c2948312"
     },
     "convex/ginkoCms/mcpOperations.ts": {
       "templateHash": "aafa9254e5d20f1aff6bc00104f98569d7df56b7f67e1eba5ca89d2e7ca7db71"

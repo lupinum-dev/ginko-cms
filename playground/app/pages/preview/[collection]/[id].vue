@@ -101,7 +101,7 @@ if (import.meta.server) {
 }
 
 const auth = useConvexAuth()
-const authPending = computed(() => auth.isPending.value)
+const authPending = computed(() => auth.pending.value)
 const isAuthenticated = computed(() => auth.isAuthenticated.value === true)
 const signInPath = computed(
   () => `/studio/auth/signin?redirect=${encodeURIComponent(route.fullPath)}`,

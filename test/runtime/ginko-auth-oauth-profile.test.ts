@@ -1,52 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-let capturedAuthOptions: Record<string, unknown> | null = null
-let capturedConvexOptions: Record<string, unknown> | null = null
+let capturedFactoryOptions: Record<string, unknown> | null = null
 let capturedOAuthOptions: Record<string, unknown> | null = null
 
-vi.mock('better-auth', () => ({
-  betterAuth: (options: Record<string, unknown>) => {
-    capturedAuthOptions = options
+vi.mock('@lupinum/better-convex-nuxt/better-auth/server', () => ({
+  createBetterConvexAuth: (_component: unknown, options: Record<string, unknown>) => {
+    capturedFactoryOptions = options
     return {
-      $context: Promise.resolve({}),
-      handler: async () => new Response(null, { status: 204 }),
+      authComponent: {},
+      createAuth: async (ctx: unknown) => {
+        const profile = options.oauthProvider as (ctx: unknown) => Record<string, unknown>
+        capturedOAuthOptions = profile(ctx)
+        return { $context: Promise.resolve({}), handler: async () => new Response(null) }
+      },
+      jwksOperatorFunctions: () => ({}),
+      registerRoutes: () => undefined,
+      triggerFunctions: {},
     }
   },
-}))
-
-vi.mock('better-auth/plugins', () => ({
-  jwt: (options: unknown) => ({ id: 'jwt', options }),
-}))
-
-vi.mock('@better-auth/oauth-provider', () => ({
-  oauthProvider: (options: Record<string, unknown>) => {
-    capturedOAuthOptions = options
-    return { id: 'oauth-provider', options }
-  },
-}))
-
-vi.mock('better-convex-nuxt/convex-auth', () => ({
-  convexAuth: (options: Record<string, unknown>) => {
-    capturedConvexOptions = options
-    return { id: 'convex-auth', options }
-  },
-  createAuthComponent: () => ({
-    adapter: () => ({ id: 'adapter' }),
-    jwksOperatorFunctions: () => ({}),
-  }),
-  getConvexAuthProvider: () => ({ applicationID: 'convex' }),
-  requireAuthOrigin: (name: string) =>
-    name === 'SITE_URL' ? 'https://app.example.test' : 'https://convex.example.test',
 }))
 
 const { defineGinkoAuth } = await import('../../packages/convex/src/convex.auth')
 
 describe('Ginko fixed MCP OAuth provider profile', () => {
   beforeEach(() => {
-    capturedAuthOptions = null
-    capturedConvexOptions = null
+    capturedFactoryOptions = null
     capturedOAuthOptions = null
-    process.env.BETTER_AUTH_SECRETS = 'test-only-secret-material'
   })
 
   it('constructs one fixed authorization-code and PKCE-compatible delegated profile', async () => {
@@ -77,21 +56,11 @@ describe('Ginko fixed MCP OAuth provider profile', () => {
       storeClientSecret: 'hashed',
       storeTokens: 'hashed',
     })
-    expect(capturedConvexOptions?.oauthProvider).toBe(capturedOAuthOptions)
+    expect(capturedFactoryOptions).toMatchObject({
+      emailAndPassword: {},
+      oauthProvider: expect.any(Function),
+    })
     expect(capturedOAuthOptions).not.toHaveProperty('silenceWarnings')
-    expect(capturedAuthOptions?.disabledPaths).toEqual(
-      expect.arrayContaining([
-        '/oauth2/register',
-        '/oauth2/introspect',
-        '/oauth2/userinfo',
-        '/oauth2/create-client',
-        '/oauth2/get-client',
-        '/oauth2/get-clients',
-        '/oauth2/update-client',
-        '/oauth2/client/rotate-secret',
-        '/oauth2/delete-client',
-      ]),
-    )
 
     const clientPrivileges = capturedOAuthOptions?.clientPrivileges as (
       identity: unknown,

@@ -164,7 +164,7 @@ describe('ginko-cms tailwind registration', () => {
       classSuffix: '',
     })
     const moduleDependencies = getModuleDependencies(nuxt)
-    const convexDependency = moduleDependencies['better-convex-nuxt']
+    const convexDependency = moduleDependencies['@lupinum/better-convex-nuxt']
 
     // Ginko supplies only its product route. The host owns the explicit auth
     // origin and optional Better Auth client definition.

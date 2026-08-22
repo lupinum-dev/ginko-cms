@@ -251,7 +251,7 @@ function queueKindIcon(kind: QueueKind) {
                 variant="outline"
                 size="sm"
                 class="ginko:w-full"
-                :disabled="workQueueQuery.isLoading.value"
+                :disabled="workQueueQuery.pending.value"
                 @click="workQueueQuery.loadMore(20)"
               >
                 {{ t('ginkoCms.common.loadMore') }}

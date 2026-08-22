@@ -11,11 +11,11 @@ Nuxt integration.
 
 ## Decision
 
-Ginko CMS uses direct Convex, Better Auth, and `better-convex-nuxt`.
+Ginko CMS uses direct Convex, Better Auth, and `@lupinum/better-convex-nuxt`.
 
 - Host apps own normal Convex setup files and generated `#convex/api` /
   `#convex/server` aliases.
-- `better-convex-nuxt` owns Nuxt runtime wiring for Convex and Better Auth.
+- `@lupinum/better-convex-nuxt` owns Nuxt runtime wiring for Convex and Better Auth.
 - Ginko CMS owns CMS domain policy, setup validation, Studio, public reads, MCP,
   CLI commands, and destructive confirmation invariants.
 - The Convex component remains the source of truth for authorization,
@@ -31,7 +31,7 @@ member/editor/publisher authority.
 
 ## Consequences
 
-Current install docs must mention Convex, Better Auth, `better-convex-nuxt`, and
+Current install docs must mention Convex, Better Auth, `@lupinum/better-convex-nuxt`, and
 the Ginko CMS packages as direct dependencies. They must not document Trellis as
 a live requirement.
 

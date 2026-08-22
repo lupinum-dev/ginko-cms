@@ -1,10 +1,10 @@
+import { createBetterAuthMcpAccessVerifier } from '@lupinum/better-convex-nuxt/better-auth/server'
 import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { handleGinkoMcpRequest } from '@lupinum/ginko-cms-convex/mcp'
-import { createBetterAuthMcpAccessVerifier } from 'better-convex-nuxt/convex-auth'
 
 import { internal } from '../_generated/api.js'
 import { httpAction } from '../_generated/server.js'
-import { authComponent } from '../auth.js'
+import { auth } from '../auth.js'
 
 declare const process: { env: Record<string, string | undefined> }
 
@@ -58,7 +58,8 @@ export const handle = httpAction(async (ctx, request) => {
         allowedScopes: mcpDelegatedScopeKeys,
         jwksUrl: `${issuer}/jwks`,
         maxLifetimeSeconds: 600,
-        validateLiveAccess: async (access) => await authComponent.validateOAuthAccess(ctx, access),
+        validateLiveAccess: async (access) =>
+          await auth.authComponent.validateOAuthAccess(ctx, access),
       }),
     },
     resource,

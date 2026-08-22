@@ -1,4 +1,4 @@
-import type { BetterConvexAttachment } from 'better-convex-vue/embedded'
+import type { BetterConvexAttachment } from '@lupinum/better-convex-vue/embedded'
 import { hasInjectionContext, inject, type InjectionKey } from 'vue'
 
 import { readHostBridge, type HostBridge } from './host-bridge'

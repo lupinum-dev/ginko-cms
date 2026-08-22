@@ -3,7 +3,7 @@
     <h1 class="text-3xl font-bold mb-4">Ginko CMS Playground</h1>
     <p class="text-gray-600 mb-6">
       This playground demonstrates the self-hosted CMS module powered by Convex, Better Auth, and
-      better-convex-nuxt.
+      @lupinum/better-convex-nuxt.
     </p>
     <div class="flex gap-4">
       <NuxtLink to="/blog" class="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200">

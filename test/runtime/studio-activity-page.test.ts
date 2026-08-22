@@ -89,7 +89,7 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuer
       canLoadMore: ref(false),
       data: ref([]),
       error: ref(null),
-      isLoading: ref(false),
+      pending: ref(false),
       loadMore: vi.fn(),
     }
   },

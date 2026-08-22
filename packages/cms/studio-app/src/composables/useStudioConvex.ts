@@ -1,4 +1,4 @@
-import { useConvexMutation as useBetterConvexMutation } from 'better-convex-vue'
+import { useConvexMutation as useBetterConvexMutation } from '@lupinum/better-convex-vue'
 import type { FunctionReference } from 'convex/server'
 import type { GenericId } from 'convex/values'
 import { computed, onScopeDispose, ref, type ComputedRef, type Ref, watch } from 'vue'
@@ -6,7 +6,7 @@ import { computed, onScopeDispose, ref, type ComputedRef, type Ref, watch } from
 import { useCmsAuthState } from './useCmsAuthState'
 import { normalizeCmsStudioQueryError } from './useCmsStudioQuery'
 
-export { useConvexAction, useConvexMutation } from 'better-convex-vue'
+export { useConvexAction, useConvexMutation } from '@lupinum/better-convex-vue'
 
 function useStudioUploadScope(onRetire: () => void) {
   const auth = useCmsAuthState()

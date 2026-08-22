@@ -1,9 +1,9 @@
-import { classifyGinkoError, type GinkoErrorCategory } from '@public/error-classification'
 import {
   useConvexQuery as useBetterConvexQuery,
   type UseConvexQueryParameters,
-} from 'better-convex-vue'
-import { normalizeConvexError } from 'better-convex-vue/errors'
+} from '@lupinum/better-convex-vue'
+import { normalizeConvexError } from '@lupinum/better-convex-vue/errors'
+import { classifyGinkoError, type GinkoErrorCategory } from '@public/error-classification'
 import { getFunctionName } from 'convex/server'
 import type {
   FunctionArgs,

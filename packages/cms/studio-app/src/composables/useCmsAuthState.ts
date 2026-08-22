@@ -1,6 +1,6 @@
+import type { ConvexAuthStatus } from '@lupinum/better-convex-nuxt'
+import { ConvexCallError } from '@lupinum/better-convex-vue'
 import type { GinkoCmsStudioHostBridgeAuth } from '@public/types'
-import type { ConvexAuthStatus } from 'better-convex-nuxt'
-import { ConvexCallError } from 'better-convex-vue'
 import { computed, onScopeDispose, shallowRef, type ComputedRef } from 'vue'
 
 import { useStudioHostContext } from '../boundary/studio-host-context'
@@ -25,7 +25,7 @@ export interface CmsAuthUser {
 }
 
 // The auth subset the host bridge exposes (vNext §10.6): the
-// `status | isPending | user | error` slice of `UseConvexAuthReturn`.
+// `status | pending | user | error` slice of `UseConvexAuthReturn`.
 // No `token`/`isAnonymous`/`getJwt` — the Studio never receives the Convex JWT.
 type BridgeAuth = GinkoCmsStudioHostBridgeAuth
 
@@ -72,7 +72,7 @@ export function useCmsAuthState(): UseCmsAuthStateReturn {
 
   const status = computed<ConvexAuthStatus>(() => snapshot.value?.status ?? 'anonymous')
   const isAuthenticated = computed(() => status.value === 'authenticated')
-  const pending = computed(() => snapshot.value?.isPending === true)
+  const pending = computed(() => snapshot.value?.pending === true)
   const user = computed(() => normalizeUser(snapshot.value?.user))
   const error = computed(() => {
     const current = snapshot.value?.error

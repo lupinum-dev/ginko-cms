@@ -178,7 +178,7 @@ const rows = computed<StudioEntryRow[]>(() =>
 )
 watchEffect(async () => {
   const currentCollection = collectionConfig.value
-  if (!currentCollection || !currentCollection.singleton || listQuery.isLoading.value) {
+  if (!currentCollection || !currentCollection.singleton || listQuery.pending.value) {
     return
   }
   const firstEntry = rows.value[0]
@@ -322,12 +322,12 @@ const isLoadingList = computed(
     !queryError.value &&
     visibleRows.value.length === 0 &&
     (collectionQuery.pending.value ||
-      (workStateFilter.value === 'all' ? listQuery.isLoading.value : summaryQuery.isLoading.value)),
+      (workStateFilter.value === 'all' ? listQuery.pending.value : summaryQuery.pending.value)),
 )
 const isLoadingMore = computed(
   () =>
     visibleRows.value.length > 0 &&
-    (workStateFilter.value === 'all' ? listQuery.isLoading.value : summaryQuery.isLoading.value),
+    (workStateFilter.value === 'all' ? listQuery.pending.value : summaryQuery.pending.value),
 )
 const hasMore = computed(() =>
   workStateFilter.value === 'all' ? listQuery.canLoadMore.value : summaryQuery.canLoadMore.value,

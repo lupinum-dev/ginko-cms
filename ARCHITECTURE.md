@@ -44,7 +44,7 @@ presentation. Studio and MCP inspect that contract; they do not mutate schema.
 ## Setup Boundary
 
 The host application owns Better Auth identities, provider choices, and its
-Convex app. `better-convex-nuxt` owns Nuxt-side Convex lifecycle, SSR callers,
+Convex app. `@lupinum/better-convex-nuxt` owns Nuxt-side Convex lifecycle, SSR callers,
 auth synchronization, route protection, and token exchange. Ginko CMS composes
 that foundation and owns only CMS product policy.
 

@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   query: vi.fn(),
 }))
 
-vi.mock('better-convex-vue', () => ({
+vi.mock('@lupinum/better-convex-vue', () => ({
   useConvex: () => ({ query: mocks.query }),
 }))
 

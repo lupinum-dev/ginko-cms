@@ -14,7 +14,7 @@ Install the Nuxt content engine, CMS module, Convex component, and auth
 dependencies in the host app:
 
 ```bash
-pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt better-auth
+pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex @lupinum/better-convex-nuxt better-auth
 pnpm add -D convex
 ```
 

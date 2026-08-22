@@ -15,13 +15,13 @@ import type {
   ContentDataSourceControl,
 } from '@lupinum/ginko-content/data-source'
 import { createContentDataSourceError } from '@lupinum/ginko-content/data-source'
-import {
-  type ContentProviderNavigationItem,
-  type ContentProviderSearchRequest,
-  type ContentProviderSiteDataRequest,
-  type ContentProviderSurroundingsOptions,
-  type ContentProviderVariantSelector,
-  type ContentRouteRecord,
+import type {
+  ContentProviderNavigationItem,
+  ContentProviderSearchRequest,
+  ContentProviderSiteDataRequest,
+  ContentProviderSurroundingsOptions,
+  ContentProviderVariantSelector,
+  ContentRouteRecord,
 } from '@lupinum/ginko-content/provider'
 import type { H3Event } from 'h3'
 

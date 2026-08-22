@@ -450,7 +450,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const hostConvex = nuxtOptions.convex
     if (hostConvex === false) {
       throw new Error(
-        'ginko-cms requires better-convex-nuxt. Remove the top-level `convex: false` option.',
+        'ginko-cms requires @lupinum/better-convex-nuxt. Remove the top-level `convex: false` option.',
       )
     }
     const hostAuth = hostConvex && typeof hostConvex === 'object' ? hostConvex.auth : undefined
@@ -480,7 +480,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       },
     }
 
-    dependencies['better-convex-nuxt'] = {
+    dependencies['@lupinum/better-convex-nuxt'] = {
       defaults: {
         auth: {
           redirectTo: `${studioRoute}/auth/signin`,

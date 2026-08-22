@@ -46,7 +46,7 @@ const candidatePackages = [
   '@lupinum/ginko-cms-contract',
   '@lupinum/ginko-cms-convex',
   '@lupinum/ginko-cms',
-  'better-convex-nuxt',
+  '@lupinum/better-convex-nuxt',
 ]
 
 function requiredString(value, label) {

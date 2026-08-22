@@ -74,13 +74,13 @@ const contentRegistryVersion =
   compatibilityMatrix.releaseStack['@lupinum/ginko-content']
 const betterConvexNuxtRegistryVersion =
   process.env.BETTER_CONVEX_NUXT_PACKAGE_VERSION ||
-  compatibilityMatrix.releaseStack['better-convex-nuxt']
+  compatibilityMatrix.releaseStack['@lupinum/better-convex-nuxt']
 const betterConvexVueRegistryVersion =
   process.env.BETTER_CONVEX_VUE_PACKAGE_VERSION ||
-  compatibilityMatrix.releaseStack['better-convex-vue']
+  compatibilityMatrix.releaseStack['@lupinum/better-convex-vue']
 const betterConvexMcpRegistryVersion =
   process.env.BETTER_CONVEX_MCP_PACKAGE_VERSION ||
-  compatibilityMatrix.releaseStack['better-convex-mcp']
+  compatibilityMatrix.releaseStack['@lupinum/better-convex-mcp']
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
@@ -180,13 +180,13 @@ const candidateContent = candidateMode
   ? requireCandidateArtifact('GINKO_CONTENT_TARBALL', '@lupinum/ginko-content')
   : undefined
 const candidateBetterConvexNuxt = candidateMode
-  ? requireCandidateArtifact('BETTER_CONVEX_NUXT_TARBALL', 'better-convex-nuxt')
+  ? requireCandidateArtifact('BETTER_CONVEX_NUXT_TARBALL', '@lupinum/better-convex-nuxt')
   : undefined
 const candidateBetterConvexVue = candidateMode
-  ? requireCandidateArtifact('BETTER_CONVEX_VUE_TARBALL', 'better-convex-vue')
+  ? requireCandidateArtifact('BETTER_CONVEX_VUE_TARBALL', '@lupinum/better-convex-vue')
   : undefined
 const candidateBetterConvexMcp = candidateMode
-  ? requireCandidateArtifact('BETTER_CONVEX_MCP_TARBALL', 'better-convex-mcp')
+  ? requireCandidateArtifact('BETTER_CONVEX_MCP_TARBALL', '@lupinum/better-convex-mcp')
   : undefined
 
 function packageE2eEnv() {
@@ -392,7 +392,7 @@ async function bootNitro() {
         }
       }
       const expectedFingerprint =
-        compatibilityMatrix.releaseArtifacts['better-convex-nuxt'].runtimeFingerprint
+        compatibilityMatrix.releaseArtifacts['@lupinum/better-convex-nuxt'].runtimeFingerprint
       const fingerprintResponse = await fetch(
         `http://127.0.0.1:${port}/api/_better-convex-nuxt/release-fingerprint`,
       )
@@ -667,11 +667,11 @@ try {
           '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
           '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
           '@lupinum/ginko-content': contentDependency(installedContentTarball),
-          'better-convex-mcp': registryBetterConvexMcp
+          '@lupinum/better-convex-mcp': registryBetterConvexMcp
             ? betterConvexMcpRegistryVersion
             : fileDependency(installedBetterConvexMcpTarball),
-          'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
-          'better-convex-vue': betterConvexVueDependency(betterConvexVueTarball),
+          '@lupinum/better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
+          '@lupinum/better-convex-vue': betterConvexVueDependency(betterConvexVueTarball),
         },
         devDependencies: consumerCompatibility.devDependencies,
       },
@@ -687,15 +687,15 @@ try {
       '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
       '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
       '@lupinum/ginko-content': contentDependency(installedContentTarball),
-      'better-convex-mcp': registryBetterConvexMcp
+      '@lupinum/better-convex-mcp': registryBetterConvexMcp
         ? betterConvexMcpRegistryVersion
         : fileDependency(installedBetterConvexMcpTarball),
       '@nuxt/kit': consumerCompatibility.dependencies['@nuxt/kit'],
       ...(liveConvex
         ? { '@nuxtjs/sitemap': compatibilityMatrix.tracked['@nuxtjs/sitemap'][1] }
         : {}),
-      'better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
-      'better-convex-vue': betterConvexVueDependency(betterConvexVueTarball),
+      '@lupinum/better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
+      '@lupinum/better-convex-vue': betterConvexVueDependency(betterConvexVueTarball),
       convex: consumerCompatibility.dependencies.convex,
     })
   }
@@ -921,8 +921,14 @@ try {
   const vueOwners = new Map([
     ['consumer', join(tempDir, 'package.json')],
     ['nuxt', join(tempDir, 'node_modules/nuxt/package.json')],
-    ['better-convex-nuxt', join(tempDir, 'node_modules/better-convex-nuxt/package.json')],
-    ['better-convex-vue', join(tempDir, 'node_modules/better-convex-vue/package.json')],
+    [
+      '@lupinum/better-convex-nuxt',
+      join(tempDir, 'node_modules/@lupinum/better-convex-nuxt/package.json'),
+    ],
+    [
+      '@lupinum/better-convex-vue',
+      join(tempDir, 'node_modules/@lupinum/better-convex-vue/package.json'),
+    ],
     ['@lupinum/ginko-cms', join(tempDir, 'node_modules/@lupinum/ginko-cms/package.json')],
     ['@vue/server-renderer', vueRequire.resolve('@vue/server-renderer')],
   ])
@@ -941,16 +947,16 @@ try {
   const installedVersions = Object.fromEntries(
     [
       ['@lupinum/ginko-content', 'node_modules/@lupinum/ginko-content/package.json'],
-      ['better-convex-mcp', 'node_modules/better-convex-mcp/package.json'],
-      ['better-convex-nuxt', 'node_modules/better-convex-nuxt/package.json'],
-      ['better-convex-vue', 'node_modules/better-convex-vue/package.json'],
+      ['@lupinum/better-convex-mcp', 'node_modules/@lupinum/better-convex-mcp/package.json'],
+      ['@lupinum/better-convex-nuxt', 'node_modules/@lupinum/better-convex-nuxt/package.json'],
+      ['@lupinum/better-convex-vue', 'node_modules/@lupinum/better-convex-vue/package.json'],
     ].map(([name, path]) => [name, JSON.parse(readFileSync(join(tempDir, path), 'utf8')).version]),
   )
   const expectedInstalledVersions = {
     '@lupinum/ginko-content': contentRegistryVersion,
-    'better-convex-mcp': betterConvexMcpRegistryVersion,
-    'better-convex-nuxt': betterConvexNuxtRegistryVersion,
-    'better-convex-vue': betterConvexVueRegistryVersion,
+    '@lupinum/better-convex-mcp': betterConvexMcpRegistryVersion,
+    '@lupinum/better-convex-nuxt': betterConvexNuxtRegistryVersion,
+    '@lupinum/better-convex-vue': betterConvexVueRegistryVersion,
   }
   for (const [name, version] of Object.entries(installedVersions)) {
     if (version !== expectedInstalledVersions[name]) {
@@ -1110,9 +1116,9 @@ console.log('packed MCP read/write behavior ok')
       '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
       '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
       '@lupinum/ginko-content': fileDependency(installedContentTarball),
-      'better-convex-mcp': fileDependency(installedBetterConvexMcpTarball),
-      'better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
-      'better-convex-vue': fileDependency(candidateBetterConvexVue.path),
+      '@lupinum/better-convex-mcp': fileDependency(installedBetterConvexMcpTarball),
+      '@lupinum/better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
+      '@lupinum/better-convex-vue': fileDependency(candidateBetterConvexVue.path),
     })
     if (parseYaml(consumerLockfile)?.importers?.['.']?.dependencies?.kysely) {
       throw new Error('pnpm candidate consumer must not declare Kysely directly.')
@@ -1125,9 +1131,9 @@ console.log('packed MCP read/write behavior ok')
       '@lupinum/ginko-cms-contract',
       '@lupinum/ginko-cms-convex',
       '@lupinum/ginko-content',
-      'better-convex-mcp',
-      'better-convex-nuxt',
-      'better-convex-vue',
+      '@lupinum/better-convex-mcp',
+      '@lupinum/better-convex-nuxt',
+      '@lupinum/better-convex-vue',
     ]) {
       const suffix = `node_modules/${name}`
       const matches = Object.keys(lockfile.packages ?? {}).filter(
@@ -1324,12 +1330,12 @@ console.log('packed MCP read/write behavior ok')
     publishedRead: livePublishedReadEvidence,
     dependencies: {
       '@lupinum/ginko-content': candidateContent ?? { version: contentRegistryVersion },
-      'better-convex-nuxt':
+      '@lupinum/better-convex-nuxt':
         candidateBetterConvexNuxt ??
         (betterConvexNuxtTarball
           ? { path: betterConvexNuxtTarball, sha256: sha256(betterConvexNuxtTarball) }
           : { version: betterConvexNuxtRegistryVersion }),
-      'better-convex-vue':
+      '@lupinum/better-convex-vue':
         candidateBetterConvexVue ??
         (betterConvexVueTarball
           ? { path: betterConvexVueTarball, sha256: sha256(betterConvexVueTarball) }

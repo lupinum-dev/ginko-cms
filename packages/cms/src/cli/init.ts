@@ -23,14 +23,14 @@ export async function runInitCommand(args: string[], cwd: string, io: CliIo): Pr
       io.stdout,
       [
         `Next: run \`pnpm exec ginko-cms doctor\`, configure the required environment, then run \`pnpm exec ginko-cms deploy\`.`,
-        `Host apps must depend directly on \`better-convex-nuxt\`, \`better-auth\`, and \`@lupinum/ginko-cms-convex\`.`,
+        `Host apps must depend directly on \`@lupinum/better-convex-nuxt\`, \`better-auth\`, and \`@lupinum/ginko-cms-convex\`.`,
         mcp
           ? `The generated Convex deployment exposes the provider-neutral MCP endpoint at \`/mcp\`.`
           : `MCP is disabled. Re-run \`pnpm exec ginko-cms init --mcp\` to generate the endpoint.`,
         `Set \`CONVEX_URL\` or \`NUXT_PUBLIC_CONVEX_URL\` in the Nuxt app environment.`,
         `Set \`CONVEX_DEPLOY_KEY\` in the Nuxt app/server environment before contract sync.`,
         `Set versioned \`BETTER_AUTH_SECRETS\` in Convex; do not expose it to the Nuxt process.`,
-        `After the first deploy, bootstrap the read-only JWKS lifecycle with \`pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'\` before admitting auth traffic.`,
+        `After the first deploy, bootstrap the read-only JWKS lifecycle with \`pnpm exec better-convex convex run auth:rotateSigningKey '{}'\` before admitting auth traffic.`,
         `Set \`GINKO_FIRST_OWNER_EMAIL\` in the Convex deployment with \`pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com\`.`,
         '',
       ].join('\n'),

@@ -47,7 +47,7 @@ function readAuthSnapshot() {
   const user = convexAuth.user.value
   return {
     status: convexAuth.status.value,
-    isPending: convexAuth.isPending.value,
+    pending: convexAuth.pending.value,
     user: user
       ? {
           id: user.id,
@@ -70,7 +70,7 @@ function readAuthSnapshot() {
 
 if (import.meta.client) {
   watch(
-    [convexAuth.status, convexAuth.isPending, convexAuth.user, convexAuth.error],
+    [convexAuth.status, convexAuth.pending, convexAuth.user, convexAuth.error],
     () => {
       for (const listener of authListeners) listener()
     },

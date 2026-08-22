@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
+import { createBetterConvex } from '@lupinum/better-convex-vue'
+import { createBetterConvexAttachment } from '@lupinum/better-convex-vue/embedded'
 import { mount } from '@vue/test-utils'
-import { createBetterConvex } from 'better-convex-vue'
-import { createBetterConvexAttachment } from 'better-convex-vue/embedded'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 
@@ -13,7 +13,7 @@ const host = vi.hoisted(() => ({
     auth: {
       snapshot: () => ({
         status: 'authenticated',
-        isPending: false,
+        pending: false,
         user: { id: 'publisher-1' },
         error: null,
       }),

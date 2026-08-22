@@ -319,7 +319,7 @@ describe('package boundary contracts', () => {
   it('keeps Nuxt-oriented runtime composables out of standalone Studio source', () => {
     const imports = readImportSpecifiers(collectSourceFiles('packages/cms/studio-app/src'))
     const runtimeViolations = imports.filter(
-      ({ specifier }) => specifier === 'better-convex-nuxt/composables',
+      ({ specifier }) => specifier === '@lupinum/better-convex-nuxt/composables',
     )
 
     expect(
@@ -420,7 +420,7 @@ describe('package boundary contracts', () => {
     expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:0.2.0-rc.2')
     expect(cmsPackage.dependencies?.[trellisPackageName]).toBeUndefined()
     expect(cmsPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
-    expect(cmsPackage.dependencies?.['better-convex-nuxt']).toBeDefined()
+    expect(cmsPackage.dependencies?.['@lupinum/better-convex-nuxt']).toBeDefined()
     expect(cmsPackage.dependencies?.['nuxt-i18n-micro']).toBeUndefined()
     expect(cmsPackage.peerDependencies?.kysely).toBeUndefined()
   })

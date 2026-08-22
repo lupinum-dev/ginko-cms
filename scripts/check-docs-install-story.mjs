@@ -8,7 +8,7 @@ const requiredInstallTokens = [
   '@lupinum/ginko-content',
   '@lupinum/ginko-cms',
   '@lupinum/ginko-cms-convex',
-  'better-convex-nuxt',
+  '@lupinum/better-convex-nuxt',
   'better-auth',
 ]
 
@@ -121,7 +121,7 @@ const quickstart = readFileSync(resolve(repoRoot, 'docs/getting-started/quicksta
 for (const command of [
   'pnpm exec nuxt prepare',
   'pnpm exec convex env set BETTER_AUTH_SECRETS',
-  "pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'",
+  "pnpm exec better-convex convex run auth:rotateSigningKey '{}'",
   'pnpm exec ginko-cms doctor',
 ]) {
   if (!quickstart.includes(command)) {
@@ -158,7 +158,11 @@ const cliSource = [
   readFileSync(resolve(repoRoot, 'packages/cms/src/cli/ginko-cms.ts'), 'utf8'),
   readFileSync(resolve(repoRoot, 'packages/cms/src/cli/init.ts'), 'utf8'),
 ].join('\n')
-const cliRequiredTokens = ['better-convex-nuxt', 'better-auth', '@lupinum/ginko-cms-convex']
+const cliRequiredTokens = [
+  '@lupinum/better-convex-nuxt',
+  'better-auth',
+  '@lupinum/ginko-cms-convex',
+]
 for (const token of cliRequiredTokens) {
   if (!cliSource.includes(token)) {
     errors.push(`packages/cms/src/cli: CLI output must mention \`${token}\``)

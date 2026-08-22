@@ -132,18 +132,16 @@ describe('ginko-cms CLI', () => {
     expect(init.stdout).toContain('configure the required environment')
     expect(init.stdout).toContain('Set versioned `BETTER_AUTH_SECRETS`')
     expect(init.stdout).toContain('run `pnpm exec ginko-cms deploy`')
+    expect(init.stdout).toContain("pnpm exec better-convex convex run auth:rotateSigningKey '{}'")
     expect(init.stdout).toContain(
-      "pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'",
-    )
-    expect(init.stdout).toContain(
-      'Host apps must depend directly on `better-convex-nuxt`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
+      'Host apps must depend directly on `@lupinum/better-convex-nuxt`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
     )
     expect(init.stdout).toContain('MCP is disabled')
     expect(init.stdout).toContain(
       'pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com',
     )
     const convexConfig = readFileSync(resolve(rootDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('better-convex-nuxt/convex-auth/convex.config')
+    expect(convexConfig).toContain('@lupinum/better-convex-nuxt/better-auth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
     expect(existsSync(resolve(rootDir, 'convex/betterAuth/schema.ts'))).toBe(false)
     const setupManifest = JSON.parse(
@@ -207,7 +205,7 @@ describe('ginko-cms CLI', () => {
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(true)
     const mcp = readFileSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'), 'utf8')
     expect(mcp).toContain('handleGinkoMcpRequest(request, {')
-    expect(mcp).toContain('authComponent.validateOAuthAccess(ctx, access)')
+    expect(mcp).toContain('auth.authComponent.validateOAuthAccess(ctx, access)')
     expect(mcp).not.toContain('adapter.findOne')
     expect(mcp).not.toContain('validateLiveProviderAccess')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(true)
@@ -587,7 +585,7 @@ describe('ginko-cms CLI', () => {
     const configPath = resolve(rootDir, 'convex/convex.config.ts')
     const staleConfig = readFileSync(configPath, 'utf8')
       .replace(
-        'better-convex-nuxt/convex-auth/convex.config',
+        '@lupinum/better-convex-nuxt/better-auth/convex.config',
         '@lupinum/ginko-cms/convex/better-auth',
       )
       .replace('@lupinum/ginko-cms-convex/convex.config', '@lupinum/ginko-cms/convex/config')
@@ -599,10 +597,10 @@ describe('ginko-cms CLI', () => {
       'Replace @lupinum/ginko-cms/convex/config with @lupinum/ginko-cms-convex/convex.config.',
     )
     expect(doctor.stderr).toContain(
-      'Replace @lupinum/ginko-cms/convex/better-auth with better-convex-nuxt/convex-auth/convex.config.',
+      'Replace @lupinum/ginko-cms/convex/better-auth with @lupinum/better-convex-nuxt/better-auth/convex.config.',
     )
     expect(doctor.stderr).toContain(
-      'package.json is missing direct dependency "better-convex-nuxt"',
+      'package.json is missing direct dependency "@lupinum/better-convex-nuxt"',
     )
     expect(doctor.stderr).toContain('package.json is missing direct dependency "better-auth"')
     expect(doctor.stderr).not.toContain('package.json is missing direct dependency "kysely"')

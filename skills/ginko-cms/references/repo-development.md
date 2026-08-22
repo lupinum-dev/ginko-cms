@@ -30,7 +30,7 @@ Ginko CMS owns:
 - content publishing, assets, backups, migrations, projections
 - MCP tools that operate on CMS operations
 
-Do not move CMS policy into `better-convex-nuxt`, Ginko Content, or host setup
+Do not move CMS policy into `@lupinum/better-convex-nuxt`, Ginko Content, or host setup
 glue.
 
 ## Commands
@@ -42,7 +42,7 @@ corepack pnpm run check
 corepack pnpm run release:verify
 ```
 
-For registry release candidates after Ginko Content and `better-convex-nuxt`
+For registry release candidates after Ginko Content and `@lupinum/better-convex-nuxt`
 are published:
 
 ```bash

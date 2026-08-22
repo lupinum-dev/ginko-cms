@@ -1,23 +1,16 @@
-import { oauthProvider, type OAuthOptions, type Scope } from '@better-auth/oauth-provider'
-import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
-import { betterAuth, type BetterAuthOptions } from 'better-auth'
-import { jwt } from 'better-auth/plugins'
+import type { OAuthOptions, Scope } from '@better-auth/oauth-provider'
 import {
-  convexAuth,
-  createAuthComponent,
-  getConvexAuthProvider,
-  requireAuthOrigin,
+  createBetterConvexAuth,
   type AuthCtx,
-} from 'better-convex-nuxt/convex-auth'
+  type BetterConvexAuth,
+} from '@lupinum/better-convex-nuxt/better-auth/server'
+import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+import type { BetterAuthOptions } from 'better-auth'
 import type { FunctionReference, GenericDataModel } from 'convex/server'
-
-declare const process: {
-  env: Record<string, string | undefined>
-}
 
 type DefineGinkoAuthDeps = {
   components: Record<string, unknown> & {
-    betterAuth: Parameters<typeof createAuthComponent>[0]
+    betterAuth: Parameters<typeof createBetterConvexAuth>[0]
     ginkoCms: {
       mcpOAuthDelegations: {
         hasOAuthAdminPrivilege: FunctionReference<
@@ -42,13 +35,7 @@ export type GinkoAuthOptions = {
   }
 }
 
-export type GinkoAuthSetup<DataModel extends GenericDataModel> = {
-  authComponent: ReturnType<typeof createAuthComponent<DataModel>>
-  createAuth: (ctx: AuthCtx<DataModel>) => Promise<{
-    $context: Promise<unknown>
-    handler: (request: Request) => Promise<Response>
-  }>
-}
+export type GinkoAuthSetup<DataModel extends GenericDataModel> = BetterConvexAuth<DataModel>
 
 export function deny(message = 'Forbidden'): never {
   throw new Error(message)
@@ -62,12 +49,6 @@ export async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<
   const identity = await getAuth(ctx)
   if (!identity) deny('Authentication required.')
   return identity
-}
-
-function assertAuthSecretsConfigured(): void {
-  if (!process.env.BETTER_AUTH_SECRETS) {
-    throw new Error('BETTER_AUTH_SECRETS is required.')
-  }
 }
 
 async function hasOAuthAdminPrivilege<DataModel extends GenericDataModel>(
@@ -129,83 +110,25 @@ export function defineGinkoAuth<DataModel extends GenericDataModel = GenericData
   deps: DefineGinkoAuthDeps,
   options: GinkoAuthOptions = {},
 ): GinkoAuthSetup<DataModel> {
-  const authComponent = createAuthComponent<DataModel>(deps.components.betterAuth)
-
-  const createAuth: GinkoAuthSetup<DataModel>['createAuth'] = async (ctx) => {
-    const siteUrl = requireAuthOrigin('SITE_URL')
-    const convexSiteUrl = requireAuthOrigin('CONVEX_SITE_URL')
-    const authIssuer = `${siteUrl}/api/auth`
-    assertAuthSecretsConfigured()
-    const oauth = createOAuthOptions(ctx, deps)
-    const convexPlugin = convexAuth({
-      authConfig: { providers: [getConvexAuthProvider()] },
-      oauthProvider: oauth,
-      sessionJwt: {
-        audience: 'convex',
-        definePayload: ({ user }) => ({
-          email: user.email,
-          emailVerified: user.emailVerified,
-          name: user.name,
-        }),
-        expirationTime: '15m',
-        issuer: convexSiteUrl,
-      },
-    })
-    const provider = oauthProvider(oauth)
-
-    const auth = betterAuth({
-      account: { encryptOAuthTokens: true, storeAccountCookie: false },
-      advanced: { ipAddress: { ipAddressHeaders: ['x-bcn-verified-client-ip'] } },
-      basePath: '/api/auth',
-      baseURL: siteUrl,
-      database: authComponent.adapter(ctx),
-      disabledPaths: [
-        '/token',
-        '/get-access-token',
-        '/refresh-token',
-        '/.well-known/openid-configuration',
-        '/oauth2/register',
-        '/oauth2/introspect',
-        '/oauth2/userinfo',
-        '/oauth2/end-session',
-        '/oauth2/create-client',
-        '/oauth2/get-client',
-        '/oauth2/get-clients',
-        '/oauth2/update-client',
-        '/oauth2/client/rotate-secret',
-        '/oauth2/delete-client',
-      ],
-      emailAndPassword: {
-        enabled: options.emailPassword ?? true,
-        ...(options.passwordRecovery
-          ? {
-              sendResetPassword: options.passwordRecovery.sendResetPassword,
-              resetPasswordTokenExpiresIn:
-                options.passwordRecovery.tokenExpiresInSeconds ?? 60 * 60,
-              revokeSessionsOnPasswordReset: true,
-            }
-          : {}),
-      },
-      plugins: [
-        jwt({
-          disableSettingJwtHeader: true,
-          jwks: {
-            disablePrivateKeyEncryption: false,
-            gracePeriod: 21 * 60,
-            keyPairConfig: { alg: 'RS256' },
+  return createBetterConvexAuth<DataModel>(deps.components.betterAuth, {
+    defineSessionClaims: ({ user }) => ({
+      email: user.email,
+      emailVerified: user.emailVerified,
+      name: user.name,
+    }),
+    emailAndPassword:
+      options.emailPassword === false
+        ? false
+        : {
+            ...(options.passwordRecovery
+              ? {
+                  sendResetPassword: options.passwordRecovery.sendResetPassword,
+                  resetPasswordTokenExpiresIn:
+                    options.passwordRecovery.tokenExpiresInSeconds ?? 60 * 60,
+                  revokeSessionsOnPasswordReset: true,
+                }
+              : {}),
           },
-          jwt: { audience: authIssuer, expirationTime: '10m', issuer: authIssuer },
-        }),
-        convexPlugin,
-        provider,
-      ],
-      rateLimit: { enabled: true, modelName: 'rateLimit', storage: 'database' },
-      trustedOrigins: [siteUrl],
-      verification: { storeIdentifier: 'hashed' },
-    })
-    await auth.$context
-    return auth
-  }
-
-  return { authComponent, createAuth }
+    oauthProvider: (ctx) => createOAuthOptions(ctx, deps),
+  })
 }

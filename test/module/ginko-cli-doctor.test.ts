@@ -115,21 +115,21 @@ describe('ginko-cms setup doctor', () => {
       dependencies: {
         '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
         'better-auth': '1.7.0-rc.2',
-        'better-convex-nuxt': 'file:./better-convex-nuxt.tgz',
+        '@lupinum/better-convex-nuxt': 'file:./@lupinum/better-convex-nuxt.tgz',
       },
     }
     writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8')
-    const installedPackageRoot = resolve(root, 'node_modules/better-convex-nuxt')
+    const installedPackageRoot = resolve(root, 'node_modules/@lupinum/better-convex-nuxt')
     mkdirSync(installedPackageRoot, { recursive: true })
     writeFileSync(
       resolve(installedPackageRoot, 'package.json'),
-      JSON.stringify({ name: 'better-convex-nuxt', version: '0.7.0-beta.0' }),
+      JSON.stringify({ name: '@lupinum/better-convex-nuxt', version: '1.0.0-beta.1' }),
       'utf8',
     )
 
     const result = await run(root, ['doctor'])
 
-    expect(result.stderr).not.toContain('unsupported dependency better-convex-nuxt')
+    expect(result.stderr).not.toContain('unsupported dependency @lupinum/better-convex-nuxt')
     expect(result.stderr).not.toContain('outside the supported Ginko CMS compatibility tuple')
   })
 

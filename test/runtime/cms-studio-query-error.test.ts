@@ -44,7 +44,7 @@ function containsValue(root: unknown, expected: unknown): boolean {
 
 describe('useCmsStudioQuery error normalization (vNext §10.8, ConvexCallError)', () => {
   it('passes an existing ConvexCallError through unchanged in shape', async () => {
-    const { ConvexCallError } = await import('better-convex-nuxt/errors')
+    const { ConvexCallError } = await import('@lupinum/better-convex-nuxt/errors')
     const original = new ConvexCallError({
       kind: 'authentication',
       message: 'Not authenticated.',
@@ -86,7 +86,7 @@ describe('useCmsStudioQuery error normalization (vNext §10.8, ConvexCallError)'
   })
 
   it('classifies transport failures as network, not by inspecting message substrings', async () => {
-    const { ConvexCallError } = await import('better-convex-nuxt/errors')
+    const { ConvexCallError } = await import('@lupinum/better-convex-nuxt/errors')
     const transportError = new ConvexCallError({
       kind: 'transport',
       message: 'A network request failed even though the text says CONFLICT and UNAUTH.',
@@ -121,7 +121,7 @@ describe('useCmsStudioQuery error normalization (vNext §10.8, ConvexCallError)'
   })
 
   it('does not retain an opaque Convex cause anywhere in the Studio error', async () => {
-    const { ConvexCallError } = await import('better-convex-nuxt/errors')
+    const { ConvexCallError } = await import('@lupinum/better-convex-nuxt/errors')
     const secret = 'studio-opaque-cause-secret'
     const original = new ConvexCallError({
       kind: 'server',

@@ -52,7 +52,7 @@ match `candidate-artifact.json` byte for byte:
 - `@lupinum/ginko-cms-contract`
 - `@lupinum/ginko-cms-convex`
 - `@lupinum/ginko-cms`
-- `better-convex-nuxt`
+- `@lupinum/better-convex-nuxt`
 
 The endpoint shape is:
 

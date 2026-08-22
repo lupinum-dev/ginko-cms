@@ -48,10 +48,12 @@ function nuxtWith(convex: ConvexOption, srcDir: string) {
 }
 
 function convexDep(convex: ConvexOption, srcDir: string) {
-  return moduleDefinition.moduleDependencies(nuxtWith(convex, srcDir))['better-convex-nuxt']
+  return moduleDefinition.moduleDependencies(nuxtWith(convex, srcDir))[
+    '@lupinum/better-convex-nuxt'
+  ]
 }
 
-describe('ginko-cms better-convex-nuxt dependency defaults', () => {
+describe('ginko-cms @lupinum/better-convex-nuxt dependency defaults', () => {
   const tempDirs: string[] = []
 
   function freshSrcDir() {
@@ -96,6 +98,8 @@ describe('ginko-cms better-convex-nuxt dependency defaults', () => {
   })
 
   it('rejects top-level `convex: false` because Ginko requires Convex', () => {
-    expect(() => convexDep(false, freshSrcDir())).toThrow('ginko-cms requires better-convex-nuxt')
+    expect(() => convexDep(false, freshSrcDir())).toThrow(
+      'ginko-cms requires @lupinum/better-convex-nuxt',
+    )
   })
 })

@@ -66,7 +66,7 @@ describe('ginko-cms module e2e boot', () => {
         dependencies: {
           '@lupinum/ginko-cms-convex': 'workspace:*',
           'better-auth': '1.7.0-rc.2',
-          'better-convex-nuxt': '0.7.0-beta.0',
+          '@lupinum/better-convex-nuxt': '1.0.0-beta.1',
         },
       }),
       'utf-8',
@@ -195,7 +195,7 @@ describe('ginko-cms module e2e boot', () => {
 
   // --- Convex module wiring ---
 
-  it('wires studio route protection through better-convex-nuxt', () => {
+  it('wires studio route protection through @lupinum/better-convex-nuxt', () => {
     const options = getNuxt(nuxt).options as {
       convex?: { auth?: { redirectTo?: string }; permissions?: unknown }
       trellis?: unknown
@@ -203,7 +203,7 @@ describe('ginko-cms module e2e boot', () => {
     expect(options.trellis).toBeUndefined()
     expect(options.convex?.auth?.redirectTo).toBe('/studio/auth/signin')
     // The removed `permissions` vocabulary (vNext §10.2 / decision 12) must
-    // never reappear on the better-convex-nuxt dependency defaults.
+    // never reappear on the @lupinum/better-convex-nuxt dependency defaults.
     expect(options.convex).not.toHaveProperty('permissions')
   })
 })

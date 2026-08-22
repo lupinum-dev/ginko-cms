@@ -1,4 +1,4 @@
-import { useConvexQuery } from 'better-convex-vue'
+import { useConvexQuery } from '@lupinum/better-convex-vue'
 import { computed } from 'vue'
 
 import { api } from '../boundary/api'

@@ -1,4 +1,4 @@
-import { serverConvex } from 'better-convex-nuxt/server'
+import { serverConvex } from '@lupinum/better-convex-nuxt/server'
 import {
   createError,
   defineEventHandler,

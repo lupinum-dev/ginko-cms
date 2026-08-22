@@ -11,7 +11,7 @@ const mutation = vi.fn()
 const action = vi.fn()
 const serverConvex = vi.fn(() => ({ mutation, action }))
 
-vi.mock('better-convex-nuxt/server', () => ({ serverConvex }))
+vi.mock('@lupinum/better-convex-nuxt/server', () => ({ serverConvex }))
 
 const attemptHandler = (await import('#ginko-cms-server/routes/portability-asset-attempt')).default
 const downloadAttemptHandler = (

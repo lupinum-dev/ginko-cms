@@ -32,14 +32,14 @@ const fixtureEnv = {
 const compatibilityMatrix = JSON.parse(
   readFileSync(join(projectRoot, 'packages/cms/compatibility.json'), 'utf8'),
 ) as CompatibilityMatrix
-const betterConvexNuxtDependency = compatibilityMatrix.releaseStack?.['better-convex-nuxt']
+const betterConvexNuxtDependency = compatibilityMatrix.releaseStack?.['@lupinum/better-convex-nuxt']
 
 if (!contentDependency) {
   throw new Error('Missing @lupinum/ginko-content peer dependency in @lupinum/ginko-cms.')
 }
 if (!betterConvexNuxtDependency) {
   throw new Error(
-    'Missing better-convex-nuxt release stack dependency in packages/cms/compatibility.json.',
+    'Missing @lupinum/better-convex-nuxt release stack dependency in packages/cms/compatibility.json.',
   )
 }
 
@@ -134,7 +134,7 @@ describe('ginko-cms package-first consumer fixture', () => {
           '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
-          'better-convex-nuxt': betterConvexNuxtDependency,
+          '@lupinum/better-convex-nuxt': betterConvexNuxtDependency,
         },
       }),
       'utf8',
@@ -145,7 +145,7 @@ describe('ginko-cms package-first consumer fixture', () => {
       '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
       '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
       '@lupinum/ginko-content': `file:${contentTarball}`,
-      'better-convex-nuxt': betterConvexNuxtDependency,
+      '@lupinum/better-convex-nuxt': betterConvexNuxtDependency,
     })
 
     execFileSync(pnpmBin, ['install'], { cwd: tempDir, env: fixtureEnv, stdio: 'inherit' })
@@ -190,7 +190,7 @@ describe('ginko-cms package-first consumer fixture', () => {
     expect(existsSync(join(tempDir, 'convex', 'ginkoCms.ts'))).toBe(false)
     expect(existsSync(join(tempDir, 'convex', `ginkoCms${'Mcp.ts'}`))).toBe(false)
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('better-convex-nuxt/convex-auth/convex.config')
+    expect(convexConfig).toContain('@lupinum/better-convex-nuxt/better-auth/convex.config')
     expect(convexConfig).not.toContain('./betterAuth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
     expect(existsSync(join(tempDir, 'convex/betterAuth'))).toBe(false)

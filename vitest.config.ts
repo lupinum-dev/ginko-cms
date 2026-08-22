@@ -21,7 +21,7 @@ export default defineConfig({
     // Boundary tests mock these package owners. Resolve their root and
     // package-local peer-context instances to one test identity so the mock
     // cannot miss imports made from packages/cms.
-    dedupe: ['@nuxt/kit', 'better-convex-nuxt'],
+    dedupe: ['@nuxt/kit', '@lupinum/better-convex-nuxt'],
     alias: {
       '#imports': resolve(__dirname, 'test/helpers/nuxt-imports-shim.ts'),
       '#convex/api': resolve(__dirname, 'test/helpers/convex-api-shim.ts'),

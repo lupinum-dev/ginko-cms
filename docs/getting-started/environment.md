@@ -22,7 +22,7 @@ GINKO_FIRST_OWNER_EMAIL=owner@example.com
   content provider.
 - `CONVEX_URL`: server-side Convex URL used by CLI/server routes. It may match
   `NUXT_PUBLIC_CONVEX_URL`.
-- `CONVEX_SITE_URL`: Convex HTTP action site URL. `better-convex-nuxt` resolves
+- `CONVEX_SITE_URL`: Convex HTTP action site URL. `@lupinum/better-convex-nuxt` resolves
   it into the canonical `runtimeConfig.public.convex.siteUrl` used by MCP token
   exchange.
 - `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for setup and

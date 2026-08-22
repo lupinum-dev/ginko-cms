@@ -13,7 +13,7 @@ Most Nuxt apps install it next to `@lupinum/ginko-cms` and let
 Host apps install the component with the CMS module:
 
 ```bash
-pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt better-auth
+pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex @lupinum/better-convex-nuxt better-auth
 pnpm add -D convex
 ```
 
@@ -21,7 +21,7 @@ The generated `convex/convex.config.ts` mounts Better Convex's packaged auth
 component, then mounts the Ginko CMS component from this package:
 
 ```ts
-import betterAuth from 'better-convex-nuxt/convex-auth/convex.config'
+import betterAuth from '@lupinum/better-convex-nuxt/better-auth/convex.config'
 import ginkoCms from '@lupinum/ginko-cms-convex/convex.config'
 import { defineApp } from 'convex/server'
 ```

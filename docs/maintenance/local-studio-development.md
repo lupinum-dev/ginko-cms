@@ -43,7 +43,7 @@ After the first deploy to a fresh Convex deployment, bootstrap its signing key
 once before opening Studio:
 
 ```bash
-corepack pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'
+corepack pnpm exec better-convex convex run auth:rotateSigningKey '{}'
 ```
 
 This operator action is intentional: public JWKS reads never create signing

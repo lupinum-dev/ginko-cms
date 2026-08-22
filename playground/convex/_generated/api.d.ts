@@ -95,6 +95,6 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
-  betterAuth: import("better-convex-nuxt/convex-auth/_generated/component.js").ComponentApi<"betterAuth">;
+  betterAuth: import("@lupinum/better-convex-nuxt/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
   ginkoCms: import("@lupinum/ginko-cms-convex/_generated/component.js").ComponentApi<"ginkoCms">;
 };

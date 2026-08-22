@@ -1,3 +1,5 @@
+import type { ConvexAuthStatus } from '@lupinum/better-convex-nuxt'
+import type { BetterConvexAttachment } from '@lupinum/better-convex-vue/embedded'
 import type {
   CollectionMode,
   CollectionType,
@@ -8,8 +10,6 @@ import type {
   SlugMode,
 } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type { ComponentApi as GinkoCmsComponentApi } from '@lupinum/ginko-cms-convex/component'
-import type { ConvexAuthStatus } from 'better-convex-nuxt'
-import type { BetterConvexAttachment } from 'better-convex-vue/embedded'
 
 import type { GinkoCmsExpectedContractHashes } from './contract-compatibility.js'
 import type { StudioApiFromSurface, studioApiSurface } from './studio-api-surface.js'
@@ -41,18 +41,18 @@ export interface GinkoCmsPublicConfig {
 }
 
 /**
- * The replacement-safe Convex client handle exposed by better-convex-nuxt's
+ * The replacement-safe Convex client handle exposed by @lupinum/better-convex-nuxt's
  * `useConvex()` (vNext §5.4) — exactly `query | mutation | action | onUpdate`,
  * with a stable identity that survives primary-client replacement across
  * sign-in/sign-out. The Studio host bridge carries this handle so the SPA never
  * captures the raw, replaceable primary client.
  *
  * This public alias keeps Ginko's bridge vocabulary stable while using the
- * canonical handle exported by better-convex-nuxt.
+ * canonical handle exported by @lupinum/better-convex-nuxt.
  */
 export interface GinkoCmsStudioAuthSnapshot {
   status: ConvexAuthStatus
-  isPending: boolean
+  pending: boolean
   user: {
     id: string
     name: string | null

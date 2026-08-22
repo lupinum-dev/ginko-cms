@@ -31,7 +31,7 @@ describe('Studio Vue hard-cut source boundary', () => {
     }
     const calls = studio('composables/useStudioConvex.ts')
     expect(calls).toContain(
-      "export { useConvexAction, useConvexMutation } from 'better-convex-vue'",
+      "export { useConvexAction, useConvexMutation } from '@lupinum/better-convex-vue'",
     )
     expect(calls).not.toMatch(/StudioMutationReturn|StudioActionReturn|\.safe\b|Object\.assign/u)
     const pagination = studio('composables/useCmsStudioPaginatedQuery.ts')

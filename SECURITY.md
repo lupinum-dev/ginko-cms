@@ -21,4 +21,4 @@ Security fixes should be released as soon as they are verified.
 - Release jobs must not use package-manager caches.
 - Every release candidate must pass `pnpm run release:verify`.
 - CMS release candidates must also pass `pnpm run release:verify:registry` after
-  Ginko Content and `better-convex-nuxt` are published.
+  Ginko Content and `@lupinum/better-convex-nuxt` are published.

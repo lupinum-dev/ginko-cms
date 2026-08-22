@@ -11,7 +11,7 @@ const props = defineProps<{
 }>()
 const auth = useConvexAuth()
 const isAuthenticated = computed(() => auth.status.value === 'authenticated')
-const isPending = auth.isPending
+const pending = auth.pending
 const isSubmitting = ref(false)
 const authError = ref<Error | null>(null)
 const route = useRoute()
@@ -28,7 +28,7 @@ const isRedirecting = computed(
   // server and first client render identical, then reveal the form on mount.
   () =>
     !authFormReady.value ||
-    isPending.value ||
+    pending.value ||
     isAuthenticated.value ||
     (isSubmitting.value && !authError.value),
 )

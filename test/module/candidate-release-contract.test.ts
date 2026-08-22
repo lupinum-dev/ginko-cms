@@ -38,10 +38,10 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms': '0.2.0-rc.2',
       '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
       '@lupinum/ginko-cms-contract': '0.2.0-rc.2',
-      '@lupinum/ginko-content': '0.3.2',
-      'better-convex-mcp': '0.1.0-beta.22',
-      'better-convex-nuxt': '0.8.0-beta.34',
-      'better-convex-vue': '0.8.0-beta.34',
+      '@lupinum/ginko-content': '1.0.0-beta.4',
+      '@lupinum/better-convex-mcp': '1.0.0-beta.1',
+      '@lupinum/better-convex-nuxt': '1.0.0-beta.1',
+      '@lupinum/better-convex-vue': '1.0.0-beta.1',
     })
     expect(compatibility.sourceRehearsal.betterConvexCommit).toMatch(/^[0-9a-f]{40}$/u)
     expect(
@@ -55,12 +55,16 @@ describe('coordinated CMS candidate release contract', () => {
       ).consumer.dependencies.kysely,
     ).toBeUndefined()
     expect(Object.keys(compatibility.releaseArtifacts).sort()).toEqual([
+      '@lupinum/better-convex-mcp',
+      '@lupinum/better-convex-nuxt',
+      '@lupinum/better-convex-vue',
       '@lupinum/ginko-content',
-      'better-convex-mcp',
-      'better-convex-nuxt',
-      'better-convex-vue',
     ])
-    for (const name of ['better-convex-mcp', 'better-convex-nuxt', 'better-convex-vue']) {
+    for (const name of [
+      '@lupinum/better-convex-mcp',
+      '@lupinum/better-convex-nuxt',
+      '@lupinum/better-convex-vue',
+    ]) {
       expect(compatibility.releaseArtifacts[name]?.sourceCommit).toBe(
         compatibility.sourceRehearsal.betterConvexCommit,
       )
@@ -70,10 +74,10 @@ describe('coordinated CMS candidate release contract', () => {
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
       'better-auth': '1.7.0-rc.2',
-      'better-convex-nuxt': '0.8.0-beta.34',
-      'better-convex-vue': '0.8.0-beta.34',
+      '@lupinum/better-convex-nuxt': '1.0.0-beta.1',
+      '@lupinum/better-convex-vue': '1.0.0-beta.1',
       convex: '1.42.2',
-      nuxt: '4.5.1',
+      nuxt: '4.5.2',
       vue: '3.5.40',
     })
 
@@ -106,7 +110,9 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain('/api/_better-convex-nuxt/release-fingerprint')
     expect(source).toContain("resolve(packDir, 'candidate-artifact.json')")
     expect(source).toContain(': resolve(packDir, recorded.tarball)')
-    expect(source).toContain("'better-convex-mcp': fileDependency(installedBetterConvexMcpTarball)")
+    expect(source).toContain(
+      "'@lupinum/better-convex-mcp': fileDependency(installedBetterConvexMcpTarball)",
+    )
     expect(source).toContain("consumerPackageManager === 'npm'")
     expect(source).toContain("npm_config_legacy_peer_deps: 'false'")
     expect(source).toContain("`    mcp: ${liveConvex ? 'true' : 'false'},`")
@@ -165,8 +171,8 @@ describe('coordinated CMS candidate release contract', () => {
     const workspace = readFileSync('pnpm-workspace.yaml', 'utf8')
     const lockfile = readFileSync('pnpm-lock.yaml', 'utf8')
 
-    expect(workspace).not.toMatch(/(?:@lupinum\/ginko-content|better-convex-nuxt): file:/)
-    expect(lockfile).not.toMatch(/(?:ginko-content|better-convex-nuxt)@file:/)
+    expect(workspace).not.toMatch(/(?:@lupinum\/ginko-content|@lupinum\/better-convex-nuxt): file:/)
+    expect(lockfile).not.toMatch(/(?:ginko-content|@lupinum\/better-convex-nuxt)@file:/)
     expect(lockfile).not.toContain('127.0.0.1')
     expect(lockfile).not.toContain('.pack/')
     expect(() => readFileSync('.npmrc', 'utf8')).toThrow()
@@ -184,7 +190,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain('corepack@"$GINKO_COREPACK_VERSION"')
     expect(workflow).toContain('pnpm install --frozen-lockfile')
     expect(workflow).toContain('matrix.sourceRehearsal.betterConvexCommit')
-    expect(workflow).toContain('repository: lupinum-dev/better-convex-nuxt')
+    expect(workflow).toContain('repository: lupinum-dev/better-convex')
     expect(workflow).toContain('Install the frozen Better Convex source graph')
     expect(workflow).toContain('pnpm --config.verify-deps-before-run=warn run package:e2e:dev')
     expect(workflow.indexOf('run audit:prod')).toBeLessThan(workflow.indexOf('run package:e2e:dev'))

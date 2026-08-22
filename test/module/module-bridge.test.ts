@@ -146,7 +146,7 @@ describe('ginko-cms Convex setup validation', () => {
     )
     expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain('defineGinkoAuth')
     expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain(
-      'authComponent.jwksOperatorFunctions',
+      'auth.jwksOperatorFunctions()',
     )
     expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain(
       'sendGinkoPasswordResetEmail',
@@ -186,7 +186,7 @@ describe('ginko-cms Convex setup validation', () => {
     expect(httpSource).toContain("method: 'OPTIONS'")
     expect(httpSource).not.toContain("method: 'HEAD'")
     expect(mcpSource).toContain('handleGinkoMcpRequest(request, {')
-    expect(mcpSource).toContain('authComponent.validateOAuthAccess(ctx, access)')
+    expect(mcpSource).toContain('auth.authComponent.validateOAuthAccess(ctx, access)')
     expect(mcpSource).not.toContain('adapter.findOne')
     expect(mcpSource).not.toContain('validateLiveProviderAccess')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(true)

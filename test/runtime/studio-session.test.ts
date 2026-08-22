@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
 const auth = {
-  isPending: ref(false),
+  pending: ref(false),
   status: ref('authenticated'),
   user: ref<{ id: string; name: string; email: string; image: null } | null>({
     id: 'member-1',
@@ -16,7 +16,7 @@ const authListeners = new Set<() => void>()
 const bridgeAuth = {
   snapshot: () => ({
     status: auth.status.value,
-    isPending: auth.isPending.value,
+    pending: auth.pending.value,
     user: auth.user.value,
     error: auth.error.value
       ? { kind: 'authentication' as const, message: auth.error.value.message }

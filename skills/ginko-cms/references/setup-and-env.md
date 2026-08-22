@@ -20,7 +20,7 @@ or doctor output, or writing setup docs. Canonical docs:
 Install:
 
 ```bash
-pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex better-convex-nuxt better-auth
+pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex @lupinum/better-convex-nuxt better-auth
 pnpm add -D convex
 ```
 
@@ -114,7 +114,7 @@ pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.l
 Better Auth secret:
 
 ```bash
-printf '0:%s' "$(openssl rand -base64 32)" | pnpm exec better-convex-nuxt-convex env set BETTER_AUTH_SECRETS
+printf '0:%s' "$(openssl rand -base64 32)" | pnpm exec better-convex convex env set BETTER_AUTH_SECRETS
 ```
 
 First owner:
@@ -129,7 +129,7 @@ Deploy generated Convex files and sync contracts through the canonical command:
 
 ```bash
 pnpm exec ginko-cms deploy
-pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'
+pnpm exec better-convex convex run auth:rotateSigningKey '{}'
 pnpm exec ginko-cms deploy --check
 ```
 
@@ -138,10 +138,10 @@ drift, follow `docs/guides/changing-collections.md` before changing shared data.
 
 ## Common Setup Failures
 
-- Missing `@lupinum/ginko-cms-convex`, `better-convex-nuxt`, or
+- Missing `@lupinum/ginko-cms-convex`, `@lupinum/better-convex-nuxt`, or
   `better-auth`: install them in the host app; generated Convex files mount from
   direct dependencies.
-- Missing `better-convex-nuxt`: install the supported integration foundation in
+- Missing `@lupinum/better-convex-nuxt`: install the supported integration foundation in
   the host app.
 - Missing Convex URL: set `NUXT_PUBLIC_CONVEX_URL` or `CONVEX_URL`.
 - Missing deploy key: create `CONVEX_DEPLOY_KEY`; contract sync uses it.

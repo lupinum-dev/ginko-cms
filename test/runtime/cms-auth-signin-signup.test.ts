@@ -13,7 +13,7 @@ const navigateToMock = vi.hoisted(() => vi.fn())
 const routeQuery = vi.hoisted(() => ({}) as Record<string, string>)
 const authState = vi.hoisted(() => ({
   status: { value: 'anonymous' as 'anonymous' | 'authenticated' },
-  isPending: { value: false },
+  pending: { value: false },
   signInEmail: vi.fn(),
   signUpEmail: vi.fn(),
   requestPasswordReset: vi.fn(),
@@ -26,7 +26,7 @@ const authState = vi.hoisted(() => ({
 vi.mock('#imports', async () => {
   const vue = await import('vue')
   authState.status = vue.ref(authState.status.value)
-  authState.isPending = vue.ref(authState.isPending.value)
+  authState.pending = vue.ref(authState.pending.value)
   return {
     computed: vue.computed,
     navigateTo: navigateToMock,
@@ -36,7 +36,7 @@ vi.mock('#imports', async () => {
     watch: vue.watch,
     useConvexAuth: () => ({
       status: authState.status,
-      isPending: authState.isPending,
+      pending: authState.pending,
       client: {
         signIn: { email: authState.signInEmail },
         signUp: { email: authState.signUpEmail },
@@ -69,7 +69,7 @@ describe('CmsAuthSignIn (vNext §10.3, no manual refresh)', () => {
   afterEach(() => {
     vi.clearAllMocks()
     authState.status.value = 'anonymous'
-    authState.isPending.value = false
+    authState.pending.value = false
     for (const key of Object.keys(routeQuery)) Reflect.deleteProperty(routeQuery, key)
   })
 
@@ -146,7 +146,7 @@ describe('CmsAuthSignUp (vNext §10.3, no manual refresh)', () => {
   afterEach(() => {
     vi.clearAllMocks()
     authState.status.value = 'anonymous'
-    authState.isPending.value = false
+    authState.pending.value = false
     for (const key of Object.keys(routeQuery)) Reflect.deleteProperty(routeQuery, key)
   })
 

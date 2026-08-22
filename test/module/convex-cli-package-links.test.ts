@@ -9,7 +9,7 @@ import { runNodeScript } from '../../packages/cms/src/cli/convex.js'
 const workspaceRoot = resolve(import.meta.dirname, '../..')
 const packageRoots = {
   convex: resolve(workspaceRoot, 'node_modules/convex'),
-  'better-convex-nuxt': resolve(workspaceRoot, 'node_modules/better-convex-nuxt'),
+  '@lupinum/better-convex-nuxt': resolve(workspaceRoot, 'node_modules/@lupinum/better-convex-nuxt'),
   '@lupinum/ginko-cms-convex': resolve(workspaceRoot, 'packages/convex'),
 } as const
 

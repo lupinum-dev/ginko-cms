@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // stay library-owned. The bound H3 provider has no eventless transport path.
 const serverConvexMock = vi.hoisted(() => vi.fn())
 
-vi.mock('better-convex-nuxt/server', () => ({
+vi.mock('@lupinum/better-convex-nuxt/server', () => ({
   serverConvex: serverConvexMock,
 }))
 

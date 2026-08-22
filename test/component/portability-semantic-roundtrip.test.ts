@@ -8,7 +8,6 @@ import { join } from 'node:path'
 import {
   buildResolvedContentContract,
   hashCanonicalJson,
-  type ResolvedContentContractV1,
   type ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
 import { normalizePortableModel, type PortableDocumentV1 } from '@lupinum/ginko-content/portability'

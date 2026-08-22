@@ -40,15 +40,15 @@ jobs:
       - name: Resolve the canonical package tuple
         id: tuple
         run: |
-          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name] of [['content','@lupinum/ginko-content'],['mcp','better-convex-mcp'],['nuxt','better-convex-nuxt'],['vue','better-convex-vue']]) process.stdout.write(key+'='+matrix.releaseStack[name]+'\n')" >> "$GITHUB_OUTPUT"
+          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name] of [['content','@lupinum/ginko-content'],['mcp','@lupinum/better-convex-mcp'],['nuxt','@lupinum/better-convex-nuxt'],['vue','@lupinum/better-convex-vue']]) process.stdout.write(key+'='+matrix.releaseStack[name]+'\n')" >> "$GITHUB_OUTPUT"
 
       - name: Download the exact registry artifacts
         run: |
           mkdir -p .pack/upstream
           npm pack "@lupinum/ginko-content@${{ steps.tuple.outputs.content }}" --pack-destination .pack/upstream
-          npm pack "better-convex-mcp@${{ steps.tuple.outputs.mcp }}" --pack-destination .pack/upstream
-          npm pack "better-convex-nuxt@${{ steps.tuple.outputs.nuxt }}" --pack-destination .pack/upstream
-          npm pack "better-convex-vue@${{ steps.tuple.outputs.vue }}" --pack-destination .pack/upstream
+          npm pack "@lupinum/better-convex-mcp@${{ steps.tuple.outputs.mcp }}" --pack-destination .pack/upstream
+          npm pack "@lupinum/better-convex-nuxt@${{ steps.tuple.outputs.nuxt }}" --pack-destination .pack/upstream
+          npm pack "@lupinum/better-convex-vue@${{ steps.tuple.outputs.vue }}" --pack-destination .pack/upstream
 
       - name: Install the frozen Ginko dependency graph
         run: pnpm install --frozen-lockfile
@@ -98,7 +98,7 @@ jobs:
       - name: Resolve artifact paths
         id: artifacts
         run: |
-          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name,file] of [['content','@lupinum/ginko-content','lupinum-ginko-content-'],['mcp','better-convex-mcp','better-convex-mcp-'],['nuxt','better-convex-nuxt','better-convex-nuxt-'],['vue','better-convex-vue','better-convex-vue-']]) process.stdout.write(key+'='+process.cwd()+'/.pack/upstream/'+file+matrix.releaseStack[name]+'.tgz\n')" >> "$GITHUB_OUTPUT"
+          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name,file] of [['content','@lupinum/ginko-content','lupinum-ginko-content-'],['mcp','@lupinum/better-convex-mcp','lupinum-better-convex-mcp-'],['nuxt','@lupinum/better-convex-nuxt','lupinum-better-convex-nuxt-'],['vue','@lupinum/better-convex-vue','lupinum-better-convex-vue-']]) process.stdout.write(key+'='+process.cwd()+'/.pack/upstream/'+file+matrix.releaseStack[name]+'.tgz\n')" >> "$GITHUB_OUTPUT"
 
       - name: Install the frozen Ginko dependency graph
         run: pnpm install --frozen-lockfile

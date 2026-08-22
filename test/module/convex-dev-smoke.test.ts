@@ -52,7 +52,7 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
           '@lupinum/ginko-content': `file:${contentTarball}`,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-          'better-convex-nuxt': cmsPackageJson.dependencies['better-convex-nuxt'],
+          '@lupinum/better-convex-nuxt': cmsPackageJson.dependencies['@lupinum/better-convex-nuxt'],
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
           nuxt: workspacePackageJson.devDependencies.nuxt,
         },
@@ -86,7 +86,7 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
     )
 
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('better-convex-nuxt/convex-auth/convex.config')
+    expect(convexConfig).toContain('@lupinum/better-convex-nuxt/better-auth/convex.config')
     expect(convexConfig).not.toContain('./betterAuth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
     expect(existsSync(join(tempDir, 'convex/betterAuth'))).toBe(false)
