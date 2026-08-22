@@ -506,10 +506,7 @@ function assertMediaConfigValid(field: CmsField, path: string): void {
     }
   }
 
-  if (
-    media.aspectRatio != null &&
-    (field.type === 'file' || !ASPECT_RATIO_PATTERN.test(media.aspectRatio))
-  ) {
+  if (media.aspectRatio != null && !ASPECT_RATIO_PATTERN.test(media.aspectRatio)) {
     assertFieldDefinitionInvalid(
       'FIELD_DEFINITION_INVALID_MEDIA',
       path,

@@ -138,6 +138,7 @@ async function createPlan(
       sha256: string
       bytes: number
       mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+      originalFilename?: string | null
       effect: 'upload' | 'reuse' | 'conflict'
       referencedBy: string[]
     }>
@@ -169,11 +170,14 @@ async function createPlan(
   }
   const inputSha256 = await hashCanonicalJson(itemPayload)
   const assets = await Promise.all(
-    (options.assets ?? []).map(async (asset) => ({
-      assetKey: asset.sha256,
-      inputSha256: await hashCanonicalJson(asset),
-      payload: asset,
-    })),
+    (options.assets ?? []).map(async (asset) => {
+      const payload = { ...asset, originalFilename: asset.originalFilename ?? null }
+      return {
+        assetKey: asset.sha256,
+        inputSha256: await hashCanonicalJson(payload),
+        payload,
+      }
+    }),
   )
   const payload = {
     format: 'ginko-cms-portability-plan' as const,

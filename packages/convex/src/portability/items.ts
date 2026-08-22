@@ -97,7 +97,7 @@ async function normalizePortableFields(
       )
       continue
     }
-    if (field.type === 'image' || field.type === 'file') {
+    if (field.type === 'image') {
       output[field.key] = await normalizePortableAsset(ctx, runId, candidate)
       continue
     }
@@ -247,7 +247,7 @@ async function portableFields(
       }))
       continue
     }
-    if (field.type === 'image' || field.type === 'file') {
+    if (field.type === 'image') {
       output[field.key] = await portableAsset(ctx, candidate)
       continue
     }

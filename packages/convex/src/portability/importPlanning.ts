@@ -318,7 +318,7 @@ export function defineAppendImportPlanAssets() {
           attemptGeneration: 0,
           leaseExpiresAt: null,
           storageOrigin: null,
-          originalFilename: null,
+          originalFilename: payload.originalFilename,
           expiresAt: plan.expiresAt,
           downloadTokenHash: null,
           downloadGeneration: 0,

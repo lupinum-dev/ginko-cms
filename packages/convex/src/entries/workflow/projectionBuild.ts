@@ -89,9 +89,7 @@ async function applyPublicImageMetadataFallbacks(
     if (!key || !(key in next)) continue
     const value = next[key]
     if (field.type === 'object' && Array.isArray(field.fields) && isJsonObject(value)) {
-      const srcField = field.fields.find(
-        (child) => child.key === 'src' && (child.type === 'image' || child.type === 'file'),
-      )
+      const srcField = field.fields.find((child) => child.key === 'src' && child.type === 'image')
       if (srcField) {
         next[key] = await imageWithAssetMetadataFallback(ctx, value, locale, defaultLocale)
         continue
@@ -105,7 +103,7 @@ async function applyPublicImageMetadataFallbacks(
       )
       continue
     }
-    if (field.type === 'image' || field.type === 'file') {
+    if (field.type === 'image') {
       next[key] = await imageWithAssetMetadataFallback(ctx, value, locale, defaultLocale)
     }
   }

@@ -10,6 +10,7 @@ export const PORTABLE_IMPORT_LIMITS = Object.freeze({
   locales: 3,
   assets: 500,
   documentBytes: 256 * 1024,
+  totalDocumentBytes: 256 * 1024 * 1024,
   stagedItemsPerRequest: 10,
   appliedItemsPerBatch: 10,
   durationMs: 2 * 60 * 60 * 1_000,

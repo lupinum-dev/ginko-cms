@@ -343,7 +343,7 @@ export const attachVerifiedPortableAsset = internalMutation({
       args.mediaType === 'image/jpeg' ? 'jpg' : args.mediaType.slice('image/'.length)
     const assetId = await insertVerifiedAssetRecord(ctx, {
       storageId: args.storageId,
-      filename: `${args.sha256}.${extension}`,
+      filename: stage.originalFilename ?? `${args.sha256}.${extension}`,
       mimeType: args.mediaType,
       bytes: args.bytes,
       sha256: args.sha256,

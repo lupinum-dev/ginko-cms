@@ -13,7 +13,7 @@ import {
   hashCanonicalJson,
   type PortableDocumentV1,
 } from '@lupinum/ginko-content/portability'
-import type { PortableDirectoryMetadata } from '@lupinum/ginko-content/portability/node'
+import type { PortableDirectoryPlanningBundle } from '@lupinum/ginko-content/portability/node'
 
 export type PortableImportPlanItemPayload = {
   identity: { collection: string; canonicalKey: string; locale: string }
@@ -29,6 +29,7 @@ export type PortableImportPlanAssetPayload = {
   sha256: string
   bytes: number
   mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+  originalFilename: string | null
   effect: 'upload' | 'reuse' | 'conflict'
   referencedBy: string[]
 }
@@ -65,7 +66,7 @@ export type PortableDraftImportPlan = {
 }
 
 export async function createPortableDraftImportPlan(
-  bundle: PortableDirectoryMetadata,
+  bundle: PortableDirectoryPlanningBundle,
   options: {
     deploymentId: string
     targetContentHash: string
@@ -111,6 +112,7 @@ export async function createPortableDraftImportPlan(
   const items: PortableDraftImportPlan['items'] = []
   const blockers: string[] = []
   const referencedAssets = new Map<string, Set<string>>()
+  const assetFilenames = new Map<string, Set<string>>()
   for (const { document } of documents) {
     const identity = portableIdentity(document)
     const itemKey = await hashJson(identity)
@@ -165,6 +167,11 @@ export async function createPortableDraftImportPlan(
       const owners = referencedAssets.get(reference.sha256) ?? new Set<string>()
       owners.add(itemKey)
       referencedAssets.set(reference.sha256, owners)
+      if (reference.originalFilename) {
+        const filenames = assetFilenames.get(reference.sha256) ?? new Set<string>()
+        filenames.add(reference.originalFilename)
+        assetFilenames.set(reference.sha256, filenames)
+      }
     }
     if (document.body) {
       for (const reference of await collectPortableMdcAssetReferences(
@@ -217,6 +224,9 @@ export async function createPortableDraftImportPlan(
       sha256: asset.sha256,
       bytes: asset.bytes,
       mediaType: asset.mediaType,
+      // One content-addressed asset may appear under several source names.
+      // Pick the same useful name on every backend and every import run.
+      originalFilename: [...(assetFilenames.get(asset.sha256) ?? [])].sort(compare)[0] ?? null,
       effect,
       referencedBy: [...(referencedAssets.get(asset.sha256) ?? [])].sort(compare),
     }

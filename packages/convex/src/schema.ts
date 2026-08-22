@@ -382,7 +382,7 @@ export default defineSchema({
         attemptGeneration: v.number(),
         leaseExpiresAt: v.union(v.number(), v.null()),
         storageOrigin: v.union(v.string(), v.null()),
-        originalFilename: v.null(),
+        originalFilename: v.union(v.string(), v.null()),
         expiresAt: v.number(),
         downloadTokenHash: v.null(),
         downloadGeneration: v.number(),

@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import { createHash } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -16,7 +17,7 @@ import {
   writePortableDirectory,
 } from '@lupinum/ginko-content/portability/node'
 import { anyApi } from 'convex/server'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   applyPreparedPortableDraftImport,
@@ -30,10 +31,25 @@ const functionName = Symbol.for('functionName')
 const roots: string[] = []
 
 afterEach(() => {
+  vi.unstubAllGlobals()
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
-function fixture(): { contract: ResolvedContentContractV1; documents: PortableDocumentV1[] } {
+const assetBytes = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+)
+const assetSha256 = createHash('sha256').update(assetBytes).digest('hex')
+const assetReference = {
+  kind: 'local' as const,
+  path: `/ginko-assets/${assetSha256}.png` as const,
+  sha256: assetSha256,
+  bytes: assetBytes.byteLength,
+  mediaType: 'image/png' as const,
+  originalFilename: 'portable-pixel.png',
+}
+
+function fixture() {
   const contract = buildResolvedContentContract(
     {
       collections: {
@@ -41,7 +57,7 @@ function fixture(): { contract: ResolvedContentContractV1; documents: PortableDo
           type: 'page',
           source: 'content/markdown/**/*.md',
           route: '/markdown',
-          fields: { title: { type: 'text', required: true } },
+          cms: { fields: { hero: { type: 'image', required: false } } },
         },
         mdc: {
           type: 'page',
@@ -99,7 +115,10 @@ function fixture(): { contract: ResolvedContentContractV1; documents: PortableDo
     slug: canonicalKey.replaceAll('.', '-'),
     parentCanonicalKey: null,
     order: null,
-    shared: { title: collection === 'markdown' ? 'Markdown café' : 'MDC 東京' },
+    shared: {
+      title: collection === 'markdown' ? 'Markdown café' : 'MDC 東京',
+      ...(collection === 'markdown' ? { hero: assetReference } : {}),
+    },
     localized: {},
     body: { kind: 'mdc', source },
     visibility: { navigation: true, search: true, sitemap: true },
@@ -141,13 +160,22 @@ function fixture(): { contract: ResolvedContentContractV1; documents: PortableDo
       data('yaml'),
       data('json'),
     ],
+    assets: [
+      {
+        sha256: assetSha256,
+        file: `public/ginko-assets/${assetSha256}.png`,
+        bytes: assetBytes.byteLength,
+        mediaType: 'image/png' as const,
+        content: assetBytes,
+      },
+    ],
   }
 }
 
 async function installCms() {
   const ctx = createCtx()
   await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
-  const { contract, documents } = fixture()
+  const { contract, documents, assets } = fixture()
   const contentHash = await hashCanonicalJson(contract)
   const presentation = { collections: {} }
   await ctx.raw.mutation(api.contract.installCmsContract, {
@@ -156,10 +184,11 @@ async function installCms() {
     presentation,
     presentationHash: await hashCanonicalJson(presentation),
   })
-  return { ctx, owner: ctx.asCmsUser('owner-1'), contract, contentHash, documents }
+  return { ctx, owner: ctx.asCmsUser('owner-1'), contract, contentHash, documents, assets }
 }
 
 async function importDirectory(
+  ctx: ReturnType<typeof createCtx>,
   owner: ReturnType<ReturnType<typeof createCtx>['asCmsUser']>,
   directory: string,
   contentHash: string,
@@ -169,9 +198,88 @@ async function importDirectory(
     deploymentId: 'test-deployment',
     targetContentHash: contentHash,
   })
-  await applyPreparedPortableDraftImport(client as never, prepared)
+  for (const asset of prepared.assets) {
+    if (asset.payload.effect !== 'upload') continue
+    const storageId = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob([assetBytes], { type: asset.payload.mediaType })),
+    )) as string
+    const storageUrl = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.getUrl(storageId as never),
+    )) as string
+    const attemptTokenHash = 'a'.repeat(64)
+    await owner.mutation(api.portability.beginPortableAssetUpload, {
+      runId: prepared.runId,
+      payloadSha256: prepared.payloadSha256,
+      sha256: asset.payload.sha256,
+      attemptTokenHash,
+      storageOrigin: new URL(storageUrl).origin,
+    })
+    await owner.mutation(api.portability.recordPortableAssetUpload, {
+      runId: prepared.runId,
+      payloadSha256: prepared.payloadSha256,
+      sha256: asset.payload.sha256,
+      attemptTokenHash,
+      attemptGeneration: 1,
+      storageId,
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(assetBytes, { headers: { 'content-type': 'image/png' } })),
+    )
+    await owner.action(api.portability.verifyPortableAssetUpload, {
+      runId: prepared.runId,
+      payloadSha256: prepared.payloadSha256,
+      sha256: asset.payload.sha256,
+      attemptTokenHash,
+      attemptGeneration: 1,
+    })
+  }
+  await applyPreparedPortableDraftImport(client as never, prepared, {
+    cmsOrigin: 'https://cms.example.test',
+    sessionCookie: 'better-auth.session_token=test-session-token',
+    fetch: async () => Response.json({ state: 'attached', assetId: 'already-attached' }),
+  })
   return prepared
 }
+
+function exportAssetFetch(
+  owner: ReturnType<ReturnType<typeof createCtx>['asCmsUser']>,
+): typeof globalThis.fetch {
+  const token = 'semantic-roundtrip-download-token-0001'
+  return async (input, init) => {
+    const url = new URL(String(input))
+    const parts = url.pathname.split('/')
+    const holdId = parts.at(-1) === 'download-attempt' ? parts.at(-2)! : parts.at(-1)!
+    const runId = new Headers(init?.headers).get('x-ginko-portability-run')!
+    if (url.pathname.endsWith('/download-attempt')) {
+      const attempt = await owner.mutation(api.portability.beginPortableAssetDownload, {
+        runId,
+        holdId,
+        downloadTokenHash: createHash('sha256').update(token).digest('hex'),
+      })
+      return Response.json({
+        state: 'attempt',
+        token,
+        downloadGeneration: attempt.downloadGeneration,
+      })
+    }
+    await owner.mutation(api.portability.claimPortableAssetDownload, {
+      runId,
+      holdId,
+      downloadTokenHash: createHash('sha256').update(token).digest('hex'),
+      downloadGeneration: Number(new Headers(init?.headers).get('x-ginko-portability-generation')),
+    })
+    return new Response(assetBytes, {
+      headers: {
+        'content-length': String(assetBytes.byteLength),
+        'content-type': 'image/png',
+      },
+    })
+  }
+}
+
+const portableAssetFacts = (assets: Awaited<ReturnType<typeof readPortableDirectory>>['assets']) =>
+  assets.map(({ content: _content, ...asset }) => asset)
 
 function portabilityClient(owner: ReturnType<ReturnType<typeof createCtx>['asCmsUser']>) {
   const reference = (value: unknown) => {
@@ -207,10 +315,10 @@ describe('bidirectional filesystem and CMS semantic portability', () => {
     await writePortableDirectory(source, {
       contract: first.contract,
       documents: first.documents,
-      assets: [],
+      assets: first.assets,
     })
 
-    await importDirectory(first.owner, source, first.contentHash)
+    await importDirectory(first.ctx, first.owner, source, first.contentHash)
     await publishAll(first.ctx, first.owner)
     await exportPortablePublishedContent(portabilityClient(first.owner) as never, exported, {
       deploymentId: 'test-deployment',
@@ -220,6 +328,7 @@ describe('bidirectional filesystem and CMS semantic portability', () => {
       assetTransfer: {
         cmsOrigin: 'https://cms.example.test',
         sessionCookie: 'better-auth.session_token=test-session-token',
+        fetch: exportAssetFetch(first.owner),
       },
     })
 
@@ -228,17 +337,17 @@ describe('bidirectional filesystem and CMS semantic portability', () => {
     expect(
       normalizePortableModel({
         documents: exportedBundle.documents.map(({ document }) => document),
-        assets: exportedBundle.assets,
+        assets: portableAssetFacts(exportedBundle.assets),
       }),
     ).toEqual(
       normalizePortableModel({
         documents: sourceBundle.documents.map(({ document }) => document),
-        assets: sourceBundle.assets,
+        assets: portableAssetFacts(sourceBundle.assets),
       }),
     )
 
     const second = await installCms()
-    const imported = await importDirectory(second.owner, exported, second.contentHash)
+    const imported = await importDirectory(second.ctx, second.owner, exported, second.contentHash)
     expect(imported.items.map(({ payload }) => payload.effect)).toEqual([
       'create',
       'create',

@@ -38,6 +38,7 @@ export type PortableImportPlanAssetPayload = {
   sha256: string
   bytes: number
   mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+  originalFilename: string | null
   effect: 'upload' | 'reuse' | 'conflict'
   referencedBy: string[]
 }
@@ -167,12 +168,13 @@ export function assertImportPlanAssetPayload(value: JsonMap): PortableImportPlan
   const payload = value as unknown as Partial<PortableImportPlanAssetPayload>
   if (
     Object.keys(value).sort().join(',') !==
-      ['bytes', 'effect', 'mediaType', 'referencedBy', 'sha256'].join(',') ||
+      ['bytes', 'effect', 'mediaType', 'originalFilename', 'referencedBy', 'sha256'].join(',') ||
     !Number.isSafeInteger(payload.bytes) ||
     payload.bytes! <= 0 ||
     payload.bytes! > PORTABLE_ASSET_BYTE_LIMIT ||
     !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(String(payload.mediaType)) ||
     !['upload', 'reuse', 'conflict'].includes(String(payload.effect)) ||
+    !validOriginalFilename(payload.originalFilename) ||
     !Array.isArray(payload.referencedBy) ||
     payload.referencedBy.length > 256 ||
     payload.referencedBy.some((key) => typeof key !== 'string' || !/^[a-f0-9]{64}$/.test(key)) ||
@@ -185,6 +187,17 @@ export function assertImportPlanAssetPayload(value: JsonMap): PortableImportPlan
   }
   assertSha256(payload.sha256, 'asset sha256')
   return payload as PortableImportPlanAssetPayload
+}
+
+function validOriginalFilename(value: unknown): value is string | null {
+  if (value === null) return true
+  if (typeof value !== 'string' || value.length === 0 || value !== value.normalize('NFC'))
+    return false
+  if (new TextEncoder().encode(value).length > 255) return false
+  return ![...value].some((character) => {
+    const code = character.codePointAt(0)!
+    return character === '/' || character === '\\' || code <= 31 || code === 127
+  })
 }
 
 export async function matchesCanonicalHash(value: JsonMap, expected: string): Promise<boolean> {
