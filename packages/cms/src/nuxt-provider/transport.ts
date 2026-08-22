@@ -1,4 +1,5 @@
 import { createContentDataSourceError } from '@lupinum/ginko-content/data-source'
+import type { ContentDataSourceControl } from '@lupinum/ginko-content/data-source'
 import type { ContentProvider } from '@lupinum/ginko-content/provider'
 import type { FunctionReference } from 'convex/server'
 
@@ -95,10 +96,20 @@ export const callGinko = async (
   caller: ConvexQueryCaller,
   operation: string,
   args: Record<string, unknown>,
+  control: ContentDataSourceControl,
 ): Promise<unknown> => {
   try {
-    return await caller.query(functionReference(`ginkoCms/public:${operation}`), args)
+    assertControlActive(control)
+    const result = await caller.query(functionReference(`ginkoCms/public:${operation}`), args)
+    assertControlActive(control)
+    return result
   } catch (error) {
     throw normalizeRemoteError(error, operation)
+  }
+}
+
+function assertControlActive(control: ContentDataSourceControl): void {
+  if (control.signal.aborted || Date.now() >= control.deadlineAt) {
+    throw createContentDataSourceError('BACKEND_FAILURE')
   }
 }

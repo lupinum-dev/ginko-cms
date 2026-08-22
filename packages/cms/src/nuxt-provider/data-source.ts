@@ -447,6 +447,7 @@ const resolveVariant = async (
   collection: string,
   selector: ContentProviderVariantSelector,
   contentRuntime: ContentRuntime,
+  control: ContentDataSourceControl,
 ) => {
   if (selector.by === 'path') {
     const locale = selector.locale || defaultLocale(contentRuntime)
@@ -456,12 +457,17 @@ const resolveVariant = async (
         'page',
         parseCmsPageWireResult,
         { collection, locale },
-        await callGinko(caller, 'page', {
-          collection,
-          locale,
-          path: selector.path,
-          fallback: selector.fallback,
-        }),
+        await callGinko(
+          caller,
+          'page',
+          {
+            collection,
+            locale,
+            path: selector.path,
+            fallback: selector.fallback,
+          },
+          control,
+        ),
       ),
     }
   }
@@ -473,12 +479,17 @@ const resolveVariant = async (
         'page',
         parseCmsPageWireResult,
         { collection, locale },
-        await callGinko(caller, 'page', {
-          collection,
-          locale,
-          ref: selector.requestedRef,
-          fallback: selector.localeChain?.slice(1),
-        }),
+        await callGinko(
+          caller,
+          'page',
+          {
+            collection,
+            locale,
+            ref: selector.requestedRef,
+            fallback: selector.localeChain?.slice(1),
+          },
+          control,
+        ),
       ),
     }
   }
@@ -490,22 +501,32 @@ const resolveVariant = async (
       'page',
       parseCmsPageWireResult,
       { collection, locale: candidate.locale },
-      await callGinko(caller, 'page', {
-        collection,
-        locale: candidate.locale,
-        path: candidate.contentPath,
-      }),
+      await callGinko(
+        caller,
+        'page',
+        {
+          collection,
+          locale: candidate.locale,
+          path: candidate.contentPath,
+        },
+        control,
+      ),
     )
     if (result.status === 'redirect') {
       result = decodeRequested(
         'page',
         parseCmsPageWireResult,
         { collection, locale: candidate.locale },
-        await callGinko(caller, 'page', {
-          collection,
-          locale: candidate.locale,
-          path: result.redirectTo.path,
-        }),
+        await callGinko(
+          caller,
+          'page',
+          {
+            collection,
+            locale: candidate.locale,
+            path: result.redirectTo.path,
+          },
+          control,
+        ),
       )
     }
     if (result.status === 'found' && result.page) return { locale: candidate.locale, result }
@@ -529,7 +550,7 @@ export const contentDataSource = {
   query: async (
     context: GinkoCmsDataSourceContext,
     input: BoundedContentProviderQuery,
-    _control: ContentDataSourceControl,
+    control: ContentDataSourceControl,
   ) => {
     assertProviderQuery(input)
     const contentRuntime = await contentRuntimeFromEvent(context.event)
@@ -550,6 +571,7 @@ export const contentDataSource = {
         input.collection,
         plan.variant,
         contentRuntime,
+        control,
       )
       const entry =
         result.status === 'found' && result.page ? await toContentEntry(result.page, locale) : null
@@ -600,14 +622,19 @@ export const contentDataSource = {
       ...(sort ? { sort } : {}),
     }
     const [rawList, total] = await Promise.all([
-      callGinko(context.caller, 'list', listArgs),
+      callGinko(context.caller, 'list', listArgs, control),
       plan.pagination.mode === 'cursor'
         ? Promise.resolve<number | null>(null)
-        : callGinko(context.caller, 'count', {
-            collection,
-            locale,
-            ...(pathPrefix ? { pathPrefix } : {}),
-          }).then((value) => {
+        : callGinko(
+            context.caller,
+            'count',
+            {
+              collection,
+              locale,
+              ...(pathPrefix ? { pathPrefix } : {}),
+            },
+            control,
+          ).then((value) => {
             if (!Number.isSafeInteger(value) || (value as number) < 0) {
               throw providerError(
                 'provider_response_invalid',
@@ -650,7 +677,7 @@ export const contentDataSource = {
     context: GinkoCmsDataSourceContext,
     input: BoundedContentProviderQuery,
     _options: { readonly limit: number },
-    _control: ContentDataSourceControl,
+    control: ContentDataSourceControl,
   ) => {
     assertProviderQuery(input)
     const collection = input.collection
@@ -662,7 +689,7 @@ export const contentDataSource = {
       'navigation',
       parseCmsNavWireResult,
       { collection, locale },
-      await callGinko(context.caller, 'nav', { collection, locale }),
+      await callGinko(context.caller, 'nav', { collection, locale }, control),
     )
     return sourceResult(
       result.tree.map(function toRawNavigation(node): ContentProviderNavigationItem {
@@ -682,7 +709,7 @@ export const contentDataSource = {
     collection: string,
     path: string,
     options: ContentProviderSurroundingsOptions,
-    _control: ContentDataSourceControl,
+    control: ContentDataSourceControl,
   ) => {
     const contentRuntime = await contentRuntimeFromEvent(context.event)
     const locale = localeFromOptions(options, contentRuntime)
@@ -690,13 +717,18 @@ export const contentDataSource = {
       'surroundings',
       parseCmsSurroundWireResult,
       { collection, locale },
-      await callGinko(context.caller, 'surround', {
-        collection,
-        locale,
-        path,
-        previous: 1,
-        next: 1,
-      }),
+      await callGinko(
+        context.caller,
+        'surround',
+        {
+          collection,
+          locale,
+          path,
+          previous: 1,
+          next: 1,
+        },
+        control,
+      ),
     )
     const previous = (result.previous || [])[0]
     const next = (result.next || [])[0]
@@ -721,7 +753,7 @@ export const contentDataSource = {
   search: async (
     context: GinkoCmsDataSourceContext,
     request: CmsSearchRequest & { limit: number },
-    _control: ContentDataSourceControl,
+    control: ContentDataSourceControl,
   ) => {
     const contentRuntime = await contentRuntimeFromEvent(context.event)
     const locale = request.locale || defaultLocale(contentRuntime)
@@ -745,12 +777,17 @@ export const contentDataSource = {
           'search',
           parseCmsSearchWireResult,
           { collection, locale },
-          await callGinko(context.caller, 'search', {
-            query,
-            locale,
-            collection,
-            limit: Math.min(request.limit, CMS_PUBLIC_SEARCH_MAX_LIMIT),
-          }),
+          await callGinko(
+            context.caller,
+            'search',
+            {
+              query,
+              locale,
+              collection,
+              limit: Math.min(request.limit, CMS_PUBLIC_SEARCH_MAX_LIMIT),
+            },
+            control,
+          ),
         )
         const searchEntries = await Promise.all(
           (result.results || []).map((entry) => toContentEntry(entry, locale)),
@@ -771,7 +808,7 @@ export const contentDataSource = {
   siteData: async (
     context: GinkoCmsDataSourceContext,
     request: CmsSiteDataRequest,
-    _control: ContentDataSourceControl,
+    control: ContentDataSourceControl,
   ) => {
     const contentRuntime = await contentRuntimeFromEvent(context.event)
     const locale = request.locale || defaultLocale(contentRuntime)
@@ -779,7 +816,7 @@ export const contentDataSource = {
       'site data',
       parseCmsSiteDataWireResult,
       { locale },
-      await callGinko(context.caller, 'siteData', { key: request.key, locale }),
+      await callGinko(context.caller, 'siteData', { key: request.key, locale }, control),
     )
     if (result.key !== request.key) {
       throw providerError(
@@ -802,7 +839,7 @@ export const contentDataSource = {
   routes: async (
     context: GinkoCmsDataSourceContext,
     request: { cursor: string | null; limit: number },
-    _control: ContentDataSourceControl,
+    control: ContentDataSourceControl,
   ) => {
     const contentRuntime = await contentRuntimeFromEvent(context.event)
     const collections = Object.entries(contentRuntime.collections || {})
@@ -820,11 +857,16 @@ export const contentDataSource = {
       const result: RoutesResult = decodeResult(
         'routes',
         parseCmsRoutesWireResult,
-        await callGinko(context.caller, 'routes', {
-          ...scope,
-          cursor: position[2],
-          limit: request.limit,
-        }),
+        await callGinko(
+          context.caller,
+          'routes',
+          {
+            ...scope,
+            cursor: position[2],
+            limit: request.limit,
+          },
+          control,
+        ),
       )
       if (
         result.routes.some(

@@ -443,6 +443,27 @@ describe('Ginko Nuxt provider v5', () => {
     })
   })
 
+  it.each(['expired', 'aborted'] as const)(
+    'does not dispatch backend work for an %s data-source control',
+    async (state) => {
+      const controller = new AbortController()
+      if (state === 'aborted') controller.abort()
+      const control = {
+        signal: controller.signal,
+        deadlineAt: state === 'expired' ? Date.now() - 1 : Date.now() + 10_000,
+      }
+
+      await expect(
+        contentDataSource.query(
+          { event, caller: { query: convexMock.query } },
+          toContentProviderQuery({ collection: 'docs', limit: 2 }),
+          control,
+        ),
+      ).rejects.toMatchObject({ code: 'BACKEND_FAILURE' })
+      expect(convexMock.query).not.toHaveBeenCalled()
+    },
+  )
+
   it('creates one request-scoped Convex caller for concurrent operations', async () => {
     const createCaller = vi.fn(() => ({ query: convexMock.query }))
     setClientFactory(createCaller)
@@ -700,7 +721,7 @@ describe('Ginko Nuxt provider v5', () => {
     const firstPage = await contentDataSource.routes!(
       { event, caller: { query: convexMock.query } },
       { cursor: null, limit: 250 },
-      {} as never,
+      { signal: new AbortController().signal, deadlineAt: Date.now() + 10_000 },
     )
     expect(firstPage.data.nextCursor).not.toBeNull()
     expect(new TextEncoder().encode(firstPage.data.nextCursor!).byteLength).toBeLessThanOrEqual(256)
