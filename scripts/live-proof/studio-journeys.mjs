@@ -163,17 +163,30 @@ export async function runStudioJourneys({
       await page.reload({ waitUntil: 'domcontentloaded' })
       const restoredDescription = page.getByRole('textbox', { name: 'Description' })
       await restoredDescription.waitFor({ timeout: 30000 })
-      if ((await restoredDescription.inputValue()) !== fixtureDescription) {
-        throw new Error('Historical rollback did not restore the original description.')
+      if ((await restoredDescription.inputValue()) !== transientDescription) {
+        throw new Error('Historical public rollback did not preserve the current draft.')
       }
       await page
         .locator('.studio-entry-topbar')
         .getByText('Live', { exact: true })
         .waitFor({ timeout: 30000 })
+      const livePageLink = page.locator('a[href^="/blog/"]').first()
+      await livePageLink.waitFor({ timeout: 30000 })
+      const livePagePath = await livePageLink.getAttribute('href')
+      if (!livePagePath) throw new Error('Historical public rollback omitted its live page link.')
+      const livePageResponse = await fetch(new URL(livePagePath, baseUrl))
+      const livePageHtml = await livePageResponse.text()
+      if (
+        !livePageResponse.ok ||
+        !livePageHtml.includes(fixtureDescription) ||
+        livePageHtml.includes(transientDescription)
+      ) {
+        throw new Error('Historical public rollback did not restore the older live output.')
+      }
       return {
         originalDescription: fixtureDescription,
-        transientDescriptionRemoved: true,
-        restoredAndPublished: true,
+        currentDraftPreserved: true,
+        publicOutputRestored: true,
       }
     },
   )

@@ -508,6 +508,8 @@ describe('live refactor proof contract', () => {
     expect(studio).toContain("name: 'Body Markdown source'")
     expect(studio).toContain('filter({ hasText: relationProbe.title }).waitFor')
     expect(studio).toContain("name: 'History', exact: true")
+    expect(studio).toContain('Historical public rollback did not preserve the current draft.')
+    expect(studio).toContain('Historical public rollback did not restore the older live output.')
     expect(browserAuth).toContain("response.status() !== 429")
     expect(studio).toContain(".locator('.studio-entry-topbar')")
     expect(studio).toContain(".getByText('Live', { exact: true })")
