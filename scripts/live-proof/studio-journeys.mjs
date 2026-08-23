@@ -143,7 +143,16 @@ export async function runStudioJourneys({
         .getByText('Live', { exact: true })
         .waitFor({ timeout: 30000 })
 
-      await page.getByRole('button', { name: 'History', exact: true }).click()
+      const historyButton = page.getByRole('button', { name: 'History', exact: true })
+      await historyButton.click()
+      await historyButton.evaluate(async (button) => {
+        const content = button
+          .closest('[data-slot="collapsible"]')
+          ?.querySelector('[data-slot="collapsible-content"]')
+        await Promise.allSettled(
+          [...(content?.getAnimations() ?? [])].map((animation) => animation.finished),
+        )
+      })
       const versionActions = page.getByRole('button', { name: /^Actions for version \d+$/ })
       await versionActions.last().waitFor({ timeout: 30000 })
       if ((await versionActions.count()) < 2) {
