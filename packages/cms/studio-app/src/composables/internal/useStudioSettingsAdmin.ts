@@ -114,7 +114,6 @@ type StorageDiagnostic = {
 
 const mcpScopeOptions = [
   { key: cmsPermissionKeys.read, label: 'Read content' },
-  { key: cmsPermissionKeys.createEntries, label: 'Create entries' },
   { key: cmsPermissionKeys.editEntries, label: 'Edit drafts and request publish review' },
 ] as const
 
@@ -285,11 +284,7 @@ export function useStudioSettingsAdmin() {
     name: 'Codex MCP',
     oauthClientId: '',
     expiresIn: '604800',
-    scopes: [
-      cmsPermissionKeys.read,
-      cmsPermissionKeys.createEntries,
-      cmsPermissionKeys.editEntries,
-    ],
+    scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
   })
   const newMemberInvitation = reactive<{
     email: string
