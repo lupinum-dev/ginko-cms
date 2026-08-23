@@ -646,6 +646,8 @@ describe('live refactor proof contract', () => {
     expect(observability).toContain("if (!['warning', 'error'].includes(message.type())) return")
     expect(observability).toContain('expectedConsoleFailures')
     expect(observability).toContain('expectedHttpFailure(url, status)')
+    expect(smoke).toContain("new URL('/oauth-proof/callback', baseUrl)")
+    expect(smoke).toContain('status === 404')
     expect(smoke).toContain('invalidCredentialsExpectedUntil = Date.now() + 5_000')
     expect(smoke).toContain('Date.now() + 1_000')
     expect(smoke).toContain("'--host-resolver-rules=MAP localhost 127.0.0.1'")

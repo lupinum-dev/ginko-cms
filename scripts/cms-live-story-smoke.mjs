@@ -139,6 +139,16 @@ function safeArtifactName(value) {
 }
 
 function expectedHttpFailure(url, status) {
+  const observedUrl = new URL(url, baseUrl)
+  const expectedOAuthCallback = new URL('/oauth-proof/callback', baseUrl)
+  if (
+    certification &&
+    status === 404 &&
+    observedUrl.origin === expectedOAuthCallback.origin &&
+    observedUrl.pathname === expectedOAuthCallback.pathname
+  ) {
+    return true
+  }
   return (
     Date.now() <= invalidCredentialsExpectedUntil &&
     url.includes('/api/auth/sign-in/email') &&
