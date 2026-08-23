@@ -196,6 +196,46 @@ async function waitForStudioSearchIndex(owner, expectedTitle) {
   )
 }
 
+function cmsIdentity(member) {
+  return {
+    subject: member.userId,
+    email: member.email,
+    emailVerified: true,
+    token_use: 'convex-session',
+  }
+}
+
+async function certifyCanonicalProjections(prefix, owner) {
+  const runId = `${prefix}-browser-baseline`
+  const identity = cmsIdentity(owner)
+  let status = await runComponent(
+    undefined,
+    'ginkoCms/maintenance:startProjectionRepairRun',
+    { runId, pageSize: 100, autoContinue: true },
+    identity,
+  )
+  const deadline = Date.now() + 15 * 60_000
+  while (status.state === 'running' && Date.now() < deadline) {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 500))
+    status = await runComponent(
+      undefined,
+      'ginkoCms/maintenance:getProjectionRepairRun',
+      { runId },
+      identity,
+    )
+    if (!status) throw new Error('Projection/reference certification run disappeared.')
+  }
+  if (status.state !== 'complete' || status.issueCount !== 0) {
+    throw new Error(
+      `Projection/reference certification did not complete cleanly: ${JSON.stringify({
+        state: status.state,
+        issueCount: status.issueCount,
+        lastIssue: status.lastIssue,
+      })}`,
+    )
+  }
+}
+
 async function setup() {
   const output = resolve(requiredOption('output'))
   const prefix = requiredOption('prefix')
@@ -295,6 +335,7 @@ async function setup() {
   if (journeyCounts.assets !== targetScale.assets - 1) {
     throw new Error('Disposable fixture browser baseline must reserve one asset slot.')
   }
+  await certifyCanonicalProjections(prefix, owner)
   const mismatchUrl = requiredEnv('CMS_STORY_CONTRACT_MISMATCH_URL')
   const deepestPath = `/docs/${inspection.deepestSlugPath.join('/')}`
   writeFileSync(

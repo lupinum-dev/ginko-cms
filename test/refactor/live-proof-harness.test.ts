@@ -214,6 +214,26 @@ describe('live refactor proof contract', () => {
       frames: 1,
     })
   })
+  it('[AST-05][AST-07] certifies canonical references before the asset trash journey', async () => {
+    const fixtures = await readFile(resolve(root, 'scripts/consumer-live-fixtures.mjs'), 'utf8')
+    const componentMaintenance = await readFile(
+      resolve(root, 'packages/convex/src/maintenance.ts'),
+      'utf8',
+    )
+    const hostMaintenance = await readFile(
+      resolve(root, 'packages/cms/templates/convex/ginkoCms/maintenance.ts'),
+      'utf8',
+    )
+    expect(componentMaintenance).toContain('startProjectionRepairRun')
+    expect(hostMaintenance).toContain('components.ginkoCms.maintenance.startProjectionRepairRun')
+    expect(hostMaintenance).not.toContain('components.ginkoCms.entries.projectionMaintenance')
+    expect(fixtures).toContain('ginkoCms/maintenance:startProjectionRepairRun')
+    expect(fixtures).toContain('ginkoCms/maintenance:getProjectionRepairRun')
+    expect(fixtures).toContain("status.state !== 'complete' || status.issueCount !== 0")
+    expect(fixtures.indexOf('await certifyCanonicalProjections(prefix, owner)')).toBeGreaterThan(
+      fixtures.indexOf('browser baseline must reserve one asset slot'),
+    )
+  })
   it('waits for the invalid-credential UI state instead of racing the HTTP response', async () => {
     const smoke = await readFile(resolve(root, 'scripts/cms-live-story-smoke.mjs'), 'utf8')
     expect(smoke).toContain("waitFor({ state: 'visible', timeout: 10_000 })")

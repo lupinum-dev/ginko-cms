@@ -17,7 +17,7 @@ export const startProjectionRepairRun = mutation({
   args: startProjectionRepairRunArgs.args,
   handler: async (ctx, args) =>
     await ctx.runMutation(
-      components.ginkoCms.entries.projectionMaintenance.startProjectionRepairRun,
+      components.ginkoCms.maintenance.startProjectionRepairRun,
       bindExpectedCmsContract(args),
     ),
 })
@@ -26,7 +26,7 @@ export const resumeProjectionRepairRun = mutation({
   args: resumeProjectionRepairRunArgs.args,
   handler: async (ctx, args) =>
     await ctx.runMutation(
-      components.ginkoCms.entries.projectionMaintenance.resumeProjectionRepairRun,
+      components.ginkoCms.maintenance.resumeProjectionRepairRun,
       bindExpectedCmsContract(args),
     ),
 })
@@ -35,7 +35,7 @@ export const getProjectionRepairRun = query({
   args: getProjectionRepairRunArgs.args,
   handler: async (ctx, args) =>
     await ctx.runQuery(
-      components.ginkoCms.entries.projectionMaintenance.getProjectionRepairRun,
+      components.ginkoCms.maintenance.getProjectionRepairRun,
       args,
     ),
 })
