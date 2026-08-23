@@ -27,6 +27,8 @@ GINKO_FIRST_OWNER_EMAIL=owner@example.com
   exchange.
 - `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for setup and
   collection contract sync admin transport.
+- `CONVEX_SELF_HOSTED_ADMIN_KEY`: accepted instead of `CONVEX_DEPLOY_KEY` when
+  the Convex CLI targets a self-hosted local backend. Do not configure both.
 - `GINKO_FIRST_OWNER_EMAIL`: required until the first CMS owner has claimed
   ownership in Studio.
 

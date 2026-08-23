@@ -29,6 +29,7 @@ export async function runInitCommand(args: string[], cwd: string, io: CliIo): Pr
           : `MCP is disabled. Re-run \`pnpm exec ginko-cms init --mcp\` to generate the endpoint.`,
         `Set \`CONVEX_URL\` or \`NUXT_PUBLIC_CONVEX_URL\` in the Nuxt app environment.`,
         `Set \`CONVEX_DEPLOY_KEY\` in the Nuxt app/server environment before contract sync.`,
+        `For self-hosted local development, the Convex CLI's \`CONVEX_SELF_HOSTED_ADMIN_KEY\` is also accepted.`,
         `Set versioned \`BETTER_AUTH_SECRETS\` in Convex; do not expose it to the Nuxt process.`,
         `After the first deploy, bootstrap the read-only JWKS lifecycle with \`pnpm exec better-convex convex run auth:rotateSigningKey '{}'\` before admitting auth traffic.`,
         `Set \`GINKO_FIRST_OWNER_EMAIL\` in the Convex deployment with \`pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com\`.`,

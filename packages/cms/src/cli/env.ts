@@ -41,10 +41,16 @@ export function publicConvexUrl(cwd: string): string {
 
 export function deployKey(cwd: string): string {
   const env = readLocalEnv(cwd)
-  const key = process.env.CONVEX_DEPLOY_KEY ?? env.CONVEX_DEPLOY_KEY
+  const key =
+    process.env.CONVEX_DEPLOY_KEY ??
+    env.CONVEX_DEPLOY_KEY ??
+    process.env.CONVEX_SELF_HOSTED_ADMIN_KEY ??
+    env.CONVEX_SELF_HOSTED_ADMIN_KEY
   const trimmed = key?.trim()
   if (!trimmed) {
-    throw new Error('ginko-cms requires CONVEX_DEPLOY_KEY in the CLI environment or .env.local.')
+    throw new Error(
+      'ginko-cms requires CONVEX_DEPLOY_KEY or CONVEX_SELF_HOSTED_ADMIN_KEY in the CLI environment or .env.local.',
+    )
   }
   return trimmed
 }

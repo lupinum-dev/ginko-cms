@@ -19,6 +19,7 @@ import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import { defineCollection } from '@lupinum/ginko-content/config'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { deployKey } from '../../packages/cms/src/cli/env.js'
 import { runGinkoCmsCli } from '../../packages/cms/src/cli/ginko-cms.js'
 import { loadContentConfig } from '../../packages/cms/src/cli/push.js'
 import { loadGinkoContentContract } from '../../packages/cms/src/module/content-contract.js'
@@ -118,6 +119,24 @@ describe('ginko-cms CLI', () => {
   afterEach(() => {
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { force: true, recursive: true })
+    }
+  })
+
+  it('uses the native self-hosted admin key for local contract sync', () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    const previousSelfHostedKey = process.env.CONVEX_SELF_HOSTED_ADMIN_KEY
+    delete process.env.CONVEX_DEPLOY_KEY
+    process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = 'local-fixture-admin-key'
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-self-hosted-'))
+    tempDirs.push(rootDir)
+
+    try {
+      expect(deployKey(rootDir)).toBe('local-fixture-admin-key')
+    } finally {
+      if (previousDeployKey === undefined) delete process.env.CONVEX_DEPLOY_KEY
+      else process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      if (previousSelfHostedKey === undefined) delete process.env.CONVEX_SELF_HOSTED_ADMIN_KEY
+      else process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = previousSelfHostedKey
     }
   })
 
