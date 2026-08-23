@@ -12,6 +12,7 @@ const componentModules = [
   'draftPreview',
   'editor',
   'entries/draft',
+  'entries/projectionMaintenance',
   'entries/publish',
   'entries/read',
   'entries/tree',
