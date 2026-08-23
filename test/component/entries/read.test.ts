@@ -20,6 +20,50 @@ import {
 const api = anyApi
 
 describe('canonical editor reads', () => {
+  it('resolves selected relations independently from the current inventory page', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+
+    const created: Array<{ stableId: string; title: string; slug: string }> = []
+    for (let index = 0; index < 30; index += 1) {
+      const slug = `relation-${index.toString().padStart(2, '0')}`
+      const title = `Relation ${index}`
+      const id = await owner.createEntry({
+        collection: 'posts',
+        slug,
+        localized: { title },
+      })
+      const entry = await owner.query(api.editor.getEntry, { id, locale: 'en' })
+      created.push({ stableId: entry.stableId, title, slug })
+    }
+
+    const firstPage = await owner.query(api.editor.listEntriesForStudio, {
+      collection: 'posts',
+      locale: 'en',
+      parentEntryId: null,
+      paginationOpts: { numItems: 25, cursor: null },
+    })
+    const visibleStableIds = new Set(firstPage.page.map((entry) => entry.stableId))
+    const selected = created.find((entry) => !visibleStableIds.has(entry.stableId))
+    if (!selected) throw new Error('Expected at least one relation outside the first page.')
+
+    await expect(
+      owner.query(api.editor.resolveRelationEntries, {
+        collection: 'posts',
+        locale: 'en',
+        stableIds: [selected.stableId],
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        stableId: selected.stableId,
+        title: selected.title,
+        slug: selected.slug,
+      }),
+    ])
+  })
+
   it('[CON-02] paginates flat inventory with opaque indexed cursors without loss or duplication', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

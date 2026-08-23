@@ -21,6 +21,15 @@ export const listEntriesForStudio = defineArgs({
   },
 })
 
+export const resolveRelationEntries = defineArgs({
+  description: 'Resolve selected relation values to their editor-facing labels.',
+  args: {
+    collection: v.string(),
+    locale: v.string(),
+    stableIds: v.array(v.string()),
+  },
+})
+
 export const listEntrySummaries = defineArgs({
   description: 'List editor-facing entry summaries for a collection work queue.',
   args: {

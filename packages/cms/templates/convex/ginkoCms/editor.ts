@@ -22,6 +22,7 @@ import {
   reparentEntry as reparentEntryArgs,
   revertDraftToPublished as revertDraftToPublishedArgs,
   restoreEntry as restoreEntryArgs,
+  resolveRelationEntries as resolveRelationEntriesArgs,
   rollbackVersion as rollbackVersionArgs,
   saveEntryDraft as saveEntryDraftArgs,
   unpublishEntry as unpublishEntryArgs,
@@ -49,6 +50,15 @@ export const listEntriesForStudio = query({
   handler: async (ctx, args) =>
     await ctx.runQuery(
       components.ginkoCms.editor.listEntriesForStudio,
+      await bindCmsCaller(ctx, args),
+    ),
+})
+
+export const resolveRelationEntries = query({
+  args: resolveRelationEntriesArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(
+      components.ginkoCms.editor.resolveRelationEntries,
       await bindCmsCaller(ctx, args),
     ),
 })

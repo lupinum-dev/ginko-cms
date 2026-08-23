@@ -1,11 +1,13 @@
 import {
   listEntriesForStudio as listEntriesForStudioArgs,
   listEntrySummaries as listEntrySummariesArgs,
+  resolveRelationEntries as resolveRelationEntriesArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
 import {
   entrySummaryListResultValidator,
   studioEntryListResultValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
+import { v } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel.js'
 import { canRead } from '../auth/checks.js'
@@ -19,6 +21,7 @@ import type { EntryDoc } from './context.js'
 import { readDraftSearchCandidatePage, readStudioTreeCandidatePage } from './studioKeyset.js'
 import {
   buildStudioRowsForEntries,
+  entryTitle,
   mapStudioSourceRow,
   type StudioEntryStatus,
 } from './studioRows.js'
@@ -34,6 +37,14 @@ const STUDIO_LIST_DEFAULT_LIMIT = 50
 // pages to 25 leaves deterministic headroom below Convex's 16 MiB read limit.
 const STUDIO_LIST_MAX_LIMIT = 25
 const STUDIO_FILTER_SCAN_LIMIT = 1_500
+const RELATION_RESOLUTION_LIMIT = 50
+
+const relationEntryValidator = v.object({
+  _id: v.string(),
+  stableId: v.string(),
+  title: v.string(),
+  slug: v.string(),
+})
 
 async function listStudioTreeRows(
   ctx: HandlerQueryCtx,
@@ -253,6 +264,52 @@ export const listEntriesForStudio = callerQuery.protected({
     }
 
     throwCmsError('INVALID_COLLECTION_TYPE', 'Unsupported Studio collection type.')
+  },
+})
+
+export const resolveRelationEntries = callerQuery.protected({
+  acceptsTrustedCaller: true,
+  id: 'editor:resolveRelationEntries',
+  args: resolveRelationEntriesArgs.args,
+  guard: canRead,
+  returns: v.array(relationEntryValidator),
+  handler: async (ctx: HandlerQueryCtx, args) => {
+    const stableIds = [...new Set(args.stableIds)]
+    if (stableIds.length > RELATION_RESOLUTION_LIMIT) {
+      throwCmsError(
+        'INVALID_RELATION_VALUE',
+        `A relation field can resolve at most ${RELATION_RESOLUTION_LIMIT} selected entries.`,
+      )
+    }
+
+    const collection = await getCollectionOrThrow(ctx, args.collection)
+    const entries = (
+      await Promise.all(
+        stableIds.map((stableId) =>
+          ctx.db
+            .query('entries')
+            .withIndex('by_collection_stableId', (query) =>
+              query.eq('collection', collection.slug).eq('stableId', stableId),
+            )
+            .unique(),
+        ),
+      )
+    ).filter((entry): entry is EntryDoc => entry !== null)
+    const rows = await buildStudioRowsForEntries(ctx, collection, entries, args.locale)
+    const rowByStableId = new Map(rows.map((row) => [row.stableId, row]))
+
+    return stableIds.flatMap((stableId) => {
+      const row = rowByStableId.get(stableId)
+      if (!row) return []
+      return [
+        {
+          _id: String(row.entryId),
+          stableId,
+          title: entryTitle(row),
+          slug: row.baseSlug,
+        },
+      ]
+    })
   },
 })
 

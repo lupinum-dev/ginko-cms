@@ -172,6 +172,7 @@ import type * as publicReads_navigationHandlers from "../publicReads/navigationH
 import type * as publicReads_pageHandlers from "../publicReads/pageHandlers.js";
 import type * as publicReads_siteHandlers from "../publicReads/siteHandlers.js";
 import type * as publicReads_validation from "../publicReads/validation.js";
+import type * as publicReads_wire from "../publicReads/wire.js";
 import type * as redirects from "../redirects.js";
 import type * as redirects_inventory from "../redirects/inventory.js";
 import type * as revalidation from "../revalidation.js";
@@ -357,6 +358,7 @@ const fullApi: ApiFromModules<{
   "publicReads/pageHandlers": typeof publicReads_pageHandlers;
   "publicReads/siteHandlers": typeof publicReads_siteHandlers;
   "publicReads/validation": typeof publicReads_validation;
+  "publicReads/wire": typeof publicReads_wire;
   redirects: typeof redirects;
   "redirects/inventory": typeof redirects_inventory;
   revalidation: typeof revalidation;

@@ -110,6 +110,7 @@ export const studioApiSurface = {
     listActivity: 'query',
     listEntrySummaries: 'query',
     listEntriesForStudio: 'query',
+    resolveRelationEntries: 'query',
     listPublishRouteImpactPage: 'query',
     listRedirects: 'query',
     listStudioWorkQueue: 'query',

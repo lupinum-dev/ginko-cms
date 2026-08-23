@@ -2,6 +2,7 @@ import { computed, type ComputedRef } from 'vue'
 
 import { api } from '../../../boundary/api'
 import { useCmsStudioPaginatedQuery } from '../../../composables/useCmsStudioPaginatedQuery'
+import { useCmsStudioQuery } from '../../../composables/useCmsStudioQuery'
 import type { FieldDefinition } from './useFieldCommon'
 import { asFieldContext } from './useFieldCommon'
 
@@ -16,6 +17,7 @@ export function useRelationEntries(
   field: ComputedRef<FieldDefinition>,
   locale: ComputedRef<string | undefined>,
   search: ComputedRef<string>,
+  selectedStableIds: ComputedRef<string[]>,
 ) {
   const relatedEntriesArgs = computed(() => {
     const relationCollection = field.value.relation?.collection
@@ -55,8 +57,26 @@ export function useRelationEntries(
     }),
   )
 
+  const selectedEntriesQuery = useCmsStudioQuery(
+    api.ginkoCms.editor.resolveRelationEntries,
+    computed(() => {
+      const relationCollection = field.value.relation?.collection
+      if (!relationCollection || selectedStableIds.value.length === 0) return 'skip' as const
+      return {
+        collection: relationCollection,
+        locale: locale.value ?? 'en',
+        stableIds: selectedStableIds.value,
+      }
+    }),
+  )
+  const selectedEntries = computed<RelatedEntry[]>(() =>
+    Array.isArray(selectedEntriesQuery.data.value) ? selectedEntriesQuery.data.value : [],
+  )
+
   const entryByStableId = computed(() => {
-    return new Map(relatedEntries.value.map((entry) => [entry.stableId, entry]))
+    return new Map(
+      [...relatedEntries.value, ...selectedEntries.value].map((entry) => [entry.stableId, entry]),
+    )
   })
 
   return {

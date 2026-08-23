@@ -28,16 +28,17 @@ const relationSearch = ref('')
 const open = ref(false)
 const root = useTemplateRef<HTMLElement>('root')
 const trigger = useTemplateRef<HTMLButtonElement>('trigger')
-const { relatedEntries, entryByStableId, hasMoreEntries, status } = useRelationEntries(
-  computed(() => props.field),
-  computed(() => props.locale),
-  computed(() => relationSearch.value),
-)
 const selectedStableIds = computed(() => {
   return Array.isArray(value.value)
     ? value.value.filter((item): item is string => typeof item === 'string')
     : []
 })
+const { relatedEntries, entryByStableId, hasMoreEntries, status } = useRelationEntries(
+  computed(() => props.field),
+  computed(() => props.locale),
+  computed(() => relationSearch.value),
+  selectedStableIds,
+)
 const selectedEntries = computed(() =>
   selectedStableIds.value.map(
     (stableId) =>

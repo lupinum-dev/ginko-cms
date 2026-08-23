@@ -27,15 +27,16 @@ const value = computed({
 const relationSearch = ref('')
 const open = ref(false)
 const root = useTemplateRef<HTMLElement>('root')
+const selectedStableId = computed(() => (typeof value.value === 'string' ? value.value : ''))
 const { relatedEntries, entryByStableId, hasMoreEntries, status } = useRelationEntries(
   computed(() => props.field),
   computed(() => props.locale),
   computed(() => relationSearch.value),
+  computed(() => (selectedStableId.value ? [selectedStableId.value] : [])),
 )
 const filteredRelatedEntries = computed(() => {
   return relatedEntries.value
 })
-const selectedStableId = computed(() => (typeof value.value === 'string' ? value.value : ''))
 const selectedEntry = computed(() => {
   if (!selectedStableId.value) return null
   return (
