@@ -59,6 +59,7 @@ interface NuxtOptionsExt {
   colorMode?: {
     classSuffix?: string
   }
+  routeRules?: Record<string, Record<string, unknown>>
   content?: {
     i18n?: {
       defaultLocale?: string
@@ -226,6 +227,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     // Studio and its auth pages are identity-dependent. A prerendered anonymous
     // shell bypasses Better Convex's request-scoped SSR auth and then shifts to
     // the authenticated application after hydration.
+    nuxt.options.routeRules ??= {}
     nuxt.options.routeRules[studioRoute] = {
       ...nuxt.options.routeRules[studioRoute],
       prerender: false,
