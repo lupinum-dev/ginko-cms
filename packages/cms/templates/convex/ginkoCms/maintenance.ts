@@ -34,10 +34,7 @@ export const resumeProjectionRepairRun = mutation({
 export const getProjectionRepairRun = query({
   args: getProjectionRepairRunArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runQuery(
-      components.ginkoCms.maintenance.getProjectionRepairRun,
-      args,
-    ),
+    await ctx.runQuery(components.ginkoCms.maintenance.getProjectionRepairRun, args),
 })
 
 export const getStorageHealth = query({
