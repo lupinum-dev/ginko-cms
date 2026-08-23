@@ -484,17 +484,12 @@ export async function runStudioJourneys({
     const sort = page.getByRole('combobox', { name: 'Sort' })
     await sort.click()
     await page.getByRole('option', { name: 'Date', exact: true }).click()
-    // Uploading selects the new asset and opens its details sheet. Close the
-    // sheet through its accessible control before targeting the now-inert
-    // table by role.
-    await page.getByRole('button', { name: 'Close', exact: true }).click()
     const uploadedAssetRow = page.getByRole('row').filter({ hasText: uploadFilename })
     await uploadedAssetRow.waitFor({ timeout: 30000 })
-    await uploadedAssetRow.getByRole('checkbox').check()
     const trashButton = page.getByRole('button', { name: 'Move to Trash' })
     await trashButton.waitFor({ timeout: 30000 })
     await trashButton.click()
-    const trashDialog = page.getByRole('dialog', { name: 'Move selected assets to trash?' })
+    const trashDialog = page.getByRole('dialog', { name: 'Move asset to trash?' })
     await trashDialog.waitFor({ timeout: 30000 })
     await trashDialog.getByRole('button', { name: 'Move to trash' }).click()
     await uploadedAssetRow.waitFor({ state: 'hidden', timeout: 30000 })

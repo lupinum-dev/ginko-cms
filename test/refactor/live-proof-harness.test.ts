@@ -510,6 +510,8 @@ describe('live refactor proof contract', () => {
     expect(studio).toContain("name: 'History', exact: true")
     expect(studio).toContain('Historical public rollback did not preserve the current draft.')
     expect(studio).toContain('Historical public rollback did not restore the older live output.')
+    expect(studio).toContain("name: 'Move asset to trash?'")
+    expect(studio).not.toContain("name: 'Move selected assets to trash?'")
     expect(browserAuth).toContain("response.status() !== 429")
     expect(studio).toContain(".locator('.studio-entry-topbar')")
     expect(studio).toContain(".getByText('Live', { exact: true })")
