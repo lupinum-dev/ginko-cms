@@ -654,6 +654,7 @@ describe('live refactor proof contract', () => {
     expect(smoke).toContain('name: /^Members(?:\\s+\\d+)?$/')
     expect(smoke).toContain("name: 'Invite member'")
     expect(smoke).toContain(".getByText('Draft', { exact: true })")
+    expect(smoke).toContain("getByRole('alert').getByRole('button', { name: 'Restore draft' })")
     expect(smoke).not.toContain("name: 'Add member'")
     expect(mcp).toContain("'request-publish-review'")
   })

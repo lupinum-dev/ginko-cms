@@ -525,7 +525,7 @@ try {
 
       await page.goto(fixtureEntryUrl, { waitUntil: 'domcontentloaded' })
       await page.getByText(fixtureTitle, { exact: true }).first().waitFor({ timeout: 30000 })
-      await page.getByRole('button', { name: 'Restore draft' }).click()
+      await page.getByRole('alert').getByRole('button', { name: 'Restore draft' }).click()
       const restoreDialog = page.getByRole('dialog', { name: 'Restore draft' })
       await restoreDialog.waitFor({ timeout: 30000 })
       await restoreDialog.getByRole('button', { name: 'Restore draft' }).click()
