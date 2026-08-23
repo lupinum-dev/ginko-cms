@@ -505,6 +505,7 @@ describe('live refactor proof contract', () => {
     expect(studio).toContain("name: 'Publish (EN)', exact: true")
     expect(studio).toContain("name: 'Body Markdown source'")
     expect(studio).toContain('filter({ hasText: relationProbe.title }).waitFor')
+    expect(studio).toContain("name: 'History', exact: true")
     expect(studio).toContain(".locator('.studio-entry-topbar')")
     expect(studio).toContain(".getByText('Live', { exact: true })")
     expect(studio).toContain('const mismatchPage = await page.context().newPage()')

@@ -143,6 +143,7 @@ export async function runStudioJourneys({
         .getByText('Live', { exact: true })
         .waitFor({ timeout: 30000 })
 
+      await page.getByRole('button', { name: 'History', exact: true }).click()
       const versionActions = page.getByRole('button', { name: /^Actions for version \d+$/ })
       await versionActions.last().waitFor({ timeout: 30000 })
       if ((await versionActions.count()) < 2) {
