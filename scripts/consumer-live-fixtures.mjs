@@ -290,14 +290,6 @@ async function setup() {
   }
   const probes = await runComponent('ginkoCms', 'liveFixtures:setupProbes', { prefix })
   const inspection = await runComponent('ginkoCms', 'liveFixtures:inspect', { prefix })
-  await ensureReview(prefix, owner, probes)
-  const pendingReview = await runComponent('ginkoCms', 'liveFixtures/cleanup:findPendingReview', {
-    prefix,
-    title: probes.reviewTitle,
-  })
-  if (!pendingReview) {
-    throw new Error('Disposable live fixture did not produce the required pending review.')
-  }
   const counts = await runComponent('ginkoCms', 'liveFixtures/cleanup:counts', { prefix })
   let publicRows = 0
   for (const locale of ['en', 'de', 'fr']) {
@@ -340,6 +332,14 @@ async function setup() {
     throw new Error('Disposable fixture browser baseline must reserve one asset slot.')
   }
   await certifyCanonicalProjections(prefix, owner)
+  await ensureReview(prefix, owner, probes)
+  const pendingReview = await runComponent('ginkoCms', 'liveFixtures/cleanup:findPendingReview', {
+    prefix,
+    title: probes.reviewTitle,
+  })
+  if (!pendingReview) {
+    throw new Error('Disposable live fixture did not produce the required pending review.')
+  }
   const mismatchUrl = requiredEnv('CMS_STORY_CONTRACT_MISMATCH_URL')
   const deepestPath = `/docs/${inspection.deepestSlugPath.join('/')}`
   writeFileSync(

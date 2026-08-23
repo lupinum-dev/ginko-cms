@@ -5,6 +5,7 @@ import {
   setupAssetsPageHandler,
   setupEntriesPageHandler,
   setupMembersHandler,
+  setupProbesHandler,
 } from '../../packages/convex/src/liveFixtures'
 import {
   cleanupAssetsPageHandler,
@@ -46,6 +47,30 @@ describe('deployment-admin live fixtures', () => {
     expect(await ctx.readAll('draftSearchEntries')).toHaveLength(4_500)
     expect(await ctx.readAll('publicEntries')).toHaveLength(4_500)
     expect(await ctx.readAll('publicSearchEntries')).toHaveLength(4_500)
+    const reviewEntry = (await ctx.readAll('entries')).find((entry) =>
+      entry.stableId.endsWith('1498'),
+    )!
+    await ctx.seed('reviewRequests', {
+      agentRunId: null,
+      entryId: String(reviewEntry._id),
+      locales: ['en', 'de'],
+      expectedVersion: 1,
+      message: null,
+      title: `${prefix} publish all review`,
+      summary: 'Stale fixture review',
+      status: 'pending',
+      preview: {},
+      requestedBy: prefix,
+      reviewedBy: null,
+      createdAt: 1,
+      updatedAt: 1,
+      reviewedAt: null,
+      reviewFeedback: null,
+      versionHash: 'stale',
+      previewHash: 'stale',
+    })
+    await ctx.raw.run((inner) => setupProbesHandler(inner, { prefix }))
+    expect(await ctx.readAll('reviewRequests')).toHaveLength(0)
     while (true) {
       const page = await ctx.raw.run((inner) =>
         cleanupEntriesPageHandler(inner, { prefix, count: 50 }),

@@ -383,6 +383,18 @@ export async function setupProbesHandler(ctx: MutationCtx, args: { prefix: strin
     entryByIndex(ctx, args.prefix, 1_498),
   ])
   if (!roleEntry || !reviewEntry) throw new Error('Live fixture probe entries are incomplete.')
+  const reviewTitle = `${args.prefix} publish all review`
+  const priorPendingReviews = await ctx.db
+    .query('reviewRequests')
+    .withIndex('by_entry', (query) => query.eq('entryId', String(reviewEntry._id)))
+    .filter((query) =>
+      query.and(
+        query.eq(query.field('status'), 'pending'),
+        query.eq(query.field('title'), reviewTitle),
+      ),
+    )
+    .take(10)
+  for (const review of priorPendingReviews) await ctx.db.delete(review._id)
   const redirectId = `${args.prefix}-structural-redirect`
   const existingRedirect = await ctx.db
     .query('redirects')
@@ -448,7 +460,7 @@ export async function setupProbesHandler(ctx: MutationCtx, args: { prefix: strin
     redirectTargetPath: `/docs/${roleEntry.slug}`,
     reviewEntryId: String(reviewEntry._id),
     reviewVersion: 2,
-    reviewTitle: `${args.prefix} publish all review`,
+    reviewTitle,
     reviewPublicPath: `/docs/${reviewEntry.slug}`,
   }
 }
