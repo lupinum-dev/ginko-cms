@@ -119,9 +119,30 @@ export function validateLiveProofPreflight(env = process.env, options = {}) {
       'Live refactor proof requires GINKO_CMS_DISPOSABLE_DEPLOYMENT=1 and must never reuse a development deployment.',
     )
   }
-  requiredString(env.CONVEX_DEPLOYMENT, 'CONVEX_DEPLOYMENT')
-  requiredString(env.CONVEX_URL, 'CONVEX_URL')
-  requiredString(env.CONVEX_DEPLOY_KEY, 'CONVEX_DEPLOY_KEY')
+  const convexUrl = exactOriginUrl(env.CONVEX_URL, 'CONVEX_URL')
+  const cloudConfigured = Boolean(env.CONVEX_DEPLOYMENT?.trim() || env.CONVEX_DEPLOY_KEY?.trim())
+  const selfHostedConfigured = Boolean(
+    env.CONVEX_SELF_HOSTED_URL?.trim() || env.CONVEX_SELF_HOSTED_ADMIN_KEY?.trim(),
+  )
+  if (cloudConfigured === selfHostedConfigured) {
+    throw new Error(
+      'Live proof requires exactly one Convex authority: CONVEX_DEPLOYMENT plus CONVEX_DEPLOY_KEY, or CONVEX_SELF_HOSTED_URL plus CONVEX_SELF_HOSTED_ADMIN_KEY.',
+    )
+  }
+  const deployment = cloudConfigured
+    ? {
+        kind: 'cloud',
+        identity: requiredString(env.CONVEX_DEPLOYMENT, 'CONVEX_DEPLOYMENT'),
+        key: requiredString(env.CONVEX_DEPLOY_KEY, 'CONVEX_DEPLOY_KEY'),
+      }
+    : {
+        kind: 'self-hosted',
+        identity: exactOriginUrl(env.CONVEX_SELF_HOSTED_URL, 'CONVEX_SELF_HOSTED_URL').origin,
+        key: requiredString(env.CONVEX_SELF_HOSTED_ADMIN_KEY, 'CONVEX_SELF_HOSTED_ADMIN_KEY'),
+      }
+  if (deployment.kind === 'self-hosted' && convexUrl.origin !== deployment.identity) {
+    throw new Error('CONVEX_URL must match the self-hosted Convex origin used for live proof.')
+  }
   const fixturePrefix = requiredString(env.GINKO_CMS_FIXTURE_PREFIX, 'GINKO_CMS_FIXTURE_PREFIX')
   if (!/^refactor-[a-z0-9][a-z0-9-]{5,}$/i.test(fixturePrefix)) {
     throw new Error(
@@ -162,6 +183,7 @@ export function validateLiveProofPreflight(env = process.env, options = {}) {
     }
   }
   return {
+    deployment: { kind: deployment.kind, identity: deployment.identity },
     fixturePrefix,
     baseUrl: baseUrl.toString().replace(/\/$/, ''),
     candidateAttestationUrl: attestationUrl.toString(),

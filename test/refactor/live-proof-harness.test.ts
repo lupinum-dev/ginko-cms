@@ -289,7 +289,7 @@ describe('live refactor proof contract', () => {
         { ...preflightEnvironment(), CONVEX_DEPLOY_KEY: '' },
         { existsSync: () => true },
       ),
-    ).toThrow(/CONVEX_DEPLOY_KEY is required/i)
+    ).toThrow(/CONVEX_DEPLOY_KEY/i)
     expect(() =>
       validateLiveProofPreflight(
         { ...preflightEnvironment(), BCN_AUTH_TRUSTED_CLIENT_IP_HEADER: '' },
@@ -302,6 +302,26 @@ describe('live refactor proof contract', () => {
         { existsSync: () => true },
       ),
     ).toThrow(/BCN_AUTH_PROXY_IP_SECRET is required/i)
+  })
+
+  it('accepts one explicit self-hosted Convex authority without cloud credentials', () => {
+    const environment = preflightEnvironment()
+    delete environment.CONVEX_DEPLOYMENT
+    delete environment.CONVEX_DEPLOY_KEY
+    environment.CONVEX_URL = 'http://127.0.0.1:3210'
+    environment.CONVEX_SELF_HOSTED_URL = 'http://127.0.0.1:3210'
+    environment.CONVEX_SELF_HOSTED_ADMIN_KEY = 'local-admin-key'
+
+    expect(validateLiveProofPreflight(environment, { existsSync: () => true })).toMatchObject({
+      deployment: { kind: 'self-hosted', identity: 'http://127.0.0.1:3210' },
+    })
+
+    expect(() =>
+      validateLiveProofPreflight(
+        { ...preflightEnvironment(), ...environment, CONVEX_DEPLOYMENT: 'dev:ambiguous' },
+        { existsSync: () => true },
+      ),
+    ).toThrow(/exactly one Convex authority/i)
   })
 
   it('matches the remote Browser target to every packed candidate artifact', () => {
@@ -540,7 +560,7 @@ describe('live refactor proof contract', () => {
     expect(studio).toContain('Historical public rollback did not restore the older live output.')
     expect(studio).toContain("name: 'Move asset to trash?'")
     expect(studio).not.toContain("name: 'Move selected assets to trash?'")
-    expect(browserAuth).toContain("response.status() !== 429")
+    expect(browserAuth).toContain('response.status() !== 429')
     expect(studio).toContain(".locator('.studio-entry-topbar')")
     expect(studio).toContain(".getByText('Live', { exact: true })")
     expect(studio).toContain('const mismatchPage = await page.context().newPage()')

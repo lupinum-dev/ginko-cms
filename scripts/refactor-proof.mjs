@@ -495,7 +495,8 @@ async function main() {
     startedAt: new Date().toISOString(),
   }
   if (live) {
-    report.disposableDeploymentFingerprint = sha256(process.env.CONVEX_DEPLOYMENT).slice(0, 16)
+    report.disposableDeploymentFingerprint = sha256(livePreflight.deployment.identity).slice(0, 16)
+    report.disposableDeploymentKind = livePreflight.deployment.kind
     report.liveInputs = {
       browserOrigin: new URL(livePreflight.baseUrl).origin,
       candidateCommit: candidate.commit,
