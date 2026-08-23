@@ -732,6 +732,7 @@ try {
       '})',
       '',
       'export default defineNuxtConfig({',
+      "  compatibilityDate: '2026-08-23',",
       liveConvex
         ? "  modules: ['@nuxtjs/sitemap', 'nuxt-i18n-micro', '@lupinum/ginko-content', ginkoCms],"
         : '  modules: [contentOptionsHarness, ginkoCms],',
@@ -739,12 +740,13 @@ try {
       ...(liveConvex
         ? [
             "  site: { url: process.env.CMS_STORY_SITE_URL || 'https://candidate.ginko.invalid' },",
-            "  i18n: { defaultLocale: 'en', locales: [{ code: 'en', seo: false }, { code: 'de', seo: false }, { code: 'fr', seo: false }], localeCookie: null, redirects: false },",
+            "  i18n: { autoDetectLanguage: false, defaultLocale: 'en', disablePageLocales: true, locales: [{ code: 'en', iso: 'en-US', name: 'English', seo: false }, { code: 'de', iso: 'de-DE', name: 'Deutsch', seo: false }, { code: 'fr', iso: 'fr-FR', name: 'Français', seo: false }], localeCookie: null, redirects: false },",
           ]
         : []),
       ...(liveConvex
         ? [
             "  content: { i18n: { defaultLocale: 'en', locales: ['en', 'de', 'fr'] }, search: { engine: 'provider', collections: ['blog', 'docs'] } },",
+            "  routeRules: { '/render-safety': { prerender: false } },",
           ]
         : []),
       "  nitro: { externals: { inline: ['@lupinum/ginko-cms'] } },",
