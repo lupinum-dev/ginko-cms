@@ -220,7 +220,20 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const cmsPackageRoot = locatePackageRoot()
     const cmsStudioUiDir = resolve(cmsPackageRoot, 'studio-app/src/components/ui')
     const mcpEnabled = options.mcp === true
+    const studioRoute = options.route.replace(/\/$/u, '') || '/studio'
     await assertGinkoContentSearchBoundary(nuxt.options.rootDir, moduleOptions)
+
+    // Studio and its auth pages are identity-dependent. A prerendered anonymous
+    // shell bypasses Better Convex's request-scoped SSR auth and then shifts to
+    // the authenticated application after hydration.
+    nuxt.options.routeRules[studioRoute] = {
+      ...nuxt.options.routeRules[studioRoute],
+      prerender: false,
+    }
+    nuxt.options.routeRules[`${studioRoute}/**`] = {
+      ...nuxt.options.routeRules[`${studioRoute}/**`],
+      prerender: false,
+    }
 
     nuxt.options.alias ??= {}
     nuxt.options.alias['#ginko-cms'] = cmsRuntimeDir

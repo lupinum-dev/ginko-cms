@@ -87,6 +87,7 @@ function createNuxtMock(rootDir: string) {
         },
         public: {},
       },
+      routeRules: {} as Record<string, Record<string, unknown>>,
       serverHandlers: [],
       nitro: {
         virtual: {},
@@ -133,12 +134,22 @@ describe('ginko-cms Convex setup validation', () => {
     tempDirs.push(rootDir)
     await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
+    nuxt.options.routeRules = {
+      '/studio/**': { headers: { 'x-studio-rule': 'preserved' }, prerender: true },
+    }
     await setupModule({ route: '/studio' }, nuxt)
 
     expect((nuxt.options as { trellis?: unknown }).trellis).toBeUndefined()
     expect(nuxt.options.css).toEqual([])
     expect((nuxt.options as { colorMode: { classSuffix: string } }).colorMode).toEqual({
       classSuffix: '',
+    })
+    expect(nuxt.options.routeRules).toMatchObject({
+      '/studio': { prerender: false },
+      '/studio/**': {
+        headers: { 'x-studio-rule': 'preserved' },
+        prerender: false,
+      },
     })
 
     expect(readFileSync(resolve(rootDir, 'convex/convex.config.ts'), 'utf8')).toContain(
