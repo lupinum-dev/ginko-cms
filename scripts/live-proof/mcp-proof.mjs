@@ -79,24 +79,6 @@ export function createMcpProof({
     return result?.structuredContent
   }
 
-  async function authenticatedAuthPost(path, body) {
-    return await page.evaluate(
-      async ({ body, path }) => {
-        const response = await fetch(path, {
-          body: JSON.stringify(body),
-          credentials: 'include',
-          headers: { 'content-type': 'application/json' },
-          method: 'POST',
-        })
-        return {
-          body: await response.json().catch(() => null),
-          status: response.status,
-        }
-      },
-      { body, path },
-    )
-  }
-
   async function discoverAuthorizationServer() {
     const challenge = await initialize('')
     if (challenge.status !== 401) {
@@ -175,16 +157,6 @@ export function createMcpProof({
         revokedStatus = revoked.status
       }
     }
-    if (!activeConnection.clientDeleted) {
-      await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
-      const deleted = await authenticatedAuthPost('/api/auth/oauth2/delete-client', {
-        client_id: activeConnection.clientId,
-      })
-      if (deleted.status < 200 || deleted.status >= 300) {
-        throw new Error(`OAuth client cleanup returned ${deleted.status}`)
-      }
-      activeConnection.clientDeleted = true
-    }
     return revokedStatus
   }
 
@@ -244,24 +216,18 @@ export function createMcpProof({
         const discovery = await discoverAuthorizationServer()
         await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
         await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
-        const label = `Proof ${fixtureToken}`.slice(0, 80)
-        const redirectUri = `${baseUrl}/oauth-proof/callback`
-        const created = await authenticatedAuthPost('/api/auth/oauth2/create-client', {
-          client_name: label,
-          grant_types: ['authorization_code'],
-          redirect_uris: [redirectUri],
-          response_types: ['code'],
-          scope: oauthScopes.join(' '),
-          token_endpoint_auth_method: 'none',
-          type: 'native',
-        })
-        const clientId = created.body?.client_id
-        if (created.status < 200 || created.status >= 300 || typeof clientId !== 'string') {
-          throw new Error(`OAuth client creation returned ${created.status}`)
+        const oauthClient = fixtureManifest.probes.oauthClient
+        const { clientId, label, redirectUri } = oauthClient
+        if (
+          typeof clientId !== 'string' ||
+          typeof label !== 'string' ||
+          typeof redirectUri !== 'string' ||
+          new URL(redirectUri).origin !== new URL(baseUrl).origin
+        ) {
+          throw new Error('Preregistered OAuth fixture is invalid.')
         }
         activeConnection = {
           accessToken: null,
-          clientDeleted: false,
           clientId,
           label,
           revoked: true,
@@ -586,7 +552,7 @@ export function createMcpProof({
           })
         })
     }
-    if (activeConnection && (!activeConnection.revoked || !activeConnection.clientDeleted)) {
+    if (activeConnection && !activeConnection.revoked) {
       await revoke().catch((error) => {
         failures.push({
           id: 'mcp.cleanup',
@@ -601,7 +567,7 @@ export function createMcpProof({
       failures,
       status: {
         mcpConnectionRevoked: activeConnection === null || activeConnection.revoked === true,
-        mcpOAuthClientDeleted: activeConnection === null || activeConnection.clientDeleted === true,
+        mcpOAuthClientCleanupDeferred: true,
         mcpAgentRunCompleted: activeAgentRun === null || activeAgentRun.completed === true,
         mcpReviewApproved: reviewRequest === null || reviewRequest.approved === true,
       },

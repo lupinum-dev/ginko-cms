@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -340,6 +340,16 @@ async function setup() {
   if (!pendingReview) {
     throw new Error('Disposable live fixture did not produce the required pending review.')
   }
+  const redirectUri = new URL('/oauth-proof/callback', requiredEnv('CMS_STORY_BASE_URL')).toString()
+  const resourceIdentifier = new URL('/mcp', requiredEnv('CONVEX_SITE_URL')).toString()
+  const oauthClient = await runComponent(undefined, 'liveOAuthFixture:provision', {
+    prefix,
+    redirectUri,
+    resourceIdentifier,
+  })
+  if (typeof oauthClient?.clientId !== 'string') {
+    throw new Error('Disposable OAuth fixture did not return a client ID.')
+  }
   const mismatchUrl = requiredEnv('CMS_STORY_CONTRACT_MISMATCH_URL')
   const deepestPath = `/docs/${inspection.deepestSlugPath.join('/')}`
   writeFileSync(
@@ -355,6 +365,13 @@ async function setup() {
         },
         localeCodes: ['en', 'de', 'fr'],
         probes: {
+          oauthClient: {
+            clientId: oauthClient.clientId,
+            label: `Proof ${prefix}`.slice(0, 80),
+            redirectUri,
+            resourceIdentifier,
+            resourceOwnership: 'application',
+          },
           entryPagination: {
             collection: inspection.collection,
             workState: 'changed',
@@ -415,6 +432,19 @@ async function cleanup({ removeBootstrapOwner }) {
   const output = resolve(requiredOption('output'))
   const prefix = requiredOption('prefix')
   setFixtureGate(prefix)
+  const manifest = JSON.parse(readFileSync(resolve(requiredOption('manifest')), 'utf8'))
+  const oauthClientId = manifest?.probes?.oauthClient?.clientId
+  let oauthClientCleanup = { deleted: 0 }
+  if (typeof oauthClientId === 'string' && oauthClientId.length > 0) {
+    const result = await runComponent(undefined, 'liveOAuthFixture:cleanup', {
+      clientId: oauthClientId,
+      prefix,
+    })
+    if (result?.deleted !== true) {
+      throw new Error('Disposable OAuth client cleanup did not complete.')
+    }
+    oauthClientCleanup = { deleted: 1 }
+  }
   for (const phase of ['mcp', 'redirects', 'siteData']) {
     while (true) {
       const result = await runComponent('ginkoCms', 'liveFixtures/cleanup:cleanupControlPage', {
@@ -480,7 +510,11 @@ async function cleanup({ removeBootstrapOwner }) {
         remaining: globalRemaining,
         fixtureRemaining,
         globalRemaining,
-        removed: { storageObjects: storageIds.size, bootstrapOwner: bootstrapOwnerCleanup },
+        removed: {
+          storageObjects: storageIds.size,
+          bootstrapOwner: bootstrapOwnerCleanup,
+          oauthClient: oauthClientCleanup,
+        },
       },
       null,
       2,

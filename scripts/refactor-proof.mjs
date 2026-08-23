@@ -87,6 +87,7 @@ function fixtureHookEnvironment(commandEnv) {
     'CONVEX_SELF_HOSTED_URL',
     'CONVEX_SELF_HOSTED_ADMIN_KEY',
     'CMS_STORY_CONTRACT_MISMATCH_URL',
+    'CMS_STORY_BASE_URL',
     'HOME',
     'LANG',
     'LC_ALL',
@@ -250,7 +251,7 @@ function journeyCleanupIsGreen(journeyCleanup) {
     journeyCleanup?.assetRetired === true &&
     journeyCleanup?.siteDataDeleted === true &&
     journeyCleanup?.mcpConnectionRevoked === true &&
-    journeyCleanup?.mcpOAuthClientDeleted === true &&
+    journeyCleanup?.mcpOAuthClientCleanupDeferred === true &&
     journeyCleanup?.mcpAgentRunCompleted === true &&
     journeyCleanup?.mcpReviewApproved === true &&
     journeyCleanup?.localUploadFixtureRemoved === true

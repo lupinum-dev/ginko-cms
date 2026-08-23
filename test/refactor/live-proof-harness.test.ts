@@ -85,6 +85,13 @@ function fixtureManifest() {
     },
     localeCodes: ['en', 'de', 'fr'],
     probes: {
+      oauthClient: {
+        clientId: 'client-proof',
+        label: 'Proof refactor-proof-abc123',
+        redirectUri: 'https://candidate.example.test/oauth-proof/callback',
+        resourceIdentifier: 'https://deployment.convex.site/mcp',
+        resourceOwnership: 'application',
+      },
       entryPagination: {
         collection: 'scale-posts',
         workState: 'changed',
@@ -398,6 +405,7 @@ describe('live refactor proof contract', () => {
       targetScale: LIVE_PROOF_TARGET_SCALE,
       probes: {
         entryPagination: { expectedRows: 1205 },
+        oauthClient: { resourceOwnership: 'application' },
         publicRoutes: { expectedRows: 4500 },
         pendingReview: { localeCodes: ['en', 'de'] },
         relationEntry: { stableId: 'refactor-proof-abc123-docs-0000' },
@@ -509,6 +517,7 @@ describe('live refactor proof contract', () => {
     expect(runner).toContain('validateCleanupLedger')
     expect(runner).toContain('removeBootstrapOwner: true')
     expect(runner).toContain('journeyCleanup?.siteDataDeleted === true')
+    expect(runner).toContain('journeyCleanup?.mcpOAuthClientCleanupDeferred === true')
     expect(runner).toContain("status: browserGreen ? 'automated-green-in-app-browser-pending'")
     expect(fixtureDriver).toContain("'liveFixtures:setupEntriesPage'")
     expect(fixtureDriver).toContain("'liveFixtures:setupAssetsPage'")
@@ -537,6 +546,11 @@ describe('live refactor proof contract', () => {
       'Disposable live fixture did not produce the required pending review.',
     )
     expect(fixtureDriver).toContain("command === 'cleanup-final'")
+    expect(fixtureDriver).toContain("'liveOAuthFixture:provision'")
+    expect(fixtureDriver).toContain("'liveOAuthFixture:cleanup'")
+    expect(packedHost).toContain('function writeLiveOAuthFixture(cwd)')
+    expect(mcp).not.toContain('/api/auth/oauth2/create-client')
+    expect(mcp).not.toContain('/api/auth/oauth2/delete-client')
     expect(smoke).toContain("'candidate.exact-packed-consumer'")
     expect(smoke).toContain('validateCandidateAttestation')
     expect(smoke).toContain('performanceSampleCount < 20')

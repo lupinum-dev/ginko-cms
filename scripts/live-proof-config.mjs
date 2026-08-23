@@ -311,6 +311,13 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
     throw new Error('Live fixtures must include both en and de locales.')
   }
   const probes = {
+    oauthClient: requireProbe(value.probes?.oauthClient, 'probes.oauthClient', [
+      'clientId',
+      'label',
+      'redirectUri',
+      'resourceIdentifier',
+      'resourceOwnership',
+    ]),
     entryPagination: {
       ...requireProbe(value.probes?.entryPagination, 'probes.entryPagination', [
         'collection',
@@ -420,6 +427,7 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
     ['probes.pendingReview.publicPaths.en', probes.pendingReview.publicPaths.en],
     ['probes.pendingReview.publicPaths.de', probes.pendingReview.publicPaths.de],
     ['probes.mcpReview.reviewTitle', probes.mcpReview.reviewTitle],
+    ['probes.oauthClient.label', probes.oauthClient.label],
     ['probes.publicRoutes.deepestPath', probes.publicRoutes.deepestPath],
     ...probes.publicRoutes.pathPrefixes.map((value, index) => [
       `probes.publicRoutes.pathPrefixes[${index}]`,
@@ -444,6 +452,15 @@ export function validateLiveFixtureManifest(value, expectedPrefix) {
     !probes.pendingReview.localeCodes.includes('de')
   ) {
     throw new Error('Pending review probe must atomically publish exactly en and de.')
+  }
+  if (probes.oauthClient.resourceOwnership !== 'application') {
+    throw new Error('OAuth fixture resource must remain application-owned.')
+  }
+  for (const [label, url] of [
+    ['probes.oauthClient.redirectUri', probes.oauthClient.redirectUri],
+    ['probes.oauthClient.resourceIdentifier', probes.oauthClient.resourceIdentifier],
+  ]) {
+    exactOriginUrl(url, label)
   }
   const mismatchUrl = exactOriginUrl(
     value.probes?.contractMismatchUrl,

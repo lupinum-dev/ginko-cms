@@ -584,6 +584,64 @@ function addOfflineComponentsStub(cwd) {
   )
 }
 
+function writeLiveOAuthFixture(cwd) {
+  const fixturePath = join(cwd, 'convex', 'liveOAuthFixture.ts')
+  writeFileSync(
+    fixturePath,
+    `import { v } from 'convex/values'
+
+import { action } from './_generated/server'
+import { auth } from './auth'
+
+declare const process: { env: Record<string, string | undefined> }
+
+function assertFixtureAccess(prefix: string): void {
+  if (
+    process.env.GINKO_CMS_LIVE_FIXTURES !== '1' ||
+    process.env.GINKO_CMS_LIVE_FIXTURE_PREFIX !== prefix
+  ) {
+    throw new Error('LIVE_FIXTURE_ADMIN_DISABLED')
+  }
+}
+
+export const provision = action({
+  args: {
+    prefix: v.string(),
+    redirectUri: v.string(),
+    resourceIdentifier: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertFixtureAccess(args.prefix)
+    return await auth.oauthOperator.createPublicClient(ctx, {
+      name: \`Ginko certification \${args.prefix}\`,
+      profile: \`ginko-certification-\${args.prefix}\`,
+      redirectUris: [args.redirectUri],
+      resource: {
+        identifier: args.resourceIdentifier,
+        name: 'Ginko CMS MCP',
+        ownership: 'application',
+      },
+      scopes: ['cms.read', 'cms.entries.edit'],
+    })
+  },
+})
+
+export const cleanup = action({
+  args: {
+    clientId: v.string(),
+    prefix: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertFixtureAccess(args.prefix)
+    await auth.oauthOperator.deleteClient(ctx, { clientId: args.clientId })
+    return { deleted: true }
+  },
+})
+`,
+    { mode: 0o600 },
+  )
+}
+
 try {
   if (!candidateMode) {
     buildPackedPackages()
@@ -1167,6 +1225,7 @@ console.log('packed MCP read/write behavior ok')
     }
   }
   consumerExec('ginko-cms', liveConvex ? ['init', '--mcp'] : ['init'])
+  if (liveConvex) writeLiveOAuthFixture(tempDir)
   consumerExecExpectFailure(
     'ginko-cms',
     ['doctor'],
