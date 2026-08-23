@@ -118,7 +118,12 @@ function assertBuildOnlyArchiveGraphIsAbsent(outputRoot) {
         directories.push(path)
         continue
       }
-      if (!entry.isFile() || !/\.(?:c?js|json|map|mjs)$/u.test(entry.name)) continue
+      // Package metadata and source maps can legitimately describe globbing (for
+      // example, picomatch lists `glob` as a keyword). The generated server
+      // manifest above is the source of truth for external runtime packages;
+      // this scan only needs to catch a build-only package retained in
+      // executable server code.
+      if (!entry.isFile() || !/\.(?:c?js|mjs)$/u.test(entry.name)) continue
       const contents = readFileSync(path, 'utf8')
       const retainedPackage = buildOnlyPackages.find((packageName) =>
         [`"${packageName}"`, `'${packageName}'`, `node_modules/${packageName}/`].some((marker) =>
