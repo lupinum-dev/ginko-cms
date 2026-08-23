@@ -7,7 +7,6 @@ export function createMcpProof({
   story,
   redact,
   registerSecret,
-  collection,
   fixtureToken,
   fixtureManifest,
   certification,
@@ -363,7 +362,7 @@ export function createMcpProof({
 
     await story(
       'mcp.tools-list-and-read',
-      'MCP tools list and read published CMS data',
+      'MCP exposes only the bounded CMS workflow and reads one owned entry',
       async () => {
         if (!activeConnection?.accessToken) throw new Error('MCP OAuth was not completed')
         const accessToken = activeConnection.accessToken
@@ -372,21 +371,22 @@ export function createMcpProof({
         if (!Array.isArray(tools)) throw new Error('tools/list did not return a tool array')
         const toolNames = tools.map((item) => item.name)
         for (const name of [
-          'list-collections',
-          'get-collection',
-          'list-entries',
           'get-entry',
           'start-agent-run',
+          'save-entry-draft',
           'complete-agent-run',
           'preview-publish',
           'request-publish-review',
           'get-review-status',
-          'list',
-          'search',
         ]) {
           if (!toolNames.includes(name)) throw new Error(`tools/list missing ${name}`)
         }
         for (const forbidden of [
+          'list-collections',
+          'get-collection',
+          'list-entries',
+          'list',
+          'search',
           'publish-entry',
           'archive-entry',
           'restore-entry',
@@ -399,61 +399,19 @@ export function createMcpProof({
           }
         }
 
-        const collections = await tool(accessToken, 'list-collections')
-        const collectionList = collections?.collections
-        if (
-          !Array.isArray(collectionList) ||
-          !collectionList.some((item) => item.slug === collection)
-        ) {
-          throw new Error(`list-collections did not include ${collection}`)
-        }
-        const collectionResult = await tool(accessToken, 'get-collection', {
-          slug: collection,
-          compact: true,
-        })
-        if (collectionResult?.slug !== collection || collectionResult?.routing?.mode !== 'route') {
-          throw new Error(`get-collection did not return compact ${collection} route metadata`)
-        }
-        const cmsEntries = await tool(accessToken, 'list-entries', { collection, locale: 'en' })
-        const editableEntries = cmsEntries?.entries
-        if (!Array.isArray(editableEntries) || editableEntries.length < 1) {
-          throw new Error('list-entries did not return CMS entries')
-        }
-        const entryId = editableEntries[0]?._id ?? editableEntries[0]?.id
-        if (!entryId) throw new Error('list-entries did not return an entry id')
+        const entryId = fixtureManifest.probes.mcpReview.entryId
         const cmsEntryResult = await tool(accessToken, 'get-entry', { entryId, locale: 'en' })
         const cmsEntry = cmsEntryResult?.entry
-        if (cmsEntry?.collection !== collection || cmsEntry?._id !== entryId) {
+        if (
+          cmsEntry?.collection !== fixtureManifest.probes.entryPagination.collection ||
+          cmsEntry?._id !== entryId
+        ) {
           throw new Error('get-entry did not return the requested CMS entry')
         }
-        const publicList = await tool(accessToken, 'list', {
-          collection,
-          locale: 'en',
-          limit: 1,
-          compact: true,
-        })
-        if (!Array.isArray(publicList?.entries) || publicList.entries.length !== 1) {
-          throw new Error('public list tool did not return one compact entry')
-        }
-        const firstEntry = publicList.entries[0]
-        if (!firstEntry?.route?.path || JSON.stringify(firstEntry).includes('draftData')) {
-          throw new Error('public list tool returned invalid or draft-shaped entry data')
-        }
-        const search = await tool(accessToken, 'search', {
-          collection,
-          locale: 'en',
-          query: fixtureToken,
-          limit: 2,
-          compact: true,
-        })
-        if (!Array.isArray(search?.results))
-          throw new Error('public search tool returned invalid data')
         return {
           toolCount: tools.length,
-          collectionCount: collectionList.length,
-          cmsEntryCount: editableEntries.length,
-          firstPublicPath: firstEntry.route.path,
-          searchResults: search.results.length,
+          entryId,
+          collection: cmsEntry.collection,
         }
       },
     )

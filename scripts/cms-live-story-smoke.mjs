@@ -254,7 +254,6 @@ const mcpProof = createMcpProof({
   story,
   redact,
   registerSecret: (secret) => registeredSecrets.add(secret),
-  collection,
   fixtureToken,
   fixtureManifest,
   certification,
