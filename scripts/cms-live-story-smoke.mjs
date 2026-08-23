@@ -359,13 +359,16 @@ try {
             Date.now() + 1_000,
           )
         }
-        const errorVisible = await invalidPage
-          .getByTestId('cms-auth-error')
-          .isVisible()
-          .catch(() => false)
         if (!response) throw new Error('sign-in response was not observed')
         if (response.ok()) throw new Error('invalid credentials unexpectedly succeeded')
-        if (!errorVisible) throw new Error('invalid credentials did not show form error')
+        const error = invalidPage.getByTestId('cms-auth-error')
+        const errorVisible = await error
+          .waitFor({ state: 'visible', timeout: 10_000 })
+          .then(() => true)
+          .catch(() => false)
+        if (!errorVisible || !(await error.textContent())?.trim()) {
+          throw new Error('invalid credentials did not show form error')
+        }
         if (!invalidPage.url().includes('/studio/auth/signin')) {
           throw new Error(`invalid credentials left sign-in page: ${invalidPage.url()}`)
         }

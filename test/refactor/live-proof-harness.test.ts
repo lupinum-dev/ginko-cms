@@ -214,6 +214,11 @@ describe('live refactor proof contract', () => {
       frames: 1,
     })
   })
+  it('waits for the invalid-credential UI state instead of racing the HTTP response', async () => {
+    const smoke = await readFile(resolve(root, 'scripts/cms-live-story-smoke.mjs'), 'utf8')
+    expect(smoke).toContain("waitFor({ state: 'visible', timeout: 10_000 })")
+    expect(smoke).toContain('!(await error.textContent())?.trim()')
+  })
   it('requires unique disposable role accounts and exact same-origin candidate attestation', () => {
     expect(
       validateLiveProofPreflight(preflightEnvironment(), { existsSync: () => true }),
