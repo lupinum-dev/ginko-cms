@@ -1,10 +1,18 @@
 // @vitest-environment jsdom
 
+import {
+  setupBetterConvexTest,
+  type BetterConvexTestRuntime,
+} from '@lupinum/better-convex-nuxt/test'
+import type { LocaleText } from '@lupinum/ginko-cms-contract/shared/types.js'
+import type { GinkoCmsStudioHostApi } from '@lupinum/ginko-cms/public'
 import { mount } from '@vue/test-utils'
+import { makeFunctionReference } from 'convex/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, toValue } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
+import { setApi } from '../../packages/cms/studio-app/src/boundary/api'
 import StudioAssetDetailsPanel from '../../packages/cms/studio-app/src/components/studio/StudioAssetDetailsPanel.vue'
 import {
   provideRightSidebar,
@@ -14,7 +22,6 @@ import {
 import { provideStudioAssetSelection } from '../../packages/cms/studio-app/src/composables/useStudioAssetSelection'
 
 const mocks = vi.hoisted(() => ({
-  updateAsset: vi.fn(),
   asset: {
     _id: 'asset_1',
     filename: 'hero.jpg',
@@ -27,6 +34,14 @@ const mocks = vi.hoisted(() => ({
     caption: { en: 'Caption EN' },
   } as Record<string, unknown>,
 }))
+const testRuntime = vi.hoisted(() => ({
+  current: null as BetterConvexTestRuntime | null,
+}))
+const updateAssetReference = makeFunctionReference<
+  'mutation',
+  { assetId: string; alt: LocaleText; caption: LocaleText },
+  null
+>('ginkoCms/assets:updateAsset')
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsI18n', () => ({
   useCmsI18n: () => ({ t: (key: string) => key }),
@@ -44,7 +59,8 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () =>
 }))
 
 vi.mock('../../packages/cms/studio-app/src/composables/useStudioConvex', () => ({
-  useConvexMutation: () => mocks.updateAsset,
+  useConvexForm: (...args: unknown[]) =>
+    Reflect.apply(testRuntime.current!.composables.useConvexForm, undefined, args),
 }))
 
 function installLocalStorage() {
@@ -94,6 +110,9 @@ function panelStubs() {
       emits: ['update:modelValue'],
       template: `<input :disabled="disabled" :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />`,
     }),
+    FieldLegend: { template: '<legend><slot /></legend>' },
+    FieldSet: { template: '<fieldset><slot /></fieldset>' },
+    StudioFieldShell: { template: '<div><slot /></div>' },
     StudioEmptyState: {
       props: { description: String, title: String },
       template: '<section><h2>{{ title }}</h2><p>{{ description }}</p></section>',
@@ -103,6 +122,10 @@ function panelStubs() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  testRuntime.current = setupBetterConvexTest({ auth: 'authenticated' })
+  setApi({
+    ginkoCms: { assets: { updateAsset: updateAssetReference } },
+  } as GinkoCmsStudioHostApi)
   installLocalStorage()
   installMatchMedia()
 })
@@ -111,7 +134,7 @@ describe('StudioAssetDetailsPanel', () => {
   it('renders the shared metadata form for the selected asset', () => {
     const wrapper = mount(StudioAssetDetailsPanel, {
       props: { assetId: 'asset_1', assetContext: { locale: 'en' } },
-      global: { stubs: panelStubs() },
+      global: { plugins: [testRuntime.current!.plugin], stubs: panelStubs() },
     })
 
     // The shared StudioAssetMetadataForm mounts (filename + alt input present),
@@ -125,7 +148,7 @@ describe('StudioAssetDetailsPanel', () => {
   it('[QUA-05] shows the empty-state hint when nothing is selected', () => {
     const wrapper = mount(StudioAssetDetailsPanel, {
       props: { assetId: null },
-      global: { stubs: panelStubs() },
+      global: { plugins: [testRuntime.current!.plugin], stubs: panelStubs() },
     })
 
     expect(wrapper.text()).toContain('ginkoCms.studio.assetDetails.emptyTitle')
