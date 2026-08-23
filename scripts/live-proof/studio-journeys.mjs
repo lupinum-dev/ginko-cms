@@ -77,9 +77,7 @@ export async function runStudioJourneys({
         await page.getByText(fixtureTitle, { exact: true }).first().waitFor({ timeout: 30000 })
         const reopenedRelation = page.locator('#relatedDoc')
         await reopenedRelation.waitFor({ timeout: 30000 })
-        if (!(await reopenedRelation.textContent())?.includes(relationProbe.title)) {
-          throw new Error('Reopened smoke entry did not preserve its relation.')
-        }
+        await reopenedRelation.filter({ hasText: relationProbe.title }).waitFor({ timeout: 30000 })
         await page.getByRole('button', { name: 'Markdown', exact: true }).click()
         const reopenedSource = page.getByRole('textbox', { name: 'Body Markdown source' })
         await reopenedSource.waitFor({ timeout: 30000 })
