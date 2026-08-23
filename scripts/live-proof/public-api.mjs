@@ -8,13 +8,16 @@ export function contentApiPath(endpoint, params) {
   return `/api/_content/${endpoint}/_/${chunks.join('/')}.json`
 }
 
-export function summarizePublicEntries(body) {
+export function summarizePublicEntries(body, expectedTitle) {
   const entries = body && typeof body === 'object' && Array.isArray(body.result) ? body.result : []
+  const selected = expectedTitle
+    ? entries.find((entry) => entry?.title === expectedTitle)
+    : entries[0]
   return {
     count: entries.length,
-    firstData: entries[0]?.data ?? null,
-    firstPath: entries[0]?.route?.resolvedPath ?? null,
-    firstTitle: entries[0]?.title ?? null,
+    firstData: selected ?? null,
+    firstPath: selected?.route?.resolvedPath ?? null,
+    firstTitle: selected?.title ?? null,
   }
 }
 

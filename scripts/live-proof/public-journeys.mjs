@@ -22,13 +22,13 @@ export async function runPublicJourneys({
       collection,
       resolveLocale: { locale: 'en', exact: true },
       sort: [{ lastPublishedAt: -1 }],
-      limit: 2,
+      limit: 50,
     })
     const { response, body, text } = await fetchJson(path)
     if (!response.ok) {
       throw new Error(`public list failed ${response.status}: ${redact(text).slice(0, 300)}`)
     }
-    const summary = summarizePublicEntries(body)
+    const summary = summarizePublicEntries(body, `V-next live smoke ${fixtureToken}`)
     if (summary.count < 1) throw new Error('public list returned no entries')
     if (!summary.firstPath || !summary.firstTitle) {
       throw new Error('public list entry did not include a route path and title')
