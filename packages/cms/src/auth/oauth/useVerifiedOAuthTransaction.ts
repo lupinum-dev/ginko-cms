@@ -1,4 +1,4 @@
-import { onMounted, ref, useConvexConfig } from '#imports'
+import { onMounted, ref, useConvexConfig, useNuxtApp, useRoute } from '#imports'
 
 import { parseSignedOAuthTransaction, requirePublicOAuthClient } from './transaction.js'
 
@@ -12,14 +12,16 @@ export interface VerifiedOAuthTransaction {
 
 export function useVerifiedOAuthTransaction() {
   const convexConfig = useConvexConfig()
+  const nuxtApp = useNuxtApp()
+  const route = useRoute()
   const transaction = ref<VerifiedOAuthTransaction | null>(null)
   const loading = ref(true)
   const errorMessage = ref('')
 
-  onMounted(async () => {
+  async function verifyTransaction() {
     try {
       const pending = parseSignedOAuthTransaction(
-        `${window.location.pathname}${window.location.search}`,
+        route.fullPath,
         convexConfig.siteUrl,
       )
 
@@ -47,6 +49,15 @@ export function useVerifiedOAuthTransaction() {
     } finally {
       loading.value = false
     }
+  }
+
+  onMounted(() => {
+    if (nuxtApp.isHydrating) {
+      nuxtApp.hooks.hookOnce('page:finish', verifyTransaction)
+      return
+    }
+
+    void verifyTransaction()
   })
 
   return { errorMessage, loading, transaction }
