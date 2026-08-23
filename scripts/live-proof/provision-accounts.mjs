@@ -1,3 +1,5 @@
+import { describeSanitizedAuthFailure } from './auth-failure.mjs'
+
 const baseUrl = required('CMS_STORY_BASE_URL').replace(/\/$/, '')
 const fixturePrefix = required('GINKO_CMS_FIXTURE_PREFIX').toLowerCase()
 
@@ -35,10 +37,12 @@ for (const role of ['viewer', 'editor', 'publisher', 'owner']) {
     password,
   })
   if (!signUp.ok) {
+    const signUpFailure = await describeSanitizedAuthFailure(signUp, [email, password])
     const signIn = await authRequest('/api/auth/sign-in/email', { email, password })
     if (!signIn.ok) {
+      const signInFailure = await describeSanitizedAuthFailure(signIn, [email, password])
       throw new Error(
-        `Disposable ${role} account provisioning failed (${signUp.status}/${signIn.status}).`,
+        `Disposable ${role} account provisioning failed (sign-up ${signUp.status} ${signUpFailure}; sign-in ${signIn.status} ${signInFailure}).`,
       )
     }
   }

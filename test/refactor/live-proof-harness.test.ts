@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { verifyPublicImageBytes } from '@lupinum/ginko-content/cms-contract'
 import { describe, expect, it } from 'vitest'
 
+import { createLiveCandidateServerEnvironment } from '../../scripts/live-candidate-environment.mjs'
 import {
   IN_APP_BROWSER_STORY_IDS,
   LIVE_PROOF_TARGET_SCALE,
@@ -14,7 +15,7 @@ import {
   validateLiveFixtureManifest,
   validateLiveProofPreflight,
 } from '../../scripts/live-proof-config.mjs'
-import { createLiveCandidateServerEnvironment } from '../../scripts/live-candidate-environment.mjs'
+import { describeSanitizedAuthFailure } from '../../scripts/live-proof/auth-failure.mjs'
 
 const root = resolve(import.meta.dirname, '../..')
 const digest = 'a'.repeat(64)
@@ -166,6 +167,22 @@ function inAppBrowserEvidence() {
 }
 
 describe('live refactor proof contract', () => {
+  it('reports auth provisioning failures without credential values', async () => {
+    const description = await describeSanitizedAuthFailure(
+      new Response(
+        JSON.stringify({
+          code: 'ACCOUNT_REJECTED',
+          message: 'owner@example.test used not-a-real-password',
+        }),
+      ),
+      ['owner@example.test', 'not-a-real-password'],
+    )
+
+    expect(description).toContain('ACCOUNT_REJECTED')
+    expect(description).not.toContain('owner@example.test')
+    expect(description).not.toContain('not-a-real-password')
+  })
+
   it('gives the retained Nuxt server only its required runtime environment', () => {
     const environment = createLiveCandidateServerEnvironment(
       {
