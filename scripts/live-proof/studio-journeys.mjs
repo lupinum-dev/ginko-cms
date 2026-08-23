@@ -62,7 +62,7 @@ export async function runStudioJourneys({
         const richBodyMarker = liveProofRichBodyMarker(fixtureToken)
         const richBodySource = `## ${richBodyMarker}\n\nThis **rich body** survives autosave, reopening, and publication.\n`
         await page.getByRole('button', { name: 'Markdown', exact: true }).click()
-        const markdownSource = page.getByRole('textbox', { name: 'Content Markdown source' })
+        const markdownSource = page.getByRole('textbox', { name: 'Body Markdown source' })
         await markdownSource.waitFor({ timeout: 30000 })
         await markdownSource.fill(richBodySource)
         await page.getByRole('button', { name: 'Visual', exact: true }).click()
@@ -81,7 +81,7 @@ export async function runStudioJourneys({
           throw new Error('Reopened smoke entry did not preserve its relation.')
         }
         await page.getByRole('button', { name: 'Markdown', exact: true }).click()
-        const reopenedSource = page.getByRole('textbox', { name: 'Content Markdown source' })
+        const reopenedSource = page.getByRole('textbox', { name: 'Body Markdown source' })
         await reopenedSource.waitFor({ timeout: 30000 })
         if ((await reopenedSource.inputValue()) !== richBodySource) {
           throw new Error('Reopened smoke entry did not preserve its rich body.')
