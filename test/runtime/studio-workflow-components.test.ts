@@ -132,7 +132,10 @@ function studioStubs() {
     DialogHeader: { template: '<header><slot /></header>' },
     DialogTitle: { template: '<h2><slot /></h2>' },
     DropdownMenu: { template: '<div><slot /></div>' },
-    DropdownMenuContent: { template: '<div><slot /></div>' },
+    DropdownMenuContent: {
+      props: { side: String },
+      template: '<div :data-side="side"><slot /></div>',
+    },
     DropdownMenuItem: { template: '<button type="button"><slot /></button>' },
     DropdownMenuTrigger: { template: '<span><slot /></span>' },
     Globe: { template: '<span />' },
@@ -2016,6 +2019,12 @@ describe('Studio version history copy', () => {
       .find((button) => button.text().trim() === 'Restore and publish')
     await restorePublish!.trigger('click')
     expect(editor.history.handleRollback).toHaveBeenCalledWith('version-2', true)
+  })
+
+  it('opens history actions above the bottom-anchored inspector rows', () => {
+    const wrapper = mountWithStudioContext(StudioVersionHistoryCard, actionableHistoryEditor())
+
+    expect(wrapper.findAll('[data-side="top"]')).toHaveLength(2)
   })
 
   it('gates restore actions by permissions', () => {
