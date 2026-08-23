@@ -10,7 +10,7 @@
     "@lupinum/better-convex-vue": "1.0.0-beta.1"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "2e7809d394e0365dbfdeb42b64be5412d8be7e46"
+    "betterConvexCommit": "220ee99b5d807fe0485ed471926600bccd987105"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
@@ -19,18 +19,18 @@
       "integrity": "sha512-IJiQPGW+QvKiQdNL0iZjHecy0ZnQ4IWr0zl5UMQts30GuKJ/XQ8nxyBrnanuMspczlq1yK77cWTZYIqItcj33w=="
     },
     "@lupinum/better-convex-mcp": {
-      "sourceCommit": "2e7809d394e0365dbfdeb42b64be5412d8be7e46",
+      "sourceCommit": "220ee99b5d807fe0485ed471926600bccd987105",
       "sha256": "89ea9f66e07143f95e802ffc4ceaa74ecfecddeaab51994b3f96fb91f496b447",
       "integrity": "sha512-VALZ1yGueDgjMi5BFX3fRg19Jri+x/CGTQQl6kEsYgrgizmV4HOc5BhSyrirhNmRd7Wt8Okuh1Aonh/pADk7lg=="
     },
     "@lupinum/better-convex-nuxt": {
-      "sourceCommit": "2e7809d394e0365dbfdeb42b64be5412d8be7e46",
-      "sha256": "db9c7bbb163de05b699218809fde720a07cf56c6c7de5d5915472d2e5cfeaef1",
-      "integrity": "sha512-q+0YEGdJkjBvBpY7VM2456Yn4lIIeVqepADpgZbuWt8miW9eXxPxuqFju33etQ6Ot1u8tNZcKPICOTI07xWjYw==",
-      "runtimeFingerprint": "bcn-release-v1-18badc37ab6b65c2ac4717c3495c9b6935da15e35a0486ec41e85d587ec0369d"
+      "sourceCommit": "220ee99b5d807fe0485ed471926600bccd987105",
+      "sha256": "12b5eed92833a1f82dea9d6f3b8fda6d23a4ce9195895cf6ad57d8b956d9c452",
+      "integrity": "sha512-6JwOJIboFcHy3rinkVJ9WUSJvHCKQkvPBr2XYhyYusV6+AFLxfzaBfxDOq4YFBZgDqz2FcJah0Ce0WM3LtEd2w==",
+      "runtimeFingerprint": "bcn-release-v1-87b7465a7fafb1bacf021ec359b128b7c3c189d87467d9909202514281373489"
     },
     "@lupinum/better-convex-vue": {
-      "sourceCommit": "2e7809d394e0365dbfdeb42b64be5412d8be7e46",
+      "sourceCommit": "220ee99b5d807fe0485ed471926600bccd987105",
       "sha256": "b1e43483032f2724a754f235cb3db1e5d86f42d3b3633923cc52214b4c70fcc1",
       "integrity": "sha512-dEXrZZIyx2BI4qYAaxMyM197R6SdM89Lrr6VfoFyLijTwDwMBalSsPYToQFUhD776/CMW6teTpJ6FVUsVHQAJw=="
     }
