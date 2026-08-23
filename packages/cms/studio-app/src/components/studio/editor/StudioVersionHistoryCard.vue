@@ -159,7 +159,7 @@ function formatVersionAction(version: VersionListItem) {
                 <Ellipsis aria-hidden="true" class="ginko:size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="top" class="ginko:w-64">
+            <DropdownMenuContent align="end" class="ginko:w-64">
               <DropdownMenuItem
                 v-if="version._id !== latestVersionId"
                 @click="editor.history.toggleDiff(version._id)"
