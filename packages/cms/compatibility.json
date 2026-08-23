@@ -10,7 +10,7 @@
     "@lupinum/better-convex-vue": "1.0.0-beta.1"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "bc973f97db4b4c1cb385b2f0fe23075360ec31a8"
+    "betterConvexCommit": "05b0462993e34ef86dbd6ffe28c0768dea2da101"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
@@ -19,20 +19,20 @@
       "integrity": "sha512-IJiQPGW+QvKiQdNL0iZjHecy0ZnQ4IWr0zl5UMQts30GuKJ/XQ8nxyBrnanuMspczlq1yK77cWTZYIqItcj33w=="
     },
     "@lupinum/better-convex-mcp": {
-      "sourceCommit": "220ee99b5d807fe0485ed471926600bccd987105",
-      "sha256": "89ea9f66e07143f95e802ffc4ceaa74ecfecddeaab51994b3f96fb91f496b447",
-      "integrity": "sha512-VALZ1yGueDgjMi5BFX3fRg19Jri+x/CGTQQl6kEsYgrgizmV4HOc5BhSyrirhNmRd7Wt8Okuh1Aonh/pADk7lg=="
+      "sourceCommit": "05b0462993e34ef86dbd6ffe28c0768dea2da101",
+      "sha256": "aab10900a179a25ad8fb626b533821cb2a4a7fbf136e3bb88276d49c9821bb5d",
+      "integrity": "sha512-gMzfZJkGDkl44cHSfRf26cTZarjEnF+BuIxikJFdI6CECRp+65D8hhz4308gArPQBKu/0V/NfKVmc0s2T/ox/A=="
     },
     "@lupinum/better-convex-nuxt": {
-      "sourceCommit": "bc973f97db4b4c1cb385b2f0fe23075360ec31a8",
-      "sha256": "53d67f4e6cade075a80589020246bb2c46fb7f61ce917c75a7939a6b6b19f4c7",
-      "integrity": "sha512-4SaAXZlTmm3CfA6fBkD4UqyXIWVw9yPjl1YmOyBLkhGPNCsQFTPPIrnP53C/V1cAfMhnQXdWcfAvsaWgcpnmDw==",
-      "runtimeFingerprint": "bcn-release-v1-9e5cb180250538199e0299ce91250935308e42598c6716eb5cd112de990965e8"
+      "sourceCommit": "05b0462993e34ef86dbd6ffe28c0768dea2da101",
+      "sha256": "f1a2f94d13c3ab24899e999416995ef5b34a7fbc6f6c69e10ed0de414e3bf463",
+      "integrity": "sha512-2eBms85MLtB9hFBhhMmjli00AKCXIKKq3MV4MlvoLpZBn3SnxK6TVoz+1DrDrfhhxmzevJB9QQbk8z5X8j0oSw==",
+      "runtimeFingerprint": "bcn-release-v1-8f3a7767ce229ad71c1f6bf916a1d20b1f9ca143f70e22fc61e9f16e5575c08e"
     },
     "@lupinum/better-convex-vue": {
-      "sourceCommit": "bc973f97db4b4c1cb385b2f0fe23075360ec31a8",
-      "sha256": "6eb27540c70ae505bc4a9f56428bba1e894626378208714b75c96482f7c2daad",
-      "integrity": "sha512-OmP5WbZ8yAVUfBSNYEVeg7mOl8QNcrEBh1CQdGTwOaLo+Mw5FY/sFfZJMdnsAxa9SRGOKwJUnCSNbB+0K3cDJw=="
+      "sourceCommit": "05b0462993e34ef86dbd6ffe28c0768dea2da101",
+      "sha256": "d98875f4f749f85344bd6ed846637820b414cce7d64ba79a5b120a25cc9d6d7e",
+      "integrity": "sha512-nn5Cgp/ABL7Wy7wD195QI/ERBkX4XCp22PmTTIu+U/te7+pGjMg3VRRH/gWuWvRkJwbGQJbrl0fW7bD+pIttRA=="
     }
   },
   "tracked": {

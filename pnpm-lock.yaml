@@ -1440,8 +1440,8 @@ packages:
       vue: '>=3.0.1'
 
   '@lupinum/better-convex-mcp@1.0.0-beta.1':
-    resolution: {integrity: sha512-VALZ1yGueDgjMi5BFX3fRg19Jri+x/CGTQQl6kEsYgrgizmV4HOc5BhSyrirhNmRd7Wt8Okuh1Aonh/pADk7lg==}
-    engines: {node: ^22.14.0 || ^24.0.0}
+    resolution: {integrity: sha512-gMzfZJkGDkl44cHSfRf26cTZarjEnF+BuIxikJFdI6CECRp+65D8hhz4308gArPQBKu/0V/NfKVmc0s2T/ox/A==}
+    engines: {node: ^22.19.0 || ^24.11.0}
     peerDependencies:
       '@modelcontextprotocol/ext-apps': 1.7.5
       '@modelcontextprotocol/sdk': 1.30.0
@@ -1455,8 +1455,8 @@ packages:
         optional: true
 
   '@lupinum/better-convex-nuxt@1.0.0-beta.1':
-    resolution: {integrity: sha512-4SaAXZlTmm3CfA6fBkD4UqyXIWVw9yPjl1YmOyBLkhGPNCsQFTPPIrnP53C/V1cAfMhnQXdWcfAvsaWgcpnmDw==}
-    engines: {node: ^22.14.0 || ^24.0.0}
+    resolution: {integrity: sha512-2eBms85MLtB9hFBhhMmjli00AKCXIKKq3MV4MlvoLpZBn3SnxK6TVoz+1DrDrfhhxmzevJB9QQbk8z5X8j0oSw==}
+    engines: {node: ^22.19.0 || ^24.11.0}
     hasBin: true
     peerDependencies:
       '@better-auth/oauth-provider': 1.7.1
@@ -1470,8 +1470,8 @@ packages:
         optional: true
 
   '@lupinum/better-convex-vue@1.0.0-beta.1':
-    resolution: {integrity: sha512-OmP5WbZ8yAVUfBSNYEVeg7mOl8QNcrEBh1CQdGTwOaLo+Mw5FY/sFfZJMdnsAxa9SRGOKwJUnCSNbB+0K3cDJw==}
-    engines: {node: ^22.14.0 || ^24.0.0}
+    resolution: {integrity: sha512-nn5Cgp/ABL7Wy7wD195QI/ERBkX4XCp22PmTTIu+U/te7+pGjMg3VRRH/gWuWvRkJwbGQJbrl0fW7bD+pIttRA==}
+    engines: {node: ^22.19.0 || ^24.11.0}
     peerDependencies:
       convex: '>=1.42.2 <2'
       vue: '>=3.5.0 <4'
