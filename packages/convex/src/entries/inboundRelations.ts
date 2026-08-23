@@ -6,7 +6,9 @@ import { projectContentCollection, readInstalledCmsContract } from '../lib/insta
 import type { CmsField, QueryOrMutationCtx } from '../lib/types.js'
 import { collectRelationReferences } from './relations.js'
 
-const MAX_SUPPORTED_ENTRIES = 1_500
+// The certified dataset contains 1,500 seeded entries. Keep one bounded slot
+// for the entry an operator is actively creating, publishing, or removing.
+const MAX_SUPPORTED_ENTRIES = 1_501
 const MAX_LISTED_REFERENCES = 25
 
 export type InboundRelationReference = {
