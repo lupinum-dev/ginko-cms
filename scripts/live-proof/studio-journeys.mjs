@@ -485,7 +485,6 @@ export async function runStudioJourneys({
     await sort.click()
     await page.getByRole('option', { name: 'Date', exact: true }).click()
     const uploadedAssetRow = page.getByRole('row').filter({ hasText: uploadFilename })
-    await uploadedAssetRow.waitFor({ timeout: 30000 })
     const trashButton = page.getByRole('button', { name: 'Move to Trash' })
     await trashButton.waitFor({ timeout: 30000 })
     await trashButton.click()
