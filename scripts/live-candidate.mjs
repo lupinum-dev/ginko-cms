@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { isAbsolute, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { createLiveCandidateServerEnvironment } from './live-candidate-environment.mjs'
+
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const manifestPath = resolve(repoRoot, '.pack/live-candidate.json')
 const candidateArtifactPath = resolve(repoRoot, '.pack/candidate/candidate-artifact.json')
@@ -78,12 +80,18 @@ if (command === 'materialize') {
   const host = process.env.HOST || '127.0.0.1'
   const main = spawn(process.execPath, ['.output/server/index.mjs'], {
     cwd: manifest.consumerDirectory,
-    env: { ...process.env, HOST: host, PORT: process.env.PORT || '3000' },
+    env: createLiveCandidateServerEnvironment(process.env, {
+      host,
+      port: process.env.PORT || '3000',
+    }),
     stdio: 'inherit',
   })
   const mismatch = spawn(process.execPath, ['.output-mismatch/server/index.mjs'], {
     cwd: manifest.consumerDirectory,
-    env: { ...process.env, HOST: host, PORT: process.env.MISMATCH_PORT || '3001' },
+    env: createLiveCandidateServerEnvironment(process.env, {
+      host,
+      port: process.env.MISMATCH_PORT || '3001',
+    }),
     stdio: 'inherit',
   })
   const stop = () => {

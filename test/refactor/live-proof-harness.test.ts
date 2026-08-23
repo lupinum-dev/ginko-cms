@@ -14,6 +14,7 @@ import {
   validateLiveFixtureManifest,
   validateLiveProofPreflight,
 } from '../../scripts/live-proof-config.mjs'
+import { createLiveCandidateServerEnvironment } from '../../scripts/live-candidate-environment.mjs'
 
 const root = resolve(import.meta.dirname, '../..')
 const digest = 'a'.repeat(64)
@@ -165,6 +166,27 @@ function inAppBrowserEvidence() {
 }
 
 describe('live refactor proof contract', () => {
+  it('gives the retained Nuxt server only its required runtime environment', () => {
+    const environment = createLiveCandidateServerEnvironment(
+      {
+        BETTER_AUTH_SECRETS: 'must-not-reach-nuxt',
+        CONVEX_DEPLOY_KEY: 'must-not-reach-nuxt',
+        GINKO_CMS_TEST_OWNER_PASSWORD: 'must-not-reach-nuxt',
+        CONVEX_URL: 'https://disposable.convex.cloud',
+        BCN_AUTH_PROXY_IP_SECRET: 'server-required-secret',
+      },
+      { host: '127.0.0.1', port: '3000' },
+    )
+
+    expect(environment).toEqual({
+      NODE_ENV: 'production',
+      HOST: '127.0.0.1',
+      PORT: '3000',
+      CONVEX_URL: 'https://disposable.convex.cloud',
+      BCN_AUTH_PROXY_IP_SECRET: 'server-required-secret',
+    })
+  })
+
   it('[AST-02] keeps the browser upload fixture valid under public image byte verification', async () => {
     const smoke = await readFile(resolve(root, 'scripts/cms-live-story-smoke.mjs'), 'utf8')
     expect(smoke).toContain(liveUploadPng.toString('base64'))
