@@ -263,6 +263,9 @@ describe('known audit defects', () => {
 
   it('keeps standalone Studio components on direct, warning-free Vue contracts', () => {
     const fields = source('packages/cms/studio-app/src/components/studio/fields/index.ts')
+    const richtext = source(
+      'packages/cms/studio-app/src/components/studio/fields/FieldRichtext.vue',
+    )
     const assets = source('packages/cms/studio-app/src/components/studio/StudioAssetBrowser.vue')
     const collections = source(
       'packages/cms/studio-app/src/composables/internal/useStudioCollectionsAdmin.ts',
@@ -272,6 +275,9 @@ describe('known audit defects', () => {
     expect(fields).toContain("import FieldRichtext from './FieldRichtext.vue'")
     expect(fields).toContain('richtext: FieldRichtext')
     expect(fields).not.toContain('defineAsyncComponent')
+    expect(richtext).toContain(
+      "defineAsyncComponent(() => import('../../../editor/ui/Editor.vue'))",
+    )
     expect(assets).toContain('defineOptions({ inheritAttrs: false })')
     expect(assets).toContain('v-bind="$attrs"')
     expect(collections).toContain('collectionDetail: selectedCollectionDetail')

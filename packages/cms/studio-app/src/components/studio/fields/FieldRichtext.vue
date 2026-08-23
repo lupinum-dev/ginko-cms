@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 
 import { api } from '../../../boundary/api'
 import type { StudioAssetRecord } from '../../../composables/internal/types'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { useCmsStudioQuery } from '../../../composables/useCmsStudioQuery'
 import type { AssetProvider } from '../../../editor/types'
-import RichtextEditor from '../../../editor/ui/Editor.vue'
+import type RichtextEditorComponent from '../../../editor/ui/Editor.vue'
 import StudioAssetMetadataDialog from '../StudioAssetMetadataDialog.vue'
 import StudioAssetPicker from '../StudioAssetPicker.vue'
 import { mapStudioAssetToFileInfo, mapStudioAssetToImageInfo } from './richtextAssetMapping'
 import type { FieldContext, FieldDefinition } from './useFieldCommon'
+
+const RichtextEditor = defineAsyncComponent(() => import('../../../editor/ui/Editor.vue'))
 
 const props = defineProps<{
   field: FieldDefinition
@@ -41,7 +43,7 @@ const imagePickerAssetId = ref<string | null>(null)
 const metadataDialogOpen = ref(false)
 const metadataAssetId = ref<string | null>(null)
 const filePickerOpen = ref(false)
-const editorRef = ref<InstanceType<typeof RichtextEditor> | null>(null)
+const editorRef = ref<InstanceType<typeof RichtextEditorComponent> | null>(null)
 const maxResolvedAssetIds = 200
 
 const referencedAssetIds = computed<string[]>((previous) => {

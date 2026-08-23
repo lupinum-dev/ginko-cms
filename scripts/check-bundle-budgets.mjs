@@ -50,7 +50,7 @@ for (const path of studioFiles.filter((candidate) => candidate.endsWith('.js')))
   const size = statSync(path).size
   if (filename === 'main.js') {
     assertWithin('Studio main JavaScript chunk', size, budgets.studioMainChunkBytes)
-  } else if (filename.startsWith('FieldRichtext-')) {
+  } else if (/^(?:Editor|FieldRichtext)-/u.test(filename)) {
     assertWithin('Lazy rich-text editor chunk', size, budgets.studioEditorChunkBytes)
   } else {
     assertWithin(`Studio JavaScript chunk ${filename}`, size, budgets.studioOtherChunkBytes)
