@@ -180,7 +180,7 @@ function queueKindIcon(kind: QueueKind) {
           >
             <span class="ginko:sr-only">{{ t('ginkoCms.common.loading') }}</span>
             <div
-              v-for="index in 8"
+              v-for="index in 3"
               :key="index"
               aria-hidden="true"
               class="ginko:flex ginko:h-16 ginko:items-center ginko:justify-between ginko:gap-6 ginko:px-4"

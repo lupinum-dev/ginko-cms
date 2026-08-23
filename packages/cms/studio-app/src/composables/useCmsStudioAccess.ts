@@ -1,5 +1,5 @@
 import { useConvexQuery } from '@lupinum/better-convex-vue'
-import { computed } from 'vue'
+import { computed, inject, provide, type InjectionKey } from 'vue'
 
 import { api } from '../boundary/api'
 import { useCmsConfig } from '../boundary/host-bridge'
@@ -11,9 +11,7 @@ interface AccessContext {
   can?: Record<string, boolean>
 }
 
-// Studio-side access helper. It intentionally reads the explicit host bridge
-// and SPA permissions state instead of Nuxt runtime auto-imports.
-export function useCmsStudioAccess() {
+function createCmsStudioAccess() {
   const cmsConfig = useCmsConfig()
   const studioRoute = (cmsConfig.route ?? '/studio').replace(/\/$/, '')
   const loginPath = `${studioRoute}/auth/signin`
@@ -40,4 +38,23 @@ export function useCmsStudioAccess() {
     pending: query.pending,
     can: (key: CmsPermissionKey) => computed(() => ctx.value?.can?.[key] === true),
   }
+}
+
+type CmsStudioAccess = ReturnType<typeof createCmsStudioAccess>
+const cmsStudioAccessKey: InjectionKey<CmsStudioAccess> = Symbol('ginko-cms-studio-access')
+
+/** Own the Studio access subscription once at the layout boundary. */
+export function provideCmsStudioAccess(): CmsStudioAccess {
+  const access = createCmsStudioAccess()
+  provide(cmsStudioAccessKey, access)
+  return access
+}
+
+/** Read the layout-owned Studio access state without starting another query. */
+export function useCmsStudioAccess(): CmsStudioAccess {
+  const access = inject(cmsStudioAccessKey)
+  if (!access) {
+    throw new Error('[ginko-cms] Studio access must be provided by the Studio layout.')
+  }
+  return access
 }

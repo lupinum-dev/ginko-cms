@@ -11,7 +11,10 @@ import {
   createStudioHostContext,
   studioHostContextKey,
 } from '../../packages/cms/studio-app/src/boundary/studio-host-context'
-import { useCmsStudioAccess } from '../../packages/cms/studio-app/src/composables/useCmsStudioAccess'
+import {
+  provideCmsStudioAccess,
+  useCmsStudioAccess,
+} from '../../packages/cms/studio-app/src/composables/useCmsStudioAccess'
 
 const accessReference = vi.hoisted(() => ({
   [Symbol.for('functionName')]: 'ginkoCms.members.getAccessContext',
@@ -69,16 +72,27 @@ describe('Studio access during BCN client replacement', () => {
       onSignOut: vi.fn(),
     } as unknown as GinkoCmsStudioHostBridge
     const context = createStudioHostContext(() => bridge)
-    const Host = defineComponent({
-      setup: () => ({ access: useCmsStudioAccess() }),
+    let childAccess: ReturnType<typeof useCmsStudioAccess> | undefined
+    const Consumer = defineComponent({
+      setup() {
+        childAccess = useCmsStudioAccess()
+      },
       render: () => h('div'),
     })
+    const Host = defineComponent({
+      setup: () => ({ access: provideCmsStudioAccess() }),
+      render: () => h('div', [h(Consumer), h(Consumer)]),
+    })
+
     const wrapper = mount(Host, {
       global: {
         plugins: [createBetterConvex({ attachment: context.attachment })],
         provide: { [studioHostContextKey as symbol]: context },
       },
     })
+
+    expect(childAccess).toBe(wrapper.vm.access)
+    expect(convexClient.onUpdate).toHaveBeenCalledTimes(1)
 
     update?.({
       userId: 'publisher-1',

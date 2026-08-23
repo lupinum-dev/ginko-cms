@@ -8,7 +8,7 @@ import { useAppearance } from './composables/useAppearance'
 import { useCmsAuthState } from './composables/useCmsAuthState'
 import { useCmsConfig } from './composables/useCmsConfig'
 import { useCmsI18n } from './composables/useCmsI18n'
-import { useCmsStudioAccess } from './composables/useCmsStudioAccess'
+import { provideCmsStudioAccess } from './composables/useCmsStudioAccess'
 import { provideRightSidebar } from './composables/useRightSidebar'
 import { useConvexMutation } from './composables/useStudioConvex'
 
@@ -39,7 +39,8 @@ const studioClass = computed(() => [
   cmsConfig.sidebar?.dark && 'ginko-cms--sidebar-dark',
   ...appearanceClasses.value,
 ])
-const { studioRoute, pending, ready, role, isMember, canRead, canBootstrap } = useCmsStudioAccess()
+const { studioRoute, pending, ready, role, isMember, canRead, canBootstrap } =
+  provideCmsStudioAccess()
 const bootstrapCmsOwner = useConvexMutation(api.ginkoCms.members.bootstrapCmsOwner)
 const bootstrapPending = ref(false)
 const bootstrapError = ref('')

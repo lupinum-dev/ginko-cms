@@ -96,7 +96,7 @@ const settingsLinks = computed(() => sectionLinks('settings'))
           <li role="status" aria-busy="true" aria-live="polite" class="ginko:contents">
             <span class="ginko:sr-only">Loading collections</span>
             <SidebarMenuItem
-              v-for="(w, i) in [60, 75, 50, 80, 65]"
+              v-for="(w, i) in [60, 75, 50, 80]"
               :key="`skeleton-${i}`"
               aria-hidden="true"
             >
