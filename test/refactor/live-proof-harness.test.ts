@@ -238,6 +238,7 @@ describe('live refactor proof contract', () => {
     expect(fixtures).toContain('ginkoCms/maintenance:startProjectionRepairRun')
     expect(fixtures).toContain('ginkoCms/maintenance:getProjectionRepairRun')
     expect(fixtures).toContain("status.state !== 'complete' || status.issueCount !== 0")
+    expect(fixtures).toContain('Date.now() + 30 * 60_000')
     expect(fixtures.indexOf('await certifyCanonicalProjections(prefix, owner)')).toBeGreaterThan(
       fixtures.indexOf('browser baseline must reserve one asset slot'),
     )

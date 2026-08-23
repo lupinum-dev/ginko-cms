@@ -218,7 +218,7 @@ async function certifyCanonicalProjections(prefix, owner) {
     { runId, pageSize: 100, autoContinue: true },
     identity,
   )
-  const deadline = Date.now() + 15 * 60_000
+  const deadline = Date.now() + 30 * 60_000
   while (status.state === 'running' && Date.now() < deadline) {
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 500))
     status = await runComponent(
