@@ -429,6 +429,7 @@ describe('live refactor proof contract', () => {
       observability,
       mcp,
       studio,
+      browserAuth,
       publicProof,
       siteData,
       packedHost,
@@ -442,6 +443,7 @@ describe('live refactor proof contract', () => {
       readFile(resolve(root, 'scripts/live-proof/browser-observability.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/live-proof/mcp-proof.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/live-proof/studio-journeys.mjs'), 'utf8'),
+      readFile(resolve(root, 'scripts/live-proof/browser-auth.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/live-proof/public-journeys.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/live-proof/site-data-proof.mjs'), 'utf8'),
       readFile(resolve(root, 'scripts/package-e2e.mjs'), 'utf8'),
@@ -506,6 +508,7 @@ describe('live refactor proof contract', () => {
     expect(studio).toContain("name: 'Body Markdown source'")
     expect(studio).toContain('filter({ hasText: relationProbe.title }).waitFor')
     expect(studio).toContain("name: 'History', exact: true")
+    expect(browserAuth).toContain("response.status() !== 429")
     expect(studio).toContain(".locator('.studio-entry-topbar')")
     expect(studio).toContain(".getByText('Live', { exact: true })")
     expect(studio).toContain('const mismatchPage = await page.context().newPage()')
