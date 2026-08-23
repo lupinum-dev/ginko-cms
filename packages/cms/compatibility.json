@@ -10,7 +10,7 @@
     "@lupinum/better-convex-vue": "1.0.0-beta.1"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "5613fcff882f6a6131b1137ee54813e0782eff5b"
+    "betterConvexCommit": "571d5aa7d24b011e732c9dbe4e291ef84c1f72f3"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
@@ -19,18 +19,18 @@
       "integrity": "sha512-IJiQPGW+QvKiQdNL0iZjHecy0ZnQ4IWr0zl5UMQts30GuKJ/XQ8nxyBrnanuMspczlq1yK77cWTZYIqItcj33w=="
     },
     "@lupinum/better-convex-mcp": {
-      "sourceCommit": "5613fcff882f6a6131b1137ee54813e0782eff5b",
+      "sourceCommit": "571d5aa7d24b011e732c9dbe4e291ef84c1f72f3",
       "sha256": "89ea9f66e07143f95e802ffc4ceaa74ecfecddeaab51994b3f96fb91f496b447",
       "integrity": "sha512-VALZ1yGueDgjMi5BFX3fRg19Jri+x/CGTQQl6kEsYgrgizmV4HOc5BhSyrirhNmRd7Wt8Okuh1Aonh/pADk7lg=="
     },
     "@lupinum/better-convex-nuxt": {
-      "sourceCommit": "5613fcff882f6a6131b1137ee54813e0782eff5b",
-      "sha256": "c62e6b431f12c26366de1e618d601ba9071571ce18598db3cb4db1dfc5798633",
-      "integrity": "sha512-sfrCDaOYiQXZbNy0hfCHU8fCnX9+k7iHvfd91NbbFIeKUuP6oskM+ahI/tfRiDV5CrNU9jovo6pf07B8gKSMSg==",
-      "runtimeFingerprint": "bcn-release-v1-70b891f40432e1c4d7c10c5acf046a16f5cb7e8883b93fef5f416e20aeef6f2b"
+      "sourceCommit": "571d5aa7d24b011e732c9dbe4e291ef84c1f72f3",
+      "sha256": "b3e60daefd9516794c120c6c2f1428e511dac0db310c7161888488cedf02780d",
+      "integrity": "sha512-TUakz14UoFiE90LuNKEn/JVkSZUpj+zdtV0jZCIjoGSGbS6nI4E5AdJV94gR3Ar3aEqOHAQxnzRy0poL6h8/3Q==",
+      "runtimeFingerprint": "bcn-release-v1-34bf8288a2853288416ee90a804a7d66d434fe03bfb8f356bd696684e4ded254"
     },
     "@lupinum/better-convex-vue": {
-      "sourceCommit": "5613fcff882f6a6131b1137ee54813e0782eff5b",
+      "sourceCommit": "571d5aa7d24b011e732c9dbe4e291ef84c1f72f3",
       "sha256": "6326f12d8ffa9d1633bda63be070e41102b23cbb785a8c1d5f6b49c1794d1b11",
       "integrity": "sha512-uvKXZEGZWH3k/Fyg5htto01/UQbV8W8sbqdkPZI9k0nVph3uwKN9zbz4IYHSgdl8D1UHI1L2iawtEHie/7tcNA=="
     }
@@ -39,10 +39,10 @@
     "@modelcontextprotocol/server": ["2.0.0"],
     "@nuxtjs/sitemap": ["^8.0.15", "8.0.15"],
     "@nuxt/kit": ["4.5.2"],
-    "@better-auth/oauth-provider": ["1.7.0-rc.2"],
+    "@better-auth/oauth-provider": ["1.7.1"],
     "@lupinum/better-convex-mcp": ["1.0.0-beta.1"],
     "@lupinum/ginko-content": ["1.0.0-beta.4"],
-    "better-auth": ["1.7.0-rc.2"],
+    "better-auth": ["1.7.1"],
     "@lupinum/better-convex-nuxt": ["1.0.0-beta.1"],
     "@lupinum/better-convex-vue": ["1.0.0-beta.1"],
     "convex": ["1.42.2", "^1.42.2"],
@@ -59,7 +59,7 @@
       "@nuxt/kit": "4.5.2",
       "@lupinum/better-convex-mcp": "1.0.0-beta.1",
       "@lupinum/ginko-content": "1.0.0-beta.4",
-      "better-auth": "1.7.0-rc.2",
+      "better-auth": "1.7.1",
       "@lupinum/better-convex-nuxt": "1.0.0-beta.1",
       "@lupinum/better-convex-vue": "1.0.0-beta.1",
       "convex": "1.42.2",

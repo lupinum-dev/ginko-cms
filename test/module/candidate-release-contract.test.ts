@@ -73,7 +73,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
-      'better-auth': '1.7.0-rc.2',
+      'better-auth': '1.7.1',
       '@lupinum/better-convex-nuxt': '1.0.0-beta.1',
       '@lupinum/better-convex-vue': '1.0.0-beta.1',
       convex: '1.42.2',

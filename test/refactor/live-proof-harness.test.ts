@@ -479,7 +479,7 @@ describe('live refactor proof contract', () => {
     )
     expect(packedHost).toContain("i18n: { defaultLocale: 'en'")
     expect(packedHost).toContain('site: { url: process.env.CMS_STORY_SITE_URL')
-    expect(packedHost).toContain("liveConvex ? 'app/pages' : 'pages'")
+    expect(packedHost).toContain("const pageDirectory = join(tempDir, 'app/pages')")
     expect(accountProvisioner).toContain('origin: baseUrl')
     expect(accountProvisioner).toContain('response.status !== 429')
     expect(accountProvisioner).toContain('1_000 * 2 ** attempt')

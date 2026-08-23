@@ -114,7 +114,7 @@ describe('ginko-cms setup doctor', () => {
     const packageJson = {
       dependencies: {
         '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
-        'better-auth': '1.7.0-rc.2',
+        'better-auth': '1.7.1',
         '@lupinum/better-convex-nuxt': 'file:./@lupinum/better-convex-nuxt.tgz',
       },
     }
