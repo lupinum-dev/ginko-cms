@@ -129,7 +129,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain('live: liveConvex')
     expect(source).toContain('candidateArtifactSha256')
     expect(source).toContain('deployment: liveDeploymentEvidence')
-    expect(source).toContain('/api/_content/navigation?collection=posts&locale=en')
+    expect(source).toContain('/api/_content/navigation?collection=blog&locale=en')
     expect(source).toContain('publishedRead: livePublishedReadEvidence')
     expect(source).toContain('process.env.CONVEX_URL || process.env.CONVEX_SELF_HOSTED_URL')
     expect(source).toContain("hero: { type: 'image', required: true }")

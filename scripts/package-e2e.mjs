@@ -358,7 +358,7 @@ async function bootNitro() {
 
     if (liveConvex) {
       const publishedReadResponse = await fetch(
-        `http://127.0.0.1:${port}/api/_content/navigation?collection=posts&locale=en`,
+        `http://127.0.0.1:${port}/api/_content/navigation?collection=blog&locale=en`,
       )
       const publishedReadText = await publishedReadResponse.text()
       let publishedRead
@@ -375,7 +375,7 @@ async function bootNitro() {
         )
       }
       livePublishedReadEvidence = {
-        collection: 'posts',
+        collection: 'blog',
         locale: 'en',
         resultCount: publishedRead.length,
         status: publishedReadResponse.status,
@@ -871,7 +871,7 @@ try {
       join(pageDirectory, 'render-safety.vue'),
       [
         '<script setup lang="ts">',
-        "const value = { collection: 'posts', locale: 'en', body: { type: 'root', children: [{ type: 'element', tag: 'script', props: {}, children: [{ type: 'text', value: 'packed-render-exploit' }] }] } }",
+        "const value = { collection: 'blog', locale: 'en', body: { type: 'root', children: [{ type: 'element', tag: 'script', props: {}, children: [{ type: 'text', value: 'packed-render-exploit' }] }] } }",
         '</script>',
         '<template><ContentRenderer :value="value" /></template>',
         '',
