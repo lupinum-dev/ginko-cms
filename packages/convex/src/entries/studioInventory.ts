@@ -9,7 +9,6 @@ import {
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 
-import type { Doc } from '../_generated/dataModel.js'
 import { canRead } from '../auth/checks.js'
 import { attachEntryRecordAccess } from '../auth/recordAccess.js'
 import { throwCmsError } from '../errors.js'
@@ -18,6 +17,10 @@ import { getCollectionOrThrow } from '../lib/collections.js'
 import { getCmsSettings } from '../lib/locale.js'
 import type { CmsCollection, HandlerQueryCtx } from '../lib/types.js'
 import type { EntryDoc } from './context.js'
+import {
+  canonicalEntriesForSearchRows,
+  cheaplyMatchesWorkState,
+} from './studioInventoryCandidates.js'
 import { readDraftSearchCandidatePage, readStudioTreeCandidatePage } from './studioKeyset.js'
 import {
   buildStudioRowsForEntries,
@@ -30,7 +33,6 @@ import {
   buildIndexedEntrySummary,
   summaryMatchesWorkState,
 } from './studioSummary.js'
-import { draftSearchPublicationHash } from './workflow/draftSearch.js'
 
 const STUDIO_LIST_DEFAULT_LIMIT = 50
 // A row can hydrate three locale drafts at the 64 KiB body ceiling. Keeping
@@ -85,78 +87,6 @@ async function listStudioTreeRows(
     isDone: result.isDone,
     continueCursor: result.continueCursor,
   }
-}
-
-async function canonicalEntriesForSearchRows(
-  ctx: HandlerQueryCtx,
-  collection: CmsCollection,
-  rows: Doc<'draftSearchEntries'>[],
-) {
-  const loaded = await Promise.all(
-    rows.map(async (row) => {
-      const [entry, draft] = await Promise.all([
-        ctx.db.get(row.entryId),
-        ctx.db
-          .query('entryLocaleDrafts')
-          .withIndex('by_entry_locale', (query) =>
-            query.eq('entryId', row.entryId).eq('locale', row.locale),
-          )
-          .unique(),
-      ])
-      if (
-        !entry ||
-        entry.collection !== collection.slug ||
-        entry.draftVersion !== row.sourceDraftVersion ||
-        entry.sharedVersion !== row.sourceSharedVersion ||
-        entry.updatedAt !== row.updatedAt ||
-        (draft?.version ?? 0) !== row.sourceLocaleVersion ||
-        draftSearchPublicationHash(entry) !== row.sourcePublicationHash
-      ) {
-        return null
-      }
-      return { entry, row }
-    }),
-  )
-  return loaded.filter(
-    (item): item is { entry: EntryDoc; row: Doc<'draftSearchEntries'> } => item !== null,
-  )
-}
-
-async function cheaplyMatchesWorkState(
-  ctx: HandlerQueryCtx,
-  collection: CmsCollection,
-  candidate: { entry: EntryDoc; row: Doc<'draftSearchEntries'> },
-  workState: 'all' | 'changed' | 'needs_attention' | 'missing_translation' | undefined,
-) {
-  if (!workState || workState === 'all' || workState === 'needs_attention') return true
-  const rows =
-    collection.locales.length === 1
-      ? [candidate.row]
-      : await ctx.db
-          .query('draftSearchEntries')
-          .withIndex('by_entry_locale', (query) => query.eq('entryId', candidate.entry._id))
-          .collect()
-  if (workState === 'missing_translation') {
-    return rows.some(
-      (row) =>
-        collection.locales.includes(row.locale) &&
-        row.sourceLocaleVersion === 0 &&
-        !candidate.entry.activePublications.some(
-          (publication) => publication.locale === row.locale,
-        ),
-    )
-  }
-  return rows.some((row) => {
-    if (!collection.locales.includes(row.locale) || row.sourceLocaleVersion === 0) return false
-    const publication = candidate.entry.activePublications.find(
-      (active) => active.locale === row.locale,
-    )
-    return (
-      !publication ||
-      publication.sharedVersion !== candidate.entry.sharedVersion ||
-      publication.localeVersion !== row.sourceLocaleVersion
-    )
-  })
 }
 
 async function listIndexedStudioRows(
