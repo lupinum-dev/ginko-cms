@@ -11,38 +11,33 @@ declare const process: { env: Record<string, string | undefined> }
 const mcpPath = '/mcp'
 const reviewInteractionPath = '/api/_ginko/reviews/'
 
-function siteUrl() {
-  const raw = process.env.CONVEX_SITE_URL
-  if (!raw) throw new Error('CONVEX_SITE_URL is required for MCP.')
+function canonicalOrigin(name: 'CONVEX_SITE_URL' | 'SITE_URL', purpose: string) {
+  const raw = process.env[name]
+  if (!raw) throw new Error(`${name} is required for ${purpose}.`)
   const url = new URL(raw)
+  const loopback = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(url.hostname)
+  const secureTransport = url.protocol === 'https:' || (url.protocol === 'http:' && loopback)
   if (
-    url.protocol !== 'https:' ||
+    !secureTransport ||
     url.username ||
     url.password ||
     url.pathname !== '/' ||
     url.search ||
     url.hash
   ) {
-    throw new Error('CONVEX_SITE_URL must be a canonical HTTPS origin.')
+    throw new Error(
+      `${name} must be a canonical HTTPS origin or an HTTP loopback origin for local development.`,
+    )
   }
   return new URL(url.origin)
 }
 
+function siteUrl() {
+  return canonicalOrigin('CONVEX_SITE_URL', 'MCP')
+}
+
 function applicationUrl() {
-  const raw = process.env.SITE_URL
-  if (!raw) throw new Error('SITE_URL is required for MCP review interactions.')
-  const url = new URL(raw)
-  if (
-    url.protocol !== 'https:' ||
-    url.username ||
-    url.password ||
-    url.pathname !== '/' ||
-    url.search ||
-    url.hash
-  ) {
-    throw new Error('SITE_URL must be a canonical HTTPS origin.')
-  }
-  return new URL(url.origin)
+  return canonicalOrigin('SITE_URL', 'MCP review interactions')
 }
 
 export const handle = httpAction(async (ctx, request) => {
