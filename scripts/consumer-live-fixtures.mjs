@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 import { ConvexHttpClient } from 'convex/browser'
 
+import { retryTransientWriteLimit } from './live-proof/transient-write-limit.mjs'
+
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const convexBin = resolve(repoRoot, 'node_modules/.bin/convex')
 const convexCwd = resolve(repoRoot, 'playground')
@@ -68,9 +70,11 @@ async function runComponent(component, functionName, args, identity) {
       }
     : undefined
   if (adminKey && convexUrl) {
-    const client = new ConvexHttpClient(convexUrl)
-    client.setAdminAuth(adminKey, actingAs)
-    return await client.function(functionName, component, args)
+    return await retryTransientWriteLimit(async () => {
+      const client = new ConvexHttpClient(convexUrl)
+      client.setAdminAuth(adminKey, actingAs)
+      return await client.function(functionName, component, args)
+    })
   }
   const cliArgs = [
     'run',
