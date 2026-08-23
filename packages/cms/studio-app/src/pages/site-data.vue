@@ -315,51 +315,65 @@ function formatBlockData(value: unknown): string {
               :id="`site-data-block-${block.key}`"
               class="ginko:space-y-3 ginko:border-t ginko:px-4 ginko:py-4"
             >
-              <StudioNotice
-                :tone="block.visibility === 'public' ? 'warning' : 'info'"
-                :title="
-                  t(
-                    block.visibility === 'public'
-                      ? 'ginkoCms.studio.siteDataPage.publicSaveImpactTitle'
-                      : 'ginkoCms.studio.siteDataPage.privateSaveImpactTitle',
-                  )
-                "
-                :description="
-                  t(
-                    block.visibility === 'public'
-                      ? 'ginkoCms.studio.siteDataPage.publicSaveImpactDescription'
-                      : 'ginkoCms.studio.siteDataPage.privateSaveImpactDescription',
-                  )
-                "
-              />
-              <StudioSiteDataEditor
-                v-if="canManageSettings"
-                :schema="expandedBlockSchema"
-                :model-value="blockData[block.key] ?? {}"
-                @update:model-value="blockData[block.key] = $event"
-              />
-              <StudioDeveloperDetails>
-                <div class="ginko:space-y-3">
-                  <div class="ginko:text-xs">
-                    <span class="ginko:text-muted-foreground">Section key:</span>
-                    <code class="ginko:ml-2 ginko:font-mono ginko:text-foreground">{{
-                      block.key
-                    }}</code>
+              <template
+                v-if="expandedBlockData?.key === block.key && blockData[block.key] !== undefined"
+              >
+                <StudioNotice
+                  :tone="block.visibility === 'public' ? 'warning' : 'info'"
+                  :title="
+                    t(
+                      block.visibility === 'public'
+                        ? 'ginkoCms.studio.siteDataPage.publicSaveImpactTitle'
+                        : 'ginkoCms.studio.siteDataPage.privateSaveImpactTitle',
+                    )
+                  "
+                  :description="
+                    t(
+                      block.visibility === 'public'
+                        ? 'ginkoCms.studio.siteDataPage.publicSaveImpactDescription'
+                        : 'ginkoCms.studio.siteDataPage.privateSaveImpactDescription',
+                    )
+                  "
+                />
+                <StudioSiteDataEditor
+                  v-if="canManageSettings"
+                  :schema="expandedBlockSchema"
+                  :model-value="blockData[block.key]"
+                  @update:model-value="blockData[block.key] = $event"
+                />
+                <StudioDeveloperDetails>
+                  <div class="ginko:space-y-3">
+                    <div class="ginko:text-xs">
+                      <span class="ginko:text-muted-foreground">Section key:</span>
+                      <code class="ginko:ml-2 ginko:font-mono ginko:text-foreground">{{
+                        block.key
+                      }}</code>
+                    </div>
+                    <pre
+                      class="ginko:max-h-80 ginko:overflow-auto ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-background ginko:p-3 ginko:text-xs ginko:leading-relaxed"
+                      >{{ formatBlockData(blockData[block.key]) }}</pre
+                    >
                   </div>
-                  <pre
-                    class="ginko:max-h-80 ginko:overflow-auto ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-background ginko:p-3 ginko:text-xs ginko:leading-relaxed"
-                    >{{ formatBlockData(blockData[block.key] ?? {}) }}</pre
-                  >
+                </StudioDeveloperDetails>
+                <div v-if="canManageSettings" class="ginko:flex ginko:justify-end">
+                  <Button size="sm" :disabled="saving === block.key" @click="handleSave(block.key)">
+                    <Loader2
+                      v-if="saving === block.key"
+                      class="ginko:size-3.5 ginko:mr-1.5 ginko:animate-spin"
+                    />
+                    {{ t('ginkoCms.common.save') }}
+                  </Button>
                 </div>
-              </StudioDeveloperDetails>
-              <div v-if="canManageSettings" class="ginko:flex ginko:justify-end">
-                <Button size="sm" :disabled="saving === block.key" @click="handleSave(block.key)">
-                  <Loader2
-                    v-if="saving === block.key"
-                    class="ginko:size-3.5 ginko:mr-1.5 ginko:animate-spin"
-                  />
-                  {{ t('ginkoCms.common.save') }}
-                </Button>
+              </template>
+              <div
+                v-else
+                data-testid="cms-site-data-editor-loading"
+                role="status"
+                aria-live="polite"
+                class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm ginko:text-muted-foreground"
+              >
+                <Loader2 class="ginko:size-4 ginko:animate-spin" aria-hidden="true" />
+                {{ t('ginkoCms.common.loading') }}
               </div>
             </div>
           </div>
