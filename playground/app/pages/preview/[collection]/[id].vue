@@ -4,7 +4,9 @@
     <div class="border-b-2 border-amber-400 bg-amber-50 text-amber-900">
       <div class="max-w-2xl mx-auto px-8 py-3 text-sm">
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span class="inline-flex items-center rounded bg-amber-400 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-950">
+          <span
+            class="inline-flex items-center rounded bg-amber-400 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-950"
+          >
             Draft preview
           </span>
           <span class="font-medium">Not publicly visible.</span>
@@ -31,9 +33,7 @@
 
       <div v-else-if="!isAuthenticated" class="space-y-2">
         <h1 class="text-xl font-semibold">Studio sign-in required</h1>
-        <p class="text-gray-600">
-          Draft previews are only visible to signed-in Studio members.
-        </p>
+        <p class="text-gray-600">Draft previews are only visible to signed-in Studio members.</p>
         <NuxtLink :to="signInPath" class="text-blue-600 hover:underline">
           Sign in to Studio
         </NuxtLink>
@@ -65,6 +65,9 @@
 </template>
 
 <script setup lang="ts">
+import { setResponseHeader } from 'h3'
+import { computed } from 'vue'
+
 // EDT-10 draft preview host page (v1 convention: /preview/[collection]/[id]?locale=…).
 //
 // - Requires the same-origin Better Auth Studio session; the Convex query is
@@ -75,8 +78,6 @@
 // - noindex via meta AND X-Robots-Tag; the banner above makes the draft state
 //   unmistakable.
 import { api } from '#convex/api'
-import { setResponseHeader } from 'h3'
-import { computed } from 'vue'
 
 const route = useRoute()
 const { defaultLocale } = useI18n()
@@ -102,7 +103,7 @@ if (import.meta.server) {
 
 const auth = useConvexAuth()
 const authPending = computed(() => auth.pending.value)
-const isAuthenticated = computed(() => auth.isAuthenticated.value === true)
+const isAuthenticated = computed(() => auth.status.value === 'authenticated')
 const signInPath = computed(
   () => `/studio/auth/signin?redirect=${encodeURIComponent(route.fullPath)}`,
 )

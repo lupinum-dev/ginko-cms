@@ -38,6 +38,7 @@
   "tracked": {
     "@modelcontextprotocol/server": ["2.0.0"],
     "@nuxtjs/sitemap": ["^8.0.15", "8.0.15"],
+    "nuxt-i18n-micro": ["3.28.0"],
     "@nuxt/kit": ["4.5.2"],
     "@better-auth/oauth-provider": ["1.7.1"],
     "@lupinum/better-convex-mcp": ["1.0.0-beta.1"],

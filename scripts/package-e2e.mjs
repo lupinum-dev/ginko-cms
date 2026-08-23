@@ -674,7 +674,10 @@ try {
         dependencies: {
           ...consumerCompatibility.dependencies,
           ...(liveConvex
-            ? { '@nuxtjs/sitemap': compatibilityMatrix.tracked['@nuxtjs/sitemap'][1] }
+            ? {
+                '@nuxtjs/sitemap': compatibilityMatrix.tracked['@nuxtjs/sitemap'][1],
+                'nuxt-i18n-micro': compatibilityMatrix.tracked['nuxt-i18n-micro'][0],
+              }
             : {}),
           '@lupinum/ginko-cms': fileDependency(cmsTarball),
           '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
@@ -705,7 +708,10 @@ try {
         : fileDependency(installedBetterConvexMcpTarball),
       '@nuxt/kit': consumerCompatibility.dependencies['@nuxt/kit'],
       ...(liveConvex
-        ? { '@nuxtjs/sitemap': compatibilityMatrix.tracked['@nuxtjs/sitemap'][1] }
+        ? {
+            '@nuxtjs/sitemap': compatibilityMatrix.tracked['@nuxtjs/sitemap'][1],
+            'nuxt-i18n-micro': compatibilityMatrix.tracked['nuxt-i18n-micro'][0],
+          }
         : {}),
       '@lupinum/better-convex-nuxt': betterConvexNuxtDependency(betterConvexNuxtTarball),
       '@lupinum/better-convex-vue': betterConvexVueDependency(betterConvexVueTarball),
@@ -727,7 +733,7 @@ try {
       '',
       'export default defineNuxtConfig({',
       liveConvex
-        ? "  modules: ['@nuxtjs/sitemap', '@lupinum/ginko-content', ginkoCms],"
+        ? "  modules: ['@nuxtjs/sitemap', 'nuxt-i18n-micro', '@lupinum/ginko-content', ginkoCms],"
         : '  modules: [contentOptionsHarness, ginkoCms],',
       "  convex: { url: process.env.CONVEX_URL || 'http://127.0.0.1:3210', siteUrl: process.env.CONVEX_SITE_URL || 'http://127.0.0.1:3211', auth: { origin: process.env.CMS_STORY_BASE_URL || 'http://localhost:3000', trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER } },",
       ...(liveConvex

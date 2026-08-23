@@ -473,7 +473,12 @@ describe('live refactor proof contract', () => {
     expect(siteData).toContain("page.locator('#new-localized')")
     expect(siteData).toContain("getByRole('group', { name: 'Language' })")
     expect(siteData).toContain("getByRole('button', { name: 'de', exact: true })")
-    expect(packedHost).toContain(`modules: ['@nuxtjs/sitemap', '@lupinum/ginko-content', ginkoCms]`)
+    expect(packedHost).toContain(
+      `modules: ['@nuxtjs/sitemap', 'nuxt-i18n-micro', '@lupinum/ginko-content', ginkoCms]`,
+    )
+    expect(packedHost).toContain(
+      "'nuxt-i18n-micro': compatibilityMatrix.tracked['nuxt-i18n-micro'][0]",
+    )
     expect(packedHost).toContain(
       "relatedDoc: { type: 'relation', localized: false, relation: { collectionId: 'docs', multiple: false } }",
     )

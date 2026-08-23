@@ -7,6 +7,7 @@ const root = resolve(import.meta.dirname, '../..')
 const studio = (path: string) =>
   readFileSync(resolve(root, 'packages/cms/studio-app/src', path), 'utf8')
 const host = (path: string) => readFileSync(resolve(root, 'packages/cms/src', path), 'utf8')
+const playground = (path: string) => readFileSync(resolve(root, 'playground', path), 'utf8')
 
 describe('Studio Vue hard-cut source boundary', () => {
   it('mounts the shared runtime and never carries a raw client or foreign Vue refs', () => {
@@ -49,5 +50,11 @@ describe('Studio Vue hard-cut source boundary', () => {
       'getAssetManagerFacets',
     )
     expect(studio('composables/useCmsStudioPaginatedQuery.ts')).not.toContain('pageData')
+  })
+
+  it('uses the 1.0 auth status contract in the packed preview consumer', () => {
+    const preview = playground('app/pages/preview/[collection]/[id].vue')
+    expect(preview).toContain("auth.status.value === 'authenticated'")
+    expect(preview).not.toContain('auth.isAuthenticated')
   })
 })
