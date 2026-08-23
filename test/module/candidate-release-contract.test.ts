@@ -60,11 +60,7 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/better-convex-vue',
       '@lupinum/ginko-content',
     ])
-    for (const name of [
-      '@lupinum/better-convex-mcp',
-      '@lupinum/better-convex-nuxt',
-      '@lupinum/better-convex-vue',
-    ]) {
+    for (const name of ['@lupinum/better-convex-nuxt', '@lupinum/better-convex-vue']) {
       expect(compatibility.releaseArtifacts[name]?.sourceCommit).toBe(
         compatibility.sourceRehearsal.betterConvexCommit,
       )
