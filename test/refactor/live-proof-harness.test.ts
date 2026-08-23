@@ -224,7 +224,12 @@ describe('live refactor proof contract', () => {
       resolve(root, 'packages/cms/templates/convex/ginkoCms/maintenance.ts'),
       'utf8',
     )
+    const componentEntrypoints = await readFile(
+      resolve(root, 'packages/convex/scripts/build-component-entrypoints.mjs'),
+      'utf8',
+    )
     expect(componentMaintenance).toContain('startProjectionRepairRun')
+    expect(componentEntrypoints).toMatch(/componentModules = \[[\s\S]*?'maintenance'/)
     expect(hostMaintenance).toContain('components.ginkoCms.maintenance.startProjectionRepairRun')
     expect(hostMaintenance).not.toContain('components.ginkoCms.entries.projectionMaintenance')
     expect(fixtures).toContain('ginkoCms/maintenance:startProjectionRepairRun')

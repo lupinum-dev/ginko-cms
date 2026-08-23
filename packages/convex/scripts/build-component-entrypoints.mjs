@@ -18,6 +18,7 @@ const componentModules = [
   'liveFixtures',
   'liveFixtures/cleanup',
   'liveFixtures/finalize',
+  'maintenance',
   'members',
   'contractTransitions',
   'mcpOAuthDelegations',
