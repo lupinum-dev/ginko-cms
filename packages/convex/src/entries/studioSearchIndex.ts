@@ -15,6 +15,11 @@ function matchesQuery(row: Doc<'draftSearchEntries'>, normalizedQuery: string) {
   return normalizedQuery.split(/\s+/u).every((term) => haystack.includes(term))
 }
 
+function searchTerms(normalizedQuery: string): string[] {
+  const terms = normalizedQuery.match(/[\p{L}\p{N}]+/gu) ?? []
+  return [...new Set(terms.map((term) => term.slice(0, 32)).filter(Boolean))]
+}
+
 export async function readStudioSearchRows(
   ctx: HandlerQueryCtx,
   args: {
@@ -26,32 +31,38 @@ export async function readStudioSearchRows(
     take: number
   },
 ) {
-  const rows = await ctx.db
-    .query('draftSearchEntries')
-    .withSearchIndex('search_collection_locale', (query) => {
-      const scoped = query
-        .search('searchText', args.query)
-        .eq('collection', args.collection)
-        .eq('locale', args.locale)
-      const visible = args.status
-        ? scoped.eq('status', args.status)
-        : scoped.eq('lifecycle', 'active')
-      if (args.workState === 'changed') return visible.eq('hasUnpublishedChanges', true)
-      if (args.workState === 'missing_translation') {
-        return visible.eq('hasMissingTranslations', true)
-      }
-      return visible
-    })
-    .take(args.take + 1)
+  const terms = searchTerms(args.query)
+  for (const term of terms) {
+    const rows = await ctx.db
+      .query('draftSearchEntries')
+      .withSearchIndex('search_collection_locale', (query) => {
+        const scoped = query
+          .search('searchText', term)
+          .eq('collection', args.collection)
+          .eq('locale', args.locale)
+        const visible = args.status
+          ? scoped.eq('status', args.status)
+          : scoped.eq('lifecycle', 'active')
+        if (args.workState === 'changed') return visible.eq('hasUnpublishedChanges', true)
+        if (args.workState === 'missing_translation') {
+          return visible.eq('hasMissingTranslations', true)
+        }
+        return visible
+      })
+      .take(args.take + 1)
 
-  if (rows.length > args.take) {
-    throwCmsError(
-      'STUDIO_SEARCH_TOO_BROAD',
-      `Studio search matched more than ${args.take} entries. Refine the query to continue.`,
-      { collection: args.collection, locale: args.locale, limit: args.take },
-    )
+    // Convex search is OR-based for multi-term queries. A complete candidate
+    // page for any one term contains every possible all-term match, while a
+    // capped page does not. Keep trying terms until one proves completeness.
+    if (rows.length <= args.take) return rows.filter((row) => matchesQuery(row, args.query))
   }
-  return rows.filter((row) => matchesQuery(row, args.query))
+
+  if (terms.length === 0) return []
+  throwCmsError(
+    'STUDIO_SEARCH_TOO_BROAD',
+    `Studio search matched more than ${args.take} entries. Refine the query to continue.`,
+    { collection: args.collection, locale: args.locale, limit: args.take },
+  )
 }
 
 export async function readStudioFacetRows(

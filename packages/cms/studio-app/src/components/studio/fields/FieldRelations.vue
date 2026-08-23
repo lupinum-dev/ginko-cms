@@ -69,7 +69,7 @@ const relationHelpText = computed(() => {
 const relationEmptyStateText = computed(() => {
   if (filteredRelatedEntries.value.length > 0 || !relationCollection.value) return null
   if (status.value === 'loading-first-page') return null
-  if (relatedEntries.value.length === 0) {
+  if (!relationSearch.value.trim()) {
     return t('ginkoCms.studio.fieldRenderer.noRelationEntries', {
       collection: relationCollection.value,
     })

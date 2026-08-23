@@ -311,8 +311,8 @@ describe('collections: searchStudioEntries', () => {
         changed: index === targetIndex,
         title:
           index === targetIndex
-            ? `Catalog record ${index} ultraviolet needle`
-            : `Catalog record ${index}`,
+            ? `Catalog record ${String(index).padStart(4, '0')} ultraviolet needle`
+            : `Catalog record ${String(index).padStart(4, '0')}`,
       }),
     )
     const ids = await seedPublicRows(ctx, contentHash, inputs)
@@ -334,7 +334,7 @@ describe('collections: searchStudioEntries', () => {
     expect(deepResult).toEqual([
       {
         id: ids[targetIndex],
-        title: `Catalog record ${targetIndex} ultraviolet needle`,
+        title: `Catalog record ${String(targetIndex).padStart(4, '0')} ultraviolet needle`,
         collection: 'docs',
         route: {
           slug: `record-${String(targetIndex).padStart(4, '0')}`,
@@ -353,6 +353,19 @@ describe('collections: searchStudioEntries', () => {
     })
     expect(performance.now() - collectionSearchStartedAt).toBeLessThan(300)
     expect(collectionSearch).toMatchObject({
+      page: [expect.objectContaining({ _id: ids[targetIndex] })],
+      isDone: true,
+      continueCursor: '',
+    })
+
+    const exactTitleSearch = await viewer.query(api.editor.listEntriesForStudio, {
+      collection: 'docs',
+      locale: 'en',
+      parentEntryId: null,
+      query: 'Catalog record 0000',
+      paginationOpts: { cursor: null, numItems: 25 },
+    })
+    expect(exactTitleSearch).toMatchObject({
       page: [expect.objectContaining({ _id: ids[targetIndex] })],
       isDone: true,
       continueCursor: '',
