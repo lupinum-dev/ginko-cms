@@ -6,7 +6,8 @@ const resource = new URL('https://ginko.example.test/mcp')
 const application = new URL('https://app.example.test')
 const bearer = 'ginko-mcp-bearer-sentinel'
 const issuer = `${application.origin}/api/auth`
-function createFixture() {
+function createFixture(applicationUrl = application) {
+  const fixtureIssuer = `${applicationUrl.origin}/api/auth`
   let accessActive = true
   let applicationAccess: 'allowed' | 'revoked-member' | 'cross-tenant' = 'allowed'
   let scopes = ['cms.read', 'cms.entries.edit']
@@ -15,7 +16,7 @@ function createFixture() {
   const calls: Array<{ operation: string; args: unknown }> = []
   const caller = {
     clientId: 'client-ginko-test',
-    issuer,
+    issuer: fixtureIssuer,
     scopes,
     subject: 'owner-1',
   }
@@ -97,14 +98,14 @@ function createFixture() {
   }
   const options = {
     authorization: {
-      issuer,
+      issuer: fixtureIssuer,
       verifier: {
         async verifyAccessToken(
           token: string,
           expected: { readonly issuer: string; readonly resource: URL },
         ) {
           if (!accessActive || token !== bearer) throw new Error('access rejected')
-          if (expected.issuer !== issuer) throw new Error('issuer mismatch')
+          if (expected.issuer !== fixtureIssuer) throw new Error('issuer mismatch')
           return {
             access: {
               ...caller,
@@ -118,7 +119,7 @@ function createFixture() {
     },
     operations: operations as never,
     resource,
-    reviewInteractionBase: new URL('/api/_ginko/reviews/', application),
+    reviewInteractionBase: new URL('/api/_ginko/reviews/', applicationUrl),
   }
   return {
     calls,
@@ -196,6 +197,14 @@ async function callTool(
 }
 
 describe('Ginko Convex-native MCP endpoint', () => {
+  it('allows HTTP review interactions only on loopback origins', async () => {
+    const local = createFixture(new URL('http://127.0.0.1:3000'))
+    await expect(local.handle(new Request(resource))).resolves.toBeInstanceOf(Response)
+
+    const insecure = createFixture(new URL('http://cms.example.test'))
+    await expect(insecure.handle(new Request(resource))).rejects.toThrow(/HTTP loopback URL/)
+  })
+
   it('serves exact OAuth resource discovery without projecting authorization metadata', async () => {
     const fixture = createFixture()
     const metadataUrl = 'https://ginko.example.test/.well-known/oauth-protected-resource/mcp'

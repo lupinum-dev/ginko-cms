@@ -213,15 +213,22 @@ export async function handleGinkoMcpRequest(
   },
 ): Promise<Response> {
   const { authorization, operations, resource, reviewInteractionBase } = options
+  const reviewHost = reviewInteractionBase.hostname
+  const reviewLoopback = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(reviewHost)
+  const reviewTransportAllowed =
+    reviewInteractionBase.protocol === 'https:' ||
+    (reviewInteractionBase.protocol === 'http:' && reviewLoopback)
   if (
-    reviewInteractionBase.protocol !== 'https:' ||
+    !reviewTransportAllowed ||
     reviewInteractionBase.username ||
     reviewInteractionBase.password ||
     reviewInteractionBase.search ||
     reviewInteractionBase.hash ||
     !reviewInteractionBase.pathname.endsWith('/')
   ) {
-    throw new Error('The review interaction base must be a canonical HTTPS URL ending in a slash.')
+    throw new Error(
+      'The review interaction base must be a canonical HTTPS URL, or an HTTP loopback URL for local development, ending in a slash.',
+    )
   }
   return await handleMcpRequest(request, {
     serverInfo: { name: 'ginko-cms', version: '0.1.0' },
