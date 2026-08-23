@@ -2,7 +2,13 @@ import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permission
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createCtx, installTestContract, seedMember, seedOwner } from '../helpers'
+import {
+  createCtx,
+  installTestContract,
+  seedMcpDelegation,
+  seedMember,
+  seedOwner,
+} from '../helpers'
 
 const api = anyApi
 
@@ -96,6 +102,51 @@ describe('component: CMS-owned MCP OAuth delegations', () => {
     ).rejects.toThrow('different MCP OAuth delegation')
   })
 
+  it('admits live MCP access only while the owned delegation and member permissions remain valid', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
+    const owner = ctx.asCmsUser('owner-1')
+    const delegation = await owner.mutation(api.mcpOAuthDelegations.createDelegation, {
+      ownerUserId: 'editor-1',
+      oauthClientId: 'client-editor',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+    })
+    const liveAccess = {
+      ownerUserId: 'editor-1',
+      oauthClientId: 'client-editor',
+      scopes: [cmsPermissionKeys.read, cmsPermissionKeys.editEntries],
+    }
+
+    await expect(
+      ctx.query(api.mcpOAuthDelegations.hasLiveDelegatedAccess, liveAccess),
+    ).resolves.toBe(true)
+    await expect(
+      ctx.query(api.mcpOAuthDelegations.hasLiveDelegatedAccess, {
+        ...liveAccess,
+        oauthClientId: 'client-other',
+      }),
+    ).resolves.toBe(false)
+
+    await owner.mutation(api.members.updateMemberRole, {
+      userId: 'editor-1',
+      role: 'viewer',
+    })
+    await expect(
+      ctx.query(api.mcpOAuthDelegations.hasLiveDelegatedAccess, liveAccess),
+    ).resolves.toBe(false)
+
+    await owner.mutation(api.mcpOAuthDelegations.revokeDelegation, {
+      delegationId: delegation.delegationId,
+    })
+    await expect(
+      ctx.query(api.mcpOAuthDelegations.hasLiveDelegatedAccess, {
+        ...liveAccess,
+        scopes: [cmsPermissionKeys.read],
+      }),
+    ).resolves.toBe(false)
+  })
+
   it('rejects malformed clients, duplicate active mappings, and expired delegations', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
@@ -128,6 +179,25 @@ describe('component: CMS-owned MCP OAuth delegations', () => {
         scopes: [cmsPermissionKeys.read],
       }),
     ).rejects.toThrow('already exists')
+  })
+
+  it('rejects a previously admitted delegation after its expiry', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMcpDelegation(ctx, {
+      ownerUserId: 'owner-1',
+      oauthClientId: 'client-expired',
+      scopes: [cmsPermissionKeys.read],
+      expiresAt: Date.now() - 1,
+    })
+
+    await expect(
+      ctx.query(api.mcpOAuthDelegations.hasLiveDelegatedAccess, {
+        ownerUserId: 'owner-1',
+        oauthClientId: 'client-expired',
+        scopes: [cmsPermissionKeys.read],
+      }),
+    ).resolves.toBe(false)
   })
 
   it('commits at most one active delegation under synchronized creation', async () => {

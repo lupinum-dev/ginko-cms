@@ -6,7 +6,7 @@ import {
 import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
-import type { CmsMemberAppIdentity } from './auth/appIdentity.js'
+import { hasLiveMcpDelegatedAccess, type CmsMemberAppIdentity } from './auth/appIdentity.js'
 import { can, canManageSettings, cmsPermissionGuards } from './auth/checks.js'
 import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
@@ -250,4 +250,19 @@ export const hasOAuthAdminPrivilege = callerQuery.public({
       .unique()
     return member?.role === 'owner'
   },
+})
+
+/**
+ * Host-auth bridge for MCP requests. Better Auth validates the grant first;
+ * this check keeps the CMS-owned delegation, member, and role authoritative.
+ */
+export const hasLiveDelegatedAccess = callerQuery.public({
+  args: {
+    ownerUserId: v.string(),
+    oauthClientId: oauthClientIdValidator,
+    scopes: v.array(mcpScopeValidator),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) =>
+    await hasLiveMcpDelegatedAccess(ctx, args.ownerUserId, args.oauthClientId, args.scopes),
 })

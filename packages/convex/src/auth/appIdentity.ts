@@ -140,6 +140,28 @@ function effectiveMcpPermissions(
   )
 }
 
+export async function hasLiveMcpDelegatedAccess(
+  ctx: CmsCtx,
+  userId: string,
+  clientId: string,
+  tokenScopes: readonly string[],
+): Promise<boolean> {
+  const delegation = await getMcpOAuthDelegation(ctx, userId, clientId)
+  if (
+    !delegation ||
+    (delegation.expiresAt !== undefined &&
+      delegation.expiresAt !== null &&
+      delegation.expiresAt <= Date.now())
+  ) {
+    return false
+  }
+
+  const member = await getCmsMember(ctx, userId)
+  if (!member) return false
+  const permissions = effectiveMcpPermissions(member, delegation, tokenScopes)
+  return tokenScopes.every((scope) => permissions[scope] === true)
+}
+
 async function getBootstrapState(ctx: CmsCtx): Promise<boolean> {
   const firstMember = await ctx.db.query('members').first()
   return !firstMember

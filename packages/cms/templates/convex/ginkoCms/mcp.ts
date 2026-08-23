@@ -2,7 +2,7 @@ import { createBetterAuthMcpAccessVerifier } from '@lupinum/better-convex-nuxt/b
 import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { handleGinkoMcpRequest } from '@lupinum/ginko-cms-convex/mcp'
 
-import { internal } from '../_generated/api.js'
+import { components, internal } from '../_generated/api.js'
 import { httpAction } from '../_generated/server.js'
 import { auth } from '../auth.js'
 
@@ -54,7 +54,12 @@ export const handle = httpAction(async (ctx, request) => {
         jwksUrl: `${issuer}/jwks`,
         maxLifetimeSeconds: 600,
         validateLiveAccess: async (access) =>
-          await auth.authComponent.validateOAuthAccess(ctx, access),
+          (await auth.authComponent.validateOAuthAccess(ctx, access)) &&
+          (await ctx.runQuery(components.ginkoCms.mcpOAuthDelegations.hasLiveDelegatedAccess, {
+            ownerUserId: access.subject,
+            oauthClientId: access.clientId,
+            scopes: access.scopes,
+          })),
       }),
     },
     resource,

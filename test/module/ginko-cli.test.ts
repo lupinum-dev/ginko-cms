@@ -229,6 +229,7 @@ describe('ginko-cms CLI', () => {
     expect(mcp).toContain("['localhost', '127.0.0.1', '::1', '[::1]']")
     expect(mcp).toContain('canonical HTTPS origin or an HTTP loopback origin')
     expect(mcp).toContain('auth.authComponent.validateOAuthAccess(ctx, access)')
+    expect(mcp).toContain('components.ginkoCms.mcpOAuthDelegations.hasLiveDelegatedAccess')
     expect(mcp).not.toContain('adapter.findOne')
     expect(mcp).not.toContain('validateLiveProviderAccess')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(true)

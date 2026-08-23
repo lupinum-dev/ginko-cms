@@ -187,6 +187,7 @@ describe('ginko-cms Convex setup validation', () => {
     expect(httpSource).not.toContain("method: 'HEAD'")
     expect(mcpSource).toContain('handleGinkoMcpRequest(request, {')
     expect(mcpSource).toContain('auth.authComponent.validateOAuthAccess(ctx, access)')
+    expect(mcpSource).toContain('components.ginkoCms.mcpOAuthDelegations.hasLiveDelegatedAccess')
     expect(mcpSource).not.toContain('adapter.findOne')
     expect(mcpSource).not.toContain('validateLiveProviderAccess')
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(true)
