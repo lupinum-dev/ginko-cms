@@ -19,8 +19,13 @@ function one(parameters: URLSearchParams, name: string): string {
 function expectedResource(siteUrl: string | undefined): string {
   if (!siteUrl) throw new Error('OAUTH_TRANSACTION_INVALID')
   const site = new URL(siteUrl)
+  const loopback =
+    site.hostname === 'localhost' ||
+    site.hostname.endsWith('.localhost') ||
+    /^127(?:\.\d{1,3}){3}$/u.test(site.hostname) ||
+    site.hostname === '[::1]'
   if (
-    site.protocol !== 'https:' ||
+    (site.protocol !== 'https:' && !(site.protocol === 'http:' && loopback)) ||
     site.username ||
     site.password ||
     site.pathname !== '/' ||

@@ -28,6 +28,19 @@ describe('Ginko MCP OAuth transaction projection', () => {
   })
 
   it.each([
+    'http://localhost:3000',
+    'http://studio.localhost:3000',
+    'http://127.0.0.1:3211',
+    'http://[::1]:3211',
+  ])('allows an exact HTTP loopback origin for local development: %s', (loopbackSiteUrl) => {
+    const fullPath = transactionPath({ resource: `${loopbackSiteUrl}/mcp` })
+
+    expect(parseSignedOAuthTransaction(fullPath, loopbackSiteUrl)).toMatchObject({
+      resource: `${loopbackSiteUrl}/mcp`,
+    })
+  })
+
+  it.each([
     ['/oauth/consent', siteUrl],
     [transactionPath({ resource: 'https://other.example.test/mcp' }), siteUrl],
     [transactionPath({ scope: 'cms.read cms.read' }), siteUrl],
