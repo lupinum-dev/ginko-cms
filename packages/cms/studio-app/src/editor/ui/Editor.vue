@@ -532,7 +532,7 @@ defineExpose({
         isFocusMode
           ? 'ginko:fixed ginko:inset-0 ginko:z-50 ginko:bg-background ginko:border-0 ginko:rounded-none'
           : 'ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card',
-        { 'ginko:opacity-60 ginko:pointer-events-none': disabled },
+        { 'ginko:opacity-60': disabled },
       ]"
     >
       <div
@@ -611,6 +611,7 @@ defineExpose({
         ]"
       >
         <RichTextToolbar
+          v-if="!disabled"
           :editor="editor ?? null"
           :enable-files="enableFiles"
           :enable-video="enableVideo"

@@ -185,6 +185,34 @@ afterEach(() => {
 })
 
 describe('editor mounted workflows', () => {
+  it('keeps read-only content selectable without exposing formatting controls', async () => {
+    const wrapper = mount(Editor, {
+      attachTo: document.body,
+      props: {
+        disabled: true,
+        modelValue: 'Read-only content',
+      },
+      global: {
+        stubs: {
+          Button: ButtonStub,
+          DebugPanel: true,
+          Icon: true,
+          RichTextToolbar: defineComponent({
+            template: '<div data-testid="richtext-toolbar" />',
+          }),
+          Textarea: TextareaStub,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="richtext-toolbar"]').exists()).toBe(false)
+    expect(wrapper.get('.ginko-richtext-editor__frame').classes()).not.toContain(
+      'ginko:pointer-events-none',
+    )
+    expect(getEditor(wrapper).isEditable).toBe(false)
+  })
+
   it('debounces visual updates and flushes pending content on blur', async () => {
     const wrapper = mountHost()
     await flushPromises()
