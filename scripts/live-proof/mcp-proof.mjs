@@ -17,26 +17,12 @@ export function createMcpProof({
   let reviewRequest = null
   let requestId = 2
   const oauthScopes = ['cms.read', 'cms.entries.edit']
+  const protocolVersion = '2026-07-28'
+  const clientInfo = { name: 'ginko-live-story-smoke', version: '0.0.0' }
+  const clientCapabilities = {}
 
-  async function initialize(accessToken) {
-    return await fetch(`${mcpBaseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json, text/event-stream',
-        ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2026-07-28',
-          capabilities: {},
-          clientInfo: { name: 'ginko-live-story-smoke', version: '0.0.0' },
-        },
-      }),
-    })
+  async function discoverServer(accessToken) {
+    return await sendRequest(accessToken, 'server/discover')
   }
 
   function parseEnvelope(text) {
@@ -51,16 +37,38 @@ export function createMcpProof({
     return envelope
   }
 
-  async function request(accessToken, method, params = {}) {
-    const response = await fetch(`${mcpBaseUrl}/mcp`, {
+  async function sendRequest(accessToken, method, params = {}) {
+    const headers = {
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+      'mcp-method': method,
+      'mcp-protocol-version': protocolVersion,
+      ...(method === 'tools/call' && typeof params.name === 'string'
+        ? { 'mcp-name': params.name }
+        : {}),
+      ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+    }
+    return await fetch(`${mcpBaseUrl}/mcp`, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json, text/event-stream',
-        authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ jsonrpc: '2.0', id: requestId++, method, params }),
+      headers,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: requestId++,
+        method,
+        params: {
+          ...params,
+          _meta: {
+            'io.modelcontextprotocol/clientCapabilities': clientCapabilities,
+            'io.modelcontextprotocol/clientInfo': clientInfo,
+            'io.modelcontextprotocol/protocolVersion': protocolVersion,
+          },
+        },
+      }),
     })
+  }
+
+  async function request(accessToken, method, params = {}) {
+    const response = await sendRequest(accessToken, method, params)
     const text = await response.text()
     if (!response.ok) {
       throw new Error(`MCP ${method} failed ${response.status}: ${redact(text).slice(0, 300)}`)
@@ -80,7 +88,7 @@ export function createMcpProof({
   }
 
   async function discoverAuthorizationServer() {
-    const challenge = await initialize('')
+    const challenge = await discoverServer('')
     if (challenge.status !== 401) {
       throw new Error(`unauthenticated MCP discovery returned ${challenge.status}`)
     }
@@ -150,7 +158,7 @@ export function createMcpProof({
       await page.getByText('MCP connection revoked.').waitFor({ timeout: 30000 })
       activeConnection.revoked = true
       if (activeConnection.accessToken) {
-        const revoked = await initialize(activeConnection.accessToken)
+        const revoked = await discoverServer(activeConnection.accessToken)
         if (revoked.status !== 401) {
           throw new Error(`revoked MCP OAuth token returned ${revoked.status}`)
         }
@@ -163,9 +171,9 @@ export function createMcpProof({
   async function runStories() {
     await story(
       'mcp.unauthenticated-rejected',
-      'Unauthenticated MCP initialize is rejected',
+      'Unauthenticated MCP discovery is rejected',
       async () => {
-        const response = await initialize('')
+        const response = await discoverServer('')
         if (response.status !== 401) {
           throw new Error(`unauthenticated MCP returned ${response.status}`)
         }
@@ -181,15 +189,19 @@ export function createMcpProof({
           'content-type': 'application/json',
           accept: 'application/json, text/event-stream',
           authorization: rawHeader,
+          'mcp-method': 'server/discover',
+          'mcp-protocol-version': protocolVersion,
         },
         body: JSON.stringify({
           jsonrpc: '2.0',
           id: 1,
-          method: 'initialize',
+          method: 'server/discover',
           params: {
-            protocolVersion: '2026-07-28',
-            capabilities: {},
-            clientInfo: { name: 'ginko-live-story-smoke', version: '0.0.0' },
+            _meta: {
+              'io.modelcontextprotocol/clientCapabilities': clientCapabilities,
+              'io.modelcontextprotocol/clientInfo': clientInfo,
+              'io.modelcontextprotocol/protocolVersion': protocolVersion,
+            },
           },
         }),
       })
@@ -201,7 +213,7 @@ export function createMcpProof({
 
     await story('mcp.unknown-key-rejected', 'Unknown MCP bearer key is rejected', async () => {
       const unknownKey = 'not-a-valid-ginko-cms-story-key'
-      const response = await initialize(unknownKey)
+      const response = await discoverServer(unknownKey)
       const text = await response.text()
       if (response.status !== 401) throw new Error(`unknown MCP key returned ${response.status}`)
       if (text.includes(unknownKey))
@@ -211,7 +223,7 @@ export function createMcpProof({
 
     await story(
       'mcp.create-authenticated',
-      'MCP OAuth completes PKCE authorization and initializes with delegated access',
+      'MCP OAuth completes PKCE authorization and discovers the server with delegated access',
       async () => {
         const discovery = await discoverAuthorizationServer()
         await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
@@ -306,11 +318,17 @@ export function createMcpProof({
         activeConnection.accessToken = accessToken
         registerSecret(accessToken)
 
-        const auth = await initialize(accessToken)
+        const auth = await discoverServer(accessToken)
         const authText = await auth.text()
-        if (!auth.ok || !authText.includes('protocolVersion')) {
+        const authEnvelope = auth.ok ? parseEnvelope(authText) : null
+        const supportedVersions = authEnvelope?.result?.supportedVersions
+        if (
+          !auth.ok ||
+          !Array.isArray(supportedVersions) ||
+          !supportedVersions.includes(protocolVersion)
+        ) {
           throw new Error(
-            `authenticated MCP initialize failed ${auth.status}: ${redact(authText).slice(0, 300)}`,
+            `authenticated MCP discovery failed ${auth.status}: ${redact(authText).slice(0, 300)}`,
           )
         }
         return {
