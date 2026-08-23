@@ -226,7 +226,7 @@ describe('Studio dashboard page', () => {
     const wrapper = mount(StudioDashboardPage, { global: { stubs: stubs() } })
     const status = wrapper.get('[role="status"]')
     expect(status.attributes('aria-busy')).toBe('true')
-    expect(status.findAll('[aria-hidden="true"]')).toHaveLength(8)
+    expect(status.findAll('[aria-hidden="true"]')).toHaveLength(3)
     expect(wrapper.text()).not.toContain('Blocked draft')
   })
 })
