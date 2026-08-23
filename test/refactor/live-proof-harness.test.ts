@@ -541,6 +541,8 @@ describe('live refactor proof contract', () => {
     expect(smoke).toContain('performanceSampleCount < 20')
     expect(smoke).toContain('await runRoleJourneys({')
     expect(smoke).toContain('await mcpProof.runStories()')
+    expect(smoke).toContain('mcpBaseUrl,')
+    expect(mcp).toContain('fetch(`${mcpBaseUrl}/mcp`')
     expect(smoke).toContain('await performanceProof.runJourney({')
     expect(performance).toContain('[data-testid="cms-richtext-editor"]')
     expect(performance).toContain('fixtureManifest.probes.roleEntry.bodyBytes')

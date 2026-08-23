@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 
 export function createMcpProof({
   baseUrl,
+  mcpBaseUrl,
   page,
   story,
   redact,
@@ -18,7 +19,7 @@ export function createMcpProof({
   const oauthScopes = ['cms.read', 'cms.entries.edit']
 
   async function initialize(accessToken) {
-    return await fetch(`${baseUrl}/mcp`, {
+    return await fetch(`${mcpBaseUrl}/mcp`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -51,7 +52,7 @@ export function createMcpProof({
   }
 
   async function request(accessToken, method, params = {}) {
-    const response = await fetch(`${baseUrl}/mcp`, {
+    const response = await fetch(`${mcpBaseUrl}/mcp`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -202,7 +203,7 @@ export function createMcpProof({
 
     await story('mcp.malformed-auth-rejected', 'Malformed MCP auth shape is rejected', async () => {
       const rawHeader = 'x-api-key not-a-valid-ginko-cms-story-key'
-      const response = await fetch(`${baseUrl}/mcp`, {
+      const response = await fetch(`${mcpBaseUrl}/mcp`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',

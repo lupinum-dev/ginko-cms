@@ -21,6 +21,7 @@ import { runSiteDataProof } from './live-proof/site-data-proof.mjs'
 import { runStudioJourneys } from './live-proof/studio-journeys.mjs'
 
 const configuredBaseUrl = process.env.CMS_STORY_BASE_URL
+const configuredMcpBaseUrl = process.env.CONVEX_SITE_URL
 const certification = process.env.CMS_STORY_CERTIFICATION === '1'
 const disposableRoles = certification
   ? readDisposableRoleCredentials(process.env)
@@ -38,9 +39,9 @@ const browserArtifactDir = process.env.CMS_STORY_BROWSER_DIR
   : null
 const publicOnly = process.argv.includes('--public-only')
 
-if (!configuredBaseUrl || (!publicOnly && (!email || !password))) {
+if (!configuredBaseUrl || (!publicOnly && (!configuredMcpBaseUrl || !email || !password))) {
   throw new Error(
-    'cms-live-story-smoke requires CMS_STORY_BASE_URL, plus GINKO_CMS_TEST_EMAIL and GINKO_CMS_TEST_PASSWORD unless --public-only is used.',
+    'cms-live-story-smoke requires CMS_STORY_BASE_URL and CONVEX_SITE_URL, plus GINKO_CMS_TEST_EMAIL and GINKO_CMS_TEST_PASSWORD unless --public-only is used.',
   )
 }
 if (certification && (!outputPath || !browserArtifactDir)) {
@@ -48,6 +49,7 @@ if (certification && (!outputPath || !browserArtifactDir)) {
 }
 
 const baseUrl = configuredBaseUrl.replace(/\/+$/, '')
+const mcpBaseUrl = (configuredMcpBaseUrl ?? configuredBaseUrl).replace(/\/+$/, '')
 const fixturePrefix = certification
   ? requiredEnvironmentValue('GINKO_CMS_FIXTURE_PREFIX')
   : (process.env.GINKO_CMS_FIXTURE_PREFIX ?? 'smoke')
@@ -247,6 +249,7 @@ const page = await context.newPage()
 
 const mcpProof = createMcpProof({
   baseUrl,
+  mcpBaseUrl,
   page,
   story,
   redact,
