@@ -10,7 +10,7 @@
     "@lupinum/better-convex-vue": "1.0.0-beta.1"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "70377f53acd6fd69c91c10957ca5908d49cb3c33"
+    "betterConvexCommit": "d3a72423b1b55b04c1aa220233893d9d062ee965"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
@@ -19,20 +19,20 @@
       "integrity": "sha512-IJiQPGW+QvKiQdNL0iZjHecy0ZnQ4IWr0zl5UMQts30GuKJ/XQ8nxyBrnanuMspczlq1yK77cWTZYIqItcj33w=="
     },
     "@lupinum/better-convex-mcp": {
-      "sourceCommit": "70377f53acd6fd69c91c10957ca5908d49cb3c33",
+      "sourceCommit": "d3a72423b1b55b04c1aa220233893d9d062ee965",
       "sha256": "89ea9f66e07143f95e802ffc4ceaa74ecfecddeaab51994b3f96fb91f496b447",
       "integrity": "sha512-VALZ1yGueDgjMi5BFX3fRg19Jri+x/CGTQQl6kEsYgrgizmV4HOc5BhSyrirhNmRd7Wt8Okuh1Aonh/pADk7lg=="
     },
     "@lupinum/better-convex-nuxt": {
-      "sourceCommit": "70377f53acd6fd69c91c10957ca5908d49cb3c33",
-      "sha256": "ec7be9a64720051fe5468cc947b61642e97a4638c61a3136a5ce3d3ae33304ea",
-      "integrity": "sha512-qYnB2pgjyjBitUIz7sHGhRQciqw85SAN19u01+EfXQRjQ4XUxAhM3Qnw+b4StBdM45+z02GjctATRzj45OzQOg==",
-      "runtimeFingerprint": "bcn-release-v1-77fd3e713c509d730743b206e6a6224a2f0008c7922826d768dfac0ee9a71677"
+      "sourceCommit": "d3a72423b1b55b04c1aa220233893d9d062ee965",
+      "sha256": "f9d503934f4106d8cfb8e9d32a6d8f9238aa62de297db29d74b6b222e6d83217",
+      "integrity": "sha512-rn0VrbCqiZLZpp4O7E35VvzKDeDJruU3zJSkX6JTGDU4kl78PL5v69YyqA8ZZDFjw9hL5mj+9ZxaiEmTHrSnJA==",
+      "runtimeFingerprint": "bcn-release-v1-8d61081c502170be3cffb2546d8895f73fa256b34786afc9b4430586c246fd0d"
     },
     "@lupinum/better-convex-vue": {
-      "sourceCommit": "70377f53acd6fd69c91c10957ca5908d49cb3c33",
-      "sha256": "6326f12d8ffa9d1633bda63be070e41102b23cbb785a8c1d5f6b49c1794d1b11",
-      "integrity": "sha512-uvKXZEGZWH3k/Fyg5htto01/UQbV8W8sbqdkPZI9k0nVph3uwKN9zbz4IYHSgdl8D1UHI1L2iawtEHie/7tcNA=="
+      "sourceCommit": "d3a72423b1b55b04c1aa220233893d9d062ee965",
+      "sha256": "b1e43483032f2724a754f235cb3db1e5d86f42d3b3633923cc52214b4c70fcc1",
+      "integrity": "sha512-dEXrZZIyx2BI4qYAaxMyM197R6SdM89Lrr6VfoFyLijTwDwMBalSsPYToQFUhD776/CMW6teTpJ6FVUsVHQAJw=="
     }
   },
   "tracked": {
