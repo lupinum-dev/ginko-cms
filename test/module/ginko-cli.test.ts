@@ -125,10 +125,11 @@ describe('ginko-cms CLI', () => {
   it('uses the native self-hosted admin key for local contract sync', () => {
     const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
     const previousSelfHostedKey = process.env.CONVEX_SELF_HOSTED_ADMIN_KEY
-    delete process.env.CONVEX_DEPLOY_KEY
+    process.env.CONVEX_DEPLOY_KEY = '   '
     process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = 'local-fixture-admin-key'
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-self-hosted-'))
     tempDirs.push(rootDir)
+    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_DEPLOY_KEY=cloud-fixture-key\n')
 
     try {
       expect(deployKey(rootDir)).toBe('local-fixture-admin-key')
