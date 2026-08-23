@@ -234,10 +234,15 @@ export function createMcpProof({
         }
         await page.locator('input[placeholder="Preview client"]').fill(label)
         await page.locator('input[placeholder="Registered client ID"]').fill(clientId)
-        const createScope = page.getByRole('checkbox', { name: 'Create entries' })
-        if (await createScope.isChecked()) await createScope.click()
-        if (await createScope.isChecked()) {
-          throw new Error('MCP delegation retained an unrequested create scope.')
+        if ((await page.getByRole('checkbox', { name: 'Create entries' }).count()) !== 0) {
+          throw new Error('MCP delegation exposed an unadmitted create scope.')
+        }
+        for (const scope of ['Read content', 'Edit drafts and request publish review']) {
+          const admittedScope = page.getByRole('checkbox', { name: scope })
+          await admittedScope.waitFor({ timeout: 30000 })
+          if (!(await admittedScope.isChecked())) {
+            throw new Error(`MCP delegation did not select the admitted ${scope} scope.`)
+          }
         }
         await page.getByRole('button', { name: 'Create MCP connection' }).click()
         await page.getByText('MCP connection created.').waitFor({ timeout: 30000 })
