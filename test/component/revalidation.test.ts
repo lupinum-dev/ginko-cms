@@ -445,10 +445,8 @@ describe('revalidation outbox worker', () => {
     const rowBeforeDelivery = (await ctx.readAll('outboxEvents')).find(
       (item) => String(item._id) === eventId,
     )
+    expect(rowBeforeDelivery?.idempotencyKey).toBeTruthy()
     expect(JSON.parse(String(request.body))).toEqual({
-      eventId,
-      idempotencyKey: rowBeforeDelivery?.idempotencyKey,
-      reason: 'publish',
       tags: ['entry:posts:hello-world', 'collection:posts'],
       paths: ['/posts/hello-world', '/posts'],
     })
@@ -488,17 +486,17 @@ describe('revalidation outbox worker', () => {
     expect(row?.nextAttemptAt).toBeGreaterThan(Date.now())
   })
 
-  it('reuses the stable idempotency key when retrying delivery', async () => {
+  it('reuses the stable event identity when retrying delivery', async () => {
     const ctx = createCtx()
     await seedTarget(ctx)
     const eventId = await seedEvent(ctx)
     process.env.GINKO_REVALIDATE_TOKEN_TEST = 'secret-token'
-    const receivedKeys = new Set<string>()
+    const receivedEventIds = new Set<string>()
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body)) as { idempotencyKey: string }
-      receivedKeys.add(body.idempotencyKey)
+      const headers = init?.headers as Record<string, string>
+      receivedEventIds.add(headers['x-ginko-revalidation-event']!)
       return new Response(null, {
-        status: receivedKeys.size === 1 && fetchMock.mock.calls.length === 1 ? 500 : 200,
+        status: receivedEventIds.size === 1 && fetchMock.mock.calls.length === 1 ? 500 : 200,
       })
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -511,11 +509,10 @@ describe('revalidation outbox worker', () => {
 
     const bodies = fetchMock.mock.calls.map(([, init]) =>
       JSON.parse(String((init as RequestInit).body)),
-    ) as Array<{ eventId: string; idempotencyKey: string }>
+    ) as Array<{ tags: string[]; paths: string[] }>
     expect(bodies).toHaveLength(2)
-    expect(bodies[0]).toMatchObject({ eventId })
     expect(bodies[1]).toEqual(bodies[0])
-    expect(receivedKeys.size).toBe(1)
+    expect(receivedEventIds).toEqual(new Set([eventId]))
   })
 
   it('recovers expired locks in bounded batches and schedules remaining work', async () => {

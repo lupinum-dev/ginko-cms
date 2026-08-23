@@ -40,10 +40,6 @@ export type ClaimedEvent = {
   }
 }
 
-function getReason(payload: Record<string, unknown>): string {
-  return typeof payload.reason === 'string' ? payload.reason : 'publish'
-}
-
 function backoffMsForAttempt(attempt: number) {
   return BACKOFF_MS[Math.min(Math.max(attempt - 1, 0), BACKOFF_MS.length - 1)] ?? 7_200_000
 }
@@ -256,12 +252,8 @@ async function deliverClaimedEvent(ctx: ActionCtx, job: ClaimedEvent) {
   try {
     const timestamp = String(Date.now())
     const body = JSON.stringify({
-      eventId: job.id,
-      idempotencyKey: job.idempotencyKey,
-      reason: getReason(job.payload),
       tags: job.tags,
       paths: job.paths,
-      createdAt: typeof job.payload.createdAt === 'number' ? job.payload.createdAt : undefined,
     })
     assertValidTargetEndpoint(job.target.endpoint)
     const signature = await hmacSha256Hex(token, `${timestamp}.${job.id}.${body}`)
