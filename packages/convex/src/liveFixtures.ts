@@ -419,18 +419,40 @@ export async function setupProbesHandler(ctx: MutationCtx, args: { prefix: strin
       updatedAt: Date.now(),
     })
   }
-  if (reviewEntry.draftVersion === 1) {
-    for (const locale of ['en', 'de'] as const) {
+  const reviewLocales = ['en', 'de'] as const
+  const reviewDrafts = await Promise.all(
+    reviewLocales.map(async (locale) => {
       const draft = await ctx.db
         .query('entryLocaleDrafts')
         .withIndex('by_entry_locale', (q) => q.eq('entryId', reviewEntry._id).eq('locale', locale))
         .unique()
       if (!draft) throw new Error(`Live review fixture has no ${locale} draft.`)
+      return { draft, locale }
+    }),
+  )
+  const publishedVersions = new Map(
+    reviewEntry.activePublications.map((publication) => [
+      publication.locale,
+      publication.localeVersion,
+    ]),
+  )
+  const needsFreshDraft = reviewDrafts.every(
+    ({ draft, locale }) => draft.version <= (publishedVersions.get(locale) ?? 0),
+  )
+  let reviewVersion = reviewEntry.draftVersion
+  if (needsFreshDraft) {
+    reviewVersion =
+      Math.max(
+        reviewEntry.draftVersion,
+        ...reviewDrafts.map(({ draft }) => draft.version),
+        ...reviewDrafts.map(({ locale }) => publishedVersions.get(locale) ?? 0),
+      ) + 1
+    for (const { draft, locale } of reviewDrafts) {
       const title = `${args.prefix} review ${locale}`
       await ctx.db.patch(draft._id, {
         values: { ...draft.values, title },
         bodyMdc: `# ${title}\n`,
-        version: 2,
+        version: reviewVersion,
         updatedBy: args.prefix,
         updatedAt: Date.now(),
       })
@@ -443,14 +465,14 @@ export async function setupProbesHandler(ctx: MutationCtx, args: { prefix: strin
           title,
           searchText: `${title} ${reviewEntry.slug}`,
           updatedAt: Date.now(),
-          sourceDraftVersion: 2,
-          sourceLocaleVersion: 2,
+          sourceDraftVersion: reviewVersion,
+          sourceLocaleVersion: reviewVersion,
           hasUnpublishedChanges: true,
         })
       }
     }
     await ctx.db.patch(reviewEntry._id, {
-      draftVersion: 2,
+      draftVersion: reviewVersion,
       updatedBy: args.prefix,
       updatedAt: Date.now(),
     })
@@ -459,7 +481,7 @@ export async function setupProbesHandler(ctx: MutationCtx, args: { prefix: strin
     redirectSourcePath: `/docs/${args.prefix}-old`,
     redirectTargetPath: `/docs/${roleEntry.slug}`,
     reviewEntryId: String(reviewEntry._id),
-    reviewVersion: 2,
+    reviewVersion,
     reviewTitle,
     reviewPublicPath: `/docs/${reviewEntry.slug}`,
   }

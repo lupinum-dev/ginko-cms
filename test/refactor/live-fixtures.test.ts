@@ -69,8 +69,31 @@ describe('deployment-admin live fixtures', () => {
       versionHash: 'stale',
       previewHash: 'stale',
     })
-    await ctx.raw.run((inner) => setupProbesHandler(inner, { prefix }))
+    const initialProbes = await ctx.raw.run((inner) => setupProbesHandler(inner, { prefix }))
+    expect(initialProbes.reviewVersion).toBe(2)
     expect(await ctx.readAll('reviewRequests')).toHaveLength(0)
+    await ctx.raw.run(async (inner) => {
+      const current = await inner.db.get(reviewEntry._id)
+      if (!current) throw new Error('Review fixture disappeared.')
+      await inner.db.patch(reviewEntry._id, {
+        activePublications: current.activePublications.map((publication) =>
+          publication.locale === 'en' || publication.locale === 'de'
+            ? { ...publication, localeVersion: 2 }
+            : publication,
+        ),
+      })
+    })
+    const repeatedProbes = await ctx.raw.run((inner) => setupProbesHandler(inner, { prefix }))
+    expect(repeatedProbes.reviewVersion).toBe(3)
+    expect(
+      (await ctx.readAll('entryLocaleDrafts'))
+        .filter(
+          (draft) =>
+            String(draft.entryId) === String(reviewEntry._id) &&
+            (draft.locale === 'en' || draft.locale === 'de'),
+        )
+        .map((draft) => draft.version),
+    ).toEqual([3, 3])
     while (true) {
       const page = await ctx.raw.run((inner) =>
         cleanupEntriesPageHandler(inner, { prefix, count: 50 }),
