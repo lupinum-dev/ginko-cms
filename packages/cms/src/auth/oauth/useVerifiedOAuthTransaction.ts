@@ -1,4 +1,4 @@
-import { onMounted, ref, useConvexConfig, useRoute } from '#imports'
+import { onMounted, ref, useConvexConfig } from '#imports'
 
 import { parseSignedOAuthTransaction, requirePublicOAuthClient } from './transaction.js'
 
@@ -11,7 +11,6 @@ export interface VerifiedOAuthTransaction {
 }
 
 export function useVerifiedOAuthTransaction() {
-  const route = useRoute()
   const convexConfig = useConvexConfig()
   const transaction = ref<VerifiedOAuthTransaction | null>(null)
   const loading = ref(true)
@@ -19,7 +18,10 @@ export function useVerifiedOAuthTransaction() {
 
   onMounted(async () => {
     try {
-      const pending = parseSignedOAuthTransaction(route.fullPath, convexConfig.siteUrl)
+      const pending = parseSignedOAuthTransaction(
+        `${window.location.pathname}${window.location.search}`,
+        convexConfig.siteUrl,
+      )
 
       const response = await fetch('/api/auth/oauth2/public-client-prelogin', {
         body: JSON.stringify({
