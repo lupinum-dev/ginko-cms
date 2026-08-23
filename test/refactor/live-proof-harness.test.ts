@@ -590,7 +590,9 @@ describe('live refactor proof contract', () => {
     expect(packedHost).toContain("i18n: { autoDetectLanguage: false, defaultLocale: 'en'")
     expect(packedHost).toContain("compatibilityDate: '2026-08-23'")
     expect(packedHost).toContain('site: { url: process.env.CMS_STORY_SITE_URL')
-    expect(packedHost).toContain("routeRules: { '/render-safety': { prerender: false } }")
+    expect(packedHost).toContain(
+      "routeRules: { '/render-safety': { prerender: false }, '/blog': { prerender: false }, '/blog/**': { prerender: false } }",
+    )
     expect(packedHost).toContain("const pageDirectory = join(tempDir, 'app/pages')")
     expect(accountProvisioner).toContain('origin: baseUrl')
     expect(accountProvisioner).toContain('response.status !== 429')

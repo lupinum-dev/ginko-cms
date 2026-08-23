@@ -751,7 +751,7 @@ try {
       ...(liveConvex
         ? [
             "  content: { i18n: { defaultLocale: 'en', locales: ['en', 'de', 'fr'] }, search: { engine: 'provider', collections: ['blog', 'docs'] } },",
-            "  routeRules: { '/render-safety': { prerender: false } },",
+            "  routeRules: { '/render-safety': { prerender: false }, '/blog': { prerender: false }, '/blog/**': { prerender: false } },",
           ]
         : []),
       "  nitro: { externals: { inline: ['@lupinum/ginko-cms'] } },",
