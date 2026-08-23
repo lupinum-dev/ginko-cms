@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { File, Loader2 } from '@lucide/vue'
-import { getCmsErrorMessage } from '@public/utils/cmsErrors'
+import { getCmsErrorData } from '@public/utils/cmsErrors'
 import { computed, ref, watch } from 'vue'
+import { z } from 'zod'
 
 import { api } from '../../boundary/api'
 import type { StudioAssetContext, StudioAssetRecord } from '../../composables/internal/types'
 import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
 import { useCmsStudioSettings } from '../../composables/useCmsStudioSettings'
-import { useConvexMutation } from '../../composables/useStudioConvex'
+import { useConvexForm } from '../../composables/useStudioConvex'
 
 // Shared inner content of the asset metadata editor (preview + filename +
 // dimensions + per-locale alt/caption editing + save). Consumed by BOTH
@@ -27,12 +28,22 @@ const emit = defineEmits<{
 
 const { t } = useCmsI18n()
 const studioSettings = useCmsStudioSettings()
-const updateAsset = useConvexMutation(api.ginkoCms.assets.updateAsset)
+const localizedTextSchema = z.record(z.string().min(1), z.string())
+const metadataForm = useConvexForm(api.ginkoCms.assets.updateAsset, {
+  schema: z.object({
+    alt: localizedTextSchema,
+    caption: localizedTextSchema,
+  }),
+  mapError: (cause) => {
+    const fallback = t('ginkoCms.studio.assetPicker.saveMetadataError')
+    return {
+      form: getCmsErrorData(cause)?.message ?? fallback,
+    }
+  },
+})
 const activeLocale = ref('')
 const altDrafts = ref<Record<string, string>>({})
 const captionDrafts = ref<Record<string, string>>({})
-const saving = ref(false)
-const error = ref('')
 
 const assetQuery = useCmsStudioQuery(
   api.ginkoCms.assets.getAsset,
@@ -104,7 +115,7 @@ const captionText = computed({
 watch(
   [selectedAsset, preferredLocale],
   ([asset, locale]) => {
-    error.value = ''
+    metadataForm.reset()
     if (!asset) {
       altDrafts.value = {}
       captionDrafts.value = {}
@@ -126,32 +137,16 @@ function localeTextToDrafts(value: StudioAssetRecord['alt'] | StudioAssetRecord[
   return { ...value }
 }
 
-function mergeLocaleText(
-  existing: StudioAssetRecord['alt'] | StudioAssetRecord['caption'],
-  drafts: Record<string, string>,
-) {
-  return {
-    ...(typeof existing === 'object' && existing !== null ? existing : {}),
-    ...drafts,
-  }
-}
-
 async function saveMetadata() {
   if (!selectedAsset.value) return
-  saving.value = true
-  error.value = ''
-  try {
-    await updateAsset({
-      assetId: selectedAsset.value._id,
-      alt: mergeLocaleText(selectedAsset.value.alt, altDrafts.value),
-      caption: mergeLocaleText(selectedAsset.value.caption, captionDrafts.value),
-    })
-    emit('saved')
-  } catch (cause) {
-    error.value = getCmsErrorMessage(cause, t('ginkoCms.studio.assetPicker.saveMetadataError'))
-  } finally {
-    saving.value = false
-  }
+  const result = await metadataForm.submit(
+    {
+      alt: altDrafts.value,
+      caption: captionDrafts.value,
+    },
+    { assetId: selectedAsset.value._id },
+  )
+  if (result.ok) emit('saved')
 }
 </script>
 
@@ -219,10 +214,11 @@ async function saveMetadata() {
       </FieldSet>
 
       <div
-        v-if="error"
+        v-if="metadataForm.formError.value || metadataForm.issues.value[0]?.message"
+        role="alert"
         class="ginko:rounded-md ginko:bg-destructive/10 ginko:dark:bg-destructive/15 ginko:px-3 ginko:py-2 ginko:text-xs ginko:text-destructive-fg"
       >
-        {{ error }}
+        {{ metadataForm.issues.value[0]?.message ?? metadataForm.formError.value }}
       </div>
 
       <div class="ginko:space-y-3">
@@ -231,7 +227,7 @@ async function saveMetadata() {
             id="asset-alt-text"
             v-model="altText"
             class="ginko:h-9 ginko:text-sm"
-            :disabled="!selectedAsset || saving"
+            :disabled="!selectedAsset || metadataForm.pending.value"
           />
         </StudioFieldShell>
         <StudioFieldShell for="asset-caption" label="Caption">
@@ -239,7 +235,7 @@ async function saveMetadata() {
             id="asset-caption"
             v-model="captionText"
             class="ginko:h-9 ginko:text-sm"
-            :disabled="!selectedAsset || saving"
+            :disabled="!selectedAsset || metadataForm.pending.value"
           />
         </StudioFieldShell>
       </div>
@@ -252,13 +248,20 @@ async function saveMetadata() {
         v-if="showCancel"
         variant="outline"
         size="sm"
-        :disabled="saving"
+        :disabled="metadataForm.pending.value"
         @click="emit('cancel')"
       >
         Cancel
       </Button>
-      <Button size="sm" :disabled="!selectedAsset || saving" @click="saveMetadata">
-        <Loader2 v-if="saving" class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin" />
+      <Button
+        size="sm"
+        :disabled="!selectedAsset || metadataForm.pending.value"
+        @click="saveMetadata"
+      >
+        <Loader2
+          v-if="metadataForm.pending.value"
+          class="ginko:mr-1.5 ginko:size-3.5 ginko:animate-spin"
+        />
         Save details
       </Button>
     </div>

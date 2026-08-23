@@ -6,7 +6,7 @@ import { computed, onScopeDispose, ref, type ComputedRef, type Ref, watch } from
 import { useCmsAuthState } from './useCmsAuthState'
 import { normalizeCmsStudioQueryError } from './useCmsStudioQuery'
 
-export { useConvexAction, useConvexMutation } from '@lupinum/better-convex-vue'
+export { useConvexAction, useConvexForm, useConvexMutation } from '@lupinum/better-convex-vue'
 
 function useStudioUploadScope(onRetire: () => void) {
   const auth = useCmsAuthState()
