@@ -14,7 +14,7 @@ import {
   type CmsContractWriteToken,
 } from '../lib/installedContract.js'
 import { validateAssetUploadPolicy } from '../lib/sanitize.js'
-import type { MutationCtx, QueryCtx } from '../lib/types.js'
+import type { MutationCtx, QueryCtx, QueryOrMutationCtx } from '../lib/types.js'
 import { hashValue } from '../operationHelpers.js'
 import { insertVerifiedAssetRecord } from './assetRecord.js'
 import { isStorageClaimedByAnotherOwner } from './storageOwnership.js'
@@ -80,6 +80,18 @@ const cleanupAssetStorageRef = makeFunctionReference<
 
 const ASSET_UPLOAD_SESSION_TTL_MS = 10 * 60_000
 const ASSET_UPLOAD_ABANDONED_GRACE_MS = 5 * 60_000
+
+export async function isReversibleFinalizedUpload(
+  ctx: QueryOrMutationCtx,
+  assetId: Id<'assets'>,
+  ownerId: string,
+) {
+  const session = await ctx.db
+    .query('assetUploadSessions')
+    .withIndex('by_asset', (query) => query.eq('assetId', assetId))
+    .unique()
+  return session?.state === 'finalized' && session.ownerId === ownerId
+}
 
 type ProtectedMutationCtx = MutationCtx & {
   appIdentity: () => Promise<CmsMemberAppIdentity>

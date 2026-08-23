@@ -77,6 +77,7 @@ import {
   expireAssetUploadSessionHandler,
   finalizeAssetUploadSessionHandler,
   finalizeClaimedAssetUploadSessionHandler,
+  isReversibleFinalizedUpload,
   readAssetUploadSessionHandler,
 } from './assets/uploadSessions.js'
 import { canManageAssetRecovery, canManageAssets, canRead, requireRecord } from './auth/checks.js'
@@ -573,7 +574,9 @@ export const deleteAssetOperation = defineCmsOperation({
     }
     const derivedReference = await hasAssetReferences(ctx, args.assetId)
     const referenceProof = await readAssetReferenceProofStatus(ctx, args.assetId)
-    if (!derivedReference && !referenceProof.current) {
+    const appIdentity = await ctx.appIdentity()
+    const reversibleUpload = await isReversibleFinalizedUpload(ctx, asset._id, appIdentity.userId)
+    if (!derivedReference && !referenceProof.current && !reversibleUpload) {
       return blockedPreview({
         summary: `Cannot prove that asset "${asset.filename}" is unreferenced.`,
         blockers: [
@@ -611,14 +614,25 @@ export const deleteAssetOperation = defineCmsOperation({
               }),
             ]
           : [],
-      warnings: args.force
-        ? [
-            operationIssue({
-              code: 'forced-delete',
-              message: 'Forced deletion can affect existing content references.',
-            }),
-          ]
-        : [],
+      warnings: [
+        ...(reversibleUpload && !referenceProof.current
+          ? [
+              operationIssue({
+                code: 'recent-upload-undo',
+                message:
+                  'This reverses your finalized upload while the global reference proof is stale.',
+              }),
+            ]
+          : []),
+        ...(args.force
+          ? [
+              operationIssue({
+                code: 'forced-delete',
+                message: 'Forced deletion can affect existing content references.',
+              }),
+            ]
+          : []),
+      ],
       effects: [
         operationEffect({
           kind: 'assets',
@@ -648,7 +662,8 @@ export const deleteAssetOperation = defineCmsOperation({
     await assertStorageOutsidePortableExportHold(ctx, asset.storageId)
     const derivedReference = await hasAssetReferences(ctx, args.assetId)
     const referenceProof = await readAssetReferenceProofStatus(ctx, args.assetId)
-    if (!derivedReference && !referenceProof.current) {
+    const reversibleUpload = await isReversibleFinalizedUpload(ctx, asset._id, appIdentity.userId)
+    if (!derivedReference && !referenceProof.current && !reversibleUpload) {
       throwCmsError(
         'ASSET_REFERENCE_VERIFICATION_REQUIRED',
         'A current complete projection/reference verification is required before moving an unreferenced asset to trash.',

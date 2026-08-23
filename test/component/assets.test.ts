@@ -1348,6 +1348,62 @@ describe('asset management', () => {
     ])
   })
 
+  it('[AST-07] lets the owner undo a finalized upload without weakening ordinary stale-proof guards', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const storageId = await seedStorageObject(ctx, { bytes: 'upload undo', type: 'image/png' })
+    const assetId = await ctx.seed('assets' as never, {
+      storageId,
+      filename: 'upload-undo.png',
+      mimeType: 'image/png',
+      size: 11,
+      width: 1,
+      height: 1,
+      alt: null,
+      caption: null,
+      scope: 'global',
+      entryId: null,
+      collection: null,
+      tags: [],
+      createdBy: 'owner-1',
+      updatedBy: null,
+      createdAt: Date.now(),
+      updatedAt: null,
+      deletedAt: null,
+      deletedBy: null,
+    })
+    await ctx.seed('assetUploadSessions' as never, {
+      sessionId: 'asset_upload_undo',
+      ownerId: 'owner-1',
+      tokenHash: 'token-hash',
+      state: 'finalized',
+      generation: 3,
+      assetId,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 60_000,
+      finalizedAt: Date.now(),
+    })
+
+    const preview = await owner.mutation(api.assets.previewDeleteAssetOperation, {
+      assetId: assetId as string,
+    })
+    expect(preview).toMatchObject({
+      allowed: true,
+      blockers: [],
+      warnings: [expect.objectContaining({ code: 'recent-upload-undo' })],
+    })
+
+    await expect(
+      owner.mutation(api.assets.deleteAssetOperationExecute, {
+        assetId: assetId as string,
+        _confirmationToken: preview.confirmation?.token,
+      }),
+    ).resolves.toMatchObject({ status: 'applied', value: null })
+    expect((await ctx.readAll('assets'))[0]?.deletedAt).toBeTypeOf('number')
+  })
+
   it('[AST-07] recomputes reference blockers when a trash confirmation executes', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

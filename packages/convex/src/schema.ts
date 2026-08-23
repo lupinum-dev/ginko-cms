@@ -613,6 +613,7 @@ export default defineSchema({
     finalizedAt: v.optional(v.number()),
   })
     .index('by_session', ['sessionId'])
+    .index('by_asset', ['assetId'])
     .index('by_storage', ['storageId'])
     .index('by_state_expires_at', ['state', 'expiresAt']),
 
