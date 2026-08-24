@@ -20,10 +20,7 @@ export function useVerifiedOAuthTransaction() {
 
   async function verifyTransaction() {
     try {
-      const pending = parseSignedOAuthTransaction(
-        route.fullPath,
-        convexConfig.siteUrl,
-      )
+      const pending = parseSignedOAuthTransaction(route.fullPath, convexConfig.siteUrl)
 
       const response = await fetch('/api/auth/oauth2/public-client-prelogin', {
         body: JSON.stringify({
