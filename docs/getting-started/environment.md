@@ -94,6 +94,16 @@ with the page request. It is never returned to Studio, persisted in CMS data, or
 included in activity. The acceptance page removes the fragment after capture,
 requires authentication, and is marked `noindex`.
 
+Delivery observations do not decide whether an invitation is valid. Acceptance
+requires the current token, an unexpired invitation, the matching verified email
+address and no existing membership. A delayed or failed delivery acknowledgement
+does not invalidate a token that reached the intended recipient. To invalidate
+an invitation, revoke it or resend it with a new token generation.
+
+The existing `deliveryState: 'delivered'` and `deliveredAt` fields record a
+successful response from the host delivery boundary, not confirmed mailbox
+receipt. Keep that distinction in host diagnostics and member-management UI.
+
 ## CMS Server And MCP Runtime
 
 The optional MCP endpoint is a Convex-native `/mcp` HTTP action. Its fixed

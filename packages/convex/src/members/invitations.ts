@@ -352,7 +352,6 @@ export async function acceptMemberInvitation(
   const now = Date.now()
   if (
     !invitation ||
-    invitation.deliveryState !== 'delivered' ||
     invitation.expiresAt <= now ||
     !args.emailVerified ||
     !email ||
@@ -360,6 +359,8 @@ export async function acceptMemberInvitation(
   ) {
     invalidInvitation()
   }
+  // Delivery is an observation, not membership authority. A recipient can
+  // receive the current token before the host records a delivery response.
   const [existingUser, existingEmail] = await Promise.all([
     ctx.db
       .query('members')

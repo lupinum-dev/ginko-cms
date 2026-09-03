@@ -60,6 +60,60 @@ async function prepareDeliveredInvitation(
 }
 
 describe('[ADM-02] bounded member invitations', () => {
+  it.each(['prepared', 'failed'] as const)(
+    '[ADM-02] accepts valid proof despite a %s delivery observation without bypassing verification',
+    async (deliveryState) => {
+      const ctx = createCtx()
+      await seedOwner(ctx)
+      const owner = ctx.asCmsUser('owner-1')
+      const token = await tokenMaterial(`delivery-${deliveryState}`)
+      const invitation = await owner.action(api.members.prepareMemberInvitationDelivery, {
+        email: 'invited@example.com',
+        role: 'viewer',
+        expiresInHours: 24,
+        tokenHash: token.tokenHash,
+        ...trustedOwner(),
+      })
+      if (deliveryState === 'failed') {
+        await owner.action(api.members.recordMemberInvitationDelivery, {
+          invitationId: invitation.invitationId,
+          generation: invitation.generation,
+          delivered: false,
+          ...trustedOwner(),
+        })
+      }
+      expect(await ctx.readAll('members')).toHaveLength(1)
+      await expect(
+        ctx
+          .asCmsUser('invited-user', {
+            email: 'invited@example.com',
+            emailVerified: false,
+          })
+          .mutation(api.members.acceptMemberInvitation, { tokenProof: token.tokenProof }),
+      ).rejects.toSatisfy(isInvalidInvitation)
+      await expect(
+        ctx
+          .asCmsUser('wrong-user', {
+            email: 'other@example.com',
+            emailVerified: true,
+          })
+          .mutation(api.members.acceptMemberInvitation, { tokenProof: token.tokenProof }),
+      ).rejects.toSatisfy(isInvalidInvitation)
+      const invited = ctx.asCmsUser('invited-user', {
+        email: 'invited@example.com',
+        emailVerified: true,
+      })
+      await expect(
+        invited.mutation(api.members.acceptMemberInvitation, { tokenProof: token.tokenProof }),
+      ).resolves.toMatchObject({ userId: 'invited-user', role: 'viewer' })
+      expect(await ctx.readAll('memberInvitations')).toEqual([])
+      await expect(
+        invited.mutation(api.members.acceptMemberInvitation, { tokenProof: token.tokenProof }),
+      ).rejects.toSatisfy(isInvalidInvitation)
+      expect(await ctx.readAll('members')).toHaveLength(2)
+    },
+  )
+
   it('[ADM-02] activates the reviewed role from a verified Better Auth identity and consumes the token', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
