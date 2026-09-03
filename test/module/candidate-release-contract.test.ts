@@ -40,8 +40,8 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms-contract': '0.2.0-rc.2',
       '@lupinum/ginko-content': '1.0.0-beta.4',
       '@lupinum/better-convex-mcp': '1.0.0-beta.1',
-      '@lupinum/better-convex-nuxt': '1.0.0-beta.1',
-      '@lupinum/better-convex-vue': '1.0.0-beta.1',
+      '@lupinum/better-convex-nuxt': '1.0.0-beta.3',
+      '@lupinum/better-convex-vue': '1.0.0-beta.3',
     })
     expect(compatibility.sourceRehearsal.betterConvexCommit).toMatch(/^[0-9a-f]{40}$/u)
     expect(
@@ -69,9 +69,9 @@ describe('coordinated CMS candidate release contract', () => {
     expect(
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
-      'better-auth': '1.7.1',
-      '@lupinum/better-convex-nuxt': '1.0.0-beta.1',
-      '@lupinum/better-convex-vue': '1.0.0-beta.1',
+      'better-auth': '1.7.2',
+      '@lupinum/better-convex-nuxt': '1.0.0-beta.3',
+      '@lupinum/better-convex-vue': '1.0.0-beta.3',
       convex: '1.42.2',
       nuxt: '4.5.2',
       vue: '3.5.40',
