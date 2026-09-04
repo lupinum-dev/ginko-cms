@@ -11,13 +11,15 @@ Git history preserves the historical record.
 
 The sole active dependency and artifact authority is
 [`packages/cms/compatibility.json`](../../packages/cms/compatibility.json).
-Its `sourceRehearsal` commit is a temporary, non-publishable CI input used to
-prove Ginko against current Better Convex source. `releaseArtifacts` remains the
+Its `sourceRehearsal` commit is a non-publishable CI input used to prove Ginko
+against current Better Convex source. Remove that input after every Better
+Convex coordinate in `releaseStack` is published and registry-equality checks
+pass. `releaseArtifacts` remains the
 only authority for immutable candidate bytes; the packed-source consumer never
 uploads, promotes, or substitutes its temporary archives into Ginko's root
 dependency graph.
-The active compatibility authority pins the validated beta.34/beta.22 source
-tuple and the exact immutable artifacts produced by Better Convex's release
+The active compatibility authority pins the validated Better Convex beta.3
+Nuxt/Vue tuple and the exact immutable artifacts produced by Better Convex's release
 workflow. Their source commit, hashes, integrity values, and Nuxt runtime
 fingerprint support deterministic local candidate verification. No registry URL
 is recorded: publication and registry-equality gates stay blocked until those
