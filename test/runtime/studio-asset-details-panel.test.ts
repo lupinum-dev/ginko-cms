@@ -44,7 +44,13 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () =>
 }))
 
 vi.mock('../../packages/cms/studio-app/src/composables/useStudioConvex', () => ({
-  useConvexMutation: () => mocks.updateAsset,
+  useConvexForm: () => ({
+    formError: { value: null },
+    issues: { value: [] },
+    pending: { value: false },
+    reset: vi.fn(),
+    submit: mocks.updateAsset,
+  }),
 }))
 
 function installLocalStorage() {
