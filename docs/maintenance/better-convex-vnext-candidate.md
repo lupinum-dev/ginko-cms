@@ -1,8 +1,8 @@
-# Better Convex vNext candidate evidence
+# Better Convex release evidence
 
 Date: 2026-07-24
 
-Status: superseded.
+Status: published and verified.
 
 The former Better Convex and Ginko prerelease candidate set was retired after
 tracked compatibility corrections. Its source commits, artifact hashes, and
@@ -11,18 +11,15 @@ Git history preserves the historical record.
 
 The sole active dependency and artifact authority is
 [`packages/cms/compatibility.json`](../../packages/cms/compatibility.json).
-Its `sourceRehearsal` commit is a temporary, non-publishable CI input used to
-prove Ginko against current Better Convex source. `releaseArtifacts` remains the
-only authority for immutable candidate bytes; the packed-source consumer never
-uploads, promotes, or substitutes its temporary archives into Ginko's root
-dependency graph.
-The active compatibility authority pins the validated beta.34/beta.22 source
-tuple and the exact immutable artifacts produced by Better Convex's release
-workflow. Their source commit, hashes, integrity values, and Nuxt runtime
-fingerprint support deterministic local candidate verification. No registry URL
-is recorded: publication and registry-equality gates stay blocked until those
-exact bytes are published with provenance. The MCP package remains experimental
-while targeting the final 2026-07-28 protocol.
+Its `sourceRehearsal` commit is a CI input used to prove Ginko against the exact
+Better Convex Nuxt/Vue source that produced beta.3. This independent source
+consumer does not override Ginko's registry-backed dependency graph.
+`releaseArtifacts` is the authority for immutable registry bytes. It records
+each package's registry URL, provenance source commit, SHA-256, SRI integrity,
+and the Nuxt runtime fingerprint. The MCP beta was published from an earlier
+commit than the Nuxt/Vue beta.3 pair, so provenance is intentionally recorded
+per artifact rather than forced into one false shared-source invariant. The MCP
+package remains experimental while targeting the final 2026-07-28 protocol.
 Current rehearsal and release procedures are documented in
 [`release-candidate.md`](release-candidate.md) and
 [`MAINTAINING.md`](../../MAINTAINING.md).

@@ -22,14 +22,13 @@ an install override; it does not create, approve, or replace an immutable
 release candidate.
 
 The earlier Better Convex rehearsal tuples are superseded. RC.2 is source-tested
-against beta.34/beta.22 at the commit recorded in the compatibility authority.
-Better Convex's release workflow produced the immutable candidate hashes,
-integrity values, and Nuxt runtime fingerprint recorded there. The packages
-must still be published byte-for-byte before Ginko's registry-equality and tag
-publication gates can pass; local candidate evidence is not registry
-provenance.
+against the Nuxt/Vue beta.3 commit recorded in the compatibility authority.
+The authority records the published registry URLs, per-artifact provenance
+commits, hashes, integrity values, and Nuxt runtime fingerprint. The MCP beta
+comes from an earlier source commit than the Nuxt/Vue pair; this is explicit
+provenance, not a shared-source assumption.
 
-The coordinated runtime uses exactly Nuxt `4.5.1`, Vite `8.1.5`, and Vue
+The coordinated runtime uses exactly Nuxt `4.5.2`, Vite `8.1.5`, and Vue
 `3.5.40`. Clean pnpm and strict npm consumers are both mandatory. Never use
 `--legacy-peer-deps`, `--force`, relaxed peer checks, or an override.
 

@@ -59,10 +59,10 @@
     "audit:prod": "pnpm audit --prod --audit-level low"
   },
   "devDependencies": {
-    "@better-auth/oauth-provider": "1.7.1",
+    "@better-auth/oauth-provider": "1.7.2",
     "@edge-runtime/vm": "^5.0.0",
-    "@lupinum/better-convex-nuxt": "1.0.0-beta.1",
-    "@lupinum/better-convex-vue": "1.0.0-beta.1",
+    "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
+    "@lupinum/better-convex-vue": "1.0.0-beta.3",
     "@lupinum/ginko-content": "1.0.0-beta.4",
     "@nuxt/eslint-config": "^1.15.2",
     "@nuxt/kit": "4.5.2",
@@ -75,7 +75,7 @@
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/test-utils": "^2.4.10",
     "axe-core": "4.12.1",
-    "better-auth": "1.7.1",
+    "better-auth": "1.7.2",
     "changelogen": "^0.6.2",
     "convex": "1.42.2",
     "convex-test": "^0.0.52",
@@ -93,7 +93,8 @@
     "vitest": "^4.1.10",
     "vue": "3.5.40",
     "vue-tsc": "^3.3.7",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "zod": "4.4.3"
   },
   "packageManager": "pnpm@11.13.1"
 }

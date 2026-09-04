@@ -6,33 +6,37 @@
     "@lupinum/ginko-cms-contract": "0.2.0-rc.2",
     "@lupinum/ginko-content": "1.0.0-beta.4",
     "@lupinum/better-convex-mcp": "1.0.0-beta.1",
-    "@lupinum/better-convex-nuxt": "1.0.0-beta.1",
-    "@lupinum/better-convex-vue": "1.0.0-beta.1"
+    "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
+    "@lupinum/better-convex-vue": "1.0.0-beta.3"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "1497451ce07bab7ec47a124a0aa6a410da2d8c61"
+    "betterConvexCommit": "51224341435871c42046860aa8eb4fc1d200bce0"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "394a144d5580f15d0abcf8a59acfaac2a710a5a9",
-      "sha256": "c516c86ecc7d571e54692b8c921137e96701755c3c8e58cce52b99808221b5cf",
-      "integrity": "sha512-IJiQPGW+QvKiQdNL0iZjHecy0ZnQ4IWr0zl5UMQts30GuKJ/XQ8nxyBrnanuMspczlq1yK77cWTZYIqItcj33w=="
+      "sourceCommit": "4ad58531c94a1eec54e6d4cf452de76f02b56fce",
+      "registry": "https://registry.npmjs.org/@lupinum/ginko-content/-/ginko-content-1.0.0-beta.4.tgz",
+      "sha256": "73ca6a9c49dd8e5ae5ce132db4ccdc8073a1323d446d2ca4671d35398bd45e63",
+      "integrity": "sha512-GhfjQd7/vKaQpdN3pYblAmAzGEy7jG5zawnOvYXeLDaO8Br3fO4yekjD7icTpxYZjVPEMC1w86X0mV1j5HyOTg=="
     },
     "@lupinum/better-convex-mcp": {
-      "sourceCommit": "1497451ce07bab7ec47a124a0aa6a410da2d8c61",
+      "sourceCommit": "596b085d5ccdbbabab97e7e57b915afdd0096bca",
+      "registry": "https://registry.npmjs.org/@lupinum/better-convex-mcp/-/better-convex-mcp-1.0.0-beta.1.tgz",
       "sha256": "bf767b6197300867e5ec9f37cf8474b1e3ca05f66964b3f9860b3be823889b7a",
       "integrity": "sha512-swrRLIqDCgpQkG9kYAQNpzeBrD4e6OsjdSz0RJ4KmSERDnMira0U9drfT1kSEQzvWpwM4QCAvRFk9XyECbF/9w=="
     },
     "@lupinum/better-convex-nuxt": {
-      "sourceCommit": "1497451ce07bab7ec47a124a0aa6a410da2d8c61",
-      "sha256": "f2643d958c130ba3b13ac33ce6a698a050c9b40abf5fedc60e29355b08ba142f",
-      "integrity": "sha512-IEQlHuTvyTWMnRVOiti8Pz8YmnGWCpKpaXPEC6ATZz+i0YXXAvxh69zO9PlDK38cwL/d0CajrEccXF5OhEYbXQ==",
-      "runtimeFingerprint": "bcn-release-v1-c659d00a1840290a7267380935fc94131b87cf6aed8599741f788b4900c83f33"
+      "sourceCommit": "51224341435871c42046860aa8eb4fc1d200bce0",
+      "registry": "https://registry.npmjs.org/@lupinum/better-convex-nuxt/-/better-convex-nuxt-1.0.0-beta.3.tgz",
+      "sha256": "a867a68105cbf7f8af03a4108f62626d20e36707beb2bba278ea193b6700b89a",
+      "integrity": "sha512-bk/o8jDgCmhp/fwx68mmqiKkXd+Tyc/qGwRU/zIMQhtdtOv6wtE2a5N6y5Nsk9XL9cW5N9cwMp8z5M8XqJWcUg==",
+      "runtimeFingerprint": "bcn-release-v1-871c5bd997c16fb86b99d46ca7a87160b49ca376389fd857bf873ac39800f717"
     },
     "@lupinum/better-convex-vue": {
-      "sourceCommit": "1497451ce07bab7ec47a124a0aa6a410da2d8c61",
-      "sha256": "f4d17f2ecb59205a16e9ee77e94d36dab72785d5667e32529951544412254ab4",
-      "integrity": "sha512-lfJaneI94+hAvDCf/sPxW/KFci85Uf4SVuawTzY4WFJjVwUB80U6jWoq3TchD6nHhfsMKvvvPExJXFnqdDwFvA=="
+      "sourceCommit": "51224341435871c42046860aa8eb4fc1d200bce0",
+      "registry": "https://registry.npmjs.org/@lupinum/better-convex-vue/-/better-convex-vue-1.0.0-beta.3.tgz",
+      "sha256": "f1480e8fb43b6f2fdf7ba194bd84484479265ad5b923a03111421766f471351a",
+      "integrity": "sha512-KmX82V0kVyzD9QUEdrLwbYyIoApgI92U08tkGhT055zY8T5n94sLfHT8mlFcoaWEn0+FIX51tGPRsrEVMk64tg=="
     }
   },
   "tracked": {
@@ -40,12 +44,12 @@
     "@nuxtjs/sitemap": ["^8.0.15", "8.0.15"],
     "nuxt-i18n-micro": ["3.28.0"],
     "@nuxt/kit": ["4.5.2"],
-    "@better-auth/oauth-provider": ["1.7.1"],
+    "@better-auth/oauth-provider": ["1.7.2"],
     "@lupinum/better-convex-mcp": ["1.0.0-beta.1"],
     "@lupinum/ginko-content": ["1.0.0-beta.4"],
-    "better-auth": ["1.7.1"],
-    "@lupinum/better-convex-nuxt": ["1.0.0-beta.1"],
-    "@lupinum/better-convex-vue": ["1.0.0-beta.1"],
+    "better-auth": ["1.7.2"],
+    "@lupinum/better-convex-nuxt": ["1.0.0-beta.3"],
+    "@lupinum/better-convex-vue": ["1.0.0-beta.3"],
     "convex": ["1.42.2", "^1.42.2"],
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
@@ -60,9 +64,9 @@
       "@nuxt/kit": "4.5.2",
       "@lupinum/better-convex-mcp": "1.0.0-beta.1",
       "@lupinum/ginko-content": "1.0.0-beta.4",
-      "better-auth": "1.7.1",
-      "@lupinum/better-convex-nuxt": "1.0.0-beta.1",
-      "@lupinum/better-convex-vue": "1.0.0-beta.1",
+      "better-auth": "1.7.2",
+      "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
+      "@lupinum/better-convex-vue": "1.0.0-beta.3",
       "convex": "1.42.2",
       "nuxt": "4.5.2",
       "vue": "3.5.40"

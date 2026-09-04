@@ -62,8 +62,8 @@
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@lucide/vue": "^1.24.0",
-    "@lupinum/better-convex-nuxt": "1.0.0-beta.1",
-    "@lupinum/better-convex-vue": "1.0.0-beta.1",
+    "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
+    "@lupinum/better-convex-vue": "1.0.0-beta.3",
     "@lupinum/ginko-cms-contract": "workspace:0.2.0-rc.2",
     "@lupinum/ginko-cms-convex": "workspace:0.2.0-rc.2",
     "@nuxt/kit": "4.5.2",
@@ -129,7 +129,7 @@
   },
   "peerDependencies": {
     "@lupinum/ginko-content": "1.0.0-beta.4",
-    "better-auth": "1.7.1",
+    "better-auth": "1.7.2",
     "nuxt": "4.5.2",
     "vue": "3.5.40"
   },

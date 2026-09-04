@@ -21,8 +21,8 @@ the CMS packages are published.
 
 ## Daily Maintenance
 
-The Better Convex beta.34/beta.22 source tuple is the validated migration
-target. Install the committed dependency graph, then run the source and
+The published Better Convex Nuxt/Vue beta.3 tuple is the validated integration
+baseline. Install the committed dependency graph, then run the source and
 packed-source checks:
 
 ```bash
@@ -49,14 +49,12 @@ runtime fingerprint binding, and reproducible Ginko packs against the single
 compatibility authority. Candidate verification rejects wrong installed
 versions and workspace/link dependencies.
 
-The compatibility authority records the exact immutable artifacts produced by
-a certified clean rehearsal of Better Convex's canonical release-artifact
-workflow, bound to the source commit and Nuxt runtime fingerprint. Those bytes
-support local candidate packing but do not substitute for protected release or
-registry provenance. Registry verification
-remains fail-closed until beta.34/beta.22 are published byte-for-byte. The MCP
-package remains experimental while its transport targets the final 2026-07-28
-protocol.
+The compatibility authority records the exact immutable registry artifacts,
+their provenance source commits, and the Nuxt runtime fingerprint. The Better
+Convex MCP beta was published earlier than the Nuxt/Vue beta.3 pair, so its
+provenance commit is intentionally different and is recorded per artifact. The
+MCP package remains experimental while its transport targets the final
+2026-07-28 protocol.
 
 For a real release candidate, also run the registry dependency lane after
 Ginko Content is published:
@@ -65,9 +63,8 @@ Ginko Content is published:
 pnpm run release:verify:registry
 ```
 
-That lane can become green only after every Better Convex coordinate in
-`packages/cms/compatibility.json` is published. It must fail closed while the
-rehearsal coordinates remain unpublished.
+That lane must download every dependency from the registry and match the exact
+hashes and integrity values in `packages/cms/compatibility.json`.
 
 ## Release Runbook
 

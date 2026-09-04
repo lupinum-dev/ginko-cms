@@ -40,8 +40,8 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms-contract': '0.2.0-rc.2',
       '@lupinum/ginko-content': '1.0.0-beta.4',
       '@lupinum/better-convex-mcp': '1.0.0-beta.1',
-      '@lupinum/better-convex-nuxt': '1.0.0-beta.1',
-      '@lupinum/better-convex-vue': '1.0.0-beta.1',
+      '@lupinum/better-convex-nuxt': '1.0.0-beta.3',
+      '@lupinum/better-convex-vue': '1.0.0-beta.3',
     })
     expect(compatibility.sourceRehearsal.betterConvexCommit).toMatch(/^[0-9a-f]{40}$/u)
     expect(
@@ -60,22 +60,27 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/better-convex-vue',
       '@lupinum/ginko-content',
     ])
-    for (const name of [
-      '@lupinum/better-convex-mcp',
-      '@lupinum/better-convex-nuxt',
-      '@lupinum/better-convex-vue',
-    ]) {
-      expect(compatibility.releaseArtifacts[name]?.sourceCommit).toBe(
-        compatibility.sourceRehearsal.betterConvexCommit,
+    for (const [name, version] of Object.entries(compatibility.releaseStack)) {
+      const artifact = compatibility.releaseArtifacts[name]
+      if (!artifact) continue
+
+      expect(artifact.sourceCommit).toMatch(/^[0-9a-f]{40}$/u)
+      expect(artifact.registry).toBe(
+        `https://registry.npmjs.org/${name}/-/${name.split('/').at(-1)}-${version}.tgz`,
       )
-      expect(compatibility.releaseArtifacts[name]?.registry).toBeUndefined()
     }
+    expect(compatibility.releaseArtifacts['@lupinum/better-convex-nuxt']?.sourceCommit).toBe(
+      compatibility.sourceRehearsal.betterConvexCommit,
+    )
+    expect(compatibility.releaseArtifacts['@lupinum/better-convex-vue']?.sourceCommit).toBe(
+      compatibility.sourceRehearsal.betterConvexCommit,
+    )
     expect(
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
-      'better-auth': '1.7.1',
-      '@lupinum/better-convex-nuxt': '1.0.0-beta.1',
-      '@lupinum/better-convex-vue': '1.0.0-beta.1',
+      'better-auth': '1.7.2',
+      '@lupinum/better-convex-nuxt': '1.0.0-beta.3',
+      '@lupinum/better-convex-vue': '1.0.0-beta.3',
       convex: '1.42.2',
       nuxt: '4.5.2',
       vue: '3.5.40',

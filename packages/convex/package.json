@@ -51,9 +51,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json"
   },
   "dependencies": {
-    "@better-auth/oauth-provider": "1.7.1",
+    "@better-auth/oauth-provider": "1.7.2",
     "@lupinum/better-convex-mcp": "1.0.0-beta.1",
-    "@lupinum/better-convex-nuxt": "1.0.0-beta.1",
+    "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
     "@lupinum/ginko-cms-contract": "workspace:0.2.0-rc.2",
     "@lupinum/ginko-content": "1.0.0-beta.4",
     "@modelcontextprotocol/server": "2.0.0",
@@ -61,7 +61,7 @@
     "zod": "4.4.3"
   },
   "peerDependencies": {
-    "better-auth": "1.7.1"
+    "better-auth": "1.7.2"
   },
   "engines": {
     "node": ">=22.0.0"

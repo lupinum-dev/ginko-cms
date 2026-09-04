@@ -9,17 +9,17 @@ importers:
   .:
     devDependencies:
       '@better-auth/oauth-provider':
-        specifier: 1.7.1
-        version: 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))
+        specifier: 1.7.2
+        version: 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0
       '@lupinum/better-convex-nuxt':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(8ae46c09851f4ffbfc11e76c26e2e31c)
+        specifier: 1.0.0-beta.3
+        version: 1.0.0-beta.3(6e477523881d7557c055cd525da9c2a6)
       '@lupinum/better-convex-vue':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))
+        specifier: 1.0.0-beta.3
+        version: 1.0.0-beta.3(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))
       '@lupinum/ginko-content':
         specifier: 1.0.0-beta.4
         version: 1.0.0-beta.4(6a8fa6961a2a7e819cd8d9f27e522d06)
@@ -57,8 +57,8 @@ importers:
         specifier: 4.12.1
         version: 4.12.1
       better-auth:
-        specifier: 1.7.1
-        version: 1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
+        specifier: 1.7.2
+        version: 1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
       changelogen:
         specifier: ^0.6.2
         version: 0.6.2(magicast@0.5.4)
@@ -113,6 +113,9 @@ importers:
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/cms:
     dependencies:
@@ -126,11 +129,11 @@ importers:
         specifier: ^1.24.0
         version: 1.31.0(vue@3.5.40(typescript@5.9.3))
       '@lupinum/better-convex-nuxt':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(ff4a4535c1f26d72f35571d33a1ea765)
+        specifier: 1.0.0-beta.3
+        version: 1.0.0-beta.3(5514337a64b00be096f38dc257017532)
       '@lupinum/better-convex-vue':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))
+        specifier: 1.0.0-beta.3
+        version: 1.0.0-beta.3(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))
       '@lupinum/ginko-cms-contract':
         specifier: workspace:0.2.0-rc.2
         version: link:../contract
@@ -150,8 +153,8 @@ importers:
         specifier: ^4.3.0
         version: 4.3.3(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0))
       better-auth:
-        specifier: 1.7.1
-        version: 1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
+        specifier: 1.7.2
+        version: 1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
       convex:
         specifier: 1.42.2
         version: 1.42.2
@@ -334,14 +337,14 @@ importers:
   packages/convex:
     dependencies:
       '@better-auth/oauth-provider':
-        specifier: 1.7.1
-        version: 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))
+        specifier: 1.7.2
+        version: 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))
       '@lupinum/better-convex-mcp':
         specifier: 1.0.0-beta.1
         version: 1.0.0-beta.1(vue@3.5.40(typescript@5.9.3))
       '@lupinum/better-convex-nuxt':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(8ae46c09851f4ffbfc11e76c26e2e31c)
+        specifier: 1.0.0-beta.3
+        version: 1.0.0-beta.3(6e477523881d7557c055cd525da9c2a6)
       '@lupinum/ginko-cms-contract':
         specifier: workspace:0.2.0-rc.2
         version: link:../contract
@@ -352,8 +355,8 @@ importers:
         specifier: 2.0.0
         version: 2.0.0
       better-auth:
-        specifier: 1.7.1
-        version: 1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
+        specifier: 1.7.2
+        version: 1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
       convex:
         specifier: 1.42.2
         version: 1.42.2
@@ -367,8 +370,8 @@ importers:
         specifier: 1.0.0-beta.1
         version: 1.0.0-beta.1(vue@3.5.40(typescript@5.9.3))
       '@lupinum/better-convex-nuxt':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(8ae46c09851f4ffbfc11e76c26e2e31c)
+        specifier: 1.0.0-beta.3
+        version: 1.0.0-beta.3(6e477523881d7557c055cd525da9c2a6)
       '@lupinum/ginko-cms':
         specifier: workspace:*
         version: link:../packages/cms
@@ -391,8 +394,8 @@ importers:
         specifier: ^4.3.0
         version: 4.3.3(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0))
       better-auth:
-        specifier: 1.7.1
-        version: 1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
+        specifier: 1.7.2
+        version: 1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
       convex:
         specifier: 1.42.2
         version: 1.42.2
@@ -577,8 +580,8 @@ packages:
     resolution: {integrity: sha512-eY+Yn3dCqTGmyiq2QRU66lA5FL8lqqqvecHt0fF3uHONIa7ToYsaCiWV8lOKqAs0Rb2SjixiKFROngnulPtt2g==, tarball: https://registry.npmjs.org/@babel/types/-/types-8.0.4.tgz}
     engines: {node: ^22.18.0 || >=24.11.0}
 
-  '@better-auth/core@1.7.1':
-    resolution: {integrity: sha512-eZ9lqcnVLMZ3QtUByRo4VZqkB1ESyRddd9NfWjBdDPgh+jcwLScoIUAqhtHLR8zaSUJZah8OLGlkzObyPdUH7A==, tarball: https://registry.npmjs.org/@better-auth/core/-/core-1.7.1.tgz}
+  '@better-auth/core@1.7.2':
+    resolution: {integrity: sha512-j0nM4ygsWbF/fcYRoKtDn8gn8uLXkmC+075HqSqsJEAV828cJR9bvYBCUQ1zmxNyRBk6Iz/qXsA0Zm2oksiOTg==, tarball: https://registry.npmjs.org/@better-auth/core/-/core-1.7.2.tgz}
     peerDependencies:
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.1
@@ -594,55 +597,55 @@ packages:
       '@opentelemetry/api':
         optional: true
 
-  '@better-auth/drizzle-adapter@1.7.1':
-    resolution: {integrity: sha512-qlqNyg5V9bXHSP68/vtlsiZayhR4hgvEGiS/E3SIj8bCpWWFGmyQkxJbQCqpBmC7vT30wE/kNtJMHIgnV3rkiw==, tarball: https://registry.npmjs.org/@better-auth/drizzle-adapter/-/drizzle-adapter-1.7.1.tgz}
+  '@better-auth/drizzle-adapter@1.7.2':
+    resolution: {integrity: sha512-A5wE10PIv3aS5LGePecEHntQylKy6OOF17B4dqlE0DwJeqU/IOBSd7/LZhMop9cNJ3WFjKMpazVSf91yYM/NFg==, tarball: https://registry.npmjs.org/@better-auth/drizzle-adapter/-/drizzle-adapter-1.7.2.tgz}
     peerDependencies:
-      '@better-auth/core': ^1.7.1
+      '@better-auth/core': ^1.7.2
       '@better-auth/utils': 0.4.2
       drizzle-orm: ^0.45.2 || >=1.0.0-rc.1 <2.0.0
     peerDependenciesMeta:
       drizzle-orm:
         optional: true
 
-  '@better-auth/kysely-adapter@1.7.1':
-    resolution: {integrity: sha512-yWCpE1cZpMUj37nD6JFDK+GDR8zS37L5WI73il3qbU9TXtWsxUQKc/5c3IHsHizWQsmcQI8uv2pAFKxsRDa+AQ==, tarball: https://registry.npmjs.org/@better-auth/kysely-adapter/-/kysely-adapter-1.7.1.tgz}
+  '@better-auth/kysely-adapter@1.7.2':
+    resolution: {integrity: sha512-LYdSRLOvZiF+6S0UThu+wE/Qxsq9P2jQs7ZKkY6BIBJqUjYyxVDmi8HFcantBvWWW1/BeQCSsD7YVDG4gICMIQ==, tarball: https://registry.npmjs.org/@better-auth/kysely-adapter/-/kysely-adapter-1.7.2.tgz}
     peerDependencies:
-      '@better-auth/core': ^1.7.1
+      '@better-auth/core': ^1.7.2
       '@better-auth/utils': 0.4.2
       kysely: ^0.28.17 || ^0.29.0
     peerDependenciesMeta:
       kysely:
         optional: true
 
-  '@better-auth/memory-adapter@1.7.1':
-    resolution: {integrity: sha512-6NX1yv88DeqdoG7owYFqKwlrDGaIPhsC52JUGrUgeGVKyOq8a/6hHlHsqG1C2FwT23SHQiKVYCEAG9N6aH5OvQ==, tarball: https://registry.npmjs.org/@better-auth/memory-adapter/-/memory-adapter-1.7.1.tgz}
+  '@better-auth/memory-adapter@1.7.2':
+    resolution: {integrity: sha512-0q1SXMzm5esH9L0xVuM6IxCk59E4G+3HySX4My9gvEwqtmUobykn+iuc/si3Y4xwUO7JODqQ5o+/pPcLDDMIrA==, tarball: https://registry.npmjs.org/@better-auth/memory-adapter/-/memory-adapter-1.7.2.tgz}
     peerDependencies:
-      '@better-auth/core': ^1.7.1
+      '@better-auth/core': ^1.7.2
       '@better-auth/utils': 0.4.2
 
-  '@better-auth/mongo-adapter@1.7.1':
-    resolution: {integrity: sha512-9ILTcNqhG37QK//qR4UhYLyKzNqq6w6zVTf5KX6xkiTjNcV7Oh1yS31lkIJEVTqRNcy9AoV6FZMW6Bbsm8IMDA==, tarball: https://registry.npmjs.org/@better-auth/mongo-adapter/-/mongo-adapter-1.7.1.tgz}
+  '@better-auth/mongo-adapter@1.7.2':
+    resolution: {integrity: sha512-4879SmUWHUs0OYlvHoCFbycZ7i1bqytkcgAUdt9RLQMvZ5H3LRMTgax2YVlGZEXgwNjY/X7xAoXOecWLhlQWeA==, tarball: https://registry.npmjs.org/@better-auth/mongo-adapter/-/mongo-adapter-1.7.2.tgz}
     peerDependencies:
-      '@better-auth/core': ^1.7.1
+      '@better-auth/core': ^1.7.2
       '@better-auth/utils': 0.4.2
       mongodb: ^6.0.0 || ^7.0.0
     peerDependenciesMeta:
       mongodb:
         optional: true
 
-  '@better-auth/oauth-provider@1.7.1':
-    resolution: {integrity: sha512-VWIw7ti6rodlbbdSbn0mts/TZcBWUj6YaoIpREmv70eoGmWTa6MPWEbGuUdADQe3Vy4YqysIbmQA6qgRqfLTaw==, tarball: https://registry.npmjs.org/@better-auth/oauth-provider/-/oauth-provider-1.7.1.tgz}
+  '@better-auth/oauth-provider@1.7.2':
+    resolution: {integrity: sha512-td7FnUz3lLKXFXN+0RbZe3ygaHqxpRqDG+gxbfSZbztbVfG7vuZtR4ba3uccsodAw7anchhIg2xwVP1/zlcxcw==, tarball: https://registry.npmjs.org/@better-auth/oauth-provider/-/oauth-provider-1.7.2.tgz}
     peerDependencies:
-      '@better-auth/core': ^1.7.1
+      '@better-auth/core': ^1.7.2
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.1
-      better-auth: ^1.7.1
+      better-auth: ^1.7.2
       better-call: 1.4.0
 
-  '@better-auth/prisma-adapter@1.7.1':
-    resolution: {integrity: sha512-ZiUcafQ85InAofcUjyGgCPjKLfQjXr9SvDmMjuFUW8oEbreA6C6GaFAEA77VuV2doZUQlzvQQ4gCoTmS28W92A==, tarball: https://registry.npmjs.org/@better-auth/prisma-adapter/-/prisma-adapter-1.7.1.tgz}
+  '@better-auth/prisma-adapter@1.7.2':
+    resolution: {integrity: sha512-mXTr/83WrNWLrvzIjtgDgdu9iXhOcSG1+qBQOAKlbGSFiOB+z4IMRneQ2wmMOiB8mKY9qGkClVUjKRFXqtHnFQ==, tarball: https://registry.npmjs.org/@better-auth/prisma-adapter/-/prisma-adapter-1.7.2.tgz}
     peerDependencies:
-      '@better-auth/core': ^1.7.1
+      '@better-auth/core': ^1.7.2
       '@better-auth/utils': 0.4.2
       '@prisma/client': ^5.0.0 || ^6.0.0 || ^7.0.0
       prisma: ^5.0.0 || ^6.0.0 || ^7.0.0
@@ -652,10 +655,10 @@ packages:
       prisma:
         optional: true
 
-  '@better-auth/telemetry@1.7.1':
-    resolution: {integrity: sha512-kLKjMfFlTbyt49DGeI9okHAsn0MtBZcMoQYKaEdgR0H3BHzqqyzePcQz/hxAmRgjB4p/6inise3zJwhX0sgXrQ==, tarball: https://registry.npmjs.org/@better-auth/telemetry/-/telemetry-1.7.1.tgz}
+  '@better-auth/telemetry@1.7.2':
+    resolution: {integrity: sha512-LcWu+O0zrxYDQj8E36vfkJwGPW4k9ZDA/rCo0zST6ihzL+juR7pBowoZIM9E6tK0Vit52mf6412bGT4XM4eTjQ==, tarball: https://registry.npmjs.org/@better-auth/telemetry/-/telemetry-1.7.2.tgz}
     peerDependencies:
-      '@better-auth/core': ^1.7.1
+      '@better-auth/core': ^1.7.2
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.1
 
@@ -1454,30 +1457,33 @@ packages:
       vue:
         optional: true
 
-  '@lupinum/better-convex-nuxt@1.0.0-beta.1':
-    resolution: {integrity: sha512-qYnB2pgjyjBitUIz7sHGhRQciqw85SAN19u01+EfXQRjQ4XUxAhM3Qnw+b4StBdM45+z02GjctATRzj45OzQOg==}
-    engines: {node: ^22.14.0 || ^24.0.0}
+  '@lupinum/better-convex-nuxt@1.0.0-beta.3':
+    resolution: {integrity: sha512-bk/o8jDgCmhp/fwx68mmqiKkXd+Tyc/qGwRU/zIMQhtdtOv6wtE2a5N6y5Nsk9XL9cW5N9cwMp8z5M8XqJWcUg==}
+    engines: {node: ^22.19.0 || ^24.11.0}
     hasBin: true
     peerDependencies:
-      '@better-auth/oauth-provider': 1.7.1
-      better-auth: 1.7.1
+      '@better-auth/core': 1.7.2
+      '@better-auth/oauth-provider': 1.7.2
+      better-auth: 1.7.2
       convex: '>=1.42.2 <2'
       nuxt: '>=4.5.2 <5'
     peerDependenciesMeta:
+      '@better-auth/core':
+        optional: true
       '@better-auth/oauth-provider':
         optional: true
       better-auth:
         optional: true
 
-  '@lupinum/better-convex-vue@1.0.0-beta.1':
-    resolution: {integrity: sha512-uvKXZEGZWH3k/Fyg5htto01/UQbV8W8sbqdkPZI9k0nVph3uwKN9zbz4IYHSgdl8D1UHI1L2iawtEHie/7tcNA==}
-    engines: {node: ^22.14.0 || ^24.0.0}
+  '@lupinum/better-convex-vue@1.0.0-beta.3':
+    resolution: {integrity: sha512-KmX82V0kVyzD9QUEdrLwbYyIoApgI92U08tkGhT055zY8T5n94sLfHT8mlFcoaWEn0+FIX51tGPRsrEVMk64tg==}
+    engines: {node: ^22.19.0 || ^24.11.0}
     peerDependencies:
       convex: '>=1.42.2 <2'
       vue: '>=3.5.0 <4'
 
   '@lupinum/ginko-content@1.0.0-beta.4':
-    resolution: {integrity: sha512-IJiQPGW+QvKiQdNL0iZjHecy0ZnQ4IWr0zl5UMQts30GuKJ/XQ8nxyBrnanuMspczlq1yK77cWTZYIqItcj33w==}
+    resolution: {integrity: sha512-GhfjQd7/vKaQpdN3pYblAmAzGEy7jG5zawnOvYXeLDaO8Br3fO4yekjD7icTpxYZjVPEMC1w86X0mV1j5HyOTg==, tarball: https://registry.npmjs.org/@lupinum/ginko-content/-/ginko-content-1.0.0-beta.4.tgz}
     engines: {node: ^22.18.0 || ^24.11.0 || >=26.0.0}
     hasBin: true
     peerDependencies:
@@ -3276,8 +3282,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  better-auth@1.7.1:
-    resolution: {integrity: sha512-g8WlTQijxXWJjPVZfFu1+EJg9cwwHrKDmIkcYMzx8CzYA+tDxl6NI7qQbKkbgw5UtHILsT5VH+RMzFzwnVJqAg==, tarball: https://registry.npmjs.org/better-auth/-/better-auth-1.7.1.tgz}
+  better-auth@1.7.2:
+    resolution: {integrity: sha512-gKapKBEvYIGcMxi74RjQ7EbFLiqyQt58vdoJmL1qAlWSkY1Bc2Vqshl524/3u1NxauiOU03M/Ebh762Brmac9A==, tarball: https://registry.npmjs.org/better-auth/-/better-auth-1.7.2.tgz}
     peerDependencies:
       '@lynx-js/react': '*'
       '@prisma/client': ^5.0.0 || ^6.0.0 || ^7.0.0
@@ -7110,7 +7116,7 @@ snapshots:
       '@babel/helper-string-parser': 8.0.0
       '@babel/helper-validator-identifier': 8.0.4
 
-  '@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)':
+  '@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)':
     dependencies:
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.1
@@ -7122,46 +7128,46 @@ snapshots:
       nanostores: 1.4.2
       zod: 4.4.3
 
-  '@better-auth/drizzle-adapter@1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)':
+  '@better-auth/drizzle-adapter@1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)':
     dependencies:
-      '@better-auth/core': 1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
       '@better-auth/utils': 0.4.2
 
-  '@better-auth/kysely-adapter@1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(kysely@0.29.5)':
+  '@better-auth/kysely-adapter@1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(kysely@0.29.5)':
     dependencies:
-      '@better-auth/core': 1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
       '@better-auth/utils': 0.4.2
     optionalDependencies:
       kysely: 0.29.5
 
-  '@better-auth/memory-adapter@1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)':
+  '@better-auth/memory-adapter@1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)':
     dependencies:
-      '@better-auth/core': 1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
       '@better-auth/utils': 0.4.2
 
-  '@better-auth/mongo-adapter@1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)':
+  '@better-auth/mongo-adapter@1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)':
     dependencies:
-      '@better-auth/core': 1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
       '@better-auth/utils': 0.4.2
 
-  '@better-auth/oauth-provider@1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))':
+  '@better-auth/oauth-provider@1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))':
     dependencies:
-      '@better-auth/core': 1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.1
-      better-auth: 1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
+      better-auth: 1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
       better-call: 1.4.0(zod@4.4.3)
       jose: 6.2.8
       zod: 4.4.3
 
-  '@better-auth/prisma-adapter@1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)':
+  '@better-auth/prisma-adapter@1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)':
     dependencies:
-      '@better-auth/core': 1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
       '@better-auth/utils': 0.4.2
 
-  '@better-auth/telemetry@1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)':
+  '@better-auth/telemetry@1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)':
     dependencies:
-      '@better-auth/core': 1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.1
 
@@ -7728,36 +7734,10 @@ snapshots:
     optionalDependencies:
       vue: 3.5.40(typescript@5.9.3)
 
-  '@lupinum/better-convex-nuxt@1.0.0-beta.1(8ae46c09851f4ffbfc11e76c26e2e31c)':
+  '@lupinum/better-convex-nuxt@1.0.0-beta.3(5514337a64b00be096f38dc257017532)':
     dependencies:
-      '@lupinum/better-convex-vue': 1.0.0-beta.1(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))
-      '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
-      convex: 1.42.2
-      convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.2)(typescript@5.9.3)(zod@4.4.3)
-      defu: 6.1.7
-      h3: 1.15.11
-      jiti: 2.7.0
-      nuxt: 4.5.2(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@oxc-project/types@0.146.0)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.41)(db0@0.3.4)(esbuild@0.28.2)(eslint@10.8.1(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.33.0)(magicast@0.5.4)(optionator@0.9.4)(rolldown@1.2.5)(rollup-plugin-visualizer@7.0.1(rolldown@1.2.5)(rollup@4.62.4))(rollup@4.62.4)(srvx@0.11.22)(terser@5.49.2)(typescript@5.9.3)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0))(vue-tsc@3.3.9(typescript@5.9.3))(yaml@2.9.0)
-      ohash: 2.0.11
-    optionalDependencies:
-      '@better-auth/oauth-provider': 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))
-      better-auth: 1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
-    transitivePeerDependencies:
-      - '@standard-schema/spec'
-      - hono
-      - magic-string
-      - magicast
-      - oxc-parser
-      - react
-      - rolldown
-      - typescript
-      - unplugin
-      - vue
-      - zod
-
-  '@lupinum/better-convex-nuxt@1.0.0-beta.1(ff4a4535c1f26d72f35571d33a1ea765)':
-    dependencies:
-      '@lupinum/better-convex-vue': 1.0.0-beta.1(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))
+      '@better-auth/utils': 0.4.2
+      '@lupinum/better-convex-vue': 1.0.0-beta.3(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@0.30.21)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
       convex: 1.42.2
       convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.2)(typescript@5.9.3)(zod@4.4.3)
@@ -7767,8 +7747,9 @@ snapshots:
       nuxt: 4.5.2(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@oxc-project/types@0.146.0)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.41)(db0@0.3.4)(esbuild@0.28.2)(eslint@10.8.1(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.33.0)(magicast@0.5.4)(optionator@0.9.4)(rolldown@1.2.5)(rollup-plugin-visualizer@7.0.1(rolldown@1.2.5)(rollup@4.62.4))(rollup@4.62.4)(srvx@0.11.22)(terser@5.49.2)(typescript@5.9.3)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0))(vue-tsc@3.3.9(typescript@5.9.3))(yaml@2.9.0)
       ohash: 2.0.11
     optionalDependencies:
-      '@better-auth/oauth-provider': 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))
-      better-auth: 1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/oauth-provider': 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))
+      better-auth: 1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
     transitivePeerDependencies:
       - '@standard-schema/spec'
       - hono
@@ -7782,8 +7763,38 @@ snapshots:
       - vue
       - zod
 
-  '@lupinum/better-convex-vue@1.0.0-beta.1(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))':
+  '@lupinum/better-convex-nuxt@1.0.0-beta.3(6e477523881d7557c055cd525da9c2a6)':
     dependencies:
+      '@better-auth/utils': 0.4.2
+      '@lupinum/better-convex-vue': 1.0.0-beta.3(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))
+      '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
+      convex: 1.42.2
+      convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.2)(typescript@5.9.3)(zod@4.4.3)
+      defu: 6.1.7
+      h3: 1.15.11
+      jiti: 2.7.0
+      nuxt: 4.5.2(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@oxc-project/types@0.146.0)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.41)(db0@0.3.4)(esbuild@0.28.2)(eslint@10.8.1(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.33.0)(magicast@0.5.4)(optionator@0.9.4)(rolldown@1.2.5)(rollup-plugin-visualizer@7.0.1(rolldown@1.2.5)(rollup@4.62.4))(rollup@4.62.4)(srvx@0.11.22)(terser@5.49.2)(typescript@5.9.3)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0))(vue-tsc@3.3.9(typescript@5.9.3))(yaml@2.9.0)
+      ohash: 2.0.11
+    optionalDependencies:
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/oauth-provider': 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)))(better-call@1.4.0(zod@4.4.3))
+      better-auth: 1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3))
+    transitivePeerDependencies:
+      - '@standard-schema/spec'
+      - hono
+      - magic-string
+      - magicast
+      - oxc-parser
+      - react
+      - rolldown
+      - typescript
+      - unplugin
+      - vue
+      - zod
+
+  '@lupinum/better-convex-vue@1.0.0-beta.3(convex@1.42.2)(vue@3.5.40(typescript@5.9.3))':
+    dependencies:
+      '@standard-schema/spec': 1.1.0
       convex: 1.42.2
       ohash: 2.0.11
       vue: 3.5.40(typescript@5.9.3)
@@ -9926,15 +9937,15 @@ snapshots:
 
   baseline-browser-mapping@2.11.13: {}
 
-  better-auth@1.7.1(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)):
+  better-auth@1.7.2(vitest@4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))(vue@3.5.40(typescript@5.9.3)):
     dependencies:
-      '@better-auth/core': 1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
-      '@better-auth/drizzle-adapter': 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)
-      '@better-auth/kysely-adapter': 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(kysely@0.29.5)
-      '@better-auth/memory-adapter': 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)
-      '@better-auth/mongo-adapter': 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)
-      '@better-auth/prisma-adapter': 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)
-      '@better-auth/telemetry': 1.7.1(@better-auth/core@1.7.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/drizzle-adapter': 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)
+      '@better-auth/kysely-adapter': 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(kysely@0.29.5)
+      '@better-auth/memory-adapter': 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)
+      '@better-auth/mongo-adapter': 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)
+      '@better-auth/prisma-adapter': 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)
+      '@better-auth/telemetry': 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.1
       '@noble/ciphers': 2.3.0
