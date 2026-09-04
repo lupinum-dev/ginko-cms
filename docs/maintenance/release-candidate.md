@@ -29,7 +29,7 @@ comes from an earlier source commit than the Nuxt/Vue pair; this is explicit
 provenance, not a shared-source assumption.
 
 The coordinated runtime uses exactly Nuxt `4.5.2`, Vite `8.1.5`, and Vue
-`3.5.40`. Clean pnpm and strict npm consumers are both mandatory. Never use
+`3.5.42`. Clean pnpm and strict npm consumers are both mandatory. Never use
 `--legacy-peer-deps`, `--force`, relaxed peer checks, or an override.
 
 The corrected `@napi-rs/wasm-runtime@1.2.1` has aged through the mandatory
