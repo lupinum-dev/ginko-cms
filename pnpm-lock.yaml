@@ -113,6 +113,9 @@ importers:
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/cms:
     dependencies:
@@ -1455,7 +1458,7 @@ packages:
         optional: true
 
   '@lupinum/better-convex-nuxt@1.0.0-beta.3':
-    resolution: {integrity: sha512-N38obMm7hgJj3Zds5gdiLOXkcHgqQWsakATbURltYMJcx4kEwnf6ivT0oLOpii0yIDzj3rakBjXA9Nwif7xhNQ==}
+    resolution: {integrity: sha512-bk/o8jDgCmhp/fwx68mmqiKkXd+Tyc/qGwRU/zIMQhtdtOv6wtE2a5N6y5Nsk9XL9cW5N9cwMp8z5M8XqJWcUg==}
     engines: {node: ^22.19.0 || ^24.11.0}
     hasBin: true
     peerDependencies:
