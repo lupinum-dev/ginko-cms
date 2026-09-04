@@ -21,28 +21,24 @@ defineProps<{
     "
   >
     <div
-      class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3 ginko:px-5 ginko:pt-4"
+      class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3 ginko:px-6 ginko:pt-5"
     >
       <div class="ginko:min-w-0">
-        <h2 class="ginko:truncate ginko:text-[13px] ginko:font-semibold ginko:text-foreground">
+        <h2 class="studio-text-title ginko:truncate ginko:text-foreground">
           {{ title }}
         </h2>
         <p
           v-if="description"
-          class="ginko:mt-1 ginko:text-[12px] ginko:leading-5 ginko:text-muted-foreground/80"
+          class="ginko:mt-1 ginko:text-sm ginko:leading-5 ginko:text-muted-foreground/80"
         >
           {{ description }}
         </p>
       </div>
-      <Badge
-        v-if="badge"
-        variant="outline"
-        class="ginko:max-w-full ginko:rounded-md ginko:text-[11px]"
-      >
+      <Badge v-if="badge" variant="outline" class="ginko:max-w-full">
         {{ badge }}
       </Badge>
     </div>
-    <div class="ginko:p-5 ginko:pt-4">
+    <div class="ginko:p-6 ginko:pt-5">
       <slot />
     </div>
   </section>

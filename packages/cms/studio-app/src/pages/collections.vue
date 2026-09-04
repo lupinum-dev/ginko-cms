@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, MousePointerClick } from 'lucide-vue-next'
+import { ArrowLeft, MousePointerClick } from '@lucide/vue'
 
 import { useStudioCollectionsAdmin } from '../composables/internal/useStudioCollectionsAdmin'
 const {
@@ -12,7 +12,6 @@ const {
   defaultLocale,
   error,
   isLoading,
-  missingContractSync,
   selectedCollection,
   selectedFieldKey,
   studioSettings,
@@ -23,13 +22,11 @@ const {
 <template>
   <StudioWorkspace class="ginko:h-full">
     <template #header>
-      <StudioPageHeader :title="t('ginkoCms.studio.collectionsPage.title')" eyebrow="Manage">
+      <StudioPageHeader
+        :title="t('ginkoCms.studio.collectionsPage.title')"
+        :description="t('ginkoCms.studio.collectionsPage.headerDescription')"
+      >
         <template #actions>
-          <span
-            class="ginko:rounded-full ginko:bg-muted ginko:px-2 ginko:py-0.5 ginko:text-xs ginko:text-muted-foreground"
-          >
-            {{ collections.length }}
-          </span>
           <Badge variant="outline" class="ginko:text-xs">
             {{ t('ginkoCms.studio.collectionsPage.codeDefinedBadge') }}
           </Badge>
@@ -37,55 +34,54 @@ const {
       </StudioPageHeader>
     </template>
 
-    <div
-      v-if="error"
-      class="studio-page-content ginko:mt-4 ginko:flex ginko:items-center ginko:gap-2 ginko:rounded-md ginko:bg-destructive/10 ginko:p-3 ginko:text-sm ginko:text-destructive-fg"
-    >
-      <AlertCircle class="ginko:size-4 ginko:shrink-0" />
-      {{ error }}
+    <div v-if="error" class="studio-page-content ginko:px-4 ginko:pt-2 ginko:lg:px-6">
+      <StudioNotice tone="danger" :description="error" />
     </div>
 
     <div
-      v-else-if="missingContractSync"
-      class="studio-page-content ginko:mt-4 ginko:flex ginko:items-start ginko:gap-2 ginko:rounded-md ginko:border ginko:border-warning/25 ginko:bg-warning/10 ginko:p-3 ginko:text-xs ginko:text-warning-fg"
+      class="studio-page-content ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col ginko:overflow-auto ginko:lg:flex-row ginko:lg:overflow-hidden"
     >
-      <AlertCircle class="ginko:mt-0.5 ginko:size-4 ginko:shrink-0" />
-      <div>
-        <p class="ginko:font-medium">Convex has not synced this code-defined content model yet.</p>
-        <p class="ginko:mt-1 ginko:leading-relaxed">
-          Studio is showing the host runtime model so the UI stays inspectable. Importing or editing
-          entries requires the content model snapshot to be installed in Convex.
-        </p>
-      </div>
-    </div>
-
-    <div class="studio-page-content ginko:flex ginko:min-h-0 ginko:flex-1 ginko:overflow-hidden">
       <StudioCollectionsListPanel
         v-model:selected-collection="selectedCollection"
         :collections="collections"
         :is-loading="isLoading"
         :t="t"
+        :class="selectedCollection ? 'ginko:hidden ginko:lg:flex' : 'ginko:flex'"
       />
 
-      <div class="ginko:flex ginko:min-w-0 ginko:flex-1 ginko:flex-col ginko:overflow-hidden">
+      <div
+        class="ginko:min-w-0 ginko:flex-1 ginko:flex-col ginko:overflow-hidden"
+        :class="selectedCollection ? 'ginko:flex' : 'ginko:hidden ginko:lg:flex'"
+      >
         <div
           v-if="!selectedCollection"
-          class="ginko:flex ginko:flex-1 ginko:items-center ginko:justify-center"
+          class="ginko:flex ginko:flex-1 ginko:items-center ginko:justify-center ginko:p-4 ginko:lg:p-6"
         >
-          <div class="ginko:text-center">
-            <MousePointerClick
-              class="ginko:mx-auto ginko:mb-3 ginko:size-8 ginko:text-muted-foreground/30"
-            />
-            <p class="ginko:text-sm ginko:text-muted-foreground">
-              {{ t('ginkoCms.studio.collectionsPage.emptyDescription') }}
-            </p>
-          </div>
+          <StudioEmptyState
+            :title="t('ginkoCms.studio.collectionsPage.emptyTitle')"
+            :description="t('ginkoCms.studio.collectionsPage.emptyDescription')"
+            class="ginko:max-w-md"
+          >
+            <template #icon>
+              <MousePointerClick class="ginko:size-5" aria-hidden="true" />
+            </template>
+          </StudioEmptyState>
         </div>
 
         <template v-else>
           <ScrollArea class="ginko:flex-1">
-            <div class="studio-page-content ginko:p-5">
-              <div class="ginko:divide-y">
+            <div class="studio-page-content ginko:p-4 ginko:lg:p-6">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="ginko:mb-3 ginko:lg:hidden"
+                @click="selectedCollection = null"
+              >
+                <ArrowLeft class="ginko:mr-2 ginko:size-4" />
+                {{ t('ginkoCms.studio.collectionsPage.backToList') }}
+              </Button>
+              <div class="ginko:divide-y ginko:divide-border/60">
                 <StudioCollectionContractSection
                   v-model:collection-draft="collectionDraft"
                   :collection-detail="collectionDetail"

@@ -2,7 +2,8 @@
 
 Self-hosted CMS for Nuxt teams building structured websites with Ginko Content.
 It provides a Studio UI backed by Convex, Better Auth, managed assets, content
-publishing, filesystem migration, public-read projections, and MCP operations.
+publishing, owner-CLI content portability, public-read projections, and MCP
+operations.
 
 Use Ginko CMS when your Nuxt app already treats content as collections and you
 want an app-owned editing workflow instead of a hosted SaaS dependency.
@@ -13,7 +14,7 @@ Install the Nuxt content engine, CMS module, Convex component, and auth
 dependencies in the host app:
 
 ```bash
-pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex @convex-dev/better-auth better-auth
+pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex @lupinum/better-convex-nuxt better-auth
 pnpm add -D convex
 ```
 
@@ -25,12 +26,17 @@ export default defineNuxtConfig({
 })
 ```
 
-Generate the host-owned Convex bridge files and verify the setup:
+Generate the host-owned Convex setup files and verify the setup:
 
 ```bash
 pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
+
+Before the first deployment, `doctor` reports the generated contract binding as
+unbound and points to `pnpm exec ginko-cms deploy`. The deploy command reruns all
+other setup checks, writes the trusted hashes, and completes that fix. A later
+`doctor` run must pass.
 
 Contract sync through `ginko-cms deploy` or `ginko-cms push` needs Convex admin
 auth through `CONVEX_DEPLOY_KEY`. Create one before deploying:
@@ -39,26 +45,25 @@ auth through `CONVEX_DEPLOY_KEY`. Create one before deploying:
 pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.local
 ```
 
-The generated bridge also needs one shared forwarding secret in both `.env.local`
-and the Convex deployment:
+Set the email allowed to claim the first Studio owner:
 
 ```bash
-FORWARDING_KEY="$(openssl rand -base64 32)"
-printf "\nCONVEX_IDENTITY_FORWARDING_KEY=%s\n" "$FORWARDING_KEY" >> .env.local
-pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
 pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
 ```
 
-Deploy the generated Convex functions and sync the collection contracts:
+Deploy the generated Convex functions and install the CMS contract:
 
 ```bash
 pnpm exec ginko-cms deploy
 ```
 
-`ginko-cms deploy` runs the bridge check, starts the default local Convex
-deploy command, then pushes collection contracts. For CI or read-only
+`ginko-cms deploy` runs `ginko-cms doctor`, starts the default local Convex
+deploy command, then installs the CMS contract. For CI or read-only
 validation, run `pnpm exec ginko-cms deploy --check`; it skips the Convex deploy
-step and validates the bridge plus contract drift.
+and contract write while validating setup plus contract drift. For an
+incompatible contract transition, run
+`pnpm exec ginko-cms deploy --transition`; it deploys the target host hash
+binding but defers contract installation to transition activation.
 
 For the full setup path, see [Quickstart](./docs/getting-started/quickstart.md)
 and [Environment](./docs/getting-started/environment.md).
@@ -66,34 +71,41 @@ and [Environment](./docs/getting-started/environment.md).
 ## What You Get
 
 - Studio routes and layout mounted into the Nuxt app.
-- Convex-backed content, assets, members, settings, imports, and projections.
+- Convex-backed content, assets, members, the installed contract, and public
+  projections.
 - Better Auth integration through host-owned Convex files.
 - Public content reads for Ginko-powered Nuxt sites.
-- Filesystem-to-CMS migration tooling.
+- Owner-only CLI portability for deterministic content export and draft import.
 - MCP operations that go through the CMS operation layer.
 - Tailwind v4 source registration handled by the Nuxt module.
 
 ## Generated Files
 
-`ginko-cms init` writes the host bridge files in:
+`ginko-cms init` writes the host-owned Convex setup files:
 
 - `convex/auth.ts`
 - `convex/auth.config.ts`
+- `convex/betterAuth/*`
 - `convex/http.ts`
 - `convex/schema.ts`
-- `convex/ginkoCmsMcp.ts`
-- `convex/ginkoCms/*`
+- `convex/.ginko-cms-setup.json` (template provenance only)
+
+Running `ginko-cms init` again updates generated files that still match their
+recorded template hash. If both the host file and package template changed, the
+command preserves the host file, prints a safe merge diff, and exits with a
+setup conflict instead of overwriting user work.
+
 - the Ginko CMS component registration in `convex/convex.config.ts`
 
 Keep `convex/convex.config.ts`, `convex/auth.config.ts`, and
-`convex/schema.ts` app-owned after the generated baseline is present. Those
+`convex/schema.ts` app-owned after the setup baseline is present. Those
 files are where the app registers Convex components, configures Better Auth
 providers, and defines app tables.
 
-Generated Convex files should stay thin. They import package-owned bridge
-factories from public `@lupinum/ginko-cms/*` subpaths and export Convex
-functions from those factories. Put business logic in the CMS package or Convex
-component, not in generated host files.
+Generated Convex files should stay thin. They mount the Ginko CMS Convex
+component and a local Better Auth component whose schema includes Ginko's MCP
+API-key table. Put business logic in the CMS package or Convex component, not
+in generated host files.
 
 ## Tailwind
 
@@ -109,8 +121,8 @@ Tailwind entry CSS for dev and build.
 
 ## Packages
 
-- `@lupinum/ginko-cms`: Nuxt module, Studio, CLI, migration helpers, and public
-  provider integration.
+- `@lupinum/ginko-cms`: Nuxt module, Studio, owner CLI portability and contract
+  transition commands, and public provider integration.
 - `@lupinum/ginko-cms-convex`: Convex component implementation.
 - `@lupinum/ginko-cms-contract`: framework-neutral CMS contracts, field
   metadata, public content types, and Convex validators.
@@ -124,9 +136,11 @@ mounted components from the host app's `convex/convex.config.ts`.
 - [Codex skill for agents](./skills/ginko-cms/SKILL.md)
 - [Quickstart](./docs/getting-started/quickstart.md)
 - [Next collections](./docs/getting-started/next-collections.md)
+- [Auth and roles](./docs/reference/auth-and-roles.md)
+- [MCP agent workflows](./docs/guides/mcp-agent-workflows.md)
 - [Changing collections](./docs/guides/changing-collections.md)
+- [Contract transitions](./docs/guides/changing-collections.md)
 - [Public content API](./docs/reference/public-content-api.md)
-- [CMS config helpers](./docs/reference/cms-config-helpers.md)
 - [Nuxt content provider](./docs/reference/nuxt-content-provider.md)
 - [Studio theming](./docs/guides/theming-the-studio.md)
 - [Release candidate checklist](./docs/maintenance/release-candidate.md)
@@ -134,8 +148,8 @@ mounted components from the host app's `convex/convex.config.ts`.
 ## Scope
 
 Ginko CMS owns the CMS product layer. Ginko Content owns CMS-neutral content
-querying and provider contracts. Trellis owns generic Nuxt, Convex, Better Auth,
-and MCP app primitives.
+querying and provider contracts. Host apps own normal Nuxt, Convex, and Better
+Auth configuration.
 
 ## Local Development
 
@@ -159,6 +173,9 @@ pnpm run build
 `pnpm dev` runs the module-local playground. Before publishing or changing
 public setup behavior, run the release verification flow from `AGENTS.md` and
 let a human maintainer inspect the packed output.
+
+For a real Nuxt host with Better Auth login and Studio HMR, follow
+[Local Studio Development](./docs/maintenance/local-studio-development.md).
 
 ## Credits
 

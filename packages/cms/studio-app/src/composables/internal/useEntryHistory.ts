@@ -3,12 +3,13 @@ import type { Ref } from 'vue'
 import { computed, ref } from 'vue'
 
 import { api } from '../../boundary/api'
-import { useStudioHostContext } from '../../boundary/studio-host-context'
-import { formatDestructiveConfirmationPrompt } from '../../lib/destructiveWorkflow'
+import { formatDestructiveConfirmationPrompt, operationValue } from '../../lib/destructiveWorkflow'
+import { useCmsStudioPaginatedQuery } from '../useCmsStudioPaginatedQuery'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
 import { useConvexMutation } from '../useStudioConvex'
 import type { useStudioDebug } from '../useStudioDebug'
-import type { StudioAssetRecord, StudioEntry } from './types'
+import { finderAssetToStudioAsset } from './assetFinderUtils'
+import type { StudioEntry } from './types'
 import { studioConfirm } from './useStudioConfirm'
 
 type DestructivePreview = {
@@ -54,7 +55,6 @@ interface EntryHistoryDeps {
 }
 
 export function useEntryHistory(deps: EntryHistoryDeps) {
-  const studioHost = useStudioHostContext()
   const {
     entry,
     entryId,
@@ -69,40 +69,38 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     t,
   } = deps
 
-  const versionsQueryArgs = computed(() => (entry.value ? { entryId: entryId.value } : null))
-  const versionsQuery = useCmsStudioQuery(api.ginkoCms.editor.listVersions, versionsQueryArgs)
-  const versions = computed(() => versionsQuery.data?.value ?? [])
+  const versionsQueryArgs = computed(() =>
+    entry.value ? { entryId: entryId.value } : ('skip' as const),
+  )
+  const versionsQuery = useCmsStudioPaginatedQuery(
+    api.ginkoCms.editor.listVersions,
+    versionsQueryArgs,
+    { initialNumItems: 25 },
+  )
+  const versions = computed(() => versionsQuery.data.value ?? [])
 
-  const entryAssetsQuery = useCmsStudioQuery(
-    api.ginkoCms.assets.listColocatedAssets,
-    computed(() =>
+  const entryAssetsQuery = useCmsStudioPaginatedQuery(
+    api.ginkoCms.assets.listAssetsByOwner,
+    () =>
       entry.value
         ? {
-            collectionSlug: collection.value,
+            scope: 'entry' as const,
+            collection: collection.value,
             entryId: entryId.value,
           }
-        : null,
-    ),
+        : ('skip' as const),
+    { initialNumItems: 100 },
   )
-  const entryAssets = computed<StudioAssetRecord[]>(
-    () =>
-      (
-        (entryAssetsQuery.data?.value as { entry?: Array<Record<string, unknown>> } | undefined)
-          ?.entry ?? []
-      ).map((asset) => ({
-        ...asset,
-        _id: String(asset.id ?? asset._id ?? ''),
-        filename: String(asset.filename ?? ''),
-        mimeType: String(asset.mimeType ?? 'application/octet-stream'),
-        size: typeof asset.size === 'number' ? asset.size : 0,
-      })) as StudioAssetRecord[],
+  const entryAssets = computed(() =>
+    (entryAssetsQuery.data.value ?? []).map((asset) => finderAssetToStudioAsset(asset)),
   )
 
-  const entryActivityQuery = useCmsStudioQuery(
+  const entryActivityQuery = useCmsStudioPaginatedQuery(
     api.ginkoCms.editor.getEntryActivity,
-    computed(() => (entry.value ? { entryId: entryId.value } : null)),
+    computed(() => (entry.value ? { entryId: entryId.value } : ('skip' as const))),
+    { initialNumItems: 25 },
   )
-  const entryActivity = computed(() => entryActivityQuery.data?.value ?? [])
+  const entryActivity = computed(() => entryActivityQuery.data.value ?? [])
 
   const previewVersionId = ref<string | null>(null)
 
@@ -114,9 +112,9 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
   const diffQuery = useCmsStudioQuery(
     api.ginkoCms.editor.getVersionDiff,
     computed(() => {
-      if (!diffLeftVersionId.value || versions.value.length < 1) return null
+      if (!diffLeftVersionId.value || versions.value.length < 1) return 'skip' as const
       const latest = versions.value[0]
-      if (!latest) return null
+      if (!latest) return 'skip' as const
       return {
         leftVersionId: diffLeftVersionId.value,
         rightVersionId: latest._id,
@@ -124,6 +122,9 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     }),
   )
   const versionDiff = computed(() => diffQuery.data?.value ?? null)
+  const versionDiffPending = computed(
+    () => diffLeftVersionId.value !== null && diffQuery.pending.value,
+  )
 
   function toggleDiff(versionId: string) {
     diffLeftVersionId.value = diffLeftVersionId.value === versionId ? null : versionId
@@ -131,25 +132,21 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
 
   const rollbackVersionMutation = useConvexMutation(api.ginkoCms.editor.rollbackVersion)
   const checkpointMutation = useConvexMutation(api.ginkoCms.editor.createCheckpoint)
-
-  function convexClient() {
-    return studioHost.requireConvexClient()
-  }
+  const previewRollbackMutation = useConvexMutation(
+    api.ginkoCms.editor.previewRollbackVersionOperation,
+  )
 
   async function handleRollback(versionId: string, publish = false) {
     if (!canEditEntries.value || (publish && !canPublishEntries.value)) {
       return
     }
-    let preview: DestructivePreview | null = null
+    let preview: DestructivePreview
     try {
-      preview = (await convexClient().mutation(
-        api.ginkoCms.editor.previewRollbackVersionOperation,
-        {
-          entryId: entryId.value,
-          versionId,
-          ...(publish ? { publish: true } : {}),
-        },
-      )) as DestructivePreview
+      preview = (await previewRollbackMutation({
+        entryId: entryId.value,
+        versionId,
+        ...(publish ? { publish: true } : {}),
+      })) as DestructivePreview
       if (destructivePreviewBlocked(preview)) {
         error.value = destructivePreviewMessage(preview)
         return
@@ -160,7 +157,9 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
     }
     if (typeof window !== 'undefined') {
       const ok = await studioConfirm({
-        title: publish ? 'Restore and publish this version?' : 'Restore this version as draft?',
+        title: publish
+          ? t('ginkoCms.studio.collectionEditor.rollbackPublishPrompt')
+          : t('ginkoCms.studio.collectionEditor.rollbackDraftPrompt'),
         description: destructivePreviewDescription(
           preview,
           formatDestructiveConfirmationPrompt({
@@ -171,11 +170,13 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
             previewState: 'valid',
             previewLabel: publish ? 'version diff and publish target' : 'version diff',
             warning: publish
-              ? t('ginkoCms.studio.collectionEditor.rollbackPublishPrompt')
-              : t('ginkoCms.studio.collectionEditor.rollbackDraftPrompt'),
+              ? t('ginkoCms.studio.collectionEditor.versionRestoreAndPublishHelp')
+              : t('ginkoCms.studio.collectionEditor.versionRestoreAsDraftHelp'),
           }),
         ),
-        confirmLabel: publish ? 'Restore & publish' : 'Restore as draft',
+        confirmLabel: publish
+          ? t('ginkoCms.common.restoreAndPublish')
+          : t('ginkoCms.common.restoreAsDraft'),
         confirmVariant: 'destructive',
       })
       if (!ok) return
@@ -193,13 +194,15 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
       requestHydrate()
       studioDebug.debug(`version:${target}:requestingHydrateBefore`, { entryId: entryId.value })
       const token = previewToken(preview)
-      if (!token) throw new Error('Rollback confirmation token is missing. Preview again.')
-      const result = await rollbackVersionMutation({
-        entryId: entryId.value,
-        versionId,
-        ...(publish ? { publish: true } : {}),
-        _confirmationToken: token,
-      })
+      if (!token) throw new Error('Preview this saved version again before restoring it.')
+      const result = operationValue<{ versionId: string }>(
+        await rollbackVersionMutation({
+          entryId: entryId.value,
+          versionId,
+          ...(publish ? { publish: true } : {}),
+          _confirmationToken: token,
+        }),
+      )
       previewVersionId.value = null
       diffLeftVersionId.value = null
       studioDebug.debug(`version:${target}:success`, {
@@ -248,12 +251,19 @@ export function useEntryHistory(deps: EntryHistoryDeps) {
 
   return {
     versions,
+    hasMoreVersions: versionsQuery.canLoadMore,
+    loadMoreVersions: () => versionsQuery.loadMore(25),
     entryAssets,
+    hasMoreEntryAssets: entryAssetsQuery.canLoadMore,
+    loadMoreEntryAssets: () => entryAssetsQuery.loadMore(100),
     entryActivity,
+    hasMoreEntryActivity: entryActivityQuery.canLoadMore,
+    loadMoreEntryActivity: () => entryActivityQuery.loadMore(25),
     previewVersionId,
     toggleVersionPreview,
     diffLeftVersionId,
     versionDiff,
+    versionDiffPending,
     toggleDiff,
     handleRollback,
     showCheckpointDialog,

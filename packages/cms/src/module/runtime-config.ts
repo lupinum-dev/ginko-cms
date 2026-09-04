@@ -1,20 +1,20 @@
 import type { ResolvedLocaleSettings } from './i18n.js'
-import type { ModuleOptions } from './options.js'
+import type { ResolvedModuleOptions } from './options.js'
 
 type PublicRuntimeCollection = {
-  label: ModuleOptions['collections'][string]['label'] | string
-  icon: ModuleOptions['collections'][string]['icon']
-  type: ModuleOptions['collections'][string]['type']
-  routing: ModuleOptions['collections'][string]['routing']
+  label: ResolvedModuleOptions['collections'][string]['label'] | string
+  icon: ResolvedModuleOptions['collections'][string]['icon']
+  type: ResolvedModuleOptions['collections'][string]['type']
+  routing: ResolvedModuleOptions['collections'][string]['routing']
   locales: string[]
-  fields: NonNullable<ModuleOptions['collections'][string]['fields']>
-  settings: ModuleOptions['collections'][string]['settings']
+  fields: NonNullable<ResolvedModuleOptions['collections'][string]['fields']>
+  settings: ResolvedModuleOptions['collections'][string]['settings']
 }
 
 export type PublicRuntimeCollections = Record<string, PublicRuntimeCollection>
 
 export function buildPublicRuntimeCollections(
-  options: ModuleOptions,
+  options: ResolvedModuleOptions,
   localeSettings: ResolvedLocaleSettings,
 ): PublicRuntimeCollections {
   return Object.fromEntries(

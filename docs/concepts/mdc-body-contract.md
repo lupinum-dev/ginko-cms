@@ -3,10 +3,11 @@
 Raw MDC text is the canonical editable body format for Ginko CMS v1.
 
 This is a field-level content contract, not a promise that every table stores
-body content in the same shape. Draft and public rows store `bodyMdc` as the
-authoring source; revisions snapshot `bodyMdc` with the locale data they record.
-When a collection has a rich body field, the canonical value for that field is
-valid MDC text, conventionally named `bodyMdc`.
+body content. Locale drafts store `bodyMdc` as the authoring source and immutable
+revisions snapshot it with the locale data they record. Public structural and
+list projections deliberately do not duplicate the body. When a collection has
+a rich body field, the canonical value for that field is valid MDC text,
+conventionally named `bodyMdc`.
 
 ## Decision
 
@@ -19,7 +20,8 @@ Filesystem .md/.mdc body
 
 Ginko CMS localized body editor
   -> bodyMdc field value
-  -> published projection data/search/toc output
+  -> immutable publication revision
+  -> page body plus bounded search output
 ```
 
 Studio may use TipTap, component controls, previews, parsed ASTs, and rich UI
@@ -28,8 +30,8 @@ state. Those are editing aids. They must roundtrip back to valid MDC.
 ## Why
 
 Filesystem content already uses Markdown/MDC as the natural authoring format.
-Making MDC canonical keeps migration, export, editing, public rendering, and
-later editor changes aligned.
+Making MDC canonical keeps portability, editing, public rendering, and later
+editor changes aligned.
 
 Studio has an MDC workflow:
 
@@ -43,29 +45,29 @@ Studio has an MDC workflow:
 Editable/admin state:
 
 ```txt
-draft.values.bodyMdc
+entryLocaleDrafts.bodyMdc
 ```
 
-Published version state:
+Immutable version state:
 
 ```txt
-published.values.bodyMdc
+entryRevisions.snapshots[locale].bodyMdc
 ```
 
-Public projection:
+Rebuildable public state:
 
 ```txt
-publicEntries.bodyMdc
-public result entry.bodyAst
-public result entry.toc
-derived search text
+publicEntries: structural route/list identity plus bounded, body-free public field data and asset facts
+publicSearchEntries: bounded search text fenced to the active revision
+page/singleton result: bodyAst and toc parsed from the active immutable revision
+list/search/nav/sitemap/surround result: no bodyAst or toc hydration
 ```
 
 Only the MDC field value is canonical. Parsed body, plain text, table of
 contents, search sections, and rendered output are derived.
 
-The provider may tolerate legacy or alternate body keys while older data exists,
-but v1 docs and examples should prefer `bodyMdc`.
+The provider accepts the canonical `bodyMdc` shape. This greenfield cutover has
+no legacy or alternate body-key compatibility path.
 
 ## Filesystem Mapping
 
@@ -83,13 +85,13 @@ Content routing works across locales.
 ::
 ```
 
-Migration plan:
+Portability mapping:
 
 ```txt
 markdown body -> bodyMdc field
 frontmatter.title -> localized title field
 derived plain text -> search projection
-derived headings -> toc projection
+derived headings -> page/singleton response
 ```
 
 ## Studio Editing Flow
@@ -141,6 +143,14 @@ entry against the active collection contract. Unsupported content should be
 reported as actionable diagnostics by the editing or publish workflow rather
 than stripped into a second editable format.
 
+Every canonical ingestion path enforces a 64 KiB UTF-8 ceiling for one locale's
+`bodyMdc`. Revision and public projection documents are measured before write;
+oversized content returns a typed workflow blocker instead of a raw database
+limit failure. Structural rows are capped at 1 KiB, search rows at 5 KiB with
+at most 4 KiB of search text, and body-free list payloads at 48 KiB. Those
+limits keep navigation, sitemap, search, and 100-item list reads below Convex's
+16 MiB transaction ceiling at the documented 1,500-entry/three-locale scale.
+
 ## What Not To Do
 
 Do not make structured blocks the first canonical storage model:
@@ -181,10 +191,10 @@ MDC source
   -> valid MDC source
 ```
 
-If structured blocks ever become canonical, that must be a separate schema
-migration with its own import/export story.
+If structured blocks ever become canonical, that must be an explicit
+content-incompatible contract transition with its own portability story.
 
 ## Related Pages
 
-- [Filesystem migration](../guides/filesystem-migration.md)
+- [Content portability](../guides/content-portability.md)
 - [Content model](../reference/content-model.md)

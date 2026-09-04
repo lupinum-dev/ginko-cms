@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { statusToneClass, type StudioTranslationReadinessRow } from './studioWorkflowTypes'
 
 defineProps<{
@@ -10,6 +11,10 @@ defineProps<{
 const emit = defineEmits<{
   review: [locale: string]
 }>()
+
+const { t } = useCmsI18n()
+const ce = (key: string, params?: Record<string, unknown>): string =>
+  t(`ginkoCms.studio.collectionEditor.${key}`, params)
 </script>
 
 <template>
@@ -20,20 +25,21 @@ const emit = defineEmits<{
     <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
       <div>
         <div class="ginko:text-xs ginko:font-medium ginko:text-muted-foreground ginko:uppercase">
-          Translation readiness
+          {{ ce('translationReadinessLanguageStatus') }}
         </div>
         <div class="ginko:mt-1 ginko:text-sm ginko:font-medium">
-          Read-only review for non-current locales
+          {{ ce('translationReadinessOtherVersions') }}
         </div>
         <div class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-          This checks saved draft readiness only. It does not save, publish, or confirm the header
-          Publish action.
+          {{ ce('translationReadinessCheckDrafts') }}
         </div>
       </div>
-      <Badge variant="outline">{{ currentLocale }} current</Badge>
+      <Badge variant="outline">{{
+        ce('translationReadinessCurrentBadge', { locale: currentLocale })
+      }}</Badge>
     </div>
 
-    <div class="ginko:mt-3 ginko:grid ginko:gap-3 ginko:md:grid-cols-2">
+    <div class="ginko:mt-3 ginko:grid ginko:gap-3 ginko:@2xl:grid-cols-2">
       <div
         v-for="localeState in items"
         :key="`translation-readiness:${localeState.locale}`"
@@ -43,7 +49,7 @@ const emit = defineEmits<{
           class="ginko:flex ginko:flex-wrap ginko:items-center ginko:justify-between ginko:gap-2"
         >
           <div class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2">
-            <Badge variant="outline" class="ginko:text-[10px] ginko:font-mono">
+            <Badge variant="outline" class="ginko:text-xs ginko:font-mono">
               {{ localeState.locale }}
             </Badge>
             <span class="ginko:text-sm ginko:font-medium">{{ localeState.label }}</span>
@@ -55,23 +61,48 @@ const emit = defineEmits<{
 
         <div class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:text-muted-foreground">
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">Draft</span>
-            <span>{{ localeState.exists ? 'Exists' : 'Missing' }}</span>
+            <span class="ginko:font-medium ginko:text-foreground">{{
+              ce('translationReadinessDraft')
+            }}</span>
+            <span>{{
+              localeState.exists
+                ? ce('translationReadinessExists')
+                : ce('translationReadinessMissing')
+            }}</span>
           </div>
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">Published</span>
-            <span>{{ localeState.published ? 'Published' : 'Not published' }}</span>
+            <span class="ginko:font-medium ginko:text-foreground">{{
+              ce('translationReadinessLiveStatus')
+            }}</span>
+            <span>{{
+              localeState.published
+                ? ce('translationReadinessLive')
+                : ce('translationReadinessNotLive')
+            }}</span>
           </div>
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">Route</span>
+            <span class="ginko:font-medium ginko:text-foreground">{{
+              ce('translationReadinessUrl')
+            }}</span>
             <span class="ginko:truncate ginko:font-mono">
-              {{ localeState.draftPath || (localeState.missingRoute ? 'missing' : 'none') }}
+              {{
+                localeState.draftPath ||
+                (localeState.missingRoute
+                  ? ce('translationReadinessUrlMissing')
+                  : ce('translationReadinessUrlNone'))
+              }}
             </span>
           </div>
           <div class="ginko:grid ginko:grid-cols-[7rem_minmax(0,1fr)] ginko:gap-2">
-            <span class="ginko:font-medium ginko:text-foreground">Missing</span>
+            <span class="ginko:font-medium ginko:text-foreground">{{
+              ce('translationReadinessMissingLabel')
+            }}</span>
             <span>
-              {{ localeState.missingFields.length ? localeState.missingFields.join(', ') : 'None' }}
+              {{
+                localeState.missingFields.length
+                  ? localeState.missingFields.join(', ')
+                  : ce('translationReadinessNone')
+              }}
             </span>
           </div>
         </div>
@@ -80,7 +111,7 @@ const emit = defineEmits<{
           v-if="localeState.parentBlocked"
           class="ginko:mt-2 ginko:text-xs ginko:text-destructive"
         >
-          Parent route is blocking this locale.
+          {{ ce('translationReadinessParentBlocking') }}
         </div>
 
         <div
@@ -95,37 +126,39 @@ const emit = defineEmits<{
           <Badge
             v-if="!localeState.exists"
             variant="outline"
-            class="ginko:border-warning/40 ginko:text-warning-fg ginko:text-[10px]"
+            class="ginko:border-warning/40 ginko:text-warning-fg ginko:text-xs"
           >
-            Missing locale
+            {{ ce('translationReadinessMissingLanguage') }}
           </Badge>
           <Badge
             v-if="localeState.missingRoute"
             variant="outline"
-            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-[10px]"
+            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-xs"
           >
-            Missing route
+            {{ ce('translationReadinessMissingUrl') }}
           </Badge>
           <Badge
             v-if="localeState.parentBlocked"
             variant="outline"
-            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-[10px]"
+            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-xs"
           >
-            Parent blocked
+            {{ ce('translationReadinessParentBlocked') }}
           </Badge>
           <Badge
             v-if="localeState.missingFields.length"
             variant="outline"
-            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-[10px]"
+            class="ginko:border-destructive/40 ginko:text-destructive ginko:text-xs"
           >
-            Missing fields
+            {{ ce('translationReadinessMissingFields') }}
           </Badge>
         </div>
 
         <div
           class="ginko:mt-3 ginko:rounded-md ginko:bg-muted/40 ginko:px-3 ginko:py-2 ginko:text-xs"
         >
-          <div class="ginko:font-medium ginko:text-foreground">Next action</div>
+          <div class="ginko:font-medium ginko:text-foreground">
+            {{ ce('translationReadinessNextAction') }}
+          </div>
           <div class="ginko:mt-1 ginko:text-muted-foreground">
             {{ localeState.suggestedAction }}
           </div>
@@ -138,7 +171,7 @@ const emit = defineEmits<{
           :disabled="saving"
           @click="emit('review', localeState.locale)"
         >
-          Review translation readiness
+          {{ ce('translationReadinessReviewLanguage') }}
         </Button>
       </div>
     </div>

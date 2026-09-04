@@ -153,8 +153,20 @@ export function extractMarkdownFromClipboard(event: ClipboardEvent): null | stri
     return markdown
   }
 
+  // Rich HTML (Google Docs, Word, web pages) carries more structure than the
+  // plain-text flavor, so defer to ProseMirror's native HTML paste instead of
+  // re-parsing the flattened plain text as markdown.
+  const html = event.clipboardData?.getData('text/html') ?? ''
+  if (hasSemanticHtml(html)) {
+    return null
+  }
+
   const plainText = event.clipboardData?.getData('text/plain') ?? ''
   return isProbablyMarkdown(plainText) ? plainText : null
+}
+
+export function hasSemanticHtml(html: string): boolean {
+  return /<(?:h[1-6]|ul|ol|li|strong|em|blockquote|table|img|pre|code|[abi])[\s/>]/i.test(html)
 }
 
 export function isProbablyMarkdown(value: string): boolean {

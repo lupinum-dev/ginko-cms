@@ -20,7 +20,7 @@ const { t } = useCmsI18n()
     <DialogContent class="ginko:sm:max-w-md">
       <DialogHeader>
         <DialogTitle>{{ props.title }}</DialogTitle>
-        <DialogDescription v-if="props.description">
+        <DialogDescription v-if="props.description" class="ginko:whitespace-pre-line">
           {{ props.description }}
         </DialogDescription>
       </DialogHeader>

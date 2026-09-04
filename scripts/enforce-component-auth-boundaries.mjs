@@ -6,9 +6,7 @@ const rootDir = resolve(import.meta.dirname, '..')
 const componentDir = resolve(rootDir, 'packages/convex/src')
 
 const unsafeRawAllowlist = new Set([
-  'packages/convex/src/collections/sync.ts',
-  'packages/convex/src/mcpKeys.ts',
-  'packages/convex/src/migrations.ts',
+  'packages/convex/src/contractTransitions.ts',
   'packages/convex/src/settings.ts',
 ])
 
@@ -36,17 +34,17 @@ for (const file of collectTsFiles(componentDir)) {
   const rel = relative(rootDir, file)
   const source = readFileSync(file, 'utf8')
 
-  if (!unsafeRawAllowlist.has(rel) && /\bunsafeRaw\.(query|mutation)\s*\(/.test(source)) {
+  if (!unsafeRawAllowlist.has(rel) && /\bunsafeRaw\.(?:query|mutation)\s*\(/.test(source)) {
     violations.push(`${rel}: unsafeRaw is allowlisted only for installer/bootstrap escape hatches.`)
   }
 
-  if (/\bapp\.(query|mutation)\s*\(/.test(source)) {
+  if (/\bapp\.(?:query|mutation)\s*\(/.test(source)) {
     violations.push(
       `${rel}: use publicQuery/callerQuery/publicMutation/callerMutation instead of app.*.`,
     )
   }
 
-  if (/\braw\.(query|mutation)\s*\(/.test(source)) {
+  if (/\braw\.(?:query|mutation)\s*\(/.test(source)) {
     violations.push(
       `${rel}: use publicQuery/publicMutation or unsafeRaw via functions.ts instead of raw.*.`,
     )

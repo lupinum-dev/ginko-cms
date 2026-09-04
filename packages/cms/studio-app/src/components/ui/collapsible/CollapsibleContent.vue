@@ -13,6 +13,7 @@ const delegatedProps = reactiveOmit(props, 'class')
 
 <template>
   <CollapsibleContent
+    data-slot="collapsible-content"
     v-bind="delegatedProps"
     :class="
       cn(

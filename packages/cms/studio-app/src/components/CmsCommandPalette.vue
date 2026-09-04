@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { ArrowRight, FileText, History, Loader2, Zap } from 'lucide-vue-next'
+import { ArrowRight, FileText, History, Layers, Loader2, Search, Zap } from '@lucide/vue'
+import { ListboxFilter } from 'reka-ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { cmsPermissionKeys } from '../composables/permissions'
+import { api } from '../boundary/api'
+import { cmsPermissionKeys, type CmsPermissionKey } from '../composables/permissions'
 import { useCmsI18n } from '../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../composables/useCmsStudioAccess'
+import { useCmsStudioQuery } from '../composables/useCmsStudioQuery'
 import { useStudioSearch } from '../composables/useStudioSearch'
+import type { StudioCollectionListItem } from '../lib/installedCollections'
+import {
+  studioRouteHref,
+  studioStaticRoutes,
+  type StudioStaticRoute,
+} from '../lib/studioNavigation'
 
 const router = useRouter()
 
@@ -14,17 +23,18 @@ interface PaletteItem {
   id: string
   title: string
   subtitle?: string
+  /** Extra match-only text (e.g. collection slugs) that is never rendered. */
+  keywords?: string
   href?: string
   group: 'recent' | 'content' | 'links' | 'actions'
   action?: () => Promise<void> | void
 }
 
 interface SearchResultItem {
-  _id: string
+  id: string
   title?: string | null
-  slug: string
-  snippet?: string | null
   collection: string
+  route: { slug: string; href: string }
 }
 
 const props = defineProps<{
@@ -34,6 +44,9 @@ const contentRoute = computed(() => `${props.studioRoute}/content`)
 const { t } = useCmsI18n()
 const { can } = useCmsStudioAccess()
 const canManageCollections = can(cmsPermissionKeys.manageCollections)
+const canManageAssets = can(cmsPermissionKeys.manageAssets)
+const canManageSettings = can(cmsPermissionKeys.manageSettings)
+const canPublishEntries = can(cmsPermissionKeys.publishEntries)
 const open = ref(false)
 const query = ref('')
 const recentItems = ref<PaletteItem[]>([])
@@ -49,80 +62,85 @@ watch(query, (val: string) => {
   }, 250)
 })
 
-const cmsSearch = useStudioSearch(debouncedQuery, { limit: 10 })
+const cmsSearch = useStudioSearch(debouncedQuery, {
+  collection: computed(() =>
+    typeof route.params.collection === 'string' ? route.params.collection : undefined,
+  ),
+  limit: 10,
+})
+// Server content search runs everywhere: scoped to the collection inside a
+// collection route, across all route-backed collections elsewhere. Local items
+// still filter instantly; the spinner only fills the gap when nothing local
+// matches yet (see the template's v-if).
 const searchPending = computed(
-  () => query.value !== debouncedQuery.value || cmsSearch.pending?.value,
+  () => query.value !== debouncedQuery.value || cmsSearch.pending.value === true,
 )
 
+const capabilityAccess: Partial<Record<CmsPermissionKey, typeof canManageAssets>> = {
+  [cmsPermissionKeys.manageAssets]: canManageAssets,
+  [cmsPermissionKeys.manageCollections]: canManageCollections,
+  [cmsPermissionKeys.manageSettings]: canManageSettings,
+  [cmsPermissionKeys.publishEntries]: canPublishEntries,
+}
+function canAccessRoute(route: StudioStaticRoute): boolean {
+  const requiredCapability = route.requiredCapability
+  return !requiredCapability || capabilityAccess[requiredCapability]?.value === true
+}
+
 const staticLinks = computed<PaletteItem[]>(() =>
-  [
-    {
-      id: 'link-dashboard',
-      title: t('ginkoCms.studio.commandPalette.dashboardTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.dashboardSubtitle'),
-      href: props.studioRoute,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-site-data',
-      title: t('ginkoCms.studio.commandPalette.siteDataTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.siteDataSubtitle'),
-      href: `${props.studioRoute}/site-data`,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-assets',
-      title: t('ginkoCms.studio.commandPalette.assetsTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.assetsSubtitle'),
-      href: `${props.studioRoute}/assets`,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-collections',
-      title: t('ginkoCms.studio.commandPalette.collectionsTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.collectionsSubtitle'),
-      href: `${props.studioRoute}/collections`,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-activity',
-      title: t('ginkoCms.studio.commandPalette.activityTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.activitySubtitle'),
-      href: `${props.studioRoute}/activity`,
-      group: 'links' as const,
-      visible: true,
-    },
-    {
-      id: 'link-imports',
-      title: 'Imports',
-      subtitle: 'Inspect filesystem import runs and blockers',
-      href: `${props.studioRoute}/imports`,
-      group: 'links' as const,
-      visible: canManageCollections.value,
-    },
-    {
-      id: 'link-settings',
-      title: t('ginkoCms.studio.commandPalette.settingsTitle'),
-      subtitle: t('ginkoCms.studio.commandPalette.settingsSubtitle'),
-      href: `${props.studioRoute}/settings`,
-      group: 'links' as const,
-      visible: true,
-    },
-  ]
-    .filter((item) => item.visible)
-    .map(({ visible: _, ...rest }) => rest as PaletteItem),
+  studioStaticRoutes.filter(canAccessRoute).map((route) => ({
+    id: `link-${route.id}`,
+    title: t(route.labelKey),
+    subtitle: route.subtitleKey ? t(route.subtitleKey) : undefined,
+    href: studioRouteHref(props.studioRoute, route),
+    group: 'links' as const,
+  })),
 )
+
+const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
+const collectionLinks = computed<PaletteItem[]>(() =>
+  ((collectionsQuery.data.value ?? []) as StudioCollectionListItem[]).map((collection) => ({
+    id: `collection-${collection.slug}`,
+    title: collection.label,
+    keywords: collection.slug,
+    href: `${contentRoute.value}/${collection.slug}`,
+    group: 'links' as const,
+  })),
+)
+
+// Local, instant filter for the non-server groups: every whitespace-separated
+// token must appear in the item's title, subtitle, or keywords (case- and
+// diacritic-insensitive substring match).
+function normalizeForMatch(text: string): string {
+  return text
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036F]/g, '')
+    .toLowerCase()
+}
+const queryTokens = computed(() =>
+  normalizeForMatch(query.value.trim()).split(/\s+/).filter(Boolean),
+)
+function filterByQuery(items: PaletteItem[]): PaletteItem[] {
+  const tokens = queryTokens.value
+  if (!tokens.length) return items
+  return items.filter((item) => {
+    const haystack = normalizeForMatch(
+      [item.title, item.subtitle, item.keywords].filter(Boolean).join(' '),
+    )
+    return tokens.every((token) => haystack.includes(token))
+  })
+}
+const visibleCollections = computed(() => filterByQuery(collectionLinks.value))
+const visibleLinks = computed(() => filterByQuery(staticLinks.value))
 
 const actionItems = computed((): PaletteItem[] => {
   const items: PaletteItem[] = []
   if (collection.value) {
     items.push({
       id: `action-new-${collection.value}`,
-      title: `${t('ginkoCms.studio.collectionListPage.newEntry')} ${collection.value}`,
+      title: t('ginkoCms.studio.commandPalette.newDraftTitle', {
+        collection: String(collection.value),
+      }),
       subtitle: t('ginkoCms.studio.commandPalette.newEntrySubtitle'),
       href: `${contentRoute.value}/${collection.value}/new`,
       group: 'actions',
@@ -130,13 +148,14 @@ const actionItems = computed((): PaletteItem[] => {
   }
   return items
 })
+const visibleActions = computed(() => filterByQuery(actionItems.value))
 
 const searchItems = computed<PaletteItem[]>(() =>
   (cmsSearch.results.value as SearchResultItem[]).map((item) => ({
-    id: `content-${item._id}`,
-    title: item.title || item.slug,
-    subtitle: item.snippet ?? `${item.collection} content`,
-    href: `${contentRoute.value}/${item.collection}/${item._id}`,
+    id: `content-${item.id}`,
+    title: item.title || item.route.slug,
+    subtitle: item.route.href,
+    href: `${contentRoute.value}/${item.collection}/${item.id}`,
     group: 'content',
   })),
 )
@@ -145,12 +164,34 @@ const recentSection = computed<PaletteItem[]>(() =>
   query.value ? [] : recentItems.value.filter((item) => item.href),
 )
 
+// The palette runs a debounced SERVER search and expects every provided item to
+// render; the refreshed reka-ui Command otherwise filters items client-side by
+// their rendered text against filterState.search. We deliberately keep the
+// Command's internal filter disabled (its search state is never populated — see
+// the ListboxFilter bound to `query` below) and drive visibility purely from
+// `filterByQuery` + the server results + these v-if guards, so this custom
+// empty state replaces the self-gating <CommandEmpty>. Highlight stays correct
+// because reka's ListboxFilter re-highlights the first item after every
+// keystroke (post-render), so Enter always opens the top visible result.
 const hasAnyItems = computed(
   () =>
     recentSection.value.length > 0 ||
     searchItems.value.length > 0 ||
-    staticLinks.value.length > 0 ||
-    actionItems.value.length > 0,
+    visibleCollections.value.length > 0 ||
+    visibleLinks.value.length > 0 ||
+    visibleActions.value.length > 0,
+)
+
+// Changes whenever the rendered lists change shape; drives the highlight-sync
+// helper so async result updates keep a valid highlighted item for Enter.
+const highlightSignal = computed(() =>
+  [
+    recentSection.value.length,
+    searchItems.value.length,
+    visibleCollections.value.length,
+    visibleLinks.value.length,
+    visibleActions.value.length,
+  ].join('-'),
 )
 
 watch(open, (value) => {
@@ -234,113 +275,152 @@ onBeforeUnmount(() => {
     :description="t('ginkoCms.studio.commandPalette.description')"
     @update:open="open = $event"
   >
-    <Command :filter-function="undefined">
-      <CommandInput
+    <CmsCommandPaletteHighlightSync :signal="highlightSignal" />
+    <!--
+      Custom command input: bind reka's ListboxFilter to `query` (which drives
+      the debounced server search) rather than the Command context's
+      filterState.search. This intentionally leaves the Command's internal
+      client-side filter disabled so all server-provided items render. Markup
+      mirrors ui/command/CommandInput.vue.
+    -->
+    <div
+      data-slot="command-input-wrapper"
+      class="ginko:flex ginko:h-12 ginko:items-center ginko:gap-2 ginko:border-b ginko:px-3"
+    >
+      <Search class="ginko:size-4 ginko:shrink-0 ginko:opacity-50" />
+      <ListboxFilter
         v-model="query"
+        auto-focus
+        data-slot="command-input"
         :placeholder="t('ginkoCms.studio.commandPalette.placeholder')"
+        class="ginko:placeholder:text-muted-foreground ginko:flex ginko:h-12 ginko:w-full ginko:rounded-md ginko:bg-transparent ginko:py-3 ginko:text-sm ginko:outline-hidden ginko:disabled:cursor-not-allowed ginko:disabled:opacity-50"
       />
-      <CommandList>
-        <div
-          v-if="searchPending && query"
-          class="ginko:flex ginko:items-center ginko:justify-center ginko:py-8 ginko:text-sm ginko:text-muted-foreground"
+    </div>
+    <CommandList>
+      <div
+        v-if="searchPending && query && !hasAnyItems"
+        class="ginko:flex ginko:items-center ginko:justify-center ginko:py-8 ginko:text-sm ginko:text-muted-foreground"
+      >
+        <Loader2 class="ginko:mr-2 ginko:size-4 ginko:animate-spin" />
+        {{ t('ginkoCms.studio.commandPalette.searching') }}
+      </div>
+
+      <div
+        v-else-if="!hasAnyItems"
+        class="ginko:py-6 ginko:text-center ginko:text-sm ginko:text-muted-foreground"
+      >
+        {{ t('ginkoCms.studio.commandPalette.noResults') }}
+      </div>
+
+      <CommandGroup v-if="recentSection.length" :heading="t('ginkoCms.common.recent')">
+        <CommandItem
+          v-for="item in recentSection"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
         >
-          <Loader2 class="ginko:mr-2 ginko:size-4 ginko:animate-spin" />
-          {{ t('ginkoCms.studio.commandPalette.searching') }}
-        </div>
-
-        <CommandEmpty v-else-if="!hasAnyItems">
-          {{ t('ginkoCms.studio.commandPalette.noResults') }}
-        </CommandEmpty>
-
-        <CommandGroup v-if="recentSection.length" :heading="t('ginkoCms.common.recent')">
-          <CommandItem
-            v-for="item in recentSection"
-            :key="item.id"
-            :value="item.id"
-            @select="selectItem(item)"
-          >
-            <History class="ginko:text-muted-foreground" />
-            <div class="ginko:min-w-0 ginko:flex-1">
-              <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
-              <div
-                v-if="item.subtitle"
-                class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
-              >
-                {{ item.subtitle }}
-              </div>
+          <History class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+            <div
+              v-if="item.subtitle"
+              class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
+            >
+              {{ item.subtitle }}
             </div>
-          </CommandItem>
-        </CommandGroup>
+          </div>
+        </CommandItem>
+      </CommandGroup>
 
-        <CommandSeparator v-if="recentSection.length && searchItems.length" />
+      <CommandSeparator v-if="recentSection.length && searchItems.length" />
 
-        <CommandGroup v-if="searchItems.length" :heading="t('ginkoCms.common.content')">
-          <CommandItem
-            v-for="item in searchItems"
-            :key="item.id"
-            :value="item.id"
-            @select="selectItem(item)"
-          >
-            <FileText class="ginko:text-muted-foreground" />
-            <div class="ginko:min-w-0 ginko:flex-1">
-              <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
-              <div
-                v-if="item.subtitle"
-                class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
-              >
-                {{ item.subtitle }}
-              </div>
+      <CommandGroup v-if="searchItems.length" :heading="t('ginkoCms.common.content')">
+        <CommandItem
+          v-for="item in searchItems"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
+        >
+          <FileText class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+            <div
+              v-if="item.subtitle"
+              class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
+            >
+              {{ item.subtitle }}
             </div>
-          </CommandItem>
-        </CommandGroup>
+          </div>
+        </CommandItem>
+      </CommandGroup>
 
-        <CommandSeparator
-          v-if="(recentSection.length || searchItems.length) && staticLinks.length"
-        />
+      <CommandSeparator
+        v-if="(recentSection.length || searchItems.length) && visibleCollections.length"
+      />
 
-        <CommandGroup :heading="t('ginkoCms.common.pages')">
-          <CommandItem
-            v-for="item in staticLinks"
-            :key="item.id"
-            :value="item.id"
-            @select="selectItem(item)"
-          >
-            <ArrowRight class="ginko:text-muted-foreground" />
-            <div class="ginko:min-w-0 ginko:flex-1">
-              <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
-              <div
-                v-if="item.subtitle"
-                class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
-              >
-                {{ item.subtitle }}
-              </div>
+      <CommandGroup v-if="visibleCollections.length" :heading="t('ginkoCms.common.collections')">
+        <CommandItem
+          v-for="item in visibleCollections"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
+        >
+          <Layers class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+          </div>
+        </CommandItem>
+      </CommandGroup>
+
+      <CommandSeparator
+        v-if="
+          (recentSection.length || searchItems.length || visibleCollections.length) &&
+          visibleLinks.length
+        "
+      />
+
+      <CommandGroup v-if="visibleLinks.length" :heading="t('ginkoCms.common.pages')">
+        <CommandItem
+          v-for="item in visibleLinks"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
+        >
+          <ArrowRight class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+            <div
+              v-if="item.subtitle"
+              class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
+            >
+              {{ item.subtitle }}
             </div>
-          </CommandItem>
-        </CommandGroup>
+          </div>
+        </CommandItem>
+      </CommandGroup>
 
-        <CommandSeparator v-if="actionItems.length" />
+      <CommandSeparator v-if="visibleActions.length" />
 
-        <CommandGroup v-if="actionItems.length" :heading="t('ginkoCms.common.actions')">
-          <CommandItem
-            v-for="item in actionItems"
-            :key="item.id"
-            :value="item.id"
-            @select="selectItem(item)"
-          >
-            <Zap class="ginko:text-muted-foreground" />
-            <div class="ginko:min-w-0 ginko:flex-1">
-              <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
-              <div
-                v-if="item.subtitle"
-                class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
-              >
-                {{ item.subtitle }}
-              </div>
+      <CommandGroup v-if="visibleActions.length" :heading="t('ginkoCms.common.actions')">
+        <CommandItem
+          v-for="item in visibleActions"
+          :key="item.id"
+          :value="item.id"
+          @select="selectItem(item)"
+        >
+          <Zap class="ginko:text-muted-foreground" />
+          <div class="ginko:min-w-0 ginko:flex-1">
+            <div class="ginko:truncate ginko:text-sm ginko:font-medium">{{ item.title }}</div>
+            <div
+              v-if="item.subtitle"
+              class="ginko:truncate ginko:text-xs ginko:text-muted-foreground"
+            >
+              {{ item.subtitle }}
             </div>
-          </CommandItem>
-        </CommandGroup>
-      </CommandList>
-    </Command>
+          </div>
+        </CommandItem>
+      </CommandGroup>
+    </CommandList>
 
     <div
       class="ginko:flex ginko:items-center ginko:justify-between ginko:border-t ginko:bg-muted/30 ginko:px-4 ginko:py-2 ginko:text-xs ginko:text-muted-foreground"

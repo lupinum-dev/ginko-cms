@@ -1,5 +1,5 @@
-// Build the additional top-level source directories (auth, cli, config,
-// migration, public, server)
+// Build the additional top-level source directories (auth, cli,
+// portability, public, server)
 // into dist/. nuxt-module-build only handles src/runtime/, so we run mkdist
 // for the rest. This keeps the Nuxt module package surface explicit.
 import { copyFileSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -13,12 +13,11 @@ const pkgRoot = resolve(here, '..')
 
 const extras = [
   'auth',
-  'bridge',
   'cli',
-  'config',
   'convex',
-  'migration',
   'module',
+  'nuxt-provider',
+  'portability',
   'public',
   'server',
 ]
@@ -84,15 +83,16 @@ copyFileSync(
   resolve(pkgRoot, 'src/cli/convex-package-json-shim.cjs'),
   resolve(pkgRoot, 'dist/cli/convex-package-json-shim.cjs'),
 )
-copyFileSync(resolve(pkgRoot, 'src/nuxt-provider.mjs'), resolve(pkgRoot, 'dist/nuxt-provider.mjs'))
-writeFileSync(
-  resolve(pkgRoot, 'dist/nuxt-provider.d.ts'),
-  [
-    'declare const contentProvider: any',
-    'export { contentProvider }',
-    'export default contentProvider',
-    '',
-  ].join('\n'),
-  'utf8',
-)
-console.log('[build-extras] nuxt-provider -> dist/nuxt-provider.mjs')
+const providerResult = await mkdist({
+  rootDir: pkgRoot,
+  srcDir: 'src',
+  distDir: 'dist',
+  cleanDist: false,
+  declaration: true,
+  addRelativeDeclarationExtensions: true,
+  ext: 'mjs',
+  pattern: ['nuxt-provider.ts'],
+  esbuild: { target: 'esnext' },
+})
+normalizeDeclarationSpecifiers(resolve(pkgRoot, 'dist'))
+console.log(`[build-extras] nuxt-provider entry: ${providerResult.writtenFiles.length} files`)

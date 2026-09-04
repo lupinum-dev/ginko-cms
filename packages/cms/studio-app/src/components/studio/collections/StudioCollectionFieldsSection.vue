@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { List } from 'lucide-vue-next'
+import { List } from '@lucide/vue'
 import { computed } from 'vue'
 
 type FieldItem = {
@@ -14,7 +14,7 @@ type FieldItem = {
   sortable?: boolean
   width?: string
   options?: string[] | null
-  relation?: { collectionId: string; multiple?: boolean } | null
+  relation?: { collection: string; multiple?: boolean } | null
   validation?: Record<string, unknown> | null
 }
 
@@ -56,12 +56,10 @@ const selectedFieldBadges = computed(() => {
 
 <template>
   <section
-    class="ginko:flex ginko:flex-col ginko:md:flex-row ginko:md:gap-10 ginko:gap-4 ginko:py-8"
+    class="ginko:flex ginko:flex-col ginko:@3xl:flex-row ginko:@3xl:gap-10 ginko:gap-4 ginko:py-8"
   >
-    <div class="ginko:space-y-1 ginko:md:w-56 ginko:md:shrink-0">
-      <h2
-        class="ginko:text-sm ginko:font-medium ginko:text-foreground ginko:flex ginko:items-center ginko:gap-2"
-      >
+    <div class="ginko:space-y-1 ginko:@3xl:w-56 ginko:@3xl:shrink-0">
+      <h2 class="studio-text-label ginko:flex ginko:items-center ginko:gap-2 ginko:text-foreground">
         <List class="ginko:size-4 ginko:text-muted-foreground" />
         {{ t('ginkoCms.common.fields') }}
       </h2>
@@ -89,7 +87,7 @@ const selectedFieldBadges = computed(() => {
           v-for="field in collectionFields"
           :key="field.key"
           class="ginko:group ginko:flex ginko:items-center ginko:justify-between ginko:px-4 ginko:py-3 ginko:cursor-pointer ginko:transition-colors ginko:hover:bg-muted/30"
-          :class="selectedFieldKey === field.key ? 'bg-muted/50' : ''"
+          :class="selectedFieldKey === field.key ? 'ginko:bg-muted/50' : ''"
           :data-testid="`cms-field-row-${field.key}`"
           @click="selectedFieldKey = field.key"
         >
@@ -98,19 +96,15 @@ const selectedFieldBadges = computed(() => {
               resolveLabel(field)
             }}</span>
             <code
-              class="ginko:text-[10px] ginko:font-mono ginko:text-muted-foreground ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded ginko:shrink-0"
+              class="ginko:text-xs ginko:font-mono ginko:text-muted-foreground ginko:bg-muted ginko:px-1.5 ginko:py-0.5 ginko:rounded ginko:shrink-0"
               >{{ field.type }}</code
             >
-            <span
-              v-if="field.required"
-              class="ginko:text-[10px] ginko:text-destructive ginko:shrink-0"
+            <span v-if="field.required" class="ginko:text-xs ginko:text-destructive ginko:shrink-0"
               >*</span
             >
-            <span
-              v-if="field.width === 'half'"
-              class="ginko:text-[10px] ginko:text-muted-foreground"
-              >{{ t('ginkoCms.studio.collectionsPage.widthHalfLabel') }}</span
-            >
+            <span v-if="field.width === 'half'" class="ginko:text-xs ginko:text-muted-foreground">{{
+              t('ginkoCms.studio.collectionsPage.widthHalfLabel')
+            }}</span>
           </div>
         </div>
       </div>
@@ -121,7 +115,7 @@ const selectedFieldBadges = computed(() => {
       >
         <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
           <div class="ginko:min-w-0">
-            <h3 class="ginko:truncate ginko:text-sm ginko:font-medium">
+            <h3 class="studio-text-label ginko:truncate">
               {{ resolveLabel(selectedField) }}
             </h3>
             <p class="ginko:mt-1 ginko:font-mono ginko:text-xs ginko:text-muted-foreground">
@@ -133,7 +127,7 @@ const selectedFieldBadges = computed(() => {
               v-for="badge in selectedFieldBadges"
               :key="badge"
               variant="outline"
-              class="ginko:text-[10px]"
+              class="ginko:text-xs"
             >
               {{ badge }}
             </Badge>
@@ -145,7 +139,7 @@ const selectedFieldBadges = computed(() => {
         >
           {{ selectedField.description }}
         </p>
-        <dl class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:sm:grid-cols-2">
+        <dl class="ginko:mt-3 ginko:grid ginko:gap-2 ginko:text-xs ginko:@2xl:grid-cols-2">
           <div class="ginko:rounded-md ginko:bg-background ginko:px-2 ginko:py-1.5">
             <dt class="ginko:text-muted-foreground">Layout</dt>
             <dd class="ginko:mt-0.5 ginko:text-foreground">{{ selectedField.width ?? 'full' }}</dd>
@@ -162,7 +156,7 @@ const selectedFieldBadges = computed(() => {
           >
             <dt class="ginko:text-muted-foreground">Relation</dt>
             <dd class="ginko:mt-0.5 ginko:text-foreground">
-              {{ selectedField.relation.collectionId }}
+              {{ selectedField.relation.collection }}
               {{ selectedField.relation.multiple ? '(many)' : '(one)' }}
             </dd>
           </div>

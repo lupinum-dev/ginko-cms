@@ -9,21 +9,29 @@
  */
 
 import type * as auth from "../auth.js";
-import type * as ginkoCms__caller from "../ginkoCms/_caller.js";
+import type * as ginkoCms_agentRuns from "../ginkoCms/agentRuns.js";
+import type * as ginkoCms_assetRecovery from "../ginkoCms/assetRecovery.js";
 import type * as ginkoCms_assets from "../ginkoCms/assets.js";
-import type * as ginkoCms_backup from "../ginkoCms/backup.js";
+import type * as ginkoCms_caller from "../ginkoCms/caller.js";
 import type * as ginkoCms_collections from "../ginkoCms/collections.js";
+import type * as ginkoCms_contract from "../ginkoCms/contract.js";
+import type * as ginkoCms_contractBinding from "../ginkoCms/contractBinding.js";
+import type * as ginkoCms_contractTransitions from "../ginkoCms/contractTransitions.js";
 import type * as ginkoCms_diagnostics from "../ginkoCms/diagnostics.js";
+import type * as ginkoCms_draftPreview from "../ginkoCms/draftPreview.js";
 import type * as ginkoCms_editor from "../ginkoCms/editor.js";
-import type * as ginkoCms_imports from "../ginkoCms/imports.js";
-import type * as ginkoCms_mcpKeys from "../ginkoCms/mcpKeys.js";
+import type * as ginkoCms_maintenance from "../ginkoCms/maintenance.js";
+import type * as ginkoCms_mcp from "../ginkoCms/mcp.js";
+import type * as ginkoCms_mcpOAuthDelegations from "../ginkoCms/mcpOAuthDelegations.js";
+import type * as ginkoCms_mcpOperations from "../ginkoCms/mcpOperations.js";
 import type * as ginkoCms_members from "../ginkoCms/members.js";
-import type * as ginkoCms_migrations from "../ginkoCms/migrations.js";
+import type * as ginkoCms_passwordRecovery from "../ginkoCms/passwordRecovery.js";
+import type * as ginkoCms_portability from "../ginkoCms/portability.js";
 import type * as ginkoCms_public from "../ginkoCms/public.js";
 import type * as ginkoCms_revalidation from "../ginkoCms/revalidation.js";
+import type * as ginkoCms_reviewRequests from "../ginkoCms/reviewRequests.js";
 import type * as ginkoCms_settings from "../ginkoCms/settings.js";
 import type * as ginkoCms_siteData from "../ginkoCms/siteData.js";
-import type * as ginkoCmsMcp from "../ginkoCmsMcp.js";
 import type * as http from "../http.js";
 
 import type {
@@ -34,21 +42,29 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
-  "ginkoCms/_caller": typeof ginkoCms__caller;
+  "ginkoCms/agentRuns": typeof ginkoCms_agentRuns;
+  "ginkoCms/assetRecovery": typeof ginkoCms_assetRecovery;
   "ginkoCms/assets": typeof ginkoCms_assets;
-  "ginkoCms/backup": typeof ginkoCms_backup;
+  "ginkoCms/caller": typeof ginkoCms_caller;
   "ginkoCms/collections": typeof ginkoCms_collections;
+  "ginkoCms/contract": typeof ginkoCms_contract;
+  "ginkoCms/contractBinding": typeof ginkoCms_contractBinding;
+  "ginkoCms/contractTransitions": typeof ginkoCms_contractTransitions;
   "ginkoCms/diagnostics": typeof ginkoCms_diagnostics;
+  "ginkoCms/draftPreview": typeof ginkoCms_draftPreview;
   "ginkoCms/editor": typeof ginkoCms_editor;
-  "ginkoCms/imports": typeof ginkoCms_imports;
-  "ginkoCms/mcpKeys": typeof ginkoCms_mcpKeys;
+  "ginkoCms/maintenance": typeof ginkoCms_maintenance;
+  "ginkoCms/mcp": typeof ginkoCms_mcp;
+  "ginkoCms/mcpOAuthDelegations": typeof ginkoCms_mcpOAuthDelegations;
+  "ginkoCms/mcpOperations": typeof ginkoCms_mcpOperations;
   "ginkoCms/members": typeof ginkoCms_members;
-  "ginkoCms/migrations": typeof ginkoCms_migrations;
+  "ginkoCms/passwordRecovery": typeof ginkoCms_passwordRecovery;
+  "ginkoCms/portability": typeof ginkoCms_portability;
   "ginkoCms/public": typeof ginkoCms_public;
   "ginkoCms/revalidation": typeof ginkoCms_revalidation;
+  "ginkoCms/reviewRequests": typeof ginkoCms_reviewRequests;
   "ginkoCms/settings": typeof ginkoCms_settings;
   "ginkoCms/siteData": typeof ginkoCms_siteData;
-  ginkoCmsMcp: typeof ginkoCmsMcp;
   http: typeof http;
 }>;
 
@@ -79,6 +95,6 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
-  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+  betterAuth: import("@lupinum/better-convex-nuxt/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
   ginkoCms: import("@lupinum/ginko-cms-convex/_generated/component.js").ComponentApi<"ginkoCms">;
 };

@@ -1,0 +1,96 @@
+/* Studio accent themes. Every selector is scoped to `.ginko-cms`; dark mode
+ * is inherited from the host's `.dark` ancestor. The selectable classes are
+ * the exact five values exported by `useAppearance`.
+ */
+
+.ginko-cms.color-blue {
+  --primary: var(--ginko-color-blue-700);
+  --primary-foreground: var(--ginko-color-blue-50);
+  --sidebar-primary: var(--ginko-color-blue-600);
+  --sidebar-primary-foreground: var(--ginko-color-blue-50);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-blue-300);
+  --chart-2: var(--ginko-color-blue-500);
+  --chart-3: var(--ginko-color-blue-600);
+  --chart-4: var(--ginko-color-blue-700);
+  --chart-5: var(--ginko-color-blue-800);
+}
+
+.dark .ginko-cms.color-blue {
+  --primary: var(--ginko-color-blue-700);
+  --primary-foreground: var(--ginko-color-blue-50);
+  --sidebar-primary: var(--ginko-color-blue-500);
+  --sidebar-primary-foreground: var(--ginko-color-blue-50);
+}
+
+.ginko-cms.color-green {
+  --primary: var(--ginko-color-lime-600);
+  --primary-foreground: var(--ginko-color-lime-50);
+  --ring: var(--ginko-color-lime-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-green-300);
+  --chart-2: var(--ginko-color-green-500);
+  --chart-3: var(--ginko-color-green-600);
+  --chart-4: var(--ginko-color-green-700);
+  --chart-5: var(--ginko-color-green-800);
+  --sidebar-primary: var(--ginko-color-lime-600);
+  --sidebar-primary-foreground: var(--ginko-color-lime-50);
+  --sidebar-ring: var(--ginko-color-lime-400);
+}
+
+.dark .ginko-cms.color-green {
+  --primary: var(--ginko-color-lime-600);
+  --primary-foreground: var(--ginko-color-lime-50);
+  --ring: var(--ginko-color-lime-900);
+  --sidebar-primary: var(--ginko-color-lime-500);
+  --sidebar-primary-foreground: var(--ginko-color-lime-50);
+  --sidebar-ring: var(--ginko-color-lime-900);
+}
+
+.ginko-cms.color-amber {
+  --primary: var(--ginko-color-amber-600);
+  --primary-foreground: var(--ginko-color-amber-50);
+  --ring: var(--ginko-color-amber-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-amber-300);
+  --chart-2: var(--ginko-color-amber-500);
+  --chart-3: var(--ginko-color-amber-600);
+  --chart-4: var(--ginko-color-amber-700);
+  --chart-5: var(--ginko-color-amber-800);
+  --sidebar-primary: var(--ginko-color-amber-600);
+  --sidebar-primary-foreground: var(--ginko-color-amber-50);
+  --sidebar-ring: var(--ginko-color-amber-400);
+}
+
+.dark .ginko-cms.color-amber {
+  --primary: var(--ginko-color-amber-500);
+  --primary-foreground: var(--ginko-color-amber-50);
+  --ring: var(--ginko-color-amber-900);
+  --sidebar-primary: var(--ginko-color-amber-500);
+  --sidebar-primary-foreground: var(--ginko-color-amber-50);
+  --sidebar-ring: var(--ginko-color-amber-900);
+}
+
+.ginko-cms.color-violet {
+  --primary: var(--ginko-color-violet-600);
+  --primary-foreground: var(--ginko-color-violet-50);
+  --ring: var(--ginko-color-violet-400);
+  --vis-primary-color: var(--primary);
+  --chart-1: var(--ginko-color-violet-300);
+  --chart-2: var(--ginko-color-violet-500);
+  --chart-3: var(--ginko-color-violet-600);
+  --chart-4: var(--ginko-color-violet-700);
+  --chart-5: var(--ginko-color-violet-800);
+  --sidebar-primary: var(--ginko-color-violet-600);
+  --sidebar-primary-foreground: var(--ginko-color-violet-50);
+  --sidebar-ring: var(--ginko-color-violet-400);
+}
+
+.dark .ginko-cms.color-violet {
+  --primary: var(--ginko-color-violet-500);
+  --primary-foreground: var(--ginko-color-violet-50);
+  --ring: var(--ginko-color-violet-900);
+  --sidebar-primary: var(--ginko-color-violet-500);
+  --sidebar-primary-foreground: var(--ginko-color-violet-50);
+  --sidebar-ring: var(--ginko-color-violet-900);
+}

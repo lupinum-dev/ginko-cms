@@ -9,6 +9,13 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+env:
+  GINKO_COREPACK_VERSION: '0.34.5'
+  GINKO_NODE_VERSION: '24.18.0'
+
 jobs:
   foundation:
     runs-on: ubuntu-latest
@@ -17,158 +24,49 @@ jobs:
         working-directory: ginko-cms
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: ginko-cms
+          persist-credentials: false
 
-      - uses: actions/checkout@v6
-        with:
-          repository: lupinum-dev/trellis
-          path: trellis
-          ref: ${{ vars.TRELLIS_CI_REF || 'v0.1.1' }}
-          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
-
-      - uses: actions/checkout@v6
-        with:
-          repository: lupinum-dev/ginko-content
-          path: ginko-content
-          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'codex/release-safety-fixes' }}
-          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-
-      - run: npm i -g --force corepack@latest && corepack enable
-
-      - name: Prepare local ginko-content tarball
-        working-directory: ginko-content
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run release:pack
-
-      - name: Refresh generated package lock metadata
-        run: pnpm install --lockfile-only --no-frozen-lockfile
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Format
-        run: pnpm run format:check
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Typecheck
-        run: pnpm run typecheck
-
-      - name: Publish specifier check
-        run: pnpm run check:publish-specifiers
-
-      - name: Tests
-        run: pnpm test
-
-      - name: Package build
-        run: pnpm run build
-
-  package-smoke:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
+      - name: Resolve the exact Better Convex rehearsal source
+        id: better_convex
         working-directory: ginko-cms
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          path: ginko-cms
-
-      - uses: actions/checkout@v6
-        with:
-          repository: lupinum-dev/trellis
-          path: trellis
-          ref: ${{ vars.TRELLIS_CI_REF || 'v0.1.1' }}
-          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
-
-      - uses: actions/checkout@v6
-        with:
-          repository: lupinum-dev/ginko-content
-          path: ginko-content
-          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'codex/release-safety-fixes' }}
-          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-
-      - run: npm i -g --force corepack@latest && corepack enable
-
-      - name: Prepare local ginko-content tarball
-        working-directory: ginko-content
         run: |
-          pnpm install --frozen-lockfile
-          pnpm run release:pack
+          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name] of [['commit','@lupinum/better-convex-nuxt'],['nuxt_version','@lupinum/better-convex-nuxt'],['vue_version','@lupinum/better-convex-vue'],['mcp_version','@lupinum/better-convex-mcp']]) process.stdout.write(key+'='+(key==='commit' ? matrix.sourceRehearsal.betterConvexCommit : matrix.releaseStack[name])+'\n')" >> "$GITHUB_OUTPUT"
 
-      - name: Refresh generated package lock metadata
-        run: pnpm install --lockfile-only --no-frozen-lockfile
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: lupinum-dev/better-convex
+          ref: ${{ steps.better_convex.outputs.commit }}
+          path: better-convex-nuxt
+          persist-credentials: false
 
-      - name: Install dependencies
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.GINKO_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned package-manager launcher
+        run: npm install --global corepack@"$GINKO_COREPACK_VERSION" && corepack enable
+
+      - name: Install the frozen Ginko dependency graph
         run: pnpm install --frozen-lockfile
 
-      - name: Packed package E2E
-        run: pnpm run package:e2e
-
-  live-release-smoke:
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    defaults:
-      run:
-        working-directory: ginko-cms
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          path: ginko-cms
-
-      - uses: actions/checkout@v6
-        with:
-          repository: lupinum-dev/trellis
-          path: trellis
-          ref: ${{ vars.TRELLIS_CI_REF || 'v0.1.1' }}
-          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
-
-      - uses: actions/checkout@v6
-        with:
-          repository: lupinum-dev/ginko-content
-          path: ginko-content
-          ref: ${{ vars.GINKO_CONTENT_CI_REF || 'codex/release-safety-fixes' }}
-          token: ${{ secrets.LUPINUM_CI_REPO_READ_TOKEN || github.token }}
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-
-      - run: npm i -g --force corepack@latest && corepack enable
-
-      - name: Prepare local ginko-content tarball
-        working-directory: ginko-content
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run release:pack
-
-      - name: Refresh generated package lock metadata
-        run: pnpm install --lockfile-only --no-frozen-lockfile
-
-      - name: Install dependencies
+      - name: Install the frozen Better Convex source graph
+        working-directory: better-convex-nuxt
         run: pnpm install --frozen-lockfile
 
-      - name: Live packed Convex package E2E
-        run: |
-          if [ -z "$CONVEX_DEPLOYMENT" ] || [ -z "$CONVEX_URL" ]; then
-            echo "Live package E2E requires CONVEX_DEPLOYMENT and CONVEX_URL secrets."
-            exit 1
-          fi
-          pnpm run package:e2e:live
+      - name: Install the pinned Playwright browser
+        run: ./node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Repository check
+        run: pnpm --config.verify-deps-before-run=warn run check
+
+      - name: Production audit
+        run: pnpm --config.verify-deps-before-run=warn run audit:prod
+
+      - name: Current-source packed consumer
         env:
-          CONVEX_DEPLOYMENT: ${{ secrets.CONVEX_DEPLOYMENT }}
-          CONVEX_URL: ${{ secrets.CONVEX_URL }}
-          CONVEX_SITE_URL: ${{ secrets.CONVEX_SITE_URL }}
+          BETTER_CONVEX_NUXT_PACKAGE_ROOT: ${{ github.workspace }}/better-convex-nuxt
+        run: pnpm --config.verify-deps-before-run=warn run package:e2e:dev

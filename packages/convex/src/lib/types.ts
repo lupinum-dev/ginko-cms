@@ -3,6 +3,8 @@ import type {
   CmsField as SharedCmsField,
   CompletionState as SharedCompletionState,
   JsonMap,
+  JsonValue,
+  LocaleText,
   LocaleState as SharedLocaleState,
   SlugMode as SharedSlugMode,
   ValidationError as SharedValidationError,
@@ -27,9 +29,21 @@ export type HandlerMutationCtx = MutationCtx & {
   appIdentity: () => Promise<CmsAppIdentity>
 }
 
-export type CmsCollection = Doc<'collections'> & {
+export type CmsCollection = {
+  /** Stable domain identity. This is the collection slug, not a database ID. */
+  _id: string
+  slug: string
+  label: LocaleText
+  icon: string | null
+  type: 'flat' | 'tree'
   fields: CmsField[]
   routing: CollectionRouting
+  locales: string[]
+  settings: JsonValue
+  contract: { source: 'code'; version: string }
+  createdAt: number
+  updatedAt: number
+  updatedBy: string
 }
 
 export type EntryDoc = Doc<'entries'>
@@ -39,13 +53,13 @@ export type ValidationError = SharedValidationError
 export type CompletionState = SharedCompletionState
 
 export type EntryId = Id<'entries'>
-export type CollectionId = Id<'collections'>
 
 export type ActivityDoc = Doc<'activity'>
 
 export type VersionLocaleSnapshot = {
   slug: string | null
   path: string
+  shared?: JsonMap
   values: JsonMap
 }
 

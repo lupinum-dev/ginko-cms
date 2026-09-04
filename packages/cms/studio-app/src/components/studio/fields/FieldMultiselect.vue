@@ -19,8 +19,7 @@ const value = computed({
   set: (v) => emit('update:modelValue', v),
 })
 
-function updateMultiselectOption(event: Event, option: string) {
-  const checked = (event.target as HTMLInputElement).checked
+function updateMultiselectOption(checked: boolean, option: string) {
   const arr = Array.isArray(value.value) ? [...(value.value as string[])] : []
   if (checked && !arr.includes(option)) {
     arr.push(option)
@@ -35,25 +34,27 @@ function updateMultiselectOption(event: Event, option: string) {
 </script>
 
 <template>
-  <div class="ginko:space-y-1.5">
-    <Label class="ginko:text-sm">
+  <FieldSet :data-invalid="fieldError ? true : undefined">
+    <FieldLegend>
       {{ label }}
       <span v-if="field.required" class="ginko:text-destructive">*</span>
-    </Label>
+    </FieldLegend>
     <div class="ginko:space-y-2">
-      <label
-        v-for="opt in field.options ?? []"
-        :key="opt"
-        class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm"
-      >
-        <input
-          type="checkbox"
-          :checked="Array.isArray(value) && value.includes(opt)"
-          class="ginko:rounded ginko:border"
-          @change="updateMultiselectOption($event, opt)"
+      <Field v-for="opt in field.options ?? []" :key="opt" orientation="horizontal">
+        <Checkbox
+          :id="`${field.key}-${opt}`"
+          :model-value="Array.isArray(value) && value.includes(opt)"
+          :aria-invalid="fieldError ? true : undefined"
+          @update:model-value="updateMultiselectOption($event === true, opt)"
         />
-        {{ opt }}
-      </label>
+        <FieldLabel :for="`${field.key}-${opt}`" class="ginko:text-sm">{{ opt }}</FieldLabel>
+      </Field>
     </div>
-  </div>
+    <FieldDescription v-if="field.description">
+      {{ field.description }}
+    </FieldDescription>
+    <FieldError v-if="fieldError">
+      {{ fieldError }}
+    </FieldError>
+  </FieldSet>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Layers } from 'lucide-vue-next'
+import { Layers } from '@lucide/vue'
 import { ref } from 'vue'
 
 import StudioCollectionIcon from './StudioCollectionIcon.vue'
@@ -34,7 +34,9 @@ function selectCollection(slug: string) {
 </script>
 
 <template>
-  <div class="ginko:flex ginko:w-72 ginko:shrink-0 ginko:flex-col ginko:border-r ginko:bg-muted/10">
+  <div
+    class="ginko:flex ginko:w-full ginko:shrink-0 ginko:flex-col ginko:border-b ginko:bg-muted/10 ginko:lg:w-72 ginko:lg:border-b-0 ginko:lg:border-r"
+  >
     <ScrollArea class="ginko:flex-1">
       <div class="ginko:p-3">
         <!-- Loading skeleton -->
@@ -52,19 +54,14 @@ function selectCollection(slug: string) {
           </div>
         </div>
 
-        <div
+        <StudioEmptyState
           v-else-if="collections.length === 0"
-          class="ginko:flex ginko:flex-col ginko:items-center ginko:justify-center ginko:py-12 ginko:px-4 ginko:text-center"
+          :title="t('ginkoCms.studio.collectionsPage.noCollections')"
         >
-          <div
-            class="ginko:size-10 ginko:rounded-xl ginko:bg-muted ginko:flex ginko:items-center ginko:justify-center ginko:mb-3"
-          >
-            <Layers class="ginko:size-5 ginko:text-muted-foreground" />
-          </div>
-          <p class="ginko:text-xs ginko:text-muted-foreground">
-            {{ t('ginkoCms.studio.collectionsPage.noCollections') }}
-          </p>
-        </div>
+          <template #icon>
+            <Layers class="ginko:size-5" aria-hidden="true" />
+          </template>
+        </StudioEmptyState>
 
         <div v-else class="ginko:space-y-1">
           <button
@@ -95,7 +92,7 @@ function selectCollection(slug: string) {
               <div class="ginko:text-sm ginko:font-medium ginko:truncate">
                 {{ collection.label }}
               </div>
-              <div class="ginko:text-[11px] ginko:text-muted-foreground ginko:truncate">
+              <div class="ginko:text-xs ginko:text-muted-foreground ginko:truncate">
                 {{
                   collection.type === 'tree'
                     ? t('ginkoCms.studio.collectionsPage.typeTree')

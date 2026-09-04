@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, LogOut } from 'lucide-vue-next'
+import { ChevronsUpDown, LogOut } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -69,34 +69,24 @@ async function handleSignOut() {
     <SidebarMenuItem>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <button
-            type="button"
-            class="ginko:flex ginko:w-full ginko:items-center ginko:gap-2.5 ginko:rounded-md ginko:px-2 ginko:py-2 ginko:text-left ginko:transition-colors ginko:hover:bg-muted/50 ginko:data-[state=open]:bg-muted/60 ginko:focus-visible:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-sidebar-ring/40"
+          <SidebarMenuButton
+            size="lg"
+            class="ginko:data-[state=open]:bg-sidebar-accent ginko:data-[state=open]:text-sidebar-accent-foreground"
           >
-            <Avatar class="ginko:size-7 ginko:rounded-full ginko:ring-1 ginko:ring-border/50">
+            <Avatar class="ginko:size-8 ginko:rounded-lg">
               <AvatarImage v-if="user?.image" :src="user.image" :alt="user?.name" />
-              <AvatarFallback
-                class="ginko:rounded-full ginko:bg-primary/10 ginko:text-[10px] ginko:font-semibold ginko:text-primary"
-              >
+              <AvatarFallback class="ginko:rounded-lg">
                 {{ initials }}
               </AvatarFallback>
             </Avatar>
-            <div
-              class="ginko:grid ginko:min-w-0 ginko:flex-1 ginko:text-left ginko:leading-tight ginko:group-data-[collapsible=icon]:hidden"
-            >
-              <span
-                class="ginko:truncate ginko:text-[13px] ginko:font-medium ginko:text-foreground"
-              >
+            <div class="ginko:grid ginko:flex-1 ginko:text-left ginko:text-sm ginko:leading-tight">
+              <span class="ginko:truncate ginko:font-semibold">
                 {{ user?.name ?? 'User' }}
               </span>
-              <span class="ginko:truncate ginko:text-[11px] ginko:text-muted-foreground/70">{{
-                user?.email
-              }}</span>
+              <span class="ginko:truncate ginko:text-xs">{{ user?.email }}</span>
             </div>
-            <ChevronDown
-              class="ginko:ml-auto ginko:size-3.5 ginko:shrink-0 ginko:text-muted-foreground/50 ginko:group-data-[collapsible=icon]:hidden"
-            />
-          </button>
+            <ChevronsUpDown class="ginko:ml-auto ginko:size-4" />
+          </SidebarMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           class="ginko:w-[--reka-popper-anchor-width] ginko:min-w-56 ginko:rounded-lg"

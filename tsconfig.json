@@ -7,9 +7,6 @@
       "#runtime/*": ["./packages/cms/src/runtime/*"],
       "@lupinum/ginko-cms-contract/shared/*.js": ["./packages/contract/src/*.ts"],
       "@lupinum/ginko-cms-contract/shared/*": ["./packages/contract/src/*"],
-      "@lupinum/ginko-cms-convex/operation-handles/mcp": [
-        "./packages/convex/src/generated/operationHandles/mcp.ts"
-      ],
       "@lupinum/ginko-cms-convex/*": ["./packages/convex/src/*"],
       "@lupinum/ginko-cms": ["./packages/cms/src/module.ts"]
     }

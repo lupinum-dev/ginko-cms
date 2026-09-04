@@ -2,12 +2,7 @@ import type { CollectionMode, JsonObject } from '@lupinum/ginko-cms-contract/sha
 import { computed, reactive, ref, watch } from 'vue'
 
 import { api } from '../../boundary/api'
-import {
-  codeDefinedCollectionList,
-  readLocaleText,
-  type StudioCollectionListItem,
-} from '../../lib/codeDefinedCollections'
-import { useCmsConfig } from '../useCmsConfig'
+import { readLocaleText, type StudioCollectionListItem } from '../../lib/installedCollections'
 import { useCmsI18n } from '../useCmsI18n'
 import { useCmsStudioAccess } from '../useCmsStudioAccess'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
@@ -21,26 +16,14 @@ function isJsonObject(value: unknown): value is JsonObject {
 export function useStudioCollectionsAdmin() {
   useCmsStudioAccess()
 
-  const cmsConfig = useCmsConfig()
   const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
   const studioSettings = useCmsStudioSettings()
   const defaultLocale = computed(() => studioSettings.defaultLocale.value)
-  const hostCollections = computed(() =>
-    codeDefinedCollectionList(cmsConfig.collections, defaultLocale.value),
-  )
   const collections = computed<StudioCollectionListItem[]>(() => {
     const fromConvex =
       (collectionsQuery.data?.value as StudioCollectionListItem[] | undefined) ?? []
     return fromConvex
   })
-
-  const missingContractSync = computed(
-    () =>
-      hostCollections.value.length > 0 &&
-      ((collectionsQuery.data?.value as unknown[] | null | undefined) ?? []).length === 0 &&
-      !collectionsQuery.pending.value &&
-      !collectionsQuery.error.value,
-  )
 
   const selectedCollection = ref<string | null>(null)
   const selectedFieldKey = ref<string | null>(null)
@@ -67,7 +50,7 @@ export function useStudioCollectionsAdmin() {
   const { t } = useCmsI18n()
 
   const selectedCollectionArgs = computed(() =>
-    selectedCollection.value ? { slug: selectedCollection.value } : null,
+    selectedCollection.value ? { slug: selectedCollection.value } : ('skip' as const),
   )
   const {
     data: collectionDetail,
@@ -146,7 +129,7 @@ export function useStudioCollectionsAdmin() {
           collectionCount: items.length,
           collectionSlugs: items.map((item) => item.slug),
           selectedCollection: current,
-          source: missingContractSync.value ? 'host-config-fallback' : 'convex',
+          source: 'installed-contract',
         })
       }
     },
@@ -156,7 +139,7 @@ export function useStudioCollectionsAdmin() {
   const isLoading = computed(() => !collectionsQuery.data?.value && collectionsQuery.pending.value)
 
   return {
-    collectionDetail,
+    collectionDetail: selectedCollectionDetail,
     collectionDetailError,
     collectionDetailPending,
     collectionDraft,
@@ -166,7 +149,6 @@ export function useStudioCollectionsAdmin() {
     defaultLocale,
     error,
     isLoading,
-    missingContractSync,
     selectedCollection,
     selectedFieldKey,
     studioSettings,

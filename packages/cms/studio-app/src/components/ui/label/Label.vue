@@ -17,7 +17,7 @@ const delegatedProps = reactiveOmit(props, 'class')
     v-bind="delegatedProps"
     :class="
       cn(
-        'ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm ginko:leading-none ginko:font-medium ginko:select-none ginko:group-data-[disabled=true]:pointer-events-none ginko:group-data-[disabled=true]:opacity-50 ginko:peer-disabled:cursor-not-allowed ginko:peer-disabled:opacity-50',
+        'ginko:flex ginko:w-fit ginko:items-center ginko:gap-2 ginko:text-sm ginko:leading-snug ginko:font-medium ginko:select-none ginko:group-data-[disabled=true]:pointer-events-none ginko:group-data-[disabled=true]:opacity-50 ginko:peer-disabled:cursor-not-allowed ginko:peer-disabled:opacity-50',
         props.class,
       )
     "

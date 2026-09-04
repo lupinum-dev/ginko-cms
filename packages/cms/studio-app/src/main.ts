@@ -1,12 +1,20 @@
+import { createBetterConvex } from '@lupinum/better-convex-vue'
 import { createApp } from 'vue'
 
 import App from './App.vue'
-import { hasHostBridge, readHostBridge } from './boundary/host-bridge'
+import { hasHostBridge } from './boundary/host-bridge'
 import { createStudioHostContext, studioHostContextKey } from './boundary/studio-host-context'
 import Icon from './components/Icon.vue'
 import NuxtTime from './components/NuxtTime.vue'
 import { createStudioRouter } from './router'
 
+// Self-hosted Geist + Geist Mono (template parity). @nuxt/fonts serves these in
+// the Nuxt template; the standalone SPA ships them via @fontsource-variable so
+// the @font-face woff2 assets land in dist/studio-app/assets and load under the
+// host bridge's relative asset base. The @theme font tokens in styles/index.css
+// resolve to the 'Geist Variable' / 'Geist Mono Variable' families these define.
+import '@fontsource-variable/geist/index.css'
+import '@fontsource-variable/geist-mono/index.css'
 import './styles/index.css'
 
 const MOUNT_TARGET = '#ginko-cms-studio'
@@ -75,14 +83,15 @@ function prepareMountRoot(target: Element): Element {
 void Promise.all([waitForMountTarget(), waitForHostBridge()])
   .then(async ([target]) => {
     debugStudioMount('creating app', {
-      collectionCount: Object.keys(readHostBridge().config.collections ?? {}).length,
       hasHostBridge: hasHostBridge(),
       location: window.location.href,
     })
     const mountRoot = prepareMountRoot(target)
     const app = createApp(App)
     const router = createStudioRouter()
-    app.provide(studioHostContextKey, createStudioHostContext())
+    const studioHost = createStudioHostContext()
+    app.provide(studioHostContextKey, studioHost)
+    app.use(createBetterConvex({ attachment: studioHost.attachment }))
     // These names used to come from Nuxt auto-imports in the host app. Register
     // them explicitly so the standalone Studio SPA owns its Nuxt-compat surface.
     app.component('Icon', Icon)

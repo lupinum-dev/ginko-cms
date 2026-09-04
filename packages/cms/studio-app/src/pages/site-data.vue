@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { Database, Loader2, Plus, Trash2 } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { Database, Loader2, Plus, Trash2 } from '@lucide/vue'
+import { computed, onMounted, ref } from 'vue'
 
 import { useStudioSiteDataAdmin } from '../composables/internal/useStudioSiteDataAdmin'
 const {
   activeLocale,
   blockData,
   blocks,
+  canManageSettings,
   dateLocale,
   deleteTarget,
   error,
@@ -16,6 +17,7 @@ const {
   handleDeleteBlock,
   handleSave,
   handleVisibilityChange,
+  info,
   isLoading,
   locales,
   newBlock,
@@ -23,6 +25,7 @@ const {
   showNewForm,
   t,
   toggleBlock,
+  visibilityTarget,
 } = useStudioSiteDataAdmin()
 
 const localeItems = computed(() =>
@@ -34,6 +37,11 @@ const localeItems = computed(() =>
 const expandedBlockSchema = computed(() =>
   expandedBlockData.value?.schemaType ? { type: expandedBlockData.value.schemaType } : undefined,
 )
+const pageHydrated = ref(false)
+
+onMounted(() => {
+  pageHydrated.value = true
+})
 
 function resolveBlockLabel(
   label: string | Record<string, string> | null | undefined,
@@ -45,12 +53,27 @@ function resolveBlockLabel(
 function handleDeleteDialogOpen(value: boolean) {
   if (!value) deleteTarget.value = null
 }
+
+function handleVisibilityDialogOpen(value: boolean) {
+  if (!value) visibilityTarget.value = null
+}
+
+function formatBlockData(value: unknown): string {
+  return JSON.stringify(value ?? {}, null, 2)
+}
 </script>
 
 <template>
-  <StudioWorkspace class="ginko:h-full">
+  <StudioWorkspace
+    class="ginko:h-full"
+    data-testid="cms-site-data-ready"
+    :data-hydrated="pageHydrated ? 'true' : 'false'"
+  >
     <template #header>
-      <StudioPageHeader :title="t('ginkoCms.studio.siteDataPage.title')" eyebrow="Site data">
+      <StudioPageHeader
+        :title="t('ginkoCms.studio.siteDataPage.title')"
+        :description="t('ginkoCms.studio.siteDataPage.description')"
+      >
         <template #actions>
           <Badge variant="outline" class="ginko:rounded-full ginko:text-xs">
             {{
@@ -59,7 +82,7 @@ function handleDeleteDialogOpen(value: boolean) {
               })
             }}
           </Badge>
-          <Button size="sm" @click="showNewForm = !showNewForm">
+          <Button v-if="canManageSettings" size="sm" @click="showNewForm = !showNewForm">
             <Plus class="ginko:mr-1.5 ginko:size-3.5" />
             {{ t('ginkoCms.studio.siteDataPage.newBlock') }}
           </Button>
@@ -85,18 +108,19 @@ function handleDeleteDialogOpen(value: boolean) {
     </template>
 
     <ScrollArea class="ginko:flex-1">
-      <div class="studio-page-content ginko:p-4 ginko:sm:p-5">
+      <StudioPageBody>
         <!-- Error -->
         <StudioNotice v-if="error" tone="danger" class="ginko:mb-4" :description="error" />
+        <StudioNotice v-else-if="info" tone="info" class="ginko:mb-4" :description="info" />
 
         <!-- New block form -->
         <StudioListFrame
-          v-if="showNewForm"
+          v-if="showNewForm && canManageSettings"
           class="ginko:mb-5"
           :title="t('ginkoCms.studio.siteDataPage.createTitle')"
         >
           <div class="ginko:space-y-4 ginko:p-4">
-            <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:md:grid-cols-2">
+            <div class="ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@3xl:grid-cols-2">
               <div class="ginko:space-y-1.5">
                 <Label for="new-key" class="ginko:text-xs"
                   >{{ t('ginkoCms.common.key') }}
@@ -126,15 +150,16 @@ function handleDeleteDialogOpen(value: boolean) {
             >
               <label class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm">
                 <Switch
-                  :checked="newBlock.localized"
-                  @update:checked="newBlock.localized = $event"
+                  id="new-localized"
+                  :model-value="newBlock.localized"
+                  @update:model-value="newBlock.localized = $event"
                 />
                 <span class="ginko:text-xs">{{ t('ginkoCms.common.localized') }}</span>
               </label>
               <label class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm">
                 <Switch
-                  :checked="newBlock.visibility === 'public'"
-                  @update:checked="newBlock.visibility = $event ? 'public' : 'private'"
+                  :model-value="newBlock.visibility === 'public'"
+                  @update:model-value="newBlock.visibility = $event ? 'public' : 'private'"
                 />
                 <span class="ginko:text-xs">{{ t('ginkoCms.studio.siteDataPage.publicApi') }}</span>
               </label>
@@ -180,7 +205,7 @@ function handleDeleteDialogOpen(value: boolean) {
             <Database class="ginko:size-5" aria-hidden="true" />
           </template>
           <template #action>
-            <Button size="sm" @click="showNewForm = true">
+            <Button v-if="canManageSettings" size="sm" @click="showNewForm = true">
               <Plus class="ginko:mr-1.5 ginko:size-3.5" />
               {{ t('ginkoCms.studio.siteDataPage.createBlock') }}
             </Button>
@@ -216,15 +241,12 @@ function handleDeleteDialogOpen(value: boolean) {
                     <span class="ginko:text-sm ginko:font-medium">{{
                       resolveBlockLabel(block.label, block.key)
                     }}</span>
-                    <Badge variant="outline" class="ginko:text-[10px] ginko:font-mono">
-                      {{ block.key }}
-                    </Badge>
-                    <Badge v-if="block.localized" variant="secondary" class="ginko:text-[10px]">
+                    <Badge v-if="block.localized" variant="secondary" class="ginko:text-xs">
                       i18n
                     </Badge>
                     <Badge
                       :variant="block.visibility === 'public' ? 'secondary' : 'outline'"
-                      class="ginko:text-[10px]"
+                      class="ginko:text-xs"
                     >
                       {{
                         block.visibility === 'public'
@@ -247,6 +269,7 @@ function handleDeleteDialogOpen(value: boolean) {
                 </div>
               </button>
               <Button
+                v-if="canManageSettings"
                 variant="ghost"
                 size="sm"
                 :title="
@@ -255,10 +278,11 @@ function handleDeleteDialogOpen(value: boolean) {
                     : t('ginkoCms.studio.siteDataPage.exposePublicTitle')
                 "
                 @click.stop="
-                  handleVisibilityChange(
-                    block.key,
-                    block.visibility === 'public' ? 'private' : 'public',
-                  )
+                  visibilityTarget = {
+                    key: block.key,
+                    label: resolveBlockLabel(block.label, block.key),
+                    visibility: block.visibility === 'public' ? 'private' : 'public',
+                  }
                 "
               >
                 {{
@@ -268,6 +292,7 @@ function handleDeleteDialogOpen(value: boolean) {
                 }}
               </Button>
               <Button
+                v-if="canManageSettings"
                 variant="ghost"
                 size="sm"
                 class="ginko:text-destructive ginko:hover:text-destructive ginko:shrink-0"
@@ -290,60 +315,144 @@ function handleDeleteDialogOpen(value: boolean) {
               :id="`site-data-block-${block.key}`"
               class="ginko:space-y-3 ginko:border-t ginko:px-4 ginko:py-4"
             >
-              <StudioSiteDataEditor
-                :schema="expandedBlockSchema"
-                :model-value="blockData[block.key] ?? {}"
-                @update:model-value="blockData[block.key] = $event"
-              />
-              <div class="ginko:flex ginko:justify-end">
-                <Button size="sm" :disabled="saving === block.key" @click="handleSave(block.key)">
-                  <Loader2
-                    v-if="saving === block.key"
-                    class="ginko:size-3.5 ginko:mr-1.5 ginko:animate-spin"
-                  />
-                  {{ t('ginkoCms.common.save') }}
-                </Button>
+              <template
+                v-if="expandedBlockData?.key === block.key && blockData[block.key] !== undefined"
+              >
+                <StudioNotice
+                  :tone="block.visibility === 'public' ? 'warning' : 'info'"
+                  :title="
+                    t(
+                      block.visibility === 'public'
+                        ? 'ginkoCms.studio.siteDataPage.publicSaveImpactTitle'
+                        : 'ginkoCms.studio.siteDataPage.privateSaveImpactTitle',
+                    )
+                  "
+                  :description="
+                    t(
+                      block.visibility === 'public'
+                        ? 'ginkoCms.studio.siteDataPage.publicSaveImpactDescription'
+                        : 'ginkoCms.studio.siteDataPage.privateSaveImpactDescription',
+                    )
+                  "
+                />
+                <StudioSiteDataEditor
+                  v-if="canManageSettings"
+                  :schema="expandedBlockSchema"
+                  :model-value="blockData[block.key]"
+                  @update:model-value="blockData[block.key] = $event"
+                />
+                <StudioDeveloperDetails>
+                  <div class="ginko:space-y-3">
+                    <div class="ginko:text-xs">
+                      <span class="ginko:text-muted-foreground">Section key:</span>
+                      <code class="ginko:ml-2 ginko:font-mono ginko:text-foreground">{{
+                        block.key
+                      }}</code>
+                    </div>
+                    <pre
+                      class="ginko:max-h-80 ginko:overflow-auto ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-background ginko:p-3 ginko:text-xs ginko:leading-relaxed"
+                      >{{ formatBlockData(blockData[block.key]) }}</pre
+                    >
+                  </div>
+                </StudioDeveloperDetails>
+                <div v-if="canManageSettings" class="ginko:flex ginko:justify-end">
+                  <Button size="sm" :disabled="saving === block.key" @click="handleSave(block.key)">
+                    <Loader2
+                      v-if="saving === block.key"
+                      class="ginko:size-3.5 ginko:mr-1.5 ginko:animate-spin"
+                    />
+                    {{ t('ginkoCms.common.save') }}
+                  </Button>
+                </div>
+              </template>
+              <div
+                v-else
+                data-testid="cms-site-data-editor-loading"
+                role="status"
+                aria-live="polite"
+                class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm ginko:text-muted-foreground"
+              >
+                <Loader2 class="ginko:size-4 ginko:animate-spin" aria-hidden="true" />
+                {{ t('ginkoCms.common.loading') }}
               </div>
             </div>
           </div>
         </StudioListFrame>
-      </div>
+      </StudioPageBody>
     </ScrollArea>
-  </StudioWorkspace>
-  <StudioConfirmDialog
-    :open="!!deleteTarget"
-    :title="t('ginkoCms.studio.siteDataPage.deleteTitle')"
-    :description="t('ginkoCms.studio.siteDataPage.deleteDescription')"
-    :confirm-label="t('ginkoCms.studio.siteDataPage.deleteConfirm')"
-    @update:open="handleDeleteDialogOpen"
-    @confirm="
-      deleteTarget &&
-      handleDeleteBlock(deleteTarget.key).finally(() => {
-        deleteTarget = null
-      })
-    "
-  >
-    <div v-if="deleteTarget" class="ginko:space-y-2 ginko:text-sm ginko:text-muted-foreground">
-      <div>Delete "{{ deleteTarget.label }}"?</div>
-      <div
-        class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/40 ginko:p-3 ginko:text-xs"
-      >
+    <!-- Dialogs stay inside the workspace so the page keeps a single root
+         element: App.vue's <Transition mode="out-in"> silently breaks route
+         leaves on fragment-rooted pages (blank canvas until reload). -->
+    <StudioConfirmDialog
+      :open="!!deleteTarget"
+      :title="t('ginkoCms.studio.siteDataPage.deleteTitle')"
+      :description="t('ginkoCms.studio.siteDataPage.deleteDescription')"
+      :confirm-label="t('ginkoCms.studio.siteDataPage.deleteConfirm')"
+      @update:open="handleDeleteDialogOpen"
+      @confirm="
+        deleteTarget &&
+        handleDeleteBlock(deleteTarget.key).finally(() => {
+          deleteTarget = null
+        })
+      "
+    >
+      <div v-if="deleteTarget" class="ginko:space-y-2 ginko:text-sm ginko:text-muted-foreground">
         <div>
-          Key:
-          <code class="ginko:font-mono ginko:text-foreground">{{ deleteTarget.key }}</code>
+          {{ t('ginkoCms.studio.siteDataPage.deletePrompt', { label: deleteTarget.label }) }}
         </div>
-        <div>
-          Visibility:
-          <span class="ginko:text-foreground">{{ deleteTarget.visibility }}</span>
-        </div>
-        <div>
-          Localized:
-          <span class="ginko:text-foreground">{{ deleteTarget.localized ? 'yes' : 'no' }}</span>
-        </div>
-        <div v-if="deleteTarget.visibility === 'public'" class="ginko:mt-2 ginko:text-destructive">
-          This block is exposed through public site-data reads.
+        <div
+          class="ginko:rounded-md ginko:border ginko:border-border/40 ginko:bg-muted/40 ginko:p-3 ginko:text-xs"
+        >
+          <div>
+            Key:
+            <code class="ginko:font-mono ginko:text-foreground">{{ deleteTarget.key }}</code>
+          </div>
+          <div>
+            Visibility:
+            <span class="ginko:text-foreground">{{ deleteTarget.visibility }}</span>
+          </div>
+          <div>
+            Localized:
+            <span class="ginko:text-foreground">{{ deleteTarget.localized ? 'yes' : 'no' }}</span>
+          </div>
+          <div
+            v-if="deleteTarget.visibility === 'public'"
+            class="ginko:mt-2 ginko:text-destructive"
+          >
+            {{ t('ginkoCms.studio.siteDataPage.deletePublicWarning') }}
+          </div>
         </div>
       </div>
-    </div>
-  </StudioConfirmDialog>
+    </StudioConfirmDialog>
+    <StudioConfirmDialog
+      :open="!!visibilityTarget"
+      :title="
+        visibilityTarget?.visibility === 'public'
+          ? t('ginkoCms.studio.siteDataPage.makePublicTitle')
+          : t('ginkoCms.studio.siteDataPage.makePrivateTitle')
+      "
+      :description="
+        visibilityTarget?.visibility === 'public'
+          ? t('ginkoCms.studio.siteDataPage.makePublicDescription', {
+              label: visibilityTarget?.label ?? '',
+            })
+          : t('ginkoCms.studio.siteDataPage.makePrivateDescription', {
+              label: visibilityTarget?.label ?? '',
+            })
+      "
+      :confirm-label="
+        visibilityTarget?.visibility === 'public'
+          ? t('ginkoCms.studio.siteDataPage.makePublic')
+          : t('ginkoCms.studio.siteDataPage.makePrivate')
+      "
+      confirm-variant="default"
+      @update:open="handleVisibilityDialogOpen"
+      @confirm="
+        visibilityTarget &&
+        handleVisibilityChange(visibilityTarget.key, visibilityTarget.visibility).finally(() => {
+          visibilityTarget = null
+        })
+      "
+    />
+  </StudioWorkspace>
 </template>

@@ -1,20 +1,28 @@
 <script setup lang="ts">
+import { Search } from '@lucide/vue'
 import { reactiveOmit } from '@vueuse/core'
-import { Search } from 'lucide-vue-next'
-import { ListboxFilter, useForwardProps } from 'reka-ui'
 import type { ListboxFilterProps } from 'reka-ui'
+import { ListboxFilter, useForwardProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 
+import { useCommand } from '.'
 import { cn } from '../utils'
+
+defineOptions({
+  inheritAttrs: false,
+})
 
 const props = defineProps<
   ListboxFilterProps & {
     class?: HTMLAttributes['class']
-    placeholder?: string
   }
 >()
-const delegatedProps = reactiveOmit(props, 'class', 'placeholder')
-const forwarded = useForwardProps(delegatedProps)
+
+const delegatedProps = reactiveOmit(props, 'class')
+
+const forwardedProps = useForwardProps(delegatedProps)
+
+const { filterState } = useCommand()
 </script>
 
 <template>
@@ -22,15 +30,15 @@ const forwarded = useForwardProps(delegatedProps)
     data-slot="command-input-wrapper"
     class="ginko:flex ginko:h-12 ginko:items-center ginko:gap-2 ginko:border-b ginko:px-3"
   >
-    <Search class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground" />
+    <Search class="ginko:size-4 ginko:shrink-0 ginko:opacity-50" />
     <ListboxFilter
+      v-bind="{ ...forwardedProps, ...$attrs }"
+      v-model="filterState.search"
       data-slot="command-input"
-      v-bind="forwarded"
       auto-focus
-      :placeholder="placeholder"
       :class="
         cn(
-          'ginko:flex ginko:h-10 ginko:w-full ginko:rounded-md ginko:bg-transparent ginko:py-3 ginko:text-sm ginko:outline-hidden ginko:placeholder:text-muted-foreground ginko:disabled:cursor-not-allowed ginko:disabled:opacity-50',
+          'ginko:placeholder:text-muted-foreground ginko:flex ginko:h-12 ginko:w-full ginko:rounded-md ginko:bg-transparent ginko:py-3 ginko:text-sm ginko:outline-hidden ginko:disabled:cursor-not-allowed ginko:disabled:opacity-50',
           props.class,
         )
       "

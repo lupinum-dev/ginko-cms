@@ -18,20 +18,18 @@ export async function createSnapshotFromState(
       snapshotLocales[locale.locale] = {
         slug: locale.draftSlug ?? draftView.baseSlug,
         path: locale.draftPath,
+        shared: draftView.shared,
         values: locale.data,
       }
     }
   } else {
-    const publicRows = await ctx.db
-      .query('publicEntries')
-      .withIndex('by_entry_locale', (q) => q.eq('entryId', entry._id))
-      .collect()
-
-    for (const row of publicRows) {
-      snapshotLocales[row.locale] = {
-        slug: row.slug ?? null,
-        path: row.path,
-        values: ((row.data as JsonMap | null) ?? {}) as JsonMap,
+    for (const locale of draftView.locales) {
+      if (!locale.published || !locale.publishedPath) continue
+      snapshotLocales[locale.locale] = {
+        slug: locale.publishedSlug,
+        path: locale.publishedPath,
+        shared: locale.publishedShared ?? {},
+        values: locale.publishedData,
       }
     }
     for (const locale of collection.locales) {
@@ -48,12 +46,15 @@ export async function createSnapshotFromState(
   }
 
   return {
-    baseSlug: state === 'draft' ? draftView.baseSlug : (entry.baseSlug ?? draftView.baseSlug),
+    baseSlug: draftView.baseSlug,
     stableId: entry.stableId ?? null,
     nodeKind: entry.nodeKind ?? null,
     parentEntryId: state === 'draft' ? draftView.parentEntryId : (entry.parentEntryId ?? null),
     orderRank: state === 'draft' ? draftView.orderRank : (entry.orderRank ?? null),
-    shared: state === 'draft' ? draftView.shared : (draftView.publishedShared ?? {}),
+    // Shared draft values are compared against each locale's own active
+    // publication snapshot. There is deliberately no global published-shared
+    // value because locales can point at revisions created at different times.
+    shared: {},
     locales: snapshotLocales,
   } satisfies VersionSnapshot
 }
@@ -80,6 +81,9 @@ export function flattenSnapshot(snapshot: VersionSnapshot) {
     }
     flat[`locale.${locale}.slug`] = localeSnapshot.slug ?? null
     flat[`locale.${locale}.path`] = localeSnapshot.path
+    for (const [key, value] of Object.entries((localeSnapshot.shared as JsonMap) ?? {})) {
+      flat[`locale.${locale}.shared.${key}`] = value
+    }
     for (const [key, value] of Object.entries((localeSnapshot.values as JsonMap) ?? {})) {
       flat[`locale.${locale}.values.${key}`] = value
     }
@@ -88,26 +92,17 @@ export function flattenSnapshot(snapshot: VersionSnapshot) {
   return flat
 }
 
-export function flattenRevisionSnapshot(snapshot: EntryRevisionDoc['snapshot']) {
-  const flat: JsonMap = {
-    'shared.baseSlug': snapshot.slug ?? null,
-    'shared.parentEntryId': snapshot.parentEntryId ?? null,
-    'shared.orderRank': snapshot.orderRank ?? null,
-    ...Object.fromEntries(
-      Object.entries((snapshot.shared as JsonMap) ?? {}).map(([key, value]) => [
-        `shared.${key}`,
-        value,
-      ]),
-    ),
-  }
-
-  for (const [locale, localeSnapshot] of Object.entries(snapshot.locales ?? {})) {
-    if (!localeSnapshot) {
-      flat[`locale.${locale}`] = null
-      continue
+export function flattenRevisionSnapshot(snapshots: EntryRevisionDoc['snapshots']) {
+  const flat: JsonMap = {}
+  for (const [locale, localeSnapshot] of Object.entries(snapshots)) {
+    flat[`locale.${locale}.slug`] = localeSnapshot.slug
+    flat[`locale.${locale}.parentEntryId`] = localeSnapshot.parentEntryId
+      ? String(localeSnapshot.parentEntryId)
+      : null
+    flat[`locale.${locale}.orderRank`] = localeSnapshot.orderRank
+    for (const [key, value] of Object.entries(localeSnapshot.shared as JsonMap)) {
+      flat[`locale.${locale}.shared.${key}`] = value
     }
-    flat[`locale.${locale}.slug`] = localeSnapshot.slug ?? null
-    flat[`locale.${locale}.path`] = localeSnapshot.path
     for (const [key, value] of Object.entries((localeSnapshot.values as JsonMap) ?? {})) {
       flat[`locale.${locale}.values.${key}`] = value
     }

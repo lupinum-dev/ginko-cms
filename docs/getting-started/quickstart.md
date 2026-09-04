@@ -1,7 +1,7 @@
 # Quickstart
 
 This page gets a Nuxt app to the first checked Ginko CMS setup: packages
-installed, one collection defined, generated Convex bridge files written,
+installed, one collection defined, direct Convex setup files written,
 Convex deployed, collection contracts synced, and Studio reachable by the first
 owner.
 
@@ -16,12 +16,13 @@ source.
 Install the CMS-facing packages in the host app:
 
 ```bash
-pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex @convex-dev/better-auth better-auth
+pnpm add @lupinum/ginko-content @lupinum/ginko-cms @lupinum/ginko-cms-convex @lupinum/better-convex-nuxt better-auth
 pnpm add -D convex
 ```
 
-The host app installs the Convex component package directly because
-`convex/convex.config.ts` mounts components from the owning packages.
+The host app installs the Convex component and `@lupinum/better-convex-nuxt` directly
+because `convex/convex.config.ts` mounts components from the owning packages and
+the Nuxt app owns Convex/Better Auth runtime wiring.
 
 ## Register Nuxt Modules
 
@@ -54,38 +55,46 @@ export default defineContentConfig({
 })
 ```
 
-## Generate Bridge Files
+## Generate Convex Setup Files
 
-Run the init command from the Nuxt app root:
+Generate the resolved Ginko Content contract, then run the init command from the
+Nuxt app root:
 
 ```bash
+pnpm exec nuxt prepare
 pnpm exec ginko-cms init
 pnpm exec ginko-cms doctor
 ```
 
-`ginko-cms init` writes the host-owned Convex bridge files:
+`nuxt prepare` writes `.ginko/content-contract.json`, the exact contract used by
+the Nuxt runtime and CMS. Do not edit or commit that generated file.
+
+The first doctor run names the still-unbound generated contract binding and
+directs you to `pnpm exec ginko-cms deploy`. Deploy reruns every other setup
+check, binds the canonical hashes, and completes the fix. Rerun doctor after the
+deployment to confirm the setup is clean.
+
+`ginko-cms init` writes the host-owned Convex setup files:
 
 - `convex/auth.ts`
 - `convex/auth.config.ts`
 - `convex/http.ts`
 - `convex/schema.ts`
-- `convex/ginkoCmsMcp.ts`
-- `convex/ginkoCms/*`
 - the Ginko CMS component registration in `convex/convex.config.ts`
 
 Keep `convex/convex.config.ts`, `convex/auth.config.ts`, and
-`convex/schema.ts` app-owned after the generated baseline is present. Add
+`convex/schema.ts` app-owned after the setup baseline is present. Add
 app-specific Better Auth providers in `convex/auth.config.ts` and app tables in
 `convex/schema.ts`.
 
-The generated baseline wires the CMS Better Auth bridge and email/password
+The generated baseline wires the CMS Better Auth setup and email/password
 Studio auth. Production OAuth, SSO, custom email delivery, or organization auth
 policy remains host-owned Better Auth configuration.
 
 ## Configure Local Environment
 
-For local setup and contract sync, the CLI needs a Convex URL, deploy key, and
-bridge forwarding secret. Create the deploy key with:
+For local setup and contract sync, the CLI needs a Convex URL and deploy key.
+Create the deploy key with:
 
 ```bash
 pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.local
@@ -94,20 +103,15 @@ pnpm exec convex deployment token create ginko-cms-local-admin --save-env .env.l
 Then ensure `.env.local` includes either `CONVEX_URL` or
 `NUXT_PUBLIC_CONVEX_URL`.
 
-Generate one forwarding secret and put the same value in `.env.local` and the
-Convex deployment:
-
-```bash
-FORWARDING_KEY="$(openssl rand -base64 32)"
-printf "\nCONVEX_IDENTITY_FORWARDING_KEY=%s\n" "$FORWARDING_KEY" >> .env.local
-pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY "$FORWARDING_KEY"
-```
-
 Set the email allowed to claim the first Studio owner:
 
 ```bash
+pnpm exec convex env set BETTER_AUTH_SECRETS '0:replace-with-a-long-random-secret'
 pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL owner@example.com
 ```
+
+Keep `BETTER_AUTH_SECRETS` in Convex only. Use a secret manager or a generated
+high-entropy value; do not reuse the example text or expose the value to Nuxt.
 
 See [Environment](./environment.md) for the full runtime and CI environment
 contract.
@@ -119,11 +123,15 @@ contracts with one command:
 
 ```bash
 pnpm exec ginko-cms deploy
+pnpm exec better-convex convex run auth:rotateSigningKey '{}'
+pnpm exec ginko-cms doctor
 ```
 
-`ginko-cms deploy` runs the bridge check, the default local Convex deploy command
+`ginko-cms deploy` runs `ginko-cms doctor`, the default local Convex deploy command
 (`convex dev --once --tail-logs disable --typecheck disable`), then contract
-sync. Successful setup prints that the collection contracts are installed.
+sync. Successful setup prints that the collection contracts are installed. A
+fresh deployment needs one explicit signing-key rotation before authentication
+traffic; the final doctor run confirms the complete setup.
 
 For CI or read-only validation after the first deploy, run:
 

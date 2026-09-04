@@ -54,17 +54,17 @@ Assets are Convex-backed for v1. Studio should make upload, replacement,
 attachment, usage, deletion, and restoration safe and explicit.
 
 Deleting or purging assets should surface usage impact before destructive
-actions.
+actions. Reference status is `used`, `unused-verified`, or `unknown-stale`;
+Studio must never translate missing or stale derived-reference proof into an
+“unused” claim. Search, filters, location, sorting, sidebar counts, and keyset
+pagination are one backend query contract. Client-side filtering of a loaded
+page is not an asset-discovery path.
 
-## Imports
+## Portability
 
-Filesystem imports apply content under existing code-defined contracts. Studio
-may preview, confirm, apply, and inspect import runs, but it must not create or
-mutate schema.
-
-Import blockers should be actionable: unknown collection, unknown field,
-unresolved relation, missing asset upload, invalid route, invalid locale, or
-publish blocker.
+Filesystem portability is an owner-controlled CLI workflow. It validates,
+plans, applies, and resumes bounded draft imports under the installed contract;
+Studio and MCP intentionally expose no import execution surface.
 
 ## MCP Parity
 
@@ -76,7 +76,20 @@ Studio and MCP should expose the same truth:
 - public visibility explanation;
 - publish-impact preview;
 - route validation;
-- import blockers and run history.
 
 MCP is opt-in as an external server, but its operation model is part of the CMS
 architecture.
+
+## Agent Review
+
+Agent work is visible as CMS workflow state, not as unexplained side effects.
+Studio exposes:
+
+- the current member's agent runs;
+- pending review requests for publishers and owners;
+- publish-impact previews and stale-request state;
+- approve/reject controls that call canonical backend operations.
+
+Agents can prepare drafts and request review. Public-output changes still need a
+publisher or owner approval unless a later trusted-direct mode is explicitly
+designed, tested, and documented.

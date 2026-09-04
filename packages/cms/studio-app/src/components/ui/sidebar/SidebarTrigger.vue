@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PanelLeft } from 'lucide-vue-next'
+import { PanelLeft } from '@lucide/vue'
 import type { HTMLAttributes } from 'vue'
 
 import { Button } from '../button'
@@ -19,11 +19,16 @@ const { toggleSidebar } = useSidebar()
     data-slot="sidebar-trigger"
     variant="ghost"
     size="icon"
-    :class="cn('ginko:size-7', props.class)"
+    :class="
+      cn(
+        'ginko:size-9 ginko:transition-transform ginko:duration-150 ginko:ease-out ginko:active:scale-[0.96]',
+        props.class,
+      )
+    "
     @click="toggleSidebar"
   >
     <slot>
-      <PanelLeft class="ginko:size-3.5" />
+      <PanelLeft />
     </slot>
     <span class="ginko:sr-only">Toggle Sidebar</span>
   </Button>

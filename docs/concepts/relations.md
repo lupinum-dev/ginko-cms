@@ -20,7 +20,7 @@ reference as data. They do not broadly expand relations at runtime.
 Current flow:
 
 1. You define a field with `type: 'relation'` or `type: 'relations'`
-2. You point it at another collection via `relation.collectionId`
+2. You point it at another collection via `relation.collection`
 3. Studio saves the target entry's `stableId`
 4. Public reads return that stable ID as the relation value
 5. A later schema-owned profile can expose an expanded relation shape only if
@@ -37,7 +37,7 @@ Single relation:
 {
   key: 'author',
   type: 'relation',
-  relation: { collectionId: 'authors' },
+  relation: { collection: 'authors' },
 }
 ```
 
@@ -47,11 +47,11 @@ Multiple relations:
 {
   key: 'authors',
   type: 'relations',
-  relation: { collectionId: 'authors' },
+  relation: { collection: 'authors' },
 }
 ```
 
-`collectionId` here is the target collection slug, for example `authors`.
+`collection` is the target collection's stable slug, for example `authors`.
 
 ## What Is Stored
 
@@ -209,8 +209,8 @@ Reasons:
 - the editor stays normalized
 - generated public types do not overpromise expanded objects
 - public reads stay predictable and cacheable
-- rollback and undo remain coherent after migration because draft and revision
-  snapshots are rewritten too
+- rollback and undo remain coherent after a contract transition because draft
+  and revision snapshots are transformed together
 
 ## What This Does Not Do
 

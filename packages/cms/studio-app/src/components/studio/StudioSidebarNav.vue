@@ -3,16 +3,19 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { api } from '../../boundary/api'
-import { cmsPermissionKeys } from '../../composables/permissions'
+import { cmsPermissionKeys, type CmsPermissionKey } from '../../composables/permissions'
 import { useCmsConfig } from '../../composables/useCmsConfig'
 import { useCmsI18n } from '../../composables/useCmsI18n'
 import { useCmsStudioAccess } from '../../composables/useCmsStudioAccess'
 import { useCmsStudioQuery } from '../../composables/useCmsStudioQuery'
+import type { StudioCollectionListItem } from '../../lib/installedCollections'
 import {
-  codeDefinedCollectionList,
-  type StudioCollectionListItem,
-} from '../../lib/codeDefinedCollections'
+  studioRouteHref,
+  studioRoutesForSection,
+  type StudioStaticRoute,
+} from '../../lib/studioNavigation'
 import StudioCollectionIcon from './collections/StudioCollectionIcon.vue'
+import type { StudioNavLinkItem } from './StudioSidebarNavGroup.vue'
 
 const cmsConfig = useCmsConfig()
 const studioRoute = cmsConfig.route.replace(/\/$/, '')
@@ -22,95 +25,78 @@ const { can } = useCmsStudioAccess()
 const canManageAssets = can(cmsPermissionKeys.manageAssets)
 const canManageCollections = can(cmsPermissionKeys.manageCollections)
 const canManageSettings = can(cmsPermissionKeys.manageSettings)
+const canPublishEntries = can(cmsPermissionKeys.publishEntries)
 const collectionsQuery = useCmsStudioQuery(api.ginkoCms.collections.listCollections, {})
-const hostCollections = computed(() =>
-  codeDefinedCollectionList(cmsConfig.collections, cmsConfig.defaultLocale),
+const collections = computed(
+  () => (collectionsQuery.data.value ?? []) as StudioCollectionListItem[],
 )
-const collections = computed(() => {
-  const fromConvex = (collectionsQuery.data.value ?? []) as StudioCollectionListItem[]
-  if (!hostCollections.value.length) return fromConvex
-  const bySlug = new Map(fromConvex.map((collection) => [collection.slug, collection]))
-  return hostCollections.value.map((hostCollection) => ({
-    ...hostCollection,
-    ...bySlug.get(hostCollection.slug),
-    label: bySlug.get(hostCollection.slug)?.label || hostCollection.label,
-  }))
-})
 const isCollectionsLoading = computed(
-  () =>
-    !hostCollections.value.length &&
-    collectionsQuery.data.value === null &&
-    collectionsQuery.pending.value,
+  () => collectionsQuery.data.value === undefined && collectionsQuery.pending.value,
 )
 const route = useRoute()
 const activeCollection = computed(() => route.params.collection)
 function isActive(path: string): boolean {
   return route.path === path || route.path.startsWith(path + '/')
 }
-const manageLinks = computed(() =>
-  [
-    {
-      to: `${studioRoute}/site-data`,
-      icon: 'lucide:database',
-      label: t('ginkoCms.common.siteData'),
-      visible: canManageSettings.value,
-    },
-    {
-      to: `${studioRoute}/assets`,
-      icon: 'lucide:image',
-      label: t('ginkoCms.common.assets'),
-      visible: canManageAssets.value,
-    },
-    {
-      to: `${studioRoute}/model`,
-      icon: 'lucide:layers',
-      label: 'Content model',
-      visible: canManageCollections.value,
-    },
-    {
-      to: `${studioRoute}/activity`,
-      icon: 'lucide:activity',
-      label: t('ginkoCms.studio.activityPage.title'),
-      visible: true,
-    },
-    {
-      to: `${studioRoute}/imports`,
-      icon: 'lucide:file-archive',
-      label: 'Imports',
-      visible: canManageCollections.value,
-    },
-    {
-      to: `${studioRoute}/settings`,
-      icon: 'lucide:settings',
-      label: t('ginkoCms.common.settings'),
-      visible: false,
-    },
-  ].filter((link) => link.visible),
-)
-const settingsLinks = computed(() =>
-  [
-    {
-      to: `${studioRoute}/settings`,
-      icon: 'lucide:settings',
-      label: t('ginkoCms.common.settings'),
-      visible: canManageSettings.value,
-    },
-  ].filter((link) => link.visible),
-)
+const capabilityAccess: Partial<Record<CmsPermissionKey, typeof canManageAssets>> = {
+  [cmsPermissionKeys.manageAssets]: canManageAssets,
+  [cmsPermissionKeys.manageCollections]: canManageCollections,
+  [cmsPermissionKeys.manageSettings]: canManageSettings,
+  [cmsPermissionKeys.publishEntries]: canPublishEntries,
+}
+function canAccessRoute(route: StudioStaticRoute): boolean {
+  const requiredCapability = route.requiredCapability
+  return !requiredCapability || capabilityAccess[requiredCapability]?.value === true
+}
+function sectionLinks(section: 'home' | 'editor' | 'operations' | 'settings'): StudioNavLinkItem[] {
+  return studioRoutesForSection(section)
+    .filter(canAccessRoute)
+    .map((route) => {
+      const to = studioRouteHref(studioRoute, route)
+      return {
+        to,
+        iconName: route.icon,
+        label: t(route.labelKey),
+        active: isActive(to),
+      }
+    })
+}
+// The Home link is discrete navigation required by the accepted NAV workflow;
+// the shell swap had regressed it to logo-as-home only.
+const homeLinks = computed(() => sectionLinks('home'))
+const editorLinks = computed(() => sectionLinks('editor'))
+const operationLinks = computed(() => sectionLinks('operations'))
+const settingsLinks = computed(() => sectionLinks('settings'))
 </script>
 
 <template>
-  <SidebarGroup class="studio-sidebar-nav__group">
+  <SidebarGroup class="ginko:mb-1 ginko:pt-0">
+    <SidebarGroupContent>
+      <SidebarMenu>
+        <StudioSidebarNavLink
+          v-for="link in homeLinks"
+          :key="link.to"
+          :to="link.to"
+          :label="link.label"
+          :tooltip="link.label"
+          :icon-name="link.iconName"
+          :active="route.path === link.to || route.path === `${link.to}/`"
+        />
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
+
+  <SidebarGroup class="ginko:mb-3">
     <SidebarGroupLabel>
       {{ t('ginkoCms.studio.layout.content') }}
     </SidebarGroupLabel>
     <SidebarGroupContent>
-      <SidebarMenu>
+      <SidebarMenu class="ginko:min-h-40">
         <template v-if="isCollectionsLoading">
           <li role="status" aria-busy="true" aria-live="polite" class="ginko:contents">
             <span class="ginko:sr-only">Loading collections</span>
             <SidebarMenuItem
-              v-for="(w, i) in [60, 75, 50, 80, 65]"
+              v-for="(w, i) in [60, 75, 50, 80]"
               :key="`skeleton-${i}`"
               aria-hidden="true"
             >
@@ -124,155 +110,30 @@ const settingsLinks = computed(() =>
           </li>
         </template>
         <template v-else>
-          <SidebarMenuItem v-for="collection in collections" :key="collection.slug">
-            <SidebarMenuButton
-              as-child
-              :tooltip="collection.label"
-              :is-active="activeCollection === collection.slug"
-            >
-              <RouterLink :to="`${contentRoute}/${collection.slug}`">
-                <StudioCollectionIcon
-                  :icon="collection.icon"
-                  :slug="collection.slug"
-                  class="ginko:size-4"
-                />
-                <span>{{ collection.label }}</span>
-              </RouterLink>
-            </SidebarMenuButton>
-            <SidebarMenuBadge
-              v-if="collection.singleton"
-              class="studio-singleton-chip"
-              :title="t('ginkoCms.studio.layout.singletonBadge')"
-              :aria-label="t('ginkoCms.studio.layout.singletonBadge')"
-            >
-              1
-            </SidebarMenuBadge>
-          </SidebarMenuItem>
+          <StudioSidebarNavLink
+            v-for="collection in collections"
+            :key="collection.slug"
+            :to="`${contentRoute}/${collection.slug}`"
+            :label="collection.label"
+            :tooltip="collection.label"
+            :active="activeCollection === collection.slug"
+          >
+            <template #icon>
+              <StudioCollectionIcon
+                :icon="collection.icon"
+                :slug="collection.slug"
+                class="ginko:size-4"
+              />
+            </template>
+          </StudioSidebarNavLink>
         </template>
       </SidebarMenu>
     </SidebarGroupContent>
   </SidebarGroup>
 
-  <SidebarSeparator />
+  <StudioSidebarNavGroup :label="t('ginkoCms.studio.layout.editor')" :links="editorLinks" />
 
-  <SidebarGroup class="studio-sidebar-nav__group">
-    <SidebarGroupLabel>
-      {{ t('ginkoCms.studio.layout.manage') }}
-    </SidebarGroupLabel>
-    <SidebarGroupContent>
-      <SidebarMenu>
-        <SidebarMenuItem v-for="link in manageLinks" :key="link.to">
-          <SidebarMenuButton as-child :tooltip="link.label" :is-active="isActive(link.to)">
-            <RouterLink :to="link.to">
-              <Icon :name="link.icon" class="ginko:size-4" />
-              <span>{{ link.label }}</span>
-            </RouterLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarGroupContent>
-  </SidebarGroup>
+  <StudioSidebarNavGroup :label="t('ginkoCms.studio.layout.operations')" :links="operationLinks" />
 
-  <template v-if="settingsLinks.length">
-    <SidebarSeparator />
-
-    <SidebarGroup class="studio-sidebar-nav__group">
-      <SidebarGroupLabel>
-        {{ t('ginkoCms.common.settings') }}
-      </SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          <SidebarMenuItem v-for="link in settingsLinks" :key="link.to">
-            <SidebarMenuButton as-child :tooltip="link.label" :is-active="isActive(link.to)">
-              <RouterLink :to="link.to">
-                <Icon :name="link.icon" class="ginko:size-4" />
-                <span>{{ link.label }}</span>
-              </RouterLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  </template>
+  <StudioSidebarNavGroup :label="t('ginkoCms.common.settings')" :links="settingsLinks" />
 </template>
-
-<style scoped>
-.studio-sidebar-nav__group {
-  margin-bottom: 0.75rem;
-}
-
-:deep([data-sidebar='group-label']) {
-  height: 1.75rem;
-  padding-inline: 0.5rem;
-  margin-bottom: 0.25rem;
-  color: color-mix(in oklch, var(--sidebar-foreground) 60%, transparent);
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-:deep([data-sidebar='menu-button']) {
-  height: 1.875rem;
-  padding-inline: 0.5rem;
-  border-radius: 0.375rem;
-  color: color-mix(in oklch, var(--sidebar-foreground) 70%, transparent);
-  font-size: 0.8125rem;
-  gap: 0.625rem;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
-}
-
-:deep([data-sidebar='menu-button'] svg) {
-  color: color-mix(in oklch, var(--sidebar-foreground) 60%, transparent);
-}
-
-:deep([data-sidebar='menu-button']:hover) {
-  background: color-mix(in oklch, var(--sidebar-accent) 50%, transparent);
-  color: var(--sidebar-foreground);
-}
-
-:deep([data-sidebar='menu-button'][data-active='true']),
-:deep([data-sidebar='menu-button'][data-active='']) {
-  background: color-mix(in oklch, var(--sidebar-foreground) 10%, transparent);
-  color: var(--sidebar-foreground);
-  font-weight: 500;
-  box-shadow: none;
-}
-
-:deep([data-sidebar='menu-button'][data-active='true'] svg),
-:deep([data-sidebar='menu-button'][data-active=''] svg),
-:deep([data-sidebar='menu-button']:hover svg) {
-  color: currentColor;
-}
-
-:deep([data-sidebar='separator']) {
-  display: none;
-}
-
-/* Singleton "1" chip — quiet metadata next to one-of-a-kind collections.
- * Numeric, monospace, tinted. Reads as "this collection has exactly one
- * entry" without the awkward "single" word floating in the row. */
-:deep(.studio-singleton-chip) {
-  top: 0.3125rem;
-  right: 0.375rem;
-  height: 1rem;
-  min-width: 1rem;
-  padding-inline: 0.25rem;
-  border-radius: 0.25rem;
-  background: color-mix(in oklch, var(--sidebar-foreground) 8%, transparent);
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: color-mix(in oklch, var(--sidebar-foreground) 55%, transparent);
-}
-
-:deep([data-sidebar='menu-button']:hover) ~ .studio-singleton-chip,
-:deep([data-sidebar='menu-button'][data-active='true']) ~ .studio-singleton-chip,
-:deep([data-sidebar='menu-button'][data-active='']) ~ .studio-singleton-chip {
-  background: color-mix(in oklch, var(--sidebar-foreground) 12%, transparent);
-  color: color-mix(in oklch, var(--sidebar-foreground) 70%, transparent);
-}
-</style>

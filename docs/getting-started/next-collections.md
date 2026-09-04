@@ -67,8 +67,8 @@ export default defineContentConfig({
 })
 ```
 
-Data-only collections publish rows for list-style reads, but they do not create
-route rows, navigation entries, or sitemap URLs.
+Data-only collections publish rows for list-style reads, but they do not join
+the structural public route tree, navigation, or sitemap output.
 
 ## 4. Add A Relation
 
@@ -109,12 +109,7 @@ Ginko Content provider. Keep provider setup out of the first model change; use
 the [Nuxt content provider reference](../reference/nuxt-content-provider.md)
 when you need read-path details.
 
-## Advanced CMS-Native Contracts
-
-Most Nuxt apps should stop at `content.config.ts`. The CMS-native helpers from
-`@lupinum/ginko-cms/config` exist for custom integrations that do not use Ginko
-Content as the contract source. They expose CMS terms such as `flat`, `tree`,
-and explicit routing because the app owns the exact CMS contract in that mode.
-
-See [CMS config helpers](../reference/cms-config-helpers.md) before using that
-path.
+Ginko Content resolves `content.config.ts` during Nuxt prepare and atomically writes
+`.ginko/content-contract.json`. Ginko CMS reads that generated artifact, so Studio,
+CLI tools, and the Nuxt runtime all use the exact same resolved contract.
+Do not duplicate collection, route, field, or locale policy in `nuxt.config.ts`.

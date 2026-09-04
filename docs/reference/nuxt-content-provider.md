@@ -3,7 +3,7 @@
 `@lupinum/ginko-cms/nuxt-provider` is the production-facing provider module for
 Nuxt content-engine integration. It keeps Ginko CMS neutral: Nuxt applications
 continue to call the content engine APIs, while this provider reads published
-content through the installed Convex public bridge.
+content through the installed Ginko CMS Convex component.
 
 ## Configure
 
@@ -31,31 +31,20 @@ NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 `provider_config_missing`; the provider does not silently fall back to
 filesystem or non-CMS data.
 
-Optional environment:
-
-```bash
-GINKO_CONTENT_PROVIDER_SITE=your-site-key
-```
-
-`GINKO_CONTENT_PROVIDER_SITE` defaults to `default`. The provider reads it during
-queries, but current public Convex queries are not partitioned by this value.
-Treat it as reserved until multi-site routing is implemented.
-
 The Convex public function prefix is fixed at `ginkoCms/public:`. If a call does
 not pass a locale, the provider uses `en`.
 
 ## Behavior
 
-- `page`, `query`, `navigation`, `navigationQuery`, `surroundings`, `search`,
-  `siteData`, `routeMeta`, and `sitemapEntries` read from Ginko public Convex
-  queries.
+- Provider queries, navigation, surroundings, search, site data, and bounded
+  route enumeration read from Ginko public Convex queries.
 - The public Convex operation is `surround`; `surroundings` is only the Ginko
   Content provider method name. The provider maps CMS `previous` / `next`
   results into the provider contract.
-- `routeMeta` is implemented for the Nuxt content provider so route-backed page
-  rendering can load localized route metadata without loading rendered body
-  content. It is not part of the optional HTTP facade.
-- `query`/public list reads support route-backed and data-only collections.
+- `query` receives the Ginko Content provider v5 query envelope. `collection`
+  has one authority on the envelope; the closed plan contains filters, sorting,
+  selection, and pagination. Legacy provider wires are rejected.
+- Public list reads support route-backed and data-only collections.
   Page, navigation, surroundings, search, and sitemap reads are route-backed
   surfaces and reject data-only collections deliberately.
 - Draft/editor tables are not read by the provider.
@@ -65,18 +54,20 @@ not pass a locale, the provider uses `en`.
 
 ## Current Limits
 
-- `query` is intentionally limited to public list reads. Supported public where
-  clauses are `_draft: false`, `_partial: false`, `_locale`, and `_path` or
-  `path` prefix filters.
+- `query` is intentionally limited to public list reads. Supported public plan
+  filters are `draft: false`, `partial: false`, `locale`, and `path` prefix
+  comparisons.
 - Public sort supports `orderKey`, `entryCreatedAt`, `firstPublishedAt`, and
-  `lastPublishedAt`. The provider drops `_stem` sort hints because they are
-  filesystem ordering hints, not a CMS public index.
-- Cursor pagination is supported. Positive numeric `skip`, `count`, and `without`
-  projections are rejected.
+  `lastPublishedAt`.
+- Positive numeric `skip`, `count`, and `without` projections are rejected.
+- Query results are raw Ginko Content provider documents. They expose one
+  structural route model through `contentPath`, `canonicalKey`, and
+  `routeVariants`; route resolution and locale policy remain owned by the
+  content engine.
 - `searchSections` is intentionally not exposed by the CMS provider. Host apps
-  must use `content.search.engine = 'cms'` with `useContentSearchResults()` or
-  an explicit Ginko headless search import instead of rebuilding a frontend-owned
-  section index from public rows.
+  must use `content.search.engine = 'provider'` with `useContentSearch()` from
+  `@lupinum/ginko-content/client` instead of rebuilding a frontend-owned section
+  index from public rows.
 
 ## Related Pages
 

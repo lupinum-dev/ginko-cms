@@ -5,13 +5,8 @@ import { computed } from 'vue'
 
 import type { StudioField } from '../../composables/internal/types'
 import { useCmsI18n } from '../../composables/useCmsI18n'
-import {
-  fieldComponents,
-  formatLabel,
-  getDefault,
-  getClientFieldError,
-  getConditionHint,
-} from './fields'
+import { fieldDisplayLabel } from '../../lib/fieldLabel'
+import { fieldComponents, getDefault, getClientFieldError, getConditionHint } from './fields'
 
 defineOptions({ name: 'StudioFieldRenderer' })
 
@@ -51,11 +46,7 @@ const value = computed({
     getDefault(normalizedField.value.type, normalizedField.value.fields ?? undefined),
   set: (value) => emit('update:modelValue', value),
 })
-const label = computed(() =>
-  typeof normalizedField.value.label === 'string'
-    ? normalizedField.value.label
-    : formatLabel(normalizedField.value.key),
-)
+const label = computed(() => fieldDisplayLabel(normalizedField.value))
 const fieldComponent = computed(() => {
   const component = fieldComponents[normalizedField.value.type]
   if (!component) {
@@ -88,7 +79,7 @@ const fieldError = computed(
   <div v-if="isVisible" :class="normalizedField.width === 'half' ? '' : 'ginko:col-span-2'">
     <p
       v-if="conditionHint"
-      class="ginko:text-[10px] ginko:text-muted-foreground/60 ginko:italic ginko:mb-0.5"
+      class="ginko:text-xs ginko:text-muted-foreground ginko:italic ginko:mb-0.5"
     >
       {{ conditionHint }}
     </p>

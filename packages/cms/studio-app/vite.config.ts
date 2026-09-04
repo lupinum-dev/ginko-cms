@@ -43,12 +43,16 @@ export default defineConfig(({ command }) => ({
     },
   },
   server: {
+    // The Studio is injected into the Nuxt document from this separate Vite
+    // origin. Emit dev asset URLs against their owner so font URLs do not
+    // fall through to the consumer application's router.
+    origin: 'http://127.0.0.1:5252',
     port: 5252,
     strictPort: true,
     fs: {
-      // Allow cross-root reads so the SPA can pull from src/public and the
-      // sibling contract package.
-      allow: [fileURLToPath(new URL('../..', import.meta.url))],
+      // The source-linked SPA imports its sibling packages and workspace-owned
+      // font files. Keep Vite's dev boundary at the repository root.
+      allow: [fileURLToPath(new URL('../../..', import.meta.url))],
     },
   },
   build: {

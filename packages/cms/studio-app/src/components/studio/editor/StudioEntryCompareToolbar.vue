@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { ArrowLeftRight, Brackets, FileText, Settings } from 'lucide-vue-next'
+import { ArrowLeftRight, Brackets, FileText, Settings } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
-import { useStudioInspectorVisible } from '../../../composables/useStudioInspectorVisible'
 
 const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
-const inspectorVisible = useStudioInspectorVisible()
 const { studioLocales } = useCmsI18n()
 
 const canCompare = computed(() => editor.loader.locales.length > 1)
@@ -36,15 +34,17 @@ function localeFlagName(code: string) {
   return localeFlag(code) ?? ''
 }
 
+function hasLocaleDraft(code: string) {
+  return editor.loader.localeVariants.some(
+    (locale: { locale: string; draftExists?: boolean }) =>
+      locale.locale === code && locale.draftExists === true,
+  )
+}
+
 function toggleMode(compare: boolean) {
   editor.locales.setTranslationMode(compare)
   if (compare && !editor.locales.secondaryLocale && secondaryLocale.value) {
     editor.locales.handleSelectSecondaryLocale(secondaryLocale.value)
-  }
-  // Compare mode wants the full canvas. Auto-collapse the inspector rail
-  // so two locale panels get room; users can re-open via the topbar toggle.
-  if (compare && inspectorVisible.value) {
-    inspectorVisible.value = false
   }
 }
 
@@ -63,7 +63,7 @@ function swapLocales() {
     class="studio-entry-compare-toolbar ginko:border-b ginko:border-border/60 ginko:bg-background"
   >
     <div
-      class="studio-page-content studio-entry-compare-toolbar__inner ginko:flex ginko:h-10 ginko:items-center ginko:gap-3 ginko:px-5"
+      class="studio-page-content studio-entry-compare-toolbar__inner ginko:flex ginko:items-center ginko:gap-3 ginko:px-5"
     >
       <div
         class="ginko:inline-flex ginko:min-w-0 ginko:rounded-lg ginko:border ginko:border-border/60 ginko:bg-muted/50 ginko:p-0.5"
@@ -71,6 +71,7 @@ function swapLocales() {
         <Button
           variant="ghost"
           size="sm"
+          aria-label="Single language view"
           class="studio-entry-compare-toolbar__mode-button ginko:h-6 ginko:gap-1.5 ginko:px-2.5"
           :class="
             !editor.locales.translationMode
@@ -85,6 +86,7 @@ function swapLocales() {
         <Button
           variant="ghost"
           size="sm"
+          :aria-label="editor.loader.t('ginkoCms.studio.collectionEditor.compareLanguages')"
           class="studio-entry-compare-toolbar__mode-button ginko:h-6 ginko:gap-1.5 ginko:px-2.5"
           :class="
             editor.locales.translationMode
@@ -94,7 +96,9 @@ function swapLocales() {
           @click="toggleMode(true)"
         >
           <Brackets class="ginko:size-3.5" />
-          <span class="studio-entry-compare-toolbar__mode-label">Compare</span>
+          <span class="studio-entry-compare-toolbar__mode-label">
+            {{ editor.loader.t('ginkoCms.studio.collectionEditor.compareLanguages') }}
+          </span>
         </Button>
       </div>
 
@@ -108,6 +112,7 @@ function swapLocales() {
         >
           <SelectTrigger
             class="studio-entry-compare-toolbar__locale-trigger ginko:border-border/60"
+            :aria-label="`Select language. Current ${currentLocaleLabel}`"
           >
             <Icon
               v-if="localeFlag(editor.loader.currentLocale)"
@@ -135,6 +140,13 @@ function swapLocales() {
                 {{ locale.code.toUpperCase() }}
               </span>
               <span v-if="hasDistinctLocaleLabel(locale)">{{ locale.label }}</span>
+              <span v-if="!hasLocaleDraft(locale.code)" class="ginko:text-muted-foreground">
+                {{
+                  editor.loader.t(
+                    'ginkoCms.studio.collectionEditor.translationReadinessMissingLabel',
+                  )
+                }}
+              </span>
             </SelectItem>
           </SelectContent>
         </Select>
@@ -149,6 +161,7 @@ function swapLocales() {
           >
             <SelectTrigger
               class="studio-entry-compare-toolbar__locale-trigger ginko:border-border/60"
+              :aria-label="`Select source language. Current ${currentLocaleLabel}`"
             >
               <Icon
                 v-if="localeFlag(editor.loader.currentLocale)"
@@ -181,6 +194,13 @@ function swapLocales() {
                   {{ locale.code.toUpperCase() }}
                 </span>
                 <span v-if="hasDistinctLocaleLabel(locale)">{{ locale.label }}</span>
+                <span v-if="!hasLocaleDraft(locale.code)" class="ginko:text-muted-foreground">
+                  {{
+                    editor.loader.t(
+                      'ginkoCms.studio.collectionEditor.translationReadinessMissingLabel',
+                    )
+                  }}
+                </span>
               </SelectItem>
             </SelectContent>
           </Select>
@@ -188,7 +208,7 @@ function swapLocales() {
             variant="ghost"
             size="icon-sm"
             class="ginko:shrink-0"
-            aria-label="Swap locales"
+            aria-label="Swap languages"
             @click="swapLocales"
           >
             <ArrowLeftRight class="ginko:size-3.5" />
@@ -200,6 +220,7 @@ function swapLocales() {
           >
             <SelectTrigger
               class="studio-entry-compare-toolbar__locale-trigger ginko:border-border/60"
+              :aria-label="`Select comparison language. Current ${secondaryLocaleLabel}`"
             >
               <Icon
                 v-if="localeFlag(secondaryLocale)"
@@ -232,6 +253,13 @@ function swapLocales() {
                   {{ locale.code.toUpperCase() }}
                 </span>
                 <span v-if="hasDistinctLocaleLabel(locale)">{{ locale.label }}</span>
+                <span v-if="!hasLocaleDraft(locale.code)" class="ginko:text-muted-foreground">
+                  {{
+                    editor.loader.t(
+                      'ginkoCms.studio.collectionEditor.translationReadinessMissingLabel',
+                    )
+                  }}
+                </span>
               </SelectItem>
             </SelectContent>
           </Select>
@@ -241,7 +269,7 @@ function swapLocales() {
       <Button v-if="advancedEditor" variant="ghost" size="sm" class="ginko:ml-auto" as-child>
         <RouterLink to="/settings" class="ginko:gap-2">
           <Settings class="ginko:size-3.5" />
-          <span class="studio-entry-compare-toolbar__settings-label">Manage locales</span>
+          <span class="studio-entry-compare-toolbar__settings-label">Manage languages</span>
         </RouterLink>
       </Button>
     </div>
@@ -254,6 +282,10 @@ function swapLocales() {
   min-width: 0;
   align-items: center;
   gap: 0.5rem;
+}
+
+.studio-entry-compare-toolbar__inner {
+  height: var(--studio-shell-toolbar-height);
 }
 
 .studio-entry-compare-toolbar__locale-trigger {

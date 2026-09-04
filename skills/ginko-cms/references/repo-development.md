@@ -25,12 +25,13 @@ Ginko CMS owns:
 - Studio UI and Nuxt module integration
 - CMS domain contracts and field definitions
 - Convex component implementation
-- generated Trellis host bridges
+- host-owned Convex setup files and root adapters
 - member/access workflows
 - content publishing, assets, backups, migrations, projections
 - MCP tools that operate on CMS operations
 
-Do not move CMS policy into Trellis or Ginko Content.
+Do not move CMS policy into `@lupinum/better-convex-nuxt`, Ginko Content, or host setup
+glue.
 
 ## Commands
 
@@ -41,7 +42,8 @@ corepack pnpm run check
 corepack pnpm run release:verify
 ```
 
-For registry release candidates after Trellis and Ginko Content are published:
+For registry release candidates after Ginko Content and `@lupinum/better-convex-nuxt`
+are published:
 
 ```bash
 corepack pnpm run release:verify:registry
@@ -59,7 +61,7 @@ PATH="$tmpdir:$PATH" corepack pnpm run check
 ## Focused Checks
 
 Use focused tests while working, then run the broad gate before handoff when
-touching package metadata, bridge generation, Convex auth, Studio workflows,
+touching package metadata, host setup generation, Convex auth, Studio workflows,
 MCP, release scripts, or public docs.
 
 Useful focused commands:
@@ -68,12 +70,27 @@ Useful focused commands:
 corepack pnpm run format:check
 corepack pnpm exec eslint packages test
 corepack pnpm run check:docs:install-story
-corepack pnpm run check:public-vocabulary
 corepack pnpm run check:compatibility-matrix
-corepack pnpm run check:current-content-model
-corepack pnpm run check:stale-surfaces
+corepack pnpm run check:release-hygiene
 corepack pnpm exec vitest run <test-files> --reporter=dot
 ```
+
+## Authenticated Studio And HMR
+
+Use the single canonical runbook:
+
+- `docs/maintenance/local-studio-development.md`
+
+The normal command is:
+
+```bash
+corepack pnpm run dev:consumer
+```
+
+It loads the repository `.env.local`, starts the playground on
+`http://localhost:3000`, and mounts the Studio Vite development server through
+the Nuxt host. Do not run the Studio SPA standalone when validating login or
+host-bridge behavior.
 
 ## Generated Files
 
@@ -92,7 +109,7 @@ When behavior changes, update all relevant surfaces together:
 
 - source implementation
 - contract/shared types or validators
-- generated or bridge-facing exports when applicable
+- generated or host-setup-facing exports when applicable
 - focused tests
 - docs and skill references
 

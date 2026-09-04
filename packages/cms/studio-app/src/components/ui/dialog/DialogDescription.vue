@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactiveOmit } from '@vueuse/core'
 import type { DialogDescriptionProps } from 'reka-ui'
-import { DialogDescription } from 'reka-ui'
+import { DialogDescription, useForwardProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 
 import { cn } from '../utils'
@@ -9,13 +9,15 @@ import { cn } from '../utils'
 const props = defineProps<DialogDescriptionProps & { class?: HTMLAttributes['class'] }>()
 
 const delegatedProps = reactiveOmit(props, 'class')
+
+const forwardedProps = useForwardProps(delegatedProps)
 </script>
 
 <template>
   <DialogDescription
     data-slot="dialog-description"
-    :class="cn('ginko:text-sm ginko:text-muted-foreground', props.class)"
-    v-bind="delegatedProps"
+    v-bind="forwardedProps"
+    :class="cn('ginko:text-muted-foreground ginko:text-sm', props.class)"
   >
     <slot />
   </DialogDescription>

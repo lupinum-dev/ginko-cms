@@ -1,6 +1,5 @@
 // Shared route-prefix and stable-id helpers. Entry tree path assembly lives in
 // entries/workflow/path.ts and entries/slugs.ts.
-import type { Id } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'
 import type { CmsCollection, QueryOrMutationCtx } from './types.js'
 
@@ -43,7 +42,7 @@ export function rootSlugForLocale(collection: CmsCollection, locale: string): st
 
 export async function generateStableId(
   ctx: QueryOrMutationCtx,
-  collectionId: Id<'collections'>,
+  collection: string,
 ): Promise<string> {
   let length = STABLE_ID_INITIAL_LENGTH
 
@@ -56,7 +55,7 @@ export async function generateStableId(
     const existing = await ctx.db
       .query('entries')
       .withIndex('by_collection_stableId', (q) =>
-        q.eq('collectionId', collectionId).eq('stableId', candidate),
+        q.eq('collection', collection).eq('stableId', candidate),
       )
       .first()
 

@@ -1,7 +1,7 @@
 import type { JsonMap, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import { normalizeFields } from '../lib/fields.js'
-import type { CmsField } from '../lib/types.js'
+import type { CmsField, QueryOrMutationCtx } from '../lib/types.js'
 import { isPlainObject } from '../lib/utils.js'
 
 export type RelationReference = {
@@ -40,7 +40,7 @@ export function collectRelationReferences(args: {
       for (const targetId of relationTargetIdsFromValue(value)) {
         references.push({
           fieldPath,
-          targetCollectionSlug: field.relation?.collectionId ?? null,
+          targetCollectionSlug: field.relation?.collection ?? null,
           targetId,
         })
       }
@@ -164,35 +164,53 @@ async function transformStructuredData(
   return next
 }
 
-type StableRelationLookup = {
-  stableIds: Set<string>
+export type RelationReferenceExists = (collectionSlug: string, stableId: string) => Promise<boolean>
+
+/**
+ * Resolve only the stable IDs present in the incoming patch. The cache keeps
+ * repeated nested references to one indexed read without ever loading an
+ * entire target collection.
+ */
+export function createExactRelationReferenceResolver(
+  ctx: QueryOrMutationCtx,
+): RelationReferenceExists {
+  const cache = new Map<string, Promise<boolean>>()
+  return async (collectionSlug, stableId) => {
+    const key = `${collectionSlug}\u0000${stableId}`
+    const existing = cache.get(key)
+    if (existing) return await existing
+    const lookup = ctx.db
+      .query('entries')
+      .withIndex('by_collection_stableId', (query) =>
+        query.eq('collection', collectionSlug).eq('stableId', stableId),
+      )
+      .unique()
+      .then((entry) => entry?.lifecycle === 'active')
+    cache.set(key, lookup)
+    return await lookup
+  }
 }
 
 export async function rewriteStoredRelationData(
   fields: CmsField[],
   data: JsonMap,
-  resolveLookup: (collectionSlug: string) => Promise<StableRelationLookup | null>,
+  referenceExists: RelationReferenceExists,
 ): Promise<JsonMap> {
   return await transformStructuredData(fields, data, {
     relation: async (field, value) => {
       if (typeof value !== 'string' || !value) return null
-      const relationCollectionSlug = field.relation?.collectionId
+      const relationCollectionSlug = field.relation?.collection
       if (!relationCollectionSlug) return null
-      const lookup = await resolveLookup(relationCollectionSlug)
-      if (!lookup) return null
-      return lookup.stableIds.has(value) ? value : null
+      return (await referenceExists(relationCollectionSlug, value)) ? value : null
     },
     relations: async (field, value) => {
       if (!Array.isArray(value)) return []
-      const relationCollectionSlug = field.relation?.collectionId
+      const relationCollectionSlug = field.relation?.collection
       if (!relationCollectionSlug) return []
-      const lookup = await resolveLookup(relationCollectionSlug)
-      if (!lookup) return []
-
       const normalized: string[] = []
       for (const item of value) {
         if (typeof item !== 'string' || !item) continue
-        if (lookup.stableIds.has(item)) {
+        if (await referenceExists(relationCollectionSlug, item)) {
           normalized.push(item)
           continue
         }

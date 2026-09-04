@@ -46,6 +46,55 @@ export interface DestructiveConfirmationState {
   disabledReason: string | null
 }
 
+export type OperationExecuteResult<TValue> =
+  | { status: 'applied'; value: TValue }
+  | { status: 'blocked' | 'stale'; code: string; message: string; details: unknown }
+
+export class OperationResultError extends Error {
+  readonly data: {
+    code: string
+    message: string
+    details: Record<string, unknown> | null
+    status: 'blocked' | 'stale'
+  }
+
+  constructor(result: Extract<OperationExecuteResult<unknown>, { status: 'blocked' | 'stale' }>) {
+    super(result.message)
+    this.name = 'OperationResultError'
+    this.data = {
+      code: result.code,
+      message: result.message,
+      details:
+        result.details && typeof result.details === 'object' && !Array.isArray(result.details)
+          ? (result.details as Record<string, unknown>)
+          : null,
+      status: result.status,
+    }
+  }
+}
+
+export function operationValue<TValue>(result: unknown): TValue {
+  if (!result || typeof result !== 'object' || !('status' in result)) {
+    throw new Error('The operation returned an invalid result.')
+  }
+  if (result.status === 'applied' && 'value' in result) return result.value as TValue
+  if (
+    (result.status === 'blocked' || result.status === 'stale') &&
+    'code' in result &&
+    typeof result.code === 'string' &&
+    'message' in result &&
+    typeof result.message === 'string'
+  ) {
+    throw new OperationResultError({
+      status: result.status,
+      code: result.code,
+      message: result.message,
+      details: 'details' in result ? result.details : null,
+    })
+  }
+  throw new Error('The operation returned an invalid result.')
+}
+
 const ACTION_LABELS: Record<DestructiveActionKind, string> = {
   publish: 'Publish',
   unpublish: 'Unpublish',
@@ -118,7 +167,7 @@ function defaultWarning(kind: DestructiveActionKind): string | null {
     case 'revert-draft':
       return 'All unpublished draft changes will be lost.'
     case 'publish':
-      return 'Preview publish impact before publishing public content.'
+      return 'Preview website changes before publishing public content.'
     default:
       return null
   }

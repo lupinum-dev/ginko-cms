@@ -1,7 +1,6 @@
-import { useConvexAuth } from '@lupinum/trellis/composables'
 import type { ComputedRef } from 'vue'
 
-import { computed, useRuntimeConfig } from '#imports'
+import { computed, useConvexAuth } from '#imports'
 
 interface CmsAuthUser {
   name?: string | null
@@ -10,44 +9,28 @@ interface CmsAuthUser {
 }
 
 interface CmsAuthState {
-  authEnabled: ComputedRef<boolean>
   user: ComputedRef<CmsAuthUser | null>
   signOut: () => Promise<void>
 }
 
 export function useCmsAuthState(): CmsAuthState {
-  const runtimeConfig = useRuntimeConfig()
-  const publicConfig = runtimeConfig.public as {
-    convex?: {
-      auth?: {
-        enabled?: boolean
-      }
-    }
-  }
-  const authEnabled = publicConfig.convex?.auth?.enabled !== false
-
-  if (authEnabled) {
-    const { sessionUser, signOut } = useConvexAuth()
-    return {
-      authEnabled: computed(() => true),
-      user: computed(() => {
-        const current = sessionUser.value
-        if (!current) {
-          return null
-        }
-        return {
-          name: current.displayName ?? null,
-          email: current.email ?? null,
-          image: current.avatarUrl ?? null,
-        }
-      }),
-      signOut,
-    }
-  }
+  const auth = useConvexAuth()
 
   return {
-    authEnabled: computed(() => false),
-    user: computed(() => null),
-    signOut: async () => {},
+    user: computed(() => {
+      const current = auth.user.value
+      if (!current) {
+        return null
+      }
+      return {
+        name: current.name ?? null,
+        email: current.email ?? null,
+        image: current.image ?? null,
+      }
+    }),
+    signOut: async () => {
+      if (!auth.client) throw new TypeError('Ginko CMS authentication client is unavailable.')
+      await auth.client.signOut()
+    },
   }
 }

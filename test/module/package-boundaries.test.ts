@@ -6,21 +6,17 @@ import * as ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 const projectRoot = resolve(import.meta.dirname, '../..')
+const trellisPackageName = ['@lupinum', 'trellis'].join('/')
+const trellisBridgePackageName = ['@lupinum', ['trellis', 'bridge'].join('-')].join('/')
 const requiredPackageOutputs = [
   'packages/contract/dist/validators.js',
   'packages/contract/dist/convex/caller.js',
   'packages/contract/dist/fields/index.js',
   'packages/convex/dist/component/convex.config.js',
   'packages/convex/dist/convex.auth.js',
-  'packages/convex/dist/componentBridge.js',
   'packages/convex/dist/_generated/component.js',
   'packages/cms/dist/module.mjs',
   'packages/cms/dist/types.d.mts',
-  'packages/cms/dist/bridge/create.js',
-  'packages/cms/dist/bridge/public.js',
-  'packages/cms/dist/bridge/members.js',
-  'packages/cms/convex/manifest.js',
-  'packages/cms/convex/manifest.d.ts',
 ]
 
 type PackageJson = {
@@ -28,6 +24,7 @@ type PackageJson = {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   exports?: Record<string, unknown>
+  engines?: { node?: string }
   files?: string[]
   peerDependencies?: Record<string, string>
 }
@@ -112,60 +109,6 @@ function readImportSpecifiers(
   return specifiers
 }
 
-function readNamedImportsFromSource(
-  source: string,
-  specifier: string,
-): Array<{ imported: string; typeOnly: boolean }> {
-  const imports: Array<{ imported: string; typeOnly: boolean }> = []
-  const sourceFile = ts.createSourceFile('source.ts', source, ts.ScriptTarget.Latest, true)
-
-  function visit(node: ts.Node) {
-    if (
-      ts.isImportDeclaration(node) &&
-      ts.isStringLiteralLike(node.moduleSpecifier) &&
-      node.moduleSpecifier.text === specifier
-    ) {
-      const importClause = node.importClause
-      const namedBindings = importClause?.namedBindings
-      if (namedBindings && ts.isNamedImports(namedBindings)) {
-        for (const element of namedBindings.elements) {
-          imports.push({
-            imported: (element.propertyName ?? element.name).text,
-            typeOnly: importClause.isTypeOnly || element.isTypeOnly,
-          })
-        }
-      }
-    }
-
-    ts.forEachChild(node, visit)
-  }
-
-  visit(sourceFile)
-  return imports
-}
-
-function readNamedImports(
-  files: string[],
-  specifier: string,
-): Array<{ file: string; imported: string; typeOnly: boolean }> {
-  const imports: Array<{ file: string; imported: string; typeOnly: boolean }> = []
-
-  for (const file of files) {
-    const source = readFileSync(file, 'utf-8')
-    const sourceFragments = file.endsWith('.vue') ? extractVueScriptBlocks(source) : [source]
-    for (const fragment of sourceFragments) {
-      for (const namedImport of readNamedImportsFromSource(fragment, specifier)) {
-        imports.push({
-          file: relative(projectRoot, file),
-          ...namedImport,
-        })
-      }
-    }
-  }
-
-  return imports
-}
-
 function extractVueScriptBlocks(source: string): string[] {
   const blocks = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(
     (match) => match[1],
@@ -233,42 +176,72 @@ describe('package boundary contracts', () => {
   it('keeps public export keys intentional and minimal', () => {
     expect(Object.keys(contractPackage.exports ?? {}).sort()).toEqual([
       './convex/caller.js',
-      './convex/schemas/*.js',
+      './convex/schemas/assets.js',
+      './convex/schemas/collections.js',
+      './convex/schemas/diagnostics.js',
+      './convex/schemas/editor.js',
+      './convex/schemas/maintenance.js',
+      './convex/schemas/members.js',
+      './convex/schemas/portability.js',
+      './convex/schemas/public.js',
+      './convex/schemas/redirects.js',
+      './convex/schemas/revalidation.js',
+      './convex/schemas/siteData.js',
       './convex/validators.js',
       './shared/assetPolicy.js',
       './shared/caller.js',
       './shared/contentTags.js',
       './shared/fields',
-      './shared/fields/*.js',
+      './shared/fields/conditions.js',
+      './shared/fields/materialize.js',
+      './shared/fields/normalize.js',
+      './shared/fields/title.js',
       './shared/order.js',
       './shared/permissions.js',
+      './shared/placementGraph.js',
       './shared/publicContent.js',
+      './shared/readiness.js',
       './shared/routeDiagnostics.js',
       './shared/types.js',
       './shared/utils.js',
     ])
 
     expect(Object.keys(convexPackage.exports ?? {}).sort()).toEqual([
-      './_generated/component.js',
       './component',
-      './component-bridge',
       './convex.auth',
       './convex.config',
-      './operation-handles/mcp',
+      './mcp',
       './operations',
     ])
 
     expect(Object.keys(cmsPackage.exports ?? {}).sort()).toEqual([
       '.',
-      './bridge',
-      './config',
       './convex/auth',
-      './convex/auth-config',
-      './convex/manifest',
-      './migration',
       './nuxt-provider',
+      './portability',
       './public',
     ])
+  })
+
+  it('declares one supported Node range across coordinated packages', () => {
+    expect(contractPackage.engines?.node).toBe('>=22.0.0')
+    expect(convexPackage.engines?.node).toBe(contractPackage.engines?.node)
+    expect(cmsPackage.engines?.node).toBe(contractPackage.engines?.node)
+  })
+
+  it('documents every retained package subpath from the manifest allowlists', () => {
+    for (const [packageRoot, packageJson] of [
+      ['packages/contract', contractPackage],
+      ['packages/convex', convexPackage],
+      ['packages/cms', cmsPackage],
+    ] as const) {
+      const readme = readFileSync(resolve(projectRoot, packageRoot, 'README.md'), 'utf8')
+      for (const subpath of Object.keys(packageJson.exports ?? {})) {
+        const specifier =
+          subpath === '.' ? packageJson.name : `${packageJson.name}/${subpath.slice(2)}`
+        expect(readme, `${specifier} must be documented`).toContain(`\`${specifier}\``)
+      }
+    }
   })
 
   it('keeps contract source free of Nuxt, Vue, Studio, and Convex component imports', () => {
@@ -293,6 +266,7 @@ describe('package boundary contracts', () => {
       'packages/contract/src/order.ts',
       'packages/contract/src/permissions.ts',
       'packages/contract/src/caller.ts',
+      'packages/contract/src/readiness.ts',
       'packages/contract/src/routeDiagnostics.ts',
       'packages/contract/src/utils.ts',
       ...collectSourceFiles('packages/contract/src/fields'),
@@ -324,55 +298,6 @@ describe('package boundary contracts', () => {
     ])
   })
 
-  it('keeps package-owned bridge factories Convex-safe', () => {
-    expectNoForbiddenImports('cms bridge factories', 'packages/cms/src/bridge', [
-      'vue',
-      'nuxt',
-      '@nuxt/kit',
-      '@nuxt/schema',
-      '@lupinum/trellis/bridge',
-      /^#(?:runtime|imports|app|trellis)(?:\/|$)/,
-      /(?:^|\/)studio-app(?:\/|$)/,
-    ])
-  })
-
-  it('uses the Trellis bridge package for release-facing bridge APIs', () => {
-    const files = [
-      ...collectSourceFiles('packages/cms/src'),
-      ...collectSourceFiles('packages/cms/convex'),
-      ...collectSourceFiles('packages/convex/src'),
-    ]
-    const imports = readImportSpecifiers(files)
-    const oldBridgeImports = imports.filter(
-      ({ specifier }) => specifier === '@lupinum/trellis/bridge',
-    )
-
-    expect(
-      oldBridgeImports.map(({ file, specifier }) => `${file} -> ${specifier}`),
-      'bridge APIs must come from @lupinum/trellis-bridge',
-    ).toEqual([])
-
-    const bridgeApiNames = new Set([
-      'callComponentBridgeRegistrar',
-      'createComponentBridge',
-      'defineComponentBridgeManifest',
-      'ComponentBridgeComponent',
-      'ComponentBridgeManifest',
-      'ComponentBridgeModule',
-      'renderComponentBridgeFile',
-      'renderComponentBridgeFiles',
-      'renderComponentBridgeManagedEdits',
-    ])
-    const bridgeApisFromFunctions = readNamedImports(files, '@lupinum/trellis/functions').filter(
-      ({ imported }) => bridgeApiNames.has(imported),
-    )
-
-    expect(
-      bridgeApisFromFunctions.map(({ file, imported }) => `${file} -> ${imported}`),
-      'bridge APIs must not be imported from @lupinum/trellis/functions',
-    ).toEqual([])
-  })
-
   it('detects forbidden multiline import specifiers', () => {
     expect(readImportSpecifiersFromSource("import {\n  ref\n} from 'vue'\n")).toEqual([
       { specifier: 'vue', typeOnly: false },
@@ -391,16 +316,66 @@ describe('package boundary contracts', () => {
     ).toEqual([])
   })
 
-  it('keeps Nuxt-oriented Trellis runtime composables out of standalone Studio source', () => {
+  it('keeps Nuxt-oriented runtime composables out of standalone Studio source', () => {
     const imports = readImportSpecifiers(collectSourceFiles('packages/cms/studio-app/src'))
     const runtimeViolations = imports.filter(
-      ({ specifier, typeOnly }) => !typeOnly && specifier === '@lupinum/trellis/composables',
+      ({ specifier }) => specifier === '@lupinum/better-convex-nuxt/composables',
     )
 
     expect(
       runtimeViolations.map(({ file, specifier }) => `${file} -> ${specifier}`),
-      'Studio runtime must use its host-bridge Convex boundary instead of Nuxt Trellis composables',
+      'Studio must use its host-bridge Convex boundary instead of removed Nuxt composable exports',
     ).toEqual([])
+  })
+
+  it('bans deleted Better Convex Nuxt vNext imports and old names everywhere in packages/cms', () => {
+    // §10 "Ginko tests": "package boundary test banning deleted Better Convex
+    // Nuxt imports and old names" — `serverConvexQuery`/`serverConvexMutation`/
+    // `serverConvexAction` (replaced by the single `serverConvex` caller),
+    // `createBetterConvexAuthClient` (replaced by `defineConvexAuthClient`),
+    // library-exported `refreshAuth` (the vNext auth engine has no such
+    // export; `refresh()` lives on the returned engine instance, never as a
+    // standalone import), and `getQueryKey` (removed from the public surface).
+    const bannedNames = [
+      'serverConvexQuery',
+      'serverConvexMutation',
+      'serverConvexAction',
+      'createBetterConvexAuthClient',
+      'getQueryKey',
+    ]
+    const files = [
+      ...collectSourceFiles('packages/cms/src'),
+      ...collectSourceFiles('packages/cms/studio-app/src'),
+      ...collectSourceFiles('packages/convex/src'),
+    ]
+    const violations: string[] = []
+    for (const file of files) {
+      const source = readFileSync(file, 'utf-8')
+      for (const name of bannedNames) {
+        if (new RegExp(`\\b${name}\\b`).test(source)) {
+          violations.push(`${relative(projectRoot, file)} -> ${name}`)
+        }
+      }
+      // `refreshAuth` as a *library* export/import is banned; Ginko's own
+      // `awaitAuthReady`-successor call sites use `auth.refresh()` as a method,
+      // never a bare `refreshAuth` identifier.
+      if (/\brefreshAuth\b/.test(source)) {
+        violations.push(`${relative(projectRoot, file)} -> refreshAuth`)
+      }
+      if (/\bawaitAuthReady\b/.test(source)) {
+        violations.push(`${relative(projectRoot, file)} -> awaitAuthReady`)
+      }
+    }
+
+    expect(violations, 'source references a deleted vNext name').toEqual([])
+
+    // Also ban the deleted names from crossing the scripts/package-e2e fixture
+    // generator, so a regenerated consumer fixture can never resurrect them.
+    const scriptSource = readFileSync(resolve(projectRoot, 'scripts/package-e2e.mjs'), 'utf-8')
+    for (const name of ['serverConvexQuery', 'serverConvexMutation', 'serverConvexAction']) {
+      expect(scriptSource.includes(name), `scripts/package-e2e.mjs references ${name}`).toBe(false)
+    }
+    expect(scriptSource).toContain('serverConvex')
   })
 
   it('keeps Nuxt auth runtime components independent from Studio source files', () => {
@@ -417,7 +392,7 @@ describe('package boundary contracts', () => {
     expect(contractPackage.dependencies?.['@lupinum/ginko-cms']).toBeUndefined()
     expect(contractPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBeUndefined()
     expect(contractPackage.dependencies?.convex).toBeUndefined()
-    expect(contractPackage.peerDependencies?.convex).toBe('^1.38.0')
+    expect(contractPackage.peerDependencies?.convex).toBe('^1.42.2')
 
     const convexDeps = {
       ...convexPackage.dependencies,
@@ -437,14 +412,17 @@ describe('package boundary contracts', () => {
         `${forbidden} must not be a Convex package dependency`,
       ).toBeUndefined()
     }
-    expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
-    expect(convexPackage.dependencies?.['@lupinum/trellis']).toBe('^0.3.1')
-    expect(convexPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.3.1')
+    expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:0.2.0-rc.2')
+    expect(convexPackage.dependencies?.[trellisPackageName]).toBeUndefined()
+    expect(convexPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
 
-    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:^')
-    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:^')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis']).toBe('^0.3.1')
-    expect(cmsPackage.dependencies?.['@lupinum/trellis-bridge']).toBe('^0.3.1')
+    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:0.2.0-rc.2')
+    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:0.2.0-rc.2')
+    expect(cmsPackage.dependencies?.[trellisPackageName]).toBeUndefined()
+    expect(cmsPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
+    expect(cmsPackage.dependencies?.['@lupinum/better-convex-nuxt']).toBeDefined()
+    expect(cmsPackage.dependencies?.['nuxt-i18n-micro']).toBeUndefined()
+    expect(cmsPackage.peerDependencies?.kysely).toBeUndefined()
   })
 
   it('does not reintroduce Nuxt-package Convex host artifacts', () => {
@@ -453,8 +431,8 @@ describe('package boundary contracts', () => {
       'packages/cms/convex/auth.config.ts',
       'packages/cms/convex/convex.config.ts',
       'packages/cms/convex/http.ts',
-      'packages/cms/convex/ginkoCms',
-      'packages/cms/convex/ginkoCmsMcp.ts',
+      ['packages/cms/convex', 'ginkoCms'].join('/'),
+      ['packages/cms/convex', `ginkoCms${'Mcp.ts'}`].join('/'),
       'packages/cms/dist/package',
     ]
 
@@ -464,8 +442,6 @@ describe('package boundary contracts', () => {
 
     expect(cmsPackage.files).toEqual([
       'compatibility.json',
-      'convex/manifest.d.ts',
-      'convex/manifest.js',
       'dist',
       'LICENSE',
       'README.md',
@@ -485,29 +461,36 @@ describe('package boundary contracts', () => {
     )
 
     expect(componentJsFiles).toEqual([
+      'agentRuns.js',
+      'assetRecovery.js',
       'assets.js',
       'auth/appIdentity.js',
-      'backup.js',
       'collections.js',
       'collections/contracts.js',
-      'collections/import.js',
-      'collections/jobs.js',
-      'collections/sync.js',
+      'contract.js',
+      'contractTransitions.js',
       'convex.config.js',
       'crons.js',
       'diagnostics.js',
+      'draftPreview.js',
       'editor.js',
       'entries/draft.js',
+      'entries/projectionMaintenance.js',
       'entries/publish.js',
       'entries/read.js',
       'entries/tree.js',
-      'imports.js',
-      'mcpKeys.js',
+      'liveFixtures.js',
+      'liveFixtures/cleanup.js',
+      'liveFixtures/finalize.js',
+      'maintenance.js',
+      'mcpOAuthDelegations.js',
       'members.js',
-      'migrations.js',
       'operations.js',
+      'portability.js',
+      'portability/runs.js',
       'public.js',
       'revalidation.js',
+      'reviewRequests.js',
       'schema.js',
       'settings.js',
       'siteData.js',
@@ -519,26 +502,6 @@ describe('package boundary contracts', () => {
     })
   })
 
-  it('keeps generated and authored bridge forwarding on signed envelopes only', () => {
-    const files = [
-      resolve(projectRoot, 'packages/convex/src/_generated/component.ts'),
-      ...collectSourceFiles('packages/convex/src'),
-      ...collectSourceFiles('packages/cms/src/bridge'),
-      resolve(projectRoot, 'test/helpers.ts'),
-    ]
-
-    const rawForwardingUses = files.flatMap((file) => {
-      const source = readFileSync(file, 'utf-8')
-      const matches = source.match(/\b_identityForwarding(?:Key)?\b/g) ?? []
-      return matches.map((match) => `${relative(projectRoot, file)} -> ${match}`)
-    })
-
-    expect(rawForwardingUses).toEqual([])
-    expect(
-      readFileSync(resolve(projectRoot, 'packages/convex/src/_generated/component.ts'), 'utf-8'),
-    ).toContain('_trellisForwarding?: string')
-  })
-
   it('loads representative built package outputs', async () => {
     const [
       contractValidators,
@@ -546,18 +509,14 @@ describe('package boundary contracts', () => {
       contractFields,
       convexConfig,
       convexAuth,
-      convexComponentBridge,
       cmsModule,
-      cmsManifest,
     ] = await Promise.all([
       import('../../packages/contract/dist/validators.js'),
       import('../../packages/contract/dist/convex/caller.js'),
       import('../../packages/contract/dist/fields/index.js'),
       import('../../packages/convex/dist/component/convex.config.js'),
       import('../../packages/convex/dist/convex.auth.js'),
-      import('../../packages/convex/dist/componentBridge.js'),
       import('../../packages/cms/dist/module.mjs'),
-      import('../../packages/cms/convex/manifest.js'),
     ])
 
     expect(contractValidators.fieldValidator).toBeDefined()
@@ -565,39 +524,20 @@ describe('package boundary contracts', () => {
     expect(contractFields.normalizeFields).toBeTypeOf('function')
     expect(convexConfig.default).toBeDefined()
     expect(convexAuth.defineGinkoAuth).toBeTypeOf('function')
-    expect(convexComponentBridge.createCmsComponentBridge).toBeTypeOf('function')
     expect(cmsModule.default).toBeTypeOf('function')
-    expect(cmsManifest.default.packageName).toBe('@lupinum/ginko-cms')
   })
 
-  it('uses package-style imports in generated bridge templates', () => {
-    const templateFiles = collectSourceFiles('packages/cms/templates')
-    const imports = readImportSpecifiers(templateFiles)
-    const nonPackageImports = imports.filter(
-      ({ specifier }) =>
-        !specifier.startsWith('@lupinum/ginko-cms/') &&
-        !specifier.startsWith('@lupinum/ginko-cms-convex/') &&
-        !specifier.startsWith('convex/') &&
-        !specifier.startsWith('./') &&
-        !specifier.startsWith('../'),
-    )
-
-    expect(
-      nonPackageImports.map(({ file, specifier }) => `${file} -> ${specifier}`),
-      'generated host templates should import stable package surfaces only',
-    ).toEqual([])
-  })
-
-  it('keeps Trellis auth internals behind the Studio host adapter', () => {
+  it('does not read legacy Trellis auth internals', () => {
+    const removedAuthEngineKey = ['__', 'trellis', '_auth_engine__'].join('')
     const files = [
       ...collectSourceFiles('packages/cms/src'),
       ...collectSourceFiles('packages/cms/studio-app/src'),
     ]
     const trellisAuthReads = files
-      .filter((file) => readFileSync(file, 'utf-8').includes('__trellis_auth_engine__'))
+      .filter((file) => readFileSync(file, 'utf-8').includes(removedAuthEngineKey))
       .map((file) => relative(projectRoot, file))
 
-    expect(trellisAuthReads).toEqual(['packages/cms/src/runtime/pages/studio-host.vue'])
+    expect(trellisAuthReads).toEqual([])
   })
 
   it('keeps Studio global host bridge reads inside boundary modules', () => {

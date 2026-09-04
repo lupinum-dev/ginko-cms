@@ -9,12 +9,17 @@ export const cmsUserCallerValidator = v.object({
   kind: v.literal('user'),
   userId: v.string(),
   subject: v.string(),
+  name: v.optional(v.string()),
   email: v.optional(v.string()),
+  emailVerified: v.optional(v.boolean()),
 })
 
 export const cmsMcpCallerValidator = v.object({
   kind: v.literal('mcp'),
-  mcpKeyId: v.string(),
+  issuer: v.string(),
+  userId: v.string(),
+  clientId: v.string(),
+  scopes: v.array(v.string()),
   subject: v.string(),
 })
 

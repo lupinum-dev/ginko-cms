@@ -30,7 +30,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       v-bind="{ ...$attrs, ...forwarded }"
       :class="
         cn(
-          'ginko-cms ginko:bg-popover ginko:text-popover-foreground ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ginko:z-50 ginko:max-h-(--reka-dropdown-menu-content-available-height) ginko:min-w-[8rem] ginko:origin-(--reka-dropdown-menu-content-transform-origin) ginko:overflow-x-hidden ginko:overflow-y-auto ginko:rounded-md ginko:border ginko:p-1 ginko:shadow-md',
+          'ginko-cms ginko:bg-popover ginko:text-popover-foreground ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ginko:z-50 ginko:max-h-(--reka-dropdown-menu-content-available-height) ginko:min-w-32 ginko:origin-(--reka-dropdown-menu-content-transform-origin) ginko:overflow-x-hidden ginko:overflow-y-auto ginko:rounded-md ginko:border ginko:p-1 ginko:shadow-md',
           props.class,
         )
       "

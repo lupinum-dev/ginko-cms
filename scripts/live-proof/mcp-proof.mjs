@@ -1,0 +1,559 @@
+import { createHash, randomBytes } from 'node:crypto'
+
+export function createMcpProof({
+  baseUrl,
+  mcpBaseUrl,
+  page,
+  story,
+  redact,
+  registerSecret,
+  fixtureToken,
+  fixtureManifest,
+  certification,
+}) {
+  let activeConnection = null
+  let activeAgentRun = null
+  let reviewRequest = null
+  let requestId = 2
+  const oauthScopes = ['cms.read', 'cms.entries.edit']
+  const protocolVersion = '2026-07-28'
+  const clientInfo = { name: 'ginko-live-story-smoke', version: '0.0.0' }
+  const clientCapabilities = {}
+
+  async function discoverServer(accessToken) {
+    return await sendRequest(accessToken, 'server/discover')
+  }
+
+  function parseEnvelope(text) {
+    const dataLines = text
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('data: '))
+      .map((line) => line.slice('data: '.length))
+    const envelope = JSON.parse(dataLines.length ? dataLines.join('\n') : text)
+    if (envelope.error) {
+      throw new Error(`MCP error ${envelope.error.code}: ${envelope.error.message}`)
+    }
+    return envelope
+  }
+
+  async function sendRequest(accessToken, method, params = {}) {
+    const headers = {
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+      'mcp-method': method,
+      'mcp-protocol-version': protocolVersion,
+      ...(method === 'tools/call' && typeof params.name === 'string'
+        ? { 'mcp-name': params.name }
+        : {}),
+      ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+    }
+    return await fetch(`${mcpBaseUrl}/mcp`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: requestId++,
+        method,
+        params: {
+          ...params,
+          _meta: {
+            'io.modelcontextprotocol/clientCapabilities': clientCapabilities,
+            'io.modelcontextprotocol/clientInfo': clientInfo,
+            'io.modelcontextprotocol/protocolVersion': protocolVersion,
+          },
+        },
+      }),
+    })
+  }
+
+  async function request(accessToken, method, params = {}) {
+    const response = await sendRequest(accessToken, method, params)
+    const text = await response.text()
+    if (!response.ok) {
+      throw new Error(`MCP ${method} failed ${response.status}: ${redact(text).slice(0, 300)}`)
+    }
+    return parseEnvelope(text)
+  }
+
+  async function tool(accessToken, name, args = {}) {
+    const envelope = await request(accessToken, 'tools/call', { name, arguments: args })
+    const result = envelope.result
+    if (result?.isError) {
+      throw new Error(
+        `MCP tool ${name} failed: ${redact(JSON.stringify(result.structuredContent)).slice(0, 500)}`,
+      )
+    }
+    return result?.structuredContent
+  }
+
+  async function discoverAuthorizationServer() {
+    const challenge = await discoverServer('')
+    if (challenge.status !== 401) {
+      throw new Error(`unauthenticated MCP discovery returned ${challenge.status}`)
+    }
+    const authenticate = challenge.headers.get('www-authenticate') ?? ''
+    const metadataMatch = authenticate.match(/\bresource_metadata="([^"]+)"/u)
+    if (!metadataMatch?.[1]) {
+      throw new Error('MCP challenge omitted OAuth protected-resource metadata.')
+    }
+    const resourceResponse = await fetch(metadataMatch[1], {
+      headers: { accept: 'application/json' },
+    })
+    const resourceMetadata = await resourceResponse.json().catch(() => null)
+    const resource = resourceMetadata?.resource
+    const issuer = resourceMetadata?.authorization_servers?.[0]
+    if (!resourceResponse.ok || typeof resource !== 'string' || typeof issuer !== 'string') {
+      throw new Error('MCP protected-resource metadata is invalid.')
+    }
+    const issuerUrl = new URL(issuer)
+    const metadataUrls = [
+      new URL(`/.well-known/oauth-authorization-server${issuerUrl.pathname}`, issuerUrl.origin),
+      new URL(
+        `${issuerUrl.pathname.replace(/\/$/u, '')}/.well-known/oauth-authorization-server`,
+        issuerUrl.origin,
+      ),
+    ]
+    let authorizationMetadata = null
+    let authorizationMetadataUrl = null
+    for (const metadataUrl of metadataUrls) {
+      const response = await fetch(metadataUrl, { headers: { accept: 'application/json' } })
+      if (!response.ok) continue
+      authorizationMetadata = await response.json().catch(() => null)
+      authorizationMetadataUrl = metadataUrl.href
+      break
+    }
+    if (
+      authorizationMetadata?.issuer !== issuer ||
+      typeof authorizationMetadata?.authorization_endpoint !== 'string' ||
+      typeof authorizationMetadata?.token_endpoint !== 'string' ||
+      !authorizationMetadata?.code_challenge_methods_supported?.includes('S256')
+    ) {
+      throw new Error('OAuth authorization-server metadata is invalid.')
+    }
+    return {
+      authorizationMetadata,
+      authorizationMetadataUrl,
+      resource,
+      resourceMetadataUrl: metadataMatch[1],
+    }
+  }
+
+  async function revoke() {
+    if (!activeConnection) return null
+    let revokedStatus = null
+    if (!activeConnection.revoked) {
+      await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
+      const row = page
+        .getByText(activeConnection.label)
+        .locator('xpath=ancestor::*[self::tr or self::li or self::div][.//button][1]')
+      await row
+        .getByRole('button', { name: /revoke/i })
+        .first()
+        .click()
+      const dialog = page.getByRole('dialog', { name: 'Revoke MCP access?' })
+      await dialog.waitFor({ timeout: 30000 })
+      await dialog.getByRole('button', { name: 'Revoke access' }).click()
+      await page.getByText('MCP connection revoked.').waitFor({ timeout: 30000 })
+      activeConnection.revoked = true
+      if (activeConnection.accessToken) {
+        const revoked = await discoverServer(activeConnection.accessToken)
+        if (revoked.status !== 401) {
+          throw new Error(`revoked MCP OAuth token returned ${revoked.status}`)
+        }
+        revokedStatus = revoked.status
+      }
+    }
+    return revokedStatus
+  }
+
+  async function runStories() {
+    await story(
+      'mcp.unauthenticated-rejected',
+      'Unauthenticated MCP discovery is rejected',
+      async () => {
+        const response = await discoverServer('')
+        if (response.status !== 401) {
+          throw new Error(`unauthenticated MCP returned ${response.status}`)
+        }
+        return { status: response.status }
+      },
+    )
+
+    await story('mcp.malformed-auth-rejected', 'Malformed MCP auth shape is rejected', async () => {
+      const rawHeader = 'x-api-key not-a-valid-ginko-cms-story-key'
+      const response = await fetch(`${mcpBaseUrl}/mcp`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+          authorization: rawHeader,
+          'mcp-method': 'server/discover',
+          'mcp-protocol-version': protocolVersion,
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'server/discover',
+          params: {
+            _meta: {
+              'io.modelcontextprotocol/clientCapabilities': clientCapabilities,
+              'io.modelcontextprotocol/clientInfo': clientInfo,
+              'io.modelcontextprotocol/protocolVersion': protocolVersion,
+            },
+          },
+        }),
+      })
+      const text = await response.text()
+      if (response.status !== 401) throw new Error(`malformed MCP auth returned ${response.status}`)
+      if (text.includes(rawHeader)) throw new Error('malformed MCP auth was reflected in output')
+      return { status: response.status }
+    })
+
+    await story('mcp.unknown-key-rejected', 'Unknown MCP bearer key is rejected', async () => {
+      const unknownKey = 'not-a-valid-ginko-cms-story-key'
+      const response = await discoverServer(unknownKey)
+      const text = await response.text()
+      if (response.status !== 401) throw new Error(`unknown MCP key returned ${response.status}`)
+      if (text.includes(unknownKey))
+        throw new Error('unknown MCP key was reflected in failure output')
+      return { status: response.status }
+    })
+
+    await story(
+      'mcp.create-authenticated',
+      'MCP OAuth completes PKCE authorization and discovers the server with delegated access',
+      async () => {
+        const discovery = await discoverAuthorizationServer()
+        await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
+        await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
+        const oauthClient = fixtureManifest.probes.oauthClient
+        const { clientId, label, redirectUri } = oauthClient
+        if (
+          typeof clientId !== 'string' ||
+          typeof label !== 'string' ||
+          typeof redirectUri !== 'string' ||
+          new URL(redirectUri).origin !== new URL(baseUrl).origin
+        ) {
+          throw new Error('Preregistered OAuth fixture is invalid.')
+        }
+        activeConnection = {
+          accessToken: null,
+          clientId,
+          label,
+          revoked: true,
+        }
+        await page.locator('input[placeholder="Preview client"]').fill(label)
+        await page.locator('input[placeholder="Registered client ID"]').fill(clientId)
+        if ((await page.getByRole('checkbox', { name: 'Create entries' }).count()) !== 0) {
+          throw new Error('MCP delegation exposed an unadmitted create scope.')
+        }
+        for (const scope of ['Read content', 'Edit drafts and request publish review']) {
+          const admittedScope = page.getByRole('checkbox', { name: scope })
+          await admittedScope.waitFor({ timeout: 30000 })
+          if (!(await admittedScope.isChecked())) {
+            throw new Error(`MCP delegation did not select the admitted ${scope} scope.`)
+          }
+        }
+        await page.getByRole('button', { name: 'Create MCP connection' }).click()
+        await page.getByText('MCP connection created.').waitFor({ timeout: 30000 })
+        await page.getByText(label).waitFor({ timeout: 30000 })
+        activeConnection.revoked = false
+
+        const verifier = randomBytes(48).toString('base64url')
+        const challenge = createHash('sha256').update(verifier).digest('base64url')
+        const state = randomBytes(24).toString('base64url')
+        const authorizationUrl = new URL(discovery.authorizationMetadata.authorization_endpoint)
+        for (const [name, value] of [
+          ['client_id', clientId],
+          ['code_challenge', challenge],
+          ['code_challenge_method', 'S256'],
+          ['redirect_uri', redirectUri],
+          ['resource', discovery.resource],
+          ['response_type', 'code'],
+          ['scope', oauthScopes.join(' ')],
+          ['state', state],
+        ]) {
+          authorizationUrl.searchParams.set(name, value)
+        }
+        await page.goto(authorizationUrl.href, { waitUntil: 'domcontentloaded' })
+        await page.getByRole('heading', { name: 'Authorize MCP access' }).waitFor({
+          timeout: 30000,
+        })
+        await page.getByTestId('oauth-approve').click()
+        await page.waitForURL((url) => url.href.startsWith(redirectUri), { timeout: 30000 })
+        const callback = new URL(page.url())
+        const code = callback.searchParams.get('code')
+        if (!code || callback.searchParams.get('state') !== state) {
+          throw new Error('OAuth authorization callback did not preserve code and state.')
+        }
+        const tokenResponse = await fetch(discovery.authorizationMetadata.token_endpoint, {
+          body: new URLSearchParams({
+            client_id: clientId,
+            code,
+            code_verifier: verifier,
+            grant_type: 'authorization_code',
+            redirect_uri: redirectUri,
+            resource: discovery.resource,
+          }),
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          method: 'POST',
+        })
+        const tokenBody = await tokenResponse.json().catch(() => null)
+        const accessToken = tokenBody?.access_token
+        const grantedScopes =
+          typeof tokenBody?.scope === 'string' ? tokenBody.scope.split(/\s+/u).filter(Boolean) : []
+        if (
+          !tokenResponse.ok ||
+          typeof accessToken !== 'string' ||
+          tokenBody?.token_type?.toLowerCase() !== 'bearer' ||
+          !Number.isFinite(tokenBody?.expires_in) ||
+          tokenBody.expires_in > 600 ||
+          grantedScopes.length !== oauthScopes.length ||
+          oauthScopes.some((scope) => !grantedScopes.includes(scope))
+        ) {
+          throw new Error(`OAuth token exchange returned ${tokenResponse.status}`)
+        }
+        activeConnection.accessToken = accessToken
+        registerSecret(accessToken)
+
+        const auth = await discoverServer(accessToken)
+        const authText = await auth.text()
+        const authEnvelope = auth.ok ? parseEnvelope(authText) : null
+        const supportedVersions = authEnvelope?.result?.supportedVersions
+        if (
+          !auth.ok ||
+          !Array.isArray(supportedVersions) ||
+          !supportedVersions.includes(protocolVersion)
+        ) {
+          throw new Error(
+            `authenticated MCP discovery failed ${auth.status}: ${redact(authText).slice(0, 300)}`,
+          )
+        }
+        return {
+          authenticatedStatus: auth.status,
+          authorizationMetadataUrl: discovery.authorizationMetadataUrl,
+          clientId,
+          pkce: 'S256',
+          resource: discovery.resource,
+          resourceMetadataUrl: discovery.resourceMetadataUrl,
+          scopes: grantedScopes,
+          tokenLifetimeSeconds: tokenBody.expires_in,
+        }
+      },
+    )
+
+    await story(
+      'mcp.oauth-token-not-rendered',
+      'OAuth bearer credentials are never rendered in Studio',
+      async () => {
+        if (!activeConnection?.accessToken) throw new Error('MCP OAuth was not completed')
+        await page.goto(`${baseUrl}/studio/settings`, { waitUntil: 'domcontentloaded' })
+        await page.getByRole('heading', { name: 'MCP connections' }).waitFor({ timeout: 30000 })
+        await page.getByText(activeConnection.label).waitFor({ timeout: 30000 })
+        const visible = await page
+          .getByText(activeConnection.accessToken, { exact: true })
+          .isVisible()
+          .catch(() => false)
+        if (visible) throw new Error('OAuth bearer token was rendered in Studio')
+        return { rendered: false }
+      },
+    )
+
+    await story(
+      'mcp.tools-list-and-read',
+      'MCP exposes only the bounded CMS workflow and reads one owned entry',
+      async () => {
+        if (!activeConnection?.accessToken) throw new Error('MCP OAuth was not completed')
+        const accessToken = activeConnection.accessToken
+        const toolsEnvelope = await request(accessToken, 'tools/list')
+        const tools = toolsEnvelope.result?.tools
+        if (!Array.isArray(tools)) throw new Error('tools/list did not return a tool array')
+        const toolNames = tools.map((item) => item.name)
+        for (const name of [
+          'get-entry',
+          'start-agent-run',
+          'save-entry-draft',
+          'complete-agent-run',
+          'preview-publish',
+          'request-publish-review',
+          'get-review-status',
+        ]) {
+          if (!toolNames.includes(name)) throw new Error(`tools/list missing ${name}`)
+        }
+        for (const forbidden of [
+          'list-collections',
+          'get-collection',
+          'list-entries',
+          'list',
+          'search',
+          'publish-entry',
+          'archive-entry',
+          'restore-entry',
+          'delete-entry',
+          'record-activity',
+          'record-audit',
+        ]) {
+          if (toolNames.includes(forbidden)) {
+            throw new Error(`tools/list exposed forbidden public-output tool ${forbidden}`)
+          }
+        }
+
+        const entryId = fixtureManifest.probes.mcpReview.entryId
+        const cmsEntryResult = await tool(accessToken, 'get-entry', { entryId, locale: 'en' })
+        const cmsEntry = cmsEntryResult?.entry
+        if (
+          cmsEntry?.collection !== fixtureManifest.probes.entryPagination.collection ||
+          cmsEntry?._id !== entryId
+        ) {
+          throw new Error('get-entry did not return the requested CMS entry')
+        }
+        return {
+          toolCount: tools.length,
+          entryId,
+          collection: cmsEntry.collection,
+        }
+      },
+    )
+
+    if (certification) {
+      await story(
+        'mcp.draft-review-gated',
+        'MCP can preview and request human review but cannot publish directly',
+        async () => {
+          if (!activeConnection?.accessToken) throw new Error('MCP OAuth was not completed')
+          const probe = fixtureManifest.probes.mcpReview
+          const accessToken = activeConnection.accessToken
+          const run = await tool(accessToken, 'start-agent-run', {
+            taskName: `Live proof ${fixtureToken}`,
+          })
+          const agentRunId = run?.run?._id ?? run?.run?.id
+          if (!agentRunId) throw new Error('start-agent-run did not return a run id')
+          activeAgentRun = { id: agentRunId, completed: false }
+          const preview = await tool(accessToken, 'preview-publish', {
+            agentRunId,
+            entryId: probe.entryId,
+            locales: [probe.locale],
+            expectedVersion: probe.expectedVersion,
+            message: 'Automated review-gating certification.',
+          })
+          if (preview?.publicChanged !== false || !preview?.preview) {
+            throw new Error('MCP preview did not prove unchanged public output')
+          }
+          const operationKey = createHash('sha256').update(`review:${fixtureToken}`).digest('hex')
+          const reviewArgs = {
+            operationKey,
+            agentRunId,
+            entryId: probe.entryId,
+            locales: [probe.locale],
+            expectedVersion: probe.expectedVersion,
+            title: probe.reviewTitle,
+            summary: 'Automated MCP review-gating certification.',
+          }
+          const requested = await tool(accessToken, 'request-publish-review', reviewArgs)
+          const reviewRequestId = requested?.review?.id
+          if (requested?.interaction !== 'client_interaction_unsupported' || !reviewRequestId) {
+            throw new Error('MCP review request did not remain review-gated')
+          }
+          const replayed = await tool(accessToken, 'request-publish-review', reviewArgs)
+          if (
+            replayed?.interaction !== 'client_interaction_unsupported' ||
+            replayed?.review?.id !== reviewRequestId
+          ) {
+            throw new Error('MCP review request replay created a second effect')
+          }
+          reviewRequest = { id: reviewRequestId, title: probe.reviewTitle, approved: false }
+          const status = await tool(accessToken, 'get-review-status', { reviewRequestId })
+          if (!status || status.review?.status !== 'pending') {
+            throw new Error(`new MCP review was not pending: ${redact(JSON.stringify(status))}`)
+          }
+          return {
+            agentRunId,
+            reviewRequestId,
+            status: status.review.status,
+            publicChanged: false,
+            directPublishToolAvailable: false,
+            exactlyOnceReplay: true,
+          }
+        },
+      )
+
+      await story(
+        'mcp.human-approval',
+        'Owner approval publishes the MCP-requested review through the guarded workflow',
+        async () => {
+          if (!reviewRequest) throw new Error('MCP review request was not created')
+          await page.goto(`${baseUrl}/studio/reviews`, { waitUntil: 'domcontentloaded' })
+          const review = page.locator('article').filter({ hasText: reviewRequest.title })
+          await review.waitFor({ timeout: 30000 })
+          await review.getByRole('button', { name: 'Approve and publish' }).click()
+          const dialog = page.getByRole('dialog', { name: 'Approve and publish?' })
+          await dialog.waitFor({ timeout: 30000 })
+          await dialog.getByRole('button', { name: 'Approve and publish' }).click()
+          await page.getByText('Approved', { exact: true }).first().waitFor({ timeout: 30000 })
+          reviewRequest.approved = true
+          const status = await tool(activeConnection.accessToken, 'get-review-status', {
+            reviewRequestId: reviewRequest.id,
+          })
+          if (status?.review?.status !== 'approved') {
+            throw new Error(`approved MCP review returned ${String(status?.review?.status)}`)
+          }
+          await tool(activeConnection.accessToken, 'complete-agent-run', {
+            agentRunId: activeAgentRun.id,
+          })
+          activeAgentRun.completed = true
+          return {
+            reviewRequestId: reviewRequest.id,
+            status: status.review.status,
+            runCompleted: true,
+          }
+        },
+      )
+    }
+
+    await story('mcp.revoke', 'MCP connection can be revoked', async () => ({
+      revokedStatus: await revoke(),
+    }))
+  }
+
+  async function cleanup() {
+    const failures = []
+    if (activeAgentRun && !activeAgentRun.completed && activeConnection?.accessToken) {
+      await tool(activeConnection.accessToken, 'complete-agent-run', {
+        agentRunId: activeAgentRun.id,
+      })
+        .then(() => (activeAgentRun.completed = true))
+        .catch((error) => {
+          failures.push({
+            id: 'mcp.run-cleanup',
+            title: 'Complete active MCP agent run after failure',
+            status: 'failed',
+            durationMs: 0,
+            error: redact(error instanceof Error ? error.message : String(error)),
+          })
+        })
+    }
+    if (activeConnection && !activeConnection.revoked) {
+      await revoke().catch((error) => {
+        failures.push({
+          id: 'mcp.cleanup',
+          title: 'Cleanup active MCP connection after failure',
+          status: 'failed',
+          durationMs: 0,
+          error: redact(error instanceof Error ? error.message : String(error)),
+        })
+      })
+    }
+    return {
+      failures,
+      status: {
+        mcpConnectionRevoked: activeConnection === null || activeConnection.revoked === true,
+        mcpOAuthClientCleanupDeferred: true,
+        mcpAgentRunCompleted: activeAgentRun === null || activeAgentRun.completed === true,
+        mcpReviewApproved: reviewRequest === null || reviewRequest.approved === true,
+      },
+    }
+  }
+
+  return { runStories, cleanup }
+}

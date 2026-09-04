@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Trash2 } from 'lucide-vue-next'
+import { Trash2 } from '@lucide/vue'
 import { computed, ref } from 'vue'
 
 import { useCmsI18n } from '../../../composables/useCmsI18n'
+import { fieldDisplayLabel, humanizeFieldKey } from '../../../lib/fieldLabel'
 import type { FieldContext, FieldDefinition } from './useFieldCommon'
-import { asFieldContext, createDefaultRecord, formatLabel } from './useFieldCommon'
+import { asFieldContext, createDefaultRecord } from './useFieldCommon'
 
 type BlockItem = {
   type: string
@@ -22,6 +23,7 @@ const props = defineProps<{
   showValidation?: boolean
   label: string
   fieldError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -31,7 +33,10 @@ const emit = defineEmits<{
 const { t } = useCmsI18n()
 const value = computed({
   get: () => props.modelValue,
-  set: (v) => emit('update:modelValue', v),
+  set: (v) => {
+    if (props.disabled) return
+    emit('update:modelValue', v)
+  },
 })
 
 const nestedFields = computed(() => props.field.fields ?? [])
@@ -49,6 +54,11 @@ const blockItems = computed<BlockItem[]>(() =>
 const blockTypeToAdd = ref('')
 const collapsedItems = ref(new Set<number>())
 
+function blockTypeLabel(type: string): string {
+  const nested = nestedFields.value.find((candidate) => candidate.key === type)
+  return nested ? fieldDisplayLabel(nested) : humanizeFieldKey(type)
+}
+
 function toggleItemCollapse(index: number) {
   const next = new Set(collapsedItems.value)
   if (next.has(index)) next.delete(index)
@@ -57,6 +67,7 @@ function toggleItemCollapse(index: number) {
 }
 
 function addBlock() {
+  if (props.disabled) return
   if (!blockTypeToAdd.value) return
   const items = [...blockItems.value]
   const blockDefinition = nestedFields.value.find((field) => field.key === blockTypeToAdd.value)
@@ -70,6 +81,7 @@ function addBlock() {
 }
 
 function updateBlockField(index: number, fieldKey: string, nextValue: unknown) {
+  if (props.disabled) return
   const items = [...blockItems.value]
   const existing = items[index] ?? { type: '', data: {} }
   items[index] = {
@@ -83,6 +95,7 @@ function updateBlockField(index: number, fieldKey: string, nextValue: unknown) {
 }
 
 function removeBlock(index: number) {
+  if (props.disabled) return
   const items = [...blockItems.value]
   items.splice(index, 1)
   value.value = items
@@ -90,31 +103,35 @@ function removeBlock(index: number) {
 </script>
 
 <template>
-  <div
-    class="ginko:col-span-full ginko:space-y-3 ginko:rounded-lg ginko:border ginko:p-4"
-    :class="fieldError ? 'ginko:border-destructive' : 'ginko:border-border/40'"
+  <FieldSet
+    class="ginko:col-span-full ginko:space-y-3 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-4 ginko:aria-invalid:border-destructive"
+    :aria-invalid="fieldError ? true : undefined"
+    :data-invalid="fieldError ? true : undefined"
   >
     <div class="ginko:flex ginko:flex-wrap ginko:items-start ginko:justify-between ginko:gap-3">
       <div class="ginko:min-w-0">
-        <Label class="ginko:text-sm">
+        <FieldLegend variant="label">
           {{ label }}
           <span v-if="field.required" class="ginko:text-destructive">*</span>
-        </Label>
-        <p v-if="field.description" class="ginko:text-xs ginko:text-muted-foreground">
+        </FieldLegend>
+        <FieldDescription v-if="field.description">
           {{ field.description }}
-        </p>
-        <p v-if="fieldError" class="ginko:text-xs ginko:text-destructive">
+        </FieldDescription>
+        <FieldError v-if="fieldError">
           {{ fieldError }}
-        </p>
+        </FieldError>
       </div>
-      <div class="ginko:flex ginko:min-w-0 ginko:flex-wrap ginko:items-center ginko:gap-2">
+      <div
+        v-if="!disabled"
+        class="ginko:flex ginko:min-w-0 ginko:flex-wrap ginko:items-center ginko:gap-2"
+      >
         <Select v-model="blockTypeToAdd">
           <SelectTrigger class="ginko:w-40 ginko:max-w-full">
             <SelectValue :placeholder="t('ginkoCms.studio.fieldRenderer.blockType')" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="block in nestedFields" :key="block.key" :value="block.key">
-              {{ block.label ?? formatLabel(block.key) }}
+              {{ fieldDisplayLabel(block) }}
             </SelectItem>
           </SelectContent>
         </Select>
@@ -141,16 +158,16 @@ function removeBlock(index: number) {
               class="ginko:size-3 ginko:text-muted-foreground"
             />
             <Badge variant="outline">
-              {{ nestedFields.find((field2) => field2.key === block.type)?.label ?? block.type }}
+              {{ blockTypeLabel(block.type) }}
             </Badge>
           </Button>
-          <Button variant="ghost" size="sm" @click="removeBlock(index)">
+          <Button v-if="!disabled" variant="ghost" size="sm" @click="removeBlock(index)">
             <Trash2 class="ginko:size-4" />
           </Button>
         </div>
         <div
           v-if="!collapsedItems.has(index)"
-          class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:pt-2 ginko:md:grid-cols-2"
+          class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:pt-2 ginko:@3xl:grid-cols-2"
         >
           <StudioFieldRenderer
             v-for="nestedField in nestedFields.find((field2) => field2.key === block.type)
@@ -164,10 +181,11 @@ function removeBlock(index: number) {
             :errors="errors"
             :field-path="fieldPath ? `${fieldPath}.${nestedField.key}` : nestedField.key"
             :show-validation="showValidation"
+            :disabled="disabled"
             @update:model-value="updateBlockField(index, nestedField.key, $event)"
           />
         </div>
       </div>
     </div>
-  </div>
+  </FieldSet>
 </template>

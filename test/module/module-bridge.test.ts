@@ -1,22 +1,27 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import {
+  buildResolvedContentContract,
+  hashCanonicalJson,
+} from '@lupinum/ginko-content/cms-contract'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installBridge } from './bridge-helpers.js'
+import { installConvexSetup } from './convex-setup-helpers.js'
 
 const addImportsDir = vi.fn()
 const addComponentsDir = vi.fn()
 const addLayout = vi.fn()
+const addPlugin = vi.fn()
 const addServerHandler = vi.fn()
 const addServerPlugin = vi.fn()
 const addTypeTemplate = vi.fn((template: { filename: string }) => ({
   dst: resolve(moduleDir, '.nuxt', template.filename),
 }))
+const addTemplate = addTypeTemplate
 const extendPages = vi.fn()
-const convexQuery = vi.fn()
 const useLogger = vi.fn(() => ({
   success: vi.fn(),
 }))
@@ -28,21 +33,17 @@ vi.mock('@nuxt/kit', () => ({
   addComponentsDir,
   addImportsDir,
   addLayout,
+  addPlugin,
   addServerHandler,
   addServerPlugin,
   addTypeTemplate,
+  addTemplate,
   createResolver: () => ({
     resolve: (path: string) => resolve(moduleDir, path),
   }),
   defineNuxtModule: <T>(definition: T) => definition,
   extendPages,
   useLogger,
-}))
-
-vi.mock('convex/browser', () => ({
-  ConvexHttpClient: vi.fn(function ConvexHttpClient() {
-    return { query: convexQuery }
-  }),
 }))
 
 vi.resetModules()
@@ -52,7 +53,6 @@ const moduleDefinition = moduleExports.default as unknown as {
   (options: Record<string, unknown>, nuxt: Record<string, unknown>): Promise<void>
   setup: (options: Record<string, unknown>, nuxt: Record<string, unknown>) => Promise<void>
 }
-const { loadGinkoPrerenderRoutes } = moduleExports
 
 async function setupModule(options: Record<string, unknown>, nuxt: Record<string, unknown>) {
   if (typeof moduleDefinition.setup === 'function') {
@@ -79,8 +79,15 @@ function createNuxtMock(rootDir: string) {
       },
       css: [] as string[],
       runtimeConfig: {
+        content: {
+          contract: buildResolvedContentContract(
+            { collections: {} },
+            { defaultLocale: 'en', locales: ['en'] },
+          ),
+        },
         public: {},
       },
+      routeRules: {} as Record<string, Record<string, unknown>>,
       serverHandlers: [],
       nitro: {
         virtual: {},
@@ -96,8 +103,9 @@ function createNuxtMock(rootDir: string) {
   }
 }
 
-describe('ginko-cms bridge validation', () => {
+describe('ginko-cms Convex setup validation', () => {
   const tempDirs: string[] = []
+  const staleMcpBridgeFile = ['convex', `ginkoCms${'Mcp.ts'}`].join('/')
 
   afterEach(() => {
     addImportsDir.mockClear()
@@ -112,84 +120,125 @@ describe('ginko-cms bridge validation', () => {
     }
   })
 
-  it('fails fast when generated bridge files are missing', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-missing-bridge-'))
+  it('fails fast when direct Convex setup files are missing', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-missing-setup-'))
     tempDirs.push(rootDir)
 
-    await expect(
-      setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        createNuxtMock(rootDir),
-      ),
-    ).rejects.toThrow('ginko-cms init')
+    await expect(setupModule({ route: '/studio' }, createNuxtMock(rootDir))).rejects.toThrow(
+      'ginko-cms init',
+    )
   })
 
-  it('loads once generated bridge files and managed convex config are installed', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-installed-bridge-'))
+  it('loads once direct Convex setup files are installed', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-installed-setup-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
-
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
-        route: '/studio',
-      },
-      nuxt,
-    )
+    nuxt.options.routeRules = {
+      '/studio/**': { headers: { 'x-studio-rule': 'preserved' }, prerender: true },
+    }
+    await setupModule({ route: '/studio' }, nuxt)
 
-    expect(
-      (nuxt.options as { trellis: { permissions: { query: string } } }).trellis.permissions.query,
-    ).toBe('ginkoCms/members.getAccessContext')
+    expect((nuxt.options as { trellis?: unknown }).trellis).toBeUndefined()
     expect(nuxt.options.css).toEqual([])
     expect((nuxt.options as { colorMode: { classSuffix: string } }).colorMode).toEqual({
       classSuffix: '',
     })
+    expect(nuxt.options.routeRules).toMatchObject({
+      '/studio': { prerender: false },
+      '/studio/**': {
+        headers: { 'x-studio-rule': 'preserved' },
+        prerender: false,
+      },
+    })
 
-    const collectionsBridge = readFileSync(
-      resolve(rootDir, 'convex/ginkoCms/collections.ts'),
-      'utf8',
+    expect(readFileSync(resolve(rootDir, 'convex/convex.config.ts'), 'utf8')).toContain(
+      'app.use(ginkoCms)',
     )
-    expect(collectionsBridge).not.toContain('installCollectionContractSnapshots')
-    expect(collectionsBridge).not.toContain('syncCodeDefinedCollections')
-    expect(collectionsBridge).not.toContain('cleanupMissingCodeDefinedCollections')
-    expect(collectionsBridge).toContain('checkCollectionContracts')
-    expect(collectionsBridge).toContain('installCollectionContracts')
-    expect(collectionsBridge).not.toContain('checkCollectionContractsAuthed')
-    expect(collectionsBridge).not.toContain('installCollectionContractsAuthed')
-    expect(collectionsBridge).toContain('listCollections')
+    expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain('defineGinkoAuth')
+    expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain(
+      'auth.jwksOperatorFunctions()',
+    )
+    expect(readFileSync(resolve(rootDir, 'convex/auth.ts'), 'utf8')).toContain(
+      'sendGinkoPasswordResetEmail',
+    )
+    expect(existsSync(resolve(rootDir, 'convex/betterAuth/schema.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOAuthDelegations.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/passwordRecovery.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
+    expect(addServerHandler).not.toHaveBeenCalledWith(
+      expect.objectContaining({ route: '/api/_ginko/reviews/:reviewRequestId' }),
+    )
+    const extendWithoutMcp = extendPages.mock.calls.at(-1)?.[0] as
+      | ((pages: Array<{ name?: string; path?: string }>) => void)
+      | undefined
+    const pagesWithoutMcp: Array<{ name?: string; path?: string }> = []
+    extendWithoutMcp?.(pagesWithoutMcp)
+    expect(pagesWithoutMcp.map((page) => page.path)).not.toContain('/oauth/login')
+    expect(pagesWithoutMcp.map((page) => page.path)).not.toContain('/oauth/consent')
   })
 
-  it('repairs generated bridge drift during Nuxt prepare', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prepare-bridge-'))
+  it('accepts the explicit Convex-native MCP setup without registering a Nuxt MCP route', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-convex-mcp-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir, { mcp: true })
+    const nuxt = createNuxtMock(rootDir)
 
-    const target = resolve(rootDir, 'convex/ginkoCmsMcp.ts')
-    writeFileSync(target, `${readFileSync(target, 'utf8')}\n// stale generated output\n`, 'utf8')
+    await setupModule({ route: '/studio', mcp: true }, nuxt)
+
+    const httpSource = readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')
+    const mcpSource = readFileSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'), 'utf8')
+    expect(httpSource).toContain("path: '/mcp'")
+    expect(httpSource.match(/path: '\/mcp'/gu)).toHaveLength(3)
+    expect(
+      httpSource.match(/path: '\/\.well-known\/oauth-protected-resource\/mcp'/gu),
+    ).toHaveLength(2)
+    expect(httpSource).toContain("method: 'OPTIONS'")
+    expect(httpSource).not.toContain("method: 'HEAD'")
+    expect(mcpSource).toContain('handleGinkoMcpRequest(request, {')
+    expect(mcpSource).toContain('auth.authComponent.validateOAuthAccess(ctx, access)')
+    expect(mcpSource).toContain('components.ginkoCms.mcpOAuthDelegations.hasLiveDelegatedAccess')
+    expect(mcpSource).not.toContain('adapter.findOne')
+    expect(mcpSource).not.toContain('validateLiveProviderAccess')
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(true)
+    expect(addServerHandler).not.toHaveBeenCalledWith(
+      expect.objectContaining({ route: expect.stringContaining('/mcp') }),
+    )
+    expect(addServerHandler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: '/api/_ginko/reviews/:reviewRequestId',
+        method: 'get',
+      }),
+    )
+    const extendWithMcp = extendPages.mock.calls.at(-1)?.[0] as
+      | ((pages: Array<{ name?: string; path?: string }>) => void)
+      | undefined
+    const pagesWithMcp: Array<{ name?: string; path?: string }> = []
+    extendWithMcp?.(pagesWithMcp)
+    expect(pagesWithMcp).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'ginko-mcp-oauth-login', path: '/oauth/login' }),
+        expect.objectContaining({ name: 'ginko-mcp-oauth-consent', path: '/oauth/consent' }),
+      ]),
+    )
+  })
+
+  it('blocks stale generated bridge files during Nuxt prepare', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prepare-stale-bridge-'))
+    tempDirs.push(rootDir)
+    await installConvexSetup(rootDir)
+
+    writeFileSync(resolve(rootDir, staleMcpBridgeFile), '// stale generated output\n', 'utf8')
 
     const previousLifecycleEvent = process.env.npm_lifecycle_event
     process.env.npm_lifecycle_event = 'postinstall'
 
     try {
-      await setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        createNuxtMock(rootDir),
+      await expect(setupModule({ route: '/studio' }, createNuxtMock(rootDir))).rejects.toThrow(
+        `${staleMcpBridgeFile} is a stale generated bridge file`,
       )
-
-      expect(readFileSync(target, 'utf8')).not.toContain('stale generated output')
     } finally {
       if (previousLifecycleEvent === undefined) {
         delete process.env.npm_lifecycle_event
@@ -202,21 +251,13 @@ describe('ginko-cms bridge validation', () => {
   it('does not leak deploy admin auth into runtime config', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-deploy-key-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
     process.env.CONVEX_DEPLOY_KEY = 'super-secret-test-value'
     try {
       const nuxt = createNuxtMock(rootDir)
-      await setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        nuxt,
-      )
+      await setupModule({ route: '/studio' }, nuxt)
 
       expect(JSON.stringify(nuxt.options.runtimeConfig.public)).not.toContain(
         'super-secret-test-value',
@@ -231,221 +272,103 @@ describe('ginko-cms bridge validation', () => {
     }
   })
 
-  it('registers the optional public HTTP API facade', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-public-api-'))
+  it('injects trusted expected hashes from the resolved content and presentation contracts', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-expected-contract-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
-
-    const nuxt = createNuxtMock(rootDir)
-    await setupModule(
+    await installConvexSetup(rootDir)
+    const content = buildResolvedContentContract(
       {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
-        route: '/studio',
-        publicContent: {
-          api: {
-            route: '/content-api',
+        collections: {
+          posts: {
+            type: 'page',
+            source: 'content/posts/**/*.md',
+            route: '/posts',
           },
         },
       },
-      nuxt,
+      { defaultLocale: 'en', locales: ['en'] },
     )
-
-    const routes = [
-      ...addServerHandler.mock.calls.map(([handler]) => handler.route),
-      ...((nuxt.options as { serverHandlers?: Array<{ route: string }> }).serverHandlers ?? []).map(
-        (handler: { route: string }) => handler.route,
-      ),
-    ]
-    expect(routes).toEqual(
-      expect.arrayContaining([
-        '/content-api/page',
-        '/content-api/list',
-        '/content-api/nav',
-        '/content-api/surround',
-        '/content-api/search',
-        '/content-api/sitemap',
-        '/content-api/singleton',
-        '/content-api/site-data',
-      ]),
-    )
-  })
-
-  it('normalizes localized root prerender routes without trailing slash', async () => {
-    const previousConvexUrl = process.env.NUXT_PUBLIC_CONVEX_URL
-    process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
-    convexQuery.mockImplementation(async (_ref, args: { locale: string }) => ({
-      urls: [{ collection: 'index', route: { locale: args.locale, path: '/' } }],
-      pageInfo: { endCursor: null },
-    }))
-
-    try {
-      const routes = await loadGinkoPrerenderRoutes({
-        isDev: false,
-        defaultLocale: 'en',
-        collections: ['index'],
-        collectionLocales: { index: ['en', 'de'] },
-      })
-
-      expect(routes).toContain('/')
-      expect(routes).toContain('/de')
-      expect(routes).not.toContain('/de/')
-    } finally {
-      convexQuery.mockReset()
-      if (previousConvexUrl === undefined) {
-        delete process.env.NUXT_PUBLIC_CONVEX_URL
-      } else {
-        process.env.NUXT_PUBLIC_CONVEX_URL = previousConvexUrl
-      }
+    const presentation = {
+      collections: {
+        posts: { label: 'Editorial posts', fields: {} },
+      },
     }
-  })
-
-  it('skips data-only collections when loading prerender routes from module config', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prerender-route-backed-'))
-    tempDirs.push(rootDir)
-    await installBridge(rootDir)
-
-    const previousConvexUrl = process.env.NUXT_PUBLIC_CONVEX_URL
-    process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
-    convexQuery.mockImplementation(async (_ref, args: { collection: string; locale: string }) => ({
-      urls: [
-        {
-          collection: args.collection,
-          route: { locale: args.locale, path: `/${args.collection}/hello` },
-        },
-      ],
-      pageInfo: { endCursor: null },
-    }))
-
-    try {
-      const nuxt = createNuxtMock(rootDir)
-      await setupModule(
-        {
-          collections: {
-            blog: {
-              type: 'flat',
-              routing: { pathPrefix: '/blog' },
-            },
-            authors: {
-              type: 'flat',
-              routing: { mode: 'none', pathPrefix: '/authors' },
-            },
-          },
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          publicContent: {
-            prerender: true,
-          },
-          route: '/studio',
-        },
-        nuxt,
-      )
-
-      const nitroConfigHook = (
-        nuxt.hook.mock.calls as Array<
-          [string, (nitro: { prerender?: { routes?: string[] } }) => Promise<void>]
-        >
-      ).find(([name]) => name === 'nitro:config')?.[1]
-
-      expect(nitroConfigHook).toBeDefined()
-
-      const nitro = { prerender: { routes: [] as string[] } }
-      await nitroConfigHook?.(nitro)
-
-      expect(convexQuery).toHaveBeenCalledTimes(1)
-      expect(convexQuery.mock.calls[0]?.[1]).toMatchObject({
-        collection: 'blog',
-        locale: 'en',
-      })
-      expect(JSON.stringify(convexQuery.mock.calls)).not.toContain('authors')
-      expect(nitro.prerender.routes).toContain('/blog/hello')
-    } finally {
-      convexQuery.mockReset()
-      if (previousConvexUrl === undefined) {
-        delete process.env.NUXT_PUBLIC_CONVEX_URL
-      } else {
-        process.env.NUXT_PUBLIC_CONVEX_URL = previousConvexUrl
+    const nuxt = createNuxtMock(rootDir)
+    ;(
+      nuxt.options.runtimeConfig as typeof nuxt.options.runtimeConfig & {
+        content: { contract: typeof content }
       }
+    ).content = { contract: content }
+    nuxt.options.runtimeConfig.public.ginkoCms = {
+      contract: {
+        expectedContentHash: 'host-config-must-not-override',
+        expectedPresentationHash: 'host-config-must-not-override',
+      },
     }
+
+    await setupModule({ route: '/studio', editorialLayout: presentation }, nuxt)
+
+    expect(nuxt.options.runtimeConfig.public.ginkoCms.contract).toEqual({
+      expectedContentHash: await hashCanonicalJson(content),
+      expectedPresentationHash: await hashCanonicalJson(presentation),
+    })
   })
 
-  it('does not fetch prerender routes during Nuxt prepare', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-prepare-prerender-'))
+  it('rejects the removed CMS public facade and prerender options', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-removed-public-delivery-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
-
-    const previousLifecycleEvent = process.env.npm_lifecycle_event
-    const previousConvexUrl = process.env.CONVEX_URL
-    const previousPublicConvexUrl = process.env.NUXT_PUBLIC_CONVEX_URL
-    process.env.npm_lifecycle_event = 'postinstall'
-    delete process.env.CONVEX_URL
-    delete process.env.NUXT_PUBLIC_CONVEX_URL
-
-    try {
-      const nuxt = createNuxtMock(rootDir)
-      await setupModule(
-        {
-          collections: {
-            index: {},
-          },
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }, { code: 'de' }],
-          publicContent: {
-            prerender: true,
-          },
-          route: '/studio',
-        },
-        nuxt,
-      )
-
-      expect(nuxt.hook.mock.calls.some(([name]: [string]) => name === 'nitro:config')).toBe(false)
-      expect(convexQuery).not.toHaveBeenCalled()
-    } finally {
-      convexQuery.mockReset()
-      if (previousLifecycleEvent === undefined) {
-        delete process.env.npm_lifecycle_event
-      } else {
-        process.env.npm_lifecycle_event = previousLifecycleEvent
-      }
-      if (previousConvexUrl === undefined) {
-        delete process.env.CONVEX_URL
-      } else {
-        process.env.CONVEX_URL = previousConvexUrl
-      }
-      if (previousPublicConvexUrl === undefined) {
-        delete process.env.NUXT_PUBLIC_CONVEX_URL
-      } else {
-        process.env.NUXT_PUBLIC_CONVEX_URL = previousPublicConvexUrl
-      }
-    }
-  })
-
-  it('treats modified generated files as invalid until regenerated', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-dirty-bridge-'))
-    tempDirs.push(rootDir)
-    await installBridge(rootDir)
-
-    const target = resolve(rootDir, 'convex/ginkoCms/members.ts')
-    writeFileSync(target, `${readFileSync(target, 'utf8')}\n// local edit\n`, 'utf8')
+    await installConvexSetup(rootDir)
 
     await expect(
       setupModule(
         {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
           route: '/studio',
+          publicContent: { api: true, prerender: true },
         },
         createNuxtMock(rootDir),
       ),
-    ).rejects.toThrow('convex/ginkoCms/members.ts')
+    ).rejects.toThrow('Unknown ginkoCms option "publicContent"')
   })
 
-  it('treats stale managed convex config as invalid until regenerated', async () => {
+  it.each(['search', 'siteData', 'forms'])('rejects removed phantom option %s', async (key) => {
+    const rootDir = mkdtempSync(join(tmpdir(), `ginko-cms-removed-${key}-`))
+    tempDirs.push(rootDir)
+    await installConvexSetup(rootDir)
+
+    await expect(
+      setupModule({ route: '/studio', [key]: { enabled: true } }, createNuxtMock(rootDir)),
+    ).rejects.toThrow(`Unknown ginkoCms option "${key}"`)
+  })
+
+  it('registers the CLI-only portability asset transfer routes', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-portability-routes-'))
+    tempDirs.push(rootDir)
+    await installConvexSetup(rootDir)
+
+    await setupModule({ route: '/studio' }, createNuxtMock(rootDir))
+
+    expect(addServerHandler.mock.calls.map(([handler]) => handler)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          route: '/api/_ginko/operator/convex-token',
+          method: 'post',
+        }),
+        expect.objectContaining({
+          route: '/api/_ginko/portability/assets/:sha256/attempt',
+          method: 'post',
+        }),
+        expect.objectContaining({
+          route: '/api/_ginko/portability/assets/:sha256',
+          method: 'put',
+        }),
+      ]),
+    )
+  })
+
+  it('treats stale managed convex config as invalid until cleaned up', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-dirty-config-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
 
     const target = resolve(rootDir, 'convex/convex.config.ts')
     writeFileSync(
@@ -461,16 +384,8 @@ describe('ginko-cms bridge validation', () => {
       'utf8',
     )
 
-    await expect(
-      setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        createNuxtMock(rootDir),
-      ),
-    ).rejects.toThrow('convex/convex.config.ts')
+    await expect(setupModule({ route: '/studio' }, createNuxtMock(rootDir))).rejects.toThrow(
+      'convex/convex.config.ts',
+    )
   })
 })

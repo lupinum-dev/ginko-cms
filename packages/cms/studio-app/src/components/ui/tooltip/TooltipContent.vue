@@ -30,7 +30,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       v-bind="{ ...forwarded, ...$attrs }"
       :class="
         cn(
-          'ginko-cms ginko:bg-foreground ginko:text-background ginko:animate-in fade-in-0 zoom-in-95 ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ginko:z-50 ginko:w-fit ginko:rounded-md ginko:px-3 ginko:py-1.5 ginko:text-xs ginko:text-balance',
+          'ginko-cms ginko:bg-primary ginko:text-primary-foreground ginko:animate-in fade-in-0 zoom-in-95 ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ginko:z-50 ginko:w-fit ginko:rounded-md ginko:px-3 ginko:py-1.5 ginko:text-xs ginko:text-balance',
           props.class,
         )
       "
@@ -38,7 +38,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       <slot />
 
       <TooltipArrow
-        class="ginko:bg-foreground ginko:fill-foreground ginko:z-50 ginko:size-2.5 ginko:translate-y-[calc(-50%_-_2px)] ginko:rotate-45 ginko:rounded-[2px]"
+        class="ginko:bg-primary ginko:fill-primary ginko:z-50 ginko:size-2.5 ginko:translate-y-[calc(-50%-2px)] ginko:rotate-45 ginko:rounded-[2px]"
       />
     </TooltipContent>
   </TooltipPortal>

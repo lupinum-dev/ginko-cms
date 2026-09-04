@@ -57,10 +57,8 @@ if (props.field.type === 'slug' && props.field.slugFrom) {
       :data-testid="`cms-field-${field.key}`"
       :type="field.type === 'email' ? 'email' : field.type === 'url' ? 'url' : 'text'"
       :placeholder="t('ginkoCms.studio.fieldRenderer.textPlaceholder', { label })"
-      :class="[
-        field.type === 'slug' ? 'ginko:font-mono ginko:text-sm' : '',
-        fieldError ? 'ginko:border-destructive' : '',
-      ]"
+      :aria-invalid="fieldError ? true : undefined"
+      :class="field.type === 'slug' ? 'ginko:font-mono ginko:text-sm' : ''"
       @input="field.type === 'slug' && field.slugFrom ? (slugManuallyEdited = true) : void 0"
     />
   </StudioFieldShell>

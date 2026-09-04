@@ -35,7 +35,7 @@ export function evaluateFieldCondition(
     return actual !== condition.notEquals
   }
   if (Array.isArray(condition.in)) {
-    return condition.in.includes(actual as never)
+    return condition.in.some((candidate) => Object.is(candidate, actual))
   }
   if (Object.prototype.hasOwnProperty.call(condition, 'truthy')) {
     return condition.truthy ? !emptyForType('text', actual) : emptyForType('text', actual)

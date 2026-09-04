@@ -32,7 +32,7 @@ const value = computed({
       :id="field.key"
       v-model="value"
       :type="field.type === 'datetime' ? 'datetime-local' : field.type"
-      :class="fieldError ? 'ginko:border-destructive' : ''"
+      :aria-invalid="fieldError ? true : undefined"
     />
   </StudioFieldShell>
 </template>

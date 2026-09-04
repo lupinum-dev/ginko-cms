@@ -1,50 +1,56 @@
 # Operations And Maintenance
 
-Use this reference for production rollout, backups, destructive operations,
+Use this reference for production rollout, recovery, destructive operations,
 component diagnostics, and release-candidate work. Canonical docs:
 
 - `docs/maintenance/backup-and-recovery.md`
 - `docs/maintenance/convex-component-diagnostics-issue.md`
 - `docs/maintenance/release-candidate.md`
-- `docs/guides/migrations/recovery.md`
+- `docs/guides/contract-transitions/recovery.md`
 - `MAINTAINING.md`
 
-## Backup Reality
+## Recovery Boundaries
 
-The CLI exposes:
+Database or deployment disaster recovery uses official Convex Backup & Restore,
+including file storage when selected. Create and verify the Convex backup before
+risky contract or deployment work.
+
+Content portability is separate and owner-CLI only:
 
 ```bash
-pnpm exec ginko-cms backup export --scope full --out ./ginko-backup.json
-pnpm exec ginko-cms backup verify --artifact-id <id>
-pnpm exec ginko-cms backup download --artifact-id <id> --out ./ginko-backup.json
+pnpm exec ginko-cms content export --out ./portable-content
+pnpm exec ginko-cms content verify ./portable-content
 ```
 
-Supported scopes: `full`, `collection`, `entry`, and `asset`.
+Portability recovers bounded content as drafts under the installed contract. It
+does not restore arbitrary tables, members, credentials, operational history,
+or a deployment.
 
-Important limits:
-
-- Backup actions require CMS owner identity.
-- The current backup CLI path is not the deploy-key internal bridge.
-- There is no backup import or restore command.
-- Treat backups as recovery sources for operator-led repair, not automatic
-  rollback state.
-
-`backup verify` reports:
-
-- `checksumMatches`: artifact integrity.
-- `currentDataMatches`: whether live data still matches the backup scope.
+Permanent asset purge uses a third mechanism: a current verified artifact with
+the complete bytes, manifest, byte length, and checksums. It restores that asset
+byte-for-byte only.
 
 ## Destructive Operations
 
-Preview destructive operations first. Some destructive actions require a valid
-backup artifact. The expected shape is:
+Preview destructive operations first. Permanent asset purge requires a current
+verified asset recovery artifact. The expected shape is:
 
-1. Export a backup for the affected scope.
-2. Verify the artifact.
+1. Create the recovery artifact for the exact asset.
+2. Verify its bytes, manifest, length, checksums, freshness, and identity.
 3. Preview the destructive operation.
-4. Execute only after the preview confirms the backup is valid for current data.
+4. Execute only after the preview confirms the artifact is current and the
+   asset is unreferenced.
 
 Do not write direct table edits as a workaround for product operation guards.
+
+Before permanent asset purge, finish a zero-issue `ginko-cms repair` run. Purge
+uses its canonical asset-reference proof and rejects missing or stale proof even
+when the derived reference rows look empty.
+
+If `ginko-cms doctor --deployment` reports terminal abandoned-upload cleanup,
+inspect it with `ginko-cms asset cleanup list`. Resume one task only through
+`ginko-cms asset cleanup retry <task-id> --generation <n> --yes`; never delete
+the task or storage row directly.
 
 ## Component Diagnostics Recovery
 
@@ -77,8 +83,10 @@ Do not commit `.pack/`, `dist/`, `.nuxt/`, `.output/`, or generated tarballs.
 
 For production contract changes:
 
-1. Preserve a verified backup through an owner-authenticated operator workflow.
+1. Create and verify an official Convex deployment backup.
 2. Run `pnpm exec ginko-cms push --check`.
-3. Apply content migrations only when needed.
-4. Push only after drift is safe.
-5. Verify Studio, public routes, provider reads, and cache behavior.
+3. Install presentation-only or compatible changes directly when reported safe.
+4. For incompatible content changes, explicitly unpublish affected live entries
+   and use the bounded contract transition stage/status/apply/activate workflow.
+5. Verify Studio, structural public routes, redirects, provider reads, and cache
+   behavior.

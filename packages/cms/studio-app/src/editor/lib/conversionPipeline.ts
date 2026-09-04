@@ -1,4 +1,6 @@
 import type { Editor } from '@tiptap/core'
+import { createDocument } from '@tiptap/core'
+import { TextSelection } from '@tiptap/pm/state'
 import type { JSONContent } from '@tiptap/vue-3'
 
 import { validateTiptapDocShape } from './conversionInvariants'
@@ -224,7 +226,33 @@ export function applyTiptapDocToEditor(
 
   logPhase(trace, 'set_content')
   try {
-    editor.commands.setContent(doc)
+    const nextDoc = createDocument(doc, editor.schema)
+
+    // Echo guard: applying content that matches the current document (e.g. the
+    // autosave round-trip writing our own value back) must not touch the doc,
+    // undo history, selection, or focus.
+    if (nextDoc.eq(editor.state.doc)) {
+      return success(trace.traceId, issues, finishTrace(trace, { status: 'ok' }), doc)
+    }
+
+    // External content replaces the document outside the undo history, so a
+    // single undo never jumps past the reset to an empty editor. Selection and
+    // focus are preserved for a writer who is mid-edit.
+    const { from, to } = editor.state.selection
+    const wasFocused = editor.isFocused
+    const tr = editor.state.tr
+      .replaceWith(0, editor.state.doc.content.size, nextDoc.content)
+      .setMeta('addToHistory', false)
+    tr.setSelection(
+      TextSelection.between(
+        tr.doc.resolve(Math.min(from, tr.doc.content.size)),
+        tr.doc.resolve(Math.min(to, tr.doc.content.size)),
+      ),
+    )
+    editor.view.dispatch(tr)
+    if (wasFocused && !editor.isFocused) {
+      editor.view.focus()
+    }
   } catch (error) {
     const issue = buildIssue(
       'set_content',

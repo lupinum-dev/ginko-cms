@@ -3,7 +3,9 @@ import type { HTMLAttributes } from 'vue'
 
 import { cn } from '../utils'
 
-const props = defineProps<{ class?: HTMLAttributes['class'] }>()
+const props = defineProps<{
+  class?: HTMLAttributes['class']
+}>()
 </script>
 
 <template>
@@ -11,7 +13,7 @@ const props = defineProps<{ class?: HTMLAttributes['class'] }>()
     data-slot="command-shortcut"
     :class="
       cn(
-        'ginko:ml-auto ginko:text-xs ginko:tracking-widest ginko:text-muted-foreground',
+        'ginko:text-muted-foreground ginko:ml-auto ginko:text-xs ginko:tracking-widest',
         props.class,
       )
     "

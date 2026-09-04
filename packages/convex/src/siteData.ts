@@ -9,16 +9,8 @@ import {
   siteDataBlockValidator,
   siteDataListItemValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
+import { contentTags, uniqueContentTags } from '@lupinum/ginko-cms-contract/shared/contentTags.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
-import {
-  blockedOperationPreview,
-  defineOperation,
-  operationEffect,
-  operationIssue,
-  operationPreview,
-  operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel.js'
@@ -27,8 +19,18 @@ import { throwCmsError } from './errors.js'
 import { callerMutation, callerQuery } from './functions.js'
 import { logActivity } from './lib/activity.js'
 import { toStringId } from './lib/ids.js'
+import { enqueueRevalidationEvent } from './lib/revalidationOutbox.js'
 import type { MutationCtx } from './lib/types.js'
 import { assertValidLocaleCode, assertValidSiteDataKey } from './lib/validation.js'
+import {
+  blockedPreview,
+  defineCmsOperation,
+  operationEffect,
+  operationIssue,
+  buildPreview,
+  previewResultValidator,
+  definePreview,
+} from './operationHelpers.js'
 import { scheduleRevalidationOutboxDelivery } from './revalidation.js'
 
 type SiteDataDoc = Doc<'siteData'>
@@ -44,52 +46,71 @@ function localeDataMap(value: unknown): JsonMap {
   ) as JsonMap
 }
 
+function assertJsonValue(value: unknown, path = 'data'): void {
+  if (value === null) return
+
+  const valueType = typeof value
+  if (valueType === 'string' || valueType === 'boolean') return
+  if (valueType === 'number') {
+    if (Number.isFinite(value)) return
+    throwCmsError('SITE_DATA_JSON_INVALID', 'Site data must be JSON-compatible.', { path })
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertJsonValue(item, `${path}[${index}]`))
+    return
+  }
+  if (valueType === 'object') {
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) {
+      throwCmsError('SITE_DATA_JSON_INVALID', 'Site data must be JSON-compatible.', { path })
+    }
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      assertJsonValue(item, `${path}.${key}`)
+    }
+    return
+  }
+
+  throwCmsError('SITE_DATA_JSON_INVALID', 'Site data must be JSON-compatible.', { path })
+}
+
 async function enqueuePublicSiteDataRevalidation(
   ctx: MutationCtx,
-  args: { key: string; appIdentityId: string; now: number },
+  args: { blockId: string; key: string; appIdentityId: string; now: number; locales?: string[] },
 ) {
-  const idempotencyKey = `site-data.revalidate:${args.key}:${args.now}`
-  const existing = await ctx.db
-    .query('outboxEvents')
-    .withIndex('by_idempotency_key', (q) => q.eq('idempotencyKey', idempotencyKey))
-    .first()
-  if (existing) return
-
-  await ctx.db.insert('outboxEvents', {
-    type: 'content.revalidate',
-    status: 'pending',
-    idempotencyKey,
-    versionId: null,
-    siteId: null,
-    targetId: null,
-    tags: ['site-data', `site-data:${args.key}`],
+  const versionId = `site-data:${args.blockId}:${args.now}`
+  const locales = [...new Set(args.locales ?? [])].sort()
+  const event = await enqueueRevalidationEvent(ctx, {
+    idempotencyKey: `${versionId}:revalidate`,
+    versionId,
+    tags: uniqueContentTags([
+      contentTags.siteData(args.key),
+      ...locales.map((locale) => contentTags.siteData(args.key, locale)),
+    ]),
     paths: ['/'],
     payload: {
       reason: 'site-data',
+      blockId: args.blockId,
       key: args.key,
+      locales,
       appIdentityId: args.appIdentityId,
     },
-    attempts: 0,
-    nextAttemptAt: args.now,
-    lastError: null,
-    lockedAt: null,
-    lockExpiresAt: null,
-    createdAt: args.now,
-    updatedAt: args.now,
+    now: args.now,
   })
-  await scheduleRevalidationOutboxDelivery(ctx)
+  if (event.inserted) await scheduleRevalidationOutboxDelivery(ctx)
 }
 
 async function revalidatePublicSiteDataIfNeeded(
   ctx: MutationCtx,
   row: SiteDataDoc,
-  args: { appIdentityId: string; now: number },
+  args: { appIdentityId: string; now: number; locales?: string[] },
 ) {
   if (row.visibility !== 'public') return
   await enqueuePublicSiteDataRevalidation(ctx, {
+    blockId: toStringId(row._id),
     key: row.key,
     appIdentityId: args.appIdentityId,
     now: args.now,
+    locales: args.locales,
   })
 }
 
@@ -137,6 +158,7 @@ export const getSiteDataBlock = callerQuery.protected({
 })
 
 export const createSiteDataBlock = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'siteData:createSiteDataBlock',
   args: createSiteDataBlockArgs.args,
   guard: canManageSettings,
@@ -174,21 +196,34 @@ export const createSiteDataBlock = callerMutation.protected({
         { key: args.key, locale: args.locale },
       )
     }
+    if (args.data !== undefined) assertJsonValue(args.data)
 
+    const now = Date.now()
+    const visibility = args.visibility ?? 'private'
     const id = await ctx.db.insert('siteData', {
       key: args.key,
       label: args.label ?? null,
       schemaType: args.schemaType ?? null,
       localized,
-      visibility: args.visibility ?? 'private',
+      visibility,
       data: localized
         ? args.data === undefined
           ? {}
           : { [args.locale!]: args.data }
         : (args.data ?? null),
       updatedBy: appIdentity.userId,
-      updatedAt: Date.now(),
+      updatedAt: now,
     })
+
+    if (visibility === 'public') {
+      await enqueuePublicSiteDataRevalidation(ctx, {
+        blockId: toStringId(id),
+        key: args.key,
+        appIdentityId: appIdentity.userId,
+        now,
+        locales: localized && args.locale ? [args.locale] : [],
+      })
+    }
 
     await logActivity(ctx, {
       kind: 'siteData.created',
@@ -202,6 +237,7 @@ export const createSiteDataBlock = callerMutation.protected({
 })
 
 export const saveSiteData = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'siteData:saveSiteData',
   args: saveSiteDataArgs.args,
   guard: canManageSettings,
@@ -236,6 +272,7 @@ export const saveSiteData = callerMutation.protected({
         { key: args.key, locale: args.locale },
       )
     }
+    assertJsonValue(args.data)
 
     const nextData = row.localized
       ? {
@@ -244,13 +281,17 @@ export const saveSiteData = callerMutation.protected({
         }
       : args.data
 
-    const now = Date.now()
+    const now = Math.max(Date.now(), row.updatedAt + 1)
     await ctx.db.patch(row._id, {
       data: nextData,
       updatedBy: appIdentity.userId,
       updatedAt: now,
     })
-    await revalidatePublicSiteDataIfNeeded(ctx, row, { appIdentityId: appIdentity.userId, now })
+    await revalidatePublicSiteDataIfNeeded(ctx, row, {
+      appIdentityId: appIdentity.userId,
+      now,
+      locales: row.localized && args.locale ? [args.locale] : [],
+    })
 
     await logActivity(ctx, {
       kind: 'siteData.saved',
@@ -265,6 +306,7 @@ export const saveSiteData = callerMutation.protected({
 })
 
 export const updateSiteDataBlock = callerMutation.protected({
+  acceptsTrustedCaller: true,
   id: 'siteData:updateSiteDataBlock',
   args: updateSiteDataBlockArgs.args,
   guard: canManageSettings,
@@ -282,16 +324,17 @@ export const updateSiteDataBlock = callerMutation.protected({
       })
     }
 
+    const updatedAt = Math.max(Date.now(), row.updatedAt + 1)
     const patch: Record<string, unknown> = {
       updatedBy: appIdentity.userId,
-      updatedAt: Date.now(),
+      updatedAt,
     }
     if (args.label !== undefined) patch.label = args.label
     if (args.schemaType !== undefined) patch.schemaType = args.schemaType
     if (args.localized !== undefined && args.localized !== row.localized) {
       throwCmsError(
-        'SITE_DATA_LOCALIZATION_CHANGE_REQUIRES_MIGRATION',
-        'Changing site data localization would reinterpret the stored data shape.',
+        'SITE_DATA_LOCALIZATION_CHANGE_REQUIRES_CONTRACT_TRANSITION',
+        'Changing site data localization requires an explicit contract transition.',
         { key: args.key, currentLocalized: row.localized, requestedLocalized: args.localized },
       )
     }
@@ -302,9 +345,11 @@ export const updateSiteDataBlock = callerMutation.protected({
     const nextVisibility = args.visibility ?? previousVisibility
     if (previousVisibility === 'public' || nextVisibility === 'public') {
       await enqueuePublicSiteDataRevalidation(ctx, {
+        blockId: toStringId(row._id),
         key: row.key,
         appIdentityId: appIdentity.userId,
-        now: patch.updatedAt as number,
+        now: updatedAt,
+        locales: row.localized ? Object.keys(localeDataMap(row.data)) : [],
       })
     }
 
@@ -319,26 +364,25 @@ export const updateSiteDataBlock = callerMutation.protected({
   },
 })
 
-export const deleteSiteDataBlockOperation = defineOperation({
+export const deleteSiteDataBlockOperation = defineCmsOperation({
   id: 'ginko-cms.delete-site-data-block',
-  name: 'delete-site-data-block',
   kind: 'destructive',
   executeFunctionRef: 'siteData:deleteSiteDataBlockOperationExecute',
   args: deleteSiteDataBlockArgs.args,
   guard: canManageSettings,
   returns: v.null(),
-  previewReturns: operationPreviewValidator(),
+  previewReturns: previewResultValidator(),
   load: async (ctx, args) => {
     assertValidSiteDataKey(args.key)
-    const row =
-      (await ctx.db.query('siteData').collect()).find((candidate: SiteDataDoc) => {
-        return candidate.key === args.key
-      }) ?? null
+    const row = await ctx.db
+      .query('siteData')
+      .withIndex('by_key', (q) => q.eq('key', args.key))
+      .first()
     return { row }
   },
   preview: async (_ctx, args, { row }) => {
     if (!row) {
-      return blockedOperationPreview({
+      return blockedPreview({
         summary: 'Site data block not found.',
         blockers: [
           operationIssue({
@@ -349,7 +393,7 @@ export const deleteSiteDataBlockOperation = defineOperation({
         confirm: { operationId: 'ginko-cms.delete-site-data-block', args },
       })
     }
-    return operationPreview({
+    return buildPreview({
       summary: `Will delete site data block "${args.key}".`,
       warnings: [
         operationIssue({
@@ -376,7 +420,8 @@ export const deleteSiteDataBlockOperation = defineOperation({
     await ctx.db.delete(row._id)
     await revalidatePublicSiteDataIfNeeded(ctx, row, {
       appIdentityId: appIdentity.userId,
-      now: Date.now(),
+      now: Math.max(Date.now(), row.updatedAt + 1),
+      locales: row.localized ? Object.keys(localeDataMap(row.data)) : [],
     })
 
     await logActivity(ctx, {
@@ -390,10 +435,11 @@ export const deleteSiteDataBlockOperation = defineOperation({
 })
 
 export const deleteSiteDataBlockOperationExecute = callerMutation.protected(
-  deleteSiteDataBlockOperation,
+  Object.assign(deleteSiteDataBlockOperation, { acceptsTrustedCaller: true }),
 )
 export const previewDeleteSiteDataBlockOperation = callerMutation.protected(
-  Object.assign(previewOf(deleteSiteDataBlockOperation), {
+  Object.assign(definePreview(deleteSiteDataBlockOperation), {
+    acceptsTrustedCaller: true,
     id: 'siteData:previewDeleteSiteDataBlockOperation',
   }),
 )

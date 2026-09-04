@@ -10,17 +10,17 @@ projections, and provider integration with Ginko core.
 The v1 architecture has three packages:
 
 - `@lupinum/ginko-cms`: Nuxt module, Studio host, auth pages, public API routes,
-  filesystem migration tooling, CMS provider integration, and the bridge
-  manifest used during setup.
+  owner-CLI content portability and contract-transition tooling, CMS provider
+  integration, and host setup templates.
 - `@lupinum/ginko-cms-contract`: framework-neutral shared domain contracts,
   public-content types, Convex validators, and schema helpers.
 - `@lupinum/ginko-cms-convex`: Convex component implementation for content,
-  assets, auth integration, public projections, members, settings, imports, and
-  MCP-backed operations.
+  assets, auth integration, public projections, members, the installed
+  contract, guarded operations, and MCP-backed operations.
 
 Keep domain contracts free of Nuxt, Vue, Studio, and package implementation
 details. Keep the Convex component free of Studio and Nuxt runtime dependencies.
-Keep host-generated bridge files thin.
+Keep host-generated Convex setup files thin.
 
 ## Runtime Shape
 
@@ -33,25 +33,25 @@ flowchart LR
   Ops --> Convex["Convex CMS component"]
   Convex --> Projections
   Convex --> Assets["Convex-backed assets"]
-  Contract["Code-defined collection contracts"] --> Studio
+  Contract["Installed CMS contract"] --> Studio
   Contract --> Ops
 ```
 
-The app defines collections in code. Ginko CMS syncs those contracts into the
-CMS as read-only operational truth. Studio and MCP use the contracts to edit and
-publish content, but they do not mutate schema.
+The app defines one CMS contract in code. Ginko CMS installs it as operational
+truth, including collection schemas, locales, content policy, and editorial
+presentation. Studio and MCP inspect that contract; they do not mutate schema.
 
 ## Setup Boundary
 
-Trellis powers internal bridge generation, route protection, permissions, and
-Convex integration mechanics. Public setup should still feel like Ginko CMS.
-Users install and validate Ginko CMS; they should not need to understand Trellis
-concepts to build a Ginko CMS site.
+The host application owns Better Auth identities, provider choices, and its
+Convex app. `@lupinum/better-convex-nuxt` owns Nuxt-side Convex lifecycle, SSR callers,
+auth synchronization, route protection, and token exchange. Ginko CMS composes
+that foundation and owns only CMS product policy.
 
 The durable rule is:
 
-> Trellis may power internals, but Ginko CMS owns the user-facing installation,
-> setup, and validation experience.
+> Host setup files expose the CMS component; they do not duplicate identity,
+> authorization, or CMS domain policy.
 
 ## Studio Boundary
 
@@ -96,7 +96,7 @@ Studio and MCP share the same product boundary:
 - avoid schema/config mutation.
 
 MCP is a first-class CMS surface, but it is opt-in through module configuration.
-Core tables, generated types, and bridge machinery may exist regardless of route
+Core tables, generated types, and host setup glue may exist regardless of route
 registration; the externally exposed MCP server should not be enabled
 implicitly.
 

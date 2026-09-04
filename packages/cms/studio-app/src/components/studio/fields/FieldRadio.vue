@@ -21,33 +21,31 @@ const value = computed({
 </script>
 
 <template>
-  <div class="ginko:space-y-1.5">
-    <Label class="ginko:text-sm">
+  <FieldSet :data-invalid="fieldError ? true : undefined">
+    <FieldLegend>
       {{ label }}
       <span v-if="field.required" class="ginko:text-destructive">*</span>
-    </Label>
+    </FieldLegend>
     <div class="ginko:space-y-2">
-      <label
-        v-for="opt in field.options ?? []"
-        :key="opt"
-        class="ginko:flex ginko:items-center ginko:gap-2 ginko:text-sm"
-      >
+      <Field v-for="opt in field.options ?? []" :key="opt" orientation="horizontal">
         <input
+          :id="`${field.key}-${opt}`"
           type="radio"
           :name="field.key"
           :value="opt"
           :checked="value === opt"
+          :aria-invalid="fieldError ? true : undefined"
           class="ginko:text-primary"
           @change="value = opt"
         />
-        {{ opt }}
-      </label>
+        <FieldLabel :for="`${field.key}-${opt}`" class="ginko:text-sm">{{ opt }}</FieldLabel>
+      </Field>
     </div>
-    <p v-if="field.description" class="ginko:text-xs ginko:text-muted-foreground">
+    <FieldDescription v-if="field.description">
       {{ field.description }}
-    </p>
-    <p v-if="fieldError" class="ginko:text-xs ginko:text-destructive">
+    </FieldDescription>
+    <FieldError v-if="fieldError">
       {{ fieldError }}
-    </p>
-  </div>
+    </FieldError>
+  </FieldSet>
 </template>

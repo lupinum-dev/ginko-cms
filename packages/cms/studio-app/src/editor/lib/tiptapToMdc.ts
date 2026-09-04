@@ -609,7 +609,11 @@ function createLinkElement(node: JSONContent): MDCElement {
   if (rel) linkProps.rel = rel
   if (className) linkProps.class = className
 
-  Object.assign(linkProps, otherAttrs)
+  for (const [key, value] of Object.entries(otherAttrs)) {
+    // Unset attributes (e.g. a null title) must not serialize as "null".
+    if (value === null || value === undefined || value === '') continue
+    linkProps[key] = String(value)
+  }
 
   return { children: node.children || [], props: linkProps, tag: 'a', type: 'element' }
 }

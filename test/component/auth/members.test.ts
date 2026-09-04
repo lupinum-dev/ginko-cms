@@ -1,5 +1,8 @@
-import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
-import { can } from '@lupinum/trellis/auth'
+import {
+  bootstrapCmsOwner,
+  bootstrapCmsOwnerComponent,
+} from '@lupinum/ginko-cms-contract/convex/schemas/members.js'
+import { cmsMcpCaller, cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { describe, expect, it } from 'vitest'
 
 import type { CmsAppIdentity, CmsMemberAppIdentity } from '#component/auth/appIdentity.js'
@@ -9,12 +12,17 @@ import {
   canDeleteEntries,
   canEditEntries,
   canManageAssets,
+  canManageAssetRecovery,
   canManageCollections,
   canManageMembers,
+  canManagePortability,
   canManageSettings,
   canPublishEntries,
   canRead,
+  can,
   isBootstrapUser,
+  hasRole,
+  cmsPermissionGuards,
 } from '#component/auth/checks.js'
 import { bootstrapCmsOwnerRecord, validateFirstOwnerEmail } from '#component/members.js'
 
@@ -114,6 +122,14 @@ function memberAppIdentity(role: 'owner' | 'publisher' | 'editor' | 'viewer'): C
 }
 
 describe('cms member bootstrap', () => {
+  it('keeps caller-controlled email out of both bootstrap boundaries', () => {
+    expect(Object.keys(bootstrapCmsOwner.args)).toEqual(['displayName'])
+    expect(Object.keys(bootstrapCmsOwnerComponent.args).sort()).toEqual([
+      'configuredOwnerEmail',
+      'displayName',
+    ])
+  })
+
   it('creates exactly one bootstrap owner and logs the activity', async () => {
     const { ctx, state } = createMembersCtx()
 
@@ -182,6 +198,28 @@ describe('first owner email validation', () => {
 })
 
 describe('cms guards', () => {
+  it('fails closed for MCP identities when a protected guard has no permission', () => {
+    const owner = memberAppIdentity('owner') as CmsMemberAppIdentity
+    const mcpOwner: CmsMemberAppIdentity = {
+      ...owner,
+      caller: cmsMcpCaller({
+        issuer: 'https://ginko.example.test/api/auth',
+        userId: 'owner-1',
+        clientId: 'client-owner',
+        scopes: ['cms.read'],
+      }),
+      mcpEffectivePermissions: {},
+      audit: {
+        origin: 'mcp',
+        delegationId: 'mcpd_owner',
+        issuer: 'https://ginko.example.test/api/auth',
+        clientId: 'client-owner',
+      },
+    }
+
+    expect(can(mcpOwner, hasRole('owner'))).toBe(false)
+  })
+
   it('allows bootstrap appIdentitys to read and bootstrap, but nothing stronger', () => {
     const appIdentity: CmsAppIdentity = {
       kind: 'authenticated',
@@ -204,9 +242,11 @@ describe('cms guards', () => {
     expect(can(appIdentity, canManageSettings)).toBe(false)
     expect(can(appIdentity, canManageMembers)).toBe(false)
     expect(can(appIdentity, canManageAssets)).toBe(false)
+    expect(can(appIdentity, canManageAssetRecovery)).toBe(false)
+    expect(can(appIdentity, canManagePortability)).toBe(false)
   })
 
-  it('maps owner, publisher, editor, and viewer roles to the expected permission matrix', () => {
+  it('[ACC-04] maps owner, publisher, editor, and viewer roles to the expected permission matrix', () => {
     const owner = memberAppIdentity('owner')
     const publisher = memberAppIdentity('publisher')
     const editor = memberAppIdentity('editor')
@@ -222,17 +262,21 @@ describe('cms guards', () => {
     expect(can(owner, canManageSettings)).toBe(true)
     expect(can(owner, canManageMembers)).toBe(true)
     expect(can(owner, canManageAssets)).toBe(true)
+    expect(can(owner, canManageAssetRecovery)).toBe(true)
+    expect(can(owner, canManagePortability)).toBe(true)
 
     expect(can(publisher, canRead)).toBe(true)
     expect(can(publisher, canCreateEntries)).toBe(true)
     expect(can(publisher, canEditEntries)).toBe(true)
     expect(can(publisher, canPublishEntries)).toBe(true)
-    expect(can(publisher, canArchiveEntries)).toBe(false)
+    expect(can(publisher, canArchiveEntries)).toBe(true)
     expect(can(publisher, canDeleteEntries)).toBe(false)
     expect(can(publisher, canManageCollections)).toBe(false)
     expect(can(publisher, canManageSettings)).toBe(false)
     expect(can(publisher, canManageMembers)).toBe(false)
     expect(can(publisher, canManageAssets)).toBe(true)
+    expect(can(publisher, canManageAssetRecovery)).toBe(false)
+    expect(can(publisher, canManagePortability)).toBe(false)
 
     expect(can(editor, canRead)).toBe(true)
     expect(can(editor, canCreateEntries)).toBe(true)
@@ -256,4 +300,37 @@ describe('cms guards', () => {
     expect(can(viewer, canManageMembers)).toBe(false)
     expect(can(viewer, canManageAssets)).toBe(false)
   })
+
+  it.each(['owner', 'publisher', 'editor', 'viewer'] as const)(
+    'intersects every %s MCP permission with both role and explicit scope',
+    (role) => {
+      const user = memberAppIdentity(role) as CmsMemberAppIdentity
+      const allScopes = Object.fromEntries(cmsPermissionGuards.map(({ key }) => [key, true]))
+      const noScopes = Object.fromEntries(cmsPermissionGuards.map(({ key }) => [key, false]))
+      const mcp = (scopes: Record<string, boolean>): CmsMemberAppIdentity => ({
+        ...user,
+        caller: cmsMcpCaller({
+          issuer: 'https://ginko.example.test/api/auth',
+          userId: `${role}-1`,
+          clientId: `client-${role}`,
+          scopes: Object.entries(scopes)
+            .filter(([, allowed]) => allowed)
+            .map(([permission]) => permission),
+        }),
+        mcpEffectivePermissions: scopes,
+        audit: {
+          origin: 'mcp',
+          delegationId: `mcpd_${role}`,
+          issuer: 'https://ginko.example.test/api/auth',
+          clientId: `client-${role}`,
+        },
+      })
+      const callableMcpGuards = new Set([canRead, canEditEntries])
+
+      for (const { guard } of cmsPermissionGuards) {
+        expect(can(mcp(allScopes), guard)).toBe(callableMcpGuards.has(guard) && can(user, guard))
+        expect(can(mcp(noScopes), guard)).toBe(false)
+      }
+    },
+  )
 })

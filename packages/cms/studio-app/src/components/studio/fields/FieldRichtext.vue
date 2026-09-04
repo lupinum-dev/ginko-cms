@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 
 import { api } from '../../../boundary/api'
 import type { StudioAssetRecord } from '../../../composables/internal/types'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { useCmsStudioQuery } from '../../../composables/useCmsStudioQuery'
 import type { AssetProvider } from '../../../editor/types'
-import RichtextEditor from '../../../editor/ui/Editor.vue'
+import type RichtextEditorComponent from '../../../editor/ui/Editor.vue'
 import StudioAssetMetadataDialog from '../StudioAssetMetadataDialog.vue'
 import StudioAssetPicker from '../StudioAssetPicker.vue'
 import { mapStudioAssetToFileInfo, mapStudioAssetToImageInfo } from './richtextAssetMapping'
 import type { FieldContext, FieldDefinition } from './useFieldCommon'
+
+const RichtextEditor = defineAsyncComponent(() => import('../../../editor/ui/Editor.vue'))
 
 const props = defineProps<{
   field: FieldDefinition
@@ -41,17 +43,24 @@ const imagePickerAssetId = ref<string | null>(null)
 const metadataDialogOpen = ref(false)
 const metadataAssetId = ref<string | null>(null)
 const filePickerOpen = ref(false)
-const editorRef = ref<InstanceType<typeof RichtextEditor> | null>(null)
+const editorRef = ref<InstanceType<typeof RichtextEditorComponent> | null>(null)
 const maxResolvedAssetIds = 200
 
-const referencedAssetIds = computed(() => {
+const referencedAssetIds = computed<string[]>((previous) => {
   const ids = new Set<string>()
   const pattern = /[a-z0-9]{20,40}|[a-z0-9]+;[a-z_]+/gi
   for (const match of value.value.matchAll(pattern)) {
     ids.add(match[0])
     if (ids.size >= maxResolvedAssetIds) break
   }
-  return Array.from(ids)
+  const next = Array.from(ids)
+  // Keep the previous array identity when the id set is unchanged: `value`
+  // updates on every keystroke, and a fresh array here would restart
+  // assetUrlsQuery (a full Convex re-subscribe) mid-typing.
+  if (previous && previous.length === next.length && previous.every((id, i) => id === next[i])) {
+    return previous
+  }
+  return next
 })
 
 const assetUrlsQuery = useCmsStudioQuery(
@@ -59,16 +68,29 @@ const assetUrlsQuery = useCmsStudioQuery(
   computed(() =>
     props.assetContext && referencedAssetIds.value.length > 0
       ? { assetIds: referencedAssetIds.value }
-      : null,
+      : ('skip' as const),
   ),
 )
 
+// The readiness gate exists so the FIRST paint waits for asset URLs. It must
+// latch: once the editor is live, a pending re-resolution (typing can extend
+// a word into the asset-id pattern above) unmounting the focused editor would
+// drop keystrokes and steal focus.
+const editorEverReady = ref(false)
 const editorReady = computed(() => {
+  if (editorEverReady.value) return true
   if (!props.assetContext) return true
   if (referencedAssetIds.value.length === 0) return true
   const status = assetUrlsQuery.status?.value
   return status === 'success' || status === 'error'
 })
+watch(
+  editorReady,
+  (ready) => {
+    if (ready) editorEverReady.value = true
+  },
+  { immediate: true },
+)
 
 const assetIdByUrl = computed(() => {
   const map = /* @__PURE__ */ new Map<string, string>()
@@ -103,6 +125,7 @@ const assetProvider: AssetProvider = {
 }
 
 function selectImageAsset(asset: StudioAssetRecord) {
+  if (props.disabled) return
   const locale =
     typeof props.assetContext?.locale === 'string' ? props.assetContext.locale : undefined
   editorRef.value?.insertImageAsset(mapStudioAssetToImageInfo(asset, locale))
@@ -111,6 +134,7 @@ function selectImageAsset(asset: StudioAssetRecord) {
 }
 
 function selectFileAsset(asset: StudioAssetRecord) {
+  if (props.disabled) return
   const locale =
     typeof props.assetContext?.locale === 'string' ? props.assetContext.locale : undefined
   editorRef.value?.insertFileAsset(mapStudioAssetToFileInfo(asset, locale))
@@ -118,11 +142,13 @@ function selectFileAsset(asset: StudioAssetRecord) {
 }
 
 function openImagePicker(assetId?: string) {
+  if (props.disabled) return
   imagePickerAssetId.value = assetId || null
   imagePickerOpen.value = true
 }
 
 function openImageMetadata(assetId: string) {
+  if (props.disabled) return
   metadataAssetId.value = assetId
   metadataDialogOpen.value = true
 }
@@ -186,7 +212,7 @@ function onConversionRecovered() {
     </template>
     <div
       :class="
-        richtextPreview ? 'ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:xl:grid-cols-2' : ''
+        richtextPreview ? 'ginko:grid ginko:grid-cols-1 ginko:gap-3 ginko:@5xl:grid-cols-2' : ''
       "
     >
       <RichtextEditor
@@ -195,11 +221,12 @@ function onConversionRecovered() {
         ref="editorRef"
         v-model="value"
         :asset-provider="assetProvider"
+        :aria-label="label"
         :placeholder="field.description || t('ginkoCms.studio.fieldRenderer.richtextPlaceholder')"
         :enable-files="!!assetContext"
         :enable-video="true"
         :disabled="props.disabled === true"
-        :class="[fieldError ? 'ginko:border-destructive' : '']"
+        :aria-invalid="fieldError ? true : undefined"
         @conversion-error="onConversionError"
         @conversion-recovered="onConversionRecovered"
         @request-image="assetContext ? openImagePicker() : void 0"
@@ -211,7 +238,7 @@ function onConversionRecovered() {
         class="ginko:min-h-[260px] ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
       />
       <StudioAssetMetadataDialog
-        v-if="assetContext"
+        v-if="assetContext && !disabled"
         :asset-id="metadataAssetId"
         :asset-context="assetContext"
         :open="metadataDialogOpen"
@@ -223,8 +250,9 @@ function onConversionRecovered() {
         :open="imagePickerOpen"
         :show-trigger="false"
         kind="image"
-        :label="`${label} image`"
+        :label="t('ginkoCms.studio.assetPicker.insertImageTitle')"
         :asset-context="assetContext"
+        :disabled="disabled"
         @update:open="setImagePickerOpen"
         @select-asset="selectImageAsset"
       />
@@ -234,14 +262,15 @@ function onConversionRecovered() {
         :open="filePickerOpen"
         :show-trigger="false"
         kind="file"
-        :label="`${label} file`"
+        :label="t('ginkoCms.studio.assetPicker.insertFileTitle')"
         :asset-context="assetContext"
+        :disabled="disabled"
         @update:open="filePickerOpen = $event"
         @select-asset="selectFileAsset"
       />
       <div
         v-if="richtextPreview"
-        class="ginko:min-h-[260px] ginko:rounded-md ginko:border ginko:border-border/40 ginko:p-4 prose prose-sm dark:prose-invert ginko:max-w-none ginko:overflow-auto ginko:xl:min-h-[400px]"
+        class="ginko:min-h-[260px] ginko:rounded-md ginko:border ginko:border-border/40 ginko:p-4 prose prose-sm dark:prose-invert ginko:max-w-none ginko:overflow-auto ginko:@7xl:min-h-[400px]"
       >
         <pre
           v-if="value"

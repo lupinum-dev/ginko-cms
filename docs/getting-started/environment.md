@@ -13,8 +13,8 @@ runtime, or Convex environment:
 ```bash
 NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 CONVEX_URL=https://your-deployment.convex.cloud
+CONVEX_SITE_URL=https://your-deployment.convex.site
 CONVEX_DEPLOY_KEY=prod:...
-CONVEX_IDENTITY_FORWARDING_KEY=long-random-secret
 GINKO_FIRST_OWNER_EMAIL=owner@example.com
 ```
 
@@ -22,11 +22,13 @@ GINKO_FIRST_OWNER_EMAIL=owner@example.com
   content provider.
 - `CONVEX_URL`: server-side Convex URL used by CLI/server routes. It may match
   `NUXT_PUBLIC_CONVEX_URL`.
-- `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for server-to-Convex
-  admin calls, collection contract sync, and MCP operations.
-- `CONVEX_IDENTITY_FORWARDING_KEY`: preferred signing key for Ginko CMS component
-  bridge envelopes. The CLI/server environment and Convex deployment must use the
-  same value.
+- `CONVEX_SITE_URL`: Convex HTTP action site URL. `@lupinum/better-convex-nuxt` resolves
+  it into the canonical `runtimeConfig.public.convex.siteUrl` used by MCP token
+  exchange.
+- `CONVEX_DEPLOY_KEY`: Convex-owned admin key. Ginko uses it for setup and
+  collection contract sync admin transport.
+- `CONVEX_SELF_HOSTED_ADMIN_KEY`: accepted instead of `CONVEX_DEPLOY_KEY` when
+  the Convex CLI targets a self-hosted local backend. Do not configure both.
 - `GINKO_FIRST_OWNER_EMAIL`: required until the first CMS owner has claimed
   ownership in Studio.
 
@@ -37,40 +39,110 @@ integrations. Ginko CMS does not own all of them, but a complete host deployment
 often needs them:
 
 ```bash
-CONVEX_SITE_URL=https://your-deployment.convex.site
 NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 CONVEX_DEPLOYMENT=dev:your-deployment-name
-BETTER_AUTH_SECRET=long-random-secret
+BETTER_AUTH_SECRETS=0:long-random-secret
+BCN_AUTH_PROXY_IP_SECRET=independent-proxy-signature-secret
+GINKO_CMS_PORTABILITY_SECRET=independent-portability-token-secret
+GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL=https://mailer.example/hooks/password-recovery
+GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN=secret-manager-value
+GINKO_MEMBER_INVITATION_DELIVERY_URL=https://mailer.example/hooks/member-invitation
+GINKO_MEMBER_INVITATION_DELIVERY_SECRET=secret-manager-value
+GINKO_MEMBER_INVITATION_ACCEPT_URL=https://your-site.example/studio/invitations/accept
 SITE_URL=https://your-site.example
 NUXT_PUBLIC_SITE_URL=https://your-site.example
 ```
 
-- `CONVEX_SITE_URL`: Convex HTTP action site URL.
 - `NUXT_PUBLIC_CONVEX_SITE_URL`: public Convex HTTP action site URL when the
   browser needs to call Convex HTTP actions.
 - `CONVEX_DEPLOYMENT`: Convex CLI deployment name. Convex owns and writes this
   during project setup.
-- `BETTER_AUTH_SECRET`: Better Auth session/signing secret.
+- `BETTER_AUTH_SECRETS`: Convex-only, versioned Better Auth encryption and
+  signing secrets. The first version is current; retain older versions while
+  ciphertext still depends on them. Never expose this value to Nuxt.
+- `BCN_AUTH_PROXY_IP_SECRET`: separate secret shared by Nuxt and Convex for the
+  Better Convex Nuxt trusted-client-IP assertion.
+- `GINKO_CMS_PORTABILITY_SECRET`: Nuxt-only secret that seals owner-CLI asset
+  transfer attempts. Do not reuse an auth or MCP secret.
+- `GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL`: approved HTTPS email-delivery webhook
+  for Better Auth password recovery. Embedded URL credentials are rejected.
+- `GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN`: bearer credential sent only to the
+  configured recovery webhook. Keep it in the Convex environment/secret store.
+- `GINKO_MEMBER_INVITATION_DELIVERY_URL`: approved host-owned HTTPS delivery
+  boundary for CMS member invitations. Localhost HTTP is accepted only for
+  development.
+- `GINKO_MEMBER_INVITATION_DELIVERY_SECRET`: bearer credential sent only to the
+  invitation delivery boundary. Keep it in the Convex environment/secret store.
+- `GINKO_MEMBER_INVITATION_ACCEPT_URL`: absolute Studio acceptance URL. Use
+  `<studio-route>/invitations/accept`; production values must use HTTPS.
 - `SITE_URL`: canonical site origin for auth redirects and public URLs.
 - `NUXT_PUBLIC_SITE_URL`: browser-visible canonical site origin when public
   runtime config needs it.
 
+Password recovery remains Better Auth-owned: its one-hour token is consumed
+once by Better Auth, existing sessions are revoked after reset, and CMS
+membership is checked again on the next sign-in. Ginko sends the provider URL
+to the configured webhook but never creates a password-reset table or writes
+the token to logs/activity.
+
+The invitation delivery boundary receives a JSON `POST` with
+`invitationId`, normalized `email`, reviewed `role`, `expiresAt`, and
+`acceptUrl`, authenticated by
+`Authorization: Bearer $GINKO_MEMBER_INVITATION_DELIVERY_SECRET`. The raw
+one-time token exists only in the URL fragment of `acceptUrl`, so it is not sent
+with the page request. It is never returned to Studio, persisted in CMS data, or
+included in activity. The acceptance page removes the fragment after capture,
+requires authentication, and is marked `noindex`.
+
+Delivery observations do not decide whether an invitation is valid. Acceptance
+requires the current token, an unexpired invitation, the matching verified email
+address and no existing membership. A delayed or failed delivery acknowledgement
+does not invalidate a token that reached the intended recipient. To invalidate
+an invitation, revoke it or resend it with a new token generation.
+
+The existing `deliveryState: 'delivered'` and `deliveredAt` fields record a
+successful response from the host delivery boundary, not confirmed mailbox
+receipt. Keep that distinction in host diagnostics and member-management UI.
+
 ## CMS Server And MCP Runtime
 
-MCP and CLI operations that cross the generated bridge also accept a
-CMS-specific fallback forwarding key. Prefer `CONVEX_IDENTITY_FORWARDING_KEY`
-unless the deployment needs a separate CMS-only secret.
+The optional MCP endpoint is a Convex-native `/mcp` HTTP action. Its fixed
+resource is `<CONVEX_SITE_URL>/mcp`; the authorization server is the host's
+`<SITE_URL>/api/auth` Better Auth endpoint. Clients use Authorization Code with
+PKCE and short-lived resource-bound access tokens. Studio stores only the
+application delegation between a registered OAuth client and a CMS member.
+
+Every request verifies the OAuth token and then rechecks the current Better Auth
+session, user, client, resource link and consent plus the Ginko delegation,
+membership, role, scope, tenant, and contract state. This path does not accept a
+Better Auth browser session token or `CONVEX_DEPLOY_KEY`, mint a second CMS
+bearer, or require a shared Nuxt/Convex MCP secret.
+
+## Owner Maintenance Session
+
+The `ginko-cms content`, `ginko-cms repair`, `ginko-cms asset cleanup`,
+`ginko-cms asset recovery`, and `ginko-cms doctor --deployment` operator commands
+also require:
 
 ```bash
-GINKO_CMS_COMPONENT_FORWARDING_KEY=long-random-secret
+GINKO_CMS_SESSION_COOKIE='better-auth.session_token=...'
 ```
 
-- `GINKO_CMS_COMPONENT_FORWARDING_KEY`: CMS-specific fallback signing key when
-  the Convex-wide identity-forwarding key is not used.
+Provide this short-lived Better Auth session cookie in the invoking shell or a
+secret manager-backed process environment. Do not commit it to `.env.local`, a
+portable directory, or an import plan. Each operator context lazily exchanges
+the cookie once for a fresh Convex token by posting to
+`<SITE_URL>/api/_ginko/operator/convex-token`. The CLI binds that request to the
+exact `SITE_URL` (or `NUXT_PUBLIC_SITE_URL`) origin, disables redirects, bounds
+the cookie, response, and deadline, and never sends it to the Convex deployment
+origin. `CONVEX_DEPLOY_KEY` is not an alternative product identity for these
+commands.
 
-`GINKO_CONTENT_PROVIDER_SITE` is reserved for a future provider site partition.
-The provider reads it and defaults to `default`, but current public Convex
-queries are not partitioned by this value.
+The operator commands also use `CONVEX_DEPLOYMENT` to bind plans and runs,
+and `SITE_URL` (or `NUXT_PUBLIC_SITE_URL`) for the token exchange. Content
+portability commands additionally use authenticated asset-transfer routes on
+that same host origin.
+See [Portable content export and import](../guides/content-portability.md).
 
 ## Maintainer Smoke Tests
 
@@ -98,15 +170,9 @@ pnpm exec convex deployment token create ginko-cms-production --prod
 Store the printed value as `CONVEX_DEPLOY_KEY` in the server or CI secret store.
 Do not expose it through `NUXT_PUBLIC_*`.
 
-The bridge forwarding key must also exist in Convex:
-
-```bash
-pnpm exec convex env set CONVEX_IDENTITY_FORWARDING_KEY long-random-secret
-```
-
-Ginko uses `CONVEX_DEPLOY_KEY` only as Convex admin auth. The CMS caller is
-passed as explicit function input to the generated internal bridge functions,
-so deploy-key auth and product audit identity are not mixed.
+Ginko uses `CONVEX_DEPLOY_KEY` only as Convex admin transport. Product audit
+identity is resolved by the CMS component from member auth or Better Auth API-key
+credential settings, so deploy-key auth and product authorization are not mixed.
 
 ## Workflow Checks
 
@@ -117,7 +183,7 @@ pnpm exec ginko-cms deploy
 ```
 
 `ginko-cms deploy` reads `.env.local` as well as the process environment. It
-runs the bridge check, the default local Convex deploy command
+runs `ginko-cms doctor`, the default local Convex deploy command
 (`convex dev --once --tail-logs disable --typecheck disable`), then collection
 contract sync.
 
@@ -134,15 +200,9 @@ If you need a different Convex command, pass the Convex CLI arguments after
 pnpm exec ginko-cms deploy -- deploy
 ```
 
-For MCP installations, also run:
-
-```bash
-pnpm exec ginko-cms mcp-doctor
-```
-
-`ginko-cms mcp-doctor` expects the MCP runtime prerequisites, including
-`secure-exec`, and reads `.env.local` as well as the process environment. The
-MCP runtime itself still needs the same keys in the actual server environment.
+For MCP installations, run `ginko-cms init --mcp` before deployment and enable
+the matching `ginkoCms.mcp` Nuxt module option. The normal setup doctor rejects
+a source/module mode mismatch.
 
 ## Revalidation Egress
 
@@ -160,10 +220,15 @@ variable as `secretEnv`. Set that target-specific secret in the Convex
 environment. Ginko CMS does not require one fixed revalidation token variable
 name.
 
+Only one target may be enabled for each of `production`, `preview`, and
+`development`. Disable the current target before enabling a replacement. Target
+URLs must not contain a username or password, and delivery never follows HTTP
+redirects.
+
 ## Removed Names
 
 - `GINKO_CMS_INSTALL_SECRET`: removed. Collection contract sync uses
-  `CONVEX_DEPLOY_KEY` admin auth and generated internal bridge functions.
+  `CONVEX_DEPLOY_KEY` admin auth and narrow internal component functions.
 - `GINKO_CONVEX_URL`: removed. Use `NUXT_PUBLIC_CONVEX_URL` or `CONVEX_URL`.
 - `GINKO_REVALIDATE_TOKEN`: removed as a fixed global name. Revalidation
   targets store their own `secretEnv` names.
@@ -177,7 +242,7 @@ name.
 
 - Keep provider-owned names under `GINKO_CONTENT_*`.
 - Keep CMS-owned names under `GINKO_CMS_*`.
-- Keep Trellis-owned names under `TRELLIS_*`.
+- Keep integration-owned names scoped to the integration that reads them.
 - Keep Convex-owned names as `CONVEX_*`.
 - Do not expose server secrets with `NUXT_PUBLIC_*`.
 

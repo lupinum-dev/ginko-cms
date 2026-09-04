@@ -1,45 +1,77 @@
 <script setup lang="ts">
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { api } from './boundary/api'
+import { useAppearance } from './composables/useAppearance'
 import { useCmsAuthState } from './composables/useCmsAuthState'
 import { useCmsConfig } from './composables/useCmsConfig'
 import { useCmsI18n } from './composables/useCmsI18n'
-import { useCmsStudioAccess } from './composables/useCmsStudioAccess'
+import { provideCmsStudioAccess } from './composables/useCmsStudioAccess'
+import { provideRightSidebar } from './composables/useRightSidebar'
 import { useConvexMutation } from './composables/useStudioConvex'
 
 const { t } = useCmsI18n()
+
+// Right-sidebar controller (RFC Phase 4). Provided at the layout root so both
+// the SidebarInset subtree (StudioHeader toggle, RightSidebarRail) and the
+// RightSidebar panel — which is a LATER flex sibling of SidebarInset, outside
+// the page subtree — inject the same instance. Pages register their detail
+// panel via useRightSidebarPanel(); availability also honours
+// `route.meta.rightSidebar` so the header trigger shows before a page mounts.
+provideRightSidebar()
 const cmsConfig = useCmsConfig()
-const { user } = useCmsAuthState()
+const { user, isAuthenticated, error: authError } = useCmsAuthState()
+const route = useRoute()
+const isInvitationRoute = computed(() => route.meta.authenticatedPublic === true)
+
+// Appearance (D7): the accent class that themes.css keys off (for example
+// `.ginko-cms.color-blue`). It is bound declaratively
+// into the `.ginko-cms` root's `:class` below rather than mutated onto the DOM
+// imperatively — that keeps them reactive, avoids fighting Vue's class patching,
+// and re-applies automatically across the access-state branch swap. The Phase 6
+// Settings → Appearance UI drives the same composable.
+const { appearanceClasses } = useAppearance()
 const studioClass = computed(() => [
   'ginko-cms',
   'ginko-cms--studio',
   cmsConfig.sidebar?.dark && 'ginko-cms--sidebar-dark',
+  ...appearanceClasses.value,
 ])
-const { studioRoute, pending, permissions, isMember, canRead, canBootstrap } = useCmsStudioAccess()
+const { studioRoute, pending, ready, role, isMember, canRead, canBootstrap } =
+  provideCmsStudioAccess()
 const bootstrapCmsOwner = useConvexMutation(api.ginkoCms.members.bootstrapCmsOwner)
 const bootstrapPending = ref(false)
 const bootstrapError = ref('')
-const hadReadyStudioAccess = ref(false)
+const studioHydrated = ref(false)
+onMounted(() => {
+  studioHydrated.value = true
+})
 const studioAccess = computed<{ status: string; reason: string | null }>(() => {
+  if (authError.value) {
+    return { status: 'auth_error', reason: 'auth_unavailable' }
+  }
   if (bootstrapPending.value) {
     return { status: 'bootstrapping', reason: null }
   }
+  if (isInvitationRoute.value && isAuthenticated.value) {
+    return { status: 'invitation', reason: null }
+  }
   // Must come BEFORE canRead — bootstrap users pass canRead but need to claim ownership first
-  if (permissions.ready.value && canBootstrap.value && !isMember.value) {
+  if (ready.value && canBootstrap.value && !isMember.value) {
     return {
       status: 'claimable',
       reason: bootstrapError.value ? 'bootstrap_error' : null,
     }
   }
-  if ((permissions.ready.value || hadReadyStudioAccess.value) && canRead.value) {
+  if (ready.value && canRead.value) {
     return { status: 'ready', reason: null }
   }
   if (pending.value) {
     return { status: 'loading', reason: null }
   }
-  if (permissions.ready.value) {
+  if (ready.value) {
     return { status: 'forbidden', reason: 'membership' }
   }
   if (!pending.value) {
@@ -51,11 +83,6 @@ const studioAccess = computed<{ status: string; reason: string | null }>(() => {
 watch(
   () => studioAccess.value.status,
   (status) => {
-    if (status === 'ready') {
-      hadReadyStudioAccess.value = true
-    } else if (status === 'forbidden' && studioAccess.value.reason === 'auth') {
-      hadReadyStudioAccess.value = false
-    }
     // Debug hook: set window.__ginkoLayoutDebug = [] before navigating to
     // capture studioAccess transitions.
     if (
@@ -66,12 +93,12 @@ watch(
         ts: Date.now(),
         status,
         reason: studioAccess.value.reason,
-        ready: permissions.ready.value,
+        ready: ready.value,
         pending: pending.value,
         canRead: canRead.value,
         canBootstrap: canBootstrap.value,
         isMember: isMember.value,
-        role: permissions.role?.value,
+        role: role.value,
       })
     }
   },
@@ -87,7 +114,6 @@ async function claimCmsOwnership() {
   try {
     await bootstrapCmsOwner({
       displayName: user.value?.name ?? undefined,
-      email: user.value?.email ?? undefined,
     })
   } catch (error) {
     bootstrapError.value = getCmsErrorMessage(error, t('ginkoCms.studio.layout.bootstrapError'))
@@ -95,31 +121,74 @@ async function claimCmsOwnership() {
     bootstrapPending.value = false
   }
 }
+
+function retryAuthentication(): void {
+  window.location.reload()
+}
 </script>
 
 <template>
+  <div
+    v-if="studioAccess.status === 'invitation'"
+    data-testid="cms-member-invitation-layout"
+    :class="[
+      studioClass,
+      'ginko:flex ginko:min-h-svh ginko:items-center ginko:justify-center ginko:bg-background ginko:px-6 ginko:py-12 ginko:text-foreground',
+    ]"
+  >
+    <slot />
+  </div>
   <SidebarProvider
-    v-if="studioAccess.status === 'ready'"
+    v-else-if="studioAccess.status === 'ready'"
     data-testid="cms-studio-ready"
-    :style="{
-      '--sidebar-width': '13.75rem',
-      '--sidebar-width-icon': '3.5rem',
-    }"
+    :data-hydrated="studioHydrated ? 'true' : 'false'"
     :class="[studioClass, 'studio-shell ginko:text-foreground']"
   >
     <CmsCommandPalette :studio-route="studioRoute" />
     <StudioSidebar />
 
-    <div
-      class="ginko:relative ginko:flex ginko:min-h-svh ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:flex-col ginko:overflow-hidden ginko:bg-transparent"
+    <!--
+      Scroll model (RFC Phase 3, step 5). The template lets the whole
+      SidebarInset grow and scroll as one document (`@container/main p-4 lg:p-6`
+      on the page wrapper). The Studio deliberately keeps its established
+      fixed-pane model instead: the inset is `overflow-hidden` at full height and
+      each page owns its internal scroll containers (the entry editor, the asset
+      browser, and the list frames all rely on this to keep their headers/rails
+      pinned while only the body scrolls). So the `@container/main` context and
+      the `p-4 lg:p-6` padding rhythm are NOT applied here — they belong INSIDE
+      the scrollable region of the document-like pages, applied per page in
+      Phase 6. `z-10` lifts the inset above the (future) right-sidebar panel so
+      the resize rail paints over the boundary.
+    -->
+    <!-- Ultra-wide clamp: the card caps at --studio-content-max and the
+         leftover canvas splits between margin-left:auto here and
+         margin-right:auto on RightSidebar, centering the card/panel pair.
+         Inline styles (not classes) because the sidebar primitive's
+         peer-data-[variant=inset] rules also set margins and class order
+         must not decide; auto resolves to 0 when there is no free space, so
+         laptop layouts are unchanged. -->
+    <SidebarInset
+      class="ginko:relative ginko:z-10 ginko:flex ginko:w-full ginko:min-w-0 ginko:max-w-(--studio-content-max) ginko:flex-1 ginko:flex-col ginko:overflow-hidden"
+      style="margin-left: auto"
     >
       <StudioHeader />
+      <StudioContractCompatibilityNotice />
+      <!-- @container: in-card layouts key off THIS width (which shrinks when
+           the right-sidebar panel opens), never off the viewport. Pages use
+           @3xl/@5xl/@7xl variants (768/1024/1280px container equivalents). -->
       <div
-        class="ginko:min-h-0 ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:overflow-hidden"
+        class="ginko:@container ginko:min-h-0 ginko:w-full ginko:min-w-0 ginko:max-w-full ginko:flex-1 ginko:overflow-hidden"
       >
         <slot />
       </div>
-    </div>
+      <!-- Resize/toggle rail. Inside SidebarInset (RFC Phase 4 step 3) so the
+           inset's z-10 lifts the rail's grip above the panel, which is a later
+           flex sibling that would otherwise paint over the boundary. -->
+      <RightSidebarRail />
+    </SidebarInset>
+    <!-- The detail panel is the LAST sibling of SidebarInset so it lays out to
+         the right of the main area as a flex sibling of the inset. -->
+    <RightSidebar />
   </SidebarProvider>
   <div
     v-else
@@ -141,6 +210,12 @@ async function claimCmsOwnership() {
         <CardTitle>{{ t('ginkoCms.studio.layout.claimOwnerTitle') }}</CardTitle>
         <CardDescription>
           {{ t('ginkoCms.studio.layout.claimOwnerDescription') }}
+        </CardDescription>
+      </CardHeader>
+      <CardHeader v-else-if="studioAccess.status === 'auth_error'">
+        <CardTitle>{{ t('ginkoCms.studio.layout.authUnavailableTitle') }}</CardTitle>
+        <CardDescription>
+          {{ t('ginkoCms.studio.layout.authUnavailableDescription') }}
         </CardDescription>
       </CardHeader>
       <CardHeader v-else-if="studioAccess.status === 'forbidden'">
@@ -167,6 +242,11 @@ async function claimCmsOwnership() {
           @click="claimCmsOwnership"
         >
           {{ t('ginkoCms.studio.layout.claimOwnerAction') }}
+        </Button>
+      </CardContent>
+      <CardContent v-if="studioAccess.status === 'auth_error'" class="ginko:pt-0">
+        <Button class="ginko:w-full" data-testid="cms-auth-retry" @click="retryAuthentication">
+          {{ t('ginkoCms.studio.layout.authUnavailableAction') }}
         </Button>
       </CardContent>
       <CardContent v-if="bootstrapError" class="ginko:text-sm ginko:text-destructive">

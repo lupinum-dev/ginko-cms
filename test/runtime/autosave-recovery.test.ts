@@ -26,7 +26,7 @@ describe('autosave recovery', () => {
     expect(isTransientSaveError({ statusCode: 400, message: 'bad request' })).toBe(false)
   })
 
-  it('retries only the latest pending save and clears after success', async () => {
+  it('[EDT-03][QUA-04] retries only the latest pending save and clears after success', async () => {
     const retry = new OfflineSaveRetry()
     const task = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
 

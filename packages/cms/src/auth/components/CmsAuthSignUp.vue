@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { useBetterAuthSignUp, useConvexAuth } from '@lupinum/trellis/composables'
-import { Loader2 } from 'lucide-vue-next'
-
 import { useCmsI18n } from '#ginko-cms-public/composables/useCmsI18n.js'
 import { resolveRedirectTarget } from '#ginko-cms-public/utils/redirectSafety.js'
-import { computed, navigateTo, onMounted, ref, useRoute, useRuntimeConfig, watch } from '#imports'
+import { computed, navigateTo, onMounted, ref, useConvexAuth, useRoute, watch } from '#imports'
 
 import CmsAuthInput from './CmsAuthInput.vue'
 import CmsPasswordInput from './CmsPasswordInput.vue'
@@ -12,17 +9,11 @@ import CmsPasswordInput from './CmsPasswordInput.vue'
 const props = defineProps<{
   redirectTo: string
 }>()
-const runtimeConfig = useRuntimeConfig()
-const authEnabled =
-  (runtimeConfig.public as { convex?: { auth?: { enabled?: boolean } } }).convex?.auth?.enabled !==
-  false
-const auth = authEnabled ? useConvexAuth() : null
-const signUpRuntime = authEnabled ? useBetterAuthSignUp() : null
-const isAuthenticated = auth?.isAuthenticated ?? ref(false)
-const isPending = auth?.isPending ?? ref(false)
-const signUp = signUpRuntime?.signUp ?? null
-const isSubmitting = signUpRuntime?.pending ?? ref(false)
-const authError = signUpRuntime?.error ?? ref<Error | null>(null)
+const auth = useConvexAuth()
+const isAuthenticated = computed(() => auth.status.value === 'authenticated')
+const pending = auth.pending
+const isSubmitting = ref(false)
+const authError = ref<Error | null>(null)
 const route = useRoute()
 const { t } = useCmsI18n()
 const name = ref('')
@@ -31,9 +22,16 @@ const password = ref('')
 const confirmPassword = ref('')
 const error = ref<string | null>(null)
 const authFormReady = ref(false)
+let authRedirectStarted = false
 const isLoading = computed(() => isSubmitting.value)
 const isRedirecting = computed(
-  () => isPending.value || isAuthenticated.value || (isSubmitting.value && !authError.value),
+  // Auth state is client-owned and may start pending after SSR. Keep the
+  // server and first client render identical, then reveal the form on mount.
+  () =>
+    !authFormReady.value ||
+    pending.value ||
+    isAuthenticated.value ||
+    (isSubmitting.value && !authError.value),
 )
 function getRedirectTarget() {
   return resolveRedirectTarget(
@@ -42,6 +40,20 @@ function getRedirectTarget() {
     `${props.redirectTo.replace(/\/$/, '')}/auth/signin`,
   )
 }
+async function redirectAuthenticatedUser() {
+  if (authRedirectStarted) return
+  authRedirectStarted = true
+  await navigateTo(getRedirectTarget(), { replace: true })
+}
+watch(
+  [isAuthenticated, isSubmitting],
+  ([authenticated, submitting]) => {
+    // A submitted registration owns its post-operation navigation below. The
+    // watcher exists only for an already-authenticated cold load.
+    if (authenticated && !submitting) void redirectAuthenticatedUser()
+  },
+  { immediate: true },
+)
 function toSignIn(): string {
   const query = new URLSearchParams()
   const redirect = getRedirectTarget()
@@ -55,24 +67,8 @@ function toSignIn(): string {
 }
 onMounted(() => {
   authFormReady.value = true
-  if (!authEnabled) {
-    void navigateTo(getRedirectTarget())
-  }
 })
 
-watch(
-  [isAuthenticated, isPending],
-  ([authenticated, pending]) => {
-    if (!authEnabled || pending || !authenticated) return
-    if (import.meta.dev) {
-      console.debug('[ginko-cms] auth sign-up redirect', {
-        redirectTo: getRedirectTarget(),
-      })
-    }
-    void navigateTo(getRedirectTarget(), { replace: true })
-  },
-  { immediate: true },
-)
 async function onSubmit(event: Event) {
   event.preventDefault()
   if (!name.value || !email.value || !password.value || !confirmPassword.value) {
@@ -87,23 +83,32 @@ async function onSubmit(event: Event) {
     error.value = t('ginkoCms.auth.signUp.passwordMinLength')
     return
   }
-  if (!signUp) {
-    error.value = t('ginkoCms.auth.signUp.errorFallback')
-    return
-  }
   error.value = null
+  authError.value = null
+  isSubmitting.value = true
   try {
-    await signUp(
-      {
-        email: email.value,
-        password: password.value,
-        name: name.value,
-      },
-      { redirectTo: getRedirectTarget() },
-    )
-    error.value = authError.value?.message || null
-  } catch {
-    error.value = t('ginkoCms.auth.signUp.errorFallback')
+    // Sign-up resolves atomically after the Convex identity is synced (vNext
+    // §5.3): no manual refresh, no watch-based redirect — navigate on success.
+    if (!auth.client) throw new TypeError('Ginko CMS authentication client is unavailable.')
+    const result = await auth.client.signUp.email({
+      email: email.value,
+      password: password.value,
+      name: name.value,
+    })
+    if (result.error) {
+      const message = result.error.message ?? t('ginkoCms.auth.signUp.errorFallback')
+      authError.value = new Error(message)
+      error.value = message
+      return
+    }
+    await redirectAuthenticatedUser()
+  } catch (caught) {
+    const message =
+      caught instanceof Error ? caught.message : t('ginkoCms.auth.signUp.errorFallback')
+    authError.value = caught instanceof Error ? caught : new Error(message)
+    error.value = message
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -111,7 +116,7 @@ async function onSubmit(event: Event) {
 <template>
   <div class="cms-auth-form">
     <div v-if="isRedirecting" class="cms-auth-loader">
-      <Loader2 class="cms-auth-spinner" />
+      <span class="cms-auth-spinner" aria-hidden="true" />
     </div>
 
     <template v-else>
@@ -183,7 +188,11 @@ async function onSubmit(event: Event) {
             data-testid="cms-auth-register-submit"
             :disabled="isLoading"
           >
-            <Loader2 v-if="isLoading" class="cms-auth-spinner cms-auth-spinner--sm" />
+            <span
+              v-if="isLoading"
+              class="cms-auth-spinner cms-auth-spinner--sm"
+              aria-hidden="true"
+            />
             {{ t('ginkoCms.auth.signUp.submit') }}
           </button>
         </div>
