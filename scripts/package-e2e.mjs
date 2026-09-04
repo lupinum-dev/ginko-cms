@@ -222,6 +222,7 @@ function packageE2eEnv() {
       'NODE_OPTIONS',
       'PATH',
       'PNPM_HOME',
+      'pnpm_config_minimum_release_age_exclude',
       'SHELL',
       'TEMP',
       'TERM',
