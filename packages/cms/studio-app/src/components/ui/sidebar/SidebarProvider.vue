@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { defaultDocument, useEventListener, useMediaQuery, useVModel } from '@vueuse/core'
 import { TooltipProvider } from 'reka-ui'
-import type { ComputedRef, HTMLAttributes, Ref } from 'vue'
+import type { HTMLAttributes, Ref } from 'vue'
 import { computed, ref } from 'vue'
 
 import { cn } from '../utils'
@@ -21,6 +21,7 @@ const props = withDefaults(
     class?: HTMLAttributes['class']
   }>(),
   {
+    // SPA adaptation: no Nuxt useCookie — read persisted state from document.cookie.
     defaultOpen: !defaultDocument?.cookie.includes(`${SIDEBAR_COOKIE_NAME}=false`),
     open: undefined,
   },
@@ -30,18 +31,18 @@ const emits = defineEmits<{
   'update:open': [open: boolean]
 }>()
 
-const isMobile = useMediaQuery('(max-width: 768px)') as unknown as ComputedRef<boolean>
+const isMobile = useMediaQuery('(max-width: 768px)')
 const openMobile = ref(false)
 
 const open = useVModel(props, 'open', emits, {
   defaultValue: props.defaultOpen ?? false,
   passive: (props.open === undefined) as false,
-}) as unknown as Ref<boolean>
+}) as Ref<boolean>
 
 function setOpen(value: boolean) {
   open.value = value // emits('update:open', value)
 
-  // This sets the cookie to keep the sidebar state.
+  // SPA adaptation: persist sidebar state via document.cookie (no Nuxt useCookie).
   document.cookie = `${SIDEBAR_COOKIE_NAME}=${open.value}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
 }
 

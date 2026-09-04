@@ -1,11 +1,9 @@
 import {
   assertCmsCallerConsistency,
   cmsCallerFromConvexAuthIdentity,
-  cmsMcpConvexAuthIssuer,
   cmsAnonymousCaller,
   cmsMcpCaller,
   cmsUserCaller,
-  getCmsComponentForwardingKey,
   getExpectedCmsCallerSubject,
 } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import { describe, expect, it } from 'vitest'
@@ -21,10 +19,20 @@ describe('cms caller helpers', () => {
       userId: 'user_123',
       subject: 'user:user_123',
     })
-    expect(cmsMcpCaller('key_123')).toEqual({
+    expect(
+      cmsMcpCaller({
+        issuer: 'https://auth.example.test',
+        userId: 'user_123',
+        clientId: 'client_123',
+        scopes: ['cms.read'],
+      }),
+    ).toEqual({
       kind: 'mcp',
-      mcpKeyId: 'key_123',
-      subject: 'agent:key_123',
+      issuer: 'https://auth.example.test',
+      userId: 'user_123',
+      clientId: 'client_123',
+      scopes: ['cms.read'],
+      subject: 'agent:https%3A%2F%2Fauth.example.test:user_123:client_123',
     })
   })
 
@@ -40,10 +48,13 @@ describe('cms caller helpers', () => {
     expect(
       getExpectedCmsCallerSubject({
         kind: 'mcp',
-        mcpKeyId: 'key_123',
-        subject: 'agent:key_123',
+        issuer: 'https://auth.example.test',
+        userId: 'user_123',
+        clientId: 'client_123',
+        scopes: ['cms.read'],
+        subject: 'agent:https%3A%2F%2Fauth.example.test:user_123:client_123',
       }),
-    ).toBe('agent:key_123')
+    ).toBe('agent:https%3A%2F%2Fauth.example.test:user_123:client_123')
   })
 
   it('rejects callers whose subject does not match their identity fields', () => {
@@ -58,45 +69,21 @@ describe('cms caller helpers', () => {
     expect(() =>
       assertCmsCallerConsistency({
         kind: 'mcp',
-        mcpKeyId: 'key_123',
+        issuer: 'https://auth.example.test',
+        userId: 'user_123',
+        clientId: 'client_123',
+        scopes: ['cms.read'],
         subject: 'agent:other_key',
       }),
-    ).toThrow('CMS MCP caller subject must match the mcpKeyId.')
+    ).toThrow('CMS MCP caller subject must match its verified OAuth identity.')
   })
 
-  it('maps Convex admin MCP identities back to MCP callers', () => {
-    expect(
-      cmsCallerFromConvexAuthIdentity({
-        subject: 'key_123',
-        issuer: cmsMcpConvexAuthIssuer,
-      }),
-    ).toEqual(cmsMcpCaller('key_123'))
+  it('maps Convex auth identities to user callers', () => {
     expect(
       cmsCallerFromConvexAuthIdentity({
         subject: 'user_123',
-        issuer: 'https://auth.example.test',
         email: 'editor@example.test',
       }),
     ).toEqual(cmsUserCaller('user_123', { email: 'editor@example.test' }))
-  })
-
-  it('resolves component forwarding keys from explicit env objects', () => {
-    expect(() => getCmsComponentForwardingKey({})).toThrow(
-      'Ginko CMS component forwarding requires CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY.',
-    )
-    expect(
-      getCmsComponentForwardingKey({
-        CONVEX_IDENTITY_FORWARDING_KEY: ' convex-key ',
-        GINKO_CMS_COMPONENT_FORWARDING_KEY: 'ginko-key',
-      }),
-    ).toBe('convex-key')
-    expect(
-      getCmsComponentForwardingKey({
-        GINKO_CMS_COMPONENT_FORWARDING_KEY: ' ginko-key ',
-      }),
-    ).toBe('ginko-key')
-    expect(getCmsComponentForwardingKey({ VITEST: 'true' })).toBe(
-      'test-ginko-cms-component-forwarding-key',
-    )
   })
 })

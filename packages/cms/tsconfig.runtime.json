@@ -2,7 +2,6 @@
   "extends": "../../playground/.nuxt/tsconfig.app.json",
   "include": [
     "../../playground/.nuxt/nuxt.d.ts",
-    "../../playground/.nuxt/types/ginko-cms-public-contract.d.ts",
     "./src/runtime/**/*.ts",
     "./src/runtime/**/*.vue",
     "./src/public/**/*.ts",

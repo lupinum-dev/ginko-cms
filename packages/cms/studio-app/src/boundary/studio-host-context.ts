@@ -1,34 +1,19 @@
-import type { ConvexClient } from 'convex/browser'
+import type { BetterConvexAttachment } from '@lupinum/better-convex-vue/embedded'
 import { hasInjectionContext, inject, type InjectionKey } from 'vue'
 
 import { readHostBridge, type HostBridge } from './host-bridge'
 
 export interface StudioHostContext {
   getBridge: () => HostBridge
-  getConvexClient: () => ConvexClient | undefined
-  requireConvexClient: () => ConvexClient
+  attachment: BetterConvexAttachment
 }
 
 export const studioHostContextKey: InjectionKey<StudioHostContext> = Symbol('ginko-cms.studioHost')
 
 export function createStudioHostContext(getBridge: () => HostBridge = readHostBridge) {
-  const getConvexClient = () => {
-    const bridge = getBridge()
-    return bridge.nuxtApp?.$convex as ConvexClient | undefined
-  }
-
   return {
     getBridge,
-    getConvexClient,
-    requireConvexClient() {
-      const convex = getConvexClient()
-      if (!convex) {
-        throw new Error(
-          'Studio Convex client is unavailable. Refresh after the host finishes loading.',
-        )
-      }
-      return convex
-    },
+    attachment: getBridge().attachment,
   } satisfies StudioHostContext
 }
 

@@ -28,7 +28,14 @@ function mountEditor() {
   return mount(Host, {
     global: {
       stubs: {
+        Button: { template: '<button><slot /></button>' },
+        Input: { template: '<input />' },
         Label: { template: '<label><slot /></label>' },
+        StudioFieldShell: {
+          props: ['error'],
+          template: '<label><slot /><span v-if="error">{{ error }}</span></label>',
+        },
+        Switch: { template: '<input type="checkbox" />' },
         Textarea: defineComponent({
           props: { modelValue: String },
           emits: ['update:modelValue'],

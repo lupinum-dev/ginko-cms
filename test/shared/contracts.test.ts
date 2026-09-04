@@ -8,7 +8,10 @@ import {
   jsonObjectValidator,
   jsonValueValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
+import {
+  cmsPermissionKeys,
+  mcpDelegatedScopeKeys,
+} from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { describe, expect, it } from 'vitest'
 
 function validatorFields(validator: unknown): Record<string, unknown> {
@@ -53,11 +56,15 @@ describe('shared contracts', () => {
       manageSettings: 'cms.settings.manage',
       manageMembers: 'cms.members.manage',
       manageAssets: 'cms.assets.manage',
+      manageAssetRecovery: 'cms.assetRecovery.manage',
+      managePortability: 'cms.portability.manage',
     })
+    expect(mcpDelegatedScopeKeys).toEqual(['cms.read', 'cms.entries.edit'])
   })
 
   it('exports shared editor schemas with explicit public args and MCP labels', () => {
     expect(Object.keys(validatorFields(createEntry.args)).sort()).toEqual([
+      'bodyMdc',
       'collection',
       'locale',
       'localized',
@@ -66,6 +73,7 @@ describe('shared contracts', () => {
       'parentEntryId',
       'shared',
       'slug',
+      'stagedAssetIds',
     ])
     expect(Object.keys(validatorFields(publishEntry.args)).sort()).toEqual([
       'entryId',
@@ -97,6 +105,11 @@ describe('shared contracts', () => {
       expect(validator.kind).toBe('union')
       expect(validator.members?.some((member) => validatorShape(member).kind === 'null')).toBe(true)
     }
+
+    const relationObject = relationValidator.members?.find(
+      (member) => validatorShape(member).kind === 'object',
+    )
+    expect(Object.keys(validatorFields(relationObject)).sort()).toEqual(['collection', 'multiple'])
   })
 
   it('keeps route diagnostic codes accepted by visibility diagnostics', () => {

@@ -45,65 +45,32 @@ export interface CollectionConfig {
   settings?: JsonValue
 }
 
-export interface SiteI18nEntry {
-  name?: string
-  description?: string
+export interface CmsEditorialLayout {
+  collections: Record<
+    string,
+    {
+      label?: LocaleText
+      icon?: string
+      fields: Record<
+        string,
+        {
+          label?: LocaleText
+          description?: string | null
+          hidden?: boolean
+          width?: 'full' | 'half'
+        }
+      >
+    }
+  >
 }
 
 export interface ModuleOptions {
   /** Route where the studio admin UI is mounted (default: '/studio') */
   route: string
-  /** Directory of JSON collection definitions, relative to the Nuxt root. */
-  collectionsDir?: string
-  /**
-   * Content contract source. By default, ginko-cms derives collection
-   * contracts from `content.config.ts` when @lupinum/ginko-content is present.
-   * Set to false only for fully custom CMS integrations.
-   */
-  content?:
-    | false
-    | {
-        source?: 'auto' | 'ginko-content'
-        collections?: string[]
-        overrides?: Record<string, Partial<CollectionConfig>>
-      }
+  /** Presentation-only Studio layout keyed by resolved Content collection and field IDs. */
+  editorialLayout?: CmsEditorialLayout
   /** Enable client-side studio debug logging (defaults to dev only when unset) */
   debugStudio?: boolean
-  /** Internal mirror of @lupinum/ginko-content's global i18n translated-slug mode. */
-  contentTranslatedSlugs?: boolean
-  /** Content collection definitions */
-  collections: Record<string, CollectionConfig>
-  /** Default locale code (default: 'en') */
-  defaultLocale: string
-  /** Locale configuration */
-  locales: LocaleConfig[]
-  /** Search configuration */
-  search?: { enabled: boolean }
-  /** Site data blocks (business hours, banners) */
-  siteData?: { enabled: boolean }
-  /** Public content HTTP facade and static route generation. */
-  publicContent?: {
-    /**
-     * Expose published reads through Nitro HTTP routes for external consumers.
-     * - true uses /api/ginko/v1
-     * - { route } uses a custom base route
-     * @default false
-     */
-    api?: boolean | { route?: string }
-    prerender?: boolean
-    prerenderFailure?: 'error' | 'warn'
-  }
-  /** Form submissions */
-  forms?: { enabled: boolean }
-  /**
-   * Per-locale overrides for nuxt-site-config i18n keys (`nuxtSiteConfig.name`,
-   * `nuxtSiteConfig.description`). Falls back to `site.name` / `site.description`
-   * from `nuxt.config.ts` when a locale has no entry here.
-   *
-   * @example
-   * siteI18n: { de: { name: 'Acme', description: 'Schneller entwickeln.' } }
-   */
-  siteI18n?: Record<string, SiteI18nEntry>
   /** Studio sidebar appearance */
   sidebar?: {
     /**
@@ -121,4 +88,30 @@ export interface ModuleOptions {
    * registration.
    */
   mcp?: boolean
+  /**
+   * Draft preview wiring (EDT-10). The host app owns the preview page; the
+   * convention is a session-guarded, noindex route at
+   * `<route>/[collection]/[entryId]?locale=<code>` that renders the guarded
+   * `api.ginkoCms.draftPreview.getDraftPreview` result with the site's own
+   * body renderer. Studio links "Preview draft" there.
+   *
+   * Set `route: null` to hide draft-preview links in Studio when the host has
+   * no preview page.
+   *
+   * @default { route: '/preview' }
+   */
+  preview?: {
+    route?: string | null
+  }
+}
+
+/**
+ * Resolved exclusively from ResolvedContentContractV1 during module setup.
+ *
+ * @internal
+ */
+export type ResolvedModuleOptions = ModuleOptions & {
+  collections: Record<string, CollectionConfig>
+  defaultLocale: string
+  locales: LocaleConfig[]
 }

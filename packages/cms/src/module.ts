@@ -1,23 +1,30 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import {
+  assertResolvedContentContract,
+  hashCanonicalJson,
+  type JsonValue,
+  type ResolvedContentContractV1,
+} from '@lupinum/ginko-content/cms-contract'
 import {
   defineNuxtModule,
   addServerHandler,
   createResolver,
   addComponentsDir,
-  addTypeTemplate,
+  extendPages,
 } from '@nuxt/kit'
 import type { Nuxt, NuxtModule } from '@nuxt/schema'
-import { ConvexHttpClient } from 'convex/browser'
-import { anyApi } from 'convex/server'
 import { defu } from 'defu'
 
-import { resolveConfiguredCollections } from './module/collections.js'
-import { loadGinkoContentProviderName } from './module/content-contract.js'
-import { assertConvexBridgeInstalled } from './module/convex.js'
+import {
+  loadGinkoContentContract,
+  loadGinkoContentProviderName,
+  projectContractCollections,
+} from './module/content-contract.js'
+import { assertConvexSetupInstalled } from './module/convex.js'
 import {
   resolveLocaleSettings,
   assertI18nCompatibility,
@@ -25,11 +32,10 @@ import {
   syncConfiguredI18nDefaults,
 } from './module/i18n.js'
 import type { I18nModuleOptions } from './module/i18n.js'
-import type { ModuleOptions } from './module/options.js'
-import { registerStudioPages } from './module/pages.js'
-import { renderPublicContractTypes } from './module/public-contract.js'
+import type { ModuleOptions, ResolvedModuleOptions } from './module/options.js'
 import { buildPublicRuntimeCollections } from './module/runtime-config.js'
 import { createTailwindPlugin } from './module/tailwind.js'
+import { OPERATOR_CONVEX_TOKEN_ROUTE } from './server/utils/operator-token-contract.js'
 
 export type {
   FieldConfig,
@@ -41,10 +47,19 @@ export type {
 interface NuxtOptionsExt {
   ginkoCms?: Partial<ModuleOptions> | false
   i18n?: I18nModuleOptions
+  convex?:
+    | false
+    | (Record<string, unknown> & {
+        auth?:
+          | false
+          | (Record<string, unknown> & {
+              origin?: unknown
+            })
+      })
   colorMode?: {
     classSuffix?: string
   }
-  trellis?: Record<string, unknown>
+  routeRules?: Record<string, Record<string, unknown>>
   content?: {
     i18n?: {
       defaultLocale?: string
@@ -57,6 +72,7 @@ interface NuxtOptionsExt {
   runtimeConfig: {
     public: { ginkoCms?: Record<string, unknown> }
     ginkoCms?: Record<string, unknown>
+    content?: { contract?: ResolvedContentContractV1 }
   }
 }
 
@@ -71,57 +87,24 @@ interface NitroOptionsExt {
   publicAssets?: Array<{ baseURL: string; dir: string; maxAge?: number }>
 }
 
-type PublicContentApiOption = NonNullable<ModuleOptions['publicContent']>['api']
-
 const CMS_CONTENT_PROVIDER_NAME = 'cms'
 const CMS_CONTENT_PROVIDER_MODULE = '@lupinum/ginko-cms/nuxt-provider'
+const MODULE_OPTION_KEYS = new Set([
+  'route',
+  'editorialLayout',
+  'debugStudio',
+  'sidebar',
+  'mcp',
+  'preview',
+])
 
-function hasNuxtI18nModule(modules: unknown[] = []): boolean {
-  return modules.some((entry) => {
-    if (typeof entry === 'string') {
-      return entry === '@nuxtjs/i18n'
-    }
-
-    if (Array.isArray(entry) && typeof entry[0] === 'string') {
-      return entry[0] === '@nuxtjs/i18n'
-    }
-
-    return false
-  })
-}
-
-function inferLocaleOptions(options: ModuleOptions, nuxtOptions: NuxtOptionsExt): ModuleOptions {
-  if (options.locales.length > 0) return options
-
-  const contentI18n = nuxtOptions.content?.i18n
-  if (Array.isArray(contentI18n?.locales) && contentI18n.locales.length > 0) {
-    const defaultLocale = contentI18n.defaultLocale ?? options.defaultLocale
-    return {
-      ...options,
-      defaultLocale,
-      locales: contentI18n.locales.map((code) => ({
-        code,
-        isDefault: code === defaultLocale,
-        fallback: contentI18n.fallback?.[code]?.[0],
-      })),
-    }
+function assertModuleOptionKeys(input: object) {
+  for (const key of Object.keys(input)) {
+    if (MODULE_OPTION_KEYS.has(key)) continue
+    throw new Error(
+      `[ginko-cms] Unknown ginkoCms option "${key}". Collection, route, field, and locale policy must come from the resolved Ginko Content contract.`,
+    )
   }
-
-  const i18nLocales = nuxtOptions.i18n?.locales
-  if (Array.isArray(i18nLocales) && i18nLocales.length > 0) {
-    const defaultLocale = nuxtOptions.i18n?.defaultLocale ?? options.defaultLocale
-    return {
-      ...options,
-      defaultLocale,
-      locales: i18nLocales.map((locale) => ({
-        code: locale.code,
-        label: locale.label ?? locale.name,
-        isDefault: locale.code === defaultLocale,
-      })),
-    }
-  }
-
-  return options
 }
 
 async function assertGinkoContentSearchBoundary(rootDir: string, nuxtOptions: NuxtOptionsExt) {
@@ -134,10 +117,10 @@ async function assertGinkoContentSearchBoundary(rootDir: string, nuxtOptions: Nu
   if (provider !== CMS_CONTENT_PROVIDER_NAME) return
 
   const search = nuxtOptions.content?.search
-  if (search === false || search?.engine === 'cms') return
+  if (search === false || search?.engine === 'provider') return
 
   throw new Error(
-    `ginko-cms detected content.config.ts provider "${provider}", but content.search is not using the CMS search engine. Set \`content.search.engine\` to "cms" or set \`content.search\` to false. The default minisearch engine requires provider.searchSections, which the CMS provider intentionally does not expose.`,
+    `ginko-cms detected content.config.ts provider "${provider}", but content.search is not using the provider search engine. Set \`content.search.engine\` to "provider" or set \`content.search\` to false.`,
   )
 }
 
@@ -190,6 +173,7 @@ function readStudioAssetVersion(studioBundleDir: string): string {
       `[ginko-cms] Studio bundle entry "${mainJsPath}" is missing. Run \`pnpm --filter @lupinum/ginko-cms build\` before using the CMS module.${
         error instanceof Error ? ` ${error.message}` : ''
       }`,
+      { cause: error },
     )
   }
 
@@ -204,25 +188,31 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   defaults: {
     route: '/studio',
     debugStudio: undefined,
-    collections: {},
-    defaultLocale: 'en',
-    locales: [],
-    search: { enabled: false },
-    siteData: { enabled: false },
-    publicContent: {
-      api: false,
-      prerender: false,
-      prerenderFailure: 'error',
-    },
-    forms: { enabled: false },
     mcp: false,
   },
-  async setup(options, nuxt) {
+  async setup(moduleInput, nuxt) {
+    assertModuleOptionKeys(moduleInput)
+    const options = { ...moduleInput } as ResolvedModuleOptions
     const { resolve: moduleResolve } = createResolver(import.meta.url)
     const moduleOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
     registerCmsContentProvider(nuxt)
-    options = inferLocaleOptions(options, moduleOptions)
-    options.contentTranslatedSlugs = moduleOptions.content?.i18n?.translatedSlugs === true
+    const contentContract = moduleOptions.runtimeConfig.content?.contract
+      ? assertResolvedContentContract(moduleOptions.runtimeConfig.content.contract)
+      : await loadGinkoContentContract({
+          rootDir: nuxt.options.rootDir,
+        })
+    options.defaultLocale = contentContract.defaultLocale
+    options.locales = contentContract.locales.map((code) => ({
+      code,
+      isDefault: code === contentContract.defaultLocale,
+      fallback: contentContract.localeFallbacks[code]?.[0],
+    }))
+    options.collections = projectContractCollections(contentContract, options.editorialLayout)
+    const presentationContract = (options.editorialLayout ?? {
+      collections: {},
+    }) as unknown as JsonValue
+    const expectedContentHash = await hashCanonicalJson(contentContract as unknown as JsonValue)
+    const expectedPresentationHash = await hashCanonicalJson(presentationContract)
     const localeSettings = resolveLocaleSettings(options)
     const cmsRuntimeDir = moduleResolve('./runtime')
     const cmsPublicDir = moduleResolve('./public')
@@ -230,52 +220,44 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const cmsAuthDir = moduleResolve('./auth')
     const cmsPackageRoot = locatePackageRoot()
     const cmsStudioUiDir = resolve(cmsPackageRoot, 'studio-app/src/components/ui')
-    const studioRoute = options.route.replace(/\/$/, '')
     const mcpEnabled = options.mcp === true
-    options.collections = await resolveConfiguredCollections({
-      rootDir: nuxt.options.rootDir,
-      moduleOptions: options,
-      defaultLocale: localeSettings.defaultLocale,
-      locales: localeSettings.locales,
-    })
+    const studioRoute = options.route.replace(/\/$/u, '') || '/studio'
     await assertGinkoContentSearchBoundary(nuxt.options.rootDir, moduleOptions)
+
+    // Studio and its auth pages are identity-dependent. A prerendered anonymous
+    // shell bypasses Better Convex's request-scoped SSR auth and then shifts to
+    // the authenticated application after hydration.
+    nuxt.options.routeRules ??= {}
+    nuxt.options.routeRules[studioRoute] = {
+      ...nuxt.options.routeRules[studioRoute],
+      prerender: false,
+    }
+    nuxt.options.routeRules[`${studioRoute}/**`] = {
+      ...nuxt.options.routeRules[`${studioRoute}/**`],
+      prerender: false,
+    }
 
     nuxt.options.alias ??= {}
     nuxt.options.alias['#ginko-cms'] = cmsRuntimeDir
     nuxt.options.alias['#ginko-cms/editor'] = resolve(cmsRuntimeDir, 'editor')
     nuxt.options.alias['#ginko-cms-public'] = cmsPublicDir
 
-    const publicContractTemplate = addTypeTemplate({
-      filename: 'types/ginko-cms-public-contract.d.ts',
-      getContents: () => renderPublicContractTypes(options),
-    })
-    nuxt.options.alias['#ginko-cms-public-contract'] = publicContractTemplate.dst
-
     // i18n integration
     const i18nOptions = (moduleOptions.i18n ??= {})
     const appHasConfiguredLocales = hasConfiguredI18nLocales(i18nOptions)
-    const trellisOptions = defu(moduleOptions.trellis ?? {}, {
-      auth: {
-        enabled: true,
-        routeProtection: {
-          redirectTo: `${studioRoute}/auth/signin`,
-        },
-      },
-      permissions: {
-        query: 'ginkoCms/members.getAccessContext',
-      },
-    })
-    moduleOptions.trellis = trellisOptions
-
     if (appHasConfiguredLocales) {
       assertI18nCompatibility(i18nOptions, localeSettings)
       syncConfiguredI18nDefaults(i18nOptions, localeSettings)
     }
 
     // Convex backend wiring
-    await assertConvexBridgeInstalled(nuxt.options.rootDir, { repair: isNuxtPrepare() })
+    assertConvexSetupInstalled(nuxt.options.rootDir, { mcp: mcpEnabled })
 
-    const colorModeOptions = (moduleOptions.colorMode ??= {})
+    const colorModeOptions =
+      typeof moduleOptions.colorMode === 'object' && moduleOptions.colorMode !== null
+        ? (moduleOptions.colorMode as { classSuffix?: string })
+        : {}
+    ;(moduleOptions as NuxtOptionsExt).colorMode = colorModeOptions
     if (typeof colorModeOptions.classSuffix === 'string' && colorModeOptions.classSuffix !== '') {
       throw new Error(
         'ginko-cms requires colorMode.classSuffix to be "" so Tailwind dark utilities target the ".dark" class.',
@@ -291,7 +273,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const studioAssetBase = studioAssetVersion
       ? `/_ginko-cms-studio/${studioAssetVersion}`
       : '/_ginko-cms-studio'
-    nuxt.options.runtimeConfig.public.ginkoCms = defu(moduleOptions.runtimeConfig.public.ginkoCms, {
+    const publicCmsConfig = defu(moduleOptions.runtimeConfig.public.ginkoCms, {
       route: options.route,
       debugStudio: options.debugStudio,
       defaultLocale: localeSettings.defaultLocale,
@@ -301,6 +283,12 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       },
       mcp: {
         enabled: mcpEnabled,
+      },
+      // Draft preview convention (EDT-10): the host page renders guarded draft
+      // data at `<route>/[collection]/[entryId]?locale=…`; Studio builds its
+      // "Preview draft" links from this. `route: null` hides those links.
+      preview: {
+        route: options.preview?.route === undefined ? '/preview' : options.preview.route,
       },
       collections: buildPublicRuntimeCollections(options, localeSettings),
       // Where the host page (src/runtime/pages/studio-host.vue) loads the
@@ -312,7 +300,15 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         assetBase: studioAssetBase,
         devServer: studioDevServer,
       },
-    }) as typeof nuxt.options.runtimeConfig.public.ginkoCms
+    }) as Record<string, unknown>
+    // These hashes must describe the contract resolved above. Public runtime
+    // config may customize presentation-independent host settings, but it may
+    // not replace the write-gate identity with a second source of truth.
+    publicCmsConfig.contract = {
+      expectedContentHash,
+      expectedPresentationHash,
+    }
+    nuxt.options.runtimeConfig.public.ginkoCms = publicCmsConfig
 
     // Serve the SPA bundle (built by `pnpm studio:build`) as a Nitro public
     // asset under a versioned /_ginko-cms-studio/<hash> base. The host page
@@ -327,53 +323,36 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       })
     }
 
-    const publicApiBase = resolvePublicApiRoute(options.publicContent?.api)
-    if (publicApiBase) {
-      for (const endpoint of [
-        'page',
-        'list',
-        'nav',
-        'surround',
-        'search',
-        'sitemap',
-        'singleton',
-        'site-data',
-      ]) {
-        addServerHandler({
-          route: `${publicApiBase}/${endpoint}`,
-          handler: resolve(cmsServerDir, 'routes/public-api'),
-        })
-      }
-    }
-
-    if (options.publicContent?.prerender && !isTypecheck() && !isNuxtPrepare()) {
-      const hookNitroConfig = nuxt.hook as unknown as (
-        name: 'nitro:config',
-        callback: (
-          nitro: NitroOptionsExt & { prerender?: { routes?: string[] } },
-        ) => void | Promise<void>,
-      ) => void
-      hookNitroConfig('nitro:config', async (nitro) => {
-        const routes = await loadGinkoPrerenderRoutes({
-          isDev: nuxt.options.dev,
-          defaultLocale: localeSettings.defaultLocale,
-          collections: routeBackedCollectionNames(options.collections ?? {}),
-          collectionLocales: Object.fromEntries(
-            Object.entries(buildPublicRuntimeCollections(options, localeSettings)).map(
-              ([collection, config]) => [collection, config.locales],
-            ),
-          ),
-        }).catch((error) => {
-          if (options.publicContent?.prerenderFailure === 'warn') {
-            console.warn(
-              `[ginko-cms] failed to load CMS prerender routes: ${error instanceof Error ? error.message : String(error)}`,
-            )
-            return []
-          }
-          throw error
-        })
-        nitro.prerender ??= {}
-        nitro.prerender.routes = Array.from(new Set([...(nitro.prerender.routes ?? []), ...routes]))
+    addServerHandler({
+      route: OPERATOR_CONVEX_TOKEN_ROUTE,
+      method: 'post',
+      handler: resolve(cmsServerDir, 'routes/operator-convex-token'),
+    })
+    addServerHandler({
+      route: '/api/_ginko/portability/assets/:sha256/attempt',
+      method: 'post',
+      handler: resolve(cmsServerDir, 'routes/portability-asset-attempt'),
+    })
+    addServerHandler({
+      route: '/api/_ginko/portability/assets/:sha256',
+      method: 'put',
+      handler: resolve(cmsServerDir, 'routes/portability-asset-upload'),
+    })
+    addServerHandler({
+      route: '/api/_ginko/portability/assets/:holdId/download-attempt',
+      method: 'post',
+      handler: resolve(cmsServerDir, 'routes/portability-asset-download-attempt'),
+    })
+    addServerHandler({
+      route: '/api/_ginko/portability/assets/:holdId',
+      method: 'get',
+      handler: resolve(cmsServerDir, 'routes/portability-asset-download'),
+    })
+    if (mcpEnabled) {
+      addServerHandler({
+        route: '/api/_ginko/reviews/:reviewRequestId',
+        method: 'get',
+        handler: resolve(cmsServerDir, 'routes/review-interaction'),
       })
     }
 
@@ -399,58 +378,7 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     // consumer's own theme tokens, so nothing needs to be pushed onto
     // nuxt.options.css here.
 
-    if (mcpEnabled) {
-      addServerHandler({
-        middleware: true,
-        handler: resolve(cmsServerDir, 'middleware/mcp-auth'),
-      })
-
-      const mcpDiscoveryRoot = resolve(cmsServerDir, 'mcp')
-      ;(
-        nuxt as {
-          hook: (
-            name: string,
-            handler: (paths: {
-              tools: string[]
-              resources: string[]
-              prompts: string[]
-              handlers?: string[]
-            }) => void,
-          ) => void
-        }
-      ).hook(
-        'mcp:definitions:paths',
-        (paths: {
-          tools: string[]
-          resources: string[]
-          prompts: string[]
-          handlers?: string[]
-        }) => {
-          const handlers = (paths.handlers ??= [])
-          const toolDir = resolve(mcpDiscoveryRoot, 'tools')
-          const resourceDir = resolve(mcpDiscoveryRoot, 'resources')
-          const promptDir = resolve(mcpDiscoveryRoot, 'prompts')
-
-          if (!paths.tools.includes(toolDir)) {
-            paths.tools.push(toolDir)
-          }
-          if (!paths.resources.includes(resourceDir)) {
-            paths.resources.push(resourceDir)
-          }
-          if (!paths.prompts.includes(promptDir)) {
-            paths.prompts.push(promptDir)
-          }
-          if (!handlers.includes(mcpDiscoveryRoot)) {
-            handlers.push(mcpDiscoveryRoot)
-          }
-        },
-      )
-      const nitroOptions = ((nuxt.options as { nitro?: NitroOptionsExt }).nitro ??= {})
-      nitroOptions.experimental ??= {}
-      nitroOptions.experimental.asyncContext = true
-    }
-
-    // The website read API is provided by @lupinum/ginko through the active
+    // The website read API is provided by @lupinum/ginko-content through the active
     // content provider. ginko-cms does not auto-import public website-reader
     // composables into host apps.
     addComponentsDir({
@@ -459,80 +387,98 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       pathPrefix: false,
     })
 
-    // Register auth pages + the catchall studio host page. The host page
-    // mounts the SPA bundle served from /_ginko-cms-studio/ above; vue-router
-    // inside the SPA handles internal navigation, so Nuxt stays on this same
-    // catchall route as the user moves around the studio.
-    registerStudioPages(studioRoute, cmsAuthDir, cmsRuntimeDir)
+    // Ginko owns application pages even when the host has no pages directory.
+    // Force Nuxt's pages system on before extending its build-time route table;
+    // registering routes from a runtime plugin can deadlock initial SSR routing.
+    nuxt.options.pages = true
+    extendPages((pages) => {
+      const routes = [
+        ...(mcpEnabled
+          ? [
+              {
+                name: 'ginko-mcp-oauth-login',
+                path: '/oauth/login',
+                file: resolve(cmsAuthDir, 'pages/oauth-login.vue'),
+                meta: { layout: false },
+              },
+              {
+                name: 'ginko-mcp-oauth-consent',
+                path: '/oauth/consent',
+                file: resolve(cmsAuthDir, 'pages/oauth-consent.vue'),
+                meta: { layout: false },
+              },
+            ]
+          : []),
+        {
+          name: 'studio-auth-signin',
+          path: `${options.route.replace(/\/$/, '')}/auth/signin`,
+          file: resolve(cmsAuthDir, 'pages/signin.vue'),
+          meta: { layout: false },
+        },
+        {
+          name: 'studio-auth-register',
+          path: `${options.route.replace(/\/$/, '')}/auth/register`,
+          file: resolve(cmsAuthDir, 'pages/register.vue'),
+          meta: { layout: false },
+        },
+        {
+          name: 'studio-auth-recover',
+          path: `${options.route.replace(/\/$/, '')}/auth/recover`,
+          file: resolve(cmsAuthDir, 'pages/recover.vue'),
+          meta: { layout: false },
+        },
+        {
+          name: 'studio-auth-reset-password',
+          path: `${options.route.replace(/\/$/, '')}/auth/reset-password`,
+          file: resolve(cmsAuthDir, 'pages/reset-password.vue'),
+          meta: { layout: false },
+        },
+        {
+          name: 'studio-host',
+          path: `${options.route.replace(/\/$/, '')}/:slug(.*)*`,
+          file: resolve(cmsRuntimeDir, 'pages/studio-host.vue'),
+          meta: {
+            layout: false,
+            convexAuth: { redirectTo: `${options.route.replace(/\/$/, '')}/auth/signin` },
+          },
+        },
+      ]
 
-    // Only inject site-level i18n defaults when the host app already opted into
-    // translated site locales and explicitly provided CMS siteI18n overrides.
-    // The CMS should not turn a monolingual site into a translated app by default.
-    type SiteOpts = { name?: string; description?: string }
-    const nuxtOptsUnknown: unknown = nuxt.options
-    const nuxtSite = (nuxtOptsUnknown as Record<string, unknown>).site as SiteOpts | undefined
-    const defaultSiteName = nuxtSite?.name ?? ''
-    const defaultSiteDesc = nuxtSite?.description ?? ''
-    const siteI18nOverrides = options.siteI18n ?? {}
-
-    const shouldInjectSiteI18nDefaults =
-      appHasConfiguredLocales && Object.keys(siteI18nOverrides).length > 0
-
-    if (shouldInjectSiteI18nDefaults) {
-      nuxt.hook('build:before', () => {
-        const localesDir = join(nuxt.options.buildDir, 'ginko-cms', 'locales')
-        mkdirSync(localesDir, { recursive: true })
-
-        for (const locale of localeSettings.locales) {
-          const override = siteI18nOverrides[locale.code] ?? {}
-          const name = override.name ?? defaultSiteName
-          const description = override.description ?? defaultSiteDesc
-          if (!name && !description) continue
-          const messages: Record<string, string> = {}
-          if (name) messages.name = name
-          if (description) messages.description = description
-          writeFileSync(
-            join(localesDir, `${locale.code}.json`),
-            JSON.stringify({ nuxtSiteConfig: messages }, null, 2),
+      for (const route of routes) {
+        if (pages.some((page) => page.name === route.name)) {
+          throw new Error(
+            `@lupinum/ginko-cms cannot register route "${route.name}" because the host already uses that route name.`,
           )
         }
-
-        // Push as lowest-priority layer so app locale files always win.
-        // nuxt-i18n-micro reverses _layers before merging, so push() = lowest priority.
-        type MutableLayer = {
-          config: { rootDir: string }
-          configFile: string
-          cwd: string
-        }
-        const layersUnknown: unknown = nuxt.options._layers
-        const layers = layersUnknown as MutableLayer[]
-        const ginkoDefaultsDir = join(nuxt.options.buildDir, 'ginko-cms')
-        if (!layers.some((l) => l.config.rootDir === ginkoDefaultsDir)) {
-          layers.push({
-            config: { rootDir: ginkoDefaultsDir },
-            configFile: '',
-            cwd: ginkoDefaultsDir,
-          })
-        }
-      })
-    }
+        pages.push(route)
+      }
+    })
   },
   moduleDependencies(nuxt) {
     const nuxtOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
-    const userOptions =
+    const userOptions: Partial<ModuleOptions> =
       nuxtOptions.ginkoCms && typeof nuxtOptions.ginkoCms === 'object' ? nuxtOptions.ginkoCms : {}
     const studioRoute = (userOptions.route ?? '/studio').replace(/\/$/, '')
-    const trellisOptions = defu(nuxtOptions.trellis ?? {}, {
-      auth: {
-        enabled: true,
-        routeProtection: {
-          redirectTo: `${studioRoute}/auth/signin`,
-        },
-      },
-      permissions: {
-        query: 'ginkoCms/members.getAccessContext',
-      },
-    })
+
+    // Better Convex auth is off by default. Ginko cannot safely infer the
+    // deployment's public origin, so the host must opt in explicitly.
+    const hostConvex = nuxtOptions.convex
+    if (hostConvex === false) {
+      throw new Error(
+        'ginko-cms requires @lupinum/better-convex-nuxt. Remove the top-level `convex: false` option.',
+      )
+    }
+    const hostAuth = hostConvex && typeof hostConvex === 'object' ? hostConvex.auth : undefined
+    if (!hostAuth || typeof hostAuth !== 'object') {
+      throw new Error(
+        'Ginko CMS Studio requires an explicit `convex.auth` object with the public Nuxt `origin`.',
+      )
+    }
+    if (typeof hostAuth.origin !== 'string' || hostAuth.origin.trim().length === 0) {
+      throw new Error(
+        'Ginko CMS Studio requires `convex.auth.origin` to be the exact public Nuxt origin.',
+      )
+    }
 
     const dependencies: Record<
       string,
@@ -541,9 +487,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         defaults?: Record<string, unknown>
       }
     > = {
-      '@lupinum/trellis': {
-        defaults: trellisOptions,
-      },
       '@nuxtjs/color-mode': {
         version: '>=4.0.0',
         defaults: {
@@ -551,105 +494,17 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
         },
       },
     }
-    if (!hasNuxtI18nModule(nuxt.options.modules)) {
-      dependencies['nuxt-i18n-micro'] = {
-        version: '>=3.17.0',
-        defaults: {
-          autoDetectLanguage: false,
-          disablePageLocales: true,
-          localeCookie: null,
-          redirects: false,
-          translationDir: 'node_modules/.cache/ginko-cms/i18n-micro',
+
+    dependencies['@lupinum/better-convex-nuxt'] = {
+      defaults: {
+        auth: {
+          redirectTo: `${studioRoute}/auth/signin`,
         },
-      }
+      },
     }
-    if (userOptions.mcp === true) {
-      dependencies['@nuxtjs/mcp-toolkit'] = {
-        version: '>=0.16.1',
-        defaults: {},
-      }
-    }
+
     return dependencies
   },
 })
-
-function isTypecheck() {
-  return (
-    process.argv.some((arg) => arg.includes('typecheck')) ||
-    process.env.npm_lifecycle_event === 'typecheck'
-  )
-}
-
-function isNuxtPrepare() {
-  return (
-    process.argv.some((arg) => arg === 'prepare' || arg.endsWith('/prepare')) ||
-    process.env.npm_lifecycle_event === 'postinstall'
-  )
-}
-
-function resolvePublicApiRoute(api: PublicContentApiOption) {
-  if (!api) return null
-  const route = api === true ? '/api/ginko/v1' : (api.route ?? '/api/ginko/v1')
-  const normalized = route.startsWith('/') ? route : `/${route}`
-  return normalized.replace(/\/+$/, '')
-}
-
-function routeBackedCollectionNames(collections: ModuleOptions['collections']) {
-  return Object.entries(collections)
-    .filter(([, collection]) => (collection.routing?.mode ?? 'route') === 'route')
-    .map(([name]) => name)
-}
-
-export async function loadGinkoPrerenderRoutes(args: {
-  isDev: boolean
-  defaultLocale: string
-  collections: string[]
-  collectionLocales: Record<string, string[]>
-}) {
-  if (args.isDev) return []
-  const convexUrl = process.env.NUXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL
-  if (!convexUrl) {
-    throw new Error('Convex URL is not configured for Ginko prerender route generation.')
-  }
-  const client = new ConvexHttpClient(convexUrl)
-  const urls: Array<{
-    collection?: string
-    route?: { locale?: string; path?: string }
-  }> = []
-  for (const collection of args.collections) {
-    for (const locale of args.collectionLocales[collection] ?? [args.defaultLocale]) {
-      let cursor: string | null = null
-      do {
-        const sitemap = (await client.query(anyApi.ginkoCms.public.sitemap, {
-          collection,
-          locale,
-          cursor,
-        })) as {
-          urls?: Array<{ collection?: string; route?: { locale?: string; path?: string } }>
-          pageInfo?: { endCursor: string | null }
-        }
-        urls.push(...(sitemap.urls ?? []))
-        cursor = sitemap.pageInfo?.endCursor ?? null
-      } while (cursor)
-    }
-  }
-
-  return urls
-    .filter((entry) => {
-      const collection = entry.collection
-      const locale = entry.route?.locale
-      if (!collection || !locale) return false
-      const allowedLocales = args.collectionLocales[collection]
-      return !allowedLocales || allowedLocales.includes(locale)
-    })
-    .map((entry) => {
-      const route = entry.route
-      if (!route?.path) return null
-      const prefix = route.locale && route.locale !== args.defaultLocale ? `/${route.locale}` : ''
-      const routePath = route.path === '/' ? '' : route.path.replace(/\/+$/, '')
-      return `${prefix}${routePath}` || '/'
-    })
-    .filter((route): route is string => !!route)
-}
 
 export default ginkoCmsModule

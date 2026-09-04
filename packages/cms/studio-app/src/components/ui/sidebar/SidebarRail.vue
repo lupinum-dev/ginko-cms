@@ -8,21 +8,21 @@ const props = defineProps<{
   class?: HTMLAttributes['class']
 }>()
 
-const { toggleSidebar } = useSidebar()
+const { state, toggleSidebar } = useSidebar()
 </script>
 
 <template>
   <button
+    type="button"
     data-sidebar="rail"
     data-slot="sidebar-rail"
-    aria-label="Toggle Sidebar"
+    :aria-label="state === 'collapsed' ? 'Expand sidebar' : 'Collapse sidebar'"
     :tabindex="-1"
-    title="Toggle Sidebar"
     :class="
       cn(
-        'ginko:hover:after:bg-sidebar-border ginko:absolute ginko:inset-y-0 ginko:z-20 ginko:hidden ginko:w-4 ginko:-translate-x-1/2 ginko:transition-all ginko:ease-linear ginko:group-data-[side=left]:-right-4 ginko:group-data-[side=right]:left-0 ginko:after:absolute ginko:after:inset-y-0 ginko:after:left-1/2 ginko:after:w-[2px] ginko:sm:flex',
-        'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',
-        '[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize',
+        'ginko:absolute ginko:inset-y-0 ginko:z-20 ginko:hidden ginko:w-4 ginko:-translate-x-1/2 ginko:cursor-pointer ginko:outline-none ginko:group-data-[side=left]:-right-4 ginko:group-data-[side=right]:left-0 ginko:sm:flex',
+        'ginko:after:bg-sidebar-border ginko:after:absolute ginko:after:inset-y-3 ginko:after:left-1/2 ginko:after:w-[3px] ginko:after:-translate-x-1/2 ginko:after:scale-y-75 ginko:after:rounded-full ginko:after:opacity-0 ginko:after:transition-[opacity,scale] ginko:after:duration-150 ginko:after:ease-[cubic-bezier(0.2,0,0,1)]',
+        'ginko:hover:after:scale-y-100 ginko:hover:after:opacity-100 ginko:focus-visible:after:scale-y-100 ginko:focus-visible:after:opacity-100 ginko:active:after:scale-y-95',
         'ginko:hover:group-data-[collapsible=offcanvas]:bg-sidebar ginko:group-data-[collapsible=offcanvas]:translate-x-0 ginko:group-data-[collapsible=offcanvas]:after:left-full',
         'ginko:[[data-side=left][data-collapsible=offcanvas]_&]:-right-2',
         'ginko:[[data-side=right][data-collapsible=offcanvas]_&]:-left-2',

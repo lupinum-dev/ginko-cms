@@ -1,3 +1,5 @@
+import type { ConvexAuthStatus } from '@lupinum/better-convex-nuxt'
+import type { BetterConvexAttachment } from '@lupinum/better-convex-vue/embedded'
 import type {
   CollectionMode,
   CollectionType,
@@ -7,7 +9,10 @@ import type {
   LocaleText,
   SlugMode,
 } from '@lupinum/ginko-cms-contract/shared/types.js'
-import type { FunctionReference } from 'convex/server'
+import type { ComponentApi as GinkoCmsComponentApi } from '@lupinum/ginko-cms-convex/component'
+
+import type { GinkoCmsExpectedContractHashes } from './contract-compatibility.js'
+import type { StudioApiFromSurface, studioApiSurface } from './studio-api-surface.js'
 
 export interface GinkoCmsPublicConfig {
   route: string
@@ -17,148 +22,87 @@ export interface GinkoCmsPublicConfig {
   collections?: Record<string, CmsCollectionConfig>
   sidebar?: { dark?: boolean }
   mcp?: { enabled: boolean }
+  /**
+   * Build-time hashes of the Content contract and editorial presentation
+   * resolved by the host module. Studio compares these trusted host values to
+   * the installed contract before any write transport is allowed.
+   */
+  contract: GinkoCmsExpectedContractHashes
+  /**
+   * Draft preview route convention (EDT-10). Studio links "Preview draft" to
+   * `<route>/[collection]/[entryId]?locale=<code>` on the host origin; the
+   * host owns that page (session-guarded, noindex). `null` hides the links.
+   */
+  preview?: { route?: string | null }
   studio?: {
     assetBase?: string
     devServer?: string | null
   }
 }
 
-export interface GinkoCmsHostAuthEngine {
-  token: { value: string | null | undefined }
-  user: { value: unknown }
-  pending: { value: boolean }
-  isAuthenticated: { value: boolean }
-  isAnonymous: { value: boolean }
-  signOut: () => Promise<void> | void
-  awaitAuthReady?: () => Promise<unknown>
+/**
+ * The replacement-safe Convex client handle exposed by @lupinum/better-convex-nuxt's
+ * `useConvex()` (vNext §5.4) — exactly `query | mutation | action | onUpdate`,
+ * with a stable identity that survives primary-client replacement across
+ * sign-in/sign-out. The Studio host bridge carries this handle so the SPA never
+ * captures the raw, replaceable primary client.
+ *
+ * This public alias keeps Ginko's bridge vocabulary stable while using the
+ * canonical handle exported by @lupinum/better-convex-nuxt.
+ */
+export interface GinkoCmsStudioAuthSnapshot {
+  status: ConvexAuthStatus
+  pending: boolean
+  user: {
+    id: string
+    name: string | null
+    email: string | null
+    image: string | null
+  } | null
+  error: {
+    kind: 'authentication' | 'transport' | 'server' | 'unknown'
+    message: string
+    code?: string
+    status?: number
+    data?: unknown
+  } | null
 }
 
-type StudioQueryRef = FunctionReference<'query'>
-type StudioMutationRef = FunctionReference<'mutation'>
-
-export interface GinkoCmsStudioHostApi {
-  ginkoCms: {
-    assets: {
-      attachAssetsToEntry: StudioMutationRef
-      deleteAsset: StudioMutationRef
-      generateUploadUrl: StudioMutationRef
-      getAsset: StudioQueryRef
-      getAssetManagerData: StudioQueryRef
-      listColocatedAssets: StudioQueryRef
-      moveAsset: StudioMutationRef
-      previewDeleteAssetOperation: StudioMutationRef
-      previewPurgeAssetOperation: StudioMutationRef
-      purgeAsset: StudioMutationRef
-      registerAsset: StudioMutationRef
-      resolveAssetUrls: StudioQueryRef
-      restoreAsset: StudioMutationRef
-      updateAsset: StudioMutationRef
-    }
-    collections: {
-      getCollection: StudioQueryRef
-      listCollections: StudioQueryRef
-    }
-    imports: {
-      listImportRuns: StudioQueryRef
-    }
-    diagnostics: {
-      validatePublicRoutes: StudioQueryRef
-      explainPublicVisibility: StudioQueryRef
-      previewPublishImpact: StudioQueryRef
-      storageHygieneReport: StudioQueryRef
-    }
-    editor: {
-      archiveEntry: StudioMutationRef
-      createCheckpoint: StudioMutationRef
-      createEntry: StudioMutationRef
-      createLocaleVariant: StudioMutationRef
-      deleteEntry: StudioMutationRef
-      getDraftVsPublishedDiff: StudioQueryRef
-      getEntry: StudioQueryRef
-      getEntryActivity: StudioQueryRef
-      getStudioOverview: StudioQueryRef
-      getVersionDiff: StudioQueryRef
-      getVersionSnapshot: StudioQueryRef
-      listActivity: StudioQueryRef
-      listEntrySummaries: StudioQueryRef
-      listEntries: StudioQueryRef
-      listEntriesForStudio: StudioQueryRef
-      listVersions: StudioQueryRef
-      previewArchiveEntryOperation: StudioMutationRef
-      previewDeleteEntryOperation: StudioMutationRef
-      previewPublishEntryOperation: StudioMutationRef
-      previewRollbackVersionOperation: StudioMutationRef
-      previewUnpublishEntryOperation: StudioMutationRef
-      publishEntry: StudioMutationRef
-      reparentEntry: StudioMutationRef
-      reorderEntry: StudioMutationRef
-      rollbackVersion: StudioMutationRef
-      saveEntryDraft: StudioMutationRef
-      unpublishEntry: StudioMutationRef
-    }
-    mcpKeys: {
-      create: StudioMutationRef
-      list: StudioQueryRef
-      revoke: StudioMutationRef
-    }
-    members: {
-      addMember: StudioMutationRef
-      bootstrapCmsOwner: StudioMutationRef
-      getAccessContext: StudioQueryRef
-      listMembers: StudioQueryRef
-      previewRemoveMemberOperation: StudioMutationRef
-      removeMember: StudioMutationRef
-      updateMemberRole: StudioMutationRef
-    }
-    public: {
-      list: StudioQueryRef
-      nav: StudioQueryRef
-      page: StudioQueryRef
-      search: StudioQueryRef
-      singleton: StudioQueryRef
-      sitemap: StudioQueryRef
-      siteData: StudioQueryRef
-      surround: StudioQueryRef
-    }
-    revalidation: {
-      listRevalidationJobs: StudioQueryRef
-      listRevalidationTargets: StudioQueryRef
-      previewRetryRevalidationJobOperation: StudioMutationRef
-      retryRevalidationJob: StudioMutationRef
-      upsertRevalidationTarget: StudioMutationRef
-    }
-    settings: {
-      getSettings: StudioQueryRef
-      getStudioSettings: StudioQueryRef
-      updateSettings: StudioMutationRef
-    }
-    siteData: {
-      createSiteDataBlock: StudioMutationRef
-      deleteSiteDataBlock: StudioMutationRef
-      getSiteDataBlock: StudioQueryRef
-      listSiteData: StudioQueryRef
-      previewDeleteSiteDataBlockOperation: StudioMutationRef
-      saveSiteData: StudioMutationRef
-      updateSiteDataBlock: StudioMutationRef
-    }
-  }
+/** Plain observer boundary; never carries Vue refs, cookies, auth controls, or tokens. */
+export interface GinkoCmsStudioHostBridgeAuth {
+  snapshot: () => GinkoCmsStudioAuthSnapshot
+  subscribe: (listener: () => void) => () => void
 }
+
+/**
+ * The Studio host API allowlist, derived mechanically from the single
+ * {@link studioApiSurface} descriptor (vNext §10.7). Every group / function /
+ * operation kind lives in `studio-api-surface.ts`; this type is only its
+ * projection into `FunctionReference`s. `buildStudioHostApi()` constructs a
+ * picked runtime object from the same descriptor, so the bridge type and the
+ * runtime object can never drift, and no un-listed backend function can appear
+ * on either.
+ */
+export type GinkoCmsStudioHostApi = StudioApiFromSurface<
+  typeof studioApiSurface,
+  GinkoCmsComponentApi
+>
 
 export interface GinkoCmsStudioHostBridge {
-  convexUrl: string
+  /** Frozen, token-free Better Convex attachment for the separately bundled SPA. */
+  attachment: BetterConvexAttachment
   config: GinkoCmsPublicConfig
-  getAuthToken: () => string | null | Promise<string | null>
+  api: GinkoCmsStudioHostApi
+  auth: GinkoCmsStudioHostBridgeAuth | null
   onSignOut: () => void | Promise<void>
-  nuxtApp?: Record<string, unknown>
-  api?: GinkoCmsStudioHostApi
-  auth?: Pick<
-    GinkoCmsHostAuthEngine,
-    'token' | 'user' | 'pending' | 'isAuthenticated' | 'isAnonymous'
-  > | null
 }
 
 export interface CmsStudioSettingsQueryResult {
   locales?: LocaleConfig[]
+  installedContentHash: string
+  installedPresentationHash: string
+  transitionState: 'ready' | 'locked'
+  transitionRunId: string | null
 }
 
 export interface CmsCollectionRouting {

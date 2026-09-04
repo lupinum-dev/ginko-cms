@@ -1,518 +1,373 @@
 /// <reference types="vite/client" />
 
+import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permissions.js'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
 import {
-  archiveEntry,
+  computePublishDraftHash,
+  publishCurrentDraft,
+} from '../../../packages/convex/src/entries/workflow/commands'
+import {
+  MAX_MDC_BODY_BYTES,
+  MAX_PUBLIC_LIST_PAYLOAD_BYTES,
+} from '../../../packages/convex/src/lib/contentLimits'
+import {
   createCtx,
-  previewArchiveEntry,
+  currentDraftVersion,
   previewPublishEntryWithArgs,
-  previewUnpublishEntry,
   publishEntry,
-  publishEntryWithArgs,
+  seedEditorFixture,
+  seedMultiLocaleSettings,
   seedOwner,
   seedSettings,
-  seedMultiLocaleSettings,
-  seedEditorFixture,
-  seedTreeFixture,
   unpublishEntry,
-  currentDraftVersion,
 } from './helpers'
 
 const api = anyApi
 
-describe('editor publish operations', () => {
-  it('publishes an entry and clears published state on unpublish', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
+function publicRowFor(rows: Array<Record<string, unknown>>, entryId: string, locale: string) {
+  return rows.find((row) => row.entryId === entryId && row.locale === locale)
+}
 
-    const owner = ctx.asCmsUser('owner-1')
-
-    const publishResult = await publishEntry(owner, entryId)
-
-    expect(publishResult).toMatchObject({
-      draftVersion: 1,
-      dirtyLocales: [],
-    })
-    expect(typeof publishResult.versionId).toBe('string')
-
-    const publishedEntry = await owner.query(api.editor.getEntry, {
-      id: entryId,
-      locale: 'en',
-    })
-    expect(publishedEntry?.status).toBe('published')
-    expect(publishedEntry?.localeData?.published?.values.title).toBe('Hello world')
-    expect(publishedEntry?.dirtyLocales).toEqual([])
-    const rawPublishedEntry = (await ctx.readAll('entries')).find(
-      (row: { _id: string }) => row._id === entryId,
-    )
-    expect(rawPublishedEntry?.latestRevisionId).toBe(publishResult.versionId)
-
-    const publishOutbox = (await ctx.readAll('outboxEvents')).filter(
-      (row: { type: string; status: string }) =>
-        row.type === 'content.revalidate' && row.status === 'pending',
-    )
-    expect(publishOutbox).toHaveLength(1)
-    expect(publishOutbox[0]).toMatchObject({
-      versionId: publishResult.versionId,
-      tags: expect.arrayContaining([
-        'collection:posts',
-        `entry:posts:${entryId}`,
-        `entry:posts:${entryId}:en`,
-        'nav:posts:en',
-        'search:en',
-        'sitemap',
-      ]),
-      paths: expect.arrayContaining(['/posts', '/posts/hello-world']),
-      attempts: 0,
-      lastError: null,
-    })
-
-    const publishedVersions = await owner.query(api.editor.listVersions, {
-      entryId,
-    })
-    expect(publishedVersions[0]).toMatchObject({
-      action: 'publish',
-      isCurrentPublished: true,
-      publishedLocales: ['en'],
-    })
-
-    const unpublishPreview = await previewUnpublishEntry(owner, entryId)
-    expect(unpublishPreview.allowed).toBe(true)
-    expect(unpublishPreview.summary).toContain('Hello world')
-    expect(unpublishPreview.warnings[0]?.message).toContain('en:')
-
-    await unpublishEntry(owner, entryId)
-
-    const unpublishedEntry = await owner.query(api.editor.getEntry, {
-      id: entryId,
-      locale: 'en',
-    })
-    expect(unpublishedEntry?.status).toBe('draft')
-    expect(unpublishedEntry?.published).toBeNull()
-    expect(unpublishedEntry?.localeData?.published).toBeNull()
-    expect(unpublishedEntry?.dirtyLocales).toEqual([])
-
-    const outboxAfterUnpublish = (await ctx.readAll('outboxEvents')).filter(
-      (row: { type: string }) => row.type === 'content.revalidate',
-    )
-    expect(outboxAfterUnpublish).toHaveLength(2)
-    const unpublishOutbox = outboxAfterUnpublish.find(
-      (row: { payload?: { reason?: string } }) => row.payload?.reason === 'unpublish',
-    )
-    expect(unpublishOutbox).toMatchObject({
-      status: 'pending',
-      payload: expect.objectContaining({
-        reason: 'unpublish',
-        collection: 'posts',
-        entryId,
-      }),
-      paths: expect.arrayContaining(['/posts', '/posts/hello-world']),
-    })
-
-    const versionsAfterUnpublish = await owner.query(api.editor.listVersions, {
-      entryId,
-    })
-    expect(versionsAfterUnpublish.map((version: { action: string }) => version.action)).toEqual([
-      'unpublish',
-      'publish',
-    ])
-  })
-
-  it('revalidates both old and new direct paths when a published route changes', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-    const owner = ctx.asCmsUser('owner-1')
-
-    await publishEntry(owner, entryId)
-    const entry = await owner.query(api.editor.getEntry, {
-      id: entryId,
-      locale: 'en',
-    })
-    await owner.saveEntryDraft({
-      entryId,
-      expectedDraftVersion: entry.draftVersion,
-      patch: {
-        shared: {
-          slug: 'hello-again',
-        },
-      },
-    })
-
-    const republishResult = await publishEntry(owner, entryId)
-
-    const outbox = (await ctx.readAll('outboxEvents')).find(
-      (row: { versionId?: string | null }) => row.versionId === republishResult.versionId,
-    )
-    expect(outbox).toMatchObject({
-      paths: expect.arrayContaining(['/posts', '/posts/hello-world', '/posts/hello-again']),
-    })
-  })
-
-  it('binds active public projections to the immutable published version', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    await publishEntry(owner, entryId)
-
-    const activeEntries = (await ctx.readAll('publicEntries')).filter(
-      (row: { entryId: string }) => row.entryId === entryId,
-    )
-    expect(activeEntries).toHaveLength(1)
-    expect(activeEntries[0]?.path).toBe('/posts/hello-world')
-    expect(activeEntries[0]?.revisionId).toBeTruthy()
-
-    const activeRoutes = (await ctx.readAll('publicRoutes')).filter(
-      (row: { entryId: string }) => row.entryId === entryId,
-    )
-    expect(activeRoutes).toHaveLength(1)
-    expect(activeRoutes[0]?.path).toBe('/posts/hello-world')
-    expect(activeRoutes[0]?.revisionId).toBe(activeEntries[0]?.revisionId)
-  })
-
-  it('stores bodyMdc as the authoring source and derives public body artifacts', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-    const entry = await owner.query(api.editor.getEntry, {
-      id: entryId,
-      locale: 'en',
-    })
-    await owner.saveEntryDraft({
-      entryId,
-      expectedDraftVersion: entry.draftVersion,
-      patch: {
-        locales: {
-          en: {
-            values: { title: 'Published body' },
-            bodyMdc: '# Published body\n\nVisible body text.',
-          },
-        },
-      },
-    })
-
-    const publishResult = await publishEntry(owner, entryId)
-
-    const publicRow = (await ctx.readAll('publicEntries')).find(
-      (row: { entryId: string }) => row.entryId === entryId,
-    )
-    expect(publicRow).toMatchObject({
-      entryId,
-      revisionId: publishResult.versionId,
-      bodyMdc: '# Published body\n\nVisible body text.',
-    })
-    expect(typeof publicRow?.bodyAst).toBe('string')
-    const publicBodyAst = JSON.parse(publicRow?.bodyAst as string)
-    expect(publicBodyAst).toMatchObject({ type: 'root' })
-    expect(publicBodyAst.children.length).toBeGreaterThan(0)
-    expect(publicRow?.searchText).toContain('Visible body text')
-
-    const revisionRow = (await ctx.readAll('entryRevisions')).find(
-      (row: { _id: string }) => row._id === publishResult.versionId,
-    )
-    expect(revisionRow?.snapshot.locales.en).toMatchObject({
-      bodyMdc: '# Published body\n\nVisible body text.',
-      searchText: expect.stringContaining('Visible body text'),
-    })
-    expect(revisionRow?.snapshot.locales.en).not.toHaveProperty('bodyAst')
-  })
-
-  it('does not rewrite active public projections when a draft is saved', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    await publishEntry(owner, entryId)
-
-    const beforeEntry = (await ctx.readAll('publicEntries')).find(
-      (row: { entryId: string }) => row.entryId === entryId,
-    )
-    const beforeRoute = (await ctx.readAll('publicRoutes')).find(
-      (row: { entryId: string }) => row.entryId === entryId,
-    )
-    expect(beforeEntry).toBeTruthy()
-    expect(beforeRoute).toBeTruthy()
-
-    const entry = await owner.query(api.editor.getEntry, {
-      id: entryId,
-      locale: 'en',
-    })
-    await owner.saveEntryDraft({
-      entryId,
-      expectedDraftVersion: entry.draftVersion,
-      patch: {
-        locales: {
-          en: {
-            values: { title: 'Draft-only title' },
-          },
-        },
-      },
-    })
-
-    const afterEntry = (await ctx.readAll('publicEntries')).find(
-      (row: { entryId: string }) => row.entryId === entryId,
-    )
-    const afterRoute = (await ctx.readAll('publicRoutes')).find(
-      (row: { entryId: string }) => row.entryId === entryId,
-    )
-
-    expect(afterEntry?._id).toBe(beforeEntry?._id)
-    expect(afterEntry?.title).toBe(beforeEntry?.title)
-    expect(afterRoute?._id).toBe(beforeRoute?._id)
-  })
-
-  it('rejects publish when the observed draft version is stale', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    await expect(
-      publishEntryWithArgs(owner, {
-        entryId,
-        locales: ['en'],
-        expectedVersion: 0,
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      const data = getCmsErrorData(error)
-      return (
-        data?.code === 'ENTRY_CONCURRENT_EDIT' &&
-        data.details?.expectedVersion === 0 &&
-        data.details?.currentVersion === 1 &&
-        data.details?.retryable === true
-      )
-    })
-  })
-
-  it('returns a structured error when publishing an unknown locale', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    await expect(
-      publishEntryWithArgs(owner, {
-        entryId,
-        expectedVersion: await currentDraftVersion(owner, entryId),
-        locales: ['de'],
-      }),
-    ).rejects.toSatisfy((error: unknown) => {
-      return getCmsErrorData(error)?.code === 'UNSUPPORTED_LOCALE'
-    })
-  })
-
-  it('archives a published entry through the shared transition flow', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { entryId } = await seedEditorFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    await publishEntry(owner, entryId)
-    const archivePreview = await previewArchiveEntry(owner, entryId)
-    expect(archivePreview.allowed).toBe(true)
-    expect(archivePreview.warnings[0]?.message).toContain('en:')
-
-    await archiveEntry(owner, entryId)
-
-    const archivedEntry = await owner.query(api.editor.getEntry, {
-      id: entryId,
-      locale: 'en',
-    })
-    expect(archivedEntry?.status).toBe('archived')
-    expect(archivedEntry?.published).toBeNull()
-    expect(archivedEntry?.localeData?.published).toBeNull()
-    expect(archivedEntry?.dirtyLocales).toEqual([])
-
-    const archiveOutbox = (await ctx.readAll('outboxEvents')).find(
-      (row: { payload?: { reason?: string } }) => row.payload?.reason === 'archive',
-    )
-    expect(archiveOutbox).toMatchObject({
-      paths: expect.arrayContaining(['/posts', '/posts/hello-world']),
-    })
-
-    const versions = await owner.query(api.editor.listVersions, { entryId })
-    expect(versions.map((version: { action: string }) => version.action)).toEqual([
-      'archive',
-      'publish',
-    ])
-  })
-
-  it('publishes child paths from published ancestry instead of draft ancestry', async () => {
-    const ctx = createCtx()
-    await seedOwner(ctx)
-    await seedSettings(ctx)
-    const { rootAId, childId } = await seedTreeFixture(ctx)
-
-    const owner = ctx.asCmsUser('owner-1')
-
-    await publishEntry(owner, rootAId)
-    await publishEntry(owner, childId)
-
-    const parent = await owner.query(api.editor.getEntry, {
-      id: rootAId,
-      locale: 'en',
-    })
-    await owner.saveEntryDraft({
-      entryId: rootAId,
-      expectedDraftVersion: parent.draftVersion,
-      patch: {
-        shared: {
-          slug: 'root-a-draft',
-        },
-      },
-    })
-
-    const child = await owner.query(api.editor.getEntry, {
-      id: childId,
-      locale: 'en',
-    })
-    await owner.saveEntryDraft({
-      entryId: childId,
-      expectedDraftVersion: child.draftVersion,
-      patch: {
-        locales: {
-          en: {
-            values: { title: 'Child updated' },
-          },
-        },
-      },
-    })
-    await publishEntry(owner, childId)
-
-    const childLocale = (await ctx.readAll('publicEntries')).find(
-      (row: { entryId: string; locale: string; path?: string | null }) =>
-        row.entryId === childId && row.locale === 'en',
-    )
-    expect(childLocale?.path).toBe('/docs/root-a/child')
-  })
-
-  it('rejects publishing when published ancestry would create a localized path conflict', async () => {
+describe('canonical publication lifecycle', () => {
+  it('[PUB-09] unpublishes one locale atomically without affecting another, then removes all remaining public discovery rows', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedMultiLocaleSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
+      entryId,
+      locale: 'de',
+      source: { kind: 'blank' },
+    })
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: 2,
+      patch: { locales: { de: { values: { title: 'Hallo Welt' } } } },
+    })
+    await publishEntry(owner, entryId, ['en', 'de'])
 
-    const now = Date.now()
-    await ctx.seed(
-      'collections' as never,
-      {
-        slug: 'docs',
-        label: { en: 'Docs' },
-        icon: null,
-        type: 'tree',
-        routing: {
-          pathPrefix: '/docs',
-          slugMode: 'localized',
-          rootSlug: null,
-          singleton: false,
-        },
-        locales: ['en', 'de'],
-        fields: [],
-        settings: { maxDepth: 4 },
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: 'owner-1',
-      } as never,
+    await unpublishEntry(owner, entryId, ['en'])
+    expect(await ctx.readAll('publicEntries')).toEqual([
+      expect.objectContaining({ entryId, locale: 'de' }),
+    ])
+    expect(await ctx.readAll('publicSearchEntries')).toEqual([
+      expect.objectContaining({ entryId, locale: 'de' }),
+    ])
+    expect((await ctx.readAll('entries'))[0]).toMatchObject({
+      activePublications: [expect.objectContaining({ locale: 'de' })],
+    })
+    expect((await ctx.readAll('entryRevisions')).at(-1)).toMatchObject({
+      kind: 'unpublish',
+      affectedLocales: ['en'],
+    })
+
+    await unpublishEntry(owner, entryId, ['de'])
+    expect(await ctx.readAll('publicEntries')).toEqual([])
+    expect((await ctx.readAll('entries'))[0]).toMatchObject({ activePublications: [] })
+  })
+
+  it('enforces the exact 64 KiB UTF-8 body boundary in drafts and publish previews', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const exactBody = 'é'.repeat(MAX_MDC_BODY_BYTES / 2)
+
+    await expect(
+      owner.saveEntryDraft({
+        entryId,
+        expectedDraftVersion: await currentDraftVersion(owner, entryId),
+        patch: { locales: { en: { bodyMdc: exactBody } } },
+      }),
+    ).resolves.toMatchObject({ draftVersion: 2 })
+
+    const oversizedBody = `${exactBody}x`
+    await expect(
+      owner.saveEntryDraft({
+        entryId,
+        expectedDraftVersion: await currentDraftVersion(owner, entryId),
+        patch: { locales: { en: { bodyMdc: oversizedBody } } },
+      }),
+    ).rejects.toSatisfy((error: unknown) => getCmsErrorData(error)?.code === 'ENTRY_BODY_TOO_LARGE')
+
+    await ctx.raw.run(async (inner) => {
+      const draft = await inner.db
+        .query('entryLocaleDrafts')
+        .withIndex('by_entry_locale', (query) =>
+          query.eq('entryId', entryId as never).eq('locale', 'en'),
+        )
+        .unique()
+      await inner.db.patch(draft!._id, { bodyMdc: oversizedBody })
+    })
+    const preview = await previewPublishEntryWithArgs(owner, {
+      entryId,
+      expectedVersion: await currentDraftVersion(owner, entryId),
+      locales: ['en'],
+    })
+    expect(preview.allowed).toBe(false)
+    expect(preview.blockers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'ENTRY_BODY_TOO_LARGE' })]),
     )
+  })
 
+  it('returns typed publish blockers before oversized derived or revision documents are written', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMultiLocaleSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
 
-    const parentId = await owner.createEntry({
-      collection: 'docs',
-      slug: 'parent',
-      localized: { title: 'Parent' },
-    })
-    await owner.mutation(api.editor.createLocaleVariant, { entryId: parentId, locale: 'de' })
-    const parent = await owner.query(api.editor.getEntry, { id: parentId, locale: 'de' })
-    await owner.saveEntryDraft({
-      entryId: parentId,
-      expectedDraftVersion: parent.draftVersion,
-      patch: {
-        locales: {
-          de: {
-            slug: 'live',
-          },
-        },
+    const payloadEntryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'oversized-public-payload',
+      localized: {
+        title: 'Oversized public payload',
+        description: 'x'.repeat(MAX_PUBLIC_LIST_PAYLOAD_BYTES),
       },
     })
-    await publishEntry(owner, parentId, ['de'])
-
-    const leftId = await owner.createEntry({
-      collection: 'docs',
-      parentEntryId: parentId,
-      slug: 'left',
-      localized: { title: 'Left' },
+    const payloadPreview = await previewPublishEntryWithArgs(owner, {
+      entryId: payloadEntryId,
+      expectedVersion: await currentDraftVersion(owner, payloadEntryId),
+      locales: ['en'],
     })
-    await owner.mutation(api.editor.createLocaleVariant, { entryId: leftId, locale: 'de' })
-    const left = await owner.query(api.editor.getEntry, { id: leftId, locale: 'de' })
-    await owner.saveEntryDraft({
-      entryId: leftId,
-      expectedDraftVersion: left.draftVersion,
-      patch: {
-        locales: {
-          de: {
-            slug: 'gemeinsam',
-          },
-        },
-      },
-    })
-    await publishEntry(owner, leftId, ['de'])
-
-    const rightId = await owner.createEntry({
-      collection: 'docs',
-      parentEntryId: parentId,
-      slug: 'right',
-      localized: { title: 'Right' },
-    })
-    await owner.mutation(api.editor.createLocaleVariant, { entryId: rightId, locale: 'de' })
-    const right = await owner.query(api.editor.getEntry, { id: rightId, locale: 'de' })
-    await owner.saveEntryDraft({
-      entryId: rightId,
-      expectedDraftVersion: right.draftVersion,
-      patch: {
-        locales: {
-          de: {
-            slug: 'gemeinsam',
-          },
-        },
-      },
-    })
-
-    const conflictPreview = await previewPublishEntryWithArgs(owner, {
-      entryId: rightId,
-      expectedVersion: await currentDraftVersion(owner, rightId),
-      locales: ['de'],
-    })
-
-    expect(conflictPreview.allowed).toBe(false)
-    expect(conflictPreview.blockers).toContainEqual(
-      expect.objectContaining({
-        code: 'publish-blocker',
-        message: expect.stringContaining('claimed by 2 public routes'),
-      }),
+    expect(payloadPreview.allowed).toBe(false)
+    expect(payloadPreview.blockers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'PUBLIC_PROJECTION_TOO_LARGE' })]),
     )
-    expect(conflictPreview.details.locales[0]?.blockingDiagnostics[0]?.code).toBe('route_collision')
+
+    const revisionEntryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'oversized-revision',
+      localized: { title: 'Oversized revision' },
+    })
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
+      entryId: revisionEntryId,
+      locale: 'de',
+      source: { kind: 'blank' },
+    })
+    await ctx.raw.run(async (inner) => {
+      const rows = await inner.db
+        .query('entryLocaleDrafts')
+        .withIndex('by_entry_locale', (query) => query.eq('entryId', revisionEntryId as never))
+        .collect()
+      for (const row of rows) {
+        await inner.db.patch(row._id, {
+          values: { title: `${row.locale} oversized revision`, description: 'y'.repeat(530_000) },
+        })
+      }
+    })
+    const revisionPreview = await previewPublishEntryWithArgs(owner, {
+      entryId: revisionEntryId,
+      expectedVersion: await currentDraftVersion(owner, revisionEntryId),
+      locales: ['en', 'de'],
+    })
+    expect(revisionPreview.allowed).toBe(false)
+    expect(revisionPreview.blockers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'REVISION_DOCUMENT_TOO_LARGE' })]),
+    )
+    expect(await ctx.readAll('entryRevisions')).toEqual([])
+    expect(await ctx.readAll('publicEntries')).toEqual([])
+  })
+
+  it('[LOC-04][PUB-07][PUB-08] publishes a new locale independently, retains the prior live revision during edits, and atomically replaces it on republish', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMultiLocaleSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
+      entryId,
+      locale: 'de',
+      source: { kind: 'blank' },
+    })
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: 2,
+      patch: { locales: { de: { values: { title: 'Hallo Welt' } } } },
+    })
+
+    const enPublish = await publishEntry(owner, entryId, ['en'])
+    const publicAfterEn = await ctx.readAll('publicEntries')
+    const enRow = publicRowFor(publicAfterEn, entryId, 'en')!
+    expect(enRow).toMatchObject({
+      entryId,
+      collection: 'posts',
+      locale: 'en',
+      revisionId: enPublish.versionId,
+      data: expect.objectContaining({ title: 'Hello world' }),
+    })
+    expect(enRow).not.toHaveProperty('bodyAst')
+    expect(publicRowFor(publicAfterEn, entryId, 'de')).toBeUndefined()
+
+    const dePublish = await publishEntry(owner, entryId, ['de'])
+    const publicAfterDe = await ctx.readAll('publicEntries')
+    expect(publicRowFor(publicAfterDe, entryId, 'en')).toEqual(enRow)
+    expect(publicRowFor(publicAfterDe, entryId, 'de')).toMatchObject({
+      revisionId: dePublish.versionId,
+      data: expect.objectContaining({ title: 'Hallo Welt' }),
+    })
+
+    const entryBeforeSharedEdit = (await ctx.readAll('entries'))[0]!
+    expect(entryBeforeSharedEdit.activePublications).toEqual([
+      expect.objectContaining({ locale: 'de', revisionId: dePublish.versionId }),
+      expect.objectContaining({ locale: 'en', revisionId: enPublish.versionId }),
+    ])
+    const publicBeforeSharedEdit = structuredClone(publicAfterDe)
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: entryBeforeSharedEdit.draftVersion,
+      patch: { shared: { shared: { featured: true } } },
+    })
+    expect(await ctx.readAll('publicEntries')).toEqual(publicBeforeSharedEdit)
+
+    const enRepublish = await publishEntry(owner, entryId, ['en'])
+    const entryAfterEnRepublish = (await ctx.readAll('entries'))[0]!
+    expect(entryAfterEnRepublish.activePublications).toEqual([
+      expect.objectContaining({ locale: 'de', revisionId: dePublish.versionId }),
+      expect.objectContaining({ locale: 'en', revisionId: enRepublish.versionId }),
+    ])
+  })
+
+  it('[LOC-05] publishes all ready locales through one revision and one atomic pointer update', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedMultiLocaleSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
+      entryId,
+      locale: 'de',
+      source: { kind: 'blank' },
+    })
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: 2,
+      patch: { locales: { de: { values: { title: 'Hallo Welt' } } } },
+    })
+    const result = await publishEntry(owner, entryId, ['en', 'de'])
+
+    const entry = (await ctx.readAll('entries'))[0]!
+    expect(entry.activePublications).toEqual([
+      expect.objectContaining({ locale: 'de', revisionId: result.versionId }),
+      expect.objectContaining({ locale: 'en', revisionId: result.versionId }),
+    ])
+    expect(await ctx.readAll('entryRevisions')).toEqual([
+      expect.objectContaining({
+        _id: result.versionId,
+        kind: 'publish',
+        affectedLocales: ['de', 'en'],
+        snapshots: { de: expect.any(Object), en: expect.any(Object) },
+      }),
+    ])
+    expect(await ctx.readAll('publicEntries')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ entryId, locale: 'de', revisionId: result.versionId }),
+        expect.objectContaining({ entryId, locale: 'en', revisionId: result.versionId }),
+      ]),
+    )
+  })
+
+  it('rejects execution when a confirmed publish preview becomes stale', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const args = { entryId, expectedVersion: 1, locales: ['en'] }
+    const preview = await owner.mutation(api.entries.publish.previewPublishEntryOperation, args)
+    expect(preview.allowed).toBe(true)
+    expect(preview.confirmation?.token).toEqual(expect.any(String))
+
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: 1,
+      patch: { locales: { en: { values: { title: 'Changed after preview' } } } },
+    })
+    await expect(
+      owner.mutation(api.entries.publish.publishEntryOperationExecute, {
+        ...args,
+        _confirmationToken: preview.confirmation.token,
+      }),
+    ).resolves.toMatchObject({ status: 'stale', code: 'ENTRY_CONCURRENT_EDIT' })
+    expect(await ctx.readAll('entryRevisions')).toEqual([])
+    expect(await ctx.readAll('publicEntries')).toEqual([])
+  })
+
+  it('[EDT-05][PUB-01] returns canonical readiness blockers in preview and rechecks them during execution', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'authors',
+      slug: 'missing-name',
+      localized: {},
+    })
+    const expectedVersion = await currentDraftVersion(owner, entryId)
+    const preview = await previewPublishEntryWithArgs(owner, {
+      entryId,
+      expectedVersion,
+      locales: ['en'],
+    })
+    expect(preview.allowed).toBe(false)
+    expect(preview.blockers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('Required field "name"') }),
+      ]),
+    )
+
+    await expect(
+      ctx.raw.run(async (inner) => {
+        const expectedDraftHash = await computePublishDraftHash(inner, {
+          entryId: entryId as never,
+          locales: ['en'],
+        })
+        return await publishCurrentDraft(inner, {
+          entryId: entryId as never,
+          locales: ['en'],
+          expectedDraftVersion: expectedVersion,
+          expectedDraftHash,
+          appIdentity: 'owner-1',
+        })
+      }),
+    ).rejects.toSatisfy((error: unknown) => getCmsErrorData(error)?.code === 'VALIDATION_ERROR')
+    expect(await ctx.readAll('entryRevisions')).toEqual([])
+    expect(await ctx.readAll('publicEntries')).toEqual([])
+  })
+
+  it('does not expose public-output mutations to MCP OAuth callers', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const now = Date.now()
+    await ctx.seed('mcpOAuthDelegations', {
+      oauthClientId: 'client-legacy-publish',
+      ownerUserId: 'owner-1',
+      label: 'legacy publish scope',
+      scopes: [
+        cmsPermissionKeys.read,
+        cmsPermissionKeys.editEntries,
+        cmsPermissionKeys.publishEntries,
+      ],
+      status: 'active',
+      createdBy: 'owner-1',
+      createdAt: now,
+      updatedBy: 'owner-1',
+      updatedAt: now,
+      revokedAt: null,
+    })
+    const agent = ctx.asMcpOAuth('client-legacy-publish', 'owner-1')
+
+    await expect(publishEntry(agent, entryId)).rejects.toThrow(/Publish entries/i)
+    expect(await ctx.readAll('entryRevisions')).toEqual([])
+    expect(await ctx.readAll('publicEntries')).toEqual([])
   })
 })

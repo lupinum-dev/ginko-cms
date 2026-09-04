@@ -30,6 +30,16 @@ export interface GinkoLocaleResolution<Locale extends string = string> {
   }
 }
 
+export interface GinkoPublicAssetFact {
+  fieldPath: string
+  assetId: string
+  url: string
+  expiresAt: number | null
+  mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+  bytes: number
+  sha256: string
+}
+
 export interface GinkoPublicEntry<
   Collection extends string = string,
   Data extends object = JsonMap,
@@ -51,6 +61,8 @@ export interface GinkoPublicEntry<
   publishedAt: string
   updatedAt: string
   revision: string
+  stableId: string
+  assetFacts: GinkoPublicAssetFact[]
 }
 
 export type GinkoPageResult<Entry, Locale extends string = string> =
@@ -90,6 +102,20 @@ export type GinkoPageResult<Entry, Locale extends string = string> =
 export interface GinkoPageInfo {
   hasNextPage: boolean
   endCursor: string | null
+}
+
+export interface GinkoRouteRecord {
+  collection: string
+  stableId: string
+  locale: string
+  path: string
+  sitemapIncluded: boolean
+  lastmod: string
+}
+
+export interface GinkoRoutesResult {
+  routes: GinkoRouteRecord[]
+  pageInfo: GinkoPageInfo
 }
 
 export interface GinkoListResult<Entry, Locale extends string = string> {

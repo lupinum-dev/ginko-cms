@@ -12,6 +12,7 @@ export function readModuleVersion(resolveFromModule: (path: string) => string): 
       `[ginko-cms] Failed to resolve package version for managed Convex files: ${
         error instanceof Error ? error.message : String(error)
       }`,
+      { cause: error },
     )
   }
 

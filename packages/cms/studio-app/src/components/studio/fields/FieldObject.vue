@@ -15,6 +15,7 @@ const props = defineProps<{
   showValidation?: boolean
   label: string
   fieldError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -23,13 +24,17 @@ const emit = defineEmits<{
 
 const value = computed({
   get: () => props.modelValue,
-  set: (v) => emit('update:modelValue', v),
+  set: (v) => {
+    if (props.disabled) return
+    emit('update:modelValue', v)
+  },
 })
 
 const nestedFields = computed(() => props.field.fields ?? [])
 const objectValue = computed(() => asFieldContext(value.value))
 
 function updateObjectField(fieldKey: string, nextValue: unknown) {
+  if (props.disabled) return
   value.value = {
     ...objectValue.value,
     [fieldKey]: nextValue,
@@ -38,23 +43,24 @@ function updateObjectField(fieldKey: string, nextValue: unknown) {
 </script>
 
 <template>
-  <div
-    class="ginko:col-span-full ginko:space-y-3 ginko:rounded-lg ginko:border ginko:p-4"
-    :class="fieldError ? 'ginko:border-destructive' : 'ginko:border-border/40'"
+  <FieldSet
+    class="ginko:col-span-full ginko:space-y-3 ginko:rounded-lg ginko:border ginko:border-border/40 ginko:p-4 ginko:aria-invalid:border-destructive"
+    :aria-invalid="fieldError ? true : undefined"
+    :data-invalid="fieldError ? true : undefined"
   >
     <div>
-      <Label class="ginko:text-sm">
+      <FieldLegend variant="label">
         {{ label }}
         <span v-if="field.required" class="ginko:text-destructive">*</span>
-      </Label>
-      <p v-if="field.description" class="ginko:text-xs ginko:text-muted-foreground">
+      </FieldLegend>
+      <FieldDescription v-if="field.description">
         {{ field.description }}
-      </p>
-      <p v-if="fieldError" class="ginko:text-xs ginko:text-destructive">
+      </FieldDescription>
+      <FieldError v-if="fieldError">
         {{ fieldError }}
-      </p>
+      </FieldError>
     </div>
-    <div class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-2">
+    <div class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:@3xl:grid-cols-2">
       <StudioFieldRenderer
         v-for="nestedField in nestedFields"
         :key="nestedField.key"
@@ -66,8 +72,9 @@ function updateObjectField(fieldKey: string, nextValue: unknown) {
         :errors="errors"
         :field-path="fieldPath ? `${fieldPath}.${nestedField.key}` : nestedField.key"
         :show-validation="showValidation"
+        :disabled="disabled"
         @update:model-value="updateObjectField(nestedField.key, $event)"
       />
     </div>
-  </div>
+  </FieldSet>
 </template>

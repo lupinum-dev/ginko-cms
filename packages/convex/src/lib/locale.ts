@@ -1,51 +1,57 @@
 import type { GinkoRoutingLocale } from '@lupinum/ginko-cms-contract/shared/routeDiagnostics.js'
 
+import { readInstalledCmsContract } from './installedContract.js'
 import type { ReadCtx } from './types.js'
 
 export async function getCmsSettings(ctx: ReadCtx) {
-  return await ctx.db
-    .query('cmsSettings')
-    .withIndex('by_key', (q) => q.eq('key', 'site'))
-    .first()
+  const installed = await readInstalledCmsContract(ctx)
+  if (!installed) return null
+  const { content, record } = installed
+  return {
+    locales: content.locales.map((code) => ({
+      code,
+      label: code,
+      ...(code === content.defaultLocale ? { isDefault: true } : {}),
+      ...(content.localeFallbacks[code]?.[0] ? { fallback: content.localeFallbacks[code][0] } : {}),
+    })),
+    updatedAt: record.installedAt,
+    updatedBy: record.installedBy,
+    installedContentHash: record.contentHash,
+    installedPresentationHash: record.presentationHash,
+    transitionState: record.transitionState,
+    transitionRunId: record.transitionRunId ?? null,
+  }
 }
 
 export async function getLocaleChain(
   ctx: ReadCtx,
   locale: string,
 ): Promise<{ locale: string; chain: string[]; defaultLocale: string }> {
-  const settings = await getCmsSettings(ctx)
-  const locales = settings?.locales ?? [{ code: locale, isDefault: true }]
-  const defaultLocale = locales.find((entry) => entry.isDefault)?.code ?? locales[0]?.code ?? locale
-  const seen = new Set<string>()
-  const chain: string[] = []
-  let current: string | undefined = locale
-
-  while (current && !seen.has(current)) {
-    seen.add(current)
-    chain.push(current)
-    current = locales.find((entry) => entry.code === current)?.fallback
+  const installed = await readInstalledCmsContract(ctx)
+  const contract = installed?.content
+  if (contract) {
+    return {
+      locale,
+      chain: Array.from(new Set([locale, ...(contract.localeFallbacks[locale] ?? [])])),
+      defaultLocale: contract.defaultLocale,
+    }
   }
-
-  if (!seen.has(defaultLocale)) {
-    chain.push(defaultLocale)
-  }
-
-  return { locale, chain, defaultLocale }
+  return { locale, chain: [locale], defaultLocale: locale }
 }
 
 export async function getRoutingLocales(
   ctx: ReadCtx,
   fallbackLocales: string[],
+  preferredDefaultLocale?: string,
 ): Promise<GinkoRoutingLocale[]> {
-  const settings = await getCmsSettings(ctx)
-  const configuredLocales = settings?.locales ?? []
+  const installed = await readInstalledCmsContract(ctx)
+  const configuredLocales = installed?.content.locales ?? []
   const defaultLocale =
-    configuredLocales.find((locale) => locale.isDefault)?.code ??
-    configuredLocales[0]?.code ??
+    preferredDefaultLocale ??
+    installed?.content.defaultLocale ??
+    configuredLocales[0] ??
     fallbackLocales[0]
-  const codes = configuredLocales.length
-    ? configuredLocales.map((locale) => locale.code)
-    : fallbackLocales
+  const codes = fallbackLocales.length ? fallbackLocales : configuredLocales
 
   return codes.map((code) => ({
     code,

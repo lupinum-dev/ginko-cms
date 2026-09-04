@@ -3,80 +3,48 @@ import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 
-const EMPTY_PARENT_VALUE = '__ginko_root__'
 const editor = useStudioEntryEditorContext()
-
-const isRouteBackedEntry = computed(
-  () =>
-    editor.loader.collectionConfig?.mode !== 'none' &&
-    editor.loader.collectionConfig?.routing?.mode !== 'none',
+// "Shared / applies to all languages" is schema vocabulary that only earns
+// its place when there are several languages (design review S2, principle 6).
+const hasMultipleLocales = computed(() => (editor.loader.locales?.length ?? 1) > 1)
+// Metadata-last (writing surface): this panel renders below the content and
+// disappears entirely when the hero absorbed every shared field and there is
+// no tree placement to manage.
+const hasContent = computed(
+  () => editor.loader.isTree || editor.loader.sharedDetailFields.length > 0,
 )
-const usesLocalizedSlug = computed(() => {
-  const mode =
-    editor.loader.collectionConfig?.slugMode ??
-    editor.loader.collectionConfig?.routing?.slugMode ??
-    'shared'
-  return mode === 'localized' || mode === 'localizedStable'
-})
 </script>
 
 <template>
   <StudioSection
-    title="Publishing details"
-    :badge="isRouteBackedEntry ? 'Public page' : 'Data-only'"
+    v-if="hasContent"
+    :title="
+      hasMultipleLocales
+        ? editor.loader.t('ginkoCms.studio.collectionEditor.sharedFields')
+        : editor.loader.t('ginkoCms.common.metadata')
+    "
+    :badge="
+      hasMultipleLocales
+        ? editor.loader.t('ginkoCms.studio.collectionEditor.appliesToAllLanguages')
+        : undefined
+    "
   >
     <div class="ginko:space-y-4">
-      <div v-if="isRouteBackedEntry && !usesLocalizedSlug" class="ginko:px-0 ginko:py-0">
-        <div
-          class="ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:md:grid-cols-2 ginko:xl:grid-cols-4"
-        >
-          <StudioFieldShell for="slug" label="Public URL">
-            <Input
-              id="slug"
-              v-model="editor.draft.form.slug"
-              class="ginko:font-mono ginko:text-sm"
-            />
-          </StudioFieldShell>
-          <StudioFieldShell for="computed-path" :label="editor.loader.t('ginkoCms.common.path')">
-            <Input
-              id="computed-path"
-              :model-value="editor.draft.computedPath"
-              disabled
-              class="ginko:font-mono ginko:text-sm ginko:text-muted-foreground"
-            />
-          </StudioFieldShell>
-        </div>
-        <p class="ginko:mt-1.5 ginko:text-[11px] ginko:leading-5 ginko:text-muted-foreground/70">
-          This URL slug is shared by every locale.
-        </p>
-      </div>
-
-      <div
-        v-else
-        class="ginko:rounded-lg ginko:border ginko:border-border/50 ginko:bg-background/45 ginko:px-4 ginko:py-3.5"
-      >
-        <div class="ginko:text-sm ginko:font-medium">
-          {{ isRouteBackedEntry ? 'Locale-specific URLs' : 'Data-only entry' }}
-        </div>
-        <p class="ginko:mt-1 ginko:text-xs ginko:leading-relaxed ginko:text-muted-foreground">
-          {{
-            isRouteBackedEntry
-              ? 'Each locale manages its URL in the locale content section below.'
-              : 'This collection does not create public routes. Public output comes from provider queries after publish.'
-          }}
-        </p>
-      </div>
-
-      <div
+      <fieldset
         v-if="editor.loader.isTree"
-        class="ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:md:grid-cols-4"
+        :disabled="!editor.loader.canEditEntries"
+        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-4 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-4"
       >
         <StudioFieldShell
           for="kind"
           :label="editor.loader.t('ginkoCms.studio.collectionEditor.kind')"
         >
-          <Select v-model="editor.draft.form.kind">
-            <SelectTrigger class="ginko:h-9">
+          <Select v-model="editor.draft.form.kind" :disabled="!editor.loader.canEditEntries">
+            <SelectTrigger
+              id="kind"
+              class="ginko:h-9"
+              :aria-label="editor.loader.t('ginkoCms.studio.collectionEditor.kind')"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -91,31 +59,17 @@ const usesLocalizedSlug = computed(() => {
           for="parent"
           :label="editor.loader.t('ginkoCms.studio.collectionEditor.parent')"
         >
-          <Select
-            :model-value="editor.draft.form.parentEntryId || EMPTY_PARENT_VALUE"
+          <StudioEntryParentPicker
+            :model-value="editor.draft.form.parentEntryId"
+            :collection="editor.loader.collection"
+            :locale="editor.loader.defaultLocale"
+            :exclude-entry-id="editor.loader.entryId"
+            :disabled="!editor.loader.canEditEntries"
             @update:model-value="
-              (value: string) => {
-                editor.draft.form.parentEntryId = value === EMPTY_PARENT_VALUE ? '' : String(value)
-              }
+              (value: string) => (editor.draft.form.parentEntryId = String(value))
             "
-          >
-            <SelectTrigger class="ginko:h-9">
-              <SelectValue :placeholder="editor.loader.t('ginkoCms.common.noneRoot')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="EMPTY_PARENT_VALUE">
-                {{ editor.loader.t('ginkoCms.common.noneRoot') }}
-              </SelectItem>
-              <SelectItem
-                v-for="parent in editor.loader.parentOptions"
-                :key="parent._id"
-                :value="parent._id"
-                :disabled="parent._id === editor.loader.entryId"
-              >
-                {{ parent.indent }}{{ parent.title }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+            @select="editor.loader.recordParentSelection"
+          />
         </StudioFieldShell>
         <StudioFieldShell
           for="icon"
@@ -124,6 +78,7 @@ const usesLocalizedSlug = computed(() => {
           <Input
             id="icon"
             v-model="editor.draft.form.icon"
+            :disabled="!editor.loader.canEditEntries"
             class="ginko:font-mono ginko:text-sm"
             :placeholder="editor.loader.t('ginkoCms.studio.collectionEditor.iconPlaceholder')"
           />
@@ -135,26 +90,29 @@ const usesLocalizedSlug = computed(() => {
           <Input
             id="badge"
             v-model="editor.draft.form.badge"
+            :disabled="!editor.loader.canEditEntries"
             :placeholder="editor.loader.t('ginkoCms.studio.collectionEditor.badgePlaceholder')"
           />
         </StudioFieldShell>
-      </div>
+      </fieldset>
 
-      <div
-        v-if="editor.loader.sharedFields.length > 0"
-        class="ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:md:grid-cols-2 ginko:xl:grid-cols-4"
+      <fieldset
+        v-if="editor.loader.sharedDetailFields.length > 0"
+        :disabled="!editor.loader.canEditEntries"
+        class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-2 ginko:@5xl:grid-cols-4"
       >
         <StudioFieldRenderer
-          v-for="field in editor.loader.sharedFields"
+          v-for="field in editor.loader.sharedDetailFields"
           :key="field.key"
           :field="field"
           :model-value="editor.draft.dataFields[field.key]"
           :context="editor.draft.editorContext"
           :locale="editor.loader.currentLocale"
           :asset-context="editor.draft.assetContext"
+          :disabled="!editor.loader.canEditEntries"
           @update:model-value="editor.draft.dataFields[field.key] = $event"
         />
-      </div>
+      </fieldset>
     </div>
   </StudioSection>
 </template>

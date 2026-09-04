@@ -63,6 +63,27 @@ function stubs() {
       template: '<input :value="modelValue" />',
     }),
     Label: { template: '<label><slot /></label>' },
+    StudioAssetBrowser: defineComponent({
+      name: 'StudioAssetBrowser',
+      props: {
+        acceptedTypes: Array,
+        assetContext: Object,
+        modelValue: [String, Array],
+        multiple: Boolean,
+      },
+      emits: ['update:modelValue', 'select-asset', 'close'],
+      template: `
+        <div data-testid="asset-browser">
+          <button data-testid="inspect" type="button">Inspect</button>
+          <button
+            data-testid="select"
+            type="button"
+            @click="$emit('update:modelValue', 'asset-stable-2'); $emit('select-asset', { _id: 'asset-stable-2', filename: 'hero.png', mimeType: 'image/png' })"
+          >Select</button>
+          <button data-testid="cancel" type="button" @click="$emit('close')">Cancel</button>
+        </div>
+      `,
+    }),
   }
 }
 
@@ -73,7 +94,7 @@ function mountPicker(props: Record<string, unknown> = {}) {
       kind: 'image',
       label: 'Avatar',
       assetContext: {
-        collectionSlug: 'authors',
+        collection: 'authors',
         locale: 'en',
       },
       ...props,
@@ -96,5 +117,35 @@ describe('StudioAssetPicker', () => {
     const wrapper = mountPicker({ showTrigger: false, open: false })
 
     expect(wrapper.find('[data-testid="studio-asset-picker-trigger"]').exists()).toBe(false)
+  })
+
+  it('[AST-04] returns only the chosen stable asset ID, preserves the field on browse/cancel, enforces type constraints, and denies disabled selection', async () => {
+    const wrapper = mountPicker({
+      accept: ['image/png'],
+      modelValue: 'asset-stable-1',
+      open: true,
+    })
+    const browser = wrapper.getComponent({ name: 'StudioAssetBrowser' })
+    expect(browser.props('acceptedTypes')).toEqual(['image/png'])
+
+    await wrapper.get('[data-testid="inspect"]').trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+
+    await wrapper.get('[data-testid="cancel"]').trigger('click')
+    expect(wrapper.emitted('update:open')).toEqual([[false]])
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+
+    await wrapper.setProps({ open: true })
+    await wrapper.get('[data-testid="select"]').trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toEqual([['asset-stable-2']])
+    expect(wrapper.emitted('select-asset')?.[0]?.[0]).toMatchObject({
+      _id: 'asset-stable-2',
+      mimeType: 'image/png',
+    })
+
+    const disabled = mountPicker({ disabled: true, modelValue: 'asset-stable-1', open: true })
+    await disabled.get('[data-testid="select"]').trigger('click')
+    expect(disabled.emitted('update:modelValue')).toBeUndefined()
+    expect(disabled.emitted('select-asset')).toBeUndefined()
   })
 })

@@ -10,7 +10,7 @@ export const toggleVariants = cva(
       variant: {
         default: 'ginko:bg-transparent',
         outline:
-          'ginko:border ginko:border-input ginko:bg-background/50 ginko:hover:bg-muted ginko:hover:text-foreground',
+          'ginko:border ginko:border-input ginko:bg-transparent ginko:shadow-xs ginko:hover:bg-accent ginko:hover:text-accent-foreground',
       },
       size: {
         default: 'ginko:h-9 ginko:px-2 ginko:min-w-9',
@@ -24,4 +24,5 @@ export const toggleVariants = cva(
     },
   },
 )
+
 export type ToggleVariants = VariantProps<typeof toggleVariants>

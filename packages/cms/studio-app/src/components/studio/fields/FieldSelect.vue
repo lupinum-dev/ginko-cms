@@ -24,13 +24,15 @@ const value = computed({
 </script>
 
 <template>
-  <div class="ginko:space-y-1.5">
-    <Label :for="field.key" class="ginko:text-sm">
-      {{ label }}
-      <span v-if="field.required" class="ginko:text-destructive">*</span>
-    </Label>
+  <StudioFieldShell
+    :for="field.key"
+    :label="label"
+    :required="field.required"
+    :description="field.description"
+    :error="fieldError"
+  >
     <Select v-model="value">
-      <SelectTrigger :class="fieldError ? 'ginko:border-destructive' : ''">
+      <SelectTrigger :id="field.key" :aria-invalid="fieldError ? true : undefined">
         <SelectValue :placeholder="label" />
       </SelectTrigger>
       <SelectContent>
@@ -42,11 +44,5 @@ const value = computed({
         </SelectItem>
       </SelectContent>
     </Select>
-    <p v-if="field.description" class="ginko:text-xs ginko:text-muted-foreground">
-      {{ field.description }}
-    </p>
-    <p v-if="fieldError" class="ginko:text-xs ginko:text-destructive">
-      {{ fieldError }}
-    </p>
-  </div>
+  </StudioFieldShell>
 </template>

@@ -14,13 +14,13 @@ const delegatedProps = reactiveOmit(props, 'class')
 <template>
   <DialogOverlay
     data-slot="dialog-overlay"
+    v-bind="delegatedProps"
     :class="
       cn(
-        'ginko:fixed ginko:inset-0 ginko:z-50 ginko:bg-black/45 ginko:backdrop-blur-sm ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+        'ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 ginko:fixed ginko:inset-0 ginko:z-50 ginko:bg-black/45 ginko:backdrop-blur-sm',
         props.class,
       )
     "
-    v-bind="delegatedProps"
   >
     <slot />
   </DialogOverlay>

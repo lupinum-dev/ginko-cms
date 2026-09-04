@@ -8,14 +8,14 @@ const requiredInstallTokens = [
   '@lupinum/ginko-content',
   '@lupinum/ginko-cms',
   '@lupinum/ginko-cms-convex',
-  '@convex-dev/better-auth',
+  '@lupinum/better-convex-nuxt',
   'better-auth',
 ]
 
 const forbiddenPhrases = [
   // The package README used to claim host apps should not install Convex,
-  // Trellis, Better Auth, or the CMS internal packages. The 1.0 install story
-  // is explicit: host apps own those dependencies.
+  // Trellis, Better Auth, better-convex-nuxt, or the CMS internal packages.
+  // The 1.0 install story is explicit: host apps own those dependencies.
   /Consumers should not install\s+`?convex`?,\s+Trellis,\s+Better Auth/i,
   /should not install[^.]*\bconvex\b[^.]*\bBetter Auth\b/i,
 ]
@@ -23,6 +23,29 @@ const forbiddenPhrases = [
 const docs = [
   { path: 'README.md', required: true, forbidsContradiction: true },
   { path: 'packages/cms/README.md', required: true, forbidsContradiction: true },
+  {
+    path: 'skills/ginko-cms/references/setup-and-env.md',
+    required: true,
+    forbidsContradiction: true,
+  },
+]
+
+const activeSetupDocs = [
+  '.gitignore',
+  'ARCHITECTURE.md',
+  'SECURITY.md',
+  'skills/ginko-cms/SKILL.md',
+  'skills/ginko-cms/references/setup-and-env.md',
+  'skills/ginko-cms/references/mcp-agent-workflows.md',
+  'skills/ginko-cms/references/repo-development.md',
+]
+
+const legacySetupPatterns = [
+  /@lupinum\/trellis(?:-bridge|-eslint)?/i,
+  /CONVEX_IDENTITY_FORWARDING_KEY/,
+  /GINKO_CMS_COMPONENT_FORWARDING_KEY/,
+  /ginkoCmsMcp\.ts/,
+  /trellis bridge generate/i,
 ]
 
 const canonicalDeployDocs = [
@@ -31,6 +54,20 @@ const canonicalDeployDocs = [
   'docs/getting-started/quickstart.md',
   'docs/getting-started/environment.md',
   'docs/maintenance/release-candidate.md',
+]
+
+const publicContentDocs = [
+  'docs/reference/public-content-api.md',
+  'docs/reference/nuxt-content-provider.md',
+  'skills/ginko-cms/references/public-content-and-provider.md',
+]
+
+const stalePublicContentPatterns = [
+  /useContentSearchResults\(/,
+  /content\.search\.engine\s*=\s*['"]cms['"]/,
+  /Ginko Content 0\.3 provider wire/,
+  /\{\s*v:\s*2,\s*collection/,
+  /Supports `page`, `query`, `navigation`, `navigationQuery`/,
 ]
 
 const oldSetupOrderPattern =
@@ -59,6 +96,17 @@ for (const doc of docs) {
   }
 }
 
+for (const docPath of activeSetupDocs) {
+  const contents = readFileSync(resolve(repoRoot, docPath), 'utf8')
+  for (const pattern of legacySetupPatterns) {
+    if (pattern.test(contents)) {
+      errors.push(
+        `${docPath}: active setup documentation contains legacy claim /${pattern.source}/`,
+      )
+    }
+  }
+}
+
 for (const docPath of canonicalDeployDocs) {
   const contents = readFileSync(resolve(repoRoot, docPath), 'utf8')
   if (!contents.includes('pnpm exec ginko-cms deploy')) {
@@ -69,11 +117,52 @@ for (const docPath of canonicalDeployDocs) {
   }
 }
 
+const quickstart = readFileSync(resolve(repoRoot, 'docs/getting-started/quickstart.md'), 'utf8')
+for (const command of [
+  'pnpm exec nuxt prepare',
+  'pnpm exec convex env set BETTER_AUTH_SECRETS',
+  "pnpm exec better-convex convex run auth:rotateSigningKey '{}'",
+  'pnpm exec ginko-cms doctor',
+]) {
+  if (!quickstart.includes(command)) {
+    errors.push(
+      `docs/getting-started/quickstart.md: missing required first-run command \`${command}\``,
+    )
+  }
+}
+
+const cmsPackage = JSON.parse(readFileSync(resolve(repoRoot, 'packages/cms/package.json'), 'utf8'))
+const cmsReadme = readFileSync(resolve(repoRoot, 'packages/cms/README.md'), 'utf8')
+for (const subpath of Object.keys(cmsPackage.exports ?? {})) {
+  const specifier = subpath === '.' ? cmsPackage.name : `${cmsPackage.name}/${subpath.slice(2)}`
+  if (!cmsReadme.includes(`\`${specifier}\``)) {
+    errors.push(`packages/cms/README.md: missing public subpath \`${specifier}\``)
+  }
+}
+if (cmsReadme.includes('`@lupinum/ginko-cms/convex/auth-config`')) {
+  errors.push(
+    'packages/cms/README.md: advertises nonexistent public subpath `@lupinum/ginko-cms/convex/auth-config`',
+  )
+}
+
+for (const docPath of publicContentDocs) {
+  const contents = readFileSync(resolve(repoRoot, docPath), 'utf8')
+  for (const pattern of stalePublicContentPatterns) {
+    if (pattern.test(contents)) {
+      errors.push(`${docPath}: public content documentation contains stale API /${pattern.source}/`)
+    }
+  }
+}
+
 const cliSource = [
   readFileSync(resolve(repoRoot, 'packages/cms/src/cli/ginko-cms.ts'), 'utf8'),
   readFileSync(resolve(repoRoot, 'packages/cms/src/cli/init.ts'), 'utf8'),
 ].join('\n')
-const cliRequiredTokens = ['@convex-dev/better-auth', 'better-auth', '@lupinum/ginko-cms-convex']
+const cliRequiredTokens = [
+  '@lupinum/better-convex-nuxt',
+  'better-auth',
+  '@lupinum/ginko-cms-convex',
+]
 for (const token of cliRequiredTokens) {
   if (!cliSource.includes(token)) {
     errors.push(`packages/cms/src/cli: CLI output must mention \`${token}\``)

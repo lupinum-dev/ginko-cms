@@ -1,3 +1,9 @@
+import {
+  isPublicSecretReferenceField,
+  redactSecretString,
+  redactedValue,
+  shouldRedactSecretField,
+} from '@public/utils/secretRedaction'
 import type { Editor, JSONContent } from '@tiptap/core'
 import type { ComputedRef, Ref } from 'vue'
 
@@ -28,6 +34,30 @@ export interface UseDebugExportOptions {
   }>
 }
 
+export function redactDebugValue(value: unknown, key = ''): unknown {
+  if (isPublicSecretReferenceField(key)) {
+    return value
+  }
+  if (shouldRedactSecretField(key)) {
+    return redactedValue
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => redactDebugValue(item))
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([entryKey, entryValue]) => [
+        entryKey,
+        redactDebugValue(entryValue, entryKey),
+      ]),
+    )
+  }
+  if (typeof value === 'string') {
+    return redactSecretString(value)
+  }
+  return value
+}
+
 export function useDebugExport(options: UseDebugExportOptions) {
   const events = getEditorDebugEvents()
 
@@ -35,7 +65,7 @@ export function useDebugExport(options: UseDebugExportOptions) {
     const currentTiptapJson = options.editor.value?.getJSON() || null
     const currentMarkdown = options.modelValue.value || ''
 
-    let mdcAst: MDCRoot | { error: string } | null = null
+    let mdcAst: MDCRoot | { error: string }
     let reconvertedTiptap: unknown = null
     let reconvertedMarkdown: null | string = null
     let tiptapToMdcAst: MDCRoot | { error: string } | null = null
@@ -64,7 +94,7 @@ export function useDebugExport(options: UseDebugExportOptions) {
       reconvertedTiptap = { error: String(error) }
     }
 
-    const debugData = {
+    const debugData = redactDebugValue({
       conversion: options.conversionDiagnostics.value,
       editor: {
         extensions:
@@ -100,7 +130,7 @@ export function useDebugExport(options: UseDebugExportOptions) {
         currentJson: currentTiptapJson,
       },
       version: 'debug-v2',
-    }
+    })
 
     if (typeof window === 'undefined') {
       return debugData

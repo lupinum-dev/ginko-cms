@@ -21,11 +21,13 @@ const value = computed({
 </script>
 
 <template>
-  <div class="ginko:space-y-1.5">
-    <Label :for="field.key" class="ginko:text-sm">
-      {{ label }}
-      <span v-if="field.required" class="ginko:text-destructive">*</span>
-    </Label>
+  <StudioFieldShell
+    :for="field.key"
+    :label="label"
+    :required="field.required"
+    :description="field.description"
+    :error="fieldError"
+  >
     <Input
       :id="field.key"
       v-model.number="value"
@@ -33,13 +35,7 @@ const value = computed({
       :min="field.min"
       :max="field.max"
       :step="field.step"
-      :class="fieldError ? 'ginko:border-destructive' : ''"
+      :aria-invalid="fieldError ? true : undefined"
     />
-    <p v-if="field.description" class="ginko:text-xs ginko:text-muted-foreground">
-      {{ field.description }}
-    </p>
-    <p v-if="fieldError" class="ginko:text-xs ginko:text-destructive">
-      {{ fieldError }}
-    </p>
-  </div>
+  </StudioFieldShell>
 </template>

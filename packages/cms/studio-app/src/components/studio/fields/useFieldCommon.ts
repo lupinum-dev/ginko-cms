@@ -29,14 +29,7 @@ export function asFieldContext(value: unknown): FieldContext {
   return {}
 }
 
-export function formatLabel(key: string): string {
-  return key
-    .replace(/Mdc$/, '')
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (s) => s.toUpperCase())
-    .replace(/[-_]/g, ' ')
-    .trim()
-}
+export { humanizeFieldKey as formatLabel } from '../../../lib/fieldLabel'
 
 export function getDefault(type: FieldType, fields?: FieldDefinition[]): JsonValue {
   switch (type) {

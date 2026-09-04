@@ -1,13 +1,21 @@
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 
 import { api } from '../boundary/api'
-import { useCmsConfig } from './useCmsConfig'
-import { useConvexQuery } from './useStudioConvex'
+import { useCmsStudioQuery } from './useCmsStudioQuery'
+import { useCmsStudioSettings } from './useCmsStudioSettings'
 
 // Studio-local search helper for the command palette.
 
+/** Shape shared by both search backends; all the palette needs to render. */
+export interface StudioSearchResultItem {
+  id: string
+  title?: string | null
+  collection: string
+  route: { slug: string; href: string }
+}
+
 export interface UseStudioSearchOptions {
-  collections?: string[]
+  collection?: MaybeRefOrGetter<string | undefined>
   locale?: string
   limit?: number
 }
@@ -16,30 +24,29 @@ export function useStudioSearch(
   query: MaybeRefOrGetter<string>,
   options: UseStudioSearchOptions = {},
 ) {
-  const config = useCmsConfig()
-  const locale = options.locale ?? config.defaultLocale ?? 'en'
+  const studioSettings = useCmsStudioSettings()
+  const locale = computed(() => options.locale ?? studioSettings.defaultLocale.value)
   const limit = options.limit ?? 10
-  const collections = options.collections?.length
-    ? Array.from(new Set(options.collections))
-    : undefined
+  const collection = computed(() => toValue(options.collection)?.trim() || undefined)
+  const trimmedQuery = computed(() => toValue(query)?.trim() ?? '')
 
-  const args = computed(() => {
-    const q = toValue(query)?.trim() ?? ''
-    if (!q) return null
-    return {
-      query: q,
-      locale,
-      ...(collections ? { collections } : {}),
-      limit,
-    }
-  })
-
-  const searchQuery = useConvexQuery(api.ginkoCms.public.search, args)
+  const searchArgs = computed(() =>
+    trimmedQuery.value
+      ? {
+          query: trimmedQuery.value,
+          locale: locale.value,
+          collection: collection.value,
+          limit,
+        }
+      : ('skip' as const),
+  )
+  const search = useCmsStudioQuery(api.ginkoCms.collections.searchStudioEntries, searchArgs)
 
   return {
-    ...searchQuery,
-    // Expose a compact result ref so command palette callers do not repeat
-    // `data.value ?? []`.
-    results: computed(() => searchQuery.data?.value ?? []),
+    pending: computed(() => search.pending.value),
+    error: computed(() => search.error.value),
+    results: computed<StudioSearchResultItem[]>(
+      () => (search.data.value ?? []) as StudioSearchResultItem[],
+    ),
   }
 }

@@ -1,5 +1,7 @@
 import type { GinkoCmsPublicConfig, GinkoCmsStudioHostBridge } from '@public/types'
 
+import { createDevelopmentHostBridge } from './development-host-bridge'
+
 // Contract between the host Nuxt page and the studio SPA. The host
 // (studio-host.vue) populates window.__GINKO_CMS__ during the page's
 // onBeforeMount hook, before this bundle's main.js is fetched. The module
@@ -7,25 +9,6 @@ import type { GinkoCmsPublicConfig, GinkoCmsStudioHostBridge } from '@public/typ
 // bridge; production must fail loudly if the Nuxt host did not attach one.
 
 export type HostBridge = GinkoCmsStudioHostBridge
-
-const STUB_CONFIG: GinkoCmsPublicConfig = {
-  route: '/studio',
-  defaultLocale: 'en',
-  locales: [
-    { code: 'en', label: 'English' },
-    { code: 'de', label: 'Deutsch' },
-  ],
-  collections: {},
-  sidebar: { dark: false },
-  mcp: { enabled: false },
-}
-
-const STUB_BRIDGE: HostBridge = {
-  convexUrl: '',
-  config: STUB_CONFIG,
-  getAuthToken: () => null,
-  onSignOut: () => {},
-}
 
 declare global {
   interface Window {
@@ -38,19 +21,21 @@ export function hasHostBridge(): boolean {
 }
 
 export function readHostBridge(): HostBridge {
-  if (typeof window === 'undefined') return STUB_BRIDGE
+  if (typeof window === 'undefined') {
+    if (import.meta.env.DEV) return createDevelopmentHostBridge()
+    throw new Error('Ginko CMS Studio host bridge is unavailable outside the browser.')
+  }
   const fromHost = window.__GINKO_CMS__
   if (!fromHost) {
-    if (import.meta.env.DEV) return STUB_BRIDGE
+    if (import.meta.env.DEV) return createDevelopmentHostBridge()
     throw new Error('Ginko CMS Studio host bridge is missing.')
   }
-  // Merge over the stub so a partially-populated host (e.g. config but no
-  // api yet) still has working defaults for the missing fields.
-  return {
-    ...STUB_BRIDGE,
-    ...fromHost,
-    config: fromHost.config ?? STUB_CONFIG,
+  for (const key of ['attachment', 'config', 'api', 'auth', 'onSignOut'] as const) {
+    if (!(key in fromHost)) {
+      throw new Error(`Ginko CMS Studio host bridge is missing ${key}.`)
+    }
   }
+  return fromHost
 }
 
 export function useHostBridge(): HostBridge {
@@ -59,10 +44,11 @@ export function useHostBridge(): HostBridge {
 
 export function setHostBridgeForTesting(next: Partial<HostBridge>): void {
   if (typeof window === 'undefined') return
+  const current = window.__GINKO_CMS__ ?? createDevelopmentHostBridge()
   window.__GINKO_CMS__ = {
-    ...readHostBridge(),
+    ...current,
     ...next,
-    config: next.config ?? readHostBridge().config,
+    config: next.config ?? current.config,
   }
 }
 

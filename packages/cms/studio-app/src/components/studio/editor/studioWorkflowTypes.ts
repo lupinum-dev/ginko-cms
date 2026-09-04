@@ -1,3 +1,11 @@
+import type {
+  AffectedPublicUrl,
+  EntryReadinessDetail,
+  EntryReadinessLocale,
+  ReadinessAction,
+  ReadinessIssue,
+} from '@lupinum/ginko-cms-contract/shared/readiness.js'
+
 export interface StudioWorkflowDiagnostic {
   code: string
   href?: string | null
@@ -40,18 +48,14 @@ export interface StudioPublicVisibilityState {
   status: string
 }
 
-export interface StudioRouteValidationState {
-  diagnostics: StudioWorkflowDiagnostic[]
-  hiddenDiagnosticCount: number
-  message: string
-  state: string
-}
-
 export interface StudioPublishImpactLocale {
   blockingDiagnostics: StudioWorkflowDiagnostic[]
   changes: Array<{
+    entryId?: string
     kind: string
     label: string
+    locale?: string
+    scope?: 'current_entry' | 'descendant'
     before: string | boolean | null
     after: string | boolean | null
   }>
@@ -63,6 +67,16 @@ export interface StudioPublishImpactLocale {
   nav: { before: boolean; after: boolean }
   nextHref: string | null
   nextPath: string | null
+  routeImpact: {
+    total: number | null
+    listed: number
+    hasMore: boolean
+    continueCursor: string | null
+    routeGeneration: number
+    impactHash: string
+    loading?: boolean
+    error?: string | null
+  }
   search: { before: boolean; after: boolean }
   sitemap: { before: boolean; after: boolean }
   status: string
@@ -82,16 +96,39 @@ export interface StudioPublishImpactState {
   status: string | null
 }
 
+export interface StudioPublishImpactResult {
+  blockingDiagnostics: StudioWorkflowDiagnostic[]
+  cacheTags: string[]
+  changes: StudioPublishImpactLocale['changes']
+  collection: string
+  entryId: string
+  events: string[]
+  locales: Array<
+    Omit<
+      StudioPublishImpactLocale,
+      'hiddenBlockerCount' | 'label' | 'visibleBlockers' | 'visibleWarnings'
+    >
+  >
+  mode: 'route' | 'none'
+  status: string
+  warnings: StudioWorkflowDiagnostic[]
+}
+
 export interface StudioPublishReviewState {
   blocked: boolean
   failed: boolean
   label: string
   locales: string[]
   message: string
-  previewHash: string | null
   stale: boolean
   state: string
 }
+
+export type StudioReadinessIssue = ReadinessIssue
+export type StudioReadinessAction = ReadinessAction
+export type StudioAffectedPublicUrl = AffectedPublicUrl
+export type StudioReadinessLocale = EntryReadinessLocale
+export type StudioEntryReadinessDetail = EntryReadinessDetail
 
 export interface StudioTranslationReadinessRow {
   draftPath: string | null
@@ -109,14 +146,14 @@ export interface StudioTranslationReadinessRow {
 
 const DIAGNOSTIC_LABELS: Record<string, string> = {
   invalid_entry_id: 'Invalid entry',
-  data_only_collection: 'Data-only collection',
+  data_only_collection: 'Shared data collection',
   entry_collection_mismatch: 'Entry collection mismatch',
-  unpublished_entry: 'Unpublished locale',
-  missing_locale_route: 'Missing locale route',
+  unpublished_entry: 'Unpublished language',
+  missing_locale_route: 'Missing language URL',
   missing_required_localized_field: 'Missing required field',
   missing_parent_route: 'Parent not public',
-  route_collision: 'Route collision',
-  route_redirect_collision: 'Route/redirect collision',
+  route_collision: 'URL conflict',
+  route_redirect_collision: 'URL/redirect conflict',
   redirect_collision: 'Redirect collision',
   redirect_target_missing: 'Redirect target missing',
   excluded_from_sitemap: 'Excluded from sitemap',
@@ -125,7 +162,23 @@ const DIAGNOSTIC_LABELS: Record<string, string> = {
 }
 
 export function diagnosticLabel(code: string) {
-  return DIAGNOSTIC_LABELS[code] ?? code.replaceAll('_', ' ')
+  return DIAGNOSTIC_LABELS[code] ?? 'Website issue'
+}
+
+// Publish-preview review states arrive as machine codes; the badge label maps
+// through these collectionEditor keys instead of rendering the raw code.
+const PREVIEW_STATE_LABEL_KEYS: Record<string, string> = {
+  not_previewed: 'publishPreviewStateNotPreviewed',
+  pending: 'publishPreviewStatePending',
+  blocked: 'publishPreviewStateBlocked',
+  failed: 'publishPreviewStateFailed',
+  stale: 'publishPreviewStateStale',
+  expired: 'publishPreviewStateExpired',
+}
+
+export function publishReviewStateLabelKey(state: string | null | undefined): string | null {
+  if (!state) return null
+  return PREVIEW_STATE_LABEL_KEYS[state] ?? null
 }
 
 export function statusToneClass(status: string | null | undefined) {

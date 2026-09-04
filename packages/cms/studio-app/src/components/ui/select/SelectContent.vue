@@ -28,7 +28,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
   <SelectPortal to="#ginko-cms-studio">
     <SelectContent
       data-slot="select-content"
-      v-bind="{ ...$attrs, ...forwarded }"
+      v-bind="{ ...forwarded, ...$attrs }"
       :class="
         cn(
           'ginko-cms ginko:bg-popover ginko:text-popover-foreground ginko:data-[state=open]:animate-in ginko:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ginko:relative ginko:z-50 ginko:max-h-(--reka-select-content-available-height) ginko:min-w-[8rem] ginko:overflow-x-hidden ginko:overflow-y-auto ginko:rounded-md ginko:border ginko:shadow-md',

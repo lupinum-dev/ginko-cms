@@ -185,6 +185,34 @@ afterEach(() => {
 })
 
 describe('editor mounted workflows', () => {
+  it('keeps read-only content selectable without exposing formatting controls', async () => {
+    const wrapper = mount(Editor, {
+      attachTo: document.body,
+      props: {
+        disabled: true,
+        modelValue: 'Read-only content',
+      },
+      global: {
+        stubs: {
+          Button: ButtonStub,
+          DebugPanel: true,
+          Icon: true,
+          RichTextToolbar: defineComponent({
+            template: '<div data-testid="richtext-toolbar" />',
+          }),
+          Textarea: TextareaStub,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="richtext-toolbar"]').exists()).toBe(false)
+    expect(wrapper.get('.ginko-richtext-editor__frame').classes()).not.toContain(
+      'ginko:pointer-events-none',
+    )
+    expect(getEditor(wrapper).isEditable).toBe(false)
+  })
+
   it('debounces visual updates and flushes pending content on blur', async () => {
     const wrapper = mountHost()
     await flushPromises()
@@ -201,6 +229,21 @@ describe('editor mounted workflows', () => {
 
     await waitFor(() => wrapper.get('[data-testid="model-value"]').text().includes('fast typing'))
     expect(wrapper.get('[data-testid="update-count"]').text()).toBe('1')
+  })
+
+  it('gives both editing modes stable accessible names and pressed state', async () => {
+    const wrapper = mountHost()
+    await flushPromises()
+
+    expect(wrapper.get('[contenteditable="true"]').attributes('aria-label')).toBe('Content')
+    expect(wrapper.get('button:nth-of-type(1)').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('button:nth-of-type(2)').attributes('aria-pressed')).toBe('false')
+
+    await wrapper.get('button:nth-of-type(2)').trigger('click')
+
+    expect(wrapper.get('textarea').attributes('aria-label')).toBe('Content Markdown source')
+    expect(wrapper.get('button:nth-of-type(1)').attributes('aria-pressed')).toBe('false')
+    expect(wrapper.get('button:nth-of-type(2)').attributes('aria-pressed')).toBe('true')
   })
 
   it('parses raw markdown back into structured visual content', async () => {

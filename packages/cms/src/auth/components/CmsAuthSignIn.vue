@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { useBetterAuthSignIn, useConvexAuth } from '@lupinum/trellis/composables'
-import { Loader2 } from 'lucide-vue-next'
-
 import { useCmsI18n } from '#ginko-cms-public/composables/useCmsI18n.js'
 import { resolveRedirectTarget } from '#ginko-cms-public/utils/redirectSafety.js'
-import { computed, navigateTo, onMounted, ref, useRoute, useRuntimeConfig, watch } from '#imports'
+import { computed, navigateTo, onMounted, ref, useConvexAuth, useRoute, watch } from '#imports'
 
 import CmsAuthInput from './CmsAuthInput.vue'
 import CmsPasswordInput from './CmsPasswordInput.vue'
@@ -12,47 +9,33 @@ import CmsPasswordInput from './CmsPasswordInput.vue'
 const props = defineProps<{
   redirectTo: string
 }>()
-const runtimeConfig = useRuntimeConfig()
-const authEnabled =
-  (runtimeConfig.public as { convex?: { auth?: { enabled?: boolean } } }).convex?.auth?.enabled !==
-  false
-const auth = authEnabled ? useConvexAuth() : null
-const signInRuntime = authEnabled ? useBetterAuthSignIn() : null
-const isAuthenticated = auth?.isAuthenticated ?? ref(false)
-const isPending = auth?.isPending ?? ref(false)
-const signIn = signInRuntime?.signIn ?? null
-const isSubmitting = signInRuntime?.pending ?? ref(false)
-const authError = signInRuntime?.error ?? ref<Error | null>(null)
+const auth = useConvexAuth()
+const isAuthenticated = computed(() => auth.status.value === 'authenticated')
+const pending = auth.pending
+const isSubmitting = ref(false)
+const authError = ref<Error | null>(null)
 const route = useRoute()
 const { t } = useCmsI18n()
 const email = ref(typeof route.query.email === 'string' ? route.query.email : '')
 const password = ref('')
 const error = ref<string | null>(null)
+const displayError = computed(() => error.value ?? auth.error?.value?.message ?? null)
 const authFormReady = ref(false)
+let authRedirectStarted = false
 const isLoading = computed(() => isSubmitting.value)
 const isRedirecting = computed(
-  () => isPending.value || isAuthenticated.value || (isSubmitting.value && !authError.value),
+  // Auth state is client-owned and may start pending after SSR. Keep the
+  // server and first client render identical, then reveal the form on mount.
+  () =>
+    !authFormReady.value ||
+    pending.value ||
+    isAuthenticated.value ||
+    (isSubmitting.value && !authError.value),
 )
 onMounted(() => {
   authFormReady.value = true
-  if (!authEnabled) {
-    void navigateTo(getRedirectTarget())
-  }
 })
 
-watch(
-  [isAuthenticated, isPending],
-  ([authenticated, pending]) => {
-    if (!authEnabled || pending || !authenticated) return
-    if (import.meta.dev) {
-      console.debug('[ginko-cms] auth sign-in redirect', {
-        redirectTo: getRedirectTarget(),
-      })
-    }
-    void navigateTo(getRedirectTarget(), { replace: true })
-  },
-  { immediate: true },
-)
 function getRedirectTarget() {
   return resolveRedirectTarget(
     typeof route.query.redirect === 'string' ? route.query.redirect : null,
@@ -60,6 +43,21 @@ function getRedirectTarget() {
     `${props.redirectTo.replace(/\/$/, '')}/auth/signin`,
   )
 }
+async function redirectAuthenticatedUser() {
+  if (authRedirectStarted) return
+  authRedirectStarted = true
+  await navigateTo(getRedirectTarget(), { replace: true })
+}
+watch(
+  [isAuthenticated, isSubmitting],
+  ([authenticated, submitting]) => {
+    // A submitted sign-in owns its post-operation navigation below. Navigating
+    // while the atomic auth operation is pending re-enters protected-route
+    // readiness and deadlocks the operation that is establishing the identity.
+    if (authenticated && !submitting) void redirectAuthenticatedUser()
+  },
+  { immediate: true },
+)
 function toRegister(): string {
   const query = new URLSearchParams()
   const redirect = getRedirectTarget()
@@ -71,35 +69,49 @@ function toRegister(): string {
   }
   return `${props.redirectTo.replace(/\/$/, '')}/auth/register${query.size ? `?${query.toString()}` : ''}`
 }
+function toRecovery(): string {
+  const query = new URLSearchParams({ redirect: getRedirectTarget() })
+  if (email.value) query.set('email', email.value)
+  return `${props.redirectTo.replace(/\/$/, '')}/auth/recover?${query.toString()}`
+}
 async function onSubmit(event: Event) {
   event.preventDefault()
   if (!email.value || !password.value) {
     error.value = t('ginkoCms.auth.signIn.errorFallback')
     return
   }
-  if (!signIn) {
-    error.value = t('ginkoCms.auth.signIn.errorFallback')
-    return
-  }
   error.value = null
+  authError.value = null
+  isSubmitting.value = true
   try {
-    await signIn(
-      {
-        email: email.value,
-        password: password.value,
-      },
-      { redirectTo: getRedirectTarget() },
-    )
-    error.value = authError.value?.message || null
-  } catch {
-    error.value = t('ginkoCms.auth.signIn.errorFallback')
+    // Sign-in resolves atomically after the Convex identity is synced (vNext
+    // §5.3): no manual refresh, no watch-based redirect — navigate on success.
+    if (!auth.client) throw new TypeError('Ginko CMS authentication client is unavailable.')
+    const result = await auth.client.signIn.email({
+      email: email.value,
+      password: password.value,
+    })
+    if (result.error) {
+      const message = result.error.message ?? t('ginkoCms.auth.signIn.errorFallback')
+      authError.value = new Error(message)
+      error.value = message
+      return
+    }
+    await redirectAuthenticatedUser()
+  } catch (caught) {
+    const message =
+      caught instanceof Error ? caught.message : t('ginkoCms.auth.signIn.errorFallback')
+    authError.value = caught instanceof Error ? caught : new Error(message)
+    error.value = message
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
 
 <template>
   <div v-if="isRedirecting" class="cms-auth-loader">
-    <Loader2 class="cms-auth-spinner" />
+    <span class="cms-auth-spinner" aria-hidden="true" />
   </div>
 
   <template v-else>
@@ -109,8 +121,8 @@ async function onSubmit(event: Event) {
       :data-auth-ready="authFormReady ? 'true' : 'false'"
       @submit.prevent="onSubmit"
     >
-      <div v-if="error" class="cms-auth-error" data-testid="cms-auth-error">
-        {{ error }}
+      <div v-if="displayError" class="cms-auth-error" data-testid="cms-auth-error">
+        {{ displayError }}
       </div>
       <div class="cms-auth-field">
         <label for="email" class="cms-auth-label">
@@ -129,9 +141,14 @@ async function onSubmit(event: Event) {
         />
       </div>
       <div class="cms-auth-field">
-        <label for="password" class="cms-auth-label">
-          {{ t('ginkoCms.common.password') }}
-        </label>
+        <div class="cms-auth-label-row">
+          <label for="password" class="cms-auth-label">
+            {{ t('ginkoCms.common.password') }}
+          </label>
+          <NuxtLink :to="toRecovery()" class="cms-auth-link">
+            {{ t('ginkoCms.auth.signIn.forgotPassword') }}
+          </NuxtLink>
+        </div>
         <CmsPasswordInput
           id="password"
           v-model="password"
@@ -145,7 +162,7 @@ async function onSubmit(event: Event) {
         data-testid="cms-auth-submit"
         :disabled="isLoading"
       >
-        <Loader2 v-if="isLoading" class="cms-auth-spinner cms-auth-spinner--sm" />
+        <span v-if="isLoading" class="cms-auth-spinner cms-auth-spinner--sm" aria-hidden="true" />
         {{ t('ginkoCms.auth.signIn.submit') }}
       </button>
     </form>

@@ -1,45 +1,48 @@
 <script setup lang="ts">
 import { reactiveOmit } from '@vueuse/core'
+import type { VariantProps } from 'class-variance-authority'
 import type { ToggleGroupItemProps } from 'reka-ui'
 import { ToggleGroupItem, useForwardProps } from 'reka-ui'
-import { computed } from 'vue'
 import type { HTMLAttributes } from 'vue'
+import { inject } from 'vue'
 
-import { useToggleGroupContext } from '.'
-import type { ToggleVariants } from '../toggle'
 import { toggleVariants } from '../toggle'
 import { cn } from '../utils'
+
+type ToggleGroupVariants = VariantProps<typeof toggleVariants>
 
 const props = defineProps<
   ToggleGroupItemProps & {
     class?: HTMLAttributes['class']
-    variant?: ToggleVariants['variant']
-    size?: ToggleVariants['size']
+    variant?: ToggleGroupVariants['variant']
+    size?: ToggleGroupVariants['size']
   }
 >()
 
-const context = useToggleGroupContext()
-const variant = computed(() => props.variant ?? context.variant)
-const size = computed(() => props.size ?? context.size)
+const context = inject<ToggleGroupVariants>('toggleGroup')
 
-const delegatedProps = reactiveOmit(props, 'class', 'variant', 'size')
-const forwarded = useForwardProps(delegatedProps)
+const delegatedProps = reactiveOmit(props, 'class', 'size', 'variant')
+const forwardedProps = useForwardProps(delegatedProps)
 </script>
 
 <template>
   <ToggleGroupItem
+    v-slot="slotProps"
     data-slot="toggle-group-item"
-    :data-variant="variant"
-    :data-size="size"
-    v-bind="forwarded"
+    :data-variant="context?.variant || variant"
+    :data-size="context?.size || size"
+    v-bind="forwardedProps"
     :class="
       cn(
-        toggleVariants({ variant: variant, size: size }),
-        'ginko:min-w-0 ginko:flex-1 ginko:shrink-0 ginko:rounded-none ginko:shadow-none ginko:first:rounded-l-md ginko:last:rounded-r-md ginko:focus:z-10 ginko:focus-visible:z-10 ginko:data-[variant=outline]:border-l-0 ginko:data-[variant=outline]:first:border-l',
+        toggleVariants({
+          variant: context?.variant || variant,
+          size: context?.size || size,
+        }),
+        'ginko:min-w-0 ginko:flex-1 ginko:shrink-0 ginko:rounded-none ginko:shadow-none ginko:first:!rounded-l-md ginko:last:!rounded-r-md ginko:focus:z-10 ginko:focus-visible:z-10 ginko:data-[variant=outline]:border-l-0 ginko:data-[variant=outline]:first:border-l',
         props.class,
       )
     "
   >
-    <slot />
+    <slot v-bind="slotProps" />
   </ToggleGroupItem>
 </template>

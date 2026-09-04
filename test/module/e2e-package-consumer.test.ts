@@ -14,8 +14,6 @@ import {
   packPackage,
   projectRoot,
   readPackageJson,
-  trellisBridgeRoot,
-  trellisRoot,
 } from './package-fixture'
 
 type CompatibilityMatrix = {
@@ -25,17 +23,24 @@ type CompatibilityMatrix = {
 const workspacePackageJson = readPackageJson(projectRoot)
 const cmsPackageJson = readPackageJson(cmsPackageRoot)
 const contentDependency = cmsPackageJson.peerDependencies?.['@lupinum/ginko-content']
+const pnpmBin = process.env.npm_execpath ?? 'pnpm'
+const fixtureEnv = {
+  ...process.env,
+  npm_config_dangerously_allow_all_builds: 'true',
+  npm_config_verify_deps_before_run: 'false',
+}
 const compatibilityMatrix = JSON.parse(
   readFileSync(join(projectRoot, 'packages/cms/compatibility.json'), 'utf8'),
 ) as CompatibilityMatrix
-const trellisDependency = compatibilityMatrix.releaseStack?.['@lupinum/trellis']
-const trellisBridgeDependency = compatibilityMatrix.releaseStack?.['@lupinum/trellis-bridge']
+const betterConvexNuxtDependency = compatibilityMatrix.releaseStack?.['@lupinum/better-convex-nuxt']
 
 if (!contentDependency) {
   throw new Error('Missing @lupinum/ginko-content peer dependency in @lupinum/ginko-cms.')
 }
-if (!trellisDependency || !trellisBridgeDependency) {
-  throw new Error('Missing Trellis release stack dependencies in packages/cms/compatibility.json.')
+if (!betterConvexNuxtDependency) {
+  throw new Error(
+    'Missing @lupinum/better-convex-nuxt release stack dependency in packages/cms/compatibility.json.',
+  )
 }
 
 type LoadedNuxt = Awaited<ReturnType<typeof loadNuxt>>
@@ -49,10 +54,14 @@ function writeConsumerWorkspaceConfig(cwd: string, overrides: Record<string, str
     'packages:',
     '  - .',
     'minimumReleaseAge: 1440',
-    'minimumReleaseAgeExclude:',
-    "  - '@lupinum/*'",
-    "  - '@nuxt/*'",
-    "  - 'nuxt'",
+    'strictPeerDependencies: true',
+    'allowBuilds:',
+    "  '@parcel/watcher': true",
+    '  better-sqlite3: true',
+    '  cbor-extract: true',
+    '  esbuild: true',
+    '  unrs-resolver: true',
+    '  vue-demi: true',
     'overrides:',
   ]
 
@@ -76,7 +85,7 @@ describe('ginko-cms package-first consumer fixture', () => {
         `export default defineNuxtConfig({`,
         `  modules: ['@lupinum/ginko-content', '@lupinum/ginko-cms'],`,
         `  content: {`,
-        `    search: { engine: 'cms' },`,
+        `    search: { engine: 'provider' },`,
         `  },`,
         `})`,
       ].join('\n'),
@@ -109,8 +118,6 @@ describe('ginko-cms package-first consumer fixture', () => {
     const contractTarball = packPackage(contractPackageRoot, tempDir)
     const convexTarball = packPackage(convexPackageRoot, tempDir)
     const contentTarball = packPackage(contentPackageRoot, tempDir)
-    const trellisTarball = packPackage(trellisRoot, tempDir)
-    const trellisBridgeTarball = packPackage(trellisBridgeRoot, tempDir)
     const cmsTarball = packPackage(cmsPackageRoot, tempDir)
 
     writeFileSync(
@@ -122,14 +129,12 @@ describe('ginko-cms package-first consumer fixture', () => {
         type: 'module',
         dependencies: {
           nuxt: workspacePackageJson.devDependencies.nuxt,
-          '@convex-dev/better-auth': cmsPackageJson.dependencies['@convex-dev/better-auth'],
           '@lupinum/ginko-content': `file:${contentTarball}`,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-          '@lupinum/trellis': `file:${trellisTarball}`,
-          '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
+          '@lupinum/better-convex-nuxt': betterConvexNuxtDependency,
         },
       }),
       'utf8',
@@ -140,13 +145,13 @@ describe('ginko-cms package-first consumer fixture', () => {
       '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
       '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
       '@lupinum/ginko-content': `file:${contentTarball}`,
-      '@lupinum/trellis': `file:${trellisTarball}`,
-      '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
+      '@lupinum/better-convex-nuxt': betterConvexNuxtDependency,
     })
 
-    execFileSync('pnpm', ['install'], { cwd: tempDir, stdio: 'inherit' })
-    execFileSync('pnpm', ['exec', 'ginko-cms', 'init'], {
+    execFileSync(pnpmBin, ['install'], { cwd: tempDir, env: fixtureEnv, stdio: 'inherit' })
+    execFileSync(pnpmBin, ['exec', 'ginko-cms', 'init'], {
       cwd: tempDir,
+      env: fixtureEnv,
       stdio: 'inherit',
     })
 
@@ -164,7 +169,7 @@ describe('ginko-cms package-first consumer fixture', () => {
     }
   })
 
-  it('loads the published module entrypoint and validates host-owned bridge files', () => {
+  it('[DEV-01] loads the published module entrypoint and validates host-owned setup files', () => {
     expect(nuxt).toBeDefined()
     if (!nuxt) throw new Error('Nuxt test instance was not loaded.')
     expect(nuxt.options.runtimeConfig.public.ginkoCms.route).toBe('/studio')
@@ -177,9 +182,18 @@ describe('ginko-cms package-first consumer fixture', () => {
       cms: '@lupinum/ginko-cms/nuxt-provider',
     })
     expect(existsSync(join(tempDir, 'convex/auth.config.ts'))).toBe(true)
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'collections.ts'))).toBe(true)
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'mcpOAuthDelegations.ts'))).toBe(true)
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'mcp.ts'))).toBe(false)
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms', 'mcpOperations.ts'))).toBe(false)
+    expect(readFileSync(join(tempDir, 'convex/http.ts'), 'utf8')).not.toContain('/mcp')
+    expect(existsSync(join(tempDir, 'convex', 'ginkoCms.ts'))).toBe(false)
+    expect(existsSync(join(tempDir, 'convex', `ginkoCms${'Mcp.ts'}`))).toBe(false)
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('@convex-dev/better-auth/convex.config')
+    expect(convexConfig).toContain('@lupinum/better-convex-nuxt/better-auth/convex.config')
+    expect(convexConfig).not.toContain('./betterAuth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
+    expect(existsSync(join(tempDir, 'convex/betterAuth'))).toBe(false)
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/config')
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/better-auth')
   })

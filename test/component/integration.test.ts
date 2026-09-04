@@ -2,93 +2,32 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { api, createCtx, publishEntry, seedOwner, unpublishEntry } from '../helpers'
+import {
+  api,
+  createCtx,
+  currentDraftVersion,
+  publishEntry,
+  seedMultiLocaleSettings,
+  seedOwner,
+  seedSettings,
+  unpublishEntry,
+} from '../helpers'
 
-describe('integration: full entry lifecycle', () => {
-  it('synced collection contract -> create entry -> save draft -> publish -> read via public API -> unpublish', async () => {
+describe('integration: canonical entry lifecycle', () => {
+  it('installs contract, edits a draft, publishes through one operation, and unpublishes', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-
-    // Seed CMS settings
-    await ctx.seed(
-      'cmsSettings' as never,
-      {
-        key: 'site',
-        locales: [{ code: 'en', label: 'English', isDefault: true }],
-        webhooks: [],
-        updatedBy: 'owner-1',
-        updatedAt: Date.now(),
-      } as never,
-    )
-
-    // Seed the synced code-defined collection contract.
-    const now = Date.now()
-    await ctx.seed(
-      'collections' as never,
-      {
-        slug: 'articles',
-        label: { en: 'Articles' },
-        icon: null,
-        type: 'flat',
-        routing: {
-          pathPrefix: '/articles',
-          slugMode: 'shared',
-          rootSlug: null,
-          singleton: false,
-        },
-        locales: ['en'],
-        fields: [
-          { key: 'title', type: 'text', localized: true, searchable: true },
-          {
-            key: 'description',
-            type: 'textarea',
-            localized: true,
-            searchable: true,
-          },
-        ],
-        settings: {},
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: 'owner-1',
-      } as never,
-    )
-
+    await seedSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
-
-    // Create entry
     const entryId = await owner.createEntry({
-      collection: 'articles',
+      collection: 'posts',
       slug: 'my-first-article',
       localized: { title: 'My First Article' },
     })
 
-    expect(typeof entryId).toBe('string')
-
-    // Verify draft state via editor API
-    const draftEntry = await owner.query(api.editor.getEntry, {
-      id: entryId,
-      locale: 'en',
-    })
-    expect(draftEntry?.status).toBe('draft')
-    expect(draftEntry?.data.title).toBe('My First Article')
-    expect(draftEntry?.path).toBe('/articles/my-first-article')
-
-    // Save a shared draft change
-    const saveResult = await owner.saveEntryDraft({
-      entryId,
-      expectedDraftVersion: 1,
-      patch: {
-        shared: {
-          shared: { featured: true },
-        },
-      },
-    })
-    expect(saveResult.draftVersion).toBe(2)
-
-    // Save a localized draft change
     await owner.saveEntryDraft({
       entryId,
-      expectedDraftVersion: 2,
+      expectedDraftVersion: await currentDraftVersion(owner, entryId),
       patch: {
         locales: {
           en: {
@@ -101,162 +40,90 @@ describe('integration: full entry lifecycle', () => {
       },
     })
 
-    // Verify the entry is not yet visible via public API
-    const prePublishResult = await ctx.raw.query(api.public.page, {
-      collection: 'articles',
-      path: '/articles/my-first-article',
-      locale: 'en',
+    await expect(
+      ctx.published.query(api.public.page, {
+        collection: 'posts',
+        path: '/posts/my-first-article',
+        locale: 'en',
+      }),
+    ).resolves.toMatchObject({ status: 'not-found', page: null })
+
+    await publishEntry(owner, entryId)
+    await expect(
+      ctx.published.query(api.public.page, {
+        collection: 'posts',
+        path: '/posts/my-first-article',
+        locale: 'en',
+      }),
+    ).resolves.toMatchObject({
+      status: 'found',
+      page: {
+        collection: 'posts',
+        title: 'My First Article',
+        data: { title: 'My First Article', description: 'An introductory article' },
+      },
     })
-    expect(prePublishResult.status).toBe('not-found')
+    await expect(
+      ctx.published.query(api.public.list, {
+        collection: 'posts',
+        locale: 'en',
+        limit: 10,
+        cursor: null,
+      }),
+    ).resolves.toMatchObject({ entries: [expect.objectContaining({ title: 'My First Article' })] })
 
-    // Publish
-    const publishResult = await publishEntry(owner, entryId)
-    expect(publishResult.dirtyLocales).toEqual([])
-    expect(typeof publishResult.versionId).toBe('string')
-
-    // Read via public API
-    const publicResult = await ctx.raw.query(api.public.page, {
-      collection: 'articles',
-      path: '/articles/my-first-article',
-      locale: 'en',
-    })
-    expect(publicResult.status).toBe('found')
-    expect(publicResult.page?.title).toBe('My First Article')
-    expect(publicResult.page?.data.description).toBe('An introductory article')
-    expect(publicResult.seo?.description).toBe('An introductory article')
-    expect(publicResult.page?.collection).toBe('articles')
-
-    // Verify in list
-    const listResult = await ctx.raw.query(api.public.list, {
-      collection: 'articles',
-      locale: 'en',
-      limit: 10,
-      cursor: null,
-    })
-    expect(listResult.entries).toHaveLength(1)
-    expect(listResult.entries[0]?.title).toBe('My First Article')
-
-    // Unpublish
     await unpublishEntry(owner, entryId)
-
-    // Verify no longer visible via public API
-    const postUnpublishResult = await ctx.raw.query(api.public.page, {
-      collection: 'articles',
-      path: '/articles/my-first-article',
-      locale: 'en',
+    expect(await ctx.readAll('publicEntries')).toEqual([])
+    expect((await ctx.readAll('entries'))[0]).toMatchObject({
+      lifecycle: 'active',
+      activePublications: [],
     })
-    expect(postUnpublishResult.status).toBe('not-found')
-
-    // Verify entry still exists as draft in editor
-    const editorEntry = await owner.query(api.editor.getEntry, {
-      id: entryId,
-      locale: 'en',
-    })
-    expect(editorEntry?.status).toBe('draft')
   })
-})
 
-describe('integration: multi-locale with fallback', () => {
-  it('create entry -> add locale content -> publish -> read with fallback', async () => {
+  it('activates localized publications independently on localized route mounts', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
-
-    // Seed multi-locale settings with fallback chain: de-CH -> de -> en
-    await ctx.seed(
-      'cmsSettings' as never,
-      {
-        key: 'site',
-        locales: [
-          { code: 'en', label: 'English', isDefault: true },
-          { code: 'de', label: 'German', fallback: 'en' },
-          { code: 'de-CH', label: 'Swiss German', fallback: 'de' },
-        ],
-        webhooks: [],
-        updatedBy: 'owner-1',
-        updatedAt: Date.now(),
-      } as never,
-    )
-
-    const now = Date.now()
-    await ctx.seed(
-      'collections' as never,
-      {
-        slug: 'blog',
-        label: { en: 'Blog' },
-        icon: null,
-        type: 'flat',
-        routing: {
-          pathPrefix: '/blog',
-          slugMode: 'shared',
-          rootSlug: null,
-          singleton: false,
-        },
-        locales: ['en', 'de', 'de-CH'],
-        fields: [{ key: 'title', type: 'text', localized: true, searchable: true }],
-        settings: {},
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: 'owner-1',
-      } as never,
-    )
-
+    await seedMultiLocaleSettings(ctx)
     const owner = ctx.asCmsUser('owner-1')
-
-    // Create entry in English
     const entryId = await owner.createEntry({
-      collection: 'blog',
+      collection: 'posts',
       slug: 'welcome',
       localized: { title: 'Welcome' },
-      locale: 'en',
     })
-
-    // Add German locale variant and set its title
-    await owner.mutation(api.editor.createLocaleVariant, {
+    await owner.mutation(api.entries.draft.createLocaleVariant, {
       entryId,
       locale: 'de',
+      source: { kind: 'blank' },
     })
     await owner.saveEntryDraft({
       entryId,
-      expectedDraftVersion: 2,
-      patch: {
-        locales: {
-          de: {
-            values: { title: 'Willkommen' },
-          },
-        },
-      },
+      expectedDraftVersion: await currentDraftVersion(owner, entryId),
+      patch: { locales: { de: { values: { title: 'Willkommen' } } } },
     })
 
-    // Publish both locales
-    await publishEntry(owner, entryId, ['en', 'de'])
+    await publishEntry(owner, entryId, ['en'])
+    await expect(
+      ctx.published.query(api.public.page, {
+        collection: 'posts',
+        path: '/beitraege/welcome',
+        locale: 'de',
+      }),
+    ).resolves.toMatchObject({ status: 'not-found' })
 
-    // Read English (direct match)
-    const enResult = await ctx.raw.query(api.public.page, {
-      collection: 'blog',
-      path: '/blog/welcome',
-      locale: 'en',
-    })
-    expect(enResult.status).toBe('found')
-    expect(enResult.page?.title).toBe('Welcome')
-    expect(enResult.page?.locale.resolved).toBe('en')
-
-    // Read German (direct match)
-    const deResult = await ctx.raw.query(api.public.page, {
-      collection: 'blog',
-      path: '/blog/welcome',
-      locale: 'de',
-    })
-    expect(deResult.status).toBe('found')
-    expect(deResult.page?.title).toBe('Willkommen')
-    expect(deResult.page?.locale.resolved).toBe('de')
-
-    // Read Swiss German. Route-backed public reads do not synthesize fallback-only routes.
-    const deChResult = await ctx.raw.query(api.public.page, {
-      collection: 'blog',
-      path: '/blog/welcome',
-      locale: 'de-CH',
-    })
-    expect(deChResult.status).toBe('not-found')
-    expect(deChResult.page).toBeNull()
+    await publishEntry(owner, entryId, ['de'])
+    await expect(
+      ctx.published.query(api.public.page, {
+        collection: 'posts',
+        path: '/posts/welcome',
+        locale: 'en',
+      }),
+    ).resolves.toMatchObject({ status: 'found', page: { title: 'Welcome' } })
+    await expect(
+      ctx.published.query(api.public.page, {
+        collection: 'posts',
+        path: '/beitraege/welcome',
+        locale: 'de',
+      }),
+    ).resolves.toMatchObject({ status: 'found', page: { title: 'Willkommen' } })
   })
 })

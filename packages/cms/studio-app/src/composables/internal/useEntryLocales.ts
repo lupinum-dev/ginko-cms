@@ -1,11 +1,9 @@
-import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { Ref } from 'vue'
 import { computed, reactive, ref, watch } from 'vue'
 import type { useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
-import { useStudioHostContext } from '../../boundary/studio-host-context'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
 import { useConvexMutation } from '../useStudioConvex'
 import type { StudioCollectionConfig, StudioEntry, StudioField, StudioLocaleVariant } from './types'
@@ -29,12 +27,13 @@ interface EntryLocalesDeps {
   form: { slug: string }
   handleSaveDraft: (silent?: boolean) => Promise<boolean>
   cancelAutoSave: () => void
-  buildLocalizedData: (source: Record<string, unknown>) => Record<string, unknown> | undefined
+  refreshEntry: () => Promise<void>
   t: (key: string) => string
 }
 
+export type LocaleVariantSource = { kind: 'blank' } | { kind: 'locale'; locale: string }
+
 export function useEntryLocales(deps: EntryLocalesDeps) {
-  const studioHost = useStudioHostContext()
   const {
     entry,
     entryId,
@@ -53,7 +52,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     form,
     handleSaveDraft,
     cancelAutoSave,
-    buildLocalizedData,
+    refreshEntry,
     t,
   } = deps
 
@@ -66,8 +65,9 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     storedTranslationMode !== null ? storedTranslationMode === 'true' : false,
   )
   const secondaryLocale = ref('')
-  const secondaryLastSaved = ref<Date | null>(null)
   const hydratingSecondary = ref(false)
+  const localeCreationOpen = ref(false)
+  const localeCreationTarget = ref('')
 
   const secondaryDataFields = reactive<Record<string, unknown>>({})
 
@@ -77,7 +77,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
   }))
 
   const secondaryAssetContext = computed(() => ({
-    collectionSlug: collection.value,
+    collection: collection.value,
     locale: secondaryLocale.value,
     entryId: entryId.value,
   }))
@@ -87,10 +87,29 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     computed(() =>
       translationMode.value && secondaryLocale.value
         ? { id: entryId.value, locale: secondaryLocale.value }
-        : null,
+        : ('skip' as const),
     ),
   )
   const secondaryEntry = computed(() => secondaryEntryQuery.data?.value ?? null)
+  const existingLocaleOptions = computed(() =>
+    locales.value.filter(
+      (locale) =>
+        locale.code !== localeCreationTarget.value &&
+        localeVariants.value.some(
+          (variant) => variant.locale === locale.code && variant.draftExists === true,
+        ),
+    ),
+  )
+  const currentLocaleDraftExists = computed(() =>
+    localeVariants.value.some(
+      (variant) => variant.locale === currentLocale.value && variant.draftExists === true,
+    ),
+  )
+  const secondaryLocaleDraftExists = computed(() =>
+    localeVariants.value.some(
+      (variant) => variant.locale === secondaryLocale.value && variant.draftExists === true,
+    ),
+  )
 
   // Initialize secondary locale from configured locales
   watch(
@@ -145,68 +164,59 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
   })
 
   const createLocaleVariantMutation = useConvexMutation(api.ginkoCms.editor.createLocaleVariant)
-  const saveEntryDraftMutation = useConvexMutation(api.ginkoCms.editor.saveEntryDraft)
 
-  async function ensureSecondaryVariant(localeCode: string) {
-    if (!localeCode || localeCode === currentLocale.value) return null
-    const targetVariant = localeVariants.value.find((locale) => locale.locale === localeCode)
-    if (targetVariant?.draftPath || targetVariant?.publishedPath) {
-      return entryId.value
+  function beginLocaleCreation(localeCode: string) {
+    if (
+      !canEditEntries.value ||
+      !locales.value.some((locale) => locale.code === localeCode) ||
+      localeVariants.value.some(
+        (variant) => variant.locale === localeCode && variant.draftExists === true,
+      )
+    ) {
+      return
     }
-    await createLocaleVariantMutation({ entryId: entryId.value, locale: localeCode })
-    return entryId.value
+    localeCreationTarget.value = localeCode
+    localeCreationOpen.value = true
   }
 
-  async function readLatestEntryDraftVersion(localeCode: string) {
-    const convex = studioHost.requireConvexClient()
-    const latest = (await convex.query(api.ginkoCms.editor.getEntry, {
-      id: entryId.value,
-      locale: localeCode,
-    })) as StudioEntry | null
-    const draftVersion = latest?.draftVersion ?? entry.value?.draftVersion
-    if (typeof draftVersion !== 'number') {
-      throw new TypeError('Cannot save translation before the current draft version is loaded.')
-    }
-    return draftVersion
+  function setLocaleCreationOpen(value: boolean) {
+    if (!value && saving.value) return
+    localeCreationOpen.value = value
+    if (!value) localeCreationTarget.value = ''
   }
 
-  // --- Secondary auto-save ---
-  // Per Gate -1: side-by-side secondary-locale autosave is DISABLED until the
-  // new draft-version concurrency model lands. The previous implementation
-  // saved with the *primary* locale's draftVersion as the expected version,
-  // which silently overwrote concurrent translation work with no warning.
-  // Manual save still works because the user explicitly requests it and the
-  // call fetches the current entry version immediately before saving.
+  async function confirmLocaleCreation(source: LocaleVariantSource) {
+    const localeCode = localeCreationTarget.value
+    if (!localeCode || !canEditEntries.value) return false
 
-  async function handleSaveSecondaryDraft(silent = false) {
-    if (!canEditEntries.value || !secondaryLocale.value) return
-    const targetId = await ensureSecondaryVariant(secondaryLocale.value)
-    if (!targetId) return
-    if (!silent) saving.value = true
+    saving.value = true
     error.value = ''
     try {
-      const expectedDraftVersion = await readLatestEntryDraftVersion(secondaryLocale.value)
-      await saveEntryDraftMutation({
+      if (isDirty.value) {
+        cancelAutoSave()
+        const saved = await handleSaveDraft(true)
+        if (!saved) return false
+      }
+      await createLocaleVariantMutation({
         entryId: entryId.value,
-        expectedDraftVersion,
-        patch: {
-          locales: {
-            [secondaryLocale.value]: {
-              values: (buildLocalizedData(secondaryDataFields) ?? {}) as JsonObject,
-              ...buildSecondaryBodyPatch(),
-            },
-          },
-        },
+        locale: localeCode,
+        source,
       })
-      secondaryLastSaved.value = new Date()
-      await secondaryEntryQuery.refresh()
-    } catch (e) {
+      await Promise.all([
+        refreshEntry(),
+        localeCode === secondaryLocale.value ? secondaryEntryQuery.refresh() : Promise.resolve(),
+      ])
+      localeCreationOpen.value = false
+      localeCreationTarget.value = ''
+      return true
+    } catch (cause) {
       error.value = getCmsErrorMessage(
-        e,
-        t('ginkoCms.studio.collectionEditor.saveTranslationError'),
+        cause,
+        t('ginkoCms.studio.collectionEditor.createTranslationError'),
       )
+      return false
     } finally {
-      if (!silent) saving.value = false
+      saving.value = false
     }
   }
 
@@ -221,7 +231,6 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
         const saved = await handleSaveDraft(true)
         if (!saved) return
       }
-      await ensureSecondaryVariant(localeCode)
       await router.push({
         path: `${contentRoute}/${collection.value}/${entryId.value}`,
         query: localeCode === defaultLocale.value ? {} : { locale: localeCode },
@@ -238,42 +247,29 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
       secondaryLocale.value = ''
       return
     }
-    saving.value = true
-    error.value = ''
-    try {
-      secondaryLocale.value = localeCode
-      await ensureSecondaryVariant(localeCode)
-    } catch (e) {
-      error.value = getCmsErrorMessage(
-        e,
-        t('ginkoCms.studio.collectionEditor.openTranslationError'),
-      )
-    } finally {
-      saving.value = false
-    }
+    secondaryLocale.value = localeCode
   }
 
   function setTranslationMode(value: boolean) {
     translationMode.value = value
   }
 
-  function buildSecondaryBodyPatch(): { bodyMdc?: string | null } {
-    const richtextField = localizedFields.value.find((field) => field.type === 'richtext')
-    if (!richtextField) return {}
-    const value = secondaryDataFields[richtextField.key]
-    return { bodyMdc: typeof value === 'string' ? value : '' }
-  }
-
   return {
     translationMode,
     secondaryLocale,
-    secondaryLastSaved,
     secondaryDataFields,
     secondaryEditorContext,
     secondaryAssetContext,
+    currentLocaleDraftExists,
+    secondaryLocaleDraftExists,
+    existingLocaleOptions,
+    localeCreationOpen,
+    localeCreationTarget,
     setTranslationMode,
-    handleSaveSecondaryDraft,
     handleSwitchLocale,
     handleSelectSecondaryLocale,
+    beginLocaleCreation,
+    setLocaleCreationOpen,
+    confirmLocaleCreation,
   }
 }

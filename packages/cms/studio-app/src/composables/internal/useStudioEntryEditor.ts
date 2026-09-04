@@ -6,8 +6,13 @@ import { useEntryHistory } from './useEntryHistory'
 import { useEntryLoader } from './useEntryLoader'
 import { useEntryLocales } from './useEntryLocales'
 import { useEntryPublishing } from './useEntryPublishing'
+import { useStudioEntryWorkflow } from './useStudioEntryWorkflow'
 
-export function useStudioEntryEditor() {
+// The editor context WITHOUT the public-workflow slice. Split out so
+// useStudioEntryWorkflow can accept a fully-typed context without creating a
+// circular reference (its return type feeds `workflow`, which is added on top of
+// this base). Consumers use StudioEntryEditorContext (base + workflow).
+function createStudioEntryEditorContextBase() {
   const loader = useEntryLoader()
   const entry = loader.entry as Ref<StudioEntry | null>
 
@@ -49,7 +54,7 @@ export function useStudioEntryEditor() {
     form: draft.form,
     handleSaveDraft: draft.handleSaveDraft,
     cancelAutoSave: draft.cancelAutoSave,
-    buildLocalizedData: draft.buildLocalizedData,
+    refreshEntry: loader.refreshEntry,
     t: loader.t,
   })
 
@@ -78,8 +83,10 @@ export function useStudioEntryEditor() {
     currentLocale: loader.currentLocale,
     canPublishEntries: loader.canPublishEntries,
     canArchiveEntries: loader.canArchiveEntries,
+    canDeleteEntries: loader.canDeleteEntries,
     saving: draft.saving,
     error: draft.error,
+    hydratedDraftVersion: draft.lastHydratedVersion,
     isDirty: draft.isDirty,
     form: draft.form,
     handleSaveDraft: draft.handleSaveDraft,
@@ -90,18 +97,27 @@ export function useStudioEntryEditor() {
     t: loader.t,
   })
 
-  function copyPrimaryToSecondary() {
-    for (const field of loader.localizedFields.value) {
-      locales.secondaryDataFields[field.key] = draft.dataFields[field.key]
-    }
-  }
-
   return reactive({
     loader,
     draft,
     locales,
     history,
     publishing,
-    copyPrimaryToSecondary,
   })
+}
+
+export type StudioEntryEditorContextBase = ReturnType<typeof createStudioEntryEditorContextBase>
+
+export function useStudioEntryEditor() {
+  const context = createStudioEntryEditorContextBase()
+
+  // Public-workflow orchestration (readiness/visibility queries, publish-impact
+  // preview, translation readiness, route validation). Built here so it hangs off
+  // the shared editor context (`editor.workflow`) and reaches BOTH the page
+  // subtree (top bar, publish dialog) and the layout-tree details panel through
+  // one instance — a single source of truth for the publish preview state. See
+  // useStudioEntryWorkflow for the extraction rationale (RFC Phase 5 / D8).
+  const workflow = useStudioEntryWorkflow(context)
+
+  return Object.assign(context, { workflow })
 }

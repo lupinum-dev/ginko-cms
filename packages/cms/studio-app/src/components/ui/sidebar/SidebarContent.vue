@@ -14,7 +14,7 @@ const props = defineProps<{
     data-sidebar="content"
     :class="
       cn(
-        'ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col ginko:gap-2 ginko:overflow-y-auto ginko:overflow-x-hidden ginko:group-data-[collapsible=icon]:overflow-hidden',
+        'ginko:flex ginko:min-h-0 ginko:flex-1 ginko:flex-col ginko:gap-2 ginko:overflow-auto ginko:group-data-[collapsible=icon]:overflow-hidden',
         props.class,
       )
     "

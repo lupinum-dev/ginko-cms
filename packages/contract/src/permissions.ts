@@ -10,8 +10,15 @@ export const cmsPermissionKeys = {
   manageSettings: 'cms.settings.manage',
   manageMembers: 'cms.members.manage',
   manageAssets: 'cms.assets.manage',
+  manageAssetRecovery: 'cms.assetRecovery.manage',
+  managePortability: 'cms.portability.manage',
 } as const
 
 export type CmsPermissionKey = (typeof cmsPermissionKeys)[keyof typeof cmsPermissionKeys]
+
+export const mcpDelegatedScopeKeys = [
+  cmsPermissionKeys.read,
+  cmsPermissionKeys.editEntries,
+] as const
 
 export type CmsPermissionMap = Record<CmsPermissionKey, boolean>

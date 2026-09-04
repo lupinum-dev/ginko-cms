@@ -21,6 +21,7 @@ export interface StudioEntryLocaleData {
 
 export interface StudioLocaleVariant {
   locale: string
+  draftExists?: boolean
   draftPath?: string | null
   publishedPath?: string | null
   published?: boolean
@@ -38,10 +39,20 @@ export interface StudioEntry {
   nodeKind?: NodeKind | null
   path?: string | null
   baseSlug?: string | null
+  stableId?: string | null
+  orderRank?: string | null
   dirtyLocales: string[]
   data: JsonMap
   draft?: JsonMap
   localeData?: StudioEntryLocaleData | null
+  locales?: Array<{
+    locale: string
+    draftExists?: boolean
+    draftSlug?: string | null
+    draftPath?: string | null
+    draft: StudioLocaleState
+    data: JsonMap
+  }>
 }
 
 export interface StudioCollectionConfig {
@@ -63,21 +74,6 @@ export interface StudioCollectionConfig {
     source: 'code'
     version: string
   }
-  projectionStatus?: {
-    activeCollectionProjectionRunId: string | null
-    activeSiteProjectionRunId: string | null
-    activatedAt: number | null
-  }
-  lastImportRun?: {
-    importRunId: string
-    kind: 'preview' | 'apply'
-    status: 'previewed' | 'blocked' | 'applied' | 'published' | 'failed'
-    publish: boolean
-    blockerCount: number
-    warningCount: number
-    publishedCount: number
-    createdAt: number
-  } | null
 }
 
 export interface StudioAssetRecord {
@@ -91,7 +87,7 @@ export interface StudioAssetRecord {
   alt?: LocaleText | null
   caption?: LocaleText | null
   entryId?: string | null
-  collectionId?: string | null
+  collection?: string | null
   ownerPath?: string[]
   createdAt?: number
   updatedAt?: number | null
@@ -100,7 +96,9 @@ export interface StudioAssetRecord {
 export interface StudioAssetContext {
   locale?: string
   entryId?: string
-  collectionId?: string
-  collectionSlug?: string
-  onAssetRegistered?: (assetId: string) => Promise<void> | void
+  collection?: string
+  onAssetRegistered?: (
+    assetId: string,
+    scope: 'global' | 'collection' | 'entry',
+  ) => Promise<void> | void
 }

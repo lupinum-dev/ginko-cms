@@ -21,7 +21,14 @@ if (tarballs.length === 0) {
   process.exit(1)
 }
 
+const localSpecifierPrefixes = ['workspace:', 'file:', 'link:']
 const offenders = []
+
+function isLocalSpecifier(range) {
+  return (
+    typeof range === 'string' && localSpecifierPrefixes.some((prefix) => range.startsWith(prefix))
+  )
+}
 
 for (const tarball of tarballs) {
   const tempDir = mkdtempSync(join(tmpdir(), 'ginko-cms-pack-check-'))
@@ -36,15 +43,17 @@ for (const tarball of tarballs) {
       continue
     }
     const manifest = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
+    const packageName = manifest.name ?? tarball
     const fields = ['dependencies', 'peerDependencies', 'optionalDependencies', 'devDependencies']
     for (const field of fields) {
       const section = manifest[field]
       if (!section) continue
       for (const [name, range] of Object.entries(section)) {
-        if (typeof range === 'string' && range.startsWith('workspace:')) {
+        if (isLocalSpecifier(range)) {
           offenders.push({
             tarball,
-            reason: `${field}.${name} ships ${range} (publishable packages must resolve to concrete semver)`,
+            packageName,
+            reason: `${field}.${name} ships ${range} (packed manifests must not contain workspace:, file:, or link: specifiers)`,
           })
         }
       }
@@ -55,11 +64,11 @@ for (const tarball of tarballs) {
 }
 
 if (offenders.length > 0) {
-  console.error('Packed tarball workspace:* check failed:')
+  console.error('Packed tarball local specifier check failed:')
   for (const offender of offenders) {
-    console.error(`  - ${offender.tarball}: ${offender.reason}`)
+    console.error(`  - ${offender.packageName} (${offender.tarball}): ${offender.reason}`)
   }
   process.exit(1)
 }
 
-console.log(`Packed tarball workspace:* check passed (${tarballs.length} tarballs).`)
+console.log(`Packed tarball local specifier check passed (${tarballs.length} tarballs).`)

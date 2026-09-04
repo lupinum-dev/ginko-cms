@@ -64,15 +64,7 @@ function ensurePackageLink(
         lstatSync(linkPath).isSymbolicLink() &&
         realpathSync(linkPath) === realpathSync(dependencyRoot)
       ) {
-        return () => {
-          try {
-            if (lstatSync(linkPath).isSymbolicLink()) {
-              rmSync(linkPath, { force: true })
-            }
-          } catch {
-            // Best-effort cleanup only.
-          }
-        }
+        return null
       }
     } catch {
       return null
@@ -100,8 +92,8 @@ function ensureConvexPackageLinks(cwd: string): () => void {
     ensurePackageLink(cwd, 'convex', findPackageRoot(require.resolve('convex/server'))),
     ensurePackageLink(
       cwd,
-      '@convex-dev/better-auth',
-      resolveInstalledDependencyRoot('@convex-dev/better-auth', cwd),
+      '@lupinum/better-convex-nuxt',
+      resolveInstalledDependencyRoot('@lupinum/better-convex-nuxt', cwd),
     ),
     ensurePackageLink(
       cwd,

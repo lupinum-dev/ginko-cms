@@ -10,7 +10,9 @@ export interface GinkoRouteClaim {
   entryId: string
   locale: string
   path: string
+  href?: string | null
   targetPath?: string | null
+  targetHref?: string | null
 }
 
 export interface GinkoRouteDiagnostic {
@@ -40,7 +42,7 @@ export function validateGinkoRouteClaims(claims: GinkoRouteClaim[], locales: Gin
   const routeHrefs = new Set<string>()
 
   for (const claim of claims) {
-    const href = renderGinkoHref(claim, locales)
+    const href = claim.href ?? renderGinkoHref(claim, locales)
     const bucket = byHref.get(href) ?? []
     bucket.push(claim)
     byHref.set(href, bucket)
@@ -67,11 +69,12 @@ export function validateGinkoRouteClaims(claims: GinkoRouteClaim[], locales: Gin
 
   for (const claim of claims) {
     if (claim.kind !== 'redirect' || !claim.targetPath) continue
-    const targetHref = renderGinkoHref({ locale: claim.locale, path: claim.targetPath }, locales)
+    const targetHref =
+      claim.targetHref ?? renderGinkoHref({ locale: claim.locale, path: claim.targetPath }, locales)
     if (routeHrefs.has(targetHref)) continue
     diagnostics.push({
       code: 'redirect_target_missing',
-      href: renderGinkoHref(claim, locales),
+      href: claim.href ?? renderGinkoHref(claim, locales),
       claims: [claim],
       message: `Redirect "${claim.path}" points to missing public href "${targetHref}".`,
     })

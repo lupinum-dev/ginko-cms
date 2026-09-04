@@ -39,8 +39,8 @@ Rules:
 - Use immutable CMS `entryId` only as a fallback.
 - Never use title, slug, route path, or locale-specific translated slug as entry
   identity.
-- Old/internal tag forms are migration aliases only. New code must emit the
-  canonical vocabulary below.
+- Only the canonical vocabulary below is supported. Producers and consumers use
+  the same typed tag generator; there are no legacy tag aliases.
 
 ## Canonical Tags
 
@@ -77,6 +77,16 @@ publish mutation
 -> deliver to site /api/_content/revalidate
 -> site calls provider.invalidate() and cacheAdapter.invalidate()
 ```
+
+Delivery is at least once. Every request carries the durable outbox event id
+and its stable idempotency key. The receiving Ginko Content endpoint must store
+or otherwise durably deduplicate that key before applying cache invalidation;
+an HTTP success records delivery, not exactly-once execution.
+
+CMS follows no redirects, rejects endpoint URLs containing credentials, and
+stores only a local failure category plus HTTP status. Remote response bodies
+are never persisted. Each environment can have exactly one enabled target; an
+operator must disable the current target before enabling its replacement.
 
 Path-only adapters such as Vercel ISR require concrete paths. The CMS must
 resolve tags to paths before delivery.

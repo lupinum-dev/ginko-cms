@@ -4,7 +4,7 @@ import { cva } from 'class-variance-authority'
 export { default as Button } from './Button.vue'
 
 export const buttonVariants = cva(
-  "studio-motion-fast ginko:inline-flex ginko:shrink-0 ginko:items-center ginko:justify-center ginko:gap-1.5 ginko:whitespace-nowrap ginko:rounded-lg ginko:border ginko:border-transparent ginko:bg-clip-padding ginko:text-sm ginko:font-medium ginko:outline-none ginko:select-none ginko:active:translate-y-px ginko:disabled:pointer-events-none ginko:disabled:opacity-50 ginko:[&_svg]:pointer-events-none ginko:[&_svg]:shrink-0 ginko:[&_svg:not([class*='size-'])]:size-4 ginko:focus-visible:border-ring ginko:focus-visible:ring-ring/50 ginko:focus-visible:ring-[3px] ginko:aria-invalid:border-destructive ginko:aria-invalid:ring-destructive/20 ginko:dark:aria-invalid:ring-destructive/40",
+  "studio-motion-fast ginko:group/button ginko:inline-flex ginko:shrink-0 ginko:items-center ginko:justify-center ginko:whitespace-nowrap ginko:rounded-lg ginko:border ginko:border-transparent ginko:bg-clip-padding ginko:text-sm ginko:font-medium ginko:outline-none ginko:select-none ginko:active:not-aria-[haspopup]:translate-y-px ginko:disabled:pointer-events-none ginko:disabled:opacity-50 ginko:[&_svg]:pointer-events-none ginko:[&_svg]:shrink-0 ginko:[&_svg:not([class*='size-'])]:size-4 ginko:focus-visible:border-ring ginko:focus-visible:ring-ring/50 ginko:focus-visible:ring-[3px] ginko:aria-invalid:border-destructive ginko:aria-invalid:ring-destructive/20 ginko:dark:aria-invalid:ring-destructive/40",
   {
     variants: {
       variant: {
@@ -21,10 +21,13 @@ export const buttonVariants = cva(
         link: 'ginko:text-primary ginko:underline-offset-4 ginko:hover:underline',
       },
       size: {
-        default: 'ginko:h-8 ginko:px-2.5 ginko:has-[>svg]:px-2.5',
-        sm: 'ginko:h-7 ginko:px-2.5 ginko:text-xs ginko:has-[>svg]:px-2',
-        lg: 'ginko:h-9 ginko:px-3.5 ginko:has-[>svg]:px-3',
+        default:
+          'ginko:h-8 ginko:gap-1.5 ginko:px-3 ginko:has-data-[icon=inline-start]:pl-2.5 ginko:has-data-[icon=inline-end]:pr-2.5',
+        xs: 'ginko:h-7 ginko:gap-1 ginko:rounded-md ginko:px-2 ginko:text-xs ginko:has-data-[icon=inline-start]:pl-1.5 ginko:has-data-[icon=inline-end]:pr-1.5 ginko:[&_svg:not([class*=size-])]:size-3.5',
+        sm: 'ginko:h-8 ginko:gap-1.5 ginko:px-2.5 ginko:has-data-[icon=inline-start]:pl-2 ginko:has-data-[icon=inline-end]:pr-2 ginko:[&_svg:not([class*=size-])]:size-3.5',
+        lg: 'ginko:h-9 ginko:gap-2 ginko:px-4 ginko:has-data-[icon=inline-start]:pl-3.5 ginko:has-data-[icon=inline-end]:pr-3.5',
         icon: 'ginko:size-8',
+        'icon-xs': 'ginko:size-6 ginko:rounded-md ginko:[&_svg:not([class*=size-])]:size-3.5',
         'icon-sm': 'ginko:size-7',
         'icon-lg': 'ginko:size-9',
       },

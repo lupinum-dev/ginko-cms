@@ -13,8 +13,6 @@ import {
   packPackage,
   projectRoot,
   readPackageJson,
-  trellisBridgeRoot,
-  trellisRoot,
 } from './package-fixture'
 
 const shouldRun = process.env.GINKO_CMS_RUN_CONVEX_DEV_SMOKE === '1'
@@ -43,7 +41,6 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
     const contractTarball = packPackage(contractPackageRoot, tempDir)
     const convexTarball = packPackage(convexPackageRoot, tempDir)
     const cmsTarball = packPackage(cmsPackageRoot, tempDir)
-    const trellisBridgeTarball = packPackage(trellisBridgeRoot, tempDir)
 
     writeFileSync(
       join(tempDir, 'package.json'),
@@ -52,11 +49,10 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
         name: 'ginko-cms-convex-dev-smoke',
         type: 'module',
         dependencies: {
-          '@convex-dev/better-auth': cmsPackageJson.dependencies['@convex-dev/better-auth'],
           '@lupinum/ginko-content': `file:${contentTarball}`,
           '@lupinum/ginko-cms': `file:${cmsTarball}`,
           '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-          '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
+          '@lupinum/better-convex-nuxt': cmsPackageJson.dependencies['@lupinum/better-convex-nuxt'],
           'better-auth': workspacePackageJson.devDependencies['better-auth'],
           nuxt: workspacePackageJson.devDependencies.nuxt,
         },
@@ -64,8 +60,6 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
           overrides: {
             '@lupinum/ginko-cms-contract': `file:${contractTarball}`,
             '@lupinum/ginko-cms-convex': `file:${convexTarball}`,
-            '@lupinum/trellis-bridge': `file:${trellisBridgeTarball}`,
-            '@lupinum/trellis': `file:${trellisRoot}`,
           },
         },
       }),
@@ -80,7 +74,10 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
       `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT}\n`,
     )
 
-    execFileSync('pnpm', ['install', '--force'], { cwd: tempDir, stdio: 'inherit' })
+    execFileSync('pnpm', ['install', '--strict-peer-dependencies'], {
+      cwd: tempDir,
+      stdio: 'inherit',
+    })
     execFileSync('pnpm', ['exec', 'ginko-cms', 'init'], { cwd: tempDir, stdio: 'inherit' })
     execFileSync(
       'pnpm',
@@ -89,7 +86,9 @@ describe.skipIf(!shouldRun)('ginko-cms real Convex discovery smoke', () => {
     )
 
     const convexConfig = readFileSync(join(tempDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('@convex-dev/better-auth/convex.config')
+    expect(convexConfig).toContain('@lupinum/better-convex-nuxt/better-auth/convex.config')
+    expect(convexConfig).not.toContain('./betterAuth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
+    expect(existsSync(join(tempDir, 'convex/betterAuth'))).toBe(false)
   })
 })

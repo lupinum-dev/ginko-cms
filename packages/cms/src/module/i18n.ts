@@ -1,4 +1,4 @@
-import type { LocaleConfig, ModuleOptions } from './options.js'
+import type { LocaleConfig, ResolvedModuleOptions } from './options.js'
 
 interface I18nLocaleOption {
   code: string
@@ -21,7 +21,7 @@ export interface ResolvedLocaleSettings {
   locales: LocaleConfig[]
 }
 
-export function resolveLocaleSettings(options: ModuleOptions): ResolvedLocaleSettings {
+export function resolveLocaleSettings(options: ResolvedModuleOptions): ResolvedLocaleSettings {
   const requestedDefaultLocale = options.defaultLocale.trim() || 'en'
   const normalizedLocales = options.locales
     .map((locale) => ({
@@ -38,7 +38,7 @@ export function resolveLocaleSettings(options: ModuleOptions): ResolvedLocaleSet
   const localeCodes = new Set(locales.map((locale) => locale.code))
   if (!localeCodes.has(requestedDefaultLocale)) {
     throw new Error(
-      `[ginko-cms] ginkoCms.defaultLocale "${requestedDefaultLocale}" must exist in ginkoCms.locales.`,
+      `[ginko-cms] Content defaultLocale "${requestedDefaultLocale}" must exist in Content locales.`,
     )
   }
 
@@ -68,14 +68,14 @@ export function assertI18nCompatibility(
   for (const locale of localeSettings.locales) {
     if (!i18nLocaleCodes.has(locale.code)) {
       throw new Error(
-        `[ginko-cms] ginkoCms.locales and i18n.locales disagree. Missing locale "${locale.code}" in i18n.locales.`,
+        `[ginko-cms] Content locales and i18n.locales disagree. Missing locale "${locale.code}" in i18n.locales.`,
       )
     }
   }
 
   if (i18nOptions.defaultLocale && i18nOptions.defaultLocale !== localeSettings.defaultLocale) {
     throw new Error(
-      `[ginko-cms] ginkoCms.defaultLocale "${localeSettings.defaultLocale}" does not match i18n.defaultLocale "${i18nOptions.defaultLocale}".`,
+      `[ginko-cms] Content defaultLocale "${localeSettings.defaultLocale}" does not match i18n.defaultLocale "${i18nOptions.defaultLocale}".`,
     )
   }
 }

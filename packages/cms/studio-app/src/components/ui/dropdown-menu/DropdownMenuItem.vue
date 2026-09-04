@@ -32,7 +32,7 @@ const forwardedProps = useForwardProps(delegatedProps)
     v-bind="forwardedProps"
     :class="
       cn(
-        'ginko:focus:bg-accent ginko:focus:text-accent-foreground ginko:data-[variant=destructive]:text-destructive ginko:data-[variant=destructive]:focus:bg-destructive/10 ginko:dark:data-[variant=destructive]:focus:bg-destructive/20 ginko:data-[variant=destructive]:focus:text-destructive ginko:data-[variant=destructive]:*:[svg]:!text-destructive ginko:[&_svg:not([class*=\'text-\'])]:text-muted-foreground ginko:relative ginko:flex ginko:cursor-default ginko:items-center ginko:gap-2 ginko:rounded-sm ginko:px-2 ginko:py-1.5 ginko:text-sm ginko:outline-hidden ginko:select-none ginko:data-[disabled]:pointer-events-none ginko:data-[disabled]:opacity-50 ginko:data-[inset]:pl-8 ginko:[&_svg]:pointer-events-none ginko:[&_svg]:shrink-0 ginko:[&_svg:not([class*=\'size-\'])]:size-4',
+        'ginko:focus:bg-accent ginko:focus:text-accent-foreground ginko:data-[variant=destructive]:text-destructive-foreground ginko:data-[variant=destructive]:focus:bg-destructive/10 ginko:dark:data-[variant=destructive]:focus:bg-destructive/40 ginko:data-[variant=destructive]:focus:text-destructive-foreground ginko:data-[variant=destructive]:*:[svg]:!text-destructive-foreground ginko:[&_svg:not([class*=\'text-\'])]:text-muted-foreground ginko:relative ginko:flex ginko:cursor-default ginko:items-center ginko:gap-2 ginko:rounded-sm ginko:px-2 ginko:py-1.5 ginko:text-sm ginko:outline-hidden ginko:select-none ginko:data-[disabled]:pointer-events-none ginko:data-[disabled]:opacity-50 ginko:data-[inset]:pl-8 ginko:[&_svg]:pointer-events-none ginko:[&_svg]:shrink-0 ginko:[&_svg:not([class*=\'size-\'])]:size-4',
         props.class,
       )
     "

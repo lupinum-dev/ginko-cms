@@ -1,15 +1,12 @@
 import { normalizeFields } from '@lupinum/ginko-cms-contract/shared/fields/normalize.js'
 
-import type { Id } from '../_generated/dataModel.js'
 import { throwCmsError } from '../errors.js'
+import {
+  listInstalledCollections,
+  projectContentCollection,
+  readInstalledCmsContract,
+} from './installedContract.js'
 import type { CmsCollection, CmsField, ReadCtx, SlugMode } from './types.js'
-
-export const MAX_EXACT_COLLECTION_ENTRY_COUNT = 1000
-
-export type CollectionEntryCountSnapshot = {
-  count: number
-  exact: boolean
-}
 
 export function getSlugMode(collection: CmsCollection): SlugMode {
   return collection.routing.slugMode ?? 'shared'
@@ -21,6 +18,18 @@ export function getCollectionMode(collection: CmsCollection): 'route' | 'none' {
 
 export function isRouteBackedCollection(collection: CmsCollection): boolean {
   return getCollectionMode(collection) === 'route'
+}
+
+export function getCollectionDefaultLocale(
+  collection: Pick<CmsCollection, 'locales' | 'settings'>,
+  fallback = 'en',
+): string {
+  const settings = collection.settings
+  if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
+    const configured = settings.defaultLocale
+    if (typeof configured === 'string' && collection.locales.includes(configured)) return configured
+  }
+  return collection.locales[0] ?? fallback
 }
 
 export function assertCollectionSupportsLocale(
@@ -56,13 +65,19 @@ export async function getCollectionOrThrow(ctx: ReadCtx, slug: string): Promise<
 }
 
 export async function getCollection(ctx: ReadCtx, slug: string): Promise<CmsCollection | null> {
-  const collection = await ctx.db
-    .query('collections')
-    .withIndex('by_slug', (q) => q.eq('slug', slug))
-    .first()
+  const installed = await readInstalledCmsContract(ctx)
+  const collection = installed?.content.collections[slug]
+  if (!installed || !collection) return null
+  return projectContentCollection(collection, {
+    contentHash: installed.record.contentHash,
+    presentation: installed.record.presentation,
+    installedAt: installed.record.installedAt,
+    installedBy: installed.record.installedBy,
+  })
+}
 
-  if (!collection) return null
-
+/** Normalize a projected collection without consulting another source of truth. */
+export function normalizeCollectionDoc(collection: CmsCollection): CmsCollection {
   return {
     ...collection,
     fields: normalizeFields(collection.fields as Array<Partial<CmsField>>),
@@ -76,27 +91,12 @@ export async function getCollection(ctx: ReadCtx, slug: string): Promise<CmsColl
   }
 }
 
-export async function collectionHasEntries(
-  ctx: ReadCtx,
-  collectionId: Id<'collections'>,
-): Promise<boolean> {
+export async function collectionHasEntries(ctx: ReadCtx, collection: string): Promise<boolean> {
   const entry = await ctx.db
     .query('entries')
-    .withIndex('by_collection_status', (q) => q.eq('collectionId', collectionId))
+    .withIndex('by_collection_lifecycle', (q) => q.eq('collection', collection))
     .first()
   return !!entry
 }
 
-export async function collectionEntryCountSnapshot(
-  ctx: ReadCtx,
-  collectionId: Id<'collections'>,
-): Promise<CollectionEntryCountSnapshot> {
-  const entries = await ctx.db
-    .query('entries')
-    .withIndex('by_collection_status', (q) => q.eq('collectionId', collectionId))
-    .take(MAX_EXACT_COLLECTION_ENTRY_COUNT + 1)
-  if (entries.length > MAX_EXACT_COLLECTION_ENTRY_COUNT) {
-    return { count: MAX_EXACT_COLLECTION_ENTRY_COUNT, exact: false }
-  }
-  return { count: entries.length, exact: true }
-}
+export { listInstalledCollections }

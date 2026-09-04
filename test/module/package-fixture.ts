@@ -15,22 +15,17 @@ export const cmsPackageRoot = resolve(projectRoot, 'packages/cms')
 export const contractPackageRoot = resolve(projectRoot, 'packages/contract')
 export const convexPackageRoot = resolve(projectRoot, 'packages/convex')
 export const contentPackageRoot = resolve(projectRoot, '..', 'ginko-content/packages/content')
-export const trellisRoot = resolve(projectRoot, '..', 'trellis')
-export const trellisBridgeRoot = resolve(projectRoot, '..', 'trellis/packages/trellis-bridge')
 
 export function readPackageJson(packageRoot: string): PackageJsonDependencies {
   return JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'))
 }
 
 export function packPackage(packageRoot: string, destination: string) {
-  const packOutput = execFileSync(
-    'pnpm',
-    ['--dir', packageRoot, 'pack', '--pack-destination', destination],
-    {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'inherit'],
-    },
-  )
+  const packOutput = execFileSync('corepack', ['pnpm', 'pack', '--pack-destination', destination], {
+    cwd: packageRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+  })
   const tarballName = packOutput
     .trim()
     .split(/\r?\n/)

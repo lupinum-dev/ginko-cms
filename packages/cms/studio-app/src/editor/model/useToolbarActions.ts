@@ -80,6 +80,19 @@ export function useToolbarActions(editor: Ref<Editor | null | undefined>) {
         return
       }
 
+      if (instance.state.selection.empty) {
+        // No text selected: insert the URL as the visible link text instead of
+        // creating an invisible zero-length link.
+        instance
+          .chain()
+          .focus()
+          .insertContent([
+            { marks: [{ attrs: { href: url }, type: 'link' }], text: url, type: 'text' },
+          ])
+          .run()
+        return
+      }
+
       getChain(instance).extendMarkRange('link').setLink({ href: url }).run()
       return
     }

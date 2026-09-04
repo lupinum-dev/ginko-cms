@@ -1,0 +1,6 @@
+{
+  "nuxtSiteConfig": {
+    "name": "Ginko CMS Playground",
+    "description": "Eine selbst gehostete CMS-Demo auf Basis von Convex."
+  }
+}

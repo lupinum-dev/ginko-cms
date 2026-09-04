@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-cms-contract",
-  "version": "0.1.1",
+  "version": "0.2.0-rc.2",
   "description": "Shared domain contract for ginko-cms",
   "homepage": "https://github.com/lupinum-dev/ginko-cms#readme",
   "bugs": {
@@ -23,9 +23,21 @@
       "types": "./dist/fields/index.d.ts",
       "import": "./dist/fields/index.js"
     },
-    "./shared/fields/*.js": {
-      "types": "./dist/fields/*.d.ts",
-      "import": "./dist/fields/*.js"
+    "./shared/fields/conditions.js": {
+      "types": "./dist/fields/conditions.d.ts",
+      "import": "./dist/fields/conditions.js"
+    },
+    "./shared/fields/materialize.js": {
+      "types": "./dist/fields/materialize.d.ts",
+      "import": "./dist/fields/materialize.js"
+    },
+    "./shared/fields/normalize.js": {
+      "types": "./dist/fields/normalize.d.ts",
+      "import": "./dist/fields/normalize.js"
+    },
+    "./shared/fields/title.js": {
+      "types": "./dist/fields/title.d.ts",
+      "import": "./dist/fields/title.js"
     },
     "./shared/publicContent.js": {
       "types": "./dist/publicContent.d.ts",
@@ -47,9 +59,17 @@
       "types": "./dist/order.d.ts",
       "import": "./dist/order.js"
     },
+    "./shared/placementGraph.js": {
+      "types": "./dist/placementGraph.d.ts",
+      "import": "./dist/placementGraph.js"
+    },
     "./shared/permissions.js": {
       "types": "./dist/permissions.d.ts",
       "import": "./dist/permissions.js"
+    },
+    "./shared/readiness.js": {
+      "types": "./dist/readiness.d.ts",
+      "import": "./dist/readiness.js"
     },
     "./shared/caller.js": {
       "types": "./dist/caller.d.ts",
@@ -71,9 +91,49 @@
       "types": "./dist/convex/caller.d.ts",
       "import": "./dist/convex/caller.js"
     },
-    "./convex/schemas/*.js": {
-      "types": "./dist/schemas/*.d.ts",
-      "import": "./dist/schemas/*.js"
+    "./convex/schemas/assets.js": {
+      "types": "./dist/schemas/assets.d.ts",
+      "import": "./dist/schemas/assets.js"
+    },
+    "./convex/schemas/collections.js": {
+      "types": "./dist/schemas/collections.d.ts",
+      "import": "./dist/schemas/collections.js"
+    },
+    "./convex/schemas/diagnostics.js": {
+      "types": "./dist/schemas/diagnostics.d.ts",
+      "import": "./dist/schemas/diagnostics.js"
+    },
+    "./convex/schemas/editor.js": {
+      "types": "./dist/schemas/editor.d.ts",
+      "import": "./dist/schemas/editor.js"
+    },
+    "./convex/schemas/members.js": {
+      "types": "./dist/schemas/members.d.ts",
+      "import": "./dist/schemas/members.js"
+    },
+    "./convex/schemas/maintenance.js": {
+      "types": "./dist/schemas/maintenance.d.ts",
+      "import": "./dist/schemas/maintenance.js"
+    },
+    "./convex/schemas/portability.js": {
+      "types": "./dist/schemas/portability.d.ts",
+      "import": "./dist/schemas/portability.js"
+    },
+    "./convex/schemas/public.js": {
+      "types": "./dist/schemas/public.d.ts",
+      "import": "./dist/schemas/public.js"
+    },
+    "./convex/schemas/revalidation.js": {
+      "types": "./dist/schemas/revalidation.d.ts",
+      "import": "./dist/schemas/revalidation.js"
+    },
+    "./convex/schemas/redirects.js": {
+      "types": "./dist/schemas/redirects.d.ts",
+      "import": "./dist/schemas/redirects.js"
+    },
+    "./convex/schemas/siteData.js": {
+      "types": "./dist/schemas/siteData.d.ts",
+      "import": "./dist/schemas/siteData.js"
     }
   },
   "publishConfig": {
@@ -85,14 +145,17 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json"
   },
   "devDependencies": {
-    "convex": "1.38.0"
+    "convex": "1.42.2"
   },
   "peerDependencies": {
-    "convex": "^1.38.0"
+    "convex": "^1.42.2"
   },
   "peerDependenciesMeta": {
     "convex": {
       "optional": true
     }
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }

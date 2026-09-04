@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installBridge } from './bridge-helpers.js'
+import { installConvexSetup } from './convex-setup-helpers.js'
 
 const addImportsDir = vi.fn()
 const addComponentsDir = vi.fn()
@@ -16,6 +17,7 @@ const addServerPlugin = vi.fn()
 const addTypeTemplate = vi.fn((template: { filename: string }) => ({
   dst: resolve(moduleDir, '.nuxt', template.filename),
 }))
+const addTemplate = addTypeTemplate
 const extendPages = vi.fn()
 const useLogger = vi.fn(() => ({
   success: vi.fn(),
@@ -32,6 +34,7 @@ vi.mock('@nuxt/kit', () => ({
   addServerHandler,
   addServerPlugin,
   addTypeTemplate,
+  addTemplate,
   createResolver: () => ({
     resolve: (path: string) => resolve(moduleDir, path),
   }),
@@ -79,8 +82,18 @@ function createNuxtMock(rootDir: string) {
         localeCookie: null,
       },
       modules: ['nuxt-i18n-micro'],
+      convex: {
+        auth: { origin: 'http://localhost:3000' },
+      },
       rootDir,
+      srcDir: rootDir,
       runtimeConfig: {
+        content: {
+          contract: buildResolvedContentContract(
+            { collections: {} },
+            { defaultLocale: 'en', locales: ['en'] },
+          ),
+        },
         public: {},
       },
       vite: {
@@ -112,18 +125,10 @@ describe('ginko-cms tailwind registration', () => {
   it('registers the cms content provider implementation through the content hook', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-provider-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
 
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
-        route: '/studio',
-      },
-      nuxt,
-    )
+    await setupModule({ route: '/studio' }, nuxt)
 
     const providerHook = nuxt.hook.mock.calls.find(([name]) => name === 'content:providers')?.[1]
     expect(providerHook).toBeTypeOf('function')
@@ -139,14 +144,9 @@ describe('ginko-cms tailwind registration', () => {
   it('injects its runtime sources into the consumer Tailwind entry CSS', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
-    const options = {
-      collections: {},
-      defaultLocale: 'en',
-      locales: [{ code: 'en', isDefault: true }],
-      route: '/studio',
-    }
+    const options = { route: '/studio' }
 
     await setupModule(options, nuxt)
     await setupModule(options, nuxt)
@@ -164,21 +164,21 @@ describe('ginko-cms tailwind registration', () => {
       classSuffix: '',
     })
     const moduleDependencies = getModuleDependencies(nuxt)
-    const trellisDependency = moduleDependencies['@lupinum/trellis']
+    const convexDependency = moduleDependencies['@lupinum/better-convex-nuxt']
 
-    expect(trellisDependency).toMatchObject({
-      defaults: expect.objectContaining({
-        auth: expect.objectContaining({
-          enabled: true,
-          routeProtection: {
-            redirectTo: '/studio/auth/signin',
-          },
-        }),
-        permissions: {
-          query: 'ginkoCms/members.getAccessContext',
+    // Ginko supplies only its product route. The host owns the explicit auth
+    // origin and optional Better Auth client definition.
+    expect(convexDependency).toMatchObject({
+      defaults: {
+        auth: {
+          redirectTo: '/studio/auth/signin',
         },
-      }),
+      },
     })
+    expect(
+      (convexDependency.defaults as { auth: Record<string, unknown> }).auth,
+    ).not.toHaveProperty('client')
+    expect(convexDependency.defaults).not.toHaveProperty('permissions')
 
     expect(moduleDependencies).toMatchObject({
       '@nuxtjs/color-mode': {
@@ -187,17 +187,8 @@ describe('ginko-cms tailwind registration', () => {
           classSuffix: '',
         },
       },
-      'nuxt-i18n-micro': {
-        version: '>=3.17.0',
-        defaults: {
-          autoDetectLanguage: false,
-          disablePageLocales: true,
-          localeCookie: null,
-          redirects: false,
-          translationDir: 'node_modules/.cache/ginko-cms/i18n-micro',
-        },
-      },
     })
+    expect(moduleDependencies).not.toHaveProperty('nuxt-i18n-micro')
     const consumerCssPath = resolve(rootDir, 'app/assets/css/tailwind.css')
     const expectedSource = relative(
       dirname(consumerCssPath),
@@ -218,22 +209,24 @@ describe('ginko-cms tailwind registration', () => {
     expect(transformed?.code).toContain(`@source "${expectedSource}";`)
   })
 
+  it('leaves the host in control of its i18n runtime when locales are configured', () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-i18n-dependency-'))
+    tempDirs.push(rootDir)
+    const nuxt = createNuxtMock(rootDir)
+    nuxt.options.modules = []
+    ;(nuxt.options.i18n as Record<string, unknown>).locales = [{ code: 'en' }]
+
+    expect(getModuleDependencies(nuxt)).not.toHaveProperty('nuxt-i18n-micro')
+  })
+
   it('initializes css registration when the nuxt mock omits css', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-no-css-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
     delete nuxt.options.css
 
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
-        route: '/studio',
-      },
-      nuxt,
-    )
+    await setupModule({ route: '/studio' }, nuxt)
 
     expect(nuxt.options.css).toBeUndefined()
   })
@@ -241,18 +234,10 @@ describe('ginko-cms tailwind registration', () => {
   it('does not duplicate the dark variant when the consumer stylesheet already defines it', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-dark-variant-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
 
-    await setupModule(
-      {
-        collections: {},
-        defaultLocale: 'en',
-        locales: [{ code: 'en', isDefault: true }],
-        route: '/studio',
-      },
-      nuxt,
-    )
+    await setupModule({ route: '/studio' }, nuxt)
 
     const plugin = nuxt.options.vite.plugins.find(
       (entry) => entry.name === 'ginko-cms:tailwind-source-injection',
@@ -272,20 +257,12 @@ describe('ginko-cms tailwind registration', () => {
   it('warns when a Tailwind stylesheet cannot receive CMS sources', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-missing-import-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
-      await setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        nuxt,
-      )
+      await setupModule({ route: '/studio' }, nuxt)
 
       const plugin = nuxt.options.vite.plugins.find(
         (entry) => entry.name === 'ginko-cms:tailwind-source-injection',
@@ -306,20 +283,12 @@ describe('ginko-cms tailwind registration', () => {
   it('rejects a non-empty color mode class suffix', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-tailwind-invalid-color-mode-'))
     tempDirs.push(rootDir)
-    await installBridge(rootDir)
+    await installConvexSetup(rootDir)
     const nuxt = createNuxtMock(rootDir)
     nuxt.options.colorMode = { classSuffix: '-mode' }
 
-    await expect(
-      setupModule(
-        {
-          collections: {},
-          defaultLocale: 'en',
-          locales: [{ code: 'en', isDefault: true }],
-          route: '/studio',
-        },
-        nuxt,
-      ),
-    ).rejects.toThrow('ginko-cms requires colorMode.classSuffix to be ""')
+    await expect(setupModule({ route: '/studio' }, nuxt)).rejects.toThrow(
+      'ginko-cms requires colorMode.classSuffix to be ""',
+    )
   })
 })

@@ -27,9 +27,9 @@ export interface AssetInfo {
   cropY?: number
   cropWidth?: number
   cropHeight?: number
-  scope?: 'item' | 'collection' | 'global'
-  collectionId?: string
-  itemId?: string
+  scope?: 'entry' | 'collection' | 'global'
+  collection?: string
+  entryId?: string
   ownerName?: string | null
   tags?: string[]
   createdAt?: number

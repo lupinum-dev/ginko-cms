@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Editor } from '@tiptap/core'
 import {
   AlignVerticalJustifyCenter,
   Columns2,
@@ -14,7 +13,8 @@ import {
   Table,
   Trash2,
   Video,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type { Editor } from '@tiptap/core'
 import { computed, toRef } from 'vue'
 
 import { useToolbarActions } from '../model/useToolbarActions'
@@ -85,7 +85,7 @@ const activeMediaType = computed<'file' | 'image' | 'video' | null>(() => {
     :class="[
       isFocusMode
         ? 'ginko-richtext-focus-header ginko:border-b ginko:border-border/40 ginko:bg-background'
-        : 'ginko-richtext-toolbar ginko:flex ginko:items-center ginko:gap-1 ginko:overflow-x-auto ginko:border-b ginko:border-border/50 ginko:bg-card ginko:px-2 ginko:py-1.5',
+        : 'ginko:border-b ginko:border-border/50 ginko:bg-card',
     ]"
   >
     <div
@@ -99,10 +99,10 @@ const activeMediaType = computed<'file' | 'image' | 'video' | null>(() => {
           <Maximize2 class="ginko:size-3.5" />
         </div>
         <div class="ginko:min-w-0 ginko:leading-tight">
-          <div class="ginko:truncate ginko:text-[13px] ginko:font-semibold ginko:text-foreground">
+          <div class="ginko:truncate ginko:text-sm ginko:font-semibold ginko:text-foreground">
             Focus editor
           </div>
-          <div class="ginko:truncate ginko:text-[11px] ginko:text-muted-foreground">
+          <div class="ginko:truncate ginko:text-xs ginko:text-muted-foreground">
             Full-screen writing mode
           </div>
         </div>
@@ -140,8 +140,11 @@ const activeMediaType = computed<'file' | 'image' | 'video' | null>(() => {
     </div>
 
     <div
+      role="region"
+      aria-label="Rich text formatting tools"
+      tabindex="0"
       :class="[
-        'ginko-richtext-toolbar ginko:flex ginko:items-center ginko:gap-1 ginko:overflow-x-auto ginko:px-2 ginko:py-1.5',
+        'ginko-richtext-toolbar ginko:flex ginko:items-center ginko:gap-1 ginko:overflow-x-auto ginko:px-2 ginko:py-1.5 ginko:focus-visible:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring ginko:focus-visible:ring-inset',
         isFocusMode
           ? 'ginko:mx-auto ginko:w-full ginko:max-w-[min(100%,72rem)] ginko:border-t ginko:border-border/30 ginko:bg-background'
           : '',

@@ -21,17 +21,19 @@ const value = computed({
 </script>
 
 <template>
-  <div class="ginko:space-y-1.5">
-    <div class="ginko:flex ginko:items-center ginko:justify-between">
-      <Label :for="field.key" class="ginko:text-sm">
-        {{ label }}
-        <span v-if="field.required" class="ginko:text-destructive">*</span>
-      </Label>
+  <StudioFieldShell
+    :for="field.key"
+    :label="label"
+    :required="field.required"
+    :description="field.description"
+    :error="fieldError"
+  >
+    <template #action>
       <span
         class="ginko:text-sm ginko:font-medium ginko:tabular-nums ginko:text-muted-foreground"
         >{{ value }}</span
       >
-    </div>
+    </template>
     <input
       :id="field.key"
       v-model.number="value"
@@ -39,14 +41,12 @@ const value = computed({
       :min="field.min ?? 0"
       :max="field.max ?? 100"
       :step="field.step ?? 1"
+      :aria-invalid="fieldError ? true : undefined"
       class="ginko:w-full ginko:accent-primary"
     />
-    <div class="ginko:flex ginko:justify-between ginko:text-[10px] ginko:text-muted-foreground">
+    <div class="ginko:flex ginko:justify-between ginko:text-xs ginko:text-muted-foreground">
       <span>{{ field.min ?? 0 }}</span>
       <span>{{ field.max ?? 100 }}</span>
     </div>
-    <p v-if="field.description" class="ginko:text-xs ginko:text-muted-foreground">
-      {{ field.description }}
-    </p>
-  </div>
+  </StudioFieldShell>
 </template>

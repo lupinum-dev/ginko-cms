@@ -1,36 +1,26 @@
 // @vitest-environment jsdom
 
+import { createBetterConvex } from '@lupinum/better-convex-vue'
+import { createBetterConvexAttachment } from '@lupinum/better-convex-vue/embedded'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, h, nextTick } from 'vue'
 
 import { useCmsStudioPaginatedQuery } from '../../packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuery'
 import {
-  CmsStudioQueryError,
   normalizeCmsStudioQueryError,
   useCmsStudioQuery,
 } from '../../packages/cms/studio-app/src/composables/useCmsStudioQuery'
 
-const host = vi.hoisted(() => ({
-  convex: undefined as
-    | {
-        onUpdate: ReturnType<typeof vi.fn>
-      }
-    | undefined,
+vi.mock('../../packages/cms/studio-app/src/composables/permissions', () => ({
+  cmsPermissionKeys: { read: 'read' },
 }))
-
-vi.mock('../../packages/cms/studio-app/src/boundary/studio-host-context', () => ({
-  useStudioHostContext: () => ({
-    getConvexClient: () => host.convex,
+vi.mock('../../packages/cms/studio-app/src/composables/useCmsAuthState', () => ({
+  useCmsAuthState: () => ({
+    authEnabled: computed(() => true),
+    isAuthenticated: computed(() => true),
   }),
 }))
-
-vi.mock('../../packages/cms/studio-app/src/composables/permissions', () => ({
-  cmsPermissionKeys: {
-    read: 'read',
-  },
-}))
-
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () => ({
   useCmsStudioAccess: () => ({
     ready: computed(() => true),
@@ -38,116 +28,105 @@ vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioAccess', () =
   }),
 }))
 
-const query = { _path: 'ginkoCms.editor.getEntry' }
+const query = { [Symbol.for('functionName')]: 'ginkoCms.editor.getEntry' }
 
-describe('useCmsStudioQuery', () => {
-  it('normalizes Studio query errors with query metadata', () => {
-    const cause = new Error('Raw auth failure') as Error & {
-      data?: { code: string; message: string; status: number }
-      status?: number
-    }
-    cause.data = {
-      code: 'UNAUTHENTICATED',
-      message: 'Sign in required',
-      status: 401,
-    }
-    cause.status = 401
+function runtimeFixture() {
+  const identityListeners = new Set<() => void>()
+  let identity = {
+    authEnabled: true,
+    settled: true,
+    identityKey: 'user:a',
+    authEpoch: 1,
+    identityGeneration: 1,
+    error: null,
+  }
+  const subscriptions: Array<(value: unknown) => void> = []
+  const client = {
+    query: vi.fn(async () => ({ page: [], isDone: true, continueCursor: '' })),
+    mutation: vi.fn(),
+    action: vi.fn(),
+    onUpdate: vi.fn((_reference, _args, next) => {
+      subscriptions.push(next)
+      return vi.fn()
+    }),
+  }
+  const attachment = createBetterConvexAttachment({
+    client: client as never,
+    anonymousClient: client as never,
+    identity: {
+      snapshot: () => identity,
+      waitForInitialSettlement: async () => {},
+      subscribe(listener) {
+        identityListeners.add(listener)
+        return () => identityListeners.delete(listener)
+      },
+    },
+  })
+  return {
+    client,
+    subscriptions,
+    plugin: createBetterConvex({ attachment }),
+    replaceIdentity(next: typeof identity) {
+      identity = next
+      for (const listener of identityListeners) listener()
+    },
+  }
+}
 
-    const error = normalizeCmsStudioQueryError(cause, query)
+describe('Ginko Studio Better Convex adapters', () => {
+  it('delegates query lifecycle and synchronously retires protected data on identity change', async () => {
+    const fixture = runtimeFixture()
+    const Host = defineComponent({
+      setup: () => ({ result: useCmsStudioQuery(query as never, {}) }),
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host, { global: { plugins: [fixture.plugin] } })
+    await nextTick()
+    fixture.subscriptions[0]?.({ owner: 'a' })
+    await nextTick()
+    expect(wrapper.vm.result.data.value).toEqual({ owner: 'a' })
 
-    expect(error).toBeInstanceOf(CmsStudioQueryError)
-    expect(error.message).toBe('Sign in required')
-    expect(error.operation).toBe('query')
-    expect(error.functionPath).toBe('ginkoCms.editor.getEntry')
-    expect(error.code).toBe('UNAUTHENTICATED')
-    expect(error.status).toBe(401)
-    expect(error.category).toBe('auth')
-    expect(error.data).toEqual(cause.data)
+    fixture.replaceIdentity({
+      authEnabled: true,
+      settled: true,
+      identityKey: 'user:b',
+      authEpoch: 2,
+      identityGeneration: 2,
+      error: null,
+    })
+    expect(wrapper.vm.result.data.value).toBeUndefined()
+    await nextTick()
+    expect(fixture.client.onUpdate).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
   })
 
-  it('surfaces query callback failures through structured reactive error state', async () => {
-    let onResult: ((value: unknown) => void) | null = null
-    let onError: ((error: unknown) => void) | null = null
-    const convex = {
-      onUpdate: vi.fn((_query, _args, next, fail) => {
-        onResult = next
-        onError = fail
-        return vi.fn()
-      }),
-    }
-    host.convex = convex
-
+  it('delegates pagination and treats a nullable terminal cursor as exhausted', async () => {
+    const fixture = runtimeFixture()
+    const paginated = { [Symbol.for('functionName')]: 'ginkoCms.editor.listVersions' }
     const Host = defineComponent({
-      setup() {
-        const result = useCmsStudioQuery(query as never, {})
-        return { result }
-      },
-      render() {
-        return h('div')
-      },
-    })
-
-    const wrapper = mount(Host)
-    await nextTick()
-
-    onError?.(
-      Object.assign(new Error('Query failed'), {
-        data: { code: 'NOT_FOUND', message: 'Entry not found.', status: 404 },
+      setup: () => ({
+        result: useCmsStudioPaginatedQuery(paginated as never, {}, { initialNumItems: 25 }),
       }),
-    )
+      render: () => h('div'),
+    })
+    const wrapper = mount(Host, { global: { plugins: [fixture.plugin] } })
     await nextTick()
-
-    const result = wrapper.vm.result
-    expect(result.status.value).toBe('error')
-    expect(result.error.value).toBeInstanceOf(CmsStudioQueryError)
-    expect((result.error.value as CmsStudioQueryError).functionPath).toBe(
-      'ginkoCms.editor.getEntry',
-    )
-    expect((result.error.value as CmsStudioQueryError).category).toBe('not_found')
-
-    onResult?.({ _id: 'entry_1' })
+    fixture.subscriptions[0]?.({ page: [{ id: 'v1' }], isDone: true, continueCursor: '' })
     await nextTick()
-
-    expect(result.status.value).toBe('success')
-    expect(result.error.value).toBeNull()
-    expect(result.data.value).toEqual({ _id: 'entry_1' })
-    host.convex = undefined
+    expect(wrapper.vm.result.data.value).toEqual([{ id: 'v1' }])
+    expect(wrapper.vm.result.canLoadMore.value).toBe(false)
+    expect(wrapper.vm.result.status.value).toBe('exhausted')
+    wrapper.unmount()
   })
 
-  it('uses the same structured errors for paginated Studio queries', async () => {
-    let onError: ((error: unknown) => void) | null = null
-    const convex = {
-      onUpdate: vi.fn((_query, _args, _next, fail) => {
-        onError = fail
-        return vi.fn()
-      }),
-    }
-    host.convex = convex
-
-    const Host = defineComponent({
-      setup() {
-        const result = useCmsStudioPaginatedQuery(query as never, {}, { initialNumItems: 10 })
-        return { result }
-      },
-      render() {
-        return h('div')
-      },
-    })
-
-    const wrapper = mount(Host)
-    await nextTick()
-
-    onError?.({ code: 'LIMIT_RATE', message: 'Slow down.', status: 429 })
-    await nextTick()
-
-    const result = wrapper.vm.result
-    expect(result.status.value).toBe('error')
-    expect(result.error.value).toBeInstanceOf(CmsStudioQueryError)
-    expect((result.error.value as CmsStudioQueryError).functionPath).toBe(
-      'ginkoCms.editor.getEntry',
+  it('keeps Ginko domain classification on top of the shared sanitized error', () => {
+    const normalized = normalizeCmsStudioQueryError(
+      new Error('opaque failure'),
+      query as never,
+      'query',
     )
-    expect((result.error.value as CmsStudioQueryError).category).toBe('rate_limit')
-
-    host.convex = undefined
+    expect(normalized.functionPath).toBe('ginkoCms.editor.getEntry')
+    expect(normalized.operation).toBe('query')
+    expect(normalized.category).toBe('unknown')
   })
 })

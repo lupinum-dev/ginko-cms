@@ -17,3 +17,10 @@ export function useStudioEntryEditorContext() {
   }
   return context
 }
+
+// For components that render both inside and outside the entry editor trees
+// (or in isolated component tests): missing context degrades affordances
+// instead of throwing.
+export function useOptionalStudioEntryEditorContext() {
+  return inject<StudioEntryEditorContext | null>(studioEntryEditorContextKey, null)
+}

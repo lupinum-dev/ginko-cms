@@ -11,21 +11,24 @@ Use these docs by reader task:
   [Next collections](./getting-started/next-collections.md) and
   [Environment](./getting-started/environment.md).
 - Content model changes: use
-  [Changing collections](./guides/changing-collections.md), then the migration
-  [recipes](./guides/migrations/recipes.md) and
-  [recovery guide](./guides/migrations/recovery.md).
+  [Changing collections](./guides/changing-collections.md), then the contract
+  transition [recipes](./guides/contract-transitions/recipes.md) and
+  [recovery guide](./guides/contract-transitions/recovery.md).
 - Website reads: use the
   [public content API reference](./reference/public-content-api.md) and
   [Nuxt content provider reference](./reference/nuxt-content-provider.md).
 - Product model: read [Positioning](./concepts/positioning.md),
   [Content model](./reference/content-model.md), and
   [Studio workflows](./concepts/studio/workflows.md).
-- Advanced config: use
-  [CMS config helpers](./reference/cms-config-helpers.md) only when the app does
-  not derive CMS contracts from `content.config.ts`.
+- Auth and roles: use [Auth and roles](./reference/auth-and-roles.md) for the
+  Better Auth, CMS member, MCP OAuth delegation, agent-run, and review-request model.
+- Agent workflows: use [MCP agent workflows](./guides/mcp-agent-workflows.md)
+  for the current supervised MCP tool surface.
 - Release and recovery work: use the
   [release candidate checklist](./maintenance/release-candidate.md) and
   [backup and recovery](./maintenance/backup-and-recovery.md).
+- Deployment privacy operations: use the
+  [data retention and privacy inventory](./maintenance/data-retention-and-privacy.md).
 - Agent-assisted setup or maintenance: use the repo-local
   [Ginko CMS Codex skill](../skills/ginko-cms/SKILL.md).
 
@@ -40,14 +43,15 @@ docs/
     environment.md
   guides/
     changing-collections.md
-    filesystem-migration.md
+    content-portability.md
+    mcp-agent-workflows.md
     theming-the-studio.md
-    migrations/
+    contract-transitions/
       recipes.md
       recovery.md
   reference/
+    auth-and-roles.md
     content-model.md
-    cms-config-helpers.md
     nuxt-content-provider.md
     public-content-api.md
   concepts/
@@ -63,6 +67,7 @@ docs/
   maintenance/
     backup-and-recovery.md
     convex-component-diagnostics-issue.md
+    data-retention-and-privacy.md
     release-candidate.md
 skills/
   ginko-cms/
@@ -71,7 +76,7 @@ skills/
       openai.yaml
     references/
       setup-and-env.md
-      content-contracts-and-migrations.md
+      content-contracts-and-transitions.md
       public-content-and-provider.md
       mcp-agent-workflows.md
       operations-and-maintenance.md

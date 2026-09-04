@@ -1,8 +1,8 @@
 # Maintaining Ginko CMS
 
 Ginko CMS is the integration package. It owns CMS domain rules, Studio, the
-Convex component, generated host bridges, MCP tools, package e2e, and release
-compatibility with Trellis and Ginko Content.
+Convex component, host Convex setup files, MCP tools, package e2e, and release
+compatibility with Ginko Content and `@lupinum/better-convex-nuxt`.
 
 ## Package Surface
 
@@ -15,39 +15,56 @@ Publishable packages in this repo:
 Publish order matters. The contract package is the lowest layer, the Convex
 package depends on it, and the Nuxt CMS package depends on both.
 
-External packages required for the release tuple:
-
-- `@lupinum/ginko-content@0.1.2`
-- `@lupinum/trellis@0.2.0`
-- `@lupinum/trellis-bridge@0.2.0`
-
-Those packages must already be published before the CMS packages are published.
+The external package versions, source commits, and approved artifact hashes live
+only in `packages/cms/compatibility.json`. Those packages must be approved before
+the CMS packages are published.
 
 ## Daily Maintenance
 
-Use these commands while working:
+The published Better Convex Nuxt/Vue beta.3 tuple is the validated integration
+baseline. Install the committed dependency graph, then run the source and
+packed-source checks:
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm run check
 pnpm run release:verify
 ```
 
-`release:verify` runs local checks, public package e2e, and production audit.
-The package e2e packs the public package set into `.pack/` and installs it in a
-temporary consumer app. In a sibling workspace it uses the local
-`../ginko-content/packages/content` package by default; pass
-`GINKO_CONTENT_PACKAGE_ROOT` to use a different local checkout.
+Ordinary CI checks out `sourceRehearsal.betterConvexCommit` only for the
+packed-source consumer. It does not inject an override into Ginko's dependency
+graph. The committed lockfile remains the sole source-install authority.
+
+The release-candidate lane consumes four approved dependency tarballs without
+rebuilding them. Put the exact registry downloads in `.pack/upstream`, run the
+single pack command, then verify the uploaded result:
+
+```bash
+pnpm run candidate:pack
+pnpm run release:verify:candidate
+```
+
+`candidate:pack` verifies package names, versions, SHA-256, SRI, the Nuxt
+runtime fingerprint binding, and reproducible Ginko packs against the single
+compatibility authority. Candidate verification rejects wrong installed
+versions and workspace/link dependencies.
+
+The compatibility authority records the exact immutable registry artifacts,
+their provenance source commits, and the Nuxt runtime fingerprint. The Better
+Convex MCP beta was published earlier than the Nuxt/Vue beta.3 pair, so its
+provenance commit is intentionally different and is recorded per artifact. The
+MCP package remains experimental while its transport targets the final
+2026-07-28 protocol.
 
 For a real release candidate, also run the registry dependency lane after
-Trellis and Ginko Content are published:
+Ginko Content is published:
 
 ```bash
 pnpm run release:verify:registry
 ```
 
-That proves the CMS packages can consume the already-published Trellis, Trellis
-Bridge, and Ginko Content versions from `packages/cms/compatibility.json`
-instead of accidentally relying on sibling workspaces.
+That lane must download every dependency from the registry and match the exact
+hashes and integrity values in `packages/cms/compatibility.json`.
 
 ## Release Runbook
 
@@ -55,7 +72,7 @@ Publishing is intentionally manual. The `release:publish` script exits with a
 failure message so nobody, human or agent, can accidentally push packages to
 npm.
 
-1. Confirm Trellis, Trellis Bridge, and Ginko Content are released at the
+1. Confirm Ginko Content and the complete Better Convex family are released at the
    versions in `packages/cms/compatibility.json`.
 2. Start from a clean working tree on the release branch.
 3. Update package versions and compatibility docs intentionally.
@@ -66,52 +83,47 @@ pnpm run release:notes
 ```
 
 5. Review `CHANGELOG.md`; changelogen is a draft generator, not an authority.
-6. Run local release verification:
+6. Trigger `.github/workflows/release-candidate.yml` manually to rehearse, or
+   push the exact prerelease tag to publish. It downloads upstream registry
+   bytes, packs once, requires both pnpm and strict npm consumers,
+   and runs protected disposable Convex staging.
+7. Download the `ginko-candidate-<commit>` artifact produced by that workflow.
+8. Inspect the exact candidate tarballs:
 
 ```bash
-pnpm run release:verify
+tar -tzf .pack/candidate/lupinum-ginko-cms-contract-*.tgz | less
+tar -tzf .pack/candidate/lupinum-ginko-cms-convex-*.tgz | less
+tar -tzf .pack/candidate/lupinum-ginko-cms-*.tgz | less
+pnpm run check:packs:no-local-specifiers
 ```
 
-7. Run registry dependency verification:
+9. Publish only after the owner has reviewed the candidate manifest, protected
+   staging evidence, tarballs, and npm package settings. The tag workflow
+   publishes the original contract, Convex, and CMS archives in order through
+   trusted publishing with provenance and the `next-staging` tag. It downloads
+   all three registry versions and requires byte equality. It never repacks and
+   never moves `latest` or shared `next`.
 
-```bash
-pnpm run release:verify:registry
-```
+While the project has one maintainer, `ginko-release` uses tag restrictions
+without a required reviewer. The evidence records `governanceMode:
+solo-maintainer`, the tag actor, source commit, and commit author; it does not
+invent a deputy, independent reviewer, or notification test.
 
-8. Inspect `.pack/*.tgz` before publishing:
-
-```bash
-tar -tzf .pack/lupinum-ginko-cms-contract-*.tgz | less
-tar -tzf .pack/lupinum-ginko-cms-convex-*.tgz | less
-tar -tzf .pack/lupinum-ginko-cms-*.tgz | less
-node scripts/check-pack-workspace-refs.mjs
-npm publish .pack/lupinum-ginko-cms-contract-0.1.1.tgz --access public --otp <code>
-npm publish .pack/lupinum-ginko-cms-convex-0.1.2.tgz --access public --otp <code>
-npm publish .pack/lupinum-ginko-cms-0.1.3.tgz --access public --otp <code>
-```
-
-9. Commit the release prep. Do not commit `.pack/` artifacts.
-10. Publish only after the owner has reviewed the tarballs and npm package
-    settings.
-
-For the first public release of a package, npm staged publishing cannot be used
-because staged publishing requires the package to already exist on the registry.
-Use an owner-controlled manual publish with 2FA.
-
-For later releases, prefer npm trusted publishing plus staged publishing:
-
-- GitHub Actions must use a protected environment with human approval.
+- GitHub Actions must use the tag-restricted `ginko-release` environment.
+- `ginko-release` must contain the non-secret variables `CONVEX_DEPLOYMENT`,
+  `CONVEX_URL`, and `CONVEX_SITE_URL`, plus only the deployment-scoped
+  `CONVEX_DEPLOY_KEY` secret. The deployment must be a dedicated empty
+  development deployment whose key and URLs match its `dev:<name>` identity.
+  Do not use a personal development or production deployment. Delete the
+  dedicated deployment after the prerelease evidence is retained.
+- The protected proof needs no CMS test-account credentials; do not add unused
+  `GINKO_CMS_TEST_EMAIL` or `GINKO_CMS_TEST_PASSWORD` secrets.
 - The release job must use Node 24 or newer and npm 11.15 or newer.
 - Do not use package-manager caches in release jobs.
 - Use OIDC trusted publishing instead of long-lived npm publish tokens.
 - Configure npm package settings to require 2FA and disallow traditional tokens.
-- Stage the tarballs in package order with `npm stage publish .pack/<name>.tgz`,
-  download and inspect each staged package with `npm stage download <stage-id>`,
-  then approve with `npm stage approve <stage-id>` and 2FA.
-- CI sibling checkouts require `LUPINUM_CI_REPO_READ_TOKEN` when Trellis or
-  Ginko Content are private. Set `TRELLIS_CI_REF` and `GINKO_CONTENT_CI_REF`
-  repository variables when CI must test a release branch or tag instead of
-  `main`.
+- Publish only the workflow-downloaded candidate archives; never run a local
+  `npm publish` or repack an archive.
 
 ## Supply-Chain Policy
 
@@ -128,14 +140,15 @@ For later releases, prefer npm trusted publishing plus staged publishing:
 Current temporary overrides are for audit and ecosystem compatibility:
 
 - `brace-expansion`, `devalue`, `fast-uri`, `fast-xml-builder`, `hono`,
-  `ip-address`, `kysely`, `mermaid`, `nitropack`, `postcss`, `simple-git`, and
-  `ws` keep transitive production audit clean.
+  `ip-address`, `kysely`, `mermaid`, `nitropack`, `oxc-parser`, `postcss`,
+  `simple-git`, `vue-sfc-transformer`, and `ws` keep transitive production
+  resolution and audit clean.
 - `qs` is held at the patched `6.15.2` line for the transitive Express parser
-  chain currently pulled in by Trellis MCP tooling.
+  chain currently pulled in by MCP tooling.
 - `auditConfig.ignoreGhsas` contains the current unfixable `elliptic` advisory
-  from the Trellis MCP tooling chain. Remove it as soon as upstream stops
-  resolving `elliptic` or npm publishes a patched range.
-- `convex@1.38.0` is the release tuple pin.
+  from the MCP tooling chain. Remove it as soon as upstream stops resolving
+  `elliptic` or npm publishes a patched range.
+- `convex@1.42.2` is the release tuple pin.
 - `h3@1.15.11` is held until h3 2 is stable and Nuxt ecosystem peers accept it.
 - Vite 7 and Nuxt DevTools 3 are held until their next major lines are stable
   across Nuxt, Vitest, and the Studio build.
@@ -153,10 +166,16 @@ pnpm run prepare:component
 Review generated-file changes by command and checksum/context, not by asking an
 agent to reason over the entire generated output.
 
+CMS Convex consumes `@lupinum/ginko-content/cms-contract` directly. There is no
+CMS-owned vendor copy or regeneration command. Candidate verification must use
+the exact clean Content tarball recorded in `packages/cms/compatibility.json`;
+normal checks resolve the installed package and do not read sibling source.
+
 ## Ownership Boundary
 
 Ginko CMS owns destructive operation previews, publish workflow integration,
-assets, members, backups, projections, generated bridges, and Studio UX.
+assets, members, asset recovery, owner-CLI portability, projections, host setup
+files, and Studio UX.
 
 Ginko CMS must not own host app content, private canary scripts, frontend-owned
 backend authority, duplicate confirmation systems, public bridge exports without

@@ -1,12 +1,18 @@
 import {
-  fieldValidator,
+  activityOutcomeValidator,
+  ginkoPublicAssetFactValidator,
   jsonObjectValidator,
   jsonValueValidator,
   localeTextValidator,
-  slugModeValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
+
+const durableSha256StateValidator = v.object({
+  words: v.array(v.number()),
+  block: v.array(v.number()),
+  bytesHashed: v.number(),
+})
 
 /**
  * Schema ownership model
@@ -15,231 +21,515 @@ import { v } from 'convex/values'
  * conventions and is deployed with `npx convex deploy`. It is never
  * modified at runtime.
  *
- * Collection configuration (fields, routing, labels, public profile, etc.)
- * is code-defined by the host project. The `collections` table stores a
- * synced read-only contract snapshot used by content operations, Studio,
- * MCP, and public projection builders.
+ * Collection configuration, locales, content policy, and presentation are
+ * installed together in the singleton `cmsContract`. Content operations,
+ * Studio, MCP, and public projection builders all read that same contract.
  *
  * Studio and MCP may inspect the collection contract, but they must not
  * create, edit, or delete schema. Contract changes happen in code and flow
- * into Convex through deploy-key authenticated generated internal bridge
- * functions.
+ * into Convex through deploy-key authenticated internal component functions.
  */
 export default defineSchema({
-  collections: defineTable({
-    slug: v.string(),
-    label: localeTextValidator,
-    icon: v.optional(v.union(v.string(), v.null())),
-    type: v.union(v.literal('flat'), v.literal('tree')),
-    routing: v.object({
-      mode: v.optional(v.union(v.literal('route'), v.literal('none'))),
-      pathPrefix: v.string(),
-      slugMode: v.optional(slugModeValidator),
-      rootSlug: v.optional(v.union(v.string(), v.null())),
-      singleton: v.optional(v.boolean()),
-    }),
-    locales: v.array(v.string()),
-    fields: v.array(fieldValidator),
-    settings: v.optional(jsonValueValidator),
-    contract: v.optional(
-      v.object({
-        source: v.literal('code'),
-        version: v.string(),
-      }),
+  cmsContract: defineTable({
+    key: v.literal('active'),
+    content: jsonValueValidator,
+    presentation: jsonValueValidator,
+    contentHash: v.string(),
+    presentationHash: v.string(),
+    writeGeneration: v.number(),
+    transitionState: v.union(v.literal('ready'), v.literal('locked')),
+    transitionRunId: v.union(v.string(), v.null()),
+    installedAt: v.number(),
+    installedBy: v.string(),
+  }).index('by_key', ['key']),
+
+  contractTransitionRuns: defineTable({
+    runKey: v.string(),
+    fromContentHash: v.string(),
+    toContentHash: v.string(),
+    fromPresentationHash: v.string(),
+    toPresentationHash: v.string(),
+    affectedCollections: v.array(v.string()),
+    targetContent: jsonValueValidator,
+    targetPresentation: jsonValueValidator,
+    state: v.union(
+      v.literal('staging'),
+      v.literal('validating'),
+      v.literal('ready'),
+      v.literal('applying'),
+      v.literal('complete'),
+      v.literal('cancelled'),
     ),
+    generation: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    scannedCount: v.number(),
+    stagedCount: v.number(),
+    validatedCount: v.number(),
+    appliedCount: v.number(),
+    stagedHash: v.string(),
+    validatedHash: v.string(),
+    createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-    updatedBy: v.string(),
-  }).index('by_slug', ['slug']),
+  })
+    .index('by_run_key', ['runKey'])
+    .index('by_state', ['state', 'updatedAt']),
 
-  collectionReindexJobs: defineTable({
-    collectionId: v.id('collections'),
-    phase: v.optional(
-      v.union(v.literal('draft'), v.literal('published'), v.literal('archived'), v.null()),
-    ),
-    cursor: v.optional(v.union(v.string(), v.null())),
-    requestedBy: v.string(),
-    requestedAt: v.number(),
-    updatedAt: v.number(),
-  }).index('by_collection', ['collectionId']),
+  contractTransitionItems: defineTable({
+    runId: v.id('contractTransitionRuns'),
+    entryId: v.id('entries'),
+    sequence: v.number(),
+    collection: v.string(),
+    stableId: v.string(),
+    parentEntryId: v.union(v.id('entries'), v.null()),
+    inputDraftVersion: v.number(),
+    inputHash: v.string(),
+    outputHash: v.string(),
+    routeClaimsHash: v.string(),
+    output: jsonObjectValidator,
+    state: v.union(v.literal('staged'), v.literal('validated'), v.literal('applied')),
+    validatedAt: v.union(v.number(), v.null()),
+    appliedAt: v.union(v.number(), v.null()),
+  })
+    .index('by_run_entry', ['runId', 'entryId'])
+    .index('by_run_sequence', ['runId', 'sequence'])
+    .index('by_run_state', ['runId', 'state'])
+    .index('by_entry', ['entryId']),
+
+  contractTransitionRouteClaims: defineTable({
+    runId: v.id('contractTransitionRuns'),
+    entryId: v.id('entries'),
+    collection: v.string(),
+    locale: v.string(),
+    parentEntryId: v.union(v.id('entries'), v.null()),
+    segment: v.string(),
+  })
+    .index('by_run_entry', ['runId', 'entryId'])
+    .index('by_run_route', ['runId', 'collection', 'locale', 'parentEntryId', 'segment']),
 
   entries: defineTable({
-    collectionId: v.id('collections'),
-    baseSlug: v.string(),
-    stableId: v.optional(v.union(v.string(), v.null())),
-    status: v.union(v.literal('draft'), v.literal('published'), v.literal('archived')),
-    dirtyLocales: v.array(v.string()),
-    parentEntryId: v.optional(v.union(v.id('entries'), v.null())),
-    orderRank: v.optional(v.union(v.string(), v.null())),
-    nodeKind: v.optional(
-      v.union(
-        v.literal('page'),
-        v.literal('folder'),
-        v.literal('group'),
-        v.literal('section'),
-        v.null(),
-      ),
+    collection: v.string(),
+    stableId: v.string(),
+    lifecycle: v.union(v.literal('active'), v.literal('archived')),
+    slug: v.string(),
+    parentEntryId: v.union(v.id('entries'), v.null()),
+    orderRank: v.string(),
+    nodeKind: v.union(
+      v.literal('page'),
+      v.literal('folder'),
+      v.literal('group'),
+      v.literal('section'),
+      v.null(),
     ),
-    sortCache: v.optional(jsonObjectValidator),
+    shared: jsonObjectValidator,
     draftVersion: v.number(),
-    // Pointer to the latest meaningful event in `entryRevisions`.
-    latestRevisionId: v.optional(v.union(v.id('entryRevisions'), v.null())),
+    sharedVersion: v.number(),
+    activePublications: v.array(
+      v.object({
+        locale: v.string(),
+        revisionId: v.id('entryRevisions'),
+        sharedVersion: v.number(),
+        localeVersion: v.number(),
+        firstPublishedAt: v.number(),
+        activatedAt: v.number(),
+        activatedBy: v.string(),
+      }),
+    ),
+    latestEditorialRevisionId: v.union(v.id('entryRevisions'), v.null()),
     createdBy: v.string(),
     updatedBy: v.string(),
-    publishedBy: v.optional(v.union(v.string(), v.null())),
     createdAt: v.number(),
     updatedAt: v.number(),
-    publishedAt: v.optional(v.union(v.number(), v.null())),
-    // Immutable first successful publish time. This lives on the entry, not
-    // the public projection row, because unpublish deletes public rows.
-    firstPublishedAt: v.optional(v.union(v.number(), v.null())),
   })
-    .index('by_collection_status', ['collectionId', 'status'])
-    .index('by_collection_status_createdAt_slug', [
-      'collectionId',
-      'status',
+    .index('by_collection_lifecycle', ['collection', 'lifecycle'])
+    .index('by_collection_lifecycle_createdAt_slug', [
+      'collection',
+      'lifecycle',
       'createdAt',
-      'baseSlug',
+      'slug',
     ])
-    .index('by_collection_slug', ['collectionId', 'baseSlug'])
-    .index('by_collection_stableId', ['collectionId', 'stableId'])
-    .index('by_collection_published', ['collectionId', 'status', 'publishedAt'])
-    .index('by_createdAt_collection_slug', ['createdAt', 'collectionId', 'baseSlug'])
-    .index('by_parent', ['collectionId', 'parentEntryId']),
+    .index('by_collection_slug', ['collection', 'slug'])
+    .index('by_collection_parent_slug', ['collection', 'parentEntryId', 'slug'])
+    .index('by_collection_stableId', ['collection', 'stableId'])
+    .index('by_lifecycle_updatedAt', ['lifecycle', 'updatedAt'])
+    .index('by_createdAt_collection_slug', ['createdAt', 'collection', 'slug'])
+    .index('by_parent', ['collection', 'parentEntryId', 'orderRank'])
+    .index('by_parent_lifecycle', ['collection', 'parentEntryId', 'lifecycle', 'orderRank']),
 
   redirects: defineTable({
+    redirectId: v.string(),
+    collection: v.string(),
     locale: v.string(),
-    from: v.string(),
-    to: v.string(),
+    kind: v.union(v.literal('exact'), v.literal('prefix')),
+    fromPath: v.string(),
+    targetEntryId: v.id('entries'),
+    state: v.union(v.literal('active'), v.literal('retired')),
     statusCode: v.number(),
     source: v.union(v.literal('manual'), v.literal('publish'), v.literal('import')),
-    collectionId: v.optional(v.union(v.id('collections'), v.null())),
-    entryId: v.optional(v.union(v.id('entries'), v.null())),
+    operationId: v.string(),
     createdBy: v.string(),
-    updatedBy: v.optional(v.union(v.string(), v.null())),
     createdAt: v.number(),
+    retiredBy: v.union(v.string(), v.null()),
+    retiredAt: v.union(v.number(), v.null()),
     updatedAt: v.number(),
   })
-    .index('by_locale_from', ['locale', 'from'])
-    .index('by_locale_to', ['locale', 'to'])
-    .index('by_entry', ['entryId'])
-    .index('by_collection', ['collectionId']),
+    .index('by_redirect_id', ['redirectId'])
+    .index('by_collection_locale_state_from', ['collection', 'locale', 'state', 'fromPath'])
+    .index('by_collection_locale_state_updatedAt_redirectId', [
+      'collection',
+      'locale',
+      'state',
+      'updatedAt',
+      'redirectId',
+    ])
+    .index('by_target', ['targetEntryId', 'state'])
+    .index('by_collection_state', ['collection', 'state', 'updatedAt']),
 
-  collectionImportRuns: defineTable({
-    importRunId: v.string(),
-    kind: v.union(v.literal('preview'), v.literal('apply')),
-    status: v.optional(
-      v.union(
-        v.literal('previewed'),
-        v.literal('blocked'),
-        v.literal('applied'),
-        v.literal('published'),
-        v.literal('failed'),
-      ),
+  /** Monotonic concurrency fence for paged route reads and guarded previews. */
+  routeGenerations: defineTable({
+    scope: v.string(),
+    collection: v.string(),
+    locale: v.string(),
+    generation: v.number(),
+    updatedAt: v.number(),
+  }).index('by_scope', ['scope']),
+
+  portableRuns: defineTable(
+    v.union(
+      v.object({
+        runId: v.string(),
+        planId: v.string(),
+        mode: v.literal('import'),
+        state: v.union(
+          v.literal('staging'),
+          v.literal('sealing'),
+          v.literal('planned'),
+          v.literal('applying'),
+          v.literal('verifying'),
+          v.literal('complete'),
+          v.literal('aborted'),
+          v.literal('expired'),
+        ),
+        payload: jsonObjectValidator,
+        payloadSha256: v.string(),
+        callerId: v.string(),
+        deploymentId: v.string(),
+        scope: v.object({ collections: v.array(v.string()) }),
+        targetContentHash: v.string(),
+        sourceManifestSha256: v.string(),
+        sourceContentHash: v.string(),
+        stagedItemCount: v.number(),
+        stagedAssetCount: v.number(),
+        stagedLocales: v.array(v.string()),
+        workPhase: v.union(
+          v.literal('seal-items'),
+          v.literal('seal-assets'),
+          v.literal('apply'),
+          v.literal('cleanup'),
+          v.null(),
+        ),
+        workCursor: v.union(v.string(), v.null()),
+        workGeneration: v.number(),
+        workToken: v.union(v.string(), v.null()),
+        workLeaseExpiresAt: v.union(v.number(), v.null()),
+        workAttempts: v.number(),
+        workNextAttemptAt: v.union(v.number(), v.null()),
+        workLastError: v.union(v.string(), v.null()),
+        workDeadLetteredAt: v.union(v.number(), v.null()),
+        sealItemCount: v.number(),
+        sealItemHash: durableSha256StateValidator,
+        sealAssetCount: v.number(),
+        sealAssetHash: durableSha256StateValidator,
+        committedItemCount: v.number(),
+        attachedAssetCount: v.number(),
+        completedAt: v.union(v.number(), v.null()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        expiresAt: v.number(),
+      }),
+      v.object({
+        runId: v.string(),
+        planId: v.null(),
+        mode: v.literal('export'),
+        state: v.union(
+          v.literal('capturing'),
+          v.literal('ready'),
+          v.literal('complete'),
+          v.literal('aborted'),
+          v.literal('expired'),
+        ),
+        payloadSha256: v.string(),
+        callerId: v.string(),
+        deploymentId: v.string(),
+        scope: v.object({ collections: v.array(v.string()) }),
+        sourceContentHash: v.string(),
+        sourceContract: jsonObjectValidator,
+        documentCount: v.number(),
+        assetCount: v.number(),
+        capturePosition: v.object({
+          collectionIndex: v.number(),
+          localeIndex: v.number(),
+          orderKey: v.union(v.string(), v.null()),
+          entryId: v.union(v.id('entries'), v.null()),
+        }),
+        captureComplete: v.boolean(),
+        leaseTokenHash: v.union(v.string(), v.null()),
+        leaseGeneration: v.number(),
+        leaseExpiresAt: v.union(v.number(), v.null()),
+        workPhase: v.union(v.literal('cleanup'), v.null()),
+        workCursor: v.union(v.string(), v.null()),
+        workGeneration: v.number(),
+        workToken: v.union(v.string(), v.null()),
+        workLeaseExpiresAt: v.union(v.number(), v.null()),
+        workAttempts: v.number(),
+        workNextAttemptAt: v.union(v.number(), v.null()),
+        workLastError: v.union(v.string(), v.null()),
+        workDeadLetteredAt: v.union(v.number(), v.null()),
+        manifestSha256: v.union(v.string(), v.null()),
+        completedAt: v.union(v.number(), v.null()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        expiresAt: v.number(),
+      }),
     ),
-    publish: v.boolean(),
-    publishLocales: v.array(v.string()),
-    source: v.optional(jsonObjectValidator),
-    request: v.optional(jsonObjectValidator),
-    summary: v.optional(jsonObjectValidator),
-    collectionSlugs: v.array(v.string()),
-    collectionCount: v.number(),
-    entryCount: v.number(),
-    assetCount: v.number(),
-    result: jsonObjectValidator,
-    createdBy: v.string(),
-    createdAt: v.number(),
-  })
-    .index('by_import_run', ['importRunId'])
-    .index('by_created_at', ['createdAt'])
-    .index('by_kind_created_at', ['kind', 'createdAt']),
+  )
+    .index('by_run_id', ['runId'])
+    .index('by_plan_id', ['planId'])
+    .index('by_mode_state', ['mode', 'state'])
+    .index('by_mode_created_at', ['mode', 'createdAt'])
+    .index('by_expires_at', ['expiresAt']),
+
+  portableItems: defineTable(
+    v.union(
+      v.object({
+        mode: v.literal('import'),
+        runId: v.string(),
+        index: v.number(),
+        itemKey: v.string(),
+        inputSha256: v.string(),
+        payload: jsonObjectValidator,
+        document: jsonObjectValidator,
+        collection: v.string(),
+        canonicalKey: v.string(),
+        locale: v.string(),
+        revisionId: v.null(),
+        state: v.union(v.literal('staged'), v.literal('committed')),
+        effect: v.union(
+          v.literal('created-draft'),
+          v.literal('updated-draft'),
+          v.literal('skipped'),
+          v.null(),
+        ),
+        resultId: v.union(v.string(), v.null()),
+        committedAt: v.union(v.number(), v.null()),
+      }),
+      v.object({
+        mode: v.literal('export'),
+        runId: v.string(),
+        index: v.number(),
+        itemKey: v.string(),
+        inputSha256: v.string(),
+        payload: jsonObjectValidator,
+        document: jsonObjectValidator,
+        collection: v.string(),
+        canonicalKey: v.string(),
+        locale: v.string(),
+        revisionId: v.id('entryRevisions'),
+        state: v.literal('captured'),
+        effect: v.null(),
+        resultId: v.null(),
+        committedAt: v.null(),
+      }),
+    ),
+  )
+    .index('by_run_index', ['runId', 'index'])
+    .index('by_run_item', ['runId', 'itemKey'])
+    .index('by_run_identity', ['runId', 'collection', 'canonicalKey', 'locale'])
+    .index('by_collection_canonical', ['collection', 'canonicalKey'])
+    .index('by_revision', ['revisionId'])
+    .index('by_run', ['runId']),
+
+  portableAssets: defineTable(
+    v.union(
+      v.object({
+        mode: v.literal('import'),
+        runId: v.string(),
+        holdId: v.null(),
+        callerId: v.string(),
+        sha256: v.string(),
+        inputSha256: v.string(),
+        payload: jsonObjectValidator,
+        byteLength: v.number(),
+        mediaType: v.union(
+          v.literal('image/png'),
+          v.literal('image/jpeg'),
+          v.literal('image/gif'),
+          v.literal('image/webp'),
+        ),
+        state: v.union(
+          v.literal('staged'),
+          v.literal('awaiting-upload'),
+          v.literal('uploaded'),
+          v.literal('verifying'),
+          v.literal('verified'),
+          v.literal('attached'),
+          v.literal('cleanup-required'),
+          v.literal('cleaned'),
+        ),
+        storageId: v.union(v.id('_storage'), v.null()),
+        assetId: v.union(v.string(), v.null()),
+        attemptTokenHash: v.union(v.string(), v.null()),
+        attemptGeneration: v.number(),
+        leaseExpiresAt: v.union(v.number(), v.null()),
+        storageOrigin: v.union(v.string(), v.null()),
+        originalFilename: v.union(v.string(), v.null()),
+        expiresAt: v.number(),
+        downloadTokenHash: v.null(),
+        downloadGeneration: v.number(),
+        downloadAttempts: v.number(),
+        downloadExpiresAt: v.null(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+      }),
+      v.object({
+        mode: v.literal('export'),
+        runId: v.string(),
+        holdId: v.string(),
+        callerId: v.null(),
+        sha256: v.string(),
+        inputSha256: v.null(),
+        payload: jsonObjectValidator,
+        byteLength: v.number(),
+        mediaType: v.union(
+          v.literal('image/png'),
+          v.literal('image/jpeg'),
+          v.literal('image/gif'),
+          v.literal('image/webp'),
+        ),
+        state: v.literal('held'),
+        storageId: v.id('_storage'),
+        assetId: v.null(),
+        attemptTokenHash: v.null(),
+        attemptGeneration: v.number(),
+        leaseExpiresAt: v.null(),
+        storageOrigin: v.null(),
+        originalFilename: v.string(),
+        expiresAt: v.number(),
+        downloadTokenHash: v.union(v.string(), v.null()),
+        downloadGeneration: v.number(),
+        downloadAttempts: v.number(),
+        downloadExpiresAt: v.union(v.number(), v.null()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+      }),
+    ),
+  )
+    .index('by_hold_id', ['holdId'])
+    .index('by_run_sha256', ['runId', 'sha256'])
+    .index('by_run', ['runId'])
+    .index('by_storage', ['storageId'])
+    .index('by_state', ['state', 'updatedAt'])
+    .index('by_expires_at', ['expiresAt']),
 
   publicEntries: defineTable({
     entryId: v.id('entries'),
-    collectionId: v.id('collections'),
+    collection: v.string(),
     locale: v.string(),
     revisionId: v.id('entryRevisions'),
-    stableId: v.optional(v.union(v.string(), v.null())),
-    parentEntryId: v.optional(v.union(v.id('entries'), v.null())),
+    stableId: v.string(),
+    parentEntryId: v.union(v.id('entries'), v.null()),
     orderKey: v.string(),
     slug: v.string(),
-    path: v.string(),
-    href: v.string(),
     title: v.string(),
-    description: v.optional(v.union(v.string(), v.null())),
+    description: v.union(v.string(), v.null()),
     data: jsonObjectValidator,
-    bodyMdc: v.optional(v.string()),
-    bodyAst: v.optional(v.string()),
-    searchText: v.optional(v.string()),
-    toc: v.optional(v.union(jsonValueValidator, v.null())),
     cacheTags: v.array(v.string()),
+    assetFacts: v.array(ginkoPublicAssetFactValidator),
     navIncluded: v.boolean(),
-    sitemapIncluded: v.optional(v.boolean()),
-    searchIncluded: v.optional(v.boolean()),
+    sitemapIncluded: v.boolean(),
     // Honest indexed sort fields (per Gate 0 findings):
     entryCreatedAt: v.number(),
     firstPublishedAt: v.number(),
     lastPublishedAt: v.number(),
   })
     .index('by_entry_locale', ['entryId', 'locale'])
-    .index('by_collection_locale_orderKey', ['collectionId', 'locale', 'orderKey'])
-    .index('by_collection_locale_orderKey_entry', ['collectionId', 'locale', 'orderKey', 'entryId'])
-    .index('by_collection_locale_path_entry', ['collectionId', 'locale', 'path', 'entryId'])
+    .index('by_collection_locale_orderKey', ['collection', 'locale', 'orderKey'])
+    .index('by_collection_locale_orderKey_entry', ['collection', 'locale', 'orderKey', 'entryId'])
+    .index('by_collection_locale_stableId', ['collection', 'locale', 'stableId'])
+    .index('by_collection_locale_parent_slug', ['collection', 'locale', 'parentEntryId', 'slug'])
     .index('by_collection_locale_parent_orderKey', [
-      'collectionId',
+      'collection',
       'locale',
       'parentEntryId',
       'orderKey',
     ])
-    .index('by_collection_locale_lastPublishedAt', ['collectionId', 'locale', 'lastPublishedAt'])
+    .index('by_collection_locale_parent_orderKey_entry', [
+      'collection',
+      'locale',
+      'parentEntryId',
+      'orderKey',
+      'entryId',
+    ])
+    .index('by_collection_locale_nav_orderKey', ['collection', 'locale', 'navIncluded', 'orderKey'])
+    .index('by_collection_locale_sitemap_orderKey', [
+      'collection',
+      'locale',
+      'sitemapIncluded',
+      'orderKey',
+    ])
+    .index('by_collection_locale_lastPublishedAt', ['collection', 'locale', 'lastPublishedAt'])
     .index('by_collection_locale_lastPublishedAt_entry', [
-      'collectionId',
+      'collection',
       'locale',
       'lastPublishedAt',
       'entryId',
     ])
-    .index('by_collection_locale_firstPublishedAt', ['collectionId', 'locale', 'firstPublishedAt'])
+    .index('by_collection_locale_firstPublishedAt', ['collection', 'locale', 'firstPublishedAt'])
     .index('by_collection_locale_firstPublishedAt_entry', [
-      'collectionId',
+      'collection',
       'locale',
       'firstPublishedAt',
       'entryId',
     ])
-    .index('by_collection_locale_entryCreatedAt', ['collectionId', 'locale', 'entryCreatedAt'])
+    .index('by_collection_locale_entryCreatedAt', ['collection', 'locale', 'entryCreatedAt'])
     .index('by_collection_locale_entryCreatedAt_entry', [
-      'collectionId',
+      'collection',
       'locale',
       'entryCreatedAt',
       'entryId',
-    ])
+    ]),
+
+  publicSearchEntries: defineTable({
+    entryId: v.id('entries'),
+    collection: v.string(),
+    locale: v.string(),
+    revisionId: v.id('entryRevisions'),
+    stableId: v.string(),
+    searchShard: v.number(),
+    searchText: v.string(),
+    lastPublishedAt: v.number(),
+  })
+    .index('by_entry_locale', ['entryId', 'locale'])
+    .index('by_revision_locale', ['revisionId', 'locale'])
     .searchIndex('search_locale', {
       searchField: 'searchText',
-      filterFields: ['locale', 'collectionId'],
+      filterFields: ['locale', 'collection', 'searchShard'],
     }),
-
-  publicRoutes: defineTable({
-    entryId: v.id('entries'),
-    collectionId: v.id('collections'),
-    locale: v.string(),
-    path: v.string(),
-    href: v.string(),
-    revisionId: v.id('entryRevisions'),
-  })
-    .index('by_locale_path', ['locale', 'path'])
-    .index('by_entry_locale', ['entryId', 'locale']),
 
   assets: defineTable({
     storageId: v.id('_storage'),
     filename: v.string(),
     mimeType: v.string(),
     size: v.number(),
-    width: v.optional(v.union(v.number(), v.null())),
-    height: v.optional(v.union(v.number(), v.null())),
+    sha256: v.string(),
+    width: v.number(),
+    height: v.number(),
+    frames: v.number(),
     alt: v.optional(v.union(localeTextValidator, v.null())),
     caption: v.optional(v.union(localeTextValidator, v.null())),
     scope: v.union(v.literal('global'), v.literal('collection'), v.literal('entry')),
     entryId: v.optional(v.union(v.id('entries'), v.null())),
-    collectionId: v.optional(v.union(v.id('collections'), v.null())),
+    collection: v.optional(v.union(v.string(), v.null())),
     tags: v.optional(v.array(v.string())),
     createdBy: v.string(),
     updatedBy: v.optional(v.union(v.string(), v.null())),
@@ -247,12 +537,99 @@ export default defineSchema({
     updatedAt: v.optional(v.union(v.number(), v.null())),
     deletedAt: v.optional(v.union(v.number(), v.null())),
     deletedBy: v.optional(v.union(v.string(), v.null())),
+    kind: v.union(v.literal('image'), v.literal('document')),
+    filenameSort: v.string(),
+    discoveryText: v.string(),
+    effectiveUpdatedAt: v.number(),
+    deletedState: v.union(v.literal('active'), v.literal('trashed')),
   })
     .index('by_entry', ['entryId'])
-    .index('by_collection', ['collectionId'])
+    .index('by_collection', ['collection'])
     .index('by_scope', ['scope'])
+    .index('by_sha256', ['sha256'])
+    .index('by_sha256_active_facts', ['sha256', 'deletedAt', 'size', 'mimeType'])
+    .index('by_storage', ['storageId'])
     .index('by_created', ['createdAt'])
-    .index('by_created_storage', ['createdAt', 'storageId']),
+    .index('by_created_storage', ['createdAt', 'storageId'])
+    .index('by_deleted_created_storage', ['deletedAt', 'createdAt', 'storageId'])
+    .index('by_scope_deleted_created_storage', ['scope', 'deletedAt', 'createdAt', 'storageId'])
+    .index('by_scope_collection_deleted_created_storage', [
+      'scope',
+      'collection',
+      'deletedAt',
+      'createdAt',
+      'storageId',
+    ])
+    .index('by_scope_entry_deleted_created_storage', [
+      'scope',
+      'entryId',
+      'deletedAt',
+      'createdAt',
+      'storageId',
+    ])
+    .index('by_filename', ['filenameSort'])
+    .index('by_effective_updated', ['effectiveUpdatedAt'])
+    .index('by_size', ['size'])
+    .index('by_kind_filename', ['kind', 'filenameSort'])
+    .searchIndex('search_discovery', {
+      searchField: 'discoveryText',
+      filterFields: ['kind', 'deletedState', 'scope', 'collection'],
+    }),
+
+  assetUploadSessions: defineTable({
+    sessionId: v.string(),
+    ownerId: v.string(),
+    tokenHash: v.string(),
+    state: v.union(
+      v.literal('awaiting-upload'),
+      v.literal('uploaded'),
+      v.literal('verified-replacement'),
+      v.literal('finalized'),
+      v.literal('cleanup-queued'),
+    ),
+    generation: v.number(),
+    storageId: v.optional(v.id('_storage')),
+    assetId: v.optional(v.id('assets')),
+    replacementAssetId: v.optional(v.id('assets')),
+    replacementFilename: v.optional(v.string()),
+    replacementMimeType: v.optional(
+      v.union(
+        v.literal('image/gif'),
+        v.literal('image/jpeg'),
+        v.literal('image/png'),
+        v.literal('image/webp'),
+      ),
+    ),
+    replacementSize: v.optional(v.number()),
+    replacementSha256: v.optional(v.string()),
+    replacementWidth: v.optional(v.number()),
+    replacementHeight: v.optional(v.number()),
+    replacementFrames: v.optional(v.number()),
+    replacementRecoveryArtifactId: v.optional(v.string()),
+    replacementVerifiedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    claimedAt: v.optional(v.number()),
+    finalizedAt: v.optional(v.number()),
+  })
+    .index('by_session', ['sessionId'])
+    .index('by_asset', ['assetId'])
+    .index('by_storage', ['storageId'])
+    .index('by_state_expires_at', ['state', 'expiresAt']),
+
+  assetCleanupTasks: defineTable({
+    storageId: v.id('_storage'),
+    uploadSessionId: v.optional(v.id('assetUploadSessions')),
+    status: v.union(v.literal('cleanup-required'), v.literal('terminal-failure')),
+    generation: v.number(),
+    attempts: v.number(),
+    lastError: v.union(v.string(), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_status', ['status', 'updatedAt'])
+    .index('by_status_updatedAt_storage', ['status', 'updatedAt', 'storageId'])
+    .index('by_storage', ['storageId']),
 
   siteData: defineTable({
     key: v.string(),
@@ -265,63 +642,23 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index('by_key', ['key']),
 
-  cmsSettings: defineTable({
-    key: v.literal('site'),
-    locales: v.array(
-      v.object({
-        code: v.string(),
-        label: v.optional(v.string()),
-        isDefault: v.optional(v.boolean()),
-        fallback: v.optional(v.string()),
-      }),
-    ),
-    webhooks: v.optional(
-      v.union(
-        v.array(
-          v.object({
-            id: v.string(),
-            name: v.string(),
-            url: v.string(),
-            enabled: v.boolean(),
-            events: v.array(
-              v.union(
-                v.literal('entry.published'),
-                v.literal('entry.unpublished'),
-                v.literal('entry.deleted'),
-                v.literal('asset.created'),
-                v.literal('asset.deleted'),
-              ),
-            ),
-            secretFingerprint: v.union(v.string(), v.null()),
-          }),
-        ),
-        v.null(),
-      ),
-    ),
-    updatedBy: v.optional(v.union(v.string(), v.null())),
-    updatedAt: v.number(),
-  }).index('by_key', ['key']),
-
   outboxEvents: defineTable({
-    type: v.union(
-      v.literal('content.revalidate'),
-      v.literal('content.webhook'),
-      v.literal('content.publish'),
-    ),
+    type: v.literal('content.revalidate'),
     status: v.union(
       v.literal('pending'),
       v.literal('delivering'),
       v.literal('delivered'),
-      v.literal('failed'),
+      v.literal('dead'),
     ),
     idempotencyKey: v.string(),
     versionId: v.union(v.string(), v.null()),
-    siteId: v.union(v.string(), v.null()),
     targetId: v.optional(v.union(v.id('revalidationTargets'), v.null())),
     tags: v.array(v.string()),
     paths: v.array(v.string()),
     payload: jsonObjectValidator,
     attempts: v.number(),
+    deliveryGeneration: v.number(),
+    leaseId: v.union(v.string(), v.null()),
     nextAttemptAt: v.number(),
     lastError: v.union(v.string(), v.null()),
     lockedAt: v.optional(v.union(v.number(), v.null())),
@@ -331,6 +668,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_status_nextAttemptAt', ['status', 'nextAttemptAt'])
+    .index('by_status_lock_expiry', ['status', 'lockExpiresAt'])
     .index('by_status_updatedAt', ['status', 'updatedAt'])
     .index('by_idempotency_key', ['idempotencyKey'])
     .index('by_type_status', ['type', 'status']),
@@ -364,23 +702,107 @@ export default defineSchema({
     updatedBy: v.optional(v.union(v.string(), v.null())),
   })
     .index('by_userId', ['userId'])
+    .index('by_email', ['email'])
     .index('by_role', ['role']),
 
-  mcpKeys: defineTable({
-    name: v.string(),
-    prefix: v.string(),
-    hash: v.string(),
-    boundUserId: v.string(),
-    issuedBy: v.string(),
-    status: v.union(v.literal('active'), v.literal('revoked')),
+  memberInvitations: defineTable({
+    invitationId: v.string(),
+    email: v.string(),
+    role: v.union(
+      v.literal('owner'),
+      v.literal('publisher'),
+      v.literal('editor'),
+      v.literal('viewer'),
+    ),
+    tokenHash: v.string(),
+    generation: v.number(),
+    deliveryState: v.union(v.literal('prepared'), v.literal('delivered'), v.literal('failed')),
+    expiresAt: v.number(),
+    createdBy: v.string(),
     createdAt: v.number(),
-    expiresAt: v.optional(v.number()),
-    lastUsedAt: v.optional(v.union(v.number(), v.null())),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+    deliveredAt: v.union(v.number(), v.null()),
+  })
+    .index('by_invitation_id', ['invitationId'])
+    .index('by_email', ['email'])
+    .index('by_token_hash', ['tokenHash'])
+    .index('by_expires_at', ['expiresAt']),
+
+  mcpOAuthDelegations: defineTable({
+    delegationId: v.string(),
+    oauthClientId: v.string(),
+    ownerUserId: v.string(),
+    label: v.optional(v.union(v.string(), v.null())),
+    scopes: v.array(v.string()),
+    status: v.union(v.literal('active'), v.literal('revoked')),
+    expiresAt: v.optional(v.union(v.number(), v.null())),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
     revokedAt: v.optional(v.union(v.number(), v.null())),
   })
-    .index('by_hash', ['hash'])
-    .index('by_bound_user', ['boundUserId'])
-    .index('by_status', ['status']),
+    .index('by_delegation_id', ['delegationId'])
+    .index('by_owner_client_status', ['ownerUserId', 'oauthClientId', 'status'])
+    .index('by_owner_user', ['ownerUserId'])
+    .index('by_status', ['status'])
+    .index('by_updated_at', ['updatedAt']),
+
+  agentRuns: defineTable({
+    oauthDelegationId: v.string(),
+    oauthClientId: v.string(),
+    delegatedUserId: v.string(),
+    scopeSnapshot: v.array(v.string()),
+    taskName: v.string(),
+    status: v.union(
+      v.literal('active'),
+      v.literal('completed'),
+      v.literal('revoked'),
+      v.literal('failed'),
+    ),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.optional(v.union(v.number(), v.null())),
+    endedAt: v.optional(v.union(v.number(), v.null())),
+    lastWriteAt: v.optional(v.union(v.number(), v.null())),
+    lastError: v.optional(v.union(v.string(), v.null())),
+  })
+    .index('by_delegation', ['oauthDelegationId'])
+    .index('by_delegation_status_expires_at', ['oauthDelegationId', 'status', 'expiresAt'])
+    .index('by_oauth_client', ['oauthClientId'])
+    .index('by_delegated_user', ['delegatedUserId'])
+    .index('by_created_at', ['createdAt'])
+    .index('by_status', ['status'])
+    .index('by_status_expires_at', ['status', 'expiresAt'])
+    .index('by_status_updated_at', ['status', 'updatedAt']),
+
+  reviewRequests: defineTable({
+    agentRunId: v.optional(v.union(v.id('agentRuns'), v.null())),
+    mcpOperationKey: v.optional(v.string()),
+    entryId: v.string(),
+    locales: v.array(v.string()),
+    expectedVersion: v.number(),
+    message: v.optional(v.union(v.string(), v.null())),
+    title: v.string(),
+    summary: v.string(),
+    status: v.union(v.literal('pending'), v.literal('approved'), v.literal('rejected')),
+    preview: jsonValueValidator,
+    requestedBy: v.string(),
+    reviewedBy: v.optional(v.union(v.string(), v.null())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    reviewedAt: v.optional(v.union(v.number(), v.null())),
+    reviewFeedback: v.optional(v.union(v.string(), v.null())),
+    versionHash: v.optional(v.union(v.string(), v.null())),
+    previewHash: v.optional(v.string()),
+  })
+    .index('by_agent_run', ['agentRunId'])
+    .index('by_mcp_operation_key', ['mcpOperationKey'])
+    .index('by_status', ['status'])
+    .index('by_status_updated_at', ['status', 'updatedAt'])
+    .index('by_entry', ['entryId']),
 
   destructiveConfirmations: defineTable({
     tokenHash: v.string(),
@@ -391,9 +813,8 @@ export default defineSchema({
     callerKey: v.string(),
     scopeKey: v.string(),
     argsHash: v.string(),
-    argsFieldHashes: v.optional(v.record(v.string(), v.string())),
     previewHash: v.string(),
-    versionHash: v.optional(v.string()),
+    versionHash: v.string(),
     createdAt: v.number(),
     expiresAt: v.number(),
     redeemedAt: v.optional(v.number()),
@@ -409,135 +830,155 @@ export default defineSchema({
     scopeKey: v.string(),
     argsHash: v.string(),
     previewHash: v.string(),
-    executedAt: v.number(),
+    status: v.union(v.literal('applied'), v.literal('blocked'), v.literal('stale')),
+    code: v.union(v.string(), v.null()),
+    message: v.union(v.string(), v.null()),
+    recordedAt: v.number(),
     executePath: v.string(),
   }),
 
-  trustedReplay: defineTable({
-    jti: v.string(),
-    functionRef: v.string(),
-    purpose: v.string(),
-    transport: v.string(),
-    replayMode: v.string(),
-    argsHash: v.string(),
-    subject: v.string(),
-    issuer: v.string(),
-    audience: v.string(),
-    state: v.union(v.literal('claimed'), v.literal('completed'), v.literal('failed')),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    expiresAt: v.number(),
-    completedAt: v.optional(v.number()),
-    failedAt: v.optional(v.number()),
-    failure: v.optional(v.object({ message: v.string() })),
-  })
-    .index('by_jti', ['jti'])
-    .index('by_expires_at', ['expiresAt']),
-
   activity: defineTable({
     kind: v.string(),
+    outcome: activityOutcomeValidator,
     summary: v.string(),
-    entryId: v.optional(v.union(v.id('entries'), v.null())),
-    collectionId: v.optional(v.union(v.id('collections'), v.null())),
-    locale: v.optional(v.union(v.string(), v.null())),
-    detail: v.optional(v.union(jsonValueValidator, v.null())),
-    appIdentityId: v.optional(v.string()),
-    actorId: v.optional(v.string()),
+    retention: v.union(v.literal('standard'), v.literal('legal')),
+    entryId: v.union(v.id('entries'), v.null()),
+    collection: v.union(v.string(), v.null()),
+    locale: v.union(v.string(), v.null()),
+    detail: v.union(jsonValueValidator, v.null()),
+    subjectKey: v.optional(v.union(v.string(), v.null())),
+    appIdentityId: v.string(),
+    actorLabel: v.union(v.string(), v.null()),
     createdAt: v.number(),
   })
     .index('by_time', ['createdAt'])
+    .index('by_retention_time', ['retention', 'createdAt'])
     .index('by_entry', ['entryId', 'createdAt'])
-    .index('by_collection', ['collectionId', 'createdAt'])
+    .index('by_kind_subject', ['kind', 'subjectKey'])
+    .index('by_kind_time', ['kind', 'createdAt'])
+    .index('by_outcome_time', ['outcome', 'createdAt'])
+    .index('by_collection', ['collection', 'createdAt'])
     .index('by_appIdentity', ['appIdentityId', 'createdAt']),
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Gate 1 — canonical editorial storage. The old locale table and public
-  // projection tables are gone; publicEntries and publicRoutes are the only
-  // public read model. contentAssetRefs is the only asset-reference read model.
-  //
-  // Conceptual mapping:
-  //   entryDrafts        — current mutable draft state per (entryId, locale)
-  //                        plus a shared row with locale=null.
-  //   entryRevisions     — append-only, meaningful events only:
-  //                        publish/unpublish/rollback/archive/checkpoint.
-  //                        Replaces the old published-version and draft
-  //                        autosave-history models.
-  //   contentAssetRefs   — derived asset usage cache, covers drafts +
-  //                        revisions + public projections.
-  //   backupArtifacts    — records of completed exports; required to gate
-  //                        any future `purgeEntry` / `purgeAsset`.
-  // ─────────────────────────────────────────────────────────────────────
-
-  entryDrafts: defineTable({
+  entryLocaleDrafts: defineTable({
     entryId: v.id('entries'),
-    // null = the per-entry shared row (slug, parent, orderRank, shared values)
-    locale: v.union(v.string(), v.null()),
-    // The meaningful revision the draft started from. Null on a brand-new
-    // entry that has never been published or checkpointed.
-    baseRevisionId: v.optional(v.union(v.id('entryRevisions'), v.null())),
-    // Shared row only (locale === null):
-    parentEntryId: v.optional(v.union(v.id('entries'), v.null())),
-    orderRank: v.optional(v.union(v.string(), v.null())),
-    slug: v.optional(v.union(v.string(), v.null())),
-    shared: v.optional(jsonObjectValidator),
-    // Locale rows only (locale !== null):
-    localeSlug: v.optional(v.union(v.string(), v.null())),
-    values: v.optional(jsonObjectValidator),
-    bodyMdc: v.optional(v.union(v.string(), v.null())),
-    // Updated by every successful saveEntryDraft:
+    locale: v.string(),
+    slug: v.union(v.string(), v.null()),
+    values: jsonObjectValidator,
+    bodyMdc: v.string(),
+    version: v.number(),
     updatedBy: v.string(),
     updatedAt: v.number(),
   })
     .index('by_entry', ['entryId'])
     .index('by_entry_locale', ['entryId', 'locale']),
 
+  draftSearchEntries: defineTable({
+    entryId: v.id('entries'),
+    collection: v.string(),
+    locale: v.string(),
+    slug: v.string(),
+    title: v.string(),
+    searchText: v.string(),
+    lifecycle: v.union(v.literal('active'), v.literal('archived')),
+    status: v.union(v.literal('draft'), v.literal('published'), v.literal('archived')),
+    updatedAt: v.number(),
+    sourceDraftVersion: v.number(),
+    sourceSharedVersion: v.number(),
+    sourceLocaleVersion: v.number(),
+    sourcePublicationHash: v.string(),
+    hasUnpublishedChanges: v.boolean(),
+    hasMissingTranslations: v.boolean(),
+  })
+    .index('by_entry_locale', ['entryId', 'locale'])
+    .index('by_collection_locale_lifecycle_updatedAt', [
+      'collection',
+      'locale',
+      'lifecycle',
+      'updatedAt',
+      'entryId',
+    ])
+    .index('by_collection_locale_status_updatedAt', [
+      'collection',
+      'locale',
+      'status',
+      'updatedAt',
+      'entryId',
+    ])
+    .index('by_collection_locale_changes_lifecycle_updatedAt', [
+      'collection',
+      'locale',
+      'hasUnpublishedChanges',
+      'lifecycle',
+      'updatedAt',
+      'entryId',
+    ])
+    .index('by_collection_locale_changes_status_updatedAt', [
+      'collection',
+      'locale',
+      'hasUnpublishedChanges',
+      'status',
+      'updatedAt',
+      'entryId',
+    ])
+    .index('by_collection_locale_missing_lifecycle_updatedAt', [
+      'collection',
+      'locale',
+      'hasMissingTranslations',
+      'lifecycle',
+      'updatedAt',
+      'entryId',
+    ])
+    .index('by_collection_locale_missing_status_updatedAt', [
+      'collection',
+      'locale',
+      'hasMissingTranslations',
+      'status',
+      'updatedAt',
+      'entryId',
+    ])
+    .searchIndex('search_collection_locale', {
+      searchField: 'searchText',
+      filterFields: [
+        'collection',
+        'locale',
+        'lifecycle',
+        'status',
+        'hasUnpublishedChanges',
+        'hasMissingTranslations',
+      ],
+    }),
+
   entryRevisions: defineTable({
     entryId: v.id('entries'),
-    collectionId: v.id('collections'),
-    // Monotonic per-entry sequence number. `createdAt` is still useful for
-    // time queries, but this is the deterministic editorial version number.
-    revisionNumber: v.optional(v.number()),
-    parentRevisionId: v.optional(v.union(v.id('entryRevisions'), v.null())),
+    collection: v.string(),
+    revisionNumber: v.number(),
+    operationId: v.string(),
+    parentRevisionId: v.union(v.id('entryRevisions'), v.null()),
     kind: v.union(
       v.literal('publish'),
       v.literal('unpublish'),
       v.literal('rollback'),
       v.literal('archive'),
       v.literal('checkpoint'),
+      v.literal('restore'),
     ),
-    snapshot: v.object({
-      parentEntryId: v.optional(v.union(v.id('entries'), v.null())),
-      orderRank: v.optional(v.union(v.string(), v.null())),
-      slug: v.optional(v.union(v.string(), v.null())),
-      shared: jsonObjectValidator,
-      // Per-locale revision snapshot. Keep bodyMdc as the immutable authoring
-      // source; publicEntries store the parsed bodyAst used by the provider.
-      // bodyAst remains optional only so old revision rows can still rebuild
-      // public projections after upgrades.
-      locales: v.record(
-        v.string(),
-        v.union(
-          v.object({
-            slug: v.union(v.string(), v.null()),
-            path: v.string(),
-            values: jsonObjectValidator,
-            bodyMdc: v.optional(v.string()),
-            bodyAst: v.optional(jsonValueValidator),
-            searchText: v.optional(v.string()),
-            toc: v.optional(v.union(jsonValueValidator, v.null())),
-          }),
-          v.null(),
-        ),
-      ),
-    }),
-    // Locales actually in scope for this revision (publish target, rollback
-    // affected, etc.).
+    snapshots: v.record(
+      v.string(),
+      v.object({
+        shared: jsonObjectValidator,
+        values: jsonObjectValidator,
+        bodyMdc: v.string(),
+        slug: v.string(),
+        parentEntryId: v.union(v.id('entries'), v.null()),
+        orderRank: v.string(),
+        sharedVersion: v.number(),
+        localeVersion: v.number(),
+      }),
+    ),
     affectedLocales: v.array(v.string()),
-    // Schema version the snapshot was validated against, tied to
-    // CmsContract.contractVersion. Lets future migrations detect old
-    // revisions that need re-validation.
-    schemaVersion: v.optional(v.string()),
-    message: v.optional(v.union(v.string(), v.null())),
+    contentHash: v.string(),
+    message: v.union(v.string(), v.null()),
     createdBy: v.string(),
     createdAt: v.number(),
   })
@@ -545,51 +986,116 @@ export default defineSchema({
     .index('by_entry_revisionNumber', ['entryId', 'revisionNumber'])
     .index('by_entry_kind', ['entryId', 'kind', 'createdAt']),
 
+  projectionRepairRuns: defineTable({
+    runId: v.string(),
+    state: v.union(
+      v.literal('running'),
+      v.literal('complete'),
+      v.literal('failed'),
+      v.literal('dead'),
+    ),
+    phase: v.union(
+      v.literal('entries'),
+      v.literal('drafts'),
+      v.literal('revisions'),
+      v.literal('draftSearchRows'),
+      v.literal('publicRows'),
+      v.literal('publicSearchRows'),
+      v.literal('assetRefs'),
+      v.literal('verifyEntries'),
+      v.literal('verifyDrafts'),
+      v.literal('verifyRevisions'),
+      v.literal('verifyDraftSearchRows'),
+      v.literal('verifyPublicRows'),
+      v.literal('verifyPublicSearchRows'),
+      v.literal('verifyAssetRefs'),
+    ),
+    cursor: v.union(v.string(), v.null()),
+    generation: v.number(),
+    canonicalGeneration: v.number(),
+    workGeneration: v.number(),
+    workToken: v.union(v.string(), v.null()),
+    workLeaseExpiresAt: v.union(v.number(), v.null()),
+    workAttempts: v.number(),
+    workNextAttemptAt: v.union(v.number(), v.null()),
+    workLastError: v.union(v.string(), v.null()),
+    workDeadLetteredAt: v.union(v.number(), v.null()),
+    pageSize: v.number(),
+    autoContinue: v.boolean(),
+    processedEntries: v.number(),
+    processedDrafts: v.number(),
+    processedRevisions: v.number(),
+    inspectedDraftSearchRows: v.number(),
+    inspectedPublicRows: v.number(),
+    inspectedAssetRefs: v.number(),
+    referencedAssetIds: v.array(v.string()),
+    repairedPublicRows: v.number(),
+    repairedDraftSearchRows: v.number(),
+    repairedAssetRefSources: v.number(),
+    deletedOrphans: v.number(),
+    issueCount: v.number(),
+    lastIssue: v.union(v.string(), v.null()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.union(v.number(), v.null()),
+  }).index('by_run_id', ['runId']),
+
+  assetReferenceProofState: defineTable({
+    key: v.literal('global'),
+    canonicalGeneration: v.number(),
+    verifiedRunId: v.union(v.string(), v.null()),
+    verifiedAt: v.union(v.number(), v.null()),
+  }).index('by_key', ['key']),
+
   contentAssetRefs: defineTable({
     sourceKind: v.union(v.literal('draft'), v.literal('revision'), v.literal('public')),
     // string id rather than v.id(...) since sourceKind discriminates the
     // table — the row points at one of three different doc types.
     sourceId: v.string(),
+    sourceFence: v.union(
+      v.object({ kind: v.literal('draftVersion'), version: v.number() }),
+      v.object({
+        kind: v.literal('revision'),
+        revisionId: v.id('entryRevisions'),
+        contentHash: v.string(),
+      }),
+      v.object({
+        kind: v.literal('publicRevision'),
+        revisionId: v.id('entryRevisions'),
+      }),
+    ),
     assetId: v.string(),
     fieldPath: v.string(),
     locale: v.optional(v.union(v.string(), v.null())),
     entryId: v.id('entries'),
-    collectionId: v.id('collections'),
-    updatedAt: v.number(),
+    collection: v.string(),
   })
     .index('by_asset_source', ['assetId', 'sourceKind'])
     .index('by_source', ['sourceKind', 'sourceId'])
     .index('by_entry', ['entryId']),
 
-  backupArtifacts: defineTable({
+  assetRecoveryArtifacts: defineTable({
     artifactId: v.string(),
-    scope: v.union(
-      v.literal('full'),
-      v.literal('collection'),
-      v.literal('entry'),
-      v.literal('asset'),
-    ),
-    // For scope='collection' / 'entry' / 'asset', the targeted ids.
-    collectionId: v.optional(v.union(v.id('collections'), v.null())),
-    entryId: v.optional(v.union(v.id('entries'), v.null())),
-    assetId: v.optional(v.union(v.string(), v.null())),
-    // Hex SHA-256 of the archive bytes.
+    assetId: v.string(),
+    collection: v.union(v.string(), v.null()),
+    entryId: v.union(v.id('entries'), v.null()),
     checksum: v.string(),
-    // Storage location. v1 uses Convex `_storage`; future S3/etc. backends
-    // record their own driver-specific id here.
-    driver: v.string(),
-    storageRef: v.string(),
-    // Counts captured in the manifest, for sanity-checking restore.
-    counts: v.object({
-      entries: v.number(),
-      revisions: v.number(),
-      assets: v.number(),
-      members: v.number(),
-    }),
+    storageRef: v.id('_storage'),
+    generation: v.number(),
+    byteSize: v.number(),
+    bytesSha256: v.string(),
+    assetFactsHash: v.string(),
+    assetUpdatedAt: v.number(),
+    purgeFenceTokenHash: v.optional(v.string()),
+    purgeFenceIssuedTo: v.optional(v.string()),
+    purgeFenceExpiresAt: v.optional(v.number()),
     createdBy: v.string(),
     createdAt: v.number(),
   })
     .index('by_artifact', ['artifactId'])
-    .index('by_scope_target', ['scope', 'collectionId', 'entryId'])
+    .index('by_storage', ['storageRef'])
+    .index('by_entry', ['entryId'])
+    .index('by_asset_created', ['assetId', 'createdAt'])
     .index('by_created', ['createdAt']),
 })

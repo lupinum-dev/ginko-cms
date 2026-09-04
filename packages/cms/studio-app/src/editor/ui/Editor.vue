@@ -1,14 +1,13 @@
 <script setup lang="ts">
+import { Pencil, RefreshCw } from '@lucide/vue'
 import type { Editor as TiptapEditor, JSONContent } from '@tiptap/core'
 import { NodeSelection } from '@tiptap/pm/state'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import type { Editor as TiptapVueEditor } from '@tiptap/vue-3'
 import { onKeyStroke, useLocalStorage, useScrollLock } from '@vueuse/core'
-import { Pencil, RefreshCw } from 'lucide-vue-next'
 import type { Ref } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { studioPrompt } from '../../composables/internal/useStudioPrompt'
 import {
   createEditorExtensions,
   isCurrentlyNormalizingTable,
@@ -26,8 +25,9 @@ import {
 import { defaultAssetProvider } from '../model/default-asset-provider'
 import { useContentSync } from '../model/useContentSync'
 import { useDebugExport } from '../model/useDebugExport'
+import { useEditorMedia } from '../model/useEditorMedia'
 import { useRawMode } from '../model/useRawMode'
-import type { AssetInfo, AssetProvider } from '../types'
+import type { AssetProvider } from '../types'
 import DebugPanel from './DebugPanel.vue'
 import RichTextToolbar from './Toolbar.vue'
 
@@ -53,6 +53,7 @@ const props = withDefaults(
     fileOutput?: 'markdown' | 'mdc'
     imageOutput?: 'markdown' | 'mdc'
     modelValue: string
+    ariaLabel?: string
     placeholder?: string
     showMarkdownMarkers?: boolean
     videoOutput?: 'html' | 'mdc'
@@ -188,6 +189,11 @@ const handleEditorUpdate = async (editor: TiptapEditor, docChanged: boolean) => 
 const editor = useEditor({
   content: { content: [{ type: 'paragraph' }], type: 'doc' },
   editable: !props.disabled,
+  editorProps: {
+    attributes: {
+      'aria-label': props.ariaLabel ?? 'Content',
+    },
+  },
   extensions: createEditorExtensions({
     assetProvider: assetProvider.value,
     codeBlockTheme: settings.value.codeBlockTheme,
@@ -271,6 +277,8 @@ const editor = useEditor({
 }) as unknown as Ref<TiptapVueEditor | undefined>
 
 const coreEditor = editor as unknown as Ref<TiptapEditor | undefined>
+const { insertFileAsset, insertImageAsset, insertVideoFromPrompt, removeSelectedMedia } =
+  useEditorMedia({ assetProvider, editor: coreEditor })
 
 const {
   conversionHealth: rawConversionHealth,
@@ -404,39 +412,6 @@ onBeforeUnmount(() => {
   editor.value?.destroy()
 })
 
-function insertImageAsset(asset: Partial<AssetInfo>) {
-  const instance = editor.value
-  if (!instance) {
-    return
-  }
-
-  const src = asset.url || assetProvider.value.buildUrl(asset)
-  const payload = {
-    alt: asset.alt,
-    filename: asset.filename,
-    height: asset.height,
-    id: asset.id,
-    src,
-    title: asset.title,
-    width: asset.width,
-  }
-  pushEditorDebugEvent({
-    level: 'log',
-    message: instance.isActive('image') ? 'Replacing selected image' : 'Inserting image',
-    payload,
-    source: 'editor.media.image',
-  })
-  if (instance.isActive('image')) {
-    instance.chain().focus().updateAttributes('image', { props: payload }).run()
-    return
-  }
-
-  const chain = instance.chain().focus() as unknown as {
-    setImage: (options: Record<string, unknown>) => { run: () => void }
-  }
-  chain.setImage(payload).run()
-}
-
 async function updateSelectedImageOverlay(instance: TiptapEditor | undefined = editor.value) {
   if (!instance || viewMode.value !== 'visual') {
     selectedImageOverlay.value = { ...selectedImageOverlay.value, visible: false }
@@ -487,108 +462,6 @@ function requestSelectedImageReplacement() {
 function requestSelectedImageMetadata() {
   if (!selectedImageOverlay.value.assetId) return
   emit('request-image-metadata', selectedImageOverlay.value.assetId)
-}
-
-function insertFileAsset(asset: Partial<AssetInfo>) {
-  const instance = editor.value
-  if (!instance) {
-    return
-  }
-
-  const src = asset.url || assetProvider.value.buildUrl(asset)
-  const payload = {
-    filename: asset.filename,
-    id: asset.id,
-    size: asset.size,
-    src,
-    title: asset.title || asset.filename,
-    type: asset.mimeType,
-  }
-  pushEditorDebugEvent({
-    level: 'log',
-    message: instance.isActive('file') ? 'Replacing selected file' : 'Inserting file',
-    payload,
-    source: 'editor.media.file',
-  })
-  if (instance.isActive('file')) {
-    instance.chain().focus().updateAttributes('file', { props: payload }).run()
-    return
-  }
-
-  const chain = instance.chain().focus() as unknown as {
-    setFile: (options: Record<string, unknown>) => { run: () => void }
-  }
-  chain.setFile(payload).run()
-}
-
-async function insertVideoFromPrompt() {
-  const src = (
-    await studioPrompt({
-      title: 'Insert video',
-      label: 'Video URL',
-      placeholder: 'https://example.com/video.mp4',
-      confirmLabel: 'Continue',
-    })
-  )?.trim()
-  if (!src || !editor.value) {
-    return
-  }
-
-  const title =
-    (
-      await studioPrompt({
-        title: 'Video title',
-        label: 'Title',
-        description: 'Optional.',
-        confirmLabel: 'Insert video',
-      })
-    )?.trim() || undefined
-  const payload = { src, title }
-  pushEditorDebugEvent({
-    level: 'log',
-    message: editor.value.isActive('video') ? 'Updating selected video' : 'Inserting video',
-    payload,
-    source: 'editor.media.video',
-  })
-  if (editor.value.isActive('video')) {
-    editor.value
-      .chain()
-      .focus()
-      .updateAttributes('video', {
-        props: payload,
-        src,
-        title,
-      })
-      .run()
-    return
-  }
-
-  const chain = editor.value.chain().focus() as unknown as {
-    setVideo: (attrs: Record<string, unknown>) => { run: () => void }
-  }
-  chain.setVideo(payload).run()
-}
-
-function removeSelectedMedia() {
-  const instance = editor.value
-  if (!instance) {
-    return
-  }
-
-  if (!instance.isActive('image') && !instance.isActive('file') && !instance.isActive('video')) {
-    return
-  }
-
-  pushEditorDebugEvent({
-    level: 'warn',
-    message: 'Removing selected media node',
-    payload: {
-      selection: serializeSelection(instance),
-    },
-    source: 'editor.media.remove',
-  })
-  const tr = instance.state.tr.deleteSelection()
-  instance.view.dispatch(tr)
 }
 
 function serializeSelection(editor: {
@@ -659,7 +532,7 @@ defineExpose({
         isFocusMode
           ? 'ginko:fixed ginko:inset-0 ginko:z-50 ginko:bg-background ginko:border-0 ginko:rounded-none'
           : 'ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card',
-        { 'ginko:opacity-60 ginko:pointer-events-none': disabled },
+        { 'ginko:opacity-60': disabled },
       ]"
     >
       <div
@@ -672,10 +545,11 @@ defineExpose({
           <button
             type="button"
             class="ginko:h-7 ginko:rounded-md ginko:px-3 ginko:text-xs ginko:font-medium ginko:transition-colors"
+            :aria-pressed="viewMode === 'visual'"
             :class="
               viewMode === 'visual'
                 ? 'ginko:bg-background ginko:text-foreground'
-                : 'ginko:text-muted-foreground ginko:hover:text-foreground ginko:hover:bg-muted'
+                : 'ginko:text-foreground ginko:hover:bg-muted'
             "
             @click="switchToVisual"
           >
@@ -684,10 +558,11 @@ defineExpose({
           <button
             type="button"
             class="ginko:h-7 ginko:rounded-md ginko:px-3 ginko:text-xs ginko:font-medium ginko:transition-colors"
+            :aria-pressed="viewMode === 'raw'"
             :class="
               viewMode === 'raw'
                 ? 'ginko:bg-background ginko:text-foreground'
-                : 'ginko:text-muted-foreground ginko:hover:text-foreground ginko:hover:bg-muted'
+                : 'ginko:text-foreground ginko:hover:bg-muted'
             "
             @click="viewMode = 'raw'"
           >
@@ -711,19 +586,19 @@ defineExpose({
           class="ginko:h-8"
           @click="exportDebugData"
         >
-          Export Debug
+          Export diagnostics
         </Button>
       </div>
 
       <div
         v-if="conversionBanner && !isFocusMode"
-        class="ginko:border-b ginko:border-warning/20 ginko:bg-warning/10 ginko:px-3 ginko:py-2 ginko:text-warning-fg"
+        class="ginko:border-b ginko:border-warning/20 ginko:bg-warning/10 ginko:dark:bg-warning/15 ginko:px-3 ginko:py-2 ginko:text-warning-fg"
       >
         <p class="ginko:text-sm ginko:font-medium">Conversion guard active</p>
         <p class="ginko:text-xs ginko:leading-5">
           {{ conversionBanner.message }}
         </p>
-        <p class="ginko:mt-1 ginko:text-[11px] ginko:opacity-80">
+        <p class="ginko:mt-1 ginko:text-xs ginko:opacity-80">
           Trace: <code>{{ conversionBanner.traceId }}</code>
         </p>
       </div>
@@ -736,6 +611,7 @@ defineExpose({
         ]"
       >
         <RichTextToolbar
+          v-if="!disabled"
           :editor="editor ?? null"
           :enable-files="enableFiles"
           :enable-video="enableVideo"
@@ -759,6 +635,7 @@ defineExpose({
         >
           <EditorContent
             :editor="editor"
+            data-testid="cms-richtext-editor"
             :class="[
               'ginko-richtext-editor__surface',
               isFocusMode ? 'ginko:min-h-[60vh]' : 'ginko:min-h-[260px] ginko:px-4 ginko:py-3',
@@ -786,8 +663,8 @@ defineExpose({
               type="button"
               class="ginko-richtext-editor__asset-overlay-button"
               :disabled="!selectedImageOverlay.assetId"
-              title="Edit asset metadata"
-              aria-label="Edit asset metadata"
+              title="Edit image details"
+              aria-label="Edit image details"
               @click.stop="requestSelectedImageMetadata"
             >
               <Pencil class="ginko:size-3.5" />
@@ -807,6 +684,7 @@ defineExpose({
         <Textarea
           :model-value="rawContent"
           :disabled="disabled"
+          :aria-label="`${ariaLabel ?? 'Content'} Markdown source`"
           class="ginko:min-h-[260px] ginko:resize-y ginko:rounded-none ginko:border-0 ginko:font-mono ginko:text-sm ginko:shadow-none ginko:focus-visible:ring-0"
           @update:model-value="onRawChange"
         />
@@ -830,321 +708,4 @@ defineExpose({
   </div>
 </template>
 
-<style scoped>
-.ginko-richtext-editor__content {
-  background: var(--card);
-}
-
-.ginko-richtext-editor__frame {
-  box-shadow: none;
-}
-
-.ginko-richtext-editor[data-focus-mode='true'] .ginko-richtext-editor__content {
-  background: var(--background);
-}
-
-.ginko-richtext-editor[data-focus-mode='true'] .ginko-richtext-editor__frame {
-  box-shadow: none;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror) {
-  min-height: 220px;
-  color: var(--foreground);
-  outline: none;
-  font-size: 0.95rem;
-  line-height: 1.7;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror > *) {
-  margin-top: 0;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror > *:first-child) {
-  margin-top: 0;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror > *:last-child) {
-  margin-bottom: 0;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror p) {
-  margin: 0 0 1rem;
-  line-height: 1.7;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror p.is-empty) {
-  min-height: 1.75rem;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror h1),
-.ginko-richtext-editor__surface :deep(.ProseMirror h2),
-.ginko-richtext-editor__surface :deep(.ProseMirror h3),
-.ginko-richtext-editor__surface :deep(.ProseMirror h4),
-.ginko-richtext-editor__surface :deep(.ProseMirror h5),
-.ginko-richtext-editor__surface :deep(.ProseMirror h6) {
-  margin: 1.5rem 0 0.75rem;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: 0;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror h1) {
-  font-size: 2rem;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror h2) {
-  font-size: 1.625rem;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror h3) {
-  font-size: 1.35rem;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror h4) {
-  font-size: 1.125rem;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror h5),
-.ginko-richtext-editor__surface :deep(.ProseMirror h6) {
-  font-size: 1rem;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror ul),
-.ginko-richtext-editor__surface :deep(.ProseMirror ol) {
-  margin: 1rem 0 1rem 0.25rem;
-  padding-left: 1.5rem;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror li) {
-  margin: 0.25rem 0;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror a) {
-  color: var(--primary);
-  text-decoration: underline;
-  text-decoration-color: color-mix(in oklch, var(--primary) 38%, transparent);
-  text-underline-offset: 0.18em;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror a:hover) {
-  color: var(--primary);
-  text-decoration-color: color-mix(in oklch, var(--primary) 70%, transparent);
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror code) {
-  border: 1px solid var(--border);
-  border-radius: 0.4rem;
-  background: var(--muted);
-  color: var(--foreground);
-  padding: 0.12rem 0.38rem;
-  font-size: 0.88em;
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    Liberation Mono,
-    monospace;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror pre) {
-  margin: 1.25rem 0;
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--muted);
-  color: var(--foreground);
-  padding: 1rem 1.1rem;
-  box-shadow: none;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror pre code) {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  padding: 0;
-  font-size: 0.92rem;
-  line-height: 1.75;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror blockquote) {
-  border-left: 1px solid var(--border);
-  margin: 1.25rem 0;
-  padding: 0.15rem 0 0.15rem 1rem;
-  color: var(--muted-foreground);
-  font-style: normal;
-  background: transparent;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror hr) {
-  border: 0;
-  border-top: 1px solid var(--border);
-  margin: 1.5rem 0;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror table) {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1.25rem 0;
-  overflow: hidden;
-  border-radius: 0.8rem;
-  border-style: hidden;
-  box-shadow: 0 0 0 1px var(--border);
-  background: var(--card);
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror th),
-.ginko-richtext-editor__surface :deep(.ProseMirror td) {
-  border: 1px solid var(--border);
-  padding: 0.7rem 0.8rem;
-  vertical-align: top;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror th) {
-  background: var(--muted);
-  font-weight: 600;
-  text-align: left;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror img) {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 1.25rem 0;
-  border-radius: 0.625rem;
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--border) 84%, transparent);
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror a[data-type='file']) {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: fit-content;
-  max-width: 100%;
-  margin: 1rem 0;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--card);
-  box-shadow: none;
-  color: var(--foreground);
-  text-decoration: none;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror a[data-type='file']::before) {
-  content: 'FILE';
-  flex: none;
-  border-radius: 999px;
-  background: var(--foreground);
-  color: var(--background);
-  padding: 0.2rem 0.48rem;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror div[data-type='video']) {
-  margin: 1.25rem 0;
-  border: 1px dashed var(--border);
-  border-radius: 0.75rem;
-  background: var(--muted);
-  min-height: 13rem;
-  position: relative;
-  overflow: hidden;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror div[data-type='video']::before) {
-  content: attr(title);
-  position: absolute;
-  left: 1rem;
-  right: 1rem;
-  bottom: 1rem;
-  color: var(--muted-foreground);
-  font-size: 0.9rem;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror div[data-type='video']::after) {
-  content: 'Video';
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--muted-foreground);
-  padding: 0.2rem 0.55rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.ginko-richtext-editor__surface :deep(.ProseMirror .ProseMirror-selectednode) {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-.ginko-richtext-editor__asset-overlay {
-  position: absolute;
-  z-index: 20;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  background: var(--popover);
-  padding: 0.25rem;
-  box-shadow: none;
-}
-
-.ginko-richtext-editor__asset-overlay-button {
-  display: inline-flex;
-  width: 1.75rem;
-  height: 1.75rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.35rem;
-  color: var(--popover-foreground);
-  transition:
-    background-color 120ms ease,
-    color 120ms ease,
-    opacity 120ms ease;
-}
-
-.ginko-richtext-editor__asset-overlay-button:hover:not(:disabled),
-.ginko-richtext-editor__asset-overlay-button:focus-visible {
-  background: var(--muted);
-}
-
-.ginko-richtext-editor__asset-overlay-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.42;
-}
-
-.ginko-richtext-editor__surface :deep(.mdc-editor-empty:first-child::before) {
-  content: attr(data-placeholder);
-  color: var(--muted-foreground);
-  float: left;
-  height: 0;
-  pointer-events: none;
-}
-
-@media (max-width: 640px) {
-  .ginko-richtext-editor__surface {
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-  }
-
-  .ginko-richtext-editor__surface :deep(.ProseMirror) {
-    font-size: 0.95rem;
-  }
-
-  .ginko-richtext-editor__surface :deep(.ProseMirror h1) {
-    font-size: 1.6rem;
-  }
-
-  .ginko-richtext-editor__surface :deep(.ProseMirror h2) {
-    font-size: 1.35rem;
-  }
-}
-</style>
+<style scoped src="./Editor.css"></style>

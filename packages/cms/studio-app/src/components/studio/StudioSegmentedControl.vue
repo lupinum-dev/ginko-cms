@@ -16,6 +16,11 @@ const props = defineProps<{
   items: Segment[]
   ariaLabel: string
   class?: string
+  /**
+   * Icon-only below the @3xl container width. Only meaningful when every
+   * item has an icon — narrow toolbars otherwise truncate labels to "Gr…".
+   */
+  collapseLabels?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -48,7 +53,12 @@ function handleUpdate(value: unknown) {
       :aria-label="item.label"
     >
       <component :is="item.icon" v-if="item.icon" aria-hidden="true" />
-      <span class="ginko:truncate">{{ item.label }}</span>
+      <span
+        class="ginko:truncate"
+        :class="collapseLabels && item.icon ? 'ginko:hidden ginko:@3xl:inline' : ''"
+      >
+        {{ item.label }}
+      </span>
     </ToggleGroupItem>
   </ToggleGroup>
 </template>

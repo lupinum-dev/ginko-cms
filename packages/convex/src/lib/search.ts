@@ -11,7 +11,13 @@ export function buildSearchText(args: {
   const parts: string[] = []
 
   for (const field of args.fields) {
-    const isSearchable = field.searchable ?? SEARCHABLE_TYPES.has(field.type)
+    // Text-like types are always indexed; `searchable: true` opts other types
+    // in. `searchable: false` cannot mean opt-out here: both contract
+    // normalizers (ginko-content resolved contracts and shared
+    // `normalizeField`) store `searchable ?? false`, so every field the
+    // author never touched arrives as a concrete `false`. Treating that as
+    // opt-out silently dropped titles/descriptions from every search index.
+    const isSearchable = field.searchable === true || SEARCHABLE_TYPES.has(field.type)
     if (!isSearchable) continue
     parts.push(...extractTextFragments(args.values?.[field.key]).map(stripMarkdown))
   }

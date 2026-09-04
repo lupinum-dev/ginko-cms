@@ -16,6 +16,15 @@ export const list = defineArgs({
   },
 })
 
+export const count = defineArgs({
+  description: 'Count structurally reachable published CMS entries for one locale.',
+  args: {
+    collection: v.string(),
+    locale: v.string(),
+    pathPrefix: v.optional(v.string()),
+  },
+})
+
 export const page = defineArgs({
   description: 'Load a published CMS page with the locked public content contract.',
   args: {
@@ -70,6 +79,16 @@ export const surround = defineArgs({
 
 export const sitemap = defineArgs({
   description: 'Load public sitemap entries.',
+  args: {
+    collection: v.string(),
+    locale: v.string(),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.union(v.string(), v.null())),
+  },
+})
+
+export const routes = defineArgs({
+  description: 'Enumerate structurally routable published entries for a content build.',
   args: {
     collection: v.string(),
     locale: v.string(),

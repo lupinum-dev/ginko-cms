@@ -30,15 +30,22 @@ application page code should stay the same whether the active provider is
 filesystem or CMS.
 
 ```ts
+import { navigation, paginate, useContentSearch } from '@lupinum/ginko-content/client'
+
 const { page, previous, next } = await useContentPage(docs, {
-  surround: { fields: ['description'] },
+  surround: { select: ['description'] },
 })
 
-const { data: posts } = await useContentMany(blog, {
-  sort: { lastPublishedAt: 'desc' },
-})
+const { data: posts } = await useAsyncData('blog-posts', () =>
+  paginate(blog, {
+    mode: 'cursor',
+    locale: 'en',
+  }),
+)
 
-const { data: navTree } = await useContentTree(docs)
+const { data: navTree } = await useAsyncData('docs-navigation', () =>
+  navigation(docs, { locale: 'en' }),
+)
 ```
 
 CMS-backed search is provider-backed. Configure the CMS search engine and use
@@ -48,7 +55,7 @@ Ginko Content search-result helpers instead of static section-data helpers:
 export default defineNuxtConfig({
   content: {
     search: {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs'],
     },
   },
@@ -56,7 +63,8 @@ export default defineNuxtConfig({
 ```
 
 ```ts
-const { results, pending, error } = await useContentSearchResults(query, {
+const { query, results, pending, error } = await useContentSearch({
+  collection: 'docs',
   locale,
 })
 ```
@@ -70,9 +78,16 @@ Collections have an explicit public mode:
 - `none`: data-only; published rows are usable through `list` and relations,
   but route-only public methods reject the collection.
 
-Route-backed capability is enforced at runtime. Generated types constrain the
-currently generated page and nav inputs when the generated contract is
-available.
+Route-backed capability is enforced at runtime. Ginko Content owns the typed
+website query surface and its sitemap/prerender integration; CMS does not
+generate a parallel website API contract.
+
+Path inputs remain URL-shaped, but the CMS does not store full-path route rows.
+It resolves indexed `collection + locale + parent + slug` segments through the
+active `publicEntries` tree. Page lookup, navigation, search, sitemap, and
+locale alternates therefore share the same structural route truth. Moving or
+renaming a live parent changes descendant effective URLs atomically and creates
+a validated prefix redirect without republishing descendant drafts.
 
 ## Provider Shape
 
@@ -97,55 +112,13 @@ Public runtime reads do not expose schema/admin methods. Build/admin tooling own
 schema inspection, route diagnostics, publish-impact preview, and generated type
 drift checks.
 
-## HTTP Facade
+## Delivery Ownership
 
-External consumers can opt into a Nitro HTTP facade over the same Convex public
-queries:
-
-```ts
-export default defineNuxtConfig({
-  ginkoCms: {
-    publicContent: {
-      api: true,
-    },
-  },
-})
-```
-
-`api: true` registers these published-read endpoints under `/api/ginko/v1`:
-
-- `/api/ginko/v1/page?collection=docs&locale=de&path=/doku/start`
-- `/api/ginko/v1/list?collection=blog&locale=en&limit=20`
-- `/api/ginko/v1/nav?collection=docs&locale=de`
-- `/api/ginko/v1/surround?collection=blog&locale=en&path=/blog/hello`
-- `/api/ginko/v1/search?query=api&locale=en&collection=docs`
-- `/api/ginko/v1/sitemap?locale=de&collection=docs`
-- `/api/ginko/v1/singleton?name=siteSettings&locale=en`
-- `/api/ginko/v1/site-data?key=banner&locale=de`
-
-The HTTP facade validates input before calling Convex:
-
-- `collection`, `name`, and `key` are at most 80 characters.
-- `locale` is at most 32 characters.
-- `query` is at most 256 characters.
-- other string query values are at most 512 characters.
-- numeric query values must be integers.
-
-Route metadata is a provider/bridge operation for Nuxt content rendering, not an
-HTTP facade endpoint. The HTTP facade intentionally exposes page and list-style
-published reads only; route metadata stays inside the content provider contract
-unless a separate external consumer need proves otherwise.
-
-Use a custom route when needed:
-
-```ts
-publicContent: {
-  api: { route: '/content-api' },
-}
-```
-
-The HTTP facade is a transport only. It does not introduce a second data model,
-projection language, or admin surface.
+Ginko Content is the only website-facing query and prerender owner. Ginko CMS
+publishes the raw, published-only Convex provider functions used by the Content
+provider, but it does not register a second Nitro HTTP facade and it does not
+add CMS-owned prerender routes. A future non-Ginko consumer requires an
+explicitly versioned product contract rather than an option on the CMS module.
 
 ## Result Contracts
 
@@ -203,17 +176,27 @@ Search returns `results` instead of `entries` and uses the same `pageInfo`
 shape. Raw empty search is invalid; callers should avoid submitting empty
 queries.
 
-Public limits and failure behavior:
+Public per-request limits and paging behavior:
 
 - `list`: default `20`, maximum `100`.
-- `search`: default `10`, maximum `50`; each request scans at most `500` rows.
-- `sitemap`: default `500`, maximum `1000`.
-- `nav`: scans at most `1000` rows before returning `PUBLIC_NAV_TOO_LARGE`.
+- `search`: default `10`, maximum `50`, with an indexed continuation cursor and
+  no first-500-row scan ceiling.
+- `sitemap`: default `500`, maximum `1000`, with an indexed continuation cursor.
+- `nav`: reads the indexed navigation-included scope; unrelated public rows do
+  not consume a global 1,000-row budget.
+- `routes`: maximum `250` per generation-fenced keyset page.
 - `surround`: `previous` and `next` default to `1` and max out at `10`.
 
+The certified content fixture is 1,500 entries across three locales, 500
+assets, a five-level tree, a large live subtree, and long MDC documents. Public
+route enumeration is separately tested across 5,105 rows to prove it does not retain
+the former 5,000-row cliff. These are evidence boundaries, not a promise of a
+larger untested product envelope.
+
 Public list sorting supports `orderKey`, `entryCreatedAt`, `firstPublishedAt`,
-and `lastPublishedAt` with `:asc` or `:desc`. Path-prefix list queries use path
-index order and cannot be combined with explicit sort.
+and `lastPublishedAt` with `:asc` or `:desc`. Path-prefix list queries derive
+effective paths from the tree in stable-identity order and cannot be combined
+with explicit sort.
 
 ### Nav
 
@@ -343,7 +326,7 @@ pnpm --filter @lupinum/ginko-cms-contract typecheck
 pnpm --filter @lupinum/ginko-cms-convex typecheck
 pnpm --filter @lupinum/ginko-cms typecheck
 pnpm run test:public-content -- --reporter=dot
-pnpm -C playground exec ginko-cms bridge check
+pnpm -C playground exec ginko-cms doctor
 pnpm -C playground build
 pnpm run format:check
 git diff --check

@@ -21,20 +21,27 @@ const value = computed({
 </script>
 
 <template>
-  <div class="ginko:space-y-1.5">
-    <Label :for="field.key" class="ginko:text-sm">{{ label }}</Label>
+  <StudioFieldShell
+    :for="field.key"
+    :label="label"
+    :required="field.required"
+    :description="field.description"
+    :error="fieldError"
+  >
     <div class="ginko:flex ginko:items-center ginko:gap-2">
       <input
         :id="field.key"
         v-model="value"
         type="color"
+        :aria-invalid="fieldError ? true : undefined"
         class="ginko:size-8 ginko:rounded ginko:border ginko:cursor-pointer"
       />
       <Input
         v-model="value"
+        :aria-invalid="fieldError ? true : undefined"
         class="ginko:flex-1 ginko:font-mono ginko:text-sm"
         placeholder="#000000"
       />
     </div>
-  </div>
+  </StudioFieldShell>
 </template>

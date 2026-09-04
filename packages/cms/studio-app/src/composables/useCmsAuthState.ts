@@ -1,4 +1,7 @@
-import { computed, type ComputedRef } from 'vue'
+import type { ConvexAuthStatus } from '@lupinum/better-convex-nuxt'
+import { ConvexCallError } from '@lupinum/better-convex-vue'
+import type { GinkoCmsStudioHostBridgeAuth } from '@public/types'
+import { computed, onScopeDispose, shallowRef, type ComputedRef } from 'vue'
 
 import { useStudioHostContext } from '../boundary/studio-host-context'
 
@@ -6,11 +9,9 @@ import { useStudioHostContext } from '../boundary/studio-host-context'
 // (StudioSidebarUser, Layout's bootstrap branch, etc.) destructures `user`,
 // `signOut`, etc. without touching the call sites.
 //
-// Reads the Trellis auth engine refs that the host page puts on the typed
-// host bridge. Refs are shared
-// across the host/SPA boundary because both run in the same JS context;
-// `auth.user.value`, `auth.token.value`, etc. update reactively as
-// better-auth signs the user in or out.
+// Reads the host's token-free snapshot observer and recreates refs owned by the
+// Studio's Vue bundle. No foreign refs, Better Auth controls, or Convex JWT
+// cross the bridge.
 //
 // Falls back to "no user, auth disabled" when the bridge isn't populated
 // (studio:dev standalone with no host attached) so Layout still renders
@@ -23,13 +24,10 @@ export interface CmsAuthUser {
   image?: string | null
 }
 
-interface BridgeAuth {
-  token: { value: string | null | undefined }
-  user: { value: unknown }
-  pending: { value: boolean }
-  isAuthenticated: { value: boolean }
-  isAnonymous: { value: boolean }
-}
+// The auth subset the host bridge exposes (vNext §10.6): the
+// `status | pending | user | error` slice of `UseConvexAuthReturn`.
+// No `token`/`isAnonymous`/`getJwt` — the Studio never receives the Convex JWT.
+type BridgeAuth = GinkoCmsStudioHostBridgeAuth
 
 function normalizeUser(raw: unknown): CmsAuthUser | null {
   if (!raw || typeof raw !== 'object') return null
@@ -54,36 +52,48 @@ function normalizeUser(raw: unknown): CmsAuthUser | null {
 
 interface UseCmsAuthStateReturn {
   authEnabled: ComputedRef<boolean>
+  status: ComputedRef<ConvexAuthStatus>
   user: ComputedRef<CmsAuthUser | null>
   isAuthenticated: ComputedRef<boolean>
+  pending: ComputedRef<boolean>
+  error: ComputedRef<ConvexCallError | null>
+  principalKey: ComputedRef<string>
   signOut: () => Promise<void>
-  getJwt: () => string | null
 }
 
 export function useCmsAuthState(): UseCmsAuthStateReturn {
   const studioHost = useStudioHostContext()
-  const readBridgeAuth = () =>
-    (studioHost.getBridge().auth as BridgeAuth | null | undefined) ?? null
+  const auth = (studioHost.getBridge().auth as BridgeAuth | null | undefined) ?? null
+  const snapshot = shallowRef(auth?.snapshot() ?? null)
+  const stop = auth?.subscribe(() => {
+    snapshot.value = auth.snapshot()
+  })
+  if (stop) onScopeDispose(stop)
 
-  // Read on every getter call — refs from the consumer-side trellis auth
-  // engine survive across the boundary, but `bridge.auth` itself can be
-  // null until the host page's onBeforeMount hook runs. Lazy access keeps
-  // the SPA tolerant of host-bridge timing variations.
-  const auth = computed<BridgeAuth | null>(() => readBridgeAuth())
-
-  const isAuthenticated = computed(() => auth.value?.isAuthenticated.value === true)
-  const user = computed(() => normalizeUser(auth.value?.user.value))
+  const status = computed<ConvexAuthStatus>(() => snapshot.value?.status ?? 'anonymous')
+  const isAuthenticated = computed(() => status.value === 'authenticated')
+  const pending = computed(() => snapshot.value?.pending === true)
+  const user = computed(() => normalizeUser(snapshot.value?.user))
+  const error = computed(() => {
+    const current = snapshot.value?.error
+    return current ? new ConvexCallError(current) : null
+  })
+  const principalKey = computed(() => {
+    if (status.value === 'loading') return 'pending'
+    return isAuthenticated.value && user.value ? `user:${user.value.id}` : 'anonymous'
+  })
 
   return {
-    authEnabled: computed(() => auth.value !== null),
+    authEnabled: computed(() => auth !== null),
+    status,
     user,
     isAuthenticated,
+    pending,
+    error,
+    principalKey,
     async signOut(): Promise<void> {
       const onSignOut = studioHost.getBridge().onSignOut
       if (typeof onSignOut === 'function') await onSignOut()
-    },
-    getJwt(): string | null {
-      return readBridgeAuth()?.token.value ?? null
     },
   }
 }

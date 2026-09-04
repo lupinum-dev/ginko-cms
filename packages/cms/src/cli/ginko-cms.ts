@@ -4,14 +4,14 @@ import { realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 import { type CliRunner, type ConvexClientFactory, parseArgs, usage, write } from './args.js'
-import { runBackupCommand } from './backup.js'
-import { runBridgeCommand } from './bridge.js'
+import { runContentCommand } from './content.js'
+import { runContractCommand } from './contractTransitions.js'
 import { resolveConvexCliBin, runNodeScript } from './convex.js'
 import { runDeployCommand } from './deploy.js'
 import { runDoctorCommand } from './doctor.js'
+import { readLocalEnv } from './env.js'
 import { runInitCommand } from './init.js'
-import { runMcpDoctor } from './mcp-doctor.js'
-import { runMigrateCommand } from './migrate.js'
+import { runAssetCommand, runRepairCommand } from './maintenance.js'
 import { runPushCommand } from './push.js'
 
 export async function runGinkoCmsCli(
@@ -32,6 +32,7 @@ export async function runGinkoCmsCli(
   }
   const parsed = parseArgs(rawArgs, options.cwd ?? process.cwd())
   const [command] = parsed.args
+  const redact = (value: string) => redactCliMessage(value, parsed.cwd)
 
   try {
     if (!command || ['--help', '-h'].includes(command)) {
@@ -42,7 +43,7 @@ export async function runGinkoCmsCli(
     if (command === 'setup') {
       throw new Error('`ginko-cms setup` was removed. Use `pnpm exec ginko-cms init`.')
     }
-    if (command === 'init') return await runInitCommand(parsed.cwd, io)
+    if (command === 'init') return await runInitCommand(parsed.args, parsed.cwd, io)
     if (command === 'push') {
       return await runPushCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
@@ -55,26 +56,49 @@ export async function runGinkoCmsCli(
         options.convexClientFactory,
       )
     }
-    if (command === 'backup') {
-      return await runBackupCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    if (command === 'contract') {
+      return await runContractCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
-    if (command === 'migrate') {
-      return await runMigrateCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    if (command === 'content') {
+      return await runContentCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
-    if (command === 'bridge') return await runBridgeCommand(parsed.args, parsed.cwd, io)
+    if (command === 'repair') {
+      return await runRepairCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    }
+    if (command === 'asset') {
+      return await runAssetCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    }
     if (command === 'convex') {
       const runner = options.runner ?? runNodeScript
       return await runner(resolveConvexCliBin(), parsed.args.slice(1), { cwd: parsed.cwd })
     }
-    if (command === 'doctor') return await runDoctorCommand(parsed.cwd, io)
-    if (command === 'mcp-doctor') return await runMcpDoctor(parsed.cwd, io)
+    if (command === 'doctor') {
+      return await runDoctorCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    }
 
     throw new Error(`Unknown command "${command}".`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    write(io.stderr, `Error: ${message}\n\n${usage()}`)
+    write(io.stderr, `Error: ${redact(message)}\n\n${usage()}`)
     return 2
   }
+}
+
+function redactCliMessage(message: string, cwd: string) {
+  let redacted = message
+  const env = {
+    ...readLocalEnv(cwd),
+    ...process.env,
+  }
+  for (const [name, value] of Object.entries(env)) {
+    const secretLikeName = /KEY|TOKEN|SECRET|PASSWORD|COOKIE/i.test(name)
+    const secretValue = typeof value === 'string' ? value.trim() : ''
+    if (!secretLikeName || secretValue.length < 8) continue
+    redacted = redacted.split(secretValue).join('[redacted]')
+  }
+  return redacted
+    .replace(/\b(Bearer\s+)[\w.~+/=-]{8,}/gi, '$1[redacted]')
+    .replace(/\bmcp_[\w-]{8,}\b/g, '[redacted]')
 }
 
 const isDirectExecution =

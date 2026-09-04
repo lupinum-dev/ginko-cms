@@ -1,6 +1,11 @@
 @import 'tailwindcss' prefix(ginko);
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
+
+/* Accent themes are scoped under .ginko-cms so Studio preferences cannot leak
+ * into host apps. */
+@import './themes.css';
 
 @theme inline {
   --font-sans: var(--font-body);
@@ -8,13 +13,16 @@
   --font-mono: var(--font-mono);
   --font-body: var(--font-body);
   --font-heading: var(--font-heading);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  /* Template-parity radius scale (tailwind.css @theme inline): a ±4px additive
+   * ramp around --radius, not the old multiplicative scale. The 2xl/3xl/4xl
+   * steps continue the +4px cadence for the components that reach past xl. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -55,8 +63,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --animate-collapsible-down: collapsible-down 0.2s ease-out;
-  --animate-collapsible-up: collapsible-up 0.2s ease-out;
+  --animate-collapsible-down: collapsible-down var(--motion-base, 0.2s) ease-out;
+  --animate-collapsible-up: collapsible-up var(--motion-base, 0.2s) ease-out;
 
   @keyframes collapsible-down {
     from {
@@ -82,13 +90,45 @@
 :root {
   /* Docs layout (Fumadocs-style shell) */
   --docs-header-row-1: 3.5rem;
-  --docs-sidebar-width-expanded: 268px;
+  --docs-sidebar-width-expanded: 16rem;
   --docs-sidebar-width-collapsed: 4.5rem;
   --docs-sidebar-width: var(--docs-sidebar-width-expanded);
 
-  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
-  --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  /* Template parity: Geist / Geist Mono, self-hosted via @fontsource-variable
+   * (imported in main.ts → 'Geist Variable' / 'Geist Mono Variable' families).
+   * The --ginko-cms-font-* override fallbacks let a consumer swap the stack. */
+  --font-body: var(
+    --ginko-cms-font-body,
+    'Geist Variable',
+    'Geist',
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    system-ui,
+    sans-serif
+  );
+  --font-heading: var(
+    --ginko-cms-font-heading,
+    'Geist Variable',
+    'Geist',
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    system-ui,
+    sans-serif
+  );
+  --font-mono: var(
+    --ginko-cms-font-mono,
+    'Geist Mono Variable',
+    'Geist Mono',
+    'JetBrains Mono',
+    'SFMono-Regular',
+    Consolas,
+    'Liberation Mono',
+    monospace
+  );
 }
 
 @layer base {
@@ -102,6 +142,10 @@
   .ginko-cms {
     @apply ginko:bg-background ginko:text-foreground;
     font-family: var(--font-body);
+    /* Template parity (tailwind.css @layer base body): crisper Geist rendering,
+     * no faux-bold synthesis on the variable weight axis. */
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
   }
 
   .ginko-cms h1,
@@ -129,7 +173,15 @@
 }
 
 .ginko-cms .studio-page-content {
-  width: min(100%, 80rem);
+  width: 100%;
+  max-width: var(--studio-canvas-max-width);
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.ginko-cms .studio-page-content--wide {
+  width: 100%;
+  max-width: var(--studio-canvas-wide-max-width);
   min-width: 0;
   margin-inline: auto;
 }
@@ -138,51 +190,69 @@
   width: 100%;
 }
 
+.ginko-cms .studio-page-body {
+  padding: var(--space-xl);
+}
+
+.ginko-cms .studio-toolbar-row {
+  min-height: var(--studio-shell-toolbar-height);
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  * Studio type ladder
  *
- * Five steps. Every textual element in the studio shell picks one — never
- * a free-form size. Apply via class (`studio-text-*`) or compose Tailwind
- * (`text-[13px] font-semibold` is allowed; `text-[14.5px]` is not).
+ * Seven steps. Every textual element in the studio shell picks one — never
+ * a free-form size. Apply via class (`studio-text-*`) or the matching
+ * scoped Tailwind token.
  *
- *   display   18px / 600 / -0.01em   → page hero, only used in empty home
- *   title     13px / 600 /  0        → section headers, card titles, breadcrumb leaf
- *   body      13px / 400 /  0        → form fields, button labels, default text
- *   label     12px / 500 /  0        → field labels, secondary controls
- *   caption   11px / 500 /  0.02em   → helpers, timestamps, locale codes
- *   eyebrow   10px / 600 /  0.10em   → section group labels (CONTENT, MANAGE)
+ *   display     32px / 600 / 0 → composed empty states and dashboard hero copy
+ *   page-title  18px / 600 / 0 → page headers and editor top bar leaf titles
+ *   title       16px / 600 / 0 → section headers, card titles
+ *   body        14px / 400 / 0 → form fields, button labels, default text
+ *   label       14px / 500 / 0 → field labels, secondary controls
+ *   caption     12px / 500 / 0 → helpers, timestamps, locale codes
+ *   eyebrow     12px / 600 / 0 → section group labels (CONTENT, MANAGE)
  * ──────────────────────────────────────────────────────────────────────── */
 .ginko-cms .studio-text-display {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+.ginko-cms .studio-text-page-title {
   font-size: 1.125rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   line-height: 1.3;
 }
 .ginko-cms .studio-text-title {
-  font-size: 0.8125rem;
+  font-size: 1rem;
   font-weight: 600;
+  letter-spacing: 0;
   line-height: 1.35;
 }
 .ginko-cms .studio-text-body {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 400;
+  letter-spacing: 0;
   line-height: 1.5;
 }
 .ginko-cms .studio-text-label {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 500;
+  letter-spacing: 0;
   line-height: 1.4;
 }
 .ginko-cms .studio-text-caption {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   line-height: 1.4;
 }
 .ginko-cms .studio-text-eyebrow {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   text-transform: uppercase;
   line-height: 1.2;
 }
@@ -214,11 +284,16 @@
   transition-timing-function: var(--motion-ease-soft);
 }
 
+/* Reduced motion = token zeroing: every duration that flows through the
+ * --motion-* tokens (and tw-animate's --tw-duration) collapses to 1ms, so
+ * components animated via duration-(--motion-*) need no per-class rules. */
 @media (prefers-reduced-motion: reduce) {
-  .ginko-cms .studio-motion-fast,
-  .ginko-cms .studio-motion-base,
-  .ginko-cms .studio-motion-slow {
-    transition-duration: 1ms;
+  .ginko-cms {
+    --motion-fast: 1ms;
+    --motion-base: 1ms;
+    --motion-slow: 1ms;
+    --motion-panel: 1ms;
+    --tw-duration: 1ms;
   }
 }
 
@@ -318,17 +393,23 @@
   --success: var(--ginko-cms-studio-success, oklch(0.63 0.09 160));
   --success-foreground: var(--ginko-cms-studio-success-foreground, oklch(0.985 0 0));
   --success-fg: var(--ginko-cms-studio-success-fg, oklch(0.42 0.08 160));
-  --warning: var(--ginko-cms-warning, oklch(0.769 0.188 70.08));
+  --warning: var(
+    --ginko-cms-warning,
+    oklch(0.769 0.188 70.08)
+  ); /* ginko-keep: amber h70, matches the studio warning-fg/bg/border system (template ships yellow h92) */
   --warning-foreground: var(--ginko-cms-warning-foreground, oklch(0.205 0 0));
   --warning-fg: var(--ginko-cms-warning-fg, oklch(0.48 0.13 70));
   --border: var(--ginko-cms-border, oklch(0.922 0 0));
   --input: var(--ginko-cms-input, oklch(0.922 0 0));
-  --ring: var(--ginko-cms-ring, var(--studio-action));
-  --chart-1: var(--ginko-cms-chart-1, oklch(0.87 0 0));
-  --chart-2: var(--ginko-cms-chart-2, oklch(0.556 0 0));
-  --chart-3: var(--ginko-cms-chart-3, oklch(0.439 0 0));
-  --chart-4: var(--ginko-cms-chart-4, oklch(0.371 0 0));
-  --chart-5: var(--ginko-cms-chart-5, oklch(0.269 0 0));
+  --ring: var(--ginko-cms-ring, oklch(0.708 0 0)); /* template parity: neutral grey focus ring */
+  --chart-1: var(
+    --ginko-cms-chart-1,
+    var(--color-blue-300)
+  ); /* template parity: blue chart ramp; color themes recolor it */
+  --chart-2: var(--ginko-cms-chart-2, var(--color-blue-500));
+  --chart-3: var(--ginko-cms-chart-3, var(--color-blue-600));
+  --chart-4: var(--ginko-cms-chart-4, var(--color-blue-700));
+  --chart-5: var(--ginko-cms-chart-5, var(--color-blue-800));
   --sidebar: var(--ginko-cms-sidebar, oklch(0.985 0 0));
   --sidebar-foreground: var(--ginko-cms-sidebar-foreground, oklch(0.145 0 0));
   --sidebar-primary: var(--ginko-cms-studio-sidebar-primary, var(--studio-action));
@@ -340,6 +421,31 @@
   --sidebar-accent-foreground: var(--ginko-cms-sidebar-accent-foreground, oklch(0.205 0 0));
   --sidebar-border: var(--ginko-cms-sidebar-border, oklch(0.922 0 0));
   --sidebar-ring: var(--ginko-cms-sidebar-ring, oklch(0.708 0 0));
+
+  /* ── Template-parity tokens (added in shell-migration D2) ──────────────────
+   * Tokens the dashboard template's tailwind.css :root ships that the Studio
+   * lacked. Public ones keep the --ginko-cms-* consumer-override contract. */
+  --header-height: var(--ginko-cms-header-height, 54px);
+  --surface: var(--ginko-cms-surface, oklch(0.98 0 0));
+  --surface-foreground: var(--ginko-cms-surface-foreground, var(--foreground));
+  /* Ultra-wide clamp: max width of the inset content CARD (the right-sidebar
+   * panel sits outside this budget). On viewports wider than card+panel the
+   * card/panel pair centers on the canvas via auto margins in Layout.vue /
+   * RightSidebar.vue, so 4K screens get breathing room instead of
+   * meter-long text lines. Scheme-invariant, so light-only like
+   * --header-height. */
+  --studio-content-max: var(--ginko-cms-studio-content-max, 105rem);
+
+  /* Unovis chart vars — private/internal, no consumer-override contract. */
+  --vis-primary-color: var(--primary);
+  --vis-secondary-color: var(--primary);
+  --vis-text-color: var(--muted-foreground);
+  --vis-tooltip-background-color: none !important;
+  --vis-tooltip-border-color: none !important;
+  --vis-tooltip-text-color: none !important;
+  --vis-tooltip-shadow-color: none !important;
+  --vis-tooltip-backdrop-filter: none !important;
+  --vis-tooltip-padding: none !important;
 
   /* Tailwind v4 utilities such as bg-primary resolve through --color-* theme
    * variables. Define those aliases inside the CMS scope so host app theme
@@ -384,9 +490,16 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Page canvas: pure neutral grey. Cards float; sidebar reads as a
-   * separate tower. Three tiers: page (0.97) → sidebar (0.985) → card (1.0). */
-  --studio-shell-bg: var(--ginko-cms-studio-shell-bg, oklch(0.97 0 0));
+  /* Page canvas = sidebar color (template inset parity). The template paints the
+   * body/SidebarProvider with bg-sidebar; the inset main area floats as a
+   * rounded card in --background on top of it. So the canvas tracks --sidebar
+   * (light 0.985), not a separate grey. */
+  --studio-shell-bg: var(--ginko-cms-studio-shell-bg, var(--sidebar));
+  --studio-shell-header-height: var(--ginko-cms-studio-shell-header-height, 3.5rem);
+  --studio-shell-toolbar-height: var(--ginko-cms-studio-shell-toolbar-height, 2.75rem);
+  --studio-canvas-max-width: var(--ginko-cms-studio-canvas-max-width, 80rem);
+  --studio-canvas-wide-max-width: var(--ginko-cms-studio-canvas-wide-max-width, 96rem);
+  --studio-editor-canvas-max-width: var(--ginko-cms-studio-editor-canvas-max-width, 80rem);
 
   --studio-surface: var(--ginko-cms-studio-surface, var(--card));
   --studio-panel: var(--ginko-cms-studio-panel, oklch(0.985 0 0));
@@ -399,10 +512,11 @@
   --space-xs: 0.25rem; /* 4px  — chip↔chip, label↔input fine gap */
   --space-sm: 0.5rem; /* 8px  — icon↔text, intra-row */
   --space-md: 0.75rem; /* 12px — between related fields */
-  --space-lg: 1rem; /* 16px — card inner padding (compact) */
-  --space-xl: 1.25rem; /* 20px — card inner padding (default) */
-  --space-2xl: 1.5rem; /* 24px — canvas L/R padding */
-  --space-3xl: 2rem; /* 32px — canvas bottom padding, between sections */
+  --space-lg: 1rem; /* 16px — compact card inner padding */
+  --space-xl: 1.5rem; /* 24px — default card inner padding */
+  --space-2xl: 2rem; /* 32px — canvas L/R padding */
+  --space-3xl: 2.5rem; /* 40px — canvas bottom padding, between sections */
+  --space-4xl: 3rem; /* 48px — wide-screen canvas breathing room */
 
   /* Border weight rhythm — every border decision picks one of three opacities. */
   --border-strong: var(--border); /* clear separation, headers, primary card edges */
@@ -413,8 +527,10 @@
   --motion-fast: 120ms; /* hover, focus, color flips */
   --motion-base: 180ms; /* state transitions (status pills, dialog enter) */
   --motion-slow: 280ms; /* layout-adjacent (sheet slide, accordion) */
+  --motion-panel: 240ms; /* structural panels (right sidebar, inset resize) */
   --motion-ease: cubic-bezier(0.32, 0.72, 0, 1); /* ease-out-quart, exponential settle */
   --motion-ease-soft: cubic-bezier(0.4, 0, 0.2, 1); /* ease-in-out, sub-perceptual moves */
+  --motion-ease-panel: cubic-bezier(0.2, 0, 0, 1); /* emphasized decelerate, panel slides */
   --studio-accent-bg: var(--ginko-cms-studio-accent-bg, oklch(0.96 0 0));
   --studio-accent-fg: var(--ginko-cms-studio-accent-fg, oklch(0.37 0 0));
   --studio-accent-border: var(--ginko-cms-studio-accent-border, oklch(0.82 0 0 / 0.55));
@@ -438,7 +554,11 @@
   --foreground: var(--ginko-cms-dark-foreground, oklch(0.985 0 0));
   --card: var(--ginko-cms-dark-card, oklch(0.205 0 0));
   --card-foreground: var(--ginko-cms-dark-card-foreground, oklch(0.985 0 0));
-  --popover: var(--ginko-cms-dark-popover, oklch(0.205 0 0));
+  /* Dark elevation ladder (deliberate divergence from the Phase-1 template
+   * snapshot, matching shadcn's own dark refresh): 0.145 well → 0.205
+   * canvas/card → 0.269 popover/dialog → 0.371 hover fill. Menus and dialogs
+   * get a real tier above cards instead of vanishing into them. */
+  --popover: var(--ginko-cms-dark-popover, oklch(0.269 0 0));
   --popover-foreground: var(--ginko-cms-dark-popover-foreground, oklch(0.985 0 0));
   --primary: var(--studio-action);
   --primary-foreground: var(--studio-action-foreground);
@@ -446,25 +566,35 @@
   --secondary-foreground: var(--ginko-cms-dark-secondary-foreground, oklch(0.985 0 0));
   --muted: var(--ginko-cms-dark-muted, oklch(0.269 0 0));
   --muted-foreground: var(--ginko-cms-dark-muted-foreground, oklch(0.708 0 0));
-  --accent: var(--ginko-cms-dark-accent, oklch(0.269 0 0));
+  /* Hover fill clears the popover floor so menu-item hover stays visible. */
+  --accent: var(--ginko-cms-dark-accent, oklch(0.371 0 0));
   --accent-foreground: var(--ginko-cms-dark-accent-foreground, oklch(0.985 0 0));
   --destructive: var(--ginko-cms-dark-destructive, oklch(0.396 0.141 25.723));
   --destructive-foreground: var(--ginko-cms-dark-destructive-foreground, oklch(0.985 0 0));
   --destructive-fg: var(--ginko-cms-dark-destructive-fg, oklch(0.78 0.16 25));
-  --success: var(--ginko-cms-dark-studio-success, oklch(0.58 0.08 160));
+  --success: var(--ginko-cms-dark-studio-success, oklch(0.6 0.11 160));
   --success-foreground: var(--ginko-cms-dark-studio-success-foreground, oklch(0.145 0 0));
   --success-fg: var(--ginko-cms-dark-studio-success-fg, oklch(0.78 0.08 160));
-  --warning: var(--ginko-cms-dark-warning, oklch(0.769 0.188 70.08));
+  --warning: var(
+    --ginko-cms-dark-warning,
+    oklch(0.769 0.188 70.08)
+  ); /* ginko-keep: amber h70 (template ships yellow h86) */
   --warning-foreground: var(--ginko-cms-dark-warning-foreground, oklch(0.205 0 0));
   --warning-fg: var(--ginko-cms-dark-warning-fg, oklch(0.84 0.14 78));
   --border: var(--ginko-cms-dark-border, oklch(1 0 0 / 0.1));
   --input: var(--ginko-cms-dark-input, oklch(1 0 0 / 0.15));
-  --ring: var(--ginko-cms-dark-ring, var(--studio-action));
-  --chart-1: var(--ginko-cms-dark-chart-1, oklch(0.87 0 0));
-  --chart-2: var(--ginko-cms-dark-chart-2, oklch(0.556 0 0));
-  --chart-3: var(--ginko-cms-dark-chart-3, oklch(0.439 0 0));
-  --chart-4: var(--ginko-cms-dark-chart-4, oklch(0.371 0 0));
-  --chart-5: var(--ginko-cms-dark-chart-5, oklch(0.269 0 0));
+  --ring: var(
+    --ginko-cms-dark-ring,
+    oklch(0.556 0 0)
+  ); /* template parity: neutral grey focus ring */
+  --chart-1: var(
+    --ginko-cms-dark-chart-1,
+    var(--color-blue-300)
+  ); /* template parity: blue chart ramp */
+  --chart-2: var(--ginko-cms-dark-chart-2, var(--color-blue-500));
+  --chart-3: var(--ginko-cms-dark-chart-3, var(--color-blue-600));
+  --chart-4: var(--ginko-cms-dark-chart-4, var(--color-blue-700));
+  --chart-5: var(--ginko-cms-dark-chart-5, var(--color-blue-800));
   --sidebar: var(--ginko-cms-dark-sidebar, oklch(0.205 0 0));
   --sidebar-foreground: var(--ginko-cms-dark-sidebar-foreground, oklch(0.985 0 0));
   --sidebar-primary: var(--ginko-cms-dark-studio-sidebar-primary, var(--studio-action));
@@ -472,14 +602,30 @@
     --ginko-cms-dark-studio-sidebar-primary-foreground,
     var(--studio-action-foreground)
   );
-  --sidebar-accent: var(--ginko-cms-dark-sidebar-accent, oklch(0.269 0 0));
+  /* Nav hover sits between card (0.205) and the global hover fill (0.371) so
+   * sidebar items don't double-jump against their 0.205 rail. */
+  --sidebar-accent: var(--ginko-cms-dark-sidebar-accent, oklch(0.32 0 0));
   --sidebar-accent-foreground: var(--ginko-cms-dark-sidebar-accent-foreground, oklch(0.985 0 0));
   --sidebar-border: var(--ginko-cms-dark-sidebar-border, oklch(1 0 0 / 0.1));
   --sidebar-ring: var(--ginko-cms-dark-sidebar-ring, oklch(0.556 0 0));
 
-  /* Dark page canvas: matches body background; sidebar/cards elevate
-   * from it. Hierarchy in dark = page (0.145) → sidebar/card (0.205). */
-  --studio-shell-bg: var(--ginko-cms-dark-studio-shell-bg, oklch(0.145 0 0));
+  /* ── Template-parity tokens (dark) ── keep light/dark parity with the block
+   * above. --header-height does not vary by scheme, so it stays light-only. */
+  --surface: var(--ginko-cms-dark-surface, oklch(0.2 0 0));
+  --surface-foreground: var(--ginko-cms-dark-surface-foreground, oklch(0.708 0 0));
+
+  /* Unovis tooltip vars — private/internal. (--vis-primary/secondary/text
+   * inherit from --primary/--muted-foreground, which already flip in dark.) */
+  --vis-tooltip-background-color: none !important;
+  --vis-tooltip-border-color: none !important;
+  --vis-tooltip-text-color: none !important;
+  --vis-tooltip-shadow-color: none !important;
+  --vis-tooltip-backdrop-filter: none !important;
+  --vis-tooltip-padding: none !important;
+
+  /* Dark page canvas = sidebar color (template inset parity): the inset card
+   * (--background 0.145) floats on the --sidebar canvas (0.205). */
+  --studio-shell-bg: var(--ginko-cms-dark-studio-shell-bg, var(--sidebar));
 
   --studio-surface: var(--ginko-cms-dark-studio-surface, var(--card));
   --studio-panel: var(--ginko-cms-dark-studio-panel, oklch(0.205 0 0));

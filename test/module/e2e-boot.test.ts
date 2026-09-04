@@ -5,29 +5,25 @@
  * installed, then asserts on the resulting Nuxt options, hooks, and runtime
  * config — without needing a running Convex backend.
  *
- * We create a disposable fixture in a temp directory and pre-install the
- * generated bridge files so validation-only module setup can succeed without
+ * We create a disposable fixture in a temp directory and pre-install the direct
+ * Convex setup files so validation-only module setup can succeed without
  * mutating repo fixtures.
  */
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import {
-  renderComponentBridgeFile,
-  renderComponentBridgeFiles,
-} from '@lupinum/trellis-bridge/manifest'
+import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'
 import { loadNuxt } from '@nuxt/kit'
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 
-import { ginkoCmsBridgeManifest } from '../../packages/cms/src/module/bridge-manifest.js'
+import { installConvexSetup } from './convex-setup-helpers.js'
 
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url))
 const modulePath = resolve(projectRoot, 'packages/cms/src/module')
 type LoadedNuxt = Awaited<ReturnType<typeof loadNuxt>>
 type ComponentDir = string | { path?: string }
-type NuxtPage = { name?: string; path: string }
 
 function getNuxt(instance: LoadedNuxt | undefined): LoadedNuxt {
   if (!instance) throw new Error('Nuxt test instance was not loaded.')
@@ -49,6 +45,9 @@ describe('ginko-cms module e2e boot', () => {
         ``,
         `export default defineNuxtConfig({`,
         `  modules: [MyModule],`,
+        `  convex: {`,
+        `    auth: { origin: 'http://localhost:3000' },`,
+        `  },`,
         `})`,
       ].join('\n'),
       'utf-8',
@@ -65,29 +64,23 @@ describe('ginko-cms module e2e boot', () => {
         name: 'e2e-boot-fixture',
         type: 'module',
         dependencies: {
-          '@convex-dev/better-auth': '^0.12.2',
           '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': '1.6.11',
+          'better-auth': '1.7.2',
+          '@lupinum/better-convex-nuxt': '1.0.0-beta.3',
         },
       }),
       'utf-8',
     )
 
-    for (const file of await renderComponentBridgeFiles(ginkoCmsBridgeManifest)) {
-      const target = join(tempDir, file.relativePath)
-      mkdirSync(dirname(target), { recursive: true })
-      writeFileSync(target, renderComponentBridgeFile(ginkoCmsBridgeManifest, file), 'utf8')
-    }
-
-    const edits =
-      typeof ginkoCmsBridgeManifest.managedEdits === 'function'
-        ? await ginkoCmsBridgeManifest.managedEdits()
-        : (ginkoCmsBridgeManifest.managedEdits ?? [])
-    for (const edit of edits) {
-      const target = join(tempDir, edit.relativePath)
-      mkdirSync(dirname(target), { recursive: true })
-      writeFileSync(target, edit.apply(null), 'utf8')
-    }
+    await installConvexSetup(tempDir)
+    mkdirSync(join(tempDir, '.ginko'))
+    writeFileSync(
+      join(tempDir, '.ginko/content-contract.json'),
+      `${JSON.stringify(
+        buildResolvedContentContract({ collections: {} }, { defaultLocale: 'en', locales: ['en'] }),
+      )}\n`,
+      'utf8',
+    )
 
     // Symlink node_modules from project root so loadNuxt can resolve dependencies
     symlinkSync(resolve(projectRoot, 'node_modules'), join(tempDir, 'node_modules'))
@@ -109,6 +102,10 @@ describe('ginko-cms module e2e boot', () => {
   it('module loads without errors via loadNuxt', () => {
     expect(nuxt).toBeDefined()
     expect(getNuxt(nuxt).options).toBeDefined()
+  })
+
+  it('does not install an i18n runtime into a locale-less host', () => {
+    expect(getNuxt(nuxt).options.modules).not.toContain('nuxt-i18n-micro')
   })
 
   // --- Runtime config ---
@@ -147,16 +144,6 @@ describe('ginko-cms module e2e boot', () => {
     expect(getNuxt(nuxt).options.i18n?.defaultLocale).toBeUndefined()
   })
 
-  // --- Composables (imports:dirs hook) ---
-
-  it('registers composables via imports:dirs hook', async () => {
-    const dirs: string[] = []
-    await getNuxt(nuxt).callHook('imports:dirs', dirs)
-
-    const hasComposables = dirs.some((dir: string) => dir.includes('runtime/composables'))
-    expect(hasComposables).toBe(true)
-  })
-
   it('resolves the runtime alias from sibling source during module setup', () => {
     expect(getNuxt(nuxt).options.alias['#ginko-cms']).toBe(
       resolve(projectRoot, 'packages/cms/src/runtime'),
@@ -171,33 +158,52 @@ describe('ginko-cms module e2e boot', () => {
 
     const hasComponentDir = dirs.some((entry) => {
       const path = typeof entry === 'string' ? entry : entry?.path
-      return path?.includes('runtime/components')
+      return path?.includes('auth/components')
     })
     expect(hasComponentDir).toBe(true)
   })
 
-  // --- Studio pages (pages:extend hook) ---
+  it('enables build-time Studio routes for page-less hosts', async () => {
+    expect(getNuxt(nuxt).options.pages).toMatchObject({ enabled: true })
 
-  it('registers studio pages at the configured /studio route', async () => {
-    const pages: NuxtPage[] = []
+    const pages: Array<{ name?: string; path?: string; file?: string }> = []
     await getNuxt(nuxt).callHook('pages:extend', pages)
 
-    const pageNames = pages.map((page) => page.name)
-    expect(pageNames).toContain('studio-auth-signin')
-    expect(pageNames).toContain('studio-auth-register')
-    expect(pageNames).toContain('studio-host')
-
-    // Verify paths are rooted at /studio
-    const studioPaths = pages.filter((page) => page.path.startsWith('/studio'))
-    expect(studioPaths.length).toBe(pages.length)
+    expect(pages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'studio-auth-signin',
+          path: '/studio/auth/signin',
+          meta: { layout: false },
+        }),
+        expect.objectContaining({
+          name: 'studio-auth-register',
+          path: '/studio/auth/register',
+          meta: { layout: false },
+        }),
+        expect.objectContaining({
+          name: 'studio-host',
+          path: '/studio/:slug(.*)*',
+          meta: {
+            layout: false,
+            convexAuth: { redirectTo: '/studio/auth/signin' },
+          },
+        }),
+      ]),
+    )
   })
 
-  // --- Trellis permissions wiring ---
+  // --- Convex module wiring ---
 
-  it('wires trellis permissions query to CMS members endpoint', () => {
-    const trellisOpts = (
-      getNuxt(nuxt).options as { trellis?: { permissions?: { query?: string } } }
-    ).trellis
-    expect(trellisOpts?.permissions?.query).toBe('ginkoCms/members.getAccessContext')
+  it('wires studio route protection through @lupinum/better-convex-nuxt', () => {
+    const options = getNuxt(nuxt).options as {
+      convex?: { auth?: { redirectTo?: string }; permissions?: unknown }
+      trellis?: unknown
+    }
+    expect(options.trellis).toBeUndefined()
+    expect(options.convex?.auth?.redirectTo).toBe('/studio/auth/signin')
+    // The removed `permissions` vocabulary (vNext §10.2 / decision 12) must
+    // never reappear on the @lupinum/better-convex-nuxt dependency defaults.
+    expect(options.convex).not.toHaveProperty('permissions')
   })
 })

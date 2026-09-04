@@ -10,16 +10,17 @@ APIs and keeps Nuxt page code independent of where content comes from.
 ## Ginko CMS
 
 The CMS/admin layer for Ginko. It owns Studio, Convex-backed content storage,
-Better Auth integration, assets, public projections, filesystem migration, MCP,
-and the provider that lets Ginko core read published CMS content.
+Better Auth integration, assets, public projections, owner-CLI content
+portability, MCP, and the provider that lets Ginko core read published CMS
+content.
 
-## Collection Contract
+## CMS Contract
 
-A code-defined content model supplied by the host app. Collection contracts
-describe fields, routing mode, locales, search/sort/filter capability, relation
-fields, and other CMS behavior.
+A code-defined contract supplied by the host app. The installed CMS contract is
+the single source for collection schemas, locales, content policy, and
+editorial presentation, with separate content and presentation hashes.
 
-Studio and MCP inspect collection contracts. They do not create or mutate them.
+Studio and MCP inspect the installed contract. They do not create or mutate it.
 
 ## Studio
 

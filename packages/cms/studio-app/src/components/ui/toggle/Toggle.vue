@@ -8,25 +8,34 @@ import type { ToggleVariants } from '.'
 import { toggleVariants } from '.'
 import { cn } from '../utils'
 
-const props = defineProps<
-  ToggleProps & {
-    class?: HTMLAttributes['class']
-    variant?: ToggleVariants['variant']
-    size?: ToggleVariants['size']
-  }
->()
+const props = withDefaults(
+  defineProps<
+    ToggleProps & {
+      class?: HTMLAttributes['class']
+      variant?: ToggleVariants['variant']
+      size?: ToggleVariants['size']
+    }
+  >(),
+  {
+    variant: 'default',
+    size: 'default',
+    disabled: false,
+  },
+)
+
 const emits = defineEmits<ToggleEmits>()
 
-const delegatedProps = reactiveOmit(props, 'class', 'variant', 'size')
+const delegatedProps = reactiveOmit(props, 'class', 'size', 'variant')
 const forwarded = useForwardPropsEmits(delegatedProps, emits)
 </script>
 
 <template>
   <Toggle
+    v-slot="slotProps"
     data-slot="toggle"
     v-bind="forwarded"
     :class="cn(toggleVariants({ variant, size }), props.class)"
   >
-    <slot />
+    <slot v-bind="slotProps" />
   </Toggle>
 </template>

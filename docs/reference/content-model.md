@@ -1,118 +1,127 @@
-# Content Model
+# Canonical Content Model
 
-This reference describes the Convex-backed content model implemented in
-`packages/convex/src/schema.ts`. It is the source of truth for table names in
-docs; older projection-run and Nuxt Content mapping sketches named tables that
-are not part of the active schema.
+This reference describes the greenfield Convex model. Every important concept
+has one canonical owner; projections are explicitly derived and rebuildable.
 
-## Ownership
+## Installed Contract
 
-- Host code owns collection definitions.
-- Convex stores synced collection contract snapshots in `collections`.
-- Studio and MCP inspect collection contracts and edit content under those
-  contracts; they do not author schema.
-- Public reads use published rows only. They do not read draft state.
-- Derived data must be rebuildable from canonical entry, revision, asset, and
-  collection state.
+`cmsContract` is the only installed CMS contract. It contains collection
+schemas keyed by stable slug, configured locales, content policy, and editorial
+presentation. Separate content and presentation hashes let presentation-only
+changes install without starting a contract transition.
 
-## Tables
+Host code supplies the expected hashes. A mismatch remains readable and
+diagnosable but locks editorial writes until the installed contract agrees.
+Studio never combines this row with a separate collections, policy, locale, or
+settings store.
 
-Collection and contract state:
+## Canonical State
 
-- `collections`: synced code-defined collection contracts.
-- `collectionReindexJobs`: internal reindex work for collection refreshes.
+- `entries` owns stable identity, collection slug, shared draft fields, shared
+  placement, lifecycle, shared draft version, and each locale's active revision
+  pointer.
+- `entryLocaleDrafts` owns locale-specific values, MDC source, locale slug, and
+  locale draft version.
+- `entryRevisions` is append-only. A publication revision is a complete immutable
+  snapshot of shared values, localized values, placement, relations, asset facts,
+  and contract content hash.
+- `reviewRequests` pins exact draft versions and a publish-preview hash.
+- `redirects` owns exact or prefix redirects, target entry, locale, origin,
+  lifecycle, and audit facts.
+- `siteData`, `assets`, `members`, MCP OAuth delegations, agent runs, and
+  activity each own their respective product facts.
+- Guarded operation, contract-transition, portability, and recovery runs own
+  durable cursors, generations, item receipts, and outcomes for work that cannot
+  fit in one transaction.
 
-Canonical editable content:
+There is no second collection registry, editable locale settings row, policy
+overlay, persisted composite readiness, or public-path payload copy.
 
-- `entries`: entry identity, tree/order state, draft metadata, publish pointers,
-  dirty locales, stable IDs, and collection ownership.
-- `entryDrafts`: draft shared/localized values, body content, route data, and
-  public flags.
-- `entryRevisions`: append-only editorial events: publish, unpublish, rollback,
-  archive, and checkpoint.
-- `redirects`: explicit public redirects.
-- `siteData`: reusable data blocks.
+## Derived State
 
-Assets and derived references:
+- `publicEntries` has at most one row per live entry and locale. It records the
+  source revision, collection slug, locale slug, parent entry, order, and public
+  payload. It does not store a full path.
+- Draft/public search text and `contentAssetRefs` are derived from canonical
+  drafts and immutable publication revisions.
+- Revalidation outbox rows are transactional delivery records. They carry an
+  idempotency key, retry state, delivery generation, and lease token.
 
-- `assets`: uploaded media and file metadata.
-- `contentAssetRefs`: derived asset references found in drafts/public content;
-  rebuildable from entry content and asset fields.
+Every derived row identifies the canonical revision or version that produced
+it. Repair deletes and rebuilds derived state from canonical rows, and invariant
+tests compare the rebuilt bytes with the original projection.
 
-Public serving state:
+## Editorial Lifecycle
 
-- `publicEntries`: active published rows for page, list, search, nav, sitemap,
-  singleton, and data-only reads.
-- `publicRoutes`: route lookup rows for route-backed page and route metadata
-  reads. Data-only collections do not create route rows.
-- `outboxEvents`: operational revalidation delivery events with expanded previous
-  and next affected paths/tags, delivery attempts, retry state, and retention.
-- `revalidationTargets`: delivery configuration for cache invalidation.
-
-Imports and backups:
-
-- `collectionImportRuns`: persisted import preview/apply reports for Studio and
-  operator inspection.
-- `backupArtifacts`: completed backup exports and their checksums/storage refs.
-
-Access, operations, and audit:
-
-- `cmsSettings`: site-level CMS settings such as locale configuration and
-  webhook definitions.
-- `members`: Studio members and roles.
-- `mcpKeys`: issued MCP API keys and status.
-- `destructiveConfirmations`: gated destructive-operation confirmation tokens.
-- `destructiveAuditLog`: executed destructive-operation audit records.
-- `activity`: audit/event feed.
-
-## Publish Shape
-
-```txt
-draft state
-  -> validate collection contract, field data, routes, parents, relations
-  -> create immutable entry revision
-  -> upsert publicEntries
-  -> upsert publicRoutes only for route-backed collections
-  -> emit revalidation outbox event with previous and next paths/tags
+```text
+entry shared draft + locale draft
+  -> one backend readiness computation
+  -> guarded publish preview bound to versions and route generation
+  -> immutable complete revision
+  -> locale active-revision pointer + one bounded, body-free publicEntries row
+  -> activity + revalidation outbox in the same transaction
 ```
 
-Publishing is direct-row activation. There is no active projection-run table or
-batch activation concept in the active model.
+Publishing one locale changes only that locale's active pointer and public row.
+Editing a shared field advances the shared draft version and makes every live
+locale show unpublished changes without changing public output. Publishing all
+ready locales commits all selected locale activations atomically.
 
-## Public Capability Rule
+Restoring history copies a compatible revision into drafts and leaves public
+output untouched. Rolling back public output creates and activates a new
+revision through the normal guarded publication operation.
 
-- Route-backed collections can serve page, route metadata, nav, surround,
-  search, sitemap, and list reads.
-- Data-only collections publish to `publicEntries`, are readable through list
-  operations, and are rejected by route-only public operations.
-- `routeMeta` is a provider/bridge operation for Nuxt content rendering. It is
-  not exposed by the optional HTTP facade.
+## Structural Public Routing
 
-## Import Rule
+Route resolution walks the `publicEntries` tree through the indexed key
+`collection + locale + parentEntryId + slug`. Lists, navigation, search,
+sitemap, and alternates derive effective paths from the same tree.
 
-Imports apply content under existing code-defined collections. They do not
-create runtime schema. Import results report actual entry and publish outcomes:
-created, updated, no-op, skipped, blocked, and published rows.
+Renaming or moving a live parent updates one public node and creates a validated
+prefix redirect atomically. Descendant URLs therefore change without publishing
+descendant drafts or rewriting every descendant row. Unpublishing or archiving
+a parent makes descendants unreachable through the public tree while preserving
+their editorial records.
 
-## Rebuild Rule
+Redirect validation rejects source collisions, unsafe targets, loops, and
+chains. Redirects can be retired without deleting their audit history.
 
-Any derived row must have a named canonical source and a rebuild path. Current
-rebuildable derived surfaces are public rows, route rows, content asset refs, and
-search text on public rows.
+## Assets and Recovery
 
-Revalidation outbox rows are operational delivery state, not a rebuildable read
-model. They are created from publish/site-data events, retried, and eventually
-cleaned up according to retention rules.
+Asset references are derived from canonical drafts and publication revisions.
+Upload sessions expire; finalization verifies the stored bytes before creating
+an asset. Permanent purge requires a current verified artifact containing the
+complete bytes, byte length, manifest, and checksums, and remains blocked while
+canonical content references the asset.
 
-## Asset Metadata Policy
+Studio asset discovery applies filename search, kind, upload-time window,
+size, exact tag, deleted state, ownership location, usage certainty, and stable
+sorting on the backend before keyset pagination. The full supported 500-asset
+set is fenced into each cursor, so a changed result set returns a stale-cursor
+error instead of losing or duplicating rows across a page boundary. Sidebar
+counts come from the same bounded backend read; Studio never filters or sorts a
+partially loaded page.
 
-Asset metadata is snapshot-until-republish. Editing an asset's alt text,
-caption, filename, or tags updates the asset manager record, but it does not
-rewrite already published entry snapshots or enqueue public revalidation by
-itself. Public pages that embedded asset metadata pick up those edits after the
-affected entries are republished or after a deliberate projection rebuild.
+Usage is intentionally three-state. `used` means a concrete derived reference
+exists or the current verification proof includes the asset.
+`unused-verified` is available only when the latest zero-issue repair run proves
+the current canonical generation contains no reference. Missing or stale proof
+is `unknown-stale`, never “unused.” Trash and permanent purge fail closed when
+an asset has neither a known reference nor current unreferenced proof.
+
+Database recovery uses official Convex Backup & Restore. Content portability
+uses deterministic owner-CLI exports and draft-only imports. Neither introduces
+application-level database recovery state.
+
+## Portability
+
+The owner CLI validates, plans, applies, and resumes generation-fenced runs with
+stable keyset cursors and per-item receipts. The supported envelope is 5,000
+localized documents, three locales, and 500 assets. Studio and MCP expose no
+portability write endpoint.
 
 ## Related Pages
 
 - [Public content API](./public-content-api.md)
 - [Cache invalidation](../concepts/cache-invalidation.md)
+- [Recovery boundaries](../maintenance/backup-and-recovery.md)

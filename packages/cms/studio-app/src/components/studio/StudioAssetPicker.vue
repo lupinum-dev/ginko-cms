@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { File, ImagePlus, X } from 'lucide-vue-next'
+import { File, ImagePlus, X } from '@lucide/vue'
 import { computed, ref } from 'vue'
 
 import { api } from '../../boundary/api'
@@ -17,6 +17,7 @@ const props = withDefaults(
     label?: string
     open?: boolean
     showTrigger?: boolean
+    disabled?: boolean
     assetContext: StudioAssetContext
   }>(),
   {
@@ -71,7 +72,7 @@ const previewAssets = computed<StudioAssetRecord[]>(() => {
     alt: asset.alt,
     caption: asset.caption,
     entryId: asset.entryId,
-    collectionId: asset.collectionId,
+    collection: asset.collection,
     createdAt: asset.createdAt,
     updatedAt: asset.updatedAt,
   }))
@@ -86,10 +87,17 @@ const assetsById = computed(() => {
 })
 
 function handleSelectAsset(asset: StudioAssetRecord) {
+  if (props.disabled) return
   emit('select-asset', asset)
 }
 
+function handleModelUpdate(value: string | string[] | null) {
+  if (props.disabled) return
+  emit('update:modelValue', value)
+}
+
 function removeAsset(assetId: string) {
+  if (props.disabled) return
   if (props.multiple) {
     emit(
       'update:modelValue',
@@ -119,23 +127,28 @@ function removeAsset(assetId: string) {
         />
         <File v-else class="ginko:size-4 ginko:text-muted-foreground" />
         <span
-          class="ginko:max-w-[120px] ginko:truncate ginko:font-mono ginko:text-[10px] ginko:text-muted-foreground"
+          class="ginko:max-w-[120px] ginko:truncate ginko:font-mono ginko:text-xs ginko:text-muted-foreground"
         >
           {{ assetsById.get(assetId)?.filename ?? assetId }}
         </span>
         <Button
+          v-if="!disabled"
           type="button"
           size="icon"
           variant="ghost"
           class="ginko:size-5"
-          :aria-label="`Remove ${assetsById.get(assetId)?.filename ?? assetId}`"
+          :aria-label="
+            t('ginkoCms.studio.assetPicker.removeAsset', {
+              name: assetsById.get(assetId)?.filename ?? assetId,
+            })
+          "
           @click="removeAsset(assetId)"
         >
           <X class="ginko:size-3" />
         </Button>
       </div>
       <Button
-        v-if="showTrigger"
+        v-if="showTrigger && !disabled"
         data-testid="studio-asset-picker-trigger"
         size="sm"
         variant="outline"
@@ -171,7 +184,7 @@ function removeAsset(assetId: string) {
           :aspect-ratio="aspectRatio"
           embedded
           class="ginko:min-h-0"
-          @update:model-value="emit('update:modelValue', $event)"
+          @update:model-value="handleModelUpdate"
           @select-asset="handleSelectAsset"
           @close="open = false"
         />

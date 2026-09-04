@@ -1,11 +1,31 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import {
+  buildResolvedContentContract,
+  hashCanonicalJson,
+} from '@lupinum/ginko-content/cms-contract'
+import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
+import { defineCollection } from '@lupinum/ginko-content/config'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import cmsPackageJson from '../../packages/cms/package.json' with { type: 'json' }
+import { deployKey } from '../../packages/cms/src/cli/env.js'
 import { runGinkoCmsCli } from '../../packages/cms/src/cli/ginko-cms.js'
+import { loadContentConfig } from '../../packages/cms/src/cli/push.js'
+import { loadGinkoContentContract } from '../../packages/cms/src/module/content-contract.js'
+import { writeExpectedContractBinding } from '../../packages/cms/src/module/convex.js'
+
+const removedLegacyArg = ['_trellis', 'Forwarding'].join('')
 
 function createOutput() {
   let value = ''
@@ -17,6 +37,61 @@ function createOutput() {
       },
     },
     read: () => value,
+  }
+}
+
+function writeContentConfig(rootDir: string, collection: string, pathPrefix: string) {
+  writeFileSync(
+    resolve(rootDir, 'content.config.ts'),
+    `export default { provider: 'cms', collections: { ${collection}: { type: 'page', source: 'content/${collection}/**/*.md', route: '${pathPrefix}' } } }\n`,
+    'utf8',
+  )
+  mkdirSync(resolve(rootDir, '.ginko'), { recursive: true })
+  const contract = buildResolvedContentContract(
+    {
+      collections: {
+        [collection]: defineCollection({
+          type: 'page',
+          source: `content/${collection}/**/*.md`,
+          route: pathPrefix,
+        }),
+      },
+    },
+    { defaultLocale: 'en', locales: ['en'] },
+  )
+  writeFileSync(
+    resolve(rootDir, '.ginko/content-contract.json'),
+    `${JSON.stringify(contract)}\n`,
+    'utf8',
+  )
+}
+
+async function bindContractForTest(rootDir: string) {
+  const config = await loadContentConfig(rootDir)
+  const content = await loadGinkoContentContract({ rootDir })
+  const binding = {
+    contentHash: await hashCanonicalJson(content as unknown as JsonValue),
+    presentationHash: await hashCanonicalJson(config.presentation),
+  }
+  writeExpectedContractBinding(rootDir, binding)
+  return binding
+}
+
+async function prepareDoctorFixture(rootDir: string, extraEnvironment = '') {
+  writeContentConfig(rootDir, 'pages', '/')
+  await bindContractForTest(rootDir)
+  writeFileSync(
+    resolve(rootDir, '.env.local'),
+    `CONVEX_URL=https://example.convex.cloud\n${extraEnvironment}`,
+    'utf8',
+  )
+}
+
+function readGeneratedContractBinding(rootDir: string) {
+  const source = readFileSync(resolve(rootDir, 'convex/ginkoCms/contractBinding.ts'), 'utf8')
+  return {
+    contentHash: source.match(/EXPECTED_CONTENT_HASH = '([a-f0-9]{64})'/u)?.[1],
+    presentationHash: source.match(/PRESENTATION_HASH = '([a-f0-9]{64})'/u)?.[1],
   }
 }
 
@@ -37,30 +112,9 @@ async function runCli(args: string[], cwd: string) {
   }
 }
 
-async function runCliWithClient(
-  args: string[],
-  cwd: string,
-  action: (ref: unknown, args: Record<string, unknown>) => Promise<unknown>,
-) {
-  const stdout = createOutput()
-  const stderr = createOutput()
-  const code = await runGinkoCmsCli(args, {
-    cwd,
-    io: {
-      stdout: stdout.stream,
-      stderr: stderr.stream,
-    },
-    convexClientFactory: () => ({ action }) as never,
-  })
-  return {
-    code,
-    stdout: stdout.read(),
-    stderr: stderr.read(),
-  }
-}
-
 describe('ginko-cms CLI', () => {
   const tempDirs: string[] = []
+  const staleMcpBridgeFile = ['convex', `ginkoCms${'Mcp.ts'}`].join('/')
 
   afterEach(() => {
     for (const dir of tempDirs.splice(0)) {
@@ -68,17 +122,26 @@ describe('ginko-cms CLI', () => {
     }
   })
 
-  it('declares Ginko CMS as the Trellis integration owner', () => {
-    expect(cmsPackageJson.trellis).toEqual({
-      integration: {
-        ownsRuntime: true,
-        label: 'Ginko CMS',
-        doctorCommand: 'pnpm exec ginko-cms doctor',
-      },
-    })
+  it('uses the native self-hosted admin key for local contract sync', () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    const previousSelfHostedKey = process.env.CONVEX_SELF_HOSTED_ADMIN_KEY
+    process.env.CONVEX_DEPLOY_KEY = '   '
+    process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = 'local-fixture-admin-key'
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-self-hosted-'))
+    tempDirs.push(rootDir)
+    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_DEPLOY_KEY=cloud-fixture-key\n')
+
+    try {
+      expect(deployKey(rootDir)).toBe('local-fixture-admin-key')
+    } finally {
+      if (previousDeployKey === undefined) delete process.env.CONVEX_DEPLOY_KEY
+      else process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      if (previousSelfHostedKey === undefined) delete process.env.CONVEX_SELF_HOSTED_ADMIN_KEY
+      else process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = previousSelfHostedKey
+    }
   })
 
-  it('runs init and checks the Ginko CMS bridge without package arguments', async () => {
+  it('runs init and checks the direct Convex setup without package arguments', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-'))
     tempDirs.push(rootDir)
 
@@ -87,30 +150,181 @@ describe('ginko-cms CLI', () => {
     expect(init.stdout).toContain('Ginko CMS initialized')
     expect(init.stdout).toContain('Next: run `pnpm exec ginko-cms doctor`')
     expect(init.stdout).toContain('configure the required environment')
+    expect(init.stdout).toContain('Set versioned `BETTER_AUTH_SECRETS`')
     expect(init.stdout).toContain('run `pnpm exec ginko-cms deploy`')
+    expect(init.stdout).toContain("pnpm exec better-convex convex run auth:rotateSigningKey '{}'")
     expect(init.stdout).toContain(
-      'Host apps must depend directly on `@convex-dev/better-auth`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
+      'Host apps must depend directly on `@lupinum/better-convex-nuxt`, `better-auth`, and `@lupinum/ginko-cms-convex`.',
     )
-    expect(init.stdout).toContain('host apps must also depend directly on `secure-exec`')
+    expect(init.stdout).toContain('MCP is disabled')
     expect(init.stdout).toContain(
       'pnpm exec convex env set GINKO_FIRST_OWNER_EMAIL you@example.com',
     )
-    expect(init.stdout).toContain(
-      'Set the same `CONVEX_IDENTITY_FORWARDING_KEY` or `GINKO_CMS_COMPONENT_FORWARDING_KEY`',
-    )
-    expect(readFileSync(resolve(rootDir, 'convex/ginkoCms/members.ts'), 'utf8')).toContain(
-      'createMembersBridge',
-    )
     const convexConfig = readFileSync(resolve(rootDir, 'convex/convex.config.ts'), 'utf8')
-    expect(convexConfig).toContain('@convex-dev/better-auth/convex.config')
+    expect(convexConfig).toContain('@lupinum/better-convex-nuxt/better-auth/convex.config')
     expect(convexConfig).toContain('@lupinum/ginko-cms-convex/convex.config')
+    expect(existsSync(resolve(rootDir, 'convex/betterAuth/schema.ts'))).toBe(false)
+    const setupManifest = JSON.parse(
+      readFileSync(resolve(rootDir, 'convex/.ginko-cms-setup.json'), 'utf8'),
+    )
+    expect(setupManifest).toMatchObject({
+      schemaVersion: 1,
+      generatedBy: '@lupinum/ginko-cms',
+      mcp: false,
+      files: {
+        'convex/convex.config.ts': { templateHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
+      },
+    })
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/better-auth')
     expect(convexConfig).not.toContain('@lupinum/ginko-cms/convex/config')
-    expect(readFileSync(resolve(rootDir, 'convex/schema.ts'), 'utf8')).toContain('by_auth_key')
+    expect(readFileSync(resolve(rootDir, 'convex/schema.ts'), 'utf8')).toContain('defineSchema({})')
+    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).toContain('registerRoutes')
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/contract.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/contractTransitions.ts'))).toBe(true)
+    const contractBinding = readFileSync(
+      resolve(rootDir, 'convex/ginkoCms/contractBinding.ts'),
+      'utf8',
+    )
+    expect(contractBinding).toContain("EXPECTED_CONTENT_HASH = 'unbound'")
+    expect(contractBinding).toContain('getExpectedCmsContractBinding')
+    expect(readFileSync(resolve(rootDir, 'convex/ginkoCms/editor.ts'), 'utf8')).toContain(
+      'bindExpectedCmsContract(args)',
+    )
+    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).not.toContain('/mcp')
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/maintenance.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/migrations.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/policy.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOAuthDelegations.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, staleMcpBridgeFile))).toBe(false)
 
-    const check = await runCli(['bridge', 'check'], rootDir)
+    await prepareDoctorFixture(rootDir)
+    const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(0)
-    expect(check.stdout).toContain('Ginko CMS bridge is up to date')
+    expect(check.stdout).toContain('Ginko CMS doctor passed')
+  })
+
+  it('generates exactly one Convex-native MCP route only when explicitly enabled', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-mcp-'))
+    tempDirs.push(rootDir)
+
+    const init = await runCli(['init', '--mcp'], rootDir)
+    expect(init.code).toBe(0)
+    expect(init.stdout).toContain('provider-neutral MCP endpoint at `/mcp`')
+
+    const http = readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')
+    expect(http.match(/path: '[\\/]mcp'/gu)).toHaveLength(3)
+    expect(http.match(/path: '\/\.well-known\/oauth-protected-resource\/mcp'/gu)).toHaveLength(2)
+    expect(http).toContain("method: 'OPTIONS'")
+    expect(http).not.toContain("method: 'HEAD'")
+    expect(http).not.toContain('/mcp-pilot')
+    expect(http).not.toContain('/mcp/code')
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(true)
+    const mcp = readFileSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'), 'utf8')
+    expect(mcp).toContain('handleGinkoMcpRequest(request, {')
+    expect(mcp).toContain("url.protocol === 'http:' && loopback")
+    expect(mcp).toContain("['localhost', '127.0.0.1', '::1', '[::1]']")
+    expect(mcp).toContain('canonical HTTPS origin or an HTTP loopback origin')
+    expect(mcp).toContain('auth.authComponent.validateOAuthAccess(ctx, access)')
+    expect(mcp).toContain('components.ginkoCms.mcpOAuthDelegations.hasLiveDelegatedAccess')
+    expect(mcp).not.toContain('adapter.findOne')
+    expect(mcp).not.toContain('validateLiveProviderAccess')
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOAuthDelegations.ts'))).toBe(true)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpCaller.ts'))).toBe(false)
+
+    const manifest = JSON.parse(
+      readFileSync(resolve(rootDir, 'convex/.ginko-cms-setup.json'), 'utf8'),
+    )
+    expect(manifest.mcp).toBe(true)
+
+    const disable = await runCli(['init'], rootDir)
+    expect(disable.code).toBe(0)
+    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).not.toContain('/mcp')
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcp.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOperations.ts'))).toBe(false)
+    expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOAuthDelegations.ts'))).toBe(true)
+  })
+
+  it('updates an untouched generated setup file when its recorded template changes', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-template-update-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+
+    const relativePath = 'convex/auth.ts'
+    const target = resolve(rootDir, relativePath)
+    const expected = readFileSync(target, 'utf8')
+    const oldTemplate = '// previous generated auth template\n'
+    const manifestPath = resolve(rootDir, 'convex/.ginko-cms-setup.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    manifest.files[relativePath].templateHash = createHash('sha256')
+      .update(oldTemplate)
+      .digest('hex')
+    writeFileSync(target, oldTemplate, 'utf8')
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+
+    const update = await runCli(['init'], rootDir)
+
+    expect(update.code).toBe(0)
+    expect(update.stdout).toContain('1 untouched generated file(s) updated')
+    expect(readFileSync(target, 'utf8')).toBe(expected)
+  })
+
+  it('shows a safe diff and refuses to overwrite a modified generated setup file', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-template-conflict-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+
+    const relativePath = 'convex/auth.ts'
+    const target = resolve(rootDir, relativePath)
+    const oldTemplate = '// previous generated auth template\n'
+    const userModified = "const API_TOKEN = 'super-secret-local-value'\n"
+    const manifestPath = resolve(rootDir, 'convex/.ginko-cms-setup.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    manifest.files[relativePath].templateHash = createHash('sha256')
+      .update(oldTemplate)
+      .digest('hex')
+    writeFileSync(target, userModified, 'utf8')
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+
+    const update = await runCli(['init'], rootDir)
+
+    expect(update.code).toBe(1)
+    expect(readFileSync(target, 'utf8')).toBe(userModified)
+    expect(update.stderr).toContain(`Refused to overwrite modified generated file ${relativePath}`)
+    expect(update.stderr).toContain(`--- host/${relativePath}`)
+    expect(update.stderr).toContain(`+++ package/${relativePath}`)
+    expect(update.stderr).toContain('[user-modified line hidden to avoid leaking local values]')
+    expect(update.stderr).not.toContain('super-secret-local-value')
+  })
+
+  it('refuses to overwrite a manually edited generated contract binding', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-binding-conflict-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+    writeContentConfig(rootDir, 'posts', '/posts')
+    const bindingPath = resolve(rootDir, 'convex/ginkoCms/contractBinding.ts')
+    writeFileSync(bindingPath, `${readFileSync(bindingPath, 'utf8')}\n// host edit\n`, 'utf8')
+
+    await expect(bindContractForTest(rootDir)).rejects.toThrow(
+      'Refused to overwrite modified generated file convex/ginkoCms/contractBinding.ts',
+    )
+  })
+
+  it('does not require Convex-only Better Auth secrets in the Nuxt environment', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-secret-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+    writeContentConfig(rootDir, 'pages', '/')
+    await bindContractForTest(rootDir)
+    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_URL=https://example.convex.cloud\n')
+
+    const check = await runCli(['doctor'], rootDir)
+
+    expect(check.code).toBe(0)
   })
 
   it('rejects the removed setup alias with init guidance', async () => {
@@ -164,18 +378,7 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    collections: { pages: { type: 'flat', routing: { pathPrefix: '/' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    writeContentConfig(rootDir, 'pages', '/')
     const calls: Array<{
       kind: string
       args?: string[] | Record<string, unknown>
@@ -203,7 +406,8 @@ describe('ginko-cms CLI', () => {
               return { created: 1, updated: 0, skipped: 0, missingFromConfig: [] }
             },
             query: async () => {
-              throw new Error('deploy should not use query without --check')
+              calls.push({ kind: 'query' })
+              return readGeneratedContractBinding(rootDir)
             },
             action: async () => {
               throw new Error('deploy should not use public action')
@@ -213,8 +417,8 @@ describe('ginko-cms CLI', () => {
 
       expect(code).toBe(0)
       expect(stderr.read()).toBe('')
-      expect(stdout.read()).toContain('Ginko CMS collection contracts pushed')
-      expect(calls.map((call) => call.kind)).toEqual(['convex', 'auth', 'mutation'])
+      expect(stdout.read()).toContain('Ginko CMS contract installed')
+      expect(calls.map((call) => call.kind)).toEqual(['convex', 'auth', 'query', 'mutation'])
       expect(calls[0]?.args).toEqual([
         'dev',
         '--once',
@@ -224,8 +428,15 @@ describe('ginko-cms CLI', () => {
         'disable',
       ])
       expect(calls[1]).toEqual({ kind: 'auth', token: 'deploy-key-test' })
-      expect(calls[2]?.args).toMatchObject({
-        collections: [expect.objectContaining({ slug: 'pages' })],
+      expect(readGeneratedContractBinding(rootDir)).toEqual({
+        contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        presentationHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      })
+      expect(calls[3]?.args).toMatchObject({
+        content: { collections: { pages: expect.objectContaining({ id: 'pages' }) } },
+        contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        presentation: { collections: {} },
+        presentationHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       })
     } finally {
       if (previousDeployKey === undefined) {
@@ -250,18 +461,7 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    collections: { pages: { type: 'flat', routing: { pathPrefix: '/' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    writeContentConfig(rootDir, 'pages', '/')
     const calls: Array<{ kind: string; args?: Record<string, unknown>; token?: string }> = []
     const stdout = createOutput()
     const stderr = createOutput()
@@ -281,7 +481,15 @@ describe('ginko-cms CLI', () => {
             setAdminAuth: (token: string) => calls.push({ kind: 'auth', token }),
             query: async (_ref, args) => {
               calls.push({ kind: 'query', args: args as Record<string, unknown> })
-              return { drift: [], missingFromConfig: [] }
+              return {
+                matches: true,
+                installedContentHash: (args as { contentHash: string }).contentHash,
+                installedPresentationHash: (args as { presentationHash: string }).presentationHash,
+                expectedContentHash: (args as { contentHash: string }).contentHash,
+                expectedPresentationHash: (args as { presentationHash: string }).presentationHash,
+                drift: [],
+                presentationDrift: [],
+              }
             },
             mutation: async () => {
               throw new Error('deploy --check should not use mutation')
@@ -305,18 +513,81 @@ describe('ginko-cms CLI', () => {
     }
   })
 
-  it('prints Ginko-branded repair guidance when generated files drift', async () => {
+  it('deploys a target binding without direct installation for an incompatible transition', async () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    delete process.env.CONVEX_DEPLOY_KEY
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-deploy-transition-'))
+    tempDirs.push(rootDir)
+    await runCli(['init'], rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+    writeContentConfig(rootDir, 'pages', '/next')
+    const stdout = createOutput()
+    const stderr = createOutput()
+    let deployCalls = 0
+
+    try {
+      const code = await runGinkoCmsCli(['deploy', '--transition'], {
+        cwd: rootDir,
+        io: { stdout: stdout.stream, stderr: stderr.stream },
+        runner: async () => {
+          deployCalls += 1
+          return 0
+        },
+        convexClientFactory: () => {
+          throw new Error('transition binding deploy must not install the contract directly')
+        },
+      })
+
+      expect(code).toBe(0)
+      expect(stderr.read()).toBe('')
+      expect(deployCalls).toBe(1)
+      expect(stdout.read()).toContain('installation is deferred to contract transition activation')
+      expect(readGeneratedContractBinding(rootDir)).toEqual({
+        contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        presentationHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      })
+    } finally {
+      if (previousDeployKey === undefined) {
+        delete process.env.CONVEX_DEPLOY_KEY
+      } else {
+        process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      }
+    }
+  })
+
+  it('prints cleanup guidance when stale generated bridge files remain', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-drift-'))
     tempDirs.push(rootDir)
 
-    await runCli(['bridge', 'install'], rootDir)
-    const target = resolve(rootDir, 'convex/ginkoCms/members.ts')
-    writeFileSync(target, `${readFileSync(target, 'utf8')}\n// local edit\n`, 'utf8')
+    await runCli(['init'], rootDir)
+    await prepareDoctorFixture(rootDir)
+    writeFileSync(resolve(rootDir, staleMcpBridgeFile), '// stale generated output\n', 'utf8')
 
     const check = await runCli(['doctor'], rootDir)
     expect(check.code).toBe(1)
     expect(check.stderr).toContain('Ginko CMS doctor has 1 issue')
-    expect(check.stderr).toContain('Fix: pnpm exec ginko-cms init')
+    expect(check.stderr).toContain(`${staleMcpBridgeFile} is a stale generated bridge file`)
+    expect(check.stderr).toContain(`Delete ${staleMcpBridgeFile}`)
+  })
+
+  it('prints cleanup guidance when stale legacy identity secrets remain', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-legacy-env-'))
+    tempDirs.push(rootDir)
+    const legacySecretName = ['CONVEX', 'IDENTITY', 'FORWARDING', 'KEY'].join('_')
+
+    await runCli(['init'], rootDir)
+    await prepareDoctorFixture(rootDir, `${legacySecretName}=old-secret\n`)
+
+    const check = await runCli(['doctor'], rootDir)
+    expect(check.code).toBe(1)
+    expect(check.stderr).toContain(`${legacySecretName} is a stale legacy identity secret`)
+    expect(check.stderr).toContain(`Remove ${legacySecretName}`)
   })
 
   it('reports stale component facade imports and missing host dependencies separately', async () => {
@@ -324,6 +595,7 @@ describe('ginko-cms CLI', () => {
     tempDirs.push(rootDir)
 
     await runCli(['init'], rootDir)
+    await prepareDoctorFixture(rootDir)
     writeFileSync(
       resolve(rootDir, 'package.json'),
       JSON.stringify({
@@ -336,7 +608,10 @@ describe('ginko-cms CLI', () => {
     )
     const configPath = resolve(rootDir, 'convex/convex.config.ts')
     const staleConfig = readFileSync(configPath, 'utf8')
-      .replace('@convex-dev/better-auth/convex.config', '@lupinum/ginko-cms/convex/better-auth')
+      .replace(
+        '@lupinum/better-convex-nuxt/better-auth/convex.config',
+        '@lupinum/ginko-cms/convex/better-auth',
+      )
       .replace('@lupinum/ginko-cms-convex/convex.config', '@lupinum/ginko-cms/convex/config')
     writeFileSync(configPath, staleConfig, 'utf8')
 
@@ -346,168 +621,19 @@ describe('ginko-cms CLI', () => {
       'Replace @lupinum/ginko-cms/convex/config with @lupinum/ginko-cms-convex/convex.config.',
     )
     expect(doctor.stderr).toContain(
-      'Replace @lupinum/ginko-cms/convex/better-auth with @convex-dev/better-auth/convex.config.',
+      'Replace @lupinum/ginko-cms/convex/better-auth with @lupinum/better-convex-nuxt/better-auth/convex.config.',
     )
     expect(doctor.stderr).toContain(
-      'package.json is missing direct dependency "@convex-dev/better-auth"',
+      'package.json is missing direct dependency "@lupinum/better-convex-nuxt"',
     )
     expect(doctor.stderr).toContain('package.json is missing direct dependency "better-auth"')
+    expect(doctor.stderr).not.toContain('package.json is missing direct dependency "kysely"')
     expect(doctor.stderr).toContain(
       'package.json is missing direct dependency "@lupinum/ginko-cms-convex"',
     )
   })
 
-  it('marks managed edits as blocked when bridge inspect hits host validation errors', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-inspect-validation-'))
-    tempDirs.push(rootDir)
-
-    await runCli(['init'], rootDir)
-    const configPath = resolve(rootDir, 'convex/convex.config.ts')
-    writeFileSync(
-      configPath,
-      readFileSync(configPath, 'utf8').replace(
-        'app.use(ginkoCms)',
-        [
-          '// @trellis-managed-start: @lupinum/ginko-cms convex-component',
-          'app.use(ginkoCms)',
-          '// @trellis-managed-end: @lupinum/ginko-cms convex-component',
-        ].join('\n'),
-      ),
-      'utf8',
-    )
-
-    const inspect = await runCli(['bridge', 'inspect'], rootDir)
-    expect(inspect.code).toBe(1)
-    expect(inspect.stdout).toContain('convex/convex.config.ts - blocked')
-    expect(inspect.stderr).toContain('Ginko CMS bridge validation failed')
-  })
-
-  it('loads local env files for MCP doctor checks', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-mcp-doctor-'))
-    tempDirs.push(rootDir)
-
-    await runCli(['init'], rootDir)
-    writeFileSync(
-      resolve(rootDir, 'package.json'),
-      JSON.stringify({
-        private: true,
-        dependencies: {
-          '@convex-dev/better-auth': '0.12.2',
-          '@lupinum/ginko-cms': 'workspace:*',
-          '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': '1.6.11',
-          convex: '1.38.0',
-          'secure-exec': '^0.2.1',
-        },
-      }),
-      'utf8',
-    )
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      [
-        'CONVEX_DEPLOY_KEY=deploy-key-test',
-        'GINKO_CMS_COMPONENT_FORWARDING_KEY=component-forwarding-key-test',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
-
-    const doctor = await runCli(['mcp-doctor'], rootDir)
-    expect(doctor.code).toBe(0)
-    expect(doctor.stdout).toContain('ok - CONVEX_DEPLOY_KEY')
-    expect(doctor.stdout).toContain(
-      'ok - CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY',
-    )
-    expect(doctor.stdout).toContain('ok - secure-exec host dependency')
-  })
-
-  it('reports missing secure-exec in MCP doctor because code mode resolves it from the host app', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-mcp-secure-exec-'))
-    tempDirs.push(rootDir)
-
-    await runCli(['init'], rootDir)
-    writeFileSync(
-      resolve(rootDir, 'package.json'),
-      JSON.stringify({
-        private: true,
-        dependencies: {
-          '@convex-dev/better-auth': '0.12.2',
-          '@lupinum/ginko-cms': 'workspace:*',
-          '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': '1.6.11',
-          convex: '1.38.0',
-        },
-      }),
-      'utf8',
-    )
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      [
-        'CONVEX_DEPLOY_KEY=deploy-key-test',
-        'GINKO_CMS_COMPONENT_FORWARDING_KEY=component-forwarding-key-test',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
-
-    const doctor = await runCli(['mcp-doctor'], rootDir)
-    expect(doctor.code).toBe(1)
-    expect(doctor.stdout).toContain('missing - secure-exec host dependency')
-    expect(doctor.stderr).toContain('Add "secure-exec": "^0.2.1" to dependencies')
-  })
-
-  it('reports missing component identity forwarding key in MCP doctor', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-mcp-forwarding-doctor-'))
-    tempDirs.push(rootDir)
-
-    await runCli(['init'], rootDir)
-    writeFileSync(
-      resolve(rootDir, 'package.json'),
-      JSON.stringify({
-        private: true,
-        dependencies: {
-          '@convex-dev/better-auth': 'latest',
-          '@lupinum/ginko-cms': 'workspace:*',
-          '@lupinum/ginko-cms-convex': 'workspace:*',
-          'better-auth': 'latest',
-        },
-      }),
-      'utf8',
-    )
-    writeFileSync(
-      resolve(rootDir, '.env.local'),
-      ['CONVEX_DEPLOY_KEY=deploy-key-test', ''].join('\n'),
-      'utf8',
-    )
-
-    const previousIdentityForwardingKey = process.env.CONVEX_IDENTITY_FORWARDING_KEY
-    const previousComponentForwardingKey = process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY
-    delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
-    delete process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY
-    try {
-      const doctor = await runCli(['mcp-doctor'], rootDir)
-      expect(doctor.code).toBe(1)
-      expect(doctor.stdout).toContain(
-        'missing - CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY',
-      )
-      expect(doctor.stderr).toContain(
-        'Set CONVEX_IDENTITY_FORWARDING_KEY or GINKO_CMS_COMPONENT_FORWARDING_KEY',
-      )
-    } finally {
-      if (previousIdentityForwardingKey === undefined) {
-        delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
-      } else {
-        process.env.CONVEX_IDENTITY_FORWARDING_KEY = previousIdentityForwardingKey
-      }
-      if (previousComponentForwardingKey === undefined) {
-        delete process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY
-      } else {
-        process.env.GINKO_CMS_COMPONENT_FORWARDING_KEY = previousComponentForwardingKey
-      }
-    }
-  })
-
-  it('pushes collection contracts with Convex deploy-key admin auth', async () => {
+  it('[DEV-03] pushes canonical content and editorial presentation with Convex deploy-key admin auth', async () => {
     const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
     delete process.env.CONVEX_DEPLOY_KEY
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-'))
@@ -519,20 +645,13 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
+    writeContentConfig(rootDir, 'blog', '/blog')
     writeFileSync(
       resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    defaultLocale: 'en',",
-        "    locales: [{ code: 'en', isDefault: true }],",
-        "    collections: { blog: { type: 'flat', routing: { pathPrefix: '/blog' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
+      `export default { ginkoCms: { editorialLayout: { collections: { blog: { label: 'Stories', fields: {} } } } } }\n`,
       'utf8',
     )
+    const deployedBinding = await bindContractForTest(rootDir)
     const calls: Array<{ kind: string; args?: Record<string, unknown>; token?: string }> = []
 
     const stdout = createOutput()
@@ -552,7 +671,8 @@ describe('ginko-cms CLI', () => {
               return { created: 1, updated: 0, skipped: 0, missingFromConfig: [] }
             },
             query: async () => {
-              throw new Error('push should not use query without --check')
+              calls.push({ kind: 'query' })
+              return deployedBinding
             },
             action: async () => {
               throw new Error('push should not use public action')
@@ -561,14 +681,22 @@ describe('ginko-cms CLI', () => {
       })
 
       expect(code).toBe(0)
-      expect(stdout.read()).toContain('Ginko CMS collection contracts pushed')
+      expect(stdout.read()).toContain('Ginko CMS contract installed')
+      expect(stdout.read()).toContain('Content SHA-256:')
+      expect(stdout.read()).toContain('Presentation SHA-256:')
       expect(calls[0]).toEqual({ kind: 'auth', token: 'deploy-key-test' })
-      expect(calls[1]?.kind).toBe('mutation')
-      expect(calls[1]?.args).toMatchObject({
-        collections: [expect.objectContaining({ slug: 'blog' })],
-        _trellisForwarding: expect.any(String),
+      expect(calls[1]?.kind).toBe('query')
+      expect(calls[2]?.kind).toBe('mutation')
+      expect(calls[2]?.args).toMatchObject({
+        content: { collections: { blog: expect.objectContaining({ id: 'blog' }) } },
+        contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        presentation: {
+          collections: { blog: { label: 'Stories', fields: {} } },
+        },
+        presentationHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       })
-      expect(calls[1]?.args).not.toHaveProperty('caller')
+      expect(calls[2]?.args).not.toHaveProperty(removedLegacyArg)
+      expect(calls[2]?.args).not.toHaveProperty('caller')
       expect(JSON.stringify(calls)).not.toContain('GINKO_CMS_INSTALL_SECRET')
     } finally {
       if (previousDeployKey === undefined) {
@@ -579,7 +707,72 @@ describe('ginko-cms CLI', () => {
     }
   })
 
-  it('prints actionable collection drift when push check fails', async () => {
+  it('refuses to push when the generated Content contract artifact is missing', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-missing-contract-'))
+    tempDirs.push(rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+
+    const result = await runCli(['push'], rootDir)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain('Resolved Content contract artifact is missing or invalid')
+  })
+
+  it('refuses installation when the deployed host binding differs from the local contract', async () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    delete process.env.CONVEX_DEPLOY_KEY
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-deployed-binding-'))
+    tempDirs.push(rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+    writeContentConfig(rootDir, 'posts', '/posts')
+    const localBinding = await bindContractForTest(rootDir)
+    let mutationCalled = false
+    const stdout = createOutput()
+    const stderr = createOutput()
+
+    try {
+      const code = await runGinkoCmsCli(['push'], {
+        cwd: rootDir,
+        io: { stdout: stdout.stream, stderr: stderr.stream },
+        convexClientFactory: () =>
+          ({
+            setAdminAuth: () => {},
+            query: async () => ({
+              contentHash: '0'.repeat(64),
+              presentationHash: localBinding.presentationHash,
+            }),
+            mutation: async () => {
+              mutationCalled = true
+            },
+          }) as never,
+      })
+
+      expect(code).toBe(2)
+      expect(stdout.read()).toBe('')
+      expect(stderr.read()).toContain('deployed Convex host contract binding does not match')
+      expect(mutationCalled).toBe(false)
+    } finally {
+      if (previousDeployKey === undefined) {
+        delete process.env.CONVEX_DEPLOY_KEY
+      } else {
+        process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      }
+    }
+  })
+
+  it('prints exact content and presentation paths when push check fails', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-check-'))
     tempDirs.push(rootDir)
     writeFileSync(
@@ -589,21 +782,7 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    defaultLocale: 'en',",
-        "    locales: [{ code: 'en', isDefault: true }],",
-        "    collections: { posts: { type: 'flat', routing: { pathPrefix: '/posts' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
-
+    writeContentConfig(rootDir, 'posts', '/posts')
     const stdout = createOutput()
     const stderr = createOutput()
     const code = await runGinkoCmsCli(['push', '--check'], {
@@ -616,29 +795,23 @@ describe('ginko-cms CLI', () => {
         ({
           setAdminAuth: () => {},
           query: async () => ({
+            matches: false,
+            installedContentHash: 'a'.repeat(64),
+            installedPresentationHash: 'c'.repeat(64),
+            expectedContentHash: 'b'.repeat(64),
+            expectedPresentationHash: 'd'.repeat(64),
             drift: [
               {
-                slug: 'posts',
-                reason: 'different',
-                entryCount: 1000,
-                entryCountExact: false,
-                migrationRequired: true,
-                safeToPush: false,
-                changes: [
-                  { kind: 'field_removed', field: 'badge', safe: false },
-                  { kind: 'field_added', field: 'category', required: false, safe: true },
-                  { kind: 'schema_changed', safe: false },
-                ],
+                path: '$.collections.posts.fields',
+                installed: [],
+                expected: [{ key: 'title' }],
               },
             ],
-            missingFromConfig: ['legacy'],
-            missingFromConfigDetails: [
+            presentationDrift: [
               {
-                slug: 'legacy',
-                entryCount: 3,
-                entryCountExact: true,
-                migrationRequired: true,
-                safeToPush: false,
+                path: '$.presentation.collections.posts.label',
+                installed: 'Posts',
+                expected: 'Articles',
               },
             ],
           }),
@@ -653,17 +826,50 @@ describe('ginko-cms CLI', () => {
 
     expect(code).toBe(1)
     expect(stdout.read()).toBe('')
-    expect(stderr.read()).toContain('Collection contract drift detected')
-    expect(stderr.read()).toContain('posts:')
-    expect(stderr.read()).toContain('affected entries: 1000+')
-    expect(stderr.read()).toContain('field removed: badge')
-    expect(stderr.read()).toContain('field added: category (optional)')
-    expect(stderr.read()).toContain('collection schema changed')
-    expect(stderr.read()).toContain('legacy: affected entries=3')
-    expect(stderr.read()).toContain('pnpm exec ginko-cms migrate create <change-name>')
+    expect(stderr.read()).toContain('Ginko CMS contract drift detected (2 change(s))')
+    expect(stderr.read()).toContain('$.collections.posts.fields')
+    expect(stderr.read()).toContain('$.presentation.collections.posts.label')
   })
 
-  it('treats legacy drift without migration metadata as migration-required', async () => {
+  it('redacts secrets from top-level CLI errors', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-redaction-'))
+    tempDirs.push(rootDir)
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
+    )
+    writeContentConfig(rootDir, 'posts', '/posts')
+
+    const stdout = createOutput()
+    const stderr = createOutput()
+    const code = await runGinkoCmsCli(['push', '--check'], {
+      cwd: rootDir,
+      io: {
+        stdout: stdout.stream,
+        stderr: stderr.stream,
+      },
+      convexClientFactory: () =>
+        ({
+          setAdminAuth: () => {},
+          query: async () => {
+            throw new Error(
+              'upstream failed for deploy-key-test with Authorization: Bearer mcp_abcdefghijklmnopqrstuvwxyz123456',
+            )
+          },
+        }) as never,
+    })
+
+    expect(code).toBe(2)
+    expect(stdout.read()).toBe('')
+    expect(stderr.read()).toContain('[redacted]')
+    expect(stderr.read()).not.toContain('deploy-key-test')
+    expect(stderr.read()).not.toContain('mcp_abcdefghijklmnopqrstuvwxyz123456')
+  })
+
+  it('[DEV-02] reports a missing installed contract as root drift', async () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-push-check-legacy-'))
     tempDirs.push(rootDir)
     writeFileSync(
@@ -673,18 +879,7 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    writeFileSync(
-      resolve(rootDir, 'nuxt.config.ts'),
-      [
-        'export default {',
-        '  ginkoCms: {',
-        "    collections: { posts: { type: 'flat', routing: { pathPrefix: '/posts' } } },",
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    writeContentConfig(rootDir, 'posts', '/posts')
 
     const stdout = createOutput()
     const stderr = createOutput()
@@ -698,8 +893,13 @@ describe('ginko-cms CLI', () => {
         ({
           setAdminAuth: () => {},
           query: async () => ({
-            drift: [{ slug: 'posts', reason: 'different' }],
-            missingFromConfig: [],
+            matches: false,
+            installedContentHash: null,
+            installedPresentationHash: null,
+            expectedContentHash: 'b'.repeat(64),
+            expectedPresentationHash: 'd'.repeat(64),
+            drift: [{ path: '$', expected: { format: 'ginko-content-contract' } }],
+            presentationDrift: [],
           }),
           mutation: async () => {
             throw new Error('push --check should not use mutation')
@@ -712,37 +912,57 @@ describe('ginko-cms CLI', () => {
 
     expect(code).toBe(1)
     expect(stdout.read()).toBe('')
-    expect(stderr.read()).toContain('migration required: unknown')
-    expect(stderr.read()).toContain('Regenerate/deploy the CMS bridge')
-    expect(stderr.read()).toContain('Treat this drift as migration-required')
-    expect(stderr.read()).toContain('pnpm exec ginko-cms migrate create <change-name>')
-    expect(stderr.read()).not.toContain('Recommended next step:\n  pnpm exec ginko-cms push')
+    expect(stderr.read()).toContain('Ginko CMS contract drift detected (1 change(s))')
+    expect(stderr.read()).toContain('  - $')
   })
 
-  it('scaffolds project content migration files', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-migrate-create-'))
+  it('scaffolds bounded contract transition files', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-transition-create-'))
     tempDirs.push(rootDir)
 
-    const result = await runCli(['migrate', 'create', 'Rename', 'post', 'badge'], rootDir)
+    const result = await runCli(
+      ['contract', 'transition', 'create', 'Rename', 'post', 'badge'],
+      rootDir,
+    )
 
     expect(result.code).toBe(0)
-    expect(result.stdout).toContain('Created content migration scaffold')
-    const migrationDir = resolve(rootDir, 'ginko/migrations')
-    const fileName = readdirSync(migrationDir).find((file) =>
+    expect(result.stdout).toContain('Created contract transition scaffold')
+    const transitionDir = resolve(rootDir, 'ginko/transitions')
+    const fileName = readdirSync(transitionDir).find((file) =>
       file.endsWith('-rename-post-badge.ts'),
     )
     expect(fileName).toBeTruthy()
-    const migrationFile = readFileSync(join(migrationDir, fileName ?? ''), 'utf8')
-    expect(migrationFile).toContain('collections: []')
-    expect(migrationFile).toContain('draftVersion: number')
-    expect(migrationFile).toContain('async up(entry: ContentMigrationEntry)')
+    const transitionFile = readFileSync(join(transitionDir, fileName ?? ''), 'utf8')
+    expect(transitionFile).toContain('draftVersion: number')
+    expect(transitionFile).toContain('sharedVersion: number')
+    expect(transitionFile).toContain('async up(entry: TransitionInput)')
+    expect(transitionFile).not.toContain('collections: []')
   })
 
-  it('plans explicit content migrations without writing data', async () => {
+  it('requires explicit confirmation before locking Studio writes for staging', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-transition-stage-gate-'))
+    tempDirs.push(rootDir)
+    const result = await runCli(
+      ['contract', 'transition', 'stage', 'ginko/transitions/2026-test.ts'],
+      rootDir,
+    )
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain('requires --yes because it locks Studio writes')
+  })
+
+  it('stages every affected draft page with version and hash fencing', async () => {
     const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
     delete process.env.CONVEX_DEPLOY_KEY
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-migrate-plan-'))
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-transition-stage-'))
     tempDirs.push(rootDir)
+    writeContentConfig(rootDir, 'posts', '/posts')
+    writeFileSync(
+      resolve(rootDir, 'nuxt.config.ts'),
+      `export default defineNuxtConfig({ ginkoCms: { editorialLayout: { collections: { posts: { label: 'Editorial posts' } } } } })\n`,
+      'utf8',
+    )
+    const deployedBinding = await bindContractForTest(rootDir)
     writeFileSync(
       resolve(rootDir, '.env.local'),
       ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
@@ -750,17 +970,25 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    const migrationDir = resolve(rootDir, 'ginko/migrations')
-    mkdirSync(migrationDir, { recursive: true })
+    const transitionDir = resolve(rootDir, 'ginko/transitions')
+    mkdirSync(transitionDir, { recursive: true })
     writeFileSync(
-      resolve(migrationDir, '2026-test.ts'),
+      resolve(transitionDir, '2026-test.ts'),
       [
         'export default {',
         "  id: '2026-test',",
-        "  collections: ['posts'],",
         '  async up(entry) {',
-        "    entry.locales.en.values.title = 'Hello migrated'",
-        '    return entry',
+        "    entry.shared.badge = 'new'",
+        '    return {',
+        '      slug: entry.slug,',
+        '      parentEntryId: entry.parentEntryId,',
+        '      orderRank: entry.orderRank,',
+        '      nodeKind: entry.nodeKind,',
+        '      shared: entry.shared,',
+        '      locales: Object.fromEntries(Object.entries(entry.locales).map(([locale, value]) => [locale, {',
+        '        slug: value.slug, values: value.values, bodyMdc: value.bodyMdc,',
+        '      }])),',
+        '    }',
         '  },',
         '}',
         '',
@@ -768,57 +996,152 @@ describe('ginko-cms CLI', () => {
       'utf8',
     )
     const calls: Array<{ kind: string; args?: Record<string, unknown>; token?: string }> = []
+    let queryCount = 0
+    let mutationCount = 0
 
     const stdout = createOutput()
     const stderr = createOutput()
     try {
-      const code = await runGinkoCmsCli(['migrate', 'plan', 'ginko/migrations/2026-test.ts'], {
-        cwd: rootDir,
-        io: {
-          stdout: stdout.stream,
-          stderr: stderr.stream,
+      const code = await runGinkoCmsCli(
+        ['contract', 'transition', 'stage', 'ginko/transitions/2026-test.ts', '--yes'],
+        {
+          cwd: rootDir,
+          io: {
+            stdout: stdout.stream,
+            stderr: stderr.stream,
+          },
+          convexClientFactory: () =>
+            ({
+              setAdminAuth: (token: string) => calls.push({ kind: 'auth', token }),
+              query: async (_ref, args) => {
+                calls.push({ kind: 'query', args: args as Record<string, unknown> })
+                queryCount += 1
+                if (queryCount === 1) return deployedBinding
+                if (queryCount === 3) {
+                  return {
+                    page: [
+                      {
+                        entryId: 'entry-1',
+                        inputDraftVersion: 4,
+                        inputHash: 'a'.repeat(64),
+                        current: {
+                          entryId: 'entry-1',
+                          collection: 'posts',
+                          stableId: 'abc12',
+                          lifecycle: 'active',
+                          draftVersion: 4,
+                          sharedVersion: 2,
+                          slug: 'hello',
+                          parentEntryId: null,
+                          orderRank: 'a0',
+                          nodeKind: 'page',
+                          shared: {},
+                          locales: {
+                            en: {
+                              slug: null,
+                              values: { title: 'Hello world' },
+                              bodyMdc: '',
+                              version: 3,
+                            },
+                          },
+                        },
+                      },
+                    ],
+                    isDone: true,
+                    continueCursor: 'done-cursor',
+                  }
+                }
+                return {
+                  runKey: 'run-key',
+                  state: queryCount === 2 ? 'staging' : queryCount === 4 ? 'validating' : 'ready',
+                  fromContentHash: 'b'.repeat(64),
+                  toContentHash: 'c'.repeat(64),
+                  fromPresentationHash: 'd'.repeat(64),
+                  toPresentationHash: 'e'.repeat(64),
+                  generation: queryCount === 2 ? 1 : queryCount === 4 ? 2 : 3,
+                  scannedCount: queryCount === 2 ? 0 : 1,
+                  stagedCount: queryCount === 2 ? 0 : 1,
+                  validatedCount: queryCount === 5 ? 1 : 0,
+                  appliedCount: 0,
+                  pendingCount: queryCount === 2 ? 0 : 1,
+                  lockActive: true,
+                  cursor: null,
+                }
+              },
+              mutation: async (_ref, args) => {
+                calls.push({ kind: 'mutation', args: args as Record<string, unknown> })
+                mutationCount += 1
+                if (mutationCount === 1) return { runId: 'run-1', state: 'staging' }
+                if (mutationCount === 2) {
+                  return {
+                    state: 'validating',
+                    generation: 2,
+                    staged: 1,
+                    stagedCount: 1,
+                    continueCursor: null,
+                  }
+                }
+                return { state: 'ready', generation: 3, validated: 1, validatedCount: 1 }
+              },
+              action: async () => {
+                throw new Error('contract transition should not use public action')
+              },
+            }) as never,
         },
-        convexClientFactory: () =>
-          ({
-            setAdminAuth: (token: string) => calls.push({ kind: 'auth', token }),
-            query: async (_ref, args) => {
-              calls.push({ kind: 'query', args: args as Record<string, unknown> })
-              return {
-                page: [
-                  {
-                    collection: 'posts',
-                    entryId: 'entry-1',
-                    stableId: null,
-                    draftVersion: 1,
-                    shared: {},
-                    locales: { en: { values: { title: 'Hello world' }, bodyMdc: '' } },
-                  },
-                ],
-                isDone: true,
-                continueCursor: null,
-              }
-            },
-            mutation: async () => {
-              throw new Error('migrate plan should not use mutation')
-            },
-            action: async () => {
-              throw new Error('migrate plan should not use public action')
-            },
-          }) as never,
-      })
+      )
 
       expect(code).toBe(0)
       expect(stderr.read()).toBe('')
-      expect(stdout.read()).toContain('Content migration plan: 2026-test')
-      expect(stdout.read()).toContain('changed: 1')
-      expect(stdout.read()).toContain('locales.en.values.title')
+      expect(stdout.read()).toContain('Staged contract transition 2026-test')
+      expect(stdout.read()).toContain('runId=run-1')
+      expect(stdout.read()).toContain('changed=1')
       expect(calls[0]).toEqual({ kind: 'auth', token: 'deploy-key-test' })
-      expect(calls.map((call) => call.kind)).toEqual(['auth', 'query'])
-      expect(calls[1]?.args).toMatchObject({
-        collection: 'posts',
+      expect(calls.map((call) => call.kind)).toEqual([
+        'auth',
+        'query',
+        'mutation',
+        'query',
+        'query',
+        'mutation',
+        'query',
+        'mutation',
+        'query',
+      ])
+      expect(calls[2]?.args).toMatchObject({
+        runKey: expect.stringMatching(/^[a-f0-9]{64}$/),
+        targetContentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        targetPresentation: {
+          collections: { posts: { label: 'Editorial posts' } },
+        },
+        targetPresentationHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        actor: 'owner-cli',
+      })
+      expect(calls[4]?.args).toEqual({
+        runId: 'run-1',
+        generation: 1,
         cursor: null,
-        limit: 100,
-        _trellisForwarding: expect.any(String),
+        limit: 50,
+      })
+      expect(calls[5]?.args).toMatchObject({
+        runId: 'run-1',
+        generation: 1,
+        cursor: null,
+        limit: 50,
+        items: [
+          expect.objectContaining({
+            entryId: 'entry-1',
+            inputDraftVersion: 4,
+            inputHash: 'a'.repeat(64),
+            outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+            output: expect.objectContaining({ shared: { badge: 'new' } }),
+          }),
+        ],
+      })
+      expect(calls[7]?.args).toEqual({
+        runId: 'run-1',
+        generation: 2,
+        cursor: null,
+        limit: 50,
       })
     } finally {
       if (previousDeployKey === undefined) {
@@ -829,18 +1152,18 @@ describe('ginko-cms CLI', () => {
     }
   })
 
-  it('requires --yes before applying explicit content migrations', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-migrate-apply-gate-'))
+  it('requires --yes before applying a staged contract transition', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-transition-apply-gate-'))
     tempDirs.push(rootDir)
 
-    const result = await runCli(['migrate', 'apply', 'ginko/migrations/2026-test.ts'], rootDir)
+    const result = await runCli(['contract', 'transition', 'apply', 'run-1'], rootDir)
 
     expect(result.code).toBe(2)
-    expect(result.stderr).toContain('ginko-cms migrate apply requires --yes')
+    expect(result.stderr).toContain('ginko-cms contract transition apply requires --yes')
   })
 
-  it('applies only changed explicit content migration entries', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-migrate-apply-'))
+  it('resumes contract application pagewise until it is ready to activate', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-transition-apply-'))
     tempDirs.push(rootDir)
     writeFileSync(
       resolve(rootDir, '.env.local'),
@@ -849,149 +1172,159 @@ describe('ginko-cms CLI', () => {
       ),
       'utf8',
     )
-    const migrationDir = resolve(rootDir, 'ginko/migrations')
-    mkdirSync(migrationDir, { recursive: true })
-    writeFileSync(
-      resolve(migrationDir, '2026-test.ts'),
-      [
-        'export default {',
-        "  id: '2026-test',",
-        "  collections: ['posts'],",
-        '  async up(entry) {',
-        "    entry.shared.badge = 'new'",
-        '    return entry',
-        '  },',
-        '}',
-        '',
-      ].join('\n'),
-      'utf8',
-    )
     const calls: Array<{ kind: string; args?: Record<string, unknown>; token?: string }> = []
+    let page = 0
 
     const stdout = createOutput()
     const stderr = createOutput()
-    const code = await runGinkoCmsCli(
-      ['migrate', 'apply', 'ginko/migrations/2026-test.ts', '--yes'],
-      {
-        cwd: rootDir,
-        io: {
-          stdout: stdout.stream,
-          stderr: stderr.stream,
-        },
-        convexClientFactory: () =>
-          ({
-            setAdminAuth: (token: string) => calls.push({ kind: 'auth', token }),
-            query: async (_ref, args) => {
-              calls.push({ kind: 'query', args: args as Record<string, unknown> })
-              return {
-                page: [
-                  {
-                    collection: 'posts',
-                    entryId: 'entry-1',
-                    stableId: null,
-                    draftVersion: 1,
-                    shared: {},
-                    locales: { en: { values: { title: 'Hello world' }, bodyMdc: '' } },
-                  },
-                ],
-                isDone: true,
-                continueCursor: null,
-              }
-            },
-            mutation: async (_ref, args) => {
-              calls.push({ kind: 'mutation', args: args as Record<string, unknown> })
-              return { changed: 1, unchanged: 0 }
-            },
-            action: async () => {
-              throw new Error('migrate apply should not use public action')
-            },
-          }) as never,
+    const code = await runGinkoCmsCli(['contract', 'transition', 'apply', 'run-1', '--yes'], {
+      cwd: rootDir,
+      io: {
+        stdout: stdout.stream,
+        stderr: stderr.stream,
       },
-    )
+      convexClientFactory: () =>
+        ({
+          setAdminAuth: (token: string) => calls.push({ kind: 'auth', token }),
+          query: async () => {
+            calls.push({ kind: 'query' })
+            return {
+              runKey: 'run-key',
+              state: 'ready',
+              fromContentHash: 'a'.repeat(64),
+              toContentHash: 'b'.repeat(64),
+              fromPresentationHash: 'c'.repeat(64),
+              toPresentationHash: 'd'.repeat(64),
+              generation: 3,
+              scannedCount: 28,
+              stagedCount: 28,
+              validatedCount: 28,
+              appliedCount: 0,
+              pendingCount: 28,
+              lockActive: true,
+              cursor: null,
+            }
+          },
+          mutation: async (_ref, args) => {
+            calls.push({ kind: 'mutation', args: args as Record<string, unknown> })
+            page += 1
+            return page === 1
+              ? {
+                  generation: 4,
+                  cursor: 'item-25',
+                  applied: 25,
+                  appliedCount: 25,
+                  readyToActivate: false,
+                }
+              : {
+                  generation: 4,
+                  cursor: 'item-28',
+                  applied: 3,
+                  appliedCount: 28,
+                  readyToActivate: true,
+                }
+          },
+          action: async () => {
+            throw new Error('contract transition apply should not use public action')
+          },
+        }) as never,
+    })
 
     expect(code).toBe(0)
     expect(stderr.read()).toBe('')
-    expect(stdout.read()).toContain('Applied content migration 2026-test: changed=1')
-    expect(calls.map((call) => call.kind)).toEqual(['auth', 'query', 'mutation'])
-    expect(calls[2]?.args).toMatchObject({
-      migrationId: '2026-test',
-      entries: [
-        expect.objectContaining({
-          collection: 'posts',
-          entryId: 'entry-1',
-          shared: { badge: 'new' },
-        }),
-      ],
-      _trellisForwarding: expect.any(String),
+    expect(stdout.read()).toContain('Applied contract transition run-1: applied=28')
+    expect(calls.map((call) => call.kind)).toEqual(['auth', 'query', 'mutation', 'mutation'])
+    expect(calls[2]?.args).toEqual({
+      runId: 'run-1',
+      generation: 3,
+      cursor: null,
+      limit: 25,
+      actor: 'owner-cli',
+    })
+    expect(calls[3]?.args).toEqual({
+      runId: 'run-1',
+      generation: 4,
+      cursor: 'item-25',
+      limit: 25,
+      actor: 'owner-cli',
     })
   })
 
-  it('exports a backup archive file through the installed backup bridge', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-export-'))
+  it('refuses transition activation when the deployed host binding is stale', async () => {
+    const previousDeployKey = process.env.CONVEX_DEPLOY_KEY
+    delete process.env.CONVEX_DEPLOY_KEY
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-transition-activate-binding-'))
     tempDirs.push(rootDir)
-    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_URL=https://example.convex.cloud\n')
-
-    const calls: Array<Record<string, unknown>> = []
-    const result = await runCliWithClient(
-      ['backup', 'export', '--scope', 'full', '--out', 'backup.json'],
-      rootDir,
-      async (_ref, args) => {
-        calls.push(args)
-        if ('scope' in args) {
-          return {
-            artifactId: 'backup_123',
-            checksum: 'abc',
-            counts: { entries: 1 },
-          }
-        }
-        return {
-          artifactId: 'backup_123',
-          checksum: 'abc',
-          archiveJson: '{"version":1}',
-        }
-      },
+    writeFileSync(
+      resolve(rootDir, '.env.local'),
+      ['CONVEX_URL=https://example.convex.cloud', 'CONVEX_DEPLOY_KEY=deploy-key-test', ''].join(
+        '\n',
+      ),
+      'utf8',
     )
+    let queryCount = 0
+    let mutationCalled = false
+    const stdout = createOutput()
+    const stderr = createOutput()
 
-    expect(result.code).toBe(0)
-    expect(result.stdout).toContain('artifactId=backup_123')
-    expect(readFileSync(resolve(rootDir, 'backup.json'), 'utf8')).toBe('{"version":1}')
-    expect(calls).toEqual([{ scope: 'full' }, { artifactId: 'backup_123' }])
+    try {
+      const code = await runGinkoCmsCli(['contract', 'transition', 'activate', 'run-1', '--yes'], {
+        cwd: rootDir,
+        io: { stdout: stdout.stream, stderr: stderr.stream },
+        convexClientFactory: () =>
+          ({
+            setAdminAuth: () => {},
+            query: async () => {
+              queryCount += 1
+              return queryCount === 1
+                ? {
+                    runKey: 'run-key',
+                    state: 'applying',
+                    fromContentHash: 'a'.repeat(64),
+                    toContentHash: 'b'.repeat(64),
+                    fromPresentationHash: 'c'.repeat(64),
+                    toPresentationHash: 'd'.repeat(64),
+                    generation: 4,
+                    scannedCount: 1,
+                    stagedCount: 1,
+                    validatedCount: 1,
+                    appliedCount: 1,
+                    pendingCount: 0,
+                    lockActive: true,
+                    cursor: 'item-1',
+                  }
+                : {
+                    contentHash: '0'.repeat(64),
+                    presentationHash: 'd'.repeat(64),
+                  }
+            },
+            mutation: async () => {
+              mutationCalled = true
+            },
+          }) as never,
+      })
+
+      expect(code).toBe(2)
+      expect(stdout.read()).toBe('')
+      expect(stderr.read()).toContain('deployed Convex host binding does not match')
+      expect(mutationCalled).toBe(false)
+    } finally {
+      if (previousDeployKey === undefined) {
+        delete process.env.CONVEX_DEPLOY_KEY
+      } else {
+        process.env.CONVEX_DEPLOY_KEY = previousDeployKey
+      }
+    }
   })
 
-  it('returns a failing status when backup verification detects drift', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-verify-'))
+  it('does not expose owner-authenticated backup actions through the deploy-key CLI', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-removed-'))
     tempDirs.push(rootDir)
-    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_URL=https://example.convex.cloud\n')
 
-    const result = await runCliWithClient(
-      ['backup', 'verify', '--artifact-id', 'backup_123'],
-      rootDir,
-      async () => ({
-        ok: false,
-        checksumMatches: true,
-        currentDataMatches: false,
-      }),
-    )
-
-    expect(result.code).toBe(1)
-    expect(result.stderr).toContain('currentDataMatches=false')
-  })
-
-  it('does not expose backup import in the MVP CLI', async () => {
-    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-cli-backup-import-'))
-    tempDirs.push(rootDir)
-    writeFileSync(resolve(rootDir, '.env.local'), 'CONVEX_URL=https://example.convex.cloud\n')
-    writeFileSync(resolve(rootDir, 'backup.json'), '{"version":1}', 'utf8')
-
-    const result = await runCliWithClient(
-      ['backup', 'import', '--file', 'backup.json', '--empty-only'],
-      rootDir,
-      async () => {
-        throw new Error('import should not run')
-      },
-    )
+    const result = await runCli(['backup', 'export', '--scope', 'snapshot'], rootDir)
 
     expect(result.code).toBe(2)
-    expect(result.stderr).toContain('Unknown backup command "import"')
+    expect(result.stderr).toContain('Unknown command "backup"')
+    expect(result.stderr).not.toContain('backup export')
   })
 })

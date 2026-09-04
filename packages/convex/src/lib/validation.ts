@@ -3,7 +3,7 @@ import { normalizeFields } from '@lupinum/ginko-cms-contract/shared/fields/norma
 import type { FieldType } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import { throwCmsError } from '../errors.js'
-import type { CmsField, CompletionState, ValidationError } from './types.js'
+import type { CmsCollection, CmsField, CompletionState, ValidationError } from './types.js'
 import { emptyForType, isPlainObject } from './utils.js'
 
 export { evaluateFieldCondition }
@@ -292,6 +292,42 @@ export function getFieldCompletionState(
   }
 }
 
+export type PublishRequiredFieldIssue = {
+  field: string
+  scope: 'localized' | 'shared'
+  message: string
+}
+
+export function collectPublishRequiredFieldIssues(args: {
+  collection: Pick<CmsCollection, 'fields'>
+  localizedValues?: Record<string, unknown> | null
+  sharedValues?: Record<string, unknown> | null
+  data?: Record<string, unknown> | null
+}): PublishRequiredFieldIssue[] {
+  const localizedFields: CmsField[] = []
+  const sharedFields: CmsField[] = []
+  for (const field of args.collection.fields) {
+    if (field.localized) localizedFields.push(field)
+    else sharedFields.push(field)
+  }
+  const data = args.data ?? {}
+  const localizedValues = args.localizedValues ?? {}
+  const sharedValues = args.sharedValues ?? {}
+  const localized = getFieldCompletionState(localizedFields, localizedValues, data).errors.map(
+    (error) => ({
+      field: error.field,
+      message: error.message,
+      scope: 'localized' as const,
+    }),
+  )
+  const shared = getFieldCompletionState(sharedFields, sharedValues, data).errors.map((error) => ({
+    field: error.field,
+    message: error.message,
+    scope: 'shared' as const,
+  }))
+  return [...localized, ...shared]
+}
+
 export function assertFieldDataValid(
   fields: CmsField[],
   data: Record<string, unknown>,
@@ -470,10 +506,7 @@ function assertMediaConfigValid(field: CmsField, path: string): void {
     }
   }
 
-  if (
-    media.aspectRatio != null &&
-    (field.type === 'file' || !ASPECT_RATIO_PATTERN.test(media.aspectRatio))
-  ) {
+  if (media.aspectRatio != null && !ASPECT_RATIO_PATTERN.test(media.aspectRatio)) {
     assertFieldDefinitionInvalid(
       'FIELD_DEFINITION_INVALID_MEDIA',
       path,
@@ -530,12 +563,12 @@ export function assertFieldDefinitionsValid(fields: CmsField[], pathPrefix = '',
     }
 
     if (field.type === 'relation' || field.type === 'relations') {
-      const collectionId = field.relation?.collectionId
-      if (typeof collectionId !== 'string' || !CMS_SLUG_PATTERN.test(collectionId)) {
+      const relationCollection = field.relation?.collection
+      if (typeof relationCollection !== 'string' || !CMS_SLUG_PATTERN.test(relationCollection)) {
         assertFieldDefinitionInvalid(
           'FIELD_DEFINITION_INVALID_RELATION',
           path,
-          'must define a valid relation.collectionId',
+          'must define a valid relation.collection slug',
           { type: field.type },
         )
       }

@@ -2,10 +2,8 @@
 import type { DialogRootEmits, DialogRootProps } from 'reka-ui'
 import { useForwardPropsEmits } from 'reka-ui'
 
-import Dialog from '../dialog/Dialog.vue'
-import DialogContent from '../dialog/DialogContent.vue'
-import DialogDescription from '../dialog/DialogDescription.vue'
-import DialogTitle from '../dialog/DialogTitle.vue'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../dialog'
+import Command from './Command.vue'
 
 const props = withDefaults(
   defineProps<
@@ -28,13 +26,13 @@ const forwarded = useForwardPropsEmits(props, emits)
 <template>
   <Dialog v-bind="forwarded">
     <DialogContent class="ginko:overflow-hidden ginko:p-0" :class="props.class" :show-close="false">
-      <DialogTitle class="ginko:sr-only">{{ title }}</DialogTitle>
-      <DialogDescription class="ginko:sr-only">{{ description }}</DialogDescription>
-      <div
-        class="ginko:[&_[data-slot=command-input-wrapper]_svg]:size-4 ginko:[&_[data-slot=command-input]]:h-12 ginko:[&_[data-slot=command-input-wrapper]]:h-12 ginko:[&_[data-slot=command-group]_[data-slot=command-item]]:px-2 ginko:[&_[data-slot=command-item]]:py-3"
-      >
+      <DialogHeader class="ginko:sr-only">
+        <DialogTitle>{{ title }}</DialogTitle>
+        <DialogDescription>{{ description }}</DialogDescription>
+      </DialogHeader>
+      <Command>
         <slot />
-      </div>
+      </Command>
     </DialogContent>
   </Dialog>
 </template>

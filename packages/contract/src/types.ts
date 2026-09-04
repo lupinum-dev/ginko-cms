@@ -29,9 +29,9 @@ export type NodeKind = 'page' | 'folder' | 'group' | 'section'
 
 export type AssetScope = 'global' | 'collection' | 'entry'
 
-export type AssetDeleteMode = 'delete' | 'moveToCollection'
-
 export type SortDirection = 'asc' | 'desc'
+
+export type ActivityOutcome = 'applied' | 'failed' | 'blocked' | 'stale'
 
 export type FieldType =
   | 'text'
@@ -66,7 +66,7 @@ export type FieldType =
   | 'section'
 
 export type RelationDefinition = {
-  collectionId: string
+  collection: string
   multiple?: boolean
 }
 
