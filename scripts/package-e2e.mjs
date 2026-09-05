@@ -667,15 +667,15 @@ try {
   const betterConvexNuxtTarball =
     registryBetterConvexNuxt || candidateBetterConvexNuxt
       ? undefined
-      : findTarball('better-convex-nuxt')
+      : findTarball('@lupinum/better-convex-nuxt')
   const betterConvexVueTarball =
     registryBetterConvexVue || candidateBetterConvexVue
       ? undefined
-      : findTarball('better-convex-vue')
+      : findTarball('@lupinum/better-convex-vue')
   const betterConvexMcpTarball =
     registryBetterConvexMcp || candidateBetterConvexMcp
       ? undefined
-      : findTarball('better-convex-mcp')
+      : findTarball('@lupinum/better-convex-mcp')
 
   if (candidateMode) {
     const evidencePath = resolve(packDir, 'candidate-artifact.json')

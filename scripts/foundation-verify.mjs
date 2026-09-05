@@ -140,7 +140,7 @@ function prepareConsumerPackageDependencies() {
     '@lupinum/ginko-cms-contract': findPackedTarball('@lupinum/ginko-cms-contract'),
     '@lupinum/ginko-cms-convex': findPackedTarball('@lupinum/ginko-cms-convex'),
     '@lupinum/ginko-content': findPackedTarball('@lupinum/ginko-content'),
-    '@lupinum/better-convex-nuxt': findPackedTarball('better-convex-nuxt'),
+    '@lupinum/better-convex-nuxt': findPackedTarball('@lupinum/better-convex-nuxt'),
   }
 
   let packageChanged = false
