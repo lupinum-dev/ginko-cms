@@ -16,16 +16,19 @@ import {
   expireExportRun as expireExportRunArgs,
   expireImport as expireImportArgs,
   finalizeImport as finalizeImportArgs,
+  getPortabilityRunStatus as getPortabilityRunStatusArgs,
   inspectPortableAssets as inspectPortableAssetsArgs,
   inspectPortableDrafts as inspectPortableDraftsArgs,
   inspectImportPublicationEntries as inspectImportPublicationEntriesArgs,
   listImportPublicationIdentities as listImportPublicationIdentitiesArgs,
+  listPortabilityItemReceipts as listPortabilityItemReceiptsArgs,
   issuePortableAssetUploadUrl as issuePortableAssetUploadUrlArgs,
   recordPortableAssetUpload as recordPortableAssetUploadArgs,
   readExportAssets as readExportAssetsArgs,
   readExportDocuments as readExportDocumentsArgs,
   sealExportRun as sealExportRunArgs,
   sealImportPlan as sealImportPlanArgs,
+  resumePortabilityRun as resumePortabilityRunArgs,
   verifyPortableAssetUpload as verifyPortableAssetUploadArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
 import { cmsCallerFromActionAuthIdentity } from '@lupinum/ginko-cms-contract/shared/caller.js'
@@ -56,6 +59,18 @@ export const inspectImportPublicationEntries = query({
   args: inspectImportPublicationEntriesArgs.args,
   handler: async (ctx, args) =>
     await ctx.runQuery(components.ginkoCms.portability.inspectImportPublicationEntries, args),
+})
+
+export const getPortabilityRunStatus = query({
+  args: getPortabilityRunStatusArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.portability.getPortabilityRunStatus, args),
+})
+
+export const listPortabilityItemReceipts = query({
+  args: listPortabilityItemReceiptsArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.portability.listPortabilityItemReceipts, args),
 })
 
 export const createImportPlan = mutation({
@@ -152,6 +167,19 @@ export const applyImportBatch = action({
   handler: async (ctx, args) =>
     await ctx.runAction(
       components.ginkoCms.portability.applyImportBatch,
+      bindExpectedCmsContract({
+        ...args,
+        _trustedCaller:
+          cmsCallerFromActionAuthIdentity(await ctx.auth.getUserIdentity()) ?? undefined,
+      }),
+    ),
+})
+
+export const resumePortabilityRun = action({
+  args: resumePortabilityRunArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runAction(
+      components.ginkoCms.portability.resumePortabilityRun,
       bindExpectedCmsContract({
         ...args,
         _trustedCaller:

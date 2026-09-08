@@ -455,6 +455,31 @@ describe('package boundary contracts', () => {
     }
   })
 
+  it('provides a generated host adapter for every CLI component reference', () => {
+    const missing: string[] = []
+    const references = collectSourceFiles('packages/cms/src/cli').flatMap((file) => {
+      const source = readFileSync(file, 'utf8')
+      return [...source.matchAll(/api\.ginkoCms\.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)/g)].map(
+        (match) => ({ module: match[1]!, name: match[2]! }),
+      )
+    })
+
+    for (const reference of references) {
+      const adapter = resolve(
+        projectRoot,
+        `packages/cms/templates/convex/ginkoCms/${reference.module}.ts`,
+      )
+      if (
+        !existsSync(adapter) ||
+        !new RegExp(`export\\s+const\\s+${reference.name}\\b`).test(readFileSync(adapter, 'utf8'))
+      ) {
+        missing.push(`${reference.module}.${reference.name}`)
+      }
+    }
+
+    expect([...new Set(missing)].sort()).toEqual([])
+  })
+
   it('ships a bounded Convex component entrypoint surface', () => {
     const componentJsFiles = collectFiles('packages/convex/dist/component').filter((file) =>
       file.endsWith('.js'),
