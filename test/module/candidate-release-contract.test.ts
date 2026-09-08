@@ -15,14 +15,23 @@ describe('coordinated CMS candidate release contract', () => {
         {
           sourceCommit?: string
           registry?: string
+          preview?: string
           sha256: string
           integrity?: string
           runtimeFingerprint?: string
+          releaseCertification?: string
         }
       >
     }>('packages/cms/compatibility.json')
 
     expect(workspace.scripts['candidate:pack']).toBe('node scripts/candidate-pack.mjs')
+    expect(workspace.scripts['prepare:convex']).toBe(
+      'better-convex convex dev --once --typecheck disable --tail-logs disable',
+    )
+    expect(workspace.scripts.dev).toBe('node scripts/dev-playground.mjs')
+    const developmentRunner = readFileSync('scripts/dev-playground.mjs', 'utf8')
+    expect(developmentRunner).toContain("'better-convex'")
+    expect(developmentRunner).toContain("['convex', 'dev'")
     expect(workspace.scripts['install:rehearsal']).toBeUndefined()
     expect(workspace.scripts['install:rehearsal:source']).toBeUndefined()
     expect(workspace.scripts['candidate:live:materialize']).toBe(
@@ -35,13 +44,13 @@ describe('coordinated CMS candidate release contract', () => {
     )
     expect(workspace.scripts['release:verify:candidate']).toContain('pnpm run package:e2e:npm')
     expect(compatibility.releaseStack).toMatchObject({
-      '@lupinum/ginko-cms': '0.2.0-rc.2',
-      '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
-      '@lupinum/ginko-cms-contract': '0.2.0-rc.2',
-      '@lupinum/ginko-content': '1.0.0-beta.4',
+      '@lupinum/ginko-cms': '0.2.0-rc.3',
+      '@lupinum/ginko-cms-convex': '0.2.0-rc.3',
+      '@lupinum/ginko-cms-contract': '0.2.0-rc.3',
+      '@lupinum/ginko-content': '1.0.0-beta.8',
       '@lupinum/better-convex-mcp': '1.0.0-beta.1',
-      '@lupinum/better-convex-nuxt': '1.0.0-beta.3',
-      '@lupinum/better-convex-vue': '1.0.0-beta.3',
+      '@lupinum/better-convex-nuxt': '1.0.0-beta.5',
+      '@lupinum/better-convex-vue': '1.0.0-beta.5',
     })
     expect(compatibility.sourceRehearsal.betterConvexCommit).toMatch(/^[0-9a-f]{40}$/u)
     expect(
@@ -65,9 +74,13 @@ describe('coordinated CMS candidate release contract', () => {
       if (!artifact) continue
 
       expect(artifact.sourceCommit).toMatch(/^[0-9a-f]{40}$/u)
-      expect(artifact.registry).toBe(
-        `https://registry.npmjs.org/${name}/-/${name.split('/').at(-1)}-${version}.tgz`,
-      )
+      if (artifact.registry) {
+        expect(artifact.registry).toBe(
+          `https://registry.npmjs.org/${name}/-/${name.split('/').at(-1)}-${version}.tgz`,
+        )
+      } else {
+        expect(artifact.releaseCertification).toMatch(/(?:candidate|preview)-only$/u)
+      }
     }
     expect(compatibility.releaseArtifacts['@lupinum/better-convex-nuxt']?.sourceCommit).toBe(
       compatibility.sourceRehearsal.betterConvexCommit,
@@ -79,8 +92,8 @@ describe('coordinated CMS candidate release contract', () => {
       readJson<{ devDependencies: Record<string, string> }>('package.json').devDependencies,
     ).toMatchObject({
       'better-auth': '1.7.2',
-      '@lupinum/better-convex-nuxt': '1.0.0-beta.3',
-      '@lupinum/better-convex-vue': '1.0.0-beta.3',
+      '@lupinum/better-convex-nuxt': '1.0.0-beta.5',
+      '@lupinum/better-convex-vue': '1.0.0-beta.5',
       convex: '1.42.2',
       nuxt: '4.5.2',
       vue: '3.5.42',
@@ -91,7 +104,7 @@ describe('coordinated CMS candidate release contract', () => {
       'packages/contract/package.json',
       'packages/convex/package.json',
     ]) {
-      expect(readJson<{ version: string }>(path).version).toBe('0.2.0-rc.2')
+      expect(readJson<{ version: string }>(path).version).toBe('0.2.0-rc.3')
     }
   })
 
@@ -153,6 +166,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain('actualHash !== expected.sha256')
     expect(source).toContain('actualIntegrity !== expected.integrity')
     expect(source).toContain('candidate packing is blocked')
+    expect(source).toContain('Upstream release certification is pending')
     expect(source).not.toContain('GINKO_CONTENT_ROOT')
     expect(source).not.toContain('BETTER_CONVEX_NUXT_ROOT')
     expect(source).not.toContain('GINKO_CONTENT_ARTIFACT_MANIFEST')

@@ -459,10 +459,10 @@ describe('portable draft import', () => {
         runId: plan.runId,
         payloadSha256: plan.payloadSha256,
         sha256,
-        attemptTokenHash: 'c'.repeat(64),
-        storageOrigin: 'https://some-deployment.convex.cloud',
+        attemptTokenHash: tokenHash,
+        storageOrigin: 'http://storage.example.test',
       }),
-    ).rejects.toThrow(/lease|attempt/i)
+    ).rejects.toThrow(/secure deployment origin/i)
     await expect(
       owner.mutation(api.portability.issuePortableAssetUploadUrl, {
         runId: plan.runId,
@@ -529,6 +529,112 @@ describe('portable draft import', () => {
         attemptGeneration: 1,
       }),
     ).rejects.toThrow(/Manage portability|member/i)
+  })
+
+  it('supersedes an interrupted upload attempt and fences its old capability', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contentHash } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const sha256 = 'a'.repeat(64)
+    const plan = await createPlan(ctx, owner, contentHash, documentFixture, {
+      assets: [
+        {
+          sha256,
+          bytes: 68,
+          mediaType: 'image/png',
+          effect: 'upload',
+          referencedBy: [],
+        },
+      ],
+    })
+    const firstToken = 'b'.repeat(64)
+    const secondToken = 'c'.repeat(64)
+    const input = {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      storageOrigin: 'https://some-deployment.convex.cloud',
+    }
+
+    await expect(
+      owner.mutation(api.portability.beginPortableAssetUpload, {
+        ...input,
+        attemptTokenHash: firstToken,
+      }),
+    ).resolves.toMatchObject({ attemptGeneration: 1 })
+    await expect(
+      owner.mutation(api.portability.beginPortableAssetUpload, {
+        ...input,
+        attemptTokenHash: secondToken,
+      }),
+    ).resolves.toMatchObject({ attemptGeneration: 2 })
+    await expect(
+      owner.mutation(api.portability.issuePortableAssetUploadUrl, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: firstToken,
+        attemptGeneration: 1,
+      }),
+    ).rejects.toThrow(/token|generation/i)
+  })
+
+  it('resumes verification after an uploaded response is interrupted', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contentHash } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const sha256 = createHash('sha256').update(validPng).digest('hex')
+    const plan = await createPlan(ctx, owner, contentHash, documentFixture, {
+      assets: [
+        {
+          sha256,
+          bytes: validPng.byteLength,
+          mediaType: 'image/png',
+          effect: 'upload',
+          referencedBy: [],
+        },
+      ],
+    })
+    const storageOrigin = 'https://some-deployment.convex.cloud'
+    const storageId = (await ctx.raw.run(async (innerCtx) =>
+      innerCtx.storage.store(new Blob([validPng], { type: 'image/png' })),
+    )) as string
+
+    await owner.mutation(api.portability.beginPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash: 'b'.repeat(64),
+      storageOrigin,
+    })
+    await owner.mutation(api.portability.recordPortableAssetUpload, {
+      runId: plan.runId,
+      payloadSha256: plan.payloadSha256,
+      sha256,
+      attemptTokenHash: 'b'.repeat(64),
+      attemptGeneration: 1,
+      storageId,
+    })
+    await expect(
+      owner.mutation(api.portability.beginPortableAssetUpload, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: 'c'.repeat(64),
+        storageOrigin,
+      }),
+    ).resolves.toMatchObject({ attemptGeneration: 2 })
+    await expect(
+      owner.mutation(api.portability.issuePortableAssetUploadUrl, {
+        runId: plan.runId,
+        payloadSha256: plan.payloadSha256,
+        sha256,
+        attemptTokenHash: 'c'.repeat(64),
+        attemptGeneration: 2,
+      }),
+    ).resolves.toEqual({ state: 'uploaded' })
   })
 
   it.each(['asset', 'upload session', 'recovery artifact', 'portability stage'] as const)(
@@ -697,6 +803,15 @@ describe('portable draft import', () => {
           storageId: null,
         },
       )
+      await expect(
+        owner.mutation(api.portability.beginPortableAssetUpload, {
+          runId: target.runId,
+          payloadSha256: target.payloadSha256,
+          sha256,
+          attemptTokenHash: '9'.repeat(64),
+          storageOrigin: new URL(storageUrl).origin,
+        }),
+      ).resolves.toMatchObject({ attemptGeneration: 2 })
     },
   )
 
@@ -879,6 +994,11 @@ describe('portable draft import', () => {
         attemptGeneration: 1,
       }),
     ).resolves.toEqual({ state: 'attached', assetId: result.assetId })
+    const run = (await ctx.readAll('portableRuns' as never))[0]
+    if (!run) throw new Error('Portable run missing')
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(run._id, { state: 'complete' })
+    })
     await expect(
       owner.mutation(api.portability.beginPortableAssetUpload, {
         runId: plan.runId,
@@ -888,6 +1008,9 @@ describe('portable draft import', () => {
         storageOrigin,
       }),
     ).resolves.toEqual({ state: 'attached', assetId: result.assetId })
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(run._id, { state: 'planned' })
+    })
     await owner.mutation(api.portability.abortImport, {
       runId: plan.runId,
       payloadSha256: plan.payloadSha256,
@@ -1990,6 +2113,47 @@ describe('portable draft import', () => {
     expect(
       (await ctx.readAll('portableItems' as never)).filter((item) => item.state === 'committed'),
     ).toHaveLength(251)
+
+    await owner.mutation(api.portability.beginImportVerification, {
+      runId: 'portable-import:paged-plan',
+      payloadSha256,
+    })
+    await owner.mutation(api.portability.finalizeImport, {
+      runId: 'portable-import:paged-plan',
+      payloadSha256,
+    })
+    const identities = []
+    let cursor: number | null = null
+    do {
+      const page = await owner.query(api.portability.listImportPublicationIdentities, {
+        runId: 'portable-import:paged-plan',
+        payloadSha256,
+        cursor,
+        limit: 100,
+      })
+      identities.push(...page.identities)
+      cursor = page.cursor
+    } while (cursor !== null)
+    expect(identities).toHaveLength(251)
+    expect(new Set(identities.map(({ entryId }) => entryId)).size).toBe(251)
+
+    const inspected = []
+    for (let offset = 0; offset < identities.length; offset += 100) {
+      const entries = identities.slice(offset, offset + 100).map((identity) => ({
+        entryId: identity.entryId,
+        collection: identity.collection,
+        canonicalKey: identity.canonicalKey,
+        locales: [identity.locale],
+      }))
+      const page = await owner.query(api.portability.inspectImportPublicationEntries, {
+        runId: 'portable-import:paged-plan',
+        payloadSha256,
+        entries,
+      })
+      inspected.push(...page.entries)
+    }
+    expect(inspected).toHaveLength(251)
+    expect(inspected.every((entry) => entry.pendingLocales.length === 1)).toBe(true)
   })
 
   it('pages 1,205 receipts without loss or duplication and filters blocked, failed, and skipped', async () => {

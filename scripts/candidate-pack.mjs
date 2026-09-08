@@ -176,6 +176,16 @@ const upstreamTarball = (name, variable) =>
       ),
   )
 const nuxtEvidence = compatibility.releaseArtifacts['@lupinum/better-convex-nuxt']
+const uncertifiedUpstream = Object.entries(compatibility.releaseArtifacts).filter(
+  ([, evidence]) =>
+    typeof evidence.releaseCertification === 'string' &&
+    evidence.releaseCertification !== 'release-ready',
+)
+if (uncertifiedUpstream.length > 0) {
+  throw new Error(
+    `Upstream release certification is pending for ${uncertifiedUpstream.map(([name]) => name).join(', ')}; candidate packing is blocked.`,
+  )
+}
 if (typeof nuxtEvidence?.runtimeFingerprint !== 'string') {
   throw new Error(
     'better-convex-nuxt release evidence is pending in compatibility.json; candidate packing is blocked.',

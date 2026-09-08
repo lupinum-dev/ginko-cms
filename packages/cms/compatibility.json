@@ -1,23 +1,23 @@
 {
   "name": "Ginko CMS release compatibility",
   "releaseStack": {
-    "@lupinum/ginko-cms": "0.2.0-rc.2",
-    "@lupinum/ginko-cms-convex": "0.2.0-rc.2",
-    "@lupinum/ginko-cms-contract": "0.2.0-rc.2",
-    "@lupinum/ginko-content": "1.0.0-beta.4",
+    "@lupinum/ginko-cms": "0.2.0-rc.3",
+    "@lupinum/ginko-cms-convex": "0.2.0-rc.3",
+    "@lupinum/ginko-cms-contract": "0.2.0-rc.3",
+    "@lupinum/ginko-content": "1.0.0-beta.8",
     "@lupinum/better-convex-mcp": "1.0.0-beta.1",
-    "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
-    "@lupinum/better-convex-vue": "1.0.0-beta.3"
+    "@lupinum/better-convex-nuxt": "1.0.0-beta.5",
+    "@lupinum/better-convex-vue": "1.0.0-beta.5"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "51224341435871c42046860aa8eb4fc1d200bce0"
+    "betterConvexCommit": "ee4f0925d9fd1e2e629178a7752dcc08790b0dff"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "4ad58531c94a1eec54e6d4cf452de76f02b56fce",
-      "registry": "https://registry.npmjs.org/@lupinum/ginko-content/-/ginko-content-1.0.0-beta.4.tgz",
-      "sha256": "73ca6a9c49dd8e5ae5ce132db4ccdc8073a1323d446d2ca4671d35398bd45e63",
-      "integrity": "sha512-GhfjQd7/vKaQpdN3pYblAmAzGEy7jG5zawnOvYXeLDaO8Br3fO4yekjD7icTpxYZjVPEMC1w86X0mV1j5HyOTg=="
+      "sourceCommit": "fe1a2bb880990d65a18ee37c3ab34a6ee716587b",
+      "sha256": "689ea984f0a6f5e67dff9d874aadb7048ce5d2a0cdb124d597cb185fd3097cc5",
+      "integrity": "sha512-h4yJQM6En8VRWD0yXWbUbQFhsF3HpSraDU1gDLl9VfZEobwC59GjQSd2dsU4sGKYVW6onH0pQ7wY0aTs7Kn3Tw==",
+      "releaseCertification": "local-source-candidate-only"
     },
     "@lupinum/better-convex-mcp": {
       "sourceCommit": "596b085d5ccdbbabab97e7e57b915afdd0096bca",
@@ -26,17 +26,19 @@
       "integrity": "sha512-swrRLIqDCgpQkG9kYAQNpzeBrD4e6OsjdSz0RJ4KmSERDnMira0U9drfT1kSEQzvWpwM4QCAvRFk9XyECbF/9w=="
     },
     "@lupinum/better-convex-nuxt": {
-      "sourceCommit": "51224341435871c42046860aa8eb4fc1d200bce0",
-      "registry": "https://registry.npmjs.org/@lupinum/better-convex-nuxt/-/better-convex-nuxt-1.0.0-beta.3.tgz",
-      "sha256": "a867a68105cbf7f8af03a4108f62626d20e36707beb2bba278ea193b6700b89a",
-      "integrity": "sha512-bk/o8jDgCmhp/fwx68mmqiKkXd+Tyc/qGwRU/zIMQhtdtOv6wtE2a5N6y5Nsk9XL9cW5N9cwMp8z5M8XqJWcUg==",
-      "runtimeFingerprint": "bcn-release-v1-871c5bd997c16fb86b99d46ca7a87160b49ca376389fd857bf873ac39800f717"
+      "sourceCommit": "ee4f0925d9fd1e2e629178a7752dcc08790b0dff",
+      "preview": "https://pkg.pr.new/lupinum-dev/better-convex/@lupinum/better-convex-nuxt@ee4f0925d9fd1e2e629178a7752dcc08790b0dff",
+      "sha256": "1e5e99c04592e0a1577d49cd93ec66c0fedee489bdbcf8ebf6373303ef7ddb66",
+      "integrity": "sha512-GZkmStB2LUh+KfVfQl+n1W7/jQZ1XIMMLNwksagz5kDjeBJZLuGRxuS5ripcPfakokdmKbN0AM5E3yUXdUtCXw==",
+      "runtimeFingerprint": "bcn-release-v1-4c7db0c00fd8f9b2490340d84bc9d860124d89a43951a18b6fa591ce012becd9",
+      "releaseCertification": "disposable-preview-only"
     },
     "@lupinum/better-convex-vue": {
-      "sourceCommit": "51224341435871c42046860aa8eb4fc1d200bce0",
-      "registry": "https://registry.npmjs.org/@lupinum/better-convex-vue/-/better-convex-vue-1.0.0-beta.3.tgz",
-      "sha256": "f1480e8fb43b6f2fdf7ba194bd84484479265ad5b923a03111421766f471351a",
-      "integrity": "sha512-KmX82V0kVyzD9QUEdrLwbYyIoApgI92U08tkGhT055zY8T5n94sLfHT8mlFcoaWEn0+FIX51tGPRsrEVMk64tg=="
+      "sourceCommit": "ee4f0925d9fd1e2e629178a7752dcc08790b0dff",
+      "preview": "https://pkg.pr.new/lupinum-dev/better-convex/@lupinum/better-convex-vue@ee4f0925d9fd1e2e629178a7752dcc08790b0dff",
+      "sha256": "0cad1afbf053192ac83179864bfe05adf84bd395738405aef990b4d5445267d8",
+      "integrity": "sha512-pBje/jknmN4ugVxsyl3ezpc2Ks85AQ5GonUjaW/J6wEehwL4lV3PeRovrvvieHx7xRrxvqSFO0K97m70rAtvTQ==",
+      "releaseCertification": "disposable-preview-only"
     }
   },
   "tracked": {
@@ -46,10 +48,10 @@
     "@nuxt/kit": ["4.5.2"],
     "@better-auth/oauth-provider": ["1.7.2"],
     "@lupinum/better-convex-mcp": ["1.0.0-beta.1"],
-    "@lupinum/ginko-content": ["1.0.0-beta.4"],
+    "@lupinum/ginko-content": ["1.0.0-beta.8"],
     "better-auth": ["1.7.2"],
-    "@lupinum/better-convex-nuxt": ["1.0.0-beta.3"],
-    "@lupinum/better-convex-vue": ["1.0.0-beta.3"],
+    "@lupinum/better-convex-nuxt": ["1.0.0-beta.5"],
+    "@lupinum/better-convex-vue": ["1.0.0-beta.5"],
     "convex": ["1.42.2", "^1.42.2"],
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
@@ -63,10 +65,10 @@
     "dependencies": {
       "@nuxt/kit": "4.5.2",
       "@lupinum/better-convex-mcp": "1.0.0-beta.1",
-      "@lupinum/ginko-content": "1.0.0-beta.4",
+      "@lupinum/ginko-content": "1.0.0-beta.8",
       "better-auth": "1.7.2",
-      "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
-      "@lupinum/better-convex-vue": "1.0.0-beta.3",
+      "@lupinum/better-convex-nuxt": "1.0.0-beta.5",
+      "@lupinum/better-convex-vue": "1.0.0-beta.5",
       "convex": "1.42.2",
       "nuxt": "4.5.2",
       "vue": "3.5.42"
@@ -78,7 +80,7 @@
     }
   },
   "intentionalHolds": [
-    "Strict npm is mandatory for RC.2 and passes without a peer exception after selecting corrected @napi-rs/wasm-runtime 1.2.1.",
+    "Strict npm is mandatory for RC.3 and passes without a peer exception after selecting corrected @napi-rs/wasm-runtime 1.2.1.",
     "npm reports GHSA-mh99-v99m-4gvg in the Nuxt 4.5.2/Nitropack 2 build-time archive graph because the advisory only patches brace-expansion 5 while upstream minimatch ranges still select 2.x. The exact packed consumer must prove that brace-expansion, minimatch, glob, archiver, archiver-utils, and readdir-glob are absent from the deployed Nitro server output. Remove this hold when Nuxt publishes a compatible Nitro dependency graph; do not force or override the consumer graph.",
     "h3 stays on 1.15.11 until h3 2 leaves release-candidate status and Nuxt ecosystem peers accept it.",
     "Nuxt DevTools stays on the 3.x stable line while 4.x is alpha."

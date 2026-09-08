@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-cms-convex",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.0-rc.3",
   "description": "Convex component for ginko-cms",
   "homepage": "https://github.com/lupinum-dev/ginko-cms#readme",
   "bugs": {
@@ -53,9 +53,9 @@
   "dependencies": {
     "@better-auth/oauth-provider": "1.7.2",
     "@lupinum/better-convex-mcp": "1.0.0-beta.1",
-    "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
-    "@lupinum/ginko-cms-contract": "workspace:0.2.0-rc.2",
-    "@lupinum/ginko-content": "1.0.0-beta.4",
+    "@lupinum/better-convex-nuxt": "1.0.0-beta.5",
+    "@lupinum/ginko-cms-contract": "workspace:0.2.0-rc.3",
+    "@lupinum/ginko-content": "1.0.0-beta.8",
     "@modelcontextprotocol/server": "2.0.0",
     "convex": "1.42.2",
     "zod": "4.4.3"

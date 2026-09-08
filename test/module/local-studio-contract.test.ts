@@ -7,7 +7,7 @@ describe('local Studio consumer contract', () => {
     const config = readFileSync('playground/nuxt.config.ts', 'utf8')
 
     expect(config).toContain("include: ['convex/server']")
-    expect(config).toContain('siteUrl: process.env.CONVEX_SITE_URL')
+    expect(config).toContain('process.env.CONVEX_SITE_URL ??')
     expect(config).toContain("origin: process.env.SITE_URL ?? 'http://localhost:3000'")
   })
 

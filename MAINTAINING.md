@@ -21,8 +21,9 @@ the CMS packages are published.
 
 ## Daily Maintenance
 
-The published Better Convex Nuxt/Vue beta.3 tuple is the validated integration
-baseline. Install the committed dependency graph, then run the source and
+The Better Convex Nuxt/Vue beta.5 tuple and Ginko Content beta.8 are the local
+behavioral candidate baseline. Release certification remains pending until the
+compatibility authority names final published artifacts. Install the committed dependency graph, then run the source and
 packed-source checks:
 
 ```bash
@@ -51,7 +52,7 @@ versions and workspace/link dependencies.
 
 The compatibility authority records the exact immutable registry artifacts,
 their provenance source commits, and the Nuxt runtime fingerprint. The Better
-Convex MCP beta was published earlier than the Nuxt/Vue beta.3 pair, so its
+Convex MCP beta was published earlier than the Nuxt/Vue beta.5 pair, so its
 provenance commit is intentionally different and is recorded per artifact. The
 MCP package remains experimental while its transport targets the final
 2026-07-28 protocol.
@@ -74,21 +75,25 @@ npm.
 
 1. Confirm Ginko Content and the complete Better Convex family are released at the
    versions in `packages/cms/compatibility.json`.
-2. Start from a clean working tree on the release branch.
-3. Update package versions and compatibility docs intentionally.
-4. Generate release notes:
+2. For Better Convex beta.5, confirm the target auth component is fresh or prove
+   an identity-preserving migration for all existing Better Auth users and
+   sessions. Beta.4 requires new user/session generation fields. Never reset a
+   populated auth component: Ginko memberships depend on stable user ids.
+3. Start from a clean working tree on the release branch.
+4. Update package versions and compatibility docs intentionally.
+5. Generate release notes:
 
 ```bash
 pnpm run release:notes
 ```
 
-5. Review `CHANGELOG.md`; changelogen is a draft generator, not an authority.
-6. Trigger `.github/workflows/release-candidate.yml` manually to rehearse, or
+6. Review `CHANGELOG.md`; changelogen is a draft generator, not an authority.
+7. Trigger `.github/workflows/release-candidate.yml` manually to rehearse, or
    push the exact prerelease tag to publish. It downloads upstream registry
    bytes, packs once, requires both pnpm and strict npm consumers,
    and runs protected disposable Convex staging.
-7. Download the `ginko-candidate-<commit>` artifact produced by that workflow.
-8. Inspect the exact candidate tarballs:
+8. Download the `ginko-candidate-<commit>` artifact produced by that workflow.
+9. Inspect the exact candidate tarballs:
 
 ```bash
 tar -tzf .pack/candidate/lupinum-ginko-cms-contract-*.tgz | less
@@ -97,12 +102,12 @@ tar -tzf .pack/candidate/lupinum-ginko-cms-*.tgz | less
 pnpm run check:packs:no-local-specifiers
 ```
 
-9. Publish only after the owner has reviewed the candidate manifest, protected
-   staging evidence, tarballs, and npm package settings. The tag workflow
-   publishes the original contract, Convex, and CMS archives in order through
-   trusted publishing with provenance and the `next-staging` tag. It downloads
-   all three registry versions and requires byte equality. It never repacks and
-   never moves `latest` or shared `next`.
+10. Publish only after the owner has reviewed the candidate manifest, protected
+    staging evidence, tarballs, and npm package settings. The tag workflow
+    publishes the original contract, Convex, and CMS archives in order through
+    trusted publishing with provenance and the `next-staging` tag. It downloads
+    all three registry versions and requires byte equality. It never repacks and
+    never moves `latest` or shared `next`.
 
 While the project has one maintainer, `ginko-release` uses tag restrictions
 without a required reviewer. The evidence records `governanceMode:

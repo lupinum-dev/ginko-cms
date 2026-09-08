@@ -137,6 +137,7 @@ const budgets = {
   // while focused modules own status, planning, workers, lifecycle, and cleanup.
   'packages/convex/src/portability/runs.ts': 100,
   'packages/convex/src/portability/runStatus.ts': 400,
+  'packages/convex/src/portability/publicationStatus.ts': 220,
   'packages/convex/src/portability/importPlanning.ts': 400,
   'packages/convex/src/portability/importWorker.ts': 650,
   'packages/convex/src/portability/importLifecycle.ts': 750,

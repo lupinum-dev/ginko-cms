@@ -10,7 +10,7 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 
 import { api } from '#convex/api'
 
-import { assertCliOperatorRequest } from '../utils/operator-token-contract.js'
+import { assertCliOperatorRequest, cliOperatorAuthToken } from '../utils/operator-token-contract.js'
 import {
   createPortableAssetAttempt,
   resolvePortableStorageOrigin,
@@ -31,7 +31,8 @@ export default defineEventHandler(async (event) => {
   if (!convexUrl) throw unavailable('Convex deployment URL is not configured.')
   const storageOrigin = resolvePortableStorageOrigin(convexUrl)
   const attempt = createPortableAssetAttempt(secret)
-  const caller = serverConvex(event, { auth: 'required' })
+  const authToken = cliOperatorAuthToken(getRequestHeader(event, 'authorization'))
+  const caller = serverConvex(event, authToken ? { authToken } : { auth: 'required' })
   const result = await caller.mutation(api.ginkoCms.portability.beginPortableAssetUpload, {
     runId,
     payloadSha256,

@@ -18,6 +18,8 @@ import {
   finalizeImport as finalizeImportArgs,
   inspectPortableAssets as inspectPortableAssetsArgs,
   inspectPortableDrafts as inspectPortableDraftsArgs,
+  inspectImportPublicationEntries as inspectImportPublicationEntriesArgs,
+  listImportPublicationIdentities as listImportPublicationIdentitiesArgs,
   issuePortableAssetUploadUrl as issuePortableAssetUploadUrlArgs,
   recordPortableAssetUpload as recordPortableAssetUploadArgs,
   readExportAssets as readExportAssetsArgs,
@@ -42,6 +44,18 @@ export const inspectPortableAssets = query({
   args: inspectPortableAssetsArgs.args,
   handler: async (ctx, args) =>
     await ctx.runQuery(components.ginkoCms.portability.inspectPortableAssets, args),
+})
+
+export const listImportPublicationIdentities = query({
+  args: listImportPublicationIdentitiesArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.portability.listImportPublicationIdentities, args),
+})
+
+export const inspectImportPublicationEntries = query({
+  args: inspectImportPublicationEntriesArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.portability.inspectImportPublicationEntries, args),
 })
 
 export const createImportPlan = mutation({

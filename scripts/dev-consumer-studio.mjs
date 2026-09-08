@@ -22,6 +22,7 @@ const consumerUrl = process.env.GINKO_CMS_CONSUMER_URL ?? 'http://localhost:3000
 const consumerUrlParts = new URL(consumerUrl)
 const studioHost = process.env.GINKO_STUDIO_HOST ?? '127.0.0.1'
 const studioStartPort = Number(process.env.GINKO_STUDIO_PORT ?? 5252)
+const deliveryCapturePort = Number(process.env.GINKO_LOCAL_DELIVERY_PORT ?? 5251)
 
 if (args.includes('--help')) {
   console.log(`Usage: pnpm dev:consumer [consumer-dir] [--open]
@@ -41,6 +42,7 @@ Environment:
   GINKO_CMS_CONSUMER_URL   Consumer URL for printed/opened links. Default: ${consumerUrl}
   GINKO_STUDIO_HOST        Studio Vite host. Default: ${studioHost}
   GINKO_STUDIO_PORT        Preferred Studio Vite port. Default: ${studioStartPort}
+  GINKO_LOCAL_DELIVERY_PORT Local delivery inbox port. Default: ${deliveryCapturePort}
 `)
   process.exit(0)
 }
@@ -57,7 +59,7 @@ function isPortFree(port, host = studioHost) {
     server.once('listening', () => {
       server.close(() => resolvePort(true))
     })
-    server.listen(port, studioHost)
+    server.listen(port, host)
   })
 }
 
@@ -105,6 +107,13 @@ const studioPackageDir = resolve(repoRoot, 'packages/cms')
 const children = []
 let shuttingDown = false
 
+if (!process.env.GINKO_LOCAL_DELIVERY_SECRET?.trim()) {
+  console.error(
+    '[dev:consumer] GINKO_LOCAL_DELIVERY_SECRET is required in .env.local for the loopback-only delivery inbox.',
+  )
+  process.exit(1)
+}
+
 if (!studioOnly) {
   if (!(await isConsumerPortFree(consumerUrlParts))) {
     console.error(`[dev:consumer] ${consumerUrl} is already in use.`)
@@ -121,8 +130,19 @@ if (!studioOnly) {
 console.log(`[dev:consumer] Consumer: ${consumerDir}`)
 console.log(`[dev:consumer] Studio HMR: ${studioDevServer}`)
 console.log(`[dev:consumer] Open: ${consumerUrl.replace(/\/$/, '')}/studio`)
+console.log(`[dev:consumer] Delivery inbox: http://127.0.0.1:${deliveryCapturePort}`)
 console.log(
   '[dev:consumer] Studio UI edits hot-reload from packages/cms/studio-app/src; module/runtime changes still require rebuilding the package used by the consumer.',
+)
+
+children.push(
+  run('delivery', process.execPath, [resolve(repoRoot, 'scripts/local-delivery-capture.mjs')], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      GINKO_LOCAL_DELIVERY_PORT: String(deliveryCapturePort),
+    },
+  }),
 )
 
 children.push(
@@ -148,9 +168,10 @@ children.push(
 )
 
 if (!studioOnly) {
+  const defaultConsumer = consumerDir === defaultConsumerDir
   children.push(
     run('consumer', 'pnpm', ['--config.verify-deps-before-run=warn', 'dev'], {
-      cwd: consumerDir,
+      cwd: defaultConsumer ? repoRoot : consumerDir,
       env: {
         ...process.env,
         GINKO_STUDIO_DEV_SERVER: studioDevServer,

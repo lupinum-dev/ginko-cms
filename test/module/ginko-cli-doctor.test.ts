@@ -113,7 +113,7 @@ describe('ginko-cms setup doctor', () => {
     const packageJsonPath = resolve(root, 'package.json')
     const packageJson = {
       dependencies: {
-        '@lupinum/ginko-cms-convex': '0.2.0-rc.2',
+        '@lupinum/ginko-cms-convex': '0.2.0-rc.3',
         'better-auth': '1.7.2',
         '@lupinum/better-convex-nuxt': 'file:./@lupinum/better-convex-nuxt.tgz',
       },
@@ -123,7 +123,7 @@ describe('ginko-cms setup doctor', () => {
     mkdirSync(installedPackageRoot, { recursive: true })
     writeFileSync(
       resolve(installedPackageRoot, 'package.json'),
-      JSON.stringify({ name: '@lupinum/better-convex-nuxt', version: '1.0.0-beta.3' }),
+      JSON.stringify({ name: '@lupinum/better-convex-nuxt', version: '1.0.0-beta.5' }),
       'utf8',
     )
 

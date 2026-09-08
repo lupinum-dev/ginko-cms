@@ -13,6 +13,28 @@ import { cmsSiteOrigin, operatorSessionCookie, publicConvexUrl } from './env.js'
 
 export type OperatorClient = Pick<ConvexHttpClient, 'query' | 'mutation' | 'action'>
 
+export function createOperatorContextFromToken(
+  cwd: string,
+  token: string,
+  convexClientFactory: ConvexClientFactory,
+): { client: OperatorClient; authorization: string } {
+  if (!isValidOperatorConvexToken(token))
+    throw new Error('The Ginko CMS operator token is invalid.')
+  const raw = convexClientFactory(publicConvexUrl(cwd))
+  if (!raw.setAuth) {
+    throw new Error('Ginko CMS owner commands require a Convex client with user auth support.')
+  }
+  raw.setAuth(token)
+  return {
+    authorization: `Bearer ${token}`,
+    client: {
+      query: async (reference, value) => await raw.query(reference, value),
+      mutation: async (reference, value) => await raw.mutation(reference, value),
+      action: async (reference, value) => await raw.action(reference, value),
+    },
+  }
+}
+
 /**
  * Runs owner CLI calls through the same Better Auth user session as Studio.
  * Component authorization remains authoritative; the CLI never receives an
@@ -61,7 +83,7 @@ export async function createOperatorContext(
   }
 }
 
-function resolveOperatorSiteOrigin(value: string) {
+export function resolveOperatorSiteOrigin(value: string) {
   let url: URL
   try {
     url = new URL(value)

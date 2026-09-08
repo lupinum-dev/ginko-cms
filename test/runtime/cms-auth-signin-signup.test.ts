@@ -11,6 +11,7 @@ import { nextTick } from 'vue'
 
 const navigateToMock = vi.hoisted(() => vi.fn())
 const routeQuery = vi.hoisted(() => ({}) as Record<string, string>)
+const routeHash = vi.hoisted(() => ({ value: '' }))
 const authState = vi.hoisted(() => ({
   status: { value: 'anonymous' as 'anonymous' | 'authenticated' },
   pending: { value: false },
@@ -46,7 +47,7 @@ vi.mock('#imports', async () => {
       // Present so a stray call is observable, but neither component may call it.
       refresh: authState.refresh,
     }),
-    useRoute: () => ({ query: routeQuery }),
+    useRoute: () => ({ hash: routeHash.value, query: routeQuery }),
   }
 })
 
@@ -70,6 +71,7 @@ describe('CmsAuthSignIn (vNext §10.3, no manual refresh)', () => {
     vi.clearAllMocks()
     authState.status.value = 'anonymous'
     authState.pending.value = false
+    routeHash.value = ''
     for (const key of Object.keys(routeQuery)) Reflect.deleteProperty(routeQuery, key)
   })
 
@@ -93,6 +95,27 @@ describe('CmsAuthSignIn (vNext §10.3, no manual refresh)', () => {
     expect(authState.refreshAuth).not.toHaveBeenCalled()
     expect(navigateToMock).toHaveBeenCalledTimes(1)
     expect(navigateToMock).toHaveBeenCalledWith('/studio/reviews?locale=de', { replace: true })
+  })
+
+  it('[ADM-02] preserves a fragment token across the invitation sign-in redirect', async () => {
+    routeQuery.redirect = '/studio/invitations/accept'
+    routeHash.value = `#token=${'a'.repeat(64)}`
+    authState.signInEmail.mockResolvedValue({ error: null })
+    const wrapper = mount(CmsAuthSignIn, {
+      props: { redirectTo: '/studio' },
+      global: { stubs: globalStubs },
+    })
+    await nextTick()
+
+    await wrapper.find('[data-testid="cms-auth-email"]').setValue('viewer@example.com')
+    await wrapper.find('[data-testid="cms-auth-password"]').setValue('correct horse battery')
+    await wrapper.find('[data-testid="cms-auth-form"]').trigger('submit')
+    await vi.waitFor(() => expect(navigateToMock).toHaveBeenCalledTimes(1))
+
+    expect(navigateToMock).toHaveBeenCalledWith(
+      `/studio/invitations/accept#token=${'a'.repeat(64)}`,
+      { replace: true },
+    )
   })
 
   it('does not re-enter protected navigation while atomic sign-in is pending', async () => {
@@ -147,6 +170,7 @@ describe('CmsAuthSignUp (vNext §10.3, no manual refresh)', () => {
     vi.clearAllMocks()
     authState.status.value = 'anonymous'
     authState.pending.value = false
+    routeHash.value = ''
     for (const key of Object.keys(routeQuery)) Reflect.deleteProperty(routeQuery, key)
   })
 

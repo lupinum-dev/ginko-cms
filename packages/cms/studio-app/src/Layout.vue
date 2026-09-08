@@ -22,7 +22,7 @@ const { t } = useCmsI18n()
 // `route.meta.rightSidebar` so the header trigger shows before a page mounts.
 provideRightSidebar()
 const cmsConfig = useCmsConfig()
-const { user, isAuthenticated, error: authError } = useCmsAuthState()
+const { user, isAuthenticated, error: authError, signOut } = useCmsAuthState()
 const route = useRoute()
 const isInvitationRoute = computed(() => route.meta.authenticatedPublic === true)
 
@@ -124,6 +124,10 @@ async function claimCmsOwnership() {
 
 function retryAuthentication(): void {
   window.location.reload()
+}
+
+async function signOutForAccessSwitch(): Promise<void> {
+  await signOut()
 }
 </script>
 
@@ -247,6 +251,19 @@ function retryAuthentication(): void {
       <CardContent v-if="studioAccess.status === 'auth_error'" class="ginko:pt-0">
         <Button class="ginko:w-full" data-testid="cms-auth-retry" @click="retryAuthentication">
           {{ t('ginkoCms.studio.layout.authUnavailableAction') }}
+        </Button>
+      </CardContent>
+      <CardContent
+        v-if="studioAccess.status === 'forbidden' && studioAccess.reason === 'membership'"
+        class="ginko:pt-0"
+      >
+        <Button
+          class="ginko:w-full"
+          data-testid="cms-forbidden-sign-out"
+          variant="outline"
+          @click="signOutForAccessSwitch"
+        >
+          {{ t('ginkoCms.auth.session.signOut') }}
         </Button>
       </CardContent>
       <CardContent v-if="bootstrapError" class="ginko:text-sm ginko:text-destructive">

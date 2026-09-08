@@ -412,12 +412,12 @@ describe('package boundary contracts', () => {
         `${forbidden} must not be a Convex package dependency`,
       ).toBeUndefined()
     }
-    expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:0.2.0-rc.2')
+    expect(convexPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:0.2.0-rc.3')
     expect(convexPackage.dependencies?.[trellisPackageName]).toBeUndefined()
     expect(convexPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
 
-    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:0.2.0-rc.2')
-    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:0.2.0-rc.2')
+    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-contract']).toBe('workspace:0.2.0-rc.3')
+    expect(cmsPackage.dependencies?.['@lupinum/ginko-cms-convex']).toBe('workspace:0.2.0-rc.3')
     expect(cmsPackage.dependencies?.[trellisPackageName]).toBeUndefined()
     expect(cmsPackage.dependencies?.[trellisBridgePackageName]).toBeUndefined()
     expect(cmsPackage.dependencies?.['@lupinum/better-convex-nuxt']).toBeDefined()
@@ -487,9 +487,13 @@ describe('package boundary contracts', () => {
       'members.js',
       'operations.js',
       'portability.js',
+      'portability/assets.js',
+      'portability/exportPreflight.js',
+      'portability/exports.js',
       'portability/runs.js',
       'public.js',
       'revalidation.js',
+      'revalidation/diagnostics.js',
       'reviewRequests.js',
       'schema.js',
       'settings.js',

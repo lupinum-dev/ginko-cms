@@ -40,6 +40,7 @@ describe('[ADM-02] Studio invitation onboarding', () => {
     expect(layout).toContain("studioAccess.status === 'invitation'")
     expect(layout).toContain('isInvitationRoute.value && isAuthenticated.value')
     expect(layout).toContain("status: 'forbidden', reason: 'membership'")
+    expect(layout).toContain('data-testid="cms-forbidden-sign-out"')
     expect(host).toContain("route.path.endsWith('/invitations/accept')")
     expect(host).toContain("content: 'noindex, nofollow, noarchive'")
   })

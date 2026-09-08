@@ -94,6 +94,45 @@ describe('portability asset Nitro routes', () => {
     expect(JSON.stringify(mutation.mock.calls)).not.toContain(body.token)
   })
 
+  it('forwards a CLI bearer as the explicit Convex principal', async () => {
+    mutation.mockResolvedValue({
+      runId: 'portable-import:plan-1',
+      sha256,
+      attemptGeneration: 1,
+      leaseExpiresAt: Date.now() + 300_000,
+    })
+
+    const response = await routeFetch(
+      'post',
+      '/api/_ginko/portability/assets/:sha256/attempt',
+      attemptHandler,
+      {
+        method: 'POST',
+        headers: { ...requestHeaders, authorization: 'Bearer migration-owner-token' },
+      },
+    )
+
+    expect(response.status).toBe(200)
+    expect(serverConvex).toHaveBeenCalledWith(expect.anything(), {
+      authToken: 'migration-owner-token',
+    })
+  })
+
+  it('rejects an invalid CLI bearer before constructing a caller', async () => {
+    const response = await routeFetch(
+      'post',
+      '/api/_ginko/portability/assets/:sha256/attempt',
+      attemptHandler,
+      {
+        method: 'POST',
+        headers: { ...requestHeaders, authorization: 'Bearer one two' },
+      },
+    )
+
+    expect(response.status).toBe(401)
+    expect(serverConvex).not.toHaveBeenCalled()
+  })
+
   it('issues and streams one server-only export download capability', async () => {
     mutation
       .mockResolvedValueOnce({
@@ -204,7 +243,7 @@ describe('portability asset Nitro routes', () => {
 
     const response = await routeFetch(
       'put',
-      '/api/_ginko/portability/assets/:sha256',
+      '/api/_ginko/portability/assets/:sha256/upload',
       uploadHandler,
       {
         method: 'PUT',
@@ -237,7 +276,7 @@ describe('portability asset Nitro routes', () => {
 
       const response = await routeFetch(
         'put',
-        '/api/_ginko/portability/assets/:sha256',
+        '/api/_ginko/portability/assets/:sha256/upload',
         uploadHandler,
         {
           method: 'PUT',
@@ -262,7 +301,7 @@ describe('portability asset Nitro routes', () => {
 
     const response = await routeFetch(
       'put',
-      '/api/_ginko/portability/assets/:sha256',
+      '/api/_ginko/portability/assets/:sha256/upload',
       uploadHandler,
       {
         method: 'PUT',

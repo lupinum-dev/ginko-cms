@@ -5,35 +5,51 @@ Convex data, Better Auth login, and Studio hot module replacement (HMR).
 
 ## One-time setup
 
+Each worktree owns one ignored `.env.local` and one local Convex data directory.
+Do not copy `.env.local`, `.convex`, accounts, or data from another checkout.
 From the Ginko CMS repository root:
 
 ```bash
 corepack pnpm install
-corepack pnpm run dev:prepare
+corepack pnpm exec better-convex convex deployment select local
 ```
 
-The repository-local `.env.local` must contain:
-
-```bash
-CONVEX_DEPLOYMENT=dev:...
-CONVEX_URL=https://....convex.cloud
-CONVEX_SITE_URL=https://....convex.site
-```
-
-The configured Convex deployment must contain:
-
-```bash
-BETTER_AUTH_SECRETS=0:...
-BCN_AUTH_PROXY_IP_SECRET=...
-GINKO_FIRST_OWNER_EMAIL=owner@example.com
-SITE_URL=http://localhost:3000
-```
-
-Do not print secret values while checking the environment. To list only the
-local variable names:
+The checked Better Convex runner clears inherited `CONVEX_*` values and writes
+the selected local authority to `.env.local`. Inspect the variable names before
+the first write. The file must select `local:*`, contain loopback Convex URLs,
+and remain owner-readable only:
 
 ```bash
 awk -F= '/^[A-Za-z_][A-Za-z0-9_]*=/{print $1}' .env.local | sort
+chmod 600 .env.local
+```
+
+Add `SITE_URL=http://localhost:3000`, copy the generated `VITE_CONVEX_URL` and
+`VITE_CONVEX_SITE_URL` values to `NUXT_PUBLIC_CONVEX_URL` and
+`NUXT_PUBLIC_CONVEX_SITE_URL`, and add independent random
+`BCN_AUTH_PROXY_IP_SECRET` and `GINKO_LOCAL_DELIVERY_SECRET` values to the same
+ignored file. Keep the local backend running in one terminal while its
+Convex-only values are configured from another:
+
+```bash
+corepack pnpm exec better-convex convex dev
+```
+
+Configure independent random Better Auth and proxy secrets, a synthetic first
+owner, and the loopback-only delivery capture. Pipe secrets to the checked
+runner; do not put them in shell arguments or logs:
+
+```bash
+corepack pnpm exec better-convex convex env set SITE_URL http://localhost:3000
+corepack pnpm exec better-convex convex env set GINKO_FIRST_OWNER_EMAIL owner+ginko-local@example.test
+corepack pnpm exec better-convex convex env set GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL http://127.0.0.1:5251/password-recovery
+corepack pnpm exec better-convex convex env set GINKO_MEMBER_INVITATION_DELIVERY_URL http://127.0.0.1:5251/member-invitation
+corepack pnpm exec better-convex convex env set GINKO_MEMBER_INVITATION_ACCEPT_URL http://localhost:3000/studio/invitations/accept
+printf '0:%s' "$(openssl rand -base64 32)" | corepack pnpm exec better-convex convex env set BETTER_AUTH_SECRETS
+set -a; . ./.env.local; set +a
+printf '%s' "$BCN_AUTH_PROXY_IP_SECRET" | corepack pnpm exec better-convex convex env set BCN_AUTH_PROXY_IP_SECRET
+printf '%s' "$GINKO_LOCAL_DELIVERY_SECRET" | corepack pnpm exec better-convex convex env set GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN
+printf '%s' "$GINKO_LOCAL_DELIVERY_SECRET" | corepack pnpm exec better-convex convex env set GINKO_MEMBER_INVITATION_DELIVERY_SECRET
 ```
 
 Use the same `localhost` origin configured by `SITE_URL`. Better Auth rejects a
@@ -46,6 +62,11 @@ once before opening Studio:
 corepack pnpm exec better-convex convex run auth:rotateSigningKey '{}'
 ```
 
+Stop the temporary backend after setup. Ordinary development starts it
+again with the rest of the stack. Create only synthetic accounts and content.
+The inbox keeps reset and invitation links in memory and binds only to
+`127.0.0.1`; it is not a sandbox against another local process.
+
 This operator action is intentional: public JWKS reads never create signing
 state. Run it again only for a planned key rotation.
 
@@ -57,10 +78,13 @@ corepack pnpm run dev:consumer
 
 This one command:
 
+- starts the worktree's selected local Convex backend through Better Convex's
+  checked authority runner;
 - loads the repository `.env.local`;
 - starts the Nuxt playground at `http://localhost:3000`;
 - starts the Studio Vite server at `http://localhost:5252` (or the next free
   port);
+- starts the in-memory delivery inbox at `http://127.0.0.1:5251`;
 - injects the Vite URL into the Nuxt host so Studio source edits use HMR.
 
 The launcher keeps pnpm's dependency auto-verifier in warning mode because this
@@ -76,6 +100,9 @@ http://localhost:3000/studio
 
 Sign in with the local owner account. Keep credentials only in `.env.local` or
 your secret manager; never add them to committed docs or shell history.
+Use normal member invitations to create publisher, editor, and viewer accounts.
+Open captured one-time links from the local inbox; do not add role setters or a
+test login bypass.
 
 ## Verify HMR
 
@@ -103,12 +130,21 @@ Nuxt dev server can leave its generated virtual-module aliases stale.
 ```bash
 GINKO_CMS_CONSUMER_URL=http://localhost:3001 corepack pnpm run dev:consumer
 GINKO_STUDIO_PORT=5253 corepack pnpm run dev:consumer
+GINKO_LOCAL_DELIVERY_PORT=5254 corepack pnpm run dev:consumer
 corepack pnpm run dev:consumer -- --studio-only
 ```
 
 If the consumer URL changes, update the deployment's Better Auth `SITE_URL` (or
 its trusted-origin configuration) to the exact browser origin before testing
 login.
+If the delivery port changes, update both delivery webhook URLs in the local
+Convex deployment to the same port.
+
+Cloud development and hosted staging are separate, explicit trials. Select an
+isolated `dev:*` deployment in this worktree only when local Convex cannot prove
+the required boundary. Record its deployment name, scoped key owner, synthetic
+data, effect limits, and cleanup. The loopback inbox cannot receive callbacks
+from Convex Cloud; use an approved hosted capture endpoint instead.
 
 ## Fast troubleshooting
 

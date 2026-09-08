@@ -21,12 +21,21 @@ the registry-backed lockfile. That proves current-source compatibility without
 an install override; it does not create, approve, or replace an immutable
 release candidate.
 
-The earlier Better Convex rehearsal tuples are superseded. RC.2 is source-tested
-against the Nuxt/Vue beta.3 commit recorded in the compatibility authority.
-The authority records the published registry URLs, per-artifact provenance
-commits, hashes, integrity values, and Nuxt runtime fingerprint. The MCP beta
+The earlier Better Convex rehearsal tuples are superseded. RC.3 is source-tested
+against the Nuxt/Vue beta.5 commit recorded in the compatibility authority and
+uses Ginko Content beta.8.
+The authority records the available registry or disposable-preview URLs, per-artifact provenance
+commits, hashes, integrity values, and Nuxt runtime fingerprint. Disposable previews
+support local behavioral proof but block release packing. The MCP beta
 comes from an earlier source commit than the Nuxt/Vue pair; this is explicit
 provenance, not a shared-source assumption.
+
+Better Convex beta.5 includes required generation fields on Better Auth user and
+session rows. The candidate and live lanes therefore use a fresh component.
+Before any populated beta.3 deployment is upgraded, prove that it has no
+depended-on auth rows or use an explicitly reviewed, identity-preserving
+migration. Never reset a populated auth component; Ginko member rows depend on
+stable Better Auth user ids.
 
 The coordinated runtime uses exactly Nuxt `4.5.2`, Vite `8.1.5`, and Vue
 `3.5.42`. Clean pnpm and strict npm consumers are both mandatory. Never use
@@ -65,11 +74,11 @@ annotated and bind both files:
 candidate_sha256="$(shasum -a 256 .pack/candidate/candidate-artifact.json | awk '{print $1}')"
 proof_path="reports/refactor-proof/$(git rev-parse --short=12 HEAD)/live/proof.json"
 proof_sha256="$(shasum -a 256 "$proof_path" | awk '{print $1}')"
-git tag -a v0.2.0-rc.2 -m "Ginko RC.2 approval
+git tag -a v0.2.0-rc.3 -m "Ginko RC.3 approval
 
 candidate-artifact-sha256: ${candidate_sha256}
 live-proof-sha256: ${proof_sha256}"
-git push origin v0.2.0-rc.2
+git push origin v0.2.0-rc.3
 ```
 
 The tag workflow deterministically recreates the candidate and refuses to

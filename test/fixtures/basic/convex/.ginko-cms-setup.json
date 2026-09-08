@@ -6,7 +6,7 @@
       "templateHash": "c824e109eed133d8fe1667facb9721313868eec08ea05bfa7a039218addfb008"
     },
     "convex/auth.ts": {
-      "templateHash": "4625b0e700cd849521739682dbb1f3cf9bb5fbf1c4faf3db8d5b748dce58b189"
+      "templateHash": "cbbab8a2c5d37c28fbee3cfdce78a06faf8cc0e2f475b990e20cc696f8bf88a0"
     },
     "convex/convex.config.ts": {
       "templateHash": "ab7a11b0aa86e432f658a1df4bb0ce7f5552f88c9fb63fba28d7aa217252737b"
@@ -42,7 +42,7 @@
       "templateHash": "ebe0395e44d63790252e752f609476834cfafbd79f8d6e537d3d405671c3d58e"
     },
     "convex/ginkoCms/portability.ts": {
-      "templateHash": "74d4c39232c609759ef56663edc2479da8847b2b571e9706a86ae14a24f48347"
+      "templateHash": "77f1118309db96c1c21f6c3dddedcd2c0ab42a337cc20b68266b4c1444172351"
     },
     "convex/ginkoCms/public.ts": {
       "templateHash": "a30c5b0d21df5e46317b40ba9b074fd538be9378ea0c03d692c7edce4ce5ed9e"
@@ -72,7 +72,7 @@
       "templateHash": "e2df38c8dab65b2924e06aa9dd3daf8105d5a880414183a8db296c875aaf7fe6"
     },
     "convex/ginkoCms/passwordRecovery.ts": {
-      "templateHash": "1d8fda8c7c9a91b42083b84efe162de13fe452717d19ddd83e31dae71c31ae0a"
+      "templateHash": "8a9ceb3553dc0f68ae8fba174d2434d7cf062aa105451b7e75f19eda18ad639b"
     },
     "convex/ginkoCms/hostFunctions.ts": {
       "templateHash": "e023b19c6c2f88c6c88a5a879948932c1fe3517c8eba109500b8667a2dee1b82"

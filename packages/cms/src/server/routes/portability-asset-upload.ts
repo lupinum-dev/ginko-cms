@@ -10,7 +10,7 @@ import {
 
 import { api } from '#convex/api'
 
-import { assertCliOperatorRequest } from '../utils/operator-token-contract.js'
+import { assertCliOperatorRequest, cliOperatorAuthToken } from '../utils/operator-token-contract.js'
 import {
   hashPortableAssetAttemptToken,
   uploadPortableAssetStream,
@@ -33,7 +33,8 @@ export default defineEventHandler(async (event) => {
   const secret = process.env.GINKO_CMS_PORTABILITY_SECRET?.trim()
   if (!secret) throw unavailable('Portability token sealing is not configured.')
   const attemptTokenHash = hashPortableAssetAttemptToken(secret, token)
-  const caller = serverConvex(event, { auth: 'required' })
+  const authToken = cliOperatorAuthToken(getRequestHeader(event, 'authorization'))
+  const caller = serverConvex(event, authToken ? { authToken } : { auth: 'required' })
   const args = {
     runId,
     payloadSha256,

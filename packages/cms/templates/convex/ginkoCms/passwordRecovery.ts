@@ -10,12 +10,15 @@ function requiredEnvironmentValue(name: string): string {
   return value
 }
 
-function passwordRecoveryEndpoint(): string {
-  const value = requiredEnvironmentValue('GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL')
+function approvedDeliveryEndpoint(name: string): string {
+  const value = requiredEnvironmentValue(name)
   const url = new URL(value)
-  if (url.protocol !== 'https:' || url.username || url.password) {
+  const loopback =
+    url.protocol === 'http:' &&
+    (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]')
+  if ((!loopback && url.protocol !== 'https:') || url.username || url.password) {
     throw new Error(
-      'Password recovery is not configured: the webhook must be an HTTPS URL without embedded credentials.',
+      'Password recovery is not configured: the webhook must use HTTPS (loopback HTTP is allowed for development) without embedded credentials.',
     )
   }
   return url.toString()
@@ -30,7 +33,7 @@ export async function sendGinkoPasswordResetEmail(input: {
   user: { email: string; name: string }
   url: string
 }): Promise<void> {
-  const response = await fetch(passwordRecoveryEndpoint(), {
+  const response = await fetch(approvedDeliveryEndpoint('GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL'), {
     method: 'POST',
     redirect: 'error',
     signal: AbortSignal.timeout(10_000),
@@ -46,5 +49,32 @@ export async function sendGinkoPasswordResetEmail(input: {
   })
   if (!response.ok) {
     throw new Error(`Password recovery delivery failed with status ${response.status}.`)
+  }
+}
+
+/** Delivers a provider-owned verification URL without persisting its token. */
+export async function sendGinkoVerificationEmail(input: {
+  user: { email: string; name: string }
+  url: string
+}): Promise<void> {
+  const response = await fetch(
+    approvedDeliveryEndpoint('GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_URL'),
+    {
+      method: 'POST',
+      redirect: 'error',
+      signal: AbortSignal.timeout(10_000),
+      headers: {
+        authorization: `Bearer ${requiredEnvironmentValue('GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_TOKEN')}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        event: 'ginko-cms.email-verification.requested',
+        recipient: { email: input.user.email, name: input.user.name },
+        verificationUrl: input.url,
+      }),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`Email verification delivery failed with status ${response.status}.`)
   }
 }

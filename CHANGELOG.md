@@ -2,18 +2,17 @@
 
 ## Unreleased
 
-### Experimental RC.2 release boundary
+### Experimental RC.3 release boundary
 
 - Publish the three Ginko packages under `next-staging` only. Do not move
   `latest` or shared `next`.
-- This release explicitly waives four gates rather than claiming they pass:
-  final MCP maturity, real MCP host interoperability, strict Ginko npm
-  compatibility, and Better Convex protected cloud staging. RC.2 targets pnpm
-  support and uses Better Convex's experimental implementation of the final
-  2026-07-28 MCP protocol.
-- RC.2 publication remains blocked until Nuxt 4.5.1's DevTools dependency graph
-  declares Vite 8-compatible peers and the mandatory strict pnpm packed
-  consumer passes.
+- MCP remains experimental on its independent beta.1 line and still requires
+  real-host interoperability evidence before broader claims.
+- Better Convex Nuxt/Vue beta.5 and Ginko Content beta.8 are the exact candidate
+  candidate tuple. Both pnpm and strict npm packed consumers are mandatory.
+- A fresh beta.5 auth component is supported. Upgrading a populated beta.3
+  component remains blocked until the required generation fields have an
+  identity-preserving migration; resetting auth would orphan CMS memberships.
 
 ### Added
 

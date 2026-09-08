@@ -27,6 +27,11 @@ type DefineGinkoAuthDeps = {
 export type GinkoAuthDeps = DefineGinkoAuthDeps
 export type GinkoAuthOptions = {
   emailPassword?: boolean
+  emailVerification?: {
+    sendVerificationEmail: NonNullable<
+      NonNullable<BetterAuthOptions['emailVerification']>['sendVerificationEmail']
+    >
+  }
   passwordRecovery?: {
     sendResetPassword: NonNullable<
       NonNullable<BetterAuthOptions['emailAndPassword']>['sendResetPassword']
@@ -129,6 +134,13 @@ export function defineGinkoAuth<DataModel extends GenericDataModel = GenericData
                 }
               : {}),
           },
+    emailVerification: options.emailVerification
+      ? {
+          autoSignInAfterVerification: false,
+          sendOnSignUp: true,
+          sendVerificationEmail: options.emailVerification.sendVerificationEmail,
+        }
+      : undefined,
     oauthProvider: (ctx) => createOAuthOptions(ctx, deps),
   })
 }

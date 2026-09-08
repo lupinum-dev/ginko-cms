@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { useCmsI18n } from '#ginko-cms-public/composables/useCmsI18n.js'
-import { resolveRedirectTarget } from '#ginko-cms-public/utils/redirectSafety.js'
+import {
+  preserveRedirectHash,
+  resolveRedirectTarget,
+} from '#ginko-cms-public/utils/redirectSafety.js'
 import { computed, navigateTo, onMounted, ref, useConvexAuth, useRoute, watch } from '#imports'
 
 import CmsAuthInput from './CmsAuthInput.vue'
@@ -34,10 +37,13 @@ const isRedirecting = computed(
     (isSubmitting.value && !authError.value),
 )
 function getRedirectTarget() {
-  return resolveRedirectTarget(
-    typeof route.query.redirect === 'string' ? route.query.redirect : null,
-    props.redirectTo,
-    `${props.redirectTo.replace(/\/$/, '')}/auth/signin`,
+  return preserveRedirectHash(
+    resolveRedirectTarget(
+      typeof route.query.redirect === 'string' ? route.query.redirect : null,
+      props.redirectTo,
+      `${props.redirectTo.replace(/\/$/, '')}/auth/signin`,
+    ),
+    route.hash,
   )
 }
 async function redirectAuthenticatedUser() {

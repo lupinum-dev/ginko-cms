@@ -240,6 +240,14 @@ describe('live refactor proof contract', () => {
     expect(componentEntrypoints).toMatch(
       /componentModules = \[[\s\S]*?'entries\/projectionMaintenance'/,
     )
+    for (const internalModule of [
+      'portability/assets',
+      'portability/exportPreflight',
+      'portability/exports',
+      'revalidation/diagnostics',
+    ]) {
+      expect(componentEntrypoints).toContain(`'${internalModule}'`)
+    }
     expect(hostMaintenance).toContain('components.ginkoCms.maintenance.startProjectionRepairRun')
     expect(hostMaintenance).not.toContain('components.ginkoCms.entries.projectionMaintenance')
     expect(fixtures).toContain('ginkoCms/maintenance:startProjectionRepairRun')

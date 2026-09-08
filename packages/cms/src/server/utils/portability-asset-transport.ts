@@ -19,7 +19,7 @@ export function resolvePortableStorageOrigin(convexUrl: string) {
     throw new Error('Configured Convex URL is invalid.')
   }
   if (
-    url.protocol !== 'https:' ||
+    !isSecureOrLoopbackOrigin(url) ||
     url.username ||
     url.password ||
     url.pathname !== '/' ||
@@ -29,6 +29,17 @@ export function resolvePortableStorageOrigin(convexUrl: string) {
     throw new Error('Configured Convex URL must be an exact secure deployment origin.')
   }
   return url.origin
+}
+
+function isSecureOrLoopbackOrigin(url: URL) {
+  if (url.protocol === 'https:') return true
+  if (url.protocol !== 'http:') return false
+  return (
+    url.hostname === 'localhost' ||
+    url.hostname.endsWith('.localhost') ||
+    /^127(?:\.\d{1,3}){3}$/u.test(url.hostname) ||
+    url.hostname === '[::1]'
+  )
 }
 
 export function createPortableAssetAttempt(secret: string) {
@@ -82,7 +93,7 @@ export async function downloadPortableAssetStream(input: {
   const storageOrigin = new URL(input.storageOrigin)
   const storageUrl = new URL(input.storageUrl)
   if (
-    storageOrigin.protocol !== 'https:' ||
+    !isSecureOrLoopbackOrigin(storageOrigin) ||
     storageOrigin.origin !== input.storageOrigin ||
     storageUrl.origin !== storageOrigin.origin ||
     storageUrl.username ||
@@ -172,7 +183,7 @@ export async function uploadPortableAssetStream(input: {
   const storageOrigin = new URL(input.storageOrigin)
   const uploadUrl = new URL(input.uploadUrl)
   if (
-    storageOrigin.protocol !== 'https:' ||
+    !isSecureOrLoopbackOrigin(storageOrigin) ||
     storageOrigin.origin !== input.storageOrigin ||
     uploadUrl.origin !== storageOrigin.origin ||
     uploadUrl.username ||

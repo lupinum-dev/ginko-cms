@@ -29,6 +29,17 @@ const MAX_PORTABLE_ASSET_CLEANUP_ATTEMPTS = 5
 
 type ImportRun = Extract<Doc<'portableRuns'>, { mode: 'import' }>
 
+function isSecureOrLoopbackOrigin(url: URL) {
+  if (url.protocol === 'https:') return true
+  if (url.protocol !== 'http:') return false
+  return (
+    url.hostname === 'localhost' ||
+    url.hostname.endsWith('.localhost') ||
+    /^127(?:\.\d{1,3}){3}$/u.test(url.hostname) ||
+    url.hostname === '[::1]'
+  )
+}
+
 async function getRun(ctx: MutationCtx, runId: string): Promise<ImportRun> {
   const run = await ctx.db
     .query('portableRuns')
@@ -87,14 +98,12 @@ export const beginPortableAssetUpload = callerMutation.protected({
     assertSha256(args.sha256, 'asset sha256')
     assertSha256(args.attemptTokenHash, 'attemptTokenHash')
     const origin = new URL(args.storageOrigin)
-    if (origin.protocol !== 'https:' || origin.origin !== args.storageOrigin) {
-      throw new Error('Portable storage origin must be an exact HTTPS origin.')
+    if (!isSecureOrLoopbackOrigin(origin) || origin.origin !== args.storageOrigin) {
+      throw new Error('Portable storage origin must be an exact secure deployment origin.')
     }
     const run = await getRun(ctx, args.runId)
-    requirePlannedRun(run, {
-      callerId: identity.userId,
-      payloadSha256: args.payloadSha256,
-    })
+    if (run.callerId !== identity.userId) throw new Error('Portable run belongs to another caller.')
+    if (run.payloadSha256 !== args.payloadSha256) throw new Error('Portable run payload mismatch.')
     const stage = await getStage(ctx, run.runId, args.sha256)
     if (stage.callerId !== identity.userId) {
       throw new Error('Portable asset stage cannot begin an upload attempt.')
@@ -102,25 +111,14 @@ export const beginPortableAssetUpload = callerMutation.protected({
     if (stage.state === 'attached' && stage.assetId) {
       return { state: 'attached' as const, assetId: stage.assetId }
     }
-    if (stage.state !== 'awaiting-upload') {
+    requirePlannedRun(run, {
+      callerId: identity.userId,
+      payloadSha256: args.payloadSha256,
+    })
+    if (!['awaiting-upload', 'uploaded', 'verifying', 'cleaned'].includes(stage.state)) {
       throw new Error('Portable asset stage cannot begin an upload attempt.')
     }
     const now = Date.now()
-    if (stage.leaseExpiresAt !== null && stage.leaseExpiresAt > now) {
-      if (
-        stage.attemptTokenHash === args.attemptTokenHash &&
-        stage.storageOrigin === args.storageOrigin
-      ) {
-        return {
-          state: 'attempt' as const,
-          runId: run.runId,
-          sha256: stage.sha256,
-          attemptGeneration: stage.attemptGeneration,
-          leaseExpiresAt: stage.leaseExpiresAt,
-        }
-      }
-      throw new Error('Portable asset upload attempt lease is already active.')
-    }
     const attemptGeneration = stage.attemptGeneration + 1
     const leaseExpiresAt = now + PORTABLE_ASSET_ATTEMPT_LEASE_MS
     await ctx.db.patch(stage._id, {
@@ -128,6 +126,7 @@ export const beginPortableAssetUpload = callerMutation.protected({
       attemptGeneration,
       leaseExpiresAt,
       storageOrigin: args.storageOrigin,
+      state: stage.state === 'cleaned' ? 'awaiting-upload' : stage.state,
       updatedAt: now,
     })
     return {

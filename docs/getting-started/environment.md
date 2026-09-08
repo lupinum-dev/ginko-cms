@@ -65,7 +65,8 @@ NUXT_PUBLIC_SITE_URL=https://your-site.example
 - `GINKO_CMS_PORTABILITY_SECRET`: Nuxt-only secret that seals owner-CLI asset
   transfer attempts. Do not reuse an auth or MCP secret.
 - `GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL`: approved HTTPS email-delivery webhook
-  for Better Auth password recovery. Embedded URL credentials are rejected.
+  for Better Auth password recovery. Loopback HTTP is accepted only for local
+  development. Embedded URL credentials are rejected.
 - `GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN`: bearer credential sent only to the
   configured recovery webhook. Keep it in the Convex environment/secret store.
 - `GINKO_MEMBER_INVITATION_DELIVERY_URL`: approved host-owned HTTPS delivery

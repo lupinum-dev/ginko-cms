@@ -1,5 +1,9 @@
 # Portable Content Export And Import
 
+For the proposed agent-led workflow that migrates an existing file-backed Ginko Content site, see
+[Migrate from file-backed Ginko Content](./migrate-from-ginko-content.md). This page remains the
+reference for the lower-level portable operations that workflow composes.
+
 `ginko-cms content` exports and imports content through the versioned Ginko Content portable
 directory format. Export reads published revisions only. Import writes drafts
 only: it never creates collection definitions and never publishes content.

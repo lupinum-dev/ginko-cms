@@ -12,6 +12,7 @@ node_modules
 .fallow
 /.candidate/
 **/.ginko/content-contract.json
+**/.ginko/migrations/
 
 # Yarn
 **/.yarn/cache

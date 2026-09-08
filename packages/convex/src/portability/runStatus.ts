@@ -15,6 +15,11 @@ import { readActiveAssetMatch } from './importModel.js'
 import { inspectPortableDraft } from './items.js'
 import { assertImportPlanPayload, assertSha256, PORTABLE_PLAN_PAGE_LIMIT } from './model.js'
 
+export {
+  defineInspectImportPublicationEntries,
+  defineListImportPublicationIdentities,
+} from './publicationStatus.js'
+
 export function defineInspectPortableDrafts() {
   return callerQuery.protected({
     id: 'portability:inspectPortableDrafts',

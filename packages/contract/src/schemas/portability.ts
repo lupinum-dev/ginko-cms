@@ -59,6 +59,32 @@ export const inspectPortableAssets = defineArgs({
   },
 })
 
+export const listImportPublicationIdentities = defineArgs({
+  description: 'List one bounded page of identities from a completed portable import.',
+  args: {
+    runId: v.string(),
+    payloadSha256: v.string(),
+    cursor: v.union(v.number(), v.null()),
+    limit: v.number(),
+  },
+})
+
+export const inspectImportPublicationEntries = defineArgs({
+  description: 'Bind one bounded page of imported entries to their exact draft revisions.',
+  args: {
+    runId: v.string(),
+    payloadSha256: v.string(),
+    entries: v.array(
+      v.object({
+        entryId: v.string(),
+        collection: v.string(),
+        canonicalKey: v.string(),
+        locales: v.array(v.string()),
+      }),
+    ),
+  },
+})
+
 export const appendImportPlanItems = defineArgs({
   description: 'Append one bounded page of immutable import plan items.',
   args: {

@@ -12,6 +12,7 @@ import { runDoctorCommand } from './doctor.js'
 import { readLocalEnv } from './env.js'
 import { runInitCommand } from './init.js'
 import { runAssetCommand, runRepairCommand } from './maintenance.js'
+import { runMigrateCommand } from './migrate.js'
 import { runPushCommand } from './push.js'
 
 export async function runGinkoCmsCli(
@@ -61,6 +62,9 @@ export async function runGinkoCmsCli(
     }
     if (command === 'content') {
       return await runContentCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
+    }
+    if (command === 'migrate') {
+      return await runMigrateCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)
     }
     if (command === 'repair') {
       return await runRepairCommand(parsed.args, parsed.cwd, io, options.convexClientFactory)

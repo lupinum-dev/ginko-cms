@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@lupinum/better-convex-nuxt': file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz
+  '@lupinum/better-convex-vue': file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz
+  '@lupinum/ginko-content': file:/Users/matthias/Git/1_apps/ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz
+
 importers:
 
   .:
@@ -15,14 +20,14 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       '@lupinum/better-convex-nuxt':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(42cc79cbfc6f99338b5880607b05e1b4)
+        specifier: file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz
+        version: file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz(42cc79cbfc6f99338b5880607b05e1b4)
       '@lupinum/better-convex-vue':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
+        specifier: file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz
+        version: file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
       '@lupinum/ginko-content':
-        specifier: 1.0.0-beta.4
-        version: 1.0.0-beta.4(d9a5a8ceb9bf3b6679a4986b7e22774e)
+        specifier: file:/Users/matthias/Git/1_apps/ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz
+        version: file:../ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz(71290c396bc7719d6072a73be3723f7e)
       '@nuxt/eslint-config':
         specifier: ^1.15.2
         version: 1.17.0(@typescript-eslint/utils@8.66.0(eslint@10.8.1(jiti@2.7.0))(typescript@5.9.3))(@vue/compiler-sfc@3.5.41)(eslint@10.8.1(jiti@2.7.0))(typescript@5.9.3)
@@ -129,20 +134,20 @@ importers:
         specifier: ^1.24.0
         version: 1.31.0(vue@3.5.42(typescript@5.9.3))
       '@lupinum/better-convex-nuxt':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(b6468dfa37fd2e7b32dcad663999ca40)
+        specifier: file:../../.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz
+        version: file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz(b6468dfa37fd2e7b32dcad663999ca40)
       '@lupinum/better-convex-vue':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
+        specifier: file:../../.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz
+        version: file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
       '@lupinum/ginko-cms-contract':
-        specifier: workspace:0.2.0-rc.2
+        specifier: workspace:0.2.0-rc.3
         version: link:../contract
       '@lupinum/ginko-cms-convex':
-        specifier: workspace:0.2.0-rc.2
+        specifier: workspace:0.2.0-rc.3
         version: link:../convex
       '@lupinum/ginko-content':
-        specifier: 1.0.0-beta.4
-        version: 1.0.0-beta.4(57e2df5fec9281eb9d1b17366ca6a4c1)
+        specifier: file:/Users/matthias/Git/1_apps/ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz
+        version: file:../ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz(57e2df5fec9281eb9d1b17366ca6a4c1)
       '@nuxt/kit':
         specifier: 4.5.2
         version: 4.5.2(magic-string@0.30.21)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
@@ -343,14 +348,14 @@ importers:
         specifier: 1.0.0-beta.1
         version: 1.0.0-beta.1(vue@3.5.42(typescript@5.9.3))
       '@lupinum/better-convex-nuxt':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(6bb66366028edd1eb8b038c24fd86ad7)
+        specifier: file:../../.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz
+        version: file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz(6bb66366028edd1eb8b038c24fd86ad7)
       '@lupinum/ginko-cms-contract':
-        specifier: workspace:0.2.0-rc.2
+        specifier: workspace:0.2.0-rc.3
         version: link:../contract
       '@lupinum/ginko-content':
-        specifier: 1.0.0-beta.4
-        version: 1.0.0-beta.4(4c9760db5ed85d32d624dc7107a1d91a)
+        specifier: file:/Users/matthias/Git/1_apps/ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz
+        version: file:../ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz(4c9760db5ed85d32d624dc7107a1d91a)
       '@modelcontextprotocol/server':
         specifier: 2.0.0
         version: 2.0.0
@@ -370,8 +375,8 @@ importers:
         specifier: 1.0.0-beta.1
         version: 1.0.0-beta.1(vue@3.5.42(typescript@5.9.3))
       '@lupinum/better-convex-nuxt':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(6bb66366028edd1eb8b038c24fd86ad7)
+        specifier: file:../.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz
+        version: file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz(6bb66366028edd1eb8b038c24fd86ad7)
       '@lupinum/ginko-cms':
         specifier: workspace:*
         version: link:../packages/cms
@@ -382,8 +387,8 @@ importers:
         specifier: workspace:*
         version: link:../packages/convex
       '@lupinum/ginko-content':
-        specifier: 1.0.0-beta.4
-        version: 1.0.0-beta.4(4c9760db5ed85d32d624dc7107a1d91a)
+        specifier: file:/Users/matthias/Git/1_apps/ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz
+        version: file:../ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz(4c9760db5ed85d32d624dc7107a1d91a)
       '@modelcontextprotocol/server':
         specifier: 2.0.0
         version: 2.0.0
@@ -1457,8 +1462,9 @@ packages:
       vue:
         optional: true
 
-  '@lupinum/better-convex-nuxt@1.0.0-beta.3':
-    resolution: {integrity: sha512-bk/o8jDgCmhp/fwx68mmqiKkXd+Tyc/qGwRU/zIMQhtdtOv6wtE2a5N6y5Nsk9XL9cW5N9cwMp8z5M8XqJWcUg==}
+  '@lupinum/better-convex-nuxt@file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz':
+    resolution: {integrity: sha512-A2rboLE4JHW/HFwfdRH0JJP5wMr0rdn4J3udTr/vOkjRvf4kIRL8xQTQmcfcUjL8IHd6TGgzJTVxnB+0TN7u5A==, tarball: file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz}
+    version: 1.0.0-beta.5
     engines: {node: ^22.19.0 || ^24.11.0}
     hasBin: true
     peerDependencies:
@@ -1475,15 +1481,17 @@ packages:
       better-auth:
         optional: true
 
-  '@lupinum/better-convex-vue@1.0.0-beta.3':
-    resolution: {integrity: sha512-KmX82V0kVyzD9QUEdrLwbYyIoApgI92U08tkGhT055zY8T5n94sLfHT8mlFcoaWEn0+FIX51tGPRsrEVMk64tg==}
+  '@lupinum/better-convex-vue@file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz':
+    resolution: {integrity: sha512-pBje/jknmN4ugVxsyl3ezpc2Ks85AQ5GonUjaW/J6wEehwL4lV3PeRovrvvieHx7xRrxvqSFO0K97m70rAtvTQ==, tarball: file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz}
+    version: 1.0.0-beta.5
     engines: {node: ^22.19.0 || ^24.11.0}
     peerDependencies:
       convex: '>=1.42.2 <2'
       vue: '>=3.5.0 <4'
 
-  '@lupinum/ginko-content@1.0.0-beta.4':
-    resolution: {integrity: sha512-GhfjQd7/vKaQpdN3pYblAmAzGEy7jG5zawnOvYXeLDaO8Br3fO4yekjD7icTpxYZjVPEMC1w86X0mV1j5HyOTg==}
+  '@lupinum/ginko-content@file:../ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz':
+    resolution: {integrity: sha512-h4yJQM6En8VRWD0yXWbUbQFhsF3HpSraDU1gDLl9VfZEobwC59GjQSd2dsU4sGKYVW6onH0pQ7wY0aTs7Kn3Tw==, tarball: file:../ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz}
+    version: 1.0.0-beta.8
     engines: {node: ^22.18.0 || ^24.11.0 || >=26.0.0}
     hasBin: true
     peerDependencies:
@@ -1492,7 +1500,7 @@ packages:
       nuxt: '>=4.5.1 <5'
       pagefind: ^1.5.2
       vitest: '>=4.1.6 <5'
-      vue: ^3.5.35
+      vue: ^3.5.40
     peerDependenciesMeta:
       beautiful-mermaid:
         optional: true
@@ -7734,10 +7742,10 @@ snapshots:
     optionalDependencies:
       vue: 3.5.42(typescript@5.9.3)
 
-  '@lupinum/better-convex-nuxt@1.0.0-beta.3(42cc79cbfc6f99338b5880607b05e1b4)':
+  '@lupinum/better-convex-nuxt@file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz(42cc79cbfc6f99338b5880607b05e1b4)':
     dependencies:
       '@better-auth/utils': 0.4.2
-      '@lupinum/better-convex-vue': 1.0.0-beta.3(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
+      '@lupinum/better-convex-vue': file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
       convex: 1.42.2
       convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.2)(typescript@5.9.3)(zod@4.4.3)
@@ -7763,10 +7771,10 @@ snapshots:
       - vue
       - zod
 
-  '@lupinum/better-convex-nuxt@1.0.0-beta.3(6bb66366028edd1eb8b038c24fd86ad7)':
+  '@lupinum/better-convex-nuxt@file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz(6bb66366028edd1eb8b038c24fd86ad7)':
     dependencies:
       '@better-auth/utils': 0.4.2
-      '@lupinum/better-convex-vue': 1.0.0-beta.3(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
+      '@lupinum/better-convex-vue': file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
       convex: 1.42.2
       convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.2)(typescript@5.9.3)(zod@4.4.3)
@@ -7792,10 +7800,10 @@ snapshots:
       - vue
       - zod
 
-  '@lupinum/better-convex-nuxt@1.0.0-beta.3(b6468dfa37fd2e7b32dcad663999ca40)':
+  '@lupinum/better-convex-nuxt@file:.pack/upstream/lupinum-better-convex-nuxt-1.0.0-beta.5-linux.tgz(b6468dfa37fd2e7b32dcad663999ca40)':
     dependencies:
       '@better-auth/utils': 0.4.2
-      '@lupinum/better-convex-vue': 1.0.0-beta.3(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
+      '@lupinum/better-convex-vue': file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@0.30.21)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
       convex: 1.42.2
       convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.2)(typescript@5.9.3)(zod@4.4.3)
@@ -7821,14 +7829,14 @@ snapshots:
       - vue
       - zod
 
-  '@lupinum/better-convex-vue@1.0.0-beta.3(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))':
+  '@lupinum/better-convex-vue@file:.pack/upstream/lupinum-better-convex-vue-1.0.0-beta.5-linux.tgz(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))':
     dependencies:
       '@standard-schema/spec': 1.1.0
       convex: 1.42.2
       ohash: 2.0.11
       vue: 3.5.42(typescript@5.9.3)
 
-  '@lupinum/ginko-content@1.0.0-beta.4(4c9760db5ed85d32d624dc7107a1d91a)':
+  '@lupinum/ginko-content@file:../ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz(4c9760db5ed85d32d624dc7107a1d91a)':
     dependencies:
       '@comark/vue': 0.6.2(shiki@4.4.2)(vue@3.5.42(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
@@ -7909,7 +7917,7 @@ snapshots:
       - webpack
       - xml2js
 
-  '@lupinum/ginko-content@1.0.0-beta.4(57e2df5fec9281eb9d1b17366ca6a4c1)':
+  '@lupinum/ginko-content@file:../ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz(57e2df5fec9281eb9d1b17366ca6a4c1)':
     dependencies:
       '@comark/vue': 0.6.2(shiki@4.4.2)(vue@3.5.42(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@0.30.21)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
@@ -7990,7 +7998,7 @@ snapshots:
       - webpack
       - xml2js
 
-  '@lupinum/ginko-content@1.0.0-beta.4(d9a5a8ceb9bf3b6679a4986b7e22774e)':
+  '@lupinum/ginko-content@file:../ginko-content-portable-export/.pack/lupinum-ginko-content-1.0.0-beta.8.tgz(71290c396bc7719d6072a73be3723f7e)':
     dependencies:
       '@comark/vue': 0.6.2(shiki@4.4.2)(vue@3.5.42(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
@@ -8015,7 +8023,7 @@ snapshots:
       ufo: 1.6.4
       unstorage: 1.17.5(db0@0.3.4)(ioredis@5.11.1)
       vue: 3.5.42(typescript@5.9.3)
-      vue-router: 5.2.0(@vue/compiler-sfc@3.5.41)(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0))(vue@3.5.42(typescript@5.9.3))
+      vue-router: 5.2.0(@vue/compiler-sfc@3.5.42)(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0))(vue@3.5.42(typescript@5.9.3))
       zod: 4.4.3
     optionalDependencies:
       vitest: 4.1.10(@edge-runtime/vm@5.0.0)(@types/node@25.8.0)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0))

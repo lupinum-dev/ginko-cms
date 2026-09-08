@@ -2,12 +2,19 @@
 import { defineGinkoAuth } from '@lupinum/ginko-cms/convex/auth'
 
 import { components } from './_generated/api'
-import { sendGinkoPasswordResetEmail } from './ginkoCms/passwordRecovery'
+import {
+  sendGinkoPasswordResetEmail,
+  sendGinkoVerificationEmail,
+} from './ginkoCms/passwordRecovery'
 
 export const auth = defineGinkoAuth(
   { components },
   {
     emailPassword: true,
+    emailVerification: {
+      sendVerificationEmail: async ({ user, url }) =>
+        await sendGinkoVerificationEmail({ user, url }),
+    },
     passwordRecovery: {
       sendResetPassword: async ({ user, url }) => await sendGinkoPasswordResetEmail({ user, url }),
       tokenExpiresInSeconds: 60 * 60,

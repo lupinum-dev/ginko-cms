@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { sendGinkoPasswordResetEmail } from '../../packages/cms/templates/convex/ginkoCms/passwordRecovery'
+import {
+  sendGinkoPasswordResetEmail,
+  sendGinkoVerificationEmail,
+} from '../../packages/cms/templates/convex/ginkoCms/passwordRecovery'
 
 const previousUrl = process.env.GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL
 const previousToken = process.env.GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN
+const previousVerificationUrl = process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_URL
+const previousVerificationToken = process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_TOKEN
 const originalFetch = globalThis.fetch
 
 afterEach(() => {
@@ -13,6 +18,12 @@ afterEach(() => {
   else process.env.GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL = previousUrl
   if (previousToken === undefined) delete process.env.GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN
   else process.env.GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN = previousToken
+  if (previousVerificationUrl === undefined)
+    delete process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_URL
+  else process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_URL = previousVerificationUrl
+  if (previousVerificationToken === undefined)
+    delete process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_TOKEN
+  else process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_TOKEN = previousVerificationToken
 })
 
 describe('[ACC-05] password recovery delivery boundary', () => {
@@ -47,6 +58,44 @@ describe('[ACC-05] password recovery delivery boundary', () => {
     })
   })
 
+  it('allows a loopback-only delivery capture during local development', async () => {
+    process.env.GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL = 'http://127.0.0.1:5251/password-recovery'
+    process.env.GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN = 'local-webhook-secret'
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }))
+    globalThis.fetch = fetchMock
+
+    await sendGinkoPasswordResetEmail({
+      user: { email: 'synthetic@example.test', name: 'Synthetic Member' },
+      url: 'http://localhost:3000/api/auth/reset-password/one-time-token',
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:5251/password-recovery',
+      expect.objectContaining({ method: 'POST', redirect: 'error' }),
+    )
+  })
+
+  it('delivers provider-owned email verification through the bounded webhook', async () => {
+    process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_URL =
+      'http://127.0.0.1:5251/email-verification'
+    process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_TOKEN = 'local-webhook-secret'
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }))
+    globalThis.fetch = fetchMock
+
+    await sendGinkoVerificationEmail({
+      user: { email: 'synthetic@example.test', name: 'Synthetic Member' },
+      url: 'http://localhost:3000/api/auth/verify-email?token=one-time-token',
+    })
+
+    const [url, options] = fetchMock.mock.calls[0]!
+    expect(url).toBe('http://127.0.0.1:5251/email-verification')
+    expect(JSON.parse(String(options?.body))).toEqual({
+      event: 'ginko-cms.email-verification.requested',
+      recipient: { email: 'synthetic@example.test', name: 'Synthetic Member' },
+      verificationUrl: 'http://localhost:3000/api/auth/verify-email?token=one-time-token',
+    })
+  })
+
   it('rejects missing, insecure, or credential-bearing webhook configuration before egress', async () => {
     const fetchMock = vi.fn()
     globalThis.fetch = fetchMock
@@ -63,7 +112,7 @@ describe('[ACC-05] password recovery delivery boundary', () => {
           user: { email: 'member@example.test', name: 'CMS Member' },
           url: 'https://deployment.example.test/reset',
         }),
-      ).rejects.toThrow(/not configured|HTTPS URL without embedded credentials/i)
+      ).rejects.toThrow(/not configured|HTTPS.*loopback HTTP.*embedded credentials/i)
     }
     expect(fetchMock).not.toHaveBeenCalled()
   })

@@ -4,7 +4,10 @@ import { createHash } from 'node:crypto'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { assertCliOperatorRequest } from '#ginko-cms-server/utils/operator-token-contract'
+import {
+  assertCliOperatorRequest,
+  cliOperatorAuthToken,
+} from '#ginko-cms-server/utils/operator-token-contract'
 import {
   createPortableAssetDownloadAttempt,
   createPortableAssetAttempt,
@@ -149,6 +152,14 @@ describe('portability asset host transport', () => {
     expect(() => assertCliOperatorRequest({ secFetchSite: 'same-origin' })).toThrow(/CLI operator/i)
   })
 
+  it('accepts only one bounded bearer value for explicit server authentication', () => {
+    expect(cliOperatorAuthToken('Bearer signed-convex-token')).toBe('signed-convex-token')
+    expect(cliOperatorAuthToken(undefined)).toBeUndefined()
+    for (const value of ['Basic secret', 'Bearer one two', `Bearer ${'a'.repeat(70_000)}`]) {
+      expect(() => cliOperatorAuthToken(value)).toThrow(/authorization/i)
+    }
+  })
+
   it('derives one exact storage origin from the configured Convex deployment URL', () => {
     expect(resolvePortableStorageOrigin('https://deployment.convex.cloud')).toBe(
       'https://deployment.convex.cloud',
@@ -156,6 +167,13 @@ describe('portability asset host transport', () => {
     expect(() => resolvePortableStorageOrigin('https://deployment.convex.cloud/path')).toThrow(
       /Convex URL/i,
     )
-    expect(() => resolvePortableStorageOrigin('http://localhost:3210')).toThrow(/Convex URL/i)
+    expect(resolvePortableStorageOrigin('http://localhost:3210')).toBe('http://localhost:3210')
+    expect(resolvePortableStorageOrigin('http://127.0.0.1:3210')).toBe('http://127.0.0.1:3210')
+    expect(() => resolvePortableStorageOrigin('http://deployment.convex.cloud')).toThrow(
+      /Convex URL/i,
+    )
+    expect(() => resolvePortableStorageOrigin('http://localhost.example:3210')).toThrow(
+      /Convex URL/i,
+    )
   })
 })

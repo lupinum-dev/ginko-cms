@@ -35,6 +35,10 @@ function hasEncodedSlashOrBackslash(value: string): boolean {
   return normalized.includes('%2f') || normalized.includes('%5c')
 }
 
+function isStructuredOperatorReturn(value: string): boolean {
+  return /^\/api\/_ginko\/operator\/login\?request=[\w-]{1,2048}$/u.test(value)
+}
+
 export function validateRedirectPath(raw: null | string | undefined): null | string {
   if (!raw || typeof raw !== 'string') {
     return null
@@ -44,6 +48,8 @@ export function validateRedirectPath(raw: null | string | undefined): null | str
   if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) {
     return null
   }
+
+  if (isStructuredOperatorReturn(trimmed)) return trimmed
 
   if (trimmed.includes('//') || trimmed.includes('\\') || hasForbiddenRedirectCodepoint(trimmed)) {
     return null
@@ -89,4 +95,9 @@ export function resolveRedirectTarget(
   }
 
   return target
+}
+
+export function preserveRedirectHash(target: string, routeHash: string): string {
+  if (!routeHash || target.includes('#')) return target
+  return validateRedirectPath(`${target}${routeHash}`) ?? target
 }

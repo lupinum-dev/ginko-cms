@@ -12,7 +12,8 @@ const TOTAL_TIMEOUT_MS = 2 * 60_000
 
 export type PortableAssetTransferOptions = {
   cmsOrigin: string
-  sessionCookie: string
+  sessionCookie?: string
+  authorization?: string
   fetch?: typeof globalThis.fetch
   idleTimeoutMs?: number
   totalTimeoutMs?: number
@@ -31,14 +32,10 @@ export async function uploadPreparedPortableDraftImportAssets(
   options: PortableAssetTransferOptions,
 ): Promise<void> {
   const origin = resolveCmsOrigin(options.cmsOrigin)
-  const cookie = requiredCookie(options.sessionCookie)
+  const headers = operatorHeaders(options)
   for (const asset of prepared.assets) {
     if (asset.payload.effect !== 'upload') continue
-    await uploadAsset(prepared, asset.payload, {
-      ...options,
-      cmsOrigin: origin,
-      sessionCookie: cookie,
-    })
+    await uploadAsset(prepared, asset.payload, { ...options, cmsOrigin: origin }, headers)
   }
 }
 
@@ -48,14 +45,14 @@ export async function* downloadPortableExportAsset(
   options: PortableAssetTransferOptions,
 ): AsyncIterable<Uint8Array> {
   const origin = resolveCmsOrigin(options.cmsOrigin)
-  const cookie = requiredCookie(options.sessionCookie)
+  const headers = operatorHeaders(options)
   const endpoint = new URL(`/api/_ginko/portability/assets/${asset.holdId}`, origin)
-  const headers = { cookie, 'x-ginko-portability-run': runId }
+  const requestHeaders = { ...headers, 'x-ginko-portability-run': runId }
   const attemptResponse = await (options.fetch ?? globalThis.fetch)(
     `${endpoint}/download-attempt`,
     {
       method: 'POST',
-      headers,
+      headers: requestHeaders,
       redirect: 'error',
     },
   )
@@ -80,7 +77,7 @@ export async function* downloadPortableExportAsset(
   const response = await (options.fetch ?? globalThis.fetch)(endpoint, {
     method: 'GET',
     headers: {
-      ...headers,
+      ...requestHeaders,
       'x-ginko-portability-attempt': attempt.token,
       'x-ginko-portability-generation': String(attempt.downloadGeneration),
     },
@@ -129,10 +126,14 @@ async function uploadAsset(
   prepared: PreparedPortableDraftImport,
   asset: PreparedPortableDraftImport['assets'][number]['payload'],
   options: PortableAssetTransferOptions,
+  operator:
+    | Record<'cookie' | 'authorization', string>
+    | Partial<Record<'cookie' | 'authorization', string>>,
 ) {
   const endpoint = new URL(`/api/_ginko/portability/assets/${asset.sha256}`, options.cmsOrigin)
+  const uploadEndpoint = new URL(`${endpoint.pathname}/upload`, endpoint)
   const headers = {
-    cookie: options.sessionCookie,
+    ...operator,
     'x-ginko-portability-run': prepared.runId,
     'x-ginko-portability-payload': prepared.payloadSha256,
   }
@@ -186,7 +187,7 @@ async function uploadAsset(
   )
 
   try {
-    const response = await (options.fetch ?? globalThis.fetch)(endpoint, {
+    const response = await (options.fetch ?? globalThis.fetch)(uploadEndpoint, {
       method: 'PUT',
       headers: {
         ...headers,
@@ -279,6 +280,24 @@ function requiredCookie(value: string) {
     throw new Error('CMS portability session cookie is invalid.')
   }
   return cookie
+}
+
+function operatorHeaders(options: PortableAssetTransferOptions) {
+  if (options.authorization !== undefined) {
+    const authorization = options.authorization.trim()
+    if (
+      !authorization.startsWith('Bearer ') ||
+      authorization.length > 64 * 1024 + 7 ||
+      hasControlCharacters(authorization)
+    ) {
+      throw new Error('CMS portability authorization is invalid.')
+    }
+    return { authorization }
+  }
+  if (options.sessionCookie !== undefined) {
+    return { cookie: requiredCookie(options.sessionCookie) }
+  }
+  throw new Error('CMS portability operator authorization is missing.')
 }
 
 function hasControlCharacters(value: string) {

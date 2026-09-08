@@ -28,6 +28,8 @@ import {
   defineGetPortabilityRunStatus,
   defineInspectPortableAssets,
   defineInspectPortableDrafts,
+  defineInspectImportPublicationEntries,
+  defineListImportPublicationIdentities,
   defineListPortabilityItemReceipts,
   defineReadPortabilityResumeInput,
   defineReadPortabilityRunStatus,
@@ -35,6 +37,8 @@ import {
 
 export const inspectPortableDrafts = defineInspectPortableDrafts()
 export const inspectPortableAssets = defineInspectPortableAssets()
+export const listImportPublicationIdentities = defineListImportPublicationIdentities()
+export const inspectImportPublicationEntries = defineInspectImportPublicationEntries()
 
 export const getPortabilityRunStatus = defineGetPortabilityRunStatus()
 export const listPortabilityItemReceipts = defineListPortabilityItemReceipts()

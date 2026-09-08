@@ -66,7 +66,7 @@ describe('ginko-cms module e2e boot', () => {
         dependencies: {
           '@lupinum/ginko-cms-convex': 'workspace:*',
           'better-auth': '1.7.2',
-          '@lupinum/better-convex-nuxt': '1.0.0-beta.3',
+          '@lupinum/better-convex-nuxt': '1.0.0-beta.5',
         },
       }),
       'utf-8',

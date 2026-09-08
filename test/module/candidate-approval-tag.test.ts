@@ -60,7 +60,7 @@ describe('candidate approval tag', () => {
       git(
         'tag',
         '-a',
-        'v0.2.0-rc.2',
+        'v0.2.0-rc.3',
         '-m',
         `Ginko RC.2 approval\n\ncandidate-artifact-sha256: ${candidateArtifactSha256}\nlive-proof-sha256: ${proofDigest}`,
       )
@@ -69,7 +69,7 @@ describe('candidate approval tag', () => {
         verifyCandidateApproval({
           repoRoot: root,
           candidatePath,
-          tagName: 'v0.2.0-rc.2',
+          tagName: 'v0.2.0-rc.3',
         }),
       ).toMatchObject({
         schemaVersion: 1,
@@ -79,6 +79,7 @@ describe('candidate approval tag', () => {
         approvedBy: 'Release Tester <release@example.com>',
       })
 
+      git('tag', '-d', 'v0.2.0-rc.3')
       git('tag', 'v0.2.0-rc.3')
       expect(() =>
         verifyCandidateApproval({

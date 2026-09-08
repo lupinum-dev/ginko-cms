@@ -358,7 +358,7 @@ describe('ginko-cms Convex setup validation', () => {
           method: 'post',
         }),
         expect.objectContaining({
-          route: '/api/_ginko/portability/assets/:sha256',
+          route: '/api/_ginko/portability/assets/:sha256/upload',
           method: 'put',
         }),
       ]),

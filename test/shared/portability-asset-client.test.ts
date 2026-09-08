@@ -17,6 +17,30 @@ afterEach(async () => {
 })
 
 describe('portable asset CLI transfer', () => {
+  it('uses the browser-authorized bearer without requiring a copied session cookie', async () => {
+    const prepared = await preparedFixture(new Uint8Array([1, 2, 3, 4]))
+    const fetch = vi.fn(async (_url: string | URL | Request, init: RequestInit = {}) => {
+      expect(init.headers).toMatchObject({ authorization: 'Bearer short-lived-operator-token' })
+      if (init.method === 'POST') {
+        return jsonResponse({
+          state: 'attempt',
+          token: 'sealed-once'.repeat(4),
+          attemptGeneration: 1,
+        })
+      }
+      await new Response(init.body).arrayBuffer()
+      return jsonResponse({ state: 'attached', assetId: 'asset-1' })
+    })
+
+    await uploadPreparedPortableDraftImportAssets(prepared, {
+      cmsOrigin: 'https://cms.example.test',
+      authorization: 'Bearer short-lived-operator-token',
+      fetch: fetch as typeof globalThis.fetch,
+    })
+
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
   it('streams each planned upload once through the authenticated CMS host and rehashes it', async () => {
     const content = new Uint8Array([1, 2, 3, 4])
     const token = 'sealed-once'.repeat(4)
@@ -52,6 +76,7 @@ describe('portable asset CLI transfer', () => {
       },
     })
     expect(calls[1]).toMatchObject({
+      url: `https://cms.example.test/api/_ginko/portability/assets/${prepared.assets[0]!.payload.sha256}/upload`,
       init: {
         method: 'PUT',
         redirect: 'error',

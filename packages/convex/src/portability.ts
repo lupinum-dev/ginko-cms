@@ -11,6 +11,8 @@ export {
   getPortabilityRunStatus,
   inspectPortableAssets,
   inspectPortableDrafts,
+  inspectImportPublicationEntries,
+  listImportPublicationIdentities,
   listPortabilityItemReceipts,
   resumePortabilityRun,
   sealImportPlan,
