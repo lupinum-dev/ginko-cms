@@ -17,10 +17,10 @@ import {
 import {
   assertExpectedPublicRevisionIds,
   enqueueWorkflowRevalidation,
-  publicTreeOptions,
   readActiveSnapshots,
   workflowOperationId,
 } from './publicationCommands.js'
+import { publicTreeOptions } from './publicationPaths.js'
 import { publicPathForEntry } from './publicTree.js'
 import { appendRevision } from './revisions.js'
 
