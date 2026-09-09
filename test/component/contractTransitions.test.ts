@@ -568,6 +568,41 @@ describe('bounded canonical contract transitions', () => {
     ])
   })
 
+  it('rejects malformed target contracts before creating a run or acquiring the write lock', async () => {
+    const ctx = createCtx()
+    await seedTransitionEntry(ctx)
+    const target = contractFixture('/articles')
+    const malformedContent = { ...target, unsupported: true }
+    const malformedPresentation = { ...presentationFixture('Articles'), unsupported: true }
+
+    await expect(
+      ctx.raw.mutation(api.contractTransitions.beginContractTransition, {
+        runKey: 'malformed-content',
+        targetContent: malformedContent,
+        targetContentHash: await hashCanonicalJson(malformedContent),
+        targetPresentation: presentationFixture('Articles'),
+        targetPresentationHash: await hashCanonicalJson(presentationFixture('Articles')),
+        actor: 'owner-cli',
+      }),
+    ).rejects.toThrow(/Content contract contains unknown key "unsupported"/)
+
+    await expect(
+      ctx.raw.mutation(api.contractTransitions.beginContractTransition, {
+        runKey: 'malformed-presentation',
+        targetContent: target,
+        targetContentHash: await hashCanonicalJson(target),
+        targetPresentation: malformedPresentation,
+        targetPresentationHash: await hashCanonicalJson(malformedPresentation),
+        actor: 'owner-cli',
+      }),
+    ).rejects.toThrow(/presentation.*unsupported.*unsupported/i)
+
+    expect(await ctx.readAll('contractTransitionRuns')).toEqual([])
+    expect(await ctx.readAll('cmsContract')).toEqual([
+      expect.objectContaining({ transitionState: 'ready', transitionRunId: null }),
+    ])
+  })
+
   it('binds run-key idempotency to canonical content and presentation hashes', async () => {
     const ctx = createCtx()
     await seedTransitionEntry(ctx)

@@ -1,5 +1,8 @@
-import { jsonValueValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import {
+  jsonObjectValidator,
+  jsonValueValidator,
+} from '@lupinum/ginko-cms-contract/convex/validators.js'
+import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   assertResolvedContentContract,
   hashCanonicalJson,
@@ -19,9 +22,9 @@ import {
 import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
 
 export const installCmsContractArgs = {
-  content: jsonValueValidator,
+  content: jsonObjectValidator,
   contentHash: v.string(),
-  presentation: jsonValueValidator,
+  presentation: jsonObjectValidator,
   presentationHash: v.string(),
 }
 
@@ -80,9 +83,9 @@ export const assertExpectedCmsContract = directInternalQuery({
 })
 
 type InstallCmsContractArgs = {
-  content: JsonValue
+  content: JsonObject
   contentHash: string
-  presentation: JsonValue
+  presentation: JsonObject
   presentationHash: string
 }
 
@@ -357,15 +360,16 @@ function contractDrift(
   expected: JsonValue,
   path = '$',
 ): Array<{ path: string; installed?: JsonValue; expected?: JsonValue }> {
+  if (installed === undefined) return [{ path }]
   if (isSameJson(installed, expected)) return []
   if (Array.isArray(installed) && Array.isArray(expected)) {
     const drift: ReturnType<typeof contractDrift> = []
     const length = Math.max(installed.length, expected.length)
     for (let index = 0; index < length; index += 1) {
       if (index >= expected.length) {
-        drift.push({ path: `${path}[${index}]`, installed: installed[index] })
+        drift.push({ path: `${path}[${index}]` })
       } else if (index >= installed.length) {
-        drift.push({ path: `${path}[${index}]`, expected: expected[index]! })
+        drift.push({ path: `${path}[${index}]` })
       } else {
         drift.push(...contractDrift(installed[index], expected[index]!, `${path}[${index}]`))
       }
@@ -379,9 +383,9 @@ function contractDrift(
       const installedValue = installed[key]
       const expectedValue = expected[key]
       if (expectedValue === undefined) {
-        drift.push({ path: `${path}.${key}`, installed: installedValue })
+        drift.push({ path: `${path}.${key}` })
       } else if (installedValue === undefined) {
-        drift.push({ path: `${path}.${key}`, expected: expectedValue })
+        drift.push({ path: `${path}.${key}` })
       } else {
         drift.push(...contractDrift(installedValue, expectedValue, `${path}.${key}`))
       }

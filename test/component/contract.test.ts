@@ -8,7 +8,9 @@ import {
 } from '@lupinum/ginko-content/cms-contract'
 import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
+import { installCmsContractArgs } from '../../packages/convex/src/contract'
 import { api, createCtx, seedMcpDelegation, seedMember } from '../helpers'
 
 function contractFixture(options: { path?: string; includePages?: boolean } = {}) {
@@ -41,6 +43,33 @@ function contractFixture(options: { path?: string; includePages?: boolean } = {}
   )
 }
 
+function deepContractFixture(options: { includeHref?: boolean } = {}) {
+  const linkSchema =
+    options.includeHref === false
+      ? z.object({ label: z.string() })
+      : z.object({ label: z.string(), href: z.string() })
+
+  return buildResolvedContentContract(
+    {
+      collections: {
+        authors: {
+          type: 'data',
+          source: 'content/authors/**/*.json',
+          i18n: true,
+          schema: z.object({
+            links: z.array(linkSchema).optional(),
+          }),
+        },
+      },
+    },
+    {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      localeFallbacks: { de: ['en'] },
+    },
+  )
+}
+
 const emptyPresentation = { collections: {} } as const
 
 async function contractPayload(
@@ -56,6 +85,70 @@ async function contractPayload(
 }
 
 describe('canonical CMS contract installation', () => {
+  it('accepts the object envelope around the bounded JSON contract payload', () => {
+    expect(installCmsContractArgs.content.kind).toBe('record')
+    expect(installCmsContractArgs.presentation.kind).toBe('record')
+  })
+
+  it('accepts the nested field-validation depth used by the Lupinum website contract', async () => {
+    const ctx = createCtx()
+    const contract = deepContractFixture()
+
+    await expect(
+      ctx.raw.mutation(api.contract.installCmsContract, await contractPayload(contract)),
+    ).resolves.toMatchObject({
+      collectionCount: 1,
+      localeCount: 2,
+      created: 1,
+    })
+
+    expect((await ctx.readAll('cmsContract'))[0]?.content).toEqual(contract)
+  })
+
+  it('reports a deep missing field by its actionable path without returning an oversized value', async () => {
+    const ctx = createCtx()
+    const installed = deepContractFixture({ includeHref: false })
+    await ctx.raw.mutation(api.contract.installCmsContract, await contractPayload(installed))
+
+    const expected = deepContractFixture()
+    const result = await ctx.raw.query(
+      api.contract.checkCmsContract,
+      await contractPayload(expected),
+    )
+
+    expect(result.drift).toContainEqual({
+      path: '$.collections.authors.fields[0].validation.element.fields.href',
+    })
+  })
+
+  it('rejects unknown content and presentation values at the canonical boundary', async () => {
+    const ctx = createCtx()
+    const contract = contractFixture()
+    const content = { ...contract, unsupported: true }
+    const contentHash = await hashCanonicalJson(content)
+
+    await expect(
+      ctx.raw.mutation(api.contract.installCmsContract, {
+        content,
+        contentHash,
+        presentation: emptyPresentation,
+        presentationHash: await hashCanonicalJson(emptyPresentation),
+      }),
+    ).rejects.toThrow(/Content contract contains unknown key "unsupported"/)
+
+    const presentation = { collections: {}, unsupported: true }
+    await expect(
+      ctx.raw.mutation(api.contract.installCmsContract, {
+        content: contract,
+        contentHash: await hashCanonicalJson(contract),
+        presentation,
+        presentationHash: await hashCanonicalJson(presentation),
+      }),
+    ).rejects.toThrow(/presentation.*unsupported.*unsupported/i)
+
+    expect(await ctx.readAll('cmsContract')).toEqual([])
+  })
+
   it('accepts the host-verified MCP caller used by write preflight', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })
@@ -259,8 +352,6 @@ describe('canonical CMS contract installation', () => {
       presentationDrift: expect.arrayContaining([
         {
           path: '$.presentation.collections.posts',
-          installed: undefined,
-          expected: { label: 'Articles' },
         },
       ]),
     })

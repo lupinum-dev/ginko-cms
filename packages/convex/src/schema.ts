@@ -32,8 +32,8 @@ const durableSha256StateValidator = v.object({
 export default defineSchema({
   cmsContract: defineTable({
     key: v.literal('active'),
-    content: jsonValueValidator,
-    presentation: jsonValueValidator,
+    content: jsonObjectValidator,
+    presentation: jsonObjectValidator,
     contentHash: v.string(),
     presentationHash: v.string(),
     writeGeneration: v.number(),
@@ -50,8 +50,8 @@ export default defineSchema({
     fromPresentationHash: v.string(),
     toPresentationHash: v.string(),
     affectedCollections: v.array(v.string()),
-    targetContent: jsonValueValidator,
-    targetPresentation: jsonValueValidator,
+    targetContent: jsonObjectValidator,
+    targetPresentation: jsonObjectValidator,
     state: v.union(
       v.literal('staging'),
       v.literal('validating'),
