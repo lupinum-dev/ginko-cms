@@ -459,9 +459,10 @@ describe('package boundary contracts', () => {
     const missing: string[] = []
     const references = collectSourceFiles('packages/cms/src/cli').flatMap((file) => {
       const source = readFileSync(file, 'utf8')
-      return [...source.matchAll(/api\.ginkoCms\.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)/g)].map(
-        (match) => ({ module: match[1]!, name: match[2]! }),
-      )
+      return [...source.matchAll(/api\.ginkoCms\.(\w+)\.(\w+)/g)].map((match) => ({
+        module: match[1]!,
+        name: match[2]!,
+      }))
     })
 
     for (const reference of references) {
