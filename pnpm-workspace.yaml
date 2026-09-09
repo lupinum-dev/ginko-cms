@@ -11,5 +11,4 @@ allowBuilds:
   unrs-resolver: true
   vue-demi: true
 overrides:
-  '@lupinum/better-convex-nuxt': 'https://pkg.pr.new/lupinum-dev/better-convex/@lupinum/better-convex-nuxt@ee4f0925d9fd1e2e629178a7752dcc08790b0dff'
-  '@lupinum/better-convex-vue': 'https://pkg.pr.new/lupinum-dev/better-convex/@lupinum/better-convex-vue@ee4f0925d9fd1e2e629178a7752dcc08790b0dff'
+  '@lupinum/ginko-content': 'file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.8.tgz'

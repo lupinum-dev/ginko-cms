@@ -10,7 +10,7 @@
     "@lupinum/better-convex-vue": "1.0.0-beta.5"
   },
   "sourceRehearsal": {
-    "betterConvexCommit": "ee4f0925d9fd1e2e629178a7752dcc08790b0dff"
+    "betterConvexCommit": "7e7ff1f71af1edc738166709d3f4463ad736ed06"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
@@ -26,19 +26,19 @@
       "integrity": "sha512-swrRLIqDCgpQkG9kYAQNpzeBrD4e6OsjdSz0RJ4KmSERDnMira0U9drfT1kSEQzvWpwM4QCAvRFk9XyECbF/9w=="
     },
     "@lupinum/better-convex-nuxt": {
-      "sourceCommit": "ee4f0925d9fd1e2e629178a7752dcc08790b0dff",
-      "preview": "https://pkg.pr.new/lupinum-dev/better-convex/@lupinum/better-convex-nuxt@ee4f0925d9fd1e2e629178a7752dcc08790b0dff",
+      "sourceCommit": "7e7ff1f71af1edc738166709d3f4463ad736ed06",
+      "registry": "https://registry.npmjs.org/@lupinum/better-convex-nuxt/-/better-convex-nuxt-1.0.0-beta.5.tgz",
       "sha256": "1e5e99c04592e0a1577d49cd93ec66c0fedee489bdbcf8ebf6373303ef7ddb66",
       "integrity": "sha512-GZkmStB2LUh+KfVfQl+n1W7/jQZ1XIMMLNwksagz5kDjeBJZLuGRxuS5ripcPfakokdmKbN0AM5E3yUXdUtCXw==",
       "runtimeFingerprint": "bcn-release-v1-4c7db0c00fd8f9b2490340d84bc9d860124d89a43951a18b6fa591ce012becd9",
-      "releaseCertification": "disposable-preview-only"
+      "releaseCertification": "release-ready"
     },
     "@lupinum/better-convex-vue": {
-      "sourceCommit": "ee4f0925d9fd1e2e629178a7752dcc08790b0dff",
-      "preview": "https://pkg.pr.new/lupinum-dev/better-convex/@lupinum/better-convex-vue@ee4f0925d9fd1e2e629178a7752dcc08790b0dff",
+      "sourceCommit": "7e7ff1f71af1edc738166709d3f4463ad736ed06",
+      "registry": "https://registry.npmjs.org/@lupinum/better-convex-vue/-/better-convex-vue-1.0.0-beta.5.tgz",
       "sha256": "0cad1afbf053192ac83179864bfe05adf84bd395738405aef990b4d5445267d8",
       "integrity": "sha512-pBje/jknmN4ugVxsyl3ezpc2Ks85AQ5GonUjaW/J6wEehwL4lV3PeRovrvvieHx7xRrxvqSFO0K97m70rAtvTQ==",
-      "releaseCertification": "disposable-preview-only"
+      "releaseCertification": "release-ready"
     }
   },
   "tracked": {

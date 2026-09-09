@@ -21,10 +21,11 @@ the CMS packages are published.
 
 ## Daily Maintenance
 
-The Better Convex Nuxt/Vue beta.5 tuple and Ginko Content beta.8 are the local
-behavioral candidate baseline. Release certification remains pending until the
-compatibility authority names final published artifacts. Install the committed dependency graph, then run the source and
-packed-source checks:
+The Better Convex Nuxt/Vue beta.5 tuple is installed from its exact registry
+artifacts. Ginko Content beta.8 remains a local behavioral candidate until its
+reviewed artifact is published, so final release certification and the
+machine-independent lockfile gate remain blocked. Install the committed
+dependency graph, then run the source and packed-source checks:
 
 ```bash
 pnpm install --frozen-lockfile
