@@ -88,8 +88,9 @@ const convexMock = vi.hoisted(() => {
   const calls: Array<{ operation: string; args: Record<string, unknown> }> = []
   const state: {
     listEntries: ReturnType<typeof entry>[] | null
+    paginatedListEntries: ReturnType<typeof entry>[] | null
     routeContinuationCursor: string | null
-  } = { listEntries: null, routeContinuationCursor: null }
+  } = { listEntries: null, paginatedListEntries: null, routeContinuationCursor: null }
   const query = vi.fn(async (reference: Record<symbol, string>, rawArgs: unknown) => {
     const operation =
       String(reference[Symbol.for('functionName')] || '')
@@ -120,8 +121,21 @@ const convexMock = vi.hoisted(() => {
       return wire(pageResult(args, entry(String(args.locale || 'en'))))
     }
     if (operation === 'list') {
+      if (state.paginatedListEntries) {
+        const start = Number(args.cursor || 0)
+        const limit = Number(args.limit || 20)
+        const entries = state.paginatedListEntries.slice(start, start + limit)
+        const end = start + entries.length
+        const hasNextPage = end < state.paginatedListEntries.length
+        return wire({
+          entries,
+          pageInfo: { hasNextPage, endCursor: hasNextPage ? String(end) : null },
+          collection: args.collection,
+          locale: localeResult(String(args.locale || 'en')),
+        })
+      }
       return wire({
-        entries: state.listEntries ?? [entry(String(args.locale || 'en'))],
+        entries: args.cursor ? [] : (state.listEntries ?? [entry(String(args.locale || 'en'))]),
         pageInfo: { hasNextPage: args.cursor !== 'next', endCursor: args.cursor ? null : 'next' },
         collection: args.collection,
         locale: localeResult(String(args.locale || 'en')),
@@ -207,6 +221,7 @@ describe('Ginko Nuxt provider v5', () => {
     vi.resetModules()
     convexMock.calls.length = 0
     convexMock.state.listEntries = null
+    convexMock.state.paginatedListEntries = null
     convexMock.state.routeContinuationCursor = null
     convexMock.query.mockClear()
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://example.convex.cloud'
@@ -317,7 +332,7 @@ describe('Ginko Nuxt provider v5', () => {
     loadProvider: async () => contentProvider as never,
     createEvent: () => event,
     expectedCapabilities: {
-      query: { operators: ['$eq', '$ne', '$prefix'], pagination: ['cursor'] },
+      query: { operators: ['$eq', '$ne', '$prefix', '$exists'], pagination: ['cursor'] },
     },
     operatorProbes: {
       $eq: {
@@ -339,6 +354,17 @@ describe('Ginko Nuxt provider v5', () => {
         positive: toContentProviderQuery({
           collection: 'docs',
           where: { path: { $prefix: '/docs' } },
+        }),
+        assertResult: (result) => {
+          expect(result).toMatchObject({
+            result: [expect.objectContaining({ title: 'Content Routing' })],
+          })
+        },
+      },
+      $exists: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          where: { description: { $exists: true } },
         }),
         assertResult: (result) => {
           expect(result).toMatchObject({
@@ -439,7 +465,7 @@ describe('Ginko Nuxt provider v5', () => {
 
   it('advertises only capabilities it implements', () => {
     expectProviderCapabilities(contentProvider as never, {
-      query: { operators: ['$eq', '$ne', '$prefix'], pagination: ['cursor'] },
+      query: { operators: ['$eq', '$ne', '$prefix', '$exists'], pagination: ['cursor'] },
     })
   })
 
@@ -828,6 +854,84 @@ describe('Ginko Nuxt provider v5', () => {
     expect(isContentProviderResult(response)).toBe(true)
     if (!isContentProviderResult(response)) throw new Error('Provider cache wrapper is missing.')
     expect(response.cache).toMatchObject({ tags: ['collection:docs'] })
+  })
+
+  it('filters and sorts the complete published collection before limit and selection', async () => {
+    convexMock.state.paginatedListEntries = Array.from({ length: 105 }, (_, index) => {
+      const value = entry('de')
+      const stableId = `docs-${String(index).padStart(3, '0')}`
+      const homeOrder = index >= 101 ? [3, 1, 4, 2][index - 101] : undefined
+      return {
+        ...value,
+        id: `entry-${stableId}`,
+        stableId,
+        revision: stableId,
+        title: `Document ${index}`,
+        data: {
+          ...value.data,
+          ...(homeOrder === undefined ? {} : { homeOrder }),
+          privateDraftNote: `not selected ${index}`,
+        },
+        route: { ...value.route, path: `/docs/${stableId}`, slug: stableId },
+      }
+    })
+
+    const response = unwrap(
+      await contentProvider.query(
+        event,
+        toContentProviderQuery({
+          collection: 'docs',
+          resolveLocale: { locale: 'de', fallback: false },
+          where: { homeOrder: { $exists: true } },
+          sort: [{ homeOrder: 1 }],
+          only: ['homeOrder'],
+          limit: 3,
+        }),
+      ),
+    )
+
+    expect(response).toMatchObject({
+      result: [{ homeOrder: 1 }, { homeOrder: 2 }, { homeOrder: 3 }],
+      skip: 0,
+      limit: 3,
+      total: 4,
+    })
+    expect((response as { result: Array<Record<string, unknown>> }).result).toHaveLength(3)
+    expect((response as { result: Array<Record<string, unknown>> }).result[0]).not.toHaveProperty(
+      'privateDraftNote',
+    )
+    expect(convexMock.calls.filter((call) => call.operation === 'list')).toHaveLength(2)
+    expect(
+      convexMock.calls
+        .filter((call) => call.operation === 'list')
+        .every((call) => call.args.locale === 'de'),
+    ).toBe(true)
+  })
+
+  it('rejects metadata scans above the complete published-row bound', async () => {
+    convexMock.state.paginatedListEntries = Array.from({ length: 5_001 }, (_, index) => {
+      const value = entry('en')
+      const stableId = `docs-${index}`
+      return {
+        ...value,
+        id: `entry-${stableId}`,
+        stableId,
+        revision: stableId,
+        data: { ...value.data, homeOrder: index },
+        route: { ...value.route, path: `/docs/${stableId}`, slug: stableId },
+      }
+    })
+
+    await expect(
+      contentProvider.query(
+        event,
+        toContentProviderQuery({
+          collection: 'docs',
+          where: { homeOrder: { $exists: true } },
+          limit: 3,
+        }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'QUERY_UNSUPPORTED' })
   })
 
   it('rejects old and future provider query versions before dispatch', async () => {

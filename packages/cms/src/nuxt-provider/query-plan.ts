@@ -2,6 +2,7 @@ import { createContentDataSourceError } from '@lupinum/ginko-content/data-source
 import {
   PROVIDER_QUERY_VERSION,
   type ContentProviderQuery,
+  type ContentProviderQueryPlan,
   type ProviderDocumentInput,
 } from '@lupinum/ginko-content/provider'
 
@@ -150,3 +151,120 @@ export function sortFromPlan(sort: PlanSort = []): string | undefined {
 
 export const hasExplicitPublicSort = (sort: PlanSort = []): boolean =>
   sort.some((item) => item.field)
+
+const valueAt = (entry: ProviderDocumentInput, field: string): unknown => {
+  if (field === 'draft' || field === 'partial') return false
+  if (field === 'path') return entry.contentPath
+  return field.split('.').reduce<unknown>((value, segment) => {
+    if (!value || typeof value !== 'object' || !Object.hasOwn(value, segment)) return undefined
+    return (value as Record<string, unknown>)[segment]
+  }, entry)
+}
+
+const matchesPublishedFilter = (
+  entry: ProviderDocumentInput,
+  filter: ContentProviderQueryPlan['filter'],
+): boolean => {
+  if (filter.type === 'true') return true
+  if (filter.type === 'and') {
+    return filter.clauses.every((clause) => matchesPublishedFilter(entry, clause))
+  }
+  if (filter.type === 'or') {
+    return filter.clauses.some((clause) => matchesPublishedFilter(entry, clause))
+  }
+  if (filter.type === 'not') return !matchesPublishedFilter(entry, filter.clause)
+
+  const actual = valueAt(entry, filter.field)
+  if (filter.operator === 'eq') return actual === filter.value
+  if (filter.operator === 'ne') return actual !== filter.value
+  if (filter.operator === 'exists') {
+    return filter.value === true ? actual !== undefined : actual === undefined
+  }
+  if (filter.operator === 'prefix') return String(actual || '').startsWith(String(filter.value))
+  return unsupported()
+}
+
+const sortPublishedEntries = (
+  entries: ProviderDocumentInput[],
+  sort: PlanSort = [],
+): ProviderDocumentInput[] => {
+  for (const clause of [...sort].reverse()) {
+    const collator = new Intl.Collator(clause.locale, {
+      numeric: clause.numeric,
+      caseFirst: clause.caseFirst,
+      sensitivity: clause.sensitivity,
+    })
+    entries.sort((left, right) => {
+      const values = [valueAt(left, clause.field), valueAt(right, clause.field)].map((value) =>
+        value === null || value === undefined ? '' : String(value),
+      )
+      if (clause.direction === -1) values.reverse()
+      return collator.compare(values[0]!, values[1]!)
+    })
+  }
+  return entries
+}
+
+const SCAN_CURSOR_PREFIX = 'ginko-cms-scan:'
+
+const scanOffset = (cursor: string | null | undefined): number => {
+  if (!cursor) return 0
+  if (!cursor.startsWith(SCAN_CURSOR_PREFIX)) return unsupported()
+  const offset = Number(cursor.slice(SCAN_CURSOR_PREFIX.length))
+  if (!Number.isSafeInteger(offset) || offset < 0) return unsupported()
+  return offset
+}
+
+export function needsPublishedScan(plan: ContentProviderQueryPlan): boolean {
+  try {
+    collectPlanFilter(plan.filter)
+    sortFromPlan(plan.sort)
+    return plan.pagination.mode === 'slice' && plan.pagination.skip > 0
+  } catch {
+    return true
+  }
+}
+
+export function publishedScanLocale(
+  filter: ContentProviderQueryPlan['filter'],
+): string | undefined {
+  if (filter.type === 'compare') {
+    return filter.field === 'locale' && filter.operator === 'eq' && typeof filter.value === 'string'
+      ? filter.value
+      : undefined
+  }
+  if (filter.type === 'and') {
+    return filter.clauses.map(publishedScanLocale).find((locale) => locale !== undefined)
+  }
+  return undefined
+}
+
+export function executePublishedScan(
+  entries: ProviderDocumentInput[],
+  plan: ContentProviderQueryPlan,
+) {
+  const matched = sortPublishedEntries(
+    entries.filter((entry) => matchesPublishedFilter(entry, plan.filter)),
+    plan.sort,
+  )
+  const offset =
+    plan.pagination.mode === 'cursor' ? scanOffset(plan.pagination.after) : plan.pagination.skip
+  const limit = plan.pagination.limit ?? matched.length
+  const page = matched
+    .slice(offset, offset + limit)
+    .map((entry) => applyOnlyProjection(entry, plan.projection?.only))
+  if (plan.mode === 'first') return { result: page[0] }
+  if (plan.pagination.mode === 'cursor') {
+    const hasNext = offset + limit < matched.length
+    return {
+      mode: 'cursor' as const,
+      result: page,
+      limit,
+      pageInfo: {
+        endCursor: hasNext ? `${SCAN_CURSOR_PREFIX}${offset + limit}` : null,
+        hasNext,
+      },
+    }
+  }
+  return { result: page, skip: offset, limit, total: matched.length }
+}

@@ -48,18 +48,20 @@ not pass a locale, the provider uses `en`.
   Page, navigation, surroundings, search, and sitemap reads are route-backed
   surfaces and reject data-only collections deliberately.
 - Draft/editor tables are not read by the provider.
-- Unsupported query operators fail with `unsupported_query_operator`.
+- The provider executes `$eq`, `$ne`, `$prefix`, and `$exists` against published
+  documents. Unsupported query operators fail with `unsupported_query_operator`.
 - Ginko owns published route, nav, sitemap, and page content. The Nuxt app owns
   presentation adapters and layout.
 
 ## Current Limits
 
-- `query` is intentionally limited to public list reads. Supported public plan
-  filters are `draft: false`, `partial: false`, `locale`, and `path` prefix
-  comparisons.
-- Public sort supports `orderKey`, `entryCreatedAt`, `firstPublishedAt`, and
-  `lastPublishedAt`.
-- Positive numeric `skip`, `count`, and `without` projections are rejected.
+- `query` is intentionally limited to public list reads. Indexed route and
+  publication fields use direct public reads. Published metadata filters and
+  sorts use a complete, bounded collection scan so filtering and ordering still
+  happen before selection and pagination.
+- A metadata scan supports at most 5,000 published documents in one collection.
+  Larger collections fail explicitly instead of returning a partial result.
+- `count` and `without` projections are rejected.
 - Query results are raw Ginko Content provider documents. They expose one
   structural route model through `contentPath`, `canonicalKey`, and
   `routeVariants`; route resolution and locale policy remain owned by the

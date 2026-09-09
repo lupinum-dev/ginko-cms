@@ -41,7 +41,10 @@ import {
   assertProviderQuery,
   assertQueryCollection,
   collectPlanFilter,
+  executePublishedScan,
   hasExplicitPublicSort,
+  needsPublishedScan,
+  publishedScanLocale,
   sortFromPlan,
   type FilterState,
 } from './query-plan.js'
@@ -80,6 +83,8 @@ const isRecord = (value: unknown): value is UnknownRecord =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
 const CMS_PUBLIC_SEARCH_MAX_LIMIT = 50
+const CMS_PUBLIC_SCAN_PAGE_SIZE = 100
+const CMS_PUBLIC_SCAN_MAX_ENTRIES = 5_000
 
 const runtimeConfigFromEvent = async (event: ProviderEvent): Promise<RuntimeConfig> => {
   const context = event?.context as UnknownRecord | undefined
@@ -160,8 +165,11 @@ const localeFromOptions = (
   contentRuntime: ContentRuntime = {},
 ): string => options.locale || defaultLocale(contentRuntime)
 
-const localeFromQuery = (filterState: FilterState, contentRuntime: ContentRuntime = {}): string =>
-  filterState.locale || defaultLocale(contentRuntime)
+const localeFromQuery = (
+  filterState: FilterState,
+  contentRuntime: ContentRuntime = {},
+  resolvedLocale?: string,
+): string => filterState.locale || resolvedLocale || defaultLocale(contentRuntime)
 
 const decodeRequested = <T extends ReturnedFacts>(
   operation: string,
@@ -184,6 +192,36 @@ const decodeResult = <T>(operation: string, parser: (raw: unknown) => T, raw: un
   } catch {
     throw createContentDataSourceError('BACKEND_FAILURE')
   }
+}
+
+const readPublishedCollection = async (
+  context: GinkoCmsDataSourceContext,
+  control: ContentDataSourceControl,
+  collection: string,
+  locale: string,
+) => {
+  const entries: ProviderDocumentInput[] = []
+  let cursor: string | null = null
+  do {
+    const raw = await callGinko(
+      context.caller,
+      'list',
+      { collection, locale, limit: CMS_PUBLIC_SCAN_PAGE_SIZE, cursor },
+      control,
+    )
+    const result = decodeRequested('list', parseCmsListWireResult, { collection, locale }, raw)
+    entries.push(
+      ...(await Promise.all((result.entries || []).map((entry) => toContentEntry(entry, locale)))),
+    )
+    if (entries.length > CMS_PUBLIC_SCAN_MAX_ENTRIES) {
+      throw createContentDataSourceError('QUERY_UNSUPPORTED')
+    }
+    cursor = result.pageInfo?.hasNextPage ? result.pageInfo.endCursor : null
+    if (result.pageInfo?.hasNextPage && !cursor) {
+      throw createContentDataSourceError('BACKEND_FAILURE')
+    }
+  } while (cursor)
+  return entries
 }
 
 const resolveVariant = async (
@@ -286,7 +324,7 @@ export const contentDataSource = {
   capabilities: {
     protocol: 'ginko-content-data-source/v1',
     query: {
-      operators: ['$eq', '$ne', '$prefix'],
+      operators: ['$eq', '$ne', '$prefix', '$exists'],
       pagination: ['cursor'],
       maxPageSize: 100,
     },
@@ -327,6 +365,14 @@ export const contentDataSource = {
     }
     const collection = input.collection
     assertQueryCollection(collection)
+    if (needsPublishedScan(plan)) {
+      const locale =
+        publishedScanLocale(plan.filter) ??
+        plan.resolveLocale?.locale ??
+        defaultLocale(contentRuntime)
+      const entries = await readPublishedCollection(context, control, collection, locale)
+      return sourceResult(executePublishedScan(entries, plan), collectionCacheHint(collection))
+    }
     const filterState = collectPlanFilter(plan.filter)
     if (filterState.impossible) {
       const limit = plan.pagination.limit ?? 100
@@ -342,7 +388,7 @@ export const contentDataSource = {
         collectionCacheHint(collection),
       )
     }
-    const locale = localeFromQuery(filterState, contentRuntime)
+    const locale = localeFromQuery(filterState, contentRuntime, plan.resolveLocale?.locale)
     const pathPrefix = filterState.pathPrefix
     if (pathPrefix && hasExplicitPublicSort(plan.sort)) {
       throw createContentDataSourceError('QUERY_UNSUPPORTED')
@@ -413,7 +459,11 @@ export const contentDataSource = {
     const collection = input.collection
     assertQueryCollection(collection)
     const contentRuntime = await contentRuntimeFromEvent(context.event)
-    const locale = localeFromQuery(collectPlanFilter(input.plan.filter), contentRuntime)
+    const locale = localeFromQuery(
+      collectPlanFilter(input.plan.filter),
+      contentRuntime,
+      input.plan.resolveLocale?.locale,
+    )
     const fields = input.plan?.projection?.only || []
     const result = decodeRequested(
       'navigation',
