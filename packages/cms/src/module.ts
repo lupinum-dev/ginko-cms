@@ -234,10 +234,14 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     nuxt.options.routeRules[studioRoute] = {
       ...nuxt.options.routeRules[studioRoute],
       prerender: false,
+      robots: false,
+      sitemap: false,
     }
     nuxt.options.routeRules[`${studioRoute}/**`] = {
       ...nuxt.options.routeRules[`${studioRoute}/**`],
       prerender: false,
+      robots: false,
+      sitemap: false,
     }
 
     nuxt.options.alias ??= {}

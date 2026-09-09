@@ -145,10 +145,12 @@ describe('ginko-cms Convex setup validation', () => {
       classSuffix: '',
     })
     expect(nuxt.options.routeRules).toMatchObject({
-      '/studio': { prerender: false },
+      '/studio': { prerender: false, robots: false, sitemap: false },
       '/studio/**': {
         headers: { 'x-studio-rule': 'preserved' },
         prerender: false,
+        robots: false,
+        sitemap: false,
       },
     })
 
