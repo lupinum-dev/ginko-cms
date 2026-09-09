@@ -7,11 +7,12 @@ const KIB = 1_024
 /**
  * Canonical rich-text limit for every CMS ingestion path.
  *
- * 64 KiB is intentionally large enough for long-form editorial documents while
- * leaving deterministic headroom for three-locale immutable revisions and the
- * 1 MiB Convex document ceiling.
+ * 128 KiB accommodates long legal and documentation pages while leaving
+ * deterministic headroom for three-locale immutable revisions and the 1 MiB
+ * Convex document ceiling. Publication also measures the complete revision
+ * document before writing it.
  */
-export const MAX_MDC_BODY_BYTES = 64 * KIB
+export const MAX_MDC_BODY_BYTES = 128 * KIB
 
 /** A bounded 1,500-result search set stays below Convex's 16 MiB read ceiling. */
 export const MAX_SEARCH_TEXT_BYTES = 4 * KIB

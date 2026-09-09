@@ -71,7 +71,7 @@ describe('canonical publication lifecycle', () => {
     expect((await ctx.readAll('entries'))[0]).toMatchObject({ activePublications: [] })
   })
 
-  it('enforces the exact 64 KiB UTF-8 body boundary in drafts and publish previews', async () => {
+  it('enforces the exact UTF-8 body boundary in drafts and publish previews', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
     await seedSettings(ctx)
@@ -112,8 +112,46 @@ describe('canonical publication lifecycle', () => {
     })
     expect(preview.allowed).toBe(false)
     expect(preview.blockers).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'ENTRY_BODY_TOO_LARGE' })]),
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'ENTRY_BODY_TOO_LARGE',
+          message: expect.stringContaining('128 KiB'),
+        }),
+      ]),
     )
+  })
+
+  it('publishes and serves the long legal-page body used by the Lupinum website', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const { entryId } = await seedEditorFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const bodyMdc = 'x'.repeat(72_498)
+
+    await owner.saveEntryDraft({
+      entryId,
+      expectedDraftVersion: await currentDraftVersion(owner, entryId),
+      patch: { locales: { en: { bodyMdc } } },
+    })
+    const publication = await publishEntry(owner, entryId, ['en'])
+
+    expect(await ctx.readAll('entryRevisions')).toContainEqual(
+      expect.objectContaining({
+        _id: publication.versionId,
+        snapshots: { en: expect.objectContaining({ bodyMdc }) },
+      }),
+    )
+    await expect(
+      ctx.published.query(api.public.page, {
+        collection: 'posts',
+        path: '/posts/hello-world',
+        locale: 'en',
+      }),
+    ).resolves.toMatchObject({
+      status: 'found',
+      page: { bodyAst: expect.any(Object) },
+    })
   })
 
   it('returns typed publish blockers before oversized derived or revision documents are written', async () => {

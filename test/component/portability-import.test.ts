@@ -1551,6 +1551,22 @@ describe('portable draft import', () => {
     expect(await ctx.readAll('portableItems' as never)).toEqual([])
   })
 
+  it('accepts the long legal-page body used by the Lupinum website', async () => {
+    const ctx = createCtx()
+    await seedMember(ctx, { userId: 'owner-1', role: 'owner' })
+    const { contentHash } = await installFixture(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+
+    const plan = await createPlan(ctx, owner, contentHash, {
+      ...documentFixture,
+      body: { kind: 'mdc', source: 'x'.repeat(72_498) },
+    })
+
+    expect(plan).toMatchObject({ state: 'planned' })
+    expect(plan.document.body?.source).toHaveLength(72_498)
+    expect(await ctx.readAll('portableItems' as never)).toHaveLength(1)
+  })
+
   it('rejects a server-staged import whose final tree reaches depth six', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'owner-1', role: 'owner' })

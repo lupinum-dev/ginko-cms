@@ -19,7 +19,7 @@ import { previewPublishImpactForEntry } from '../diagnostics.js'
 import { throwCmsError } from '../errors.js'
 import { callerMutation, callerQuery } from '../functions.js'
 import { assertCollectionSupportsLocale, getCollectionDefaultLocale } from '../lib/collections.js'
-import { MAX_CONVEX_DOCUMENT_BYTES, mdcBodySize } from '../lib/contentLimits.js'
+import { MAX_CONVEX_DOCUMENT_BYTES, MAX_MDC_BODY_BYTES, mdcBodySize } from '../lib/contentLimits.js'
 import { asEntryId } from '../lib/ids.js'
 import { readInstalledCmsContract } from '../lib/installedContract.js'
 import { getRoutingLocales } from '../lib/locale.js'
@@ -201,7 +201,7 @@ export const publishEntryOperation = defineCmsOperation({
         publishBlockers.push(
           operationIssue({
             code: 'ENTRY_BODY_TOO_LARGE',
-            message: `Rich content for ${locale} exceeds the 64 KiB publish limit.`,
+            message: `Rich content for ${locale} exceeds the ${MAX_MDC_BODY_BYTES / 1024} KiB publish limit.`,
           }),
         )
       }
