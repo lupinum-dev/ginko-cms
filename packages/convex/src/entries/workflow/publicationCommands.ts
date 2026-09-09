@@ -29,6 +29,7 @@ import { buildPublicProjectionFromRevisionSnapshot } from './projectionBuild.js'
 import {
   publicPathForEntry,
   publicPathForPlacement,
+  validatePublicPath,
   validatePublicPlacement,
   validatePublicRedirectCandidate,
   type PublicTreePathOptions,
@@ -48,7 +49,15 @@ export const workflowOperationId = (
 ): string => `${kind}:${String(entryId)}:${now}`
 
 function publicSegment(collection: CmsCollection, entry: Doc<'entries'>, slug: string): string {
-  if (!isRouteBackedCollection(collection)) return entry.stableId
+  if (!isRouteBackedCollection(collection)) {
+    const path = validatePublicPath(`/${entry.stableId}`)
+    // Data-only projections need a stored index segment, but never expose it as
+    // a route. Preserve simple stable IDs and use the immutable entry ID when a
+    // portable canonical key contains path separators or another unsafe value.
+    return path.ok && path.segments.length === 1 && path.segments[0] === entry.stableId
+      ? entry.stableId
+      : String(entry._id)
+  }
   return needsStableId(collection) ? `${slug}-${entry.stableId}` : slug
 }
 

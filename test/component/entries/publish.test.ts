@@ -408,4 +408,30 @@ describe('canonical publication lifecycle', () => {
     expect(await ctx.readAll('entryRevisions')).toEqual([])
     expect(await ctx.readAll('publicEntries')).toEqual([])
   })
+
+  it('publishes a data-only entry whose portable canonical key contains a path separator', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await seedSettings(ctx)
+    const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({
+      collection: 'authors',
+      slug: 'lupinum-editorial',
+      localized: { name: 'Lupinum Editorial' },
+    })
+    await ctx.raw.run(async (inner) => {
+      await inner.db.patch(entryId as never, { stableId: 'authors/lupinum-editorial' })
+    })
+
+    await expect(publishEntry(owner, entryId, ['en'])).resolves.toMatchObject({
+      versionId: expect.any(String),
+    })
+    expect(await ctx.readAll('publicEntries')).toContainEqual(
+      expect.objectContaining({
+        entryId,
+        stableId: 'authors/lupinum-editorial',
+        slug: entryId,
+      }),
+    )
+  })
 })

@@ -103,6 +103,8 @@ function client(
   options: { draftSha256?: string; pendingLocales?: string[]; entryCount?: number } = {},
 ) {
   const calls: string[] = []
+  const inspectedEntryIds: string[] = []
+  const publishedEntryIds: string[] = []
   const entryCount = options.entryCount ?? 1
   const identities = Array.from({ length: entryCount }, (_, index) => ({
     entryId: `entry-${String(index + 1).padStart(3, '0')}`,
@@ -132,6 +134,7 @@ function client(
         if (path.endsWith('portability:inspectImportPublicationEntries')) {
           for (const entry of args.entries as Array<Record<string, unknown>>) {
             expect(entry).not.toHaveProperty('locale')
+            inspectedEntryIds.push(String(entry.entryId))
           }
           return {
             entries: (args.entries as Array<{ entryId: string }>).map(({ entryId }) => ({
@@ -145,19 +148,24 @@ function client(
         }
         throw new Error(`Unexpected query ${path}`)
       },
-      mutation: async (reference: unknown) => {
+      mutation: async (reference: unknown, args: Record<string, unknown>) => {
         const path = String((reference as Record<symbol, unknown>)[Symbol.for('functionName')])
         calls.push(path)
         if (path.endsWith('editor:previewPublishEntryOperation')) {
           return { allowed: true, confirmation: { token: 'confirmation' } }
         }
-        if (path.endsWith('editor:publishEntry')) return { status: 'applied' }
+        if (path.endsWith('editor:publishEntry')) {
+          publishedEntryIds.push(String(args.entryId))
+          return { status: 'applied' }
+        }
         throw new Error(`Unexpected mutation ${path}`)
       },
       action: async () => {
         throw new Error('Unexpected action')
       },
     }),
+    inspectedEntryIds,
+    publishedEntryIds,
   }
 }
 
@@ -371,5 +379,36 @@ describe('file-backed Content migration CLI', () => {
     expect(
       fake.calls.filter((path) => path.endsWith('inspectImportPublicationEntries')),
     ).toHaveLength(2)
+  })
+
+  it('publishes imported tree parents before their children', async () => {
+    const root = configuredRoot()
+    evidence(root, 2)
+    const path = join(root, '.ginko/migrations/from-content.json')
+    const saved = JSON.parse(readFileSync(path, 'utf8'))
+    saved.plan.items[0].document = {
+      collection: 'pages',
+      canonicalKey: 'page-1',
+      parentCanonicalKey: 'page-2',
+    }
+    saved.plan.items[1].document = {
+      collection: 'pages',
+      canonicalKey: 'page-2',
+      parentCanonicalKey: null,
+    }
+    writeFileSync(path, JSON.stringify(saved))
+    const fake = client({ entryCount: 2 })
+
+    await expect(
+      runMigrateCommand(
+        ['migrate', 'from-content', '--publish', 'd'.repeat(64)],
+        root,
+        {},
+        fake.factory as never,
+        { authorize: async () => 'short-lived-token' },
+      ),
+    ).resolves.toBe(0)
+    expect(fake.inspectedEntryIds).toEqual(['entry-002', 'entry-001'])
+    expect(fake.publishedEntryIds).toEqual(['entry-002', 'entry-001'])
   })
 })

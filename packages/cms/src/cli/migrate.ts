@@ -182,7 +182,7 @@ export async function runMigrateCommand(
   if (approved !== publication.sha256) {
     throw new Error('The publication approval hash does not match this migration revision set.')
   }
-  return await publishMigration(context.client, evidence, publication, current.entries, io)
+  return await publishMigration(context.client, evidence, current.entries, io)
 }
 
 async function prepareMigration(
@@ -438,9 +438,37 @@ async function inspectPublicationSet(
       })
     }
   }
+  const parentByIdentity = new Map<string, string | null>()
+  for (const item of evidence.plan.items) {
+    const key = `${item.document.collection}\0${item.document.canonicalKey}`
+    const parent = item.document.parentCanonicalKey
+    const current = parentByIdentity.get(key)
+    if (current !== undefined && current !== parent) {
+      throw new Error('Migration publication entry has inconsistent parent identities.')
+    }
+    parentByIdentity.set(key, parent)
+  }
+  const depthByIdentity = new Map<string, number>()
+  const depth = (collection: string, canonicalKey: string, stack = new Set<string>()): number => {
+    const key = `${collection}\0${canonicalKey}`
+    const cached = depthByIdentity.get(key)
+    if (cached !== undefined) return cached
+    if (stack.has(key)) throw new Error('Migration publication parent graph contains a cycle.')
+    const parent = parentByIdentity.get(key)
+    if (!parent) return 0
+    stack.add(key)
+    const value = depth(collection, parent, stack) + 1
+    stack.delete(key)
+    depthByIdentity.set(key, value)
+    return value
+  }
   const requested = [...grouped.values()]
     .map((entry) => ({ ...entry, locales: [...new Set(entry.locales)].sort() }))
-    .sort((left, right) => left.entryId.localeCompare(right.entryId))
+    .sort(
+      (left, right) =>
+        depth(left.collection, left.canonicalKey) - depth(right.collection, right.canonicalKey) ||
+        left.entryId.localeCompare(right.entryId),
+    )
   const entries: PublicationEntry[] = []
   for (let index = 0; index < requested.length; index += 100) {
     const page = (await client.query(api.ginkoCms.portability.inspectImportPublicationEntries, {
@@ -450,20 +478,19 @@ async function inspectPublicationSet(
     })) as { entries: PublicationEntry[] }
     entries.push(...page.entries)
   }
-  return { entries: entries.sort((left, right) => left.entryId.localeCompare(right.entryId)) }
+  const byEntryId = new Map(entries.map((entry) => [entry.entryId, entry]))
+  return { entries: requested.map((entry) => byEntryId.get(entry.entryId)!) }
 }
 
 async function publishMigration(
   client: ReturnType<typeof createOperatorContextFromToken>['client'],
   evidence: MigrationEvidence,
-  publication: NonNullable<MigrationEvidence['publication']>,
   currentEntries: PublicationEntry[],
   io: CliIo,
 ) {
   let committed = currentEntries.filter((entry) => entry.pendingLocales.length === 0).length
   let remaining = currentEntries.length - committed
-  for (const expected of publication.entries) {
-    const current = currentEntries.find((entry) => entry.entryId === expected.entryId)!
+  for (const current of currentEntries) {
     if (current.pendingLocales.length === 0) continue
     try {
       const args = {
