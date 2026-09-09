@@ -2286,7 +2286,7 @@ describe('portable draft import', () => {
     })
     const [leased] = await ctx.readAll('portableRuns' as never)
     expect(leased).toMatchObject({
-      sealItemCount: 250,
+      sealItemCount: 10,
       state: 'sealing',
       workPhase: 'seal-items',
     })
@@ -2300,7 +2300,7 @@ describe('portable draft import', () => {
       ctx.raw.mutation(api.portability.runs.processImportWorkPage, delivery),
     ).resolves.toEqual({ status: 'applied' })
     const [applied] = await ctx.readAll('portableRuns' as never)
-    expect(applied).toMatchObject({ state: 'planned', sealItemCount: 251, workToken: null })
+    expect(applied).toMatchObject({ state: 'sealing', sealItemCount: 20 })
 
     await expect(
       ctx.raw.mutation(api.portability.runs.processImportWorkPage, delivery),
@@ -2389,11 +2389,12 @@ describe('portable draft import', () => {
     })
     expect(resumedStatus).toMatchObject({
       runId: firstLease.runId,
-      state: 'planned',
-      phase: null,
+      state: 'sealing',
+      phase: 'seal-items',
       attempts: 0,
       itemCount: 251,
     })
+    await ctx.raw.finishAllScheduledFunctions(() => vi.advanceTimersByTime(0))
     const [resumed] = await ctx.readAll('portableRuns' as never)
     expect(resumed).toMatchObject({
       state: 'planned',

@@ -26,7 +26,6 @@ import {
   assertImportPlanAssetPayload,
   assertImportPlanItemPayload,
   assertImportPlanPayload,
-  PORTABLE_PLAN_PAGE_LIMIT,
 } from './model.js'
 import { assertPortableFinalPlacementForRows } from './placement.js'
 import {
@@ -40,6 +39,9 @@ import {
 const stateResult = v.object({ runId: v.string(), state: v.string() })
 
 const PORTABLE_STAGE_CLEANUP_PAGE_SIZE = 100
+// Sealing revalidates each document against current drafts and placement.
+// Keep that transaction smaller than the request staging page.
+const PORTABLE_SEAL_PAGE_SIZE = 10
 type ImportItem = Extract<Doc<'portableItems'>, { mode: 'import' }>
 
 const runImportWorkPageRef = makeFunctionReference<'action', PortableWorkLease, null>(
@@ -194,8 +196,8 @@ async function processSealItemPage(ctx: MutationCtx, run: ImportRun): Promise<vo
     const scoped = query.eq('runId', run.runId)
     return run.workCursor === null ? scoped : scoped.gt('itemKey', run.workCursor)
   })
-  const fetched = await indexed.take(PORTABLE_PLAN_PAGE_LIMIT + 1)
-  const rows = fetched.slice(0, PORTABLE_PLAN_PAGE_LIMIT)
+  const fetched = await indexed.take(PORTABLE_SEAL_PAGE_SIZE + 1)
+  const rows = fetched.slice(0, PORTABLE_SEAL_PAGE_SIZE)
   const hash = new DurableSha256(run.sealItemHash)
   let itemCount = run.sealItemCount
   for (const row of rows) {
@@ -239,7 +241,7 @@ async function processSealItemPage(ctx: MutationCtx, run: ImportRun): Promise<vo
     rows.filter((row): row is ImportItem => row.mode === 'import'),
     installed.content,
   )
-  if (fetched.length > PORTABLE_PLAN_PAGE_LIMIT) {
+  if (fetched.length > PORTABLE_SEAL_PAGE_SIZE) {
     await queueNextWorkPage(ctx, run, {
       workCursor: rows.at(-1)!.itemKey,
       sealItemCount: itemCount,
@@ -287,8 +289,8 @@ async function processSealAssetPage(ctx: MutationCtx, run: ImportRun): Promise<v
     const scoped = query.eq('runId', run.runId)
     return run.workCursor === null ? scoped : scoped.gt('sha256', run.workCursor)
   })
-  const fetched = await indexed.take(PORTABLE_PLAN_PAGE_LIMIT + 1)
-  const rows = fetched.slice(0, PORTABLE_PLAN_PAGE_LIMIT)
+  const fetched = await indexed.take(PORTABLE_SEAL_PAGE_SIZE + 1)
+  const rows = fetched.slice(0, PORTABLE_SEAL_PAGE_SIZE)
   const hash = new DurableSha256(run.sealAssetHash)
   let assetCount = run.sealAssetCount
   let attachedAssetCount = run.attachedAssetCount
@@ -314,7 +316,7 @@ async function processSealAssetPage(ctx: MutationCtx, run: ImportRun): Promise<v
     hash.update(canonicalJsonBytes(row.payload))
     assetCount += 1
   }
-  if (fetched.length > PORTABLE_PLAN_PAGE_LIMIT) {
+  if (fetched.length > PORTABLE_SEAL_PAGE_SIZE) {
     await queueNextWorkPage(ctx, run, {
       workCursor: rows.at(-1)!.sha256,
       sealAssetCount: assetCount,
