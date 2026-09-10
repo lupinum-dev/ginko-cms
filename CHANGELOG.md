@@ -9,7 +9,7 @@
 - MCP remains experimental on its independent beta.1 line and still requires
   real-host interoperability evidence before broader claims.
 - Better Convex Nuxt/Vue beta.5 and Ginko Content beta.8 are the exact candidate
-  candidate tuple. Both pnpm and strict npm packed consumers are mandatory.
+  tuple. Both pnpm and strict npm packed consumers are mandatory.
 - A fresh beta.5 auth component is supported. Upgrading a populated beta.3
   component remains blocked until the required generation fields have an
   identity-preserving migration; resetting auth would orphan CMS memberships.
